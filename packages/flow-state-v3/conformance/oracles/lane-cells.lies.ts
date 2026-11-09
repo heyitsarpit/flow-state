@@ -17,7 +17,8 @@ const CANCEL_ALL =
  * `1b.cancel-all-wire-held-at-once`, `audit-1.cancel-all-leaves-the-head` and
  * `p1h.cancel-all-idle-declines`. The `lane.*` ones are written from WriteLanes' text:
  * `lane.latest-as-serialize` (R7), `lane.fresh-mint-on-held` (R7, R8), `lane.unknown-promotes`
- * (R8), `lane.cancel-held-keeps` (R14) and `lane.cancel-wire-as-never-sent` (R14, I20).
+ * (R8), `lane.cancel-held-keeps` (R14), `lane.cancel-wire-as-never-sent` (R14, I20) and
+ * `lane.held-auto-resend`.
  */
 export const laneCellsLies: ReadonlyArray<Lie> = [
   {
@@ -79,6 +80,16 @@ export const laneCellsLies: ReadonlyArray<Lie> = [
     edits: lane(
       '  interruptWire(tx, l) {\n    const h = l!.head!;\n    if (h.phase.t !== "wire") return;',
       '  interruptWire(tx, l) {\n    const h = l!.head!;\n    if (h.phase.t !== "wire") return;\n    return endNeverSent(tx, l!);',
+    ),
+  },
+  {
+    name: "lane.held-auto-resend",
+    says: "a Held head is re-sent the moment its unknown ends, with no retry",
+    runtime: "prototype",
+    cases: ["LANE-03", "PAY-15/press-pay-while-held"],
+    edits: lane(
+      '  hold(tx, l) {\n    setLane(tx, { ...l!, head: { ...l!.head!, phase: { t: "held" } } });\n  },',
+      '  hold(tx, l) {\n    const held = { ...l!, head: { ...l!.head!, phase: { t: "held" as const } } };\n    setLane(tx, held);\n    ACTIONS.invoke(tx, held, argsOf(held));\n  },',
     ),
   },
   {

@@ -1,5 +1,5 @@
 import { Option } from "effect";
-import { operationNamed, type Reference } from "../fixtures/reference.ts";
+import { operationNamed, type OperationReference, type Reference } from "../fixtures/reference.ts";
 import { type ActorRef, Observation, sameActor } from "../port.ts";
 import { Fact, type Facts, type Oracle, steps } from "./oracle.ts";
 
@@ -13,9 +13,15 @@ type Pending = {
 
 type Ledger = {
   readonly owed: Map<string, number>;
+  readonly owedInSpan: Map<string, number>;
   readonly parked: Map<string, number>;
+  readonly operations: Map<string, string>;
   readonly owners: Map<string, ActorRef>;
-  readonly superseded: Set<string>;
+  readonly unowned: Set<string>;
+  readonly open: Set<string>;
+  readonly unsent: Set<string>;
+  readonly excused: Set<string>;
+  readonly claimedSuperseded: Set<string>;
   readonly disposed: Array<ActorRef>;
   readonly declineOwners: Map<string, Array<Option.Option<ActorRef>>>;
 };
@@ -32,9 +38,14 @@ const bump = (counts: Map<string, number>, key: string, by: number) => {
   else counts.set(key, next);
 };
 
+const take = (counts: Map<string, number>, key: string) => {
+  if ((counts.get(key) ?? 0) > 0) bump(counts, key, -1);
+};
+
 const pay = (ledger: Ledger, key: string, what: string) => {
   if ((ledger.owed.get(key) ?? 0) > 0) {
     bump(ledger.owed, key, -1);
+    take(ledger.owedInSpan, key);
 
     return [];
   }
@@ -50,6 +61,23 @@ const ownerOf = (ledger: Ledger, operation: string, attempt: Option.Option<strin
 const disposedOwner = (ledger: Ledger, owner: Option.Option<ActorRef>) =>
   Option.exists(owner, (o) => ledger.disposed.some((d) => sameActor(d, o)));
 
+const unexcused = (operation: OperationReference, attempted: boolean, claimed: boolean) => {
+  const claim = claimed
+    ? "; the runtime reported Superseded, which no later commit of the same actor backs"
+    : "";
+
+  if (!attempted)
+    return `a decline has no Attempt for a later commit to replace or interrupt${claim}`;
+
+  if (operation.concurrency === "cancel")
+    return `no later commit of the same actor and operation interrupted it while undecided (cancel)${claim}`;
+
+  if (operation.concurrency === "latest")
+    return `no later commit of the same actor and operation replaced it while queued (latest)${claim}`;
+
+  return `its operation is ${operation.concurrency}, which replaces and interrupts nothing${claim}`;
+};
+
 const recordedWithCause = (
   ledger: Ledger,
   reference: Reference,
@@ -59,38 +87,97 @@ const recordedWithCause = (
 
   if (Option.isNone(operation)) return [];
   const owner = ownerOf(ledger, recorded.operation, recorded.attempt);
-  const superseded = Option.exists(recorded.attempt, (a) => ledger.superseded.has(a));
-  const declared = operation.value.concurrency === "cancel" || superseded;
 
-  if (recorded.why !== "ignored" && (declared || disposedOwner(ledger, owner))) return [];
+  if (Option.isSome(recorded.attempt) && ledger.unowned.has(recorded.attempt.value)) return [];
+
+  const excused = Option.exists(recorded.attempt, (a) => ledger.excused.has(a));
+
+  if (recorded.why !== "ignored" && (excused || disposedOwner(ledger, owner))) return [];
+
+  const claimed = Option.exists(recorded.attempt, (a) => ledger.claimedSuperseded.has(a));
+
+  const why =
+    recorded.why === "ignored"
+      ? "the suite does not read Flow.ignore mappings"
+      : unexcused(operation.value, Option.isSome(recorded.attempt), claimed);
 
   return [
-    `WriteLanes I15: ${keyOf(recorded.operation, recorded.attempt)} was recorded (${recorded.why}) and not delivered, with no declared cause the suite saw`,
+    `WriteLanes I15: ${keyOf(recorded.operation, recorded.attempt)} was recorded (${recorded.why}) and not delivered, with no cause the suite saw: ${why}`,
   ];
 };
 
-const learn = (ledger: Ledger, observed: Observation) => {
-  if (Observation.$is("Minted")(observed) && Option.isSome(observed.actor))
+const excuseEarlier = (
+  ledger: Ledger,
+  reference: Reference,
+  operation: string,
+  committer: ActorRef,
+) => {
+  const policy = Option.match(operationNamed(reference, operation), {
+    onNone: () => undefined,
+    onSome: (o) => o.concurrency,
+  });
+
+  const replaced = [...ledger.open].filter((earlier) => {
+    const by = ledger.owners.get(earlier);
+
+    const sameLane =
+      ledger.operations.get(earlier) === operation && by !== undefined && sameActor(by, committer);
+
+    return sameLane && (policy === "cancel" || (policy === "latest" && ledger.unsent.has(earlier)));
+  });
+
+  for (const earlier of replaced) ledger.excused.add(earlier);
+};
+
+const mint = (
+  ledger: Ledger,
+  reference: Reference,
+  observed: Extract<Observation, { readonly _tag: "Minted" }>,
+) => {
+  if (Option.isSome(observed.actor)) {
     ledger.owners.set(observed.attempt, observed.actor.value);
+    excuseEarlier(ledger, reference, observed.operation, observed.actor.value);
+  } else ledger.unowned.add(observed.attempt);
+
+  ledger.operations.set(observed.attempt, observed.operation);
+  ledger.open.add(observed.attempt);
+  ledger.unsent.add(observed.attempt);
+};
+
+const learn = (ledger: Ledger, reference: Reference, observed: Observation) => {
+  if (Observation.$is("Minted")(observed)) mint(ledger, reference, observed);
+
+  if (Observation.$is("Sent")(observed)) ledger.unsent.delete(observed.attempt);
 
   if (
     Observation.$is("Evidence")(observed) &&
     observed.kind === "Superseded" &&
     Option.isSome(observed.attempt)
   )
-    ledger.superseded.add(observed.attempt.value);
+    ledger.claimedSuperseded.add(observed.attempt.value);
 };
 
-const owe = (ledger: Ledger, ended: Extract<Observation, { readonly _tag: "Ended" }>) => {
-  bump(ledger.owed, keyOf(ended.operation, ended.attempt), 1);
+const owe = (
+  ledger: Ledger,
+  runtime: Runtime,
+  ended: Extract<Observation, { readonly _tag: "Ended" }>,
+) => {
+  const key = keyOf(ended.operation, ended.attempt);
+
+  bump(ledger.owed, key, 1);
+
+  if (runtime === "disposing") bump(ledger.owedInSpan, key, 1);
 
   if (Option.isNone(ended.attempt))
     ledger.declineOwners.set(ended.operation, [
       ...(ledger.declineOwners.get(ended.operation) ?? []),
       ended.actor,
     ]);
+  else ledger.open.delete(ended.attempt.value);
 
-  return [];
+  return Option.exists(ended.attempt, (a) => ledger.unowned.has(a))
+    ? [`WriteLanes I15: ${key} ended, and its Minted with no actor leaves its committer unknown`]
+    : [];
 };
 
 const record = (
@@ -120,8 +207,13 @@ const park = (ledger: Ledger, parked: Extract<Observation, { readonly _tag: "Par
   return pay(ledger, key, "parked");
 };
 
-const settleOne = (ledger: Ledger, reference: Reference, observed: Observation) => {
-  if (Observation.$is("Ended")(observed)) return owe(ledger, observed);
+const settleOne = (
+  ledger: Ledger,
+  reference: Reference,
+  observed: Observation,
+  runtime: Runtime,
+) => {
+  if (Observation.$is("Ended")(observed)) return owe(ledger, runtime, observed);
 
   if (Observation.$is("Recorded")(observed)) return record(ledger, reference, observed);
 
@@ -161,20 +253,27 @@ const deliveries = (
   ];
 };
 
+const runs = (observed: Observation, p: Pending) => {
+  if (Observation.$is("Unhandled")(observed) || Observation.$is("Denied")(observed))
+    return p.event === observed.event;
+
+  return (
+    Observation.$is("Turn")(observed) &&
+    p.event === observed.event &&
+    Option.match(p.owner, { onNone: () => true, onSome: (o) => sameActor(o, observed.actor) })
+  );
+};
+
 const ran = (observed: Observation, pending: Array<Pending>) => {
-  const at = pending.findIndex((p) => {
-    if (Observation.$is("Unhandled")(observed) || Observation.$is("Denied")(observed))
-      return p.event === observed.event;
+  if (Observation.$is("Issue")(observed)) {
+    const refused = observed.code === "InvalidTurn" || observed.code === "UnmappedEnding";
 
-    if (Observation.$is("Issue")(observed))
-      return observed.code === "InvalidTurn" || observed.code === "UnmappedEnding";
+    if (refused && pending.length === 1) pending.splice(0, 1);
 
-    return (
-      Observation.$is("Turn")(observed) &&
-      p.event === observed.event &&
-      Option.match(p.owner, { onNone: () => true, onSome: (o) => sameActor(o, observed.actor) })
-    );
-  });
+    return;
+  }
+
+  const at = pending.findIndex((p) => runs(observed, p));
 
   if (at >= 0) pending.splice(at, 1);
 };
@@ -182,17 +281,24 @@ const ran = (observed: Observation, pending: Array<Pending>) => {
 // RETURN_TYPE: the Ledger record; inference would widen its empty collections.
 const fresh = (): Ledger => ({
   owed: new Map(),
+  owedInSpan: new Map(),
   parked: new Map(),
+  operations: new Map(),
   owners: new Map(),
-  superseded: new Set(),
+  unowned: new Set(),
+  open: new Set(),
+  unsent: new Set(),
+  excused: new Set(),
+  claimedSuperseded: new Set(),
   disposed: [],
   declineOwners: new Map(),
 });
 
 const forgetLife = (ledger: Ledger, runtime: Runtime) => {
   if (runtime === "disposing")
-    for (const [key, count] of ledger.owed) bump(ledger.parked, key, count);
+    for (const [key, count] of ledger.owedInSpan) bump(ledger.parked, key, count);
   ledger.owed.clear();
+  ledger.owedInSpan.clear();
   ledger.declineOwners.clear();
 };
 
@@ -221,11 +327,11 @@ const ledgerOf = (facts: Facts) => {
 
       if (!Fact.$is("Reported")(fact)) return [];
       const observed = fact.observation;
-      learn(ledger, observed);
+      learn(ledger, facts.reference, observed);
       ran(observed, pending);
 
       return [
-        ...settleOne(ledger, facts.reference, observed),
+        ...settleOne(ledger, facts.reference, observed, runtime),
         ...deliveries(ledger, runtime, observed, pending),
       ];
     });
@@ -235,7 +341,9 @@ const ledgerOf = (facts: Facts) => {
         `WriteLanes I15: ${p.id} was delivered as ${p.event}${Option.match(p.owner, { onNone: () => "", onSome: (o) => ` to ${o.machine}/${o.id}` })} and no turn of its actor ran it`,
     );
 
-    const owedNow = runtime === "live" ? [...ledger.owed.keys()] : [];
+    const owedNow = [...ledger.owed.keys()].filter(
+      (key) => (ledger.owed.get(key) ?? 0) > (ledger.owedInSpan.get(key) ?? 0),
+    );
 
     const undelivered = owedNow.map(
       (key) => `WriteLanes I15: ${key} ended and was never delivered, parked or recorded`,
@@ -254,25 +362,35 @@ const ledgerOf = (facts: Facts) => {
  * A ledger over each step: an ending the runtime reports is owed until it is delivered, parked
  * (then owed again when unparked) or recorded. By the end of the step that decided it, nothing is
  * owed. A delivery must be run, in that step, by a turn of the actor that committed it, or be
- * unhandled or denied by that actor's handlers, or refused (which the runtime retries). A
- * referenced write's ending may be recorded
- * and not delivered only for a cause the suite holds: its operation's concurrency is `cancel`,
- * the runtime said the Attempt was superseded, or the suite disposed its actor.
+ * unhandled or denied by that actor's handlers, or refused (which the runtime retries).
+ *
+ * A referenced write's ending may be recorded and not delivered only for a cause the suite can
+ * derive from its commits: under `cancel`, a later commit of the same actor and operation was
+ * minted while the Attempt was undecided; under `latest`, a later commit of the same actor and
+ * operation was minted while the Attempt was queued, never sent; or the suite disposed its actor.
  *
  * **Gotchas**
  *
  * - Anchored to the suite's own steps (dispose, and an ensure that ends a disposal's excuse) and
- *   the fixtures' references; who committed an Attempt, and whether it was superseded, are the
- *   runtime's reports. An ending whose committing actor is unknown is never excused.
+ *   the fixtures' references. Who committed an Attempt is the runtime's report (its Minted's
+ *   actor), and so is the order of its commits; a Superseded claim alone excuses nothing, it only
+ *   words the violation. A Minted with no actor leaves its committer unknown, so its ending is a
+ *   violation.
+ * - Minted carries no key on the prototype, so "the same lane" is checked as the same actor and
+ *   operation: a later commit under another key of the operation also excuses. This is lenient,
+ *   never a false violation.
  * - A reload forgets what was owed: what survives on disk is owed again as the endings the new
  *   boot decides, which the restore oracle owns. Parked endings stay parked across it, so a later
  *   boot may unpark each once.
- * - From the step the suite starts the Runtime's disposal to the next reload, an ending may stay
- *   owed, and at the reload it counts as parked: disposal parks every ending for the next boot
- *   (the prototype reports no `Parked` for a never-sent one). Any delivery in that span is a
- *   violation: disposal runs no machine event.
- * - `Unhandled` and `Denied` carry no actor on the prototype, so they settle a delivery by its
- *   event only.
+ * - Disposal parks what the runtime decides after the suite starts its disposal: a call that
+ *   settles within the bound, a never-sent commit's NotSent { Disposed }, and an unknown
+ *   { Disposed } past the bound. From that start to the next reload, an ending decided in that span
+ *   counts as parked at the reload, whether or not the runtime reported a `Parked` for it; an ending
+ *   decided before the start is not exempt and reads as undelivered at the step that decided it.
+ *   Any delivery in that span is a violation: disposal runs no machine event.
+ * - `Unhandled` and `Denied` carry no actor, so they settle a delivery by its event only. An
+ *   `Issue` carries only its code, so an InvalidTurn or UnmappedEnding settles a delivery only when
+ *   it is the one delivery pending in its step; with more pending, the step reports them unrun.
  * - Endings recorded for causes the suite cannot see yet (a releasing lane, an ended fragment's
  *   lookup) need the fragment fixtures; until then they read as violations.
  * - A parked ending still parked at the end of a case is not yet checked.

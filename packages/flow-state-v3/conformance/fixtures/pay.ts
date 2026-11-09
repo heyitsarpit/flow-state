@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import type { Fixture } from "./fixture.ts";
+import { Empty, type Fixture, writeOf } from "./fixture.ts";
 import { classifyWith, type OperationReference } from "./reference.ts";
 
 const Address = Schema.Struct({
@@ -18,9 +18,9 @@ const Receipt = Schema.Struct({
 const events = {
   CardChosen: Schema.Struct({ paymentMethodId: Schema.String }),
   PayRequested: Schema.Struct({ paymentMethodId: Schema.String }),
-  Leave: Schema.Struct({}),
-  CheckAgain: Schema.Struct({}),
-  Done: Schema.Struct({}),
+  Leave: Empty,
+  CheckAgain: Empty,
+  Done: Empty,
   Start: Schema.Struct({ cartId: Schema.String, intentId: Schema.String }),
 };
 
@@ -45,6 +45,18 @@ const ByIntent = Schema.Struct({ intentId: Schema.String });
 const capturable = (fields: Schema.JsonObject) =>
   fields["status"] === "requires_capture" || fields["status"] === "succeeded";
 
+const states = [
+  "IDLE",
+  "CARD",
+  "PAYING",
+  "WAITING",
+  "UNSURE",
+  "PLACING",
+  "PAID",
+  "STUCK",
+  "LEFT",
+] as const;
+
 const pay = {
   attempts: true,
   concurrency: "reject",
@@ -61,36 +73,30 @@ const pay = {
   ),
   keyFields: ["intentId"],
   cancels: {},
-} satisfies OperationReference;
+} satisfies OperationReference<keyof typeof events>;
 
 const operations = {
-  pay: { key: ByIntent, reference: pay },
-  place: {
-    key: Schema.Struct({ cartId: Schema.String }),
-    reference: {
-      attempts: true,
-      concurrency: "reject",
-      success: "Placed",
-      failure: { NotSent: "PlaceRefused" },
-      unknown: "PlaceUnsure",
-      classify: classifyWith((tag) => tag === "OrderExists"),
-      keyFields: ["cartId"],
-      cancels: {},
-    },
-  },
-  void: {
-    key: ByIntent,
-    reference: {
-      attempts: true,
-      concurrency: "reject",
-      success: "Voided",
-      failure: { AlreadyCaptured: "VoidRefused", NotSent: "Voided" },
-      unknown: "VoidUnsure",
-      classify: classifyWith(() => false),
-      keyFields: ["intentId"],
-      cancels: {},
-    },
-  },
+  pay: writeOf(ByIntent, pay),
+  place: writeOf(Schema.Struct({ cartId: Schema.String }), {
+    attempts: true,
+    concurrency: "reject",
+    success: "Placed",
+    failure: { NotSent: "PlaceRefused" },
+    unknown: "PlaceUnsure",
+    classify: classifyWith((tag) => tag === "OrderExists"),
+    keyFields: ["cartId"],
+    cancels: {},
+  }),
+  void: writeOf(ByIntent, {
+    attempts: true,
+    concurrency: "reject",
+    success: "Voided",
+    failure: { AlreadyCaptured: "VoidRefused", NotSent: "Voided" },
+    unknown: "VoidUnsure",
+    classify: classifyWith(() => false),
+    keyFields: ["intentId"],
+    cancels: {},
+  }),
 } satisfies Fixture["operations"];
 
 /**
@@ -106,9 +112,17 @@ export const Pay = {
   machine: "Checkout/Pay",
   events,
   memory,
-  input: Schema.Struct({}),
+  input: Empty,
+  states,
   operations,
 } satisfies Fixture;
+
+const cellsEvents = { ...events, AbortPay: Empty };
+
+const cellsPay = {
+  ...pay,
+  cancels: { AbortPay: "cancel" },
+} satisfies OperationReference<keyof typeof cellsEvents>;
 
 /**
  * Pay with one more root event, `AbortPay`, which cancels `pay`
@@ -117,11 +131,12 @@ export const Pay = {
 export const Cells = {
   name: "cells",
   machine: "Checkout/Pay",
-  events: { ...events, AbortPay: Schema.Struct({}) },
+  events: cellsEvents,
   memory,
-  input: Schema.Struct({}),
+  input: Empty,
+  states,
   operations: {
     ...operations,
-    pay: { key: ByIntent, reference: { ...pay, cancels: { AbortPay: "cancel" } } },
+    pay: writeOf(ByIntent, cellsPay),
   },
 } satisfies Fixture;

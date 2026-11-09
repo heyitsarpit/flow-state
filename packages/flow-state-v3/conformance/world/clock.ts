@@ -1,4 +1,4 @@
-import { Clock, Context, Duration, Effect, Layer, Option } from "effect";
+import { Context, Layer, Option } from "effect";
 
 type Timer = { readonly at: number; readonly order: number; readonly fire: () => void };
 
@@ -10,8 +10,7 @@ const earliest = (a: Timer, b: Timer) =>
  *
  * **When to use**
  *
- * A runtime reads `now` and arms timers here, or reads Effect's own `Clock` built from it with
- * {@link WorldClock.effect}; the suite moves time with the world's `advance`.
+ * A runtime reads `now` and arms timers here; the suite moves time with the world's `advance`.
  *
  * **Details**
  *
@@ -80,37 +79,4 @@ export class WorldClock extends Context.Service<
       },
     });
   });
-
-  /**
-   * Effect's own `Clock`, read from this world's virtual time: a runtime host written with
-   * `Clock.currentTimeMillis` and `Effect.sleep` runs on the fake world unchanged.
-   *
-   * **Details**
-   *
-   * A sleep arms a world timer and wakes when the suite advances past it; an interrupted sleep
-   * disarms it. The nanosecond reads are the millisecond time scaled.
-   */
-  static readonly effect = Layer.effect(
-    Clock.Clock,
-    WorldClock.useSync((world) => {
-      const nanos = () => BigInt(world.now()) * 1_000_000n;
-
-      return {
-        currentTimeMillisUnsafe: world.now,
-        currentTimeMillis: Effect.sync(world.now),
-        currentTimeNanosUnsafe: nanos,
-        currentTimeNanos: Effect.sync(nanos),
-        monotonicTimeNanosUnsafe: nanos,
-        monotonicTimeNanos: Effect.sync(nanos),
-        sleep: (duration: Duration.Duration) =>
-          Effect.callback<void>((resume) => {
-            const disarm = world.arm(world.now() + Duration.toMillis(duration), () =>
-              resume(Effect.void),
-            );
-
-            return Effect.sync(disarm);
-          }),
-      };
-    }),
-  );
 }

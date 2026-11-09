@@ -58,25 +58,6 @@ export type Channel = typeof Channel.Type;
 export type Use = "story" | "host" | "component";
 
 /**
- * What the published row of a write lane shows, as the public `O.x.get` returns it.
- *
- * **Details**
- *
- * The shape is the public API's, so it keeps the public booleans.
- */
-export const Row = Schema.Struct({
-  pending: Schema.Boolean,
-  uncertain: Schema.Boolean,
-  waiting: Schema.Boolean,
-  retryCount: Schema.Number,
-});
-
-/**
- * The decoded {@link Row}.
- */
-export type Row = typeof Row.Type;
-
-/**
  * What a handle shows for an identity: its leaf state and its memory, or nothing live.
  */
 export type Snapshot = Data.TaggedEnum<{
@@ -131,7 +112,7 @@ export type RecordedWhy = typeof RecordedWhy.Type;
  *
  * - `Turn`: an actor ran an event, from one leaf to another.
  * - `Minted`: a commit of `actor` was admitted and its Attempt got an id; `key` is the Attempt's
- *   key (its lane), `None` when the runtime does not report it.
+ *   key (its lane).
  * - `Sent`: an Attempt's commit was invoked (its first send or a re-send).
  * - `Ended`: an Attempt, or a decline with none, was decided on a channel with a reason. `actor`
  *   names a decline's actor; `failure` is the definite failure inside `unknown StillUnknown`.
@@ -149,7 +130,10 @@ export type RecordedWhy = typeof RecordedWhy.Type;
  *
  * - Every observation is the runtime's own claim. An oracle that reads one alone checks only
  *   consistency; each must be anchored to a suite fact.
- * - `actor` is `None` when the runtime could not say whose it was.
+ * - `actor` on `Minted` is required: an oracle judges a `None` as a violation. On a decline's
+ *   `Ended` and on `Delivered` it names the actor, `None` when the runtime does not say.
+ * - `key` on `Minted` is `None` when the runtime does not report it; oracles then judge lanes per
+ *   actor and operation.
  */
 export type Observation = Data.TaggedEnum<{
   Turn: { actor: ActorRef; event: string; from: string; to: string };
@@ -196,7 +180,7 @@ export const Observation = Data.taggedEnum<Observation>();
  * **Details**
  *
  * - `fixtures`: the machines to run, by their catalog names.
- * - `captureMs`: the persistence capture interval; the cases so far run with 0.
+ * - `captureMs`: the persistence capture interval.
  * - `sessionSeed`: the host's entropy for this boot, distinct per page; the runtime mints its
  *   Attempt ids from it.
  * - `observe`: called with each public report as it happens.
@@ -216,15 +200,17 @@ export class Boot extends Context.Service<
  *
  * **When to use**
  *
- * Write one implementation per runtime, each a scoped Layer that needs {@link Boot} and the
- * world's hosts (`world/`): `PrototypeRuntime.layer`, `NullRuntime.layer`, and in phase 4
- * `ProductionRuntime.layer`. Scenarios and oracles never see which one runs.
+ * Write one Layer per runtime: `PrototypeRuntime.layer` and `NullRuntime.layer` now, a production
+ * one in phase 4. A runtime's Layer may need {@link Boot} and the world's hosts (`world/`).
+ * Scenarios and oracles never see which one runs.
  *
  * **Details**
  *
- * - Building the Layer boots the runtime; closing its scope disposes the Runtime, unless the scope
- *   closes with {@link PageKilled}: a dead page runs nothing.
+ * - Building the Layer boots the runtime. A scope that closes normally or with a failure disposes
+ *   the Runtime; a scope closed by interruption is a killed page, and a dead page runs nothing.
  * - A reload is a new build of the same Layer over the same world, after the suite killed the page.
+ * - `row` is a write's row as the runtime publishes it, untyped; the fixture's operation decodes it
+ *   (`dsl/actor.ts`), and an absent row is `None`.
  * - `ensure` attaches one use of the identity, creating it if needed.
  * - `ensureExisting` attaches a use to an identity that is live or restorable, never creating one;
  *   the suite calls it for each use it holds after a reload.
@@ -249,13 +235,7 @@ export class Runtime extends Context.Service<
     readonly dispose: (actor: ActorRef) => void;
     readonly disposeRuntime: () => void;
     readonly snapshot: (actor: ActorRef) => Snapshot;
-    readonly row: (actor: ActorRef, operation: string, key: Json) => Option.Option<Row>;
+    readonly row: (actor: ActorRef, operation: string, key: Json) => Option.Option<Json>;
     readonly pending: () => boolean;
   }
 >()("flow-state-v3/conformance/port/Runtime") {}
-
-/**
- * The exit a reload closes a boot's scope with: the page died, so the Runtime's release does not
- * dispose it.
- */
-export class PageKilled extends Data.TaggedError("PageKilled")<{ readonly page: number }> {}

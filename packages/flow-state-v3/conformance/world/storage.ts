@@ -1,5 +1,5 @@
 import { Context, Data, Layer, Option } from "effect";
-import { Page } from "./lifecycle.ts";
+import { Page } from "./page.ts";
 
 /**
  * Why the runtime writes a batch: to acknowledge an Attempt before its send, to capture a

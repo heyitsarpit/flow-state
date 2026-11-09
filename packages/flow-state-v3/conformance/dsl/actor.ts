@@ -1,6 +1,6 @@
 import { Data, Effect, Option, Schema } from "effect";
 import type { Fixture } from "../fixtures/fixture.ts";
-import { type ActorRef, type Row, Snapshot, type Use } from "../port.ts";
+import { type ActorRef, Snapshot, type Use } from "../port.ts";
 import { type Drive, type Driver, Mismatch, type Step } from "./case.ts";
 
 /**
@@ -25,9 +25,11 @@ export type OperationName<F extends Fixture> = keyof F["operations"] & string;
  * **Details**
  *
  * - `event` builds a {@link Drive} for `Case.send`, which sends several in one step.
- * - `state` expects the actor's leaf state, `(absent)` when nothing is live.
+ * - `state` expects one of the fixture's `states` or `(absent)` when nothing is live.
  * - `memory` is the actor's memory decoded with the fixture's Schema; it fails with `Mismatch` when
  *   nothing is live.
+ * - `row` is a write's row decoded with its operation's row Schema, so its fields follow the
+ *   operation's concurrency; a row that does not decode is a defect.
  */
 export type Actor<F extends Fixture> = {
   readonly ref: ActorRef;
@@ -37,12 +39,12 @@ export type Actor<F extends Fixture> = {
   readonly send: <E extends EventName<F>>(event: E, payload: F["events"][E]["Type"]) => Step;
   readonly release: (use: Use) => Step;
   readonly dispose: Step;
-  readonly state: (expected: string) => Effect.Effect<void, Mismatch>;
+  readonly state: (expected: F["states"][number] | "(absent)") => Effect.Effect<void, Mismatch>;
   readonly memory: Effect.Effect<F["memory"]["Type"], Mismatch>;
   readonly row: <O extends OperationName<F>>(
     operation: O,
     key: F["operations"][O]["key"]["Type"],
-  ) => Effect.Effect<Option.Option<Row>>;
+  ) => Effect.Effect<Option.Option<F["operations"][O]["row"]["Type"]>>;
 };
 
 /**
@@ -50,8 +52,10 @@ export type Actor<F extends Fixture> = {
  */
 export class NotInFixture extends Data.TaggedError("NotInFixture")<{ readonly name: string }> {}
 
-const declared = <A>(table: Readonly<Record<string, A>>, name: string) =>
-  Option.getOrThrowWith(Option.fromUndefinedOr(table[name]), () => new NotInFixture({ name }));
+const declared = <T extends Readonly<Record<string, unknown>>, K extends keyof T & string>(
+  table: T,
+  name: K,
+) => Option.getOrThrowWith(Option.fromUndefinedOr(table[name]), () => new NotInFixture({ name }));
 
 const encoded = <A, E>(schema: Schema.Codec<A, E>, value: A) =>
   Schema.encodeSync(Schema.toCodecJson(schema))(value);
@@ -93,7 +97,17 @@ export const actorView = <F extends Fixture>(driver: Driver, fixture: F, id: str
           Effect.fail(new Mismatch({ label: "memory", expected: "(live)", actual: "(absent)" })),
       }),
     ),
-    row: (operation, key) =>
-      driver.row(ref, operation, encoded(declared(fixture.operations, operation).key, key)),
+    row: (operation, key) => {
+      const write = declared(fixture.operations, operation);
+
+      return Effect.flatMap(
+        driver.row(ref, operation, encoded(write.key, key)),
+        Option.match({
+          onNone: () => Effect.succeed(Option.none()),
+          onSome: (json) =>
+            Effect.map(Effect.orDie(Schema.decodeUnknownEffect(write.row)(json)), Option.some),
+        }),
+      );
+    },
   };
 };

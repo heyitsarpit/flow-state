@@ -16,18 +16,32 @@ import { Answer } from "../world/network.ts";
  *   unknown is named here; the Spec's rules on top of it (StillUnknown) are the oracle's.
  * - `keyFields`: the input fields its key is made of; empty for an unkeyed operation.
  * - `cancels`: the events whose handler, in every state, runs this operation's `cancel` or
- *   `cancelAll` with no guard, so a turn of one is a cancel the suite drove.
+ *   `cancelAll` with no guard, so a turn of one is a cancel the suite drove. Typed by the
+ *   fixture's event names (`Event`), see {@link CancelsOf}.
  */
-export type OperationReference = {
+export type OperationReference<Event extends string = string> = {
   readonly attempts: boolean;
-  readonly concurrency: "reject" | "latest" | "serialize" | "cancel";
+  readonly concurrency: Concurrency;
   readonly success: string;
   readonly failure: Readonly<Record<string, string>>;
   readonly unknown: string;
   readonly classify: (answer: Answer, mayHaveApplied: boolean) => Channel;
   readonly keyFields: ReadonlyArray<string>;
-  readonly cancels: Readonly<Record<string, "cancel" | "cancelAll">>;
+  readonly cancels: CancelsOf<Event>;
 };
+
+/**
+ * The declared concurrency policy of a write.
+ */
+export type Concurrency = "reject" | "latest" | "serialize" | "cancel";
+
+/**
+ * The `cancels` of an operation whose fixture has the events `Event`: each named event runs the
+ * operation's `cancel` or `cancelAll`.
+ */
+export type CancelsOf<Event extends string> = Readonly<
+  Partial<Record<Event, "cancel" | "cancelAll">>
+>;
 
 /**
  * The references of the fixtures one case runs, by machine id, then by operation.

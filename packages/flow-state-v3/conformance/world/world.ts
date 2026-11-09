@@ -1,6 +1,6 @@
 import { Context, Data, Effect, Layer, Option } from "effect";
 import { WorldClock } from "./clock.ts";
-import { Page } from "./lifecycle.ts";
+import { Page } from "./page.ts";
 import { Network } from "./network.ts";
 import { Storage } from "./storage.ts";
 

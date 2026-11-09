@@ -1,4 +1,4 @@
-import { Context, Layer, Scheduler } from "effect";
+import { Context, Layer, type Scheduler } from "effect";
 
 /**
  * The page a runtime lives in: its generation, its task queue, its Effect scheduler and whether
@@ -6,8 +6,7 @@ import { Context, Layer, Scheduler } from "effect";
  *
  * **When to use**
  *
- * A runtime queues host tasks with `later` and runs its fibers on `scheduler` (also Effect's own
- * `Scheduler`, with {@link Page.effect}); the world runs both, one at a time, when it settles.
+ * A runtime queues host tasks with `later` and runs its fibers on `scheduler`; the world runs both, one at a time, when it settles.
  *
  * **Details**
  *
@@ -115,13 +114,4 @@ export class Page extends Context.Service<
         },
       });
     });
-
-  /**
-   * Effect's own `Scheduler`, running on this page: fibers a runtime host forks run when the world
-   * settles, one at a time, and die with the page.
-   */
-  static readonly effect = Layer.effect(
-    Scheduler.Scheduler,
-    Page.useSync((page) => page.scheduler),
-  );
 }

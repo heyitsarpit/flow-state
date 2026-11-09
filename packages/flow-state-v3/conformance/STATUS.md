@@ -287,3 +287,103 @@ oracles, not lane-cells: the keyed-lane limit.
 3. `members` (WriteLanes I10, I13, I14), with the releasing-lane fixture `p1Rel` for
    `audit-1.cancel-all-release-also-cancels-head` and I22.
 4. A one-delivery lie for the disposal rule, and the `disposal` oracle (Actors I29-I31).
+
+Round 3 style review, reasons for the rejections the log above left bare:
+
+- 10 (`mint` returned nothing while `sent`, `end` and `evidence` returned violations; closure
+  `let`s in `judgeStep`): the model is a projection rebuilt inside one check, not owned state.
+  Round 4 changed the half that mattered: `mint` now returns its violations like the others.
+- 14 (the `"(decline)"` sentinel in a space-joined ledger key): the key is a ledger-local label,
+  also printed in messages; operation names are fixture identifiers with no spaces. Revisit if
+  operation names ever become user-supplied text.
+- 15 (reason and channel literals matched in several places): `Channel` is a Schema literal
+  union, so channel comparisons are type-checked; reasons are an open set (Flow's declines plus
+  author tags), whose closed part is `FLOW_DECLINES` in `fixtures/reference.ts`.
+
+## Round 4 (2026-11-09): services, typed fixtures, review fixes
+
+Latest numbers:
+
+- `suite`: 61/61 on round-14 under seeds 1 and 2; `--runtime null`: every case fails.
+- `falsify --sweep --parallel 6`: every oracle has a lie, null red, control green, 25/25 lies
+  caught by their own oracle (21 old, 4 new).
+- `nub run check`: zero errors, zero warnings (40 files; the 79 findings round 3 left are gone,
+  none waived).
+
+### The restructure (commit c7f72a9c) and its parity proof
+
+README decisions 6 (rewritten) and 11 (new) record the shape: `Runtime`, the world's hosts
+(`WorldClock`, `Page`, `Storage`, `Network`, `World`), `Timeline` and `Case` are
+`Context.Service`s with Layers; `PrototypeRuntime.layer` and `NullRuntime.layer` implement
+`Runtime`, scoped (boot is acquire, disposal is release, a reload interrupts the boot's scope and
+builds the Layer again); scenarios are `Effect.gen` values that `yield* Case`; the Port carries
+`Schema.Json`; `Case.actor(Pay, id)` is a view typed by the fixture's Schemas (events, payloads,
+input, memory, row keys, rows by policy, states). Oracles stay pure.
+
+Parity: before the restructure, `suite --json`, `suite --runtime null --json` and
+`falsify --sweep` were saved; after it all three were byte-identical (every verdict and every
+`why`, every lie's red set and caught-by set on every case). After this round's review fixes the
+suite and null outputs are still byte-identical, and every old lie's red and caught sets are
+unchanged; the sweep differs only by the four new lies.
+
+Slips: the lead edited `world/network.ts` once with a Python script before switching to
+Write/Edit (the change was the Json retyping, then rewritten whole with Write); coder B edited
+`one-delivery.lies.ts` with a Python heredoc (its text was checked by the lead in the diff);
+coder 1 (round-4 restructure) briefly wrote a file under `/tmp` and removed it.
+
+### Independent review fixes (runner's review of rounds 2-4)
+
+- H1 done: `one-delivery` excuses a recorded ending only from suite-visible facts (under
+  `cancel`, an Attempt still undecided when a later commit of its actor and operation was minted;
+  under `latest`, one still unsent then); the runtime's `Superseded` only words the message. Lie
+  `lie.superseded-claimed` (a failure ending recorded as Superseded): caught by one-delivery on
+  DLV-03.
+- H2 done: `lane-cells` judges a Held head's re-send (permitted only after a suite-driven turn of
+  its actor in a later step; limit in README). Lie `lane.held-auto-resend`: caught on LANE-03 and
+  PAY-15/press-pay-while-held.
+- M1 done: an `InvalidTurn`/`UnmappedEnding` issue settles a delivery only when it is the one
+  pending in its step (stated limit: `Issue` carries no event or actor).
+- M2 done: only endings decided after the disposal began count as parked at the reload. Lie
+  `lie.delivered-during-disposal`: caught on PAY-16/settled-during-disposal-parked.
+- M3 done: a `Minted` with no actor is a violation in `lane-cells` and `one-delivery`; round-14's
+  adapter still attributes actors (decision 10, a prototype limit).
+- M4 done: the row is `Option<Json>` at the Port and decoded per policy by the fixture (Reads
+  R14: reject/latest, serialize with `outstanding`, cancel without `uncertain`/`waiting`).
+  Round-14 publishes every field R14 requires; it has no idle row (stated limit).
+- M5 done: `PageKilled` removed (a reload interrupts the scope, Effect's own exit); the unused
+  `WorldClock.effect` and `Page.effect` removed; README states what phase 4 must add instead of
+  claiming no shim.
+- Lows: actor `state` typed by the fixture's states; `cancels` typed by the fixture's events;
+  empty payloads take only `{}` (`Empty`); one decode per report; `attempt-identity` keys
+  Attempts by operation and id (lie `lie.sent-under-another-operation`, caught by the same
+  oracle's count check, so the naming check has no isolating lie: stated limit); Minted.key docs.
+  `three-channels` StillUnknown strictness: not changed, kept as a stated limit (strict turns
+  PAY-05 and PAY-16/restore-keeps-mayHaveApplied red; the adapter will not invent the failure).
+
+### Sidecar log (round 4)
+
+All Haiku, effort high; the lead read every diff and re-ran every check (suite, null, sweep,
+check).
+
+| Sidecar                             | Task                                           | Result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ----------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Coder 1                             | pay-06-09, pay-10-13 to the Case service       | Accepted; 14/14 pass, null texts identical.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Coder 2                             | pay-14-15, pay-16                              | Accepted; its inlined `onWire` on Cells kept (same steps).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Coder 3                             | pay-17-20, disposal                            | Changed: its `repeatedKeys` replaced `appliedTwice` with a different count; the lead added `Case.landedKeys` and restored the exact check.                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Coder 4                             | lanes, delivery                                | Changed: its `string \| undefined` helper returns failed the nullish-contract lint; the lead typed the three affected `eq` calls instead.                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Reviewer (STYLE services)           | c7f72a9c                                       | 14 findings. Accepted: 1 and 4 (README wording; became M5), 3 (Timeline returns a copy), 7 (`Layer.fresh` per boot), 9 (`lifecycle.ts` renamed `page.ts`). Rejected: 2 (thrown errors in synchronous host primitives are defects by design), 3's storage half (its map is replaced, never mutated), 5 (became a stated limit), 10, 11, 12 (behaviour-preserving restructure: no semantic change), 13 (generator bodies defer synchronous code, STYLE §4), 14 (the failure is the wire protocol's tagged value the fixtures' code matches). 6 confirmed the release exits. |
+| Reviewer (types, comments)          | c7f72a9c                                       | 12 findings. Accepted: 1 (empty payloads, `Empty`), 2 (export shapes checked before the cast), 7, 8, 10 in part (narrating doc lines). Deferred to round 5: 3 (shared scenario helpers), 5 (`keyFields` restates the key Schema; to drop when the key is on `Minted`), 11 (one attempt-key helper). Rejected: 4 (round 1's decision: expectations compare plain values), 6 (a per-check projection), 9 became a decode, 12 is decision 11's stated drift.                                                                                                                 |
+| Reviewer (spec, oracles and runner) | c7f72a9c                                       | 11 findings. Accepted as stated limits: 1, 2 (teardown disposal unjudged and repeated), 4 (prototype sink swallows a throw), 5 (non-JSON request bodies die), 7, 8. Notes 3, 6, 9, 10, 11 confirmed the change. The teardown disposal becomes a judged step in round 5.                                                                                                                                                                                                                                                                                                   |
+| Coder A                             | lane-cells H2, M3, lie                         | Accepted after the lead read the diff and re-ran the lie (caught for its reason).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Coder B                             | one-delivery H1, M1, M2, M3, two lies          | Accepted; both lies re-run by the lead, caught for their reasons. Slip logged above.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Coder C                             | Row per Reads R14, typed states, typed cancels | Accepted, including its forced `dsl/case.ts` edit (the `Row` import).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Coder D                             | three-channels, attempt-identity               | Accepted the attempt-identity change; StillUnknown strictness rejected for round-14 as above.                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+
+### For round 5
+
+1. A judged Runtime disposal at every case's end, with the `disposal` oracle (Actors I29-I31).
+2. `members` (WriteLanes I10, I13, I14) with the releasing-lane fixture `p1Rel`
+   (`audit-1.cancel-all-release-also-cancels-head`, I22), and a lie for "a held head is
+   delivered last" (I21).
+3. Keyed lanes once a runtime reports `Minted.key`; drop `keyFields` then.
+4. Shared scenario helpers (one module for Pay's shopper steps).

@@ -1,7 +1,7 @@
 import { Context, Data, Effect, Layer, Option, Predicate, type Schema } from "effect";
 import { type Json, sameJson } from "../port.ts";
 import { WorldClock } from "./clock.ts";
-import { Page } from "./lifecycle.ts";
+import { Page } from "./page.ts";
 
 /**
  * How the suite's fake server answers one held request.

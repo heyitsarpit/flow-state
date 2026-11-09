@@ -7,14 +7,12 @@ import {
   type EvidenceKind,
   type Json,
   Observation,
-  PageKilled,
-  type Row,
   Runtime,
   sameActor,
   type Snapshot,
   type Use,
 } from "../port.ts";
-import { Page } from "../world/lifecycle.ts";
+import { Page } from "../world/page.ts";
 import { type Answer, Network, NoHeldRequest, type Request } from "../world/network.ts";
 import { Storage, type StorageAnswer } from "../world/storage.ts";
 import { type Hosts, World } from "../world/world.ts";
@@ -67,7 +65,7 @@ const shown = <A>(value: A) => String(JSON.stringify(value));
  *   made, then runs every oracle; any violation fails the step with `Violated`, naming every
  *   oracle that found one in that step.
  * - `eq` fails with `Mismatch` unless the two values are equal by Effect's structural equality.
- * - A reload kills the page, closes the boot's scope with `PageKilled` (a dead page runs nothing)
+ * - A reload kills the page, interrupts the boot's scope (a dead page runs nothing)
  *   and builds the runtime's Layer again over the same world, then re-attaches every use the case
  *   holds: those its `Ensured`, `Released` and `Disposed` facts leave.
  * - `send` makes several sends in one step, with no settling between them.
@@ -115,7 +113,7 @@ export class Case extends Context.Service<
       actor: ActorRef,
       operation: string,
       key: Json,
-    ) => Effect.Effect<Option.Option<Row>>;
+    ) => Effect.Effect<Option.Option<Json>>;
     readonly requests: (operation: string) => Effect.Effect<ReadonlyArray<Request>>;
     readonly keys: (operation: string) => Effect.Effect<ReadonlyArray<string>>;
     readonly landed: (operation: string) => Effect.Effect<number>;
@@ -161,7 +159,7 @@ export class Case extends Context.Service<
           const own = yield* Scope.fork(scope);
 
           const built = yield* Layer.buildWithScope(
-            options.runtime.pipe(
+            Layer.fresh(options.runtime).pipe(
               Layer.provide(
                 Layer.succeed(Boot)({
                   fixtures,
@@ -401,10 +399,9 @@ export class Case extends Context.Service<
           reload: act(
             "reload",
             Effect.gen(function* () {
-              const dying = page.page();
               world.kill();
               timeline.record(Fact.Reloaded());
-              yield* Scope.close(booted.scope, Exit.fail(new PageKilled({ page: dying })));
+              yield* Scope.close(booted.scope, Exit.interrupt());
               booted = yield* boot;
 
               for (const [actor, use] of uses()) booted.runtime.ensureExisting(actor, use);

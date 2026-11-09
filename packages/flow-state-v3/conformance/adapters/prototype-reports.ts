@@ -11,7 +11,8 @@ export class PrototypeReportUnreadable extends Data.TaggedError("PrototypeReport
 }> {}
 
 /**
- * The actor a prototype actor key names: `<machine>/<id>`, the id URI-encoded.
+ * The actor a prototype actor key names: `<machine>/<id>`, with `%`, `/` and `|` in the id
+ * percent-encoded.
  */
 export const actorRef = (key: string) => {
   const at = key.lastIndexOf("/");
@@ -23,13 +24,19 @@ const attemptOf = (attempt: Option.Option<string>) => Option.filter(attempt, (id
 
 const OptionalText = Schema.OptionFromOptionalNullOr(Schema.String);
 
-// FLOW_STATE_ALLOW_UNKNOWN: round-14 reports untyped records; each field is read with its kind's Schema below.
-const Report = Schema.Record(Schema.String, Schema.Unknown);
+/**
+ * One untyped report of the prototype's evidence, decoded once with the Schema its `kind` names.
+ */
+// FLOW_STATE_ALLOW_UNKNOWN: the prototype's reports are untyped; `read` decodes each with its kind's Schema.
+type Report = unknown;
 
-type Report = typeof Report.Type;
+const Kind = Schema.Struct({ kind: Schema.String });
 
 const kindOf = (report: Report) =>
-  Option.getOrElse(Schema.decodeUnknownOption(Schema.String)(report["kind"]), () => "");
+  Result.getOrThrowWith(
+    Schema.decodeUnknownResult(Kind)(report),
+    (issue) => new PrototypeReportUnreadable({ kind: "(no kind)", issue: String(issue) }),
+  ).kind;
 
 const reports = {
   turn: Schema.Struct({
@@ -194,25 +201,20 @@ const attributed = (batch: ReadonlyArray<Observation>) => {
 };
 
 /**
- * The Port's observations in one batch of round-14's evidence, in order.
+ * The Port's observations in one batch of the prototype's evidence, in order.
  *
  * **Details**
  *
  * - Each report is decoded once, with the Schema its `kind` names; reports of other kinds (the
  *   prototype's internal ones) are dropped.
- * - Round-14 reports no actor on a mint, a decline or a delivery; each is attributed to the turn
- *   that follows it in the same batch (README decision 10).
+ * - The prototype reports no actor on a mint, a decline or a delivery; each is attributed to the
+ *   turn that follows it in the same batch (README decision 10, a prototype limit).
  *
  * **Gotchas**
  *
- * - Throws `PrototypeReportUnreadable` when a report of a known kind does not decode.
+ * - Throws `PrototypeReportUnreadable` when a report has no `kind` or a report of a known kind
+ *   does not decode. The prototype catches a throw from its evidence sink and reports it as a
+ *   `SinkFailed` issue, dropping the batch.
  */
-export const observationsOf = (
-  // FLOW_STATE_ALLOW_UNKNOWN: round-14's evidence batch is untyped; each report is decoded here.
-  batch: ReadonlyArray<unknown>,
-) =>
-  attributed(
-    batch.flatMap((raw) =>
-      Option.toArray(Option.flatMap(Schema.decodeUnknownOption(Report)(raw), observationOf)),
-    ),
-  );
+export const observationsOf = (batch: ReadonlyArray<Report>) =>
+  attributed(batch.flatMap((raw) => Option.toArray(observationOf(raw))));

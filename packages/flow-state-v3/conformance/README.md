@@ -75,18 +75,24 @@ Round 1's, the runner's (recorded as such; the user may overrule):
    services"; lint-bomb STYLE.md §1 and §3). Each capability with alternative implementations is
    one `Context.Service` contract, each implementation a Layer; state and lifetimes belong to
    services; pure transformations stay plain:
-   - `Runtime` is a service; `PrototypeRuntime.layer(loaded)`, `NullRuntime.layer` and, in phase
-     4, `ProductionRuntime.layer` implement it. Each Layer needs `Boot` (the boot's parameters) and
-     the world's hosts, and is scoped: building it boots, closing its scope disposes the Runtime.
-     A reload kills the page, closes the boot's scope with `PageKilled` (a dead page runs
-     nothing, so the release does not dispose) and builds the Layer again over the same world.
-   - The world's hosts are services with Layers from the world seed: `WorldClock`, `Page`,
-     `Storage`, `Network`; `World` composes them and owns settle, advance and kill. Their
+   - `Runtime` is a service; `PrototypeRuntime.layer(loaded)` and `NullRuntime.layer` implement
+     it (a production Layer in phase 4). `PrototypeRuntime.layer` needs `Boot` (the boot's
+     parameters) and the world's hosts and is scoped: building it boots, closing its scope
+     disposes the Runtime. A reload kills the page, interrupts the boot's scope (Effect's own
+     exit for a killed page: the release disposes nothing, since a dead page runs nothing) and
+     builds the Layer again over the same world. `NullRuntime.layer` needs nothing.
+   - The world's hosts are services with Layers: `WorldClock`, `Page` and `Storage` (from the
+     world seed), `Network`; `World` composes them and owns settle, advance and kill. Their
      operations are the host's synchronous primitives (as a page's `setTimeout` and IndexedDB
-     callbacks are), so a runtime calls them from inside its own fibers; the Case is the Effect
-     boundary. A production host built on Effect's own `Clock` and `Scheduler` takes
-     `WorldClock.effect` and `Page.effect`, Layers of those references over the same world: no
-     shim.
+     callbacks are), which the prototype's host takes as callbacks; the Case is the Effect
+     boundary, and the `Runtime`'s operations are synchronous.
+   - What phase 4 must add for a production runtime, none of it built yet: Layers providing
+     Effect's own `Clock` (time and sleeps on `WorldClock`'s timers) and `Scheduler` (fibers on
+     `Page`'s queue), if the production host reads time and runs fibers through them (a scratch
+     check this round showed an `Effect.sleep` under such a `Clock` waking only when the world
+     advances past it); a storage port in production's own host contract over `Storage`; and the
+     production Runtime's Layer, whose release must treat an interrupted scope as a killed page.
+     Until then the claim is only that the shapes allow it.
    - `Case` is a service built per case (`Case.layer`) from the Runtime Layer, the World and the
      `Timeline` service. Scenarios are `Effect.gen` values that `yield* Case`; steps fail with
      `Violated`, expectations with `Mismatch`, and scenario bugs die.
@@ -127,30 +133,35 @@ Round 1's, the runner's (recorded as such; the user may overrule):
 
 ## The Port
 
-Built (rounds 2 and 3):
+Built (rounds 2 to 4; round 4 made it services and JSON):
 
 ```ts
-type Port = { name: string; boot: (boot: Boot) => Runtime };
-type Boot = {
-  fixtures: string[];
-  captureMs: number;
-  sessionSeed: number; // the runtime mints Attempt ids from it
-  world: World;
-  observe: (o: Observation) => void;
-};
+class Boot extends Context.Service<
+  Boot,
+  {
+    fixtures: string[]; // catalog names
+    captureMs: number;
+    sessionSeed: number; // the runtime mints Attempt ids from it
+    observe: (o: Observation) => void;
+  }
+> {}
 type Use = "story" | "host" | "component";
-type Runtime = {
-  ensure(actor, input: Option<unknown>, use: Use): void; // one use, creating the identity if needed
-  ensureExisting(actor, use: Use): void; // one use of a live or restorable identity
-  release(actor, use: Use): void; // ends one use; the grace decides the life
-  send(actor, event, payload): void;
-  dispose(actor): void;
-  disposeRuntime(): void; // starts the Runtime's disposal; RuntimeDisposed reports its end
-  snapshot(actor): Snapshot; // Live { state, memory } | Absent
-  row(actor, operation, key): Option<Row>; // the public O.x.get row
-  pending(): boolean; // settling only
-};
-// Observation: Turn, Minted { actor }, Sent, Ended { actor (a decline's), failure (StillUnknown's) },
+class Runtime extends Context.Service<
+  Runtime,
+  {
+    // a Layer per runtime; needs Boot and the hosts
+    ensure(actor, input: Option<Json>, use: Use): void; // one use, creating the identity if needed
+    ensureExisting(actor, use: Use): void; // one use of a live or restorable identity
+    release(actor, use: Use): void; // ends one use; the grace decides the life
+    send(actor, event, payload: Json): void;
+    dispose(actor): void;
+    disposeRuntime(): void; // starts the Runtime's disposal; RuntimeDisposed reports its end
+    snapshot(actor): Snapshot; // Live { state, memory: Json } | Absent
+    row(actor, operation, key: Json): Option<Json>; // the public O.x.get row; the fixture decodes it by policy (Reads R14)
+    pending(): boolean; // settling only
+  }
+> {}
+// Observation: Turn, Minted { actor, key }, Sent, Ended { actor (a decline's), failure (StillUnknown's) },
 // Delivered { actor }, Parked, Unparked, Recorded { why: ignored | evidence | letGo },
 // Unhandled, Denied { reasons }, Evidence { Superseded | Released | InFlight | NothingToResend |
 // StorageFailure | StorageSilent }, Issue, RuntimeDisposed.
@@ -158,7 +169,8 @@ type Runtime = {
 
 The suite's own timeline facts (round 3 adds the last three): `Stepped`, `Requested`,
 `Answered`, `Reported`, `Reloaded`, `Disposed`, `Ensured`, `DisposingRuntime`, `Drove { actor,
-event }` (an event the suite sent) and `Unstoppable { operation }` (calls made uninterruptible).
+event }` (an event the suite sent) and `Unstoppable { operation }` (calls made uninterruptible);
+round 4 adds `Released { actor, use }`, so the uses a reload re-attaches are derived from facts.
 
 A reload is: kill the page (timers, tasks, held batches, live calls die; bytes and the server's log
 stay; open requests become orphaned), `boot` again over the same world, `ensureExisting` each use
@@ -166,17 +178,17 @@ the case holds.
 
 ### Planned Port changes (the work list's needs; none exposes internals)
 
-| Change                                      | Needed by                                                            | Shape (proposed)                                                                                                                                                | Status                                         |
-| ------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| Ending a use; the use's owner on attach     | Actors I10, I11 (lifetime), rule 73 cases                            | `release(actor, use)`; `use` on `ensure`                                                                                                                        | **built**                                      |
-| Actor on a mint, a decline, a delivery      | `one-delivery` (who must run it)                                     | `actor: Option<ActorRef>` on `Minted`, `Ended`, `Delivered`                                                                                                     | **built** (prototype: attributed, decision 10) |
-| Incarnation on `Turn`, `Delivered`, `Ended` | Actors I13 to I16 (`incarnations`), WriteLanes I15 "per incarnation" | `incarnation: string` (opaque, fresh per life)                                                                                                                  | planned                                        |
-| A publish feed                              | Turn I1, I7, I9, I29, I30 (`publication`)                            | `observe(Published { actor, snapshot, revision })` per publication; snapshot identity by `revision`                                                             | planned                                        |
-| Boot's result                               | Actors I3 to I6 (readiness)                                          | `boot` returns `Result<Runtime, BootFailed { diagnostics }>`; a `ready` observation                                                                             | planned                                        |
-| A disk reader                               | WriteAhead I15 to I17 (`write-ahead`), Restore I1 to I8 (`restore`)  | `Port.disk: { heads(bytes), parked(bytes), leaves(bytes, actor), scope(key) }`, reading the runtime's own format from the suite's bytes, apart from its restore | planned                                        |
-| Runtime disposal                            | Actors I29, I30; PAY-13, PAY-16 disposal variants                    | `Runtime.disposeRuntime()`; `RuntimeDisposed` when it ends                                                                                                      | **built** (round 3)                            |
-| The Attempt's key on `Minted`               | `lane-cells` on keyed operations (lanes per key, WriteLanes R6)      | `key: unknown` on `Minted` (a public Attempt field, R5)                                                                                                         | planned (round-14 reports no key at a mint)    |
-| Faults the Specs name                       | Turn I14 to I16 (refusal), Diagnostics                               | slot faults through the fixtures (a throwing guard or mapper is user code), never a runtime hook                                                                | planned                                        |
+| Change                                      | Needed by                                                            | Shape (proposed)                                                                                                                                                | Status                                                                                                       |
+| ------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Ending a use; the use's owner on attach     | Actors I10, I11 (lifetime), rule 73 cases                            | `release(actor, use)`; `use` on `ensure`                                                                                                                        | **built**                                                                                                    |
+| Actor on a mint, a decline, a delivery      | `one-delivery` (who must run it)                                     | `actor: Option<ActorRef>` on `Minted`, `Ended`, `Delivered`                                                                                                     | **built** (prototype: attributed, decision 10)                                                               |
+| Incarnation on `Turn`, `Delivered`, `Ended` | Actors I13 to I16 (`incarnations`), WriteLanes I15 "per incarnation" | `incarnation: string` (opaque, fresh per life)                                                                                                                  | planned                                                                                                      |
+| A publish feed                              | Turn I1, I7, I9, I29, I30 (`publication`)                            | `observe(Published { actor, snapshot, revision })` per publication; snapshot identity by `revision`                                                             | planned                                                                                                      |
+| Boot's result                               | Actors I3 to I6 (readiness)                                          | `boot` returns `Result<Runtime, BootFailed { diagnostics }>`; a `ready` observation                                                                             | planned                                                                                                      |
+| A disk reader                               | WriteAhead I15 to I17 (`write-ahead`), Restore I1 to I8 (`restore`)  | `Port.disk: { heads(bytes), parked(bytes), leaves(bytes, actor), scope(key) }`, reading the runtime's own format from the suite's bytes, apart from its restore | planned                                                                                                      |
+| Runtime disposal                            | Actors I29, I30; PAY-13, PAY-16 disposal variants                    | `Runtime.disposeRuntime()`; `RuntimeDisposed` when it ends                                                                                                      | **built** (round 3)                                                                                          |
+| The Attempt's key on `Minted`               | `lane-cells` on keyed operations (lanes per key, WriteLanes R6)      | `key: Option<Json>` on `Minted` (a public Attempt field, R5)                                                                                                    | **built** (round 4; round-14 reports `None`: its mint carries no key, so lanes stay per actor and operation) |
+| Faults the Specs name                       | Turn I14 to I16 (refusal), Diagnostics                               | slot faults through the fixtures (a throwing guard or mapper is user code), never a runtime hook                                                                | planned                                                                                                      |
 
 ## Stated limits
 
@@ -187,10 +199,31 @@ the case holds.
 - `one-delivery` forgets what was owed at a reload; what the disk carries is the `restore`
   oracle's (planned).
 - Round-14 does not report the failure inside `unknown StillUnknown`; the check that it keeps its
-  tag runs only when a runtime reports it (`Ended.failure`).
-- `lane-cells` judges unkeyed operations only: `Minted` carries no key, so a lane is an actor's
-  operation. Pay's keyed write is checked by its cases' own expectations until the key is on
-  `Minted`.
+  tag runs only when a runtime reports it (`Ended.failure`). Making it strict turns PAY-05 and
+  PAY-16/restore-keeps-mayHaveApplied red on round-14; the adapter will not fill the failure in
+  from the suite's own `Answered` fact, since that would report for the runtime what it did not.
+  Production must report it, and the check becomes strict with the production adapter.
+- `lane-cells` judges unkeyed operations only on round-14: `Minted.key` exists (round 4), but
+  round-14's mint carries no key, so a lane is an actor's operation. Pay's keyed write is checked
+  by its cases' own expectations. A runtime reporting the key gets keyed lanes.
+- `lane-cells` accepts a Held head's re-send after any suite-driven turn of its actor since it was
+  held (a retry, or the answer that triggers one); a re-send riding on an unrelated driven event
+  is not caught. A per-operation map of retrying events in the reference would tighten it.
+- Actors are required on `Minted` (a `None` is a violation in `lane-cells` and `one-delivery`);
+  round-14 reports none, so its adapter attributes each to the turn that follows (decision 10).
+- `one-delivery` counts an ending decided after the Runtime's disposal began as parked at the next
+  reload; whether the runtime parked it is the `restore` oracle's (the Port shows no parked
+  records). An `InvalidTurn` or `UnmappedEnding` issue settles a delivery only when it is the one
+  pending in its step (`Issue` carries no event or actor).
+- Round-14 has no idle row: a key with no lane reads `None`, where Reads R14 makes `O.x.get`
+  total (the idle row). Cases expect `None` for "lane gone"; production must return the idle row,
+  and those expectations change with the production adapter.
+- At a case's end the boot's scope closes and the Runtime is disposed after the last judged step:
+  that disposal is not judged, and a Runtime the case already disposed is disposed again (Actors
+  R20 makes it idempotent). A judged disposal at every case's end is a round-5 item.
+- `attempt-identity`'s check that a send names the operation its Attempt was minted under has no
+  lie that isolates it: `lie.sent-under-another-operation` is caught by the same oracle's count
+  check.
 - Round-14 reports `RuntimeDisposed` when its last call ends, before the final persistence write
   (Actors R23 has disposal wait for it); cases assert disposal's end only after that write is
   answered.

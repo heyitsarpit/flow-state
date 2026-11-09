@@ -7,7 +7,9 @@ const SEND = "      input: h.input,\n      ctx: { id: h.id, mayHaveApplied: h.ma
  *
  * **Details**
  *
- * Both edit the prototype's invoke command, where a re-send's commit gets its id and input.
+ * The first two edit the prototype's invoke command, where a re-send's commit gets its id and
+ * input; the third edits the report of an invoke, which names another operation than the one
+ * the Attempt was minted under.
  */
 export const attemptIdentityLies: ReadonlyArray<Lie> = [
   {
@@ -35,6 +37,19 @@ export const attemptIdentityLies: ReadonlyArray<Lie> = [
         find: SEND,
         replace:
           "      input: h.mayHaveApplied ? { ...h.input, again: true } : h.input,\n      ctx: { id: h.id, mayHaveApplied: h.mayHaveApplied },",
+      },
+    ],
+  },
+  {
+    name: "lie.sent-under-another-operation",
+    says: "an invoke of a pay Attempt is reported under the place operation",
+    runtime: "prototype",
+    cases: ["PAY-01"],
+    edits: [
+      {
+        file: "lane.ts",
+        find: 'note(tx, "invoked", { op: l!.op, attempt: h.id, send: gen });',
+        replace: 'note(tx, "invoked", { op: "place", attempt: h.id, send: gen });',
       },
     ],
   },

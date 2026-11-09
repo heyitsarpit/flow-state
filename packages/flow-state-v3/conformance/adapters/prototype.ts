@@ -11,18 +11,9 @@ import {
   Schema,
 } from "effect";
 import { join } from "node:path";
-import {
-  type ActorRef,
-  Boot,
-  type Json,
-  Observation,
-  PageKilled,
-  Row,
-  Runtime,
-  Snapshot,
-} from "../port.ts";
+import { type ActorRef, Boot, type Json, Observation, Runtime, Snapshot } from "../port.ts";
 import { WorldClock } from "../world/clock.ts";
-import { Page } from "../world/lifecycle.ts";
+import { Page } from "../world/page.ts";
 import { Network } from "../world/network.ts";
 import { type Purpose, Storage, Write } from "../world/storage.ts";
 import { observationsOf } from "./prototype-reports.ts";
@@ -39,7 +30,7 @@ type PrototypeInstance = {
   readonly attach: (
     actor: string,
     machine: string,
-    // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts -- round-14's attach takes undefined for "no input"; the Runtime's Option is unwrapped here, at its boundary
+    // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts -- the prototype's attach takes undefined for "no input"; the Runtime's Option is unwrapped here, at its boundary
     input: Json | undefined,
     owner: string,
     existing: boolean,
@@ -167,7 +158,7 @@ type PrototypeFixture = {
 
 const decodeState = Schema.decodeUnknownOption(Schema.String);
 const decodeMemory = Schema.decodeUnknownSync(Schema.Json);
-const decodeRow = Schema.decodeUnknownOption(Row);
+const decodeRow = Schema.decodeUnknownSync(Schema.Json);
 
 const runtimeOf = (instance: PrototypeInstance) =>
   Runtime.of({
@@ -187,12 +178,12 @@ const runtimeOf = (instance: PrototypeInstance) =>
         onSome: (state) => Snapshot.Live({ state, memory: decodeMemory(instance.memory(key)) }),
       });
     },
-    row: (actor, operation, key) => decodeRow(instance.row(actorKey(actor), operation, key)),
+    row: (actor, operation, key) =>
+      Option.map(Option.fromUndefinedOr(instance.row(actorKey(actor), operation, key)), decodeRow),
     pending: instance.pending,
   });
 
-const killed = <A, E>(exit: Exit.Exit<A, E>) =>
-  Option.exists(Exit.findErrorOption(exit), (error) => error instanceof PageKilled);
+const killed = <A, E>(exit: Exit.Exit<A, E>) => Exit.hasInterrupts(exit);
 
 /**
  * A dynamic import's namespace: each export is read by name and narrowed where it is used.
@@ -287,12 +278,12 @@ export const loadPrototype = Effect.fn("loadPrototype")(function* (runtimeDir: s
 });
 
 /**
- * The Runtime over the prototype runtime round-14 (or an edited copy of it).
+ * The Runtime over a prototype runtime (the runner's default, or an edited copy of it).
  *
  * **Details**
  *
  * - Building the Layer boots the prototype over the world's hosts with the case's fixtures, wired
- *   to the suite's server; closing its scope disposes the Runtime, unless the page was killed.
+ *   to the suite's server; closing its scope disposes the Runtime, unless the scope was interrupted (a killed page).
  * - The prototype's evidence is translated into the Port's observations; its other reports are
  *   dropped.
  *

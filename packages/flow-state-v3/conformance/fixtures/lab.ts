@@ -1,26 +1,22 @@
 import { Schema } from "effect";
-import type { Fixture } from "./fixture.ts";
-import { classifyWith, type OperationReference } from "./reference.ts";
+import { Empty, type Fixture, writeOf } from "./fixture.ts";
+import { type CancelsOf, type Concurrency, classifyWith } from "./reference.ts";
 
-const Unkeyed = Schema.Struct({});
+const Unkeyed = Empty;
 
-const labWrite = (
-  concurrency: OperationReference["concurrency"],
-  cancels: OperationReference["cancels"],
-) =>
-  ({
-    key: Unkeyed,
-    reference: {
-      attempts: true,
-      concurrency,
-      success: "Ok",
-      failure: { NotSent: "No" },
-      unknown: "Unsure",
-      classify: classifyWith(() => false),
-      keyFields: [],
-      cancels,
-    },
-  }) satisfies Fixture["operations"][string];
+const labWrite = <C extends Concurrency>(concurrency: C, cancels: CancelsOf<string>) =>
+  writeOf(Unkeyed, {
+    attempts: true,
+    concurrency,
+    success: "Ok",
+    failure: { NotSent: "No" },
+    unknown: "Unsure",
+    classify: classifyWith(() => false),
+    keyFields: [],
+    cancels,
+  });
+
+const serializeEvents = { Go: Schema.Struct({ n: Schema.Number }), All: Empty };
 
 /**
  * `Lab/P1All` (`prototypes/conformance/typed/phase1h.ts`): one unkeyed `serialize` write, `put`,
@@ -29,10 +25,15 @@ const labWrite = (
 export const Serialize = {
   name: "serialize",
   machine: "Lab/P1All",
-  events: { Go: Schema.Struct({ n: Schema.Number }), All: Schema.Struct({}) },
+  events: serializeEvents,
   memory: Schema.Struct({}),
-  input: Schema.Struct({}),
-  operations: { put: labWrite("serialize", { All: "cancelAll" }) },
+  input: Empty,
+  states: ["A"] as const,
+  operations: {
+    put: labWrite("serialize", {
+      All: "cancelAll",
+    } satisfies CancelsOf<keyof typeof serializeEvents>),
+  },
 } satisfies Fixture;
 
 /**
@@ -44,7 +45,8 @@ export const Latest = {
   machine: "Lab/P1Latest",
   events: { Go: Schema.Struct({ q: Schema.String }) },
   memory: Schema.Struct({}),
-  input: Schema.Struct({}),
+  input: Empty,
+  states: ["A"] as const,
   operations: { search: labWrite("latest", {}) },
 } satisfies Fixture;
 
@@ -55,8 +57,9 @@ export const Latest = {
 export const Cancel = {
   name: "cancel",
   machine: "Lab/R15Switch",
-  events: { Go: Schema.Struct({ q: Schema.String }), Retrying: Schema.Struct({}) },
+  events: { Go: Schema.Struct({ q: Schema.String }), Retrying: Empty },
   memory: Schema.Struct({ retrying: Schema.Boolean, oks: Schema.Number }),
-  input: Schema.Struct({}),
+  input: Empty,
+  states: ["A", "W"] as const,
   operations: { search: labWrite("cancel", {}) },
 } satisfies Fixture;

@@ -12,7 +12,7 @@ import type { Fact } from "../oracles/oracle.ts";
  * **Details**
  *
  * - `record` appends; nothing is ever changed or removed.
- * - `facts` is the whole timeline so far.
+ * - `facts` is a copy of the whole timeline so far.
  * - Synchronous: a runtime reports from inside its own fibers.
  */
 export class Timeline extends Context.Service<
@@ -32,7 +32,7 @@ export class Timeline extends Context.Service<
       record: (fact) => {
         facts.push(fact);
       },
-      facts: () => facts,
+      facts: () => [...facts],
     });
   });
 }

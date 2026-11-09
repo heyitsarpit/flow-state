@@ -21,7 +21,11 @@ type Model = {
   readonly laneOf: Map<string, string>;
   readonly cancelled: Map<string, Cancelled>;
   readonly unstoppable: Set<string>;
+  readonly heldAt: Map<string, number>;
+  readonly drivenTurns: Array<{ readonly actor: ActorRef; readonly step: number }>;
 };
+
+type Minted = Extract<Observation, { readonly _tag: "Minted" }>;
 
 type Ended = Extract<Observation, { readonly _tag: "Ended" }>;
 
@@ -66,12 +70,20 @@ const laneOfAttempt = (model: Model, id: string) =>
     Option.map(Option.fromUndefinedOr(model.lanes.get(key)), (lane) => [key, lane] as const),
   );
 
-const mint = (model: Model, reference: Reference, minted: Observation) => {
-  if (!Observation.$is("Minted")(minted) || Option.isNone(minted.actor)) return;
+const permittedResend = (model: Model, actor: ActorRef, id: string) => {
+  const heldAt = model.heldAt.get(id) ?? Infinity;
+
+  return model.drivenTurns.some((turn) => sameActor(turn.actor, actor) && turn.step > heldAt);
+};
+
+const mint = (model: Model, reference: Reference, minted: Minted) => {
+  if (Option.isNone(minted.actor))
+    return [`WriteLanes I9: ${minted.operation} ${minted.attempt} was minted with no actor`];
+
   const actor = minted.actor.value;
   const policy = writeOf(reference, actor, minted.operation);
 
-  if (Option.isNone(policy)) return;
+  if (Option.isNone(policy)) return [];
   const key = laneKey(actor, minted.operation);
 
   const lane = model.lanes.get(key) ?? {
@@ -90,7 +102,7 @@ const mint = (model: Model, reference: Reference, minted: Observation) => {
       attempts: [...lane.attempts, { id: minted.attempt, phase: "waiting" }],
     });
 
-    return;
+    return [];
   }
 
   const replaced =
@@ -101,6 +113,8 @@ const mint = (model: Model, reference: Reference, minted: Observation) => {
     ...replaced,
     attempts: [...replaced.attempts, { id: minted.attempt, phase }],
   });
+
+  return [];
 };
 
 const rejoined = (lane: Lane, id: string, phase: Phase) =>
@@ -128,6 +142,13 @@ const sent = (model: Model, id: string) =>
 
       if (phase.value === "replaced")
         return [`WriteLanes I9: ${lane.operation} ${id} was sent after a later commit replaced it`];
+
+      if (phase.value === "held")
+        return permittedResend(model, lane.actor, id)
+          ? []
+          : [
+              `WriteLanes I12: ${lane.operation} ${id} was sent while Held, with no suite-driven turn of its actor since it was held; a Held head leaves Held only by a retry, a cancel or a release`,
+            ];
 
       if (phase.value !== "queued") return [];
 
@@ -163,7 +184,7 @@ const cancelledRight = (model: Model, ended: Ended, id: string) => {
 const afterEnding = (ended: Ended, phase: Phase) =>
   ended.channel === "unknown" && ADDRESSABLE.includes(phase) ? "held" : "gone";
 
-const end = (model: Model, ended: Ended) => {
+const end = (model: Model, ended: Ended, at: number) => {
   if (Option.isNone(ended.attempt)) return [];
   const id = ended.attempt.value;
   const judged = cancelledRight(model, ended, id);
@@ -174,19 +195,19 @@ const end = (model: Model, ended: Ended) => {
       const phase = phaseIn(lane, id);
 
       if (Option.isNone(phase)) {
-        if (ended.channel === "unknown") model.lanes.set(key, rejoined(lane, id, "held"));
+        if (ended.channel === "unknown") {
+          model.heldAt.set(id, at);
+          model.lanes.set(key, rejoined(lane, id, "held"));
+        }
 
         return judged;
       }
 
       const queuedOk = phase.value !== "queued" || ended.channel === "failure";
+      const holds = afterEnding(ended, phase.value) === "held";
 
-      model.lanes.set(
-        key,
-        afterEnding(ended, phase.value) === "held"
-          ? withPhase(lane, id, "held")
-          : without(lane, id),
-      );
+      if (holds) model.heldAt.set(id, at);
+      model.lanes.set(key, holds ? withPhase(lane, id, "held") : without(lane, id));
 
       if (queuedOk) return judged;
 
@@ -393,6 +414,8 @@ const fresh = (): Model => ({
   laneOf: new Map(),
   cancelled: new Map(),
   unstoppable: new Set(),
+  heldAt: new Map(),
+  drivenTurns: [],
 });
 
 const forget = (model: Model) => {
@@ -406,7 +429,8 @@ type Pending = {
   readonly from: number;
 };
 
-const judgeStep = (model: Model, facts: Facts, step: ReadonlyArray<Fact>) => {
+const judgeStep = (model: Model, facts: Facts, step: ReadonlyArray<Fact>, at: number) => {
+  const driven = step.some((fact) => Fact.$is("Drove")(fact) || Fact.$is("Answered")(fact));
   let before = new Map(model.lanes);
   let from = 0;
   const reports: Array<Observation> = [];
@@ -438,12 +462,17 @@ const judgeStep = (model: Model, facts: Facts, step: ReadonlyArray<Fact>) => {
     const observed = fact.observation;
     reports.push(observed);
 
-    if (Observation.$is("Turn")(observed)) return atTurn(observed);
-    mint(model, facts.reference, observed);
+    if (Observation.$is("Turn")(observed)) {
+      if (driven) model.drivenTurns.push({ actor: observed.actor, step: at });
+
+      return atTurn(observed);
+    }
+
+    if (Observation.$is("Minted")(observed)) return mint(model, facts.reference, observed);
 
     if (Observation.$is("Sent")(observed)) return sent(model, observed.attempt);
 
-    if (Observation.$is("Ended")(observed)) return end(model, observed);
+    if (Observation.$is("Ended")(observed)) return end(model, observed, at);
 
     return evidence(model, observed);
   };
@@ -473,6 +502,9 @@ const judgeStep = (model: Model, facts: Facts, step: ReadonlyArray<Fact>) => {
  *   and a lane has one addressable Attempt;
  * - a queued Attempt is never sent or ended on a channel other than failure (it is promoted only
  *   once the head is resolved or released; an unknown never promotes);
+ * - a Held head is sent again only after a retry the suite could have caused: a turn of its actor
+ *   in a step the suite drove, in a step after the one that held it (see Gotchas);
+ * - a `Minted` names its actor, so the lane it joins is known;
  * - `Superseded` names only a queued commit or a never-sent head, and only under `latest`;
  * - on a turn of an event the suite sent whose handler the fixture's reference says cancels the
  *   operation, by the head's history before that turn, judged over the reports from that turn to
@@ -490,7 +522,15 @@ const judgeStep = (model: Model, facts: Facts, step: ReadonlyArray<Fact>) => {
  *   `attempt-identity` anchors every received send to a reported one.
  * - The Port's `Minted` carries no key, so only unkeyed operations are judged, where an actor's
  *   operation is exactly one lane. A keyed operation waits for the Attempt's key on `Minted`. A
- *   mint with no actor is not modelled.
+ *   mint with no actor is itself a violation: an unattributed Attempt cannot be placed in a lane.
+ * - The timeline names no retry events, so the re-send of a Held head is anchored to the suite's
+ *   own steps, not to the retry verb. A send of a Held head passes when a turn of the head's actor
+ *   ran in a step the suite drove (a `Drove` or an `Answered` in it), reported after the step that
+ *   held the head. A turn in the hold's own step does not count, so a re-send on the hold is caught.
+ *   Limit: any driven turn of the actor permits the re-send, even one whose handler does not retry,
+ *   so a re-send that rides on an unrelated event the suite sent is not caught. A retry's send lands
+ *   a step after its turn (once the store acknowledges, as Pay's intent read does), so the cause
+ *   cannot be required in the send's own step.
  * - A reload empties the lanes and drops the pending cancel judgments: what the disk carries is
  *   the restore oracle's. An Attempt known from before rejoins its lane as the head, when a report
  *   names it again and the lane has none.
@@ -501,6 +541,6 @@ export const laneCells: Oracle = {
   check: (facts: Facts) => {
     const model = fresh();
 
-    return steps(facts.timeline).flatMap((step) => judgeStep(model, facts, step));
+    return steps(facts.timeline).flatMap((step, at) => judgeStep(model, facts, step, at));
   },
 };

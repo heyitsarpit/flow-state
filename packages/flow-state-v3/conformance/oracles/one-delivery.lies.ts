@@ -33,6 +33,10 @@ const when = (condition: string, body: string) => `${ADMIT}\n  if (a && ${condit
  * - `d154.moved-fail-released`: the same ending is said released and recorded as evidence.
  * - `lie.released`: an ending not taken while another actor has mail is released and recorded.
  * - `e8.wa-failure`: a failure ending runs in another live actor of the same machine.
+ * - `lie.superseded-claimed`: a failure ending is reported Superseded and recorded as evidence
+ *   instead of delivered, under an operation no later commit replaces or interrupts.
+ * - `lie.delivered-during-disposal`: an ending that settles during the Runtime's disposal is
+ *   delivered to its actor instead of parked.
  */
 export const oneDeliveryLies: ReadonlyArray<Lie> = [
   {
@@ -76,5 +80,51 @@ export const oneDeliveryLies: ReadonlyArray<Lie> = [
     runtime: "prototype",
     cases: ["DLV-03"],
     edits: [{ file: "turn.ts", find: ADMIT, replace: OTHER_ACTOR }],
+  },
+  {
+    name: "lie.superseded-claimed",
+    says: "a failure ending is reported Superseded and recorded as evidence instead of delivered",
+    runtime: "prototype",
+    cases: ["DLV-03"],
+    edits: [
+      {
+        file: "turn.ts",
+        find: ADMIT,
+        replace: when(
+          'item.ending.ch === "failure" && !!item.attempt',
+          `note(tx, "Superseded", { op: item.op, attempt: item.attempt ?? "" }); ${EVIDENCE_ONLY}`,
+        ),
+      },
+    ],
+  },
+  {
+    name: "lie.delivered-during-disposal",
+    says: "an ending that settles during the Runtime's disposal is delivered instead of parked",
+    runtime: "prototype",
+    cases: ["PAY-16/settled-during-disposal-parked"],
+    edits: [
+      {
+        file: "step.ts",
+        find: 'tx.w = { ...tx.w, status: "disposing", mail: [], rota: [], follow: [] };',
+        replace:
+          'tx.w = { ...tx.w, status: "disposing", mail: tx.w.mail.filter(() => false), rota: [], follow: [] };',
+      },
+      {
+        file: "step.ts",
+        find: 'if (tx.w.status === "disposing" && wires(tx.w).length === 0 && input.k !== "disposeRuntime")',
+        replace:
+          'if (tx.w.status === "disposing" && wires(tx.w).length === 0 && tx.w.mail.length === 0 && input.k !== "disposeRuntime")',
+      },
+      {
+        file: "driver.ts",
+        find: '(world.mail.length > 0 && world.status === "live"));',
+        replace: '(world.mail.length > 0 && world.status !== "disposed"));',
+      },
+      {
+        file: "lane.ts",
+        find: 'if (tx.w.status === "disposing") return parkAtDisposal(tx, next, final);',
+        replace: 'if (tx.w.status === "disposing") return settleHead(tx, next, final);',
+      },
+    ],
   },
 ];

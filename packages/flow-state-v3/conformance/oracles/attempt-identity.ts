@@ -4,6 +4,15 @@ import { Observation, sameJson } from "../port.ts";
 import type { Request } from "../world/network.ts";
 import { Fact, type Facts, type Oracle, reported, steps } from "./oracle.ts";
 
+type Sent = Extract<Observation, { readonly _tag: "Sent" }>;
+
+type Minting = {
+  readonly pairs: Set<string>;
+  readonly owner: Map<string, string>;
+};
+
+const idOf = (operation: string, attempt: string) => `${operation} ${attempt}`;
+
 const isWrite = (reference: Reference, operation: string) =>
   Option.match(operationNamed(reference, operation), {
     onNone: () => false,
@@ -82,16 +91,37 @@ const mintedOnce = (timeline: ReadonlyArray<Fact>) => {
   });
 };
 
-const judgeKey = (request: Request, minted: ReadonlySet<string>, decided: ReadonlySet<string>) =>
+const mintedUnder = (operation: string, attempt: string, minting: Minting) => {
+  if (minting.pairs.has(idOf(operation, attempt))) return Option.none<string>();
+
+  return Option.some(
+    Option.match(Option.fromUndefinedOr(minting.owner.get(attempt)), {
+      onNone: () => "no commit minted",
+      onSome: (owner) => `a commit of ${owner} minted`,
+    }),
+  );
+};
+
+const judgeSent = (sent: Sent, minting: Minting) =>
+  Option.match(mintedUnder(sent.operation, sent.attempt, minting), {
+    onNone: () => [],
+    onSome: (why) => [
+      `WriteLanes I6: an invoke of ${sent.operation} carried ${sent.attempt}, which ${why} it`,
+    ],
+  });
+
+const judgeKey = (request: Request, minting: Minting, decided: ReadonlySet<string>) =>
   Option.match(request.key, {
     onNone: () => [`WriteLanes I6: a send of ${request.operation} carried no Attempt id`],
     onSome: (key) => {
-      if (!minted.has(key))
+      const wrong = mintedUnder(request.operation, key, minting);
+
+      if (Option.isSome(wrong))
         return [
-          `WriteLanes I6: a send of ${request.operation} carried ${key}, which no commit minted`,
+          `WriteLanes I6: a send of ${request.operation} carried ${key}, which ${wrong.value} it`,
         ];
 
-      if (decided.has(key))
+      if (decided.has(idOf(request.operation, key)))
         return [
           `WriteLanes I6: ${request.operation} ${key} was sent again after it ended definitely`,
         ];
@@ -101,18 +131,23 @@ const judgeKey = (request: Request, minted: ReadonlySet<string>, decided: Readon
   });
 
 const keysMintedAndOpen = (timeline: ReadonlyArray<Fact>, reference: Reference) => {
-  const minted = new Set<string>();
+  const minting: Minting = { pairs: new Set(), owner: new Map() };
   const decided = new Set<string>();
 
   const learn = (observed: Observation) => {
-    if (Observation.$is("Minted")(observed)) minted.add(observed.attempt);
+    if (Observation.$is("Minted")(observed)) {
+      minting.pairs.add(idOf(observed.operation, observed.attempt));
+
+      if (!minting.owner.has(observed.attempt))
+        minting.owner.set(observed.attempt, observed.operation);
+    }
 
     if (
       Observation.$is("Ended")(observed) &&
       observed.channel !== "unknown" &&
       Option.isSome(observed.attempt)
     )
-      decided.add(observed.attempt.value);
+      decided.add(idOf(observed.operation, observed.attempt.value));
   };
 
   return steps(timeline).flatMap((step) => {
@@ -120,11 +155,19 @@ const keysMintedAndOpen = (timeline: ReadonlyArray<Fact>, reference: Reference) 
 
     for (const fact of step) if (Fact.$is("Reported")(fact)) learn(fact.observation);
 
-    return step.flatMap((fact) =>
-      Fact.$is("Requested")(fact) && isWrite(reference, fact.request.operation)
-        ? judgeKey(fact.request, minted, decidedBefore)
-        : [],
-    );
+    return step.flatMap((fact) => {
+      if (
+        Fact.$is("Reported")(fact) &&
+        Observation.$is("Sent")(fact.observation) &&
+        isWrite(reference, fact.observation.operation)
+      )
+        return judgeSent(fact.observation, minting);
+
+      if (Fact.$is("Requested")(fact) && isWrite(reference, fact.request.operation))
+        return judgeKey(fact.request, minting, decidedBefore);
+
+      return [];
+    });
   });
 };
 
@@ -137,10 +180,12 @@ const keysMintedAndOpen = (timeline: ReadonlyArray<Fact>, reference: Reference) 
  * the runtime's reports:
  * - in each step, every send the server receives under an id is one the runtime reported sending
  *   under that id (a reported send may die before it reaches the server);
- * - every send carries an id the runtime reported minting by the end of its step, and none comes
- *   in a step after that Attempt's reported definite ending;
+ * - an Attempt is its operation and id: every invoke the runtime reports, and every send the
+ *   server receives, names the operation its id was minted under, and the id was reported minted
+ *   by the end of its step; a send of it in a step after its reported definite ending is a
+ *   violation;
  * - one id is always sent with one input (the server's log alone);
- * - no id is minted twice (report consistency).
+ * - no id is minted twice, under any operation (report consistency).
  *
  * **Gotchas**
  *
