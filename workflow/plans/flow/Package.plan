@@ -10,14 +10,22 @@ outcomes
         Exactly six routes exist, through explicit package exports and ESM import conditions; no
         CommonJS, wildcard subpath or deep import is supported. Each exposes only these names:
 
-        - flow-state: definition, machine, app, actorRef, runtimeSetup, resource, transaction,
-        stream, deny, check, send, FlowError, entity, domain, read, write, listen, eq, oneOf,
-        contains, between, overlaps, and, serverMatches, asc, desc; types Definition, Machine, App,
-        ActorRef, Actor, Snapshot, Runtime, RuntimeSetup, Diagnostic and Attempt. Attempt is also a
-        Schema value carrying id and encoded input (@plan.Operations.O3).
+        - flow-state: definition, machine, trait, subroutine, app, actorRef, runtimeSetup,
+        resource, transaction, stream, Feed, deny, check, send, FlowError, Flow (with Flow.Guard,
+        Flow.Callback, Flow.Exit, Flow.optional, Flow.uncertain, Flow.annotate, Flow.input,
+        Flow.initial, Flow.private, Flow.Denial, Flow.ignore, Flow.state, Flow.entry, the
+        Flow.is* predicates and the Flow.Payload and Flow.Filling types), Outcome (Outcome.success,
+        Outcome.failure, Outcome.unknown), entity, domain, read, write, listen, and the condition
+        operators eq, oneOf, contains, between, overlaps, gt, gte, lt, lte, isNull, and, or, not,
+        serverMatches, asc, desc; types Definition, Machine, App, ActorRef, Actor, Snapshot,
+        Runtime, RuntimeSetup, Diagnostic and Attempt. Attempt is also a Schema value carrying id
+        and encoded input (@plan.Operations.O3). The setup's services Layer is typed by the
+        machines' R, read from the contracts' services lists (@plan.Runtime.O2).
         - flow-state/react: FlowProvider, useActorByRef, useActor, useView, useNow, Hydrate.
-        - flow-state/testing: story, model, defineConfig, StoryFrame, StoryPlayer,
-        definePresentation, propertyTest; type StoryRun.
+        - flow-state/testing: Story, Fake (with Fake.server, Fake.storage and the answer classes
+        Fake.Lost, Fake.Refused and Fake.Closed), propertyTest, domainPropertyOptions,
+        defineConfig, StoryFrame, StoryPlayer, definePresentation, the error class
+        PropertyTestFailed; types StoryRun. There is no test-runner adapter package (proposed).
         - flow-state/inspect: inspect, render, attachInspector, trace (an object with only import
         and export); types Model and Trace.
         - flow-state/server: dehydrate; type Hydration.
@@ -25,7 +33,14 @@ outcomes
 
         Every other setting or operation is a member of these values, inferred data or an Effect
         primitive. No route re-exports another route's names or internal services, stores,
-        ManagedRuntime or mutable harnesses.
+        ManagedRuntime or mutable harnesses. flow-state/internal/testing, which exports
+        disposeRuntime for Flow's own suite, is not a supported route and is not one of the six.
+
+        Superseded: the flow-state list gains trait, subroutine, Flow, Outcome, Feed and the
+        operators gt, gte, lt, lte, isNull, or and not (fragments row; C102; merge 5).
+        "flow-state/testing: story, model, defineConfig, StoryFrame, StoryPlayer,
+        definePresentation, propertyTest; type StoryRun." is replaced: story and model are removed;
+        Story, Fake, domainPropertyOptions and PropertyTestFailed are added (C82; T1).
 
         flow-state/react keeps the "use client" directive in its emitted JavaScript; a Next.js
         Server Component may import its components, and hooks run only on the client.
@@ -63,7 +78,9 @@ outcomes
         registered views, child and dynamic actors, leases, final/onDone/output, useShallow and
         custom comparators, useResource, callable Stories and mutable harnesses, saved behaviour
         artifacts, compression, Implementation values and the separate error classes
-        (FlowUsageError, FlowPersistenceError, FlowDisposeError, FlowStoryExecutionError). A
+        (FlowUsageError, FlowPersistenceError, FlowDisposeError, FlowStoryExecutionError), model
+        and story (the testing route's old Story constructor). PropertyTestFailed, which carries a
+        property test's result, is the testing route's one error class. A
         configuration object naming a removed or unknown field throws InvalidConfiguration with its
         path and help naming the replacement, before any work starts.
     O4  Installed consumers

@@ -470,3 +470,25 @@ Conflicts: none new. `contract.get` follows OC1 (Operations).
 
 Prototype check (S2): React's effect timing (Strict Mode, Suspense, Activity) is a stated limit needing browser tests
 (2.7.17); kept as V4.
+
+## Package
+
+Rows merged: fragments row (Package O1), C82, C102, C138, T1, and merge 5's operators (the design's own import line,
+2.8.2, imports `eq`, `asc`, `desc` from the root, so "`Condition`" in the fragments row names the group, not a
+namespace). S1 found no 6.4 row for Package: **accepted**.
+
+| # | Outcome | Before | After | Decision |
+| --- | --- | --- | --- | --- |
+| PK-1 | O1 | flow-state name list | adds `trait`, `subroutine`, `Flow` (members listed, with `Flow.ignore`, `Flow.state`, `Flow.entry` from 2.6), `Outcome`, `Feed`, operators `gt`, `gte`, `lt`, `lte`, `isNull`, `or`, `not`; services Layer typed by R | fragments row; C102; C138; merge 5 |
+| PK-2 | O1 | flow-state/testing list with `story`, `model` | `Story`, `Fake` (and its members), `propertyTest`, `domainPropertyOptions`, `defineConfig`, `StoryFrame`, `StoryPlayer`, `definePresentation`, `PropertyTestFailed`; no test-runner adapter (proposed) | C82; T1 |
+| PK-3 | O1 | (none) | `flow-state/internal/testing` is not a supported route | C82 |
+| PK-4 | O3 | removed surfaces | adds `model` and `story`; `PropertyTestFailed` as the testing route's one error class | C82; T1 |
+
+Counts: 4 edits; 2 superseded sentences marked (O1: 2).
+
+Conflicts:
+- **PKC1, agent-judged, applied.** C82 exports the error class `PropertyTestFailed`, while Package O3 removes
+  "the separate error classes" and Diagnostics D1 says capability-specific error classes are not public APIs.
+  Recommended: follow C82 (a Stories decision, W25 and W38 behind it): it carries a property test's result, not a
+  Flow failure, and is the testing route's only class. Judge: the runner (a reading of a decided row). Reversible:
+  make it a `FlowError` code instead, one line in three plans.
