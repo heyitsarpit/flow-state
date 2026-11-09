@@ -167,6 +167,11 @@ const earlierUnsure = (
       !heard(r, operation),
   );
 
+const learnLatest = (fact: Fact, latest: Map<string, number>) => {
+  if (Fact.$is("Requested")(fact) && Option.isSome(fact.request.key))
+    latest.set(idOf(fact.request.operation, fact.request.key.value), fact.request.seq);
+};
+
 const learnLive = (fact: Fact, live: Set<string>) => {
   if (Fact.$is("Reloaded")(fact)) live.clear();
 
@@ -190,6 +195,7 @@ const unended = (asked: ReadonlyMap<string, Asked>) =>
 
 const endedAsAnswered = (facts: Facts) => {
   const live = new Set<string>();
+  const latest = new Map<string, number>();
 
   const inStep = (step: ReadonlyArray<Fact>) => {
     const asked = new Map<string, Asked>();
@@ -203,7 +209,8 @@ const endedAsAnswered = (facts: Facts) => {
 
       if (Option.isNone(operation)) return;
       const mayHaveApplied = earlierUnsure(fact.request, facts.requests, operation.value);
-      asked.set(id, { answer: fact.answer, mayHaveApplied, live: live.has(id) });
+      const newest = latest.get(id) === fact.request.seq;
+      asked.set(id, { answer: fact.answer, mayHaveApplied, live: newest && live.has(id) });
     };
 
     const end = (ended: Ended) => {
@@ -222,6 +229,7 @@ const endedAsAnswered = (facts: Facts) => {
       ask(fact);
       const judged = Option.toArray(endedOf(fact)).flatMap(end);
       learnLive(fact, live);
+      learnLatest(fact, latest);
 
       return judged;
     });
@@ -239,8 +247,9 @@ const endedAsAnswered = (facts: Facts) => {
  * **Details**
  *
  * Three checks:
- * - an answer the suite's server gives to a live send (the runtime reported the send and no
- *   ending since) ends that Attempt in the same step, under its id, on the channel the fixture's
+ * - an answer the suite's server gives to a live send (the newest request of that id, with a send
+ *   reported and no ending since; an older send's late answer is fenced and ends nothing) ends
+ *   that Attempt in the same step, under its id, on the channel the fixture's
  *   commit gives that answer (the fixture's reference); it is `unknown Defect` for a died call,
  *   and `unknown StillUnknown`, carrying the failure's tag when the runtime reports it, for a
  *   definite failure when an earlier send of that Attempt was never definitely answered by the

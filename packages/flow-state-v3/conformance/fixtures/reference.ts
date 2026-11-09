@@ -92,7 +92,10 @@ const pay = {
   },
 } satisfies Readonly<Record<string, OperationReference>>;
 
-const catalog = new Map<string, Reference>([["pay", { "Checkout/Pay": pay }]]);
+const catalog = new Map<string, Reference>([
+  ["pay", { "Checkout/Pay": pay }],
+  ["cells", { "Checkout/Pay": pay }],
+]);
 
 /**
  * A case named a fixture with no reference: a suite defect.
@@ -105,7 +108,9 @@ export class NoReference extends Data.TaggedError("NoReference")<{ readonly fixt
  * **Details**
  *
  * `pay` is the typed Pay fixture (`prototypes/conformance/typed/pay.ts`), machine `Checkout/Pay`.
- * Only its writes are referenced; its reads (`intent`, `order`) have no Attempts.
+ * Only its writes are referenced; its reads (`intent`, `order`) have no Attempts. `cells` is the
+ * same machine with one more root event, `AbortPay`, which cancels `pay`
+ * (`prototypes/conformance/typed/cells.ts`).
  *
  * **Gotchas**
  *

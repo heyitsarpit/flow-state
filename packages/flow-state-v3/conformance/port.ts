@@ -58,13 +58,17 @@ export type Snapshot = Data.TaggedEnum<{
 export const Snapshot = Data.taggedEnum<Snapshot>();
 
 /**
- * Evidence a runtime records about a lane without it being an ending's disposition.
+ * Evidence a runtime records about a lane or its store without it being an ending's disposition:
+ * a store that refused a write (`StorageFailure`) or has not answered one in time
+ * (`StorageSilent`).
  */
 export const EvidenceKind = Schema.Literals([
   "Superseded",
   "Released",
   "InFlight",
   "NothingToResend",
+  "StorageFailure",
+  "StorageSilent",
 ]);
 
 /**
@@ -102,6 +106,7 @@ export type RecordedWhy = typeof RecordedWhy.Type;
  * - `Parked`, `Unparked`: an ending waits for an incarnation, and stops waiting.
  * - `Recorded`: an ending was recorded and not delivered, and why.
  * - `Unhandled`: an admitted event had no handler.
+ * - `Denied`: an admitted event's handlers all refused it, with the guards' reasons.
  * - `Evidence`: a lane fact that is not an ending's disposition.
  * - `Issue`: an issue the runtime reported, by code.
  *
@@ -146,6 +151,7 @@ export type Observation = Data.TaggedEnum<{
     readonly why: RecordedWhy;
   };
   Unhandled: { readonly event: string };
+  Denied: { readonly event: string; readonly reasons: ReadonlyArray<string> };
   Evidence: {
     readonly kind: EvidenceKind;
     readonly operation: string;

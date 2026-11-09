@@ -116,12 +116,16 @@ const keysMintedAndOpen = (timeline: ReadonlyArray<Fact>, reference: Reference) 
       decided.add(observed.attempt.value);
   };
 
-  return timeline.flatMap((fact) => {
-    if (Fact.$is("Reported")(fact)) learn(fact.observation);
+  return steps(timeline).flatMap((step) => {
+    const decidedBefore = new Set(decided);
 
-    return Fact.$is("Requested")(fact) && isWrite(reference, fact.request.operation)
-      ? judgeKey(fact.request, minted, decided)
-      : [];
+    for (const fact of step) if (Fact.$is("Reported")(fact)) learn(fact.observation);
+
+    return step.flatMap((fact) =>
+      Fact.$is("Requested")(fact) && isWrite(reference, fact.request.operation)
+        ? judgeKey(fact.request, minted, decidedBefore)
+        : [],
+    );
   });
 };
 
@@ -134,8 +138,8 @@ const keysMintedAndOpen = (timeline: ReadonlyArray<Fact>, reference: Reference) 
  * the runtime's reports:
  * - in each step, every send the server receives under an id is one the runtime reported sending
  *   under that id (a reported send may die before it reaches the server);
- * - every send carries an id the runtime reported minting, and none follows that Attempt's
- *   reported definite ending;
+ * - every send carries an id the runtime reported minting by the end of its step, and none comes
+ *   in a step after that Attempt's reported definite ending;
  * - one id is always sent with one input (the server's log alone);
  * - no id is minted twice (report consistency).
  *

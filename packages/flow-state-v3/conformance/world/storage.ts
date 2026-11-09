@@ -14,7 +14,7 @@ export type Write = { readonly key: string; readonly value: string | undefined }
 /**
  * How the suite answers the held batches it matches.
  */
-export type StorageAnswer = "ack" | "refuse" | "hang";
+export type StorageAnswer = "ack" | "refuse" | "hang" | "landNoAck";
 
 type Held = {
   readonly writes: ReadonlyArray<Write>;
@@ -34,7 +34,8 @@ type Held = {
  *
  * - A plain flush lands at once and is answered in a later task.
  * - An acknowledgement or a capture is held until the suite answers it: `ack` lands it, `refuse`
- *   drops it, `hang` leaves it unanswered for good (it still dies with its page).
+ *   drops it, `hang` leaves it unanswered for good (it still dies with its page), `landNoAck`
+ *   lands it and leaves it unanswered (the confirmation was lost).
  * - `load` returns the records in an order fixed by the seed and the page, never the order
  *   written, so a runtime's restore order is its own.
  * - A held batch dies with its page; the bytes that landed stay.
@@ -137,7 +138,8 @@ export const makeStorage = (
       const chosen = held.filter((h) => matches(h, match));
       held = held.filter((h) => !matches(h, match));
 
-      if (how === "hang") {
+      if (how === "hang" || how === "landNoAck") {
+        if (how === "landNoAck") for (const h of chosen) land(h.writes);
         hung = [...hung, ...chosen];
 
         return chosen.length;

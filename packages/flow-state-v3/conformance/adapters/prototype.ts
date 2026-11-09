@@ -121,7 +121,10 @@ export class PrototypeReportUnreadable extends Data.TaggedError("PrototypeReport
  */
 export class UnknownFixture extends Data.TaggedError("UnknownFixture")<{ readonly name: string }> {}
 
-const FIXTURES = [{ name: "pay", file: "typed/pay.ts", exported: "payFixture" }] as const;
+const FIXTURES = [
+  { name: "pay", file: "typed/pay.ts", exported: "payFixture" },
+  { name: "cells", file: "typed/cells.ts", exported: "cellsFixture" },
+] as const;
 
 const actorKey = (actor: ActorRef) =>
   `${actor.machine}/${actor.id.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll("|", "%7C")}`;
@@ -155,6 +158,7 @@ const reports = {
   evidence: Schema.Struct({ kind: EvidenceKind, op: Schema.String, attempt: OptionalText }),
   onLane: Schema.Struct({ op: Schema.String, attempt: OptionalText }),
   unhandled: Schema.Struct({ event: Schema.String }),
+  denied: Schema.Struct({ event: Schema.String, reasons: Schema.Array(Schema.String) }),
 };
 
 const RECORDED = new Map<string, RecordedWhy>([
@@ -236,6 +240,12 @@ const laneReport = (report: Report): Option.Option<Observation> => {
     const r = read(reports.unhandled, report, kind);
 
     return Option.some(Observation.Unhandled({ event: r.event }));
+  }
+
+  if (kind === "Denied") {
+    const r = read(reports.denied, report, kind);
+
+    return Option.some(Observation.Denied({ event: r.event, reasons: r.reasons }));
   }
 
   if (kind === "parked" || kind === "unparked") {

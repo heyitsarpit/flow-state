@@ -112,6 +112,7 @@ export type Case = {
   ) => ReadonlyArray<Extract<Observation, { readonly _tag: "Ended" }>>;
   readonly evidence: (kind: Extract<Observation, { readonly _tag: "Evidence" }>["kind"]) => number;
   readonly issues: () => ReadonlyArray<string>;
+  readonly denials: () => ReadonlyArray<ReadonlyArray<string>>;
 };
 
 const record = (value: unknown) =>
@@ -312,6 +313,7 @@ export const openCase = (
     evidence: (kind) =>
       reported().filter((o) => Observation.$is("Evidence")(o) && o.kind === kind).length,
     issues: () => reported().flatMap((o) => (Observation.$is("Issue")(o) ? [o.code] : [])),
+    denials: () => reported().flatMap((o) => (Observation.$is("Denied")(o) ? [o.reasons] : [])),
   };
 
   return c;

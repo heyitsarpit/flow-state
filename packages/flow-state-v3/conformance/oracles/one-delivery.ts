@@ -134,7 +134,8 @@ const deliveries = (ledger: Ledger, observed: Observation, pending: Array<Pendin
 
 const ran = (observed: Observation, pending: Array<Pending>) => {
   const at = pending.findIndex((p) => {
-    if (Observation.$is("Unhandled")(observed)) return p.event === observed.event;
+    if (Observation.$is("Unhandled")(observed) || Observation.$is("Denied")(observed))
+      return p.event === observed.event;
 
     if (Observation.$is("Issue")(observed))
       return observed.code === "InvalidTurn" || observed.code === "UnmappedEnding";
@@ -208,8 +209,9 @@ const ledgerOf = (facts: Facts) => {
  *
  * A ledger over each step: an ending the runtime reports is owed until it is delivered, parked
  * (then owed again when unparked) or recorded. By the end of the step that decided it, nothing is
- * owed. A delivery must be run, in that step, by a turn of the actor that committed it (or be
- * refused or unhandled, which the runtime retries). A referenced write's ending may be recorded
+ * owed. A delivery must be run, in that step, by a turn of the actor that committed it, or be
+ * unhandled or denied by that actor's handlers, or refused (which the runtime retries). A
+ * referenced write's ending may be recorded
  * and not delivered only for a cause the suite holds: its operation's concurrency is `cancel`,
  * the runtime said the Attempt was superseded, or the suite disposed its actor.
  *
