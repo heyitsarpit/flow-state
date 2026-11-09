@@ -1,26 +1,51 @@
 phase P9
 title Hardening and budgets
 description
-    Class: verifiable.
-    Kind: performance.
-    Goal: the budgets met on their named devices, and every finding from every round given a
+    **Class:** verifiable.
+
+    **Kind:** performance.
+
+    **Goal:** the budgets met on their named devices, and every finding from every round given a
     disposition.
-    Starts when: P8's completion audit passes and the user has set the targets.
-    Verified by: P8's benchmark and real-browser suites; skill:check-benchmark on baseline and
-    final numbers; a test-harness-only review by an agent with no prior reading; the final review.
-    One iteration: one finding group or one budget: one isolated change, measured against the
+
+    **Starts when:** P8's completion audit passes and the user has set the targets.
+
+    **Verified by:**
+
+    - P8's benchmark and real-browser suites;
+    - skill:check-benchmark on baseline and final numbers;
+    - a test-harness-only review by an agent with no prior reading;
+    - the final review.
+
+    **One iteration:** one finding group or one budget: one isolated change, measured against the
     accepted baseline, kept only if the checked comparison shows a gain with the tests green.
-    Exit criteria: budgets met on their devices; every finding has a disposition; quota and disk
-    durability measured on a real phone by the user; `nub run verify` and the final-commit gates
-    pass.
-    False pass: closing findings as dropped to finish. Caught by: the completion audit checking
-    each drop's reason against the Specs.
-    Gates: P8's slowed builds; falsify.
-    Budget: the Epic's Budget section, row P8 and P9.
-    Failure limit: 2.
-    Stops: the real-phone run, which holds only that item; a guarantee change. User's read: each
-    finding's disposition.
-    Draws from: skill:playbook-performance; skill:hillclimb; skill:check-benchmark.
+
+    **Exit criteria:**
+
+    - budgets met on their devices;
+    - every finding has a disposition;
+    - quota and disk durability measured on a real phone by the user;
+    - `nub run verify` and the final-commit gates pass.
+
+    **False pass:** closing findings as dropped to finish.
+
+    **Caught by:** the completion audit checking each drop's reason against the Specs.
+
+    **Gates:** P8's slowed builds; falsify.
+
+    **Budget:** the Epic's Budget section, row P8 and P9.
+
+    **Failure limit:** 2.
+
+    **Stops:** the real-phone run, which holds only that item; a guarantee change.
+
+    **User's read:** each finding's disposition.
+
+    **Draws from:**
+
+    - skill:playbook-performance;
+    - skill:hillclimb;
+    - skill:check-benchmark.
 tasks
     T36
         title       Budgets met on named devices
@@ -29,13 +54,13 @@ tasks
         labels      [verifiable, performance]
         description
             One budget at a time against P8's baseline. Drafted in full when P9 starts.
-            Evidence: this Task's comments.
 
-            False pass: a speedup that skips work → caught by skill:check-benchmark.
-            Gates: P8's slowed builds.
-            Budget: 6 rounds.
-            Stops: none.
-            User's read: none.
+            - **Evidence:** this Task's comments.
+            - **False pass:** a speedup that skips work → caught by skill:check-benchmark.
+            - **Gates:** P8's slowed builds.
+            - **Budget:** 6 rounds.
+            - **Stops:** none.
+            - **User's read:** none.
         acceptance
             Every budget met on its device in a checked comparison.
     T37
@@ -44,15 +69,16 @@ tasks
         priority    medium
         labels      [verifiable, performance]
         description
-            Sweep every finding from every round, Epic note and revisit.md into fixed, deferred
-            with a reason, or dropped with a reason checked against the Specs. Drafted in full
-            when P9 starts. Evidence: this Task's comments.
+            Sweep every finding from every round, Epic note and revisit.md into fixed, deferred with
+            a reason, or dropped with a reason checked against the Specs. Drafted in full when P9
+            starts.
 
-            False pass: drops to finish → caught by the completion audit.
-            Gates: `nub run verify`.
-            Budget: 3 rounds.
-            Stops: none.
-            User's read: each disposition.
+            - **Evidence:** this Task's comments.
+            - **False pass:** drops to finish → caught by the completion audit.
+            - **Gates:** `nub run verify`.
+            - **Budget:** 3 rounds.
+            - **Stops:** none.
+            - **User's read:** each disposition.
         acceptance
             Every finding has a disposition; the final-commit gates pass.
     T38
@@ -62,12 +88,13 @@ tasks
         labels      [verifiable, performance]
         description
             The user runs it: an agent here reaches only browsers and a simulator. Prepare the
-            script and read the results. Evidence: this Task's comments.
+            script and read the results.
 
-            False pass: a simulator standing in for the phone → caught by the user's own run.
-            Gates: none.
-            Budget: 1 round.
-            Stops: the user's run.
-            User's read: the results.
+            - **Evidence:** this Task's comments.
+            - **False pass:** a simulator standing in for the phone → caught by the user's own run.
+            - **Gates:** none.
+            - **Budget:** 1 round.
+            - **Stops:** the user's run.
+            - **User's read:** the results.
         acceptance
             The user's real-phone results are recorded and meet the budgets.

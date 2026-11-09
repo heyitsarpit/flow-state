@@ -2,23 +2,31 @@ epic         V3
 title        Flow State v3 production
 status       draft
 description
-    Goal: "production code for Flow State v3 at high quality, with good error messages and the
+    **Goal:** "production code for Flow State v3 at high quality, with good error messages and the
     correctness guarantees the prototypes proved, plus example apps and generated documentation"
-    (the user, 2026-11-04).
-    Built with skill:to-epic at the library revision in skill.
+    (the user, 2026-11-04). Built with skill:to-epic at the library revision in skill.
+
     Records: Plans @plan.FlowState, @plan.Machines, @plan.Operations, @plan.Runtime,
     @plan.Persistence, @plan.EntityDomains, @plan.React, @plan.ServerRendering, @plan.Testing,
     @plan.Inspection, @plan.Diagnostics, @plan.CommandLine, @plan.LazyFeatures, @plan.Package
-    (merged in phase 2, status proposed). Core Specs @spec.Compile, @spec.Turn, @spec.Actors,
-    @spec.WriteLanes, @spec.Reads, @spec.WriteAhead, @spec.Restore, @spec.Diagnostics,
-    @spec.Codec, @spec.StaticCli. Deferred and open items: code:workflow/plans/flow/references/proposals/revisit.md,
+    (merged in phase 2, status proposed).
+
+    Core Specs @spec.Compile, @spec.Turn, @spec.Actors, @spec.WriteLanes, @spec.Reads,
+    @spec.WriteAhead, @spec.Restore, @spec.Diagnostics, @spec.Codec, @spec.StaticCli. Deferred and
+    open items: code:workflow/plans/flow/references/proposals/revisit.md,
     code:workflow/plans/flow/references/proposals/open-items.md.
-    Locations: production code `packages/flow-state-v3/src/` (created in P4); the conformance
-    suite code:packages/flow-state-v3/conformance/README.md (its how-to); the prototype reference
-    `packages/flow-state-v3/prototypes/round-14/` and its old suite `prototypes/conformance/`;
-    feature Specs beside the core ones in `specs/` (written when P5 starts); example apps
-    `examples/` (P6); docs `apps/docs/` (P7). Proposal files for non-verifiable phases go in
-    `workflow/plans/flow/references/proposals/`.
+
+    Locations:
+
+    - production code `packages/flow-state-v3/src/` (created in P4);
+    - the conformance suite code:packages/flow-state-v3/conformance/README.md (its how-to);
+    - the prototype reference `packages/flow-state-v3/prototypes/round-14/` and its old suite
+      `prototypes/conformance/`;
+    - feature Specs beside the core ones in `specs/` (written when P5 starts);
+    - example apps `examples/` (P6);
+    - docs `apps/docs/` (P7).
+
+    Proposal files for non-verifiable phases go in `workflow/plans/flow/references/proposals/`.
 
     ## Stages and stage exits
 
@@ -33,100 +41,119 @@ description
     ## Scope
 
     Bounds: P0 to P10; UI is React and Next.js only. Assumptions: the prototype is the reference
-    implementation. Order of authority: Specs, then Plans; where a Plan and the prototype disagree,
-    the prototype wins until a Spec records it (amendment 11); features are built from the Plans
-    so corrected. Specs are guides, written just in time and revised with a logged reason
-    (amendment 13). Exclusions: Electron; TanStack DB integration; tla-ts; new prototyping;
-    feature Specs before P5; migration functions and manual versions (revisit.md). Reused
-    evidence: P0 to P2's results (stage A close-out PASS after its re-check; phase 2 completion
-    audit PASS-WITH-FINDINGS, fixed at `9c3fc40c`); P3 rounds 1 to 5 (suite 61/61 on round 14,
-    null 0/61, falsify 25/25, `nub run check` at zero, at `bc8dffba`). Absorbed into the Plans and
-    cited, not carried: D1 to D7 of the round-14 review, the required services list
-    (@plan.Operations, @plan.Runtime.V2), and OD1 to OD55 through the phase 2 merge (the design
-    file, `machine-design.md`, is deleted; read it in git at `20986677`).
-    Pending decisions: the Decision notes below wait for the user's read and block no work; the
-    user reads them at their own pace; one the user overrules becomes rework, noted then; P4
-    starts without waiting for them.
+    implementation.
+
+    Order of authority:
+
+    - Specs, then Plans;
+    - where a Plan and the prototype disagree, the prototype wins until a Spec records it (amendment
+      11);
+    - features are built from the Plans so corrected.
+
+    Specs are guides, written just in time and revised with a logged reason (amendment 13).
+
+    Exclusions:
+
+    - Electron;
+    - TanStack DB integration;
+    - tla-ts;
+    - new prototyping;
+    - feature Specs before P5;
+    - migration functions and manual versions (revisit.md).
+
+    Reused evidence: P0 to P2's results (stage A close-out PASS after its re-check; phase 2
+    completion audit PASS-WITH-FINDINGS, fixed at `9c3fc40c`); P3 rounds 1 to 5 (suite 61/61 on
+    round 14, null 0/61, falsify 25/25, `nub run check` at zero, at `bc8dffba`).
+
+    Absorbed into the Plans and cited, not carried: D1 to D7 of the round-14 review, the required
+    services list (@plan.Operations, @plan.Runtime.V2), and OD1 to OD55 through the phase 2 merge
+    (the design file, `machine-design.md`, is deleted; read it in git at `20986677`).
+
+    Pending decisions:
+
+    - the Decision notes below wait for the user's read and block no work;
+    - the user reads them at their own pace;
+    - one the user overrules becomes rework, noted then;
+    - P4 starts without waiting for them.
 
     ## Constraints
 
     - No new prototyping; production may converge again (session, 2026-11-04; whole run).
     - The suite and the core are written cleanly, with the prototype open beside them; prototype
-    code never moves into the package (session, 2026-11-04; P3, P4).
+      code never moves into the package (session, 2026-11-04; P3, P4).
     - Production code is built from `.spec` files written with skill:to-design and skill:to-spec;
-    briefs cite the Spec, reviews check code against it (the user, 2026-11-09; whole run).
-    - Specs are guides, written just in time, revised whenever building shows them wrong, with
-    the reason logged (amendment 13, 2026-11-09; whole run).
+      briefs cite the Spec, reviews check code against it (the user, 2026-11-09; whole run).
+    - Specs are guides, written just in time, revised whenever building shows them wrong, with the
+      reason logged (amendment 13, 2026-11-09; whole run).
     - Production features are built test-first (memory, 2026-11-04; P3 to P10).
-    - Test the spec, not the code: expected results come from a cited Spec rule, are written
-    before the code by someone other than the builder, and never come from running the code;
-    recorded output is a change detector only (memory, 2026-11-04; whole run).
+    - Test the spec, not the code: expected results come from a cited Spec rule, are written before
+      the code by someone other than the builder, and never come from running the code; recorded
+      output is a change detector only (memory, 2026-11-04; whole run).
     - UI is React and Next.js only; Electron is out (session, 2026-11-04; whole run). TanStack DB
-    integration is out (session, 2026-11-03; whole run).
+      integration is out (session, 2026-11-03; whole run).
     - The CLI keeps only `flow check`, `explain`, `graph`, `story` and `trace` (the user,
-    2026-11-02; P4, P5).
+      2026-11-02; P4, P5).
     - Docs live in `apps/docs/`, written in the source in Effect's shape (summary, When to use,
-    Details, Gotchas, named runnable examples, `@see`), generated to Markdown, with long guides
-    beside the package; example apps linked from them (session, 2026-11-04; P7).
+      Details, Gotchas, named runnable examples, `@see`), generated to Markdown, with long guides
+      beside the package; example apps linked from them (session, 2026-11-04; P7).
     - Example apps go in `examples/`, built with Next.js; each explains what it demos with a
-    write-up and tooltips; one demos Story presentation (session, 2026-11-04; P6).
+      write-up and tooltips; one demos Story presentation (session, 2026-11-04; P6).
     - Code style: every brief carries AGENTS.md "Code style (v3 production)", lint-bomb's
-    `tools/lint-bomb/STYLE.md` with `examples/style.ts`, `booking.ts`, `tracking.ts`, and
-    `tools/lint-bomb/FLOW-STATE.md`; the core in `src/` is plain, pure, synchronous and
-    deterministic, returning work as data; Effect only in `src/host/` and the edges; doc
-    comments only on exported API; `nub run check:fix`, then `nub run check` at zero errors and
-    warnings; the pinned `nub` toolchain (AGENTS.md; the user, 2026-11-09; P3 to P10).
-    - No plan or invariant ids in code; the Spec owns them and tests cite them (session,
-    2026-11-04; whole run).
-    - Conformance code stays plain synchronous values, not Context.Services (the user,
-    2026-11-09; P3).
+      `tools/lint-bomb/STYLE.md` with `examples/style.ts`, `booking.ts`, `tracking.ts`, and
+      `tools/lint-bomb/FLOW-STATE.md`; the core in `src/` is plain, pure, synchronous and
+      deterministic, returning work as data; Effect only in `src/host/` and the edges; doc comments
+      only on exported API; `nub run check:fix`, then `nub run check` at zero errors and warnings;
+      the pinned `nub` toolchain (AGENTS.md; the user, 2026-11-09; P3 to P10).
+    - No plan or invariant ids in code; the Spec owns them and tests cite them (session, 2026-11-04;
+      whole run).
+    - Conformance code stays plain synchronous values, not Context.Services (the user, 2026-11-09;
+      P3).
     - Lint covers `src` and `conformance` (the user, 2026-11-09; whole run).
     - Ask in numbered rounds with before and after and a recommendation; never present a
-    recommendation as decided; call him "the user" (AGENTS.md; memory; whole run).
+      recommendation as decided; call him "the user" (AGENTS.md; memory; whole run).
     - Work serially: one builder, an hourly review, a close-out per phase or area (amendment 3,
-    2026-11-08; whole run). Up to 8 deterministic processes, about 16 GB; real-browser runs
-    and benchmarks alone; kill only this run's processes, by exact pid (memory, 2026-11-04;
-    whole run).
+      2026-11-08; whole run). Up to 8 deterministic processes, about 16 GB; real-browser runs and
+      benchmarks alone; kill only this run's processes, by exact pid (memory, 2026-11-04; whole
+      run).
     - Business keys for money (`prototypes/round-8/RESULTS.md`, 2026-11-01; P4, P5). Entities are
-    optional but not up for cutting (memory, 2026-11-01; P5). No tla-ts (memory, 2026-11-03;
-    whole run).
+      optional but not up for cutting (memory, 2026-11-01; P5). No tla-ts (memory, 2026-11-03; whole
+      run).
 
     ## Authority
 
-    By default: read, edit within the phase's scope, run checks, repair own defects, update
-    records. Also allowed, by the user's approval of this Epic:
+    By default: read, edit within the phase's scope, run checks, repair own defects, update records.
+    Also allowed, by the user's approval of this Epic:
+
     - commit locally to `flow-rewrite` with explicit paths; never push, never stash (the user's
-    approval of this Epic is the "when I say" of AGENTS.md's "commit only when I say");
-    - start agents as the loop's instructions say: serially, one building lead and, at review
-    time, one reviewing or checking agent (a reviewing lead, or an independent skill:check-spec
-    or skill:check-task agent), each lead with its own sidecars;
+      approval of this Epic is the "when I say" of AGENTS.md's "commit only when I say");
+    - start agents as the loop's instructions say: serially, one building lead and, at review time,
+      one reviewing or checking agent (a reviewing lead, or an independent skill:check-spec or
+      skill:check-task agent), each lead with its own sidecars;
     - insert Tasks, split a phase that keeps its goal, reorder without breaking a dependency;
     - start the next phase after its completion audit passes, unless it starts with a stop;
-    - write and revise Specs (skill:to-spec, skill:to-design), each change logged.
-    Writing rulings or coverage records into the Plans outside a merge phase: list the change
-    and wait for the user's yes (AGENTS.md).
-    Orchestrator decides: design calls in P3 to P5 and P9, the suite's layout and the internal
-    module layout, design calls inside one app's slice (P6) or one docs section (P7), judged by a
-    reviewing agent, and small public API changes (a flag, a
-    default, a field or member name, where an option sits); each noted for the user's read
-    (amendment 9).
-    User decides: public entry-point names; new concepts; large public API changes (a change to
-    how app code is structured, removing a feature, anything touching many call sites); a
-    guarantee change; relaxing a gate; changes to the Plans' decisions or outcomes; scope;
-    budgets; the frame (skill:build-a-loop#rules, R16); which example apps, and accepting each app;
-    the CLI outputs; the docs criteria; budget targets; each ship stage; more agents than the instructions allow.
-    Everything else still needs the user.
+    - write and revise Specs (skill:to-spec, skill:to-design), each change logged. Writing rulings
+      or coverage records into the Plans outside a merge phase: list the change and wait for the
+      user's yes (AGENTS.md). Orchestrator decides: design calls in P3 to P5 and P9, the suite's
+      layout and the internal module layout, design calls inside one app's slice (P6) or one docs
+      section (P7), judged by a reviewing agent, and small public API changes (a flag, a default, a
+      field or member name, where an option sits); each noted for the user's read (amendment 9).
+      User decides: public entry-point names; new concepts; large public API changes (a change to
+      how app code is structured, removing a feature, anything touching many call sites); a
+      guarantee change; relaxing a gate; changes to the Plans' decisions or outcomes; scope;
+      budgets; the frame (skill:build-a-loop#rules, R16); which example apps, and accepting each
+      app; the CLI outputs; the docs criteria; budget targets; each ship stage; more agents than the
+      instructions allow. Everything else still needs the user.
 
     ## Budget
 
-    Total: P3 20 rounds left, P4 25, P5 40, P8 and P9 10, P10 one Task (95 rounds and one
-    Task); P6 and P7 are counted when their Tasks are written (6 rounds per app, 3 per section).
-    Pace: one building iteration plus its review uses
-    about 2 to 4 percent of the weekly limit (estimate: rounds 4 and 5 with one review moved
-    weekly use from 82 to 87 percent, 2026-11-09). Usage reserve: 5 percent of the weekly limit;
-    the run stops at 95 percent weekly (R3 A, 2026-11-07; kept by the user's Q2 A, 2026-11-09).
-    Failure limit (the default for each phase): 2 failures with the same root cause after
-    convergence.
+    Total: P3 20 rounds left, P4 25, P5 40, P8 and P9 10, P10 one Task (95 rounds and one Task); P6
+    and P7 are counted when their Tasks are written (6 rounds per app, 3 per section). Pace: one
+    building iteration plus its review uses about 2 to 4 percent of the weekly limit (estimate:
+    rounds 4 and 5 with one review moved weekly use from 82 to 87 percent, 2026-11-09).
+
+    Usage reserve: 5 percent of the weekly limit; the run stops at 95 percent weekly (R3 A,
+    2026-11-07; kept by the user's Q2 A, 2026-11-09). Failure limit (the default for each phase): 2
+    failures with the same root cause after convergence.
 
     | Phase | Iterations | Time | Usage |
     | --- | --- | --- | --- |
@@ -142,134 +169,153 @@ description
     ## Glossary
 
     Library terms: skill:to-epic#terms. This project's terms:
+
     - Prototype runtime, round 14: `packages/flow-state-v3/prototypes/round-14/`, the reference.
     - Old suite: the prototype's `prototypes/conformance/`; the new suite is
-    `packages/flow-state-v3/conformance/`.
+      `packages/flow-state-v3/conformance/`.
     - Port: the new suite's one interface to a runtime, with a prototype, a null and (in P4) a
-    production adapter. Oracle: a module that judges one guarantee on every step.
+      production adapter. Oracle: a module that judges one guarantee on every step.
     - Lie: the old name for a mutant of a runtime; renamed "mutant" by P3's rename Task.
     - Falsify: the gate that runs every check against null, broken, tampered and lying runtimes.
     - Null runtime: a runtime that does nothing; it must fail every case.
     - Guarantee map: the suite README's table of each Spec Invariant, its oracle and its mutants.
     - Graph gate: `flow graph` checked against every transition the runtime is seen to take.
-    - Fast gates and final-commit gates: gates run on every commit, and the slower ones (full
-    mutant run, searches, real-browser runs) run before a phase's final commit.
+    - Fast gates and final-commit gates: gates run on every commit, and the slower ones (full mutant
+      run, searches, real-browser runs) run before a phase's final commit.
     - The Pay path: checkout's Pay machine run end to end through the public API.
     - Safari's four requirements: host adapter requirements in
-    `packages/flow-state-v3/prototypes/safari/RESULTS.md`.
-    - Issue catalog: every issue the runtime raises, with a name, cause and next step,
-    generated from the code.
-    - Packed-consumer check: installing the exact published tarball in a fresh project and
-    importing every public route.
+      `packages/flow-state-v3/prototypes/safari/RESULTS.md`.
+    - Issue catalog: every issue the runtime raises, with a name, cause and next step, generated
+      from the code.
+    - Packed-consumer check: installing the exact published tarball in a fresh project and importing
+      every public route.
     - Carry list: round-14 items owned by the new suite, in its README.
-    - OD, C, D, U ids: decision ids of `machine-design.md` (deleted; in git at `20986677`) and
-    its convergence records.
+    - OD, C, D, U ids: decision ids of `machine-design.md` (deleted; in git at `20986677`) and its
+      convergence records.
     - Amendment N: a numbered change to the old roadmap (git `b30be69d`); each one that still
-    applies has an Amendment note below, which names its number and says what it changed.
+      applies has an Amendment note below, which names its number and says what it changed.
     - Checkpoint: a builder commit at the end of a coherent step, about every 50 minutes.
 skill        workflow@1c49650
 run
-    To start: "run the loop in workflow/tasks/V3/epic.task". You are the orchestrator: you
-    start, track and route agents; you never build.
-    1. Read this file, `workflow show @epic.V3 --tree`, and the records the current Task links;
-    on a resume, run skill:catch-up first. If status is not active or the loop fields are
-    missing, stop and tell the user.
-    2. Current Task: the in_progress one, otherwise `workflow next --epic V3`. It returns "No
-    ready tasks." while the Epic is draft (readiness needs an active Epic) and while P4 to P10's
-    Tasks are draft: set a phase's Tasks open when the phase starts.
+    To start: "run the loop in workflow/tasks/V3/epic.task". You are the orchestrator: you start,
+    track and route agents; you never build.
+
+    1. Read this file, `workflow show @epic.V3 --tree`, and the records the current Task links; on a
+       resume, run skill:catch-up first. If status is not active or the loop fields are missing,
+       stop and tell the user.
+    2. Current Task: the in_progress one, otherwise `workflow next --epic V3`. It returns "No ready
+       tasks." while the Epic is draft (readiness needs an active Epic) and while P4 to P10's Tasks
+       are draft: set a phase's Tasks open when the phase starts.
     3. Create the session cron from cadence; without one, run its prompt at each wake (R25).
     4. Keep the machine awake for the run (R26), for example `caffeinate -i` on this Mac.
     5. Recover the real agent state: agents and processes alive, branch, last checkpoint, and
-    uncommitted work with its owner.
+       uncommitted work with its owner.
     6. Note "Run started" or "Run resumed": revision, current Task, live agents, first action.
     7. Start or resume one building lead, set its Task in_progress, and confirm activity within a
-    minute.
-    Rules: follow skill:build-a-loop#rules, skill:policy-delegation and skill:policy-verification at the
-    library revision in skill; instructions override their defaults. The skills root is the
-    suite path `suites/workflow` in the library checkout `/Users/arpit/Developer/workflow/skills`
-    (a Git repository); check the pin with `git -C /Users/arpit/Developer/workflow/skills
-    rev-parse --short HEAD`. If it is at another revision, read the pinned one with `git -C
-    /Users/arpit/Developer/workflow/skills show 1c49650:suites/workflow/NAME/SKILL.md`, or ask
-    the user.
-    Before changing the loop fields (run, instructions, cadence, stops), read skill:build-a-loop at the
-    pinned revision; before adding or editing a Task, read skill:to-task (and skill:to-epic for a
-    phase); before adding a phase, read skill:to-epic.
+       minute. Rules: follow skill:build-a-loop#rules, skill:policy-delegation and
+       skill:policy-verification at the library revision in skill; instructions override their
+       defaults. The skills root is the suite path `suites/workflow` in the library checkout
+       `/Users/arpit/Developer/workflow/skills` (a Git repository); check the pin with
+       `git -C /Users/arpit/Developer/workflow/skills rev-parse --short HEAD`. If it is at another
+       revision, read the pinned one with
+       `git -C /Users/arpit/Developer/workflow/skills show 1c49650:suites/workflow/NAME/SKILL.md`,
+       or ask the user. Before changing the loop fields (run, instructions, cadence, stops), read
+       skill:build-a-loop at the pinned revision; before adding or editing a Task, read
+       skill:to-task (and skill:to-epic for a phase); before adding a phase, read skill:to-epic.
 instructions
-    Who runs the loop: an agent orchestrator (Claude), until a stop (roadmap, 2026-11-07).
-    Source of truth, by area: the core Specs for the core (P3, P4); the Plans for everything
-    else; where a Plan and the prototype disagree, the prototype, until a Spec records it
-    (amendment 11; holds until P5's feature Specs exist); code style: AGENTS.md and
-    `tools/lint-bomb/FLOW-STATE.md` (whole run).
-    Lead and sidecar models: Opus and Haiku, Claude Code, detected 2026-11-09; told the user in
-    the summary they confirmed.
-    Constraints: the Epic's Constraints section. Budget and usage reserve: its Budget section.
-    R35's convergence threshold: 3, the third review in a row finding the same root cause in the
-    same part (amendment 4, the user, 2026-11-08).
-    R30's effort: building leads medium, every third building iteration high; reviewing and
-    auditing leads high; every Haiku agent high (the user, 2026-11-02 and 2026-11-08; kept by Q6 A,
-    2026-11-09).
-    Reviews: every review, audit or research task goes to one Opus lead that starts its own four
-    Haiku sidecars, two of them on code quality (STYLE.md and Effect idioms; types, comments and
-    lint), two on correctness against the Spec the change implements; sidecars report only to
-    their lead (amendment 7, 2026-11-08; two on code quality: the user, 2026-11-09).
-    Building leads plan their round's tasks up front and may run up to four Haiku sidecars
-    (coders on disjoint files, runners, reviewers); a reviewer sidecar checks every oracle, test
-    harness or runtime change (amendment 8, adopted 2026-11-08).
-    Every lead reads every line of sidecar code, re-runs each check itself, confirms a mutant
-    fails for the expected reason, and logs each result as accepted, changed or rejected, in the
-    Task's comments (for P3, also in the suite's STATUS.md) (the user, 2026-11-08).
-    Every build and review brief carries the code-style list in the Constraints section, the Spec
-    it implements, and the test-the-spec rule (the user, 2026-11-09).
-    Agents at once: one building lead and, at review time, one reviewing or checking agent (a
-    reviewing lead, or an independent skill:check-spec or skill:check-task agent, which takes the
-    review slot), plus their sidecars (amendment 3). Processes: up to 8 deterministic, about 16 GB, after checking
-    `vm_stat`. Always alone: real-browser runs and benchmarks.
-    Checkpoints (a builder commit at the end of a coherent step) about every 50 minutes, which
-    feed the hourly review.
-    Weekly usage: read it from the agent harness's usage view (in the Claude desktop app, its
-    usage tool; otherwise ask the user).
-    R43: no worktrees; the builder works in the main checkout on `flow-rewrite` (the user,
-    2026-11-08).
-    Command time limit: under 5 minutes each, with `perl -e 'alarm N; exec @ARGV' --` or
-    `watch.ts --seconds N`; stdin never read (`</dev/null`); files only with the Write and Edit
-    tools (memory, 2026-11-04).
+    - Who runs the loop: an agent orchestrator (Claude), until a stop (roadmap, 2026-11-07).
+    - Source of truth, by area: the core Specs for the core (P3, P4); the Plans for everything else;
+      where a Plan and the prototype disagree, the prototype, until a Spec records it (amendment 11;
+      holds until P5's feature Specs exist); code style: AGENTS.md and
+      `tools/lint-bomb/FLOW-STATE.md` (whole run).
+    - Lead and sidecar models: Opus and Haiku, Claude Code, detected 2026-11-09; told the user in
+      the summary they confirmed.
+    - Constraints: the Epic's Constraints section. Budget and usage reserve: its Budget section.
+      R35's convergence threshold: 3, the third review in a row finding the same root cause in the
+      same part (amendment 4, the user, 2026-11-08).
+    - R30's effort: building leads medium, every third building iteration high; reviewing and
+      auditing leads high; every Haiku agent high (the user, 2026-11-02 and 2026-11-08; kept by Q6
+      A, 2026-11-09).
+    - Reviews: every review, audit or research task goes to one Opus lead that starts its own four
+      Haiku sidecars, two of them on code quality (STYLE.md and Effect idioms; types, comments and
+      lint), two on correctness against the Spec the change implements; sidecars report only to
+      their lead (amendment 7, 2026-11-08; two on code quality: the user, 2026-11-09).
+    - Building leads plan their round's tasks up front and may run up to four Haiku sidecars (coders
+      on disjoint files, runners, reviewers); a reviewer sidecar checks every oracle, test harness
+      or runtime change (amendment 8, adopted 2026-11-08).
+    - Every lead reads every line of sidecar code, re-runs each check itself, confirms a mutant
+      fails for the expected reason, and logs each result as accepted, changed or rejected, in the
+      Task's comments (for P3, also in the suite's STATUS.md) (the user, 2026-11-08).
+    - Every build and review brief carries the code-style list in the Constraints section, the Spec
+      it implements, and the test-the-spec rule (the user, 2026-11-09).
+    - Agents at once: one building lead and, at review time, one reviewing or checking agent (a
+      reviewing lead, or an independent skill:check-spec or skill:check-task agent, which takes the
+      review slot), plus their sidecars (amendment 3). Processes: up to 8 deterministic, about 16
+      GB, after checking `vm_stat`. Always alone: real-browser runs and benchmarks.
+    - Checkpoints (a builder commit at the end of a coherent step) about every 50 minutes, which
+      feed the hourly review.
+    - Weekly usage: read it from the agent harness's usage view (in the Claude desktop app, its
+      usage tool; otherwise ask the user).
+    - R43: no worktrees; the builder works in the main checkout on `flow-rewrite` (the user,
+      2026-11-08).
+    - Command time limit: under 5 minutes each, with `perl -e 'alarm N; exec @ARGV' --` or
+      `watch.ts --seconds N`; stdin never read (`</dev/null`); files only with the Write and Edit
+      tools (memory, 2026-11-04).
 cadence
-    Review every 60 minutes on the latest checkpoint. Session cron `7 * * * *`.
+    Review every 60 minutes on the latest checkpoint.
+
+    Session cron `7 * * * *`.
+
     Prompt: "V3 review wake. Read workflow/tasks/V3/epic.task and its last notes. Read the weekly
     usage from the harness's usage view (in the Claude desktop app, its usage tool; otherwise ask
-    the user); at 95 percent or more, stop the run by R21 and note it. If a checkpoint on flow-rewrite
-    is newer than the last noted review, and no review or audit already covers it, start one
-    Opus reviewing lead at high effort; it starts its own four Haiku sidecars at high effort (two
-    on code quality against tools/lint-bomb/STYLE.md and FLOW-STATE.md, two on correctness
-    against the Spec the change implements), checks the builder's accepted, changed or rejected
-    log, and reports to you only; note the review. If the building lead has shown no activity
-    for 70 minutes, resume it by message or replace it (R7) and note it. Otherwise write nothing."
-    Quiet rule: a wake that finds nothing writes no note and sends no message.
+    the user); at 95 percent or more, stop the run by R21 and note it. If a checkpoint on
+    flow-rewrite is newer than the last noted review, and no review or audit already covers it,
+    start one Opus reviewing lead at high effort; it starts its own four Haiku sidecars at high
+    effort (two on code quality against tools/lint-bomb/STYLE.md and FLOW-STATE.md, two on
+    correctness against the Spec the change implements), checks the builder's accepted, changed or
+    rejected log, and reports to you only; note the review. If the building lead has shown no
+    activity for 70 minutes, resume it by message or replace it (R7) and note it. Otherwise write
+    nothing." Quiet rule: a wake that finds nothing writes no note and sends no message.
 stops
-    The user's decisions in the Authority section; a guarantee that can't be met; a guarantee
-    change; a change proposal whose judge is the user; the user-judged decisions in P5, P6, P7
-    and P9 (their cards); each ship stage in P10; the real-phone run in P9, which holds only that
-    item. Budgets and the usage reserve: the Epic's Budget section.
+    - The user's decisions in the Authority section;
+    - a guarantee that can't be met;
+    - a guarantee change;
+    - a change proposal whose judge is the user;
+    - the user-judged decisions in P5, P6, P7 and P9 (their cards);
+    - each ship stage in P10;
+    - the real-phone run in P9, which holds only that item.
+
+    Budgets and the usage reserve: the Epic's Budget section.
 note 2026-11-09T13:40:00Z
-    Summary confirmed by the user (Claude Code session, via the runner, 2026-11-09): "all
-    accepted": Q1 A (P3 and P5 not readily verifiable, kind verification-suite), Q2 A (keep the
-    95 percent weekly stop, 5 percent reserve), Q3 A (P3's budget raised from 12 to 25 rounds),
-    Q4 A (open calls as named pending notes; older calls stay in git), Q5 A (old phase 8 split into
-    P8 suites and P9 performance), Q6 A (building leads medium, every third iteration high); and
-    the skills root pointed at the source checkout `/Users/arpit/Developer/workflow/skills/suites/workflow`.
+    Summary confirmed by the user (Claude Code session, via the runner, 2026-11-09): "all accepted":
+    Q1 A (P3 and P5 not readily verifiable, kind verification-suite), Q2 A (keep the 95 percent
+    weekly stop, 5 percent reserve), Q3 A (P3's budget raised from 12 to 25 rounds), Q4 A (open
+    calls as named pending notes; older calls stay in git), Q5 A (old phase 8 split into P8 suites
+    and P9 performance), Q6 A (building leads medium, every third iteration high); and the skills
+    root pointed at the source checkout `/Users/arpit/Developer/workflow/skills/suites/workflow`.
+
     The confirmed summary was `workflow/tasks/V3/SUMMARY-DRAFT.md`.
 note 2026-11-09T13:41:00Z
     Migrated from `workflow/roadmaps/v3-production/` (roadmap.md version 14, approved 2026-11-07,
-    and progress.md), last commit `b30be69d`, by hand with its uncommitted fixes. Old phases 0 to 9 are P0 to P10 (old 
-    8 split).
-    Old phase 3 and 5's "readily verifiable" became not readily verifiable (Q1 A). Phase history,
-    the stage A queue, CP1 to CP3, gate timings and the log are in git at `b30be69d`; the design
-    file and absorbed proposals at `20986677`. Spent amendments, not carried: 1 (wording), 2
-    (replaced by 3), 5 (Haiku fan-out in phases 0 and 2), 6 (now skill:to-task and
+    and progress.md), last commit `b30be69d`, by hand with its uncommitted fixes. Old phases 0 to 9
+    are P0 to P10 (old 8 split). Old phase 3 and 5's "readily verifiable" became not readily
+    verifiable (Q1 A).
+
+    Phase history, the stage A queue, CP1 to CP3, gate timings and the log are in git at `b30be69d`;
+    the design file and absorbed proposals at `20986677`. Spent amendments, not carried: 1
+    (wording), 2 (replaced by 3), 5 (Haiku fan-out in phases 0 and 2), 6 (now skill:to-task and
     skill:to-epic#adding-work-later), 10 (phase 1's re-audit; now R36), 12 (phase 2's superseded
-    file). State at migration: no agent running; P3 round 5 done at `bc8dffba`; `3097ea3c` and
-    `bc8dffba` unreviewed, for the first cadence review; weekly usage 87 percent. The old folder
-    stays until the user approves this Epic and its loop; its deletion is not in the authority.
+    file).
+
+    State at migration:
+
+    - no agent running;
+    - P3 round 5 done at `bc8dffba`;
+    - `3097ea3c` and `bc8dffba` unreviewed, for the first cadence review;
+    - weekly usage 87 percent.
+
+    The old folder stays until the user approves this Epic and its loop; its deletion is not in the
+    authority.
 note 2026-11-09T13:42:00Z
     Amendment (2026-11-08, user): roadmap amendment 3: work serially: one builder, one review every 60 minutes, one
     close-out review per round or area; repeated heavy findings trigger one convergence pass,
@@ -283,10 +329,14 @@ note 2026-11-09T13:44:00Z
     sidecars on different angles, read-only, reporting only to their lead; two take code quality
     from phase 3 on (2026-11-09). Commit: `690a0326`. In instructions.
 note 2026-11-09T13:45:00Z
-    Amendment (2026-11-08, user): roadmap amendment 8: building leads plan up front and delegate to up to four Haiku
-    sidecars; runners get the oracle code; a reviewer sidecar checks every oracle, harness or
-    runtime change; the lead reads every diff and alone commits. Adopted after the trial.
-    Commits: `d5b809ef`, `6b41061f`. In instructions.
+    Amendment (2026-11-08, user):
+
+    - roadmap amendment 8: building leads plan up front and delegate to up to four Haiku sidecars;
+    - runners get the oracle code;
+    - a reviewer sidecar checks every oracle, harness or runtime change;
+    - the lead reads every diff and alone commits.
+
+    Adopted after the trial. Commits: `d5b809ef`, `6b41061f`. In instructions.
 note 2026-11-09T13:46:00Z
     Amendment (2026-11-08, user): roadmap amendment 9: small public API changes (a flag, a default, a member's name,
     where an option sits) are the orchestrator's, noted for the user's read; large ones stay the
@@ -299,143 +349,227 @@ note 2026-11-09T13:48:00Z
     Spec is a guide revised whenever building shows it wrong, with the change and why logged.
     Commit: `729c9e99`. In the constraints.
 note 2026-11-09T13:50:00Z
-    Decision (agent, 2026-11-09): migration reset is per record, not per definition (narrows the
-    user's migration Q1 A). Why: resetting records that still decode loses data for no safety
-    gain; audit M2 Q18, `5ccc6944`, OD54 (8). Reverse: reset every record of the definition when
-    any is incompatible.
-    User's read: pending.
+    **Decision (agent, 2026-11-09):** migration reset is per record, not per definition (narrows the
+    user's migration Q1 A).
+
+    **Why:** resetting records that still decode loses data for no safety gain; audit M2 Q18,
+    `5ccc6944`, OD54 (8).
+
+    **Reverse:** reset every record of the definition when any is incompatible.
+
+    **User's read:** pending.
 note 2026-11-09T13:51:00Z
-    Decision (agent, 2026-11-09): any structural Schema change to a stored field resets the
-    record, even a harmless validation change (Q19). Why: a fixed rule `flow explain --since` can
-    list before a deploy; OD54 (9). Reverse: reset only when the old value fails to decode.
-    User's read: pending.
+    **Decision (agent, 2026-11-09):** any structural Schema change to a stored field resets the
+    record, even a harmless validation change (Q19).
+
+    **Why:** a fixed rule `flow explain --since` can list before a deploy; OD54 (9).
+
+    **Reverse:** reset only when the old value fails to decode.
+
+    **User's read:** pending.
 note 2026-11-09T13:52:00Z
-    Decision (agent, 2026-11-09): the price of the rule above, said fully: an offline app loses
+    **Decision (agent, 2026-11-09):** the price of the rule above, said fully: an offline app loses
     saved drafts when any stored field's Schema changes, and changing a computed initial value
-    resets too, until computed fields are derived on restore. Why: the cost of an automatic reset
-    without migration functions. Reverse: a decode-based reset.
-    User's read: pending.
+    resets too, until computed fields are derived on restore.
+
+    **Why:** the cost of an automatic reset without migration functions.
+
+    **Reverse:** a decode-based reset.
+
+    **User's read:** pending.
 note 2026-11-09T13:53:00Z
-    Decision (agent, 2026-11-09): a dropped field is applied at that release's boot, rewriting
-    the records holding it (Q20), a bounded exception to D111. Why: a later re-add starts empty
-    instead of resurrecting old data; OD54 (10). Reverse: keep D111 strict and accept
-    resurrection.
-    User's read: pending.
+    **Decision (agent, 2026-11-09):** a dropped field is applied at that release's boot, rewriting
+    the records holding it (Q20), a bounded exception to D111.
+
+    **Why:** a later re-add starts empty instead of resurrecting old data; OD54 (10).
+
+    **Reverse:** keep D111 strict and accept resurrection.
+
+    **User's read:** pending.
 note 2026-11-09T13:54:00Z
-    Decision (agent, 2026-11-09): a new identity gets its own lane (Q17); the old identity's
-    in-flight write is kept, blocks nothing, is reported at every boot, and ends only by its own
-    answer; `forget` does not release it. Why: a lane is (identity, contract, key); OD54 (7).
-    Reverse: needs a new word (an identity route), the user's API call.
-    User's read: pending.
+    **Decision (agent, 2026-11-09):**
+
+    - a new identity gets its own lane (Q17);
+    - the old identity's in-flight write is kept, blocks nothing, is reported at every boot, and
+      ends only by its own answer;
+    - `forget` does not release it.
+
+    **Why:** a lane is (identity, contract, key); OD54 (7).
+
+    **Reverse:** needs a new word (an identity route), the user's API call.
+
+    **User's read:** pending.
 note 2026-11-09T13:55:00Z
-    Decision (agent, 2026-11-09): the repair bound resets at `RepairOverdue`: 3 asks, then
-    `RepairOverdue`, then the count starts again. Why: a doubt on a long-open screen is never
-    stranded; stage A close-out B1, `d3d89576`. Reverse: one rule.
-    User's read: pending.
+    **Decision (agent, 2026-11-09):** the repair bound resets at `RepairOverdue`: 3 asks, then
+    `RepairOverdue`, then the count starts again.
+
+    **Why:** a doubt on a long-open screen is never stranded; stage A close-out B1, `d3d89576`.
+
+    **Reverse:** one rule.
+
+    **User's read:** pending.
 note 2026-11-09T13:56:00Z
-    Decision (agent, 2026-11-09): two write operations on one contract stay illegal
-    (`SharedContract`, a `flow check` error). Why: the design forbids them (F2); B2. Reverse:
-    allowing them reverses F2 and needs design work.
-    User's read: pending.
+    **Decision (agent, 2026-11-09):** two write operations on one contract stay illegal
+    (`SharedContract`, a `flow check` error).
+
+    **Why:** the design forbids them (F2); B2.
+
+    **Reverse:** allowing them reverses F2 and needs design work.
+
+    **User's read:** pending.
 note 2026-11-09T13:57:00Z
-    Decision (agent, 2026-11-09): entities' internal rules under `guarded` (OD52 (1), (6), (9),
+    **Decision (agent, 2026-11-09):** entities' internal rules under `guarded` (OD52 (1), (6), (9),
     (10), (14)): a guarded doubt ends only on proof; the record queue is released once the forced
     repair settles; `Released` frees a never-re-sent unknown's queue entry; U10's later success is
-    by landing order; no `allOrNothing`. Why: a doubt ends only on proof and one actor's hold
-    blocks no other. Reverse: one rule each in rules 30 and 32.
-    User's read: pending.
+    by landing order; no `allOrNothing`.
+
+    **Why:** a doubt ends only on proof and one actor's hold blocks no other.
+
+    **Reverse:** one rule each in rules 30 and 32.
+
+    **User's read:** pending.
 note 2026-11-09T13:58:00Z
-    Decision (agent, 2026-11-09): streams calls (OD53): `emit.fail(e, key)` on `Feed.multiplex`;
-    a key change empties a `fills` field in the same turn (`FillsOtherKey`); a session's select
-    runs every committed turn; default backoff 500 ms x 2^n, jittered, capped at 30 s; 256
-    bookmarks per operation; T1 wins over T5 on Waiting; `dropAt` set on leaving Live or
-    Repairing; `Feed.callback`'s 1,024 bound counts the queue only; `SelectedNoKey`. Why: OD53,
-    audits S1, S1b. Reverse: one rule or constant each.
-    User's read: pending.
+    **Decision (agent, 2026-11-09):** streams calls (OD53): `emit.fail(e, key)` on `Feed.multiplex`;
+    a key change empties a `fills` field in the same turn (`FillsOtherKey`); a session's select runs
+    every committed turn; default backoff 500 ms x 2^n, jittered, capped at 30 s; 256 bookmarks per
+    operation; T1 wins over T5 on Waiting; `dropAt` set on leaving Live or Repairing;
+    `Feed.callback`'s 1,024 bound counts the queue only; `SelectedNoKey`.
+
+    **Why:** OD53, audits S1, S1b.
+
+    **Reverse:** one rule or constant each.
+
+    **User's read:** pending.
 note 2026-11-09T13:59:00Z
-    Decision (agent, 2026-11-09): rounds 15, 15b and area H calls (OD50, OD51): `cancelAll`
+    **Decision (agent, 2026-11-09):** rounds 15, 15b and area H calls (OD50, OD51): `cancelAll`
     interrupts a head on the wire and delivers the queue first, the hold-leaving head last; rule
     15's cancel exemption dropped; `forget` removes the record and a held lane stays unbound and
     reported; an Effect default is a construction error; R2, R6, R7, R8, R10 and M2 as in
-    `prototypes/round-14/STATUS.md`. Why: OD50, OD51. Reverse: one rule each.
-    User's read: pending.
+    `prototypes/round-14/STATUS.md`.
+
+    **Why:** OD50, OD51.
+
+    **Reverse:** one rule each.
+
+    **User's read:** pending.
 note 2026-11-09T14:00:00Z
-    Decision (agent, 2026-11-09): proposed names, none confirmed by the user: `RecordShapeChanged`,
-    `LaneRekeyCollision`, `OpRenamed`, `PreviousIsCurrent`, `FieldDropped`, `HoldWithoutRecord`,
-    `UnboundLane`, `LaneRekeyed`, `GoneWithoutKey`, `FillsOtherKey`, `GuardContradicted`,
-    `ImpureDefault`, `RepairOverdue`, `IdleWithoutPing`, `Abandoned`, `ModuleDisabled`,
-    `contract.get`, `ReservedReason`, `HoldForgotten`, `SelectedNoKey`, `UnsettledEvicted`,
-    `GuardedUnbound`, `GuardedWithoutVersion`, `GuardedWithoutTarget`, `RecordUndecodable`,
-    `RecordHeld`, `SharedContract`, `stalled: "record"`. Why: each names a case the design added.
-    Reverse: one edit each until P4 builds on them.
-    User's read: pending.
+    **Decision (agent, 2026-11-09):** proposed names, none confirmed by the user:
+    `RecordShapeChanged`, `LaneRekeyCollision`, `OpRenamed`, `PreviousIsCurrent`, `FieldDropped`,
+    `HoldWithoutRecord`, `UnboundLane`, `LaneRekeyed`, `GoneWithoutKey`, `FillsOtherKey`,
+    `GuardContradicted`, `ImpureDefault`, `RepairOverdue`, `IdleWithoutPing`, `Abandoned`,
+    `ModuleDisabled`, `contract.get`, `ReservedReason`, `HoldForgotten`, `SelectedNoKey`,
+    `UnsettledEvicted`, `GuardedUnbound`, `GuardedWithoutVersion`, `GuardedWithoutTarget`,
+    `RecordUndecodable`, `RecordHeld`, `SharedContract`, `stalled: "record"`.
+
+    **Why:** each names a case the design added.
+
+    **Reverse:** one edit each until P4 builds on them.
+
+    **User's read:** pending.
 note 2026-11-09T14:01:00Z
-    Decision (agent, 2026-11-09): migration calls (OD54 (2) to (16)): a new method
-    `previous[i].retryable(k, { times })`; Flow's own record format with a pure upgrade at boot;
-    a removed history-target state resets the record; `flow explain <release> --since <release>`;
-    an undecodable record is quarantined, then overwritten at the fresh actor's first save.
-    Why: writes in flight and data stay honest across a release (rule 74, Q1 A). Reverse: one rule
-    each; keep quarantined bytes until `forget` for (16).
-    User's read: pending.
+    **Decision (agent, 2026-11-09):** migration calls (OD54 (2) to (16)): a new method
+    `previous[i].retryable(k, { times })`; Flow's own record format with a pure upgrade at boot; a
+    removed history-target state resets the record; `flow explain <release> --since <release>`; an
+    undecodable record is quarantined, then overwritten at the fresh actor's first save.
+
+    **Why:** writes in flight and data stay honest across a release (rule 74, Q1 A).
+
+    **Reverse:** one rule each; keep quarantined bytes until `forget` for (16).
+
+    **User's read:** pending.
 note 2026-11-09T14:02:00Z
-    Decision (agent, 2026-11-09): the stage A close-out's own calls: rule 13's `byReason` keys
-    widened to the commit's own unknown tags or Flow's reasons; rule 15's text narrowed to the
-    check as built; rule 30: news during a running ask joins it. Why: what the type-level check
-    enforces. Reverse: one edit each.
-    User's read: pending.
+    **Decision (agent, 2026-11-09):** the stage A close-out's own calls: rule 13's `byReason` keys
+    widened to the commit's own unknown tags or Flow's reasons; rule 15's text narrowed to the check
+    as built; rule 30: news during a running ask joins it.
+
+    **Why:** what the type-level check enforces.
+
+    **Reverse:** one edit each.
+
+    **User's read:** pending.
 note 2026-11-09T14:03:00Z
-    Decision (agent, 2026-11-09): proposed, not built: evidence for kept and stranded deliveries
+    **Decision (agent, 2026-11-09):** proposed, not built: evidence for kept and stranded deliveries
     (OD49 (11)); today a kept ending's one try per boot and a stranded read let go leave none
-    (Runtime O4 states the gap). Why: a reader of evidence must infer both today. Reverse:
-    nothing to reverse; the user accepts or drops it.
-    User's read: pending.
+    (Runtime O4 states the gap).
+
+    **Why:** a reader of evidence must infer both today.
+
+    **Reverse:** nothing to reverse; the user accepts or drops it.
+
+    **User's read:** pending.
 note 2026-11-09T14:04:00Z
-    Decision (agent, 2026-11-09): open as built (OD54 (c)): release 2's ensure of a new identity
-    overwrites release 1's old-version record, so after a revert one unsure lane remains, not
-    two; also latent (b) shape stamps compared raw across a format change, (d) a re-key persisted
-    only on the lane's next write, (e) a crash between moving a lane and deleting the old one.
-    Why: no ruling yet. Reverse: a separate key per identity version (a design change).
-    User's read: pending.
+    **Decision (agent, 2026-11-09):** open as built (OD54 (c)): release 2's ensure of a new identity
+    overwrites release 1's old-version record, so after a revert one unsure lane remains, not two;
+    also latent (b) shape stamps compared raw across a format change, (d) a re-key persisted only on
+    the lane's next write, (e) a crash between moving a lane and deleting the old one.
+
+    **Why:** no ruling yet.
+
+    **Reverse:** a separate key per identity version (a design change).
+
+    **User's read:** pending.
 note 2026-11-09T14:05:00Z
-    Decision (agent, 2026-11-09): entities and streams as built (OD52 (12), OD53 (15) to (17)): a
-    gap marks the version field; a `.one` answer replaces the whole row; a quiet removal doubt
+    **Decision (agent, 2026-11-09):** entities and streams as built (OD52 (12), OD53 (15) to (17)):
+    a gap marks the version field; a `.one` answer replaces the whole row; a quiet removal doubt
     marks every non-key field unconfirmed; an unbound sent hold yields to a ready write behind it
     (`unknown { Abandoned }`); two placements of one operation and key share one session slot.
-    Why: what the build showed safe. Reverse: one rule each.
-    User's read: pending.
+
+    **Why:** what the build showed safe.
+
+    **Reverse:** one rule each.
+
+    **User's read:** pending.
 note 2026-11-09T14:06:00Z
-    Decision (agent, 2026-11-09): OD54's stated limits: an old identity's unknown hold has no user
-    exit; a memory field rename is a drop plus an add; records with no shape stamp never reset;
-    computed initial values are stamped. Why: the price of the automatic reset without migration
-    functions. Reverse: migration functions (revisit.md, option B); derived computed fields.
-    User's read: pending.
+    **Decision (agent, 2026-11-09):** OD54's stated limits: an old identity's unknown hold has no
+    user exit; a memory field rename is a drop plus an add; records with no shape stamp never reset;
+    computed initial values are stamped.
+
+    **Why:** the price of the automatic reset without migration functions.
+
+    **Reverse:** migration functions (revisit.md, option B); derived computed fields.
+
+    **User's read:** pending.
 note 2026-11-09T14:07:00Z
-    Decision (agent, 2026-11-09): `trace diff` and `diff --base` cut, per the user's 2026-11-02 CLI
-    scope, recorded as OD55; `story list --coverage` is the user's spelling. Why: the user cut
-    them and no later record re-adds them; merge audit `17032125`. Reverse: re-add one command.
-    User's read: pending.
+    **Decision (agent, 2026-11-09):** `trace diff` and `diff --base` cut, per the user's 2026-11-02
+    CLI scope, recorded as OD55; `story list --coverage` is the user's spelling.
+
+    **Why:** the user cut them and no later record re-adds them; merge audit `17032125`.
+
+    **Reverse:** re-add one command.
+
+    **User's read:** pending.
 note 2026-11-09T14:08:00Z
-    Decision (agent, 2026-11-09): phase 2 merge rulings: a removed machine's actor records are
+    **Decision (agent, 2026-11-09):** phase 2 merge rulings: a removed machine's actor records are
     discarded and its lane records quarantined (PC1); a dormant undecodable record is quarantined
     and ensure starts fresh (PC2); `version?` optional on entities (EC2); `contract.get` renamed
     from `descriptor.get` (OC1); the 256-identity write batch kept (OC3); `length` defaults to 40
     (TC1); `PropertyTestFailed` exported (PKC1); trace's `persistenceVersion` dropped (IC2); the
-    build target `packages/flow-state-v3/src/` (FSC1); the rest as in
-    `plan-merge-log.md` (deleted; in git at `20986677`). Why: the independent merge audit agreed with each. Reverse: 
-    one edit each.
-    User's read: pending.
+    build target `packages/flow-state-v3/src/` (FSC1); the rest as in `plan-merge-log.md` (deleted;
+    in git at `20986677`).
+
+    **Why:** the independent merge audit agreed with each.
+
+    **Reverse:** one edit each.
+
+    **User's read:** pending.
 note 2026-11-09T14:09:00Z
-    Decision (agent, 2026-11-08): for the user, not built: a boot forgets a stranded read, so a
+    **Decision (agent, 2026-11-08):** for the user, not built: a boot forgets a stranded read, so a
     machine with no recurring schedule stays where it was (rule 8); the prototype proposed a table
-    lint for that case and never built it. Why: convergence-9 withdrew "a reload asks again".
-    Reverse: add the lint.
-    User's read: pending.
+    lint for that case and never built it.
+
+    **Why:** convergence-9 withdrew "a reload asks again".
+
+    **Reverse:** add the lint.
+
+    **User's read:** pending.
 note 2026-11-09T14:10:00Z
     Deferred: the items in code:workflow/plans/flow/references/proposals/revisit.md and
     code:workflow/plans/flow/references/proposals/open-items.md stay there, linked, not copied
     (Q4 A).
 note 2026-11-09T14:11:00Z
-    Risks named in the confirmed summary: weekly usage at 87 percent leaves about 2 to 4
-    iterations before the 95 percent stop; P3 has 20 rounds left for about 40 oracle modules; the
-    Plans are agent-merged and unread (status proposed), and P4 and P5 build on them; 20 decisions
-    wait for the user's read, and overruling one late costs rework.
+    Risks named in the confirmed summary:
+
+    - weekly usage at 87 percent leaves about 2 to 4 iterations before the 95 percent stop;
+    - P3 has 20 rounds left for about 40 oracle modules;
+    - the Plans are agent-merged and unread (status proposed), and P4 and P5 build on them;
+    - 20 decisions wait for the user's read, and overruling one late costs rework.

@@ -1,32 +1,53 @@
 phase P6
 title Example apps
 description
-    Class: non-verifiable.
-    Goal: medium-sized Next.js example apps in `examples/`, each importing the v3 package, each a
-    striking demo that explains what it shows; one demos Story presentation. They also drive
+    **Class:** non-verifiable.
+
+    **Goal:** medium-sized Next.js example apps in `examples/`, each importing the v3 package, each
+    a striking demo that explains what it shows; one demos Story presentation. They also drive
     conformance runs and benchmarks.
-    Starts when: P5's completion audit passes; the app pick may come any time before.
-    Verified by: each decision's judge against the criteria; checkable parts: each app builds,
+
+    **Starts when:** P5's completion audit passes; the app pick may come any time before.
+
+    **Verified by:** each decision's judge against the criteria; checkable parts: each app builds,
     lints, runs its Stories in `nub run verify`, and works in real Chrome and Safari.
-    One iteration: one app's next slice, reviewed, then shown to the user.
-    Exit criteria: every decision has its judge's ruling, and the user accepts each app.
-    False pass: a demo that hides the guarantee it claims to show. Caught by: the user's review
-    against the app's own write-up.
-    Gates: each app's Stories in `nub run verify`, which reject one deliberately broken Story per
-    app.
-    Budget: the Epic's Budget section, row P6.
-    Failure limit: 2.
-    Stops: picking the apps; accepting each app. User's read: each app's first working version;
-    agent-judged slice calls.
+
+    **One iteration:** one app's next slice, reviewed, then shown to the user.
+
+    **Exit criteria:** every decision has its judge's ruling, and the user accepts each app.
+
+    **False pass:** a demo that hides the guarantee it claims to show.
+
+    **Caught by:** the user's review against the app's own write-up.
+
+    **Gates:** each app's Stories in `nub run verify`, which reject one deliberately broken Story
+    per app.
+
+    **Budget:** the Epic's Budget section, row P6.
+
+    **Failure limit:** 2.
+
+    **Stops:** picking the apps; accepting each app.
+
+    **User's read:** each app's first working version; agent-judged slice calls.
+
     Decisions: which apps (judge: the user; candidates Pull the plug, Live auction, Agent console,
-    Mission control, Smart home, Escape room, each with a live inspector panel showing `flow
-    trace` and `flow graph`); each app's acceptance (the user, who set its requirements); design
-    calls inside a slice (a reviewing agent, pending the user's read).
-    Criteria (proposed, approved by the user before the first app): each app explains what it
-    demos with a write-up and in-place tooltips; it shows one guarantee happening, not just a UI;
-    it runs in real Chrome and Safari; one app demos Story presentation.
-    Draws from: skill:interview for the pick and acceptance rounds; skill:review per slice;
-    skill:check-runtime in real browsers.
+    Mission control, Smart home, Escape room, each with a live inspector panel showing `flow trace`
+    and `flow graph`); each app's acceptance (the user, who set its requirements); design calls
+    inside a slice (a reviewing agent, pending the user's read).
+
+    Criteria (proposed, approved by the user before the first app):
+
+    - each app explains what it demos with a write-up and in-place tooltips;
+    - it shows one guarantee happening, not just a UI;
+    - it runs in real Chrome and Safari;
+    - one app demos Story presentation.
+
+    **Draws from:**
+
+    - skill:interview for the pick and acceptance rounds;
+    - skill:review per slice;
+    - skill:check-runtime in real browsers.
 tasks
     T32
         title       The user picks the apps and approves the criteria
@@ -34,15 +55,16 @@ tasks
         priority    medium
         labels      [non-verifiable]
         description
-            Put the candidates and the proposed criteria to the user in one numbered round; then
-            add one Task per picked app with skill:to-task. Evidence: this Task's comments.
+            Put the candidates and the proposed criteria to the user in one numbered round; then add
+            one Task per picked app with skill:to-task.
 
-            False pass: criteria that a UI meets without showing a guarantee → caught by the
-            criterion "shows one guarantee happening".
-            Gates: none.
-            Budget: 1 question round.
-            Stops: the pick itself.
-            User's read: none.
+            - **Evidence:** this Task's comments.
+            - **False pass:** criteria that a UI meets without showing a guarantee → caught by the
+              criterion "shows one guarantee happening".
+            - **Gates:** none.
+            - **Budget:** 1 question round.
+            - **Stops:** the pick itself.
+            - **User's read:** none.
         acceptance
             The user's pick and approved criteria are recorded in an Epic note; one Task per app
             exists.

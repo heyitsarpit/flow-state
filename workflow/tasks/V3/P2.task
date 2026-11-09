@@ -1,33 +1,63 @@
 phase P2
 title Plan merge and core Specs
 description
-    Class: non-verifiable.
-    Goal: current Plans and core Specs written once from the settled design; every superseded
-    sentence moved to `workflow/plans/flow/references/superseded.md` with its replacement
-    (amendment 12); Specs only for P3 and P4 (amendment 13).
-    Verified by: each merge decision's judge, an independent agent (amendment 11); an audit that
-    compares each merged rule with the latest decision touching it; `workflow check`.
-    One iteration: one Plan or area: list the edits with the decision behind each, apply them,
+    **Class:** non-verifiable.
+
+    **Goal:**
+
+    - current Plans and core Specs written once from the settled design;
+    - every superseded sentence moved to `workflow/plans/flow/references/superseded.md` with its
+      replacement (amendment 12);
+    - Specs only for P3 and P4 (amendment 13).
+
+    **Verified by:**
+
+    - each merge decision's judge, an independent agent (amendment 11);
+    - an audit that compares each merged rule with the latest decision touching it;
+    - `workflow check`.
+
+    **One iteration:** one Plan or area: list the edits with the decision behind each, apply them,
     run `workflow check`.
-    Exit criteria: every Plan the prototype touched is merged; every superseded decision is
-    moved out; Specs exist for P3 and P4; no Plan text claims a decision the user didn't make;
-    `workflow check` passes.
-    False pass: merging from the stale design, or recording a recommendation as decided. Caught
-    by: the merge audit, rule by rule, against the latest decision and the user's words.
-    Gates: `workflow check`, which rejects a broken reference or schema.
-    Budget: the Epic's Budget section, row P0 to P2 (spent).
-    Failure limit: 2.
-    Stops: none (amendment 11). User's read: every merge ruling (now pending Decision notes).
-    Decisions: every merge conflict, judged by an independent reviewing agent; large public API
-    changes stayed the user's.
-    Draws from: skill:to-plan for the merge; skill:to-spec and skill:to-design for the Specs;
-    skill:review for the audits.
+
+    **Exit criteria:**
+
+    - every Plan the prototype touched is merged;
+    - every superseded decision is moved out;
+    - Specs exist for P3 and P4;
+    - no Plan text claims a decision the user didn't make;
+    - `workflow check` passes.
+
+    **False pass:** merging from the stale design, or recording a recommendation as decided.
+
+    **Caught by:** the merge audit, rule by rule, against the latest decision and the user's words.
+
+    **Gates:** `workflow check`, which rejects a broken reference or schema.
+
+    **Budget:** the Epic's Budget section, row P0 to P2 (spent).
+
+    **Failure limit:** 2.
+
+    **Stops:** none (amendment 11).
+
+    **User's read:** every merge ruling (now pending Decision notes). Decisions: every merge
+    conflict, judged by an independent reviewing agent; large public API changes stayed the user's.
+
+    **Draws from:**
+
+    - skill:to-plan for the merge;
+    - skill:to-spec and skill:to-design for the Specs;
+    - skill:review for the audits.
 comment 2026-11-09T13:30:00Z
-    Done before the move to this Epic: merge `75a73b84` to `1183c948` (14 Plans, 170 edits); merge
-    audit `17032125` FAIL on 8 text items, fixed `a8a2551d` to `6c7c5f43`, re-check
-    PASS-WITH-FINDINGS; core Specs `97277826` to `90d4ffa0`; completion audit `7feb7df4`
-    PASS-WITH-FINDINGS (5 blocking Spec text items, 27 minors), all fixed at `9c3fc40c`. Logs:
-    `specs/spec-log.md`, `specs/spec-split.md`.
+    Done before the move to this Epic:
+
+    - merge `75a73b84` to `1183c948` (14 Plans, 170 edits);
+    - merge audit `17032125` FAIL on 8 text items, fixed `a8a2551d` to `6c7c5f43`, re-check
+      PASS-WITH-FINDINGS;
+    - core Specs `97277826` to `90d4ffa0`;
+    - completion audit `7feb7df4` PASS-WITH-FINDINGS (5 blocking Spec text items, 27 minors), all
+      fixed at `9c3fc40c`.
+
+    Logs: `specs/spec-log.md`, `specs/spec-split.md`.
 tasks
     T3
         title       Plans merged and core Specs written
@@ -35,15 +65,16 @@ tasks
         priority    high
         labels      [non-verifiable]
         description
-            Merged the design into the 14 Plans, moved superseded text to superseded.md, and
-            wrote the 10 core Specs under `specs/core/`. Migrated from
-            `workflow/roadmaps/v3-production/` (git `b30be69d`). Evidence: this Task's comments.
+            Merged the design into the 14 Plans, moved superseded text to superseded.md, and wrote
+            the 10 core Specs under `specs/core/`. Migrated from `workflow/roadmaps/v3-production/`
+            (git `b30be69d`).
 
-            False pass: stale merges or user-credited agent calls → caught by the merge audit.
-            Gates: `workflow check`.
-            Budget: 10 merge iterations (spent).
-            Stops: none.
-            User's read: the merge rulings in the Epic's pending Decision notes.
+            - **Evidence:** this Task's comments.
+            - **False pass:** stale merges or user-credited agent calls → caught by the merge audit.
+            - **Gates:** `workflow check`.
+            - **Budget:** 10 merge iterations (spent).
+            - **Stops:** none.
+            - **User's read:** the merge rulings in the Epic's pending Decision notes.
         acceptance
             Completion audit at `7feb7df4` with its findings fixed at `9c3fc40c`; `workflow check`
             passes.

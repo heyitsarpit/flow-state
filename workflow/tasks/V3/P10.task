@@ -1,22 +1,44 @@
 phase P10
 title Release
 description
-    Class: verifiable.
-    Kind: ticket.
-    Goal: the package published, only as far as the user asks; its published name decided then.
-    Starts when: P9's completion audit passes.
-    Verified by: the packed-consumer check on the exact tarball; `nub run verify`; an independent
-    review of the release change.
-    One iteration: implement, check independently, repair.
-    Exit criteria: acceptance passes at the final revision, and each requested ship stage is
+    **Class:** verifiable.
+
+    **Kind:** ticket.
+
+    **Goal:**
+
+    - the package published, only as far as the user asks;
+    - its published name decided then.
+
+    **Starts when:** P9's completion audit passes.
+
+    **Verified by:**
+
+    - the packed-consumer check on the exact tarball;
+    - `nub run verify`;
+    - an independent review of the release change.
+
+    **One iteration:** implement, check independently, repair.
+
+    **Exit criteria:** acceptance passes at the final revision, and each requested ship stage is
     confirmed by the user.
-    False pass: publishing a package whose installed form differs from what was tested. Caught by:
-    the packed-consumer check.
-    Gates: the packed-consumer check, which rejects a tarball packed with one entry point removed.
-    Budget: the Epic's Budget section, row P10.
-    Failure limit: 2.
-    Stops: before each ship stage (publish, land, tag); the published name. User's read: none.
-    Draws from: skill:playbook-ship; skill:review.
+
+    **False pass:** publishing a package whose installed form differs from what was tested.
+
+    **Caught by:** the packed-consumer check.
+
+    **Gates:** the packed-consumer check, which rejects a tarball packed with one entry point
+    removed.
+
+    **Budget:** the Epic's Budget section, row P10.
+
+    **Failure limit:** 2.
+
+    **Stops:** before each ship stage (publish, land, tag); the published name.
+
+    **User's read:** none.
+
+    **Draws from:** skill:playbook-ship; skill:review.
 tasks
     T39
         title       Release as far as the user asks
@@ -25,12 +47,14 @@ tasks
         labels      [verifiable, ticket]
         description
             Pack, run the packed-consumer check, and stop before each ship stage. Drafted in full
-            when P10 starts. Evidence: this Task's comments.
+            when P10 starts.
 
-            False pass: tested form differs from published → caught by the packed-consumer check.
-            Gates: the packed-consumer check.
-            Budget: one Task.
-            Stops: each ship stage; the published name.
-            User's read: none.
+            - **Evidence:** this Task's comments.
+            - **False pass:** tested form differs from published → caught by the packed-consumer
+              check.
+            - **Gates:** the packed-consumer check.
+            - **Budget:** one Task.
+            - **Stops:** each ship stage; the published name.
+            - **User's read:** none.
         acceptance
             The packed-consumer check passes on the exact tarball; each requested stage done.
