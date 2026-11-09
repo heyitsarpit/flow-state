@@ -30,7 +30,8 @@ outcomes
 
         Superseded: "runtimeSetup({ app, scope, services?, persistence?: { version } })" and
         "version is a required nonempty string and matches exactly" are replaced by automatic
-        per-record checks with no app-wide or manual version (C211; the user's Q1 A, OD54).
+        checks with no app-wide or manual version: per definition (the user's Q1 A), decided per
+        record (the runner's ruling, OD54 (8)) (C211).
     O2  What survives reload
         Selection defaults to false. persist is a property of the machine, declared on its
         definition: definition({ id, persist: true, ... }); refs carry no persist, so every ref
@@ -58,14 +59,14 @@ outcomes
 
         Write lanes are Runtime records of the actor's identity, never inside the actor's
         record: every non-Idle lane of a persisted identity, bound or unbound, stored under
-        (actor identity, contract id, key) with its Attempts, each with its retryCount and
-        whether it was acknowledged, the creating incarnation's subject path (strings), the
+        (identity with its version, contract id, key) with its Attempts, each with its retryCount
+        and whether it was acknowledged, the creating incarnation's subject path (strings), the
         releasing mark (a flag), and parked endings, raw (the contract's outcome decoded by its
         output and error Schemas, plus Flow's reasons, the Attempt and the lane state after it),
         mapped through the current definition's outcomes at delivery. Pending mapped outcomes
-        include endings of a persisted identity's lanes admitted while no incarnation is bound,
-        and its NotSent { Disposed }. A local identity's lanes never persist; one-off read lanes
-        are not persisted.
+        include endings of a persisted identity's lanes admitted while no incarnation is bound, and
+        its NotSent { Disposed }. A local identity's lanes never persist; one-off read lanes are not
+        persisted.
 
         Only confirmed shared data survives; optimistic values and predictions never become a
         saved baseline. Entity projection and uncertainty repair follow @plan.EntityDomains.O1.
@@ -198,10 +199,10 @@ outcomes
         the current one by a pure step at the boot, before the release's checks; a newer, null or
         non-integer record format is quarantined, its lane still holding by its id. An actor
         record that does not decode is quarantined: it reads lifecycle quarantined with its
-        issue, and an ensure starts fresh, reports RecordUndecodable and adopts the identity's
-        lanes; the quarantined bytes are overwritten when the fresh actor first saves (the
-        runner's ruling). Lane records decode by their contract's input pick, independent of the
-        actor record, so a fresh incarnation adopts them in its initial leaf; this is not a
+        issue, and an ensure starts fresh, reports RecordUndecodable (proposed name) and adopts
+        the identity's lanes; the quarantined bytes are overwritten when the fresh actor first
+        saves (the runner's ruling). Lane records decode by their contract's input pick, independent
+        of the actor record, so a fresh incarnation adopts them in its initial leaf; this is not a
         partial restore of the actor. A position inside a stream partition that fails to decode
         reads { at: undefined }; a partition failing its own shape discards the scope. v1 has no
         migration API: a compatible change migrates by the field's Schema alone.
@@ -218,8 +219,9 @@ outcomes
         hold, reported at each boot as the issue OldVersionLane, and declines its operation's
         commits for that identity NotSent { OldVersion } (@plan.Operations.O3).
 
-        Saved shapes. Each definition's records are reset automatically, per record, when the
-        saved shape (state ids, memory fields with their Schema versions, fragments' under their
+        Saved shapes. Each definition's records are reset automatically (the user's Q1 A: per
+        definition, no manual or app-wide version), decided per record (the runner's ruling) when
+        the saved shape (state ids, memory fields with their Schema versions, fragments' under their
         id) differs incompatibly: a kept field under another Schema version, or a saved leaf,
         child or history target gone. The boot removes such a record, retired or not, with its
         deadlines and stopped reads, and reports one RecordShapeChanged (proposed name) per
@@ -243,9 +245,10 @@ outcomes
         or onto another move of the same boot, is refused with LaneRekeyCollision (proposed name),
         the mover quarantined with its hold and nothing overwritten. Saved actor records for a
         machine id that no eager or lazy entry declares are discarded with a diagnostic; their
-        lane records are quarantined as lanes whose operation is gone. A dormant record that
-        fails to decode when its feature is adopted is quarantined like any undecodable record
-        (@plan.LazyFeatures.O3).
+        lane records are quarantined as lanes whose operation is gone (the runner's ruling,
+        reading the user's quarantine decision as covering a removed machine). A dormant record
+        that fails to decode when its feature is adopted is quarantined like any undecodable
+        record (the runner's ruling, following the undecodable-record rule) (@plan.LazyFeatures.O3).
 
         A storage read failure reports StorageFailure and disables persistence for that Runtime,
         so unread saved data is never overwritten; a send to a persisted actor before boot
@@ -357,8 +360,8 @@ verification
     V5  Crash tests prove Attempt acknowledgement before dispatch and honest unknown under @O6.
     V6  Fault tests prove atomic fallback, bounds, quarantine, saved-shape resets and
         preservation of live state under @O3 and @O5.
-    V7  Browser tests prove second-tab refusal, the back-forward cache rule and no-lock
-        persistence under @O7.
+    V7  Browser tests prove a second tab running without persistence, the back-forward cache rule
+        and no-lock persistence under @O7.
     V8  Tests prove confirmed-only restore under @O2, dormant retention under @O3 and hydration
         precedence under @O4.
     V9  Browser tests prove the 5 s capture, flush on hide, bounded disposal and honest

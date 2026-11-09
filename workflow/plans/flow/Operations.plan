@@ -70,14 +70,15 @@ outcomes
         result?, persist? })" is replaced by the contract shapes above: input and output, a required
         key, services (C31; C86; C138). "lookup(params, { signal }) and commit(params, { signal,
         attempt, basedOn }) return Effects; subscribe(params, { signal }) returns a Stream." is
-        replaced by the same contexts without signal (C116). "concurrency is required and is reject,
-        cancel, allow or serialize" is replaced by reject, latest, cancel or serialize; allow is cut
-        from v1 (C153). "key(params) is a pure synchronous record projector; omission means {}." is
-        replaced by the required field list (C31). "persist defaults to false; transactions have no
-        persist option" now excludes streams too (C86). "In actions they reject the batch; in
-        activities they report an issue and leave the lane undefined; passive reads throw." is
-        narrowed: an unencodable key declines or ends Defect (C154). "Authors must include every
-        parameter affecting the result" becomes KeyOmitsInput (C31).
+        replaced by the same contexts without signal (C116). "Boundary transfer without result
+        follows @plan.ServerRendering.O3" reads output (C31). "concurrency is required and is
+        reject, cancel, allow or serialize" is replaced by reject, latest, cancel or serialize;
+        allow is cut from v1 (C153). "key(params) is a pure synchronous record projector; omission
+        means {}." is replaced by the required field list (C31). "persist defaults to false;
+        transactions have no persist option" now excludes streams too (C86). "In actions they reject
+        the batch; in activities they report an issue and leave the lane undefined; passive reads
+        throw." is narrowed: an unencodable key declines or ends Defect (C154). "Authors must
+        include every parameter affecting the result" becomes KeyOmitsInput (C31).
     O2  Resources and reads
         Equal contract and key share data and one in-flight lookup across actors in a Runtime. An
         entry is fresh only while it has confirmed data, is not invalidated and its age is less than
@@ -148,7 +149,10 @@ outcomes
         captured at start, and applies on start; writes is the operation's option,
         contract.outcomes(mapping, { writes }), receives { value, input }, reads no memory and
         applies only on success, before its ending's event, even after the issuing state exits.
-        Domain operations have no optimistic, and their writes may only invalidate.
+        Invalid success writes apply nothing and report InvalidWrite; the commit still succeeds. A
+        success write never overwrites data that landed after the commit started; it marks that
+        entry stale instead, so subscribed readers refetch. Domain operations have no optimistic,
+        and their writes may only invalidate. Neither restore nor hydration invokes a commit.
 
         Endings. A commit ends in one of three channels: success (it happened), failure (this send
         definitely did not do it) or unknown (it may have happened). The commit function classifies
@@ -185,7 +189,8 @@ outcomes
         the input Schema. Domain prediction versions arrive as basedOn under @plan.EntityDomains.O1;
         otherwise {}. Attempt durability is @plan.Persistence.O6.
 
-        The write lane. A write lane is (actor identity, contract id, key), owned by the Runtime,
+        The write lane. A write lane is (identity with its version, contract id, key), owned by
+        the Runtime,
         not the actor; it is created by work and removed when Idle. Its binding incarnation (the
         actor, or for a fragment's operation the live incarnation with the lane's subject path)
         receives its endings and its members address it. States: Idle; InFlight, one addressable
@@ -206,7 +211,8 @@ outcomes
         quiet release, no automatic retry. A kept ending (refused twice, @plan.Runtime.O4) blocks
         its key until heard or let go: idle denies, a commit declines NotSent { Rejected }, cancel
         lets it go. Two write operations over one contract in one actor tree are a SharedContract
-        error, so a lane per contract and a lane per operation name the same lane within a release.
+        (proposed name) error, so a lane per contract and a lane per operation name the same lane
+        within a release.
 
         Members: commit, retry(k?), cancel(k?) and cancelAll(k?) in actions; idle(k?) (InFlight:
         denies InFlight; Held: denies Uncertain; a partial key passes only when every lane it
@@ -270,11 +276,11 @@ outcomes
         "O.x.commit(select, { optimistic?, writes?, outcomes? })" is replaced by optimistic as the
         only commit option and writes and outcomes on the operation (C15; C37). "unencodable input
         rejects admission before work starts" is replaced by NotSent { Unencodable } (C154).
-        "Concurrency is per actor, descriptor and key" is replaced by the write lane (actor
-        identity, contract id, key) (C33; C42). "reject declines a second unsettled commit without
-        work or outcome; the action continues." is replaced by NotSent { Rejected } with the
-        transition running (C10). "allow starts every commit independently and delivers every
-        outcome in settlement order." is cut from v1 (C153). "serialize starts commits FIFO,
+        "Concurrency is per actor, descriptor and key" is replaced by the write lane (identity
+        with its version, contract id, key) (C33; C42; C214). "reject declines a second unsettled
+        commit without work or outcome; the action continues." is replaced by NotSent { Rejected }
+        with the transition running (C10). "allow starts every commit independently and delivers
+        every outcome in settlement order." is cut from v1 (C153). "serialize starts commits FIFO,
         applying optimistic writes only on start; at most 64 queued occurrences are allowed.
         Overflow rejects the whole action batch with AdmissionOverloaded before any work starts." is
         replaced by W's 64 bound ending NotSent { Overloaded } for that write only (C10; C22).
@@ -297,7 +303,16 @@ outcomes
         foreign descriptor or invalid input rejects the action batch with InvalidAttempt." is
         replaced by retry(k?) in Held only; InvalidAttempt is removed (C7; C23). Descriptor-level
         cancel and pending are removed (C7). "Flow promises no remote rollback and never retries
-        automatically" is kept (C7).
+        automatically" is kept (C7). "Runtime disposal of a persisted actor saves them instead
+        (@plan.Persistence.O3)" is replaced by parked endings of Runtime-owned lanes (C43; C45).
+        "Late completion of replaced work cannot deliver another outcome or affect a later actor
+        incarnation." is replaced: a replaced never-sent commit is evidence Superseded, a sent
+        Attempt's ending is always delivered, and a new incarnation of the same identity adopts its
+        lanes (C10; C42). "Flow mints a unique id; adapters receive it for remote idempotency." is
+        restated as the Attempt paragraph: id random per write, put on the wire by the commit author
+        (C9). "Invalid success writes apply nothing and report InvalidWrite", the no-overwrite rule
+        and "Neither restore nor hydration invokes a commit." are kept; the design does not touch
+        them.
     O4  Streams
         A stream contract declares delivers: "every" (never skipped or silenced, one per turn, or
         one page per turn from a read) or "latest" (newest wins, current only while this connection
@@ -382,12 +397,12 @@ outcomes
 
         A write batch validates all targets before mutation and publishes atomically. More than 256
         expanded identities (AdmissionOverloaded) or any invalid target (InvalidKey) rejects the
-        entire batch; no match is a successful no-op. invalidate retains data and optimistic values,
-        marks entries stale and refetches subscribed entries with no request running. A request
-        started before invalidation cannot make the entry fresh. clear removes data and optimistic
-        values, blocks old results and makes surviving placements Pending before reacquiring.
-        Related commits still settle. Domain write restrictions and predictions are
-        @plan.EntityDomains.O1.
+        entire batch (this bound is the plan's own; the design does not state it); no match is a
+        successful no-op. invalidate retains data and optimistic values, marks entries stale and
+        refetches subscribed entries with no request running. A request started before invalidation
+        cannot make the entry fresh. clear removes data and optimistic values, blocks old results
+        and makes surviving placements Pending before reacquiring. Related commits still settle.
+        Domain write restrictions and predictions are @plan.EntityDomains.O1.
 
         Every reader sees confirmed data with live optimistic updates applied in start order. Base
         changes and removal of one update preserve the others; predicted remains true while any

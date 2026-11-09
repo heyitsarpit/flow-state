@@ -6,14 +6,14 @@ goal
     through the installed flow binary without changing the application being inspected.
 outcomes
     O1  Commands and selection
-        flow exposes story list, story describe <story-id>, story run <story-id>, trace
-        <story-id> [--at <checkpoint>], graph [<app-id/machine-id>], check and explain; trace
-        diff <left|-> <right|-> comes with the exported trace artifact (@plan.Inspection.O4). All
-        support text and JSON output; graph also supports Mermaid. Text is the default. Help and
-        version are conventional text. Output for people names source locations
-        (pay.machine.ts:42), never internal closure paths, prints a trace that reads like the
-        Story rather than evidence sequence numbers, and groups a graph by state; the user
-        accepts the exact outputs in production.
+        flow exposes only story list, story describe <story-id>, story run <story-id>, trace
+        <story-id> [--at <checkpoint>], graph [<app-id/machine-id>], check and explain (the
+        user's CLI scope, OD55); there is no diff, trace diff or search command. All support text
+        and JSON output; graph also supports Mermaid. Text is the default. Help and version are
+        conventional text. Output for people names source locations (pay.machine.ts:42), never
+        internal closure paths, prints a trace that reads like the Story rather than evidence
+        sequence numbers, and groups a graph by state; the exact outputs are to be accepted by the
+        user in phase 5.
 
         Source commands accept --project-root and --app. --app selects an exact app id. Without
         it, list lists all Stories and graph/check inspect all apps; commands selecting a Story or
@@ -21,7 +21,7 @@ outcomes
         explicit app must agree with the operand. Unknown apps or operands fail rather than
         inspecting another app.
 
-        story list returns declared identities; story list --coverage lists the transitions,
+        story list returns declared identities; story list --coverage (OD55) lists the transitions,
         exits, callbacks and ending handlers (current and late), write-lane cells, stream cells and
         Flow reasons no Story reaches, stated as reached, never as checked. story describe prints,
         from the plan alone, the subject and its kind, options, every step with its index in its
@@ -51,8 +51,8 @@ outcomes
         selection options and load no application or config. At most one input may be stdin (-).
 
         Superseded: "trace summarize <artifact|->" is replaced by trace <story-id> [--at] (C141).
-        "diff --base <git-revision>" and its revision-diff sentences are cut (the user's CLI scope
-        of 2026-11-02, check, explain, graph, story and trace only); release comparison is
+        "trace diff <left|-> <right|->" and "diff --base <git-revision>", with its revision-diff
+        sentences, are cut by the user's CLI scope of 2026-11-02 (OD55); release comparison is
         explain --since (C216). "story list returns declared identities; describe returns actors,
         commands and checkpoints" is replaced by describe's plan-only listing and coverage (C81;
         T2). "graph uses @plan.Inspection.O6" gains the edge rules (C141). The domain-write
@@ -69,7 +69,7 @@ outcomes
         trace runs the Story once and prints its timeline: each step in its data form, then the
         Runtime's evidence in that step (turns with the alternative each part took, endings,
         mints, lane cells), the wire's phase changes, and checkpoints with their sequence; --at
-        stops there. Cleanup evidence follows @plan.Testing.O8.
+        stops there. Cancellation and cleanup evidence follow @plan.Testing.O8.
 
         Artifact inputs are validated under @plan.Inspection.O4, including bounds while reading
         stdin. Invalid or incompatible artifacts fail before a query reports an answer. story run
@@ -131,17 +131,17 @@ outcomes
         truncated window is insufficient evidence, not proof of absence. Unknown selectors in
         complete evidence fail with InvalidArtifactOperand (reason UnknownSelector). Answers
         include the selection and completeness marker. Projection and comparison semantics follow
-        @plan.Inspection.O6.
+        @plan.Inspection.O6. Comparing two traces is the library's projection
+        (@plan.Inspection.O6); the CLI has no command for it.
 
-        trace diff optionally selects sections with --section, from the closed section list of
+        Superseded: "trace summarize reports counts and an ordered timeline" becomes the artifact
+        summary, and trace <story-id> prints a Story's timeline (C141). The paragraph "trace diff
+        optionally selects sections with --section, from the closed section list of
         @plan.Inspection.O6; omission compares all sections. Equal requires complete matching
         evidence. Differing retained facts prove difference; matching truncated evidence is
         incomplete and never proves equality. Both completeness markers accompany the result.
         Incompatible identities fail rather than report difference. Independently redacted values
-        never establish equality or difference without evidence.
-
-        Superseded: "trace summarize reports counts and an ordered timeline" becomes the artifact
-        summary, and trace <story-id> prints a Story's timeline (C141).
+        never establish equality or difference without evidence." is cut with trace diff (OD55).
     O5  Static checks
         flow check checks the complete declared graph, including lazy entries, from each machine's
         compiled data view, without running application callbacks other than entity domain
@@ -166,7 +166,7 @@ outcomes
         can be quarantined, serialize, a cancelled operation, a persisted identity, a domain write,
         an input or key that admits a value with no form, or a placement whose subject path is not
         empty, checked at the placement); an adopted ending unhandled in a leaf of its operation's
-        arrival set; SharedContract per actor tree, counting fragment placements;
+        arrival set; SharedContract (proposed name) per actor tree, counting fragment placements;
         DuplicatePlacement; VerbMismatch; KeyRequired; UnresolvedHold, with the host's checks for a
         holding placement that does not release on leave; a mapped event used as a schedule's send,
         a raise or a view's send; a contract without key, or a key field that is not a top-level
@@ -239,7 +239,7 @@ outcomes
         Superseded: "defineConfig({ apps: [{ app, stories }] })" gains top-level stories and
         tsconfig (C81; merge 5, 6.4). "duplicate ... Story ids within an app" reads within the
         configuration (C69). "Revision diff applies the same rule inside its selected revision."
-        goes with diff --base (the user's CLI scope of 2026-11-02).
+        goes with diff --base (the user's CLI scope of 2026-11-02, OD55).
 verification
     V1  Installed CLI tests prove command selection, invalid-input rejection and inert discovery.
     V2  Tests prove direct/CLI Story parity, interruption cleanup and truthful partial traces.
