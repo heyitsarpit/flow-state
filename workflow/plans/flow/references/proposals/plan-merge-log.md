@@ -331,3 +331,40 @@ Conflicts:
 Prototype check (S2): not built in the prototype, kept as contract: `uses.busy`'s mailbox depth and waiting deadlines
 (CP5), the trace export (the prototype has `flow trace` only). Built and merged: the session flags, `FillsOtherKey`,
 `IdleWithoutPing`'s condition (OD53 (14)).
+
+## Diagnostics
+
+Rows merged: C83, C103, C121, C125, C132, C145, C154, C157, C184 (the rows naming Diagnostics), and every code the
+other merged plans now name (C18, C65, C75, C87, C143, C152, C177, C193, C209, C211-C215), so the closed vocabulary
+stays closed.
+
+Sidecar S3 (the named-diagnostic inventory): **accepted** as a location table after checking each name used here
+against the design by grep (all present) and against the merged plans. **Changed:** S3 listed `ModuleDefect`
+(design line 9786, OD52 (22)) as a runtime issue; the design names it only in a decision's prototype note, not as
+contract, so it is left out (ModuleDisabled, the `NotSent` reason, is the contract). **Rejected:** S3's suggestion
+that `DuplicateSession` has no severity; the design calls it a warning in rule 70 and S11, as merged.
+
+| # | Outcome | Before | After | Decision |
+| --- | --- | --- | --- | --- |
+| D-1 | O1 | (none) | diagnostics are not endings; Flow's reasons, evidence kinds and denial codes are values | C1; C2; rule 17 |
+| D-2 | O2 | `InputIgnored` | removed | C144 |
+| D-3 | O2 | `ConflictingActorRef` "the same options" | the same context | C160 |
+| D-4 | O2 | `InvalidAttempt` | removed | C23 |
+| D-5 | O2 | `DuplicateStreamSession` | `DuplicateSession` and the stream findings | C87; C103 |
+| D-6 | O2 | `RestoreDiscarded` | `RecordUndecodable`, `RecordShapeChanged` and the quarantine and migration names | C143; C152; C211-C215 |
+| D-7 | O2 | (none) | construction-error and `flow check` names; runtime issues and evidence; Story errors with reasons; `UnencodableValue` | C18; C65; C75; C83; C121; C125; C132; C145; C154; C157; C177; C184; C193; C209 |
+| D-8 | O2 | `SendTargetAbsent` | with `details.reason` NoRecord, RecordUndecodable, NotAdopted | C105 |
+| D-9 | O3 | "forwarded AbortSignal cancellation" | Effect's own signal | C116 |
+
+Counts: 9 edits; 6 superseded sentences marked (O2: 5, O3: 1).
+
+Conflicts:
+- **DC1, agent-judged, applied.** The plan's vocabulary list mixes `FlowError` codes with evidence names
+  (`DehydrateCommitInFlight` was already there). Recommended: keep one closed list, adding the evidence and issue
+  names the design defines, each marked by kind where it is not a failure (evidence, development warning). Judge:
+  the runner. Reversible: a regrouping.
+- **DC2, agent-judged, applied.** `DuplicateFixture` and `AdmissionOverloaded` (mailbox and write batch) are not in
+  the design but are where the prototype never went. Kept. Judge: the runner. Reversible: two lines.
+
+Prototype check (S2): `ScheduleLeadsToWrite`, `IdentityFieldOptional` and `UnboundedBridge` are not built; kept as
+contract, as the design lists them.

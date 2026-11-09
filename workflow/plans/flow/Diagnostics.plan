@@ -10,15 +10,15 @@ outcomes
         failures as FlowError in the typed error channel, preserving their success and service
         requirement types. Defects and interruption remain distinct Effect outcomes.
 
-        FlowError extends Error and exposes readonly _tag: "FlowError", code, diagnostics, optional
-        cause and optional evidence. diagnostics is a nonempty readonly array; code equals
-        diagnostics[0].code. The first diagnostic identifies the primary boundary failure; later
-        diagnostics retain phase order and multiplicity.
+        FlowError extends Error and exposes readonly _tag: "FlowError", code, diagnostics,
+        optional cause and optional evidence. diagnostics is a nonempty readonly array; code
+        equals diagnostics[0].code. The first diagnostic identifies the primary boundary failure;
+        later diagnostics retain phase order and multiplicity.
 
-        Diagnostic is an Error that authors can yield directly in Effect and encode/decode with its
-        exported Schema. It exposes classification (Failure, Defect or Interruption), code, path
-        (strings or finite numbers), details (string keys with string, finite number, boolean or
-        null values), summary and help. Invalid tags, missing fields, unknown codes and values
+        Diagnostic is an Error that authors can yield directly in Effect and encode/decode with
+        its exported Schema. It exposes classification (Failure, Defect or Interruption), code,
+        path (strings or finite numbers), details (string keys with string, finite number, boolean
+        or null values), summary and help. Invalid tags, missing fields, unknown codes and values
         outside these domains reject. Authors branch on _tag, code, classification, path and
         details; summary and help may change without changing the failure's meaning. Decoding also
         rejects unknown values of closed details.reason fields; all serialized diagnostics use the
@@ -28,63 +28,114 @@ outcomes
         the owning boundary defines a more specific code. Parser exceptions never escape as raw
         exceptions; arbitrary callback defects are never mislabeled SchemaValidation. Story failure
         evidence follows @plan.Testing.O8.
+
+        Diagnostics are not endings. A call's ending is a value the machine maps
+        (@plan.Operations.O3): Flow's reasons NotSent { why } and the unknowns are reserved tags,
+        and the evidence kinds Superseded, Released, NothingToResend and InFlight are records, not
+        codes. Denial codes (InvalidTurn, NotInState, LateMayNotLeave, InFlight, Uncertain,
+        RetryLimit, NothingToResend, Unencodable) are check() data (@plan.Machines.O4).
     O2  Recognizable codes and corrective action
-        Codes identify failures independently of message wording. Each diagnostic names the affected
-        field, identity or bound in path/details and gives a concrete corrective action in help.
-        Reporting an issue does not itself mean the call rejects; the owning boundary decides
-        whether work fails, continues or falls back. Application guard deny codes remain application
-        data, separate from Flow's diagnostic vocabulary. A specific boundary code takes precedence
-        over a generic machine-configuration code when both describe the same violation.
+        Codes identify failures independently of message wording. Each diagnostic names the
+        affected field, identity or bound in path/details and gives a concrete corrective action in
+        help. Reporting an issue does not itself mean the call rejects; the owning boundary decides
+        whether work fails, continues or falls back. Application guard deny codes remain
+        application data, separate from Flow's diagnostic vocabulary. A specific boundary code
+        takes precedence over a generic machine-configuration code when both describe the same
+        violation.
 
-        Classification defaults to Failure. InvariantViolation, Defect, GuardDefect, EntryMismatch,
-        ServerOnlyImport, HydrateOutsideProvider and HydrationCrossRequest classify as Defect;
-        Interruption classifies as Interruption. A failure during lazy adoption keeps the code and
-        classification it would have at App construction. Warning or informational severity never
-        changes classification.
+        Classification defaults to Failure. InvariantViolation, Defect, GuardDefect,
+        EntryMismatch, ServerOnlyImport, HydrateOutsideProvider and HydrationCrossRequest classify
+        as Defect; Interruption classifies as Interruption. A failure during lazy adoption keeps
+        the code and classification it would have at App construction. Warning or informational
+        severity never changes classification.
 
-        The vocabulary is closed: a code outside this list is a defect in Flow. Each line gives the
-        owner and the corrective action an author takes.
+        The vocabulary is closed: a code outside this list is a defect in Flow. Each line gives
+        the owner and the corrective action an author takes. Names the user has not confirmed are
+        marked proposed, as their owner plans mark them.
 
         General
         - SchemaValidation: correct the value at the reported Schema issue path.
         - InvalidConfiguration (@plan.Machines.O1, @plan.Runtime.O1, @plan.Operations.O1,
-        @plan.LazyFeatures.O2, @plan.Package.O3, @plan.EntityDomains.O1): fix the declaration named
-        by path; details.reason names the rule, such as a duplicate id or an undeclared patch
-        entity.
+        @plan.LazyFeatures.O2, @plan.Package.O3, @plan.EntityDomains.O1): fix the declaration
+        named by path; details.reason names the rule, such as a duplicate id or an undeclared
+        patch entity.
         - InvariantViolation: report a Flow bug; the Runtime stopped to protect state.
-        - Defect and GuardDefect (@plan.Machines.O3, @plan.Machines.O4): fix the failing callback or
-        service using the in-process cause.
+        - Defect and GuardDefect (@plan.Machines.O3, @plan.Machines.O4): fix the failing callback
+        or service using the in-process cause.
         - Interruption: honor cleanup; retry only while the original intent still holds.
         - CleanupFailed (@plan.Runtime.O6): repair the finalizer and replace the owning Runtime.
+        - UnencodableValue (@plan.Operations.O3, @plan.Persistence.O5): replace the Symbol,
+        function, Map or Set with a value that has an encoded form.
+
+        Definitions and fragments (construction errors and flow check findings)
+        - TwoDefaults, ImpureDefault (proposed), IdentityFieldOptional (proposed),
+        ReservedStateName, UnknownNotUncertain (@plan.Machines.O1): keep one pure default per
+        field; make a value-named machine's input fields required and default-free; rename the
+        state; target a Flow.uncertain event or Flow.ignore.
+        - RestoreMissingInput (@plan.Machines.O1, @plan.Persistence.O5): give the new input field
+        a default, or expect the record to be quarantined.
+        - InputFieldForm (@plan.CommandLine.O5): use an input field whose decoded form can be
+        carried.
+        - ScheduleLeadsToWrite (@plan.CommandLine.O5): persist the machine, commit on close, lift
+        the actor's use, or give the write a precondition.
+        - AsksForever (@plan.CommandLine.O5): give the handler a path that does not ask again.
 
         Runtime and actors
         - RuntimeNotReady, RuntimeDisposed (@plan.Runtime.O2, @plan.Runtime.O6): await ready();
         create a new Runtime after disposal.
-        - InputIgnored (@plan.Runtime.O3): the actor already exists; its first input stands.
         - IdentityExhausted (@plan.Runtime.C2): replace the Runtime.
-        - ConflictingActorRef (@plan.Runtime.O3): give refs with one identity the same options.
+        - ConflictingActorRef (@plan.Runtime.O3): give refs of one identity the same context.
         - ForeignActorRef (@plan.React.O2): use handles and refs from this Runtime's App.
         - MissingContextProvider, ContextCycle (@plan.Runtime.O5): wire every slot to an acyclic
         upward provider.
         - BlockedByDependents (@plan.Runtime.O6): dispose the named consumers first.
         - InvalidEvent, AdmissionOverloaded, SendTargetAbsent (@plan.Runtime.O4): send a valid
-        public event; wait or shrink the batch; ensure the target before sending.
+        public event; wait or shrink the batch; ensure the target before sending
+        (details.reason: NoRecord, RecordUndecodable or NotAdopted).
+        - RecordUndecodable (@plan.Runtime.O3): expected after an incompatible release; an ensure
+        starts fresh.
+        - EndedWithWork (development warning, @plan.Runtime.O3): lift the actor's use, or move the
+        work into the screen's state.
+        - TurnStorm (evidence, @plan.Runtime.O4): add a backoff on an explicit retry with a delay.
 
         Operations and entity domains
         - InvalidKey (@plan.Operations.O1): fix the key value at the reported path.
         - InvalidWrite (@plan.Operations.O3): make the success write match the target Schema.
-        - InvalidAttempt (@plan.Operations.O3): retry only an Attempt from this descriptor, with
-        valid input.
-        - DuplicateStreamSession (@plan.Operations.O4): open one session per actor and key.
+        - SharedContract, DuplicatePlacement, VerbMismatch, KeyRequired, UnresolvedHold,
+        KeyOmitsInput, KeyFieldOptional, UnusedOperation, ReservedReason (proposed),
+        PreviousIsCurrent (proposed) (@plan.Operations.O1, @plan.Operations.O3,
+        @plan.CommandLine.O5): fix the declaration named; give every hold an owner.
+        - OldVersionLane (@plan.Operations.O3, @plan.Persistence.O5): ship handlers through
+        previous[i] for the old key's holds.
+        - DuplicateSession, FeedUnhandled, ListenNeedsEvery, DuplicateListen, SharedFills,
+        FillsNotPerKey, UnboundedBridge (@plan.Operations.O4, @plan.CommandLine.O5): one session
+        per operation and key; map every required stream key; name a field only one operation
+        fills. ReleaseOverdue (@plan.Runtime.O6) and SelectedNoKey (proposed, @plan.Operations.O4)
+        are issues; Feed's reasons (Closed, Overflow, Silent, Flapping) and missed's (Unproven,
+        Lost, Reset) are ending values, not codes.
+        - UserClosure (@plan.Operations.O2, @plan.Operations.O4): fix the mapper or select that
+        threw or returned no shape.
         - HiddenOrder, HiddenFilter, UndeclaredEffect (@plan.EntityDomains.O1,
         @plan.EntityDomains.O4): declare the missing sort key, condition or alsoChanges.
+        - GoneWithoutKey, GuardedUnbound, GuardedWithoutVersion, GuardedWithoutTarget,
+        PredictionNotRetained (proposed names except PredictionNotRetained;
+        @plan.EntityDomains.O1, @plan.CommandLine.O5): add .byKey; declare the version and
+        target; give the predicted field a carrier.
+        - Stale, RecordHeld, RepairOverdue (proposed), UnsettledEvicted (proposed),
+        GuardContradicted (proposed), InputDecodeFailed (evidence, @plan.EntityDomains.O1):
+        expected store facts; read their causes.
 
         Persistence and lazy features
         - StorageFailure (@plan.Persistence.O5): restore storage availability or quota; do not
         assume the write is durable.
+        - StorageSilent (evidence, @plan.Persistence.O3): the disk has not answered; nothing is
+        decided.
         - NonDurableContextProvider (@plan.Persistence.O3): persist the named providers.
-        - RestoreDiscarded (@plan.Persistence.O5): expected after a version change; otherwise
-        inspect the reason (incompatible, corrupt, orphan).
+        - RecordShapeChanged (proposed), FieldDropped (proposed), HoldWithoutRecord (proposed),
+        OldVersionActor (proposed), UnboundLane (proposed), LaneRekeyed (proposed), OpRenamed
+        (proposed), LaneRekeyCollision (proposed), HoldForgotten (proposed) (@plan.Persistence.O5,
+        @plan.Runtime.O6): expected after a release that changed a saved shape, field, identity or
+        operation; reconcile or cancel the named holds.
         - SecondTabNoPersistence (@plan.Persistence.O7): close the other owner or continue without
         persistence.
         - EntryLoadFailed, EntryMismatch (@plan.LazyFeatures.O4, @plan.LazyFeatures.O2): fix the
@@ -104,48 +155,75 @@ outcomes
         diagnostics only; the client loads normally. A persistent one means mismatched code.
 
         Stories
-        - StoryTurnLimit, InvalidDuration (@plan.Testing.O2): break the send cycle; move time
-        forward by a finite amount.
+        - StoryTurnLimit (details.reason Settle or Advance), InvalidDuration (@plan.Testing.O2):
+        break the send cycle; move time forward by a finite amount.
+        - HostTimeWait (@plan.Testing.O2): remove the real host wait from the run.
+        - StoryInvalidCommand (details.reason ActorAbsent, AlreadyEntered, NotEntered, TabOpen,
+        TabClosed, NothingHeld, NoDeadline or NoConnection), SubjectAbsent, AmbiguousRead
+        (@plan.Testing.O1, @plan.Testing.O4): fix the step or the read named.
+        - StoryFakeError (details.reason NoRoute, InvalidInput, Crashed, UnplacedStream or
+        InvalidRefusal) (@plan.Testing.O3): fix the fake or its binding.
+        - FramesTruncated, PropertyTestFailed, PropertyDefect (@plan.Testing.O4,
+        @plan.Testing.O6): read checkpoints instead of every frame; shrink and fix the property.
         - DuplicateFixture (@plan.Testing.O3): use the overriding form to replace a service.
+        - UnusedWireRule (@plan.Testing.O3): remove the wire rule or the step that needs it.
 
         Inspection, artifacts and the command line
         - CodecBoundExceeded, CodecMalformed, CodecSchemaMismatch (@plan.Inspection.O2).
         - InvalidInspectorCapacity, InspectorAlreadyAttached, InspectorSinkFailed
         (@plan.Inspection.O3).
         - InvalidTraceRecord, InvalidLifecycleTransition, InvalidStoryEvidence,
-        ArtifactIdentityMismatch, InvalidArtifactOperand (@plan.Inspection.O4, @plan.Inspection.O6).
-        UnknownSelector names a selector unknown to the app's Model. EvidenceUnavailable is not a
-        failure: it marks an answer whose evidence was not retained, which reports insufficient
-        evidence and exits 0.
+        ArtifactIdentityMismatch, InvalidArtifactOperand (@plan.Inspection.O4,
+        @plan.Inspection.O6). UnknownSelector names a selector unknown to the app's Model.
+        EvidenceUnavailable is not a failure: it marks an answer whose evidence was not retained,
+        which reports insufficient evidence and exits 0.
         - TypeFactsUnavailable (@plan.Inspection.D2): run where complete type facts exist.
         - InvalidUsage (@plan.CommandLine.O1): fix the command, option or operand named.
         - ConfigLoadFailed (@plan.CommandLine.O6): fix flow.config.ts, the app or the revision
         named.
         - OutputFailed (@plan.CommandLine.O2): free or choose the destination; check permissions.
 
+        Superseded: "InputIgnored (@plan.Runtime.O3): the actor already exists; its first input
+        stands." is removed: no ensure takes input (C144). "ConflictingActorRef ... give refs with
+        one identity the same options" now names context only (C160). "InvalidAttempt
+        (@plan.Operations.O3): retry only an Attempt from this descriptor, with valid input." is
+        removed with retry(attempt) (C23). "DuplicateStreamSession (@plan.Operations.O4): open one
+        session per actor and key." is replaced by the DuplicateSession warning (C87; C103).
+        "RestoreDiscarded (@plan.Persistence.O5): expected after a version change; otherwise
+        inspect the reason (incompatible, corrupt, orphan)." is replaced by RecordUndecodable,
+        RecordShapeChanged and the quarantine names (C143; C152; C211). The Story names (C83), the
+        stream names (C103), ScheduleLeadsToWrite and EndedWithWork (C125), TurnStorm and
+        AsksForever (C132), ReservedStateName, InputFieldForm, UnknownNotUncertain and
+        UnencodableValue (C145; C154), IdentityFieldOptional (C121) and ImpureDefault (C157;
+        C184) are added, with the names other plans' rows define (C18; C65; C177; C193; C209;
+        C211-C215).
     O3  Complete failures survive cleanup
         An author inspecting an in-process failure can recover its complete Effect Cause when
         available, including failures from finalizers and cancellation. Cleanup never replaces the
-        execution failure or erases another failure. Classification is Defect if any defect exists,
-        otherwise Failure if a typed failure exists, otherwise Interruption.
+        execution failure or erases another failure. Classification is Defect if any defect
+        exists, otherwise Failure if a typed failure exists, otherwise Interruption.
 
-        Classification does not reorder diagnostics: execution or cancellation stays primary; when
-        only cleanup fails, the first cleanup failure is primary. Remaining cleanup diagnostics
-        retain phase order and multiplicity, including after end capture. Operation failure, defect,
-        interruption and an unknown remote outcome remain distinct. Promise adapters and forwarded
-        AbortSignal cancellation preserve the complete Cause until the host deliberately projects
-        the result. Complete Exit and Cause survive evidence acceptance as well as cleanup. A thrown
-        exception or Promise rejection never becomes a reusable service's typed failure channel.
+        Classification does not reorder diagnostics: execution or cancellation stays primary;
+        when only cleanup fails, the first cleanup failure is primary. Remaining cleanup
+        diagnostics retain phase order and multiplicity, including after end capture. Operation
+        failure, defect, interruption and an unknown remote ending remain distinct. Promise
+        adapters and Effect's own AbortSignal preserve the complete Cause until the host
+        deliberately projects the result. Complete Exit and Cause survive evidence acceptance as
+        well as cleanup. A thrown exception or Promise rejection never becomes a reusable service's
+        typed failure channel.
 
-        Only the in-process FlowError may expose raw Cause. Cause, stack traces and fiber ids never
-        enter snapshots, checkpoints, persistence, SSR payloads, traces, inspector events or CLI
-        output. Outbound application data follows @plan.Inspection.O5; SSR omission follows
+        Only the in-process FlowError may expose raw Cause. Cause, stack traces and fiber ids
+        never enter snapshots, checkpoints, persistence, SSR payloads, traces, inspector events or
+        CLI output. Outbound application data follows @plan.Inspection.O5; SSR omission follows
         @plan.ServerRendering.O3.
+
+        Superseded: "forwarded AbortSignal cancellation" reads Effect's own signal: contexts carry
+        no signal (C116).
     O4  Safe rendering
         Rendering a Diagnostic preserves its code, path, safe details and actionable help. Control
         characters in paths, details, summary and help are escaped so hostile names cannot inject
-        terminal or log commands. Output never exposes raw input, stacks or Cause, and never invents
-        a file, line or column. Locations appear only when actually known.
+        terminal or log commands. Output never exposes raw input, stacks or Cause, and never
+        invents a file, line or column. Locations appear only when actually known.
 decisions
     D1  One public failure contract
         FlowError is the shared boundary carrier and Diagnostic its shared diagnostic Schema.
@@ -159,6 +237,6 @@ verification
     V5  Rendering/export tests prove safe actionable output without leaks or invented locations.
 questions
     Q1  Deferred to build time
-        Per-code help wording and the closed details.reason values. Diagnostic codec implementation.
-        Host execution helpers and printer organization. Exact evidence projections and counters
-        within the owning evidence contract.
+        Per-code help wording and the closed details.reason values. Diagnostic codec
+        implementation. Host execution helpers and printer organization. Exact evidence
+        projections and counters within the owning evidence contract.
