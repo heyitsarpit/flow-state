@@ -445,3 +445,28 @@ Conflicts:
 
 Prototype check (S2): Story `detach`/`dispose` were built only in harness steps (CP5); the plan keeps 2.10's
 contract. The prototype's Story spellings are prior art (OD42).
+
+## React
+
+Rows merged: fragments rows (React O2, React O4), C27, C35, C41, C52, C66, C105, C108, C119, C137, C143, C144, C147,
+C157.
+
+| # | Outcome | Before | After | Decision |
+| --- | --- | --- | --- | --- |
+| RE-1 | O2 | "one fresh local actor handle per component incarnation" | fresh memory and state, lanes adopted by local identity | C52 |
+| RE-2 | O2 | "Declared input must have its exact type."; "Shared input never resets an existing actor" | value-named refs take no input, `useActorByRef(ref, {})`; refs carry no input | C119; C144 |
+| RE-3 | O2 | "missing or disposed means null" | a lookup of an identity with a record returns the record view | C108 |
+| RE-4 | O2 | "initial(input) memory"; "initial must be pure" | memory from `Flow.input`, `Flow.initial`, computed initials; one pure default per field; the pre-attach copy read | fragments row; C137; C157; C108; C143 |
+| RE-5 | O2 | "do not mark optimistic writes pending" | "predicted" | C27 |
+| RE-6 | O3 | `SendTargetAbsent` through a disposed handle | the send table; subscription completion | C105 |
+| RE-7 | O3 | grace, "Work continues during grace", retention, retain across hiding | uses from passive effects; the in-flight exception and remount rule; activities run and schedules wait; persist or hold a use outside the hidden subtree | C108; C143 |
+| RE-8 | O3 | (none) | buffer flushes after lane deliveries; one notify per task | C52; C147 |
+| RE-9 | O4 | selectors read activities; "Transactions have no view reader."; `descriptor.get` | schedules, operations, `Fragment.O.x.get`, private fields omitted; write lanes are rows; `contract.get` | fragments row; C35; C41; C66; OC1 |
+| RE-10 | V3, V4 | verification | lane-delivery order; uses, work in flight, remount | C52; C108 |
+
+Counts: 10 edits; 18 superseded sentences marked (O2: 8, O3: 7, O4: 4, V: 1, less overlap).
+
+Conflicts: none new. `contract.get` follows OC1 (Operations).
+
+Prototype check (S2): React's effect timing (Strict Mode, Suspense, Activity) is a stated limit needing browser tests
+(2.7.17); kept as V4.
