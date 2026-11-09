@@ -1,6 +1,7 @@
 specs/core/Actors.spec
 specs/core/Compile.spec
 specs/core/Reads.spec
+specs/core/Restore.spec
 specs/core/Turn.spec
 specs/core/WriteAhead.spec
 specs/core/WriteLanes.spec
