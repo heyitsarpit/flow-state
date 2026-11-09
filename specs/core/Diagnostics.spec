@@ -16,22 +16,25 @@ derives_from  [
 requirements
     R1  FlowError
         source  @plan.Diagnostics.O1; @plan.Diagnostics.D1.
-        must    Expected invalid authoring throws FlowError; owned Effects report understood 
-                expected failures as FlowError in the typed error channel, keeping their success 
-                and service types. FlowError extends Error with readonly _tag "FlowError", code, 
-                diagnostics (nonempty, code == diagnostics[0].code), optional cause and optional 
-                evidence. Defects and interruption stay distinct Effect outcomes. No other public 
-                error class exists except the testing route's PropertyTestFailed.
+        must    Expected invalid authoring throws FlowError; owned Effects report understood
+                expected failures as FlowError in the typed error channel, keeping their success and
+                service types.
+
+                FlowError extends Error with readonly _tag "FlowError", code, diagnostics (nonempty,
+                code == diagnostics[0].code), optional cause and optional evidence. Defects and
+                interruption stay distinct Effect outcomes. No other public error class exists
+                except the testing route's PropertyTestFailed.
 
     R2  Diagnostic
         source  @plan.Diagnostics.O1.
-        must    Diagnostic is an Error authors can yield in Effect and encode and decode with its 
-                exported Schema: classification (Failure, Defect or Interruption), code, path 
-                (strings or finite numbers), details (string keys to string, finite number, boolean 
-                or null), summary and help. Decoding rejects invalid tags, missing fields, unknown 
-                codes and out-of-domain values; once a closed details.reason field's values are 
-                fixed (deferred to build time, @plan.Diagnostics.Q1), decoding also rejects unknown 
-                values of it.
+        must    Diagnostic is an Error authors can yield in Effect and encode and decode with its
+                exported Schema: classification (Failure, Defect or Interruption), code, path
+                (strings or finite numbers), details (string keys to string, finite number, boolean
+                or null), summary and help.
+
+                Decoding rejects invalid tags, missing fields, unknown codes and out-of-domain
+                values; once a closed details.reason field's values are fixed (deferred to build
+                time, @plan.Diagnostics.Q1), decoding also rejects unknown values of it.
 
     R3  Schema failures
         source  @plan.Diagnostics.O1.
@@ -70,16 +73,18 @@ requirements
 
     R8  Complete causes survive cleanup
         source  @plan.Diagnostics.O3.
-        must    An in-process failure keeps its complete Effect Cause, finalizer and cancellation 
-                failures included. Cleanup never replaces the execution failure or erases another. 
-                Classification is Defect if any defect exists, else Failure if a typed failure 
-                exists, else Interruption. Execution or cancellation stays primary; when only 
-                cleanup fails, the first cleanup failure is primary; the rest keep phase order and 
-                multiplicity. Operation failure, defect, interruption and an unknown remote ending 
-                stay distinct. Promise adapters and Effect's own AbortSignal keep the complete 
-                Cause until the host projects the result, and Exit and Cause survive evidence 
-                acceptance as well as cleanup. A thrown exception or rejection never becomes a 
-                reusable service's typed failure.
+        must    An in-process failure keeps its complete Effect Cause, finalizer and cancellation
+                failures included. Cleanup never replaces the execution failure or erases another.
+                Classification is Defect if any defect exists, else Failure if a typed failure
+                exists, else Interruption. Execution or cancellation stays primary; when only
+                cleanup fails, the first cleanup failure is primary; the rest keep phase order and
+                multiplicity.
+
+                Operation failure, defect, interruption and an unknown remote ending stay distinct.
+                Promise adapters and Effect's own AbortSignal keep the complete Cause until the host
+                projects the result, and Exit and Cause survive evidence acceptance as well as
+                cleanup. A thrown exception or rejection never becomes a reusable service's typed
+                failure.
 
     R9  Causes stay in process
         source  @plan.Diagnostics.O3.

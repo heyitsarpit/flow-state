@@ -38,13 +38,14 @@ requirements
 
     R4  Bootstrap failure and early calls
         source  @plan.Runtime.O2.
-        must    A service acquisition failure fails ready() with FlowError and its Cause, releases 
-                what was acquired in reverse order, and leaves no actor or evidence. Before ready 
-                succeeds, ensureActor and createActor reject with RuntimeNotReady. A send to a 
-                persisted actor before boot queues until boot within the boot bound; past it, or on 
-                a failed read, it reports StorageFailure, the Runtime runs without persistence and 
-                the queue is flushed. Disposing during bootstrap cancels it and closes admission; a 
-                service acquired late is released and no handle is exposed.
+        must    A service acquisition failure fails ready() with FlowError and its Cause, releases
+                what was acquired in reverse order, and leaves no actor or evidence. Before ready
+                succeeds, `ensureActor` and `createActor` reject with RuntimeNotReady.
+
+                A send to a persisted actor before boot queues until boot within the boot bound;
+                past it, or on a failed read, it reports StorageFailure, the Runtime runs without
+                persistence and the queue is flushed. Disposing during bootstrap cancels it and
+                closes admission; a service acquired late is released and no handle is exposed.
 
     R5  Identity
         source  @plan.Runtime.O3.
@@ -73,43 +74,51 @@ requirements
 
     R8  The end
         source  @plan.Runtime.O3.
-        must    A shared actor free of uses and work in flight for the grace (100 ms on the Runtime 
-                Clock) ends: a persisted actor's record is encoded in that step (the end waits 
-                while it cannot encode), its lanes move to the Runtime unbound, its schedules are 
-                cancelled, its placements and unkept reads stop, and each stopped read parks 
-                failure { Interrupted } for the identity. EndedWithWork is warned once per machine 
-                and kind of work. An ensure while it ends binds the next incarnation.
+        must    A shared actor free of uses and work in flight for the grace (100 ms on the Runtime
+                Clock) ends: a persisted actor's record is encoded in that step (the end waits while
+                it cannot encode), its lanes move to the Runtime unbound, its schedules are
+                cancelled, its placements and unkept reads stop, and each stopped read parks failure
+                { Interrupted } for the identity.
+
+                EndedWithWork is warned once per machine and kind of work. An ensure while it ends
+                binds the next incarnation.
 
     R9  The return
         source  @plan.Runtime.O3.
-        must    A persisted identity reached by an ensure, a subscription or a send returns as a 
-                new incarnation with a newly minted id, restored from the Runtime's copy. It 
-                receives its starting turn, its lanes' deliveries, the Interrupted endings its end 
-                parked, one onContext wave if a provider's selection changed, then the event that 
-                restored it. A non-persisted identity starts fresh. An ensure over an undecodable 
-                record starts fresh, reports RecordUndecodable (proposed name) and adopts the 
-                identity's lanes. A local actor remounted within its grace reuses that actor; a new 
-                incarnation of an equal local identity starting while an older one is kept only by 
-                work in flight disposes the older one and adopts its lanes.
+        must    A persisted identity reached by an ensure, a subscription or a send returns as a new
+                incarnation with a newly minted id, restored from the Runtime's copy. It receives
+                its starting turn, its lanes' deliveries, the Interrupted endings its end parked,
+                one `onContext` wave if a provider's selection changed, then the event that restored
+                it.
+
+                A non-persisted identity starts fresh. An ensure over an undecodable record starts
+                fresh, reports RecordUndecodable (proposed name) and adopts the identity's lanes. A
+                local actor remounted within its grace reuses that actor; a new incarnation of an
+                equal local identity starting while an older one is kept only by work in flight
+                disposes the older one and adopts its lanes.
 
     R10  Lanes follow identities
         source  @plan.Runtime.O3.
-        must    A starting incarnation adopts only its own identity's unbound lanes, oldest first 
-                for equal local identities, and receives before any external event: the parked 
-                endings in saved order, then each Held head's unknown { Restored } once per 
-                incarnation, then an in-flight Attempt's ending when it lands. A lane binds to the 
-                live incarnation with its recorded subject path; with none its ending is parked for 
-                the path. No schedule, issue or send of an old incarnation reaches a new one.
+        must    A starting incarnation adopts only its own identity's unbound lanes, oldest first
+                for equal local identities, and receives before any external event: the parked
+                endings in saved order, then each Held head's unknown { Restored } once per
+                incarnation, then an in-flight Attempt's ending when it lands.
+
+                A lane binds to the live incarnation with its recorded subject path; with none its
+                ending is parked for the path. No schedule, issue or send of an old incarnation
+                reaches a new one.
 
     R11  Identity versions
         source  @plan.Runtime.O3.
-        must    For a persisted value-named machine, adding, removing or renaming an input field, 
-                or changing a field's Schema on its type or encoded side, is a new version; other 
-                annotations are ignored (a custom filter with no representation and a 
-                transformation with unchanged sides are not seen: stated limits). Flow's version 
-                encodings carry a format tag, and an older format is read by recomputing the 
-                current Schema in that format (the runner's rulings). A saved record of another 
-                version is an old-version record; the boot handles it under the Restore Spec's R6.
+        must    For a persisted value-named machine, adding, removing or renaming an input field, or
+                changing a field's Schema on its type or encoded side, is a new version; other
+                annotations are ignored (a custom filter with no representation and a transformation
+                with unchanged sides are not seen: stated limits).
+
+                Flow's version encodings carry a format tag, and an older format is read by
+                recomputing the current Schema in that format (the runner's rulings). A saved record
+                of another version is an old-version record; the boot handles it under the Restore
+                Spec's R6.
 
     R12  Mailboxes
         source  @plan.Runtime.O4.
@@ -119,12 +128,14 @@ requirements
 
     R13  Order across actors
         source  @plan.Runtime.O4.
-        must    Follow-ups run first, up to 64 per admitted event; the turn that would add the 65th 
-                is refused, with an issue naming the chain (check's denial code for it is 
-                InvalidTurn). Otherwise one event runs from the next actor in rotation, oldest 
-                first. A send to an idle Runtime runs its turn before send returns; during a turn 
-                it queues. Slices decide when work runs, never what. A spin is never stopped; 
-                TurnStorm is evidence and decides nothing.
+        must    Follow-ups run first, up to 64 per admitted event; the turn that would add the 65th
+                is refused, with an issue naming the chain (check's denial code for it is
+                InvalidTurn). Otherwise one event runs from the next actor in rotation, oldest
+                first.
+
+                A send to an idle Runtime runs its turn before send returns; during a turn it
+                queues. Slices decide when work runs, never what. A spin is never stopped; TurnStorm
+                is evidence and decides nothing.
 
     R14  Admission bounds
         source  @plan.Runtime.O4.
@@ -135,23 +146,34 @@ requirements
 
     R15  Refused deliveries are kept
         source  @plan.Runtime.O4.
-        must    An ending whose turn is refused, or whose mapper throws at admission, is delivered 
-                once more after the mail already queued; the second refusal is final and its issue 
-                names the cause. A sent write's twice-refused ending stays parked on its lane, 
-                blocking its key until heard, cancelled, released or a local life ends; a read's 
-                answer is stranded until that life asks again, ends or a boot. A kept ending gets 
-                one try per boot or adoption.
+        must    An ending whose turn is refused, or whose mapper throws at admission, is delivered
+                once more after the mail already queued; the second refusal is final and its issue
+                names the cause.
+
+                A sent write's twice-refused ending stays parked on its lane, blocking its key until
+                heard, cancelled, released or a local life ends; a read's answer is stranded until
+                that life asks again, ends or a boot. A kept ending gets one try per boot or
+                adoption.
 
     R16  The send table
         source  @plan.Runtime.O4.
-        must    A send never creates an actor or adopts a lazy entry and is not a use. By target: 
-                live is delivered; ending and persisted queues for the next incarnation; ending and 
-                not persisted drops with SendTargetAbsent { NoRecord }; ended with a decodable 
-                record restores and delivers; an undecodable record drops with RecordUndecodable; 
-                no record drops with NoRecord; a lazy entry not adopted drops with NotAdopted; a 
-                persisted actor during boot queues; an actor being disposed drops with NoRecord; a 
-                full target is AdmissionOverloaded. Reasons go to the sender and never roll back 
-                its turn. Several sends keep their order.
+        must    A send never creates an actor or adopts a lazy entry and is not a use.
+
+                By target:
+
+                - live is delivered;
+                - ending and persisted queues for the next incarnation;
+                - ending and not persisted drops with SendTargetAbsent { NoRecord };
+                - ended with a decodable record restores and delivers;
+                - an undecodable record drops with RecordUndecodable;
+                - no record drops with NoRecord;
+                - a lazy entry not adopted drops with NotAdopted;
+                - a persisted actor during boot queues;
+                - an actor being disposed drops with NoRecord;
+                - a full target is AdmissionOverloaded.
+
+                Reasons go to the sender and never roll back its turn. Several sends keep their
+                order.
 
     R17  Complete cuts
         source  @plan.Runtime.O4.
@@ -171,12 +193,13 @@ requirements
 
     R19  Context waves
         source  @plan.Runtime.O5.
-        must    When a provider changes, each affected consumer receives at most one update per 
-                wave, from the latest complete provider snapshots, never mixing new and stale 
-                values of one cause (diamonds included). Equal slots cause no update. A context 
-                update keeps its FIFO place. A throwing consumer selector keeps the last valid 
-                context, publishes one issue and retries only on a newer provider snapshot. Capture 
-                never observes a half-propagated wave.
+        must    When a provider changes, each affected consumer receives at most one update per
+                wave, from the latest complete provider snapshots, never mixing new and stale values
+                of one cause (diamonds included). Equal slots cause no update.
+
+                A context update keeps its FIFO place. A throwing consumer selector keeps the last
+                valid context, publishes one issue and retries only on a newer provider snapshot.
+                Capture never observes a half-propagated wave.
 
     R20  disposeActor
         source  @plan.Runtime.O6.
@@ -196,24 +219,27 @@ requirements
 
     R22  Runtime disposal
         source  @plan.Runtime.O6.
-        must    Runtime disposal closes admission first (later ready, ensureActor, createActor and 
-                runPromise reject RuntimeDisposed), then disposes consumers before providers. 
-                Queued events that have not started are dropped. Schedules cancel, placements stop 
-                and sessions release within 5 s (ReleaseOverdue). From its start nothing new is 
-                invoked and no lane is dropped: a never-sent queued commit ends NotSent { Disposed 
-                }; a call settling within 5 s is parked; past the bound an Attempt on the wire ends 
-                unknown { Disposed } and its late result is ignored. Where a lane's endings are 
-                delivered or parked together, the ending that leaves a hold comes last. An unknown 
-                keeps its head Held on disk; a definite ending drops it.
+        must    Runtime disposal closes admission first (later ready, ensureActor, createActor and
+                runPromise reject RuntimeDisposed), then disposes consumers before providers. Queued
+                events that have not started are dropped. Schedules cancel, placements stop and
+                sessions release within 5 s (ReleaseOverdue).
+
+                From its start nothing new is invoked and no lane is dropped: a never-sent queued
+                commit ends NotSent { Disposed }; a call settling within 5 s is parked; past the
+                bound an Attempt on the wire ends unknown { Disposed } and its late result is
+                ignored. Where a lane's endings are delivered or parked together, the ending that
+                leaves a hold comes last. An unknown keeps its head Held on disk; a definite ending
+                drops it.
 
     R23  Disposal failure and the last write
         source  @plan.Runtime.O6.
-        must    A cleanup failure rejects dispose with CleanupFailed, quarantines the ref (later 
-                ensures report the same failure) and keeps the full Cause; it is never success. 
-                Runtime disposal waits for the final persistence write within the same 5 s; a write 
-                still pending reports StorageFailure. The terminal snapshot keeps the last 
-                committed state and memory; disposal runs no machine event. dispose({ forget: true 
-                }) is the Restore Spec's R10.
+        must    A cleanup failure rejects dispose with CleanupFailed, quarantines the ref (later
+                ensures report the same failure) and keeps the full Cause; it is never success.
+
+                Runtime disposal waits for the final persistence write within the same 5 s; a write
+                still pending reports StorageFailure. The terminal snapshot keeps the last committed
+                state and memory; disposal runs no machine event. dispose({ forget: true }) is the
+                Restore Spec's R10.
 
     R24  Isolation and identity exhaustion
         source  @plan.Runtime.O7; @plan.Runtime.C2.
@@ -326,12 +352,13 @@ invariants
 
 composition
     flow
-        Design note, proved by the prototype. The core step is a pure function of the world,
-        one input and an environment (time, ids); it returns the next world, at most one
-        publication and commands (packages/flow-state-v3/prototypes/round-14/step.ts). One
-        impure driver owns the loop, the inbox and the fibers, and turns commands into Effects
-        (round-14/driver.ts). Lifetime, the grace and the send table are decided in the step,
-        so the conformance suite's lifetime wrong runtimes all edit step.ts.
+        Design note, proved by the prototype. The core step is a pure function of the world, one
+        input and an environment (time, ids); it returns the next world, at most one publication and
+        commands (packages/flow-state-v3/prototypes/round-14/step.ts).
+
+        One impure driver owns the loop, the inbox and the fibers, and turns commands into Effects
+        (round-14/driver.ts). Lifetime, the grace and the send table are decided in the step, so the
+        conformance suite's lifetime wrong runtimes all edit step.ts.
 
 coverage
     @R1

@@ -37,26 +37,29 @@ requirements
 
     R4  What an actor record holds
         source  @plan.Persistence.O2.
-        must    A persisted actor's record holds its state, memory, exact context bindings, issues, 
-                pending mapped outcomes, schedule deadlines (keyed timers by key with dueAt), 
-                restartOn baselines, revisions, each history target's last child, resumable slices 
-                (frozen ones with their schedules and parked Interrupted endings), .each copies by 
-                key with their counters, a writing placement's reset value, each placement's last 
-                mapped value, and stream bookmarks with their slice. Persisted Schemas encode and 
-                decode synchronously without services; unsupported values fail encoding instead of 
-                being coerced, omitted or stringified. Records obey the Codec Spec's bounds, so 
-                memory past one of them (an array of more than 4,096 items, among others) never 
-                persists: its capture is skipped with UnencodableValue and the last good capture 
-                stays (a limit on apps).
+        must    A persisted actor's record holds its state, memory, exact context bindings, issues,
+                pending mapped outcomes, schedule deadlines (keyed timers by key with dueAt),
+                `restartOn` baselines, revisions, each history target's last child, resumable slices
+                (frozen ones with their schedules and parked Interrupted endings), .each copies by
+                key with their counters, a writing placement's reset value, each placement's last
+                mapped value, and stream bookmarks with their slice.
+
+                Persisted Schemas encode and decode synchronously without services; unsupported
+                values fail encoding instead of being coerced, omitted or stringified.
+
+                Records obey the Codec Spec's bounds, so memory past one of them (an array of more
+                than 4,096 items, among others) never persists: its capture is skipped with
+                UnencodableValue and the last good capture stays (a limit on apps).
 
     R5  Lane records
         source  @plan.Persistence.O2.
-        must    Write lanes are records of the identity, never inside the actor record: every 
-                non-Idle lane of a persisted identity, bound or unbound, under (identity with its 
-                version, contract id, key), with its Attempts (retryCount, acknowledged), the 
-                creating subject path, the releasing mark and parked endings stored raw and mapped 
-                through the current definition at delivery. A local identity's lanes and one-off 
-                read lanes never persist.
+        must    Write lanes are records of the identity, never inside the actor record: every
+                non-Idle lane of a persisted identity, bound or unbound, under (identity with its
+                version, contract id, key), with its Attempts (retryCount, acknowledged), the
+                creating subject path, the releasing mark and parked endings stored raw and mapped
+                through the current definition at delivery.
+
+                A local identity's lanes and one-off read lanes never persist.
 
     R6  What never survives
         source  @plan.Persistence.O2.
@@ -88,14 +91,16 @@ requirements
 
     R10  When records are written
         source  @plan.Persistence.O3.
-        must    A dirty plain record's capture is issued within 5 s, and at once on 
-                visibilitychange to hidden and on pagehide. A batch that touches a lane or a send, 
-                or a disposeActor removal, is issued at once with everything dirty, so a lane never 
-                outruns its actor. A first send's capture and acknowledgement are one batch with 
-                the turn that committed it. The durability of R13 cannot be coalesced away. Nothing 
-                bounds the wait for storage to answer; a frozen page runs no task, deadline or 
-                capture until a thaw; browser exit flushing is best effort, and on Safari a tab 
-                close loses the last batch, so the loss window is the 5 s interval (stated limits).
+        must    A dirty plain record's capture is issued within 5 s, and at once on visibilitychange
+                to hidden and on pagehide. A batch that touches a lane or a send, or a
+                `disposeActor` removal, is issued at once with everything dirty, so a lane never
+                outruns its actor. A first send's capture and acknowledgement are one batch with the
+                turn that committed it.
+
+                The durability of R13 cannot be coalesced away. Nothing bounds the wait for storage
+                to answer; a frozen page runs no task, deadline or capture until a thaw; browser
+                exit flushing is best effort, and on Safari a tab close loses the last batch, so the
+                loss window is the 5 s interval (stated limits).
 
     R11  Scope bounds
         source  @plan.Persistence.O3.
@@ -107,24 +112,29 @@ requirements
 
     R12  The store contract
         source  @plan.Persistence.O3.
-        must    The store's contract (agent-judged): batches are atomic and commit in issue order; 
-                per key a later write wins whatever order answers arrive; one plain write per key 
-                is out at a time; an awaited write waits for any plain batch of its actor still 
-                out; a batch answers landed only if every request in it succeeded. An unanswered 
-                write is pending, never "not sent"; StorageSilent names it after 10 s and decides 
-                nothing. A record names the boot that wrote it, and no id minted after restore 
-                equals an id on disk (WriteLanes Spec R5). Disposal waits for the last write within 
-                its budget; a write still pending then reports StorageFailure.
+        must    The store's contract (agent-judged):
+
+                - batches are atomic and commit in issue order;
+                - per key a later write wins whatever order answers arrive;
+                - one plain write per key is out at a time;
+                - an awaited write waits for any plain batch of its actor still out;
+                - a batch answers landed only if every request in it succeeded.
+
+                An unanswered write is pending, never "not sent"; StorageSilent names it after 10 s
+                and decides nothing. A record names the boot that wrote it, and no id minted after
+                restore equals an id on disk (WriteLanes Spec R5). Disposal waits for the last write
+                within its budget; a write still pending then reports StorageFailure.
 
     R13  Acknowledge before sending
         source  @plan.Persistence.O6.
-        must    A persisted identity's remote commit cannot invoke its adapter until storage 
-                acknowledges its Attempt (id and encoded input), once per Attempt per lane record; 
-                the acknowledgement is one batch with the capture of the turn that committed it. A 
-                persisted re-send waits for its lane record's capture. If acknowledgement fails the 
-                adapter is not called and the commit ends NotSent { StorageRefused } with 
-                StorageFailure evidence; a re-send whose capture fails returns to Held and delivers 
-                unknown { StorageRefused }. A transient failure never downgrades a write to an 
+        must    A persisted identity's remote commit cannot invoke its adapter until storage
+                acknowledges its Attempt (id and encoded input), once per Attempt per lane record;
+                the acknowledgement is one batch with the capture of the turn that committed it.
+
+                A persisted re-send waits for its lane record's capture. If acknowledgement fails
+                the adapter is not called and the commit ends NotSent { StorageRefused } with
+                StorageFailure evidence; a re-send whose capture fails returns to Held and delivers
+                unknown { StorageRefused }. A transient failure never downgrades a write to an
                 undurable one.
 
     R14  Honest uncertainty after a crash

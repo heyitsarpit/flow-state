@@ -29,13 +29,14 @@ requirements
 
     R3  Self, re-entry and order
         source  @plan.Machines.O2.
-        must    "self", or an omitted target, changes no state, restarts no work and keeps the 
-                activation, at the root too. An explicit target re-enters itself if active, as a 
-                new activation; targeting an active ancestor re-enters it through its defaults. 
-                Below the unchanged boundary, states exit deepest first and the path to the target 
-                enters outermost first; work at and above the boundary survives. Parents' 
-                activities start before children's and stop after them. Defaults reach a leaf in 
-                one publication with no intermediate work or snapshot.
+        must    "self", or an omitted target, changes no state, restarts no work and keeps the
+                activation, at the root too. An explicit target re-enters itself if active, as a new
+                activation; targeting an active ancestor re-enters it through its defaults.
+
+                Below the unchanged boundary, states exit deepest first and the path to the target
+                enters outermost first; work at and above the boundary survives. Parents' activities
+                start before children's and stop after them. Defaults reach a leaf in one
+                publication with no intermediate work or snapshot.
 
     R4  Subroutines and history
         source  @plan.Machines.O2.
@@ -61,14 +62,16 @@ requirements
 
     R7  Two memory views
         source  @plan.Machines.O3.
-        must    Guards, payload mappers and updateMemory read the pre-turn snapshot. Commit and 
-                lookup selects, key selects, schedule functions, keys, restartOn, placement selects 
-                and when, and optimistic read the after memory. resetOn and input fillers read the 
-                before-walk memory. Lane reads (operations, get, idle, retryable) in guards, 
-                selects and updateMemory see the pre-turn lanes with the turn's own ending 
-                admitted; keys, when, placement selects and published rows see the lanes with this 
-                turn's members applied. Each patch shallow-merges once. Updates, action parameters 
-                and send mappers receive one now per turn; guards receive no time.
+        must    Guards, payload mappers and `updateMemory` read the pre-turn snapshot. Commit and
+                lookup selects, key selects, schedule functions, keys, `restartOn`, placement
+                selects and when, and optimistic read the after memory. `resetOn` and input fillers
+                read the before-walk memory.
+
+                Lane reads (operations, get, idle, retryable) in guards, selects and `updateMemory`
+                see the pre-turn lanes with the turn's own ending admitted; keys, when, placement
+                selects and published rows see the lanes with this turn's members applied. Each
+                patch shallow-merges once. Updates, action parameters and send mappers receive one
+                now per turn; guards receive no time.
 
     R8  Rejected turn
         source  @plan.Machines.O3.
@@ -86,12 +89,14 @@ requirements
 
     R10  Callback defects
         source  @plan.Machines.O3.
-        must    A pre-commit callback defect (guard, update, select, key, send payload, schedule, 
-                restartOn, placement select, when) preserves prior state, memory, context and 
-                store, starts no work, publishes one issue-only snapshot naming the callback and 
-                path, and is not retried for that input. A post-commit mapper, placeholder, 
-                optimistic-data or write callback defect publishes one issue, enqueues no event, 
-                applies no partial write batch, and neither rolls back nor retries.
+        must    A pre-commit callback defect (guard, update, select, key, send payload, schedule,
+                restartOn, placement select, when) preserves prior state, memory, context and store,
+                starts no work, publishes one issue-only snapshot naming the callback and path, and
+                is not retried for that input.
+
+                A post-commit mapper, placeholder, optimistic-data or write callback defect
+                publishes one issue, enqueues no event, applies no partial write batch, and neither
+                rolls back nor retries.
 
     R11  Determinism
         source  @plan.Machines.O3.
@@ -108,24 +113,28 @@ requirements
 
     R13  check
         source  @plan.Machines.O4.
-        must    check(snapshot, event) runs selection, parts and validation with no effect: no 
-                memory update, admission, publication, evidence, mint, queue join, prediction, 
-                release or work. It returns Allowed when a transition would run; Denied with 
-                reasons when handlers exist and all decline or the turn would be rejected 
-                (InvalidTurn); Unhandled when none exists. Reasons list each declined alternative, 
-                deepest level then authored order; a declined state token reads NotInState. 
-                Verdicts compare by Equal.equals. An old snapshot answers from its own captured 
-                values. A defective guard makes check throw GuardDefect without publishing an issue.
+        must    check(snapshot, event) runs selection, parts and validation with no effect: no
+                memory update, admission, publication, evidence, mint, queue join, prediction,
+                release or work. It returns Allowed when a transition would run; Denied with reasons
+                when handlers exist and all decline or the turn would be rejected (InvalidTurn);
+                Unhandled when none exists.
+
+                Reasons list each declined alternative, deepest level then authored order; a
+                declined state token reads NotInState. Verdicts compare by Equal.equals. An old
+                snapshot answers from its own captured values. A defective guard makes check throw
+                GuardDefect without publishing an issue.
 
     R14  Schedule arming
         source  @plan.Machines.O5.
-        must    A schedule without armOn starts on entry. armOn starts it on each accepted listed 
-                event, restarting it if running, and with Flow.entry also on entry. disarmOn stops 
-                it; stopping an idle schedule does nothing. Exit stops any schedule. An event in 
-                both lists, armOn with restartOn, or armOn on a keyed schedule is a construction 
-                error. A node with no written handler for an event that an active schedule lists in 
-                armOn or disarmOn handles it with an implicit unguarded { target: "self" }, so that 
-                event is not Unhandled there. A schedule never counts the turn that arms it, and 
+        must    A schedule without `armOn` starts on entry. `armOn` starts it on each accepted
+                listed event, restarting it if running, and with Flow.entry also on entry.
+                `disarmOn` stops it; stopping an idle schedule does nothing. Exit stops any
+                schedule. An event in both lists, `armOn` with `restartOn`, or `armOn` on a keyed
+                schedule is a construction error.
+
+                A node with no written handler for an event that an active schedule lists in `armOn`
+                or `disarmOn` handles it with an implicit unguarded { target: "self" }, so that
+                event is not Unhandled there. A schedule never counts the turn that arms it, and
                 descendant changes and "self" keep its deadline.
 
     R15  Schedule firing
@@ -138,32 +147,41 @@ requirements
 
     R16  restartOn and keyed schedules
         source  @plan.Machines.O5.
-        must    restartOn sets a silent baseline from the activating turn's after memory and leaves 
-                the schedule idle. After each committed turn a changed selection under Equal.equals 
-                restarts only that schedule from its first step; equal values do nothing. A keyed 
-                schedule's keys come from the after memory and after lanes: one timer per key, 
-                armed when the key appears, cancelled when it leaves, firing once with key; a 
-                repeated key keeps its first position with listRepair evidence; restartOn is 
-                evaluated per key. Per-key timers persist by key with dueAt, and on restore the 
-                restored memory's keys win.
+        must    `restartOn` sets a silent baseline from the activating turn's after memory and
+                leaves the schedule idle. After each committed turn a changed selection under
+                Equal.equals restarts only that schedule from its first step; equal values do
+                nothing.
+
+                A keyed schedule's keys come from the after memory and after lanes:
+
+                - one timer per key, armed when the key appears, cancelled when it leaves, firing
+                once with key;
+                - a repeated key keeps its first position with `listRepair` evidence;
+                - `restartOn` is evaluated per key.
+
+                Per-key timers persist by key with `dueAt`, and on restore the restored memory's
+                keys win.
 
     R17  Schedules and use
         source  @plan.Machines.O5.
-        must    Schedules fire only while their actor is used (Actors Spec). A deadline due while 
-                unused waits; only the latest arming waits, and re-arming, disarming or exiting 
-                removes a waiting deadline. On restore, resume or a returning use, a Duration keeps 
-                its deadline and fires once if overdue, waiting deadlines in deadline order; a 
-                multi-step Schedule restarts at step one. A resumable trait's schedules keep dueAt 
-                while frozen and fire once on return if overdue. Restored baselines are silent.
+        must    Schedules fire only while their actor is used (Actors Spec). A deadline due while
+                unused waits; only the latest arming waits, and re-arming, disarming or exiting
+                removes a waiting deadline.
+
+                On restore, resume or a returning use, a Duration keeps its deadline and fires once
+                if overdue, waiting deadlines in deadline order; a multi-step Schedule restarts at
+                step one. A resumable trait's schedules keep `dueAt` while frozen and fire once on
+                return if overdue. Restored baselines are silent.
 
     R18  Placements
         source  @plan.Machines.O6.
-        must    After each turn an unchanged operation and key keep existing work; a changed key 
-                releases old work exactly once and starts new work; when false releases only that 
-                placement. A freeze releases a trait's placements and a thaw places them again. A 
-                live operation is placed in one state or trait incarnation at a time unless state 
-                tokens in when make placements exclusive (DuplicatePlacement); one operation uses 
-                one verb (VerbMismatch). Release failure reports once without blocking the 
+        must    After each turn an unchanged operation and key keep existing work; a changed key
+                releases old work exactly once and starts new work; when false releases only that
+                placement. A freeze releases a trait's placements and a thaw places them again.
+
+                A live operation is placed in one state or trait incarnation at a time unless state
+                tokens in when make placements exclusive (DuplicatePlacement); one operation uses
+                one verb (VerbMismatch). Release failure reports once without blocking the
                 transition.
 
     R19  Endings become later turns
@@ -184,33 +202,37 @@ requirements
 
     R21  A late turn may not leave live work
         source  @plan.Machines.O6.
-        must    In a late turn an alternative may not exit a state that owns other pending work, or 
-                an active subroutine (LateMayNotLeave). Pending work is every call owned by an 
-                activation it exits: an InFlight head and every queued commit, behind a Held head 
-                too, whatever the transition cancels. A Held head is not pending work. flow check 
-                errors on a late handler with no alternative that stays put at the owner state or 
-                its ancestors (StaticCli Spec); a late ending landing while the owner is not 
-                re-entered, at an ancestor whose alternatives all leave, is denied at run time, an 
-                accepted risk (the runner's ruling).
+        must    In a late turn an alternative may not exit a state that owns other pending work, or
+                an active subroutine (LateMayNotLeave). Pending work is every call owned by an
+                activation it exits: an InFlight head and every queued commit, behind a Held head
+                too, whatever the transition cancels.
+
+                A Held head is not pending work. flow check errors on a late handler with no
+                alternative that stays put at the owner state or its ancestors (StaticCli Spec); a
+                late ending landing while the owner is not re-entered, at an ancestor whose
+                alternatives all leave, is denied at run time, an accepted risk (the runner's
+                ruling).
 
     R22  Context reactions
         source  @plan.Machines.O7.
-        must    onContext select sets a silent baseline at admission, restore, adoption and 
-                hydration. Only context waves re-run it; memory-only changes do not. Equal 
-                selections are silent. A changed selection becomes the baseline even if when 
-                declines; with no when, or when true, its event enqueues after the context turn, in 
-                declaration order, in the one FIFO mailbox. A select, when or mapper defect 
-                publishes one issue, keeps the previous baseline and emits nothing. Reactions never 
-                change state directly.
+        must    `onContext` select sets a silent baseline at admission, restore, adoption and
+                hydration. Only context waves re-run it; memory-only changes do not. Equal
+                selections are silent.
+
+                A changed selection becomes the baseline even if when declines; with no when, or
+                when true, its event enqueues after the context turn, in declaration order, in the
+                one FIFO mailbox. A select, when or mapper defect publishes one issue, keeps the
+                previous baseline and emits nothing. Reactions never change state directly.
 
     R23  Snapshot shape
         source  @plan.Machines.O8.
-        must    A snapshot exposes state, memory, context, issues, lifecycle, schedules and 
-                operations. A fragment's memory slice sits under its instance name: undefined while 
-                inactive, present while frozen; .each copies are a keyed list. Every list of 
-                several things is a keyed list in key order, each entry with key; an entry that 
-                does not exist is absent, never a default. Outside types omit Flow.private fields. 
-                It has no input, methods or public revision.
+        must    A snapshot exposes state, memory, context, issues, lifecycle, schedules and
+                operations. A fragment's memory slice sits under its instance name: undefined while
+                inactive, present while frozen; .each copies are a keyed list.
+
+                Every list of several things is a keyed list in key order, each entry with key; an
+                entry that does not exist is absent, never a default. Outside types omit
+                Flow.private fields. It has no input, methods or public revision.
 
     R24  Snapshot values
         source  @plan.Machines.O8.

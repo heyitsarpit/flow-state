@@ -42,12 +42,13 @@ requirements
 
     R5  graph
         source  @plan.CommandLine.O1.
-        must    graph prints one edge per alternative, named by its place in the source so an edge 
-                and the Runtime's turn record share one name. Each edge says what decides it (a 
-                state token, an idle or retryable lane fact, a port, a closure) and is marked late, 
-                shadowed, unreached or unsourced when the data says it cannot be taken. Fillings, 
-                schedule triggers and whenAbandoned callbacks are edges; what data cannot say is 
-                listed as unseen.
+        must    graph prints one edge per alternative, named by its place in the source so an edge
+                and the Runtime's turn record share one name.
+
+                Each edge says what decides it (a state token, an idle or retryable lane fact, a
+                port, a closure) and is marked late, shadowed, unreached or unsourced when the data
+                says it cannot be taken. Fillings, schedule triggers and `whenAbandoned` callbacks
+                are edges; what data cannot say is listed as unseen.
 
     R6  Static explain
         source  @plan.CommandLine.O1.
@@ -60,13 +61,14 @@ requirements
 
     R7  Results
         source  @plan.CommandLine.O3.
-        must    Text and JSON describe the same result. JSON carries version: 1, the command leaf, 
-                status (completed, equal, different, incomplete or failed), data (null when absent) 
-                and ordered diagnostics. A success or a finding emits one newline-terminated 
-                document on stdout; an invocation failure one document on stderr. Results never mix 
-                with loader console output, carry no ANSI in JSON or non-interactive text, and 
-                never show raw causes, stacks or private authority. A broken pipe fails without 
-                printing another error.
+        must    Text and JSON describe the same result. JSON carries version: 1, the command leaf,
+                status (completed, equal, different, incomplete or failed), data (null when absent)
+                and ordered diagnostics. A success or a finding emits one newline-terminated
+                document on stdout; an invocation failure one document on stderr.
+
+                Results never mix with loader console output, carry no ANSI in JSON or
+                non-interactive text, and never show raw causes, stacks or private authority. A
+                broken pipe fails without printing another error.
 
     R8  Exit codes
         source  @plan.CommandLine.O3.
@@ -102,11 +104,12 @@ requirements
 
     R12  Configuration discovery
         source  @plan.CommandLine.O6.
-        must    At --project-root (default the cwd) flow loads only flow.config.ts, whose default 
-                export is defineConfig({ apps, stories?, tsconfig? }). The root must contain 
-                package.json; discovery never searches ancestors or picks another config. Missing 
-                or unloadable config fails with ConfigLoadFailed. Empty configs, duplicate ids, 
-                foreign setups and lookalike values reject before any execution resource is 
+        must    At --project-root (default the cwd) flow loads only flow.config.ts, whose default
+                export is defineConfig({ apps, stories?, tsconfig? }). The root must contain
+                package.json; discovery never searches ancestors or picks another config.
+
+                Missing or unloadable config fails with ConfigLoadFailed. Empty configs, duplicate
+                ids, foreign setups and lookalike values reject before any execution resource is
                 acquired; Flow and Effect values must come from the CLI's own package instances.
 
     R13  Project safety

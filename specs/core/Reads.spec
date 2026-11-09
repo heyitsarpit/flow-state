@@ -15,33 +15,38 @@ derives_from  [
 requirements
     R1  Inert contracts
         source  @plan.Operations.O1.
-        must    resource, transaction and stream return inert contracts; constructing one starts no 
-                work. Distinct contracts with one id reachable from one App fail construction. 
-                services is required on every contract and checked against the function's R. 
-                concurrency is required. Persisted resources require output. A transaction that 
-                moves money keys the server by something it recognises, idempotency: "attempt" or 
-                the input fields it is, so flow check can warn on a money-shaped write keyed by the 
-                Attempt; a server may prune keys, so a re-send on an old key reads first, and Flow 
-                keeps no key age. staleTime and gcTime are required on resources; their semantics 
-                are written when built (spec-split.md, "written when their phase starts").
+        must    resource, transaction and stream return inert contracts; constructing one starts no
+                work. Distinct contracts with one id reachable from one App fail construction.
+                services is required on every contract and checked against the function's R.
+                concurrency is required. Persisted resources require output.
+
+                A transaction that moves money keys the server by something it recognises,
+                idempotency: "attempt" or the input fields it is, so flow check can warn on a
+                money-shaped write keyed by the Attempt; a server may prune keys, so a re-send on an
+                old key reads first, and Flow keeps no key age. `staleTime` and `gcTime` are
+                required on resources; their semantics are written when built (spec-split.md,
+                "written when their phase starts").
 
     R2  Keys name things
         source  @plan.Operations.O1.
-        must    key is a required list of top-level input fields, [] for one; a key field is 
-                required with no default (KeyFieldOptional). Equal key records identify the same 
-                entry, lane or session in one Runtime regardless of field order; extra fields are 
-                ignored. A key is stored as canonical text; a value JSON cannot carry gets a stable 
-                name, so 1n restores as "$1n". A key's fingerprint (field names and each field's 
-                type and encoded side) is part of the operation's version.
+        must    key is a required list of top-level input fields, [] for one; a key field is
+                required with no default (KeyFieldOptional). Equal key records identify the same
+                entry, lane or session in one Runtime regardless of field order; extra fields are
+                ignored.
+
+                A key is stored as canonical text; a value JSON cannot carry gets a stable name, so
+                1n restores as "$1n". A key's fingerprint (field names and each field's type and
+                encoded side) is part of the operation's version.
 
     R3  Key values and bounds
         source  @plan.Operations.O1.
-        must    Picked key values accept null, booleans, finite numbers, strings, bigints (named 
-                canonically, R2), dense arrays and plain records. Undefined record properties are 
-                absent; undefined array items, cycles, accessors, non-plain objects, lone 
-                surrogates and unsupported values reject without running getters or coercion. 
-                Mutating input later cannot change an admitted key. Key size bounds and the 
-                InvalidKey code are written when built.
+        must    Picked key values accept null, booleans, finite numbers, strings, bigints (named
+                canonically, R2), dense arrays and plain records.
+
+                Undefined record properties are absent; undefined array items, cycles, accessors,
+                non-plain objects, lone surrogates and unsupported values reject without running
+                getters or coercion. Mutating input later cannot change an admitted key. Key size
+                bounds and the InvalidKey code are written when built.
 
     R5  Shared entries
         source  @plan.Operations.O2.
@@ -60,55 +65,63 @@ requirements
 
     R8  subscribe and triggers
         source  @plan.Operations.O2.
-        must    O.x.subscribe places the operation and starts a request only when the entry is 
-                missing (or stale, once freshness is built) with none running. Automatic requests 
-                use the oldest live placement's input; explicit requests use the caller's input; a 
-                running request keeps its starting input. success maps only with lookup and value 
-                only with subscribe (VerbMismatch). Flow never retries a failed lookup 
-                automatically. Focus and connection triggers are written when built.
+        must    O.x.subscribe places the operation and starts a request only when the entry is
+                missing (or stale, once freshness is built) with none running.
+
+                Automatic requests use the oldest live placement's input; explicit requests use the
+                caller's input; a running request keeps its starting input. success maps only with
+                lookup and value only with subscribe (VerbMismatch). Flow never retries a failed
+                lookup automatically. Focus and connection triggers are written when built.
 
     R9  Read endings
         source  @plan.Operations.O2.
-        must    success and value see confirmed data only; success carries current data even when 
-                ordering rejects its request's result, and equal data still settles the lookup. A 
-                read's defect or interruption ends on failure as Defect or Interrupted, which a tag 
-                record must map; a mapper that throws or returns no shape ends as Defect with a 
-                UserClosure issue. The failure mapping is exhaustive. Flow.ignore means no event 
-                and no handler. Unmapped failure leaves its lane tag and an issue.
+        must    success and value see confirmed data only; success carries current data even when
+                ordering rejects its request's result, and equal data still settles the lookup.
+
+                A read's defect or interruption ends on failure as Defect or Interrupted, which a
+                tag record must map; a mapper that throws or returns no shape ends as Defect with a
+                UserClosure issue. The failure mapping is exhaustive. Flow.ignore means no event and
+                no handler. Unmapped failure leaves its lane tag and an issue.
 
     R10  value, holds and collection
         source  @plan.Operations.O2.
-        must    value fires at placement and then only when confirmed data changes by Equal.equals; 
-                restored or hydrated placements do not remap an already mapped value. A live 
-                placement, request or optimistic layer holds an entry, and a one-off read holds its 
-                latest entry. Releasing one owner preserves shared work until the last owner 
-                leaves. Passive reads never hold or start work. Cleared, collected or replaced 
-                requests cannot later change data or replacement placements. A source replaces data 
-                only if its request started at or after the stored data landed. Collection (gcTime) 
-                is written when built.
+        must    value fires at placement and then only when confirmed data changes by Equal.equals;
+                restored or hydrated placements do not remap an already mapped value. A live
+                placement, request or optimistic layer holds an entry, and a one-off read holds its
+                latest entry. Releasing one owner preserves shared work until the last owner leaves.
+
+                Passive reads never hold or start work. Cleared, collected or replaced requests
+                cannot later change data or replacement placements. A source replaces data only if
+                its request started at or after the stored data landed. Collection (gcTime) is
+                written when built.
 
     R13  Optimistic values
         source  @plan.Operations.O5.
-        must    Every reader sees confirmed data with the live optimistic update applied; 
-                optimistic values never become confirmed data or cross persistence or hydration. 
-                Success keeps the look until a lookup started after settlement confirms it; failure 
-                (NotSent included) removes that commit's update without a refetch or overwriting 
-                newer data; unknown keeps it, marked uncertain, and refetches the displayed entries 
-                once, never looping; a failed refetch keeps the look uncertain until the next 
-                natural trigger; an unknown released before the forced repair removes nothing. 
+        must    Every reader sees confirmed data with the live optimistic update applied; optimistic
+                values never become confirmed data or cross persistence or hydration.
+
+                - Success keeps the look until a lookup started after settlement confirms it;
+                - failure (NotSent included) removes that commit's update without a refetch or
+                overwriting newer data;
+                - unknown keeps it, marked uncertain, and refetches the displayed entries once,
+                never looping;
+                - a failed refetch keeps the look uncertain until the next natural trigger;
+                - an unknown released before the forced repair removes nothing.
+
                 Stacking several updates is written when built.
 
     R14  Rows
         source  @plan.Operations.O6.
-        must    s.operations.<name> reflects its snapshot and keeps identity until its lane, entry 
-                or session changes. A write row is { pending, uncertain, waiting, retryCount, 
-                progress? } (plus outstanding under serialize; { pending, retryCount, progress? } 
-                under cancel). A keyed write's rows are a keyed list of existing lanes; O.x.get(s, 
-                k) is total and a key with no lane reads the idle row. A one-off read's row is 
-                undefined before its first lookup and after cancel. Resource tags are Pending, 
-                Ready, Refreshing, Failure, Defect and Interrupted; Failure, Defect and Interrupted 
-                keep previous data, Refreshing always has data, and all carry data, predicted and 
-                key.
+        must    s.operations.<name> reflects its snapshot and keeps identity until its lane, entry
+                or session changes. A write row is { pending, uncertain, waiting, retryCount,
+                progress? } (plus outstanding under serialize; { pending, retryCount, progress? }
+                under cancel). A keyed write's rows are a keyed list of existing lanes; O.x.get(s,
+                k) is total and a key with no lane reads the idle row.
+
+                A one-off read's row is undefined before its first lookup and after cancel. Resource
+                tags are Pending, Ready, Refreshing, Failure, Defect and Interrupted; Failure,
+                Defect and Interrupted keep previous data, Refreshing always has data, and all carry
+                data, predicted and key.
 
 open
     Q1  Executable checks are not built.

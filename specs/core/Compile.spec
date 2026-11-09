@@ -34,12 +34,17 @@ requirements
 
     R4  Declared shape
         source  @plan.Machines.O1.
-        must    A definition requires id, states and events, and may declare internalEvents, 
-                memory, traits, operations, context and persist (default false). Machine 
-                configuration mirrors the state tree: the root and each compound have a default 
-                direct child and states; leaves have neither; only the root declares onContext. 
-                Unknown fields, wrong kinds, empty compounds, duplicate siblings, overlapping 
-                public and internal names, _tag fields and self-selecting context reject.
+        must    A definition requires id, states and events, and may declare `internalEvents`,
+                memory, traits, operations, context and persist (default false).
+
+                Machine configuration mirrors the state tree:
+
+                - the root and each compound have a default direct child and states;
+                - leaves have neither;
+                - only the root declares `onContext`.
+
+                Unknown fields, wrong kinds, empty compounds, duplicate siblings, overlapping public
+                and internal names, _tag fields and self-selecting context reject.
 
     R5  One source per memory field
         source  @plan.Machines.O1.
@@ -78,23 +83,26 @@ requirements
 
     R10  Fragments
         source  @plan.Machines.O1.
-        must    A fragment declares id, events, hostEvents, internalEvents, guards, callbacks, 
-                exits (subroutines only), memory, child traits and operations; ports are required 
-                unless wrapped in Flow.optional. It may not declare context, onContext, send or 
-                persist. Each fragment carries an inferred summary in its type, and hosts are 
-                checked against summaries, never bodies. Instance names, operation names, state 
-                names and memory keys share one namespace; key and item are reserved under .each.
+        must    A fragment declares id, events, `hostEvents`, `internalEvents`, guards, callbacks,
+                exits (subroutines only), memory, child traits and operations; ports are required
+                unless wrapped in Flow.optional. It may not declare context, `onContext`, send or
+                persist.
+
+                Each fragment carries an inferred summary in its type, and hosts are checked against
+                summaries, never bodies. Instance names, operation names, state names and memory
+                keys share one namespace; key and item are reserved under .each.
 
     R11  Fragment write scope
         source  @plan.Machines.O1.
-        must    A fragment may own a write that maps anything only if every placement from the root 
-                to it is a root trait, an .each copy or a .resumable() trait, any of which may 
-                carry resetOn, with no subroutine on the path; there a resetOn returns a string, 
-                null or undefined. Elsewhere it may own reads, streams and bare writes. Acting 
-                members (commit, lookup, subscribe, retry, cancel, cancelAll, refetch) are typed 
-                only inside the declaring fragment; outside it Fragment.O offers only its write 
-                operations' reads (get in views; get, idle and retryable in a host's guards and 
-                updateMemory).
+        must    A fragment may own a write that maps anything only if every placement from the root
+                to it is a root trait, an .each copy or a .resumable() trait, any of which may carry
+                `resetOn`, with no subroutine on the path; there a `resetOn` returns a string, null
+                or undefined.
+
+                Elsewhere it may own reads, streams and bare writes. Acting members (commit, lookup,
+                subscribe, retry, cancel, cancelAll, refetch) are typed only inside the declaring
+                fragment; outside it Fragment.O offers only its write operations' reads (get in
+                views; get, idle and retryable in a host's guards and updateMemory).
 
     R12  Names
         source  @plan.Machines.O1.

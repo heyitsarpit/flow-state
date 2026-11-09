@@ -33,12 +33,14 @@ requirements
 
     R4  Failures
         source  @plan.Inspection.O2.
-        must    A failure is one FlowError raised before any actor, store, service or committed 
-                change: CodecBoundExceeded (the bound, its value and the path), CodecMalformed (one 
-                reason of utf8, json, nonCanonical, cycle, negativeZero, nonFinite, loneSurrogate, 
-                notPlain or sparse) or CodecSchemaMismatch (path and issue summary, never data 
-                values). No raw parser error or Cause escapes. A value with no encoded form inside 
-                a turn is UnencodableValue and never fails the turn.
+        must    A failure is one FlowError raised before any actor, store, service or committed
+                change: CodecBoundExceeded (the bound, its value and the path), CodecMalformed (one
+                reason of utf8, json, nonCanonical, cycle, negativeZero, nonFinite, loneSurrogate,
+                notPlain or sparse) or CodecSchemaMismatch (path and issue summary, never data
+                values).
+
+                No raw parser error or Cause escapes. A value with no encoded form inside a turn is
+                UnencodableValue and never fails the turn.
 
 open
     Q1  Executable checks are not built.

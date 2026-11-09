@@ -14,13 +14,14 @@ derives_from  [
 requirements
     R1  Records stay records
         source  @plan.Persistence.O4.
-        must    ready() restores a compatible scope before actor work starts. Restored records stay 
-                records until an ensure, a subscription or a send reaches them, except an identity 
-                whose captured lanes owe it an ending (a lane InFlight at capture, or a parked 
-                ending), which is restored live at ready and kept as work in flight until those 
-                turns run. A restored record is a new incarnation with new ids for the actor and 
-                every fragment incarnation. Restore never runs creation again or replays input or 
-                turns.
+        must    ready() restores a compatible scope before actor work starts. Restored records stay
+                records until an ensure, a subscription or a send reaches them, except an identity
+                whose captured lanes owe it an ending (a lane InFlight at capture, or a parked
+                ending), which is restored live at ready and kept as work in flight until those
+                turns run.
+
+                A restored record is a new incarnation with new ids for the actor and every fragment
+                incarnation. Restore never runs creation again or replays input or turns.
 
     R2  Context and resets at restore
         source  @plan.Persistence.O4.
@@ -31,14 +32,16 @@ requirements
 
     R3  Delivery order at restore
         source  @plan.Persistence.O4.
-        must    Per lane in creation order, the incarnation receives the parked endings in saved 
-                order; on a reload, each queued commit's NotSent { Restored } first, then a Held 
-                head's unknown { Restored } once (unless its outcome was saved), so the ending that 
-                leaves a hold comes last. An Attempt acknowledged once ends unknown { Restored } 
-                even if its re-send was waiting or it was never invoked; a head whose own ending is 
-                parked restores as that ending, once. These come after readiness, before new 
-                external events and before continuing placements reconcile. A kill before a first 
-                send's batch lands restores the state before that turn, with no lane and no ending.
+        must    Per lane in creation order, the incarnation receives the parked endings in saved
+                order; on a reload, each queued commit's NotSent { Restored } first, then a Held
+                head's unknown { Restored } once (unless its outcome was saved), so the ending that
+                leaves a hold comes last.
+
+                An Attempt acknowledged once ends unknown { Restored } even if its re-send was
+                waiting or it was never invoked; a head whose own ending is parked restores as that
+                ending, once. These come after readiness, before new external events and before
+                continuing placements reconcile. A kill before a first send's batch lands restores
+                the state before that turn, with no lane and no ending.
 
     R4  Data and placements after restore
         source  @plan.Persistence.O4.
@@ -50,64 +53,78 @@ requirements
 
     R5  Record formats and undecodable records
         source  @plan.Persistence.O5.
-        must    Restore is per record. Corrupt scope data that no record can be read from falls 
-                back to the last good capture, or starts fresh, and ready succeeds; a fresh start 
-                loses the scope's acknowledged Attempts and their holds (a stated limit). Each 
-                older record format reaches the current one by a pure step at the boot; a newer, 
-                null or non-integer format is quarantined, its lane still holding by its id. An 
-                actor record that does not decode is quarantined: it reads lifecycle quarantined 
-                with its issue; an ensure starts fresh, reports RecordUndecodable (proposed name) 
-                and adopts the identity's lanes; the fresh actor's first save overwrites the 
-                quarantined bytes (the runner's ruling). Lane records decode by their contract's 
-                input pick, independent of the actor record.
+        must    Restore is per record. Corrupt scope data that no record can be read from falls back
+                to the last good capture, or starts fresh, and ready succeeds; a fresh start loses
+                the scope's acknowledged Attempts and their holds (a stated limit).
+
+                Each older record format reaches the current one by a pure step at the boot; a
+                newer, null or non-integer format is quarantined, its lane still holding by its id.
+
+                An actor record that does not decode is quarantined:
+
+                - it reads lifecycle quarantined with its issue;
+                - an ensure starts fresh, reports RecordUndecodable (proposed name) and adopts the
+                identity's lanes;
+                - the fresh actor's first save overwrites the quarantined bytes (the runner's
+                ruling).
+
+                Lane records decode by their contract's input pick, independent of the actor record.
 
     R6  Versions at the boot
         source  @plan.Persistence.O5; identity versions as the Actors Spec's R11 defines them.
-        must    A saved actor record of another identity version is listed (OldVersionActor, 
-                proposed name), never renamed, and removed by forget; its lanes are re-keyed to 
-                key#identityTag (LaneRekeyed, proposed name), kept, blocking nothing, and listed 
-                UnboundLane (proposed name) at each boot. A release that makes the old identity 
-                current again hands the key's lane back unless it is taken; the old identity's 
-                unknown hold has no user exit and ends only by its own ending (a stated limit). A 
-                lane of an older key fingerprint is an old-version hold, reported at each boot as 
-                OldVersionLane, and declines its operation's commits for that identity NotSent { 
-                OldVersion }.
+        must    A saved actor record of another identity version is listed (OldVersionActor,
+                proposed name), never renamed, and removed by forget; its lanes are re-keyed to
+                key#identityTag (LaneRekeyed, proposed name), kept, blocking nothing, and listed
+                UnboundLane (proposed name) at each boot.
+
+                A release that makes the old identity current again hands the key's lane back unless
+                it is taken; the old identity's unknown hold has no user exit and ends only by its
+                own ending (a stated limit). A lane of an older key fingerprint is an old-version
+                hold, reported at each boot as OldVersionLane, and declines its operation's commits
+                for that identity NotSent { OldVersion }.
 
     R7  Saved-shape resets
         source  @plan.Persistence.O5.
-        must    Each definition's records are reset automatically, decided per record (the runner's 
-                ruling), when the saved shape (state ids, memory fields with their Schema versions, 
-                fragments' under their id) differs incompatibly: the record is removed at the boot 
-                with its deadlines and stopped reads, reported as one RecordShapeChanged (proposed 
-                name) per definition with its count. The identity check comes first; a record with 
-                no shape stamp never resets. Any structural Schema change to a stored field resets 
-                the record, a harmless validation change included (the runner's ruling; a stated 
-                price). Its writes in flight are kept, and each boot reports a head whose record 
-                was reset or does not read as HoldWithoutRecord (proposed name). A field the record 
-                has and the release lacks is dropped with FieldDropped (proposed name) once the 
-                record is known to restore, and the record is rewritten at that boot.
+        must    Each definition's records are reset automatically, decided per record (the runner's
+                ruling), when the saved shape (state ids, memory fields with their Schema versions,
+                fragments' under their id) differs incompatibly: the record is removed at the boot
+                with its deadlines and stopped reads, reported as one RecordShapeChanged (proposed
+                name) per definition with its count.
+
+                The identity check comes first; a record with no shape stamp never resets. Any
+                structural Schema change to a stored field resets the record, a harmless validation
+                change included (the runner's ruling; a stated price). Its writes in flight are
+                kept, and each boot reports a head whose record was reset or does not read as
+                HoldWithoutRecord (proposed name).
+
+                A field the record has and the release lacks is dropped with FieldDropped (proposed
+                name) once the record is known to restore, and the record is rewritten at that boot.
 
     R8  Lane quarantine
         source  @plan.Persistence.O5.
-        must    A lane whose key no longer decodes, whose operation is gone, or whose path the 
-                placement cannot produce is quarantined: it keeps its id and hold, a commit on its 
-                key declines NotSent { Rejected }, it is listed and reported at each boot, and a 
-                cancel on that key clears it (with no operation, forget drops its hold with 
-                HoldForgotten, proposed name). A lane whose operation name is gone moves to the one 
-                write operation over its contract (OpRenamed, proposed name); a move onto an 
-                existing record or another move is refused with LaneRekeyCollision (proposed name), 
-                the mover quarantined and nothing overwritten. Actor records for a machine no entry 
-                declares are discarded with a diagnostic and their lanes quarantined (the runner's 
-                ruling). There is no key-equality adoption.
+        must    A lane whose key no longer decodes, whose operation is gone, or whose path the
+                placement cannot produce is quarantined: it keeps its id and hold, a commit on its
+                key declines NotSent { Rejected }, it is listed and reported at each boot, and a
+                cancel on that key clears it (with no operation, forget drops its hold with
+                HoldForgotten, proposed name).
+
+                A lane whose operation name is gone moves to the one write operation over its
+                contract (OpRenamed, proposed name); a move onto an existing record or another move
+                is refused with LaneRekeyCollision (proposed name), the mover quarantined and
+                nothing overwritten.
+
+                Actor records for a machine no entry declares are discarded with a diagnostic and
+                their lanes quarantined (the runner's ruling). There is no key-equality adoption.
 
     R9  Storage failures
         source  @plan.Persistence.O5.
-        must    A storage read failure reports StorageFailure and disables persistence for that 
-                Runtime, so unread saved data is never overwritten. A failed write keeps live 
-                committed state and the last good capture, never fails a committed turn, and a 
-                later publication retries the newest state. Memory that cannot encode skips its 
-                batch with UnencodableValue. Failures reach diagnostic observers; a failing 
-                inspection sink cannot interrupt persistence.
+        must    A storage read failure reports StorageFailure and disables persistence for that
+                Runtime, so unread saved data is never overwritten. A failed write keeps live
+                committed state and the last good capture, never fails a committed turn, and a later
+                publication retries the newest state.
+
+                Memory that cannot encode skips its batch with UnencodableValue. Failures reach
+                diagnostic observers; a failing inspection sink cannot interrupt persistence.
 
     R10  Forgetting a scope
         source  @plan.Persistence.O5.

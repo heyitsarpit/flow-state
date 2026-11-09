@@ -14,114 +14,137 @@ derives_from  [
 requirements
     R1  Commit admission
         source  @plan.Operations.O3.
-        must    Only an accepted action admits O.x.commit(select, { optimistic? }); activation, 
-                restore, hydration and state re-entry never replay a commit. select reads the 
-                turn's after memory and the event. The operation's writes option applies only on 
-                success, before its ending's event, even after the issuing state exits; invalid 
-                success writes apply nothing and report InvalidWrite while the commit still 
-                succeeds; a success write never overwrites data that landed after the commit 
-                started and marks that entry stale instead.
+        must    Only an accepted action admits O.x.commit(select, { optimistic? }); activation,
+                restore, hydration and state re-entry never replay a commit. select reads the turn's
+                after memory and the event.
+
+                The operation's writes option applies only on success, before its ending's event,
+                even after the issuing state exits; invalid success writes apply nothing and report
+                InvalidWrite while the commit still succeeds; a success write never overwrites data
+                that landed after the commit started and marks that entry stale instead.
 
     R2  Three channels
         source  @plan.Operations.O3.
-        must    A commit ends success, failure (this send definitely did not do it) or unknown (it 
-                may have happened), as the commit function classifies it with Outcome; a plain 
-                error is a failure; a throw or die is unknown { Defect } with the Cause and an 
-                actor issue. The runtime classifies each send from the fiber's Exit and whole 
-                Cause, outside that fiber, Flow's own knowledge first, then most cautious first. 
-                The ending delivered is the Attempt's: a definite failure after an unknown send of 
-                the same Attempt is unknown StillUnknown { failure }.
+        must    A commit ends success, failure (this send definitely did not do it) or unknown (it
+                may have happened), as the commit function classifies it with Outcome; a plain error
+                is a failure; a throw or die is unknown { Defect } with the Cause and an actor
+                issue.
+
+                The runtime classifies each send from the fiber's Exit and whole Cause, outside that
+                fiber, Flow's own knowledge first, then most cautious first. The ending delivered is
+                the Attempt's: a definite failure after an unknown send of the same Attempt is
+                unknown StillUnknown { failure }.
 
     R3  Flow's reserved reasons
         source  @plan.Operations.O3.
-        must    Flow's endings are the failure NotSent { why } (Cancelled, Restored, Rejected, 
-                Overloaded, StorageRefused, Disposed, NoPersistence, OldVersion, Unencodable, 
-                ModuleDisabled (proposed name)) and the unknowns Cancelled, Restored, Interrupted, 
-                Defect, StillUnknown { failure }, StorageRefused, Disposed and Abandoned (proposed 
-                name). Superseded, NothingToResend, InFlight and Released are evidence, never 
-                endings. There is no timeout reason. An author tag equal to a Flow reason is 
-                refused (ReservedReason, proposed name).
+        must    Flow's endings are the failure NotSent { why } (Cancelled, Restored, Rejected,
+                Overloaded, StorageRefused, Disposed, NoPersistence, OldVersion, Unencodable,
+                ModuleDisabled (proposed name)) and the unknowns Cancelled, Restored, Interrupted,
+                Defect, StillUnknown { failure }, StorageRefused, Disposed and Abandoned (proposed
+                name).
+
+                Superseded, NothingToResend, InFlight and Released are evidence, never endings.
+                There is no timeout reason. An author tag equal to a Flow reason is refused
+                (ReservedReason, proposed name).
 
     R4  Mapping endings
         source  @plan.Operations.O3.
-        must    The operation maps success:, failure: (exhaustive over the commit's failure tags, 
-                NotSent optional) and unknown: (one event, or a record by tag over the commit's own 
-                unknown tags and Flow's) onto declarer events; mappers receive (value, { input, 
-                attempt, progress, key }). A bare operation maps nothing: its endings are evidence. 
-                An unknown that is not retained (bare, ignored, or a cancel's own turn end) is 
-                released, and the store hears Released.
+        must    The operation maps success:, failure: (exhaustive over the commit's failure tags,
+                NotSent optional) and unknown: (one event, or a record by tag over the commit's own
+                unknown tags and Flow's) onto declarer events; mappers receive (value, { input,
+                attempt, progress, key }).
+
+                A bare operation maps nothing: its endings are evidence. An unknown that is not
+                retained (bare, ignored, or a cancel's own turn end) is released, and the store
+                hears Released.
 
     R5  The Attempt
         source  @plan.Operations.O3.
-        must    Every admitted commit has an Attempt { id, operation, key, input, retryCount, 
-                mayHaveApplied }. Flow mints id when the write starts. The id is unique across 
-                devices and scopes and never reused within a scope, because a server may use it as 
-                its idempotency key; the mint draws on entropy the host supplies as data at boot (a 
-                random session seed), so the core stays deterministic given its inputs and replays 
-                exactly (the runner's ruling). Every send of that write carries the same id and 
-                input. The commit author puts id on the wire where the API expects it; Flow sends 
-                nothing itself and derives no other key. retryCount counts invoked re-sends; 
-                mayHaveApplied says an earlier send ended unknown. A definite failure resolves the 
-                Attempt; trying again is a new write with a new id.
+        must    Every admitted commit has an Attempt { id, operation, key, input, retryCount,
+                mayHaveApplied }. Flow mints id when the write starts.
+
+                The id is unique across devices and scopes and never reused within a scope, because
+                a server may use it as its idempotency key; the mint draws on entropy the host
+                supplies as data at boot (a random session seed), so the core stays deterministic
+                given its inputs and replays exactly (the runner's ruling).
+
+                Every send of that write carries the same id and input. The commit author puts id on
+                the wire where the API expects it; Flow sends nothing itself and derives no other
+                key. `retryCount` counts invoked re-sends; `mayHaveApplied` says an earlier send
+                ended unknown. A definite failure resolves the Attempt; trying again is a new write
+                with a new id.
 
     R6  The lane
         source  @plan.Operations.O3.
-        must    A write lane is (identity with its version, contract id, key), owned by the 
-                Runtime, created by work and removed when Idle. Its states are Idle, InFlight (one 
-                addressable Attempt waiting to be invoked or on the wire) and Held (a retained 
-                unknown), each with queued commits W: none under reject, at most one under latest, 
-                a FIFO of at most 64 under serialize. A turn's members apply to lanes in action 
-                order in validation.
+        must    A write lane is (identity with its version, contract id, key), owned by the Runtime,
+                created by work and removed when Idle. Its states are Idle, InFlight (one
+                addressable Attempt waiting to be invoked or on the wire) and Held (a retained
+                unknown), each with queued commits W: none under reject, at most one under latest, a
+                FIFO of at most 64 under serialize.
+
+                A turn's members apply to lanes in action order in validation.
 
     R7  Concurrency cells
         source  @plan.Operations.O3.
-        must    commit on Idle mints an Attempt. On InFlight or Held: reject ends NotSent { 
-                Rejected } and the transition runs; latest queues one commit, ending a previous 
-                queued commit or a never-invoked head Superseded (evidence); serialize appends to W 
-                and past 64 ends NotSent { Overloaded }; cancel interrupts the previous Attempt, 
-                whose ending is evidence.
+        must    commit on Idle mints an Attempt.
+
+                On InFlight or Held:
+
+                - reject ends NotSent { Rejected } and the transition runs;
+                - latest queues one commit, ending a previous queued commit or a never-invoked head
+                Superseded (evidence);
+                - serialize appends to W and past 64 ends NotSent { Overloaded };
+                - cancel interrupts the previous Attempt, whose ending is evidence.
 
     R8  Retry, holds and promotion
         source  @plan.Operations.O3.
-        must    retry(k?) re-sends a Held Attempt with its id and input unchanged; on InFlight it 
-                is evidence InFlight, on Idle or resolved NothingToResend. When the addressable 
-                Attempt is resolved or released, W's head is promoted; an unknown, a retry and a 
-                restore never promote. Every Attempt minted, promoted or re-sent is invoked after 
-                its turn ends, once its acknowledgement and record queues allow. An unknown holds 
-                the lane until retry resolves it or cancel releases it: no quiet release, no 
-                automatic retry. A kept ending blocks its key until heard or let go.
+        must    retry(k?) re-sends a Held Attempt with its id and input unchanged; on InFlight it is
+                evidence InFlight, on Idle or resolved NothingToResend. When the addressable Attempt
+                is resolved or released, W's head is promoted; an unknown, a retry and a restore
+                never promote.
+
+                Every Attempt minted, promoted or re-sent is invoked after its turn ends, once its
+                acknowledgement and record queues allow. An unknown holds the lane until retry
+                resolves it or cancel releases it: no quiet release, no automatic retry. A kept
+                ending blocks its key until heard or let go.
 
     R9  Members and keys
         source  @plan.Operations.O3.
-        must    idle(k?) denies InFlight on InFlight and Uncertain on Held; a partial key passes 
-                only when every lane it matches is Idle. retryable(k?, { times }) passes in Held 
-                while retryCount < times, else RetryLimit { retryCount }, and denies InFlight or 
-                NothingToResend. On an unkeyed operation a key-less member names its one lane. On a 
-                keyed operation retry, retryable and cancel may omit the key only in a handler of 
-                an event that operation alone maps, naming that ending's own Attempt; elsewhere a 
-                key-less member is KeyRequired. idle and get always take a key on a keyed operation.
+        must    idle(k?) denies InFlight on InFlight and Uncertain on Held; a partial key passes
+                only when every lane it matches is Idle. retryable(k?, { times }) passes in Held
+                while `retryCount` < times, else RetryLimit { retryCount }, and denies InFlight or
+                NothingToResend.
+
+                On an unkeyed operation a key-less member names its one lane. On a keyed operation
+                retry, retryable and cancel may omit the key only in a handler of an event that
+                operation alone maps, naming that ending's own Attempt; elsewhere a key-less member
+                is KeyRequired. idle and get always take a key on a keyed operation.
 
     R10  Exactly one delivery
         source  @plan.Operations.O3.
-        must    Every commit, and every retry that sends, delivers its ending to a live incarnation 
-                of its identity with the lane's subject path, or parks it for that incarnation, 
-                exactly as I15 counts. A settled ending is never rewritten. A throw from the 
-                outcome mapper at admission refuses the turn, and the ending is redelivered once 
-                after queued mail. Evidence by declaration: a replaced never-sent commit, a 
-                released lookup, a declined retry, a bare write's endings, an ending mapped to 
-                Flow.ignore, the interrupted Attempt under concurrency cancel, a fragment's lookup 
-                whose incarnation ended, and a releasing lane's endings and queued commits.
+        must    Every commit, and every retry that sends, delivers its ending to a live incarnation
+                of its identity with the lane's subject path, or parks it for that incarnation,
+                exactly as I15 counts. A settled ending is never rewritten. A throw from the outcome
+                mapper at admission refuses the turn, and the ending is redelivered once after
+                queued mail.
+
+                Evidence by declaration: a replaced never-sent commit, a released lookup, a declined
+                retry, a bare write's endings, an ending mapped to Flow.ignore, the interrupted
+                Attempt under concurrency cancel, a fragment's lookup whose incarnation ended, and a
+                releasing lane's endings and queued commits.
 
     R11  Old-version holds
         source  @plan.Operations.O3.
-        must    A lane of an older key fingerprint is an old-version hold: until it ends, every 
-                commit of that operation for that identity declines NotSent { OldVersion } under 
-                every policy, and a keyed idle denies. A lane of an older identity version is not a 
-                hold: the boot re-keys it and it blocks nothing (Restore Spec R6). previous: [{ key 
-                }] gives O.x.previous[i].retry, cancel and retryable, which name only previous[i]'s 
-                lanes; a current member never names an old-version lane; a previous key equal to 
-                the current one is refused (PreviousIsCurrent, proposed name); on a fragment 
-                operation another path's Rejected comes before OldVersion.
+        must    A lane of an older key fingerprint is an old-version hold: until it ends, every
+                commit of that operation for that identity declines NotSent { OldVersion } under
+                every policy, and a keyed idle denies.
+
+                A lane of an older identity version is not a hold: the boot re-keys it and it blocks
+                nothing (Restore Spec R6). previous: [{ key }] gives O.x.previous[i].retry, cancel
+                and retryable, which name only previous[i]'s lanes; a current member never names an
+                old-version lane; a previous key equal to the current one is refused
+                (PreviousIsCurrent, proposed name); on a fragment operation another path's Rejected
+                comes before OldVersion.
 
     R12  Values with no form and missing persistence
         source  @plan.Operations.O3.
@@ -140,14 +163,15 @@ requirements
 
     R14  cancel
         source  @plan.Operations.O7.
-        must    O.x.cancel(k?) acts on the addressable Attempt by its history. On the wire it 
-                interrupts the fiber; unknown { Cancelled } is queued when the fiber exits and 
-                retained (Held). Waiting to be invoked: never sent, NotSent { Cancelled } and the 
-                next queued commit is promoted; a re-send returns to Held and is released. Held: 
-                released (evidence) and promoted. Idle: nothing, and no ending. While a never-sent 
-                Attempt's acknowledgement is being written, cancel waits for storage: stored ends 
-                NotSent { Cancelled }, refused NotSent { StorageRefused }; that wait is unbounded 
-                (stated limit). A pending cancel is never lost to a later replacement.
+        must    O.x.cancel(k?) acts on the addressable Attempt by its history. On the wire it
+                interrupts the fiber; unknown { Cancelled } is queued when the fiber exits and
+                retained (Held). Waiting to be invoked: never sent, NotSent { Cancelled } and the
+                next queued commit is promoted; a re-send returns to Held and is released.
+
+                Held: released (evidence) and promoted. Idle: nothing, and no ending. While a
+                never-sent Attempt's acknowledgement is being written, cancel waits for storage:
+                stored ends NotSent { Cancelled }, refused NotSent { StorageRefused }; that wait is
+                unbounded (stated limit). A pending cancel is never lost to a later replacement.
 
     R15  cancelAll
         source  @plan.Operations.O7.
