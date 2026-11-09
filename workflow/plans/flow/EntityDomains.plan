@@ -29,9 +29,11 @@ outcomes
         views read records and answers.
 
         entity({ id, fields, primaryKey, version? }) declares fields, key and the per-record
-        version field. One entity object per id; a duplicate is a construction error. A read entry
-        is built as read(resource) refined by methods: .one(Entity, at?) holds one record,
-        .list(Entity, at, member?) holds records along a path, Entity.pick names an explicit shape,
+        version field (version optional: the runner's ruling, since unversioned entities are a
+        stated case with a flow check warning). One entity object per id; a duplicate is a
+        construction error. A read entry is built as read(resource) refined by methods:
+        .one(Entity, at?) holds one record, .list(Entity, at, member?) holds records along a path,
+        Entity.pick names an explicit shape,
         .byKey(...) marks the record loader, .gone(tag) (only with .byKey; GoneWithoutKey,
         proposed name, otherwise) turns that failure tag into a tombstone, and
         .derivedFrom(Entity, fields?) declares values computed from records the response does not
@@ -162,19 +164,18 @@ outcomes
         predictions end with the repair, and an unknown never re-sent frees its queue entry at once.
 
         The forced repair runs with no timer: a failed repair is asked again, at most 3 asks per
-        overdue interval, then RepairOverdue (evidence; the mark and the record hold stay); the
-        count resets at RepairOverdue and on a placed answer, and news asks again (a new unknown on
-        the record, a re-send's StillUnknown included, a release that leaves its mark, an answer
+        overdue interval, then RepairOverdue (proposed name; evidence; the mark and the hold stay);
+        the count resets at RepairOverdue and on a placed answer, and news asks again (a new unknown
+        on the record, a re-send's StillUnknown included, a release that leaves its mark, an answer
         the store cannot place, a newer value landing past a running repair, a reload's restored
         unknown); news during a running ask joins it (the runner's rulings). While a sent unknown's
-        repair runs, RecordHeld evidence and Inspection's stalled: "record" name the wait. Per
-        record, the queue is released once that record's forced repair settles; the held write
-        keeps its lane hold and blocks no other actor's write to the record; its re-send waits
-        behind whatever holds the record then and holds it again once sent; a restored unknown
+        repair runs, RecordHeld evidence and Inspection's stalled: "record" (proposed names) name
+        the wait. Per record, the queue is released once that record's forced repair settles; the
+        held write keeps its lane hold and blocks no other actor's write to the record; its re-send
+        waits behind whatever holds the record then and holds it again once sent; a restored unknown
         holds its record until the boot's repair settles. An unbound sent hold yields, with no
         clock, once a ready write waits behind it on a record: it is released, its ending unknown {
-        Abandoned } (proposed reason) is parked for whoever adopts the identity, and its mark
-        stays.
+        Abandoned } (proposed reason) is parked for whoever adopts the identity, and its mark stays.
 
         Marks. uncertain is a mark per record and Attempt; a read, a forced repair, a failure and
         StillUnknown clear nothing, and neither time nor a later write's success does. A mark ends
@@ -193,8 +194,9 @@ outcomes
         GuardedUnbound, GuardedWithoutVersion and GuardedWithoutTarget (proposed names). A live
         .covers session with no open gap whose filter reads no field the write changes hides a
         given-up doubt without ending it; a removal is never hidden. At most 4,096 given-up marks
-        per entity; past it the oldest given up is evicted with UnsettledEvicted evidence; an
-        unresolved mark is never evicted. A mark holds its record, as a prediction does.
+        per entity; past it the oldest given up is evicted with UnsettledEvicted (proposed name)
+        evidence; an unresolved mark is never evicted. A mark holds its record, as a prediction
+        does.
 
         Re-sending is O.x.retry(k?) only, in Held: the Attempt's input and basedOn unchanged, no
         prediction, joining the record queue, its response positioned at the Attempt's first send
@@ -261,7 +263,11 @@ outcomes
         omits stay pending" becomes a predicted slot staying unconfirmed (merge 5; C27). "Failure
         or defect removes predictions and repairs affected answers, because a failed call may have
         partly applied." is replaced by "a definite failure removes predictions without repair"
-        (C4). "Rejection or cancellation before the adapter ran removes predictions without repair."
+        (C4). "Uncertain (cancelled after invocation, response lost, or restored mid-flight)
+        forces the loader and every holder to refetch, keeps predictions until that repair lands,
+        then shows server state." is restated as the unknown row: live predictions kept until a
+        forced repair lands, the record queue held until it settles (C4; C189). "Rejection or
+        cancellation before the adapter ran removes predictions without repair."
         becomes the NotSent list (C24). "The record stays uncertain until a later write to it
         succeeds or the machine reconciles the Attempt." is replaced by the mark rules (C25; C192).
         "unknown delivers an Attempt; O.x.retry(select) reissues that exact Attempt and a
