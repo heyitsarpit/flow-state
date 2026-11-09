@@ -322,6 +322,21 @@ work item is one case module each (`scenarios/compile.ts`, `diagnostics.ts`, `co
 4. The verdict compare: each ported area's verdicts against the old suite's on the same cases.
 5. The four-angle audit and re-audit; the fast gates in `nub run verify`.
 6. The round-14 carry list: the table below.
+7. **The suite's own Spec** (the user, 2026-11-09): `packages/flow-state-v3/conformance/Conformance.spec`, written
+   with to-spec, next to the module. It holds the suite's guarantees: the Port exposes no runtime internals and
+   any runtime implementing it gets the same verdicts; expected results come from a cited Spec rule, never from
+   running the runtime; every check has a mutant it kills (falsify fails otherwise); the null runtime fails every
+   case; runs are deterministic from a seed; the verdict format and the old-suite comparison. This README keeps
+   the how-to and the work list. Do it before the rename (8), since it settles the grouping.
+8. **Rename to Spec areas and behaviours** (the user, 2026-11-09): one folder per core Spec (`write-lanes/`, …),
+   checks named by behaviour (`three-channels` → `ending-channels`, `one-delivery` → `delivered-once`,
+   `lane-cells` → `lane-queue`), `*.lies.ts` → `*.mutants.ts` and "lie" → "mutant" in this README and STATUS,
+   scenario files by behaviour (`pay-06-09.ts` and friends → `payment-retry.scenarios.ts`, …) with the old
+   `PAY-nn` id kept as a field for the old-suite comparison; prototype leftovers (`prototype-reports.ts`,
+   `fixtures/lab.ts`) renamed. Proof: suite, null and falsify byte-identical; `nub run check` at zero.
+9. **Pending from rounds 4-5:** the review of `3097ea3c` and `bc8dffba`; judged Runtime disposal at every case's
+   end with the `disposal` oracle (round 5 dropped the implicit per-case disposal); `@effect/tsgo` in
+   `nub run check` (the Effect language service does not run on TypeScript 7).
 
 ## Round-14 carry list
 
