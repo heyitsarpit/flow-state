@@ -7,6 +7,11 @@ run by `conformance/lifetime-falsify.ts`). Marks: [ran] for what was run on the 
 
 ## Gates on the final tree [ran]
 
+*Stage A close-out (2026-11-09, m6):* this table and the search table below are round 14's own record and are stale. The gates now run as
+one `conformance/gates.ts` run (26 jobs and the lifetime coverage row); the current results are in STATUS.md's "Stage A close-out fixes". `listen.load` and `fragstore.row`
+pass: `fragstore.row` completes at depth 7 (48,833 states) and the falsify search gate runs it there; `listen.version` completes at depth 7
+(110,726 states, the audit's run) and the gate runs it at depth 4.
+
 From `packages/flow-state-v3/prototypes/conformance/`, `R=../round-14/adapter.ts`:
 
 | Gate | Command | Result |

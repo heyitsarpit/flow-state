@@ -1,5 +1,5 @@
 // Rule 73's falsify: LIFE-01..10, green on the unmutated runtime, must go red by a named oracle on each wrong runtime of
-// `mutants-lifetime.ts`. bun lifetime-falsify.ts --runtime ../round-14x/adapter.ts [--parallel N] [--mutants a,b] [--budget S]. One snapshot
+// `mutants-lifetime.ts`. bun lifetime-falsify.ts --runtime ../round-14x/adapter.ts [--parallel N] [--mutants a,b] [--slice k/n] [--budget S]. One snapshot
 // at the start; each run in its own copy of it. The control must be a whole run of the planned cases; a run the machine ended scores nothing.
 import { basename, dirname, join, resolve } from "node:path";
 import { stated } from "./verdicts/state.ts";
@@ -24,7 +24,17 @@ await stated("lifetime-falsify", async (scope) => {
   };
   // `--mutants a,b` runs only those wrong runtimes (a quick check while building; the gate runs them all).
   const pick = process.argv.indexOf("--mutants");
-  const MUTANTS = pick < 0 ? ALL : ALL.filter((m) => process.argv[pick + 1]!.split(",").some((p) => m.id.startsWith(p)));
+  const UNIVERSE = pick < 0 ? ALL : ALL.filter((m) => process.argv[pick + 1]!.split(",").some((p) => m.id.startsWith(p)));
+  // `--slice k/n`: slice k of n of the wrong runtimes (index i with i % n === k-1); the control runs whole in every slice.
+  const si = process.argv.indexOf("--slice");
+  const [sk, sn] = (si < 0 ? "1/1" : (process.argv[si + 1] ?? "")).split("/").map(Number) as [number, number];
+  if (!(Number.isInteger(sk) && Number.isInteger(sn) && sk >= 1 && sk <= sn)) throw new Error(`defect: --slice wants k/n with 1 <= k <= n, got "${process.argv[si + 1] ?? ""}"`);
+  const MUTANTS = UNIVERSE.filter((_, i) => i % sn === sk - 1);
+  if (si >= 0) console.log(`slice ${sk}/${sn}: ${MUTANTS.length} of ${UNIVERSE.length} wrong runtimes`);
+  if (si >= 0 && MUTANTS.length === 0) return [{ kind: "list", name: `slice ${sk}/${sn}`, outcome: "fail" as const, why: "holds no wrong runtime" }];
+  // A wrong runtime in another slice whose only kill is case c passes there only if a case named c is red by assertion there, so c is red on
+  // some wrong runtime. Only kills that are case names count: no case name is a prefix of another, so the item's `c/` match adds nothing.
+  const soleElsewhere = new Set(UNIVERSE.filter((m, i) => i % sn !== sk - 1 && m.kills.length === 1).map((m) => m.kills[0]!));
   const pi = process.argv.indexOf("--parallel");
   const parallel = Math.min(8, Math.max(1, pi < 0 ? 1 : Number(process.argv[pi + 1]) || 1));
   const bi = process.argv.indexOf("--budget");
@@ -88,14 +98,20 @@ await stated("lifetime-falsify", async (scope) => {
     items.push({ kind: "wrong runtime", name: m.id, outcome: why === "" ? "pass" : "fail", why, detail: { failed: failed.map((x) => x.name) } });
     console.log(`${why === "" ? "ok  " : "BAD "} ${m.id} (${m.kills.join(",")}): ${red.length} red${why ? `; ${why}` : ""}${red.length ? `\n       ${red.join("\n       ")}` : ""}`);
   }
-  const neverRed = passed.filter((name) => !everRed.has(name));
-  console.log(neverRed.length === 0 ? "every case is red on some wrong runtime" : `never red: ${neverRed.join(" ")}`);
-  items.push({
-    kind: "coverage",
-    name: "every case red on some wrong runtime",
-    outcome: ci.outcome !== "pass" ? ci.outcome : neverRed.length === 0 ? "pass" : unknownRuns > 0 ? "unknown" : "fail",
-    why: neverRed.length === 0 ? "" : `never red${unknownRuns ? ` (${unknownRuns} wrong runtime(s) unknown)` : ""}: ${neverRed.join(" ")}`,
-  });
+  const neverRed = passed.filter((name) => !everRed.has(name) && !soleElsewhere.has(name));
+  if (sn === 1) {
+    console.log(neverRed.length === 0 ? "every case is red on some wrong runtime" : `never red: ${neverRed.join(" ")}`);
+    items.push({
+      kind: "coverage",
+      name: "every case red on some wrong runtime",
+      outcome: ci.outcome !== "pass" ? ci.outcome : neverRed.length === 0 ? "pass" : unknownRuns > 0 ? "unknown" : "fail",
+      why: neverRed.length === 0 ? "" : `never red${unknownRuns ? ` (${unknownRuns} wrong runtime(s) unknown)` : ""}: ${neverRed.join(" ")}`,
+    });
+  } else {
+    // A slice cannot decide coverage alone: gates.ts intersects the never-red lists of all slices (unscored here).
+    console.log(`slice ${sk}/${sn} coverage part: ${neverRed.length} never red here${neverRed.length ? `: ${neverRed.join(" ")}` : ""}`);
+    items.push({ kind: "coverage part", name: "every case red on some wrong runtime", note: `${neverRed.length} never red in slice ${sk}/${sn}`, detail: { slice: `${sk}/${sn}`, neverRed } });
+  }
   const bad = items.filter((x) => isScored(x) && x.outcome !== "pass");
   console.log(bad.length === 0 ? "every lifetime mutant goes red" : `${bad.length} survivor(s), unknown or a red control`);
   return items;

@@ -43,7 +43,7 @@ const specsOf = (L: typeof import("./limits.ts")): Spec[] => {
     { name: "graph-gate", gate: "graph-gate", cmd: () => ["bun", "graph-gate.ts", ...rt], slots: 1, ...row("graph-gate"), limit: 280 },
     ...["suite1", "suite2", "suite3", "tamper", "mutants", "search"].map((p): Spec => ({ name: `falsify ${p}`, gate: "falsify", cmd: falsify(p), slots: 1, ...row(`falsify ${p}`), limit: 290 })),
     ...Array.from({ length: LIE_SLICES }, (_, k): Spec => ({ name: `falsify lies ${k + 1}/${LIE_SLICES}`, gate: "falsify", cmd: falsify("lies", ["--slice", `${k + 1}/${LIE_SLICES}`]), slots: 1, ...row("falsify lies"), limit: 290 })),
-    { name: "lifetime-falsify", gate: "lifetime-falsify", cmd: () => ["bun", "lifetime-falsify.ts", ...rt, "--parallel", "4"], slots: 4, ...row("lifetime-falsify"), limit: 290 },
+    ...[1, 2].map((k): Spec => ({ name: `lifetime-falsify ${k}/2`, gate: "lifetime-falsify", cmd: () => ["bun", "lifetime-falsify.ts", ...rt, "--parallel", "4", "--slice", `${k}/2`], slots: 4, ...row("lifetime-falsify"), limit: 290 })),
     ...readdirSync(join(roundDir, "checks"))
       .filter((f) => f.endsWith(".ts"))
       .sort()
@@ -96,8 +96,29 @@ await stated("gates", async (scope) => {
     const t = r.run.kind === "ended" ? `${(r.run.ms / 1000).toFixed(1).padStart(6)} s of ${String(d.job.size.aloneS).padStart(3)} s  ${String(r.run.peakMb).padStart(5)} MB` : "not started";
     rows.push(`${label[outcome(r)]} ${d.job.name.padEnd(30)} ${t}${d.alone ? "  (again, alone)" : ""}${d.skipped ? `  (${d.skipped})` : ""}${first > 2 * d.job.size.aloneS ? "  re-measure" : ""}  ${describe(r).slice(0, 200)}`);
   }
+  // The lifetime-falsify slices each leave a coverage part: the cases they never see red. A case is red on some wrong runtime unless it is
+  // never red in every slice. Both slices must pass, since a slice's sole-kill claims rest on the other slice's passing items.
+  const cov = ((): { outcome: "pass" | "fail"; why: string } | null => {
+    const sliced = done.filter((d) => /^lifetime-falsify \d+\/2$/.test(d.job.name));
+    if (sliced.length !== 2) return null;
+    const parts = sliced.map((d) => {
+      const r = final(d);
+      const part = r.answer === "stated" ? r.verdict.items.find((i) => i.kind === "coverage part") : undefined;
+      const list = (part?.detail as { neverRed?: unknown } | undefined)?.neverRed;
+      return { name: d.job.name, pass: outcome(r) === "pass", list: Array.isArray(list) && list.every((x) => typeof x === "string") ? (list as string[]) : null };
+    });
+    const missing = parts.filter((p) => !p.pass || p.list === null);
+    if (missing.length > 0) return { outcome: "fail", why: `no usable coverage part from ${missing.map((p) => `${p.name} (${p.pass ? "no coverage part" : "not pass"})`).join(", ")}` };
+    const both = parts[0]!.list!.filter((x) => parts[1]!.list!.includes(x));
+    return both.length === 0 ? { outcome: "pass", why: "every case is red on some wrong runtime" } : { outcome: "fail", why: `never red in both slices: ${both.join(" ")}` };
+  })();
+  if (cov) rows.push(`${label[cov.outcome]} ${"lifetime-falsify coverage".padEnd(30)} ${cov.why}`);
   console.log(rows.join("\n"));
-  const n = (o: string) => done.filter((d) => outcome(final(d)) === o).length;
-  console.log(`\nGATES  ${n("pass")}/${done.length} ok, ${n("fail")} BAD, ${n("unknown")} unknown, in ${((performance.now() - t0) / 1000).toFixed(0)} s; outputs in ${out}`);
-  return done.map((d) => ({ kind: "job", name: d.job.name, outcome: outcome(final(d)), why: describe(final(d)).slice(0, 300) }));
+  const outcomes = [...done.map((d) => outcome(final(d))), ...(cov ? [cov.outcome] : [])];
+  const n = (o: string) => outcomes.filter((x) => x === o).length;
+  console.log(`\nGATES  ${n("pass")}/${outcomes.length} ok, ${n("fail")} BAD, ${n("unknown")} unknown, in ${((performance.now() - t0) / 1000).toFixed(0)} s; outputs in ${out}`);
+  return [
+    ...done.map((d) => ({ kind: "job", name: d.job.name, outcome: outcome(final(d)), why: describe(final(d)).slice(0, 300) })),
+    ...(cov ? [{ kind: "coverage", name: "lifetime-falsify coverage", outcome: cov.outcome, why: cov.why.slice(0, 300) }] : []),
+  ];
 });

@@ -5,8 +5,11 @@ import { basename, dirname, join, resolve } from "node:path";
 import { stated } from "./verdicts/state.ts";
 
 const SEARCH_EXPECT: Readonly<Record<string, string>> = {};
-const SEARCH_STATES: Readonly<Record<string, string>> = { odd: "8000", session: "8000", chain: "12000" };
+const SEARCH_STATES: Readonly<Record<string, string>> = { odd: "8000", session: "8000", chain: "12000", "fragstore.row": "60000" };
+// Stage A close-out (B5): fragstore.row's quiet-mark walk (Go ack GiveUp GiveUp repair.start repair.start put.ok) needs depth 7; depth 4 hid it.
+const SEARCH_DEPTH: Readonly<Record<string, string>> = { "fragstore.row": "7" };
 const SEARCH_REACH: Readonly<Record<string, { states: number; perDepth: readonly number[] }>> = {
+  "fragstore.row": { states: 48833, perDepth: [1, 6, 28, 113, 471, 2037, 8766, 37411] },
   odd: { states: 7269, perDepth: [1, 22, 200, 1260, 5786] },
   session: { states: 6967, perDepth: [1, 17, 153, 1023, 5773] }, // OD53 (11) and migration round 2's dropAt rule (7,328 with round 2's sessions.ts undone; 6,896 before OD53)
   chain: { states: 9700, perDepth: [1, 12, 111, 995, 8581] },
@@ -119,7 +122,7 @@ if (suitePart(3)) {
 const SEARCHES = ["pay", "like", "chain", "crash", "cross", "frag", "odd", "session", "repairing", "listen.version", "listen.none", "listen.version.noload", "listen.none.noload", "fragstore.row", "flush.bare.tight", "flush.serialize.directed", "flush.bare.capture"];
 const EXPECT: Record<string, string> = Object.fromEntries(SEARCHES.map((w) => [w, SEARCH_EXPECT[w] ?? "completed"]));
 const search = (w: string, rt: string, env: Record<string, string> = {}) =>
-  run("search", ["bun", "search/run.ts", "--which", w, "--runtime", rt, "--depth", "4", "--states", SEARCH_STATES[w] ?? "4000", "--expect", EXPECT[w]!], env, here, SEARCH);
+  run("search", ["bun", "search/run.ts", "--which", w, "--runtime", rt, "--depth", SEARCH_DEPTH[w] ?? "4", "--states", SEARCH_STATES[w] ?? "4000", "--expect", EXPECT[w]!], env, here, SEARCH);
 const redSearch = (r: Reading) => ["failed", "vacuous"].includes(searchOf(r)?.verdict ?? "");
 if (part("search")) for (const w of quick ? SEARCHES.slice(0, 3) : SEARCHES) {
   const nul = await search(w, "../null-adapter.ts");
@@ -257,6 +260,9 @@ try {
     ["like", "drain.row-hidden", [["entities.ts", "const uncertain = marks.some((m) => !m.quiet) || r.doubt !== undefined;", "const uncertain = marks.length > 0 || r.doubt !== undefined;"], ["entities.ts", "if (r.base === undefined && !predicted && !uncertain && r.queue.length === 0) return undefined;", "if ((r.base === undefined && !predicted && !uncertain && r.queue.length === 0) || uncertain) return undefined;"]], "drain: r1 has no row"],
     // Audit 3b: the drain compared a row's value only when it had one. This runtime reports an uncertain record as a settled row with no data.
     ["like", "drain.row-empty", [["entities.ts", "const uncertain = marks.some((m) => !m.quiet) || r.doubt !== undefined;", "const uncertain = marks.length > 0 || r.doubt !== undefined;"], ["entities.ts", "  return { data, predicted, uncertain, unconfirmed };", "  return uncertain ? { predicted: false, uncertain: false, unconfirmed: [] } : { data, predicted, uncertain, unconfirmed };"]], "drain: r1 shows undefined"],
+    // Stage A close-out (B5): fragstore.row now excuses a stale `v` only when it reads quiet `unconfirmed` after a give-up. This runtime keeps the
+    // stale row and drops the quiet mark from the read: silently wrong.
+    ["fragstore.row", "b5.quiet-mark-unshown", [["entities.ts", "const quiet = marks.filter((m) => m.quiet).flatMap((m) => m.fields);", "const quiet: string[] = [];"]], "silently wrong: "],
     ["like", "s13.older-sent-after-newer", [["lane.ts", "    for (const x of l.w) supersede(tx, a.op, x);\n    setLane(tx, { ...tx.w.lanes[l.id]!, w: [made.attempt] });", "    setLane(tx, { ...tx.w.lanes[l.id]!, w: [made.attempt, ...l.w] });"]], "S13: "],
     // Streams round 2: rule 70's oracle no longer switches off at the runtime's first `ReleaseOverdue` (audit S1's lie: no wait, and the word at every close).
     ["session", "lie:s1.overdue-excuse", [["sessions.ts", "Object.values(s.closing).some((c) => c.actor === actor && c.slot === slot);", "false;"], ["sessions.ts", '  cx.command({ k: "close", conn: x.conn });\n  cx.arm(`overdue/', '  cx.command({ k: "close", conn: x.conn });\n  cx.note("ReleaseOverdue", { op: x.op });\n  cx.arm(`overdue/']], "rule 70: "],
@@ -272,7 +278,7 @@ try {
   for (const [w, id, edits, words] of SEARCH_KILLS) {
     reset();
     for (const [f, find, rep] of edits) edit(join(round, f), (s) => applyEdits(s, find, rep) ?? s);
-    const r = await run("search", ["bun", "search/run.ts", "--which", w, "--runtime", join(round, "adapter.ts"), "--depth", "4", "--states", SEARCH_STATES[w] ?? "4000", "--expect", "completed"], {}, conf, SEARCH);
+    const r = await run("search", ["bun", "search/run.ts", "--which", w, "--runtime", join(round, "adapter.ts"), "--depth", SEARCH_DEPTH[w] ?? "4", "--states", SEARCH_STATES[w] ?? "4000", "--expect", "completed"], {}, conf, SEARCH);
     const why = String((searchOf(r) as { failure?: string } | undefined)?.failure ?? "");
     say(r.answer === "stated" && searchOf(r)?.verdict === "failed" && why.startsWith(words), `search mutant ${id}: ${w} red by its \`${words.trim()}\` oracle`, why || tally(r), [r]);
   }

@@ -47,6 +47,16 @@ const ACTIONS: readonly Action[] = [
   { name: "t30s", step: { advance: 30_000 } },
   { name: "landLate", step: { fault: { landLate: "put" } }, on: (h) => h.read.outside().lost > 0 },
 ];
+// Stage A close-out (B5): U10's quiet mark may stand on the record only after a write was given up (a release, or D15's `Abandoned` yield) and a
+// read or repair was asked after that give-up (rule 32). Read from the evidence in order, never from the steps the walk sent.
+const quietAllowed = (h: Harness) => {
+  const ev = h.read.evidence();
+  let given = -1;
+  ev.forEach((e, i) => {
+    if ((e.kind === "Released" && e.op === "put") || (e.kind === "ending" && e.op === "put" && e.reason === "Abandoned")) given = i;
+  });
+  return given >= 0 && ev.some((e, i) => i > given && (e.kind === "repair" || (e.kind === "invoked" && e.op === "fetch")));
+};
 const withV = (make: () => Harness) => () => {
   const h = make();
   let commits = 0;
@@ -97,7 +107,10 @@ export const searchFragStore = (
         out.lost > 0 ||
         out.mayHave.length > 0 ||
         q.waits.some((w) => w.kind !== "timer");
-      if (r && !busy && !r.predicted && !r.uncertain) {
+      // Stage A close-out (B5): a given-up write that may have landed leaves `v` quiet `unconfirmed` once a read or repair asked after the
+      // give-up (rule 32, U10): marked, not silent. Only after a give-up and a read or repair asked after it, and only on the field that differs.
+      const quiet = (r?.unconfirmed ?? []).includes("v") && quietAllowed(h);
+      if (r && !busy && !r.predicted && !r.uncertain && !quiet) {
         if (r.data?.v !== h.read.truth().server.thing.v)
           throw new Oracle(
             `silently wrong: shows ${JSON.stringify(r.data)}, server ${JSON.stringify(h.read.truth().server.thing)}`,

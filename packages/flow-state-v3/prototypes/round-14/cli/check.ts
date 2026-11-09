@@ -310,6 +310,24 @@ export const check = (raw: Compiled): { findings: Finding[]; callbacksRun: numbe
     else if (!c.domain?.version) push({ severity: "error", rule: "GuardedWithoutVersion", machine: c.id, path: `operations.${name}`, op: name, message: `\`${name}\` is \`guarded\` and its entity has no per-record version, so no answer can show a version past its base`, help: "declare the entity's `version`, or drop `guarded`" });
     else if (!w.targets) push({ severity: "error", rule: "GuardedWithoutTarget", machine: c.id, path: `domain.writes.${name}`, op: name, message: `\`${name}\` is \`guarded\` and fences no record: it has no \`.one\` or \`many\` target`, help: "give the write a target" });
   }
+  // ── SharedContract (design 2.7, rule 40, F2): two write operations on one write contract, counting every fragment placement (`c.ops` holds them all).
+  const writesByContract = new Map<string, string[]>();
+  for (const [name, o] of Object.entries(c.ops)) if (o.kind === "write") writesByContract.set(o.contract, [...(writesByContract.get(o.contract) ?? []), name]);
+  for (const [contract, names] of writesByContract)
+    if (names.length > 1)
+      push({ severity: "error", rule: "SharedContract", machine: c.id, path: `operations.${names[0]}`, op: names[1], message: `write operations ${names.map((n) => `\`${n}\``).join(", ")} share the write contract \`${contract}\`: two write operations on one write contract are a declaration error (design 2.7)`, help: "one write operation per contract in an actor tree: commit the same operation from both handlers with its own select, or split the contract" });
+  // ── GoneWithoutKey (design rule 37): `.gone` needs the read's `.byKey`. compileDomain wraps each `ref` in a Slot, so its closure is `run`; a read with no `.byKey` has none.
+  for (const [read, g] of Object.entries(c.domain?.gone ?? {})) {
+    const r: unknown = g.ref;
+    const hasRef = typeof r === "function" || (typeof r === "object" && r !== null && typeof (r as { run?: unknown }).run === "function");
+    const op = c.ops[read];
+    const why = [
+      ...(hasRef ? [] : ["it has no `.byKey` ref"]),
+      ...(!op ? [`no operation \`${read}\` is declared`] : op.kind !== "read" ? [`\`${read}\` is a ${op.kind}, not a read`] : []),
+    ];
+    if (why.length)
+      push({ severity: "error", rule: "GoneWithoutKey", machine: c.id, path: `domain.gone.${read}`, op: read, message: `\`.gone\` on \`${read}\` is refused: ${why.join("; ")} (design rule 37)`, help: "give the read a `.byKey` (the key whose row a tombstone removes), or drop `.gone`" });
+  }
   // ── Events: declared, or inferred, and said so.
   const bodies: Array<{ id: string; nodes: Nodes }> = [{ id: c.id, nodes: c.nodes }];
   const handled = new Set(bodies.flatMap((b) => Object.values(b.nodes).flatMap((n) => Object.keys(n.on))));

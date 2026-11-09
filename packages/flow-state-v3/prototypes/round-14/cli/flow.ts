@@ -16,7 +16,7 @@ import { formFixtures } from "../../conformance/typed/form.ts";
 import { typedPayFixture } from "../../conformance/typed/pay.ts";
 import { p1QueueCoversFixture } from "../../conformance/typed/phase1e.ts";
 import { check, type Finding } from "./check.ts";
-import { bigintKeyFixture, brokenFixture, dupSessionFixture, keylessFixture, noNotSentFixture, noOwnerFixture, unencodableNoNotSentFixture, readBadFixture, unknownEventFixture } from "./broken.ts";
+import { bigintKeyFixture, brokenFixture, dupSessionFixture, goneWithoutKeyFixture, keylessFixture, noNotSentFixture, noOwnerFixture, sharedContractFixture, unencodableNoNotSentFixture, readBadFixture, unknownEventFixture } from "./broken.ts";
 import { explain, explainText, overview, resets, resetsText } from "./explain.ts";
 import { memoFixture } from "../../conformance/typed/phase1m.ts";
 import { editorFixture } from "../../conformance/typed/identity.ts";
@@ -46,6 +46,8 @@ export const TARGETS: Readonly<Record<string, Fixture>> = {
   "unencodable-no-notsent": unencodableNoNotSentFixture,
   "unknown-event": unknownEventFixture,
   "bigint-key": bigintKeyFixture,
+  "shared-contract": sharedContractFixture,
+  "gone-without-key": goneWithoutKeyFixture,
   "asks-forever": loopFixture,
   "p1-queue": p1QueueCoversFixture(),
   queue: bulkFixture,

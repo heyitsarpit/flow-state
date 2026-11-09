@@ -637,19 +637,31 @@ export const reviewScenarios: readonly Scenario[] = [
     kind: "fault",
     fixtures: [issuesFixture],
     actor: A,
-    cites: ["D40"],
+    cites: ["D40", "rule:30", "C207"],
     run(c) {
-      // D12/D40 as ruled: a repair is bounded by a count of asks. Three failed asks, then `RepairOverdue`; the next news asks again.
+      // Rule 30 as amended by stage A close-out (B1, the runner; C207): at most 3 asks per overdue interval, then `RepairOverdue`, and the count
+      // resets, so news asks again; nothing asks without news, and a re-send's `StillUnknown` is news.
       opened(c);
       toggle(c, true);
       c.answer("like", { lost: true });
       for (let i = 0; i < 3; i++) c.tryAnswer("repair", { fail: { tag: "NoResponse" } });
       c.eq("overdue after three asks", [c.r.evidence("RepairOverdue").length, c.reqs("repair").length], [1, 3]);
+      c.advance(60_000);
+      c.eq("no news, no ask", c.reqs("repair").length, 3);
       c.to(A, "ReconcileLike", k);
       c.answer("like", { lost: true }); // StillUnknown: news, so a fourth repair
       c.eq("asked again", c.reqs("repair").length, 4);
+      for (let i = 0; i < 3; i++) c.tryAnswer("repair", { fail: { tag: "NoResponse" } });
+      c.eq("bounded again: three asks for this news, then overdue", [c.r.evidence("RepairOverdue").length, c.reqs("repair").length], [2, 6]);
+      c.to(A, "ReconcileLike", k);
+      c.answer("like", { lost: true });
+      c.eq("news asks again after the second overdue", c.reqs("repair").length, 7);
       c.answer("repair", { truth: true });
-      c.eq("answered: the count starts again, the hold's mark stays", [c.r.evidence("RepairOverdue").length, c.rec(I1)?.uncertain], [1, true]);
+      c.eq("answered: the count starts again, the hold's mark stays", [c.r.evidence("RepairOverdue").length, c.rec(I1)?.uncertain], [2, true]);
+      c.to(A, "ReconcileLike", k);
+      c.answer("like", { lost: true });
+      for (let i = 0; i < 3; i++) c.tryAnswer("repair", { fail: { tag: "NoResponse" } });
+      c.eq("after a placed answer the next news has its own three asks", [c.r.evidence("RepairOverdue").length, c.reqs("repair").length], [3, 10]);
     },
   },
   {

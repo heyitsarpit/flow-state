@@ -39,6 +39,12 @@ eq("no-owner-unreachable", await rules("no-owner-unreachable"), { code: 0, rules
 eq("no-notsent: a persisted write must map NotSent", (await rules("no-notsent")).rules.includes("error:Rule20NotSent"), true);
 eq("unencodable-no-notsent: a write whose input admits a value with no form must map NotSent (rule 20, U6)", (await rules("unencodable-no-notsent")).rules.includes("error:Rule20NotSent"), true);
 eq("unknown-event: a handled event nothing declares", (await rules("unknown-event")).rules.includes("error:UnknownEvent"), true);
+// Design 2.7 (F2): two write operations on one contract. Rule 37: a `.gone` on a read with no `.byKey`.
+eq("shared-contract: two write ops over one contract (SharedContract, F2)", (await rules("shared-contract")).rules.includes("error:SharedContract"), true);
+eq("gone-without-key: a .gone with no .byKey (GoneWithoutKey, rule 37)", (await rules("gone-without-key")).rules.includes("error:GoneWithoutKey"), true);
+eq("typed-pay: no SharedContract or GoneWithoutKey", (await rules("typed-pay")).rules.some((r) => r === "error:SharedContract" || r === "error:GoneWithoutKey"), false);
+eq("desk-listen: no SharedContract or GoneWithoutKey", (await rules("desk-listen")).rules.some((r) => r === "error:SharedContract" || r === "error:GoneWithoutKey"), false);
+eq("p1-queue: a .gone with a .byKey ref is not GoneWithoutKey", (await rules("p1-queue")).rules.includes("error:GoneWithoutKey"), false);
 const rb = await rules("read-bad");
 eq("read-bad", rb.rules.includes("error:Rule20Current") && rb.rules.includes("error:Rule20Read"), true);
 // Review H4: `place` kept in STUCK has no owner once PlaceUnsure is spent.

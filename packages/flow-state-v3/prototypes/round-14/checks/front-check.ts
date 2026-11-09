@@ -331,7 +331,7 @@ const igDef = (extra: Record<string, unknown>) =>
   definition({ id: "T/Ignore", states: ["A"], events: {}, internalEvents: { Ok: {} }, memory: {}, operations: ({ E }) => ({ ig: igOp.outcomes({ success: E.Ok, failure: { NotSent: Flow.ignore }, unknown: Flow.ignore }) }), ...extra } as never);
 // Round 15 (rule 13; completion audit of OD48): an author failure tag that is one of Flow's reasons is refused, `Disposed` among them; `NotSent` is the map's own key.
 const tagged = (tag: string) => () => machine(definition({ id: "T/R", states: ["A"], events: {}, internalEvents: { Ok: {} }, memory: {}, operations: ({ E }) => ({ p: plain.outcomes({ success: E.Ok, failure: { [tag]: E.Ok } as never }) }) }), ({ S: St }) => ({ default: St.A, on: { Ok: {} } }));
-for (const r of ["Cancelled", "Restored", "Interrupted", "Defect", "StillUnknown", "StorageRefused", "Disposed"]) eq(`rule 13: a failure tag ${r} is refused`, threw(tagged(r)), "ReservedReason");
+for (const r of ["Cancelled", "Restored", "Interrupted", "Defect", "StillUnknown", "StorageRefused", "Disposed", "ModuleDisabled", "Abandoned"]) eq(`rule 13: a failure tag ${r} is refused`, threw(tagged(r)), "ReservedReason");
 eq("rule 13: NotSent is the map's own key", threw(tagged("NotSent")), "");
 eq("rule 13: an author's own tag compiles", threw(tagged("Busy")), "");
 const igMachine = (extra: Record<string, unknown>) => machine(igDef(extra), ({ S: St }: any) => ({ default: St.A, on: { Ok: {} } }));
@@ -350,10 +350,14 @@ eq("rule 13 (a): unknown: Cancelled, a Flow reason, compiles", threw(unknownBy("
 eq("rule 13 (a): unknown: NoResponse, a contract's own, compiles", threw(unknownBy("NoResponse")), "");
 eq("rule 13 (a): unknown: Rejected, a NotSent reason, is refused", threw(unknownBy("Rejected")), "ReservedReason");
 eq("rule 13 (a): unknown: NotSent is refused", threw(unknownBy("NotSent")), "ReservedReason");
+// Stage A close-out (B3): `ModuleDisabled` is a NotSent reason, never an unknown; `Abandoned` is Flow's unknown (D15's yield), so a key may name it.
+eq("rule 13 (a): unknown: ModuleDisabled, a NotSent reason, is refused", threw(unknownBy("ModuleDisabled")), "ReservedReason");
+eq("rule 13 (a): unknown: Abandoned, a Flow unknown reason, compiles", threw(unknownBy("Abandoned")), "");
 const rd = resource({ id: "t/rd", input: {}, key: [], lookup: () => Effect.void });
 const readBy = (tag: string) => () => machine(definition({ id: "T/Rd", states: ["A"], events: {}, internalEvents: { Ok: {} }, memory: {}, operations: ({ E }) => ({ r: rd.outcomes({ success: E.Ok, failure: { [tag]: E.Ok } as never }) }) }), ({ S: St }) => ({ default: St.A, on: { Ok: {} } }));
 eq("rule 13 (b): a read's failure NotSent is refused", threw(readBy("NotSent")), "ReservedReason");
 eq("rule 37: a read's failure Defect compiles", threw(readBy("Defect")), "");
+eq("rule 13 (stage A close-out B3): a read's failure ModuleDisabled is refused", threw(readBy("ModuleDisabled")), "ReservedReason");
 const streamBy = (tag: string) => () => igMachine({ streams: ({ E }: any) => ({ s: { key: fn, backoff: fn, subscribe: fn, value: E.Ok, missed: E.Ok, failure: E.Ok, failureBy: { [tag]: E.Ok } } }) });
 eq("rule 13 (c): a stream's failureBy Closed, a Feed reason, is refused", threw(streamBy("Closed")), "ReservedReason");
 eq("rule 13 (c): a stream's failureBy tag Feed is refused", threw(streamBy("Feed")), "ReservedReason");

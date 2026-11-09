@@ -216,10 +216,11 @@ const optionalOrDefaulted = (f: string, s: Schema.Top): boolean => {
     return false;
   }
 };
-export const FLOW_REASONS = new Set(["Cancelled", "Restored", "Interrupted", "Defect", "StillUnknown", "StorageRefused", "Disposed"]);
+// Stage A close-out (B3): `ModuleDisabled` (OD52 (22)) and `Abandoned` (OD53 (21)) join rule 13's reserved reasons.
+export const FLOW_REASONS = new Set(["Cancelled", "Restored", "Interrupted", "Defect", "StillUnknown", "StorageRefused", "Disposed", "ModuleDisabled", "Abandoned"]);
 export const WRITE_ONLY_REASONS = new Set(["NotSent"]);
 // A contract's own unknown tags live in its commit's type, which this compile cannot read; what it can refuse is a key naming one of Flow's never-unknown reasons.
-const NEVER_UNKNOWN = new Set([...WRITE_ONLY_REASONS, "Rejected", "Overloaded", "Unencodable", "NoPersistence", "OldVersion"]);
+const NEVER_UNKNOWN = new Set([...WRITE_ONLY_REASONS, "Rejected", "Overloaded", "Unencodable", "NoPersistence", "OldVersion", "ModuleDisabled"]);
 // `events`: the declaring definition's or fragment's event records, so `unknown:` is checked against `Flow.uncertain` (rule 13).
 export const compileOp = (definition: string, name: string, b: AnyBound, events: Readonly<Record<string, Fields>>, fragment?: string): CompiledOp => {
   const c = b.contract;

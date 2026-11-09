@@ -2645,3 +2645,19 @@ file:scenarios/phase1m.scenario.ts hash:5c1bd0096f29 | Closing batch: the revert
 round:mutants-am2.ts hash:aed41679eb45 | Closing batch: the fifth own wrong runtime, a reverted identity left tagged
 output:P1-M/an-identity-current-again-takes-its-lane-back hash:414d5ce389f3 | new output: the old hold tagged under release 2, back on its key under release 3, heard once
 file:expected-recipients.txt hash:facbca5bee06 | Closing batch: the revert variant adds 2 observed deliveries and 2 start nodes; no red count moved
+SURV-05 hash:8d52b1c357c0 | Stage A close-out B1: rule 30 as amended, 3 asks per overdue interval, news asks again, a placed answer resets
+file:scenarios/review.scenario.ts hash:88b30d3d1272 | Stage A close-out B1: SURV-05 re-cited to C207 as amended, with a second overdue and the answer reset
+file:search/fragstore.search.ts hash:803123f886d4 | Stage A close-out B5: the oracle reads U10's quiet unconfirmed level after a give-up and a later read or repair
+file:compile/operations.ts hash:c21582061354 | Stage A close-out B3: ModuleDisabled and Abandoned join rule 13's reserved reasons; ModuleDisabled never an unknown key
+file:limits.ts hash:5e698509950a | Stage A close-out m10: one lifetime-falsify row for two slices, 140 s alone each
+file:falsify.ts hash:27f8ccfd7170 | Stage A close-out B5: fragstore.row searched at depth 7 with its reach pinned, and its quiet-mark lie
+file:gates.ts hash:b65981fa2fcc | Stage A close-out m10: lifetime-falsify split in two slices with a gate-level coverage row
+round:cli/broken.ts hash:87ff32b08450 | Stage A close-out B2, B3: fixtures for SharedContract and GoneWithoutKey
+round:cli/check.ts hash:f71045302f17 | Stage A close-out B2, B3: flow check refuses SharedContract (F2) and GoneWithoutKey (rule 37)
+round:cli/flow.ts hash:83f207021253 | Stage A close-out: the shared-contract and gone-without-key targets registered
+round:cli/main.ts hash:c3975bbe9bf3 | Stage A close-out: CLI pins for SharedContract and GoneWithoutKey, positive and negative
+round:checks/front-check.ts hash:3c88ce916765 | Stage A close-out B3: front pins for the ModuleDisabled and Abandoned reserved reasons
+round:mutants-closeout.ts hash:42c214c81815 | Stage A close-out B1: three wrong runtimes for the repair count (strands, unbounded, answer keeps it)
+round:mutants-lifetime.ts hash:0d53425df248 | Stage A close-out: the close-out wrong runtimes spread into the lifetime list
+output:SURV-05 hash:4d781dc18065 | new output: SURV-05 asks 10 repairs over three overdue intervals and one placed answer
+file:expected-recipients.txt hash:f81c2540fc32 | Stage A close-out B1: SURV-05's two more re-sends add 2 observed deliveries; no red count moved

@@ -24,7 +24,7 @@ export const GATE_ROWS: Readonly<Record<string, { readonly mb: number; readonly 
   "falsify mutants": { mb: 2000, s: 60 },
   "falsify search": { mb: 600, s: 40 },
   "falsify lies": { mb: 1500, s: 32 },
-  "lifetime-falsify": { mb: 7200, s: 210 }, // re-measured after streams' last batch: 209 s alone at --parallel 4 (CPU-bound: 210 s at 6), 4 suites of 1,700 MB
+  "lifetime-falsify": { mb: 7200, s: 140 }, // one row for both `--slice 1/2` and `2/2` (--parallel 4), 200 and 199 wrong runtimes: 137 s and 139 s alone (frozen HEAD copy, one slice at a time); was 210 s for the whole unsliced run
   checks: { mb: SCRIPT.size.peakMb, s: SCRIPT.size.aloneS },
   "typed tsc": { mb: SCRIPT.size.peakMb, s: SCRIPT.size.aloneS },
   "cli pins": { mb: SCRIPT.size.peakMb, s: 5 },

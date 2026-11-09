@@ -672,7 +672,9 @@ declarer" (a definition or a fragment), and "binding actor" as "binding incarnat
     `StillUnknown`, `StorageRefused`, `Disposed`; *added by OD52 (22):* `ModuleDisabled`, proposed; *added by OD53 (21):* `Abandoned`, proposed) is a type error, and compile refuses it as `ReservedReason` (proposed
     name) wherever a tag is declared: a write's or read's failure record and a stream's, beyond the `Defect` and
     `Interrupted` a read carries (rule 37); an `unknown:` record's `byReason` keys must be Flow's reasons (decided by
-    the runner, OD50); on a stream, so is one of `Feed`'s reasons (`Closed`, `Overflow`, `Silent`, `Flapping`) or the tag `Feed`, the map's own key [P, merge]. A commit's context also gives `progress(p)`, which sets its row's `progress` with no turn (Streams T8).
+    the runner, OD50; *stage A close-out (B3):* read with 2.7.3's unknown type `U | Flow reasons`, a key is one of the
+    commit's own unknown tags or Flow's unknown reasons; the prototype refuses a key naming a never-unknown reason,
+    `ModuleDisabled` included, and the type-level half is carried to phase 3, revisit.md); on a stream, so is one of `Feed`'s reasons (`Closed`, `Overflow`, `Silent`, `Flapping`) or the tag `Feed`, the map's own key [P, merge]. A commit's context also gives `progress(p)`, which sets its row's `progress` with no turn (Streams T8).
 14. **Owner, current, late, decided at admission.** Stream deliveries are always current from the active leaf; a session's owner is its placement's activation or incarnation, and release discards rather than routing late (rule 70). Otherwise, a commit, lookup or retry of an operation is owned by the activation
     of the state its transition names (`"self"`: the handler's own state). When the ending's turn is **admitted** (2.5
     step 1), Flow maps the ending through the operation's `outcomes` and tests the owner against the pre-turn snapshot.
@@ -692,7 +694,8 @@ declarer" (a definition or a fragment), and "binding actor" as "binding incarnat
 15. **Late turns.** In a late event's turn, an alternative whose target would exit a state that owns another pending
     call, or an active subroutine, is denied (`LateMayNotLeave`); so a late handler ends in an alternative that does not
     move (`flow check`). **`flow check` errors on a late handler with no alternative that stays put** (decided, Q4 A,
-    OD50); the runtime is unchanged: an ending admitted in a turn denied this way still counts as delivered and keeps
+    OD50; *narrowed by stage A close-out (m4):* as built, it checks a late write's handler under `serialize` or
+    `latest` on its own lane only, R8's limit; a late read's handler is not checked); the runtime is unchanged: an ending admitted in a turn denied this way still counts as delivered and keeps
     its lane effect (2.7.13), and a hold it leaves stays until a later turn's keyed `cancel(k)` or `cancelAll(k)`. A call started in a late turn is an ordinary call with its own owner: lateness is not
     transitive. Only the host's own operations count: a fragment's work belongs to its incarnation (rules 52, 53), so
     ending a placement never leaves live work.
@@ -953,7 +956,13 @@ decision (E1–E18). Rules 13–25 and N1–N3 still apply.
     hold stay) and the next news asks again; a placed answer resets the count; no timer. *Superseded by OD53 (8), the
     runner:* "the next news asks again" and "resets the count": the bound is 3 asks per doubt in total, so after
     `RepairOverdue` nothing asks again for that doubt; its mark and hold stay until a release (below) or a reload's
-    boot repair, a new doubt with its own 3. `Released` of an unknown
+    boot repair, a new doubt with its own 3. *Amended by stage A close-out (B1), the runner:* OD53 (8)'s total bound
+    is reversed, as the prototype behaves: the count resets at `RepairOverdue`, so a doubt is never stranded on a
+    long-lived screen (a dashboard, a map of live objects, a kiosk) until a reload. Asks stay bounded per overdue
+    interval: at most 3, then `RepairOverdue`, and nothing asks again until news. **News** is an event that asks the
+    record's repair afresh: a new unknown on the record (a re-send's `StillUnknown` is a new doubt), a release that
+    leaves its mark, an answer whose effect the store cannot place (a doubt), a newer value landing past a running
+    repair (D58), and a reload's restored unknown. A placed answer also resets the count. No timer. `Released` of an unknown
     never re-sent frees its queue entry at once, the next writer goes (the person let it go; the lane's own outcome is
     still reported), as a release after `RepairOverdue` does; its predictions still end with the forced repair. **Revision (multiplicity audit, 2026-10-31) (E18).** A prediction over a record the store does not hold (never held,
     or deleted beneath it by an earlier write or a push) shows nothing, and the record reads absent; it stays with its
@@ -1526,7 +1535,8 @@ denies `InFlight`.
    - **Late turns.** In a late ending's turn, any alternative whose target would exit a state that owns another
      pending call, or an active subroutine, is denied as `LateMayNotLeave` (rule 15), in steps 2 and 3 alike.
      "Pending" here is rule 15's set (OD49): an `InFlight` head and every queued commit owned by an exited activation,
-     behind a `Held` head too, less the queues of lanes the transition cancels key-less; not a row's `pending`.
+     behind a `Held` head too, whatever the transition cancels (*amended by stage A close-out (m1): OD50 R1 removed
+     the key-less cancel exemption; the runtime implements none*); not a row's `pending`.
 4. **Seed and compute.**
    - Seed every new incarnation (entered, reset or added) that is not yet seeded.
    - Compute every payload and patch from its memory view in the table above (before, before-walk or initial).
@@ -2064,7 +2074,7 @@ FieldEdited: { target: "self", actions: [O.save.commit(({ memory, event }) => ({
   what a write lane is per.
   Revision 2 removed it to delete the K-rule; with lanes per key there is no K-rule to delete: different keys are
   different lanes. For reads it keeps OPS O1's meaning only (2.7.3).
-- **Two write operations on one write contract** in one definition are a declaration error (`SharedContract`), per actor, counting every fragment placement (rule 40, F2). D9's
+- **Two write operations on one write contract** in one definition are a declaration error (`SharedContract`), per actor, counting every fragment placement (rule 40, F2; *stage A close-out (B2):* built in the prototype's `flow check`; this is what makes 2.7.15's lane per contract and the prototype's lane per operation the same lane within a release). D9's
   "one write in flight per key" holds by construction, per actor identity (two live local actors with equal input are
   two lanes, R8 M5). Revision 2's `.joins` is removed (R2 A-M1, C-M6): a second kind
   of start is a second `commit` of the same operation with its own select; when the handlers must tell them apart,
@@ -4043,7 +4053,7 @@ queues again (rule 31), which is why a re-send can wait to be invoked across tur
   applies whenever it was asked, unless a version-less claim is open. Equality is `Schema.toEquivalence` per field,
   from the entity's field Schemas (`entity({ fields })`, in `Compiled`); a domain without them compares structurally.
 - **The forced repair** (D12, D40). No timer: a failed repair is asked again, at most 3 asks, then `RepairOverdue`
-  (evidence; the mark and the record hold stay); the next news asks again, and a placed answer resets the count. *Superseded by OD53 (8):* 3 asks per doubt in total (rule 30). A
+  (evidence; the mark and the record hold stay); the next news asks again, and a placed answer resets the count. *Superseded by OD53 (8):* 3 asks per doubt in total (rule 30). *Amended by stage A close-out (B1), the runner:* OD53 (8) reversed; the count resets at `RepairOverdue` and news asks again, 3 asks per overdue interval (rule 30 names the news). A
   re-send waits for its record's repair (D39, shown by the prototype).
 - **Marks** follow rule 32's OD52 paragraph: a given-up mark asks one read and goes quiet; `guarded: true` (Q1 A) is
   its only exit, by a version past the base sent or a same-key success; the 4,096 cap per entity evicts the oldest
@@ -8748,16 +8758,16 @@ The streams merge ([merged/streams/proposal-v3.md](merged/streams/proposal-v3.md
 | C202 | Operations O4, Persistence O3 | Rule 71's partition entry also holds a `latest` operation's `last` and `heard`; one partition write per changed `last`; the 256-per-operation bound is the only cap, oldest by last write; a re-created entry takes `filled` from the field (rule 71, Streams T3; OD53 (6), (12)) | Amends rule 71's entry |
 | C203 | Operations O4 | `Feed.multiplex({ connect })`, library code beside `Feed.callback`: one connection while any key has a session, `add`/`remove` on a key's first and last session, `emit.to`, `emit.all`, `emit.fail(e)`, `emit.fail(e, key)`, `hub.stream(key)`; a joiner of a registered key hears `Feed.live()` at once; the hub lives in the app's Layer per Runtime (2.11.4, 2.11.12.3; Q1 B, OD53 (1), (7)) | Adds |
 | C204 | Operations O4, Inspection | A key change while the state stays put empties the `fills` field in the same turn; Flow never wipes it; `FillsOtherKey` (proposed name) flags a registration with no entry, a filled field and another key's filled entry (2.11.7; Q2 A, OD53 (2)) | Adds to 2.11.7 |
-| C205 | Operations O4 | `Waiting` has no connection, so T5's `Waiting` value row is superseded (T1's `—`); `dropAt` is set on leaving `Live` or `Repairing` and when none is set, and kept across connections that never register (Streams T1, T5; OD53 (10), (11)) | Amends Streams T1's `down`/`lose` and T5 |
+| C205 | Operations O4 | `Waiting` has no connection, so T5's `Waiting` value row is superseded (T1's `—`); `dropAt` is set on leaving `Live` or `Repairing` and when none is set, and kept across connections that never register (Streams T1, T5; OD53 (10), (11)); *stage A close-out (m2):* a registration ends the not-live period, and `dropAt` is kept with a `latest` bookmark | Amends Streams T1's `down`/`lose` and T5 |
 | C206 | Operations O4, Inspection | The default schedule's jitter is a well-mixed hash of (session id, step), factor 0.8-1.2, no saved seed; `backoff` is optional in `Compiled`; `IdleWithoutPing` is a `Silent` end of a connection with no ping since `connect`; `Feed.callback`'s 1,024 counts its queue, not the delivery in mail (2.11.4, 2.11.10; OD53 (13), (14)) | Amends 2.11.10's default schedule |
-| C207 | EntityDomains O1 | The forced repair asks at most 3 times per doubt in total, then `RepairOverdue`, and nothing asks again for that doubt; a reload's boot repair is a new doubt; U10's later success is by landing order after the give-up (rules 30, 32, 2.8.6; OD53 (8), (9)) | Amends C190 and C192 |
+| C207 | EntityDomains O1 | The forced repair asks at most 3 times per doubt in total, then `RepairOverdue`, and nothing asks again for that doubt; a reload's boot repair is a new doubt; U10's later success is by landing order after the give-up (rules 30, 32, 2.8.6; OD53 (8), (9)). *Amended by stage A close-out (B1), the runner:* at most 3 asks per overdue interval; the count resets at `RepairOverdue` and on a placed answer, and news (rule 30's list: a new unknown, a re-send's `StillUnknown` included, a release keeping its mark, a doubt, D58's newer landing, a restored unknown) asks again | Amends C190 and C192 |
 | C208 | EntityDomains O1 | A quiet removal doubt over a present row reads `unconfirmed` on every non-key field; a gap marks the version field; a read's `.one` answer is a whole row; a collection-wide version has no spelling (rule 32, 2.8.14; OD53 (15)-(17), (19)) | Amends C192, C197, C198 |
 | C209 | CommandLine O5, Inspection, Operations O1 | Proposed names: `GoneWithoutKey` (`.gone` without `.byKey`), `UnboundLane`, `LaneRekeyed`; `Abandoned` joins rule 13's reserved reasons (rules 13, 37, 2.7.13; OD53 (18), (20), (21)) | Amends C196 and C177 |
 | C210 | Persistence O3, O5 | Every actor and lane record carries Flow's record format (1-4); each older format reaches the current one by a pure step at the boot, before the release's checks, replayed by S11; a newer, `null` or non-integer record format is quarantined, its lane still holding by its id; format 3 adds a lane's contract id and identity stamp, format 4 an actor record's saved shape (rules 46, 74; OD54 (6)) | Amends C181's "a newer format reads as an old version" (version entries only) |
 | C211 | Persistence O5, Machines O1, Inspection | Automatic reset per definition, no manual or app-wide version: a record whose saved shape (state ids, memory fields with their Schema versions, fragments' under their id) differs incompatibly (a kept field under another version; a saved leaf, kid or history target gone) is removed at the boot, retired or not, with its deadlines and stopped reads; one `RecordShapeChanged` (proposed) per definition with its count, decided per record; rule 74's identity check first; a record with no shape stamp never resets (2.2.2, 2.7.17; Q1 A, OD54 (1), (8), (9), (13), (18)) | Adds |
 | C212 | Persistence O3, O6, Operations O3, Inspection | A reset keeps writes in flight: lanes, holds and parked endings stay unbound until an adopting ensure, whose fresh incarnation hears them in its initial leaf; a head whose identity's record is reset or unreadable is `HoldWithoutRecord` (proposed) at each boot; an old-version record's lanes are `UnboundLane` (rule 46, 2.7.13, 2.7.15; OD54 (1), (4), (18)) | Adds |
 | C213 | Persistence O5, Machines O1 | A field this release no longer declares is dropped with `FieldDropped` (proposed) once the record is known to restore, and the record is rewritten without it at that boot, D111's bounded exception (2.2.2, 2.7.20; OD54 (3), (10)) | Adds to 2.2.2's restore |
-| C214 | Operations O1, O3, Persistence O5 | A lane is (identity with its version, contract id, key): an old identity's lane is re-keyed at the boot to `key#identityTag`, kept, blocking nothing, `UnboundLane` at each boot; a revert hands the key's lane back unless it is taken; a lane whose operation name is gone moves to the one write operation over its contract (`OpRenamed`, proposed); a move onto a taken id is refused with `LaneRekeyCollision` (proposed), nothing overwritten (rules 46, 74, 2.7.15; OD54 (7), (12)) | Amends C135; adds to C209 |
+| C214 | Operations O1, O3, Persistence O5 | A lane is (identity with its version, contract id, key): an old identity's lane is re-keyed at the boot to `key#identityTag`, kept, blocking nothing, `UnboundLane` at each boot; a revert hands the key's lane back unless it is taken; a lane whose operation name is gone moves to the one write operation over its contract (`OpRenamed`, proposed); a move onto a taken id is refused with `LaneRekeyCollision` (proposed), nothing overwritten (rules 46, 74, 2.7.15; OD54 (7), (12)). *Stage A close-out (B2), the lead builder:* two write operations over one contract in an actor tree stay a `SharedContract` declaration error (2.7, F2; now built in `flow check`), so within a release a lane's (identity, contract, key) and (identity, operation, key) name the same lane, and the rename move covers the release boundary; a shared lane under two operations' outcome maps is not designed | Amends C135; adds to C209 |
 | C215 | Operations O1, CommandLine O5 | `O.x.previous[i].retry(k)`, `.cancel(k)` and `.retryable(k, { times })` name only `previous[i]`'s lanes; a current keyed member never names an old-version lane; `PreviousIsCurrent` (proposed) refuses an earlier key equal to the current one; `OldVersionLane` is an issue at each boot; on a fragment operation rule 51's `Rejected` comes before `OldVersion` (2.7.15; OD54 (2), (5), (11), (15)) | Amends C135 |
 | C216 | CommandLine O5 | `flow explain <release> --since <release>` (proposed) says per definition: resets, resets records saved in a removed state, restores, or identity changed (rule 74's old-version records, never reset); writes in flight are always kept (2.7.16; Q1 A, OD54 (1), (14)) | Adds |
 
@@ -9771,7 +9781,7 @@ operations-in-fragments, the lane model and the reviews cite them.
   restored quiet mark still shows them (rule 38; not built); 2.7.15's old-version hold under `cancel` lasts only
   through its own restored unknown's turn, so only that turn's handler commits beside it. **Stated limits:**
   `GuardContradicted` under-detects across a reload (a restored Attempt is never a first send); a tripwire, never a
-  verification, its probe owed to revisit.md; Supabase realtime with every column sent omits unchanged TOAST-stored
+  verification, its probe owed to revisit.md (*stage A close-out (m3):* entry added, "A CI probe for `GuardContradicted`"); Supabase realtime with every column sent omits unchanged TOAST-stored
   columns from an `UPDATE`, which makes `row` unsafe there, an author risk (2.8.14); the harness's `disabled` wait
   excuse rests on the runtime's own `ModuleDefect` issue, a runtime report like `checkClaims`'s; the PostgREST fake's
   other ledgers still key by request key, fine for that fixture, not for a money one. **Open, owed (not decided):**
@@ -9801,14 +9811,15 @@ operations-in-fragments, the lane model and the reviews cite them.
   `SelectedNoKey` issue (proposed name) (rule 41); (6) rule 71's entry also holds `latest`'s `last` and `heard` (rule
   71); (7) `emit.fail(e, key)` on `Feed.multiplex`, a small API under amendment 9, for req C10's per-key end (2.11.4);
   (8) OD52 (a): the forced repair asks at most 3 times per doubt in total, not per news: bounded, and the simplest
-  count (rule 30, 2.8.6); (9) OD52 (b): U10's "later success" is by landing order after the give-up, since the mark is
+  count (rule 30, 2.8.6); *amended by stage A close-out (B1), the runner:* reversed, 3 asks per overdue interval and
+  news asks again, so a long-lived screen never strands a doubt until a reload (rule 30); (9) OD52 (b): U10's "later success" is by landing order after the give-up, since the mark is
   about what the server holds after it (rule 32). **Decided by the runner under the user's delegation (amendment 9 /
   11)**, each the most correct option: (10) T1 wins over T5 on `Waiting`: `Waiting` has no connection, so no value
   arrives, and the lost connection's frames are discarded at `lose` (one interruption, one answer) (T5); (11) `dropAt`
   marks the start of the present not-live period: set on leaving `Live` or `Repairing` and when none is set (a first
   connection's `down` or `lose`), kept across connections that never register, so a value while `Dropped` never reads
-  fresher than the last moment the feed was known current (T1; the prototype's `lose` sets it every time, owed to the
-  builder); (12) T3's "oldest out" is by last write: creation order would evict a busy key and owe it a false notice
+  fresher than the last moment the feed was known current (T1; *amended by stage A close-out (m2):* built; a
+  registration ends the not-live period, and `dropAt` is persisted with a `latest` bookmark); (12) T3's "oldest out" is by last write: creation order would evict a busy key and owe it a false notice
   (T3); (13) jitter's source is a well-mixed hash of (session id, step), in Effect's 0.8-1.2: deterministic and
   replayable with no saved seed, which a seeded generator would need (2.11.10); (14) `Feed.callback`'s 1,024 stays the
   queue's own bound, and the delivery the session holds in mail is outside it, stated: that is the session's stage,

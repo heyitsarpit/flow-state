@@ -185,3 +185,85 @@ export const bigintKeyFixture: Fixture = {
     return { ...m, id: "Lab/BigKey", ops: { ...m.ops, [charge.id]: { ...charge, keyFields: ["orderId"], inputNotCarried: ["orderId"] } } };
   },
 };
+// SharedContract (design 2.7, F2): `rename` and `archive` both write `lab/updateTicket`. Each is mapped and handled, so the shared contract is the only new finding.
+const S = "Lab/SharedContract";
+const sc = fixtureOf(S);
+const writeOp = (id: string, ev: string, contract: string) => ({
+  id,
+  contract,
+  kind: "write" as const,
+  key: sc.key(id, () => ({})),
+  keyFields: [],
+  concurrency: "reject" as const,
+  commit: () => Effect.void as Effect.Effect<unknown, unknown>,
+  outcomes: { success: { event: `${ev}Ok` }, failure: { NotSent: { event: `${ev}No` } }, unknown: { event: `${ev}Unsure` } } as never,
+});
+export const sharedContractFixture: Fixture = {
+  id: S,
+  make: () => ({
+    id: S,
+    root: "root",
+    default: "A",
+    nodes: {
+      root: {
+        ...sc.node("root", {
+          Rename: [{ members: sc.commit("rename", () => ({})) }],
+          Archive: [{ members: sc.commit("archive", () => ({})) }],
+          RenameOk: [{}],
+          RenameNo: [{}],
+          RenameUnsure: [{}],
+          ArchiveOk: [{}],
+          ArchiveNo: [{}],
+          ArchiveUnsure: [{}],
+          StopRename: [{ members: sc.member("rename", "cancel") }],
+          StopArchive: [{ members: sc.member("archive", "cancel") }],
+        }),
+        default: "A",
+      },
+      A: sc.node("A", {}),
+    },
+    memory: sc.memory(() => ({})),
+    ops: { rename: writeOp("rename", "Rename", "lab/updateTicket"), archive: writeOp("archive", "Archive", "lab/updateTicket") },
+    persisted: true,
+    uses: [],
+  }),
+};
+// GoneWithoutKey (design rule 37): `list` is a read with a `.gone` entry and no `.byKey`, so the entry has no `ref`.
+const GK = "Lab/GoneWithoutKey";
+const gk = fixtureOf(GK);
+export const goneWithoutKeyFixture: Fixture = {
+  id: GK,
+  make: () => ({
+    id: GK,
+    root: "root",
+    default: "A",
+    nodes: {
+      root: {
+        ...gk.node("root", {
+          Load: [{ members: gk.lookup("list", () => ({})) }],
+          Got: [{}],
+          Failed: [{}],
+          Stopped: [{}],
+        }),
+        default: "A",
+      },
+      A: gk.node("A", {}),
+    },
+    memory: gk.memory(() => ({})),
+    ops: {
+      list: {
+        id: "list",
+        contract: "lab/list",
+        kind: "read" as const,
+        key: gk.key("list", () => ({})),
+        keyFields: [],
+        concurrency: "reject" as const,
+        commit: () => Effect.void as Effect.Effect<unknown, unknown>,
+        outcomes: { success: { event: "Got" }, failure: { Defect: { event: "Failed" }, Interrupted: { event: "Stopped" } } } as never,
+      },
+    },
+    domain: { writes: {}, reads: { list: () => [] }, gone: { list: { tag: "NotFound" } } as never, repair: () => Effect.void },
+    persisted: false,
+    uses: [],
+  }),
+};
