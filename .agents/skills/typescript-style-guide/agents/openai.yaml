@@ -1,4 +1,0 @@
-interface:
-  display_name: "TypeScript Style Guide"
-  short_description: "Review Flow State TypeScript boundaries"
-  default_prompt: "Use $typescript-style-guide to review or write Flow State TypeScript with clear ownership, typed boundaries, and focused proofs."
