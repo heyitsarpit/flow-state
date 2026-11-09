@@ -320,6 +320,25 @@ tasks
               - Rejected: I2's folder list (static cases live in `scenarios/`, per the README); a static data-type Invariant (the core Specs own those types, and I42 covers the boundary); fixed machine tag names (representation; I25 and I43 suffice).
 
             Gates: `workflow format --write` on the Spec, `workflow check` valid, `workflow refs --dangling` none, no line over 120 columns. Next: a fresh independent skill:check-spec.
+        comment 2026-11-09T17:03:59Z
+            **skill:check-spec fourth check, independent (Opus lead, 4 Haiku sidecars), at `a87b896e`.** Contract: **ISSUES**. Design: **NOT APPLICABLE**. Acceptance not met; T4 stays in review. `workflow check` valid.
+
+            **Case model.** R14's table, `model` (Run, Step, Check) and the per-kind wording of R1-R3, R6-R11, I12, I18, I21, I22, I32, I42-I44 hold together for both kinds; third-check gaps 1-4 are closed (R9/I32 locus per kind, Q14 bounds the 45 static rows, I41 tagged by T8, Q11 in @R6). No Requirement assumes a world, seed or step for a static case.
+
+            **Remaining contract gaps, with fixes:**
+
+            1. Unrecorded known violation of R2/I36. README "Stated limits" (README.md:202-204) and the `lane-cells` doc (oracles/lane-cells.ts:73-76, :526-531): a Held head's re-send is accepted after any driven turn of its actor, so an automatic re-send riding on an unrelated event (forbidden by WriteLanes R8 "no automatic retry", judged as WriteLanes I12) passes, on every runtime including production. That is a check accepting a value its rule contradicts, the same class as Q8, and no open item names it. Fix: add it to Q8 (or a new Q) with a later-Task outcome; @R2 open_by.
+            2. T13 cannot fail on per-oracle matching, so I16 under R6's pair accounting is decided by no test. Its planted mutant is caught by a mismatch in one run and its oracle in another; a judge matching the oracle name only passes it. Fix: T13 also plants a mutant whose holding oracle fails only on a different Invariant than the holding one, seen as "red by another check".
+            3. I22's per-run freshness within one case has no deciding test. T17 compares across cases; T28's I22 tag checks only "no world" for static runs. A case whose runs share a world or project copy passes both. Fix: a planted case (runtime and static) whose first run leaves state the second would see, seen giving a different verdict than each run alone; tag I22.
+            4. Smaller: Q12 cites `code:.../runner/main.ts#runCases`, defined in runner/run.ts:66 (main.ts:10 imports it).
+
+            **Sidecar log.**
+            (a) both kinds: Rejected: R7 must vs its pending decision (decision labelled; rejected before); R1 value rule Port-only (core Specs own static types; rejected before); R4 anchoring for static results (R4/R5 make expectations suite-owned); per-run vs per-case time bound (R8 says per case); R3 examples runtime-only (polish); step locus before any `Stepped` (polish).
+            (b) consistency: Accepted: T28's I22 tag tests nothing of I22 (gap 3). Changed: Q12 link (gap 4; the sidecar placed it under d's angle too). Rejected: pending decisions written as normative (rejected before); I2 vs static types (R3 has the adapter translate into boundary values, Q14 builds the boundary); R12 uncovered listing (explicit, I38); T1/T5/T9 tag nits and "29 of 61" form (polish).
+            (c) testability: Accepted: T13 name-only matching (gap 2); static I22 (gap 3). Rejected: I41 untested (T8's audit lists differences); I42 reads vs imports (T4 audit); optional seed in T21 (T21 names the run); T28 vacuous step (type-level per kind); T15 defects (T15 already counts stated failures only); T27 "case" rows (Q13 records them and T27 lists Invariants with no check).
+            (d) restating and shape: Accepted: lane-cells re-send limit (gap 1, verified in code). Rejected: `VERDICTS` format, I31 vs `Runtime` functions, trailing spaces (rejected before); falsify's 120 s group bounds (falsify.ts:131-144, :167; main.ts:151) run the unbounded in-process `suite`, so Q12's "every mode" outcome covers them; `disposal` README row (Q5 covers case-only mutants); `skill:` links (`workflow check` valid).
+
+            Next: repair gaps 1-4, then a fresh independent skill:check-spec.
     T5
         title       Suite renamed to Spec areas and behaviour names
         status      open
