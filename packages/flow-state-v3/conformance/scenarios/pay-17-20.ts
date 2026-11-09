@@ -33,22 +33,18 @@ const serverIntent = (c: Case) =>
   });
 
 /**
- * The Pay cases `PAY-18` to `PAY-20`, ported from the prototype suite.
+ * The Pay cases `PAY-18` to `PAY-20`, with the prototype suite's steps and expectations.
  *
  * **Details**
  *
- * - The steps and expectations are the prototype's, with the server's answers written as the Port's
- *   {@link Answer}s. `PAY-20`'s first variant asserts the last `pay` ending's channel is `unknown`
- *   in place of the prototype's "unknown, not a failure" check.
- * - `PAY-17` is not ported. Its five variants (`hook-throws-on-sent`, `hook-throws-on-timer`,
- *   `hook-throws-on-acked`, `hook-throws-on-turn`, `core-throw-is-fatal`) throw inside prototype
- *   modules or the core, which are not Port parts.
- * - `PAY-19` was pinned to `P1` in the prototype; the Scenario type carries no pins, so the pin is
- *   not carried. Its expectations are unchanged.
- * - `PAY-20`'s `forgetKeys` fault is dropped in the pruned-key variant: the fake server never
- *   dedupes by key, so a pruned key changes nothing. The variant keeps its steps and expectations.
- * - `appliedTwice` counts the keys the server applied more than once, from the network's landed
- *   requests, and is expected to be 0.
+ * - `PAY-17` is not here: its five variants (`hook-throws-on-sent`, `hook-throws-on-timer`,
+ *   `hook-throws-on-acked`, `hook-throws-on-turn`, `core-throw-is-fatal`) throw inside runtime
+ *   modules or the core, which no Port part reaches.
+ * - `PAY-19` pins the Pay fixture's own late handlers (Turn R20, R21 route them late; `LEFT` and
+ *   no receipt are the fixture's design). Both orders keep one order and one void at the server.
+ * - `PAY-20`'s "no second pay" and "once at the server" are Pay's read-first rule (it reads the
+ *   intent before any re-send), not a Flow guarantee. The fake server never dedupes by key, so the
+ *   pruned-key variant needs no pruning fault.
  */
 export const pay1720Scenarios: ReadonlyArray<Scenario> = [
   {
@@ -64,6 +60,7 @@ export const pay1720Scenarios: ReadonlyArray<Scenario> = [
       c.advance(10_000);
       c.state("PAYING");
       c.eq("never told", String(c.memory()["notice"]).includes("haven't been charged"), false);
+      c.eq("no send before an acknowledgement is heard", c.requests("pay").length, 0);
       c.reload();
       c.state("UNSURE");
       c.eq("reason", lastReason(c, "pay"), "Restored");

@@ -213,7 +213,7 @@ export const laneScenarios: ReadonlyArray<Scenario> = [
       c.state("UNSURE");
       c.send("AbortPay", {});
       c.eq("the hold is released", c.evidence("Released"), 1);
-      c.eq("the lane is Idle", Option.getOrUndefined(c.row("pay", { intentId: "pi1" })), undefined);
+      c.eq("the lane is Idle", Option.isNone(c.row("pay", { intentId: "pi1" })), true);
     },
   },
 ];

@@ -95,3 +95,24 @@ From `phase-2-completion-audit.md` (B1-B5, m1-m27, over-design 1-3) and the runn
   that has no trailing space. Every Spec was unwrapped to one line per value, formatted to a fixed
   point (`workflow format --check` passes on each), and scanned against a dictionary plus the plan
   vocabulary; 30 joined words were split. Edit Specs by replacing whole values, then format.
+
+### Phase 3, conformance round 3 (the lane-cells oracle)
+
+Found while writing the `lane-cells` oracle and its lies (packages/flow-state-v3/conformance).
+
+- **WriteLanes R14, cancel on Idle.** "Idle: nothing, with evidence" named no evidence kind: R3's
+  closed list (Superseded, NothingToResend, InFlight, Released) has none for it, and the
+  prototype records only its internal cell trace, which no public report carries. Now "Idle:
+  nothing, and no ending". The oracle allows evidence there and fails any ending. The wrong
+  runtime `audit-1.cancel-all-idle-silent` differs from round-14 only in that internal trace, so
+  T10 names `p1h.cancel-all-idle-declines` (an Idle `cancelAll` that declines) instead.
+- **WriteLanes T4, `lane.promote-skips-durable`.** It sends a promoted head with no
+  acknowledgement: that breaks WriteAhead I15 (acknowledge before send), not I11 or I12 (the head
+  is promoted only after the old one resolved). Moved to WriteAhead T7. T4 now names the phase 3
+  wrong runtimes for I11 and I12.
+- **WriteLanes T9, `lost.letgo-silent`.** It drops the record of a kept ending a cancel lets go:
+  an ending neither delivered nor recorded, WriteLanes I15. Moved to T6. T9 names the phase 3
+  wrong runtime `lane.cancel-wire-as-never-sent`.
+- Edits to T4, T6, T9, T10, R14 and WriteAhead T7 kept the trailing space on each continuation
+  line (the Edit tool strips it; it was restored on the exact lines), and `workflow format --check`
+  passes on both files.

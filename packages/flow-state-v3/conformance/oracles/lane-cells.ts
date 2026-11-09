@@ -32,8 +32,9 @@ const ADDRESSABLE: ReadonlyArray<Phase> = ["waiting", "wire", "held"];
 
 const laneKey = (actor: ActorRef, operation: string) => `${actor.machine}/${actor.id} ${operation}`;
 
-const headOf = (lane: Lane) =>
-  Option.fromUndefinedOr(lane.attempts.find((a) => ADDRESSABLE.includes(a.phase)));
+const addressable = (attempt: Tracked) => ADDRESSABLE.includes(attempt.phase);
+
+const headOf = (lane: Lane) => Option.fromUndefinedOr(lane.attempts.find(addressable));
 
 const queuedOf = (lane: Lane) => lane.attempts.filter((a) => a.phase === "queued");
 
@@ -137,13 +138,6 @@ const sent = (model: Model, id: string) =>
     },
   });
 
-const cancelledRight = (model: Model, ended: Ended, id: string) => {
-  const mark = model.cancelled.get(id);
-  model.cancelled.delete(id);
-
-  return mark === undefined ? [] : byHistory(mark, ended, id);
-};
-
 const byHistory = (mark: Cancelled, ended: Ended, id: string) => {
   if (mark.from === "wire" && (ended.channel !== "unknown" || ended.reason !== "Cancelled"))
     return [
@@ -160,13 +154,15 @@ const byHistory = (mark: Cancelled, ended: Ended, id: string) => {
   return [];
 };
 
-const settledPhase = (ended: Ended, phase: Phase) => {
-  if (phase === "replaced") return Option.none<Phase>();
+const cancelledRight = (model: Model, ended: Ended, id: string) => {
+  const mark = model.cancelled.get(id);
+  model.cancelled.delete(id);
 
-  return ended.channel === "unknown" && phase !== "queued"
-    ? Option.some<Phase>("held")
-    : Option.none<Phase>();
+  return mark === undefined ? [] : byHistory(mark, ended, id);
 };
+
+const afterEnding = (ended: Ended, phase: Phase) =>
+  ended.channel === "unknown" && ADDRESSABLE.includes(phase) ? "held" : "gone";
 
 const end = (model: Model, ended: Ended) => {
   if (Option.isNone(ended.attempt)) return [];
@@ -188,10 +184,9 @@ const end = (model: Model, ended: Ended) => {
 
       model.lanes.set(
         key,
-        Option.match(settledPhase(ended, phase.value), {
-          onNone: () => without(lane, id),
-          onSome: (next) => withPhase(lane, id, next),
-        }),
+        afterEnding(ended, phase.value) === "held"
+          ? withPhase(lane, id, "held")
+          : without(lane, id),
       );
 
       if (queuedOk) return judged;
@@ -235,7 +230,7 @@ const evidence = (model: Model, observed: Observation) => {
 const bounds = (model: Model) =>
   [...model.lanes.values()].flatMap((lane) => {
     const queued = queuedOf(lane).length;
-    const heads = lane.attempts.filter((a) => ADDRESSABLE.includes(a.phase)).length;
+    const heads = lane.attempts.filter(addressable).length;
     const bound = BOUND[lane.policy.concurrency];
 
     const found =
@@ -253,23 +248,23 @@ const bounds = (model: Model) =>
       : found;
   });
 
-const releasedIn = (batch: ReadonlyArray<Observation>, id: string) =>
-  batch.some(
+const releasedIn = (window: ReadonlyArray<Observation>, id: string) =>
+  window.some(
     (o) =>
       Observation.$is("Evidence")(o) && o.kind === "Released" && Option.contains(o.attempt, id),
   );
 
-const endedIn = (batch: ReadonlyArray<Observation>, operation: string) =>
-  batch.flatMap((o) =>
+const endedIn = (window: ReadonlyArray<Observation>, operation: string) =>
+  window.flatMap((o) =>
     Observation.$is("Ended")(o) && o.operation === operation ? Option.toArray(o.attempt) : [],
   );
 
-const queueEnded = (lane: Lane, batch: ReadonlyArray<Observation>) => {
+const queueEnded = (lane: Lane, window: ReadonlyArray<Observation>) => {
   const queued = queuedOf(lane).map((a) => a.id);
-  const ended = endedIn(batch, lane.operation).filter((id) => queued.includes(id));
+  const ended = endedIn(window, lane.operation).filter((id) => queued.includes(id));
 
   const declined = (id: string) =>
-    batch.some(
+    window.some(
       (o) =>
         Observation.$is("Ended")(o) &&
         Option.contains(o.attempt, id) &&
@@ -291,24 +286,27 @@ const queueEnded = (lane: Lane, batch: ReadonlyArray<Observation>) => {
       ];
 };
 
-const headByHistory = (model: Model, lane: Lane, batch: ReadonlyArray<Observation>) =>
-  Option.match(headOf(lane), {
-    onNone: () => {
-      const touched = batch.filter(
-        (o) =>
-          (Observation.$is("Ended")(o) || Observation.$is("Evidence")(o)) &&
-          o.operation === lane.operation,
-      );
+const sentIn = (window: ReadonlyArray<Observation>, id: string) =>
+  window.some((o) => Observation.$is("Sent")(o) && o.attempt === id);
 
-      return touched.length === 0
-        ? []
-        : [
-            `WriteLanes I20: a cancel on ${lane.operation}'s Idle lane does nothing; it reported ${touched.map((o) => o._tag).join(", ")}`,
-          ];
-    },
+const idleCancel = (lane: Lane, window: ReadonlyArray<Observation>) => {
+  const ended = window.filter(
+    (o) => Observation.$is("Ended")(o) && o.operation === lane.operation,
+  ).length;
+
+  return ended === 0
+    ? []
+    : [
+        `WriteLanes I20: a cancel on ${lane.operation}'s Idle lane does nothing; ${ended} ending(s) were reported`,
+      ];
+};
+
+const headByHistory = (model: Model, lane: Lane, window: ReadonlyArray<Observation>) =>
+  Option.match(headOf(lane), {
+    onNone: () => idleCancel(lane, window),
     onSome: (head) => {
       if (head.phase === "held")
-        return releasedIn(batch, head.id)
+        return releasedIn(window, head.id)
           ? []
           : [
               `WriteLanes I12: a cancel on ${lane.operation}'s Held head ${head.id} releases it; no Released was reported`,
@@ -316,7 +314,12 @@ const headByHistory = (model: Model, lane: Lane, batch: ReadonlyArray<Observatio
 
       const mark: Cancelled = { id: head.id, from: head.phase === "wire" ? "wire" : "waiting" };
 
-      const already = batch
+      if (mark.from === "waiting" && sentIn(window, head.id))
+        return [
+          `WriteLanes I20: ${lane.operation} ${head.id} was sent after a cancel found it never sent; it ends NotSent Cancelled by its history`,
+        ];
+
+      const already = window
         .filter(Observation.$is("Ended"))
         .find((o) => Option.contains(o.attempt, head.id));
 
@@ -327,12 +330,30 @@ const headByHistory = (model: Model, lane: Lane, batch: ReadonlyArray<Observatio
     },
   });
 
+const deliveredAt = (window: ReadonlyArray<Observation>, id: string) =>
+  window.findIndex((o) => Observation.$is("Delivered")(o) && Option.contains(o.attempt, id));
+
+const holdLast = (lane: Lane, window: ReadonlyArray<Observation>) =>
+  Option.match(headOf(lane), {
+    onNone: () => [],
+    onSome: (head) => {
+      const heard = deliveredAt(window, head.id);
+      const later = queuedOf(lane).filter((a) => deliveredAt(window, a.id) > heard);
+
+      if (head.phase !== "wire" || heard < 0 || later.length === 0) return [];
+
+      return [
+        `WriteLanes I21: cancelAll delivered the head ${head.id}'s hold-leaving ending before the queued ${later.map((a) => a.id).join(", ")}; the head's comes last`,
+      ];
+    },
+  });
+
 const cancels = (
   model: Model,
   reference: Reference,
   before: ReadonlyMap<string, Lane>,
   turn: Extract<Observation, { readonly _tag: "Turn" }>,
-  batch: ReadonlyArray<Observation>,
+  window: ReadonlyArray<Observation>,
 ) =>
   Object.entries(reference[turn.actor.machine] ?? {}).flatMap(([operation, policy]) => {
     const verb = policy.cancels[turn.event];
@@ -347,8 +368,12 @@ const cancels = (
     };
 
     return verb === "cancelAll"
-      ? [...queueEnded(lane, batch), ...headByHistory(model, lane, batch)]
-      : headByHistory(model, lane, batch);
+      ? [
+          ...queueEnded(lane, window),
+          ...headByHistory(model, lane, window),
+          ...holdLast(lane, window),
+        ]
+      : headByHistory(model, lane, window);
   });
 
 const unended = (model: Model) =>
@@ -376,20 +401,31 @@ const forget = (model: Model) => {
   model.cancelled.clear();
 };
 
+type Pending = {
+  readonly turn: Extract<Observation, { readonly _tag: "Turn" }>;
+  readonly before: ReadonlyMap<string, Lane>;
+  readonly from: number;
+};
+
 const judgeStep = (model: Model, facts: Facts, step: ReadonlyArray<Fact>) => {
   let before = new Map(model.lanes);
-  let batch: Array<Observation> = [];
+  let from = 0;
+  const reports: Array<Observation> = [];
+  const pending: Array<Pending> = [];
   const drove: Array<{ readonly actor: ActorRef; readonly event: string }> = [];
 
   const atTurn = (turn: Extract<Observation, { readonly _tag: "Turn" }>) => {
     const at = drove.findIndex((d) => d.event === turn.event && sameData(d.actor, turn.actor));
-    const found = at >= 0 ? cancels(model, facts.reference, before, turn, batch) : [];
 
-    if (at >= 0) drove.splice(at, 1);
+    if (at >= 0) {
+      drove.splice(at, 1);
+      pending.push({ turn, before, from });
+    }
+
     before = new Map(model.lanes);
-    batch = [];
+    from = reports.length;
 
-    return [...found, ...bounds(model)];
+    return bounds(model);
   };
 
   const one = (fact: Fact) => {
@@ -401,9 +437,9 @@ const judgeStep = (model: Model, facts: Facts, step: ReadonlyArray<Fact>) => {
 
     if (!Fact.$is("Reported")(fact)) return [];
     const observed = fact.observation;
+    reports.push(observed);
 
     if (Observation.$is("Turn")(observed)) return atTurn(observed);
-    batch.push(observed);
     mint(model, facts.reference, observed);
 
     if (Observation.$is("Sent")(observed)) return sent(model, observed.attempt);
@@ -415,7 +451,11 @@ const judgeStep = (model: Model, facts: Facts, step: ReadonlyArray<Fact>) => {
 
   const found = step.flatMap(one);
 
-  return [...found, ...bounds(model), ...unended(model)];
+  const judged = pending.flatMap((p) =>
+    cancels(model, facts.reference, p.before, p.turn, reports.slice(p.from)),
+  );
+
+  return [...found, ...judged, ...bounds(model), ...unended(model)];
 };
 
 /**
@@ -430,16 +470,18 @@ const judgeStep = (model: Model, facts: Facts, step: ReadonlyArray<Fact>) => {
  * head), `Sent` puts the head on the wire, an unknown ending holds it, a definite ending or
  * `Released` resolves it and promotes the first queued commit, and `Superseded` drops one. Checks:
  * - after each turn and at the end of each step, the queue is within its policy's bound (0 under
- *   reject and cancel, 1 under latest, 64 under serialize) and a lane has one addressable Attempt;
+ *   reject; 1 under latest; 64 under serialize; 0 under cancel, whose commit replaces the head, R7)
+ *   and a lane has one addressable Attempt;
  * - a queued Attempt is never sent or ended on a channel other than failure (it is promoted only
  *   once the head is resolved or released; an unknown never promotes);
  * - `Superseded` names only a queued commit or a never-sent head, and only under `latest`;
  * - on a turn of an event the suite sent whose handler the fixture's reference says cancels the
- *   operation, by the head's history before that turn: a Held head is released in that turn; a
- *   head on the wire ends `unknown Cancelled`, and in that step unless the suite made the call
- *   uninterruptible; a never-sent head ends `NotSent Cancelled` (or `StorageRefused`); an Idle lane
- *   ends nothing. A `cancelAll` also ends every queued commit `NotSent Cancelled` in that turn, in
- *   mint order.
+ *   operation, by the head's history before that turn, judged over the reports from that turn to
+ *   the end of its step (one action of the suite, settled): a Held head is released; a head on the
+ *   wire ends `unknown Cancelled`, within the step unless the suite made the call uninterruptible;
+ *   a never-sent head is never sent and ends `NotSent Cancelled` (or `StorageRefused`); an Idle
+ *   lane ends nothing (evidence is allowed). A `cancelAll` also ends every queued commit
+ *   `NotSent Cancelled`, in mint order, and a head on the wire is delivered after them.
  *
  * **Gotchas**
  *

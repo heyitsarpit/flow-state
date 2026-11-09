@@ -19,8 +19,9 @@ type Ledger = {
   readonly superseded: Set<string>;
   readonly disposed: Array<ActorRef>;
   readonly declineOwners: Map<string, Array<Option.Option<ActorRef>>>;
-  runtime: "live" | "disposing";
 };
+
+type Runtime = "live" | "disposing";
 
 const keyOf = (operation: string, attempt: Option.Option<string>) =>
   `${operation} ${Option.getOrElse(attempt, () => DECLINE)}`;
@@ -110,17 +111,22 @@ const record = (
   return [...cause, ...pay(ledger, key, "recorded")];
 };
 
+const park = (ledger: Ledger, parked: Extract<Observation, { readonly _tag: "Parked" }>) => {
+  const key = keyOf(parked.operation, parked.attempt);
+  const reparked = (ledger.owed.get(key) ?? 0) === 0 && (ledger.parked.get(key) ?? 0) > 0;
+
+  if (reparked) return [];
+  bump(ledger.parked, key, 1);
+
+  return pay(ledger, key, "parked");
+};
+
 const settleOne = (ledger: Ledger, reference: Reference, observed: Observation) => {
   if (Observation.$is("Ended")(observed)) return owe(ledger, observed);
 
   if (Observation.$is("Recorded")(observed)) return record(ledger, reference, observed);
 
-  if (Observation.$is("Parked")(observed)) {
-    const key = keyOf(observed.operation, observed.attempt);
-    bump(ledger.parked, key, 1);
-
-    return pay(ledger, key, "parked");
-  }
+  if (Observation.$is("Parked")(observed)) return park(ledger, observed);
 
   if (Observation.$is("Unparked")(observed)) {
     const key = keyOf(observed.operation, observed.attempt);
@@ -134,7 +140,12 @@ const settleOne = (ledger: Ledger, reference: Reference, observed: Observation) 
   return [];
 };
 
-const deliveries = (ledger: Ledger, observed: Observation, pending: Array<Pending>) => {
+const deliveries = (
+  ledger: Ledger,
+  runtime: Runtime,
+  observed: Observation,
+  pending: Array<Pending>,
+) => {
   if (!Observation.$is("Delivered")(observed)) return [];
   const key = keyOf(observed.operation, observed.attempt);
   const owner = ownerOf(ledger, observed.operation, observed.attempt);
@@ -143,7 +154,7 @@ const deliveries = (ledger: Ledger, observed: Observation, pending: Array<Pendin
   pending.push({ owner, event: observed.event, id: key });
   const paid = pay(ledger, key, "delivered");
 
-  if (ledger.runtime === "live") return paid;
+  if (runtime === "live") return paid;
 
   return [
     ...paid,
@@ -177,27 +188,29 @@ const fresh = (): Ledger => ({
   superseded: new Set(),
   disposed: [],
   declineOwners: new Map(),
-  runtime: "live",
 });
 
-const forgetLife = (ledger: Ledger) => {
-  if (ledger.runtime === "disposing")
+const forgetLife = (ledger: Ledger, runtime: Runtime) => {
+  if (runtime === "disposing")
     for (const [key, count] of ledger.owed) bump(ledger.parked, key, count);
   ledger.owed.clear();
   ledger.declineOwners.clear();
-  ledger.runtime = "live";
 };
 
 const ledgerOf = (facts: Facts) => {
   const ledger = fresh();
+  let runtime: Runtime = "live";
 
   return steps(facts.timeline).flatMap((step) => {
     const pending: Array<Pending> = [];
 
     const found = step.flatMap((fact) => {
-      if (Fact.$is("Reloaded")(fact)) forgetLife(ledger);
+      if (Fact.$is("Reloaded")(fact)) {
+        forgetLife(ledger, runtime);
+        runtime = "live";
+      }
 
-      if (Fact.$is("DisposingRuntime")(fact)) ledger.runtime = "disposing";
+      if (Fact.$is("DisposingRuntime")(fact)) runtime = "disposing";
 
       if (Fact.$is("Disposed")(fact)) ledger.disposed.push(fact.actor);
 
@@ -214,7 +227,7 @@ const ledgerOf = (facts: Facts) => {
 
       return [
         ...settleOne(ledger, facts.reference, observed),
-        ...deliveries(ledger, observed, pending),
+        ...deliveries(ledger, runtime, observed, pending),
       ];
     });
 
@@ -223,7 +236,7 @@ const ledgerOf = (facts: Facts) => {
         `WriteLanes I15: ${p.id} was delivered as ${p.event}${Option.match(p.owner, { onNone: () => "", onSome: (o) => ` to ${o.machine}/${o.id}` })} and no turn of its actor ran it`,
     );
 
-    const owedNow = ledger.runtime === "live" ? [...ledger.owed.keys()] : [];
+    const owedNow = runtime === "live" ? [...ledger.owed.keys()] : [];
 
     const undelivered = owedNow.map(
       (key) => `WriteLanes I15: ${key} ended and was never delivered, parked or recorded`,

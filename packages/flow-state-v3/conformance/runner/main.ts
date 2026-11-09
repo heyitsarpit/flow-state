@@ -14,7 +14,7 @@ const MAIN = fileURLToPath(import.meta.url);
 const NULL_RUNTIME = "null";
 const DEFAULT_RUNTIME = resolve(dirname(MAIN), "..", "..", "prototypes", "round-14");
 
-type RuntimeChoice = Data.TaggedEnum<{ Null: {}; Prototype: { readonly dir: string } }>;
+type RuntimeChoice = Data.TaggedEnum<{ Null: {}; Prototype: { dir: string } }>;
 
 const RuntimeChoice = Data.taggedEnum<RuntimeChoice>();
 

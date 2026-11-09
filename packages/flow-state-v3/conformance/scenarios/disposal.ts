@@ -22,27 +22,24 @@ const row = (c: Case) => Option.getOrUndefined(c.row("pay", KEY));
 const lastReason = (c: Case, operation: string) => c.endings(operation).at(-1)?.reason;
 
 /**
- * The Pay cases that dispose the Runtime (`PAY-13`, `PAY-15/dispose-held`, `PAY-16`), ported from
- * the prototype suite with the same steps and expectations.
+ * The Pay cases that dispose the Runtime: `PAY-13`, `PAY-15/dispose-held` and the disposal
+ * variants of `PAY-16`, with the prototype suite's steps.
  *
  * **Details**
  *
- * - Dropped assertions, because the Port does not expose their evidence: `PAY-13/hung-commit` no
- *   longer checks the `AbandonedFiber` count or that the lane is stored (`laneKeys`);
- *   `PAY-16/settled-during-disposal-parked` no longer checks the `parked` count, though it keeps
- *   the channel; `PAY-16/disposal-ends-with-the-last-fiber` no longer checks the `AbandonedFiber`
- *   count.
- * - Not ported: `PAY-16/parked-success-is-delivered`. It needs the `afterYield` fault, which the
- *   Port lacks, to start disposal in the gap after a settled ending is in the mail.
- * - `PAY-15/dispose-held` runs on the `cells` fixture, as the prototype's `PAY-15` did. The `PAY-16`
- *   variants run on the `pay` fixture, as the ported `PAY-16` in `pay-16.ts` does; the prototype
- *   ran them on `cells`, which only adds the `AbortPay` handler these steps do not use.
+ * - The Port shows no abandoned fiber, stored lane or parked count; those assertions are not here.
+ *   A parked ending shows as the ending the next boot delivers in its place (WriteAhead R14).
+ * - `waiting-flushed` asserts the disposal ended once the pending write was answered (Actors R23:
+ *   disposal waits for the final write), not at once as the prototype case did.
+ * - `PAY-16/parked-success-is-delivered` is not here: it needs a yield fault the Port lacks.
+ * - `PAY-15/dispose-held` runs on `cells`; the `PAY-16` variants on `pay`, whose steps do not use
+ *   `cells`' `AbortPay`.
  */
 export const disposalScenarios: ReadonlyArray<Scenario> = [
   ...variants(
     {
       id: "PAY-13",
-      cites: ["Actors R22", "Actors I29", "Actors I30"],
+      cites: ["Actors R22", "Actors R23", "Actors I29", "Actors I30", "WriteAhead R14"],
       fixtures: ["pay"],
       actor: SHOPPER,
     },
@@ -66,8 +63,8 @@ export const disposalScenarios: ReadonlyArray<Scenario> = [
         start(c);
         pay(c);
         c.disposeRuntime();
-        c.eq("disposed at once", c.runtimeDisposals(), 1);
         c.ack();
+        c.eq("disposed once the last write is answered", c.runtimeDisposals(), 1);
         c.eq("requests", c.requests("pay").length, 0);
         c.reload();
         c.state("CARD");
@@ -81,14 +78,14 @@ export const disposalScenarios: ReadonlyArray<Scenario> = [
         c.disposeRuntime();
         c.reload();
         c.state("CARD");
-        c.eq("reason", lastReason(c, "pay"), "Disposed");
+        c.eq("nothing on disk, so no Restored after it", lastReason(c, "pay"), "Disposed");
         c.eq("no send after boot", c.requests("pay").length, 0);
       },
     },
   ),
   {
     id: "PAY-15/dispose-held",
-    cites: ["Actors R22", "Actors I29", "WriteLanes R17"],
+    cites: ["Actors R22", "Actors I29"],
     fixtures: ["cells"],
     actor: SHOPPER,
     run(c) {
@@ -104,7 +101,7 @@ export const disposalScenarios: ReadonlyArray<Scenario> = [
   ...variants(
     {
       id: "PAY-16",
-      cites: ["Actors R22", "Actors I29", "Actors I30", "Actors I31", "Actors T16"],
+      cites: ["Actors R22", "Actors I29", "Actors I30", "Actors I31", "WriteAhead R14"],
       fixtures: ["pay"],
       actor: SHOPPER,
     },

@@ -15,13 +15,13 @@ import { Data, Effect, Option, Predicate } from "effect";
  * - `Die`: the client's call dies with a defect.
  */
 export type Answer = Data.TaggedEnum<{
-  Ok: { readonly value: unknown };
-  Fail: { readonly tag: string; readonly fields: Readonly<Record<string, unknown>> };
+  Ok: { value: unknown };
+  Fail: { tag: string; fields: Readonly<Record<string, unknown>> };
   Lost: {};
-  LostButLanded: { readonly value: unknown };
-  FailButLanded: { readonly tag: string; readonly fields: Readonly<Record<string, unknown>> };
+  LostButLanded: { value: unknown };
+  FailButLanded: { tag: string; fields: Readonly<Record<string, unknown>> };
   Never: {};
-  Die: { readonly message: string };
+  Die: { message: string };
 }>;
 
 /**
@@ -38,7 +38,7 @@ export type RequestPhase = Data.TaggedEnum<{
   Hanging: {};
   Aborted: {};
   Orphaned: {};
-  Answered: { readonly answer: Answer };
+  Answered: { answer: Answer };
 }>;
 
 /**

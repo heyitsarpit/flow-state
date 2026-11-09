@@ -11,16 +11,11 @@ import { type CaseVerdict, VERDICTS_LINE, VerdictsJson } from "./verdict.ts";
  * `red` lists every case the lie turned red; `caughtIn` those its own oracle named.
  */
 export type LieVerdict = Data.TaggedEnum<{
-  Caught: {
-    readonly lie: string;
-    readonly why: string;
-    readonly red: ReadonlyArray<string>;
-    readonly caughtIn: ReadonlyArray<string>;
-  };
-  WrongReason: { readonly lie: string; readonly why: string; readonly red: ReadonlyArray<string> };
-  Survived: { readonly lie: string };
-  NotApplied: { readonly lie: string; readonly why: string };
-  NoVerdict: { readonly lie: string; readonly why: string };
+  Caught: { lie: string; why: string; red: ReadonlyArray<string>; caughtIn: ReadonlyArray<string> };
+  WrongReason: { lie: string; why: string; red: ReadonlyArray<string> };
+  Survived: { lie: string };
+  NotApplied: { lie: string; why: string };
+  NoVerdict: { lie: string; why: string };
 }>;
 
 /**

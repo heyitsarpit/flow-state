@@ -11,13 +11,13 @@ const CANCEL_ALL =
  *
  * **Details**
  *
- * From the prototype's lies and wrong runtimes: `lie.serialize-as-latest`, `lane.queue-unbounded`,
+ * The names that match the prototype suite's lies and wrong runtimes are the same edits, so the
+ * two suites' verdicts compare: `lie.serialize-as-latest`, `lane.queue-unbounded`,
  * `1b.cancel-all-queue-reversed`, `1b.cancel-all-promotes-before-emptying`,
  * `1b.cancel-all-wire-held-at-once`, `audit-1.cancel-all-leaves-the-head` and
- * `p1h.cancel-all-idle-declines`, re-anchored where round-14's text moved. Written here from the
- * Spec's text, where the prototype has none: `lane.latest-as-serialize` (R7), `lane.fresh-mint-on-held`
- * (R7, R8), `lane.unknown-promotes` (R8), `lane.cancel-held-keeps` (R14) and
- * `lane.cancel-wire-as-never-sent` (R14, I20).
+ * `p1h.cancel-all-idle-declines`. The `lane.*` ones are written from WriteLanes' text:
+ * `lane.latest-as-serialize` (R7), `lane.fresh-mint-on-held` (R7, R8), `lane.unknown-promotes`
+ * (R8), `lane.cancel-held-keeps` (R14) and `lane.cancel-wire-as-never-sent` (R14, I20).
  */
 export const laneCellsLies: ReadonlyArray<Lie> = [
   {

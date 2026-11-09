@@ -40,7 +40,7 @@ non-zero exit code on a failure.
 | `world/`                | The fake world, one module per host: `clock.ts`, `network.ts`, `storage.ts`, `lifecycle.ts` (the page: generation, task queue, Effect scheduler, visibility); `world.ts` composes them and owns settle, advance and kill. |
 | `dsl/case.ts`           | The scenario DSL: `Scenario` and the `Case` driver. Steps settle the world and run every oracle.                                                                                                                          |
 | `oracles/`              | One module per guarantee (`<name>.ts`) with its lies beside it (`<name>.lies.ts`); `oracle.ts` holds the timeline (`Fact`), `Oracle`, `Lie` and `Guarantee` (an oracle with its lies).                                    |
-| `fixtures/reference.ts` | The suite's own expectations of each fixture, written by hand from the fixture's source.                                                                                                                                  |
+| `fixtures/reference.ts` | The suite's own expectations of each fixture, written by hand from the fixture's source: per operation its policy, key fields, mapping, answer classification and the events that cancel it.                              |
 | `scenarios/`            | Cases, one file per area.                                                                                                                                                                                                 |
 | `suite.ts`              | The registry: every guarantee (oracle and its lies) and every case.                                                                                                                                                       |
 | `runner/`               | `main.ts` (CLI), `run.ts` (cases in process), `falsify.ts` (lies on copies), `child.ts` (bounded child processes), `verdict.ts` (the verdict line children print).                                                        |
@@ -93,7 +93,7 @@ Round 1's, the runner's (recorded as such; the user may overrule):
 
 ## The Port
 
-Built (round 2):
+Built (rounds 2 and 3):
 
 ```ts
 type Port = { name: string; boot: (boot: Boot) => Runtime };
@@ -111,6 +111,7 @@ type Runtime = {
   release(actor, use: Use): void; // ends one use; the grace decides the life
   send(actor, event, payload): void;
   dispose(actor): void;
+  disposeRuntime(): void; // starts the Runtime's disposal; RuntimeDisposed reports its end
   snapshot(actor): Snapshot; // Live { state, memory } | Absent
   row(actor, operation, key): Option<Row>; // the public O.x.get row
   pending(): boolean; // settling only
@@ -118,8 +119,12 @@ type Runtime = {
 // Observation: Turn, Minted { actor }, Sent, Ended { actor (a decline's), failure (StillUnknown's) },
 // Delivered { actor }, Parked, Unparked, Recorded { why: ignored | evidence | letGo },
 // Unhandled, Denied { reasons }, Evidence { Superseded | Released | InFlight | NothingToResend |
-// StorageFailure | StorageSilent }, Issue.
+// StorageFailure | StorageSilent }, Issue, RuntimeDisposed.
 ```
+
+The suite's own timeline facts (round 3 adds the last three): `Stepped`, `Requested`,
+`Answered`, `Reported`, `Reloaded`, `Disposed`, `Ensured`, `DisposingRuntime`, `Drove { actor,
+event }` (an event the suite sent) and `Unstoppable { operation }` (calls made uninterruptible).
 
 A reload is: kill the page (timers, tasks, held batches, live calls die; bytes and the server's log
 stay; open requests become orphaned), `boot` again over the same world, `ensureExisting` each use
@@ -135,7 +140,8 @@ the case holds.
 | A publish feed                              | Turn I1, I7, I9, I29, I30 (`publication`)                            | `observe(Published { actor, snapshot, revision })` per publication; snapshot identity by `revision`                                                             | planned                                        |
 | Boot's result                               | Actors I3 to I6 (readiness)                                          | `boot` returns `Result<Runtime, BootFailed { diagnostics }>`; a `ready` observation                                                                             | planned                                        |
 | A disk reader                               | WriteAhead I15 to I17 (`write-ahead`), Restore I1 to I8 (`restore`)  | `Port.disk: { heads(bytes), parked(bytes), leaves(bytes, actor), scope(key) }`, reading the runtime's own format from the suite's bytes, apart from its restore | planned                                        |
-| Runtime disposal                            | Actors I29, I30; PAY-13, PAY-16 disposal variants                    | `Runtime.disposeRuntime()`                                                                                                                                      | planned                                        |
+| Runtime disposal                            | Actors I29, I30; PAY-13, PAY-16 disposal variants                    | `Runtime.disposeRuntime()`; `RuntimeDisposed` when it ends                                                                                                      | **built** (round 3)                            |
+| The Attempt's key on `Minted`               | `lane-cells` on keyed operations (lanes per key, WriteLanes R6)      | `key: unknown` on `Minted` (a public Attempt field, R5)                                                                                                         | planned (round-14 reports no key at a mint)    |
 | Faults the Specs name                       | Turn I14 to I16 (refusal), Diagnostics                               | slot faults through the fixtures (a throwing guard or mapper is user code), never a runtime hook                                                                | planned                                        |
 
 ## Stated limits
@@ -148,7 +154,13 @@ the case holds.
   oracle's (planned).
 - Round-14 does not report the failure inside `unknown StillUnknown`; the check that it keeps its
   tag runs only when a runtime reports it (`Ended.failure`).
-- The fake network ports `Ok`, `Fail`, `Lost`, `LostButLanded`, `Never`, `Die`, late answers,
+- `lane-cells` judges unkeyed operations only: `Minted` carries no key, so a lane is an actor's
+  operation. Pay's keyed write is checked by its cases' own expectations until the key is on
+  `Minted`.
+- Round-14 reports `RuntimeDisposed` when its last call ends, before the final persistence write
+  (Actors R23 has disposal wait for it); cases assert disposal's end only after that write is
+  answered.
+- The fake network ports `Ok`, `Fail`, `Lost`, `LostButLanded`, `FailButLanded`, `Never`, `Die`, late answers,
   late landings, uninterruptible calls and answers at once; storage ports `ack`, `refuse`, `hang`,
   `landNoAck`; the clock and page port timers, tasks, hide and kill. The rest are work items.
 
@@ -162,19 +174,19 @@ lies and wrong runtimes named here are in `prototypes/conformance/falsify.ts`, `
 
 ### WriteLanes (`specs/core/WriteLanes.spec`)
 
-| Invariants                 | Oracle module                                                                              | Lies                                                                                                                                                                                               |
-| -------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| I3                         | `three-channels` **done**                                                                  | `lie.ending-without-id`, `k.failure-as-success`, `lie.still-unknown-dropped` **done**                                                                                                              |
-| I6                         | `attempt-identity` **done**                                                                | `lie.resend-new-id`, `lie.resend-new-input` **done**; the seed cases and a seed-ignoring mint: phase 4 (decision 8)                                                                                |
-| I7                         | `attempt-identity` (needs the Attempt id on `Row` or `Sent`)                               | write one: retryCount not counted                                                                                                                                                                  |
-| I15, I16, I22              | `one-delivery` **done** (the ending ledger; I22's releasing lane needs a fragment fixture) | `a2.deliv-fail-samemail`, `d154.moved-fail-released`, `lie.released`, `e8.wa-failure` **done**; `d154.moved-save-released`, `a3.park-*`, `a4.refused-*` with their fixtures                        |
-| I8, I9, I11, I12, I20, I21 | `lane-cells`                                                                               | `lie.serialize-as-latest`, `lane.queue-unbounded`, `lane.promote-skips-durable`, `lost.letgo-silent`, the `1b.cancel-all-*` and `audit-1.cancel-all-*` wrong runtimes, a fresh mint on a Held lane |
-| I10, I13, I14              | `members`                                                                                  | `d123.keyless-idle-heads-only`, `1b.r43-keyless-falls-back-to-key`, `r15b.keyless-success-names-key-lane`; write one applying members to the pre-turn lane                                         |
-| I1, I23                    | `members-only` (an adapter-side spy counting invocations)                                  | write one replaying a commit on re-entry                                                                                                                                                           |
-| I2, I19                    | `write-before-ending`                                                                      | write one queueing the ending first                                                                                                                                                                |
-| I4, I5                     | case (front-end)                                                                           | `ReservedReason`, `UnknownNotUncertain` wrong runtimes                                                                                                                                             |
-| I17                        | `old-version-holds`                                                                        | `p1m.*`, `audit-1.old-version-declines-under-reject-only`, `1b.old-version-idle-passes`, `d78-no-evidence`                                                                                         |
-| I18                        | case                                                                                       | `d114.input-not-replaced`                                                                                                                                                                          |
+| Invariants                 | Oracle module                                                                              | Lies                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| -------------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| I3                         | `three-channels` **done**                                                                  | `lie.ending-without-id`, `k.failure-as-success`, `lie.still-unknown-dropped` **done**                                                                                                                                                                                                                                                                                                                                                                                                          |
+| I6                         | `attempt-identity` **done**                                                                | `lie.resend-new-id`, `lie.resend-new-input` **done**; the seed cases and a seed-ignoring mint: phase 4 (decision 8)                                                                                                                                                                                                                                                                                                                                                                            |
+| I7                         | `attempt-identity` (needs the Attempt id on `Row` or `Sent`)                               | write one: retryCount not counted                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| I15, I16, I22              | `one-delivery` **done** (the ending ledger; I22's releasing lane needs a fragment fixture) | `a2.deliv-fail-samemail`, `d154.moved-fail-released`, `lie.released`, `e8.wa-failure` **done**; `d154.moved-save-released`, `a3.park-*`, `a4.refused-*`, `lost.letgo-silent` (moved here from lane-cells, spec-log) with their fixtures; a lie for the disposal rule (a delivery during Runtime disposal)                                                                                                                                                                                      |
+| I8, I9, I11, I12, I20, I21 | `lane-cells` **done** (unkeyed lanes; keyed ones need the key on `Minted`)                 | **done**: `lie.serialize-as-latest`, `lane.queue-unbounded`, `lane.latest-as-serialize`, `lane.fresh-mint-on-held`, `lane.unknown-promotes`, `lane.cancel-held-keeps`, `lane.cancel-wire-as-never-sent`, `1b.cancel-all-queue-reversed`, `1b.cancel-all-promotes-before-emptying`, `1b.cancel-all-wire-held-at-once`, `audit-1.cancel-all-leaves-the-head`, `p1h.cancel-all-idle-declines`; pending: `audit-1.cancel-all-release-also-cancels-head` (needs the releasing-lane fixture `p1Rel`) |
+| I10, I13, I14              | `members`                                                                                  | `d123.keyless-idle-heads-only`, `1b.r43-keyless-falls-back-to-key`, `r15b.keyless-success-names-key-lane`; write one applying members to the pre-turn lane                                                                                                                                                                                                                                                                                                                                     |
+| I1, I23                    | `members-only` (an adapter-side spy counting invocations)                                  | write one replaying a commit on re-entry                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| I2, I19                    | `write-before-ending`                                                                      | write one queueing the ending first                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| I4, I5                     | case (front-end)                                                                           | `ReservedReason`, `UnknownNotUncertain` wrong runtimes                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| I17                        | `old-version-holds`                                                                        | `p1m.*`, `audit-1.old-version-declines-under-reject-only`, `1b.old-version-idle-passes`, `d78-no-evidence`                                                                                                                                                                                                                                                                                                                                                                                     |
+| I18                        | case                                                                                       | `d114.input-not-replaced`                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 ### Turn (`specs/core/Turn.spec`)
 
@@ -202,16 +214,16 @@ lies and wrong runtimes named here are in `prototypes/conformance/falsify.ts`, `
 | I13 to I16, I18    | `incarnations`                                                                 | `h.boot-*`, `k.parked-every-boot-silent`, `k.parked-reversed` |
 | I19 to I24         | `mailbox`                                                                      | `k.send-ahead`, the boot-queue bound (U8)                     |
 | I26 to I28         | `cuts-and-context`                                                             |                                                               |
-| I29 to I32         | `disposal`                                                                     | `lie.boot-says-disposed`, `lie.boot-drops-held`               |
+| I29 to I32         | `disposal` (the Port's Runtime disposal is built; the disposal cases run)      | `lie.boot-says-disposed`, `lie.boot-drops-held`, `o6.*`       |
 | I33, I34           | case                                                                           |                                                               |
 
 ### WriteAhead (`specs/core/WriteAhead.spec`)
 
-| Invariants                          | Oracle module                                                                                                                  | Lies                                                                                 |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
-| I15, I16, I17                       | `write-ahead` (the prototype's oracle (h), rewritten against the storage host; needs a disk reader on the Port or the adapter) | `lie.still-unknown-dropped` (red by (h) in the old suite), `e8.wa-*`, `q1.wa-eq-any` |
-| I5, I7, I10, I11, I14               | `capture` (oracle (g): one write out per key; cuts)                                                                            | `h.boot-copy`, `k.drop-copy`, `k.drop-row`                                           |
-| I1 to I4, I6, I8, I9, I12, I13, I18 | `persistence` and cases                                                                                                        |                                                                                      |
+| Invariants                          | Oracle module                                                                                                                  | Lies                                                                                                                                                      |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| I15, I16, I17                       | `write-ahead` (the prototype's oracle (h), rewritten against the storage host; needs a disk reader on the Port or the adapter) | `lie.still-unknown-dropped` (red by (h) in the old suite), `e8.wa-*`, `q1.wa-eq-any`, `lane.promote-skips-durable` (moved here from lane-cells, spec-log) |
+| I5, I7, I10, I11, I14               | `capture` (oracle (g): one write out per key; cuts)                                                                            | `h.boot-copy`, `k.drop-copy`, `k.drop-row`                                                                                                                |
+| I1 to I4, I6, I8, I9, I12, I13, I18 | `persistence` and cases                                                                                                        |                                                                                                                                                           |
 
 ### Restore (`specs/core/Restore.spec`)
 
@@ -244,8 +256,8 @@ work item is one case module each (`scenarios/compile.ts`, `diagnostics.ts`, `co
    wipe, tear, corrupt; the clock set back and frozen timers; streams (sockets, EventSource,
    WebSocket).
 2. All scenarios ported (about 1,080 cases), area by area with their oracles. Pay: PAY-01 to
-   PAY-16 ported where the Port reaches (STATUS.md lists the 17 variants not yet ported and why);
-   PAY-17 to PAY-20 pending.
+   PAY-20 ported where the Port reaches (STATUS.md lists the variants not ported and why). Lane
+   cases: `LANE-01` to `LANE-10` (new, from WriteLanes R6-R8, R14, R15).
 3. Searches (`prototypes/conformance/search/`) as a runner mode; mutants (`mutants-*.ts`) as
    lies; `--parallel` for both.
 4. The verdict compare: each ported area's verdicts against the old suite's on the same cases.

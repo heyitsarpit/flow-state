@@ -302,7 +302,8 @@ tests
         head on disk is the request that starts. Cases `PAY-09`, `PAY-16`, `REV8-H1`, `REV7-H1`; 
         wrong runtimes `lane.ackout-false`, `durable.head-off-disk-on-the-wire`, 
         `durable.ticket-not-fenced`, `1b.r17-refused-resend-silent`, 
-        `pay16.refused-capture-spends-budget`. [@I15, @I16]
+        `pay16.refused-capture-spends-budget`, and `lane.promote-skips-durable` (a promoted head 
+        sent with no acknowledgement). [@I15, @I16]
     T8  Crash after acknowledgement: kill at each point between acknowledgement and the adapter's 
         answer; every reload hears unknown { Restored } with the same id and the server sees one 
         call. Case `PAY-16`; wrong runtime `pay16.restore-forgets-may-have-applied`; the global 

@@ -196,3 +196,94 @@ Dropped assertions (internals the Port does not show): lane cells, `fence`, `int
 `lane-cells` (WriteLanes I8, I9, I11, I12, I20, I21) with its lies and the remaining Pay cases
 (PAY-17..20), and the Port's runtime disposal so PAY-13 and the disposal variants port. Then
 `members`.
+
+## Round 3 (2026-11-09): lane-cells, Runtime disposal, PAY-13 and PAY-17..20
+
+Latest numbers:
+
+- `suite`: 61/61 on round-14, every case under seeds 1 and 2 (48 Pay ids, 10 lane cases, 3
+  delivery cases).
+- `suite --runtime null`: every case fails.
+- `falsify --parallel 6`: every oracle has a lie, null red, control green, 21/21 lies caught by
+  their own guarantee's oracle (12 of them lane-cells').
+- `nub run check`: zero errors and warnings on the round's own code before the lint scope was
+  widened (commit 46488541); after it, 74 `no-unknown`, 2 `no-object-type` and 3
+  `no-optional-domain-properties` remain, all from the widened scope. They are round 4's first
+  item (typing the Port per fixture with generics, the user's direction); nothing is waived.
+
+Built:
+
+- `oracles/lane-cells.ts`: a model of each unkeyed lane from the runtime's reports, checked
+  after each turn and step against the fixture's reference and the suite's facts: the queue
+  bound per policy (I8), one addressable Attempt (I9), promotion only past a resolved or released
+  head (I11), Held left only by retry, cancel or release (I12), `Superseded` only under latest
+  (R7), cancel by the head's history (I20), and `cancelAll`'s queue in mint order with a held
+  head delivered last (I21). A cancel is judged over the reports from its turn to the end of its
+  step, so the verdict does not depend on where a runtime reports `Turn`.
+- Twelve lies (`oracles/lane-cells.lies.ts`): seven with the old suite's names and edits, five
+  written from WriteLanes' text (`lane.latest-as-serialize`, `lane.fresh-mint-on-held` (the map's
+  "fresh mint on a Held lane"), `lane.unknown-promotes`, `lane.cancel-held-keeps`,
+  `lane.cancel-wire-as-never-sent`). Each was confirmed caught by lane-cells for its own reason.
+- `scenarios/lanes.ts`: `LANE-01` to `LANE-10` on three lab machines (`serialize`, `latest`,
+  `cancel` from the prototype's typed fixtures) and Pay's `AbortPay`.
+- The Port: `Runtime.disposeRuntime()`, `Observation.RuntimeDisposed`; the timeline facts
+  `DisposingRuntime`, `Drove`, `Unstoppable`; the fake network's `FailButLanded`; the reference's
+  `keyFields` and `cancels`; the prototype adapter loads fixture factories and serves `Api.call`.
+- `one-delivery`: from a Runtime disposal to the next reload an ending may stay owed and counts
+  as parked at the reload; a delivery in that span is a violation; parked endings stay parked
+  across a reload; a re-park is not a second delivery.
+- Ported: `PAY-13` (3), `PAY-15/dispose-held`, `PAY-16` disposal variants (4), `PAY-18`,
+  `PAY-19` (2), `PAY-20` (2). Not ported: `PAY-17` (5 variants, module and core faults, never a
+  Port part), `PAY-16/parked-success-is-delivered` (a yield fault).
+- Spec changes (`specs/spec-log.md`, round 3): WriteLanes R14's Idle cell, and three
+  wrong-runtime moves (`lane.promote-skips-durable` to WriteAhead T7, `lost.letgo-silent` to T6,
+  T10's idle lie).
+
+### Verdict comparison with the old suite
+
+Old suite: full suite (1,080 cases) on an edited copy per lie; new suite: `falsify --sweep`.
+Runner sidecar's runs; the lead re-ran the new side.
+
+| Lie                                      | Old suite (red cases, how)                         | New suite (red; by lane-cells) | Reading                                                                           |
+| ---------------------------------------- | -------------------------------------------------- | ------------------------------ | --------------------------------------------------------------------------------- |
+| control                                  | 1,080/1,080; PAY-13..20, P1-H, R15-01: 114/114     | 61/61                          | same                                                                              |
+| `lie.serialize-as-latest`                | 9, by (j) "superseded ... (serialize)"             | 3; 3                           | same verdict; the old falsify entry's edit no longer applies to round-14 (rotted) |
+| `lane.queue-unbounded`                   | 1, REV8-PINS by the case's own assertion           | 1; 1                           | old-suite weakness: no oracle for I8's bound                                      |
+| `lane.latest-as-serialize`               | 3, case assertions                                 | 1; 1                           | old-suite weakness: no oracle for R7 under latest                                 |
+| `lane.fresh-mint-on-held`                | 16, case assertions                                | 2; 1                           | same verdict; new catches it by I11 on an unkeyed lane only (keyed limit)         |
+| `lane.unknown-promotes`                  | 273, (h) and assertions                            | 20; 1                          | same verdict; old (h) sees the dropped head on disk, new I11 sees the promotion   |
+| `lane.cancel-held-keeps`                 | 60, assertions                                     | 3; 1                           | same verdict                                                                      |
+| `lane.cancel-wire-as-never-sent`         | 21, (h) and DRV-01                                 | 3; 1                           | same verdict; new names I20                                                       |
+| `1b.cancel-all-queue-reversed`           | 1, P1-H assertion                                  | 1; 1                           | old-suite weakness: order checked by one case only                                |
+| `1b.cancel-all-promotes-before-emptying` | 2, R15-01 assertions                               | 1; 1                           | same verdict                                                                      |
+| `1b.cancel-all-wire-held-at-once`        | 1, P1-H assertion                                  | 1; 1                           | same verdict                                                                      |
+| `audit-1.cancel-all-leaves-the-head`     | 3, assertions (with this suite's re-anchored edit) | 1; 1                           | old-suite weakness: the old mutant's edit no longer applies to round-14 (rotted)  |
+| `p1h.cancel-all-idle-declines`           | 1, P1-H assertion                                  | 1; 1                           | same verdict                                                                      |
+
+Every lie is caught by both suites; no new-suite bug was found. Where the old suite caught a lie
+only by one case's assertion, the new suite catches it by a named oracle on every step
+(WriteLanes I8, I11, I20, I21). Two old wrong runtimes no longer apply to round-14 and would show
+as never red there. The new suite's breadth is smaller (61 cases against 1,080), so its red
+counts are smaller on every lie. On Pay (keyed) lane lies are red by case assertions and other
+oracles, not lane-cells: the keyed-lane limit.
+
+### Sidecar log (round 3)
+
+| Sidecar                       | Task                                                   | Result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ----------------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Coder A                       | PAY-18..20 (`scenarios/pay-17-20.ts`)                  | Accepted after reading the diff and re-running its cases (5/5; null 0/5). Changed: the doc comment (no history, names the Pay read-first rule), PAY-18 gains "no send before an acknowledgement is heard" (review finding 7). Its Turn R20/R21 cite kept.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Coder B                       | Disposal cases (`scenarios/disposal.ts`)               | Accepted; its report of 4 failures (`unparked, never parked` at the reload) was right: one-delivery forgot parked endings at a reload. Fixed in the oracle (parked endings survive a reload; disposal's owed endings become parked), not in the cases. Changed: `waiting-flushed` asserts disposal's end after the pending write (Actors R23), cites WriteAhead R14.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Runner                        | Old suite: control and the twelve lane lies; rot check | Accepted; the lead re-ran the new side (`falsify --sweep`). Its rot counts (two old edits match 0 times) were confirmed by grep.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Reviewer (test the spec)      | lane-cells, lies, LANE cases, disposal, one-delivery   | 19 findings. Accepted: 2 (cancel judged over the step, not the batch before `Turn`), 3 (I21's held head delivered last: added; no wrong runtime yet), 4 (a re-park is no second delivery), 5, 7, 8, 12, 13 (an Idle cancel may record evidence), 14 (the step defined in the doc), 16 (map rows moved), 17, 18, 19. Rejected: 10 (a write has no abort signal at the fake server by design; the replaced Attempt's ending being evidence is checked), 11 (R14 says unknown Cancelled on fiber exit, whatever the answer), 15 (falsify shows the lie caught: the held head never ends). Kept as limits: 1 (a parked ending still parked at a case's end), 6 (reworded), 9 (a one-delivery lie for the disposal rule: round 4).                                                                                                                            |
+| Reviewer (lint-bomb STYLE.md) | the round's diff                                       | 17 findings. Accepted: 3 (as above), 9 (one `addressable` helper), 11 (docs say the contract, not history, where they narrated), 16 (`Option.isNone` on a row), 17 (order); 1 in part (the "remove" outcome is a named `held` or `gone`, not an empty Option; the one total transition is round 4's, with the generic Port). Rejected: 2 (Runtime disposal is idempotent, Actors R20, so a repeat is no violation; the phase now lives beside the ledger, not on it), 4 (I21 says "in mint order"), 5 (`Disposed` is round-14's runtime-level note, step.ts finishDisposal; an actor's dispose notes `disposed`), 6 (a replaced Attempt leaves at its ending), 7 (the lane holds the reference's object, not a copy), 10, 12 (`RETURN_TYPE` is the lint's own mechanism), 13 (the fixture API's optional third argument is the fixtures' shape), 14, 15. |
+
+### For round 4
+
+1. The widened lint scope: type the Port per fixture with generics (the user's direction), so
+   the 79 findings close with no waivers; drop `readonly` inside `Data.TaggedEnum` members (done
+   this round).
+2. The Attempt's key on `Minted` (production reports it; the prototype adapter cannot), so
+   lane-cells judges keyed lanes and Pay.
+3. `members` (WriteLanes I10, I13, I14), with the releasing-lane fixture `p1Rel` for
+   `audit-1.cancel-all-release-also-cancels-head` and I22.
+4. A one-delivery lie for the disposal rule, and the `disposal` oracle (Actors I29-I31).

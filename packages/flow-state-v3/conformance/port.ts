@@ -48,7 +48,7 @@ export type Row = {
  * What a handle shows for an identity: its leaf state and its memory, or nothing live.
  */
 export type Snapshot = Data.TaggedEnum<{
-  Live: { readonly state: string; readonly memory: unknown };
+  Live: { state: string; memory: unknown };
   Absent: {};
 }>;
 
@@ -119,47 +119,30 @@ export type RecordedWhy = typeof RecordedWhy.Type;
  * - `actor` is `None` when the runtime could not say whose it was.
  */
 export type Observation = Data.TaggedEnum<{
-  Turn: {
-    readonly actor: ActorRef;
-    readonly event: string;
-    readonly from: string;
-    readonly to: string;
-  };
-  Minted: {
-    readonly operation: string;
-    readonly attempt: string;
-    readonly actor: Option.Option<ActorRef>;
-  };
-  Sent: { readonly operation: string; readonly attempt: string };
+  Turn: { actor: ActorRef; event: string; from: string; to: string };
+  Minted: { operation: string; attempt: string; actor: Option.Option<ActorRef> };
+  Sent: { operation: string; attempt: string };
   Ended: {
-    readonly operation: string;
-    readonly attempt: Option.Option<string>;
-    readonly channel: Channel;
-    readonly reason: string;
-    readonly actor: Option.Option<ActorRef>;
-    readonly failure: Option.Option<string>;
+    operation: string;
+    attempt: Option.Option<string>;
+    channel: Channel;
+    reason: string;
+    actor: Option.Option<ActorRef>;
+    failure: Option.Option<string>;
   };
   Delivered: {
-    readonly operation: string;
-    readonly attempt: Option.Option<string>;
-    readonly event: string;
-    readonly actor: Option.Option<ActorRef>;
+    operation: string;
+    attempt: Option.Option<string>;
+    event: string;
+    actor: Option.Option<ActorRef>;
   };
-  Parked: { readonly operation: string; readonly attempt: Option.Option<string> };
-  Unparked: { readonly operation: string; readonly attempt: Option.Option<string> };
-  Recorded: {
-    readonly operation: string;
-    readonly attempt: Option.Option<string>;
-    readonly why: RecordedWhy;
-  };
-  Unhandled: { readonly event: string };
-  Denied: { readonly event: string; readonly reasons: ReadonlyArray<string> };
-  Evidence: {
-    readonly kind: EvidenceKind;
-    readonly operation: string;
-    readonly attempt: Option.Option<string>;
-  };
-  Issue: { readonly code: string };
+  Parked: { operation: string; attempt: Option.Option<string> };
+  Unparked: { operation: string; attempt: Option.Option<string> };
+  Recorded: { operation: string; attempt: Option.Option<string>; why: RecordedWhy };
+  Unhandled: { event: string };
+  Denied: { event: string; reasons: ReadonlyArray<string> };
+  Evidence: { kind: EvidenceKind; operation: string; attempt: Option.Option<string> };
+  Issue: { code: string };
   RuntimeDisposed: {};
 }>;
 

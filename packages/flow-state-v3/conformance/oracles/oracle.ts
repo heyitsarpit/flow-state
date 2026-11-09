@@ -22,16 +22,16 @@ import type { Answer, Request } from "../world/network.ts";
  * - `Unstoppable`: from now on, calls of this operation cannot be interrupted.
  */
 export type Fact = Data.TaggedEnum<{
-  Stepped: { readonly step: number; readonly what: string };
-  Requested: { readonly request: Request };
-  Answered: { readonly request: Request; readonly answer: Answer };
-  Reported: { readonly observation: Observation };
+  Stepped: { step: number; what: string };
+  Requested: { request: Request };
+  Answered: { request: Request; answer: Answer };
+  Reported: { observation: Observation };
   Reloaded: {};
-  Disposed: { readonly actor: ActorRef };
-  Ensured: { readonly actor: ActorRef };
+  Disposed: { actor: ActorRef };
+  Ensured: { actor: ActorRef };
   DisposingRuntime: {};
-  Drove: { readonly actor: ActorRef; readonly event: string };
-  Unstoppable: { readonly operation: string };
+  Drove: { actor: ActorRef; event: string };
+  Unstoppable: { operation: string };
 }>;
 
 /**

@@ -144,7 +144,7 @@ requirements
                 interrupts the fiber; unknown { Cancelled } is queued when the fiber exits and 
                 retained (Held). Waiting to be invoked: never sent, NotSent { Cancelled } and the 
                 next queued commit is promoted; a re-send returns to Held and is released. Held: 
-                released (evidence) and promoted. Idle: nothing, with evidence. While a never-sent 
+                released (evidence) and promoted. Idle: nothing, and no ending. While a never-sent 
                 Attempt's acknowledgement is being written, cancel waits for storage: stored ends 
                 NotSent { Cancelled }, refused NotSent { StorageRefused }; that wait is unbounded 
                 (stated limit). A pending cancel is never lost to a later replacement.
@@ -358,14 +358,16 @@ tests
         `MED-01`, `REV8-PINS`, `R15-01`; lie `lie.serialize-as-latest`; wrong runtimes 
         `lane.queue-unbounded`, `d118.commit-beside-kept`. [@I8, @I9]
     T4  Retry and promotion: retry keeps id and input; a refused head promotes what waits; an 
-        unknown never promotes. Cases `PAY-04`, `REV8-H1`; wrong runtime 
-        `lane.promote-skips-durable`. RetryLimit has no prototype wrong runtime (Q2). [@I11, @I12]
+        unknown never promotes. Cases `PAY-04`, `REV8-H1`; wrong runtimes written in phase 3 
+        (`lane.unknown-promotes`, `lane.fresh-mint-on-held`, `lane.cancel-held-keeps`). RetryLimit 
+        has no prototype wrong runtime (Q2). [@I11, @I12]
     T5  Key-less members: on an unkeyed operation outside an ending; in a keyed success handler a 
         key-less cancel does nothing; a key-less idle denies a kept ending. Cases `R15-02`, 
         `REV9-EDGE`; wrong runtimes `d123.keyless-idle-heads-only`, 
         `1b.r43-keyless-falls-back-to-key`, `r15b.keyless-success-names-key-lane`. [@I13, @I14]
     T6  Exactly one delivery, across refusal, reload and parking. Cases `DRV-02`, `PAY-15`; lies 
-        `a2.deliv-fail-samemail`, `d154.moved-fail-released`. [@I15, @I16]
+        `a2.deliv-fail-samemail`, `d154.moved-fail-released`, and `lost.letgo-silent` (a kept 
+        ending let go with no record). [@I15, @I16]
     T7  Old-version holds: a release that adds a key field declines every commit until the old hold 
         ends; another actor is not held; previous[i] names only its own lanes; a release that 
         changes the identity version re-keys the lane and declines nothing. Cases `R13-KEYS`, 
@@ -377,11 +379,12 @@ tests
         mapper gets the value asked. Cases `REV9-M1`, `REV7-M9`; wrong runtime 
         `d114.input-not-replaced`. [@I18]
     T9  cancel by history: on the wire, waiting never sent, a waiting re-send, Held, Idle. Cases 
-        `PAY-03`, `PAY-12`, `PAY-15`, `STORE-05`; wrong runtime `lost.letgo-silent`. [@I12, @I20]
+        `PAY-03`, `PAY-12`, `PAY-15`, `STORE-05`; wrong runtime written in phase 3 
+        (`lane.cancel-wire-as-never-sent`). [@I12, @I20]
     T10  cancelAll: queue first in mint order, head last; idle does nothing; beside a release the 
          release wins. Case `P1-H`; wrong runtimes `1b.cancel-all-queue-reversed`, 
          `1b.cancel-all-promotes-before-emptying`, `audit-1.cancel-all-leaves-the-head`, 
-         `audit-1.cancel-all-idle-silent`, `audit-1.cancel-all-release-also-cancels-head`. [@I21]
+         `p1h.cancel-all-idle-declines`, `audit-1.cancel-all-release-also-cancels-head`. [@I21]
     T11  Release on leave: the wire is interrupted and nothing delivered; a reload of a releasing 
          lane delivers nothing. Case `FRAG-06`; lies `d154.moved-save-released`, `lie.released`. 
          [@I22]
