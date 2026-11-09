@@ -287,7 +287,7 @@ export const round5Scenarios: readonly Scenario[] = [
     fixtures: [traitWriteFixture],
     actor: TW,
     cites: ["D65", "D61", "rule:46", "P19"],
-    namedIssues: ["RecordQuarantined"],
+    namedIssues: ["RecordQuarantined", "HoldWithoutRecord"], // phase 1 migration round 2: a hold left by an unreadable record is said too
     variants: {
       "a-frozen-ending-of-a-removed-operation-is-orphaned-not-fatal"(c0) {
         const c = at(c0, traitWriteFixture, TW);

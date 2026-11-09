@@ -46,7 +46,7 @@ const stamped = (rel: Release, policy: Op["concurrency"], unsureCommits = false)
     id: "Lab/KeyStamp",
     persist: true,
     states: [],
-    events: { Go: Key, Guarded: Key, Retry: Key, Cancel: Key, Retryable: Key, OldRetry: Key, OldCancel: Key },
+    events: { Go: Key, Guarded: Key, Retry: Key, Cancel: Key, Retryable: Key, OldRetry: Key, OldCancel: Key, OldRetryable: Key },
     internalEvents: { Ok: {}, No: { why: S.String }, Unsure: Flow.uncertain({}) },
     memory: {
       unsure: Flow.initial(S.Number, 0),
@@ -82,6 +82,12 @@ const stamped = (rel: Release, policy: Op["concurrency"], unsureCommits = false)
       // 2.7.15: an old-version hold is named by its own key through `previous`; a release with no earlier key has nothing to name.
       OldRetry: previous.length ? { actions: [O.charge.previous[0].retry(({ event }) => keyOf(event) as never)] } : {},
       OldCancel: previous.length ? { actions: [O.charge.previous[0].cancel(({ event }) => keyOf(event) as never)] } : {},
+      OldRetryable: previous.length
+        ? [
+            { guard: [O.charge.previous[0].retryable(({ event }) => keyOf(event) as never, { times: 3 })], actions: [O.charge.previous[0].retry(({ event }) => keyOf(event) as never)] },
+            { updateMemory: ({ memory }) => ({ notRetryable: memory.notRetryable + 1 }) },
+          ]
+        : {},
       Ok: { updateMemory: ({ memory }) => ({ oks: memory.oks + 1 }) },
       No: { updateMemory: ({ memory, event }) => ({ declined: memory.declined + 1, why: event.why }) },
       Unsure: { updateMemory: ({ memory }) => ({ unsure: memory.unsure + 1 }), actions: unsureCommits ? [O.charge.commit(() => input({ k: "b", region: "eu" }) as never)] : [] },

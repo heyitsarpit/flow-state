@@ -124,6 +124,7 @@ type KeyOf<I extends Fields, K extends keyof I> = Required<Pick<TypeOf<I>, K & k
 type PreviousHandle<PK extends Fields, M> = {
   readonly retry: <Ev = AnyEvent>(key: (a: In<M, Ev>) => Required<TypeOf<PK>>) => Act<Ev>;
   readonly cancel: <Ev = AnyEvent>(key: (a: In<M, Ev>) => Required<TypeOf<PK>>) => Act<Ev>;
+  readonly retryable: <Ev = AnyEvent>(key: (a: In<M, Ev>) => Required<TypeOf<PK>>, o: { readonly times: number }) => OpGuard<Ev>; // the runner's ruling: as on the current handle
 };
 type WriteHandle<I extends Fields, K extends keyof I, M, P extends readonly Previous[] = readonly []> = {
   readonly previous: { readonly [N in keyof P]: P[N] extends Previous ? PreviousHandle<P[N]["key"], M> : never };
@@ -160,6 +161,7 @@ export const handles = <O extends Readonly<Record<string, AnyBound>>, M>(ops: O)
         previous: (ops[op]!.contract.previous ?? []).map((_, previous) => ({
           retry: (keyFn: unknown): Act => ({ member: "retry", op, keyFn, previous }),
           cancel: (keyFn: unknown): Act => ({ member: "cancel", op, keyFn, previous }),
+          retryable: (keyFn: unknown, o: { times: number }): OpGuard => ({ opGuard: { op, verb: "retryable", times: o.times, previous }, keyFn }),
         })),
       },
     ]),

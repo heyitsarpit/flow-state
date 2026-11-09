@@ -35,7 +35,7 @@ export const round15Scenarios: readonly Scenario[] = [
     fixtures: [r15LateFixture(), r15StayFixture(), r15PlainFixture(), edgeFixture({ local: true }), deskListenFixture, r15SwitchFixture(), keyStampFixture({ v: 1 })],
     actor: RL,
     cites: ["rule:15", "rule:43"],
-    namedIssues: ["OldVersionLane"], // 2.7.15 (Q2 A): an old-version hold is an issue at each boot
+    namedIssues: ["OldVersionLane", "HoldWithoutRecord"], // 2.7.15 (Q2 A): an old-version hold is an issue at each boot; round 2: a hold without its record too
     variants: {
       // Rule 15 and 1.6 ("a late ending never leaves live work"), as ruled for round 15 (R1: no cancel exemption). The late success settles the
       // first head; the second commit, queued by the re-entered W, is promoted before the late turn runs. The late Ok's alternative that cancels the

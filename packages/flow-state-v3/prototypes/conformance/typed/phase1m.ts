@@ -3,7 +3,7 @@
 // restored ones; and `save` is keyed by `memoId` and `rev`, declaring release 1's key as `previous`. Releases 3 and 4 change the record with no
 // migration: a state removed, a memory field reshaped.
 import { Schema, SchemaTransformation } from "effect";
-import { definition, Flow, machine, transaction } from "../compile/index.ts";
+import { definition, Flow, machine, trait, transaction } from "../compile/index.ts";
 import type { Release } from "../fixtures/round6.compiled.ts";
 import { FakeApi, fixture, write } from "./lab.ts";
 
@@ -125,3 +125,35 @@ const Memo2 = release2();
 const Memo3 = release3();
 const Memo4 = release4();
 export const memoFixture = (rel: Release) => fixture(() => (rel.v === 1 ? Memo1 : rel.v === 2 ? Memo2 : rel.v === 3 ? Memo3 : Memo4));
+
+// The runner's ruling (round 2): on a fragment op, authority before version. `.each` copies `x` and `y` of one fragment commit the same key text;
+// release 2 makes the key a `Trim` (a new version, the same text), so after it `y`'s commit meets `x`'s old-version hold from another subject.
+export const CopiesId = "Lab/MemoCopies";
+const putOf = (v: number) =>
+  transaction({ id: "memo/put", input: { k: v === 1 ? S.String : S.Trim }, key: ["k"], concurrency: "reject", services: [FakeApi], commit: write("put") });
+const copyOf = (v: number) =>
+  trait(
+    {
+      id: "MemoCopy",
+      events: { Go: {} },
+      internalEvents: { Ok: {}, No: { why: S.String }, Unsure: Flow.uncertain({}) },
+      memory: { got: Flow.initial(S.Array(S.String), []) },
+      operations: ({ E }) => ({ put: putOf(v).outcomes({ success: E.Ok, failure: { NotSent: E.No.from((r: { why: string }) => ({ why: r.why })) }, unknown: E.Unsure }) }),
+    },
+    ({ O }) => ({
+      on: {
+        Go: { actions: [O.put.commit(() => ({ k: "shared" }))] },
+        Ok: { updateMemory: ({ memory }) => ({ got: [...memory.got, "ok"] }) },
+        No: { updateMemory: ({ memory, event }) => ({ got: [...memory.got, `no:${event.why}`] }) },
+        Unsure: { updateMemory: ({ memory }) => ({ got: [...memory.got, "unsure"] }) },
+      },
+    }),
+  );
+const copies = (v: number) =>
+  machine(
+    definition({ id: CopiesId, persist: true, states: [], events: {}, internalEvents: {}, memory: { ids: Flow.initial(S.Array(S.String), ["x", "y"]) }, traits: { c: copyOf(v).each({ of: "ids", max: 8 }) }, operations: () => ({}) }),
+    () => ({ default: { node: "root" } }),
+  );
+const Copies1 = copies(1);
+const Copies2 = copies(2);
+export const copiesFixture = (rel: Release) => fixture(() => (rel.v === 1 ? Copies1 : Copies2));

@@ -87,7 +87,7 @@ const storableParked = (tx: Tx, l: Lane) =>
 // D111: `saved` compares these bytes. The stamp goes on when they are written, so a lane unchanged in a later boot is not rewritten, and keeps the older stamp, which is still true of its ids.
 const laneBody = (tx: Tx, l: Lane) =>
   JSON.stringify({
-    id: l.id,
+    format: RECORD_FORMAT,
     actor: l.actor,
     machine: l.machine,
     op: l.op,
@@ -125,7 +125,38 @@ const actorRecord = (tx: Tx, key: string): unknown => {
       : [],
   );
   const timers = live ? [...armed, ...firing] : (a.timers ?? []);
-  return { ...a, boot: tx.w.boot, timers, ...(live ? {} : { retired: true }) }; // D99
+  return { format: RECORD_FORMAT, ...a, boot: tx.w.boot, timers, ...(live ? {} : { retired: true }) }; // D99
+};
+// Flow's own record format (rule 74's format tag, for the records themselves; phase 1 migration round 2, proposed). Format 1 is untagged and a lane
+// record stores its id beside the actor, op and key it is made of; format 2 tags every record and stores a lane's id once, as the record's key.
+// Each older format reaches the current one by a pure step at the boot, before this release's checks; a newer format is quarantined, never misread.
+export const RECORD_FORMAT = 2;
+type Raw = Record<string, unknown>;
+const UPGRADE: Readonly<Record<number, (k: string, v: Raw) => Raw>> = {
+  1: (k, v) => {
+    if (!k.startsWith("lane/")) return v;
+    if (v["id"] !== k.slice(5)) throw new Error("a format 1 lane record whose id is not its key");
+    const { id: _id, ...rest } = v;
+    return rest;
+  },
+};
+const upgraded = (tx: Tx, k: string, v: unknown): Raw | undefined => {
+  if (typeof v !== "object" || v === null || Array.isArray(v)) return v as Raw | undefined;
+  const { format, ...body } = v as Raw;
+  const from = Object.hasOwn(v, "format") ? format : 1;
+  if (!Number.isSafeInteger(from) || (from as number) < 1 || (from as number) > RECORD_FORMAT) {
+    quarantine(tx, k, `Flow record format ${String(from)}, which this Flow does not read`);
+    return undefined;
+  }
+  try {
+    if (k.startsWith("lane/") && from === RECORD_FORMAT && Object.hasOwn(body, "id") && body["id"] !== k.slice(5)) throw new Error("a lane record whose body names another lane");
+    let out = body;
+    for (let f = from as number; f < RECORD_FORMAT; f++) out = UPGRADE[f]!(k, out);
+    return k.startsWith("lane/") ? { ...out, id: k.slice(5) } : out;
+  } catch (e) {
+    quarantine(tx, k, String(e));
+    return undefined;
+  }
 };
 
 // C: the world decides what is written. A record is written when its encoding differs from the last one emitted. One persist per scope; the edge keeps each scope whole.
@@ -282,7 +313,7 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
   const oldVersion: Record<string, true> = {};
   for (const [k, text] of records) {
     if (k.startsWith("actor/")) {
-      const v = parse(tx, k, text);
+      const v = upgraded(tx, k, parse(tx, k, text)) as any;
       if (!v) { undecodable[k.slice(6)] = true; continue; }
       floorBoot(v);
       const mm = typeof v?.machine === "string" ? tx.machines[v.machine] : undefined;
@@ -301,7 +332,8 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
         oldVersion[k.slice(6)] = true;
         continue;
       }
-      const decoded = restoredMemory(mm, v.root);
+      const dropped: string[] = [];
+      const decoded = restoredMemory(mm, v.root, dropped);
       if (!decoded) {
         quarantine(tx, k, "memory this release cannot decode");
         undecodable[k.slice(6)] = true;
@@ -314,6 +346,7 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
         undecodable[k.slice(6)] = true;
         continue;
       }
+      for (const field of dropped) issue(tx, { code: "FieldDropped", origin: `${mm.id} memory`, input: { field } });
       const root = orphanFrozen(tx, mm, decoded);
       if (v.retired)
         retired.push([v.key, { key: v.key, machine: v.machine, root, timers: v.timers, ...(Array.isArray(v.fields) ? { fields: v.fields } : {}), ...(stopped.value ? { stopped: stopped.value } : {}) }]);
@@ -322,7 +355,7 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
         timers.push(...v.timers);
       }
     } else if (k.startsWith("lane/")) {
-      const v = parse(tx, k, text) as SavedLane | undefined;
+      const v = upgraded(tx, k, parse(tx, k, text)) as SavedLane | undefined;
       floorBoot(v);
       // D88: the id is the record's key, so it survives what the body does not. It keeps holding, and the record stays for an owner.
       const hold = () => {
@@ -347,8 +380,8 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
         hold();
         continue;
       }
-      const { boot: _stamp, ...body } = v;
-      saved[v.id] = JSON.stringify(body);
+      const { boot: _stamp, id: _id, ...body } = v;
+      saved[v.id] = JSON.stringify({ format: RECORD_FORMAT, ...body }); // what `laneBody` writes for it unchanged, so an untouched lane is not rewritten
       lanes.push([k, v]);
     }
   }
@@ -365,6 +398,8 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
   };
   const recorded = new Set([...actors, ...retired].map(([k]) => k));
   for (const [, l] of lanes) if (!recorded.has(l.actor) && !Object.hasOwn(undecodable, l.actor)) note(tx, "UnboundLane", { actor: l.actor, op: l.op, lane: l.id });
+  // The runner's ruling (phase 1 migration round 2): a hold whose identity's record this boot could not read waits for an ensure, and the boot says so.
+  for (const [, l] of lanes) if (l.head && Object.hasOwn(undecodable, l.actor)) issue(tx, { code: "HoldWithoutRecord", origin: `${l.machine} ${l.op}`, input: { lane: l.id } });
   for (const t of timers) {
     const { gen: _g, ...spec } = t;
     armTimer(tx, spec);
@@ -460,15 +495,19 @@ const placeLanes = (tx: Tx, lanes: ReadonlyArray<readonly [string, SavedLane]>):
   });
 };
 // D82: a stand-in for Schema decode with defaults. Undefined: this record cannot be read by this release.
-const restoredMemory = (m: Compiled, root: Inc): Inc | undefined => {
+// The runner's ruling (phase 1 migration round 2): a field this release no longer declares is dropped at restore; `dropped` collects it, for the
+// caller to say once the record is known to restore.
+const restoredMemory = (m: Compiled, root: Inc, dropped: string[]): Inc | undefined => {
   // A fragment's memory by its own Schema, since encodeRecord wrote it so.
   const walk = (i: Inc): Inc => {
     // Round 12 (D214, review Q1): every sealed memory has a restore, so the branch for one with none is gone. A fragment this release does not have keeps
     // what it stored, as before; the gate's checks decide that record.
     const mem = i.frag ? m.fragments?.[i.frag]?.memory : m.memory;
+    const memory = mem ? mem.restore!.run(i.memory) : i.memory;
+    for (const f of Object.keys(i.memory)) if (!Object.hasOwn(memory, f)) dropped.push(i.frag ? `${i.frag}.${f}` : f);
     return {
       ...i,
-      memory: mem ? mem.restore!.run(i.memory) : i.memory,
+      memory,
       kids: Object.fromEntries(Object.entries(i.kids).map(([k, v]) => [k, walk(v)])),
     };
   };

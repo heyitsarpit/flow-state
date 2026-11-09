@@ -616,6 +616,41 @@ export const phase1sScenarios: readonly Scenario[] = [
         c.do({ feed: "price", frame: { price: 11 } });
         c.eq("aged from the first loss", [priceRow(c)?.last?.value, priceRow(c)?.last?.at], [{ price: 11 }, first]);
       },
+      // The runner's ruling (phase 1 migration round 2): `dropAt` is persisted with the bookmark, so the not-live period a reload interrupts
+      // keeps its start: a value while Dropped after the reload ages from the drop before it, never from the reload.
+      "a-reload-keeps-dropat-with-the-bookmark"(c0) {
+        const c = at(c0, priceFixture, P, { captureMs: 0 });
+        c.do({ feed: "price", frame: live() });
+        c.do({ feed: "price", frame: { price: 10 } });
+        c.advance(1000);
+        const t = c.r.now();
+        c.do({ feed: "price", frame: down });
+        c.advance(1000);
+        c.reload();
+        c.advance(1000);
+        c.do({ feed: "price", frame: down });
+        c.advance(1000);
+        c.do({ feed: "price", frame: { price: 11 } });
+        c.eq("aged from the drop before the reload", [priceRow(c)?.last?.value, priceRow(c)?.last?.at], [{ price: 11 }, t]);
+      },
+      // The `dropAt` note: it "marks the start of the present not-live period". A registration ends that period, so a drop after the next
+      // reload starts a new one, even with the old start on the bookmark.
+      "a-registration-ends-the-not-live-period-so-a-later-drop-starts-a-new-one"(c0) {
+        const c = at(c0, priceFixture, P, { captureMs: 0 });
+        c.do({ feed: "price", frame: live() });
+        c.do({ feed: "price", frame: down });
+        c.advance(1000);
+        c.do({ feed: "price", frame: live() });
+        c.do({ feed: "price", frame: { price: 10 } });
+        c.advance(1000);
+        c.reload();
+        c.advance(1000);
+        const t = c.r.now();
+        c.do({ feed: "price", frame: down });
+        c.advance(1000);
+        c.do({ feed: "price", frame: { price: 11 } });
+        c.eq("aged from the drop after the reload", [priceRow(c)?.last?.value, priceRow(c)?.last?.at], [{ price: 11 }, t]);
+      },
       // The same rule's first connection: T1's `down` row in `Connecting`, "`dropAt = now` if none".
       "a-down-on-a-first-connection-sets-dropat"(c0) {
         const c = at(c0, priceFixture, P);

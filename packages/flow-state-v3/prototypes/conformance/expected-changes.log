@@ -2503,3 +2503,59 @@ round:mutants-p1h.ts hash:0e88b3e5ee2e | Phase 1 migration: p1h.member-names-old
 output:P1-M/a-previous-key-equal-to-the-current-key-is-refused hash:11fc52bed9f7 | new output: the refusal, then release 2's Memo started in DRAFT
 round:checks/types-check.ts hash:adb9b53f2e17 | Phase 1 migration gates: each previous[i] pin's own tsc error, TS2741 (k missing) and TS2493 (no element at index 1)
 round:mutants-p1m.ts hash:9c4d63904f3f | Phase 1 migration gates: p1m.old-version-any-actor, so R13-KEYS's other-actor variant (now in lifetime-falsify's list) has a killer
+REV4-H3 hash:f31e3d0c6853 | Migration round 2: REV4-H3 names HoldWithoutRecord; its last-issue check skips that issue, which the boot raises after the quarantine
+P1-S hash:19ac67a7f4cb | Migration round 2: two dropAt variants (persisted with the bookmark; a registration ends the not-live period)
+P1-M hash:3f88229a03bc | Migration round 2: record format (written, format 1 read, newer quarantined), previous[0].retryable, rule 51 before OldVersion, FieldDropped, HoldWithoutRecord
+file:scenarios/phase1h.scenario.ts hash:329637ef5f01 | Migration round 2: P1-H names HoldWithoutRecord (its undecodable-record audit variant)
+file:scenarios/phase1m.scenario.ts hash:9a2313877d02 | Migration round 2: five P1-M variants and the FieldDropped, HoldWithoutRecord assertions; memoHeld split from memoAcross
+file:scenarios/phase1s.scenario.ts hash:3253250d6466 | Migration round 2: the two dropAt variants from the ruling and the dropAt note
+file:scenarios/review.scenario.ts hash:e69cfeb39f1b | Migration round 2: HIGH-02 names HoldWithoutRecord (a removed machine's record leaves its hold)
+file:scenarios/round15.scenario.ts hash:5a33b3afca01 | Migration round 2: R15-01 names HoldWithoutRecord (its undecodable-record variant)
+file:scenarios/round4.scenario.ts hash:b313b6ac8cdc | Migration round 2: REV4-H3 names HoldWithoutRecord and reads the quarantine as the last issue but that one
+file:scenarios/round5.scenario.ts hash:d8782f76e312 | Migration round 2: REV5-H2 names HoldWithoutRecord (a record whose body names another lane)
+file:typed/phase1m.ts hash:4c7eef8b19d8 | Migration round 2: the .each copies fixture (release 2 makes the key a Trim) for the decline order
+file:typed/round13.ts hash:6c9b17b7bb69 | Migration round 2: KeyStamp's OldRetryable through previous[0].retryable
+file:compile/operations.ts hash:f48f7e4c755e | Migration round 2: previous[i].retryable(k, { times }) as a token guard carrying its previous index
+round:mutants-audit-s1b.ts hash:0ead5098db2b | Migration round 2: s1b.dropat-first-only re-anchored on the registration that now ends the not-live period, the same wrong rule
+round:mutants-p1m.ts hash:aab81bcc4643 | Migration round 2: nine more wrong runtimes (record format x3, FieldDropped, HoldWithoutRecord, previous retryable, decline order, dropAt x2); od53 pair re-anchored
+round:mutants-p1s.ts hash:ba0feb529ce9 | Migration round 2: p1s.last-not-saved re-anchored on keepLatest's compare, which now reads dropAt too
+file:expected-recipients.txt hash:ffc2d3dab403 | Migration round 2: the new P1-S and P1-M variants add 7 observed deliveries, 6 restored states, 7 start nodes, 2 stream deliveries; no red count moved
+output:HIGH-02/actor-of-a-removed-machine hash:aa8650262816 | HoldWithoutRecord added to issues: HIGH-02's removed machine
+output:P1-M/a-memory-field-reshaped-with-no-migration-quarantines-the-record-and-an-ensure-starts-fresh hash:4eda48b15b74 | HoldWithoutRecord added to issues: P1-M's reshaped field
+output:P1-M/a-record-flow-wrote-in-format-1-restores-as-it-was hash:3006fa06b08a | new output: a format 1 record restored, the hold heard, its key held
+output:P1-M/a-record-of-a-newer-flow-record-format-is-quarantined-and-its-lane-still-holds hash:4ce6e0275500 | new output: format 3 records quarantined, a fresh actor, the key still held
+output:P1-M/a-state-a-release-removed-quarantines-the-record-and-an-ensure-starts-fresh-and-adopts-the-hold hash:0270fd705e18 | HoldWithoutRecord added to issues: P1-M's removed state
+output:P1-M/every-record-flow-writes-says-its-record-format hash:f1d5c11b96ed | new output: a saved hold whose records are written in format 2
+output:P1-M/on-a-fragment-op-another-subjects-commit-is-rejected-before-the-old-version-check hash:acdc8e7c2da8 | new output: copy y Rejected, copy x OldVersion, one request
+output:P1-M/previous-retry-re-sends-the-old-hold-as-the-same-attempt hash:67e7adefb7ce | FieldDropped added to issues: the previous-retry path drops legacy too
+output:P1-M/previous-retryable-sees-the-old-hold-and-retry-re-sends-it hash:8b14a285ce72 | new output: previous[0].retryable says yes, the old hold re-sent
+output:P1-M/release-1-records-restore-under-release-2-across-a-reload hash:4c4cb3a57f2b | FieldDropped added to issues: the release 1 to 2 path drops legacy
+output:P1-S/a-down-keeps-an-unconfirmed-last-at hash:bc2e08c6ef05 | one more frame: the bookmark records the drop's dropAt (unconfirmed down)
+output:P1-S/a-down-on-a-first-connection-sets-dropat hash:14a7a03c8b7f | one more frame: the bookmark records the first connection's dropAt
+output:P1-S/a-lose-keeps-an-unconfirmed-last-at hash:8ee171261c09 | one more frame: the bookmark records the lose's dropAt
+output:P1-S/a-quiet-symbol-stays-live-on-the-sockets-pings-and-a-half-open-socket-is-silent hash:3ff19dfca6ad | one more frame: the bookmark records the Silent loss's dropAt
+output:P1-S/a-registration-ends-the-not-live-period-so-a-later-drop-starts-a-new-one hash:07e0d2c5fd85 | new output: drop, register, reload, drop, a value aged from the last drop
+output:P1-S/a-reload-keeps-dropat-with-the-bookmark hash:596311ca3c49 | new output: drop, reload, drop, a value aged from the first drop
+output:P1-S/a-second-drop-sets-dropat-again hash:ab97fd7a2076 | three more frames: each drop and registration writes the bookmark's dropAt
+output:P1-S/a-socket-drop-reaches-every-symbol-and-each-reconnects hash:7d60d36cb745 | two more frames: each symbol's bookmark records the socket drop
+output:P1-S/a-tick-in-mail-before-a-drop-is-fenced hash:00a328bfb43f | two more frames: the drop and the re-registration write dropAt
+output:P1-S/a-value-while-dropped-is-aged-from-the-drop-and-a-proof-does-not-confirm-it hash:be2aaf575234 | one more frame: the drop's dropAt on the bookmark, the aged value
+output:P1-S/an-equal-price-after-a-reconnect-is-undimmed-and-not-heard hash:4480377adeb2 | three more frames: the reconnect's drop and registration write dropAt
+output:R15-01/audit-an-undecodable-records-lanes-are-not-unbound hash:a8ec938460eb | HoldWithoutRecord added to issues: R15's undecodable-record audit
+output:REV4-H3/activations-for-a-leaf-gone hash:3aca0be10f24 | HoldWithoutRecord added: REV4-H3 activations for a leaf gone
+output:REV4-H3/frozen-of-no-shape hash:3aca0be10f24 | HoldWithoutRecord added: REV4-H3 frozen of no shape
+output:REV4-H3/history-names-a-removed-node hash:3aca0be10f24 | HoldWithoutRecord added: REV4-H3 history naming a removed node
+output:REV4-H3/kid-frag-is-another-fragment hash:3aca0be10f24 | HoldWithoutRecord added: REV4-H3 kid frag of another fragment
+output:REV4-H3/kid-frag-this-release-removed hash:3aca0be10f24 | HoldWithoutRecord added: REV4-H3 kid frag removed
+output:REV4-H3/kid-leaf-removed hash:3aca0be10f24 | HoldWithoutRecord added: REV4-H3 kid leaf removed
+output:REV4-H3/leaf-this-release-removed hash:3aca0be10f24 | HoldWithoutRecord added: REV4-H3 leaf removed
+output:REV4-H3/memory-not-an-object hash:3aca0be10f24 | HoldWithoutRecord added: REV4-H3 memory not an object
+output:REV4-H3/no-kids hash:3aca0be10f24 | HoldWithoutRecord added: REV4-H3 no kids
+output:REV4-H3/no-timers hash:3aca0be10f24 | HoldWithoutRecord added: REV4-H3 no timers
+output:REV4-H3/placement-removed hash:3aca0be10f24 | HoldWithoutRecord added: REV4-H3 placement removed
+output:REV4-H3/timer-of-no-shape hash:3aca0be10f24 | HoldWithoutRecord added: REV4-H3 timer of no shape
+output:REV5-H2/stored-names-like-prototype-keys hash:c83d408f928c | HoldWithoutRecord added to issues: REV5-H2's prototype-key names, both boots
+output:STREAM5-LATEST/a-drop-stops-value-being-current hash:1a4e61132b80 | one more frame: STREAM5's drop records dropAt on the bookmark
+round:mutants-p1m.ts hash:a0b92cf8178d | Migration round 2 review: FieldDropped said after the stopped-reads check, so two p1m anchors follow restoredMemory back to its original shape
+round:mutants-p1s.ts hash:ad0bbd5399b3 | Migration round 2 gates: p1s.heard-not-restored re-anchored before restoredLatest's new dropAt line, the same wrong rule
+file:falsify.ts hash:d6a85d8ee970 | Migration round 2 gates: SEARCH-SESSION re-measured at 6,967 states (7,328 on the same tree with round 2's sessions.ts undone, run by the lead)

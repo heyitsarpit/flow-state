@@ -57,7 +57,7 @@ export const phase1hScenarios: readonly Scenario[] = [
     fixtures: [r15SwitchFixture(), r15StayFixture()],
     actor: SW,
     cites: ["rule:24", "sec:2.7.13", "D48"],
-    namedIssues: ["OldVersionLane"], // 2.7.15 (Q2 A): an old-version hold is an issue at each boot
+    namedIssues: ["OldVersionLane", "HoldWithoutRecord"], // 2.7.15 (Q2 A): an old-version hold is an issue at each boot; round 2: a hold without its record too
     variants: {
       // R6 (2.7.13's `cancel` and `latest` commit rows): a commit over a never-sent head whose acknowledgement is out waits for storage (D48); the
       // replaced head "ends `Superseded`" and the new commit becomes the addressable Attempt. A refused acknowledgement changes nothing in that:

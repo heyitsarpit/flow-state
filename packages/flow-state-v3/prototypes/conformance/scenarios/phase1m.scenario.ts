@@ -5,7 +5,7 @@ import { definition, machine, transaction } from "../compile/index.ts";
 import type { Release } from "../fixtures/round6.compiled.ts";
 import { FakeApi, write } from "../typed/lab.ts";
 import { keyStampFixture } from "../typed/round13.ts";
-import { MemoId, memoFixture } from "../typed/phase1m.ts";
+import { CopiesId, copiesFixture, MemoId, memoFixture } from "../typed/phase1m.ts";
 import { Ctx, type Scenario } from "./ctx.ts";
 
 const M = { actor: MemoId, id: "main" };
@@ -14,6 +14,12 @@ const issued = (c: Ctx, code: string) => c.r.issues().filter((i) => i.code === c
 // Under Memo's release 1, a titled memo is saved and its answer is lost: the hold `{ memoId: m1 }`. Then release `to`, and the page boots again.
 const memoAcross = (c0: Ctx, to: number) => {
   const rel: Release = { v: 1 };
+  const c = memoHeld(c0, rel);
+  c.h.release(() => void (rel.v = to), () => void (rel.v = 1));
+  c.reload();
+  return c;
+};
+const memoHeld = (c0: Ctx, rel: Release = { v: 1 }) => {
   const c = new Ctx(c0.fresh([memoFixture(rel)], { captureMs: 0 }), M);
   c.namedIssues = c0.namedIssues;
   c.ensure(M);
@@ -23,8 +29,6 @@ const memoAcross = (c0: Ctx, to: number) => {
   c.ack();
   c.answer("save", { lost: true });
   c.eq("release 1: sent, its answer lost, the hold heard", [c.r.state(M), c.mem().unsure, c.reqs("save").length], ["SENT", 1, 1]);
-  c.h.release(() => void (rel.v = to), () => void (rel.v = 1));
-  c.reload();
   return c;
 };
 // Under KeyStamp's release 1, hold `{ k: a }` unsure; then release `to`, and the page boots again.
@@ -56,7 +60,7 @@ export const phase1mScenarios: readonly Scenario[] = [
     fixtures: [memoFixture({ v: 1 })],
     actor: M,
     cites: ["rule:46", "rule:74", "sec:2.2.2", "sec:2.7.15", "sec:2.7.17"],
-    namedIssues: ["OldVersionLane", "RecordQuarantined"],
+    namedIssues: ["OldVersionLane", "RecordQuarantined", "FieldDropped", "HoldWithoutRecord"],
     variants: {
       // The real path, release 1's records restored by release 2 across a reload, with the fake storage:
       // - 2.2.2: "a stored field decodes by its codec" (here the field's own Schema maps release 1's string into the new shape); "a field the record
@@ -67,6 +71,8 @@ export const phase1mScenarios: readonly Scenario[] = [
       "release-1-records-restore-under-release-2-across-a-reload"(c0) {
         const c = memoAcross(c0, 2);
         c.eq("the old hold is an issue at the boot", issued(c, "OldVersionLane"), 1);
+        // The runner's ruling (round 2): a field a release stops declaring is dropped at restore with an issue (`FieldDropped`, proposed).
+        c.eq("`legacy` dropped, said", issued(c, "FieldDropped"), 1);
         c.ensure(M);
         c.eq("memory migrated: the title reshaped, `legacy` gone, `words` computed over the restored body, the hold heard again", c.mem(), {
           title: { text: "Groceries", lang: "en" },
@@ -86,7 +92,7 @@ export const phase1mScenarios: readonly Scenario[] = [
         c.answer("save", { ok: {} });
         c.reload();
         c.ensure(M);
-        c.eq("the next boot: no old hold, and the migrated memory restores as release 2 wrote it", [issued(c, "OldVersionLane"), c.mem().title, c.mem().saved], [1, { text: "Groceries", lang: "en" }, 1]);
+        c.eq("the next boot: no old hold, nothing dropped, and the migrated memory restores as release 2 wrote it", [issued(c, "OldVersionLane"), issued(c, "FieldDropped"), c.mem().title, c.mem().saved], [1, 1, { text: "Groceries", lang: "en" }, 1]);
       },
       // 2.7.15: "`O.x.previous[i].retry(k)` ... naming the old lanes by their own keys". The old hold goes out again, as the same Attempt.
       "previous-retry-re-sends-the-old-hold-as-the-same-attempt"(c0) {
@@ -102,6 +108,8 @@ export const phase1mScenarios: readonly Scenario[] = [
       "a-state-a-release-removed-quarantines-the-record-and-an-ensure-starts-fresh-and-adopts-the-hold"(c0) {
         const c = memoAcross(c0, 3);
         c.eq("quarantined at the boot", issued(c, "RecordQuarantined"), 1);
+        // The runner's ruling (round 2): the held lane now waits on an identity whose record is gone, and the boot says so (`HoldWithoutRecord`).
+        c.eq("its hold, said", issued(c, "HoldWithoutRecord"), 1);
         c.ensure(M);
         c.eq("fresh, said, the hold heard", [c.r.evidence("RecordUndecodable").length, c.r.state(M), c.mem().title, c.mem().unsure], [1, "DRAFT", "", 1]);
         c.send("Save");
@@ -110,7 +118,7 @@ export const phase1mScenarios: readonly Scenario[] = [
       // No migration, a memory field reshaped (release 4's title is a struct, its Schema reads no string): the same as a state removed.
       "a-memory-field-reshaped-with-no-migration-quarantines-the-record-and-an-ensure-starts-fresh"(c0) {
         const c = memoAcross(c0, 4);
-        c.eq("quarantined at the boot", issued(c, "RecordQuarantined"), 1);
+        c.eq("quarantined at the boot, its hold said", [issued(c, "RecordQuarantined"), issued(c, "HoldWithoutRecord")], [1, 1]);
         c.ensure(M);
         c.eq("fresh, said, the hold heard", [c.r.evidence("RecordUndecodable").length, c.r.state(M), c.mem().title, c.mem().unsure], [1, "DRAFT", { text: "", lang: "en" }, 1]);
       },
@@ -136,6 +144,67 @@ export const phase1mScenarios: readonly Scenario[] = [
         c.send("OldCancel", { k: "b" });
         c.send("Go", { k: "b" });
         c.eq("the current hold stands: its own key is busy", [c.mem(KS)?.why, c.reqs("charge").length], ["Rejected", 2]);
+      },
+      // Rule 74 and 2.7.15's format tag: "a change to Flow's encoding is a migration Flow owes, never a new version of the user's machine, and the
+      // tag tells an old record from a new one". Phase 1 migration round 2 (the runner's, proposed): every record carries Flow's record format;
+      // format 2 stores a lane's id once, as the record's key (format 1 stored it beside the actor, op and key it is made of).
+      "every-record-flow-writes-says-its-record-format"(c0) {
+        const c = memoHeld(c0);
+        const lane = [...c.r.stored()].find(([k]) => c.r.diskKind(k) === "lane")?.[1] as Record<string, unknown> | undefined;
+        c.eq("actor and lane records in format 2; the lane stores no id of its own", [c.record(M)?.format, lane?.["format"], lane !== undefined && "id" in lane], [2, 2, false]);
+      },
+      // The same: Flow reads every older format it wrote, by a pure upgrade at the boot. A format 1 record (untagged, the lane's id stored) restores
+      // as the hold it is: the hold is heard again and still holds its key.
+      "a-record-flow-wrote-in-format-1-restores-as-it-was"(c0) {
+        const c = memoHeld(c0);
+        const format1 = (raw: string) => {
+          const v = JSON.parse(raw) as Record<string, unknown>;
+          const { format: _f, ...rest } = v;
+          return JSON.stringify(typeof v["op"] === "string" ? { ...rest, id: `${v["actor"]}|${v["op"]}|${JSON.stringify(v["key"])}` } : rest);
+        };
+        c.fault({ corruptStored: { match: "Memo", edit: format1 } });
+        c.reload();
+        c.ensure(M);
+        c.eq("restored in its leaf, its memory, the hold heard again", [c.r.state(M), c.mem().title, c.mem().unsure, issued(c, "RecordQuarantined")], ["SENT", "Groceries", 2, 0]);
+        c.send("Save");
+        c.eq("the hold still holds its key", [c.mem().why, c.reqs("save").length], ["Rejected", 1]);
+      },
+      // The same, the other way (rule 74: "a format newer than the running Flow's (a downgrade) reads as an old version", for a version entry): a
+      // record of a newer record format than this Flow's is never misread. It is quarantined; the lane's id still holds its key (rule 46, D88).
+      "a-record-of-a-newer-flow-record-format-is-quarantined-and-its-lane-still-holds"(c0) {
+        const c = memoHeld(c0);
+        c.fault({ corruptStored: { match: "Memo", edit: (raw: string) => raw.replace('"format":2', '"format":3') } });
+        c.reload();
+        c.eq("both quarantined", issued(c, "RecordQuarantined"), 2);
+        c.ensure(M);
+        c.eq("fresh, nothing heard", [c.r.state(M), c.mem().unsure], ["DRAFT", 0]);
+        c.send("Save");
+        c.eq("the key still held", [c.mem().why, c.reqs("save").length], ["Rejected", 1]);
+      },
+      // The runner's ruling (round 2): `previous[i].retryable(k, { times })` exists, as on the current handle, and sees only lanes of its version.
+      "previous-retryable-sees-the-old-hold-and-retry-re-sends-it"(c0) {
+        const c = holdAcross(c0, 2);
+        c.send("OldRetryable", { k: "a" });
+        c.ack();
+        c.eq("yes, and re-sent", [c.mem(KS)?.notRetryable, c.reqs("charge").length], [0, 2]);
+      },
+      // The runner's ruling (round 2): on a fragment op, authority before version. `y`'s commit meets `x`'s old-version hold from another subject:
+      // rule 51 declines it `Rejected`; `x`'s own commit declines `OldVersion` (2.7.15).
+      "on-a-fragment-op-another-subjects-commit-is-rejected-before-the-old-version-check"(c0) {
+        const rel: Release = { v: 1 };
+        const CP = { actor: CopiesId, id: "a" };
+        const c = new Ctx(c0.fresh([copiesFixture(rel)], { captureMs: 0 }), CP);
+        c.namedIssues = c0.namedIssues;
+        c.ensure(CP);
+        c.into(["c:x"], "Go");
+        c.ack();
+        c.answer("put", { lost: true });
+        c.h.release(() => void (rel.v = 2), () => void (rel.v = 1));
+        c.reload();
+        c.ensure(CP);
+        c.into(["c:y"], "Go");
+        c.into(["c:x"], "Go");
+        c.eq("y Rejected (rule 51), x OldVersion", [c.inner(["c:y"])?.memory.got, (c.inner(["c:x"])?.memory.got as string[] | undefined)?.at(-1), c.reqs("put").length], [["no:Rejected"], "no:OldVersion", 1]);
       },
       // 2.7.15 declares earlier keys; one equal to the current key names no old lane and would let `previous[i]` name current ones (the
       // runner's call, proposed name `PreviousIsCurrent`).

@@ -8,7 +8,7 @@ const SEARCH_EXPECT: Readonly<Record<string, string>> = {};
 const SEARCH_STATES: Readonly<Record<string, string>> = { odd: "8000", session: "8000", chain: "12000" };
 const SEARCH_REACH: Readonly<Record<string, { states: number; perDepth: readonly number[] }>> = {
   odd: { states: 7269, perDepth: [1, 22, 200, 1260, 5786] },
-  session: { states: 7328, perDepth: [1, 17, 155, 1056, 6099] }, // OD53 (11): a kept `dropAt` tells more states apart (6,896 with the fix undone)
+  session: { states: 6967, perDepth: [1, 17, 153, 1023, 5773] }, // OD53 (11) and migration round 2's dropAt rule (7,328 with round 2's sessions.ts undone; 6,896 before OD53)
   chain: { states: 9700, perDepth: [1, 12, 111, 995, 8581] },
 };
 

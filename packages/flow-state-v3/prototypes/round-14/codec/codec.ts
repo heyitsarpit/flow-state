@@ -120,7 +120,7 @@ const build = (Slot: S.Top) => {
   const TokenGuard = S.Union([
     S.Struct({ node: S.String }),
     S.Struct({ port: S.String }),
-    S.Struct({ op: S.String, verb: S.Literals(["idle", "retryable"]), times: opt(S.Number), key: opt(Slot) }),
+    S.Struct({ op: S.String, verb: S.Literals(["idle", "retryable"]), times: opt(S.Number), key: opt(Slot), previous: opt(S.Number) }),
   ]);
   const Member = S.Union([
     S.Struct({ op: S.String, verb: S.Literals(["commit", "lookup"]), input: Slot }),

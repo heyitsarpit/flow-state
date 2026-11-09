@@ -132,7 +132,7 @@ export const reviewScenarios: readonly Scenario[] = [
     fixtures: [payFixture],
     actor: P,
     cites: ["D46", "rule:46"],
-    namedIssues: ["RecordQuarantined"],
+    namedIssues: ["RecordQuarantined", "HoldWithoutRecord"], // phase 1 migration round 2: a hold left by an unreadable record is said too
     variants: {
       "lane-does-not-parse"(c) {
         payTo(c);

@@ -19,6 +19,7 @@ export type TokenGuard =
       readonly verb: "idle" | "retryable";
       readonly times?: number;
       readonly key?: Slot<(a: AfterIn) => unknown>;
+      readonly previous?: number; // `O.x.previous[i].retryable`: the lane of `previous[i]`'s version only
     };
 
 export type Member =

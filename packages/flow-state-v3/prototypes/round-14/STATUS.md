@@ -1637,3 +1637,47 @@ Sidecar log (Haiku, effort high; the lead read every line and reran every check)
 | --- | --- | --- | --- |
 | review: OD53's sessions.ts diff, the two P1-S variants and the wrong runtimes vs T1 and the `dropAt` note | reviewer | accepted, recorded | confirmed the fix, both variants and both wrong runtimes; its gaps (Repairing without `liveSince`, `dropAt` not persisted, T1's `lose` text) are finding 10; rejected: "the re-anchored mutant's comment is stale" (the audit file's comment describes its kill case, a drop from `Live`) |
 | review: `previous`, `ofVersion`, `OldVersionLane`, the (j) excuse, compile and codec vs 2.7.15, rule 46, 2.7.17 | reviewer | changed | acted on: the excuse read "any release in the run", now "a release since the reload before" (`releasedBeforeReload`). Recorded: the fragment-op decline order (finding 8), key-less cancel and kept endings (finding 9), duplicate `previous` entries (finding 3), the dead `OldVersionLane` case in `cli/story.ts` (evidence kind no longer made). Its "add a second boot" was already pinned: R13-KEYS's reload variant is red on `p1m.old-version-lane-evidence` |
+
+## Phase 1: record migration round 2 (2026-11-09)
+
+The runner's brief: Flow's own record format, and the runner's rulings (under the user's delegation) on round 1's findings. Q1 (app-level
+migration) waits for the user, not built. Same method; cases in P1-M and P1-S, wrong runtimes in `mutants-p1m.ts`. A network failure stopped
+the lead mid-batch; on resuming, the tree was intact and the suite was re-run before anything was trusted.
+
+| Item | State | Failing first | Wrong runtime |
+| --- | --- | --- | --- |
+| Flow's record format | **built** (proposed, the runner's call from round 1): every actor and lane record carries `format: 2` (`RECORD_FORMAT`, durable.ts). Format 1 is untagged, and a lane record stored `id` beside the actor, op and key it is made of; format 2 stores the id once, as the record's key (the house rule: a fact in one place). `upgraded` runs one pure step per older format at the boot, before this release's checks, inside the core, so S11 replays it; a newer, `null` or non-integer format is quarantined, never misread (the lane's id still holds, rule 46); a lane body naming another lane is quarantined. An untouched format 1 lane is not rewritten (D111): `saved` is what `laneBody` would write for it | `every-record-flow-writes-says-its-record-format`: `expected [2,2,false], got [undefined,undefined,true]`; `a-record-of-a-newer-flow-record-format-is-...`: `both quarantined: expected 2, got 0`; `a-record-flow-wrote-in-format-1-restores-as-it-was` passed first (format 1 was native) and is held by its wrong runtime | `p1m.no-record-format`, `-older-format-quarantined`, `-newer-format-read` |
+| `previous[i].retryable` | **built** as ruled: `O.x.previous[i].retryable(k, { times })`, a token guard carrying its index; `laneOfToken` names only `previous[i]`'s lanes | `previous-retryable-sees-the-old-hold-...`: `expected [0,2], got [1,1]` | `p1m.previous-retryable-current` |
+| `FieldDropped` | **built** as ruled: a field the restore drops is said, after the record is known to restore (the reviewer's: not for a record the stopped-reads check then quarantines) | `release-1-records-...`: `expected 1, got 0` | `p1m.field-dropped-silent` |
+| `HoldWithoutRecord` | **built** as ruled: at the boot, a lane with a head whose identity's record could not be read. REV4-H3, HIGH-02, REV5-H2, R15-01, P1-H now name it (REV4-H3's last-issue check skips it) | the two no-migration variants: `expected 1, got 0` | `p1m.hold-without-record-silent` |
+| Rule 51 before `OldVersion` | **pinned** as ruled (the runtime already did it): `.each` copies `x`, `y` of one fragment, release 2 makes the key a `Trim`; `y`'s commit `Rejected`, `x`'s `OldVersion` | passed first | `p1m.old-version-before-rule-51` (also red on R13-KEYS) |
+| OD53's two `dropAt` gaps | **built** as one rule: a registration ends the not-live period (`current()` clears `dropAt` in `register` and in the latest Connecting-to-Live path); `down` and `lose` start one only when none is open, so they agree in every state, `Repairing` included; `dropAt` is persisted on a `latest` bookmark (`keepLatest`, `restoredLatest`). The `Repairing` half is unobservable in the prototype: `Repairing` comes only from catch-up (`every`), and `dropAt` is read only for `latest` values | `a-reload-keeps-dropat-with-the-bookmark`: `expected [..,1000], got [..,3000]`; `a-registration-ends-the-not-live-period-...` passed first, held by its wrong runtime | `od53.dropat-not-persisted`, `od53.registration-keeps-dropat`; `od53.lose-always-stamps`, `-down-first-unset`, `s1b.dropat-first-only`, `p1s.last-not-saved`, `p1s.heard-not-restored` re-anchored |
+
+Every wrong runtime above, and every round 1 one, red on its target by assertion (`p1m.undecodable-drops-lanes` by (j)); the lead read
+each red line. Output changes: only the new issues and P1-S's `frames` (each drop and registration now writes the bookmark). Not run by any
+gate and left unedited: `mutants-r8.ts`'s `durable.saved-with-stamp` and `durable.memory-decode-failure-ignored` are anchored on lines this
+round changed.
+
+Findings for the design:
+1. Rule 74's "a format newer than the running Flow's reads as an old version" is for a version entry. For a whole record the safe
+   direction is quarantine; the design should say records and version entries differ here.
+2. The `dropAt` note and C205 should say a registration ends the not-live period, and that `dropAt` is kept with a `latest` bookmark.
+   `complete()` reaches `Live` without a registration (catch-up only, where `dropAt` is never read); unobservable here, stated.
+3. `HoldWithoutRecord` covers lanes that read. A lane record that does not read is quarantined on its own and keeps its id; whether a hold
+   is in it cannot be known. An old-version record's lanes are `UnboundLane`, not `HoldWithoutRecord` (rule 74), as built.
+4. `forget`'s `goneOp` (step.ts) parses a quarantined lane's raw text without `upgraded`, so a newer-format lane naming an op this release
+   lacks could be dropped with `HoldForgotten`, a misread. The reviewer's; for round 3.
+5. Each Flow upgrade is a pure function over the parsed record, run before this release's own checks; a format change that needs the
+   release's Schemas (to rewrite a stamp, say) would have to run after them. None does yet.
+
+Gates: lifetime-falsify alone (235 s, 358 pass); `--only` batches 9/9 ok and 14/15 (falsify search red: SEARCH-SESSION reached 6,967 states,
+pinned 7,328; on a scratch copy with only round 2's `sessions.ts` undone it reached 7,328, so the cause is this round's `dropAt` rule;
+re-pinned, then 5/5 ok with search): **25/25 ok, 0 BAD**. Two stale anchors met on the way (`pinsb.undecodable-memory-fatal`,
+`p1s.heard-not-restored`), fixed; a scratch check then found no other standing anchor of this round's that fails to apply. Suite
+1052/1052, lock clean.
+
+Sidecar log (Haiku, effort high; the lead read every line and reran every check):
+
+| Task | Who | Result | Why |
+| --- | --- | --- | --- |
+| review: the record format, `FieldDropped`, `HoldWithoutRecord`, `previous[i].retryable`, `dropAt` vs the rulings, rule 46, rule 74, T1 | reviewer | changed | acted on: `FieldDropped` fired for a record then quarantined (now said after the stopped-reads check); `pinsb.undecodable-memory-fatal` lost its anchor (restored); `format: null` read as format 1 (now quarantined). Recorded: findings 1-5. Its "clear `dropAt` in `complete()`" not built (unobservable, finding 2) |

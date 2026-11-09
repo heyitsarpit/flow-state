@@ -217,7 +217,7 @@ export const round4Scenarios: readonly Scenario[] = [
     kind: "fault",
     fixtures: [notesFixture],
     actor: N,
-    namedIssues: ["RecordQuarantined"],
+    namedIssues: ["RecordQuarantined", "HoldWithoutRecord"], // phase 1 migration round 2: a hold left by an unreadable record is said too
     cites: ["D57", "D61", "rule:46"],
     variants: {
       ...Object.fromEntries(
@@ -262,7 +262,7 @@ export const round4Scenarios: readonly Scenario[] = [
             corrupt(c, match, f);
             c.reload();
             c.eq("boot 1 alive", c.r.quiet().fatal, false);
-            c.eq("named", c.r.issues().at(-1)?.code, "RecordQuarantined");
+            c.eq("named", c.r.issues().filter((i) => i.code !== "HoldWithoutRecord").at(-1)?.code, "RecordQuarantined");
             c.reload();
             c.eq("boot 2 alive", c.r.quiet().fatal, false);
             c.eq("no actor until asked", c.r.state(N), undefined);

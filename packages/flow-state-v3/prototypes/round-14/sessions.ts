@@ -70,7 +70,10 @@ type Mark = {
   readonly filled: boolean;
   readonly last?: { readonly v: unknown; readonly at: number };
   readonly heard?: string;
+  readonly dropAt?: number; // OD53 (11), the runner's ruling: the start of the present not-live period survives a reload
 };
+// OD53 (11): `dropAt` marks the start of the present not-live period, so a registration ends it; a `down` or a `lose` starts one only when none is open.
+const current = (x: Session): Session => (({ dropAt: _d, ...r }) => r)(x);
 type Pending = {
   readonly actor: string;
   readonly inc: string;
@@ -420,12 +423,13 @@ const reconcile = (s: SessionsSlice, x0: Session, spec: StreamSpec, cx: Cx): Ses
 const keepLatest = (cx: Cx, x: Session) => {
   const b = markOf(cx, x);
   const last = x.last ? { v: x.last.v, at: x.last.at } : undefined;
-  if (text(b?.last) === text(last) && b?.heard === x.heard) return;
+  if (text(b?.last) === text(last) && b?.heard === x.heard && b?.dropAt === x.dropAt) return;
   writeMark(cx, x, {
     at: b?.at,
     filled: b?.filled ?? false,
     ...(last ? { last } : {}),
     ...(x.heard !== undefined ? { heard: x.heard } : {}),
+    ...(x.dropAt !== undefined ? { dropAt: x.dropAt } : {}),
   });
 };
 const restoredLatest = (cx: Cx, x: Session): Session => {
@@ -434,6 +438,7 @@ const restoredLatest = (cx: Cx, x: Session): Session => {
     ...x,
     ...(b?.last ? { last: { v: b.last.v, at: b.last.at, own: false } } : {}),
     ...(b?.heard !== undefined ? { heard: b.heard } : {}),
+    ...(b?.dropAt !== undefined ? { dropAt: b.dropAt } : {}),
   };
 };
 const connect = (s: SessionsSlice, x0: Session, spec: StreamSpec, cx: Cx): SessionsSlice => {
@@ -467,7 +472,7 @@ const register = (
 ): SessionsSlice => {
   const first = !x0.regInConn;
   let x: Session = {
-    ...x0,
+    ...current(x0),
     regInConn: true,
     owed: false,
     noted: false,
@@ -556,7 +561,7 @@ const lose = (
     ...rest,
     ...last,
     st: "Waiting",
-    ...(x.liveSince !== undefined || x.dropAt === undefined ? { dropAt: cx.now } : {}),
+    ...(x.dropAt === undefined ? { dropAt: cx.now } : {}),
     n: x.n + 1,
     flaps,
     stalls,
@@ -826,7 +831,7 @@ const onFrame = (
       const leaving = x.st === "Live" || x.st === "Repairing";
       const y: Session = {
         ...rest,
-        ...(leaving || x.dropAt === undefined ? { dropAt: cx.now } : {}),
+        ...(x.dropAt === undefined ? { dropAt: cx.now } : {}),
         ...(leaving && x.last && x.confirmed ? { last: { ...x.last, at: cx.now } } : {}), // T5: leaving `Live`
         st: "Dropped",
         owed: false,
@@ -863,7 +868,7 @@ const onFrame = (
   // T5.
   if (spec.delivers === "latest") {
     const y0 =
-      x.st === "Connecting" ? { ...x, st: "Live" as const, regInConn: true, liveSince: cx.now } : x;
+      x.st === "Connecting" ? { ...current(x), st: "Live" as const, regInConn: true, liveSince: cx.now } : x;
     armIdle(cx, y0, spec);
     cx.command({ k: "pull", conn: y0.conn });
     const live = y0.st === "Live";

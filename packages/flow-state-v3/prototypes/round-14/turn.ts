@@ -172,12 +172,12 @@ const tokensPass = (w: Walk, path: Path, inc: Inc, alt: Alternative, view: objec
 };
 const laneOfToken = (
   w: Walk,
-  t: { op: string; key?: Slot<(a: any) => unknown> },
+  t: { op: string; key?: Slot<(a: any) => unknown>; previous?: number },
   key: unknown,
 ): Lane | undefined => {
   // D221: a keyed `idle` says what its commit would meet: its own lane, else an old-version hold of the op (every commit declines beside one). A keyed
   // `retryable` names its own lane only.
-  if (t.key) return ofVersion(w.tx.w.lanes[laneKey(w.a.key, t.op, key)], w.m.ops[t.op]) ?? (t.verb === "idle" ? oldVersionLane(w.tx, w.a.key, w.a.machine, t.op) : undefined);
+  if (t.key) return ofVersion(w.tx.w.lanes[laneKey(w.a.key, t.op, key)], w.m.ops[t.op], t.previous) ?? (t.verb === "idle" ? oldVersionLane(w.tx, w.a.key, w.a.machine, t.op) : undefined);
   const it = w.item;
   if (it?.k === "ending" && it.op === t.op && it.attempt) return laneOfAttempt(w.tx.w, it.attempt);
   return undefined;
