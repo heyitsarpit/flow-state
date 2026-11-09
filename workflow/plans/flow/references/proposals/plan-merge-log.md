@@ -160,3 +160,47 @@ Prototype check (S2): STATUS.md's "not built" items stay in the plan as contract
 predicting write (a `flow check` error, CommandLine), `byReason` keys outside Flow's reasons (B3: the type-level half
 carried to phase 3). `emit.fail(e, key)` is marked as the runner's addition (OD53 (7)). The prototype's
 "lane keyed by operation name" is reconciled by B2 (`SharedContract`), as merged.
+
+## Runtime
+
+Rows merged: P21, C42, C43, C59, C91, C92, C104-C106 (C106 as a pointer for O2's bootstrap), C109, C117, C118, C132,
+C134, C136, C138, C139, C143, C144, C148, C149, C155, C158-C161, C166, C168, C173, C174, C176, C178, C179, C181.
+Rule 73 (2.7.17) and rule 74 (2.7.19) are stated in O3 in full.
+
+| # | Outcome | Before | After | Decision |
+| --- | --- | --- | --- | --- |
+| R1 | O1 | (none) | `machine()` is the compile; `Compiled` data plus Slots; refusals at Runtime creation (agent-judged internals marked) | C139; OD41; OD46 |
+| R2 | O1 | "Durable identity is app id, machine id and actor id" | "...and the actor's identity" | C117 |
+| R3 | O2 | services Layer for adapters | typed by the machines' R; contracts' `services`; boot refuses by name | C138 |
+| R4 | O2 | step 4 "install restored and hydrated actors" | records stay records until reached, except identities owed an ending; record-format upgrade and shape reset at step 2 | C106; C210; C211 |
+| R5 | O2 | (none) | boot send queue, `StorageFailure` past the bound | C155 |
+| R6 | O3 | `actorRef(machine, id, { persist?, retain?, context? })`, array ids | two ref forms, identity encoding, `persist` on the definition, `ConflictingActorRef` for context only | C117; C144; C160 |
+| R7 | O3 | ensure with input, `InputIgnored` | no ensure takes input; restore from the Runtime's copy; `getSnapshot` readings | C117; C143; C144 |
+| R8 | O3 | retain sentences (five) | rule 73: uses, work in flight, schedules wait, grace, end, return, undecodable records, local remount | C104; C143 |
+| R9 | O3 | "No outcome, schedule, issue or send from an old incarnation ever reaches a new one." | write lanes adopted by identity and subject path; nothing else crosses | C42; C59 |
+| R10 | O3 | (none) | versions: type and encoded sides, `representation`, format tags, older formats, format 0, newer format; `OldVersionActor` (proposed) | C161; C174; C181; C120 |
+| R11 | O4 | FIFO sentence | queue order, follow-ups (64), rotation, idle send, slices, spins, `TurnStorm`, `AsksForever` | P21; C132; C136; C148; C149 |
+| R12 | O4 | `SendTargetAbsent` sentences (two); snapshots completion | send table; subscription completion and waiting as a use | C105 |
+| R13 | O4 | "Stream values coalesce"; "Facts from an ended activation are discarded by design" | deliveries bounded by pulls; discard with evidence | C91 |
+| R14 | O4 | (none) | refused deliveries kept | C134; C166 |
+| R15 | O5 | "keyed into the actor id" | "keyed into the actor's identity"; one wave on a return; context consumer is a use | C117; OD31 |
+| R16 | O6 | "invoked commits are allowed to settle"; "after 5 seconds a commit still in flight becomes unknown with its Attempt" | disposal invokes nothing new; `NotSent { Disposed }`; parked within the bound; `unknown { Disposed }` past it; hold-leaving ending last; kill before/after final capture; no module starts work | C43; C158; C176; C179 |
+| R17 | O6 | `disposeActor` sentence | flushed removal, unbound lanes, crash before acknowledgement | C159; C168 |
+| R18 | O6 | (none) | `forget` in full; `HoldForgotten` (proposed, the runner's) | C173; C178 |
+| R19 | O6 | (none) | sessions release within 5 s (`ReleaseOverdue`) | C92 |
+| R20 | V1, V4, V7 | "unambiguous id parts"; "first input wins with a diagnostic"; "retain expiry on the TestClock" | identity encoding; ref-form type errors; the grace, Strict Mode, chains, waiting schedules | C109; C118; C144 |
+
+Counts: 20 edits; 24 superseded sentences marked (O1: 1, O2: 2, O3: 12, O4: 6, O5: 1, O6: 4, V: 3; less overlap).
+
+Conflicts:
+- **RC1, agent-judged, applied.** `ConflictingActorRef` for `context` is the design's (C160) but the prototype never
+  built the context half (STATUS.md CP5: "has nothing to fire on"). Recommended: keep it in the plan (contract the
+  prototype never reached). Judge: the runner. Reversible: one sentence.
+- **RC2, agent-judged, applied.** The plan's "Ensure while disposing returns at once a handle that reads the
+  pre-attach snapshot and binds the new incarnation after cleanup" is replaced by 2.7.17's ending state and
+  `getSnapshot` readings, which the design states as amending Runtime O3. Judge: the runner. Reversible: one
+  paragraph.
+
+Prototype check (S2): not built in the prototype, kept as contract: `NotAdopted` and the ending phase (`stopped`
+input), LIFE-19/20/25/26, `IdentityFieldOptional`, the read-only input pin, the context half of
+`ConflictingActorRef`. The prototype's per-door default evaluation and the B1 repair bound do not touch Runtime.
