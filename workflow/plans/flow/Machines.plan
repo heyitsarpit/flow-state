@@ -4,8 +4,16 @@ status  proposed
 goal
     An author declares an actor's states and events once. Each accepted event produces one
     consistent result; guards, views and tests agree about what the actor can do.
+
+    **Why now:** everything that runs or reads an actor depends on one meaning for its states and events, so the
+    declaration and the turn algorithm are fixed once, here.
+
+    **Read first:** @spec.Compile and @spec.Turn, the Specs built from this Plan.
 outcomes
     O1  Definitions, fragments and machines
+        Declaring a definition or machine starts nothing, and an invalid declaration throws one FlowError listing every
+        violation found.
+
         definition(config) and machine(definition, callback) return synchronously and start no
         actors, work, timers or storage. machine() is the compile: its output is plain data plus
         named closures, booted by the Runtime in the same process (@plan.Runtime.O1).
@@ -187,6 +195,9 @@ outcomes
         an exit filling must leave the subroutine's state, and every exit is filled. A callback
         never moves the host out of the fragment's placement node.
     O3  Turns
+        Each accepted event, with everything it raises, notifies, exits, resets and leaves, compiles into one turn that
+        the runtime and check() run by the same algorithm.
+
         Input ordering and atomic actor/store publication are @plan.Runtime.O4. The turn algorithm
         is normative for the runtime and for check(): admit, select the source, select the parts,
         seed and compute, validate, commit. One transition and everything it raises, notifies,
@@ -262,6 +273,8 @@ outcomes
         events fail with InvalidEvent before a turn exists. The same snapshot, event, Clock and
         seeded test randomness produce the same result without consulting host wall time.
     O4  Guards, deny and check
+        Guards decide from the pre-turn snapshot and start no work, so views can trust check.
+
         A guard receives { event, state, memory, context, schedules, operations } from the pre-turn
         snapshot and returns true or deny(code, context?). code is a literal string; context is
         optional JSON-safe explanatory data. deny returns plain data matching Flow.Denial, so a
@@ -293,6 +306,8 @@ outcomes
         A defective guard makes check throw GuardDefect without publishing an issue. Internal or
         foreign events are type errors and fail untyped calls with InvalidEvent.
     O5  Schedules
+        A schedule fires an event on a declared timing, started and stopped by the events the machine lists.
+
         A node or fragment body declares schedules: { name: { schedule, send, armOn?, disarmOn?,
         restartOn?, keys? } }. schedule is a Duration.Input, an Effect Schedule, or ({ memory,
         context, now }) => either, reading the after memory of its arming turn with that turn's now.
@@ -344,6 +359,9 @@ outcomes
         are silent. Hydration activation is @plan.ServerRendering.O5; deterministic time is
         @plan.Testing.O2.
     O6  Activities and outcomes in machines
+        Operation activities are placed in states and traits, and their work is kept, replaced or released as the
+        machine changes state.
+
         activities is a list of placements: O.x.subscribe(select, { when? }) or
         O.x.subscribe.each(select, { when? }) (one session per distinct key of the selected inputs,
         repaired like .each keys), declared in a state (a subroutine's states included) or a trait
@@ -390,6 +408,8 @@ outcomes
         Lateness is not transitive, and only the host's own operations count. Every late event that
         can occur is handled at a strict ancestor of its owner.
     O7  Context reactions
+        A change in context can raise an event into an actor, and a reaction never changes state directly.
+
         Machine-level onContext: [{ select, when?, event }] observes context changes. select({
         context, memory }) establishes a silent baseline at admission, restore, adoption and
         hydration. Only context waves re-run it, using current memory; memory-only changes do not
@@ -406,6 +426,9 @@ outcomes
         mapper defect publishes one issue, keeps the previous baseline and emits nothing; the next
         wave may try again. Reactions never change state directly.
     O8  The snapshot
+        A snapshot is deeply frozen plain data showing state, memory, context, issues, lifecycle, schedules and
+        operations.
+
         A snapshot exposes state (complete leaf path), memory (decoded value; fragment slices under
         their instance names, undefined while inactive and present while frozen, .each copies as a
         keyed list in key order, each with key), context (selected slots), issues (Diagnostic

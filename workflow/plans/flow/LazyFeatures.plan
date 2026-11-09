@@ -7,6 +7,8 @@ goal
     replaying work. Lazy features remain inspectable before an end user opens them.
 outcomes
     O1  Lazy entries
+        An app can declare a feature whose code loads only from a build-local import().
+
         Alongside eager entries, app({ id, machines }) accepts { id, load, context? }. id is the
         machine's definition id; load is () => Promise<Machine> from a build-local import(). Remote
         entries are outside version 1. context is the entry's wiring default. Eager entry forms are

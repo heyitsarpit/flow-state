@@ -8,8 +8,18 @@ goal
 
     Repair is conservative, bounded and explainable, and never predicts list membership. Operations
     are @plan.Operations.O1, hydration @plan.ServerRendering.O5 and Stories @plan.Testing.O1.
+
+    **Why now:** an operation describes a request, but nothing yet says what it means for shared data. This Plan adds
+    the domain that does.
+
+    **Read first:** the reference domain
+    code:workflow/plans/flow/references/dispatch-desk/features/Tickets/ticket.domain.ts and its Story
+    code:workflow/plans/flow/references/dispatch-desk/features/Tickets/queue/queue.story.ts.
 outcomes
     O1  Domains, records, repair and predictions
+        A domain declares what operations mean for shared data; the domain, not the call site, owns
+        the prediction, its confirmation and rollback, and repair.
+
         - An operation describes a request; a domain describes what it means for shared data.
         - Terms: a record is one entity instance by key; an answer is one read entry's result for
           one input; a delta is a change to a record's confirmed base; a position orders sources by
@@ -346,6 +356,8 @@ outcomes
         (@plan.LazyFeatures.O2). A loader in an inactive entry is unavailable, so a field with no
         carrier is dropped; flow check warns.
     O4  Property tests and audit mode
+        Property tests check a domain against a fixture oracle over generated Stories.
+
         propertyTest(story, domainPropertyOptions(domains, inputs)) (@plan.Testing.O6) generates
         ordinary static Stories against fresh Runtimes: successful, failed and uncertain writes;
         reordered, duplicated, failed and empty reads; pushes; stream faults; reconnect, restore,

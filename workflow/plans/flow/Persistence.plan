@@ -5,8 +5,14 @@ goal
     An app can retain selected drafts and confirmed data across reloads within one app and
     scope. Restore never repeats a remote write, exposes partial saved state or undoes a live
     turn.
+
+    **Read first:** @spec.WriteAhead (setup, records, capture, durable Attempts) and @spec.Restore (restore, versions,
+    quarantine, forgetting), the Specs built from this Plan.
 outcomes
     O1  Configuration and storage
+        Persistence is opt-in: an app turns it on in `runtimeSetup`, with a scoped
+        `KeyValueStore`, and without it Flow does no storage work at all.
+
         `runtimeSetup({ app, scope, services?, persistence? })` enables persistence. Without it,
         Flow acquires no storage and performs no restore, capture or storage I/O.
 
@@ -31,6 +37,9 @@ outcomes
         are stored as JSON strings. Public routes follow @plan.Package.O1; isolated Story storage
         follows @plan.Testing.O3.
     O2  What survives reload
+        Only what the app selects survives a reload, and only confirmed data, never optimistic
+        values or queued work.
+
         Selection defaults to false. `persist` is a property of the machine, declared on its
         definition: `definition({ id, persist: true, ... })`; refs carry no `persist`, so every ref
         of an identity agrees.
@@ -90,6 +99,9 @@ outcomes
         for once-only delivery. Context selections are recomputed from the saved providers, never
         restored as independent overrides.
     O3  Complete captures and writes
+        A save is always one complete, consistent view of the selected actors, their lanes and
+        shared confirmed data, never a torn or partial one.
+
         A capture contains a consistent view of selected actors, their lanes and shared confirmed
         data: it sees only whole publications, never part of a turn or an actor without its store
         writes. It never starts operations, emits context events or changes live state.
@@ -356,6 +368,9 @@ outcomes
 
         They may still execute remote commits; there is no cross-tab exactly-once guarantee.
     O7  A second tab runs without persistence
+        Only one tab owns a scope's saved data; a second tab runs normally but saves and restores
+        nothing.
+
         At `ready()`, a persistence-enabled Runtime requests an immediately available Web Lock for
         its app and scope before accessing storage. The page holds the lock while it is the live
         page: on `pagehide` with persisted, after its own flush, the host releases the lock and

@@ -5,6 +5,9 @@ goal
     Components read consistent data and keep stable actor handles without starting work in render.
 outcomes
     O1  Provider and Runtime ownership
+        One FlowProvider gives a React tree one Runtime, constructed and owned by the Provider or by the host, and
+        renders children without suspending.
+
         flow-state/react exposes <FlowProvider setup={setup}> and <FlowProvider runtime={runtime}>.
         With setup, the Provider constructs and owns one Runtime per setup scope: a new setup value
         with the same scope keeps the existing Runtime, while a changed scope (sign-in, sign-out,
@@ -23,6 +26,8 @@ outcomes
         An old scope's Runtime is never left running. Isolation follows @plan.Runtime.O7. All
         `useView` reads in one render see one consistent version across actors and store entries.
     O2  Hooks and the first render
+        Hooks return stable actor handles whose first render is pure and starts no work.
+
         useActor(machine, options?) returns a local actor handle for the component incarnation:
         fresh memory and state, with the write lanes of its local identity (machine, input by
         Equal.equals) adopted, so a remounted or revealed local actor with the same input receives
@@ -96,6 +101,9 @@ outcomes
         across hiding, persist the machine or hold a use outside the hidden subtree. Selectors read
         operations.
     O4  Eligibility in views
+        A view reads an actor's snapshot through a selector with the selector's exact return type, and reads time
+        through the Runtime Clock.
+
         useView(actor, select) accepts an exact handle and preserves the selector's exact return
         type. Nullable lookup must be branched first; Machines, refs and comparator arguments are
         rejected. useNow(every) returns the Runtime Clock's epoch milliseconds and re-renders at

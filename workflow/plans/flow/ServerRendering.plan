@@ -6,6 +6,8 @@ goal
     replayed mutations, lost client edits or data shared between requests or accounts.
 outcomes
     O1  Capture a request's data
+        A server captures a request's data into an opaque, JSON-safe payload from a fresh Runtime.
+
         flow-state/server exports dehydrate(setup, prepare, { within, maxBytes?, inspector? }),
         returning Promise<Hydration<A>>. Hydration<A> is opaque, JSON-safe and usable as an RSC
         prop. Each call owns a fresh Runtime, waits for readiness, calls prepare once, settles,
@@ -100,6 +102,9 @@ outcomes
         DehydrateTooLarge naming the ten largest items; no partial payload is returned. A failed
         consistent capture rejects rather than returning a mixture of actor and store versions.
     O4  Matching first render
+        The first client render matches the server's output, because Flow hook results depend only on props and
+        ancestor Hydrate payloads.
+
         flow-state/react exports <Hydrate payload={payload}>{children}</Hydrate>. It requires a
         FlowProvider, otherwise throws HydrateOutsideProvider. It renders children without
         suspending and supports nested boundaries and independently streamed segments.

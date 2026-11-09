@@ -4,8 +4,15 @@ status  proposed
 goal
     App authors declare keyed reads, explicit commits and continuing streams. Readers share
     current data, edits survive racing reads, and every admitted wait has an honest ending.
+
+    **Why now:** several actors read the same keyed data and write racing edits, so sharing, freshness and write
+    endings are fixed once here.
+
+    **Read first:** @spec.Reads and @spec.WriteLanes, the Specs built from this Plan.
 outcomes
     O1  Contracts and keys
+        Resources, transactions and streams are declared as inert contracts; constructing one starts no work.
+
         resource({ id, input, output?, key, services, lookup, staleTime, gcTime, persist? }),
         transaction({ id, input, output?, key, services, concurrency, commit, progress?,
         idempotency?, guarded?, previous? }) and stream({ id, input, output, key, services,
@@ -135,6 +142,8 @@ outcomes
         hold or start work. Cleared, collected or replaced requests cannot later change data or
         replacement placements.
     O3  Transactions, commits and write lanes
+        A commit starts only from an accepted action and always ends in success, failure or unknown.
+
         Only an accepted action admits O.x.commit(select, { optimistic? }); activation, restore,
         hydration and state re-entry never replay a commit. select reads the turn's after memory and
         the event. optimistic, the commit's only option, reads the starting turn's after memory,
@@ -300,6 +309,9 @@ outcomes
         commit (@plan.EntityDomains.O1); a store module's defect declines a write that would join
         NotSent { ModuleDisabled } until reload.
     O4  Streams
+        A stream delivers every message or only the latest, as its contract declares, and Flow reconnects a failed
+        connection when the contract asks.
+
         A stream contract declares delivers: "every" (never skipped or silenced, one per turn, or
         one page per turn from a read) or "latest" (newest wins, current only while this connection
         confirmed it); position names a field of output whose value says where each message is
@@ -375,6 +387,9 @@ outcomes
         and `dropAt` is kept with a latest bookmark. Domain listeners follow @plan.EntityDomains.O1.
         Persisted bookmarks and reopening follow @plan.Persistence.O4.
     O5  Writes and optimistic values
+        Writes to read data are validated together and published atomically, and an older lookup never overwrites a
+        newer write.
+
         O.x.setData(select) returns { key, data }; data is a value or updater(current) => A |
         undefined. Updaters read confirmed data; undefined declines the write.
         O.x.invalidate(select) and O.x.clear(select) return partial keys.
@@ -414,6 +429,9 @@ outcomes
         repair removes nothing. Success retains the updates until `setData` or a lookup started
         after settlement confirms the entry. clear removes them with the entry.
     O6  Rows
+        Each operation's row in a snapshot shows the state of its lanes, entry or session and keeps object identity
+        until that changes.
+
         s.operations.<name> reflects that snapshot's publication and keeps object identity until its
         lane, entry or session changes; inside a fragment it is the fragment's own rows.
 
@@ -452,6 +470,9 @@ outcomes
         name) passively returns the lane-shaped view at that snapshot's store revision, or
         undefined. It creates, holds, refreshes and starts nothing; invalid keys throw.
     O7  Cancellation and cleanup
+        Releasing or cancelling work interrupts it and runs its finalizers once, and a cancel acts according to the
+        Attempt's history.
+
         Planned release interrupts the fiber and runs finalizers once without interrupt endings;
         adapter-reported interruption of a read ends Interrupted. Releasing a placement stops shared
         work only at its last owner.

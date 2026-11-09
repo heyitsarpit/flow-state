@@ -69,10 +69,18 @@ tasks
         blocked_by  [@task.V3.T15]
         labels      [verifiable, feature]
         description
-            Blocked by T15: P4 builds only against the proven suite. The walking skeleton: the
-            thinnest production runtime that runs checkout's Pay machine through the public API and
-            the production adapter, built from @spec.Compile, @spec.Turn, @spec.WriteLanes. Drafted
-            in full when P4 starts.
+            Build the thinnest production runtime that runs checkout's Pay machine through the public API and the
+            production adapter: the walking skeleton.
+
+            **Why now:** P4 has no production code yet, and every later module needs one path that runs end to
+            end to build on.
+
+            **Read first:** @spec.Compile, @spec.Turn, @spec.WriteLanes,
+            code:packages/flow-state-v3/conformance/port.ts#Port,
+            code:packages/flow-state-v3/conformance/fixtures/pay.ts#Pay. Blocked by @task.V3.T15: P4 builds only
+            against the proven suite.
+
+            **Approach:** drafted in full when P4 starts.
 
             - **May change:** `packages/flow-state-v3/src/`, the production adapter.
             - **Evidence:** this Task's comments.
@@ -90,7 +98,15 @@ tasks
         blocked_by  [@T16]
         labels      [verifiable, feature]
         description
-            @spec.Compile and @spec.Diagnostics from the public API. Drafted in full when P4 starts.
+            Build Compiled and the compiler: @spec.Compile and @spec.Diagnostics from the public API.
+
+            **Why now:** the skeleton compiles only the Pay machine; the full construction rules and the
+            diagnostics are unbuilt, and every module after this reads Compiled.
+
+            **Read first:** @spec.Compile, @spec.Diagnostics, @task.V3.T13 (the static cases that judge it),
+            code:packages/flow-state-v3/conformance/README.md (the round-14 carry list).
+
+            **Approach:** drafted in full when P4 starts.
 
             - **May change:** `src/`.
             - **Evidence:** this Task's comments.
@@ -109,7 +125,15 @@ tasks
         blocked_by  [@T17]
         labels      [verifiable, feature]
         description
-            @spec.Turn, @spec.WriteLanes, @spec.Actors. Drafted in full when P4 starts.
+            Build lane, step and turn from @spec.Turn, @spec.WriteLanes and @spec.Actors.
+
+            **Why now:** the skeleton runs one path; the full turn, the write lanes and the actors' lifetime
+            and mailboxes are what the suite's runtime areas judge.
+
+            **Read first:** @spec.Turn, @spec.WriteLanes, @spec.Actors,
+            code:packages/flow-state-v3/conformance/README.md (the guarantee map and the round-14 carry list).
+
+            **Approach:** drafted in full when P4 starts.
 
             - **May change:** `src/`.
             - **Evidence:** this Task's comments.
@@ -127,7 +151,15 @@ tasks
         blocked_by  [@T18]
         labels      [verifiable, feature]
         description
-            @spec.WriteAhead; the Effect driver in `src/host/`. Drafted in full when P4 starts.
+            Build the persistence edge, write-ahead and the Effect driver in `src/host/` from @spec.WriteAhead.
+
+            **Why now:** the core returns work as data; nothing runs it or writes records yet, so durability
+            cannot be judged.
+
+            **Read first:** @spec.WriteAhead, @spec.WriteAhead.I15, @spec.WriteAhead.I16, @spec.WriteAhead.I17,
+            code:packages/flow-state-v3/conformance/README.md ("Planned Port changes": the disk reader).
+
+            **Approach:** drafted in full when P4 starts.
 
             - **May change:** `src/`.
             - **Evidence:** this Task's comments.
@@ -146,8 +178,16 @@ tasks
         blocked_by  [@T19]
         labels      [verifiable, feature]
         description
-            @spec.Restore, @spec.Codec, record formats from the first release. Drafted in full when
-            P4 starts.
+            Build restore and key versions from @spec.Restore and @spec.Codec, with record formats tagged from
+            the first release.
+
+            **Why now:** write-ahead records exist but nothing reads them back, so a reload cannot restore
+            actors or deliver what was owed.
+
+            **Read first:** @spec.Restore, @spec.Codec, @spec.WriteAhead,
+            code:packages/flow-state-v3/conformance/README.md (the `restore` row and the carry list).
+
+            **Approach:** drafted in full when P4 starts.
 
             - **May change:** `src/`.
             - **Evidence:** this Task's comments.
@@ -165,8 +205,17 @@ tasks
         blocked_by  [@T20]
         labels      [verifiable, feature]
         description
-            Fragments, then operations with the required services list, and @spec.Reads; the
-            round-14 carry list's unbuilt design items. Drafted in full when P4 starts.
+            Build fragments, then operations with the required services list, and @spec.Reads, with the round-14
+            carry list's unbuilt design items.
+
+            **Why now:** the runtime cannot yet declare fragments or operations, or read resources, which
+            the Reads area and the carry items judge.
+
+            **Read first:** @spec.Reads, @spec.Compile.R9, @spec.Compile.R10, @spec.Compile.R11,
+            code:packages/flow-state-v3/conformance/README.md (the round-14 carry list: the "design items not
+            built" row).
+
+            **Approach:** drafted in full when P4 starts.
 
             - **May change:** `src/`.
             - **Evidence:** this Task's comments.
@@ -185,8 +234,15 @@ tasks
         blocked_by  [@T21]
         labels      [verifiable, feature]
         description
-            @spec.StaticCli; the CLI stays at check, explain, graph, story, trace. Drafted in full
-            when P4 starts.
+            Build the CLI's `check`, `explain` and `graph` from @spec.StaticCli; the CLI stays at check, explain,
+            graph, story, trace.
+
+            **Why now:** Compiled has no static front end, so nothing yet answers the static cases.
+
+            **Read first:** @spec.StaticCli, @spec.StaticCli.I2 (graph edge names equal the turn record's),
+            @spec.Compile, @spec.Diagnostics.
+
+            **Approach:** drafted in full when P4 starts.
 
             - **May change:** `src/`.
             - **Evidence:** this Task's comments.
@@ -205,9 +261,16 @@ tasks
         blocked_by  [@T22]
         labels      [verifiable, feature]
         description
-            Retire the prototype adapter; `nub run build` points at `packages/flow-state-v3` (it
-            still builds the frozen library), and `nub run verify` passes. Drafted in full when P4
-            starts.
+            Retire the prototype adapter, point `nub run build` at `packages/flow-state-v3` (it still builds the
+            frozen library), and pass `nub run verify`.
+
+            **Why now:** the P4 exit needs the suite to pass on the production runtime alone, with `verify`
+            green.
+
+            **Read first:** code:packages/flow-state-v3/conformance/adapters/prototype.ts,
+            code:packages/flow-state-v3/conformance/suite.ts, @spec.Conformance.R3, @spec.Conformance.R11.
+
+            **Approach:** drafted in full when P4 starts.
 
             - **May change:** `package.json`, the suite's adapters.
             - **Evidence:** this Task's comments.

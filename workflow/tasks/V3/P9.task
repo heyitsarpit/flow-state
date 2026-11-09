@@ -53,7 +53,14 @@ tasks
         priority    medium
         labels      [verifiable, performance]
         description
-            One budget at a time against P8's baseline. Drafted in full when P9 starts.
+            Meet each budget on its named device, one budget at a time against P8's baseline.
+
+            **Why now:** the budgets are the P9 goal; P8's baselines and the user's targets are what they are measured
+            against.
+
+            **Read first:** @task.V3.T35, skill:playbook-performance, skill:hillclimb, skill:check-benchmark.
+
+            **Approach:** drafted in full when P9 starts.
 
             - **Evidence:** this Task's comments.
             - **False pass:** a speedup that skips work → caught by skill:check-benchmark.
@@ -69,9 +76,16 @@ tasks
         priority    medium
         labels      [verifiable, performance]
         description
-            Sweep every finding from every round, Epic note and revisit.md into fixed, deferred with
-            a reason, or dropped with a reason checked against the Specs. Drafted in full when P9
-            starts.
+            Sweep every finding from every round, Epic note and revisit.md into fixed, deferred with a reason, or
+            dropped
+            with a reason checked against the Specs.
+
+            **Why now:** the P9 exit needs every finding to have a disposition before the final-commit gates.
+
+            **Read first:** code:workflow/plans/flow/references/proposals/revisit.md,
+            code:workflow/plans/flow/references/proposals/open-items.md, code:workflow/tasks/V3/epic.task.
+
+            **Approach:** drafted in full when P9 starts.
 
             - **Evidence:** this Task's comments.
             - **False pass:** drops to finish → caught by the completion audit.
@@ -87,8 +101,13 @@ tasks
         priority    low
         labels      [verifiable, performance]
         description
-            The user runs it: an agent here reaches only browsers and a simulator. Prepare the
-            script and read the results.
+            Prepare the real-phone script for quota and disk durability, and read the results the user runs.
+
+            **Why now:** an agent here reaches only browsers and a simulator, and a WebDriver session keeps no website
+            data, so quota and durability were never measured on a real store.
+
+            **Read first:** code:packages/flow-state-v3/prototypes/safari/RESULTS.md (item 0 and the open quota and
+            durability items), @task.V3.T36.
 
             - **Evidence:** this Task's comments.
             - **False pass:** a simulator standing in for the phone → caught by the user's own run.

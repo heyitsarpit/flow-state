@@ -46,8 +46,14 @@ tasks
         priority    medium
         labels      [verifiable, ticket]
         description
-            Pack, run the packed-consumer check, and stop before each ship stage. Drafted in full
-            when P10 starts.
+            Release the package as far as the user asks: pack, run the packed-consumer check, and stop before each ship
+            stage.
+
+            **Why now:** the release is the last step of the epic, and what ships must be the form that was tested.
+
+            **Read first:** @plan.Package.O4, @plan.Package.D1, skill:playbook-ship, skill:review.
+
+            **Approach:** drafted in full when P10 starts.
 
             - **Evidence:** this Task's comments.
             - **False pass:** tested form differs from published → caught by the packed-consumer

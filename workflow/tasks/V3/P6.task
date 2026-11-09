@@ -55,8 +55,14 @@ tasks
         priority    medium
         labels      [non-verifiable]
         description
-            Put the candidates and the proposed criteria to the user in one numbered round; then add
-            one Task per picked app with skill:to-task.
+            Put the candidate apps and the proposed criteria to the user in one numbered round; then add one Task per
+            picked app with skill:to-task.
+
+            **Why now:** P6 has no app Tasks until the user picks the apps and approves the criteria, and the pick may
+            come
+            any time before P6 starts.
+
+            **Read first:** skill:interview, skill:to-task.
 
             - **Evidence:** this Task's comments.
             - **False pass:** criteria that a UI meets without showing a guarantee → caught by the

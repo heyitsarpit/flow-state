@@ -4,6 +4,8 @@ status  proposed
 goal
     App authors can identify a failed boundary, correct its cause and inspect all failures
     without parsing prose or leaking private data through diagnostics.
+
+    **Read first:** @spec.Diagnostics, the Spec built from this Plan.
 outcomes
     O1  FlowError and Diagnostic
         Expected invalid authoring throws FlowError. Owned Effects report understood expected

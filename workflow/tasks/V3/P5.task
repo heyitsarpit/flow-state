@@ -59,8 +59,16 @@ tasks
         priority    high
         labels      [not-readily-verifiable, verification-suite]
         description
-            @plan.EntityDomains as merged (OD52); carry rows `a3b.*`, `audit-2.*`. Entities are not
-            up for cutting. Drafted in full when P5 starts.
+            Prove the entities slice, then build the entity store on production from @plan.EntityDomains as merged
+            (OD52).
+
+            **Why now:** entities are the first P5 area, and the production runtime has no entity store yet.
+
+            **Read first:** @plan.EntityDomains.O1, @plan.EntityDomains.D1,
+            code:packages/flow-state-v3/conformance/README.md
+            (the carry rows `a3b.*` and `audit-2.*`).
+
+            **Approach:** drafted in full when P5 starts.
 
             - **Evidence:** this Task's comments.
             - **False pass:** a lenient slice → caught by the area audit's mutants.
@@ -76,9 +84,14 @@ tasks
         priority    high
         labels      [not-readily-verifiable, verification-suite]
         description
-            Streams as merged (OD53); carry rows (C202 eviction, jitter determinism, rule 70's wait
-            per operation, T3's bound across two operations, `listen.none`). Drafted in full when P5
-            starts.
+            Prove the streams slice, then build streams on production as merged (OD53), with a real EventSource path.
+
+            **Why now:** streams are a P5 area with no production code, and the suite carries open stream rows: C202
+            eviction, jitter determinism, rule 70's wait per operation, T3's bound across two operations, `listen.none`.
+
+            **Read first:** @plan.Operations.O4, code:packages/flow-state-v3/conformance/README.md (the carry rows).
+
+            **Approach:** drafted in full when P5 starts.
 
             - **Evidence:** this Task's comments.
             - **False pass:** a lenient slice → caught by the area audit's mutants.
@@ -94,8 +107,15 @@ tasks
         priority    high
         labels      [not-readily-verifiable, verification-suite]
         description
-            @plan.Persistence's migration as merged (OD54); against real storage shapes (IndexedDB
-            structured clone, `localStorage` text). Drafted in full when P5 starts.
+            Prove the record migration slice, then build @plan.Persistence's migration on production as merged (OD54),
+            against real storage shapes (IndexedDB structured clone, `localStorage` text).
+
+            **Why now:** restore reads records from the first release, but nothing yet migrates a record whose shape has
+            changed.
+
+            **Read first:** @plan.Persistence.O4, @plan.Persistence.D1, @spec.Codec, @spec.Restore.
+
+            **Approach:** drafted in full when P5 starts.
 
             - **Evidence:** this Task's comments.
             - **False pass:** a lenient slice → caught by the area audit's mutants.
@@ -111,7 +131,14 @@ tasks
         priority    medium
         labels      [not-readily-verifiable, verification-suite]
         description
-            Multi-tab ownership and sessions from @plan.Runtime. Drafted in full when P5 starts.
+            Prove the multi-tab and sessions slice, then build multi-tab ownership and sessions from @plan.Runtime.
+
+            **Why now:** nothing in production yet owns a scope across tabs or runs sessions, which
+            @plan.Runtime.O7 and @plan.Persistence.O7 need.
+
+            **Read first:** @plan.Runtime.O3, @plan.Runtime.O7, @plan.Persistence.O7.
+
+            **Approach:** drafted in full when P5 starts.
 
             - **Evidence:** this Task's comments.
             - **False pass:** one-tab tests standing in for two → caught by a real two-tab browser
@@ -128,9 +155,14 @@ tasks
         priority    high
         labels      [not-readily-verifiable, verification-suite]
         description
-            IndexedDB meeting Safari's four requirements
-            (`packages/flow-state-v3/prototypes/safari/RESULTS.md`), and an in-memory adapter.
-            Drafted in full when P5 starts.
+            Build the IndexedDB host adapter, meeting Safari's four requirements, and an in-memory adapter.
+
+            **Why now:** production has no storage adapter, and a fake IndexedDB would hide Safari's behaviour.
+
+            **Read first:** code:packages/flow-state-v3/prototypes/safari/RESULTS.md, @plan.Persistence.O1,
+            @plan.Persistence.D1, @spec.WriteAhead.
+
+            **Approach:** drafted in full when P5 starts.
 
             - **Evidence:** this Task's comments.
             - **False pass:** a fake standing in for IndexedDB → caught by skill:check-runtime in
@@ -147,8 +179,15 @@ tasks
         priority    medium
         labels      [not-readily-verifiable, verification-suite]
         description
-            @plan.Testing's Stories, `flow story list/describe/run` and `flow trace`. Drafted in
-            full when P5 starts.
+            Build @plan.Testing's Stories, `flow story list/describe/run` and `flow trace` on production.
+
+            **Why now:** Stories are how tests and the example apps (P6) show behaviour, and the CLI has no story or
+            trace
+            commands yet.
+
+            **Read first:** @plan.Testing.O1, @plan.Testing.O9, @plan.CommandLine.O2, @plan.CommandLine.O4.
+
+            **Approach:** drafted in full when P5 starts.
 
             - **Evidence:** this Task's comments.
             - **False pass:** a Story that re-executes on scrub → caught by the player tests (V9).
@@ -164,7 +203,13 @@ tasks
         priority    high
         labels      [not-readily-verifiable, verification-suite]
         description
-            @plan.React and @plan.ServerRendering. Drafted in full when P5 starts.
+            Build the React and Next.js bindings from @plan.React and @plan.ServerRendering.
+
+            **Why now:** UI is React and Next.js only, and production has no binding for either.
+
+            **Read first:** @plan.React.O1, @plan.React.O2, @plan.ServerRendering.O1, @plan.ServerRendering.O4.
+
+            **Approach:** drafted in full when P5 starts.
 
             - **Evidence:** this Task's comments.
             - **False pass:** tests in jsdom standing in for Next.js → caught by a real Next.js run.
@@ -180,9 +225,14 @@ tasks
         priority    medium
         labels      [not-readily-verifiable, verification-suite]
         description
-            Source locations, a trace that reads like a story, a graph grouped by state, and
-            messages from the issue catalog; mocks first, then the user's one acceptance round.
-            Drafted in full when P5 starts.
+            Design the CLI outputs for people: source locations, a trace that reads like a story, a graph grouped by
+            state, and messages from the issue catalog; mocks first, then the user's one acceptance round.
+
+            **Why now:** the P5 exit needs the user to accept the CLI outputs, and only the user can judge them.
+
+            **Read first:** @plan.CommandLine.O3, @plan.Diagnostics.O2, @spec.StaticCli.
+
+            **Approach:** drafted in full when P5 starts.
 
             - **Evidence:** this Task's comments.
             - **False pass:** outputs pinned from the code → caught by mocks the user accepts first.

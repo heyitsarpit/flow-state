@@ -7,8 +7,13 @@ goal
     attachInspector and trace. Observation never starts work, never changes committed state,
     never persists implicitly, never invents evidence and never delays a turn. CLI leaves and
     flags are @plan.CommandLine.O1 to @plan.CommandLine.O5.
+
+    **Read first:** @spec.Codec, the Spec built from this Plan; the reference tool
+    code:workflow/plans/flow/references/dispatch-desk/tools/inspection.ts.
 outcomes
     O1  inspect(app) and inspect(runtime)
+        A host can read an app's structure without running any of it.
+
         inspect(app) returns a Promise of a plain readonly Model. It loads every lazy entry
         (@plan.LazyFeatures.O5) and compiles the App without running any machine callback, guard,
         adapter, Layer or service; it builds no Runtime and touches no storage.
@@ -85,6 +90,8 @@ outcomes
         No raw parser error or Cause escapes. A value with no encoded form inside a turn never fails
         the turn: it is UnencodableValue (@plan.Operations.O3, @plan.Persistence.O5).
     O3  Inspector sinks
+        A host attaches a callback or a bounded buffer to receive a Runtime's evidence.
+
         attachInspector(runtime, callback) attaches a callback; attachInspector(runtime, { capacity?
         }) creates a bounded buffer. Both return drain() and dispose(); the buffer also returns
         snapshot() and clear().
@@ -198,6 +205,8 @@ outcomes
         leave the process as digests. Identities, versions, kinds, sequences, state paths, event
         tags and codes are never redacted, nor is a request's via, which is an identity.
     O6  Renderers
+        An app's structure renders deterministically as text, JSON or Mermaid.
+
         render(model, "text" | "json" | "mermaid") is synchronous and deterministic. Text prints
         each machine's states, transitions, guards with deny codes, outcome edges, schedules and
         sends, and each domain as declaration sentences, with lazy entries marked. json is the

@@ -62,8 +62,19 @@ tasks
         priority    medium
         labels      [non-verifiable]
         description
-            Draft the criteria for the user; build the docgen pipeline, the `npm pack` example check
-            and the issue catalog generator. Drafted in full when P7 starts.
+            Draft the docs criteria for the user, and build the docgen pipeline, the `npm pack` example check and the
+            issue
+            catalog generator.
+
+            **Why now:** no section can be written or ruled until the criteria exist and the two gates (example
+            type-check,
+            docs freshness) can fail.
+
+            **Read first:** code:codebases/effect-v4/packages/effect/docgen.json, @plan.Package.O4,
+            @plan.Diagnostics.O2,
+            skill:policy-writing.
+
+            **Approach:** drafted in full when P7 starts.
 
             - **Evidence:** this Task's comments.
             - **False pass:** a freshness gate that never fails → caught by a planted stale page.
@@ -81,7 +92,12 @@ tasks
         blocked_by  [@T33]
         labels      [non-verifiable]
         description
-            One section at a time, 3 rounds each at most; split per section when P7 starts.
+            Write each docs section and put it to its judge, one at a time; split per section when P7 starts.
+
+            **Why now:** the P7 exit needs every section ruled against the approved criteria and the fresh-agent test
+            passing.
+
+            **Read first:** @task.V3.T33, skill:policy-writing, skill:review.
 
             - **Evidence:** this Task's comments.
             - **False pass:** planned API documented → caught by the `npm pack` example check.

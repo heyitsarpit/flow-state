@@ -7,6 +7,12 @@ goal
     coherent, publishes consistent views, isolates users and requests, and reports uncertain remote
     writes honestly. Its behaviour can be inspected structurally and replayed deterministically.
 
+    **Why now:** each capability Plan owns its own contracts and proofs, so something must say where
+    production code is built and in which order the stages pass their gates; this Plan does, and the
+    Plans listed below are the ones it orders.
+
+    **Read first:** the worked example code:workflow/plans/flow/references/dispatch-desk/app/app.ts.
+
     Capability plans own their contracts, decisions and proofs:
 
     - Machines — definitions, fragments, states, turns, guards and work (@plan.Machines.O1).

@@ -55,8 +55,17 @@ tasks
         priority    medium
         labels      [not-readily-verifiable, verification-suite]
         description
-            Build both suites, prove them, take baselines on named devices, and propose targets for
-            the user. Benchmarks and browser runs run alone. Drafted in full when P8 starts.
+            Build the benchmark and real-browser suites, prove them, take baselines on named devices, and propose budget
+            targets for the user.
+
+            **Why now:** the P9 budgets need proven suites and checked baselines, and the user sets the targets only
+            after
+            the baselines exist.
+
+            **Read first:** skill:check-benchmark, skill:check-runtime, skill:policy-verification,
+            skill:principle-explain-measurements, @task.V3.T32.
+
+            **Approach:** benchmarks and browser runs run alone; drafted in full when P8 starts.
 
             - **Evidence:** this Task's comments.
             - **False pass:** skipped work in a benchmark → caught by skill:check-benchmark.

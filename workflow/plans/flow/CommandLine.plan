@@ -4,8 +4,12 @@ status  proposed
 goal
     App authors discover and run Stories, inspect declarations and explain retained evidence
     through the installed flow binary without changing the application being inspected.
+
+    **Read first:** @spec.StaticCli, the Spec built from this Plan.
 outcomes
     O1  Commands and selection
+        flow offers a small fixed set of commands, all with text and JSON output.
+
         flow exposes only story list, story describe <story-id>, story run <story-id>, trace
         <story-id> [--at <checkpoint>], graph [<app-id/machine-id>], check and explain (the user's
         CLI scope, OD55); there is no diff, trace diff or search command. All support text and JSON

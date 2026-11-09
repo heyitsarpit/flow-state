@@ -2,11 +2,19 @@ plan Runtime
 title   Applications, readiness, actors and context
 status  proposed
 goal
-    One Runtime runs every host, React tree, server request, Story and CLI command: a closed set
-    of machines, one store, one ordered decision path per actor, causally complete context and
-    truthful cleanup. Turns are @plan.Machines.O3, operations @plan.Operations.O1, storage
-    @plan.Persistence.O1, React @plan.React.O1, hydration @plan.ServerRendering.O1 and lazy
-    entries @plan.LazyFeatures.O1.
+    Flow has one Runtime, and every host runs on it: a browser's React tree, a server request, a
+    Story and a CLI command.
+
+    It gives each of them the same guarantees: a closed set of machines, one store, one ordered
+    decision path per actor, causally complete context and truthful cleanup.
+
+    **Why now:** every host runs the same machines, so ordering, storage, context and cleanup must behave the same in
+    each. This Plan fixes the one Runtime they share; other Plans own the parts it runs: turns (@plan.Machines.O3),
+    operations (@plan.Operations.O1), storage (@plan.Persistence.O1), React (@plan.React.O1), hydration
+    (@plan.ServerRendering.O1) and lazy entries (@plan.LazyFeatures.O1).
+
+    **Read first:** @spec.Actors and @spec.Compile, the Specs built from this Plan; the reference
+    app code:workflow/plans/flow/references/dispatch-desk/app/app.ts.
 outcomes
     O1  Apps
         app({ id, machines }) is inert and lists every machine the Runtime may run. An entry is a
@@ -38,6 +46,9 @@ outcomes
         identity is app id, machine id and the actor's identity (@O3), never an app property key.
         Reference: references/dispatch-desk/app/app.ts.
     O2  Setup and readiness
+        A Runtime is built without side effects and becomes ready through one shared bootstrap that
+        reads storage before any app service starts.
+
         runtimeSetup({ app, services?, scope?, persistence?, repairSlots?, audit? }).construct() is
         synchronous and inert. scope is an optional nonempty string naming whose data the Runtime
         holds, such as a user, workspace or tenant id. It partitions saved data
@@ -264,6 +275,9 @@ outcomes
         identity's current snapshot and waits as a use. Reference:
         references/dispatch-desk/features/Tickets/editor/editor.machine.ts.
     O5  Context propagation
+        A consumer always reads one complete, consistent snapshot of the context it depends on, and
+        a bad context graph is refused before any work runs.
+
         Provider.select(selector) reads one complete provider snapshot. A context slot binds to one
         provider for the consumer's lifetime. Context reads form an acyclic upward graph; a cycle
         (ContextCycle), a missing provider (MissingContextProvider) or an incompatible one rejects
@@ -292,6 +306,9 @@ outcomes
         wave to settle (@plan.Persistence.O3).
         Reference: references/dispatch-desk/features/Tickets/queue/queue.machine.ts.
     O6  Lifecycle and disposal
+        Disposing an actor or a Runtime cleans up truthfully: unfinished writes are kept and
+        reported, never silently dropped.
+
         Public lifecycle is active, disposing or disposed. runtime.disposeActor(actor) disposes the
         actor for every user: it removes the actor's record, keeps its non-Idle lanes as unbound
         lane records, and flushes the removal at once; an unbound lane record it leaves ends at an

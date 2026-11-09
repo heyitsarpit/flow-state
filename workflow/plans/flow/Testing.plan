@@ -6,6 +6,9 @@ goal
     state and replay generated failures against the production Runtime.
 outcomes
     O1  Stories
+        A Story runs an app, one machine or one fragment in isolation on the production Runtime, with typed inputs and
+        fixtures.
+
         Story.app(setup, { id, fixtures?, world?, storage?, seed? }) accepts a typed RuntimeSetup.
         Story.machine(machine, { id, input?, context?, fixtures?, world?, seed? }) tests one fresh
         actor; input and context are required exactly when declared and have their declared types.
@@ -110,6 +113,9 @@ outcomes
 
         Invalid or backwards movement rejects with InvalidDuration before changing time.
     O3  Fixtures and the world
+        Fixtures replace the client's services and a fake server stands in for everything outside the client, so a run
+        controls its whole world.
+
         Fixtures are Effect Layers: the client halves of the world, replacing whole service
         functions while preserving their input, success, failure, cancellation and lifetime
         contracts. Everything outside the client is a fake server, one per run, holding typed truth
@@ -146,6 +152,9 @@ outcomes
         encoded records before bootstrap, but cannot bypass production validation. Acquisition
         failures still trigger @O8 cleanup.
     O4  Frames, checkpoints and StoryFrame
+        A run records frames and checkpoints that give faithful captured cuts of its state, so a step can read its own
+        effects.
+
         A frame is one captured cut of the run. A run records a frame after every committed
         publication, a settlement included, and every step ends with a step cut (its latest
         publication frame plus the evidence position, fake truth and wire state at the step's end),
@@ -201,6 +210,9 @@ outcomes
         Removed: model-based exploration is cut. Flow keeps one runtime; finding unwritten
         sequences stays with propertyTest (@O6) on the real Runtime.
     O6  Reproducible property tests
+        A property test generates ordinary Stories from seeded steps and faults and replays any failure against the
+        production Runtime.
+
         propertyTest(story, { steps, properties?, whenQuiet?, seed, runs?, length?, quietWithin? })
         generates ordinary Stories from story on fresh production Runtimes. steps are step data
         forms (every form but checkpoint), generated with pure generators using the supplied seeded
@@ -248,6 +260,8 @@ outcomes
         Repeated replay produces identical traces. Export redaction identifies omissions that
         prevent the printed projection alone from reproducing the failure.
     O7  Isolation, hydration and lazy features
+        Stories are isolated per run, scope and request, and model a reload or a second tab as separate tabs.
+
         Run, scope and request isolation follows @plan.Runtime.O7. Tests use no browser storage or
         live state from another run.
 
@@ -287,6 +301,8 @@ outcomes
         expose adopted entries; unrelated dormant records remain dormant. Real module loading is
         exercised by production host tests.
     O8  Cleanup and failure evidence
+        Every run finalizes the resources it owns, whether it succeeds, fails or only partly acquires them.
+
         A run takes no cancellation signal: it never yields to the host, so nothing could call abort
         during one, and a runner's timeout reports only when the run ends; the hop cap, the turn
         limit and the deadline limit bound it. Success, execution failure and partial acquisition
@@ -316,6 +332,8 @@ outcomes
         and last accepted and drained evidence positions. Direct and CLI runs agree on results and
         retained evidence.
     O9  Story playback
+        A recorded run can be played, stepped and scrubbed without executing anything again.
+
         <StoryPlayer run={run}> plays a run's frames over time under a floating overlay, built only
         from StoryFrame; <StoryPlayer presentation={presentation}> first records the presentation's
         own Story once on mount. Recording is the only execution: playing, stepping, scrubbing and

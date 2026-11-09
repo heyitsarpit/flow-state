@@ -2,9 +2,17 @@ plan Package
 title   Package routes, dependency identity, declarations and installed consumers
 status  proposed
 goal
-    One ESM package whose supported imports, declarations and host boundaries agree with the
-    capability plans. This plan owns what a consumer can import and how installed use is proven;
-    runtime behaviour stays with its owners.
+    Flow ships as one ESM package whose supported imports, declarations and host boundaries agree
+    with the capability plans.
+
+    This plan owns what a consumer can import and how installed use is proven; runtime behaviour
+    stays with its owners.
+
+    **Why now:** a consumer sees only the packed output, so what it can import and how installed use is proven needs
+    one owner.
+
+    **Read first:** @spec.Codec, the Spec built from this Plan; the reference app
+    code:workflow/plans/flow/references/dispatch-desk/app/app.ts.
 outcomes
     O1  Routes
         Exactly six routes exist, through explicit package exports and ESM import conditions; no
