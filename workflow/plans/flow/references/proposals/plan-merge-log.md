@@ -592,8 +592,7 @@ Held for the user: none. *Corrected by the fix pass:* the first merge did re-add
 cut; the fix pass cut it again (CLC1, B2). No other merge needed a large public API change or a guarantee change
 the user had not decided.
 For the user's read: PC3 (any structural Schema change resets a record, the runner's Q19 ruling, already call 13 in
-progress.md) and CLC1 (`diff --base` cut by the user's 2026-11-02 CLI scope, `trace diff` kept with the export by
-the later OD43).
+progress.md) and CLC1 (`diff --base` cut by the user's 2026-11-02 CLI scope, `trace diff` cut too, by the same scope, OD55; the first pass had wrongly kept it).
 
 Not placed in a plan:
 - C127 targets `references/design/multi-tab.md`, a design document, not a plan.

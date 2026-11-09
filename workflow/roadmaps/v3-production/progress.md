@@ -269,7 +269,7 @@ question numbers.
 10. **Proposed names, none confirmed by you:** `RecordShapeChanged`, `LaneRekeyCollision`, `OpRenamed`,
     `PreviousIsCurrent`, `FieldDropped`, `HoldWithoutRecord`, `UnboundLane`, `LaneRekeyed`, `GoneWithoutKey`,
     `FillsOtherKey`, `GuardContradicted`, `ImpureDefault`, `RepairOverdue`, `IdleWithoutPing`, `Abandoned`,
-    `ModuleDisabled`, `ReservedReason`, `HoldForgotten`, `SelectedNoKey`, `UnsettledEvicted`, `GuardedUnbound`,
+    `ModuleDisabled`, `contract.get` (renamed from `descriptor.get`), `ReservedReason`, `HoldForgotten`, `SelectedNoKey`, `UnsettledEvicted`, `GuardedUnbound`,
     `GuardedWithoutVersion`, `GuardedWithoutTarget`, `RecordUndecodable`, `RecordHeld`, `SharedContract` (built
     as a check), and the inspection value `stalled: "record"`. (`OldVersionLane` you accepted, OD47.) Renaming any is
     one edit until phase 3 builds production on them.
@@ -336,8 +336,9 @@ Added by phase 2's fix pass (2026-11-09, from the independent merge audit's read
     Evidence: rule 8's stated gap, round 14. Reverse: nothing to reverse; yours to accept or drop.
 19. **Open, as built (OD54 (c)): a revert can meet an overwritten old-version record.** Release 2's ensure of the
     new identity writes over release 1's old-version record (one record key), so after a revert release 3 sees one
-    unsure lane, not two, and `forget` is not the only removal of an old-version record. Also latent: (b) and (d), a
-    re-key persisted only when the lane is next written. Why open: no ruling yet; the plans keep "removed by
+    unsure lane, not two, and `forget` is not the only removal of an old-version record. Also latent: (b) saved-shape
+    stamps are compared raw across a future change of Flow's own version format; (d) a re-key is persisted only when the
+    lane is next written; (e) a crash between writing a moved lane and deleting the old one leaves both on disk. Why open: no ruling yet; the plans keep "removed by
     `forget`". Evidence: OD54's open items, record migration round 3. Reverse: a separate key per identity version
     for actor records (a design change).
 20. **Entities and streams as built, not separately listed (OD52, OD53).** A gap marks the version field (only key
@@ -346,6 +347,14 @@ Added by phase 2's fix pass (2026-11-09, from the independent merge audit's read
     it (`unknown { Abandoned }`, proposed); two placements of one operation and key share one session slot. Why:
     each is what the build showed safe (over-marking is the safe side; a yield keeps the record live). Evidence:
     OD52 (12), OD53 (15)-(17), STATUS.md "Phase 1: streams". Reverse: one rule each.
+
+21. **OD54's stated limits, in one place** (each also in revisit.md): an old identity's unknown hold has no user exit
+    (entries 4, 12); a memory field rename is a drop plus an add, so it never resets and the old value is lost but for
+    `FieldDropped`; records with no shape stamp (written before Flow's record format 4) never reset; computed initial
+    values are stamped in the prototype, so changing one resets (entry 13). Why: each is the price of the automatic
+    reset without a manual version or migration functions (your Q1). Evidence: OD54, audit M2, `5ccc6944`. Reverse:
+    migration functions (revisit.md, option B) answer the first three; deriving computed fields on restore, the last.
+    PC3 in the phase 2 table below is this list's entries 2 and 13, a behaviour call, not wording.
 
 ## Calls for the user's read (added 2026-11-09, phase 2 plan merge)
 
@@ -629,3 +638,4 @@ One line per iteration. Results live in the records; link them.
 - 2026-11-09 merge audit (`17032125`): FAIL on 8 blocking text items, no re-merge: per-record reset credited to the user; `trace diff` back against the user's 2026-11-02 CLI cut; unmarked runner rulings (PC1, PC2, EC2); InvalidWrite rules deleted silently; lane tuple without version in 3 places; Diagnostics' closed list missing stream flags; unconfirmed names as final; no conflict reached the read list (amendment 11's independent judge: this audit is the first). 24/25 conflicts agreed. Merge lead's sidecars S2/S3 partly rubber-stamped. Read-list gaps listed. Fix pass sent to the merge lead (it may edit only the read-list sections of progress.md); then a narrow re-check by the same auditor, then Specs.
 - 2026-11-09 the user: "everything that is superseded should be extracted out into a separate superseded items file". Roadmap amendment 12 (version 13): superseded plan text moves to `workflow/plans/flow/references/superseded.md`, plans carry the current contract only; machine-design.md keeps its inline markers. Sent to the merge lead with the fix pass.
 - 2026-11-09 merge fix pass (`a8a2551d`..`6c7c5f43`): B1-B8 and minors fixed; OD55 records the user's 2026-11-02 CLI scope (trace diff cut); InvalidWrite rules restored in Operations O3; read list extended (phase 2 merge section with the audit's judgement beside each conflict); 270 superseded items moved to `superseded.md` (amendment 12). Three design ambiguities carried to the Specs (dehydrate settling vs moving time, hydration rejection vs rethrow, Hydrate's owner plan). Narrow re-check by the same auditor started.
+- 2026-11-09 merge re-check: PASS-WITH-FINDINGS, B1-B8 closed (0 dangling refs of 419, 0 of 293 pointers in superseded.md, 282 quoted segments each once). Runner fixed the minors inline: OD55's runner sentence marked and its quote noted as the runner's record; superseded.md's revision-diff entry (cut, no replacement); the merge log's trace diff line; RecordHeld and stalled: "record" marked proposed; read list entry 19's (b)(d)(e), contract.get in entry 10, entry 21 (OD54's stated limits; PC3 is a behaviour call). Not done: an evidence column on the phase 2 table, and reasons for entries 4/10/12/13 (they cite their ODs). PHASE 2 MERGE DONE; next Specs (to-spec / to-design, the user's rule for production).

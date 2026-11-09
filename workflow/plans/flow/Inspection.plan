@@ -45,7 +45,7 @@ outcomes
         (proposed name; a Silent end of a connection with no ping since connect), DeliveryDenied,
         FillsUntouched and FillsOtherKey, proposed name); per domain the answers with frontier and
         stale causes, predictions, queues, uncertain records, given-up marks and a record wait as
-        stalled: "record"; persistence status, including SecondTabNoPersistence; lazy entries
+        stalled: "record" (proposed); persistence status, including SecondTabNoPersistence; lazy entries
         adopted or not; hydration provenance. Held wire items in a Story are not Runtime facts.
         Actors are named by machine and input fields, Editor{workspaceId: "north", ticketId:
         "T-42"}, or a singleton's name. Revisions, timers and generations appear here and in

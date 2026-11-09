@@ -280,3 +280,101 @@ the user's words and the read list. The auditor read every cited line before usi
 | d6 proposed names | accepted for B7's list | `KeyOmitsInput`/`VerbMismatch` rejected (OD24). |
 | d7 read-list completeness | partly accepted | Gaps 2-6 accepted; n2 and m3 rejected (see above). |
 | d8 entries lacking reason, evidence or reversal | accepted, gap 7 | Read entries 1-17. |
+
+## Re-check (2026-11-09)
+
+Checked at `c23a1818`, after the fix pass (`a8a2551d`, `e2e5c858`, `227081b8`, `7f7afad2`, `b5dd48cc`) and the
+superseded-text extraction (`6c7c5f43`, amendment 12). Same auditor, with four fresh Haiku sidecars (effort high,
+read-only): (a) B1-B4 and OD55, (b) B5-B7 and the name marks, (c) the extraction, (d) the read list.
+
+### Verdict: PASS-WITH-FINDINGS
+
+B1-B8 are closed. None of the findings left blocks Specs. Each is a one-line edit, and the Spec writer can make them
+or carry them.
+
+Gates run by the auditor:
+- `workflow check`: "Repository is valid."
+- `refcheck.py`: 419 plan references, 0 dangling.
+- The same check over `superseded.md`: 293 `@plan` pointers, 0 dangling, 270 items.
+
+### Blocking findings
+
+| Finding | Closed? | Evidence (read by the auditor) |
+| --- | --- | --- |
+| B1 | yes | Persistence.plan:187-188 says "(the user's Q1 A: per definition, ...), decided per record (the runner's ruling)". Log P-2 is corrected. |
+| B2 | yes | CommandLine.plan:9-11 says "exposes only ... (the user's CLI scope, OD55); there is no diff, trace diff or search command". OD55 is in the design. |
+| B3 | yes | PC1 and PC2 are marked at Persistence.plan:214-218 and EC2 at EntityDomains.plan:31-32. No plan cites `PC`/`EC` ids any more. |
+| B4 | yes | Operations.plan:124-126 restores both sentences word for word (as at `75a73b84^` lines 102-104). It also restores "Neither restore nor hydration invokes a commit". Diagnostics' `InvalidWrite` pointer resolves to O3. |
+| B5 | yes | Every lane tuple says identity with its version (Operations.plan:164, :226; Persistence.plan:57; Runtime.plan:133). No stale form is left. |
+| B6 | yes | Diagnostics.plan:120-122 lists the eight flags as diagnostic records, and `ReleaseOverdue` is among them, as in Inspection. |
+| B7 | yes, two names left | Every name is marked at least once in each plan that uses it. Residual: Diagnostics.plan:132 `RecordHeld` and Inspection.plan:48 `stalled: "record"` carry no mark on their own line. |
+| B8 | yes | progress.md has a new "phase 2 plan merge" section, and entries 18-20 cover the audit's gaps 2-5. |
+
+### Minor findings
+
+Fixed:
+- 1: owner pointers. Each code is now named in its owner (for example `EndedWithWork` at Runtime.plan:116).
+- 2: Diagnostics D1 now has the `PropertyTestFailed` exception.
+- 4: wording. Partly fixed: FlowState names fragments but not traits or subroutines.
+- 5: pointers.
+- 7: the summary's held-for-the-user line is corrected.
+
+Still open:
+- plan-merge-log.md:594-596 still says "`trace diff` kept with the export by the later OD43". This contradicts the
+  corrected line just above it and OD55.
+
+### New findings in the re-check (all minor)
+
+1. **superseded.md:358 points to a rule that no longer exists.** It says the revision-diff sentence is "Now held in:
+   @plan.CommandLine.O6", but O6 has no diff text, because the rule is cut. It should say "cut, no replacement
+   (OD55)".
+2. **OD55 (machine-design.md:9948-9953) matches the user's words in full.** The five points are kept, with nothing
+   left out. But under "The user, 2026-11-02" it adds one precedence sentence that is the runner's inference:
+   "Where 2.10.14 ... this entry wins (OD43 ... did not re-add `diff`)". Mark that sentence as the runner's.
+3. **The user's 2026-11-02 words exist only in private session memory.** OD55 says "from the session record", and no
+   repo file holds the quote. Quote the user's sentence in OD55 so the record stands alone.
+4. **The trace comparison stays at library level.** Inspection O6's four-result trace comparison and D1's "diff"
+   reader are pre-merge library contract. CommandLine.plan:122-124 states that the CLI has no command for it. The
+   user's cut was CLI-level, so this is not a violation. Noted for the user's read only.
+5. **Read list.**
+   - Entry 19 (progress.md:339-340) says "(b) and (d)" but describes only (d). (b), stamps compared raw across a
+     format bump, has no content. OD54 (e), a crash between the moved-lane batch and the delete
+     (machine-design.md:9943-9944), is absent.
+   - The phase 2 table has no evidence column. B4's reversal reads "none needed".
+   - The "Others" row files PC3 with the wording-only calls. It is a priced runner ruling, already covered by
+     entries 2 and 13.
+   - OD54's stated limits are in revisit.md but not on the list: a changed default is not in the version, a rename is
+     a drop plus an add, unstamped records never reset, and pre-format-3 lanes bind to any identity of their name.
+   - `contract.get` is not in entry 10's list of names.
+   - Entries 4, 10, 12 and 13 still lack a reason or evidence.
+6. **The extraction is complete and nothing current moved out.**
+   - All 68 old Superseded paragraphs, 282 quoted segments in all, are in superseded.md, each once, with the same
+     pointers. Sentences quoted by two plans appear once per plan.
+   - No `Superseded:` paragraph remains in a plan. The remaining hits are the evidence name.
+   - The commit removed only Superseded paragraphs, blank separators, Testing V5's "Was:" clause (recorded at
+     superseded.md:420), and the history clause in Operations.plan:359 ("renamed with descriptors"). The contract
+     there is unchanged.
+
+### Sidecar log (re-check)
+
+| Finding (sidecar) | Result | Why |
+| --- | --- | --- |
+| a: B1-B4 closed | accepted | Read Persistence.plan:186-190, :213-219; CommandLine.plan:8-13; Operations.plan:123-127. |
+| a: superseded.md:358 points to CommandLine O6 | accepted, new 1 | Read. |
+| a: Inspection O6 and D1 keep a library diff | changed, new 4 | Pre-merge library contract; the CLI states no command for it. |
+| a: log:594-596 stale | accepted | Read. |
+| a: OD55 adds a precedence sentence under the user's name | accepted, new 2 | Read machine-design.md:9948-9953. |
+| a: Persistence PC1 mark "reading the user's quarantine decision" attributes to the user | rejected | The sentence names the runner as the reader of a real user decision (U4); that is accurate. |
+| b: B5 and B6 closed | accepted | Read the cited lines. |
+| b: `RecordHeld` and `stalled: "record"` unmarked | accepted, B7 residual | Read Diagnostics.plan:132 and Inspection.plan:44-49. |
+| b: marks on the next line or as list-level marks | rejected | A mark on the wrapped line, or "all, proposed names" over a list, marks the name. |
+| b: minors 1, 2, 4, 5 fixed | accepted | Spot-read Runtime.plan:116, Diagnostics.plan:221-222, Machines.plan:47, CommandLine.plan:15-16. |
+| c: extraction complete, 0 missing | accepted | My own count: 270 items, 293 pointers, 0 dangling. I did not re-diff every segment; I rely on the sidecar's script after reading its method. |
+| c: Operations.plan:359 clause removed outside a Superseded paragraph | changed | A history clause only; the contract is unchanged. |
+| c: C38 a weak pointer for `activities` | rejected | The pointer pairs C38 with C55, which carries the mapping. |
+| c: Machines and Operations cite different C sets for one sentence | rejected | Each plan cites the rows that target it. |
+| d: gaps 1-5 present, labels fixed, header fixed | accepted | Read progress.md:333-372. |
+| d: entry 19's (b) and (e) | accepted, new 5 | Read. |
+| d: phase 2 table has no evidence column; PC3 in "Others" | accepted, new 5 | Read. |
+| d: OD54 stated limits not on the list | accepted, new 5 | They are in revisit.md, not unknown to the user's records; low priority. |
+| d: entries 4, 10, 12, 13 lack a reason or evidence | accepted, new 5 | Read. |

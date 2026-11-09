@@ -129,7 +129,7 @@ outcomes
         PredictionNotRetained (proposed names except PredictionNotRetained;
         @plan.EntityDomains.O1, @plan.CommandLine.O5): add .byKey; declare the version and
         target; give the predicted field a carrier.
-        - Stale, RecordHeld, RepairOverdue (proposed), UnsettledEvicted (proposed),
+        - Stale, RecordHeld (proposed), RepairOverdue (proposed), UnsettledEvicted (proposed),
         GuardContradicted (proposed), InputDecodeFailed (evidence, @plan.EntityDomains.O1):
         expected store facts; read their causes.
 

@@ -355,7 +355,7 @@ pass commit (a8a2551d, e2e5c858, 227081b8) for the items the independent audit a
 
 - "defineConfig({ apps: [{ app, stories }] })" gains top-level stories and tsconfig (C81; merge 5, 6.4). Now held in: @plan.CommandLine.O6 and the rows cited. Commit: a00c1dba.
 - "duplicate ... Story ids within an app" reads within the configuration (C69). Now held in: @plan.CommandLine.O6 and the rows cited. Commit: a00c1dba.
-- "Revision diff applies the same rule inside its selected revision." goes with diff --base (the user's CLI scope of 2026-11-02, OD55). Now held in: @plan.CommandLine.O6 and the rows cited. Commit: a00c1dba.
+- "Revision diff applies the same rule inside its selected revision." goes with diff --base (the user's CLI scope of 2026-11-02, OD55). Cut, no replacement. Commit: a00c1dba.
 
 ## Testing
 

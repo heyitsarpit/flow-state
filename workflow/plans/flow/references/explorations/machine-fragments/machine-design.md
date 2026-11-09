@@ -9948,9 +9948,11 @@ operations-in-fragments, the lane model and the reviews cite them.
 - **OD55** The user, 2026-11-02 (recorded 2026-11-09 by phase 2's fix pass, from the session record): the CLI keeps
   only `flow check`, `flow explain`, `flow graph`, `flow story list/describe/run` and `flow trace`. `flow diff
   --base` and `trace diff` are cut for now; `flow stories --coverage` becomes `flow story list --coverage`; folding
-  `flow trace` into `flow explain --trace` is still to try; there is no `flow search`. Where 2.10.14 says a trace
-  file's `diff` comes with Inspection O4's export, and where T2 and C81 spell `flow stories --coverage`, this entry
-  wins (OD43 accepted `flow trace <story>` and did not re-add `diff`). CommandLine O1 follows it. (2026-11-02)
+  `flow trace` into `flow explain --trace` is still to try; there is no `flow search`. (The user's exact words were
+  not kept; this is the runner's record of the accepted scope, from the 2026-11-02 session.) *The runner, 2026-11-09:*
+  where 2.10.14 says a trace file's `diff` comes with Inspection O4's export, and where T2 and C81 spell
+  `flow stories --coverage`, this entry wins (OD43 accepted `flow trace <story>` and did not re-add `diff`).
+  CommandLine O1 follows it.
 - **OD24** Process, delegated by the owner (2026-10-30): the main session approves the merge change lists for merges 4
   and 5 and for operations-in-definition, and treats operations as accepted for merging, unless a conflict needs an
   owner decision; only then is the owner asked. The streams direction review remains the owner's. (2026-10-30) *Process,
