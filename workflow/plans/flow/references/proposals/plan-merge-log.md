@@ -409,3 +409,39 @@ Conflicts:
 Prototype check (S2): built: `flow check` rule 15 (strict, own lane only, as stated), `SharedContract`,
 `GoneWithoutKey`; not built and kept as contract: `ScheduleLeadsToWrite`, the stay-put false positive's refinement,
 `UnboundedBridge`, the allowlist lint.
+
+## Testing
+
+Rows merged: fragments row (Testing O1, replaced by C69), C16 (superseded), C53, C63, C69-C77, C110, C122, C140, T1.
+The design marks the Stories rows "all proposed, following the decisions cited"; the decisions behind them (SC1-SC5,
+W1-W43) are recorded as owner-confirmed, and OD42 (the user) says 2.10 is built as designed, with the prototype's
+Story spellings as prior art. The plan follows 2.10.
+
+| # | Outcome | Before | After | Decision |
+| --- | --- | --- | --- | --- |
+| T-1 | title | "...checkpoints, models and property tests" | "...checkpoints and property tests" | C69 |
+| T-2 | O1 | `story.app`, `story.machine` with `services?`; ids within an App; `run({ signal?, frames? })`; the command list | `Story.app`, `Story.machine`, `Story.fragment`; ids across the configuration; data-form steps; a Story holds no checks; `run()` | C63; C69 |
+| T-3 | O1 | "App ensure(ref, options?) follows Runtime O3"; "send never creates" | ensure and detach as uses, no input; dispose and forget; send may restore; the address | C110; C122; C144; rule 65 |
+| T-4 | O2 | `process()`, `advanceTo`, `advanceToNextTimer` | every step settles (microtask scheduler, K hops, finish the world, `HostTimeWait`), turn limit per instant, `advance` forms, `together`, engine dependence | C70 |
+| T-5 | O3 | fixtures replacing services | fakes: `Fake.server`, wire words, one result shape, provenance, binding failures, `StoryFakeError`, `Fake.storage`; "fixtures cannot inject" kept | C53; C71 |
+| T-6 | O4 | frames per command with collapse; checkpoint reads through `checkpoint.actor`, `pending`, `descriptor.get`, `Entity.get`, `Entity.queue` | publication frames, step cuts, no collapse, truncation; reads `state` ... `now`, `cp.read`, `cp.inspection.work`, `cp.entity` | C72; C27 |
+| T-7 | O5 | `model`, `getShortestPaths`, `getSimplePaths` | removed, kept as a marked stub with the outcome id | T1; C77 |
+| T-8 | O6 | `propertyTest(domains, options)` | `propertyTest(story, { ... })`, steps as data, plain properties, `PropertyTestFailed`, truncation as Fail, quiet phase kept, `domainPropertyOptions` | C73 |
+| T-9 | O7 | tabs sharing storage; dehydrate exception | fakes and `Fake.storage` shared; in-transit requests survive `closeTab`; hydration source in the destination's world; `reload` | C53; C74 |
+| T-10 | O8 | cancellation sentences and flag | no signal; the error list; earliest error primary | C75 |
+| T-11 | O9 | highlight | addressed event; closed tab; fragment Stories not playable | C76 |
+| T-12 | V1-V9, Q2 | verification and deferred lists | V5 removed (stub kept); V1, V3, V4, V6, V8 amended; model items removed from Q2 | C77; T1 |
+
+Counts: 12 edits; 28 superseded sentences marked (O1: 9, O2: 3, O3: 2, O4: 4, O5: 1 block, O6: 4, O7: 4, O8: 3,
+O9: 1, V: 5, Q: 1, less overlap).
+
+Conflicts:
+- **TC1, agent-judged, applied.** C73 lists `length?` beside `runs?` but gives no defaults; the plan's "runs and
+  steps ... defaulting to 50 and 40" now has `steps` as the step forms. Recommended: `length` takes steps' old default
+  (40), `runs` keeps 50, marked as the runner's reading. Judge: the runner. Reversible: one number.
+- **TC2, agent-judged, applied.** Removing Testing O5 and V5 outright would delete IDs; kept as stubs marked removed,
+  with the superseded text quoted, so no ID is reused and no sentence disappears silently. Judge: the runner.
+  Reversible: delete the stubs.
+
+Prototype check (S2): Story `detach`/`dispose` were built only in harness steps (CP5); the plan keeps 2.10's
+contract. The prototype's Story spellings are prior art (OD42).
