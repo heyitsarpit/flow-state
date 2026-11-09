@@ -11,77 +11,89 @@ outcomes
     O1  inspect(app) and inspect(runtime)
         inspect(app) returns a Promise of a plain readonly Model. It loads every lazy entry
         (@plan.LazyFeatures.O5) and compiles the App without running any machine callback, guard,
-        adapter, Layer or service; it builds no Runtime and touches no storage. The Model is read
-        from each machine's compiled data view, whose closures are names (@plan.Runtime.O1). A
-        failed load rejects with EntryLoadFailed naming the entry; a construction error rejects
-        with the construction FlowError. Equal App code gives equal Model bytes on every host. The
-        Model lists the app and entries (eager or lazy), each machine's schemas, states,
+        adapter, Layer or service; it builds no Runtime and touches no storage.
+
+        The Model is read from each machine's compiled data view, whose closures are names
+        (@plan.Runtime.O1). A failed load rejects with EntryLoadFailed naming the entry; a
+        construction error rejects with the construction FlowError. Equal App code gives equal Model
+        bytes on every host.
+
+        The Model lists the app and entries (eager or lazy), each machine's schemas, states,
         transitions, guards with their possible deny codes, actions (each naming the operation it
         commits or reads), schedules, placements, outcome edges, context reads and persistence
         opt-ins; fragments, .each copies, fused transitions and contract summaries (fragment
-        operations included) under their instance names; every operation with its contract,
-        verb, concurrency, key fields and services; each entity domain as recorded (predicted
-        field names, runtime markers and many, never functions; a guarded write's targets); the
-        static actor-send graph and a fingerprint. It holds no live state, closures, Effects or
-        services. A constant in a condition is a literal up to 256 bytes, otherwise its hash; a
-        sensitive constant is never exported raw.
+        operations included) under their instance names; every operation with its contract, verb,
+        concurrency, key fields and services; each entity domain as recorded (predicted field names,
+        runtime markers and many, never functions; a guarded write's targets); the static actor-send
+        graph and a fingerprint. It holds no live state, closures, Effects or services.
+
+        A constant in a condition is a literal up to 256 bytes, otherwise its hash; a sensitive
+        constant is never exported raw.
 
         inspect(runtime) is synchronous and passive. It reads the last committed cut and never a
-        turn in progress, starts no work, adopts nothing, touches no storage and emits no
-        evidence. It works on a constructed, ready, disposing or disposed Runtime. It returns
-        frozen plain data with faithful in-process values: runtime lifecycle, clock and evidence
-        sequence; work (each item with waitsFor); per actor its state, revision, mailbox depth,
-        schedules, placements, fragment incarnations (status active or frozen), issues and uses
-        ({ consumers, subscriptions, contexts, pendingEnsures, busy }, each subscription with its
-        owner, busy listing work in flight by address, the mailbox depth, waiting deadlines and an
-        unencodable record; a free actor shows its grace in work); write lanes by identity, bound
-        or unbound, each with its operation path, subject path, binding (bound, unbound or
-        unplaced), releasing mark, state (Idle, InFlight, Held), holds, queued commits, kept
-        endings and parked endings, including quarantined lanes, old-version lanes and holds left
-        after disposeActor or forget; resource entries and stream sessions (per session: state,
-        drop, its registration row and basis, each proof, losses, bookmark and filled, bound and
-        release, with counters and a ring of the last 256; flags ValuesWhileDown,
-        RegistrationChurn, ReleaseOverdue, ProofWithoutPosition, PingsWithoutLive, IdleWithoutPing
-        (proposed name; a Silent end of a connection with no ping since connect), DeliveryDenied,
-        FillsUntouched and FillsOtherKey, proposed name); per domain the answers with frontier and
-        stale causes, predictions, queues, uncertain records, given-up marks and a record wait as
-        stalled: "record" (proposed); persistence status, including SecondTabNoPersistence; lazy entries
-        adopted or not; hydration provenance. Held wire items in a Story are not Runtime facts.
+        turn in progress, starts no work, adopts nothing, touches no storage and emits no evidence.
+        It works on a constructed, ready, disposing or disposed Runtime. It returns frozen plain
+        data with faithful in-process values: runtime lifecycle, clock and evidence sequence; work
+        (each item with waitsFor); per actor its state, revision, mailbox depth, schedules,
+        placements, fragment incarnations (status active or frozen), issues and uses ({ consumers,
+        subscriptions, contexts, pendingEnsures, busy }, each subscription with its owner, busy
+        listing work in flight by address, the mailbox depth, waiting deadlines and an unencodable
+        record; a free actor shows its grace in work); write lanes by identity, bound or unbound,
+        each with its operation path, subject path, binding (bound, unbound or unplaced), releasing
+        mark, state (Idle, InFlight, Held), holds, queued commits, kept endings and parked endings,
+        including quarantined lanes, old-version lanes and holds left after `disposeActor` or
+        forget; resource entries and stream sessions (per session: state, drop, its registration row
+        and basis, each proof, losses, bookmark and filled, bound and release, with counters and a
+        ring of the last 256; flags ValuesWhileDown, RegistrationChurn, ReleaseOverdue,
+        ProofWithoutPosition, PingsWithoutLive, IdleWithoutPing (proposed name; a Silent end of a
+        connection with no ping since connect), DeliveryDenied, FillsUntouched and FillsOtherKey,
+        proposed name); per domain the answers with frontier and stale causes, predictions, queues,
+        uncertain records, given-up marks and a record wait as stalled: "record" (proposed);
+        persistence status, including SecondTabNoPersistence; lazy entries adopted or not; hydration
+        provenance.
+
+        Held wire items in a Story are not Runtime facts.
+
         Actors are named by machine and input fields, Editor{workspaceId: "north", ticketId:
-        "T-42"}, or a singleton's name. Revisions, timers and generations appear here and in
-        evidence, never in public snapshots.
+        "T-42"}, or a singleton's name.
+
+        Revisions, timers and generations appear here and in evidence, never in public snapshots.
 
         flow explain is @plan.CommandLine.O1 and @plan.CommandLine.O4.
         Reference: references/dispatch-desk/tools/inspection.ts.
     O2  The structural codec
-        One bounded codec carries every value that crosses a process or storage boundary:
-        persisted records (@plan.Persistence.O3), server-rendering payloads
-        (@plan.ServerRendering.O3), trace artifacts and the Model bytes. It accepts JSON values
-        produced by the owning Schema. A value at a bound is accepted, one past it is rejected:
-        depth 32, 10,000 nodes, 4,096 items per array, 262,144 UTF-8 bytes per string or key,
-        2,097,152 canonical bytes.
+        One bounded codec carries every value that crosses a process or storage boundary: persisted
+        records (@plan.Persistence.O3), server-rendering payloads (@plan.ServerRendering.O3), trace
+        artifacts and the Model bytes. It accepts JSON values produced by the owning Schema.
+
+        A value at a bound is accepted, one past it is rejected: depth 32, 10,000 nodes, 4,096 items
+        per array, 262,144 UTF-8 bytes per string or key, 2,097,152 canonical bytes.
 
         Encoding is canonical: sorted keys, no whitespace, no -0, NaN, infinity, cycles, lone
         surrogates or sparse arrays. Decoding is strict: it rejects a byte-order mark, invalid
         UTF-8, and any input that does not re-encode to exactly the same bytes (duplicate keys,
-        unsorted keys, odd number spellings), then decodes with the owning Schema. Equal accepted
-        data gives equal bytes on every host; mutating an input or output byte array afterwards
-        never changes any stored or decoded value.
+        unsorted keys, odd number spellings), then decodes with the owning Schema.
+
+        Equal accepted data gives equal bytes on every host; mutating an input or output byte array
+        afterwards never changes any stored or decoded value.
 
         A failure is one FlowError raised before any actor, store, service or committed change:
         CodecBoundExceeded (naming the bound, its value and the path), CodecMalformed (with a
         reason, one of utf8, json, nonCanonical, cycle, negativeZero, nonFinite, loneSurrogate,
-        notPlain or sparse) or CodecSchemaMismatch (path and issue summary, never data values). No
-        raw parser error or Cause escapes. A value with no encoded form inside a turn never fails
+        notPlain or sparse) or CodecSchemaMismatch (path and issue summary, never data values).
+
+        No raw parser error or Cause escapes. A value with no encoded form inside a turn never fails
         the turn: it is UnencodableValue (@plan.Operations.O3, @plan.Persistence.O5).
     O3  Inspector sinks
-        attachInspector(runtime, callback) attaches a callback; attachInspector(runtime, {
-        capacity? }) creates a bounded buffer. Both return drain() and dispose(); the buffer also
-        returns snapshot() and clear(). Capacity defaults to 256 and may be zero; an invalid
-        capacity throws InvalidInspectorCapacity before attaching. snapshot() returns { records,
+        attachInspector(runtime, callback) attaches a callback; attachInspector(runtime, { capacity?
+        }) creates a bounded buffer. Both return drain() and dispose(); the buffer also returns
+        snapshot() and clear().
+
+        Capacity defaults to 256 and may be zero; an invalid capacity throws
+        InvalidInspectorCapacity before attaching. snapshot() returns { records,
         truncatedBeforeSequence }, where the marker is null only if nothing was omitted, otherwise
-        the greatest omitted or cleared sequence. Overflow drops the oldest records and advances
-        the marker. clear() empties the window without resetting the sequence.
+        the greatest omitted or cleared sequence. Overflow drops the oldest records and advances the
+        marker. clear() empties the window without resetting the sequence.
 
         A sink belongs to one Runtime and attaches once (InspectorAlreadyAttached on reuse);
         attaching to a disposed or disposing Runtime throws RuntimeDisposed. Attaching before
@@ -90,78 +102,99 @@ outcomes
 
         Sinks never delay or change anything. Records are accepted with publication, delivered
         asynchronously in sequence order, and never run user code inside a turn. A slow sink never
-        blocks turns, sends, context waves or persistence. A callback that throws detaches only
-        itself; drain and dispose reject with InspectorSinkFailed and a diagnostic reaches healthy
-        sinks. drain() waits for the evidence accepted when it was called; dispose() delivers that
-        prefix, detaches, is idempotent, and no callback runs after it resolves. Runtime disposal
-        accepts terminal lifecycle evidence for consumers before providers. No omission is silent
-        and no buffer is persisted.
-        Reference: references/dispatch-desk/tools/inspection.ts.
+        blocks turns, sends, context waves or persistence.
+
+        A callback that throws detaches only itself; drain and dispose reject with
+        InspectorSinkFailed and a diagnostic reaches healthy sinks. drain() waits for the evidence
+        accepted when it was called; dispose() delivers that prefix, detaches, is idempotent, and no
+        callback runs after it resolves. Runtime disposal accepts terminal lifecycle evidence for
+        consumers before providers. No omission is silent and no buffer is persisted. Reference:
+        references/dispatch-desk/tools/inspection.ts.
     O4  Traces
-        Every Runtime decision is an evidence event with one Runtime-global sequence starting at
-        1, so events of every kind order against each other; every event carries that run-wide
-        sequence and, in a Story, tab: { name, open }. A committed turn's events have contiguous
-        sequences and are accepted with the commit; a rolled-back turn leaves one turn event with
-        result "failed" and its code. An event is delivered only after the state it describes is
-        published. Lifecycle events are not turns and never advance an actor revision. When
-        sequence headroom runs out, admission refuses before any commit. Event kinds cover
-        machines (turn, which carries the keys its mappers read that it writes, with the
-        alternative each part took; lifecycle; life, each actor end and return, the end naming the
-        live work it stopped and a create within 5 s of an end how long ago; admission; send;
-        schedule; context; callback; exit; listRepair; drop; issue; diagnostic), operations
+        Every Runtime decision is an evidence event with one Runtime-global sequence starting at 1,
+        so events of every kind order against each other; every event carries that run-wide sequence
+        and, in a Story, tab: { name, open }.
+
+        A committed turn's events have contiguous sequences and are accepted with the commit; a
+        rolled-back turn leaves one turn event with result "failed" and its code.
+
+        An event is delivered only after the state it describes is published. Lifecycle events are
+        not turns and never advance an actor revision. When sequence headroom runs out, admission
+        refuses before any commit.
+
+        Event kinds cover machines (turn, which carries the keys its mappers read that it writes,
+        with the alternative each part took; lifecycle; life, each actor end and return, the end
+        naming the live work it stopped and a create within 5 s of an end how long ago; admission;
+        send; schedule; context; callback; exit; listRepair; drop; issue; diagnostic), operations
         (resource, ending, which names operation, contract, verb and key; lane, with its cell;
         session, with its cell; delivery), entity domains (delta, field, repair, skip, lookup,
         prediction, predictionFault, queue, uncertain, answer, invalidate, tombstone, selfCheck,
         audit), persistence (capture, write, flush, restored, persistence-lock), lazy entries
-        (entry-adopted, entry-adoption-failed) and server rendering (dehydrate, hydrate); Story
-        runs add step, request, control and verdict. A Story's records take 21 kinds in one list.
-        Evidence kinds include Superseded, Released, NothingToResend and InFlight; queue removals
-        carry their reason (Superseded, Cancelled, Released); uncertain's end reads "a later write
-        succeeded, or a retry of the Attempt succeeded" as amended by @plan.EntityDomains.O1;
-        UnusedWireRule is a Story-derived diagnostic. Boot reports and evidence named by the
-        owner plans appear here: TurnStorm, StorageSilent, OldVersionLane and Stale, and, all
-        proposed names, RecordUndecodable, UnboundLane, LaneRekeyed, OpRenamed,
-        LaneRekeyCollision, HoldWithoutRecord, HoldForgotten, RecordShapeChanged, FieldDropped,
-        RecordHeld, RepairOverdue, UnsettledEvicted, GuardContradicted and SelectedNoKey. A second
-        tab emits persistence-lock with SecondTabNoPersistence and no capture or restore; no
-        multi-tab coordination events exist in v1.
+        (entry-adopted, entry-adoption-failed) and server rendering (dehydrate, hydrate); Story runs
+        add step, request, control and verdict.
 
-        A Story run produces a Trace (@plan.Testing.O4); a production Runtime exports no trace,
-        and hosts keep redacted sink events in their own logs. flow trace <story> [--at
-        <checkpoint>] prints a Story's timeline (@plan.CommandLine.O2). trace.export(trace)
-        returns canonical bytes and trace.import(bytes) validates them and returns a Trace; both
-        are synchronous and need no App. A Trace holds kind and version, storyId, appId,
-        appFingerprint, seed, a truncatedBeforeSequence marker, redacted events, uniquely named
-        redacted checkpoints, outcome ("completed" or "failed"), end, failure and cleanup status.
-        completed requires an end; a failure before end capture leaves end null. It keeps at most
-        4,096 recent events, dropping the oldest until it fits the codec bounds and advancing the
-        marker; checkpoints are never dropped, and if they cannot fit the export fails with
-        CodecBoundExceeded.
+        A Story's records take 21 kinds in one list. Evidence kinds include Superseded, Released,
+        NothingToResend and InFlight; queue removals carry their reason (Superseded, Cancelled,
+        Released); uncertain's end reads "a later write succeeded, or a retry of the Attempt
+        succeeded" as amended by @plan.EntityDomains.O1; UnusedWireRule is a Story-derived
+        diagnostic.
 
-        Import validates in order and rejects with one FlowError: the codec; kind, version and a
-        closed schema (unknown or omitted members reject with InvalidTraceRecord); identity fields
-        (appId, appFingerprint form); strictly increasing sequences consistent with the marker;
-        lane and field correlations (Ready carries data, unknown carries its reason and an attempt
-        id); lifecycle only active, then disposing, then disposed per incarnation
-        (InvalidLifecycleTransition); and outcome consistency, so failed cleanup never yields
-        completed (InvalidStoryEvidence). A Trace never contains callbacks, Effects, Layers, live
-        refs, raw Cause, stacks or fiber ids, and is never a restore, hydrate or Story input.
-        Reference: references/dispatch-desk/tools/inspection.ts (loadTrace).
+        Boot reports and evidence named by the owner plans appear here: TurnStorm, StorageSilent,
+        OldVersionLane and Stale, and, all proposed names, RecordUndecodable, UnboundLane,
+        LaneRekeyed, OpRenamed, LaneRekeyCollision, HoldWithoutRecord, HoldForgotten,
+        RecordShapeChanged, FieldDropped, RecordHeld, RepairOverdue, UnsettledEvicted,
+        GuardContradicted and SelectedNoKey.
+
+        A second tab emits persistence-lock with SecondTabNoPersistence and no capture or restore;
+        no multi-tab coordination events exist in v1.
+
+        A Story run produces a Trace (@plan.Testing.O4); a production Runtime exports no trace, and
+        hosts keep redacted sink events in their own logs. flow trace <story> [--at <checkpoint>]
+        prints a Story's timeline (@plan.CommandLine.O2). trace.export(trace) returns canonical
+        bytes and trace.import(bytes) validates them and returns a Trace; both are synchronous and
+        need no App.
+
+        A Trace holds kind and version, `storyId`, `appId`, `appFingerprint`, seed, a
+        `truncatedBeforeSequence` marker, redacted events, uniquely named redacted checkpoints,
+        outcome ("completed" or "failed"), end, failure and cleanup status. completed requires an
+        end; a failure before end capture leaves end null. It keeps at most 4,096 recent events,
+        dropping the oldest until it fits the codec bounds and advancing the marker; checkpoints are
+        never dropped, and if they cannot fit the export fails with CodecBoundExceeded.
+
+        Import validates in order and rejects with one FlowError:
+
+        - the codec;
+        - kind, version and a closed schema (unknown or omitted members reject with
+          InvalidTraceRecord);
+        - identity fields (appId, appFingerprint form);
+        - strictly increasing sequences consistent with the marker;
+        - lane and field correlations (Ready carries data, unknown carries its reason and an attempt
+          id);
+        - lifecycle only active, then disposing, then disposed per incarnation
+          (InvalidLifecycleTransition);
+        - and outcome consistency, so failed cleanup never yields completed (InvalidStoryEvidence).
+
+        A Trace never contains callbacks, Effects, Layers, live refs, raw Cause, stacks or fiber
+        ids, and is never a restore, hydrate or Story input. Reference:
+        references/dispatch-desk/tools/inspection.ts (loadTrace).
     O5  Redaction and digests
         In-process reads, checkpoints, snapshots and inspect(runtime) carry raw values. Redaction
         applies where data leaves the process: sink events, trace artifacts and CLI output.
         Server-rendering payloads omit sensitive data entirely (@plan.ServerRendering.O3).
 
-        A value under a Schema annotated sensitive: true, or a Schema.Redacted node, at any depth
-        of an event, input, memory, context, key, output, error, stream value or entity field,
-        leaves the process as "hmac:" plus 64 hex characters of HMAC-SHA-256 over its canonical
-        bytes. Equal values under one key give equal digests, but a dictionary cannot recover them
-        without the key. The key is 32 random bytes per Runtime, never exported or persisted. In
-        Stories it is a private per-run key, reused when the same run repeats so repeated traces
-        are identical, and not derivable from the public seed. A value that cannot be encoded as
-        JSON is carried as { unencodable: <Schema identifier> }, never its contents. In artifacts,
-        every entity and resource value, sensitive or not, appears only as field names and
-        digests, so data never leaves through a trace; a Story's fake truth and request inputs
+        A value under a Schema annotated sensitive: true, or a Schema.Redacted node, at any depth of
+        an event, input, memory, context, key, output, error, stream value or entity field, leaves
+        the process as "hmac:" plus 64 hex characters of HMAC-SHA-256 over its canonical bytes.
+        Equal values under one key give equal digests, but a dictionary cannot recover them without
+        the key.
+
+        The key is 32 random bytes per Runtime, never exported or persisted. In Stories it is a
+        private per-run key, reused when the same run repeats so repeated traces are identical, and
+        not derivable from the public seed. A value that cannot be encoded as JSON is carried as {
+        unencodable: <Schema identifier> }, never its contents.
+
+        In artifacts, every entity and resource value, sensitive or not, appears only as field names
+        and digests, so data never leaves through a trace; a Story's fake truth and request inputs
         leave the process as digests. Identities, versions, kinds, sequences, state paths, event
         tags and codes are never redacted, nor is a request's via, which is an identity.
     O6  Renderers
@@ -172,15 +205,18 @@ outcomes
         context reads.
 
         Trace projections (printed by @plan.CommandLine.O4) read one or two Traces and run no
-        application code. summary gives counts and a per-actor timeline always stating "complete"
-        or "truncated before N" and the outcome. The sections are a closed list of normalized
-        events by kind: transitions, sends, schedules, lifecycle, resources (with why each
-        refetched), write lanes and endings, repairs, restore, hydration, adoption and
-        diagnostics. Filters are data: actor, attempt id, read, entity key with sequence, issues
-        only. A selector naming something absent from the app's Model fails with
-        InvalidArtifactOperand (reason UnknownSelector); one known to the Model but absent from
-        the trace answers none when the trace is complete. Under truncation, absence is reported
-        as "insufficient evidence" (EvidenceUnavailable), never "none".
+        application code. summary gives counts and a per-actor timeline always stating "complete" or
+        "truncated before N" and the outcome.
+
+        The sections are a closed list of normalized events by kind: transitions, sends, schedules,
+        lifecycle, resources (with why each refetched), write lanes and endings, repairs, restore,
+        hydration, adoption and diagnostics. Filters are data: actor, attempt id, read, entity key
+        with sequence, issues only.
+
+        A selector naming something absent from the app's Model fails with InvalidArtifactOperand
+        (reason UnknownSelector); one known to the Model but absent from the trace answers none when
+        the trace is complete. Under truncation, absence is reported as "insufficient evidence"
+        (EvidenceUnavailable), never "none".
 
         Comparing two Traces has four results: equal (both complete, sections match), different
         (a retained fact differs, even if truncated), incomplete (retained facts match and an
@@ -236,6 +272,11 @@ verification
         four comparison results; "insufficient evidence" under truncation; coverage.
 questions
     Q1  Deferred to build time
-        Exact event field lists; counters per turn; Model field layout; mermaid id derivation;
-        domain-literal hashing; sequence headroom reservation; fingerprint ordering rules;
-        supplying type facts outside source tooling.
+        - Exact event field lists;
+        - counters per turn;
+        - Model field layout;
+        - mermaid id derivation;
+        - domain-literal hashing;
+        - sequence headroom reservation;
+        - fingerprint ordering rules;
+        - supplying type facts outside source tooling.

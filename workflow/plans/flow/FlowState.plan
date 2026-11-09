@@ -8,19 +8,20 @@ goal
     writes honestly. Its behaviour can be inspected structurally and replayed deterministically.
 
     Capability plans own their contracts, decisions and proofs:
-    Machines — definitions, fragments, states, turns, guards and work (@plan.Machines.O1).
-    Runtime — apps, readiness, actors, messaging and context (@plan.Runtime.O1).
-    Operations — reads, commits, streams, writes and lanes (@plan.Operations.O1).
-    EntityDomains — coherent records, repair and predictions (@plan.EntityDomains.O1).
-    Persistence — capture, restore and a second tab without persistence (@plan.Persistence.O1).
-    ServerRendering — request isolation and SSR hydration (@plan.ServerRendering.O1).
-    LazyFeatures — deferred adoption and dormant durable data (@plan.LazyFeatures.O1).
-    React — attachment, consistent views and component lifetime (@plan.React.O1).
-    Testing — Stories, fakes, checkpoints and property tests (@plan.Testing.O1).
-    Diagnostics — FlowError, codes and actionable failures (@plan.Diagnostics.O1).
-    CommandLine — installed commands, checks and process behaviour (@plan.CommandLine.O1).
-    Inspection — structural and live inspection, traces and safe evidence (@plan.Inspection.O1).
-    Package — routes, dependency identity and installed consumers (@plan.Package.O1).
+
+    - Machines — definitions, fragments, states, turns, guards and work (@plan.Machines.O1).
+    - Runtime — apps, readiness, actors, messaging and context (@plan.Runtime.O1).
+    - Operations — reads, commits, streams, writes and lanes (@plan.Operations.O1).
+    - EntityDomains — coherent records, repair and predictions (@plan.EntityDomains.O1).
+    - Persistence — capture, restore and a second tab without persistence (@plan.Persistence.O1).
+    - ServerRendering — request isolation and SSR hydration (@plan.ServerRendering.O1).
+    - LazyFeatures — deferred adoption and dormant durable data (@plan.LazyFeatures.O1).
+    - React — attachment, consistent views and component lifetime (@plan.React.O1).
+    - Testing — Stories, fakes, checkpoints and property tests (@plan.Testing.O1).
+    - Diagnostics — FlowError, codes and actionable failures (@plan.Diagnostics.O1).
+    - CommandLine — installed commands, checks and process behaviour (@plan.CommandLine.O1).
+    - Inspection — structural and live inspection, traces and safe evidence (@plan.Inspection.O1).
+    - Package — routes, dependency identity and installed consumers (@plan.Package.O1).
 
     references/dispatch-desk is the worked example built against these contracts, including a
     Next.js App Router host for hydration, reload restore, lazy features and a second tab.
@@ -37,18 +38,18 @@ outcomes
         runs at that later stage's gate, never earlier. Every stage gate includes the
         packed-consumer check in @plan.Package.O4 for the routes available at that stage.
 
-        S1 Type spike — authoring types; needs none; gate @V1.
-        S2 Foundation — diagnostics and structural compilation; needs S1; gate @V2.
-        S3 Runtime — turns, actors, context and lifecycle; needs S2; gate @V3.
-        S4 Operations — reads, commits, streams and lanes; needs S3; gate @V4.
-        S5 Entity domains and property tests — needs S4 and S7; gate @V5.
-        S6 Persistence — core actor and resource persistence needs S4; entity persistence needs S5;
-        gate @V6.
-        S7 Stories — Story, fake, fixture and checkpoint infrastructure; needs S3; gate @V7.
-        S8 React — attachment and consistent views; needs S3; gate @V8.
-        S9 Inspection and CLI — needs S5 and S7; lazy-entry proofs run in S10; gate @V9.
-        S10 SSR, lazy features and proving app — needs S6, S8 and S9; gate @V10.
-        S11 Story playback — needs S7 and S8; follows the version 1 gates; gate @V11.
+        - S1 Type spike — authoring types; needs none; gate @V1.
+        - S2 Foundation — diagnostics and structural compilation; needs S1; gate @V2.
+        - S3 Runtime — turns, actors, context and lifecycle; needs S2; gate @V3.
+        - S4 Operations — reads, commits, streams and lanes; needs S3; gate @V4.
+        - S5 Entity domains and property tests — needs S4 and S7; gate @V5.
+        - S6 Persistence — core actor and resource persistence needs S4; entity persistence needs
+          S5; gate @V6.
+        - S7 Stories — Story, fake, fixture and checkpoint infrastructure; needs S3; gate @V7.
+        - S8 React — attachment and consistent views; needs S3; gate @V8.
+        - S9 Inspection and CLI — needs S5 and S7; lazy-entry proofs run in S10; gate @V9.
+        - S10 SSR, lazy features and proving app — needs S6, S8 and S9; gate @V10.
+        - S11 Story playback — needs S7 and S8; follows the version 1 gates; gate @V11.
 
 decisions
     D1  Structure is data and compiles to one representation

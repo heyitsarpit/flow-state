@@ -7,286 +7,386 @@ goal
     turn.
 outcomes
     O1  Configuration and storage
-        runtimeSetup({ app, scope, services?, persistence? }) enables persistence. Without it,
-        Flow acquires no storage and performs no restore, capture or storage I/O. Persistence
-        requires the setup's scope (@plan.Runtime.O2); its absence is a type error and rejects
-        untyped setups before construction, so saved data never lands in a shared partition.
+        `runtimeSetup({ app, scope, services?, persistence? })` enables persistence. Without it,
+        Flow acquires no storage and performs no restore, capture or storage I/O.
+
+        Persistence requires the setup's scope (@plan.Runtime.O2); its absence is a type error and
+        rejects untyped setups before construction, so saved data never lands in a shared partition.
+
         There is no app-wide or manual version: each record carries its own versions and saved
-        shape, checked per record and per definition at the boot (@O5). Different apps and
-        scopes never read, overwrite or delete each other's data.
+        shape, checked per record and per definition at the boot (@O5). Different apps and scopes
+        never read, overwrite or delete each other's data.
 
-        Enabled persistence requires an Effect KeyValueStore service from effect/persistence;
-        missing provision is a type error. Untyped missing provision fails ready with
-        StorageFailure. construct() performs no I/O. Storage is available before restore; saved
-        data is validated before actors start. Failed bootstrap exposes no partially restored
-        live app and releases acquired resources under @plan.Runtime.O2.
+        Enabled persistence requires an Effect `KeyValueStore` service from `effect/persistence`;
+        missing provision is a type error. Untyped missing provision fails `ready` with
+        `StorageFailure`. `construct()` performs no I/O. Storage is available before restore; saved
+        data is validated before actors start. Failed bootstrap exposes no partially restored live
+        app and releases acquired resources under @plan.Runtime.O2.
 
-        Flow supplies layerIndexedDb({ database? }) as a KeyValueStore Layer; database defaults
-        to a name derived from the app id, so apps sharing an origin never collide. It preserves
-        saved values, releases its connection on disposal and reports storage failures. Authors
-        can supply another KeyValueStore without changing persistence selection. Records are
-        stored as JSON strings. Public routes follow @plan.Package.O1; isolated Story storage
+        Flow supplies `layerIndexedDb({ database? })` as a `KeyValueStore` Layer; `database`
+        defaults to a name derived from the app id, so apps sharing an origin never collide. It
+        preserves saved values, releases its connection on disposal and reports storage failures.
+
+        Authors can supply another `KeyValueStore` without changing persistence selection. Records
+        are stored as JSON strings. Public routes follow @plan.Package.O1; isolated Story storage
         follows @plan.Testing.O3.
     O2  What survives reload
-        Selection defaults to false. persist is a property of the machine, declared on its
-        definition: definition({ id, persist: true, ... }); refs carry no persist, so every ref
-        of an identity agrees. A local actor of a persisted machine (createActor, useActor) is
-        not persisted and writes no record. resource({ persist: true }) selects confirmed
-        resource data independently of actor selection. Transactions and streams have no
-        persist option.
+        Selection defaults to false. `persist` is a property of the machine, declared on its
+        definition: `definition({ id, persist: true, ... })`; refs carry no `persist`, so every ref
+        of an identity agrees.
+
+        A local actor of a persisted machine (`createActor`, `useActor`) is not persisted and writes
+        no record. `resource({ persist: true })` selects confirmed resource data independently of
+        actor selection. Transactions and streams have no `persist` option.
 
         A persisted actor's state, memory, exact context bindings, issues and pending mapped
-        outcomes survive reload, together with schedule deadlines (keyed schedules' per-key
-        timers by key with dueAt), restartOn baselines, actor revisions, each history target's
-        last active child, resumable fragment slices (frozen ones with their frozen schedules and
-        the parked Interrupted endings of lookups the freeze cut), .each copies by key with
-        their incarnation counters, a writing placement's reset value with its slice, and, for
-        each placement, the last value it mapped to a value outcome. After reload, value fires
-        only when the confirmed value differs from that mapped value, so a fresh lookup of
-        unchanged data never overwrites a restored draft. A stream's bookmark (its partition per
-        operation and key: at, filled, and a latest row's last and heard) persists with its
-        slice, and a frozen slice keeps it; the position field's Schema must pass this outcome's
-        type rule. Memory uses its definition's Schema; selected resource results require their
-        output Schema. Persisted Schemas must encode and decode synchronously without services;
-        incompatible Schemas are a type error. Unsupported values fail encoding instead of being
-        coerced, omitted or stringified. The actor's identity is encoded with its Schemas
-        (@plan.Runtime.O3); a key is stored as canonical text, so a bigint 1n restores as "$1n".
+        outcomes survive reload, together with
 
-        Write lanes are Runtime records of the actor's identity, never inside the actor's
-        record: every non-Idle lane of a persisted identity, bound or unbound, stored under
-        (identity with its version, contract id, key) with its Attempts, each with its retryCount
-        and whether it was acknowledged, the creating incarnation's subject path (strings), the
-        releasing mark (a flag), and parked endings, raw (the contract's outcome decoded by its
-        output and error Schemas, plus Flow's reasons, the Attempt and the lane state after it),
-        mapped through the current definition's outcomes at delivery. Pending mapped outcomes
-        include endings of a persisted identity's lanes admitted while no incarnation is bound, and
-        its NotSent { Disposed }. A local identity's lanes never persist; one-off read lanes are not
-        persisted.
+        - schedule deadlines (keyed schedules' per-key timers by key with `dueAt`),
+        - `restartOn` baselines,
+        - actor revisions,
+        - each history target's last active child,
+        - resumable fragment slices (frozen ones with their frozen schedules and the parked
+          Interrupted endings of lookups the freeze cut),
+        - `.each` copies by key with their incarnation counters,
+        - a writing placement's reset value with its slice, and,
+          - for each placement, the last value it mapped to a value outcome.
 
-        Only confirmed shared data survives; optimistic values and predictions never become a
-        saved baseline. Entity projection and uncertainty repair follow @plan.EntityDomains.O1.
+        After reload, value fires only when the confirmed value differs from that mapped value, so a
+        fresh lookup of unchanged data never overwrites a restored draft.
+
+        A stream's bookmark (its partition per operation and key: at, filled, and a latest row's
+        last and heard) persists with its slice, and a frozen slice keeps it; the position field's
+        Schema must pass this outcome's type rule.
+
+        Memory uses its definition's Schema; selected resource results require their output Schema.
+        Persisted Schemas must encode and decode synchronously without services; incompatible
+        Schemas are a type error. Unsupported values fail encoding instead of being coerced, omitted
+        or stringified.
+
+        The actor's identity is encoded with its Schemas (@plan.Runtime.O3); a key is stored as
+        canonical text, so a bigint `1n` restores as `"$1n"`.
+
+        Write lanes are Runtime records of the actor's identity, never inside the actor's record:
+        every non-Idle lane of a persisted identity, bound or unbound, stored under (identity with
+        its version, contract id, key) with
+
+        - its Attempts, each with its `retryCount` and whether it was acknowledged,
+        - the creating incarnation's subject path (strings),
+        - the releasing mark (a flag), and
+        - parked endings, raw (the contract's outcome decoded by its output and error Schemas, plus
+          Flow's reasons, the Attempt and the lane state after it), mapped through the current
+          definition's outcomes at delivery.
+
+        Pending mapped outcomes include endings of a persisted identity's lanes admitted while no
+        incarnation is bound, and its `NotSent { Disposed }`. A local identity's lanes never
+        persist; one-off read lanes are not persisted.
+
+        Only confirmed shared data survives; optimistic values and predictions never become a saved
+        baseline. Entity projection and uncertainty repair follow @plan.EntityDomains.O1.
+
         Queued events (including admitted public events not yet processed), commands, executable
-        work, services and stream emission buffers do not survive. Pending mapped outcomes
-        survive for once-only delivery. Context selections are recomputed from the saved
-        providers, never restored as independent overrides.
+        work, services and stream emission buffers do not survive. Pending mapped outcomes survive
+        for once-only delivery. Context selections are recomputed from the saved providers, never
+        restored as independent overrides.
     O3  Complete captures and writes
-        A capture contains a consistent view of selected actors, their lanes and shared
-        confirmed data: it sees only whole publications, never part of a turn or an actor
-        without its store writes. It never starts operations, emits context events or changes
-        live state. It includes every non-Idle lane of a persisted identity, bound or unbound; a
-        releasing mark is captured no later than the actor record that drops the incarnation. An
-        ended actor's record is encoded in its end step and kept. disposeActor removes the
-        actor's record, keeps its non-Idle lanes as unbound lane records, and flushes the
-        removal at once; disposeActor and forget stop a send's restore only once their removal is
-        acknowledged. forget removes the identity's record and its parked endings (as evidence)
-        and drops no hold, except a hold whose operation no longer exists (HoldForgotten,
-        proposed name) (@plan.Runtime.O6). A pending mapped outcome settled before the final
-        capture, and never-sent work ended NotSent { Disposed }, are delivered after reload; at
-        Runtime disposal an unknown keeps its head Held on disk and a definite ending drops it.
-        A record reset at the boot keeps its writes in flight: lanes, holds and parked endings
-        stay unbound until an adopting ensure. Dormant lazy records follow @plan.LazyFeatures.O3.
+        A capture contains a consistent view of selected actors, their lanes and shared confirmed
+        data: it sees only whole publications, never part of a turn or an actor without its store
+        writes. It never starts operations, emits context events or changes live state.
+
+        It includes every non-Idle lane of a persisted identity, bound or unbound; a releasing mark
+        is captured no later than the actor record that drops the incarnation. An ended actor's
+        record is encoded in its end step and kept.
+
+        `disposeActor` removes the actor's record, keeps its non-Idle lanes as unbound lane records,
+        and flushes the removal at once; `disposeActor` and `forget` stop a send's restore only once
+        their removal is acknowledged.
+
+        `forget` removes the identity's record and its parked endings (as evidence) and drops no
+        hold, except a hold whose operation no longer exists (`HoldForgotten`, proposed name)
+        (@plan.Runtime.O6).
+
+        A pending mapped outcome settled before the final capture, and never-sent work ended
+        `NotSent { Disposed }`, are delivered after reload; at Runtime disposal an unknown keeps its
+        head Held on disk and a definite ending drops it.
+
+        A record reset at the boot keeps its writes in flight: lanes, holds and parked endings stay
+        unbound until an adopting ensure. Dormant lazy records follow @plan.LazyFeatures.O3.
 
         Every selected consumer requires its exact transitive context providers to be durable. A
         missing, local or non-durable provider rejects the whole capture, preserves the previous
-        complete scope and reports NonDurableContextProvider with every failing context path and
-        provider identity. Flow never substitutes a provider or silently drops the consumer.
-        Incomplete context propagation delays capture and retries automatically when settled; it
-        never writes a mixed or partial context view.
+        complete scope and reports `NonDurableContextProvider` with every failing context path and
+        provider identity.
+
+        Flow never substitutes a provider or silently drops the consumer. Incomplete context
+        propagation delays capture and retries automatically when settled; it never writes a mixed
+        or partial context view.
 
         A scope is saved atomically: after interruption or a torn write, reload sees one complete
         saved capture, falling back to the last good capture when necessary. Older writes never
-        replace newer committed state. Every actor and lane record carries Flow's record format
-        (1 to 4). Plain memory coalesces for 5 s and is flushed at once on visibilitychange to
-        hidden and on pagehide; a batch that touches a lane or a send, or a disposeActor removal,
-        is written at once with everything dirty, so a lane never outruns its actor; a first
-        send's capture and acknowledgement are one batch with the turn that committed it; a
-        hidden page writes at once. The durability required by @O6 cannot be coalesced away. A
-        stream partition is written once per changed last. A scope admits at most 4,096 records
-        and 16 MiB of record data, including dormant records; over either bound, a capture drops
-        the oldest ended records that equal a fresh start, with evidence, and if that is not
-        enough the capture is rejected and its evidence names the oldest ended identities, so the
-        app can forget them; a record that holds anything a user did is never dropped. Shared
-        value bounds follow @plan.Inspection.O2; encoding failure preserves the last good
+        replace newer committed state. Every actor and lane record carries Flow's record format (1
+        to 4).
+
+        Plain memory coalesces for 5 s and is flushed at once on `visibilitychange` to hidden and on
+        `pagehide`;
+
+        - a batch that touches a lane or a send, or a `disposeActor` removal, is written at once
+          with everything dirty, so a lane never outruns its actor;
+        - a first send's capture and acknowledgement are one batch with the turn that committed it;
+        - a hidden page writes at once.
+
+        The durability required by @O6 cannot be coalesced away. A stream partition is written once
+        per changed last.
+
+        A scope admits at most 4,096 records and 16 MiB of record data, including dormant records;
+        over either bound, a capture drops the oldest ended records that equal a fresh start, with
+        evidence, and if that is not enough the capture is rejected and its evidence names the
+        oldest ended identities, so the app can forget them; a record that holds anything a user did
+        is never dropped.
+
+        Shared value bounds follow @plan.Inspection.O2; encoding failure preserves the last good
         capture.
 
-        The store's contract (agent-judged): batches are atomic and commit in issue order; per key
-        a later write wins, whatever order the answers come in; one plain write per key is out
-        at a time; an awaited write waits for any plain batch of its actor still out and carries
-        what that batch owed; a batch answers landed only if every request in it succeeded. A
-        write the disk has not answered is pending, never "not sent": evidence StorageSilent names
-        it after 10 s and decides nothing; nothing bounds a wait on storage (a stated limit). Page
-        hide, visibility becoming hidden and Runtime disposal request a flush; a frozen page runs
-        no task, deadline, backoff or capture until a thaw, and a discard is a kill with no
-        pagehide. Browser exit flushing is best effort; on Safari a tab close loses the last
-        batch, so the loss window is the 5 s interval. A record names the boot that wrote it and
-        restore's id floor is the largest it reads, so an id on disk is never minted again.
-        Disposal waits for the last write before releasing storage and ownership, subject to
-        bounded disposal in @plan.Runtime.O6. A write still pending when the disposal budget ends
-        reports StorageFailure rather than hanging or claiming a completed flush.
-    O4  Restore without replay
-        ready() restores a compatible scope before actor work starts. Restored records stay
-        records until an ensure, a subscription or a send reaches them, except an identity whose
-        captured lanes owe it an ending (a lane InFlight at capture, or a parked ending), which is
-        restored live at ready and kept as work in flight until those turns run, so offline
-        queued writes resume after a reload without each screen being opened. A restored record
-        is a new incarnation, with new ids for the actor and every fragment incarnation it
-        restores. Ensuring a restored actor takes no input (@plan.Runtime.O3). Restore never runs
-        creation again or replays old input or turns.
+        **The store's contract (agent-judged):**
 
-        Saved context bindings select the same providers and establish a silent baseline,
-        without an onContext event. A writing placement whose re-taken reset value differs from
-        the recorded one resets as a pending reset, the first turn after restore, before the lane
-        deliveries. Then, per lane in creation order, the incarnation receives the parked endings
-        in saved order; on a reload each queued commit's NotSent { Restored } first, then a Held
-        head's unknown { Restored } once (unless its outcome was saved), so the ending that
-        leaves a hold comes last; an Attempt acknowledged once ends unknown { Restored } even if
-        its re-send was waiting or it was never invoked; a head whose own ending is parked
-        restores as that parked ending, delivered once, never also unknown { Restored }. These are
-        delivered after readiness, before new external events and before continuing placements
-        reconcile. A kill before a first send's batch lands restores the state before that turn,
-        with no lane and no ending. Finite resource requests never resume their old execution.
+        - batches are atomic and commit in issue order;
+        - per key a later write wins, whatever order the answers come in;
+        - one plain write per key is out at a time;
+        - an awaited write waits for any plain batch of its actor still out and carries what that
+          batch owed;
+        - a batch answers landed only if every request in it succeeded.
+
+        A write the disk has not answered is pending, never "not sent": evidence `StorageSilent`
+        names it after 10 s and decides nothing; nothing bounds a wait on storage (a stated limit).
+
+        Page hide, visibility becoming hidden and Runtime disposal request a flush; a frozen page
+        runs no task, deadline, backoff or capture until a thaw, and a discard is a kill with no
+        `pagehide`.
+
+        Browser exit flushing is best effort; on Safari a tab close loses the last batch, so the
+        loss window is the 5 s interval.
+
+        A record names the boot that wrote it and restore's id floor is the largest it reads, so an
+        id on disk is never minted again.
+
+        Disposal waits for the last write before releasing storage and ownership, subject to bounded
+        disposal in @plan.Runtime.O6. A write still pending when the disposal budget ends reports
+        `StorageFailure` rather than hanging or claiming a completed flush.
+    O4  Restore without replay
+        `ready()` restores a compatible scope before actor work starts.
+
+        Restored records stay records until an ensure, a subscription or a send reaches them, except
+        an identity whose captured lanes owe it an ending (a lane InFlight at capture, or a parked
+        ending), which is restored live at `ready` and kept as work in flight until those turns run,
+        so offline queued writes resume after a reload without each screen being opened.
+
+        A restored record is a new incarnation, with new ids for the actor and every fragment
+        incarnation it restores. Ensuring a restored actor takes no input (@plan.Runtime.O3).
+        Restore never runs creation again or replays old input or turns.
+
+        Saved context bindings select the same providers and establish a silent baseline, without an
+        `onContext` event.
+
+        A writing placement whose re-taken reset value differs from the recorded one resets as a
+        pending reset, the first turn after restore, before the lane deliveries.
+
+        Then, per lane in creation order, the incarnation receives the parked endings in saved
+        order; on a reload
+
+        - each queued commit's `NotSent { Restored }` first,
+        - then a Held head's `unknown { Restored }` once (unless its outcome was saved), so the
+          ending that leaves a hold comes last;
+        - an Attempt acknowledged once ends `unknown { Restored }` even if its re-send was waiting
+          or it was never invoked;
+        - a head whose own ending is parked restores as that parked ending, delivered once, never
+          also `unknown { Restored }`.
+
+        These are delivered after readiness, before new external events and before continuing
+        placements reconcile.
+
+        A kill before a first send's batch lands restores the state before that turn, with no lane
+        and no ending. Finite resource requests never resume their old execution.
 
         Restored resource data starts stale. A live placement can start a fresh policy-driven
         lookup; key-only entries remain passive until a live placement supplies input. Input is
-        never reconstructed from a cache key. Restored unobserved entries start gcTime at ready;
+        never reconstructed from a cache key. Restored unobserved entries start `gcTime` at `ready`;
         resource freshness and input selection follow @plan.Operations.O2. Hydration precedence
         follows @plan.ServerRendering.O5.
 
-        Restored schedules and hidden-tab resume follow @plan.Machines.O5. A live placement
-        re-opens from its restored input: a latest feed restores last and its baseline, and an
-        every feed restores its bookmark with the slice, then starts a fresh session after saved
-        outcomes drain; no old emission replays. Late results from old work cannot affect
-        restored work. Lazy adoption follows @plan.LazyFeatures.O3; capture and restore never
-        load lazy code.
-    O5  Honest failures and forgetting
-        Restore is per record. Corrupt scope data that no record can be read from falls back to
-        the last good capture, or starts fresh; ready succeeds. Each older record format reaches
-        the current one by a pure step at the boot, before the release's checks; a newer, null or
-        non-integer record format is quarantined, its lane still holding by its id. An actor
-        record that does not decode is quarantined: it reads lifecycle quarantined with its
-        issue, and an ensure starts fresh, reports RecordUndecodable (proposed name) and adopts
-        the identity's lanes; the quarantined bytes are overwritten when the fresh actor first
-        saves (the runner's ruling). Lane records decode by their contract's input pick, independent
-        of the actor record, so a fresh incarnation adopts them in its initial leaf; this is not a
-        partial restore of the actor. A position inside a stream partition that fails to decode
-        reads { at: undefined }; a partition failing its own shape discards the scope. v1 has no
-        migration API: a compatible change migrates by the field's Schema alone.
+        Restored schedules and hidden-tab resume follow @plan.Machines.O5. A live placement re-opens
+        from its restored input: a latest feed restores last and its baseline, and an every feed
+        restores its bookmark with the slice, then starts a fresh session after saved outcomes
+        drain; no old emission replays.
 
-        Versions. An actor's identity version and each operation key's fingerprint compare every
-        field's type side (checks by representation) and encoded side, ignoring other
-        annotations, under Flow's format-tagged encodings (@plan.Runtime.O3). A saved actor record
-        of another identity version is an old-version record: listed at ready (OldVersionActor,
-        proposed name), never renamed, removed by forget; its lanes are re-keyed at the boot to
-        key#identityTag (LaneRekeyed evidence, proposed name), kept, blocking nothing, and listed
-        UnboundLane (proposed name) at each boot; a release that makes the old identity current
-        again hands the key's lane back unless it is taken; the old identity's unknown hold has no
-        user exit and ends only by its own ending (a stated limit). A lane of an older key
-        fingerprint is an old-version hold, reported at each boot as the issue OldVersionLane, and
-        declines its operation's commits for that identity NotSent { OldVersion }
+        Late results from old work cannot affect restored work. Lazy adoption follows
+        @plan.LazyFeatures.O3; capture and restore never load lazy code.
+    O5  Honest failures and forgetting
+        Restore is per record. Corrupt scope data that no record can be read from falls back to the
+        last good capture, or starts fresh; `ready` succeeds.
+
+        Each older record format reaches the current one by a pure step at the boot, before the
+        release's checks; a newer, null or non-integer record format is quarantined, its lane still
+        holding by its id.
+
+        An actor record that does not decode is quarantined: it reads lifecycle quarantined with its
+        issue, and an ensure starts fresh, reports `RecordUndecodable` (proposed name) and adopts
+        the identity's lanes; the quarantined bytes are overwritten when the fresh actor first saves
+        (the runner's ruling).
+
+        Lane records decode by their contract's input pick, independent of the actor record, so a
+        fresh incarnation adopts them in its initial leaf; this is not a partial restore of the
+        actor.
+
+        A position inside a stream partition that fails to decode reads `{ at: undefined }`; a
+        partition failing its own shape discards the scope. v1 has no migration API: a compatible
+        change migrates by the field's Schema alone.
+
+        **Versions.** An actor's identity version and each operation key's fingerprint compare every
+        field's type side (checks by representation) and encoded side, ignoring other annotations,
+        under Flow's format-tagged encodings (@plan.Runtime.O3). A saved actor record of another
+        identity version is an old-version record: listed at `ready` (`OldVersionActor`, proposed
+        name), never renamed, removed by `forget`; its lanes are re-keyed at the boot to
+        `key#identityTag` (`LaneRekeyed` evidence, proposed name), kept, blocking nothing, and
+        listed `UnboundLane` (proposed name) at each boot; a release that makes the old identity
+        current again hands the key's lane back unless it is taken; the old identity's unknown hold
+        has no user exit and ends only by its own ending (a stated limit). A lane of an older key
+        fingerprint is an old-version hold, reported at each boot as the issue `OldVersionLane`, and
+        declines its operation's commits for that identity `NotSent { OldVersion }`
         (@plan.Operations.O3).
 
-        Saved shapes. Each definition's records are reset automatically (the user's Q1 A: per
+        **Saved shapes.** Each definition's records are reset automatically (the user's Q1 A: per
         definition, no manual or app-wide version), decided per record (the runner's ruling) when
         the saved shape (state ids, memory fields with their Schema versions, fragments' under their
-        id) differs incompatibly: a kept field under another Schema version, or a saved leaf,
-        child or history target gone. The boot removes such a record, retired or not, with its
-        deadlines and stopped reads, and reports one RecordShapeChanged (proposed name) per
-        definition with its count; the identity check comes first; a record with no shape stamp
-        never resets. Any structural Schema change to a stored field resets the record, a
-        harmless validation change included (the runner's ruling; a stated price). Its writes in
-        flight are kept (@O3), and each boot reports a head whose identity's record does not
-        read, or was reset, as HoldWithoutRecord (proposed name). A field the record has and this
-        release does not declare is dropped with the issue FieldDropped (proposed name) once the
-        record is known to restore, and the record is rewritten without it at that boot (the one
-        exception to untouched records not being rewritten). A renamed field is a drop plus an
-        add, and a changed default is not in the version (stated limits).
+        id) differs incompatibly: a kept field under another Schema version, or a saved leaf, child
+        or history target gone. The boot removes such a record, retired or not, with its deadlines
+        and stopped reads, and reports one `RecordShapeChanged` (proposed name) per definition with
+        its count; the identity check comes first; a record with no shape stamp never resets.
 
-        Lanes. A lane whose key no longer decodes, whose operation is gone, or whose recorded
-        path the placement cannot produce is quarantined: it keeps its id and hold, a commit on
-        its key declines NotSent { Rejected }, the record stays, Inspection lists it and each
-        boot reports it, and a cancel on that key clears it (with no operation, forget, which
-        drops its hold with HoldForgotten). There is no key-equality adoption and no orphaned
-        handler. A lane whose operation name this release lacks moves to the one write operation
-        over its contract (OpRenamed, proposed name); a move onto a lane record already on disk,
-        or onto another move of the same boot, is refused with LaneRekeyCollision (proposed name),
-        the mover quarantined with its hold and nothing overwritten. Saved actor records for a
-        machine id that no eager or lazy entry declares are discarded with a diagnostic; their
-        lane records are quarantined as lanes whose operation is gone (the runner's ruling,
-        reading the user's quarantine decision as covering a removed machine). A dormant record
-        that fails to decode when its feature is adopted is quarantined like any undecodable
-        record (the runner's ruling, following the undecodable-record rule) (@plan.LazyFeatures.O3).
+        Any structural Schema change to a stored field resets the record, a harmless validation
+        change included (the runner's ruling; a stated price). Its writes in flight are kept (@O3),
+        and each boot reports a head whose identity's record does not read, or was reset, as
+        `HoldWithoutRecord` (proposed name).
 
-        A storage read failure reports StorageFailure and disables persistence for that Runtime,
-        so unread saved data is never overwritten; a send to a persisted actor before boot
-        queues until boot, within the boot bound, and past it or on a failed read the queue is
-        flushed with StorageFailure and a late answer is ignored. Missing required storage
-        remains a setup failure. A failed write preserves live committed state and the last good
-        saved capture. It never retroactively fails a committed actor turn. A later publication
-        retries the newest state. Encoding never fails a turn: memory that cannot encode skips its
-        capture batch and keeps the last good one, named UnencodableValue (@plan.Inspection.O2).
-        Failures reach Runtime diagnostic observers even without mounted durable actors; a
-        failing inspection sink cannot interrupt persistence. Error vocabulary and remediation
-        follow @plan.Diagnostics.O2.
+        A field the record has and this release does not declare is dropped with the issue
+        `FieldDropped` (proposed name) once the record is known to restore, and the record is
+        rewritten without it at that boot (the one exception to untouched records not being
+        rewritten).
 
-        runtime.dispose({ forget: true }) waits for this scope's data to be made unrestorable and
-        deleted before releasing ownership. Failed deletion reports StorageFailure and never
-        claims successful forgetting. Ordinary disposal retains saved data. A Runtime running
-        without persistence performs no forget I/O. Disposal failures follow @plan.Runtime.O6.
+        A renamed field is a drop plus an add, and a changed default is not in the version (stated
+        limits).
+
+        **Lanes.** A lane whose key no longer decodes, whose operation is gone, or whose recorded
+        path the placement cannot produce is quarantined: it keeps its id and hold, a commit on its
+        key declines `NotSent { Rejected }`, the record stays, Inspection lists it and each boot
+        reports it, and a cancel on that key clears it (with no operation, `forget`, which drops its
+        hold with `HoldForgotten`). There is no key-equality adoption and no orphaned handler.
+
+        A lane whose operation name this release lacks moves to the one write operation over its
+        contract (`OpRenamed`, proposed name); a move onto a lane record already on disk, or onto
+        another move of the same boot, is refused with `LaneRekeyCollision` (proposed name), the
+        mover quarantined with its hold and nothing overwritten.
+
+        Saved actor records for a machine id that no eager or lazy entry declares are discarded with
+        a diagnostic; their lane records are quarantined as lanes whose operation is gone (the
+        runner's ruling, reading the user's quarantine decision as covering a removed machine).
+
+        A dormant record that fails to decode when its feature is adopted is quarantined like any
+        undecodable record (the runner's ruling, following the undecodable-record rule)
+        (@plan.LazyFeatures.O3).
+
+        A storage read failure reports `StorageFailure` and disables persistence for that Runtime,
+        so unread saved data is never overwritten; a send to a persisted actor before boot queues
+        until boot, within the boot bound, and past it or on a failed read the queue is flushed with
+        `StorageFailure` and a late answer is ignored. Missing required storage remains a setup
+        failure.
+
+        A failed write preserves live committed state and the last good saved capture. It never
+        retroactively fails a committed actor turn. A later publication retries the newest state.
+
+        Encoding never fails a turn: memory that cannot encode skips its capture batch and keeps the
+        last good one, named `UnencodableValue` (@plan.Inspection.O2). Failures reach Runtime
+        diagnostic observers even without mounted durable actors; a failing inspection sink cannot
+        interrupt persistence. Error vocabulary and remediation follow @plan.Diagnostics.O2.
+
+        `runtime.dispose({ forget: true })` waits for this scope's data to be made unrestorable and
+        deleted before releasing ownership. Failed deletion reports `StorageFailure` and never
+        claims successful forgetting. Ordinary disposal retains saved data.
+
+        A Runtime running without persistence performs no forget I/O. Disposal failures follow
+        @plan.Runtime.O6.
     O6  Durable attempts before remote writes
-        All sends of a write are one Attempt (same id, same input), and attempt.retryCount counts
-        the re-sends. A persisted identity's remote commit cannot invoke its adapter until
-        storage acknowledges its Attempt, once per Attempt, per lane record, needing no actor,
-        including id and encoded input; the acknowledgement is one batch with the capture of the
-        turn that committed it, and is written in one capture with the records the Attempt
-        predicts (prediction values are never persisted). A persisted re-send waits for its lane
-        record's capture, not a new acknowledgement. If acknowledgement fails, the adapter is not
-        called and the commit ends NotSent { StorageRefused } with StorageFailure evidence; a
-        re-send whose lane-record capture fails returns to Held and delivers unknown {
-        StorageRefused }. Transient storage failure never silently downgrades a selected actor's
-        commit to an undurable write. A domain write's lane record also saves its basedOn per
-        record when a version was known at mint, and says sent once re-written after the send; a
-        doubt restored from a record written before its send trusts no base; predicted keys carry
-        the fields each prediction touched.
+        All sends of a write are one Attempt (same id, same input), and `attempt.retryCount` counts
+        the re-sends.
 
-        A crash after acknowledgement restores unknown { Restored } carrying the same Attempt,
+        A persisted identity's remote commit cannot invoke its adapter until storage acknowledges
+        its Attempt, once per Attempt, per lane record, needing no actor, including id and encoded
+        input; the acknowledgement is one batch with the capture of the turn that committed it, and
+        is written in one capture with the records the Attempt predicts (prediction values are never
+        persisted).
+
+        A persisted re-send waits for its lane record's capture, not a new acknowledgement.
+
+        If acknowledgement fails, the adapter is not called and the commit ends
+        `NotSent { StorageRefused }` with `StorageFailure` evidence; a re-send whose lane-record
+        capture fails returns to Held and delivers `unknown { StorageRefused }`.
+
+        Transient storage failure never silently downgrades a selected actor's commit to an
+        undurable write.
+
+        A domain write's lane record also saves its `basedOn` per record when a version was known at
+        mint, and says sent once re-written after the send; a doubt restored from a record written
+        before its send trusts no base; predicted keys carry the fields each prediction touched.
+
+        A crash after acknowledgement restores `unknown { Restored }` carrying the same Attempt,
         since the Runtime cannot know whether invocation began; a head whose own ending is parked
-        restores as that ending. A saved queued label alone is insufficient: dispatch may have
-        happened after that saved capture. Flow never automatically repeats a remote write.
-        Already saved mapped outcomes are delivered rather than replaced by unknown. Re-sending is
-        O.x.retry(k?) (@plan.Operations.O3). A later Runtime never reuses an Attempt identity for
-        an unrelated write.
+        restores as that ending.
+
+        A saved queued label alone is insufficient: dispatch may have happened after that saved
+        capture. Flow never automatically repeats a remote write. Already saved mapped outcomes are
+        delivered rather than replaced by unknown.
+
+        Re-sending is `O.x.retry(k?)` (@plan.Operations.O3).
+
+        A later Runtime never reuses an Attempt identity for an unrelated write.
 
         Non-persisted actors, including a Runtime refused persistence under @O7, have no attempt
-        durability and lose their workflow on crash; a local actor's write sent before a reload
-        has no lane afterwards, so its ending is not seen and its hold is lost (a stated limit;
-        the remedy is a persisted identity or a version precondition). They may still execute
-        remote commits; there is no cross-tab exactly-once guarantee.
+        durability and lose their workflow on crash; a local actor's write sent before a reload has
+        no lane afterwards, so its ending is not seen and its hold is lost (a stated limit; the
+        remedy is a persisted identity or a version precondition).
+
+        They may still execute remote commits; there is no cross-tab exactly-once guarantee.
     O7  A second tab runs without persistence
-        At ready(), a persistence-enabled Runtime requests an immediately available Web Lock for
+        At `ready()`, a persistence-enabled Runtime requests an immediately available Web Lock for
         its app and scope before accessing storage. The page holds the lock while it is the live
-        page: on pagehide with persisted, after its own flush, the host releases the lock and
-        leaves no batch open; on pageshow with persisted it reloads, which is a new boot. It holds
-        ownership through final flush or forgetting and cleanup; failed bootstrap releases
+        page: on `pagehide` with persisted, after its own flush, the host releases the lock and
+        leaves no batch open; on `pageshow` with persisted it reloads, which is a new boot.
+
+        It holds ownership through final flush or forgetting and cleanup; failed bootstrap releases
         ownership. Other apps and scopes remain independent.
 
-        If a disposing Runtime in the same document owns the scope, ready waits for its release.
-        If another tab or Runtime owns that scope, this Runtime runs independently without
-        restore, capture, writes or deletion and reports SecondTabNoPersistence; a persisted
-        identity's commit there ends NotSent { NoPersistence } and its transition runs. It stays
-        in that mode even after the owner closes. A new Runtime may try again. There is no tab
-        sharing or handover. Where navigator.locks is absent, persistence proceeds without an
-        ownership check. If an available lock request fails, report StorageFailure and run
-        without persistence. The capture that removes a cancelled Attempt's acknowledgement
-        queues behind that acknowledgement (one writer per scope); an acknowledgement stored
-        before a crash restores as unknown { Restored } even if this Runtime had cancelled the
-        Attempt.
+        If a disposing Runtime in the same document owns the scope, ready waits for its release. If
+        another tab or Runtime owns that scope, this Runtime runs independently without restore,
+        capture, writes or deletion and reports `SecondTabNoPersistence`; a persisted identity's
+        commit there ends `NotSent { NoPersistence }` and its transition runs.
+
+        It stays in that mode even after the owner closes. A new Runtime may try again. There is no
+        tab sharing or handover.
+
+        Where `navigator.locks` is absent, persistence proceeds without an ownership check. If an
+        available lock request fails, report `StorageFailure` and run without persistence.
+
+        The capture that removes a cancelled Attempt's acknowledgement queues behind that
+        acknowledgement (one writer per scope); an acknowledgement stored before a crash restores as
+        `unknown { Restored }` even if this Runtime had cancelled the Attempt.
 decisions
     D1  Persisted storage is faithful
         Saved records hold values exactly as committed, including fields and values marked
         sensitive. Storage belongs to the user's own browser profile and scope, and restore must
-        reproduce drafts unchanged. Sensitivity governs only data that leaves the Runtime:
-        exported evidence (@plan.Inspection.O5) and server-rendering payloads
-        (@plan.ServerRendering.O3). Clearing a scope is runtime.dispose({ forget: true }).
+        reproduce drafts unchanged.
+
+        Sensitivity governs only data that leaves the Runtime: exported evidence
+        (@plan.Inspection.O5) and server-rendering payloads (@plan.ServerRendering.O3). Clearing a
+        scope is `runtime.dispose({ forget: true })`.
 verification
     V1  Type tests reject missing storage and invalid persisted Schemas under @O1 and @O2.
     V2  Tests prove default-off selection, inert construction and atomic bootstrap under @O1.
@@ -305,9 +405,11 @@ verification
         forgetting under @O3 and @O5.
 questions
     Q1  Deferred to build time
-        Storage key layout and identity encoding. Record chunking, capture bookkeeping and
-        generation counters. Manifest headers, integrity checks and retained-generation layout.
-        Write scheduling within a publishing task. IndexedDB transaction cancellation and
-        connection cleanup mechanics. Diagnostic payload bounds and encoding details.
-        Cross-runtime codec vectors and exact shared codec limits. Fault-injection
-        infrastructure and browser test matrix.
+        - Storage key layout and identity encoding.
+        - Record chunking, capture bookkeeping and generation counters.
+        - Manifest headers, integrity checks and retained-generation layout.
+        - Write scheduling within a publishing task.
+        - IndexedDB transaction cancellation and connection cleanup mechanics.
+        - Diagnostic payload bounds and encoding details.
+        - Cross-runtime codec vectors and exact shared codec limits.
+        - Fault-injection infrastructure and browser test matrix.

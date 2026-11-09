@@ -10,54 +10,66 @@ outcomes
         transaction({ id, input, output?, key, services, concurrency, commit, progress?,
         idempotency?, guarded?, previous? }) and stream({ id, input, output, key, services,
         delivers, subscribe, position?, catchUp?, reconnect?, idleTime? }) return inert contracts,
-        written in *.contracts.ts; constructing one starts no work. Contract ids follow
-        @plan.Machines.O1; distinct contracts with the same id reachable from one App fail
-        construction. A definition or fragment declares each use once under operations
+        written in *.contracts.ts; constructing one starts no work.
+
+        Contract ids follow @plan.Machines.O1; distinct contracts with the same id reachable from
+        one App fail construction. A definition or fragment declares each use once under operations
         (@plan.Machines.O1); Runtime activation is @plan.Runtime.O2.
 
         input and output are each a fields record (wrapped as Schema.Struct) or a full Schema; an
         omitted output is Schema.Void; a transaction's progress has its own Schema. The function is
         inline: lookup(input, ctx) and commit(input, { attempt, basedOn, progress }) return Effects;
         subscribe(input, { from }) returns a Stream and catchUp(input, { from, next }) an Effect.
+
         Contexts carry no signal: Flow interrupts the function's fiber, and an adapter that needs an
         AbortSignal takes Effect's own (Effect.tryPromise's or Effect.callback's, or
-        Effect.abortSignal under Effect.scoped). services lists the services the function calls,
-        is required on every contract and is checked against the function's R (a missing one is a
-        type error); the Runtime's boot refuses by name an operation whose service its Layer lacks
-        (@plan.Runtime.O2). Value, error and service types remain intact through declarations and
-        use. Persisted resources require output; domain reads require it under
-        @plan.EntityDomains.O1; boundary transfer is @plan.ServerRendering.O3. Typed errors never
-        cross those boundaries. Resource persist defaults to false; transactions and streams have
-        no persist option. Storage is @plan.Persistence.O2.
+        Effect.abortSignal under Effect.scoped). services lists the services the function calls, is
+        required on every contract and is checked against the function's R (a missing one is a type
+        error); the Runtime's boot refuses by name an operation whose service its Layer lacks
+        (@plan.Runtime.O2).
 
-        staleTime and gcTime are required nonnegative Duration inputs; invalid values fail
+        Value, error and service types remain intact through declarations and use. Persisted
+        resources require output; domain reads require it under @plan.EntityDomains.O1; boundary
+        transfer is @plan.ServerRendering.O3.
+
+        Typed errors never cross those boundaries. Resource persist defaults to false; transactions
+        and streams have no persist option. Storage is @plan.Persistence.O2.
+
+        `staleTime` and `gcTime` are required nonnegative Duration inputs; invalid values fail
         construction. Zero means immediately stale or collected at the next turn boundary after the
         last hold ends. Infinity disables time-based staleness or collection, respectively.
-        concurrency is required and is reject, latest, cancel or serialize (@O3). A contract that
-        moves money keys the server by something it recognises: idempotency: "attempt" or the input
-        fields it is, so flow check can warn on a money-shaped write keyed by the Attempt; a server
-        may prune keys, so a re-send on an old key reads first, and Flow keeps no key age.
-        guarded: true on a transaction lets a proof of the record's version end a quiet doubt
-        (@plan.EntityDomains.O1).
+        concurrency is required and is reject, latest, cancel or serialize (@O3).
+
+        A contract that moves money keys the server by something it recognises: idempotency:
+        "attempt" or the input fields it is, so flow check can warn on a money-shaped write keyed by
+        the Attempt; a server may prune keys, so a re-send on an old key reads first, and Flow keeps
+        no key age. guarded: true on a transaction lets a proof of the record's version end a quiet
+        doubt (@plan.EntityDomains.O1).
 
         key is required on every contract: a list of top-level input fields naming which server
         thing a call is about, [] for one; a composite key lists every field. Its Schema is input's
-        pick; there are no derived or nested keys and no default. A key field is required and has
-        no default (KeyFieldOptional otherwise). Equal key records identify the same resource entry,
-        write lane or stream session within one Runtime, regardless of field order. Any value
-        carrying the key's fields names the key; extra fields are ignored and a missing field is a
-        type error. On a resource every input field that changes the output belongs in key
-        (KeyOmitsInput warns otherwise). A key is stored as canonical text; a value JSON cannot
-        carry gets a stable name, so a bigint key 1n restores as "$1n" and names the same lane. A
-        key's fingerprint (field names, and each field's Schema type side and encoded side) is part
-        of the operation's version (@O3, @plan.Persistence.O5). Picked key values accept null,
-        booleans, finite numbers, strings, dense arrays and plain records. Undefined record
-        properties are absent; undefined array items, cycles, accessors, non-plain objects, lone
-        surrogates and unsupported values are rejected without running getters or coercion.
-        Negative zero equals zero; Unicode spelling matters. Keys allow at most 16 nested levels,
-        256 value nodes and 8,192 UTF-8 bytes of canonical text. Invalid keys report InvalidKey with
-        the offending path and change nothing before work starts; a key that cannot be encoded is
-        @O3's Unencodable. Later mutation of input cannot change an admitted key.
+        pick; there are no derived or nested keys and no default. A key field is required and has no
+        default (KeyFieldOptional otherwise).
+
+        Equal key records identify the same resource entry, write lane or stream session within one
+        Runtime, regardless of field order. Any value carrying the key's fields names the key; extra
+        fields are ignored and a missing field is a type error. On a resource every input field that
+        changes the output belongs in key (KeyOmitsInput warns otherwise).
+
+        A key is stored as canonical text; a value JSON cannot carry gets a stable name, so a bigint
+        key 1n restores as "$1n" and names the same lane. A key's fingerprint (field names, and each
+        field's Schema type side and encoded side) is part of the operation's version (@O3,
+        @plan.Persistence.O5).
+
+        Picked key values accept null, booleans, finite numbers, strings, dense arrays and plain
+        records. Undefined record properties are absent; undefined array items, cycles, accessors,
+        non-plain objects, lone surrogates and unsupported values are rejected without running
+        getters or coercion. Negative zero equals zero; Unicode spelling matters.
+
+        Keys allow at most 16 nested levels, 256 value nodes and 8,192 UTF-8 bytes of canonical
+        text. Invalid keys report InvalidKey with the offending path and change nothing before work
+        starts; a key that cannot be encoded is @O3's Unencodable. Later mutation of input cannot
+        change an admitted key.
 
         invalidate and clear match a contract plus a partial key: every named property must equal
         the entry's whole property value; {} matches the family. Keys are exposed in persistence,
@@ -75,17 +87,21 @@ outcomes
         whose settlement is evidence (Superseded), so only the latest lookup's ending is delivered.
         Its row is @O6's resource lane for the entry the latest lookup named, with that entry's key,
         held until the next lookup or cancel, undefined before the first lookup and after cancel.
+
         One-off read lanes are not persisted, except the Interrupted ending a freeze or an actor's
         end parks for each read it stops. O.x.refetch(k?) starts a request when none is running.
         While one runs, refetch joins it if it started after the entry last became stale
         (invalidate, write or clear); otherwise one trailing request starts when it settles and the
-        caller joins that. An entry never has more than one running and one trailing request, so a
-        poll faster than its server still lands data. O.x.subscribe(select, { when? }) places the
-        operation and starts a request only when missing or stale with none running. Time passing
-        alone starts nothing. Automatic requests use the oldest live placement's input; explicit
-        requests use the caller's. A running request retains its starting input even if that
-        placement leaves. The verb must agree with the mapping: success only with lookup, value
-        only with subscribe; one operation uses one verb (VerbMismatch).
+        caller joins that.
+
+        An entry never has more than one running and one trailing request, so a poll faster than its
+        server still lands data. O.x.subscribe(select, { when? }) places the operation and starts a
+        request only when missing or stale with none running. Time passing alone starts nothing.
+
+        Automatic requests use the oldest live placement's input; explicit requests use the
+        caller's. A running request retains its starting input even if that placement leaves. The
+        verb must agree with the mapping: success only with lookup, value only with subscribe; one
+        operation uses one verb (VerbMismatch).
 
         Focus regained and connection restored refetch stale or missing subscribed entries with no
         request running, ordered by contract id then key. Offline status blocks and cancels nothing.
@@ -96,24 +112,28 @@ outcomes
         only; success carries current data even when ordering rejects its request's result, and
         equal data still settles the lookup. A read's defect or interruption ends on failure as
         Flow's Defect or Interrupted, which a tag record must map; a defect is also an actor issue.
+
         A read whose mapper throws, or returns something with no shape, ends on failure as Defect,
         with the store's UserClosure issue. The failure mapping is exhaustive over error tags, or
         one event for an untagged error. A mapping value may be Flow.ignore: no event and no
-        handler; never on a stream key or a listen entry. Mappers receive (value, { input, key }),
-        key being the contract's key record of the call that ended. An ending is owned by the
-        activation of the state its transition names and routed current or late at admission
-        (@plan.Machines.O6). A read declared .gone(tag) with .byKey turns that failure tag into a
-        tombstone for its key's row (@plan.EntityDomains.O1). Unmapped failure leaves its lane tag
-        and an issue.
+        handler; never on a stream key or a listen entry.
+
+        Mappers receive (value, { input, key }), key being the contract's key record of the call
+        that ended. An ending is owned by the activation of the state its transition names and
+        routed current or late at admission (@plan.Machines.O6). A read declared .gone(tag) with
+        .byKey turns that failure tag into a tombstone for its key's row (@plan.EntityDomains.O1).
+        Unmapped failure leaves its lane tag and an issue.
 
         value fires for confirmed data at placement and subsequently only when it changes by
         Equal.equals; optimistic values and predictions never fire it. Restored or hydrated
         placements do not remap an already mapped value (@plan.Persistence.O2,
         @plan.ServerRendering.O5). A live placement, request or optimistic layer holds an entry, and
-        a one-off read operation holds its latest entry. After its last hold, gcTime on the Runtime
-        Clock removes it; later use starts missing. Releasing one owner preserves shared work until
-        the last owner leaves. Passive reads never hold or start work. Cleared, collected or
-        replaced requests cannot later change data or replacement placements.
+        a one-off read operation holds its latest entry.
+
+        After its last hold, `gcTime` on the Runtime Clock removes it; later use starts missing.
+        Releasing one owner preserves shared work until the last owner leaves. Passive reads never
+        hold or start work. Cleared, collected or replaced requests cannot later change data or
+        replacement placements.
     O3  Transactions, commits and write lanes
         Only an accepted action admits O.x.commit(select, { optimistic? }); activation, restore,
         hydration and state re-entry never replay a commit. select reads the turn's after memory and
@@ -121,274 +141,353 @@ outcomes
         captured at start, and applies on start; writes is the operation's option,
         contract.outcomes(mapping, { writes }), receives { value, input }, reads no memory and
         applies only on success, before its ending's event, even after the issuing state exits.
+
         Invalid success writes apply nothing and report InvalidWrite; the commit still succeeds. A
         success write never overwrites data that landed after the commit started; it marks that
-        entry stale instead, so subscribed readers refetch. Domain operations have no optimistic,
-        and their writes may only invalidate. Neither restore nor hydration invokes a commit.
+        entry stale instead, so subscribed readers refetch.
+
+        Domain operations have no optimistic, and their writes may only invalidate. Neither restore
+        nor hydration invokes a commit.
 
         Endings. A commit ends in one of three channels: success (it happened), failure (this send
         definitely did not do it) or unknown (it may have happened). The commit function classifies
         each ending with Outcome.success, Outcome.failure or Outcome.unknown; a plain error is a
         failure; a throw or die is unknown with reason Defect, carrying the Cause, and an actor
-        issue. Flow interprets no status and no error type. The runtime classifies each send from
-        the commit fiber's Exit and whole Cause, outside that fiber, Flow's own knowledge first,
-        then most cautious first. The ending delivered is the Attempt's: a definite failure after an
-        unknown send of the same Attempt is unknown, StillUnknown { failure }. Flow's reasons are
-        reserved: the failure NotSent { why } (Cancelled, Restored, Rejected, Overloaded,
-        StorageRefused, Disposed, NoPersistence, OldVersion, Unencodable, ModuleDisabled), and the
-        unknowns Cancelled, Restored, Interrupted, Defect, StillUnknown { failure }, StorageRefused,
-        Disposed and Abandoned. ModuleDisabled and Abandoned are proposed names. Superseded,
-        NothingToResend, InFlight and Released are evidence, never endings. Flow has no timeout
-        reason: a call's deadline is its commit's Effect (Effect.timeoutOrElse).
+        issue.
+
+        Flow interprets no status and no error type. The runtime classifies each send from the
+        commit fiber's Exit and whole Cause, outside that fiber, Flow's own knowledge first, then
+        most cautious first. The ending delivered is the Attempt's: a definite failure after an
+        unknown send of the same Attempt is unknown, StillUnknown { failure }.
+
+        Flow's reasons are reserved: the failure NotSent { why } (Cancelled, Restored, Rejected,
+        Overloaded, StorageRefused, Disposed, NoPersistence, OldVersion, Unencodable,
+        ModuleDisabled), and the unknowns Cancelled, Restored, Interrupted, Defect, StillUnknown {
+        failure }, StorageRefused, Disposed and Abandoned.
+
+        ModuleDisabled and Abandoned are proposed names. Superseded, NothingToResend, InFlight and
+        Released are evidence, never endings. Flow has no timeout reason: a call's deadline is its
+        commit's Effect (Effect.timeoutOrElse).
 
         Mapping. The operation maps each ending onto a declarer event (@plan.Machines.O1): success:,
         failure: (an exhaustive record over the commit's failure tags, NotSent optional in the type,
         or one event for an untagged failure) and unknown: (one event, or a record by tag, whose
-        byReason keys must be the commit's own unknown tags or Flow's unknown reasons). Mappers
-        receive (value, { input, attempt, progress, key }); a NotSent mapper's attempt is optional
-        (a declined commit has none). Every unknown: target is a Flow.uncertain event or
+        byReason keys must be the commit's own unknown tags or Flow's unknown reasons).
+
+        Mappers receive (value, { input, attempt, progress, key }); a NotSent mapper's attempt is
+        optional (a declined commit has none). Every unknown: target is a Flow.uncertain event or
         Flow.ignore. A bare operation maps nothing: its endings are evidence and its unknown is not
-        retained. An unknown that is not retained (bare, ignored, or a cancel's own turn end) is
-        released, and the store hears Released (@O5). flow check requires NotSent mapped only where
-        it can occur (@plan.CommandLine.O5).
+        retained.
+
+        An unknown that is not retained (bare, ignored, or a cancel's own turn end) is released, and
+        the store hears Released (@O5). flow check requires NotSent mapped only where it can occur
+        (@plan.CommandLine.O5).
 
         The Attempt. Every admitted commit has an exported Attempt { id, operation, key, input,
         retryCount, mayHaveApplied }. Flow mints id, random, when the write starts; every send of
         that write is the same Attempt with the same id and input. The commit author puts id on the
         wire where the API expects it; Flow sends nothing itself and derives no other key.
-        retryCount counts invoked re-sends; mayHaveApplied says an earlier send ended unknown. A
-        definite failure resolves the Attempt: trying again is a new write with a new id. Input uses
-        the input Schema. Domain prediction versions arrive as basedOn under @plan.EntityDomains.O1;
-        otherwise {}. Attempt durability is @plan.Persistence.O6.
+        `retryCount` counts invoked re-sends; `mayHaveApplied` says an earlier send ended unknown.
 
-        The write lane. A write lane is (identity with its version, contract id, key), owned by
-        the Runtime,
-        not the actor; it is created by work and removed when Idle. Its binding incarnation (the
-        actor, or for a fragment's operation the live incarnation with the lane's subject path)
-        receives its endings and its members address it. States: Idle; InFlight, one addressable
-        Attempt waiting to be invoked or on the wire; Held, a retained unknown; each with queued
-        commits W (none under reject, at most one under latest, a FIFO of at most 64 under
-        serialize). A turn's members apply to the lanes in action order in its validation step.
-        commit: Idle mints an Attempt; InFlight or Held, reject ends NotSent { Rejected } and the
-        transition runs, latest queues one commit (a previous queued commit, or a never-sent head
-        not yet invoked, ends Superseded, evidence), serialize appends to W and past 64 ends
-        NotSent { Overloaded }. Under concurrency cancel a newer commit interrupts the previous one,
-        whose ending is evidence. retry(k?) re-sends a Held Attempt with its id and input unchanged
-        (InFlight: evidence InFlight; Idle or resolved: evidence NothingToResend). When the
-        addressable Attempt is resolved (success, failure) or released, W's head is promoted; an
-        unknown, a retry and a restore never promote. Every Attempt minted, promoted or re-sent is
-        invoked after its turn ends, whatever the turn's outcome, once its acknowledgement, record
-        queues and (for a persisted re-send) its lane record's capture allow. Under reject, latest
-        and serialize an unknown holds the lane until retry resolves it or cancel releases it; no
-        quiet release, no automatic retry. A kept ending (refused twice, @plan.Runtime.O4) blocks
-        its key until heard or let go: idle denies, a commit declines NotSent { Rejected }, cancel
-        lets it go. Two write operations over one contract in one actor tree are a SharedContract
-        (proposed name) error, so a lane per contract and a lane per operation name the same lane
-        within a release.
+        A definite failure resolves the Attempt: trying again is a new write with a new id. Input
+        uses the input Schema. Domain prediction versions arrive as `basedOn` under
+        @plan.EntityDomains.O1; otherwise {}. Attempt durability is @plan.Persistence.O6.
+
+        The write lane. A write lane is (identity with its version, contract id, key), owned by the
+        Runtime, not the actor; it is created by work and removed when Idle. Its binding incarnation
+        (the actor, or for a fragment's operation the live incarnation with the lane's subject path)
+        receives its endings and its members address it.
+
+        States:
+
+        - Idle;
+        - InFlight, one addressable Attempt waiting to be invoked or on the wire;
+        - Held, a retained unknown;
+        - each with queued commits W (none under reject, at most one under latest, a FIFO of at most
+          64 under serialize).
+
+        A turn's members apply to the lanes in action order in its validation step. commit: Idle
+        mints an Attempt; InFlight or Held, reject ends NotSent { Rejected } and the transition
+        runs, latest queues one commit (a previous queued commit, or a never-sent head not yet
+        invoked, ends Superseded, evidence), serialize appends to W and past 64 ends NotSent {
+        Overloaded }.
+
+        Under concurrency cancel a newer commit interrupts the previous one, whose ending is
+        evidence. retry(k?) re-sends a Held Attempt with its id and input unchanged (InFlight:
+        evidence InFlight; Idle or resolved: evidence NothingToResend). When the addressable Attempt
+        is resolved (success, failure) or released, W's head is promoted; an unknown, a retry and a
+        restore never promote.
+
+        Every Attempt minted, promoted or re-sent is invoked after its turn ends, whatever the
+        turn's outcome, once its acknowledgement, record queues and (for a persisted re-send) its
+        lane record's capture allow. Under reject, latest and serialize an unknown holds the lane
+        until retry resolves it or cancel releases it; no quiet release, no automatic retry.
+
+        A kept ending (refused twice, @plan.Runtime.O4) blocks its key until heard or let go: idle
+        denies, a commit declines NotSent { Rejected }, cancel lets it go. Two write operations over
+        one contract in one actor tree are a SharedContract (proposed name) error, so a lane per
+        contract and a lane per operation name the same lane within a release.
 
         Members: commit, retry(k?), cancel(k?) and cancelAll(k?) in actions; idle(k?) (InFlight:
         denies InFlight; Held: denies Uncertain; a partial key passes only when every lane it
-        matches is Idle) and retryable(k?, { times }) (passes in Held while retryCount < times,
-        else RetryLimit { retryCount }; denies InFlight or NothingToResend) in guards; get. On an
-        unkeyed operation (key []) a key-less member names its one lane in every handler, a NotSent
-        ending's included. On a keyed operation retry, retryable and cancel may omit the key only in
-        a handler of an event that operation alone maps, naming that ending's own Attempt only; once
-        it is resolved or released a key-less member acts as on an Idle lane; under serialize, only
-        in the head's own ending's handler; elsewhere a key-less member is KeyRequired. idle and get
-        always take a key on a keyed operation. Starting is static: a write starts only from
-        actions.
+        matches is Idle) and retryable(k?, { times }) (passes in Held while retryCount < times, else
+        RetryLimit { retryCount }; denies InFlight or NothingToResend) in guards; get.
+
+        On an unkeyed operation (key []) a key-less member names its one lane in every handler, a
+        NotSent ending's included.
+
+        On a keyed operation retry, retryable and cancel may omit the key only in a handler of an
+        event that operation alone maps, naming that ending's own Attempt only; once it is resolved
+        or released a key-less member acts as on an Idle lane; under serialize, only in the head's
+        own ending's handler; elsewhere a key-less member is KeyRequired. idle and get always take a
+        key on a keyed operation. Starting is static: a write starts only from actions.
 
         Delivery. Every commit, and every retry that sends, delivers exactly one ending to a live
         incarnation of its identity with the lane's subject path, or parked for it; delivery is
         counted per ending: a re-send whose lane-record capture is refused delivers a second ending
         of the same Attempt, unknown { StorageRefused }, and re-parking an ending is not a second
-        delivery. A settled ending is never rewritten. Evidence by declaration: a replaced
-        never-sent commit, a released lookup, a declined retry, a bare write's endings, an ending
-        mapped to Flow.ignore, under concurrency cancel the interrupted Attempt's ending, a
-        fragment's lookup whose incarnation ended, and a releasing lane's endings and queued
-        commits. A throw from the outcome mapper at admission refuses the turn, and the ending is
-        redelivered once after queued mail. A late handler may start a commit; it is an ordinary
-        call owned by its transition's state. Compensation recipe: handle a late success at an
-        ancestor by moving an idle state to a compensating state that starts the undo; try the
-        undo's definite failures again as new writes after a wait, and reconcile its unknowns with
-        O.x.retry of the same Attempt, each with a budget. Flow promises no remote rollback and
-        never retries automatically.
+        delivery.
 
-        Persistence and identity. Restore and reload are @plan.Persistence.O4 and O6: a first send's
-        capture and acknowledgement are one batch with the turn that committed it, so a kill before
-        it lands restores the state before that turn with no ending; an Attempt acknowledged once
-        restores as unknown { Restored }, delivered once per new incarnation (a reload, or a return
-        after an end); queued commits end NotSent { Restored }; a head whose own ending is parked
-        restores as that ending, never also unknown { Restored }. A persisted identity's commit in a
-        Runtime without persistence ends NotSent { NoPersistence }. Runtime disposal is
-        @plan.Runtime.O6 (past its bound an Attempt still on the wire ends unknown { Disposed }). A
-        reset of the actor's record keeps its writes in flight: lanes, holds and parked endings stay
-        unbound until an adopting ensure. A lane is (identity with its version, contract id, key):
-        a lane of an older identity version is re-keyed at the boot and blocks nothing
-        (@plan.Persistence.O5); a lane of an older key fingerprint is an old-version hold;
-        until it ends every commit of that operation for that identity declines
-        NotSent { OldVersion } under every policy, and a keyed idle denies; the contract declares
-        earlier keys, previous: [{ key }], giving O.x.previous[i].retry(k), .cancel(k) and
-        .retryable(k, { times }), which name only previous[i]'s lanes; a current member never names
-        an old-version lane; a previous key equal to the current one is refused (PreviousIsCurrent,
-        proposed name); on a fragment operation another path's Rejected comes before OldVersion.
+        A settled ending is never rewritten. Evidence by declaration: a replaced never-sent commit,
+        a released lookup, a declined retry, a bare write's endings, an ending mapped to
+        Flow.ignore, under concurrency cancel the interrupted Attempt's ending, a fragment's lookup
+        whose incarnation ended, and a releasing lane's endings and queued commits.
+
+        A throw from the outcome mapper at admission refuses the turn, and the ending is redelivered
+        once after queued mail. A late handler may start a commit; it is an ordinary call owned by
+        its transition's state.
+
+        Compensation recipe: handle a late success at an ancestor by moving an idle state to a
+        compensating state that starts the undo; try the undo's definite failures again as new
+        writes after a wait, and reconcile its unknowns with O.x.retry of the same Attempt, each
+        with a budget. Flow promises no remote rollback and never retries automatically.
+
+        Persistence and identity.
+
+        Restore and reload are @plan.Persistence.O4 and O6: a first send's capture and
+        acknowledgement are one batch with the turn that committed it, so a kill before it lands
+        restores the state before that turn with no ending; an Attempt acknowledged once restores as
+        unknown { Restored }, delivered once per new incarnation (a reload, or a return after an
+        end); queued commits end NotSent { Restored }; a head whose own ending is parked restores as
+        that ending, never also unknown { Restored }.
+
+        A persisted identity's commit in a Runtime without persistence ends NotSent { NoPersistence
+        }. Runtime disposal is @plan.Runtime.O6 (past its bound an Attempt still on the wire ends
+        unknown { Disposed }).
+
+        A reset of the actor's record keeps its writes in flight: lanes, holds and parked endings
+        stay unbound until an adopting ensure.
+
+        A lane is (identity with its version, contract id, key): a lane of an older identity version
+        is re-keyed at the boot and blocks nothing (@plan.Persistence.O5); a lane of an older key
+        fingerprint is an old-version hold; until it ends every commit of that operation for that
+        identity declines NotSent { OldVersion } under every policy, and a keyed idle denies; the
+        contract declares earlier keys, previous: [{ key }], giving O.x.previous[i].retry(k),
+        .cancel(k) and .retryable(k, { times }), which name only previous[i]'s lanes; a current
+        member never names an old-version lane; a previous key equal to the current one is refused
+        (PreviousIsCurrent, proposed name); on a fragment operation another path's Rejected comes
+        before OldVersion.
 
         Values with no form never fail a turn: a commit whose input or key cannot encode declines
         NotSent { Unencodable }, its transition runs and its mapper receives the value the turn
-        asked to send. Domain writes: their store effects publish at settlement, before their
-        ending is queued; a commit past its lane's queue, any record queue, or a many key array past
-        4,096 items (counted from the write's targets before any join, repeats included) ends
-        NotSent { Overloaded } with no prediction and no partial join, the transition and its other
-        actions running; a domain write joins its record queues when its Attempt heads its lane,
-        never at commit (@plan.EntityDomains.O1); a store module's defect declines a write that
-        would join NotSent { ModuleDisabled } until reload.
+        asked to send.
+
+        Domain writes: their store effects publish at settlement, before their ending is queued; a
+        commit past its lane's queue, any record queue, or a many key array past 4,096 items
+        (counted from the write's targets before any join, repeats included) ends NotSent {
+        Overloaded } with no prediction and no partial join, the transition and its other actions
+        running; a domain write joins its record queues when its Attempt heads its lane, never at
+        commit (@plan.EntityDomains.O1); a store module's defect declines a write that would join
+        NotSent { ModuleDisabled } until reload.
     O4  Streams
         A stream contract declares delivers: "every" (never skipped or silenced, one per turn, or
         one page per turn from a read) or "latest" (newest wins, current only while this connection
         confirmed it); position names a field of output whose value says where each message is
-        (every only); catchUp reads history from the bookmark (every only, requires position);
-        reconnect: { while?, schedule? } declares that Flow re-runs a failed connection; idleTime
+        (every only); `catchUp` reads history from the bookmark (every only, requires position);
+        reconnect: { while?, schedule? } declares that Flow re-runs a failed connection; `idleTime`
         (required exactly with reconnect, "Infinity" for none) fails a connection that says nothing
-        within it. A stream's resume position is not an input field.
+        within it.
+
+        A stream's resume position is not an input field.
 
         Placement: O.x.subscribe(select) or O.x.subscribe.each(select) in activities. A session is
         one per (actor incarnation, placement path, operation, key); its select runs on every
-        committed turn to find the key, and the session reads its input once, at start, so a
-        non-key field never restarts it. A select that throws keeps what is placed, with one
-        UserClosure issue each turn; one returning undefined (under .each, not a list) releases what
-        was placed, with one SelectedNoKey issue (proposed name). A session belongs to its
-        placement's activation; a released session's undelivered items are discarded with evidence,
-        and a new session for the same (actor, operation, key) waits for a releasing predecessor.
-        Two operations on one contract and key are two sessions, with a DuplicateSession warning.
-        Flow runs connections only by the declared reconnect and idleTime, and sessions only by
-        placement; it never re-opens a session. The default schedule is exponential from 500 ms,
-        jittered by a factor of 0.8 to 1.2 from a well-mixed hash of the session id and step (no
-        saved seed), capped at 30 s; it retries while offline and ends Flapping after 8 registered
-        flaps. Sessions release within Runtime O6's 5 s bound (ReleaseOverdue).
+        committed turn to find the key, and the session reads its input once, at start, so a non-key
+        field never restarts it.
 
-        The adapter says three things: a value arrived; the server is listening (Feed.live(), with
-        { proof } that nothing was missed, { head } giving the newest position, or { restartAt } for
-        a restarted log); the connection dropped (Feed.down(reason)); Feed.ping is a sign of life.
+        A select that throws keeps what is placed, with one UserClosure issue each turn; one
+        returning undefined (under .each, not a list) releases what was placed, with one
+        SelectedNoKey issue (proposed name). A session belongs to its placement's activation; a
+        released session's undelivered items are discarded with evidence, and a new session for the
+        same (actor, operation, key) waits for a releasing predecessor.
+
+        Two operations on one contract and key are two sessions, with a DuplicateSession warning.
+        Flow runs connections only by the declared reconnect and `idleTime`, and sessions only by
+        placement; it never re-opens a session.
+
+        The default schedule is exponential from 500 ms, jittered by a factor of 0.8 to 1.2 from a
+        well-mixed hash of the session id and step (no saved seed), capped at 30 s; it retries while
+        offline and ends Flapping after 8 registered flaps. Sessions release within Runtime O6's 5 s
+        bound (ReleaseOverdue).
+
+        The adapter says three things: a value arrived; the server is listening (Feed.live(), with {
+        proof } that nothing was missed, { head } giving the newest position, or { restartAt } for a
+        restarted log); the connection dropped (Feed.down(reason)); Feed.ping is a sign of life.
+
         Positions in signals decode against the position's Schema at intake; a failure is Defect.
         Feed.callback<A, E, R>(register) is shaped as Stream.callback and bounded at 1,024 queued
-        items (the delivery in the mailbox not counted). Feed.multiplex({ connect }), library code
-        beside it, holds one connection while any key has a session: add and remove on a key's
-        first and last session, emit.to(key, x), emit.all(x), emit.fail(e), emit.fail(e, key)
-        (the runner's addition) and hub.stream(key); a joiner of a registered key hears
-        Feed.live() at once; the hub lives in the app's Layer per Runtime. A catchUp answers
-        Feed.more({ items, next, through? }), Feed.done({ items, proof, through? }) or
-        Feed.gone({ reason, items?, next?, through? }).
+        items (the delivery in the mailbox not counted).
+
+        Feed.multiplex({ connect }), library code beside it, holds one connection while any key has
+        a session: add and remove on a key's first and last session, emit.to(key, x), emit.all(x),
+        emit.fail(e), emit.fail(e, key) (the runner's addition) and hub.stream(key); a joiner of a
+        registered key hears Feed.live() at once; the hub lives in the app's Layer per Runtime. A
+        `catchUp` answers Feed.more({ items, next, through? }), Feed.done({ items, proof, through?
+        }) or Feed.gone({ reason, items?, next?, through? }).
 
         Outcomes: every with a machine consumer maps value (required), pages (optional, needs
         catchUp), missed (required: Unproven, Lost or Reset, exactly one notice per interruption),
         fills (required: a memory field or false) and failure (required, exhaustive over E, with
         Feed covering Flow's Closed, Overflow, Silent, Flapping, Defect and Interrupted); latest
-        maps value optionally and failure when anything is mapped. Delivery is at least once:
-        handlers store by id. Deliveries are bounded by what Flow has pulled, outside the mailbox
-        cap.
+        maps value optionally and failure when anything is mapped.
+
+        Delivery is at least once: handlers store by id. Deliveries are bounded by what Flow has
+        pulled, outside the mailbox cap.
 
         The bookmark is a Flow-private partition of the slice's saved record, per (operation, key),
         holding at and filled, and for a latest operation last and heard; it is not a memory field,
         has no patch and no guard reads it. Flow moves it when a value's turn is admitted, keeps it
-        through Denied and Unhandled, and a Denied value moves it with DeliveryDenied. At most 256
-        entries per operation, the oldest by last write dropped; a re-created entry takes filled
-        from the field. fills names a field of the operation's own memory (an array, a Record or a
-        number): emptied while the session stays placed it is cleared (stays cleared), emptied by a
-        turn that released the session or while unplaced it is wiped (catchUp re-reads; without it,
-        missed). A handler that changes a placed session's key while the state stays put empties
-        the fills field in the same turn; Flow never wipes it; FillsOtherKey (proposed name) flags a
+        through Denied and Unhandled, and a Denied value moves it with DeliveryDenied.
+
+        At most 256 entries per operation, the oldest by last write dropped; a re-created entry
+        takes filled from the field. fills names a field of the operation's own memory (an array, a
+        Record or a number): emptied while the session stays placed it is cleared (stays cleared),
+        emptied by a turn that released the session or while unplaced it is wiped (catchUp re-reads;
+        without it, missed).
+
+        A handler that changes a placed session's key while the state stays put empties the fills
+        field in the same turn; Flow never wipes it; FillsOtherKey (proposed name) flags a
         registration with no entry beside a filled field and another key's filled entry.
         O.x.refetch(k?) forgets the bookmark and reads now; O.x.bookmark(select) states a position.
-        Waiting has no connection; dropAt is set on leaving Live or Repairing and when none is set,
-        kept across connections that never register; a registration ends the not-live period, and
-        dropAt is kept with a latest bookmark. Domain listeners follow @plan.EntityDomains.O1.
+
+        Waiting has no connection; `dropAt` is set on leaving Live or Repairing and when none is
+        set, kept across connections that never register; a registration ends the not-live period,
+        and `dropAt` is kept with a latest bookmark. Domain listeners follow @plan.EntityDomains.O1.
         Persisted bookmarks and reopening follow @plan.Persistence.O4.
     O5  Writes and optimistic values
         O.x.setData(select) returns { key, data }; data is a value or updater(current) => A |
         undefined. Updaters read confirmed data; undefined declines the write.
-        O.x.invalidate(select) and O.x.clear(select) return partial keys. A source replaces data
-        only if its request started at or after the stored data landed. setData starts and lands
-        when applied, so older lookups cannot overwrite it. Accepted equal writes refresh freshness
-        without value events. A commit's optimistic and a setData action on its own entries are type
-        errors on a domain operation.
+        O.x.invalidate(select) and O.x.clear(select) return partial keys.
+
+        A source replaces data only if its request started at or after the stored data landed.
+        `setData` starts and lands when applied, so older lookups cannot overwrite it. Accepted
+        equal writes refresh freshness without value events. A commit's optimistic and a `setData`
+        action on its own entries are type errors on a domain operation.
 
         A write batch validates all targets before mutation and publishes atomically. More than 256
         expanded identities (AdmissionOverloaded) or any invalid target (InvalidKey) rejects the
         entire batch (this bound is the plan's own; the design does not state it); no match is a
         successful no-op. invalidate retains data and optimistic values, marks entries stale and
-        refetches subscribed entries with no request running. A request started before invalidation
-        cannot make the entry fresh. clear removes data and optimistic values, blocks old results
-        and makes surviving placements Pending before reacquiring. Related commits still settle.
-        Domain write restrictions and predictions are @plan.EntityDomains.O1.
+        refetches subscribed entries with no request running.
+
+        A request started before invalidation cannot make the entry fresh. clear removes data and
+        optimistic values, blocks old results and makes surviving placements Pending before
+        reacquiring. Related commits still settle. Domain write restrictions and predictions are
+        @plan.EntityDomains.O1.
 
         Every reader sees confirmed data with live optimistic updates applied in start order. Base
         changes and removal of one update preserve the others; predicted remains true while any
         update is live. Optimistic values never become confirmed data or cross persistence or
-        hydration boundaries. The Attempt's ending decides: success confirms the optimistic look;
-        failure (NotSent included) removes that commit's updates without a refetch and without
-        overwriting newer data; unknown keeps them, marked uncertain, and refetches the displayed
-        entries once. The refetch is a read: if it fails the look stays marked uncertain and the
-        next natural trigger reads again; Flow never loops, and revertOnUnknown does not exist. An
-        unknown that is not retained is Released to the store, and a release before the forced
-        repair removes nothing. Success retains the updates until setData or a lookup started after
-        settlement confirms the entry. clear removes them with the entry.
+        hydration boundaries.
+
+        The Attempt's ending decides:
+
+        - success confirms the optimistic look;
+        - failure (NotSent included) removes that commit's updates without a refetch and without
+          overwriting newer data;
+        - unknown keeps them, marked uncertain, and refetches the displayed entries once.
+
+        The refetch is a read: if it fails the look stays marked uncertain and the next natural
+        trigger reads again; Flow never loops, and `revertOnUnknown` does not exist.
+
+        An unknown that is not retained is Released to the store, and a release before the forced
+        repair removes nothing. Success retains the updates until `setData` or a lookup started
+        after settlement confirms the entry. clear removes them with the entry.
     O6  Rows
         s.operations.<name> reflects that snapshot's publication and keeps object identity until its
-        lane, entry or session changes; inside a fragment it is the fragment's own rows. A write
-        row is { pending, uncertain, waiting, retryCount, progress? }, plus outstanding under
-        serialize, and { pending, retryCount, progress? } under cancel: pending is InFlight,
+        lane, entry or session changes; inside a fragment it is the fragment's own rows.
+
+        A write row is { pending, uncertain, waiting, retryCount, progress? }, plus outstanding
+        under serialize, and { pending, retryCount, progress? } under cancel: pending is InFlight,
         uncertain is Held, waiting is W not empty, outstanding counts unresolved commits other than
-        the addressable Attempt, retryCount counts the addressable Attempt's invoked re-sends, and
-        progress is set by the commit's progress(p) with no turn. An unkeyed write's row is plain;
-        a keyed write's s.operations.<name> is a keyed list of the lanes that exist, each { key,
-        ...row }, read by key with O.x.get(s, k), which is total: a key with no lane reads the idle
-        row. A one-off read's row is undefined before its first lookup and after cancel. A live
-        placement's row is undefined while not placed; under subscribe.each it is a keyed list read
-        by key. Guards and callbacks read rows with O.x.get(operations, k) as views do. Resource
-        tags are Pending (no confirmed data), Ready (confirmed data, no request), Refreshing
-        (confirmed data with a request), Failure (typed error), Defect and Interrupted. Failure,
-        Defect and Interrupted retain previous data; Refreshing always has data. All carry data and
-        predicted, true for live optimistic values or predictions, and key. A stream's row, latest:
-        key, connection, drop, failure, value (empty unless current) and last { value, at }; every:
-        key, connection, drop, failure and catchingUp; the bookmark is in session records and
-        Inspection, not on the row. Undefined emissions need an author wrapper if they must be
-        distinguished from no value. Domain row additions are @plan.EntityDomains.O1.
+        the addressable Attempt, `retryCount` counts the addressable Attempt's invoked re-sends, and
+        progress is set by the commit's progress(p) with no turn.
+
+        An unkeyed write's row is plain; a keyed write's s.operations.<name> is a keyed list of the
+        lanes that exist, each { key, ...row }, read by key with O.x.get(s, k), which is total: a
+        key with no lane reads the idle row. A one-off read's row is undefined before its first
+        lookup and after cancel. A live placement's row is undefined while not placed; under
+        subscribe.each it is a keyed list read by key.
+
+        Guards and callbacks read rows with O.x.get(operations, k) as views do. Resource tags are
+        Pending (no confirmed data), Ready (confirmed data, no request), Refreshing (confirmed data
+        with a request), Failure (typed error), Defect and Interrupted. Failure, Defect and
+        Interrupted retain previous data; Refreshing always has data. All carry data and predicted,
+        true for live optimistic values or predictions, and key.
+
+        A stream's row, latest:
+
+        - key, connection, drop, failure, value (empty unless current) and last { value, at };
+        - every: key, connection, drop, failure and `catchingUp`;
+        - the bookmark is in session records and Inspection, not on the row.
+
+        Undefined emissions need an author wrapper if they must be distinguished from no value.
+        Domain row additions are @plan.EntityDomains.O1.
 
         placeholder({ previous, input }) on a placement may supply Pending data when a new key has
         no data; placeholder: true marks it. previous is this actor's placement's last input and
-        lane data, retained across exit and re-entry. Placeholders never enter the store or
-        persistence. contract.get(snapshot, input) (proposed name) passively returns the
-        lane-shaped view at that snapshot's store revision, or undefined. It creates, holds,
-        refreshes and starts nothing; invalid keys throw.
+        lane data, retained across exit and re-entry.
+
+        Placeholders never enter the store or persistence. contract.get(snapshot, input) (proposed
+        name) passively returns the lane-shaped view at that snapshot's store revision, or
+        undefined. It creates, holds, refreshes and starts nothing; invalid keys throw.
     O7  Cancellation and cleanup
         Planned release interrupts the fiber and runs finalizers once without interrupt endings;
         adapter-reported interruption of a read ends Interrupted. Releasing a placement stops shared
-        work only at its last owner. O.x.cancel(k?) acts on the lane's addressable Attempt, the one
-        retry names: on the wire it interrupts the fiber, and the ending unknown { Cancelled } is
-        queued when the fiber exits and retained (Held), so nothing newer is sent while the request
-        may land; waiting to be invoked it acts by history (never sent: NotSent { Cancelled }, and
-        the next queued commit is promoted; a re-send returns to Held and is released); in Held it
-        releases (Released, evidence) and promotes; in Idle it does nothing, with evidence. While a
-        never-sent Attempt's acknowledgement is being written, a cancel waits for storage: stored,
-        it ends NotSent { Cancelled }; refused, NotSent { StorageRefused }. A latest or
+        work only at its last owner.
+
+        O.x.cancel(k?) acts on the lane's addressable Attempt, the one retry names: on the wire it
+        interrupts the fiber, and the ending unknown { Cancelled } is queued when the fiber exits
+        and retained (Held), so nothing newer is sent while the request may land; waiting to be
+        invoked it acts by history (never sent: NotSent { Cancelled }, and the next queued commit is
+        promoted; a re-send returns to Held and is released); in Held it releases (Released,
+        evidence) and promotes; in Idle it does nothing, with evidence.
+
+        While a never-sent Attempt's acknowledgement is being written, a cancel waits for storage:
+        stored, it ends NotSent { Cancelled }; refused, NotSent { StorageRefused }. A latest or
         cancel-concurrency replacement waiting on that acknowledgement ends the replaced head
         Superseded with StorageFailure evidence when refused, and the newer commit is acknowledged
         and sent; a pending cancel is never lost to a later replacement. That wait is unbounded, a
-        stated limit. O.x.cancelAll(k?) ends every queued commit NotSent { Cancelled } in mint
-        order, then acts on the head as cancel does, promoting nothing; a Held lane ends Idle; the
-        head's ending, which leaves a hold, is delivered last. cancel on a one-off read releases the
-        operation's wait, not the shared request; resources keep no cancel of the entry.
+        stated limit.
+
+        O.x.cancelAll(k?) ends every queued commit NotSent { Cancelled } in mint order, then acts on
+        the head as cancel does, promoting nothing; a Held lane ends Idle; the head's ending, which
+        leaves a hold, is delivered last. cancel on a one-off read releases the operation's wait,
+        not the shared request; resources keep no cancel of the entry.
 
         cancel never drops a queued commit silently, with one exception: a fragment's release on
         leave (a key-less O.x.cancel in whenAbandoned) marks every lane of that operation for the
         ending incarnation's subject path releasing, interrupts an Attempt on the wire, ends queued
         commits as evidence, and applies later endings to the lane and store without delivering
-        them. A release wins over cancelAll in the same transition. One write operation per contract
-        per actor holds across placements. Actor disposal invokes nothing new and drops nothing:
-        lanes stay with the Runtime (@plan.Runtime.O6). Cleanup failure reports an issue without
-        undoing a published transition. Disposal failure follows @plan.Runtime.O6; Cause handling
-        follows @plan.Diagnostics.O3. After cleanup, late results cannot change data, lanes,
-        endings or replacement work.
+        them.
+
+        A release wins over `cancelAll` in the same transition. One write operation per contract per
+        actor holds across placements. Actor disposal invokes nothing new and drops nothing: lanes
+        stay with the Runtime (@plan.Runtime.O6).
+
+        Cleanup failure reports an issue without undoing a published transition. Disposal failure
+        follows @plan.Runtime.O6; Cause handling follows @plan.Diagnostics.O3. After cleanup, late
+        results cannot change data, lanes, endings or replacement work.
 verification
     V1  Type proofs preserve adapter types and reject invalid options, outcome mappings, reserved
         reasons, missing services and key-less members of keyed operations.
@@ -410,6 +509,8 @@ questions
     Q1  Deferred to build time
         Choose key encoding and validation mechanics. Choose internal request and settlement
         identities and capacity accounting. Choose Attempt id generation and structural input codec
-        details. Choose store layout, batch traversal and publication mechanics. Choose cleanup
-        instrumentation. Stream buffering is decided by the Streams delivery and Feed.callback
-        tables (C89); host-signal wiring is decided: adapters take Effect's own signal (C116).
+        details. Choose store layout, batch traversal and publication mechanics.
+
+        Choose cleanup instrumentation. Stream buffering is decided by the Streams delivery and
+        Feed.callback tables (C89); host-signal wiring is decided: adapters take Effect's own signal
+        (C116).

@@ -13,11 +13,12 @@ outcomes
         @plan.Runtime.O1.
 
         The loader's result must have the declared literal id. A wrong id, non-machine result, wrong
-        context provider or missing runtimeSetup service is a type error. Service requirements
-        include lazy machines even before they are adopted. Entries have no services field or
-        per-entry Layer. A service that loads heavy code on first call reports a load failure as its
-        own failure: a lookup's Failure lane, or a commit's typed failure, never unknown, because
-        nothing was sent; the next call retries the load.
+        context provider or missing `runtimeSetup` service is a type error. Service requirements
+        include lazy machines even before they are adopted.
+
+        Entries have no services field or per-entry Layer. A service that loads heavy code on first
+        call reports a load failure as its own failure: a lookup's Failure lane, or a commit's typed
+        failure, never unknown, because nothing was sent; the next call retries the load.
 
         An undeclared machine cannot run. Declaring the same machine twice rejects construction. A
         ref already carries its machine's code: normal actor calls and hooks never call load. There
@@ -37,16 +38,19 @@ outcomes
         Adoption enforces the same cross-machine validity rules as eager construction, including
         context cycles and conflicting machine, operation, domain, entity or resource identities. A
         failure exposes none of the new actors, restored data or provider closure; the entry remains
-        inactive and a later trigger can retry. A host call throws the FlowError; hook error
-        delivery is @plan.React.O5. Successful adoption exposes the entire closure and its restored
-        state together; no actor observes a partly adopted feature.
+        inactive and a later trigger can retry.
 
-        Render, lookup-only hooks, getSnapshot, useView, runtime inspection and capture never adopt.
-        A send (an action's send(ref, ...) or a handle's send) never adopts a lazy entry or creates
-        an actor; it may restore one from its record. A send whose target is a lazy entry not yet
-        adopted is dropped and reported as SendTargetAbsent with reason NotAdopted; the full send
-        table is @plan.Runtime.O4. Hook first-render behavior is @plan.React.O2; pre-attach sends
-        are @plan.React.O3.
+        A host call throws the FlowError; hook error delivery is @plan.React.O5. Successful adoption
+        exposes the entire closure and its restored state together; no actor observes a partly
+        adopted feature.
+
+        Render, lookup-only hooks, `getSnapshot`, `useView`, runtime inspection and capture never
+        adopt. A send (an action's send(ref, ...) or a handle's send) never adopts a lazy entry or
+        creates an actor; it may restore one from its record.
+
+        A send whose target is a lazy entry not yet adopted is dropped and reported as
+        SendTargetAbsent with reason NotAdopted; the full send table is @plan.Runtime.O4. Hook
+        first-render behavior is @plan.React.O2; pre-attach sends are @plan.React.O3.
 
         Adopting the same entries in a different order does not change app behavior except through
         restored data or availability of an entity's lazy .byKey loader. Before that loader is
@@ -54,29 +58,32 @@ outcomes
         indefinitely.
     O3  Dormant records
         Persisted records belonging to unopened features remain dormant: readiness does not load
-        their code, and captures preserve their saved contents until adoption. A lazy machine's
-        lane records stay dormant, undecoded and uninvoked, until the feature is adopted, and their
-        parked endings wait on them. Unclaimed operation and entity records remain dormant until
-        their owner is adopted. Actor records whose machine id no entry declares are orphans, found
-        at ready without loading code; @plan.Persistence.O5 discards them and quarantines their
-        lane records.
+        their code, and captures preserve their saved contents until adoption. A lazy machine's lane
+        records stay dormant, undecoded and uninvoked, until the feature is adopted, and their
+        parked endings wait on them.
+
+        Unclaimed operation and entity records remain dormant until their owner is adopted. Actor
+        records whose machine id no entry declares are orphans, found at ready without loading code;
+        @plan.Persistence.O5 discards them and quarantines their lane records.
 
         Adoption restores dormant data under @plan.Persistence.O4, with the record-format, version
         and saved-shape checks of @plan.Persistence.O5. A restored consumer takes its context from
-        current providers without emitting a spurious context change. A dormant record that fails
-        to decode at adoption is quarantined like any undecodable record: an ensure opens its actor
-        fresh, reports RecordUndecodable (proposed name) and adopts the identity's lanes (the
-        runner's ruling, following the undecodable-record rule); other records and live
-        committed truth are untouched (@plan.Persistence.O5). Persisted data never makes a feature
-        unopenable.
+        current providers without emitting a spurious context change.
+
+        A dormant record that fails to decode at adoption is quarantined like any undecodable
+        record: an ensure opens its actor fresh, reports RecordUndecodable (proposed name) and
+        adopts the identity's lanes (the runner's ruling, following the undecodable-record rule);
+        other records and live committed truth are untouched (@plan.Persistence.O5). Persisted data
+        never makes a feature unopenable.
 
         A saved uncertain write marks affected entities uncertain no later than when those records
         first become readable, even while its actor remains dormant. Repair starts as soon as those
         entities are known, using available loaders and active answers; the actor receives its
-        unknown { Restored } when adopted. Entity repair behavior is @plan.EntityDomains.O1. A
-        Runtime refused persistence has no dormant records; second-tab behavior is
-        @plan.Persistence.O7. Dormant data and adopted actors never cross Runtime, request or scope
-        boundaries.
+        unknown { Restored } when adopted.
+
+        Entity repair behavior is @plan.EntityDomains.O1. A Runtime refused persistence has no
+        dormant records; second-tab behavior is @plan.Persistence.O7. Dormant data and adopted
+        actors never cross Runtime, request or scope boundaries.
     O4  Lazy features and server rendering
         Server preparation with refs adopts synchronously. Transferred lazy entry ids must name
         entries declared lazy in the client app; otherwise hydration rejects with
@@ -90,10 +97,11 @@ outcomes
         bounded by 10 seconds; ready() never waits for them. A Hydrate boundary committed later
         starts loads for its own entries the same way. A loaded entry adopts when its load finishes
         or at the first attach holding its ref, whichever comes later, installing its transferred
-        state under the merge rules; until then the server view stays on screen. A rejected or
-        timed-out load reports EntryLoadFailed with its cause; the entry stays inactive and its
-        transferred state provisional, persisted data stays dormant, and the next attach retries the
-        load. A failed load never loses the transferred truth.
+        state under the merge rules; until then the server view stays on screen.
+
+        A rejected or timed-out load reports EntryLoadFailed with its cause; the entry stays
+        inactive and its transferred state provisional, persisted data stays dormant, and the next
+        attach retries the load. A failed load never loses the transferred truth.
 
         Stories never call load, including during hydration. A transferred lazy entry remains
         inactive until a Story command holding its machine or ref adopts it.

@@ -6,13 +6,15 @@ goal
     state and replay generated failures against the production Runtime.
 outcomes
     O1  Stories
-        Story.app(setup, { id, fixtures?, world?, storage?, seed? }) accepts a typed
-        RuntimeSetup. Story.machine(machine, { id, input?, context?, fixtures?, world?, seed? })
-        tests one fresh actor; input and context are required exactly when declared and have their
-        declared types. Story.fragment(fragment, { id, fixtures?, world?, seed? }) tests a trait or
-        a subroutine alone, in an invisible stand-in host whose placement its declaration alone
-        decides. Handing the wrong kind of subject to a constructor is a type error. Every
-        subject's Effect requirements (a fragment's included) must be met by fixtures, so a
+        Story.app(setup, { id, fixtures?, world?, storage?, seed? }) accepts a typed RuntimeSetup.
+        Story.machine(machine, { id, input?, context?, fixtures?, world?, seed? }) tests one fresh
+        actor; input and context are required exactly when declared and have their declared types.
+
+        Story.fragment(fragment, { id, fixtures?, world?, seed? }) tests a trait or a subroutine
+        alone, in an invisible stand-in host whose placement its declaration alone decides. Handing
+        the wrong kind of subject to a constructor is a type error.
+
+        Every subject's Effect requirements (a fragment's included) must be met by fixtures, so a
         missing fake is a type error at the constructor. App Stories exercise real App wiring. A
         Story id is nonempty and unique across the configuration; derived exported Stories need
         distinct ids.
@@ -20,43 +22,52 @@ outcomes
         A Story is data: an inert plan of the subject, its options and an ordered list of steps,
         holding inputs and checkpoints and no checks; tests check values with their runner's own
         expect over run.checkpoints and run.frames. Construction, import and discovery start no
-        services, actors or fixtures. Each chained step returns a new plan; a prefix never changes
-        and nothing in it depends on later steps, so branches are plain variables, each run in a
-        fresh Runtime. Scenario commands accept no arbitrary callbacks, conditional branches, live
-        handles or raw state overrides. Every step has a data form keyed by its method name
-        (Story.Step). Steps: send(target?, ...events), together(...inputs), world(...controls),
-        advance (@O2), checkpoint(name, { at? }); app Stories add ensure(ref), detach(ref),
-        dispose(ref, { how? }), openTab(name, { from? }), closeTab(name), reload(name),
-        dehydrate and hydrate; machine Stories setContext, dispose() and ensure() (another
-        incarnation of the same identity); fragment Stories enter(input?, { subject? }),
-        leave(options?), guards(answers) (the stand-in's guard answers, default allow) and
-        reset(subject) for traits, with public events and hostEvents sendable. In a fragment Story,
-        notifications (whenAbandoned's included) are callback records and exits are exit records,
-        as in a host. run() is the one execution boundary; it takes no options and returns a
-        Promise of a StoryRun with frames, steps, checkpoints, end, evidence, payloads and trace.
+        services, actors or fixtures.
+
+        Each chained step returns a new plan; a prefix never changes and nothing in it depends on
+        later steps, so branches are plain variables, each run in a fresh Runtime. Scenario commands
+        accept no arbitrary callbacks, conditional branches, live handles or raw state overrides.
+        Every step has a data form keyed by its method name (Story.Step).
+
+        Steps: send(target?, ...events), together(...inputs), world(...controls), advance (@O2),
+        checkpoint(name, { at? }); app Stories add ensure(ref), detach(ref), dispose(ref, { how? }),
+        openTab(name, { from? }), closeTab(name), reload(name), dehydrate and hydrate; machine
+        Stories `setContext`, dispose() and ensure() (another incarnation of the same identity);
+        fragment Stories enter(input?, { subject? }), leave(options?), guards(answers) (the
+        stand-in's guard answers, default allow) and reset(subject) for traits, with public events
+        and `hostEvents` sendable.
+
+        In a fragment Story, notifications (whenAbandoned's included) are callback records and exits
+        are exit records, as in a host. run() is the one execution boundary; it takes no options and
+        returns a Promise of a StoryRun with frames, steps, checkpoints, end, evidence, payloads and
+        trace.
 
         One address names a thing everywhere: { actor?, instance?, copy?, operation?, schedule?,
         timer?, key?, tab?, life? }; wire matches, the attempt and lane reads, record filters,
         advance({ next }) and step targets take it, and a request's via and every record carry the
         same fields; no ordinal across actors, hosts or tabs. operation takes a visible handle (a
-        definition's O.x, or a fragment's write through Fragment.O.x, as a name only); a
-        fragment's read or stream is named by instance and operation name. App ensure(ref)
-        attaches one use and detach(ref) ends one (ActorAbsent with none held); ensure takes no
-        input (@plan.Runtime.O3). dispose is disposeActor and { how: "forget" } is forget. openTab
-        and reload re-attach the Story's uses; a focused Story holds its subject. App send(target,
-        event) targets that exact ref or address; focused send(event) targets its actor. send may
-        restore an actor from its record, never create one. Only public events can be sent;
-        internal and mapped events require their declared producers. Focused setContext(context)
-        replaces the actor's context as a production context update: a changed value runs
-        onContext as an ordinary turn, an equal value is silent, and the initial context is a
-        silent baseline (@plan.Runtime.O5). App Stories cannot inject context.
+        definition's O.x, or a fragment's write through Fragment.O.x, as a name only); a fragment's
+        read or stream is named by instance and operation name.
 
-        Checkpoint names retain exact literal or known-union keys. Duplicate names, widened
-        strings and access through unknown literal keys are type errors; other commands preserve
-        the keys. defineConfig({ apps: [{ app, stories }], stories? }) discovers configured
-        exported Stories (top-level stories have no app) and rejects duplicate or empty ids,
-        foreign setups, incompatible machines and lookalike package values before acquiring
-        resources. Loading and configuration discovery follow @plan.CommandLine.O6.
+        App ensure(ref) attaches one use and detach(ref) ends one (ActorAbsent with none held);
+        ensure takes no input (@plan.Runtime.O3). dispose is `disposeActor` and { how: "forget" } is
+        forget. `openTab` and reload re-attach the Story's uses; a focused Story holds its subject.
+
+        App send(target, event) targets that exact ref or address; focused send(event) targets its
+        actor. send may restore an actor from its record, never create one. Only public events can
+        be sent; internal and mapped events require their declared producers.
+
+        Focused setContext(context) replaces the actor's context as a production context update: a
+        changed value runs `onContext` as an ordinary turn, an equal value is silent, and the
+        initial context is a silent baseline (@plan.Runtime.O5). App Stories cannot inject context.
+
+        Checkpoint names retain exact literal or known-union keys. Duplicate names, widened strings
+        and access through unknown literal keys are type errors; other commands preserve the keys.
+        defineConfig({ apps: [{ app, stories }], stories? }) discovers configured exported Stories
+        (top-level stories have no app) and rejects duplicate or empty ids, foreign setups,
+        incompatible machines and lookalike package values before acquiring resources.
+
+        Loading and configuration discovery follow @plan.CommandLine.O6.
     O2  Steps settle; time
         Identical plans, seeds and fake inputs produce identical ordered traces. Each run has fresh
         service state, seeded ids and randomness (each tab seeded from the run seed, tab name and
@@ -68,207 +79,262 @@ outcomes
         settle's drain re-queues microtasks until K consecutive hops show no scheduler activity and
         no arrival at anything of Flow's (a mailbox, a gate, the Clock, a connection's or body's
         pull); a settle that does not end within the hop cap is StoryTurnLimit with reason Settle.
-        After the last cut, if a commit or read fiber is parked, the run finishes the world (it
-        releases held items, closes connections and fires deadlines up to a fixed horizon,
-        settling after each, with nothing reaching the evidence); a fiber still parked is
-        HostTimeWait. A session or setup-scoped fiber may wait. A sleep of zero or less is a yield.
-        Each step may run 10,000 turns per instant; the 10,001st rejects with StoryTurnLimit naming
-        the step and the instant, before executing; later steps do not run and partial evidence
-        survives; there is no maxTurns option. Interleaving is fixed: tabs take turns in first-open
-        order, Attempts reach their fakes in invocation order, fakes' handlers run in arrival
-        order, and equal instants follow a documented total order. A Story is checked on the engine
-        its tests run on: its result never depends on host speed, but may depend on the engine.
-        Stated limits: a commit on an in-app latch only a later step opens is rejected; a real wait
-        under its own timeout, a cancelled fiber's real wait and fire-and-forget host work are not
-        caught.
 
-        advance(d) moves time to now plus a finite nonnegative Duration.Input, stopping and
-        settling at every deadline on the way, at most 100,000 deadlines (StoryTurnLimit with
-        reason Advance). advance({ next: address }) moves to the earliest unfrozen deadline the
-        address matches (NoDeadline if none); advance({ to }) to an epoch millisecond at or after
-        now; advance(d, { suspended }) models a page in the background, firing the tab's overdue
-        timers. together(...inputs) is the only concurrency word: admission is held in every tab
-        while each listed send, control or { advance } arrives, then admission resumes and the
-        step settles. During cleanup the Clock runs free and cleanup may yield. Invalid or
-        backwards movement rejects with InvalidDuration before changing time.
+        After the last cut, if a commit or read fiber is parked, the run finishes the world (it
+        releases held items, closes connections and fires deadlines up to a fixed horizon, settling
+        after each, with nothing reaching the evidence); a fiber still parked is HostTimeWait.
+
+        A session or setup-scoped fiber may wait. A sleep of zero or less is a yield. Each step may
+        run 10,000 turns per instant; the 10,001st rejects with StoryTurnLimit naming the step and
+        the instant, before executing; later steps do not run and partial evidence survives; there
+        is no `maxTurns` option.
+
+        Interleaving is fixed: tabs take turns in first-open order, Attempts reach their fakes in
+        invocation order, fakes' handlers run in arrival order, and equal instants follow a
+        documented total order.
+
+        A Story is checked on the engine its tests run on: its result never depends on host speed,
+        but may depend on the engine. Stated limits: a commit on an in-app latch only a later step
+        opens is rejected; a real wait under its own timeout, a cancelled fiber's real wait and
+        fire-and-forget host work are not caught.
+
+        advance(d) moves time to now plus a finite nonnegative Duration.Input, stopping and settling
+        at every deadline on the way, at most 100,000 deadlines (StoryTurnLimit with reason
+        Advance). advance({ next: address }) moves to the earliest unfrozen deadline the address
+        matches (NoDeadline if none); advance({ to }) to an epoch millisecond at or after now;
+        advance(d, { suspended }) models a page in the background, firing the tab's overdue timers.
+        together(...inputs) is the only concurrency word: admission is held in every tab while each
+        listed send, control or { advance } arrives, then admission resumes and the step settles.
+
+        During cleanup the Clock runs free and cleanup may yield.
+
+        Invalid or backwards movement rejects with InvalidDuration before changing time.
     O3  Fixtures and the world
         Fixtures are Effect Layers: the client halves of the world, replacing whole service
         functions while preserving their input, success, failure, cancellation and lifetime
         contracts. Everything outside the client is a fake server, one per run, holding typed truth
         and a log of what it received, shared by every tab and reload, set up before the subject
-        starts (the world option), and reached through declared endpoints. Fake.server gives
-        run-scoped truth, endpoints and controls; the Story controls the wire with four words:
-        hold, release, drop, duplicate. A fake's handle is pure and synchronous and decides the
-        result, never the wire; fakes have one result shape and one answer list, route tables, a
-        combination rule and a run-scoped server registry; each request carries its provenance
-        (via). Fake.Lost, Fake.Refused and Fake.Closed are mapped by the transport binding; a
-        crashed server is the binding's failure. Fixtures cannot inject operation outcomes
-        directly: every ending comes from a fake's answer through the commit's real classification,
-        or from a lifecycle step. A broken fake rejects the run with StoryFakeError (reason NoRoute,
-        InvalidInput, Crashed, UnplacedStream or InvalidRefusal). Unused wire
-        rules are reported (UnusedWireRule). Fixtures may depend on setup services and shadow those
-        services. Duplicate service Tags among fixtures reject with DuplicateFixture before either
-        conflicting provider is acquired; replacement requires an explicit overriding form
-        identifying the replaced fixture and replacement Layer. Fixtures providing no service are
-        valid. Missing service requirements are type errors; untyped callers fail before actor
-        activation.
+        starts (the world option), and reached through declared endpoints.
+
+        Fake.server gives run-scoped truth, endpoints and controls; the Story controls the wire with
+        four words: hold, release, drop, duplicate. A fake's handle is pure and synchronous and
+        decides the result, never the wire; fakes have one result shape and one answer list, route
+        tables, a combination rule and a run-scoped server registry; each request carries its
+        provenance (via).
+
+        Fake.Lost, Fake.Refused and Fake.Closed are mapped by the transport binding; a crashed
+        server is the binding's failure. Fixtures cannot inject operation outcomes directly: every
+        ending comes from a fake's answer through the commit's real classification, or from a
+        lifecycle step.
+
+        A broken fake rejects the run with StoryFakeError (reason NoRoute, InvalidInput, Crashed,
+        UnplacedStream or InvalidRefusal). Unused wire rules are reported (UnusedWireRule). Fixtures
+        may depend on setup services and shadow those services.
+
+        Duplicate service Tags among fixtures reject with DuplicateFixture before either conflicting
+        provider is acquired; replacement requires an explicit overriding form identifying the
+        replaced fixture and replacement Layer. Fixtures providing no service are valid. Missing
+        service requirements are type errors; untyped callers fail before actor activation.
 
         Every run has fresh scoped providers and server truth. Stateful fakes remember writes and
         idempotency results and update that truth before emitting pushes. Story persistence always
         uses Fake.storage, a fresh in-memory store with a purpose per write, FIFO per tab, aborted
         on close, under the scope lock; setup and fixtures never open external storage or inherit a
-        live store. A tab opened from another (openTab's from) carries storage only. Storage
-        fixtures may seed encoded records before bootstrap, but cannot bypass production
-        validation. Acquisition failures still trigger @O8 cleanup.
+        live store.
+
+        A tab opened from another (openTab's from) carries storage only. Storage fixtures may seed
+        encoded records before bootstrap, but cannot bypass production validation. Acquisition
+        failures still trigger @O8 cleanup.
     O4  Frames, checkpoints and StoryFrame
         A frame is one captured cut of the run. A run records a frame after every committed
         publication, a settlement included, and every step ends with a step cut (its latest
         publication frame plus the evidence position, fake truth and wire state at the step's end),
-        so a step that publishes nothing still reads its own effects. Frames never collapse. A
-        checkpoint names a step cut; checkpoint(name, { at: { settled: O.x } }) names a
+        so a step that publishes nothing still reads its own effects. Frames never collapse.
+
+        A checkpoint names a step cut; checkpoint(name, { at: { settled: O.x } }) names a
         settlement's publication. Every cut captures its full inspection and every frame its work
         and lanes. run.frames keeps at most 10,000 and exposes a non-enumerable truncated; its
-        iterator throws FramesTruncated; step cuts and checkpoints are never truncated. Each frame
-        names its cause and refers to evidence by sequence position rather than copying it. end
-        captures after the last step, before cleanup; it does not mean actors have reached final
-        states. A cut includes every live actor in that Runtime, including local and nonpersisted
-        actors, and no foreign actor. It captures complete published snapshots, one store revision,
-        now, work and due times, issues and evidence; partially published context waves never
-        appear as complete.
+        iterator throws FramesTruncated; step cuts and checkpoints are never truncated.
+
+        Each frame names its cause and refers to evidence by sequence position rather than copying
+        it. end captures after the last step, before cleanup; it does not mean actors have reached
+        final states.
+
+        A cut includes every live actor in that Runtime, including local and nonpersisted actors,
+        and no foreign actor. It captures complete published snapshots, one store revision, now,
+        work and due times, issues and evidence; partially published context waves never appear as
+        complete.
 
         A checkpoint is read after the run, every read answered from what was captured then: state,
         memory, operations, schedules (machine and fragment Stories), read(target) (an actor's
         snapshot by ref, undefined if absent, or a fake's truth), lane, records (one list, each
         record with tab: { name, open }), inspection (its work replaces pending), entity(...)
-        returning { data, predicted, uncertain, unconfirmed } or undefined, attempt and now. A read
-        that could name two things is AmbiguousRead; a step addressing an absent subject is
+        returning { data, predicted, uncertain, unconfirmed } or undefined, attempt and now.
+
+        A read that could name two things is AmbiguousRead; a step addressing an absent subject is
         SubjectAbsent. Field and queue meanings follow @plan.EntityDomains.O2; lanes follow
         @plan.Operations.O6.
 
         Cuts retain cumulative repairs, skips and diagnostics in accepted order; run.trace also
         includes cleanup events. Truncation is explicit and cannot prove an absent cause, following
-        @plan.Inspection.O4. Earlier evidence stays unchanged as execution continues. In-process
-        snapshots retain sensitive values faithfully; application opaque values retain identity.
-        Reads start no work and cannot resume a Runtime. Exported evidence follows
+        @plan.Inspection.O4. Earlier evidence stays unchanged as execution continues.
+
+        In-process snapshots retain sensitive values faithfully; application opaque values retain
+        identity. Reads start no work and cannot resume a Runtime. Exported evidence follows
         @plan.Inspection.O5. Failed capture fabricates no end and preserves earlier checkpoints.
 
         <StoryFrame frame={frame} tab?> takes a frame and an optional tab and renders real
         components from it without attachment, restoration or operation starts. Actors the run
-        captured read their snapshot at that frame. An ensuring hook for an actor the frame lacks
-        returns the pre-attach snapshot of @plan.React.O2, starts nothing and is reported as a gap
-        of that frame; a lookup for one returns null. useActor returns its pure pre-attach
-        snapshot. useNow returns the frame's now. Clicks are inert: sends never execute; inside a
-        StoryPlayer (@O9) the player may compare them with the Story's next event. The application
-        is rendered below its FlowProvider, since StoryFrame supplies the Flow context. Eligibility
-        uses production checks, including denial reasons and context. tab selects a tab's cut
-        (@O7). Rendering a frame is not a restore or a replay.
+        captured read their snapshot at that frame.
+
+        An ensuring hook for an actor the frame lacks returns the pre-attach snapshot of
+        @plan.React.O2, starts nothing and is reported as a gap of that frame; a lookup for one
+        returns null. `useActor` returns its pure pre-attach snapshot. `useNow` returns the frame's
+        now.
+
+        Clicks are inert: sends never execute; inside a StoryPlayer (@O9) the player may compare
+        them with the Story's next event. The application is rendered below its FlowProvider, since
+        StoryFrame supplies the Flow context. Eligibility uses production checks, including denial
+        reasons and context. tab selects a tab's cut (@O7). Rendering a frame is not a restore or a
+        replay.
     O5  Models and replay (removed)
         Removed: model-based exploration is cut. Flow keeps one runtime; finding unwritten
         sequences stays with propertyTest (@O6) on the real Runtime.
     O6  Reproducible property tests
         propertyTest(story, { steps, properties?, whenQuiet?, seed, runs?, length?, quietWithin? })
         generates ordinary Stories from story on fresh production Runtimes. steps are step data
-        forms (every form but checkpoint), generated with pure generators using the supplied
-        seeded random source: nonempty readonly sample arrays (uniform, shrinking toward earlier
-        entries) or { sample, shrink } objects (a finite ordered shrink sequence). Faults are
-        steps: hold, release, fail, delay, reorder, duplicate or lose responses; change server
-        truth and push; disconnect and reconnect; change placements; invalidate; crash and
-        restore; or adopt a supplied domain, all through real service and lifecycle paths, so a
-        lost response can leave a committed write unknown. Invalid generated steps are skipped and
-        left out of emitted Stories. Properties are plain functions, never part of a Story. The
-        domain form is domainPropertyOptions(domains, inputs), whose oracle, quietness and
+        forms (every form but checkpoint), generated with pure generators using the supplied seeded
+        random source: nonempty readonly sample arrays (uniform, shrinking toward earlier entries)
+        or { sample, shrink } objects (a finite ordered shrink sequence).
+
+        Faults are steps:
+
+        - hold, release, fail, delay, reorder, duplicate or lose responses;
+        - change server truth and push;
+        - disconnect and reconnect;
+        - change placements;
+        - invalidate;
+        - crash and restore;
+        - or adopt a supplied domain, all through real service and lifecycle paths, so a lost
+          response can leave a committed write unknown.
+
+        Invalid generated steps are skipped and left out of emitted Stories. Properties are plain
+        functions, never part of a Story.
+
+        The domain form is domainPropertyOptions(domains, inputs), whose oracle, quietness and
         inconclusive rules belong to @plan.EntityDomains.O4; overlapping domains are tested
         together, with probe subscriptions on every read entry. seed is a safe integer; runs and
-        length are positive safe integers. quietWithin defaults to 60 seconds of virtual time and
+        length are positive safe integers. `quietWithin` defaults to 60 seconds of virtual time and
         accepts a finite nonnegative Duration.Input. Pending work at that horizon is inconclusive,
         never pass.
 
         Every committed publication is checked. After the generated steps, the quiet phase ends the
         world in ordinary steps, which the emitted Story keeps. Results distinguish Pass, Fail and
-        Inconclusive and retain seed, completed runs and evidence. propertyTest resolves on Pass,
+        Inconclusive and retain seed, completed runs and evidence. `propertyTest` resolves on Pass,
         and rejects with PropertyTestFailed { result } on Fail or Inconclusive, after every run
-        completes; a property's defect is PropertyDefect. Fail identifies the property and
-        step/publication; turn exhaustion, pending external work, a quiet horizon or insufficient
-        evidence is Inconclusive, except that a truncated run is a Fail with FramesTruncated.
-        Acquisition, generator and cleanup defects reject as execution errors rather than
-        counterexamples. Shrinking deterministically tries step chunks, individual steps, then
-        smaller inputs, preserving dependencies, input validity and step pairs. Each candidate runs
-        fresh and is retained only if the same property fails. Stop at 1,000 candidates or no
-        smaller failure; report the bound. Re-run the final failure and emit a static Story with
-        literal inputs, controls and seed. Repeated replay produces identical traces. Export
-        redaction identifies omissions that prevent the printed projection alone from reproducing
-        the failure.
+        completes; a property's defect is PropertyDefect.
+
+        Fail identifies the property and step/publication; turn exhaustion, pending external work, a
+        quiet horizon or insufficient evidence is Inconclusive, except that a truncated run is a
+        Fail with FramesTruncated. Acquisition, generator and cleanup defects reject as execution
+        errors rather than counterexamples.
+
+        Shrinking deterministically tries step chunks, individual steps, then smaller inputs,
+        preserving dependencies, input validity and step pairs. Each candidate runs fresh and is
+        retained only if the same property fails. Stop at 1,000 candidates or no smaller failure;
+        report the bound.
+
+        Re-run the final failure and emit a static Story with literal inputs, controls and seed.
+        Repeated replay produces identical traces. Export redaction identifies omissions that
+        prevent the printed projection alone from reproducing the failure.
     O7  Isolation, hydration and lazy features
         Run, scope and request isolation follows @plan.Runtime.O7. Tests use no browser storage or
         live state from another run.
 
-        App Stories model reload and a second tab as tabs: independent Runtimes of the Story's
-        setup sharing that run's fake servers and Fake.storage. openTab(name, { from? })
-        constructs and readies one; reload(name) reloads one; closeTab(name) ends it abruptly, with
-        no final flush, like a closed or crashed page, and releases its scope ownership; remote
-        requests in transit survive closeTab, local writes abort. send, ensure and checkpoint reads
-        take an optional tab (default "main"); records carry tab: { name, open }. A tab opened while
-        another holds the scope runs without persistence (@plan.Persistence.O7). Tabs share nothing
-        else; there is no cross-tab coordination. A clean Runtime shutdown with queued work is a
-        test of Flow's own policy suite.
+        App Stories model reload and a second tab as tabs:
+
+        - independent Runtimes of the Story's setup sharing that run's fake servers and
+          Fake.storage. openTab(name, { from? }) constructs and readies one;
+        - reload(name) reloads one;
+        - closeTab(name) ends it abruptly, with no final flush, like a closed or crashed page, and
+          releases its scope ownership;
+        - remote requests in transit survive `closeTab`, local writes abort. send, ensure and
+          checkpoint reads take an optional tab (default "main");
+        - records carry tab: { name, open }.
+
+        A tab opened while another holds the scope runs without persistence (@plan.Persistence.O7).
+        Tabs share nothing else; there is no cross-tab coordination. A clean Runtime shutdown with
+        queued work is a test of Flow's own policy suite.
 
         App dehydrate(label, { within, maxBytes? }) captures through production server settle,
         moving time as advance does, deadline by deadline, until quiet or within. It stores
-        run.payloads[label] and leaves the scenario Runtime available. Labels follow checkpoint key
-        rules. hydrate(source, label?) accepts a payload or an independently executed source Story;
-        a hydration source runs in the destination's world, on the run's clock, may not set world,
-        and its requests carry via.tab: { name: "server", open }. Leading hydrate runs before
-        bootstrap and storage restore; later hydrate models navigation. Payload contents follow
-        @plan.ServerRendering.O3, validation and installation @plan.ServerRendering.O4, precedence
-        @plan.ServerRendering.O5 and isolation @plan.ServerRendering.O6. Source cycles and missing
-        labels reject before execution; failures identify the source or destination boundary.
-        Checkpoints expose hydration evidence and serverView(label) for first-render comparison.
+        run.payloads[label] and leaves the scenario Runtime available.
+
+        Labels follow checkpoint key rules. hydrate(source, label?) accepts a payload or an
+        independently executed source Story; a hydration source runs in the destination's world, on
+        the run's clock, may not set world, and its requests carry via.tab: { name: "server", open
+        }. Leading hydrate runs before bootstrap and storage restore; later hydrate models
+        navigation.
+
+        Payload contents follow @plan.ServerRendering.O3, validation and installation
+        @plan.ServerRendering.O4, precedence @plan.ServerRendering.O5 and isolation
+        @plan.ServerRendering.O6. Source cycles and missing labels reject before execution; failures
+        identify the source or destination boundary. Checkpoints expose hydration evidence and
+        serverView(label) for first-render comparison.
 
         Lazy ensure and focused construction adopt supplied definitions at the chosen step without
         moving time or invoking a module loader, following @plan.LazyFeatures.O2. Checkpoints
         expose adopted entries; unrelated dormant records remain dormant. Real module loading is
         exercised by production host tests.
     O8  Cleanup and failure evidence
-        A run takes no cancellation signal: it never yields to the host, so nothing could call
-        abort during one, and a runner's timeout reports only when the run ends; the hop cap, the
-        turn limit and the deadline limit bound it. Success, execution failure and partial
-        acquisition all finalize owned resources. Cleanup attempts each finalizer once even when
-        another fails; fixtures cannot suppress it. It runs in a fixed order: stop admission,
-        dispose actors consumers before providers, dispose the Runtime, then release fixture and
-        host scopes last. Production disposal guarantees follow @plan.Runtime.O6.
+        A run takes no cancellation signal: it never yields to the host, so nothing could call abort
+        during one, and a runner's timeout reports only when the run ends; the hop cap, the turn
+        limit and the deadline limit bound it. Success, execution failure and partial acquisition
+        all finalize owned resources.
+
+        Cleanup attempts each finalizer once even when another fails; fixtures cannot suppress it.
+        It runs in a fixed order: stop admission, dispose actors consumers before providers, dispose
+        the Runtime, then release fixture and host scopes last. Production disposal guarantees
+        follow @plan.Runtime.O6.
 
         run() rejects on a real Story error or a broken fake, never on a value: StoryTurnLimit,
         HostTimeWait, StoryInvalidCommand (ActorAbsent, AlreadyEntered, NotEntered, TabOpen,
         TabClosed, NothingHeld, NoDeadline, NoConnection), InvalidDuration, SubjectAbsent,
         AmbiguousRead, FramesTruncated, StoryFakeError, a failed acquisition or a cleanup failure.
+
         After a resolve every declared checkpoint is present and typed. The earliest recorded error
         is primary, ordered by the step where a fiber parked, and later ones are listed; otherwise
-        the first cleanup failure is primary. Cleanup diagnostics retain their order, and cleanup
-        failure never yields success. The full Cause remains available in process through cleanup;
-        projection follows @plan.Diagnostics.O3 and never serializes Cause or private recovery
-        authority. Rejection is a FlowError carrying readonly Story evidence: frames up to the
-        failing boundary, completed checkpoints, captured end and payloads if any, failing step
-        index or bootstrap/capture/cleanup boundary, primary and cleanup diagnostics, trace and
-        truncation, and last accepted and drained evidence positions. Direct and CLI runs agree on
-        results and retained evidence.
+        the first cleanup failure is primary.
+
+        Cleanup diagnostics retain their order, and cleanup failure never yields success. The full
+        Cause remains available in process through cleanup; projection follows @plan.Diagnostics.O3
+        and never serializes Cause or private recovery authority.
+
+        Rejection is a FlowError carrying readonly Story evidence: frames up to the failing
+        boundary, completed checkpoints, captured end and payloads if any, failing step index or
+        bootstrap/capture/cleanup boundary, primary and cleanup diagnostics, trace and truncation,
+        and last accepted and drained evidence positions. Direct and CLI runs agree on results and
+        retained evidence.
     O9  Story playback
         <StoryPlayer run={run}> plays a run's frames over time under a floating overlay, built only
-        from StoryFrame; <StoryPlayer presentation={presentation}> first records the
-        presentation's own Story once on mount. Recording is the only execution: playing,
-        stepping, scrubbing and restarting render existing frames, so moving backwards is a lookup,
-        never a re-execution. Re-recording happens only on mount or on request, never from a cached
-        run. Controls are play, pause, next and previous (by frame, step or scene), scrub, speed,
-        restart and inspect, which shows the frame's cause, gaps and the run's evidence for it, or
-        evidence unavailable beyond the trace's retained window.
+        from StoryFrame; <StoryPlayer presentation={presentation}> first records the presentation's
+        own Story once on mount. Recording is the only execution: playing, stepping, scrubbing and
+        restarting render existing frames, so moving backwards is a lookup, never a re-execution.
+
+        Re-recording happens only on mount or on request, never from a cached run. Controls are
+        play, pause, next and previous (by frame, step or scene), scrub, speed, restart and inspect,
+        which shows the frame's cause, gaps and the run's evidence for it, or evidence unavailable
+        beyond the trace's retained window.
 
         definePresentation(story, { scenes, pacing? }) describes how to present one Story's run. A
         scene names a checkpoint of that Story (a type error otherwise) and may carry a caption, a
         hold and a route string for the host's router; it applies from its frame until the next
-        scene. pacing has speed, maxWait and minDwell. A presentation holds no event callbacks; the
-        Story stays the only source of events. The player highlights the control whose click would
-        send the Story's next event, comparing the addressed event. A closed tab renders nothing
-        and reports the gap. Fragment-alone Stories are not playable (a type error). Route changes
-        run host code; only Flow work is inert.
+        scene. pacing has speed, `maxWait` and `minDwell`.
+
+        A presentation holds no event callbacks; the Story stays the only source of events. The
+        player highlights the control whose click would send the Story's next event, comparing the
+        addressed event. A closed tab renders nothing and reports the gap. Fragment-alone Stories
+        are not playable (a type error). Route changes run host code; only Flow work is inert.
 verification
     V1  Type errors prove exact inputs, context, fixtures, checkpoint keys and the checkpoint
         reads' types.
