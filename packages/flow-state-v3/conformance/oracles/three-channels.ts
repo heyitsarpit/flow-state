@@ -1,87 +1,96 @@
 import { Option } from "effect";
-import { mappedEvent, operationNamed, type Reference } from "../fixtures/reference.ts";
+import {
+  mappedEvent,
+  type OperationReference,
+  operationNamed,
+  type Reference,
+} from "../fixtures/reference.ts";
 import { Observation } from "../port.ts";
 import { Answer } from "../world/network.ts";
 import { Fact, type Facts, type Oracle, steps } from "./oracle.ts";
 
 type Ended = Extract<Observation, { readonly _tag: "Ended" }>;
 
+type Delivered = Extract<Observation, { readonly _tag: "Delivered" }>;
+
+const endedOf = (fact: Fact) =>
+  Fact.$is("Reported")(fact) && Observation.$is("Ended")(fact.observation)
+    ? Option.some(fact.observation)
+    : Option.none();
+
+const deliveredOf = (fact: Fact) =>
+  Fact.$is("Reported")(fact) && Observation.$is("Delivered")(fact.observation)
+    ? Option.some(fact.observation)
+    : Option.none();
+
+const idOf = (operation: string, attempt: string) => `${operation} ${attempt}`;
+
 const attemptText = (attempt: Option.Option<string>) => Option.getOrElse(attempt, () => "(none)");
 
-const failureAfterUnknown = (timeline: ReadonlyArray<Fact>): ReadonlyArray<string> => {
+const writeNamed = (reference: Reference, name: string) =>
+  Option.filter(operationNamed(reference, name), (operation) => operation.attempts);
+
+const failureAfterUnknown = (timeline: ReadonlyArray<Fact>) => {
   const unsure = new Set<string>();
-  const found: Array<string> = [];
 
-  for (const fact of timeline) {
-    if (!Fact.$is("Reported")(fact) || !Observation.$is("Ended")(fact.observation)) continue;
-    const { attempt, channel, operation } = fact.observation;
+  return timeline.flatMap((fact) =>
+    Option.toArray(endedOf(fact)).flatMap(({ attempt, channel, operation }) => {
+      if (Option.isNone(attempt)) return [];
+      const id = idOf(operation, attempt.value);
+      const late = channel === "failure" && unsure.has(id);
 
-    if (Option.isNone(attempt)) continue;
+      if (channel === "unknown") unsure.add(id);
 
-    if (channel === "failure" && unsure.has(attempt.value))
-      found.push(
-        `WriteLanes I3: ${operation} ${attempt.value} ended unknown, then delivered a definite failure`,
-      );
-
-    if (channel === "unknown") unsure.add(attempt.value);
-  }
-
-  return found;
+      return late ? [`WriteLanes I3: ${id} ended unknown, then delivered a definite failure`] : [];
+    }),
+  );
 };
 
-const deliveredAsMapped = (
-  timeline: ReadonlyArray<Fact>,
-  reference: Reference,
-): ReadonlyArray<string> => {
+const mismatch = (delivered: Delivered, ended: Ended, operation: OperationReference) => {
+  const expected = mappedEvent(operation, ended.channel, ended.reason);
+
+  if (Option.contains(expected, delivered.event)) return [];
+
+  return [
+    `WriteLanes I3: ${delivered.operation} ${attemptText(delivered.attempt)} ended ${ended.channel} ${ended.reason} and ran ${delivered.event}, not ${Option.getOrElse(expected, () => "(no mapping)")}`,
+  ];
+};
+
+const deliveredAsMapped = (timeline: ReadonlyArray<Fact>, reference: Reference) => {
   const latest = new Map<string, Ended>();
   const declines = new Map<string, Array<Ended>>();
-  const found: Array<string> = [];
 
-  for (const fact of timeline) {
-    if (!Fact.$is("Reported")(fact)) continue;
-    const observed = fact.observation;
+  const remember = (ended: Ended) => {
+    if (Option.isSome(ended.attempt)) latest.set(idOf(ended.operation, ended.attempt.value), ended);
+    else declines.set(ended.operation, [...(declines.get(ended.operation) ?? []), ended]);
+  };
 
-    if (Observation.$is("Ended")(observed)) {
-      if (Option.isSome(observed.attempt))
-        latest.set(`${observed.operation} ${observed.attempt.value}`, observed);
-      else
-        declines.set(observed.operation, [...(declines.get(observed.operation) ?? []), observed]);
-    }
+  const endingOf = (delivered: Delivered) =>
+    Option.isSome(delivered.attempt)
+      ? Option.fromUndefinedOr(latest.get(idOf(delivered.operation, delivered.attempt.value)))
+      : Option.fromUndefinedOr(declines.get(delivered.operation)?.shift());
 
-    if (!Observation.$is("Delivered")(observed)) continue;
-    const queue = declines.get(observed.operation) ?? [];
+  const judge = (delivered: Delivered) =>
+    Option.match(endingOf(delivered), {
+      onNone: () => [
+        `WriteLanes I3: ${delivered.operation} ${attemptText(delivered.attempt)} delivered ${delivered.event} with no ending decided`,
+      ],
+      onSome: (ended) =>
+        Option.match(writeNamed(reference, delivered.operation), {
+          onNone: () => [],
+          onSome: (operation) => mismatch(delivered, ended, operation),
+        }),
+    });
 
-    const ended = Option.isSome(observed.attempt)
-      ? latest.get(`${observed.operation} ${observed.attempt.value}`)
-      : queue.shift();
+  return timeline.flatMap((fact) => {
+    Option.map(endedOf(fact), remember);
 
-    const operation = operationNamed(reference, observed.operation);
-
-    if (ended === undefined) {
-      found.push(
-        `WriteLanes I3: ${observed.operation} ${attemptText(observed.attempt)} delivered ${observed.event} with no ending decided`,
-      );
-      continue;
-    }
-
-    if (Option.isNone(operation) || !operation.value.attempts) continue;
-    const expected = mappedEvent(operation.value, ended.channel, ended.reason);
-
-    if (Option.isNone(expected) || expected.value !== observed.event)
-      found.push(
-        `WriteLanes I3: ${observed.operation} ${attemptText(observed.attempt)} ended ${ended.channel} ${ended.reason} and ran ${observed.event}, not ${Option.getOrElse(expected, () => "(no mapping)")}`,
-      );
-  }
-
-  return found;
+    return Option.toArray(deliveredOf(fact)).flatMap(judge);
+  });
 };
 
-const expectedEnding = (
-  answer: Answer,
-  mayHaveApplied: boolean,
-  classify: (answer: Answer, mayHaveApplied: boolean) => Ended["channel"],
-) => {
-  const channel = classify(answer, mayHaveApplied);
+const expectedEnding = (answer: Answer, mayHaveApplied: boolean, operation: OperationReference) => {
+  const channel = operation.classify(answer, mayHaveApplied);
 
   if (channel === "failure" && mayHaveApplied)
     return { channel: "unknown" as const, reason: Option.some("StillUnknown") };
@@ -92,53 +101,59 @@ const expectedEnding = (
   return { channel, reason: Option.none<string>() };
 };
 
-const endedAsAnswered = (
-  timeline: ReadonlyArray<Fact>,
-  reference: Reference,
-): ReadonlyArray<string> => {
+type Asked = { readonly answer: Answer; readonly mayHaveApplied: boolean };
+
+const judgeAnswered = (id: string, asked: Asked, ended: Ended, operation: OperationReference) => {
+  const expected = expectedEnding(asked.answer, asked.mayHaveApplied, operation);
+
+  const reasonRight = Option.match(expected.reason, {
+    onNone: () => true,
+    onSome: (reason) => reason === ended.reason,
+  });
+
+  if (expected.channel === ended.channel && reasonRight) return [];
+
+  const said = Option.match(expected.reason, { onNone: () => "", onSome: (r) => ` ${r}` });
+
+  return [
+    `WriteLanes I3: the server answered ${id} ${asked.answer._tag}, so it ends ${expected.channel}${said}; it ended ${ended.channel} ${ended.reason}`,
+  ];
+};
+
+const endedAsAnswered = (timeline: ReadonlyArray<Fact>, reference: Reference) => {
   const unsure = new Set<string>();
-  const found: Array<string> = [];
 
-  for (const step of steps(timeline)) {
-    const asked = new Map<string, { readonly answer: Answer; readonly mayHaveApplied: boolean }>();
+  const inStep = (step: ReadonlyArray<Fact>) => {
+    const asked = new Map<string, Asked>();
 
-    for (const fact of step) {
-      if (Fact.$is("Answered")(fact) && Option.isSome(fact.request.key)) {
-        const id = `${fact.request.operation} ${fact.request.key.value}`;
-        asked.set(id, { answer: fact.answer, mayHaveApplied: unsure.has(id) });
-      }
+    const ask = (fact: Fact) => {
+      if (!Fact.$is("Answered")(fact) || Option.isNone(fact.request.key)) return;
+      const id = idOf(fact.request.operation, fact.request.key.value);
+      asked.set(id, { answer: fact.answer, mayHaveApplied: unsure.has(id) });
+    };
 
-      if (!Fact.$is("Reported")(fact) || !Observation.$is("Ended")(fact.observation)) continue;
-      const ended = fact.observation;
-
-      if (Option.isNone(ended.attempt)) continue;
-      const id = `${ended.operation} ${ended.attempt.value}`;
-      const answered = asked.get(id);
-      const operation = operationNamed(reference, ended.operation);
-
-      if (answered !== undefined && Option.isSome(operation) && operation.value.attempts) {
-        asked.delete(id);
-
-        const expected = expectedEnding(
-          answered.answer,
-          answered.mayHaveApplied,
-          operation.value.classify,
-        );
-
-        const reasonWrong =
-          Option.isSome(expected.reason) && expected.reason.value !== ended.reason;
-
-        if (expected.channel !== ended.channel || reasonWrong)
-          found.push(
-            `WriteLanes I3: the server answered ${id} ${answered.answer._tag}, so it ends ${expected.channel}${Option.match(expected.reason, { onNone: () => "", onSome: (r) => ` ${r}` })}; it ended ${ended.channel} ${ended.reason}`,
-          );
-      }
+    const end = (ended: Ended) => {
+      if (Option.isNone(ended.attempt)) return [];
+      const id = idOf(ended.operation, ended.attempt.value);
+      const answered = Option.fromUndefinedOr(asked.get(id));
+      const operation = writeNamed(reference, ended.operation);
+      asked.delete(id);
 
       if (ended.channel === "unknown") unsure.add(id);
-    }
-  }
 
-  return found;
+      if (Option.isNone(answered) || Option.isNone(operation)) return [];
+
+      return judgeAnswered(id, answered.value, ended, operation.value);
+    };
+
+    return step.flatMap((fact) => {
+      ask(fact);
+
+      return Option.toArray(endedOf(fact)).flatMap(end);
+    });
+  };
+
+  return steps(timeline).flatMap(inStep);
 };
 
 /**
@@ -157,6 +172,8 @@ const endedAsAnswered = (
  * **Gotchas**
  *
  * - Only operations the case's references name, once, are checked by mapping.
+ * - The Port's `Ended` channel is typed; an adapter that cannot read a channel reports no ending,
+ *   which the delivery check then sees as a delivery with no ending.
  */
 export const threeChannels: Oracle = {
   name: "three-channels",

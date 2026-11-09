@@ -1,16 +1,10 @@
-import { Data, Option } from "effect";
+import { Data, Option, Predicate } from "effect";
 import type { Reference } from "../fixtures/reference.ts";
 import { sameData } from "../oracles/equality.ts";
 import { Fact, type Oracle } from "../oracles/oracle.ts";
-import {
-  type ActorRef,
-  Observation,
-  type Port,
-  type Row,
-  type Runtime,
-  Snapshot,
-} from "../port.ts";
+import { type ActorRef, Observation, type Port, type Row, Snapshot } from "../port.ts";
 import { type Answer, NoHeldRequest, type Request } from "../world/network.ts";
+import type { StorageAnswer } from "../world/storage.ts";
 import { advance, kill, makeWorld, settle, type World } from "../world/world.ts";
 
 /**
@@ -59,26 +53,33 @@ export type Scenario = {
  * - `eq` and `state` throw `Mismatch`.
  * - A reload kills the page and boots the port again over the same world, then re-attaches every
  *   use the case holds.
+ * - The short forms act on the scenario's own actor; the `...Of` and `...Where` forms name what
+ *   they act on.
  */
 export type Case = {
   readonly actor: ActorRef;
   readonly world: World;
-  readonly ensure: (actor?: ActorRef, input?: unknown) => void;
-  readonly send: (event: string, payload?: unknown) => void;
-  readonly to: (actor: ActorRef, event: string, payload?: unknown) => void;
-  readonly ack: (match?: string) => void;
-  readonly refuse: (match?: string) => void;
-  readonly answer: (
+  readonly ensure: () => void;
+  readonly ensureOf: (actor: ActorRef, input: Option.Option<unknown>) => void;
+  readonly send: (event: string, payload: unknown) => void;
+  readonly to: (actor: ActorRef, event: string, payload: unknown) => void;
+  readonly ack: () => void;
+  readonly answerStorage: (how: StorageAnswer, match: Option.Option<string>) => void;
+  readonly answer: (operation: string, answer: Answer) => void;
+  readonly answerWhere: (
     operation: string,
     answer: Answer,
-    where?: Readonly<Record<string, unknown>>,
+    where: Readonly<Record<string, unknown>>,
   ) => void;
   readonly advance: (ms: number) => void;
   readonly reload: () => void;
   readonly eq: (label: string, actual: unknown, expected: unknown) => void;
-  readonly state: (expected: string, actor?: ActorRef) => void;
-  readonly memory: (actor?: ActorRef) => Readonly<Record<string, unknown>>;
-  readonly row: (operation: string, key: unknown, actor?: ActorRef) => Option.Option<Row>;
+  readonly state: (expected: string) => void;
+  readonly stateOf: (actor: ActorRef, expected: string) => void;
+  readonly memory: () => Readonly<Record<string, unknown>>;
+  readonly memoryOf: (actor: ActorRef) => Readonly<Record<string, unknown>>;
+  readonly row: (operation: string, key: unknown) => Option.Option<Row>;
+  readonly rowOf: (actor: ActorRef, operation: string, key: unknown) => Option.Option<Row>;
   readonly requests: (operation: string) => ReadonlyArray<Request>;
   readonly keys: (operation: string) => ReadonlyArray<string>;
   readonly landed: (operation: string) => number;
@@ -88,15 +89,8 @@ export type Case = {
   readonly evidence: (kind: Extract<Observation, { readonly _tag: "Evidence" }>["kind"]) => number;
 };
 
-const record = (value: unknown): Readonly<Record<string, unknown>> => {
-  const out: Record<string, unknown> = {};
-
-  if (value === null || value === undefined) return out;
-
-  for (const [k, v] of Object.entries(value)) out[k] = v;
-
-  return out;
-};
+const record = (value: unknown) =>
+  Object.fromEntries(Predicate.isObject(value) ? Object.entries(value) : []);
 
 /**
  * Builds the driver for one scenario over a port, with the oracles it runs after every step.
@@ -105,6 +99,7 @@ const record = (value: unknown): Readonly<Record<string, unknown>> => {
  *
  * The world's seed is fixed per case, so every run of a case is the same run.
  */
+// RETURN_TYPE: the exported Case contract scenarios are written against.
 export const openCase = (
   port: Port,
   scenario: Scenario,
@@ -117,7 +112,7 @@ export const openCase = (
   let step = 0;
   let seenRequests = 0;
 
-  const boot = (): Runtime =>
+  const boot = () =>
     port.boot({
       fixtures: scenario.fixtures,
       captureMs: 0,
@@ -157,29 +152,50 @@ export const openCase = (
     judge(what);
   };
 
-  const snapshotOf = (actor: ActorRef) => runtime.snapshot(actor);
+  const answer = (
+    operation: string,
+    given: Answer,
+    where: Option.Option<Readonly<Record<string, unknown>>>,
+  ) =>
+    act(`answer ${operation} ${given._tag}`, () => {
+      const held = world.network.oldestOpen(operation, where);
+
+      if (Option.isNone(held)) throw new NoHeldRequest({ operation });
+      timeline.push(Fact.Answered({ request: held.value, answer: given }));
+      world.network.answer(held.value, given);
+    });
+
+  const stateOf = (actor: ActorRef, expected: string) =>
+    c.eq(
+      "state",
+      Snapshot.$match(runtime.snapshot(actor), {
+        Live: ({ state }) => state,
+        Absent: () => "(absent)",
+      }),
+      expected,
+    );
+
+  const memoryOf = (actor: ActorRef) =>
+    Snapshot.$match(runtime.snapshot(actor), {
+      Live: ({ memory }) => record(memory),
+      Absent: () => ({}),
+    });
 
   const c: Case = {
     actor: scenario.actor,
     world,
-    ensure: (actor = scenario.actor, input) =>
+    ensure: () => c.ensureOf(scenario.actor, Option.none()),
+    ensureOf: (actor, input) =>
       act(`ensure ${actor.id}`, () => {
         uses.push(actor);
-        runtime.ensure(actor, Option.fromUndefinedOr(input));
+        runtime.ensure(actor, input);
       }),
-    send: (event, payload = {}) => c.to(scenario.actor, event, payload),
-    to: (actor, event, payload = {}) =>
-      act(`send ${event}`, () => runtime.send(actor, event, payload)),
-    ack: (match) => act("ack", () => void world.storage.answer("ack", match)),
-    refuse: (match) => act("refuse", () => void world.storage.answer("refuse", match)),
-    answer: (operation, answer, where) =>
-      act(`answer ${operation} ${answer._tag}`, () => {
-        const held = world.network.oldestOpen(operation, Option.fromUndefinedOr(where));
-
-        if (Option.isNone(held)) throw new NoHeldRequest({ operation });
-        timeline.push(Fact.Answered({ request: held.value, answer }));
-        world.network.answer(held.value, answer);
-      }),
+    send: (event, payload) => c.to(scenario.actor, event, payload),
+    to: (actor, event, payload) => act(`send ${event}`, () => runtime.send(actor, event, payload)),
+    ack: () => c.answerStorage("ack", Option.none()),
+    answerStorage: (how, match) => act(how, () => void world.storage.answer(how, match)),
+    answer: (operation, given) => answer(operation, given, Option.none()),
+    answerWhere: (operation, given, where) => answer(operation, given, Option.some(where)),
     advance: (ms) => {
       step += 1;
       timeline.push(Fact.Stepped({ step, what: `advance ${ms}` }));
@@ -198,21 +214,12 @@ export const openCase = (
     eq: (label, actual, expected) => {
       if (!sameData(actual, expected)) throw new Mismatch({ label, expected, actual });
     },
-    state: (expected, actor = scenario.actor) =>
-      c.eq(
-        "state",
-        Snapshot.$match(snapshotOf(actor), {
-          Live: ({ state }) => state,
-          Absent: () => "(absent)",
-        }),
-        expected,
-      ),
-    memory: (actor = scenario.actor) =>
-      Snapshot.$match(snapshotOf(actor), {
-        Live: ({ memory }) => record(memory),
-        Absent: () => ({}),
-      }),
-    row: (operation, key, actor = scenario.actor) => runtime.row(actor, operation, key),
+    state: (expected) => stateOf(scenario.actor, expected),
+    stateOf,
+    memory: () => memoryOf(scenario.actor),
+    memoryOf,
+    row: (operation, key) => runtime.row(scenario.actor, operation, key),
+    rowOf: (actor, operation, key) => runtime.row(actor, operation, key),
     requests: (operation) => world.network.requests().filter((r) => r.operation === operation),
     keys: (operation) => [...new Set(c.requests(operation).flatMap((r) => Option.toArray(r.key)))],
     landed: (operation) =>

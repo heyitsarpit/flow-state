@@ -1,3 +1,5 @@
+import { Option } from "effect";
+
 type Timer = { readonly at: number; readonly order: number; readonly fire: () => void };
 
 /**
@@ -18,7 +20,7 @@ export type Clock = {
   readonly now: () => number;
   readonly work: () => number;
   readonly arm: (at: number, fire: () => void) => () => void;
-  readonly nextDue: (until: number) => Timer | undefined;
+  readonly nextDue: (until: number) => Option.Option<Timer>;
   readonly fire: (timer: Timer) => void;
   readonly moveTo: (time: number) => void;
   readonly armed: () => ReadonlyArray<number>;
@@ -28,6 +30,7 @@ export type Clock = {
 /**
  * Builds a clock at time 0 with no timers.
  */
+// RETURN_TYPE: The exported Clock contract the runtime adapters rely on; it types the methods' parameters.
 export const makeClock = (): Clock => {
   let time = 0;
   let worked = 0;
@@ -54,9 +57,11 @@ export const makeClock = (): Clock => {
       };
     },
     nextDue: (until) =>
-      timers
-        .filter((t) => t.at <= until)
-        .reduce<Timer | undefined>((a, b) => (a === undefined ? b : earliest(a, b)), undefined),
+      Option.fromUndefinedOr(
+        timers
+          .filter((t) => t.at <= until)
+          .reduce<Timer | undefined>((a, b) => (a === undefined ? b : earliest(a, b)), undefined),
+      ),
     fire: (timer) => {
       timers = timers.filter((t) => t !== timer);
       time = Math.max(time, timer.at);

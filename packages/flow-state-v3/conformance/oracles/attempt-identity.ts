@@ -19,28 +19,32 @@ const tally = (keys: ReadonlyArray<string>) => {
   return counts;
 };
 
-const sentAsRequested = (
-  timeline: ReadonlyArray<Fact>,
-  reference: Reference,
-): ReadonlyArray<string> =>
-  steps(timeline).flatMap((step) => {
-    const sent = tally(
-      step.flatMap((fact) =>
-        Fact.$is("Reported")(fact) &&
-        Observation.$is("Sent")(fact.observation) &&
-        isWrite(reference, fact.observation.operation)
-          ? [`${fact.observation.operation} ${fact.observation.attempt}`]
-          : [],
-      ),
-    );
+const keyText = (request: Request) => Option.getOrElse(request.key, () => "(no key)");
 
-    const requested = tally(
-      step.flatMap((fact) =>
-        Fact.$is("Requested")(fact) && isWrite(reference, fact.request.operation)
-          ? [`${fact.request.operation} ${Option.getOrElse(fact.request.key, () => "(no key)")}`]
-          : [],
-      ),
-    );
+const sentIn = (step: ReadonlyArray<Fact>, reference: Reference) =>
+  tally(
+    step.flatMap((fact) =>
+      Fact.$is("Reported")(fact) &&
+      Observation.$is("Sent")(fact.observation) &&
+      isWrite(reference, fact.observation.operation)
+        ? [`${fact.observation.operation} ${fact.observation.attempt}`]
+        : [],
+    ),
+  );
+
+const requestedIn = (step: ReadonlyArray<Fact>, reference: Reference) =>
+  tally(
+    step.flatMap((fact) =>
+      Fact.$is("Requested")(fact) && isWrite(reference, fact.request.operation)
+        ? [`${fact.request.operation} ${keyText(fact.request)}`]
+        : [],
+    ),
+  );
+
+const sentAsRequested = (timeline: ReadonlyArray<Fact>, reference: Reference) =>
+  steps(timeline).flatMap((step) => {
+    const sent = sentIn(step, reference);
+    const requested = requestedIn(step, reference);
 
     return [...new Set([...sent.keys(), ...requested.keys()])].flatMap((id) =>
       (sent.get(id) ?? 0) === (requested.get(id) ?? 0)
@@ -51,76 +55,70 @@ const sentAsRequested = (
     );
   });
 
-const oneInputPerKey = (
-  requests: ReadonlyArray<Request>,
-  reference: Reference,
-): ReadonlyArray<string> => {
+const oneInputPerKey = (requests: ReadonlyArray<Request>, reference: Reference) => {
   const first = new Map<string, Request>();
-  const found: Array<string> = [];
 
-  for (const request of requests) {
-    if (Option.isNone(request.key) || !isWrite(reference, request.operation)) continue;
+  return requests.flatMap((request) => {
+    if (Option.isNone(request.key) || !isWrite(reference, request.operation)) return [];
     const id = `${request.operation} ${request.key.value}`;
     const before = first.get(id);
 
     if (before === undefined) first.set(id, request);
-    else if (!sameData(before.input, request.input))
-      found.push(`WriteLanes I6: ${id} was sent with two inputs`);
-  }
 
-  return found;
+    return before === undefined || sameData(before.input, request.input)
+      ? []
+      : [`WriteLanes I6: ${id} was sent with two inputs`];
+  });
 };
 
-const mintedOnce = (timeline: ReadonlyArray<Fact>): ReadonlyArray<string> => {
+const mintedOnce = (timeline: ReadonlyArray<Fact>) => {
   const seen = new Set<string>();
-  const found: Array<string> = [];
 
-  for (const observed of reported(timeline)) {
-    if (!Observation.$is("Minted")(observed)) continue;
-
-    if (seen.has(observed.attempt))
-      found.push(`WriteLanes I6: the id ${observed.attempt} was minted twice`);
+  return reported(timeline).flatMap((observed) => {
+    if (!Observation.$is("Minted")(observed)) return [];
+    const twice = seen.has(observed.attempt);
     seen.add(observed.attempt);
-  }
 
-  return found;
+    return twice ? [`WriteLanes I6: the id ${observed.attempt} was minted twice`] : [];
+  });
 };
 
-const keysMintedAndOpen = (
-  timeline: ReadonlyArray<Fact>,
-  reference: Reference,
-): ReadonlyArray<string> => {
+const judgeKey = (request: Request, minted: ReadonlySet<string>, decided: ReadonlySet<string>) =>
+  Option.match(request.key, {
+    onNone: () => [`WriteLanes I6: a send of ${request.operation} carried no Attempt id`],
+    onSome: (key) => {
+      if (!minted.has(key))
+        return [
+          `WriteLanes I6: a send of ${request.operation} carried ${key}, which no commit minted`,
+        ];
+
+      if (decided.has(key))
+        return [
+          `WriteLanes I6: ${request.operation} ${key} was sent again after it ended definitely`,
+        ];
+
+      return [];
+    },
+  });
+
+const keysMintedAndOpen = (timeline: ReadonlyArray<Fact>, reference: Reference) => {
   const minted = new Set<string>();
   const decided = new Set<string>();
-  const found: Array<string> = [];
 
-  for (const fact of timeline) {
-    if (Fact.$is("Reported")(fact) && Observation.$is("Minted")(fact.observation))
-      minted.add(fact.observation.attempt);
+  const learn = (observed: Observation) => {
+    if (Observation.$is("Minted")(observed)) minted.add(observed.attempt);
 
-    if (
-      Fact.$is("Reported")(fact) &&
-      Observation.$is("Ended")(fact.observation) &&
-      fact.observation.channel !== "unknown"
-    )
-      Option.map(fact.observation.attempt, (attempt) => decided.add(attempt));
+    if (Observation.$is("Ended")(observed) && observed.channel !== "unknown")
+      Option.map(observed.attempt, (attempt) => decided.add(attempt));
+  };
 
-    if (!Fact.$is("Requested")(fact) || !isWrite(reference, fact.request.operation)) continue;
-    const { key, operation } = fact.request;
+  return timeline.flatMap((fact) => {
+    if (Fact.$is("Reported")(fact)) learn(fact.observation);
 
-    if (Option.isNone(key))
-      found.push(`WriteLanes I6: a send of ${operation} carried no Attempt id`);
-    else if (!minted.has(key.value))
-      found.push(
-        `WriteLanes I6: a send of ${operation} carried ${key.value}, which no commit minted`,
-      );
-    else if (decided.has(key.value))
-      found.push(
-        `WriteLanes I6: ${operation} ${key.value} was sent again after it ended definitely`,
-      );
-  }
-
-  return found;
+    return Fact.$is("Requested")(fact) && isWrite(reference, fact.request.operation)
+      ? judgeKey(fact.request, minted, decided)
+      : [];
+  });
 };
 
 /**

@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { Data, Effect, Option, Schema } from "effect";
 import { cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import type { Lie } from "../oracles/oracle.ts";
 import { type ChildFailed, runChild } from "./child.ts";
 import { type CaseVerdict, VERDICTS_LINE, VerdictsJson } from "./verdict.ts";
@@ -82,6 +82,7 @@ const verdictsOf = (stdout: string) =>
     },
   );
 
+// RETURN_TYPE: each branch builds one variant; the union keeps them one LieVerdict.
 const judge = (lie: Lie, verdicts: ReadonlyArray<CaseVerdict>): LieVerdict => {
   const red = verdicts.flatMap((v) => (v._tag === "Fail" ? [v] : []));
   const caught = red.find((v) => Option.contains(v.oracle, lie.oracle));
@@ -150,8 +151,3 @@ export const falsifyOne = (main: string, runtimeDir: string, scratch: string, li
         Effect.succeed(LieVerdict.NoVerdict({ lie: lie.name, why: e.why })),
     }),
   );
-
-/**
- * The directory the runner's own files live in, from its entry file.
- */
-export const runnerDir = (main: string) => dirname(main);

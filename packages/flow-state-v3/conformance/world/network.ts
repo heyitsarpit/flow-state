@@ -1,4 +1,4 @@
-import { Data, Effect, Option } from "effect";
+import { Data, Effect, Option, Predicate } from "effect";
 
 /**
  * How the suite's fake server answers one held request.
@@ -107,7 +107,7 @@ const failureOf = (tag: string, fields: Readonly<Record<string, unknown>>) => ({
   _tag: tag,
 });
 
-const outcome = (answer: Answer): Effect.Effect<unknown, unknown> =>
+const outcome = (answer: Answer) =>
   Answer.$match(answer, {
     Ok: ({ value }) => Effect.succeed(value),
     Fail: ({ tag, fields }) => Effect.fail(failureOf(tag, fields)),
@@ -123,9 +123,7 @@ const landsAtServer = (answer: Answer) =>
 const within = (input: unknown, where: Readonly<Record<string, unknown>>) =>
   Object.entries(where).every(
     ([k, v]) =>
-      input !== null &&
-      typeof input === "object" &&
-      Object.hasOwn(input, k) &&
+      Predicate.isObjectKeyword(input) &&
       Object.entries(input).some(([ik, iv]) => ik === k && iv === v),
   );
 
@@ -136,6 +134,7 @@ const within = (input: unknown, where: Readonly<Record<string, unknown>>) =>
  *
  * `now` and `page` are the clock's time and the page's generation, read at each request.
  */
+// RETURN_TYPE: The exported Network contract; it types the request and answer parameters for the runtime.
 export const makeNetwork = (now: () => number, page: () => number): Network => {
   let log: ReadonlyArray<Request> = [];
   let resumes: ReadonlyMap<number, (effect: Effect.Effect<unknown, unknown>) => void> = new Map();

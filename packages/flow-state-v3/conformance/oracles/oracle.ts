@@ -94,12 +94,14 @@ export type Lie = {
 /**
  * The observations of a timeline, in order.
  */
+// RETURN_TYPE: The public view is read-only; an oracle must not mutate the timeline's observations.
 export const reported = (timeline: ReadonlyArray<Fact>): ReadonlyArray<Observation> =>
   timeline.flatMap((fact) => (Fact.$is("Reported")(fact) ? [fact.observation] : []));
 
 /**
  * The timeline cut into steps: each step's facts, in order.
  */
+// RETURN_TYPE: The public view is read-only; an oracle must not mutate a step's facts.
 export const steps = (timeline: ReadonlyArray<Fact>): ReadonlyArray<ReadonlyArray<Fact>> => {
   const cut: Array<Array<Fact>> = [];
 

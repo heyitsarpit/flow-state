@@ -1,16 +1,17 @@
 /// <reference types="node" />
-import { Console, Effect, Option } from "effect";
+import { Console, Effect, Option, Schema } from "effect";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { nullPort } from "../adapters/null.ts";
 import { loadPrototype } from "../adapters/prototype.ts";
 import { lies, oracles, scenarios } from "../suite.ts";
 import { falsifyOne, LieVerdict, suiteIn } from "./falsify.ts";
 import { runCases } from "./run.ts";
 import { type CaseVerdict, VERDICTS_LINE, VerdictsJson } from "./verdict.ts";
-import { Schema } from "effect";
 
 const MAIN = fileURLToPath(import.meta.url);
+const NULL_RUNTIME = "null";
 const DEFAULT_RUNTIME = resolve(dirname(MAIN), "..", "..", "prototypes", "round-14");
 
 const flag = (args: ReadonlyArray<string>, name: string) => {
@@ -27,13 +28,6 @@ const list = (value: Option.Option<string>) =>
 
 const parallelOf = (args: ReadonlyArray<string>) =>
   Math.min(8, Math.max(1, Number(Option.getOrElse(flag(args, "--parallel"), () => "1")) || 1));
-
-const sliceOf = (args: ReadonlyArray<string>) =>
-  Option.map(flag(args, "--slice"), (s) => {
-    const [k, n] = s.split("/").map(Number);
-
-    return { k: k ?? 1, n: n ?? 1 };
-  });
 
 const lineOf = (v: CaseVerdict) =>
   v._tag === "Pass"
@@ -57,9 +51,27 @@ const report = (verdicts: ReadonlyArray<CaseVerdict>, json: boolean) =>
     if (passed !== verdicts.length || verdicts.length === 0) process.exitCode = 1;
   });
 
+const sliceVerdicts = (runtime: string, ids: ReadonlyArray<string>) =>
+  suiteIn(MAIN, runtime, ids, 240).pipe(
+    Effect.map((run) =>
+      Option.getOrElse(run.verdicts, () =>
+        ids.map(
+          (id) =>
+            ({
+              _tag: "Fail",
+              id,
+              oracle: Option.none(),
+              why: `no verdict from its child (exit ${run.out.code}): ${run.out.stderr.slice(-200)}`,
+            }) satisfies CaseVerdict,
+        ),
+      ),
+    ),
+  );
+
 const suite = (args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
-    const runtime = resolve(Option.getOrElse(flag(args, "--runtime"), () => DEFAULT_RUNTIME));
+    const given = Option.getOrElse(flag(args, "--runtime"), () => DEFAULT_RUNTIME);
+    const runtime = given === NULL_RUNTIME ? given : resolve(given);
     const only = list(flag(args, "--only"));
 
     const chosen = scenarios.filter((s) =>
@@ -72,30 +84,18 @@ const suite = (args: ReadonlyArray<string>) =>
     if (parallel > 1) {
       const slices = Array.from({ length: parallel }, (_, i) =>
         chosen.filter((_, j) => j % parallel === i).map((s) => s.id),
-      );
+      ).filter((ids) => ids.length > 0);
 
-      const runs = yield* Effect.forEach(
-        slices.filter((ids) => ids.length > 0),
-        (ids) => suiteIn(MAIN, runtime, ids, 240),
-        { concurrency: parallel },
-      );
+      const runs = yield* Effect.forEach(slices, (ids) => sliceVerdicts(runtime, ids), {
+        concurrency: parallel,
+      });
 
-      return yield* report(
-        runs.flatMap((r) => Option.getOrElse(r.verdicts, () => [])),
-        json,
-      );
+      return yield* report(runs.flat(), json);
     }
 
-    const slice = sliceOf(args);
+    const port = runtime === NULL_RUNTIME ? nullPort : yield* loadPrototype(runtime);
 
-    const mine = Option.match(slice, {
-      onNone: () => chosen,
-      onSome: ({ k, n }) => chosen.filter((_, j) => j % n === k - 1),
-    });
-
-    const port = yield* loadPrototype(runtime);
-
-    return yield* report(yield* runCases(port, mine, oracles), json);
+    return yield* report(yield* runCases(port, chosen, oracles), json);
   });
 
 const falsify = (args: ReadonlyArray<string>) =>
@@ -106,6 +106,18 @@ const falsify = (args: ReadonlyArray<string>) =>
 
     const chosen = lies.filter((l) =>
       Option.match(only, { onNone: () => true, onSome: (names) => names.includes(l.name) }),
+    );
+
+    const onNull = yield* sliceVerdicts(
+      NULL_RUNTIME,
+      scenarios.map((s) => s.id),
+    );
+
+    const passedOnNull = onNull.filter((v) => v._tag === "Pass").map((v) => v.id);
+    const nullRed = onNull.length === scenarios.length && passedOnNull.length === 0;
+
+    yield* Console.log(
+      `${nullRed ? "ok  " : "BAD "} null runtime: every case fails${nullRed ? "" : `; passed: ${passedOnNull.join(" ")}`}`,
     );
 
     const control = yield* suiteIn(
@@ -141,7 +153,7 @@ const falsify = (args: ReadonlyArray<string>) =>
         }),
       );
     const caught = verdicts.filter(LieVerdict.$is("Caught")).length;
-    const ok = controlGreen && caught === verdicts.length && verdicts.length > 0;
+    const ok = nullRed && controlGreen && caught === verdicts.length && verdicts.length > 0;
     yield* Console.log(`VERDICT ${ok ? "pass" : "fail"} ${caught}/${verdicts.length} lies caught`);
 
     if (!ok) process.exitCode = 1;
@@ -165,6 +177,7 @@ const main = (args: ReadonlyArray<string>) => {
   );
 };
 
+// oxlint-disable-next-line lint-bomb/no-effect-runner-in-domain -- the runner's process entry; @effect/platform-node's runMain is pinned to another Effect version and fails at run time
 Effect.runFork(
   main(process.argv.slice(2)).pipe(
     Effect.catchCause((cause) =>

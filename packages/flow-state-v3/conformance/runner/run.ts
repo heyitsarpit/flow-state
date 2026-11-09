@@ -1,13 +1,11 @@
 import { Cause, Effect, Option } from "effect";
 import { Mismatch, openCase, type Scenario, Violated } from "../dsl/case.ts";
-import { references } from "../fixtures/reference.ts";
+import { referenceFor } from "../fixtures/reference.ts";
 import type { Oracle } from "../oracles/oracle.ts";
 import type { Port } from "../port.ts";
 import type { CaseVerdict } from "./verdict.ts";
 
-const describe = (
-  failure: unknown,
-): { readonly oracle: Option.Option<string>; readonly why: string } => {
+const describe = (failure: unknown) => {
   if (failure instanceof Violated)
     return {
       oracle: Option.some(failure.oracle),
@@ -23,9 +21,6 @@ const describe = (
   return { oracle: Option.none(), why: `threw: ${String(failure)}` };
 };
 
-const referenceOf = (scenario: Scenario) =>
-  Object.assign({}, ...scenario.fixtures.map((name) => references[name] ?? {}));
-
 /**
  * Runs one case on a fresh world and returns its verdict.
  *
@@ -34,22 +29,19 @@ const referenceOf = (scenario: Scenario) =>
  * A step's oracle violation, a case's own mismatch and a thrown defect are each a `Fail`; nothing
  * a case does escapes as a failure of this Effect.
  */
-export const runCase = (
-  port: Port,
-  scenario: Scenario,
-  oracles: ReadonlyArray<Oracle>,
-): Effect.Effect<CaseVerdict> =>
+export const runCase = (port: Port, scenario: Scenario, oracles: ReadonlyArray<Oracle>) =>
   Effect.try({
-    try: () => scenario.run(openCase(port, scenario, referenceOf(scenario), oracles)),
+    try: () => scenario.run(openCase(port, scenario, referenceFor(scenario.fixtures), oracles)),
     catch: (failure) => failure,
   }).pipe(
     Effect.match({
-      onSuccess: (): CaseVerdict => ({ _tag: "Pass", id: scenario.id }),
-      onFailure: (failure): CaseVerdict => ({
-        _tag: "Fail",
-        id: scenario.id,
-        ...describe(failure),
-      }),
+      onSuccess: () => ({ _tag: "Pass", id: scenario.id }) satisfies CaseVerdict,
+      onFailure: (failure) =>
+        ({
+          _tag: "Fail",
+          id: scenario.id,
+          ...describe(failure),
+        }) satisfies CaseVerdict,
     }),
     Effect.catchCause((cause) =>
       Effect.succeed<CaseVerdict>({

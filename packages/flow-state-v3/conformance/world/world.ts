@@ -1,4 +1,4 @@
-import { Data } from "effect";
+import { Data, Option } from "effect";
 import { type Clock, makeClock } from "./clock.ts";
 import { type Lifecycle, makeLifecycle } from "./lifecycle.ts";
 import { makeNetwork, type Network } from "./network.ts";
@@ -32,6 +32,7 @@ const STEPS_PER_SETTLE = 100_000;
 /**
  * Builds a fresh world for one case.
  */
+// RETURN_TYPE: The exported World contract the runtime adapters and the suite both name.
 export const makeWorld = (seed: number): World => {
   const clock = makeClock();
   const lifecycle = makeLifecycle(seed);
@@ -55,7 +56,7 @@ export const makeWorld = (seed: number): World => {
  *   it has work pending and the page has nothing queued to run it: a spin, or a stall, no case
  *   asked for.
  */
-export const settle = (world: World, pending: () => boolean): void => {
+export const settle = (world: World, pending: () => boolean) => {
   for (let steps = 0; steps <= STEPS_PER_SETTLE; steps += 1) {
     if (!world.lifecycle.runOne()) {
       if (!pending()) return;
@@ -69,12 +70,12 @@ export const settle = (world: World, pending: () => boolean): void => {
 /**
  * Moves time forward by `ms`, firing each due timer in time order and settling after each.
  */
-export const advance = (world: World, ms: number, pending: () => boolean): void => {
+export const advance = (world: World, ms: number, pending: () => boolean) => {
   const end = world.clock.now() + ms;
   settle(world, pending);
 
-  for (let due = world.clock.nextDue(end); due !== undefined; due = world.clock.nextDue(end)) {
-    world.clock.fire(due);
+  for (let due = world.clock.nextDue(end); Option.isSome(due); due = world.clock.nextDue(end)) {
+    world.clock.fire(due.value);
     settle(world, pending);
   }
 
@@ -86,7 +87,7 @@ export const advance = (world: World, ms: number, pending: () => boolean): void 
  * Kills the page: its timers, tasks, held batches and live calls die; the store's bytes and the
  * server's log stay.
  */
-export const kill = (world: World): void => {
+export const kill = (world: World) => {
   world.clock.kill();
   world.lifecycle.kill();
   world.storage.kill();

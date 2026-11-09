@@ -17,8 +17,7 @@ const onWire = (c: Case) => {
   c.ack();
 };
 
-const row = (c: Case, operation = "pay", key: unknown = KEY) =>
-  Option.getOrUndefined(c.row(operation, key));
+const row = (c: Case) => Option.getOrUndefined(c.row("pay", KEY));
 
 const lastReason = (c: Case, operation: string) => c.endings(operation).at(-1)?.reason;
 

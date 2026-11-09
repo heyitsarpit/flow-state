@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { Context, Data, Effect, Option, Predicate } from "effect";
+import { Context, Data, Effect, Option, Predicate, Schema } from "effect";
 import { join } from "node:path";
 import {
   type ActorRef,
@@ -13,30 +13,31 @@ import {
 } from "../port.ts";
 import type { World } from "../world/world.ts";
 
-type PrototypeRow = {
-  readonly pending: boolean;
-  readonly uncertain: boolean;
-  readonly waiting: boolean;
-  readonly retryCount: number;
-};
+const PrototypeRow = Schema.Struct({
+  pending: Schema.Boolean,
+  uncertain: Schema.Boolean,
+  waiting: Schema.Boolean,
+  retryCount: Schema.Number,
+});
+
+const decodeRow = Schema.decodeUnknownOption(PrototypeRow);
 
 type PrototypeInstance = {
-  readonly ensure: (actor: string, machine: string, input: unknown) => void;
-  readonly attach?: (
+  readonly attach: (
     actor: string,
     machine: string,
     input: unknown,
     owner: string,
-    existing?: boolean,
+    existing: boolean,
   ) => void;
   readonly send: (
     actor: string,
     event: { readonly tag: string; readonly payload: unknown },
   ) => void;
   readonly dispose: (actor: string) => void;
-  readonly state: (actor: string) => string | undefined;
+  readonly state: (actor: string) => unknown;
   readonly memory: (actor: string) => unknown;
-  readonly row: (actor: string, op: string, key: unknown) => PrototypeRow | undefined;
+  readonly row: (actor: string, op: string, key: unknown) => unknown;
   readonly pending: () => boolean;
 };
 
@@ -74,11 +75,6 @@ type PrototypePort = {
 };
 
 type PrototypeApi = {
-  readonly call: (
-    op: string,
-    input: unknown,
-    options?: { readonly idempotencyKey?: string },
-  ) => Effect.Effect<unknown, unknown>;
   readonly confirm: (
     input: unknown,
     options: { readonly idempotencyKey: string },
@@ -109,21 +105,14 @@ export class PrototypeLoadFailed extends Data.TaggedError("PrototypeLoadFailed")
   readonly cause: unknown;
 }> {}
 
-const FIXTURES: Readonly<Record<string, { readonly file: string; readonly name: string }>> = {
-  pay: { file: "typed/pay.ts", name: "payFixture" },
-};
+const FIXTURES = [{ name: "pay", file: "typed/pay.ts", exported: "payFixture" }] as const;
 
-const EVIDENCE: ReadonlyArray<EvidenceKind> = [
-  "Superseded",
-  "Released",
-  "InFlight",
-  "NothingToResend",
-];
+const EVIDENCE = ["Superseded", "Released", "InFlight", "NothingToResend"] as const;
 
 const actorKey = (actor: ActorRef) =>
   `${actor.machine}/${actor.id.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll("|", "%7C")}`;
 
-const actorRef = (key: string): ActorRef => {
+const actorRef = (key: string) => {
   const at = key.lastIndexOf("/");
 
   return { machine: key.slice(0, at), id: decodeURIComponent(key.slice(at + 1)) };
@@ -141,11 +130,14 @@ const attemptOf = (report: Report) => {
   return value === "" ? Option.none() : Option.some(value);
 };
 
+// RETURN_TYPE: a type guard; inference cannot produce one.
 const isChannel = (value: string): value is Channel =>
   value === "success" || value === "failure" || value === "unknown";
 
+// RETURN_TYPE: a type guard; inference cannot produce one.
 const isEvidence = (value: string): value is EvidenceKind => EVIDENCE.some((k) => k === value);
 
+// RETURN_TYPE: each branch builds one variant; the union keeps them one Observation.
 const observationOf = (report: Report): Option.Option<Observation> => {
   const kind = text(report, "kind");
   const operation = text(report, "op");
@@ -192,6 +184,7 @@ const observationOf = (report: Report): Option.Option<Observation> => {
   return Option.none();
 };
 
+// RETURN_TYPE: the prototype's Host contract, which its boot takes.
 const hostOf = (world: World): PrototypeHost => {
   const seed = world.lifecycle.sessionSeed();
   let minted = 0;
@@ -213,6 +206,7 @@ const hostOf = (world: World): PrototypeHost => {
   };
 };
 
+// RETURN_TYPE: the prototype fixtures' Api contract, which their services take.
 const apiOf = (world: World): PrototypeApi => {
   const write = (op: string) => (input: unknown, options: { readonly idempotencyKey: string }) =>
     world.network.request(op, input, Option.some(options.idempotencyKey));
@@ -220,8 +214,6 @@ const apiOf = (world: World): PrototypeApi => {
   const read = (op: string) => (input: unknown) => world.network.request(op, input, Option.none());
 
   return {
-    call: (op, input, options) =>
-      world.network.request(op, input, Option.fromUndefinedOr(options?.idempotencyKey)),
     confirm: write("pay"),
     placeOrder: write("place"),
     voidAuthorization: write("void"),
@@ -231,41 +223,38 @@ const apiOf = (world: World): PrototypeApi => {
   };
 };
 
+// RETURN_TYPE: the Port's Runtime contract.
 const runtimeOf = (instance: PrototypeInstance): Runtime => ({
-  ensure: (actor, input) => {
-    const key = actorKey(actor);
-    const given = Option.getOrUndefined(input);
-
-    if (instance.attach === undefined) instance.ensure(key, actor.machine, given);
-    else instance.attach(key, actor.machine, given, "story");
-  },
+  ensure: (actor, input) =>
+    instance.attach(actorKey(actor), actor.machine, Option.getOrUndefined(input), "story", false),
   ensureExisting: (actor) =>
-    instance.attach?.(actorKey(actor), actor.machine, undefined, "story", true),
+    instance.attach(actorKey(actor), actor.machine, undefined, "story", true),
   send: (actor, event, payload) => instance.send(actorKey(actor), { tag: event, payload }),
   dispose: (actor) => instance.dispose(actorKey(actor)),
-  snapshot: (actor): Snapshot => {
+  snapshot: (actor) => {
     const key = actorKey(actor);
     const state = instance.state(key);
 
-    return state === undefined
-      ? Snapshot.Absent()
-      : Snapshot.Live({ state, memory: instance.memory(key) });
+    return Predicate.isString(state)
+      ? Snapshot.Live({ state, memory: instance.memory(key) })
+      : Snapshot.Absent();
   },
-  row: (actor, operation, key) =>
-    Option.fromUndefinedOr(instance.row(actorKey(actor), operation, key)),
+  row: (actor, operation, key) => decodeRow(instance.row(actorKey(actor), operation, key)),
   pending: instance.pending,
 });
 
 const load = (path: string) =>
+  // FLOW_STATE_ALLOW_EFFECT_TRY_PROMISE: the prototype is TypeScript loaded by path at run time (an edited copy under falsify); a dynamic import is the only way in.
   Effect.tryPromise({
-    // SAFETY: a module's namespace object; each use below reads one named export and checks its shape.
+    // RETURN_TYPE: a module namespace; each export is read by name below.
     try: (): Promise<Readonly<Record<string, unknown>>> => import(path),
     catch: (cause) => new PrototypeLoadFailed({ path, cause }),
   });
 
 const exported = <A>(module: Readonly<Record<string, unknown>>, name: string, path: string) =>
   Predicate.hasProperty(module, name) && Predicate.isObject(module[name])
-    ? // SAFETY: trusted prototype code; the export's shape is pinned by prototypes/conformance/harness.ts.
+    ? // SAFETY: trusted prototype code; its export shapes are pinned by prototypes/conformance/harness.ts.
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a dynamic import has no static type to narrow from
       Effect.succeed(module[name] as A)
     : Effect.fail(new PrototypeLoadFailed({ path, cause: `no export ${name}` }));
 
@@ -292,19 +281,19 @@ export const loadPrototype = Effect.fn("loadPrototype")(function* (runtimeDir: s
   const runtime = yield* exported<PrototypePort>(yield* load(adapterPath), "port", adapterPath);
 
   const fixtures = yield* Effect.forEach(
-    Object.entries(FIXTURES),
-    ([name, where]) => {
+    FIXTURES,
+    (where) => {
       const path = join(runtimeDir, "..", "conformance", where.file);
 
       return load(path).pipe(
-        Effect.flatMap((module) => exported<PrototypeFixture>(module, where.name, path)),
-        Effect.map((fixture) => [name, fixture] as const),
+        Effect.flatMap((module) => exported<PrototypeFixture>(module, where.exported, path)),
+        Effect.map((fixture) => [where.name, fixture] as const),
       );
     },
     { concurrency: 1 },
   );
 
-  const byName = new Map(fixtures);
+  const byName = new Map<string, PrototypeFixture>(fixtures);
 
   const port: Port = {
     name: `prototype ${runtimeDir}`,

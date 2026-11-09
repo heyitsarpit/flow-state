@@ -1,3 +1,5 @@
+import { Option } from "effect";
+
 /**
  * Why the runtime writes a batch: to acknowledge an Attempt before its send, to capture a
  * record, or a plain flush.
@@ -48,7 +50,7 @@ export type Storage = {
     purpose: Purpose,
     answer: (ok: boolean) => void,
   ) => void;
-  readonly answer: (how: StorageAnswer, match: string | undefined) => number;
+  readonly answer: (how: StorageAnswer, match: Option.Option<string>) => number;
   readonly entries: () => ReadonlyMap<string, string>;
   readonly held: () => ReadonlyArray<{
     readonly purpose: Purpose;
@@ -61,7 +63,7 @@ export type Storage = {
   readonly kill: () => void;
 };
 
-const shuffled = <A>(items: ReadonlyArray<A>, seed: number): ReadonlyArray<A> => {
+const shuffled = <A>(items: ReadonlyArray<A>, seed: number) => {
   const out = [...items];
   let x = (seed * 2_654_435_761 + 1) >>> 0;
 
@@ -87,6 +89,7 @@ const shuffled = <A>(items: ReadonlyArray<A>, seed: number): ReadonlyArray<A> =>
  *
  * `later` queues an answer as a page task; `page` names the page the load order is fixed for.
  */
+// RETURN_TYPE: The exported Storage contract; it types the write method's parameters for the runtime.
 export const makeStorage = (
   seed: number,
   later: (task: () => void) => void,
@@ -109,8 +112,11 @@ export const makeStorage = (
     kv = next;
   };
 
-  const matches = (h: Held, match: string | undefined) =>
-    match === undefined || h.purpose === match || h.writes.some((w) => w.key.includes(match));
+  const matches = (h: Held, match: Option.Option<string>) =>
+    Option.match(match, {
+      onNone: () => true,
+      onSome: (m) => h.purpose === m || h.writes.some((w) => w.key.includes(m)),
+    });
 
   return {
     load: () => new Map(shuffled([...kv], seed * 40_503 + page())),

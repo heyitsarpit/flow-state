@@ -33,6 +33,7 @@ export type Lifecycle = {
 /**
  * Builds the first page of a world with the given seed.
  */
+// RETURN_TYPE: The exported Lifecycle contract; it types the methods' parameters for the runtime.
 export const makeLifecycle = (seed: number): Lifecycle => {
   let page = 0;
   let tasksRun = 0;

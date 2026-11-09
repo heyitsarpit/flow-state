@@ -29,6 +29,8 @@ export type Reference = Readonly<Record<string, Readonly<Record<string, Operatio
 
 const LOST = ["NoResponse", "ServerError"];
 
+const CHANNEL = { success: "success", failure: "failure", unknown: "unknown" } as const;
+
 const classifyWith =
   (
     succeeds: (
@@ -37,24 +39,24 @@ const classifyWith =
       mayHaveApplied: boolean,
     ) => boolean,
   ) =>
-  (answer: Answer, mayHaveApplied: boolean): Channel =>
+  (answer: Answer, mayHaveApplied: boolean) =>
     Answer.$match(answer, {
-      Ok: () => "success",
+      Ok: () => CHANNEL.success,
       Fail: ({ tag, fields }) => {
-        if (LOST.includes(tag)) return "unknown";
+        if (LOST.includes(tag)) return CHANNEL.unknown;
 
-        return succeeds(tag, fields, mayHaveApplied) ? "success" : "failure";
+        return succeeds(tag, fields, mayHaveApplied) ? CHANNEL.success : CHANNEL.failure;
       },
-      Lost: () => "unknown",
-      LostButLanded: () => "unknown",
-      Never: () => "unknown",
-      Die: () => "unknown",
+      Lost: () => CHANNEL.unknown,
+      LostButLanded: () => CHANNEL.unknown,
+      Never: () => CHANNEL.unknown,
+      Die: () => CHANNEL.unknown,
     });
 
 const capturable = (fields: Readonly<Record<string, unknown>>) =>
   fields["status"] === "requires_capture" || fields["status"] === "succeeded";
 
-const pay: Readonly<Record<string, OperationReference>> = {
+const pay = {
   pay: {
     attempts: true,
     success: "Confirmed",
@@ -83,19 +85,23 @@ const pay: Readonly<Record<string, OperationReference>> = {
     unknown: "VoidUnsure",
     classify: classifyWith(() => false),
   },
-};
+} satisfies Readonly<Record<string, OperationReference>>;
+
+const catalog = new Map<string, Reference>([["pay", { "Checkout/Pay": pay }]]);
 
 /**
- * Every fixture's reference, by the catalog name a scenario boots it by.
+ * The reference of a case: the references of the fixtures it boots, by their catalog names.
  *
  * **Details**
  *
  * `pay` is the typed Pay fixture (`prototypes/conformance/typed/pay.ts`), machine `Checkout/Pay`.
- * Its reads (`intent`, `order`) have no Attempts and are not listed yet.
+ * Its reads (`intent`, `order`) have no Attempts and are not listed yet. A name with no reference
+ * adds nothing.
  */
-export const references: Readonly<Record<string, Reference>> = {
-  pay: { "Checkout/Pay": pay },
-};
+export const referenceFor = (fixtures: ReadonlyArray<string>) =>
+  Object.fromEntries(
+    fixtures.flatMap((name) => Object.entries(catalog.get(name) ?? {})),
+  ) satisfies Reference;
 
 /**
  * The one operation of this name among a case's fixtures; none when no fixture or two fixtures
@@ -106,12 +112,9 @@ export const references: Readonly<Record<string, Reference>> = {
  * - The Port's endings name an operation, not its machine, so an operation name two machines share
  *   is not checked by name.
  */
-export const operationNamed = (
-  reference: Reference,
-  name: string,
-): Option.Option<OperationReference> => {
+export const operationNamed = (reference: Reference, name: string) => {
   const found = Object.values(reference).flatMap((operations) =>
-    Object.hasOwn(operations, name) ? [operations[name]] : [],
+    Object.entries(operations).flatMap(([key, operation]) => (key === name ? [operation] : [])),
   );
 
   const [only] = found;
@@ -126,11 +129,7 @@ export const operationNamed = (
  *
  * A failure's reason is its tag, or the `why` of a Flow decline, which maps through `NotSent`.
  */
-export const mappedEvent = (
-  operation: OperationReference,
-  channel: Channel,
-  reason: string,
-): Option.Option<string> => {
+export const mappedEvent = (operation: OperationReference, channel: Channel, reason: string) => {
   if (channel === "success") return Option.some(operation.success);
 
   if (channel === "unknown") return Option.some(operation.unknown);

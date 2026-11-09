@@ -27,6 +27,7 @@ export type ChildOutput = {
  * - The child is killed when the bound passes or when this Effect is interrupted.
  * - A signal-ended child reports code -1.
  */
+// RETURN_TYPE: The exported error channel: callers match on ChildFailed, and the timeout arm needs it too.
 export const runChild = (
   command: string,
   args: ReadonlyArray<string>,
