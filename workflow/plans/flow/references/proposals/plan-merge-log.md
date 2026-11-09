@@ -556,3 +556,39 @@ Conflicts:
   copies", but its rule and 2.7.13's SSR row concern write lanes only ("lanes are never hydrated from the server;
   only resource entries are"); actors still hydrate and merge under O5. Recommended: keep O5's actor precedence.
   Judge: the runner (a reading of the row against 2.7.13). Reversible: one paragraph.
+
+## Summary
+
+All 14 plans merged, one commit each, `workflow check` and the reference check passing after every plan.
+
+| Plan | Edits | Superseded sentences marked | Conflicts |
+| --- | --- | --- | --- |
+| Machines | 25 | 15 | MC1, MC2 |
+| Operations | 22 | 52 | OC1-OC4 |
+| Runtime | 20 | 24 | RC1, RC2 |
+| Persistence | 13 | 33 | PC1-PC3 |
+| EntityDomains | 19 | 27 | EC1, EC2 |
+| Inspection | 9 | 13 | IC1, IC2 |
+| Diagnostics | 9 | 6 | DC1, DC2 |
+| CommandLine | 9 | 13 | CLC1-CLC3 |
+| Testing | 12 | 28 | TC1, TC2 |
+| React | 10 | 18 | none |
+| Package | 4 | 2 | PKC1 |
+| FlowState | 5 | 2 | FSC1 |
+| LazyFeatures | 6 | 4 | (PC1, PC2 carried) |
+| ServerRendering | 7 | 10 | SRC1 |
+| **Total** | **170** | **247** | **25, all applied** |
+
+Held for the user: none. No merge needed a large public API change or a guarantee change the user had not decided.
+For the user's read: PC3 (any structural Schema change resets a record, the runner's Q19 ruling, already call 13 in
+progress.md) and CLC1 (`diff --base` cut by the user's 2026-11-02 CLI scope, `trace diff` kept with the export by
+the later OD43).
+
+Not placed in a plan:
+- C127 targets `references/design/multi-tab.md`, a design document, not a plan.
+- Merge 5's row 11 (the default lane key for `many` writes) names a concept C28 removed; rejected.
+- Rule 8's "proposed, for the user's read" evidence for a refused kept try and a released stranded read, and the
+  proposed lint for a stranded read with no recurring schedule: proposals, not decisions, so no plan states them.
+- `ModuleDefect` (named only in OD52's prototype note).
+- 2.7.13's "as built, not ruled" note (OD54 (c)): a fresh ensure of a new identity overwriting an old-version
+  record; open in the design, so the plans keep "removed by forget" only.
