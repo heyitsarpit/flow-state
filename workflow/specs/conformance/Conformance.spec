@@ -320,8 +320,12 @@ open
 
     Q8  Failure of R2: the `three-channels` oracle accepts any value when a report is absent (`onNone: () => true`, 
         code:packages/flow-state-v3/conformance/oracles/three-channels.ts#onNone), which can accept a value that
-        contradicts its rule rather than only skipping a report the runtime does not make.
-        outcome  A later Task narrows each such branch to a skip that a stated limit names, or a strict check.
+        contradicts its rule rather than only skipping a report the runtime does not make. Likewise, `lane-cells`
+        accepts a Held head's re-send after any suite-driven turn of its actor
+        (code:packages/flow-state-v3/conformance/oracles/lane-cells.ts#permittedResend), so a re-send riding on an
+        unrelated driven event passes on every runtime, production included (README, the `lane-cells` limit).
+        outcome  A later Task narrows each such branch to a skip that a stated limit names, or a strict check; for
+                 `lane-cells`, a per-operation map of retrying events in the reference.
 
     Q9  Failure of R2 and R5 (I36, I41): the idle-row limit (README, "Round-14 has no idle row") makes cases expect 
         `None` for a key with no lane, where Reads R14 gives the idle row. The limit changes an expected value away
@@ -349,7 +353,7 @@ open
                  folders and rejects an edit path outside the copy.
 
     Q12  Failure of R8 and R9 (I20, I24, I34): the in-process `suite` path runs cases with no time bound
-        (code:packages/flow-state-v3/conformance/runner/main.ts#runCases), so a hung case gives no verdict; the split
+        (code:packages/flow-state-v3/conformance/runner/run.ts#runCases), so a hung case gives no verdict; the split
         path bounds a whole slice (code:packages/flow-state-v3/conformance/runner/main.ts#sliceVerdicts), so an
         overrun fails every case of that slice with one reason, as a failure rather than a defect, and the split
         changes verdicts.
@@ -623,7 +627,9 @@ tests
     T12  Control. Exists: falsify's control line, the mutants' cases on the unedited code under test. [@I15]
     T13  Kill by the holding check. Exists per oracle: falsify's per-mutant judge (caught, or red by another check).
             Phase 3 writes this: the judge matches the failure's judge and Invariant and reads every failing run, seen
-            catching a planted mutant red by a mismatch in one run and by its oracle in another. [@I16, @I32]
+            catching a planted mutant red by a mismatch in one run and by its oracle in another, and seen failing on a
+            planted mutant whose holding oracle fails only on a different Invariant than the holding check's.
+            [@I16, @I32]
     T14  Copy isolation. Exists: each copy is removed when its run ends (`copyRuntime`). Phase 3 writes this: falsify
             hashes the code under test's tree and the suite before and after, lists leftover copies, and is seen
             failing on a planted mutant that edits a file through the copy's link. [@I17, @I33]
@@ -634,7 +640,9 @@ tests
     T16  Rerun. Phase 3 writes this: `suite --json` twice on one implementation, outputs compared byte for byte.
             [@I19]
     T17  Order and split. Phase 3 writes this: the verdict set of `suite`, `suite --parallel 4` and each case run
-            alone with `--only`, compared by case id. [@I20, @I22]
+            alone with `--only`, compared by case id; and each case's runs in reverse order and each run alone,
+            compared by run, seen failing on a planted case that keeps state in a module variable across its runs.
+            [@I20, @I22]
     T18  Runs. Exists: `runCase` runs every case under the fixed seeds. Phase 3 writes this: a seed-sensitive
             mutant (store load order) that passes one seed and fails another, seen failing with that seed named in the
             decoded verdict; and a planted generated-input static case that fails one input seed, seen with that seed
