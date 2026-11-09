@@ -210,6 +210,57 @@ call, its reason, its evidence, and how reversible it is.
 - 2026-11-08, `mutate.ts`'s `--rss-mb` default (1700 MB is below the suite's own 1745 MB peak): the runner raises it in
   CP2, with time kills read as unknown. Reversible: one default.
 
+## Calls for the user's read (added 2026-11-09, stage A close-out B4: every public API or guarantee call since OD49)
+
+Ordered by how much they touch your own decisions. Each: the call, why, evidence, how to reverse. Nothing below is
+built on by later phases yet unless it says so; phase 2's plans will be written from them, so overruling after phase 2
+costs a plan edit too.
+
+1. **Migration reset is per record, not per definition (narrows your Q1).** You chose "A without optional manual
+   version", which I summarised as "that definition's saved memory and state are discarded" (my paraphrase, not your
+   words). As built (OD54 (8)), each record is checked against the current shape and only incompatible ones reset;
+   one `RecordShapeChanged` per definition reports how many. It differs only when a release removes a state: records
+   saved in other states keep their data. Why: resetting records that still decode loses data for no safety gain.
+   Evidence: audit M2 Q18, `5ccc6944`. Reverse: reset every record of the definition when any is incompatible; one
+   rule in the prototype's boot.
+2. **What counts as an incompatible shape (Q19).** Any structural Schema change to a stored field resets the record,
+   including a harmless validation change (`minLength(1)` to `minLength(2)`, a widening). Why: it is a fixed upfront
+   rule that `flow explain --since` can list before a deploy; a decode-based rule depends on the data and can't be
+   listed. Price: some needless resets. Evidence: OD54 (9). Reverse: reset only when the old value fails to decode.
+3. **A dropped field is applied at that release's boot (Q20).** The records holding it are rewritten then, so a later
+   re-add starts empty instead of resurrecting old data; a bounded exception to "untouched records are not rewritten"
+   (D111). Evidence: OD54 (10), audit M2. Reverse: keep D111 strict and accept resurrection.
+4. **A new identity gets its own lane (Q17).** A lane is (identity, contract, key); after an identity field change the
+   old identity's in-flight write is kept, blocks nothing, is reported at every boot, and ends only by its own answer
+   (stated limit: no user exit, `revisit.md`). Evidence: OD54 (7), audit M2 break 1. Reverse: needs a new word
+   (an identity route), so it would be your API call.
+5. **Repair bound resets at `RepairOverdue` (stage A close-out B1, being built).** A given-up doubt asks at most 3
+   times, then `RepairOverdue`, after which the count starts again, so a doubt on a screen open for days is never
+   stranded; this reverses my earlier OD53 (8) call of "3 asks in total, then nothing until a reload". Reverse: one
+   rule.
+6. **Lanes per contract (B2, being built).** Two write operations over one contract and key share one lane under the
+   contract's concurrency, so one record never has two writes in flight from one actor. The prototype keyed lanes by
+   operation name. Reverse: per-operation lanes, which can send two writes for one record at once.
+7. **Entities' internal soundness under `guarded` (OD52).** You approved `guarded`, `.gone`, `.covers`,
+   `delta`/`row` and the narrowed rebase; under them I ruled: a guarded doubt ends only on an answer showing the
+   record's version past the sent base or a same-key success; the record queue is released once the forced repair
+   settles (rule 30), the held write keeps its own hold; `Released` frees a never-re-sent unknown's queue entry at
+   once; U10's later success is by landing order; `allOrNothing` not added (revisit.md). Evidence: audits 2, 3, 3b.
+8. **Streams calls (OD53).** `emit.fail(e, key)` added to `Feed.multiplex` (small API); a key change empties a `fills`
+   field in the same turn with `FillsOtherKey`; a session's select runs every committed turn (a cost per turn per
+   placed activity) and a throw keeps what is placed with one issue, `undefined` releases; the default backoff is
+   500 ms x 2^n, jittered, capped at 30 s; 256 bookmarks per operation, oldest by last write dropped; T1 wins over T5
+   on Waiting. Evidence: audits S1, S1b.
+9. **Rounds 15/15b and area H (OD50, OD51).** `cancelAll` (accepted name) interrupts a head on the wire; a live
+   `cancelAll` delivers the queue first and the hold-leaving head last (D107); rule 15's cancel exemption dropped
+   (a late ending never leaves live work); `persist` stays on the definition; `forget` removes the record and a held
+   lane stays unbound and reported; a hold whose operation is gone is dropped with evidence at `forget`; an Effect
+   default is a construction error.
+10. **Proposed names, none confirmed by you:** `RecordShapeChanged`, `LaneRekeyCollision`, `OpRenamed`,
+    `PreviousIsCurrent`, `FieldDropped`, `HoldWithoutRecord`, `UnboundLane`, `LaneRekeyed`, `GoneWithoutKey`,
+    `FillsOtherKey`, `GuardContradicted`, `ImpureDefault`, `RepairOverdue`, `IdleWithoutPing`, `Abandoned`,
+    `ModuleDisabled`. Renaming any is one edit until phase 3 builds production on them.
+
 ## Change proposals
 
 One entry each (runner rule 4): the kind (insert, modify, split, reorder, reclassify), why, the
@@ -461,3 +512,4 @@ One line per iteration. Results live in the records; link them.
 - 2026-11-09 audit M2 (`f16feba1`): 14 wrong runtimes, 8 survive; 4 runtime breaks (a new identity's own decline parked on the old lane; an op rename overwrites a quarantined hold; a removed history-target state quarantines instead of resetting; explain --since calls an identity change a reset). Sidecars 40 findings: 22 accepted, 9 changed, 9 rejected. Runner rulings (for the user's read): Q17 lane = (identity, contract, key), a new identity gets its own lane; the old hold kept, unbound, exits by its own ending or forget (else a stated limit); Q18 reset decided per record, reported once per definition; Q19 the upfront structural-version rule stays, computed fields unstamped; Q20 a field drop is applied at that release's boot (bounded D111 exception) so a re-add never resurrects data. Closing batch sent to the migration lead; then OD54 and stage A close-out.
 - 2026-11-09 migration closing batch (`5ccc6944`): Q17-Q20 built (an old identity's lane renamed at boot to key#identityTag; a revert hands the key's lane back), breaks 1-4 fixed (LaneRekeyCollision, proposed), all 8 survivors and the weak kill closed by case (`m2.rename-any-op-kind` red only by oracle (j) at boot, accepted: the wrong move happens before any step), standing gates in `mutants-am2.ts`. Suite 1080/1080, 25 gates ok. Stated limits for revisit.md: an old identity's unknown hold has no user exit (cancel reaches only the current identity; forget keeps a hold whose op exists) and ends only by its own ending; memory field rename = drop + add; unstamped records never reset; computed initial values are stamped in the prototype. Open: --since across a release chain, stamps across a format bump, a revert after release 2's ensure overwrote release 1's old-version record, a rekeyed lane saved only on its next write. lifetime-falsify at 282 s of its 290 s bound: split before the next area. Migration's audit loop is closed; next OD54, then stage A close-out.
 - 2026-11-09 OD54 written (migration settled, C210-C216, 18 items; Q18 per record flagged for the user's read; contradictions amended inline: rule 74's newer format, the citation in 2.7.17; open: rule 74's forget vs the overwrite as built, an old identity's hold has no exit). revisit.md gains migration's limits and open items plus the missing OD52 allOrNothing and OD53 (19) entries. Phase 1's areas are done; next the stage A close-out review.
+- 2026-11-09 stage A close-out audit (`4d6d1cf2`): FAIL on 5 blocking items, gates 25/25 ok at `eb746c9e` (532 s). B1 repair count reset at RepairOverdue vs C207 (runner: adopt the runtime, amend C207); B2 lanes keyed by op name vs (identity, contract, key) (runner: fix the runtime); B3 compile refusals ModuleDisabled/Abandoned/byReason/GoneWithoutKey not built; B4 the user's-read list stale since 2026-11-08 (fixed by the runner now: a new section with 10 entries, the per-record reset first); B5 fragstore.row red at depth 7 since entities round 1 (gate runs depth 4). No rubber-stamping found. A fix lead (Opus, with sidecars) has B1-B3, B5, the lifetime-falsify split and the minors; then a narrow re-check of the close-out, then phase 2.
