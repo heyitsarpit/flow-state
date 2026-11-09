@@ -4,7 +4,7 @@ Status: current. The split is the runner's call (delegated to the Specs lead), n
 made. Every Spec it names is a guide: building may show a guarantee or a boundary wrong, and then the
 Spec changes, with the change and its reason recorded in `spec-log.md`.
 
-Scope: Specs exist only for what phases 3 and 4 build next, the core modules of the roadmap's phase 4
+Scope: Specs exist only for what phases 3 and 4 build next, the core modules of the V3 Epic's phase 4
 and what phase 3's conformance rewrite needs to test them. Feature areas get their Spec when their
 phase starts. Over-designing ahead of building is avoided on purpose: the prototype showed that
 decisions such as a pure TypeScript core are only knowable after building.
@@ -113,7 +113,7 @@ Open for the server-rendering Spec, not settled now (carried from the plan merge
 ## Out of production scope
 
 - @plan.FlowState.O1 (code disposition) and @plan.FlowState.O2 (build stages): process rules,
-  owned by the roadmap, not module behaviour.
+  owned by the V3 Epic, not module behaviour.
 - @plan.Testing.O5: removed (models are cut).
 
 ## Phase 3's use
