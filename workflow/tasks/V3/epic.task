@@ -574,4 +574,10 @@ note 2026-11-09T14:11:00Z
     - the Plans are agent-merged and unread (status proposed), and P4 and P5 build on them;
     - 20 decisions wait for the user's read, and overruling one late costs rework.
 note 2026-11-09T16:13:13Z
-    The user approved the Epic and its loop ("yes i approve", 2026-11-09); status active. The old roadmap folder is retired (last commit holding it: 7e8dd34e). Weekly usage is 94 percent against the 95 percent stop, so no building lead starts before the weekly reset (2026-11-13 22:00 UTC); the first Task is T4.
+    The user approved the Epic and its loop ("yes i approve", 2026-11-09); status active. The old roadmap folder is 
+    retired (last commit holding it: 7e8dd34e). Weekly usage is 94 percent against the 95 percent stop, so no building 
+    lead starts before the weekly reset (2026-11-13 22:00 UTC); the first Task is T4.
+note 2026-11-09T16:14:40Z
+    Decision (user, 2026-11-09): keep going above the 95 percent weekly usage stop ("you can keep going above 95% we 
+    can get things done right now"); the usage stop is lifted for this run until the harness limit itself stops work. 
+    Why: the user wants work done now. Reverse: restore the 95 percent stop. User's read: done.
