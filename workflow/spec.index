@@ -1,2 +1,3 @@
 specs/core/Compile.spec
+specs/core/Turn.spec
 specs/runtime/Runtime.spec
