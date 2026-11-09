@@ -318,14 +318,14 @@ open
     Q7  The old-suite comparison is done by hand in STATUS.md.
         outcome  Phase 3 writes the verdict-compare mode (README work list item 4).
 
-    Q8  Failure of R2: the `three-channels` oracle accepts any value when a report is absent (`onNone: () => true`, 
+    Q8  Failure of R2: the `ending-channels` oracle accepts any value when a report is absent (`onNone: () => true`, 
         code:packages/flow-state-v3/conformance/write-lanes/ending-channels.ts#onNone), which can accept a value that
-        contradicts its rule rather than only skipping a report the runtime does not make. Likewise, `lane-cells`
+        contradicts its rule rather than only skipping a report the runtime does not make. Likewise, `lane-queue`
         accepts a Held head's re-send after any suite-driven turn of its actor
         (code:packages/flow-state-v3/conformance/write-lanes/lane-queue.ts#permittedResend), so a re-send riding on an
-        unrelated driven event passes on every runtime, production included (README, the `lane-cells` limit).
+        unrelated driven event passes on every runtime, production included (README, the `lane-queue` limit).
         outcome  A later Task narrows each such branch to a skip that a stated limit names, or a strict check; for
-                 `lane-cells`, a per-operation map of retrying events in the reference.
+                 `lane-queue`, a per-operation map of retrying events in the reference.
 
     Q9  Failure of R2 and R5 (I36, I41): the idle-row limit (README, "Round-14 has no idle row") makes cases expect 
         `None` for a key with no lane, where Reads R14 gives the idle row. The limit changes an expected value away
@@ -333,7 +333,7 @@ open
         outcome  A later Task makes those expectations follow Reads R14 and skips the read on the prototype
                  under a stated limit naming the cases.
 
-    Q10  Failure of R4 (I8): WriteLanes I9 is judged only by `lane-cells`' consistency-only rule (it compares
+    Q10  Failure of R4 (I8): WriteLanes I9 is judged only by `lane-queue`' consistency-only rule (it compares
         reports with each other), and no case cites WriteLanes I9.
         outcome  A later Task anchors WriteLanes I9 to a suite fact or adds a case that checks it.
 
