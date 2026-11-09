@@ -247,3 +247,53 @@ Conflicts:
 Prototype check (S2): the per-record reset, record formats 1-4, `FieldDropped`, `HoldWithoutRecord`, re-keying and
 `OpRenamed` are built (OD54) and merged. Not built, kept as contract: the restored quiet mark's fields (rule 38), the
 crash between two moves of a rename. Migration runs only against Flow's record in the fake store (carried to phase 3).
+
+## EntityDomains
+
+Rows merged: C4, C22-C28, C30, C67, C84, C99, C113, C115, C133, C169, C176, C187-C200, C207, C208, rule 26 (the
+split), and merge 5's EntityDomains amendments (`merged/entity-analysis/proposal.md` 6.4).
+
+Sidecar S1 (merge 5's amendments): **accepted** rows 1-7, 9, 9b, 10 and 12 after reading 6.4 (lines 759-834) and the
+plan's cited lines myself; **rejected** row 11 ("a write whose key is recorded as many never takes the default lane
+key"): the default lane key no longer exists, since every contract states its key (C28, OD15), so the sentence would
+name a removed concept; rule 34's `many` exemption is merged instead. Row 8 (the first-sighting sentence stays):
+**changed**, the plan never had that wording; the first-sighting rule from row 7 is merged.
+
+| # | Outcome | Before | After | Decision |
+| --- | --- | --- | --- | --- |
+| E-1 | O1 | registration sentence | factories, operations registered twice, fragments register for their actor, the split of shared data and workflow; `output` Schema | merge 5; C67; rule 26 |
+| E-2 | O1 | conditions `where (eq, ...)`; absent optional input | operator list, yes/no/maybe, Type-side input rule | merge 5 rows 1, 2 |
+| E-3 | O1 | order check | Effect's `Order`, skipped pairs never `HiddenOrder` | merge 5 row 3 |
+| E-4 | O1 | "predicts runs again at write start"; construction-time impurity check | recorded positions, field functions, frozen inputs, `checkReplays`, allowlist lint | merge 5 row 4 |
+| E-5 | O1 | `Entity.patch(key, fields)` | field functions, many keys, key values, `patch` for predicts only, `delta`/`row`, domain write key warning | merge 5 row 5; C28; C115; C198 |
+| E-6 | O1 | replay and judge | field-function replay, uncomputed fields, the judge (`Stale`, `Schema.toEquivalence`), per-record retirement | merge 5 rows 6, 9b; C195 |
+| E-7 | O1 | "on its old or new values; a missing condition field matches"; "Reconnect" | existence-aware matching; stream gaps | merge 5 row 7; C99 |
+| E-8 | O1 | write endings paragraph | Attempt's ending; failure without repair; NotSent list; unknown and forced repair; `Released`; restored reason | C4; C24; C113; C176; rule 30 |
+| E-9 | O1 | (none) | repair bound with no timer, news, `RecordHeld`, yield of an unbound hold (`Abandoned`, proposed) | C190; C207; C189 |
+| E-10 | O1 | "The record stays uncertain until a later write to it succeeds or the machine reconciles the Attempt." | mark rules, `guarded`, `.covers` hiding, the 4,096 cap | C25; C192-C194 |
+| E-11 | O1 | `O.x.retry(select)`, known-settled | `retry(k?)` in Held; narrowed rebase | C23; C188 |
+| E-12 | O1 | queue paragraph | join at the head of the lane, drafts, send order and its price, `ModuleDisabled` | C24; C187; C191 |
+| E-13 | O1 | creates paragraph | draft pattern; `.gone` tombstones | C26; C196 |
+| E-14 | O1 | (none) | listen: unversioned frames, `.covers`, gap marking, no collection-wide version | C169; C197; C208 |
+| E-15 | O1 | `{ data, pending, uncertain, unconfirmed }` | `predicted`; read mapper throw | C27; C133 |
+| E-16 | O2 | `Entity.get(snapshotOrCheckpoint, ...)`; `Entity.queue` | snapshot reads; `cp.entity`; queue records with reasons; new evidence names | C30; C72; C84 |
+| E-17 | O4 | `propertyTest(domains, options)` | `domainPropertyOptions(domains, inputs)`; stream faults; quietness | C73; C84; C99 |
+| E-18 | O5 | whole-write rejection with `AdmissionOverloaded` | `NotSent { Overloaded }` for that write; drafts counted; many bound | C22; C199 |
+| E-19 | V1, V3 | "source check rejects conditionals and impurity"; "partial failure repair" | merge 5's V1; definite failure without repair, bound, marks | merge 5 row 12; C4 |
+
+Counts: 19 edits; 27 superseded sentences marked (O1: 20, O2: 2, O4: 1, O5: 1, V: 2, plus additions).
+
+Conflicts:
+- **EC1, agent-judged, applied.** The plan's `where` keyword: merge 5's row 1 rewrites "Conditions use where (eq,
+  ...)" as "Conditions use eq, ...", but the plan's other sentences (inputs in `where`, `orderBy`, ...) keep `where`
+  as the clause name, and `Entity.where` stays in `alsoChanges`. Recommended: keep `where` as the clause, with the new
+  operator list. Judge: the runner (wording). Reversible: one word.
+- **EC2, agent-judged, applied.** `entity({ id, fields, primaryKey, version })` (C198, Q4 A) lists `version`
+  unmarked, while `flow check` warns on `listen` over an unversioned entity and unversioned frames are a stated case
+  (C169). Recommended: keep `version?` optional. Judge: the runner. Reversible: one mark.
+
+Prototype check (S2): built and merged as decided (OD52, OD53): D3, the rebase, the judge, the repair bound (B1),
+`guarded`, `.gone`, `.covers`, `delta`/`row`, the cap. Not built in the prototype, kept as contract: the typed entity
+API (J, C115), the restored quiet mark's fields, field functions and the allowlist lint (merge 5). STATUS.md's
+finding 1 ("the design disagrees with itself" on 2.8.5's example) is resolved by the OD52 amendment in 2.8.5, as
+merged.

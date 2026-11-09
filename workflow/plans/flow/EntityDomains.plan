@@ -9,141 +9,297 @@ goal
     @plan.Operations.O1, hydration @plan.ServerRendering.O5 and Stories @plan.Testing.O1.
 outcomes
     O1  Domains, records, repair and predictions
-        An operation describes a request; a domain describes what it means for shared data. Terms: a
-        record is one entity instance by key; an answer is one read entry's result for one input; a
-        delta is a change to a record's confirmed base; a position orders sources by when their
-        request started and landed; an answer's frontier is the newest position it reflects; a
-        carrier is an active answer or loader whose shape holds a field. domain(id, entries) lists
-        read(resource), write(transaction) and listen(stream) entries. An operation belongs to at
-        most one domain and machines reach it only as O.Domain.entry; operation modules never import
-        entities. Domains never send, commit or choose a state. A read needs a result Schema. An
-        operation in two domains or two byKey loaders for one entity throw InvalidConfiguration at
-        App construction or adoption; flow check reports them too, and warns on an unregistered
-        operation whose result carries an entity's key fields.
+        An operation describes a request; a domain describes what it means for shared data.
+        Terms: a record is one entity instance by key; an answer is one read entry's result for
+        one input; a delta is a change to a record's confirmed base; a position orders sources by
+        when their request started and landed; an answer's frontier is the newest position it
+        reflects; a carrier is an active answer or loader whose shape holds a field.
+        domain(id, entries) lists read(resource), write(transaction) and listen(stream) entries.
+        An operation belongs to at most one domain and machines reach it only as O.Domain.entry,
+        declared under operations by a definition, or by a fragment for its actor; operation
+        modules never import entities. Domains never send, commit or choose a state. A read needs
+        an output Schema. An operation registered twice (in two domains, or two entries of one) or
+        two byKey loaders for one entity throw InvalidConfiguration at App construction or lazy
+        adoption, for domains built by factories as for literal ones (a factory parameterises its
+        domain, entity and operation ids); flow check reports them too, and warns on an
+        unregistered operation whose output carries an entity's key fields. The domain owns
+        shared data (the prediction, its confirmation and rollback, repair, the record queue,
+        uncertain and unconfirmed); the operation and the machine own workflow (which event each
+        ending becomes, its route, retry and cancel). Memory never holds a copy of a record field;
+        views read records and answers.
 
-        entity({ id, fields, primaryKey, version? }) declares fields and key. One entity object per
-        id; a duplicate is a construction error. A read entry is built as read(resource) refined by
-        methods: .one(Entity, at?) holds one record, .list(Entity, at, member?) holds records along
-        a path, Entity.pick names an explicit shape, .byKey(...) marks the record loader, and
+        entity({ id, fields, primaryKey, version? }) declares fields, key and the per-record
+        version field. One entity object per id; a duplicate is a construction error. A read entry
+        is built as read(resource) refined by methods: .one(Entity, at?) holds one record,
+        .list(Entity, at, member?) holds records along a path, Entity.pick names an explicit shape,
+        .byKey(...) marks the record loader, .gone(tag) (only with .byKey; GoneWithoutKey,
+        proposed name, otherwise) turns that failure tag into a tombstone, and
         .derivedFrom(Entity, fields?) declares values computed from records the response does not
-        hold; omitted fields means any field, an empty list means membership only. Conditions use
-        where (eq, oneOf, contains, between, overlaps, and) over record fields, input fields and
-        constants. A condition about the signed-in account uses an input field the machine supplies,
-        or serverMatches when only the server applies it. An absent optional input drops its
-        constraint. Every list or derived input must appear in where, orderBy, pagedBy, ignoring or
-        serverMatches, or construction fails; serverMatches names inputs whose filtering only the
-        server knows.
+        hold; omitted fields means any field, an empty list means membership only. Conditions
+        (where) use eq, oneOf, contains, between, overlaps, gt, gte, lt, lte, isNull, and, or, not
+        and serverMatches over record fields, input fields and constants. Each answers yes, no or
+        maybe: maybe means a field not carried, a value the operator cannot use, or an answer the
+        server decides (serverMatches, null order, an empty list, a present null input, an absent
+        input outside and, a Date tie at the millisecond). Ordering takes numbers and Dates,
+        compared with Effect's Order.Number after a finiteness check and Order.Date. A condition
+        about the signed-in account uses an input field the machine supplies, or serverMatches
+        when only the server applies it. An answer's input is the Type side the machine passed,
+        never decoded again; an Encoded input is decoded once at its boundary, where a decoding
+        default fills a missing key, and a failure makes the answer maybe with InputDecodeFailed.
+        A Type-side optional field with no default, when absent, drops its constraint directly
+        under and or as the whole condition, and only its own bound for between and overlaps;
+        elsewhere it is maybe. Every list or derived input must appear in where, orderBy, pagedBy,
+        ignoring or serverMatches, or construction fails; serverMatches names inputs whose
+        filtering only the server knows.
 
         Order: orderBy ends with every entity key. A list is ordered, unordered or server-ranked
         (optionally narrowed by unaffectedBy). Order is the server's claim and the client never
-        sorts. Each response is checked on its own number, boolean, date and key-field values, never
-        strings, whose collation only the server knows; a conflict raises HiddenOrder naming the
-        records, and that answer is treated as server-ranked for the rest of the Runtime.
-        pagedBy(input, next) declares paging; entry.more loads the next page and the lane exposes
-        hasMore. Repair re-fetches from page one up to the loaded count and publishes the whole
-        chain at once, serving the old chain stale until then. A failed page keeps the previous
-        chain, stale with the failure; a matching change mid-rebuild restarts it from page one.
-        Extra list metadata has no repair guarantee (flow check warns); model totals as derived
-        reads.
+        sorts. Each response is checked on its own number, boolean, date and key-field values,
+        never strings, whose collation only the server knows, comparing with Effect's Order; a pair
+        whose sort key is null, non-finite, an invalid Date or a Date tie is skipped, never
+        HiddenOrder; a conflict raises HiddenOrder naming the records, and that answer is treated
+        as server-ranked for the rest of the Runtime. pagedBy(input, next) declares paging;
+        entry.more loads the next page and the lane exposes hasMore. Repair re-fetches from page
+        one up to the loaded count and publishes the whole chain at once, serving the old chain
+        stale until then. A failed page keeps the previous chain, stale with the failure; a
+        matching change mid-rebuild restarts it from page one. Extra list metadata has no repair
+        guarantee (flow check warns); model totals as derived reads.
 
-        Declarations are recorded once at construction. A position is one expression of property
-        reads and library operators; ===, arithmetic, templates, method calls, conditionals,
-        short-circuits and impure calls fail construction or flow check. predicts runs again at
-        write start with the real input.
+        Declarations are recorded once at construction; predicts records its entities, keys and
+        field names, and a field's function is called with the record beneath and the real input
+        at write start and on each replay. A recording parameter read after its callback returns,
+        or enumerated, is an error. A field's function must be pure, deterministic and must not
+        write to its arguments; store records and inputs are frozen, a write to them is a
+        prediction fault, and the checkReplays Runtime option (on in Stories and propertyTest)
+        calls it twice and compares. flow check requires each function passed to a recorded
+        position to be one expression in the allowlist grammar (@plan.CommandLine.O5).
 
-        Changes: predicts returns Entity.patch(key, fields) or Entity.delete(key, { version? }). A
-        patch may only touch an entity named in a place or alsoChanges target of that entry; version
-        fields cannot be patched, filtered or ordered by, so a version-only change never repairs.
-        alsoChanges declares extra effects: Entity.all, Entity.where (answers whose conditions could
-        overlap) or Entity.fields(key, fields), whose fields become unconfirmed: a confirming read
-        is scheduled and lists repair only where they are condition or order fields. listen(stream)
-        .as([Entities], mapping) may change only those entities. Call-site optimistic, setData and
-        clear are rejected on domain operations; writes may only invalidate.
+        Changes: predicts returns Entity.patch(key, fields) or Entity.delete(key, { version? });
+        Entity.patch is for predicts only. Patch fields are recorded reads, constants or functions
+        (beneath, input) => value; a key is recorded reads and constants; an array key (from the
+        input Schema) is recorded as many and predicts each listed record once. Entity.patch,
+        Entity.delete, Entity.fields and .byKey take any value carrying the key's fields, or an
+        array of them; the parameter is the key type, so a fresh literal with an extra field is a
+        type error; Flow keeps only the primaryKey fields. A patch may only touch an entity named
+        in a place or alsoChanges target of that entry; version fields cannot be patched, filtered
+        or ordered by, so a version-only change never repairs. alsoChanges declares extra effects:
+        Entity.all, Entity.where (answers whose conditions could overlap) or Entity.fields(key,
+        fields), whose fields become unconfirmed: a confirming read is scheduled and lists repair
+        only where they are condition or order fields. listen(stream).as([Entities], mapping) may
+        change only those entities, mapping to Entity.delta(key, fields) (a partial change, a type
+        error without the version field), Entity.row(value) (a whole row, where an omitted field
+        is absent) or Entity.delete; a decoded delta that still lacks its version is dropped with
+        UserClosure. A read's .one answer is whole in row's sense. Call-site optimistic, setData
+        and clear are rejected on domain operations; writes may only invalidate. A domain write
+        states key like every contract; flow check warns when a write that predicts exactly one
+        record declares key fields that are not the input fields its predicted record's key reads
+        (a many write, or one predicting several records or none, is exempt).
 
         One record per entity key holds received fields, each with its own version and position.
-        Base is server-confirmed data; visible is base plus live predictions replayed over each new
-        base. With versions the greater version wins, a lower one loses and an equal one falls
-        through to position; by position, a field from a lookup that started before the stored value
-        landed loses. Any response fills an absent field. A differing field that cannot be ordered
-        is contested: its loader and holders refetch (or are only marked stale when the contest came
-        from a repair's response) and the contest is recorded; Flow never merges. Predictions change
-        visibility only and never start repairs. Two increments stay two increments; a later
-        confirmed write of a field retires older predictions of it.
+        Base is server-confirmed data; visible is base plus live predictions replayed over each
+        new base: each field's function is called over the record beneath, a write's patches in
+        written order, all fields of one patch over the same record; a field's function is called
+        only over a record the store holds, and a patch over an absent record shows nothing, stays
+        with its Attempt and is called when a base arrives; a value that throws or that its Schema
+        rejects is uncomputed (the field shows its value beneath and the record reads predicted); a
+        prediction fault behaves the same and is reported. Predictions are kept per entity, key and
+        field. The judge: an answer with a lower version than the record's is silently stale, with
+        Stale evidence; a higher version applies whenever it was asked, unless a version-less claim
+        is open; equality is Schema.toEquivalence per field from entity({ fields }), else
+        structural; by position, a field from a lookup that started before the stored value landed
+        loses. Any response fills an absent field. A differing field that cannot be ordered is
+        contested: its loader and holders refetch (or are only marked stale when the contest came
+        from a repair's response) and the contest is recorded; Flow never merges. Predictions
+        change visibility only and never start repairs. Two increments stay two increments; a later
+        confirmed write of a field retires older predictions of it, per record.
 
         Each base change is matched against every active answer in the App, whichever domain
-        declared it, on its old or new values; a missing condition field matches. A list load that
-        reveals records never held refetches derived answers on that entity once. A source rejected
-        by ordering or a tombstone still joins derived answers, from its values to the current base;
-        from a repair's response it only marks them stale. Repair rules: a one answer repairs only
-        on delete; an ordered list repairs when a record enters or leaves or an order field of a
-        record in it changes; an unordered list only on enter or leave; a server-ranked list also on
-        any field change except unaffectedBy fields; a derived answer on enter or leave or a
-        relevant field change. Merely displaying a field never needs repair. alsoChanges repairs
-        every covered answer. Reconnect, restore and invalidate refetch covered answers that have
-        subscribers, in canonical order, and mark the rest stale. A response behind the store for a
-        record (a lower version) puts its answer out of date: from a machine's request the answer
-        refetches; from a repair it is marked stale. A repair response updates copies and marks
-        answers stale but never starts another lookup, so repair never cascades; the next machine
-        request refreshes them. A request that started before an affecting change is stale on
-        arrival. Each answer has one repair in flight and one trailing refetch. A settled write
-        repairs for both the before-prediction and the at-settlement base, so an intervening push is
-        never lost. Deltas are consolidated per record per turn but causes are never dropped.
+        declared it, on each side: a record that does not exist is a definite no, and a first
+        sighting is no for a list and maybe for a derived answer; an answer repairs when the
+        record's existence changed or a path its condition reads changed (segment arrays matched by
+        prefix, arrays atomic, carried paths), unless the condition gives the same definite answer
+        before and after. A list load that reveals records never held refetches derived answers on
+        that entity once. A source rejected by ordering or a tombstone still joins derived answers,
+        from its values to the current base; from a repair's response it only marks them stale.
+        Repair rules: a one answer repairs only on delete; an ordered list repairs when a record
+        enters or leaves or an order field of a record in it changes; an unordered list only on
+        enter or leave; a server-ranked list also on any field change except unaffectedBy fields; a
+        derived answer on enter or leave or a relevant field change. Merely displaying a field
+        never needs repair. alsoChanges repairs every covered answer. A stream gap (an unproven or
+        reset registration, an end or a release), restore and invalidate refetch covered answers
+        that have subscribers, in canonical order, and mark the rest stale. A response behind the
+        store for a record (a lower version) puts its answer out of date: from a machine's request
+        the answer refetches; from a repair it is marked stale. A repair response updates copies
+        and marks answers stale but never starts another lookup, so repair never cascades; the next
+        machine request refreshes them. A request that started before an affecting change is stale
+        on arrival. Each answer has one repair in flight and one trailing refetch. A settled write
+        repairs for both the before-prediction and the at-settlement base, so an intervening push
+        is never lost. Deltas are consolidated per record per turn but causes are never dropped.
 
-        Write endings. Success installs response fields and ends confirmed predictions in one
-        publication, so a value older than a settled write is never shown. Predicted fields the
-        response omits stay pending until a confirming read (a later accepted read that carries the
-        field) ends them even at an equal value. Settlement schedules one: an affected answer
-        carrying the field that is already refetching, else the loader, else the first active answer
-        carrying it, in canonical order. A read that omits the record confirms nothing, removes it
-        from that answer and schedules the next candidate; a failed confirming read leaves the field
-        pending until the next accepted read carrying it. If no active answer carries the field, the
-        prediction ends and the field is dropped so the next reader fetches. Failure or defect
-        removes predictions and repairs affected answers, because a failed call may have partly
-        applied. Rejection or cancellation before the adapter ran removes predictions without
-        repair. Uncertain (cancelled after invocation, response lost, or restored mid-flight) forces
-        the loader and every holder to refetch, keeps predictions until that repair lands, then
-        shows server state. The record stays uncertain until a later write to it succeeds or the
-        machine reconciles the Attempt. A write restored as uncertain keeps its predicted keys with
-        its Attempt, so restore marks them and forces the repair. unknown delivers an Attempt;
-        O.x.retry(select) reissues that exact Attempt and a known-settled attempt settles without
-        calling the adapter. basedOn gives each prediction's base version for If-Match. Persisted
-        actors acknowledge the Attempt write before the adapter runs.
+        Write endings follow the Attempt's ending, never the send's channel (a definite failure
+        after an unknown send of the same Attempt is StillUnknown, an unknown). At
+        settlement Flow applies the ending to the store and releases record queues in one
+        publication, then queues the ending, so store effects never depend on whether it routes
+        current or late. Success installs response fields and ends confirmed predictions in one
+        publication, so a value older than a settled write is never shown. A predicted slot (shown,
+        uncomputed or faulted) whose whole value the response does not carry for that record stays
+        unconfirmed until a confirming read (a later accepted read that carries the field) ends it
+        even at an equal value. Settlement schedules one: an affected answer carrying the field
+        that is already refetching, else the loader, else the first active answer carrying it, in
+        canonical order. A read that omits the record confirms nothing, removes it from that answer
+        and schedules the next candidate; a failed confirming read leaves the field unconfirmed
+        until the next accepted read carrying it. If no active answer carries the field, the
+        prediction ends and the field is dropped so the next reader fetches. A definite failure
+        removes predictions without repair. Every NotSent (Rejected, Overloaded, Cancelled,
+        Restored, StorageRefused, Disposed, NoPersistence, OldVersion, Unencodable, ModuleDisabled)
+        and the evidence Superseded remove or never apply them, without repair. Unknown (the
+        author's, Cancelled, Restored, Interrupted, Defect, StillUnknown) keeps live predictions
+        until a forced repair lands, holds the record queue until that repair settles, and marks
+        the record uncertain for that Attempt. A write restored as uncertain keeps its predicted
+        keys with its Attempt, so restore marks them and forces the repair; the store hears the
+        parked reason at the restore. An unknown that is not retained (bare, ignored, or a
+        cancel's turn end) is Released: a release before the forced repair removes nothing, its
+        predictions end with the repair, and an unknown never re-sent frees its queue entry at once.
 
-        Predicting writes queue per record, FIFO across actors, under actor concurrency (cancel is a
-        flow check error). A multi-record write joins all its queues together and runs only when
-        first in every one; predictions show while queued. Cancelling a queued, never-invoked write
-        removes it. An uncertain write releases the next only after its forced repair settles,
-        whether it succeeds or fails; the record stays uncertain.
+        The forced repair runs with no timer: a failed repair is asked again, at most 3 asks per
+        overdue interval, then RepairOverdue (evidence; the mark and the record hold stay); the
+        count resets at RepairOverdue and on a placed answer, and news asks again (a new unknown on
+        the record, a re-send's StillUnknown included, a release that leaves its mark, an answer
+        the store cannot place, a newer value landing past a running repair, a reload's restored
+        unknown); news during a running ask joins it (the runner's rulings). While a sent unknown's
+        repair runs, RecordHeld evidence and Inspection's stalled: "record" name the wait. Per
+        record, the queue is released once that record's forced repair settles; the held write
+        keeps its lane hold and blocks no other actor's write to the record; its re-send waits
+        behind whatever holds the record then and holds it again once sent; a restored unknown
+        holds its record until the boot's repair settles. An unbound sent hold yields, with no
+        clock, once a ready write waits behind it on a record: it is released, its ending unknown {
+        Abandoned } (proposed reason) is parked for whoever adopts the identity, and its mark
+        stays.
 
-        Creates return the record and repair matching answers; membership appears only when they
-        refetch (no temporary ids or optimistic inserts). A predicted move changes fields at once
-        but keeps list membership until repair. A predicted delete hides the record everywhere;
-        failure restores it. A confirmed delete leaves a tombstone while lookups started before it
-        are in flight, so they cannot resurrect it. A versioned delete keeps it until the record's
-        gcTime and a save at a lower or equal version cannot bring the record back; flow check warns
-        on listen over an unversioned entity. A non-list reference to a deleted record reads a typed
-        Deleted value.
+        Marks. uncertain is a mark per record and Attempt; a read, a forced repair, a failure and
+        StillUnknown clear nothing, and neither time nor a later write's success does. A mark ends
+        only by its own Attempt's success (a re-send) or, once given up, by guarded's proof. Given
+        up (a release, an ignored unknown, a yield), it is uncertain and asks one read; a read or
+        repair asked at or after the give-up, or a later success (by landing order) that carried
+        every field of the mark, makes it quiet: unconfirmed on the fields its prediction touched,
+        asking nothing, never uncertain again; a quiet removal doubt over a row a read shows present
+        reads unconfirmed on every non-key field. A held mark is never demoted; a frame demotes
+        nothing. guarded: true on the contract ends a quiet mark on an answer (read, repair, frame,
+        any write's success) showing the target record's version strictly past the base the write
+        was sent with, on the write's targets only, or on a later success of the same contract with
+        the same business-key values; an equal version, a refusal or a held mark proves nothing.
+        GuardContradicted (internal evidence, proposed name) voids the claim for the Runtime when a
+        first send succeeds over a base the store already knew was stale; flow check reports
+        GuardedUnbound, GuardedWithoutVersion and GuardedWithoutTarget (proposed names). A live
+        .covers session with no open gap whose filter reads no field the write changes hides a
+        given-up doubt without ending it; a removal is never hidden. At most 4,096 given-up marks
+        per entity; past it the oldest given up is evicted with UnsettledEvicted evidence; an
+        unresolved mark is never evicted. A mark holds its record, as a prediction does.
+
+        Re-sending is O.x.retry(k?) only, in Held: the Attempt's input and basedOn unchanged, no
+        prediction, joining the record queue, its response positioned at the Attempt's first send
+        (a differing field it loses on is contested). basedOn gives each prediction's base version
+        for If-Match. A never-sent queued write's basedOn rebases along the record queue only
+        across a write ahead that was minted earlier over the same base; a stale success rebases
+        nothing; a sent write is never rebased. Persisted actors acknowledge the Attempt write,
+        with its predicted keys and basedOn, before the adapter runs (@plan.Persistence.O6).
+
+        Predicting writes queue per record across actors, under actor concurrency (cancel
+        concurrency is a flow check error; the O.x.cancel action acts by the lane table). The actor
+        decides whether a start runs; the record queue decides when it is sent. A domain write
+        joins its record queues when its Attempt heads its lane, including while its
+        acknowledgement is out, never at mint or commit; a commit queued in its lane is a draft
+        that predicts and holds no queue place. Per record, writes go in send order; across actors
+        commit order holds only through the server's version check, so on a last-writer-wins source
+        an earlier draft may overwrite a later commit (a stated limit, like two tabs). A
+        multi-record write runs only when first in every queue it joined. A replaced never-sent
+        write is evidence Superseded and a cancelled one ends NotSent { Cancelled }, both without
+        repair. A store module's defect fails closed: a write that would join declines NotSent {
+        ModuleDisabled } (proposed name) until reload.
+
+        No temporary ids: a pending create is a memory draft the view shows apart from the answer;
+        creates return the record and repair matching answers, and membership appears only when an
+        answer's refetch holds its key (no optimistic inserts). A predicted move changes fields at
+        once but keeps list membership until repair. A predicted delete hides the record
+        everywhere; failure restores it. A confirmed delete leaves a tombstone while lookups started
+        before it are in flight, so they cannot resurrect it. A versioned delete keeps it until the
+        record's gcTime and a save at a lower or equal version cannot bring the record back; flow
+        check warns on listen over an unversioned entity. A non-list reference to a deleted record
+        reads a typed Deleted value. A read's own failure (never a defect or an interruption)
+        reaches the store at the read's position, so a .gone(tag) read removes its key's row as a
+        tombstone judged like any read; the machine hears the failure unchanged.
+
+        listen: a stream entry whose values are record changes, with no bookmark. With no version
+        on either side, a frame differing from an unechoed write is doubted, not applied, until a
+        read started after it or a matching frame; with no write unechoed, a late unversioned frame
+        is applied (a stated limit). listen(c).covers(pred), in eq terms printed by flow explain,
+        says what a session watches; by default it covers the records the session delivered. Only
+        an unproven registration marks: every non-key field of each covered record reads
+        unconfirmed until a read or repair asked after it lands, and also records that may be in
+        the cover by base, prediction or a filter field in doubt. A collection-wide version has no
+        spelling.
 
         Records are held while an answer, a loader subscription or a prediction needs them. Only
         confirmed data persists; no prediction is persisted, and restored data never overrides live
         truth. Answer reads are resource lanes plus stale; a failed repair keeps data as a failed
-        refresh. Record reads are { data, pending, uncertain, unconfirmed }. value outcomes see
+        refresh. Record reads are { data, predicted, uncertain, unconfirmed }. value outcomes see
         confirmed data only, so a prediction never fires one and saved memory never captures one
-        (@plan.Operations.O2).
+        (@plan.Operations.O2). A read whose mapper throws or returns something with no shape ends on
+        failure as Defect, with UserClosure.
         Reference: references/dispatch-desk/features/Tickets/ticket.domain.ts.
-    O2  Checkpoint reads and evidence
-        Entity.get(snapshotOrCheckpoint, key, shape) reads exactly that cut: requested fields with
-        data and status, missing fields marked missing, undefined if the record is absent.
-        Domain.entry.get returns the lane plus stale and ordered pages, or undefined if no active
-        answer exists. Entity.queue returns ordered attempts and queue states. Reads never touch
-        live state, advance time or start work.
+
+        Superseded: "Conditions use where (eq, oneOf, contains, between, overlaps, and)" is
+        replaced by the operator list with yes, no or maybe; "An absent optional input drops its
+        constraint." by the Type-side input rule (merge 5, 6.4). "predicts runs again at write
+        start with the real input." and "conditionals, short-circuits and impure calls fail
+        construction or flow check" are replaced by recorded positions, field functions and the
+        allowlist lint; the construction-time check goes (merge 5). "Changes: predicts returns
+        Entity.patch(key, fields) ..." gains field functions and many keys (merge 5) and key
+        values (C115); listen maps to delta or row (C198). "on its old or new values; a missing
+        condition field matches." is replaced by existence-aware matching (merge 5).
+        "Reconnect, restore and invalidate" reads stream gaps (C99). "Predicted fields the response
+        omits stay pending" becomes a predicted slot staying unconfirmed (merge 5; C27). "Failure
+        or defect removes predictions and repairs affected answers, because a failed call may have
+        partly applied." is replaced by "a definite failure removes predictions without repair"
+        (C4). "Rejection or cancellation before the adapter ran removes predictions without repair."
+        becomes the NotSent list (C24). "The record stays uncertain until a later write to it
+        succeeds or the machine reconciles the Attempt." is replaced by the mark rules (C25; C192).
+        "unknown delivers an Attempt; O.x.retry(select) reissues that exact Attempt and a
+        known-settled attempt settles without calling the adapter." is replaced by retry(k?) in
+        Held (C23). "Predicting writes queue per record, FIFO across actors" is replaced by joining
+        at the head of the lane in send order (C24; C187). "predictions show while queued" holds
+        for drafts (C187). "Cancelling a queued, never-invoked write removes it." becomes NotSent {
+        Cancelled } without repair (C24). "An uncertain write releases the next only after its
+        forced repair settles, whether it succeeds or fails; the record stays uncertain." is
+        amended per record with the repair bound (C189; C190; C207). "Creates return the record
+        and repair matching answers; membership appears only when they refetch (no temporary ids
+        or optimistic inserts)." is named as the draft pattern (C26). "Record reads are { data,
+        pending, uncertain, unconfirmed }." is replaced by predicted (C27). The judge, guarded, the
+        cap, ModuleDisabled, gone, listen and Released are added (C113; C169; C191; C193-C198;
+        C208; C67).
+    O2  Snapshot reads and evidence
+        Entity.get(snapshot, key, shape) reads exactly that cut: requested fields with data and
+        status, missing fields marked missing, undefined if the record is absent. Domain.entry.get
+        returns the lane plus stale and ordered pages, or undefined if no active answer exists. A
+        Story checkpoint reads a record with cp.entity(...) (@plan.Testing.O4), returning { data,
+        predicted, uncertain, unconfirmed }. Record-queue changes are queue evidence records with
+        their reason (Superseded, Cancelled, Released); an Overloaded write never joined and is an
+        ending record. Reads never touch live state, advance time or start work.
 
         Every checkpoint and run end carries repairs and skips for considered answers, plus
-        contests, HiddenOrder and self-check findings, in the canonical order of @O5. In-process
-        values, sensitive fields included, are faithful; exported evidence replaces sensitive values
-        with keyed digests (@plan.Inspection.O5). Explaining a domain runs no adapter and uses the
-        same repair classifier as the runtime (@plan.CommandLine.O1).
+        contests, HiddenOrder, prediction faults, Stale, RecordHeld, RepairOverdue,
+        UnsettledEvicted, GuardContradicted and self-check findings, in the canonical order of
+        @O5. uncertain's end reads "a later write succeeded, or a retry of the Attempt succeeded"
+        as amended by the mark rules of @O1, and held lanes, bound or unbound, appear in
+        Inspection by identity. In-process values, sensitive fields included, are faithful;
+        exported evidence replaces sensitive values with keyed digests (@plan.Inspection.O5).
+        Explaining a domain runs no adapter and uses the same repair classifier as the runtime
+        (@plan.CommandLine.O1).
         Reference: references/dispatch-desk/features/Tickets/queue/queue.story.ts.
+
+        Superseded: "Entity.get(snapshotOrCheckpoint, key, shape)" reads snapshots; checkpoints use
+        cp.entity (C72). "Entity.queue returns ordered attempts and queue states." is replaced by
+        queue records with their reason (C30; C84).
     O3  Hydration and lazy domains
         Hydrated confirmed fields keep their versions; positions and frontiers stay local to each
         Runtime. Predictions, queues, tombstones and uncertain marks never transfer, and sensitive
@@ -153,34 +309,44 @@ outcomes
 
         Joining a lazy domain happens at admission, before any turn sees it: ids, entity objects,
         registering domains and byKey loaders are checked against the adopted graph, structure and
-        restored data publish as one cut, and failure rolls back everything (@plan.LazyFeatures.O2).
-        A loader in an inactive entry is unavailable, so a field with no carrier is dropped; flow
-        check warns.
-    O4  propertyTest and audit mode
-        propertyTest(domains, options) (@plan.Testing.O6) generates ordinary static Stories against
-        fresh Runtimes: successful, failed and uncertain writes; reordered, duplicated, failed and
-        empty reads; pushes; reconnect, restore, unsubscribe and invalidate; hydrate and mid-run
-        domain adoption (@plan.Testing.O6). The fixture oracle holds its own server state, not the
-        domain's rules. At every publication it checks: copies of a field agree; at quiet, active
-        answers equal the oracle in declared order or are stale with causes; no repair-response
-        lookup and every lookup has causes; no accepted field regresses; every displayed unconfirmed
-        value is a live prediction with a scheduled or failed confirming read; a record leaves an
-        answer only with a recorded reason; identical replays give identical traces; every repair,
-        skip and hidden record has causes. Results are pass, fail or inconclusive, never
+        restored data publish as one cut, and failure rolls back everything
+        (@plan.LazyFeatures.O2). A loader in an inactive entry is unavailable, so a field with no
+        carrier is dropped; flow check warns.
+    O4  Property tests and audit mode
+        propertyTest(story, domainPropertyOptions(domains, inputs)) (@plan.Testing.O6) generates
+        ordinary static Stories against fresh Runtimes: successful, failed and uncertain writes;
+        reordered, duplicated, failed and empty reads; pushes; stream faults; reconnect, restore,
+        unsubscribe and invalidate; hydrate and mid-run domain adoption. The fixture oracle holds
+        its own server state, not the domain's rules. At every publication it checks: copies of a
+        field agree; at quiet, active answers equal the oracle in declared order or are stale with
+        causes; no repair-response lookup and every lookup has causes; no accepted field regresses;
+        every displayed unconfirmed value is a live prediction with a scheduled or failed
+        confirming read; a record leaves an answer only with a recorded reason; identical replays
+        give identical traces; every repair, skip and hidden record has causes. Quietness reads a
+        recurring schedule as never quiet. Results are pass, fail or inconclusive, never
         inconclusive as success. Failures shrink to literal Stories with the seed.
 
         Audit is an explicit development and test option, off by default and never in production.
-        After each settlement, push or observed change it refetches every active answer that was not
-        repaired and compares without publishing: HiddenFilter reports a membership difference,
+        After each settlement, push or observed change it refetches every active answer that was
+        not repaired and compares without publishing: HiddenFilter reports a membership difference,
         UndeclaredEffect names the write, read and missing alsoChanges.
+
+        Superseded: "propertyTest(domains, options)" is replaced by the domain form
+        domainPropertyOptions(domains, inputs), keeping the oracle, quietness and inconclusive
+        rules (C73; C84); stream faults are added (C99).
     O5  Bounds
-        At most repairSlots repairs run at once (default 6, @plan.Runtime.O2), started in canonical
-        order: delta, domain entry order, input key, then stable domain id. A paged repair of N
-        loaded pages is N sequential requests in one slot. Each record queues at most 64 waiting
-        writes; if any record of a multi-record write would overflow, the whole write is rejected
-        before any prediction, queue join or adapter work, with AdmissionOverloaded naming the
-        record and limit. Recorded constants and persisted data obey the structural limits of
-        @plan.Inspection.O2. Production has no cross-turn execution budget.
+        At most repairSlots repairs run at once (default 6, @plan.Runtime.O2), started in
+        canonical order: delta, domain entry order, input key, then stable domain id. A paged
+        repair of N loaded pages is N sequential requests in one slot. Each record queues at most
+        64 waiting writes, drafts counted; a commit past any record queue, or a many key array past
+        4,096 items (counted from the write's targets before any join, repeats included), ends
+        NotSent { Overloaded } for that write, with no prediction and no partial join, and the
+        transition and its other actions run. Recorded constants and persisted data obey the
+        structural limits of @plan.Inspection.O2. Production has no cross-turn execution budget.
+
+        Superseded: "if any record of a multi-record write would overflow, the whole write is
+        rejected before any prediction, queue join or adapter work, with AdmissionOverloaded naming
+        the record and limit" is replaced by NotSent { Overloaded } for that write (C22; C199).
 decisions
     D1  Domains own shared-data policy
         Predictions replace call-site optimistic and setData; clear is forbidden and writes allow
@@ -196,18 +362,26 @@ constraints
 verification
     V1  Authoring and types: unannotated inference of the reference domains; every rejected form
         (partial order, version in condition or patch, unused input, bad paging, undeclared patch
-        entity, call-site optimistic) fails; source check rejects conditionals and impurity.
+        entity, call-site optimistic) fails; the conformance table passes as the evaluator's
+        golden test; the join rule's counterexamples (a field not carried, an unread field, a
+        definite transition, a create, a delete, a first sighting, no condition, a nested path, a
+        Schema default) each have a test; two-record settlement has a test; freezing and
+        checkReplays catch a mutation, Math.random and a second-call throw; lint goldens.
     V2  Repair properties: oracle agreement, coherence, no cascade and monotonic truth hold under
         propertyTest, and removing any one repair rule makes a named variant fail.
-    V3  Prediction endings: confirming read (equal value, missing record, no carrier), partial
-        failure repair, retirement of older predictions, and unversioned tombstone guard each have a
+    V3  Prediction endings: confirming read (equal value, missing record, no carrier), definite
+        failure without repair, retirement of older predictions, unknown with its forced repair and
+        its bound, mark demotion and guarded proof, and the unversioned tombstone guard each have a
         targeted test.
     V4  Evidence: checkpoint reads, faithful in-process and digested export values, and impact
         tables agree with observed repairs; audit catches an omitted filter and an undeclared
         effect.
-    V5  Hydrate, lazy join and bounds: A-to-B hydrate merges amid client writes, lazy adoption with
-        rollback, 6 repair slots, N-request paged chains, and the 64/65 queue boundary with no
-        partial joins.
+    V5  Hydrate, lazy join and bounds: A-to-B hydrate merges amid client writes, lazy adoption
+        with rollback, 6 repair slots, N-request paged chains, and the 64/65 queue boundary with
+        no partial joins.
+
+        Superseded: V1's "source check rejects conditionals and impurity" (merge 5, 6.4); V3's
+        "partial failure repair" (C4).
 questions
     Q1  Are 6 repair slots right?
         Recommended: measure Dispatch Desk page churn before changing the default.
