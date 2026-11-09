@@ -744,6 +744,17 @@ export const makeHarness = (port: Port) => (): Harness => {
     if (!m || typeof r !== "object" || r === null) return !memoryOnly;
     const sameSet = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x) => b.includes(x));
     if (!memoryOnly && Array.isArray(r.fields) && Array.isArray(m.identityVersion) && !sameSet(r.fields, m.identityVersion)) return true;
+    // Migration (the user's decision, Q1 A): the record's saved shape against the release's compiled `shapeVersion`: a field both keep under another
+    // Schema version, or a saved state or fragment the release lacks, resets the definition's saved state.
+    const was = r.shape as { states?: string[]; fields?: string[] } | undefined;
+    const now = m.shapeVersion as { states: string[]; fields: string[] } | undefined;
+    if (!memoryOnly && now && Array.isArray(was?.fields) && Array.isArray(was?.states) && !(sameSet(was.fields, now.fields) && sameSet(was.states, now.states))) {
+      const name = (f: string) => f.split("#")[0];
+      if (was.fields.some((f) => now.fields.some((g) => name(g) === name(f) && g !== f))) return true;
+      const leaves = (i: any, frag: string | null): string[] =>
+        typeof i?.leaf === "string" ? [frag === null ? i.leaf : `${frag}/${i.leaf}`, ...Object.values(i.kids ?? {}).flatMap((k: any) => leaves(k, typeof k?.frag === "string" ? k.frag : null))] : [];
+      if (leaves(r.root, null).some((s) => !now.states.includes(s))) return true;
+    }
     const bad = (i: any, frag: string | null): boolean => {
       const f = frag === null ? m : m.fragments?.[frag];
       if (!f || typeof i?.leaf !== "string" || !f.nodes?.[i.leaf]) return !memoryOnly;

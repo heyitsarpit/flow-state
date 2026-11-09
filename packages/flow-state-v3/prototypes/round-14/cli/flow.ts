@@ -17,7 +17,8 @@ import { typedPayFixture } from "../../conformance/typed/pay.ts";
 import { p1QueueCoversFixture } from "../../conformance/typed/phase1e.ts";
 import { check, type Finding } from "./check.ts";
 import { bigintKeyFixture, brokenFixture, dupSessionFixture, keylessFixture, noNotSentFixture, noOwnerFixture, unencodableNoNotSentFixture, readBadFixture, unknownEventFixture } from "./broken.ts";
-import { explain, explainText, overview } from "./explain.ts";
+import { explain, explainText, overview, resets, resetsText } from "./explain.ts";
+import { memoFixture } from "../../conformance/typed/phase1m.ts";
 import { graphCommand, graphText } from "./graph.ts";
 
 const api = new Proxy({}, { get: () => () => undefined }) as Api;
@@ -48,6 +49,8 @@ export const TARGETS: Readonly<Record<string, Fixture>> = {
   "p1-queue": p1QueueCoversFixture(),
   queue: bulkFixture,
   ...formFixtures,
+  // Migration Q1 A: Memo's releases, for `explain --since`.
+  ...Object.fromEntries([1, 2, 3, 4, 5].map((v) => [`memo-${v}`, memoFixture({ v })])),
   // Round 13 (mid review M3): Attach with its upload fragment's `Stored` taken out of the fragment's declarations, so its op maps an undeclared event.
   "frag-typo": {
     ...attachFixture,
@@ -68,7 +71,7 @@ const arg = (k: string) => {
   return i < 0 ? undefined : process.argv[i + 1];
 };
 const json = process.argv.includes("--json");
-const [cmd, ...rest] = process.argv.slice(2).filter((a, i, all) => !a.startsWith("--") && !all[i - 1]?.startsWith("--state") && !all[i - 1]?.startsWith("--event"));
+const [cmd, ...rest] = process.argv.slice(2).filter((a, i, all) => !a.startsWith("--") && !all[i - 1]?.startsWith("--state") && !all[i - 1]?.startsWith("--event") && !all[i - 1]?.startsWith("--since"));
 if (cmd === "check") {
   const ms = rest.map(machineOf);
   const rs = ms.map(check);
@@ -94,7 +97,11 @@ if (cmd === "check") {
   const m = machineOf(rest[0] ?? "");
   const state = arg("--state");
   const event = arg("--event");
-  if (state && event) {
+  const since = arg("--since"); // migration Q1 A: what this release does to the saved state of `--since`'s release
+  if (since) {
+    const r = resets(machineOf(since), m);
+    console.log(json ? JSON.stringify(r) : resetsText(r));
+  } else if (state && event) {
     if (!m.nodes[state]) fail("UnknownSelector", state);
     if (!Object.values(m.nodes).some((n) => n.on[event])) fail("UnknownSelector", event);
     const r = explain(m, state, event);

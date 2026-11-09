@@ -203,6 +203,8 @@ export type Compiled = {
   readonly domain?: DomainSpec;
   readonly fragments?: Readonly<Record<string, Fragment>>;
   readonly local?: true; // a local identity: lanes never adopted (D21)
+  // Migration (the user's decision, Q1 A): the saved shape, state ids and memory fields with their Schema versions (U17 B). Absent on hand data.
+  readonly shapeVersion?: { readonly states: readonly string[]; readonly fields: readonly string[] };
   readonly identityFields?: readonly string[]; // round 14, rule 74: the `Flow.input` fields, sorted; a value ref's identity
   readonly identityVersion?: readonly string[]; // OD30 Q3: each identity field with its Schema (type and encoded side), in name order
   readonly identityVersionByFormat?: Readonly<Record<string, readonly string[]>>; // R7: the same in each older version format

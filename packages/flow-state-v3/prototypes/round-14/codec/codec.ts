@@ -225,6 +225,7 @@ const build = (Slot: S.Top) => {
     local: opt(S.Literal(true)),
     identityFields: opt(S.Array(S.String)), // round 14 (rule 74): a value ref's identity fields
     identityVersion: opt(S.Array(S.String)), // OD30 Q3: and their Schemas
+    shapeVersion: opt(S.Struct({ states: S.Array(S.String), fields: S.Array(S.String) })), // migration Q1 A: the saved shape
     identityVersionByFormat: opt(S.Record(S.String, S.Array(S.String))), // R7: in each older version format
     streams: opt(S.Unknown), // the same: the sessions module's data, typed with streams
     events: Events, // round 12 (D216): required; round 13 (M3): with payloads

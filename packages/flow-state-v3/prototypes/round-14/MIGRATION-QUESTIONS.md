@@ -1,6 +1,29 @@
 # Record migration: questions for the user (phase 1, round 1, 2026-11-09)
 
-Everything here is **proposed**. Nothing is built for Q1; the cases named below pin what the design already says.
+## Q1 answered (2026-11-09): A, automatic per definition, no manual version
+
+The user's decision, relayed by the runner: "per definition, AUTOMATIC only, no manual `version` anywhere. When a definition's persisted memory
+or state shape changes incompatibly (use Flow's existing structural version of the definition, rule 74 / U17 ...), that definition's saved
+memory and state are discarded at boot and its actors start fresh, with an issue ... naming the definition. Other definitions are untouched.
+Writes in flight always kept: lanes, holds and endings survive the reset under the existing unbound/adopt rules. `flow explain` lists the
+definitions whose saved state a release will reset. No app-wide version." Options B (`previous` on the definition) and C (a version number with
+a migrate function) are not taken; the user's two earlier variants (a manual `version` on each definition, then one app-wide `version`) were
+withdrawn before anything was built.
+
+Built (phase 1 migration, the runner's spellings, proposed): the compiler emits each definition's `shapeVersion` (its state ids, and each memory
+field with its U17 Schema version, fragments under their id); every actor record carries it (Flow record format 4). At the boot a record whose
+shape differs incompatibly (a field both releases keep under another Schema version, or a saved state or fragment the release lacks) is reset:
+removed, one `RecordShapeChanged` per definition (proposed name), each held lane `HoldWithoutRecord`, its lanes unbound until an ensure adopts
+them. A compatible difference (a field added or dropped, a state added) restores field by field as before (`FieldDropped` for a dropped field).
+`flow explain <release> --since <release>` says, per definition: resets always, resets records saved in a removed state, or restores. Cases in P1-M
+(`release-1-records-...`, `a-state-...-resets-...`, `a-memory-field-reshaped-resets-...`, `a-compatible-shape-change-...`,
+`only-the-definition-whose-shape-changed-resets`); wrong runtimes `q1a.*` in `mutants-p1m.ts`. Stated limits: a renamed field is a drop plus an
+add (compatible; the new field takes its default); a changed default is not in the version; a record written before format 4 has no shape and
+restores (or is quarantined) as before; an identity field change stays rule 74's old-version record, checked first.
+
+What follows is the question as it was asked, kept as prior art.
+
+Everything below is **proposed** prior art. Nothing was built for options B or C.
 
 ## What the design already gives an app (built and pinned, P1-M)
 

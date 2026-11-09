@@ -2587,3 +2587,32 @@ file:drive.ts hash:99f638ccdb7b | Migration round 3 review: no boot-wide restore
 round:mutants-am1.ts hash:30f06c430f43 | Migration round 3 review: am1.op-name-wins-over-contract, and am1.op-rename-ignored re-anchored on the contract check
 file:expected-recipients.txt hash:23468cdc7057 | Migration round 3 review: the contract variant adds 2 observed deliveries, 1 restored state, 2 start nodes; no red count moved
 output:P1-M/a-new-op-of-the-old-name-over-another-contract-does-not-take-the-lane hash:01aec763bf5c | new output: pay renamed charge, a new pay over p1m/other sends, charge's key held
+removed:variant:P1-M/a-state-a-release-removed-quarantines-the-record-and-an-ensure-starts-fresh-and-adopts-the-hold | the user's decision (Q1 A): a removed state resets the definition instead of quarantining; renamed ...-resets-the-definition-and-an-ensure-adopts-the-hold
+removed:variant:P1-M/a-memory-field-reshaped-with-no-migration-quarantines-the-record-and-an-ensure-starts-fresh | the user's decision (Q1 A): a reshaped kept field resets the definition; renamed a-memory-field-reshaped-resets-the-definition
+removed:output:P1-M/a-memory-field-reshaped-with-no-migration-quarantines-the-record-and-an-ensure-starts-fresh | Q1 A: the variant is renamed for the reset it now asserts (its output moves with it)
+removed:output:P1-M/a-state-a-release-removed-quarantines-the-record-and-an-ensure-starts-fresh-and-adopts-the-hold | Q1 A: renamed for the reset it now asserts; output moves with the variant
+P1-M hash:ad08fbdd092a | The user's decision (migration Q1 A): an incompatible shape change resets a definition's saved state; the composite, the removed-state and reshaped variants, the gone-record and fresh-save cases follow it; three new variants
+file:scenarios/phase1m.scenario.ts hash:001886f1506f | Q1 A: the reset cases, the compatible and only-the-changed-definition variants, format 4 in the format cases, fresh-save and gone-record over unreadable bytes
+file:typed/phase1m.ts hash:5f552d34fb97 | Q1 A: Memo release 5 (legacy dropped, words computed: a compatible change) and an edits counter stored as its encoded text
+file:compile/machine.ts hash:adfd0f370b50 | Q1 A: the compiler emits each definition's shapeVersion (state ids, memory fields with their Schema versions, fragments included)
+file:drive.ts hash:6edbeae542a2 | Q1 A: the suite's own reading of a record counts an incompatible shape change, from the record's stamp and the release's compiled shapeVersion
+round:cli/explain.ts hash:21ed904e0bab | Q1 A: explain --since lists what a release does to a definition's saved state (always, if saved in a state gone, no)
+round:cli/flow.ts hash:3fb3f8fa8bf0 | Q1 A: Memo's five releases as targets, and the --since operand
+round:cli/main.ts hash:728adf3ce591 | Q1 A: four explain --since pins (a changed field, a removed state, a dropped field, the same release)
+round:mutants-am1.ts hash:756f0a3b45a0 | Q1 A: audit M1's lie re-aimed at a key-change case, the composite now resetting Memo's record before the lie's quarantine
+round:mutants-p1m.ts hash:b6df68377fa9 | Q1 A: six q1a wrong runtimes (unchanged resets, compatible resets, memory kept, hold dropped, every definition, reset hold silent); restore and HoldWithoutRecord ones re-aimed
+file:expected-recipients.txt hash:8ccd38445573 | Q1 A: the new and changed P1-M variants add one observed delivery, one fewer restored state and one more start node; no red count moved
+output:P1-M/a-compatible-shape-change-restores-and-decodes-by-field hash:158303cb529c | new output: release 5, legacy dropped, words computed, edits decoded, the hold heard
+output:P1-M/a-memory-field-reshaped-resets-the-definition hash:815480256a92 | new output: release 4 resets Memo, fresh struct title, the hold said and heard
+output:P1-M/a-previous-key-equal-to-the-current-key-is-refused hash:029dcb74a0db | Memo's memory gained the edits counter (0)
+output:P1-M/a-record-flow-wrote-in-format-1-restores-as-it-was hash:24040ead2aa9 | Memo's memory gained the edits counter (1 after the title)
+output:P1-M/a-record-of-a-newer-flow-record-format-is-quarantined-and-its-lane-still-holds hash:a761ca9d5a20 | Memo's fresh memory gained the edits counter
+output:P1-M/a-state-a-release-removed-resets-the-definition-and-an-ensure-adopts-the-hold hash:9667e7e8ca95 | new output: release 3 resets Memo, the record gone, fresh DRAFT, the hold heard and holding
+output:P1-M/an-in-flight-head-on-a-gone-record-is-said hash:cce7b2898f63 | now unreadable bytes, not a release: quarantine, HoldWithoutRecord, an ensure that hears the hold
+output:P1-M/every-record-flow-writes-says-its-record-format hash:2bf5637d073e | format 4 records and the edits counter
+output:P1-M/no-field-dropped-for-a-record-then-quarantined hash:981d44d68de8 | release 5 (compatible) in place of release 2: no OldVersionLane, the quarantine and its hold
+output:P1-M/only-the-definition-whose-shape-changed-resets hash:19751a86667e | new output: Memo reset by release 4, KeyStamp restored with its ok
+output:P1-M/previous-retry-re-sends-the-old-hold-as-the-same-attempt hash:6c539687a0a2 | Memo reset by release 2: RecordShapeChanged and HoldWithoutRecord in place of FieldDropped, fresh memory
+output:P1-M/release-1-records-restore-under-release-2-across-a-reload hash:4f5adcbdb1a1 | Memo reset by release 2: fresh memory, the new key sends an empty body, a clean second boot
+output:P1-M/the-fresh-actor-over-a-quarantined-record-is-saved hash:466bb51600b6 | over unreadable bytes, not a release: fresh, saved, restored at the next boot
+round:typed/compare.ts hash:d1e7a006bcaa | Q1 A gates: shapeVersion skipped in the typed-against-hand compare, typed only (as keyVersionByFormat)

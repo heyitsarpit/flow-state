@@ -71,6 +71,27 @@ export const explainText = (r: ReturnType<typeof explain>) => {
   out.push(r.decided ? "decided statically: yes" : `decided statically: no. ${depends} of ${live.length} alternatives depend on values`);
   return out.join("\n");
 };
+// The user's decision (migration Q1 A): what a release does to a definition's saved state, from the two `shapeVersion`s alone. A field both keep
+// under another Schema version resets every saved record of it; a state the release removes resets the records saved in it; a field added or
+// dropped, or a state added, resets nothing (dropped fields are said at restore as `FieldDropped`). Lanes and their holds are never reset.
+export const resets = (before: Compiled, after: Compiled) => {
+  const was = before.shapeVersion;
+  const now = after.shapeVersion;
+  if (!was || !now) return { command: "explain", machine: after.id, resets: "unknown" as const, fields: [], statesGone: [] };
+  const name = (f: string) => f.split("#")[0]!;
+  const fields = was.fields.filter((f) => now.fields.some((g) => name(g) === name(f) && g !== f)).map(name);
+  const statesGone = was.states.filter((s) => !now.states.includes(s));
+  const resets = fields.length ? ("always" as const) : statesGone.length ? ("if-saved-in-a-state-gone" as const) : ("no" as const);
+  return { command: "explain", machine: after.id, resets, fields, statesGone };
+};
+export const resetsText = (r: ReturnType<typeof resets>) =>
+  r.resets === "always"
+    ? `${r.machine}: its saved memory and state reset at the next boot (changed: ${r.fields.join(", ")}); its writes in flight are kept`
+    : r.resets === "if-saved-in-a-state-gone"
+      ? `${r.machine}: records saved in ${r.statesGone.join(", ")} reset at the next boot; others restore; writes in flight are kept`
+      : r.resets === "no"
+        ? `${r.machine}: its saved state restores`
+        : `${r.machine}: no saved shape to compare`;
 // The design's one-liners (2.7.16): each event, what it can do.
 export const overview = (raw: Compiled) => {
   const c = poison(raw, { n: 0 });

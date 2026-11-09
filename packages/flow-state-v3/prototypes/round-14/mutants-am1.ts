@@ -18,7 +18,7 @@ const AIM: Readonly<Record<string, readonly string[]>> = {
   "m1.hwr-old-version-too": ["P1-H/audit-an-old-version-records-held-lane-is-unbound-listed-and-reported"],
   "m1.fresh-never-saved": [`${P}the-fresh-actor-over-a-quarantined-record-is-saved`],
   "m1.version-type-side-only": [`${P}a-key-field-changing-only-its-encoded-side-is-a-new-version`],
-  "lie:m1.quarantine-beside-old-hold": [`${P}release-1-records-restore-under-release-2-across-a-reload`],
+  "lie:m1.quarantine-beside-old-hold": [`${P}a-current-keyed-member-never-names-an-old-version-hold-even-by-the-same-text`], // Q1 A: the composite now resets Memo's record
 };
 const aimed = (list: readonly M[]) => list.filter((m) => Object.hasOwn(AIM, m.id)).map((m) => ({ ...m, kills: AIM[m.id]! }));
 const m = (id: string, kills: readonly string[], file: string, find: string, replace: string): M => ({ id, kills, edits: [[file, find, replace]] });

@@ -1718,3 +1718,46 @@ Sidecar log (Haiku, effort high; the lead read every line and reran every check)
 | Task | Who | Result | Why |
 | --- | --- | --- | --- |
 | review: op rename, identity stamps, the (j) excuse rebuild, the new cases and `mutants-am1.ts` vs 2.7.15, rule 74, 2.7.17 | reviewer | changed | acted on: the boot-wide restore flag excused every actor (removed; a refusal is read per record); an op of the old name over another contract took the lane (fixed, its own case and wrong runtime); the rename case counted any key name (now the new name). Recorded: findings 1, 2, 4, 5, 6, and pre-format-3 lanes (finding 3) |
+
+## Phase 1: record migration, Q1 answered (2026-11-09)
+
+The user's decision (relayed by the runner; it replaces a manual per-definition `version`, then an app-wide one, both withdrawn before any build):
+automatic per definition, no manual version. Recorded in `MIGRATION-QUESTIONS.md` (Q1 answered, A). Built, the runner's spellings, proposed:
+
+| Item | State | Failing first | Wrong runtime |
+| --- | --- | --- | --- |
+| Saved shape | the compiler emits `shapeVersion` per definition (state ids; memory fields with their U17 Schema versions; fragments under their id); every actor record carries it (record format 4) | `every-record-...-format`: `[4,4,..,true]` against format 3 | (the format pins) |
+| Reset on an incompatible change | `shapeReset` (durable.ts): equal shape, the old path; differing with a field both keep under another version, or a saved state or fragment gone: the record is removed at the boot, one `RecordShapeChanged` per definition, each held lane `HoldWithoutRecord`; differing compatibly: the old path (field decode, `FieldDropped`). Rule 74's identity check comes first | the composite: `legacy dropped, said: expected 1, got 0` once its expectations were rewritten from the decision; the removed-state and reshaped variants (`quarantined at the boot: expected 1, got 0` before the rename) | `q1a.memory-kept-across-a-change`, `q1a.unchanged-resets`, `q1a.compatible-resets` |
+| Writes in flight kept | lanes untouched: unbound, adopted by the ensure, the hold heard and still holding its key | the removed-state variant | `q1a.reset-drops-the-hold`, `q1a.reset-hold-silent` |
+| Other definitions untouched | `only-the-definition-whose-shape-changed-resets`: Memo resets, KeyStamp restores its `oks` | passed first (per record by construction) | `q1a.every-definition-resets` |
+| `flow explain --since` | `resets(before, after)` (cli/explain.ts): always / if saved in a state gone / no; four CLI pins over Memo's releases | new command option | (the CLI pins) |
+| Harness | `unreadableNow` (drive.ts) mirrors the rule from the record's stamp and the release's compiled `shapeVersion`, so (j) excuses a reset only where the suite's own reading finds one | the composite was red by (j) "not restored" before | - |
+
+Cases moved by the decision (each logged): the composite now resets Memo's record (fresh memory, the new key sends an empty body); the removed
+state and reshaped field variants renamed for the reset (old ids logged `removed:`); the gone-record and fresh-save cases now run over unreadable
+bytes (a quarantine, not a shape change) so the audit's `m1.hwr-only-saved-held` and `m1.fresh-never-saved` keep their targets; release 5 (a
+compatible change: `legacy` dropped, `words` computed) and an `edits` counter stored as its encoded text carry the field-decode, computed-initial
+and `FieldDropped` wrong runtimes (`p1m.restore-raw-memory`, `-restore-skips-computed`, `-field-dropped-silent`); `p1m.undecodable-memory-kept`
+re-aimed at REV8-PINS's broken restore; the audit's lie re-aimed at a key-change case. Every wrong runtime of the area red on its target, by
+assertion except the lie and `p1m.undecodable-drops-lanes`'s old route (both by (j)).
+
+Findings for the design:
+1. "Incompatible" as built: a field kept by both releases under another Schema version, or a saved state or fragment gone. A renamed field is a
+   drop plus an add, so compatible: the new field takes its default and the old value is lost silently but for `FieldDropped`. A changed default
+   is not in the version. The design should say whether a rename should reset.
+2. Records written before format 4 carry no shape: they never reset; they decode field by field and are quarantined if they do not read (the
+   first release with the stamp cannot judge the one before it).
+3. A reset identity's stopped reads (`failure { Interrupted }` of reads its end cut) go with its record: they are reads, not writes in flight.
+   Parked write endings stay on their lanes and are heard at the adopting ensure.
+4. `flow explain --since` compares two compiled releases; an app's list of resets is that, per definition. It needs the deployed release's
+   compiled data, which production must keep (or the shape stamps).
+
+Gates: lifetime-falsify alone 382 pass; batch A 8/9 (mutate-one's `typed/compare.ts` met the typed-only `shapeVersion`; skipped there as
+`keyVersionByFormat` is); then mutate-one and batch B 16/16: **25/25 ok, 0 BAD**. Lock: one log line per changed id, its own reason, `removed:`
+lines for the two renamed variants; `--lock` 1066/1066.
+
+Sidecar log (Haiku, effort high; the lead read every line and reran every check):
+
+| Task | Who | Result | Why |
+| --- | --- | --- | --- |
+| review: the shape stamp, `shapeReset`, the harness mirror, `explain --since`, the q1a wrong runtimes vs the user's decision | reviewer | recorded | recorded: findings 1-3, `q1a.reset-drops-the-hold` drops in memory only (still a faithful wrong runtime for "the hold is lost"), `q1a.unchanged-resets` also resets compatible changes. Rejected: "three wrong runtimes name cases that do not exist" (REV8-PINS/D46 is in round8.scenario.ts; the gone-record case is in P1-M; both red as run) |

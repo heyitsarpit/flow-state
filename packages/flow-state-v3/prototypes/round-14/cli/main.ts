@@ -87,6 +87,15 @@ const j = async (...a: string[]) => {
   const r = await run(...a, "--json");
   return { code: r.code, doc: r.out ? JSON.parse(r.out) : undefined, err: r.err };
 };
+// Migration (the user's decision, Q1 A): `flow explain <release> --since <release>` lists what the release resets of the definition's saved state.
+const reset = async (now: string, was: string) => {
+  const d = (await j("explain", now, "--since", was)).doc;
+  return [d.resets, d.fields, d.statesGone];
+};
+eq("explain --since: a field both keep under another Schema resets every record", await reset("memo-2", "memo-1"), ["always", ["title"], []]);
+eq("explain --since: a state removed resets the records saved in it", await reset("memo-3", "memo-1"), ["if-saved-in-a-state-gone", [], ["SENT"]]);
+eq("explain --since: a field dropped resets nothing", await reset("memo-5", "memo-1"), ["no", [], []]);
+eq("explain --since: the same release resets nothing", await reset("memo-1", "memo-1"), ["no", [], []]);
 const list = await j("story", "list");
 eq("story list: every Story, nothing run", [list.code, list.doc.stories.length, list.doc.callbacksRun, list.doc.stories.map((s: { kind: string }) => s.kind).filter((k: string) => k === "fragment").length], [0, 8, 0, 2]);
 const desc = await j("story", "describe", "checkout/busy-then-paid");

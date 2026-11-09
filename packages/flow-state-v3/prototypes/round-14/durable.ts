@@ -127,14 +127,37 @@ const actorRecord = (tx: Tx, key: string): unknown => {
       : [],
   );
   const timers = live ? [...armed, ...firing] : (a.timers ?? []);
-  return { format: RECORD_FORMAT, ...a, boot: tx.w.boot, timers, ...(live ? {} : { retired: true }) }; // D99
+  const shape = tx.machines[a.machine]?.shapeVersion;
+  return { format: RECORD_FORMAT, ...a, ...(shape ? { shape } : {}), boot: tx.w.boot, timers, ...(live ? {} : { retired: true }) }; // D99
+};
+// The user's decision (migration Q1 A): a record's saved shape against this release's. Equal: it restores as before (field decode, `FieldDropped`, a
+// quarantine of what does not read). Differing and incompatible, a field both keep with another Schema version, or a saved state or fragment this
+// release lacks: reset. Differing otherwise (a field added or dropped, a state added): restores as before. No stamp (before format 4): as before.
+type Shape = { readonly states: readonly string[]; readonly fields: readonly string[] };
+const isShape = (s: unknown): s is Shape => typeof s === "object" && s !== null && Array.isArray((s as Shape).states) && Array.isArray((s as Shape).fields);
+const sameList = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x) => b.includes(x));
+const fieldName = (entry: string) => entry.split("#")[0]!;
+export const shapeReset = (m: Compiled, v: Raw): boolean => {
+  const was = v["shape"];
+  const now = m.shapeVersion;
+  if (!now || !isShape(was) || (sameList(was.states, now.states) && sameList(was.fields, now.fields))) return false;
+  const kept = new Map(now.fields.map((f) => [fieldName(f), f]));
+  if (was.fields.some((f) => kept.has(fieldName(f)) && kept.get(fieldName(f)) !== f)) return true;
+  const states = new Set(now.states);
+  const gone = (i: unknown, frag: string | null): boolean => {
+    const inc = i as { leaf?: unknown; kids?: Record<string, { frag?: unknown }> } | undefined;
+    if (typeof inc?.leaf !== "string") return false;
+    if (!states.has(frag === null ? inc.leaf : `${frag}/${inc.leaf}`)) return true;
+    return Object.values(inc.kids ?? {}).some((k) => gone(k, typeof k?.frag === "string" ? k.frag : null));
+  };
+  return gone(v["root"], null);
 };
 // Flow's own record format (rule 74's format tag, for the records themselves; phase 1 migration rounds 2-3, proposed). Format 1 is untagged and a lane
 // record stores its id beside the actor, op and key it is made of; format 2 tags every record and stores a lane's id once, as the record's key;
 // format 3 adds to a lane record its contract id (2.7.15: a lane is (identity, contract id, key), so a renamed op finds it) and the actor identity
 // version it was minted under (rule 74). An older record has neither: it is found by its op name and bound to any identity of its name (stated).
 // Each older format reaches the current one by a pure step at the boot, before this release's checks; a newer format is quarantined, never misread.
-export const RECORD_FORMAT = 3;
+export const RECORD_FORMAT = 4; // format 4 (the user's decision, migration Q1 A): an actor record carries its definition's saved shape
 type Raw = Record<string, unknown>;
 const UPGRADE: Readonly<Record<number, (k: string, v: Raw) => Raw>> = {
   1: (k, v) => {
@@ -144,6 +167,7 @@ const UPGRADE: Readonly<Record<number, (k: string, v: Raw) => Raw>> = {
     return rest;
   },
   2: (_k, v) => v,
+  3: (_k, v) => v,
 };
 const upgraded = (tx: Tx, k: string, v: unknown): Raw | undefined => {
   if (typeof v !== "object" || v === null || Array.isArray(v)) return v as Raw | undefined;
@@ -316,12 +340,24 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
   const quarantinedLanes: Record<string, true> = {};
   const undecodable: Record<string, true> = {}; // rule 73: a send to one says RecordUndecodable; an ensure discards it
   const oldVersion: Record<string, true> = {};
+  const reset = new Set<string>();
+  const resetBy = new Map<string, number>();
   for (const [k, text] of records) {
     if (k.startsWith("actor/")) {
       const v = upgraded(tx, k, parse(tx, k, text)) as any;
       if (!v) { undecodable[k.slice(6)] = true; continue; }
       floorBoot(v);
       const mm = typeof v?.machine === "string" ? tx.machines[v.machine] : undefined;
+      // The user's decision (migration Q1 A): a definition whose saved shape this release changed incompatibly starts its actors fresh. The record's
+      // memory and state go (removed, as `disposeActor` removes one); its lanes stay, unbound until an ensure adopts them (rule 46). Rule 74 first.
+      const sameIdentity = !mm || !Array.isArray(v.fields) || sameVersion(v.fields, mm.identityVersion ?? [], mm.identityVersion ? mm.identityVersionByFormat : undefined);
+      if (mm && sameIdentity && shapeReset(mm, v)) {
+        resetBy.set(mm.id, (resetBy.get(mm.id) ?? 0) + 1);
+        reset.add(k.slice(6));
+        tx.dropped.add(k.slice(6));
+        tx.touchedActors.add(k.slice(6));
+        continue;
+      }
       if (!mm || !validActor(mm, v, k)) {
         quarantine(tx, k, `no machine ${v?.machine}, or a record this release cannot read`);
         undecodable[k.slice(6)] = true;
@@ -408,6 +444,8 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
     if ((!recorded.has(l.actor) && !Object.hasOwn(undecodable, l.actor)) || !ofIdentity(tx, l as Lane)) note(tx, "UnboundLane", { actor: l.actor, op: l.op, lane: l.id }); // rule 74: an old identity's lane too
   // The runner's ruling (phase 1 migration round 2): a hold whose identity's record this boot could not read waits for an ensure, and the boot says so.
   for (const [, l] of lanes) if (l.head && Object.hasOwn(undecodable, l.actor)) issue(tx, { code: "HoldWithoutRecord", origin: `${l.machine} ${l.op}`, input: { lane: l.id } });
+  for (const [, l] of lanes) if (l.head && reset.has(l.actor)) issue(tx, { code: "HoldWithoutRecord", origin: `${l.machine} ${l.op}`, input: { lane: l.id } }); // Q1 A: a reset record's hold too
+  for (const [definition, actors] of resetBy) issue(tx, { code: "RecordShapeChanged", origin: `${definition} memory`, input: { definition, actors } }); // proposed name; once per definition
   for (const t of timers) {
     const { gen: _g, ...spec } = t;
     armTimer(tx, spec);

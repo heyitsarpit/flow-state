@@ -12,7 +12,8 @@ export const MemoId = "Lab/Memo";
 const Title = S.Struct({ text: S.String, lang: S.String });
 const TitleFromRelease1 = S.Union([Title, S.String.pipe(S.decodeTo(Title, SchemaTransformation.transform({ decode: (text: string) => ({ text, lang: "en" }), encode: (t: { readonly text: string }) => t.text })))]);
 const internalEvents = { Saved: {}, SaveNo: { why: S.String }, SaveUnsure: Flow.uncertain({}) } as const;
-const counts = { unsure: Flow.initial(S.Number, 0), why: Flow.initial(S.String, ""), saved: Flow.initial(S.Number, 0) };
+// `edits`: stored as its encoded text (a `NumberFromString`), so a restore that skips the field's codec reads a string (2.2.2).
+const counts = { unsure: Flow.initial(S.Number, 0), why: Flow.initial(S.String, ""), saved: Flow.initial(S.Number, 0), edits: Flow.initial(S.NumberFromString, 0) };
 const save1 = transaction({ id: "memo/save", input: { memoId: S.String, body: S.String }, key: ["memoId"], concurrency: "reject", services: [FakeApi], commit: write("save") });
 const save2 = transaction({
   id: "memo/save",
@@ -37,7 +38,7 @@ const release1 = () => {
   return machine(d, ({ S: St, O }) => ({
     default: St.DRAFT,
     on: {
-      Title: { updateMemory: ({ event }) => ({ title: event.title }) },
+      Title: { updateMemory: ({ memory, event }) => ({ title: event.title, edits: memory.edits + 1 }) },
       Body: { updateMemory: ({ memory, event }) => ({ body: event.body, legacy: memory.legacy + 1 }) },
       Save: { target: St.SENT, actions: [O.save.commit(({ memory }) => ({ memoId: "m1", body: memory.body }))] },
       Saved: { updateMemory: ({ memory }) => ({ saved: memory.saved + 1 }) },
@@ -120,11 +121,37 @@ const release4 = () => {
     },
   }));
 };
+// Release 5 (migration Q1 A): release 1 with `legacy` no longer declared and a computed `words` added, a compatible shape change.
+const release5 = () => {
+  const { legacy: _legacy, ...kept } = memory1;
+  const memory5 = { ...kept, words: Flow.initial(S.Number, (start: Readonly<Record<string, unknown>>) => String(start["body"] ?? "").split(" ").filter((w) => w !== "").length) };
+  const d = definition({
+    id: MemoId,
+    persist: true,
+    states: ["DRAFT", "SENT"],
+    events: { Title: { title: S.String }, Body: { body: S.String }, Save: {} },
+    internalEvents,
+    memory: memory5,
+    operations: ({ E }) => ({ save: save1.outcomes({ success: E.Saved, failure: { NotSent: E.SaveNo.from((r: { why: string }) => ({ why: r.why })) }, unknown: E.SaveUnsure }) }),
+  });
+  return machine(d, ({ S: St, O }) => ({
+    default: St.DRAFT,
+    on: {
+      Title: { updateMemory: ({ event }) => ({ title: event.title }) },
+      Body: { updateMemory: ({ event }) => ({ body: event.body }) },
+      Save: { target: St.SENT, actions: [O.save.commit(({ memory }) => ({ memoId: "m1", body: memory.body }))] },
+      Saved: { updateMemory: ({ memory }) => ({ saved: memory.saved + 1 }) },
+      SaveNo: { updateMemory: ({ event }) => ({ why: event.why }) },
+      SaveUnsure: { updateMemory: ({ memory }) => ({ unsure: memory.unsure + 1 }) },
+    },
+  }));
+};
 const Memo1 = release1();
 const Memo2 = release2();
 const Memo3 = release3();
 const Memo4 = release4();
-export const memoFixture = (rel: Release) => fixture(() => (rel.v === 1 ? Memo1 : rel.v === 2 ? Memo2 : rel.v === 3 ? Memo3 : Memo4));
+const Memo5 = release5();
+export const memoFixture = (rel: Release) => fixture(() => (rel.v === 1 ? Memo1 : rel.v === 2 ? Memo2 : rel.v === 3 ? Memo3 : rel.v === 4 ? Memo4 : Memo5));
 
 // The runner's ruling (round 2): on a fragment op, authority before version. `.each` copies `x` and `y` of one fragment commit the same key text;
 // release 2 makes the key a `Trim` (a new version, the same text), so after it `y`'s commit meets `x`'s old-version hold from another subject.

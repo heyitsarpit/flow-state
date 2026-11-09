@@ -5,7 +5,7 @@ import type { CompiledOutput, DomainSpec, Mapped, StreamSpec } from "../fixtures
 import { slotOf, type Fields } from "./core.ts";
 import { isIgnore, payloadsOf, tokens, uncertainOf, type EventPayloads, type EventsOf } from "./events.ts";
 import { compileMemory, type MemoryFields, type MemoryOf } from "./memory.ts";
-import { identityFieldsOf, identityVersionByFormatOf, identityVersionOf } from "./ref.ts";
+import { identityFieldsOf, identityVersionByFormatOf, identityVersionOf, versioned } from "./ref.ts";
 import type { ReqsOf } from "./fragment.ts";
 import { compileOp, FLOW_REASONS, handles, WRITE_ONLY_REASONS, type AnyBound, type HandleOf, type RequirementsOf, type Typed } from "./operations.ts";
 import {
@@ -176,7 +176,16 @@ export const machine = <
     if (k in d.ops || frags.filter((f) => k in f.ops).length > 1) throw new Error(`DuplicateOperation: ${d.id} has two operations named ${k} (rule 51)`);
   const events = { ...d.events, ...d.internalEvents } as Readonly<Record<string, Fields>>;
   const streams = d.streams ? compileStreams(d.id, d.streams({ E: tokens(d.internalEvents) as never })) : {};
+  // The user's decision (migration, Q1 A): a definition's saved shape, as Flow's structural versions (rule 74, U17 B): every state id, and every memory
+  // field with its Schema's version, the fragments' under their id. A release whose shape differs incompatibly resets the definition's saved state.
+  const memoryOf = (fields: Readonly<Record<string, { readonly schema: unknown }>> | undefined, at: string) =>
+    Object.entries(fields ?? {}).map(([k, f]) => versioned(`${at}${k}`, f.schema));
+  const shapeVersion = {
+    states: [...Object.keys(nodes), ...frags.flatMap((f) => Object.keys(f.compiled.nodes).map((n) => `${f.id}/${n}`))].sort(),
+    fields: [...memoryOf(compileMemory(d.id, d.memory).fields, ""), ...frags.flatMap((f) => memoryOf(f.compiled.memory.fields, `${f.id}.`))].sort(),
+  };
   const compiled: CompiledOutput = {
+    shapeVersion,
     id: d.id,
     nodes,
     root: "root",
