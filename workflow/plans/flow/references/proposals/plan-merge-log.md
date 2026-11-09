@@ -297,3 +297,37 @@ Prototype check (S2): built and merged as decided (OD52, OD53): D3, the rebase, 
 API (J, C115), the restored quiet mark's fields, field functions and the allowlist lint (merge 5). STATUS.md's
 finding 1 ("the design disagrees with itself" on 2.8.5's example) is resolved by the OD52 amendment in 2.8.5, as
 merged.
+
+## Inspection
+
+Rows merged: fragments row (Inspection O1), C30, C51, C64, C78-C80, C100, C111, C122, C141, C159, C173, C178,
+C190, C194, C201, C204, C206, C209, C211, C212, and merge 5's Inspection amendments (S1 rows 18-22, **accepted**
+after reading 6.4 and Inspection.plan lines 16-20, 86-90, 155-161 myself).
+
+| # | Outcome | Before | After | Decision |
+| --- | --- | --- | --- | --- |
+| I-1 | O1 | Model contents | from the compiled data view; actions name their operation; fragments, copies, summaries; operations with contract, verb, concurrency, key, services; domains as recorded with predicted field names, `many`, guarded targets | fragments row; C139; merge 5; C193 |
+| I-2 | O1 | per-actor "activity bindings, pending commits, issues and retain"; "transactions and stream sessions in flight" | work, placements, incarnations, uses, lanes by identity with binding, releasing, holds, kept and parked endings; per-session facts and flags; given-up marks, `stalled: "record"`; identity naming | C51; C64; C78; C100; C111; C122; C159; C173; C178; C190; C194; C204; C206 |
+| I-3 | O2 | (none) | pointer: unencodable values never fail a turn | C154 |
+| I-4 | O4 | event kinds | adds ending, lane, life, callback, exit, listRepair, drop, session, delivery, predictionFault, Story kinds; run-wide sequence and tab; evidence and boot-report names | C79; C100; C111; merge 5; C209; C211; C212 |
+| I-5 | O4 | Trace fields with `persistenceVersion`; "unknown carries reconcileRequired" | no `persistenceVersion`; unknown carries its reason; `flow trace` pointer | C211; C2; C141 |
+| I-6 | O5 | redaction | fake truth and request inputs as digests; `via` never redacted; `output` | C80; C31 |
+| I-7 | O6 | "transactions" section; `persistenceVersion` in comparison | write lanes and endings; no `persistenceVersion` | C51; C79; C211 |
+| I-8 | D1, D2 | (none) | the lint's reading of source is not a representation; one type-facts adapter, fail closed for both | merge 5 |
+| I-9 | V2 | verification | lanes, uses and incarnations | follows I-2 |
+
+Counts: 9 edits; 13 superseded sentences marked (O1: 5, O4: 4, O5: 2, O6: 2).
+
+Conflicts:
+- **IC1, agent-judged, applied.** Inspection's Model and the design's `Compiled` data view (C139: "tools read its data
+  view"). Recommended: the Model is read from each machine's compiled data view; `inspect(app)` and D1 stand.
+  Judge: the runner (an internal representation; OD46 marks `Compiled`'s contents agent-judged). Reversible: one
+  sentence.
+- **IC2, agent-judged, applied.** The Trace's `persistenceVersion` field and identity check presume Persistence's
+  app-wide version, which the user's Q1 A removed (C211). Recommended: drop it from the Trace, import and
+  comparison (the fingerprint already covers the Model). Judge: the runner (follows a user decision). Reversible: one
+  field.
+
+Prototype check (S2): not built in the prototype, kept as contract: `uses.busy`'s mailbox depth and waiting deadlines
+(CP5), the trace export (the prototype has `flow trace` only). Built and merged: the session flags, `FillsOtherKey`,
+`IdleWithoutPing`'s condition (OD53 (14)).
