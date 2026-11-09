@@ -2,7 +2,7 @@
 
 Status: approved by the user on 2026-11-07, in the Claude Code session ("the roadmap is approved"), handing
 its execution to Claude as the agent runner.
-Version: 13, approved 2026-11-07, after amendment 12.
+Version: 14, approved 2026-11-07, after amendment 13.
 Shape confirmed: 2026-11-04, in the Claude Code session. The user gave points 1-10: plans first,
 conformance rewritten, the core, features, Next.js hardening, examples and docs.
 Goal: production code for Flow State v3 at high quality, with good error messages and the
@@ -278,7 +278,7 @@ each. Apply them, under the user's approval of the merge, and run `workflow chec
 Done when:
 - every `.plan` the prototype touched is merged;
 - every superseded decision is marked;
-- Specs exist for each production area;
+- Specs exist for what phases 3 and 4 build (the core and its suite); feature Specs are written when phase 5 starts (amendment 13);
 - no plan text claims a decision the user didn't make;
 - `workflow check` passes.
 Blocking: the label round, then each round of user-judged decisions. Reviews: agent-judged
@@ -667,6 +667,10 @@ Numbered, oldest first (runner rule 4).
    file"): superseded plan text leaves the plans for `workflow/plans/flow/references/superseded.md`, grouped by plan and
    outcome, each quote with its replacement; the plans carry the current contract only. machine-design.md keeps its
    inline markers (it is the decision record). Version 13. Phases worked out again: 2 (its criteria).
+13. 2026-11-09, judge the user ("over designing upfront can be bad, only do what we intend to soon first, all specs
+   are guides and up for modification at any point if required"): phase 2 writes Specs only for phases 3-4 (the core and
+   its suite); each later area's Specs are written when its phase starts. Every Spec is a guide, revised whenever
+   building shows it wrong, with the change and its reason logged. Version 14. Phases worked out again: 2, 5.
 
 ## Runner rules
 
