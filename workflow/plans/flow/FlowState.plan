@@ -8,11 +8,11 @@ goal
     writes honestly. Its behaviour can be inspected structurally and replayed deterministically.
 
     Capability plans own their contracts, decisions and proofs:
-    Machines — states, turns, guards and continuing work (@plan.Machines.O1).
+    Machines — definitions, fragments, states, turns, guards and work (@plan.Machines.O1).
     Runtime — apps, readiness, actors, messaging and context (@plan.Runtime.O1).
     Operations — reads, commits, streams, writes and lanes (@plan.Operations.O1).
     EntityDomains — coherent records, repair and predictions (@plan.EntityDomains.O1).
-    Persistence — capture, restore and second-tab refusal (@plan.Persistence.O1).
+    Persistence — capture, restore and a second tab without persistence (@plan.Persistence.O1).
     ServerRendering — request isolation and SSR hydration (@plan.ServerRendering.O1).
     LazyFeatures — deferred adoption and dormant durable data (@plan.LazyFeatures.O1).
     React — attachment, consistent views and component lifetime (@plan.React.O1).
@@ -23,7 +23,7 @@ goal
     Package — routes, dependency identity and installed consumers (@plan.Package.O1).
 
     references/dispatch-desk is the worked example built against these contracts, including a
-    Next.js App Router host for hydration, reload restore, lazy features and second-tab refusal.
+    Next.js App Router host for hydration, reload restore, lazy features and a second tab.
 outcomes
     O1  Code disposition
         Build production in packages/flow-state-v3/src/, with the latest prototype
@@ -83,9 +83,9 @@ constraints
         Silence in a current plan does not import an archived rule; unresolved behaviour belongs in
         the owning capability plan.
     C2  Version 1 scope
-        Include Next.js SSR hydration, lazy features and persistence with second-tab refusal
-        (@plan.Persistence.O7). Exclude React Suspense, multi-tab sharing, sync engines and
-        cross-origin sync.
+        Include Next.js SSR hydration, lazy features and persistence, a second tab running without
+        persistence (@plan.Persistence.O7). Exclude React Suspense, multi-tab sharing, sync engines
+        and cross-origin sync.
     C3  Toolchain
         Use Node 22.18+, pinned nub@0.7.5, TypeScript 7.0.2, Vite Plus and Effect 4.0.5. No unpinned
         dependencies or erasure of public type information to satisfy proofs.

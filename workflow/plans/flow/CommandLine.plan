@@ -46,7 +46,8 @@ outcomes
         restores, or its identity fields changed (old-version records, kept, never reset); writes
         in flight are always kept. It compares two releases, not the chain a record went through.
 
-        Invalid, missing, repeated or conflicting arguments fail before application loading.
+        Invalid, missing, repeated or conflicting arguments fail with InvalidUsage before
+        application loading.
         Selectors are data and never execute expressions. Artifact-only commands accept no source
         selection options and load no application or config. At most one input may be stdin (-).
 
@@ -80,7 +81,7 @@ outcomes
         unchanged. A racing creator is never overwritten without consent. A published artifact is
         never rolled back. Temporary files are readable only by the invoking user and cleaned on
         every exit, and cleanup failures are reported. Unsupported safe publication fails without
-        truncation.
+        truncation. Output and publication failures report OutputFailed.
 
         Requested trace output is attempted even after execution failure; the execution failure
         remains primary and drain, encoding, write and cleanup failures remain visible. A Story run
@@ -224,11 +225,11 @@ outcomes
         (default tsconfig.json at the project root). The root must contain package.json; discovery
         never searches ancestors or silently chooses another config.
 
-        Missing or unloadable config fails. Empty config, missing apps/Stories, duplicate app ids
-        or Story ids within the configuration, foreign setups/machines and structural lookalikes
-        reject before acquiring execution resources. Flow and Effect values must come from the
-        exact package instances used by the CLI. Focused Stories must belong to their configured
-        app.
+        Missing or unloadable config fails with ConfigLoadFailed. Empty config, missing
+        apps/Stories, duplicate app ids or Story ids within the configuration, foreign
+        setups/machines and structural lookalikes reject before acquiring execution resources. Flow
+        and Effect values must come from the exact package instances used by the CLI. Focused
+        Stories must belong to their configured app.
 
         Selected config, Story and project entry files must resolve inside the project root after
         symlinks; escaping entries reject before execution. Flow writes no caches or generated

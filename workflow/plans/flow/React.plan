@@ -77,7 +77,7 @@ outcomes
         Local cleanup leaves the actor active for the grace, 100 milliseconds on the Runtime Clock.
         A local actor remounted within its grace reuses that actor and cancels its end; expiry ends
         it through the Runtime, except that work in flight keeps it until that work's ending's turn
-        has run. During the grace activities run and schedules wait. Strict Mode cleanup/setup never
+        has run. During the grace placements run and schedules wait. Strict Mode cleanup/setup never
         duplicates work or loses the actor. Shared ensuring hooks count as uses; lifetime follows
         @plan.Runtime.O3. Dropping a JavaScript handle disposes nothing. Explicit disposal is
         visible to all users; a mounted ensuring hook re-ensures a fresh incarnation under
@@ -87,11 +87,14 @@ outcomes
         creates a fresh one (adopting its identity's lanes). To keep state across hiding, persist
         the machine or hold a use outside the hidden subtree. Selectors read operations.
 
-        Superseded: "Sends through a handle whose actor is disposed are dropped as
-        SendTargetAbsent" is replaced by the send table (C105). "Local cleanup leaves the actor
-        active for 100 milliseconds on the Runtime Clock." is amended by the in-flight exception
-        and the remount rule (C108; C143). "Work continues during grace." is replaced: activities
-        run and schedules wait (C108). "Shared ensuring hooks count as uses until cleanup; retention
+        Superseded: "Reattach before expiry keeps the actor and cancels disposal; expiry disposes
+        it through the Runtime." is restated as the remount rule (C143). "React Activity hiding
+        beyond grace disposes local actors; reveal creates a fresh one." is restated with uses
+        and lane adoption (C108; C52). "Sends through a handle whose actor is disposed are dropped
+        as SendTargetAbsent" is replaced by the send table (C105). "Local cleanup leaves the actor
+        active for 100 milliseconds on the Runtime Clock." is amended by the in-flight exception and
+        the remount rule (C108; C143). "Work continues during grace." is replaced: activities run
+        and schedules wait (C108). "Shared ensuring hooks count as uses until cleanup; retention
         follows @plan.Runtime.O3." is replaced by uses from passive commit effects (C108). "Shared
         refs with retain are the way to keep state across hiding." is replaced: persist, or hold a
         use outside the hidden subtree (C108). The pre-attach buffer flushes after a new
@@ -106,12 +109,12 @@ outcomes
         O.x.get(s, k), a fragment's write lanes through Fragment.O.x.get(s, k) and its rows through
         s.operations.<instance>.<name>. A disposed snapshot keeps its last state, memory and context
         with lifecycle disposed. State tokens narrow snapshot types; check(s, event) follows
-        @plan.Machines.O4. Rows follow @plan.Operations.O6. contract.get and Entity.get are passive:
-        reading never fetches, mutates or retains data. Selectors start no work and acquire no
-        ownership. Changes to currently selected keys update the view even without an actor change;
-        conditional reads replace those dependencies. Selected values compare with Equal.equals,
-        and unchanged lanes keep identity. Changing selector identity does not resubscribe to the
-        actor.
+        @plan.Machines.O4. Rows follow @plan.Operations.O6. contract.get (proposed name) and
+        Entity.get are passive: reading never fetches, mutates or retains data. Selectors start no
+        work and acquire no ownership. Changes to currently selected keys update the view even
+        without an actor change; conditional reads replace those dependencies. Selected values
+        compare with Equal.equals, and unchanged lanes keep identity. Changing selector identity
+        does not resubscribe to the actor.
 
         Superseded: "Selectors read frozen state, memory, context, issues, lifecycle and
         activities." is replaced by schedules and operations, with private fields omitted

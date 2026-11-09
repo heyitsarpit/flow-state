@@ -42,14 +42,14 @@ outcomes
         drop, its registration row and basis, each proof, losses, bookmark and filled, bound and
         release, with counters and a ring of the last 256; flags ValuesWhileDown,
         RegistrationChurn, ReleaseOverdue, ProofWithoutPosition, PingsWithoutLive, IdleWithoutPing
-        (a Silent end of a connection with no ping since connect), DeliveryDenied, FillsUntouched
-        and FillsOtherKey, proposed name); per domain the answers with frontier and stale causes,
-        predictions, queues, uncertain records, given-up marks and a record wait as stalled:
-        "record"; persistence status, including SecondTabNoPersistence; lazy entries adopted or
-        not; hydration provenance. Held wire items in a Story are not Runtime facts. Actors are
-        named by machine and input fields, Editor{workspaceId: "north", ticketId: "T-42"}, or a
-        singleton's name. Revisions, timers and generations appear here and in evidence, never in
-        public snapshots.
+        (proposed name; a Silent end of a connection with no ping since connect), DeliveryDenied,
+        FillsUntouched and FillsOtherKey, proposed name); per domain the answers with frontier and
+        stale causes, predictions, queues, uncertain records, given-up marks and a record wait as
+        stalled: "record"; persistence status, including SecondTabNoPersistence; lazy entries
+        adopted or not; hydration provenance. Held wire items in a Story are not Runtime facts.
+        Actors are named by machine and input fields, Editor{workspaceId: "north", ticketId:
+        "T-42"}, or a singleton's name. Revisions, timers and generations appear here and in
+        evidence, never in public snapshots.
 
         flow explain is @plan.CommandLine.O1 and @plan.CommandLine.O4.
         Reference: references/dispatch-desk/tools/inspection.ts.
@@ -127,16 +127,16 @@ outcomes
         carry their reason (Superseded, Cancelled, Released); uncertain's end reads "a later write
         succeeded, or a retry of the Attempt succeeded" as amended by @plan.EntityDomains.O1;
         UnusedWireRule is a Story-derived diagnostic. Boot reports and evidence named by the
-        owner plans appear here: TurnStorm, StorageSilent, RecordUndecodable, OldVersionLane,
-        UnboundLane, LaneRekeyed, OpRenamed, LaneRekeyCollision, HoldWithoutRecord,
-        HoldForgotten, RecordShapeChanged, FieldDropped, RecordHeld, RepairOverdue,
-        UnsettledEvicted, GuardContradicted, Stale and SelectedNoKey (proposed names marked in
-        their owner plans). A second tab emits persistence-lock with SecondTabNoPersistence and no
-        capture or restore; no multi-tab coordination events exist in v1.
+        owner plans appear here: TurnStorm, StorageSilent, OldVersionLane and Stale, and, all
+        proposed names, RecordUndecodable, UnboundLane, LaneRekeyed, OpRenamed,
+        LaneRekeyCollision, HoldWithoutRecord, HoldForgotten, RecordShapeChanged, FieldDropped,
+        RecordHeld, RepairOverdue, UnsettledEvicted, GuardContradicted and SelectedNoKey. A second
+        tab emits persistence-lock with SecondTabNoPersistence and no capture or restore; no
+        multi-tab coordination events exist in v1.
 
         A Story run produces a Trace (@plan.Testing.O4); a production Runtime exports no trace,
         and hosts keep redacted sink events in their own logs. flow trace <story> [--at
-        <checkpoint>] prints a Story's timeline (@plan.CommandLine.O4). trace.export(trace)
+        <checkpoint>] prints a Story's timeline (@plan.CommandLine.O2). trace.export(trace)
         returns canonical bytes and trace.import(bytes) validates them and returns a Trace; both
         are synchronous and need no App. A Trace holds kind and version, storyId, appId,
         appFingerprint, seed, a truncatedBeforeSequence marker, redacted events, uniquely named

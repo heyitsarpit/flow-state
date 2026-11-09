@@ -44,7 +44,7 @@ outcomes
         (@plan.React.O2). It never runs on restore, adoption or hydration. Input fields are ordinary
         memory afterwards. A machine's input fields are read-only (writing one is a type error),
         since they name the actor (@plan.Runtime.O3); on a value-named machine they are required,
-        default-free and string-encoded (IdentityFieldOptional, proposed name, otherwise). A
+        default-free and string-encoded, else IdentityFieldOptional (proposed name). A
         fragment's input fields stay writable. At restore a field the record lacks takes its default
         or computed initial, an optional key stays absent, and an input field with no default
         refuses the record (RestoreMissingInput); record versions, resets and dropped fields are
@@ -54,7 +54,8 @@ outcomes
         binding is @plan.Runtime.O5. operations is ({ E }) => ({ name: contract.outcomes({ ... }) |
         contract }): each server interaction is declared once by name with its endings mapped onto
         this definition's events (@plan.Operations.O1 to O3); one write operation per write contract
-        per actor, counting every fragment placement in its tree (SharedContract otherwise). The
+        per actor, counting every fragment placement in its tree (SharedContract, proposed name,
+        otherwise). The
         definition exports O, the operations' handles; a commit's or lookup's select is typed at
         its transition. Machine configuration mirrors the declared state tree exactly: root and
         compounds require a default direct-child token and states; leaves have neither. Nodes may
@@ -130,7 +131,7 @@ outcomes
         activity or schedule names reject" loses activities, now a list of placements (C40).
         "Activity parameters may read earlier activities' lanes, parents before children; cyclic
         dependencies reject." is replaced: placement selects read the after memory and after lanes
-        (@O3; C40, rule 22). "initial is pure: it reads no clock or randomness" is kept (C157).
+        (@O3; C40). "initial is pure: it reads no clock or randomness" is kept (C157).
     O2  States and transitions
         Exactly one leaf is active. Substates share the actor's memory, context and lifetime;
         reaching a leaf with no handlers does not complete or dispose the actor. S.OPEN.EDITING
@@ -236,7 +237,10 @@ outcomes
         parameters; both read the pre-turn snapshot and event." to "One invalid action rejects the
         whole turn" is replaced by the algorithm above, keeping its defect rules (fragments row).
         Its "both read the pre-turn snapshot" no longer holds for commit selects, key selects and
-        schedule inputs, which read after (C13).
+        schedule inputs, which read after (C13). "State changes, activity changes, schedule
+        arming and the complete action batch validate before publication." is restated as the
+        validate step (fragments row). ""self" changes no state and restarts no work, including at
+        the root." is kept in @O2, with "keeps the activation" added (C164).
     O4  Guards, deny and check
         A guard receives { event, state, memory, context, schedules, operations } from the pre-turn
         snapshot and returns true or deny(code, context?). code is a literal string; context is
@@ -358,7 +362,7 @@ outcomes
         Superseded: "activities: { name: O.x.subscribe(params, { outcomes?, placeholder?, when? })
         }" is replaced by the list of placements, with outcomes on the operation (C40; C57; C90).
         "params and when may read { state, memory, context, activities }" is replaced by the after
-        memory and after lanes (C40, rule 22). "Finite actions declare optional success, failure,
+        memory and after lanes (C40; @O3). "Finite actions declare optional success, failure,
         defect, interrupt and unknown outcomes; subscriptions declare value, complete, failure,
         defect and interrupt." is replaced by the operation's three write channels and two read
         channels (C1; C5; C6). "omitted failures or defects publish an actor issue" and "unknown

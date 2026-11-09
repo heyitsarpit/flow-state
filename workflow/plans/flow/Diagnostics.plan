@@ -32,8 +32,11 @@ outcomes
         Diagnostics are not endings. A call's ending is a value the machine maps
         (@plan.Operations.O3): Flow's reasons NotSent { why } and the unknowns are reserved tags,
         and the evidence kinds Superseded, Released, NothingToResend and InFlight are records, not
-        codes. Denial codes (InvalidTurn, NotInState, LateMayNotLeave, InFlight, Uncertain,
-        RetryLimit, NothingToResend, Unencodable) are check() data (@plan.Machines.O4).
+        diagnostic codes. Denial codes are check() data, not diagnostic codes: InvalidTurn and
+        NotInState (@plan.Machines.O4), LateMayNotLeave (@plan.Machines.O6), InFlight, Uncertain,
+        RetryLimit and NothingToResend (an operation's idle and retryable guards,
+        @plan.Operations.O3), and Unencodable (a guard key with no form, @plan.Operations.O3);
+        NothingToResend and InFlight name both a guard denial and an evidence record.
     O2  Recognizable codes and corrective action
         Codes identify failures independently of message wording. Each diagnostic names the
         affected field, identity or bound in path/details and gives a concrete corrective action in
@@ -92,8 +95,8 @@ outcomes
         - InvalidEvent, AdmissionOverloaded, SendTargetAbsent (@plan.Runtime.O4): send a valid
         public event; wait or shrink the batch; ensure the target before sending
         (details.reason: NoRecord, RecordUndecodable or NotAdopted).
-        - RecordUndecodable (@plan.Runtime.O3): expected after an incompatible release; an ensure
-        starts fresh.
+        - RecordUndecodable (proposed) (@plan.Runtime.O3): expected after an incompatible release;
+        an ensure starts fresh.
         - EndedWithWork (development warning, @plan.Runtime.O3): lift the actor's use, or move the
         work into the screen's state.
         - TurnStorm (evidence, @plan.Runtime.O4): add a backoff on an explicit retry with a delay.
@@ -101,7 +104,7 @@ outcomes
         Operations and entity domains
         - InvalidKey (@plan.Operations.O1): fix the key value at the reported path.
         - InvalidWrite (@plan.Operations.O3): make the success write match the target Schema.
-        - SharedContract, DuplicatePlacement, VerbMismatch, KeyRequired, UnresolvedHold,
+        - SharedContract (proposed), DuplicatePlacement, VerbMismatch, KeyRequired, UnresolvedHold,
         KeyOmitsInput, KeyFieldOptional, UnusedOperation, ReservedReason (proposed),
         PreviousIsCurrent (proposed) (@plan.Operations.O1, @plan.Operations.O3,
         @plan.CommandLine.O5): fix the declaration named; give every hold an owner.
@@ -110,9 +113,14 @@ outcomes
         - DuplicateSession, FeedUnhandled, ListenNeedsEvery, DuplicateListen, SharedFills,
         FillsNotPerKey, UnboundedBridge (@plan.Operations.O4, @plan.CommandLine.O5): one session
         per operation and key; map every required stream key; name a field only one operation
-        fills. ReleaseOverdue (@plan.Runtime.O6) and SelectedNoKey (proposed, @plan.Operations.O4)
-        are issues; Feed's reasons (Closed, Overflow, Silent, Flapping) and missed's (Unproven,
-        Lost, Reset) are ending values, not codes.
+        fills. SelectedNoKey (proposed, @plan.Operations.O4) is an issue; Feed's reasons (Closed,
+        Overflow, Silent, Flapping) and missed's (Unproven, Lost, Reset) are ending values, not
+        codes.
+        - Stream session flags, diagnostic records that decide nothing (@plan.Inspection.O1,
+        @plan.Runtime.O6 for release): ValuesWhileDown, RegistrationChurn, ReleaseOverdue,
+        ProofWithoutPosition, PingsWithoutLive, IdleWithoutPing (proposed), DeliveryDenied,
+        FillsUntouched, FillsOtherKey (proposed): read the session's facts; fix the adapter's
+        signals, the fills field or the release.
         - UserClosure (@plan.Operations.O2, @plan.Operations.O4): fix the mapper or select that
         threw or returned no shape.
         - HiddenOrder, HiddenFilter, UndeclaredEffect (@plan.EntityDomains.O1,
@@ -160,7 +168,7 @@ outcomes
         - HostTimeWait (@plan.Testing.O2): remove the real host wait from the run.
         - StoryInvalidCommand (details.reason ActorAbsent, AlreadyEntered, NotEntered, TabOpen,
         TabClosed, NothingHeld, NoDeadline or NoConnection), SubjectAbsent, AmbiguousRead
-        (@plan.Testing.O1, @plan.Testing.O4): fix the step or the read named.
+        (@plan.Testing.O8, @plan.Testing.O4): fix the step or the read named.
         - StoryFakeError (details.reason NoRoute, InvalidInput, Crashed, UnplacedStream or
         InvalidRefusal) (@plan.Testing.O3): fix the fake or its binding.
         - FramesTruncated, PropertyTestFailed, PropertyDefect (@plan.Testing.O4,
@@ -228,6 +236,9 @@ decisions
     D1  One public failure contract
         FlowError is the shared boundary carrier and Diagnostic its shared diagnostic Schema.
         Capability-specific error classes or competing diagnostic codecs are not public APIs.
+        The one exception is the testing route's PropertyTestFailed, which carries a property
+        test's result (@plan.Package.O1); Fake.Lost, Fake.Refused and Fake.Closed are a fake's
+        answer values, not Flow failures.
 verification
     V1  Codec and carrier tests prove @O1's fields, closed-reason rejection and primary code.
     V2  Type tests prove readonly diagnostics, yieldable Diagnostic and preserved Effect A/R.

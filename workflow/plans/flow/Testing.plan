@@ -123,7 +123,8 @@ outcomes
         (via). Fake.Lost, Fake.Refused and Fake.Closed are mapped by the transport binding; a
         crashed server is the binding's failure. Fixtures cannot inject operation outcomes
         directly: every ending comes from a fake's answer through the commit's real classification,
-        or from a lifecycle step. A broken fake rejects the run with StoryFakeError. Unused wire
+        or from a lifecycle step. A broken fake rejects the run with StoryFakeError (reason NoRoute,
+        InvalidInput, Crashed, UnplacedStream or InvalidRefusal). Unused wire
         rules are reported (UnusedWireRule). Fixtures may depend on setup services and shadow those
         services. Duplicate service Tags among fixtures reject with DuplicateFixture before either
         conflicting provider is acquired; replacement requires an explicit overriding form

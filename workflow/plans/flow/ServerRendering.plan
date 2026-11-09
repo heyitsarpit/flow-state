@@ -13,14 +13,14 @@ outcomes
         call.
 
         setup is a RuntimeSetup<A> without persistence. Persistence is a type error; untyped use
-        rejects before construction. prepare(runtime) is synchronous and returns void; it may
-        ensureActor, createActor and send on handles. dehydrate's Runtime holds a use on each shared
-        actor from the call that installs it (an ensure, or a provider restored for it) until
-        capture or rejection, so no actor ends mid-capture (@plan.Runtime.O3). Returned
-        asynchronous work is rejected, never awaited. A throwing prepare or failed readiness,
-        capture or cleanup rejects the call; cleanup still runs, and simultaneous work and cleanup
-        failures are both preserved. Disposal follows @plan.Runtime.O6. Successful capture with
-        failed cleanup returns no payload.
+        rejects before construction with DehydratePersistentSetup. prepare(runtime) is synchronous
+        and returns void; it may ensureActor, createActor and send on handles. dehydrate's Runtime
+        holds a use on each shared actor from the call that installs it (an ensure, or a provider
+        restored for it) until capture or rejection, so no actor ends mid-capture
+        (@plan.Runtime.O3). Returned asynchronous work is rejected, never awaited. A throwing
+        prepare or failed readiness, capture or cleanup rejects the call; cleanup still runs, and
+        simultaneous work and cleanup failures are both preserved. Disposal follows
+        @plan.Runtime.O6. Successful capture with failed cleanup returns no payload.
 
         Superseded: the sentence "Shared actor retention starts at activation" (@O5) is replaced,
         and this outcome gains dehydrate's hold on each shared actor (C107).
@@ -47,7 +47,7 @@ outcomes
         subject to @plan.Runtime.O6.
     O3  Transfer safe, confirmed data
         Transfer shared actors and the providers needed for their context, together with data read
-        by active activities, including activities of local actors. Local actors themselves do not
+        by active placements, including placements of local actors. Local actors themselves do not
         transfer. Persistence flags do not limit hydration selection. Transfer actor state and
         memory, each placement with the entry version it last mapped, confirmed resource and entity
         data, loaded pages and hasMore, entity staleness, each latest stream row's last and

@@ -114,14 +114,16 @@ outcomes
         uses. Work in flight is an InFlight write lane, a read started in a turn that handles the
         ending of work in flight (transitively), and an ending owed at ready; it keeps the actor
         until its ending's turn has run, so a chained step is committed by the incarnation that
-        started it. Nothing else keeps an actor: not schedules, other reads, activities, stream
+        started it. Nothing else keeps an actor: not schedules, other reads, placements, stream
         sessions, Held lanes, parked endings or context; queued mail is processed before the end.
         While nothing uses it, its schedules wait (@plan.Machines.O5). Free of both for the grace
         (100 ms on the Runtime Clock, internal, the same for local actors), it ends: a persisted
         actor's record is encoded in that step (the end waits while it cannot be encoded), its
-        lanes move to the Runtime unbound, its schedules are cancelled, its activities, sessions
+        lanes move to the Runtime unbound, its schedules are cancelled, its placements, sessions
         and unkept reads stop, and each read it stops parks failure { Interrupted } for the
-        identity. An ensure while it is ending waits and binds the next incarnation. Host
+        identity; when that stops live work, the development warning EndedWithWork names it once
+        per machine and kind of work. An ensure while it is ending waits and binds the next
+        incarnation; disposing and then ensuring the same ref creates a new incarnation. Host
         createActor actors live until disposed. retain does not exist: an actor that must outlive a
         screen is used from where it should live.
 
@@ -131,10 +133,10 @@ outcomes
         onContext wave if a provider's selection changed, then the event that restored it. An
         ending owned by the previous incarnation is delivered as adopted, current from the active
         leaf. A non-persisted identity starts fresh. An ensure over a record that no longer decodes
-        starts fresh, reports RecordUndecodable (evidence) and adopts the identity's lanes. A local
-        actor remounted within its grace reuses that actor; a new incarnation of an equal local
-        identity starting while an older one is kept only by work in flight disposes the older one
-        and adopts its lanes.
+        starts fresh, reports RecordUndecodable (evidence, proposed name) and adopts the identity's
+        lanes. A local actor remounted within its grace reuses that actor; a new incarnation of an
+        equal local identity starting while an older one is kept only by work in flight disposes the
+        older one and adopts its lanes.
 
         A write lane is (actor identity with its version, contract id, key), owned by the Runtime.
         A starting incarnation adopts only its own identity's unbound lanes, the oldest first for
@@ -211,8 +213,12 @@ outcomes
         queued; the second refusal is final and its issue names the cause. What was refused twice
         stays with what owes it: a sent write's ending is parked on its lane and kept, blocking its
         key, until heard, cancelled, released or a local life ends; a read's answer or a stream's
-        failure is stranded, named, until that life asks again, ends or a boot. A kept ending gets
-        one try per boot or adoption; the machine stays in the state that was waiting for it.
+        failure is stranded, named, until that life asks again, ends or a boot; a decline is kept
+        on the lane of the key it asked for and blocks nothing, a newer decline replacing it. A
+        kept ending gets one try per boot or adoption; the machine stays in the state that was
+        waiting for it, with no fallback alternative and no API for it. A boot forgets a stranded
+        read: a machine with a recurring schedule asks again, and one without stays where it was.
+        Stated gap: a kept ending's one try and a stranded read let go leave no evidence today.
 
         React's pre-attach handles and their send buffer are @plan.React.O2 and @plan.React.O3.
 
@@ -251,8 +257,9 @@ outcomes
         (C132), refused deliveries (C134; C166) and the boot queue (C155) are added.
     O5  Context propagation
         Provider.select(selector) reads one complete provider snapshot. A context slot binds to one
-        provider for the consumer's lifetime. Context reads form an acyclic upward graph; a cycle,
-        missing or incompatible provider rejects at admission. Baselines are silent: onContext
+        provider for the consumer's lifetime. Context reads form an acyclic upward graph; a cycle
+        (ContextCycle), a missing provider (MissingContextProvider) or an incompatible one rejects
+        at admission. Baselines are silent: onContext
         fires for none established at admission, restore, lazy adoption or hydration; an actor
         returning after an end gets one wave if a provider's selection differs from the one it
         ended with in this Runtime. A context change enqueues the consumer's declared event; it
@@ -298,7 +305,7 @@ outcomes
         has no decoded actor record and no incarnation.
 
         On disposal, queued events that have not started are dropped without running. Schedules
-        cancel, activities stop, and stream sessions release within the bound (5 s,
+        cancel, placements stop, and stream sessions release within the bound (5 s,
         ReleaseOverdue); a new session waits for its releasing predecessor. Disposal invokes no
         new commit and drops no lane: the Runtime keeps the lanes, applies their endings and
         invokes what the lane table promotes (@plan.Operations.O3); runtime.unsettledWrites()
