@@ -534,3 +534,25 @@ Conflicts: none new (PC1, PC2 carried from Persistence).
 
 Prototype check (S2): dormant lazy records exist in the prototype only as lane records parked for a later ensure; the
 lazy loading itself was never built, so the plan keeps its content.
+
+## ServerRendering
+
+Rows merged: C49, C96, C97, C98, C107, and C40 and C31's renames (placements, `output`).
+
+| # | Outcome | Before | After | Decision |
+| --- | --- | --- | --- | --- |
+| SR-1 | O1 | (none) | dehydrate's Runtime holds a use on each shared actor until capture or rejection | C107 |
+| SR-2 | O2 | (none) | `every` sessions never open on a server; their services by a layer, or exempt | C98 |
+| SR-3 | O3 | "latest stream values and counts", "pending-commit facts", "each activity binding" | a latest row's last and baseline, the partition, the position Schema in the digest; write lanes never hydrated; placements | C49; C96; C97; C40 |
+| SR-4 | O3 | "An in-flight commit becomes unknown with its attempt ... the actor's unknown outcome owns reconciliation." | `DehydrateCommitInFlight` evidence naming actor, state and instance path; no client lane; the stated limit | C49 |
+| SR-5 | O3 | sensitive omission | a sensitive position is omitted and owes one notice; "no result Schema" reads output | C97; C31 |
+| SR-6 | O5 | "Existing stream lanes win."; "Streams open new sessions while displaying their transferred latest values."; "Shared actor retention starts at activation." | removed; rows start Connecting with last shown; Hydrate's hold | C96; C107 |
+| SR-7 | V3, V5 | settle and replay Stories | a ticker and a chat feed; no client lane for a commit in flight | C49; C96 |
+
+Counts: 7 edits; 10 superseded sentences marked (O1: 1 pointer, O3: 5, O5: 3, V: 1).
+
+Conflicts:
+- **SRC1, agent-judged, applied.** C49's "Replaces" quote runs on into "client or persisted actors beat hydrated
+  copies", but its rule and 2.7.13's SSR row concern write lanes only ("lanes are never hydrated from the server;
+  only resource entries are"); actors still hydrate and merge under O5. Recommended: keep O5's actor precedence.
+  Judge: the runner (a reading of the row against 2.7.13). Reversible: one paragraph.

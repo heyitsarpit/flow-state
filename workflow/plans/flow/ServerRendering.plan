@@ -14,10 +14,16 @@ outcomes
 
         setup is a RuntimeSetup<A> without persistence. Persistence is a type error; untyped use
         rejects before construction. prepare(runtime) is synchronous and returns void; it may
-        ensureActor, createActor and send on handles. Returned asynchronous work is rejected, never
-        awaited. A throwing prepare or failed readiness, capture or cleanup rejects the call;
-        cleanup still runs, and simultaneous work and cleanup failures are both preserved. Disposal
-        follows @plan.Runtime.O6. Successful capture with failed cleanup returns no payload.
+        ensureActor, createActor and send on handles. dehydrate's Runtime holds a use on each shared
+        actor from the call that installs it (an ensure, or a provider restored for it) until
+        capture or rejection, so no actor ends mid-capture (@plan.Runtime.O3). Returned
+        asynchronous work is rejected, never awaited. A throwing prepare or failed readiness,
+        capture or cleanup rejects the call; cleanup still runs, and simultaneous work and cleanup
+        failures are both preserved. Disposal follows @plan.Runtime.O6. Successful capture with
+        failed cleanup returns no payload.
+
+        Superseded: the sentence "Shared actor retention starts at activation" (@O5) is replaced,
+        and this outcome gains dehydrate's hold on each shared actor (C107).
 
         The payload carries the setup's scope (@plan.Runtime.O2), which the host derives from server
         authentication. inspector attaches an inspector sink (@plan.Inspection.O3) to the private
@@ -28,8 +34,11 @@ outcomes
     O2  Bounded settling
         After prepare, capture waits until all queued events and turns, finite lookups (including
         chained reads and repairs), commits and outcome deliveries finish, or within expires.
-        Streams and future schedules do not delay settling. Capture uses one consistent view. A
-        chain of dependent lookups settles as a whole, rather than stopping between its reads.
+        Streams and future schedules do not delay settling. An every stream's session never opens
+        on a server: its services are provided by a layer, or the placement is exempt; a server
+        reads a resource and states the bookmark instead (@plan.Operations.O4). Capture uses one
+        consistent view. A chain of dependent lookups settles as a whole, rather than stopping
+        between its reads.
 
         A capture that conflicts with a concurrent publication is retried up to 3 times, then
         rejects with ConcurrentCapture. Expiry returns the current data, reports DehydrateUnsettled,
@@ -40,12 +49,14 @@ outcomes
         Transfer shared actors and the providers needed for their context, together with data read
         by active activities, including activities of local actors. Local actors themselves do not
         transfer. Persistence flags do not limit hydration selection. Transfer actor state and
-        memory, each activity binding with the entry version it last mapped, confirmed resource and
-        entity data, loaded pages and hasMore, entity staleness, latest stream values and counts,
-        remaining schedule delays with restartOn baselines and pending-commit facts. The payload
+        memory, each placement with the entry version it last mapped, confirmed resource and entity
+        data, loaded pages and hasMore, entity staleness, each latest stream row's last and
+        baseline, the stream partition (its bookmark), and remaining schedule delays with restartOn
+        baselines. Write lanes are never hydrated; only resource entries are. The payload
         carries the app id, the app's shape digest, the scope and a request token. The shape digest
         covers machine ids, state trees, event, input and memory Schemas, operation and entity
-        identities of eager entries, and lazy entry ids; it excludes deny codes and lazy code, so
+        identities of eager entries, each stream position field's Schema, and lazy entry ids; it
+        excludes deny codes and lazy code, so
         client and server compute it from the loaded App alone. A deploy that changes behaviour
         without changing shape passes the check; payloads are short-lived, so that is accepted. Its
         order is canonical, so equal runs give equal bytes. Recompute context from the transferred
@@ -54,18 +65,29 @@ outcomes
         Never transfer optimistic values, predictions, queued events, errors, issues, placeholder
         values or running work. A missing, failed or unencodable lookup renders Pending without data
         and retries on client activation. A refetch over existing data transfers that data; client
-        freshness determines whether another fetch is needed. An in-flight commit becomes unknown
-        with its attempt under @plan.Operations.O3 and reports DehydrateCommitInFlight; hydration
-        never reissues it automatically. Its predictions do not transfer, so it marks no entity
-        uncertain and forces no repair; the actor's unknown outcome owns reconciliation.
+        freshness determines whether another fetch is needed. A commit in flight at dehydration is
+        reported as DehydrateCommitInFlight, evidence on the client naming the actor, its state and,
+        for a fragment's operation, its instance path; no client lane is created and hydration never
+        reissues it. The transferred actor receives no ending for it: a state that waits for one
+        waits until its own timers or the user move it, and a later client write to that key is
+        unordered with the server's (a stated limit). Its predictions do not transfer, so it marks
+        no entity uncertain and forces no repair.
+
+        Superseded: "latest stream values and counts" is replaced by a latest row's last and
+        baseline, and the partition is added (C96; C97). "pending-commit facts" and "An in-flight
+        commit becomes unknown with its attempt under @plan.Operations.O3 and reports
+        DehydrateCommitInFlight" are replaced: write lanes are never hydrated and the commit is
+        evidence (C49). "the actor's unknown outcome owns reconciliation" is removed (C49). "each
+        activity binding" reads each placement (C40).
 
         Encode values using their declared Schemas. Omit values without a usable Schema or whose
         encoded form is not JSON-safe or exceeds the bounds of @plan.Inspection.O2; never coerce
         them. List every omitted item and its reason without exposing the omitted value. Sensitive
         entity fields are absent from the client base. Omit a whole resource or stream value whose
-        Schema contains sensitive fields. Omit an actor with sensitive memory and every consumer
+        Schema contains sensitive fields; a sensitive stream position is omitted, and that entry
+        owes one missed notice. Omit an actor with sensitive memory and every consumer
         dependent on it through context. Readers needing omitted data fetch it. flow check warns
-        when a shared actor reads a resource that has no result Schema, since its data cannot
+        when a shared actor reads a resource that has no output Schema, since its data cannot
         transfer.
 
         maxBytes bounds the complete payload's UTF-8 JSON size. Exceeding it rejects with
@@ -115,8 +137,7 @@ outcomes
         Fill absent fields. Existing answers win but become stale with cause hydrate when their
         references differ. New answers are fresh unless the client has accepted an entity change,
         prediction, uncertain mark or queued write since readiness; then they are stale with cause
-        hydrate. Existing stream lanes win. Client predictions remain applied over any merged
-        confirmed base.
+        hydrate. Client predictions remain applied over any merged confirmed base.
 
         Activation never replays initial/input processing, context-change events, queued events or
         finite work. An unchanged activity does not redeliver an already-observed value; genuinely
@@ -125,11 +146,17 @@ outcomes
         @plan.Operations.O2. Age increases by max(0, clientNow - capturedAt), so a client clock
         behind the server cannot make captured data younger.
 
-        Streams open new sessions while displaying their transferred latest values. Schedules
-        subtract the same nonnegative elapsed time from their remaining delay; an overdue schedule
-        fires once at activation, never in a burst or merely because its baseline was restored.
-        Shared actor retention starts at activation. Persistable hydrated actors subsequently follow
-        @plan.Persistence.O3.
+        Streams open new sessions; client rows start Connecting, and a latest row shows its
+        transferred last. Schedules subtract the same nonnegative elapsed time from their remaining
+        delay; an overdue schedule fires once at activation, never in a burst or merely because its
+        baseline was restored. Hydrate holds each actor its payload inserted, from the boundary's
+        commit until that actor's first consumer attaches or the boundary unmounts
+        (@plan.Runtime.O3). Persistable hydrated actors subsequently follow @plan.Persistence.O3.
+
+        Superseded: "Existing stream lanes win." is removed (C96). "Streams open new sessions while
+        displaying their transferred latest values." becomes rows starting Connecting with last
+        shown (C96). "Shared actor retention starts at activation." is replaced by Hydrate's hold
+        (C107).
 
         Navigation payloads use these same rules on the running client. Reapplying the same payload
         is a no-op; a prefetched payload ages while waiting to render.
@@ -160,10 +187,14 @@ verification
     V1  SSR test: nested and sibling boundaries hydrate in any order without HTML mismatch; equal
         Stories dehydrate to equal bytes.
     V2  Isolation test: cross-request reuse and wrong scopes throw without applying data.
-    V3  Settle Story: chained reads finish; streams and infinite sends cannot prevent timeout.
+    V3  Settle Story: chained reads finish; streams and infinite sends cannot prevent timeout; a
+        ticker and a chat feed.
     V4  Freshness Story: fresh data avoids fetching; missing or aged data fetches despite skew.
-    V5  Replay Story: no repeated work or outcomes; overdue schedules fire once; commits stay
-        unknown.
+    V5  Replay Story: no repeated work or endings; overdue schedules fire once; a commit in
+        flight at dehydration creates no client lane; a ticker and a chat feed.
+
+        Superseded: V5's "commits stay unknown" (C49); V3 and V5 gain a ticker and a chat feed
+        (C96).
     V6  Merge Story: drafts and predictions survive; conflicts repair; repeated payloads do nothing.
     V7  Redaction test: unsafe values are omitted and reported; sensitive data never transfers.
     V8  Capture tests: invalid inputs reject; all failures dispose and preserve cleanup errors.
