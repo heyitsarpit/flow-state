@@ -4,6 +4,9 @@ import { defineConfig } from "vite-plus";
 // are in tools/lint-bomb/FLOW-STATE.md; change both together.
 const production = "packages/flow-state-v3";
 const productionSource = `${production}/src`;
+// The conformance suite is production code too: an edge, so it may use Effect, but not the core.
+const productionSuite = `${production}/conformance`;
+const productionCode = [productionSource, productionSuite];
 
 // Frozen or throwaway code: never linted or formatted.
 const frozen = [
@@ -37,7 +40,7 @@ export default defineConfig({
     tsconfig: "tsconfig.pack.json",
   },
   staged: {
-    [`${productionSource}/**/*.{js,jsx,ts,tsx,json,jsonc,md,css,html,yaml,yml}`]: "vp check --fix",
+    [`${production}/{src,conformance}/**/*.{js,jsx,ts,tsx,json,jsonc,md,css,html,yaml,yml}`]: "vp check --fix",
   },
   lint: {
     options: { typeAware: true, typeCheck: true },
@@ -83,7 +86,7 @@ export default defineConfig({
       "lint-bomb/no-conditional-empty-object-spread": "error",
       "lint-bomb/no-constant-effect-flatmap": "error",
       "lint-bomb/no-context-tag": "error",
-      "lint-bomb/no-direct-process-env": ["error", { sourceRoots: [productionSource] }],
+      "lint-bomb/no-direct-process-env": ["error", { sourceRoots: productionCode }],
       "lint-bomb/no-effect-promise": "error",
       "lint-bomb/no-effect-ref-read-then-write": "error",
       "lint-bomb/no-empty-object-type": "error",
@@ -112,13 +115,13 @@ export default defineConfig({
       "lint-bomb/no-local-definite-assignment": "error",
       "lint-bomb/no-manual-effect-error-tag": "error",
       "lint-bomb/no-manual-tag-comparison": "error",
-      "lint-bomb/no-module-level-mutable-state": ["error", { sourceRoots: [productionSource] }],
+      "lint-bomb/no-module-level-mutable-state": ["error", { sourceRoots: productionCode }],
       "lint-bomb/no-module-mocking": "error",
       "lint-bomb/no-nested-conditional-expression": "error",
       "lint-bomb/no-nullish-function-contracts": "error",
       "lint-bomb/no-numeric-duration": "error",
       "lint-bomb/no-object-iteration-result-cast": "error",
-      "lint-bomb/no-object-type": ["error", { sourceRoots: [productionSource] }],
+      "lint-bomb/no-object-type": ["error", { sourceRoots: productionCode }],
       "lint-bomb/no-package-dist-or-self-import-in-src": [
         "error",
         { packageName: "flow-state-v3", sourceRoot: productionSource },
@@ -137,7 +140,7 @@ export default defineConfig({
       "lint-bomb/no-ternary-iife": "error",
       "lint-bomb/no-throw-in-effect-gen": "error",
       "lint-bomb/no-unjustified-effect-try-promise": "error",
-      "lint-bomb/no-unknown": ["error", { sourceRoots: [productionSource] }],
+      "lint-bomb/no-unknown": ["error", { sourceRoots: productionCode }],
       "lint-bomb/no-unmanaged-effect-scope": "error",
       "lint-bomb/no-unsafe-dictionary-type": "error",
       "lint-bomb/no-unsafe-fiber-methods": "error",
@@ -162,7 +165,7 @@ export default defineConfig({
       "lint-bomb/prefer-effect-native-tagged-types": "warn",
       // Off: it exists to stop agents overusing readonly elsewhere; here readonly guards shared turn state.
       "lint-bomb/no-readonly": "off",
-      "lint-bomb/no-optional-domain-properties": ["warn", { sourceRoots: [productionSource] }],
+      "lint-bomb/no-optional-domain-properties": ["warn", { sourceRoots: productionCode }],
       // No exemption: user values arrive through their Schema, so typeof means a value skipped it.
       "lint-bomb/no-runtime-typeof": "error",
 
@@ -172,7 +175,7 @@ export default defineConfig({
     },
     overrides: [
       {
-        files: [`${productionSource}/**/*.{ts,tsx}`],
+        files: [`${productionSource}/**/*.{ts,tsx}`, `${productionSuite}/**/*.{ts,tsx}`],
         rules: {
           "import/no-mutable-exports": "error",
           // props: a turn never mutates a value it was given, such as the previous turn's state.
@@ -232,6 +235,40 @@ export default defineConfig({
         },
       },
       {
+        // The suite is deterministic: a seed and the fake world reproduce every run. Only the runner
+        // touches the process.
+        files: [`${productionSuite}/**/*.{ts,tsx}`],
+        excludeFiles: [`${productionSuite}/runner/**`],
+        rules: {
+          "no-restricted-globals": [
+            "error",
+            {
+              globals: [
+                ...["Date", "performance"].map((name) => ({
+                  name,
+                  message: "Use the fake world's clock: a run must reproduce from its seed.",
+                })),
+                ...["setTimeout", "setInterval", "queueMicrotask"].map((name) => ({
+                  name,
+                  message: "Schedule through the fake world's clock or tasks.",
+                })),
+                { name: "crypto", message: "Derive values from the world's seed." },
+              ],
+              checkGlobalObject: true,
+              globalObjects: ["global", "globalThis"],
+            },
+          ],
+          "no-restricted-properties": [
+            "error",
+            {
+              object: "Math",
+              property: "random",
+              message: "Derive values from the world's seed: a run must reproduce.",
+            },
+          ],
+        },
+      },
+      {
         files: productionTests,
         rules: {
           "no-restricted-globals": [
@@ -276,7 +313,7 @@ export default defineConfig({
     include: ["packages/**/*.test.ts"],
     coverage: {
       provider: "v8",
-      include: ["packages/flow-state-rewrite/src/**/*.ts"],
+      include: ["packages/flow-state-v3/src/**/*.ts", "packages/flow-state-v3/conformance/**/*.ts"],
       exclude: ["**/test/**", "**/*.compile.ts", "**/*.d.ts"],
       reporter: ["text", "html", "json-summary"],
       reportsDirectory: "coverage/flow-state-rewrite",

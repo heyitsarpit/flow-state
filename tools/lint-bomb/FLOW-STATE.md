@@ -53,7 +53,13 @@ Every rule not listed below. They fit this codebase as they are:
   `no-swallowed-cleanup-error`). The conformance harness runs on a fake clock, and a microtask turn
   proves nothing.
 - **Path options set now:** `no-direct-process-env`, `no-module-level-mutable-state`,
-  `no-object-type` and `no-unknown` are scoped to `packages/flow-state-v3/src`, and
+  `no-object-type`, `no-unknown` and `no-optional-domain-properties` cover all Flow State v3
+  production code: `packages/flow-state-v3/src` and the conformance suite in
+  `packages/flow-state-v3/conformance` (widened 2026-11-09, the user: "flow-state-v3 should be
+  covered"). The suite is an edge, so the core-only rules (`no-throw-in-core`, `no-allocation-in-loop`,
+  the core's restricted globals) stay on `src`; the suite gets its own determinism rule instead (no
+  `Date`, `performance`, timers, `crypto` or `Math.random` outside `runner/`). The prototypes stay
+  frozen. Before this, the suite's 73 `unknown`s went unchecked. Also
   `no-package-dist-or-self-import-in-src` to the package `flow-state-v3`. With no global state,
   several runtimes and tests can share a page.
 - `no-excessive-cognitive-complexity` uses the rule's default (15, at least 3 branches), not the
