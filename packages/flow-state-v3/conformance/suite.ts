@@ -1,16 +1,21 @@
 import type { Scenario } from "./dsl/case.ts";
 import { attemptIdentityLies } from "./oracles/attempt-identity.lies.ts";
 import { attemptIdentity } from "./oracles/attempt-identity.ts";
+import { laneCellsLies } from "./oracles/lane-cells.lies.ts";
+import { laneCells } from "./oracles/lane-cells.ts";
 import { oneDeliveryLies } from "./oracles/one-delivery.lies.ts";
 import { oneDelivery } from "./oracles/one-delivery.ts";
 import type { Guarantee } from "./oracles/oracle.ts";
 import { threeChannelsLies } from "./oracles/three-channels.lies.ts";
 import { threeChannels } from "./oracles/three-channels.ts";
 import { deliveryScenarios } from "./scenarios/delivery.ts";
+import { disposalScenarios } from "./scenarios/disposal.ts";
+import { laneScenarios } from "./scenarios/lanes.ts";
 import { pay0609Scenarios } from "./scenarios/pay-06-09.ts";
 import { pay1013Scenarios } from "./scenarios/pay-10-13.ts";
 import { pay1415Scenarios } from "./scenarios/pay-14-15.ts";
 import { pay16Scenarios } from "./scenarios/pay-16.ts";
+import { pay1720Scenarios } from "./scenarios/pay-17-20.ts";
 import { payScenarios } from "./scenarios/pay.ts";
 
 /**
@@ -20,6 +25,7 @@ export const guarantees: ReadonlyArray<Guarantee> = [
   { oracle: threeChannels, lies: threeChannelsLies },
   { oracle: attemptIdentity, lies: attemptIdentityLies },
   { oracle: oneDelivery, lies: oneDeliveryLies },
+  { oracle: laneCells, lies: laneCellsLies },
 ];
 
 /**
@@ -36,5 +42,8 @@ export const scenarios: ReadonlyArray<Scenario> = [
   ...pay1013Scenarios,
   ...pay1415Scenarios,
   ...pay16Scenarios,
+  ...pay1720Scenarios,
+  ...disposalScenarios,
+  ...laneScenarios,
   ...deliveryScenarios,
 ];

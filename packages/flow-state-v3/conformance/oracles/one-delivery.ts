@@ -19,6 +19,7 @@ type Ledger = {
   readonly superseded: Set<string>;
   readonly disposed: Array<ActorRef>;
   readonly declineOwners: Map<string, Array<Option.Option<ActorRef>>>;
+  runtime: "live" | "disposing";
 };
 
 const keyOf = (operation: string, attempt: Option.Option<string>) =>
@@ -140,8 +141,14 @@ const deliveries = (ledger: Ledger, observed: Observation, pending: Array<Pendin
 
   if (Option.isNone(observed.attempt)) ledger.declineOwners.get(observed.operation)?.shift();
   pending.push({ owner, event: observed.event, id: key });
+  const paid = pay(ledger, key, "delivered");
 
-  return pay(ledger, key, "delivered");
+  if (ledger.runtime === "live") return paid;
+
+  return [
+    ...paid,
+    `WriteLanes I15: ${key} was delivered after the suite started the Runtime's disposal, which delivers nothing and parks every ending`,
+  ];
 };
 
 const ran = (observed: Observation, pending: Array<Pending>) => {
@@ -170,12 +177,15 @@ const fresh = (): Ledger => ({
   superseded: new Set(),
   disposed: [],
   declineOwners: new Map(),
+  runtime: "live",
 });
 
 const forgetLife = (ledger: Ledger) => {
+  if (ledger.runtime === "disposing")
+    for (const [key, count] of ledger.owed) bump(ledger.parked, key, count);
   ledger.owed.clear();
-  ledger.parked.clear();
   ledger.declineOwners.clear();
+  ledger.runtime = "live";
 };
 
 const ledgerOf = (facts: Facts) => {
@@ -186,6 +196,8 @@ const ledgerOf = (facts: Facts) => {
 
     const found = step.flatMap((fact) => {
       if (Fact.$is("Reloaded")(fact)) forgetLife(ledger);
+
+      if (Fact.$is("DisposingRuntime")(fact)) ledger.runtime = "disposing";
 
       if (Fact.$is("Disposed")(fact)) ledger.disposed.push(fact.actor);
 
@@ -211,7 +223,9 @@ const ledgerOf = (facts: Facts) => {
         `WriteLanes I15: ${p.id} was delivered as ${p.event}${Option.match(p.owner, { onNone: () => "", onSome: (o) => ` to ${o.machine}/${o.id}` })} and no turn of its actor ran it`,
     );
 
-    const undelivered = [...ledger.owed.keys()].map(
+    const owedNow = ledger.runtime === "live" ? [...ledger.owed.keys()] : [];
+
+    const undelivered = owedNow.map(
       (key) => `WriteLanes I15: ${key} ended and was never delivered, parked or recorded`,
     );
 
@@ -239,7 +253,12 @@ const ledgerOf = (facts: Facts) => {
  *   the fixtures' references; who committed an Attempt, and whether it was superseded, are the
  *   runtime's reports. An ending whose committing actor is unknown is never excused.
  * - A reload forgets what was owed: what survives on disk is owed again as the endings the new
- *   boot decides, which the restore oracle owns.
+ *   boot decides, which the restore oracle owns. Parked endings stay parked across it, so a later
+ *   boot may unpark each once.
+ * - From the step the suite starts the Runtime's disposal to the next reload, an ending may stay
+ *   owed, and at the reload it counts as parked: disposal parks every ending for the next boot
+ *   (the prototype reports no `Parked` for a never-sent one). Any delivery in that span is a
+ *   violation: disposal runs no machine event.
  * - `Unhandled` and `Denied` carry no actor on the prototype, so they settle a delivery by its
  *   event only.
  * - Endings recorded for causes the suite cannot see yet (a releasing lane, an ended fragment's

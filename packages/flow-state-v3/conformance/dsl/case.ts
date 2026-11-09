@@ -67,6 +67,8 @@ export const variants = (
  * - A reload kills the page and boots the port again over the same world, then re-attaches every
  *   use the case holds.
  * - `sendMany` makes several sends in one step, with no settling between them.
+ * - `disposeRuntime` starts the Runtime's disposal; `runtimeDisposals` counts the reports that it
+ *   ended.
  * - World faults: `answerLate` (the server's answer arrives after all), `landLate` (a lost
  *   request lands unheard), `uninterruptible` and `answerAtOnce` (from now on, for an operation).
  * - The short forms act on the scenario's own actor; the `...Of` and `...Where` forms name what
@@ -79,6 +81,7 @@ export type Case = {
   readonly ensureOf: (actor: ActorRef, input: Option.Option<unknown>) => void;
   readonly release: (actor: ActorRef, use: Use) => void;
   readonly dispose: (actor: ActorRef) => void;
+  readonly disposeRuntime: () => void;
   readonly send: (event: string, payload: unknown) => void;
   readonly to: (actor: ActorRef, event: string, payload: unknown) => void;
   readonly sendMany: (sends: ReadonlyArray<readonly [ActorRef, string, unknown]>) => void;
@@ -113,6 +116,8 @@ export type Case = {
   readonly evidence: (kind: Extract<Observation, { readonly _tag: "Evidence" }>["kind"]) => number;
   readonly issues: () => ReadonlyArray<string>;
   readonly denials: () => ReadonlyArray<ReadonlyArray<string>>;
+  readonly runtimeDisposals: () => number;
+  readonly reports: () => ReadonlyArray<Observation>;
 };
 
 const record = (value: unknown) =>
@@ -244,11 +249,19 @@ export const openCase = (
           if (sameData(uses[at]?.[0], actor)) uses.splice(at, 1);
         runtime.dispose(actor);
       }),
+    disposeRuntime: () =>
+      act("dispose the runtime", () => {
+        timeline.push(Fact.DisposingRuntime());
+        runtime.disposeRuntime();
+      }),
     send: (event, payload) => c.to(scenario.actor, event, payload),
-    to: (actor, event, payload) => act(`send ${event}`, () => runtime.send(actor, event, payload)),
+    to: (actor, event, payload) => c.sendMany([[actor, event, payload]]),
     sendMany: (sends) =>
       act(`send ${sends.map(([, event]) => event).join(", ")}`, () => {
-        for (const [actor, event, payload] of sends) runtime.send(actor, event, payload);
+        for (const [actor, event, payload] of sends) {
+          timeline.push(Fact.Drove({ actor, event }));
+          runtime.send(actor, event, payload);
+        }
       }),
     ack: () => c.answerStorage("ack", Option.none()),
     answerStorage: (how, match) => act(how, () => void world.storage.answer(how, match)),
@@ -270,7 +283,10 @@ export const openCase = (
         world.network.landLate(lost.value);
       }),
     uninterruptible: (operation) =>
-      act(`uninterruptible ${operation}`, () => world.network.uninterruptible(operation)),
+      act(`uninterruptible ${operation}`, () => {
+        timeline.push(Fact.Unstoppable({ operation }));
+        world.network.uninterruptible(operation);
+      }),
     answerAtOnce: (operation, given) =>
       act(`answer at once ${operation} ${given._tag}`, () =>
         world.network.answerAtOnce(operation, given),
@@ -315,6 +331,8 @@ export const openCase = (
       reported().filter((o) => Observation.$is("Evidence")(o) && o.kind === kind).length,
     issues: () => reported().flatMap((o) => (Observation.$is("Issue")(o) ? [o.code] : [])),
     denials: () => reported().flatMap((o) => (Observation.$is("Denied")(o) ? [o.reasons] : [])),
+    runtimeDisposals: () => reported().filter(Observation.$is("RuntimeDisposed")).length,
+    reports: reported,
   };
 
   return c;

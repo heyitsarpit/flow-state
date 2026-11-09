@@ -47,8 +47,8 @@ const reloadOnWire = (c: Case) => {
  *
  * - `PAY-14` drops the boot-frame, replay and evidence reads, which the Port does not expose.
  * - `PAY-15` runs on the `pay` fixture, which the prototype's `cells` fixture extends only with an
- *   `AbortPay` handler. Its `cancel-idle`, `cancel-on-wire` and `dispose-held` variants are not
- *   ported: they need that handler or a raw runtime dispose, which the Port does not expose.
+ *   `AbortPay` handler; its `cancel-idle` and `cancel-on-wire` variants run on `cells`. Its
+ *   `dispose-held` variant is in `disposal.ts`.
  */
 export const pay1415Scenarios: ReadonlyArray<Scenario> = [
   {

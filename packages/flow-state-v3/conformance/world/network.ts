@@ -9,6 +9,8 @@ import { Data, Effect, Option, Predicate } from "effect";
  * - `Fail`: the server refused it with a tagged error; nothing landed.
  * - `Lost`: the answer never arrives and the server did not do it (the client sees `NoResponse`).
  * - `LostButLanded`: the server did it and the answer was lost (the client sees `NoResponse`).
+ * - `FailButLanded`: the server did it and still answered a tagged error (a 500 after the write
+ *   landed).
  * - `Never`: no answer will ever come; the request stays open.
  * - `Die`: the client's call dies with a defect.
  */
@@ -17,6 +19,7 @@ export type Answer = Data.TaggedEnum<{
   Fail: { readonly tag: string; readonly fields: Readonly<Record<string, unknown>> };
   Lost: {};
   LostButLanded: { readonly value: unknown };
+  FailButLanded: { readonly tag: string; readonly fields: Readonly<Record<string, unknown>> };
   Never: {};
   Die: { readonly message: string };
 }>;
@@ -135,12 +138,15 @@ const outcome = (answer: Answer) =>
     Fail: ({ tag, fields }) => Effect.fail(failureOf(tag, fields)),
     Lost: () => Effect.fail(failureOf("NoResponse", {})),
     LostButLanded: () => Effect.fail(failureOf("NoResponse", {})),
+    FailButLanded: ({ tag, fields }) => Effect.fail(failureOf(tag, fields)),
     Never: () => Effect.never,
     Die: ({ message }) => Effect.die(message),
   });
 
 const landsAtServer = (answer: Answer) =>
-  Answer.$is("Ok")(answer) || Answer.$is("LostButLanded")(answer);
+  Answer.$is("Ok")(answer) ||
+  Answer.$is("LostButLanded")(answer) ||
+  Answer.$is("FailButLanded")(answer);
 
 const within = (input: unknown, where: Readonly<Record<string, unknown>>) =>
   Object.entries(where).every(

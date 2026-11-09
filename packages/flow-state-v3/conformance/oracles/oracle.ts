@@ -17,6 +17,9 @@ import type { Answer, Request } from "../world/network.ts";
  * - `Reloaded`: the suite killed the page and booted a new one.
  * - `Disposed`: the suite disposed this actor.
  * - `Ensured`: the suite attached a use of this actor, creating it if needed.
+ * - `DisposingRuntime`: the suite started the Runtime's disposal; it holds until the next reload.
+ * - `Drove`: the suite sent this event to this actor.
+ * - `Unstoppable`: from now on, calls of this operation cannot be interrupted.
  */
 export type Fact = Data.TaggedEnum<{
   Stepped: { readonly step: number; readonly what: string };
@@ -26,6 +29,9 @@ export type Fact = Data.TaggedEnum<{
   Reloaded: {};
   Disposed: { readonly actor: ActorRef };
   Ensured: { readonly actor: ActorRef };
+  DisposingRuntime: {};
+  Drove: { readonly actor: ActorRef; readonly event: string };
+  Unstoppable: { readonly operation: string };
 }>;
 
 /**

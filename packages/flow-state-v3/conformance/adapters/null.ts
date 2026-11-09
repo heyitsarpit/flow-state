@@ -16,6 +16,7 @@ export const nullPort: Port = {
     release: () => undefined,
     send: () => undefined,
     dispose: () => undefined,
+    disposeRuntime: () => undefined,
     snapshot: () => Snapshot.Absent(),
     row: () => Option.none(),
     pending: () => false,

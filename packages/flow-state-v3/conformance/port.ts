@@ -109,6 +109,8 @@ export type RecordedWhy = typeof RecordedWhy.Type;
  * - `Denied`: an admitted event's handlers all refused it, with the guards' reasons.
  * - `Evidence`: a lane fact that is not an ending's disposition.
  * - `Issue`: an issue the runtime reported, by code.
+ * - `RuntimeDisposed`: the Runtime's disposal finished (its public `dispose` settled): every call
+ *   it waited for has ended or passed the bound.
  *
  * **Gotchas**
  *
@@ -158,6 +160,7 @@ export type Observation = Data.TaggedEnum<{
     readonly attempt: Option.Option<string>;
   };
   Issue: { readonly code: string };
+  RuntimeDisposed: {};
 }>;
 
 /**
@@ -198,6 +201,8 @@ export type Boot = {
  * - `ensureExisting` attaches a use to an identity that is live or restorable, never creating one;
  *   the suite calls it for each use it holds after a reload.
  * - `release` ends one use; the runtime's grace decides the identity's life.
+ * - `disposeRuntime` starts the Runtime's disposal: admission closes, nothing new is invoked, and
+ *   calls on the wire may settle within the bound. It reports `RuntimeDisposed` when it ends.
  *
  * **Gotchas**
  *
@@ -210,6 +215,7 @@ export type Runtime = {
   readonly release: (actor: ActorRef, use: Use) => void;
   readonly send: (actor: ActorRef, event: string, payload: unknown) => void;
   readonly dispose: (actor: ActorRef) => void;
+  readonly disposeRuntime: () => void;
   readonly snapshot: (actor: ActorRef) => Snapshot;
   readonly row: (actor: ActorRef, operation: string, key: unknown) => Option.Option<Row>;
   readonly pending: () => boolean;

@@ -98,6 +98,11 @@ const deliveredAsMapped = (timeline: ReadonlyArray<Fact>, reference: Reference) 
   });
 };
 
+const failureTag = (answer: Answer) =>
+  Answer.$is("Fail")(answer) || Answer.$is("FailButLanded")(answer)
+    ? Option.some(answer.tag)
+    : Option.none();
+
 const expectedEnding = (answer: Answer, mayHaveApplied: boolean, operation: OperationReference) => {
   const channel = operation.classify(answer, mayHaveApplied);
 
@@ -107,8 +112,9 @@ const expectedEnding = (answer: Answer, mayHaveApplied: boolean, operation: Oper
   if (channel === "failure" && mayHaveApplied)
     return { channel: "unknown" as const, reason: Option.some("StillUnknown") };
 
-  if (channel === "failure" && Answer.$is("Fail")(answer))
-    return { channel, reason: Option.some(answer.tag) };
+  const tag = failureTag(answer);
+
+  if (channel === "failure" && Option.isSome(tag)) return { channel, reason: tag };
 
   return { channel, reason: Option.none<string>() };
 };
@@ -120,11 +126,14 @@ type Asked = {
 };
 
 const failureKept = (asked: Asked, ended: Ended) => {
-  const answer = asked.answer;
+  const answered = failureTag(asked.answer);
 
-  if (ended.reason !== "StillUnknown" || !Answer.$is("Fail")(answer)) return true;
+  if (ended.reason !== "StillUnknown" || Option.isNone(answered)) return true;
 
-  return Option.match(ended.failure, { onNone: () => true, onSome: (tag) => tag === answer.tag });
+  return Option.match(ended.failure, {
+    onNone: () => true,
+    onSome: (tag) => tag === answered.value,
+  });
 };
 
 const judgeAnswered = (id: string, asked: Asked, ended: Ended, operation: OperationReference) => {

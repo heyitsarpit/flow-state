@@ -14,6 +14,9 @@ import { Answer } from "../world/network.ts";
  * - `classify`: the channel the operation's commit gives the server's answer, given whether an
  *   earlier send of the same Attempt ended unknown. A tag the commit turns into a success or an
  *   unknown is named here; the Spec's rules on top of it (StillUnknown) are the oracle's.
+ * - `keyFields`: the input fields its key is made of; empty for an unkeyed operation.
+ * - `cancels`: the events whose handler, in every state, runs this operation's `cancel` or
+ *   `cancelAll` with no guard, so a turn of one is a cancel the suite drove.
  */
 export type OperationReference = {
   readonly attempts: boolean;
@@ -22,6 +25,8 @@ export type OperationReference = {
   readonly failure: Readonly<Record<string, string>>;
   readonly unknown: string;
   readonly classify: (answer: Answer, mayHaveApplied: boolean) => Channel;
+  readonly keyFields: ReadonlyArray<string>;
+  readonly cancels: Readonly<Record<string, "cancel" | "cancelAll">>;
 };
 
 /**
@@ -41,19 +46,23 @@ const classifyWith =
       mayHaveApplied: boolean,
     ) => boolean,
   ) =>
-  (answer: Answer, mayHaveApplied: boolean) =>
-    Answer.$match(answer, {
-      Ok: () => CHANNEL.success,
-      Fail: ({ tag, fields }) => {
-        if (LOST.includes(tag)) return CHANNEL.unknown;
+  (answer: Answer, mayHaveApplied: boolean) => {
+    const tagged = (tag: string, fields: Readonly<Record<string, unknown>>) => {
+      if (LOST.includes(tag)) return CHANNEL.unknown;
 
-        return succeeds(tag, fields, mayHaveApplied) ? CHANNEL.success : CHANNEL.failure;
-      },
+      return succeeds(tag, fields, mayHaveApplied) ? CHANNEL.success : CHANNEL.failure;
+    };
+
+    return Answer.$match(answer, {
+      Ok: () => CHANNEL.success,
+      Fail: ({ tag, fields }) => tagged(tag, fields),
+      FailButLanded: ({ tag, fields }) => tagged(tag, fields),
       Lost: () => CHANNEL.unknown,
       LostButLanded: () => CHANNEL.unknown,
       Never: () => CHANNEL.unknown,
       Die: () => CHANNEL.unknown,
     });
+  };
 
 const capturable = (fields: Readonly<Record<string, unknown>>) =>
   fields["status"] === "requires_capture" || fields["status"] === "succeeded";
@@ -73,6 +82,8 @@ const pay = {
     classify: classifyWith(
       (tag, fields, mayHaveApplied) => tag === "IntentBusy" && mayHaveApplied && capturable(fields),
     ),
+    keyFields: ["intentId"],
+    cancels: {},
   },
   place: {
     attempts: true,
@@ -81,6 +92,8 @@ const pay = {
     failure: { NotSent: "PlaceRefused" },
     unknown: "PlaceUnsure",
     classify: classifyWith((tag) => tag === "OrderExists"),
+    keyFields: ["cartId"],
+    cancels: {},
   },
   void: {
     attempts: true,
@@ -89,12 +102,32 @@ const pay = {
     failure: { AlreadyCaptured: "VoidRefused", NotSent: "Voided" },
     unknown: "VoidUnsure",
     classify: classifyWith(() => false),
+    keyFields: ["intentId"],
+    cancels: {},
   },
 } satisfies Readonly<Record<string, OperationReference>>;
 
+const labWrite = (
+  concurrency: OperationReference["concurrency"],
+  cancels: OperationReference["cancels"],
+) =>
+  ({
+    attempts: true,
+    concurrency,
+    success: "Ok",
+    failure: { NotSent: "No" },
+    unknown: "Unsure",
+    classify: classifyWith(() => false),
+    keyFields: [],
+    cancels,
+  }) satisfies OperationReference;
+
 const catalog = new Map<string, Reference>([
   ["pay", { "Checkout/Pay": pay }],
-  ["cells", { "Checkout/Pay": pay }],
+  ["cells", { "Checkout/Pay": { ...pay, pay: { ...pay.pay, cancels: { AbortPay: "cancel" } } } }],
+  ["serialize", { "Lab/P1All": { put: labWrite("serialize", { All: "cancelAll" }) } }],
+  ["latest", { "Lab/P1Latest": { search: labWrite("latest", {}) } }],
+  ["cancel", { "Lab/R15Switch": { search: labWrite("cancel", {}) } }],
 ]);
 
 /**
@@ -110,7 +143,11 @@ export class NoReference extends Data.TaggedError("NoReference")<{ readonly fixt
  * `pay` is the typed Pay fixture (`prototypes/conformance/typed/pay.ts`), machine `Checkout/Pay`.
  * Only its writes are referenced; its reads (`intent`, `order`) have no Attempts. `cells` is the
  * same machine with one more root event, `AbortPay`, which cancels `pay`
- * (`prototypes/conformance/typed/cells.ts`).
+ * (`prototypes/conformance/typed/cells.ts`). Three one-lane lab machines, one per queueing policy,
+ * each with one unkeyed write mapped to `Ok`, `No` and `Unsure` and no failure tags of its own:
+ * `serialize` (`Lab/P1All`, `put`, whose `All` runs `cancelAll`), `latest` (`Lab/P1Latest`,
+ * `search`) and `cancel` (`Lab/R15Switch`, `search`, whose `Unsure` re-sends while `Retrying` was
+ * sent), from `prototypes/conformance/typed/phase1h.ts` and `round15.ts`.
  *
  * **Gotchas**
  *

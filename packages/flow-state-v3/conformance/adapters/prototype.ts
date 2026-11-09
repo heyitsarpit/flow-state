@@ -37,6 +37,7 @@ type PrototypeInstance = {
     event: { readonly tag: string; readonly payload: unknown },
   ) => void;
   readonly dispose: (actor: string) => void;
+  readonly disposeRuntime: () => void;
   readonly state: (actor: string) => unknown;
   readonly memory: (actor: string) => unknown;
   readonly row: (actor: string, op: string, key: unknown) => unknown;
@@ -77,6 +78,11 @@ type PrototypePort = {
 };
 
 type PrototypeApi = {
+  readonly call: (
+    op: string,
+    input: unknown,
+    ...options: ReadonlyArray<{ readonly idempotencyKey: string }>
+  ) => Effect.Effect<unknown, unknown>;
   readonly confirm: (
     input: unknown,
     options: { readonly idempotencyKey: string },
@@ -122,8 +128,11 @@ export class PrototypeReportUnreadable extends Data.TaggedError("PrototypeReport
 export class UnknownFixture extends Data.TaggedError("UnknownFixture")<{ readonly name: string }> {}
 
 const FIXTURES = [
-  { name: "pay", file: "typed/pay.ts", exported: "payFixture" },
-  { name: "cells", file: "typed/cells.ts", exported: "cellsFixture" },
+  { name: "pay", file: "typed/pay.ts", exported: "payFixture", made: "value" },
+  { name: "cells", file: "typed/cells.ts", exported: "cellsFixture", made: "value" },
+  { name: "serialize", file: "typed/phase1h.ts", exported: "p1AllFixture", made: "call" },
+  { name: "latest", file: "typed/phase1h.ts", exported: "p1LatestFixture", made: "call" },
+  { name: "cancel", file: "typed/round15.ts", exported: "r15SwitchFixture", made: "call" },
 ] as const;
 
 const actorKey = (actor: ActorRef) =>
@@ -236,6 +245,8 @@ const observationOf = (report: Report): Option.Option<Observation> => {
 const laneReport = (report: Report): Option.Option<Observation> => {
   const kind = report["kind"];
 
+  if (kind === "Disposed") return Option.some(Observation.RuntimeDisposed());
+
   if (kind === "Unhandled") {
     const r = read(reports.unhandled, report, kind);
 
@@ -325,6 +336,12 @@ const apiOf = (world: World): PrototypeApi => {
   const read = (op: string) => (input: unknown) => world.network.request(op, input, Option.none());
 
   return {
+    call: (op, input, ...options) =>
+      world.network.request(
+        op,
+        input,
+        Option.map(Option.fromUndefinedOr(options[0]), (o) => o.idempotencyKey),
+      ),
     confirm: write("pay"),
     placeOrder: write("place"),
     voidAuthorization: write("void"),
@@ -343,6 +360,7 @@ const runtimeOf = (instance: PrototypeInstance): Runtime => ({
   release: (actor, use) => instance.detach(actorKey(actor), use),
   send: (actor, event, payload) => instance.send(actorKey(actor), { tag: event, payload }),
   dispose: (actor) => instance.dispose(actorKey(actor)),
+  disposeRuntime: instance.disposeRuntime,
   snapshot: (actor) => {
     const key = actorKey(actor);
     const state = instance.state(key);
@@ -369,6 +387,14 @@ const exported = <A>(module: Readonly<Record<string, unknown>>, name: string, pa
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a dynamic import has no static type to narrow from
       Effect.succeed(module[name] as A)
     : Effect.fail(new PrototypeLoadFailed({ path, cause: `no export ${name}` }));
+
+const made = (module: Readonly<Record<string, unknown>>, name: string, path: string) => {
+  const factory = module[name];
+
+  return Predicate.isFunction(factory)
+    ? exported<PrototypeFixture>({ [name]: factory() }, name, path)
+    : Effect.fail(new PrototypeLoadFailed({ path, cause: `no fixture factory ${name}` }));
+};
 
 /**
  * Loads the prototype runtime in `runtimeDir` and returns a `Port` over it.
@@ -398,7 +424,11 @@ export const loadPrototype = Effect.fn("loadPrototype")(function* (runtimeDir: s
       const path = join(runtimeDir, "..", "conformance", where.file);
 
       return load(path).pipe(
-        Effect.flatMap((module) => exported<PrototypeFixture>(module, where.exported, path)),
+        Effect.flatMap((module) =>
+          where.made === "call"
+            ? made(module, where.exported, path)
+            : exported<PrototypeFixture>(module, where.exported, path),
+        ),
         Effect.map((fixture) => [where.name, fixture] as const),
       );
     },
