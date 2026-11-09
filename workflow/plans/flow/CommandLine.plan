@@ -50,14 +50,6 @@ outcomes
         application loading.
         Selectors are data and never execute expressions. Artifact-only commands accept no source
         selection options and load no application or config. At most one input may be stdin (-).
-
-        Superseded: "trace summarize <artifact|->" is replaced by trace <story-id> [--at] (C141).
-        "trace diff <left|-> <right|->" and "diff --base <git-revision>", with its revision-diff
-        sentences, are cut by the user's CLI scope of 2026-11-02 (OD55); release comparison is
-        explain --since (C216). "story list returns declared identities; describe returns actors,
-        commands and checkpoints" is replaced by describe's plan-only listing and coverage (C81;
-        T2). "graph uses @plan.Inspection.O6" gains the edge rules (C141). The domain-write
-        explain lines are added (merge 5, 6.4; C18; C101; C125).
     O2  Execution and safe trace output
         Only story run and trace start application work. Discovery, graph, check and static
         explain may load declarations, including lazy entries, but activate no actors, services,
@@ -92,10 +84,6 @@ outcomes
         cleanup truth and never fabricate an end. Cleanup or trace-output failure cannot replace
         interruption as the primary result. Forced process termination provides no cleanup
         guarantee.
-
-        Superseded: "Only story run starts application work." adds trace (C141). "Interruption
-        stops later Story commands" is replaced: no mid-run handler is installed, since a run
-        never yields (C70; C75; 2.10.14). story run's report and exit are added (C81).
     O3  Results for people and automation
         Text and JSON describe the same result. JSON supplies version: 1, the command leaf,
         status, data and ordered diagnostics; absent data is null. Status is completed, equal,
@@ -134,15 +122,6 @@ outcomes
         include the selection and completeness marker. Projection and comparison semantics follow
         @plan.Inspection.O6. Comparing two traces is the library's projection
         (@plan.Inspection.O6); the CLI has no command for it.
-
-        Superseded: "trace summarize reports counts and an ordered timeline" becomes the artifact
-        summary, and trace <story-id> prints a Story's timeline (C141). The paragraph "trace diff
-        optionally selects sections with --section, from the closed section list of
-        @plan.Inspection.O6; omission compares all sections. Equal requires complete matching
-        evidence. Differing retained facts prove difference; matching truncated evidence is
-        incomplete and never proves equality. Both completeness markers accompany the result.
-        Incompatible identities fail rather than report difference. Independently redacted values
-        never establish equality or difference without evidence." is cut with trace diff (OD55).
     O5  Static checks
         flow check checks the complete declared graph, including lazy entries, from each machine's
         compiled data view, without running application callbacks other than entity domain
@@ -209,14 +188,6 @@ outcomes
         keeps one compiler session and re-lints changed files. A lint rule with an autofix orders
         the category keys of definitions, fragments, machine bodies, fillings, transitions, commit
         options and operation options, and never reorders entries inside a record.
-
-        Superseded: "without running application callbacks" gains the domain recorded positions'
-        recording proxies (merge 5, 6.4) and the compiled data view (C139). "Warnings identify
-        likely stuck/unreachable states, unhandled events ..." gains the fragment, server-call,
-        tooling, stream and Story-derived findings (fragments row; C18; C65; C81; C101; C125;
-        C145; T2; T3); "unhandled events" is sharpened by T3. The late-turn check becomes a strict
-        error (C163; C170; C182; C185). ReservedReason, the guarded names, GoneWithoutKey and
-        PreviousIsCurrent are added (C177; C193; C209; C215). The key-order lint is added (T4).
     O6  Configuration discovery
         At --project-root (default cwd), flow loads only flow.config.ts, whose default export is
         defineConfig({ apps: [{ app, stories }], stories?, tsconfig? }). stories is a root-relative
@@ -236,11 +207,6 @@ outcomes
         bundles into the project and removes its external temporary files on success, failure and
         interruption. Loading local TypeScript trusts that code with host authority; it is not a
         sandbox.
-
-        Superseded: "defineConfig({ apps: [{ app, stories }] })" gains top-level stories and
-        tsconfig (C81; merge 5, 6.4). "duplicate ... Story ids within an app" reads within the
-        configuration (C69). "Revision diff applies the same rule inside its selected revision."
-        goes with diff --base (the user's CLI scope of 2026-11-02, OD55).
 verification
     V1  Installed CLI tests prove command selection, invalid-input rejection and inert discovery.
     V2  Tests prove direct/CLI Story parity, interruption cleanup and truthful partial traces.

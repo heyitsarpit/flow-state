@@ -64,21 +64,6 @@ outcomes
         payloads and traces; they neither authorize work nor reconstruct input. An author error
         whose tag is one of Flow's reasons (@O3) is a type error, refused at compile as
         ReservedReason (proposed name) wherever a failure tag is declared.
-
-        Superseded: "resource({ id, key?, lookup, result?, staleTime, gcTime, persist? }),
-        transaction({ id, key?, input?, commit, concurrency }) and stream({ id, key?, subscribe,
-        result?, persist? })" is replaced by the contract shapes above: input and output, a required
-        key, services (C31; C86; C138). "lookup(params, { signal }) and commit(params, { signal,
-        attempt, basedOn }) return Effects; subscribe(params, { signal }) returns a Stream." is
-        replaced by the same contexts without signal (C116). "Boundary transfer without result
-        follows @plan.ServerRendering.O3" reads output (C31). "concurrency is required and is
-        reject, cancel, allow or serialize" is replaced by reject, latest, cancel or serialize;
-        allow is cut from v1 (C153). "key(params) is a pure synchronous record projector; omission
-        means {}." is replaced by the required field list (C31). "persist defaults to false;
-        transactions have no persist option" now excludes streams too (C86). "In actions they reject
-        the batch; in activities they report an issue and leave the lane undefined; passive reads
-        throw." is narrowed: an unencodable key declines or ends Defect (C154). "Authors must
-        include every parameter affecting the result" becomes KeyOmitsInput (C31).
     O2  Resources and reads
         Equal contract and key share data and one in-flight lookup across actors in a Runtime. An
         entry is fresh only while it has confirmed data, is not invalidated and its age is less than
@@ -129,19 +114,6 @@ outcomes
         Clock removes it; later use starts missing. Releasing one owner preserves shared work until
         the last owner leaves. Passive reads never hold or start work. Cleared, collected or
         replaced requests cannot later change data or replacement placements.
-
-        Superseded: "Each finite lookup or refetch settles once as success(A), failure, defect or
-        interrupt" is replaced by two channels with Defect and Interrupted on failure, and for
-        lookups through one operation by "only its latest lookup is delivered" (C5; C29; C32).
-        "State exit does not cancel finite work; its event reaches the actor's later state." is
-        replaced by the owner test (C12; C162; C170). "Actor disposal ends delivery." is replaced by
-        the actor's end parking Interrupted (C143). "Continuing outcomes are value(A), failure,
-        defect and interrupt." is replaced by value and failure (C5). "Each outcomes member is
-        optional; tagged failure mappings must cover every error tag, untagged mappings receive E,
-        and E = never forbids failure." keeps its failure rule; Defect and Interrupted must be
-        mapped in a tag record (C29). "Mappers receive values only." is replaced by (value, { input,
-        key })
-        (C6). "Unmapped failure or defect" loses defect (C5).
     O3  Transactions, commits and write lanes
         Only an accepted action admits O.x.commit(select, { optimistic? }); activation, restore,
         hydration and state re-entry never replay a commit. select reads the turn's after memory and
@@ -269,50 +241,6 @@ outcomes
         actions running; a domain write joins its record queues when its Attempt heads its lane,
         never at commit (@plan.EntityDomains.O1); a store module's defect declines a write that
         would join NotSent { ModuleDisabled } until reload.
-
-        Superseded: "Outcomes are success(A), failure, defect, interrupt and unknown(Attempt), with
-        @O2 mappings." and the descriptor's failureKinds are replaced by three channels (C1).
-        "select reads the pre-turn snapshot and event" is replaced by the after memory (C13).
-        "O.x.commit(select, { optimistic?, writes?, outcomes? })" is replaced by optimistic as the
-        only commit option and writes and outcomes on the operation (C15; C37). "unencodable input
-        rejects admission before work starts" is replaced by NotSent { Unencodable } (C154).
-        "Concurrency is per actor, descriptor and key" is replaced by the write lane (identity
-        with its version, contract id, key) (C33; C42; C214). "reject declines a second unsettled
-        commit without work or outcome; the action continues." is replaced by NotSent { Rejected }
-        with the transition running (C10). "allow starts every commit independently and delivers
-        every outcome in settlement order." is cut from v1 (C153). "serialize starts commits FIFO,
-        applying optimistic writes only on start; at most 64 queued occurrences are allowed.
-        Overflow rejects the whole action batch with AdmissionOverloaded before any work starts." is
-        replaced by W's 64 bound ending NotSent { Overloaded } for that write only (C10; C22).
-        "Every invoked commit delivers exactly one outcome." is replaced by "every commit and every
-        retry that sends ends once", counted per ending (C11; C165). "Before invocation, an explicit
-        cancel ends it silently, while a failed Attempt acknowledgment or a never-invoked restore
-        ends it as interrupt." is replaced by NotSent { Cancelled }, NotSent { StorageRefused } and
-        NotSent { Restored } (C11; C48; C128). "Its optimistic changes and success writes publish
-        together before its event" becomes, for a domain write, publication at settlement before its
-        ending is queued (C21). "During actor disposal, cache consequences still apply but outcome
-        events are dropped" is replaced by Runtime-owned lanes and parked endings (C33; C43). "Once
-        the adapter has been called, cancellation or abandonment reports unknown with its Attempt"
-        is kept as unknown { Cancelled } and unknown { Disposed } (C11; C158). "Restored work with
-        no acknowledged Attempt cannot have been invoked and ends interrupt" is replaced by the one
-        batch with its turn (C128). "work with an acknowledged Attempt restores as unknown unless a
-        durable settled result is known" becomes unknown { Restored } once per incarnation, a parked
-        ending restoring as itself (C126; C167). "O.x.retry(select, options) accepts an Attempt and
-        reuses its exact id and decoded input under the same concurrency, writes and outcome rules.
-        A known settled result settles immediately with its consequences and no adapter call. A
-        foreign descriptor or invalid input rejects the action batch with InvalidAttempt." is
-        replaced by retry(k?) in Held only; InvalidAttempt is removed (C7; C23). Descriptor-level
-        cancel and pending are removed (C7). "Flow promises no remote rollback and never retries
-        automatically" is kept (C7). "Runtime disposal of a persisted actor saves them instead
-        (@plan.Persistence.O3)" is replaced by parked endings of Runtime-owned lanes (C43; C45).
-        "Late completion of replaced work cannot deliver another outcome or affect a later actor
-        incarnation." is replaced: a replaced never-sent commit is evidence Superseded, a sent
-        Attempt's ending is always delivered, and a new incarnation of the same identity adopts its
-        lanes (C10; C42). "Flow mints a unique id; adapters receive it for remote idempotency." is
-        restated as the Attempt paragraph: id random per write, put on the wire by the commit author
-        (C9). "Invalid success writes apply nothing and report InvalidWrite", the no-overwrite rule
-        and "Neither restore nor hydration invokes a commit." are kept; the design does not touch
-        them.
     O4  Streams
         A stream contract declares delivers: "every" (never skipped or silenced, one per turn, or
         one page per turn from a read) or "latest" (newest wins, current only while this connection
@@ -374,18 +302,6 @@ outcomes
         kept across connections that never register; a registration ends the not-live period, and
         dropAt is kept with a latest bookmark. Domain listeners follow @plan.EntityDomains.O1.
         Persisted bookmarks and reopening follow @plan.Persistence.O4.
-
-        Superseded: the stream text "Each activity owns its session. ... Persisted latest values and
-        session reopening follow @plan.Persistence.O4." is rewritten from the streams rules (C87).
-        "A second same-actor session for the same descriptor and key reports DuplicateStreamSession,
-        leaves its lane undefined and preserves the existing session." is replaced by two sessions
-        with a DuplicateSession warning (C87). "Equal values are silent." is replaced by
-        at-least-once delivery (C87). "complete, failure, defect and adapter interrupt end the
-        session once, retain its data and map their optional outcomes. A terminal session restarts
-        only when its activity starts again" is replaced by declared reconnect and the outcome table
-        (C87; C90). "Changing identity releases it before opening another" gains the wait for a
-        releasing predecessor (C87). "a session reads input once" gains the select on every turn
-        (C201).
     O5  Writes and optimistic values
         O.x.setData(select) returns { key, data }; data is a value or updater(current) => A |
         undefined. Updaters read confirmed data; undefined declines the write.
@@ -415,12 +331,6 @@ outcomes
         unknown that is not retained is Released to the store, and a release before the forced
         repair removes nothing. Success retains the updates until setData or a lookup started after
         settlement confirms the entry. clear removes them with the entry.
-
-        Superseded: "pending remains true while any update is live" is replaced by predicted (C27).
-        "Failure, defect, interrupt and pre-invocation cancellation remove that commit's updates" is
-        replaced by the Attempt's three channels (C1; C4). "unknown retains them and invalidates the
-        entry until a confirming lookup lands" is replaced by "keeps them, marked uncertain, and
-        refetches the displayed entries once" (C4). Released is added (C113).
     O6  Rows
         s.operations.<name> reflects that snapshot's publication and keeps object identity until its
         lane, entry or session changes; inside a fragment it is the fragment's own rows. A write
@@ -446,19 +356,9 @@ outcomes
         placeholder({ previous, input }) on a placement may supply Pending data when a new key has
         no data; placeholder: true marks it. previous is this actor's placement's last input and
         lane data, retained across exit and re-entry. Placeholders never enter the store or
-        persistence. contract.get(snapshot, input) (the plan's descriptor.get, renamed with
-        descriptors; proposed name) passively returns the lane-shaped view at that snapshot's store
-        revision, or undefined. It creates, holds, refreshes and starts nothing;
-        invalid keys throw.
-
-        Superseded: "snapshot.activities.<name>" is replaced by s.operations.<name> (C35; C41).
-        "Transactions have outcomes, never lanes." is replaced: transactions have lanes (C35).
-        "pending, true for live optimistic values or predictions" is renamed predicted (C27).
-        "Stream tags are Running, Complete, Failure, Defect and Interrupted; data is the latest
-        value or undefined, with no pending field." is replaced by the stream rows (C88). "It is
-        undefined for inactive activities, when false, or null, undefined or false parameters"
-        becomes undefined while not placed (C40). "A stream read sees only that snapshot actor's
-        session" is kept as the row per placement (C88). "descriptor.get" reads contract.get (C31).
+        persistence. contract.get(snapshot, input) (proposed name) passively returns the
+        lane-shaped view at that snapshot's store revision, or undefined. It creates, holds,
+        refreshes and starts nothing; invalid keys throw.
     O7  Cancellation and cleanup
         Planned release interrupts the fiber and runs finalizers once without interrupt endings;
         adapter-reported interruption of a read ends Interrupted. Releasing a placement stops shared
@@ -488,17 +388,6 @@ outcomes
         undoing a published transition. Disposal failure follows @plan.Runtime.O6; Cause handling
         follows @plan.Diagnostics.O3. After cleanup, late results cannot change data, lanes,
         endings or replacement work.
-
-        Superseded: "Planned release aborts the signal and runs finalizers once" is replaced by
-        "interrupts the fiber" (C116). "O.x.cancel(select) cancels this actor's queued and running
-        commits for a key." is replaced by cancel on the addressable Attempt (C11; C36). "Resources
-        have no cancel action." is amended by cancel on a one-off read (C36). "Before invocation,
-        cancellation is silent and removes optimistic updates; after invocation it reports unknown
-        and blocks late results." is replaced by NotSent { Cancelled } and a retained
-        unknown { Cancelled } (C11). "disposed actors receive no finite lookup outcome" and "Actor
-        disposal waits for invoked commits; bounded disposal follows @plan.Runtime.O6." are replaced
-        by Runtime-owned lanes (C43; C158). The release on leave is added (C68; C183); cancelAll is
-        added (C171); the acknowledgement wait is added (C146; C180; C186).
 verification
     V1  Type proofs preserve adapter types and reject invalid options, outcome mappings, reserved
         reasons, missing services and key-less members of keyed operations.

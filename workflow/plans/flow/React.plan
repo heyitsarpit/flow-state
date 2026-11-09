@@ -47,16 +47,6 @@ outcomes
         resolves the new identity. Local input is read once; changing local machine or input
         requires a keyed remount and emits a development diagnostic. A ref never resets an existing
         actor; conflicting refs follow @plan.Runtime.O3.
-
-        Superseded: "useActor(machine, options?) returns one fresh local actor handle per component
-        incarnation." is amended: fresh memory and state, write lanes adopted by identity (C52).
-        "Declared input must have its exact type." is amended: a value-named ref takes no input
-        (C119; C144). "missing or disposed means null" is replaced by the record view (C108).
-        "initial(input) memory" reads the memory built from Flow.input, Flow.initial and computed
-        initials (fragments row). "Pending lanes alone do not mark optimistic writes pending" reads
-        predicted (C27). "initial must be pure" reads creation and its one pure default per field
-        (C137; C157). "Shared input never resets an existing actor" is replaced: refs carry no
-        input (C119; C144). The pre-attach copy read is added (C108; C143).
     O3  Attach, detach, Strict Mode and grace
         After commit and readiness, an ensuring hook attaches the same handle through the Runtime.
         It uses current provider context without replaying creation, input or onContext work. Lazy
@@ -86,19 +76,6 @@ outcomes
         the uses inside the hidden subtree; a local actor hidden beyond its grace ends, and reveal
         creates a fresh one (adopting its identity's lanes). To keep state across hiding, persist
         the machine or hold a use outside the hidden subtree. Selectors read operations.
-
-        Superseded: "Reattach before expiry keeps the actor and cancels disposal; expiry disposes
-        it through the Runtime." is restated as the remount rule (C143). "React Activity hiding
-        beyond grace disposes local actors; reveal creates a fresh one." is restated with uses
-        and lane adoption (C108; C52). "Sends through a handle whose actor is disposed are dropped
-        as SendTargetAbsent" is replaced by the send table (C105). "Local cleanup leaves the actor
-        active for 100 milliseconds on the Runtime Clock." is amended by the in-flight exception and
-        the remount rule (C108; C143). "Work continues during grace." is replaced: activities run
-        and schedules wait (C108). "Shared ensuring hooks count as uses until cleanup; retention
-        follows @plan.Runtime.O3." is replaced by uses from passive commit effects (C108). "Shared
-        refs with retain are the way to keep state across hiding." is replaced: persist, or hold a
-        use outside the hidden subtree (C108). The pre-attach buffer flushes after a new
-        incarnation's deliveries (C52); one notify per task is added (C147).
     O4  Eligibility in views
         useView(actor, select) accepts an exact handle and preserves the selector's exact return
         type. Nullable lookup must be branched first; Machines, refs and comparator arguments are
@@ -115,12 +92,6 @@ outcomes
         without an actor change; conditional reads replace those dependencies. Selected values
         compare with Equal.equals, and unchanged lanes keep identity. Changing selector identity
         does not resubscribe to the actor.
-
-        Superseded: "Selectors read frozen state, memory, context, issues, lifecycle and
-        activities." is replaced by schedules and operations, with private fields omitted
-        (fragments row; C41; C66). "Activity data follows @plan.Operations.O6." reads rows.
-        "Transactions have no view reader." is replaced: write lanes are rows (C35; C66).
-        "descriptor.get" reads contract.get (C31).
     O5  Errors in views
         A selector exception reaches the nearest React error boundary. Reading unchanged relevant
         data rethrows the same exception without reevaluation; a later matching publication
@@ -143,8 +114,6 @@ verification
     V5  View tests prove consistent passive reads, key updates, equality and isolated error
         retries.
     V6  Hydration tests prove matching first HTML and no duplicated work.
-
-        Superseded: V4's "retention" reads uses and work in flight (C108).
 questions
     Q1  Deferred to build time
         The private attachment and subscription implementation; how selector failures are cached

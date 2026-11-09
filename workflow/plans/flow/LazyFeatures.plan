@@ -48,11 +48,6 @@ outcomes
         table is @plan.Runtime.O4. Hook first-render behavior is @plan.React.O2; pre-attach sends
         are @plan.React.O3.
 
-        Superseded: "An actor's send(ref, ...) never adopts or creates its target: an absent target
-        drops the send and reports SendTargetAbsent, with details.adopted false for an inactive
-        entry." is replaced by the send table: never adopts a lazy entry or creates an actor, may
-        restore, NotAdopted (C105).
-
         Adopting the same entries in a different order does not change app behavior except through
         restored data or availability of an entity's lazy .byKey loader. Before that loader is
         adopted, repairs use active answers or drop unconfirmed fields rather than show stale truth
@@ -74,13 +69,6 @@ outcomes
         runner's ruling, following the undecodable-record rule); other records and live
         committed truth are untouched (@plan.Persistence.O5). Persisted data never makes a feature
         unopenable.
-
-        Superseded: "or a version change discards the scope" goes with the app-wide version
-        (C211). Dormant lane records are added (C50). "A dormant record that fails to decode at
-        adoption is discarded alone with a diagnostic and its actor opens fresh" is replaced by the
-        quarantine and a fresh ensure (C143; the runner's ruling). "@plan.Persistence.O5 discards
-        them" gains the lane quarantine (C152; the runner's ruling, reading the user's quarantine
-        decision as covering a removed machine).
 
         A saved uncertain write marks affected entities uncertain no later than when those records
         first become readable, even while its actor remains dormant. Repair starts as soon as those

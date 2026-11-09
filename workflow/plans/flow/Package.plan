@@ -36,12 +36,6 @@ outcomes
         ManagedRuntime or mutable harnesses. flow-state/internal/testing, which exports
         disposeRuntime for Flow's own suite, is not a supported route and is not one of the six.
 
-        Superseded: the flow-state list gains trait, subroutine, Flow, Outcome, Feed and the
-        operators gt, gte, lt, lte, isNull, or and not (fragments row; C102; merge 5).
-        "flow-state/testing: story, model, defineConfig, StoryFrame, StoryPlayer,
-        definePresentation, propertyTest; type StoryRun." is replaced: story and model are removed;
-        Story, Fake, domainPropertyOptions and PropertyTestFailed are added (C82; T1).
-
         flow-state/react keeps the "use client" directive in its emitted JavaScript; a Next.js
         Server Component may import its components, and hooks run only on the client.
         flow-state/server resolves to the real module under react-server and node conditions and to

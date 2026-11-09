@@ -250,40 +250,6 @@ outcomes
         (@plan.Operations.O2). A read whose mapper throws or returns something with no shape ends on
         failure as Defect, with UserClosure.
         Reference: references/dispatch-desk/features/Tickets/ticket.domain.ts.
-
-        Superseded: "Conditions use where (eq, oneOf, contains, between, overlaps, and)" is
-        replaced by the operator list with yes, no or maybe; "An absent optional input drops its
-        constraint." by the Type-side input rule (merge 5, 6.4). "predicts runs again at write
-        start with the real input." and "conditionals, short-circuits and impure calls fail
-        construction or flow check" are replaced by recorded positions, field functions and the
-        allowlist lint; the construction-time check goes (merge 5). "Changes: predicts returns
-        Entity.patch(key, fields) ..." gains field functions and many keys (merge 5) and key
-        values (C115); listen maps to delta or row (C198). "on its old or new values; a missing
-        condition field matches." is replaced by existence-aware matching (merge 5).
-        "Reconnect, restore and invalidate" reads stream gaps (C99). "Predicted fields the response
-        omits stay pending" becomes a predicted slot staying unconfirmed (merge 5; C27). "Failure
-        or defect removes predictions and repairs affected answers, because a failed call may have
-        partly applied." is replaced by "a definite failure removes predictions without repair"
-        (C4). "Uncertain (cancelled after invocation, response lost, or restored mid-flight)
-        forces the loader and every holder to refetch, keeps predictions until that repair lands,
-        then shows server state." is restated as the unknown row: live predictions kept until a
-        forced repair lands, the record queue held until it settles (C4; C189). "Rejection or
-        cancellation before the adapter ran removes predictions without repair."
-        becomes the NotSent list (C24). "The record stays uncertain until a later write to it
-        succeeds or the machine reconciles the Attempt." is replaced by the mark rules (C25; C192).
-        "unknown delivers an Attempt; O.x.retry(select) reissues that exact Attempt and a
-        known-settled attempt settles without calling the adapter." is replaced by retry(k?) in
-        Held (C23). "Predicting writes queue per record, FIFO across actors" is replaced by joining
-        at the head of the lane in send order (C24; C187). "predictions show while queued" holds
-        for drafts (C187). "Cancelling a queued, never-invoked write removes it." becomes NotSent {
-        Cancelled } without repair (C24). "An uncertain write releases the next only after its
-        forced repair settles, whether it succeeds or fails; the record stays uncertain." is
-        amended per record with the repair bound (C189; C190; C207). "Creates return the record
-        and repair matching answers; membership appears only when they refetch (no temporary ids
-        or optimistic inserts)." is named as the draft pattern (C26). "Record reads are { data,
-        pending, uncertain, unconfirmed }." is replaced by predicted (C27). The judge, guarded, the
-        cap, ModuleDisabled, gone, listen and Released are added (C113; C169; C191; C193-C198;
-        C208; C67).
     O2  Snapshot reads and evidence
         Entity.get(snapshot, key, shape) reads exactly that cut: requested fields with data and
         status, missing fields marked missing, undefined if the record is absent. Domain.entry.get
@@ -303,10 +269,6 @@ outcomes
         Explaining a domain runs no adapter and uses the same repair classifier as the runtime
         (@plan.CommandLine.O1).
         Reference: references/dispatch-desk/features/Tickets/queue/queue.story.ts.
-
-        Superseded: "Entity.get(snapshotOrCheckpoint, key, shape)" reads snapshots; checkpoints use
-        cp.entity (C72). "Entity.queue returns ordered attempts and queue states." is replaced by
-        queue records with their reason (C30; C84).
     O3  Hydration and lazy domains
         Hydrated confirmed fields keep their versions; positions and frontiers stay local to each
         Runtime. Predictions, queues, tombstones and uncertain marks never transfer, and sensitive
@@ -337,10 +299,6 @@ outcomes
         After each settlement, push or observed change it refetches every active answer that was
         not repaired and compares without publishing: HiddenFilter reports a membership difference,
         UndeclaredEffect names the write, read and missing alsoChanges.
-
-        Superseded: "propertyTest(domains, options)" is replaced by the domain form
-        domainPropertyOptions(domains, inputs), keeping the oracle, quietness and inconclusive
-        rules (C73; C84); stream faults are added (C99).
     O5  Bounds
         At most repairSlots repairs run at once (default 6, @plan.Runtime.O2), started in
         canonical order: delta, domain entry order, input key, then stable domain id. A paged
@@ -350,10 +308,6 @@ outcomes
         NotSent { Overloaded } for that write, with no prediction and no partial join, and the
         transition and its other actions run. Recorded constants and persisted data obey the
         structural limits of @plan.Inspection.O2. Production has no cross-turn execution budget.
-
-        Superseded: "if any record of a multi-record write would overflow, the whole write is
-        rejected before any prediction, queue join or adapter work, with AdmissionOverloaded naming
-        the record and limit" is replaced by NotSent { Overloaded } for that write (C22; C199).
 decisions
     D1  Domains own shared-data policy
         Predictions replace call-site optimistic and setData; clear is forbidden and writes allow
@@ -386,9 +340,6 @@ verification
     V5  Hydrate, lazy join and bounds: A-to-B hydrate merges amid client writes, lazy adoption
         with rollback, 6 repair slots, N-request paged chains, and the 64/65 queue boundary with
         no partial joins.
-
-        Superseded: V1's "source check rejects conditionals and impurity" (merge 5, 6.4); V3's
-        "partial failure repair" (C4).
 questions
     Q1  Are 6 repair slots right?
         Recommended: measure Dispatch Desk page churn before changing the default.

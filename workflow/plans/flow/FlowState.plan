@@ -31,10 +31,6 @@ outcomes
         becomes the package. Port useful algorithms and behavioural test vectors, not superseded
         authoring surfaces or compatibility shims. packages/flow-state and
         packages/flow-state-rewrite stay frozen; product cutover requires a separate gate.
-
-        Superseded: "Rebuild packages/flow-state-rewrite in place." is replaced by the production
-        location of the approved v3 roadmap (2026-11-07) and AGENTS.md, which freeze
-        packages/flow-state-rewrite.
     O2  Build stages
         Each prerequisite gate must pass before its dependent work starts. A proof that exercises a
         capability from a later stage (persistence, hydration, lazy adoption, exported evidence)
@@ -53,8 +49,6 @@ outcomes
         S9 Inspection and CLI — needs S5 and S7; lazy-entry proofs run in S10; gate @V9.
         S10 SSR, lazy features and proving app — needs S6, S8 and S9; gate @V10.
         S11 Story playback — needs S7 and S8; follows the version 1 gates; gate @V11.
-
-        Superseded: S7's "model infrastructure" goes with Testing O5's removal (T1; C77).
 
 decisions
     D1  Structure is data and compiles to one representation

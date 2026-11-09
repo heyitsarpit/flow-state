@@ -12,8 +12,12 @@ rulings and proposed names are marked in the plans as the design marks them.
 
 ## Conventions used in the plans
 
-- **Superseded sentences** are kept, quoted, in a closing `Superseded:` paragraph of the outcome that held them, each
-  with a pointer to its replacement (the section 5 row, or the OD). Nothing superseded is deleted silently.
+- **Superseded sentences** were first kept, quoted, in a closing `Superseded:` paragraph of the outcome that held
+  them. *Changed 2026-11-09, by the user's instruction ("everything that is superseded should be extracted out into a
+  separate superseded items file"):* all of them now live in `workflow/plans/flow/references/superseded.md`, grouped by
+  plan and entry, each with its replacement and commit; the plans carry no superseded text and read as the current
+  contract only. Nothing superseded is deleted silently. (The word "Superseded" still appears in plans as the name
+  of an evidence kind.)
 - **Pointers** name the design row only (C*n*, P*n*, T*n*, "fragments row", OD*n*); no invariant or rule number is
   needed to read the contract, since each plan states the rule's content itself.
 - **Status marks.** User decisions carry no mark. Runner or agent rulings say "(the runner's ruling)"; names the user
@@ -627,3 +631,10 @@ merge; `workflow check` and the reference check passed after every plan touched.
 
 Disagreements with the audit: none on substance. One note: `SharedContract` is marked proposed as the read list's
 entry 10 asks, though its meaning was decided earlier (F2).
+
+**Superseded text extracted (the user's instruction, after the fix pass).** Every `Superseded:` paragraph, and
+Testing V5's old text, moved to `references/superseded.md`: 270 items (split at each pointer), each checked by a
+read-only scratchpad script to appear in that file exactly as often as it appeared in the plans, and in no plan
+afterwards. Testing O5 and V5 stay as stubs to keep their ids. Each plan's diff is deletions only, apart from
+Operations O6's `contract.get` wording (its inline "renamed from descriptor.get" pointer removed) and Testing V5's
+stub line. `workflow check` and the reference check pass. machine-design.md's own inline markers are untouched.

@@ -53,14 +53,6 @@ outcomes
 
         flow explain is @plan.CommandLine.O1 and @plan.CommandLine.O4.
         Reference: references/dispatch-desk/tools/inspection.ts.
-
-        Superseded: "per actor its state, revision, mailbox depth, schedules, activity bindings,
-        pending commits, issues and retain" is replaced by placements, incarnations, lanes and
-        uses, actors named by identity (C78; C111; C122). "resource entries, transactions and
-        stream sessions in flight" is replaced by write lanes by identity and per-session facts
-        (C51; C64; C78; C100). "every operation descriptor" reads every operation with its
-        contract (C31). "actions" gains the operation each names, and "each entity domain as
-        recorded" its predicted field names (merge 5, 6.4). Fragments are added (fragments row).
     O2  The structural codec
         One bounded codec carries every value that crosses a process or storage boundary:
         persisted records (@plan.Persistence.O3), server-rendering payloads
@@ -155,13 +147,6 @@ outcomes
         completed (InvalidStoryEvidence). A Trace never contains callbacks, Effects, Layers, live
         refs, raw Cause, stacks or fiber ids, and is never a restore, hydrate or Story input.
         Reference: references/dispatch-desk/tools/inspection.ts (loadTrace).
-
-        Superseded: the event-kind list gains ending, lane, life, callback, exit, listRepair,
-        drop, session, delivery, predictionFault and the Story kinds, and every event the run-wide
-        sequence and tab (C79; C100; C111; merge 5, 6.4). "persistenceVersion" leaves the Trace's
-        fields and import's identity check with the app-wide persistence version (C211). "unknown
-        carries reconcileRequired" reads its reason, since unknown has reasons (C2). flow trace
-        replaces round 7's trace summarize (C141).
     O5  Redaction and digests
         In-process reads, checkpoints, snapshots and inspect(runtime) carry raw values. Redaction
         applies where data leaves the process: sink events, trace artifacts and CLI output.
@@ -179,9 +164,6 @@ outcomes
         digests, so data never leaves through a trace; a Story's fake truth and request inputs
         leave the process as digests. Identities, versions, kinds, sequences, state paths, event
         tags and codes are never redacted, nor is a request's via, which is an identity.
-
-        Superseded: fake truth and request inputs as digests, and via never redacted, are added
-        (C80); "result" reads output (C31).
     O6  Renderers
         render(model, "text" | "json" | "mermaid") is synchronous and deterministic. Text prints
         each machine's states, transitions, guards with deny codes, outcome edges, schedules and
@@ -205,9 +187,6 @@ outcomes
         input is truncated), and the failure ArtifactIdentityMismatch when appId, appFingerprint
         or format version differ. coverage lists the declared transitions, deny codes, outcome
         edges, schedules and sends that no given Trace exercised.
-
-        Superseded: the "transactions" section reads write lanes and endings (C51; C79);
-        "persistenceVersion" leaves the comparison's identity (C211).
 decisions
     D1  The machine file is the spec
         The Model is the only structural representation; graph, diff, explain, check, render and

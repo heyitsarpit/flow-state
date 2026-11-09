@@ -34,9 +34,6 @@ outcomes
         compatible provider. Call sites (ensure, create, hooks) never supply wiring. Durable
         identity is app id, machine id and the actor's identity (@O3), never an app property key.
         Reference: references/dispatch-desk/app/app.ts.
-
-        Superseded: "Durable identity is app id, machine id and actor id" now reads the actor's
-        identity, its machine plus its input (C117).
     O2  Setup and readiness
         runtimeSetup({ app, services?, scope?, persistence?, repairSlots?, audit? }).construct()
         is synchronous and inert. scope is an optional nonempty string naming whose data the
@@ -77,11 +74,6 @@ outcomes
         acquired late is released and no handle is ever exposed. runtime.runPromise runs an Effect
         with the installed services; there is no runPromiseExit.
         Reference: references/dispatch-desk/app/setup.ts, app/host.ts, app/persistence.ts.
-
-        Superseded: "services is an Effect Layer that must provide every service the app's
-        operation adapters need" gains the contracts' services lists and the boot's refusal by
-        name (C138). Step 4's "install restored and hydrated actors" is replaced: restored records
-        stay records until reached, except identities owed an ending (C106).
     O3  Actor identity and lifetime
         An actor is its machine plus its input. actorRef(machine, nameOrValue, { context? }) is
         inert and names a shared actor in one of two forms. From a value: the value carries the
@@ -161,28 +153,6 @@ outcomes
         renamed or matched by shared fields, removed by forget; its non-Idle lanes stay unbound and
         listed (@plan.Persistence.O5).
         Reference: references/dispatch-desk/features/Tickets/editor/editor.ref.ts, app/host.ts.
-
-        Superseded: "actorRef(machine, id, { persist?, retain?, context? }) is inert. id is a
-        string or a readonly array of strings; arrays encode unambiguously, so ["a/b", "c"] and
-        ["a", "b/c"] are different actors." is replaced by the two ref forms (C117; C144). "Two
-        refs with the same machine and id but different persist, retain or context reject with
-        ConflictingActorRef" is now context only (C104; C144; C160). "runtime.ensureActor(ref, {
-        input }) ... The first accepted input initializes it; later ensures never reset memory, and
-        a different later input reports InputIgnored." is replaced: no ensure takes input and
-        InputIgnored does not exist (C117; C144). "An input-free machine is ensured with no
-        options." becomes the singleton (C117). "runtime.createActor(machine, { input }) always
-        creates a new local actor" is kept, amended by local identity adoption (C42). "No outcome,
-        schedule, issue or send from an old incarnation ever reaches a new one." is replaced for
-        write lanes by adoption (C42; C59). "Ensure while disposing returns at once a handle that
-        reads the pre-attach snapshot" is amended by the Runtime's copy and the ending state
-        (C143). "A use is an attached React consumer, a live snapshots subscription or a bound
-        context consumer.", "With retain (a Duration), a shared actor is disposed once retain has
-        passed since its last use ended; a new use cancels that.", "A provider with bound
-        consumers never expires.", "Without retain a shared actor lives until explicit or Runtime
-        disposal." and "Retain expiry of a persisted actor disposes the live actor but keeps its
-        saved record, so a later ensure restores it" are replaced by the lifetime rule (C104;
-        C143). "only explicit disposeActor or forget removes saved state" is kept, amended at @O6
-        (C159; C178). Versions are added (C161; C174; C181).
     O4  Mailboxes and send
         Each actor processes events one at a time; its mailbox is FIFO in admission order, and user
         sends, call endings, stream deliveries, timer firings and onContext events queue together.
@@ -244,17 +214,6 @@ outcomes
         disposeActor, forget or Runtime disposal; on an identity with no actor it emits that
         identity's current snapshot and waits as a use.
         Reference: references/dispatch-desk/features/Tickets/editor/editor.machine.ts.
-
-        Superseded: "Each actor processes events one at a time in FIFO order; a send during a turn
-        is queued, never run inside the current turn." gains the queue order, follow-ups,
-        rotation and the idle-Runtime rule (P21; C136; C148; C149). "Sends to a disposing or
-        disposed actor are dropped and reported as SendTargetAbsent, never thrown." and "If the
-        target is absent or disposing the event is dropped with SendTargetAbsent" are replaced by
-        the send table (C105). "Stream values coalesce (@plan.Operations.O4)." becomes deliveries
-        bounded by what Flow has pulled (C91). "Facts from an ended activation are discarded by
-        design" becomes discard with evidence (C91). "A snapshots subscription completes only at
-        the actor's disposal, after its terminal snapshot." is replaced (C105). Slices and spins
-        (C132), refused deliveries (C134; C166) and the boot queue (C155) are added.
     O5  Context propagation
         Provider.select(selector) reads one complete provider snapshot. A context slot binds to one
         provider for the consumer's lifetime. Context reads form an acyclic upward graph; a cycle
@@ -279,8 +238,6 @@ outcomes
         unaffected. Persistence capture never observes a half-propagated wave; it waits for the
         wave to settle (@plan.Persistence.O3).
         Reference: references/dispatch-desk/features/Tickets/queue/queue.machine.ts.
-
-        Superseded: "keyed into the actor id" reads the actor's identity (C117).
     O6  Lifecycle and disposal
         Public lifecycle is active, disposing or disposed. runtime.disposeActor(actor) disposes the
         actor for every user: it removes the actor's record, keeps its non-Idle lanes as unbound
@@ -328,13 +285,6 @@ outcomes
         runtime.dispose({ forget: true }) also deletes the scope's stored records
         (@plan.Persistence.O5); plain dispose keeps them.
         Reference: references/dispatch-desk/app/host.ts.
-
-        Superseded: "invoked commits are allowed to settle" is replaced: disposal invokes nothing
-        new and lanes stay with the Runtime (C43). "after 5 seconds a commit still in flight
-        becomes unknown with its Attempt" is now unknown { Disposed }, with the parking order
-        (C158; C176; C179). "runtime.disposeActor(actor) disposes the actor for every user" gains
-        the flushed removal and unbound lanes (C159; C168). forget's effect on lanes is added
-        (C173; C178). Session release is added (C92).
     O7  Isolation
         Runtimes share no mutable state: actors, store, services, storage, clock or evidence.
         Handles from one Runtime are rejected by another; nested React providers use the nearest
@@ -376,9 +326,6 @@ verification
     V7  Disposal and isolation: provider-with-consumers rejection, idempotent dispose, the
         5-second bound with unknown { Disposed } and the parking order, forget keeping holds,
         quarantine on cleanup failure, no sharing between Runtimes.
-
-        Superseded: V1's "unambiguous id parts" and V4's "first input wins with a diagnostic" and
-        "retain expiry on the TestClock" (C109; C118; C144).
 questions
     Q1  Can one services Layer be acquired storage-first?
         Recommended: prove it against Effect 4.0.5 in S1; if not, acquire the whole Layer before

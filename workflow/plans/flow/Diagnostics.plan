@@ -190,21 +190,6 @@ outcomes
         - ConfigLoadFailed (@plan.CommandLine.O6): fix flow.config.ts, the app or the revision
         named.
         - OutputFailed (@plan.CommandLine.O2): free or choose the destination; check permissions.
-
-        Superseded: "InputIgnored (@plan.Runtime.O3): the actor already exists; its first input
-        stands." is removed: no ensure takes input (C144). "ConflictingActorRef ... give refs with
-        one identity the same options" now names context only (C160). "InvalidAttempt
-        (@plan.Operations.O3): retry only an Attempt from this descriptor, with valid input." is
-        removed with retry(attempt) (C23). "DuplicateStreamSession (@plan.Operations.O4): open one
-        session per actor and key." is replaced by the DuplicateSession warning (C87; C103).
-        "RestoreDiscarded (@plan.Persistence.O5): expected after a version change; otherwise
-        inspect the reason (incompatible, corrupt, orphan)." is replaced by RecordUndecodable,
-        RecordShapeChanged and the quarantine names (C143; C152; C211). The Story names (C83), the
-        stream names (C103), ScheduleLeadsToWrite and EndedWithWork (C125), TurnStorm and
-        AsksForever (C132), ReservedStateName, InputFieldForm, UnknownNotUncertain and
-        UnencodableValue (C145; C154), IdentityFieldOptional (C121) and ImpureDefault (C157;
-        C184) are added, with the names other plans' rows define (C18; C65; C177; C193; C209;
-        C211-C215).
     O3  Complete failures survive cleanup
         An author inspecting an in-process failure can recover its complete Effect Cause when
         available, including failures from finalizers and cancellation. Cleanup never replaces the
@@ -224,9 +209,6 @@ outcomes
         never enter snapshots, checkpoints, persistence, SSR payloads, traces, inspector events or
         CLI output. Outbound application data follows @plan.Inspection.O5; SSR omission follows
         @plan.ServerRendering.O3.
-
-        Superseded: "forwarded AbortSignal cancellation" reads Effect's own signal: contexts carry
-        no signal (C116).
     O4  Safe rendering
         Rendering a Diagnostic preserves its code, path, safe details and actionable help. Control
         characters in paths, details, summary and help are escaped so hostile names cannot inject

@@ -22,9 +22,6 @@ outcomes
         simultaneous work and cleanup failures are both preserved. Disposal follows
         @plan.Runtime.O6. Successful capture with failed cleanup returns no payload.
 
-        Superseded: the sentence "Shared actor retention starts at activation" (@O5) is replaced,
-        and this outcome gains dehydrate's hold on each shared actor (C107).
-
         The payload carries the setup's scope (@plan.Runtime.O2), which the host derives from server
         authentication. inspector attaches an inspector sink (@plan.Inspection.O3) to the private
         Runtime before ready(). within is a required finite positive Duration.Input. maxBytes
@@ -72,13 +69,6 @@ outcomes
         waits until its own timers or the user move it, and a later client write to that key is
         unordered with the server's (a stated limit). Its predictions do not transfer, so it marks
         no entity uncertain and forces no repair.
-
-        Superseded: "latest stream values and counts" is replaced by a latest row's last and
-        baseline, and the partition is added (C96; C97). "pending-commit facts" and "An in-flight
-        commit becomes unknown with its attempt under @plan.Operations.O3 and reports
-        DehydrateCommitInFlight" are replaced: write lanes are never hydrated and the commit is
-        evidence (C49). "the actor's unknown outcome owns reconciliation" is removed (C49). "each
-        activity binding" reads each placement (C40).
 
         Encode values using their declared Schemas. Omit values without a usable Schema or whose
         encoded form is not JSON-safe or exceeds the bounds of @plan.Inspection.O2; never coerce
@@ -153,11 +143,6 @@ outcomes
         commit until that actor's first consumer attaches or the boundary unmounts
         (@plan.Runtime.O3). Persistable hydrated actors subsequently follow @plan.Persistence.O3.
 
-        Superseded: "Existing stream lanes win." is removed (C96). "Streams open new sessions while
-        displaying their transferred latest values." becomes rows starting Connecting with last
-        shown (C96). "Shared actor retention starts at activation." is replaced by Hydrate's hold
-        (C107).
-
         Navigation payloads use these same rules on the running client. Reapplying the same payload
         is a no-op; a prefetched payload ages while waiting to render.
     O6  Isolate requests and scopes
@@ -192,9 +177,6 @@ verification
     V4  Freshness Story: fresh data avoids fetching; missing or aged data fetches despite skew.
     V5  Replay Story: no repeated work or endings; overdue schedules fire once; a commit in
         flight at dehydration creates no client lane; a ticker and a chat feed.
-
-        Superseded: V5's "commits stay unknown" (C49); V3 and V5 gain a ticker and a chat feed
-        (C96).
     V6  Merge Story: drafts and predictions survive; conflicts repair; repeated payloads do nothing.
     V7  Redaction test: unsafe values are omitted and reported; sensitive data never transfers.
     V8  Capture tests: invalid inputs reject; all failures dispose and preserve cleanup errors.

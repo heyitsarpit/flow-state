@@ -118,20 +118,6 @@ outcomes
         public _tag envelopes; State accepts complete leaf paths. E.X(payload) validates on every
         call and throws InvalidEvent on mismatch; payload-free constructors take no argument.
         Persisted-value eligibility is @plan.Persistence.O2.
-
-        Superseded: "A definition requires id, states and events." gains traits, fragment states,
-        operations and persist (fragments row; C37; C160, C175). "Optional input and memory are
-        Schema field records. Nonempty memory requires initial({ input }); empty memory forbids
-        initial, and input requires initial, so a machine with input declares memory. initial runs
-        once for a fresh actor, never on restore, adoption or hydration." is replaced by the field
-        modifiers above; there is no top-level input or initial (fragments row; C137; C156; C157;
-        C184). "Original input is unavailable thereafter." is replaced by "input fields are ordinary
-        memory", read-only on a machine (C121). "Optional operations is a flat record of operation
-        or entity-domain handles." is replaced by the operations declaration (C37). "duplicate
-        activity or schedule names reject" loses activities, now a list of placements (C40).
-        "Activity parameters may read earlier activities' lanes, parents before children; cyclic
-        dependencies reject." is replaced: placement selects read the after memory and after lanes
-        (@O3; C40). "initial is pure: it reads no clock or randomness" is kept (C157).
     O2  States and transitions
         Exactly one leaf is active. Substates share the actor's memory, context and lifetime;
         reaching a leaf with no handlers does not complete or dispose the actor. S.OPEN.EDITING
@@ -166,11 +152,6 @@ outcomes
         usual, and an ancestor's "self" does not abandon it. Exits are targets only fragments take;
         an exit filling must leave the subroutine's state, and every exit is filled. A callback
         never moves the host out of the fragment's placement node.
-
-        Superseded: "target is required and is this machine's token or "self"" is replaced by
-        "an omitted target means self" (C123). "token.is(snapshot) includes descendants" becomes
-        "token.is(snapshot or state)", with token guard elements (fragments row). Re-entry by
-        naming the handler's own state is a new activation (C164).
     O3  Turns
         Input ordering and atomic actor/store publication are @plan.Runtime.O4. The turn algorithm
         is normative for the runtime and for check(): admit, select the source, select the parts,
@@ -232,15 +213,6 @@ outcomes
         Outside callers can send only valid public event envelopes; invalid payloads or internal
         events fail with InvalidEvent before a turn exists. The same snapshot, event, Clock and
         seeded test randomness produce the same result without consulting host wall time.
-
-        Superseded: the prose from "An accepted transition computes updateMemory before action
-        parameters; both read the pre-turn snapshot and event." to "One invalid action rejects the
-        whole turn" is replaced by the algorithm above, keeping its defect rules (fragments row).
-        Its "both read the pre-turn snapshot" no longer holds for commit selects, key selects and
-        schedule inputs, which read after (C13). "State changes, activity changes, schedule
-        arming and the complete action batch validate before publication." is restated as the
-        validate step (fragments row). ""self" changes no state and restarts no work, including at
-        the root." is kept in @O2, with "keeps the activation" added (C164).
     O4  Guards, deny and check
         A guard receives { event, state, memory, context, schedules, operations } from the pre-turn
         snapshot and returns true or deny(code, context?). code is a literal string; context is
@@ -266,11 +238,6 @@ outcomes
 
         A defective guard makes check throw GuardDefect without publishing an issue. Internal or
         foreign events are type errors and fail untyped calls with InvalidEvent.
-
-        Superseded: "A guard receives { event, state, memory, context, activities }" gains schedules
-        and replaces activities with operations (fragments row; C38; C55). "check(snapshot, event)
-        uses the same handler, alternative and fallthrough rules" is now "runs steps two to six of
-        the turn" (fragments row).
     O5  Schedules
         A node or fragment body declares schedules: { name: { schedule, send, armOn?, disarmOn?,
         restartOn?, keys? } }. schedule is a Duration.Input, an Effect Schedule, or ({ memory,
@@ -314,13 +281,6 @@ outcomes
         one. A resumable trait's schedules keep dueAt while frozen and fire once on return if
         overdue. Restored restartOn baselines are silent. Hydration activation is
         @plan.ServerRendering.O5; deterministic time is @plan.Testing.O2.
-
-        Superseded: "Entry arms a schedule; exit cancels it." is replaced by "Entry arms a schedule
-        without armOn (or with Flow.entry); disarmOn and exit cancel" (P7; C56). "restartOn ...
-        establishes a silent baseline" is clarified as the activating turn's after memory (P8). "if
-        its declaring activation ended before handling, it is discarded" is extended by arming ids
-        (P11). "On restore or resume, a Duration preserves its deadline and fires once if overdue"
-        gains returns after an end and returning uses (C124). Keyed schedules are added (C14; C39).
     O6  Activities and outcomes in machines
         activities is a list of placements: O.x.subscribe(select, { when? }) or
         O.x.subscribe.each(select, { when? }) (one session per distinct key of the selected inputs,
@@ -358,17 +318,6 @@ outcomes
         leave, is denied at run time, an accepted risk (the runner's ruling). Lateness is not
         transitive, and only the host's own operations count. Every late event that can occur is
         handled at a strict ancestor of its owner.
-
-        Superseded: "activities: { name: O.x.subscribe(params, { outcomes?, placeholder?, when? })
-        }" is replaced by the list of placements, with outcomes on the operation (C40; C57; C90).
-        "params and when may read { state, memory, context, activities }" is replaced by the after
-        memory and after lanes (C40; @O3). "Finite actions declare optional success, failure,
-        defect, interrupt and unknown outcomes; subscriptions declare value, complete, failure,
-        defect and interrupt." is replaced by the operation's three write channels and two read
-        channels (C1; C5; C6). "omitted failures or defects publish an actor issue" and "unknown
-        carries the Attempt for explicit reconciliation" move to @plan.Operations.O3 (C1). "State
-        exit does not cancel finite work; its event reaches the actor's later state." is replaced by
-        the owner test (C12; C162; C164; C170; C185).
     O7  Context reactions
         Machine-level onContext: [{ select, when?, event }] observes context changes. select({
         context, memory }) establishes a silent baseline at admission, restore, adoption and
@@ -400,11 +349,6 @@ outcomes
         copied, while opaque application values retain identity. A later success or release clears
         its own source's issue, never another source's issue; a new actor incarnation inherits none.
         Disposal is @plan.Runtime.O6.
-
-        Superseded: "activities (named lanes, undefined when not running)" is replaced by operations
-        (fragments row; C41; C58). "It has no input, methods, timers or public revision" is replaced
-        by "no input, methods or public revision; armed schedules appear under schedules" (fragments
-        row; P6).
 verification
     V1  Type tests prove inference and reject undeclared or foreign members, invalid guards,
         unfilled required ports, writes to machine input fields and fragment acting members used

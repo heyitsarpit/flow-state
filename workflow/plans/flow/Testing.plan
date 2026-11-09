@@ -57,19 +57,6 @@ outcomes
         exported Stories (top-level stories have no app) and rejects duplicate or empty ids,
         foreign setups, incompatible machines and lookalike package values before acquiring
         resources. Loading and configuration discovery follow @plan.CommandLine.O6.
-
-        Superseded: "story.app(setup, { id, fixtures? })" and "story.machine(machine, { id, input?,
-        context?, services?, fixtures? })" are replaced by Story.app, Story.machine and
-        Story.fragment; services? is removed, fixtures covers it (C69; C63). "unique within its
-        App" reads unique across the configuration (C69). "Construction, import and discovery
-        start no services, actors, fixtures or assertions." loses "or assertions" (C69). "run({
-        signal?, frames? })" is replaced by run() (C69). "Both Story kinds support send, process,
-        advance, advanceTo, advanceToNextTimer, checkpoint and run." is replaced by the step list
-        (C69; C70). "App ensure(ref, options?) follows @plan.Runtime.O3 at the chosen step." is
-        replaced by ensure attaching one use, with no input (C110; C122; C144). "send never
-        creates an absent actor" becomes "may restore, never create" (C110). "Scenario commands
-        accept no arbitrary callbacks..." is kept (C69). The fragments' Testing O1 row and C63's
-        syntax are replaced by Story.fragment (C69).
     O2  Steps settle; time
         Identical plans, seeds and fake inputs produce identical ordered traces. Each run has fresh
         service state, seeded ids and randomness (each tab seeded from the run seed, tab name and
@@ -104,12 +91,6 @@ outcomes
         while each listed send, control or { advance } arrives, then admission resumes and the
         step settles. During cleanup the Clock runs free and cleanup may yield. Invalid or
         backwards movement rejects with InvalidDuration before changing time.
-
-        Superseded: "process() drains currently eligible work that can settle without moving time.
-        ... Each call permits 10,000 production turns." is replaced by every step settling, with the
-        turn limit per instant (C70). "advanceTo(epochMilliseconds)" and "advanceToNextTimer()" are
-        replaced by advance({ to }) and advance({ next }) (C70). "These commands make work eligible
-        without draining it; process() applies the due work." is replaced by settling (C70).
     O3  Fixtures and the world
         Fixtures are Effect Layers: the client halves of the world, replacing whole service
         functions while preserving their input, success, failure, cancellation and lifetime
@@ -139,11 +120,6 @@ outcomes
         live store. A tab opened from another (openTab's from) carries storage only. Storage
         fixtures may seed encoded records before bootstrap, but cannot bypass production
         validation. Acquisition failures still trigger @O8 cleanup.
-
-        Superseded: "Delays and responses pass through real services and the controlled clock" is
-        replaced by fakes, the wire words and provenance; "fixtures cannot inject operation
-        outcomes directly" is kept (C71; C53). C16's checkpoint-predicate truth is superseded by
-        cp.read(fake) (C71).
     O4  Frames, checkpoints and StoryFrame
         A frame is one captured cut of the run. A run records a frame after every committed
         publication, a settlement included, and every step ends with a step cut (its latest
@@ -186,24 +162,9 @@ outcomes
         is rendered below its FlowProvider, since StoryFrame supplies the Flow context. Eligibility
         uses production checks, including denial reasons and context. tab selects a tab's cut
         (@O7). Rendering a frame is not a restore or a replay.
-
-        Superseded: "a frame after every command by default, or after every committed publication
-        with frames: "publication"; frames: "named" records only checkpoints. Consecutive identical
-        frames collapse into one." is replaced by publication frames, step cuts and no collapse
-        (C72). "checkpoint(name) captures immediately without processing" becomes a named step cut
-        (C72). "checkpoint.actor(ref)" reads cp.read(ref); "pending" reads cp.inspection.work;
-        "Entity.get(checkpoint, key, shape)" reads cp.entity(...) with predicted; descriptor.get,
-        Domain.entry.get, Entity.queue and shape on a checkpoint are removed (C72; C27).
     O5  Models and replay (removed)
         Removed: model-based exploration is cut. Flow keeps one runtime; finding unwritten
         sequences stays with propertyTest (@O6) on the real Runtime.
-
-        Superseded: the whole outcome, "model(baseStory, { stateKey }) accepts a command-empty
-        focused Story ... Live replay must match predicted keys at every prefix and the end; pure
-        exploration alone proves no effect behaviour.", with getShortestPaths, getSimplePaths and
-        the invariants, hot and explore options, is removed (T1; C77): exploration predicted
-        operations, schedules and turns without running them, a second execution path that had
-        to keep replay parity with the Runtime.
     O6  Reproducible property tests
         propertyTest(story, { steps, properties?, whenQuiet?, seed, runs?, length?, quietWithin? })
         generates ordinary Stories from story on fresh production Runtimes. steps are step data
@@ -237,14 +198,6 @@ outcomes
         literal inputs, controls and seed. Repeated replay produces identical traces. Export
         redaction identifies omissions that prevent the printed projection alone from reproducing
         the failure.
-
-        Superseded: "propertyTest(domains, options) generates ordinary Stories" and the options
-        "fixture, inputs and seed, with optional runs, steps and quietWithin" are replaced by
-        propertyTest(story, { ... }) and domainPropertyOptions (C73); runs and length keep the
-        defaults 50 and 40 (the runner's reading of steps' default as length's). "Every committed
-        publication is checked, even when process() drains many turns." loses process() (C73).
-        "Results distinguish Pass, Fail and Inconclusive" is kept (C73); "insufficient evidence is
-        Inconclusive" gains the truncation exception (C73).
     O7  Isolation, hydration and lazy features
         Run, scope and request isolation follows @plan.Runtime.O7. Tests use no browser storage or
         live state from another run.
@@ -275,11 +228,6 @@ outcomes
         moving time or invoking a module loader, following @plan.LazyFeatures.O2. Checkpoints
         expose adopted entries; unrelated dormant records remain dormant. Real module loading is
         exercised by production host tests.
-
-        Superseded: "sharing that run's in-memory storage" reads the run's fake servers and
-        Fake.storage (C74). "closeTab(name) ends it abruptly" is kept (C53). "checkpoints expose
-        tabs.<name>" reads records with tab (C72; C74). "dehydrate is the explicit exception to
-        process-only draining." goes with process() (C70; C74).
     O8  Cleanup and failure evidence
         A run takes no cancellation signal: it never yields to the host, so nothing could call
         abort during one, and a runner's timeout reports only when the run ends; the hop cap, the
@@ -303,12 +251,6 @@ outcomes
         index or bootstrap/capture/cleanup boundary, primary and cleanup diagnostics, trace and
         truncation, and last accepted and drained evidence positions. Direct and CLI runs agree on
         results and retained evidence.
-
-        Superseded: "Cancellation stops admission and later commands, retains partial evidence and
-        waits for finalization. A blocked send settles once; no committed turn or end is
-        fabricated." and the cancellation flag go with signal (C75). "Execution or cancellation
-        failure stays primary" becomes the earliest recorded error (C75). The error names are
-        added (C75).
     O9  Story playback
         <StoryPlayer run={run}> plays a run's frames over time under a floating overlay, built only
         from StoryFrame; <StoryPlayer presentation={presentation}> first records the
@@ -327,9 +269,6 @@ outcomes
         send the Story's next event, comparing the addressed event. A closed tab renders nothing
         and reports the gap. Fragment-alone Stories are not playable (a type error). Route changes
         run host code; only Flow work is inert.
-
-        Superseded: "highlights the control whose click would send the Story's next event" gains
-        the addressed event; closed tabs and fragment Stories are added (C76).
 verification
     V1  Type errors prove exact inputs, context, fixtures, checkpoint keys and the checkpoint
         reads' types.
@@ -339,8 +278,7 @@ verification
     V4  Tests prove complete passive cuts, publication frames, step cuts and captured reads,
         stable earlier evidence, and StoryFrame rendering with gaps, inert clicks and the frame's
         time.
-    V5  Removed with @O5 (T1; C77). Was: tests prove model ordering, bounds, truncation and live
-        replay parity at every prefix.
+    V5  Removed with @O5 (T1; C77).
     V6  Property tests prove seeded replay, validated steps, Pass, Fail and Inconclusive judging,
         FramesTruncated, and shrinking.
     V7  Stories prove isolated hydration evidence, exact-step lazy adoption without loading,
@@ -348,9 +286,6 @@ verification
     V8  Tests prove cleanup failures and direct/CLI partial-evidence parity.
     V9  Player tests prove playback starts no Flow work, scrubbing never re-executes, and
         presentation scenes reject unknown checkpoints.
-
-        Superseded: V1 adds the reads' types; V3 proves the settle and instant order; V4 loses
-        "frame recording and collapse"; V6 adds FramesTruncated; V8 loses cancellation (C77; C75).
 questions
     Q1  What measured quiet horizon and shrink budget should replace the initial defaults?
         Retain 60 virtual seconds and 1,000 shrink candidates until measurements justify a change;
@@ -360,6 +295,3 @@ questions
         literal encoding. Checkpoint container freezing and private name lookup. Cleanup phase
         implementation. Discovery identity encoding. Evidence artifact codecs and host coverage.
         The settle constant K and the hop cap.
-
-        Superseded: "Model key encoding and limits. Model path descriptions and traversal
-        metadata." go with @O5 (T1).
