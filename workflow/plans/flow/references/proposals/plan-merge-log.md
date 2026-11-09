@@ -368,3 +368,44 @@ Conflicts:
 
 Prototype check (S2): `ScheduleLeadsToWrite`, `IdentityFieldOptional` and `UnboundedBridge` are not built; kept as
 contract, as the design lists them.
+
+## CommandLine
+
+Rows merged: fragments row (CommandLine O5), C18, C65, C69 (ids), C70 and C75 (the run never yields), C81, C101,
+C125, C139, C141, C145, C163, C170, C177, C182, C185, C193, C209, C215, C216, T2, T3, T4, and merge 5's CommandLine
+amendments (S1 rows 13-17, **accepted** after reading 6.4 and CommandLine.plan lines 22-25, 95-139 myself; row 15's
+`flow check --watch` merged as written; its "(the editor path, pending the owner's 9.8)" left out as a pointer to an
+open question outside the plans).
+
+| # | Outcome | Before | After | Decision |
+| --- | --- | --- | --- | --- |
+| CL-1 | O1 | command list with `trace summarize`, `diff --base` | `trace <story-id> [--at]`; `trace diff` with the export; no `diff --base`; output for people | C141; OD43; the user, 2026-11-02 |
+| CL-2 | O1 | describe and list sentences | plan-only describe; `story list --coverage` | C81; T2 |
+| CL-3 | O1 | graph via Inspection O6 | edge rules (one edge per alternative, marks, unseen) | C141 |
+| CL-4 | O1 | static explain | lane key and cardinality, stream lines, schedule paths, covers, domain-write lines; `explain <release> --since <release>` (proposed) | C18; C101; C125; C197; C216; merge 5 |
+| CL-5 | O2 | "Only story run starts application work."; interruption stops later commands | adds trace; no mid-run handler; story run's report and exit 2 | C70; C75; C81; C141 |
+| CL-6 | O4 | trace summarize | artifact queries with the export; explain over lane, ending, store and session evidence | C141; 2.10.14 |
+| CL-7 | O5 | "without running application callbacks"; warning list | compiled data view and recording proxies; the full error, warning and info lists; strict late-turn error; check --watch; key-order lint | fragments row; C18; C65; C81; C101; C125; C139; C145; C163; C170; C177; C182; C185; C193; C209; C215; T2-T4; merge 5 |
+| CL-8 | O6 | `defineConfig({ apps: [{ app, stories }] })`; ids within an app; revision diff | top-level stories, `tsconfig`; ids across the configuration; revision diff cut | C69; C81; merge 5; the user, 2026-11-02 |
+| CL-9 | Q1 | "warning slugs and static-analysis implementation" | static analysis for domains decided (one adapter with Inspection D2) | merge 5 row 17 |
+
+Counts: 9 edits; 13 superseded sentences marked (O1: 5, O2: 3, O4: 1, O5: 3, O6: 3, less overlap).
+
+Conflicts:
+- **CLC1, applied as the user's decision, for the user's read.** `diff --base <git-revision>` and `trace diff`: the
+  user cut both on 2026-11-02 (the CLI keeps check, explain, graph, story and trace; recorded in the session memory,
+  not in the design), while the design's later OD43 (the user, 2026-11-07) says "a trace file, `diff` and `--actor`
+  come with Inspection O4's export". Recommended and applied: `diff --base` cut (the design never mentions it after
+  2026-11-02, and `explain --since` covers release comparison); `trace diff` and artifact selectors kept, tied to the
+  export, as the later OD43 says. Judge: the user (both are the user's words; the later one wins where they meet).
+  Reversible: one line each.
+- **CLC2, agent-judged, applied (small API name).** `flow stories --coverage` (the design's T2, C81) versus
+  `flow story list --coverage` (the user's 2026-11-02 CLI scope). Recommended: `story list --coverage`, inside the
+  user's command set. Judge: the runner (amendment 9, a small name). Reversible: one name.
+- **CLC3, agent-judged, applied.** CommandLine O2's interruption sentences presumed a handler during a run; the
+  design's run never yields, so none is installed (2.10.14, SA RV3 L5). Applied: interruption is handled before or
+  after a run. Judge: the runner (follows decided Stories rules). Reversible: one paragraph.
+
+Prototype check (S2): built: `flow check` rule 15 (strict, own lane only, as stated), `SharedContract`,
+`GoneWithoutKey`; not built and kept as contract: `ScheduleLeadsToWrite`, the stay-put false positive's refinement,
+`UnboundedBridge`, the allowlist lint.
