@@ -68,19 +68,22 @@ export const settle = (world: World, pending: () => boolean) => {
 };
 
 /**
- * Moves time forward by `ms`, firing each due timer in time order and settling after each.
+ * Moves time forward by `ms`, firing each due timer in time order and settling after each,
+ * including timers armed along the way that fall due by the end.
  */
 export const advance = (world: World, ms: number, pending: () => boolean) => {
   const end = world.clock.now() + ms;
   settle(world, pending);
 
-  for (let due = world.clock.nextDue(end); Option.isSome(due); due = world.clock.nextDue(end)) {
-    world.clock.fire(due.value);
+  for (;;) {
+    const due = world.clock.nextDue(end);
+
+    if (Option.isSome(due)) world.clock.fire(due.value);
+    else if (world.clock.now() < end) world.clock.moveTo(end);
+    else return;
+
     settle(world, pending);
   }
-
-  world.clock.moveTo(end);
-  settle(world, pending);
 };
 
 /**

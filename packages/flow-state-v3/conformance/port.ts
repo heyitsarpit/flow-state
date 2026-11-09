@@ -1,4 +1,4 @@
-import { Data, type Option } from "effect";
+import { Data, type Option, Schema } from "effect";
 import type { World } from "./world/world.ts";
 
 /**
@@ -18,7 +18,12 @@ export type ActorRef = { readonly machine: string; readonly id: string };
  * The channel an ending was decided on: success, failure (this send did not do it) or unknown
  * (it may have happened).
  */
-export type Channel = "success" | "failure" | "unknown";
+export const Channel = Schema.Literals(["success", "failure", "unknown"]);
+
+/**
+ * The decoded {@link Channel}.
+ */
+export type Channel = typeof Channel.Type;
 
 /**
  * What the published row of a write lane shows, as the public `O.x.get` returns it.
@@ -50,7 +55,17 @@ export const Snapshot = Data.taggedEnum<Snapshot>();
 /**
  * Evidence a runtime records without delivering it (WriteLanes R3, R10).
  */
-export type EvidenceKind = "Superseded" | "Released" | "InFlight" | "NothingToResend";
+export const EvidenceKind = Schema.Literals([
+  "Superseded",
+  "Released",
+  "InFlight",
+  "NothingToResend",
+]);
+
+/**
+ * The decoded {@link EvidenceKind}.
+ */
+export type EvidenceKind = typeof EvidenceKind.Type;
 
 /**
  * One public report from a runtime, in the order it happened.
@@ -132,6 +147,12 @@ export type Boot = {
  *
  * A case's steps call these; the suite settles the world after each.
  *
+ * **Details**
+ *
+ * - `ensure` attaches one use of the identity, as a mounted screen does, creating it if needed.
+ * - `ensureExisting` attaches a use to an identity that is live or restorable, never creating one;
+ *   the suite calls it for each use it holds after a reload.
+ *
  * **Gotchas**
  *
  * - `pending` says the runtime has work that no host task shows yet. Settling needs it; nothing
@@ -152,8 +173,7 @@ export type Runtime = {
  *
  * **When to use**
  *
- * Write one adapter per runtime: the prototype's now, production's in phase 4. Scenarios and
- * oracles see only this.
+ * Write one adapter per runtime. Scenarios and oracles see only this.
  *
  * **Details**
  *
@@ -164,7 +184,7 @@ export type Runtime = {
  * import { Effect } from "effect"
  * import { loadPrototype } from "./adapters/prototype.ts"
  *
- * const port = Effect.runSync(loadPrototype("packages/flow-state-v3/prototypes/round-14"))
+ * const port = Effect.runPromise(loadPrototype("packages/flow-state-v3/prototypes/round-14"))
  * ```
  */
 export type Port = {

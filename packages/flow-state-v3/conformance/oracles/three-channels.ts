@@ -6,7 +6,7 @@ import {
   type Reference,
 } from "../fixtures/reference.ts";
 import { Observation } from "../port.ts";
-import { Answer } from "../world/network.ts";
+import { Answer, type Request, RequestPhase } from "../world/network.ts";
 import { Fact, type Facts, type Oracle, steps } from "./oracle.ts";
 
 type Ended = Extract<Observation, { readonly _tag: "Ended" }>;
@@ -65,10 +65,17 @@ const deliveredAsMapped = (timeline: ReadonlyArray<Fact>, reference: Reference) 
     else declines.set(ended.operation, [...(declines.get(ended.operation) ?? []), ended]);
   };
 
+  const takeDecline = (operation: string) => {
+    const [first, ...rest] = declines.get(operation) ?? [];
+    declines.set(operation, rest);
+
+    return Option.fromUndefinedOr(first);
+  };
+
   const endingOf = (delivered: Delivered) =>
     Option.isSome(delivered.attempt)
       ? Option.fromUndefinedOr(latest.get(idOf(delivered.operation, delivered.attempt.value)))
-      : Option.fromUndefinedOr(declines.get(delivered.operation)?.shift());
+      : takeDecline(delivered.operation);
 
   const judge = (delivered: Delivered) =>
     Option.match(endingOf(delivered), {
@@ -83,7 +90,9 @@ const deliveredAsMapped = (timeline: ReadonlyArray<Fact>, reference: Reference) 
     });
 
   return timeline.flatMap((fact) => {
-    Option.map(endedOf(fact), remember);
+    const ended = endedOf(fact);
+
+    if (Option.isSome(ended)) remember(ended.value);
 
     return Option.toArray(deliveredOf(fact)).flatMap(judge);
   });
@@ -91,6 +100,9 @@ const deliveredAsMapped = (timeline: ReadonlyArray<Fact>, reference: Reference) 
 
 const expectedEnding = (answer: Answer, mayHaveApplied: boolean, operation: OperationReference) => {
   const channel = operation.classify(answer, mayHaveApplied);
+
+  if (Answer.$is("Die")(answer))
+    return { channel: "unknown" as const, reason: Option.some("Defect") };
 
   if (channel === "failure" && mayHaveApplied)
     return { channel: "unknown" as const, reason: Option.some("StillUnknown") };
@@ -120,26 +132,52 @@ const judgeAnswered = (id: string, asked: Asked, ended: Ended, operation: Operat
   ];
 };
 
-const endedAsAnswered = (timeline: ReadonlyArray<Fact>, reference: Reference) => {
-  const unsure = new Set<string>();
+const heard = (request: Request, operation: OperationReference) =>
+  RequestPhase.$match(request.phase, {
+    Answered: ({ answer }) => operation.classify(answer, false) !== "unknown",
+    Open: () => false,
+    Hanging: () => false,
+    Aborted: () => false,
+    Orphaned: () => false,
+  });
 
+const earlierUnsure = (
+  request: Request,
+  requests: ReadonlyArray<Request>,
+  operation: OperationReference,
+) =>
+  requests.some(
+    (r) =>
+      r.seq < request.seq &&
+      r.operation === request.operation &&
+      Option.isSome(r.key) &&
+      Option.contains(request.key, r.key.value) &&
+      !heard(r, operation),
+  );
+
+const endedAsAnswered = (facts: Facts) => {
   const inStep = (step: ReadonlyArray<Fact>) => {
     const asked = new Map<string, Asked>();
 
     const ask = (fact: Fact) => {
       if (!Fact.$is("Answered")(fact) || Option.isNone(fact.request.key)) return;
       const id = idOf(fact.request.operation, fact.request.key.value);
-      asked.set(id, { answer: fact.answer, mayHaveApplied: unsure.has(id) });
+      const operation = writeNamed(facts.reference, fact.request.operation);
+
+      const mayHaveApplied = Option.match(operation, {
+        onNone: () => false,
+        onSome: (o) => earlierUnsure(fact.request, facts.requests, o),
+      });
+
+      asked.set(id, { answer: fact.answer, mayHaveApplied });
     };
 
     const end = (ended: Ended) => {
       if (Option.isNone(ended.attempt)) return [];
       const id = idOf(ended.operation, ended.attempt.value);
       const answered = Option.fromUndefinedOr(asked.get(id));
-      const operation = writeNamed(reference, ended.operation);
+      const operation = writeNamed(facts.reference, ended.operation);
       asked.delete(id);
-
-      if (ended.channel === "unknown") unsure.add(id);
 
       if (Option.isNone(answered) || Option.isNone(operation)) return [];
 
@@ -153,7 +191,7 @@ const endedAsAnswered = (timeline: ReadonlyArray<Fact>, reference: Reference) =>
     });
   };
 
-  return steps(timeline).flatMap(inStep);
+  return steps(facts.timeline).flatMap(inStep);
 };
 
 /**
@@ -162,25 +200,28 @@ const endedAsAnswered = (timeline: ReadonlyArray<Fact>, reference: Reference) =>
  *
  * **Details**
  *
- * Three checks, each anchored to a fact the suite owns:
+ * Three checks:
  * - an ending decided in the step the suite's server answered its Attempt is on the channel the
- *   fixture's commit gives that answer (the fixture's reference), turned into `unknown
- *   StillUnknown` when an earlier send of the Attempt ended unknown;
- * - a delivered ending runs the event the fixture maps its channel and reason to;
+ *   fixture's commit gives that answer (the fixture's reference); it is `unknown Defect` for a
+ *   died call, and `unknown StillUnknown` for a definite failure when an earlier send of that
+ *   Attempt was never definitely answered by the server. Anchored to the server's log.
+ * - a delivered ending runs the event the fixture's reference maps the ending's channel and reason
+ *   to. The mapping is the suite's; the channel and reason are the runtime's own report, so for an
+ *   ending the server did not decide (a decline, a restore, a cancel) this is consistency only.
  * - no Attempt reports a definite failure after an unknown (report consistency).
  *
  * **Gotchas**
  *
  * - Only operations the case's references name, once, are checked by mapping.
- * - The Port's `Ended` channel is typed; an adapter that cannot read a channel reports no ending,
- *   which the delivery check then sees as a delivery with no ending.
+ * - An ending decided in a later step than its answer is not judged against that answer.
+ * - Declines carry no Attempt id and are paired with deliveries in order per operation.
  */
 export const threeChannels: Oracle = {
   name: "three-channels",
   guarantee: "WriteLanes I3",
-  check: ({ timeline, reference }: Facts) => [
-    ...endedAsAnswered(timeline, reference),
-    ...deliveredAsMapped(timeline, reference),
-    ...failureAfterUnknown(timeline),
+  check: (facts: Facts) => [
+    ...endedAsAnswered(facts),
+    ...deliveredAsMapped(facts.timeline, facts.reference),
+    ...failureAfterUnknown(facts.timeline),
   ],
 };

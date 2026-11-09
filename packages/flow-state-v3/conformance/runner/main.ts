@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { Console, Effect, Option, Schema } from "effect";
+import { Console, Data, Effect, Option, Schema } from "effect";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,11 +14,30 @@ const MAIN = fileURLToPath(import.meta.url);
 const NULL_RUNTIME = "null";
 const DEFAULT_RUNTIME = resolve(dirname(MAIN), "..", "..", "prototypes", "round-14");
 
+type RuntimeChoice = Data.TaggedEnum<{ Null: {}; Prototype: { readonly dir: string } }>;
+
+const RuntimeChoice = Data.taggedEnum<RuntimeChoice>();
+
 const flag = (args: ReadonlyArray<string>, name: string) => {
   const at = args.indexOf(name);
 
   return at < 0 ? Option.none<string>() : Option.fromUndefinedOr(args[at + 1]);
 };
+
+const runtimeChoice = (args: ReadonlyArray<string>) => {
+  const given = Option.getOrElse(flag(args, "--runtime"), () => DEFAULT_RUNTIME);
+
+  return given === NULL_RUNTIME
+    ? RuntimeChoice.Null()
+    : RuntimeChoice.Prototype({ dir: resolve(given) });
+};
+
+const runtimeArg = RuntimeChoice.$match({ Null: () => NULL_RUNTIME, Prototype: ({ dir }) => dir });
+
+const portOf = RuntimeChoice.$match({
+  Null: () => Effect.succeed(nullPort),
+  Prototype: ({ dir }) => loadPrototype(dir),
+});
 
 const list = (value: Option.Option<string>) =>
   Option.match(value, {
@@ -44,25 +63,18 @@ const report = (verdicts: ReadonlyArray<CaseVerdict>, json: boolean) =>
 
     for (const v of verdicts) yield* Console.log(lineOf(v));
     const passed = verdicts.filter((v) => v._tag === "Pass").length;
-    yield* Console.log(
-      `VERDICT ${passed === verdicts.length && verdicts.length > 0 ? "pass" : "fail"} ${passed}/${verdicts.length}`,
-    );
+    const ok = passed === verdicts.length && verdicts.length > 0;
+    yield* Console.log(`VERDICT ${ok ? "pass" : "fail"} ${passed}/${verdicts.length}`);
 
-    if (passed !== verdicts.length || verdicts.length === 0) process.exitCode = 1;
+    if (!ok) process.exitCode = 1;
   });
 
-const sliceVerdicts = (runtime: string, ids: ReadonlyArray<string>) =>
-  suiteIn(MAIN, runtime, ids, 240).pipe(
-    Effect.map((run) =>
-      Option.getOrElse(run.verdicts, () =>
+const sliceVerdicts = (runtime: RuntimeChoice, ids: ReadonlyArray<string>) =>
+  suiteIn(MAIN, runtimeArg(runtime), ids, 240).pipe(
+    Effect.catchTag("NoVerdicts", (e) =>
+      Effect.succeed(
         ids.map(
-          (id) =>
-            ({
-              _tag: "Fail",
-              id,
-              oracle: Option.none(),
-              why: `no verdict from its child (exit ${run.out.code}): ${run.out.stderr.slice(-200)}`,
-            }) satisfies CaseVerdict,
+          (id) => ({ _tag: "Fail", id, oracle: Option.none(), why: e.why }) satisfies CaseVerdict,
         ),
       ),
     ),
@@ -70,12 +82,17 @@ const sliceVerdicts = (runtime: string, ids: ReadonlyArray<string>) =>
 
 const suite = (args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
-    const given = Option.getOrElse(flag(args, "--runtime"), () => DEFAULT_RUNTIME);
-    const runtime = given === NULL_RUNTIME ? given : resolve(given);
+    const runtime = runtimeChoice(args);
     const only = list(flag(args, "--only"));
 
     const chosen = scenarios.filter((s) =>
       Option.match(only, { onNone: () => true, onSome: (ids) => ids.includes(s.id) }),
+    );
+
+    const missing = Option.getOrElse(only, () => []).flatMap((id) =>
+      scenarios.some((s) => s.id === id)
+        ? []
+        : [{ _tag: "Fail", id, oracle: Option.none(), why: "no such case" } satisfies CaseVerdict],
     );
 
     const json = args.includes("--json");
@@ -90,12 +107,12 @@ const suite = (args: ReadonlyArray<string>) =>
         concurrency: parallel,
       });
 
-      return yield* report(runs.flat(), json);
+      return yield* report([...runs.flat(), ...missing], json);
     }
 
-    const port = runtime === NULL_RUNTIME ? nullPort : yield* loadPrototype(runtime);
+    const port = yield* portOf(runtime);
 
-    return yield* report(yield* runCases(port, chosen, oracles), json);
+    return yield* report([...(yield* runCases(port, chosen, oracles)), ...missing], json);
   });
 
 const falsify = (args: ReadonlyArray<string>) =>
@@ -108,26 +125,29 @@ const falsify = (args: ReadonlyArray<string>) =>
       Option.match(only, { onNone: () => true, onSome: (names) => names.includes(l.name) }),
     );
 
-    const onNull = yield* sliceVerdicts(
+    const stated = (run: string, ids: ReadonlyArray<string>) =>
+      suiteIn(MAIN, run, ids, 120).pipe(
+        Effect.map(Option.some),
+        Effect.catchTag("NoVerdicts", () =>
+          Effect.succeed(Option.none<ReadonlyArray<CaseVerdict>>()),
+        ),
+      );
+
+    const onNull = yield* stated(
       NULL_RUNTIME,
       scenarios.map((s) => s.id),
     );
 
-    const passedOnNull = onNull.filter((v) => v._tag === "Pass").map((v) => v.id);
-    const nullRed = onNull.length === scenarios.length && passedOnNull.length === 0;
+    const nullRed = Option.match(onNull, {
+      onNone: () => false,
+      onSome: (v) => v.length === scenarios.length && v.every((x) => x._tag === "Fail"),
+    });
 
-    yield* Console.log(
-      `${nullRed ? "ok  " : "BAD "} null runtime: every case fails${nullRed ? "" : `; passed: ${passedOnNull.join(" ")}`}`,
-    );
+    yield* Console.log(`${nullRed ? "ok  " : "BAD "} null runtime: every case states a failure`);
 
-    const control = yield* suiteIn(
-      MAIN,
-      runtime,
-      [...new Set(chosen.flatMap((l) => l.cases))],
-      120,
-    );
+    const control = yield* stated(runtime, [...new Set(chosen.flatMap((l) => l.cases))]);
 
-    const controlGreen = Option.match(control.verdicts, {
+    const controlGreen = Option.match(control, {
       onNone: () => false,
       onSome: (v) => v.length > 0 && v.every((x) => x._tag === "Pass"),
     });

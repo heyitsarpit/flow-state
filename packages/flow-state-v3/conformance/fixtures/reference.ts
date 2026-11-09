@@ -1,4 +1,4 @@
-import { Option } from "effect";
+import { Data, Option } from "effect";
 import type { Channel } from "../port.ts";
 import { Answer } from "../world/network.ts";
 
@@ -90,18 +90,45 @@ const pay = {
 const catalog = new Map<string, Reference>([["pay", { "Checkout/Pay": pay }]]);
 
 /**
+ * A case named a fixture with no reference: a suite defect.
+ */
+export class NoReference extends Data.TaggedError("NoReference")<{ readonly fixture: string }> {}
+
+/**
  * The reference of a case: the references of the fixtures it boots, by their catalog names.
  *
  * **Details**
  *
  * `pay` is the typed Pay fixture (`prototypes/conformance/typed/pay.ts`), machine `Checkout/Pay`.
- * Its reads (`intent`, `order`) have no Attempts and are not listed yet. A name with no reference
- * adds nothing.
+ * Only its writes are referenced; its reads (`intent`, `order`) have no Attempts.
+ *
+ * **Gotchas**
+ *
+ * - Throws `NoReference` for a name the catalog lacks, so a misspelt fixture fails its case.
  */
 export const referenceFor = (fixtures: ReadonlyArray<string>) =>
   Object.fromEntries(
-    fixtures.flatMap((name) => Object.entries(catalog.get(name) ?? {})),
+    fixtures.flatMap((name) => {
+      const found = catalog.get(name);
+
+      if (found === undefined) throw new NoReference({ fixture: name });
+
+      return Object.entries(found);
+    }),
   ) satisfies Reference;
+
+const FLOW_DECLINES = [
+  "Cancelled",
+  "Restored",
+  "Rejected",
+  "Overloaded",
+  "StorageRefused",
+  "Disposed",
+  "NoPersistence",
+  "OldVersion",
+  "Unencodable",
+  "ModuleDisabled",
+];
 
 /**
  * The one operation of this name among a case's fixtures; none when no fixture or two fixtures
@@ -127,12 +154,17 @@ export const operationNamed = (reference: Reference, name: string) => {
  *
  * **Details**
  *
- * A failure's reason is its tag, or the `why` of a Flow decline, which maps through `NotSent`.
+ * A failure's reason is its tag, or the `why` of a Flow decline (`NotSent { why }`, the closed
+ * list of WriteLanes R3), which maps through `NotSent`. Any other reason has no mapping.
  */
 export const mappedEvent = (operation: OperationReference, channel: Channel, reason: string) => {
   if (channel === "success") return Option.some(operation.success);
 
   if (channel === "unknown") return Option.some(operation.unknown);
 
-  return Option.fromUndefinedOr(operation.failure[reason] ?? operation.failure["NotSent"]);
+  const tagged = Option.fromUndefinedOr(operation.failure[reason]);
+
+  if (Option.isSome(tagged) || !FLOW_DECLINES.includes(reason)) return tagged;
+
+  return Option.fromUndefinedOr(operation.failure["NotSent"]);
 };

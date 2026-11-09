@@ -5,8 +5,8 @@ import type { Lie } from "./oracle.ts";
  *
  * **Details**
  *
- * - `k.failure-as-success`: the prototype suite's lie of that name, unchanged.
- * - `lie.still-unknown-dropped`: new; the Spec's R2 rule a prototype lie never covered alone.
+ * - `k.failure-as-success`: a failure ending runs the success event.
+ * - `lie.still-unknown-dropped`: a definite failure after an unknown send stays a failure.
  */
 export const threeChannelsLies: ReadonlyArray<Lie> = [
   {

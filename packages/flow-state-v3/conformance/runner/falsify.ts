@@ -26,58 +26,73 @@ class Unapplied extends Data.TaggedError("Unapplied")<{ readonly why: string }> 
 
 const occurrences = (text: string, find: string) => text.split(find).length - 1;
 
+/**
+ * A child run printed no readable verdicts: it died, or printed something else.
+ */
+export class NoVerdicts extends Data.TaggedError("NoVerdicts")<{ readonly why: string }> {}
+
 const copyRuntime = (runtimeDir: string, scratch: string) =>
   Effect.acquireRelease(
-    Effect.sync(() => {
-      const root = mkdtempSync(join(scratch, "flow-lie-"));
-      const prototypes = join(root, "prototypes");
-      cpSync(runtimeDir, join(prototypes, basename(runtimeDir)), {
-        recursive: true,
-        filter: (f) => basename(f) !== "node_modules",
-      });
-      symlinkSync(resolve(runtimeDir, "..", "conformance"), join(prototypes, "conformance"));
-      symlinkSync(
-        resolve(runtimeDir, "..", "..", "..", "..", "node_modules"),
-        join(root, "node_modules"),
-      );
+    Effect.try({
+      try: () => {
+        const root = mkdtempSync(join(scratch, "flow-lie-"));
+        const prototypes = join(root, "prototypes");
+        cpSync(runtimeDir, join(prototypes, basename(runtimeDir)), {
+          recursive: true,
+          filter: (f) => basename(f) !== "node_modules",
+        });
+        symlinkSync(resolve(runtimeDir, "..", "conformance"), join(prototypes, "conformance"));
+        symlinkSync(
+          resolve(runtimeDir, "..", "..", "..", "..", "node_modules"),
+          join(root, "node_modules"),
+        );
 
-      return { root, runtime: join(prototypes, basename(runtimeDir)) };
+        return { root, runtime: join(prototypes, basename(runtimeDir)) };
+      },
+      catch: (cause) => new NoVerdicts({ why: `could not copy the runtime: ${String(cause)}` }),
     }),
     ({ root }) => Effect.sync(() => rmSync(root, { recursive: true, force: true })),
   );
 
-const applyEdits = (runtime: string, lie: Lie) =>
-  Effect.forEach(
-    lie.edits,
-    (edit) =>
-      Effect.suspend(() => {
-        const path = join(runtime, edit.file);
-        const text = readFileSync(path, "utf8");
-        const n = occurrences(text, edit.find);
+const applyEdit = (runtime: string, edit: Lie["edits"][number]) =>
+  Effect.try({
+    try: () => {
+      const path = join(runtime, edit.file);
+      const text = readFileSync(path, "utf8");
 
-        if (n !== 1)
-          return Effect.fail(
-            new Unapplied({ why: `${edit.file}: the edit's text occurs ${n} times` }),
-          );
-        writeFileSync(
-          path,
-          text.replace(edit.find, () => edit.replace),
-        );
-
-        return Effect.void;
-      }),
-    { concurrency: 1 },
+      return { path, text, n: occurrences(text, edit.find) };
+    },
+    catch: (cause) => new Unapplied({ why: `${edit.file}: ${String(cause)}` }),
+  }).pipe(
+    Effect.flatMap(({ path, text, n }) =>
+      n === 1
+        ? Effect.try({
+            try: () =>
+              writeFileSync(
+                path,
+                text.replace(edit.find, () => edit.replace),
+              ),
+            catch: (cause) => new Unapplied({ why: `${edit.file}: ${String(cause)}` }),
+          })
+        : Effect.fail(new Unapplied({ why: `${edit.file}: the edit's text occurs ${n} times` })),
+    ),
   );
 
-const verdictsOf = (stdout: string) =>
+const applyEdits = (runtime: string, lie: Lie) =>
+  Effect.forEach(lie.edits, (edit) => applyEdit(runtime, edit), { concurrency: 1 });
+
+const verdictsOf = (stdout: string, stderr: string, code: number) =>
   Option.match(
     Option.fromUndefinedOr(stdout.split("\n").find((line) => line.startsWith(VERDICTS_LINE))),
     {
-      onNone: () => Effect.succeed(Option.none<ReadonlyArray<CaseVerdict>>()),
+      onNone: () =>
+        Effect.fail(new NoVerdicts({ why: `exit ${code}, no verdicts: ${stderr.slice(-300)}` })),
       onSome: (line) =>
         Schema.decodeEffect(VerdictsJson)(line.slice(VERDICTS_LINE.length)).pipe(
-          Effect.map(Option.some),
-          Effect.orElseSucceed(() => Option.none()),
+          Effect.mapError(
+            (issue) =>
+              new NoVerdicts({ why: `unreadable verdicts: ${String(issue).slice(0, 300)}` }),
+          ),
         ),
     },
   );
@@ -102,7 +117,8 @@ const judge = (lie: Lie, verdicts: ReadonlyArray<CaseVerdict>): LieVerdict => {
  *
  * **Details**
  *
- * `main` is the runner's entry file; the child runs `bun <main> suite --json`.
+ * `main` is the runner's entry file; the child runs `bun <main> suite --json`. A child that dies,
+ * runs past `seconds` or prints no readable verdicts fails with `NoVerdicts`.
  */
 export const suiteIn = (
   main: string,
@@ -115,9 +131,8 @@ export const suiteIn = (
     [main, "suite", "--runtime", runtime, "--only", cases.join(","), "--json"],
     seconds,
   ).pipe(
-    Effect.flatMap((out) =>
-      verdictsOf(out.stdout).pipe(Effect.map((verdicts) => ({ out, verdicts }))),
-    ),
+    Effect.mapError((e: ChildFailed) => new NoVerdicts({ why: e.why })),
+    Effect.flatMap((out) => verdictsOf(out.stdout, out.stderr, out.code)),
   );
 
 /**
@@ -132,22 +147,14 @@ export const falsifyOne = (main: string, runtimeDir: string, scratch: string, li
     Effect.gen(function* () {
       const copy = yield* copyRuntime(runtimeDir, scratch);
       yield* applyEdits(copy.runtime, lie);
-      const { out, verdicts } = yield* suiteIn(main, copy.runtime, lie.cases, 120);
 
-      return Option.match(verdicts, {
-        onNone: () =>
-          LieVerdict.NoVerdict({
-            lie: lie.name,
-            why: `exit ${out.code}: ${out.stderr.slice(-300)}`,
-          }),
-        onSome: (v) => judge(lie, v),
-      });
+      return judge(lie, yield* suiteIn(main, copy.runtime, lie.cases, 120));
     }),
   ).pipe(
     Effect.catchTags({
       Unapplied: (e: Unapplied) =>
         Effect.succeed(LieVerdict.NotApplied({ lie: lie.name, why: e.why })),
-      ChildFailed: (e: ChildFailed) =>
+      NoVerdicts: (e: NoVerdicts) =>
         Effect.succeed(LieVerdict.NoVerdict({ lie: lie.name, why: e.why })),
     }),
   );

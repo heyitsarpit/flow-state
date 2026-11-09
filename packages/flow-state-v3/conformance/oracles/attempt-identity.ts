@@ -46,11 +46,11 @@ const sentAsRequested = (timeline: ReadonlyArray<Fact>, reference: Reference) =>
     const sent = sentIn(step, reference);
     const requested = requestedIn(step, reference);
 
-    return [...new Set([...sent.keys(), ...requested.keys()])].flatMap((id) =>
-      (sent.get(id) ?? 0) === (requested.get(id) ?? 0)
+    return [...requested.keys()].flatMap((id) =>
+      (requested.get(id) ?? 0) <= (sent.get(id) ?? 0)
         ? []
         : [
-            `WriteLanes I6: in one step the runtime sent ${id} ${sent.get(id) ?? 0} times and the server received it ${requested.get(id) ?? 0} times`,
+            `WriteLanes I6: in one step the server received ${id} ${requested.get(id) ?? 0} times and the runtime reported sending it ${sent.get(id) ?? 0} times`,
           ],
     );
   });
@@ -108,8 +108,12 @@ const keysMintedAndOpen = (timeline: ReadonlyArray<Fact>, reference: Reference) 
   const learn = (observed: Observation) => {
     if (Observation.$is("Minted")(observed)) minted.add(observed.attempt);
 
-    if (Observation.$is("Ended")(observed) && observed.channel !== "unknown")
-      Option.map(observed.attempt, (attempt) => decided.add(attempt));
+    if (
+      Observation.$is("Ended")(observed) &&
+      observed.channel !== "unknown" &&
+      Option.isSome(observed.attempt)
+    )
+      decided.add(observed.attempt.value);
   };
 
   return timeline.flatMap((fact) => {
@@ -127,18 +131,20 @@ const keysMintedAndOpen = (timeline: ReadonlyArray<Fact>, reference: Reference) 
  *
  * **Details**
  *
- * Anchored to the suite's server, which sees each send's idempotency key and input:
- * - in each step, every send the runtime reports reaches the server under that Attempt's id, once
- *   per report;
- * - every send carries an id a commit minted, and none follows the Attempt's definite ending;
- * - one id is always sent with one input;
+ * The suite's server sees each send's idempotency key and input; each check holds that against
+ * the runtime's reports:
+ * - in each step, every send the server receives under an id is one the runtime reported sending
+ *   under that id (a reported send may die before it reaches the server);
+ * - every send carries an id the runtime reported minting, and none follows that Attempt's
+ *   reported definite ending;
+ * - one id is always sent with one input (the server's log alone);
  * - no id is minted twice (report consistency).
  *
  * **Gotchas**
  *
- * - A runtime that mints a fresh Attempt for a re-send and reports it honestly passes here; the
- *   lane oracle (WriteLanes I12) owns "a Held lane leaves Held only by a retry's resolution".
- * - I7 (retryCount) is checked by cases, not here: the Port's row does not name its Attempt.
+ * - A runtime that mints a fresh Attempt for a re-send and reports it honestly passes here: that
+ *   is a lane rule ("a Held lane leaves Held only by a retry's resolution"), not this one.
+ * - retryCount is checked by cases, not here: the Port's row does not name its Attempt.
  */
 export const attemptIdentity: Oracle = {
   name: "attempt-identity",

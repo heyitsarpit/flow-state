@@ -13,8 +13,10 @@ import type { Scheduler } from "effect";
  *
  * - `page` counts page loads: a reload is a new page.
  * - `sessionSeed` is the entropy the host gives a boot, distinct per page and per world seed.
- * - `hide` tells the runtime the page stopped being seen (`visibilitychange`, `pagehide`).
- * - A kill drops the queued tasks, the scheduler's queue and the hide listeners of the old page.
+ * - `hide` moves the page to hidden and tells the runtime (`visibilitychange`, `pagehide`);
+ *   `show` moves it back. Hiding a hidden page tells nobody.
+ * - A kill drops the queued tasks, the scheduler's queue and the hide listeners of the old page;
+ *   the new page is seen.
  */
 export type Lifecycle = {
   readonly page: () => number;
@@ -24,6 +26,7 @@ export type Lifecycle = {
   readonly onHidden: (listener: () => void) => void;
   readonly hidden: () => boolean;
   readonly hide: () => void;
+  readonly show: () => void;
   readonly runOne: () => boolean;
   readonly idle: () => boolean;
   readonly tasks: () => number;
@@ -40,7 +43,7 @@ export const makeLifecycle = (seed: number): Lifecycle => {
   let fibers: ReadonlyArray<() => void> = [];
   let tasks: ReadonlyArray<() => void> = [];
   let listeners: ReadonlyArray<() => void> = [];
-  let seen = true;
+  let visibility: "seen" | "hidden" = "seen";
 
   const dispatcher = {
     scheduleTask: (task: () => void) => {
@@ -71,12 +74,15 @@ export const makeLifecycle = (seed: number): Lifecycle => {
     onHidden: (listener) => {
       listeners = [...listeners, listener];
     },
-    hidden: () => !seen,
+    hidden: () => visibility === "hidden",
     hide: () => {
-      seen = false;
+      if (visibility === "hidden") return;
+      visibility = "hidden";
 
       for (const listener of listeners) listener();
-      seen = true;
+    },
+    show: () => {
+      visibility = "seen";
     },
     runOne: () => {
       const fiber = take(fibers);
@@ -104,7 +110,7 @@ export const makeLifecycle = (seed: number): Lifecycle => {
       fibers = [];
       tasks = [];
       listeners = [];
-      seen = true;
+      visibility = "seen";
     },
   };
 };

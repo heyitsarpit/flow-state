@@ -27,16 +27,21 @@ export type Answer = Data.TaggedEnum<{
 export const Answer = Data.taggedEnum<Answer>();
 
 /**
- * Where a request is: open, hanging forever, aborted by its caller, or answered.
+ * Where a request is: open, hanging forever, aborted by its caller, orphaned by a page that died
+ * with its caller in it, or answered.
  */
 export type RequestPhase = Data.TaggedEnum<{
   Open: {};
   Hanging: {};
   Aborted: {};
+  Orphaned: {};
   Answered: { readonly answer: Answer };
 }>;
 
-const RequestPhase = Data.taggedEnum<RequestPhase>();
+/**
+ * Constructors and matchers for {@link RequestPhase}.
+ */
+export const RequestPhase = Data.taggedEnum<RequestPhase>();
 
 /**
  * One request the fake server received, in arrival order.
@@ -56,14 +61,6 @@ export type Request = {
 };
 
 /**
- * A tagged error the fake server answers with.
- */
-export class ServerError extends Data.TaggedError("ServerError")<{
-  readonly tag: string;
-  readonly fields: Readonly<Record<string, unknown>>;
-}> {}
-
-/**
  * The fake world's server: every request is held until the suite answers it.
  *
  * **When to use**
@@ -73,11 +70,16 @@ export class ServerError extends Data.TaggedError("ServerError")<{
  *
  * **Details**
  *
- * - The log keeps every request across page loads: the server outlives the page.
+ * - The log keeps every request across page loads: the server outlives the page. A kill orphans
+ *   every open request of the dead page.
  * - `landed` lists the requests the server applied, heard or not.
  * - A read (no key) aborted by its caller ends at the server. A write has no signal: it stays
  *   open, and a later answer changes only what the server did.
  * - A failure reaches the caller as its tagged error: `{ _tag, ...fields }`.
+ *
+ * **Gotchas**
+ *
+ * - `answer` throws `RequestNotOpen` for a request that is not open.
  */
 export type Network = {
   readonly request: (
@@ -100,6 +102,14 @@ export type Network = {
  */
 export class NoHeldRequest extends Data.TaggedError("NoHeldRequest")<{
   readonly operation: string;
+}> {}
+
+/**
+ * Thrown when a request that is not open is answered: a scenario bug, never a verdict.
+ */
+export class RequestNotOpen extends Data.TaggedError("RequestNotOpen")<{
+  readonly seq: number;
+  readonly phase: RequestPhase["_tag"];
 }> {}
 
 const failureOf = (tag: string, fields: Readonly<Record<string, unknown>>) => ({
@@ -154,9 +164,22 @@ export const makeNetwork = (now: () => number, page: () => number): Network => {
       (r) =>
         r.operation === operation &&
         RequestPhase.$is("Open")(r.phase) &&
-        r.page === page() &&
         Option.match(where, { onNone: () => true, onSome: (w) => within(r.input, w) }),
     );
+
+  const reply = (held: Request, answer: Answer) => {
+    if (Answer.$is("Never")(answer)) {
+      setPhase(held.seq, RequestPhase.Hanging());
+
+      return;
+    }
+
+    setPhase(held.seq, RequestPhase.Answered({ answer }));
+    const resume = resumes.get(held.seq);
+    forget(held.seq);
+
+    if (resume !== undefined) resume(outcome(answer));
+  };
 
   return {
     request: (operation, input, key) =>
@@ -180,16 +203,19 @@ export const makeNetwork = (now: () => number, page: () => number): Network => {
       }),
     oldestOpen: (operation, where) => Option.fromUndefinedOr(oldest(operation, where)),
     answer: (held, answer) => {
-      if (Answer.$is("Never")(answer)) {
-        setPhase(held.seq, RequestPhase.Hanging());
+      const now = log[held.seq]?.phase ?? held.phase;
 
-        return;
-      }
+      const refuse = () => {
+        throw new RequestNotOpen({ seq: held.seq, phase: now._tag });
+      };
 
-      setPhase(held.seq, RequestPhase.Answered({ answer }));
-      const resume = resumes.get(held.seq);
-      forget(held.seq);
-      resume?.(outcome(answer));
+      RequestPhase.$match(now, {
+        Open: () => reply(held, answer),
+        Hanging: refuse,
+        Aborted: refuse,
+        Orphaned: refuse,
+        Answered: refuse,
+      });
     },
     requests: () => log,
     landed: () =>
@@ -198,11 +224,15 @@ export const makeNetwork = (now: () => number, page: () => number): Network => {
           Open: () => false,
           Hanging: () => false,
           Aborted: () => false,
+          Orphaned: () => false,
           Answered: ({ answer }) => landsAtServer(answer),
         }),
       ),
     kill: () => {
       resumes = new Map();
+      log = log.map((r) =>
+        RequestPhase.$is("Open")(r.phase) ? { ...r, phase: RequestPhase.Orphaned() } : r,
+      );
     },
   };
 };

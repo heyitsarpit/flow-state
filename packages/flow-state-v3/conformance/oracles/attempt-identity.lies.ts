@@ -7,7 +7,7 @@ const SEND = "      input: h.input,\n      ctx: { id: h.id, mayHaveApplied: h.ma
  *
  * **Details**
  *
- * Both are new: the prototype suite caught them only by a case's own `same id` expectation.
+ * Both edit the prototype's invoke command, where a re-send's commit gets its id and input.
  */
 export const attemptIdentityLies: ReadonlyArray<Lie> = [
   {

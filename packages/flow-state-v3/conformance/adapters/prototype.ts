@@ -1,11 +1,11 @@
 /// <reference types="node" />
-import { Context, Data, Effect, Option, Predicate, Schema } from "effect";
+import { Context, Data, Effect, Option, Predicate, Result, Schema } from "effect";
 import { join } from "node:path";
 import {
   type ActorRef,
   type Boot,
-  type Channel,
-  type EvidenceKind,
+  Channel,
+  EvidenceKind,
   Observation,
   type Port,
   type Runtime,
@@ -105,9 +105,21 @@ export class PrototypeLoadFailed extends Data.TaggedError("PrototypeLoadFailed")
   readonly cause: unknown;
 }> {}
 
-const FIXTURES = [{ name: "pay", file: "typed/pay.ts", exported: "payFixture" }] as const;
+/**
+ * A report the prototype gave in a shape the adapter cannot read: the runtime broke its own
+ * evidence contract, so the case stops.
+ */
+export class PrototypeReportUnreadable extends Data.TaggedError("PrototypeReportUnreadable")<{
+  readonly kind: string;
+  readonly issue: string;
+}> {}
 
-const EVIDENCE = ["Superseded", "Released", "InFlight", "NothingToResend"] as const;
+/**
+ * A case booted a fixture name the adapter has no machine for: a suite defect.
+ */
+export class UnknownFixture extends Data.TaggedError("UnknownFixture")<{ readonly name: string }> {}
+
+const FIXTURES = [{ name: "pay", file: "typed/pay.ts", exported: "payFixture" }] as const;
 
 const actorKey = (actor: ActorRef) =>
   `${actor.machine}/${actor.id.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll("|", "%7C")}`;
@@ -118,70 +130,87 @@ const actorRef = (key: string) => {
   return { machine: key.slice(0, at), id: decodeURIComponent(key.slice(at + 1)) };
 };
 
-const text = (report: Report, field: string) => {
-  const value = report[field];
+const attemptOf = (attempt: Option.Option<string>) => Option.filter(attempt, (id) => id !== "");
 
-  return Predicate.isString(value) ? value : "";
+const OptionalText = Schema.OptionFromOptionalNullOr(Schema.String);
+
+const reports = {
+  turn: Schema.Struct({
+    actor: Schema.String,
+    event: Schema.String,
+    from: Schema.String,
+    to: Schema.String,
+  }),
+  mint: Schema.Struct({ op: Schema.String, attempt: Schema.String }),
+  invoked: Schema.Struct({ op: Schema.String, attempt: Schema.String }),
+  ending: Schema.Struct({
+    op: Schema.String,
+    attempt: OptionalText,
+    channel: Channel,
+    reason: Schema.String,
+  }),
+  delivered: Schema.Struct({ op: Schema.String, attempt: OptionalText, event: OptionalText }),
+  evidence: Schema.Struct({ kind: EvidenceKind, op: Schema.String, attempt: OptionalText }),
 };
 
-const attemptOf = (report: Report) => {
-  const value = text(report, "attempt");
+const read = <A>(schema: Schema.Decoder<A>, report: Report, kind: string) =>
+  Result.getOrThrowWith(
+    Schema.decodeUnknownResult(schema)(report),
+    (issue) => new PrototypeReportUnreadable({ kind, issue: String(issue) }),
+  );
 
-  return value === "" ? Option.none() : Option.some(value);
-};
-
-// RETURN_TYPE: a type guard; inference cannot produce one.
-const isChannel = (value: string): value is Channel =>
-  value === "success" || value === "failure" || value === "unknown";
-
-// RETURN_TYPE: a type guard; inference cannot produce one.
-const isEvidence = (value: string): value is EvidenceKind => EVIDENCE.some((k) => k === value);
-
-// RETURN_TYPE: each branch builds one variant; the union keeps them one Observation.
+// RETURN_TYPE: each branch builds one variant; inference keeps a union of Options, not one Option.
 const observationOf = (report: Report): Option.Option<Observation> => {
-  const kind = text(report, "kind");
-  const operation = text(report, "op");
-  const channel = text(report, "channel");
+  const kind = report["kind"];
 
-  if (kind === "turn")
+  if (kind === "turn") {
+    const r = read(reports.turn, report, kind);
+
     return Option.some(
-      Observation.Turn({
-        actor: actorRef(text(report, "actor")),
-        event: text(report, "event"),
-        from: text(report, "from"),
-        to: text(report, "to"),
-      }),
+      Observation.Turn({ actor: actorRef(r.actor), event: r.event, from: r.from, to: r.to }),
     );
+  }
 
-  if (kind === "mint")
-    return Option.some(Observation.Minted({ operation, attempt: text(report, "attempt") }));
+  if (kind === "mint") {
+    const r = read(reports.mint, report, kind);
 
-  if (kind === "invoked")
-    return Option.some(Observation.Sent({ operation, attempt: text(report, "attempt") }));
+    return Option.some(Observation.Minted({ operation: r.op, attempt: r.attempt }));
+  }
 
-  if (kind === "ending" && isChannel(channel))
+  if (kind === "invoked") {
+    const r = read(reports.invoked, report, kind);
+
+    return Option.some(Observation.Sent({ operation: r.op, attempt: r.attempt }));
+  }
+
+  if (kind === "ending") {
+    const r = read(reports.ending, report, kind);
+
     return Option.some(
       Observation.Ended({
-        operation,
-        attempt: attemptOf(report),
-        channel,
-        reason: text(report, "reason"),
+        operation: r.op,
+        attempt: attemptOf(r.attempt),
+        channel: r.channel,
+        reason: r.reason,
       }),
     );
+  }
 
-  if (kind === "delivered")
+  if (kind === "delivered") {
+    const r = read(reports.delivered, report, kind);
+    const event = Option.getOrElse(r.event, () => "(unmapped)");
+
     return Option.some(
-      Observation.Delivered({
-        operation,
-        attempt: attemptOf(report),
-        event: text(report, "event"),
-      }),
+      Observation.Delivered({ operation: r.op, attempt: attemptOf(r.attempt), event }),
     );
+  }
 
-  if (isEvidence(kind))
-    return Option.some(Observation.Evidence({ kind, operation, attempt: attemptOf(report) }));
+  if (!Schema.is(EvidenceKind)(kind)) return Option.none();
+  const r = read(reports.evidence, report, kind);
 
-  return Option.none();
+  return Option.some(
+    Observation.Evidence({ kind: r.kind, operation: r.op, attempt: attemptOf(r.attempt) }),
+  );
 };
 
 // RETURN_TYPE: the prototype's Host contract, which its boot takes.
@@ -300,10 +329,12 @@ export const loadPrototype = Effect.fn("loadPrototype")(function* (runtimeDir: s
     boot: (boot: Boot) => {
       const api = apiOf(boot.world);
 
-      const chosen = boot.fixtures.flatMap((name) => {
+      const chosen = boot.fixtures.map((name) => {
         const fixture = byName.get(name);
 
-        return fixture === undefined ? [] : [fixture];
+        if (fixture === undefined) throw new UnknownFixture({ name });
+
+        return fixture;
       });
 
       const contexts = chosen.flatMap((f) => (f.services === undefined ? [] : [f.services(api)]));
@@ -315,8 +346,12 @@ export const loadPrototype = Effect.fn("loadPrototype")(function* (runtimeDir: s
         bounds: { captureMs: boot.captureMs },
         faults: { moduleThrows: new Map(), moduleThrowsAfter: new Map(), coreThrows: 0 },
         services,
-        onEvidence: (reports) => {
-          for (const report of reports) Option.map(observationOf(report), boot.observe);
+        onEvidence: (given) => {
+          for (const report of given) {
+            const observed = observationOf(report);
+
+            if (Option.isSome(observed)) boot.observe(observed.value);
+          }
         },
         onIssue: (issues) => {
           for (const issue of issues) boot.observe(Observation.Issue({ code: issue.code }));

@@ -196,13 +196,7 @@ export const openCase = (
     answerStorage: (how, match) => act(how, () => void world.storage.answer(how, match)),
     answer: (operation, given) => answer(operation, given, Option.none()),
     answerWhere: (operation, given, where) => answer(operation, given, Option.some(where)),
-    advance: (ms) => {
-      step += 1;
-      timeline.push(Fact.Stepped({ step, what: `advance ${ms}` }));
-      advance(world, ms, pending);
-      noteRequests();
-      judge(`advance ${ms}`);
-    },
+    advance: (ms) => act(`advance ${ms}`, () => advance(world, ms, pending)),
     reload: () =>
       act("reload", () => {
         kill(world);
