@@ -121,8 +121,8 @@ open
         outcome  Phase 3 writes each test below as an oracle behind the Port, with its wrong 
                  runtime; until then every Requirement's evidence is open.
 
-    Q2  OpRenamed, LaneRekeyCollision, the undeclared-machine discard, FieldDropped's rewrite and 
-        dispose({ forget: true }) have no prototype wrong runtime.
+    Q2  OpRenamed, LaneRekeyCollision, the undeclared-machine discard, FieldDropped's rewrite and dispose({ forget: 
+        true }) have no prototype wrong runtime.
         outcome  Phase 3 writes them.
 
 model
@@ -134,22 +134,20 @@ model
     HoldLeaving = an ending after which its lane stays Held (unknown).
 
 invariants
-    I1  After ready, the live incarnations restored from records are exactly the Owedidentities; 
-        every other record is still only a record. [@R1]
+    I1  After ready, the live incarnations restored from records are exactly the Owedidentities; every other record is 
+        still only a record. [@R1]
 
-    I2  No restore, return or adoption invokes creation, re-runs a turn or re-sends an 
-        Attempt.[@R1, @R4]
+    I2  No restore, return or adoption invokes creation, re-runs a turn or re-sends an Attempt.[@R1, @R4]
 
     I3  A restored incarnation's ids are fresh, never equal to any id on disk. [@R1]
 
     I4  A restored context binding emits no onContext event. [@R2]
 
-    I5  Per lane, deliveries at restore follow: parked endings in saved order, then queuedNotSent { 
-        Restored }, then at most one HoldLeaving ending, last. [@R3]
+    I5  Per lane, deliveries at restore follow: parked endings in saved order, then queuedNotSent { Restored }, then at 
+        most one HoldLeaving ending, last. [@R3]
 
-    I6  An Acknowledged Attempt with no saved outcome is delivered unknown { Restored } exactly 
-        once per incarnation; one with a parked outcome is delivered that outcome, never also 
-        unknown { Restored }. [@R3]
+    I6  An Acknowledged Attempt with no saved outcome is delivered unknown { Restored } exactly once per incarnation; 
+        one with a parked outcome is delivered that outcome, never also unknown { Restored }. [@R3]
 
     I7  Restore deliveries precede every external event admitted after ready. [@R3]
 
@@ -157,21 +155,17 @@ invariants
 
     I9  Restored resource data is stale, and no input is ever built from a key. [@R4]
 
-    I10  One record failing to decode never prevents another from restoring, and ready succeeds. 
-         [@R5]
+    I10  One record failing to decode never prevents another from restoring, and ready succeeds. [@R5]
 
-    I11  A quarantined record's bytes are unchanged until a fresh actor of that identity saves. 
-         [@R5]
+    I11  A quarantined record's bytes are unchanged until a fresh actor of that identity saves. [@R5]
 
-    I12  A record of a non-current identity version is never restored as current and never renamed. 
-         [@R6]
+    I12  A record of a non-current identity version is never restored as current and never renamed. [@R6]
 
-    I13  Lanes are never dropped by a version, shape or quarantine rule; only cancel, an adopting 
-         ensure, forget of a gone operation's hold, or R5's stated fresh start ends them. [@R5, 
-         @R6, @R7, @R8]
+    I13  Lanes are never dropped by a version, shape or quarantine rule; only cancel, an adopting ensure, forget of a 
+         gone operation's hold, or R5's stated fresh start ends them. [@R5, @R6, @R7, @R8]
 
-    I14  A reset record is removed with its deadlines; records of other definitions and stamp- less 
-         records are untouched. [@R7]
+    I14  A reset record is removed with its deadlines; records of other definitions and stamp- less records are 
+         untouched. [@R7]
 
     I15  A quarantined lane's key admits no new commit until it is cleared. [@R8]
 
@@ -230,47 +224,39 @@ coverage
         open_by      [@Q1, @Q2]
 
 tests
-    T1  Records stay records: a plain record stays a record at ready; an Owed one is woken. Case 
-        `LIFE-18`; wrong runtimes `life.ready-all-live`, `life.ready-owed-sleeps`. [@I1]
-    T2  Delivery order: a reload hears each queued commit before the Held head; held lanes restore 
-        in creation order; parked endings keep saved order. Cases `R15-02`, `R14-FIX-01`, 
-        `REV9-EDGE`, `REV5-H5H6`; wrong runtimes `1b.r44-restore-head-before-w`, 
-        `audit-1.restore-lanes-newest-first`, `misc.held-head-w-hears-nothing`. [@I5]
-    T3  Restored endings: an acknowledged head restores unknown { Restored }, a queued commit 
-        NotSent { Restored }, a parked ending as itself, each once. Cases `PAY-15`, `PAY-16`, 
-        `REV8-H1`, `R14-FIX-01`; wrong runtimes `durable.head-restores-not-sent`, 
-        `durable.w-restores-unknown`, `pay16.parked-ending-becomes-restored`, 
+    T1  Records stay records: a plain record stays a record at ready; an Owed one is woken. Case `LIFE-18`; wrong 
+        runtimes `life.ready-all-live`, `life.ready-owed-sleeps`. [@I1]
+    T2  Delivery order: a reload hears each queued commit before the Held head; held lanes restore in creation order; 
+        parked endings keep saved order. Cases `R15-02`, `R14-FIX-01`, `REV9-EDGE`, `REV5-H5H6`; wrong runtimes 
+        `1b.r44-restore-head-before-w`, `audit-1.restore-lanes-newest-first`, `misc.held-head-w-hears-nothing`. [@I5]
+    T3  Restored endings: an acknowledged head restores unknown { Restored }, a queued commit NotSent { Restored }, a 
+        parked ending as itself, each once. Cases `PAY-15`, `PAY-16`, `REV8-H1`, `R14-FIX-01`; wrong runtimes 
+        `durable.head-restores-not-sent`, `durable.w-restores-unknown`, `pay16.parked-ending-becomes-restored`, 
         `misc.adopted-ending-twice`. [@I6, @I7]
     T4  Kill points: kill before and after a first send's batch lands; before, no lane and the
             state before the turn; after, unknown { Restored }. Case `PAY-09`. [@I8]
-    T5  Stopped reads and resets after reload: a stopped read is heard after a reload; a reset a 
-        reload lost runs at the boot. Cases `LIFE-13`, `REAL-04`; wrong runtime 
-        `d1.reload-drops-stopped`. [@I2, @I4]
-    T6  Record formats: every record states its format; format 1 restores as it was; a newer, null, 
-        fractional or string format is quarantined and its lane still holds. Case `P1-M`; wrong 
-        runtimes `m1.null-format-as-1`, `m1.fraction-format-floors`, `m1.string-format-coerced`, 
-        `m1.newer-format-read`. [@I10, @I13]
-    T7  Undecodable records: memory that cannot decode is quarantined; the fresh actor over it is 
-        saved. Cases `P1-M`, `REV8-PINS`; wrong runtimes `p1m.undecodable-memory-kept`, 
-        `m1.fresh-never-saved`. [@I10, @I11]
-    T8  Versions: an old-version record is listed, not restored; a release that changes a key keeps 
-        the old-version hold with LaneRekeyed evidence. Cases `R14-ID-02`, `REV6-H5`, `R12-KEYS`; 
-        wrong runtimes `audit-1.old-version-record-as-undecodable`, `d78-no-evidence`. [@I12, @I13]
-    T9  Saved-shape resets: only the changed definition resets; a removed state resets and an 
-        ensure adopts the hold; a record with no stamp never resets. Case `P1-M`; wrong runtimes 
-        `m2.q1-state-gone-ignored`, `m2.q1-retired-record-not-reset`, 
-        `m2.q1-unstamped-record-resets`, `q1a.unchanged-resets`, `q1a.compatible-resets`, 
-        `q1a.every-definition-resets`, `p1m.hold-without-record-silent`. [@I14]
-    T10  Lane quarantine: a quarantined lane declines commits on its key and a cancel clears it; it 
-         is not erased at the boot. Wrong runtimes `m1.quarantine-cancel-keeps`, 
-         `m1.quarantined-lane-erased-at-boot`. [@I15]
-    T11  Storage failures: a failed read runs empty and writes nothing. Case `REV7-M2`. A failed 
-         write keeps live state; a later publication retries the newest. [@I16, @I17]
-    T12  Forgetting a scope: deletion confirmed before success; a failing deletion reports 
-         StorageFailure. No prototype case (Q2). [@I18]
-    T13  Fresh ids after restore: after a reload, every incarnation id and Attempt id minted 
-         differs from every id in the restored records. Case `REV8-PINS`; wrong runtime 
-         `durable.mint-floor-head-only`. [@I3]
-    T14  Restored data is stale: a restored resource entry reads stale, a live placement refetches 
-         it with its own input, and a key-only entry starts nothing. No prototype case; phase 3 
-         writes this test and its wrong runtime. [@I9]
+    T5  Stopped reads and resets after reload: a stopped read is heard after a reload; a reset a reload lost runs at 
+        the boot. Cases `LIFE-13`, `REAL-04`; wrong runtime `d1.reload-drops-stopped`. [@I2, @I4]
+    T6  Record formats: every record states its format; format 1 restores as it was; a newer, null, fractional or 
+        string format is quarantined and its lane still holds. Case `P1-M`; wrong runtimes `m1.null-format-as-1`, 
+        `m1.fraction-format-floors`, `m1.string-format-coerced`, `m1.newer-format-read`. [@I10, @I13]
+    T7  Undecodable records: memory that cannot decode is quarantined; the fresh actor over it is saved. Cases `P1-M`, 
+        `REV8-PINS`; wrong runtimes `p1m.undecodable-memory-kept`, `m1.fresh-never-saved`. [@I10, @I11]
+    T8  Versions: an old-version record is listed, not restored; a release that changes a key keeps the old-version 
+        hold with LaneRekeyed evidence. Cases `R14-ID-02`, `REV6-H5`, `R12-KEYS`; wrong runtimes 
+        `audit-1.old-version-record-as-undecodable`, `d78-no-evidence`. [@I12, @I13]
+    T9  Saved-shape resets: only the changed definition resets; a removed state resets and an ensure adopts the hold; a 
+        record with no stamp never resets. Case `P1-M`; wrong runtimes `m2.q1-state-gone-ignored`, 
+        `m2.q1-retired-record-not-reset`, `m2.q1-unstamped-record-resets`, `q1a.unchanged-resets`, 
+        `q1a.compatible-resets`, `q1a.every-definition-resets`, `p1m.hold-without-record-silent`. [@I14]
+    T10  Lane quarantine: a quarantined lane declines commits on its key and a cancel clears it; it is not erased at 
+         the boot. Wrong runtimes `m1.quarantine-cancel-keeps`, `m1.quarantined-lane-erased-at-boot`. [@I15]
+    T11  Storage failures: a failed read runs empty and writes nothing. Case `REV7-M2`. A failed write keeps live 
+         state; a later publication retries the newest. [@I16, @I17]
+    T12  Forgetting a scope: deletion confirmed before success; a failing deletion reports StorageFailure. No prototype 
+         case (Q2). [@I18]
+    T13  Fresh ids after restore: after a reload, every incarnation id and Attempt id minted differs from every id in 
+         the restored records. Case `REV8-PINS`; wrong runtime `durable.mint-floor-head-only`. [@I3]
+    T14  Restored data is stale: a restored resource entry reads stale, a live placement refetches it with its own 
+         input, and a key-only entry starts nothing. No prototype case; phase 3 writes this test and its wrong runtime. 
+         [@I9]

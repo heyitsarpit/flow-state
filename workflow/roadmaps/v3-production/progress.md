@@ -83,16 +83,16 @@ weekly 19% (resets 2026-11-13), 5-hour 36%
 
 ## Gate timings (baseline, 2026-11-08, round 14 at `f49ec387`, serial on an idle machine; 12 cores, 24 GB)
 
-| Gate | Exit | Wall s | Cores | Peak MB |
-| --- | --- | --- | --- | --- |
-| `main.ts --no-search` (suite, 834 cases) | 0 | 65 | 1.2 | 1715 |
-| `main.ts` (searches are not run by it) | 0 | 66 | 1.2 | 1750 |
-| `mutate-one.ts` control (`killedBy: null`) | 0 | 206 | 1.2 | 1756 |
-| `graph-gate.ts --no-search` / full | 0 | 67 / 66 | 1.2 | 1787 |
-| `falsify.ts --part watch` / `suite1` / `suite2` / `suite3` | 0 | 1 / 75 / 223 / 102 | 1.3-1.4 | 1755 |
-| `falsify.ts --part search` | **1: `chain` red on the real runtime** | 47 | 1.6 | 304 |
-| `falsify.ts --part tamper` | 0 | 4 | 2.9 | 275 |
-| mutants, lies, `lifetime-falsify`, checks, `tsc`, `nub` | not timed (stopped for the speed pass) | | | |
+| Gate                                                       | Exit                                   | Wall s             | Cores   | Peak MB |
+| ---------------------------------------------------------- | -------------------------------------- | ------------------ | ------- | ------- |
+| `main.ts --no-search` (suite, 834 cases)                   | 0                                      | 65                 | 1.2     | 1715    |
+| `main.ts` (searches are not run by it)                     | 0                                      | 66                 | 1.2     | 1750    |
+| `mutate-one.ts` control (`killedBy: null`)                 | 0                                      | 206                | 1.2     | 1756    |
+| `graph-gate.ts --no-search` / full                         | 0                                      | 67 / 66            | 1.2     | 1787    |
+| `falsify.ts --part watch` / `suite1` / `suite2` / `suite3` | 0                                      | 1 / 75 / 223 / 102 | 1.3-1.4 | 1755    |
+| `falsify.ts --part search`                                 | **1: `chain` red on the real runtime** | 47                 | 1.6     | 304     |
+| `falsify.ts --part tamper`                                 | 0                                      | 4                  | 2.9     | 275     |
+| mutants, lies, `lifetime-falsify`, checks, `tsc`, `nub`    | not timed (stopped for the speed pass) |                    |         |         |
 
 Survey findings (read-only Opus agent): `REV9-BURST/300-rows-each-asking-once-all-end` is 43.7 s of the suite, cubic in its
 row count, 79% in the oracle's ledger (`drive.ts` `copiesOf`); replay's whole-world `canon` (`adapter.ts:319`) is 35-61%
@@ -129,17 +129,17 @@ Waiting on the user:
 ## Failure ledger
 
 | Part or gate | Root-cause class, one sentence | Failures | Last revision | State |
-| --- | --- | --- | --- | --- |
-| (none yet) | | | | |
+| ------------ | ------------------------------ | -------- | ------------- | ----- |
+| (none yet)   |                                |          |               |       |
 
 Carried from the prototype, as prior art: the ending oracle failed its gate eight times, one step
 further each time (round 10, stages C-J), until convergence in stages K and L.
 
 ## Agents running
 
-| Agent | Started | Last checkpoint | Last review |
-| --- | --- | --- | --- |
-| (none: the round 14 builder was stopped for the hand-off, 2026-11-08) | | | |
+| Agent                                                                 | Started | Last checkpoint | Last review |
+| --------------------------------------------------------------------- | ------- | --------------- | ----------- |
+| (none: the round 14 builder was stopped for the hand-off, 2026-11-08) |         |                 |             |
 
 ## Calls for the user's read
 
@@ -361,23 +361,23 @@ Added by phase 2's fix pass (2026-11-09, from the independent merge audit's read
 The merge's conflicts, each with the merge lead's ruling and the independent merge audit's judgement
 (`workflow/plans/flow/references/proposals/plan-merge-audit.md`, 2026-11-09). Details: `plan-merge-log.md`.
 
-| Call | Ruling | Audit | Why | Reverse |
-| --- | --- | --- | --- | --- |
-| `trace diff` (CLC1) | cut, per your 2026-11-02 CLI scope, now recorded as OD55 | disagreed with the first merge (which kept it); agrees with the cut | you cut it; no later record re-adds it | re-add one command line and its paragraph |
-| `diff --base` (CLC1) | cut, per OD55 | agree | your CLI scope; `explain --since` compares releases | one command |
-| `story list --coverage` (CLC2) | your spelling (OD55) over the design's `flow stories --coverage` | agree (judge: you) | your words | one name |
-| Removed machine's lanes (PC1) | actor records discarded, lane records quarantined (the runner's ruling) | agree; marked | your U4 quarantines a lane whose operation is gone | discard the lanes as evidence (C47's text) |
-| Dormant undecodable record (PC2) | quarantined, ensure starts fresh (the runner's ruling) | agree; marked | one rule for every undecodable record (R14 D7) | discard alone, as the old plan said |
-| Per-record reset (P-2, B1) | your Q1 A per definition, decided per record (the runner's ruling) | agree; mark fixed | already entry 1 | entry 1's reverse |
-| `contract.get` (OC1) | kept, renamed from `descriptor.get`, proposed | agree | descriptors became contracts | one name |
-| 256-identity write batch (OC3) | kept, the plan's own bound | agree | the prototype never went there | one sentence |
-| `version?` optional (EC2) | optional (the runner's ruling) | agree; marked | unversioned entities are a stated case | make it required |
-| `length` default 40 (TC1) | `steps`' old default moved to `length` | agree | C73 renamed the option without a default | one number |
-| `PropertyTestFailed` class (PKC1) | exported, the one exception to "no capability error classes" | agree | C82 lists it | make it a `FlowError` code |
-| Trace's `persistenceVersion` (IC2) | dropped | agree | your Q1 A removed the app-wide version | restore the field |
-| Build target (FSC1) | `packages/flow-state-v3/src/` | agree (judge: you) | the approved roadmap and AGENTS.md | one sentence |
-| InvalidWrite and no-overwrite (B4) | restored in Operations O3 | agree | dropped silently by the merge; the design never removed them | none needed |
-| Others (MC1, MC2, OC2, OC4, RC1, RC2, PC3, EC1, IC1, DC1, DC2, CLC3, TC2, SRC1) | as in the log | agree | wording, readings of decided rows, or kept plan content | one edit each |
+| Call                                                                            | Ruling                                                                  | Audit                                                               | Why                                                          | Reverse                                    |
+| ------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------ |
+| `trace diff` (CLC1)                                                             | cut, per your 2026-11-02 CLI scope, now recorded as OD55                | disagreed with the first merge (which kept it); agrees with the cut | you cut it; no later record re-adds it                       | re-add one command line and its paragraph  |
+| `diff --base` (CLC1)                                                            | cut, per OD55                                                           | agree                                                               | your CLI scope; `explain --since` compares releases          | one command                                |
+| `story list --coverage` (CLC2)                                                  | your spelling (OD55) over the design's `flow stories --coverage`        | agree (judge: you)                                                  | your words                                                   | one name                                   |
+| Removed machine's lanes (PC1)                                                   | actor records discarded, lane records quarantined (the runner's ruling) | agree; marked                                                       | your U4 quarantines a lane whose operation is gone           | discard the lanes as evidence (C47's text) |
+| Dormant undecodable record (PC2)                                                | quarantined, ensure starts fresh (the runner's ruling)                  | agree; marked                                                       | one rule for every undecodable record (R14 D7)               | discard alone, as the old plan said        |
+| Per-record reset (P-2, B1)                                                      | your Q1 A per definition, decided per record (the runner's ruling)      | agree; mark fixed                                                   | already entry 1                                              | entry 1's reverse                          |
+| `contract.get` (OC1)                                                            | kept, renamed from `descriptor.get`, proposed                           | agree                                                               | descriptors became contracts                                 | one name                                   |
+| 256-identity write batch (OC3)                                                  | kept, the plan's own bound                                              | agree                                                               | the prototype never went there                               | one sentence                               |
+| `version?` optional (EC2)                                                       | optional (the runner's ruling)                                          | agree; marked                                                       | unversioned entities are a stated case                       | make it required                           |
+| `length` default 40 (TC1)                                                       | `steps`' old default moved to `length`                                  | agree                                                               | C73 renamed the option without a default                     | one number                                 |
+| `PropertyTestFailed` class (PKC1)                                               | exported, the one exception to "no capability error classes"            | agree                                                               | C82 lists it                                                 | make it a `FlowError` code                 |
+| Trace's `persistenceVersion` (IC2)                                              | dropped                                                                 | agree                                                               | your Q1 A removed the app-wide version                       | restore the field                          |
+| Build target (FSC1)                                                             | `packages/flow-state-v3/src/`                                           | agree (judge: you)                                                  | the approved roadmap and AGENTS.md                           | one sentence                               |
+| InvalidWrite and no-overwrite (B4)                                              | restored in Operations O3                                               | agree                                                               | dropped silently by the merge; the design never removed them | none needed                                |
+| Others (MC1, MC2, OC2, OC4, RC1, RC2, PC3, EC1, IC1, DC1, DC2, CLC3, TC2, SRC1) | as in the log                                                           | agree                                                               | wording, readings of decided rows, or kept plan content      | one edit each                              |
 
 ## Change proposals
 
@@ -484,14 +484,14 @@ shows its own guarantees. The user also set two requirements:
   to show a feature off at the moment it happens.
 - One demo shows the Story presentation feature: Stories played back as a presentation.
 
-| App | What it demos |
-| --- | --- |
-| **Pull the plug**, a shop where you can kill the tab, go offline or reload mid-payment, and still never get charged twice | Write-ahead, unknown outcomes, business keys, 3-D Secure as a fragment |
-| **Live auction**, with bids streaming in, optimistic bids, outbid races, countdowns and reconnects | Streams, entities, `latest`/`reject` concurrency, timers |
-| **Agent console**, a small Codex-like chat: streamed output, tool calls approved step by step, runs resumable across a reload | Streams, subroutines, persistence, cancel and retry; a step toward the Electron stretch goal |
-| **Mission control**, thousands of live objects (satellites or flights) on a map, with doubt marks when the feed drops and repairs when it returns | Entities at scale, listen frames, doubt and repair, performance |
-| **Smart home**, a panel of simulated devices where a command may or may not have happened ("did the light turn on?") | Unknown outcomes, retries, device streams, multi-tab ownership |
-| **Escape room**, a puzzle game whose deep state machine doubles as its own walkthrough, with Stories as replays | Fragments, `flow graph`, Stories, record migration between game versions |
+| App                                                                                                                                               | What it demos                                                                                |
+| ------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| **Pull the plug**, a shop where you can kill the tab, go offline or reload mid-payment, and still never get charged twice                         | Write-ahead, unknown outcomes, business keys, 3-D Secure as a fragment                       |
+| **Live auction**, with bids streaming in, optimistic bids, outbid races, countdowns and reconnects                                                | Streams, entities, `latest`/`reject` concurrency, timers                                     |
+| **Agent console**, a small Codex-like chat: streamed output, tool calls approved step by step, runs resumable across a reload                     | Streams, subroutines, persistence, cancel and retry; a step toward the Electron stretch goal |
+| **Mission control**, thousands of live objects (satellites or flights) on a map, with doubt marks when the feed drops and repairs when it returns | Entities at scale, listen frames, doubt and repair, performance                              |
+| **Smart home**, a panel of simulated devices where a command may or may not have happened ("did the light turn on?")                              | Unknown outcomes, retries, device streams, multi-tab ownership                               |
+| **Escape room**, a puzzle game whose deep state machine doubles as its own walkthrough, with Stories as replays                                   | Fragments, `flow graph`, Stories, record migration between game versions                     |
 
 ## Log
 

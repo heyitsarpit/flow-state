@@ -176,15 +176,14 @@ open
         outcome  Phase 3 writes each test below as an oracle behind the Port, with its wrong 
                  runtime; until then every Requirement's evidence is open.
 
-    Q2  RetryLimit, a release winning over cancelAll, and Superseded as evidence have no prototype 
-        wrong runtime. outcome Phase 3 writes them.
+    Q2  RetryLimit, a release winning over cancelAll, and Superseded as evidence have no prototype wrong 
+        runtime. outcome Phase 3 writes them.
 
-    Q3  R13's store-side rules (record queues, their bounds, ModuleDisabled) moved to the entity 
-        store area.
+    Q3  R13's store-side rules (record queues, their bounds, ModuleDisabled) moved to the entity store area.
         outcome  They are written with the entity store's Spec in phase 5.
 
-    Q4  The prototype mints counters floored at boot (round-14/durable.ts, round-14/step.ts), which 
-        are unique only per scope and do not meet R5.
+    Q4  The prototype mints counters floored at boot (round-14/durable.ts, round-14/step.ts), which are unique only per 
+        scope and do not meet R5.
         outcome  Phase 4 builds the seeded mint; phase 3 writes the wrong runtime, a counter that 
                  collides across two devices.
 
@@ -202,59 +201,57 @@ model
         counted once.
 
 invariants
-    I1  No commit is invoked except one admitted by an accepted action's member, or promoted, or 
-        re-sent by retry. [@R1, @R8]
+    I1  No commit is invoked except one admitted by an accepted action's member, or promoted, or re-sent by retry. 
+        [@R1, @R8]
 
-    I2  A success write is applied iff the commit succeeded, and it is applied before the ending's 
-        event is admitted. [@R1]
+    I2  A success write is applied iff the commit succeeded, and it is applied before the ending's event is admitted. 
+        [@R1]
 
-    I3  Every delivered ending is exactly one of success, failure and unknown, and an Attemptthat 
-        ever ended unknown never delivers a definite failure. [@R2]
+    I3  Every delivered ending is exactly one of success, failure and unknown, and an Attemptthat ever ended unknown 
+        never delivers a definite failure. [@R2]
 
     I4  No delivered ending is an evidence kind, and no author tag equals a Flow reason. [@R3]
 
-    I5  Every mapped unknown targets a Flow.uncertain event or Flow.ignore; a not-retained unknown 
-        leaves no Held lane. [@R4]
+    I5  Every mapped unknown targets a Flow.uncertain event or Flow.ignore; a not-retained unknown leaves no Held lane. 
+        [@R4]
 
-    I6  All sends of one Attempt carry the same id and the same input. No two writes share an id: 
-        within a Runtime, across restore, or across Runtimes on different devices or scopes given 
-        different session seeds. Given the same inputs and seed, the mint gives the same ids. [@R5]
+    I6  All sends of one Attempt carry the same id and the same input. No two writes share an id: within a Runtime, 
+        across restore, or across Runtimes on different devices or scopes given different session seeds. Given the same 
+        inputs and seed, the mint gives the same ids. [@R5]
 
     I7  retryCount equals the number of invoked re-sends of that Attempt. [@R5]
 
-    I8  A lane exists iff it is not Idle; its W length is 0 under reject, at most 1 under latest, 
-        at most 64 under serialize. [@R6, @R7]
+    I8  A lane exists iff it is not Idle; its W length is 0 under reject, at most 1 under latest, at most 64 under 
+        serialize. [@R6, @R7]
 
     I9  A lane has at most one addressable Attempt. [@R6]
 
-    I10  A turn's members apply in action order, each to the lane state the previous one left. 
-         [@R6, @R9]
+    I10  A turn's members apply in action order, each to the lane state the previous one left. [@R6, @R9]
 
     I11  W's head is promoted only when the addressable Attempt is resolved or released. [@R8]
 
-    I12  A Held lane leaves Held only by a retry's resolution, a cancel or cancelAll, or a release 
-         on leave. [@R8, @R14, @R15, @R16]
+    I12  A Held lane leaves Held only by a retry's resolution, a cancel or cancelAll, or a release on leave. [@R8, 
+         @R14, @R15, @R16]
 
     I13  idle(k) passes iff every lane matching k is Idle and holds no kept ending. [@R9]
 
     I14  A key-less member on a keyed operation names only the ending's own Attempt. [@R9]
 
-    I15  Per Attempt and per incarnation, each ending is either delivered once (to a live 
-         incarnation, or parked for it and delivered once) or recorded as evidence only, never both 
-         and never twice, with these exceptions written out: a re-send whose lane-record capture is 
-         refused adds a second ending of the same Attempt, unknown { StorageRefused }; unknown { 
-         Restored } is delivered at most once per incarnation, so once again after each reload or 
-         return (Restore Spec I6); an ending whose admission refused its turn (outcome mapper 
-         throw, InvalidTurn) is delivered once more after queued mail, and a second refusal is 
-         final; a releasing lane delivers nothing; evidence-only endings (a bare operation, 
-         Flow.ignore, Superseded, the interrupted Attempt under concurrency cancel, a released 
-         lookup) are recorded, never delivered. Re-parking is not a second delivery. [@R10]
+    I15  Per Attempt and per incarnation, each ending is either delivered once (to a live incarnation, or parked for it 
+         and delivered once) or recorded as evidence only, never both and never twice, with these exceptions written 
+         out: a re-send whose lane-record capture is refused adds a second ending of the same Attempt, unknown { 
+         StorageRefused }; unknown { Restored } is delivered at most once per incarnation, so once again after each 
+         reload or return (Restore Spec I6); an ending whose admission refused its turn (outcome mapper throw, 
+         InvalidTurn) is delivered once more after queued mail, and a second refusal is final; a releasing lane 
+         delivers nothing; evidence-only endings (a bare operation, Flow.ignore, Superseded, the interrupted Attempt 
+         under concurrency cancel, a released lookup) are recorded, never delivered. Re-parking is not a second 
+         delivery. [@R10]
 
     I16  A settled ending is never replaced by another. [@R10]
 
-    I17  While an old-version hold (an older key fingerprint) exists for (identity, operation), 
-         every commit of it declines OldVersion and no current member names that lane; a lane of an 
-         older identity version declines nothing. [@R11]
+    I17  While an old-version hold (an older key fingerprint) exists for (identity, operation), every commit of it 
+         declines OldVersion and no current member names that lane; a lane of an older identity version declines 
+         nothing. [@R11]
 
     I18  A commit that cannot encode never fails its turn. [@R12]
 
@@ -262,8 +259,8 @@ invariants
 
     I20  A cancel's result depends only on the head's history, never on timing. [@R14]
 
-    I21  cancelAll delivers queued NotSent { Cancelled } in mint order, then the head's ending; it 
-         promotes nothing. [@R15]
+    I21  cancelAll delivers queued NotSent { Cancelled } in mint order, then the head's ending; it promotes nothing. 
+         [@R15]
 
     I22  A releasing lane delivers no ending afterwards. [@R16]
 
@@ -347,67 +344,58 @@ coverage
         open_by      [@Q1]
 
 tests
-    T1  Three channels and the Attempt's ending: success, failure and unknown each map to their 
-        event; a definite failure after an unknown send is StillUnknown. Cases `STORE-01`, 
-        `STORE-02`, `STORE-03`, `PAY-05`; lies `k.failure-as-success`, `e8.wa-failure`. [@I3]
-    T2  The Attempt: every send has one id; a definite failure then a new write mints a new id; 
-        restored lanes floor the mints. Cases `PAY-04`, `PAY-15`; wrong runtime 
-        `durable.mint-floor-head-only`. [@I6, @I7]
-    T3  Concurrency cells, one per policy: reject declines beside a Held head; latest supersedes a 
-        never-sent head; serialize declines the 65th; cancel interrupts the wire. Cases `PAY-15`, 
-        `MED-01`, `REV8-PINS`, `R15-01`; lie `lie.serialize-as-latest`; wrong runtimes 
-        `lane.queue-unbounded`, `d118.commit-beside-kept`. [@I8, @I9]
-    T4  Retry and promotion: retry keeps id and input; a refused head promotes what waits; an 
-        unknown never promotes. Cases `PAY-04`, `REV8-H1`; wrong runtimes written in phase 3 
-        (`lane.unknown-promotes`, `lane.fresh-mint-on-held`, `lane.cancel-held-keeps`). RetryLimit 
-        has no prototype wrong runtime (Q2). [@I11, @I12]
-    T5  Key-less members: on an unkeyed operation outside an ending; in a keyed success handler a 
-        key-less cancel does nothing; a key-less idle denies a kept ending. Cases `R15-02`, 
-        `REV9-EDGE`; wrong runtimes `d123.keyless-idle-heads-only`, 
-        `1b.r43-keyless-falls-back-to-key`, `r15b.keyless-success-names-key-lane`. [@I13, @I14]
+    T1  Three channels and the Attempt's ending: success, failure and unknown each map to their event; a definite 
+        failure after an unknown send is StillUnknown. Cases `STORE-01`, `STORE-02`, `STORE-03`, `PAY-05`; lies 
+        `k.failure-as-success`, `e8.wa-failure`. [@I3]
+    T2  The Attempt: every send has one id; a definite failure then a new write mints a new id; restored lanes floor 
+        the mints. Cases `PAY-04`, `PAY-15`; wrong runtime `durable.mint-floor-head-only`. [@I6, @I7]
+    T3  Concurrency cells, one per policy: reject declines beside a Held head; latest supersedes a never-sent head; 
+        serialize declines the 65th; cancel interrupts the wire. Cases `PAY-15`, `MED-01`, `REV8-PINS`, `R15-01`; lie 
+        `lie.serialize-as-latest`; wrong runtimes `lane.queue-unbounded`, `d118.commit-beside-kept`. [@I8, @I9]
+    T4  Retry and promotion: retry keeps id and input; a refused head promotes what waits; an unknown never promotes. 
+        Cases `PAY-04`, `REV8-H1`; wrong runtimes written in phase 3 (`lane.unknown-promotes`, 
+        `lane.fresh-mint-on-held`, `lane.cancel-held-keeps`). RetryLimit has no prototype wrong runtime (Q2). [@I11, 
+        @I12]
+    T5  Key-less members: on an unkeyed operation outside an ending; in a keyed success handler a key-less cancel does 
+        nothing; a key-less idle denies a kept ending. Cases `R15-02`, `REV9-EDGE`; wrong runtimes 
+        `d123.keyless-idle-heads-only`, `1b.r43-keyless-falls-back-to-key`, `r15b.keyless-success-names-key-lane`. 
+        [@I13, @I14]
     T6  Exactly one delivery, across refusal, reload and parking. Cases `DRV-02`, `PAY-15`; lies 
-        `a2.deliv-fail-samemail`, `d154.moved-fail-released`, and `lost.letgo-silent` (a kept 
-        ending let go with no record). [@I15, @I16]
-    T7  Old-version holds: a release that adds a key field declines every commit until the old hold 
-        ends; another actor is not held; previous[i] names only its own lanes; a release that 
-        changes the identity version re-keys the lane and declines nothing. Cases `R13-KEYS`, 
-        `P1-H`, `REV6-H5`; wrong runtimes `p1m.old-version-any-actor`, `p1m.current-names-old`, 
-        `p1m.previous-names-nothing`, `p1m.previous-is-current-allowed`, 
-        `audit-1.old-version-declines-under-reject-only`, `1b.old-version-idle-passes`, and for the 
-        re-key `d78-no-evidence`. [@I17]
-    T8  Unencodable: a commit whose input cannot encode declines and its transition runs; the 
-        mapper gets the value asked. Cases `REV9-M1`, `REV7-M9`; wrong runtime 
-        `d114.input-not-replaced`. [@I18]
-    T9  cancel by history: on the wire, waiting never sent, a waiting re-send, Held, Idle. Cases 
-        `PAY-03`, `PAY-12`, `PAY-15`, `STORE-05`; wrong runtime written in phase 3 
-        (`lane.cancel-wire-as-never-sent`). [@I12, @I20]
-    T10  cancelAll: queue first in mint order, head last; idle does nothing; beside a release the 
-         release wins. Case `P1-H`; wrong runtimes `1b.cancel-all-queue-reversed`, 
-         `1b.cancel-all-promotes-before-emptying`, `audit-1.cancel-all-leaves-the-head`, 
-         `p1h.cancel-all-idle-declines`, `audit-1.cancel-all-release-also-cancels-head`. [@I21]
-    T11  Release on leave: the wire is interrupted and nothing delivered; a reload of a releasing 
-         lane delivers nothing. Case `FRAG-06`; lies `d154.moved-save-released`, `lie.released`. 
-         [@I22]
-    T12  Store effects before the ending: a domain write's store effects are visible in the cut 
-         before its ending's turn, whether the ending routes current or late. No prototype wrong 
-         runtime; phase 3 writes one that queues the ending first. [@I19]
-    T13  Late results after cleanup: release a placement and a commit, then land their results; 
-         data, lanes and endings are unchanged. No prototype wrong runtime. [@I23]
-    T14  Members only: restore, hydration, activation and re-entry of a state whose earlier 
-         activation committed invoke no commit; an adapter spy counts one invocation per minted, 
-         promoted or re-sent Attempt. No prototype wrong runtime; phase 3 writes one that replays a 
-         commit on re-entry. [@I1]
-    T15  Success writes: a success write is applied before its ending's event and never on failure 
-         or unknown; an invalid write reports InvalidWrite and the commit still succeeds; a write 
-         over data that landed later marks it stale instead. No prototype case; phase 3 writes this 
-         test and its wrong runtime. [@I2]
-    T16  Reserved reasons and unknown targets: a failure tag named NotSent or Disposed is refused 
-         ReservedReason; an unknown: target that is not uncertain is refused UnknownNotUncertain; a 
-         bare operation's unknown leaves no Held lane. The prototype's front-end pins check the 
-         first two; phase 3 writes the wrong runtimes. [@I4, @I5]
-    T17  Member order: one turn listing cancel then commit on a Held lane, and one listing commit 
-         then cancel; each member applies to the state the previous one left. No prototype wrong 
-         runtime; phase 3 writes one that applies members to the pre-turn lane. [@I10]
-    T18  Ids across devices: two Runtimes with different session seeds, each on its own storage, 
-         mint writes to one fake server keyed by Attempt id; no id repeats, and replaying one 
-         Runtime with its seed gives the same ids. Phase 3 writes the wrong runtime of Q4. [@I6]
+        `a2.deliv-fail-samemail`, `d154.moved-fail-released`, and `lost.letgo-silent` (a kept ending let go with no 
+        record). [@I15, @I16]
+    T7  Old-version holds: a release that adds a key field declines every commit until the old hold ends; another actor 
+        is not held; previous[i] names only its own lanes; a release that changes the identity version re-keys the lane 
+        and declines nothing. Cases `R13-KEYS`, `P1-H`, `REV6-H5`; wrong runtimes `p1m.old-version-any-actor`, 
+        `p1m.current-names-old`, `p1m.previous-names-nothing`, `p1m.previous-is-current-allowed`, 
+        `audit-1.old-version-declines-under-reject-only`, `1b.old-version-idle-passes`, and for the re-key 
+        `d78-no-evidence`. [@I17]
+    T8  Unencodable: a commit whose input cannot encode declines and its transition runs; the mapper gets the value 
+        asked. Cases `REV9-M1`, `REV7-M9`; wrong runtime `d114.input-not-replaced`. [@I18]
+    T9  cancel by history: on the wire, waiting never sent, a waiting re-send, Held, Idle. Cases `PAY-03`, `PAY-12`, 
+        `PAY-15`, `STORE-05`; wrong runtime written in phase 3 (`lane.cancel-wire-as-never-sent`). [@I12, @I20]
+    T10  cancelAll: queue first in mint order, head last; idle does nothing; beside a release the release wins. Case 
+         `P1-H`; wrong runtimes `1b.cancel-all-queue-reversed`, `1b.cancel-all-promotes-before-emptying`, 
+         `audit-1.cancel-all-leaves-the-head`, `p1h.cancel-all-idle-declines`, 
+         `audit-1.cancel-all-release-also-cancels-head`. [@I21]
+    T11  Release on leave: the wire is interrupted and nothing delivered; a reload of a releasing lane delivers 
+         nothing. Case `FRAG-06`; lies `d154.moved-save-released`, `lie.released`. [@I22]
+    T12  Store effects before the ending: a domain write's store effects are visible in the cut before its ending's 
+         turn, whether the ending routes current or late. No prototype wrong runtime; phase 3 writes one that queues 
+         the ending first. [@I19]
+    T13  Late results after cleanup: release a placement and a commit, then land their results; data, lanes and endings 
+         are unchanged. No prototype wrong runtime. [@I23]
+    T14  Members only: restore, hydration, activation and re-entry of a state whose earlier activation committed invoke 
+         no commit; an adapter spy counts one invocation per minted, promoted or re-sent Attempt. No prototype wrong 
+         runtime; phase 3 writes one that replays a commit on re-entry. [@I1]
+    T15  Success writes: a success write is applied before its ending's event and never on failure or unknown; an 
+         invalid write reports InvalidWrite and the commit still succeeds; a write over data that landed later marks it 
+         stale instead. No prototype case; phase 3 writes this test and its wrong runtime. [@I2]
+    T16  Reserved reasons and unknown targets: a failure tag named NotSent or Disposed is refused ReservedReason; an 
+         unknown: target that is not uncertain is refused UnknownNotUncertain; a bare operation's unknown leaves no 
+         Held lane. The prototype's front-end pins check the first two; phase 3 writes the wrong runtimes. [@I4, @I5]
+    T17  Member order: one turn listing cancel then commit on a Held lane, and one listing commit then cancel; each 
+         member applies to the state the previous one left. No prototype wrong runtime; phase 3 writes one that applies 
+         members to the pre-turn lane. [@I10]
+    T18  Ids across devices: two Runtimes with different session seeds, each on its own storage, mint writes to one 
+         fake server keyed by Attempt id; no id repeats, and replaying one Runtime with its seed gives the same ids. 
+         Phase 3 writes the wrong runtime of Q4. [@I6]

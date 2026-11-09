@@ -228,12 +228,11 @@ open
         outcome  Phase 3 writes each test below as an oracle behind the Port, with its wrong 
                  runtime; until then every Requirement's evidence is open.
 
-    Q2  The prototype has no case for check(), onContext, restartOn, keyed schedules, exit and 
-        entry order, or equal-deadline order. outcome Phase 3 writes those cases and their wrong 
-        runtimes first.
+    Q2  The prototype has no case for check(), onContext, restartOn, keyed schedules, exit and entry order, or 
+        equal-deadline order. outcome Phase 3 writes those cases and their wrong runtimes first.
 
-    Q3  Which Diagnostic code a rejected turn's issue carries is not stated by the plans; 
-        InvalidTurn is check()'s denial code, not a Diagnostic code (Diagnostics Spec R4).
+    Q3  Which Diagnostic code a rejected turn's issue carries is not stated by the plans; InvalidTurn is check()'s 
+        denial code, not a Diagnostic code (Diagnostics Spec R4).
         outcome  Phase 4 names it, and this Spec records it as a change.
 
 model
@@ -252,85 +251,76 @@ model
 invariants
     I1  At every publication exactly one leaf is active. [@R1]
 
-    I2  The selected alternative is the first passing one at the deepest level that has one; no 
-        level below it has a passing alternative. [@R2]
+    I2  The selected alternative is the first passing one at the deepest level that has one; no level below it has a 
+        passing alternative. [@R2]
 
     I3  A turn whose child part refuses publishes nothing of its own. [@R2, @R5]
 
     I4  A "self" transition leaves the set of live Activations unchanged. [@R3]
 
-    I5  Every Activation at or above the Boundary is the same before and after the turn; every 
-        entered state is a new Activation. [@R3]
+    I5  Every Activation at or above the Boundary is the same before and after the turn; every entered state is a new 
+        Activation. [@R3]
 
-    I6  Exits are ordered deepest first and entries outermost first; a parent's activity starts 
-        before and stops after each child's. [@R3]
+    I6  Exits are ordered deepest first and entries outermost first; a parent's activity starts before and stops after 
+        each child's. [@R3]
 
     I7  No snapshot is published whose active state is not a leaf. [@R3, @R5]
 
-    I8  An ancestor's "self" never abandons a subroutine, and a callback never moves the host out 
-        of the fragment's placement node. [@R4]
+    I8  An ancestor's "self" never abandons a subroutine, and a callback never moves the host out of the fragment's 
+        placement node. [@R4]
 
-    I9  Each turn publishes at most once, and an accepted transition with all its parts publishes 
-        exactly once. [@R5]
+    I9  Each turn publishes at most once, and an accepted transition with all its parts publishes exactly once. [@R5]
 
     I10  A pending reset runs as a turn of its own before the next admitted event. [@R5, @R6]
 
     I11  Every incarnation the turn ends has run whenAbandoned in that same turn. [@R6]
 
-    I12  Every read listed for PreTurn returns PreTurn values; every read listed for After returns 
-         After values. [@R7]
+    I12  Every read listed for PreTurn returns PreTurn values; every read listed for After returns After values. [@R7]
 
     I13  All now values passed within one turn are equal. [@R7]
 
-    I14  A rejected or pre-commit-defective turn leaves state, memory, context and store equal to 
-         PreTurn and starts no work; it publishes exactly one issue-only snapshot. [@R8, @R10]
+    I14  A rejected or pre-commit-defective turn leaves state, memory, context and store equal to PreTurn and starts no 
+         work; it publishes exactly one issue-only snapshot. [@R8, @R10]
 
-    I15  An Unhandled or Denied event changes no state, memory or revision of its own and starts no 
-         work; an ending admitted in that turn still applies its lane effects and counts as 
-         delivered. [@R9]
+    I15  An Unhandled or Denied event changes no state, memory or revision of its own and starts no work; an ending 
+         admitted in that turn still applies its lane effects and counts as delivered. [@R9]
 
-    I16  A post-commit defect never undoes the committed state and never applies part of a write 
-         batch. [@R10]
+    I16  A post-commit defect never undoes the committed state and never applies part of a write batch. [@R10]
 
-    I17  turn(snapshot, event, clock, seed) is a function: equal arguments give equal results. 
-         [@R11]
+    I17  turn(snapshot, event, clock, seed) is a function: equal arguments give equal results. [@R11]
 
-    I18  check(s, e) leaves the Runtime unchanged, and check(s, e) is Allowed exactly when handling 
-         e at s would run a transition. [@R13]
+    I18  check(s, e) leaves the Runtime unchanged, and check(s, e) is Allowed exactly when handling e at s would run a 
+         transition. [@R13]
 
     I19  For every guard g: g's result is a function of its captured inputs. [@R12, @R13]
 
-    I20  A delivered firing carries the id of its schedule's latest arming, and its activation is 
-         alive. [@R15]
+    I20  A delivered firing carries the id of its schedule's latest arming, and its activation is alive. [@R15]
 
     I21  A schedule's first firing is strictly after the turn that armed it. [@R14]
 
     I22  An overdue Duration fires exactly once on resume. [@R15, @R17]
 
-    I23  While an actor is not Used, no schedule of it fires; at most one waiting deadline exists 
-         per schedule. [@R17]
+    I23  While an actor is not Used, no schedule of it fires; at most one waiting deadline exists per schedule. [@R17]
 
-    I24  For a placement whose operation and key are unchanged across a turn, its work is the same 
-         work; a changed key releases the old work exactly once. [@R18]
+    I24  For a placement whose operation and key are unchanged across a turn, its work is the same work; a changed key 
+         releases the old work exactly once. [@R18]
 
-    I25  A value outcome fires only when the confirmed value differs, under Equal.equals, from the 
-         value the placement last mapped. [@R19]
+    I25  A value outcome fires only when the confirmed value differs, under Equal.equals, from the value the placement 
+         last mapped. [@R19]
 
-    I26  An ending is routed from the active leaf iff its owner Activation is alive, or it is 
-         adopted or unknown { Restored }. [@R20]
+    I26  An ending is routed from the active leaf iff its owner Activation is alive, or it is adopted or unknown { 
+         Restored }. [@R20]
 
     I27  A late turn never exits an Activation that owns an InFlight head or a queued commit. [@R21]
 
-    I28  An onContext event is enqueued only after a context wave changed its selection, and the 
-         baseline then equals that selection. [@R22]
+    I28  An onContext event is enqueued only after a context wave changed its selection, and the baseline then equals 
+         that selection. [@R22]
 
     I29  A published snapshot is never mutated afterwards. [@R24]
 
-    I30  A part of a snapshot whose content is unchanged is the same object in the next snapshot. 
-         [@R24]
+    I30  A part of a snapshot whose content is unchanged is the same object in the next snapshot. [@R24]
 
-    I31  An issue is cleared only by its own source; a new incarnation's first snapshot has no 
-         issue. [@R25]
+    I31  An issue is cleared only by its own source; a new incarnation's first snapshot has no issue. [@R25]
 
 composition
     flow
@@ -442,71 +432,62 @@ coverage
         open_by      [@Q1]
 
 tests
-    T1  Self and re-entry: a call started in a state, then "self", then an explicit re-entry of 
-        that state; after self the call ends current, after re-entry it ends late. Cases `PAY-07`, 
-        `R14-FIX-01`; wrong runtimes `audit-1.r14-reentry-keeps-activation`, 
-        `a3.r14-explicit-reentry-keeps-activation`, `a3.r14-reenters-the-parent`. [@I4, @I5]
-    T2  Exit and entry order: a three-level tree with an activity per level and a transition across 
-        two branches; the recorded stop and start order is deepest-first exits, then 
-        outermost-first entries. No prototype case; phase 3 writes one with a wrong runtime that 
-        enters innermost first. [@I6, @I7]
-    T3  Subroutines and history: exit, abandonment, an ancestor's self, history re-entry. Case 
-        `FRAG-10`; wrong runtime `1b.r14-history-reentry-keeps-activation` (a history re-entry that 
-        keeps the activation). [@I8]
-    T4  One publication: a transition that raises into two traits and resets a third publishes 
-        exactly one snapshot; a child's refusal publishes none. Case `FRAG-17`. [@I3, @I9]
-    T5  Before and after memory: a schedule function and a commit select read the value the turn 
-        wrote; a guard and a mapper read the old one. Case `PAY-16`; wrong runtime 
-        `pay16.schedule-reads-pre-transition-memory`. [@I12]
-    T6  Rejected turns: a zero-length schedule and overlapping keys reject the turn: state 
-        unchanged, one issue-only snapshot, and check() answers Denied with InvalidTurn (Q3 names 
-        the issue's code). Case `REV4-H4`; wrong runtimes `pinsb.schedule-unbounded`, 
-        `pinsa.overlapping-keys-allowed`. An unencodable value does not reject; wrong runtime 
-        `pinsb.nan-carried-as-null`. [@I14]
-    T7  Callback defects: a throwing guard, select and key each keep the prior snapshot with one 
-        issue naming the callback path, and the same input is not retried (case `R12-DEFECT`). A 
-        throwing post-commit mapper publishes one issue and no event. [@I14, @I16]
-    T8  Determinism: run one reference scenario twice on a controlled clock and seed; the turn 
-        records are equal, and a host clock jump between runs changes nothing. [@I13, @I17]
-    T9  check agreement: for every (state, event) pair of the reference machines, check's verdict 
-        equals what handling does, and a Runtime spy sees no effect from check; a stored old 
-        snapshot answers from its captured values. No prototype case. [@I18, @I19]
-    T10  Schedules: armOn, disarmOn, exit, a re-armed debounce, a stale firing after re-arming. 
-         Cases `REAL-03`, `FRAG-17`, `LIFE-16`; wrong runtimes `pinsa.left-state-schedule-kept`, 
-         `life.grace-unfenced`. [@I20, @I21]
-    T11  Waiting while unused and overdue: cases `LIFE-14`, `FRAG-18`; wrong runtimes 
-         `life.schedule-fires-unused`, `life.waiting-survives-re-arm`, `life.waiting-never-wakes`, 
-         `life.waiting-lost-at-end`, `m2.q1-reset-keeps-timers`. [@I22, @I23]
-    T12  restartOn and keyed schedules: a changed selection restarts only its schedule; equal 
-         values do nothing; a key leaving cancels its timer. No prototype case. [@I20]
-    T13  Placements: a key change releases once and opens the new key; a non-key change keeps the 
-         session; a throwing select keeps it with one issue. Case `P1-S`; wrong runtimes 
-         `p1s.key-not-in-identity`, `p1s.select-throw-releases`. [@I24]
-    T14  Owner test: lies `k.late-as-current`, `k.restored-from-root` and `g.late-unhandled` must 
-         each fail a named check; lateness: wrong runtime `a2.lateness-transitive`. [@I26]
-    T15  LateMayNotLeave: a late exit beside an InFlight head or queued commit is denied; beside a 
-         Held head it is allowed. Cases `R14-FIX-01`, `R15-01`; wrong runtimes 
-         `misc.late-always-leaves`, `misc.late-leaves-queued`, `audit-1.r15-held-head-is-live`, 
-         `audit-1.r15-queue-behind-held-not-live`, and for an active subroutine 
+    T1  Self and re-entry: a call started in a state, then "self", then an explicit re-entry of that state; after self 
+        the call ends current, after re-entry it ends late. Cases `PAY-07`, `R14-FIX-01`; wrong runtimes 
+        `audit-1.r14-reentry-keeps-activation`, `a3.r14-explicit-reentry-keeps-activation`, 
+        `a3.r14-reenters-the-parent`. [@I4, @I5]
+    T2  Exit and entry order: a three-level tree with an activity per level and a transition across two branches; the 
+        recorded stop and start order is deepest-first exits, then outermost-first entries. No prototype case; phase 3 
+        writes one with a wrong runtime that enters innermost first. [@I6, @I7]
+    T3  Subroutines and history: exit, abandonment, an ancestor's self, history re-entry. Case `FRAG-10`; wrong runtime 
+        `1b.r14-history-reentry-keeps-activation` (a history re-entry that keeps the activation). [@I8]
+    T4  One publication: a transition that raises into two traits and resets a third publishes exactly one snapshot; a 
+        child's refusal publishes none. Case `FRAG-17`. [@I3, @I9]
+    T5  Before and after memory: a schedule function and a commit select read the value the turn wrote; a guard and a 
+        mapper read the old one. Case `PAY-16`; wrong runtime `pay16.schedule-reads-pre-transition-memory`. [@I12]
+    T6  Rejected turns: a zero-length schedule and overlapping keys reject the turn: state unchanged, one issue-only 
+        snapshot, and check() answers Denied with InvalidTurn (Q3 names the issue's code). Case `REV4-H4`; wrong 
+        runtimes `pinsb.schedule-unbounded`, `pinsa.overlapping-keys-allowed`. An unencodable value does not reject; 
+        wrong runtime `pinsb.nan-carried-as-null`. [@I14]
+    T7  Callback defects: a throwing guard, select and key each keep the prior snapshot with one issue naming the 
+        callback path, and the same input is not retried (case `R12-DEFECT`). A throwing post-commit mapper publishes 
+        one issue and no event. [@I14, @I16]
+    T8  Determinism: run one reference scenario twice on a controlled clock and seed; the turn records are equal, and a 
+        host clock jump between runs changes nothing. [@I13, @I17]
+    T9  check agreement: for every (state, event) pair of the reference machines, check's verdict equals what handling 
+        does, and a Runtime spy sees no effect from check; a stored old snapshot answers from its captured values. No 
+        prototype case. [@I18, @I19]
+    T10  Schedules: armOn, disarmOn, exit, a re-armed debounce, a stale firing after re-arming. Cases `REAL-03`, 
+         `FRAG-17`, `LIFE-16`; wrong runtimes `pinsa.left-state-schedule-kept`, `life.grace-unfenced`. [@I20, @I21]
+    T11  Waiting while unused and overdue: cases `LIFE-14`, `FRAG-18`; wrong runtimes `life.schedule-fires-unused`, 
+         `life.waiting-survives-re-arm`, `life.waiting-never-wakes`, `life.waiting-lost-at-end`, 
+         `m2.q1-reset-keeps-timers`. [@I22, @I23]
+    T12  restartOn and keyed schedules: a changed selection restarts only its schedule; equal values do nothing; a key 
+         leaving cancels its timer. No prototype case. [@I20]
+    T13  Placements: a key change releases once and opens the new key; a non-key change keeps the session; a throwing 
+         select keeps it with one issue. Case `P1-S`; wrong runtimes `p1s.key-not-in-identity`, 
+         `p1s.select-throw-releases`. [@I24]
+    T14  Owner test: lies `k.late-as-current`, `k.restored-from-root` and `g.late-unhandled` must each fail a named 
+         check; lateness: wrong runtime `a2.lateness-transitive`. [@I26]
+    T15  LateMayNotLeave: a late exit beside an InFlight head or queued commit is denied; beside a Held head it is 
+         allowed. Cases `R14-FIX-01`, `R15-01`; wrong runtimes `misc.late-always-leaves`, `misc.late-leaves-queued`, 
+         `audit-1.r15-held-head-is-live`, `audit-1.r15-queue-behind-held-not-live`, and for an active subroutine 
          `audit-1.r15-subroutine-ignored`. [@I27]
-    T16  onContext: a provider change wave with an equal selection, a changed one with when 
-         declining, and a throwing select. No prototype case. [@I28]
-    T17  Snapshots: writing into a published snapshot fails; a later publication reuses unchanged 
-         parts by identity. Lies `w.patch-in-place`, `w.row-in-place`; absent entries: wrong 
-         runtime `f.absent-is-placed`. [@I29, @I30]
-    T18  Issues: two sources raise issues; one source's success clears only its own; a new 
-         incarnation starts with none. No prototype wrong runtime. [@I31]
-    T19  One leaf and selection: generated event sequences over the reference machines; every 
-         snapshot's state is a complete leaf path, and the chosen alternative equals an independent 
-         reference model of selection (deepest level first, first passing). No prototype wrong 
-         runtime; phase 3 writes one that tries the root first. [@I1, @I2]
-    T20  Pending resets and whenAbandoned: a commit changes a trait's reset value; the reset runs 
-         as its own turn before the next event; a leave that ends a trait runs whenAbandoned in the 
-         leaving turn. Case `FRAG-02`; phase 3 writes the wrong runtimes. [@I10, @I11]
-    T21  Denied and Unhandled: a lane ending admitted where every alternative declines applies its 
-         lane effects, counts as delivered, and changes no state or revision; an unhandled public 
-         event publishes nothing. Cases `STORE-04`, `R14-F-01`; phase 3 writes the wrong runtime 
-         that drops the lane effects. [@I15]
-    T22  value only on change: a placement receives equal confirmed data twice and an optimistic 
-         change; value fires once. No prototype case for resources; phase 3 writes this test and 
-         its wrong runtime. [@I25]
+    T16  onContext: a provider change wave with an equal selection, a changed one with when declining, and a throwing 
+         select. No prototype case. [@I28]
+    T17  Snapshots: writing into a published snapshot fails; a later publication reuses unchanged parts by identity. 
+         Lies `w.patch-in-place`, `w.row-in-place`; absent entries: wrong runtime `f.absent-is-placed`. [@I29, @I30]
+    T18  Issues: two sources raise issues; one source's success clears only its own; a new incarnation starts with 
+         none. No prototype wrong runtime. [@I31]
+    T19  One leaf and selection: generated event sequences over the reference machines; every snapshot's state is a 
+         complete leaf path, and the chosen alternative equals an independent reference model of selection (deepest 
+         level first, first passing). No prototype wrong runtime; phase 3 writes one that tries the root first. [@I1, 
+         @I2]
+    T20  Pending resets and whenAbandoned: a commit changes a trait's reset value; the reset runs as its own turn 
+         before the next event; a leave that ends a trait runs whenAbandoned in the leaving turn. Case `FRAG-02`; phase 
+         3 writes the wrong runtimes. [@I10, @I11]
+    T21  Denied and Unhandled: a lane ending admitted where every alternative declines applies its lane effects, counts 
+         as delivered, and changes no state or revision; an unhandled public event publishes nothing. Cases `STORE-04`, 
+         `R14-F-01`; phase 3 writes the wrong runtime that drops the lane effects. [@I15]
+    T22  value only on change: a placement receives equal confirmed data twice and an optimistic change; value fires 
+         once. No prototype case for resources; phase 3 writes this test and its wrong runtime. [@I25]

@@ -4,14 +4,14 @@
 contracts, and the Specs in [/specs/core](../../../../specs/core/) record the guarantees the core builds
 against. Where a document here and a plan differ, the plan wins.
 
-| Reference | What it is |
-| --- | --- |
-| [dispatch-desk/](dispatch-desk/README.md) | the reference application, to be updated and run as a real app |
-| [checkout/](checkout/README.md) | the second reference application, likewise |
-| [typecheck/](typecheck/) | type checks for the two reference applications |
-| [superseded.md](superseded.md) | plan text the plan merge replaced, each with what replaced it |
-| [proposals/revisit.md](proposals/revisit.md) | deferred items |
-| [proposals/open-items.md](proposals/open-items.md) | open items the user flagged |
+| Reference                                          | What it is                                                     |
+| -------------------------------------------------- | -------------------------------------------------------------- |
+| [dispatch-desk/](dispatch-desk/README.md)          | the reference application, to be updated and run as a real app |
+| [checkout/](checkout/README.md)                    | the second reference application, likewise                     |
+| [typecheck/](typecheck/)                           | type checks for the two reference applications                 |
+| [superseded.md](superseded.md)                     | plan text the plan merge replaced, each with what replaced it  |
+| [proposals/revisit.md](proposals/revisit.md)       | deferred items                                                 |
+| [proposals/open-items.md](proposals/open-items.md) | open items the user flagged                                    |
 
 ## Deleted history
 

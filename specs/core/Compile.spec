@@ -164,51 +164,46 @@ model
     DataView = a Compiled with every Slot replaced by its name.
 
 invariants
-    I1  For every Construction: no actor, timer, storage access, service, loader or evidence exists 
-        afterwards that did not exist before. [@R1]
+    I1  For every Construction: no actor, timer, storage access, service, loader or evidence exists afterwards that did 
+        not exist before. [@R1]
 
     I2  For every machine(definition, callback): the callback is invoked exactly once. [@R1, @R3]
 
-    I3  A Construction that finds violations V throws one FlowError with diagnostics equal to V in 
-        declaration then rule order, and returns no value. [@R2]
+    I3  A Construction that finds violations V throws one FlowError with diagnostics equal to V in declaration then 
+        rule order, and returns no value. [@R2]
 
-    I4  states(Compiled) == states(definition), events(Compiled) == events(definition) and 
-        operations(Compiled) == operations(definition). [@R3, @R4]
+    I4  states(Compiled) == states(definition), events(Compiled) == events(definition) and operations(Compiled) == 
+        operations(definition). [@R3, @R4]
 
-    I5  For every memory field f: exactly one source among Flow.input, Flow.initial and optional 
-        absence. [@R5]
+    I5  For every memory field f: exactly one source among Flow.input, Flow.initial and optional absence. [@R5]
 
     I6  No default or computed initial is executed during Construction. [@R5]
 
-    I7  creation(input) is a function of input alone: equal inputs give equal memory, and it reads 
-        no clock or randomness. [@R6]
+    I7  creation(input) is a function of input alone: equal inputs give equal memory, and it reads no clock or 
+        randomness. [@R6]
 
     I8  Restore, adoption and hydration never invoke creation. [@R6, @R8]
 
-    I9  On a value-named machine, every input field is required, has no default and encodes toa 
-        string. [@R7]
+    I9  On a value-named machine, every input field is required, has no default and encodes toa string. [@R7]
 
-    I10  For every actor tree, the map from write operation to write contract is injective, 
-         counting each fragment placement. [@R9]
+    I10  For every actor tree, the map from write operation to write contract is injective, counting each fragment 
+         placement. [@R9]
 
     I11  Every unknown: target is a Flow.uncertain event or Flow.ignore. [@R9]
 
-    I12  Every mapped fragment write lies under a path of root traits, .each copies and 
-         .resumable() traits only. [@R11]
+    I12  Every mapped fragment write lies under a path of root traits, .each copies and .resumable() traits only. [@R11]
 
-    I13  Every authored name satisfies R12's predicate, and two names are equal only if their code 
-         units are equal. [@R12]
+    I13  Every authored name satisfies R12's predicate, and two names are equal only if their code units are equal. 
+         [@R12]
 
-    I14  In an App, machine id to machine is a function and injective, and operation, domain and 
-         entity ids are pairwise distinct. [@R15]
+    I14  In an App, machine id to machine is a function and injective, and operation, domain and entity ids are 
+         pairwise distinct. [@R15]
 
-    I15  Every function reachable in Compiled is a Slot, and the DataView contains no function. 
-         [@R16, @R17]
+    I15  Every function reachable in Compiled is a Slot, and the DataView contains no function. [@R16, @R17]
 
     I16  For every operation in Compiled, its key fields are a subset of its input fields. [@R17]
 
-    I17  For every machine entry, resolved wiring is total over declared slots and each provider is 
-         compatible. [@R18]
+    I17  For every machine entry, resolved wiring is total over declared slots and each provider is compatible. [@R18]
 
 composition
     flow
@@ -292,38 +287,35 @@ coverage
         open_by      [@Q1]
 
 tests
-    T1  Construct every reference definition, machine and app with spies on services, storage, 
-        clock and loaders; expect zero calls and a callback count of 1 per machine. No prototype 
-        wrong runtime; phase 3 writes one that acquires a service at construction. [@I1, @I2, @I6]
-    T2  Construct a definition with three violations in different fields; expect one FlowError 
-        whose diagnostics name all three, in declaration then rule order, with paths. No prototype 
-        wrong runtime; phase 3 writes one that stops at the first violation. [@I3]
-    T3  Each rejected form of R4, R5, R9, R12 and R13 is refused with its code: TwoDefaults, 
-        ImpureDefault, ReservedStateName, UnknownNotUncertain, SharedContract, KeyFieldOptional. 
-        Reference: the prototype's front-end pins (`P1-H` for ImpureDefault). Wrong runtimes for 
-        ImpureDefault: `p1h.default-runs`, `a1.a-failed-default-is-a-value`. [@I3, @I5, @I6, @I10, 
-        @I11, @I13]
-    T4  Create with an input whose Schema transforms; creation checks the type side and stores the 
-        value unchanged. Case `R15-03`; wrong runtime `r15.creation-decodes-input`. [@I7]
-    T5  Restore and adopt a record twice with spies on initial functions; expect zero creation 
-        calls. Restore a record lacking an input field with no default; expect RestoreMissingInput 
-        (case `R12-DOORS`). [@I8]
+    T1  Construct every reference definition, machine and app with spies on services, storage, clock and loaders; 
+        expect zero calls and a callback count of 1 per machine. No prototype wrong runtime; phase 3 writes one that 
+        acquires a service at construction. [@I1, @I2, @I6]
+    T2  Construct a definition with three violations in different fields; expect one FlowError whose diagnostics name 
+        all three, in declaration then rule order, with paths. No prototype wrong runtime; phase 3 writes one that 
+        stops at the first violation. [@I3]
+    T3  Each rejected form of R4, R5, R9, R12 and R13 is refused with its code: TwoDefaults, ImpureDefault, 
+        ReservedStateName, UnknownNotUncertain, SharedContract, KeyFieldOptional. Reference: the prototype's front-end 
+        pins (`P1-H` for ImpureDefault). Wrong runtimes for ImpureDefault: `p1h.default-runs`, 
+        `a1.a-failed-default-is-a-value`. [@I3, @I5, @I6, @I10, @I11, @I13]
+    T4  Create with an input whose Schema transforms; creation checks the type side and stores the value unchanged. 
+        Case `R15-03`; wrong runtime `r15.creation-decodes-input`. [@I7]
+    T5  Restore and adopt a record twice with spies on initial functions; expect zero creation calls. Restore a record 
+        lacking an input field with no default; expect RestoreMissingInput (case `R12-DOORS`). [@I8]
     T6  Type tests: undeclared or foreign members, false from a guard, unfilled ports, writes to
             input fields and acting fragment members outside their fragment fail to compile; 
                 reference
             literals infer without assertions. [@R14, @I12]
-    T7  App construction with a duplicate machine id, one machine under two keys, and two contracts 
-        with one id each throws one FlowError naming both entries. [@I14]
-    T8  Hand a Runtime a Compiled with a bare function, a key field outside input, and no events 
-        table; each is refused at creation, before any actor. [@I15, @I16]
-    T9  Equal identities compile from equal source on two hosts to equal data views (compare 
-        canonical bytes through the Codec Spec). [@I15]
-    T10  Wire a slot to a missing provider and to an incompatible one; admitting the actor refuses 
-         with the slot named, before any turn (Actors Spec T14 covers the cycle). [@I17]
-    T11  The machine adds nothing: a callback naming a state, event or operation the definition 
-         lacks is a type error and, untyped, a construction error; Compiled's states, events and 
-         operations equal the definition's. No prototype wrong runtime; phase 3 writes one that 
-         accepts an added state. [@I4]
+    T7  App construction with a duplicate machine id, one machine under two keys, and two contracts with one id each 
+        throws one FlowError naming both entries. [@I14]
+    T8  Hand a Runtime a Compiled with a bare function, a key field outside input, and no events table; each is refused 
+        at creation, before any actor. [@I15, @I16]
+    T9  Equal identities compile from equal source on two hosts to equal data views (compare canonical bytes through 
+        the Codec Spec). [@I15]
+    T10  Wire a slot to a missing provider and to an incompatible one; admitting the actor refuses with the slot named, 
+         before any turn (Actors Spec T14 covers the cycle). [@I17]
+    T11  The machine adds nothing: a callback naming a state, event or operation the definition lacks is a type error 
+         and, untyped, a construction error; Compiled's states, events and operations equal the definition's. No 
+         prototype wrong runtime; phase 3 writes one that accepts an added state. [@I4]
     T12  Identity fields: a value-named machine with an optional, defaulted or non-string-encoded
             input field is refused IdentityFieldOptional; a fragment input field stays writable. 
                 Phase

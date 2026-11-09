@@ -171,13 +171,13 @@ the work. On PASS, start the next phase if Authority allows it; otherwise stop.
 
 ## Stages and gates
 
-| Stage | Phases | Gate to the next stage |
-| --- | --- | --- |
-| A. Settle | 0, 1, 2 | The design and the prototype agree; entities, streams and migration settled into the design; plans written from it and marked |
-| B. Suite and core | 3, 4 | The new suite audited and green on both runtimes; the core passes it alone |
-| C. Features | 5 | Each feature's slice audited, then green on production |
-| D. Examples and docs | 6, 7 | Example apps run in real browsers; docs generated from source |
-| E. Hardening and release | 8, 9 | Budgets met and findings swept; release as far as the user asks |
+| Stage                    | Phases  | Gate to the next stage                                                                                                        |
+| ------------------------ | ------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| A. Settle                | 0, 1, 2 | The design and the prototype agree; entities, streams and migration settled into the design; plans written from it and marked |
+| B. Suite and core        | 3, 4    | The new suite audited and green on both runtimes; the core passes it alone                                                    |
+| C. Features              | 5       | Each feature's slice audited, then green on production                                                                        |
+| D. Examples and docs     | 6, 7    | Example apps run in real browsers; docs generated from source                                                                 |
+| E. Hardening and release | 8, 9    | Budgets met and findings swept; release as far as the user asks                                                               |
 
 ## Phases
 

@@ -44,15 +44,15 @@ open
     Q1  Executable checks are not built.
         outcome  Phase 3 writes each test below as vectors, with a wrong codec for each check.
 
-    Q2  The prototype codec (round-14/codec/codec.ts) has no case pinning these bounds or error 
-        codes. outcome The vectors are written from this Spec, not from the prototype.
+    Q2  The prototype codec (round-14/codec/codec.ts) has no case pinning these bounds or error codes. outcome The 
+        vectors are written from this Spec, not from the prototype.
 
 model
     Bytes = UTF-8 canonical JSON text.
 
 invariants
-    I1  For every accepted value v: decode(encode(v)) equals v, and encode(decode(b)) equals b for 
-        every accepted b. [@R2, @R3]
+    I1  For every accepted value v: decode(encode(v)) equals v, and encode(decode(b)) equals b for every accepted b. 
+        [@R2, @R3]
 
     I2  Each bound accepts its exact value and rejects the next one. [@R1]
 
@@ -82,14 +82,11 @@ coverage
         open_by      [@Q1, @Q2]
 
 tests
-    T1  Bounds: each of the five bounds at its value and one past it; the error names the bound, 
-        value and path. [@I2]
-    T2  Malformed vectors: a BOM, invalid UTF-8, a lone surrogate, duplicate keys, unsorted keys, 
-        -0, 1.0 and 1e0 spellings each fail with their CodecMalformed reason. [@I4]
-    T3  Round trip and hosts: a fixed vector set encodes to the same bytes on every listed host and 
-        round-trips both ways. [@I1, @I3]
-    T4  Mutation: mutate the input and output byte arrays after a call; stored and decoded values 
-        are unchanged. [@I5]
-    T5  Schema mismatch: a valid JSON value that fails the owning Schema gives CodecSchemaMismatch 
-        with a path and no data value; a turn with an unencodable value commits and reports 
-        UnencodableValue. [@I6]
+    T1  Bounds: each of the five bounds at its value and one past it; the error names the bound, value and path. [@I2]
+    T2  Malformed vectors: a BOM, invalid UTF-8, a lone surrogate, duplicate keys, unsorted keys, -0, 1.0 and 1e0 
+        spellings each fail with their CodecMalformed reason. [@I4]
+    T3  Round trip and hosts: a fixed vector set encodes to the same bytes on every listed host and round-trips both 
+        ways. [@I1, @I3]
+    T4  Mutation: mutate the input and output byte arrays after a call; stored and decoded values are unchanged. [@I5]
+    T5  Schema mismatch: a valid JSON value that fails the owning Schema gives CodecSchemaMismatch with a path and no 
+        data value; a turn with an unencodable value commits and reports UnencodableValue. [@I6]

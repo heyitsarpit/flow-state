@@ -145,9 +145,8 @@ open
         outcome  Phase 3 writes each test below as an oracle behind the Port, with its wrong 
                  runtime; until then every Requirement's evidence is open.
 
-    Q2  The prototype has no case for scope bounds (4,096 records, 16 
-        MiB),NonDurableContextProvider, or StorageSilent's 10 s. outcome Phase 3 writes those cases 
-        and wrong runtimes.
+    Q2  The prototype has no case for scope bounds (4,096 records, 16 MiB),NonDurableContextProvider, or 
+        StorageSilent's 10 s. outcome Phase 3 writes those cases and wrong runtimes.
 
     Q3  The 5 s interval runs only in the prototype's runtime-default pass.
         outcome  The new suite runs R10's cases at the default interval in its normal run.
@@ -162,47 +161,44 @@ model
 invariants
     I1  With persistence off, no storage call happens during the Runtime's life. [@R1]
 
-    I2  A record written under scope s is never read, overwritten or deleted by a Runtime of 
-        another app or scope. [@R1]
+    I2  A record written under scope s is never read, overwritten or deleted by a Runtime of another app or scope. [@R1]
 
     I3  A local identity never has an actor record or a lane record. [@R3, @R5]
 
-    I4  A restored actor record round-trips: decode(encode(record)) equals the committed valuesR4 
-        lists. [@R4]
+    I4  A restored actor record round-trips: decode(encode(record)) equals the committed valuesR4 lists. [@R4]
 
-    I5  Every non-Idle lane of a persisted identity has a lane record in the latest capture.[@R5, 
-        @R7]
+    I5  Every non-Idle lane of a persisted identity has a lane record in the latest capture.[@R5, @R7]
 
     I6  No capture contains an optimistic value, a prediction, a queued event or work. [@R6]
 
-    I7  Every capture corresponds to one published cut: each actor record and its store writes come 
-        from the same commit. [@R7]
+    I7  Every capture corresponds to one published cut: each actor record and its store writes come from the same 
+        commit. [@R7]
 
     I8  A capture never starts an operation, emits an event or changes live state. [@R7]
 
     I9  A capture with a non-durable provider is not written; the previous capture remains.[@R8]
 
-    I10  After any interruption, the readable scope equals some complete landed capture, and never 
-         an older one than the latest landed. [@R9, @R12]
+    I10  After any interruption, the readable scope equals some complete landed capture, and never an older one than 
+         the latest landed. [@R9, @R12]
 
-    I11  At every landed state, a lane record's actor record is at least as new as the turn that 
-         created the lane. [@R10]
+    I11  At every landed state, a lane record's actor record is at least as new as the turn that created the lane. 
+         [@R10]
 
-    I12  A dirty plain record's capture is issued within 5 s of the record becoming dirty, or at 
-         once after hide, pagehide or a lane batch; nothing bounds when storage answers. [@R10]
+    I12  A dirty plain record's capture is issued within 5 s of the record becoming dirty, or at once after hide, 
+         pagehide or a lane batch; nothing bounds when storage answers. [@R10]
 
-    I13  Records counted in a scope never exceed 4,096 nor 16 MiB after a capture lands; a record 
-         with user work is never the one dropped. [@R11]
+    I13  Records counted in a scope never exceed 4,096 nor 16 MiB after a capture lands; a record with user work is 
+         never the one dropped. [@R11]
 
     I14  A batch is reported landed only if all its requests succeeded. [@R12]
 
-    I15  For a persisted identity, adapter invocation of an Attempt happens only after that Attempt 
-         is Acknowledged. [@R13]
+    I15  For a persisted identity, adapter invocation of an Attempt happens only after that Attempt is Acknowledged. 
+         [@R13]
 
     I16  A refused acknowledgement leaves zero adapter calls for that Attempt. [@R13]
 
-    I17  After a crash, every Acknowledged Attempt without a saved ending restores as unknown { 
-         Restored } with the same id; no remote write is repeated. [@R14]
+    I17  After a crash, every Acknowledged Attempt without a saved ending restores as unknown { Restored } with the 
+         same id; no remote write is repeated. [@R14]
 
     I18  No Attempt or incarnation id minted after restore equals any id on disk. [@R12, @R14]
 
@@ -276,49 +272,40 @@ coverage
         open_by      [@Q1]
 
 tests
-    T1  Off by default: a Runtime without persistence runs the reference scenarios with a storage 
-        spy that sees zero calls; a scope-less persistent setup is a type error and an untyped one 
-        rejects before construction. [@I1]
-    T2  Selection: a definition with no persist is not persisted; a local identity of a persisted 
-        machine writes nothing. Cases `R15-01`, `R14-ID-03`; wrong runtimes 
-        `r15d.persist-default-true`, `r15d.local-persisted`, `r15.definition-persist-ignored`. [@I3]
-    T3  Record round trip: memory, bookmark, frozen slice and a bigint key survive a reload. Cases 
-        `SPIKE-02`, `SPIKE-04`, `P1-S`; wrong runtimes `p1s.last-not-saved`, 
-        `p1s.heard-not-restored`. [@I4, @I6]
-    T4  Capture cuts: a hide flushes every actor; poison lanes go ahead of the record; plain writes 
-        coalesce to the newest. Cases `REV8-PINS`, `REV6-CAPTURE`; wrong runtimes 
-        `pinsa.hide-flushes-one-actor`, `pinsa.poison-holds-lanes`, `pinsa.poison-lets-deletes-go`. 
-        [@I7, @I11]
-    T5  The 5 s interval on a controlled clock: the default is 5 s; hidden issues at once; a kill 
-        before any flush loses only plain memory; disposal flushes; with fake storage that never 
-        answers, the capture is still issued on time and nothing else waits on it. Case `REV7-D80`; 
-        wrong runtimes `e-debounce`, `e-hidden-waits`, `e-hide-noop`, `edge.hide-first-scope-only`, 
-        `durable.deadline-not-now`. [@I12]
-    T6  Atomic fallback: a failed write survives a reload as the last good capture; a lost clock 
-        does not strand a flush. Cases `REV6-M7`, `REV7-EDGE`; storage silence: wrong runtime 
-        `e-no-silent`. [@I10, @I14]
-    T7  Acknowledge before send: a refused acknowledgement calls no adapter and ends 
-        StorageRefused; a refused re-send capture returns Held with unknown { StorageRefused }; a 
-        head on disk is the request that starts. Cases `PAY-09`, `PAY-16`, `REV8-H1`, `REV7-H1`; 
-        wrong runtimes `lane.ackout-false`, `durable.head-off-disk-on-the-wire`, 
-        `durable.ticket-not-fenced`, `1b.r17-refused-resend-silent`, 
-        `pay16.refused-capture-spends-budget`, and `lane.promote-skips-durable` (a promoted head 
-        sent with no acknowledgement). [@I15, @I16]
-    T8  Crash after acknowledgement: kill at each point between acknowledgement and the adapter's 
-        answer; every reload hears unknown { Restored } with the same id and the server sees one 
-        call. Case `PAY-16`; wrong runtime `pay16.restore-forgets-may-have-applied`; the global 
-        oracle (h) in the prototype harness checks it on every step. [@I17, @I18]
-    T9  Bounds and providers: a scope at 4,096 records and one past; a non-durable provider rejects 
-        the capture and keeps the previous one. No prototype case (Q2). [@I9, @I13]
-    T10  Scope isolation: two apps and two scopes over one fake KeyValueStore; no Runtime reads, 
-         writes or deletes another's keys, forget included. No prototype case; phase 3 writes this 
-         test and its wrong runtime. [@I2]
-    T11  Every non-Idle lane is captured: lanes bound, unbound after disposeActor, and Held after 
-         an end each appear in the next landed capture. Case `R15-01`; phase 3 writes the wrong 
-         runtime that skips unbound lanes. [@I5]
-    T12  Capture is passive: with spies on operations, mailboxes and the clock, a capture starts no 
-         operation, enqueues no event and changes no snapshot. No prototype wrong runtime; phase 3 
-         writes one that refetches during capture. [@I8]
-    T13  Codec bounds on records: memory holding a 4,097-item array skips its capture with 
-         UnencodableValue and the last good capture restores. No prototype case; phase 3 writes 
-         this test. [@I4]
+    T1  Off by default: a Runtime without persistence runs the reference scenarios with a storage spy that sees zero 
+        calls; a scope-less persistent setup is a type error and an untyped one rejects before construction. [@I1]
+    T2  Selection: a definition with no persist is not persisted; a local identity of a persisted machine writes 
+        nothing. Cases `R15-01`, `R14-ID-03`; wrong runtimes `r15d.persist-default-true`, `r15d.local-persisted`, 
+        `r15.definition-persist-ignored`. [@I3]
+    T3  Record round trip: memory, bookmark, frozen slice and a bigint key survive a reload. Cases `SPIKE-02`, 
+        `SPIKE-04`, `P1-S`; wrong runtimes `p1s.last-not-saved`, `p1s.heard-not-restored`. [@I4, @I6]
+    T4  Capture cuts: a hide flushes every actor; poison lanes go ahead of the record; plain writes coalesce to the 
+        newest. Cases `REV8-PINS`, `REV6-CAPTURE`; wrong runtimes `pinsa.hide-flushes-one-actor`, 
+        `pinsa.poison-holds-lanes`, `pinsa.poison-lets-deletes-go`. [@I7, @I11]
+    T5  The 5 s interval on a controlled clock: the default is 5 s; hidden issues at once; a kill before any flush 
+        loses only plain memory; disposal flushes; with fake storage that never answers, the capture is still issued on 
+        time and nothing else waits on it. Case `REV7-D80`; wrong runtimes `e-debounce`, `e-hidden-waits`, 
+        `e-hide-noop`, `edge.hide-first-scope-only`, `durable.deadline-not-now`. [@I12]
+    T6  Atomic fallback: a failed write survives a reload as the last good capture; a lost clock does not strand a 
+        flush. Cases `REV6-M7`, `REV7-EDGE`; storage silence: wrong runtime `e-no-silent`. [@I10, @I14]
+    T7  Acknowledge before send: a refused acknowledgement calls no adapter and ends StorageRefused; a refused re-send 
+        capture returns Held with unknown { StorageRefused }; a head on disk is the request that starts. Cases 
+        `PAY-09`, `PAY-16`, `REV8-H1`, `REV7-H1`; wrong runtimes `lane.ackout-false`, 
+        `durable.head-off-disk-on-the-wire`, `durable.ticket-not-fenced`, `1b.r17-refused-resend-silent`, 
+        `pay16.refused-capture-spends-budget`, and `lane.promote-skips-durable` (a promoted head sent with no 
+        acknowledgement). [@I15, @I16]
+    T8  Crash after acknowledgement: kill at each point between acknowledgement and the adapter's answer; every reload 
+        hears unknown { Restored } with the same id and the server sees one call. Case `PAY-16`; wrong runtime 
+        `pay16.restore-forgets-may-have-applied`; the global oracle (h) in the prototype harness checks it on every 
+        step. [@I17, @I18]
+    T9  Bounds and providers: a scope at 4,096 records and one past; a non-durable provider rejects the capture and 
+        keeps the previous one. No prototype case (Q2). [@I9, @I13]
+    T10  Scope isolation: two apps and two scopes over one fake KeyValueStore; no Runtime reads, writes or deletes 
+         another's keys, forget included. No prototype case; phase 3 writes this test and its wrong runtime. [@I2]
+    T11  Every non-Idle lane is captured: lanes bound, unbound after disposeActor, and Held after an end each appear in 
+         the next landed capture. Case `R15-01`; phase 3 writes the wrong runtime that skips unbound lanes. [@I5]
+    T12  Capture is passive: with spies on operations, mailboxes and the clock, a capture starts no operation, enqueues 
+         no event and changes no snapshot. No prototype wrong runtime; phase 3 writes one that refetches during 
+         capture. [@I8]
+    T13  Codec bounds on records: memory holding a 4,097-item array skips its capture with UnencodableValue and the 
+         last good capture restores. No prototype case; phase 3 writes this test. [@I4]

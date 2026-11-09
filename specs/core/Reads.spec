@@ -115,10 +115,9 @@ open
         outcome  Phase 3 writes each test below as an oracle behind the Port, with its wrong 
                  runtime; until then every Requirement's evidence is open.
 
-    Q2  Built later, not specified here: staleTime freshness, gcTime collection, trailing refetch, 
-        setData, invalidate and clear with partial keys, write batches and their 256 bound, 
-        placeholders, contract.get, key size bounds and InvalidKey, focus and connection triggers, 
-        optimistic stacking. The prototype built none of them.
+    Q2  Built later, not specified here: staleTime freshness, gcTime collection, trailing refetch, setData, invalidate 
+        and clear with partial keys, write batches and their 256 bound, placeholders, contract.get, key size bounds and 
+        InvalidKey, focus and connection triggers, optimistic stacking. The prototype built none of them.
         outcome  They are written in spec-split.md's "written when their phase starts" list, when 
                  phase 4's operations module reaches them.
 
@@ -136,8 +135,8 @@ invariants
 
     I2  Two key records with equal fields, in any order, give equal canonical text. [@R2]
 
-    I3  Canonical text is a function of the key's value; the stored name of a non-JSON value 
-        decodes to the same lane after reload. [@R2]
+    I3  Canonical text is a function of the key's value; the stored name of a non-JSON value decodes to the same lane 
+        after reload. [@R2]
 
     I4  An invalid or out-of-bound key changes nothing and runs no getter. [@R3]
 
@@ -145,16 +144,13 @@ invariants
 
     I7  Per (Runtime, contract, key) at most one lookup is in flight. [@R5]
 
-    I8  A lookup that finds a lookup in flight for its entry joins it and starts no request. [@R5, 
-        @R6]
+    I8  A lookup that finds a lookup in flight for its entry joins it and starts no request. [@R5, @R6]
 
-    I9  Of several lookups through one one-off read lane, only the latest's ending is delivered. 
-        [@R6]
+    I9  Of several lookups through one one-off read lane, only the latest's ending is delivered. [@R6]
 
     I11  A request started before the stored data landed never replaces that data. [@R10]
 
-    I12  value fires only on a confirmed change under Equal.equals, never for an optimistic value. 
-         [@R9, @R10, @R13]
+    I12  value fires only on a confirmed change under Equal.equals, never for an optimistic value. [@R9, @R10, @R13]
 
     I15  Visible equals confirmed data with exactly the live optimistic updates applied. [@R13]
 
@@ -162,8 +158,7 @@ invariants
 
     I17  An unknown ending triggers at most one refetch of each displayed entry. [@R13]
 
-    I18  A row object is the same object across publications while its lane, entry or session is 
-         unchanged. [@R14]
+    I18  A row object is the same object across publications while its lane, entry or session is unchanged. [@R14]
 
     I19  O.x.get(s, k) is defined for every valid k. [@R14]
 
@@ -209,33 +204,27 @@ coverage
         open_by      [@Q1]
 
 tests
-    T1  Inert contracts: construct every reference contract with service spies; zero calls. A 
-        missing services list fails construction; a money-shaped write keyed by the Attempt draws 
-        flow check's warning (StaticCli Spec). [@I1]
-    T2  Key equality and canonical text: one lane whatever order a key is written; a bigint key 
-        names a lane and survives a reload. Cases `REV4-H5`, `REV9-NAMES`; wrong runtimes 
-        `d119.bigint-no-name`, `d119.bigint-carried`. [@I2, @I3]
-    T3  Key fingerprints: a key field's type change is a new version; a reorder is not. Case 
-        `P1-H`; wrong runtimes `p1h.key-version-by-names`, `p1h.same-fields-ordered`, 
-        `m1.key-order-matters`. [@I3]
+    T1  Inert contracts: construct every reference contract with service spies; zero calls. A missing services 
+        list fails construction; a money-shaped write keyed by the Attempt draws flow check's warning (StaticCli Spec). 
+        [@I1]
+    T2  Key equality and canonical text: one lane whatever order a key is written; a bigint key names a lane and 
+        survives a reload. Cases `REV4-H5`, `REV9-NAMES`; wrong runtimes `d119.bigint-no-name`, `d119.bigint-carried`. 
+        [@I2, @I3]
+    T3  Key fingerprints: a key field's type change is a new version; a reorder is not. Case `P1-H`; wrong runtimes 
+        `p1h.key-version-by-names`, `p1h.same-fields-ordered`, `m1.key-order-matters`. [@I3]
     T4  Key values: a throwing getter refuses without being run twice; a cycle refuses; a mutated
             input after admission does not change the key. Case `REV6-H4`. [@I4, @I5]
-    T5  Shared lookups: two actors looking up one key share one in-flight request; a second Runtime 
-        shares nothing. No prototype case; phase 3 writes this test and its wrong runtime. [@I7, 
-        @I8]
-    T6  One-off reads: a newer lookup supersedes the open one and only its ending arrives. Cases 
-        `REV8-M9`, `PAY-16`; wrong runtimes `reads.bad-lookup-keeps-old`, 
-        `pay16.superseded-read-keeps-older`. [@I9]
-    T8  Read endings: a throwing mapper ends Defect with a UserClosure issue; an ignored ending 
-        runs no handler. Cases `PAY-16`, `R14-IGN-01`; wrong runtime 
-        `pay16.read-defect-not-an-issue`. [@I12]
-    T9  Older reads never overwrite: a read started before a write's data landed does not replace 
-        it; one started after applies. Cases `MED-03`, `REV4-H1`; no live prototype wrong runtime 
-        targets resource reads, so phase 3 writes one. [@I11]
-    T11  Optimistic endings: success keeps the look until a later lookup; failure removes it 
-         without a refetch; unknown keeps it uncertain and refetches once, and a failed refetch 
-         leaves it uncertain. Cases `STORE-01`, `STORE-02`, `STORE-03`, `STORE-08`. [@I15, @I16, 
-         @I17]
-    T12  Rows: pending, uncertain and waiting follow the lane; identity is kept while unchanged; 
-         O.x.get of an unknown key reads the idle row. Case `LIKE-01`; lie 
-         `lie:a3.like-row-hidden`. [@I18, @I19]
+    T5  Shared lookups: two actors looking up one key share one in-flight request; a second Runtime shares nothing. No 
+        prototype case; phase 3 writes this test and its wrong runtime. [@I7, @I8]
+    T6  One-off reads: a newer lookup supersedes the open one and only its ending arrives. Cases `REV8-M9`, `PAY-16`; 
+        wrong runtimes `reads.bad-lookup-keeps-old`, `pay16.superseded-read-keeps-older`. [@I9]
+    T8  Read endings: a throwing mapper ends Defect with a UserClosure issue; an ignored ending runs no handler. Cases 
+        `PAY-16`, `R14-IGN-01`; wrong runtime `pay16.read-defect-not-an-issue`. [@I12]
+    T9  Older reads never overwrite: a read started before a write's data landed does not replace it; one started after 
+        applies. Cases `MED-03`, `REV4-H1`; no live prototype wrong runtime targets resource reads, so phase 3 writes 
+        one. [@I11]
+    T11  Optimistic endings: success keeps the look until a later lookup; failure removes it without a refetch; unknown 
+         keeps it uncertain and refetches once, and a failed refetch leaves it uncertain. Cases `STORE-01`, `STORE-02`, 
+         `STORE-03`, `STORE-08`. [@I15, @I16, @I17]
+    T12  Rows: pending, uncertain and waiting follow the lane; identity is kept while unchanged; O.x.get of an unknown 
+         key reads the idle row. Case `LIKE-01`; lie `lie:a3.like-row-hidden`. [@I18, @I19]

@@ -228,10 +228,9 @@ open
         outcome  Phase 3 writes each test below as an oracle behind the Port, with its wrong 
                  runtime; until then every Requirement's evidence is open.
 
-    Q2  The prototype has no case or wrong runtime for RuntimeNotReady, a shared ready()failure, 
-        service acquisition failure, ConflictingActorRef, the 1,024 bound, BlockedByDependents, 
-        CleanupFailed, RuntimeDisposed, context propagation or isolation. outcome Phase 3 writes 
-        those cases and wrong runtimes first.
+    Q2  The prototype has no case or wrong runtime for RuntimeNotReady, a shared ready()failure, service acquisition 
+        failure, ConflictingActorRef, the 1,024 bound, BlockedByDependents, CleanupFailed, RuntimeDisposed, context 
+        propagation or isolation. outcome Phase 3 writes those cases and wrong runtimes first.
 
     Q3  Can one services Layer be acquired storage-first (@plan.Runtime.Q1)?
         outcome  If not, R3's order becomes "acquire the whole Layer, then validate"; record it 
@@ -258,14 +257,13 @@ invariants
 
     I4  No app service is acquired before persisted data is read and validated. [@R3]
 
-    I5  Before ready succeeds, no handle exists except React's pre-attach handles, andensureActor 
-        and createActor reject. [@R4]
+    I5  Before ready succeeds, no handle exists except React's pre-attach handles, andensureActor and createActor 
+        reject. [@R4]
 
-    I6  After a failed bootstrap, every acquired resource is released, in reverse order, and no 
-        actor or evidence exists. [@R4]
+    I6  After a failed bootstrap, every acquired resource is released, in reverse order, and no actor or evidence 
+        exists. [@R4]
 
-    I7  identityKey(ref) depends only on the machine and the input fields' encoded strings, not on 
-        field order. [@R5]
+    I7  identityKey(ref) depends only on the machine and the input fields' encoded strings, not on field order. [@R5]
 
     I8  At most one shared actor exists per identity per Runtime. [@R5, @R6]
 
@@ -275,22 +273,20 @@ invariants
 
     I11  While an actor has WorkInFlight it is not ended. [@R7]
 
-    I12  At an end, a persisted actor's record equals its last committed state, and every lane it 
-         had remains with the Runtime. [@R8]
+    I12  At an end, a persisted actor's record equals its last committed state, and every lane it had remains with the 
+         Runtime. [@R8]
 
-    I13  Each incarnation id is fresh: never equal to an earlier incarnation's id, across restore 
-         too. [@R9, @R24]
+    I13  Each incarnation id is fresh: never equal to an earlier incarnation's id, across restore too. [@R9, @R24]
 
-    I14  A returning incarnation receives, in order: its starting turn, lane deliveries, parked 
-         Interrupted endings, at most one onContext wave, then the triggering event. [@R9, @R10]
+    I14  A returning incarnation receives, in order: its starting turn, lane deliveries, parked Interrupted endings, at 
+         most one onContext wave, then the triggering event. [@R9, @R10]
 
     I15  An incarnation binds only lanes of its own identity and subject path. [@R10]
 
-    I16  Each parked ending is delivered at most once per incarnation, and unknown { Restored } at 
-         most once per Held head per incarnation. [@R10]
+    I16  Each parked ending is delivered at most once per incarnation, and unknown { Restored } at most once per Held 
+         head per incarnation. [@R10]
 
-    I17  No schedule firing, issue or send created by an ended incarnation reaches a later one. 
-         [@R10]
+    I17  No schedule firing, issue or send created by an ended incarnation reaches a later one. [@R10]
 
     I18  A record of another identity version is never restored as the current one. [@R11]
 
@@ -298,42 +294,35 @@ invariants
 
     I20  At most 64 follow-ups run per admitted event. [@R13]
 
-    I21  An actor with pending mail is served within one rotation of the other actors with mail. 
-         [@R13]
+    I21  An actor with pending mail is served within one rotation of the other actors with mail. [@R13]
 
-    I22  Pending external events per actor never exceed 1,024; a refused send changes nothing. 
-         [@R14]
+    I22  Pending external events per actor never exceed 1,024; a refused send changes nothing. [@R14]
 
     I23  No ending, schedule firing or context update is dropped by admission bounds. [@R14]
 
-    I24  A refused ending is redelivered at most once per boot or adoption, and is never lost. 
-         [@R15]
+    I24  A refused ending is redelivered at most once per boot or adoption, and is never lost. [@R15]
 
-    I25  A send never creates an actor and never counts as a use; its outcome follows R16's table. 
-         [@R16]
+    I25  A send never creates an actor and never counts as a use; its outcome follows R16's table. [@R16]
 
-    I26  Every published cut pairs each actor snapshot with the store revision of the same commit. 
-         [@R17]
+    I26  Every published cut pairs each actor snapshot with the store revision of the same commit. [@R17]
 
-    I27  Per wave, each consumer gets at most one context update, computed from complete provider 
-         snapshots of one revision each. [@R19]
+    I27  Per wave, each consumer gets at most one context update, computed from complete provider snapshots of one 
+         revision each. [@R19]
 
-    I28  A consumer's slot is bound to one provider for the consumer's lifetime, and the provider 
-         graph is acyclic. [@R18]
+    I28  A consumer's slot is bound to one provider for the consumer's lifetime, and the provider graph is acyclic. 
+         [@R18]
 
     I29  After disposeActor or Runtime disposal, every non-Idle lane still exists. [@R20, @R22]
 
     I30  After disposal starts, no commit or read is invoked. [@R22]
 
-    I31  Among the endings of one lane delivered or parked together, the hold-leaving ending is 
-         last. [@R22]
+    I31  Among the endings of one lane delivered or parked together, the hold-leaving ending is last. [@R22]
 
     I32  forget never removes a Held lane whose operation exists. [@R21]
 
     I33  A failed cleanup never reports success, and the full Cause is retained. [@R23]
 
-    I34  Two Runtimes share no mutable object, and a handle is accepted only by its own Runtime. 
-         [@R24]
+    I34  Two Runtimes share no mutable object, and a handle is accepted only by its own Runtime. [@R24]
 
 composition
     flow
@@ -442,70 +431,60 @@ coverage
         open_by      [@Q1, @Q2]
 
 tests
-    T1  Setup and readiness: construct with spies (no I/O); two concurrent ready calls and a third 
-        after a failing service share one Exit; interrupting one waiter leaves the other waiting; 
-        ensure before ready rejects RuntimeNotReady; acquired services release in reverse on 
-        failure. No prototype case (Q2). [@I1, @I2, @I3, @I5, @I6]
+    T1  Setup and readiness: construct with spies (no I/O); two concurrent ready calls and a third after a failing 
+        service share one Exit; interrupting one waiter leaves the other waiting; ensure before ready rejects 
+        RuntimeNotReady; acquired services release in reverse on failure. No prototype case (Q2). [@I1, @I2, @I3, @I5, 
+        @I6]
     T2  Missing service refused by name at boot. Cases `R12-BOOT`, `R12-SERVICES`. [@I2]
-    T3  Boot order and the boot send queue: restored endings run before live input; a send before 
-        boot waits; a dispose at ready keeps boot mail. Cases `R10-BOOT-ORDER`, `R14-FIX-01`; lies 
-        `h.boot-order`, `h.restore-at-send`, `k.send-ahead`; wrong runtime 
-        `boot.mail-lost-at-dispose`. [@I4, @I14]
-    T4  Identity: a value names the actor and is its input; an equal value adopts the lane; a field 
-        reorder names the same actor; refs with different context reject. Case `R14-ID-01`; wrong 
-        runtime `id.value-is-not-the-input`. [@I7, @I8]
-    T5  Uses and the grace on a controlled clock: two uses, one ending keeps it; ensure alone keeps 
-        nothing; mail does not restart the grace; past the grace it ends. Cases `LIFE-02`, 
-        `LIFE-04`, `LIFE-08`, `LIFE-24`; wrong runtimes `life.uses-not-counted`, 
-        `life.ensure-is-a-use`, `life.no-pending-use`, `life.no-grace`, `life.grace-never-ends`, 
-        `life.mail-is-work`. [@I10]
-    T6  Work in flight: an InFlight lane and a kept read keep the actor; a Held lane does not. 
-        Cases `LIFE-01`, `LIFE-06`, `LIFE-11`, `LIFE-13`; wrong runtimes 
-        `life.inflight-keeps-nothing`, `life.held-keeps`, `life.kept-read-keeps-nothing`, 
-        `life.every-read-keeps`. [@I11]
-    T7  The end and the return: the record is kept at the end and dropped by dispose; an 
-        unencodable record delays the end; the return delivers in R9's order and a restored head is 
-        heard once per incarnation. Cases `LIFE-12`, `LIFE-17`, `LIFE-22`, `LIFE-23`; wrong 
-        runtimes `life.end-drops-record`, `life.dispose-keeps-record`, `life.end-ignores-codec`, 
-        `life.restored-once-per-runtime`, `life.undecodable-is-no-record`. [@I12, @I14, @I16]
-    T8  Lane adoption and order: parked endings in saved order; a local remount in the grace reuses 
-        the actor. Cases `REV9-EDGE`, `LIFE-27`; lie `k.parked-reversed`; wrong runtimes 
-        `1b.r44-parked-reverse-order`, `d5.remount-in-grace-is-fresh`, `life.no-remount`. [@I15, 
-        @I16, @I17]
-    T9  Versions: an added field, an encoded-side change and a type-side change over the same 
-        encoded side are each a new version; a description change is not. Case `R14-ID-02`; wrong 
-        runtimes `id.old-version-restored`, `id.version-by-names-only`, 
-        `l1.version-by-printed-name`. [@I18]
-    T10  Mailboxes and rotation: FIFO within an actor; a spin on one actor does not delay another's 
-         ending; 65 follow-ups are refused. Cases `REV9-LOOP`, `ORDER-04`; wrong runtime 
-         `d122.rota-not-rotated`. The prototype's FIFO wrong runtime no longer applies to its code, 
-         so phase 3 writes one; the 64 and 1,024 bounds have no prototype wrong runtime (Q2). 
-         [@I19, @I20, @I21, @I22]
-    T11  Refused deliveries: a refused ending is kept, redelivered once, and heard at the next 
-         boot. Cases `REV8-KEPT`, `REV9-KEPT`; lie `a4.refused-denied`; wrong runtimes 
-         `turn.refusal-keeps-asks`, `1b.r8-refused-ending-not-redelivered`. [@I23, @I24]
-    T12  The send table, one row per target state. Cases `LIFE-03`, `LIFE-09`, `LIFE-21`, 
-         `ORDER-01`; wrong runtimes `life.send-no-restore`, `life.send-absent-silent`, 
-         `life.handle-not-identity`, `d6.disposed-ending-is-evidence`. [@I25]
-    T13  Complete cuts: a drain's two turns are one cut. Case `REV8-PINS`; wrong runtimes 
-         `d122.cut-splits-a-turn`, `pinsa.drain-cut-mid-drain`. [@I26]
-    T14  Context: a diamond and a chain each give one update per wave from latest values; a 
-         throwing selector is isolated; a cycle and a missing provider reject at admission. No 
-         prototype case (Q2). [@I27, @I28]
-    T15  disposeActor and forget: unbound lanes listed until adopted; forget keeps a held lane and 
-         turns parked endings into evidence. Case `R15-01`; wrong runtimes 
-         `id.dispose-drops-lanes`, `audit-1.forget-is-a-no-op`, `audit-1.forget-drops-the-queue`, 
-         `1b.forget-marks-held-lane`. [@I29, @I32]
-    T16  Runtime disposal on a controlled clock: a call settling within 5 s is parked; past it 
-         unknown { Disposed }, head kept Held; a definite ending drops the head; the queued NotSent 
-         { Disposed } precede the head's unknown; nothing is invoked after the start; disposal ends 
-         only when its last fiber has ended. Cases `PAY-16`, `R15-01`, `REV5-M1`; wrong runtimes 
-         `o6.dispose-interrupts-wire`, `o6.settled-in-bound-stays-held`, 
-         `1b.disposal-definite-w-first`, `r15.past-bound-captured-inflight`, and for the last-fiber 
-         wait `o6.no-bound`. [@I29, @I30, @I31]
-    T17  Cleanup failure and isolation: a failing finalizer rejects CleanupFailed and later ensures 
-         repeat it; two Runtimes from one setup share nothing and reject each other's handles; a 
-         counter at its limit refuses IdentityExhausted. No prototype case (Q2). [@I13, @I33, @I34]
+    T3  Boot order and the boot send queue: restored endings run before live input; a send before boot waits; a dispose 
+        at ready keeps boot mail. Cases `R10-BOOT-ORDER`, `R14-FIX-01`; lies `h.boot-order`, `h.restore-at-send`, 
+        `k.send-ahead`; wrong runtime `boot.mail-lost-at-dispose`. [@I4, @I14]
+    T4  Identity: a value names the actor and is its input; an equal value adopts the lane; a field reorder names the 
+        same actor; refs with different context reject. Case `R14-ID-01`; wrong runtime `id.value-is-not-the-input`. 
+        [@I7, @I8]
+    T5  Uses and the grace on a controlled clock: two uses, one ending keeps it; ensure alone keeps nothing; mail does 
+        not restart the grace; past the grace it ends. Cases `LIFE-02`, `LIFE-04`, `LIFE-08`, `LIFE-24`; wrong runtimes 
+        `life.uses-not-counted`, `life.ensure-is-a-use`, `life.no-pending-use`, `life.no-grace`, 
+        `life.grace-never-ends`, `life.mail-is-work`. [@I10]
+    T6  Work in flight: an InFlight lane and a kept read keep the actor; a Held lane does not. Cases `LIFE-01`, 
+        `LIFE-06`, `LIFE-11`, `LIFE-13`; wrong runtimes `life.inflight-keeps-nothing`, `life.held-keeps`, 
+        `life.kept-read-keeps-nothing`, `life.every-read-keeps`. [@I11]
+    T7  The end and the return: the record is kept at the end and dropped by dispose; an unencodable record delays the 
+        end; the return delivers in R9's order and a restored head is heard once per incarnation. Cases `LIFE-12`, 
+        `LIFE-17`, `LIFE-22`, `LIFE-23`; wrong runtimes `life.end-drops-record`, `life.dispose-keeps-record`, 
+        `life.end-ignores-codec`, `life.restored-once-per-runtime`, `life.undecodable-is-no-record`. [@I12, @I14, @I16]
+    T8  Lane adoption and order: parked endings in saved order; a local remount in the grace reuses the actor. Cases 
+        `REV9-EDGE`, `LIFE-27`; lie `k.parked-reversed`; wrong runtimes `1b.r44-parked-reverse-order`, 
+        `d5.remount-in-grace-is-fresh`, `life.no-remount`. [@I15, @I16, @I17]
+    T9  Versions: an added field, an encoded-side change and a type-side change over the same encoded side are each a 
+        new version; a description change is not. Case `R14-ID-02`; wrong runtimes `id.old-version-restored`, 
+        `id.version-by-names-only`, `l1.version-by-printed-name`. [@I18]
+    T10  Mailboxes and rotation: FIFO within an actor; a spin on one actor does not delay another's ending; 65 
+         follow-ups are refused. Cases `REV9-LOOP`, `ORDER-04`; wrong runtime `d122.rota-not-rotated`. The prototype's 
+         FIFO wrong runtime no longer applies to its code, so phase 3 writes one; the 64 and 1,024 bounds have no 
+         prototype wrong runtime (Q2). [@I19, @I20, @I21, @I22]
+    T11  Refused deliveries: a refused ending is kept, redelivered once, and heard at the next boot. Cases `REV8-KEPT`, 
+         `REV9-KEPT`; lie `a4.refused-denied`; wrong runtimes `turn.refusal-keeps-asks`, 
+         `1b.r8-refused-ending-not-redelivered`. [@I23, @I24]
+    T12  The send table, one row per target state. Cases `LIFE-03`, `LIFE-09`, `LIFE-21`, `ORDER-01`; wrong runtimes 
+         `life.send-no-restore`, `life.send-absent-silent`, `life.handle-not-identity`, 
+         `d6.disposed-ending-is-evidence`. [@I25]
+    T13  Complete cuts: a drain's two turns are one cut. Case `REV8-PINS`; wrong runtimes `d122.cut-splits-a-turn`, 
+         `pinsa.drain-cut-mid-drain`. [@I26]
+    T14  Context: a diamond and a chain each give one update per wave from latest values; a throwing selector is 
+         isolated; a cycle and a missing provider reject at admission. No prototype case (Q2). [@I27, @I28]
+    T15  disposeActor and forget: unbound lanes listed until adopted; forget keeps a held lane and turns parked endings 
+         into evidence. Case `R15-01`; wrong runtimes `id.dispose-drops-lanes`, `audit-1.forget-is-a-no-op`, 
+         `audit-1.forget-drops-the-queue`, `1b.forget-marks-held-lane`. [@I29, @I32]
+    T16  Runtime disposal on a controlled clock: a call settling within 5 s is parked; past it unknown { Disposed }, 
+         head kept Held; a definite ending drops the head; the queued NotSent { Disposed } precede the head's unknown; 
+         nothing is invoked after the start; disposal ends only when its last fiber has ended. Cases `PAY-16`, 
+         `R15-01`, `REV5-M1`; wrong runtimes `o6.dispose-interrupts-wire`, `o6.settled-in-bound-stays-held`, 
+         `1b.disposal-definite-w-first`, `r15.past-bound-captured-inflight`, and for the last-fiber wait `o6.no-bound`. 
+         [@I29, @I30, @I31]
+    T17  Cleanup failure and isolation: a failing finalizer rejects CleanupFailed and later ensures repeat it; two 
+         Runtimes from one setup share nothing and reject each other's handles; a counter at its limit refuses 
+         IdentityExhausted. No prototype case (Q2). [@I13, @I33, @I34]
     T18  Failed admission leaves nothing: an ensure refused for a missing provider or an invalid
             input leaves no actor, lane, schedule or evidence beyond the failure, and a later ensure
             succeeds. No prototype wrong runtime; phase 3 writes one that leaves a half-admitted

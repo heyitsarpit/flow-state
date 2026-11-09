@@ -110,8 +110,8 @@ model
 invariants
     I1  Every FlowError has nonempty diagnostics and code == diagnostics[0].code. [@R1]
 
-    I2  decode(encode(d)) equals d for every valid Diagnostic, and decode rejects every value 
-        outside R2's domains. [@R2]
+    I2  decode(encode(d)) equals d for every valid Diagnostic, and decode rejects every value outside R2's domains. 
+        [@R2]
 
     I3  SchemaValidation is reported only for a Schema rejection. [@R3]
 
@@ -121,16 +121,14 @@ invariants
 
     I6  The classification of a code is the one R6 assigns, whatever phase raised it. [@R6]
 
-    I7  The classification of a failure is Defect iff its Cause has a defect, else Failure iff it 
-        has a typed failure, else Interruption. [@R8]
+    I7  The classification of a failure is Defect iff its Cause has a defect, else Failure iff it has a typed failure, 
+        else Interruption. [@R8]
 
-    I8  Cleanup failures are appended after the execution failure, never ahead of it, in phase 
-        order. [@R8]
+    I8  Cleanup failures are appended after the execution failure, never ahead of it, in phase order. [@R8]
 
     I9  No Leaving value contains a Cause, stack trace or fiber id. [@R9]
 
-    I10  Rendered text contains no raw control character and no location not present in the 
-         Diagnostic. [@R10]
+    I10  Rendered text contains no raw control character and no location not present in the Diagnostic. [@R10]
 
 coverage
     @R1
@@ -174,20 +172,18 @@ coverage
         open_by      [@Q1, @Q2]
 
 tests
-    T1  Carrier and codec: every code in the vocabulary round-trips through the Diagnostic Schema; 
-        invalid tags, unknown codes and non-finite numbers are rejected; closed reason values are 
-        tested once build time fixes them. Wrong runtime to write: a decoder that accepts an 
-        unknown code. [@I1, @I2]
-    T2  Boundaries: a Schema rejection gives SchemaValidation with the issue path; a throwing 
-        callback gives Defect, never SchemaValidation; a specific code beats a generic one. [@I3, 
-        @I5, @I6]
-    T3  Endings and denials: run the reference scenarios and collect every emitted Diagnostic; none 
-        has a Flow reason, evidence kind or denial code as its code. [@I4]
-    T4  Mixed causes: a failing execution plus two failing finalizers keeps the execution primary 
-        and both cleanup failures in order; only-cleanup failure makes the first cleanup failure 
-        primary; classification follows I7; a Promise adapter's rejection and an AbortSignal abort 
-        keep their full Cause through evidence acceptance and cleanup. [@I7, @I8]
-    T5  No leaks: plant a sentinel string in a thrown error's message and stack; it appears in no 
-        snapshot, record, trace or CLI output, only in the in-process FlowError. [@I9]
+    T1  Carrier and codec: every code in the vocabulary round-trips through the Diagnostic Schema; invalid tags, 
+        unknown codes and non-finite numbers are rejected; closed reason values are tested once build time fixes them. 
+        Wrong runtime to write: a decoder that accepts an unknown code. [@I1, @I2]
+    T2  Boundaries: a Schema rejection gives SchemaValidation with the issue path; a throwing callback gives Defect, 
+        never SchemaValidation; a specific code beats a generic one. [@I3, @I5, @I6]
+    T3  Endings and denials: run the reference scenarios and collect every emitted Diagnostic; none has a Flow reason, 
+        evidence kind or denial code as its code. [@I4]
+    T4  Mixed causes: a failing execution plus two failing finalizers keeps the execution primary and both cleanup 
+        failures in order; only-cleanup failure makes the first cleanup failure primary; classification follows I7; a 
+        Promise adapter's rejection and an AbortSignal abort keep their full Cause through evidence acceptance and 
+        cleanup. [@I7, @I8]
+    T5  No leaks: plant a sentinel string in a thrown error's message and stack; it appears in no snapshot, record, 
+        trace or CLI output, only in the in-process FlowError. [@I9]
     T6  Rendering: hostile names with escape sequences render escaped; a Diagnostic without a
             location renders none. [@I10]

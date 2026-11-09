@@ -131,32 +131,29 @@ model
     Finding = { severity, rule, path, help }.
 
 invariants
-    I1  graph, check and static explain invoke no application callback, service, fixture or actor; 
-        recorded positions are the only callbacks check runs. [@R9]
+    I1  graph, check and static explain invoke no application callback, service, fixture or actor; recorded positions 
+        are the only callbacks check runs. [@R9]
 
-    I2  Every edge name in graph equals the name the Runtime's turn record uses for that 
-        alternative. [@R5]
+    I2  Every edge name in graph equals the name the Runtime's turn record uses for that alternative. [@R5]
 
     I3  Every usage error is reported before any application file is loaded. [@R4]
 
     I4  For every command, text and JSON results are built from one result value. [@R7]
 
-    I5  stdout carries exactly one document on success or findings, and stderr exactly one on 
-        invocation failure; neither carries loader output. [@R7]
+    I5  stdout carries exactly one document on success or findings, and stderr exactly one on invocation failure; 
+        neither carries loader output. [@R7]
 
     I6  The exit code is a function of the result status as R8 maps it. [@R8]
 
     I7  check never reports complete when type facts were missing. [@R9]
 
-    I8  Every rule R10 lists is reported as an error by a fixture that violates it, and by no 
-        reference app. [@R10]
+    I8  Every rule R10 lists is reported as an error by a fixture that violates it, and by no reference app. [@R10]
 
     I9  No warning or info finding changes the exit code. [@R11]
 
     I10  Discovery reads only flow.config.ts at the root and never a parent directory. [@R12]
 
-    I11  After any run, the project tree is byte-identical to before, and no temporary file 
-         remains. [@R13]
+    I11  After any run, the project tree is byte-identical to before, and no temporary file remains. [@R13]
 
     I12  An unknown app or operand is never resolved to another app. [@R3]
 
@@ -220,22 +217,18 @@ coverage
         open_by      [@Q1]
 
 tests
-    T1  Inert static commands: run graph, check and explain on every reference app with spies on 
-        callbacks, services and storage; zero calls apart from recorded positions. Prototype pins 
-        report callbacksRun 0 (fixtures `broken`, `keyless`). [@I1]
-    T2  check rules: one fixture per error rule fails with that rule and exit 1; reference apps 
-        report none. Prototype pins `no-notsent`, `unencodable-no-notsent`, `shared-contract`, 
-        `gone-without-key`; wrong runtime `cli.notsent-off`. Every other rule has no prototype 
-        wrong runtime; phase 3 writes one per rule. [@I8]
-    T3  Type facts: run check where type facts are unavailable; it fails and never says complete. 
-        [@I7]
-    T4  graph names: for each edge in the reference apps' graphs, run a Story or scenario that 
-        takes it and compare the turn record's name. [@I2]
-    T5  Results and streams: every command in text and JSON from one run; stdout and stderr each 
-        carry one document; a loader that logs does not mix in; a closed pipe ends quietly. [@I4, 
-        @I5]
-    T6  Exit codes: warning-only check exits 0, errors exit 1, bad usage exits 2 before loading, 
-        SIGINT exits 130 after cleanup. [@I3, @I6, @I9]
-    T7  Discovery and safety: no config, a config in a parent, a symlink escaping the root, a 
-        lookalike app value; each fails before execution resources; the project tree is unchanged 
-        after every run. [@I10, @I11, @I12]
+    T1  Inert static commands: run graph, check and explain on every reference app with spies on callbacks, services 
+        and storage; zero calls apart from recorded positions. Prototype pins report callbacksRun 0 (fixtures `broken`, 
+        `keyless`). [@I1]
+    T2  check rules: one fixture per error rule fails with that rule and exit 1; reference apps report none. Prototype 
+        pins `no-notsent`, `unencodable-no-notsent`, `shared-contract`, `gone-without-key`; wrong runtime 
+        `cli.notsent-off`. Every other rule has no prototype wrong runtime; phase 3 writes one per rule. [@I8]
+    T3  Type facts: run check where type facts are unavailable; it fails and never says complete. [@I7]
+    T4  graph names: for each edge in the reference apps' graphs, run a Story or scenario that takes it and compare the 
+        turn record's name. [@I2]
+    T5  Results and streams: every command in text and JSON from one run; stdout and stderr each carry one document; a 
+        loader that logs does not mix in; a closed pipe ends quietly. [@I4, @I5]
+    T6  Exit codes: warning-only check exits 0, errors exit 1, bad usage exits 2 before loading, SIGINT exits 130 after 
+        cleanup. [@I3, @I6, @I9]
+    T7  Discovery and safety: no config, a config in a parent, a symlink escaping the root, a lookalike app value; 
+        each fails before execution resources; the project tree is unchanged after every run. [@I10, @I11, @I12]
