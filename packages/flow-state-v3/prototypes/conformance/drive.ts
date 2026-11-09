@@ -136,6 +136,26 @@ export const makeHarness = (port: Port) => (): Harness => {
   const made = new Map<string, number>(); // attempt -> order of its first mint or invoke
   const madeOp = new Map<string, string>();
   const sends = new Map<string, string[]>(); // attempt -> the send gens the suite saw invoked, in order
+  const madeIn = new Map<string, Reference>(); // audit M2 item 15: attempt -> the reference model of the release it was made under
+  // 2.7.15: a lane is (actor identity, contract id, key). The op a disk attempt's lane belongs to under the release now, from the suite's own data: its
+  // op if that op is still over the contract it was made under; else the one write op over that contract (a rename), unless that lane's id is
+  // another disk attempt's (a collision, quarantined); else none (its contract gone, or its name over another contract: quarantined).
+  const laneOpNow = (att: string, owner: string, op: string, onDisk: readonly string[]): string | undefined => {
+    const now = refm().machine(machineOf(owner)) as any;
+    const was = (madeIn.get(att)?.machine(machineOf(owner)) as any)?.ops?.[op];
+    const contract = was?.contract as string | undefined;
+    if (now?.ops?.[op] && (contract === undefined || now.ops[op].contract === contract)) return op;
+    if (contract === undefined) return undefined;
+    const overs = Object.entries(now?.ops ?? {}).filter(([, o]: [string, any]) => o.kind === "write" && o.contract === contract);
+    if (overs.length !== 1) return undefined;
+    const target = overs[0]![0];
+    const pick = (a: string) => {
+      const w = (madeIn.get(a)?.machine(machineOf(owner)) as any)?.ops?.[madeOp.get(a) ?? ""];
+      return JSON.stringify(((w?.keyFields as string[] | undefined) ?? []).map((f) => (askedInput.get(a) as Record<string, unknown> | undefined)?.[f]));
+    };
+    const collides = onDisk.some((a2) => a2 !== att && attemptActor.get(a2) === owner && madeOp.get(a2) === target && pick(a2) === pick(att));
+    return collides ? undefined : target;
+  };
   const attempted = new Map<string, string>(); // migration round 3: attempt -> its machine's identity version (compiled data) when it was made
   const identityNow = (actor: string) => JSON.stringify([...(((refm().machine(machineOf(actor)) as any)?.identityVersion as string[] | undefined) ?? [])].sort());
   const attribute = (a: string, actor: string) => {
@@ -727,6 +747,10 @@ export const makeHarness = (port: Port) => (): Harness => {
   // the runtime's own `RecordQuarantined` or `OldVersionActor`.
   let releasesAtReload = 0;
   let releasedBeforeReload = false;
+  // Audit M2 item 14: which release wrote each actor record, as the suite saw it: at each reload, a record whose bytes changed since the last one was
+  // written under the release that ran in between.
+  const writtenBy = new Map<string, Reference>();
+  let kvAtReload = new Map<string, string>();
   // The record by the declared codec (D142), against the release's compiled machine (the suite's data): its machine gone, an identity version
   // other than this release's (rule 74's old-version record), a leaf or a fragment it no longer has, or memory its restore refuses.
   // `memoryOnly`: only the compiled restore's refusal of the record's memory, a cause in the suite's own data with or without a release (stage L's).
@@ -743,16 +767,21 @@ export const makeHarness = (port: Port) => (): Harness => {
     const m = refm().machine(machineOf(actor)) as any;
     if (!m || typeof r !== "object" || r === null) return !memoryOnly;
     const sameSet = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x) => b.includes(x));
-    if (!memoryOnly && Array.isArray(r.fields) && Array.isArray(m.identityVersion) && !sameSet(r.fields, m.identityVersion)) return true;
-    // Migration (the user's decision, Q1 A): the record's saved shape against the release's compiled `shapeVersion`: a field both keep under another
-    // Schema version, or a saved state or fragment the release lacks, resets the definition's saved state.
-    const was = r.shape as { states?: string[]; fields?: string[] } | undefined;
+    // Audit M2 item 14: "was" is the compiled machine of the release the suite saw write this record (`writtenBy`), never the record's own stamps.
+    const writer = writtenBy.get(key)?.machine(machineOf(actor)) as any;
+    if (!memoryOnly && Array.isArray(writer?.identityVersion) && Array.isArray(m.identityVersion) && !sameSet(writer.identityVersion, m.identityVersion)) return true;
+    // Migration (the user's decision, Q1 A): the writer's saved shape against the release's: a field both keep under another Schema version, or a
+    // saved state (a leaf or a history target, audit M2 break 3) or fragment the release lacks, resets the record.
+    const was = writer?.shapeVersion as { states: string[]; fields: string[] } | undefined;
     const now = m.shapeVersion as { states: string[]; fields: string[] } | undefined;
-    if (!memoryOnly && now && Array.isArray(was?.fields) && Array.isArray(was?.states) && !(sameSet(was.fields, now.fields) && sameSet(was.states, now.states))) {
+    if (!memoryOnly && now && was && !(sameSet(was.fields, now.fields) && sameSet(was.states, now.states))) {
       const name = (f: string) => f.split("#")[0];
       if (was.fields.some((f) => now.fields.some((g) => name(g) === name(f) && g !== f))) return true;
+      const at = (frag: string | null, n: string) => (frag === null ? n : `${frag}/${n}`);
       const leaves = (i: any, frag: string | null): string[] =>
-        typeof i?.leaf === "string" ? [frag === null ? i.leaf : `${frag}/${i.leaf}`, ...Object.values(i.kids ?? {}).flatMap((k: any) => leaves(k, typeof k?.frag === "string" ? k.frag : null))] : [];
+        typeof i?.leaf === "string"
+          ? [at(frag, i.leaf), ...Object.values(i.history ?? {}).filter((n): n is string => typeof n === "string").map((n) => at(frag, n)), ...Object.values(i.kids ?? {}).flatMap((k: any) => leaves(k, typeof k?.frag === "string" ? k.frag : null))]
+          : [];
       if (leaves(r.root, null).some((s) => !now.states.includes(s))) return true;
     }
     const bad = (i: any, frag: string | null): boolean => {
@@ -942,7 +971,7 @@ export const makeHarness = (port: Port) => (): Harness => {
         const owner = attemptActor.get(att);
         if (!att || owner === undefined || off(owner) || due.has(att)) continue;
         const op = madeOp.get(att) ?? reloadFacts.parked.find((p) => p.attempt === att)?.op ?? "";
-        if (refm().machine(machineOf(owner))?.ops[op] === undefined) continue; // the op this release removed: rule 46's `orphaned`
+        if (laneOpNow(att, owner, op, [...reloadFacts.heads, ...reloadFacts.parked.map((p) => p.attempt)]) === undefined) continue; // rule 46: quarantined
         const x = said.get(att);
         if (!x) {
           missing.push(`(j) on disk at the reload, and the boot said no ending of it: ${op} ${att} of ${owner}`);
@@ -1032,6 +1061,7 @@ export const makeHarness = (port: Port) => (): Harness => {
         if (!made.has(a)) {
           made.set(a, made.size);
           madeOp.set(a, String(x["op"]));
+          madeIn.set(a, refm()); // audit M2 item 15: the release that made it, for its contract at a later boot
         }
         if (attemptActor.has(a)) continue;
         if (turnActor !== undefined) attribute(a, turnActor);
@@ -1778,6 +1808,8 @@ export const makeHarness = (port: Port) => (): Harness => {
     // Stage L (review R6): the reload's facts, the suite's own. What is on disk now is what the next boot is given, if its load answers.
     // Who stays alive: an actor the suite ensured and did not dispose, with an actor record on disk. One with none went with the process.
     {
+      for (const [k, bytes] of fake.kv) if (port.disk.kind(k) === "actor" && kvAtReload.get(k) !== bytes) writtenBy.set(k, refm());
+      kvAtReload = new Map(fake.kv);
       const kv = new Map(fake.kv);
       const records = new Set([...kv.keys()].filter((k) => port.disk.kind(k) === "actor").map((k) => port.disk.scope(k)).filter((a): a is string => a !== undefined));
       for (const a of [...ensured]) if (!records.has(a)) ensured.delete(a);

@@ -77,6 +77,9 @@ export const explainText = (r: ReturnType<typeof explain>) => {
 export const resets = (before: Compiled, after: Compiled) => {
   const was = before.shapeVersion;
   const now = after.shapeVersion;
+  // Audit M2's break 4: an identity field change is rule 74's old-version record, checked first at the boot: kept, listed, never reset.
+  const id = (c: Compiled) => [...(c.identityVersion ?? [])].sort().join("|");
+  if (id(before) !== id(after)) return { command: "explain", machine: after.id, resets: "old-version-record" as const, fields: [], statesGone: [] };
   if (!was || !now) return { command: "explain", machine: after.id, resets: "unknown" as const, fields: [], statesGone: [] };
   const name = (f: string) => f.split("#")[0]!;
   const fields = was.fields.filter((f) => now.fields.some((g) => name(g) === name(f) && g !== f)).map(name);
@@ -91,7 +94,9 @@ export const resetsText = (r: ReturnType<typeof resets>) =>
       ? `${r.machine}: records saved in ${r.statesGone.join(", ")} reset at the next boot; others restore; writes in flight are kept`
       : r.resets === "no"
         ? `${r.machine}: its saved state restores`
-        : `${r.machine}: no saved shape to compare`;
+        : r.resets === "old-version-record"
+          ? `${r.machine}: its identity fields changed: saved records are old-version records (rule 74), kept and listed, never restored or reset`
+          : `${r.machine}: no saved shape to compare`;
 // The design's one-liners (2.7.16): each event, what it can do.
 export const overview = (raw: Compiled) => {
   const c = poison(raw, { n: 0 });

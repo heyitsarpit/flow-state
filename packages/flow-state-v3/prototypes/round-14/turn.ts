@@ -752,7 +752,7 @@ const applyMembers = (w: Walk) => {
     // D123: a key-less `cancel` outside an ending names no Attempt (D22), and every kept ending of the op it can see is its to let go.
     if (cancels && !mem.key && it?.k !== "ending" && op.keyFields?.length !== 0) {
       for (const l of Object.values(tx.w.lanes))
-        if (l.actor === w.a.key && l.op === mem.op && sameSubject(l.subject, subject)) letGoKept(tx, l);
+        if (l.actor === w.a.key && l.op === mem.op && sameSubject(l.subject, subject) && ofIdentity(tx, l)) letGoKept(tx, l); // Q17: never the old identity's
       continue;
     }
     // D221: a keyed `retry(k)`/`cancel(k)` names the lane of exactly that key, in its own version: an old-version hold is named by its own old
@@ -780,7 +780,7 @@ const applyMembers = (w: Walk) => {
   // Rule 60: after every member.
   for (const { op, subject } of w.releases)
     for (const l of Object.values(tx.w.lanes))
-      if (l.actor === w.a.key && l.op === op && sameSubject(l.subject, subject))
+      if (l.actor === w.a.key && l.op === op && sameSubject(l.subject, subject) && ofIdentity(tx, l))
         cell(tx, "release", l, argsOf(l));
 };
 
@@ -1139,7 +1139,7 @@ const routeFrom = (tx: Tx, a: ActorRec, item: EndingMail, inc: Inc) => {
   return { start: near?.node ?? fragOf(machineOf(tx, a), inc).root, late: true };
 };
 const admitEnding = (tx: Tx, item: EndingMail): void => {
-  const laneId = laneKey(item.actor, item.op, item.key);
+  const laneId = item.lane ?? laneKey(item.actor, item.op, item.key);
   if (item.inc) return admitRead(tx, item);
   if (item.attempt && tx.w.interrupted?.[item.attempt]) {
     tx.w = { ...tx.w, interrupted: without(tx.w.interrupted, item.attempt) };

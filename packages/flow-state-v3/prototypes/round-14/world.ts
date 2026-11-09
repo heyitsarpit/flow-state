@@ -128,6 +128,7 @@ export type EndingMail = {
   readonly attempt?: string;
   readonly inc?: string; // a read's incarnation
   readonly onLane?: boolean; // its cell has yet to apply
+  readonly lane?: string; // rule 74 (Q17): the lane's id when it is not its key's (an old identity's lane)
   readonly restored?: boolean; // current from the active leaf, whatever the owner
   readonly redelivered?: boolean; // D50
   readonly kept?: true; // D123: it came off a lane where it was kept, and goes back as that
@@ -352,6 +353,7 @@ export type Tx = System & {
   readonly evidence: Evidence[];
   readonly issues: Issue[];
   readonly touchedActors: Set<string>;
+  rewrites?: Map<string, unknown>; // the runner's Q20 ruling: records the boot rewrites as restored (a dropped field applied), unless touched since
   readonly touchedLanes: Map<string, string>; // lane id -> its actor: the scope a deleted lane's write belongs to
   armedDeadline: boolean; // a schedule was armed this step: an armed deadline does not wait for captureMs
   readonly asks: Array<{ lane: string; on: "ack" | "capture"; ticket: string }>;

@@ -1761,3 +1761,70 @@ Sidecar log (Haiku, effort high; the lead read every line and reran every check)
 | Task | Who | Result | Why |
 | --- | --- | --- | --- |
 | review: the shape stamp, `shapeReset`, the harness mirror, `explain --since`, the q1a wrong runtimes vs the user's decision | reviewer | recorded | recorded: findings 1-3, `q1a.reset-drops-the-hold` drops in memory only (still a faithful wrong runtime for "the hold is lost"), `q1a.unchanged-resets` also resets compatible changes. Rejected: "three wrong runtimes name cases that do not exist" (REV8-PINS/D46 is in round8.scenario.ts; the gone-record case is in P1-M; both red as run) |
+
+## Phase 1: record migration closing batch, audit M2 (2026-11-09)
+
+From `AUDIT-GAPS-M2.md` and `mutants-audit-m2.ts` (f16feba1), with the runner's rulings. The last migration batch. Proposed throughout.
+
+Rulings built:
+
+| Ruling | Built | Case | Wrong runtime |
+| --- | --- | --- | --- |
+| Q17: a lane is (identity, contract, key) | an old identity's lane is re-keyed at the boot to `key#identityTag` (durable.ts `ownIdentity`; the record keeps `identity`); the new identity gets the key's own lane, its commit neither declines against nor queues behind the old one, and its endings go to it (`EndingMail.lane`). The old hold is kept, blocks nothing, is reported unbound at every boot. An identity current again (a reverted release) takes its key's lane back | `a-new-identity-of-the-same-name-text-gets-its-own-lane`, `an-identity-current-again-takes-its-lane-back` | `am2.old-identity-shares-the-lane`, `am2.reverted-identity-stays-tagged` |
+| Q18: decide per record, report per definition | one `RecordShapeChanged` per definition per boot with `actors: n` | `a-removed-state-resets-only-the-records-saved-in-it` (1), `two-records-of-one-definition-reset-under-one-issue` (2) | `m2.q1-issue-per-record` |
+| Q19: keep the upfront rule | unchanged: a kept field under another Schema version resets; a fragment change resets every record placing it | `a-fragment-field-under-another-schema-resets-the-record`, `a-fragment-state-gone-resets-the-record` | `m2.q1-fragment-*` |
+| Q20: a drop applies at its boot | the restored record is rewritten without the dropped field (`tx.rewrites`, a bounded exception to D111) | `a-field-dropped-then-declared-again-starts-empty` (release 1, 5, 1: `legacy` 0) | `am2.drop-not-applied` |
+
+Breaks: 1 is Q17 above. 2: a rename onto a lane already on disk no longer overwrites it; both stay quarantined and `LaneRekeyCollision` says so
+(`a-rename-onto-a-lane-already-on-disk-keeps-both-quarantined-and-says-so`; `am2.rename-onto-a-taken-lane`). 3: a history target the release
+removed resets the record (`a-removed-state-a-history-points-to-resets-the-record`; `am2.history-target-ignored`). 4: `explain --since` reports an
+identity field change as rule 74's `old-version-record`, as the boot does (a CLI pin over Editor's releases).
+
+Audit M2's 14 wrong runtimes are standing gates (`mutants-am2.ts`, aimed per case; spread into `mutants-lifetime.ts`). The 8 survivors and the
+weak kill, each red by assertion on a named case:
+
+| Survivor | Case (P1-M/) |
+| --- | --- |
+| `m2.q1-fragment-state-gone-ignored` | `a-fragment-state-gone-resets-the-record` |
+| `m2.q1-fragment-field-version-ignored` | `a-fragment-field-under-another-schema-resets-the-record` |
+| `m2.q1-retired-record-not-reset` | `a-retired-record-resets-across-an-incompatible-change` |
+| `m2.q1-issue-per-record` | `two-records-of-one-definition-reset-under-one-issue` |
+| `m2.q1-reset-drops-parked-endings` | `a-parked-ending-survives-a-reset-and-is-heard` |
+| `m2.q1-reset-keeps-timers` | `a-reset-records-waiting-deadline-does-not-fire` (asserts no timer armed after the boot: the fenced timer never fires, so the log alone missed it) |
+| `m2.q1-unstamped-record-resets` | `a-record-with-no-shape-stamp-is-never-reset` (`format1()` now strips `shape`) |
+| `m2.rename-any-op-kind` | `a-rename-moves-to-the-write-op-not-a-read-over-its-contract`: red by oracle (j) at the boot, not by assertion; the wrong move happens inside the boot, before any step a case can assert after |
+| weak kill `m2.r74-live-ending-ignores-identity` (item 12) | `a-new-version-actor-of-the-same-name-text-does-not-hear-the-old-hold` gains a final ensure asserting `unsure 0` |
+
+Harness: item 14, the (j) excuse `unreadableNow` now reads the release the suite saw write each record (`writtenBy`, taken at each reload
+snapshot) with that release's identity and shape versions, history targets included, not the record's own stamps. Item 15, the boot skip keys by
+contract (`laneOpNow`): an op kept over the same contract, or a rename to the one write op over it unless another disk attempt collides. Item 16
+(`quarantined(actor)` excuses per actor, not per lane) is left, low.
+
+Stated limits (for `revisit.md`):
+1. An old identity's unknown hold has no user exit. `cancel` reaches only the current identity's lanes, and `forget` removes the old record but
+   keeps every hold whose op the release still has (step.ts `onForget`). It ends only by its own ending. The runner's wording allowed "besides
+   forget"; as built, forget does not cover it either.
+2. A memory field rename is a drop plus an add: compatible, the old value lost but for `FieldDropped`.
+3. Records with no shape stamp (before format 4) are never reset; they decode field by field.
+4. Computed initials are stored in the prototype, so they are stamped and a Schema change to one resets (Q19's "not stored" holds only once they
+   are derived on restore).
+5. `explain --since` compares two releases, not the chain a record went through (item 21).
+6. Shape stamps are compared raw across a Flow version-format bump (item 22; latent, one format).
+7. The design text still conflicts with reset-at-boot (2.7.13, 2.7.15) and lacks the events and `--since` (item 23): for the merge.
+
+Findings for the design:
+1. A reverted release meets what the reverted-away release wrote: release 2's ensure overwrote release 1's old-version record, so release 3 sees
+   one unsure lane, not two. The revert case asserts that.
+2. A re-key (Q17's tag, a rename) is persisted only once the lane is written: after its ending is admitted or the actor saves.
+3. Breaks 2 and Q17 meet in one boot: a rename and an identity tag chain through `rekeyed` (`from`), and moves within one boot collide like moves
+   onto disk.
+
+Sidecar log (Haiku, effort high; the lead read every line and reran every check):
+
+| Task | Who | Result | Why |
+| --- | --- | --- | --- |
+| review: Q17 lanes, the rename collision, Q20 rewrite, the harness items 14-15 | reviewer | changed | accepted and fixed 3 (rename then identity tag lost the origin; `from` chained), 4 (a reverted identity stayed tagged; now moves back, new case and wrong runtime), 5 (two moves in one boot onto one id; `taken` set). Rejected 1 (restored mail could race an external ending: restored mail is admitted first) and 2 (old-version records carry boot mail: they have none). Recorded 7: (j) skips a collided lane, so a runtime that renames onto a collision is caught only by the case's assertion (`am2.rename-onto-a-taken-lane` is red that way) |
+
+Gates: lifetime-falsify alone 401 pass (282 s, near its 290 s limit: the next area should split it or raise `--parallel`); then batch A 8/8,
+batch B 12/12, the lie slices 4/4: **25/25 ok, 0 BAD**. Lock: one log line per changed id with its own reason; `--lock` 1080/1080, recipients
+observed 46101, start nodes 6711, no red count moved.

@@ -1,10 +1,10 @@
 // Phase 1, record migration: what a persisted record becomes when the app ships a new release. Every expectation is the design's text (rule 46,
 // rule 74, 2.2.2, 2.7.15, 2.7.17), worked out by hand before the runtime was changed; each variant names its rule.
 import { Schema as S } from "effect";
-import { actorRef, definition, ensureArgs, Flow, machine, trait, transaction } from "../compile/index.ts";
+import { actorRef, definition, ensureArgs, Flow, machine, resource, trait, transaction } from "../compile/index.ts";
 import type { Release } from "../fixtures/round6.compiled.ts";
 import type { Step } from "../harness.ts";
-import { FakeApi, fixture, write } from "../typed/lab.ts";
+import { call, FakeApi, fixture, write } from "../typed/lab.ts";
 import { LifeId, lifeFixture } from "../typed/lifetime.ts";
 import { keyStampFixture } from "../typed/round13.ts";
 import { CopiesId, copiesFixture, MemoId, memoFixture } from "../typed/phase1m.ts";
@@ -49,9 +49,11 @@ const holdAcross = (c0: Ctx, to: number) => {
 // Round 3. `Lab/P1MProbe`: a persisted singleton with one write op over the contract `p1m/probe`, whose op name and key Schema a release may change.
 const PP = { actor: "Lab/P1MProbe", id: "main" };
 // `other`: a second write op of that name over another contract, `p1m/other`, fired by `GoOther`.
-const probeOps = (name: string, k: S.Top, other?: string) => {
+// `peek`: a read op of that name over the same contract `p1m/probe` (audit M2 survivor 11: a rename moves to the one WRITE op over the contract).
+const probeOps = (name: string, k: S.Top, other?: string, peek?: string) => {
   const op = transaction({ id: "p1m/probe", input: { k }, key: ["k"], concurrency: "reject", services: [FakeApi], commit: write(name) });
   const op2 = transaction({ id: "p1m/other", input: { k: S.String }, key: ["k"], concurrency: "reject", services: [FakeApi], commit: write(other ?? "other") });
+  const rd = resource({ id: "p1m/probe", input: { k }, key: ["k"], services: [FakeApi], lookup: (i: unknown) => call("peek")(i) } as never) as any;
   const outcomes = (E: any) => ({ success: E.Ok, failure: { NotSent: E.No.from((r: { why: string }) => ({ why: r.why })) }, unknown: E.Unsure });
   const d = definition({
     id: PP.actor,
@@ -60,7 +62,7 @@ const probeOps = (name: string, k: S.Top, other?: string) => {
     events: { Go: { k: S.Unknown }, GoOther: { k: S.Unknown } },
     internalEvents: { Ok: {}, No: { why: S.String }, Unsure: Flow.uncertain({}) },
     memory: { unsure: Flow.initial(S.Number, 0), why: Flow.initial(S.String, "") },
-    operations: ({ E }) => ({ [name]: op.outcomes(outcomes(E)), ...(other ? { [other]: op2.outcomes(outcomes(E)) } : {}) }),
+    operations: ({ E }) => ({ [name]: op.outcomes(outcomes(E)), ...(other ? { [other]: op2.outcomes(outcomes(E)) } : {}), ...(peek ? { [peek]: rd.outcomes({ success: E.Ok, failure: {} }) } : {}) }),
   } as never);
   type H = { readonly commit: (f: (a: { readonly event: { readonly k: unknown } }) => unknown) => never };
   return machine(d, ({ O }: { O: Record<string, H> }) => ({
@@ -113,7 +115,8 @@ const valueMachine = (v: number) => {
   }) as never);
 };
 const ensureStep = (a: ReturnType<typeof ensureArgs>): Step => ({ ensure: { actor: a.machine, id: a.id }, ...(a.input === undefined ? {} : { input: a.input }), ...(a.identity ? { identity: a.identity } : {}) });
-// `Lab/P1MFrags`: one `.each` copy of a trait whose release 1 memory has a field `extra` that release 2 stops declaring.
+// `Lab/P1MFrags`: one `.each` copy of a trait with states A and B. Release 1's memory has `got` and `extra`; release 2 stops declaring `extra` (a
+// compatible change); release 3 keeps `got` under another Schema (incompatible, a fragment field); release 4 removes B (incompatible for a copy in B).
 const FragsId = "Lab/P1MFrags";
 const fragsFixture = (rel: Release) => {
   const mk = (v: number) =>
@@ -127,22 +130,70 @@ const fragsFixture = (rel: Release) => {
         memory: { ids: Flow.initial(S.Array(S.String), ["x"]) },
         traits: {
           c: trait(
-            { id: "P1MFrag", events: { Go: {} }, internalEvents: {}, memory: { got: Flow.initial(S.Number, 0), ...(v === 1 ? { extra: Flow.initial(S.Number, 5) } : {}) }, operations: () => ({}) } as never,
-            () => ({ on: { Go: { updateMemory: ({ memory }: { memory: { got: number } }) => ({ got: memory.got + 1 }) } } }) as never,
+            {
+              id: "P1MFrag",
+              states: v === 4 ? ["A"] : ["A", "B"],
+              default: "A",
+              events: { Go: {}, Move: {} },
+              internalEvents: {},
+              memory: { got: v === 3 ? Flow.initial(S.String, "0") : Flow.initial(S.Number, 0), ...(v === 1 ? { extra: Flow.initial(S.Number, 5) } : {}) },
+              operations: () => ({}),
+            } as never,
+            ({ S: St }: { S: Record<string, unknown> }) =>
+              ({
+                on: { Go: { updateMemory: ({ memory }: { memory: { got: number } }) => ({ got: v === 3 ? memory.got : memory.got + 1 }) } },
+                ...(v === 4 ? {} : { states: { A: { on: { Move: St["B"] } } } }),
+              }) as never,
           ).each({ of: "ids", max: 8 }),
         },
         operations: () => ({}),
       } as never),
       () => ({ default: { node: "root" } }) as never,
     );
-  const A = mk(1);
-  const B = mk(2);
-  return fixture(() => (rel.v === 1 ? A : B) as never);
+  const made = [mk(1), mk(2), mk(3), mk(4)];
+  return fixture(() => made[rel.v - 1] as never);
 };
-// A record as Flow's record format 1 spelled it: untagged, a lane's id stored beside the actor, op and key it is made of, no contract or identity.
+// `Lab/P1MHist`: P with children X and Y, and Q. Leaving P from Y records P's history as Y; release 2 removes Y (audit M2's break 3).
+const HistId = "Lab/P1MHist";
+const histFixture = (rel: Release) => {
+  const mk = (v: number) =>
+    machine(
+      definition({ id: HistId, persist: true, states: [{ P: v === 1 ? ["X", "Y"] : ["X"] }, "Q"], events: { ToY: {}, Leave: {} }, internalEvents: {}, memory: { n: Flow.initial(S.Number, 0) }, operations: () => ({}) } as never),
+      ({ S: St }: { S: any }) =>
+        ({ default: St.P, on: { Leave: St.Q, ...(v === 1 ? { ToY: St.P.Y } : {}) }, states: { P: { default: St.P.X } } }) as never,
+    );
+  const made = [mk(1), mk(2)];
+  return fixture(() => made[rel.v - 1] as never);
+};
+// `Lab/P1MTimer`: DIRTY arms a 500 ms deadline whose `Due` the root hears; release 2 keeps `n` under another Schema (an incompatible change).
+const TimerId = "Lab/P1MTimer";
+const timerFixture = (rel: Release) => {
+  const mk = (v: number) => {
+    const d = definition({
+      id: TimerId,
+      persist: true,
+      states: ["IDLE", "DIRTY"],
+      events: { Edit: {} },
+      internalEvents: { Due: {} },
+      memory: { n: v === 1 ? Flow.initial(S.Number, 0) : Flow.initial(S.String, ""), log: Flow.initial(S.Array(S.String), []) },
+      operations: () => ({}),
+    } as never);
+    return machine(d, ({ S: St, E }: { S: any; E: any }) =>
+      ({
+        default: St.IDLE,
+        on: { Edit: St.DIRTY, Due: { updateMemory: ({ memory }: { memory: { log: readonly string[] } }) => ({ log: [...memory.log, "due"] }) } },
+        states: { DIRTY: { schedules: { save: { schedule: "500 millis", send: E.Due, armOn: ["entry"] } } } },
+      }) as never,
+    );
+  };
+  const made = [mk(1), mk(2)];
+  return fixture(() => made[rel.v - 1] as never);
+};
+// A record as Flow's record format 1 spelled it: untagged, a lane's id stored beside the actor, op and key it is made of, no contract, identity or
+// saved shape (audit M2 survivor 10: such a record is never reset, Q1 A's stated limit).
 const format1 = (raw: string) => {
   const v = JSON.parse(raw) as Record<string, unknown>;
-  const { format: _f, contract: _c, identity: _i, ...rest } = v;
+  const { format: _f, contract: _c, identity: _i, shape: _s, ...rest } = v;
   return JSON.stringify(typeof v["op"] === "string" ? { ...rest, id: `${v["actor"]}|${v["op"]}|${JSON.stringify(v["key"])}` } : rest);
 };
 const refusal = (f: () => unknown) => {
@@ -161,7 +212,7 @@ export const phase1mScenarios: readonly Scenario[] = [
     fixtures: [memoFixture({ v: 1 })],
     actor: M,
     cites: ["rule:46", "rule:74", "sec:2.2.2", "sec:2.7.15", "sec:2.7.17"],
-    namedIssues: ["OldVersionLane", "RecordQuarantined", "FieldDropped", "HoldWithoutRecord", "RecordShapeChanged"],
+    namedIssues: ["OldVersionLane", "RecordQuarantined", "FieldDropped", "HoldWithoutRecord", "RecordShapeChanged", "LaneRekeyCollision"],
     variants: {
       // The real path, release 1's records met by release 2 across a reload, with the fake storage:
       // - The user's decision (migration Q1 A, automatic per definition): release 2 changes `title`'s Schema, a field both releases keep, so Memo's
@@ -364,6 +415,35 @@ export const phase1mScenarios: readonly Scenario[] = [
         c.eq("the new identity did not hear the old hold", c.r.memory(a2)?.unsure, 0);
         c.reload();
         c.eq("and at the next boot the old lane is still unbound", c.r.evidence("UnboundLane").length, 2);
+        // Audit M2 item 12: the old hold's restored ending comes again at this boot, and still never reaches the new identity.
+        c.do(ensureStep(ensureArgs(r2)));
+        c.eq("after the second boot the new identity has still heard nothing of it", c.r.memory(a2)?.unsure, 0);
+      },
+      // The runner's Q17 ruling (rule 74; 2.7.15 "(actor identity, contract id, key)"): the new identity on the same key gets its own lane. Its commit
+      // neither declines against nor queues behind the old identity's hold; it sends, and its own ending reaches it. The old hold is kept and listed.
+      "a-new-identity-of-the-same-name-text-gets-its-own-lane"(c0) {
+        const rel: Release = { v: 1 };
+        const A = valueMachine(1);
+        const B = valueMachine(2);
+        const r1 = actorRef(A, { t: "42" } as never);
+        const r2 = actorRef(B, { t: 42 } as never);
+        const a2 = { actor: r2.machine, id: r2.id };
+        const c = new Ctx(c0.fresh([fixture(() => (rel.v === 1 ? A : B))], { captureMs: 0 }), { actor: r1.machine, id: r1.id });
+        c.namedIssues = c0.namedIssues;
+        c.do(ensureStep(ensureArgs(r1)));
+        c.send("Go");
+        c.ack();
+        c.answer("save", { lost: true });
+        c.h.release(() => void (rel.v = 2), () => void (rel.v = 1));
+        c.reload();
+        c.do(ensureStep(ensureArgs(r2)));
+        c.to(a2, "Go");
+        c.ack();
+        c.eq("the new identity's commit is sent, not declined", c.reqs("save").length, 2);
+        c.answer("save", { lost: true });
+        c.eq("its own ending reaches it", c.r.memory(a2)?.unsure, 1);
+        c.reload();
+        c.eq("both lanes on disk; the old one listed unbound again", [c.laneKeys().length, c.r.evidence("UnboundLane").length], [2, 2]);
       },
       // Round 2's ruling, kept standing: "a newer, null or non-integer format is quarantined, never misread". Each of null, 2.5 and "2".
       "a-null-fractional-or-string-record-format-is-quarantined"(c0) {
@@ -503,6 +583,224 @@ export const phase1mScenarios: readonly Scenario[] = [
         c.ensure(PP);
         c.send("Go", { k: 1 });
         c.eq("declines OldVersion", c.mem(PP)?.why, "OldVersion");
+      },
+      // The same ruling, a release reverted (the reviewer's): release 3 is release 1 again, so the identity that minted the hold is current again and its
+      // lane is its key's lane: the hold is heard by it and its own commit on that key meets it, never a second lane for one (identity, contract, key).
+      "an-identity-current-again-takes-its-lane-back"(c0) {
+        const rel: Release = { v: 1 };
+        const A = valueMachine(1);
+        const B = valueMachine(2);
+        const r1 = actorRef(A, { t: "42" } as never);
+        const r2 = actorRef(B, { t: 42 } as never);
+        const a1 = { actor: r1.machine, id: r1.id };
+        const c = new Ctx(c0.fresh([fixture(() => (rel.v === 2 ? B : A))], { captureMs: 0 }), a1);
+        c.namedIssues = c0.namedIssues;
+        c.do(ensureStep(ensureArgs(r1)));
+        c.send("Go");
+        c.ack();
+        c.answer("save", { lost: true });
+        c.h.release(() => void (rel.v = 2), () => void (rel.v = 1));
+        c.reload();
+        c.do(ensureStep(ensureArgs(r2)));
+        c.eq("under release 2 the old hold is filed apart from the new identity's key", c.laneKeys().some((k) => k.includes("#")), true);
+        c.h.release(() => void (rel.v = 3), () => void (rel.v = 2));
+        c.reload();
+        c.do(ensureStep(ensureArgs(r1)));
+        c.send("Go");
+        c.ack();
+        // Its saved record was replaced by release 2's identity (a fresh ensure over an old-version record overwrites it), so it starts fresh.
+        c.eq("the hold is the identity's again: heard once, its key busy, one lane", [c.r.memory(a1)?.unsure, c.reqs("save").length, c.laneKeys().length], [1, 1, 1]);
+      },
+      // ── The closing batch (audit M2). Break 2, the runner's ruling: a rename never moves onto a lane already on disk. Release 1 holds `pay` over
+      // `p1m/probe` and `charge` over `p1m/other` on `k: a`; release 2 has only `charge` over `p1m/probe`. `charge`'s old lane (its contract gone) and
+      // `pay`'s (whose move would land on it) both stay quarantined with their holds (rule 46), and the collision is said.
+      "a-rename-onto-a-lane-already-on-disk-keeps-both-quarantined-and-says-so"(c0) {
+        const rel: Release = { v: 1 };
+        const A = probeOps("pay", S.String, "charge");
+        const B = probeOps("charge", S.String);
+        const c = new Ctx(c0.fresh([fixture(() => (rel.v === 1 ? A : B) as never)], { captureMs: 0 }), PP);
+        c.namedIssues = c0.namedIssues;
+        c.ensure(PP);
+        c.send("Go", { k: "a" });
+        c.ack();
+        c.answer("pay", { lost: true });
+        c.send("GoOther", { k: "a" });
+        c.ack();
+        c.answer("charge", { lost: true });
+        c.h.release(() => void (rel.v = 2), () => void (rel.v = 1));
+        c.reload();
+        c.eq("the collision said, both quarantined, both records kept", [issued(c, "LaneRekeyCollision"), issued(c, "RecordQuarantined"), c.laneKeys().length], [1, 2, 2]);
+        c.ensure(PP);
+        c.send("Go", { k: "a" });
+        c.eq("the key stays held: nothing sent", [c.mem(PP)?.why, c.reqs("charge").length + c.reqs("pay").length], ["Rejected", 2]);
+      },
+      // Break 3, with Q1 A ("a saved state goes away"): a history target is a saved state. Leaving P from Y records Y; release 2 removes Y. The record
+      // resets; nothing is quarantined.
+      "a-removed-state-a-history-points-to-resets-the-record"(c0) {
+        const rel: Release = { v: 1 };
+        const H = { actor: HistId, id: "main" };
+        const c = new Ctx(c0.fresh([histFixture(rel)], { captureMs: 0 }), H);
+        c.namedIssues = c0.namedIssues;
+        c.ensure(H);
+        c.send("ToY");
+        c.send("Leave");
+        c.eq("in Q, P's history Y", c.r.state(H), "Q");
+        c.h.release(() => void (rel.v = 2), () => void (rel.v = 1));
+        c.reload();
+        c.eq("reset, not quarantined", [issued(c, "RecordShapeChanged"), issued(c, "RecordQuarantined")], [1, 0]);
+      },
+      // Survivor 5 (Q1 A; 2.2.2 "for fragments and machines alike"): a fragment's kept field under another Schema version resets the record that
+      // places it (the record is the unit, the runner's Q19 ruling).
+      "a-fragment-field-under-another-schema-resets-the-record"(c0) {
+        const rel: Release = { v: 1 };
+        const F = { actor: FragsId, id: "main" };
+        const c = new Ctx(c0.fresh([fragsFixture(rel)], { captureMs: 0 }), F);
+        c.namedIssues = c0.namedIssues;
+        c.ensure(F);
+        c.into(["c:x"], "Go");
+        c.h.release(() => void (rel.v = 3), () => void (rel.v = 1));
+        c.reload();
+        c.eq("reset, not quarantined", [issued(c, "RecordShapeChanged"), issued(c, "RecordQuarantined")], [1, 0]);
+        c.ensure(F);
+        c.eq("the copy starts fresh", (c.inner(["c:x"])?.memory as { got?: unknown } | undefined)?.got, "0");
+      },
+      // The same for a fragment's saved state: the copy sits in B, which release 4 removes.
+      "a-fragment-state-gone-resets-the-record"(c0) {
+        const rel: Release = { v: 1 };
+        const F = { actor: FragsId, id: "main" };
+        const c = new Ctx(c0.fresh([fragsFixture(rel)], { captureMs: 0 }), F);
+        c.namedIssues = c0.namedIssues;
+        c.ensure(F);
+        c.into(["c:x"], "Move");
+        c.h.release(() => void (rel.v = 4), () => void (rel.v = 1));
+        c.reload();
+        c.eq("reset, not quarantined", [issued(c, "RecordShapeChanged"), issued(c, "RecordQuarantined")], [1, 0]);
+      },
+      // Survivor 6 (Q1 A "saved memory and state are discarded"; D99, rule 73): a retired record (an ended identity, kept for its return) resets too.
+      "a-retired-record-resets-across-an-incompatible-change"(c0) {
+        const rel: Release = { v: 1 };
+        const c = new Ctx(c0.fresh([memoFixture(rel)], { captureMs: 0 }), M);
+        c.namedIssues = c0.namedIssues;
+        c.ensure(M);
+        c.send("Title", { title: "Groceries" });
+        c.detach(M);
+        c.advance(100);
+        c.eq("ended, its record kept", [c.r.state(M), c.record(M) !== undefined], [undefined, true]);
+        c.h.release(() => void (rel.v = 4), () => void (rel.v = 1));
+        c.reload();
+        c.eq("reset, not quarantined", [issued(c, "RecordShapeChanged"), issued(c, "RecordQuarantined")], [1, 0]);
+        c.ensure(M);
+        c.eq("it returns fresh", c.mem().title, { text: "", lang: "en" });
+      },
+      // Q18 (the runner's): decide per record. Release 3 removes SENT: the record saved in SENT resets, the one saved in DRAFT keeps its data.
+      "a-removed-state-resets-only-the-records-saved-in-it"(c0) {
+        const rel: Release = { v: 1 };
+        const M2 = { actor: MemoId, id: "other" };
+        const c = new Ctx(c0.fresh([memoFixture(rel)], { captureMs: 0 }), M);
+        c.namedIssues = c0.namedIssues;
+        c.ensure(M);
+        c.send("Save");
+        c.ack();
+        c.answer("save", { ok: {} });
+        c.ensure(M2);
+        c.to(M2, "Title", { title: "Kept" });
+        c.eq("one in SENT, one in DRAFT", [c.r.state(M), c.r.state(M2)], ["SENT", "DRAFT"]);
+        c.h.release(() => void (rel.v = 3), () => void (rel.v = 1));
+        c.reload();
+        c.eq("one issue for Memo, counting one record", c.r.issues().filter((i) => i.code === "RecordShapeChanged").map((i) => i.input), [{ definition: MemoId, actors: 1 }]);
+        c.ensure(M2);
+        c.eq("the DRAFT record restores", c.mem(M2)?.title, "Kept");
+      },
+      // Survivor 7 (Q1 A "an issue naming the definition"; Q18: report per definition): two records reset in one boot, one issue counting both.
+      "two-records-of-one-definition-reset-under-one-issue"(c0) {
+        const rel: Release = { v: 1 };
+        const M2 = { actor: MemoId, id: "other" };
+        const c = new Ctx(c0.fresh([memoFixture(rel)], { captureMs: 0 }), M);
+        c.namedIssues = c0.namedIssues;
+        c.ensure(M);
+        c.send("Title", { title: "One" });
+        c.ensure(M2);
+        c.to(M2, "Title", { title: "Two" });
+        c.h.release(() => void (rel.v = 4), () => void (rel.v = 1));
+        c.reload();
+        c.eq("one issue, two records", c.r.issues().filter((i) => i.code === "RecordShapeChanged").map((i) => i.input), [{ definition: MemoId, actors: 2 }]);
+      },
+      // Survivor 8 (Q1 A "lanes, holds and endings survive the reset"): a parked ending on the record's lane is heard at the adopting ensure. No step
+      // parks an ending beside a live record of this fixture, so the lane record is edited to hold one (a stated limit, as LIFE-28's).
+      "a-parked-ending-survives-a-reset-and-is-heard"(c0) {
+        const rel: Release = { v: 1 };
+        const c = memoHeld(c0, rel);
+        c.fault({
+          corruptStored: {
+            match: "lane/",
+            edit: (raw: string) => {
+              const v = JSON.parse(raw) as { head: { id: string; owner: unknown; input: unknown }; parked: unknown[] };
+              return JSON.stringify({ ...v, parked: [{ attempt: v.head.id, owner: v.head.owner, ending: { ch: "success", value: {} }, input: v.head.input }] });
+            },
+          },
+        });
+        c.h.release(() => void (rel.v = 4), () => void (rel.v = 1));
+        c.reload();
+        c.eq("reset", issued(c, "RecordShapeChanged"), 1);
+        c.ensure(M);
+        c.eq("the fresh actor hears the parked success, the head's own ending", c.mem().saved, 1);
+      },
+      // Survivor 9 (Q1 A: memory and state discarded; rule 73: "a waiting deadline is in the record"): a reset record's deadline never fires into
+      // the fresh actor.
+      "a-reset-records-waiting-deadline-does-not-fire"(c0) {
+        const rel: Release = { v: 1 };
+        const T = { actor: TimerId, id: "main" };
+        const c = new Ctx(c0.fresh([timerFixture(rel)], { captureMs: 0 }), T);
+        c.namedIssues = c0.namedIssues;
+        c.ensure(T);
+        c.send("Edit");
+        c.detach(T);
+        c.advance(100);
+        c.eq("ended, its deadline waiting", c.r.state(T), undefined);
+        c.h.release(() => void (rel.v = 2), () => void (rel.v = 1));
+        c.reload();
+        c.eq("no deadline of the discarded record is armed", c.r.outside().timers.length, 0);
+        c.ensure(T);
+        c.advance(1_000);
+        c.eq("reset; the fresh actor heard no deadline", [issued(c, "RecordShapeChanged"), c.r.state(T), (c.mem(T) as { log?: unknown } | undefined)?.log], [1, "IDLE", []]);
+      },
+      // Survivor 10 (Q1 A's stated limit, "a record written before format 4 has no shape and restores (or is quarantined) as before"): a format 1
+      // record across release 2's incompatible title change is not reset; release 2's title Schema decodes its string.
+      "a-record-with-no-shape-stamp-is-never-reset"(c0) {
+        const rel: Release = { v: 1 };
+        const c = memoHeld(c0, rel);
+        c.fault({ corruptStored: { match: "Memo", edit: format1 } });
+        c.h.release(() => void (rel.v = 2), () => void (rel.v = 1));
+        c.reload();
+        c.ensure(M);
+        c.eq("no reset; restored and decoded", [issued(c, "RecordShapeChanged"), c.mem().title, c.r.state(M)], [0, { text: "Groceries", lang: "en" }, "SENT"]);
+      },
+      // Survivor 11 (2.7.15; "the one write op over its contract"): release 2 renames `pay` to `charge` and also reads over `p1m/probe` with `peek`.
+      // The lane moves to `charge`, the write op; a read is not a lane's owner.
+      "a-rename-moves-to-the-write-op-not-a-read-over-its-contract"(c0) {
+        const c = probeAcross(c0, () => probeOps("pay", S.String), () => probeOps("charge", S.String, undefined, "peek"), "a");
+        c.eq("nothing quarantined", issued(c, "RecordQuarantined"), 0);
+        c.ensure(PP);
+        c.send("Go", { k: "a" });
+        c.eq("the hold heard again and still holding its key", [c.mem(PP)?.unsure, c.mem(PP)?.why], [2, "Rejected"]);
+      },
+      // Q20 (the runner's): a release that drops a field applies the drop at its boot, so a later re-add starts empty. Release 5 drops `legacy`
+      // (1 on disk); release 1 declares it again: it reads its default, 0, never the old 1.
+      "a-field-dropped-then-declared-again-starts-empty"(c0) {
+        const rel: Release = { v: 1 };
+        const c = new Ctx(c0.fresh([memoFixture(rel)], { captureMs: 0 }), M);
+        c.namedIssues = c0.namedIssues;
+        c.ensure(M);
+        c.send("Title", { title: "Groceries" });
+        c.send("Body", { body: "milk" });
+        c.eq("legacy counted", c.mem().legacy, 1);
+        c.h.release(() => void (rel.v = 5), () => void (rel.v = 1));
+        c.reload();
+        c.eq("dropped, said", issued(c, "FieldDropped"), 1);
+        c.h.release(() => void (rel.v = 1), () => void (rel.v = 5));
+        c.reload();
+        c.ensure(M);
+        c.eq("declared again: its default, not the old value", [c.mem().legacy, c.mem().title], [0, "Groceries"]);
       },
       // 2.7.15 declares earlier keys; one equal to the current key names no old lane and would let `previous[i]` name current ones (the
       // runner's call, proposed name `PreviousIsCurrent`).

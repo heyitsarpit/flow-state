@@ -96,6 +96,7 @@ eq("explain --since: a field both keep under another Schema resets every record"
 eq("explain --since: a state removed resets the records saved in it", await reset("memo-3", "memo-1"), ["if-saved-in-a-state-gone", [], ["SENT"]]);
 eq("explain --since: a field dropped resets nothing", await reset("memo-5", "memo-1"), ["no", [], []]);
 eq("explain --since: the same release resets nothing", await reset("memo-1", "memo-1"), ["no", [], []]);
+eq("explain --since: an identity field added is rule 74's old-version record, not a reset (as the boot)", await reset("editor-2", "editor-1"), ["old-version-record", [], []]);
 const list = await j("story", "list");
 eq("story list: every Story, nothing run", [list.code, list.doc.stories.length, list.doc.callbacksRun, list.doc.stories.map((s: { kind: string }) => s.kind).filter((k: string) => k === "fragment").length], [0, 8, 0, 2]);
 const desc = await j("story", "describe", "checkout/busy-then-paid");

@@ -463,6 +463,13 @@ export const sealAll = (list: readonly Compiled[], given?: ReadonlySet<string>):
   return table(Object.fromEntries(list.map((c) => [c.id, c])), (c) => seal(c, given));
 };
 
+// Rule 74, the runner's Q17 ruling: a lane is (identity, contract, key). An old identity's lane is filed under its key's id and its identity's tag, so
+// a new identity of the same name text has its own lane. The tag is a hash of the identity version (FNV-1a over its sorted entries), deterministic.
+export const identityTag = (identity: readonly string[]): string => {
+  let h = 0x811c9dc5;
+  for (const ch of [...identity].sort().join("|")) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193) >>> 0;
+  return h.toString(16).padStart(8, "0");
+};
 // ── Stored records, against the release that is running. Anything that fails is quarantined, per record (D46, D61).
 const isStr = (v: unknown): v is string => typeof v === "string";
 const strs = (v: unknown) => Array.isArray(v) && v.every(isStr);

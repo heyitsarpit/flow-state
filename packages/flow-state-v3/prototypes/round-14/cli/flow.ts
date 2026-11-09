@@ -19,6 +19,7 @@ import { check, type Finding } from "./check.ts";
 import { bigintKeyFixture, brokenFixture, dupSessionFixture, keylessFixture, noNotSentFixture, noOwnerFixture, unencodableNoNotSentFixture, readBadFixture, unknownEventFixture } from "./broken.ts";
 import { explain, explainText, overview, resets, resetsText } from "./explain.ts";
 import { memoFixture } from "../../conformance/typed/phase1m.ts";
+import { editorFixture } from "../../conformance/typed/identity.ts";
 import { graphCommand, graphText } from "./graph.ts";
 
 const api = new Proxy({}, { get: () => () => undefined }) as Api;
@@ -51,6 +52,9 @@ export const TARGETS: Readonly<Record<string, Fixture>> = {
   ...formFixtures,
   // Migration Q1 A: Memo's releases, for `explain --since`.
   ...Object.fromEntries([1, 2, 3, 4, 5].map((v) => [`memo-${v}`, memoFixture({ v })])),
+  // Audit M2's break 4: Editor's releases 1 and 2 (an identity field added), for `explain --since`.
+  "editor-1": editorFixture({ v: 1 }),
+  "editor-2": editorFixture({ v: 2 }),
   // Round 13 (mid review M3): Attach with its upload fragment's `Stored` taken out of the fragment's declarations, so its op maps an undeclared event.
   "frag-typo": {
     ...attachFixture,

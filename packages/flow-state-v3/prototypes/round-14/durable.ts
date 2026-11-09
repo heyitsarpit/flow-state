@@ -3,7 +3,7 @@
 // a record that does not decode, or names what this release removed, is quarantined and the rest boots.
 import { Option, Schema } from "effect";
 import { getActor, setActor, noActors, type Actors } from "./actors.ts";
-import { canon, carried, standIn, text, own, Unencodable, validActor, validLane } from "./gate.ts";
+import { canon, carried, identityTag, standIn, text, own, Unencodable, validActor, validLane } from "./gate.ts";
 import type { Compiled } from "../conformance/fixtures/compiled.ts";
 import { hook, saveAll } from "./hooks.ts";
 import { afterAck, cell, ofIdentity, olderOf, sameFields, sameVersion, stampFields } from "./lane.ts";
@@ -145,9 +145,11 @@ export const shapeReset = (m: Compiled, v: Raw): boolean => {
   if (was.fields.some((f) => kept.has(fieldName(f)) && kept.get(fieldName(f)) !== f)) return true;
   const states = new Set(now.states);
   const gone = (i: unknown, frag: string | null): boolean => {
-    const inc = i as { leaf?: unknown; kids?: Record<string, { frag?: unknown }> } | undefined;
+    const inc = i as { leaf?: unknown; history?: Record<string, unknown>; kids?: Record<string, { frag?: unknown }> } | undefined;
     if (typeof inc?.leaf !== "string") return false;
     if (!states.has(frag === null ? inc.leaf : `${frag}/${inc.leaf}`)) return true;
+    // Audit M2's break 3: a saved state includes a history target, which a re-entry would resume (Q1 A: "a saved state goes away").
+    if (Object.values(inc.history ?? {}).some((n) => typeof n === "string" && !states.has(frag === null ? n : `${frag}/${n}`))) return true;
     return Object.values(inc.kids ?? {}).some((k) => gone(k, typeof k?.frag === "string" ? k.frag : null));
   };
   return gone(v["root"], null);
@@ -210,11 +212,12 @@ export const flush = (tx: Tx) => {
       if (record.retired || tx.armedDeadline) now.add(key); // D93, D80: a retired identity and an armed deadline are more than plain memory
     }
   }
+  for (const [key, record] of tx.rewrites ?? []) if (!tx.touchedActors.has(key) && !tx.dropped.has(key)) add(key, { key: `actor/${key}`, record }); // Q20
   let saved = tx.w.savedLanes;
   // D72: a restored ending is still only on disk until it is delivered. Mail is not persisted, so the record stays until then.
   const owed = new Set(
     [...(tx.w.mail.restored > 0 ? tx.w.mail : []), ...tx.w.follow].flatMap((m) =>
-      m.k === "ending" && m.restored ? [laneKey(m.actor, m.op, m.key)] : [],
+      m.k === "ending" && m.restored ? [m.lane ?? laneKey(m.actor, m.op, m.key)] : [], // Q17: an old identity's lane by its own id
     ),
   );
   const put = (scope: string, id: string, value: string | undefined) => {
@@ -321,6 +324,7 @@ const mail = (
     restored: true,
     ...((a.id ?? a.attempt) ? { attempt: (a.id ?? a.attempt)! } : {}),
     ...(onLane ? { onLane } : {}),
+    ...(l.id !== laneKey(l.actor, l.op, l.key) ? { lane: l.id } : {}), // Q17: an old identity's lane is not at its key's id
     ...(a.kept ? { kept: true as const, redelivered: true as const } : {}), // D123: one try per boot
   });
 // The restore row, and rule 44's delivery order: per lane in creation order, before any external event.
@@ -342,6 +346,7 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
   const oldVersion: Record<string, true> = {};
   const reset = new Set<string>();
   const resetBy = new Map<string, number>();
+  const laneIds = new Set(records.filter(([k]) => k.startsWith("lane/")).map(([k]) => k.slice(5)));
   for (const [k, text] of records) {
     if (k.startsWith("actor/")) {
       const v = upgraded(tx, k, parse(tx, k, text)) as any;
@@ -389,6 +394,9 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
       }
       for (const field of dropped) issue(tx, { code: "FieldDropped", origin: `${mm.id} memory`, input: { field } });
       const root = orphanFrozen(tx, mm, decoded);
+      // The runner's Q20 ruling: the drop is applied at this boot. The record is rewritten as restored, without the field (a bounded exception to
+      // D111, for this release only), so a later release that declares the field again starts it empty and never resurrects the old value.
+      if (dropped.length) (tx.rewrites ??= new Map()).set(k.slice(6), { ...v, format: RECORD_FORMAT, root, ...(mm.shapeVersion ? { shape: mm.shapeVersion } : {}) });
       if (v.retired)
         retired.push([v.key, { key: v.key, machine: v.machine, root, timers: v.timers, ...(Array.isArray(v.fields) ? { fields: v.fields } : {}), ...(stopped.value ? { stopped: stopped.value } : {}) }]);
       else {
@@ -407,12 +415,15 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
         hold();
         continue;
       }
-      const r = typeof v.machine === "string" && typeof v.op === "string" && validLane(v as never, k) ? renamedOp(tx, v) : v;
+      // Q17: an old identity's lane is filed under its key's id and its identity's tag; checked as the key's id it is made of.
+      const keyId = Array.isArray(v.identity) && v.id.endsWith(`#${identityTag(v.identity)}`) ? v.id.slice(0, -9) : v.id;
+      const valid = validLane({ ...v, id: keyId } as never, `lane/${keyId}`);
+      const r = typeof v.machine === "string" && typeof v.op === "string" && valid ? renamedOp(tx, v, laneIds) : v;
       if (
         typeof r?.machine !== "string" ||
         typeof r?.op !== "string" ||
         !tx.machines[r.machine]?.ops[r.op] ||
-        !validLane(v as never, k)
+        !valid
       ) {
         quarantine(
           tx,
@@ -425,7 +436,7 @@ export const restore = (tx: Tx, records: ReadonlyArray<readonly [string, string]
       const { boot: _stamp, id: _id, ...body } = v;
       saved[v.id] = JSON.stringify({ format: RECORD_FORMAT, ...body }); // what `laneBody` writes for it unchanged, so an untouched lane is not rewritten
       const { contract: _c, ...lane } = r as SavedLane & { contract?: string };
-      lanes.push([k, lane]);
+      lanes.push([k, ownIdentity(tx, lane, laneIds)]);
     }
   }
   lanes.splice(0, lanes.length, ...placeLanes(tx, lanes));
@@ -544,7 +555,9 @@ const placeLanes = (tx: Tx, lanes: ReadonlyArray<readonly [string, SavedLane]>):
 // this release does not have is the lane of the one write op over its contract, under the new name, and moves to it as D78 moves a lane (the old
 // record goes in the batch that writes the new one). No contract on the record (before format 3): found by name. An op of its name over another
 // contract is not its op: with no one write op over its own contract, the lane is quarantined (undefined), never restored under the wrong contract.
-const renamedOp = (tx: Tx, v: SavedLane & { contract?: unknown }): SavedLane | undefined => {
+// Audit M2's break 2 (the runner's): a move never lands on a lane record already on disk; the mover stays quarantined, its hold kept, and the
+// collision is said, as D78's `LaneRekeyCollision`.
+const renamedOp = (tx: Tx, v: SavedLane & { contract?: unknown }, onDisk: Set<string>): SavedLane | undefined => {
   const m = tx.machines[v.machine];
   const here = m?.ops[v.op];
   if (!m || typeof v.contract !== "string" || here?.contract === v.contract || (here && here.contract === undefined)) return v;
@@ -552,9 +565,31 @@ const renamedOp = (tx: Tx, v: SavedLane & { contract?: unknown }): SavedLane | u
   if (same.length !== 1) return here ? undefined : v;
   const op = same[0]![0];
   const id = laneKey(v.actor, op, v.key);
+  if (onDisk.has(id)) {
+    issue(tx, { code: "LaneRekeyCollision", origin: `${v.machine} ${v.op}`, input: id });
+    return undefined;
+  }
+  onDisk.add(id); // the reviewer's: a second move onto the same id in this boot collides too
   note(tx, "OpRenamed", { from: v.op, to: op, lane: id }); // proposed name
   tx.w = { ...tx.w, rekeyed: { ...tx.w.rekeyed, [id]: v.id } };
   return { ...v, op, id };
+};
+// Rule 74, the runner's Q17 ruling: a lane is (identity, contract, key). A lane minted under another identity version of its actor's machine is the old
+// identity's and moves to its own id (its key's id with the identity's tag), so the new identity of the same name text gets its own lane: it neither
+// declines against nor queues behind the old hold, which is kept (it may have landed), blocks nothing, and is listed unbound at every boot.
+// An identity that is current again (a release reverted) moves back to its key's id, unless that id is taken (then it stays, its hold kept), so one
+// (identity, contract, key) never has two lanes. A move keeps the original record's id, through a rename made earlier in the same boot.
+const ownIdentity = (tx: Tx, l: SavedLane, taken: Set<string>): SavedLane => {
+  if (!l.identity) return l;
+  const keyId = laneKey(l.actor, l.op, l.key);
+  const current = ofIdentity(tx, l as Lane);
+  if (current && (l.id === keyId || taken.has(keyId))) return l;
+  const id = current ? keyId : `${keyId}#${identityTag(l.identity)}`;
+  if (l.id === id) return l;
+  const { [l.id]: from = l.id, ...rest } = tx.w.rekeyed;
+  tx.w = { ...tx.w, rekeyed: { ...rest, [id]: from } };
+  taken.add(id);
+  return { ...l, id };
 };
 // D82: a stand-in for Schema decode with defaults. Undefined: this record cannot be read by this release.
 // The runner's ruling (phase 1 migration round 2): a field this release no longer declares is dropped at restore; `dropped` collects it, for the

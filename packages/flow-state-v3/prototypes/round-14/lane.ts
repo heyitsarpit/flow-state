@@ -643,7 +643,7 @@ export const oldVersionLane = (tx: Tx, actor: string, machine: string, op: strin
   const fields = stampFields(tx.machines[machine]?.ops[op]);
   if (!fields) return undefined;
   const older = olderOf(tx.machines[machine]?.ops[op]);
-  return Object.values(tx.w.lanes).find((l) => l.actor === actor && l.op === op && l.keyFields !== undefined && !sameFields(l.keyFields, fields, older) && columnOf(l) !== "Idle");
+  return Object.values(tx.w.lanes).filter((l) => ofIdentity(tx, l)).find((l) => l.actor === actor && l.op === op && l.keyFields !== undefined && !sameFields(l.keyFields, fields, older) && columnOf(l) !== "Idle"); // Q17: an old identity's lane blocks nothing
 };
 // The one way a lane changes. A lane's status changes only through here (S3).
 export const cell = (tx: Tx, row: Row, lane: Lane | undefined, a: CellArgs) => {
