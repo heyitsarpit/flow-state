@@ -1,0 +1,4 @@
+interface:
+  display_name: "Effect API Documentation"
+  short_description: "Document Effect v4 APIs by module"
+  default_prompt: "Use $effect-api-documentation to write or review a module-specific Effect v4 API reference with source evidence and concise examples."

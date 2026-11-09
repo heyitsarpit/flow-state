@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "skills": {
+    "build-a-loop": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "81ad5583170d3e6ef1c23a83dbc010763e08a3741fe398c2bc277de7c83e584c"
+    },
+    "effect-api-documentation": {
+      "source": "../workflow/skills/suites/effect",
+      "sourceType": "local",
+      "computedHash": "60b41e52d6b6f8f1b651e3111af434017e92650f4572ee53b618c4f3fe74be12"
+    },
+    "workflow": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "ebf26e2fb2a2366190c7b7dfb4bee4ae963987d0190f4a9dff90ec7c96533ac9"
+    },
+    "workflow-cli": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "4396b942171bd2f1456f9ca2ff9db66b84b9c07a2ddd276cfa9ef48a0246d9b7"
+    }
+  }
+}
