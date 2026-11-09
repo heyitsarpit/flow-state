@@ -1,0 +1,308 @@
+phase P3
+title Conformance rewrite
+description
+    Class: not readily verifiable.
+    Kind: verification-suite.
+    Goal: a new, clean conformance suite at production quality in
+    `packages/flow-state-v3/conformance/`, running against the prototype runtime (round 14) and,
+    from P4, the production runtime, through one Port; one oracle per guarantee with its mutants;
+    the old suite's fixtures, scenarios, reference model and lies copied, its runner, lock,
+    shims and text formats rewritten.
+    Verified by: the new suite green on round 14 with the old suite's verdicts; null 0 of N;
+    falsify (every oracle kills its mutants, each for the expected reason); an audit and
+    re-audit by a lead that did not build it (skill:policy-testing#audit-a-suite); its coverage
+    record, in @plan.Runtime's verification once the user says yes to that Plan edit.
+    One iteration: one Task: grow the suite from its Spec, run it on round 14 and the null
+    runtime, run its mutants, get the hourly review, gather findings by root cause.
+    Exit criteria: the suite passes on round 14; it kills every mutant the old suite kills;
+    every oracle kills its own mutants; it passes its audit and re-audit; its fast gates run in
+    `nub run verify`; its coverage record exists; the user's speed targets hold (Q4 A,
+    2026-11-08): the suite in one process at most 15 s, peak RSS per suite process at most
+    600 MB, the builder's fast loop at most 30 s wall, every final-commit gate at up to 8 in
+    parallel at most 10 min wall, or the gap reported with its limiter.
+    False pass: agreeing with the old suite because it was copied, weaknesses included. Caught
+    by: the audit on the new suite, whose auditor writes its own mutants from the Specs.
+    Gates: falsify, which rejects the null runtime and every registered mutant
+    (`packages/flow-state-v3/conformance/`, each oracle's mutants file); `nub run check`, which
+    rejects a planted lint violation.
+    Budget: the Epic's Budget section, row P3 (25 rounds, 5 used).
+    Failure limit: 2.
+    Stops: a guarantee change (a Spec Invariant added, dropped or changed); a guarantee that
+    can't be met. User's read: the suite layout (decided in round 1), each Spec revision, each
+    changed expected result with its reason.
+    Draws from: skill:policy-verification (prove a suite; the coverage record);
+    skill:policy-testing (audit a suite); skill:to-spec for the suite's own Spec;
+    skill:policy-convergence at the threshold; skill:review for the hourly reviews;
+    skill:check-benchmark on the speed numbers.
+comment 2026-11-09T13:30:00Z
+    Rounds 1 to 5 done before the move to this Epic (`976ca17c` to `bc8dffba`): Port with
+    round-14 and null adapters, fake world by host, DSL, runner with --parallel and falsify;
+    oracles three-channels, attempt-identity, one-delivery, lane-cells; suite 61/61, null 0/61,
+    falsify 25/25, `nub run check` at zero. Unreviewed: `3097ea3c` and `bc8dffba`, the run's first
+    cadence review. Work list: the README's guarantee map and items 1 to 9.
+tasks
+    T4
+        title       The suite's own Spec, Conformance.spec
+        status      open
+        priority    high
+        labels      [not-readily-verifiable, verification-suite]
+        description
+            Write `packages/flow-state-v3/conformance/Conformance.spec` with skill:to-spec, next
+            to the suite (README item 7): the Port exposes no runtime internals and any runtime
+            implementing it gets the same verdicts; expected results come from a cited Spec rule,
+            never from running the runtime; every check has a mutant it kills; the null runtime
+            fails every case; runs are deterministic from a seed; the verdict format and the
+            old-suite comparison. The README keeps the how-to.
+            May change: the new Spec, `workflow/spec.index`, the README. Evidence: this Task's
+            comments.
+
+            False pass: a Spec restating the code's current behaviour → caught by skill:check-spec
+            by an agent that did not write it.
+            Gates: `workflow check`.
+            Budget: 1 round.
+            Stops: none.
+            User's read: the Spec's guarantees.
+        acceptance
+            The Spec exists, `workflow check` passes, and an independent skill:check-spec finds
+            no gap in its contract.
+    T5
+        title       Suite renamed to Spec areas and behaviour names
+        status      open
+        priority    high
+        blocked_by  [@T4]
+        labels      [not-readily-verifiable, verification-suite]
+        description
+            One folder per core Spec (`write-lanes/`, ...), checks named by behaviour
+            (`three-channels` to `ending-channels`, `one-delivery` to `delivered-once`,
+            `lane-cells` to `lane-queue`), `*.lies.ts` to `*.mutants.ts` and "lie" to "mutant",
+            scenario files by behaviour with the old `PAY-nn` id kept as a field, prototype
+            leftovers renamed (README item 8). Blocked by T4, whose Spec settles the grouping.
+            May change: `packages/flow-state-v3/conformance/`. Evidence: this Task's comments.
+
+            False pass: a rename that drops or changes a check → caught by byte-identical suite,
+            null and falsify output before and after.
+            Gates: falsify; `nub run check`.
+            Budget: 1 round.
+            Stops: none.
+            User's read: none.
+        acceptance
+            Suite, null and falsify output byte-identical before and after; `nub run check` at
+            zero errors and warnings.
+    T6
+        title       Judged Runtime disposal per case, and tsgo in check
+        status      open
+        priority    medium
+        blocked_by  [@T5]
+        labels      [not-readily-verifiable, verification-suite]
+        description
+            README item 9: judged Runtime disposal at every case's end with the `disposal`
+            oracle (@spec.Actors I29 to I32; round 5 dropped the implicit per-case disposal);
+            `@effect/tsgo` in `nub run check`. Blocked by T5, since it adds files in the new
+            layout. May change: `packages/flow-state-v3/conformance/`, `package.json`, the lint
+            configuration. Evidence: this Task's comments.
+
+            False pass: a disposal oracle that never fails → caught by its mutants
+            (`lie.boot-says-disposed`, `lie.boot-drops-held`, `o6.*`).
+            Gates: falsify; `nub run check`.
+            Budget: 1 round.
+            Stops: none.
+            User's read: none.
+        acceptance
+            Every case ends with a judged disposal; the disposal mutants are killed; the tsgo
+            language service runs in `nub run check`, which stays at zero.
+    T7
+        title       WriteLanes area complete
+        status      open
+        priority    high
+        blocked_by  [@T5]
+        labels      [not-readily-verifiable, verification-suite]
+        description
+            The guarantee map's remaining WriteLanes rows (@spec.WriteLanes I1, I2, I4, I5, I7,
+            I10, I13, I14, I17 to I19, I23, and I15, I16, I22's pending mutants): oracles
+            `members`, `members-only`, `write-before-ending`, `old-version-holds`, cases, the fake
+            world behaviours they need, the area's ported cases, its verdict compare with the old
+            suite, and its round-14 carry rows. May change: the suite's write-lanes area.
+            Evidence: this Task's comments.
+
+            False pass: an oracle too lenient to fail → caught by its mutants and the audit.
+            Gates: falsify; `nub run check`.
+            Budget: 3 rounds.
+            Stops: a guarantee change.
+            User's read: Spec revisions, changed expected results.
+        acceptance
+            Every WriteLanes Invariant has its oracle or case; each oracle kills its listed
+            mutants; the area's verdicts match the old suite's or each difference is logged with
+            its cited rule.
+    T8
+        title       Turn area complete
+        status      open
+        priority    high
+        blocked_by  [@T5]
+        labels      [not-readily-verifiable, verification-suite]
+        description
+            @spec.Turn's guarantee map: oracles `publication`, `selection` (with the reference
+            model ported from `prototypes/conformance/reference/model.ts`), `activations`,
+            `turn-purity`, `refusal`, `schedules`, `placements`, `late-routing`, `context`,
+            `issues`, cases, fake world behaviours, ported cases, verdict compare and carry rows.
+            May change: the suite's turn area. Evidence: this Task's comments.
+
+            False pass: a reference model copied from the runtime → caught by the audit (it
+            imports nothing from the code under test).
+            Gates: falsify; `nub run check`.
+            Budget: 4 rounds.
+            Stops: a guarantee change.
+            User's read: Spec revisions, changed expected results.
+        acceptance
+            Every Turn Invariant has its oracle or case; each oracle kills its listed mutants;
+            verdicts match the old suite's or each difference is logged with its cited rule.
+    T9
+        title       Actors area complete
+        status      open
+        priority    high
+        blocked_by  [@T6]
+        labels      [not-readily-verifiable, verification-suite]
+        description
+            @spec.Actors' guarantee map apart from disposal (T6): oracles `identity`,
+            `lifetime`, `incarnations`, `mailbox`, `cuts-and-context`, cases, fake world
+            behaviours, ported cases, verdict compare and carry rows (the boot-queue bound, U8).
+            Blocked by T6, which adds the disposal oracle these share. May change: the suite's
+            actors area. Evidence: this Task's comments.
+
+            False pass: a lenient oracle → caught by its mutants and the audit.
+            Gates: falsify; `nub run check`.
+            Budget: 3 rounds.
+            Stops: a guarantee change.
+            User's read: Spec revisions, changed expected results.
+        acceptance
+            Every Actors Invariant has its oracle or case; each oracle kills its listed mutants;
+            verdicts match the old suite's or each difference is logged with its cited rule.
+    T10
+        title       WriteAhead area complete
+        status      open
+        priority    high
+        blocked_by  [@T5]
+        labels      [not-readily-verifiable, verification-suite]
+        description
+            @spec.WriteAhead's guarantee map: a disk reader on the Port or the adapter; oracles
+            `write-ahead` (the old oracle (h) against the storage host), `capture`, `persistence`,
+            cases, the storage faults (failLate, plain-write failures, slow and failing loads,
+            wipe, tear, corrupt), ported cases, verdict compare and carry rows. May change: the
+            Port, the suite's write-ahead area and storage host. Evidence: this Task's comments.
+
+            False pass: a disk reader that shows internals → caught by T4's Spec and the audit.
+            Gates: falsify; `nub run check`.
+            Budget: 3 rounds.
+            Stops: a guarantee change.
+            User's read: the Port change, Spec revisions.
+        acceptance
+            Every WriteAhead Invariant has its oracle or case; each oracle kills its listed
+            mutants; verdicts match the old suite's or each difference is logged.
+    T11
+        title       Restore area complete
+        status      open
+        priority    high
+        blocked_by  [@T10]
+        labels      [not-readily-verifiable, verification-suite]
+        description
+            @spec.Restore's guarantee map: oracles `restore` (anchored to bytes the suite owns)
+            and `quarantine`, cases, the migration wrong runtimes, ported cases, verdict compare
+            and carry rows (C168, a crash between moving a lane and deleting the old name, record
+            formats). Blocked by T10, whose disk reader it reads. May change: the suite's restore
+            area. Evidence: this Task's comments.
+
+            False pass: restore judged from the runtime's own report → caught by anchoring to
+            suite-owned bytes, and the audit.
+            Gates: falsify; `nub run check`.
+            Budget: 3 rounds.
+            Stops: a guarantee change.
+            User's read: Spec revisions, changed expected results.
+        acceptance
+            Every Restore Invariant has its oracle or case; each oracle kills its listed mutants;
+            verdicts match the old suite's or each difference is logged.
+    T12
+        title       Reads area complete
+        status      open
+        priority    medium
+        blocked_by  [@T5]
+        labels      [not-readily-verifiable, verification-suite]
+        description
+            @spec.Reads' guarantee map: oracles `lookups` and `optimistic`, cases (the idle row
+            per R14), ported cases, verdict compare and carry rows. May change: the suite's reads
+            area. Evidence: this Task's comments.
+
+            False pass: a lenient oracle → caught by its mutants (`drain.*`, `lie.settled-*`).
+            Gates: falsify; `nub run check`.
+            Budget: 2 rounds.
+            Stops: a guarantee change.
+            User's read: Spec revisions, changed expected results.
+        acceptance
+            Every Reads Invariant has its oracle or case; each oracle kills its listed mutants;
+            verdicts match the old suite's or each difference is logged.
+    T13
+        title       Static cases for Compile, Diagnostics, Codec and StaticCli
+        status      open
+        priority    medium
+        blocked_by  [@T5]
+        labels      [not-readily-verifiable, verification-suite]
+        description
+            One case module each over `Compiled` and the CLI, porting the prototype's
+            front-check, the CLI pins and the graph gate (@spec.StaticCli I2), plus their carry
+            rows (`SharedContract`, the widened `key: []` warning, rule 13's `byReason` keys,
+            C184's message check). May change: the suite's static areas. Evidence: this Task's
+            comments.
+
+            False pass: pins copied from current output → caught by expectations cited from the
+            Specs and the audit.
+            Gates: falsify; `nub run check`.
+            Budget: 2 rounds.
+            Stops: a guarantee change.
+            User's read: Spec revisions.
+        acceptance
+            Every Compile, Diagnostics, Codec and StaticCli Invariant has a case; each case
+            fails on its planted wrong compiler or CLI output.
+    T14
+        title       Searches and mutants as runner modes
+        status      open
+        priority    medium
+        blocked_by  [@T5]
+        labels      [not-readily-verifiable, verification-suite]
+        description
+            README item 3: the old suite's searches as a runner mode and its `mutants-*.ts` as
+            mutants, with `--parallel`; the carry rows owned by the runner (search budgets, search
+            oracles reading only the state hash, process-group kill and watchdog, partial
+            evidence notes). May change: the suite's runner. Evidence: this Task's comments.
+
+            False pass: a time kill read as a verdict → caught by a planted slow child that must
+            read as unknown.
+            Gates: falsify; `nub run check`.
+            Budget: 2 rounds.
+            Stops: none.
+            User's read: none.
+        acceptance
+            Searches and mutants run from the one runner with `--parallel`; a planted slow child
+            reads as unknown; the old suite's search kills are reproduced.
+    T15
+        title       Suite audited, fast gates in verify, coverage record, speed targets
+        status      open
+        priority    high
+        blocked_by  [@T7, @T8, @T9, @T10, @T11, @T12, @T13, @T14]
+        labels      [not-readily-verifiable, verification-suite]
+        description
+            README item 5: an audit and re-audit by a lead that did not build the suite, writing
+            its own mutants from the Specs; the fast gates in `nub run verify`; the coverage
+            record (Covers, Suite, Rerun, Mutants, Audit, Matched at, Scope) drafted for
+            @plan.Runtime's verification and listed for the user's yes before it is written; the
+            speed targets measured. May change: `package.json`, the suite. Evidence: this Task's
+            comments.
+
+            False pass: a speedup that skips work → caught by skill:check-benchmark comparing the
+            work done; an audit that reads the tests instead of the record → caught by its brief.
+            Gates: falsify; `nub run verify`.
+            Budget: 2 rounds.
+            Stops: the Plan edit for the coverage record (list and wait).
+            User's read: the audit's findings.
+        acceptance
+            Audit and re-audit pass; `nub run verify` runs the fast gates; the coverage record is
+            in the Plan; suite at most 15 s, peak RSS at most 600 MB, fast loop at most 30 s,
+            final-commit gates at most 10 min at up to 8 in parallel, or each gap reported with
+            its limiter.

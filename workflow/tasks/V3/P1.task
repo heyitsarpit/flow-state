@@ -1,0 +1,46 @@
+phase P1
+title Pre-work prototype
+description
+    Class: not readily verifiable.
+    Kind: verification-suite.
+    Goal: the last prototyping: entities, streams, persisted record migration across deploys,
+    round 13's H1 and H2, and M5 settled, each recorded in the design (OD52 to OD54).
+    Verified by: each area's suite slice, test first, and an adversarial four-angle re-audit by
+    an Opus auditor that did not build it, writing its own wrong runtimes from the proposal
+    (roadmap amendment 10).
+    One iteration: one round on one area, building against its slice.
+    Exit criteria: each area settled in the design and listed for the user's read; its slice
+    passes and is audited; `listen.load` and `fragstore.row` pass; H1 and H2 fixed and pinned;
+    M5 settled or listed.
+    False pass: designs that fit the harness but not real apps. Caught by: one path per area fed
+    from a real source (a real `fetch`, EventSource or SDK call).
+    Gates: the old suite, falsify, lies, the graph gate and the reference model.
+    Budget: the Epic's Budget section, row P0 to P2 (spent: 15 rounds allowed).
+    Failure limit: 2.
+    Stops: a guarantee change. User's read: each area's settled decisions (now notes).
+    Prototype: yes.
+    Draws from: skill:policy-testing for each slice's audit; skill:policy-convergence when reviews
+    repeat a root cause.
+comment 2026-11-09T13:30:00Z
+    Done before the move to this Epic: area H (`e6b0db23`), entities (OD52), streams (OD53), record
+    migration (OD54); M5 settled as an oracle (h) harness bug. Each area passed its adversarial
+    re-audit after its closing batch (audits 2, 3, 3b; S1, S1b; M1, M2). Completion audit: stage
+    A's close-out, PASS on re-check after `d3d89576` (see @phase.V3.P0).
+tasks
+    T2
+        title       Entities, streams, migration, H1, H2 and M5 settled
+        status      done
+        priority    high
+        labels      [not-readily-verifiable, verification-suite]
+        description
+            Settled entities, streams and record migration in the prototype and the design
+            (OD52 to OD54), fixed H1 and H2, settled M5. Migrated from
+            `workflow/roadmaps/v3-production/` (git `b30be69d`). Evidence: this Task's comments.
+
+            False pass: harness-shaped designs → caught by one real-source path per area.
+            Gates: the old suite, falsify, lies, graph gate, reference model.
+            Budget: 15 rounds (spent).
+            Stops: none.
+            User's read: the calls in the Epic's pending Decision notes.
+        acceptance
+            Each area's adversarial re-audit closed; stage A close-out PASS on re-check.

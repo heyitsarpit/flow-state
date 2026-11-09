@@ -1,0 +1,163 @@
+phase P5
+title Features
+description
+    Class: not readily verifiable.
+    Kind: verification-suite.
+    Goal: production code for the features outside the core, built from the Plans, one area at a
+    time, each area's Specs written when it starts: entities, streams, record migration,
+    multi-tab and sessions, host adapters, Stories, React and Next.js bindings, CLI outputs.
+    Starts when: P4's completion audit passes.
+    Verified by: each area's suite slice, built and proven first (mutants, audit), then the area
+    built against it; real-browser runs in Chrome and Safari; reviews. Coverage records in the
+    owning Plan's verification.
+    One iteration: the next ready Task of the earliest area: an area without a proven slice gets
+    its slice first; an area with one is built against it.
+    Exit criteria: each area's slice is proven and passes on production after its audit; the user
+    accepts the CLI outputs.
+    False pass: a slice too lenient to fail. Caught by: the auditor's own mutants per area.
+    Gates: falsify per area; the area's real-source path (a real `fetch`, EventSource or SDK
+    call).
+    Budget: the Epic's Budget section, row P5.
+    Failure limit: 2.
+    Stops: a feature call only the user can make; a guarantee change; the user's acceptance of
+    the CLI outputs, batched in one round. User's read: the CLI output mocks before that round;
+    small API calls.
+    Decisions: the CLI outputs, judged by the user; open feature calls in a Plan, judged by the
+    user when they touch a name, guarantee or stated preference, otherwise by a reviewing agent.
+    Draws from: skill:playbook-specify for each area's Specs; skill:policy-verification and
+    skill:policy-testing for each slice; skill:playbook-build; skill:check-runtime for the
+    browser paths.
+tasks
+    T24
+        title       Entity store
+        status      draft
+        priority    high
+        labels      [not-readily-verifiable, verification-suite]
+        description
+            @plan.EntityDomains as merged (OD52); carry rows `a3b.*`, `audit-2.*`. Entities are
+            not up for cutting. Drafted in full when P5 starts. Evidence: this Task's comments.
+
+            False pass: a lenient slice → caught by the area audit's mutants.
+            Gates: the area's falsify entries.
+            Budget: 8 rounds.
+            Stops: a guarantee change.
+            User's read: small API calls.
+        acceptance
+            The entities slice is proven and passes on production.
+    T25
+        title       Streams
+        status      draft
+        priority    high
+        labels      [not-readily-verifiable, verification-suite]
+        description
+            Streams as merged (OD53); carry rows (C202 eviction, jitter determinism, rule 70's
+            wait per operation, T3's bound across two operations, `listen.none`). Drafted in full
+            when P5 starts. Evidence: this Task's comments.
+
+            False pass: a lenient slice → caught by the area audit's mutants.
+            Gates: the area's falsify entries.
+            Budget: 8 rounds.
+            Stops: a guarantee change.
+            User's read: small API calls.
+        acceptance
+            The streams slice is proven and passes on production, with a real EventSource path.
+    T26
+        title       Record migration
+        status      draft
+        priority    high
+        labels      [not-readily-verifiable, verification-suite]
+        description
+            @plan.Persistence's migration as merged (OD54); against real storage shapes
+            (IndexedDB structured clone, `localStorage` text). Drafted in full when P5 starts.
+            Evidence: this Task's comments.
+
+            False pass: a lenient slice → caught by the area audit's mutants.
+            Gates: the area's falsify entries.
+            Budget: 8 rounds.
+            Stops: a guarantee change.
+            User's read: small API calls.
+        acceptance
+            The migration slice is proven and passes on production.
+    T27
+        title       Multi-tab and sessions
+        status      draft
+        priority    medium
+        labels      [not-readily-verifiable, verification-suite]
+        description
+            Multi-tab ownership and sessions from @plan.Runtime. Drafted in full when P5 starts.
+            Evidence: this Task's comments.
+
+            False pass: one-tab tests standing in for two → caught by a real two-tab browser run.
+            Gates: the area's falsify entries.
+            Budget: 6 rounds.
+            Stops: a guarantee change.
+            User's read: none.
+        acceptance
+            The slice is proven and passes on production in real Chrome and Safari.
+    T28
+        title       Host adapters: IndexedDB and in-memory
+        status      draft
+        priority    high
+        labels      [not-readily-verifiable, verification-suite]
+        description
+            IndexedDB meeting Safari's four requirements
+            (`packages/flow-state-v3/prototypes/safari/RESULTS.md`), and an in-memory adapter.
+            Drafted in full when P5 starts. Evidence: this Task's comments.
+
+            False pass: a fake standing in for IndexedDB → caught by skill:check-runtime in real
+            Safari.
+            Gates: the area's falsify entries; real-browser runs.
+            Budget: 6 rounds.
+            Stops: none.
+            User's read: none.
+        acceptance
+            Both adapters pass the slice; the four Safari requirements hold in real Safari.
+    T29
+        title       Stories with flow story and flow trace
+        status      draft
+        priority    medium
+        labels      [not-readily-verifiable, verification-suite]
+        description
+            @plan.Testing's Stories, `flow story list/describe/run` and `flow trace`. Drafted in
+            full when P5 starts. Evidence: this Task's comments.
+
+            False pass: a Story that re-executes on scrub → caught by the player tests (V9).
+            Gates: the area's falsify entries.
+            Budget: 6 rounds.
+            Stops: public entry-point names.
+            User's read: none.
+        acceptance
+            The slice is proven and passes on production.
+    T30
+        title       React and Next.js bindings
+        status      draft
+        priority    high
+        labels      [not-readily-verifiable, verification-suite]
+        description
+            @plan.React and @plan.ServerRendering. Drafted in full when P5 starts. Evidence:
+            this Task's comments.
+
+            False pass: tests in jsdom standing in for Next.js → caught by a real Next.js run.
+            Gates: the area's falsify entries.
+            Budget: 8 rounds.
+            Stops: public entry-point names; a large API change.
+            User's read: small API calls.
+        acceptance
+            The slice is proven and passes in a real Next.js app in Chrome and Safari.
+    T31
+        title       CLI outputs designed for people
+        status      draft
+        priority    medium
+        labels      [not-readily-verifiable, verification-suite]
+        description
+            Source locations, a trace that reads like a story, a graph grouped by state, and
+            messages from the issue catalog; mocks first, then the user's one acceptance round.
+            Drafted in full when P5 starts. Evidence: this Task's comments.
+
+            False pass: outputs pinned from the code → caught by mocks the user accepts first.
+            Gates: CLI pins.
+            Budget: 4 rounds.
+            Stops: the user's acceptance of the CLI outputs.
+            User's read: the mocks.
+        acceptance
+            The user accepts the outputs; the pins match them.
