@@ -38,7 +38,8 @@ that were never invoked do not count. To check whether a skill was used, scan th
 - Completed delegated skill activation for the assigned method
 - Supporting tool results showing how the invoked method was applied
 
-A prompt naming a skill alone is not proof it was loaded; verify native activation in the transcript.
+A prompt naming a skill alone is not proof it was loaded; verify native activation in the
+transcript.
 
 Two valid finding shapes:
 

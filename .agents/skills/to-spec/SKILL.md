@@ -1,62 +1,120 @@
 ---
 name: to-spec
 description: >-
-  Record and check behavioral requirements, invariants, and test obligations in workflow Specs.
-  Use to establish, revise, or supersede observable guarantees from agreed intent and findings.
-  Implementation design sections are maintained by to-design.
+  Write and revise a module's behavioral contract in a workflow Spec: its Requirements, the
+  Invariants that must always hold, and the tests that would catch a violation. Use to establish,
+  revise, or supersede observable guarantees from agreed intent and findings. Implementation
+  design is to-design's job.
 metadata:
   kind: procedure
+  applies:
+    - policy-writing
+    - principle-design-for-verification
+    - policy-testing
+    - policy-code-correctness
+    - policy-code-composition
+    - policy-records
 ---
-
-Use the `writing` skill for drafting or revising prose.
 
 # To Spec
 
-Create behavioral Invariants from Requirements and specify how to check them.
-The `to-design` skill may add implementation notes; preserve them without treating them as guarantees.
-Use [author guidance](references/spec-author.md) to read, create, or revise the owning Spec.
-Use the `check-spec` skill for contract completeness and coverage.
+A Spec is a module's contract: what it must do for its callers, what must always be true about it,
+and how we would know if it broke. This skill writes that contract. It derives Invariants from the
+Requirements, as many independent ones as the behavior needs, because each one you find rules out a
+class of failures before any code exists.
 
-A bounded direct edit can use one author. Consequential proposals require independent checking.
-For an author-only assignment, return the Spec and checking needs; leave independent checking
-to its assigned owner.
-Do not add correctness or composition design phases merely to write a Spec.
-One module Spec may contain multiple owners; split Specs by independent contracts, not owner count.
-One Task may affect multiple modules; one module Spec may support multiple Tasks.
+It does not design the implementation. `to-design` may add implementation notes to the same Spec;
+leave them in place, but never treat them as guarantees. For the mechanics of reading, creating,
+and revising a Spec file, follow [the author guidance](references/spec-author.md).
 
-## 1. Establish the behavioral contract
+## Before you start
 
-Read agreed intent, existing Specs, relevant Plans and drafted Tasks, and supplied findings.
-Identify observable inputs, outcomes, failures, side effects, and conditions.
-Reuse existing guarantees. Separate intended behavior from observations of current code.
-For missing facts, use
-change-impact (Use the `change-impact` skill) within the assigned scope.
-Return unresolved product choices to the user.
-For large behavioral changes, recommend whether user approval is needed before implementation.
-Consider compatibility, cross-module guarantees, and consequential new product commitments.
-Preserve any agreed approval gate; routine contract clarification needs no user approval.
+Read the agreed intent, the existing Specs, the relevant Plans and drafted Tasks, and any findings
+you were given. Reuse guarantees that already exist rather than restating them.
 
-## 2. Record requirements, invariants, and tests
+One module Spec can cover several owners; split Specs where the contracts are independent, not by
+owner count. One Task can touch several modules, and one Spec can serve several Tasks. You do not
+need correctness or composition design phases just to write a Spec.
 
-Record Requirements first. Pursue exhaustive derivation of independent correctness properties,
-including Requirement interactions, to eliminate entire families of bugs.
-Define broad behavior tests afterward.
-Express precise Invariants over domain state, ownership, identities, and lifetimes at named points.
-Require private representations only when they are agreed constraints.
-Record one independently checkable obligation per entry; split clauses that can fail separately.
-The author records sourced Requirements, behavioral Invariants, and public-boundary checks. 
-Use the `design-for-verification` skill for observations and diagnostics.
-Use the `testing-policy` skill for test boundaries and independent expectations.
-Keep provenance, open questions, and coverage needed to interpret the contract.
-State temporal, failure, concurrency, and resource guarantees as behavior when relevant.
-Do not prescribe internal types, algorithms, module layouts, composition flows, or realization. Use
-the `to-design` skill for optional implementation-design questions.
-They block contract work only when the required behavior itself cannot yet be settled.
+Put a Spec next to its module or in the project's spec folder; both work, because the Spec's
+`location` field and `workflow/spec.index` find it either way (the user's decision, wiki proposal
+item 8). Records about the Specs as a whole, such as how they are split, their change log and
+their check scripts, live in `workflow/specs/`.
 
-## 3. Check and return
+## Steps
 
-Check the actual Spec snapshot against intent, scenarios, invariants, and test obligations.
-Route findings to the author and recheck affected passages. Keep unresolved obligations visible.
-A planned test or valid document is not passing product evidence.
-Return Spec paths, snapshot, provenance, verdict, required checks, and unresolved questions.
-Recommend the next action and stop at the requested phase boundary. Execution needs authorization.
+1. **Pin down the behavior.** Identify what callers can observe: inputs, outcomes, failures, side
+   effects, and the conditions under which each happens. Keep intended behavior separate from what
+   the current code happens to do. When a fact is missing, find it with `change-impact` within your
+   scope; if it still cannot be settled, record it as an open question. Product choices you cannot
+   settle go back to the user.
+
+2. **Record the Requirements first.** Each Requirement states one sourced behavior callers rely on.
+
+3. **Derive the Invariants, exhaustively.** For every Requirement and every interaction between
+   Requirements, ask what must always be true for it to hold, and write that down as a precise
+   statement over domain state, ownership, identities, and lifetimes, at named points where it must
+   hold. Write a separate Invariant for each property that can fail independently. State timing,
+   failure, concurrency, and resource guarantees as behavior when they matter. Only require a
+   private representation when it is an agreed constraint.
+
+4. **Then the tests.** Define tests at public boundaries that would fail if an Invariant or
+   Requirement broke, with expectations derived independently of the implementation. Use
+   `principle-design-for-verification` for what to observe and `policy-testing` for where tests
+   sit.
+
+5. **Record sources, open questions, and coverage in the Spec**, so a reader can trust the
+   contract. When a Requirement or Invariant rests on a choice made while writing the Spec, write
+   the choice in its text as `Decision (agent|user, <date>): <choice>.`, then `Why:`, `Reverse:`
+   and, for an agent's choice, `User's read: pending` (later `done`); a user's choice quotes the
+   user. `workflow status` lists the pending ones; nothing checks the shape. Link cited code as
+   `code:PATH#TEXT`, so `workflow check` fails when the cited text no longer exists. Do not
+   prescribe internal types, algorithms, module layouts, composition flows, or target
+   realization; those are design questions for `to-design`. They block contract work only when
+   the behavior itself cannot be settled without them.
+
+6. **Check it and stop.** Re-read the Spec as written against the intent, scenarios, Invariants, and
+   test obligations. Fix what you find if you are the author, or send it to the author if someone
+   else owns the edits, then recheck the passages that changed. Keep unresolved obligations visible.
+
+## Example
+
+```text
+requirements
+    R1 Prerequisite ordering
+        source Agreed caller requirement.
+        must Start a step only after all earlier declared steps succeed.
+invariants
+    I1 For every started step i, every declared step j < i has succeeded. [@R1]
+tests
+    T1 Hold step A unconfirmed; step B never starts while A waits.
+```
+
+## Who checks
+
+A small clarification that does not change what callers can rely on can be authored and checked by
+one agent. A consequential change needs an independent check through `check-spec`, by someone other
+than the author, however small the diff: a one-line change to a compatibility guarantee is
+consequential. If you were assigned only the authoring, return the Spec and what needs checking, and
+leave the check to whoever owns it.
+
+## Approval
+
+Routine clarification of a contract needs no approval. For a large behavioral change, recommend
+whether the user should approve the Spec before implementation, considering compatibility,
+guarantees other modules rely on, and new product commitments. Keep any approval gate the user has
+already agreed.
+
+## Watch out for
+
+- **Describing the code instead of the contract.** What the code does today is evidence, not the
+  requirement.
+- **Bundled Invariants.** "X holds and Y is published" is two entries; they fail separately.
+- **Too few Invariants.** One per Requirement is rarely enough; most bugs live in the interactions.
+- **Counting planned tests.** A planned test or a valid document is not evidence the product works.
+
+## What to return
+
+The Spec paths and revision, provenance, your own check's verdict, the checks still required, and
+the open questions. Recommend the next step and stop at the requested boundary; building it needs
+separate authority.

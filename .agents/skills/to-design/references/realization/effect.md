@@ -22,9 +22,12 @@ Confirm API names against the installed version's types; Effect v4 has churned a
 | `rules.publication`      | the indivisible decision and state publication promised by the Spec — not a prescribed Effect primitive        |
 | `model` error            | expected recoverable failure in `E`; interruption and defects remain outside the domain-error channel          |
 | `composition.uses`       | data stays in arguments; contextual capabilities stay in `R`; `Layer` constructs, provides, and releases them  |
-| `tests`                  | Public-boundary checks for relevant contract outcomes under testing-policy                                     |
+| `tests`                  | Public-boundary checks for relevant contract outcomes under policy-testing                                     |
 
-An owner factory is ordinary TypeScript or Effect construction, not another framework type. It may close over a `Ref`, queue, scope, repository, or actor and is called at the boundary that owns its lifetime. `Context.Service` is narrower: it keeps a replaceable capability visible in `R` without threading it through intermediate calls; its `Layer` owns construction and release.
+An owner factory is ordinary TypeScript or Effect construction, not another framework type. It may
+close over a `Ref`, queue, scope, repository, or actor and is called at the boundary that owns its
+lifetime. `Context.Service` is narrower: it keeps a replaceable capability visible in `R` without
+threading it through intermediate calls; its `Layer` owns construction and release.
 
 ```ts
 class Sender extends Context.Service<Sender, {
@@ -44,7 +47,9 @@ const PriorityValue = Schema.Int.check(
 const Priority = PriorityValue.pipe(Schema.brand("Priority"))
 ```
 
-`Schema.brand` changes the decoded TypeScript type, not the runtime representation or checks. It prevents an arbitrary `number` from being passed where a `Priority` is required. Skip it when validation at admission is enough and downstream code does not benefit from the distinction.
+`Schema.brand` changes the decoded TypeScript type, not the runtime representation or checks. It
+prevents an arbitrary `number` from being passed where a `Priority` is required. Skip it when
+validation at admission is enough and downstream code does not benefit from the distinction.
 
 ## Pitfall 2: TypeScript has no linear types
 
@@ -53,4 +58,7 @@ Rust:        complete(job: RunningJob)   -- consumed; reuse doesn't compile
 TypeScript:  the old value stays in scope; other fibers may hold copies
 ```
 
-So "complete the same job twice" needs an atomic re-check at the owning operation; a state-typed input alone cannot block that attack. Prefer an id plus that re-check unless nothing else could hold the value concurrently. The implementation chooses its atomic mechanism only after the owner and storage medium are known.
+So "complete the same job twice" needs an atomic re-check at the owning operation; a state-typed
+input alone cannot block that attack. Prefer an id plus that re-check unless nothing else could hold
+the value concurrently. The implementation chooses its atomic mechanism only after the owner and
+storage medium are known.

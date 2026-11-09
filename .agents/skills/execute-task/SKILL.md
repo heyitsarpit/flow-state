@@ -1,68 +1,107 @@
 ---
 name: execute-task
 description: >-
-  Deliver one bounded workflow Task as mergeable code with acceptance evidence.
-  Use for features, behavior-preserving refactors, integration changes, and repairs.
-  Continue checks and repairs within the authorized Task or Task set.
+  Implement one ready workflow Task, or an authorized set, as mergeable code with its own checks:
+  features, behavior-preserving refactors, integration changes, and repairs. Keeps repairing and
+  rechecking within the authorized scope. Independent acceptance is check-task's job.
 metadata:
   kind: procedure
+  applies:
+    - policy-code-composition
+    - policy-code-correctness
+    - policy-testing
+    - policy-records
+    - policy-authority
+    - principle-fix-root-causes
+    - principle-claim-only-what-you-checked
 ---
 
 # Execute Task
 
-Deliver the authorized Task or Task set through implementation, checks, repairs, integration, and
-records. Use implementation guidance (Use the `implement-task` skill) and acceptance
-checks (Use the `check-task` skill) where needed.
+This skill takes a ready Task and turns it into working, mergeable code: implemented, tested,
+linted, and recorded. You check your own work as you go, but your checks are not the Task's
+acceptance: when the Task requires independent acceptance, that is a separate step through
+`check-task`.
 
-## 1. Establish readiness
+## Before you start
 
-Match the request to a Task and its relevant Plan/Spec commitments.
-Read relevant Plan Verification targets and Spec Invariants before implementation.
-Inspect Task blockers and current Git/base/dirty state. Resolve required prerequisites and account
-for existing work before implementation; a matching Task alone is not ready work.
-If none matches, report the missing scope; never substitute unrelated ready work. Use change-impact
-(Use the `change-impact` skill) for unresolved boundaries.
+Find the Task the request refers to and read what it promises: its acceptance, the Plan Verification
+targets behind it, and the Spec Requirements and Invariants it must keep. Then check that it is
+really ready. Its blockers are done, and the actual Git base and uncommitted changes match what the
+Task assumes. Resolve the prerequisites you are authorized to resolve, and account for existing
+uncommitted work before you start. A Task that matches by name is not ready if a prerequisite is
+still missing. When existing changes overlap your write paths, work out who owns them and whether
+they are compatible. Report blockers and conflicting state you cannot resolve instead of working
+around them, and leave unrelated work alone.
 
-For small impact with unchanged contracts and settled assumptions, reuse design and proceed.
-Otherwise surface behavioral gaps before affected code. Do not silently change agreed guarantees.
-Use the `to-design` skill for implementation-shape decisions when needed.
-A bounded unchanged-contract slice can assign design assessment and implementation to one author.
-Resolve objective conflicts with the user; continue unaffected authorized work.
+If no Task matches, say what is missing; never pick up a different ready Task instead. Use
+`change-impact` when boundaries or pivotal facts are unclear. Before building against existing
+verification suites, run the survey before adding: confirm from their coverage records that they
+still cover the change and still match the code (skill:policy-verification#maintain); report a
+suite that does not, instead of building on its verdict.
 
-## 2. Implement to a mergeable state
+When the impact assessment shows a low-impact change with unchanged contracts and settled
+assumptions, reuse the existing design and start. Otherwise raise behavioral gaps before touching
+the affected code, and never quietly change an agreed guarantee. Use `to-design` when the
+implementation shape needs deciding. Take conflicts about the objective to the user, and carry on
+with the parts they do not affect.
 
-Implement against the matching Task, current contracts, cause/repro findings, write paths, exact
-base, and checks. Apply implementation guidance (Use the `implement-task` skill) and the
-installed lint reference (Use the `workflow-configuration` skill). Integrate consumers
-within scope.
-One writer owns each shared artifact or Git topology operation.
-Build and run assigned checks; exercise a narrow complete path early.
-After two failed repairs under one premise, use
-attack-the-premise (Use the `attack-the-premise` skill) before another patch.
+## Steps
 
-## 3. Check and record
+1. **Build in small, complete slices.** Get a walking skeleton (one narrow path, end to end)
+   working early, and check it against the acceptance criteria before you widen it. Work against
+   the Task, the current contracts, any reproduction or cause findings, the allowed write paths,
+   and the exact base. Update the code that consumes your change, within scope. When several agents
+   work at once, one of them owns each shared file, record, or Git operation, so writes never
+   collide.
 
-Assign Task acceptance checking (Use the `check-task` skill), reusing current scoped
-evidence.
-Keep required checking independent of the implementer.
-Repair product defects and missing assigned tests; surface contract gaps and objective conflicts.
-Preserve acceptance when repairing findings.
-When a defect escapes existing checks, strengthen affected checks before reusing their evidence.
-Keep repairs within authorized scope and preserve agreed guarantees.
-Repeat affected checks after repairs. Changed patches, bases, or dependencies invalidate affected
-verdicts; obtain results for the final snapshot.
-Refresh affected Plan procedures through to-plan (Use the `to-plan` skill) within write
-scope;
-otherwise report the needed edit and location.
+2. **For a behavior-preserving refactor,** capture a baseline of current behavior first, or reuse
+   one, and check it after each move. Type checks alone do not prove behavior was kept.
 
-Store findings, snapshot, commands, conditions, verdict, and status in the Task's supported fields.
-For each changed workflow artifact, run `workflow format PATH --write`.
-Replace `PATH` with that artifact's actual path. Run `workflow check` and review the diff.
-Mark done only when all required Task gates pass. If the Task's acceptance still needs integration
-or review, keep completion pending until those gates pass. Use the `keep-intent-aligned` skill for
-material commitment/evidence
-changes.
-Return patch, snapshot, checked acceptance, record locations, and remaining work.
-Continue required review, repair, integration, and verification within the authorized execution
-scope without routine confirmation. Stop at completion, a limit, a hold, or a genuine user decision.
-Return unresolved gates honestly. Publication, merging, and deployment need their own authority.
+3. **For an internal API replacement,** list every caller, migrate them all, and remove the old
+   path inside the migration's boundary. Keep external compatibility. A temporary adapter needs a
+   condition for its removal, and that cleanup belongs in the acceptance. Declare which intermediate
+   failures are permitted while callers migrate, so they are not mistaken for regressions, and
+   require the final static and runtime checks to pass once the migration is complete.
+
+4. **For a repair,** fix the demonstrated cause where it lives. Use `diagnose` only when the cause
+   is still unknown, and reuse a reproduction that already exists. If two fixes built on the same
+   assumption have failed, question the assumption before trying a third.
+
+5. **Write the missing tests.** If assigned behavior tests are still missing, write them as part of
+   the work: repeatable, and through the public interfaces real consumers use. Run the assigned
+   checks on the final code. A successful build does not prove the behavior.
+
+6. **Lint and format.** Read the configured commands from `setup-workflow`'s tools record. Run the
+   formatter (if the configured command only checks, run the formatter's write mode or apply the
+   changes it reports, then read the diff), then lint,
+   and fix every error and warning within your write scope. Run both again after repairs. Passing
+   means the formatter succeeds and lint shows zero errors and zero warnings; read the output, not
+   just the exit code. Never suppress a diagnostic or weaken a rule; a hidden warning becomes the
+   next regression. Report failures outside your
+   scope. If no commands are recorded, report lint and formatting as blocked.
+
+7. **Repair what the checks find.** When acceptance checking returns findings, fix product defects
+   and missing assigned tests yourself, but raise contract gaps and objective conflicts instead of
+   working around them. Keep the acceptance as it is. If a defect slipped past existing checks,
+   strengthen those checks before trusting them again (skill:policy-verification). Rerun the
+   affected checks after every repair:
+   a changed patch, base, or dependency invalidates the results it touched, so the final verdicts
+   must come from the final code.
+
+8. **Record it.** Put findings, the revision, commands, conditions, verdicts, and status in the
+   Task's supported fields. If a Plan procedure your change affects is now out of date, update it
+   through `to-plan` when it is within your scope; otherwise report the edit needed and where. For
+   each changed record, run `workflow format PATH --write` with its real path, then
+   `workflow check`, and read the diff.
+
+Mark the Task done only when every gate it requires has passed, including any independent
+acceptance, review, or integration it names. Until then, completion stays pending.
+
+## What to return
+
+The patch and its revision, the commands you ran and their results, the conditions, the acceptance
+you checked, where the records are, the defects found, and anything blocked or not run. Keep going
+through repairs, review, integration, and verification within the authorized scope without asking
+each time. Stop when the work is complete, a time, attempt, or resource limit in the assignment runs
+out, the user says hold, or a real decision needs the user.

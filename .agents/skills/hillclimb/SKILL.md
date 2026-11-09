@@ -1,46 +1,89 @@
 ---
 name: hillclimb
 description: >-
-  Build and validate a benchmark harness, then iteratively improve performance toward an agreed
-  target using selected diagnostic tools. Use for sustained tuning, rather than a one-off fix.
+  Improve one agreed metric through repeated, measured attempts: build and validate a benchmark
+  harness, try one change at a time, keep only what a checked comparison proves, and record every
+  attempt. Use for sustained tuning toward a target (latency, throughput, a score, a pass rate),
+  not a one-off fix.
 metadata:
   kind: procedure
+  applies:
+    - policy-records
+    - principle-fix-root-causes
+    - principle-claim-only-what-you-checked
 ---
 
 # Hillclimb
 
-Drive attempts toward one agreed metric using [the experiment method](references/experiment.md).
-For a bounded harness, measurement, or ledger assignment, apply only its experiment guidance.
-Return the assigned result without starting the tuning loop or dispatching other roles.
+Use this loop to improve one agreed metric through checked attempts. You build a harness you trust,
+try one change at a time against it, keep a change only when a checked comparison says it helped,
+and write down every attempt, including the ones that failed. Before step 1, read [the experiment
+method](references/experiment.md): its shared run contract, the section for your role, and its
+ledger format. This page is the loop.
 
-Require an owning Task and bounded run contract before harness construction or measurements.
-Report a missing Task before starting the run; do not invent one.
+If you were assigned only one piece (building the harness, taking a measurement, or keeping the
+ledger), follow just that part of the experiment method and return the result. Do not start the
+loop or hand out work to others.
 
-1. Assign the experiment author to reproduce the workload and propose the metric, target,
-   invariants, sampling rule, baseline, and stop condition from existing commitments.
-   Return reserved choices to the user. Authorized baseline measurement may inform the target;
-   settle the target before tuning and sampling rules before comparing optimization candidates.
-2. Assign harness construction and sensitivity proof to the author/executor. The measurement checker
-   vets actual completed work, outputs, conditions, and noise through benchmark-checklist (Use the
-   `benchmark-checklist` skill). Freeze only a checked harness.
-3. The experiment author chooses a measured hypothesis, using optimize-software (Use the
-   `optimize-software` skill) for missing candidate guidance. Give an
-   executor one bounded attempt on an isolated base. Do not stack unmeasured changes.
-4. The checker runs frozen comparisons and regressions and returns keep, reject, or inconclusive
-   with revision/conditions/evidence and configured lint receipts. Advance the
-   baseline only on a valid keep.
-   The executor preserves rejected patches/evidence, restores only its attempt, and commits kept
-   changes only within the grant. Changed conditions require a new checked baseline.
-5. Record every attempt in the owning Task using the experiment method's ledger.
-   Record failures and inconclusive attempts too; evidence must survive scratch-sample deletion. The
-   run continues ready work until the predicate, limit, or unresolved gate.
-   Repair product/test failures through the executor and harness failures through its author;
-   recheck
-   affected evidence before another keep.
+## Before you start
 
-Reuse compatible experiment/executor/record duties explicitly. Assign required checking
-independently.
-Return contract changes through keep-intent-aligned (Use the `keep-intent-aligned` skill). Repeated
-failed premises go to the investigator using attack-the-premise
-(Use the `attack-the-premise` skill). Return original/final metric, attempt counts,
-current verdict, revisions, ledger, and remaining gap.
+A hillclimb needs an owning Task and a bounded run contract before you build a harness or take a
+measurement. If there is no Task, report that; do not invent one.
+
+## Steps
+
+1. **Agree the target.** Reproduce the workload, and propose the metric, target, invariants to
+   preserve, sampling rule, baseline, and stopping condition from what is already agreed. Choices
+   that belong to the user go back to them. A baseline measurement, if authorized, can inform the
+   target, but settle the target before tuning, and the sampling rule before comparing candidates.
+
+2. **Build a harness you can trust.** Whoever builds the harness also proves it is sensitive: that
+   it would notice the kind of change you are hunting. A separate measurement checker vets it with
+   `check-benchmark`, confirming the work really ran, the outputs are right, and the noise is
+   understood. Freeze the harness only after it passes that check: from then on, its code, workload,
+   and sampling rule stay fixed, so every attempt is compared on the same terms.
+
+3. **Try one thing at a time.** The experiment author chooses a hypothesis you can measure, using
+   `performance` when you need candidate ideas, and an executor makes one attempt on an isolated
+   copy of the current baseline. Never stack changes that have not been measured, because then
+   nobody knows which one helped.
+
+4. **Judge each attempt.** The checker runs the frozen comparisons and regression checks and returns
+   keep, reject, or inconclusive. The checker returns the verdict with the revision, run conditions,
+   evidence, and configured lint results. A keep is valid only when the gain beats noise under the
+   agreed rule, the guarantees still hold, regressions pass, and lint is clean; only a valid keep
+   advances the baseline. A rejected attempt keeps its patch and evidence, and only that attempt's
+   changes are undone. Kept changes are committed only within the commit authority the user granted.
+   If the conditions change, measure a new checked baseline before comparing again.
+
+5. **Record every attempt** in the owning Task, using the experiment method's ledger format: a dated
+   comment after every attempt, including failures and inconclusive ones; the record must outlive
+   the scratch samples. For example:
+
+   ```text
+           comment 2026-10-07T12:00:00+05:30
+               H1: Avoid repeated decoding on the measured request path.
+               Change: reuse the decoded request within its existing lifetime.
+               Baseline: <commit>. Candidate: <commit>. Conditions: <workload, harness revision>.
+               Before: median 41 ms (7 runs, 40-43). After: median 33 ms (7 runs, 32-35).
+               Regressions: pass. Lint: clean. Verdict: keep. Evidence: <path>.
+   ```
+
+
+   Keep going through ready attempts until you reach the target, a limit, or an unresolved gate (a
+   failed check, a broken harness, or a decision for the user); an unresolved gate stops the
+   attempts that depend on it. Product and test failures go back to whoever made the attempt;
+   harness failures go back to the harness's author. Recheck affected evidence before the next keep.
+
+## Who does what
+
+One agent may build attempts, run them, and keep the record, as long as you tell the user which
+roles it holds; the checking must stay independent of the attempt it judges. If a finding changes a
+contract, return it through `policy-records`. If attempts keep failing for the same reason, question
+that shared assumption before trying again, and hand repeated failures to an investigator
+(`diagnose`).
+
+## What to return
+
+The starting and final metric, the attempt counts by verdict, the current verdict, the revisions,
+the ledger, and the gap that remains to the target.

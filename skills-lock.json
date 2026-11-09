@@ -1,0 +1,290 @@
+{
+  "version": 1,
+  "skills": {
+    "catch-up": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "f1490373823ef9b741d7ec70ad40be99938445023c37d782320191327900c49a"
+    },
+    "change-impact": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "da219e3575547a724c11f89f876bc87bda9168d474c500066133f28954c3037a"
+    },
+    "check-benchmark": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "5c054f94456c5b1211d073008d2e18d1cb1271e82b8328c7b2738a770273fcd7"
+    },
+    "check-runtime": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "28fa752ca1f1e5979c4f2feba6cb1bed9d78a7c88ec631238f814668e6d5108c"
+    },
+    "check-spec": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "55404612396f22adcf4d52110c19aa5a4e41adbcee31829c0019b40e646b4efa"
+    },
+    "check-task": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "4c307eef1e13d9d4c8bb5eb3da60c6ce1d70095a30c9df36514881063e663d6b"
+    },
+    "diagnose": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "57e61dae747a69b53f0592539c62f593e8dd92c80ab10805dda28fe4707b940a"
+    },
+    "eval": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "94aa3883f193b03a2ebfa7dbe83c16ffc67f595751d4864682a69de040a3ab6e"
+    },
+    "execute-task": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "da0482686a9643b0a81d6676311acf5d1391fde4ef12fbab477c351edfd78c47"
+    },
+    "explain-how": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "9ea535e29bf345f4c86e0caee307b565f3f18de5daf03f64a15941d720053cbb"
+    },
+    "explain-why": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "8094052fdb80949c89246688444021d1a505c3839c9f7d940deffcc7283c5ed3"
+    },
+    "hillclimb": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "34f1adaa02fc134a997bb1628fa43b918f27834c16a7c001062852420d620848"
+    },
+    "interview": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "bc2b239458263c0c32e853c63fca959e74ffa8be11fd1df366e4c5a2947cab54"
+    },
+    "performance": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "9d5b72b39505bd07ce1b3422065e73516eb39af154387f6332af9a4394418480"
+    },
+    "playbook-build": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "f6efe81d86c1cb6b3d7565eabd76da75f88b8147d47c9514146709e4973b0dcb"
+    },
+    "playbook-fix": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "f05040efcee3bd3ae38a9bb2ff7022f429523b57483af99cd34f1468326e68c5"
+    },
+    "playbook-improve-skills": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "01abceacca7cef5c6e69bd1eab69bf66f06cd555e99107c28c667a95d33235ea"
+    },
+    "playbook-performance": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "03d1e30bec7090579ff08ef584535373ea2727ab9659e21052da134d0b431884"
+    },
+    "playbook-plan": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "724ed1bf23a935fde6f0f5980819a90949b290be6dcb25565e46c7d7db49d12c"
+    },
+    "playbook-prototype": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "54ef6d743e5c7320bae3dea865d9bada7fd6c49c161973b1ef4494d54938157f"
+    },
+    "playbook-reimagine": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "30ee90149eda5b0d9ff7ce6e2ff88ccd4c23f199d053a8a97945477b5f155115"
+    },
+    "playbook-ship": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "4c0bd4d8e4af94e6dd2d5ee3e3492bab41bedc34f21064598a5bf94d5b0397a0"
+    },
+    "playbook-specify": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "a8358f553be796178639c1b3ca3d4754ccfdecbb78316a202ed4707e2d488d61"
+    },
+    "playbook-understand": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "9bae9d8042568d73fb2891a8d0068c9f68b649c73a36f8645732a97b52503b56"
+    },
+    "policy-authority": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "06452b7bbb356e839815ad5ae129cb15b9c089a3ec5a8a29b16005788084bb6e"
+    },
+    "policy-code-composition": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "08a98e5f085c23713d11a93a0ca75bf515f505eafd7afa7e92498a2e809c0e7a"
+    },
+    "policy-code-correctness": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "6533d64547eb2d3a5da4743bb228e30673c3c4996d7f0b6f93d8e673ad6a5c32"
+    },
+    "policy-convergence": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "37e23b0d920806f7bd253e889d6fc8acaa767f986e42abba8c3dd6501b02c25c"
+    },
+    "policy-delegation": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "5eab1467cef7a5840d858114739978dbfeee4885aaa93150cbc4cd6c1415de4c"
+    },
+    "policy-records": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "392b44a53652e46180922474cd031df57493100f40503dab7e4a33b68b45488f"
+    },
+    "policy-testing": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "5661f9c707d11fe19b10d2ccca0200f2971fb93bc1eac91934351387c4a09323"
+    },
+    "policy-verification": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "bdba3e8b94f7120fe97f6f2459af477da6a6b2fab6449708e608c753e5ef9ea3"
+    },
+    "policy-writing": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "a2be6739b1bcff8e1bb80803f947390e229b5d8bcf423a82d26e55c5fa54fba9"
+    },
+    "principle-claim-only-what-you-checked": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "42f81fb404f4fcc5401b84f97c9757b9f9c379e59f18ee90da30a1ee660ea2cb"
+    },
+    "principle-design-for-performance": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "0823bb857edfc4b0904938efd31ea2bc9227d2f582c7b86376c12533f79bc6da"
+    },
+    "principle-design-for-verification": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "4607e26323d1164b211581ec4486facd8a517b4f0ce98e434c057d64ccaabfeb"
+    },
+    "principle-enforce-with-structure": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "8a35043ec11f06af013cc3d143f065edec741dca6c58ded990e3389cc2fb436f"
+    },
+    "principle-explain-measurements": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "f51df9613e1c5154d4170d90c91650000203e7a09cc0a97d20e178cfc00f1a00"
+    },
+    "principle-fix-root-causes": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "66cc852c58026fbbb1bc2d711bbda9727531d4e7a83e7c0f53bc2bcc457bf4a5"
+    },
+    "principle-make-work-rerunnable": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "3d0f074657a227856f260db17cb786887467cd556820dc0ce198cc5587914623"
+    },
+    "principle-truth-is-a-compilation-target": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "821a58bbef57fb7268e312cbdbfe388c4d69495c2f53b0192cf559ecb167086b"
+    },
+    "prototype": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "f33592afdb09da5783e9906cff65d65fb65ba738defc67509808f2e62cf937de"
+    },
+    "reflect": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "3b97031df0551e19211f13b13404b93768d85609a9a06208a6617b2258d5fb48"
+    },
+    "reimagine-altitude": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "22b2d1a6cab01777ec314aea48c64607921a4b3c090c111560139510c59af5b3"
+    },
+    "reimagine-depth": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "644c056cf2dafaeeaaf685192c9a20e0a6467129beb5afa54e8c7c2f7359fb32"
+    },
+    "reimagine-range": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "b6987fad6392f985f10004c3f17af9448d690a2bf7af7ed81c70b98d297afda5"
+    },
+    "reimagine-speed": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "6bcf25dfc881985540d600484d5bd6b2ce316c69f105c3595a7010d08a78f13a"
+    },
+    "review": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "fd04edcf033d3c747467d3f4f391624f985b3a8a817f3d46352ad80fc24a269d"
+    },
+    "setup-workflow": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "798738897baf27b78a2d532cdedfd7be1b676976319974bf8faff182259feb3e"
+    },
+    "to-design": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "c799f16b99edf991818a7246493c9826bc8a5e6d85fb253d42dd5070d045ceeb"
+    },
+    "to-epic": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "04a93e3edbb13afbfa60130f19fa3898e226d63aeb4ce661805cbf9a63020d05"
+    },
+    "to-loop": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "b1c7d94147dd013de50dd10be9e476141a8e8fdb99b890c18d52c0b483ea8fd4"
+    },
+    "to-plan": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "9917cdf483102d6229f35b51f07d8cd8d4b716ba717ea28ec1251dbec5473c13"
+    },
+    "to-spec": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "64140f9a439dd799fd86ee5b9ad020c0ed0bfc810c6ba4094d1e23cc96746d8a"
+    },
+    "to-task": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "a3bc76d50c00edac2efcec5d97df9deba3320c3f73fc28b27c590ed439744de2"
+    },
+    "workflow": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "f4828f3fe372146111554d78f64ab3b21d5596d92087c153f4b3efdcd03203ae"
+    },
+    "workflow-cli": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "57c5a2975791273f9a68facf439a102cf0e198524d328744e05b0ee11a1e28a5"
+    }
+  }
+}

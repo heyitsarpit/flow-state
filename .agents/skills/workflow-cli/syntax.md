@@ -29,6 +29,42 @@ Use `@V1` within its Plan and `@plan.Example.V1` in supported provenance fields.
 Task `satisfies` targets only Outcomes.
 Link a Task to an existing outcome with `satisfies`: `@task.Example.T1` to `@plan.Example.O1`.
 
+## Epic loop and phase card
+
+Epic loop fields follow the contract fields in this order, each at most once: `skill`, `run`,
+`instructions`, `cadence`, `stops`, then any `note TIMESTAMP` entries (timestamps never decrease).
+A phase has `title`, optional `description`, `comment TIMESTAMP` entries, then `tasks`.
+
+```text
+epic Example
+title Example work
+status active
+skill workflow@abc1234
+run
+    Take `workflow next --epic Example`; build it.
+stops
+    A guarantee change.
+note 2026-11-09T03:15:00Z
+    The user: keep going.
+```
+
+The phase lives in the same Epic folder, in `P1.task`:
+
+```text
+phase P1
+title Delivery
+description
+    Class: build. Gates: suite.
+comment 2026-11-09T03:15:00Z
+    Opened after @task.Example.T0 landed.
+tasks
+    T1
+        title Deliver the slice
+```
+
+Links in any prose: `@task.Example.T1`, `code:src/example.ts#admit`, `skill:policy-testing`.
+Code spans and fences are not links. Prefer `workflow edit` for notes and comments.
+
 ## Proposed Spec
 
 For `create spec --file body=PATH`, supply only sections below the metadata header.

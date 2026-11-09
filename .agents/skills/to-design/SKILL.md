@@ -1,109 +1,139 @@
 ---
 name: to-design
 description: >-
-  Choose or review implementation shapes through correctness, composition, and target realization.
-  Use for consequential algorithms, state ownership, module boundaries, or implementation choices.
-  Own representation and algorithm invariants; to-spec owns behavioral guarantees and tests.
+  Choose or review how to implement a module against its behavioral contract: the
+  representation, who owns which state, the algorithm, and how the parts compose. Use for
+  consequential algorithms, state ownership, module boundaries, or implementation choices.
+  to-design owns implementation invariants; to-spec owns the behavioral guarantees and tests.
 metadata:
   kind: procedure
+  applies:
+    - policy-code-correctness
+    - policy-code-composition
+    - principle-design-for-performance
+    - principle-design-for-verification
+    - policy-writing
 ---
 
 # To Design
 
-Develop an implementation shape against supplied behavioral contracts and existing code.
-Explore feasibility and missing correctness decisions; return design findings or optional Spec notes.
-Implementation design is optional; it does not require a separate design file.
+This skill works out how a module will actually meet its contract: what the data looks like, who
+owns each piece of state, which algorithm keeps the guarantees true, and how the parts fit
+together. Exploring the design also tests the contract. If no workable shape exists, report the
+feasibility problem and name the commitment that needs revisiting: a missing decision, a
+contradictory requirement, or an impossible budget. Finding that early is much cheaper than
+finding it in code.
 
-## 1. Ground the choice
+Implementation design is optional. A behavioral Spec is complete without it, and it never needs a
+separate design file; notes go in the Spec when they help.
 
-Read the request, relevant Plan, Spec, Task, current code, and supplied findings.
-Identify the implementation decision to resolve. Reuse adequate existing design.
-Architecturally significant decisions concern structure, dependencies, interfaces, or enforcement
-whose alternatives materially affect outcomes, failure behavior, ordering, ownership, compatibility,
-or resource guarantees.
-Use this term to prioritize design exploration, not to exclude behavioral obligations. Use the
-`change-impact` skill when boundaries or pivotal facts are unclear.
-Surface missing behavioral decisions.
-Use the `to-spec` skill when recording them is in scope.
+## Before you start
 
-## 2. Develop the shape
+Read the request, the relevant Plan, Spec, and Task, the current code, and any findings you were
+given. Name the implementation decision you are resolving, and reuse existing design when it is
+good enough. Use `change-impact` when boundaries or pivotal facts are unclear.
 
-For a chosen target, read its realization guide before writing concrete design:
-[TypeScript](references/realization/typescript.md), [Effect](references/realization/effect.md),
-or [Rust](references/realization/rust.md). Apply it throughout the Spec, not only under `realization`.
-Verify concrete APIs against installed versions; label conceptual pseudocode explicitly.
+Focus your effort on architecturally significant decisions: choices about structure,
+dependencies, interfaces, or enforcement where the alternatives really change outcomes, failure
+behavior, ordering, ownership, compatibility, or resource guarantees. That label sets priorities;
+it never excuses skipping a behavioral obligation.
 
-When an architecturally significant decision needs stronger methods or evidence, use deepen (Use the `deepen` skill)
-to propose a stronger investigation brief within the agreed scope.
+If exploring reveals a missing or changed behavioral guarantee, say so, and record it through
+`to-spec` when that is in your scope.
 
-Apply each method whose trigger fits the decision, including its applicable dependent methods:
+## Steps
 
-- Correctness (Use the `code-correctness` skill) for representations, algorithms, state
-  ownership,
-  and resource lifetimes.
-- Composition (Use the `code-composition` skill) for boundaries, protocols, and
-  dependency contracts.
-- Performance design (Use the `design-for-performance` skill) when workload, resource budgets,
-  or resource guarantees affect the shape.
+1. **Read the realization guide for your target.** Before writing concrete design, read
+   [TypeScript](references/realization/typescript.md), [Effect](references/realization/effect.md),
+   or [Rust](references/realization/rust.md), and apply it throughout the design, not only in a
+   `realization` section. Check concrete APIs against the installed versions, and label
+   conceptual pseudocode as such.
 
-For each candidate representation, derive its implementation invariants:
+2. **Apply the standards that fit the decision.** Apply `policy-code-correctness` to
+   representations, algorithms, state ownership, and resource lifetimes, and
+   `policy-code-composition` to boundaries, protocols, and dependency contracts. Apply
+   `principle-design-for-performance` when the workload, resource budgets, or resource guarantees
+   shape the choice; for a full cost model, recommend running `performance` in modeled mode. When a
+   significant decision needs stronger methods or evidence than you have, say so and suggest
+   `reimagine-depth` to the user.
 
-- Identify state, identities, ownership, relationships, and resource accounting.
-- Derive independent predicates needed to enforce the behavioral contract, including cross-owner
-  and operation interactions; name each predicate's scope and validity points.
-- Establish them at initialization and show preservation through mutations, failure, interruption,
-  retry, and competing operations where relevant. Keep unresolved cases explicit.
+3. **Derive the implementation invariants for each candidate.** Identify the state, identities,
+   ownership, relationships, and resource accounting. Derive the independent predicates that make
+   the behavioral contract hold, including interactions across owners and operations, and name
+   where each must hold. Show each is true from initialization and stays true through mutation,
+   failure, interruption, retry, and competing operations, where those can occur. Keep unresolved
+   cases explicit.
 
-Reconcile the findings into one shape. Revisit affected methods when their assumptions conflict.
-For unsettled architecturally significant decisions, compare distinct viable shapes. Use arena (Use the `arena`
-skill) for independent candidates or prototype (Use the `prototype` skill) for
-empirical uncertainty when the user chooses the experiment.
+4. **Settle on one shape.** Combine your findings into one design. When their assumptions conflict,
+   revisit the affected parts. For an unsettled significant decision, compare the viable shapes side
+   by side. For empirical uncertainty, propose a `prototype`, and build it only if the user chooses
+   it; until then, return the candidate shapes with the open question instead of picking one.
 
-## 3. Record the design
+5. **Record what helps, in the Spec.** Read the owning Spec first, and use `workflow-cli` for the
+   file mechanics. One module Spec can hold several owners when they implement one coherent
+   contract. Keep optional proposals visibly separate from binding obligations; a chosen mechanism
+   becomes binding only when the user agrees. Add a section only when it records a design decision
+   the code cannot explain clearly:
 
-Use the `writing` skill before drafting or revising design prose.
-Use the `workflow-cli` skill for artifact mechanics. Read the owning Spec before editing.
-Keep multiple owners in one module Spec when they implement a coherent contract.
-When recording design notes, distinguish optional proposals from normative obligations.
-Do not require code or these sections to complete a behavioral Spec:
+   - `model`: concrete types and states; owner sections hold state authority and scoped Invariants.
+   - `operations`: signatures, preconditions, postconditions, and failures.
+   - `algorithm`: pseudocode, with branches, loops, updates, failure, and interruption.
+   - `rules`: shared ordering and lifetime constraints, cited rather than repeated.
+   - `composition`: boundaries, exchanged values, and dependency contracts.
+   - `realization`: remaining target-specific mappings, not repeating the other sections.
 
-- `model`: concrete types and states; owner sections: state authority and scoped Invariants.
-- `operations`: signatures, preconditions, postconditions, and failures.
-- `algorithm`: pseudocode with branches, loops, updates, failure, and interruption.
-- `rules`: shared ordering and lifetime constraints, referenced rather than repeated.
-- `composition`: boundaries, exchanged values, and dependency contracts.
-- `realization` for remaining target-specific mappings and constraints; do not duplicate other sections.
 
-Define guarantees once and reference their IDs. Record rationale when alternatives change
-enforcement, coordination, compatibility, or resource costs; leave other implementation details in code.
-A chosen mechanism becomes a normative constraint only when explicitly agreed.
-For implementation notes, write precise predicates over the chosen representation and name their scope.
-Include important internal representation, ownership, and algorithm properties, not only public ones.
-Keep normative Invariants about contract state; record private design properties in design prose
-unless the representation is an agreed constraint. Preserve stable IDs and unrelated content.
-Explain how they enforce behavioral guarantees; distinguish design choices from Requirements.
-For examples, read [Spec syntax](references/example.md) or
-[Invariants](references/invariant-examples.md) as needed.
-Return missing or changed guarantees through the `to-spec` skill when recording is in scope.
-Review-only assignments return findings without editing the Spec.
+   State each guarantee once and cite its ID. Explain the reason when the alternatives would change
+   enforcement, coordination, compatibility, or resource costs; leave other details to the code.
+   Write implementation notes as precise predicates over the chosen representation, with their
+   scope. Include the important internal properties, not only the public ones, but keep normative
+   Invariants about contract state: private design properties stay in design prose unless the
+   representation is an agreed constraint. Show how the design enforces each behavioral guarantee,
+   and keep design choices distinct from Requirements. Preserve stable IDs and unrelated content.
+   For examples, see [Spec syntax](references/example.md) and
+   [Invariants](references/invariant-examples.md). Use `principle-design-for-verification` to
+   define how material design claims will be checked.
 
-Use the `design-for-verification` skill to define checks and observations for material design claims.
+6. **Challenge the design.** Check on your own which standards should have applied, including the
+   methods they depend on, and report any that were skipped. Check the combined shape against the
+   contract and every applicable standard. Derive the required properties yourself and attack them
+   with violating states and execution sequences; report missing properties and preservation gaps
+   even when the recorded predicates hold, because a design can satisfy its own notes and still fail
+   the contract. Check every code fragment and algorithm against the chosen realization and reject
+   contradictory representations or lifecycle rules. When independent checking is required, someone
+   other than the author does it. When authoring, fix what you find and repeat the affected checks;
+   when reviewing, return the findings without editing.
 
-## 4. Challenge and return
+7. **Save and validate.** Format each changed Spec, run `workflow check`, and read the diff.
 
-Check method applicability independently; report omitted applicable methods and dependent methods.
-Check the combined shape against the behavioral contract and all applicable methods' criteria.
-For review, apply those criteria within the assigned scope; do not start other phases.
-During design review, independently derive required implementation properties and challenge them
-with violating states and execution sequences. Report missing properties and preservation gaps,
-even when the recorded predicates hold; a design may still fail to enforce the contract.
-Check every code fragment and algorithm against the selected realization, including models,
-operations, and composition. Reject contradictory representations or lifecycle semantics.
-Keep required checking independent of authors. Resolve findings and repeat affected checks.
-Design judgment does not establish passing implementation evidence.
-Report behavioral contract changes and objective conflicts; do not silently change agreed intent.
+## Example
 
-After edits, format each changed Spec and run `workflow check`; inspect the diff.
-Return Spec paths and snapshot, chosen shape, rationale, tradeoffs, checks, and unresolved risks.
-For a review, return findings and a snapshot-bound PASS, ISSUES, or BLOCKED verdict.
-Stop at the assigned boundary. This method does not automatically start implementation.
+```text
+owner Queue
+    state items, capacity, used, limit
+    invariants
+        I3 At dequeue, returned bytes equal the admitted bytes despite caller mutation. [@R6]
+algorithm
+    enqueue(item)
+        charge = item.payload.byteLength
+        if items.length == capacity: return Err(Full)
+        if charge > limit - used: return Err(ByteLimit)
+        entry = copyEntry(item, charge)  // allocation failure occurs before mutation
+        items.append(entry); used += charge
+```
+
+## Watch out for
+
+- **Changing the contract quietly.** Report behavioral changes and objective conflicts; never
+  slip them in as design.
+- **Treating judgment as evidence.** A convincing design is not a passing implementation.
+- **Review that becomes rewriting.** In a review, apply the criteria within the assigned scope,
+  return findings, and do not edit the Spec or start other phases.
+
+## What to return
+
+Open with a short plain-language walkthrough of one realistic example, saying which names are
+reserved by the system and which the author chooses, and keeping new terms to the few the design
+needs. Then the Spec paths and revision, the chosen shape and why, tradeoffs, checks, and
+unresolved risks. For a review, return findings and a PASS, ISSUES, or BLOCKED verdict tied to the
+revision you checked. Stop at the assigned boundary; this does not start implementation.

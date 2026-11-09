@@ -3,8 +3,9 @@
 Illustrative Requirements provide authority; principles guide discovery and enforcement.
 This table is a worked-example lens, not a required template or source of new guarantees.
 
-Use the `code-correctness` and `code-composition` skills for the methods behind these lenses.
-Use the `design-for-verification` and `testing-policy` skills when deriving observations and Tests.
+Use the `policy-code-correctness` and `policy-code-composition` skills for the methods behind these
+lenses. Use the `principle-design-for-verification` and `policy-testing` skills when deriving
+observations and Tests.
 
 | Core principle and purpose                                                                                                           | Derive from this example                                                     | Obligation                                                                            |
 |--------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|

@@ -1,75 +1,89 @@
 ---
 name: eval
 description: >-
-  Evaluate skill or prompt changes through realistic blinded agent trials and observable outcomes.
-  Use before promoting a variant or comparing agent behavior. Arena produces synthesized artifacts;
-  eval returns evidence and a recommendation about the guidance under test.
+  Test whether a change to a skill, playbook, or prompt actually changes how agents behave: run
+  small, realistic trials across versions and both harnesses, judge from what the agents did
+  rather than what they said, and recommend adopt, revise, retain, or inconclusive. Use before
+  promoting a guidance change, or when you doubt a package works.
 metadata:
   kind: procedure
+  applies:
+    - principle-design-for-verification
+    - principle-explain-measurements
+    - principle-claim-only-what-you-checked
+    - policy-delegation
 ---
 
-# Evaluate agent behavior
+# Eval
 
-Run blinded trials with bounded prompts and separate judging/checking methods below.
-Return a recommendation; do not automatically promote guidance.
+A skill can read well and still be ignored. This skill finds out what agents actually do with a
+piece of guidance, by running small, controlled trials and looking at their real activity. It
+returns evidence and a recommendation; it never promotes guidance on its own.
 
-## 1. Design the experiment
+## Steps
 
-### Experiment design method
+1. **Design the trial.** Settle these before running anything:
+   - **The question:** the one behavior the change should produce, for example "workers read the
+     skill they are handed" or "the playbook stops at its endpoint".
+   - **What you compare:** the versions of guidance, handoff methods, or models under test. Change
+     one factor between versions, so you can test whether it explains a difference.
+   - **Tasks:** ordinary, realistic requests in a real or throwaway project. Put the requirements
+     the agent must meet into the task prompt itself.
+   - **Harnesses and models:** Codex and Claude Code by default, with the models the user actually
+     uses. Name them.
+   - **Counts and budget:** trials per version and the limits per trial (read-only or a write scope,
+     a tool-call cap, a reply length). Start with one cheap trial per version; add runs only where
+     results disagree.
+   - **Criteria:** three to six criteria, each checked from activity or artifacts, never from the
+     agent's own report. Record revisions and run identities.
 
-Designer: use the agreed target and run limits to define variants, realistic tasks, counts, models,
-conditions, and 3–6 gradeable criteria with executable outcome checks. Apply design-for-verification
-(Use the `design-for-verification` skill). Record revisions and run identities.
-Keep binding requirements in ordinary task prompts; keep answer keys and scoring criteria private.
-Return the run design, private rubric, prompts, revisions, and remaining prerequisites.
+   Keep the trial blind, or the agent may play to the test. It sees an ordinary task. It never sees
+   the other versions or their labels, the scoring criteria or answer key, the suspected defect, or
+   the fact that it is being evaluated. Use ordinary project
+   names, state where the agent should stop, and define any executable checks before running.
+   Separate folders are not real isolation, so say what the agent could still see.
 
-### Establish isolation
+   Show the user the design (question, versions, tasks, criteria, counts, budget, open
+   prerequisites, revisions) and wait for their go-ahead before running.
 
-The setup/isolation owner confirms actual access boundaries. Separate folders alone are not
-security isolation. Return unavailable privacy as an explicit blinding limit before trials.
-Candidates receive ordinary project names, raw task/context, permitted actions, and stop boundaries.
-Exclude variant labels, other candidates, suspected defects, scoring keys, and evaluation framing.
+2. **Install and run.** Install the guidance the way users do, for example into a throwaway
+   project's `.agents/skills/` or `.claude/skills/`. Run only the declared trials, within budget.
+   Before a batch, confirm one run produces command events within a minute.
+   - **Claude Code subagents:** each subagent's transcript is in the session's task output; read
+     its tool calls.
+   - **Codex:** run `codex exec --json ... < /dev/null` and read the command events. Close stdin:
+     from a background shell, `codex exec` otherwise waits on stdin and never starts.
 
-## 2. Dispatch and retain
+   Keep every run's artifacts, final message, and activity log. Record failed and blocked runs too,
+   and for a run that never started, record that it is missing and why.
 
-Dispatch only the declared trials within the agreed run limits.
-Trial operators retain artifacts, actual checks, scoped activity, failures, and conditions.
-Keep failed, blocked, and missing runs. Instruction-following claims need actual activity evidence;
-do not infer reads from self-report or search unrelated chats.
+3. **Judge.** Score each run against the criteria from its activity and artifacts: which files it
+   read, which commands it ran, what it produced. Read every output in full and rerun the supplied
+   checks, writing only to temporary locations you own. Keep two questions apart: was the output
+   good, and did the agent follow the method under test. Note per-criterion results and missing
+   checks for each run.
 
-## 3. Judge and check
+   Any consequential recommendation (adopt or revise always, and retain when the change mattered)
+   needs an independent judge: someone who did not write any trial, given neutral run labels and
+   the criteria, but not the model or version names, with all the evidence left intact. Use a
+   different model where available, and say when judge and trials share a model family. Settle
+   disagreements against the artifacts.
 
-Assign independent judging and outcome checking; reuse one independent worker when adequate.
-Supply neutral labels and private rubric; withhold model/variant identity without removing evidence.
-Use configured model diversity when available; disclose limits.
+4. **Explain the difference before claiming it.** Did every run actually do the task? Does the gap
+   hold across trials and both harnesses? Could noise or a setup difference explain it? Read the
+   design, all the results, and the evidence before you recommend anything.
 
-### Judge method
+## What to return
 
-Judge: remain independent of trial authors. Score supplied outputs against each private rubric
-criterion.
-Do not edit outputs or expectations.
-Return criterion scores, evidence, and unresolved claims.
+One of:
 
-### Outcome check method
+- **Adopt:** every run of the changed version produced the target behavior, and none of the
+  declared regression criteria got worse.
+- **Revise:** it helped but missed a criterion, or caused a regression you can name.
+- **Retain:** the current guidance did as well or better.
+- **Inconclusive:** the runs disagree or the evidence cannot settle it.
 
-Checker: remain independent of trial authors. Do not edit outputs or expectations; use owned
-temporary outputs for checks. Read every output end to end, rerun supplied checks, and inspect
-decisive activity. Resolve disagreements against artifacts with the judge. Distinguish product
-quality from
-following the intended method. Assess claimed differences through explain-the-number
-(Use the `explain-the-number` skill). Return claim verdicts, run identities, conditions,
-decisive evidence, and missing checks.
-
-## 4. Report
-
-### Synthesis method
-
-Analyst: read the run design, all verdicts, and evidence. Return adopt, revise, retain, or
-inconclusive with variants, criteria, counts, conditions, failures, evidence, and limits.
-One successful case proves only that case.
-
-### Preserve the evidence
-
-Recommend the next action without promoting guidance automatically. Apply keep-intent-aligned (Use
-the `keep-intent-aligned` skill) for authorized record updates.
-Preserve evidence before cleaning up owned resources. Create no competing experiment ledger.
+Include the versions, criteria, counts, conditions, per-run results, failures, where the evidence
+is, and the limits. One successful case proves only that case. Recommend the next step without
+applying it; record material findings in the owning records when that is in scope. Keep the
+evidence until the user has seen it, then clean up only the throwaway resources you created.

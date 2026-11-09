@@ -56,8 +56,8 @@ Keep logging context and causes useful for diagnosis; protect sensitive fields a
 ## Construct and narrow valid values
 
 - Use `[T, ...T[]]` where an operation requires a nonempty sequence. Keep `T[]` for total
-operations.
-  Represent an ordered range as a start and nonnegative duration, validated at construction.
+operations. Represent an ordered range as a start and nonnegative duration, validated at
+construction.
 - Narrow by discriminant before using custom guards; a guard must actually verify its claimed shape.
   Do not assert away missing evidence.
 - Use `satisfies` to check a value against a contract while preserving its inferred type.
@@ -178,11 +178,8 @@ jobs.complete("job-1"); // Err: the same id cannot complete twice.
 - This publication works for the private in-memory set on one event loop. Shared storage or an
   asynchronous completion effect needs its own publication mechanism; this code does not supply it.
 
-[zod]: https://zod.dev/api
-[nt]: https://github.com/supermacro/neverthrow
-[patterns]: https://github.com/gvergnaud/ts-pattern
-[limit]: https://github.com/sindresorhus/p-limit
-[queue]: https://github.com/sindresorhus/p-queue
-[scope]: https://github.com/thefrontside/effection
-[logs]: https://github.com/pinojs/pino
-[compiler]: https://github.com/microsoft/TypeScript/wiki/Performance#using-type-annotations
+[zod]: https://zod.dev/api [nt]: https://github.com/supermacro/neverthrow [patterns]:
+https://github.com/gvergnaud/ts-pattern [limit]: https://github.com/sindresorhus/p-limit [queue]:
+https://github.com/sindresorhus/p-queue [scope]: https://github.com/thefrontside/effection [logs]:
+https://github.com/pinojs/pino [compiler]:
+https://github.com/microsoft/TypeScript/wiki/Performance#using-type-annotations

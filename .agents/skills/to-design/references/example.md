@@ -1,10 +1,10 @@
 # Module design example
 
 Optional implementation exploration, not required Spec content or implementation evidence.
-Representation choices below are proposals, not additional caller obligations.
-Pseudocode helpers are not library APIs.
-Tests call the production factory with real components; no internal collaborators are substituted.
-On failure, retain configuration, operation sequence, results, and observed IDs/bytes for replay.
+Representation choices below are proposals, not additional caller obligations. Pseudocode helpers
+are not library APIs. Tests call the production factory with real components; no internal
+collaborators are substituted. On failure, retain configuration, operation sequence, results, and
+observed IDs/bytes for replay.
 
 ```text
 spec BoundedQueue

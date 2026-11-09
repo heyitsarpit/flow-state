@@ -6,6 +6,9 @@ description: >-
   Use before design or implementation, or to assess a consequential change.
 metadata:
   kind: procedure
+  applies:
+    - policy-testing
+    - policy-records
 ---
 
 # Change Impact
@@ -13,23 +16,23 @@ metadata:
 Find where an engineering change belongs and what it could break, before it ships.
 Start from a request, tentative direction, or diff; a finished design is not required.
 
-Companion to how (Use the `how` skill) and why (Use the `why` skill). How
-tells you what the code does.
-Why tells you why it's shaped that way. Change impact explores the affected code and consequences
-together. Reuse existing findings; use how or why only for missing facts affecting the assessment.
-
-Trace behavior beyond caller lists to find risks a symbol search cannot show.
+It sits beside `explain-how` and `explain-why`: how tells you what the code does, why tells you why
+it is shaped that way, and change impact looks at the affected code and its consequences together.
+Reuse findings that already exist, and use `explain-how` or `explain-why` only for missing facts the
+assessment needs. Follow behavior past the list of callers, because data formats and lifecycle
+timing can affect consumers that a symbol search misses.
 
 ## Prove pivotal facts
 
-Prove the one or two facts the safety assessment depends on by running existing code where possible.
-Before implementation exists, separate established facts from future obligations.
-Do not build speculative code merely to claim proof.
+Prove the one or two facts the safety assessment depends on, by running existing code where you
+can. Before the implementation exists, keep established facts apart from obligations the future
+code must meet, and do not build speculative code just to claim proof.
 
 ### How sure are you
 
 For each fact the change's safety depends on, get it as far down this list as is cheap, and say
-where it stopped.
+where it stopped. When existing code can establish a pivotal fact, run it: level 4 is the bar for
+those.
 
 1. You said so. Worthless on its own.
 2. You pointed at the line. A real `file:line`, or the library's own source.
@@ -46,25 +49,24 @@ function you're worried about.
    Locate boundaries, protocols, owners, and reuse options while tracing possible consequences.
    For a diff, inspect added, changed, and deleted symbols, including implicit behavior changes.
    Read relevant Plans, Tasks, and Specs; distinguish intended guarantees from current behavior.
-   Use why's evidence-anchor step for local history and rationale when needed.
+   Use `explain-why`'s evidence-anchor step for local history and rationale when needed.
 2. Find the pivotal fact the safety assessment depends on. Most changes that look risky are safe
    because of a single fact, like "this call only drops already-dead cache entries and does nothing
-   else". Find that
-   fact. If it holds, most risky cases are cleared at once. Spend your time here, not on a long list
-   of maybes.
+   else". Find that fact. If it holds, most risky cases are cleared at once. Spend your time here,
+   not on a long list of maybes.
 3. Look where grep stops. Read the source of the library you call, and check its pinned version and
-   any local patch. Work out when things run: microtasks, unmount and teardown, Solid versus React.
-   Follow what a symbol search misses: the JSON an API returns, a DB column, a wire format, another
-   language reading the same bytes, a feature flag, code three hops downstream.
-4. For each risk, state its likelihood and impact. Keep the risks you confirmed.
-   List the ones you checked and cleared separately. Same rules as `why`.
-   Cite a real `file:line`, a search that finds nothing is still an answer, and never make up a
-   caller or an API.
-5. Prove the pivotal facts where existing code can establish them. Run a real check and show what
-   happened, applying testing-policy (Use the `testing-policy` skill). If the
-   implementation or needed
-   harness does not exist, state the obligation and required check; do not claim passing evidence.
-   Revisit exploration when a risk changes scope or reuse. Scale checks to consequential claims.
+   any local patch. Check when callbacks and cleanup actually run (now, in a microtask, during
+   unmount or teardown) in the framework and library versions this project uses. Follow what a
+   symbol search misses: the JSON an API returns, a DB column, a wire format, another language
+   reading the same bytes, a feature flag, code three hops downstream.
+4. For each risk, state how likely it is and how bad it would be. Keep three lists apart: risks you
+   confirmed, risks you checked and cleared, and risks still unresolved. Cite a real `file:line`;
+   a search that finds nothing is still an answer; never make up a caller or an API.
+5. Prove the pivotal facts where existing code can establish them: run a real check and show what
+   happened, with checks that meet `policy-testing`. If the implementation or the harness you would
+   need does not exist yet, state the obligation and the check it requires instead of claiming it
+   passes. Go back to exploring when a risk changes the scope or the reuse plan. Spend checking
+   effort on the claims that matter.
 
 ## What to hand back
 
@@ -77,11 +79,10 @@ function you're worried about.
 - **Remaining checks.** The cheapest check for each consequential unproven claim, including an
   existing script or the harness work needed.
 
-Tie proof to its revision and conditions. Recheck when the implementation or those conditions
-change. When risks change recorded scope, constraints, or guarantees, apply keep-intent-aligned
-(Use the `keep-intent-aligned` skill): return affected references and proof
-obligations, with proposed Plan or Spec implications separate from Task evidence.
-A direct request returns the assessment without creating workflow artifacts.
-Recommend the next action; do not start another phase automatically.
+Tie each proof to the revision and conditions it ran under, and recheck when either changes. When
+a risk changes recorded scope, constraints, or guarantees, return the affected references and
+proof obligations, keeping proposed Plan or Spec changes apart from Task evidence
+(`policy-records`). A direct request gets the assessment only, with no new workflow records.
+Recommend the next step; do not start another phase on your own.
 
 **Reply:** the assessment above, with pivotal facts proven or marked unproven.
