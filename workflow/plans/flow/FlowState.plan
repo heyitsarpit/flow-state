@@ -16,7 +16,7 @@ goal
     ServerRendering — request isolation and SSR hydration (@plan.ServerRendering.O1).
     LazyFeatures — deferred adoption and dormant durable data (@plan.LazyFeatures.O1).
     React — attachment, consistent views and component lifetime (@plan.React.O1).
-    Testing — Stories, fixtures, checkpoints, models and properties (@plan.Testing.O1).
+    Testing — Stories, fakes, checkpoints and property tests (@plan.Testing.O1).
     Diagnostics — FlowError, codes and actionable failures (@plan.Diagnostics.O1).
     CommandLine — installed commands, checks and process behaviour (@plan.CommandLine.O1).
     Inspection — structural and live inspection, traces and safe evidence (@plan.Inspection.O1).
@@ -26,9 +26,15 @@ goal
     Next.js App Router host for hydration, reload restore, lazy features and second-tab refusal.
 outcomes
     O1  Code disposition
-        Rebuild packages/flow-state-rewrite in place. Port useful algorithms and behavioural test
-        vectors, not superseded authoring surfaces or compatibility shims. packages/flow-state stays
-        frozen; product cutover requires a separate gate.
+        Build production in packages/flow-state-v3/src/, with the latest prototype
+        (packages/flow-state-v3/prototypes/) open beside it as reference; a prototype folder never
+        becomes the package. Port useful algorithms and behavioural test vectors, not superseded
+        authoring surfaces or compatibility shims. packages/flow-state and
+        packages/flow-state-rewrite stay frozen; product cutover requires a separate gate.
+
+        Superseded: "Rebuild packages/flow-state-rewrite in place." is replaced by the production
+        location of the approved v3 roadmap (2026-11-07) and AGENTS.md, which freeze
+        packages/flow-state-rewrite.
     O2  Build stages
         Each prerequisite gate must pass before its dependent work starts. A proof that exercises a
         capability from a later stage (persistence, hydration, lazy adoption, exported evidence)
@@ -42,16 +48,19 @@ outcomes
         S5 Entity domains and property tests — needs S4 and S7; gate @V5.
         S6 Persistence — core actor and resource persistence needs S4; entity persistence needs S5;
         gate @V6.
-        S7 Stories — Story, fixture, checkpoint and model infrastructure; needs S3; gate @V7.
+        S7 Stories — Story, fake, fixture and checkpoint infrastructure; needs S3; gate @V7.
         S8 React — attachment and consistent views; needs S3; gate @V8.
         S9 Inspection and CLI — needs S5 and S7; lazy-entry proofs run in S10; gate @V9.
         S10 SSR, lazy features and proving app — needs S6, S8 and S9; gate @V10.
         S11 Story playback — needs S7 and S8; follows the version 1 gates; gate @V11.
 
+        Superseded: S7's "model infrastructure" goes with Testing O5's removal (T1; C77).
+
 decisions
     D1  Structure is data and compiles to one representation
         Targets, operations, outcome edges and dependencies are declared as data; callbacks compute
-        values. Inspection and tools read the same compiled structure without running app behaviour.
+        values. machine() is the compile, and the Runtime boots its output; inspection and tools
+        read the same compiled structure without running app behaviour (@plan.Runtime.O1).
     D2  One canonical form per concept
         A concept has one authoring form and one meaning across runtime, tools and tests.
     D3  Agents are the primary authors
@@ -90,7 +99,8 @@ verification
     V5  S5: entity domain and property-test proofs pass (@plan.EntityDomains.V2 to V5,
         @plan.Testing.V6).
     V6  S6: persistence proofs pass (@plan.Persistence.V1 to V9).
-    V7  S7: Story, fixture, checkpoint and model proofs pass (@plan.Testing.V2 to V5, V8).
+    V7  S7: Story, fake, fixture and checkpoint proofs pass (@plan.Testing.V2 to V4, V8);
+        Testing V5 is removed with models (T1; C77).
     V8  S8: React proofs pass (@plan.React.V1 to V5).
     V9  S9: inspection and CLI proofs pass (@plan.Diagnostics.V5, @plan.Inspection.V1 to V7,
         @plan.CommandLine.V1 to V7).

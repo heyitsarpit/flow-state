@@ -492,3 +492,25 @@ Conflicts:
   Recommended: follow C82 (a Stories decision, W25 and W38 behind it): it carries a property test's result, not a
   Flow failure, and is the testing route's only class. Judge: the runner (a reading of a decided row). Reversible:
   make it a `FlowError` code instead, one line in three plans.
+
+## FlowState
+
+No section 5 row names FlowState. Edits keep it consistent with the merged plans and with the approved roadmap.
+
+| # | Where | Before | After | Decision |
+| --- | --- | --- | --- | --- |
+| FS-1 | goal | "Testing — Stories, fixtures, checkpoints, models and properties" | "Stories, fakes, checkpoints and property tests" | T1; C71; C77 |
+| FS-2 | O1 | "Rebuild packages/flow-state-rewrite in place." | build in `packages/flow-state-v3/src/` with the prototype as reference; `flow-state-rewrite` frozen | the roadmap (approved 2026-11-07), AGENTS.md |
+| FS-3 | O2 | S7 "Story, fixture, checkpoint and model infrastructure" | without models, with fakes | T1; C77 |
+| FS-4 | D1 | compiled structure | `machine()` is the compile, booted by the Runtime | C139 |
+| FS-5 | V7 | "@plan.Testing.V2 to V5" | V2 to V4 and V8; V5 removed | C77 |
+
+Counts: 5 edits; 2 superseded sentences marked (O1, O2).
+
+Conflicts:
+- **FSC1, applied as the user's decision.** O1 named `packages/flow-state-rewrite` as the build target; the user's
+  approved roadmap names `packages/flow-state-v3/src/`, and AGENTS.md freezes `flow-state-rewrite`. Not a design
+  row, but a plan sentence that claims what the user since replaced. Judge: the user (already decided). Reversible:
+  one sentence.
+- **Not changed, noted.** The build stages S1-S11 predate the roadmap's phases 3-9; they do not contradict it (they
+  order work inside phases 4 and 5) and the design does not touch them, so they stay.
