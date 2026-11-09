@@ -339,6 +339,31 @@ tasks
             (d) restating and shape: Accepted: lane-cells re-send limit (gap 1, verified in code). Rejected: `VERDICTS` format, I31 vs `Runtime` functions, trailing spaces (rejected before); falsify's 120 s group bounds (falsify.ts:131-144, :167; main.ts:151) run the unbounded in-process `suite`, so Q12's "every mode" outcome covers them; `disposal` README row (Q5 covers case-only mutants); `skill:` links (`workflow check` valid).
 
             Next: repair gaps 1-4, then a fresh independent skill:check-spec.
+        comment 2026-11-09T17:11:21Z
+            **skill:check-spec fifth check, independent (Opus lead, 4 Haiku sidecars), at `0df8e2a9`.** Contract: **ISSUES**. Design: **NOT APPLICABLE**. Acceptance not met; T4 stays in review. `workflow check` valid.
+
+            **Fourth-check gaps: all four closed, no new contradiction.**
+            1. Q8 now names `lane-cells#permittedResend` (lane-cells.ts:73-77: accepts a re-send when any driven turn of the actor has a later step than the hold), matching the code and README:201-203; @R2 open_by lists Q8.
+            2. T13 plants a mutant whose holding oracle fails only on another Invariant; I16 with R6's pair definition (a check is a judge plus one Invariant) makes that a real miss. Today's oracle-name match (falsify.ts:105) is the gap Q5 records.
+            3. T17's run-level half is tagged I22, which states run isolation ("no state crosses cases or runs"); in-process scenario modules load once (main.ts:116-118), so a module-variable plant is the right failing case. Phase 3, consistent.
+            4. Q12's link resolves: `runCases` at runner/run.ts:66, no timeout (run.ts:54-70); `sliceVerdicts` at main.ts:77.
+
+            **Remaining contract gaps (tests that pass on a violating harness, no open item), with fixes:**
+            1. T22 cannot fail on three of I28's gates. falsify's verdict (runner/main.ts:201-206) requires `controlGreen` and `verdicts.length > 0`, and I28 requires I14 and I15; T22 plants only a surviving mutant, a null pass and a case-only Invariant with no mutant. A falsify that drops `controlGreen &&`, passes with no mutant, or ignores a not-applied edit passes T22. Fix: T22 also plants a mutant whose case is red on the unedited code, a selection with no mutant, and an edit that does not apply, each seen giving `VERDICT fail`.
+            2. T19 cannot fail on I23's per-page half. WriteLanes T18 (WriteLanes.spec:423-425) uses two Runtimes with different seeds, and a seed-ignoring mint is a runtime mutant; the world's `sessionSeed: () => seed * 1000 + page` (world/page.ts:69) with the page term dropped repeats across pages of one world and passes. Fix: a world self-test that boots two pages under one world seed and one page under two world seeds, seen failing on that planted world.
+            3. T5 cannot fail on I6. The `Oracle` type (oracle.ts:74) constrains the parameter, not what the body reads: an oracle that reads `Date.now()` or a module-level map filled by an earlier case type-checks. Fix: a lint over `oracles/` for clock, randomness, host and module-level mutable reads, seen rejecting a planted one (or run each oracle twice on one case's facts, alone and after another case, and compare).
+            4. Smaller:
+               - T20 does not plant a child that states two verdicts for one id; `sliceVerdicts` passes them through (main.ts:79-80), breaking I24's "exactly one". Add that plant.
+               - T7 resolves each oracle's `guarantee` names but no test compares the Invariants a violation cites (e.g. attempt-identity.ts:90) with the ones it names, so I10 passes an oracle judging an unnamed Invariant, and R6's pairs come out short. Add that comparison to T7.
+               - I1 has no deciding test: T1 type-checks `port.ts` and lints other folders, and nothing compares Port operation and Observation names with core Specs. Add it to T1 or the T4 audit.
+
+            **Sidecar log.**
+            (a) gaps 1-2: Accepted: Q8 matches the code; R2 open_by has Q8; falsify matches on oracle name only (falsify.ts:105, recorded by Q5). Rejected: Q8 not citing I36 (Q8 is "Failure of R2", which I36 enforces; wording); README limit naming no cases (that is the violation Q8 records); first-seed-only and one violation per oracle per step (dsl/case.ts:191; Q5 and Q11 record them); three-channels :143 (rejected before); T17 not runnable today (Phase 3 writes it).
+            (b) gaps 3-4: Accepted: I22 states run isolation; module state persists in process; `runCases` and `sliceVerdicts` exist, no per-case bound. Rejected: links to non-exported symbols (`workflow check` valid; the link names a declaration); no `Defect` variant in code (R9 decision, Q12/T25 cover it).
+            (c) consistency: Rejected: stated-failure vs defect precedence when one run fails and another overruns (I34 decides: an overrun is a defect, never a stated failure; otherwise R9's "reached no check" decides); pending decisions written as normative, R1 vs Q4, I2's folder list, `skill:policy-verification`, Invariants not holding today (all rejected before or recorded by Q items); undefined terms, open_by extras and R7's README citation (wording).
+            (d) testability: Accepted: I28/T22, I23/T19, I6/T5, I24/T20, I10/T7, I1/T1 (each re-read against the code above). Rejected: I15/T12 (the control line is the check; a broken gate is I28's, gap 1); I7 (T6's audit marks every rule); I30 (Q7 bounds the manual readings); I35, I42 (rejected before: binds phase 4; T4 audit).
+
+            Next: add the plants in gaps 1-4, then a fresh independent skill:check-spec.
     T5
         title       Suite renamed to Spec areas and behaviour names
         status      open
