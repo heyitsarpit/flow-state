@@ -8,4 +8,3 @@ specs/core/StaticCli.spec
 specs/core/Turn.spec
 specs/core/WriteAhead.spec
 specs/core/WriteLanes.spec
-specs/runtime/Runtime.spec

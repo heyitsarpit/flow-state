@@ -1,1 +1,0 @@
-{ "extends": "./tsconfig.json", "include": ["src/core.ts", "src/a.ts", "src/a.fixture.ts"] }

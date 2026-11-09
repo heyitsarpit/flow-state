@@ -1,9 +1,11 @@
 # Flow State
 
 ## Where things live
-- `workflow/plans/flow/` — current plans. The design is `references/explorations/machine-fragments/machine-design.md`;
-  open proposals are in `references/proposals/`.
-- `workflow/plans/archive/`, `reference/`, Beads — historical. Read-only.
+- `workflow/plans/flow/` — current plans; `specs/core/` — the core's Specs (revisable guides). The old design
+  (`machine-design.md`) was absorbed into them and deleted; history is at commit `20986677` (see
+  `workflow/plans/flow/references/README.md`);
+  deferred and open items are in `references/proposals/` (revisit.md, open-items.md).
+- `reference/` — historical. Read-only. Archived plans, tasks and Beads were deleted (commit `20986677` has them).
 - `packages/flow-state-v3/` — the current build; runtime first. Prototypes are in its `prototypes/` and never become production code.
 - `packages/flow-state-rewrite/`, `packages/flow-state/` — frozen, never edit.
 - `apps/docs/`, `apps/features/` — docs. Generated files are produced by commands; don't hand-edit them.
