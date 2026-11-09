@@ -1,4 +1,5 @@
-import { Context, Data, type Option, Schema } from "effect";
+import { Data, type Option, Schema } from "effect";
+import type { Hosts } from "./world/world.ts";
 
 /**
  * An actor as the suite names it: the machine's id and the identity's id.
@@ -174,8 +175,7 @@ export type Observation = Data.TaggedEnum<{
 export const Observation = Data.taggedEnum<Observation>();
 
 /**
- * What the suite gives a runtime when it boots one page: the boot's own parameters. The world's
- * hosts come from their own services.
+ * What the suite gives a runtime when it boots one page.
  *
  * **Details**
  *
@@ -183,32 +183,26 @@ export const Observation = Data.taggedEnum<Observation>();
  * - `captureMs`: the persistence capture interval.
  * - `sessionSeed`: the host's entropy for this boot, distinct per page; the runtime mints its
  *   Attempt ids from it.
+ * - `hosts`: the fake world's hosts: clock, page, store and server.
  * - `observe`: called with each public report as it happens.
  */
-export class Boot extends Context.Service<
-  Boot,
-  {
-    readonly fixtures: ReadonlyArray<string>;
-    readonly captureMs: number;
-    readonly sessionSeed: number;
-    readonly observe: (observation: Observation) => void;
-  }
->()("flow-state-v3/conformance/port/Boot") {}
+export type Boot = {
+  readonly fixtures: ReadonlyArray<string>;
+  readonly captureMs: number;
+  readonly sessionSeed: number;
+  readonly hosts: Hosts;
+  readonly observe: (observation: Observation) => void;
+};
 
 /**
- * One booted runtime: the whole contract between the suite and a runtime under test.
+ * One booted runtime, driven only through public operations.
  *
  * **When to use**
  *
- * Write one Layer per runtime: `PrototypeRuntime.layer` and `NullRuntime.layer` now, a production
- * one in phase 4. A runtime's Layer may need {@link Boot} and the world's hosts (`world/`).
- * Scenarios and oracles never see which one runs.
+ * A case's steps call these; the suite settles the world after each.
  *
  * **Details**
  *
- * - Building the Layer boots the runtime. A scope that closes normally or with a failure disposes
- *   the Runtime; a scope closed by interruption is a killed page, and a dead page runs nothing.
- * - A reload is a new build of the same Layer over the same world, after the suite killed the page.
  * - `row` is a write's row as the runtime publishes it, untyped; the fixture's operation decodes it
  *   (`dsl/actor.ts`), and an absent row is `None`.
  * - `ensure` attaches one use of the identity, creating it if needed.
@@ -218,24 +212,39 @@ export class Boot extends Context.Service<
  * - `disposeRuntime` starts the Runtime's disposal: admission closes, nothing new is invoked, and
  *   calls on the wire may settle within the bound. It reports `RuntimeDisposed` when it ends.
  * - The operations are synchronous: the world is a synchronous simulator and the suite settles it
- *   after each call. The Case is the Effect boundary.
+ *   after each call.
  *
  * **Gotchas**
  *
  * - `pending` says the runtime has work that no host task shows yet. Settling needs it; nothing
  *   else may read it.
  */
-export class Runtime extends Context.Service<
-  Runtime,
-  {
-    readonly ensure: (actor: ActorRef, input: Option.Option<Json>, use: Use) => void;
-    readonly ensureExisting: (actor: ActorRef, use: Use) => void;
-    readonly release: (actor: ActorRef, use: Use) => void;
-    readonly send: (actor: ActorRef, event: string, payload: Json) => void;
-    readonly dispose: (actor: ActorRef) => void;
-    readonly disposeRuntime: () => void;
-    readonly snapshot: (actor: ActorRef) => Snapshot;
-    readonly row: (actor: ActorRef, operation: string, key: Json) => Option.Option<Json>;
-    readonly pending: () => boolean;
-  }
->()("flow-state-v3/conformance/port/Runtime") {}
+export type Runtime = {
+  readonly ensure: (actor: ActorRef, input: Option.Option<Json>, use: Use) => void;
+  readonly ensureExisting: (actor: ActorRef, use: Use) => void;
+  readonly release: (actor: ActorRef, use: Use) => void;
+  readonly send: (actor: ActorRef, event: string, payload: Json) => void;
+  readonly dispose: (actor: ActorRef) => void;
+  readonly disposeRuntime: () => void;
+  readonly snapshot: (actor: ActorRef) => Snapshot;
+  readonly row: (actor: ActorRef, operation: string, key: Json) => Option.Option<Json>;
+  readonly pending: () => boolean;
+};
+
+/**
+ * The whole contract between the suite and a runtime under test.
+ *
+ * **When to use**
+ *
+ * Write one per runtime: `prototypePort` and `nullPort` now, a production one in phase 4.
+ * Scenarios and oracles see only the {@link Runtime} it boots, never which one runs.
+ *
+ * **Details**
+ *
+ * - `boot` boots one page over the world's hosts and returns its Runtime.
+ * - A reload is a new `boot` over the same world after the suite killed the page; the dead page's
+ *   Runtime is dropped, never disposed, since a dead page runs nothing.
+ */
+export type Port = {
+  readonly boot: (boot: Boot) => Runtime;
+};

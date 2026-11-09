@@ -1,21 +1,17 @@
 /// <reference types="node" />
-import {
-  Context,
-  Data,
-  Effect,
-  Exit,
-  Layer,
-  Option,
-  Predicate,
-  type Scheduler,
-  Schema,
-} from "effect";
+import { Context, Data, Effect, Option, Predicate, type Scheduler, Schema } from "effect";
 import { join } from "node:path";
-import { type ActorRef, Boot, type Json, Observation, Runtime, Snapshot } from "../port.ts";
-import { WorldClock } from "../world/clock.ts";
-import { Page } from "../world/page.ts";
-import { Network } from "../world/network.ts";
-import { type Purpose, Storage, Write } from "../world/storage.ts";
+import {
+  type ActorRef,
+  type Json,
+  Observation,
+  type Port,
+  type Runtime,
+  Snapshot,
+} from "../port.ts";
+import type { Network } from "../world/network.ts";
+import type { Page } from "../world/page.ts";
+import { type Purpose, Write } from "../world/storage.ts";
 import { observationsOf } from "./prototype-reports.ts";
 
 declare const CompiledBrand: unique symbol;
@@ -109,7 +105,7 @@ const FIXTURES = [
 const actorKey = (actor: ActorRef) =>
   `${actor.machine}/${actor.id.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll("|", "%7C")}`;
 
-const apiOf = (network: typeof Network.Service, page: typeof Page.Service) => {
+const apiOf = (network: Network, page: Page) => {
   const write = (op: string) => (input: unknown, options: { readonly idempotencyKey: string }) =>
     Effect.flatMap(Effect.orDie(Schema.decodeUnknownEffect(Schema.Json)(input)), (json) =>
       network.request(op, json, Option.some(options.idempotencyKey)),
@@ -160,30 +156,28 @@ const decodeState = Schema.decodeUnknownOption(Schema.String);
 const decodeMemory = Schema.decodeUnknownSync(Schema.Json);
 const decodeRow = Schema.decodeUnknownSync(Schema.Json);
 
-const runtimeOf = (instance: PrototypeInstance) =>
-  Runtime.of({
-    ensure: (actor, input, use) =>
-      instance.attach(actorKey(actor), actor.machine, Option.getOrUndefined(input), use, false),
-    ensureExisting: (actor, use) =>
-      instance.attach(actorKey(actor), actor.machine, undefined, use, true),
-    release: (actor, use) => instance.detach(actorKey(actor), use),
-    send: (actor, event, payload) => instance.send(actorKey(actor), { tag: event, payload }),
-    dispose: (actor) => instance.dispose(actorKey(actor)),
-    disposeRuntime: instance.disposeRuntime,
-    snapshot: (actor) => {
-      const key = actorKey(actor);
+// RETURN_TYPE: the Port's Runtime contract types the methods' parameters.
+const runtimeOf = (instance: PrototypeInstance): Runtime => ({
+  ensure: (actor, input, use) =>
+    instance.attach(actorKey(actor), actor.machine, Option.getOrUndefined(input), use, false),
+  ensureExisting: (actor, use) =>
+    instance.attach(actorKey(actor), actor.machine, undefined, use, true),
+  release: (actor, use) => instance.detach(actorKey(actor), use),
+  send: (actor, event, payload) => instance.send(actorKey(actor), { tag: event, payload }),
+  dispose: (actor) => instance.dispose(actorKey(actor)),
+  disposeRuntime: instance.disposeRuntime,
+  snapshot: (actor) => {
+    const key = actorKey(actor);
 
-      return Option.match(decodeState(instance.state(key)), {
-        onNone: () => Snapshot.Absent(),
-        onSome: (state) => Snapshot.Live({ state, memory: decodeMemory(instance.memory(key)) }),
-      });
-    },
-    row: (actor, operation, key) =>
-      Option.map(Option.fromUndefinedOr(instance.row(actorKey(actor), operation, key)), decodeRow),
-    pending: instance.pending,
-  });
-
-const killed = <A, E>(exit: Exit.Exit<A, E>) => Exit.hasInterrupts(exit);
+    return Option.match(decodeState(instance.state(key)), {
+      onNone: () => Snapshot.Absent(),
+      onSome: (state) => Snapshot.Live({ state, memory: decodeMemory(instance.memory(key)) }),
+    });
+  },
+  row: (actor, operation, key) =>
+    Option.map(Option.fromUndefinedOr(instance.row(actorKey(actor), operation, key)), decodeRow),
+  pending: instance.pending,
+});
 
 /**
  * A dynamic import's namespace: each export is read by name and narrowed where it is used.
@@ -246,7 +240,7 @@ const made = (module: Namespace, name: string, path: string) => {
  * **When to use**
  *
  * The runner calls this once per process with `--runtime`; falsify passes an edited copy. Each
- * case then builds {@link PrototypeRuntime}'s Layer over it.
+ * case then boots {@link prototypePort} over it.
  *
  * **Details**
  *
@@ -278,96 +272,82 @@ export const loadPrototype = Effect.fn("loadPrototype")(function* (runtimeDir: s
 });
 
 /**
- * The Runtime over a prototype runtime (the runner's default, or an edited copy of it).
+ * The Port over a prototype runtime (the runner's default, or an edited copy of it).
  *
  * **Details**
  *
- * - Building the Layer boots the prototype over the world's hosts with the case's fixtures, wired
- *   to the suite's server; closing its scope disposes the Runtime, unless the scope was interrupted (a killed page).
+ * - `boot` boots the prototype over the world's hosts with the case's fixtures, wired to the
+ *   suite's server.
  * - The prototype's evidence is translated into the Port's observations; its other reports are
  *   dropped.
  *
  * **Gotchas**
  *
  * - The prototype mints Attempt ids from the host: `att-<sessionSeed>-<n>`, unique per page.
- * - A boot that names a fixture the prototype has no machine for dies with `UnknownFixture`.
+ * - A boot that names a fixture the prototype has no machine for throws `UnknownFixture`: a
+ *   suite defect.
  */
-export const PrototypeRuntime = {
-  layer: (loaded: LoadedPrototype) =>
-    Layer.effect(
-      Runtime,
-      Effect.gen(function* () {
-        const boot = yield* Boot;
-        const clock = yield* WorldClock;
-        const page = yield* Page;
-        const storage = yield* Storage;
-        const network = yield* Network;
-        const api = apiOf(network, page);
+// RETURN_TYPE: the exported Port contract the runner boots every case through.
+export const prototypePort = (loaded: LoadedPrototype): Port => ({
+  boot: (boot) => {
+    const { clock, page, storage, network } = boot.hosts;
+    const api = apiOf(network, page);
 
-        const chosen = yield* Effect.forEach(
-          boot.fixtures,
-          (name) =>
-            Option.match(Option.fromUndefinedOr(loaded.fixtures.get(name)), {
-              onNone: () => Effect.die(new UnknownFixture({ name })),
-              onSome: Effect.succeed,
-            }),
-          { concurrency: 1 },
-        );
+    const chosen = boot.fixtures.map((name) =>
+      Option.getOrThrowWith(
+        Option.fromUndefinedOr(loaded.fixtures.get(name)),
+        () => new UnknownFixture({ name }),
+      ),
+    );
 
-        const services = chosen
-          .flatMap((f) => Option.toArray(Option.map(f.services, (of) => of(api))))
-          .reduce((a, b) => Context.merge(a, b), Context.empty());
+    const services = chosen
+      .flatMap((f) => Option.toArray(Option.map(f.services, (of) => of(api))))
+      .reduce((a, b) => Context.merge(a, b), Context.empty());
 
-        let minted = 0;
+    let minted = 0;
 
-        const host: PrototypeHost = {
-          now: clock.now,
-          id: () => {
-            minted += 1;
+    const host: PrototypeHost = {
+      now: clock.now,
+      id: () => {
+        minted += 1;
 
-            return `att-${boot.sessionSeed}-${minted}`;
-          },
-          setTimer: clock.arm,
-          later: page.later,
-          workClock: clock.work,
-          scheduler: page.scheduler,
-          onHidden: page.onHidden,
-          isHidden: page.hidden,
-          storage: {
-            load: storage.load,
-            write: (writes, purpose, answer) =>
-              storage.write(
-                writes.map((w) =>
-                  w.value === undefined
-                    ? Write.Remove({ key: w.key })
-                    : Write.Put({ key: w.key, value: w.value }),
-                ),
-                purpose,
-                answer,
-              ),
-          },
-        };
-
-        const instance = yield* Effect.acquireRelease(
-          Effect.sync(() =>
-            loaded.port.boot({
-              host,
-              compiled: chosen.map((f) => f.make(api)),
-              bounds: { captureMs: boot.captureMs },
-              faults: { moduleThrows: new Map(), moduleThrowsAfter: new Map(), coreThrows: 0 },
-              services,
-              onEvidence: (batch) => {
-                for (const o of observationsOf(batch)) boot.observe(o);
-              },
-              onIssue: (issues) => {
-                for (const issue of issues) boot.observe(Observation.Issue({ code: issue.code }));
-              },
-            }),
+        return `att-${boot.sessionSeed}-${minted}`;
+      },
+      setTimer: clock.arm,
+      later: page.later,
+      workClock: clock.work,
+      scheduler: page.scheduler,
+      onHidden: page.onHidden,
+      isHidden: page.hidden,
+      storage: {
+        load: storage.load,
+        write: (writes, purpose, answer) =>
+          storage.write(
+            writes.map((w) =>
+              w.value === undefined
+                ? Write.Remove({ key: w.key })
+                : Write.Put({ key: w.key, value: w.value }),
+            ),
+            purpose,
+            answer,
           ),
-          (booted, exit) => (killed(exit) ? Effect.void : Effect.sync(booted.disposeRuntime)),
-        );
+      },
+    };
 
-        return runtimeOf(instance);
+    return runtimeOf(
+      loaded.port.boot({
+        host,
+        compiled: chosen.map((f) => f.make(api)),
+        bounds: { captureMs: boot.captureMs },
+        faults: { moduleThrows: new Map(), moduleThrowsAfter: new Map(), coreThrows: 0 },
+        services,
+        onEvidence: (batch) => {
+          for (const o of observationsOf(batch)) boot.observe(o);
+        },
+        onIssue: (issues) => {
+          for (const issue of issues) boot.observe(Observation.Issue({ code: issue.code }));
+        },
       }),
-    ),
-};
+    );
+  },
+});

@@ -1,6 +1,6 @@
-import { Effect, Option } from "effect";
+import { Option } from "effect";
 import type { Actor } from "../dsl/actor.ts";
-import { Case, type Scenario, variants } from "../dsl/case.ts";
+import { type Case, type Scenario, variants } from "../dsl/case.ts";
 import { Pay } from "../fixtures/pay.ts";
 import { Answer, RequestPhase } from "../world/network.ts";
 
@@ -10,41 +10,39 @@ const CAPTURABLE = Answer.Ok({ value: { status: "requires_capture", clientSecret
 
 type Shopper = Actor<typeof Pay>;
 
-const shopper = Case.useSync((c) => ({ c, shopper: c.actor(Pay, "shopper-1") }));
+const shopper = (c: Case) => c.actor(Pay, "shopper-1");
 
 const pay = (s: Shopper) => s.send("PayRequested", { paymentMethodId: "visa" });
 
-const onWire = Effect.gen(function* () {
-  const { c, shopper: s } = yield* shopper;
-  yield* s.ensure;
-  yield* s.send("Start", CART);
-  yield* pay(s);
-  yield* c.ack;
-});
+const onWire = (c: Case) => {
+  const s = shopper(c);
+  s.ensure();
+  s.send("Start", CART);
+  pay(s);
+  c.ack();
+};
 
-const row = (s: Shopper) => Effect.map(s.row("pay", KEY), Option.getOrUndefined);
+const row = (s: Shopper) => Option.getOrUndefined(s.row("pay", KEY));
 
-const lastReason = (c: typeof Case.Service, operation: string) =>
-  Effect.map(c.endings(operation), (endings) => endings.at(-1)?.reason);
+const lastReason = (c: Case, operation: string) => c.endings(operation).at(-1)?.reason;
 
-const sent = (c: typeof Case.Service, operation: string) =>
-  Effect.map(c.requests(operation), (requests) => requests.length);
+const sent = (c: Case, operation: string) => c.requests(operation).length;
 
-const toResend = Effect.gen(function* () {
-  const { c, shopper: s } = yield* shopper;
-  yield* onWire;
-  yield* c.answer("pay", Answer.Lost());
-  yield* s.state("UNSURE");
-  yield* c.eq("charges", yield* c.landed("pay"), 0);
-  yield* c.advance(3000);
-  yield* c.answer("order", Answer.Ok({ value: null }));
-  yield* c.answer("intent", Answer.Ok({ value: { status: "requires_payment_method" } }));
-  yield* s.state("PAYING");
-  yield* c.eq("not sent before capture", yield* sent(c, "pay"), 1);
-  yield* c.ack;
-  yield* c.eq("re-sent after capture", yield* sent(c, "pay"), 2);
-  yield* c.eq("same id", (yield* c.keys("pay")).length, 1);
-});
+const toResend = (c: Case) => {
+  const s = shopper(c);
+  onWire(c);
+  c.answer("pay", Answer.Lost());
+  s.state("UNSURE");
+  c.eq("charges", c.landed("pay"), 0);
+  c.advance(3000);
+  c.answer("order", Answer.Ok({ value: null }));
+  c.answer("intent", Answer.Ok({ value: { status: "requires_payment_method" } }));
+  s.state("PAYING");
+  c.eq("not sent before capture", sent(c, "pay"), 1);
+  c.ack();
+  c.eq("re-sent after capture", sent(c, "pay"), 2);
+  c.eq("same id", c.keys("pay").length, 1);
+};
 
 /**
  * The Pay case `PAY-16`'s variants, ported from the prototype suite.
@@ -57,118 +55,116 @@ export const pay16Scenarios: ReadonlyArray<Scenario> = [
       fixtures: [Pay],
     },
     {
-      "restore-keeps-mayHaveApplied": Effect.gen(function* () {
-        const { c, shopper: s } = yield* shopper;
-        yield* onWire;
-        yield* c.reload;
-        yield* s.state("UNSURE");
-        yield* c.advance(3000);
-        yield* c.answer("order", Answer.Ok({ value: null }));
-        yield* c.answer("intent", Answer.Ok({ value: { status: "requires_payment_method" } }));
-        yield* s.state("PAYING");
-        yield* c.ack;
-        yield* c.answer("pay", Answer.Fail({ tag: "CardDeclined", fields: { code: "x" } }));
-        yield* c.eq("reason", yield* lastReason(c, "pay"), "StillUnknown");
-        yield* s.state("UNSURE");
-      }),
-      "timeout-per-send": Effect.gen(function* () {
-        const { c, shopper: s } = yield* shopper;
-        yield* toResend;
-        yield* c.answer("pay", Answer.Never());
-        yield* c.advance(59_999);
-        yield* s.state("PAYING");
-        yield* c.advance(1);
-        yield* s.state("UNSURE");
-        yield* c.eq(
+      "restore-keeps-mayHaveApplied": (c) => {
+        const s = shopper(c);
+        onWire(c);
+        c.reload();
+        s.state("UNSURE");
+        c.advance(3000);
+        c.answer("order", Answer.Ok({ value: null }));
+        c.answer("intent", Answer.Ok({ value: { status: "requires_payment_method" } }));
+        s.state("PAYING");
+        c.ack();
+        c.answer("pay", Answer.Fail({ tag: "CardDeclined", fields: { code: "x" } }));
+        c.eq("reason", lastReason(c, "pay"), "StillUnknown");
+        s.state("UNSURE");
+      },
+      "timeout-per-send": (c) => {
+        const s = shopper(c);
+        toResend(c);
+        c.answer("pay", Answer.Never());
+        c.advance(59_999);
+        s.state("PAYING");
+        c.advance(1);
+        s.state("UNSURE");
+        c.eq(
           "an unknown, per send",
-          [(yield* c.endings("pay")).at(-1)?.channel, (yield* c.endings("pay")).length],
+          [c.endings("pay").at(-1)?.channel, c.endings("pay").length],
           ["unknown", 2],
         );
-      }),
-      "resend-refused-capture": Effect.gen(function* () {
-        const { c, shopper: s } = yield* shopper;
-        yield* onWire;
-        yield* c.answer("pay", Answer.Lost());
-        yield* c.advance(3000);
-        yield* c.answer("order", Answer.Ok({ value: null }));
-        yield* c.answer("intent", Answer.Ok({ value: { status: "requires_payment_method" } }));
-        yield* s.state("PAYING");
-        yield* c.answerStorage("refuse", Option.none());
-        yield* s.state("UNSURE");
-        yield* c.eq("reason", yield* lastReason(c, "pay"), "StorageRefused");
-        yield* c.eq("held", (yield* row(s))?.uncertain, true);
-        yield* c.eq("no budget used", (yield* row(s))?.retryCount, 0);
-        yield* c.advance(3000);
-        yield* c.answer("order", Answer.Ok({ value: null }));
-        yield* c.answer("intent", Answer.Ok({ value: { status: "requires_payment_method" } }));
-        yield* s.state("PAYING");
-        yield* c.ack;
-        yield* c.eq("sent again", yield* sent(c, "pay"), 2);
-        yield* c.eq("same id", (yield* c.keys("pay")).length, 1);
-        yield* c.answer("pay", CAPTURABLE);
-        yield* s.state("PLACING");
-      }),
-      "retry-count-persists": Effect.gen(function* () {
-        const { c, shopper: s } = yield* shopper;
-        yield* toResend;
-        yield* c.answer("pay", Answer.Lost());
-        yield* c.eq("retryCount", (yield* row(s))?.retryCount, 1);
-        yield* c.reload;
-        yield* s.state("UNSURE");
-        yield* c.eq("kept", (yield* row(s))?.retryCount, 1);
-      }),
-      "stale-send-fenced": Effect.gen(function* () {
-        const { c, shopper: s } = yield* shopper;
-        yield* s.ensure;
-        yield* c.uninterruptible("pay");
-        yield* s.send("Start", CART);
-        yield* pay(s);
-        yield* c.ack;
-        yield* c.advance(60_000);
-        yield* s.state("UNSURE");
-        yield* c.advance(3000);
-        yield* c.answer("order", Answer.Ok({ value: null }));
-        yield* c.answer("intent", Answer.Ok({ value: { status: "requires_payment_method" } }));
-        yield* c.ack;
-        yield* c.eq("re-sent", yield* sent(c, "pay"), 2);
-        yield* c.answerLate("pay", CAPTURABLE);
-        yield* s.state("PAYING");
-        yield* c.eq("the re-send still pending", (yield* row(s))?.pending, true);
-      }),
-      "schedule-reads-after-memory": Effect.gen(function* () {
-        const { c, shopper: s } = yield* shopper;
-        yield* onWire;
-        yield* c.answer("pay", Answer.Fail({ tag: "Busy", fields: { retryAfterMs: 500 } }));
-        yield* s.state("WAITING");
-        yield* c.advance(499);
-        yield* s.state("WAITING");
-        yield* c.advance(1);
-        yield* s.state("PAYING");
-      }),
-      "read-defect-issue": Effect.gen(function* () {
-        const { c } = yield* shopper;
-        yield* onWire;
-        yield* c.answer("pay", Answer.Lost());
-        yield* c.advance(3000);
-        yield* c.answer("intent", Answer.Die({ message: "boom" }));
-        yield* c.eq("issue", yield* c.issues, ["Defect"]);
-        yield* c.eq("failure", yield* lastReason(c, "intent"), "Defect");
-      }),
-      "superseded-read": Effect.gen(function* () {
-        const { c } = yield* shopper;
-        yield* onWire;
-        yield* c.answer("pay", Answer.Lost());
-        yield* c.advance(3000);
-        yield* c.eq("first", yield* sent(c, "intent"), 1);
-        yield* c.advance(3000);
-        yield* c.eq("second", yield* sent(c, "intent"), 2);
-        yield* c.eq(
+      },
+      "resend-refused-capture": (c) => {
+        const s = shopper(c);
+        onWire(c);
+        c.answer("pay", Answer.Lost());
+        c.advance(3000);
+        c.answer("order", Answer.Ok({ value: null }));
+        c.answer("intent", Answer.Ok({ value: { status: "requires_payment_method" } }));
+        s.state("PAYING");
+        c.answerStorage("refuse", Option.none());
+        s.state("UNSURE");
+        c.eq("reason", lastReason(c, "pay"), "StorageRefused");
+        c.eq("held", row(s)?.uncertain, true);
+        c.eq("no budget used", row(s)?.retryCount, 0);
+        c.advance(3000);
+        c.answer("order", Answer.Ok({ value: null }));
+        c.answer("intent", Answer.Ok({ value: { status: "requires_payment_method" } }));
+        s.state("PAYING");
+        c.ack();
+        c.eq("sent again", sent(c, "pay"), 2);
+        c.eq("same id", c.keys("pay").length, 1);
+        c.answer("pay", CAPTURABLE);
+        s.state("PLACING");
+      },
+      "retry-count-persists": (c) => {
+        const s = shopper(c);
+        toResend(c);
+        c.answer("pay", Answer.Lost());
+        c.eq("retryCount", row(s)?.retryCount, 1);
+        c.reload();
+        s.state("UNSURE");
+        c.eq("kept", row(s)?.retryCount, 1);
+      },
+      "stale-send-fenced": (c) => {
+        const s = shopper(c);
+        s.ensure();
+        c.uninterruptible("pay");
+        s.send("Start", CART);
+        pay(s);
+        c.ack();
+        c.advance(60_000);
+        s.state("UNSURE");
+        c.advance(3000);
+        c.answer("order", Answer.Ok({ value: null }));
+        c.answer("intent", Answer.Ok({ value: { status: "requires_payment_method" } }));
+        c.ack();
+        c.eq("re-sent", sent(c, "pay"), 2);
+        c.answerLate("pay", CAPTURABLE);
+        s.state("PAYING");
+        c.eq("the re-send still pending", row(s)?.pending, true);
+      },
+      "schedule-reads-after-memory": (c) => {
+        const s = shopper(c);
+        onWire(c);
+        c.answer("pay", Answer.Fail({ tag: "Busy", fields: { retryAfterMs: 500 } }));
+        s.state("WAITING");
+        c.advance(499);
+        s.state("WAITING");
+        c.advance(1);
+        s.state("PAYING");
+      },
+      "read-defect-issue": (c) => {
+        onWire(c);
+        c.answer("pay", Answer.Lost());
+        c.advance(3000);
+        c.answer("intent", Answer.Die({ message: "boom" }));
+        c.eq("issue", c.issues(), ["Defect"]);
+        c.eq("failure", lastReason(c, "intent"), "Defect");
+      },
+      "superseded-read": (c) => {
+        onWire(c);
+        c.answer("pay", Answer.Lost());
+        c.advance(3000);
+        c.eq("first", sent(c, "intent"), 1);
+        c.advance(3000);
+        c.eq("second", sent(c, "intent"), 2);
+        c.eq(
           "older was interrupted",
-          (yield* c.requests("intent")).filter((r) => RequestPhase.$is("Open")(r.phase)).length,
+          c.requests("intent").filter((r) => RequestPhase.$is("Open")(r.phase)).length,
           1,
         );
-        yield* c.eq("superseded evidence", (yield* c.evidence("Superseded")) > 0, true);
-      }),
+        c.eq("superseded evidence", c.evidence("Superseded") > 0, true);
+      },
     },
   ),
 ];

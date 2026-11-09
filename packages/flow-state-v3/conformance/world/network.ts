@@ -1,7 +1,7 @@
-import { Context, Data, Effect, Layer, Option, Predicate, type Schema } from "effect";
+import { Data, Effect, Option, Predicate, type Schema } from "effect";
 import { type Json, sameJson } from "../port.ts";
-import { WorldClock } from "./clock.ts";
-import { Page } from "./page.ts";
+import type { WorldClock } from "./clock.ts";
+import type { Page } from "./page.ts";
 
 /**
  * How the suite's fake server answers one held request.
@@ -148,164 +148,157 @@ const lost = (r: Request) =>
  * - `answer` throws `RequestNotOpen` for a request that is not open; `answerLate` for one that is
  *   already decided.
  */
-export class Network extends Context.Service<
-  Network,
-  {
-    readonly request: (
-      operation: string,
-      input: Json,
-      key: Option.Option<string>,
-    ) => Effect.Effect<Json, Failure>;
-    readonly oldestOpen: (
-      operation: string,
-      where: Option.Option<Schema.JsonObject>,
-    ) => Option.Option<Request>;
-    readonly answer: (request: Request, answer: Answer) => void;
-    readonly oldestUndecided: (operation: string) => Option.Option<Request>;
-    readonly answerLate: (request: Request, answer: Answer) => void;
-    readonly oldestLost: (operation: string) => Option.Option<Request>;
-    readonly landLate: (request: Request) => void;
-    readonly uninterruptible: (operation: string) => void;
-    readonly answerAtOnce: (operation: string, answer: Answer) => void;
-    readonly requests: () => ReadonlyArray<Request>;
-    readonly landed: () => ReadonlyArray<Request>;
-    readonly kill: () => void;
-  }
->()("flow-state-v3/conformance/world/Network") {
-  /**
-   * A server with no requests; it reads the clock's time and the page's generation at each
-   * request.
-   */
-  static readonly layer = Layer.effect(
-    Network,
-    Effect.gen(function* () {
-      const clock = yield* WorldClock;
-      const page = yield* Page;
-      let log: ReadonlyArray<Request> = [];
-      let resumes: ReadonlyMap<number, (effect: Effect.Effect<Json, Failure>) => void> = new Map();
-      let steadfast: ReadonlySet<string> = new Set();
-      let atOnce: ReadonlyMap<string, Answer> = new Map();
+export type Network = {
+  readonly request: (
+    operation: string,
+    input: Json,
+    key: Option.Option<string>,
+  ) => Effect.Effect<Json, Failure>;
+  readonly oldestOpen: (
+    operation: string,
+    where: Option.Option<Schema.JsonObject>,
+  ) => Option.Option<Request>;
+  readonly answer: (request: Request, answer: Answer) => void;
+  readonly oldestUndecided: (operation: string) => Option.Option<Request>;
+  readonly answerLate: (request: Request, answer: Answer) => void;
+  readonly oldestLost: (operation: string) => Option.Option<Request>;
+  readonly landLate: (request: Request) => void;
+  readonly uninterruptible: (operation: string) => void;
+  readonly answerAtOnce: (operation: string, answer: Answer) => void;
+  readonly requests: () => ReadonlyArray<Request>;
+  readonly landed: () => ReadonlyArray<Request>;
+  readonly kill: () => void;
+};
 
-      const phaseOf = (request: Request) => log[request.seq]?.phase ?? request.phase;
+/**
+ * A server with no requests; it reads the clock's time and the page's generation at each
+ * request.
+ */
+// RETURN_TYPE: the exported Network contract; it types the request and answer parameters for the runtime.
+export const makeNetwork = (clock: WorldClock, page: Page): Network => {
+  let log: ReadonlyArray<Request> = [];
+  let resumes: ReadonlyMap<number, (effect: Effect.Effect<Json, Failure>) => void> = new Map();
+  let steadfast: ReadonlySet<string> = new Set();
+  let atOnce: ReadonlyMap<string, Answer> = new Map();
 
-      const refuse = (request: Request) => () => {
-        throw new RequestNotOpen({ seq: request.seq, phase: phaseOf(request)._tag });
-      };
+  const phaseOf = (request: Request) => log[request.seq]?.phase ?? request.phase;
 
-      const setPhase = (seq: number, phase: RequestPhase) => {
-        log = log.map((r) => (r.seq === seq ? { ...r, phase } : r));
-      };
+  const refuse = (request: Request) => () => {
+    throw new RequestNotOpen({ seq: request.seq, phase: phaseOf(request)._tag });
+  };
 
-      const forget = (seq: number) => {
-        const next = new Map(resumes);
-        next.delete(seq);
-        resumes = next;
-      };
+  const setPhase = (seq: number, phase: RequestPhase) => {
+    log = log.map((r) => (r.seq === seq ? { ...r, phase } : r));
+  };
 
-      const oldest = (operation: string, where: Option.Option<Schema.JsonObject>) =>
-        log.find(
-          (r) =>
-            r.operation === operation &&
-            RequestPhase.$is("Open")(r.phase) &&
-            Option.match(where, { onNone: () => true, onSome: (w) => within(r.input, w) }),
-        );
+  const forget = (seq: number) => {
+    const next = new Map(resumes);
+    next.delete(seq);
+    resumes = next;
+  };
 
-      const reply = (held: Request, answer: Answer) => {
-        if (Answer.$is("Never")(answer)) {
-          setPhase(held.seq, RequestPhase.Hanging());
+  const oldest = (operation: string, where: Option.Option<Schema.JsonObject>) =>
+    log.find(
+      (r) =>
+        r.operation === operation &&
+        RequestPhase.$is("Open")(r.phase) &&
+        Option.match(where, { onNone: () => true, onSome: (w) => within(r.input, w) }),
+    );
 
-          return;
-        }
+  const reply = (held: Request, answer: Answer) => {
+    if (Answer.$is("Never")(answer)) {
+      setPhase(held.seq, RequestPhase.Hanging());
 
-        setPhase(held.seq, RequestPhase.Answered({ answer }));
-        const resume = resumes.get(held.seq);
-        forget(held.seq);
+      return;
+    }
 
-        if (resume !== undefined) resume(outcome(answer));
-      };
+    setPhase(held.seq, RequestPhase.Answered({ answer }));
+    const resume = resumes.get(held.seq);
+    forget(held.seq);
 
-      const call = (operation: string, input: Json, key: Option.Option<string>) =>
-        Effect.suspend(() => {
-          const seq = log.length;
-          const given = atOnce.get(operation);
+    if (resume !== undefined) resume(outcome(answer));
+  };
 
-          const phase =
-            given === undefined ? RequestPhase.Open() : RequestPhase.Answered({ answer: given });
+  const call = (operation: string, input: Json, key: Option.Option<string>) =>
+    Effect.suspend(() => {
+      const seq = log.length;
+      const given = atOnce.get(operation);
 
-          log = [...log, { seq, operation, input, key, page: page.page(), at: clock.now(), phase }];
+      const phase =
+        given === undefined ? RequestPhase.Open() : RequestPhase.Answered({ answer: given });
 
-          if (given !== undefined) return outcome(given);
+      log = [...log, { seq, operation, input, key, page: page.page(), at: clock.now(), phase }];
 
-          return Effect.callback<Json, Failure>((resume) => {
-            resumes = new Map([...resumes, [seq, resume]]);
+      if (given !== undefined) return outcome(given);
 
-            return Option.isNone(key)
-              ? Effect.sync(() => {
-                  forget(seq);
-                  setPhase(seq, RequestPhase.Aborted());
-                })
-              : undefined;
-          });
-        });
+      return Effect.callback<Json, Failure>((resume) => {
+        resumes = new Map([...resumes, [seq, resume]]);
 
-      return Network.of({
-        request: (operation, input, key) => {
-          const sent = call(operation, input, key);
-
-          return steadfast.has(operation) ? Effect.uninterruptible(sent) : sent;
-        },
-        oldestOpen: (operation, where) => Option.fromUndefinedOr(oldest(operation, where)),
-        answer: (request, answer) =>
-          RequestPhase.$match(phaseOf(request), {
-            Open: () => reply(request, answer),
-            Hanging: refuse(request),
-            Aborted: refuse(request),
-            Orphaned: refuse(request),
-            Answered: refuse(request),
-          }),
-        oldestUndecided: (operation) =>
-          Option.fromUndefinedOr(log.find((r) => r.operation === operation && undecided(r))),
-        answerLate: (request, answer) =>
-          RequestPhase.$match(phaseOf(request), {
-            Open: () => reply(request, answer),
-            Hanging: () => reply(request, answer),
-            Orphaned: () => reply(request, answer),
-            Aborted: refuse(request),
-            Answered: refuse(request),
-          }),
-        oldestLost: (operation) =>
-          Option.fromUndefinedOr(log.find((r) => r.operation === operation && lost(r))),
-        landLate: (request) => {
-          if (!lost(log[request.seq] ?? request)) refuse(request)();
-          setPhase(
-            request.seq,
-            RequestPhase.Answered({ answer: Answer.LostButLanded({ value: null }) }),
-          );
-        },
-        uninterruptible: (operation) => {
-          steadfast = new Set([...steadfast, operation]);
-        },
-        answerAtOnce: (operation, answer) => {
-          atOnce = new Map([...atOnce, [operation, answer]]);
-        },
-        requests: () => log,
-        landed: () =>
-          log.filter((r) =>
-            RequestPhase.$match(r.phase, {
-              Open: () => false,
-              Hanging: () => false,
-              Aborted: () => false,
-              Orphaned: () => false,
-              Answered: ({ answer }) => landsAtServer(answer),
-            }),
-          ),
-        kill: () => {
-          resumes = new Map();
-          log = log.map((r) =>
-            RequestPhase.$is("Open")(r.phase) ? { ...r, phase: RequestPhase.Orphaned() } : r,
-          );
-        },
+        return Option.isNone(key)
+          ? Effect.sync(() => {
+              forget(seq);
+              setPhase(seq, RequestPhase.Aborted());
+            })
+          : undefined;
       });
-    }),
-  );
-}
+    });
+
+  return {
+    request: (operation, input, key) => {
+      const sent = call(operation, input, key);
+
+      return steadfast.has(operation) ? Effect.uninterruptible(sent) : sent;
+    },
+    oldestOpen: (operation, where) => Option.fromUndefinedOr(oldest(operation, where)),
+    answer: (request, answer) =>
+      RequestPhase.$match(phaseOf(request), {
+        Open: () => reply(request, answer),
+        Hanging: refuse(request),
+        Aborted: refuse(request),
+        Orphaned: refuse(request),
+        Answered: refuse(request),
+      }),
+    oldestUndecided: (operation) =>
+      Option.fromUndefinedOr(log.find((r) => r.operation === operation && undecided(r))),
+    answerLate: (request, answer) =>
+      RequestPhase.$match(phaseOf(request), {
+        Open: () => reply(request, answer),
+        Hanging: () => reply(request, answer),
+        Orphaned: () => reply(request, answer),
+        Aborted: refuse(request),
+        Answered: refuse(request),
+      }),
+    oldestLost: (operation) =>
+      Option.fromUndefinedOr(log.find((r) => r.operation === operation && lost(r))),
+    landLate: (request) => {
+      if (!lost(log[request.seq] ?? request)) refuse(request)();
+      setPhase(
+        request.seq,
+        RequestPhase.Answered({ answer: Answer.LostButLanded({ value: null }) }),
+      );
+    },
+    uninterruptible: (operation) => {
+      steadfast = new Set([...steadfast, operation]);
+    },
+    answerAtOnce: (operation, answer) => {
+      atOnce = new Map([...atOnce, [operation, answer]]);
+    },
+    requests: () => log,
+    landed: () =>
+      log.filter((r) =>
+        RequestPhase.$match(r.phase, {
+          Open: () => false,
+          Hanging: () => false,
+          Aborted: () => false,
+          Orphaned: () => false,
+          Answered: ({ answer }) => landsAtServer(answer),
+        }),
+      ),
+    kill: () => {
+      resumes = new Map();
+      log = log.map((r) =>
+        RequestPhase.$is("Open")(r.phase) ? { ...r, phase: RequestPhase.Orphaned() } : r,
+      );
+    },
+  };
+};

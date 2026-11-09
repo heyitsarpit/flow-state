@@ -1,4 +1,4 @@
-import { Context, Layer, type Scheduler } from "effect";
+import type { Scheduler } from "effect";
 
 /**
  * The page a runtime lives in: its generation, its task queue, its Effect scheduler and whether
@@ -6,7 +6,8 @@ import { Context, Layer, type Scheduler } from "effect";
  *
  * **When to use**
  *
- * A runtime queues host tasks with `later` and runs its fibers on `scheduler`; the world runs both, one at a time, when it settles.
+ * A runtime queues host tasks with `later` and runs its fibers on `scheduler`; the world runs
+ * both, one at a time, when it settles.
  *
  * **Details**
  *
@@ -16,102 +17,99 @@ import { Context, Layer, type Scheduler } from "effect";
  *   `show` moves it back. Hiding a hidden page tells nobody.
  * - A kill drops the queued tasks, the scheduler's queue and the hide listeners of the old page;
  *   the new page is seen.
- * - The operations are the host's synchronous primitives; the world's steps wrap them.
+ * - The operations are the host's synchronous primitives.
  */
-export class Page extends Context.Service<
-  Page,
-  {
-    readonly page: () => number;
-    readonly sessionSeed: () => number;
-    readonly later: (task: () => void) => void;
-    readonly scheduler: Scheduler.Scheduler;
-    readonly onHidden: (listener: () => void) => void;
-    readonly hidden: () => boolean;
-    readonly hide: () => void;
-    readonly show: () => void;
-    readonly runOne: () => boolean;
-    readonly tasks: () => number;
-    readonly kill: () => void;
-  }
->()("flow-state-v3/conformance/world/Page") {
-  /**
-   * The first page of a world with the given seed.
-   */
-  static readonly layer = (seed: number) =>
-    Layer.sync(Page, () => {
-      let page = 0;
-      let tasksRun = 0;
-      let fibers: ReadonlyArray<() => void> = [];
-      let tasks: ReadonlyArray<() => void> = [];
-      let listeners: ReadonlyArray<() => void> = [];
-      let visibility: "seen" | "hidden" = "seen";
+export type Page = {
+  readonly page: () => number;
+  readonly sessionSeed: () => number;
+  readonly later: (task: () => void) => void;
+  readonly scheduler: Scheduler.Scheduler;
+  readonly onHidden: (listener: () => void) => void;
+  readonly hidden: () => boolean;
+  readonly hide: () => void;
+  readonly show: () => void;
+  readonly runOne: () => boolean;
+  readonly tasks: () => number;
+  readonly kill: () => void;
+};
 
-      const dispatcher = {
-        scheduleTask: (task: () => void) => {
-          fibers = [...fibers, task];
-        },
-        flush: () => undefined,
-      };
+/**
+ * The first page of a world with the given seed.
+ */
+// RETURN_TYPE: the exported Page contract; it types the methods' parameters for the runtime.
+export const makePage = (seed: number): Page => {
+  let page = 0;
+  let tasksRun = 0;
+  let fibers: ReadonlyArray<() => void> = [];
+  let tasks: ReadonlyArray<() => void> = [];
+  let listeners: ReadonlyArray<() => void> = [];
+  let visibility: "seen" | "hidden" = "seen";
 
-      const scheduler: Scheduler.Scheduler = {
-        executionMode: "async",
-        shouldYield: () => false,
-        makeDispatcher: () => dispatcher,
-      };
+  const dispatcher = {
+    scheduleTask: (task: () => void) => {
+      fibers = [...fibers, task];
+    },
+    flush: () => undefined,
+  };
 
-      const take = (queue: ReadonlyArray<() => void>) => {
-        const [first] = queue;
+  const scheduler: Scheduler.Scheduler = {
+    executionMode: "async",
+    shouldYield: () => false,
+    makeDispatcher: () => dispatcher,
+  };
 
-        return first;
-      };
+  const take = (queue: ReadonlyArray<() => void>) => {
+    const [first] = queue;
 
-      return Page.of({
-        page: () => page,
-        sessionSeed: () => seed * 1000 + page,
-        later: (task) => {
-          tasks = [...tasks, task];
-        },
-        scheduler,
-        onHidden: (listener) => {
-          listeners = [...listeners, listener];
-        },
-        hidden: () => visibility === "hidden",
-        hide: () => {
-          if (visibility === "hidden") return;
-          visibility = "hidden";
+    return first;
+  };
 
-          for (const listener of listeners) listener();
-        },
-        show: () => {
-          visibility = "seen";
-        },
-        runOne: () => {
-          const fiber = take(fibers);
+  return {
+    page: () => page,
+    sessionSeed: () => seed * 1000 + page,
+    later: (task) => {
+      tasks = [...tasks, task];
+    },
+    scheduler,
+    onHidden: (listener) => {
+      listeners = [...listeners, listener];
+    },
+    hidden: () => visibility === "hidden",
+    hide: () => {
+      if (visibility === "hidden") return;
+      visibility = "hidden";
 
-          if (fiber !== undefined) {
-            fibers = fibers.slice(1);
-            fiber();
+      for (const listener of listeners) listener();
+    },
+    show: () => {
+      visibility = "seen";
+    },
+    runOne: () => {
+      const fiber = take(fibers);
 
-            return true;
-          }
+      if (fiber !== undefined) {
+        fibers = fibers.slice(1);
+        fiber();
 
-          const task = take(tasks);
+        return true;
+      }
 
-          if (task === undefined) return false;
-          tasks = tasks.slice(1);
-          tasksRun += 1;
-          task();
+      const task = take(tasks);
 
-          return true;
-        },
-        tasks: () => tasksRun,
-        kill: () => {
-          page += 1;
-          fibers = [];
-          tasks = [];
-          listeners = [];
-          visibility = "seen";
-        },
-      });
-    });
-}
+      if (task === undefined) return false;
+      tasks = tasks.slice(1);
+      tasksRun += 1;
+      task();
+
+      return true;
+    },
+    tasks: () => tasksRun,
+    kill: () => {
+      page += 1;
+      fibers = [];
+      tasks = [];
+      listeners = [];
+      visibility = "seen";
+    },
+  };
+};

@@ -1,4 +1,3 @@
-import { Context, Layer } from "effect";
 import type { Fact } from "../oracles/oracle.ts";
 
 /**
@@ -15,24 +14,22 @@ import type { Fact } from "../oracles/oracle.ts";
  * - `facts` is a copy of the whole timeline so far.
  * - Synchronous: a runtime reports from inside its own fibers.
  */
-export class Timeline extends Context.Service<
-  Timeline,
-  {
-    readonly record: (fact: Fact) => void;
-    readonly facts: () => ReadonlyArray<Fact>;
-  }
->()("flow-state-v3/conformance/dsl/Timeline") {
-  /**
-   * An empty timeline, one per case.
-   */
-  static readonly layer = Layer.sync(Timeline, () => {
-    const facts: Array<Fact> = [];
+export type Timeline = {
+  readonly record: (fact: Fact) => void;
+  readonly facts: () => ReadonlyArray<Fact>;
+};
 
-    return Timeline.of({
-      record: (fact) => {
-        facts.push(fact);
-      },
-      facts: () => [...facts],
-    });
-  });
-}
+/**
+ * An empty timeline, one per case.
+ */
+// RETURN_TYPE: the exported Timeline contract the Case records on.
+export const makeTimeline = (): Timeline => {
+  const facts: Array<Fact> = [];
+
+  return {
+    record: (fact) => {
+      facts.push(fact);
+    },
+    facts: () => [...facts],
+  };
+};

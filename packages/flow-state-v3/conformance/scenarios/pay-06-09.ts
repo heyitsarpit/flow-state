@@ -1,6 +1,6 @@
-import { Effect, Option } from "effect";
+import { Option } from "effect";
 import type { Actor } from "../dsl/actor.ts";
-import { Case, type Scenario, variants } from "../dsl/case.ts";
+import { type Case, type Scenario, variants } from "../dsl/case.ts";
 import { Pay } from "../fixtures/pay.ts";
 import { Answer } from "../world/network.ts";
 
@@ -10,45 +10,43 @@ const CAPTURABLE = Answer.Ok({ value: { status: "requires_capture", clientSecret
 
 type Shopper = Actor<typeof Pay>;
 
-const shopper = Case.useSync((c) => ({ c, shopper: c.actor(Pay, "shopper-1") }));
+const shopper = (c: Case) => c.actor(Pay, "shopper-1");
 
 const pay = (s: Shopper) => s.send("PayRequested", { paymentMethodId: "visa" });
 const start = (s: Shopper) => s.send("Start", CART);
 
-const onWire = Effect.gen(function* () {
-  const { c, shopper: s } = yield* shopper;
-  yield* s.ensure;
-  yield* start(s);
-  yield* pay(s);
-  yield* c.ack;
-});
+const onWire = (c: Case) => {
+  const s = shopper(c);
+  s.ensure();
+  start(s);
+  pay(s);
+  c.ack();
+};
 
-const row = (s: Shopper) => Effect.map(s.row("pay", KEY), Option.getOrUndefined);
+const row = (s: Shopper) => Option.getOrUndefined(s.row("pay", KEY));
 
-const lastReason = (c: typeof Case.Service, operation: string) =>
-  Effect.map(c.endings(operation), (endings) => endings.at(-1)?.reason);
+const lastReason = (c: Case, operation: string) => c.endings(operation).at(-1)?.reason;
 
-const sent = (c: typeof Case.Service, operation: string) =>
-  Effect.map(c.requests(operation), (requests) => requests.length);
+const sent = (c: Case, operation: string) => c.requests(operation).length;
 
-const reloadOnWire = Effect.gen(function* () {
-  const { c, shopper: s } = yield* shopper;
-  yield* onWire;
-  yield* c.reload;
-  yield* s.state("UNSURE");
-  yield* c.eq("uncertain", (yield* row(s))?.uncertain, true);
-  yield* c.eq("reason", yield* lastReason(c, "pay"), "Restored");
-  yield* c.eq("requests", yield* sent(c, "pay"), 1);
-  yield* c.answerLate("pay", CAPTURABLE);
-  yield* c.advance(3000);
-  yield* c.answer("order", Answer.Ok({ value: null }));
-  yield* c.answer("intent", Answer.Ok({ value: { status: "requires_capture" } }));
-  yield* s.state("PLACING");
-  yield* c.ack;
-  yield* c.answer("place", Answer.Ok({ value: { orderId: "o1" } }));
-  yield* s.state("PAID");
-  yield* c.eq("charges", yield* c.landed("pay"), 1);
-});
+const reloadOnWire = (c: Case) => {
+  const s = shopper(c);
+  onWire(c);
+  c.reload();
+  s.state("UNSURE");
+  c.eq("uncertain", row(s)?.uncertain, true);
+  c.eq("reason", lastReason(c, "pay"), "Restored");
+  c.eq("requests", sent(c, "pay"), 1);
+  c.answerLate("pay", CAPTURABLE);
+  c.advance(3000);
+  c.answer("order", Answer.Ok({ value: null }));
+  c.answer("intent", Answer.Ok({ value: { status: "requires_capture" } }));
+  s.state("PLACING");
+  c.ack();
+  c.answer("place", Answer.Ok({ value: { orderId: "o1" } }));
+  s.state("PAID");
+  c.eq("charges", c.landed("pay"), 1);
+};
 
 /**
  * The Pay cases `PAY-06` to `PAY-09`, ported from the prototype suite with the same steps and
@@ -62,37 +60,37 @@ export const pay0609Scenarios: ReadonlyArray<Scenario> = [
       fixtures: [Pay],
     },
     {
-      interruptible: Effect.gen(function* () {
-        const { c, shopper: s } = yield* shopper;
-        yield* onWire;
-        yield* c.answer("pay", Answer.Never());
-        yield* c.advance(8000);
-        yield* s.state("PAYING");
-        yield* c.eq("notice", (yield* s.memory).notice, "Still confirming with your bank…");
-        yield* c.eq("pending", (yield* row(s))?.pending, true);
-        yield* c.advance(52000);
-        yield* s.state("UNSURE");
-        yield* c.eq("uncertain", (yield* row(s))?.uncertain, true);
-        yield* c.eq("an unknown", (yield* c.endings("pay")).at(-1)?.channel, "unknown");
-        yield* c.answerLate("pay", CAPTURABLE);
-        yield* s.state("UNSURE");
-        yield* c.eq("uncertain", (yield* row(s))?.uncertain, true);
-        yield* c.eq("charges", yield* c.landed("pay"), 1);
-        yield* c.eq("one ending", (yield* c.endings("pay")).length, 1);
-      }),
-      uninterruptible: Effect.gen(function* () {
-        const { c, shopper: s } = yield* shopper;
-        yield* s.ensure;
-        yield* c.uninterruptible("pay");
-        yield* start(s);
-        yield* pay(s);
-        yield* c.ack;
-        yield* c.advance(60000);
-        yield* s.state("UNSURE");
-        yield* c.answerLate("pay", CAPTURABLE);
-        yield* s.state("UNSURE");
-        yield* c.eq("one ending", (yield* c.endings("pay")).length, 1);
-      }),
+      interruptible: (c) => {
+        const s = shopper(c);
+        onWire(c);
+        c.answer("pay", Answer.Never());
+        c.advance(8000);
+        s.state("PAYING");
+        c.eq("notice", s.memory().notice, "Still confirming with your bank…");
+        c.eq("pending", row(s)?.pending, true);
+        c.advance(52000);
+        s.state("UNSURE");
+        c.eq("uncertain", row(s)?.uncertain, true);
+        c.eq("an unknown", c.endings("pay").at(-1)?.channel, "unknown");
+        c.answerLate("pay", CAPTURABLE);
+        s.state("UNSURE");
+        c.eq("uncertain", row(s)?.uncertain, true);
+        c.eq("charges", c.landed("pay"), 1);
+        c.eq("one ending", c.endings("pay").length, 1);
+      },
+      uninterruptible: (c) => {
+        const s = shopper(c);
+        s.ensure();
+        c.uninterruptible("pay");
+        start(s);
+        pay(s);
+        c.ack();
+        c.advance(60000);
+        s.state("UNSURE");
+        c.answerLate("pay", CAPTURABLE);
+        s.state("UNSURE");
+        c.eq("one ending", c.endings("pay").length, 1);
+      },
     },
   ),
   ...variants(
@@ -102,46 +100,46 @@ export const pay0609Scenarios: ReadonlyArray<Scenario> = [
       fixtures: [Pay],
     },
     {
-      leaveMidCharge: Effect.gen(function* () {
-        const { c, shopper: s } = yield* shopper;
-        yield* onWire;
-        yield* s.send("Leave", {});
-        yield* s.state("LEFT");
-        yield* c.eq("still pending", (yield* row(s))?.pending, true);
-        yield* c.answer("pay", CAPTURABLE);
-        yield* s.state("LEFT");
-        yield* c.ack;
-        yield* c.eq("void sent", yield* sent(c, "void"), 1);
-        yield* c.answer("void", Answer.Ok({ value: {} }));
-        yield* s.state("LEFT");
-        yield* c.eq("notice", (yield* s.memory).notice, "The hold on your card was released.");
-        yield* c.eq("authorized", (yield* s.memory).authorized, false);
-      }),
-      "late-in-a-new-PAYING": Effect.gen(function* () {
-        const { c, shopper: s } = yield* shopper;
-        yield* onWire;
-        yield* s.send("Leave", {});
-        yield* start(s);
-        yield* pay(s);
-        yield* s.state("PAYING");
-        yield* c.answer("pay", CAPTURABLE);
-        yield* s.state("PAYING");
-        yield* c.eq("lane gone", yield* row(s), undefined);
-        yield* c.eq("charges", yield* c.landed("pay"), 1);
-      }),
-      "late-may-not-leave": Effect.gen(function* () {
-        const { c, shopper: s } = yield* shopper;
-        yield* onWire;
-        yield* c.answer("pay", CAPTURABLE);
-        yield* c.ack;
-        yield* s.send("Leave", {});
-        yield* start(s);
-        yield* pay(s);
-        yield* c.ack;
-        yield* c.answer("place", Answer.Ok({ value: { orderId: "o1" } }));
-        yield* s.state("PAYING");
-        yield* c.eq("denied", (yield* c.denials).at(-1), ["LateMayNotLeave"]);
-      }),
+      leaveMidCharge: (c) => {
+        const s = shopper(c);
+        onWire(c);
+        s.send("Leave", {});
+        s.state("LEFT");
+        c.eq("still pending", row(s)?.pending, true);
+        c.answer("pay", CAPTURABLE);
+        s.state("LEFT");
+        c.ack();
+        c.eq("void sent", sent(c, "void"), 1);
+        c.answer("void", Answer.Ok({ value: {} }));
+        s.state("LEFT");
+        c.eq("notice", s.memory().notice, "The hold on your card was released.");
+        c.eq("authorized", s.memory().authorized, false);
+      },
+      "late-in-a-new-PAYING": (c) => {
+        const s = shopper(c);
+        onWire(c);
+        s.send("Leave", {});
+        start(s);
+        pay(s);
+        s.state("PAYING");
+        c.answer("pay", CAPTURABLE);
+        s.state("PAYING");
+        c.eq("lane gone", row(s), undefined);
+        c.eq("charges", c.landed("pay"), 1);
+      },
+      "late-may-not-leave": (c) => {
+        const s = shopper(c);
+        onWire(c);
+        c.answer("pay", CAPTURABLE);
+        c.ack();
+        s.send("Leave", {});
+        start(s);
+        pay(s);
+        c.ack();
+        c.answer("place", Answer.Ok({ value: { orderId: "o1" } }));
+        s.state("PAYING");
+        c.eq("denied", c.denials().at(-1), ["LateMayNotLeave"]);
+      },
     },
   ),
   ...variants(
@@ -152,19 +150,19 @@ export const pay0609Scenarios: ReadonlyArray<Scenario> = [
     },
     {
       reloadDuringCharge: reloadOnWire,
-      "reload-while-reconciling": Effect.gen(function* () {
-        const { c, shopper: s } = yield* shopper;
-        yield* onWire;
-        yield* c.answer("pay", Answer.Lost());
-        yield* c.advance(1000);
-        yield* c.reload;
-        yield* s.state("UNSURE");
-        yield* c.eq("uncertain", (yield* row(s))?.uncertain, true);
-        yield* c.advance(1999);
-        yield* c.eq("not yet", yield* sent(c, "intent"), 0);
-        yield* c.advance(1);
-        yield* c.eq("the saved timer fired at its saved time", yield* sent(c, "intent"), 1);
-      }),
+      "reload-while-reconciling": (c) => {
+        const s = shopper(c);
+        onWire(c);
+        c.answer("pay", Answer.Lost());
+        c.advance(1000);
+        c.reload();
+        s.state("UNSURE");
+        c.eq("uncertain", row(s)?.uncertain, true);
+        c.advance(1999);
+        c.eq("not yet", sent(c, "intent"), 0);
+        c.advance(1);
+        c.eq("the saved timer fired at its saved time", sent(c, "intent"), 1);
+      },
     },
   ),
   ...variants(
@@ -174,30 +172,30 @@ export const pay0609Scenarios: ReadonlyArray<Scenario> = [
       fixtures: [Pay],
     },
     {
-      "ack-not-stored": Effect.gen(function* () {
-        const { c, shopper: s } = yield* shopper;
-        yield* s.ensure;
-        yield* start(s);
-        yield* pay(s);
-        yield* c.reload;
-        yield* c.eq("requests", yield* sent(c, "pay"), 0);
-        yield* s.state("CARD");
-        yield* c.eq("no notice: the click is gone with its process", (yield* s.memory).notice, "");
-        yield* c.eq("charges", yield* c.landed("pay"), 0);
-        yield* c.eq("row", yield* row(s), undefined);
-      }),
-      "ack-stored-confirmation-lost": Effect.gen(function* () {
-        const { c, shopper: s } = yield* shopper;
-        yield* s.ensure;
-        yield* start(s);
-        yield* pay(s);
-        yield* c.answerStorage("landNoAck", Option.none());
-        yield* c.reload;
-        yield* c.eq("requests", yield* sent(c, "pay"), 0);
-        yield* s.state("UNSURE");
-        yield* c.eq("reason", yield* lastReason(c, "pay"), "Restored");
-        yield* c.eq("uncertain", (yield* row(s))?.uncertain, true);
-      }),
+      "ack-not-stored": (c) => {
+        const s = shopper(c);
+        s.ensure();
+        start(s);
+        pay(s);
+        c.reload();
+        c.eq("requests", sent(c, "pay"), 0);
+        s.state("CARD");
+        c.eq("no notice: the click is gone with its process", s.memory().notice, "");
+        c.eq("charges", c.landed("pay"), 0);
+        c.eq("row", row(s), undefined);
+      },
+      "ack-stored-confirmation-lost": (c) => {
+        const s = shopper(c);
+        s.ensure();
+        start(s);
+        pay(s);
+        c.answerStorage("landNoAck", Option.none());
+        c.reload();
+        c.eq("requests", sent(c, "pay"), 0);
+        s.state("UNSURE");
+        c.eq("reason", lastReason(c, "pay"), "Restored");
+        c.eq("uncertain", row(s)?.uncertain, true);
+      },
     },
   ),
 ];

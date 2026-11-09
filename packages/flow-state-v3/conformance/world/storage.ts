@@ -1,5 +1,5 @@
-import { Context, Data, Layer, Option } from "effect";
-import { Page } from "./page.ts";
+import { Data, Option } from "effect";
+import type { Page } from "./page.ts";
 
 /**
  * Why the runtime writes a batch: to acknowledge an Attempt before its send, to capture a
@@ -73,84 +73,79 @@ const shuffled = <A>(items: ReadonlyArray<A>, seed: number) => {
  *
  * - Every answer is given in a later task, never inside `write`.
  */
-export class Storage extends Context.Service<
-  Storage,
-  {
-    readonly load: () => ReadonlyMap<string, string>;
-    readonly write: (
-      writes: ReadonlyArray<Write>,
-      purpose: Purpose,
-      answer: (ok: boolean) => void,
-    ) => void;
-    readonly answer: (how: StorageAnswer, match: Option.Option<string>) => number;
-    readonly entries: () => ReadonlyMap<string, string>;
-    readonly kill: () => void;
-  }
->()("flow-state-v3/conformance/world/Storage") {
-  /**
-   * An empty store whose load order is fixed by `seed` and the page.
-   */
-  static readonly layer = (seed: number) =>
-    Layer.effect(
-      Storage,
-      Page.useSync((page) => {
-        let kv: ReadonlyMap<string, string> = new Map();
-        let held: ReadonlyArray<Held> = [];
+export type Storage = {
+  readonly load: () => ReadonlyMap<string, string>;
+  readonly write: (
+    writes: ReadonlyArray<Write>,
+    purpose: Purpose,
+    answer: (ok: boolean) => void,
+  ) => void;
+  readonly answer: (how: StorageAnswer, match: Option.Option<string>) => number;
+  readonly entries: () => ReadonlyMap<string, string>;
+  readonly kill: () => void;
+};
 
-        const land = (writes: ReadonlyArray<Write>) => {
-          const next = new Map(kv);
+/**
+ * An empty store whose load order is fixed by `seed` and the page; its answers run as the page's
+ * tasks.
+ */
+// RETURN_TYPE: the exported Storage contract; it types the write and answer parameters for the runtime.
+export const makeStorage = (seed: number, page: Page): Storage => {
+  let kv: ReadonlyMap<string, string> = new Map();
+  let held: ReadonlyArray<Held> = [];
 
-          for (const w of writes)
-            Write.$match(w, {
-              Put: ({ key, value }) => next.set(key, value),
-              Remove: ({ key }) => next.delete(key),
-            });
+  const land = (writes: ReadonlyArray<Write>) => {
+    const next = new Map(kv);
 
-          kv = next;
-        };
+    for (const w of writes)
+      Write.$match(w, {
+        Put: ({ key, value }) => next.set(key, value),
+        Remove: ({ key }) => next.delete(key),
+      });
 
-        const matches = (h: Held, match: Option.Option<string>) =>
-          Option.match(match, {
-            onNone: () => true,
-            onSome: (m) => h.purpose === m || h.writes.some((w) => w.key.includes(m)),
-          });
+    kv = next;
+  };
 
-        return Storage.of({
-          load: () => new Map(shuffled([...kv], seed * 40_503 + page.page())),
-          write: (writes, purpose, answer) => {
-            if (purpose === "flush") {
-              land(writes);
-              page.later(() => answer(true));
+  const matches = (h: Held, match: Option.Option<string>) =>
+    Option.match(match, {
+      onNone: () => true,
+      onSome: (m) => h.purpose === m || h.writes.some((w) => w.key.includes(m)),
+    });
 
-              return;
-            }
+  return {
+    load: () => new Map(shuffled([...kv], seed * 40_503 + page.page())),
+    write: (writes, purpose, answer) => {
+      if (purpose === "flush") {
+        land(writes);
+        page.later(() => answer(true));
 
-            held = [...held, { writes, purpose, answer }];
-          },
-          answer: (how, match) => {
-            const chosen = held.filter((h) => matches(h, match));
-            held = held.filter((h) => !matches(h, match));
+        return;
+      }
 
-            if (how === "hang" || how === "landNoAck") {
-              if (how === "landNoAck") for (const h of chosen) land(h.writes);
+      held = [...held, { writes, purpose, answer }];
+    },
+    answer: (how, match) => {
+      const chosen = held.filter((h) => matches(h, match));
+      held = held.filter((h) => !matches(h, match));
 
-              return chosen.length;
-            }
+      if (how === "hang" || how === "landNoAck") {
+        if (how === "landNoAck") for (const h of chosen) land(h.writes);
 
-            if (how === "ack") for (const h of chosen) land(h.writes);
+        return chosen.length;
+      }
 
-            if (chosen.length > 0)
-              page.later(() => {
-                for (const h of chosen) h.answer(how === "ack");
-              });
+      if (how === "ack") for (const h of chosen) land(h.writes);
 
-            return chosen.length;
-          },
-          entries: () => kv,
-          kill: () => {
-            held = [];
-          },
+      if (chosen.length > 0)
+        page.later(() => {
+          for (const h of chosen) h.answer(how === "ack");
         });
-      }),
-    );
-}
+
+      return chosen.length;
+    },
+    entries: () => kv,
+    kill: () => {
+      held = [];
+    },
+  };
+};

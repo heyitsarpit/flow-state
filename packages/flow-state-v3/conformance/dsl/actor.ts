@@ -1,7 +1,7 @@
-import { Data, Effect, Option, Schema } from "effect";
+import { Data, Option, Schema } from "effect";
 import type { Fixture } from "../fixtures/fixture.ts";
 import { type ActorRef, Snapshot, type Use } from "../port.ts";
-import { type Drive, type Driver, Mismatch, type Step } from "./case.ts";
+import { type Drive, type Driver, Mismatch } from "./case.ts";
 
 /**
  * The events a fixture's actor takes, by name.
@@ -26,25 +26,25 @@ export type OperationName<F extends Fixture> = keyof F["operations"] & string;
  *
  * - `event` builds a {@link Drive} for `Case.send`, which sends several in one step.
  * - `state` expects one of the fixture's `states` or `(absent)` when nothing is live.
- * - `memory` is the actor's memory decoded with the fixture's Schema; it fails with `Mismatch` when
+ * - `memory` is the actor's memory decoded with the fixture's Schema; it throws `Mismatch` when
  *   nothing is live.
  * - `row` is a write's row decoded with its operation's row Schema, so its fields follow the
  *   operation's concurrency; a row that does not decode is a defect.
  */
 export type Actor<F extends Fixture> = {
   readonly ref: ActorRef;
-  readonly ensure: Step;
-  readonly ensureWith: (input: F["input"]["Type"]) => Step;
+  readonly ensure: () => void;
+  readonly ensureWith: (input: F["input"]["Type"]) => void;
   readonly event: <E extends EventName<F>>(event: E, payload: F["events"][E]["Type"]) => Drive;
-  readonly send: <E extends EventName<F>>(event: E, payload: F["events"][E]["Type"]) => Step;
-  readonly release: (use: Use) => Step;
-  readonly dispose: Step;
-  readonly state: (expected: F["states"][number] | "(absent)") => Effect.Effect<void, Mismatch>;
-  readonly memory: Effect.Effect<F["memory"]["Type"], Mismatch>;
+  readonly send: <E extends EventName<F>>(event: E, payload: F["events"][E]["Type"]) => void;
+  readonly release: (use: Use) => void;
+  readonly dispose: () => void;
+  readonly state: (expected: F["states"][number] | "(absent)") => void;
+  readonly memory: () => F["memory"]["Type"];
   readonly row: <O extends OperationName<F>>(
     operation: O,
     key: F["operations"][O]["key"]["Type"],
-  ) => Effect.Effect<Option.Option<F["operations"][O]["row"]["Type"]>>;
+  ) => Option.Option<F["operations"][O]["row"]["Type"]>;
 };
 
 /**
@@ -75,38 +75,34 @@ export const actorView = <F extends Fixture>(driver: Driver, fixture: F, id: str
 
   return {
     ref,
-    ensure: driver.ensure(ref, Option.none()),
+    ensure: () => driver.ensure(ref, Option.none()),
     ensureWith: (input) => driver.ensure(ref, Option.some(encoded(fixture.input, input))),
     event,
     send: (name, payload) => driver.send([event(name, payload)]),
     release: (use) => driver.release(ref, use),
-    dispose: driver.dispose(ref),
+    dispose: () => driver.dispose(ref),
     state: (expected) =>
-      Effect.flatMap(driver.snapshot(ref), (snapshot) =>
-        driver.eq(
-          "state",
-          Snapshot.$match(snapshot, { Live: ({ state }) => state, Absent: () => "(absent)" }),
-          expected,
-        ),
+      driver.eq(
+        "state",
+        Snapshot.$match(driver.snapshot(ref), {
+          Live: ({ state }) => state,
+          Absent: () => "(absent)",
+        }),
+        expected,
       ),
-    memory: Effect.flatMap(driver.snapshot(ref), (snapshot) =>
-      Snapshot.$match(snapshot, {
-        Live: ({ memory }) =>
-          Effect.orDie(Schema.decodeEffect(Schema.toCodecJson(fixture.memory))(memory)),
-        Absent: () =>
-          Effect.fail(new Mismatch({ label: "memory", expected: "(live)", actual: "(absent)" })),
+    memory: () =>
+      Snapshot.$match(driver.snapshot(ref), {
+        Live: ({ memory }) => Schema.decodeSync(Schema.toCodecJson(fixture.memory))(memory),
+        Absent: () => {
+          throw new Mismatch({ label: "memory", expected: "(live)", actual: "(absent)" });
+        },
       }),
-    ),
     row: (operation, key) => {
       const write = declared(fixture.operations, operation);
 
-      return Effect.flatMap(
+      return Option.map(
         driver.row(ref, operation, encoded(write.key, key)),
-        Option.match({
-          onNone: () => Effect.succeed(Option.none()),
-          onSome: (json) =>
-            Effect.map(Effect.orDie(Schema.decodeUnknownEffect(write.row)(json)), Option.some),
-        }),
+        Schema.decodeUnknownSync(write.row),
       );
     },
   };

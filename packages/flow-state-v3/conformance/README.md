@@ -32,19 +32,19 @@ non-zero exit code on a failure.
 
 ## Layout
 
-| Path                              | What it is                                                                                                                                                                                                                      |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `port.ts`                         | The contract between the suite and a runtime: the `Runtime` service, the `Boot` service, `Observation`, `Snapshot`, `Row`, `ActorRef`, `Json`, `PageKilled`.                                                                    |
-| `adapters/prototype.ts`           | `PrototypeRuntime.layer` over round-14, and `loadPrototype` (its `adapter.ts` and typed fixtures, by path). `prototype-reports.ts` decodes its evidence into observations.                                                      |
-| `adapters/null.ts`                | `NullRuntime.layer`: a runtime that does nothing; falsify requires every case to fail on it.                                                                                                                                    |
-| `world/`                          | The fake world, one service per host with its Layer: `WorldClock` (and Effect's `Clock` over it), `Page` (generation, task queue, Effect `Scheduler`, visibility), `Storage`, `Network`; `World` owns settle, advance and kill. |
-| `dsl/case.ts`                     | The scenario DSL: `Scenario` and the `Case` service, built per case. Steps settle the world and run every oracle.                                                                                                               |
-| `dsl/actor.ts`, `dsl/timeline.ts` | The typed actor view `Case.actor(fixture, id)` gives; the `Timeline` service (the case's facts).                                                                                                                                |
-| `oracles/`                        | One module per guarantee (`<name>.ts`) with its lies beside it (`<name>.lies.ts`); `oracle.ts` holds the timeline (`Fact`), `Oracle`, `Lie` and `Guarantee` (an oracle with its lies).                                          |
-| `fixtures/`                       | The suite's fixtures: `fixture.ts` (the `Fixture` type: Schemas of events, memory, input and write keys), `pay.ts`, `lab.ts`; `reference.ts`, the expectations of each write written by hand from the fixture's source.         |
-| `scenarios/`                      | Cases, one file per area.                                                                                                                                                                                                       |
-| `suite.ts`                        | The registry: every guarantee (oracle and its lies) and every case.                                                                                                                                                             |
-| `runner/`                         | `main.ts` (CLI), `run.ts` (cases in process), `falsify.ts` (lies on copies), `child.ts` (bounded child processes), `verdict.ts` (the verdict line children print).                                                              |
+| Path                              | What it is                                                                                                                                                                                                              |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `port.ts`                         | The contract between the suite and a runtime: `Port` (`boot`), `Boot`, `Runtime`, `Observation`, `Snapshot`, `ActorRef`, `Json`.                                                                                        |
+| `adapters/prototype.ts`           | `prototypePort` over round-14, and `loadPrototype` (its `adapter.ts` and typed fixtures, by path). `prototype-reports.ts` decodes its evidence into observations.                                                       |
+| `adapters/null.ts`                | `nullPort`: a runtime that does nothing; falsify requires every case to fail on it.                                                                                                                                     |
+| `world/`                          | The fake world, plain owned state: `WorldClock`, `Page` (generation, task queue, Effect `Scheduler`, visibility), `Storage`, `Network`; `makeWorld` owns settle, advance and kill.                                      |
+| `dsl/case.ts`                     | The scenario DSL: `Scenario` (`run: (c: Case) => void`) and `openCase`, one `Case` per case and seed. Steps settle the world and run every oracle.                                                                      |
+| `dsl/actor.ts`, `dsl/timeline.ts` | The typed actor view `c.actor(fixture, id)` gives; the case's `Timeline` (its facts).                                                                                                                                   |
+| `oracles/`                        | One module per guarantee (`<name>.ts`) with its lies beside it (`<name>.lies.ts`); `oracle.ts` holds the timeline (`Fact`), `Oracle`, `Lie` and `Guarantee` (an oracle with its lies).                                  |
+| `fixtures/`                       | The suite's fixtures: `fixture.ts` (the `Fixture` type: Schemas of events, memory, input and write keys), `pay.ts`, `lab.ts`; `reference.ts`, the expectations of each write written by hand from the fixture's source. |
+| `scenarios/`                      | Cases, one file per area.                                                                                                                                                                                               |
+| `suite.ts`                        | The registry: every guarantee (oracle and its lies) and every case.                                                                                                                                                     |
+| `runner/`                         | `main.ts` (CLI), `run.ts` (cases in process), `falsify.ts` (lies on copies), `child.ts` (bounded child processes), `verdict.ts` (the verdict line children print).                                                      |
 
 ## Decisions
 
@@ -71,36 +71,33 @@ Round 1's, the runner's (recorded as such; the user may overrule):
    catch it (round 2: one registry entry per oracle, so an oracle with no lie fails falsify).
    Falsify judges "caught" when that oracle is among those that failed a case in the failing step;
    red for another reason only is `BAD`.
-6. **The suite is an edge and uses Effect services** (round 4, replacing round 1's "not
-   services"; lint-bomb STYLE.md §1 and §3). Each capability with alternative implementations is
-   one `Context.Service` contract, each implementation a Layer; state and lifetimes belong to
-   services; pure transformations stay plain:
-   - `Runtime` is a service; `PrototypeRuntime.layer(loaded)` and `NullRuntime.layer` implement
-     it (a production Layer in phase 4). `PrototypeRuntime.layer` needs `Boot` (the boot's
-     parameters) and the world's hosts and is scoped: building it boots, closing its scope
-     disposes the Runtime. A reload kills the page, interrupts the boot's scope (Effect's own
-     exit for a killed page: the release disposes nothing, since a dead page runs nothing) and
-     builds the Layer again over the same world. `NullRuntime.layer` needs nothing.
-   - The world's hosts are services with Layers: `WorldClock`, `Page` and `Storage` (from the
-     world seed), `Network`; `World` composes them and owns settle, advance and kill. Their
-     operations are the host's synchronous primitives (as a page's `setTimeout` and IndexedDB
-     callbacks are), which the prototype's host takes as callbacks; the Case is the Effect
-     boundary, and the `Runtime`'s operations are synchronous.
-   - What phase 4 must add for a production runtime, none of it built yet: Layers providing
-     Effect's own `Clock` (time and sleeps on `WorldClock`'s timers) and `Scheduler` (fibers on
-     `Page`'s queue), if the production host reads time and runs fibers through them (a scratch
-     check this round showed an `Effect.sleep` under such a `Clock` waking only when the world
-     advances past it); a storage port in production's own host contract over `Storage`; and the
-     production Runtime's Layer, whose release must treat an interrupted scope as a killed page.
-     Until then the claim is only that the shapes allow it.
-   - `Case` is a service built per case (`Case.layer`) from the Runtime Layer, the World and the
-     `Timeline` service. Scenarios are `Effect.gen` values that `yield* Case`; steps fail with
-     `Violated`, expectations with `Mismatch`, and scenario bugs die.
+6. **The fake world is plain owned state with synchronous steps; scenarios are plain functions**
+   (round 5, the user's call). Round 4 (commit `c7f72a9c`, with `3097ea3c`'s fixes) made the
+   `Runtime`, the world's hosts, the `Timeline` and the `Case` Effect services with scoped
+   Layers; round 5 reverted that restructure, for the user's reason: the scenarios had to
+   `yield*` every step, which was noise that turned simple code into noisy code. Everything else
+   from round 4 stays (typed fixtures and actor views, the JSON Port, the review fixes and lies).
+   - A `Port` (`port.ts`) has one operation, `boot(boot) => Runtime`: `prototypePort(loaded)` and
+     `nullPort` now, a production one in phase 4. `Boot` carries the boot's parameters and the
+     world's `hosts`. A reload kills the page, drops the dead page's Runtime without disposing it
+     (a dead page runs nothing) and boots again over the same world.
+   - The world (`makeWorld(seed)`) is plain state owned by one case: its hosts `WorldClock`,
+     `Page`, `Storage` and `Network` are records of the host's synchronous primitives (as a
+     page's `setTimeout` and IndexedDB callbacks are), which the prototype's host takes as
+     callbacks; the world owns settle, advance and kill.
+   - `openCase` builds a `Case` per case and seed. A scenario's `run` is a plain function
+     `(c: Case) => void`; steps throw `Violated`, expectations throw `Mismatch`, and anything else
+     thrown is a defect. The runner turns each into a `Fail`.
    - Oracles stay pure functions over the timeline.
-   - The runner keeps bounded concurrency for `--parallel`, scoped copies, killable child
-     processes with time bounds and Schema for the verdict line. `@effect/platform-node`'s
+   - Effect stays at the edges: the runner (process, bounded concurrency for `--parallel`, scoped
+     copies, killable child processes with time bounds, Schema for the verdict line), loading the
+     prototype by path, and Schema decoding at the adapter boundary. `@effect/platform-node`'s
      runner is pinned to another Effect version and fails at run time, so `main.ts` calls
      `Effect.runFork` itself (suppressed with that reason).
+   - What phase 4 must add for a production runtime, none of it built yet: Effect's own `Clock`
+     (time and sleeps on `WorldClock`'s timers) and `Scheduler` (fibers on `Page`'s queue) for
+     the production runtime, if its host reads time and runs fibers through them; a storage port
+     in production's own host contract over `Storage`; and the production Port.
 7. **Runs use bun**: the prototype runtime is TypeScript that bun runs directly. Revisit when the
    prototype adapter retires.
 8. **Determinism and ids** (round 2): the suite gives each boot a session seed as data
@@ -115,7 +112,7 @@ Round 1's, the runner's (recorded as such; the user may overrule):
 10. **Attribution** (round 2): round-14 reports no actor on a mint, a decline or a delivery; the
     prototype adapter attributes each to the turn that follows it in the same report batch
     (prototype limit; production reports the actor itself).
-11. **Typed fixtures, JSON Port** (round 4): the `Runtime` service is the same for every fixture,
+11. **Typed fixtures, JSON Port** (round 4): the `Runtime` is the same for every fixture,
     so its values (event payloads, inputs, keys, memory) are `Schema.Json`. A fixture
     (`fixtures/fixture.ts`) carries the Schemas of its events, memory, input and write keys;
     `Case.actor(Pay, "shopper-1")` gives a view typed by them, which encodes values with
@@ -133,34 +130,29 @@ Round 1's, the runner's (recorded as such; the user may overrule):
 
 ## The Port
 
-Built (rounds 2 to 4; round 4 made it services and JSON):
+Built (rounds 2 to 4; round 4 made its values JSON; round 5 reverted round 4's services):
 
 ```ts
-class Boot extends Context.Service<
-  Boot,
-  {
-    fixtures: string[]; // catalog names
-    captureMs: number;
-    sessionSeed: number; // the runtime mints Attempt ids from it
-    observe: (o: Observation) => void;
-  }
-> {}
+type Port = { boot(boot: Boot): Runtime }; // one per runtime: prototypePort(loaded), nullPort
+type Boot = {
+  fixtures: string[]; // catalog names
+  captureMs: number;
+  sessionSeed: number; // the runtime mints Attempt ids from it
+  hosts: Hosts; // clock, page, storage, network
+  observe: (o: Observation) => void;
+};
 type Use = "story" | "host" | "component";
-class Runtime extends Context.Service<
-  Runtime,
-  {
-    // a Layer per runtime; needs Boot and the hosts
-    ensure(actor, input: Option<Json>, use: Use): void; // one use, creating the identity if needed
-    ensureExisting(actor, use: Use): void; // one use of a live or restorable identity
-    release(actor, use: Use): void; // ends one use; the grace decides the life
-    send(actor, event, payload: Json): void;
-    dispose(actor): void;
-    disposeRuntime(): void; // starts the Runtime's disposal; RuntimeDisposed reports its end
-    snapshot(actor): Snapshot; // Live { state, memory: Json } | Absent
-    row(actor, operation, key: Json): Option<Json>; // the public O.x.get row; the fixture decodes it by policy (Reads R14)
-    pending(): boolean; // settling only
-  }
-> {}
+type Runtime = {
+  ensure(actor, input: Option<Json>, use: Use): void; // one use, creating the identity if needed
+  ensureExisting(actor, use: Use): void; // one use of a live or restorable identity
+  release(actor, use: Use): void; // ends one use; the grace decides the life
+  send(actor, event, payload: Json): void;
+  dispose(actor): void;
+  disposeRuntime(): void; // starts the Runtime's disposal; RuntimeDisposed reports its end
+  snapshot(actor): Snapshot; // Live { state, memory: Json } | Absent
+  row(actor, operation, key: Json): Option<Json>; // the public O.x.get row; the fixture decodes it by policy (Reads R14)
+  pending(): boolean; // settling only
+};
 // Observation: Turn, Minted { actor, key }, Sent, Ended { actor (a decline's), failure (StillUnknown's) },
 // Delivered { actor }, Parked, Unparked, Recorded { why: ignored | evidence | letGo },
 // Unhandled, Denied { reasons }, Evidence { Superseded | Released | InFlight | NothingToResend |
@@ -218,9 +210,9 @@ the case holds.
 - Round-14 has no idle row: a key with no lane reads `None`, where Reads R14 makes `O.x.get`
   total (the idle row). Cases expect `None` for "lane gone"; production must return the idle row,
   and those expectations change with the production adapter.
-- At a case's end the boot's scope closes and the Runtime is disposed after the last judged step:
-  that disposal is not judged, and a Runtime the case already disposed is disposed again (Actors
-  R20 makes it idempotent). A judged disposal at every case's end is a round-5 item.
+- At a case's end the Runtime is dropped with its world, not disposed (round 5; round 4's scoped
+  Layers disposed it, unjudged, after the last step). A judged disposal at every case's end is an
+  open item.
 - `attempt-identity`'s check that a send names the operation its Attempt was minted under has no
   lie that isolates it: `lie.sent-under-another-operation` is caught by the same oracle's count
   check.

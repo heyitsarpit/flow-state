@@ -1,6 +1,6 @@
-import { Effect, Option } from "effect";
+import { Option } from "effect";
 import type { Actor } from "../dsl/actor.ts";
-import { Case, type Scenario, variants } from "../dsl/case.ts";
+import { type Case, type Scenario, variants } from "../dsl/case.ts";
 import { Cells, Pay } from "../fixtures/pay.ts";
 import { Answer } from "../world/network.ts";
 
@@ -10,29 +10,27 @@ const CAPTURABLE = Answer.Ok({ value: { status: "requires_capture", clientSecret
 
 type Shopper = Actor<typeof Pay>;
 
-const shopper = Case.useSync((c) => ({ c, shopper: c.actor(Pay, "shopper-1") }));
+const shopper = (c: Case) => c.actor(Pay, "shopper-1");
 
-const cellsShopper = Case.useSync((c) => ({ c, shopper: c.actor(Cells, "shopper-1") }));
+const cellsShopper = (c: Case) => c.actor(Cells, "shopper-1");
 
 const pay = (s: Shopper) => s.send("PayRequested", { paymentMethodId: "visa" });
 
 const start = (s: Shopper) => s.send("Start", CART);
 
-const onWire = Effect.gen(function* () {
-  const { c, shopper: s } = yield* shopper;
-  yield* s.ensure;
-  yield* start(s);
-  yield* pay(s);
-  yield* c.ack;
-});
+const onWire = (c: Case) => {
+  const s = shopper(c);
+  s.ensure();
+  start(s);
+  pay(s);
+  c.ack();
+};
 
-const row = (s: Shopper) => Effect.map(s.row("pay", KEY), Option.getOrUndefined);
+const row = (s: Shopper) => Option.getOrUndefined(s.row("pay", KEY));
 
-const lastReason = (c: typeof Case.Service, operation: string) =>
-  Effect.map(c.endings(operation), (endings) => endings.at(-1)?.reason);
+const lastReason = (c: Case, operation: string) => c.endings(operation).at(-1)?.reason;
 
-const sent = (c: typeof Case.Service, operation: string) =>
-  Effect.map(c.requests(operation), (requests) => requests.length);
+const sent = (c: Case, operation: string) => c.requests(operation).length;
 
 /**
  * The Pay cases that dispose the Runtime: `PAY-13`, `PAY-15/dispose-held` and the disposal
@@ -56,69 +54,65 @@ export const disposalScenarios: ReadonlyArray<Scenario> = [
       fixtures: [Pay],
     },
     {
-      "hung-commit": Effect.gen(function* () {
-        const { c, shopper: s } = yield* shopper;
-        yield* s.ensure;
-        yield* c.uninterruptible("pay");
-        yield* start(s);
-        yield* pay(s);
-        yield* c.ack;
-        yield* c.disposeRuntime;
-        yield* c.eq("not yet", yield* c.runtimeDisposals, 0);
-        yield* c.advance(5000);
-        yield* c.eq("disposed", yield* c.runtimeDisposals, 1);
-        yield* c.reload;
-        yield* s.state("UNSURE");
-        yield* c.eq("reason", yield* lastReason(c, "pay"), "Disposed");
-      }),
-      "waiting-flushed": Effect.gen(function* () {
-        const { c, shopper: s } = yield* shopper;
-        yield* s.ensure;
-        yield* start(s);
-        yield* pay(s);
-        yield* c.disposeRuntime;
-        yield* c.ack;
-        yield* c.eq("disposed once the last write is answered", yield* c.runtimeDisposals, 1);
-        yield* c.eq("requests", yield* sent(c, "pay"), 0);
-        yield* c.reload;
-        yield* s.state("CARD");
-        yield* c.eq("reason", yield* lastReason(c, "pay"), "Disposed");
-        yield* c.eq("no send after boot", yield* sent(c, "pay"), 0);
-      }),
-      "waiting-flush-lost": Effect.gen(function* () {
-        const { c, shopper: s } = yield* shopper;
-        yield* s.ensure;
-        yield* start(s);
-        yield* pay(s);
-        yield* c.disposeRuntime;
-        yield* c.reload;
-        yield* s.state("CARD");
-        yield* c.eq(
-          "nothing on disk, so no Restored after it",
-          yield* lastReason(c, "pay"),
-          "Disposed",
-        );
-        yield* c.eq("no send after boot", yield* sent(c, "pay"), 0);
-      }),
+      "hung-commit": (c) => {
+        const s = shopper(c);
+        s.ensure();
+        c.uninterruptible("pay");
+        start(s);
+        pay(s);
+        c.ack();
+        c.disposeRuntime();
+        c.eq("not yet", c.runtimeDisposals(), 0);
+        c.advance(5000);
+        c.eq("disposed", c.runtimeDisposals(), 1);
+        c.reload();
+        s.state("UNSURE");
+        c.eq("reason", lastReason(c, "pay"), "Disposed");
+      },
+      "waiting-flushed": (c) => {
+        const s = shopper(c);
+        s.ensure();
+        start(s);
+        pay(s);
+        c.disposeRuntime();
+        c.ack();
+        c.eq("disposed once the last write is answered", c.runtimeDisposals(), 1);
+        c.eq("requests", sent(c, "pay"), 0);
+        c.reload();
+        s.state("CARD");
+        c.eq("reason", lastReason(c, "pay"), "Disposed");
+        c.eq("no send after boot", sent(c, "pay"), 0);
+      },
+      "waiting-flush-lost": (c) => {
+        const s = shopper(c);
+        s.ensure();
+        start(s);
+        pay(s);
+        c.disposeRuntime();
+        c.reload();
+        s.state("CARD");
+        c.eq("nothing on disk, so no Restored after it", lastReason(c, "pay"), "Disposed");
+        c.eq("no send after boot", sent(c, "pay"), 0);
+      },
     },
   ),
   {
     id: "PAY-15/dispose-held",
     cites: ["Actors R22", "Actors I29"],
     fixtures: [Cells],
-    run: Effect.gen(function* () {
-      const { c, shopper: s } = yield* cellsShopper;
-      yield* s.ensure;
-      yield* start(s);
-      yield* pay(s);
-      yield* c.ack;
-      yield* c.answer("pay", Answer.Lost());
-      yield* c.disposeRuntime;
-      yield* c.eq("disposed", yield* c.runtimeDisposals, 1);
-      yield* c.reload;
-      yield* s.state("UNSURE");
-      yield* c.eq("uncertain", (yield* row(s))?.uncertain, true);
-    }),
+    run: (c) => {
+      const s = cellsShopper(c);
+      s.ensure();
+      start(s);
+      pay(s);
+      c.ack();
+      c.answer("pay", Answer.Lost());
+      c.disposeRuntime();
+      c.eq("disposed", c.runtimeDisposals(), 1);
+      c.reload();
+      s.state("UNSURE");
+      c.eq("uncertain", row(s)?.uncertain, true);
+    },
   },
   ...variants(
     {
@@ -127,69 +121,68 @@ export const disposalScenarios: ReadonlyArray<Scenario> = [
       fixtures: [Pay],
     },
     {
-      "settled-during-disposal-parked": Effect.gen(function* () {
-        const { c, shopper: s } = yield* shopper;
-        yield* onWire;
-        yield* c.disposeRuntime;
-        yield* c.eq("not yet: the commit may settle", yield* c.runtimeDisposals, 0);
-        yield* c.answer("pay", CAPTURABLE);
-        yield* c.eq("disposed once the wire is empty", yield* c.runtimeDisposals, 1);
-        yield* c.eq("its own ending", (yield* c.endings("pay")).at(-1)?.channel, "success");
-        yield* c.reload;
-        yield* s.state("PLACING");
-        yield* c.eq(
+      "settled-during-disposal-parked": (c) => {
+        const s = shopper(c);
+        onWire(c);
+        c.disposeRuntime();
+        c.eq("not yet: the commit may settle", c.runtimeDisposals(), 0);
+        c.answer("pay", CAPTURABLE);
+        c.eq("disposed once the wire is empty", c.runtimeDisposals(), 1);
+        c.eq("its own ending", c.endings("pay").at(-1)?.channel, "success");
+        c.reload();
+        s.state("PLACING");
+        c.eq(
           "no Restored: the parked ending is delivered",
-          (yield* c.endings("pay")).some((e) => e.reason === "Restored"),
+          c.endings("pay").some((e) => e.reason === "Restored"),
           false,
         );
-      }),
-      "on-the-wire-at-the-bound-ends-unknown-disposed": Effect.gen(function* () {
-        const { c, shopper: s } = yield* shopper;
-        yield* onWire;
-        yield* c.disposeRuntime;
-        yield* c.advance(4_999);
-        yield* c.eq("within the bound", yield* c.runtimeDisposals, 0);
-        yield* c.advance(1);
-        yield* c.eq("the bound ends it", yield* c.runtimeDisposals, 1);
-        yield* c.eq(
+      },
+      "on-the-wire-at-the-bound-ends-unknown-disposed": (c) => {
+        const s = shopper(c);
+        onWire(c);
+        c.disposeRuntime();
+        c.advance(4_999);
+        c.eq("within the bound", c.runtimeDisposals(), 0);
+        c.advance(1);
+        c.eq("the bound ends it", c.runtimeDisposals(), 1);
+        c.eq(
           "unknown { Disposed }",
-          [(yield* c.endings("pay")).at(-1)?.channel, yield* lastReason(c, "pay")],
+          [c.endings("pay").at(-1)?.channel, lastReason(c, "pay")],
           ["unknown", "Disposed"],
         );
-        yield* c.reload;
-        yield* s.state("UNSURE");
-        yield* c.eq(
+        c.reload();
+        s.state("UNSURE");
+        c.eq(
           "no Restored: the parked ending is delivered",
-          (yield* c.endings("pay")).some((e) => e.reason === "Restored"),
+          c.endings("pay").some((e) => e.reason === "Restored"),
           false,
         );
-      }),
-      "dispose-waiting-resend": Effect.gen(function* () {
-        const { c } = yield* shopper;
-        yield* onWire;
-        yield* c.answer("pay", Answer.Lost());
-        yield* c.advance(3000);
-        yield* c.answer("order", Answer.Ok({ value: null }));
-        yield* c.answer("intent", Answer.Ok({ value: { status: "requires_payment_method" } }));
-        yield* c.disposeRuntime;
-        yield* c.eq(
+      },
+      "dispose-waiting-resend": (c) => {
+        onWire(c);
+        c.answer("pay", Answer.Lost());
+        c.advance(3000);
+        c.answer("order", Answer.Ok({ value: null }));
+        c.answer("intent", Answer.Ok({ value: { status: "requires_payment_method" } }));
+        c.disposeRuntime();
+        c.eq(
           "no Disposed ending",
-          (yield* c.endings("pay")).some((e) => e.reason === "Disposed"),
+          c.endings("pay").some((e) => e.reason === "Disposed"),
           false,
         );
-      }),
-      "disposal-ends-with-the-last-fiber": Effect.gen(function* () {
-        const { c, shopper: s } = yield* shopper;
-        yield* s.ensure;
-        yield* c.uninterruptible("pay");
-        yield* start(s);
-        yield* pay(s);
-        yield* c.ack;
-        yield* c.disposeRuntime;
-        yield* c.eq("not yet", yield* c.runtimeDisposals, 0);
-        yield* c.answerLate("pay", CAPTURABLE);
-        yield* c.eq("finished when it ended", yield* c.runtimeDisposals, 1);
-      }),
+      },
+      "disposal-ends-with-the-last-fiber": (c) => {
+        const s = shopper(c);
+        s.ensure();
+        c.uninterruptible("pay");
+        start(s);
+        pay(s);
+        c.ack();
+        c.disposeRuntime();
+        c.eq("not yet", c.runtimeDisposals(), 0);
+        c.answerLate("pay", CAPTURABLE);
+        c.eq("finished when it ended", c.runtimeDisposals(), 1);
+      },
     },
   ),
 ];

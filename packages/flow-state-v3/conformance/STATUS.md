@@ -387,3 +387,29 @@ check).
    delivered last" (I21).
 3. Keyed lanes once a runtime reports `Minted.key`; drop `keyFields` then.
 4. Shared scenario helpers (one module for Pay's shopper steps).
+
+## Round 5 (2026-11-09): services reverted
+
+The user: the scenarios had to `yield*` every step, noise that turned simple code into noisy
+code; revert the `Context.Service` change specifically. Round 4's restructure (`c7f72a9c`, with
+`3097ea3c`'s fixes) is reverted to the round 3 shape (`714ace7a`): a `Port` whose `boot` returns
+a plain `Runtime` record; the world plain owned state (`makeWorld`, `makeClock`, `makePage`,
+`makeStorage`, `makeNetwork`, `makeTimeline`) with synchronous steps; `openCase` builds a plain
+`Case`; a scenario's `run` is `(c: Case) => void`, steps and reads are plain calls that throw
+`Violated` or `Mismatch`. README decision 6 records it.
+
+- Kept from round 4: fixtures typed by their Schemas, typed actor views, the JSON Port, the review
+  fixes H1 to M5 and their lies, rows per Reads R14, actors required on `Minted`, `page.ts`'s name.
+- Effect stays where it was before round 4: the runner and loading the prototype, and Schema at the
+  adapter boundary.
+- One behaviour change, not judged: the Runtime is no longer disposed at a case's end (round 4's
+  scope release did it after the last judged step). README's stated limit says so; for round 5's
+  item 1 it is now an open item.
+- Parity: the suite `--json`, null `--json` and `falsify --sweep --parallel 5` outputs are
+  byte-identical to HEAD before the change (61/61; 61 null failures with the same texts; 25/25
+  lies caught). `nub run check`: zero errors, zero warnings, nothing waived. `yield*` in
+  `scenarios/`: 0 (736 before).
+- Lint: two findings fixed with reasons on the line: `runner/run.ts`'s thrown-value `unknown`
+  (`FLOW_STATE_ALLOW_UNKNOWN:`) and `runtimeOf`'s return type (`RETURN_TYPE:`).
+- Scenario files were rewritten by hand with Write from a mechanical preview (a script that
+  printed the converted text, writing no file).

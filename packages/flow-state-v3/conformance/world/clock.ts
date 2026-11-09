@@ -1,4 +1,4 @@
-import { Context, Layer, Option } from "effect";
+import { Option } from "effect";
 
 type Timer = { readonly at: number; readonly order: number; readonly fire: () => void };
 
@@ -19,64 +19,62 @@ const earliest = (a: Timer, b: Timer) =>
  *   same place every run.
  * - A kill drops every armed timer: a timer belongs to its page.
  * - The operations are the host's synchronous primitives, as a page's `Date.now` and `setTimeout`
- *   are; the world's steps wrap them.
+ *   are.
  */
-export class WorldClock extends Context.Service<
-  WorldClock,
-  {
-    readonly now: () => number;
-    readonly work: () => number;
-    readonly arm: (at: number, fire: () => void) => () => void;
-    readonly nextDue: (until: number) => Option.Option<Timer>;
-    readonly fire: (timer: Timer) => void;
-    readonly moveTo: (time: number) => void;
-    readonly armed: () => ReadonlyArray<number>;
-    readonly kill: () => void;
-  }
->()("flow-state-v3/conformance/world/WorldClock") {
-  /**
-   * A clock at time 0 with no timers, one per world.
-   */
-  static readonly layer = Layer.sync(WorldClock, () => {
-    let time = 0;
-    let worked = 0;
-    let order = 0;
-    let timers: ReadonlyArray<Timer> = [];
+export type WorldClock = {
+  readonly now: () => number;
+  readonly work: () => number;
+  readonly arm: (at: number, fire: () => void) => () => void;
+  readonly nextDue: (until: number) => Option.Option<Timer>;
+  readonly fire: (timer: Timer) => void;
+  readonly moveTo: (time: number) => void;
+  readonly armed: () => ReadonlyArray<number>;
+  readonly kill: () => void;
+};
 
-    return WorldClock.of({
-      now: () => time,
-      work: () => {
-        worked += 0.01;
+/**
+ * A clock at time 0 with no timers, one per world.
+ */
+// RETURN_TYPE: the exported WorldClock contract; it types the methods' parameters for the runtime.
+export const makeClock = (): WorldClock => {
+  let time = 0;
+  let worked = 0;
+  let order = 0;
+  let timers: ReadonlyArray<Timer> = [];
 
-        return worked;
-      },
-      arm: (at, fire) => {
-        order += 1;
-        const timer = { at, order, fire };
-        timers = [...timers, timer];
+  return {
+    now: () => time,
+    work: () => {
+      worked += 0.01;
 
-        return () => {
-          timers = timers.filter((t) => t !== timer);
-        };
-      },
-      nextDue: (until) =>
-        Option.fromUndefinedOr(
-          timers
-            .filter((t) => t.at <= until)
-            .reduce<Timer | undefined>((a, b) => (a === undefined ? b : earliest(a, b)), undefined),
-        ),
-      fire: (timer) => {
+      return worked;
+    },
+    arm: (at, fire) => {
+      order += 1;
+      const timer = { at, order, fire };
+      timers = [...timers, timer];
+
+      return () => {
         timers = timers.filter((t) => t !== timer);
-        time = Math.max(time, timer.at);
-        timer.fire();
-      },
-      moveTo: (next) => {
-        time = Math.max(time, next);
-      },
-      armed: () => timers.map((t) => t.at),
-      kill: () => {
-        timers = [];
-      },
-    });
-  });
-}
+      };
+    },
+    nextDue: (until) =>
+      Option.fromUndefinedOr(
+        timers
+          .filter((t) => t.at <= until)
+          .reduce<Timer | undefined>((a, b) => (a === undefined ? b : earliest(a, b)), undefined),
+      ),
+    fire: (timer) => {
+      timers = timers.filter((t) => t !== timer);
+      time = Math.max(time, timer.at);
+      timer.fire();
+    },
+    moveTo: (next) => {
+      time = Math.max(time, next);
+    },
+    armed: () => timers.map((t) => t.at),
+    kill: () => {
+      timers = [];
+    },
+  };
+};
