@@ -514,3 +514,23 @@ Conflicts:
   one sentence.
 - **Not changed, noted.** The build stages S1-S11 predate the roadmap's phases 3-9; they do not contradict it (they
   order work inside phases 4 and 5) and the design does not touch them, so they stay.
+
+## LazyFeatures
+
+Rows merged: C50, C105 (LazyFeatures O2), and the consequences of C143, C152 and C211 (PC1, PC2).
+
+| # | Outcome | Before | After | Decision |
+| --- | --- | --- | --- | --- |
+| L-1 | O2 | "An actor's send(ref, ...) never adopts or creates its target ... SendTargetAbsent, with details.adopted false" | never adopts a lazy entry or creates an actor, may restore; `NotAdopted` | C105 |
+| L-2 | O3 | (none) | dormant lane records, undecoded and uninvoked, with parked endings | C50 |
+| L-3 | O3 | "or a version change discards the scope" | removed | C211 |
+| L-4 | O3 | dormant record discarded at adoption | quarantined; a fresh ensure, `RecordUndecodable`, lanes adopted; Persistence O5's checks at adoption | C143; PC2 |
+| L-5 | O3 | orphans discarded | actor records discarded, lane records quarantined | C152; PC1 |
+| L-6 | O3 | "the actor receives its unknown outcome when adopted" | "unknown { Restored }" | C126 |
+
+Counts: 6 edits; 4 superseded sentences marked (O2: 1, O3: 3).
+
+Conflicts: none new (PC1, PC2 carried from Persistence).
+
+Prototype check (S2): dormant lazy records exist in the prototype only as lane records parked for a later ensure; the
+lazy loading itself was never built, so the plan keeps its content.
