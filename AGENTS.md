@@ -8,7 +8,7 @@
 - `reference/` — historical. Read-only. Archived plans, tasks and Beads were deleted (commit `20986677` has them).
 - `packages/flow-state-v3/` — the current build; runtime first. Prototypes are in its `prototypes/` and never become production code.
 - `packages/flow-state-rewrite/`, `packages/flow-state/` — frozen, never edit.
-- `apps/docs/`, `apps/features/` — docs. Generated files are produced by commands; don't hand-edit them.
+- `apps/docs/` — docs. Generated files are produced by commands; don't hand-edit them.
 - `codebases/effect-v4/` — Effect reference. Installed packages are what's authoritative.
 
 ## Workflow records
