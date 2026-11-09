@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # Per Spec: invariants that no test in the tests section cites.
 use strict; use warnings;
-for my $f (glob "/Users/arpit/Developer/flow-state/specs/core/*.spec") {
+for my $f (glob "/Users/arpit/Developer/flow-state/workflow/specs/core/*.spec") {
   open my $h, '<', $f or die; my @l = <$h>;
   my (%inv, $intests, $tests);
   my $sec = "";

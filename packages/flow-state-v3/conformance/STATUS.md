@@ -235,7 +235,7 @@ Built:
 - Ported: `PAY-13` (3), `PAY-15/dispose-held`, `PAY-16` disposal variants (4), `PAY-18`,
   `PAY-19` (2), `PAY-20` (2). Not ported: `PAY-17` (5 variants, module and core faults, never a
   Port part), `PAY-16/parked-success-is-delivered` (a yield fault).
-- Spec changes (`specs/spec-log.md`, round 3): WriteLanes R14's Idle cell, and three
+- Spec changes (`workflow/specs/spec-log.md`, round 3): WriteLanes R14's Idle cell, and three
   wrong-runtime moves (`lane.promote-skips-durable` to WriteAhead T7, `lost.letgo-silent` to T6,
   T10's idle lie).
 

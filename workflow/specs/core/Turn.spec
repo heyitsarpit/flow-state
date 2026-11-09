@@ -1,7 +1,7 @@
 spec Turn
 status        proposed
 basis         A guide, revisable whenever building shows it wrong; each change and its
-              reason is recorded in specs/spec-log.md.
+              reason is recorded in workflow/specs/spec-log.md.
               Written from the merged flow plans (proposed); split per spec-split.md there.
 location      packages/flow-state-v3/src
 provides      turn, check, snapshot, schedules, placements, onContext

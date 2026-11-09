@@ -1,7 +1,7 @@
 # Conformance suite
 
 The production conformance suite for Flow State v3: it runs the core Specs' guarantees
-(`specs/core/*.spec`) against a runtime through one `Port`. It runs on the prototype runtime
+(`workflow/specs/core/*.spec`) against a runtime through one `Port`. It runs on the prototype runtime
 (`prototypes/round-14`) now and on the production runtime in phase 4. It replaces the prototype
 harness in `prototypes/conformance/`, which stays as prior art.
 
@@ -231,7 +231,7 @@ lies and wrong runtimes named here are in `prototypes/conformance/falsify.ts`, `
 `prototypes/round-14/mutants-*.ts`; each Spec's `tests` block names its cases. Items marked
 **done** run now; the rest are pending, in a suggested order.
 
-### WriteLanes (`specs/core/WriteLanes.spec`)
+### WriteLanes (`workflow/specs/core/WriteLanes.spec`)
 
 | Invariants                 | Oracle module                                                                              | Lies                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | -------------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -247,7 +247,7 @@ lies and wrong runtimes named here are in `prototypes/conformance/falsify.ts`, `
 | I17                        | `old-version-holds`                                                                        | `p1m.*`, `audit-1.old-version-declines-under-reject-only`, `1b.old-version-idle-passes`, `d78-no-evidence`                                                                                                                                                                                                                                                                                                                                                                                     |
 | I18                        | case                                                                                       | `d114.input-not-replaced`                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
-### Turn (`specs/core/Turn.spec`)
+### Turn (`workflow/specs/core/Turn.spec`)
 
 | Invariants           | Oracle module                                                                                           | Lies                                                             |
 | -------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
@@ -263,7 +263,7 @@ lies and wrong runtimes named here are in `prototypes/conformance/falsify.ts`, `
 | I28                  | `context`                                                                                               |                                                                  |
 | I31                  | `issues`                                                                                                | `bogusIssue` broken adapter                                      |
 
-### Actors (`specs/core/Actors.spec`)
+### Actors (`workflow/specs/core/Actors.spec`)
 
 | Invariants         | Oracle module                                                                  | Lies                                                          |
 | ------------------ | ------------------------------------------------------------------------------ | ------------------------------------------------------------- |
@@ -276,7 +276,7 @@ lies and wrong runtimes named here are in `prototypes/conformance/falsify.ts`, `
 | I29 to I32         | `disposal` (the Port's Runtime disposal is built; the disposal cases run)      | `lie.boot-says-disposed`, `lie.boot-drops-held`, `o6.*`       |
 | I33, I34           | case                                                                           |                                                               |
 
-### WriteAhead (`specs/core/WriteAhead.spec`)
+### WriteAhead (`workflow/specs/core/WriteAhead.spec`)
 
 | Invariants                          | Oracle module                                                                                                                  | Lies                                                                                                                                                      |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -284,7 +284,7 @@ lies and wrong runtimes named here are in `prototypes/conformance/falsify.ts`, `
 | I5, I7, I10, I11, I14               | `capture` (oracle (g): one write out per key; cuts)                                                                            | `h.boot-copy`, `k.drop-copy`, `k.drop-row`                                                                                                                |
 | I1 to I4, I6, I8, I9, I12, I13, I18 | `persistence` and cases                                                                                                        |                                                                                                                                                           |
 
-### Restore (`specs/core/Restore.spec`)
+### Restore (`workflow/specs/core/Restore.spec`)
 
 | Invariants | Oracle module                                                                      | Lies                                                                                             |
 | ---------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
@@ -292,7 +292,7 @@ lies and wrong runtimes named here are in `prototypes/conformance/falsify.ts`, `
 | I9 to I17  | `quarantine` and cases                                                             | `lie.m1.quarantine-beside-old-hold`, migration wrong runtimes (`mutants-p1m.ts`, `-am1`, `-am2`) |
 | I18        | case                                                                               |                                                                                                  |
 
-### Reads (`specs/core/Reads.spec`)
+### Reads (`workflow/specs/core/Reads.spec`)
 
 | Invariants           | Oracle module | Lies                           |
 | -------------------- | ------------- | ------------------------------ |

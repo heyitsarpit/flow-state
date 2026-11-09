@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # Read-only reference check for Specs and their records; `workflow check` does not resolve these.
 #  1. Every @plan.Name.ID names a Plan under workflow/plans/ whose body has an entry ID.
-#  2. Every @spec.Name.ID names a Spec under specs/ whose body has an entry ID.
+#  2. Every @spec.Name.ID names a Spec under workflow/specs/ whose body has an entry ID.
 #  3. In a .spec's tests section, every `backticked` token (a prototype case or wrong runtime id)
 #     occurs in packages/flow-state-v3/prototypes/round-14 or .../conformance.
 # Usage: perl spec-refcheck.pl FILE...   (run from the repository root). Exit 1 on any miss.
@@ -19,7 +19,7 @@ sub header {
 find(sub { my $h; $plan{$h} = $File::Find::name if /\.plan$/ && defined($h = header($_, 'plan')) },
   'workflow/plans');
 find(sub { my $h; $spec{$h} = $File::Find::name if /\.spec$/ && defined($h = header($_, 'spec')) },
-  'specs');
+  'workflow/specs');
 
 my %ids;
 sub ids_of {

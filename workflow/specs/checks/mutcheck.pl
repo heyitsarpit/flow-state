@@ -1,12 +1,12 @@
 #!/usr/bin/perl
-# For every backticked id cited in specs/core/*.spec, find a single-line mutant definition
+# For every backticked id cited in workflow/specs/core/*.spec, find a single-line mutant definition
 # m("id", "Dxx", "file", "find", ...) or { id: "id", ... edits: [["file", "find", ...
 # and report whether the find string occurs in round-14/<file>.
 use strict; use warnings;
 my $root = "/Users/arpit/Developer/flow-state";
 my $r14 = "$root/packages/flow-state-v3/prototypes/round-14";
 my %cited;
-for my $s (glob "$root/specs/core/*.spec") {
+for my $s (glob "$root/workflow/specs/core/*.spec") {
   open my $fh, '<', $s or die; my $n = 0;
   while (<$fh>) { $n++; while (/`([a-z0-9][\w.\-]*\.[\w.\-]+)`/g) { push @{$cited{$1}}, ($s =~ s{.*/}{}r) . ":$n" } }
 }

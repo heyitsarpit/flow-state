@@ -26,22 +26,22 @@ Phase 4's module list maps onto these Specs as follows. "Fragments" has no Spec 
 fragment's declaration is a compile contract and its incarnations are turn semantics, so it is
 covered by Compile and Turn.
 
-| Phase 4 module | Spec |
-|---|---|
-| Compiled and the compiler | Compile |
-| lane, step and turn | Turn, Actors, WriteLanes |
-| persistence edge, write-ahead, driver | WriteAhead, Actors |
-| restore and key versions | Restore |
-| fragments | Compile, Turn |
-| operations | Reads, WriteLanes |
-| CLI check, explain, graph | StaticCli |
-| (used by all) | Diagnostics, Codec |
+| Phase 4 module                        | Spec                     |
+| ------------------------------------- | ------------------------ |
+| Compiled and the compiler             | Compile                  |
+| lane, step and turn                   | Turn, Actors, WriteLanes |
+| persistence edge, write-ahead, driver | WriteAhead, Actors       |
+| restore and key versions              | Restore                  |
+| fragments                             | Compile, Turn            |
+| operations                            | Reads, WriteLanes        |
+| CLI check, explain, graph             | StaticCli                |
+| (used by all)                         | Diagnostics, Codec       |
 
 ## The Specs
 
 Each plan outcome lands in exactly one Spec, or in one area of the list below. Where a core Spec
 places an outcome but leaves some of its clauses for later, the list names those clauses. Paths
-are under `specs/core/`.
+are under `workflow/specs/core/`.
 
 1. **Compile** (`Compile.spec`): `definition`, `machine`, fragments, `app`, and the `Compiled`
    data view. Provides construction errors, inert construction and the closed app list.
@@ -83,19 +83,19 @@ Cross-Spec consistency points, each stated once in its owner and cited by the ot
 
 These areas have no Spec now. Each will draw from the plan outcomes listed.
 
-| Area | Phase | Plan outcomes |
-|---|---|---|
+| Area                                          | Phase                                      | Plan outcomes                                                                                                                                                                                                                                               |
+| --------------------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Reads built later (unproved by the prototype) | 4, when the operations module reaches them | the staleTime, gcTime, trailing refetch, setData, invalidate, clear, write batch (256 bound), placeholder, contract.get, key size bound and InvalidKey, focus and connection trigger, and optimistic stacking clauses of @plan.Operations.O1, O2, O5 and O6 |
-| Streams | 5 | @plan.Operations.O4 |
-| Entity store | 5 | @plan.EntityDomains.O1 to O5, and the record-queue, Overloaded and ModuleDisabled clauses of @plan.Operations.O3 |
-| Multi-tab and sessions | 5 | @plan.Persistence.O7 |
-| Host adapters (IndexedDB, in-memory) | 5 | the `layerIndexedDb` part of @plan.Persistence.O1 |
-| Stories, `flow story`, `flow trace` | 5 | @plan.Testing.O1 to O4, O6 to O9; @plan.CommandLine.O2 and O4 |
-| React and Next.js | 5 | @plan.React.O1 to O5 |
-| Server rendering | 5 | @plan.ServerRendering.O1 to O7 |
-| Lazy features | 5 | @plan.LazyFeatures.O1 to O5 |
-| Inspection | 5 | @plan.Inspection.O1, O3, O4, O5 and O6 |
-| Package routes | 9 | @plan.Package.O1 to O4 |
+| Streams                                       | 5                                          | @plan.Operations.O4                                                                                                                                                                                                                                         |
+| Entity store                                  | 5                                          | @plan.EntityDomains.O1 to O5, and the record-queue, Overloaded and ModuleDisabled clauses of @plan.Operations.O3                                                                                                                                            |
+| Multi-tab and sessions                        | 5                                          | @plan.Persistence.O7                                                                                                                                                                                                                                        |
+| Host adapters (IndexedDB, in-memory)          | 5                                          | the `layerIndexedDb` part of @plan.Persistence.O1                                                                                                                                                                                                           |
+| Stories, `flow story`, `flow trace`           | 5                                          | @plan.Testing.O1 to O4, O6 to O9; @plan.CommandLine.O2 and O4                                                                                                                                                                                               |
+| React and Next.js                             | 5                                          | @plan.React.O1 to O5                                                                                                                                                                                                                                        |
+| Server rendering                              | 5                                          | @plan.ServerRendering.O1 to O7                                                                                                                                                                                                                              |
+| Lazy features                                 | 5                                          | @plan.LazyFeatures.O1 to O5                                                                                                                                                                                                                                 |
+| Inspection                                    | 5                                          | @plan.Inspection.O1, O3, O4, O5 and O6                                                                                                                                                                                                                      |
+| Package routes                                | 9                                          | @plan.Package.O1 to O4                                                                                                                                                                                                                                      |
 
 The core Specs cite these areas where a core guarantee meets them (a domain write's record queue, a
 stream session's release), and leave the feature's own rules to its future Spec.

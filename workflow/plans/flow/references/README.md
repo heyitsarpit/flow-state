@@ -1,7 +1,7 @@
 # References for the Flow State plans
 
 [FlowState.plan](../FlowState.plan) is the entry plan; the capability plans beside it own the
-contracts, and the Specs in [/specs/core](../../../../specs/core/) record the guarantees the core builds
+contracts, and the Specs in [/workflow/specs/core](../../../specs/core/) record the guarantees the core builds
 against. Where a document here and a plan differ, the plan wins.
 
 | Reference                                          | What it is                                                     |

@@ -1,7 +1,7 @@
 # Flow State
 
 ## Where things live
-- `workflow/plans/flow/` — current plans; `specs/core/` — the core's Specs (revisable guides). The old design
+- `workflow/plans/flow/` — current plans; `workflow/specs/core/` — the core's Specs (revisable guides). The old design
   (`machine-design.md`) was absorbed into them and deleted; history is at commit `20986677` (see
   `workflow/plans/flow/references/README.md`);
   deferred and open items are in `references/proposals/` (revisit.md, open-items.md).
