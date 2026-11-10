@@ -1,0 +1,255 @@
+import { Data, Option } from "effect";
+import { type ActorRef, type Channel, type Json, sameActor, sameJson } from "../port.ts";
+import type { InvariantId } from "./oracle.ts";
+
+/**
+ * One write lane: its actor, its operation, and its key (`None` on an unkeyed operation).
+ *
+ * **Gotchas**
+ *
+ * - It has no identity version or contract id, so an old-version hold (WriteLanes R11, I17) is not
+ *   told apart from the current lane: a stated limit.
+ */
+export type LaneId = {
+  readonly actor: ActorRef;
+  readonly operation: string;
+  readonly key: Option.Option<Json>;
+};
+
+/**
+ * Whether two {@link LaneId}s name the same lane.
+ */
+export const sameLane = (a: LaneId, b: LaneId) =>
+  sameActor(a.actor, b.actor) &&
+  a.operation === b.operation &&
+  Option.makeEquivalence(sameJson)(a.key, b.key);
+
+/**
+ * Why an Attempt left its lane: it closed (an ending or a release), its ending is evidence (it was
+ * replaced), or it settled during the Runtime's disposal.
+ */
+export type GoneWhy = "closed" | "evidence" | "settledInDisposal";
+
+/**
+ * How far one Attempt has got. Its place on the lane (head or waiting) is derived, never stored.
+ *
+ * **Details**
+ *
+ * - `Queued`: waiting behind the head; never invoked.
+ * - `Unsent`: addressable once it is the head; never invoked.
+ * - `Resending`: sent before; a retry admitted its re-send, not yet invoked.
+ * - `OnWire`: invoked, with no ending yet.
+ * - `Interrupted`: on the wire and cancelled; it ends unknown `Cancelled`, or `Disposed` past the
+ *   disposal's bound.
+ * - `Held`: its last ending was a retained unknown.
+ * - `Restoring`: never sent when its page died; it awaits its restore ending. `head` says which
+ *   one is allowed.
+ * - `Gone`: it left the lane, and why.
+ */
+export type Phase = Data.TaggedEnum<{
+  Queued: {};
+  Unsent: {};
+  Resending: {};
+  OnWire: {};
+  Interrupted: {};
+  Held: {};
+  Restoring: { head: boolean };
+  Gone: { why: GoneWhy };
+}>;
+
+/**
+ * Constructors and matchers for {@link Phase}.
+ */
+export const Phase = Data.taggedEnum<Phase>();
+
+/**
+ * Whether an Attempt in this phase is addressable, so it can be its lane's head (WriteLanes I9):
+ * any phase but `Queued`, `Gone` and a `Restoring` that was not the head.
+ */
+export const addressable = (phase: Phase) =>
+  Phase.$match(phase, {
+    Queued: () => false,
+    Gone: () => false,
+    Restoring: ({ head }) => head,
+    Unsent: () => true,
+    Resending: () => true,
+    OnWire: () => true,
+    Interrupted: () => true,
+    Held: () => true,
+  });
+
+/**
+ * Why an actor's incarnation owes its Held heads their restore ending: a plain reload or return,
+ * the Runtime's disposal, the actor's disposal, or a forget.
+ */
+export type Cause = "plain" | "runtimeDisposal" | "disposeActor" | "forget";
+
+/**
+ * What a turn, a boot or a cancel still owes, kept beside the phases. Each is discharged by one
+ * report before its deadline, or refused there ({@link deadlines}).
+ *
+ * **Details**
+ *
+ * - `Await`: a member's effect owes this Attempt's report (`Released`, `Superseded`, or its
+ *   cancelAll `NotSent { Cancelled }`) by the turn's close.
+ * - `PendingCancel`: a cancel of a never-sent Attempt owes its ending, with no deadline
+ *   (WriteLanes R14).
+ * - `AwaitRestore`: an incarnation owes a Held head its `unknown { Restored }` by the step's end.
+ * - `AwaitLetGo`: a kept ending owes its let-go record by the step's end.
+ */
+export type Obligation = Data.TaggedEnum<{
+  Await: {
+    attempt: string;
+    report: "Released" | "Superseded" | "NotSentCancelled";
+  };
+  PendingCancel: { attempt: string; ends: "NotSent" | "UnknownCancelled" };
+  AwaitRestore: { attempt: string; incarnation: number; cause: Cause };
+  AwaitLetGo: { ending: number };
+}>;
+
+/**
+ * Constructors and matchers for {@link Obligation}.
+ */
+export const Obligation = Data.taggedEnum<Obligation>();
+
+/**
+ * Where one ending's delivery has got.
+ *
+ * **Details**
+ *
+ * - `Owed`: to a live incarnation; `Parked`: waiting for one.
+ * - `Delivering`: admitted and not yet heard; `retry` when it is a redelivery or a kept ending's
+ *   try, whose refusal keeps it.
+ * - `Refused`: its first turn was refused; `Kept`: refused twice, kept on its lane; `KeptOpen`: kept,
+ *   with a try owed to the incarnation that just began.
+ * - `Evidence`: evidence by declaration (WriteLanes R10, I15).
+ * - `Closed`: heard, recorded, or orphaned at a reload.
+ */
+export type Life = Data.TaggedEnum<{
+  Owed: {};
+  Parked: {};
+  Delivering: { retry: boolean };
+  Refused: {};
+  Kept: {};
+  KeptOpen: {};
+  Evidence: {};
+  Closed: {};
+}>;
+
+/**
+ * Constructors and matchers for {@link Life}.
+ */
+export const Life = Data.taggedEnum<Life>();
+
+/**
+ * One ending as the lifecycle follows it: whose it is, what it says, when it was decided, and its
+ * delivery's {@link Life}. `attempt` is `None` for a decline.
+ */
+export type Ending = {
+  readonly attempt: Option.Option<string>;
+  readonly operation: string;
+  readonly actor: ActorRef;
+  readonly channel: Channel;
+  readonly reason: string;
+  readonly incarnation: number;
+  readonly inDisposal: boolean;
+  readonly life: Life;
+};
+
+/**
+ * Whether an actor is bound to a live incarnation, waiting out its grace, or unbound by a
+ * disposal or a forget.
+ */
+export type ActorRecord = "bound" | "grace" | "disposeActor" | "forget";
+
+/**
+ * One Attempt of the lifecycle: its id, its lane, and its {@link Phase}. Attempts are kept in mint
+ * order and never removed.
+ */
+export type AttemptLife = { readonly id: string; readonly lane: LaneId; readonly phase: Phase };
+
+/**
+ * The one lifecycle a Case folds: every Attempt's phase, every ending's life, what is still owed,
+ * and each actor's incarnation.
+ *
+ * **Details**
+ *
+ * - `mode`: whether the Runtime's disposal has started on this boot; `afterDisposal`: whether
+ *   this boot follows one.
+ * - `actors`: each actor's record and the ordinal of its latest incarnation.
+ * - `releasing`: the lanes a release marked (WriteLanes R16); their endings are evidence.
+ *
+ * **Gotchas**
+ *
+ * - The lane is derived from `attempts`, never stored: its head is its first addressable Attempt
+ *   in mint order, and its waiting list the `Queued` ones.
+ */
+export type Model = {
+  readonly mode: "running" | "disposing";
+  readonly afterDisposal: boolean;
+  readonly actors: ReadonlyArray<{
+    readonly actor: ActorRef;
+    readonly record: ActorRecord;
+    readonly incarnation: number;
+  }>;
+  readonly attempts: ReadonlyArray<AttemptLife>;
+  readonly endings: ReadonlyArray<Ending>;
+  readonly obligations: ReadonlyArray<Obligation>;
+  readonly releasing: ReadonlyArray<LaneId>;
+};
+
+/**
+ * The lifecycle before a case's first boot.
+ */
+export const empty: Model = {
+  mode: "running",
+  afterDisposal: false,
+  actors: [],
+  attempts: [],
+  endings: [],
+  obligations: [],
+  releasing: [],
+};
+
+/**
+ * A move a cell refused: the Invariant it breaks and what happened, in one sentence.
+ */
+export type Refusal = { readonly invariant: InvariantId; readonly text: string };
+
+/**
+ * One move of an Attempt's progress, anchored before it reaches the lifecycle.
+ *
+ * **Details**
+ *
+ * - `Send`: its commit was invoked. `End`: it ended; `retained` says whether an unknown ending is
+ *   kept on its lane (WriteLanes R4). `Evidence`: a `Released` or `Superseded` report of it.
+ * - The rest reach every Attempt: a reload, the boot's settling, the Runtime's disposal starting and
+ *   ending, and the step's end (`unstoppable`: the operations whose calls cannot be interrupted).
+ */
+export type Move = Data.TaggedEnum<{
+  Send: { attempt: string };
+  End: {
+    attempt: string;
+    channel: Channel;
+    reason: string;
+    retained: boolean;
+  };
+  Evidence: { attempt: string; kind: "Released" | "Superseded" };
+  Reload: {};
+  BootSettles: {};
+  DisposalStarts: {};
+  RuntimeDisposed: {};
+  StepEnds: { unstoppable: ReadonlyArray<string> };
+}>;
+
+/**
+ * Constructors and matchers for {@link Move}.
+ */
+export const Move = Data.taggedEnum<Move>();
+
+/**
+ * Whether this Attempt is its lane's head: the first addressable Attempt of the lane in mint
+ * order.
+ */
+export const isHead = (model: Model, life: AttemptLife) =>
+  model.attempts.find((a) => sameLane(a.lane, life.lane) && addressable(a.phase))?.id === life.id;

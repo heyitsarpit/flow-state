@@ -1,0 +1,320 @@
+import { Move } from "./lifecycle-model.ts";
+import { at, build, type Trace } from "./lifecycle-trace.ts";
+
+const { Q, U, RS, W, I, H, RT, RF, GC, GE, GS } = at;
+
+const {
+  lane,
+  model,
+  wl,
+  pending,
+  awaiting,
+  one,
+  headed,
+  behindHeld,
+  goneBeside,
+  definite,
+  notSent,
+  phased,
+} = build;
+
+const sendTraces: ReadonlyArray<Trace> = [
+  one({
+    name: "a queued Attempt is never sent",
+    cites: "WriteLanes I11: W's head is promoted only when the addressable Attempt resolves",
+    start: behindHeld(),
+    move: Move.Send({ attempt: "s" }),
+    refused: [wl(11)],
+    phases: { h: H, s: Q },
+  }),
+  one({
+    name: "the head's first send",
+    cites: "WriteLanes R8: an addressable head is invoked",
+    start: headed(U),
+    move: Move.Send({ attempt: "s" }),
+    refused: [],
+    phases: { s: W, w: Q },
+  }),
+  one({
+    name: "a cancel pending on a never-sent head loses to its invoke",
+    cites: "WriteLanes R14, I20: a cancelled never-sent Attempt is never sent",
+    start: model(lane("A", ["s", U], ["w", Q]), { obligations: [pending("s")] }),
+    move: Move.Send({ attempt: "s" }),
+    refused: [wl(20)],
+    phases: { s: U, w: Q },
+  }),
+  one({
+    name: "a retry's re-send goes on the wire",
+    cites: "WriteLanes R8: retry re-sends a Held head",
+    start: headed(RS),
+    move: Move.Send({ attempt: "s" }),
+    refused: [],
+    phases: { s: W, w: Q },
+  }),
+  ...phased([
+    ["a send while already on the wire", W],
+    ["a send of an interrupted call", I],
+    ["a send of a never-sent Attempt at a boot", RT],
+  ]).map(([name, phase]) =>
+    one({
+      name: name,
+      cites: "WriteLanes I1, Restore I2: no invoke but an admitted, promoted or retried commit",
+      start: headed(phase),
+      move: Move.Send({ attempt: "s" }),
+      refused: [wl(1)],
+      phases: { s: phase, w: Q },
+    }),
+  ),
+  one({
+    name: "a Held head sent with no retry",
+    cites: "WriteLanes I12: Held leaves only by a retry, a cancel or a release",
+    start: headed(H),
+    move: Move.Send({ attempt: "s" }),
+    refused: [wl(12)],
+    phases: { s: H, w: Q },
+  }),
+  one({
+    name: "a send of an Attempt that left its lane",
+    cites: "WriteLanes I1",
+    start: goneBeside(GC),
+    move: Move.Send({ attempt: "s" }),
+    refused: [wl(1)],
+    phases: { s: GC, n: U },
+  }),
+];
+
+const definiteTraces: ReadonlyArray<Trace> = [
+  one({
+    name: "a queued Attempt ends with an answer",
+    cites: "WriteLanes I11",
+    start: behindHeld(),
+    move: definite("s"),
+    refused: [wl(11)],
+    phases: { h: H, s: Q },
+  }),
+  one({
+    name: "a never-sent head ends success (pending CQ5: ending-channels judges it)",
+    cites: "WriteLanes I3 as written; the lifecycle stays, and its pending cancel too",
+    start: model(lane("A", ["s", U], ["w", Q]), { obligations: [pending("s")] }),
+    move: definite("s"),
+    refused: [],
+    phases: { s: U, w: Q },
+  }),
+  one({
+    name: "a re-send that was never invoked ends with an answer",
+    cites: "WriteLanes I16",
+    start: headed(RS),
+    move: definite("s"),
+    refused: [wl(16)],
+    phases: { s: RS, w: Q },
+  }),
+  one({
+    name: "the call on the wire succeeds and the next commit is promoted",
+    cites: "WriteLanes R8, I11: a resolved head promotes W's first",
+    start: headed(W),
+    move: definite("s"),
+    refused: [],
+    phases: { s: GC, w: U },
+  }),
+  one({
+    name: "a call settled during the Runtime's disposal",
+    cites: "Actors R22, I36: settled in disposal; a later Restored is refused",
+    start: model(lane("A", ["s", W], ["w", Q]), { mode: "disposing" }),
+    move: definite("s"),
+    refused: [],
+    phases: { s: GS, w: U },
+  }),
+  one({
+    name: "an interrupted call ends with its answer",
+    cites: "WriteLanes I20: a cancel on the wire ends unknown Cancelled",
+    start: headed(I),
+    move: definite("s"),
+    refused: [wl(20)],
+    phases: { s: I, w: Q },
+  }),
+  ...phased([
+    ["a Held head ends with an answer", H],
+    ["a restoring head ends with an answer", RT],
+  ]).map(([name, phase]) =>
+    one({
+      name: name,
+      cites: "WriteLanes I16: a settled ending is never replaced",
+      start: headed(phase),
+      move: definite("s"),
+      refused: [wl(16)],
+      phases: { s: phase, w: Q },
+    }),
+  ),
+  one({
+    name: "a gone Attempt ends again",
+    cites: "WriteLanes I16",
+    start: goneBeside(GC),
+    move: definite("s"),
+    refused: [wl(16)],
+    phases: { s: GC, n: U },
+  }),
+];
+
+const notSentTraces: ReadonlyArray<Trace> = [
+  one(
+    {
+      name: "cancelAll ends a queued Attempt NotSent Cancelled",
+      cites: "WriteLanes R15, I21",
+      start: behindHeld({ obligations: [awaiting("s", "NotSentCancelled")] }),
+      move: notSent("s", "Cancelled"),
+      refused: [],
+      phases: { h: H, s: GC },
+    },
+    0,
+  ),
+  one({
+    name: "cancelAll's endings out of mint order",
+    cites: "WriteLanes I21: queued NotSent Cancelled in mint order",
+    start: model(lane("A", ["h", H], ["q", Q], ["s", Q]), {
+      obligations: [awaiting("q", "NotSentCancelled"), awaiting("s", "NotSentCancelled")],
+    }),
+    move: notSent("s", "Cancelled"),
+    refused: [wl(21)],
+    phases: { h: H, q: Q, s: Q },
+  }),
+  one({
+    name: "a queued Attempt ends NotSent Disposed during disposal",
+    cites: "Actors R22",
+    start: behindHeld({ mode: "disposing" }),
+    move: notSent("s", "Disposed"),
+    refused: [],
+    phases: { h: H, s: GC },
+  }),
+  one({
+    name: "a queued Attempt declines on its own",
+    cites: "WriteLanes I11",
+    start: behindHeld(),
+    move: notSent("s", "Rejected"),
+    refused: [wl(11)],
+    phases: { h: H, s: Q },
+  }),
+  one(
+    {
+      name: "a pending cancel of a never-sent head ends it",
+      cites: "WriteLanes R14",
+      start: model(lane("A", ["s", U], ["w", Q]), { obligations: [pending("s")] }),
+      move: notSent("s", "Cancelled"),
+      refused: [],
+      phases: { s: GC, w: U },
+    },
+    0,
+  ),
+  one({
+    name: "a head whose acknowledgement was refused",
+    cites: "WriteLanes R3, R8: NotSent StorageRefused",
+    start: headed(U),
+    move: notSent("s", "StorageRefused"),
+    refused: [],
+    phases: { s: GC, w: U },
+  }),
+  one({
+    name: "a never-sent head ends NotSent Disposed during disposal",
+    cites: "Actors R22",
+    start: model(lane("A", ["s", U], ["w", Q]), { mode: "disposing" }),
+    move: notSent("s", "Disposed"),
+    refused: [],
+    phases: { s: GC, w: U },
+  }),
+  one({
+    name: "a never-sent head ends Cancelled with no cancel",
+    cites: "WriteLanes I20",
+    start: headed(U),
+    move: notSent("s", "Cancelled"),
+    refused: [wl(20)],
+    phases: { s: U, w: Q },
+  }),
+  one({
+    name: "a re-send ends NotSent",
+    cites: "WriteLanes I16",
+    start: headed(RS),
+    move: notSent("s", "Cancelled"),
+    refused: [wl(16)],
+    phases: { s: RS, w: Q },
+  }),
+  ...phased([
+    ["a call on the wire ends NotSent", W],
+    ["an interrupted call ends NotSent", I],
+  ]).map(([name, phase]) =>
+    one({
+      name: name,
+      cites: "WriteLanes R14, I20: a cancel on the wire ends unknown Cancelled, never NotSent",
+      start: headed(phase),
+      move: notSent("s", "Cancelled"),
+      refused: [wl(20)],
+      phases: { s: phase, w: Q },
+    }),
+  ),
+  one({
+    name: "a Held head ends NotSent",
+    cites: "WriteLanes I16",
+    start: headed(H),
+    move: notSent("s", "Cancelled"),
+    refused: [wl(16)],
+    phases: { s: H, w: Q },
+  }),
+  one({
+    name: "a restored queued commit ends NotSent Restored",
+    cites: "Restore R3: a never-sent queued commit ends NotSent Restored",
+    start: model(lane("A", ["h", H], ["s", RF])),
+    move: notSent("s", "Restored"),
+    refused: [],
+    phases: { h: H, s: GC },
+  }),
+  one(
+    {
+      name: "a restored queued commit's pending cancel",
+      cites: "WriteLanes R14",
+      start: model(lane("A", ["h", H], ["s", RF]), { obligations: [pending("s")] }),
+      move: notSent("s", "Cancelled"),
+      refused: [],
+      phases: { h: H, s: GC },
+    },
+    0,
+  ),
+  one({
+    name: "a restored head ends NotSent",
+    cites: "Restore R3: an acknowledged head is acknowledged once, as unknown Restored",
+    start: headed(RT),
+    move: notSent("s", "Restored"),
+    refused: [wl(16)],
+    phases: { s: RT, w: Q },
+  }),
+  one({
+    name: "a replaced Attempt's late ending is evidence",
+    cites: "WriteLanes R7, I15: the interrupted Attempt's ending is evidence",
+    start: goneBeside(GE),
+    move: notSent("s", "Cancelled"),
+    refused: [],
+    phases: { s: GE, n: U },
+  }),
+  one(
+    {
+      name: "a closed Attempt's pending cancel ends it",
+      cites: "WriteLanes R14: a pending cancel is never lost",
+      start: goneBeside(GC, { obligations: [pending("s")] }),
+      move: notSent("s", "Cancelled"),
+      refused: [],
+      phases: { s: GC, n: U },
+    },
+    0,
+  ),
+  one({
+    name: "a gone Attempt ends NotSent",
+    cites: "WriteLanes I16",
+    start: goneBeside(GC),
+    move: notSent("s", "Cancelled"),
+    refused: [wl(16)],
+    phases: { s: GC, n: U },
+  }),
+];
+
+/**
+ * The traces of an Attempt's own moves: its send and its success, failure and NotSent endings,
+ * by phase and guard.
+ */
+export const endTraces: ReadonlyArray<Trace> = [...sendTraces, ...definiteTraces, ...notSentTraces];
