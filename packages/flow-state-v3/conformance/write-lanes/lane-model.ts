@@ -266,7 +266,16 @@ export const sent = (
           onSome: (lane) => Option.isNone(headOf(at, lane)),
         });
 
-        return [rejoin ? { ...at, live: [...at.live, { id, phase: Phase.Wire() }] } : at, []];
+        const left = Option.isSome(laneOfId(model, id));
+
+        return [
+          rejoin ? { ...at, live: [...at.live, { id, phase: Phase.Wire() }] } : at,
+          left
+            ? [
+                `WriteLanes I1: ${known.operation} ${id} was sent after it left its lane (ended, released or lost with its page); only a commit, a promotion or a retry invokes it`,
+              ]
+            : [],
+        ];
       }
 
       const next = withPhase(at, id, Phase.Wire());

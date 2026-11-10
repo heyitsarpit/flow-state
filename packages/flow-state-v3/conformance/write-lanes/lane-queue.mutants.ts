@@ -185,4 +185,60 @@ export const laneQueueMutants: ReadonlyArray<Mutant> = [
       },
     ],
   },
+  {
+    name: "mutant.boot-resends-held",
+    says: "a boot re-sends a Held head revived from its own parked ending, with no retry",
+    expects: "WriteLanes I12",
+    runtime: "prototype",
+    cases: ["PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed"],
+    edits: [
+      {
+        file: "lane.ts",
+        find: "const argsOf = (l: Lane): CellArgs => ({",
+        replace: "export const argsOf = (l: Lane): CellArgs => ({",
+      },
+      {
+        file: "lane.ts",
+        find: "const ACTIONS: Readonly<",
+        replace: "export const ACTIONS: Readonly<",
+      },
+      {
+        file: "durable.ts",
+        find: 'import { afterAck, cell, ofIdentity, olderOf, sameFields, sameVersion, stampFields } from "./lane.ts";',
+        replace:
+          'import { ACTIONS, argsOf, afterAck, cell, ofIdentity, olderOf, sameFields, sameVersion, stampFields } from "./lane.ts";',
+      },
+      {
+        file: "durable.ts",
+        find: "        restoredHook(tx, l, h, parked.find((p) => p.attempt === h.id)!.ending);",
+        replace:
+          "        restoredHook(tx, l, h, parked.find((p) => p.attempt === h.id)!.ending);\n        ACTIONS.invoke(tx, tx.w.lanes[base.id]!, argsOf(tx.w.lanes[base.id]!));",
+      },
+    ],
+  },
+  {
+    name: "lie.release-on-guarded-read",
+    says: "a turn of IntentRead releases a Held pay head though the alternative it took has no cancel",
+    expects: "WriteLanes I12",
+    runtime: "prototype",
+    cases: ["PAY-15/retry-budget"],
+    edits: [
+      {
+        file: "lane.ts",
+        find: "const release = (tx: Tx, l: Lane) => {",
+        replace: "export const release = (tx: Tx, l: Lane) => {",
+      },
+      {
+        file: "turn.ts",
+        find: "import { admitRow, cancelAll,",
+        replace: "import { release, admitRow, cancelAll,",
+      },
+      {
+        file: "turn.ts",
+        find: "  tx.touchedActors.add(w.a.key);",
+        replace:
+          '  tx.touchedActors.add(w.a.key);\n  if (ev.tag === "IntentRead") for (const l of Object.values(tx.w.lanes)) if (l.op === "pay" && l.head?.phase.t === "held") release(tx, l);',
+      },
+    ],
+  },
 ];

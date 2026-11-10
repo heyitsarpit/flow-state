@@ -250,8 +250,8 @@ delivery carries no channel; latent: no case disposes without re-ensuring).
 
 ## T7 (2026-11-10 and 2026-11-11): WriteLanes area (in progress)
 
-Bottom line: S2 and the T6 completion review's disposal findings are done. Suite 68/68, null 0/68, falsify sweep
-44/44. Next: the T40/S2 review's findings, T41, I22, then T7's own rows.
+Bottom line: S2, the T6 completion review's disposal findings and the T40/S2 review's H1, M2 and M3 are done. Suite
+68/68, null 0/68, falsify sweep 46/46. Open: that review's M1 (needs a call), M4, M5 and Lows; T41; I22; T7's own rows.
 
 - First step (`392147bc`): H5 in `ending-channels` (`mutant.success-without-answer`, I3) and case `DISP-06`.
 - S2 (`a8714be6`, `c1f02294`):
@@ -290,6 +290,38 @@ Bottom line: S2 and the T6 completion review's disposal findings are done. Suite
     - Open for the user: the prototype records a local or non-persisted disposed actor's ending as evidence (rule
       44), while I15's exceptions do not list disposal. No case hits it.
     - Pre-existing and stated: an ending decided during disposal parks at the reload without a `Parked` report.
+
+### The T40/S2 review's findings (2026-11-11; `references/proposals/t40-s2-review-2026-11-11.md`)
+
+- **H1, done:** `mayCancel` is now transitions (event, from, to); a `Released` on a may-cancel event anchors only to a
+  turn that took that transition (Pay: `IntentRead` UNSURE→PLACING, `OrderSeen` UNSURE→PAID). New
+  `lie.release-on-guarded-read` (WriteLanes I12, `PAY-15/retry-budget`), caught for its reason; the review ran it
+  uncaught at HEAD.
+- **M2, done:** a reload keeps `Held { at }`, a head on the wire becomes `Held` at the reload's step, and queued,
+  waiting and replaced Attempts drop; a send of an Attempt that left its lane is WriteLanes I1 (Restore I2: a boot
+  sends nothing). New `mutant.boot-resends-held` (I12), caught in 12 cases.
+- **M1, carried (needs a call):** round-14 reports no key at mint, and its evidence carries none; the adapter can
+  read it only from the world's internals (`frames()`), which the Port rule forbids. Options: the Port requires
+  `Minted.key` on keyed operations and T16's adapter meets it, with round-14's gap a stated limit; or the round-14
+  adapter reads `frames()` as a prototype-only exception.
+- **M3, done here:**
+  - S2's constraints: `Held { at }` now survives a reload (M2); `drivenTurns` and `unstoppable` are lists kept
+    across it; `unstoppable` is read at step end; the mutant dependencies hold (each still caught for its reason).
+    `delivered-once` drops an `Owed` ending at a reload unless decided during disposal; whether that matches the old
+    `open` set across a reload is not verified.
+  - Baselines: a turn's reports come before its `Turn`, so a cancel is judged from the model at the step's previous
+    `Turn`; a reload judges the step's pending cancels over the reports before it, then drops them.
+  - `id.dispose-drops-lanes` on `DISP-01`: caught by `disposal` (Actors I29) before S2, by `lane-queue` (WriteLanes
+    I12) after; the release comes before the disposal (R17: disposal drops no lane).
+  - The ported `lie.held-released-unguarded` releases every hold when it is held (no turn anchors it); the old lie
+    released only `Lab/R15Late`'s holds and was caught by the old cancel-cause check. The guarded-cancel case is
+    now `lie.release-on-guarded-read`.
+- **M4, M5, Lows: not started.**
+- **Reviewer** (Haiku, H1 and M2 diff against WriteLanes I12, R8 and Restore): the Pay transitions match the machine;
+  a boot send is never correct (Restore R3, I2); both mutants do what they say (accepted, re-run here). Carried: a
+  machine's own timer-fired retry sits in a step with no `Drove` or `Answered`, so it reads as not driven (pre-existing,
+  now also for restored heads).
+- Verdicts: no case verdict changed; sweep 46/46, the two new mutants only.
 
 ### Disposal findings (2026-11-11; the T6 completion review's M1 to M4, M6 and Lows)
 

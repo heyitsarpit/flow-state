@@ -524,6 +524,11 @@ tasks
             T7's own rows,
             I22 and the T6 completion review's disposal findings (M1 to M4, M6, Lows) are not started. Detail, verdict
             changes and sidecar log: code:packages/flow-state-v3/conformance/STATUS.md (T7 section).
+        comment     2026-11-10T19:40:28Z
+            Evidence (builder, 2026-11-11): the T6 review's disposal findings, and the T40/S2 review's H1, M2 and M3, 
+            landed (bcc2bbbb and the next commit). Suite 68/68, null 0/68, falsify 46/46, check at zero. Open: that 
+            review's M1 (needs a call), M4, M5, Lows; T41; I22; T7's own rows. Detail: 
+            code:packages/flow-state-v3/conformance/STATUS.md (T7 section).
     T8
         title       Turn area complete
         status      open

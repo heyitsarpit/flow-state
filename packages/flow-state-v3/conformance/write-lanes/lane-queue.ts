@@ -198,7 +198,9 @@ const unanchoredReleases = (model: Model, reports: ReadonlyArray<Observation>) =
               Observation.$is("Turn")(r) &&
               sameActor(r.actor, known.owner) &&
               (known.policy.cancels[r.event] !== undefined ||
-                known.policy.mayCancel.includes(r.event)),
+                known.policy.mayCancel.some(
+                  (t) => t.event === r.event && t.from === r.from && t.to === r.to,
+                )),
           );
 
           return cancelTurn
@@ -253,6 +255,17 @@ const flushed = (walk: Walk, reference: Reference) => {
 
   return { ...walk, model, pending: [], found: [...walk.found, ...judged.flatMap(([, f]) => f)] };
 };
+
+const reloadedLive = (model: Model, at: number) =>
+  model.live.flatMap((l) =>
+    Phase.$match(l.phase, {
+      Queued: () => [],
+      Waiting: () => [],
+      Wire: () => [{ id: l.id, phase: Phase.Held({ at }) }],
+      Held: () => [l],
+      Replaced: () => [],
+    }),
+  );
 
 const atTurn = (walk: Walk, step: Step, turn: Turn) => {
   const at = walk.drove.findIndex((d) => d.event === turn.event && sameActor(d.actor, turn.actor));
@@ -318,7 +331,7 @@ const learned = (walk: Walk, step: Step, fact: Fact) =>
     Reported: ({ observation }) => reported(walk, step, observation),
     Reloaded: () => {
       const judged = flushed(walk, step.reference);
-      const model = { ...judged.model, live: [], cancels: [] };
+      const model = { ...judged.model, live: reloadedLive(judged.model, step.at), cancels: [] };
 
       return { ...judged, model, before: model, from: judged.reports.length };
     },
@@ -392,7 +405,8 @@ type State = { readonly model: Model; readonly reference: Reference; readonly at
  *   the step that held it (R8, no automatic retry; see Gotchas);
  * - `Superseded` names only a queued commit or a never-sent head, and only under `latest` (R7);
  * - `Released` is reported only in a step with a turn of the Attempt's actor on an event the
- *   fixture's reference says cancels or may cancel its operation (R8: no quiet release; R14);
+ *   fixture's reference says cancels its operation, or that took a transition the reference says
+ *   may cancel it (R8: no quiet release; R14);
  * - on a turn of an event the suite sent whose handler the reference says cancels the operation,
  *   by the head's history before that turn, over the reports from that turn to the end of its
  *   step: a Held head is released; a head on the wire ends `unknown Cancelled`, within the step
@@ -418,8 +432,9 @@ type State = { readonly model: Model; readonly reference: Reference; readonly at
  * - A turn's reports come before its `Turn` report, so a cancel's history is the model at the
  *   previous `Turn` of its step (or the step's start). A send never lands between a turn and its
  *   own reports: it waits for the store's acknowledgement, a later step.
- * - A `Released` is anchored only to a turn of a cancelling event, whose handler may hold a
- *   guard the timeline cannot see. A release on leave and a not-retained unknown (a bare or
+ * - A `Released` is anchored to a turn by its event and, for a guarded cancel, its transition; two
+ *   alternatives with the same source and target, only one of which cancels, are not told apart.
+ *   A release on leave and a not-retained unknown (a bare or
  *   ignored mapping, R4) need fixtures that declare them; until then they read as violations.
  * - A reload empties the lanes and drops the pending cancels: the page that would end them is
  *   gone. Cancels judged before it in the step are judged over the reports before it. An Attempt

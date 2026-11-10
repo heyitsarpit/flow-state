@@ -17,9 +17,10 @@ import { Answer } from "../world/network.ts";
  * - `cancels`: the events whose handler, in every state, runs this operation's `cancel` or
  *   `cancelAll` with no guard, so a turn of one is a cancel the suite drove. Typed by the
  *   fixture's event names (`Event`), see {@link CancelsOf}.
- * - `mayCancel`: the other events whose handler runs this operation's `cancel` or `cancelAll` in
- *   some state or behind a guard (a read's answer, an ending's event), so a `Released` in a turn
- *   of one may be a cancel's.
+ * - `mayCancel`: the other transitions (event, from state, to state) whose alternative runs this
+ *   operation's `cancel` or `cancelAll` behind a guard or in one state only (a read's answer, an
+ *   ending's event), so a `Released` in a turn that took one may be a cancel's. A turn of the same
+ *   event that took another alternative cancels nothing.
  */
 export type OperationReference<Event extends string = string> = {
   readonly concurrency: Concurrency;
@@ -29,8 +30,13 @@ export type OperationReference<Event extends string = string> = {
   readonly classify: (answer: Answer, mayHaveApplied: boolean) => Channel;
   readonly keyFields: ReadonlyArray<string>;
   readonly cancels: CancelsOf<Event>;
-  readonly mayCancel: ReadonlyArray<string>;
+  readonly mayCancel: ReadonlyArray<Transition>;
 };
+
+/**
+ * One transition of a machine: an event's turn from one state to another.
+ */
+export type Transition = { readonly event: string; readonly from: string; readonly to: string };
 
 /**
  * The declared concurrency policy of a write.

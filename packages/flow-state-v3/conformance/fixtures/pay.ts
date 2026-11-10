@@ -71,7 +71,10 @@ const pay = {
     (tag, fields, mayHaveApplied) => tag === "IntentBusy" && mayHaveApplied && capturable(fields),
   ),
   cancels: {},
-  mayCancel: ["IntentRead", "OrderSeen"],
+  mayCancel: [
+    { event: "IntentRead", from: "UNSURE", to: "PLACING" },
+    { event: "OrderSeen", from: "UNSURE", to: "PAID" },
+  ],
 } satisfies Omit<OperationReference<keyof typeof events>, "keyFields">;
 
 const operations = {
