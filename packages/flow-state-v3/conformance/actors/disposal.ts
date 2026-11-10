@@ -12,16 +12,14 @@ import {
 import { type Answer, type Request, RequestPhase } from "../world/network.ts";
 import {
   freshLedger,
-  type LaneId,
   type Ledger,
-  laneOf,
   laneOfHead,
   learn,
   named,
   openHeads,
   type Owed,
-  sameLane,
 } from "./disposal-ledger.ts";
+import { type LaneId, laneOf, sameLane } from "../dsl/domain.ts";
 
 type Ending = { readonly channel: Channel; readonly reason: string };
 

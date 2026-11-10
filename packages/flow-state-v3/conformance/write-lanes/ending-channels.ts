@@ -3,12 +3,12 @@ import {
   FLOW_DECLINES,
   mappedEvent,
   type OperationReference,
-  operationNamed,
   type Reference,
 } from "../fixtures/reference.ts";
 import { type Delivered, type Ended, Observation } from "../port.ts";
 import { Answer, type Request, RequestPhase } from "../world/network.ts";
 import { Fact, type Facts, type Oracle, steps } from "../dsl/oracle.ts";
+import { attemptKey, writeNamed } from "../dsl/domain.ts";
 
 const endedOf = (fact: Fact) =>
   Fact.$is("Reported")(fact) && Observation.$is("Ended")(fact.observation)
@@ -20,12 +20,7 @@ const deliveredOf = (fact: Fact) =>
     ? Option.some(fact.observation)
     : Option.none();
 
-const idOf = (operation: string, attempt: string) => `${operation} ${attempt}`;
-
 const attemptText = (attempt: Option.Option<string>) => Option.getOrElse(attempt, () => "(none)");
-
-const writeNamed = (reference: Reference, name: string) =>
-  Option.filter(operationNamed(reference, name), (operation) => operation.attempts);
 
 const failureAfterUnknown = (timeline: ReadonlyArray<Fact>) => {
   const unsure = new Set<string>();
@@ -33,7 +28,7 @@ const failureAfterUnknown = (timeline: ReadonlyArray<Fact>) => {
   return timeline.flatMap((fact) =>
     Option.toArray(endedOf(fact)).flatMap(({ attempt, channel, operation }) => {
       if (Option.isNone(attempt)) return [];
-      const id = idOf(operation, attempt.value);
+      const id = attemptKey(operation, attempt.value);
       const late = channel === "failure" && unsure.has(id);
 
       if (channel === "unknown") unsure.add(id);
@@ -58,7 +53,8 @@ const deliveredAsMapped = (timeline: ReadonlyArray<Fact>, reference: Reference) 
   const declines = new Map<string, Array<Ended>>();
 
   const remember = (ended: Ended) => {
-    if (Option.isSome(ended.attempt)) latest.set(idOf(ended.operation, ended.attempt.value), ended);
+    if (Option.isSome(ended.attempt))
+      latest.set(attemptKey(ended.operation, ended.attempt.value), ended);
     else declines.set(ended.operation, [...(declines.get(ended.operation) ?? []), ended]);
   };
 
@@ -71,7 +67,7 @@ const deliveredAsMapped = (timeline: ReadonlyArray<Fact>, reference: Reference) 
 
   const endingOf = (delivered: Delivered) =>
     Option.isSome(delivered.attempt)
-      ? Option.fromUndefinedOr(latest.get(idOf(delivered.operation, delivered.attempt.value)))
+      ? Option.fromUndefinedOr(latest.get(attemptKey(delivered.operation, delivered.attempt.value)))
       : takeDecline(delivered.operation);
 
   const judge = (delivered: Delivered) =>
@@ -175,7 +171,7 @@ const earlierUnsure = (
 
 const learnLatest = (fact: Fact, latest: Map<string, number>) => {
   if (Fact.$is("Requested")(fact) && Option.isSome(fact.request.key))
-    latest.set(idOf(fact.request.operation, fact.request.key.value), fact.request.seq);
+    latest.set(attemptKey(fact.request.operation, fact.request.key.value), fact.request.seq);
 };
 
 const learnLive = (fact: Fact, live: Set<string>) => {
@@ -184,10 +180,10 @@ const learnLive = (fact: Fact, live: Set<string>) => {
   if (!Fact.$is("Reported")(fact)) return;
   const observed = fact.observation;
 
-  if (Observation.$is("Sent")(observed)) live.add(idOf(observed.operation, observed.attempt));
+  if (Observation.$is("Sent")(observed)) live.add(attemptKey(observed.operation, observed.attempt));
 
   if (Observation.$is("Ended")(observed) && Option.isSome(observed.attempt))
-    live.delete(idOf(observed.operation, observed.attempt.value));
+    live.delete(attemptKey(observed.operation, observed.attempt.value));
 };
 
 const unended = (asked: ReadonlyMap<string, Asked>) =>
@@ -230,7 +226,7 @@ const endedAsAnswered = (facts: Facts) => {
 
       if (Answer.$is("Never")(answer)) return;
 
-      const id = idOf(
+      const id = attemptKey(
         request.operation,
         Option.getOrElse(request.key, () => ""),
       );
@@ -245,7 +241,7 @@ const endedAsAnswered = (facts: Facts) => {
 
     const end = (ended: Ended) => {
       if (Option.isNone(ended.attempt)) return [];
-      const id = idOf(ended.operation, ended.attempt.value);
+      const id = attemptKey(ended.operation, ended.attempt.value);
       const answered = Option.fromUndefinedOr(asked.get(id));
       const operation = writeNamed(facts.reference, ended.operation);
       asked.delete(id);

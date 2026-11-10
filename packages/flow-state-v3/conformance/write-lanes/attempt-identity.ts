@@ -1,5 +1,6 @@
 import { Option } from "effect";
-import { operationNamed, type Reference } from "../fixtures/reference.ts";
+import type { Reference } from "../fixtures/reference.ts";
+import { attemptKey, writeNamed } from "../dsl/domain.ts";
 import { Observation, sameJson, type Sent } from "../port.ts";
 import type { Request } from "../world/network.ts";
 import { Fact, type Facts, type Oracle, reported, steps } from "../dsl/oracle.ts";
@@ -9,13 +10,8 @@ type Minting = {
   readonly owner: Map<string, string>;
 };
 
-const idOf = (operation: string, attempt: string) => `${operation} ${attempt}`;
-
 const isWrite = (reference: Reference, operation: string) =>
-  Option.match(operationNamed(reference, operation), {
-    onNone: () => false,
-    onSome: (o) => o.attempts,
-  });
+  Option.isSome(writeNamed(reference, operation));
 
 const tally = (keys: ReadonlyArray<string>) => {
   const counts = new Map<string, number>();
@@ -33,7 +29,7 @@ const sentIn = (step: ReadonlyArray<Fact>, reference: Reference) =>
       Fact.$is("Reported")(fact) &&
       Observation.$is("Sent")(fact.observation) &&
       isWrite(reference, fact.observation.operation)
-        ? [`${fact.observation.operation} ${fact.observation.attempt}`]
+        ? [attemptKey(fact.observation.operation, fact.observation.attempt)]
         : [],
     ),
   );
@@ -66,7 +62,7 @@ const oneInputPerKey = (requests: ReadonlyArray<Request>, reference: Reference) 
 
   return requests.flatMap((request) => {
     if (Option.isNone(request.key) || !isWrite(reference, request.operation)) return [];
-    const id = `${request.operation} ${request.key.value}`;
+    const id = attemptKey(request.operation, request.key.value);
     const before = first.get(id);
 
     if (before === undefined) first.set(id, request);
@@ -90,7 +86,7 @@ const mintedOnce = (timeline: ReadonlyArray<Fact>) => {
 };
 
 const mintedUnder = (operation: string, attempt: string, minting: Minting) => {
-  if (minting.pairs.has(idOf(operation, attempt))) return Option.none<string>();
+  if (minting.pairs.has(attemptKey(operation, attempt))) return Option.none<string>();
 
   return Option.some(
     Option.match(Option.fromUndefinedOr(minting.owner.get(attempt)), {
@@ -119,7 +115,7 @@ const judgeKey = (request: Request, minting: Minting, decided: ReadonlySet<strin
           `WriteLanes I6: a send of ${request.operation} carried ${key}, which ${wrong.value} it`,
         ];
 
-      if (decided.has(idOf(request.operation, key)))
+      if (decided.has(attemptKey(request.operation, key)))
         return [
           `WriteLanes I6: ${request.operation} ${key} was sent again after it ended definitely`,
         ];
@@ -134,7 +130,7 @@ const keysMintedAndOpen = (timeline: ReadonlyArray<Fact>, reference: Reference) 
 
   const learn = (observed: Observation) => {
     if (Observation.$is("Minted")(observed)) {
-      minting.pairs.add(idOf(observed.operation, observed.attempt));
+      minting.pairs.add(attemptKey(observed.operation, observed.attempt));
 
       if (!minting.owner.has(observed.attempt))
         minting.owner.set(observed.attempt, observed.operation);
@@ -145,7 +141,7 @@ const keysMintedAndOpen = (timeline: ReadonlyArray<Fact>, reference: Reference) 
       observed.channel !== "unknown" &&
       Option.isSome(observed.attempt)
     )
-      decided.add(idOf(observed.operation, observed.attempt.value));
+      decided.add(attemptKey(observed.operation, observed.attempt.value));
   };
 
   return steps(timeline).flatMap((step) => {

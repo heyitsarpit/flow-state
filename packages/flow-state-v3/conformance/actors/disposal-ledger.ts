@@ -1,15 +1,8 @@
-import { Option, Predicate } from "effect";
+import { Option } from "effect";
+import { type LaneId, laneOf, sameLane, writeNamed } from "../dsl/domain.ts";
 import { Fact, holdUse } from "../dsl/oracle.ts";
 import { operationNamed, type Reference } from "../fixtures/reference.ts";
-import {
-  type ActorRef,
-  type Channel,
-  type Json,
-  Observation,
-  sameActor,
-  sameJson,
-  type Use,
-} from "../port.ts";
+import { type ActorRef, type Channel, Observation, sameActor, type Use } from "../port.ts";
 import { type Answer, type Request, RequestPhase } from "../world/network.ts";
 
 /**
@@ -22,21 +15,6 @@ import { type Answer, type Request, RequestPhase } from "../world/network.ts";
  * - `Settled` is terminal: nothing the ledger learns moves an Attempt out of it.
  */
 export type Phase = "Minted" | "Sent" | "Unsure" | "Settled";
-
-/**
- * One write lane: its owner, operation, and the values of its key fields in their declared order.
- */
-export type LaneId = {
-  readonly owner: ActorRef;
-  readonly operation: string;
-  readonly key: ReadonlyArray<Json>;
-};
-
-/**
- * Whether two {@link LaneId}s name the same lane; key values compare as JSON values.
- */
-export const sameLane = (a: LaneId, b: LaneId) =>
-  sameActor(a.owner, b.owner) && a.operation === b.operation && sameJson(a.key, b.key);
 
 /**
  * One Attempt of a write the ledger follows.
@@ -71,25 +49,6 @@ export type Ledger = {
  */
 // RETURN_TYPE: the Ledger record; inference would widen its empty collections.
 export const freshLedger = (): Ledger => ({ attempts: new Map(), heads: [], uses: [] });
-
-const keyFieldsOf = (input: Json, fields: ReadonlyArray<string>) =>
-  fields.map((field) =>
-    Predicate.isObjectKeyword(input) && !Array.isArray(input)
-      ? (Object.entries(input).find(([key]) => key === field)?.[1] ?? null)
-      : null,
-  );
-
-/**
- * The lane a write's input or key names: its key fields' values, by the fixture's reference.
- */
-export const laneOf = (owner: ActorRef, reference: Reference, operation: string, key: Json) => {
-  const fields = Option.match(operationNamed(reference, operation), {
-    onNone: () => [],
-    onSome: (o) => o.keyFields,
-  });
-
-  return { owner, operation, key: keyFieldsOf(key, fields) };
-};
 
 /**
  * The lane whose newest sent Attempt is `id`, if any.
@@ -169,7 +128,7 @@ const cancelled = (ledger: Ledger, reference: Reference, actor: ActorRef, event:
 
 const minted = (ledger: Ledger, reference: Reference, observation: Observation) => {
   if (!Observation.$is("Minted")(observation) || Option.isNone(observation.actor)) return;
-  const write = Option.exists(operationNamed(reference, observation.operation), (o) => o.attempts);
+  const write = Option.isSome(writeNamed(reference, observation.operation));
 
   if (write && !ledger.attempts.has(observation.attempt))
     ledger.attempts.set(observation.attempt, {
