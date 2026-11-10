@@ -41,10 +41,13 @@ const Target = Schema.Union([
   Schema.Struct({ t: Schema.Literal("only") }),
   Schema.Struct({ t: Schema.Literal("key"), key: Schema.Json }),
   Schema.Struct({ t: Schema.Literal("every") }),
+  Schema.Struct({ t: Schema.Literal("nothing") }),
 ]);
 
 const targetOf = (target: typeof Target.Type) => {
   if (target.t === "key") return MemberTarget.Key({ key: target.key });
+
+  if (target.t === "nothing") return MemberTarget.Nothing();
 
   return target.t === "only" ? MemberTarget.Only() : MemberTarget.Every();
 };
@@ -91,7 +94,8 @@ const reports = {
     op: Schema.String,
     attempt: Schema.String,
     actor: OptionalText,
-    key: Schema.OptionFromOptionalNullOr(Schema.Json),
+    // FLOW_STATE_ALLOW_UNKNOWN: a key that is not JSON reads as missing, so the Case names the field.
+    key: Schema.optional(Schema.Unknown),
   }),
   invoked: Schema.Struct({ op: Schema.String, attempt: Schema.String }),
   ending: Schema.Struct({
@@ -209,7 +213,7 @@ const observationOf = (report: Report): Option.Option<Observation> => {
         operation: r.op,
         attempt: r.attempt,
         actor: Option.map(r.actor, actorRef),
-        key: r.key,
+        key: Option.liftPredicate(r.key, Schema.is(Schema.Json)),
       }),
     );
   }

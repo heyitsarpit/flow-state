@@ -127,17 +127,22 @@ export type MemberKind = typeof MemberKind.Type;
 
 /**
  * The lanes a member acts on: an unkeyed operation's one lane (`Only`), the lane of one key
- * (`Key`), or every lane of the operation for the turn's actor (`Every`).
+ * (`Key`), every lane of the operation for the turn's actor (`Every`), or none (`Nothing`).
  *
  * **Details**
  *
- * A key-less member in an operation's ending names that ending's lane, so it is `Key`. `Every`
- * is a key-less cancel outside an ending, or a release.
+ * - A key-less member in its operation's ending names that ending's Attempt's lane, so it is
+ *   `Key`.
+ * - `Every` is a key-less cancel outside an ending, or a release of a keyed operation.
+ * - `Nothing`: the member names no lane, so it does nothing: its key did not encode, it is
+ *   key-less in a decline's ending or another operation's, or it is a key-less retry outside an
+ *   ending.
  */
 export type MemberTarget = Data.TaggedEnum<{
   Only: {};
   Key: { key: Json };
   Every: {};
+  Nothing: {};
 }>;
 
 /**

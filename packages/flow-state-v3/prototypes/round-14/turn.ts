@@ -107,7 +107,7 @@ type Walk = {
   thawFollows: Mail[];
   thawed: Path[]; // rule 54: a thawed incarnation adopts what parked while it was frozen
   exited: Set<string>; // rule 6: who ended by its own exit
-  members: Array<{ op: string; kind: string; target: { t: "only" } | { t: "key"; key: unknown } | { t: "every" } }>; // the new suite's Port change 1
+  members: Array<{ op: string; kind: string; target: { t: "only" } | { t: "key"; key: unknown } | { t: "every" } | { t: "nothing" } }>; // the new suite's Port change 1
 };
 const inView = (inc: Inc, event: unknown) => ({
   memory: viewOf(inc),
@@ -665,20 +665,24 @@ const ownerOf = (w: Walk, part: Part): Owner => {
   };
 };
 // The new suite's Port change 1: a lane member as the turn reports it, its lane named before any cell runs. Lookups, module members and
-// a read's cancels are not lane members. Key-less: an unkeyed operation's one lane; in an ending of its operation, that ending's lane;
-// outside an ending, every lane of the operation for this actor.
-const memberOf = (w: Walk, mem: Member, key: unknown): Walk["members"] => {
+// a read's cancels are not lane members. Key-less: an unkeyed operation's one lane; in an ending of its operation with an Attempt, that
+// ending's lane; a cancel outside an ending, every lane of the operation for this actor. `nothing`: the member names no lane (a key that
+// did not enter, an ending with no Attempt or of another operation, a key-less retry outside an ending), and applyMembers does nothing.
+const memberOf = (w: Walk, mem: Member, key: unknown, unencodable: boolean): Walk["members"] => {
   const op = w.m.ops[mem.op]!;
   if (op.kind === "read" || !(mem.verb === "commit" || mem.verb === "retry" || mem.verb === "cancel" || mem.verb === "cancelAll")) return [];
   const it = w.item;
+  const named = (k: unknown) => (k === undefined || k === null ? { t: "nothing" as const } : { t: "key" as const, key: k });
   const target: Walk["members"][number]["target"] =
     op.keyFields?.length === 0
       ? { t: "only" }
-      : mem.verb === "commit" || mem.key
-        ? { t: "key", key: key ?? null }
-        : it?.k === "ending"
-          ? { t: "key", key: it.op === mem.op ? (it.key ?? null) : null }
-          : { t: "every" };
+      : mem.verb === "commit"
+        ? named(key)
+        : mem.key
+          ? unencodable ? { t: "nothing" } : named(key)
+          : it?.k === "ending"
+            ? it.op === mem.op && it.attempt ? named(it.key) : { t: "nothing" }
+            : mem.verb === "retry" ? { t: "nothing" } : { t: "every" };
   return [{ op: mem.op, kind: mem.verb, target }];
 };
 // P5 first: every select runs before any cell, so a throw leaves no cell behind. P6 then applies in action order.
@@ -711,7 +715,10 @@ const applyMembers = (w: Walk) => {
       return { part, mem, inc, unencodable: false, ...got.v, prepared, owner };
     });
   });
-  w.members = [...reads.flatMap((r) => memberOf(w, r.mem, r.key)), ...w.releases.map(({ op }) => ({ op, kind: "release", target: { t: "every" as const } }))];
+  w.members = [
+    ...reads.flatMap((r) => memberOf(w, r.mem, r.key, r.unencodable)),
+    ...w.releases.map(({ op }) => ({ op, kind: "release", target: w.m.ops[op]?.keyFields?.length === 0 ? { t: "only" as const } : { t: "every" as const } })),
+  ];
   for (const r of reads) {
     const { mem, inc } = r;
     const op = w.m.ops[mem.op]!;

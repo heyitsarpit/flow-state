@@ -50,6 +50,7 @@ const shown = <A>(value: A) => String(JSON.stringify(value));
 export class UnreadableReport extends Data.TaggedError("UnreadableReport")<{
   readonly report: string;
   readonly field: string;
+  readonly message: string;
 }> {}
 
 const missingField = (reference: Reference, minted: Minted) => {
@@ -71,6 +72,7 @@ const decodeReports = (reference: Reference, fresh: ReadonlyArray<Fact>) => {
       throw new UnreadableReport({
         report: `Minted ${minted.operation} ${minted.attempt}`,
         field: field.value,
+        message: `Minted ${minted.operation} ${minted.attempt} has no ${field.value}`,
       });
   }
 };
