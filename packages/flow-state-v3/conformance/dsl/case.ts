@@ -120,21 +120,24 @@ export type Driver = Pick<
 >;
 
 /**
- * Opens one case: a fresh world for `seed`, `port` booted over it for `fixtures`, and `oracles`
- * run after every step.
+ * What one run of a case needs: the port to boot, the fixtures, the oracles run after every step,
+ * and the world's seed.
  *
  * **Details**
  *
  * `seed` fixes the world: the store's load order and the session seeds the runtime mints from.
- * The runner opens every case under more than one seed.
+ * The runner runs every case under more than one seed.
  */
-// RETURN_TYPE: the exported Case contract scenarios are written against.
-export const openCase = (options: {
+export type CaseOptions = {
   readonly port: Port;
   readonly fixtures: ReadonlyArray<Fixture>;
   readonly oracles: ReadonlyArray<Oracle>;
   readonly seed: number;
-}): Case => {
+};
+
+const DISPOSAL_BOUND_MS = 5000;
+
+const openCase = (options: CaseOptions) => {
   const world = makeWorld(options.seed);
   const { network, storage, page } = world.hosts;
   const timeline = makeTimeline();
@@ -270,16 +273,49 @@ export const openCase = (options: {
 
   const driver: Driver = { ensure, release, dispose, send, eq, snapshot, row };
 
-  return {
+  const thisBoot = () => {
+    const facts = timeline.facts();
+
+    return facts.slice(facts.findLastIndex(Fact.$is("Reloaded")) + 1);
+  };
+
+  const disposeRuntime = (what: string) =>
+    act(what, () => {
+      timeline.record(Fact.DisposingRuntime());
+      runtime.disposeRuntime();
+    });
+
+  const reload = (what: string) =>
+    act(what, () => {
+      world.kill();
+      timeline.record(Fact.Reloaded());
+      runtime = boot();
+
+      for (const [actor, use] of uses()) runtime.ensureExisting(actor, use);
+    });
+
+  const end = () => {
+    if (!thisBoot().some(Fact.$is("DisposingRuntime")))
+      disposeRuntime("end of case: dispose the runtime");
+    act("end of case: ack", () => void storage.answer("ack", Option.none()));
+    act(`end of case: advance ${DISPOSAL_BOUND_MS}`, () =>
+      world.advance(DISPOSAL_BOUND_MS, pending),
+    );
+    act("end of case: ack", () => void storage.answer("ack", Option.none()));
+    eq(
+      "end of case: the Runtime's disposal ended within its bound (Actors R22, R23)",
+      reported(thisBoot()).filter(Observation.$is("RuntimeDisposed")).length,
+      1,
+    );
+    reload("end of case: reload");
+  };
+
+  const steps: Case = {
     actor: (fixture, id) => actorView(driver, fixture, id),
     ensure,
     release,
     dispose,
-    disposeRuntime: () =>
-      act("dispose the runtime", () => {
-        timeline.record(Fact.DisposingRuntime());
-        runtime.disposeRuntime();
-      }),
+    disposeRuntime: () => disposeRuntime("dispose the runtime"),
     send,
     ack: () => answerStorage("ack", Option.none()),
     answerStorage,
@@ -310,14 +346,7 @@ export const openCase = (options: {
         page.show();
       }),
     advance: (ms) => act(`advance ${ms}`, () => world.advance(ms, pending)),
-    reload: () =>
-      act("reload", () => {
-        world.kill();
-        timeline.record(Fact.Reloaded());
-        runtime = boot();
-
-        for (const [actor, use] of uses()) runtime.ensureExisting(actor, use);
-      }),
+    reload: () => reload("reload"),
     eq,
     snapshot,
     row,
@@ -336,6 +365,8 @@ export const openCase = (options: {
     runtimeDisposals: () => observed().filter(Observation.$is("RuntimeDisposed")).length,
     reports: observed,
   };
+
+  return { steps, end };
 };
 
 /**
@@ -366,3 +397,25 @@ export const variants = (
   base: Omit<Scenario, "run">,
   runs: Readonly<Record<string, Scenario["run"]>>,
 ) => Object.entries(runs).map(([name, run]) => ({ ...base, id: `${base.id}/${name}`, run }));
+
+/**
+ * Runs one case on a fresh world: opens it, runs the scenario's steps, then ends it with a judged
+ * Runtime disposal.
+ *
+ * **Details**
+ *
+ * The end is steps like any other, so every oracle judges each: dispose the Runtime (unless this
+ * boot's disposal already started), answer every held store write, advance the clock past the
+ * disposal bound, answer the writes again, expect that the disposal ended (Actors R22, R23), and
+ * reload, which re-attaches the uses the case holds so the `disposal` oracle can see what
+ * survived.
+ *
+ * **Gotchas**
+ *
+ * - Throws as a step does: `Violated`, `Mismatch`, or a defect.
+ */
+export const playCase = (options: CaseOptions, run: Scenario["run"]) => {
+  const opened = openCase(options);
+  run(opened.steps);
+  opened.end();
+};

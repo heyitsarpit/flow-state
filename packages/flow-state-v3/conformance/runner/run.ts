@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { Mismatch, openCase, type Scenario, Violated } from "../dsl/case.ts";
+import { Mismatch, playCase, type Scenario, Violated } from "../dsl/case.ts";
 import type { Oracle } from "../dsl/oracle.ts";
 import type { Port } from "../port.ts";
 import type { CaseVerdict } from "./verdict.ts";
@@ -22,7 +22,7 @@ const failed = (failure: unknown) => {
 
 const runSeed = (port: Port, scenario: Scenario, oracles: ReadonlyArray<Oracle>, seed: number) =>
   Effect.try({
-    try: () => scenario.run(openCase({ port, fixtures: scenario.fixtures, oracles, seed })),
+    try: () => playCase({ port, fixtures: scenario.fixtures, oracles, seed }, scenario.run),
     catch: failed,
   }).pipe(
     Effect.match({

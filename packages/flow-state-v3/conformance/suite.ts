@@ -1,3 +1,5 @@
+import { disposalMutants } from "./actors/disposal.mutants.ts";
+import { disposal } from "./actors/disposal.ts";
 import { runtimeDisposalScenarios } from "./actors/runtime-disposal.scenarios.ts";
 import type { Scenario } from "./dsl/case.ts";
 import type { Guarantee } from "./dsl/oracle.ts";
@@ -26,6 +28,7 @@ export const guarantees: ReadonlyArray<Guarantee> = [
   { oracle: attemptIdentity, mutants: attemptIdentityMutants },
   { oracle: deliveredOnce, mutants: deliveredOnceMutants },
   { oracle: laneQueue, mutants: laneQueueMutants },
+  { oracle: disposal, mutants: disposalMutants },
 ];
 
 /**

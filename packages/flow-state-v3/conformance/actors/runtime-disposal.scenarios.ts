@@ -136,6 +136,7 @@ export const runtimeDisposalScenarios: ReadonlyArray<Scenario> = [
           c.endings("pay").some((e) => e.reason === "Restored"),
           false,
         );
+        c.eq("a definite ending drops the head", row(s), undefined);
       },
       "on-the-wire-at-the-bound-ends-unknown-disposed": (c) => {
         const s = shopper(c);
