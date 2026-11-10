@@ -12,7 +12,7 @@ import {
 import type { Network } from "../world/network.ts";
 import type { Page } from "../world/page.ts";
 import { type Purpose, Write } from "../world/storage.ts";
-import { observationsOf } from "./prototype-observations.ts";
+import { actorRef, observationsOf } from "./prototype-observations.ts";
 
 declare const CompiledBrand: unique symbol;
 
@@ -51,6 +51,30 @@ const PrototypeWrite = Schema.Struct({
   value: Schema.UndefinedOr(Schema.String),
 });
 
+const PrototypeIssue = Schema.Struct({
+  code: Schema.String,
+  ending: Schema.OptionFromOptionalKey(
+    Schema.Struct({
+      op: Schema.String,
+      attempt: Schema.OptionFromOptionalKey(Schema.String),
+      actor: Schema.String,
+    }),
+  ),
+});
+
+const issueOf = (raw: typeof PrototypeIssue.Encoded) => {
+  const issue = Schema.decodeSync(PrototypeIssue)(raw);
+
+  return Observation.Issue({
+    code: issue.code,
+    ending: Option.map(issue.ending, (e) => ({
+      operation: e.op,
+      attempt: e.attempt,
+      actor: actorRef(e.actor),
+    })),
+  });
+};
+
 type PrototypeHost = {
   readonly now: () => number;
   readonly id: () => string;
@@ -82,7 +106,7 @@ type PrototypePort = {
     };
     readonly services: Context.Context<never>;
     readonly onEvidence: (batch: Parameters<typeof observationsOf>[0]) => void;
-    readonly onIssue: (issues: ReadonlyArray<{ readonly code: string }>) => void;
+    readonly onIssue: (issues: ReadonlyArray<typeof PrototypeIssue.Encoded>) => void;
   }) => PrototypeInstance;
 };
 
@@ -358,7 +382,7 @@ export const prototypePort = (loaded: LoadedPrototype): Port => ({
           for (const o of observationsOf(batch)) boot.observe(o);
         },
         onIssue: (issues) => {
-          for (const issue of issues) boot.observe(Observation.Issue({ code: issue.code }));
+          for (const issue of issues) boot.observe(issueOf(issue));
         },
       }),
     );

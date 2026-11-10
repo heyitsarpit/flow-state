@@ -300,7 +300,7 @@ export type Command =
 
 export type Env = { readonly now: number; id(): string };
 export type Evidence = { readonly kind: string; readonly [k: string]: unknown };
-export type Issue = { readonly code: string; readonly origin?: string; readonly input?: unknown; readonly cause?: string }; // D123: `cause`, what a user's closure threw
+export type Issue = { readonly code: string; readonly origin?: string; readonly input?: unknown; readonly cause?: string; readonly ending?: { readonly op: string; readonly attempt?: string; readonly actor: string } }; // Port change 4: `ending`, the operation ending a refusal concerns // D123: `cause`, what a user's closure threw
 export type Bounds = {
   readonly drainMs: number;
   readonly storageMs: number;
@@ -502,11 +502,12 @@ export const endingReason = (e: Ending): string =>
         ? (e.value as { why: string }).why
         : e.tag
       : "success";
-export const noteEnding = (tx: Tx, a: { op: string; attempt?: string; send?: string }, e: Ending) =>
+export const noteEnding = (tx: Tx, a: { op: string; attempt?: string; send?: string; actor?: string }, e: Ending) =>
   note(tx, "ending", {
     op: a.op,
     attempt: a.attempt,
     send: a.send,
+    ...(a.actor !== undefined ? { actor: a.actor } : {}), // the new suite's Port change 3: a decline names its actor
     channel: e.ch,
     reason: endingReason(e),
   });

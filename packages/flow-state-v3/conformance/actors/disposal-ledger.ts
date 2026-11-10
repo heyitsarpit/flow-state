@@ -263,6 +263,8 @@ const reportedOn = (ledger: Ledger, reference: Reference, observation: Observati
     Unhandled: () => ledger,
     Denied: () => ledger,
     Issue: () => ledger,
+    Incarnated: () => ledger,
+    Finished: () => ledger,
     RuntimeDisposed: () => ledger,
   });
 

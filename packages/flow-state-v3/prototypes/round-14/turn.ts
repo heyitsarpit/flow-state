@@ -107,6 +107,7 @@ type Walk = {
   thawFollows: Mail[];
   thawed: Path[]; // rule 54: a thawed incarnation adopts what parked while it was frozen
   exited: Set<string>; // rule 6: who ended by its own exit
+  members: Array<{ op: string; kind: string; target: { t: "only" } | { t: "key"; key: unknown } | { t: "every" } }>; // the new suite's Port change 1
 };
 const inView = (inc: Inc, event: unknown) => ({
   memory: viewOf(inc),
@@ -663,6 +664,23 @@ const ownerOf = (w: Walk, part: Part): Owner => {
       .map((n) => ({ node: n, activation: at(n) })),
   };
 };
+// The new suite's Port change 1: a lane member as the turn reports it, its lane named before any cell runs. Lookups, module members and
+// a read's cancels are not lane members. Key-less: an unkeyed operation's one lane; in an ending of its operation, that ending's lane;
+// outside an ending, every lane of the operation for this actor.
+const memberOf = (w: Walk, mem: Member, key: unknown): Walk["members"] => {
+  const op = w.m.ops[mem.op]!;
+  if (op.kind === "read" || !(mem.verb === "commit" || mem.verb === "retry" || mem.verb === "cancel" || mem.verb === "cancelAll")) return [];
+  const it = w.item;
+  const target: Walk["members"][number]["target"] =
+    op.keyFields?.length === 0
+      ? { t: "only" }
+      : mem.verb === "commit" || mem.key
+        ? { t: "key", key: key ?? null }
+        : it?.k === "ending"
+          ? { t: "key", key: it.op === mem.op ? (it.key ?? null) : null }
+          : { t: "every" };
+  return [{ op: mem.op, kind: mem.verb, target }];
+};
 // P5 first: every select runs before any cell, so a throw leaves no cell behind. P6 then applies in action order.
 const applyMembers = (w: Walk) => {
   const tx = w.tx;
@@ -693,6 +711,7 @@ const applyMembers = (w: Walk) => {
       return { part, mem, inc, unencodable: false, ...got.v, prepared, owner };
     });
   });
+  w.members = [...reads.flatMap((r) => memberOf(w, r.mem, r.key)), ...w.releases.map(({ op }) => ({ op, kind: "release", target: { t: "every" as const } }))];
   for (const r of reads) {
     const { mem, inc } = r;
     const op = w.m.ops[mem.op]!;
@@ -943,6 +962,7 @@ const newWalk = (tx: Tx, a: ActorRec, item: Mail | undefined, late: boolean): Wa
   thawFollows: [],
   thawed: [],
   exited: new Set(),
+  members: [],
 });
 const finish = (
   w: Walk,
@@ -991,6 +1011,7 @@ const finish = (
     ...((w.parts[0]?.event as any)?.n !== undefined ? { n: (w.parts[0]?.event as any).n } : {}),
     // Round 13 (`flow graph`'s conformance gate, `flow trace`): which alternative ran in which incarnation, and where the moved one went. Read only by tools.
     parts: w.parts.map((p) => ({ path: p.path, definition: p.alt.at.definition, at: p.alt.at.path, node: p.node, tag: p.tag, target: p.alt.target, ...(p.fused ? { fused: true } : {}) })),
+    members: w.members,
     ...(w.move ? { moved: { path: w.move.path, from: kidAt(w.root0, w.move.path)?.leaf, to: kidAt(w.root, w.move.path)?.leaf } } : {}),
   });
   tx.visible = true;
@@ -1204,9 +1225,9 @@ const deliver = (tx: Tx, a: ActorRec, path: Path, item: EndingMail) => {
   const inc = kidAt(a.root, path)!;
   const mapped = mappedFor(m, item);
   if (!item.redelivered || item.kept)
-    note(tx, "delivered", { op: item.op, attempt: item.attempt ?? "", event: mapped?.event, at: path, reason: endingReason(item.ending) }); // stage F: the copy it runs in
+    note(tx, "delivered", { op: item.op, attempt: item.attempt ?? "", event: mapped?.event, at: path, reason: endingReason(item.ending), actor: a.key }); // stage F: the copy it runs in
   if (!mapped) {
-    issue(tx, { code: "UnmappedEnding", origin: `${a.machine} operations.${item.op}`, input: item.ending });
+    issue(tx, { code: "UnmappedEnding", origin: `${a.machine} operations.${item.op}`, input: item.ending, ending: { op: item.op, ...(item.attempt ? { attempt: item.attempt } : {}), actor: a.key } });
     return endHeldThisTurn(tx, item.attempt);
   }
   if (!item.redelivered) countFailure(tx, item);
@@ -1278,6 +1299,7 @@ const attemptTurn = (tx: Tx, item: Mail, tag: string, f: () => void): boolean =>
       origin: e.origin,
       cause: e.message, // D123
       input: { k: "mail", event: tag, ...(again ? { redelivered: true } : {}) },
+      ...(item.k === "ending" ? { ending: { op: item.op, ...(item.attempt ? { attempt: item.attempt } : {}), actor: item.actor } } : {}),
     });
     if ((item.k === "ending" || item.k === "fire") && !again) note(tx, "refused", { event: tag }); // D125: it is owed a second try
     // D50: a refused turn of an ending comes once more, after other mail, with no second cell.

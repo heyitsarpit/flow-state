@@ -42,7 +42,7 @@ export const lookupUnencodable = (
 ) => {
   cancelRead(tx, a.actor, a.inc, a.op);
   const ending: Ending = { ch: "failure", tag: "Defect", value: { why: "Unencodable" } };
-  noteEnding(tx, { op: a.op }, ending);
+  noteEnding(tx, { op: a.op, actor: a.actor }, ending);
   enqueue(tx, { k: "ending", actor: a.actor, op: a.op, key: a.key, owner: a.owner, ending, input: a.input, inc: a.inc }); // D114, D123: what was asked, as a write's decline carries
 };
 export const cancelRead = (tx: Tx, actor: string, inc: string, op: string) => {

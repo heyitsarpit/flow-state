@@ -360,6 +360,8 @@ const reported = (walk: Walk, step: Step, observed: Observation) => {
     Denied: ({ event }) => settled(walk, (p) => p.event === event),
     Evidence: () => walk,
     Issue: ({ code }) => refused(walk, code),
+    Incarnated: () => walk,
+    Finished: () => walk,
     RuntimeDisposed: () => walk,
   });
 };

@@ -361,6 +361,8 @@ const reported = (walk: Walk, step: Step, observed: Observation) => {
         },
       }),
     Issue: () => seen,
+    Incarnated: () => seen,
+    Finished: () => seen,
     RuntimeDisposed: () => seen,
   });
 };

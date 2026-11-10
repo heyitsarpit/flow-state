@@ -125,9 +125,9 @@ Round 1's, the runner's (recorded as such; the user may overrule):
    devices collide) are phase 4 builds: the wrong runtime is a production mutant, written with the
    production mint.
 9. **Seeds** (round 2): every case runs under world seeds 1 and 2.
-10. **Attribution** (round 2): round-14 reports no actor on a mint, a decline or a delivery; the
-    prototype adapter attributes each to the turn that follows it in the same report batch
-    (prototype limit; production reports the actor itself).
+10. **Attribution** (round 2; closed by convergence v2's Port change 3, T7): round-14's mint,
+    decline and delivery notes carry their actor, and the mint its key; the adapter's next-turn
+    attribution is gone.
 11. **Typed fixtures, JSON Port** (round 4): the `Runtime` is the same for every fixture,
     so its values (event payloads, inputs, keys, memory) are `Schema.Json`. A fixture
     (`fixtures/fixture.ts`) carries the Schemas of its events, memory, input and write keys;
@@ -187,18 +187,18 @@ the case holds.
 
 ### Planned Port changes (the work list's needs; none exposes internals)
 
-| Change                                      | Needed by                                                            | Shape (proposed)                                                                                                                                                | Status                                                                                                       |
-| ------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Ending a use; the use's owner on attach     | Actors I10, I11 (lifetime), rule 73 cases                            | `release(actor, use)`; `use` on `ensure`                                                                                                                        | **built**                                                                                                    |
-| Actor on a mint, a decline, a delivery      | `delivered-once` (who must run it)                                   | `actor: Option<ActorRef>` on `Minted`, `Ended`, `Delivered`                                                                                                     | **built** (prototype: attributed, decision 10)                                                               |
-| Incarnation on `Turn`, `Delivered`, `Ended` | Actors I13 to I16 (`incarnations`), WriteLanes I15 "per incarnation" | `incarnation: string` (opaque, fresh per life)                                                                                                                  | planned                                                                                                      |
-| A publish feed                              | Turn I1, I7, I9, I29, I30 (`publication`)                            | `observe(Published { actor, snapshot, revision })` per publication; snapshot identity by `revision`                                                             | planned                                                                                                      |
-| Boot's result                               | Actors I3 to I6 (readiness)                                          | `boot` returns `Result<Runtime, BootFailed { diagnostics }>`; a `ready` observation                                                                             | planned                                                                                                      |
-| A disk reader                               | WriteAhead I15 to I17 (`write-ahead`), Restore I1 to I8 (`restore`)  | `Port.disk: { heads(bytes), parked(bytes), leaves(bytes, actor), scope(key) }`, reading the runtime's own format from the suite's bytes, apart from its restore | planned                                                                                                      |
-| Runtime disposal                            | Actors I29, I30; PAY-13, PAY-16 disposal variants                    | `Runtime.disposeRuntime()`; `RuntimeDisposed` when it ends                                                                                                      | **built** (round 3)                                                                                          |
-| forget                                      | Actors I32                                                           | `Runtime.forget(actor)`                                                                                                                                         | **built** (T6)                                                                                               |
-| The Attempt's key on `Minted`               | `lane-queue` on keyed operations (lanes per key, WriteLanes R6)      | `key: Option<Json>` on `Minted` (a public Attempt field, R5)                                                                                                    | **built** (round 4; round-14 reports `None`: its mint carries no key, so lanes stay per actor and operation) |
-| Faults the Specs name                       | Turn I14 to I16 (refusal), Diagnostics                               | slot faults through the fixtures (a throwing guard or mapper is user code), never a runtime hook                                                                | planned                                                                                                      |
+| Change                                      | Needed by                                                            | Shape (proposed)                                                                                                                                                | Status                                                                                            |
+| ------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Ending a use; the use's owner on attach     | Actors I10, I11 (lifetime), rule 73 cases                            | `release(actor, use)`; `use` on `ensure`                                                                                                                        | **built**                                                                                         |
+| Actor on a mint, a decline, a delivery      | `delivered-once` (who must run it)                                   | `actor: Option<ActorRef>` on `Minted`, `Ended`, `Delivered`                                                                                                     | **built** (round-14 notes it, T7)                                                                 |
+| Incarnation on `Turn`, `Delivered`, `Ended` | Actors I13 to I16 (`incarnations`), WriteLanes I15 "per incarnation" | `incarnation: string` (opaque, fresh per life)                                                                                                                  | planned                                                                                           |
+| A publish feed                              | Turn I1, I7, I9, I29, I30 (`publication`)                            | `observe(Published { actor, snapshot, revision })` per publication; snapshot identity by `revision`                                                             | planned                                                                                           |
+| Boot's result                               | Actors I3 to I6 (readiness)                                          | `boot` returns `Result<Runtime, BootFailed { diagnostics }>`; a `ready` observation                                                                             | planned                                                                                           |
+| A disk reader                               | WriteAhead I15 to I17 (`write-ahead`), Restore I1 to I8 (`restore`)  | `Port.disk: { heads(bytes), parked(bytes), leaves(bytes, actor), scope(key) }`, reading the runtime's own format from the suite's bytes, apart from its restore | planned                                                                                           |
+| Runtime disposal                            | Actors I29, I30; PAY-13, PAY-16 disposal variants                    | `Runtime.disposeRuntime()`; `RuntimeDisposed` when it ends                                                                                                      | **built** (round 3)                                                                               |
+| forget                                      | Actors I32                                                           | `Runtime.forget(actor)`                                                                                                                                         | **built** (T6)                                                                                    |
+| The Attempt's key on `Minted`               | `lane-queue` on keyed operations (lanes per key, WriteLanes R6)      | `key: Option<Json>` on `Minted` (a public Attempt field, R5)                                                                                                    | **built** (round 4; round-14's mint note carries it from T7; a missing one is `UnreadableReport`) |
+| Faults the Specs name                       | Turn I14 to I16 (refusal), Diagnostics                               | slot faults through the fixtures (a throwing guard or mapper is user code), never a runtime hook                                                                | planned                                                                                           |
 
 ## Stated limits
 
@@ -213,14 +213,11 @@ the case holds.
   PAY-16/restore-keeps-mayHaveApplied red on round-14; the adapter will not fill the failure in
   from the suite's own `Answered` fact, since that would report for the runtime what it did not.
   Production must report it, and the check becomes strict with the production adapter.
-- The Port requires `Minted.key` on keyed operations (orchestrator decision, 2026-11-10);
-  round-14's mint carries no key, a stated limit, so on round-14 a keyed Attempt is named at its
-  first send from the request's input, and is judged by no lane check before it (review M1).
 - `lane-queue` accepts a Held head's re-send after any suite-driven turn of its actor since it was
   held (a retry, or the answer that triggers one); a re-send riding on an unrelated driven event
   is not caught. A per-operation map of retrying events in the reference would tighten it.
-- Actors are required on `Minted` (a `None` is a violation in `lane-queue` and `delivered-once`);
-  round-14 reports none, so its adapter attributes each to the turn that follows (decision 10).
+- `Minted` requires `actor`, and `key` on a keyed operation: the Case stops with `UnreadableReport`
+  naming the field (convergence v2's Port change 6).
 - `delivered-once` counts an ending decided after the Runtime's disposal began as parked at the next
   reload; whether the runtime parked it is the `restore` oracle's (the Port shows no parked
   records). An `InvalidTurn` or `UnmappedEnding` issue settles a delivery only when it is the one

@@ -269,12 +269,12 @@ const newAttempt = (tx: Tx, a: CellArgs): { attempt: Attempt } | { no: string } 
   );
   if (no) return { no };
   tx.w = { ...tx.w, nextMint: attempt.mint + 1 };
-  note(tx, "mint", { op: a.op, attempt: attempt.id, mint: attempt.mint });
+  note(tx, "mint", { op: a.op, attempt: attempt.id, mint: attempt.mint, actor: a.actor, key: a.key }); // Port change 3: the mint names its actor and key
   return { attempt };
 };
 export const decline = (tx: Tx, a: CellArgs, why: string) => {
   const e = declined(why);
-  noteEnding(tx, { op: a.op }, e);
+  noteEnding(tx, { op: a.op, actor: a.actor }, e);
   enqueue(tx, {
     k: "ending",
     actor: a.actor,

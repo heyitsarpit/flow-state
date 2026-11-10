@@ -363,7 +363,7 @@ const onDisposeActor = (tx: Tx, key: string, how: "end" | "dispose" | "remount")
 const stoppedEndings = (tx: Tx, key: string, stopped: readonly StoppedRead[] | undefined, old: string, inc: string): Mail[] =>
   (stopped ?? []).map((r) => {
     const ending = { ch: "failure" as const, tag: "Interrupted", value: {} };
-    noteEnding(tx, { op: r.op }, ending);
+    noteEnding(tx, { op: r.op, actor: key }, ending);
     return { k: "ending", actor: key, op: r.op, key: r.key, owner: r.owner, ending, input: r.input, inc: r.inc === old ? inc : r.inc };
   });
 const startRoot = (tx: Tx, key: string, machine: string, input: unknown, identity?: readonly string[]) => {

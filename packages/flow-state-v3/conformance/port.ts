@@ -115,6 +115,57 @@ export type TurnPart = {
 };
 
 /**
+ * What a lane member does: admit a commit, re-send, cancel, cancel every Attempt of a lane, or
+ * release a lane's holds.
+ */
+export const MemberKind = Schema.Literals(["commit", "retry", "cancel", "cancelAll", "release"]);
+
+/**
+ * The decoded {@link MemberKind}.
+ */
+export type MemberKind = typeof MemberKind.Type;
+
+/**
+ * The lanes a member acts on: an unkeyed operation's one lane (`Only`), the lane of one key
+ * (`Key`), or every lane of the operation for the turn's actor (`Every`).
+ *
+ * **Details**
+ *
+ * A key-less member in an operation's ending names that ending's lane, so it is `Key`. `Every`
+ * is a key-less cancel outside an ending, or a release.
+ */
+export type MemberTarget = Data.TaggedEnum<{
+  Only: {};
+  Key: { key: Json };
+  Every: {};
+}>;
+
+/**
+ * Constructors and matchers for {@link MemberTarget}.
+ */
+export const MemberTarget = Data.taggedEnum<MemberTarget>();
+
+/**
+ * One lane member a turn ran, named before any of its effects: the operation, what it does and
+ * the lanes it acts on. Lookups and module members are not lane members.
+ */
+export type Member = {
+  readonly operation: string;
+  readonly kind: MemberKind;
+  readonly target: MemberTarget;
+};
+
+/**
+ * The operation ending an issue concerns: its operation, its Attempt (`None` for a decline) and
+ * the actor it was delivered to.
+ */
+export type EndingRef = {
+  readonly operation: string;
+  readonly attempt: Option.Option<string>;
+  readonly actor: ActorRef;
+};
+
+/**
  * One public report from a runtime, in the order it happened.
  *
  * **When to use**
@@ -125,7 +176,8 @@ export type TurnPart = {
  * **Details**
  *
  * - `Turn`: an actor ran an event, from one leaf to another; `parts` names each alternative that
- *   ran, in the order it ran ({@link TurnPart}).
+ *   ran, in the order it ran ({@link TurnPart}); `members` names each lane member it ran, in
+ *   action order, then its releases ({@link Member}).
  * - `Minted`: a commit of `actor` was admitted and its Attempt got an id; `key` is the Attempt's
  *   key (its lane).
  * - `Sent`: an Attempt's commit was invoked (its first send or a re-send).
@@ -137,7 +189,10 @@ export type TurnPart = {
  * - `Unhandled`: an admitted event had no handler.
  * - `Denied`: an admitted event's handlers all refused it, with the guards' reasons.
  * - `Evidence`: a lane fact that is not an ending's disposition.
- * - `Issue`: an issue the runtime reported, by code.
+ * - `Issue`: an issue the runtime reported, by code; `ending` names the operation ending it
+ *   concerns (`Some` on an `InvalidTurn` or `UnmappedEnding` of an ending, `None` otherwise).
+ * - `Incarnated`: an incarnation of the actor began (created, restored at a boot, returned, or
+ *   adopting). `Finished`: the actor's incarnation ended at its grace.
  * - `RuntimeDisposed`: the Runtime's disposal finished (its public `dispose` settled): every call
  *   it waited for has ended or passed the bound.
  *
@@ -145,11 +200,10 @@ export type TurnPart = {
  *
  * - Every observation is the runtime's own claim. An oracle that reads one alone checks only
  *   consistency; each must be anchored to a suite fact.
- * - `actor` on `Minted` is required: an oracle judges a `None` as a violation. On a decline's
- *   `Ended` and on `Delivered` it names the actor, `None` when the runtime does not say.
- * - `key` on `Minted` is required on a keyed operation (`None` only on an unkeyed one). The
- *   round-14 adapter does not report it, a stated limit: oracles then name a keyed lane from the
- *   Attempt's first request in the server's log.
+ * - `actor` on `Minted` is required, and so is `key` on a keyed operation (`None` only on an
+ *   unkeyed one): the Case stops with `UnreadableReport`, a defect naming the field, when either is
+ *   missing. On a decline's `Ended` and on `Delivered`, `actor` names the actor, `None` when the
+ *   runtime does not say.
  * - A delivery is reported once. When its turn is refused (an `InvalidTurn` issue), the one
  *   redelivery after queued mail is not reported again as `Delivered`: its turn, or its second
  *   refusal, shows it.
@@ -161,6 +215,7 @@ export type Observation = Data.TaggedEnum<{
     from: string;
     to: string;
     parts: ReadonlyArray<TurnPart>;
+    members: ReadonlyArray<Member>;
   };
   Minted: {
     operation: string;
@@ -189,7 +244,9 @@ export type Observation = Data.TaggedEnum<{
   Unhandled: { event: string };
   Denied: { event: string; reasons: ReadonlyArray<string> };
   Evidence: { kind: EvidenceKind; operation: string; attempt: Option.Option<string> };
-  Issue: { code: string };
+  Issue: { code: string; ending: Option.Option<EndingRef> };
+  Incarnated: { actor: ActorRef };
+  Finished: { actor: ActorRef };
   RuntimeDisposed: {};
 }>;
 

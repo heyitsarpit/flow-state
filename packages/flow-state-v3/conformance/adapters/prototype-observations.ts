@@ -1,5 +1,12 @@
 import { Data, Option, Result, Schema } from "effect";
-import { type ActorRef, Channel, EvidenceKind, Observation, type RecordedWhy } from "../port.ts";
+import {
+  Channel,
+  EvidenceKind,
+  MemberKind,
+  MemberTarget,
+  Observation,
+  type RecordedWhy,
+} from "../port.ts";
 
 /**
  * A report the prototype gave in a shape the adapter cannot read: the runtime broke its own
@@ -29,6 +36,24 @@ const attemptOf = (attempt: Option.Option<string>) => Option.filter(attempt, (id
 const IMPLICIT = "implicit";
 
 const OptionalText = Schema.OptionFromOptionalNullOr(Schema.String);
+
+const Target = Schema.Union([
+  Schema.Struct({ t: Schema.Literal("only") }),
+  Schema.Struct({ t: Schema.Literal("key"), key: Schema.Json }),
+  Schema.Struct({ t: Schema.Literal("every") }),
+]);
+
+const targetOf = (target: typeof Target.Type) => {
+  if (target.t === "key") return MemberTarget.Key({ key: target.key });
+
+  return target.t === "only" ? MemberTarget.Only() : MemberTarget.Every();
+};
+
+const memberOf = (m: {
+  readonly op: string;
+  readonly kind: MemberKind;
+  readonly target: typeof Target.Type;
+}) => ({ operation: m.op, kind: m.kind, target: targetOf(m.target) });
 
 /**
  * One untyped report of the prototype's evidence, decoded once with the Schema its `kind` names.
@@ -60,16 +85,29 @@ const reports = {
         target: Schema.String,
       }),
     ),
+    members: Schema.Array(Schema.Struct({ op: Schema.String, kind: MemberKind, target: Target })),
   }),
-  mint: Schema.Struct({ op: Schema.String, attempt: Schema.String }),
+  mint: Schema.Struct({
+    op: Schema.String,
+    attempt: Schema.String,
+    actor: OptionalText,
+    key: Schema.OptionFromOptionalNullOr(Schema.Json),
+  }),
   invoked: Schema.Struct({ op: Schema.String, attempt: Schema.String }),
   ending: Schema.Struct({
     op: Schema.String,
     attempt: OptionalText,
     channel: Channel,
     reason: Schema.String,
+    actor: OptionalText,
   }),
-  delivered: Schema.Struct({ op: Schema.String, attempt: OptionalText, event: OptionalText }),
+  delivered: Schema.Struct({
+    op: Schema.String,
+    attempt: OptionalText,
+    event: OptionalText,
+    actor: OptionalText,
+  }),
+  incarnation: Schema.Struct({ actor: Schema.String }),
   evidence: Schema.Struct({ kind: EvidenceKind, op: Schema.String, attempt: OptionalText }),
   onLane: Schema.Struct({ op: Schema.String, attempt: OptionalText }),
   unhandled: Schema.Struct({ event: Schema.String }),
@@ -92,6 +130,14 @@ const read = <A, E>(schema: Schema.Codec<A, E>, report: Report, kind: string) =>
 // RETURN_TYPE: each branch builds one variant; inference keeps a union of Options, not one Option.
 const laneReport = (report: Report, kind: string): Option.Option<Observation> => {
   if (kind === "Disposed") return Option.some(Observation.RuntimeDisposed());
+
+  if (kind === "incarnation" || kind === "ended") {
+    const actor = actorRef(read(reports.incarnation, report, kind).actor);
+
+    return Option.some(
+      kind === "incarnation" ? Observation.Incarnated({ actor }) : Observation.Finished({ actor }),
+    );
+  }
 
   if (kind === "Unhandled") {
     const r = read(reports.unhandled, report, kind);
@@ -150,6 +196,7 @@ const observationOf = (report: Report): Option.Option<Observation> => {
           node: p.node,
           target: p.target,
         })),
+        members: r.members.map(memberOf),
       }),
     );
   }
@@ -161,8 +208,8 @@ const observationOf = (report: Report): Option.Option<Observation> => {
       Observation.Minted({
         operation: r.op,
         attempt: r.attempt,
-        actor: Option.none(),
-        key: Option.none(),
+        actor: Option.map(r.actor, actorRef),
+        key: r.key,
       }),
     );
   }
@@ -182,7 +229,7 @@ const observationOf = (report: Report): Option.Option<Observation> => {
         attempt: attemptOf(r.attempt),
         channel: r.channel,
         reason: r.reason,
-        actor: Option.none(),
+        actor: Option.isNone(attemptOf(r.attempt)) ? Option.map(r.actor, actorRef) : Option.none(),
         failure: Option.none(),
       }),
     );
@@ -197,35 +244,12 @@ const observationOf = (report: Report): Option.Option<Observation> => {
         operation: r.op,
         attempt: attemptOf(r.attempt),
         event,
-        actor: Option.none(),
+        actor: Option.map(r.actor, actorRef),
       }),
     );
   }
 
   return laneReport(report, kind);
-};
-
-const owned = (observed: Observation, actor: Option.Option<ActorRef>) => {
-  if (Observation.$is("Minted")(observed)) return Observation.Minted({ ...observed, actor });
-
-  if (Observation.$is("Delivered")(observed)) return Observation.Delivered({ ...observed, actor });
-
-  if (Observation.$is("Ended")(observed) && Option.isNone(observed.attempt))
-    return Observation.Ended({ ...observed, actor });
-
-  return observed;
-};
-
-const attributed = (batch: ReadonlyArray<Observation>) => {
-  const out: Array<Observation> = [];
-  let next = Option.none<ActorRef>();
-
-  for (const observed of [...batch].toReversed()) {
-    if (Observation.$is("Turn")(observed)) next = Option.some(observed.actor);
-    out.push(owned(observed, next));
-  }
-
-  return out.toReversed();
 };
 
 /**
@@ -235,8 +259,8 @@ const attributed = (batch: ReadonlyArray<Observation>) => {
  *
  * - Each report is decoded once, with the Schema its `kind` names; reports of other kinds (the
  *   prototype's internal ones) are dropped.
- * - The prototype reports no actor on a mint, a decline or a delivery; each is attributed to the
- *   turn that follows it in the same batch (README decision 10, a prototype limit).
+ * - A mint, a decline and a delivery name their actor; a report of a mutated runtime that drops it
+ *   reads as `None`.
  *
  * **Gotchas**
  *
@@ -245,4 +269,4 @@ const attributed = (batch: ReadonlyArray<Observation>) => {
  *   `SinkFailed` issue, dropping the batch.
  */
 export const observationsOf = (batch: ReadonlyArray<Report>) =>
-  attributed(batch.flatMap((raw) => Option.toArray(observationOf(raw))));
+  batch.flatMap((raw) => Option.toArray(observationOf(raw)));

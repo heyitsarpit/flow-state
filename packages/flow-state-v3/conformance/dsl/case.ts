@@ -1,5 +1,6 @@
-import { Equal, Option } from "effect";
+import { Data, Equal, Option } from "effect";
 import { type Fixture, referenceFor } from "../fixtures/fixture.ts";
+import { operationNamed, type Reference } from "../fixtures/reference.ts";
 import {
   disposalBoundMs,
   Fact,
@@ -16,6 +17,7 @@ import {
   type Ended,
   type EvidenceKind,
   type Json,
+  type Minted,
   Observation,
   type Port,
   sameActor,
@@ -40,6 +42,38 @@ export type Drive = {
 };
 
 const shown = <A>(value: A) => String(JSON.stringify(value));
+
+/**
+ * A runtime report lacks a field the Port requires: a defect of the runtime or its adapter, never
+ * a verdict on a guarantee. `field` names what is missing.
+ */
+export class UnreadableReport extends Data.TaggedError("UnreadableReport")<{
+  readonly report: string;
+  readonly field: string;
+}> {}
+
+const missingField = (reference: Reference, minted: Minted) => {
+  if (Option.isNone(minted.actor)) return Option.some("actor");
+
+  const keyed = Option.exists(
+    operationNamed(reference, minted.operation),
+    (o) => o.keyFields.length > 0,
+  );
+
+  return keyed && Option.isNone(minted.key) ? Option.some("key") : Option.none();
+};
+
+const decodeReports = (reference: Reference, fresh: ReadonlyArray<Fact>) => {
+  for (const minted of reported(fresh).filter(Observation.$is("Minted"))) {
+    const field = missingField(reference, minted);
+
+    if (Option.isSome(field))
+      throw new UnreadableReport({
+        report: `Minted ${minted.operation} ${minted.attempt}`,
+        field: field.value,
+      });
+  }
+};
 
 /**
  * The scenario DSL one case runs through, fixture-agnostic: steps that settle the world and run
@@ -178,6 +212,7 @@ const stepEngine = (
   };
 
   const judge = (what: string) => {
+    decodeReports(reference, facts.slice(judged));
     const fresh = steps(facts.slice(judged));
     judged = facts.length;
 
