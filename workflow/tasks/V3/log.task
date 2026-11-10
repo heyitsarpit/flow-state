@@ -404,3 +404,5 @@ note 2026-11-10T17:17:50Z
     the T7 lead, to fold into T6 before going on with T7. Decision (orchestrator): T6 owns I31, I32 and the 
     disposeActor half of I29, because T9 covers Actors apart from disposal; no Task scope changed. Next in the review 
     slot: the Q3 A review of the suite files Haiku coders wrote. Reverse: move them to T9 with the user's yes.
+note 2026-11-10T17:19:29Z
+    The user sent a conformance code-quality cleanup list (8 items: Data.TaggedEnum and exhaustive $match for routing, $is only for one yes/no question, Data constructors instead of spreads, one set of Observation variant aliases in port.ts, a STYLE.md line; no behaviour change). Sent verbatim to the T7 lead to judge each item and implement the ones worth doing, logged in T6's comments; item 8 edits tools/lint-bomb/STYLE.md by the user's request.
