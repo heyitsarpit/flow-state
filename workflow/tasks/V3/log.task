@@ -462,3 +462,5 @@ note 2026-11-10T18:10:51Z
     orchestrator briefly: verdict, commits, gate counts, and items needing a decision, in about 30 lines, with full 
     detail in Task comments, STATUS.md or a review file. Why: keep the orchestrator's context light. Edited: 
     instructions. Sent to the running building and reviewing leads. Reverse: drop the line.
+note 2026-11-10T18:21:52Z
+    T40 first pass (a6063da3 to 81063ced): S1, S4, S5 and S6 done, S3 and S7 in part; orchestrator verified suite 67/67, null 0/67, falsify 38/38; nub run check fails only on STATUS.md formatting. Accepted: the Fixture generics stay (the lint needs them); the attempts flag moves to T7. The lead's context ran long, so a fresh Opus building lead at high effort (the third building iteration) finishes T40 (an S1 reviewer sidecar, STATUS.md format, the rest of S3, S8's runner items, the STYLE.md lines) and then does T7.
