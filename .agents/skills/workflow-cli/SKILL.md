@@ -28,7 +28,7 @@ records.
 ## Commands or direct edits
 
 Use commands for creation, short edits, whole-field replacements (`--text FIELD=TEXT` or
-`--file FIELD=PATH`), notes and comments, marking decisions read, opening a phase, queries, and
+`--file FIELD=PATH`), notes and comments, opening a phase, queries, and
 links, and add `--json` when a program will read the output. Edit the files directly for what the
 commands cannot do well: structural changes, surgical prose edits in any field, Plan objects, and
 edits within a Spec body. `workflow edit --help` lists which fields `--file` can replace. Read what
@@ -61,20 +61,14 @@ comments and Tasks. `list task` prints each Task with its phase and ends with `T
 Use `--why` to explain readiness and `--tree` to inspect hierarchy. Do not combine them.
 Find Specs with `workflow list spec`.
 `workflow status` is the home view: each Epic with its in-progress Tasks first, its loop skill and
-last three notes; warnings; decisions waiting for the user's read, each at the `file:line` of its
-`Decision (` lead; ready Tasks; and counts of dangling links and orphans. `workflow status
---decisions` prints each pending decision in full under its `file:line`.
-
-When the user has read a decision, mark it; `User's read: pending` becomes `done` in place (the
-one in-place edit a note permits), and `status` stops listing it:
-
-```sh
-workflow read workflow/tasks/Example/epic.task:42   # the line status prints
-workflow read 2026-11-09T04:00:00Z                  # the Epic note holding one pending decision
-workflow read 2026-11-09T05:00:00+01:00             # any valid timestamp; compared as an instant
-```
-
-It is refused when the target is not a decision pending the user's read.
+last three notes; warnings; a count of agent decisions (`Decision (agent, <date>):` leads); ready
+Tasks; and counts of dangling links and orphans. `workflow status --decisions` prints each agent
+decision in full under the `file:line` of its lead.
+`workflow brief @task.EPIC.T1` prints what a lead needs for one Task, in order: the Task as `show`
+prints it; its phase card; every Spec or Plan item it links, in full; the Epic's `## Constraints`
+bullets whose scope (after the last `;` in the bullet's final parenthesis: `whole run`, `P4`,
+`P3 to P10`) covers the Task's phase, plus any whose scope can't be read; and the notes that link
+the Task or those items. `--json` for programs; `--check` exits 1 when a linked record is missing.
 
 ### Links and backlinks
 
@@ -178,8 +172,11 @@ remove detail to work around a refused edit.
 
 ### Epic loop and phase notes
 
-An Epic can carry its loop: `skill` (`LIBRARY@REVISION`), the text sections `run`,
-`instructions`, `cadence` and `stops`, then dated `note TIMESTAMP` entries. A phase can carry a
+An Epic can carry its loop: `skill` (`LIBRARY@REVISION`) and the text sections `run`,
+`instructions`, `cadence` and `stops`. Its dated `note TIMESTAMP` entries live in
+`workflow/tasks/<EPIC>/log.task`, headed `log <EPIC>`; an Epic file that still holds notes keeps
+receiving them there, and notes in both files fail `workflow check`. A dangling link in the log is a
+warning, not an error, and log links count as references. A phase can carry a
 `description` and dated `comment` entries. Notes are append-only: their timestamps never decrease
 and a note has a body. Prepare `loop-run.md` first.
 
@@ -192,7 +189,8 @@ workflow edit @phase.Example.P1 --now --text comment="Opened after @task.Example
 ```
 
 A note or comment needs a time (`--now` or `--set note|comment=TIMESTAMP`) and a body (`--text`
-or `--file`); it is always appended. The `skill` pin names the library, the folder name of a root
+or `--file`); it is always appended, a note to `log.task` (created when the Epic file has none).
+An edit refuses a new note whose link resolves to nothing. The `skill` pin names the library, the folder name of a root
 in `workflow/config.json`'s `skills` (`workflow` for `.../suites/workflow`), and a commit of its
 git repository; `workflow check` refuses a pin that resolves to nothing or a revision that is not
 a commit, and warns when the library is outside git or git cannot run.

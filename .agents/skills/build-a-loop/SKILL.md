@@ -42,7 +42,8 @@ the ones this skill uses most, copied from there word for word; the library's va
 that they match.
 
 - **Epic:** one large piece of work as a record, `workflow/tasks/<EPIC>/epic.task`: its goal,
-  stages, scope, authority and budget, then its loop and its notes. Its phases are files beside it.
+  stages, scope, authority and limits, then its loop. Its notes are in `log.task` and its phases
+  are files beside it.
 - **Orchestrator:** the agent that runs the loop. It starts and tracks the other agents, routes
   their results, sets statuses and writes notes. It never builds.
 - **Lead and sidecar:** a **lead** runs on the strongest model and does the work that needs
@@ -67,13 +68,13 @@ that they match.
   is how many failures with the same root cause, after convergence, end a phase.
 - **Stop:** a point where work cannot go on without the user. Everything else the user should see
   is recorded for the user's read while work goes on. The stop list is skill:build-a-loop's R20.
-- **Usage limit, usage reserve and pace:** the **usage limit** is the agent harness's allowance per
+- **Usage limit and usage reserve:** the **usage limit** is the agent harness's allowance per
   usage window. The **usage reserve** is the share of it kept unspent; reaching it stops the run.
-  The **pace** is the usage planned per iteration. All three are set in the Epic's Budget section.
+  It is set in the Epic's Limits section, and the user changes it as their planned work changes.
 - **Note:** a timestamped, append-only entry at the end of the Epic file.
-- **Decision pending the user's read:** a decision an agent made under delegation, written in
-  skill:policy-records's decision convention with its reason and how to reverse it, for the user to
-  review while work goes on.
+- **Agent decision:** a decision an agent made under delegation, written in
+  skill:policy-records's decision convention with its reason and how to reverse it. Work goes on,
+  and the user may overturn it at any time.
 
 ## Where the loop lives
 
@@ -86,16 +87,16 @@ validates and whose links it resolves:
 | `run`              | How to start and resume the run, and the link to [the rules](#rules) at the pinned library revision |
 | `instructions`     | The models, this project's overrides of the rules' defaults, and the user's mid-run instructions, each with its source |
 | `cadence`          | The review cron: its expression, its exact prompt, and the quiet rule                             |
-| `stops`            | The stops this Epic adds, and a link to its Budget section                                         |
-| `note <timestamp>` | Append-only entries: rulings, decisions pending the user's read, stops, events                    |
+| `stops`            | The stops this Epic adds                                                                           |
+| `note <timestamp>` | In `log.task` beside the Epic: append-only rulings, agent decisions, stops, events                |
 
 **The rules live once, in this skill,** under [Rules](#rules), as defaults. The Epic never copies
 them: its `run` links them, with skill:policy-delegation and skill:policy-verification, at the
 library revision its `skill` field pins. A rule therefore cannot change under a running loop; the
 pin moves only with the user's yes, recorded in an Amendment note (R16). The Epic's `instructions` override
 any default for that project, each with its source. The user's constraints from before the run are
-in the Epic's Constraints section, and the budget only in its Budget section; `instructions` and
-`stops` link them, never copy them.
+in the Epic's Constraints section, and its limits only in its Limits section; `instructions`
+links them, never copies them.
 
 ## Write the loop
 
@@ -115,11 +116,11 @@ Write the loop into the `draft` Epic, after the user confirmed its summary.
 5. **Write `instructions`:** the lead and sidecar models; this project's value for any rule
    default it changes, such as the convergence threshold, each with its source; agents and
    processes at once; what always runs alone; the command time limit. Link the Epic's Constraints
-   and Budget sections. Name skills as `skill:NAME` and link records with `@` references.
+   and Limits sections. Name skills as `skill:NAME` and link records with `@` references.
 6. **Write `cadence`:** the cron expression, the exact prompt (the whole review procedure, R22),
    and the quiet rule (R23), so a fresh orchestrator re-creates the same cron.
 7. **Write `stops`:** the stops this Epic adds to the stop list (R20), such as decisions the user
-   kept, each as a short sentence, and a link to the Epic's Budget section.
+   kept, each as a short sentence.
 8. **Validate.** Edit the Epic with the Edit tool or `workflow edit @epic.<EPIC> --file run=PATH`,
    then `workflow format workflow/tasks/<EPIC>/epic.task --write` and `workflow check`. Fix every
    diagnostic, including dangling links.
@@ -159,14 +160,15 @@ short name.
   run started; check each one is alive and what it last did. Never assume a saved agent id is still
   live. Check the branch, the last checkpoint and any uncommitted work, and who owns it.
 - **R5 Start note.** Note "Run started" or "Run resumed", with the revision, the current Task, the
-  live agents, and the first action.
+  live agents, and the first action, as SBAR (skill:policy-writing#lead-with-a-point): what is true
+  now, the notes and records since the last run as links, what is at risk, and the first action.
 - **R6 One building lead.** Start one on the current Task with a standalone brief
   (skill:policy-delegation), or resume a stopped one by message: its transcript is kept, so it
   continues where it was. The orchestrator never builds; it starts, tracks and routes. Every build
-  and review brief points the lead at its Task, the Task's phase (`workflow show
-  @phase.<EPIC>.<P>`) and the skills that phase links, and the lead reads them before it starts:
-  `workflow show @task` prints only the Task, so a phase's goal, stops and skills reach a lead only
-  through its brief. Name a skill once, on the phase whose work uses it, not on every Task.
+  and review brief tells the lead to run `workflow brief @task.<EPIC>.<T>` first: it prints the
+  Task, its phase card, the Spec and Plan items it links, the constraints in its phase's scope and
+  the decisions that govern those items. The brief adds the skills the phase links and what this
+  run needs that the records don't say. Name a skill once, on the phase whose work uses it, not on every Task.
 - **R7 Activity.** Confirm activity within a minute of starting an agent. Activity is the agent's
   output and tool calls as the harness shows them (its transcript, output or event stream), plus
   commits and Task status changes. An agent that shows none is replaced, and the replacement noted;
@@ -176,7 +178,7 @@ short name.
 
 - **R8 Findings first.** Fix the last review's findings, then take the next planned step.
 - **R9 No weakened checks.** Never weaken a check to pass it. An expected result changes only for a
-  logged reason; relaxing a check, a verification suite or a budget is the user's.
+  logged reason; relaxing a check, a verification suite or a performance budget is the user's.
 - **R10 Proven gates only.** Count only gates that rejected their mutants or planted violations at
   their `Matched at` revision, with no covered code changed since. A change to a suite, its test
   harness or the code it covers means proving it again (skill:policy-verification).
@@ -186,7 +188,7 @@ short name.
   you checked. A step that contradicts a user constraint is a defect: stop and note it.
 - **R13 One place per fact.** New items go through skill:to-epic#adding-work-later, which also
   says which changes are the orchestrator's and which are the user's. Append a note for every
-  ruling, decision pending the user's read and stop; per-Task results go in that Task's comments.
+  ruling, agent decision and stop; per-Task results go in that Task's comments.
   Never write a separate handoff or progress file. Before changing the loop fields (`run`,
   `instructions`, `cadence`, `stops`), read skill:build-a-loop at the pinned revision; before adding or
   editing a Task, read skill:to-task (and skill:to-epic for a phase); before adding a phase, read
@@ -196,7 +198,8 @@ short name.
 
 - **R14 Record it** as a note: `Decision (user, <date>): "<the user's words>". Scope: <the whole
   run, or named phases or Tasks>.`
-- **R15 Apply it.** If it changes the approved authority, stops, budget or a phase goal, restate it
+- **R15 Apply it.** A new usage reserve applies at once: edit the Epic's Limits section and note
+  it. If it changes the approved authority, stops, the failure limit or a phase goal, restate it
   to the user in one line ("I read this as: ...") and wait for the user's confirmation before
   editing anything; only the work it touches waits. Then, or at once for any other instruction,
   edit `instructions` to match, citing the note, and send it to every running agent it touches
@@ -204,11 +207,11 @@ short name.
   brief that includes it. "Stop", "hold" or "pause" stops now, by
   skill:policy-delegation#pause.
 - **R16 No changes on its own.** Only the user changes the frame: the constraints, the phase
-  classes, the rules' overrides in `instructions`, the authority, `stops`, the budget total and the
-  `skill` pin. A change the orchestrator wants is a numbered question to the user; other work goes
-  on while it waits. A change made with the user's yes is an Epic note, `Amendment (<date>,
-  <judge>): <change>. Commit: <rev>.`, with `instructions` or the description edited in the same
-  change.
+  classes, the rules' overrides in `instructions`, the authority, `stops`, the failure limit, the
+  usage reserve and the `skill` pin. A change the orchestrator wants is a numbered question to the
+  user; other work goes on while it waits. A change made with the user's yes is an Epic note,
+  `Amendment (<date>, <judge>): <change>. Commit: <rev>.`, with `instructions` or the description
+  edited in the same change.
 
 ### Done states
 
@@ -223,29 +226,28 @@ short name.
 - **R19 Epic done.** After the last phase, a completion audit of the goal and every stage exit. On
   PASS, the orchestrator sets the Epic's `status closed`, removes the review cron, and appends a
   closing note: what was delivered, at which revision, what stayed unverified, deferred items, and
-  the decisions still pending the user's read.
+  the agent decisions made.
 
 ### Stops
 
 - **R20 The stop list.** When two sources disagree, the stricter wins: the earlier stop, the
-  smaller budget, the narrower authority. Only the user loosens a stop.
+  narrower authority. Only the user loosens a stop.
   - (a) The user says stop, hold or pause: stop now.
-  - (b) The usage reserve is reached, or the budget total, a phase's budget or a Task's `Budget:`
-    is spent: the work is not done; note the gap.
+  - (b) The usage reserve in the Epic's Limits section is reached: the work is not done; note the
+    gap. There is no budget of iterations, time or usage to run out.
   - (c) Anything in the Epic's `stops`, the current phase card's `Stops:` line, or the current
     Task's `Stops:` line.
   - (d) A decision only the user can make: one the user kept, a public entry-point name, a new
     concept or a large API change (R31 Small public API), a guarantee change, or a change to the
-    authority, stops, budget or a phase goal.
+    authority, stops, the failure limit or a phase goal.
   - (e) A phase is done and the next one is not authorized.
   - (f) A part keeps failing with the same root cause after convergence, past the failure limit
-    (the phase card's `Failure limit:` line, else the Epic's Budget section).
+    (the phase card's `Failure limit:` line, else the Epic's Limits section).
   - (g) Passing would mean weakening a check.
   - (h) A missing tool, model or capability that only the user can supply.
-- **R21 What a stop holds.** Stop (a), the usage reserve and the budget total end the whole run. A
-  phase's or a Task's spent budget, and any other stop that concerns one part, hold only that part,
-  when the rest of the authorized work does not depend on it. At every
-  stop, write a note with the state and the first action to resume.
+- **R21 What a stop holds.** Stop (a) and the usage reserve end the whole run. Any other stop that
+  concerns one part holds only that part, when the rest of the authorized work does not depend on
+  it. At every stop, write a note with the state and the first action to resume.
 
 ### The review cron
 
@@ -296,10 +298,10 @@ short name.
   anything touching many call sites. When in doubt, it is large.
 - **R32 Delegated calls** are noted as delegated, quoting the delegation. The orchestrator stops
   only for what the user kept.
-- **R33 Complete decisions.** A decision pending the user's read goes in a note or in the record it
-  governs, in skill:policy-records's decision convention, linking what it is about. Never credit
-  the user with an agent's decision. `workflow status` lists the pending ones; an independent check
-  reviews them at each stage exit, and a decision that narrows one of the user's own comes first.
+- **R33 Complete decisions.** An agent decision goes in a note or in the record it governs, in
+  skill:policy-records's decision convention, linking what it is about. Never credit the user with
+  an agent's decision. An independent check reviews the agent decisions at each stage exit, and a
+  decision that narrows one of the user's own comes first.
 - **R34 Declining a ruling.** A builder may decline a ruling that breaks a decided rule, with the
   evidence, such as a ruling that would make legal what the design forbids. The orchestrator, as
   judge of its own calls, then rules again.

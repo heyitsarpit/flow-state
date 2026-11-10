@@ -64,11 +64,10 @@ outcome; never ask them to choose a playbook.
 
 Read the work's Epic: its loop, its latest notes, `workflow show @epic.<EPIC> --tree` and
 `workflow next --epic <EPIC>`, and the records they link. Say where the work stands, what waits on
-the user (`workflow status` lists agent decisions with `User's read: pending`; also the Epic's
-`stops`), and the next step with a ready-to-paste instruction. The queue and each phase's Tasks
-are derived from the Tasks, so there is nothing to bring up to date; if a note is missing for something the
-records show, append one. Without an Epic, answer from the Plans and Tasks. After a long gap,
-recommend `catch-up` first.
+the user (the Epic's `stops`), and the next step with a ready-to-paste instruction. The queue and
+each phase's Tasks are derived from the Tasks, so there is nothing to bring up to date; if a note
+is missing for something the records show, append one. Without an Epic, answer from the Plans and
+Tasks. After a long gap, recommend `catch-up` first.
 
 ## 4. Stop or pause
 

@@ -1,7 +1,7 @@
 # Loop template
 
 Write the loop into the `draft` Epic file after its contract fields and `skill` (the pin
-skill:to-epic wrote), in this order: `run`, `instructions`, `cadence`, `stops`, then notes. Replace
+skill:to-epic wrote), in this order: `run`, `instructions`, `cadence`, `stops`; notes go in `log.task`. Replace
 every `<...>` and keep every other line. Text lines sit at one indentation, because `workflow
 format` does not keep hanging indents. In `instructions`, "agents at once" is how many agents may
 run at the same time, and "always alone" is work that runs with no other agent or process beside
@@ -30,7 +30,7 @@ run
     phase); before adding a phase, read skill:to-epic.
 instructions
     Lead and sidecar models: <pair>, detected <date>; told the user <where>.
-    Constraints: the Epic's Constraints section. Budget and usage reserve: its Budget section.
+    Constraints: the Epic's Constraints section. Limits: its Limits section.
     <rule overridden, such as R35's convergence threshold>: <value> (<source, date>).
     Agents at once: <n>. Always alone: <for example, benchmarks>. Command time limit: <seconds>.
 cadence
@@ -38,7 +38,12 @@ cadence
     Prompt: "<the whole review procedure of R22, with this project's numbers>"
     Quiet rule: a wake that finds nothing writes no note and sends no message.
 stops
-    <Decisions the user kept.> Budgets and the usage reserve: the Epic's Budget section.
+    <Decisions the user kept.>
+```
+
+Then a note in `log.task` (`workflow edit @epic.<EPIC> --now --text note="..."`):
+
+```text
 note <UTC timestamp>
     Loop written with skill:build-a-loop; models: <pair>, because <agent harness>.
 ```

@@ -66,8 +66,7 @@ Links in any prose: `@task.Example.T1`, `code:src/example.ts#admit`, `code:src/e
 `skill:policy-testing`, `skill:policy-testing#audit-a-suite` (every anchor is checked against the
 heading slugs).
 Code spans and fences are not links. Prefer `workflow edit` for notes and comments
-(`--now --text note="..."`), and `workflow read FILE:LINE` to mark a decision's
-`User's read: pending` as `done`.
+(`--now --text note="..."`).
 
 `skill LIBRARY@REVISION` pins the loop: LIBRARY is the folder name of a `skills` root below
 (`workflow`), REVISION a commit of its git repository.
