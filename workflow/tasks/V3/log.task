@@ -444,3 +444,5 @@ note 2026-11-10T17:57:42Z
     lead stopped before T40 and parked its lane-queue and delivered-once patches for H1 to H4 outside the repo. No 
     builder is running. Proposed to the user, awaiting go: a convergence pass on the oracle layer (policy-convergence) 
     before T40 and T7's rewrite, because four reviews today repeated the same kinds of finding.
+note 2026-11-10T18:04:12Z
+    Review started (hourly wake): one Opus reviewing lead at high effort with four Haiku sidecars on the T6 completion checkpoints 9c43f407, 63332667, e9320217 and 392147bc; read-only; findings classed by root cause for the proposed convergence pass. Weekly usage 7 percent, reserve 50. No builder running (held, awaiting the user's go on convergence).
