@@ -63,7 +63,7 @@ description
 tasks
     T16
         title       The Pay path end to end on production
-        status      draft
+        status      open
         priority    high
         blocked_by  [@task.V3.T6, @task.V3.T7, @task.V3.T8, @task.V3.T13]
         description

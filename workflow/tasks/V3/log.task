@@ -359,3 +359,8 @@ note 2026-11-10T16:36:09Z
     onward still wait for T15. If T15's audit weakens a Pay oracle, T16 is repaired against it. This partly reverses 
     the 14:00 decision that P3 and P4 stay phase by phase. One building lead stays (no second builder). Governs: 
     @task.V3.T16, @task.V3.T17. Reverse: T16 blocked_by @task.V3.T15 again.
+note 2026-11-10T16:36:49Z
+    Run started (orchestrator: Claude Code, Opus 5.5, 2026-11-10): pin workflow@0222619, HEAD 4e196136. Current Task 
+    @task.V3.T6 (T6 first by the Q3 A decision). Live agents: none before this; caffeinate -i pid 46605; session cron 
+    e476bc6d at 7 past each hour (expires after 7 days). Weekly usage 3 percent, reserve 50. First action: start one 
+    Opus building lead at medium effort on T6.

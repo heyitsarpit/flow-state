@@ -680,7 +680,7 @@ tasks
             Conformance.spec Q8 and Q10 now use the new check names. Acceptance met; T5 done.
     T6
         title       Judged Runtime disposal per case, and tsgo in check
-        status      open
+        status      in_progress
         priority    medium
         blocked_by  [@T5]
         description
