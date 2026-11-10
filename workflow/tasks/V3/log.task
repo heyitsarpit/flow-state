@@ -490,4 +490,9 @@ note 2026-11-10T20:57:29Z
     Spec gaps are revised with to-spec by the next lead; any Invariant change comes to the user. **Reverse:** keep the 
     rows under T13. T13 part 1 verified at facb1c33 (76/76, null 0/76, falsify 57/57).
 note 2026-11-10T21:01:30Z
-    Convergence review done (code:workflow/plans/flow/references/proposals/lane-oracle-convergence-review-2026-11-11.md): revise once; the direction stays, but obligations are stored as phases, six cells refuse allowed behaviour, and the tables are not total. The designer writes v2.
+    Convergence review done 
+    (code:workflow/plans/flow/references/proposals/lane-oracle-convergence-review-2026-11-11.md): revise once; the 
+    direction stays, but obligations are stored as phases, six cells refuse allowed behaviour, and the tables are not 
+    total. The designer writes v2.
+note 2026-11-10T21:09:15Z
+    Convergence v2 written (code:workflow/plans/flow/references/proposals/lane-oracle-convergence-v2-2026-11-11.md). Decision (orchestrator): adopt it; the new Port tag (Incarnated and Finished) and moving p1h.cancel-all-idle-declines from I20 to I21 are accepted. It is built by the next building lead after the current T13 and T8 lead stops; cells depending on CQ1, CQ3, CQ5, CQ6 and CQ7 (guarantee changes, the user's) follow the Spec as written until answered. **Reverse:** patch the v1 oracles.
