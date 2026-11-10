@@ -32,8 +32,6 @@ description
     - falsify per area;
     - the area's real-source path (a real `fetch`, EventSource or SDK call).
 
-    **Budget:** the Epic's Budget section, row P5.
-
     **Failure limit:** 2.
 
     **Stops:**
@@ -57,7 +55,6 @@ tasks
         title       Entity store
         status      draft
         priority    high
-        labels      [not-readily-verifiable, verification-suite]
         description
             Prove the entities slice, then build the entity store on production from @plan.EntityDomains as merged
             (OD52).
@@ -68,12 +65,9 @@ tasks
             code:packages/flow-state-v3/conformance/README.md
             (the carry rows `a3b.*` and `audit-2.*`).
 
-            **Approach:** drafted in full when P5 starts.
-
             - **Evidence:** this Task's comments.
             - **False pass:** a lenient slice → caught by the area audit's mutants.
             - **Gates:** the area's falsify entries.
-            - **Budget:** 8 rounds.
             - **Stops:** a guarantee change.
             - **User's read:** small API calls.
         acceptance
@@ -82,7 +76,6 @@ tasks
         title       Streams
         status      draft
         priority    high
-        labels      [not-readily-verifiable, verification-suite]
         description
             Prove the streams slice, then build streams on production as merged (OD53), with a real EventSource path.
 
@@ -91,12 +84,9 @@ tasks
 
             **Read first:** @plan.Operations.O4, code:packages/flow-state-v3/conformance/README.md (the carry rows).
 
-            **Approach:** drafted in full when P5 starts.
-
             - **Evidence:** this Task's comments.
             - **False pass:** a lenient slice → caught by the area audit's mutants.
             - **Gates:** the area's falsify entries.
-            - **Budget:** 8 rounds.
             - **Stops:** a guarantee change.
             - **User's read:** small API calls.
         acceptance
@@ -105,7 +95,6 @@ tasks
         title       Record migration
         status      draft
         priority    high
-        labels      [not-readily-verifiable, verification-suite]
         description
             Prove the record migration slice, then build @plan.Persistence's migration on production as merged (OD54),
             against real storage shapes (IndexedDB structured clone, `localStorage` text).
@@ -115,12 +104,9 @@ tasks
 
             **Read first:** @plan.Persistence.O4, @plan.Persistence.D1, @spec.Codec, @spec.Restore.
 
-            **Approach:** drafted in full when P5 starts.
-
             - **Evidence:** this Task's comments.
             - **False pass:** a lenient slice → caught by the area audit's mutants.
             - **Gates:** the area's falsify entries.
-            - **Budget:** 8 rounds.
             - **Stops:** a guarantee change.
             - **User's read:** small API calls.
         acceptance
@@ -129,7 +115,6 @@ tasks
         title       Multi-tab and sessions
         status      draft
         priority    medium
-        labels      [not-readily-verifiable, verification-suite]
         description
             Prove the multi-tab and sessions slice, then build multi-tab ownership and sessions from @plan.Runtime.
 
@@ -138,22 +123,17 @@ tasks
 
             **Read first:** @plan.Runtime.O3, @plan.Runtime.O7, @plan.Persistence.O7.
 
-            **Approach:** drafted in full when P5 starts.
-
             - **Evidence:** this Task's comments.
             - **False pass:** one-tab tests standing in for two → caught by a real two-tab browser
               run.
             - **Gates:** the area's falsify entries.
-            - **Budget:** 6 rounds.
             - **Stops:** a guarantee change.
-            - **User's read:** none.
         acceptance
             The slice is proven and passes on production in real Chrome and Safari.
     T28
         title       Host adapters: IndexedDB and in-memory
         status      draft
         priority    high
-        labels      [not-readily-verifiable, verification-suite]
         description
             Build the IndexedDB host adapter, meeting Safari's four requirements, and an in-memory adapter.
 
@@ -162,22 +142,16 @@ tasks
             **Read first:** code:packages/flow-state-v3/prototypes/safari/RESULTS.md, @plan.Persistence.O1,
             @plan.Persistence.D1, @spec.WriteAhead.
 
-            **Approach:** drafted in full when P5 starts.
-
             - **Evidence:** this Task's comments.
             - **False pass:** a fake standing in for IndexedDB → caught by skill:check-runtime in
               real Safari.
             - **Gates:** the area's falsify entries; real-browser runs.
-            - **Budget:** 6 rounds.
-            - **Stops:** none.
-            - **User's read:** none.
         acceptance
             Both adapters pass the slice; the four Safari requirements hold in real Safari.
     T29
         title       Stories with flow story and flow trace
         status      draft
         priority    medium
-        labels      [not-readily-verifiable, verification-suite]
         description
             Build @plan.Testing's Stories, `flow story list/describe/run` and `flow trace` on production.
 
@@ -187,21 +161,16 @@ tasks
 
             **Read first:** @plan.Testing.O1, @plan.Testing.O9, @plan.CommandLine.O2, @plan.CommandLine.O4.
 
-            **Approach:** drafted in full when P5 starts.
-
             - **Evidence:** this Task's comments.
             - **False pass:** a Story that re-executes on scrub → caught by the player tests (V9).
             - **Gates:** the area's falsify entries.
-            - **Budget:** 6 rounds.
             - **Stops:** public entry-point names.
-            - **User's read:** none.
         acceptance
             The slice is proven and passes on production.
     T30
         title       React and Next.js bindings
         status      draft
         priority    high
-        labels      [not-readily-verifiable, verification-suite]
         description
             Build the React and Next.js bindings from @plan.React and @plan.ServerRendering.
 
@@ -209,12 +178,9 @@ tasks
 
             **Read first:** @plan.React.O1, @plan.React.O2, @plan.ServerRendering.O1, @plan.ServerRendering.O4.
 
-            **Approach:** drafted in full when P5 starts.
-
             - **Evidence:** this Task's comments.
             - **False pass:** tests in jsdom standing in for Next.js → caught by a real Next.js run.
             - **Gates:** the area's falsify entries.
-            - **Budget:** 8 rounds.
             - **Stops:** public entry-point names; a large API change.
             - **User's read:** small API calls.
         acceptance
@@ -223,7 +189,6 @@ tasks
         title       CLI outputs designed for people
         status      draft
         priority    medium
-        labels      [not-readily-verifiable, verification-suite]
         description
             Design the CLI outputs for people: source locations, a trace that reads like a story, a graph grouped by
             state, and messages from the issue catalog; mocks first, then the user's one acceptance round.
@@ -232,12 +197,9 @@ tasks
 
             **Read first:** @plan.CommandLine.O3, @plan.Diagnostics.O2, @spec.StaticCli.
 
-            **Approach:** drafted in full when P5 starts.
-
             - **Evidence:** this Task's comments.
             - **False pass:** outputs pinned from the code → caught by mocks the user accepts first.
             - **Gates:** CLI pins.
-            - **Budget:** 4 rounds.
             - **Stops:** the user's acceptance of the CLI outputs.
             - **User's read:** the mocks.
         acceptance

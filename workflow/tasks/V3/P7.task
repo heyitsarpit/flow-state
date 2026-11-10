@@ -35,8 +35,6 @@ description
     **Gates:** example type-checking and generated-docs freshness, which reject one deliberately
     broken example and one stale page.
 
-    **Budget:** the Epic's Budget section, row P7.
-
     **Failure limit:** 2.
 
     **Stops:** the docs criteria, once; any public name a section introduces.
@@ -60,7 +58,6 @@ tasks
         title       Docs criteria approved and the docgen pipeline built
         status      draft
         priority    medium
-        labels      [non-verifiable]
         description
             Draft the docs criteria for the user, and build the docgen pipeline, the `npm pack` example check and the
             issue
@@ -74,14 +71,10 @@ tasks
             @plan.Diagnostics.O2,
             skill:policy-writing.
 
-            **Approach:** drafted in full when P7 starts.
-
             - **Evidence:** this Task's comments.
             - **False pass:** a freshness gate that never fails → caught by a planted stale page.
             - **Gates:** example type-check; docs freshness.
-            - **Budget:** 2 rounds.
             - **Stops:** the criteria.
-            - **User's read:** none.
         acceptance
             The user approves the criteria; both gates fail on their planted faults and pass on
             the real docs.
@@ -90,7 +83,6 @@ tasks
         status      draft
         priority    medium
         blocked_by  [@T33]
-        labels      [non-verifiable]
         description
             Write each docs section and put it to its judge, one at a time; split per section when P7 starts.
 
@@ -102,7 +94,6 @@ tasks
             - **Evidence:** this Task's comments.
             - **False pass:** planned API documented → caught by the `npm pack` example check.
             - **Gates:** example type-check; docs freshness.
-            - **Budget:** 3 rounds per section.
             - **Stops:** new public names.
             - **User's read:** each section's ruling.
         acceptance

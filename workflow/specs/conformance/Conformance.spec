@@ -96,8 +96,7 @@ requirements
                 Decision (agent, 2026-11-09): a consistency-only check is never the only check of a Spec
                 Invariant. Why: a runtime that lies consistently passes every consistency check, so such
                 an Invariant would be judged by nothing the suite owns. Reverse: allow consistency-only
-                coverage where no suite fact can anchor the report, listed in the README. User's read:
-                pending.
+                coverage where no suite fact can anchor the report, listed in the README.
 
     R5  Expected results from cited Spec rules
         source  The Epic's constraint "Test the spec, not the code"; P3's false pass ("agreeing with the old
@@ -134,8 +133,7 @@ requirements
                 oracle. Why: an oracle that judges several Invariants can keep one no mutant reaches, and
                 falsify would still pass; violations already name their Invariant, so the pair is
                 observable. Isolating each rule inside one Invariant stays an audit item. Reverse: count
-                per oracle and leave per-Invariant coverage to the audit. User's read: pending.
-
+                per oracle and leave per-Invariant coverage to the audit.
                 Falsify kills a mutant only when all of these hold: each of its edits applies exactly once
                 to a fresh copy of the code under test; its cases pass on the unedited code (the control);
                 and, in at least one run of one of its cases, the check that holds it is among the checks
@@ -155,8 +153,7 @@ requirements
                 Decision (agent, 2026-11-09): a defect (R9) does not count as the case failing on null.
                 Why: such a case never reached a check, so it proves nothing about the null
                 implementation; many cases fail on null today only by `NoHeldRequest`, which `dsl/case.ts`
-                calls "a scenario bug, never a verdict". Reverse: count any failure. User's read: pending.
-
+                calls "a scenario bug, never a verdict". Reverse: count any failure.
                 Decision (agent, 2026-11-09): static cases have a null implementation too. Why: a static
                 case whose expectations are all absences (no diagnostic, no finding, a rejected input)
                 passes on a surface that does nothing, and mutants catch that only if someone writes the
@@ -164,7 +161,7 @@ requirements
                 carries at
                 least one expectation that a do-nothing surface fails; one rule for both kinds keeps the null
                 line unscoped. Reverse: null judges runtime cases only, a static case's mutants are its only
-                proof of strength, and R10's null line counts runtime cases only. User's read: pending.
+                proof of strength, and R10's null line counts runtime cases only.
 
     R8  Deterministic from a seed
         source  README decisions 8 and 9; skill:policy-verification#build ("control clocks, seeds and
@@ -212,7 +209,7 @@ requirements
                 apart from a stated failure, and covers wall-clock overruns as well as thrown defects. Why:
                 R7 and a reader must tell them apart, and an overrun depends on the machine, so calling it
                 a stated failure would contradict R8. Reverse: keep two kinds and mark defects in the reason
-                text. User's read: pending.
+                text.
 
     R10  Falsify verdicts
         source  README "How to run"; skill:policy-verification#maintain ("a gate that stays green on either

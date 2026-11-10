@@ -33,8 +33,6 @@ description
 
     **Gates:** one slowed build per budget; tamper checks on the browser runs.
 
-    **Budget:** the Epic's Budget section, row P8 and P9.
-
     **Failure limit:** 2.
 
     **Stops:** the budget targets, set by the user after the baselines.
@@ -53,7 +51,6 @@ tasks
         title       Benchmark and real-browser suites proven; baselines; targets
         status      draft
         priority    medium
-        labels      [not-readily-verifiable, verification-suite]
         description
             Build the benchmark and real-browser suites, prove them, take baselines on named devices, and propose budget
             targets for the user.
@@ -70,7 +67,6 @@ tasks
             - **Evidence:** this Task's comments.
             - **False pass:** skipped work in a benchmark → caught by skill:check-benchmark.
             - **Gates:** slowed builds; tamper checks.
-            - **Budget:** 4 rounds.
             - **Stops:** the budget targets.
             - **User's read:** the proposed targets.
         acceptance

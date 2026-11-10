@@ -23,8 +23,6 @@ description
     **Gates:** each app's Stories in `nub run verify`, which reject one deliberately broken Story
     per app.
 
-    **Budget:** the Epic's Budget section, row P6.
-
     **Failure limit:** 2.
 
     **Stops:** picking the apps; accepting each app.
@@ -53,7 +51,6 @@ tasks
         title       The user picks the apps and approves the criteria
         status      draft
         priority    medium
-        labels      [non-verifiable]
         description
             Put the candidate apps and the proposed criteria to the user in one numbered round; then add one Task per
             picked app with skill:to-task.
@@ -67,10 +64,7 @@ tasks
             - **Evidence:** this Task's comments.
             - **False pass:** criteria that a UI meets without showing a guarantee → caught by the
               criterion "shows one guarantee happening".
-            - **Gates:** none.
-            - **Budget:** 1 question round.
             - **Stops:** the pick itself.
-            - **User's read:** none.
         acceptance
             The user's pick and approved criteria are recorded in an Epic note; one Task per app
             exists.

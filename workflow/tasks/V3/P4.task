@@ -40,8 +40,6 @@ description
     - falsify on the production adapter;
     - one probe file per lint rule that `nub run check` must reject (`tools/lint-bomb/`).
 
-    **Budget:** the Epic's Budget section, row P4.
-
     **Failure limit:** 2.
 
     **Stops:**
@@ -67,7 +65,6 @@ tasks
         status      draft
         priority    high
         blocked_by  [@task.V3.T15]
-        labels      [verifiable, feature]
         description
             Build the thinnest production runtime that runs checkout's Pay machine through the public API and the
             production adapter: the walking skeleton.
@@ -80,13 +77,10 @@ tasks
             code:packages/flow-state-v3/conformance/fixtures/pay.ts#Pay. Blocked by @task.V3.T15: P4 builds only
             against the proven suite.
 
-            **Approach:** drafted in full when P4 starts.
-
             - **May change:** `packages/flow-state-v3/src/`, the production adapter.
             - **Evidence:** this Task's comments.
             - **False pass:** the adapter doing runtime work → caught by mutants on the adapter.
             - **Gates:** P3's suite, Pay cases; `nub run check`.
-            - **Budget:** 3 rounds.
             - **Stops:** public entry-point names.
             - **User's read:** module layout.
         acceptance
@@ -96,7 +90,6 @@ tasks
         status      draft
         priority    high
         blocked_by  [@T16]
-        labels      [verifiable, feature]
         description
             Build Compiled and the compiler: @spec.Compile and @spec.Diagnostics from the public API.
 
@@ -106,14 +99,11 @@ tasks
             **Read first:** @spec.Compile, @spec.Diagnostics, @task.V3.T13 (the static cases that judge it),
             code:packages/flow-state-v3/conformance/README.md (the round-14 carry list).
 
-            **Approach:** drafted in full when P4 starts.
-
             - **May change:** `src/`.
             - **Evidence:** this Task's comments.
             - **False pass:** pins matching output rather than the Spec → caught by T13's cited
               cases.
             - **Gates:** static cases; `nub run check`.
-            - **Budget:** 3 rounds.
             - **Stops:** public entry-point names.
             - **User's read:** small API calls.
         acceptance
@@ -123,7 +113,6 @@ tasks
         status      draft
         priority    high
         blocked_by  [@T17]
-        labels      [verifiable, feature]
         description
             Build lane, step and turn from @spec.Turn, @spec.WriteLanes and @spec.Actors.
 
@@ -133,15 +122,11 @@ tasks
             **Read first:** @spec.Turn, @spec.WriteLanes, @spec.Actors,
             code:packages/flow-state-v3/conformance/README.md (the guarantee map and the round-14 carry list).
 
-            **Approach:** drafted in full when P4 starts.
-
             - **May change:** `src/`.
             - **Evidence:** this Task's comments.
             - **False pass:** a lenient oracle → caught by P3's proven mutants.
             - **Gates:** the suite; falsify.
-            - **Budget:** 5 rounds.
             - **Stops:** a guarantee change.
-            - **User's read:** none.
         acceptance
             The Turn, WriteLanes and Actors areas pass on production.
     T19
@@ -149,7 +134,6 @@ tasks
         status      draft
         priority    high
         blocked_by  [@T18]
-        labels      [verifiable, feature]
         description
             Build the persistence edge, write-ahead and the Effect driver in `src/host/` from @spec.WriteAhead.
 
@@ -159,16 +143,12 @@ tasks
             **Read first:** @spec.WriteAhead, @spec.WriteAhead.I15, @spec.WriteAhead.I16, @spec.WriteAhead.I17,
             code:packages/flow-state-v3/conformance/README.md ("Planned Port changes": the disk reader).
 
-            **Approach:** drafted in full when P4 starts.
-
             - **May change:** `src/`.
             - **Evidence:** this Task's comments.
             - **False pass:** durability judged from the runtime's report → caught by the disk
               reader.
             - **Gates:** the suite; falsify.
-            - **Budget:** 4 rounds.
             - **Stops:** a guarantee change.
-            - **User's read:** none.
         acceptance
             The WriteAhead area passes on production.
     T20
@@ -176,7 +156,6 @@ tasks
         status      draft
         priority    high
         blocked_by  [@T19]
-        labels      [verifiable, feature]
         description
             Build restore and key versions from @spec.Restore and @spec.Codec, with record formats tagged from
             the first release.
@@ -187,15 +166,11 @@ tasks
             **Read first:** @spec.Restore, @spec.Codec, @spec.WriteAhead,
             code:packages/flow-state-v3/conformance/README.md (the `restore` row and the carry list).
 
-            **Approach:** drafted in full when P4 starts.
-
             - **May change:** `src/`.
             - **Evidence:** this Task's comments.
             - **False pass:** restore read from memory, not bytes → caught by the restore oracle.
             - **Gates:** the suite; falsify.
-            - **Budget:** 3 rounds.
             - **Stops:** a guarantee change.
-            - **User's read:** none.
         acceptance
             The Restore and Codec areas pass on production.
     T21
@@ -203,7 +178,6 @@ tasks
         status      draft
         priority    high
         blocked_by  [@T20]
-        labels      [verifiable, feature]
         description
             Build fragments, then operations with the required services list, and @spec.Reads, with the round-14
             carry list's unbuilt design items.
@@ -215,14 +189,11 @@ tasks
             code:packages/flow-state-v3/conformance/README.md (the round-14 carry list: the "design items not
             built" row).
 
-            **Approach:** drafted in full when P4 starts.
-
             - **May change:** `src/`.
             - **Evidence:** this Task's comments.
             - **False pass:** a carry item marked built with no case → caught by the completion
               audit.
             - **Gates:** the suite; falsify.
-            - **Budget:** 4 rounds.
             - **Stops:** a large public API change.
             - **User's read:** small API calls.
         acceptance
@@ -232,7 +203,6 @@ tasks
         status      draft
         priority    medium
         blocked_by  [@T21]
-        labels      [verifiable, feature]
         description
             Build the CLI's `check`, `explain` and `graph` from @spec.StaticCli; the CLI stays at check, explain,
             graph, story, trace.
@@ -242,16 +212,12 @@ tasks
             **Read first:** @spec.StaticCli, @spec.StaticCli.I2 (graph edge names equal the turn record's),
             @spec.Compile, @spec.Diagnostics.
 
-            **Approach:** drafted in full when P4 starts.
-
             - **May change:** `src/`.
             - **Evidence:** this Task's comments.
             - **False pass:** graph edges named differently from the turn record → caught by the
               graph gate.
             - **Gates:** StaticCli cases; graph gate.
-            - **Budget:** 2 rounds.
             - **Stops:** public entry-point names.
-            - **User's read:** none.
         acceptance
             StaticCli cases and the graph gate pass on production.
     T23
@@ -259,7 +225,6 @@ tasks
         status      draft
         priority    medium
         blocked_by  [@T22]
-        labels      [verifiable, feature]
         description
             Retire the prototype adapter, point `nub run build` at `packages/flow-state-v3` (it still builds the
             frozen library), and pass `nub run verify`.
@@ -270,16 +235,11 @@ tasks
             **Read first:** code:packages/flow-state-v3/conformance/adapters/prototype.ts,
             code:packages/flow-state-v3/conformance/suite.ts, @spec.Conformance.R3, @spec.Conformance.R11.
 
-            **Approach:** drafted in full when P4 starts.
-
             - **May change:** `package.json`, the suite's adapters.
             - **Evidence:** this Task's comments.
             - **False pass:** verify green because the suite was skipped → caught by a planted
               failing case that must turn verify red.
             - **Gates:** `nub run verify`.
-            - **Budget:** 1 round.
-            - **Stops:** none.
-            - **User's read:** none.
         acceptance
             The suite passes on production alone; `nub run verify` passes and fails on the
             planted case.

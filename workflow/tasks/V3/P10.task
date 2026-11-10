@@ -30,13 +30,9 @@ description
     **Gates:** the packed-consumer check, which rejects a tarball packed with one entry point
     removed.
 
-    **Budget:** the Epic's Budget section, row P10.
-
     **Failure limit:** 2.
 
     **Stops:** before each ship stage (publish, land, tag); the published name.
-
-    **User's read:** none.
 
     **Draws from:** skill:playbook-ship; skill:review.
 tasks
@@ -44,7 +40,6 @@ tasks
         title       Release as far as the user asks
         status      draft
         priority    medium
-        labels      [verifiable, ticket]
         description
             Release the package as far as the user asks: pack, run the packed-consumer check, and stop before each ship
             stage.
@@ -53,14 +48,10 @@ tasks
 
             **Read first:** @plan.Package.O4, @plan.Package.D1, skill:playbook-ship, skill:review.
 
-            **Approach:** drafted in full when P10 starts.
-
             - **Evidence:** this Task's comments.
             - **False pass:** tested form differs from published → caught by the packed-consumer
               check.
             - **Gates:** the packed-consumer check.
-            - **Budget:** one Task.
             - **Stops:** each ship stage; the published name.
-            - **User's read:** none.
         acceptance
             The packed-consumer check passes on the exact tarball; each requested stage done.
