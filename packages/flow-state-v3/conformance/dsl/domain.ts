@@ -46,6 +46,39 @@ export const laneOf = (owner: ActorRef, reference: Reference, operation: string,
   return { owner, operation, key: keyFieldsOf(key, fields) };
 };
 
+/**
+ * The lane an Attempt joins at its mint: the one lane of an unkeyed operation, or the lane of the
+ * key `Minted` reports; `None` for a keyed operation whose key was not reported.
+ */
+export const laneAtMint = (
+  reference: Reference,
+  owner: ActorRef,
+  operation: string,
+  policy: OperationReference,
+  key: Option.Option<Json>,
+) =>
+  policy.keyFields.length === 0
+    ? Option.some(laneOf(owner, reference, operation, {}))
+    : Option.map(key, (k) => laneOf(owner, reference, operation, k));
+
+/**
+ * The lane the server's log names for an Attempt: the key fields of the input of its first
+ * request, `None` before the server received one.
+ */
+export const laneAtSend = (
+  reference: Reference,
+  owner: ActorRef,
+  operation: string,
+  attempt: string,
+  requests: ReadonlyArray<Request>,
+) =>
+  Option.map(
+    Option.fromUndefinedOr(
+      requests.find((r) => r.operation === operation && Option.contains(r.key, attempt)),
+    ),
+    (r) => laneOf(owner, reference, operation, r.input),
+  );
+
 const heard = (request: Request, operation: OperationReference) =>
   RequestPhase.$match(request.phase, {
     Answered: ({ answer }) => operation.classify(answer, false) !== "unknown",

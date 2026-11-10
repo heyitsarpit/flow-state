@@ -6,8 +6,8 @@ const CANCEL_ALL =
   '  setLane(tx, cleared);\n  cell(tx, "cancel", cleared, a);\n  for (const x of queued) {';
 
 /**
- * Wrong runtimes the lane-queue oracle must catch: each edits one cell of the prototype's lane
- * table.
+ * Wrong runtimes the lane-queue oracle must catch: most edit one cell of the prototype's lane
+ * table; the release, boot and double-invoke ones edit the turn, boot or driver code.
  *
  * **Details**
  *
@@ -18,7 +18,9 @@ const CANCEL_ALL =
  * `p1h.cancel-all-idle-declines`. The `lane.*` ones are written from WriteLanes' text:
  * `lane.latest-as-serialize` (R7), `lane.fresh-mint-on-held` (R7, R8), `lane.unknown-promotes`
  * (R8), `lane.cancel-held-keeps` (R14), `lane.cancel-wire-as-never-sent` (R14, I20) and
- * `lane.held-auto-resend`.
+ * `lane.held-auto-resend`. The rest are written for this suite: `lie.held-released-unguarded`,
+ * `lie.release-on-guarded-read` and `mutant.release-drops-held` (R8, I12),
+ * `mutant.boot-resends-held` (I12) and `mutant.double-invoke` (I1).
  */
 export const laneQueueMutants: ReadonlyArray<Mutant> = [
   {

@@ -1,8 +1,8 @@
-import { Option } from "effect";
+import { Array as Arr, Option } from "effect";
 import type { LaneId } from "../dsl/domain.ts";
 import { Fact, oracle, violation } from "../dsl/oracle.ts";
 import type { OperationReference, Reference } from "../fixtures/reference.ts";
-import { type ActorRef, Observation, sameActor, sameJson, type Turn } from "../port.ts";
+import { type ActorRef, type Ended, Observation, sameActor, sameJson, type Turn } from "../port.ts";
 import type { Request } from "../world/network.ts";
 import {
   addressable,
@@ -63,21 +63,55 @@ const queueEnded = (before: Model, lane: LaneId, window: ReadonlyArray<Observati
 };
 
 const deliveredAt = (window: ReadonlyArray<Observation>, id: string) =>
-  window.findIndex((o) => Observation.$is("Delivered")(o) && Option.contains(o.attempt, id));
+  Arr.findFirstIndex(
+    window,
+    (o) => Observation.$is("Delivered")(o) && Option.contains(o.attempt, id),
+  );
 
 const holdLast = (before: Model, lane: LaneId, head: Live, window: ReadonlyArray<Observation>) => {
   const heard = deliveredAt(window, head.id);
-  const later = queuedOf(before, lane).filter((l) => deliveredAt(window, l.id) > heard);
 
-  if (!Phase.$is("Wire")(head.phase) || heard < 0 || later.length === 0) return [];
+  if (!Phase.$is("Wire")(head.phase) || Option.isNone(heard)) return [];
+
+  const later = queuedOf(before, lane).filter((l) =>
+    Option.exists(deliveredAt(window, l.id), (at) => at > heard.value),
+  );
+
+  if (later.length === 0) return [];
 
   return [
     `WriteLanes I21: cancelAll delivered the head ${head.id}'s hold-leaving ending before the queued ${later.map((l) => l.id).join(", ")}; the head's comes last`,
   ];
 };
 
-const idleCancel = (operation: string, window: ReadonlyArray<Observation>) => {
-  const ended = window.filter((o) => Observation.$is("Ended")(o) && o.operation === operation);
+const committedBy = (
+  before: Model,
+  window: ReadonlyArray<Observation>,
+  actor: ActorRef,
+  ended: Ended,
+) =>
+  Option.match(ended.attempt, {
+    onNone: () =>
+      Option.match(ended.actor, { onNone: () => true, onSome: (a) => sameActor(a, actor) }),
+    onSome: (id) =>
+      Option.exists(knownOf(before, id), (k) => sameActor(k.owner, actor)) ||
+      window.some(
+        (o) =>
+          Observation.$is("Minted")(o) &&
+          o.attempt === id &&
+          Option.exists(o.actor, (a) => sameActor(a, actor)),
+      ),
+  });
+
+const idleCancel = (
+  before: Model,
+  actor: ActorRef,
+  operation: string,
+  window: ReadonlyArray<Observation>,
+) => {
+  const ended = window
+    .filter(Observation.$is("Ended"))
+    .filter((o) => o.operation === operation && committedBy(before, window, actor, o));
 
   return ended.length === 0
     ? []
@@ -152,7 +186,7 @@ const cancelOne = (
 
   const [head] = heads;
 
-  if (head === undefined) return [[], idleCancel(operation, window)];
+  if (head === undefined) return [[], idleCancel(before, turn.actor, operation, window)];
 
   if (heads.length > 1) return [[], []];
   const [marks, found] = headByHistory(operation, head, window);
@@ -268,7 +302,10 @@ const reloadedLive = (model: Model, at: number) =>
   );
 
 const atTurn = (walk: Walk, step: Step, turn: Turn) => {
-  const at = walk.drove.findIndex((d) => d.event === turn.event && sameActor(d.actor, turn.actor));
+  const at = Arr.findFirstIndex(
+    walk.drove,
+    (d) => d.event === turn.event && sameActor(d.actor, turn.actor),
+  );
 
   const model = step.driven
     ? {
@@ -280,9 +317,14 @@ const atTurn = (walk: Walk, step: Step, turn: Turn) => {
   return {
     ...walk,
     model,
-    pending:
-      at < 0 ? walk.pending : [...walk.pending, { turn, before: walk.before, from: walk.from }],
-    drove: at < 0 ? walk.drove : walk.drove.toSpliced(at, 1),
+    pending: Option.match(at, {
+      onNone: () => walk.pending,
+      onSome: () => [...walk.pending, { turn, before: walk.before, from: walk.from }],
+    }),
+    drove: Option.match(at, {
+      onNone: () => walk.drove,
+      onSome: (i) => walk.drove.toSpliced(i, 1),
+    }),
     before: model,
     from: walk.reports.length,
     found: [...walk.found, ...bounds(model)],
@@ -421,9 +463,12 @@ type State = { readonly model: Model; readonly reference: Reference; readonly at
  *   server's log (a keyed lane's key) and the fixtures' references (policy, bound, which events
  *   cancel). Which Attempt was minted, sent or released is the runtime's report;
  *   `attempt-identity` anchors every received send to a reported one.
- * - A lane is (actor, operation, key). The key is `Minted`'s when the runtime reports it, else the
- *   key fields of the input of the Attempt's first request in the server's log; until then a keyed
- *   Attempt is a never-sent head of a lane the oracle cannot name, judged by no lane check.
+ * - A lane is (actor, operation, key). The Port requires `Minted.key` on a keyed operation; the
+ *   round-14 adapter does not report it (a stated limit), so the key is then the key fields of the
+ *   input of the Attempt's first request in the server's log, and until then a keyed Attempt is a
+ *   never-sent head of a lane the oracle cannot name, judged by no lane check.
+ * - An Idle cancel counts only endings of the cancelling actor's Attempts (known before the turn,
+ *   or minted by that actor in the window) and its declines.
  * - A cancel of a keyed operation names its lane from the actor's state, which the timeline does
  *   not hold: the oracle judges it only when the actor has one addressable Attempt of the operation
  *   (none is an Idle cancel); with more, the cancel is not judged.
@@ -436,10 +481,11 @@ type State = { readonly model: Model; readonly reference: Reference; readonly at
  *   alternatives with the same source and target, only one of which cancels, are not told apart.
  *   A release on leave and a not-retained unknown (a bare or
  *   ignored mapping, R4) need fixtures that declare them; until then they read as violations.
- * - A reload empties the lanes and drops the pending cancels: the page that would end them is
- *   gone. Cancels judged before it in the step are judged over the reports before it. An Attempt
- *   known from before rejoins its lane as the head when a report names it again and the lane has
- *   none.
+ * - A reload keeps each Held head (`Held { at }` as it was), makes a head on the wire Held at the
+ *   reload's step, and drops queued, waiting and replaced Attempts and the pending cancels: the
+ *   page that would end them is gone. Cancels judged before it in the step are judged over the
+ *   reports before it. A send of an Attempt that left its lane is WriteLanes I1 (a boot sends
+ *   nothing, Restore I2).
  */
 export const laneQueue = oracle<State>({
   name: "lane-queue",

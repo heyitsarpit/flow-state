@@ -1,7 +1,7 @@
 import { Data, Option } from "effect";
-import { type LaneId, laneOf, sameLane } from "../dsl/domain.ts";
+import { laneAtMint, laneAtSend, type LaneId, sameLane } from "../dsl/domain.ts";
 import type { Concurrency, OperationReference, Reference } from "../fixtures/reference.ts";
-import { type ActorRef, type Ended, type Json, type Minted, sameActor } from "../port.ts";
+import { type ActorRef, type Ended, type Minted, sameActor } from "../port.ts";
 import type { Request } from "../world/network.ts";
 
 /**
@@ -144,17 +144,6 @@ export const without = (model: Model, id: string) =>
 const policyOf = (reference: Reference, actor: ActorRef, operation: string) =>
   Option.fromUndefinedOr(reference[actor.machine]?.[operation]);
 
-const placed = (
-  reference: Reference,
-  owner: ActorRef,
-  operation: string,
-  policy: OperationReference,
-  key: Option.Option<Json>,
-) =>
-  policy.keyFields.length === 0
-    ? Option.some(laneOf(owner, reference, operation, {}))
-    : Option.map(key, (k) => laneOf(owner, reference, operation, k));
-
 const joined = (model: Model, id: string, phase: Phase) => {
   const lane = laneOfId(model, id);
 
@@ -201,7 +190,7 @@ export const mint = (
     owner,
     operation: minted.operation,
     policy: policy.value,
-    lane: placed(reference, owner, minted.operation, policy.value, minted.key),
+    lane: laneAtMint(reference, owner, minted.operation, policy.value, minted.key),
   };
 
   return [
@@ -218,12 +207,9 @@ const placedBySend = (
 ) => {
   if (Option.isSome(known.lane)) return model;
 
-  const request = requests.find(
-    (r) => r.operation === known.operation && Option.contains(r.key, known.id),
-  );
+  const lane = laneAtSend(reference, known.owner, known.operation, known.id, requests);
 
-  if (request === undefined) return model;
-  const lane = Option.some(laneOf(known.owner, reference, known.operation, request.input));
+  if (Option.isNone(lane)) return model;
 
   const phase = Option.match(liveOf(model, known.id), {
     onNone: () => Phase.Waiting(),

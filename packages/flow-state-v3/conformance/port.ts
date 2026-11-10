@@ -133,8 +133,12 @@ export type RecordedWhy = typeof RecordedWhy.Type;
  *   consistency; each must be anchored to a suite fact.
  * - `actor` on `Minted` is required: an oracle judges a `None` as a violation. On a decline's
  *   `Ended` and on `Delivered` it names the actor, `None` when the runtime does not say.
- * - `key` on `Minted` is `None` when the runtime does not report it; oracles then judge lanes per
- *   actor and operation.
+ * - `key` on `Minted` is required on a keyed operation (`None` only on an unkeyed one). The
+ *   round-14 adapter does not report it, a stated limit: oracles then name a keyed lane from the
+ *   Attempt's first request in the server's log.
+ * - A delivery is reported once. When its turn is refused (an `InvalidTurn` issue), the one
+ *   redelivery after queued mail is not reported again as `Delivered`: its turn, or its second
+ *   refusal, shows it.
  */
 export type Observation = Data.TaggedEnum<{
   Turn: { actor: ActorRef; event: string; from: string; to: string };

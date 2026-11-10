@@ -1,5 +1,5 @@
 import { Option } from "effect";
-import { type LaneId, laneOf, sameLane } from "../dsl/domain.ts";
+import { laneAtMint, laneAtSend, type LaneId, sameLane } from "../dsl/domain.ts";
 import { operationNamed, type OperationReference, type Reference } from "../fixtures/reference.ts";
 import { type ActorRef, type Channel, type Minted, sameActor } from "../port.ts";
 import type { Request } from "../world/network.ts";
@@ -63,9 +63,7 @@ export const mintedInto = (written: ReadonlyArray<Written>, reference: Reference
   const policy = policyOf(reference, m.actor, m.operation);
 
   const lane = Option.flatMap(Option.all([m.actor, policy]), ([owner, p]) =>
-    p.keyFields.length === 0
-      ? Option.some(laneOf(owner, reference, m.operation, {}))
-      : Option.map(m.key, (k) => laneOf(owner, reference, m.operation, k)),
+    laneAtMint(reference, owner, m.operation, p, m.key),
   );
 
   const before = written.map((w) =>
@@ -102,12 +100,8 @@ export const sentIn = (
   written.map((w) => {
     if (w.id !== id) return w;
 
-    const request = requests.find((r) => r.operation === w.operation && Option.contains(r.key, id));
-
     const lane = Option.orElse(w.lane, () =>
-      Option.flatMap(Option.all([w.owner, Option.fromUndefinedOr(request)]), ([owner, r]) =>
-        Option.some(laneOf(owner, reference, w.operation, r.input)),
-      ),
+      Option.flatMap(w.owner, (owner) => laneAtSend(reference, owner, w.operation, id, requests)),
     );
 
     return { ...w, sent: true, lane };
