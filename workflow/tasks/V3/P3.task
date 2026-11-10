@@ -554,6 +554,12 @@ tasks
             Table B's Resend discharges an owed release (a false I12 under cancel). No oracle reads it; suite 84/84, 
             null 0/84, coverage 0 gaps, check at zero. Next: step 4. Detail: conformance/STATUS.md, Convergence v2 
             build.
+        comment     2026-11-10T23:43:32Z
+            Convergence step 4 landed (cf825289): lane-queue reads the Case's one fold, Port change 2, lifecycle review 
+            H1 and H2 fixed (F3 settled), PAY-21 and PAY-22 with six mutants; no case verdict changed, 
+            p1h.cancel-all-idle-declines now I21. Open: lane.held-auto-resend gets no verdict on PAY-22 in the sweep 
+            (120 s bound); the review's M1 to M4 and Lows before step 5. Detail: 
+            code:packages/flow-state-v3/conformance/STATUS.md (Convergence v2 build, Step 4).
     T8
         title       Turn area complete
         status      open
