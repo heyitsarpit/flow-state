@@ -522,3 +522,5 @@ note 2026-11-10T22:32:27Z
     Convergence step 1 complete at 1a850b5d (84/84, null 0/84, sweep 68/68, lifecycle tests 7/7). For the user: 
     WriteLanes R9 says a key-less member on a keyed operation outside an ending is KeyRequired, while round-14 applies 
     it to every lane; the suite follows round-14 until answered. A fresh lead continues at step 3.
+note 2026-11-10T22:57:19Z
+    Convergence step 3 and step landed at 3d03715c (84/84, lifecycle tests 19/19, no verdict changed); a fresh lead takes step 4.
