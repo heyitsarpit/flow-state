@@ -146,6 +146,14 @@ const definiteTraces: ReadonlyArray<Trace> = [
     }),
   ),
   one({
+    name: "a replaced Attempt's late answer is evidence",
+    cites: "WriteLanes R7, R10, I15: the interrupted Attempt's ending is evidence, never delivered",
+    start: goneBeside(GE),
+    move: definite("s"),
+    refused: [],
+    phases: { s: GE, n: U },
+  }),
+  one({
     name: "a gone Attempt ends again",
     cites: "WriteLanes I16",
     start: goneBeside(GC),

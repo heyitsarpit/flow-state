@@ -179,6 +179,11 @@ const guardOf = (model: Model, life: AttemptLife, move: Move) =>
 
       if (channel === "failure" && isFlowDecline(reason)) return notSentGuard(model, life, reason);
 
+      if (life.phase._tag === "Gone")
+        return goneEnd(model, life, life.phase.why, "Definite") === "evidenceFirst"
+          ? "evidenceFirst"
+          : "other";
+
       return life.phase._tag === "OnWire" ? model.mode : "always";
     },
     Evidence: ({ kind }) => evidenceGuard(model, life, kind),

@@ -87,6 +87,7 @@ export const tableA: TableA = {
     Unsent: always(stay),
     OnWire: { running: gone("closed"), disposing: gone("settledInDisposal") },
     Interrupted: always(refuse(20)),
+    Gone: { evidenceFirst: stay, other: refuse(16) },
   },
   EndNotSent: {
     ...each(refuse(16)),
