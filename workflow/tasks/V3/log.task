@@ -433,3 +433,5 @@ note 2026-11-10T18:43:09Z
     rows. Carried: the machine verdict form (Conformance Q2 and R9) to T14 or T15.
 note 2026-11-10T19:04:09Z
     Review started on 392147bc..a8714be6 (T40 and T7's S2 rewrite); weekly usage 10 percent.
+note 2026-11-10T19:07:58Z
+    Decision (user, 2026-11-11): one builder carries related Tasks; a fresh one starts only when context runs long or work moves from suite to production. Batches: T7 then T8 and T13; T16 fresh; T12 with T14; T10 then T11, with T9 where it fits; T15 audit separate. **Why:** small Tasks shouldn't each pay for a new agent. **Reverse:** one builder per Task.
