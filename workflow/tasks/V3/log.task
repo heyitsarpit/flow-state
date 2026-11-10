@@ -457,3 +457,8 @@ note 2026-11-10T18:09:25Z
     Invariant states it and adding one is a guarantee change nobody asked for; the false-Released claim is a known gap, 
     fixed in T7's rewrite with its mutant registered; the builder's M2 leniency stays. Reverse: run the convergence 
     pass.
+note 2026-11-10T18:10:51Z
+    Amendment (2026-11-10, the user): sidecars report only to their leads (already so), and leads report to the 
+    orchestrator briefly: verdict, commits, gate counts, and items needing a decision, in about 30 lines, with full 
+    detail in Task comments, STATUS.md or a review file. Why: keep the orchestrator's context light. Edited: 
+    instructions. Sent to the running building and reviewing leads. Reverse: drop the line.

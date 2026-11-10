@@ -228,6 +228,10 @@ instructions
       Haiku sidecars, two of them on code quality (STYLE.md and Effect idioms; types, comments and
       lint), two on correctness against the Spec the change implements; sidecars report only to
       their lead (amendment 7, 2026-11-08; two on code quality: the user, 2026-11-09).
+    - Only leads report to the orchestrator, and briefly, to keep its context light (the user,
+      2026-11-10): the verdict, commits, gate counts, and only the items that need a decision or
+      routing, in about 30 lines; the full findings, sidecar logs and evidence go in the Task's
+      comments, STATUS.md or a review file, and the report names where.
     - Building leads plan their round's tasks up front and write every committed line themselves;
       Haiku never writes committed code (the user, 2026-11-10, Q2 A; replaces amendment 8's coders).
       They may run up to four Haiku sidecars as runners (gates, falsify, sweeps, timings, traces),
