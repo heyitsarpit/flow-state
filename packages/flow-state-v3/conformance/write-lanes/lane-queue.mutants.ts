@@ -149,4 +149,40 @@ export const laneQueueMutants: ReadonlyArray<Mutant> = [
       '  if (!lane) return void decline(tx, a, "Cancelled");\n  if (!lane.w.length) return cell(tx, "cancel", lane, a);',
     ),
   },
+  {
+    name: "lie.held-released-unguarded",
+    says: "a head held by an unknown is released at once, with no cancel, and reported Released",
+    expects: "WriteLanes I12",
+    runtime: "prototype",
+    cases: ["LANE-03", "PAY-15/press-pay-while-held"],
+    edits: lane(
+      '  hold(tx, l) {\n    setLane(tx, { ...l!, head: { ...l!.head!, phase: { t: "held" } } });\n  },',
+      '  hold(tx, l) {\n    setLane(tx, { ...l!, head: { ...l!.head!, phase: { t: "held" } } });\n    release(tx, tx.w.lanes[l!.id]!);\n  },',
+    ),
+  },
+  {
+    name: "mutant.double-invoke",
+    says: "an Attempt on the wire is invoked a second time, with no commit, promotion or retry",
+    expects: "WriteLanes I1",
+    runtime: "prototype",
+    cases: ["PAY-01", "LANE-01"],
+    edits: lane(
+      '    note(tx, "invoked", { op: l!.op, attempt: h.id, send: gen });',
+      '    note(tx, "invoked", { op: l!.op, attempt: h.id, send: gen });\n    note(tx, "invoked", { op: l!.op, attempt: h.id, send: gen });\n    tx.commands.push({ k: "invoke", attempt: h.id, send: gen, machine: a.machine, op: l!.op, input: h.input, ctx: { id: h.id, mayHaveApplied: h.mayHaveApplied } });',
+    ),
+  },
+  {
+    name: "mutant.release-drops-held",
+    says: "an actor whose last use was released drops its lanes when its grace ends, reporting its Held head Released with no cancel",
+    expects: "WriteLanes I12",
+    runtime: "prototype",
+    cases: ["DISP-01"],
+    edits: [
+      {
+        file: "step.ts",
+        find: 'if (m.local && how !== "remount")',
+        replace: 'if (m.local ? how !== "remount" : how === "end")',
+      },
+    ],
+  },
 ];

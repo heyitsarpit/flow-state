@@ -13,18 +13,6 @@ import { type ActorRef, type Json, sameActor, sameJson } from "../port.ts";
 export const attemptKey = (operation: string, attempt: string) => `${operation} ${attempt}`;
 
 /**
- * The reference of a write (an operation whose sends are Attempts) by its name, when exactly one
- * fixture of the case declares it.
- *
- * **Gotchas**
- *
- * - The Port's endings name an operation, not its machine, so a name two machines share finds
- *   nothing.
- */
-export const writeNamed = (reference: Reference, name: string) =>
-  Option.filter(operationNamed(reference, name), (operation) => operation.attempts);
-
-/**
  * One write lane: its owner, operation, and the values of its key fields in their declared order.
  */
 export type LaneId = {

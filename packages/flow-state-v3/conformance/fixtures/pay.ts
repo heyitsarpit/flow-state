@@ -58,7 +58,6 @@ const states = [
 ] as const;
 
 const pay = {
-  attempts: true,
   concurrency: "reject",
   success: "Confirmed",
   failure: {
@@ -72,27 +71,28 @@ const pay = {
     (tag, fields, mayHaveApplied) => tag === "IntentBusy" && mayHaveApplied && capturable(fields),
   ),
   cancels: {},
+  mayCancel: ["IntentRead", "OrderSeen"],
 } satisfies Omit<OperationReference<keyof typeof events>, "keyFields">;
 
 const operations = {
   pay: writeOf(ByIntent, pay),
   place: writeOf(Schema.Struct({ cartId: Schema.String }), {
-    attempts: true,
     concurrency: "reject",
     success: "Placed",
     failure: { NotSent: "PlaceRefused" },
     unknown: "PlaceUnsure",
     classify: classifyWith((tag) => tag === "OrderExists"),
     cancels: {},
+    mayCancel: [],
   }),
   void: writeOf(ByIntent, {
-    attempts: true,
     concurrency: "reject",
     success: "Voided",
     failure: { AlreadyCaptured: "VoidRefused", NotSent: "Voided" },
     unknown: "VoidUnsure",
     classify: classifyWith(() => false),
     cancels: {},
+    mayCancel: [],
   }),
 } satisfies Fixture["operations"];
 

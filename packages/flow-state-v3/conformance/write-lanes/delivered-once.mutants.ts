@@ -133,4 +133,47 @@ export const deliveredOnceMutants: ReadonlyArray<Mutant> = [
       },
     ],
   },
+  {
+    name: "mutant.replaced-delivered",
+    says: "an Attempt interrupted by a later commit under cancel is reported delivered, not recorded",
+    expects: "WriteLanes I15",
+    runtime: "prototype",
+    cases: ["LANE-07"],
+    edits: [
+      {
+        file: "step.ts",
+        find: '    note(tx, "evidenceOnly", { op: was.op, attempt: i.attempt });',
+        replace: '    note(tx, "delivered", { op: was.op, attempt: i.attempt, event: "Ok" });',
+      },
+    ],
+  },
+  {
+    name: "mutant.success-then-failure",
+    says: "a settled success is followed by a failure ending of the same Attempt",
+    expects: "WriteLanes I16",
+    runtime: "prototype",
+    cases: ["PAY-01"],
+    edits: [
+      {
+        file: "lane.ts",
+        find: "  toMail(tx, lane, lane.head!, e);\n};",
+        replace:
+          '  toMail(tx, lane, lane.head!, e);\n  if (e.ch === "success") noteEnding(tx, { op: lane.op, attempt: lane.head!.id }, { ch: "failure", tag: "CardDeclined", value: {} });\n};',
+      },
+    ],
+  },
+  {
+    name: "d6.disposed-ending-is-evidence",
+    says: "an ending that lands after its persisted actor was disposed is recorded as evidence, not parked",
+    expects: "WriteLanes I15",
+    runtime: "prototype",
+    cases: ["DISP-06"],
+    edits: [
+      {
+        file: "turn.ts",
+        find: "(own(tx.w.retired, item.actor) !== undefined || tx.machines[machine]?.persisted);",
+        replace: "own(tx.w.retired, item.actor) !== undefined;",
+      },
+    ],
+  },
 ];

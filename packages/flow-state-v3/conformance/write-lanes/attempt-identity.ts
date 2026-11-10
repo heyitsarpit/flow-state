@@ -1,6 +1,7 @@
+import { operationNamed } from "../fixtures/reference.ts";
 import { Option } from "effect";
 import type { Reference } from "../fixtures/reference.ts";
-import { attemptKey, writeNamed } from "../dsl/domain.ts";
+import { attemptKey } from "../dsl/domain.ts";
 import { Observation, sameJson, type Sent } from "../port.ts";
 import type { Request } from "../world/network.ts";
 import { Fact, oracle, reported, violation } from "../dsl/oracle.ts";
@@ -11,7 +12,7 @@ type Minting = {
 };
 
 const isWrite = (reference: Reference, operation: string) =>
-  Option.isSome(writeNamed(reference, operation));
+  Option.isSome(operationNamed(reference, operation));
 
 const tally = (keys: ReadonlyArray<string>) => {
   const counts = new Map<string, number>();

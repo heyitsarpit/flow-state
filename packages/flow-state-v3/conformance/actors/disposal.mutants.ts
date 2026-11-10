@@ -146,20 +146,6 @@ export const disposalMutants: ReadonlyArray<Mutant> = [
     ],
   },
   {
-    name: "mutant.release-drops-held",
-    says: "an actor whose last use was released drops its lanes when its grace ends",
-    expects: "Actors I29",
-    runtime: "prototype",
-    cases: ["DISP-01"],
-    edits: [
-      {
-        file: "step.ts",
-        find: 'if (m.local && how !== "remount")',
-        replace: 'if (m.local ? how !== "remount" : how === "end")',
-      },
-    ],
-  },
-  {
     name: "mutant.disposal-rereads",
     says: "the Runtime's disposal sends each open read again instead of stopping it",
     expects: "Actors I30",

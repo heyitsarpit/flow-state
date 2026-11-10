@@ -1,5 +1,5 @@
 import { Option } from "effect";
-import { type LaneId, laneOf, mayHaveApplied, sameLane, writeNamed } from "../dsl/domain.ts";
+import { type LaneId, laneOf, mayHaveApplied, sameLane } from "../dsl/domain.ts";
 import { Fact, holdUse } from "../dsl/oracle.ts";
 import { operationNamed, type Reference } from "../fixtures/reference.ts";
 import { type ActorRef, type Channel, Observation, sameActor, type Use } from "../port.ts";
@@ -140,7 +140,7 @@ const cancelled = (ledger: Ledger, reference: Reference, actor: ActorRef, event:
 
 const minted = (ledger: Ledger, reference: Reference, observation: Observation) => {
   if (!Observation.$is("Minted")(observation) || Option.isNone(observation.actor)) return;
-  const write = Option.isSome(writeNamed(reference, observation.operation));
+  const write = Option.isSome(operationNamed(reference, observation.operation));
 
   if (write && !ledger.attempts.has(observation.attempt))
     ledger.attempts.set(observation.attempt, {

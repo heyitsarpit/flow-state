@@ -46,7 +46,7 @@ const uncertain = (s: Shopper) => Option.getOrUndefined(s.row("pay", KEY))?.unce
 export const laneKeepingScenarios: ReadonlyArray<Scenario> = [
   {
     id: "DISP-01",
-    cites: ["Actors R20", "Actors R22", "Actors I29"],
+    cites: ["WriteLanes R8", "WriteLanes I12", "Actors R22", "Actors I29"],
     fixtures: [Pay],
     run: (c) => {
       const s = held(c);

@@ -1,233 +1,28 @@
-import { type Data, Option } from "effect";
-import type { Reference } from "../fixtures/reference.ts";
-import {
-  type ActorRef,
-  type Ended,
-  type Minted,
-  Observation,
-  sameActor,
-  sameJson,
-  type Turn,
-} from "../port.ts";
+import { Option } from "effect";
+import type { LaneId } from "../dsl/domain.ts";
 import { Fact, oracle, violation } from "../dsl/oracle.ts";
+import type { OperationReference, Reference } from "../fixtures/reference.ts";
+import { type ActorRef, Observation, sameActor, sameJson, type Turn } from "../port.ts";
+import type { Request } from "../world/network.ts";
 import {
-  ADDRESSABLE,
-  BOUND,
-  type Cancelled,
-  type Lane,
-  type Model,
-  type Phase,
   addressable,
-  forget,
-  fresh,
-  headOf,
-  laneKey,
-  laneOfAttempt,
-  phaseIn,
+  bounds,
+  byHistory,
+  type CancelPending,
+  EMPTY,
+  end,
+  type Found,
+  knownOf,
+  laneOfId,
+  type Live,
+  mint,
+  type Model,
+  Phase,
   queuedOf,
-  unkeyed,
-  withPhase,
+  sent,
+  superseded,
   without,
-  writeOf,
 } from "./lane-model.ts";
-
-const permittedResend = (model: Model, actor: ActorRef, id: string) => {
-  const heldAt = model.heldAt.get(id) ?? Infinity;
-
-  return model.drivenTurns.some((turn) => sameActor(turn.actor, actor) && turn.step > heldAt);
-};
-
-const mint = (model: Model, reference: Reference, minted: Minted) => {
-  if (Option.isNone(minted.actor))
-    return [`WriteLanes I9: ${minted.operation} ${minted.attempt} was minted with no actor`];
-
-  const actor = minted.actor.value;
-  const policy = writeOf(reference, actor, minted.operation);
-
-  if (Option.isNone(policy)) return [];
-  const key = laneKey(actor, minted.operation);
-
-  const lane = model.lanes.get(key) ?? {
-    actor,
-    operation: minted.operation,
-    policy: policy.value,
-    attempts: [],
-  };
-
-  const head = headOf(lane);
-  model.laneOf.set(minted.attempt, key);
-
-  if (Option.isNone(head)) {
-    model.lanes.set(key, {
-      ...lane,
-      attempts: [...lane.attempts, { id: minted.attempt, phase: "waiting" }],
-    });
-
-    return [];
-  }
-
-  const replaced =
-    policy.value.concurrency === "cancel" ? withPhase(lane, head.value.id, "replaced") : lane;
-
-  const phase = policy.value.concurrency === "cancel" ? "waiting" : "queued";
-  model.lanes.set(key, {
-    ...replaced,
-    attempts: [...replaced.attempts, { id: minted.attempt, phase }],
-  });
-
-  return [];
-};
-
-const rejoined = (lane: Lane, id: string, phase: Phase) =>
-  Option.isSome(headOf(lane)) ? lane : { ...lane, attempts: [...lane.attempts, { id, phase }] };
-
-const sent = (model: Model, id: string) =>
-  Option.match(laneOfAttempt(model, id), {
-    onNone: () => [],
-    onSome: ([key, lane]) => {
-      const phase = phaseIn(lane, id);
-
-      if (Option.isNone(phase)) {
-        model.lanes.set(key, rejoined(lane, id, "wire"));
-
-        return [];
-      }
-
-      const head = headOf(lane);
-      model.lanes.set(key, withPhase(lane, id, "wire"));
-
-      if (model.cancelled.get(id)?.from === "waiting")
-        return [
-          `WriteLanes I20: ${lane.operation} ${id} was sent after a cancel found it never sent; it ends NotSent Cancelled by its history`,
-        ];
-
-      if (phase.value === "replaced")
-        return [`WriteLanes I9: ${lane.operation} ${id} was sent after a later commit replaced it`];
-
-      if (phase.value === "held")
-        return permittedResend(model, lane.actor, id)
-          ? []
-          : [
-              `WriteLanes I12: ${lane.operation} ${id} was sent while Held, with no suite-driven turn of its actor since it was held; a Held head leaves Held only by a retry, a cancel or a release`,
-            ];
-
-      if (phase.value !== "queued") return [];
-
-      return [
-        `WriteLanes I11: ${lane.operation} ${id} was sent while ${Option.match(head, { onNone: () => "no head", onSome: (h) => `the head ${h.id} was ${h.phase}` })}, so it was promoted before the head was resolved or released`,
-      ];
-    },
-  });
-
-const byHistory = (mark: Cancelled, ended: Ended, id: string) => {
-  if (mark.from === "wire" && (ended.channel !== "unknown" || ended.reason !== "Cancelled"))
-    return [
-      `WriteLanes I20: ${ended.operation} ${id} was on the wire when it was cancelled, so it ends unknown Cancelled by its history; it ended ${ended.channel} ${ended.reason}`,
-    ];
-
-  const decline = ended.reason === "Cancelled" || ended.reason === "StorageRefused";
-
-  if (mark.from === "waiting" && (ended.channel !== "failure" || !decline))
-    return [
-      `WriteLanes I20: ${ended.operation} ${id} was never sent when it was cancelled, so it ends NotSent Cancelled (or StorageRefused) by its history; it ended ${ended.channel} ${ended.reason}`,
-    ];
-
-  return [];
-};
-
-const cancelledRight = (model: Model, ended: Ended, id: string) => {
-  const mark = model.cancelled.get(id);
-  model.cancelled.delete(id);
-
-  return mark === undefined ? [] : byHistory(mark, ended, id);
-};
-
-const afterEnding = (ended: Ended, phase: Phase) =>
-  ended.channel === "unknown" && ADDRESSABLE.includes(phase) ? "held" : "gone";
-
-const end = (model: Model, ended: Ended, at: number) => {
-  if (Option.isNone(ended.attempt)) return [];
-  const id = ended.attempt.value;
-  const judged = cancelledRight(model, ended, id);
-
-  return Option.match(laneOfAttempt(model, id), {
-    onNone: () => judged,
-    onSome: ([key, lane]) => {
-      const phase = phaseIn(lane, id);
-
-      if (Option.isNone(phase)) {
-        if (ended.channel === "unknown") {
-          model.heldAt.set(id, at);
-          model.lanes.set(key, rejoined(lane, id, "held"));
-        }
-
-        return judged;
-      }
-
-      const queuedOk = phase.value !== "queued" || ended.channel === "failure";
-      const holds = afterEnding(ended, phase.value) === "held";
-
-      if (holds) model.heldAt.set(id, at);
-      model.lanes.set(key, holds ? withPhase(lane, id, "held") : without(lane, id));
-
-      if (queuedOk) return judged;
-
-      return [
-        ...judged,
-        `WriteLanes I11: ${lane.operation} ${id} ended ${ended.channel} while queued behind its head, never sent`,
-      ];
-    },
-  });
-};
-
-const evidence = (model: Model, observed: Data.TaggedEnum.Value<Observation, "Evidence">) => {
-  if (Option.isNone(observed.attempt)) return [];
-  const id = observed.attempt.value;
-
-  if (observed.kind !== "Superseded" && observed.kind !== "Released") return [];
-
-  return Option.match(laneOfAttempt(model, id), {
-    onNone: () => [],
-    onSome: ([key, lane]) => {
-      const phase = phaseIn(lane, id);
-      model.lanes.set(key, without(lane, id));
-
-      if (observed.kind === "Released" || Option.isNone(phase)) return [];
-
-      if (lane.policy.concurrency !== "latest")
-        return [
-          `WriteLanes I8: ${lane.operation} ${id} was superseded under ${lane.policy.concurrency}; only latest replaces a queued commit`,
-        ];
-
-      if (phase.value === "queued" || phase.value === "waiting") return [];
-
-      return [
-        `WriteLanes I8: ${lane.operation} ${id} was superseded while ${phase.value}; latest replaces only a queued commit or a never-sent head`,
-      ];
-    },
-  });
-};
-
-const bounds = (model: Model) =>
-  [...model.lanes.values()].flatMap((lane) => {
-    const queued = queuedOf(lane).length;
-    const heads = lane.attempts.filter(addressable).length;
-    const bound = BOUND[lane.policy.concurrency];
-
-    const found =
-      queued > bound
-        ? [
-            `WriteLanes I8: ${lane.actor.machine}/${lane.actor.id} ${lane.operation} holds ${queued} queued commits under ${lane.policy.concurrency}, past its bound of ${bound}`,
-          ]
-        : [];
-
-    return heads > 1
-      ? [
-          ...found,
-          `WriteLanes I9: ${lane.actor.machine}/${lane.actor.id} ${lane.operation} has ${heads} addressable Attempts`,
-        ]
-      : found;
-  });
 
 const releasedIn = (window: ReadonlyArray<Observation>, id: string) =>
   window.some(
@@ -240,8 +35,8 @@ const endedIn = (window: ReadonlyArray<Observation>, operation: string) =>
     Observation.$is("Ended")(o) && o.operation === operation ? Option.toArray(o.attempt) : [],
   );
 
-const queueEnded = (lane: Lane, window: ReadonlyArray<Observation>) => {
-  const queued = queuedOf(lane).map((a) => a.id);
+const queueEnded = (before: Model, lane: LaneId, window: ReadonlyArray<Observation>) => {
+  const queued = queuedOf(before, lane).map((l) => l.id);
   const ended = endedIn(window, lane.operation).filter((id) => queued.includes(id));
 
   const declined = (id: string) =>
@@ -267,253 +62,379 @@ const queueEnded = (lane: Lane, window: ReadonlyArray<Observation>) => {
       ];
 };
 
-const sentIn = (window: ReadonlyArray<Observation>, id: string) =>
-  window.some((o) => Observation.$is("Sent")(o) && o.attempt === id);
-
-const idleCancel = (lane: Lane, window: ReadonlyArray<Observation>) => {
-  const ended = window.filter(
-    (o) => Observation.$is("Ended")(o) && o.operation === lane.operation,
-  ).length;
-
-  return ended === 0
-    ? []
-    : [
-        `WriteLanes I20: a cancel on ${lane.operation}'s Idle lane does nothing; ${ended} ending(s) were reported`,
-      ];
-};
-
-const headByHistory = (model: Model, lane: Lane, window: ReadonlyArray<Observation>) =>
-  Option.match(headOf(lane), {
-    onNone: () => idleCancel(lane, window),
-    onSome: (head) => {
-      if (head.phase === "held")
-        return releasedIn(window, head.id)
-          ? []
-          : [
-              `WriteLanes I12: a cancel on ${lane.operation}'s Held head ${head.id} releases it; no Released was reported`,
-            ];
-
-      const mark: Cancelled = { id: head.id, from: head.phase === "wire" ? "wire" : "waiting" };
-
-      if (mark.from === "waiting" && sentIn(window, head.id))
-        return [
-          `WriteLanes I20: ${lane.operation} ${head.id} was sent after a cancel found it never sent; it ends NotSent Cancelled by its history`,
-        ];
-
-      const already = window
-        .filter(Observation.$is("Ended"))
-        .find((o) => Option.contains(o.attempt, head.id));
-
-      if (already !== undefined) return byHistory(mark, already, head.id);
-      model.cancelled.set(head.id, mark);
-
-      return [];
-    },
-  });
-
 const deliveredAt = (window: ReadonlyArray<Observation>, id: string) =>
   window.findIndex((o) => Observation.$is("Delivered")(o) && Option.contains(o.attempt, id));
 
-const holdLast = (lane: Lane, window: ReadonlyArray<Observation>) =>
-  Option.match(headOf(lane), {
-    onNone: () => [],
-    onSome: (head) => {
-      const heard = deliveredAt(window, head.id);
-      const later = queuedOf(lane).filter((a) => deliveredAt(window, a.id) > heard);
+const holdLast = (before: Model, lane: LaneId, head: Live, window: ReadonlyArray<Observation>) => {
+  const heard = deliveredAt(window, head.id);
+  const later = queuedOf(before, lane).filter((l) => deliveredAt(window, l.id) > heard);
 
-      if (head.phase !== "wire" || heard < 0 || later.length === 0) return [];
+  if (!Phase.$is("Wire")(head.phase) || heard < 0 || later.length === 0) return [];
 
-      return [
-        `WriteLanes I21: cancelAll delivered the head ${head.id}'s hold-leaving ending before the queued ${later.map((a) => a.id).join(", ")}; the head's comes last`,
+  return [
+    `WriteLanes I21: cancelAll delivered the head ${head.id}'s hold-leaving ending before the queued ${later.map((l) => l.id).join(", ")}; the head's comes last`,
+  ];
+};
+
+const idleCancel = (operation: string, window: ReadonlyArray<Observation>) => {
+  const ended = window.filter((o) => Observation.$is("Ended")(o) && o.operation === operation);
+
+  return ended.length === 0
+    ? []
+    : [
+        `WriteLanes I20: a cancel on ${operation}'s Idle lane does nothing; ${ended.length} ending(s) were reported`,
       ];
-    },
+};
+
+type Judged = readonly [ReadonlyArray<CancelPending>, Found];
+
+// RETURN_TYPE: a [state, violations] pair; the branches' literal arrays would infer different tuples.
+const headByHistory = (operation: string, head: Live, window: ReadonlyArray<Observation>): Judged =>
+  Phase.$match(head.phase, {
+    Held: () =>
+      [
+        [],
+        releasedIn(window, head.id)
+          ? []
+          : [
+              `WriteLanes I12: a cancel on ${operation}'s Held head ${head.id} releases it; no Released was reported`,
+            ],
+      ] as const,
+    Wire: () => fromHistory(operation, { id: head.id, from: "wire" }, window),
+    Waiting: () => fromHistory(operation, { id: head.id, from: "waiting" }, window),
+    Queued: () => [[], []] as const,
+    Replaced: () => [[], []] as const,
   });
 
-const cancels = (
-  model: Model,
-  reference: Reference,
-  before: ReadonlyMap<string, Lane>,
+// RETURN_TYPE: a [state, violations] pair; the branches' literal arrays would infer different tuples.
+const fromHistory = (
+  operation: string,
+  mark: CancelPending,
+  window: ReadonlyArray<Observation>,
+): Judged => {
+  const sentAfter = window.some((o) => Observation.$is("Sent")(o) && o.attempt === mark.id);
+
+  if (mark.from === "waiting" && sentAfter)
+    return [
+      [],
+      [
+        `WriteLanes I20: ${operation} ${mark.id} was sent after a cancel found it never sent; it ends NotSent Cancelled by its history`,
+      ],
+    ];
+
+  const already = window
+    .filter(Observation.$is("Ended"))
+    .find((o) => Option.contains(o.attempt, mark.id));
+
+  return already === undefined ? [[mark], []] : [[], byHistory(mark.from, already, mark.id)];
+};
+
+// RETURN_TYPE: a [pending cancels, violations] pair; the branches' literal arrays would infer different tuples.
+const cancelOne = (
+  before: Model,
   turn: Turn,
   window: ReadonlyArray<Observation>,
-) =>
-  Object.entries(reference[turn.actor.machine] ?? {}).flatMap(([operation, policy]) => {
-    const verb = policy.cancels[turn.event];
+  operation: string,
+  policy: OperationReference,
+): Judged => {
+  const verb = policy.cancels[turn.event];
 
-    if (verb === undefined || !unkeyed(policy)) return [];
+  if (verb === undefined) return [[], []];
 
-    const lane = before.get(laneKey(turn.actor, operation)) ?? {
-      actor: turn.actor,
-      operation,
-      policy,
-      attempts: [],
-    };
+  const heads = before.live.filter(
+    (l) =>
+      addressable(l) &&
+      Option.exists(
+        knownOf(before, l.id),
+        (k) => k.operation === operation && sameActor(k.owner, turn.actor),
+      ),
+  );
 
-    return verb === "cancelAll"
-      ? [
-          ...queueEnded(lane, window),
-          ...headByHistory(model, lane, window),
-          ...holdLast(lane, window),
-        ]
-      : headByHistory(model, lane, window);
+  const [head] = heads;
+
+  if (head === undefined) return [[], idleCancel(operation, window)];
+
+  if (heads.length > 1) return [[], []];
+  const [marks, found] = headByHistory(operation, head, window);
+  const lane = laneOfId(before, head.id);
+
+  if (verb === "cancel" || Option.isNone(lane)) return [marks, found];
+
+  return [
+    marks,
+    [
+      ...queueEnded(before, lane.value, window),
+      ...found,
+      ...holdLast(before, lane.value, head, window),
+    ],
+  ];
+};
+
+// RETURN_TYPE: a [state, violations] pair; the branches' literal arrays would infer different tuples.
+const cancelsOn = (
+  before: Model,
+  reference: Reference,
+  turn: Turn,
+  window: ReadonlyArray<Observation>,
+): Judged => {
+  const judged = Object.entries(reference[turn.actor.machine] ?? {}).map(([operation, policy]) =>
+    cancelOne(before, turn, window, operation, policy),
+  );
+
+  return [judged.flatMap(([marks]) => marks), judged.flatMap(([, found]) => found)];
+};
+
+const unanchoredReleases = (model: Model, reports: ReadonlyArray<Observation>) =>
+  reports.flatMap((o) => {
+    if (!Observation.$is("Evidence")(o) || o.kind !== "Released") return [];
+
+    return Option.match(
+      Option.flatMap(o.attempt, (id) => knownOf(model, id)),
+      {
+        onNone: () => [],
+        onSome: (known) => {
+          const cancelTurn = reports.some(
+            (r) =>
+              Observation.$is("Turn")(r) &&
+              sameActor(r.actor, known.owner) &&
+              (known.policy.cancels[r.event] !== undefined ||
+                known.policy.mayCancel.includes(r.event)),
+          );
+
+          const unretained = reports.some(
+            (r) =>
+              Observation.$is("Recorded")(r) &&
+              r.why !== "letGo" &&
+              Option.contains(r.attempt, known.id),
+          );
+
+          return cancelTurn || unretained
+            ? []
+            : [
+                `WriteLanes I12: ${known.operation} ${known.id} was reported Released in a step with no turn of its actor on an event that cancels it and no unknown of it left unretained; a Held lane leaves Held only by a retry, a cancel or a release on leave`,
+              ];
+        },
+      },
+    );
   });
 
 const unended = (model: Model) =>
-  [...model.cancelled.values()].flatMap((mark) => {
-    const lane = laneOfAttempt(model, mark.id);
-    const operation = Option.match(lane, { onNone: () => "", onSome: ([, l]) => l.operation });
+  model.cancels.flatMap((mark) => {
+    const operation = Option.match(knownOf(model, mark.id), {
+      onNone: () => mark.id,
+      onSome: (k) => k.operation,
+    });
 
-    if (mark.from !== "wire" || model.unstoppable.has(operation)) return [];
+    if (mark.from !== "wire" || model.unstoppable.includes(operation)) return [];
 
     return [
       `WriteLanes I20: ${operation} ${mark.id} was cancelled on the wire of an interruptible call and did not end in that step`,
     ];
   });
 
-type Pending = {
-  readonly turn: Turn;
-  readonly before: ReadonlyMap<string, Lane>;
+type Pending = { readonly turn: Turn; readonly before: Model; readonly from: number };
+
+type Walk = {
+  readonly model: Model;
+  readonly reports: ReadonlyArray<Observation>;
+  readonly before: Model;
   readonly from: number;
+  readonly pending: ReadonlyArray<Pending>;
+  readonly drove: ReadonlyArray<{ readonly actor: ActorRef; readonly event: string }>;
+  readonly found: Found;
 };
 
-const judgeStep = (model: Model, reference: Reference, step: ReadonlyArray<Fact>, at: number) => {
-  const driven = step.some((fact) => Fact.$is("Drove")(fact) || Fact.$is("Answered")(fact));
-  let before = new Map(model.lanes);
-  let from = 0;
-  const reports: Array<Observation> = [];
-  const pending: Array<Pending> = [];
-  const drove: Array<{ readonly actor: ActorRef; readonly event: string }> = [];
+type Step = {
+  readonly reference: Reference;
+  readonly requests: ReadonlyArray<Request>;
+  readonly at: number;
+  readonly driven: boolean;
+};
 
-  const atTurn = (turn: Turn) => {
-    const at = drove.findIndex((d) => d.event === turn.event && sameActor(d.actor, turn.actor));
-
-    if (at >= 0) {
-      drove.splice(at, 1);
-      pending.push({ turn, before, from });
-    }
-
-    before = new Map(model.lanes);
-    from = reports.length;
-
-    return bounds(model);
-  };
-
-  const reported = (observed: Observation) => {
-    reports.push(observed);
-
-    return Observation.$match(observed, {
-      Turn: (turn) => {
-        if (driven) model.drivenTurns.push({ actor: turn.actor, step: at });
-
-        return atTurn(turn);
-      },
-      Minted: (minted) => mint(model, reference, minted),
-      Sent: ({ attempt }) => sent(model, attempt),
-      Ended: (ended) => end(model, ended, at),
-      Delivered: () => [],
-      Parked: () => [],
-      Unparked: () => [],
-      Recorded: () => [],
-      Unhandled: () => [],
-      Denied: () => [],
-      Evidence: (observed) => evidence(model, observed),
-      Issue: () => [],
-      RuntimeDisposed: () => [],
-    });
-  };
-
-  const one = (fact: Fact) =>
-    Fact.$match(fact, {
-      Stepped: () => [],
-      Requested: () => [],
-      Answered: () => [],
-      Reported: ({ observation }) => reported(observation),
-      Reloaded: () => {
-        forget(model);
-
-        return [];
-      },
-      Disposed: () => [],
-      Forgot: () => [],
-      Ensured: () => [],
-      Released: () => [],
-      DisposingRuntime: () => [],
-      Drove: (drive) => {
-        drove.push(drive);
-
-        return [];
-      },
-      Unstoppable: ({ operation }) => {
-        model.unstoppable.add(operation);
-
-        return [];
-      },
-      Advanced: () => [],
-      Read: () => [],
-    });
-
-  const found = step.flatMap(one);
-
-  const judged = pending.flatMap((p) =>
-    cancels(model, reference, p.before, p.turn, reports.slice(p.from)),
+const flushed = (walk: Walk, reference: Reference) => {
+  const judged = walk.pending.map((p) =>
+    cancelsOn(p.before, reference, p.turn, walk.reports.slice(p.from)),
   );
 
-  return [...found, ...judged, ...bounds(model), ...unended(model)];
+  const model = { ...walk.model, cancels: [...walk.model.cancels, ...judged.flatMap(([m]) => m)] };
+
+  return { ...walk, model, pending: [], found: [...walk.found, ...judged.flatMap(([, f]) => f)] };
 };
+
+const atTurn = (walk: Walk, step: Step, turn: Turn) => {
+  const at = walk.drove.findIndex((d) => d.event === turn.event && sameActor(d.actor, turn.actor));
+
+  const model = step.driven
+    ? {
+        ...walk.model,
+        drivenTurns: [...walk.model.drivenTurns, { actor: turn.actor, step: step.at }],
+      }
+    : walk.model;
+
+  return {
+    ...walk,
+    model,
+    pending:
+      at < 0 ? walk.pending : [...walk.pending, { turn, before: walk.before, from: walk.from }],
+    drove: at < 0 ? walk.drove : walk.drove.toSpliced(at, 1),
+    before: model,
+    from: walk.reports.length,
+    found: [...walk.found, ...bounds(model)],
+  };
+};
+
+const reported = (walk: Walk, step: Step, observed: Observation) => {
+  const seen = { ...walk, reports: [...walk.reports, observed] };
+
+  const apply = ([model, found]: readonly [Model, Found]) => ({
+    ...seen,
+    model,
+    found: [...seen.found, ...found],
+  });
+
+  return Observation.$match(observed, {
+    Turn: (turn) => atTurn(seen, step, turn),
+    Minted: (minted) => apply(mint(seen.model, step.reference, minted)),
+    Sent: ({ attempt }) => apply(sent(seen.model, step.reference, step.requests, attempt)),
+    Ended: (ended) => apply(end(seen.model, ended, step.at)),
+    Delivered: () => seen,
+    Parked: () => seen,
+    Unparked: () => seen,
+    Recorded: () => seen,
+    Unhandled: () => seen,
+    Denied: () => seen,
+    Evidence: ({ kind, attempt }) =>
+      Option.match(attempt, {
+        onNone: () => seen,
+        onSome: (id) => {
+          if (kind === "Superseded") return apply(superseded(seen.model, id));
+
+          return kind === "Released" ? apply([without(seen.model, id), []]) : seen;
+        },
+      }),
+    Issue: () => seen,
+    RuntimeDisposed: () => seen,
+  });
+};
+
+const learned = (walk: Walk, step: Step, fact: Fact) =>
+  Fact.$match(fact, {
+    Stepped: () => walk,
+    Requested: () => walk,
+    Answered: () => walk,
+    Reported: ({ observation }) => reported(walk, step, observation),
+    Reloaded: () => {
+      const judged = flushed(walk, step.reference);
+      const model = { ...judged.model, live: [], cancels: [] };
+
+      return { ...judged, model, before: model, from: judged.reports.length };
+    },
+    Disposed: () => walk,
+    Forgot: () => walk,
+    Ensured: () => walk,
+    Released: () => walk,
+    DisposingRuntime: () => walk,
+    Drove: (drive) => ({ ...walk, drove: [...walk.drove, drive] }),
+    Unstoppable: ({ operation }) => ({
+      ...walk,
+      model: { ...walk.model, unstoppable: [...walk.model.unstoppable, operation] },
+    }),
+    Advanced: () => walk,
+    Read: () => walk,
+  });
+
+const judgeStep = (model: Model, step: Step, facts: ReadonlyArray<Fact>) => {
+  const start: Walk = {
+    model,
+    reports: [],
+    before: model,
+    from: 0,
+    pending: [],
+    drove: [],
+    found: [],
+  };
+
+  const walked = flushed(
+    facts.reduce((walk, fact) => learned(walk, step, fact), start),
+    step.reference,
+  );
+
+  return [
+    walked.model,
+    [
+      ...walked.found,
+      ...unanchoredReleases(walked.model, walked.reports),
+      ...bounds(walked.model),
+      ...unended(walked.model),
+    ],
+  ] as const;
+};
+
+type State = { readonly model: Model; readonly reference: Reference; readonly at: number };
 
 /**
  * Each write lane keeps its cells: at most one addressable Attempt, a queue within its policy's
  * bound, promotion only past a resolved or released head, a Held head left only by a retry, a
- * cancel or a release, and every cancel judged by the head's history.
+ * cancel or a release, every cancel judged by the head's history, and no send of an Attempt
+ * already on the wire.
  *
  * **Details**
  *
- * A model of each lane, built from the runtime's reports in order: `Minted` adds an Attempt (the
- * head on an Idle lane; queued under `latest` and `serialize`; under `cancel` it replaces the
- * head), `Sent` puts the head on the wire, an unknown ending holds it, a definite ending or
- * `Released` resolves it and promotes the first queued commit, and `Superseded` drops one. Checks:
+ * One model of every lane, from the runtime's reports in order. Each Attempt has one phase:
+ * `Queued`, `Waiting` (the head, never sent), `Wire`, `Held { at }` (held by an unknown in step
+ * `at`) or `Replaced` (a head a later commit replaced under `cancel`). `Minted` adds an Attempt (the
+ * head on an Idle lane; queued under `reject`, `latest` and `serialize`; under `cancel` it replaces
+ * the head), `Sent` puts it on the wire, an unknown ending holds an addressable one, any other
+ * ending, `Released` or `Superseded` removes it and promotes the first queued. Checks:
+ *
  * - after each turn and at the end of each step, the queue is within its policy's bound (0 under
- *   reject; 1 under latest; 64 under serialize; 0 under cancel, whose commit replaces the head, R7)
- *   and a lane has one addressable Attempt;
- * - a queued Attempt is never sent or ended on a channel other than failure (it is promoted only
- *   once the head is resolved or released; an unknown never promotes);
- * - a Held head is sent again only after a retry the suite could have caused: a turn of its actor
- *   in a step the suite drove, in a step after the one that held it (see Gotchas);
- * - a `Minted` names its actor, so the lane it joins is known;
- * - `Superseded` names only a queued commit or a never-sent head, and only under `latest`;
- * - on a turn of an event the suite sent whose handler the fixture's reference says cancels the
- *   operation, by the head's history before that turn, judged over the reports from that turn to
- *   the end of its step (one action of the suite, settled): a Held head is released; a head on the
- *   wire ends `unknown Cancelled`, within the step unless the suite made the call uninterruptible;
- *   a never-sent head is never sent and ends `NotSent Cancelled` (or `StorageRefused`); an Idle
- *   lane ends nothing (evidence is allowed). A `cancelAll` also ends every queued commit
- *   `NotSent Cancelled`, in mint order, and a head on the wire is delivered after them.
+ *   reject; 1 under latest; 64 under serialize; 0 under cancel, R7) and a lane has at most one
+ *   addressable Attempt (R6);
+ * - a `Minted` names its actor; a replaced Attempt is never sent (R6, R7);
+ * - a queued Attempt is never sent, nor ended on a channel other than failure (R8: promotion only
+ *   past a resolved or released head);
+ * - an Attempt on the wire is not sent again: a send comes only from a commit, a promotion or a
+ *   retry of a Held head (R8);
+ * - a Held head is sent again only after a turn of its actor in a step the suite drove, later than
+ *   the step that held it (R8, no automatic retry; see Gotchas);
+ * - `Superseded` names only a queued commit or a never-sent head, and only under `latest` (R7);
+ * - `Released` is reported only in a step with a turn of the Attempt's actor on an event the
+ *   fixture's reference says cancels or may cancel its operation, or with an unknown of it recorded and not
+ *   delivered (R4, R8: no quiet release);
+ * - on a turn of an event the suite sent whose handler the reference says cancels the operation,
+ *   by the head's history before that turn, over the reports from that turn to the end of its
+ *   step: a Held head is released; a head on the wire ends `unknown Cancelled`, within the step
+ *   unless the suite made the call uninterruptible; a never-sent head is never sent and ends
+ *   `NotSent Cancelled` (or `StorageRefused`); an Idle lane ends nothing (R14). A `cancelAll` also
+ *   ends every queued commit `NotSent Cancelled`, in mint order, and a head on the wire is
+ *   delivered after them (R15).
  *
  * **Gotchas**
  *
- * - Anchored to the suite's own facts: the events it sent, the calls it made uninterruptible, and
- *   the fixtures' references (policy, bound, which events cancel). Which Attempt was minted, sent
- *   or released is the runtime's report, so the rest checks consistency against the Spec's cells;
+ * - Anchored to the suite's facts: the events it sent, the calls it made uninterruptible, the
+ *   server's log (a keyed lane's key) and the fixtures' references (policy, bound, which events
+ *   cancel). Which Attempt was minted, sent or released is the runtime's report;
  *   `attempt-identity` anchors every received send to a reported one.
- * - The Port's `Minted` carries no key, so only unkeyed operations are judged, where an actor's
- *   operation is exactly one lane. A keyed operation waits for the Attempt's key on `Minted`. A
- *   mint with no actor is itself a violation: an unattributed Attempt cannot be placed in a lane.
+ * - A lane is (actor, operation, key). The key is `Minted`'s when the runtime reports it, else the
+ *   key fields of the input of the Attempt's first request in the server's log; until then a keyed
+ *   Attempt is a never-sent head of a lane the oracle cannot name, judged by no lane check.
+ * - A cancel of a keyed operation names its lane from the actor's state, which the timeline does
+ *   not hold: the oracle judges it only when the actor has one addressable Attempt of the operation
+ *   (none is an Idle cancel); with more, the cancel is not judged.
  * - The timeline names no retry events, so the re-send of a Held head is anchored to the suite's
- *   own steps, not to the retry verb. A send of a Held head passes when a turn of the head's actor
- *   ran in a step the suite drove (a `Drove` or an `Answered` in it), reported after the step that
- *   held the head. A turn in the hold's own step does not count, so a re-send on the hold is caught.
- *   Limit: any driven turn of the actor permits the re-send, even one whose handler does not retry,
- *   so a re-send that rides on an unrelated event the suite sent is not caught. A retry's send lands
- *   a step after its turn (once the store acknowledges, as Pay's intent read does), so the cause
- *   cannot be required in the send's own step.
- * - A reload empties the lanes and drops the pending cancel judgments: what the disk carries is
- *   the restore oracle's. An Attempt known from before rejoins its lane as the head, when a report
- *   names it again and the lane has none.
+ *   own steps: any driven turn of the actor permits it, even one whose handler does not retry.
+ * - A turn's reports come before its `Turn` report, so a cancel's history is the model at the
+ *   previous `Turn` of its step (or the step's start). A send never lands between a turn and its
+ *   own reports: it waits for the store's acknowledgement, a later step.
+ * - A reload empties the lanes and drops the pending cancels: the page that would end them is
+ *   gone. Cancels judged before it in the step are judged over the reports before it. An Attempt
+ *   known from before rejoins its lane as the head when a report names it again and the lane has
+ *   none.
  */
-type State = { readonly model: Model; readonly reference: Reference; readonly at: number };
-
 export const laneQueue = oracle<State>({
   name: "lane-queue",
   guarantee: [
+    "WriteLanes I1",
     "WriteLanes I8",
     "WriteLanes I9",
     "WriteLanes I11",
@@ -521,10 +442,12 @@ export const laneQueue = oracle<State>({
     "WriteLanes I20",
     "WriteLanes I21",
   ],
-  start: (reference) => ({ model: fresh(), reference, at: 0 }),
-  step: (state, step) => {
-    const found = judgeStep(state.model, state.reference, step, state.at);
+  start: (reference) => ({ model: EMPTY, reference, at: 0 }),
+  step: (state, facts, requests) => {
+    const driven = facts.some((fact) => Fact.$is("Drove")(fact) || Fact.$is("Answered")(fact));
+    const step = { reference: state.reference, requests, at: state.at, driven };
+    const [model, found] = judgeStep(state.model, step, facts);
 
-    return [{ ...state, at: state.at + 1 }, found.map(violation)] as const;
+    return [{ ...state, model, at: state.at + 1 }, found.map(violation)] as const;
   },
 });

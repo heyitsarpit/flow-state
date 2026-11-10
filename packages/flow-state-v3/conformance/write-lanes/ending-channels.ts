@@ -1,3 +1,4 @@
+import { operationNamed } from "../fixtures/reference.ts";
 import { Option } from "effect";
 import {
   FLOW_DECLINES,
@@ -8,7 +9,7 @@ import {
 import { type Delivered, type Ended, Observation } from "../port.ts";
 import { Answer, type Request, RequestPhase } from "../world/network.ts";
 import { Fact, oracle, violation } from "../dsl/oracle.ts";
-import { attemptKey, mayHaveApplied, writeNamed } from "../dsl/domain.ts";
+import { attemptKey, mayHaveApplied } from "../dsl/domain.ts";
 
 const endedOf = (fact: Fact) =>
   Fact.$is("Reported")(fact) && Observation.$is("Ended")(fact.observation)
@@ -79,7 +80,7 @@ const deliveredAsMapped = (
         `WriteLanes I3: ${delivered.operation} ${attemptText(delivered.attempt)} delivered ${delivered.event} with no ending decided`,
       ],
       onSome: (ended) =>
-        Option.match(writeNamed(reference, delivered.operation), {
+        Option.match(operationNamed(reference, delivered.operation), {
           onNone: () => [],
           onSome: (operation) => mismatch(delivered, ended, operation),
         }),
@@ -215,7 +216,7 @@ const endedAsAnswered = (
         Option.getOrElse(request.key, () => ""),
       );
 
-      const operation = writeNamed(reference, request.operation);
+      const operation = operationNamed(reference, request.operation);
 
       if (Option.isNone(operation)) return;
       const may = mayHaveApplied(requests, request, operation.value);
@@ -227,7 +228,7 @@ const endedAsAnswered = (
       if (Option.isNone(ended.attempt)) return [];
       const id = attemptKey(ended.operation, ended.attempt.value);
       const answered = Option.fromUndefinedOr(asked.get(id));
-      const operation = writeNamed(reference, ended.operation);
+      const operation = operationNamed(reference, ended.operation);
       asked.delete(id);
 
       if (Option.isNone(operation)) return [];

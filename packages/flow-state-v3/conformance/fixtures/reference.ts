@@ -7,7 +7,6 @@ import { Answer } from "../world/network.ts";
  *
  * **Details**
  *
- * - `attempts`: a write, whose sends are Attempts with ids on the wire.
  * - `concurrency`: the operation's declared policy.
  * - `success`, `failure` (by tag, `NotSent` for Flow's declines) and `unknown`: the event each
  *   ending maps to.
@@ -18,9 +17,11 @@ import { Answer } from "../world/network.ts";
  * - `cancels`: the events whose handler, in every state, runs this operation's `cancel` or
  *   `cancelAll` with no guard, so a turn of one is a cancel the suite drove. Typed by the
  *   fixture's event names (`Event`), see {@link CancelsOf}.
+ * - `mayCancel`: the other events whose handler runs this operation's `cancel` or `cancelAll` in
+ *   some state or behind a guard (a read's answer, an ending's event), so a `Released` in a turn
+ *   of one may be a cancel's.
  */
 export type OperationReference<Event extends string = string> = {
-  readonly attempts: boolean;
   readonly concurrency: Concurrency;
   readonly success: string;
   readonly failure: Readonly<Record<string, string>>;
@@ -28,6 +29,7 @@ export type OperationReference<Event extends string = string> = {
   readonly classify: (answer: Answer, mayHaveApplied: boolean) => Channel;
   readonly keyFields: ReadonlyArray<string>;
   readonly cancels: CancelsOf<Event>;
+  readonly mayCancel: ReadonlyArray<string>;
 };
 
 /**
