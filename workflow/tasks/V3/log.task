@@ -423,4 +423,19 @@ note 2026-11-10T17:33:35Z
     Haiku-written code reports, it is resumed by message with the simplicity brief for the whole suite, since it 
     already holds the context; same sidecar split and routing as the previous note.
 note 2026-11-10T17:36:35Z
-    Review done (Q3 A, the suite code Haiku coders wrote): 5 High, 5 Medium and 6 Low findings. The High ones are WriteLanes correctness gaps: lane-queue skips keyed lanes (so Pay and Cells go unjudged on I8, I9, I11, I12, I20 and I21); delivered-once claims I16 and I22 with no check; evidence-only endings can be delivered; disposed owners are excused; ending-channels checks the server log one way only. The orchestrator verified H1, H2, H4 and H5 at HEAD 967c3eed. Blame shows part of the pattern came from the lead in rounds 1 to 3. H1 to H5, plus an I1 note, were sent to the building lead as T7 work. M and L wait for the simplicity pass, which the same reviewer is now doing over the whole suite, so the lead gets one combined list.
+    Review done (Q3 A, the suite code Haiku coders wrote): 5 High, 5 Medium and 6 Low findings. The High ones are 
+    WriteLanes correctness gaps: lane-queue skips keyed lanes (so Pay and Cells go unjudged on I8, I9, I11, I12, I20 
+    and I21); delivered-once claims I16 and I22 with no check; evidence-only endings can be delivered; disposed owners 
+    are excused; ending-channels checks the server log one way only. The orchestrator verified H1, H2, H4 and H5 at 
+    HEAD 967c3eed. Blame shows part of the pattern came from the lead in rounds 1 to 3. H1 to H5, plus an I1 note, were 
+    sent to the building lead as T7 work. M and L wait for the simplicity pass, which the same reviewer is now doing 
+    over the whole suite, so the lead gets one combined list.
+note 2026-11-10T17:55:59Z
+    Simplicity review done (same lead). Decision (orchestrator, P3 design call): act on it. Inserted @task.V3.T40, 
+    "Suite simplified": S1 a step-fold Oracle contract with typed violations, S3 to S8, S5's shared attemptKey, write 
+    lookup, LaneId and mayHaveApplied. T7, T8, T10, T12, T13 and T14 are now blocked by T40, so no new oracle is 
+    written in the old shape. T7 rewrites lane-queue and delivered-once from the Spec (S2) instead of patching them. 
+    Share the pattern, not the state: no shared Attempt model. The review is kept at 
+    code:workflow/plans/flow/references/proposals/suite-simplicity-review-2026-11-10.md. Deferred: the proposed lint 
+    rules (no-option-to-sentinel, template-literal map keys, a duplicate-definition check); the two STYLE.md lines are 
+    T40's. Reverse: unlink T40 and patch in place.

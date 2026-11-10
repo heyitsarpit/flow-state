@@ -800,11 +800,52 @@ tasks
             claim is caught by no oracle, only the cases counting Released (PAY-03, LANE-03, LANE-09); not registered. 
             Haiku reviewer (test the spec): 10 findings, 4 accepted, 6 rejected, with why in conformance/STATUS.md. 
             Reverse: revert the commit.
+    T40
+        title       Suite simplified: one oracle contract, shared domain facts, dead surface removed
+        status      open
+        priority    high
+        blocked_by  [@T6]
+        description
+            The suite's oracles share one step-fold contract and one definition of each domain fact, and its
+            dead and copied code is gone, with every guarantee still judged.
+
+            **Why now:** the simplicity review found an Attempt's life modelled five times, lane identity three
+            ways, may-have-applied three ways, the Pay helpers copied into nine files, and every oracle
+            re-folding the whole timeline each step. The remaining areas (T7 to T14) would copy that shape, and
+            T7 rewrites two oracles that need the new contract first.
+
+            **Read first:** code:workflow/plans/flow/references/proposals/suite-simplicity-review-2026-11-10.md
+            (S1, S3 to S8, the patterns, and "Showing nothing got weaker"); @spec.Conformance;
+            code:packages/flow-state-v3/conformance/dsl/oracle.ts;
+            code:packages/flow-state-v3/conformance/actors/disposal-ledger.ts.
+
+            **Approach:** in order, each landing alone with its gate: S5's attemptKey, write lookup and LaneId;
+            S1 as a mechanical move, step bodies unchanged; S3, S4, S6, S7, and S8's runner items (not the adapter
+            decode-once); S5's mayHaveApplied last, checked against WriteLanes R5, with any changed verdict listed
+            with its rule. Share the pattern, not the state: no shared Attempt model. S2 (the rewrite of
+            `lane-queue` and `delivered-once`) is @task.V3.T7's.
+
+            - **May change:** `packages/flow-state-v3/conformance/` outside the two oracles T7 rewrites;
+              `tools/lint-bomb/STYLE.md` for the review's two lines.
+            - **Evidence:** this Task's comments; STATUS.md.
+            - **False pass:** a simplification that drops a check while verdicts look the same → caught by the
+              falsify sweep's red and caught-by sets compared before and after.
+            - **Gates:** suite, null and falsify sweep byte-identical for verdict-neutral items; per-case verdict
+              kind, oracle and Invariant for S1; `nub run check`.
+            - **Stops:** a guarantee change.
+        acceptance
+            - Every oracle implements one step-fold contract with typed violations and InvariantId guarantees;
+            - attemptKey, the write lookup, LaneId and mayHaveApplied each have one definition;
+            - the Pay helpers live in one module; the dead surface the review lists is gone;
+            - suite, null and falsify sweep outputs match before and after, except S5 mayHaveApplied changes
+              listed with their rules;
+            - `nub run check` at zero.
+
     T7
         title       WriteLanes area complete
-        status      in_progress
+        status      open
         priority    high
-        blocked_by  [@T5]
+        blocked_by  [@T5, @T40]
         description
             Cover the guarantee map's remaining WriteLanes rows with oracles and cases.
 
@@ -834,11 +875,20 @@ tasks
             - each oracle kills its listed mutants;
             - the area's verdicts match the old suite's or each difference is logged with its cited
               rule.
+        comment     2026-11-10T17:55:53Z
+            Decision (orchestrator, 2026-11-10): T7 now also rewrites lane-queue (with lane-model) and delivered-once 
+            from WriteLanes R6 to R8, R10, R14 and R15 in T40's step-fold contract (S2 of 
+            code:workflow/plans/flow/references/proposals/suite-simplicity-review-2026-11-10.md), folding in the 
+            Haiku-code review's H1 to H4, plus H5 and the I1 note; patching them is dropped. Land the rewrite with the 
+            changed verdicts listed, each with its rule (Conformance R11), and keep every constraint S2 lists. T7 goes 
+            back to open, blocked by T40. Reverse: patch the two oracles in place.
+        comment 2026-11-10T17:56:25Z
+            Evidence (builder, 2026-11-10): commit 392147bc. H5 accepted: ending-channels fails a success or commit failure with no server answer in its step (request-time answers count; unknowns and Flow's own failures exempt), mutant.success-without-answer caught as WriteLanes I3; case DISP-06. Gates from packages/flow-state-v3: suite 67/67, suite --runtime null 0/67, falsify --parallel 6 38/38, nub run check at zero. Parked by the orchestrator's call (rewrite from the Spec after T40, S2): H1 keyed lanes in lane-queue; H2 (I16 check; I22 dropped from delivered-once's guarantee until it has a check), H3 (a replaced Attempt's delivery) and H4 (no disposal excuse, only forget's) in delivered-once; mutants mutant.replaced-delivered (LANE-07, I15), mutant.success-then-failure (PAY-01, I16), d6.disposed-ending-is-evidence (DISP-06, I15), each seen caught for its reason on the parked patch, kept as the rewrite's acceptance list (patch saved outside the repo; listed in conformance/STATUS.md T7). I1 (a Sent while already on the wire) not started. Haiku reviewer of the H diff: 7 findings, 2 accepted, 4 carried to the rewrite, 1 rejected, with why in STATUS.md. None of T7's own rows (I1, I2, I4, I5, I7, I10, I13, I14, I17 to I19, I23) is built yet.
     T8
         title       Turn area complete
         status      open
         priority    high
-        blocked_by  [@T5]
+        blocked_by  [@T5, @T40]
         description
             Cover @spec.Turn's guarantee map with oracles and cases.
 
@@ -897,7 +947,7 @@ tasks
         title       WriteAhead area complete
         status      open
         priority    high
-        blocked_by  [@T5]
+        blocked_by  [@T5, @T40]
         description
             Cover @spec.WriteAhead's guarantee map, with a disk reader on the Port or the adapter.
 
@@ -958,7 +1008,7 @@ tasks
         title       Reads area complete
         status      open
         priority    medium
-        blocked_by  [@T5]
+        blocked_by  [@T5, @T40]
         description
             Cover @spec.Reads' guarantee map with oracles `lookups` and `optimistic`.
 
@@ -986,7 +1036,7 @@ tasks
         title       Static cases for Compile, Diagnostics, Codec and StaticCli
         status      open
         priority    medium
-        blocked_by  [@T5]
+        blocked_by  [@T5, @T40]
         description
             Write one static case module each for Compile, Diagnostics, Codec and StaticCli, over `Compiled`
             and the CLI.
@@ -1018,7 +1068,7 @@ tasks
         title       Searches and mutants as runner modes
         status      open
         priority    medium
-        blocked_by  [@T5]
+        blocked_by  [@T5, @T40]
         description
             Run the old suite's searches as a runner mode and its `mutants-*.ts` as mutants, both with
             `--parallel`.
