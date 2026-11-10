@@ -369,3 +369,5 @@ note 2026-11-10T16:43:24Z
     usage limits and reserves always mean the weekly all-models window, and a reserve is written as percent used 
     (build-a-loop, to-epic and its template). Installed build-a-loop refreshed and skills-lock.json updated. Reverse: 
     pin workflow@0222619.
+note 2026-11-10T17:04:14Z
+    Review started (hourly wake): one Opus reviewing lead at high effort with four Haiku sidecars on T6 checkpoints f8b92e7b and 03098b28 (range db09a379..03098b28); read-only, reports to the orchestrator. Weekly usage 4 percent, reserve 50. Builder active.
