@@ -1,6 +1,6 @@
 import { Data, Equal, Option, type Schema } from "effect";
 import { type Fixture, referenceFor } from "../fixtures/fixture.ts";
-import { disposalBoundMs, Fact, type Oracle, reported, usesHeld } from "./oracle.ts";
+import { disposalBoundMs, Fact, type Oracle, reported, steps, usesHeld } from "./oracle.ts";
 import {
   type ActorRef,
   type Ended,
@@ -165,19 +165,22 @@ const openCase = (options: CaseOptions) => {
 
   const uses = () => usesHeld(timeline.facts());
 
+  const judges = options.oracles.map((o) => ({ name: o.name, next: o.open(reference) }));
+  let judged = 0;
+
   const judge = (what: string) => {
-    const facts = { timeline: timeline.facts(), requests: network.requests(), reference };
+    const facts = timeline.facts();
+    const fresh = steps(facts.slice(judged));
+    judged = facts.length;
 
-    const found = options.oracles.flatMap((oracle) => {
-      const [violation] = oracle.check(facts);
-
-      return violation === undefined ? [] : [{ oracle: oracle.name, violation }];
-    });
+    const found = judges.flatMap(({ name, next }) =>
+      fresh.flatMap((cut) => next(cut, network.requests())).map((v) => ({ name, v })),
+    );
 
     if (found.length > 0)
       throw new Violated({
-        oracles: found.map((f) => f.oracle),
-        violation: found.map((f) => `${f.oracle}: ${f.violation}`).join(" | "),
+        oracles: [...new Set(found.map((f) => f.name))],
+        violation: found.map((f) => `${f.name}: ${f.v.invariant}: ${f.v.text}`).join(" | "),
         step: what,
       });
   };

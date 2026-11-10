@@ -53,37 +53,105 @@ export const Fact = Data.taggedEnum<Fact>();
 export const disposalBoundMs = 5000;
 
 /**
- * What an oracle reads after each step: the timeline, the server's log, and the references of the
- * case's fixtures.
+ * A Spec Invariant as an oracle names it: the Spec, then the Invariant (`WriteLanes I8`).
  */
-export type Facts = {
-  readonly timeline: ReadonlyArray<Fact>;
-  readonly requests: ReadonlyArray<Request>;
-  readonly reference: Reference;
+export type InvariantId = `${string} I${number}`;
+
+/**
+ * One violation an oracle found: the Invariant broken and the evidence, in one sentence.
+ */
+export type Violation = { readonly invariant: InvariantId; readonly text: string };
+
+const NAMED = /^(\S+ I\d+)(?: \([^)]*\))?: /u;
+
+/**
+ * A violation from a sentence that starts with its Invariant (`WriteLanes I8: ...`).
+ *
+ * **Gotchas**
+ *
+ * - A sentence that names no Invariant is a suite defect: it throws.
+ */
+// RETURN_TYPE: the Violation record; its Invariant is narrowed from the matched text.
+export const violation = (sentence: string): Violation => {
+  const found = NAMED.exec(sentence);
+  const invariant = found?.[1];
+
+  if (found === null || invariant === undefined) throw new UnnamedViolation({ sentence });
+
+  // SAFETY: the pattern matched `<Spec> I<number>`, the InvariantId shape.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a template literal type has no runtime guard to narrow with
+  return { invariant: invariant as InvariantId, text: sentence.slice(found[0].length) };
 };
 
 /**
- * One guarantee's check, run after every step of every case.
+ * A violation sentence that names no Invariant: a suite defect.
+ */
+export class UnnamedViolation extends Data.TaggedError("UnnamedViolation")<{
+  readonly sentence: string;
+}> {}
+
+/**
+ * One guarantee's check as a pure fold over the steps of a case.
  *
  * **When to use**
  *
- * Write one oracle module per guarantee, with its mutants beside it in `<name>.mutants.ts`.
+ * Write one oracle module per guarantee, with its mutants beside it in `<name>.mutants.ts`, and
+ * register it with {@link oracle}.
  *
  * **Details**
  *
- * `check` returns every violation it finds, each a sentence naming the rule and the evidence; an
- * empty list is a pass.
+ * - `start` builds the state from the case's reference; `step` takes the state, one step's facts
+ *   in order and the server's log so far, and returns the next state and every violation found in
+ *   that step.
+ * - `guarantee` lists the Invariants it judges; each violation names one of them.
  *
  * **Gotchas**
  *
  * - An oracle anchors each runtime report to a fact the suite owns. One that only compares reports
  *   with each other checks consistency, and must say so in its doc comment.
+ * - The step is the unit: an oracle may learn every fact of a step before judging it.
+ */
+export type Judge<S> = {
+  readonly name: string;
+  readonly guarantee: ReadonlyArray<InvariantId>;
+  readonly start: (reference: Reference) => S;
+  readonly step: (
+    state: S,
+    step: ReadonlyArray<Fact>,
+    requests: ReadonlyArray<Request>,
+  ) => readonly [S, ReadonlyArray<Violation>];
+};
+
+/**
+ * A registered oracle: its name, its Invariants, and `open`, which starts one case's fold and
+ * returns the function that judges each next step.
  */
 export type Oracle = {
   readonly name: string;
-  readonly guarantee: string;
-  readonly check: (facts: Facts) => ReadonlyArray<string>;
+  readonly guarantee: ReadonlyArray<InvariantId>;
+  readonly open: (
+    reference: Reference,
+  ) => (step: ReadonlyArray<Fact>, requests: ReadonlyArray<Request>) => ReadonlyArray<Violation>;
 };
+
+/**
+ * Registers a {@link Judge}: the Case keeps its state between steps, so the fold stays pure.
+ */
+// RETURN_TYPE: erases the state type, so oracles of different states share one registry.
+export const oracle = <S>(judge: Judge<S>): Oracle => ({
+  name: judge.name,
+  guarantee: judge.guarantee,
+  open: (reference) => {
+    let state = judge.start(reference);
+
+    return (step, requests) => {
+      const [next, found] = judge.step(state, step, requests);
+      state = next;
+
+      return found;
+    };
+  },
+});
 
 /**
  * A wrong runtime an oracle must catch: edits to a runtime's source and the cases it is run on.

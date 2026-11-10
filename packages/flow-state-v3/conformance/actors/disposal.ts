@@ -1,5 +1,5 @@
 import { Data, Option, Predicate } from "effect";
-import { disposalBoundMs, Fact, type Facts, type Oracle, steps, usesHeld } from "../dsl/oracle.ts";
+import { disposalBoundMs, Fact, holdUse, oracle, violation } from "../dsl/oracle.ts";
 import { operationNamed, type Reference } from "../fixtures/reference.ts";
 import {
   type ActorRef,
@@ -52,7 +52,7 @@ const RULE = { disposeActor: "Actors I29", forget: "Actors I32" } as const;
 type Context = {
   readonly ledger: Ledger;
   readonly kept: Kept;
-  readonly facts: Facts;
+  readonly reference: Reference;
   readonly step: ReadonlyArray<Fact>;
 };
 
@@ -276,7 +276,7 @@ const recommitted = (kept: Kept, observation: Observation) => {
 };
 
 const readHeld = (context: Context, read: Data.TaggedEnum.Value<Fact, "Read">) => {
-  const lane = laneOf(read.actor, context.facts.reference, read.operation, read.key);
+  const lane = laneOf(read.actor, context.reference, read.operation, read.key);
   const found = context.kept.dropped.find((d) => sameLane(d.lane, lane));
 
   if (found === undefined || !Option.exists(read.row, uncertain)) return [];
@@ -358,10 +358,8 @@ const whileLive = (context: Context, life: Life, fact: Fact) =>
     : judged(life, []);
 
 const endDisposal = (context: Context, life: Disposing, fact: Fact) => {
-  const { facts, step, ledger, kept } = context;
-  const reload = step.indexOf(fact);
-  const before = facts.timeline.slice(0, facts.timeline.indexOf(fact));
-  const back = usesHeld([...before, ...step.slice(reload)]);
+  const { step, ledger, kept } = context;
+  const back = step.slice(step.indexOf(fact) + 1).reduce(holdUse, ledger.uses);
   const attached = (owner: ActorRef) => back.some(([actor]) => sameActor(actor, owner));
   const reports = reportsAfter(step, fact);
   const found = [...survived(life, attached, reports), ...holdLast(ledger, life, reports)];
@@ -377,7 +375,7 @@ const whileDisposing = (context: Context, life: Disposing, fact: Fact) => {
     Stepped: () => none,
     Requested: ({ request }) => judged(life, [invoked(request)]),
     Answered: ({ request, answer }) => {
-      settledIn(life, context.facts.reference, request, answer);
+      settledIn(life, context.reference, request, answer);
 
       return none;
     },
@@ -398,7 +396,7 @@ const whileDisposing = (context: Context, life: Disposing, fact: Fact) => {
 const judgeStep = (context: Context, start: Life) => {
   const [life, found] = context.step.reduce<Judged>(
     ([now, so], fact) => {
-      learn(context.ledger, context.facts.reference, fact);
+      learn(context.ledger, context.reference, fact);
 
       const [next, more] = Life.$match(now, {
         Live: () => whileLive(context, now, fact),
@@ -415,19 +413,14 @@ const judgeStep = (context: Context, start: Life) => {
   return judged(life, [...found, ...late]);
 };
 
-const judge = (facts: Facts) => {
-  const ledger = freshLedger();
-  const kept: Kept = { dropped: [], unbound: [] };
+type State = { readonly ledger: Ledger; readonly kept: Kept; readonly life: Life };
 
-  return steps(facts.timeline).reduce<Judged>(
-    ([life, found], step) => {
-      const [next, more] = judgeStep({ ledger, kept, facts, step }, life);
-
-      return judged(next, [...found, ...more]);
-    },
-    judged(Life.Live(), []),
-  )[1];
-};
+const start = (reference: Reference) => ({
+  ledger: freshLedger(),
+  kept: { dropped: [], unbound: [] },
+  life: Life.Live(),
+  reference,
+});
 
 /**
  * Disposal keeps every lane that is not Idle, invokes nothing from the Runtime's disposal on,
@@ -484,8 +477,13 @@ const judge = (facts: Facts) => {
  * - A reload with no disposal before it judges nothing here; what a plain reload restores is the
  *   restore oracle's.
  */
-export const disposal: Oracle = {
+export const disposal = oracle({
   name: "disposal",
-  guarantee: "Actors I29, I30, I31, I35, I36",
-  check: judge,
-};
+  guarantee: ["Actors I29", "Actors I30", "Actors I31", "Actors I32", "Actors I35", "Actors I36"],
+  start,
+  step: (state: State & { readonly reference: Reference }, step: ReadonlyArray<Fact>) => {
+    const [life, found] = judgeStep({ ...state, step }, state.life);
+
+    return [{ ...state, life }, found.map(violation)] as const;
+  },
+});

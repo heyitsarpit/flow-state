@@ -9,7 +9,7 @@ import {
   sameJson,
   type Turn,
 } from "../port.ts";
-import { Fact, type Facts, type Oracle, steps } from "../dsl/oracle.ts";
+import { Fact, oracle, violation } from "../dsl/oracle.ts";
 import {
   ADDRESSABLE,
   BOUND,
@@ -375,7 +375,7 @@ type Pending = {
   readonly from: number;
 };
 
-const judgeStep = (model: Model, facts: Facts, step: ReadonlyArray<Fact>, at: number) => {
+const judgeStep = (model: Model, reference: Reference, step: ReadonlyArray<Fact>, at: number) => {
   const driven = step.some((fact) => Fact.$is("Drove")(fact) || Fact.$is("Answered")(fact));
   let before = new Map(model.lanes);
   let from = 0;
@@ -406,7 +406,7 @@ const judgeStep = (model: Model, facts: Facts, step: ReadonlyArray<Fact>, at: nu
 
         return atTurn(turn);
       },
-      Minted: (minted) => mint(model, facts.reference, minted),
+      Minted: (minted) => mint(model, reference, minted),
       Sent: ({ attempt }) => sent(model, attempt),
       Ended: (ended) => end(model, ended, at),
       Delivered: () => [],
@@ -454,7 +454,7 @@ const judgeStep = (model: Model, facts: Facts, step: ReadonlyArray<Fact>, at: nu
   const found = step.flatMap(one);
 
   const judged = pending.flatMap((p) =>
-    cancels(model, facts.reference, p.before, p.turn, reports.slice(p.from)),
+    cancels(model, reference, p.before, p.turn, reports.slice(p.from)),
   );
 
   return [...found, ...judged, ...bounds(model), ...unended(model)];
@@ -509,12 +509,22 @@ const judgeStep = (model: Model, facts: Facts, step: ReadonlyArray<Fact>, at: nu
  *   the restore oracle's. An Attempt known from before rejoins its lane as the head, when a report
  *   names it again and the lane has none.
  */
-export const laneQueue: Oracle = {
-  name: "lane-queue",
-  guarantee: "WriteLanes I8, I9, I11, I12, I20, I21",
-  check: (facts: Facts) => {
-    const model = fresh();
+type State = { readonly model: Model; readonly reference: Reference; readonly at: number };
 
-    return steps(facts.timeline).flatMap((step, at) => judgeStep(model, facts, step, at));
+export const laneQueue = oracle<State>({
+  name: "lane-queue",
+  guarantee: [
+    "WriteLanes I8",
+    "WriteLanes I9",
+    "WriteLanes I11",
+    "WriteLanes I12",
+    "WriteLanes I20",
+    "WriteLanes I21",
+  ],
+  start: (reference) => ({ model: fresh(), reference, at: 0 }),
+  step: (state, step) => {
+    const found = judgeStep(state.model, state.reference, step, state.at);
+
+    return [{ ...state, at: state.at + 1 }, found.map(violation)] as const;
   },
-};
+});

@@ -3,7 +3,7 @@ import type { Reference } from "../fixtures/reference.ts";
 import { attemptKey, writeNamed } from "../dsl/domain.ts";
 import { Observation, sameJson, type Sent } from "../port.ts";
 import type { Request } from "../world/network.ts";
-import { Fact, type Facts, type Oracle, reported, steps } from "../dsl/oracle.ts";
+import { Fact, oracle, reported, violation } from "../dsl/oracle.ts";
 
 type Minting = {
   readonly pairs: Set<string>;
@@ -43,24 +43,25 @@ const requestedIn = (step: ReadonlyArray<Fact>, reference: Reference) =>
     ),
   );
 
-const sentAsRequested = (timeline: ReadonlyArray<Fact>, reference: Reference) =>
-  steps(timeline).flatMap((step) => {
-    const sent = sentIn(step, reference);
-    const requested = requestedIn(step, reference);
+const sentAsRequested = (step: ReadonlyArray<Fact>, reference: Reference) => {
+  const sent = sentIn(step, reference);
+  const requested = requestedIn(step, reference);
 
-    return [...requested.keys()].flatMap((id) =>
-      (requested.get(id) ?? 0) <= (sent.get(id) ?? 0)
-        ? []
-        : [
-            `WriteLanes I6: in one step the server received ${id} ${requested.get(id) ?? 0} times and the runtime reported sending it ${sent.get(id) ?? 0} times`,
-          ],
-    );
-  });
+  return [...requested.keys()].flatMap((id) =>
+    (requested.get(id) ?? 0) <= (sent.get(id) ?? 0)
+      ? []
+      : [
+          `WriteLanes I6: in one step the server received ${id} ${requested.get(id) ?? 0} times and the runtime reported sending it ${sent.get(id) ?? 0} times`,
+        ],
+  );
+};
 
-const oneInputPerKey = (requests: ReadonlyArray<Request>, reference: Reference) => {
-  const first = new Map<string, Request>();
-
-  return requests.flatMap((request) => {
+const oneInputPerKey = (
+  first: Map<string, Request>,
+  requests: ReadonlyArray<Request>,
+  reference: Reference,
+) =>
+  requests.flatMap((request) => {
     if (Option.isNone(request.key) || !isWrite(reference, request.operation)) return [];
     const id = attemptKey(request.operation, request.key.value);
     const before = first.get(id);
@@ -71,19 +72,15 @@ const oneInputPerKey = (requests: ReadonlyArray<Request>, reference: Reference) 
       ? []
       : [`WriteLanes I6: ${id} was sent with two inputs`];
   });
-};
 
-const mintedOnce = (timeline: ReadonlyArray<Fact>) => {
-  const seen = new Set<string>();
-
-  return reported(timeline).flatMap((observed) => {
+const mintedOnce = (seen: Set<string>, step: ReadonlyArray<Fact>) =>
+  reported(step).flatMap((observed) => {
     if (!Observation.$is("Minted")(observed)) return [];
     const twice = seen.has(observed.attempt);
     seen.add(observed.attempt);
 
     return twice ? [`WriteLanes I6: the id ${observed.attempt} was minted twice`] : [];
   });
-};
 
 const mintedUnder = (operation: string, attempt: string, minting: Minting) => {
   if (minting.pairs.has(attemptKey(operation, attempt))) return Option.none<string>();
@@ -124,10 +121,13 @@ const judgeKey = (request: Request, minting: Minting, decided: ReadonlySet<strin
     },
   });
 
-const keysMintedAndOpen = (timeline: ReadonlyArray<Fact>, reference: Reference) => {
-  const minting: Minting = { pairs: new Set(), owner: new Map() };
-  const decided = new Set<string>();
+type Keys = { readonly minting: Minting; readonly decided: Set<string> };
 
+const keysMintedAndOpen = (
+  { minting, decided }: Keys,
+  step: ReadonlyArray<Fact>,
+  reference: Reference,
+) => {
   const learn = (observed: Observation) => {
     if (Observation.$is("Minted")(observed)) {
       minting.pairs.add(attemptKey(observed.operation, observed.attempt));
@@ -144,7 +144,7 @@ const keysMintedAndOpen = (timeline: ReadonlyArray<Fact>, reference: Reference) 
       decided.add(attemptKey(observed.operation, observed.attempt.value));
   };
 
-  return steps(timeline).flatMap((step) => {
+  const judgeStep = () => {
     const decidedBefore = new Set(decided);
 
     for (const fact of step) if (Fact.$is("Reported")(fact)) learn(fact.observation);
@@ -162,7 +162,9 @@ const keysMintedAndOpen = (timeline: ReadonlyArray<Fact>, reference: Reference) 
 
       return [];
     });
-  });
+  };
+
+  return judgeStep();
 };
 
 /**
@@ -187,13 +189,32 @@ const keysMintedAndOpen = (timeline: ReadonlyArray<Fact>, reference: Reference) 
  *   is a lane rule ("a Held lane leaves Held only by a retry's resolution"), not this one.
  * - retryCount is checked by cases, not here: the Port's row does not name its Attempt.
  */
-export const attemptIdentity: Oracle = {
-  name: "attempt-identity",
-  guarantee: "WriteLanes I6",
-  check: ({ timeline, requests, reference }: Facts) => [
-    ...sentAsRequested(timeline, reference),
-    ...keysMintedAndOpen(timeline, reference),
-    ...oneInputPerKey(requests, reference),
-    ...mintedOnce(timeline),
-  ],
+type State = {
+  readonly reference: Reference;
+  readonly keys: Keys;
+  readonly first: Map<string, Request>;
+  readonly seen: Set<string>;
+  readonly checked: number;
 };
+
+export const attemptIdentity = oracle<State>({
+  name: "attempt-identity",
+  guarantee: ["WriteLanes I6"],
+  start: (reference) => ({
+    reference,
+    keys: { minting: { pairs: new Set(), owner: new Map() }, decided: new Set() },
+    first: new Map(),
+    seen: new Set(),
+    checked: 0,
+  }),
+  step: (state, step, requests) =>
+    [
+      { ...state, checked: requests.length },
+      [
+        ...sentAsRequested(step, state.reference),
+        ...keysMintedAndOpen(state.keys, step, state.reference),
+        ...oneInputPerKey(state.first, requests.slice(state.checked), state.reference),
+        ...mintedOnce(state.seen, step),
+      ].map(violation),
+    ] as const,
+});

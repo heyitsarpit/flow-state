@@ -9,7 +9,7 @@ import {
   type Recorded,
   sameActor,
 } from "../port.ts";
-import { Fact, type Facts, type Oracle, steps } from "../dsl/oracle.ts";
+import { Fact, oracle, violation } from "../dsl/oracle.ts";
 
 const DECLINE = "(decline)";
 
@@ -386,18 +386,7 @@ const judgeStep = (
   return [runtime, [...found, ...unrun, ...undelivered]] as const;
 };
 
-const ledgerOf = (facts: Facts) => {
-  const ledger = fresh();
-
-  return steps(facts.timeline).reduce<Judged>(
-    ([runtime, found], step) => {
-      const [next, more] = judgeStep(ledger, facts.reference, step, runtime);
-
-      return judged(next, [...found, ...more]);
-    },
-    judged("live", []),
-  )[1];
-};
+type State = { readonly ledger: Ledger; readonly reference: Reference; readonly runtime: Runtime };
 
 /**
  * Every ending is delivered once to its own actor, parked for it, or recorded as evidence by
@@ -441,8 +430,13 @@ const ledgerOf = (facts: Facts) => {
  *   lookup) need the fragment fixtures; until then they read as violations.
  * - A parked ending still parked at the end of a case is not yet checked.
  */
-export const deliveredOnce: Oracle = {
+export const deliveredOnce = oracle<State>({
   name: "delivered-once",
-  guarantee: "WriteLanes I15, I16, I22",
-  check: (facts: Facts) => ledgerOf(facts),
-};
+  guarantee: ["WriteLanes I15", "WriteLanes I16", "WriteLanes I22"],
+  start: (reference) => ({ ledger: fresh(), reference, runtime: "live" }),
+  step: (state, step) => {
+    const [runtime, found] = judgeStep(state.ledger, state.reference, step, state.runtime);
+
+    return [{ ...state, runtime }, found.map(violation)] as const;
+  },
+});

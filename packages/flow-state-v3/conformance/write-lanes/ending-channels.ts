@@ -7,7 +7,7 @@ import {
 } from "../fixtures/reference.ts";
 import { type Delivered, type Ended, Observation } from "../port.ts";
 import { Answer, type Request, RequestPhase } from "../world/network.ts";
-import { Fact, type Facts, type Oracle, steps } from "../dsl/oracle.ts";
+import { Fact, oracle, violation } from "../dsl/oracle.ts";
 import { attemptKey, writeNamed } from "../dsl/domain.ts";
 
 const endedOf = (fact: Fact) =>
@@ -22,10 +22,8 @@ const deliveredOf = (fact: Fact) =>
 
 const attemptText = (attempt: Option.Option<string>) => Option.getOrElse(attempt, () => "(none)");
 
-const failureAfterUnknown = (timeline: ReadonlyArray<Fact>) => {
-  const unsure = new Set<string>();
-
-  return timeline.flatMap((fact) =>
+const failureAfterUnknown = (unsure: Set<string>, step: ReadonlyArray<Fact>) =>
+  step.flatMap((fact) =>
     Option.toArray(endedOf(fact)).flatMap(({ attempt, channel, operation }) => {
       if (Option.isNone(attempt)) return [];
       const id = attemptKey(operation, attempt.value);
@@ -36,7 +34,6 @@ const failureAfterUnknown = (timeline: ReadonlyArray<Fact>) => {
       return late ? [`WriteLanes I3: ${id} ended unknown, then delivered a definite failure`] : [];
     }),
   );
-};
 
 const mismatch = (delivered: Delivered, ended: Ended, operation: OperationReference) => {
   const expected = mappedEvent(operation, ended.channel, ended.reason);
@@ -48,10 +45,16 @@ const mismatch = (delivered: Delivered, ended: Ended, operation: OperationRefere
   ];
 };
 
-const deliveredAsMapped = (timeline: ReadonlyArray<Fact>, reference: Reference) => {
-  const latest = new Map<string, Ended>();
-  const declines = new Map<string, Array<Ended>>();
+type Mapped = {
+  readonly latest: Map<string, Ended>;
+  readonly declines: Map<string, Array<Ended>>;
+};
 
+const deliveredAsMapped = (
+  { latest, declines }: Mapped,
+  step: ReadonlyArray<Fact>,
+  reference: Reference,
+) => {
   const remember = (ended: Ended) => {
     if (Option.isSome(ended.attempt))
       latest.set(attemptKey(ended.operation, ended.attempt.value), ended);
@@ -82,7 +85,7 @@ const deliveredAsMapped = (timeline: ReadonlyArray<Fact>, reference: Reference) 
         }),
     });
 
-  return timeline.flatMap((fact) => {
+  return step.flatMap((fact) => {
     const ended = endedOf(fact);
 
     if (Option.isSome(ended)) remember(ended.value);
@@ -213,11 +216,15 @@ const madeUp = (id: string, ended: Ended) =>
         `WriteLanes I3: ${id} ended ${ended.channel} ${ended.reason} in a step where the server gave it no answer; a success or the commit's own failure comes only from the server's answer`,
       ];
 
-const endedAsAnswered = (facts: Facts) => {
-  const live = new Set<string>();
-  const latest = new Map<string, number>();
+type Answering = { readonly live: Set<string>; readonly latest: Map<string, number> };
 
-  const inStep = (step: ReadonlyArray<Fact>) => {
+const endedAsAnswered = (
+  { live, latest }: Answering,
+  step: ReadonlyArray<Fact>,
+  reference: Reference,
+  requests: ReadonlyArray<Request>,
+) => {
+  const inStep = () => {
     const asked = new Map<string, Asked>();
 
     const ask = (given: ReturnType<typeof answerOf>) => {
@@ -231,10 +238,10 @@ const endedAsAnswered = (facts: Facts) => {
         Option.getOrElse(request.key, () => ""),
       );
 
-      const operation = writeNamed(facts.reference, request.operation);
+      const operation = writeNamed(reference, request.operation);
 
       if (Option.isNone(operation)) return;
-      const mayHaveApplied = earlierUnsure(request, facts.requests, operation.value);
+      const mayHaveApplied = earlierUnsure(request, requests, operation.value);
       const newest = latest.get(id) === request.seq;
       asked.set(id, { answer, mayHaveApplied, live: newest && live.has(id) });
     };
@@ -243,7 +250,7 @@ const endedAsAnswered = (facts: Facts) => {
       if (Option.isNone(ended.attempt)) return [];
       const id = attemptKey(ended.operation, ended.attempt.value);
       const answered = Option.fromUndefinedOr(asked.get(id));
-      const operation = writeNamed(facts.reference, ended.operation);
+      const operation = writeNamed(reference, ended.operation);
       asked.delete(id);
 
       if (Option.isNone(operation)) return [];
@@ -268,7 +275,7 @@ const endedAsAnswered = (facts: Facts) => {
     return [...found, ...unended(asked)];
   };
 
-  return steps(facts.timeline).flatMap(inStep);
+  return inStep();
 };
 
 /**
@@ -300,12 +307,29 @@ const endedAsAnswered = (facts: Facts) => {
  * - An ending must come in the step its answer came; one in a later step is reported missing.
  * - Declines carry no Attempt id and are paired with deliveries in order per operation.
  */
-export const endingChannels: Oracle = {
-  name: "ending-channels",
-  guarantee: "WriteLanes I3",
-  check: (facts: Facts) => [
-    ...endedAsAnswered(facts),
-    ...deliveredAsMapped(facts.timeline, facts.reference),
-    ...failureAfterUnknown(facts.timeline),
-  ],
+type State = {
+  readonly reference: Reference;
+  readonly answering: Answering;
+  readonly mapped: Mapped;
+  readonly unsure: Set<string>;
 };
+
+export const endingChannels = oracle<State>({
+  name: "ending-channels",
+  guarantee: ["WriteLanes I3"],
+  start: (reference) => ({
+    reference,
+    answering: { live: new Set(), latest: new Map() },
+    mapped: { latest: new Map(), declines: new Map() },
+    unsure: new Set(),
+  }),
+  step: (state, step, requests) =>
+    [
+      state,
+      [
+        ...endedAsAnswered(state.answering, step, state.reference, requests),
+        ...deliveredAsMapped(state.mapped, step, state.reference),
+        ...failureAfterUnknown(state.unsure, step),
+      ].map(violation),
+    ] as const,
+});
