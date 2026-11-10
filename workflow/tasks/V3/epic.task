@@ -228,10 +228,15 @@ instructions
       Haiku sidecars, two of them on code quality (STYLE.md and Effect idioms; types, comments and
       lint), two on correctness against the Spec the change implements; sidecars report only to
       their lead (amendment 7, 2026-11-08; two on code quality: the user, 2026-11-09).
-    - Building leads plan their round's tasks up front and may run up to four Haiku sidecars (coders
-      on disjoint files, runners, reviewers); a reviewer sidecar checks every oracle, test harness
-      or runtime change (amendment 8, adopted 2026-11-08).
-    - Every lead reads every line of sidecar code, re-runs each check itself, confirms a mutant
+    - Building leads plan their round's tasks up front and write every committed line themselves;
+      Haiku never writes committed code (the user, 2026-11-10, Q2 A; replaces amendment 8's coders).
+      They may run up to four Haiku sidecars as runners (gates, falsify, sweeps, timings, traces),
+      reviewers of one diff against one rule, locators (each Invariant's prototype code, old case
+      and old mutant as file:line lists), drafters of expected results from the Spec (prose, cited,
+      before the code), and writers of adversarial mutants from the Spec alone in scratch (a mutant
+      kept is rewritten by the lead); a reviewer sidecar checks every oracle, test harness or
+      runtime change (amendment 8, adopted 2026-11-08).
+    - Every lead reads every line a sidecar wrote, re-runs each check itself, confirms a mutant
       fails for the expected reason, and logs each result as accepted, changed or rejected, in the
       Task's comments (for P3, also in the suite's STATUS.md) (the user, 2026-11-08).
     - Every build and review brief carries the code-style list in the Constraints section, the Spec

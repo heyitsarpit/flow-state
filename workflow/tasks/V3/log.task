@@ -378,3 +378,19 @@ note 2026-11-10T17:07:17Z
     by a guarantee-change stop (R22's bound has no Actors Invariant; three o6.* mutants unregistered), asked of the 
     user as Q1; by R21 it holds only T6. Next: one Opus building lead on @task.V3.T7 at medium effort (second building 
     iteration). Review of T6 still running.
+note 2026-11-10T17:09:20Z
+    Amendment (2026-11-10, the user, Q2 A): Haiku never writes committed code; building leads write every committed 
+    line. Haiku sidecars are runners, one-rule reviewers, locators, expected-result drafters from the Spec, and scratch 
+    adversarial mutant writers. Why: the user's concern about the patterns Haiku code picks. Edited: instructions. Sent 
+    to the T7 lead at once. Reverse: restore amendment 8's coders on disjoint files.
+note 2026-11-10T17:09:25Z
+    Decision (user, 2026-11-10, Q1 A): guarantee change approved: an Actors Invariant for R22's bound (parked within 5 
+    s; unknown { Disposed } past it; a definite ending drops the head, an unknown keeps it Held), judged by the 
+    disposal oracle, with o6.dispose-interrupts-wire, o6.no-bound and o6.settled-in-bound-stays-held registered in 
+    falsify. Done by the T7 lead first, as T6's last change. Governs: @spec.Actors, @task.V3.T6. Reverse: drop the 
+    Invariant and unregister the three mutants.
+note 2026-11-10T17:09:29Z
+    Decision (user, 2026-11-10, Q3 A): one Opus review (four Haiku sidecars, two on code quality) of the suite files 
+    Haiku coders wrote in earlier rounds (STATUS.md rows Coder 1, 2 and A to D: the Pay cases, lane-queue, 
+    delivered-once, Reads rows, ending-channels) against STYLE.md and FLOW-STATE.md; it takes the review slot after the 
+    T6 review; accepted findings go to the building lead. Reverse: leave them to T15's audit.
