@@ -167,8 +167,7 @@ export type Network = {
 };
 
 /**
- * A server with no requests; it reads the clock's time and the page's generation at each
- * request.
+ * A server with no requests.
  */
 // RETURN_TYPE: the exported Network contract; it types the request and answer parameters for the runtime.
 export const makeNetwork = (): Network => {
