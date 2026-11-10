@@ -708,6 +708,10 @@ tasks
             - Searches and mutants run from the one runner with `--parallel`;
             - a planted slow child reads as unknown;
             - the old suite's search kills are reproduced.
+        comment     2026-11-10T19:10:00Z
+            Carried here (orchestrator, 2026-11-11): R9's machine verdict form (typed violations, numbered steps, every 
+            failing seed, a thrown defect as its own verdict kind), Conformance Q2 and R9; it changes every verdict 
+            line.
     T15
         title       Suite audited, fast gates in verify, coverage record, speed targets
         status      open

@@ -434,4 +434,15 @@ note 2026-11-10T18:43:09Z
 note 2026-11-10T19:04:09Z
     Review started on 392147bc..a8714be6 (T40 and T7's S2 rewrite); weekly usage 10 percent.
 note 2026-11-10T19:07:58Z
-    Decision (user, 2026-11-11): one builder carries related Tasks; a fresh one starts only when context runs long or work moves from suite to production. Batches: T7 then T8 and T13; T16 fresh; T12 with T14; T10 then T11, with T9 where it fits; T15 audit separate. **Why:** small Tasks shouldn't each pay for a new agent. **Reverse:** one builder per Task.
+    Decision (user, 2026-11-11): one builder carries related Tasks; a fresh one starts only when context runs long or 
+    work moves from suite to production. Batches: T7 then T8 and T13; T16 fresh; T12 with T14; T10 then T11, with T9 
+    where it fits; T15 audit separate. **Why:** small Tasks shouldn't each pay for a new agent. **Reverse:** one 
+    builder per Task.
+note 2026-11-10T19:09:55Z
+    Decision (orchestrator): a disposed actor's ending is not evidence; WriteLanes I15 stays as written, and the 
+    prototype's rule 44 is a round-14 deviation for the carry list. **Why:** the Spec outranks the prototype, Actors 
+    T12 names that runtime wrong, and changing I15 would be a guarantee change. **Reverse:** ask the user to add 
+    disposal to I15's exceptions.
+note 2026-11-10T19:10:05Z
+    T7 part done at 28609e2e (S2 rewrite, keyed lanes, false Released caught; 67/67, null 0/67, falsify 43/43). A fresh 
+    Opus lead at medium effort takes the rest of T7, then T8 and T13; R9's verdict form moves to T14.
