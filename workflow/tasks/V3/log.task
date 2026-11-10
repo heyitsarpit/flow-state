@@ -410,6 +410,17 @@ note 2026-11-10T17:19:29Z
     port.ts, a STYLE.md line; no behaviour change). Sent verbatim to the T7 lead to judge each item and implement the 
     ones worth doing, logged in T6's comments; item 8 edits tools/lint-bomb/STYLE.md by the user's request.
 note 2026-11-10T17:25:32Z
-    Decision (user, 2026-11-10): after the review of Haiku-written suite code, one Opus code-simplicity review of the whole conformance suite (packages/flow-state-v3/conformance/), including what was carried over from the throwaway prototype: is each module the minimal correct code for its outcome, and which tangled parts should be simplified or rewritten. Four Haiku sidecars: two on simplicity (duplication and dead or unused code; needless abstraction, indirection and prototype carry-over), two on correctness (that each proposed simplification keeps every guarantee and the mutant kills). The orchestrator decides what to simplify; the building lead does it with verdicts identical before and after. Why: the user's concern that Haiku code was needlessly complex and the prototype was throwaway. Reverse: drop the review.
+    Decision (user, 2026-11-10): after the review of Haiku-written suite code, one Opus code-simplicity review of the 
+    whole conformance suite (packages/flow-state-v3/conformance/), including what was carried over from the throwaway 
+    prototype: is each module the minimal correct code for its outcome, and which tangled parts should be simplified or 
+    rewritten. Four Haiku sidecars: two on simplicity (duplication and dead or unused code; needless abstraction, 
+    indirection and prototype carry-over), two on correctness (that each proposed simplification keeps every guarantee 
+    and the mutant kills). The orchestrator decides what to simplify; the building lead does it with verdicts identical 
+    before and after. Why: the user's concern that Haiku code was needlessly complex and the prototype was throwaway. 
+    Reverse: drop the review.
 note 2026-11-10T17:33:35Z
-    Correction (user, 2026-11-10): the code-simplicity review is not a new agent. When the reviewing lead of the Haiku-written code reports, it is resumed by message with the simplicity brief for the whole suite, since it already holds the context; same sidecar split and routing as the previous note.
+    Correction (user, 2026-11-10): the code-simplicity review is not a new agent. When the reviewing lead of the 
+    Haiku-written code reports, it is resumed by message with the simplicity brief for the whole suite, since it 
+    already holds the context; same sidecar split and routing as the previous note.
+note 2026-11-10T17:36:35Z
+    Review done (Q3 A, the suite code Haiku coders wrote): 5 High, 5 Medium and 6 Low findings. The High ones are WriteLanes correctness gaps: lane-queue skips keyed lanes (so Pay and Cells go unjudged on I8, I9, I11, I12, I20 and I21); delivered-once claims I16 and I22 with no check; evidence-only endings can be delivered; disposed owners are excused; ending-channels checks the server log one way only. The orchestrator verified H1, H2, H4 and H5 at HEAD 967c3eed. Blame shows part of the pattern came from the lead in rounds 1 to 3. H1 to H5, plus an I1 note, were sent to the building lead as T7 work. M and L wait for the simplicity pass, which the same reviewer is now doing over the whole suite, so the lead gets one combined list.
