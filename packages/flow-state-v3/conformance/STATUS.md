@@ -413,3 +413,42 @@ a plain `Runtime` record; the world plain owned state (`makeWorld`, `makeClock`,
   (`FLOW_STATE_ALLOW_UNKNOWN:`) and `runtimeOf`'s return type (`RETURN_TYPE:`).
 - Scenario files were rewritten by hand with Write from a mechanical preview (a script that
   printed the converted text, writing no file).
+
+## T6 (2026-11-10): judged Runtime disposal at every case's end; `@effect/tsgo` in check
+
+Built: `playCase` ends every case with judged steps (dispose the Runtime, answer held writes,
+advance past the 5 s bound, answer again, expect the disposal ended, reload); the `disposal`
+oracle (Actors I29 for Runtime disposal, I30) with four mutants; `nub run check:effect`
+(`effect-tsgo tsc`, `@effect/tsgo` 0.61.0) inside `nub run check`.
+
+Latest numbers:
+
+- `suite`: 61/61 on round-14 (0.36 s, 155 MB peak RSS), also with `--parallel 4`.
+- `suite --runtime null`: 0/61.
+- `falsify --parallel 6`: null red, control green, 29/29 mutants caught by their own oracle;
+  `--sweep` 29/29.
+- `nub run check`: zero errors, zero warnings; a planted `unknownInEffectCatch` fails it.
+
+Mutants and why each is caught (re-run by the lead, each red for the expected reason):
+
+- `lie.boot-says-disposed`, `lie.boot-drops-held` (PAY-15/dispose-held): `disposal` I29 at the
+  reload, the Held `pay` head delivered nothing (`delivered-once` also fires).
+- `mutant.disposal-skips-never-sent` (PAY-13/waiting-flushed): I29, a never-sent commit got no
+  ending from the disposal.
+- `mutant.disposal-dispatches` (PAY-07/late-may-not-leave): I30 at the end-of-case `ack`: the
+  server received `pay` after the disposal began. The case's own disposal does not reach it; the
+  end-of-case disposal does.
+- `o6.dispose-interrupts-wire`, `o6.no-bound`, `o6.settled-in-bound-stays-held`: caught by the
+  disposal cases' expectations (Actors R22), never by an oracle; R22's bound has no Invariant.
+  Kept unregistered (`disposalBoundMutants`) for the user's decision. A new expectation, "a definite
+  ending drops the head" (PAY-16/settled-during-disposal-parked, from Actors R22), catches the third.
+
+### Sidecar log
+
+All Haiku, effort high. The lead verified each finding against the code and the Specs, and re-ran
+every gate after the fixes.
+
+| Sidecar                      | Task                   | Result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ---------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reviewer (test the spec, R4) | `03098b28`             | 9 findings. Accepted: 1 (a never-sent commit dropped silently: now judged, mutant added), 2 (a request the next boot makes is no longer counted), 3 (StillUnknown keeps a head Held), 4 (an answer to a dead page's request decides nothing), 5 and 6 (runtime claims named in the docs), 9 (guarantee names the Runtime-disposal half). Rejected: 7 (the end's expectation cites its rules in its label), 8 (rows read `None` for a gone lane: the stated idle-row limit, Q9). Q5 confirmed.                                                                                                                                                                 |
+| Reviewer (lint-bomb STYLE)   | `f8b92e7b`, `03098b28` | 10 findings. Accepted: 1 (one phase per Attempt, not three sets), 2 (a `Live`/`Disposing` union), 3 (one `usesHeld` in `dsl/oracle.ts`, used by the Case and the oracle; the oracle's copy ignored the use kind), 6 (stale mutants doc), 9 (one `ackAll`; `driven` for the Case). Rejected: 4 (keyed lanes by design; `lane-queue` is unkeyed by its stated limit), 5 (`ending-channels` reads reports, this reads the server's answers), 7 (mutant names keep the old suite's ids, README decision), 8 (kept for the Invariant decision, said in its doc), 10 (the installed TypeScript is pinned in `package.json`; the plant shows the Effect rules fire). |

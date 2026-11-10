@@ -7,9 +7,11 @@ const RESTORED_MAIL = "mail(tx, l, h, ending, true, !h.held);";
  *
  * **Details**
  *
- * Both edit the prototype's boot, where a Held head's unknown { Restored } is queued for its
- * actor: the old suite's audit 3 and 3b mutants. Each drops a lane that was Held when an earlier
- * Runtime disposal began.
+ * - `lie.boot-says-disposed` and `lie.boot-drops-held` edit the prototype's boot, where a Held
+ *   head's unknown { Restored } is queued for its actor: each drops a lane that was Held when an
+ *   earlier Runtime disposal began.
+ * - `mutant.disposal-skips-never-sent` leaves a never-sent commit unended by the disposal.
+ * - `mutant.disposal-dispatches` also sends such a commit once its write lands.
  */
 export const disposalMutants: ReadonlyArray<Mutant> = [
   {
@@ -31,6 +33,19 @@ export const disposalMutants: ReadonlyArray<Mutant> = [
     runtime: "prototype",
     cases: ["PAY-15/dispose-held"],
     edits: [{ file: "durable.ts", find: RESTORED_MAIL, replace: `if (!h.held) ${RESTORED_MAIL}` }],
+  },
+  {
+    name: "mutant.disposal-skips-never-sent",
+    says: "the Runtime's disposal leaves a never-sent commit as it was, with no ending",
+    runtime: "prototype",
+    cases: ["PAY-13/waiting-flushed"],
+    edits: [
+      {
+        file: "lane.ts",
+        find: '    Waiting: "disposeNeverSent",',
+        replace: '    Waiting: "nothing",',
+      },
+    ],
   },
   {
     name: "mutant.disposal-dispatches",
@@ -57,7 +72,7 @@ export const disposalMutants: ReadonlyArray<Mutant> = [
  *
  * **Details**
  *
- * They edit the prototype's Runtime disposal (round 14's lifetime mutants): one interrupts the
+ * They edit the prototype's Runtime disposal: one interrupts the
  * call on the wire at the start, one keeps a definite in-bound ending Held, one ends the disposal
  * at once. The disposal cases' own expectations catch each (`PAY-16`, `PAY-13`); no oracle does,
  * since the bound and the head's fate are rules of Actors R22 that no Invariant states.
@@ -65,7 +80,7 @@ export const disposalMutants: ReadonlyArray<Mutant> = [
  * **Gotchas**
  *
  * - Falsify does not run them: a guarantee holds an oracle and the mutants it must catch, and
- *   case expectations have no guarantee yet.
+ *   case expectations have no guarantee yet. They are kept for the Invariant the user may add.
  */
 export const disposalBoundMutants: ReadonlyArray<Mutant> = [
   {

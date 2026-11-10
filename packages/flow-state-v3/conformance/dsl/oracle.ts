@@ -1,6 +1,6 @@
 import { Data } from "effect";
 import type { Reference } from "../fixtures/reference.ts";
-import type { ActorRef, Observation, Use } from "../port.ts";
+import { type ActorRef, type Observation, sameActor, type Use } from "../port.ts";
 import type { Answer, Request } from "../world/network.ts";
 
 /**
@@ -135,3 +135,29 @@ export const steps = (timeline: ReadonlyArray<Fact>): ReadonlyArray<ReadonlyArra
 
   return cut;
 };
+
+/**
+ * The uses the suite holds after these facts, in the order they were attached: each `Ensured`
+ * attaches a story use, each `Released` ends one use of its kind, and `Disposed` ends every use
+ * of its actor.
+ *
+ * **When to use**
+ *
+ * A reload re-attaches exactly these; an oracle reads them to know which actors a reload brings
+ * back.
+ */
+// RETURN_TYPE: The public view is read-only; a reader must not change the held uses.
+export const usesHeld = (facts: ReadonlyArray<Fact>): ReadonlyArray<readonly [ActorRef, Use]> =>
+  facts.reduce<ReadonlyArray<readonly [ActorRef, Use]>>((held, fact) => {
+    if (Fact.$is("Ensured")(fact)) return [...held, [fact.actor, "story"] as const];
+
+    if (Fact.$is("Released")(fact)) {
+      const at = held.findIndex(([a, u]) => sameActor(a, fact.actor) && u === fact.use);
+
+      return at < 0 ? held : held.toSpliced(at, 1);
+    }
+
+    if (Fact.$is("Disposed")(fact)) return held.filter(([a]) => !sameActor(a, fact.actor));
+
+    return held;
+  }, []);

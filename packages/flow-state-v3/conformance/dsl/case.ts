@@ -1,13 +1,12 @@
 import { Data, Equal, Option, type Schema } from "effect";
 import { type Fixture, referenceFor } from "../fixtures/fixture.ts";
-import { Fact, type Oracle, reported } from "./oracle.ts";
+import { Fact, type Oracle, reported, usesHeld } from "./oracle.ts";
 import {
   type ActorRef,
   type EvidenceKind,
   type Json,
   Observation,
   type Port,
-  sameActor,
   type Snapshot,
   type Use,
 } from "../port.ts";
@@ -164,28 +163,7 @@ const openCase = (options: CaseOptions) => {
       timeline.record(Fact.Requested({ request }));
   };
 
-  const uses = () =>
-    timeline.facts().reduce<ReadonlyArray<readonly [ActorRef, Use]>>(
-      (held, fact) =>
-        Fact.$match(fact, {
-          Ensured: ({ actor }) => [...held, [actor, "story"] as const],
-          Released: ({ actor, use }) => {
-            const at = held.findIndex(([a, u]) => sameActor(a, actor) && u === use);
-
-            return at < 0 ? held : held.toSpliced(at, 1);
-          },
-          Disposed: ({ actor }) => held.filter(([a]) => !sameActor(a, actor)),
-          Stepped: () => held,
-          Requested: () => held,
-          Answered: () => held,
-          Reported: () => held,
-          Reloaded: () => held,
-          DisposingRuntime: () => held,
-          Drove: () => held,
-          Unstoppable: () => held,
-        }),
-      [],
-    );
+  const uses = () => usesHeld(timeline.facts());
 
   const judge = (what: string) => {
     const facts = { timeline: timeline.facts(), requests: network.requests(), reference };
@@ -297,11 +275,12 @@ const openCase = (options: CaseOptions) => {
   const end = () => {
     if (!thisBoot().some(Fact.$is("DisposingRuntime")))
       disposeRuntime("end of case: dispose the runtime");
-    act("end of case: ack", () => void storage.answer("ack", Option.none()));
+    const ackAll = () => act("end of case: ack", () => void storage.answer("ack", Option.none()));
+    ackAll();
     act(`end of case: advance ${DISPOSAL_BOUND_MS}`, () =>
       world.advance(DISPOSAL_BOUND_MS, pending),
     );
-    act("end of case: ack", () => void storage.answer("ack", Option.none()));
+    ackAll();
     eq(
       "end of case: the Runtime's disposal ended within its bound (Actors R22, R23)",
       reported(thisBoot()).filter(Observation.$is("RuntimeDisposed")).length,
@@ -310,7 +289,7 @@ const openCase = (options: CaseOptions) => {
     reload("end of case: reload");
   };
 
-  const steps: Case = {
+  const driven: Case = {
     actor: (fixture, id) => actorView(driver, fixture, id),
     ensure,
     release,
@@ -366,7 +345,7 @@ const openCase = (options: CaseOptions) => {
     reports: observed,
   };
 
-  return { steps, end };
+  return { driven, end };
 };
 
 /**
@@ -413,9 +392,14 @@ export const variants = (
  * **Gotchas**
  *
  * - Throws as a step does: `Violated`, `Mismatch`, or a defect.
+ * - The end's expectation cites its rules in its own label, so a case's `cites` need not repeat
+ *   them.
+ * - That the disposal ended is the runtime's `RuntimeDisposed` report, counted once per boot: a
+ *   consistency check, not anchored to a suite fact. The bound is counted from the end's own
+ *   advance, so a case that advanced after starting the disposal allows more time.
  */
 export const playCase = (options: CaseOptions, run: Scenario["run"]) => {
   const opened = openCase(options);
-  run(opened.steps);
+  run(opened.driven);
   opened.end();
 };
