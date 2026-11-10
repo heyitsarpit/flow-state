@@ -71,7 +71,7 @@ that they match.
 - **Usage limit and usage reserve:** the **usage limit** is the agent harness's allowance per
   usage window. The **usage reserve** is the share of it kept unspent; reaching it stops the run.
   It is set in the Epic's Limits section, and the user changes it as their planned work changes.
-- **Note:** a timestamped, append-only entry at the end of the Epic file.
+- **Note:** a timestamped, append-only entry in the Epic's `log.task`, beside its Epic file.
 - **Agent decision:** a decision an agent made under delegation, written in
   skill:policy-records's decision convention with its reason and how to reverse it. Work goes on,
   and the user may overturn it at any time.

@@ -32,8 +32,8 @@ Link a Task to an existing outcome with `satisfies`: `@task.Example.T1` to `@pla
 ## Epic loop and phase card
 
 Epic loop fields follow the contract fields in this order, each at most once: `skill`, `run`,
-`instructions`, `cadence`, `stops`, then any `note TIMESTAMP` entries (timestamps never decrease).
-A phase has `title`, optional `description`, `comment TIMESTAMP` entries, then `tasks`.
+`instructions`, `cadence`, `stops`. Notes go in `log.task` beside it, as `note TIMESTAMP` entries
+(timestamps never decrease). A phase has `title`, optional `description`, `comment TIMESTAMP` entries, then `tasks`.
 
 ```text
 epic Example
@@ -44,8 +44,22 @@ run
     Take `workflow next --epic Example`; build it.
 stops
     A guarantee change.
+```
+
+Its notes, in `log.task` in the same Epic folder (a dangling link here is a warning, not an error):
+
+```text
+log Example
 note 2026-11-09T03:15:00Z
     The user: keep going.
+note 2026-11-09T04:00:00Z
+    **Decision (agent, 2026-11-09):** build the delay before the queue.
+
+    **Why:** the queue calls it.
+
+    **Reverse:** stub the delay in the queue.
+
+    **Governs:** @task.Example.T1.
 ```
 
 The phase lives in the same Epic folder, in `P1.task`:

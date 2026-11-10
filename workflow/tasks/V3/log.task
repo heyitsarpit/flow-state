@@ -328,3 +328,6 @@ note 2026-11-10T16:13:20Z
     epic-log-and-brief of the skills library), which says notes live in log.task, leads start from workflow brief 
     (skill:build-a-loop#rules R6), and the User's read field is gone. The instructions line on briefs restated R6 and 
     stays as the user's 2026-11-10 wording.
+note 2026-11-10T16:17:22Z
+    Amendment (2026-11-10, the user): pin moves from workflow@729fd7d to workflow@0222619; the only change is the 
+    workflow-cli syntax starter showing notes in log.task.
