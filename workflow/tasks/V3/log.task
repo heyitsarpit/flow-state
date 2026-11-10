@@ -503,3 +503,7 @@ note 2026-11-10T21:09:15Z
 note 2026-11-10T21:25:28Z
     T13 done (verified at c1427047). Next building lead implements the convergence v2 first (its Port changes to Turn 
     feed T8), then T7's rest, then T8. For the user: Compile Q3 (what counts as a Slot; changes I15).
+note 2026-11-10T21:28:38Z
+    Decision reversed (orchestrator): Compile I7, I8, I13 and I14 come back to T13, which is reopened; round-14 can 
+    make them, and P3's exit needs the old suite's kills. The T41 gate also checks that each not-yet owner is a real 
+    open Task. **Why:** the T41 and T13 review (M2). **Reverse:** move them to T17 again.

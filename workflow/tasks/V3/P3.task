@@ -690,7 +690,7 @@ tasks
             - verdicts match the old suite's or each difference is logged.
     T13
         title       Static cases for Compile, Diagnostics, Codec and StaticCli
-        status      done
+        status      open
         priority    medium
         blocked_by  [@T5, @T40]
         description
@@ -732,6 +732,11 @@ tasks
         comment     2026-11-10T21:25:18Z
             Orchestrator verification at c1427047: 84/84, null 0/84, falsify 68/68; every static Invariant round-14 can 
             make is checked, the rest owned by T17, T20 and T22. Done. Detail: STATUS.md "T13 part 2".
+        comment     2026-11-10T21:28:33Z
+            Reopened (orchestrator, from code:workflow/plans/flow/references/proposals/t41-t13-review-2026-11-11.md): 
+            H1 a crash at Runtime creation is read as a refusal (R9); M1 I15's Slot half and M3 I1, I6, I11 halves 
+            claimed but unchecked; Compile I7, I8, I13, I14 are makeable on round-14 (ReservedStateName, 
+            DuplicateMachine) and come back from T17.
     T14
         title       Searches and mutants as runner modes
         status      open
