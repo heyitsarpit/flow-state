@@ -479,3 +479,5 @@ note 2026-11-10T20:27:05Z
     checked, 170 owed, 0 gaps). Decision (orchestrator): the gate gains a 'covered by case expectations' kind citing 
     the cases, for case-only Invariants; T15's audit reads it. The I15 against Actors R15 refusal conflict and the 
     kept-ending questions go to the convergence designer. **Reverse:** keep case-only Invariants as owed rows.
+note 2026-11-10T20:40:48Z
+    Convergence proposal written (code:workflow/plans/flow/references/proposals/lane-oracle-convergence-2026-11-11.md): one shared lifecycle table, folded separately per oracle; four Port additions; Spec gaps Q1 to Q5 for the user. One adversarial review started.
