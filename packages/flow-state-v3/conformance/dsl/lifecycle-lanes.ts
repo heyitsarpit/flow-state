@@ -158,7 +158,9 @@ const headAct = (
           ? model
           : owing(model, [Obligation.PendingCancel({ attempt: head.id, ends: "NotSent" })]);
       case "AwaitRelease":
-        return owing(model, [Obligation.Await({ attempt: head.id, report: "Released" })]);
+        return owing(model, [
+          Obligation.Await({ attempt: head.id, report: "Released", heard: true }),
+        ]);
       case "Interrupt":
         return setPhase(model, head.id, Phase.Interrupted());
     }
@@ -191,7 +193,7 @@ const acted = (model: Model, lane: LaneId, a: Act) =>
         owing(
           model,
           waitingOn(model, lane).map((a) =>
-            Obligation.Await({ attempt: a.id, report: "NotSentCancelled" }),
+            Obligation.Await({ attempt: a.id, report: "NotSentCancelled", heard: true }),
           ),
         ),
         lane,
@@ -244,7 +246,8 @@ const appended = (model: Model, attempt: string, lane: LaneId, phase: Phase) => 
 const supersede = (model: Model, attempt: Option.Option<AttemptLife>) =>
   Option.match(attempt, {
     onNone: () => model,
-    onSome: ({ id }) => owing(model, [Obligation.Await({ attempt: id, report: "Superseded" })]),
+    onSome: ({ id }) =>
+      owing(model, [Obligation.Await({ attempt: id, report: "Superseded", heard: true })]),
   });
 
 const replaceCancelled = (model: Model, head: AttemptLife) => {

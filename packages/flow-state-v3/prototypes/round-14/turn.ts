@@ -686,7 +686,8 @@ const memberOf = (w: Walk, mem: Member, key: unknown, unencodable: boolean): Wal
   return [{ op: mem.op, kind: mem.verb, target }];
 };
 // P5 first: every select runs before any cell, so a throw leaves no cell behind. P6 then applies in action order.
-const applyMembers = (w: Walk) => {
+// Port change 2 (conformance v2): reading the members is split from applying them, so the turn note can come between.
+const readMembers = (w: Walk) => {
   const tx = w.tx;
   const reads = w.parts.flatMap((part) => {
     const inc = kidAt(w.root, part.path) ?? kidAt(w.root0, part.path)!;
@@ -719,6 +720,10 @@ const applyMembers = (w: Walk) => {
     ...reads.flatMap((r) => memberOf(w, r.mem, r.key, r.unencodable)),
     ...w.releases.map(({ op }) => ({ op, kind: "release", target: w.m.ops[op]?.keyFields?.length === 0 ? { t: "only" as const } : { t: "every" as const } })),
   ];
+  return reads;
+};
+const applyMembers = (w: Walk, reads: ReturnType<typeof readMembers>) => {
+  const tx = w.tx;
   for (const r of reads) {
     const { mem, inc } = r;
     const op = w.m.ops[mem.op]!;
@@ -978,7 +983,20 @@ const finish = (
   from: string,
 ) => {
   const tx = w.tx;
-  applyMembers(w);
+  const reads = readMembers(w);
+  // Port change 2 (conformance v2): the turn is reported before the reports its members cause.
+  note(tx, "turn", {
+    actor: w.a.key,
+    event: ev.tag,
+    from,
+    to: w.root.leaf,
+    ...((w.parts[0]?.event as any)?.n !== undefined ? { n: (w.parts[0]?.event as any).n } : {}),
+    // Round 13 (`flow graph`'s conformance gate, `flow trace`): which alternative ran in which incarnation, and where the moved one went. Read only by tools.
+    parts: w.parts.map((p) => ({ path: p.path, definition: p.alt.at.definition, at: p.alt.at.path, node: p.node, tag: p.tag, target: p.alt.target, ...(p.fused ? { fused: true } : {}) })),
+    members: w.members,
+    ...(w.move ? { moved: { path: w.move.path, from: kidAt(w.root0, w.move.path)?.leaf, to: kidAt(w.root, w.move.path)?.leaf } } : {}),
+  });
+  applyMembers(w, reads);
   const armings = collectArmings(w, entered);
   const reset = recheckResets(w);
   const m = w.m;
@@ -1010,17 +1028,6 @@ const finish = (
     for (const p of e.inc.frozen?.parked ?? []) if (p.k === "ending") note(tx, "ParkedLetGo", { op: p.op, attempt: p.attempt ?? "" }); // rule 52: its life is over
   }
   tx.touchedActors.add(w.a.key);
-  note(tx, "turn", {
-    actor: w.a.key,
-    event: ev.tag,
-    from,
-    to: w.root.leaf,
-    ...((w.parts[0]?.event as any)?.n !== undefined ? { n: (w.parts[0]?.event as any).n } : {}),
-    // Round 13 (`flow graph`'s conformance gate, `flow trace`): which alternative ran in which incarnation, and where the moved one went. Read only by tools.
-    parts: w.parts.map((p) => ({ path: p.path, definition: p.alt.at.definition, at: p.alt.at.path, node: p.node, tag: p.tag, target: p.alt.target, ...(p.fused ? { fused: true } : {}) })),
-    members: w.members,
-    ...(w.move ? { moved: { path: w.move.path, from: kidAt(w.root0, w.move.path)?.leaf, to: kidAt(w.root, w.move.path)?.leaf } } : {}),
-  });
   tx.visible = true;
   // D1, D35: a follow-up runs next, up to a bound per admitted item. A pending reset first, then adoption (rule 54).
   // M4: the bound drops only what can loop by itself: a send, a recheck. A thaw's or an adoption's ending is a fact (rule 8).

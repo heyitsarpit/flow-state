@@ -182,7 +182,8 @@ export type EndingRef = {
  *
  * - `Turn`: an actor ran an event, from one leaf to another; `parts` names each alternative that
  *   ran, in the order it ran ({@link TurnPart}); `members` names each lane member it ran, in
- *   action order, then its releases ({@link Member}).
+ *   action order, then its releases ({@link Member}). It is reported before the reports its
+ *   members cause (mints, declines, releases), which follow in member order.
  * - `Minted`: a commit of `actor` was admitted and its Attempt got an id; `key` is the Attempt's
  *   key (its lane).
  * - `Sent`: an Attempt's commit was invoked (its first send or a re-send).

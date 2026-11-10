@@ -250,7 +250,7 @@ delivery carries no channel; latent: no case disposes without re-ensuring).
 
 ## T7 (2026-11-10 and 2026-11-11): WriteLanes area (in progress)
 
-Bottom line: the convergence v2 build is under way (steps 2 and 1 in; see "Convergence v2 build" below).
+Bottom line: the convergence v2 build is under way (steps 1 to 4 in; see "Convergence v2 build" below).
 Open: the rest of v2's migration; I22; T7's own rows.
 
 - First step (`392147bc`): H5 in `ending-channels` (`mutant.success-without-answer`, I3) and case `DISP-06`.
@@ -405,10 +405,9 @@ Open: the rest of v2's migration; I22; T7's own rows.
 
 ### Convergence v2 build (2026-11-11; `references/proposals/lane-oracle-convergence-v2-2026-11-11.md`)
 
-Bottom line: steps 2, 1 and 3 landed; step 4 (fold once in the Case, `lane-queue` onto it) is next. At step 3's
-commits: suite 84/84, null 0/84, coverage 0 gaps, the lifecycle tests 19/19 (mutation test included), `nub run check`
-at zero. The sweep was last run at `1a850b5d` (68/68); step 3 changes no oracle (`disposal` reads `unknownEvent`, the
-same event).
+Bottom line: steps 2, 1, 3 and 4 landed; `lane-queue` reads the Case's one fold. Step 5 (`delivered-once` onto
+`lives`) is next, after the lifecycle review's M1 to M4 and Lows. At step 4's commit: suite 86/86, null 0/86, coverage
+0 gaps (34 checked), the lifecycle tests 19/19, `nub run check` at zero; sweep in "Step 4" below.
 
 - **Order:** step 2 before step 1, so the lifecycle's facts-to-moves step reads the real Port. Step 1 is split: part 1
   (Table A, deadlines, promotion) is in; part 2 (Table B, Table C, the actor moves, `step(model, reference, facts)`)
@@ -519,10 +518,65 @@ same event).
     writes and compares rows only, not channels, `concurrency` or `unknown`; F8 `rowsFor`, like `referenceFor`, keeps
     the later of two fixtures with one machine id (Cells' rows are a superset of Pay's); F9 `retained` defaults to
     true for an unknown lane, and storage evidence is not a move.
-- **Next (step 4):** fold once in `dsl/case.ts` (run `step` before the oracles; `Judge.step` gains `lives`), move
-  `lane-queue` onto `lives` (its guarantee's refusals, plus W bounds and I10 order), Port change 2 (round-14's `turn`
-  note above `applyMembers`, `turn.ts:954`), PAY-17 to PAY-19 and their mutants, then the sweep diff with every
-  changed verdict and its rule. Decide F3 there. Then steps 5 to 9.
+- **Step 4 (this commit):**
+  - Built: `dsl/case.ts` folds `step` once per step before the oracles and passes `lives` to every Judge
+    (`dsl/oracle.ts`); `lane-queue` reports the lifecycle's refusals of its guarantee (WriteLanes I1, I8, I9, I10,
+    I11, I12, I20, I21), plus views: W bounds and I9 at the step's end, I10 member order, and cancelAll's head-last
+    (I21); Port change 2 (round-14 `finish` reads the members, notes the turn, then applies them; a refused turn
+    truncates the note with its evidence); `step` skips reports of an operation no fixture declares a write (reads).
+  - Lifecycle review (`references/proposals/lifecycle-review-2026-11-11.md`): **H1 accepted, fixed:** a `release`
+    member anchors only on an operation whose reference sets `releasesOnLeave` (WriteLanes R16; none does), else the
+    turn anchors nothing; probe kept as `lie.release-member-claimed` (I12). **H2 accepted, fixed (settles F3):**
+    `Await` carries `heard`; an unretained unknown's release is owed by the turn that hears its ending, due at its
+    close, or at the step's end when heard with no turn (`Unhandled`, `Denied`); not due while unheard (parked).
+    Four traces, the "heard by no turn" one seen failing on the old `due`. **Carried to the next run:** M1 (a kept
+    decline or never-sent ending; with CQ1 and CQ2 for the user), M2 (`EndDefinite` × `Gone{evidence}`), M3 (mutants
+    for the guard code and `step`), M4 (`declineAllowed`), the Lows.
+  - F3 decided (lead): as H2's fix above. The "by the step's end with no turn" half is a reading of R4's "once its
+    own ending's turn ends"; a bare or ignored unknown (never delivered) is a stated limit, no fixture has one.
+  - Cases: `PAY-21` (two shoppers; one IntentRead cancel releases only its own hold, T7 M1) and `PAY-22` (void Lost
+    four times: three retries by `retryable({ times: 3 })`, then cancel and one release, T7 M2) in
+    `write-lanes/lane-anchors.scenarios.ts`. The design's PAY-17 and PAY-18 ids belong to ported cases; its PAY-19 is
+    `PAY-09/ack-stored-confirmation-lost`, which already restores a never-sent head. Expectation drafter (Haiku, Spec
+    only): agreed on every value of both; its ambiguity (a) (lane identity per actor) follows R6 and round-14's
+    `laneKey`; (d) the last ack has nothing to acknowledge (the case has no ack after it).
+  - Mutants: `lie.release-other-lane` (PAY-21), `lie.void-retry-releases` (PAY-22), `lie.release-member-claimed`
+    (PAY-15/retry-budget), all I12; `lane.reject-queues` (PAY-02, I8); `mutant.boot-replays-never-sent` (PAY-09
+    ack-stored-confirmation-lost, I1); `mutant.members-reversed` (PAY-03, I10). Each seen caught for its reason. The
+    design's `lane.guarded-cancel-keeps` is `lane.cancel-held-keeps` with PAY-03 added (now caught there, T7 M2).
+    WriteLanes I10 leaves T7's not-yet row.
+  - Verdicts against the sweep before step 4 (Conformance R11): no case verdict changed. `p1h.cancel-all-idle-declines`
+    now expects WriteLanes I21, not I20 (v2's intended change, M4: a decline after an Idle cancelAll). Reach changes:
+    `lane.cancel-held-keeps` also caught by I12 in PAY-03, PAY-08/reloadDuringCharge, PAY-14 and both PAY-20 (a
+    guarded cancel's row owes `Released`, R14, I12); `lie.held-released-unguarded` also in LANE-04, PAY-12 and PAY-15
+    cancel-on-wire (an O.x.cancel's `Cancelled` is retained, R4, R14, so a release there owes nothing);
+    `mutant.superseded-claimed` also lane-queue's I8 (R7: `Superseded` only where owed); `lane.fresh-mint-on-held`
+    and `lane.unknown-promotes` no longer also I9 (the refused move leaves one addressable head). The new cases widen
+    many mutants' red sets only.
+  - Reviewer (Haiku) of the diff, 12 findings: accepted and fixed: (1) cancelAll head-last was dropped (view restored;
+    no mutant yet, carried), (2) a parked unretained unknown refused at the step's end (fixed by H2); changed: (3) the
+    F3 cite now says reading; accepted as stated: (8) bounds at the step's end, (10) the I21 re-attribution logged;
+    rejected: (4) the old "driven turn later than the hold" re-send guard: a re-send now needs an anchored retry
+    member, which is stronger, and a retry in its own ending's turn is legal (R15Switch); (7) undeclared writes are
+    skipped: fixtures declare every write, reads are the rest, and `attempt-identity` still anchors every send;
+    noted: (9) I10 blind spots (two like members on a lane), (11) Port change 2 is order only, (12) boot-replays is
+    caught by its `Send`. Carried: (5) a turn whose reported members differ from its one row anchors nothing, so a
+    runtime that drops a cancel member from both its report and its act passes (v2 calls the mismatch no violation;
+    needs a call at step 9); (6) the "each Invariant in one lifecycle oracle" unit test lands with steps 5 and 6.
+  - Reviewer (Haiku) of the H1, H2 and head-last delta, 12 findings: accepted and fixed: (1) head-last judged a head
+    that ended before the cancelAll (now only a head not yet ended when the queued commit ended), (3) `Unhandled` and
+    `Denied` now close the open turn before hearing, (7) the H1 mutant pushed a release with no subject (fixed; seen
+    caught as I12 on its case). Rejected: (8) as (7) above. Carried to the next run: (2) an unheard `Await` keyed by
+    Attempt can be flipped by a later ending of the same Attempt across a reload (it should name its ending); (4) an
+    unheard `Await` whose ending closes unheard (reload, releasing lane, never-returning actor) is never due; (5) and
+    (6) `releasesOnLeave` is per operation, not per leave event, and has no positive trace (no fixture declares a
+    whenAbandoned cancel); (9) head-last is per step; (10) `Resend` drops an unheard `Await`; (11) no step-level
+    mutants (M3); (12) R4's wording against a release due by the hearing turn's close (for step 9's Spec read).
+  - Sweep: `lane.held-auto-resend` runs past the 120 s child bound on `PAY-22` (seen alone: no verdict on PAY-22,
+    caught on its own cases LANE-03 and PAY-15/press-pay-while-held). A Held void re-sent at once loops under the
+    world's settle; the sweep's per-mutant child has no per-case bound (Conformance Q11, Q12 carried). Not fixed.
+  - Next: the lifecycle review's M1 to M4 and Lows, then step 5 (`delivered-once` onto `lives`, Port change 5, F2),
+    then 6 to 9.
 - **Queued after the convergence steps, before T8 (coordinator, 2026-11-11):** the T41/T13 review
   (`references/proposals/t41-t13-review-2026-11-11.md`): H1, M1 to M4 and the Lows in the files touched. Its M4
   (whether `ending-channels` and `attempt-identity` move onto the lifecycle) is decided at step 7.

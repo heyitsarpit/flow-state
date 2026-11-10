@@ -24,6 +24,7 @@ import { laneQueueMutants } from "./write-lanes/lane-queue.mutants.ts";
 import { laneQueue } from "./write-lanes/lane-queue.ts";
 import { paymentEndingsScenarios } from "./write-lanes/payment-endings.scenarios.ts";
 import { paymentFaultsScenarios } from "./write-lanes/payment-faults.scenarios.ts";
+import { laneAnchorScenarios } from "./write-lanes/lane-anchors.scenarios.ts";
 import { paymentHeldScenarios } from "./write-lanes/payment-held.scenarios.ts";
 import { paymentLateAnswersScenarios } from "./write-lanes/payment-late-answers.scenarios.ts";
 import { paymentLeaveAndReloadScenarios } from "./write-lanes/payment-leave-and-reload.scenarios.ts";
@@ -56,6 +57,7 @@ export const scenarios: ReadonlyArray<Scenario> = [
   ...paymentHeldScenarios,
   ...paymentRetryScenarios,
   ...paymentLateAnswersScenarios,
+  ...laneAnchorScenarios,
   ...runtimeDisposalScenarios,
   ...laneKeepingScenarios,
   ...lanePoliciesScenarios,

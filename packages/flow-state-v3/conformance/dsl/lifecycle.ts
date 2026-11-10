@@ -217,7 +217,10 @@ const discharge = (model: Model, attempt: string, guard: string, move: Move) => 
   if (guard === "released" && Move.$is("End")(move))
     return {
       ...model,
-      obligations: [...model.obligations, Obligation.Await({ attempt, report: "Released" })],
+      obligations: [
+        ...model.obligations,
+        Obligation.Await({ attempt, report: "Released", heard: false }),
+      ],
     };
 
   return model;
@@ -370,6 +373,12 @@ export const advance = (model: Model, move: Move, given: Rules = rules) => {
 
 /**
  * The obligations due at an instant: each unmet one is refused with its Invariant and dropped.
+ *
+ * **Details**
+ *
+ * - An `Await` is due only once the turn that owes it is open (`heard`), at that turn's close.
+ *   One heard with no turn after it (`Unhandled`, `Denied`) is due at the step's end (WriteLanes
+ *   R4, I12; review F3 and H2). One not yet heard (parked, or not yet delivered) is not due.
  */
 export const due = (model: Model, instant: "TurnCloses" | "StepEnds", given: Rules = rules) => {
   const deadlineOf = (o: Obligation) =>
@@ -380,7 +389,14 @@ export const due = (model: Model, instant: "TurnCloses" | "StepEnds", given: Rul
       AwaitLetGo: () => given.deadlines.AwaitLetGo,
     });
 
-  const late = model.obligations.filter((o) => deadlineOf(o).by === instant);
+  const owedNow = (o: Obligation) => !Obligation.$is("Await")(o) || o.heard;
+
+  const late = model.obligations.filter(
+    (o) =>
+      owedNow(o) &&
+      (deadlineOf(o).by === instant ||
+        (instant === "StepEnds" && deadlineOf(o).by === "TurnCloses")),
+  );
 
   return stepOf(
     without(model, (o) => late.includes(o)),

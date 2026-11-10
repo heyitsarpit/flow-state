@@ -7,6 +7,7 @@ const Unkeyed = Empty;
 const oneLaneWrite = <C extends Concurrency>(concurrency: C, cancels: CancelsOf<string>) =>
   writeOf(Unkeyed, {
     concurrency,
+    releasesOnLeave: false,
     success: "Ok",
     failure: { NotSent: "No" },
     unknown: { event: "Unsure" },

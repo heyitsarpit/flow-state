@@ -100,7 +100,9 @@ export type Cause = "plain" | "runtimeDisposal" | "disposeActor" | "forget";
  * **Details**
  *
  * - `Await`: a member's effect owes this Attempt's report (`Released`, `Superseded`, or its
- *   cancelAll `NotSent { Cancelled }`) by the turn's close.
+ *   cancelAll `NotSent { Cancelled }`) by the close of the turn that owes it. `heard` says that
+ *   turn is open: a member's is owed by its own turn; an unretained unknown's release is owed by
+ *   the turn that hears its ending, so it is not due until then (WriteLanes R4; review H2).
  * - `PendingCancel`: a cancel of a never-sent Attempt owes its ending, with no deadline
  *   (WriteLanes R14).
  * - `AwaitRestore`: an incarnation owes a Held head its `unknown { Restored }` by the step's end.
@@ -110,6 +112,7 @@ export type Obligation = Data.TaggedEnum<{
   Await: {
     attempt: string;
     report: "Released" | "Superseded" | "NotSentCancelled";
+    heard: boolean;
   };
   PendingCancel: { attempt: string; ends: "NotSent" | "UnknownCancelled" };
   AwaitRestore: { attempt: string; incarnation: number; cause: Cause };

@@ -99,8 +99,11 @@ const end = (attempt: string, channel: "success" | "failure" | "unknown", reason
 const pending = (attempt: string, ends: "NotSent" | "UnknownCancelled" = "NotSent") =>
   Obligation.PendingCancel({ attempt, ends });
 
-const awaiting = (attempt: string, report: "Released" | "Superseded" | "NotSentCancelled") =>
-  Obligation.Await({ attempt, report });
+const awaiting = (
+  attempt: string,
+  report: "Released" | "Superseded" | "NotSentCancelled",
+  heard = true,
+) => Obligation.Await({ attempt, report, heard });
 
 type Case = {
   readonly name: string;

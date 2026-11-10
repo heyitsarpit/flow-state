@@ -20,7 +20,10 @@ const CANCEL_ALL =
  * (R8), `lane.cancel-held-keeps` (R14), `lane.cancel-wire-as-never-sent` (R14, I20) and
  * `lane.held-auto-resend`. The rest are written for this suite: `lie.held-released-unguarded`,
  * `lie.release-on-guarded-read` and `mutant.release-drops-held` (R8, I12),
- * `mutant.boot-resends-held` (I12) and `mutant.double-invoke` (I1).
+ * `mutant.boot-resends-held` (I12) and `mutant.double-invoke` (I1); for the convergence design's
+ * anchoring, `lie.release-other-lane` and `lie.void-retry-releases` (I12), `lane.reject-queues`
+ * (I8), `mutant.boot-replays-never-sent` (I1), `mutant.members-reversed` (I10, order) and
+ * `lie.release-member-claimed` (I12, review H1).
  */
 export const laneQueueMutants: ReadonlyArray<Mutant> = [
   {
@@ -77,7 +80,7 @@ export const laneQueueMutants: ReadonlyArray<Mutant> = [
     says: "a cancel on a Held head keeps the hold",
     expects: "WriteLanes I12",
     runtime: "prototype",
-    cases: ["LANE-03"],
+    cases: ["LANE-03", "PAY-03"],
     edits: lane("  giveUp(tx, l) {\n    release(tx, l!);\n  },", "  giveUp() {},"),
   },
   {
@@ -143,7 +146,7 @@ export const laneQueueMutants: ReadonlyArray<Mutant> = [
   {
     name: "p1h.cancel-all-idle-declines",
     says: "cancelAll on an Idle lane declines NotSent Cancelled instead of doing nothing",
-    expects: "WriteLanes I20",
+    expects: "WriteLanes I21",
     runtime: "prototype",
     cases: ["LANE-05"],
     edits: lane(
@@ -240,6 +243,142 @@ export const laneQueueMutants: ReadonlyArray<Mutant> = [
         find: "  tx.touchedActors.add(w.a.key);",
         replace:
           '  tx.touchedActors.add(w.a.key);\n  if (ev.tag === "IntentRead") for (const l of Object.values(tx.w.lanes)) if (l.op === "pay" && l.head?.phase.t === "held") release(tx, l);',
+      },
+    ],
+  },
+  {
+    name: "lie.release-other-lane",
+    says: "a turn of IntentRead releases every Held pay lane, other actors' included, not only its own",
+    expects: "WriteLanes I12",
+    runtime: "prototype",
+    cases: ["PAY-21"],
+    edits: [
+      {
+        file: "lane.ts",
+        find: "const release = (tx: Tx, l: Lane) => {",
+        replace: "export const release = (tx: Tx, l: Lane) => {",
+      },
+      {
+        file: "turn.ts",
+        find: "import { admitRow, cancelAll,",
+        replace: "import { release, admitRow, cancelAll,",
+      },
+      {
+        file: "turn.ts",
+        find: "  tx.touchedActors.add(w.a.key);",
+        replace:
+          '  tx.touchedActors.add(w.a.key);\n  if (ev.tag === "IntentRead") for (const l of Object.values(tx.w.lanes)) if (l.op === "pay" && l.actor !== w.a.key && l.head?.phase.t === "held") release(tx, l);',
+      },
+    ],
+  },
+  {
+    name: "lie.void-retry-releases",
+    says: "a VoidUnsure turn releases the Held void before its members run, so the retry alternative releases too",
+    expects: "WriteLanes I12",
+    runtime: "prototype",
+    cases: ["PAY-22"],
+    edits: [
+      {
+        file: "lane.ts",
+        find: "const release = (tx: Tx, l: Lane) => {",
+        replace: "export const release = (tx: Tx, l: Lane) => {",
+      },
+      {
+        file: "turn.ts",
+        find: "import { admitRow, cancelAll,",
+        replace: "import { release, admitRow, cancelAll,",
+      },
+      {
+        file: "turn.ts",
+        find: "  applyMembers(w, reads);",
+        replace:
+          '  if (ev.tag === "VoidUnsure") for (const l of Object.values(tx.w.lanes)) if (l.op === "void" && l.actor === w.a.key && l.head?.phase.t === "held") release(tx, l);\n  applyMembers(w, reads);',
+      },
+    ],
+  },
+  {
+    name: "lane.reject-queues",
+    says: "a commit on a busy reject lane queues behind the head instead of declining Rejected",
+    expects: "WriteLanes I8",
+    runtime: "prototype",
+    cases: ["PAY-02"],
+    edits: lane(
+      '  busy(tx, l, a) {\n    const policy = tx.machines[a.machine]!.ops[a.op]!.concurrency;\n    if (policy === "reject") return decline(tx, a, "Rejected");',
+      '  busy(tx, l, a) {\n    const policy = tx.machines[a.machine]!.ops[a.op]!.concurrency;\n    if (policy === "reject") return void queueBehind(tx, l!, a, "serialize");',
+    ),
+  },
+  {
+    name: "mutant.boot-replays-never-sent",
+    says: "a boot sends a head restored from disk that was never invoked",
+    expects: "WriteLanes I1",
+    runtime: "prototype",
+    cases: ["PAY-09/ack-stored-confirmation-lost"],
+    edits: [
+      {
+        file: "lane.ts",
+        find: "const argsOf = (l: Lane): CellArgs => ({",
+        replace: "export const argsOf = (l: Lane): CellArgs => ({",
+      },
+      {
+        file: "lane.ts",
+        find: "const ACTIONS: Readonly<",
+        replace: "export const ACTIONS: Readonly<",
+      },
+      {
+        file: "durable.ts",
+        find: 'import { afterAck, cell, ofIdentity, olderOf, sameFields, sameVersion, stampFields } from "./lane.ts";',
+        replace:
+          'import { ACTIONS, argsOf, afterAck, cell, ofIdentity, olderOf, sameFields, sameVersion, stampFields } from "./lane.ts";',
+      },
+      {
+        file: "durable.ts",
+        find: "      noteEnding(tx, { op: l.op, attempt: h.id }, ending);\n      const phase: Phase = h.held",
+        replace:
+          "      if (!h.held) ACTIONS.invoke(tx, { ...base, head: h } as never, argsOf({ ...base, head: h } as never));\n      noteEnding(tx, { op: l.op, attempt: h.id }, ending);\n      const phase: Phase = h.held",
+      },
+    ],
+  },
+  {
+    name: "mutant.members-reversed",
+    says: "a turn applies its lane members in reverse action order",
+    expects: "WriteLanes I10",
+    runtime: "prototype",
+    cases: ["PAY-03"],
+    edits: [
+      {
+        file: "turn.ts",
+        find: "  const tx = w.tx;\n  for (const r of reads) {",
+        replace: "  const tx = w.tx;\n  for (const r of [...reads].reverse()) {",
+      },
+    ],
+  },
+  {
+    name: "lie.release-member-claimed",
+    says: "a turn of IntentRead reports a release member of pay and releases the Held pay head, though Pay leaves nothing releasing",
+    expects: "WriteLanes I12",
+    runtime: "prototype",
+    cases: ["PAY-15/retry-budget"],
+    edits: [
+      {
+        file: "lane.ts",
+        find: "const release = (tx: Tx, l: Lane) => {",
+        replace: "export const release = (tx: Tx, l: Lane) => {",
+      },
+      {
+        file: "turn.ts",
+        find: "import { admitRow, cancelAll,",
+        replace: "import { release, admitRow, cancelAll,",
+      },
+      {
+        file: "turn.ts",
+        find: "  const reads = readMembers(w);",
+        replace:
+          '  const claimed = ev.tag === "IntentRead" ? Object.values(tx.w.lanes).filter((l) => l.op === "pay" && l.actor === w.a.key && l.head?.phase.t === "held") : [];\n  for (const l of claimed) w.releases.push({ op: l.op, subject: l.subject ?? [] });\n  const reads = readMembers(w);',
+      },
+      {
+        file: "turn.ts",
+        find: "  applyMembers(w, reads);",
+        replace: "  for (const l of claimed) release(tx, l);\n  applyMembers(w, reads);",
       },
     ],
   },

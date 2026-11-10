@@ -1,5 +1,5 @@
 import { Data, Equal, Option } from "effect";
-import { type Fixture, referenceFor } from "../fixtures/fixture.ts";
+import { type Fixture, referenceFor, rowsFor } from "../fixtures/fixture.ts";
 import { operationNamed, type Reference } from "../fixtures/reference.ts";
 import {
   disposalBoundMs,
@@ -28,6 +28,8 @@ import { type Answer, NoHeldRequest, type Request } from "../world/network.ts";
 import type { StorageAnswer } from "../world/storage.ts";
 import { makeWorld, type World } from "../world/world.ts";
 import { type Actor, actorView } from "./actor.ts";
+import { empty } from "./lifecycle-model.ts";
+import { step as lifeStep } from "./lifecycle-step.ts";
 
 /**
  * One event the suite sends to one actor, its payload encoded, addressed to the actor's root
@@ -89,8 +91,8 @@ const decodeReports = (reference: Reference, fresh: ReadonlyArray<Fact>) => {
  * **Details**
  *
  * - Every step records itself on the timeline, runs, settles the world, notes the requests it
- *   made, then runs every oracle; any violation throws `Violated`, naming every oracle that found
- *   one in that step.
+ *   made, folds the lifecycle once over the step's facts, then runs every oracle with that fold;
+ *   any violation throws `Violated`, naming every oracle that found one in that step.
  * - `eq` throws `Mismatch` unless the two values are equal by Effect's structural equality.
  * - `row` records the read on the timeline and runs every oracle on it, as a step does.
  * - A reload kills the page and boots the port again over the same world (the dead page's
@@ -196,6 +198,7 @@ const stepEngine = (
 ) => {
   const { network } = world.hosts;
   const reference = referenceFor(options.fixtures);
+  const known = { reference, rows: rowsFor(options.fixtures) };
 
   const judges = options.oracles.map((o) => ({
     name: o.name,
@@ -205,6 +208,7 @@ const stepEngine = (
   let stepped = 0;
   let noted = 0;
   let judged = 0;
+  let model = empty;
 
   const noteRequests = () => {
     const made = network.requests();
@@ -216,10 +220,18 @@ const stepEngine = (
   const judge = (what: string) => {
     decodeReports(reference, facts.slice(judged));
     const fresh = steps(facts.slice(judged));
+    const requests = network.requests();
     judged = facts.length;
 
+    const cuts = fresh.map((cut) => {
+      const life = lifeStep(model, known, cut, requests);
+      model = life.after;
+
+      return { cut, life };
+    });
+
     const found = judges.flatMap(({ name, next }) =>
-      fresh.flatMap((cut) => next(cut, network.requests())).map((v) => ({ name, v })),
+      cuts.flatMap(({ cut, life }) => next(cut, requests, life)).map((v) => ({ name, v })),
     );
 
     if (found.length > 0)

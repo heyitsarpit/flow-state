@@ -1,5 +1,6 @@
 import { Data, type Option } from "effect";
 import type { Reference } from "../fixtures/reference.ts";
+import type { LifeStep } from "./lifecycle-step.ts";
 import { type ActorRef, type Json, type Observation, sameActor, type Use } from "../port.ts";
 import type { Answer, Request } from "../world/network.ts";
 
@@ -148,8 +149,11 @@ export class Violated extends Data.TaggedError("Violated")<{
  * **Details**
  *
  * - `start` builds the state from the case's reference; `step` takes the state, one step's facts
- *   in order and the server's log so far, and returns the next state and every violation found in
- *   that step.
+ *   in order, the server's log so far and the step's lifecycle, and returns the next state and
+ *   every violation found in that step.
+ * - `lives` is the one lifecycle fold the Case computes before the oracles: the model before and
+ *   after the step and every move applied, with its refusals. A lifecycle oracle reports the
+ *   refusals whose Invariant is in its `guarantee`; an independent oracle ignores it.
  * - `guarantee` lists the Invariants it judges; each violation names one of them.
  *
  * **Gotchas**
@@ -167,6 +171,7 @@ export type Judge<S> = {
     state: S,
     step: ReadonlyArray<Fact>,
     requests: ReadonlyArray<Request>,
+    lives: LifeStep,
   ) => readonly [S, ReadonlyArray<Violation>];
 };
 
@@ -180,7 +185,11 @@ export type Oracle = {
   readonly open: (
     reference: Reference,
     graphs: ReadonlyArray<Graphed>,
-  ) => (step: ReadonlyArray<Fact>, requests: ReadonlyArray<Request>) => ReadonlyArray<Violation>;
+  ) => (
+    step: ReadonlyArray<Fact>,
+    requests: ReadonlyArray<Request>,
+    lives: LifeStep,
+  ) => ReadonlyArray<Violation>;
 };
 
 /**
@@ -193,8 +202,8 @@ export const oracle = <S>(judge: Judge<S>): Oracle => ({
   open: (reference, graphs) => {
     let state = judge.start(reference, graphs);
 
-    return (step, requests) => {
-      const [next, found] = judge.step(state, step, requests);
+    return (step, requests, lives) => {
+      const [next, found] = judge.step(state, step, requests, lives);
       state = next;
 
       return found;

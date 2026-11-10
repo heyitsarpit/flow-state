@@ -1,4 +1,5 @@
-import { Obligation } from "./lifecycle-model.ts";
+import { Option } from "effect";
+import { LifeMove, Obligation } from "./lifecycle-model.ts";
 import { member, turn } from "./lifecycle-members.traces.ts";
 import { at, build, type Trace } from "./lifecycle-trace.ts";
 import type { InvariantId } from "./oracle.ts";
@@ -21,6 +22,8 @@ const {
   released,
 } = build;
 
+const endingOfS = { operation: "pay", attempt: Option.some("s"), actor: build.shopper };
+
 const promotionTraces: ReadonlyArray<Trace> = [
   one({
     name: "promotion skips a waiting commit that owes a report",
@@ -41,13 +44,57 @@ const promotionTraces: ReadonlyArray<Trace> = [
     phases: { s: GC, q: U, w: Q },
   }),
   {
-    name: "an unretained unknown's release is due by the turn's close",
-    cites: "WriteLanes R4, I12: an unknown not retained is released, and the store hears Released",
+    name: "an unretained unknown's release is due by the close of the turn that hears it",
+    cites:
+      "WriteLanes R4, I12: an unknown not retained is released once its own ending's turn ends",
     start: headed(W),
-    steps: [unknown("s", "Interrupted", false), { due: "TurnCloses" as const }],
-    refusals: [[], [wl(12)]],
+    steps: [
+      unknown("s", "Interrupted", false),
+      LifeMove.Delivered({ ending: endingOfS }),
+      LifeMove.Heard({ ending: endingOfS }),
+      turn(),
+      { due: "TurnCloses" as const },
+    ],
+    refusals: [[], [], [], [], [wl(12)]],
     phases: { s: H, w: Q },
     owed: 0,
+    checks: [],
+  },
+  {
+    name: "an unretained unknown's release is not due at a turn that does not hear it",
+    cites:
+      "WriteLanes R4: released once its own ending's turn ends, not an earlier one's (review H2)",
+    start: headed(W),
+    steps: [unknown("s", "Interrupted", false), { due: "TurnCloses" as const }],
+    refusals: [[], []],
+    phases: { s: H, w: Q },
+    owed: 1,
+    checks: [],
+  },
+  {
+    name: "an unretained unknown heard by no turn owes its release by the step's end",
+    cites:
+      "WriteLanes R4, I12: heard with no turn (Unhandled, Denied), its release is due by the step's end (F3)",
+    start: headed(W),
+    steps: [
+      unknown("s", "Interrupted", false),
+      LifeMove.Delivered({ ending: endingOfS }),
+      LifeMove.Heard({ ending: endingOfS }),
+      { due: "StepEnds" as const },
+    ],
+    refusals: [[], [], [], [wl(12)]],
+    phases: { s: H, w: Q },
+    owed: 0,
+    checks: [],
+  },
+  {
+    name: "an unretained unknown not yet heard owes nothing at the step's end",
+    cites: "WriteLanes R4: a parked ending's release waits for its own turn (review H2)",
+    start: headed(W),
+    steps: [unknown("s", "Interrupted", false), { due: "StepEnds" as const }],
+    refusals: [[], []],
+    phases: { s: H, w: Q },
+    owed: 1,
     checks: [],
   },
   {

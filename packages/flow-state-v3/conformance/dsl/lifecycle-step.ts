@@ -64,6 +64,9 @@ type Walk = {
 const operationOf = (known: Known, actor: ActorRef, operation: string) =>
   Option.fromUndefinedOr(known.reference[actor.machine]?.[operation]);
 
+const isWrite = (known: Known, operation: string) =>
+  Object.values(known.reference).some((operations) => Object.hasOwn(operations, operation));
+
 const pushed = (walk: Walk, move: Input, given: Rules) => {
   const [model, refusals] = apply(walk.model, move, given);
 
@@ -197,9 +200,15 @@ const anchoredMembers = (walk: Walk, known: Known, turn: Turn, earlier: Readonly
         guardHolds(walk, row, turn.actor, lane, earlier),
     );
 
+  const leaving = turn.members
+    .filter((m) => m.kind === "release")
+    .every((m) =>
+      Option.exists(operationOf(known, turn.actor, m.operation), (o) => o.releasesOnLeave),
+    );
+
   const members = turn.members.map(laneMemberOf(known, turn.actor));
 
-  return matched && members.every(Option.isSome) ? members.flatMap(Option.toArray) : [];
+  return matched && leaving && members.every(Option.isSome) ? members.flatMap(Option.toArray) : [];
 };
 
 const recordOf = (model: Model, actor: ActorRef) =>
@@ -218,6 +227,8 @@ const reported = (
   given: Rules,
 ) => {
   const push = (w: Walk, move: Input) => pushed(w, move, given);
+
+  if ("operation" in observation && !isWrite(known, observation.operation)) return walk;
 
   return Observation.$match(observation, {
     Turn: (turn) => {
@@ -287,8 +298,8 @@ const reported = (
         onNone: () => walk,
         onSome: (ending) => push(walk, LifeMove.Recorded({ ending, letGo: why === "letGo" })),
       }),
-    Unhandled: ({ event }) => heardOf(walk, known, Option.none(), event, given),
-    Denied: ({ event }) => heardOf(walk, known, Option.none(), event, given),
+    Unhandled: ({ event }) => heardOf(closedTurn(walk, given), known, Option.none(), event, given),
+    Denied: ({ event }) => heardOf(closedTurn(walk, given), known, Option.none(), event, given),
     Evidence: ({ kind, attempt }) =>
       (kind === "Released" || kind === "Superseded") && Option.isSome(attempt)
         ? push(walk, Move.Evidence({ attempt: attempt.value, kind }))
@@ -397,12 +408,15 @@ const ended = (walk: Walk, given: Rules) => {
  *   computed guard holds, and its members (releases aside) equal the reported ones in order. A
  *   turn no row matches opens with no members, so its effects are refused under their own
  *   Invariants (a `Minted` with no commit member is WriteLanes I1). A turn with no lane member
- *   anchors its releases.
+ *   anchors its releases, and a `release` member anchors only on an operation whose reference
+ *   says leaving releases it (WriteLanes R16; review H1); otherwise the turn anchors nothing, so
+ *   its `Released` is WriteLanes I12.
  * - A row's `retryable` guard reads the head of the lane its reported member names: it passes
  *   when the head is Held and was sent fewer than `times` + 1 times (the server's log before
  *   this step, and the step's accepted `Send`s so far).
  * - An Attempt's unknown `End` is `retained` by its operation's reference ({@link retains}).
- * - The open turn closes at the next `Delivered`, `Turn` or `Reloaded`, and at the step's end.
+ * - The open turn closes at the next `Delivered`, `Turn`, `Unhandled`, `Denied` or `Reloaded`,
+ *   and at the step's end.
  * - `Incarnated` counts only after a suite `Ensured` or `Drove` of that actor, or a `Reloaded`, in
  *   the same step, and once per actor per step; an `Ensured` of an unbound actor is `Adopt`.
  * - At the step's end: the turn closes, a reload's boot settles, every Attempt and ending sees
@@ -415,6 +429,8 @@ const ended = (walk: Walk, given: Rules) => {
  *   a decline from the oldest open decline of the operation (else its newest, so its cell refuses). One naming neither (an Attempt never
  *   minted) is not applied; a decline's `Ended` with no actor outside a turn likewise.
  * - A `Minted` with no actor is not applied: the Case stops it as `UnreadableReport`.
+ * - A report of an operation no fixture declares as a write (a read's send or ending) is not a
+ *   lifecycle move.
  */
 export const step = (
   model: Model,
