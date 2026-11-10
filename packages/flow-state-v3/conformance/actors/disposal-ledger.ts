@@ -1,5 +1,5 @@
 import { Option } from "effect";
-import { type LaneId, laneOf, sameLane, writeNamed } from "../dsl/domain.ts";
+import { type LaneId, laneOf, mayHaveApplied, sameLane, writeNamed } from "../dsl/domain.ts";
 import { Fact, holdUse } from "../dsl/oracle.ts";
 import { operationNamed, type Reference } from "../fixtures/reference.ts";
 import { type ActorRef, type Channel, Observation, sameActor, type Use } from "../port.ts";
@@ -83,19 +83,31 @@ const move = (ledger: Ledger, id: string, next: (was: Phase) => Phase) => {
   if (was !== undefined) ledger.attempts.set(id, { ...was, phase: next(was.phase) });
 };
 
-const answered = (ledger: Ledger, reference: Reference, request: Request, answer: Answer) => {
+type Heard = {
+  readonly reference: Reference;
+  readonly requests: ReadonlyArray<Request>;
+  readonly request: Request;
+  readonly answer: Answer;
+};
+
+const answered = (ledger: Ledger, { reference, requests, request, answer }: Heard) => {
   for (const id of Option.toArray(request.key))
     move(ledger, id, (was) => {
       const channel = Option.match(operationNamed(reference, request.operation), {
         onNone: () => "unknown" as const,
-        onSome: (o) => o.classify(answer, was === "Unsure"),
+        onSome: (o) => o.classify(answer, mayHaveApplied(requests, request, o)),
       });
 
       return ON_ANSWER[was][channel];
     });
 };
 
-const sent = (ledger: Ledger, reference: Reference, request: Request) => {
+const sent = (
+  ledger: Ledger,
+  reference: Reference,
+  request: Request,
+  requests: ReadonlyArray<Request>,
+) => {
   const id = Option.getOrUndefined(request.key);
   const attempt = id === undefined ? undefined : ledger.attempts.get(id);
 
@@ -108,7 +120,7 @@ const sent = (ledger: Ledger, reference: Reference, request: Request) => {
   ledger.heads.splice(at < 0 ? ledger.heads.length : at, at < 0 ? 0 : 1, { lane, id });
 
   if (RequestPhase.$is("Answered")(request.phase))
-    answered(ledger, reference, request, request.phase.answer);
+    answered(ledger, { reference, requests, request, answer: request.phase.answer });
 };
 
 const cancelled = (ledger: Ledger, reference: Reference, actor: ActorRef, event: string) => {
@@ -185,15 +197,20 @@ const nothing = () => {};
  * - A reload drops never-sent Attempts (they died with the page) and holds a call that was on
  *   the wire, since its page is gone.
  */
-export const learn = (ledger: Ledger, reference: Reference, fact: Fact) => {
+export const learn = (
+  ledger: Ledger,
+  reference: Reference,
+  fact: Fact,
+  requests: ReadonlyArray<Request>,
+) => {
   ledger.uses.splice(0, ledger.uses.length, ...holdUse(ledger.uses, fact));
 
   Fact.$match(fact, {
     Stepped: nothing,
-    Requested: ({ request }) => sent(ledger, reference, request),
+    Requested: ({ request }) => sent(ledger, reference, request, requests),
     Answered: ({ request, answer }) => {
       if (!RequestPhase.$is("Orphaned")(request.phase))
-        answered(ledger, reference, request, answer);
+        answered(ledger, { reference, requests, request, answer });
     },
     Reported: ({ observation }) => reportedOn(ledger, reference, observation),
     Reloaded: () => reloaded(ledger),

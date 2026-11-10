@@ -8,7 +8,7 @@ import {
 import { type Delivered, type Ended, Observation } from "../port.ts";
 import { Answer, type Request, RequestPhase } from "../world/network.ts";
 import { Fact, oracle, violation } from "../dsl/oracle.ts";
-import { attemptKey, writeNamed } from "../dsl/domain.ts";
+import { attemptKey, mayHaveApplied, writeNamed } from "../dsl/domain.ts";
 
 const endedOf = (fact: Fact) =>
   Fact.$is("Reported")(fact) && Observation.$is("Ended")(fact.observation)
@@ -149,29 +149,6 @@ const judgeAnswered = (id: string, asked: Asked, ended: Ended, operation: Operat
   ];
 };
 
-const heard = (request: Request, operation: OperationReference) =>
-  RequestPhase.$match(request.phase, {
-    Answered: ({ answer }) => operation.classify(answer, false) !== "unknown",
-    Open: () => false,
-    Hanging: () => false,
-    Aborted: () => false,
-    Orphaned: () => false,
-  });
-
-const earlierUnsure = (
-  request: Request,
-  requests: ReadonlyArray<Request>,
-  operation: OperationReference,
-) =>
-  requests.some(
-    (r) =>
-      r.seq < request.seq &&
-      r.operation === request.operation &&
-      Option.isSome(r.key) &&
-      Option.contains(request.key, r.key.value) &&
-      !heard(r, operation),
-  );
-
 const learnLatest = (fact: Fact, latest: Map<string, number>) => {
   if (Fact.$is("Requested")(fact) && Option.isSome(fact.request.key))
     latest.set(attemptKey(fact.request.operation, fact.request.key.value), fact.request.seq);
@@ -241,9 +218,9 @@ const endedAsAnswered = (
       const operation = writeNamed(reference, request.operation);
 
       if (Option.isNone(operation)) return;
-      const mayHaveApplied = earlierUnsure(request, requests, operation.value);
+      const may = mayHaveApplied(requests, request, operation.value);
       const newest = latest.get(id) === request.seq;
-      asked.set(id, { answer, mayHaveApplied, live: newest && live.has(id) });
+      asked.set(id, { answer, mayHaveApplied: may, live: newest && live.has(id) });
     };
 
     const end = (ended: Ended) => {

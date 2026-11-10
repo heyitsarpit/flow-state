@@ -19,7 +19,7 @@ import {
   openHeads,
   type Owed,
 } from "./disposal-ledger.ts";
-import { type LaneId, laneOf, sameLane } from "../dsl/domain.ts";
+import { type LaneId, laneOf, mayHaveApplied, sameLane } from "../dsl/domain.ts";
 
 type Ending = { readonly channel: Channel; readonly reason: string };
 
@@ -53,6 +53,7 @@ type Context = {
   readonly ledger: Ledger;
   readonly kept: Kept;
   readonly reference: Reference;
+  readonly requests: ReadonlyArray<Request>;
   readonly step: ReadonlyArray<Fact>;
 };
 
@@ -198,12 +199,12 @@ const endedEarly = (life: Disposing) =>
           `Actors I35: the Runtime's disposal ${at(life)} ended ${life.elapsed} ms in, while ${named(o)} was on the wire, unsettled and within the ${disposalBoundMs} ms bound; the disposal waits for it to settle or reach the bound`,
       );
 
-const settledIn = (life: Disposing, reference: Reference, request: Request, answer: Answer) => {
+const settledIn = (life: Disposing, context: Context, request: Request, answer: Answer) => {
   if (RequestPhase.$is("Orphaned")(request.phase)) return;
 
-  const channel = Option.match(operationNamed(reference, request.operation), {
+  const channel = Option.match(operationNamed(context.reference, request.operation), {
     onNone: () => "unknown" as const,
-    onSome: (o) => o.classify(answer, false),
+    onSome: (o) => o.classify(answer, mayHaveApplied(context.requests, request, o)),
   });
 
   if (life.elapsed < disposalBoundMs)
@@ -375,7 +376,7 @@ const whileDisposing = (context: Context, life: Disposing, fact: Fact) => {
     Stepped: () => none,
     Requested: ({ request }) => judged(life, [invoked(request)]),
     Answered: ({ request, answer }) => {
-      settledIn(life, context.reference, request, answer);
+      settledIn(life, context, request, answer);
 
       return none;
     },
@@ -396,7 +397,7 @@ const whileDisposing = (context: Context, life: Disposing, fact: Fact) => {
 const judgeStep = (context: Context, start: Life) => {
   const [life, found] = context.step.reduce<Judged>(
     ([now, so], fact) => {
-      learn(context.ledger, context.reference, fact);
+      learn(context.ledger, context.reference, fact, context.requests);
 
       const [next, more] = Life.$match(now, {
         Live: () => whileLive(context, now, fact),
@@ -481,8 +482,8 @@ export const disposal = oracle({
   name: "disposal",
   guarantee: ["Actors I29", "Actors I30", "Actors I31", "Actors I32", "Actors I35", "Actors I36"],
   start,
-  step: (state: State & { readonly reference: Reference }, step: ReadonlyArray<Fact>) => {
-    const [life, found] = judgeStep({ ...state, step }, state.life);
+  step: (state: State & { readonly reference: Reference }, step: ReadonlyArray<Fact>, requests) => {
+    const [life, found] = judgeStep({ ...state, step, requests }, state.life);
 
     return [{ ...state, life }, found.map(violation)] as const;
   },
