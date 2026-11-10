@@ -27,6 +27,10 @@ How to use it:
 - Treat the records as the source of truth over chat history: when they disagree, follow the record and say so.
 - Write down what you decide as you go: a decision or result goes in a note or comment on its record
   (`workflow edit @id --now --text "comment=…"`), with why and how to reverse it.
+- Keep every note, comment, log and status entry short, with the bottom line first: the decision or result in
+  the first sentence, then only what the reader can't find elsewhere, in the order goal, Why now, Read first,
+  Risk, Approach. A note is 1 to 3 lines. Say each fact once and link to where it lives; no commit lists, gate
+  logs or copied findings tables.
 - Change a record's scope only with the user's approval. Mark everything not yet approved as proposed.
 - Cite records rather than restating them: `@id`, `code:path#symbol`, `skill:name#heading`.
 - Every prose section is valid Markdown plus those links; lines are at most 120 characters. Run
