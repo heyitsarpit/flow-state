@@ -68,4 +68,27 @@ export const endingDeliveryScenarios: ReadonlyArray<Scenario> = [
       b.state("IDLE");
     },
   },
+  {
+    id: "DLV-04",
+    cites: ["WriteLanes R10", "WriteLanes I15", "Actors R15", "Actors I24"],
+    fixtures: [Pay],
+    run: (c) => {
+      const { a } = shoppers(c);
+      a.ensure();
+      onWire(c, a, "pi1");
+      c.answer("pay", Answer.Ok({ value: { status: "requires_capture", clientSecret: "" } }));
+      a.state("PLACING");
+      c.ack();
+      c.eq("place sent", c.requests("place").length, 1);
+      c.answer("place", Answer.Ok({ value: null }));
+      a.state("PLACING");
+      c.eq("no receipt", a.memory().receipt, null);
+      c.eq("refusals are issues", c.issues().includes("InvalidTurn"), true);
+      c.eq("place not sent again", c.requests("place").length, 1);
+      c.reload();
+      a.state("PLACING");
+      c.eq("still no receipt", a.memory().receipt, null);
+      c.eq("place not sent at the boot", c.requests("place").length, 1);
+    },
+  },
 ];

@@ -23,8 +23,8 @@ const OTHER_ACTOR =
 const when = (condition: string, body: string) => `${ADMIT}\n  if (a && ${condition}) { ${body} }`;
 
 /**
- * Wrong runtimes the delivered-once oracle must catch: each edits how the prototype admits an
- * ending.
+ * Wrong runtimes the delivered-once oracle must catch: each edits how the prototype admits,
+ * parks, records or reports an ending.
  *
  * **Details**
  *
@@ -37,6 +37,11 @@ const when = (condition: string, body: string) => `${ADMIT}\n  if (a && ${condit
  *   instead of delivered, under an operation no later commit replaces or interrupts.
  * - `mutant.delivered-during-disposal`: an ending that settles during the Runtime's disposal is
  *   delivered to its actor instead of parked.
+ * - `mutant.replaced-delivered`: an Attempt interrupted under `cancel` is reported delivered.
+ * - `mutant.success-then-failure`: a settled success is followed by a failure ending.
+ * - `1b.r8-refused-ending-not-redelivered`: a refused ending is never delivered once more.
+ * - `d6.disposed-ending-is-evidence`: an ending of a disposed persisted actor is recorded, not
+ *   parked.
  */
 export const deliveredOnceMutants: ReadonlyArray<Mutant> = [
   {
@@ -159,6 +164,20 @@ export const deliveredOnceMutants: ReadonlyArray<Mutant> = [
         find: "  toMail(tx, lane, lane.head!, e);\n};",
         replace:
           '  toMail(tx, lane, lane.head!, e);\n  if (e.ch === "success") noteEnding(tx, { op: lane.op, attempt: lane.head!.id }, { ch: "failure", tag: "CardDeclined", value: {} });\n};',
+      },
+    ],
+  },
+  {
+    name: "1b.r8-refused-ending-not-redelivered",
+    says: "an ending whose turn is refused at admission is never delivered once more",
+    expects: "WriteLanes I15",
+    runtime: "prototype",
+    cases: ["DLV-04"],
+    edits: [
+      {
+        file: "turn.ts",
+        find: 'if (item.k === "ending" && !again) {',
+        replace: 'if (item.k === "ending" && !again && false) {',
       },
     ],
   },
