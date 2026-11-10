@@ -445,4 +445,15 @@ note 2026-11-10T17:57:42Z
     builder is running. Proposed to the user, awaiting go: a convergence pass on the oracle layer (policy-convergence) 
     before T40 and T7's rewrite, because four reviews today repeated the same kinds of finding.
 note 2026-11-10T18:04:12Z
-    Review started (hourly wake): one Opus reviewing lead at high effort with four Haiku sidecars on the T6 completion checkpoints 9c43f407, 63332667, e9320217 and 392147bc; read-only; findings classed by root cause for the proposed convergence pass. Weekly usage 7 percent, reserve 50. No builder running (held, awaiting the user's go on convergence).
+    Review started (hourly wake): one Opus reviewing lead at high effort with four Haiku sidecars on the T6 completion 
+    checkpoints 9c43f407, 63332667, e9320217 and 392147bc; read-only; findings classed by root cause for the proposed 
+    convergence pass. Weekly usage 7 percent, reserve 50. No builder running (held, awaiting the user's go on 
+    convergence).
+note 2026-11-10T18:09:25Z
+    Decision (user, 2026-11-10): no convergence pass now. Fix the known bugs and keep going; convergence applies only 
+    when two or more review rounds keep surfacing many issues ("convergence only applies when two or more rounds 
+    continue to surface lots of issues"). So T40, then T7 with the S2 rewrite, go ahead as recorded. On the three 
+    flagged items, the orchestrator decides: mint order (1b.disposal-definite-w-first) stays unported, since no 
+    Invariant states it and adding one is a guarantee change nobody asked for; the false-Released claim is a known gap, 
+    fixed in T7's rewrite with its mutant registered; the builder's M2 leniency stays. Reverse: run the convergence 
+    pass.

@@ -809,7 +809,7 @@ tasks
             leniency (a Released claim settles a head only while the suite holds a use).
     T40
         title       Suite simplified: one oracle contract, shared domain facts, dead surface removed
-        status      open
+        status      in_progress
         priority    high
         blocked_by  [@T6]
         description
