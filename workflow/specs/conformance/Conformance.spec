@@ -322,7 +322,7 @@ open
         code:packages/flow-state-v3/conformance/write-lanes/ending-channels.ts#onNone), which can accept a value that
         contradicts its rule rather than only skipping a report the runtime does not make. Likewise, `lane-queue`
         accepts a Held head's re-send after any suite-driven turn of its actor
-        (code:packages/flow-state-v3/conformance/write-lanes/lane-queue.ts#permittedResend), so a re-send riding on an
+        (code:packages/flow-state-v3/conformance/write-lanes/lane-model.ts#permittedResend), so a re-send riding on an
         unrelated driven event passes on every runtime, production included (README, the `lane-queue` limit).
         outcome  A later Task narrows each such branch to a skip that a stated limit names, or a strict check; for
                  `lane-queue`, a per-operation map of retrying events in the reference.

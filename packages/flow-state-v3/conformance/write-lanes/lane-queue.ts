@@ -201,17 +201,10 @@ const unanchoredReleases = (model: Model, reports: ReadonlyArray<Observation>) =
                 known.policy.mayCancel.includes(r.event)),
           );
 
-          const unretained = reports.some(
-            (r) =>
-              Observation.$is("Recorded")(r) &&
-              r.why !== "letGo" &&
-              Option.contains(r.attempt, known.id),
-          );
-
-          return cancelTurn || unretained
+          return cancelTurn
             ? []
             : [
-                `WriteLanes I12: ${known.operation} ${known.id} was reported Released in a step with no turn of its actor on an event that cancels it and no unknown of it left unretained; a Held lane leaves Held only by a retry, a cancel or a release on leave`,
+                `WriteLanes I12: ${known.operation} ${known.id} was reported Released in a step with no turn of its actor on an event that cancels it; a Held lane leaves Held only by a retry, a cancel or a release on leave`,
               ];
         },
       },
@@ -399,8 +392,7 @@ type State = { readonly model: Model; readonly reference: Reference; readonly at
  *   the step that held it (R8, no automatic retry; see Gotchas);
  * - `Superseded` names only a queued commit or a never-sent head, and only under `latest` (R7);
  * - `Released` is reported only in a step with a turn of the Attempt's actor on an event the
- *   fixture's reference says cancels or may cancel its operation, or with an unknown of it recorded and not
- *   delivered (R4, R8: no quiet release);
+ *   fixture's reference says cancels or may cancel its operation (R8: no quiet release; R14);
  * - on a turn of an event the suite sent whose handler the reference says cancels the operation,
  *   by the head's history before that turn, over the reports from that turn to the end of its
  *   step: a Held head is released; a head on the wire ends `unknown Cancelled`, within the step
@@ -426,6 +418,9 @@ type State = { readonly model: Model; readonly reference: Reference; readonly at
  * - A turn's reports come before its `Turn` report, so a cancel's history is the model at the
  *   previous `Turn` of its step (or the step's start). A send never lands between a turn and its
  *   own reports: it waits for the store's acknowledgement, a later step.
+ * - A `Released` is anchored only to a turn of a cancelling event, whose handler may hold a
+ *   guard the timeline cannot see. A release on leave and a not-retained unknown (a bare or
+ *   ignored mapping, R4) need fixtures that declare them; until then they read as violations.
  * - A reload empties the lanes and drops the pending cancels: the page that would end them is
  *   gone. Cancels judged before it in the step are judged over the reports before it. An Attempt
  *   known from before rejoins its lane as the head when a report names it again and the lane has
