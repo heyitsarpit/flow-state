@@ -38,6 +38,8 @@ const uncertain = (s: Shopper) => Option.getOrUndefined(s.row("pay", KEY))?.unce
  *   the bound: the queued commit's NotSent { Disposed } is delivered before the head's unknown.
  * - `DISP-04` disposes the Runtime while Pay's reads are open: nothing is invoked after, read or
  *   write.
+ * - `DISP-06` disposes the actor with `pay` on the wire; the answer lands, parks on the lane for
+ *   the identity, and the next ensure hears it.
  * - `DISP-05` forgets the identity, reloads and ensures it again: forget drops no hold, so the
  *   lane, unbound across the boot, binds to the fresh actor, which hears its unknown.
  */
@@ -111,6 +113,22 @@ export const laneKeepingScenarios: ReadonlyArray<Scenario> = [
       s.ensure();
       c.eq("the adopted lane is still Held", uncertain(s), true);
       c.eq("a Held head is not sent again on adoption", c.requests("pay").length, 1);
+    },
+  },
+  {
+    id: "DISP-06",
+    cites: ["Actors R20", "WriteLanes R10", "WriteLanes I15"],
+    fixtures: [Pay],
+    run: (c) => {
+      const s = c.actor(Pay, "shopper-1");
+      s.ensure();
+      s.send("Start", { cartId: "c1", intentId: "pi1" });
+      s.send("PayRequested", { paymentMethodId: "visa" });
+      c.ack();
+      s.dispose();
+      c.answer("pay", Answer.Ok({ value: { status: "requires_capture", clientSecret: "" } }));
+      s.ensure();
+      c.eq("the parked success reached the adopting actor", s.memory().authorized, true);
     },
   },
 ];

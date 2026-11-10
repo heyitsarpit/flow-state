@@ -1,5 +1,6 @@
 import { Option } from "effect";
 import {
+  FLOW_DECLINES,
   mappedEvent,
   type OperationReference,
   operationNamed,
@@ -198,6 +199,24 @@ const unended = (asked: ReadonlyMap<string, Asked>) =>
       : [],
   );
 
+const answerOf = (fact: Fact) =>
+  Fact.$is("Answered")(fact)
+    ? Option.some({ request: fact.request, answer: fact.answer })
+    : Option.none();
+
+const atOnce = (fact: Fact) =>
+  Fact.$is("Requested")(fact) && RequestPhase.$is("Answered")(fact.request.phase)
+    ? Option.some({ request: fact.request, answer: fact.request.phase.answer })
+    : Option.none();
+
+const madeUp = (id: string, ended: Ended) =>
+  ended.channel === "unknown" ||
+  (ended.channel === "failure" && FLOW_DECLINES.includes(ended.reason))
+    ? []
+    : [
+        `WriteLanes I3: ${id} ended ${ended.channel} ${ended.reason} in a step where the server gave it no answer; a success or the commit's own failure comes only from the server's answer`,
+      ];
+
 const endedAsAnswered = (facts: Facts) => {
   const live = new Set<string>();
   const latest = new Map<string, number>();
@@ -205,17 +224,23 @@ const endedAsAnswered = (facts: Facts) => {
   const inStep = (step: ReadonlyArray<Fact>) => {
     const asked = new Map<string, Asked>();
 
-    const ask = (fact: Fact) => {
-      if (!Fact.$is("Answered")(fact) || Option.isNone(fact.request.key)) return;
+    const ask = (given: ReturnType<typeof answerOf>) => {
+      if (Option.isNone(given) || Option.isNone(given.value.request.key)) return;
+      const { request, answer } = given.value;
 
-      if (Answer.$is("Never")(fact.answer)) return;
-      const id = idOf(fact.request.operation, fact.request.key.value);
-      const operation = writeNamed(facts.reference, fact.request.operation);
+      if (Answer.$is("Never")(answer)) return;
+
+      const id = idOf(
+        request.operation,
+        Option.getOrElse(request.key, () => ""),
+      );
+
+      const operation = writeNamed(facts.reference, request.operation);
 
       if (Option.isNone(operation)) return;
-      const mayHaveApplied = earlierUnsure(fact.request, facts.requests, operation.value);
-      const newest = latest.get(id) === fact.request.seq;
-      asked.set(id, { answer: fact.answer, mayHaveApplied, live: newest && live.has(id) });
+      const mayHaveApplied = earlierUnsure(request, facts.requests, operation.value);
+      const newest = latest.get(id) === request.seq;
+      asked.set(id, { answer, mayHaveApplied, live: newest && live.has(id) });
     };
 
     const end = (ended: Ended) => {
@@ -225,13 +250,18 @@ const endedAsAnswered = (facts: Facts) => {
       const operation = writeNamed(facts.reference, ended.operation);
       asked.delete(id);
 
-      if (Option.isNone(answered) || Option.isNone(operation)) return [];
+      if (Option.isNone(operation)) return [];
 
-      return judgeAnswered(id, answered.value, ended, operation.value);
+      return Option.match(answered, {
+        onNone: () => madeUp(id, ended),
+        onSome: (a) => judgeAnswered(id, a, ended, operation.value),
+      });
     };
 
+    for (const fact of step) ask(atOnce(fact));
+
     const found = step.flatMap((fact) => {
-      ask(fact);
+      ask(answerOf(fact));
       const judged = Option.toArray(endedOf(fact)).flatMap(end);
       learnLive(fact, live);
       learnLatest(fact, latest);
@@ -251,8 +281,9 @@ const endedAsAnswered = (facts: Facts) => {
  *
  * **Details**
  *
- * Three checks:
- * - an answer the suite's server gives to a live send (the newest request of that id, with a send
+ * Four checks:
+ * - an answer the suite's server gives to a live send (an answer given at request time counts in
+ *   the step that sent it) (the newest request of that id, with a send
  *   reported and no ending since; an older send's late answer is fenced and ends nothing) ends
  *   that Attempt in the same step, under its id, on the channel the fixture's
  *   commit gives that answer (the fixture's reference); it is `unknown Defect` for a died call,
@@ -263,6 +294,9 @@ const endedAsAnswered = (facts: Facts) => {
  *   to. The mapping is the suite's; the channel and reason are the runtime's own report, so for an
  *   ending the server did not decide (a decline, a restore, a cancel) this is consistency only.
  * - no Attempt reports a definite failure after an unknown (report consistency).
+ * - an Attempt of a referenced write ends success, or with its commit's own failure, only in a step
+ *   where the server answered one of its sends: a definite ending the server did not give is made
+ *   up (WriteLanes R2). Only unknowns and Flow's own failures (WriteLanes R3) end without an answer.
  *
  * **Gotchas**
  *

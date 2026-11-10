@@ -76,7 +76,10 @@ export const classifyWith =
     });
   };
 
-const FLOW_DECLINES = [
+/**
+ * Flow's own reasons for a failure, `NotSent { why }` (WriteLanes R3's closed list).
+ */
+export const FLOW_DECLINES = [
   "Cancelled",
   "Restored",
   "Rejected",
