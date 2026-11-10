@@ -809,7 +809,7 @@ tasks
             leniency (a Released claim settles a head only while the suite holds a use).
     T40
         title       Suite simplified: one oracle contract, shared domain facts, dead surface removed
-        status      in_progress
+        status      done
         priority    high
         blocked_by  [@T6]
         description
@@ -881,10 +881,16 @@ tasks
             `actor.ts` (tsc needs it to narrow a generic-key table lookup). Kept for T7: S2, S7's `attempts`
             flag. Not done by the brief: S8's adapter decode-once. Detail and the sidecar log: conformance/STATUS.md,
             "T40 second pass".
+        comment     2026-11-10T18:42:55Z
+            Orchestrator verification (2026-11-11, HEAD ac9e0fa0, clean tree): suite 67/67; null 0/67; falsify 38/38 
+            caught, each by its expected Invariant; nub run check at zero. Acceptance met. Carried, not T40: the 
+            machine verdict form (violations flattened to text, a step label rather than a number, only the first 
+            failing seed, a thrown defect counted as Fail) is Conformance Q2 and R9, for @task.V3.T14 (runner modes) or 
+            T15; delivered-once's I16 and I22 claims go to T7. T40 done.
 
     T7
         title       WriteLanes area complete
-        status      open
+        status      in_progress
         priority    high
         blocked_by  [@T5, @T40]
         description
