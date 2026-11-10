@@ -1,48 +1,19 @@
-import { Option } from "effect";
-import type { Actor } from "../dsl/actor.ts";
-import { type Case, type Scenario, variants } from "../dsl/case.ts";
+import { type Scenario, variants } from "../dsl/case.ts";
 import { Pay } from "../fixtures/pay.ts";
 import { Answer, RequestPhase } from "../world/network.ts";
-
-const KEY = { intentId: "pi1" };
-const CART = { cartId: "c1", intentId: "pi1" };
-const CAPTURABLE = Answer.Ok({ value: { status: "requires_capture", clientSecret: "" } });
-
-type Shopper = Actor<typeof Pay>;
-
-const shopper = (c: Case) => c.actor(Pay, "shopper-1");
-
-const pay = (s: Shopper) => s.send("PayRequested", { paymentMethodId: "visa" });
-
-const onWire = (c: Case) => {
-  const s = shopper(c);
-  s.ensure();
-  s.send("Start", CART);
-  pay(s);
-  c.ack();
-};
-
-const row = (s: Shopper) => Option.getOrUndefined(s.row("pay", KEY));
-
-const lastReason = (c: Case, operation: string) => c.endings(operation).at(-1)?.reason;
-
-const sent = (c: Case, operation: string) => c.requests(operation).length;
-
-const toResend = (c: Case) => {
-  const s = shopper(c);
-  onWire(c);
-  c.answer("pay", Answer.Lost());
-  s.state("UNSURE");
-  c.eq("charges", c.landed("pay"), 0);
-  c.advance(3000);
-  c.answer("order", Answer.Ok({ value: null }));
-  c.answer("intent", Answer.Ok({ value: { status: "requires_payment_method" } }));
-  s.state("PAYING");
-  c.eq("not sent before capture", sent(c, "pay"), 1);
-  c.ack();
-  c.eq("re-sent after capture", sent(c, "pay"), 2);
-  c.eq("same id", c.keys("pay").length, 1);
-};
+import {
+  CAPTURABLE,
+  CART,
+  lastReason,
+  onWire,
+  pay,
+  PAY_TIMEOUT_MS,
+  REREAD_MS,
+  row,
+  sent,
+  shopper,
+  toResend,
+} from "../fixtures/pay-steps.ts";
 
 /**
  * The Pay case `PAY-16`'s variants, ported from the prototype suite.
@@ -60,7 +31,7 @@ export const paymentRetryScenarios: ReadonlyArray<Scenario> = [
         onWire(c);
         c.reload();
         s.state("UNSURE");
-        c.advance(3000);
+        c.advance(REREAD_MS);
         c.answer("order", Answer.Ok({ value: null }));
         c.answer("intent", Answer.Ok({ value: { status: "requires_payment_method" } }));
         s.state("PAYING");
@@ -87,7 +58,7 @@ export const paymentRetryScenarios: ReadonlyArray<Scenario> = [
         const s = shopper(c);
         onWire(c);
         c.answer("pay", Answer.Lost());
-        c.advance(3000);
+        c.advance(REREAD_MS);
         c.answer("order", Answer.Ok({ value: null }));
         c.answer("intent", Answer.Ok({ value: { status: "requires_payment_method" } }));
         s.state("PAYING");
@@ -96,7 +67,7 @@ export const paymentRetryScenarios: ReadonlyArray<Scenario> = [
         c.eq("reason", lastReason(c, "pay"), "StorageRefused");
         c.eq("held", row(s)?.uncertain, true);
         c.eq("no budget used", row(s)?.retryCount, 0);
-        c.advance(3000);
+        c.advance(REREAD_MS);
         c.answer("order", Answer.Ok({ value: null }));
         c.answer("intent", Answer.Ok({ value: { status: "requires_payment_method" } }));
         s.state("PAYING");
@@ -122,9 +93,9 @@ export const paymentRetryScenarios: ReadonlyArray<Scenario> = [
         s.send("Start", CART);
         pay(s);
         c.ack();
-        c.advance(60_000);
+        c.advance(PAY_TIMEOUT_MS);
         s.state("UNSURE");
-        c.advance(3000);
+        c.advance(REREAD_MS);
         c.answer("order", Answer.Ok({ value: null }));
         c.answer("intent", Answer.Ok({ value: { status: "requires_payment_method" } }));
         c.ack();
@@ -146,7 +117,7 @@ export const paymentRetryScenarios: ReadonlyArray<Scenario> = [
       "read-defect-issue": (c) => {
         onWire(c);
         c.answer("pay", Answer.Lost());
-        c.advance(3000);
+        c.advance(REREAD_MS);
         c.answer("intent", Answer.Die({ message: "boom" }));
         c.eq("issue", c.issues(), ["Defect"]);
         c.eq("failure", lastReason(c, "intent"), "Defect");
@@ -154,9 +125,9 @@ export const paymentRetryScenarios: ReadonlyArray<Scenario> = [
       "superseded-read": (c) => {
         onWire(c);
         c.answer("pay", Answer.Lost());
-        c.advance(3000);
+        c.advance(REREAD_MS);
         c.eq("first", sent(c, "intent"), 1);
-        c.advance(3000);
+        c.advance(REREAD_MS);
         c.eq("second", sent(c, "intent"), 2);
         c.eq(
           "older was interrupted",

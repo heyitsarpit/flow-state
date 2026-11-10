@@ -1,37 +1,18 @@
-import { Option } from "effect";
-import type { Actor } from "../dsl/actor.ts";
-import { type Case, type Scenario, variants } from "../dsl/case.ts";
+import { type Scenario, variants } from "../dsl/case.ts";
 import { disposalBoundMs } from "../dsl/oracle.ts";
 import { Cells, Pay } from "../fixtures/pay.ts";
 import { Answer } from "../world/network.ts";
-
-const KEY = { intentId: "pi1" };
-const CART = { cartId: "c1", intentId: "pi1" };
-const CAPTURABLE = Answer.Ok({ value: { status: "requires_capture", clientSecret: "" } });
-
-type Shopper = Actor<typeof Pay>;
-
-const shopper = (c: Case) => c.actor(Pay, "shopper-1");
-
-const cellsShopper = (c: Case) => c.actor(Cells, "shopper-1");
-
-const pay = (s: Shopper) => s.send("PayRequested", { paymentMethodId: "visa" });
-
-const start = (s: Shopper) => s.send("Start", CART);
-
-const onWire = (c: Case) => {
-  const s = shopper(c);
-  s.ensure();
-  start(s);
-  pay(s);
-  c.ack();
-};
-
-const row = (s: Shopper) => Option.getOrUndefined(s.row("pay", KEY));
-
-const lastReason = (c: Case, operation: string) => c.endings(operation).at(-1)?.reason;
-
-const sent = (c: Case, operation: string) => c.requests(operation).length;
+import {
+  CAPTURABLE,
+  cells,
+  lastReason,
+  onWire,
+  pay,
+  row,
+  sent,
+  shopper,
+  start,
+} from "../fixtures/pay-steps.ts";
 
 /**
  * The Pay cases that dispose the Runtime: `PAY-13`, `PAY-15/dispose-held` and the disposal
@@ -102,7 +83,7 @@ export const runtimeDisposalScenarios: ReadonlyArray<Scenario> = [
     cites: ["Actors R22", "Actors I29"],
     fixtures: [Cells],
     run: (c) => {
-      const s = cellsShopper(c);
+      const s = cells(c);
       s.ensure();
       start(s);
       pay(s);

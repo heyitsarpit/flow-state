@@ -1,34 +1,17 @@
-import { Option } from "effect";
-import type { Actor } from "../dsl/actor.ts";
-import { type Case, type Scenario, variants } from "../dsl/case.ts";
+import { type Scenario, variants } from "../dsl/case.ts";
 import { Cells, Pay } from "../fixtures/pay.ts";
 import { Answer } from "../world/network.ts";
-
-const KEY = { intentId: "pi1" };
-const CART = { cartId: "c1", intentId: "pi1" };
-const CAPTURABLE = Answer.Ok({ value: { status: "requires_capture", clientSecret: "" } });
-
-type Shopper = Actor<typeof Pay>;
-
-const shopper = (c: Case) => c.actor(Pay, "shopper-1");
-const cells = (c: Case) => c.actor(Cells, "shopper-1");
-
-const pay = (s: Shopper) => s.send("PayRequested", { paymentMethodId: "visa" });
-const start = (s: Shopper) => s.send("Start", CART);
-
-const row = (s: Shopper) => Option.getOrUndefined(s.row("pay", KEY));
-
-const lastReason = (c: Case, operation: string) => c.endings(operation).at(-1)?.reason;
-
-const sent = (c: Case, operation: string) => c.requests(operation).length;
-
-const onWire = (c: Case) => {
-  const s = cells(c);
-  s.ensure();
-  start(s);
-  pay(s);
-  c.ack();
-};
+import {
+  CAPTURABLE,
+  cells,
+  lastReason,
+  onWire,
+  pay,
+  row,
+  sent,
+  shopper,
+  start,
+} from "../fixtures/pay-steps.ts";
 
 /**
  * The Pay cases `PAY-10` and `PAY-12`, ported from the prototype suite with the same steps and
@@ -80,7 +63,7 @@ export const paymentFaultsScenarios: ReadonlyArray<Scenario> = [
     {
       defect: (c) => {
         const s = cells(c);
-        onWire(c);
+        onWire(c, "cells");
         c.answer("pay", Answer.Die({ message: "boom" }));
         s.state("UNSURE");
         c.eq("reason", lastReason(c, "pay"), "Defect");
@@ -98,7 +81,7 @@ export const paymentFaultsScenarios: ReadonlyArray<Scenario> = [
       },
       "cancel-on-wire": (c) => {
         const s = cells(c);
-        onWire(c);
+        onWire(c, "cells");
         s.send("AbortPay", {});
         s.state("UNSURE");
         c.eq("reason", lastReason(c, "pay"), "Cancelled");

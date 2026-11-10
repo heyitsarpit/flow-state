@@ -1,30 +1,16 @@
-import type { Actor } from "../dsl/actor.ts";
 import { type Case, type Scenario, variants } from "../dsl/case.ts";
 import { Pay } from "../fixtures/pay.ts";
 import { Answer } from "../world/network.ts";
-
-const CART = { cartId: "c1", intentId: "pi1" };
-const CAPTURABLE = Answer.Ok({ value: { status: "requires_capture", clientSecret: "" } });
-
-type Shopper = Actor<typeof Pay>;
-
-const shopper = (c: Case) => c.actor(Pay, "shopper-1");
-
-const pay = (s: Shopper) => s.send("PayRequested", { paymentMethodId: "visa" });
-
-const start = (s: Shopper) => s.send("Start", CART);
-
-const onWire = (c: Case) => {
-  const s = shopper(c);
-  s.ensure();
-  start(s);
-  pay(s);
-  c.ack();
-};
-
-const lastReason = (c: Case, operation: string) => c.endings(operation).at(-1)?.reason;
-
-const sent = (c: Case, operation: string) => c.requests(operation).length;
+import {
+  CAPTURABLE,
+  lastReason,
+  onWire,
+  pay,
+  REREAD_MS,
+  sent,
+  shopper,
+  start,
+} from "../fixtures/pay-steps.ts";
 
 const appliedTwice = (c: Case, operation: string) => {
   const keys = c.landedKeys(operation);
@@ -120,7 +106,7 @@ export const paymentLateAnswersScenarios: ReadonlyArray<Scenario> = [
         s.state("UNSURE");
         c.eq("an unknown", c.endings("pay").at(-1)?.channel, "unknown");
         c.eq("charges", c.landed("pay"), 1);
-        c.advance(3000);
+        c.advance(REREAD_MS);
         c.answer("order", Answer.Ok({ value: null }));
         c.answer("intent", serverIntent(c));
         s.state("PLACING");
@@ -134,7 +120,7 @@ export const paymentLateAnswersScenarios: ReadonlyArray<Scenario> = [
           "pay",
           Answer.LostButLanded({ value: { status: "requires_capture", clientSecret: "" } }),
         );
-        c.advance(3000);
+        c.advance(REREAD_MS);
         c.answer("order", Answer.Ok({ value: null }));
         c.answer("intent", serverIntent(c));
         s.state("PLACING");
