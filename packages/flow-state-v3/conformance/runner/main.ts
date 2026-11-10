@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { Console, Data, Effect, Option, Schema } from "effect";
+import { Console, Effect, Option, Schema } from "effect";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,30 +14,22 @@ const MAIN = fileURLToPath(import.meta.url);
 const NULL_RUNTIME = "null";
 const DEFAULT_RUNTIME = resolve(dirname(MAIN), "..", "..", "prototypes", "round-14");
 
-type RuntimeChoice = Data.TaggedEnum<{ Null: {}; Prototype: { dir: string } }>;
-
-const RuntimeChoice = Data.taggedEnum<RuntimeChoice>();
-
 const flag = (args: ReadonlyArray<string>, name: string) => {
   const at = args.indexOf(name);
 
   return at < 0 ? Option.none<string>() : Option.fromUndefinedOr(args[at + 1]);
 };
 
-const runtimeChoice = (args: ReadonlyArray<string>) => {
+const runtimeOf = (args: ReadonlyArray<string>) => {
   const given = Option.getOrElse(flag(args, "--runtime"), () => DEFAULT_RUNTIME);
 
-  return given === NULL_RUNTIME
-    ? RuntimeChoice.Null()
-    : RuntimeChoice.Prototype({ dir: resolve(given) });
+  return given === NULL_RUNTIME ? given : resolve(given);
 };
 
-const runtimeArg = RuntimeChoice.$match({ Null: () => NULL_RUNTIME, Prototype: ({ dir }) => dir });
-
-const runtimePort = RuntimeChoice.$match({
-  Null: () => Effect.succeed(nullPort),
-  Prototype: ({ dir }) => Effect.map(loadPrototype(dir), prototypePort),
-});
+const runtimePort = (runtime: string) =>
+  runtime === NULL_RUNTIME
+    ? Effect.succeed(nullPort)
+    : Effect.map(loadPrototype(runtime), prototypePort);
 
 const list = (value: Option.Option<string>) =>
   Option.match(value, {
@@ -74,20 +66,19 @@ const report = (verdicts: ReadonlyArray<CaseVerdict>, json: boolean) =>
     yield* Console.log(`VERDICT ${ok ? "pass" : "fail"} ${passed}/${verdicts.length}`);
   });
 
-const sliceVerdicts = (runtime: RuntimeChoice, ids: ReadonlyArray<string>) =>
-  suiteIn(MAIN, runtimeArg(runtime), ids, 240).pipe(
-    Effect.map((verdicts) => [
+const sliceVerdicts = (runtime: string, ids: ReadonlyArray<string>) =>
+  suiteIn(MAIN, runtime, ids, 240).pipe(
+    Effect.map((verdicts) => ({ verdicts, why: "its child stated no verdict for it" })),
+    Effect.catchTag("NoVerdicts", (e) => Effect.succeed({ verdicts: [], why: e.why })),
+    Effect.map(({ verdicts, why }) => [
       ...verdicts,
-      ...ids.flatMap((id) =>
-        verdicts.some((v) => v.id === id) ? [] : [failed(id, "its child stated no verdict for it")],
-      ),
+      ...ids.flatMap((id) => (verdicts.some((v) => v.id === id) ? [] : [failed(id, why)])),
     ]),
-    Effect.catchTag("NoVerdicts", (e) => Effect.succeed(ids.map((id) => failed(id, e.why)))),
   );
 
 const suite = (args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
-    const runtime = runtimeChoice(args);
+    const runtime = runtimeOf(args);
     const only = list(flag(args, "--only"));
 
     const chosen = scenarios.filter((s) =>

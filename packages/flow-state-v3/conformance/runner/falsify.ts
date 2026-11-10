@@ -65,22 +65,21 @@ const applyEdit = (runtime: string, edit: Mutant["edits"][number]) =>
     try: () => {
       const path = join(runtime, edit.file);
       const text = readFileSync(path, "utf8");
+      const n = occurrences(text, edit.find);
 
-      return { path, text, n: occurrences(text, edit.find) };
+      if (n === 1)
+        writeFileSync(
+          path,
+          text.replace(edit.find, () => edit.replace),
+        );
+
+      return n;
     },
     catch: (cause) => new Unapplied({ why: `${edit.file}: ${String(cause)}` }),
   }).pipe(
-    Effect.flatMap(({ path, text, n }) =>
-      n === 1
-        ? Effect.try({
-            try: () =>
-              writeFileSync(
-                path,
-                text.replace(edit.find, () => edit.replace),
-              ),
-            catch: (cause) => new Unapplied({ why: `${edit.file}: ${String(cause)}` }),
-          })
-        : Effect.fail(new Unapplied({ why: `${edit.file}: the edit's text occurs ${n} times` })),
+    Effect.filterOrFail(
+      (n) => n === 1,
+      (n) => new Unapplied({ why: `${edit.file}: the edit's text occurs ${n} times` }),
     ),
   );
 
