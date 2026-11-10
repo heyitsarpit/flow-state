@@ -1,6 +1,7 @@
 import { Option } from "effect";
 import type { Actor } from "../dsl/actor.ts";
 import { type Case, type Scenario, variants } from "../dsl/case.ts";
+import { disposalBoundMs } from "../dsl/oracle.ts";
 import { Cells, Pay } from "../fixtures/pay.ts";
 import { Answer } from "../world/network.ts";
 
@@ -63,7 +64,7 @@ export const runtimeDisposalScenarios: ReadonlyArray<Scenario> = [
         c.ack();
         c.disposeRuntime();
         c.eq("not yet", c.runtimeDisposals(), 0);
-        c.advance(5000);
+        c.advance(disposalBoundMs);
         c.eq("disposed", c.runtimeDisposals(), 1);
         c.reload();
         s.state("UNSURE");
@@ -142,7 +143,7 @@ export const runtimeDisposalScenarios: ReadonlyArray<Scenario> = [
         const s = shopper(c);
         onWire(c);
         c.disposeRuntime();
-        c.advance(4_999);
+        c.advance(disposalBoundMs - 1);
         c.eq("within the bound", c.runtimeDisposals(), 0);
         c.advance(1);
         c.eq("the bound ends it", c.runtimeDisposals(), 1);

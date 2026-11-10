@@ -142,3 +142,10 @@ Found while writing the `lane-cells` oracle and its lies (packages/flow-state-v3
   apart (to-spec: no bundled Invariants): I35 the bound itself, I36 the definite ending's head.
   An unknown keeping its head Held is already I29 (every non-Idle lane survives). Reverse: drop
   both and return the three wrong runtimes to case expectations.
+
+## Conformance Q5: mutants name their Invariant (2026-11-10)
+
+- **Conformance.spec Q5 narrowed.** Each mutant now carries `expects`, the Invariant it breaks, and
+  falsify counts a kill only by its oracle's violation that names that Invariant (per (oracle,
+  Invariant) pair, R6). The orchestrator's design call on the T6 review (L2). Still open: case-only
+  Invariants' mutants and judging every failing run. Reverse: drop `expects`.

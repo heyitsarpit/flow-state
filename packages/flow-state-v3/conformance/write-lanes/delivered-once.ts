@@ -334,6 +334,11 @@ const onFact = (
 
       return none;
     },
+    Forgot: ({ actor }) => {
+      ledger.disposed.push(actor);
+
+      return none;
+    },
     Ensured: ({ actor }) => {
       ensured(ledger, actor);
 

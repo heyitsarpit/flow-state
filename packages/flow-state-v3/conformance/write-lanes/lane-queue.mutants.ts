@@ -24,6 +24,7 @@ export const laneQueueMutants: ReadonlyArray<Mutant> = [
   {
     name: "lie.serialize-as-latest",
     says: "a serialize commit supersedes the queued ones, as latest does",
+    expects: "WriteLanes I8",
     runtime: "prototype",
     cases: ["LANE-01"],
     edits: lane(
@@ -34,6 +35,7 @@ export const laneQueueMutants: ReadonlyArray<Mutant> = [
   {
     name: "lane.queue-unbounded",
     says: "serialize queues past its bound of 64 instead of declining Overloaded",
+    expects: "WriteLanes I8",
     runtime: "prototype",
     cases: ["LANE-02"],
     edits: lane(
@@ -44,6 +46,7 @@ export const laneQueueMutants: ReadonlyArray<Mutant> = [
   {
     name: "lane.latest-as-serialize",
     says: "latest keeps every queued commit, as serialize does",
+    expects: "WriteLanes I8",
     runtime: "prototype",
     cases: ["LANE-06"],
     edits: lane('if (policy === "latest") {', 'if (policy === "never") {'),
@@ -51,6 +54,7 @@ export const laneQueueMutants: ReadonlyArray<Mutant> = [
   {
     name: "lane.fresh-mint-on-held",
     says: "a commit on a Held lane mints a fresh head, dropping the hold",
+    expects: "WriteLanes I11",
     runtime: "prototype",
     cases: ["LANE-03"],
     edits: lane('    Held: "busy",\n  },\n  retry:', '    Held: "mint",\n  },\n  retry:'),
@@ -58,6 +62,7 @@ export const laneQueueMutants: ReadonlyArray<Mutant> = [
   {
     name: "lane.unknown-promotes",
     says: "an unknown ending resolves the head and promotes the queue",
+    expects: "WriteLanes I11",
     runtime: "prototype",
     cases: ["LANE-03"],
     edits: lane(
@@ -68,6 +73,7 @@ export const laneQueueMutants: ReadonlyArray<Mutant> = [
   {
     name: "lane.cancel-held-keeps",
     says: "a cancel on a Held head keeps the hold",
+    expects: "WriteLanes I12",
     runtime: "prototype",
     cases: ["LANE-03"],
     edits: lane("  giveUp(tx, l) {\n    release(tx, l!);\n  },", "  giveUp() {},"),
@@ -75,6 +81,7 @@ export const laneQueueMutants: ReadonlyArray<Mutant> = [
   {
     name: "lane.cancel-wire-as-never-sent",
     says: "a cancel on the wire ends the head NotSent Cancelled at once, as if never sent",
+    expects: "WriteLanes I20",
     runtime: "prototype",
     cases: ["LANE-04"],
     edits: lane(
@@ -85,6 +92,7 @@ export const laneQueueMutants: ReadonlyArray<Mutant> = [
   {
     name: "lane.held-auto-resend",
     says: "a Held head is re-sent the moment its unknown ends, with no retry",
+    expects: "WriteLanes I12",
     runtime: "prototype",
     cases: ["LANE-03", "PAY-15/press-pay-while-held"],
     edits: lane(
@@ -95,6 +103,7 @@ export const laneQueueMutants: ReadonlyArray<Mutant> = [
   {
     name: "1b.cancel-all-queue-reversed",
     says: "cancelAll ends the queue in reverse mint order",
+    expects: "WriteLanes I21",
     runtime: "prototype",
     cases: ["LANE-04"],
     edits: lane("for (const x of queued) {", "for (const x of [...queued].reverse()) {"),
@@ -102,6 +111,7 @@ export const laneQueueMutants: ReadonlyArray<Mutant> = [
   {
     name: "1b.cancel-all-promotes-before-emptying",
     says: "cancelAll cancels the head before emptying the queue, so the first queued commit is promoted",
+    expects: "WriteLanes I21",
     runtime: "prototype",
     cases: ["LANE-03"],
     edits: lane(
@@ -112,6 +122,7 @@ export const laneQueueMutants: ReadonlyArray<Mutant> = [
   {
     name: "1b.cancel-all-wire-held-at-once",
     says: "cancelAll marks a head on the wire Held at once, before its fiber exits",
+    expects: "WriteLanes I20",
     runtime: "prototype",
     cases: ["LANE-04"],
     edits: lane(
@@ -122,6 +133,7 @@ export const laneQueueMutants: ReadonlyArray<Mutant> = [
   {
     name: "audit-1.cancel-all-leaves-the-head",
     says: "cancelAll ends the queue and leaves the head alone",
+    expects: "WriteLanes I20",
     runtime: "prototype",
     cases: ["LANE-04"],
     edits: lane(CANCEL_ALL, "  setLane(tx, cleared);\n  for (const x of queued) {"),
@@ -129,6 +141,7 @@ export const laneQueueMutants: ReadonlyArray<Mutant> = [
   {
     name: "p1h.cancel-all-idle-declines",
     says: "cancelAll on an Idle lane declines NotSent Cancelled instead of doing nothing",
+    expects: "WriteLanes I20",
     runtime: "prototype",
     cases: ["LANE-05"],
     edits: lane(

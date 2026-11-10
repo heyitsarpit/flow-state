@@ -783,6 +783,23 @@ tasks
             accepted: one line in tools/lint-bomb/STYLE.md section 1, no lint ban. Also: the refactor took lane-queue 
             past the 500-line warning, so its lane model moved to write-lanes/lane-model.ts. Reverse: revert the 
             cleanup commit.
+        comment     2026-11-10T17:42:40Z
+            T6 review findings (orchestrator-verified, M1, M2, L1 to L11), one commit. Gates from 
+            packages/flow-state-v3: suite 66/66, suite --runtime null 0/66, falsify --parallel 6 37/37 each caught by 
+            the Invariant it expects, nub run check at zero. M1 accepted: disposal judges I31 
+            (mutant.disposal-hold-first, DISP-03), disposeActor's half of I29 (id.dispose-drops-lanes, DISP-02) and I32 
+            (1b.forget-marks-held-lane, DISP-05; forget added to the Port, no T9 lifetime support needed). M1 changed: 
+            1b.disposal-definite-w-first not ported: its expectation is mint order, which no Invariant states (I31 
+            orders only the hold-leaving ending last); open for the user, a possible guarantee change. M2 accepted: the 
+            end-of-case reload attaches every actor that minted a write; DISP-01 and mutant.release-drops-held; a 
+            Released claim settles a head only while the suite holds a use of its actor. L1 changed: a kept lane needs 
+            a delivery plus unknown Restored or a disposal-reported ending; Delivered has no channel, so the parked 
+            ending's channel is not compared (stated). L2 accepted: Mutant.expects and falsify per (oracle, Invariant); 
+            Conformance Q5 narrowed with to-spec, logged in spec-log. L3, L4, L6 (mutant.disposal-rereads, DISP-04), 
+            L7, L8, L9, L10, L11 accepted (the judge first-violation note kept, not changed). L5: a false Released 
+            claim is caught by no oracle, only the cases counting Released (PAY-03, LANE-03, LANE-09); not registered. 
+            Haiku reviewer (test the spec): 10 findings, 4 accepted, 6 rejected, with why in conformance/STATUS.md. 
+            Reverse: revert the commit.
     T7
         title       WriteLanes area complete
         status      in_progress

@@ -15,6 +15,7 @@ export const attemptIdentityMutants: ReadonlyArray<Mutant> = [
   {
     name: "mutant.resend-new-id",
     says: "a re-send gives its commit a new id while reporting the Attempt's own",
+    expects: "WriteLanes I6",
     runtime: "prototype",
     cases: ["PAY-04"],
     edits: [
@@ -29,6 +30,7 @@ export const attemptIdentityMutants: ReadonlyArray<Mutant> = [
   {
     name: "mutant.resend-new-input",
     says: "a re-send carries another input under the same id",
+    expects: "WriteLanes I6",
     runtime: "prototype",
     cases: ["PAY-04"],
     edits: [
@@ -43,6 +45,7 @@ export const attemptIdentityMutants: ReadonlyArray<Mutant> = [
   {
     name: "mutant.sent-under-another-operation",
     says: "an invoke of a pay Attempt is reported under the place operation",
+    expects: "WriteLanes I6",
     runtime: "prototype",
     cases: ["PAY-01"],
     edits: [

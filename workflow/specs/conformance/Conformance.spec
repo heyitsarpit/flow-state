@@ -303,9 +303,12 @@ open
         allows only if it reports facts by meaning.
         outcome  Its shape is checked against R1 when it is built.
 
-    Q5  Falsify does not yet follow R6: it counts mutants per oracle, not per (judge, Invariant) pair; case-only 
-        Invariants have no mutants; and a kill is judged on the first failing run only.
-        outcome  Phase 3 accounts mutants per pair, adds the case-only mutants and judges every failing run.
+    Q5  Falsify does not yet follow R6 in full: case-only Invariants have no mutants, and a kill is judged on the first 
+        failing run only. Decision (agent, 2026-11-10): each mutant names the Invariant it breaks (`expects`), and 
+        falsify counts it caught only by a violation of its oracle that names that Invariant, so kills are per (oracle, 
+        Invariant) pair. Why: the orchestrator's design call on the T6 review (L2). Reverse: drop `expects` and judge 
+        by the oracle alone.
+        outcome  Phase 3 adds the case-only mutants and judges every failing run.
 
     Q6  The ported cases' expectations were written by the builder from the old suite's cases, while the Epic asks for 
         expectations written by someone other than the builder.

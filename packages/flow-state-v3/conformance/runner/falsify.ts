@@ -111,7 +111,8 @@ const judge = (
 ): MutantVerdict => {
   const red = verdicts.flatMap((v) => (v._tag === "Fail" ? [v] : []));
   const ids = red.map((v) => v.id);
-  const caughtIn = red.filter((v) => v.oracles.includes(oracle));
+  const named = `${oracle}: ${mutant.expects}:`;
+  const caughtIn = red.filter((v) => v.oracles.includes(oracle) && v.why.includes(named));
   const [caught] = caughtIn;
 
   if (caught !== undefined)
@@ -158,8 +159,8 @@ export const suiteIn = (
 
 /**
  * Applies one mutant to a fresh copy of the runtime, runs its cases there and judges the result:
- * caught only when `oracle`, the oracle of the guarantee that holds the mutant, is among those that
- * failed a case.
+ * caught only when `oracle`, the oracle of the guarantee that holds the mutant, failed a case with a
+ * violation that names the Invariant the mutant `expects`.
  *
  * **Details**
  *

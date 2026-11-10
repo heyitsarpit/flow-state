@@ -433,6 +433,7 @@ const judgeStep = (model: Model, facts: Facts, step: ReadonlyArray<Fact>, at: nu
         return [];
       },
       Disposed: () => [],
+      Forgot: () => [],
       Ensured: () => [],
       Released: () => [],
       DisposingRuntime: () => [],

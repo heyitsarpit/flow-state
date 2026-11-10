@@ -1,5 +1,6 @@
 import { disposalMutants } from "./actors/disposal.mutants.ts";
 import { disposal } from "./actors/disposal.ts";
+import { laneKeepingScenarios } from "./actors/lane-keeping.scenarios.ts";
 import { runtimeDisposalScenarios } from "./actors/runtime-disposal.scenarios.ts";
 import type { Scenario } from "./dsl/case.ts";
 import type { Guarantee } from "./dsl/oracle.ts";
@@ -47,6 +48,7 @@ export const scenarios: ReadonlyArray<Scenario> = [
   ...paymentRetryScenarios,
   ...paymentLateAnswersScenarios,
   ...runtimeDisposalScenarios,
+  ...laneKeepingScenarios,
   ...lanePoliciesScenarios,
   ...endingDeliveryScenarios,
 ];

@@ -239,6 +239,8 @@ export type Boot = {
  * - `ensureExisting` attaches a use to an identity that is live or restorable, never creating one;
  *   the suite calls it for each use it holds after a reload.
  * - `release` ends one use; the runtime's grace decides the identity's life.
+ * - `forget` removes the identity's record, disposing a live actor first; its held lanes stay
+ *   unbound until an ensure adopts them.
  * - `disposeRuntime` starts the Runtime's disposal: admission closes, nothing new is invoked, and
  *   calls on the wire may settle within the bound. It reports `RuntimeDisposed` when it ends.
  * - The operations are synchronous: the world is a synchronous simulator and the suite settles it
@@ -255,6 +257,7 @@ export type Runtime = {
   readonly release: (actor: ActorRef, use: Use) => void;
   readonly send: (actor: ActorRef, event: string, payload: Json) => void;
   readonly dispose: (actor: ActorRef) => void;
+  readonly forget: (actor: ActorRef) => void;
   readonly disposeRuntime: () => void;
   readonly snapshot: (actor: ActorRef) => Snapshot;
   readonly row: (actor: ActorRef, operation: string, key: Json) => Option.Option<Json>;

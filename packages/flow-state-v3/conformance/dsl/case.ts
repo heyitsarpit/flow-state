@@ -1,6 +1,6 @@
 import { Data, Equal, Option, type Schema } from "effect";
 import { type Fixture, referenceFor } from "../fixtures/fixture.ts";
-import { Fact, type Oracle, reported, usesHeld } from "./oracle.ts";
+import { disposalBoundMs, Fact, type Oracle, reported, usesHeld } from "./oracle.ts";
 import {
   type ActorRef,
   type Ended,
@@ -8,6 +8,7 @@ import {
   type Json,
   Observation,
   type Port,
+  sameActor,
   type Snapshot,
   type Use,
 } from "../port.ts";
@@ -82,6 +83,7 @@ export type Case = {
   readonly ensure: (actor: ActorRef, input: Option.Option<Json>) => void;
   readonly release: (actor: ActorRef, use: Use) => void;
   readonly dispose: (actor: ActorRef) => void;
+  readonly forget: (actor: ActorRef) => void;
   readonly disposeRuntime: () => void;
   readonly send: (drives: ReadonlyArray<Drive>) => void;
   readonly ack: () => void;
@@ -115,7 +117,7 @@ export type Case = {
  */
 export type Driver = Pick<
   Case,
-  "ensure" | "release" | "dispose" | "send" | "eq" | "snapshot" | "row"
+  "ensure" | "release" | "dispose" | "forget" | "send" | "eq" | "snapshot" | "row"
 >;
 
 /**
@@ -133,8 +135,6 @@ export type CaseOptions = {
   readonly oracles: ReadonlyArray<Oracle>;
   readonly seed: number;
 };
-
-const DISPOSAL_BOUND_MS = 5000;
 
 const openCase = (options: CaseOptions) => {
   const world = makeWorld(options.seed);
@@ -213,7 +213,7 @@ const openCase = (options: CaseOptions) => {
 
   const ensure = (actor: ActorRef, input: Option.Option<Json>) =>
     act(`ensure ${actor.id}`, () => {
-      timeline.record(Fact.Ensured({ actor }));
+      timeline.record(Fact.Ensured({ actor, use: "story" }));
       runtime.ensure(actor, input, "story");
     });
 
@@ -227,6 +227,12 @@ const openCase = (options: CaseOptions) => {
     act(`dispose ${actor.id}`, () => {
       timeline.record(Fact.Disposed({ actor }));
       runtime.dispose(actor);
+    });
+
+  const forget = (actor: ActorRef) =>
+    act(`forget ${actor.id}`, () => {
+      timeline.record(Fact.Forgot({ actor }));
+      runtime.forget(actor);
     });
 
   const eq = <A>(label: string, actual: A, expected: NoInfer<A>) => {
@@ -255,7 +261,7 @@ const openCase = (options: CaseOptions) => {
 
   const observed = () => reported(timeline.facts());
 
-  const driver: Driver = { ensure, release, dispose, send, eq, snapshot, row };
+  const driver: Driver = { ensure, release, dispose, forget, send, eq, snapshot, row };
 
   const thisBoot = () => {
     const facts = timeline.facts();
@@ -275,28 +281,42 @@ const openCase = (options: CaseOptions) => {
       world.advance(ms, pending);
     });
 
-  const reload = (what: string) =>
+  const reload = (what: string, attach: () => ReadonlyArray<ActorRef>) =>
     act(what, () => {
       world.kill();
       timeline.record(Fact.Reloaded());
       runtime = boot();
 
       for (const [actor, use] of uses()) runtime.ensureExisting(actor, use);
+
+      for (const actor of attach()) {
+        timeline.record(Fact.Ensured({ actor, use: "story" }));
+        runtime.ensureExisting(actor, "story");
+      }
     });
+
+  const writers = () => {
+    const held = uses().map(([actor]) => actor);
+
+    return reported(timeline.facts())
+      .flatMap((o) => (Observation.$is("Minted")(o) ? Option.toArray(o.actor) : []))
+      .filter((actor, at, all) => all.findIndex((a) => sameActor(a, actor)) === at)
+      .filter((actor) => !held.some((h) => sameActor(h, actor)));
+  };
 
   const end = () => {
     if (!thisBoot().some(Fact.$is("DisposingRuntime")))
       disposeRuntime("end of case: dispose the runtime");
     const ackAll = () => act("end of case: ack", () => void storage.answer("ack", Option.none()));
     ackAll();
-    advance(`end of case: advance ${DISPOSAL_BOUND_MS}`, DISPOSAL_BOUND_MS);
+    advance(`end of case: advance ${disposalBoundMs}`, disposalBoundMs);
     ackAll();
     eq(
       "end of case: the Runtime's disposal ended within its bound (Actors R22, R23)",
       reported(thisBoot()).filter(Observation.$is("RuntimeDisposed")).length,
       1,
     );
-    reload("end of case: reload");
+    reload("end of case: reload", writers);
   };
 
   const driven: Case = {
@@ -304,6 +324,7 @@ const openCase = (options: CaseOptions) => {
     ensure,
     release,
     dispose,
+    forget,
     disposeRuntime: () => disposeRuntime("dispose the runtime"),
     send,
     ack: () => answerStorage("ack", Option.none()),
@@ -335,7 +356,7 @@ const openCase = (options: CaseOptions) => {
         page.show();
       }),
     advance: (ms) => advance(`advance ${ms}`, ms),
-    reload: () => reload("reload"),
+    reload: () => reload("reload", () => []),
     eq,
     snapshot,
     row,
@@ -395,9 +416,9 @@ export const variants = (
  *
  * The end is steps like any other, so every oracle judges each: dispose the Runtime (unless this
  * boot's disposal already started), answer every held store write, advance the clock past the
- * disposal bound, answer the writes again, expect that the disposal ended (Actors R22, R23), and
- * reload, which re-attaches the uses the case holds so the `disposal` oracle can see what
- * survived.
+ * disposal bound, answer the writes again, expect that the disposal ended, and reload, which
+ * re-attaches the uses the case holds and attaches every other actor that minted a write, so the
+ * `disposal` oracle can see what survived.
  *
  * **Gotchas**
  *

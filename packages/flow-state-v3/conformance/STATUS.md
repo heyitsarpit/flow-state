@@ -473,3 +473,40 @@ Numbers: suite 61/61; null 0/61; falsify --parallel 6 32/32 caught; `nub run che
 | Sidecar                      | Task             | Result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | ---------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Reviewer (test the spec, R4) | the I35/I36 diff | 10 findings. Accepted: 1 (a restore after the reload's step was missed: an unknown ending of a dropped head is now judged at any later step), 2 (a call settled within the bound must end on the channel its commit gives the answer), 3 (definiteness from the suite's classification of the answer, not the runtime's channel), 5 (the boundary pinned in the Spec: "less than 5 s", "5 s after the start"), 9 (the doc names every runtime report used). Rejected: 4 (per-step clock: a stated limit; stamping reports with the clock is a timeline change for later), 6 (a Held head cannot end definitely during disposal: admission is closed, so no retry), 7 (a wire call's ending always names its Attempt; `ending-channels` judges a missing id), 8 (a re-send after boot is I30's and I1's, not I36's), 10 (`RuntimeDisposed` is the disposal's only public end signal; named in the doc). |
+
+### T6 review fixes (2026-11-10)
+
+The orchestrator's verified findings from the hourly review of `f8b92e7b` and `03098b28` (M1, M2,
+L1 to L11), done as one commit. Built: the `disposal` oracle split into `actors/disposal.ts` and
+its ledger `actors/disposal-ledger.ts`; it now judges Actors I29 (both halves), I30, I31, I32, I35
+and I36. `forget` is on the Port. Cases `DISP-01` to `DISP-05` (`actors/lane-keeping.scenarios.ts`).
+Every mutant names the Invariant it breaks (`expects`) and falsify counts a kill only by its
+oracle's violation naming it (Conformance Q5, narrowed).
+
+Numbers: suite 66/66; null 0/66; falsify --parallel 6 37/37 caught, each by its named Invariant;
+`nub run check` at zero.
+
+- M1 accepted: I31 judged at the boot after a Runtime disposal (`mutant.disposal-hold-first`,
+  DISP-03); disposeActor's half (`id.dispose-drops-lanes`, DISP-02); I32 with `forget` on the Port
+  (`1b.forget-marks-held-lane`, DISP-05). Changed: `1b.disposal-definite-w-first` is not ported:
+  its expectation is mint order (a definite head's ending before its queue's NotSent), which no
+  Invariant states (I31 orders only the hold-leaving ending); open for the user.
+- M2 accepted: the end-of-case reload attaches every actor that minted a write; DISP-01 releases an
+  actor with a Held head; `mutant.release-drops-held`. A `Released` claim settles a head only while
+  the suite holds a use of its actor (an actor with no use runs no handler).
+- L1 changed: a kept lane needs a delivery plus either unknown { Restored } at the boot or an
+  ending the disposal reported; `Delivered` carries no channel, so a parked ending's channel is
+  not compared (stated limit).
+- L2 accepted (`expects`, Conformance Q5). L3 accepted (`Ensured.use`). L4 accepted (closed
+  transition tables; `Settled` terminal). L6 accepted (`mutant.disposal-rereads`, DISP-04). L7, L8
+  accepted. L9 accepted (`disposalBoundMs` in `dsl/oracle.ts`). L10 accepted (`LaneId` compared
+  with `sameJson`). L11 accepted (`let life` gone with the cleanup; `stepName` has no sentinel;
+  arrays are not read as keyed inputs); `judge` keeping the first violation per oracle per step is
+  noted, not changed.
+- L5: the probe mutant (a head held by an unknown also reported `Released`; edit in `lane.ts`
+  `hold`) is caught by no oracle, only by the case expectations that count `Released` (PAY-03,
+  LANE-03, LANE-09). Not registered.
+
+| Sidecar                      | Task               | Result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ---------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reviewer (test the spec, R4) | the T6 review diff | 10 findings. Accepted: 1 (adoption requires a delivery only for a Held head, not one on the wire), 2 (`Superseded` settles only a never-sent Attempt), 5 (a dropped head's lane is judged until a new commit of that operation), 8 (adoption must not re-send: the server log is checked). Rejected: 3 (owners come from `Minted`, the only report naming who committed; stated), 4 (a boot's parked delivery carries no channel; stated limit), 6 and 7 (each `expects` names the Invariant its oracle catches it under: I29 for a lane missing at the next boot, I15 for a delivery during disposal, I20 for cancelAll's head, which R15 says acts as cancel), 9 (latent: no case disposes without re-ensuring; noted), 10 (first violation per oracle per step: noted, pre-existing). |

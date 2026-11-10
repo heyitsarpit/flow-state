@@ -16,6 +16,7 @@ import type { Answer, Request } from "../world/network.ts";
  * - `Reported`: the runtime reported this observation.
  * - `Reloaded`: the suite killed the page and booted a new one.
  * - `Disposed`: the suite disposed this actor.
+ * - `Forgot`: the suite forgot this identity (its record removed; a live actor disposed first).
  * - `Ensured`: the suite attached a use of this actor, creating it if needed.
  * - `Released`: the suite ended one use of this actor.
  * - `DisposingRuntime`: the suite started the Runtime's disposal; it holds until the next reload.
@@ -31,7 +32,8 @@ export type Fact = Data.TaggedEnum<{
   Reported: { observation: Observation };
   Reloaded: {};
   Disposed: { actor: ActorRef };
-  Ensured: { actor: ActorRef };
+  Forgot: { actor: ActorRef };
+  Ensured: { actor: ActorRef; use: Use };
   Released: { actor: ActorRef; use: Use };
   DisposingRuntime: {};
   Drove: { actor: ActorRef; event: string };
@@ -44,6 +46,11 @@ export type Fact = Data.TaggedEnum<{
  * Constructors and matchers for {@link Fact}.
  */
 export const Fact = Data.taggedEnum<Fact>();
+
+/**
+ * How long a Runtime's disposal waits for calls on the wire before it ends them, in ms.
+ */
+export const disposalBoundMs = 5000;
 
 /**
  * What an oracle reads after each step: the timeline, the server's log, and the references of the
@@ -93,10 +100,13 @@ export type Oracle = {
  * - `edits`: each `find` must occur exactly once in its file, or the mutant is reported as not
  *   applying, never as caught.
  * - `says`: what the wrong runtime does, in one sentence.
+ * - `expects`: the Spec Invariant it breaks, as its oracle names it (`WriteLanes I8`); falsify
+ *   counts it caught only by a violation of its oracle that names this Invariant.
  */
 export type Mutant = {
   readonly name: string;
   readonly says: string;
+  readonly expects: string;
   readonly runtime: "prototype" | "production";
   readonly cases: ReadonlyArray<string>;
   readonly edits: ReadonlyArray<{
@@ -141,8 +151,35 @@ export const steps = (timeline: ReadonlyArray<Fact>): ReadonlyArray<ReadonlyArra
 };
 
 /**
+ * The uses held after one more fact: an `Ensured` attaches its use, a `Released` ends one use of
+ * its kind, and `Disposed` or `Forgot` ends every use of its actor.
+ *
+ * **When to use**
+ *
+ * To follow the held uses fact by fact; {@link usesHeld} folds a whole list with it.
+ */
+// RETURN_TYPE: The public view is read-only; a reader must not change the held uses.
+export const holdUse = (
+  held: ReadonlyArray<readonly [ActorRef, Use]>,
+  fact: Fact,
+): ReadonlyArray<readonly [ActorRef, Use]> => {
+  if (Fact.$is("Ensured")(fact)) return [...held, [fact.actor, fact.use] as const];
+
+  if (Fact.$is("Released")(fact)) {
+    const at = held.findIndex(([a, u]) => sameActor(a, fact.actor) && u === fact.use);
+
+    return at < 0 ? held : held.toSpliced(at, 1);
+  }
+
+  if (Fact.$is("Disposed")(fact) || Fact.$is("Forgot")(fact))
+    return held.filter(([a]) => !sameActor(a, fact.actor));
+
+  return held;
+};
+
+/**
  * The uses the suite holds after these facts, in the order they were attached: each `Ensured`
- * attaches a story use, each `Released` ends one use of its kind, and `Disposed` ends every use
+ * attaches its use, each `Released` ends one use of its kind, and `Disposed` ends every use
  * of its actor.
  *
  * **When to use**
@@ -152,16 +189,4 @@ export const steps = (timeline: ReadonlyArray<Fact>): ReadonlyArray<ReadonlyArra
  */
 // RETURN_TYPE: The public view is read-only; a reader must not change the held uses.
 export const usesHeld = (facts: ReadonlyArray<Fact>): ReadonlyArray<readonly [ActorRef, Use]> =>
-  facts.reduce<ReadonlyArray<readonly [ActorRef, Use]>>((held, fact) => {
-    if (Fact.$is("Ensured")(fact)) return [...held, [fact.actor, "story"] as const];
-
-    if (Fact.$is("Released")(fact)) {
-      const at = held.findIndex(([a, u]) => sameActor(a, fact.actor) && u === fact.use);
-
-      return at < 0 ? held : held.toSpliced(at, 1);
-    }
-
-    if (Fact.$is("Disposed")(fact)) return held.filter(([a]) => !sameActor(a, fact.actor));
-
-    return held;
-  }, []);
+  facts.reduce(holdUse, []);

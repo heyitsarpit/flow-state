@@ -39,6 +39,7 @@ export type Actor<F extends Fixture> = {
   readonly send: <E extends EventName<F>>(event: E, payload: F["events"][E]["Type"]) => void;
   readonly release: (use: Use) => void;
   readonly dispose: () => void;
+  readonly forget: () => void;
   readonly state: (expected: F["states"][number] | "(absent)") => void;
   readonly memory: () => F["memory"]["Type"];
   readonly row: <O extends OperationName<F>>(
@@ -81,6 +82,7 @@ export const actorView = <F extends Fixture>(driver: Driver, fixture: F, id: str
     send: (name, payload) => driver.send([event(name, payload)]),
     release: (use) => driver.release(ref, use),
     dispose: () => driver.dispose(ref),
+    forget: () => driver.forget(ref),
     state: (expected) =>
       driver.eq(
         "state",

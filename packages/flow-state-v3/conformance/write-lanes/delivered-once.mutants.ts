@@ -42,6 +42,7 @@ export const deliveredOnceMutants: ReadonlyArray<Mutant> = [
   {
     name: "a2.deliv-fail-samemail",
     says: "an ending is said delivered while its actor has mail, and no turn runs it",
+    expects: "WriteLanes I15",
     runtime: "prototype",
     cases: ["DLV-01"],
     edits: [
@@ -51,6 +52,7 @@ export const deliveredOnceMutants: ReadonlyArray<Mutant> = [
   {
     name: "d154.moved-fail-released",
     says: "an ending is said released and recorded as evidence while its actor has mail",
+    expects: "WriteLanes I15",
     runtime: "prototype",
     cases: ["DLV-01"],
     edits: [
@@ -64,6 +66,7 @@ export const deliveredOnceMutants: ReadonlyArray<Mutant> = [
   {
     name: "lie.released",
     says: "an ending is released and recorded as evidence while another actor has mail",
+    expects: "WriteLanes I15",
     runtime: "prototype",
     cases: ["DLV-02"],
     edits: [
@@ -77,6 +80,7 @@ export const deliveredOnceMutants: ReadonlyArray<Mutant> = [
   {
     name: "e8.wa-failure",
     says: "a failure ending runs in another live actor of the same machine",
+    expects: "WriteLanes I15",
     runtime: "prototype",
     cases: ["DLV-03"],
     edits: [{ file: "turn.ts", find: ADMIT, replace: OTHER_ACTOR }],
@@ -84,6 +88,7 @@ export const deliveredOnceMutants: ReadonlyArray<Mutant> = [
   {
     name: "mutant.superseded-claimed",
     says: "a failure ending is reported Superseded and recorded as evidence instead of delivered",
+    expects: "WriteLanes I15",
     runtime: "prototype",
     cases: ["DLV-03"],
     edits: [
@@ -100,6 +105,7 @@ export const deliveredOnceMutants: ReadonlyArray<Mutant> = [
   {
     name: "mutant.delivered-during-disposal",
     says: "an ending that settles during the Runtime's disposal is delivered instead of parked",
+    expects: "WriteLanes I15",
     runtime: "prototype",
     cases: ["PAY-16/settled-during-disposal-parked"],
     edits: [

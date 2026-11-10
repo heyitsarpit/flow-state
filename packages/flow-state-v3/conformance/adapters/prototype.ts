@@ -34,6 +34,7 @@ type PrototypeInstance = {
   readonly detach: (actor: string, owner: string) => void;
   readonly send: (actor: string, event: { readonly tag: string; readonly payload: Json }) => void;
   readonly dispose: (actor: string) => void;
+  readonly forget: (actor: string) => void;
   readonly disposeRuntime: () => void;
   readonly state: (actor: string) => unknown;
   readonly memory: (actor: string) => unknown;
@@ -165,6 +166,7 @@ const runtimeOf = (instance: PrototypeInstance): Runtime => ({
   release: (actor, use) => instance.detach(actorKey(actor), use),
   send: (actor, event, payload) => instance.send(actorKey(actor), { tag: event, payload }),
   dispose: (actor) => instance.dispose(actorKey(actor)),
+  forget: (actor) => instance.forget(actorKey(actor)),
   disposeRuntime: instance.disposeRuntime,
   snapshot: (actor) => {
     const key = actorKey(actor);

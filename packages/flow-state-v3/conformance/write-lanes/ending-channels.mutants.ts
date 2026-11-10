@@ -13,6 +13,7 @@ export const endingChannelsMutants: ReadonlyArray<Mutant> = [
   {
     name: "mutant.ending-without-id",
     says: "a send's ending is reported with no Attempt id",
+    expects: "WriteLanes I3",
     runtime: "prototype",
     cases: ["PAY-01"],
     edits: [
@@ -26,6 +27,7 @@ export const endingChannelsMutants: ReadonlyArray<Mutant> = [
   {
     name: "k.failure-as-success",
     says: "a failure ending runs the operation's success event",
+    expects: "WriteLanes I3",
     runtime: "prototype",
     cases: ["PAY-02"],
     edits: [
@@ -40,6 +42,7 @@ export const endingChannelsMutants: ReadonlyArray<Mutant> = [
   {
     name: "mutant.still-unknown-dropped",
     says: "a definite failure after an unknown send is delivered as a failure, not unknown StillUnknown",
+    expects: "WriteLanes I3",
     runtime: "prototype",
     cases: ["PAY-05"],
     edits: [
