@@ -23,20 +23,17 @@ const failed = (failure: unknown) => {
 const runSeed = (port: Port, scenario: Scenario, oracles: ReadonlyArray<Oracle>, seed: number) =>
   Effect.try({
     try: () => scenario.run(openCase({ port, fixtures: scenario.fixtures, oracles, seed })),
-    catch: (failure) => failure,
+    catch: failed,
   }).pipe(
     Effect.match({
       onSuccess: () => ({ _tag: "Pass", id: scenario.id }) satisfies CaseVerdict,
-      onFailure: (failure) => {
-        const { oracles: caught, why } = failed(failure);
-
-        return {
+      onFailure: ({ oracles: caught, why }) =>
+        ({
           _tag: "Fail",
           id: scenario.id,
           oracles: caught,
           why: `seed ${seed}: ${why}`,
-        } satisfies CaseVerdict;
-      },
+        }) satisfies CaseVerdict,
     }),
   );
 

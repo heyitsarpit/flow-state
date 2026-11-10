@@ -10,7 +10,8 @@
   "scripts": {
     "build": "nub run build:library",
     "build:library": "nub run --filter flow-state build && nub run --filter flow-state check:packed-consumers",
-    "check": "vp check --no-error-on-unmatched-pattern packages/flow-state-v3",
+    "check": "vp check --no-error-on-unmatched-pattern packages/flow-state-v3 && nub run check:effect",
+    "check:effect": "effect-tsgo tsc -p packages/flow-state-v3/tsconfig.json",
     "check:fix": "vp check --fix --no-error-on-unmatched-pattern packages/flow-state-v3",
     "check:toolchain": "node ./scripts/check-toolchain.mjs",
     "docs:build": "nub run --filter @flow-state/docs build",
@@ -28,6 +29,7 @@
   },
   "devDependencies": {
     "@effect/language-service": "0.87.5",
+    "@effect/tsgo": "0.61.0",
     "@oxlint/plugins": "1.89.0",
     "@types/node": "26.6.5",
     "@vitest/coverage-v8": "5.0.5",
