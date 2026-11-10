@@ -335,13 +335,17 @@ const admittedWith = (model: Model, given: Rules) =>
     given,
   );
 
+const NO_POLICY = ["Unencodable", "NoPersistence", "OldVersion", "ModuleDisabled"];
+
 const declineAllowed = (model: Model, lane: LaneId, admit: Admit, reason: string) => {
   if (reason === "Rejected") return admit === "Decline";
 
   if (reason === "Overloaded")
     return admit === "Queue" && waitingOn(model, lane).length >= MAX_WAITING;
 
-  return true;
+  if (reason === "Disposed") return model.mode === "disposing";
+
+  return NO_POLICY.includes(reason);
 };
 
 const decline = (model: Model, operation: string, actor: ActorRef, reason: string) => ({
@@ -429,7 +433,10 @@ const opened = (
  *
  * - `Turn`: closes any open turn, then applies members until the first commit.
  * - `Minted`: the waiting commit's Attempt; then the members after it.
- * - `Declined`: the waiting commit's decline, or a refusal by the lane's Idle cancel.
+ * - `Declined`: the waiting commit's decline, or a refusal by the lane's Idle cancel. A decline
+ *   is allowed only for `Rejected` where the lane declines, `Overloaded` past 64 waiting,
+ *   `Disposed` while the Runtime disposes, or a reason no policy gives (`Unencodable`,
+ *   `NoPersistence`, `OldVersion`, `ModuleDisabled`); any other is WriteLanes I8.
  * - `TurnCloses`: a commit still waiting is refused, then the turn's obligations are due.
  * - A member with no lane (`Every` on an operation with none, or a commit whose key did not
  *   encode) acts on the operation's key-less lane, which is Idle, so its decline is judged.

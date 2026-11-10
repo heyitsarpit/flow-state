@@ -162,6 +162,36 @@ const orderTraces: ReadonlyArray<Trace> = [
     owed: 0,
     checks: [Check.Lives({ lives: [Life.Owed()] })],
   },
+  ...(["Cancelled", "Restored", "StorageRefused", "Disposed"] as const).map((reason) => ({
+    name: `a commit on an Idle lane declines ${reason}`,
+    cites: "WriteLanes R7, I8: a minting lane declines only for a reason no policy gives (M4)",
+    start: model([]),
+    steps: [turn(commit("serialize")), decline(reason)],
+    refusals: [[], [wl(8)]],
+    phases: {},
+    owed: 0,
+    checks: [Check.Lives({ lives: [] })],
+  })),
+  ...(["NoPersistence", "OldVersion"] as const).map((reason) => ({
+    name: `a commit on an Idle lane declines ${reason}`,
+    cites: "WriteLanes R11, R12: a reason no policy gives declines under every policy",
+    start: model([]),
+    steps: [turn(commit("serialize")), decline(reason)],
+    refusals: [[], []],
+    phases: {},
+    owed: 0,
+    checks: [Check.Lives({ lives: [Life.Owed()] })],
+  })),
+  {
+    name: "a commit declines Disposed while the Runtime disposes",
+    cites: "Actors R22: from the disposal's start nothing new is invoked",
+    start: model([], { mode: "disposing" }),
+    steps: [turn(commit("serialize")), decline("Disposed")],
+    refusals: [[], []],
+    phases: {},
+    owed: 0,
+    checks: [Check.Lives({ lives: [Life.Owed()] })],
+  },
 ];
 
 const full = model(
