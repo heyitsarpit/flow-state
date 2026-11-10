@@ -391,6 +391,18 @@ Suite 69/69, null 0/69, falsify sweep 47/47. Open: T41; I22; T7's own rows.
   each per lane); (6) a second ending, first answer wins, order only: noted. Its lint note (a shadowed `endingOf`)
   fixed.
 
+### Handover (2026-11-11, end of this lead's run)
+
+- Convergence on the WriteLanes oracles' phase state started (orchestrator): `lane-queue.ts`, `lane-model.ts`,
+  `delivered-once.ts`, `disposal*.ts` and `dsl/domain.ts` are frozen for builders; the
+  `t7-fixes-review-2026-11-11.md` review's M1 to M4 go to that pass. I22 and T7's own rows wait for it.
+- Started for I22 and kept (`0eb28949`): the Port's `send` takes the `part` an event is addressed to (a trait or
+  fragment instance, `E.t.Go`), and `Drive` carries it; actor views send to the root. T8's fragment cases need it.
+  Not built: typed part events on `Fixture` (the T8 lead's design), the `Lab/P1Rel` fixture.
+- That review's Lows in allowed files: L5 (the end-of-case "past the bound" wording) and L7 (`Replacement`
+  unexported) fixed; L7's `Transition` typed by the fixture's events and states is carried; the rest are in frozen
+  files and go to the convergence pass.
+
 ## T41 (2026-11-11): coverage gate
 
 Bottom line: `coverage` (and the first line of `falsify`) fails unless every Invariant of the ten core Specs is checked

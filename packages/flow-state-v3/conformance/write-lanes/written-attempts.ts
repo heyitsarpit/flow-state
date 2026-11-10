@@ -4,11 +4,7 @@ import { operationNamed, type OperationReference, type Reference } from "../fixt
 import { type ActorRef, type Channel, type Minted, sameActor } from "../port.ts";
 import type { Request } from "../world/network.ts";
 
-/**
- * Whether a later commit of an Attempt's lane replaced it: not at all, surely (same lane), or
- * maybe (a lane not known yet).
- */
-export type Replacement = "none" | "maybe" | "sure";
+type Replacement = "none" | "maybe" | "sure";
 
 /**
  * One minted Attempt as the delivered-once oracle tracks it: its committer, its operation's

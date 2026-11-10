@@ -536,6 +536,10 @@ tasks
             Evidence (builder, 2026-11-11): the T40/S2 review's M4, M5 and Lows landed (1ab7e889..a5df7376); suite 
             69/69, null 0/69, falsify 47/47, check at zero. Detail and sidecar logs: 
             code:packages/flow-state-v3/conformance/STATUS.md (T7 section).
+        comment     2026-11-10T20:25:58Z
+            Handover (builder, 2026-11-11): stopped at the convergence pass on the oracles' phase state; I22 and T7's 
+            own rows wait for it. Port send-to-part kept (0eb28949). Detail: 
+            code:packages/flow-state-v3/conformance/STATUS.md (T7 section, Handover).
     T8
         title       Turn area complete
         status      open

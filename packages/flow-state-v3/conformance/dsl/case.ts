@@ -412,8 +412,8 @@ export const variants = (
  * **Details**
  *
  * The end is steps like any other, so every oracle judges each: dispose the Runtime (unless this
- * boot's disposal already started), answer every held store write, advance the clock past the
- * disposal bound, answer the writes again, expect that the disposal ended, and reload, which
+ * boot's disposal already started), answer every held store write, advance the clock to the
+ * disposal bound (one step short of it, then the last 1 ms), answer the writes again, expect that the disposal ended, and reload, which
  * re-attaches the uses the case holds and attaches every other actor that minted a write, so the
  * `disposal` oracle can see what survived.
  *

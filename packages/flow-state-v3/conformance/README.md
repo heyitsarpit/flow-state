@@ -38,7 +38,7 @@ mode set a non-zero exit code on a failure.
 
 Every case ends with a judged Runtime disposal (`playCase` in `dsl/case.ts`), as steps every oracle
 judges: dispose the Runtime (unless this boot's disposal already started), answer every held store
-write, advance past the 5 s disposal bound, answer the writes again, expect the disposal ended
+write, advance to the 5 s disposal bound, answer the writes again, expect the disposal ended
 (Actors R22, R23), and reload, so the `disposal` oracle sees which lanes survived.
 
 ## Layout
