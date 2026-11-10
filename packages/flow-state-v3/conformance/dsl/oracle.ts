@@ -128,8 +128,7 @@ export class Violated extends Data.TaggedError("Violated")<{
  * - An oracle anchors each runtime report to a fact the suite owns. One that only compares reports
  *   with each other checks consistency, and must say so in its doc comment.
  * - The step is the unit: an oracle may learn every fact of a step before judging it.
- * - The Case folds each case once, forward, so a state may be updated in place: never pass one
- *   state to `step` twice.
+ * - `step` is a pure fold: it returns a new state and never changes the one it was given.
  */
 export type Judge<S> = {
   readonly name: string;

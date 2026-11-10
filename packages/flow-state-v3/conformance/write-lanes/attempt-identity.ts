@@ -1,112 +1,107 @@
-import { operationNamed } from "../fixtures/reference.ts";
 import { Option } from "effect";
-import type { Reference } from "../fixtures/reference.ts";
 import { attemptKey } from "../dsl/domain.ts";
+import { Fact, oracle, reported, violation } from "../dsl/oracle.ts";
+import { operationNamed, type Reference } from "../fixtures/reference.ts";
 import { Observation, sameJson, type Sent } from "../port.ts";
 import type { Request } from "../world/network.ts";
-import { Fact, oracle, reported, violation } from "../dsl/oracle.ts";
 
-type Minting = {
-  readonly pairs: Set<string>;
-  readonly owner: Map<string, string>;
-};
+type Mint = { readonly operation: string; readonly attempt: string };
 
 const isWrite = (reference: Reference, operation: string) =>
   Option.isSome(operationNamed(reference, operation));
 
-const tally = (keys: ReadonlyArray<string>) => {
-  const counts = new Map<string, number>();
+const countOf = (keys: ReadonlyArray<string>, key: string) => keys.filter((k) => k === key).length;
 
-  for (const key of keys) counts.set(key, (counts.get(key) ?? 0) + 1);
-
-  return counts;
-};
-
-const keyText = (request: Request) => Option.getOrElse(request.key, () => "(no key)");
+const keyText = (request: Request) =>
+  Option.match(request.key, { onNone: () => "(no key)", onSome: (key) => key });
 
 const sentIn = (step: ReadonlyArray<Fact>, reference: Reference) =>
-  tally(
-    step.flatMap((fact) =>
-      Fact.$is("Reported")(fact) &&
-      Observation.$is("Sent")(fact.observation) &&
-      isWrite(reference, fact.observation.operation)
-        ? [attemptKey(fact.observation.operation, fact.observation.attempt)]
-        : [],
-    ),
+  step.flatMap((fact) =>
+    Fact.$is("Reported")(fact) &&
+    Observation.$is("Sent")(fact.observation) &&
+    isWrite(reference, fact.observation.operation)
+      ? [attemptKey(fact.observation.operation, fact.observation.attempt)]
+      : [],
   );
 
 const requestedIn = (step: ReadonlyArray<Fact>, reference: Reference) =>
-  tally(
-    step.flatMap((fact) =>
-      Fact.$is("Requested")(fact) && isWrite(reference, fact.request.operation)
-        ? [`${fact.request.operation} ${keyText(fact.request)}`]
-        : [],
-    ),
+  step.flatMap((fact) =>
+    Fact.$is("Requested")(fact) && isWrite(reference, fact.request.operation)
+      ? [`${fact.request.operation} ${keyText(fact.request)}`]
+      : [],
   );
 
 const sentAsRequested = (step: ReadonlyArray<Fact>, reference: Reference) => {
   const sent = sentIn(step, reference);
   const requested = requestedIn(step, reference);
 
-  return [...requested.keys()].flatMap((id) =>
-    (requested.get(id) ?? 0) <= (sent.get(id) ?? 0)
+  return [...new Set(requested)].flatMap((id) => {
+    const received = countOf(requested, id);
+    const reportedSent = countOf(sent, id);
+
+    return received <= reportedSent
       ? []
       : [
-          `WriteLanes I6: in one step the server received ${id} ${requested.get(id) ?? 0} times and the runtime reported sending it ${sent.get(id) ?? 0} times`,
-        ],
-  );
+          `WriteLanes I6: in one step the server received ${id} ${received} times and the runtime reported sending it ${reportedSent} times`,
+        ];
+  });
 };
 
-const oneInputPerKey = (
-  first: Map<string, Request>,
-  requests: ReadonlyArray<Request>,
-  reference: Reference,
-) =>
-  requests.flatMap((request) => {
-    if (Option.isNone(request.key) || !isWrite(reference, request.operation)) return [];
-    const id = attemptKey(request.operation, request.key.value);
-    const before = first.get(id);
+const idOf = (request: Request) =>
+  Option.map(request.key, (key) => attemptKey(request.operation, key));
 
-    if (before === undefined) first.set(id, request);
+const oneInputPerKey = (requests: ReadonlyArray<Request>, from: number, reference: Reference) =>
+  requests.slice(from).flatMap((request) => {
+    const id = idOf(request);
 
-    return before === undefined || sameJson(before.input, request.input)
+    if (Option.isNone(id) || !isWrite(reference, request.operation)) return [];
+
+    const first = requests.find((r) => Option.contains(idOf(r), id.value));
+
+    return first === undefined || sameJson(first.input, request.input)
       ? []
-      : [`WriteLanes I6: ${id} was sent with two inputs`];
+      : [`WriteLanes I6: ${id.value} was sent with two inputs`];
   });
 
-const mintedOnce = (seen: Set<string>, step: ReadonlyArray<Fact>) =>
-  reported(step).flatMap((observed) => {
-    if (!Observation.$is("Minted")(observed)) return [];
-    const twice = seen.has(observed.attempt);
-    seen.add(observed.attempt);
+const mintsIn = (step: ReadonlyArray<Fact>) =>
+  reported(step).flatMap((observed) =>
+    Observation.$is("Minted")(observed)
+      ? [{ operation: observed.operation, attempt: observed.attempt }]
+      : [],
+  );
 
-    return twice ? [`WriteLanes I6: the id ${observed.attempt} was minted twice`] : [];
-  });
+const mintedOnce = (before: ReadonlyArray<Mint>, minted: ReadonlyArray<Mint>) =>
+  minted.flatMap((m, at) =>
+    [...before, ...minted.slice(0, at)].some((x) => x.attempt === m.attempt)
+      ? [`WriteLanes I6: the id ${m.attempt} was minted twice`]
+      : [],
+  );
 
-const mintedUnder = (operation: string, attempt: string, minting: Minting) => {
-  if (minting.pairs.has(attemptKey(operation, attempt))) return Option.none<string>();
+const mintedUnder = (operation: string, attempt: string, mints: ReadonlyArray<Mint>) => {
+  if (mints.some((m) => m.operation === operation && m.attempt === attempt))
+    return Option.none<string>();
 
   return Option.some(
-    Option.match(Option.fromUndefinedOr(minting.owner.get(attempt)), {
+    Option.match(Option.fromUndefinedOr(mints.find((m) => m.attempt === attempt)), {
       onNone: () => "no commit minted",
-      onSome: (owner) => `a commit of ${owner} minted`,
+      onSome: (m) => `a commit of ${m.operation} minted`,
     }),
   );
 };
 
-const judgeSent = (sent: Sent, minting: Minting) =>
-  Option.match(mintedUnder(sent.operation, sent.attempt, minting), {
+const judgeSent = (sent: Sent, mints: ReadonlyArray<Mint>) =>
+  Option.match(mintedUnder(sent.operation, sent.attempt, mints), {
     onNone: () => [],
     onSome: (why) => [
       `WriteLanes I6: an invoke of ${sent.operation} carried ${sent.attempt}, which ${why} it`,
     ],
   });
 
-const judgeKey = (request: Request, minting: Minting, decided: ReadonlySet<string>) =>
+const judgeKey = (request: Request, mints: ReadonlyArray<Mint>, decided: ReadonlySet<string>) =>
   Option.match(request.key, {
     onNone: () => [`WriteLanes I6: a send of ${request.operation} carried no Attempt id`],
     onSome: (key) => {
-      const wrong = mintedUnder(request.operation, key, minting);
+      const wrong = mintedUnder(request.operation, key, mints);
 
       if (Option.isSome(wrong))
         return [
@@ -122,50 +117,43 @@ const judgeKey = (request: Request, minting: Minting, decided: ReadonlySet<strin
     },
   });
 
-type Keys = { readonly minting: Minting; readonly decided: Set<string> };
-
-const keysMintedAndOpen = (
-  { minting, decided }: Keys,
-  step: ReadonlyArray<Fact>,
-  reference: Reference,
-) => {
-  const learn = (observed: Observation) => {
-    if (Observation.$is("Minted")(observed)) {
-      minting.pairs.add(attemptKey(observed.operation, observed.attempt));
-
-      if (!minting.owner.has(observed.attempt))
-        minting.owner.set(observed.attempt, observed.operation);
-    }
-
-    if (
+const decidedIn = (decided: ReadonlySet<string>, step: ReadonlyArray<Fact>) =>
+  new Set([
+    ...decided,
+    ...reported(step).flatMap((observed) =>
       Observation.$is("Ended")(observed) &&
       observed.channel !== "unknown" &&
       Option.isSome(observed.attempt)
+        ? [attemptKey(observed.operation, observed.attempt.value)]
+        : [],
+    ),
+  ]);
+
+const keysMintedAndOpen = (
+  mints: ReadonlyArray<Mint>,
+  decidedBefore: ReadonlySet<string>,
+  step: ReadonlyArray<Fact>,
+  reference: Reference,
+) =>
+  step.flatMap((fact) => {
+    if (
+      Fact.$is("Reported")(fact) &&
+      Observation.$is("Sent")(fact.observation) &&
+      isWrite(reference, fact.observation.operation)
     )
-      decided.add(attemptKey(observed.operation, observed.attempt.value));
-  };
+      return judgeSent(fact.observation, mints);
 
-  const judgeStep = () => {
-    const decidedBefore = new Set(decided);
+    if (Fact.$is("Requested")(fact) && isWrite(reference, fact.request.operation))
+      return judgeKey(fact.request, mints, decidedBefore);
 
-    for (const fact of step) if (Fact.$is("Reported")(fact)) learn(fact.observation);
+    return [];
+  });
 
-    return step.flatMap((fact) => {
-      if (
-        Fact.$is("Reported")(fact) &&
-        Observation.$is("Sent")(fact.observation) &&
-        isWrite(reference, fact.observation.operation)
-      )
-        return judgeSent(fact.observation, minting);
-
-      if (Fact.$is("Requested")(fact) && isWrite(reference, fact.request.operation))
-        return judgeKey(fact.request, minting, decidedBefore);
-
-      return [];
-    });
-  };
-
-  return judgeStep();
+type State = {
+  readonly reference: Reference;
+  readonly mints: ReadonlyArray<Mint>;
+  readonly decided: ReadonlySet<string>;
+  readonly checked: number;
 };
 
 /**
@@ -190,32 +178,22 @@ const keysMintedAndOpen = (
  *   is a lane rule ("a Held lane leaves Held only by a retry's resolution"), not this one.
  * - retryCount is checked by cases, not here: the Port's row does not name its Attempt.
  */
-type State = {
-  readonly reference: Reference;
-  readonly keys: Keys;
-  readonly first: Map<string, Request>;
-  readonly seen: Set<string>;
-  readonly checked: number;
-};
-
 export const attemptIdentity = oracle<State>({
   name: "attempt-identity",
   guarantee: ["WriteLanes I6"],
-  start: (reference) => ({
-    reference,
-    keys: { minting: { pairs: new Set(), owner: new Map() }, decided: new Set() },
-    first: new Map(),
-    seen: new Set(),
-    checked: 0,
-  }),
-  step: (state, step, requests) =>
-    [
-      { ...state, checked: requests.length },
+  start: (reference) => ({ reference, mints: [], decided: new Set(), checked: 0 }),
+  step: (state, step, requests) => {
+    const minted = mintsIn(step);
+    const mints = [...state.mints, ...minted];
+
+    return [
+      { ...state, mints, decided: decidedIn(state.decided, step), checked: requests.length },
       [
         ...sentAsRequested(step, state.reference),
-        ...keysMintedAndOpen(state.keys, step, state.reference),
-        ...oneInputPerKey(state.first, requests.slice(state.checked), state.reference),
-        ...mintedOnce(state.seen, step),
+        ...keysMintedAndOpen(mints, state.decided, step, state.reference),
+        ...oneInputPerKey(requests, state.checked, state.reference),
+        ...mintedOnce(state.mints, minted),
       ].map(violation),
-    ] as const,
+    ] as const;
+  },
 });
