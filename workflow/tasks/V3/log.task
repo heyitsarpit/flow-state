@@ -519,4 +519,6 @@ note 2026-11-10T22:19:35Z
     standing, a small patch rather than a convergence), and two old-suite mutants lost their anchors. Queued for the 
     builder after the convergence steps.
 note 2026-11-10T22:32:27Z
-    Convergence step 1 complete at 1a850b5d (84/84, null 0/84, sweep 68/68, lifecycle tests 7/7). For the user: WriteLanes R9 says a key-less member on a keyed operation outside an ending is KeyRequired, while round-14 applies it to every lane; the suite follows round-14 until answered. A fresh lead continues at step 3.
+    Convergence step 1 complete at 1a850b5d (84/84, null 0/84, sweep 68/68, lifecycle tests 7/7). For the user: 
+    WriteLanes R9 says a key-less member on a keyed operation outside an ending is KeyRequired, while round-14 applies 
+    it to every lane; the suite follows round-14 until answered. A fresh lead continues at step 3.

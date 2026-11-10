@@ -548,6 +548,12 @@ tasks
         comment     2026-11-10T22:31:33Z
             Convergence step 1 part 2 landed at 1a850b5d (Tables B and C, actor moves, apply; mutation gate passes; 
             suite 84/84, null 0/84, sweep 68/68). Detail: conformance/STATUS.md, Convergence v2 build.
+        comment     2026-11-10T22:56:26Z
+            Convergence step 3 landed (e760b472 and the next commit): reference rows with guard and unknown, a change 
+            detector against round-14's compiled machines, dsl/lifecycle-step.ts (step from facts to moves) with tests; 
+            Table B's Resend discharges an owed release (a false I12 under cancel). No oracle reads it; suite 84/84, 
+            null 0/84, coverage 0 gaps, check at zero. Next: step 4. Detail: conformance/STATUS.md, Convergence v2 
+            build.
     T8
         title       Turn area complete
         status      open
