@@ -461,3 +461,6 @@ note 2026-11-10T19:41:21Z
     missing key stays a stated limit. **Why:** reading frames() would leak world internals into the adapter. 
     **Reverse:** let the round-14 adapter read frames(). T7 part 2 verified at 578666d0 (68/68, null 0/68, falsify 
     46/46); a fresh lead continues.
+note 2026-11-10T19:44:55Z
+    Amendment (the user, 2026-11-11): Plan changes found while building are recorded in plan-amendments.md and merged 
+    only once proven and approved; O3's R4 phrase is the first entry. **Reverse:** drop the instructions line.
