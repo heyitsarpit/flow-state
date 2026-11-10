@@ -14,7 +14,11 @@ const RESTORED_MAIL = "mail(tx, l, h, ending, true, !h.held);";
  * - `mutant.disposal-dispatches` also sends such a commit once its write lands.
  * - The `o6.*` ones edit the disposal's bound: `o6.dispose-interrupts-wire` interrupts the
  *   call on the wire at the start, `o6.no-bound` ends the disposal at once, and
- *   `o6.settled-in-bound-stays-held` keeps a definite in-bound ending's head Held.
+ *   `o6.settled-in-bound-stays-held` keeps a definite in-bound ending's head Held;
+ *   `mutant.short-disposal-bound` cuts the bound to 1 s, which a call that never answers shows.
+ * - `id.dispose-drops-lanes` drops lanes at an actor's disposal, `mutant.disposal-hold-first`
+ *   delivers the hold-leaving ending first, `mutant.disposal-rereads` sends a read during the
+ *   disposal, and `1b.forget-marks-held-lane` marks a forgotten actor's Held lane releasing.
  */
 export const disposalMutants: ReadonlyArray<Mutant> = [
   {
@@ -171,6 +175,20 @@ export const disposalMutants: ReadonlyArray<Mutant> = [
         file: "step.ts",
         find: "else setLane(tx, { ...l, parked: [] });",
         replace: "else setLane(tx, { ...l, parked: [], releasing: true as const });",
+      },
+    ],
+  },
+  {
+    name: "mutant.short-disposal-bound",
+    says: "the Runtime's disposal bound is 1 s, so a call that never answers ends unknown Disposed early",
+    expects: "Actors I35",
+    runtime: "prototype",
+    cases: ["PAY-16/never-answered-waits-for-the-bound"],
+    edits: [
+      {
+        file: "step.ts",
+        find: "dueAt: tx.env.now + tx.bounds.disposeMs",
+        replace: "dueAt: tx.env.now + 1000",
       },
     ],
   },

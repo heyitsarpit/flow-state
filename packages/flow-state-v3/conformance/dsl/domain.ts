@@ -1,7 +1,7 @@
 import { Option, Predicate } from "effect";
 import { operationNamed, type OperationReference, type Reference } from "../fixtures/reference.ts";
-import { type Request, RequestPhase } from "../world/network.ts";
-import { type ActorRef, type Json, sameActor, sameJson } from "../port.ts";
+import { Answer, type Request, RequestPhase } from "../world/network.ts";
+import { type ActorRef, type Channel, type Json, sameActor, sameJson } from "../port.ts";
 
 /**
  * The text that names one Attempt of an operation in a violation and in an oracle's maps.
@@ -56,7 +56,45 @@ const heard = (request: Request, operation: OperationReference) =>
   });
 
 /**
- * Whether an earlier send of this request's Attempt may have applied (WriteLanes R5,
+ * The ending a server's answer gives an Attempt: its channel, and its reason where the answer fixes
+ * one (a failure's tag, `StillUnknown` for a failure after an unknown send, `Defect` for a die).
+ *
+ * **When to use**
+ *
+ * Every oracle that asks how an answer settles a call asks this, so all of them agree.
+ *
+ * **Gotchas**
+ *
+ * - `Never` settles nothing: the request stays open, so the answer is none.
+ */
+// RETURN_TYPE: the branches build literal channels that would infer as several object types.
+export const endingOf = (
+  operation: OperationReference,
+  requests: ReadonlyArray<Request>,
+  request: Request,
+  answer: Answer,
+): Option.Option<{ readonly channel: Channel; readonly reason: Option.Option<string> }> => {
+  if (Answer.$is("Never")(answer)) return Option.none();
+
+  if (Answer.$is("Die")(answer))
+    return Option.some({ channel: "unknown", reason: Option.some("Defect") });
+
+  const may = mayHaveApplied(requests, request, operation);
+  const channel = operation.classify(answer, may);
+
+  if (channel === "failure" && may)
+    return Option.some({ channel: "unknown", reason: Option.some("StillUnknown") });
+
+  const tag =
+    Answer.$is("Fail")(answer) || Answer.$is("FailButLanded")(answer)
+      ? Option.some(answer.tag)
+      : Option.none();
+
+  return Option.some({ channel, reason: channel === "failure" ? tag : Option.none() });
+};
+
+/**
+ * Whether an earlier send of this request's Attempt may have applied (the Attempt's
  * `mayHaveApplied`): the server log holds an earlier request with the same Attempt id that was
  * never definitely answered (still open, hanging, aborted, orphaned by a dead page, or answered in
  * a way its commit takes as unknown).

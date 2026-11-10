@@ -55,8 +55,9 @@ requirements
                 attempt, progress, key }).
 
                 A bare operation maps nothing: its endings are evidence. An unknown that is not
-                retained (bare, ignored, or a cancel's own turn end) is released, and the store
-                hears Released.
+                retained (bare, ignored, or under the cancel concurrency policy once its own
+                ending's turn ends) is released, and the store hears Released. The O.x.cancel
+                member's unknown { Cancelled } is retained (R14).
 
     R5  The Attempt
         source  @plan.Operations.O3.

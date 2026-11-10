@@ -250,9 +250,8 @@ delivery carries no channel; latent: no case disposes without re-ensuring).
 
 ## T7 (2026-11-10 and 2026-11-11): WriteLanes area (in progress)
 
-Bottom line: S2 is done; `lane-queue` and `delivered-once` are closed-phase folds from WriteLanes R6 to R8, R10, R14
-and R15. Suite 67/67 and null 0/67, both unchanged; falsify sweep 43/43. T7's own rows, I22 and the T6 completion
-review's disposal findings are not started.
+Bottom line: S2 and the T6 completion review's disposal findings are done. Suite 68/68, null 0/68, falsify sweep
+44/44. Next: the T40/S2 review's findings, T41, I22, then T7's own rows.
 
 - First step (`392147bc`): H5 in `ending-channels` (`mutant.success-without-answer`, I3) and case `DISP-06`.
 - S2 (`a8714be6`, `c1f02294`):
@@ -291,6 +290,37 @@ review's disposal findings are not started.
     - Open for the user: the prototype records a local or non-persisted disposed actor's ending as evidence (rule
       44), while I15's exceptions do not list disposal. No case hits it.
     - Pre-existing and stated: an ending decided during disposal parks at the reload without a `Parked` report.
+
+### Disposal findings (2026-11-11; the T6 completion review's M1 to M4, M6 and Lows)
+
+- **M6:** `endingOf` in `dsl/domain.ts` is the one answer-to-ending rule (channel, a failure's tag, `StillUnknown`,
+  `Defect`); `Never` settles nothing. The ledger, `disposal` and `ending-channels` use it. New case
+  `PAY-16/never-answered-waits-for-the-bound` and `mutant.short-disposal-bound` (Actors I35), seen caught for its
+  reason, and seen missed by `disposal` when the probe let `Never` settle again.
+- **M4:** a driven cancel settles a waiting or Held head; a head on the wire stays open, and its unknown ending holds
+  it (WriteLanes R14). R4's clashing clause was the old `HeldThisTurn` (the `cancel` policy); R4 reworded, no
+  Invariant changed (`workflow/specs/spec-log.md`). @plan.Operations.O3 has the same phrase, left for the user.
+- **M1:** a parked or restored ending counts only when the delivered event maps to that ending's channel.
+- **M2, M3:** the ledger is one table keyed by (phase, move), `Settled` split into `Answered`, `EndedUnsent`,
+  `Cancelled` and `Claimed`; per disposal, each call has one closed state (`Open`, `Settled`, `Done`) and one step;
+  kept lanes (`Dropped`, `Unbound`) moved to `actors/disposal-kept.ts` with one step. Everything is immutable.
+- **Lows:** L3 ids out of doc comments; L4 lists; L6 end of case advances 4999 then 1 ms; L7 the reason is compared;
+  L9 a recommit matches the lane when `Minted.key` is known; L10 a second delivery of the same id; L11 a lane settled
+  while unbound is owed at adoption; L12 `uncertain` is `=== true`, the dead fallback gone. L8 stays a stated limit
+  (Gotcha). `Released` no longer needs a held use (`lane-queue` anchors it).
+- **Verdicts against `ca6e2f4d`** (Conformance R11): no case verdict changed. Sweep: `lie.boot-says-disposed`,
+  `lie.boot-drops-held` and `lane.unknown-promotes` are now also caught in `PAY-12/cancel-on-wire`,
+  `PAY-15/cancel-on-wire` and `LANE-04` (R14: the cancelled head is kept); `mutant.short-disposal-bound` also in 8
+  cases at the end of case (L6).
+- **Expectation drafter** (Haiku, Spec only) for the new case: agreed on every step (not ended at 4999 ms, unknown
+  Disposed at 5000 ms, no Restored, nothing invoked). Its ambiguities A2 (Actors R10 against Restore I6) and A4 (the
+  exact boundary) noted; the case follows I35's wording.
+- **Reviewer** (Haiku, the diff against the intended changes): (1) failure after a may-apply first send: rejected, a
+  first send has no earlier request; (2) an unknown ending of a first send holds it, (3) a re-send on the wire is not
+  owed at adoption, (4) a restored ending must arrive as the unknown event: accepted as intended (R8, the oracle's
+  stated rule, Restore I6); (5) a dropped head evicted an unbound one on the same lane: accepted and fixed (one of
+  each per lane); (6) a second ending, first answer wins, order only: noted. Its lint note (a shadowed `endingOf`)
+  fixed.
 
 ## T40 (2026-11-10 and 2026-11-11): suite simplified
 

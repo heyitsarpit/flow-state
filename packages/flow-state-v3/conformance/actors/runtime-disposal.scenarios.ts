@@ -141,6 +141,30 @@ export const runtimeDisposalScenarios: ReadonlyArray<Scenario> = [
           false,
         );
       },
+      "never-answered-waits-for-the-bound": (c) => {
+        const s = shopper(c);
+        onWire(c);
+        c.disposeRuntime();
+        c.answer("pay", Answer.Never());
+        c.advance(disposalBoundMs - 1);
+        c.eq("a call that never answers has not settled", c.runtimeDisposals(), 0);
+        c.eq("not ended within the bound", c.endings("pay").length, 0);
+        c.advance(1);
+        c.eq("the bound ends it", c.runtimeDisposals(), 1);
+        c.eq(
+          "unknown { Disposed }",
+          [c.endings("pay").at(-1)?.channel, lastReason(c, "pay")],
+          ["unknown", "Disposed"],
+        );
+        c.reload();
+        s.state("UNSURE");
+        c.eq(
+          "no Restored: the parked ending is delivered",
+          c.endings("pay").some((e) => e.reason === "Restored"),
+          false,
+        );
+        c.eq("nothing invoked", sent(c, "pay"), 1);
+      },
       "dispose-waiting-resend": (c) => {
         onWire(c);
         c.answer("pay", Answer.Lost());

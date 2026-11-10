@@ -8,6 +8,7 @@ import type { Mutant } from "../dsl/oracle.ts";
  * - `mutant.ending-without-id`: a send's ending names no Attempt, so the answered send has none.
  * - `k.failure-as-success`: a failure ending runs the success event.
  * - `mutant.still-unknown-dropped`: a definite failure after an unknown send stays a failure.
+ * - `mutant.success-without-answer`: a success ending comes in a step with no server answer.
  */
 export const endingChannelsMutants: ReadonlyArray<Mutant> = [
   {

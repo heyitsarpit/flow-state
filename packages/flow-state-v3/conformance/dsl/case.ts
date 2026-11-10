@@ -356,7 +356,8 @@ const openCase = (options: CaseOptions) => {
     if (!thisBoot().some(Fact.$is("DisposingRuntime")))
       disposeRuntime("end of case: dispose the runtime");
     answerStorage("end of case: ack", "ack");
-    advance(`end of case: advance ${disposalBoundMs}`, disposalBoundMs);
+    advance(`end of case: advance ${disposalBoundMs - 1}`, disposalBoundMs - 1);
+    advance("end of case: advance 1", 1);
     answerStorage("end of case: ack", "ack");
     eq(
       "end of case: the Runtime's disposal ended within its bound (Actors R22, R23)",

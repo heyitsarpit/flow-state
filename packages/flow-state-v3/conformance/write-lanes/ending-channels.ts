@@ -6,10 +6,10 @@ import {
   type OperationReference,
   type Reference,
 } from "../fixtures/reference.ts";
-import { type Delivered, type Ended, Observation } from "../port.ts";
+import { type Channel, type Delivered, type Ended, Observation } from "../port.ts";
 import { Answer, type Request, RequestPhase } from "../world/network.ts";
 import { Fact, oracle, violation } from "../dsl/oracle.ts";
-import { attemptKey, mayHaveApplied } from "../dsl/domain.ts";
+import { attemptKey, endingOf } from "../dsl/domain.ts";
 
 const endedOf = (fact: Fact) =>
   Fact.$is("Reported")(fact) && Observation.$is("Ended")(fact.observation)
@@ -69,13 +69,13 @@ const deliveredAsMapped = (
     return Option.fromUndefinedOr(first);
   };
 
-  const endingOf = (delivered: Delivered) =>
+  const endedFor = (delivered: Delivered) =>
     Option.isSome(delivered.attempt)
       ? Option.fromUndefinedOr(latest.get(attemptKey(delivered.operation, delivered.attempt.value)))
       : takeDecline(delivered.operation);
 
   const judge = (delivered: Delivered) =>
-    Option.match(endingOf(delivered), {
+    Option.match(endedFor(delivered), {
       onNone: () => [
         `WriteLanes I3: ${delivered.operation} ${attemptText(delivered.attempt)} delivered ${delivered.event} with no ending decided`,
       ],
@@ -100,25 +100,9 @@ const failureTag = (answer: Answer) =>
     ? Option.some(answer.tag)
     : Option.none();
 
-const expectedEnding = (answer: Answer, mayHaveApplied: boolean, operation: OperationReference) => {
-  const channel = operation.classify(answer, mayHaveApplied);
-
-  if (Answer.$is("Die")(answer))
-    return { channel: "unknown" as const, reason: Option.some("Defect") };
-
-  if (channel === "failure" && mayHaveApplied)
-    return { channel: "unknown" as const, reason: Option.some("StillUnknown") };
-
-  const tag = failureTag(answer);
-
-  if (channel === "failure" && Option.isSome(tag)) return { channel, reason: tag };
-
-  return { channel, reason: Option.none<string>() };
-};
-
 type Asked = {
   readonly answer: Answer;
-  readonly mayHaveApplied: boolean;
+  readonly expected: { readonly channel: Channel; readonly reason: Option.Option<string> };
   readonly live: boolean;
 };
 
@@ -133,8 +117,8 @@ const failureKept = (asked: Asked, ended: Ended) => {
   });
 };
 
-const judgeAnswered = (id: string, asked: Asked, ended: Ended, operation: OperationReference) => {
-  const expected = expectedEnding(asked.answer, asked.mayHaveApplied, operation);
+const judgeAnswered = (id: string, asked: Asked, ended: Ended) => {
+  const { expected } = asked;
 
   const reasonRight = Option.match(expected.reason, {
     onNone: () => true,
@@ -208,20 +192,15 @@ const endedAsAnswered = (
     const ask = (given: ReturnType<typeof answerOf>) => {
       if (Option.isNone(given) || Option.isNone(given.value.request.key)) return;
       const { request, answer } = given.value;
+      const id = attemptKey(request.operation, given.value.request.key.value);
 
-      if (Answer.$is("Never")(answer)) return;
-
-      const id = attemptKey(
-        request.operation,
-        Option.getOrElse(request.key, () => ""),
+      const expected = Option.flatMap(operationNamed(reference, request.operation), (o) =>
+        endingOf(o, requests, request, answer),
       );
 
-      const operation = operationNamed(reference, request.operation);
-
-      if (Option.isNone(operation)) return;
-      const may = mayHaveApplied(requests, request, operation.value);
+      if (Option.isNone(expected)) return;
       const newest = latest.get(id) === request.seq;
-      asked.set(id, { answer, mayHaveApplied: may, live: newest && live.has(id) });
+      asked.set(id, { answer, expected: expected.value, live: newest && live.has(id) });
     };
 
     const end = (ended: Ended) => {
@@ -235,7 +214,7 @@ const endedAsAnswered = (
 
       return Option.match(answered, {
         onNone: () => madeUp(id, ended),
-        onSome: (a) => judgeAnswered(id, a, ended, operation.value),
+        onSome: (a) => judgeAnswered(id, a, ended),
       });
     };
 
@@ -277,7 +256,7 @@ const endedAsAnswered = (
  * - no Attempt reports a definite failure after an unknown (report consistency).
  * - an Attempt of a referenced write ends success, or with its commit's own failure, only in a step
  *   where the server answered one of its sends: a definite ending the server did not give is made
- *   up (WriteLanes R2). Only unknowns and Flow's own failures (WriteLanes R3) end without an answer.
+ *   up. Only unknowns and Flow's own failures end without an answer.
  *
  * **Gotchas**
  *

@@ -149,3 +149,13 @@ Found while writing the `lane-cells` oracle and its lies (packages/flow-state-v3
   falsify counts a kill only by its oracle's violation that names that Invariant (per (oracle,
   Invariant) pair, R6). The orchestrator's design call on the T6 review (L2). Still open: case-only
   Invariants' mutants and judging every failing run. Reverse: drop `expects`.
+
+## WriteLanes R4 reworded to agree with R14 (2026-11-11)
+
+- **WriteLanes R4's "a cancel's own turn end" named.** It read as if the O.x.cancel member released
+  its own unknown, against R14 (a cancelled call on the wire is retained Held). Its source, the old
+  design's `HeldThisTurn` (machine-design at `20986677^`, the 2.7.13 table), is the `cancel`
+  concurrency policy: an unknown is held only for its own ending's turn. R4 now says so and points
+  at R14. No Invariant changed (I5 and I12 already read this way); the suite's ledger follows R14.
+  Builder's call on the T6 completion review's M4. @plan.Operations.O3 carries the same phrase and
+  is left for the user. Reverse: restore the old clause from git.

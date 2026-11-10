@@ -77,7 +77,7 @@ export const classifyWith =
   };
 
 /**
- * Flow's own reasons for a failure, `NotSent { why }` (WriteLanes R3's closed list).
+ * Flow's own reasons for a failure, `NotSent { why }`: the Spec's closed list.
  */
 export const FLOW_DECLINES = [
   "Cancelled",

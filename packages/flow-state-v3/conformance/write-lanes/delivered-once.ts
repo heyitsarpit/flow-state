@@ -487,7 +487,7 @@ type State = { readonly ledger: Ledger; readonly reference: Reference };
  * - an ending is recorded and not delivered only for a cause the suite can derive: under
  *   `cancel`, a later commit of the same lane was minted while the Attempt was undecided; under
  *   `latest`, a later commit of the same lane was minted while it was never sent; or the suite
- *   forgot its actor. A disposed actor's ending is parked, not recorded (Actors R20);
+ *   forgot its actor. A disposed actor's ending is parked, not recorded;
  * - an Attempt a later commit of its lane surely replaced is never delivered (evidence by
  *   declaration);
  * - an Attempt that ended success or failure reports no later ending (I16).
