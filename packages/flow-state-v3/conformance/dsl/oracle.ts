@@ -109,7 +109,7 @@ export class Violated extends Data.TaggedError("Violated")<{
 }> {}
 
 /**
- * One guarantee's check as a pure fold over the steps of a case.
+ * One guarantee's check as a fold over the steps of a case.
  *
  * **When to use**
  *
@@ -128,6 +128,8 @@ export class Violated extends Data.TaggedError("Violated")<{
  * - An oracle anchors each runtime report to a fact the suite owns. One that only compares reports
  *   with each other checks consistency, and must say so in its doc comment.
  * - The step is the unit: an oracle may learn every fact of a step before judging it.
+ * - The Case folds each case once, forward, so a state may be updated in place: never pass one
+ *   state to `step` twice.
  */
 export type Judge<S> = {
   readonly name: string;
@@ -153,7 +155,7 @@ export type Oracle = {
 };
 
 /**
- * Registers a {@link Judge}: the Case keeps its state between steps, so the fold stays pure.
+ * Registers a {@link Judge}: the Case keeps its state between steps.
  */
 // RETURN_TYPE: erases the state type, so oracles of different states share one registry.
 export const oracle = <S>(judge: Judge<S>): Oracle => ({
@@ -192,7 +194,7 @@ export const oracle = <S>(judge: Judge<S>): Oracle => ({
 export type Mutant = {
   readonly name: string;
   readonly says: string;
-  readonly expects: string;
+  readonly expects: InvariantId;
   readonly runtime: "prototype" | "production";
   readonly cases: ReadonlyArray<string>;
   readonly edits: ReadonlyArray<{
