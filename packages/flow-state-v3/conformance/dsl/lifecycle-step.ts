@@ -83,10 +83,12 @@ const lifeNamed = (
     Option.fromUndefinedOr(model.attempts.find((a) => a.id === id)?.lane.actor),
   );
 
+  const declines = model.endings.filter(
+    (e) => Option.isNone(e.attempt) && e.operation === operation,
+  );
+
   const ofDecline = Option.fromUndefinedOr(
-    model.endings.find(
-      (e) => Option.isNone(e.attempt) && e.operation === operation && e.life._tag !== "Closed",
-    )?.actor,
+    (declines.find((e) => e.life._tag !== "Closed") ?? declines.at(-1))?.actor,
   );
 
   return Option.map(
@@ -124,7 +126,9 @@ const heardOf = (
 
 const sendsOf = (walk: Walk, attempt: string, earlier: ReadonlyArray<Request>) =>
   earlier.filter((r) => Option.contains(r.key, attempt)).length +
-  walk.applied.filter((a) => Move.$is("Send")(a.move) && a.move.attempt === attempt).length;
+  walk.applied.filter(
+    (a) => Move.$is("Send")(a.move) && a.move.attempt === attempt && a.refusals.length === 0,
+  ).length;
 
 const laneOfMember = (actor: ActorRef, member: Member) =>
   MemberTarget.$match(member.target, {
@@ -396,7 +400,7 @@ const ended = (walk: Walk, given: Rules) => {
  *   anchors its releases.
  * - A row's `retryable` guard reads the head of the lane its reported member names: it passes
  *   when the head is Held and was sent fewer than `times` + 1 times (the server's log before
- *   this step, and the step's `Send`s so far).
+ *   this step, and the step's accepted `Send`s so far).
  * - An Attempt's unknown `End` is `retained` by its operation's reference ({@link retains}).
  * - The open turn closes at the next `Delivered`, `Turn` or `Reloaded`, and at the step's end.
  * - `Incarnated` counts only after a suite `Ensured` or `Drove` of that actor, or a `Reloaded`, in
@@ -408,7 +412,7 @@ const ended = (walk: Walk, given: Rules) => {
  *
  * - Rows with the same members are not told apart, so two of them matching one turn anchor it.
  * - A `Parked`, `Unparked` or `Recorded` names no actor: it is read from the Attempt's lane, or for
- *   a decline from the oldest open decline of the operation. One naming neither (an Attempt never
+ *   a decline from the oldest open decline of the operation (else its newest, so its cell refuses). One naming neither (an Attempt never
  *   minted) is not applied; a decline's `Ended` with no actor outside a turn likewise.
  * - A `Minted` with no actor is not applied: the Case stops it as `UnreadableReport`.
  */

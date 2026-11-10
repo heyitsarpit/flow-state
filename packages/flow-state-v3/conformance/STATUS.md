@@ -405,9 +405,10 @@ Open: the rest of v2's migration; I22; T7's own rows.
 
 ### Convergence v2 build (2026-11-11; `references/proposals/lane-oracle-convergence-v2-2026-11-11.md`)
 
-Bottom line: steps 2 and 1 landed; step 3 with `step(model, reference, facts)` is next. At `1a850b5d`: suite 84/84,
-null 0/84, sweep 68/68, coverage 0 gaps; the lifecycle's mutation test (Tables A, B, C, deadlines, promotion) passes;
-`nub run check` at zero.
+Bottom line: steps 2, 1 and 3 landed; step 4 (fold once in the Case, `lane-queue` onto it) is next. At step 3's
+commits: suite 84/84, null 0/84, coverage 0 gaps, the lifecycle tests 19/19 (mutation test included), `nub run check`
+at zero. The sweep was last run at `1a850b5d` (68/68); step 3 changes no oracle (`disposal` reads `unknownEvent`, the
+same event).
 
 - **Order:** step 2 before step 1, so the lifecycle's facts-to-moves step reads the real Port. Step 1 is split: part 1
   (Table A, deadlines, promotion) is in; part 2 (Table B, Table C, the actor moves, `step(model, reference, facts)`)
@@ -481,11 +482,47 @@ null 0/84, sweep 68/68, coverage 0 gaps; the lifecycle's mutation test (Tables A
   - For the user: WriteLanes R9 makes a key-less member on a keyed operation outside an ending KeyRequired, while
     round-14 (`turn.ts:752-757`) and v2's Port change 1 act on every lane (`Every`). The suite follows round-14 until a
     Spec answer.
-- **Next (step 3, then `step`):** Table B (members by head phase, `mint`, `decl`, `supH`, `supQ`, `queue`, `repl`,
-  `replC`, `PCancel`, `AwRel`, `Interr`, `Q→NS`, `mark`, `Every`, the Idle cancel and cancelAll), Table C (an
-  ending's life, with `Opens`), the actor moves (`Incarnated`, `Finished`, `Adopt`, `Disposed`, `Forgot`), and
-  `step(model, reference, facts)` that anchors facts into moves (a `Turn`'s members against the reference rows of
-  step 3; refused `Minted` without a commit member, I1). Then steps 3 to 9.
+- **Step 3 (`e760b472` and the next commit):**
+  - Rows (`Row`, `row`, `Rows`, `rowsFor`) in `fixtures/reference.ts` and `fixture.ts`, typed by states and operations
+    (`payRow = row<string, State, Write>`); events stay strings, since rows name internal events. Pay has 13 rows
+    (`PayRequested` PAYING→same and any→PAYING, `Leave`, `Confirmed` ×3, `PlaceUnsure`, `VoidUnsure` ×2, `RetryNow`,
+    `IntentRead` ×2, `OrderSeen`); Cells adds `AbortPay`; the Lab fixtures one or two each.
+  - `guard: Option<Retryable>` (`operation`, `times`, `passes`): Pay's `PlaceUnsure`, `VoidUnsure` and `IntentRead`
+    UNSURE→PAYING rows pass with `retryable(3)`; `VoidUnsure`'s `[void.cancel]` row needs it to fail. `PlaceUnsure`
+    carries it too, because its compiled alternative does (v2 named only the other two).
+  - `unknown: { event } | "ignore" | "bare"` with `unknownEvent` and `retains` (WriteLanes R4: mapped, and not under
+    `cancel` except an `O.x.cancel`'s `Cancelled`).
+  - Change detector `fixtures/rows.test.ts` (labelled as one): each fixture's rows equal its round-14 compiled
+    alternatives that run write members (a root alternative's state token is its `from`; a retryable token is
+    `passes`, a later same-target alternative `fails`). It was seen failing on a planted wrong guard.
+    `adapters/prototype.ts` gains `compiledOf`.
+  - `dsl/lifecycle-step.ts`: `step(model, known, facts, requests)` gives `{ before, after, applied }`. Lead's calls:
+    `requests` is a fourth argument (retryable counts the server's log before the step plus the step's accepted
+    `Send`s); rows with equal members both matching one turn anchor it (`PayRequested` from PAYING matches two);
+    a turn with no write member matches without a row and anchors its releases; `Incarnated` counts once per actor
+    per step (an `Adopt` counts as that one); `unstoppable` is a Model field; a `Parked`, `Unparked` or `Recorded`
+    takes its actor from the Attempt's lane, or the operation's oldest open decline, else its newest. Tests in
+    `dsl/lifecycle-step.test.ts` (matching, mismatch as I1, guard both ways, own-step sends, retention, `Heard`,
+    `Incarnated` anchoring, `Adopt`).
+  - Found while writing it: an unretained unknown re-sent in its own ending's turn (R15Switch with `Retrying`) owed a
+    `Released` it never gets, a false WriteLanes I12. Table B's `Resend` now discharges the head's `Await Released`
+    (WriteLanes R4: released once its own turn ends); trace "an unretained unknown re-sent in its own turn owes no
+    release".
+  - Reviewer (Haiku) of `e760b472`, 9 findings. Rows and the retry offset checked right. Accepted and fixed: F1 a
+    report naming only `Closed` declines now names the newest (Table C refuses it as I15); F4 only accepted `Send`s
+    count, and the test now sends from `Resending`; F5 the memberless-turn test is named for what it checks. Carried
+    to step 5: F2 `Delivered.event` is not checked against the ending's mapping (v2 moves that check to the lives
+    oracles). Carried, needs a call at step 4: F3 a release owed with no turn in scope (an unknown heard only by
+    `Unhandled`, `Denied` or parked) is due only at a later turn's close; closing at `Delivered` would refuse a
+    release whose own turn follows. Noted as latent: F6 cancel then retry of one lane in one turn would drop the
+    cancel's release (no row has two members on a lane); F7 the detector filters compiled members by the fixture's
+    writes and compares rows only, not channels, `concurrency` or `unknown`; F8 `rowsFor`, like `referenceFor`, keeps
+    the later of two fixtures with one machine id (Cells' rows are a superset of Pay's); F9 `retained` defaults to
+    true for an unknown lane, and storage evidence is not a move.
+- **Next (step 4):** fold once in `dsl/case.ts` (run `step` before the oracles; `Judge.step` gains `lives`), move
+  `lane-queue` onto `lives` (its guarantee's refusals, plus W bounds and I10 order), Port change 2 (round-14's `turn`
+  note above `applyMembers`, `turn.ts:954`), PAY-17 to PAY-19 and their mutants, then the sweep diff with every
+  changed verdict and its rule. Decide F3 there. Then steps 5 to 9.
 - **Queued after the convergence steps, before T8 (coordinator, 2026-11-11):** the T41/T13 review
   (`references/proposals/t41-t13-review-2026-11-11.md`): H1, M1 to M4 and the Lows in the files touched. Its M4
   (whether `ending-channels` and `attempt-identity` move onto the lifecycle) is decided at step 7.

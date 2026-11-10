@@ -160,16 +160,18 @@ describe("lifecycle step", () => {
     assert.deepStrictEqual(refused(voidSent, voidUnsure("cancel"), sends(4)), [wl(12)]);
   });
 
-  it("a step's own sends are counted from its Sent reports, not its server log", () => {
-    const fresh = request(4, "void", "v1");
+  it("a step's own accepted sends are counted from its Sent reports, not its server log", () => {
+    const resending = after(voidSent, voidUnsure("retry"), sends(1));
+    const fresh = request(9, "void", "v1");
     const facts = [sent("void", "v1"), ...voidUnsure("retry"), Fact.Requested({ request: fresh })];
-    const resent = after(voidSent, facts, [...sends(3), fresh]);
 
-    assert.equal(phaseOf(resent, "v1"), "Held");
-    assert.equal(phaseOf(after(voidSent, facts.slice(1), sends(3)), "v1"), "Resending");
+    assert.equal(phaseOf(resending, "v1"), "Resending");
+    assert.deepStrictEqual(refused(resending, facts, [...sends(3), fresh]), []);
+    assert.equal(phaseOf(after(resending, facts, [...sends(3), fresh]), "v1"), "Held");
+    assert.equal(phaseOf(after(resending, facts, [...sends(2), fresh]), "v1"), "Resending");
   });
 
-  it("an unknown under cancel is not retained, and a retry in its own turn keeps it", () => {
+  it("an unknown under cancel is not retained (a turn with no member), and a retry in its own turn keeps it", () => {
     const sentSearch = after(empty, [
       turn(searcher, "Go", "A", "W", [only("search", "commit")]),
       minted(searcher, "search", "s1", Option.none()),
