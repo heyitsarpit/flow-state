@@ -1,6 +1,6 @@
-import { Data } from "effect";
+import { Data, type Option } from "effect";
 import type { Reference } from "../fixtures/reference.ts";
-import { type ActorRef, type Observation, sameActor, type Use } from "../port.ts";
+import { type ActorRef, type Json, type Observation, sameActor, type Use } from "../port.ts";
 import type { Answer, Request } from "../world/network.ts";
 
 /**
@@ -21,6 +21,8 @@ import type { Answer, Request } from "../world/network.ts";
  * - `DisposingRuntime`: the suite started the Runtime's disposal; it holds until the next reload.
  * - `Drove`: the suite sent this event to this actor.
  * - `Unstoppable`: from now on, calls of this operation cannot be interrupted.
+ * - `Advanced`: the suite moved the world's clock forward by `ms`, firing the timers due.
+ * - `Read`: the suite read this write's row (`O.x.get`) and the runtime returned `row`.
  */
 export type Fact = Data.TaggedEnum<{
   Stepped: { step: number; what: string };
@@ -34,6 +36,8 @@ export type Fact = Data.TaggedEnum<{
   DisposingRuntime: {};
   Drove: { actor: ActorRef; event: string };
   Unstoppable: { operation: string };
+  Advanced: { ms: number };
+  Read: { actor: ActorRef; operation: string; key: Json; row: Option.Option<Json> };
 }>;
 
 /**

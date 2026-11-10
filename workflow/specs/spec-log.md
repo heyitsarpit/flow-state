@@ -131,3 +131,14 @@ Found while writing the `lane-cells` oracle and its lies (packages/flow-state-v3
   the invariants and tests, the checkable part, are unchanged. The user's call: Specs come after
   Plans and link the items they derive from. Reverse: restore the text from git.
 - R12 to R25 still restate @plan.Machines.O4 to O8; not changed in this pass.
+
+## Actors I35 and I36: Runtime disposal's bound (2026-11-10)
+
+- **Actors I35, I36 added; R22's coverage and T16 cite them.** R22's bound (a call settling
+  within 5 s is parked; past it, unknown { Disposed }; a definite ending drops the head) had no
+  Invariant, so no oracle could judge it and the wrong runtimes `o6.dispose-interrupts-wire`,
+  `o6.no-bound` and `o6.settled-in-bound-stays-held` were caught only by case expectations. The
+  user's call (2026-11-10, Q1 A): add an Invariant for the bound. Written as two, since they fail
+  apart (to-spec: no bundled Invariants): I35 the bound itself, I36 the definite ending's head.
+  An unknown keeping its head Held is already I29 (every non-Idle lane survives). Reverse: drop
+  both and return the three wrong runtimes to case expectations.

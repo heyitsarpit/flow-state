@@ -12,6 +12,9 @@ const RESTORED_MAIL = "mail(tx, l, h, ending, true, !h.held);";
  *   earlier Runtime disposal began.
  * - `mutant.disposal-skips-never-sent` leaves a never-sent commit unended by the disposal.
  * - `mutant.disposal-dispatches` also sends such a commit once its write lands.
+ * - The `o6.*` ones edit the bound (Actors I35, I36): `o6.dispose-interrupts-wire` interrupts the
+ *   call on the wire at the start, `o6.no-bound` ends the disposal at once, and
+ *   `o6.settled-in-bound-stays-held` keeps a definite in-bound ending's head Held.
  */
 export const disposalMutants: ReadonlyArray<Mutant> = [
   {
@@ -65,24 +68,6 @@ export const disposalMutants: ReadonlyArray<Mutant> = [
       },
     ],
   },
-];
-
-/**
- * Wrong runtimes of the disposal bound (Actors R22), not registered with any oracle.
- *
- * **Details**
- *
- * They edit the prototype's Runtime disposal: one interrupts the
- * call on the wire at the start, one keeps a definite in-bound ending Held, one ends the disposal
- * at once. The disposal cases' own expectations catch each (`PAY-16`, `PAY-13`); no oracle does,
- * since the bound and the head's fate are rules of Actors R22 that no Invariant states.
- *
- * **Gotchas**
- *
- * - Falsify does not run them: a guarantee holds an oracle and the mutants it must catch, and
- *   case expectations have no guarantee yet. They are kept for the Invariant the user may add.
- */
-export const disposalBoundMutants: ReadonlyArray<Mutant> = [
   {
     name: "o6.dispose-interrupts-wire",
     says: "the Runtime's disposal interrupts the call on the wire at its start",

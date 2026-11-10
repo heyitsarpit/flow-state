@@ -223,10 +223,10 @@ the case holds.
   actor, and a never-sent commit by the runtime's own `Minted` and `Ended`; a handler's own cancel
   is known from the runtime's `Released` evidence (lenient). disposeActor's half of Actors I29, and
   I31 and I32, are not judged yet (Actors area, @task.V3.T9).
-- Actors R22's bound (a call settling within 5 s is parked; past it, unknown { Disposed }; a
-  definite ending drops the head, an unknown keeps it Held) has no Invariant, so no oracle judges
-  it: the disposal cases' expectations catch the `o6.*` mutants, which stay unregistered
-  (`disposalBoundMutants`) until the user decides.
+- `disposal` counts the disposal bound per step (Actors I35): an ending in the step whose
+  `advance` reaches 5 s passes as at the bound, though the runtime may have decided it earlier in
+  that step; and a re-send on the wire at the start is not told apart from a Held head, so the
+  bound is judged on first sends.
 - `attempt-identity`'s check that a send names the operation its Attempt was minted under has no
   mutant that isolates it: `mutant.sent-under-another-operation` is caught by the same oracle's count
   check.
@@ -279,17 +279,17 @@ mutants and wrong runtimes named here are in `prototypes/conformance/falsify.ts`
 
 ### Actors (`workflow/specs/core/Actors.spec`)
 
-| Invariants                   | Oracle module                                                                  | Mutants                                                                                                                                                                                         |
-| ---------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| I1 to I6                     | case (setup and readiness)                                                     |                                                                                                                                                                                                 |
-| I7 to I9, I25                | `identity`                                                                     | `q5.send-stolen`, `ref.binding-first-copy`                                                                                                                                                      |
-| I10, I11, I12, I17           | `lifetime` (rule 73's global invariants: the prototype's `lifetimeViolations`) | `k.ghost-life`, `lie.dispose-start`                                                                                                                                                             |
-| I13 to I16, I18              | `incarnations`                                                                 | `h.boot-*`, `k.parked-every-boot-silent`, `k.parked-reversed`                                                                                                                                   |
-| I19 to I24                   | `mailbox`                                                                      | `k.send-ahead`, the boot-queue bound (U8)                                                                                                                                                       |
-| I26 to I28                   | `cuts-and-context`                                                             |                                                                                                                                                                                                 |
-| I29, I30                     | `disposal` **done** for Runtime disposal; every case ends with one             | `lie.boot-says-disposed`, `lie.boot-drops-held`, `mutant.disposal-skips-never-sent`, `mutant.disposal-dispatches` **done**; `o6.*` caught by cases, unregistered (R22's bound has no Invariant) |
-| I29 (disposeActor), I31, I32 | `disposal` (@task.V3.T9)                                                       | `id.dispose-drops-lanes`, `1b.disposal-definite-w-first`, `1b.forget-marks-held-lane`                                                                                                           |
-| I33, I34                     | case                                                                           |                                                                                                                                                                                                 |
+| Invariants                   | Oracle module                                                                  | Mutants                                                                                                                                                                                                   |
+| ---------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| I1 to I6                     | case (setup and readiness)                                                     |                                                                                                                                                                                                           |
+| I7 to I9, I25                | `identity`                                                                     | `q5.send-stolen`, `ref.binding-first-copy`                                                                                                                                                                |
+| I10, I11, I12, I17           | `lifetime` (rule 73's global invariants: the prototype's `lifetimeViolations`) | `k.ghost-life`, `lie.dispose-start`                                                                                                                                                                       |
+| I13 to I16, I18              | `incarnations`                                                                 | `h.boot-*`, `k.parked-every-boot-silent`, `k.parked-reversed`                                                                                                                                             |
+| I19 to I24                   | `mailbox`                                                                      | `k.send-ahead`, the boot-queue bound (U8)                                                                                                                                                                 |
+| I26 to I28                   | `cuts-and-context`                                                             |                                                                                                                                                                                                           |
+| I29, I30, I35, I36           | `disposal` **done** for Runtime disposal; every case ends with one             | `lie.boot-says-disposed`, `lie.boot-drops-held`, `mutant.disposal-skips-never-sent`, `mutant.disposal-dispatches`, `o6.dispose-interrupts-wire`, `o6.no-bound`, `o6.settled-in-bound-stays-held` **done** |
+| I29 (disposeActor), I31, I32 | `disposal` (@task.V3.T9)                                                       | `id.dispose-drops-lanes`, `1b.disposal-definite-w-first`, `1b.forget-marks-held-lane`                                                                                                                     |
+| I33, I34                     | case                                                                           |                                                                                                                                                                                                           |
 
 ### WriteAhead (`workflow/specs/core/WriteAhead.spec`)
 

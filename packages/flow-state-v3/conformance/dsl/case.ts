@@ -57,6 +57,7 @@ const shown = <A>(value: A) => String(JSON.stringify(value));
  *   made, then runs every oracle; any violation throws `Violated`, naming every oracle that found
  *   one in that step.
  * - `eq` throws `Mismatch` unless the two values are equal by Effect's structural equality.
+ * - `row` records the read on the timeline and runs every oracle on it, as a step does.
  * - A reload kills the page and boots the port again over the same world (the dead page's
  *   Runtime is dropped: a dead page runs nothing), then re-attaches every use the case holds:
  *   those its `Ensured`, `Released` and `Disposed` facts leave.
@@ -236,7 +237,13 @@ const openCase = (options: CaseOptions) => {
 
   const snapshot = (actor: ActorRef) => runtime.snapshot(actor);
 
-  const row = (actor: ActorRef, operation: string, key: Json) => runtime.row(actor, operation, key);
+  const row = (actor: ActorRef, operation: string, key: Json) => {
+    const read = runtime.row(actor, operation, key);
+    timeline.record(Fact.Read({ actor, operation, key, row: read }));
+    judge(`read ${operation}`);
+
+    return read;
+  };
 
   const requests = (operation: string) =>
     network.requests().filter((r) => r.operation === operation);
@@ -263,6 +270,12 @@ const openCase = (options: CaseOptions) => {
       runtime.disposeRuntime();
     });
 
+  const advance = (what: string, ms: number) =>
+    act(what, () => {
+      timeline.record(Fact.Advanced({ ms }));
+      world.advance(ms, pending);
+    });
+
   const reload = (what: string) =>
     act(what, () => {
       world.kill();
@@ -277,9 +290,7 @@ const openCase = (options: CaseOptions) => {
       disposeRuntime("end of case: dispose the runtime");
     const ackAll = () => act("end of case: ack", () => void storage.answer("ack", Option.none()));
     ackAll();
-    act(`end of case: advance ${DISPOSAL_BOUND_MS}`, () =>
-      world.advance(DISPOSAL_BOUND_MS, pending),
-    );
+    advance(`end of case: advance ${DISPOSAL_BOUND_MS}`, DISPOSAL_BOUND_MS);
     ackAll();
     eq(
       "end of case: the Runtime's disposal ended within its bound (Actors R22, R23)",
@@ -324,7 +335,7 @@ const openCase = (options: CaseOptions) => {
         page.hide();
         page.show();
       }),
-    advance: (ms) => act(`advance ${ms}`, () => world.advance(ms, pending)),
+    advance: (ms) => advance(`advance ${ms}`, ms),
     reload: () => reload("reload"),
     eq,
     snapshot,

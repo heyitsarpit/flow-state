@@ -350,6 +350,14 @@ invariants
 
     I34  Two Runtimes share no mutable object, and a handle is accepted only by its own Runtime. [@R24]
 
+    I35  During Runtime disposal, a call on the wire at its start is never cut short within the 5 s bound: one that 
+         settles less than 5 s after the start ends by its own result and the disposal does not end before it settles; 
+         one still unsettled 5 s after the start ends unknown { Disposed }. Decision (user, 2026-11-10): "Q1 A", the 
+         bound gets its own Invariant. [@R22]
+
+    I36  A head whose call ends definitely during Runtime disposal leaves no hold: the next boot restores none for it. 
+         Decision (user, 2026-11-10): "Q1 A"; an unknown keeping its head Held is I29's. [@R22]
+
 composition
     flow
         Design note, proved by the prototype. The core step is a pure function of the world, one
@@ -446,7 +454,7 @@ coverage
         open_by      [@Q1]
 
     @R22
-        enforced_by  [@I29, @I30, @I31]
+        enforced_by  [@I29, @I30, @I31, @I35, @I36]
         open_by      [@Q1]
 
     @R23
@@ -508,7 +516,7 @@ tests
          nothing is invoked after the start; disposal ends only when its last fiber has ended. Cases `PAY-16`, 
          `R15-01`, `REV5-M1`; wrong runtimes `o6.dispose-interrupts-wire`, `o6.settled-in-bound-stays-held`, 
          `1b.disposal-definite-w-first`, `r15.past-bound-captured-inflight`, and for the last-fiber wait `o6.no-bound`. 
-         [@I29, @I30, @I31]
+         [@I29, @I30, @I31, @I35, @I36]
     T17  Cleanup failure and isolation: a failing finalizer rejects CleanupFailed and later ensures repeat it; two 
          Runtimes from one setup share nothing and reject each other's handles; a counter at its limit refuses 
          IdentityExhausted. No prototype case (Q2). [@I13, @I33, @I34]

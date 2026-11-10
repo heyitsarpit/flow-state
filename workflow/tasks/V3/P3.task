@@ -753,6 +753,19 @@ tasks
             from disposal), M2 (I29 judged only for re-attached actors), and L1 to L11. Orchestrator spot-checked M2 
             (disposal.ts survived and attached), L7 (README:47 and :94), L9 (case.ts:138 and scenarios:66), L10 
             (disposal.ts:50) and T9's wording (P3.task:818). Not yet reviewed: the uncommitted I35/I36 work.
+        comment     2026-11-10T17:19:07Z
+            Decision (user, 2026-11-10, Q1 A): R22's bound gets an Invariant. Done as T6's last change: Actors I35 (a 
+            call on the wire at the start of Runtime disposal is not cut short within 5 s; settling earlier it ends by 
+            its own result and the disposal waits; unsettled at 5 s it ends unknown { Disposed }) and I36 (a definite 
+            ending during the disposal leaves no hold), written with to-spec as two Invariants since they fail apart; 
+            reason in workflow/specs/spec-log.md. The disposal oracle judges both (new timeline facts Advanced and 
+            Read; a row read now runs every oracle). o6.dispose-interrupts-wire caught by I35 (ended unknown 
+            Interrupted 0 ms in, PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed); o6.no-bound by I35 (ended 
+            unknown Disposed 0 ms in, PAY-16/disposal-ends-with-the-last-fiber); o6.settled-in-bound-stays-held by I36 
+            (row reads uncertain after the boot, PAY-16/settled-during-disposal-parked). Gates from 
+            packages/flow-state-v3: suite 61/61, suite --runtime null 0/61, falsify --parallel 6 32/32, nub run check 
+            at zero. Haiku reviewer (test the spec): 10 findings, 5 accepted, 5 rejected, each with why in 
+            conformance/STATUS.md. Reverse: drop I35/I36 and re-list the o6 mutants as unregistered.
     T7
         title       WriteLanes area complete
         status      in_progress
