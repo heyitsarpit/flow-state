@@ -47,10 +47,10 @@ that they match.
 - **Orchestrator:** the agent that runs the loop. It starts and tracks the other agents, routes
   their results, sets statuses and writes notes. It never builds.
 - **Lead and sidecar:** a **lead** runs on the strongest model and does the work that needs
-  judgment. A **building lead** also integrates its sidecars' work into one change and commits it;
-  reviewing and auditing leads never edit code or the records they review, and write only their own
-  comments and notes. A **sidecar** runs on the cheapest model and does one
-  bounded slice for the lead that started it (skill:policy-delegation). The **builder** is the
+  judgment. A **building lead** also writes every line it commits and commits it; reviewing and
+  auditing leads never edit code or the records they review, and write only their own comments and
+  notes. A **sidecar** runs on the cheapest model and does one bounded slice for the lead that
+  started it, never writing committed code (skill:policy-delegation). The **builder** is the
   building lead at work.
 - **Session cron:** a scheduled prompt that lives only in the agent session, such as Claude Code's
   session cron, created with the harness's own scheduling tool.

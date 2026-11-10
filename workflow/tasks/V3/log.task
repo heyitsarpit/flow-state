@@ -394,3 +394,8 @@ note 2026-11-10T17:09:29Z
     Haiku coders wrote in earlier rounds (STATUS.md rows Coder 1, 2 and A to D: the Pay cases, lane-queue, 
     delivered-once, Reads rows, ending-channels) against STYLE.md and FLOW-STATE.md; it takes the review slot after the 
     T6 review; accepted findings go to the building lead. Reverse: leave them to T15's audit.
+note 2026-11-10T17:14:49Z
+    Amendment (2026-11-10, the user): pin moves from workflow@711b0f5 to workflow@131b1fc. skill:policy-delegation's 
+    default now matches this Epic's Q2 A: the building lead writes every committed line; sidecars are runners, 
+    reviewers, locators, expectation drafters and adversaries, never coders; the lead and sidecar terms in build-a-loop 
+    and to-epic say the same. Installed build-a-loop refreshed, skills-lock.json updated. Reverse: pin workflow@711b0f5.
