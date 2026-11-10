@@ -1,4 +1,3 @@
-import { Option } from "effect";
 import type { Actor } from "../dsl/actor.ts";
 import { type Case, type Scenario, variants } from "../dsl/case.ts";
 import { Pay } from "../fixtures/pay.ts";
@@ -62,7 +61,7 @@ export const paymentLateAnswersScenarios: ReadonlyArray<Scenario> = [
       s.ensure();
       start(s);
       pay(s);
-      c.answerStorage("landNoAck", Option.none());
+      c.answerStorage("landNoAck");
       c.advance(10_000);
       s.state("PAYING");
       c.eq("never told", s.memory().notice.includes("haven't been charged"), false);

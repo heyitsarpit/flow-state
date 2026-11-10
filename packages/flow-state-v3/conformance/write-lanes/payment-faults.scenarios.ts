@@ -48,7 +48,7 @@ export const paymentFaultsScenarios: ReadonlyArray<Scenario> = [
         s.ensure();
         start(s);
         pay(s);
-        c.answerStorage("refuse", Option.none());
+        c.answerStorage("refuse");
         c.eq("requests", sent(c, "pay"), 0);
         s.state("CARD");
         c.eq("evidence", c.evidence("StorageFailure"), 1);
@@ -58,7 +58,7 @@ export const paymentFaultsScenarios: ReadonlyArray<Scenario> = [
         s.ensure();
         start(s);
         pay(s);
-        c.answerStorage("hang", Option.none());
+        c.answerStorage("hang");
         c.advance(9999);
         s.state("PAYING");
         c.advance(1);

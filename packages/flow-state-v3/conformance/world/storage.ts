@@ -1,4 +1,4 @@
-import { Data, Option } from "effect";
+import { Data } from "effect";
 import type { Page } from "./page.ts";
 
 /**
@@ -21,7 +21,7 @@ export type Write = Data.TaggedEnum<{
 export const Write = Data.taggedEnum<Write>();
 
 /**
- * How the suite answers the held batches it matches.
+ * How the suite answers every held batch.
  */
 export type StorageAnswer = "ack" | "refuse" | "hang" | "landNoAck";
 
@@ -80,7 +80,7 @@ export type Storage = {
     purpose: Purpose,
     answer: (ok: boolean) => void,
   ) => void;
-  readonly answer: (how: StorageAnswer, match: Option.Option<string>) => number;
+  readonly answer: (how: StorageAnswer) => number;
   readonly kill: () => void;
 };
 
@@ -105,12 +105,6 @@ export const makeStorage = (seed: number, page: Page): Storage => {
     kv = next;
   };
 
-  const matches = (h: Held, match: Option.Option<string>) =>
-    Option.match(match, {
-      onNone: () => true,
-      onSome: (m) => h.purpose === m || h.writes.some((w) => w.key.includes(m)),
-    });
-
   return {
     load: () => new Map(shuffled([...kv], seed * 40_503 + page.page())),
     write: (writes, purpose, answer) => {
@@ -123,9 +117,9 @@ export const makeStorage = (seed: number, page: Page): Storage => {
 
       held = [...held, { writes, purpose, answer }];
     },
-    answer: (how, match) => {
-      const chosen = held.filter((h) => matches(h, match));
-      held = held.filter((h) => !matches(h, match));
+    answer: (how) => {
+      const chosen = held;
+      held = [];
 
       if (how === "hang" || how === "landNoAck") {
         if (how === "landNoAck") for (const h of chosen) land(h.writes);

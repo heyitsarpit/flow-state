@@ -189,7 +189,7 @@ export const paymentLeaveAndReloadScenarios: ReadonlyArray<Scenario> = [
         s.ensure();
         start(s);
         pay(s);
-        c.answerStorage("landNoAck", Option.none());
+        c.answerStorage("landNoAck");
         c.reload();
         c.eq("requests", sent(c, "pay"), 0);
         s.state("UNSURE");

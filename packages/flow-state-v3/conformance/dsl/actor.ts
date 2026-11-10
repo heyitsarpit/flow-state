@@ -34,7 +34,6 @@ export type OperationName<F extends Fixture> = keyof F["operations"] & string;
 export type Actor<F extends Fixture> = {
   readonly ref: ActorRef;
   readonly ensure: () => void;
-  readonly ensureWith: (input: F["input"]["Type"]) => void;
   readonly event: <E extends EventName<F>>(event: E, payload: F["events"][E]["Type"]) => Drive;
   readonly send: <E extends EventName<F>>(event: E, payload: F["events"][E]["Type"]) => void;
   readonly release: (use: Use) => void;
@@ -77,7 +76,6 @@ export const actorView = <F extends Fixture>(driver: Driver, fixture: F, id: str
   return {
     ref,
     ensure: () => driver.ensure(ref, Option.none()),
-    ensureWith: (input) => driver.ensure(ref, Option.some(encoded(fixture.input, input))),
     event,
     send: (name, payload) => driver.send([event(name, payload)]),
     release: (use) => driver.release(ref, use),

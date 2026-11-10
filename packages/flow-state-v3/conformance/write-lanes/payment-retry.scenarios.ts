@@ -91,7 +91,7 @@ export const paymentRetryScenarios: ReadonlyArray<Scenario> = [
         c.answer("order", Answer.Ok({ value: null }));
         c.answer("intent", Answer.Ok({ value: { status: "requires_payment_method" } }));
         s.state("PAYING");
-        c.answerStorage("refuse", Option.none());
+        c.answerStorage("refuse");
         s.state("UNSURE");
         c.eq("reason", lastReason(c, "pay"), "StorageRefused");
         c.eq("held", row(s)?.uncertain, true);

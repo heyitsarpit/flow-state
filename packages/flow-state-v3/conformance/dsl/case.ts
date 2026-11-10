@@ -1,4 +1,4 @@
-import { Data, Equal, Option, type Schema } from "effect";
+import { Data, Equal, Option } from "effect";
 import { type Fixture, referenceFor } from "../fixtures/fixture.ts";
 import { disposalBoundMs, Fact, type Oracle, reported, steps, usesHeld } from "./oracle.ts";
 import {
@@ -68,10 +68,9 @@ const shown = <A>(value: A) => String(JSON.stringify(value));
  *   ended.
  * - `landed` counts the distinct Attempts the server applied; `landedKeys` lists the key of every
  *   applied request, repeats included.
- * - World faults: `answerLate` (the server's answer arrives after all), `landLate` (a lost
- *   request lands unheard), `uninterruptible` and `answerAtOnce` (from now on, for an operation).
- * - `answer` takes the oldest open request of the operation, or with `where` the oldest whose
- *   input has those fields.
+ * - World faults: `answerLate` (the server's answer arrives after all), `uninterruptible` and
+ *   `answerAtOnce` (from now on, for an operation).
+ * - `answer` takes the oldest open request of the operation.
  *
  * **Gotchas**
  *
@@ -87,11 +86,9 @@ export type Case = {
   readonly disposeRuntime: () => void;
   readonly send: (drives: ReadonlyArray<Drive>) => void;
   readonly ack: () => void;
-  readonly answerStorage: (how: StorageAnswer, match: Option.Option<string>) => void;
+  readonly answerStorage: (how: StorageAnswer) => void;
   readonly answer: (operation: string, answer: Answer) => void;
-  readonly answerWhere: (operation: string, answer: Answer, where: Schema.JsonObject) => void;
   readonly answerLate: (operation: string, answer: Answer) => void;
-  readonly landLate: (operation: string) => void;
   readonly uninterruptible: (operation: string) => void;
   readonly answerAtOnce: (operation: string, answer: Answer) => void;
   readonly hide: () => void;
@@ -196,15 +193,14 @@ const openCase = (options: CaseOptions) => {
   const held = (operation: string, request: Option.Option<Request>) =>
     Option.getOrThrowWith(request, () => new NoHeldRequest({ operation }));
 
-  const answer = (operation: string, given: Answer, where: Option.Option<Schema.JsonObject>) =>
+  const answer = (operation: string, given: Answer) =>
     act(`answer ${operation} ${given._tag}`, () => {
-      const request = held(operation, network.oldestOpen(operation, where));
+      const request = held(operation, network.oldestOpen(operation));
       timeline.record(Fact.Answered({ request, answer: given }));
       network.answer(request, given);
     });
 
-  const answerStorage = (how: StorageAnswer, match: Option.Option<string>) =>
-    act(how, () => void storage.answer(how, match));
+  const answerStorage = (how: StorageAnswer) => act(how, () => void storage.answer(how));
 
   const send = (drives: ReadonlyArray<Drive>) =>
     act(`send ${drives.map((d) => d.event).join(", ")}`, () => {
@@ -310,7 +306,7 @@ const openCase = (options: CaseOptions) => {
   const end = () => {
     if (!thisBoot().some(Fact.$is("DisposingRuntime")))
       disposeRuntime("end of case: dispose the runtime");
-    const ackAll = () => act("end of case: ack", () => void storage.answer("ack", Option.none()));
+    const ackAll = () => act("end of case: ack", () => void storage.answer("ack"));
     ackAll();
     advance(`end of case: advance ${disposalBoundMs}`, disposalBoundMs);
     ackAll();
@@ -330,20 +326,15 @@ const openCase = (options: CaseOptions) => {
     forget,
     disposeRuntime: () => disposeRuntime("dispose the runtime"),
     send,
-    ack: () => answerStorage("ack", Option.none()),
+    ack: () => answerStorage("ack"),
     answerStorage,
-    answer: (operation, given) => answer(operation, given, Option.none()),
-    answerWhere: (operation, given, where) => answer(operation, given, Option.some(where)),
+    answer,
     answerLate: (operation, given) =>
       act(`late answer ${operation} ${given._tag}`, () => {
         const request = held(operation, network.oldestUndecided(operation));
         timeline.record(Fact.Answered({ request, answer: given }));
         network.answerLate(request, given);
       }),
-    landLate: (operation) =>
-      act(`land late ${operation}`, () =>
-        network.landLate(held(operation, network.oldestLost(operation))),
-      ),
     uninterruptible: (operation) =>
       act(`uninterruptible ${operation}`, () => {
         timeline.record(Fact.Unstoppable({ operation }));

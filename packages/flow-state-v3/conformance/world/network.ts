@@ -1,5 +1,5 @@
-import { Data, Effect, Option, Predicate, type Schema } from "effect";
-import { type Json, sameJson } from "../port.ts";
+import { Data, Effect, Option, type Schema } from "effect";
+import type { Json } from "../port.ts";
 
 /**
  * How the suite's fake server answers one held request.
@@ -101,20 +101,10 @@ const landsAtServer = (answer: Answer) =>
   Answer.$is("LostButLanded")(answer) ||
   Answer.$is("FailButLanded")(answer);
 
-const within = (input: Json, where: Schema.JsonObject) =>
-  Object.entries(where).every(
-    ([k, v]) =>
-      Predicate.isObjectKeyword(input) &&
-      Object.entries(input).some(([ik, iv]) => ik === k && sameJson(iv, v)),
-  );
-
 const undecided = (r: Request) =>
   RequestPhase.$is("Open")(r.phase) ||
   RequestPhase.$is("Hanging")(r.phase) ||
   RequestPhase.$is("Orphaned")(r.phase);
-
-const lost = (r: Request) =>
-  RequestPhase.$is("Answered")(r.phase) && Answer.$is("Lost")(r.phase.answer);
 
 /**
  * The fake world's server: every request is held until the suite answers it.
@@ -132,10 +122,8 @@ const lost = (r: Request) =>
  * - A read (no key) aborted by its caller ends at the server. A write has no signal: it stays
  *   open, and a later answer changes only what the server did.
  * - A failure reaches the caller as its tagged error: `{ _tag, ...fields }`.
- * - `oldestOpen` with `where` picks the oldest open request whose input has those fields.
  * - `answerLate`: the server finally answers a request that was open, hanging or orphaned; only a
  *   caller still alive hears it.
- * - `landLate`: a request answered `Lost` reaches the server after all; nobody hears it.
  * - `uninterruptible`: from now on, calls of that operation cannot be interrupted.
  * - `answerAtOnce`: from now on, calls of that operation are answered as they are made.
  *
@@ -150,15 +138,10 @@ export type Network = {
     input: Json,
     key: Option.Option<string>,
   ) => Effect.Effect<Json, Failure>;
-  readonly oldestOpen: (
-    operation: string,
-    where: Option.Option<Schema.JsonObject>,
-  ) => Option.Option<Request>;
+  readonly oldestOpen: (operation: string) => Option.Option<Request>;
   readonly answer: (request: Request, answer: Answer) => void;
   readonly oldestUndecided: (operation: string) => Option.Option<Request>;
   readonly answerLate: (request: Request, answer: Answer) => void;
-  readonly oldestLost: (operation: string) => Option.Option<Request>;
-  readonly landLate: (request: Request) => void;
   readonly uninterruptible: (operation: string) => void;
   readonly answerAtOnce: (operation: string, answer: Answer) => void;
   readonly requests: () => ReadonlyArray<Request>;
@@ -192,13 +175,8 @@ export const makeNetwork = (): Network => {
     resumes = next;
   };
 
-  const oldest = (operation: string, where: Option.Option<Schema.JsonObject>) =>
-    log.find(
-      (r) =>
-        r.operation === operation &&
-        RequestPhase.$is("Open")(r.phase) &&
-        Option.match(where, { onNone: () => true, onSome: (w) => within(r.input, w) }),
-    );
+  const oldest = (operation: string) =>
+    log.find((r) => r.operation === operation && RequestPhase.$is("Open")(r.phase));
 
   const reply = (held: Request, answer: Answer) => {
     if (Answer.$is("Never")(answer)) {
@@ -244,7 +222,7 @@ export const makeNetwork = (): Network => {
 
       return steadfast.has(operation) ? Effect.uninterruptible(sent) : sent;
     },
-    oldestOpen: (operation, where) => Option.fromUndefinedOr(oldest(operation, where)),
+    oldestOpen: (operation) => Option.fromUndefinedOr(oldest(operation)),
     answer: (request, answer) =>
       RequestPhase.$match(phaseOf(request), {
         Open: () => reply(request, answer),
@@ -263,15 +241,6 @@ export const makeNetwork = (): Network => {
         Aborted: refuse(request),
         Answered: refuse(request),
       }),
-    oldestLost: (operation) =>
-      Option.fromUndefinedOr(log.find((r) => r.operation === operation && lost(r))),
-    landLate: (request) => {
-      if (!lost(log[request.seq] ?? request)) refuse(request)();
-      setPhase(
-        request.seq,
-        RequestPhase.Answered({ answer: Answer.LostButLanded({ value: null }) }),
-      );
-    },
     uninterruptible: (operation) => {
       steadfast = new Set([...steadfast, operation]);
     },
