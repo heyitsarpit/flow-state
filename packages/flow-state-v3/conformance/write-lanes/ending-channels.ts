@@ -150,7 +150,7 @@ const failureTag = (answer: Answer) =>
 type Asked = {
   readonly answer: Answer;
   readonly expected: { readonly channel: Channel; readonly reason: Option.Option<string> };
-  readonly newest: boolean;
+  readonly seq: number;
 };
 
 const failureKept = (asked: Asked, ended: Ended) => {
@@ -250,11 +250,10 @@ const asking =
     );
 
     if (Option.isNone(expected)) return answers;
-    const newest = answers.answering.latest.get(id) === request.seq;
 
     return {
       ...answers,
-      asked: withKey(answers.asked, id, { answer, expected: expected.value, newest }),
+      asked: withKey(answers.asked, id, { answer, expected: expected.value, seq: request.seq }),
     };
   };
 
@@ -282,7 +281,7 @@ const ending = (
 
 const unended = ({ answering, asked }: Answers) =>
   [...asked].flatMap(([id, a]) =>
-    a.newest && answering.live.has(id)
+    answering.latest.get(id) === a.seq && answering.live.has(id)
       ? [
           `WriteLanes I3: the server answered ${id} ${a.answer._tag} on a live send, and no ending names it`,
         ]
