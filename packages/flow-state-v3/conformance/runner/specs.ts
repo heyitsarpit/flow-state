@@ -29,7 +29,11 @@ const invariantsIn = (root: string, spec: CoreSpec) =>
           )
         : Effect.fail(new SpecUnreadable({ spec, why: out.stderr })),
     ),
-    Effect.map((shown) => shown.spec.invariants.map((i) => `${spec} ${i.id}` as const)),
+    Effect.flatMap((shown) =>
+      shown.spec.invariants.length === 0
+        ? Effect.fail(new SpecUnreadable({ spec, why: "it lists no Invariants" }))
+        : Effect.succeed(shown.spec.invariants.map((i) => `${spec} ${i.id}` as const)),
+    ),
   );
 
 /**

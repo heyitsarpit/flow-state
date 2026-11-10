@@ -461,6 +461,9 @@ tasks
               owning Task, and fails on any other;
             - a planted uncovered Invariant makes it fail;
             - it runs with the suite's fast gates.
+        comment     2026-11-10T20:21:11Z
+            Evidence (builder, 2026-11-11): coverage gate built and run before falsify; planted gaps fail it; 16 of 186 
+            checked, 170 owed, 0 gaps. Detail: code:packages/flow-state-v3/conformance/STATUS.md (T41 section).
 
     T7
         title       WriteLanes area complete

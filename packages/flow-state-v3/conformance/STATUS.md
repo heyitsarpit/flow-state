@@ -391,6 +391,22 @@ Suite 69/69, null 0/69, falsify sweep 47/47. Open: T41; I22; T7's own rows.
   each per lane); (6) a second ending, first answer wins, order only: noted. Its lint note (a shadowed `endingOf`)
   fixed.
 
+## T41 (2026-11-11): coverage gate
+
+Bottom line: `coverage` (and the first line of `falsify`) fails unless every Invariant of the ten core Specs is checked
+(an oracle's guarantee names it and one of its prototype mutants expects it; falsify proves the catch) or listed once
+in `not-yet.ts` with its owning Task. At `6279cdf1`: 16 of 186 checked, 170 owed, 0 gaps.
+
+- Built: `coverage.ts` (the rule, pure), `not-yet.ts` (rows per Task: T7's WriteLanes rows with I9 claimed by
+  `lane-queue` but no mutant, T8 to T13 their areas), `runner/specs.ts` (Invariants read with
+  `workflow show @spec.<name> --json`; an unreadable or empty Spec fails the gate), `nub run conformance:coverage`.
+- Planted gaps (run, then reverted): `Turn I31` dropped from T8's row, `WriteLanes I3` added to T7's, a `Turn I99`
+  row. The gate printed `Uncovered`, `Stale` and `Unknown` for each, `3 gap(s)`, exit 1.
+- Reviewer (Haiku) of the diff: accepted the empty-read guard (added). Already stated: covered is by declaration,
+  falsify proves the catch; I9's README row says it has no mutant. Carried: to `nub run verify` with T15 (fast
+  gates in verify); case-judged checks (a row for case expectations) when the first case-only Invariant lands
+  (T7's I4, I5, I18); production mutants with P4; a row naming a closed Task.
+
 ## T40 (2026-11-10 and 2026-11-11): suite simplified
 
 Built, each item landing alone and gated from `packages/flow-state-v3` with `suite --json`, `suite --runtime null
