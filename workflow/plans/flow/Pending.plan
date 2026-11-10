@@ -1,0 +1,15 @@
+plan Pending
+title   Pending Plan amendments, merged once proven
+status  proposed
+goal
+    Plan changes found while building wait here, unmerged, until building proves them right. Each
+    decision names the Plan record it changes, the change, why, and the evidence that would prove
+    it. One is merged into its Plan only once that evidence holds and the user says yes, then
+    removed from here with the merge commit noted on the Epic.
+decisions
+    D1  @plan.Operations.O3: a cancel during a send leaves the call Held
+        Change O3's phrase that says a cancel settles a call on the wire, to match @spec.WriteLanes.R14
+        as revised: the call follows its own ending and stays Held. **Why:** the phrase came from the
+        old design's `HeldThisTurn`, which is about the `cancel` concurrency policy (the R4 entry in
+        code:workflow/specs/spec-log.md). **Proven by:** P4's production lane passing the suite's
+        cancel-on-wire cases (PAY-12, PAY-15, LANE-04). Found in @task.V3.T7.
