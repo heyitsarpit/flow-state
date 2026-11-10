@@ -412,7 +412,7 @@ export const incarnate = (model: Model, actor: ActorRef) => {
     ...model,
     actors: [
       ...model.actors.filter((a) => !sameActor(a.actor, actor)),
-      { actor, record: "bound", incarnation },
+      { actor, record: "bound" as const, incarnation },
     ],
     obligations: [
       ...model.obligations,

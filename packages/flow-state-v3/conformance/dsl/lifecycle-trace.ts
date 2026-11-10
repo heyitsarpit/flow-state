@@ -1,12 +1,22 @@
 import { Option } from "effect";
 import type { ActorRef } from "../port.ts";
-import { type AttemptLife, empty, type Model, Move, Obligation, Phase } from "./lifecycle-model.ts";
+import { Data } from "effect";
+import {
+  type AttemptLife,
+  empty,
+  type Input,
+  type Life,
+  type Model,
+  Move,
+  Obligation,
+  Phase,
+} from "./lifecycle-model.ts";
 import type { InvariantId } from "./oracle.ts";
 
 /**
- * One step of a {@link Trace}: a lifecycle move, or an instant at which obligations are due.
+ * One step of a {@link Trace}: any lifecycle move, or an instant at which obligations are due.
  */
-export type TraceStep = Move | { readonly due: "TurnCloses" | "StepEnds" };
+export type TraceStep = Input | { readonly due: "TurnCloses" | "StepEnds" };
 
 /**
  * A lifecycle trace written from the Spec: a starting model, its steps, and what each step must
@@ -18,6 +28,8 @@ export type TraceStep = Move | { readonly due: "TurnCloses" | "StepEnds" };
  * - `refusals`: per step, the Invariants refused, in order.
  * - `phases`: every Attempt's phase at the end, by id.
  * - `owed`: how many obligations remain at the end.
+ * - `checks`: what else must hold at the end ({@link Check}); the releasing lanes keep the
+ *   start's count unless a `Marked` check says otherwise.
  */
 export type Trace = {
   readonly name: string;
@@ -27,7 +39,23 @@ export type Trace = {
   readonly refusals: ReadonlyArray<ReadonlyArray<InvariantId>>;
   readonly phases: Readonly<Record<string, Phase>>;
   readonly owed: number;
+  readonly checks: ReadonlyArray<Check>;
 };
+
+/**
+ * One more thing a {@link Trace} checks at its end: exactly which obligations remain, in order;
+ * every ending's life, in decision order; or how many lanes are releasing.
+ */
+export type Check = Data.TaggedEnum<{
+  Owing: { obligations: ReadonlyArray<Obligation> };
+  Lives: { lives: ReadonlyArray<Life> };
+  Marked: { count: number };
+}>;
+
+/**
+ * Constructors and matchers for {@link Check}.
+ */
+export const Check = Data.taggedEnum<Check>();
 
 const shopper: ActorRef = { machine: "Checkout/Pay", id: "shopper-1" };
 
@@ -91,6 +119,7 @@ const one = (c: Case, owed = c.start.obligations.length) => ({
   refusals: [c.refused],
   phases: c.phases,
   owed,
+  checks: [],
 });
 
 const headed = (phase: Phase) => model(lane("A", ["s", phase], ["w", Q]));

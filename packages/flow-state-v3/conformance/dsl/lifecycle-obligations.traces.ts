@@ -47,6 +47,7 @@ const promotionTraces: ReadonlyArray<Trace> = [
     refusals: [[], [wl(12)]],
     phases: { s: H, w: Q },
     owed: 0,
+    checks: [],
   },
   {
     name: "an unretained unknown released in its turn",
@@ -56,6 +57,7 @@ const promotionTraces: ReadonlyArray<Trace> = [
     refusals: [[], [], []],
     phases: { s: GC, w: U },
     owed: 0,
+    checks: [],
   },
   {
     name: "a replaced Attempt's second ending",
@@ -65,6 +67,7 @@ const promotionTraces: ReadonlyArray<Trace> = [
     refusals: [[], [wl(16)]],
     phases: { s: GE, n: U },
     owed: 0,
+    checks: [],
   },
   one(
     {
@@ -105,6 +108,7 @@ const dueTrace = (
   refusals: [turn, step],
   phases: { s: H },
   owed: left,
+  checks: [],
 });
 
 const restore = (cause: "plain" | "runtimeDisposal" | "disposeActor" | "forget") =>

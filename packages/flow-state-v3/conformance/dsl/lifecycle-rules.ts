@@ -1,6 +1,7 @@
 import { Data } from "effect";
 import type { InvariantId } from "./oracle.ts";
-import { type Cause, type GoneWhy, Phase } from "./lifecycle-model.ts";
+import type { Concurrency } from "../fixtures/reference.ts";
+import { type Admit, type Cause, type GoneWhy, Life, Phase } from "./lifecycle-model.ts";
 
 /**
  * What a cell does: move the Attempt to a phase, leave it where it is, or refuse the move with an
@@ -166,13 +167,15 @@ export type Deadline = {
 
 /**
  * When each obligation is due: `Await` by report, `AwaitRestore` by cause, and the rest by kind.
- * Data, mutated like the cells.
+ * `Commit` is the open turn's commit that has had no mint or decline. Data, mutated like the
+ * cells.
  */
 export type Deadlines = {
   readonly Await: Readonly<Record<"Released" | "Superseded" | "NotSentCancelled", Deadline>>;
   readonly PendingCancel: Deadline;
   readonly AwaitRestore: Readonly<Record<Cause, Deadline>>;
   readonly AwaitLetGo: Deadline;
+  readonly Commit: Deadline;
 };
 
 /**
@@ -197,6 +200,7 @@ export const deadlines: Deadlines = {
     forget: { by: "StepEnds", invariant: actors(32) },
   },
   AwaitLetGo: { by: "StepEnds", invariant: wl(15) },
+  Commit: { by: "TurnCloses", invariant: wl(15) },
 };
 
 /**
@@ -206,11 +210,266 @@ export const deadlines: Deadlines = {
 export type Promotion = "firstFree" | "never" | "second" | "first";
 
 /**
- * Everything the lifecycle's moves read that a mutation may replace: Table A, the deadlines and
- * the promotion rule.
+ * What a cell of Table B does to its lane when its member applies.
+ *
+ * **Details**
+ *
+ * - `Admit`: a commit; it waits for its report, a mint or a decline ({@link Admit}).
+ * - `Stay`: nothing. `Quiet`: nothing, and a decline on the lane in this turn breaks `invariant`.
+ * - `LetGo`: the lane's kept endings owe their let-go record.
+ * - `Resend`: the Held head is re-sent. `Interrupt`: the head on the wire is interrupted.
+ * - `PendingCancel`: the never-sent head owes its cancel's ending. `AwaitRelease`: the head owes
+ *   `Released` by the turn's close.
+ * - `CancelAll`: every waiting Attempt owes `NotSent { Cancelled }`, then `head` acts on the head.
+ * - `Mark`: the lane is releasing (WriteLanes R16).
+ */
+export type Act = Data.TaggedEnum<{
+  Admit: { admit: Admit };
+  Stay: {};
+  Quiet: { invariant: InvariantId };
+  LetGo: {};
+  Resend: {};
+  PendingCancel: {};
+  AwaitRelease: {};
+  Interrupt: {};
+  CancelAll: { head: "Stay" | "PendingCancel" | "AwaitRelease" | "Interrupt" };
+  Mark: {};
+}>;
+
+/**
+ * Constructors and matchers for {@link Act}.
+ */
+export const Act = Data.taggedEnum<Act>();
+
+/**
+ * The rows of Table B: the lane's head phase, or `Idle` when it has none. `Queued` and `Gone` are
+ * never a head.
+ */
+export type HeadRow = "Idle" | Exclude<Phase["_tag"], "Queued" | "Gone">;
+
+/**
+ * The columns of Table B: a commit by its operation's concurrency, then the other member kinds.
+ */
+export type Column = Concurrency | "Retry" | "Cancel" | "CancelAll" | "Release";
+
+/**
+ * Table B: the lane's members, by head and member. Each guard value is its own cell.
+ */
+export type TableB = Readonly<
+  Record<HeadRow, Readonly<Record<Column, Readonly<Record<string, Act>>>>>
+>;
+
+const admit = (what: Admit) => ({ always: Act.Admit({ admit: what }) });
+const act = (a: Act) => ({ always: a });
+
+const busy = (latest: Admit, cancel: Readonly<Record<string, Act>>) => ({
+  reject: admit("Decline"),
+  latest: admit(latest),
+  serialize: admit("Queue"),
+  cancel,
+  Retry: act(Act.Stay()),
+  Release: act(Act.Mark()),
+});
+
+const replaced = {
+  free: Act.Admit({ admit: "Replace" }),
+  pendingCancel: Act.Admit({ admit: "ReplaceCancelled" }),
+};
+
+/**
+ * Table B as the convergence design writes it (`lane-oracle-convergence-v2-2026-11-11.md`, Table
+ * B).
+ *
+ * **Details**
+ *
+ * - `latest` on a never-sent head with a pending cancel supersedes the waiting commit, not the
+ *   head, and `cancel` replaces it keeping its cancel (WriteLanes R14).
+ * - A cancel of an Idle lane with a kept ending lets it go (Actors R15 as written; CQ3 pending).
+ *
+ * **Gotchas**
+ *
+ * - The never-sent head's promotion after `Superseded` follows the design (CQ7 pending).
+ */
+export const tableB: TableB = {
+  Idle: {
+    reject: admit("Mint"),
+    latest: admit("Mint"),
+    serialize: admit("Mint"),
+    cancel: admit("Mint"),
+    Retry: act(Act.Stay()),
+    Cancel: { none: Act.Quiet({ invariant: wl(20) }), kept: Act.LetGo() },
+    CancelAll: act(Act.Quiet({ invariant: wl(21) })),
+    Release: act(Act.Stay()),
+  },
+  Unsent: {
+    ...busy("SupersedeHead", replaced),
+    latest: {
+      free: Act.Admit({ admit: "SupersedeHead" }),
+      pendingCancel: Act.Admit({ admit: "SupersedeQueued" }),
+    },
+    Cancel: act(Act.PendingCancel()),
+    CancelAll: act(Act.CancelAll({ head: "PendingCancel" })),
+  },
+  Resending: {
+    ...busy("SupersedeQueued", admit("Replace")),
+    Cancel: act(Act.AwaitRelease()),
+    CancelAll: act(Act.CancelAll({ head: "AwaitRelease" })),
+  },
+  OnWire: {
+    ...busy("SupersedeQueued", admit("Replace")),
+    Cancel: act(Act.Interrupt()),
+    CancelAll: act(Act.CancelAll({ head: "Interrupt" })),
+  },
+  Interrupted: {
+    ...busy("SupersedeQueued", admit("ReplaceCancelled")),
+    Cancel: act(Act.Stay()),
+    CancelAll: act(Act.CancelAll({ head: "Stay" })),
+  },
+  Held: {
+    ...busy("SupersedeQueued", admit("Replace")),
+    Retry: act(Act.Resend()),
+    Cancel: act(Act.AwaitRelease()),
+    CancelAll: act(Act.CancelAll({ head: "AwaitRelease" })),
+  },
+  Restoring: {
+    ...busy("SupersedeQueued", replaced),
+    Cancel: act(Act.PendingCancel()),
+    CancelAll: act(Act.CancelAll({ head: "PendingCancel" })),
+  },
+};
+
+/**
+ * What a cell of Table C does: move the ending to a life, leave it, or refuse the move.
+ */
+export type Fate = Data.TaggedEnum<{
+  Live: { to: Life };
+  Stay: {};
+  Refuse: { invariant: InvariantId };
+}>;
+
+/**
+ * Constructors and matchers for {@link Fate}.
+ */
+export const Fate = Data.taggedEnum<Fate>();
+
+/**
+ * The rows of Table C: a delivery move, an incarnation opening, and the instants every ending
+ * sees.
+ */
+export type LifeRow =
+  | "Delivered"
+  | "InvalidTurn"
+  | "Unmapped"
+  | "Parked"
+  | "Unparked"
+  | "RecordedLetGo"
+  | "RecordedOther"
+  | "Opens"
+  | "StepEnds"
+  | "Reload"
+  | "DisposalStarts";
+
+/**
+ * Table C: an ending's life, by row and life. `Heard` reaches only a `Delivering` life, so it is
+ * its own one-cell row.
+ */
+export type TableC = Readonly<
+  Record<LifeRow, Readonly<Record<Life["_tag"], Readonly<Record<string, Fate>>>>>
+> & { readonly Heard: { readonly Delivering: Readonly<Record<string, Fate>> } };
+
+const deny = (n: number) => Fate.Refuse({ invariant: wl(n) });
+const live = (life: Life) => Fate.Live({ to: life });
+const kept = Fate.Stay();
+const once = (fate: Fate) => ({ always: fate });
+
+const lives = (fate: Fate) => ({
+  Owed: once(fate),
+  Parked: once(fate),
+  Delivering: once(fate),
+  Refused: once(fate),
+  Kept: once(fate),
+  KeptOpen: once(fate),
+  Evidence: once(fate),
+  Closed: once(fate),
+});
+
+const admitted = (retry: boolean) => ({
+  running: live(Life.Delivering({ retry })),
+  disposing: deny(15),
+});
+
+/**
+ * Table C as the convergence design writes it (`lane-oracle-convergence-v2-2026-11-11.md`, Table
+ * C).
+ *
+ * **Gotchas**
+ *
+ * - A refusal's next life (`Refused` or `Kept`) waits on CQ1 and CQ2, an unmapped ending's on
+ *   CQ10, and a refused ending at a reload on CQ10: each follows today's rule.
+ */
+export const tableC: TableC = {
+  Delivered: {
+    ...lives(deny(15)),
+    Owed: admitted(false),
+    Parked: admitted(false),
+    Refused: admitted(true),
+    KeptOpen: admitted(true),
+    Kept: { running: Fate.Refuse({ invariant: actors(24) }), disposing: deny(15) },
+  },
+  InvalidTurn: {
+    ...lives(deny(15)),
+    Delivering: { first: live(Life.Refused()), retry: live(Life.Kept()) },
+  },
+  Unmapped: { ...lives(deny(15)), Delivering: once(live(Life.Closed())) },
+  Heard: { Delivering: once(live(Life.Closed())) },
+  Parked: { ...lives(deny(15)), Owed: once(live(Life.Parked())), Parked: once(kept) },
+  Unparked: {
+    ...lives(deny(15)),
+    Parked: once(live(Life.Owed())),
+    Kept: once(kept),
+    KeptOpen: once(kept),
+  },
+  RecordedLetGo: {
+    ...lives(deny(15)),
+    Owed: { letGo: live(Life.Closed()), none: deny(15) },
+    Parked: { letGo: live(Life.Closed()), none: deny(15) },
+    Kept: { letGo: live(Life.Closed()), none: deny(15) },
+    KeptOpen: { letGo: live(Life.Closed()), none: deny(15) },
+    Evidence: once(live(Life.Closed())),
+  },
+  RecordedOther: { ...lives(deny(15)), Evidence: once(live(Life.Closed())) },
+  Opens: {
+    ...lives(kept),
+    Parked: once(live(Life.Owed())),
+    Kept: once(live(Life.KeptOpen())),
+  },
+  StepEnds: {
+    ...lives(kept),
+    Owed: { inDisposal: kept, live: deny(15) },
+    Delivering: once(deny(15)),
+    Refused: once(deny(15)),
+    KeptOpen: once(Fate.Refuse({ invariant: actors(24) })),
+    Evidence: once(deny(15)),
+  },
+  Reload: {
+    ...lives(kept),
+    Owed: { inDisposal: live(Life.Parked()), live: live(Life.Closed()) },
+    Delivering: once(deny(15)),
+    Refused: once(live(Life.Closed())),
+    KeptOpen: once(live(Life.Kept())),
+    Evidence: once(live(Life.Closed())),
+  },
+  DisposalStarts: lives(kept),
+};
+
+/**
+ * Everything the lifecycle's moves read that a mutation may replace: Tables A, B and C, the
+ * deadlines and the promotion rule.
  */
 export type Rules = {
   readonly tableA: TableA;
+  readonly tableB: TableB;
+  readonly tableC: TableC;
   readonly deadlines: Deadlines;
   readonly promotion: Promotion;
 };
@@ -218,4 +477,4 @@ export type Rules = {
 /**
  * The rules as the convergence design writes them.
  */
-export const rules: Rules = { tableA, deadlines, promotion: "firstFree" };
+export const rules: Rules = { tableA, tableB, tableC, deadlines, promotion: "firstFree" };

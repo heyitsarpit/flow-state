@@ -1,5 +1,14 @@
 import { Data, Option } from "effect";
-import { type ActorRef, type Channel, type Json, sameActor, sameJson } from "../port.ts";
+import type { Concurrency } from "../fixtures/reference.ts";
+import {
+  type ActorRef,
+  type Channel,
+  type Json,
+  type MemberKind,
+  type MemberTarget,
+  sameActor,
+  sameJson,
+} from "../port.ts";
 import type { InvariantId } from "./oracle.ts";
 
 /**
@@ -178,6 +187,7 @@ export type AttemptLife = { readonly id: string; readonly lane: LaneId; readonly
  *   this boot follows one.
  * - `actors`: each actor's record and the ordinal of its latest incarnation.
  * - `releasing`: the lanes a release marked (WriteLanes R16); their endings are evidence.
+ * - `turn`: the open turn's members not yet applied ({@link OpenTurn}).
  *
  * **Gotchas**
  *
@@ -186,6 +196,7 @@ export type AttemptLife = { readonly id: string; readonly lane: LaneId; readonly
  */
 export type Model = {
   readonly mode: "running" | "disposing";
+  readonly turn: Option.Option<OpenTurn>;
   readonly afterDisposal: boolean;
   readonly actors: ReadonlyArray<{
     readonly actor: ActorRef;
@@ -203,6 +214,7 @@ export type Model = {
  */
 export const empty: Model = {
   mode: "running",
+  turn: Option.none(),
   afterDisposal: false,
   actors: [],
   attempts: [],
@@ -253,3 +265,119 @@ export const Move = Data.taggedEnum<Move>();
  */
 export const isHead = (model: Model, life: AttemptLife) =>
   model.attempts.find((a) => sameLane(a.lane, life.lane) && addressable(a.phase))?.id === life.id;
+
+/**
+ * One lane member of a turn, as the lifecycle applies it: its operation, kind and target, and the
+ * operation's declared concurrency, which picks a commit's column of Table B.
+ */
+export type LaneMember = {
+  readonly operation: string;
+  readonly kind: MemberKind;
+  readonly target: MemberTarget;
+  readonly concurrency: Concurrency;
+};
+
+/**
+ * What one commit member of Table B admits when its report comes: a new Attempt (`Mint`, with
+ * where it goes), or a decline (`Decline`).
+ *
+ * **Details**
+ *
+ * - `Mint`: a new head. `Decline`: only a `NotSent { Rejected }`.
+ * - `Queue`: a new waiting Attempt; at 64 waiting, a decline `Overloaded` instead.
+ * - `SupersedeHead`, `SupersedeQueued`: the head, or the last waiting Attempt, owes `Superseded`;
+ *   the new Attempt waits.
+ * - `Replace`: the head's ending is evidence; `ReplaceCancelled`: the head keeps a pending cancel.
+ *   Either way the new Attempt is the head.
+ */
+export type Admit =
+  | "Mint"
+  | "Decline"
+  | "Queue"
+  | "SupersedeHead"
+  | "SupersedeQueued"
+  | "Replace"
+  | "ReplaceCancelled";
+
+/**
+ * The open turn: its actor, the commit whose report it awaits (its lane and what it admits), the
+ * members after it, and the lanes where a decline breaks an Invariant (an Idle cancel's).
+ */
+export type OpenTurn = {
+  readonly actor: ActorRef;
+  readonly waiting: Option.Option<{ readonly lane: LaneId; readonly admit: Admit }>;
+  readonly rest: ReadonlyArray<LaneMember>;
+  readonly silent: ReadonlyArray<{ readonly lane: LaneId; readonly invariant: InvariantId }>;
+};
+
+/**
+ * A move of the lane's members (Table B): a turn's members, a mint, a decline, and the turn's
+ * close.
+ */
+export type LaneMove = Data.TaggedEnum<{
+  Turn: { actor: ActorRef; members: ReadonlyArray<LaneMember> };
+  Minted: { attempt: string; lane: LaneId };
+  Declined: { operation: string; actor: ActorRef; reason: string };
+  TurnCloses: {};
+}>;
+
+/**
+ * Constructors and matchers for {@link LaneMove}.
+ */
+export const LaneMove = Data.taggedEnum<LaneMove>();
+
+/**
+ * Which ending a report names: its operation, its Attempt (`None` for a decline) and its actor.
+ */
+export type EndingName = {
+  readonly operation: string;
+  readonly attempt: Option.Option<string>;
+  readonly actor: ActorRef;
+};
+
+/**
+ * A move of one ending's delivery (Table C), named by the report.
+ *
+ * **Details**
+ *
+ * - `Delivered`: admitted to its actor. `Heard`: its actor's turn, or its unhandled or denied event.
+ * - `Refused`: its turn was refused (`InvalidTurn`) or it had no mapping (`Unmapped`).
+ * - `Parked`, `Unparked`: it waits for an incarnation, and stops waiting.
+ * - `Recorded`: it was recorded and not delivered; `letGo` when a kept ending is let go.
+ */
+export type LifeMove = Data.TaggedEnum<{
+  Delivered: { ending: EndingName };
+  Refused: { ending: EndingName; issue: "InvalidTurn" | "Unmapped" };
+  Heard: { ending: EndingName };
+  Parked: { ending: EndingName };
+  Unparked: { ending: EndingName };
+  Recorded: { ending: EndingName; letGo: boolean };
+}>;
+
+/**
+ * Constructors and matchers for {@link LifeMove}.
+ */
+export const LifeMove = Data.taggedEnum<LifeMove>();
+
+/**
+ * A move of an actor's life: an incarnation began (`Incarnated`, or `Adopt` of an unbound actor),
+ * ended at its grace (`Finished`), or the suite disposed or forgot it.
+ */
+export type ActorMove = Data.TaggedEnum<{
+  Incarnated: { actor: ActorRef };
+  Adopt: { actor: ActorRef };
+  Finished: { actor: ActorRef };
+  Disposed: { actor: ActorRef };
+  Forgot: { actor: ActorRef };
+}>;
+
+/**
+ * Constructors and matchers for {@link ActorMove}.
+ */
+export const ActorMove = Data.taggedEnum<ActorMove>();
+
+/**
+ * Any move of the lifecycle: an Attempt's ({@link Move}), the lane's members' ({@link LaneMove}),
+ * an ending's delivery ({@link LifeMove}) or an actor's ({@link ActorMove}).
+ */
+export type Input = Move | LaneMove | LifeMove | ActorMove;

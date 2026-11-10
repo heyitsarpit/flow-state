@@ -1,5 +1,8 @@
 import { Move, type Model, Obligation, type Phase } from "./lifecycle-model.ts";
 import { endTraces } from "./lifecycle-ends.traces.ts";
+import { lifeTraces } from "./lifecycle-lives.traces.ts";
+import { memberTraces } from "./lifecycle-members.traces.ts";
+import { turnTraces } from "./lifecycle-turns.traces.ts";
 import { obligationTraces } from "./lifecycle-obligations.traces.ts";
 import { at, build, type Trace } from "./lifecycle-trace.ts";
 import type { InvariantId } from "./oracle.ts";
@@ -350,6 +353,7 @@ const laneWide = (
   refusals: [refusals],
   phases: { ...zooPhases, ...changed },
   owed: 1,
+  checks: [],
 });
 
 const laneWideTraces: ReadonlyArray<Trace> = [
@@ -406,4 +410,7 @@ export const traces: ReadonlyArray<Trace> = [
   ...evidenceTraces,
   ...laneWideTraces,
   ...obligationTraces,
+  ...memberTraces,
+  ...turnTraces,
+  ...lifeTraces,
 ];
