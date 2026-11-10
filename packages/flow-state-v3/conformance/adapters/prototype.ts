@@ -22,6 +22,10 @@ declare const CompiledBrand: unique symbol;
  */
 type Compiled = { readonly [CompiledBrand]: "Compiled" };
 
+type PrototypeEvent =
+  | { readonly tag: string; readonly payload: Json }
+  | { readonly tag: string; readonly payload: Json; readonly to: ReadonlyArray<string> };
+
 type PrototypeInstance = {
   readonly attach: (
     actor: string,
@@ -32,7 +36,7 @@ type PrototypeInstance = {
     existing: boolean,
   ) => void;
   readonly detach: (actor: string, owner: string) => void;
-  readonly send: (actor: string, event: { readonly tag: string; readonly payload: Json }) => void;
+  readonly send: (actor: string, event: PrototypeEvent) => void;
   readonly dispose: (actor: string) => void;
   readonly forget: (actor: string) => void;
   readonly disposeRuntime: () => void;
@@ -164,7 +168,11 @@ const runtimeOf = (instance: PrototypeInstance): Runtime => ({
   ensureExisting: (actor, use) =>
     instance.attach(actorKey(actor), actor.machine, undefined, use, true),
   release: (actor, use) => instance.detach(actorKey(actor), use),
-  send: (actor, event, payload) => instance.send(actorKey(actor), { tag: event, payload }),
+  send: (actor, event, payload, part) =>
+    instance.send(
+      actorKey(actor),
+      part.length === 0 ? { tag: event, payload } : { tag: event, payload, to: part },
+    ),
   dispose: (actor) => instance.dispose(actorKey(actor)),
   forget: (actor) => instance.forget(actorKey(actor)),
   disposeRuntime: instance.disposeRuntime,

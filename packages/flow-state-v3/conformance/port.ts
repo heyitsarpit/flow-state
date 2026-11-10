@@ -240,6 +240,8 @@ export type Boot = {
  * - `row` is a write's row as the runtime publishes it, untyped; the fixture's operation decodes it
  *   (`dsl/actor.ts`), and an absent row is `None`.
  * - `ensure` attaches one use of the identity, creating it if needed.
+ * - `send` sends an external event to the actor's root (`part` empty) or to the trait or fragment
+ *   instance at `part`, as the public API's scoped events (`E.t.Go`) address it.
  * - `ensureExisting` attaches a use to an identity that is live or restorable, never creating one;
  *   the suite calls it for each use it holds after a reload.
  * - `release` ends one use; the runtime's grace decides the identity's life.
@@ -259,7 +261,12 @@ export type Runtime = {
   readonly ensure: (actor: ActorRef, input: Option.Option<Json>, use: Use) => void;
   readonly ensureExisting: (actor: ActorRef, use: Use) => void;
   readonly release: (actor: ActorRef, use: Use) => void;
-  readonly send: (actor: ActorRef, event: string, payload: Json) => void;
+  readonly send: (
+    actor: ActorRef,
+    event: string,
+    payload: Json,
+    part: ReadonlyArray<string>,
+  ) => void;
   readonly dispose: (actor: ActorRef) => void;
   readonly forget: (actor: ActorRef) => void;
   readonly disposeRuntime: () => void;

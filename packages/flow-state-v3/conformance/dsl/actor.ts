@@ -71,6 +71,7 @@ export const actorView = <F extends Fixture>(c: Case, fixture: F, id: string): A
     actor: ref,
     event: name,
     payload: encoded(declared(fixture.events, name), payload),
+    part: [],
   });
 
   return {

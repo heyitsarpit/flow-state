@@ -27,10 +27,16 @@ import { makeWorld, type World } from "../world/world.ts";
 import { type Actor, actorView } from "./actor.ts";
 
 /**
- * One event the suite sends to one actor, its payload encoded: build one with an actor's
- * `event`.
+ * One event the suite sends to one actor, its payload encoded, addressed to the actor's root
+ * (`part` empty) or to a trait or fragment instance: build one with an actor's `event` or
+ * `eventInto`.
  */
-export type Drive = { readonly actor: ActorRef; readonly event: string; readonly payload: Json };
+export type Drive = {
+  readonly actor: ActorRef;
+  readonly event: string;
+  readonly payload: Json;
+  readonly part: ReadonlyArray<string>;
+};
 
 const shown = <A>(value: A) => String(JSON.stringify(value));
 
@@ -214,9 +220,9 @@ const openCase = (options: CaseOptions) => {
 
   const send = (drives: ReadonlyArray<Drive>) =>
     act(`send ${drives.map((d) => d.event).join(", ")}`, () => {
-      for (const { actor, event, payload } of drives) {
+      for (const { actor, event, payload, part } of drives) {
         record(Fact.Drove({ actor, event }));
-        life.runtime().send(actor, event, payload);
+        life.runtime().send(actor, event, payload, part);
       }
     });
 
