@@ -116,3 +116,18 @@ Found while writing the `lane-cells` oracle and its lies (packages/flow-state-v3
 - Edits to T4, T6, T9, T10, R14 and WriteAhead T7 kept the trailing space on each continuation
   line (the Edit tool strips it; it was restored on the exact lines), and `workflow format --check`
   passes on both files.
+
+## The `User's read` field dropped (2026-11-10)
+
+- **Conformance.spec, five agent decisions (R4, R6, two in R7, R9).** The trailing
+  `User's read: pending.` is removed from each; the decisions, their reasons and their `Reverse`
+  lines are unchanged. The user's call: the field tracked a read that does not happen, and the
+  decision convention no longer has it.
+
+## Turn.spec R1 to R11 link their Plan items instead of copying them (2026-11-10)
+
+- **Turn.spec R1 to R11.** Each `must` restated @plan.Machines.O2 or O3 nearly word for word, so a
+  rule lived in two places. Each now names the behaviour in one line and defers to its `source`;
+  the invariants and tests, the checkable part, are unchanged. The user's call: Specs come after
+  Plans and link the items they derive from. Reverse: restore the text from git.
+- R12 to R25 still restate @plan.Machines.O4 to O8; not changed in this pass.

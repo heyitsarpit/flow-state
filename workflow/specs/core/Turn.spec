@@ -15,93 +15,53 @@ derives_from  [
 requirements
     R1  One active leaf
         source  @plan.Machines.O2.
-        must    Exactly one leaf is active. Substates share the actor's memory, context and 
-                lifetime. Reaching a leaf with no handlers does not complete or dispose the actor.
+        must    Exactly one leaf is active, with the state rules the source sets.
 
     R2  Handler selection
         source  @plan.Machines.O2; @plan.Machines.O3.
-        must    The active leaf's handler is tried first, then each ancestor up to the root. At 
-                each level the first passing or unguarded alternative wins; if all decline, the 
-                next ancestor is tried. With no enabled transition nothing changes and no work 
-                starts. After the root the event is Denied when a handler existed, else Unhandled. 
-                A child's refusal inside a selected alternative never falls through: it refuses the 
-                turn.
+        must    Each event selects its handler and alternative by the source's selection order,
+                ending Denied or Unhandled after the root.
 
     R3  Self, re-entry and order
         source  @plan.Machines.O2.
-        must    "self", or an omitted target, changes no state, restarts no work and keeps the
-                activation, at the root too. An explicit target re-enters itself if active, as a new
-                activation; targeting an active ancestor re-enters it through its defaults.
-
-                Below the unchanged boundary, states exit deepest first and the path to the target
-                enters outermost first; work at and above the boundary survives. Parents' activities
-                start before children's and stop after them. Defaults reach a leaf in one
-                publication with no intermediate work or snapshot.
+        must    "self", re-entry, the unchanged boundary, and exit and entry order behave as the
+                source states.
 
     R4  Subroutines and history
         source  @plan.Machines.O2.
-        must    A subroutine state is entered at its default; it is left by an exit, or abandoned 
-                by a transition that exits it. Host events fall through to its ancestors, and an 
-                ancestor's "self" does not abandon it. Every exit is filled and leaves the 
-                subroutine's state. S.X.history targets X's last active child or its default and 
-                restores control only.
+        must    Subroutine states and history behave as the source states.
 
     R5  One turn
         source  @plan.Machines.O3.
-        must    A turn runs admit, select the source, select the parts, seed and compute, validate, 
-                commit. One transition and everything it raises, notifies, exits, resets and leaves 
-                is one turn and one publication. A pending reset from the last commit runs first, 
-                as its own follow-up turn.
+        must    A turn runs the source's steps in order and publishes once; a pending reset runs
+                first as its own turn.
 
     R6  Fragment incarnations in a turn
         source  @plan.Machines.O3.
-        must    Before the walk resetOn runs, and a changed trait gets a new incarnation, or ends 
-                if its reset value becomes absent. After the walk each .each field's final list 
-                decides membership. whenAbandoned runs for every incarnation the turn ends, fused 
-                into that turn. At commit, resetOn is re-evaluated into pending resets.
+        must    Fragment incarnations start, end and reset within a turn as the source's "select
+                the parts" and "commit" steps state.
 
     R7  Two memory views
         source  @plan.Machines.O3.
-        must    Guards, payload mappers and `updateMemory` read the pre-turn snapshot. Commit and
-                lookup selects, key selects, schedule functions, keys, `restartOn`, placement
-                selects and when, and optimistic read the after memory. `resetOn` and input fillers
-                read the before-walk memory.
-
-                Lane reads (operations, get, idle, retryable) in guards, selects and `updateMemory`
-                see the pre-turn lanes with the turn's own ending admitted; keys, when, placement
-                selects and published rows see the lanes with this turn's members applied. Each
-                patch shallow-merges once. Updates, action parameters and send mappers receive one
-                now per turn; guards receive no time.
+        must    Every callback reads the memory, lanes and time the source's two memory views assign
+                it.
 
     R8  Rejected turn
         source  @plan.Machines.O3.
-        must    An invalid action, a failing after-memory select or an invalid duration rejects the 
-                whole turn: prior state and memory stay, no action runs, and one issue-only 
-                snapshot names the code. A value that cannot be encoded never rejects a turn.
+        must    A turn the source names invalid is rejected whole, as the source states.
 
     R9  After publication
-        source  @plan.Machines.O3.
-        must    After publication, exited work releases, entered work starts, then finite actions 
-                start. Unhandled and denied events publish nothing of the turn's own, change no 
-                revision and start no work. An ending admitted at the turn's first step keeps its 
-                lane effects and counts as delivered even when the event is then Denied or 
-                Unhandled, and lane-only changes publish captured lanes (@plan.Machines.O6).
+        source  @plan.Machines.O3; @plan.Machines.O6.
+        must    Work after publication, and Unhandled and denied events, behave as the sources
+                state.
 
     R10  Callback defects
         source  @plan.Machines.O3.
-        must    A pre-commit callback defect (guard, update, select, key, send payload, schedule,
-                restartOn, placement select, when) preserves prior state, memory, context and store,
-                starts no work, publishes one issue-only snapshot naming the callback and path, and
-                is not retried for that input.
-
-                A post-commit mapper, placeholder, optimistic-data or write callback defect
-                publishes one issue, enqueues no event, applies no partial write batch, and neither
-                rolls back nor retries.
+        must    Callback defects before and after commit behave as the source states.
 
     R11  Determinism
         source  @plan.Machines.O3.
-        must    The same snapshot, event, Clock and seeded randomness give the same result, without 
-                consulting host wall time.
+        must    A turn is deterministic as the source states.
 
     R12  Guards
         source  @plan.Machines.O4.
@@ -297,7 +257,8 @@ invariants
 
     I11  Every incarnation the turn ends has run whenAbandoned in that same turn. [@R6]
 
-    I12  Every read listed for PreTurn returns PreTurn values; every read listed for After returns After values. [@R7]
+    I12  Every read @plan.Machines.O3 lists for PreTurn returns PreTurn values; every read it lists for After
+        returns After values. [@R7]
 
     I13  All now values passed within one turn are equal. [@R7]
 
