@@ -451,3 +451,8 @@ note 2026-11-10T19:13:13Z
     Invariant checked or owned by a named Task), blocking T15 and batched with the current builder; and every new 
     case's expected result is drafted by a Haiku sidecar from the Spec before the code. **Why:** uncovered Invariants 
     hid, and builders wrote their own expectations. **Reverse:** unlink T41; drop the instructions line.
+note 2026-11-10T19:24:20Z
+    Review done (T40 and S2, code:workflow/plans/flow/references/proposals/t40-s2-review-2026-11-11.md): T40 holds; S2 
+    weakened nothing, but 1 High (a quiet Released on a may-cancel turn passes) and Mediums (keyed lanes named only at 
+    the first send, Held lost across a reload, I15's refusal exception missing) go to the T7 lead and must land before 
+    T7 closes.
