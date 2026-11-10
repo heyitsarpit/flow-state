@@ -68,9 +68,11 @@ that they match.
   is how many failures with the same root cause, after convergence, end a phase.
 - **Stop:** a point where work cannot go on without the user. Everything else the user should see
   is recorded for the user's read while work goes on. The stop list is skill:build-a-loop's R20.
-- **Usage limit and usage reserve:** the **usage limit** is the agent harness's allowance per
-  usage window. The **usage reserve** is the share of it kept unspent; reaching it stops the run.
-  It is set in the Epic's Limits section, and the user changes it as their planned work changes.
+- **Usage limit and usage reserve:** the **usage limit** is always the agent harness's weekly
+  allowance across all models, never a shorter window such as a 5-hour limit. The **usage
+  reserve** is written as the weekly usage, in percent used, at which the run stops (for example
+  "stop at 50 percent weekly"); reaching it stops the run. It is set in the Epic's Limits section,
+  and the user changes it as their planned work changes.
 - **Note:** a timestamped, append-only entry in the Epic's `log.task`, beside its Epic file.
 - **Agent decision:** a decision an agent made under delegation, written in
   skill:policy-records's decision convention with its reason and how to reverse it. Work goes on,
