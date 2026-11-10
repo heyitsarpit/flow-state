@@ -439,3 +439,8 @@ note 2026-11-10T17:55:59Z
     code:workflow/plans/flow/references/proposals/suite-simplicity-review-2026-11-10.md. Deferred: the proposed lint 
     rules (no-option-to-sentinel, template-literal map keys, a duplicate-definition check); the two STYLE.md lines are 
     T40's. Reverse: unlink T40 and patch in place.
+note 2026-11-10T17:57:42Z
+    T6 done (verified at 8be33fc5: 67/67, null 0/67, falsify 38/38, each kill by its expected Invariant). The building 
+    lead stopped before T40 and parked its lane-queue and delivered-once patches for H1 to H4 outside the repo. No 
+    builder is running. Proposed to the user, awaiting go: a convergence pass on the oracle layer (policy-convergence) 
+    before T40 and T7's rewrite, because four reviews today repeated the same kinds of finding.

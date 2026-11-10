@@ -680,7 +680,7 @@ tasks
             Conformance.spec Q8 and Q10 now use the new check names. Acceptance met; T5 done.
     T6
         title       Judged Runtime disposal per case, and tsgo in check
-        status      in_progress
+        status      done
         priority    medium
         blocked_by  [@T5]
         description
@@ -800,6 +800,13 @@ tasks
             claim is caught by no oracle, only the cases counting Released (PAY-03, LANE-03, LANE-09); not registered. 
             Haiku reviewer (test the spec): 10 findings, 4 accepted, 6 rejected, with why in conformance/STATUS.md. 
             Reverse: revert the commit.
+        comment     2026-11-10T17:57:32Z
+            Orchestrator verification (2026-11-10, HEAD 8be33fc5): suite 67/67; null 0/67; falsify --parallel 6, 38/38 
+            mutants caught, each by the Invariant it expects. Acceptance met: every case ends with a judged disposal, 
+            the disposal mutants (including the three o6.* under I35 and I36) are killed, and tsgo runs in nub run 
+            check. T6 done. Left for the user: the unported 1b.disposal-definite-w-first (mint order, no Invariant 
+            states it), the unregistered false-Released mutant (L5: no oracle catches it), and the builder's M2 
+            leniency (a Released claim settles a head only while the suite holds a use).
     T40
         title       Suite simplified: one oracle contract, shared domain facts, dead surface removed
         status      open
@@ -882,8 +889,20 @@ tasks
             Haiku-code review's H1 to H4, plus H5 and the I1 note; patching them is dropped. Land the rewrite with the 
             changed verdicts listed, each with its rule (Conformance R11), and keep every constraint S2 lists. T7 goes 
             back to open, blocked by T40. Reverse: patch the two oracles in place.
-        comment 2026-11-10T17:56:25Z
-            Evidence (builder, 2026-11-10): commit 392147bc. H5 accepted: ending-channels fails a success or commit failure with no server answer in its step (request-time answers count; unknowns and Flow's own failures exempt), mutant.success-without-answer caught as WriteLanes I3; case DISP-06. Gates from packages/flow-state-v3: suite 67/67, suite --runtime null 0/67, falsify --parallel 6 38/38, nub run check at zero. Parked by the orchestrator's call (rewrite from the Spec after T40, S2): H1 keyed lanes in lane-queue; H2 (I16 check; I22 dropped from delivered-once's guarantee until it has a check), H3 (a replaced Attempt's delivery) and H4 (no disposal excuse, only forget's) in delivered-once; mutants mutant.replaced-delivered (LANE-07, I15), mutant.success-then-failure (PAY-01, I16), d6.disposed-ending-is-evidence (DISP-06, I15), each seen caught for its reason on the parked patch, kept as the rewrite's acceptance list (patch saved outside the repo; listed in conformance/STATUS.md T7). I1 (a Sent while already on the wire) not started. Haiku reviewer of the H diff: 7 findings, 2 accepted, 4 carried to the rewrite, 1 rejected, with why in STATUS.md. None of T7's own rows (I1, I2, I4, I5, I7, I10, I13, I14, I17 to I19, I23) is built yet.
+        comment     2026-11-10T17:56:25Z
+            Evidence (builder, 2026-11-10): commit 392147bc. H5 accepted: ending-channels fails a success or commit 
+            failure with no server answer in its step (request-time answers count; unknowns and Flow's own failures 
+            exempt), mutant.success-without-answer caught as WriteLanes I3; case DISP-06. Gates from 
+            packages/flow-state-v3: suite 67/67, suite --runtime null 0/67, falsify --parallel 6 38/38, nub run check 
+            at zero. Parked by the orchestrator's call (rewrite from the Spec after T40, S2): H1 keyed lanes in 
+            lane-queue; H2 (I16 check; I22 dropped from delivered-once's guarantee until it has a check), H3 (a 
+            replaced Attempt's delivery) and H4 (no disposal excuse, only forget's) in delivered-once; mutants 
+            mutant.replaced-delivered (LANE-07, I15), mutant.success-then-failure (PAY-01, I16), 
+            d6.disposed-ending-is-evidence (DISP-06, I15), each seen caught for its reason on the parked patch, kept as 
+            the rewrite's acceptance list (patch saved outside the repo; listed in conformance/STATUS.md T7). I1 (a 
+            Sent while already on the wire) not started. Haiku reviewer of the H diff: 7 findings, 2 accepted, 4 
+            carried to the rewrite, 1 rejected, with why in STATUS.md. None of T7's own rows (I1, I2, I4, I5, I7, I10, 
+            I13, I14, I17 to I19, I23) is built yet.
     T8
         title       Turn area complete
         status      open
