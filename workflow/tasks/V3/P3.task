@@ -690,7 +690,7 @@ tasks
             - verdicts match the old suite's or each difference is logged.
     T13
         title       Static cases for Compile, Diagnostics, Codec and StaticCli
-        status      in_progress
+        status      done
         priority    medium
         blocked_by  [@T5, @T40]
         description
@@ -729,6 +729,9 @@ tasks
             28 static Invariants round-14 cannot make moved to T17, T20 and T22 in not-yet.ts; Conformance Q5, Q11, 
             Q12, Q14 and Compile R17 revised, Compile Q3 open for the user. Suite 84/84, null 0/84, falsify 68/68, 
             coverage 33/186 with 0 gaps. Detail: packages/flow-state-v3/conformance/STATUS.md, T13 part 2.
+        comment     2026-11-10T21:25:18Z
+            Orchestrator verification at c1427047: 84/84, null 0/84, falsify 68/68; every static Invariant round-14 can 
+            make is checked, the rest owned by T17, T20 and T22. Done. Detail: STATUS.md "T13 part 2".
     T14
         title       Searches and mutants as runner modes
         status      open
