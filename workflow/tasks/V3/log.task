@@ -405,4 +405,9 @@ note 2026-11-10T17:17:50Z
     disposeActor half of I29, because T9 covers Actors apart from disposal; no Task scope changed. Next in the review 
     slot: the Q3 A review of the suite files Haiku coders wrote. Reverse: move them to T9 with the user's yes.
 note 2026-11-10T17:19:29Z
-    The user sent a conformance code-quality cleanup list (8 items: Data.TaggedEnum and exhaustive $match for routing, $is only for one yes/no question, Data constructors instead of spreads, one set of Observation variant aliases in port.ts, a STYLE.md line; no behaviour change). Sent verbatim to the T7 lead to judge each item and implement the ones worth doing, logged in T6's comments; item 8 edits tools/lint-bomb/STYLE.md by the user's request.
+    The user sent a conformance code-quality cleanup list (8 items: Data.TaggedEnum and exhaustive $match for routing, 
+    $is only for one yes/no question, Data constructors instead of spreads, one set of Observation variant aliases in 
+    port.ts, a STYLE.md line; no behaviour change). Sent verbatim to the T7 lead to judge each item and implement the 
+    ones worth doing, logged in T6's comments; item 8 edits tools/lint-bomb/STYLE.md by the user's request.
+note 2026-11-10T17:25:32Z
+    Decision (user, 2026-11-10): after the review of Haiku-written suite code, one Opus code-simplicity review of the whole conformance suite (packages/flow-state-v3/conformance/), including what was carried over from the throwaway prototype: is each module the minimal correct code for its outcome, and which tangled parts should be simplified or rewritten. Four Haiku sidecars: two on simplicity (duplication and dead or unused code; needless abstraction, indirection and prototype carry-over), two on correctness (that each proposed simplification keeps every guarantee and the mutant kills). The orchestrator decides what to simplify; the building lead does it with verdicts identical before and after. Why: the user's concern that Haiku code was needlessly complex and the prototype was throwaway. Reverse: drop the review.
