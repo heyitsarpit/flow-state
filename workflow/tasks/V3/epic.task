@@ -232,6 +232,12 @@ instructions
       2026-11-10): the verdict, commits, gate counts, and only the items that need a decision or
       routing, in about 30 lines; the full findings, sidecar logs and evidence go in the Task's
       comments, STATUS.md or a review file, and the report names where.
+    - Records lead with the bottom line and hold each fact once (the user, 2026-11-11): an Epic note
+      is 1 to 3 lines, decision or fact first, with one Why and one Reverse line for a decision; a
+      Task comment is a verdict line plus a link to its STATUS.md section or review file; sidecar
+      logs and findings tables live only in STATUS.md or the review file; STATUS.md keeps one short
+      section per Task, cut to a summary when the Task is done; no commit lists or gate counts
+      beyond the one revision verified. Briefs and handoffs follow the user's Writing order.
     - Building leads plan their round's tasks up front and write every committed line themselves;
       Haiku never writes committed code (the user, 2026-11-10, Q2 A; replaces amendment 8's coders).
       They may run up to four Haiku sidecars as runners (gates, falsify, sweeps, timings, traces),
