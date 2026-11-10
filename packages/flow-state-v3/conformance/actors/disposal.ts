@@ -1,6 +1,11 @@
 import { Data, Option } from "effect";
 import { disposalBoundMs, Fact, holdUse, oracle, violation } from "../dsl/oracle.ts";
-import { operationNamed, type OperationReference, type Reference } from "../fixtures/reference.ts";
+import {
+  operationNamed,
+  type OperationReference,
+  type Reference,
+  unknownEvent,
+} from "../fixtures/reference.ts";
 import { type ActorRef, type Channel, type Ended, Observation, sameActor } from "../port.ts";
 import { type Answer, type Request, RequestPhase } from "../world/network.ts";
 import {
@@ -102,7 +107,7 @@ const channelsOfEvent = (operation: OperationReference, event: string) => {
   const events = {
     success: [operation.success],
     failure: Object.values(operation.failure),
-    unknown: [operation.unknown],
+    unknown: Option.toArray(unknownEvent(operation)),
   };
 
   return CHANNELS.filter((channel) => events[channel].includes(event));

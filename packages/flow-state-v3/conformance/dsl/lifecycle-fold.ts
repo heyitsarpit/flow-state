@@ -18,10 +18,10 @@ import { type Rules, rules } from "./lifecycle-rules.ts";
 /**
  * One fold result of any lifecycle move: the next model and the refusals found.
  */
-export type Applied = readonly [Model, ReadonlyArray<Refusal>];
+export type Folded = readonly [Model, ReadonlyArray<Refusal>];
 
 // RETURN_TYPE: the fold's result is the named tuple; a literal would infer as an array.
-const appliedOf = (model: Model, refusals: ReadonlyArray<Refusal> = []): Applied => [
+const appliedOf = (model: Model, refusals: ReadonlyArray<Refusal> = []): Folded => [
   model,
   refusals,
 ];

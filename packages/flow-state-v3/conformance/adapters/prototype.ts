@@ -9,8 +9,8 @@ import {
   type Runtime,
   Snapshot,
 } from "../port.ts";
-import type { Network } from "../world/network.ts";
-import type { Page } from "../world/page.ts";
+import { makeNetwork, type Network } from "../world/network.ts";
+import { makePage, type Page } from "../world/page.ts";
 import { type Purpose, Write } from "../world/storage.ts";
 import { actorRef, observationsOf } from "./prototype-observations.ts";
 
@@ -307,6 +307,20 @@ export const loadPrototype = Effect.fn("loadPrototype")(function* (runtimeDir: s
 
   return { dir: runtimeDir, port, fixtures: new Map(fixtures) } satisfies LoadedPrototype;
 });
+
+/**
+ * The compiled machine of one loaded prototype fixture, unread: none when the prototype has no
+ * fixture of that catalog name.
+ *
+ * **When to use**
+ *
+ * The rows' change detector (`fixtures/rows.test.ts`) decodes it to compare a fixture's rows with
+ * the alternatives its compiled machine holds. The fixture is made over an idle server.
+ */
+export const compiledOf = (loaded: LoadedPrototype, name: string) =>
+  Option.map(Option.fromUndefinedOr(loaded.fixtures.get(name)), (fixture) =>
+    fixture.make(apiOf(makeNetwork(), makePage(0))),
+  );
 
 /**
  * The Port over a prototype runtime (the runner's default, or an edited copy of it).

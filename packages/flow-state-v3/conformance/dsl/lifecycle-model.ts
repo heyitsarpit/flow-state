@@ -188,6 +188,7 @@ export type AttemptLife = { readonly id: string; readonly lane: LaneId; readonly
  * - `actors`: each actor's record and the ordinal of its latest incarnation.
  * - `releasing`: the lanes a release marked (WriteLanes R16); their endings are evidence.
  * - `turn`: the open turn's members not yet applied ({@link OpenTurn}).
+ * - `unstoppable`: the operations whose calls the suite made uninterruptible, from then on.
  *
  * **Gotchas**
  *
@@ -207,6 +208,7 @@ export type Model = {
   readonly endings: ReadonlyArray<Ending>;
   readonly obligations: ReadonlyArray<Obligation>;
   readonly releasing: ReadonlyArray<LaneId>;
+  readonly unstoppable: ReadonlyArray<string>;
 };
 
 /**
@@ -221,6 +223,7 @@ export const empty: Model = {
   endings: [],
   obligations: [],
   releasing: [],
+  unstoppable: [],
 };
 
 /**

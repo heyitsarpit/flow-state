@@ -176,7 +176,13 @@ const acted = (model: Model, lane: LaneId, a: Act) =>
         model,
         keptOn(model, lane).map((ending) => Obligation.AwaitLetGo({ ending })),
       ),
-    Resend: () => onHead(model, lane, (head) => setPhase(model, head.id, Phase.Resending())),
+    Resend: () =>
+      onHead(model, lane, (head) => ({
+        ...setPhase(model, head.id, Phase.Resending()),
+        obligations: model.obligations.filter(
+          (o) => !(Obligation.$is("Await")(o) && o.attempt === head.id && o.report === "Released"),
+        ),
+      })),
     PendingCancel: () => headAct(model, lane, "PendingCancel"),
     AwaitRelease: () => headAct(model, lane, "AwaitRelease"),
     Interrupt: () => headAct(model, lane, "Interrupt"),

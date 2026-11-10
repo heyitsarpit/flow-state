@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import { Empty, type Fixture, writeOf } from "./fixture.ts";
-import { type CancelsOf, type Concurrency, classifyWith } from "./reference.ts";
+import { type CancelsOf, type Concurrency, classifyWith, row } from "./reference.ts";
 
 const Unkeyed = Empty;
 
@@ -9,7 +9,7 @@ const oneLaneWrite = <C extends Concurrency>(concurrency: C, cancels: CancelsOf<
     concurrency,
     success: "Ok",
     failure: { NotSent: "No" },
-    unknown: "Unsure",
+    unknown: { event: "Unsure" },
     classify: classifyWith(() => false),
     cancels,
     mayCancel: [],
@@ -33,6 +33,10 @@ export const Serialize = {
       All: "cancelAll",
     } satisfies CancelsOf<keyof typeof serializeEvents>),
   },
+  rows: [
+    row("Go", "any", "same", [{ operation: "put", kind: "commit" }]),
+    row("All", "any", "same", [{ operation: "put", kind: "cancelAll" }]),
+  ],
 } satisfies Fixture;
 
 /**
@@ -47,6 +51,7 @@ export const Latest = {
   input: Empty,
   states: ["A"] as const,
   operations: { search: oneLaneWrite("latest", {}) },
+  rows: [row("Go", "any", "same", [{ operation: "search", kind: "commit" }])],
 } satisfies Fixture;
 
 /**
@@ -61,4 +66,8 @@ export const Cancel = {
   input: Empty,
   states: ["A", "W"] as const,
   operations: { search: oneLaneWrite("cancel", {}) },
+  rows: [
+    row("Go", "any", "W", [{ operation: "search", kind: "commit" }]),
+    row("Unsure", "any", "same", [{ operation: "search", kind: "retry" }]),
+  ],
 } satisfies Fixture;

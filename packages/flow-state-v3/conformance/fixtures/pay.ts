@@ -1,6 +1,6 @@
-import { Schema } from "effect";
+import { Option, Schema } from "effect";
 import { Empty, type Fixture, writeOf } from "./fixture.ts";
-import { classifyWith, type OperationReference } from "./reference.ts";
+import { classifyWith, type OperationReference, type Row, row } from "./reference.ts";
 
 const Address = Schema.Struct({
   name: Schema.String,
@@ -66,7 +66,7 @@ const pay = {
     IntentBusy: "PayRefused",
     NotSent: "PayNotSent",
   },
-  unknown: "PayUnsure",
+  unknown: { event: "PayUnsure" },
   classify: classifyWith(
     (tag, fields, mayHaveApplied) => tag === "IntentBusy" && mayHaveApplied && capturable(fields),
   ),
@@ -83,7 +83,7 @@ const operations = {
     concurrency: "reject",
     success: "Placed",
     failure: { NotSent: "PlaceRefused" },
-    unknown: "PlaceUnsure",
+    unknown: { event: "PlaceUnsure" },
     classify: classifyWith((tag) => tag === "OrderExists"),
     cancels: {},
     mayCancel: [],
@@ -92,12 +92,64 @@ const operations = {
     concurrency: "reject",
     success: "Voided",
     failure: { AlreadyCaptured: "VoidRefused", NotSent: "Voided" },
-    unknown: "VoidUnsure",
+    unknown: { event: "VoidUnsure" },
     classify: classifyWith(() => false),
     cancels: {},
     mayCancel: [],
   }),
 } satisfies Fixture["operations"];
+
+type State = (typeof states)[number];
+
+type Write = keyof typeof operations;
+
+const retryable = (operation: Write, passes: boolean) =>
+  Option.some({ operation, times: 3, passes });
+
+const payRow = row<string, State, Write>;
+
+const payRows = [
+  payRow("PayRequested", "PAYING", "same", [{ operation: "pay", kind: "commit" }]),
+  payRow("PayRequested", "any", "PAYING", [{ operation: "pay", kind: "commit" }]),
+  payRow("Leave", "any", "LEFT", [{ operation: "void", kind: "commit" }]),
+  payRow("Confirmed", "LEFT", "same", [{ operation: "void", kind: "commit" }]),
+  payRow("Confirmed", "IDLE", "PLACING", [{ operation: "place", kind: "commit" }]),
+  payRow(
+    "PlaceUnsure",
+    "any",
+    "same",
+    [{ operation: "place", kind: "retry" }],
+    retryable("place", true),
+  ),
+  payRow(
+    "VoidUnsure",
+    "any",
+    "same",
+    [{ operation: "void", kind: "retry" }],
+    retryable("void", true),
+  ),
+  payRow(
+    "VoidUnsure",
+    "any",
+    "same",
+    [{ operation: "void", kind: "cancel" }],
+    retryable("void", false),
+  ),
+  payRow("Confirmed", "PAYING", "PLACING", [{ operation: "place", kind: "commit" }]),
+  payRow("RetryNow", "WAITING", "PAYING", [{ operation: "pay", kind: "commit" }]),
+  payRow("IntentRead", "UNSURE", "PLACING", [
+    { operation: "pay", kind: "cancel" },
+    { operation: "place", kind: "commit" },
+  ]),
+  payRow(
+    "IntentRead",
+    "UNSURE",
+    "PAYING",
+    [{ operation: "pay", kind: "retry" }],
+    retryable("pay", true),
+  ),
+  payRow("OrderSeen", "UNSURE", "PAID", [{ operation: "pay", kind: "cancel" }]),
+] satisfies ReadonlyArray<Row<string, State, Write>>;
 
 /**
  * The typed Pay machine, `Checkout/Pay` (`prototypes/conformance/typed/pay.ts`).
@@ -115,6 +167,7 @@ export const Pay = {
   input: Empty,
   states,
   operations,
+  rows: payRows,
 } satisfies Fixture;
 
 const cellsEvents = { ...events, AbortPay: Empty };
@@ -139,4 +192,5 @@ export const Cells = {
     ...operations,
     pay: writeOf(ByIntent, cellsPay),
   },
+  rows: [...payRows, payRow("AbortPay", "any", "same", [{ operation: "pay", kind: "cancel" }])],
 } satisfies Fixture;

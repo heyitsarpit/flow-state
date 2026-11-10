@@ -1,5 +1,5 @@
 import { Predicate, Schema } from "effect";
-import type { Concurrency, OperationReference } from "./reference.ts";
+import type { Concurrency, OperationReference, Row, Rows } from "./reference.ts";
 
 /**
  * The Schema of a payload, input or key with no fields: only `{}` type-checks against it, where
@@ -109,6 +109,8 @@ export const writeOf = <
  * - `events` names the external events a case may send, each with its payload's Schema.
  * - `states` lists the machine's leaf states; `Actor.state` takes one of them or `(absent)`.
  * - `operations` names the writes, each with its key's Schema, its row's Schema and its reference.
+ * - `rows` lists the alternatives that run lane members ({@link Row}), compared with the compiled
+ *   machine by `fixtures/rows.test.ts` (a change detector).
  * - With no type arguments, `Fixture` is any fixture.
  */
 export type Fixture<
@@ -128,6 +130,7 @@ export type Fixture<
   readonly input: Input;
   readonly states: ReadonlyArray<string>;
   readonly operations: { readonly [O in keyof Keys]: Operation<Keys[O]> };
+  readonly rows: ReadonlyArray<Row>;
 };
 
 /**
@@ -142,3 +145,10 @@ export const referenceFor = (fixtures: ReadonlyArray<Fixture>) =>
       ),
     ]),
   );
+
+/**
+ * The rows of a case: each fixture's {@link Row}s, by machine id.
+ */
+// RETURN_TYPE: the Rows record; `Object.fromEntries` would infer a wider value type.
+export const rowsFor = (fixtures: ReadonlyArray<Fixture>): Rows =>
+  Object.fromEntries(fixtures.map((fixture) => [fixture.machine, fixture.rows]));

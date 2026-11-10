@@ -1,8 +1,9 @@
 import { Obligation } from "./lifecycle-model.ts";
+import { member, turn } from "./lifecycle-members.traces.ts";
 import { at, build, type Trace } from "./lifecycle-trace.ts";
 import type { InvariantId } from "./oracle.ts";
 
-const { Q, U, W, H, GC, GE } = at;
+const { Q, U, RS, W, H, GC, GE } = at;
 
 const {
   lane,
@@ -46,6 +47,20 @@ const promotionTraces: ReadonlyArray<Trace> = [
     steps: [unknown("s", "Interrupted", false), { due: "TurnCloses" as const }],
     refusals: [[], [wl(12)]],
     phases: { s: H, w: Q },
+    owed: 0,
+    checks: [],
+  },
+  {
+    name: "an unretained unknown re-sent in its own turn owes no release",
+    cites: "WriteLanes R4: under cancel an unknown is released once its own ending's turn ends",
+    start: headed(W),
+    steps: [
+      unknown("s", "Interrupted", false),
+      turn(member("retry", "cancel")),
+      { due: "TurnCloses" as const },
+    ],
+    refusals: [[], [], []],
+    phases: { s: RS, w: Q },
     owed: 0,
     checks: [],
   },
