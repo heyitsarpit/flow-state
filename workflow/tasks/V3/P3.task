@@ -746,6 +746,13 @@ tasks
             lines read); nub run check at zero. T6 stays in_progress, held only by the R22-bound stop (Q1 to the user): 
             the three o6.* mutants need a new Actors Invariant. The hourly review of f8b92e7b and 03098b28 is still 
             running; its accepted findings go to the next building lead.
+        comment     2026-11-10T17:17:42Z
+            Hourly review (Opus lead, four Haiku sidecars) of f8b92e7b and 03098b28: four High bugs, all fixed in 
+            62606880 and verified at HEAD; the tsgo wiring is verified. Open findings sent to the building lead: M1 
+            (I31, I32 and the disposeActor half of I29 judged by nothing; T6 owns them, since T9 covers Actors apart 
+            from disposal), M2 (I29 judged only for re-attached actors), and L1 to L11. Orchestrator spot-checked M2 
+            (disposal.ts survived and attached), L7 (README:47 and :94), L9 (case.ts:138 and scenarios:66), L10 
+            (disposal.ts:50) and T9's wording (P3.task:818). Not yet reviewed: the uncommitted I35/I36 work.
     T7
         title       WriteLanes area complete
         status      in_progress

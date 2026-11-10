@@ -399,3 +399,8 @@ note 2026-11-10T17:14:49Z
     default now matches this Epic's Q2 A: the building lead writes every committed line; sidecars are runners, 
     reviewers, locators, expectation drafters and adversaries, never coders; the lead and sidecar terms in build-a-loop 
     and to-epic say the same. Installed build-a-loop refreshed, skills-lock.json updated. Reverse: pin workflow@711b0f5.
+note 2026-11-10T17:17:50Z
+    Review done (T6, f8b92e7b and 03098b28): no High finding open; 2 Medium and 11 Low findings verified and sent to 
+    the T7 lead, to fold into T6 before going on with T7. Decision (orchestrator): T6 owns I31, I32 and the 
+    disposeActor half of I29, because T9 covers Actors apart from disposal; no Task scope changed. Next in the review 
+    slot: the Q3 A review of the suite files Haiku coders wrote. Reverse: move them to T9 with the user's yes.
