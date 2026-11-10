@@ -480,4 +480,12 @@ note 2026-11-10T20:27:05Z
     the cases, for case-only Invariants; T15's audit reads it. The I15 against Actors R15 refusal conflict and the 
     kept-ending questions go to the convergence designer. **Reverse:** keep case-only Invariants as owed rows.
 note 2026-11-10T20:40:48Z
-    Convergence proposal written (code:workflow/plans/flow/references/proposals/lane-oracle-convergence-2026-11-11.md): one shared lifecycle table, folded separately per oracle; four Port additions; Spec gaps Q1 to Q5 for the user. One adversarial review started.
+    Convergence proposal written (code:workflow/plans/flow/references/proposals/lane-oracle-convergence-2026-11-11.md): 
+    one shared lifecycle table, folded separately per oracle; four Port additions; Spec gaps Q1 to Q5 for the user. One 
+    adversarial review started.
+note 2026-11-10T20:57:29Z
+    Decision (orchestrator): static Invariants round-14 cannot make (Compile I3, I7 to I10, I12 to I14, I17; all of 
+    Diagnostics and Codec) move in not-yet.ts to the P4 Task that builds their surface, and must be case-covered before 
+    that Task closes; T13 closes on what round-14 can make. Conformance Q5, Q11, Q12 and Q14 and the drafter's three 
+    Spec gaps are revised with to-spec by the next lead; any Invariant change comes to the user. **Reverse:** keep the 
+    rows under T13. T13 part 1 verified at facb1c33 (76/76, null 0/76, falsify 57/57).
