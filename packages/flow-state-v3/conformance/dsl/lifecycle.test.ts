@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, it } from "@effect/vitest";
+import { describe, it } from "vite-plus/test";
 import { Equal } from "effect";
 import { advance, cellOf, due } from "./lifecycle.ts";
 import { type Model, type Move, Phase } from "./lifecycle-model.ts";
@@ -118,6 +118,7 @@ const identity = (original: Outcome, alternative: Outcome, from: ReadonlyArray<P
   return (
     Outcome.$is("Move")(target) &&
     Outcome.$is("Stay")(other) &&
+    from.length > 0 &&
     from.every((phase) => Equal.equals(phase, target.to))
   );
 };

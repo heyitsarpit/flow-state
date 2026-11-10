@@ -1,5 +1,6 @@
 import { Move, type Model, Obligation, type Phase } from "./lifecycle-model.ts";
 import { endTraces } from "./lifecycle-ends.traces.ts";
+import { obligationTraces } from "./lifecycle-obligations.traces.ts";
 import { at, build, type Trace } from "./lifecycle-trace.ts";
 import type { InvariantId } from "./oracle.ts";
 
@@ -17,7 +18,6 @@ const {
   headed,
   behindHeld,
   goneBeside,
-  definite,
   unknown,
   released,
   superseded,
@@ -35,7 +35,7 @@ const unknownTraces: ReadonlyArray<Trace> = [
   }),
   one({
     name: "a never-sent head ends unknown (pending CQ5)",
-    cites: "WriteLanes I3 as written; the lifecycle stays, and its pending cancel too",
+    cites: "pending CQ5: the lifecycle stays, and its pending cancel too",
     start: model(lane("A", ["s", U], ["w", Q]), { obligations: [pending("s")] }),
     move: unknown("s", "Interrupted"),
     refused: [],
@@ -383,104 +383,17 @@ const laneWideTraces: ReadonlyArray<Trace> = [
   ),
   laneWide(
     "a step ends with an interruptible call still interrupted",
-    "WriteLanes I20",
+    "today's rule (the design's guard 15): an interrupted call ends in its step",
     Move.StepEnds({ unstoppable: [] }),
     [wl(20)],
     {},
   ),
   laneWide(
     "a step ends with an unstoppable call interrupted",
-    "WriteLanes R14: an unstoppable call ends with its answer",
+    "today's rule (the design's guard 15): an unstoppable call ends with its answer",
     Move.StepEnds({ unstoppable: ["pay"] }),
     [],
     {},
-  ),
-];
-
-const promotionTraces: ReadonlyArray<Trace> = [
-  one({
-    name: "promotion skips a waiting commit that owes a report",
-    cites: "WriteLanes I11, I8: a superseded commit is never promoted",
-    start: model(lane("A", ["s", W], ["q", Q], ["w", Q]), {
-      obligations: [awaiting("q", "Superseded")],
-    }),
-    move: definite("s"),
-    refused: [],
-    phases: { s: GC, q: Q, w: U },
-  }),
-];
-
-const dueTrace = (
-  name: string,
-  cites: string,
-  obligation: Obligation,
-  turn: ReadonlyArray<InvariantId>,
-  step: ReadonlyArray<InvariantId>,
-  left: number,
-) => ({
-  name,
-  cites,
-  start: model(lane("A", ["s", H]), { obligations: [obligation] }),
-  steps: [{ due: "TurnCloses" as const }, { due: "StepEnds" as const }],
-  refusals: [turn, step],
-  phases: { s: H },
-  owed: left,
-});
-
-const restore = (cause: "plain" | "runtimeDisposal" | "disposeActor" | "forget") =>
-  Obligation.AwaitRestore({ attempt: "s", incarnation: 1, cause });
-
-const deadlineTraces: ReadonlyArray<Trace> = [
-  dueTrace("a release not reported", "WriteLanes I12", awaiting("s", "Released"), [wl(12)], [], 0),
-  dueTrace(
-    "a supersede not reported",
-    "WriteLanes I8",
-    awaiting("s", "Superseded"),
-    [wl(8)],
-    [],
-    0,
-  ),
-  dueTrace(
-    "a cancelAll ending not reported",
-    "WriteLanes I21",
-    awaiting("s", "NotSentCancelled"),
-    [wl(21)],
-    [],
-    0,
-  ),
-  dueTrace("a pending cancel waits", "WriteLanes R14", pending("s"), [], [], 1),
-  dueTrace("a restore not delivered", "Restore I6 (CQ11)", restore("plain"), [], ["Restore I6"], 0),
-  dueTrace(
-    "a restore after the Runtime's disposal not delivered",
-    "Actors I29",
-    restore("runtimeDisposal"),
-    [],
-    [actors(29)],
-    0,
-  ),
-  dueTrace(
-    "a restore after the actor's disposal not delivered",
-    "Actors I29",
-    restore("disposeActor"),
-    [],
-    [actors(29)],
-    0,
-  ),
-  dueTrace(
-    "a restore after a forget not delivered",
-    "Actors I32",
-    restore("forget"),
-    [],
-    [actors(32)],
-    0,
-  ),
-  dueTrace(
-    "a kept ending not let go",
-    "WriteLanes I15",
-    Obligation.AwaitLetGo({ ending: 0 }),
-    [],
-    [wl(15)],
-    0,
   ),
 ];
 
@@ -492,6 +405,5 @@ export const traces: ReadonlyArray<Trace> = [
   ...unknownTraces,
   ...evidenceTraces,
   ...laneWideTraces,
-  ...promotionTraces,
-  ...deadlineTraces,
+  ...obligationTraces,
 ];

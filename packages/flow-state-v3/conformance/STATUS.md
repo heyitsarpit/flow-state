@@ -250,8 +250,8 @@ delivery carries no channel; latent: no case disposes without re-ensuring).
 
 ## T7 (2026-11-10 and 2026-11-11): WriteLanes area (in progress)
 
-Bottom line: S2, the T6 completion review's disposal findings and the T40/S2 review are done (M1 by the Port rule).
-Suite 69/69, null 0/69, falsify sweep 47/47. Open: T41; I22; T7's own rows.
+Bottom line: the convergence v2 build is under way (steps 2 and 1 part 1 in; see "Convergence v2 build" below).
+Open: the rest of v2's migration; I22; T7's own rows.
 
 - First step (`392147bc`): H5 in `ending-channels` (`mutant.success-without-answer`, I3) and case `DISP-06`.
 - S2 (`a8714be6`, `c1f02294`):
@@ -402,6 +402,69 @@ Suite 69/69, null 0/69, falsify sweep 47/47. Open: T41; I22; T7's own rows.
 - That review's Lows in allowed files: L5 (the end-of-case "past the bound" wording) and L7 (`Replacement`
   unexported) fixed; L7's `Transition` typed by the fixture's events and states is carried; the rest are in frozen
   files and go to the convergence pass.
+
+### Convergence v2 build (2026-11-11; `references/proposals/lane-oracle-convergence-v2-2026-11-11.md`)
+
+Bottom line: steps 2 and 1 (part 1) landed; part 2 of step 1 is next. Suite 84/84, null 0/84, sweep 68/68 at
+`cc0763b3`; the lifecycle's mutation test passes; `nub run check` at zero.
+
+- **Order:** step 2 before step 1, so the lifecycle's facts-to-moves step reads the real Port. Step 1 is split: part 1
+  (Table A, deadlines, promotion) is in; part 2 (Table B, Table C, the actor moves, `step(model, reference, facts)`)
+  is not.
+- **Step 2 (`26c3bfcf`, `cc0763b3`):** round-14's mint, decline and delivery notes carry `actor`, the mint `key`
+  (lane.ts, world.ts, reads.ts, step.ts, turn.ts); the next-turn attribution is gone (README decision 10 closed).
+  `Turn.members` (target `Only`, `Key`, `Every`, and `Nothing` for a member that names no lane), `Issue.ending`
+  (`InvalidTurn` and `UnmappedEnding` of an ending), `Incarnated` (round-14 `incarnation`) and `Finished` (`ended`).
+  A `Minted` with no actor, or a keyed one with no key, stops the case as `UnreadableReport` naming the field.
+  - Gate: with the key withheld, the sweep is byte-identical to `c1427047` (checked). The key at mint changes one
+    mutant's reach (Conformance R11): `lane.held-auto-resend` is now also caught in `PAY-18`, and in
+    `PAY-09/ack-stored-confirmation-lost` now by its oracle (WriteLanes I12; R6: the lane is named at mint, M1).
+    No case verdict changed.
+  - Port shape added by the lead (small, logged): `MemberTarget.Nothing`. Why: round-14 runs key-less members that
+    act on no lane (a decline's ending, another operation's ending, a key-less retry outside an ending, a key that
+    did not encode); naming them with a `null` key would anchor a no-op to a lane. Reverse: drop the variant and
+    omit those members.
+  - Reviewer (Haiku) of the diff: accepted and fixed: the `null`-key sentinel and the three no-op paths (now
+    `Nothing`); a release of an unkeyed operation is `Only`; a non-JSON mint key read as missing, so the Case names
+    it (it was dropped with the batch as `SinkFailed`); `UnreadableReport` carries its text. Noted: v2 cites
+    `step.ts:644` (`returned`) for `Incarnated`; `returned` always reaches the `incarnation` note, which is mapped,
+    so one report per incarnation. Noted: the `FollowUpBound` `InvalidTurn` carries no ending (not a refusal of the
+    ending's delivery). Rejected: an unkeyed mint's key `Some({})` (lane naming ignores the key of an unkeyed
+    operation).
+- **Step 1, part 1 (`527429c4` and the next commit):** `dsl/lifecycle-model.ts` (types), `dsl/lifecycle-rules.ts`
+  (Table A with one cell per guard value, the deadlines, the promotion rules), `dsl/lifecycle.ts` (`advance`, `due`,
+  `incarnate`, `cellOf`), traces in `dsl/lifecycle-ends.traces.ts`, `dsl/lifecycle.traces.ts` and
+  `dsl/lifecycle-obligations.traces.ts` (builders in `dsl/lifecycle-trace.ts`), and `dsl/lifecycle.test.ts`: every
+  trace holds, every cell value is reached, and every other outcome of every cell (each phase, stay, each Invariant),
+  every other deadline and Invariant, and every other promotion rule is killed. No oracle uses it yet.
+  - Lead's calls: promotion runs after every move, not as a cell flag (requirement 3); `Restoring { head: false }`
+    is not addressable; a reload restores a queued commit as `Restoring { head: false }` and an unsent head as
+    `Restoring { head: true }`; an unknown `Disposed` while running is Actors I35; cancelAll's NotSent out of mint
+    order is WriteLanes I21; `Model.afterDisposal` gives `AwaitRestore` its `runtimeDisposal` cause; an ending is
+    recorded when its `End` is applied (Table C will move its life).
+  - Pending cells, marked in code and traces: never-sent ending (CQ5), never-sent commit at the disposal's end
+    (CQ6), the superseded head's promotion (CQ7), Restore I6's claim (CQ11).
+  - Reviewer (Haiku) of the lifecycle: Table A matches v2 cell for cell except three guards, fixed or pinned:
+    accepted and fixed: endings were never recorded, so a replaced Attempt's second ending passed (now recorded,
+    trace "a replaced Attempt's second ending", seen failing without the fix); the unretained unknown's
+    `Await Released` was unpinned (two traces with `due`); the `second` promotion mutant was killed only as "promote
+    nothing" (new trace); `identity` excused unreached cells (now needs a reach); a `PendingCancel` of the other kind
+    (trace); an unretained unknown `Disposed` during disposal holds with nothing owed (trace, R17); cites relabelled
+    (StepEnds as today's rule, CQ5, R14, requirement 3). Noted for v2's wording (step 9): footnote 9's "stays Held"
+    against the `Await Released` deadline (the code follows the deadline: R4 says it is released); footnote 10's
+    I20 against footnote 9's I35 for an unknown `Disposed` while running; footnote 12 should name the releasing
+    lane; footnote 4 should name the out-of-order I21; `afterDisposal` belongs in v2's Model. Noted: the
+    `PendingCancel` deadline's Invariant is unread while it has no deadline.
+  - `527429c4` alone failed `nub run check` (the test imported `@effect/vitest`, an Effect unstable-API warning);
+    the next commit imports `vite-plus/test` and is at zero.
+- **Next (step 1, part 2):** Table B (members by head phase, `mint`, `decl`, `supH`, `supQ`, `queue`, `repl`,
+  `replC`, `PCancel`, `AwRel`, `Interr`, `Q→NS`, `mark`, `Every`, the Idle cancel and cancelAll), Table C (an
+  ending's life, with `Opens`), the actor moves (`Incarnated`, `Finished`, `Adopt`, `Disposed`, `Forgot`), and
+  `step(model, reference, facts)` that anchors facts into moves (a `Turn`'s members against the reference rows of
+  step 3; refused `Minted` without a commit member, I1). Then steps 3 to 9.
+- **Queued after the convergence steps, before T8 (coordinator, 2026-11-11):** the T41/T13 review
+  (`references/proposals/t41-t13-review-2026-11-11.md`): H1, M1 to M4 and the Lows in the files touched. Its M4
+  (whether `ending-channels` and `attempt-identity` move onto the lifecycle) is decided at step 7.
 
 ## T13 (2026-11-11): static cases, first slice (in progress)
 

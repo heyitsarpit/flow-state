@@ -94,7 +94,7 @@ const definiteTraces: ReadonlyArray<Trace> = [
   }),
   one({
     name: "a never-sent head ends success (pending CQ5: ending-channels judges it)",
-    cites: "WriteLanes I3 as written; the lifecycle stays, and its pending cancel too",
+    cites: "pending CQ5: the lifecycle stays, and its pending cancel too",
     start: model(lane("A", ["s", U], ["w", Q]), { obligations: [pending("s")] }),
     move: definite("s"),
     refused: [],
@@ -126,7 +126,7 @@ const definiteTraces: ReadonlyArray<Trace> = [
   }),
   one({
     name: "an interrupted call ends with its answer",
-    cites: "WriteLanes I20: a cancel on the wire ends unknown Cancelled",
+    cites: "WriteLanes R14: a cancel on the wire ends unknown Cancelled",
     start: headed(I),
     move: definite("s"),
     refused: [wl(20)],

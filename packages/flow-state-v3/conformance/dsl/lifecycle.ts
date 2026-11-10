@@ -8,6 +8,7 @@ import {
   type GoneWhy,
   isHead,
   type LaneId,
+  Life,
   type Model,
   Move,
   Obligation,
@@ -222,6 +223,27 @@ const discharge = (model: Model, attempt: string, guard: string, move: Move) => 
   return model;
 };
 
+const evidenceOnly = (model: Model, life: AttemptLife) =>
+  (life.phase._tag === "Gone" && life.phase.why === "evidence") ||
+  model.releasing.some((l) => sameLane(l, life.lane));
+
+const decided = (model: Model, life: AttemptLife, move: Move) => {
+  if (!Move.$is("End")(move)) return model;
+
+  const ending = {
+    attempt: Option.some(life.id),
+    operation: life.lane.operation,
+    actor: life.lane.actor,
+    channel: move.channel,
+    reason: move.reason,
+    incarnation: actorOf(model, life.lane.actor)?.incarnation ?? 0,
+    inDisposal: model.mode === "disposing",
+    life: evidenceOnly(model, life) ? Life.Evidence() : Life.Owed(),
+  };
+
+  return { ...model, endings: [...model.endings, ending] };
+};
+
 const setPhase = (model: Model, attempt: string, phase: Phase) => ({
   ...model,
   attempts: model.attempts.map((a) => (a.id === attempt ? { ...a, phase } : a)),
@@ -266,9 +288,13 @@ const applyOne = (model: Model, life: AttemptLife, move: Move, given: Rules) => 
 
   return Outcome.$match(outcome, {
     Refuse: ({ invariant }) => stepOf(model, [{ invariant, text: describe(life, move) }]),
-    Stay: () => stepOf(discharge(model, life.id, guard, move)),
+    Stay: () => stepOf(decided(discharge(model, life.id, guard, move), life, move)),
     Move: ({ to: phase }) => {
-      const moved = setPhase(discharge(model, life.id, guard, move), life.id, phase);
+      const moved = setPhase(
+        decided(discharge(model, life.id, guard, move), life, move),
+        life.id,
+        phase,
+      );
 
       return stepOf(promote(moved, life.lane, given.promotion));
     },
