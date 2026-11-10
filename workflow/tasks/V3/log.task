@@ -507,3 +507,5 @@ note 2026-11-10T21:28:38Z
     Decision reversed (orchestrator): Compile I7, I8, I13 and I14 come back to T13, which is reopened; round-14 can 
     make them, and P3's exit needs the old suite's kills. The T41 gate also checks that each not-yet owner is a real 
     open Task. **Why:** the T41 and T13 review (M2). **Reverse:** move them to T17 again.
+note 2026-11-10T22:00:21Z
+    Review started on c1427047 (StaticCli) and convergence step 2 (Port); weekly usage 17 percent.
