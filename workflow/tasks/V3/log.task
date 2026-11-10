@@ -511,3 +511,5 @@ note 2026-11-10T22:00:21Z
     Review started on c1427047 (StaticCli) and convergence step 2 (Port); weekly usage 17 percent.
 note 2026-11-10T22:06:29Z
     Convergence step 2 (Port) and step 1 part 1 (Table A) landed at b6567180 (84/84, null 0/84, lifecycle mutation test 5 of 5); a fresh lead at medium effort continues from step 1 part 2.
+note 2026-11-10T22:19:35Z
+    Review done (StaticCli and Port, code:workflow/plans/flow/references/proposals/staticcli-port-review-2026-11-11.md): both ranges accepted with fixes; the graph gate checks one way, partial checks count as whole (third time; fixed by a 'partial' coverage standing, a small patch rather than a convergence), and two old-suite mutants lost their anchors. Queued for the builder after the convergence steps.
