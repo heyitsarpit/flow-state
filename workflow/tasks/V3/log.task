@@ -463,4 +463,18 @@ note 2026-11-10T18:10:51Z
     detail in Task comments, STATUS.md or a review file. Why: keep the orchestrator's context light. Edited: 
     instructions. Sent to the running building and reviewing leads. Reverse: drop the line.
 note 2026-11-10T18:21:52Z
-    T40 first pass (a6063da3 to 81063ced): S1, S4, S5 and S6 done, S3 and S7 in part; orchestrator verified suite 67/67, null 0/67, falsify 38/38; nub run check fails only on STATUS.md formatting. Accepted: the Fixture generics stay (the lint needs them); the attempts flag moves to T7. The lead's context ran long, so a fresh Opus building lead at high effort (the third building iteration) finishes T40 (an S1 reviewer sidecar, STATUS.md format, the rest of S3, S8's runner items, the STYLE.md lines) and then does T7.
+    T40 first pass (a6063da3 to 81063ced): S1, S4, S5 and S6 done, S3 and S7 in part; orchestrator verified suite 
+    67/67, null 0/67, falsify 38/38; nub run check fails only on STATUS.md formatting. Accepted: the Fixture generics 
+    stay (the lint needs them); the attempts flag moves to T7. The lead's context ran long, so a fresh Opus building 
+    lead at high effort (the third building iteration) finishes T40 (an S1 reviewer sidecar, STATUS.md format, the rest 
+    of S3, S8's runner items, the STYLE.md lines) and then does T7.
+note 2026-11-10T18:26:14Z
+    Review done (T6 completion, 9c43f407 to 392147bc; full report in 
+    code:workflow/plans/flow/references/proposals/t6-completion-review-2026-11-10.md): T6 acceptance holds. 1 High: a 
+    false Released passes every oracle (lane-queue accepts any Released; the disposal ledger settles on it while a use 
+    is held); verified at 392147bc; fixed in T7's rewrite, under WriteLanes I12, with lie.held-released-unguarded 
+    registered, and the use-held leniency dropped in favour of anchoring Released to a suite fact. 6 Medium sent to the 
+    building lead after T40: M1 (derive a parked ending from Delivered.event), M2 and M3 (disposal's hand-kept state 
+    and the ledger changes that bypass its tables), M4 (a cancel during the wire: reconcile WriteLanes R14 and R4 with 
+    to-spec; stop if an Invariant changes), M6 (a Never answer counted as settled). M5 (H5 reported as I3, while R2 
+    states it) goes to the user. Mint order is deferred to revisit.md.
