@@ -690,7 +690,7 @@ tasks
             - verdicts match the old suite's or each difference is logged.
     T13
         title       Static cases for Compile, Diagnostics, Codec and StaticCli
-        status      open
+        status      in_progress
         priority    medium
         blocked_by  [@T5, @T40]
         description
@@ -720,6 +720,10 @@ tasks
         acceptance
             - Every Compile, Diagnostics, Codec and StaticCli Invariant has a case;
             - each case fails on its planted wrong compiler or CLI output.
+        comment     2026-11-10T20:55:42Z
+            First slice built and gated: static cases on a Surface, a case-covered coverage kind, Compile I1, I2, I4, 
+            I5, I6, I11, I15, I16 checked (CMP-01 to CMP-07, ten mutants caught). StaticCli, and the Invariants 
+            round-14 cannot make, still owed. Detail: packages/flow-state-v3/conformance/STATUS.md, T13.
     T14
         title       Searches and mutants as runner modes
         status      open

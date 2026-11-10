@@ -84,6 +84,24 @@ export const violation = (sentence: string): Violation => {
 };
 
 /**
+ * The Invariant a case expectation's label cites, when it starts with one
+ * (`Compile I6: no computed initial runs`).
+ *
+ * **When to use**
+ *
+ * The runner reads it from a failed expectation, so falsify can count a case-expectation check's
+ * catch by the Invariant it names (Conformance R6).
+ */
+// RETURN_TYPE: the citation list; its Invariant is narrowed from the matched text.
+export const citedBy = (label: string): ReadonlyArray<InvariantId> => {
+  const invariant = NAMED.exec(`${label}: `)?.[1];
+
+  // SAFETY: the pattern matched `<Spec> I<number>`, the InvariantId shape.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a template literal type has no runtime guard to narrow with
+  return invariant === undefined ? [] : [invariant as InvariantId];
+};
+
+/**
  * A violation sentence that names no Invariant: a suite defect.
  */
 export class UnnamedViolation extends Data.TaggedError("UnnamedViolation")<{

@@ -2,7 +2,11 @@ import { disposalMutants } from "./actors/disposal.mutants.ts";
 import { disposal } from "./actors/disposal.ts";
 import { laneKeepingScenarios } from "./actors/lane-keeping.scenarios.ts";
 import { runtimeDisposalScenarios } from "./actors/runtime-disposal.scenarios.ts";
+import { constructionMutants } from "./compile/construction.mutants.ts";
+import { constructionCases, constructionCovered } from "./compile/construction.cases.ts";
+import type { CaseChecks } from "./coverage.ts";
 import type { Scenario } from "./dsl/case.ts";
+import type { StaticCase } from "./dsl/static-case.ts";
 import type { Guarantee } from "./dsl/oracle.ts";
 import { attemptIdentityMutants } from "./write-lanes/attempt-identity.mutants.ts";
 import { attemptIdentity } from "./write-lanes/attempt-identity.ts";
@@ -52,3 +56,23 @@ export const scenarios: ReadonlyArray<Scenario> = [
   ...lanePoliciesScenarios,
   ...endingDeliveryScenarios,
 ];
+
+/**
+ * Every static case (Conformance R14), in run order.
+ */
+export const staticCases: ReadonlyArray<StaticCase> = [...constructionCases];
+
+/**
+ * Every case id, runtime then static.
+ */
+export const caseIds = [...scenarios.map((s) => s.id), ...staticCases.map((s) => s.id)];
+
+/**
+ * The Invariants judged by case expectations, the mutants those cases must catch, and every
+ * case's citations (the coverage gate's second kind).
+ */
+export const caseChecks: CaseChecks = {
+  rows: [...constructionCovered],
+  mutants: [...constructionMutants],
+  cases: [...scenarios, ...staticCases].map((c) => ({ id: c.id, cites: c.cites })),
+};

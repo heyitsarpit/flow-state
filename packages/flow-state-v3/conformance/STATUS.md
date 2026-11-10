@@ -403,6 +403,34 @@ Suite 69/69, null 0/69, falsify sweep 47/47. Open: T41; I22; T7's own rows.
   unexported) fixed; L7's `Transition` typed by the fixture's events and states is carried; the rest are in frozen
   files and go to the convergence pass.
 
+## T13 (2026-11-11): static cases, first slice (in progress)
+
+Bottom line: static cases run (Conformance R14) on a `Surface` with prototype and null adapters; the coverage gate has a
+case-covered kind; Compile I1, I2, I4, I5, I6, I11, I15, I16 are checked by `CMP-01` to `CMP-07` and ten mutants, each
+seen caught for its Invariant. Suite 76/76, null 0/76, falsify 57/57, coverage 24 of 186, `nub run check` zero.
+
+- Built: `surface.ts`, `dsl/static-case.ts` (`expect` cites an Invariant or a Requirement), `adapters/prototype-static.ts`
+  (round-14's compiler, `seal`, `toData`), `adapters/null-static.ts`, `compile/construction.{cases,mutants}.ts`;
+  `CaseCovered` rows, `CaseChecked`, `Unproven` and `Uncited` in `coverage.ts`; a failed expectation's `cites` in the
+  verdict; falsify's `case expectations` judge; falsify now copies the prototype's `conformance/` tree (source files only)
+  instead of linking it, so compiler mutants stay in their copy (R13).
+- Planted (scratch, not kept): a row naming a missing case gave `Uncited` and `Unproven`; a row with no mutant gave
+  `Unproven`; two rows gave `Twice`.
+- Owed, with why, in `not-yet.ts`: Compile I3, I7 to I10, I12 to I14, I17 (round-14 stops at the first violation, runs
+  creation only in a runtime, and has no IdentityFieldOptional, SharedContract, write-scope, name, app or wiring check);
+  Diagnostics and Codec (round-14 has no Diagnostic carrier and no canonical byte codec, Codec Q2); StaticCli (not built).
+- Expectation drafter (Haiku, Spec only): agreed on every value. Followed: events compared as sets with internal ones
+  included (R16 "every event"); ImpureDefault tested beside Flow.initial with `includes` (both R5 rules may fire); closure
+  names checked by place (`operations.save.*`), not spelling. Its gaps for the user: R17's refusals have no code; whether
+  a Runtime reports every violation; whether the machine callback or a Schema counts as a Slot.
+- Reviewer (Haiku) of the diff, 11 findings: accepted (3) citations moved to the rule that gives them (`R1`, `R16`, `R17`,
+  ImpureDefault to I6); (4) events and states compared sorted; (5) slot names by path segments, read as paths; (6) the
+  data view's source and the root drop stated in the adapter's doc. Rejected (2): `cmp.impure-default-accepted` is caught
+  because ImpureDefault is no longer reported, its stated mistake. Carried: (1) one failure per static run and (8) no
+  in-process time bound, as for runtime cases (Q11, Q12, T14); (7) `seal` with no services, stated; (9) a cited case
+  need not hold an expectation with that label, falsify proves it; (10) node_modules still linked; (11) Conformance Q5,
+  Q11, Q12, Q14 describe the state before this slice: a Spec revision for the user's read.
+
 ## T41 (2026-11-11): coverage gate
 
 Bottom line: `coverage` (and the first line of `falsify`) fails unless every Invariant of the ten core Specs is checked

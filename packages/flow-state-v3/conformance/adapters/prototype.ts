@@ -204,7 +204,10 @@ export type LoadedPrototype = {
   readonly fixtures: ReadonlyMap<string, PrototypeFixture>;
 };
 
-const load = (path: string) =>
+/**
+ * Imports one prototype module by path; a module that fails to load is `PrototypeLoadFailed`.
+ */
+export const load = (path: string) =>
   // FLOW_STATE_ALLOW_EFFECT_TRY_PROMISE: the prototype is TypeScript loaded by path at run time (an edited copy under falsify); a dynamic import is the only way in.
   Effect.tryPromise({
     // RETURN_TYPE: a module namespace; each export is read by name below.

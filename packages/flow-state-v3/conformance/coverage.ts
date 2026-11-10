@@ -1,5 +1,5 @@
 import { Data } from "effect";
-import type { Guarantee, InvariantId } from "./dsl/oracle.ts";
+import type { Guarantee, InvariantId, Mutant } from "./dsl/oracle.ts";
 
 /**
  * The core Specs the suite judges (Conformance R12), by the name each Invariant id starts with.
@@ -42,6 +42,30 @@ export type NotYet = {
 };
 
 /**
+ * An Invariant judged per case rather than by an oracle (Conformance R6's case expectations),
+ * and the cases whose expectations cite it.
+ *
+ * **Details**
+ *
+ * It counts as checked only when a prototype mutant that expects it runs one of these cases;
+ * falsify then proves that case goes red by a failed expectation citing it.
+ */
+export type CaseCovered = {
+  readonly invariant: InvariantId;
+  readonly cases: ReadonlyArray<string>;
+};
+
+/**
+ * What the case-expectation checks rest on: the rows, the mutants they must catch, and every
+ * case with what it cites.
+ */
+export type CaseChecks = {
+  readonly rows: ReadonlyArray<CaseCovered>;
+  readonly mutants: ReadonlyArray<Mutant>;
+  readonly cases: ReadonlyArray<{ readonly id: string; readonly cites: ReadonlyArray<string> }>;
+};
+
+/**
  * The Invariants of one Spec, by number.
  */
 export const invariantsOf = (spec: CoreSpec, numbers: ReadonlyArray<number>) =>
@@ -53,6 +77,11 @@ export const invariantsOf = (spec: CoreSpec, numbers: ReadonlyArray<number>) =>
  */
 export type Standing = Data.TaggedEnum<{
   Checked: { invariant: InvariantId; oracle: string; mutants: ReadonlyArray<string> };
+  CaseChecked: {
+    invariant: InvariantId;
+    cases: ReadonlyArray<string>;
+    mutants: ReadonlyArray<string>;
+  };
   Owed: { invariant: InvariantId; owner: TaskRef; why: string };
 }>;
 
@@ -69,13 +98,18 @@ export const Standing = Data.taggedEnum<Standing>();
  * - `Uncovered`: a Spec Invariant with no oracle and mutant, and no row.
  * - `Stale`: a row still lists an Invariant that is checked.
  * - `Unknown`: a row, an oracle's guarantee or a mutant names an Invariant no core Spec has.
- * - `Twice`: two rows list the same Invariant.
+ * - `Twice`: two "not yet" rows, or two case-covered rows, list the same Invariant.
+ * - `Unproven`: a case-covered row whose cases no prototype mutant expecting its Invariant runs.
+ * - `Uncited`: a case-covered row names a case that does not exist or does not cite its
+ *   Invariant.
  */
 export type Gap = Data.TaggedEnum<{
   Uncovered: { invariant: InvariantId };
   Stale: { invariant: InvariantId; owner: TaskRef };
   Unknown: { invariant: InvariantId; where: string };
   Twice: { invariant: InvariantId };
+  Unproven: { invariant: InvariantId; cases: ReadonlyArray<string> };
+  Uncited: { invariant: InvariantId; case: string };
 }>;
 
 /**
@@ -96,11 +130,35 @@ const checkOf = (guarantees: ReadonlyArray<Guarantee>, invariant: InvariantId) =
     return mutants.length === 0 ? [] : [{ oracle: g.oracle.name, mutants }];
   });
 
+const caseCheckOf = (checks: CaseChecks, invariant: InvariantId) =>
+  checks.rows
+    .filter((row) => row.invariant === invariant)
+    .map((row) => ({
+      cases: row.cases,
+      mutants: checks.mutants
+        .filter(
+          (m) =>
+            m.runtime === "prototype" &&
+            m.expects === invariant &&
+            m.cases.some((c) => row.cases.includes(c)),
+        )
+        .map((m) => m.name),
+      uncited: row.cases.filter(
+        (id) => !checks.cases.some((c) => c.id === id && c.cites.includes(invariant)),
+      ),
+    }));
+
 const rowOf = (notYet: ReadonlyArray<NotYet>, invariant: InvariantId) =>
   notYet.filter((row) => row.invariants.includes(invariant));
 
-const named = (guarantees: ReadonlyArray<Guarantee>, notYet: ReadonlyArray<NotYet>) => [
+const named = (
+  guarantees: ReadonlyArray<Guarantee>,
+  notYet: ReadonlyArray<NotYet>,
+  checks: CaseChecks,
+) => [
   ...notYet.flatMap((row) => row.invariants.map((invariant) => ({ invariant, where: row.owner }))),
+  ...checks.rows.map((row) => ({ invariant: row.invariant, where: "case-covered rows" })),
+  ...checks.mutants.map((m) => ({ invariant: m.expects, where: `mutant ${m.name}` })),
   ...guarantees.flatMap((g) => [
     ...g.oracle.guarantee.map((invariant) => ({ invariant, where: `oracle ${g.oracle.name}` })),
     ...g.mutants.map((m) => ({ invariant: m.expects, where: `mutant ${m.name}` })),
@@ -119,17 +177,20 @@ const named = (guarantees: ReadonlyArray<Guarantee>, notYet: ReadonlyArray<NotYe
  * **Details**
  *
  * An Invariant is checked when an oracle's guarantee names it and one of that oracle's prototype
- * mutants expects it. Otherwise it must be in exactly one "not yet" row. A row that lists a
- * checked Invariant is stale, and any Invariant no core Spec has is unknown.
+ * mutants expects it, or when a case-covered row lists it, every case it names cites it, and a
+ * prototype mutant that expects it runs one of those cases. Otherwise it must be in exactly one
+ * "not yet" row. A row that lists a checked Invariant is stale, and any Invariant no core Spec
+ * has is unknown.
  */
 export const coverageOf = (
   invariants: ReadonlyArray<InvariantId>,
   guarantees: ReadonlyArray<Guarantee>,
   notYet: ReadonlyArray<NotYet>,
+  checks: CaseChecks,
 ) => {
-  const judged = invariants.map((invariant) => judgeOne(guarantees, notYet, invariant));
+  const judged = invariants.map((invariant) => judgeOne(guarantees, notYet, checks, invariant));
 
-  const unknown = named(guarantees, notYet)
+  const unknown = named(guarantees, notYet, checks)
     .filter(({ invariant }) => !invariants.includes(invariant))
     .map(({ invariant, where }) => Gap.Unknown({ invariant, where }));
 
@@ -143,18 +204,36 @@ export const coverageOf = (
 const judgeOne = (
   guarantees: ReadonlyArray<Guarantee>,
   notYet: ReadonlyArray<NotYet>,
+  checks: CaseChecks,
   invariant: InvariantId,
 ): Judged => {
   const [check] = checkOf(guarantees, invariant);
+  const caseRows = caseCheckOf(checks, invariant);
   const rows = rowOf(notYet, invariant);
-  const twice = rows.length > 1 ? [Gap.Twice({ invariant })] : [];
+  const twice = rows.length > 1 || caseRows.length > 1 ? [Gap.Twice({ invariant })] : [];
   const [row] = rows;
+  const stale = row === undefined ? [] : [Gap.Stale({ invariant, owner: row.owner })];
 
   if (check !== undefined) {
     const standing = Standing.Checked({ invariant, ...check });
-    const stale = row === undefined ? [] : [Gap.Stale({ invariant, owner: row.owner })];
 
     return { standing: [standing], gaps: [...stale, ...twice] };
+  }
+
+  const [caseRow] = caseRows;
+
+  if (caseRow !== undefined) {
+    const uncited = caseRow.uncited.map((id) => Gap.Uncited({ invariant, case: id }));
+
+    const unproven =
+      caseRow.mutants.length === 0 ? [Gap.Unproven({ invariant, cases: caseRow.cases })] : [];
+
+    const standing =
+      uncited.length + unproven.length === 0
+        ? [Standing.CaseChecked({ invariant, cases: caseRow.cases, mutants: caseRow.mutants })]
+        : [];
+
+    return { standing, gaps: [...uncited, ...unproven, ...stale, ...twice] };
   }
 
   if (row === undefined) return { standing: [], gaps: [Gap.Uncovered({ invariant })] };

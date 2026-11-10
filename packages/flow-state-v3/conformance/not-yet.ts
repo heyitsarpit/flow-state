@@ -46,12 +46,17 @@ export const notYet: ReadonlyArray<NotYet> = [
   },
   {
     owner: "@task.V3.T13",
-    why: "static cases over Compiled and the CLI are not built",
-    invariants: [
-      ...invariantsOf("Compile", upTo(17)),
-      ...invariantsOf("Diagnostics", upTo(10)),
-      ...invariantsOf("Codec", upTo(6)),
-      ...invariantsOf("StaticCli", upTo(12)),
-    ],
+    why: "round-14 makes no such result: it throws at the first violation (I3), runs creation and restore only in a runtime (I7, I8), and has no IdentityFieldOptional, SharedContract, write-scope, name or app check, or context wiring (I9, I10, I12, I13, I14, I17); each case lands with the surface that makes it",
+    invariants: invariantsOf("Compile", [3, 7, 8, 9, 10, 12, 13, 14, 17]),
+  },
+  {
+    owner: "@task.V3.T13",
+    why: "round-14 has no Diagnostic carrier, Diagnostic Schema, classification or renderer, and no canonical byte codec (Codec Q2); the vectors land with the production surface",
+    invariants: [...invariantsOf("Diagnostics", upTo(10)), ...invariantsOf("Codec", upTo(6))],
+  },
+  {
+    owner: "@task.V3.T13",
+    why: "the StaticCli cases (check rules, exit codes, streams, the graph gate) are not built",
+    invariants: invariantsOf("StaticCli", upTo(12)),
   },
 ];

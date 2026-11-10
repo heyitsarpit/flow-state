@@ -4,12 +4,14 @@ import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { nullPort } from "../adapters/null.ts";
+import { nullSurface } from "../adapters/null-static.ts";
+import { loadPrototypeSurface } from "../adapters/prototype-static.ts";
 import { loadPrototype, prototypePort } from "../adapters/prototype.ts";
 import { coverageOf, Gap, Standing } from "../coverage.ts";
 import { notYet } from "../not-yet.ts";
-import { guarantees, oracles, scenarios } from "../suite.ts";
-import { falsifyOne, MutantVerdict, suiteIn } from "./falsify.ts";
-import { runCases } from "./run.ts";
+import { caseChecks, caseIds, guarantees, oracles, scenarios, staticCases } from "../suite.ts";
+import { CASE_EXPECTATIONS, falsifyOne, MutantVerdict, suiteIn } from "./falsify.ts";
+import { runCases, runStatics } from "./run.ts";
 import { coreInvariants } from "./specs.ts";
 import { type CaseVerdict, VERDICTS_LINE, VerdictsJson } from "./verdict.ts";
 
@@ -34,6 +36,9 @@ const runtimePort = (runtime: string) =>
   runtime === NULL_RUNTIME
     ? Effect.succeed(nullPort)
     : Effect.map(loadPrototype(runtime), prototypePort);
+
+const runtimeSurface = (runtime: string) =>
+  runtime === NULL_RUNTIME ? Effect.succeed(nullSurface) : loadPrototypeSurface(runtime);
 
 const list = (value: Option.Option<string>) =>
   Option.match(value, {
@@ -85,21 +90,25 @@ const suite = (args: ReadonlyArray<string>) =>
     const runtime = runtimeOf(args);
     const only = list(flag(args, "--only"));
 
-    const chosen = scenarios.filter((s) =>
-      Option.match(only, { onNone: () => true, onSome: (ids) => ids.includes(s.id) }),
-    );
+    const wanted = (id: string) =>
+      Option.match(only, { onNone: () => true, onSome: (ids) => ids.includes(id) });
+
+    const chosen = scenarios.filter((s) => wanted(s.id));
+    const chosenStatic = staticCases.filter((s) => wanted(s.id));
 
     const missing = Option.getOrElse(only, () => []).flatMap((id) =>
-      scenarios.some((s) => s.id === id) ? [] : [failed(id, "no such case")],
+      caseIds.includes(id) ? [] : [failed(id, "no such case")],
     );
 
     const json = args.includes("--json");
     const parallel = parallelOf(args);
 
     if (parallel > 1) {
+      const ids = [...chosen, ...chosenStatic].map((s) => s.id);
+
       const slices = Array.from({ length: parallel }, (_, i) =>
-        chosen.filter((_, j) => j % parallel === i).map((s) => s.id),
-      ).filter((ids) => ids.length > 0);
+        ids.filter((_, j) => j % parallel === i),
+      ).filter((slice) => slice.length > 0);
 
       const runs = yield* Effect.forEach(slices, (ids) => sliceVerdicts(runtime, ids), {
         concurrency: parallel,
@@ -108,9 +117,15 @@ const suite = (args: ReadonlyArray<string>) =>
       return yield* report([...runs.flat(), ...missing], json);
     }
 
-    const port = yield* runtimePort(runtime);
+    const runtimeVerdicts =
+      chosen.length === 0 ? [] : yield* runCases(yield* runtimePort(runtime), chosen, oracles);
 
-    return yield* report([...(yield* runCases(port, chosen, oracles)), ...missing], json);
+    const staticVerdicts =
+      chosenStatic.length === 0
+        ? []
+        : yield* runStatics(yield* runtimeSurface(runtime), chosenStatic);
+
+    return yield* report([...runtimeVerdicts, ...staticVerdicts, ...missing], json);
   });
 
 const gapLine = (gap: Gap) =>
@@ -120,21 +135,27 @@ const gapLine = (gap: Gap) =>
     Stale: ({ invariant, owner }) =>
       `BAD  ${invariant}: checked now, but still in ${owner}'s "not yet" row`,
     Unknown: ({ invariant, where }) => `BAD  ${invariant}: named by ${where}, in no core Spec`,
-    Twice: ({ invariant }) => `BAD  ${invariant}: in two "not yet" rows`,
+    Twice: ({ invariant }) => `BAD  ${invariant}: in two "not yet" rows or two case-covered rows`,
+    Unproven: ({ invariant, cases }) =>
+      `BAD  ${invariant}: case-covered by ${cases.join(", ")}, but no prototype mutant expecting it runs one`,
+    Uncited: ({ invariant, case: id }) =>
+      `BAD  ${invariant}: case-covered by ${id}, which does not exist or does not cite it`,
   });
 
 const standingLine = (standing: Standing) =>
   Standing.$match(standing, {
     Checked: ({ invariant, oracle, mutants }) =>
       `checked ${invariant}  ${oracle}: ${mutants.join(", ")}`,
+    CaseChecked: ({ invariant, cases, mutants }) =>
+      `checked ${invariant}  cases ${cases.join(", ")}: ${mutants.join(", ")}`,
     Owed: ({ invariant, owner }) => `not yet ${invariant}  ${owner}`,
   });
 
 const covered = (verbose: boolean) =>
   Effect.gen(function* () {
     const invariants = yield* coreInvariants(REPOSITORY);
-    const { standings, gaps } = coverageOf(invariants, guarantees, notYet);
-    const checked = standings.filter(Standing.$is("Checked")).length;
+    const { standings, gaps } = coverageOf(invariants, guarantees, notYet, caseChecks);
+    const checked = standings.filter((s) => !Standing.$is("Owed")(s)).length;
 
     if (verbose) for (const s of standings) yield* Console.log(standingLine(s));
 
@@ -169,12 +190,20 @@ const falsify = (args: ReadonlyArray<string>) =>
     const only = list(flag(args, "--mutant"));
     const sweep = args.includes("--sweep");
 
-    const runnable = guarantees.map((g) => ({
+    const byOracle = guarantees.map((g) => ({
       oracle: g.oracle.name,
       mutants: g.mutants.filter((m) => m.runtime === "prototype"),
     }));
 
-    const unfalsified = runnable.filter((g) => g.mutants.length === 0).map((g) => g.oracle);
+    const unfalsified = byOracle.filter((g) => g.mutants.length === 0).map((g) => g.oracle);
+
+    const runnable = [
+      ...byOracle,
+      {
+        oracle: CASE_EXPECTATIONS,
+        mutants: caseChecks.mutants.filter((m) => m.runtime === "prototype"),
+      },
+    ];
 
     yield* Console.log(
       `${unfalsified.length === 0 ? "ok  " : "BAD "} every oracle has a mutant${unfalsified.length === 0 ? "" : `; none for: ${unfalsified.join(" ")}`}`,
@@ -187,7 +216,7 @@ const falsify = (args: ReadonlyArray<string>) =>
         )
         .map((mutant) => ({
           oracle: g.oracle,
-          mutant: sweep ? { ...mutant, cases: scenarios.map((s) => s.id) } : mutant,
+          mutant: sweep ? { ...mutant, cases: caseIds } : mutant,
         })),
     );
 
@@ -199,17 +228,16 @@ const falsify = (args: ReadonlyArray<string>) =>
         ),
       );
 
-    const onNull = yield* stated(
-      NULL_RUNTIME,
-      scenarios.map((s) => s.id),
-    );
+    const onNull = yield* stated(NULL_RUNTIME, caseIds);
 
     const nullRed = Option.match(onNull, {
       onNone: () => false,
-      onSome: (v) => v.length === scenarios.length && v.every((x) => x._tag === "Fail"),
+      onSome: (v) => v.length === caseIds.length && v.every((x) => x._tag === "Fail"),
     });
 
-    yield* Console.log(`${nullRed ? "ok  " : "BAD "} null runtime: every case states a failure`);
+    yield* Console.log(
+      `${nullRed ? "ok  " : "BAD "} null runtime and surface: every case states a failure`,
+    );
 
     const control = yield* stated(runtime, [
       ...new Set(chosen.flatMap(({ mutant }) => mutant.cases)),

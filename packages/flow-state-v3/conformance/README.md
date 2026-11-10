@@ -24,10 +24,14 @@ bun conformance/runner/main.ts coverage                   # every core Invariant
 
 Every case runs under world seeds 1 and 2 (store load order, session seeds); a case fails on the
 first seed that fails it. `coverage` (Conformance R12, I38) reads every Invariant of the ten core
-Specs with `workflow show @spec.<name> --json` and fails unless each is checked (an oracle's
-guarantee names it and one of that oracle's mutants expects it) or listed once in `not-yet.ts`
-with the Task that owns it; a row that still lists a checked Invariant, and an Invariant no core
-Spec has, fail it too. `falsify` checks, in order: the coverage gate; every oracle has a mutant for this runtime; the
+Specs with `workflow show @spec.<name> --json` and fails unless each is checked or listed once in
+`not-yet.ts` with the Task that owns it. Checked means an oracle's guarantee names it and one of
+that oracle's mutants expects it, or a case-covered row (`CaseCovered`, kept beside its cases)
+names it with cases that all cite it and a mutant that expects it runs one of them; falsify then
+proves that case goes red by a failed expectation citing it. A row that still lists a checked
+Invariant, a doubled row, and an Invariant no core Spec has fail it too. Static cases (Conformance
+R14, `dsl/static-case.ts`) run once each, with no seed, on the surface of the same `--runtime`
+(the null surface for `null`). `falsify` checks, in order: the coverage gate; every oracle has a mutant for this runtime; the
 null runtime (every case must state a failure); the control (each mutant's cases pass on the
 unedited runtime); then each mutant on its own edited copy of the runtime in `--scratch` (default the
 OS temp dir; removed after). It ends `VERDICT pass` only when every mutant is caught by its own
@@ -47,6 +51,7 @@ write, advance to the 5 s disposal bound, answer the writes again, expect the di
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `port.ts`               | The contract between the suite and a runtime: `Port` (`boot`), `Boot`, `Runtime`, `Observation`, `Snapshot`, `ActorRef`, `Json`.                                                                                                                                                                                                                                                                         |
 | `adapters/prototype.ts` | `prototypePort` over round-14, and `loadPrototype` (its `adapter.ts` and typed fixtures, by path). `prototype-observations.ts` decodes its evidence into observations.                                                                                                                                                                                                                                   |
+| `surface.ts`            | The contract between static cases and a static surface: `Surface` (`construct`, `admit`), the implementation-free `Source` a case builds, `Built`, `DataView`, `Tamper`, `Admission`. `adapters/prototype-static.ts` (round-14's compiler, `seal` and `toData`) and `adapters/null-static.ts` implement it.                                                                                              |
 | `adapters/null.ts`      | `nullPort`: a runtime that does nothing; falsify requires every case to fail on it.                                                                                                                                                                                                                                                                                                                      |
 | `world/`                | The fake world, plain owned state: `WorldClock`, `Page` (generation, task queue, Effect `Scheduler`, visibility), `Storage`, `Network`; `makeWorld` owns settle, advance and kill.                                                                                                                                                                                                                       |
 | `dsl/case.ts`           | The scenario DSL: `Scenario` (`run: (c: Case) => void`) and `playCase`, which runs one per case and seed and ends it with a judged disposal. Inside, the runtime's life (boot, reboot), the step engine (record, run, settle, note requests, judge; the timeline is its fact array) and the `Case` surface.                                                                                              |
@@ -330,10 +335,25 @@ mutants and wrong runtimes named here are in `prototypes/conformance/falsify.ts`
 
 ### Compile, Diagnostics, Codec, StaticCli
 
-Static guarantees: checked by cases over `Compiled` and the CLI, not by per-step oracles. Their
-work item is one case module each in its area folder (`compile/`, `diagnostics/`, `codec/`,
-`static-cli/`), porting `prototypes/round-14/checks/front-check.ts`, the CLI pins and the graph gate
-(StaticCli I2: every edge name equals the turn record's).
+Static guarantees: checked by case expectations over a static surface, not by per-step oracles
+(Conformance R6, R14), each with its case-covered row and mutants.
+
+| Invariant                              | Cases          | Mutants                                                        |
+| -------------------------------------- | -------------- | -------------------------------------------------------------- |
+| Compile I1                             | CMP-01         | `cmp.guard-runs-at-construction`                               |
+| Compile I2                             | CMP-01         | `cmp.callback-twice`                                           |
+| Compile I4                             | CMP-02         | `cmp.uncertain-not-listed`                                     |
+| Compile I5                             | CMP-03         | `cmp.two-defaults-accepted`                                    |
+| Compile I6                             | CMP-01, CMP-04 | `cmp.computed-initial-runs`, `cmp.impure-default-accepted`     |
+| Compile I11                            | CMP-05         | `cmp.unknown-onto-sure-event`                                  |
+| Compile I15                            | CMP-06, CMP-07 | `cmp.bare-function-admitted`, `cmp.data-view-keeps-closures`   |
+| Compile I16                            | CMP-06         | `cmp.key-outside-input-admitted`                               |
+| Compile I3, I7 to I10, I12 to I14, I17 | none           | round-14 makes no such result (`not-yet.ts` says which)        |
+| Diagnostics, Codec                     | none           | round-14 has no Diagnostic carrier and no canonical byte codec |
+| StaticCli I1 to I12                    | not built      | the CLI pins, check rules, exit codes and the graph gate (T13) |
+
+Expectations that come from a Requirement with no Invariant of its own cite it (`Compile R16`,
+`R17`); such a failure proves no case-covered row.
 
 ### The rest of the rewrite
 

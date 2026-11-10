@@ -37,6 +37,8 @@ const occurrences = (text: string, find: string) => text.split(find).length - 1;
  */
 export class NoVerdicts extends Data.TaggedError("NoVerdicts")<{ readonly why: string }> {}
 
+const NOT_CODE = /\.(?:txt|log|md|lock|baseline)$/u;
+
 const copyRuntime = (runtimeDir: string, scratch: string) =>
   Effect.acquireRelease(
     Effect.try({
@@ -47,7 +49,10 @@ const copyRuntime = (runtimeDir: string, scratch: string) =>
           recursive: true,
           filter: (f) => basename(f) !== "node_modules",
         });
-        symlinkSync(resolve(runtimeDir, "..", "conformance"), join(prototypes, "conformance"));
+        cpSync(resolve(runtimeDir, "..", "conformance"), join(prototypes, "conformance"), {
+          recursive: true,
+          filter: (f) => basename(f) !== "node_modules" && !NOT_CODE.test(f),
+        });
         symlinkSync(
           resolve(runtimeDir, "..", "..", "..", "..", "node_modules"),
           join(root, "node_modules"),
@@ -102,6 +107,12 @@ const verdictsOf = (stdout: string, stderr: string, code: number) =>
     },
   );
 
+/**
+ * The judge named for a mutant held by case expectations rather than an oracle: it is caught
+ * only by a failed expectation that cites the Invariant it expects (Conformance R6).
+ */
+export const CASE_EXPECTATIONS = "case expectations";
+
 // RETURN_TYPE: each branch builds one variant; the union keeps them one MutantVerdict.
 const judge = (
   mutant: Mutant,
@@ -111,7 +122,13 @@ const judge = (
   const red = verdicts.flatMap((v) => (v._tag === "Fail" ? [v] : []));
   const ids = red.map((v) => v.id);
   const named = `${oracle}: ${mutant.expects}:`;
-  const caughtIn = red.filter((v) => v.oracles.includes(oracle) && v.why.includes(named));
+
+  const holds = (v: (typeof red)[number]) =>
+    oracle === CASE_EXPECTATIONS
+      ? v.oracles.length === 0 && (v.cites ?? []).includes(mutant.expects)
+      : v.oracles.includes(oracle) && v.why.includes(named);
+
+  const caughtIn = red.filter(holds);
   const [caught] = caughtIn;
 
   if (caught !== undefined)
@@ -159,11 +176,14 @@ export const suiteIn = (
 /**
  * Applies one mutant to a fresh copy of the runtime, runs its cases there and judges the result:
  * caught only when `oracle`, the oracle of the guarantee that holds the mutant, failed a case with a
- * violation that names the Invariant the mutant `expects`.
+ * violation that names the Invariant the mutant `expects`, or, for {@link CASE_EXPECTATIONS}, when
+ * a case failed by an expectation citing it.
  *
  * **Details**
  *
- * The copy lives in `scratch` and is removed when the run ends, whatever its outcome.
+ * The copy lives in `scratch` and is removed when the run ends, whatever its outcome. It holds the
+ * runtime and the prototype's `conformance/` tree (its compiler and fixtures), source files only,
+ * so an edit to either stays in the copy (Conformance R13).
  */
 export const falsifyOne = (
   main: string,

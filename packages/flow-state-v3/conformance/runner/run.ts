@@ -1,7 +1,9 @@
 import { Effect } from "effect";
 import { playCase, type Scenario } from "../dsl/case.ts";
-import { Mismatch, type Oracle, Violated } from "../dsl/oracle.ts";
+import { citedBy, Mismatch, type Oracle, Violated } from "../dsl/oracle.ts";
+import { playStatic, type StaticCase } from "../dsl/static-case.ts";
 import type { Port } from "../port.ts";
+import type { Surface } from "../surface.ts";
 import type { CaseVerdict } from "./verdict.ts";
 
 const SEEDS = [1, 2];
@@ -9,16 +11,23 @@ const SEEDS = [1, 2];
 // FLOW_STATE_ALLOW_UNKNOWN: whatever a case throws reaches the runner untyped; it is narrowed here, once.
 const failed = (failure: unknown) => {
   if (failure instanceof Violated)
-    return { oracles: failure.oracles, why: `${failure.violation} (at ${failure.step})` };
+    return {
+      oracles: failure.oracles,
+      why: `${failure.violation} (at ${failure.step})`,
+      cites: [],
+    };
 
   if (failure instanceof Mismatch)
     return {
       oracles: [],
       why: `${failure.label}: expected ${failure.expected}, got ${failure.actual}`,
+      cites: citedBy(failure.label),
     };
 
-  return { oracles: [], why: `threw: ${String(failure)}` };
+  return { oracles: [], why: `threw: ${String(failure)}`, cites: [] };
 };
+
+const citing = (cites: ReadonlyArray<string>) => (cites.length === 0 ? {} : { cites });
 
 const runSeed = (port: Port, scenario: Scenario, oracles: ReadonlyArray<Oracle>, seed: number) =>
   Effect.try({
@@ -27,12 +36,13 @@ const runSeed = (port: Port, scenario: Scenario, oracles: ReadonlyArray<Oracle>,
   }).pipe(
     Effect.match({
       onSuccess: () => ({ _tag: "Pass", id: scenario.id }) satisfies CaseVerdict,
-      onFailure: ({ oracles: caught, why }) =>
+      onFailure: (f) =>
         ({
           _tag: "Fail",
           id: scenario.id,
-          oracles: caught,
-          why: `seed ${seed}: ${why}`,
+          oracles: f.oracles,
+          why: `seed ${seed}: ${f.why}`,
+          ...citing(f.cites),
         }) satisfies CaseVerdict,
     }),
   );
@@ -65,3 +75,33 @@ export const runCases = (
   scenarios: ReadonlyArray<Scenario>,
   oracles: ReadonlyArray<Oracle>,
 ) => Effect.forEach(scenarios, (scenario) => runCase(port, scenario, oracles), { concurrency: 1 });
+
+/**
+ * Runs one static case once on a surface (Conformance R14: a fixed input, no seed, no step) and
+ * returns its verdict.
+ *
+ * **Details**
+ *
+ * A failed expectation is a `Fail` that cites its Invariant; a thrown defect is a `Fail` with no
+ * citation.
+ */
+export const runStatic = (surface: Surface, staticCase: StaticCase) =>
+  Effect.try({ try: () => playStatic(surface, staticCase), catch: failed }).pipe(
+    Effect.match({
+      onSuccess: () => ({ _tag: "Pass", id: staticCase.id }) satisfies CaseVerdict,
+      onFailure: (f) =>
+        ({
+          _tag: "Fail",
+          id: staticCase.id,
+          oracles: [],
+          why: f.why,
+          ...citing(f.cites),
+        }) satisfies CaseVerdict,
+    }),
+  );
+
+/**
+ * Runs static cases one after another in this process.
+ */
+export const runStatics = (surface: Surface, cases: ReadonlyArray<StaticCase>) =>
+  Effect.forEach(cases, (c) => runStatic(surface, c), { concurrency: 1 });
