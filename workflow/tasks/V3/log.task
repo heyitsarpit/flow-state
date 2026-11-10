@@ -456,3 +456,8 @@ note 2026-11-10T19:24:20Z
     weakened nothing, but 1 High (a quiet Released on a may-cancel turn passes) and Mediums (keyed lanes named only at 
     the first send, Held lost across a reload, I15's refusal exception missing) go to the T7 lead and must land before 
     T7 closes.
+note 2026-11-10T19:41:21Z
+    Decision (orchestrator): the Port requires Minted.key on keyed operations; T16's adapter meets it, and round-14's 
+    missing key stays a stated limit. **Why:** reading frames() would leak world internals into the adapter. 
+    **Reverse:** let the round-14 adapter read frames(). T7 part 2 verified at 578666d0 (68/68, null 0/68, falsify 
+    46/46); a fresh lead continues.
