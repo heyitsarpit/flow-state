@@ -50,8 +50,6 @@ export type Reference = Readonly<Record<string, Readonly<Record<string, Operatio
 
 const LOST = ["NoResponse", "ServerError"];
 
-const CHANNEL = { success: "success", failure: "failure", unknown: "unknown" } as const;
-
 /**
  * The `classify` of a write whose commit turns lost answers into unknowns and the tags `succeeds`
  * accepts into successes; every other tag is a failure.
@@ -60,19 +58,19 @@ export const classifyWith =
   (succeeds: (tag: string, fields: Schema.JsonObject, mayHaveApplied: boolean) => boolean) =>
   (answer: Answer, mayHaveApplied: boolean) => {
     const tagged = (tag: string, fields: Schema.JsonObject) => {
-      if (LOST.includes(tag)) return CHANNEL.unknown;
+      if (LOST.includes(tag)) return "unknown" as const;
 
-      return succeeds(tag, fields, mayHaveApplied) ? CHANNEL.success : CHANNEL.failure;
+      return succeeds(tag, fields, mayHaveApplied) ? ("success" as const) : ("failure" as const);
     };
 
     return Answer.$match(answer, {
-      Ok: () => CHANNEL.success,
+      Ok: () => "success" as const,
       Fail: ({ tag, fields }) => tagged(tag, fields),
       FailButLanded: ({ tag, fields }) => tagged(tag, fields),
-      Lost: () => CHANNEL.unknown,
-      LostButLanded: () => CHANNEL.unknown,
-      Never: () => CHANNEL.unknown,
-      Die: () => CHANNEL.unknown,
+      Lost: () => "unknown" as const,
+      LostButLanded: () => "unknown" as const,
+      Never: () => "unknown" as const,
+      Die: () => "unknown" as const,
     });
   };
 

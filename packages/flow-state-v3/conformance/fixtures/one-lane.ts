@@ -12,7 +12,6 @@ const oneLaneWrite = <C extends Concurrency>(concurrency: C, cancels: CancelsOf<
     failure: { NotSent: "No" },
     unknown: "Unsure",
     classify: classifyWith(() => false),
-    keyFields: [],
     cancels,
   });
 

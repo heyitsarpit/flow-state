@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Predicate, Schema } from "effect";
 import type { Concurrency, OperationReference } from "./reference.ts";
 
 /**
@@ -67,9 +67,14 @@ export type Operation<
   Row extends Schema.Codec<unknown, unknown> = Schema.Codec<unknown, unknown>,
 > = { readonly key: Key; readonly row: Row; readonly reference: OperationReference };
 
+const fieldsOf = (key: Schema.Top) =>
+  Predicate.hasProperty(key, "fields") && Predicate.isObject(key.fields)
+    ? Object.keys(key.fields)
+    : [];
+
 /**
  * One write of a fixture from its key's Schema and its reference, with its row's Schema derived
- * from the reference's `concurrency`.
+ * from the reference's `concurrency` and its key fields from the key's Schema.
  *
  * **When to use**
  *
@@ -77,11 +82,15 @@ export type Operation<
  */
 export const writeOf = <
   Key extends Schema.Codec<unknown, unknown>,
-  Reference extends OperationReference,
+  Reference extends Omit<OperationReference, "keyFields">,
 >(
   key: Key,
   reference: Reference,
-) => ({ key, row: rowFor<Reference["concurrency"]>(reference.concurrency), reference });
+) => ({
+  key,
+  row: rowFor<Reference["concurrency"]>(reference.concurrency),
+  reference: { ...reference, keyFields: fieldsOf(key) },
+});
 
 /**
  * One machine the suite boots, as the suite knows it: its catalog name, its machine id, and the

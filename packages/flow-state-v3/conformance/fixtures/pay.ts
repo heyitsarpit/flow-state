@@ -71,9 +71,8 @@ const pay = {
   classify: classifyWith(
     (tag, fields, mayHaveApplied) => tag === "IntentBusy" && mayHaveApplied && capturable(fields),
   ),
-  keyFields: ["intentId"],
   cancels: {},
-} satisfies OperationReference<keyof typeof events>;
+} satisfies Omit<OperationReference<keyof typeof events>, "keyFields">;
 
 const operations = {
   pay: writeOf(ByIntent, pay),
@@ -84,7 +83,6 @@ const operations = {
     failure: { NotSent: "PlaceRefused" },
     unknown: "PlaceUnsure",
     classify: classifyWith((tag) => tag === "OrderExists"),
-    keyFields: ["cartId"],
     cancels: {},
   }),
   void: writeOf(ByIntent, {
@@ -94,7 +92,6 @@ const operations = {
     failure: { AlreadyCaptured: "VoidRefused", NotSent: "Voided" },
     unknown: "VoidUnsure",
     classify: classifyWith(() => false),
-    keyFields: ["intentId"],
     cancels: {},
   }),
 } satisfies Fixture["operations"];
@@ -122,7 +119,7 @@ const cellsEvents = { ...events, AbortPay: Empty };
 const cellsPay = {
   ...pay,
   cancels: { AbortPay: "cancel" },
-} satisfies OperationReference<keyof typeof cellsEvents>;
+} satisfies Omit<OperationReference<keyof typeof cellsEvents>, "keyFields">;
 
 /**
  * Pay with one more root event, `AbortPay`, which cancels `pay`
