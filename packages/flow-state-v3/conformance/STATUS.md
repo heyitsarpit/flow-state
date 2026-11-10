@@ -248,27 +248,49 @@ findings, 5 accepted, 5 rejected (a Held head cannot end definitely during dispo
 accepted, 6 rejected or noted (owners come from `Minted`, the only report naming who committed; a boot's parked
 delivery carries no channel; latent: no case disposes without re-ensuring).
 
-## T7 (2026-11-10): first step, then parked for T40
+## T7 (2026-11-10 and 2026-11-11): WriteLanes area (in progress)
 
-Committed: H5 in `ending-channels` (a success or commit failure ends only in a step where the
-server answered one of its sends; an answer given at request time counts; only unknowns and Flow's
-own failures end without one), its mutant `mutant.success-without-answer` (PAY-16, caught as
-WriteLanes I3), and case `DISP-06` (a disposed actor's ending parks and the next ensure hears it;
-Actors R20, WriteLanes R10). Numbers: suite 67/67; null 0/67; falsify --parallel 6 38/38;
-`nub run check` at zero.
+Bottom line: S2 is done; `lane-queue` and `delivered-once` are closed-phase folds from WriteLanes R6 to R8, R10, R14
+and R15. Suite 67/67 and null 0/67, both unchanged; falsify sweep 43/43. T7's own rows, I22 and the T6 completion
+review's disposal findings are not started.
 
-Parked, not committed, by the orchestrator's call (lane-queue, lane-model and delivered-once are
-rewritten from the Spec in T7's S2 after @task.V3.T40): the H1 keyed lanes in `lane-queue`, the H2
-I16 check, the H3 replaced-delivery check and the H4 dropped disposal excuse in `delivered-once`,
-and their mutants `mutant.replaced-delivered` (LANE-07, I15), `mutant.success-then-failure`
-(PAY-01, I16) and `d6.disposed-ending-is-evidence` (DISP-06, I15), each seen caught for its reason
-on the parked patch. They are the rewrite's acceptance list. Also found: with no key on `Minted`, a
-keyed lane can be named from the request's input (the server log), as `disposal-ledger.ts`
-`laneOf` does; the rewrite should do that rather than guess.
-
-| Sidecar                      | Task              | Result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| ---------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Reviewer (test the spec, R4) | the H1 to H5 diff | 7 findings. Accepted: 2 (Flow's reasons exempt only failures from the answer rule), 7 (the doc lists the answer rule and request-time answers). Carried to the rewrite with the parked code: 1 (name a keyed lane from the request input, not a fresh lane), 3 (the replaced excuse ignores keys), 4 and 5 (docs of parked code). Rejected: 6 (WriteLanes I3 is the Invariant that enforces R2 in the coverage block, and the oracle names it; a made-up success breaks R2's three-channel classification). |
+- First step (`392147bc`): H5 in `ending-channels` (`mutant.success-without-answer`, I3) and case `DISP-06`.
+- S2 (`a8714be6`, `c1f02294`):
+  - `lane-queue` now has one phase per Attempt (`Held { at }`) and judges keyed lanes, named from `Minted.key` or
+    the first request's input.
+  - `Released` passes only in a step with a turn of a cancelling event (reference `cancels` or the new `mayCancel`;
+    Pay: `IntentRead`, `OrderSeen`), giving WriteLanes I12 (review H1). A send while on the wire is WriteLanes I1.
+  - `delivered-once` keeps one life per ending (`Owed { inDisposal }` or `Parked`). Declines are first in, first
+    out. A surely replaced Attempt is never delivered, a forget (not a dispose) excuses a record, and I16 is judged.
+    I22 is out of its guarantee until a releasing-lane fixture exists.
+  - The `attempts` flag is gone.
+- Baselines settled:
+  - A turn's reports come before its `Turn`, so a cancel's history is the model at the step's previous `Turn`.
+  - A reload judges the step's pending cancels over the reports before it, then drops every pending cancel.
+- Verdict changes against `ac9e0fa0` (Conformance R11):
+  - Case verdicts: none.
+  - `mutant.release-drops-held` moves from `disposal` (Actors I29) to `lane-queue` (WriteLanes I12, R8 "no quiet
+    release"; review L5). `DISP-01` now cites WriteLanes R8 and I12.
+  - `id.dispose-drops-lanes` is still caught, but no longer in `DISP-01`, because I12 fires earlier there.
+  - `lane.cancel-wire-as-never-sent` is now also caught in `PAY-12` and `PAY-15/cancel-on-wire` (keyed lanes,
+    R14).
+  - `lane.held-auto-resend` is now caught in about 30 more Pay cases, and `lane.cancel-held-keeps` in `LANE-09`
+    (keyed lanes, R8).
+  - New mutants: `lie.held-released-unguarded` (I12), `mutant.double-invoke` (I1), `mutant.replaced-delivered`
+    (I15), `mutant.success-then-failure` (I16), `d6.disposed-ending-is-evidence` (I15). Each was seen caught for
+    its reason.
+- Sidecars (Haiku, read-only), with results checked by the lead:
+  - A reviewer of the S2 diff:
+    - Accepted: the `Released`-by-`Recorded` path was consistency-only (Conformance R4), so it was dropped. The
+      suite stays 67/67 without it.
+    - Noted: I9 is cited for a mint with no actor and for a send of a replaced Attempt. This is pre-existing.
+    - Noted, latent:
+      - a key reported as an array collapses lanes;
+      - two fixtures sharing an operation name disagree on key fields;
+      - a release on leave reads as an I12 violation until a fixture declares one.
+    - Open for the user: the prototype records a local or non-persisted disposed actor's ending as evidence (rule
+      44), while I15's exceptions do not list disposal. No case hits it.
+    - Pre-existing and stated: an ending decided during disposal parks at the reload without a `Parked` report.
 
 ## T40 (2026-11-10 and 2026-11-11): suite simplified
 

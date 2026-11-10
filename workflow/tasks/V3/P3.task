@@ -488,6 +488,13 @@ tasks
             Sent while already on the wire) not started. Haiku reviewer of the H diff: 7 findings, 2 accepted, 4 
             carried to the rewrite, 1 rejected, with why in STATUS.md. None of T7's own rows (I1, I2, I4, I5, I7, I10, 
             I13, I14, I17 to I19, I23) is built yet.
+        comment     2026-11-10T19:08:38Z
+            In progress (builder, 2026-11-11): S2 is done. lane-queue and delivered-once were rewritten from WriteLanes 
+            R6 to
+            R8, R10, R14 and R15 (commits a8714be6, c1f02294). No case verdict changed. Falsify sweep: 43/43 caught. 
+            T7's own rows,
+            I22 and the T6 completion review's disposal findings (M1 to M4, M6, Lows) are not started. Detail, verdict
+            changes and sidecar log: code:packages/flow-state-v3/conformance/STATUS.md (T7 section).
     T8
         title       Turn area complete
         status      open
