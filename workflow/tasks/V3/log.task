@@ -370,4 +370,11 @@ note 2026-11-10T16:43:24Z
     (build-a-loop, to-epic and its template). Installed build-a-loop refreshed and skills-lock.json updated. Reverse: 
     pin workflow@0222619.
 note 2026-11-10T17:04:14Z
-    Review started (hourly wake): one Opus reviewing lead at high effort with four Haiku sidecars on T6 checkpoints f8b92e7b and 03098b28 (range db09a379..03098b28); read-only, reports to the orchestrator. Weekly usage 4 percent, reserve 50. Builder active.
+    Review started (hourly wake): one Opus reviewing lead at high effort with four Haiku sidecars on T6 checkpoints 
+    f8b92e7b and 03098b28 (range db09a379..03098b28); read-only, reports to the orchestrator. Weekly usage 4 percent, 
+    reserve 50. Builder active.
+note 2026-11-10T17:07:17Z
+    T6 builder finished (commits f8b92e7b, 03098b28, 62606880, d5347ac2); gates verified by the orchestrator. T6 held 
+    by a guarantee-change stop (R22's bound has no Actors Invariant; three o6.* mutants unregistered), asked of the 
+    user as Q1; by R21 it holds only T6. Next: one Opus building lead on @task.V3.T7 at medium effort (second building 
+    iteration). Review of T6 still running.

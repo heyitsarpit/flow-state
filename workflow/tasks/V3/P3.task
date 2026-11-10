@@ -740,9 +740,15 @@ tasks
             (one new expectation, a definite ending drops the head, in PAY-16/settled-during-disposal-parked). They 
             stay unregistered as disposalBoundMutants. Proposed: add an Actors Invariant for R22's bound, judged by the 
             disposal oracle, then register them. Not done: needs the user's yes.
+        comment     2026-11-10T17:07:07Z
+            Orchestrator verification (2026-11-10): re-ran from packages/flow-state-v3: suite 61/61; suite --runtime 
+            null 0/61; falsify --parallel 6, 29/29 mutants caught, each for its stated reason (disposal I29 and I30 
+            lines read); nub run check at zero. T6 stays in_progress, held only by the R22-bound stop (Q1 to the user): 
+            the three o6.* mutants need a new Actors Invariant. The hourly review of f8b92e7b and 03098b28 is still 
+            running; its accepted findings go to the next building lead.
     T7
         title       WriteLanes area complete
-        status      open
+        status      in_progress
         priority    high
         blocked_by  [@T5]
         description
