@@ -147,10 +147,10 @@ description
 
     No budget of iterations, time or usage, for the Epic, a phase or a Task (the user, 2026-11-10):
     the reviews and each phase's exit criteria judge progress. Failure limit (the default for each
-    phase): 2 failures with the same root cause after convergence. Usage reserve: none now; the 95
-    percent weekly stop is lifted (the user, 2026-11-09), so only the harness limit itself stops
-    work. The user changes the reserve as planned work changes: a new value is an edit here and a
-    note, with no confirmation round.
+    phase): 2 failures with the same root cause after convergence. Usage reserve: the run stops at
+    50 percent weekly usage, all models (the user, 2026-11-10; was none). Usage limits and reserves
+    always mean the weekly window, never the 5-hour one. The user changes the reserve as planned
+    work changes: a new value is an edit here and a note, with no confirmation round.
 
     ## Glossary
 
@@ -244,8 +244,8 @@ instructions
       GB, after checking `vm_stat`. Always alone: real-browser runs and benchmarks.
     - Checkpoints (a builder commit at the end of a coherent step) about every 50 minutes, which
       feed the hourly review.
-    - Weekly usage: read it from the agent harness's usage view (in the Claude desktop app, its
-      usage tool; otherwise ask the user).
+    - Weekly usage: the weekly all-models window, never the 5-hour one; read it from the agent
+      harness's usage view (in the Claude desktop app, its usage tool; otherwise ask the user).
     - R43: no worktrees; the builder works in the main checkout on `flow-rewrite` (the user,
       2026-11-08).
     - Command time limit: under 5 minutes each, with `perl -e 'alarm N; exec @ARGV' --` or
@@ -263,7 +263,8 @@ cadence
     start one Opus reviewing lead at high effort; it starts its own four Haiku sidecars at high
     effort (two on code quality against tools/lint-bomb/STYLE.md and FLOW-STATE.md, two on
     correctness against the Spec the change implements), checks the builder's accepted, changed or
-    rejected log, and reports to you only; note the review. If the building lead has shown no
+    rejected log, and reports to you; verify its findings, send the accepted ones to the building
+    lead in the same wake, and note the review. If the building lead has shown no
     activity for 70 minutes, resume it by message or replace it (R7) and note it. Otherwise write
     nothing." Quiet rule: a wake that finds nothing writes no note and sends no message.
 stops
@@ -273,4 +274,6 @@ stops
     - a change proposal whose judge is the user;
     - the user-judged decisions in P5, P6, P7 and P9 (their cards);
     - each ship stage in P10;
-    - the real-phone run in P9, which holds only that item.
+    - the real-phone run in P9, which holds only that item;
+    - the start of P4: an independent skill:check-spec agent checks the core Specs against the
+      Plans, and T16 waits until the user has read its list of conflicts (the user, 2026-11-10).

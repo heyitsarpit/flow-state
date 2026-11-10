@@ -11,7 +11,8 @@ description
     write-ahead and the driver; restore and key versions; fragments; operations; the CLI's `check`,
     `explain` and `graph`.
 
-    **Starts when:** P3's completion audit passes (its suite is proven).
+    **Starts when:** P3's completion audit passes (its suite is proven), and the user has read an
+    independent skill:check-spec agent's list of conflicts between the core Specs and the Plans.
 
     **Verified by:**
 
@@ -47,7 +48,8 @@ description
     - public entry-point names;
     - a large public API change;
     - a guarantee that can't be met;
-    - a guarantee change.
+    - a guarantee change;
+    - the Specs-against-Plans conflict list, read by the user before T16 starts.
 
     **User's read:** the internal module layout; small public API calls.
 

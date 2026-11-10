@@ -331,3 +331,20 @@ note 2026-11-10T16:13:20Z
 note 2026-11-10T16:17:22Z
     Amendment (2026-11-10, the user): pin moves from workflow@729fd7d to workflow@0222619; the only change is the 
     workflow-cli syntax starter showing notes in log.task.
+note 2026-11-10T16:28:16Z
+    Amendment (2026-11-10, the user): usage reserve set to 50 percent weekly usage, all models (was none); usage limits 
+    and reserves always mean the weekly window, never the 5-hour one ("the limits always mean weekly, clarify this in 
+    the skill and epic"). Edited: Limits and the weekly-usage instruction. The skill library carries the same 
+    clarification, uncommitted, so the pin stays workflow@0222619. Reverse: set the reserve back to none.
+note 2026-11-10T16:28:22Z
+    Amendment (2026-11-10, the user, Q1 A): the hourly reviewing lead reports to the orchestrator, who verifies its 
+    findings and sends the accepted ones to the building lead in the same wake; the builder logs each as accepted, 
+    changed or rejected in its Task. Edited: the cadence prompt. Reverse: restore 'reports to you only'.
+note 2026-11-10T16:28:27Z
+    Decision (user, 2026-11-10, Q3 A): T6 runs before T7, so tsgo is in nub run check before the remaining areas add 
+    code, and T9's shared disposal oracle exists first. Governs: @task.V3.T6, @task.V3.T7. Reverse: follow workflow 
+    next (T7 first).
+note 2026-11-10T16:28:32Z
+    Amendment (2026-11-10, the user, Q4 A): P4 starts with a stop. An independent skill:check-spec agent checks the 
+    core Specs against the agent-merged Plans, and T16 waits until the user has read its conflict list. Edited: the 
+    Epic's stops and P4's Starts when and Stops. Reverse: remove those lines.
