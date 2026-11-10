@@ -12,11 +12,11 @@ was reviewed, except to check whether step 2 was logged.
 
 ## Gates I ran (git archive copies in my scratchpad, `node_modules` and `codebases/effect-v4` linked)
 
-| Commit     | suite | null | falsify | coverage                 | other                                       |
-| ---------- | ----- | ---- | ------- | ------------------------ | ------------------------------------------- |
-| `c1427047` | 84/84 | 0/84 | 68/68   | 33 of 186, 0 gaps        | suite 3.2 s, 158 MB peak RSS                |
-| `829b8e4c` | 84/84 | 0/84 | 68/68   | not run                  | sweep baseline                              |
-| `cc0763b3` | 84/84 | 0/84 | 68/68   | 33 of 186, 0 gaps        | `nub run check` passes                      |
+| Commit     | suite | null | falsify | coverage          | other                        |
+| ---------- | ----- | ---- | ------- | ----------------- | ---------------------------- |
+| `c1427047` | 84/84 | 0/84 | 68/68   | 33 of 186, 0 gaps | suite 3.2 s, 158 MB peak RSS |
+| `829b8e4c` | 84/84 | 0/84 | 68/68   | not run           | sweep baseline               |
+| `cc0763b3` | 84/84 | 0/84 | 68/68   | 33 of 186, 0 gaps | `nub run check` passes       |
 
 - `suite --json` and `suite --runtime null --json`: byte-identical between `829b8e4c` and `cc0763b3`.
 - Sweep (`falsify --sweep --parallel 6`), keyed by mutant: only `lane.held-auto-resend` differs. `PAY-18` is now red,
