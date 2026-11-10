@@ -232,6 +232,10 @@ instructions
       2026-11-10): the verdict, commits, gate counts, and only the items that need a decision or
       routing, in about 30 lines; the full findings, sidecar logs and evidence go in the Task's
       comments, STATUS.md or a review file, and the report names where.
+    - Expected results are drafted independently (the user, 2026-11-11): for every new case a Haiku
+      expectation drafter writes the expected result from the Spec alone, citing the rule, before
+      the code exists; the builder changes one only with a logged reason, and logs which side was
+      right whenever its result and the draft disagree.
     - Records lead with the bottom line and hold each fact once (the user, 2026-11-11): an Epic note
       is 1 to 3 lines, decision or fact first, with one Why and one Reverse line for a decision; a
       Task comment is a verdict line plus a link to its STATUS.md section or review file; sidecar

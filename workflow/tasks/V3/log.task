@@ -446,3 +446,8 @@ note 2026-11-10T19:09:55Z
 note 2026-11-10T19:10:05Z
     T7 part done at 28609e2e (S2 rewrite, keyed lanes, false Released caught; 67/67, null 0/67, falsify 43/43). A fresh 
     Opus lead at medium effort takes the rest of T7, then T8 and T13; R9's verdict form moves to T14.
+note 2026-11-10T19:13:13Z
+    Decision (user, 2026-11-11): two suite-validation gaps closed. Inserted @task.V3.T41, a coverage gate (every core 
+    Invariant checked or owned by a named Task), blocking T15 and batched with the current builder; and every new 
+    case's expected result is drafted by a Haiku sidecar from the Spec before the code. **Why:** uncovered Invariants 
+    hid, and builders wrote their own expectations. **Reverse:** unlink T41; drop the instructions line.

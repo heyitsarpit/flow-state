@@ -433,6 +433,35 @@ tasks
             its expected Invariant; `nub run check` zero. Acceptance met. Sidecars (R5/R9 reviewer of S1, 15 findings;
             parity reviewer of S3 and S8, none): conformance/STATUS.md, T40 section.
 
+    T41
+        title       Coverage gate: every core Invariant checked or owned
+        status      open
+        priority    high
+        description
+            A fast gate fails unless every Invariant in the core Specs has an oracle claiming it with a mutant
+            caught by that Invariant, or an explicit "not yet" row naming the Task that owns it.
+
+            **Why now:** falsify tests only what an oracle claims, so an Invariant with no oracle passes
+            silently (I16 and I22 hid this way) until T15's coverage record.
+
+            **Read first:** @spec.Conformance (R6, R12, I38); the guarantee map in
+            code:packages/flow-state-v3/conformance/README.md; `Mutant.expects` in
+            code:packages/flow-state-v3/conformance/dsl/oracle.ts.
+
+            **Approach:** read Invariant ids from the core Specs (`workflow` CLI or the spec index), compare them
+            with oracle `guarantee` lists, the falsify per-Invariant kills and a typed "not yet" table, and run it
+            in the fast gates. Prove it with a planted uncovered Invariant that makes it fail.
+
+            - **May change:** `packages/flow-state-v3/conformance/`, `package.json` scripts.
+            - **Evidence:** STATUS.md, one T41 section.
+            - **False pass:** a "not yet" row that never expires → caught by T15's audit, which reads the table.
+            - **Gates:** the planted uncovered Invariant; `nub run check`.
+        acceptance
+            - The gate lists every core Invariant as covered (oracle plus caught mutant) or "not yet" with an
+              owning Task, and fails on any other;
+            - a planted uncovered Invariant makes it fail;
+            - it runs with the suite's fast gates.
+
     T7
         title       WriteLanes area complete
         status      in_progress
@@ -716,7 +745,7 @@ tasks
         title       Suite audited, fast gates in verify, coverage record, speed targets
         status      open
         priority    high
-        blocked_by  [@T7, @T8, @T9, @T10, @T11, @T12, @T13, @T14]
+        blocked_by  [@T7, @T8, @T9, @T10, @T11, @T12, @T13, @T14, @T41]
         description
             Close the suite out:
 
