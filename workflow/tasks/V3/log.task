@@ -489,3 +489,5 @@ note 2026-11-10T20:57:29Z
     that Task closes; T13 closes on what round-14 can make. Conformance Q5, Q11, Q12 and Q14 and the drafter's three 
     Spec gaps are revised with to-spec by the next lead; any Invariant change comes to the user. **Reverse:** keep the 
     rows under T13. T13 part 1 verified at facb1c33 (76/76, null 0/76, falsify 57/57).
+note 2026-11-10T21:01:30Z
+    Convergence review done (code:workflow/plans/flow/references/proposals/lane-oracle-convergence-review-2026-11-11.md): revise once; the direction stays, but obligations are stored as phases, six cells refuse allowed behaviour, and the tables are not total. The designer writes v2.
