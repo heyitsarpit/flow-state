@@ -509,3 +509,5 @@ note 2026-11-10T21:28:38Z
     open Task. **Why:** the T41 and T13 review (M2). **Reverse:** move them to T17 again.
 note 2026-11-10T22:00:21Z
     Review started on c1427047 (StaticCli) and convergence step 2 (Port); weekly usage 17 percent.
+note 2026-11-10T22:06:29Z
+    Convergence step 2 (Port) and step 1 part 1 (Table A) landed at b6567180 (84/84, null 0/84, lifecycle mutation test 5 of 5); a fresh lead at medium effort continues from step 1 part 2.
