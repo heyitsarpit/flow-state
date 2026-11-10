@@ -469,4 +469,13 @@ note 2026-11-10T19:46:04Z
 note 2026-11-10T20:00:21Z
     Review started on a8714be6..1ab7e889 (T7 fixes); weekly usage 12 percent.
 note 2026-11-10T20:24:01Z
-    Decision (orchestrator, R35): convergence pass on the WriteLanes and disposal oracle state, after the third review in a row found the same root cause there (code:workflow/plans/flow/references/proposals/t7-fixes-review-2026-11-11.md M5). An Opus designer writes a from-scratch proposal; one adversarial review and one revision follow; the builder moves to T41, T13 and T8 meanwhile. **Reverse:** patch M1 to M4 in place.
+    Decision (orchestrator, R35): convergence pass on the WriteLanes and disposal oracle state, after the third review 
+    in a row found the same root cause there 
+    (code:workflow/plans/flow/references/proposals/t7-fixes-review-2026-11-11.md M5). An Opus designer writes a 
+    from-scratch proposal; one adversarial review and one revision follow; the builder moves to T41, T13 and T8 
+    meanwhile. **Reverse:** patch M1 to M4 in place.
+note 2026-11-10T20:27:05Z
+    T41 built and M4, M5 landed at 6205cec7 (69/69, null 0/69, falsify 47/47; coverage gate 16 of 186 core Invariants 
+    checked, 170 owed, 0 gaps). Decision (orchestrator): the gate gains a 'covered by case expectations' kind citing 
+    the cases, for case-only Invariants; T15's audit reads it. The I15 against Actors R15 refusal conflict and the 
+    kept-ending questions go to the convergence designer. **Reverse:** keep case-only Invariants as owed rows.

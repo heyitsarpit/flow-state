@@ -15,13 +15,13 @@ Those later commits were not reviewed.
 
 **Runs by the lead** (from `packages/flow-state-v3` of the `1ab7e889` copy):
 
-| Run                                         | Result                                                                 |
-| ------------------------------------------- | ---------------------------------------------------------------------- |
-| `suite --parallel 4`                        | 69/69                                                                  |
-| `suite --runtime null`                      | 0/69                                                                   |
-| `falsify --parallel 4`                      | 47/47, each by its expected (oracle, Invariant)                        |
+| Run                                            | Result                                                                                             |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `suite --parallel 4`                           | 69/69                                                                                              |
+| `suite --runtime null`                         | 0/69                                                                                               |
+| `falsify --parallel 4`                         | 47/47, each by its expected (oracle, Invariant)                                                    |
 | `falsify --sweep --mutant lie.boot-drops-held` | red in 31 cases; `PAY-12/cancel-on-wire` and `PAY-15/cancel-on-wire` by its oracle (T6 M4's claim) |
-| `nub run check` (root of the copy)          | zero errors, zero warnings                                             |
+| `nub run check` (root of the copy)             | zero errors, zero warnings                                                                         |
 
 Paths below are under `packages/flow-state-v3/conformance/`, and lines are at `1ab7e889`.
 
@@ -36,18 +36,18 @@ Paths below are under `packages/flow-state-v3/conformance/`, and lines are at `1
 
 ## Earlier findings
 
-| Finding                                | State at `1ab7e889`                                                                                 |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| T6 M1 (parked ending's channel)        | Fixed: the channel is compared (`actors/disposal.ts:111-133`). No mutant was registered; see L3      |
-| T6 M2 (disposal state machines)        | Fixed: `Call` (`Open`, `Settled`, `Done`) and the kept lanes each step once and stay immutable. `callOf` still defaults to `Open` (M5) |
-| T6 M3 (ledger table)                   | Fixed: `TABLE` is total over (phase, move) (`actors/disposal-ledger.ts:44-97`), `Settled` is split by cause, and only insertion bypasses it |
-| T6 M4 (cancel on the wire)             | Fixed: `OnWire.cancel` stays `OnWire`. Confirmed by the sweep above. One residual remains (L1)      |
-| T6 M6 (`Never`)                        | Fixed: `endingOf` (`dsl/domain.ts:55-80`) is the one rule. `mutant.short-disposal-bound` is caught as Actors I35 |
-| S2 H1 (quiet `Released`)               | Fixed for one intent: `lie.release-on-guarded-read` is caught as WriteLanes I12 on `PAY-15/retry-budget`. Residuals: M1, M2 |
-| S2 M1 (keyed lanes)                    | Decided (the Port requires `Minted.key`) but not enforced (M3)                                       |
-| S2 M2 (reload drops `Held`)            | Partly fixed: `Held { at }` survives, and `mutant.boot-resends-held` is caught as I12. The one `(phase, fact)` table was not built (M5). A send in no lane is caught only when the lane was named (M3) |
-| S2 M3 (no S2 log)                      | Fixed (the STATUS T7 section)                                                                        |
-| S2 M4 (I15's refusal exception)        | Built: `1b.r8-refused-ending-not-redelivered` is caught as I15 on `DLV-04`. It is judged by counting (M4) |
+| Finding                         | State at `1ab7e889`                                                                                                                                                                                    |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| T6 M1 (parked ending's channel) | Fixed: the channel is compared (`actors/disposal.ts:111-133`). No mutant was registered; see L3                                                                                                        |
+| T6 M2 (disposal state machines) | Fixed: `Call` (`Open`, `Settled`, `Done`) and the kept lanes each step once and stay immutable. `callOf` still defaults to `Open` (M5)                                                                 |
+| T6 M3 (ledger table)            | Fixed: `TABLE` is total over (phase, move) (`actors/disposal-ledger.ts:44-97`), `Settled` is split by cause, and only insertion bypasses it                                                            |
+| T6 M4 (cancel on the wire)      | Fixed: `OnWire.cancel` stays `OnWire`. Confirmed by the sweep above. One residual remains (L1)                                                                                                         |
+| T6 M6 (`Never`)                 | Fixed: `endingOf` (`dsl/domain.ts:55-80`) is the one rule. `mutant.short-disposal-bound` is caught as Actors I35                                                                                       |
+| S2 H1 (quiet `Released`)        | Fixed for one intent: `lie.release-on-guarded-read` is caught as WriteLanes I12 on `PAY-15/retry-budget`. Residuals: M1, M2                                                                            |
+| S2 M1 (keyed lanes)             | Decided (the Port requires `Minted.key`) but not enforced (M3)                                                                                                                                         |
+| S2 M2 (reload drops `Held`)     | Partly fixed: `Held { at }` survives, and `mutant.boot-resends-held` is caught as I12. The one `(phase, fact)` table was not built (M5). A send in no lane is caught only when the lane was named (M3) |
+| S2 M3 (no S2 log)               | Fixed (the STATUS T7 section)                                                                                                                                                                          |
+| S2 M4 (I15's refusal exception) | Built: `1b.r8-refused-ending-not-redelivered` is caught as I15 on `DLV-04`. It is judged by counting (M4)                                                                                              |
 
 ## High
 
