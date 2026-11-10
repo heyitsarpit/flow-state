@@ -47,7 +47,6 @@ export type Hosts = {
  *   itself at no delay.
  */
 export type World = {
-  readonly seed: number;
   readonly hosts: Hosts;
   readonly settle: (pending: () => boolean) => void;
   readonly advance: (ms: number, pending: () => boolean) => void;
@@ -63,7 +62,7 @@ export const makeWorld = (seed: number): World => {
   const clock = makeClock();
   const page = makePage(seed);
   const storage = makeStorage(seed, page);
-  const network = makeNetwork(clock, page);
+  const network = makeNetwork();
 
   const settle = (pending: () => boolean) => {
     for (let steps = 0; steps <= STEPS_PER_SETTLE; steps += 1) {
@@ -77,7 +76,6 @@ export const makeWorld = (seed: number): World => {
   };
 
   return {
-    seed,
     hosts: { clock, page, storage, network },
     settle,
     advance: (ms, pending) => {

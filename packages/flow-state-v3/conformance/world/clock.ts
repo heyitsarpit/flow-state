@@ -28,7 +28,6 @@ export type WorldClock = {
   readonly nextDue: (until: number) => Option.Option<Timer>;
   readonly fire: (timer: Timer) => void;
   readonly moveTo: (time: number) => void;
-  readonly armed: () => ReadonlyArray<number>;
   readonly kill: () => void;
 };
 
@@ -72,7 +71,6 @@ export const makeClock = (): WorldClock => {
     moveTo: (next) => {
       time = Math.max(time, next);
     },
-    armed: () => timers.map((t) => t.at),
     kill: () => {
       timers = [];
     },

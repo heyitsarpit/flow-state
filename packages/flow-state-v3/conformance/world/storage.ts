@@ -81,7 +81,6 @@ export type Storage = {
     answer: (ok: boolean) => void,
   ) => void;
   readonly answer: (how: StorageAnswer, match: Option.Option<string>) => number;
-  readonly entries: () => ReadonlyMap<string, string>;
   readonly kill: () => void;
 };
 
@@ -143,7 +142,6 @@ export const makeStorage = (seed: number, page: Page): Storage => {
 
       return chosen.length;
     },
-    entries: () => kv,
     kill: () => {
       held = [];
     },

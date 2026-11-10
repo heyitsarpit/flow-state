@@ -29,7 +29,6 @@ export type Page = {
   readonly hide: () => void;
   readonly show: () => void;
   readonly runOne: () => boolean;
-  readonly tasks: () => number;
   readonly kill: () => void;
 };
 
@@ -39,7 +38,6 @@ export type Page = {
 // RETURN_TYPE: the exported Page contract; it types the methods' parameters for the runtime.
 export const makePage = (seed: number): Page => {
   let page = 0;
-  let tasksRun = 0;
   let fibers: ReadonlyArray<() => void> = [];
   let tasks: ReadonlyArray<() => void> = [];
   let listeners: ReadonlyArray<() => void> = [];
@@ -98,12 +96,10 @@ export const makePage = (seed: number): Page => {
 
       if (task === undefined) return false;
       tasks = tasks.slice(1);
-      tasksRun += 1;
       task();
 
       return true;
     },
-    tasks: () => tasksRun,
     kill: () => {
       page += 1;
       fibers = [];

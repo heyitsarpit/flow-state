@@ -1,7 +1,5 @@
 import { Data, Effect, Option, Predicate, type Schema } from "effect";
 import { type Json, sameJson } from "../port.ts";
-import type { WorldClock } from "./clock.ts";
-import type { Page } from "./page.ts";
 
 /**
  * How the suite's fake server answers one held request.
@@ -61,8 +59,6 @@ export type Request = {
   readonly operation: string;
   readonly input: Json;
   readonly key: Option.Option<string>;
-  readonly page: number;
-  readonly at: number;
   readonly phase: RequestPhase;
 };
 
@@ -175,7 +171,7 @@ export type Network = {
  * request.
  */
 // RETURN_TYPE: the exported Network contract; it types the request and answer parameters for the runtime.
-export const makeNetwork = (clock: WorldClock, page: Page): Network => {
+export const makeNetwork = (): Network => {
   let log: ReadonlyArray<Request> = [];
   let resumes: ReadonlyMap<number, (effect: Effect.Effect<Json, Failure>) => void> = new Map();
   let steadfast: ReadonlySet<string> = new Set();
@@ -227,7 +223,7 @@ export const makeNetwork = (clock: WorldClock, page: Page): Network => {
       const phase =
         given === undefined ? RequestPhase.Open() : RequestPhase.Answered({ answer: given });
 
-      log = [...log, { seq, operation, input, key, page: page.page(), at: clock.now(), phase }];
+      log = [...log, { seq, operation, input, key, phase }];
 
       if (given !== undefined) return outcome(given);
 
