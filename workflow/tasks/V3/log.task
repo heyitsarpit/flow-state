@@ -348,3 +348,14 @@ note 2026-11-10T16:28:32Z
     Amendment (2026-11-10, the user, Q4 A): P4 starts with a stop. An independent skill:check-spec agent checks the 
     core Specs against the agent-merged Plans, and T16 waits until the user has read its conflict list. Edited: the 
     Epic's stops and P4's Starts when and Stops. Reverse: remove those lines.
+note 2026-11-10T16:36:03Z
+    Amendment withdrawn (2026-11-10, the user): the P4 start stop of the Q4 A amendment is removed. Conflicts between 
+    the Specs and the Plans are settled in each module's Spec during P4 (to-design skeleton, prototype as reference, 
+    order of authority), logged, not read by the user ("where do i come in this?"). Reverse: restore the stop from 
+    commit cd8f3c76.
+note 2026-11-10T16:36:09Z
+    Decision (user, 2026-11-10, Q2 A, Q3 A): T16, the Pay path walking skeleton, is blocked by T6, T7, T8 and T13 (the 
+    suite areas it uses), not by T15; the builder takes it straight after them, before T9 to T12, T14 and T15. T17 
+    onward still wait for T15. If T15's audit weakens a Pay oracle, T16 is repaired against it. This partly reverses 
+    the 14:00 decision that P3 and P4 stay phase by phase. One building lead stays (no second builder). Governs: 
+    @task.V3.T16, @task.V3.T17. Reverse: T16 blocked_by @task.V3.T15 again.

@@ -274,6 +274,4 @@ stops
     - a change proposal whose judge is the user;
     - the user-judged decisions in P5, P6, P7 and P9 (their cards);
     - each ship stage in P10;
-    - the real-phone run in P9, which holds only that item;
-    - the start of P4: an independent skill:check-spec agent checks the core Specs against the
-      Plans, and T16 waits until the user has read its list of conflicts (the user, 2026-11-10).
+    - the real-phone run in P9, which holds only that item.

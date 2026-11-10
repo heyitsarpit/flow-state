@@ -11,8 +11,8 @@ description
     write-ahead and the driver; restore and key versions; fragments; operations; the CLI's `check`,
     `explain` and `graph`.
 
-    **Starts when:** P3's completion audit passes (its suite is proven), and the user has read an
-    independent skill:check-spec agent's list of conflicts between the core Specs and the Plans.
+    **Starts when:** P3's completion audit passes (its suite is proven); T16 alone starts once the
+    suite areas the Pay path uses are complete (T6, T7, T8, T13).
 
     **Verified by:**
 
@@ -48,8 +48,7 @@ description
     - public entry-point names;
     - a large public API change;
     - a guarantee that can't be met;
-    - a guarantee change;
-    - the Specs-against-Plans conflict list, read by the user before T16 starts.
+    - a guarantee change.
 
     **User's read:** the internal module layout; small public API calls.
 
@@ -66,7 +65,7 @@ tasks
         title       The Pay path end to end on production
         status      draft
         priority    high
-        blocked_by  [@task.V3.T15]
+        blocked_by  [@task.V3.T6, @task.V3.T7, @task.V3.T8, @task.V3.T13]
         description
             Build the thinnest production runtime that runs checkout's Pay machine through the public API and the
             production adapter: the walking skeleton.
@@ -76,8 +75,9 @@ tasks
 
             **Read first:** @spec.Compile, @spec.Turn, @spec.WriteLanes,
             code:packages/flow-state-v3/conformance/port.ts#Port,
-            code:packages/flow-state-v3/conformance/fixtures/pay.ts#Pay. Blocked by @task.V3.T15: P4 builds only
-            against the proven suite.
+            code:packages/flow-state-v3/conformance/fixtures/pay.ts#Pay. Blocked by the suite areas the Pay
+            path uses (@task.V3.T6, @task.V3.T7, @task.V3.T8, @task.V3.T13), not by T15; if T15's audit
+            weakens a Pay oracle, T16 is repaired against it.
 
             - **May change:** `packages/flow-state-v3/src/`, the production adapter.
             - **Evidence:** this Task's comments.
@@ -91,7 +91,7 @@ tasks
         title       Compiled and the compiler
         status      draft
         priority    high
-        blocked_by  [@T16]
+        blocked_by  [@T16, @task.V3.T15]
         description
             Build Compiled and the compiler: @spec.Compile and @spec.Diagnostics from the public API.
 
