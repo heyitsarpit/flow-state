@@ -724,6 +724,11 @@ tasks
             First slice built and gated: static cases on a Surface, a case-covered coverage kind, Compile I1, I2, I4, 
             I5, I6, I11, I15, I16 checked (CMP-01 to CMP-07, ten mutants caught). StaticCli, and the Invariants 
             round-14 cannot make, still owed. Detail: packages/flow-state-v3/conformance/STATUS.md, T13.
+        comment     2026-11-10T21:23:20Z
+            Part 2 built and gated: StaticCli I1, I4 to I9, I12 by CLI-01 to CLI-08, I2 by the graph-names oracle; the 
+            28 static Invariants round-14 cannot make moved to T17, T20 and T22 in not-yet.ts; Conformance Q5, Q11, 
+            Q12, Q14 and Compile R17 revised, Compile Q3 open for the user. Suite 84/84, null 0/84, falsify 68/68, 
+            coverage 33/186 with 0 gaps. Detail: packages/flow-state-v3/conformance/STATUS.md, T13 part 2.
     T14
         title       Searches and mutants as runner modes
         status      open

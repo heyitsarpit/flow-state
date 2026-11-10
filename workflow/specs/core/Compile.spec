@@ -145,6 +145,18 @@ requirements
         must    Creating a Runtime refuses a Compiled with a key field outside the input, a missing 
                 events table, or a function that is not a Slot.
 
+                Decision (agent, 2026-11-11): the refusal's code is InvalidConfiguration, whose
+                owners include @plan.Runtime.O1 (@plan.Diagnostics.O2), with details.reason naming
+                the malformation; the reason names are left to @task.V3.T17, which builds this
+                check. Why: the closed code list already holds this refusal, and a new code would be
+                a Diagnostics change. Reverse: add a code to @plan.Diagnostics.O2 with the user.
+
+                Decision (agent, 2026-11-11): a Compiled with several malformations is refused; which
+                of them the refusal lists is not guaranteed, since R2's every-violation rule binds a
+                Construction and Runtime creation is not one. Why: no source asks for more, and the
+                cases plant one malformation per Compiled. Reverse: extend R2 to Runtime creation
+                with an Invariant, the user's call.
+
     R18  Wiring
         source  @plan.Runtime.O1.
         must    A machine entry's context is the default wiring for its actors; a shared ref may 
@@ -159,6 +171,12 @@ open
 
     Q2  IdentityFieldOptional has no prototype case or wrong runtime.
         outcome  Phase 3 adds one before relying on R7.
+
+    Q3  What counts as a Slot is unsettled for two kinds of function: a Schema's own functions (its filters and 
+        transformations, which R16's data view carries) and the machine callback, if a Compiled holds it. Read
+        literally, I15 fails on any Compiled with a Schema; reading it otherwise changes I15.
+        outcome  The user decides whether I15 excludes Schemas, or a Schema's functions become Slots; the static
+                 cases check the data view and Slots only under operations until then.
 
 model
     Construction = any call of definition, machine, trait, subroutine or app.

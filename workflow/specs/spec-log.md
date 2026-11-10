@@ -159,3 +159,23 @@ Found while writing the `lane-cells` oracle and its lies (packages/flow-state-v3
   at R14. No Invariant changed (I5 and I12 already read this way); the suite's ledger follows R14.
   Builder's call on the T6 completion review's M4. @plan.Operations.O3 carries the same phrase and
   is left for the user. Reverse: restore the old clause from git.
+
+## Conformance Q5, Q11, Q12, Q14 follow the suite; Compile R17's gaps (2026-11-11)
+
+- **Conformance Q5.** A mutant held by case expectations is caught only by a failed expectation citing
+  the Invariant it expects (`CASE_EXPECTATIONS`, the verdict's `cites`). Still open: the runtime
+  cases' case-only mutants and judging every failing run. Builder's call (T13). Reverse: judge
+  case-held mutants by any red case.
+- **Conformance Q11.** `cites` is now a verdict field; the copy holds the prototype's `conformance/`
+  tree as copied source files, so only `node_modules` is linked. Still open: the other fields, every
+  failing run, the link and the edit-path check.
+- **Conformance Q12.** Static cases run unbounded in process too.
+- **Conformance Q14.** Rewritten to the state after T13: 17 static Invariants case-covered or
+  judged by `graph-names`, 28 owed to @task.V3.T17, @task.V3.T20 and @task.V3.T22 (the
+  orchestrator's decision, log 2026-11-10T20:57:29Z).
+- **Compile R17, two decisions.** The refusal's code is InvalidConfiguration with a reason
+  (@plan.Diagnostics.O2 already lists Runtime.O1 as an owner); and a refusal need not list every
+  malformation, since R2 binds Construction only. No Invariant changed. Reverse: add a code, or
+  extend R2 with an Invariant, with the user.
+- **Compile Q3 added, not settled.** Whether a Schema's functions or the machine callback count as
+  Slots: settling it changes what I15 says, so it is the user's call.

@@ -3,6 +3,7 @@ import { type Fixture, referenceFor } from "../fixtures/fixture.ts";
 import {
   disposalBoundMs,
   Fact,
+  type Graphed,
   Mismatch,
   type Oracle,
   reported,
@@ -112,13 +113,15 @@ export type Case = {
  * **Details**
  *
  * `seed` fixes the world: the store's load order and the session seeds the runtime mints from.
- * The runner runs every case under more than one seed.
+ * The runner runs every case under more than one seed. `graphs` are what `flow graph` printed for
+ * the fixtures before the first boot; each oracle opens with them.
  */
 export type CaseOptions = {
   readonly port: Port;
   readonly fixtures: ReadonlyArray<Fixture>;
   readonly oracles: ReadonlyArray<Oracle>;
   readonly seed: number;
+  readonly graphs: ReadonlyArray<Graphed>;
 };
 
 const runtimeLife = (options: CaseOptions, world: World, record: (fact: Fact) => void) => {
@@ -157,7 +160,12 @@ const stepEngine = (
 ) => {
   const { network } = world.hosts;
   const reference = referenceFor(options.fixtures);
-  const judges = options.oracles.map((o) => ({ name: o.name, next: o.open(reference) }));
+
+  const judges = options.oracles.map((o) => ({
+    name: o.name,
+    next: o.open(reference, options.graphs),
+  }));
+
   let stepped = 0;
   let noted = 0;
   let judged = 0;

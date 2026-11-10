@@ -8,7 +8,10 @@ import { nullSurface } from "../adapters/null-static.ts";
 import { loadPrototypeSurface } from "../adapters/prototype-static.ts";
 import { loadPrototype, prototypePort } from "../adapters/prototype.ts";
 import { coverageOf, Gap, Standing } from "../coverage.ts";
+import type { Scenario } from "../dsl/case.ts";
 import { notYet } from "../not-yet.ts";
+import { graphedOf } from "../static-cli/graph.ts";
+import type { Surface } from "../surface.ts";
 import { caseChecks, caseIds, guarantees, oracles, scenarios, staticCases } from "../suite.ts";
 import { CASE_EXPECTATIONS, falsifyOne, MutantVerdict, suiteIn } from "./falsify.ts";
 import { runCases, runStatics } from "./run.ts";
@@ -39,6 +42,14 @@ const runtimePort = (runtime: string) =>
 
 const runtimeSurface = (runtime: string) =>
   runtime === NULL_RUNTIME ? Effect.succeed(nullSurface) : loadPrototypeSurface(runtime);
+
+const graphsFor = (surface: Surface, chosen: ReadonlyArray<Scenario>) => {
+  const names = new Set(chosen.flatMap((s) => s.fixtures.map((f) => f.name)));
+  const graphs = new Map([...names].map((name) => [name, graphedOf(surface, name)]));
+
+  return (scenario: Scenario) =>
+    scenario.fixtures.flatMap((f) => Option.toArray(graphs.get(f.name) ?? Option.none()));
+};
 
 const list = (value: Option.Option<string>) =>
   Option.match(value, {
@@ -117,13 +128,15 @@ const suite = (args: ReadonlyArray<string>) =>
       return yield* report([...runs.flat(), ...missing], json);
     }
 
+    const surface = yield* runtimeSurface(runtime);
+
     const runtimeVerdicts =
-      chosen.length === 0 ? [] : yield* runCases(yield* runtimePort(runtime), chosen, oracles);
+      chosen.length === 0
+        ? []
+        : yield* runCases(yield* runtimePort(runtime), chosen, oracles, graphsFor(surface, chosen));
 
     const staticVerdicts =
-      chosenStatic.length === 0
-        ? []
-        : yield* runStatics(yield* runtimeSurface(runtime), chosenStatic);
+      chosenStatic.length === 0 ? [] : yield* runStatics(surface, chosenStatic);
 
     return yield* report([...runtimeVerdicts, ...staticVerdicts, ...missing], json);
   });

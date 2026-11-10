@@ -6,7 +6,8 @@ const EMPTY = {} as CompiledHandle;
 
 /**
  * A static surface that does nothing (Conformance R7): every construction gives an empty
- * `Compiled` without running the machine callback, and every Runtime creation is admitted.
+ * `Compiled` without running the machine callback, every Runtime creation is admitted, and every
+ * CLI run exits 0 having printed nothing.
  *
  * **When to use**
  *
@@ -19,4 +20,5 @@ export const nullSurface: Surface = {
       view: { states: [], events: [], uncertain: [], operations: [], slots: [], whole: {} },
     }),
   admit: () => Admission.Admitted(),
+  cli: () => ({ code: 0, stdout: "", stderr: "" }),
 };

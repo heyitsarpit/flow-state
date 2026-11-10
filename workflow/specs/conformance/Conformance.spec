@@ -303,12 +303,17 @@ open
         allows only if it reports facts by meaning.
         outcome  Its shape is checked against R1 when it is built.
 
-    Q5  Falsify does not yet follow R6 in full: case-only Invariants have no mutants, and a kill is judged on the first 
-        failing run only. Decision (agent, 2026-11-10): each mutant names the Invariant it breaks (`expects`), and 
-        falsify counts it caught only by a violation of its oracle that names that Invariant, so kills are per (oracle, 
-        Invariant) pair. Why: the orchestrator's design call on the T6 review (L2). Reverse: drop `expects` and judge 
-        by the oracle alone.
-        outcome  Phase 3 adds the case-only mutants and judges every failing run.
+    Q5  Falsify does not yet follow R6 in full: a kill is judged on the first failing run of each case only, and the 
+        runtime cases' case-only Invariants (WriteLanes I4, I5, I18) have no mutants. Decision (agent, 2026-11-10):
+        each mutant names the Invariant it breaks (`expects`), and falsify counts it caught only by a violation of its
+        oracle that names that Invariant, so kills are per (oracle, Invariant) pair. Why: the orchestrator's design
+        call on the T6 review (L2). Reverse: drop `expects` and judge by the oracle alone. Decision (agent,
+        2026-11-11): a mutant held by case expectations names the judge
+        code:packages/flow-state-v3/conformance/runner/falsify.ts#CASE_EXPECTATIONS and is caught only by a failed
+        expectation that cites the Invariant it expects, carried as the verdict's `cites`; the static cases' mutants
+        are judged this way. Why: a static case has no oracle (R14's Judges row), and the label alone would let any
+        failure count. Reverse: judge case-held mutants by any red case, as before T13.
+        outcome  Phase 3 adds mutants for the runtime cases' case-only Invariants and judges every failing run.
 
     Q6  The ported cases' expectations were written by the builder from the old suite's cases, while the Epic asks for 
         expectations written by someone other than the builder.
@@ -341,35 +346,42 @@ open
 
         - Verdicts: a failure's text names the seed, a violation's step and a mismatch's label, but only the first
             failing run is kept (code:packages/flow-state-v3/conformance/runner/run.ts#runCase); a mismatch names no
-            step; no cited rule reaches a verdict as data (a mismatch's text has none, and a violation's rule appears
-            only in its prose, one violation per oracle); and none of these is a field of `CaseVerdict`, only text in
+            step; and a violation's rule appears only in its prose, one violation per oracle. A failed expectation's
+            cited Invariant is a field of `CaseVerdict` (`cites`); the seed, step and violation are still text in
             `why`.
-        - Containment: a mutant's copy links the original suite folder and the repository's `node_modules`
+        - Containment: a mutant's copy holds the runtime and the prototype's `conformance/` tree as copied source
+            files, but links the repository's `node_modules`
             (code:packages/flow-state-v3/conformance/runner/falsify.ts#copyRuntime), and
             code:packages/flow-state-v3/conformance/runner/falsify.ts#applyEdit joins an edit's file to the copy
-            without checking that the path stays inside it, so an edit through a link or a `..` path changes files
+            without checking that the path stays inside it, so an edit through that link or a `..` path changes files
             outside the copy.
-        outcome  A later Task adds the verdict fields, keeps every failing run, copies or seals the linked
-                 folders and rejects an edit path outside the copy.
+        outcome  A later Task adds the remaining verdict fields, keeps every failing run, seals the linked
+                 `node_modules` and rejects an edit path outside the copy.
 
-    Q12  Failure of R8 and R9 (I20, I24, I34): the in-process `suite` path runs cases with no time bound
-        (code:packages/flow-state-v3/conformance/runner/run.ts#runCases), so a hung case gives no verdict; the split
-        path bounds a whole slice (code:packages/flow-state-v3/conformance/runner/main.ts#sliceVerdicts), so an
-        overrun fails every case of that slice with one reason, as a failure rather than a defect, and the split
-        changes verdicts.
-        outcome  Phase 3 bounds each case on its own in every mode and reports an overrun as a defect.
+    Q12  Failure of R8 and R9 (I20, I24, I34): the in-process `suite` path runs runtime cases
+        (code:packages/flow-state-v3/conformance/runner/run.ts#runCases) and static cases
+        (code:packages/flow-state-v3/conformance/runner/run.ts#runStatics) with no time bound, so a hung case gives no
+        verdict; the split path bounds a whole slice
+        (code:packages/flow-state-v3/conformance/runner/main.ts#sliceVerdicts), so an overrun fails every case of that
+        slice with one reason, as a failure rather than a defect, and the split changes verdicts.
+        outcome  Phase 3 bounds each case of either kind on its own in every mode and reports an overrun as a
+                 defect.
 
     Q13  Failure of R12 (I38): the guarantee map marks Reads I1 to I5, I18 and I19 as "case", yet no scenario cites
         any Reads rule; and its rows for oracles not yet built have no check at all.
         outcome  P3's area Tasks (@task.V3.T12 for Reads, and each area's Task for its pending oracle rows)
                  build the checks; until then those Invariants count as uncovered.
 
-    Q14  Failure of R12 (I37, I38) and of R14 for static cases: the guarantee map has rows for the six runtime Specs
-        but only prose for Compile, Diagnostics, Codec and StaticCli (README "Compile, Diagnostics, Codec,
-        StaticCli"), so their 45 Invariants (17, 10, 6 and 12) have no rows; no static case, static surface
-        boundary, static adapter or null surface exists. No verdict changes today, since no static case runs.
-        outcome  @task.V3.T13 adds the 45 rows, the static case modules, the surface boundary with its prototype
-                 and null implementations, and their mutants; until then those Invariants count as uncovered.
+    Q14  Failure of R12 (I37, I38) for static cases: of the 45 static Invariants (Compile 17, Diagnostics 10,
+        Codec 6, StaticCli 12), round-14 can make results for 17, and 28 are owed rows in
+        code:packages/flow-state-v3/conformance/not-yet.ts. The static surface (prototype and null), the case
+        modules for Compile and StaticCli and their mutants exist; StaticCli I2 is judged by the `graph-names`
+        oracle on the runtime cases, against graphs the static surface printed. Decision (agent, 2026-11-11): each
+        owed static Invariant belongs to the P4 Task that builds its surface (Compile and Diagnostics to
+        @task.V3.T17, Codec to @task.V3.T20, StaticCli I3, I10 and I11 to @task.V3.T22) and is case-covered before
+        that Task closes. Why: round-14 has no surface that makes those results, so no case can tell a right
+        compiler from a wrong one on it. Reverse: keep the rows under @task.V3.T13.
+        outcome  Each owning Task adds its cases and mutants; until then those Invariants count as uncovered.
 
 model
     Subject = what a case reads: a runtime (runtime case) or a static surface, the compiler, Diagnostics, the codec

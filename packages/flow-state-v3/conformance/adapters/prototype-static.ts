@@ -1,10 +1,12 @@
 /// <reference types="node" />
 import { Effect, Option, Predicate, Result, Schema } from "effect";
+import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import type { Json } from "../port.ts";
 import {
   Admission,
   Built,
+  type CliRun,
   type CompiledHandle,
   Default,
   type Handler,
@@ -263,6 +265,27 @@ const tampered = (c: ProtoCompiled, tamper: Tamper): ProtoCompiled =>
     },
   });
 
+const CLI_SECONDS = 30;
+
+/**
+ * The suite's fixtures by catalog name, as the round-14 CLI names its targets; every other
+ * operand is passed as given.
+ */
+const CLI_TARGETS = new Map([["pay", "typed-pay"]]);
+
+const runCli = (runtimeDir: string, args: ReadonlyArray<string>) => {
+  const operands = args.map((a) => CLI_TARGETS.get(a) ?? a);
+
+  const ran = spawnSync("bun", [join(runtimeDir, "cli", "flow.ts"), ...operands], {
+    cwd: runtimeDir,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+    timeout: CLI_SECONDS * 1000,
+  });
+
+  return { code: ran.status ?? -1, stdout: ran.stdout, stderr: ran.stderr } satisfies CliRun;
+};
+
 /**
  * The static surface over a prototype tree: its compiler
  * (`<runtimeDir>/../conformance/compile/`), its Runtime creation check (`gate.ts`'s `seal`) and its
@@ -279,6 +302,10 @@ const tampered = (c: ProtoCompiled, tamper: Tamper): ProtoCompiled =>
  * - A source's closures are passed to the compiler as they are, so the case counts every call.
  * - A source naming a state or event it never declares, and a handle another surface built, are
  *   suite defects: they throw, never a refusal.
+ * - The CLI is `bun <runtimeDir>/cli/flow.ts`, run in `runtimeDir` with stdin closed; one that has
+ *   not ended in 30 s is killed and reported with code -1. It has no config discovery (StaticCli
+ *   R12): an operand names one of its own targets; the suite's `pay` is its `typed-pay`, and the
+ *   other runtime fixtures are none of its targets.
  */
 export const loadPrototypeSurface = Effect.fn("loadPrototypeSurface")(function* (
   runtimeDir: string,
@@ -333,5 +360,6 @@ export const loadPrototypeSurface = Effect.fn("loadPrototypeSurface")(function* 
         onFailure: (code) => Admission.Refused({ codes: [code] }),
       });
     },
+    cli: (args) => runCli(runtimeDir, args),
   } satisfies Surface;
 });

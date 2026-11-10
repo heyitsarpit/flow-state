@@ -22,6 +22,12 @@ export const actorRef = (key: string) => {
 
 const attemptOf = (attempt: Option.Option<string>) => Option.filter(attempt, (id) => id !== "");
 
+/**
+ * The place round-14's turn record gives a schedule trigger with no handler; its graph names that
+ * edge `trigger:<node>:<event>`.
+ */
+const IMPLICIT = "implicit";
+
 const OptionalText = Schema.OptionFromOptionalNullOr(Schema.String);
 
 /**
@@ -44,6 +50,16 @@ const reports = {
     event: Schema.String,
     from: Schema.String,
     to: Schema.String,
+    parts: Schema.Array(
+      Schema.Struct({
+        path: Schema.Array(Schema.String),
+        definition: Schema.String,
+        at: Schema.String,
+        node: Schema.String,
+        tag: Schema.String,
+        target: Schema.String,
+      }),
+    ),
   }),
   mint: Schema.Struct({ op: Schema.String, attempt: Schema.String }),
   invoked: Schema.Struct({ op: Schema.String, attempt: Schema.String }),
@@ -122,7 +138,19 @@ const observationOf = (report: Report): Option.Option<Observation> => {
     const r = read(reports.turn, report, kind);
 
     return Option.some(
-      Observation.Turn({ actor: actorRef(r.actor), event: r.event, from: r.from, to: r.to }),
+      Observation.Turn({
+        actor: actorRef(r.actor),
+        event: r.event,
+        from: r.from,
+        to: r.to,
+        parts: r.parts.map((p) => ({
+          part: p.path,
+          definition: p.definition,
+          at: p.at === IMPLICIT ? `trigger:${p.node}:${p.tag}` : p.at,
+          node: p.node,
+          target: p.target,
+        })),
+      }),
     );
   }
 

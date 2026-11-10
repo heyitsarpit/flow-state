@@ -102,6 +102,19 @@ export const RecordedWhy = Schema.Literals(["ignored", "evidence", "letGo"]);
 export type RecordedWhy = typeof RecordedWhy.Type;
 
 /**
+ * One alternative a turn ran, as the turn record names it (StaticCli R5): the incarnation it ran
+ * in (`part`, empty for the root), the definition whose table holds it, its place there (`at`,
+ * the name `flow graph` gives its edge), the node that held it and its target (`self` or a node).
+ */
+export type TurnPart = {
+  readonly part: ReadonlyArray<string>;
+  readonly definition: string;
+  readonly at: string;
+  readonly node: string;
+  readonly target: string;
+};
+
+/**
  * One public report from a runtime, in the order it happened.
  *
  * **When to use**
@@ -111,7 +124,8 @@ export type RecordedWhy = typeof RecordedWhy.Type;
  *
  * **Details**
  *
- * - `Turn`: an actor ran an event, from one leaf to another.
+ * - `Turn`: an actor ran an event, from one leaf to another; `parts` names each alternative that
+ *   ran, in the order it ran ({@link TurnPart}).
  * - `Minted`: a commit of `actor` was admitted and its Attempt got an id; `key` is the Attempt's
  *   key (its lane).
  * - `Sent`: an Attempt's commit was invoked (its first send or a re-send).
@@ -141,7 +155,13 @@ export type RecordedWhy = typeof RecordedWhy.Type;
  *   refusal, shows it.
  */
 export type Observation = Data.TaggedEnum<{
-  Turn: { actor: ActorRef; event: string; from: string; to: string };
+  Turn: {
+    actor: ActorRef;
+    event: string;
+    from: string;
+    to: string;
+    parts: ReadonlyArray<TurnPart>;
+  };
   Minted: {
     operation: string;
     attempt: string;

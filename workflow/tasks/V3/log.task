@@ -495,4 +495,8 @@ note 2026-11-10T21:01:30Z
     direction stays, but obligations are stored as phases, six cells refuse allowed behaviour, and the tables are not 
     total. The designer writes v2.
 note 2026-11-10T21:09:15Z
-    Convergence v2 written (code:workflow/plans/flow/references/proposals/lane-oracle-convergence-v2-2026-11-11.md). Decision (orchestrator): adopt it; the new Port tag (Incarnated and Finished) and moving p1h.cancel-all-idle-declines from I20 to I21 are accepted. It is built by the next building lead after the current T13 and T8 lead stops; cells depending on CQ1, CQ3, CQ5, CQ6 and CQ7 (guarantee changes, the user's) follow the Spec as written until answered. **Reverse:** patch the v1 oracles.
+    Convergence v2 written (code:workflow/plans/flow/references/proposals/lane-oracle-convergence-v2-2026-11-11.md). 
+    Decision (orchestrator): adopt it; the new Port tag (Incarnated and Finished) and moving 
+    p1h.cancel-all-idle-declines from I20 to I21 are accepted. It is built by the next building lead after the current 
+    T13 and T8 lead stops; cells depending on CQ1, CQ3, CQ5, CQ6 and CQ7 (guarantee changes, the user's) follow the 
+    Spec as written until answered. **Reverse:** patch the v1 oracles.

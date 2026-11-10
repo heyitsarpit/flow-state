@@ -8,6 +8,10 @@ import type { CaseChecks } from "./coverage.ts";
 import type { Scenario } from "./dsl/case.ts";
 import type { StaticCase } from "./dsl/static-case.ts";
 import type { Guarantee } from "./dsl/oracle.ts";
+import { cliMutants } from "./static-cli/cli.mutants.ts";
+import { cliCases, cliCovered } from "./static-cli/cli.cases.ts";
+import { graphNames } from "./static-cli/graph-names.ts";
+import { graphNamesMutants } from "./static-cli/graph-names.mutants.ts";
 import { attemptIdentityMutants } from "./write-lanes/attempt-identity.mutants.ts";
 import { attemptIdentity } from "./write-lanes/attempt-identity.ts";
 import { deliveredOnceMutants } from "./write-lanes/delivered-once.mutants.ts";
@@ -34,6 +38,7 @@ export const guarantees: ReadonlyArray<Guarantee> = [
   { oracle: deliveredOnce, mutants: deliveredOnceMutants },
   { oracle: laneQueue, mutants: laneQueueMutants },
   { oracle: disposal, mutants: disposalMutants },
+  { oracle: graphNames, mutants: graphNamesMutants },
 ];
 
 /**
@@ -60,7 +65,7 @@ export const scenarios: ReadonlyArray<Scenario> = [
 /**
  * Every static case (Conformance R14), in run order.
  */
-export const staticCases: ReadonlyArray<StaticCase> = [...constructionCases];
+export const staticCases: ReadonlyArray<StaticCase> = [...constructionCases, ...cliCases];
 
 /**
  * Every case id, runtime then static.
@@ -72,7 +77,7 @@ export const caseIds = [...scenarios.map((s) => s.id), ...staticCases.map((s) =>
  * case's citations (the coverage gate's second kind).
  */
 export const caseChecks: CaseChecks = {
-  rows: [...constructionCovered],
-  mutants: [...constructionMutants],
+  rows: [...constructionCovered, ...cliCovered],
+  mutants: [...constructionMutants, ...cliMutants],
   cases: [...scenarios, ...staticCases].map((c) => ({ id: c.id, cites: c.cites })),
 };

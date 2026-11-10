@@ -45,18 +45,23 @@ export const notYet: ReadonlyArray<NotYet> = [
     invariants: invariantsOf("Reads", [1, 2, 3, 4, 5, 7, 8, 9, 11, 12, 15, 16, 17, 18, 19]),
   },
   {
-    owner: "@task.V3.T13",
-    why: "round-14 makes no such result: it throws at the first violation (I3), runs creation and restore only in a runtime (I7, I8), and has no IdentityFieldOptional, SharedContract, write-scope, name or app check, or context wiring (I9, I10, I12, I13, I14, I17); each case lands with the surface that makes it",
+    owner: "@task.V3.T17",
+    why: "round-14 cannot make these results: it throws at the first violation (I3), runs creation and restore only in a runtime (I7, I8), and has no IdentityFieldOptional, SharedContract, write-scope, name or app check, or context wiring (I9, I10, I12, I13, I14, I17); T17 builds the compiler that does, and its static cases land before T17 closes",
     invariants: invariantsOf("Compile", [3, 7, 8, 9, 10, 12, 13, 14, 17]),
   },
   {
-    owner: "@task.V3.T13",
-    why: "round-14 has no Diagnostic carrier, Diagnostic Schema, classification or renderer, and no canonical byte codec (Codec Q2); the vectors land with the production surface",
-    invariants: [...invariantsOf("Diagnostics", upTo(10)), ...invariantsOf("Codec", upTo(6))],
+    owner: "@task.V3.T17",
+    why: "round-14 has no Diagnostic carrier, Diagnostic Schema, classification or renderer; T17 builds Diagnostics with the compiler (P4), and the vectors land before T17 closes",
+    invariants: invariantsOf("Diagnostics", upTo(10)),
   },
   {
-    owner: "@task.V3.T13",
-    why: "the StaticCli cases (check rules, exit codes, streams, the graph gate) are not built",
-    invariants: invariantsOf("StaticCli", upTo(12)),
+    owner: "@task.V3.T20",
+    why: "round-14 has no canonical byte codec (Codec Q2); T20 builds the codec with restore and key versions, and the vectors land before T20 closes",
+    invariants: invariantsOf("Codec", upTo(6)),
+  },
+  {
+    owner: "@task.V3.T22",
+    why: "round-14's CLI loads every fixture before it reads its arguments (I3), has no flow.config.ts discovery (I10) and no project tree to keep unchanged (I11); T22 builds them, and their static cases land before T22 closes",
+    invariants: invariantsOf("StaticCli", [3, 10, 11]),
   },
 ];

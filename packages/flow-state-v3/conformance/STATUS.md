@@ -431,6 +431,36 @@ seen caught for its Invariant. Suite 76/76, null 0/76, falsify 57/57, coverage 2
   need not hold an expectation with that label, falsify proves it; (10) node_modules still linked; (11) Conformance Q5,
   Q11, Q12, Q14 describe the state before this slice: a Spec revision for the user's read.
 
+### T13 part 2 (2026-11-11): StaticCli cases, the graph gate, rows to P4
+
+Bottom line: every static Invariant round-14 can make is checked. StaticCli I1, I4 to I9 and I12 by `CLI-01` to
+`CLI-08` with nine mutants; StaticCli I2 by the `graph-names` oracle on the runtime cases with two mutants (one in the
+CLI's graph, one in the turn record). The 28 static Invariants round-14 cannot make are owed in `not-yet.ts` to the P4
+Task that builds their surface: Compile I3, I7 to I10, I12 to I14, I17 and Diagnostics to T17, Codec to T20, StaticCli
+I3, I10, I11 to T22. Suite 84/84, null 0/84, falsify 68/68, coverage 33 of 186 with 0 gaps, `nub run check` zero.
+
+- Built: `Surface.cli` (round-14: `bun cli/flow.ts`, 30 s bound, the suite's `pay` mapped to its `typed-pay`; null:
+  exit 0, nothing printed); `static-cli/{cli.cases,cli.mutants,graph,graph-names,graph-names.mutants}.ts`; `TurnPart`
+  on the Port's `Turn` (`parts`, each alternative's `definition` and `at`); `graphs` passed to `Oracle.open` and
+  `Judge.start` (a new `Fact` variant would break the exhaustive matches in lane-queue.ts and disposal.ts, which the
+  WriteLanes convergence owns), read once per run from `flow graph` and given per scenario, since fixtures share
+  machine ids.
+- Spec revisions (spec-log, 2026-11-11): Conformance Q5, Q11, Q12, Q14 follow the suite; Compile R17 decides its
+  refusal code (InvalidConfiguration with a reason) and that a refusal need not list every malformation; Compile Q3
+  added for the user: whether a Schema's functions or the machine callback are Slots changes I15.
+- Stated limits: the gate judges only machines the round-14 CLI selects (`pay`; cells, serialize, latest and cancel
+  are none of its targets), and the adapter spells round-14's `implicit` trigger as the graph's
+  `trigger:<node>:<event>` (no CLI fixture has one); I1 reads the CLI's own `callbacksRun`, not spies (T1 asks for
+  spies, T22); I8 checks the four R10 rules round-14 has (KeyRequired, SharedContract, UnresolvedHold, NotSent
+  unmapped) on the eight reference apps with no error (desk and desk-listen report UnresolvedHold errors, left to
+  T22); I4 compares check's text and JSON only.
+- Reviewer (Haiku) of the diff, 11 findings: accepted (6) CLI-08's exit code cited I6, not I12, and checked after the
+  stdout expectation. Already stated (1, 2, 3, 5). Rejected (4): a CLI that always says incomplete keeps I7, which
+  forbids only a false complete. Carried: (7) the UnresolvedHold and failure-path predicates match more than one
+  round-14 rule; (8) per-expectation vacuity behind an `isSome` guard; (9) graphs keyed by machine id within one
+  scenario, and a space-joined name; (10) edge status is not judged (I2 is names only); (11) the surface now loads for
+  runtime-only runs.
+
 ## T41 (2026-11-11): coverage gate
 
 Bottom line: `coverage` (and the first line of `falsify`) fails unless every Invariant of the ten core Specs is checked

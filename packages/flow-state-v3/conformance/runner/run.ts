@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { playCase, type Scenario } from "../dsl/case.ts";
-import { citedBy, Mismatch, type Oracle, Violated } from "../dsl/oracle.ts";
+import { citedBy, type Graphed, Mismatch, type Oracle, Violated } from "../dsl/oracle.ts";
 import { playStatic, type StaticCase } from "../dsl/static-case.ts";
 import type { Port } from "../port.ts";
 import type { Surface } from "../surface.ts";
@@ -29,9 +29,15 @@ const failed = (failure: unknown) => {
 
 const citing = (cites: ReadonlyArray<string>) => (cites.length === 0 ? {} : { cites });
 
-const runSeed = (port: Port, scenario: Scenario, oracles: ReadonlyArray<Oracle>, seed: number) =>
+const runSeed = (
+  port: Port,
+  scenario: Scenario,
+  oracles: ReadonlyArray<Oracle>,
+  graphs: ReadonlyArray<Graphed>,
+  seed: number,
+) =>
   Effect.try({
-    try: () => playCase({ port, fixtures: scenario.fixtures, oracles, seed }, scenario.run),
+    try: () => playCase({ port, fixtures: scenario.fixtures, oracles, seed, graphs }, scenario.run),
     catch: failed,
   }).pipe(
     Effect.match({
@@ -56,10 +62,17 @@ const runSeed = (port: Port, scenario: Scenario, oracles: ReadonlyArray<Oracle>,
  * A step's oracle violation, a case's own mismatch and a thrown defect (a scenario bug, an
  * unsettled world, a runtime that throws) are each a `Fail`; nothing a case does escapes as a
  * failure of this Effect. Every case runs under seeds 1 and 2, which change the store's load
- * order and the session seeds.
+ * order and the session seeds. `graphs` are what `flow graph` printed for the fixtures.
  */
-export const runCase = (port: Port, scenario: Scenario, oracles: ReadonlyArray<Oracle>) =>
-  Effect.forEach(SEEDS, (seed) => runSeed(port, scenario, oracles, seed), { concurrency: 1 }).pipe(
+export const runCase = (
+  port: Port,
+  scenario: Scenario,
+  oracles: ReadonlyArray<Oracle>,
+  graphs: ReadonlyArray<Graphed>,
+) =>
+  Effect.forEach(SEEDS, (seed) => runSeed(port, scenario, oracles, graphs, seed), {
+    concurrency: 1,
+  }).pipe(
     Effect.map(
       (verdicts) =>
         verdicts.find((v) => v._tag === "Fail") ??
@@ -68,13 +81,17 @@ export const runCase = (port: Port, scenario: Scenario, oracles: ReadonlyArray<O
   );
 
 /**
- * Runs cases one after another in this process.
+ * Runs cases one after another in this process, each with the graphs of its own fixtures.
  */
 export const runCases = (
   port: Port,
   scenarios: ReadonlyArray<Scenario>,
   oracles: ReadonlyArray<Oracle>,
-) => Effect.forEach(scenarios, (scenario) => runCase(port, scenario, oracles), { concurrency: 1 });
+  graphsOf: (scenario: Scenario) => ReadonlyArray<Graphed>,
+) =>
+  Effect.forEach(scenarios, (scenario) => runCase(port, scenario, oracles, graphsOf(scenario)), {
+    concurrency: 1,
+  });
 
 /**
  * Runs one static case once on a surface (Conformance R14: a fixed input, no seed, no step) and

@@ -142,8 +142,13 @@ export type Admission = Data.TaggedEnum<{
 export const Admission = Data.taggedEnum<Admission>();
 
 /**
- * One static surface (Conformance R14): the compiler and Runtime creation, read only through
- * their public results.
+ * What one run of the CLI gave: its exit code and everything it wrote to stdout and stderr.
+ */
+export type CliRun = { readonly code: number; readonly stdout: string; readonly stderr: string };
+
+/**
+ * One static surface (Conformance R14): the compiler, Runtime creation and the CLI, read only
+ * through their public results.
  *
  * **When to use**
  *
@@ -155,8 +160,11 @@ export const Admission = Data.taggedEnum<Admission>();
  * - `construct` builds `source` with `definition` and `machine`.
  * - `admit` creates a Runtime over `compiled` after applying `tamper` and reports whether it was
  *   refused; no actor is started.
+ * - `cli` runs the `flow` binary with `args` and waits for it to end. An operand naming a project
+ *   names a fixture by its catalog name; each adapter turns it into a project its CLI selects.
  */
 export type Surface = {
   readonly construct: (source: Source) => Built;
   readonly admit: (compiled: CompiledHandle, tamper: Tamper) => Admission;
+  readonly cli: (args: ReadonlyArray<string>) => CliRun;
 };

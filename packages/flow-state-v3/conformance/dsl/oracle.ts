@@ -43,6 +43,17 @@ export type Fact = Data.TaggedEnum<{
 }>;
 
 /**
+ * An edge of `flow graph` by its name: the definition whose table holds it and its place there.
+ */
+export type EdgeName = { readonly definition: string; readonly at: string };
+
+/**
+ * What `flow graph` printed for one machine before the case's first boot: its id and its edges'
+ * names (StaticCli R5). A machine the CLI could not select has none.
+ */
+export type Graphed = { readonly machine: string; readonly edges: ReadonlyArray<EdgeName> };
+
+/**
  * Constructors and matchers for {@link Fact}.
  */
 export const Fact = Data.taggedEnum<Fact>();
@@ -151,7 +162,7 @@ export class Violated extends Data.TaggedError("Violated")<{
 export type Judge<S> = {
   readonly name: string;
   readonly guarantee: ReadonlyArray<InvariantId>;
-  readonly start: (reference: Reference) => S;
+  readonly start: (reference: Reference, graphs: ReadonlyArray<Graphed>) => S;
   readonly step: (
     state: S,
     step: ReadonlyArray<Fact>,
@@ -160,14 +171,15 @@ export type Judge<S> = {
 };
 
 /**
- * A registered oracle: its name, its Invariants, and `open`, which starts one case's fold and
- * returns the function that judges each next step.
+ * A registered oracle: its name, its Invariants, and `open`, which starts one case's fold from
+ * the case's reference and graphs and returns the function that judges each next step.
  */
 export type Oracle = {
   readonly name: string;
   readonly guarantee: ReadonlyArray<InvariantId>;
   readonly open: (
     reference: Reference,
+    graphs: ReadonlyArray<Graphed>,
   ) => (step: ReadonlyArray<Fact>, requests: ReadonlyArray<Request>) => ReadonlyArray<Violation>;
 };
 
@@ -178,8 +190,8 @@ export type Oracle = {
 export const oracle = <S>(judge: Judge<S>): Oracle => ({
   name: judge.name,
   guarantee: judge.guarantee,
-  open: (reference) => {
-    let state = judge.start(reference);
+  open: (reference, graphs) => {
+    let state = judge.start(reference, graphs);
 
     return (step, requests) => {
       const [next, found] = judge.step(state, step, requests);

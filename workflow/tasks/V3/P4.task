@@ -110,6 +110,10 @@ tasks
             - **User's read:** small API calls.
         acceptance
             The Compile and Diagnostics cases pass on production.
+        comment     2026-11-10T20:59:36Z
+            Owns, in conformance/not-yet.ts, the static Invariants round-14 cannot make: Compile I3, I7 to I10, I12 to 
+            I14, I17 and Diagnostics I1 to I10. Their static cases land before this Task closes (orchestrator decision, 
+            log 2026-11-10T20:57:29Z).
     T18
         title       Lane, step and turn
         status      draft
@@ -175,6 +179,9 @@ tasks
             - **Stops:** a guarantee change.
         acceptance
             The Restore and Codec areas pass on production.
+        comment     2026-11-10T20:59:41Z
+            Owns, in conformance/not-yet.ts, Codec I1 to I6 (round-14 has no canonical byte codec, Codec Q2). Their 
+            static cases land before this Task closes (orchestrator decision, log 2026-11-10T20:57:29Z).
     T21
         title       Fragments and operations
         status      draft
@@ -222,6 +229,13 @@ tasks
             - **Stops:** public entry-point names.
         acceptance
             StaticCli cases and the graph gate pass on production.
+        comment     2026-11-10T21:23:15Z
+            Owns, in conformance/not-yet.ts, StaticCli I3, I10 and I11 (round-14's CLI loads every fixture before 
+            reading its arguments and has no config discovery or project tree); their static cases land before this 
+            Task closes. Also owed here: spies for I1 (StaticCli T1), the R10 rules round-14 lacks (unfilled ports, 
+            late handler, DuplicatePlacement, VerbMismatch, KeyFieldOptional, ReservedReason, the allowlist grammar), 
+            I4 for graph and explain, R7's envelope (version, status, data), and whether desk's UnresolvedHold errors 
+            are right. Detail: conformance/STATUS.md, T13 part 2.
     T23
         title       Prototype adapter retired; verify builds v3
         status      draft
