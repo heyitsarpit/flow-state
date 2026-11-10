@@ -708,6 +708,38 @@ tasks
             - Every case ends with a judged disposal;
             - the disposal mutants are killed;
             - the tsgo language service runs in `nub run check`, which stays at zero.
+        comment     2026-11-10T17:05:43Z
+            Evidence (builder, 2026-11-10): commits f8b92e7b (tsgo), 03098b28 (disposal oracle, judged end of case), 
+            62606880 (review fixes). Gates from packages/flow-state-v3: bun conformance/runner/main.ts suite 61/61 
+            (0.36 s, 155 MB), --parallel 4 61/61; suite --runtime null 0/61; falsify --parallel 6 29/29 (null red, 
+            control green), --sweep 29/29; nub run check zero errors and warnings, and a planted unknownInEffectCatch 
+            fails it. Mutants caught by the disposal oracle for the expected reason: lie.boot-says-disposed and 
+            lie.boot-drops-held (I29 at the reload, PAY-15/dispose-held), mutant.disposal-skips-never-sent (I29, 
+            PAY-13/waiting-flushed), mutant.disposal-dispatches (I30 at the end-of-case ack, 
+            PAY-07/late-may-not-leave). Sidecar log: two Haiku reviewers, results accepted and rejected with why in 
+            packages/flow-state-v3/conformance/STATUS.md (T6 section).
+        comment     2026-11-10T17:05:48Z
+            Decision (agent, 2026-11-10): @effect/tsgo 0.61.0 (exact) runs as nub run check:effect (effect-tsgo tsc -p 
+            packages/flow-state-v3/tsconfig.json) chained after vp check. Why: 0.61.0 is the newest release at least 
+            two weeks old and supports TypeScript 7.0.2 and oxlint 1.89.0; it has no vp wrapper, so tsc mode is used, 
+            where Effect warnings fail the exit code. scripts/check-toolchain.mjs does not check its version (outside 
+            this Task's May change). Reverse: drop check:effect and the devDependency.
+        comment     2026-11-10T17:05:52Z
+            Decision (agent, 2026-11-10): every case ends with playCase's judged disposal: dispose the Runtime unless 
+            this boot's already started, ack held writes, advance 5000 ms, ack again, expect one RuntimeDisposed this 
+            boot (Actors R22, R23), reload. The disposal oracle judges Actors I29 (Runtime disposal half: a 
+            server-received Held or wire head delivers an ending at the next boot when its actor is re-attached, 
+            Restore I6; a never-sent commit ends during the disposal) and I30 (no request from the start to the next 
+            reload). A handler's own cancel is taken from Released evidence (lenient, stated). Why: one oracle per 
+            guarantee, anchored to the server log. Reverse: drop end() from playCase and the guarantee from suite.ts.
+        comment     2026-11-10T17:05:57Z
+            Open for the user (stop: guarantee change): the o6.* mutants (o6.dispose-interrupts-wire, o6.no-bound, 
+            o6.settled-in-bound-stays-held) break Actors R22's bound rules (a call settling within 5 s is parked; past 
+            it unknown { Disposed }; a definite ending drops the head, an unknown keeps it Held). No Invariant I29 to 
+            I34 states them, so no oracle naming one can judge them; the disposal cases' expectations catch all three 
+            (one new expectation, a definite ending drops the head, in PAY-16/settled-during-disposal-parked). They 
+            stay unregistered as disposalBoundMutants. Proposed: add an Actors Invariant for R22's bound, judged by the 
+            disposal oracle, then register them. Not done: needs the user's yes.
     T7
         title       WriteLanes area complete
         status      open
