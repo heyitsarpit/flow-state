@@ -532,3 +532,26 @@ keyed lane can be named from the request's input (the server log), as `disposal-
 | Sidecar                      | Task              | Result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | ---------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Reviewer (test the spec, R4) | the H1 to H5 diff | 7 findings. Accepted: 2 (Flow's reasons exempt only failures from the answer rule), 7 (the doc lists the answer rule and request-time answers). Carried to the rewrite with the parked code: 1 (name a keyed lane from the request input, not a fresh lane), 3 (the replaced excuse ignores keys), 4 and 5 (docs of parked code). Rejected: 6 (WriteLanes I3 is the Invariant that enforces R2 in the coverage block, and the oracle names it; a made-up success breaks R2's three-channel classification). |
+
+## T40 (2026-11-10): suite simplified (first pass)
+
+Each item landed alone; gates from `packages/flow-state-v3`: `suite --json`, `suite --runtime null
+--json`, `falsify --sweep --parallel 6`, compared sorted with the item before.
+
+| Commit                | Item                                                                                                                                                      | Gate                                                                                                                                |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `a6063da3`            | S5: one `attemptKey`, `writeNamed`, `LaneId`/`sameLane`/`laneOf` in `dsl/domain.ts`                                                                       | byte-identical                                                                                                                      |
+| `4f597c6f`            | S7: key fields derived from the key Schema; `CHANNEL` gone                                                                                                | byte-identical                                                                                                                      |
+| `fad76e0`… `aa3d56ca` | S6: `Storage.entries`, `Page.tasks`, `WorldClock.armed`, `World.seed`, `Request.page`/`at` gone                                                           | byte-identical                                                                                                                      |
+| `83c50e8f`            | S1: oracles are pure step folds (`Judge`, `oracle`, typed `Violation`, `InvariantId` guarantees); the Case folds only new facts and keeps every violation | per case: verdict kind, oracles, first Invariant identical; sweep red and caught-by sets identical (texts now list every violation) |
+| `fade76e0`            | S3 (part): `landLate`, storage `match`, `answerWhere`/`where`, `ensureWith` gone                                                                          | byte-identical                                                                                                                      |
+| `0b1a65f0`            | S4: `fixtures/pay-steps.ts`; `REREAD_MS` and `PAY_TIMEOUT_MS` named from the fixture                                                                      | byte-identical                                                                                                                      |
+| (this)                | S5: one `mayHaveApplied` from the server log, used by `ending-channels` and `disposal`                                                                    | byte-identical: no verdict changed                                                                                                  |
+
+Numbers at the end: suite 67/67; null 0/67; falsify sweep 38/38 caught; `nub run check` at zero.
+
+Rejected or changed: S7's "drop `Fixture`'s 4 generic parameters" rejected: they are the lint's
+sanctioned place for `Schema.Codec<unknown, unknown>`, and `Schema.Top` does not give the
+encoders the requirement-free Codec they need. S7's `attempts` flag kept: dropping it touches
+`lane-model` and `delivered-once`, which T7 rewrites. Not done yet: S3's split of `openCase`,
+`Driver`, the inlined timeline, counters and `reportsOf`; S8's runner items.
