@@ -431,3 +431,5 @@ note 2026-11-10T18:43:09Z
     T40 done (verified at ac9e0fa0: 67/67, null 0/67, falsify 38/38, check zero). The same building lead goes on to
     @task.V3.T7, now in progress: the S2 rewrite, the T6-completion review's H1 and Medium findings, then T7's own
     rows. Carried: the machine verdict form (Conformance Q2 and R9) to T14 or T15.
+note 2026-11-10T19:04:09Z
+    Review started on 392147bc..a8714be6 (T40 and T7's S2 rewrite); weekly usage 10 percent.
