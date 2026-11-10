@@ -92,6 +92,8 @@ See [booking.ts](examples/booking.ts).
 Name every state machine: one closed variant of phases, each holding only its own facts.
 Never rebuild a phase from flags, optional fields, or comparisons.
 Change phase only in one pure transition, exhaustive over phase and event; refuse unaccepted, late or repeated events explicitly.
+A fact of one phase lives in that variant, never in a side map keyed by id: a model whose `Held` phase
+carries its `at` (`Held { at }`) needs no `heldAt` map and no `?? Infinity` fallback.
 See [lifecycle.ts](examples/lifecycle.ts).
 
 Use `Schema` for external or serialized contracts; derive the admitted type and decode once.
@@ -174,6 +176,8 @@ Reserve `Function.dual` for APIs that deliberately support data-first and data-l
 Compose functions through meaningful protocol values. Reuse unchanged protocols.
 Return complete values; keep ordering, branching, and retry policy at the composition site.
 Extract boundaries for real knowledge, ownership, or reuse; remove pass-through wrappers.
+Share the pattern, not the state, between independent checks: each keeps its own model, so one mistake
+cannot make them fail together.
 
 Preserve inference, generic relationships, and `Effect<A, E, R>`.
 Declare service contracts explicitly. Narrow with schemas or named predicates, not runtime `typeof`.
