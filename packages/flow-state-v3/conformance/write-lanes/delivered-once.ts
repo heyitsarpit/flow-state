@@ -1,6 +1,14 @@
-import { Option } from "effect";
+import { type Data, Option } from "effect";
 import { operationNamed, type OperationReference, type Reference } from "../fixtures/reference.ts";
-import { type ActorRef, Observation, sameActor } from "../port.ts";
+import {
+  type ActorRef,
+  type Delivered,
+  type Ended,
+  type Minted,
+  Observation,
+  type Recorded,
+  sameActor,
+} from "../port.ts";
 import { Fact, type Facts, type Oracle, steps } from "../dsl/oracle.ts";
 
 const DECLINE = "(decline)";
@@ -78,11 +86,7 @@ const unexcused = (operation: OperationReference, attempted: boolean, claimed: b
   return `its operation is ${operation.concurrency}, which replaces and interrupts nothing${claim}`;
 };
 
-const recordedWithCause = (
-  ledger: Ledger,
-  reference: Reference,
-  recorded: Extract<Observation, { readonly _tag: "Recorded" }>,
-) => {
+const recordedWithCause = (ledger: Ledger, reference: Reference, recorded: Recorded) => {
   const operation = Option.filter(operationNamed(reference, recorded.operation), (o) => o.attempts);
 
   if (Option.isNone(operation)) return [];
@@ -129,11 +133,7 @@ const excuseEarlier = (
   for (const earlier of replaced) ledger.excused.add(earlier);
 };
 
-const mint = (
-  ledger: Ledger,
-  reference: Reference,
-  observed: Extract<Observation, { readonly _tag: "Minted" }>,
-) => {
+const mint = (ledger: Ledger, reference: Reference, observed: Minted) => {
   if (Option.isSome(observed.actor)) {
     ledger.owners.set(observed.attempt, observed.actor.value);
     excuseEarlier(ledger, reference, observed.operation, observed.actor.value);
@@ -144,24 +144,7 @@ const mint = (
   ledger.unsent.add(observed.attempt);
 };
 
-const learn = (ledger: Ledger, reference: Reference, observed: Observation) => {
-  if (Observation.$is("Minted")(observed)) mint(ledger, reference, observed);
-
-  if (Observation.$is("Sent")(observed)) ledger.unsent.delete(observed.attempt);
-
-  if (
-    Observation.$is("Evidence")(observed) &&
-    observed.kind === "Superseded" &&
-    Option.isSome(observed.attempt)
-  )
-    ledger.claimedSuperseded.add(observed.attempt.value);
-};
-
-const owe = (
-  ledger: Ledger,
-  runtime: Runtime,
-  ended: Extract<Observation, { readonly _tag: "Ended" }>,
-) => {
+const owe = (ledger: Ledger, runtime: Runtime, ended: Ended) => {
   const key = keyOf(ended.operation, ended.attempt);
 
   bump(ledger.owed, key, 1);
@@ -180,11 +163,7 @@ const owe = (
     : [];
 };
 
-const record = (
-  ledger: Ledger,
-  reference: Reference,
-  recorded: Extract<Observation, { readonly _tag: "Recorded" }>,
-) => {
+const record = (ledger: Ledger, reference: Reference, recorded: Recorded) => {
   const key = keyOf(recorded.operation, recorded.attempt);
   const cause = recordedWithCause(ledger, reference, recorded);
 
@@ -197,7 +176,7 @@ const record = (
   return [...cause, ...pay(ledger, key, "recorded")];
 };
 
-const park = (ledger: Ledger, parked: Extract<Observation, { readonly _tag: "Parked" }>) => {
+const park = (ledger: Ledger, parked: Data.TaggedEnum.Value<Observation, "Parked">) => {
   const key = keyOf(parked.operation, parked.attempt);
   const reparked = (ledger.owed.get(key) ?? 0) === 0 && (ledger.parked.get(key) ?? 0) > 0;
 
@@ -207,37 +186,22 @@ const park = (ledger: Ledger, parked: Extract<Observation, { readonly _tag: "Par
   return pay(ledger, key, "parked");
 };
 
-const settleOne = (
-  ledger: Ledger,
-  reference: Reference,
-  observed: Observation,
-  runtime: Runtime,
-) => {
-  if (Observation.$is("Ended")(observed)) return owe(ledger, runtime, observed);
+const unpark = (ledger: Ledger, operation: string, attempt: Option.Option<string>) => {
+  const key = keyOf(operation, attempt);
 
-  if (Observation.$is("Recorded")(observed)) return record(ledger, reference, observed);
-
-  if (Observation.$is("Parked")(observed)) return park(ledger, observed);
-
-  if (Observation.$is("Unparked")(observed)) {
-    const key = keyOf(observed.operation, observed.attempt);
-
-    if ((ledger.parked.get(key) ?? 0) === 0)
-      return [`WriteLanes I15: ${key} unparked, never parked`];
-    bump(ledger.parked, key, -1);
-    bump(ledger.owed, key, 1);
-  }
+  if ((ledger.parked.get(key) ?? 0) === 0) return [`WriteLanes I15: ${key} unparked, never parked`];
+  bump(ledger.parked, key, -1);
+  bump(ledger.owed, key, 1);
 
   return [];
 };
 
-const deliveries = (
+const deliver = (
   ledger: Ledger,
   runtime: Runtime,
-  observed: Observation,
+  observed: Delivered,
   pending: Array<Pending>,
 ) => {
-  if (!Observation.$is("Delivered")(observed)) return [];
   const key = keyOf(observed.operation, observed.attempt);
   const owner = ownerOf(ledger, observed.operation, observed.attempt);
 
@@ -253,30 +217,63 @@ const deliveries = (
   ];
 };
 
-const runs = (observed: Observation, p: Pending) => {
-  if (Observation.$is("Unhandled")(observed) || Observation.$is("Denied")(observed))
-    return p.event === observed.event;
-
-  return (
-    Observation.$is("Turn")(observed) &&
-    p.event === observed.event &&
-    Option.match(p.owner, { onNone: () => true, onSome: (o) => sameActor(o, observed.actor) })
-  );
-};
-
-const ran = (observed: Observation, pending: Array<Pending>) => {
-  if (Observation.$is("Issue")(observed)) {
-    const refused = observed.code === "InvalidTurn" || observed.code === "UnmappedEnding";
-
-    if (refused && pending.length === 1) pending.splice(0, 1);
-
-    return;
-  }
-
-  const at = pending.findIndex((p) => runs(observed, p));
+const settle = (pending: Array<Pending>, runs: (p: Pending) => boolean) => {
+  const at = pending.findIndex(runs);
 
   if (at >= 0) pending.splice(at, 1);
+
+  return [];
 };
+
+const refused = (pending: Array<Pending>, code: string) => {
+  const refusal = code === "InvalidTurn" || code === "UnmappedEnding";
+
+  if (refusal && pending.length === 1) pending.splice(0, 1);
+
+  return [];
+};
+
+const onReport = (
+  ledger: Ledger,
+  reference: Reference,
+  runtime: Runtime,
+  pending: Array<Pending>,
+  observed: Observation,
+) =>
+  Observation.$match(observed, {
+    Turn: ({ event, actor }) =>
+      settle(
+        pending,
+        (p) =>
+          p.event === event &&
+          Option.match(p.owner, { onNone: () => true, onSome: (o) => sameActor(o, actor) }),
+      ),
+    Minted: (minted) => {
+      mint(ledger, reference, minted);
+
+      return [];
+    },
+    Sent: ({ attempt }) => {
+      ledger.unsent.delete(attempt);
+
+      return [];
+    },
+    Ended: (ended) => owe(ledger, runtime, ended),
+    Delivered: (delivered) => deliver(ledger, runtime, delivered, pending),
+    Parked: (parked) => park(ledger, parked),
+    Unparked: ({ operation, attempt }) => unpark(ledger, operation, attempt),
+    Recorded: (recorded) => record(ledger, reference, recorded),
+    Unhandled: ({ event }) => settle(pending, (p) => p.event === event),
+    Denied: ({ event }) => settle(pending, (p) => p.event === event),
+    Evidence: ({ kind, attempt }) => {
+      if (kind === "Superseded" && Option.isSome(attempt))
+        ledger.claimedSuperseded.add(attempt.value);
+
+      return [];
+    },
+    Issue: ({ code }) => refused(pending, code),
+    RuntimeDisposed: () => [],
+  });
 
 // RETURN_TYPE: the Ledger record; inference would widen its empty collections.
 const fresh = (): Ledger => ({
@@ -302,55 +299,99 @@ const forgetLife = (ledger: Ledger, runtime: Runtime) => {
   ledger.declineOwners.clear();
 };
 
+const ensured = (ledger: Ledger, actor: ActorRef) => {
+  const at = ledger.disposed.findIndex((d) => sameActor(d, actor));
+
+  if (at >= 0) ledger.disposed.splice(at, 1);
+};
+
+type Judged = readonly [Runtime, ReadonlyArray<string>];
+
+const judged = (runtime: Runtime, found: ReadonlyArray<string>) => [runtime, found] as const;
+
+const onFact = (
+  ledger: Ledger,
+  reference: Reference,
+  pending: Array<Pending>,
+  runtime: Runtime,
+  fact: Fact,
+) => {
+  const none = judged(runtime, []);
+
+  return Fact.$match(fact, {
+    Stepped: () => none,
+    Requested: () => none,
+    Answered: () => none,
+    Reported: ({ observation }) =>
+      judged(runtime, onReport(ledger, reference, runtime, pending, observation)),
+    Reloaded: () => {
+      forgetLife(ledger, runtime);
+
+      return judged("live", []);
+    },
+    Disposed: ({ actor }) => {
+      ledger.disposed.push(actor);
+
+      return none;
+    },
+    Ensured: ({ actor }) => {
+      ensured(ledger, actor);
+
+      return none;
+    },
+    Released: () => none,
+    DisposingRuntime: () => judged("disposing", []),
+    Drove: () => none,
+    Unstoppable: () => none,
+    Advanced: () => none,
+    Read: () => none,
+  });
+};
+
+const judgeStep = (
+  ledger: Ledger,
+  reference: Reference,
+  step: ReadonlyArray<Fact>,
+  start: Runtime,
+) => {
+  const pending: Array<Pending> = [];
+
+  const [runtime, found] = step.reduce<Judged>(
+    ([now, so], fact) => {
+      const [next, more] = onFact(ledger, reference, pending, now, fact);
+
+      return judged(next, [...so, ...more]);
+    },
+    judged(start, []),
+  );
+
+  const unrun = pending.map(
+    (p) =>
+      `WriteLanes I15: ${p.id} was delivered as ${p.event}${Option.match(p.owner, { onNone: () => "", onSome: (o) => ` to ${o.machine}/${o.id}` })} and no turn of its actor ran it`,
+  );
+
+  const owedNow = [...ledger.owed.keys()].filter(
+    (key) => (ledger.owed.get(key) ?? 0) > (ledger.owedInSpan.get(key) ?? 0),
+  );
+
+  const undelivered = owedNow.map(
+    (key) => `WriteLanes I15: ${key} ended and was never delivered, parked or recorded`,
+  );
+
+  return [runtime, [...found, ...unrun, ...undelivered]] as const;
+};
+
 const ledgerOf = (facts: Facts) => {
   const ledger = fresh();
-  let runtime: Runtime = "live";
 
-  return steps(facts.timeline).flatMap((step) => {
-    const pending: Array<Pending> = [];
+  return steps(facts.timeline).reduce<Judged>(
+    ([runtime, found], step) => {
+      const [next, more] = judgeStep(ledger, facts.reference, step, runtime);
 
-    const found = step.flatMap((fact) => {
-      if (Fact.$is("Reloaded")(fact)) {
-        forgetLife(ledger, runtime);
-        runtime = "live";
-      }
-
-      if (Fact.$is("DisposingRuntime")(fact)) runtime = "disposing";
-
-      if (Fact.$is("Disposed")(fact)) ledger.disposed.push(fact.actor);
-
-      if (Fact.$is("Ensured")(fact)) {
-        const at = ledger.disposed.findIndex((d) => sameActor(d, fact.actor));
-
-        if (at >= 0) ledger.disposed.splice(at, 1);
-      }
-
-      if (!Fact.$is("Reported")(fact)) return [];
-      const observed = fact.observation;
-      learn(ledger, facts.reference, observed);
-      ran(observed, pending);
-
-      return [
-        ...settleOne(ledger, facts.reference, observed, runtime),
-        ...deliveries(ledger, runtime, observed, pending),
-      ];
-    });
-
-    const unrun = pending.map(
-      (p) =>
-        `WriteLanes I15: ${p.id} was delivered as ${p.event}${Option.match(p.owner, { onNone: () => "", onSome: (o) => ` to ${o.machine}/${o.id}` })} and no turn of its actor ran it`,
-    );
-
-    const owedNow = [...ledger.owed.keys()].filter(
-      (key) => (ledger.owed.get(key) ?? 0) > (ledger.owedInSpan.get(key) ?? 0),
-    );
-
-    const undelivered = owedNow.map(
-      (key) => `WriteLanes I15: ${key} ended and was never delivered, parked or recorded`,
-    );
-
-    return [...found, ...unrun, ...undelivered];
-  });
+      return judged(next, [...found, ...more]);
+    },
+    judged("live", []),
+  )[1];
 };
 
 /**

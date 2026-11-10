@@ -177,13 +177,13 @@ const observationOf = (report: Report): Option.Option<Observation> => {
   return laneReport(report, kind);
 };
 
-// RETURN_TYPE: a spread of one variant stays that variant; the caller needs the union.
-const owned = (observed: Observation, actor: Option.Option<ActorRef>): Observation => {
-  if (Observation.$is("Minted")(observed) || Observation.$is("Delivered")(observed))
-    return { ...observed, actor };
+const owned = (observed: Observation, actor: Option.Option<ActorRef>) => {
+  if (Observation.$is("Minted")(observed)) return Observation.Minted({ ...observed, actor });
+
+  if (Observation.$is("Delivered")(observed)) return Observation.Delivered({ ...observed, actor });
 
   if (Observation.$is("Ended")(observed) && Option.isNone(observed.attempt))
-    return { ...observed, actor };
+    return Observation.Ended({ ...observed, actor });
 
   return observed;
 };

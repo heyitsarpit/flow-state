@@ -1,7 +1,14 @@
-import { Option, Predicate } from "effect";
+import { Data, Option, Predicate } from "effect";
 import { Fact, type Facts, type Oracle, steps, usesHeld } from "../dsl/oracle.ts";
 import { operationNamed, type Reference } from "../fixtures/reference.ts";
-import { type ActorRef, type Channel, type Json, Observation, sameActor } from "../port.ts";
+import {
+  type ActorRef,
+  type Channel,
+  type Ended,
+  type Json,
+  Observation,
+  sameActor,
+} from "../port.ts";
 import { type Answer, type Request, RequestPhase } from "../world/network.ts";
 
 type Phase = "Minted" | "Sent" | "Unsure" | "Settled";
@@ -10,20 +17,22 @@ type Attempt = { readonly owner: ActorRef; readonly operation: string; readonly 
 
 type Owed = { readonly id: string; readonly attempt: Attempt };
 
-type Life =
-  | { readonly _tag: "Live" }
-  | {
-      readonly _tag: "Disposing";
-      readonly since: string;
-      readonly held: ReadonlyArray<Owed>;
-      readonly unsent: ReadonlyArray<Owed>;
-      readonly wire: ReadonlyArray<Owed>;
-      readonly ended: Set<string>;
-      readonly settled: Map<string, Channel>;
-      readonly elapsed: number;
-    };
+type Life = Data.TaggedEnum<{
+  Live: {};
+  Disposing: {
+    since: string;
+    held: ReadonlyArray<Owed>;
+    unsent: ReadonlyArray<Owed>;
+    wire: ReadonlyArray<Owed>;
+    ended: Set<string>;
+    settled: Map<string, Channel>;
+    elapsed: number;
+  };
+}>;
 
-type Disposing = Extract<Life, { readonly _tag: "Disposing" }>;
+const Life = Data.taggedEnum<Life>();
+
+type Disposing = Data.TaggedEnum.Value<Life, "Disposing">;
 
 const BOUND_MS = 5000;
 
@@ -135,32 +144,41 @@ const reportedOn = (ledger: Ledger, reference: Reference, observation: Observati
     for (const id of Option.toArray(observation.attempt)) move(ledger, id, () => "Settled");
 };
 
-const learn = (ledger: Ledger, reference: Reference, fact: Fact) => {
-  if (Fact.$is("Reported")(fact)) reportedOn(ledger, reference, fact.observation);
+const reloaded = (ledger: Ledger) => {
+  for (const [id, attempt] of ledger.attempts) {
+    if (attempt.phase === "Minted") ledger.attempts.delete(id);
 
-  const heard = Fact.$is("Answered")(fact) && !RequestPhase.$is("Orphaned")(fact.request.phase);
-
-  if (heard) answered(ledger, reference, fact.request, fact.answer);
-
-  if (Fact.$is("Drove")(fact)) cancelled(ledger, reference, fact.actor, fact.event);
-
-  if (Fact.$is("Requested")(fact)) sent(ledger, reference, fact.request);
-
-  if (Fact.$is("Reloaded")(fact))
-    for (const [id, attempt] of ledger.attempts) {
-      if (attempt.phase === "Minted") ledger.attempts.delete(id);
-
-      if (attempt.phase === "Sent") ledger.attempts.set(id, { ...attempt, phase: "Unsure" });
-    }
+    if (attempt.phase === "Sent") ledger.attempts.set(id, { ...attempt, phase: "Unsure" });
+  }
 };
 
-// RETURN_TYPE: the Life union; inference would give the Disposing member alone.
-const disposing = (ledger: Ledger, since: string): Life => {
+const nothing = () => {};
+
+const learn = (ledger: Ledger, reference: Reference, fact: Fact) =>
+  Fact.$match(fact, {
+    Stepped: nothing,
+    Requested: ({ request }) => sent(ledger, reference, request),
+    Answered: ({ request, answer }) => {
+      if (!RequestPhase.$is("Orphaned")(request.phase))
+        answered(ledger, reference, request, answer);
+    },
+    Reported: ({ observation }) => reportedOn(ledger, reference, observation),
+    Reloaded: () => reloaded(ledger),
+    Disposed: nothing,
+    Ensured: nothing,
+    Released: nothing,
+    DisposingRuntime: nothing,
+    Drove: ({ actor, event }) => cancelled(ledger, reference, actor, event),
+    Unstoppable: nothing,
+    Advanced: nothing,
+    Read: nothing,
+  });
+
+const disposing = (ledger: Ledger, since: string) => {
   const heads = new Set(ledger.heads.values());
   const open = [...ledger.attempts].map(([id, attempt]) => ({ id, attempt }));
 
-  return {
-    _tag: "Disposing",
+  return Life.Disposing({
     since,
     held: open.filter(
       (o) => heads.has(o.id) && (o.attempt.phase === "Sent" || o.attempt.phase === "Unsure"),
@@ -170,7 +188,7 @@ const disposing = (ledger: Ledger, since: string): Life => {
     ended: new Set(),
     settled: new Map(),
     elapsed: 0,
-  };
+  });
 };
 
 const named = ({ id, attempt }: Owed) =>
@@ -211,7 +229,7 @@ const onWire = (life: Disposing, id: string) => life.wire.find((o) => o.id === i
 const unsettled = (life: Disposing) =>
   life.wire.filter((o) => !life.settled.has(o.id) && !life.ended.has(o.id));
 
-const cutShort = (life: Disposing, ended: Extract<Observation, { readonly _tag: "Ended" }>) =>
+const cutShort = (life: Disposing, ended: Ended) =>
   Option.toArray(ended.attempt).flatMap((id) => {
     const owed = onWire(life, id);
 
@@ -254,26 +272,25 @@ const endedEarly = (life: Disposing) =>
           `Actors I35: the Runtime's disposal (begun at "${life.since}") ended ${life.elapsed} ms in, while ${named(o)} was on the wire, unsettled and within the ${BOUND_MS} ms bound; the disposal waits for it to settle or reach the bound`,
       );
 
-const settledIn = (life: Disposing, reference: Reference, fact: Fact) => {
-  if (!Fact.$is("Answered")(fact) || RequestPhase.$is("Orphaned")(fact.request.phase)) return;
+const settledIn = (life: Disposing, reference: Reference, request: Request, answer: Answer) => {
+  if (RequestPhase.$is("Orphaned")(request.phase)) return;
 
-  const channel = Option.match(operationNamed(reference, fact.request.operation), {
+  const channel = Option.match(operationNamed(reference, request.operation), {
     onNone: () => "unknown" as const,
-    onSome: (o) => o.classify(fact.answer, false),
+    onSome: (o) => o.classify(answer, false),
   });
 
   if (life.elapsed < BOUND_MS)
-    for (const id of Option.toArray(fact.request.key))
+    for (const id of Option.toArray(request.key))
       if (onWire(life, id) !== undefined && !life.ended.has(id)) life.settled.set(id, channel);
 };
 
-const bounded = (life: Disposing, reference: Reference, fact: Fact) => {
-  settledIn(life, reference, fact);
+const reportedWhileDisposing = (life: Disposing, observation: Observation) => {
+  if (Observation.$is("Ended")(observation)) {
+    for (const id of Option.toArray(observation.attempt)) life.ended.add(id);
 
-  if (!Fact.$is("Reported")(fact)) return [];
-  const observation = fact.observation;
-
-  if (Observation.$is("Ended")(observation)) return cutShort(life, observation);
+    return cutShort(life, observation);
+  }
 
   return Observation.$is("RuntimeDisposed")(observation) ? endedEarly(life) : [];
 };
@@ -285,14 +302,6 @@ const stepName = (step: ReadonlyArray<Fact>) => {
   const [first] = step;
 
   return first !== undefined && Fact.$is("Stepped")(first) ? first.what : "";
-};
-
-const endedIn = (life: Life, fact: Fact) => {
-  if (life._tag === "Live" || !Fact.$is("Reported")(fact)) return;
-  const observation = fact.observation;
-
-  if (Observation.$is("Ended")(observation))
-    for (const id of Option.toArray(observation.attempt)) life.ended.add(id);
 };
 
 const dropHeads = (ledger: Ledger, life: Disposing) => {
@@ -336,41 +345,85 @@ const stillHeld = (ledger: Ledger, reference: Reference, fact: Fact) => {
 // RETURN_TYPE: the Ledger record; inference would widen its empty collections.
 const fresh = (): Ledger => ({ attempts: new Map(), heads: new Map(), dropped: new Map() });
 
+type Judged = readonly [Life, ReadonlyArray<string>];
+
+const judged = (life: Life, found: ReadonlyArray<string>) => [life, found] as const;
+
+type Context = {
+  readonly ledger: Ledger;
+  readonly facts: Facts;
+  readonly step: ReadonlyArray<Fact>;
+};
+
+const whileLive = (context: Context, life: Life, fact: Fact) =>
+  Fact.$is("DisposingRuntime")(fact)
+    ? judged(disposing(context.ledger, stepName(context.step)), [])
+    : judged(life, stillHeld(context.ledger, context.facts.reference, fact));
+
+const endDisposal = (context: Context, life: Disposing, fact: Fact) => {
+  const { facts, step, ledger } = context;
+  const before = facts.timeline.slice(0, facts.timeline.indexOf(fact));
+  const found = survived(life, before, step.slice(step.findIndex(Fact.$is("Reloaded"))));
+  dropHeads(ledger, life);
+
+  return judged(Life.Live(), found);
+};
+
+const whileDisposing = (context: Context, life: Disposing, fact: Fact) => {
+  const none = judged(life, []);
+
+  return Fact.$match(fact, {
+    Stepped: () => none,
+    Requested: ({ request }) => judged(life, [invoked(request)]),
+    Answered: ({ request, answer }) => {
+      settledIn(life, context.facts.reference, request, answer);
+
+      return none;
+    },
+    Reported: ({ observation }) => judged(life, reportedWhileDisposing(life, observation)),
+    Reloaded: () => endDisposal(context, life, fact),
+    Disposed: () => none,
+    Ensured: () => none,
+    Released: () => none,
+    DisposingRuntime: () => none,
+    Drove: () => none,
+    Unstoppable: () => none,
+    Advanced: ({ ms }) => judged(Life.Disposing({ ...life, elapsed: life.elapsed + ms }), []),
+    Read: () => none,
+  });
+};
+
+const judgeStep = (context: Context, start: Life) => {
+  const [life, found] = context.step.reduce<Judged>(
+    ([now, so], fact) => {
+      learn(context.ledger, context.facts.reference, fact);
+
+      const [next, more] = Life.$match(now, {
+        Live: () => whileLive(context, now, fact),
+        Disposing: (d) => whileDisposing(context, d, fact),
+      });
+
+      return judged(next, [...so, ...more]);
+    },
+    judged(start, []),
+  );
+
+  const late = Life.$match(life, { Live: () => [], Disposing: pastBound });
+
+  return judged(life, [...found, ...late]);
+};
+
 const judge = (facts: Facts) => {
   const ledger = fresh();
-  let life: Life = { _tag: "Live" };
 
-  return steps(facts.timeline).flatMap((step) => {
-    const reload = step.findIndex(Fact.$is("Reloaded"));
+  return steps(facts.timeline).reduce<Judged>(
+    ([life, found], step) => {
+      const [next, more] = judgeStep({ ledger, facts, step }, life);
 
-    const found = step.flatMap((fact) => {
-      endedIn(life, fact);
-      learn(ledger, facts.reference, fact);
-
-      if (Fact.$is("DisposingRuntime")(fact) && life._tag === "Live")
-        life = disposing(ledger, stepName(step));
-
-      if (life._tag === "Live") return stillHeld(ledger, facts.reference, fact);
-
-      if (Fact.$is("Advanced")(fact)) life = { ...life, elapsed: life.elapsed + fact.ms };
-
-      if (Fact.$is("Requested")(fact)) return [invoked(fact.request)];
-
-      const timed = bounded(life, facts.reference, fact);
-
-      if (timed.length > 0) return timed;
-
-      if (!Fact.$is("Reloaded")(fact)) return [];
-      const before = facts.timeline.slice(0, facts.timeline.indexOf(fact));
-      const judged = survived(life, before, step.slice(reload));
-      dropHeads(ledger, life);
-      life = { _tag: "Live" };
-
-      return judged;
-    });
-
-    return life._tag === "Disposing" ? [...found, ...pastBound(life)] : found;
-  });
+      return judged(next, [...found, ...more]);
+    },
+    judged(Life.Live(), []),
+  )[1];
 };
 
 /**

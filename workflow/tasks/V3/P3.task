@@ -766,6 +766,23 @@ tasks
             packages/flow-state-v3: suite 61/61, suite --runtime null 0/61, falsify --parallel 6 32/32, nub run check 
             at zero. Haiku reviewer (test the spec): 10 findings, 5 accepted, 5 rejected, each with why in 
             conformance/STATUS.md. Reverse: drop I35/I36 and re-list the o6 mutants as unregistered.
+        comment     2026-11-10T17:24:57Z
+            The user's code-quality review of the conformance suite (8 items), judged and done as one cleanup commit, 
+            verdicts byte-identical before and after (suite 61/61, null 0/61, falsify 32/32; sorted outputs compared) 
+            and nub run check at zero. 1 accepted: disposal's Life is a Data.TaggedEnum (Live, Disposing); the 
+            reassigned let is gone: judge folds [Life, violations] per fact and per step, with no phase kept in flags. 
+            2 accepted: one exhaustive Fact.$match each in disposal (learn, whileDisposing), delivered-once (onFact) 
+            and lane-queue (one); ending-channels' learnLatest and learnLive stay $is (one and three tags, item 5). 3 
+            accepted: delivered-once routes each observation through one Observation.$match (onReport); messages 
+            unchanged. 4 accepted: lane-queue routes observations with Observation.$match; the evidence fallthrough is 
+            gone. 5 accepted (left as $is). 6 changed: owned() rebuilds with Observation.Minted/Delivered/Ended and its 
+            RETURN_TYPE comment is gone; the test was rejected: in the installed Effect v4 a TaggedEnum value is a 
+            plain object (prototype Object.prototype, no Equal or Hash symbols), so a spread is the same value; a test 
+            written to tell them apart passed on the spread, so it could never fail. 7 accepted: Turn, Minted, Sent, 
+            Ended, Delivered, Recorded exported from port.ts; Parked and Evidence are used once each, inline. 8 
+            accepted: one line in tools/lint-bomb/STYLE.md section 1, no lint ban. Also: the refactor took lane-queue 
+            past the 500-line warning, so its lane model moved to write-lanes/lane-model.ts. Reverse: revert the 
+            cleanup commit.
     T7
         title       WriteLanes area complete
         status      in_progress

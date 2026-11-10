@@ -5,13 +5,9 @@ import {
   operationNamed,
   type Reference,
 } from "../fixtures/reference.ts";
-import { Observation } from "../port.ts";
+import { type Delivered, type Ended, Observation } from "../port.ts";
 import { Answer, type Request, RequestPhase } from "../world/network.ts";
 import { Fact, type Facts, type Oracle, steps } from "../dsl/oracle.ts";
-
-type Ended = Extract<Observation, { readonly _tag: "Ended" }>;
-
-type Delivered = Extract<Observation, { readonly _tag: "Delivered" }>;
 
 const endedOf = (fact: Fact) =>
   Fact.$is("Reported")(fact) && Observation.$is("Ended")(fact.observation)

@@ -3,6 +3,7 @@ import { type Fixture, referenceFor } from "../fixtures/fixture.ts";
 import { Fact, type Oracle, reported, usesHeld } from "./oracle.ts";
 import {
   type ActorRef,
+  type Ended,
   type EvidenceKind,
   type Json,
   Observation,
@@ -101,9 +102,7 @@ export type Case = {
   readonly keys: (operation: string) => ReadonlyArray<string>;
   readonly landed: (operation: string) => number;
   readonly landedKeys: (operation: string) => ReadonlyArray<string>;
-  readonly endings: (
-    operation: string,
-  ) => ReadonlyArray<Extract<Observation, { readonly _tag: "Ended" }>>;
+  readonly endings: (operation: string) => ReadonlyArray<Ended>;
   readonly evidence: (kind: EvidenceKind) => number;
   readonly issues: () => ReadonlyArray<string>;
   readonly denials: () => ReadonlyArray<ReadonlyArray<string>>;

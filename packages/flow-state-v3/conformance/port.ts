@@ -175,6 +175,36 @@ export type Observation = Data.TaggedEnum<{
 export const Observation = Data.taggedEnum<Observation>();
 
 /**
+ * A `Turn` observation.
+ */
+export type Turn = Data.TaggedEnum.Value<Observation, "Turn">;
+
+/**
+ * A `Minted` observation.
+ */
+export type Minted = Data.TaggedEnum.Value<Observation, "Minted">;
+
+/**
+ * A `Sent` observation.
+ */
+export type Sent = Data.TaggedEnum.Value<Observation, "Sent">;
+
+/**
+ * An `Ended` observation.
+ */
+export type Ended = Data.TaggedEnum.Value<Observation, "Ended">;
+
+/**
+ * A `Delivered` observation.
+ */
+export type Delivered = Data.TaggedEnum.Value<Observation, "Delivered">;
+
+/**
+ * A `Recorded` observation.
+ */
+export type Recorded = Data.TaggedEnum.Value<Observation, "Recorded">;
+
+/**
  * What the suite gives a runtime when it boots one page.
  *
  * **Details**

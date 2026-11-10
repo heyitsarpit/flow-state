@@ -1,74 +1,35 @@
-import { Option } from "effect";
-import type { OperationReference, Reference } from "../fixtures/reference.ts";
-import { type ActorRef, Observation, sameActor, sameJson } from "../port.ts";
+import { type Data, Option } from "effect";
+import type { Reference } from "../fixtures/reference.ts";
+import {
+  type ActorRef,
+  type Ended,
+  type Minted,
+  Observation,
+  sameActor,
+  sameJson,
+  type Turn,
+} from "../port.ts";
 import { Fact, type Facts, type Oracle, steps } from "../dsl/oracle.ts";
-
-type Phase = "queued" | "waiting" | "wire" | "held" | "replaced";
-
-type Tracked = { readonly id: string; readonly phase: Phase };
-
-type Lane = {
-  readonly actor: ActorRef;
-  readonly operation: string;
-  readonly policy: OperationReference;
-  readonly attempts: ReadonlyArray<Tracked>;
-};
-
-type Cancelled = { readonly id: string; readonly from: "waiting" | "wire" };
-
-type Model = {
-  readonly lanes: Map<string, Lane>;
-  readonly laneOf: Map<string, string>;
-  readonly cancelled: Map<string, Cancelled>;
-  readonly unstoppable: Set<string>;
-  readonly heldAt: Map<string, number>;
-  readonly drivenTurns: Array<{ readonly actor: ActorRef; readonly step: number }>;
-};
-
-type Minted = Extract<Observation, { readonly _tag: "Minted" }>;
-
-type Ended = Extract<Observation, { readonly _tag: "Ended" }>;
-
-const BOUND = { reject: 0, latest: 1, serialize: 64, cancel: 0 } as const;
-
-const ADDRESSABLE: ReadonlyArray<Phase> = ["waiting", "wire", "held"];
-
-const laneKey = (actor: ActorRef, operation: string) => `${actor.machine}/${actor.id} ${operation}`;
-
-const addressable = (attempt: Tracked) => ADDRESSABLE.includes(attempt.phase);
-
-const headOf = (lane: Lane) => Option.fromUndefinedOr(lane.attempts.find(addressable));
-
-const queuedOf = (lane: Lane) => lane.attempts.filter((a) => a.phase === "queued");
-
-const unkeyed = (operation: OperationReference) =>
-  operation.attempts && operation.keyFields.length === 0;
-
-const writeOf = (reference: Reference, actor: ActorRef, operation: string) =>
-  Option.filter(Option.fromUndefinedOr(reference[actor.machine]?.[operation]), unkeyed);
-
-const withPhase = (lane: Lane, id: string, phase: Phase) => ({
-  ...lane,
-  attempts: lane.attempts.map((a) => (a.id === id ? { id, phase } : a)),
-});
-
-const promoted = (lane: Lane) => {
-  if (Option.isSome(headOf(lane))) return lane;
-  const [next] = queuedOf(lane);
-
-  return next === undefined ? lane : withPhase(lane, next.id, "waiting");
-};
-
-const without = (lane: Lane, id: string) =>
-  promoted({ ...lane, attempts: lane.attempts.filter((a) => a.id !== id) });
-
-const phaseIn = (lane: Lane, id: string) =>
-  Option.fromUndefinedOr(lane.attempts.find((a) => a.id === id)?.phase);
-
-const laneOfAttempt = (model: Model, id: string) =>
-  Option.flatMap(Option.fromUndefinedOr(model.laneOf.get(id)), (key) =>
-    Option.map(Option.fromUndefinedOr(model.lanes.get(key)), (lane) => [key, lane] as const),
-  );
+import {
+  ADDRESSABLE,
+  BOUND,
+  type Cancelled,
+  type Lane,
+  type Model,
+  type Phase,
+  addressable,
+  forget,
+  fresh,
+  headOf,
+  laneKey,
+  laneOfAttempt,
+  phaseIn,
+  queuedOf,
+  unkeyed,
+  withPhase,
+  without,
+  writeOf,
+} from "./lane-model.ts";
 
 const permittedResend = (model: Model, actor: ActorRef, id: string) => {
   const heldAt = model.heldAt.get(id) ?? Infinity;
@@ -219,8 +180,8 @@ const end = (model: Model, ended: Ended, at: number) => {
   });
 };
 
-const evidence = (model: Model, observed: Observation) => {
-  if (!Observation.$is("Evidence")(observed) || Option.isNone(observed.attempt)) return [];
+const evidence = (model: Model, observed: Data.TaggedEnum.Value<Observation, "Evidence">) => {
+  if (Option.isNone(observed.attempt)) return [];
   const id = observed.attempt.value;
 
   if (observed.kind !== "Superseded" && observed.kind !== "Released") return [];
@@ -372,7 +333,7 @@ const cancels = (
   model: Model,
   reference: Reference,
   before: ReadonlyMap<string, Lane>,
-  turn: Extract<Observation, { readonly _tag: "Turn" }>,
+  turn: Turn,
   window: ReadonlyArray<Observation>,
 ) =>
   Object.entries(reference[turn.actor.machine] ?? {}).flatMap(([operation, policy]) => {
@@ -408,23 +369,8 @@ const unended = (model: Model) =>
     ];
   });
 
-// RETURN_TYPE: the Model record; inference would widen its empty collections.
-const fresh = (): Model => ({
-  lanes: new Map(),
-  laneOf: new Map(),
-  cancelled: new Map(),
-  unstoppable: new Set(),
-  heldAt: new Map(),
-  drivenTurns: [],
-});
-
-const forget = (model: Model) => {
-  for (const [key, lane] of model.lanes) model.lanes.set(key, { ...lane, attempts: [] });
-  model.cancelled.clear();
-};
-
 type Pending = {
-  readonly turn: Extract<Observation, { readonly _tag: "Turn" }>;
+  readonly turn: Turn;
   readonly before: ReadonlyMap<string, Lane>;
   readonly from: number;
 };
@@ -437,7 +383,7 @@ const judgeStep = (model: Model, facts: Facts, step: ReadonlyArray<Fact>, at: nu
   const pending: Array<Pending> = [];
   const drove: Array<{ readonly actor: ActorRef; readonly event: string }> = [];
 
-  const atTurn = (turn: Extract<Observation, { readonly _tag: "Turn" }>) => {
+  const atTurn = (turn: Turn) => {
     const at = drove.findIndex((d) => d.event === turn.event && sameActor(d.actor, turn.actor));
 
     if (at >= 0) {
@@ -451,31 +397,58 @@ const judgeStep = (model: Model, facts: Facts, step: ReadonlyArray<Fact>, at: nu
     return bounds(model);
   };
 
-  const one = (fact: Fact) => {
-    if (Fact.$is("Reloaded")(fact)) forget(model);
-
-    if (Fact.$is("Unstoppable")(fact)) model.unstoppable.add(fact.operation);
-
-    if (Fact.$is("Drove")(fact)) drove.push(fact);
-
-    if (!Fact.$is("Reported")(fact)) return [];
-    const observed = fact.observation;
+  const reported = (observed: Observation) => {
     reports.push(observed);
 
-    if (Observation.$is("Turn")(observed)) {
-      if (driven) model.drivenTurns.push({ actor: observed.actor, step: at });
+    return Observation.$match(observed, {
+      Turn: (turn) => {
+        if (driven) model.drivenTurns.push({ actor: turn.actor, step: at });
 
-      return atTurn(observed);
-    }
-
-    if (Observation.$is("Minted")(observed)) return mint(model, facts.reference, observed);
-
-    if (Observation.$is("Sent")(observed)) return sent(model, observed.attempt);
-
-    if (Observation.$is("Ended")(observed)) return end(model, observed, at);
-
-    return evidence(model, observed);
+        return atTurn(turn);
+      },
+      Minted: (minted) => mint(model, facts.reference, minted),
+      Sent: ({ attempt }) => sent(model, attempt),
+      Ended: (ended) => end(model, ended, at),
+      Delivered: () => [],
+      Parked: () => [],
+      Unparked: () => [],
+      Recorded: () => [],
+      Unhandled: () => [],
+      Denied: () => [],
+      Evidence: (observed) => evidence(model, observed),
+      Issue: () => [],
+      RuntimeDisposed: () => [],
+    });
   };
+
+  const one = (fact: Fact) =>
+    Fact.$match(fact, {
+      Stepped: () => [],
+      Requested: () => [],
+      Answered: () => [],
+      Reported: ({ observation }) => reported(observation),
+      Reloaded: () => {
+        forget(model);
+
+        return [];
+      },
+      Disposed: () => [],
+      Ensured: () => [],
+      Released: () => [],
+      DisposingRuntime: () => [],
+      Drove: (drive) => {
+        drove.push(drive);
+
+        return [];
+      },
+      Unstoppable: ({ operation }) => {
+        model.unstoppable.add(operation);
+
+        return [];
+      },
+      Advanced: () => [],
+      Read: () => [],
+    });
 
   const found = step.flatMap(one);
 

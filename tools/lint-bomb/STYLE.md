@@ -77,6 +77,8 @@ BookingRequest and BookingOutcome describe different facts; they do not duplicat
 
 Put required case-specific fields in their variant, not independent flags and optional fields.
 Require every case in total handlers. Adding a variant must force an explicit decision.
+`$is` and `isAnyOf` answer one yes/no question; routing four or more variants of a union uses
+`$match` with every case named and no catch-all.
 Represent partial matches explicitly.
 
 ### Store facts, derive views
