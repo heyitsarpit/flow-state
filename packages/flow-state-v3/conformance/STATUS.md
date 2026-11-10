@@ -577,6 +577,17 @@ Bottom line: steps 2, 1, 3 and 4 landed; `lane-queue` reads the Case's one fold.
     world's settle; the sweep's per-mutant child has no per-case bound (Conformance Q11, Q12 carried). Not fixed.
   - Next: the lifecycle review's M1 to M4 and Lows, then step 5 (`delivered-once` onto `lives`, Port change 5, F2),
     then 6 to 9.
+- **Next run (2026-11-11, from `805dc643`):**
+  - **Item 1, a time bound per case (Conformance Q11, Q12):** each runtime case runs under one 10 s bound over its
+    seeds (`CASE_SECONDS`); the world asks `overdue` at every settled task, timer firing and request and throws
+    `Overdue` (again on every later ask, so a runtime that swallows one stops at the next). The verdict is the new
+    `Timeout` kind (`TIME` in the human form): no oracle, no cites, so falsify never counts it as a catch (it is red
+    but never `Caught`; alone it is `WrongReason`). Q12 rewritten to what stays open (static cases, a host-free spin,
+    the split path's slice bound), logged in the spec-log.
+    - Sweep against `805dc643` (Conformance R11): one change. `lane.held-auto-resend` is now caught (it had no
+      verdict: the 120 s child bound); `PAY-22` is `Timeout` under it and red, not caught; its catch is by WriteLanes
+      I12 in 38 other cases (LANE-03, PAY-15/press-pay-while-held among them). Every other mutant byte-identical
+      (step texts aside). Suite 86/86, null 0/86.
 - **Queued after the convergence steps, before T8 (coordinator, 2026-11-11):** the T41/T13 review
   (`references/proposals/t41-t13-review-2026-11-11.md`): H1, M1 to M4 and the Lows in the files touched. Its M4
   (whether `ending-channels` and `attempt-identity` move onto the lifecycle) is decided at step 7.

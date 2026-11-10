@@ -179,3 +179,11 @@ Found while writing the `lane-cells` oracle and its lies (packages/flow-state-v3
   extend R2 with an Invariant, with the user.
 - **Compile Q3 added, not settled.** Whether a Schema's functions or the machine callback count as
   Slots: settling it changes what I15 says, so it is the user's call.
+
+## Conformance Q12: a per-case time bound for runtime cases (2026-11-11)
+
+- **Conformance Q12.** Each runtime case now runs under one 10 s bound over all its seeds; the world
+  checks it at every settled task, timer firing and request, and an overrun is the verdict
+  `Timeout`, which never counts as a catch. Still open: static cases, a runtime that spins without
+  touching its hosts, and the split path's whole-slice bound. The orchestrator's decision (V3 log,
+  2026-11-10T23:44:41Z). Reverse: drop the `Timeout` verdict and the world's bound.

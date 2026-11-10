@@ -150,10 +150,11 @@ export type Network = {
 };
 
 /**
- * A server with no requests.
+ * A server with no requests; `guard` runs before every request and may throw (the case's time
+ * bound).
  */
 // RETURN_TYPE: the exported Network contract; it types the request and answer parameters for the runtime.
-export const makeNetwork = (): Network => {
+export const makeNetwork = (guard: () => void = () => undefined): Network => {
   let log: ReadonlyArray<Request> = [];
   let resumes: ReadonlyMap<number, (effect: Effect.Effect<Json, Failure>) => void> = new Map();
   let steadfast: ReadonlySet<string> = new Set();
@@ -218,6 +219,7 @@ export const makeNetwork = (): Network => {
 
   return {
     request: (operation, input, key) => {
+      guard();
       const sent = call(operation, input, key);
 
       return steadfast.has(operation) ? Effect.uninterruptible(sent) : sent;

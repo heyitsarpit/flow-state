@@ -1,12 +1,18 @@
-import { Effect } from "effect";
+import { Clock, Effect } from "effect";
 import { playCase, type Scenario } from "../dsl/case.ts";
 import { citedBy, type Graphed, Mismatch, type Oracle, Violated } from "../dsl/oracle.ts";
 import { playStatic, type StaticCase } from "../dsl/static-case.ts";
 import type { Port } from "../port.ts";
 import type { Surface } from "../surface.ts";
+import { Overdue } from "../world/world.ts";
 import type { CaseVerdict } from "./verdict.ts";
 
 const SEEDS = [1, 2];
+
+/**
+ * Each runtime case's time bound in seconds, over all its seeds (Conformance R8).
+ */
+export const CASE_SECONDS = 10;
 
 // FLOW_STATE_ALLOW_UNKNOWN: whatever a case throws reaches the runner untyped; it is narrowed here, once.
 const failed = (failure: unknown) => {
@@ -29,29 +35,49 @@ const failed = (failure: unknown) => {
 
 const citing = (cites: ReadonlyArray<string>) => (cites.length === 0 ? {} : { cites });
 
+type Bounded = { readonly seed: number; readonly overdue: () => boolean };
+
+// FLOW_STATE_ALLOW_UNKNOWN: whatever a case throws reaches the runner untyped; it is narrowed here, once.
+const verdictOf = (id: string, seed: number, failure: unknown) => {
+  if (failure instanceof Overdue)
+    return { _tag: "Timeout", id, seed, seconds: CASE_SECONDS } satisfies CaseVerdict;
+
+  const f = failed(failure);
+
+  return {
+    _tag: "Fail",
+    id,
+    oracles: f.oracles,
+    why: `seed ${seed}: ${f.why}`,
+    ...citing(f.cites),
+  } satisfies CaseVerdict;
+};
+
 const runSeed = (
   port: Port,
   scenario: Scenario,
   oracles: ReadonlyArray<Oracle>,
   graphs: ReadonlyArray<Graphed>,
-  seed: number,
+  { seed, overdue }: Bounded,
 ) =>
   Effect.try({
-    try: () => playCase({ port, fixtures: scenario.fixtures, oracles, seed, graphs }, scenario.run),
-    catch: failed,
+    try: () =>
+      playCase({ port, fixtures: scenario.fixtures, oracles, seed, graphs, overdue }, scenario.run),
+    catch: (failure) => verdictOf(scenario.id, seed, failure),
   }).pipe(
     Effect.match({
       onSuccess: () => ({ _tag: "Pass", id: scenario.id }) satisfies CaseVerdict,
-      onFailure: (f) =>
-        ({
-          _tag: "Fail",
-          id: scenario.id,
-          oracles: f.oracles,
-          why: `seed ${seed}: ${f.why}`,
-          ...citing(f.cites),
-        }) satisfies CaseVerdict,
+      onFailure: (verdict) => verdict,
     }),
   );
+
+const deadline = Clock.clockWith((clock) =>
+  Effect.sync(() => {
+    const end = clock.currentTimeMillisUnsafe() + CASE_SECONDS * 1000;
+
+    return () => clock.currentTimeMillisUnsafe() > end;
+  }),
+);
 
 /**
  * Runs one case on a fresh world per seed and returns its verdict: the first seed's failure, or a
@@ -63,6 +89,9 @@ const runSeed = (
  * unsettled world, a runtime that throws) are each a `Fail`; nothing a case does escapes as a
  * failure of this Effect. Every case runs under seeds 1 and 2, which change the store's load
  * order and the session seeds. `graphs` are what `flow graph` printed for the fixtures.
+ *
+ * The case's seeds share one time bound, {@link CASE_SECONDS}; past it the world stops the run at
+ * its next host call or settled task and the verdict is `Timeout`, whatever came before.
  */
 export const runCase = (
   port: Port,
@@ -70,12 +99,14 @@ export const runCase = (
   oracles: ReadonlyArray<Oracle>,
   graphs: ReadonlyArray<Graphed>,
 ) =>
-  Effect.forEach(SEEDS, (seed) => runSeed(port, scenario, oracles, graphs, seed), {
-    concurrency: 1,
-  }).pipe(
+  Effect.flatMap(deadline, (overdue) =>
+    Effect.forEach(SEEDS, (seed) => runSeed(port, scenario, oracles, graphs, { seed, overdue }), {
+      concurrency: 1,
+    }),
+  ).pipe(
     Effect.map(
       (verdicts) =>
-        verdicts.find((v) => v._tag === "Fail") ??
+        verdicts.find((v) => v._tag !== "Pass") ??
         ({ _tag: "Pass", id: scenario.id } satisfies CaseVerdict),
     ),
   );

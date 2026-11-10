@@ -152,7 +152,8 @@ export type Case = {
  *
  * `seed` fixes the world: the store's load order and the session seeds the runtime mints from.
  * The runner runs every case under more than one seed. `graphs` are what `flow graph` printed for
- * the fixtures before the first boot; each oracle opens with them.
+ * the fixtures before the first boot; each oracle opens with them. `overdue` says whether the
+ * case is past its time bound; the world asks it as it runs (see `makeWorld`).
  */
 export type CaseOptions = {
   readonly port: Port;
@@ -160,6 +161,7 @@ export type CaseOptions = {
   readonly oracles: ReadonlyArray<Oracle>;
   readonly seed: number;
   readonly graphs: ReadonlyArray<Graphed>;
+  readonly overdue: () => boolean;
 };
 
 const runtimeLife = (options: CaseOptions, world: World, record: (fact: Fact) => void) => {
@@ -255,7 +257,7 @@ const stepEngine = (
 };
 
 const openCase = (options: CaseOptions) => {
-  const world = makeWorld(options.seed);
+  const world = makeWorld(options.seed, options.overdue);
   const { network, storage, page } = world.hosts;
   const facts: Array<Fact> = [];
   const record = (fact: Fact) => void facts.push(fact);

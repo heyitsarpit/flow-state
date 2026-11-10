@@ -63,8 +63,13 @@ const parallelOf = (args: ReadonlyArray<string>) =>
 const caughtBy = (oracles: ReadonlyArray<string>) =>
   oracles.length > 0 ? oracles.join(",") : "case";
 
-const lineOf = (v: CaseVerdict) =>
-  v._tag === "Pass" ? `pass ${v.id}` : `FAIL ${v.id}  ${caughtBy(v.oracles)}: ${v.why}`;
+const lineOf = (v: CaseVerdict) => {
+  if (v._tag === "Pass") return `pass ${v.id}`;
+
+  if (v._tag === "Timeout") return `TIME ${v.id}  seed ${v.seed}: past its ${v.seconds} s bound`;
+
+  return `FAIL ${v.id}  ${caughtBy(v.oracles)}: ${v.why}`;
+};
 
 const failed = (id: string, why: string) =>
   ({ _tag: "Fail", id, oracles: [], why }) satisfies CaseVerdict;
@@ -245,7 +250,7 @@ const falsify = (args: ReadonlyArray<string>) =>
 
     const nullRed = Option.match(onNull, {
       onNone: () => false,
-      onSome: (v) => v.length === caseIds.length && v.every((x) => x._tag === "Fail"),
+      onSome: (v) => v.length === caseIds.length && v.every((x) => x._tag !== "Pass"),
     });
 
     yield* Console.log(

@@ -120,7 +120,8 @@ const judge = (
   verdicts: ReadonlyArray<CaseVerdict>,
 ): MutantVerdict => {
   const red = verdicts.flatMap((v) => (v._tag === "Fail" ? [v] : []));
-  const ids = red.map((v) => v.id);
+  const timedOut = verdicts.flatMap((v) => (v._tag === "Timeout" ? [v.id] : []));
+  const ids = [...red.map((v) => v.id), ...timedOut];
   const named = `${oracle}: ${mutant.expects}:`;
 
   const holds = (v: (typeof red)[number]) =>
@@ -146,6 +147,10 @@ const judge = (
       why: `${other.id}: ${other.why}`,
       red: ids,
     });
+  const [late] = timedOut;
+
+  if (late !== undefined)
+    return MutantVerdict.WrongReason({ mutant: mutant.name, why: `${late}: timed out`, red: ids });
 
   return MutantVerdict.Survived({ mutant: mutant.name });
 };

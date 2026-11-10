@@ -97,7 +97,7 @@ Round 1's, the runner's (recorded as such; the user may overrule):
      `nullPort` now, a production one in phase 4. `Boot` carries the boot's parameters and the
      world's `hosts`. A reload kills the page, drops the dead page's Runtime without disposing it
      (a dead page runs nothing) and boots again over the same world.
-   - The world (`makeWorld(seed)`) is plain state owned by one case: its hosts `WorldClock`,
+   - The world (`makeWorld(seed, overdue)`) is plain state owned by one case: its hosts `WorldClock`,
      `Page`, `Storage` and `Network` are records of the host's synchronous primitives (as a
      page's `setTimeout` and IndexedDB callbacks are), which the prototype's host takes as
      callbacks; the world owns settle, advance and kill.

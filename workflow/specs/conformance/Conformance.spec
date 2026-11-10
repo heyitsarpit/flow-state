@@ -358,14 +358,19 @@ open
         outcome  A later Task adds the remaining verdict fields, keeps every failing run, seals the linked
                  `node_modules` and rejects an edit path outside the copy.
 
-    Q12  Failure of R8 and R9 (I20, I24, I34): the in-process `suite` path runs runtime cases
-        (code:packages/flow-state-v3/conformance/runner/run.ts#runCases) and static cases
-        (code:packages/flow-state-v3/conformance/runner/run.ts#runStatics) with no time bound, so a hung case gives no
-        verdict; the split path bounds a whole slice
-        (code:packages/flow-state-v3/conformance/runner/main.ts#sliceVerdicts), so an overrun fails every case of that
-        slice with one reason, as a failure rather than a defect, and the split changes verdicts.
-        outcome  Phase 3 bounds each case of either kind on its own in every mode and reports an overrun as a
-                 defect.
+    Q12  Failure of R8 and R9 (I20, I24, I34): a runtime case runs under its own bound
+        (code:packages/flow-state-v3/conformance/runner/run.ts#CASE_SECONDS, over all its seeds) and an overrun is the
+        defect verdict `Timeout`, which names no oracle and cites nothing, so it never catches a mutant. The world asks
+        the bound at every settled task, timer firing and request
+        (code:packages/flow-state-v3/conformance/world/world.ts#makeWorld), so a runtime that spins without touching
+        its hosts is still stopped only by its child process's bound. Static cases
+        (code:packages/flow-state-v3/conformance/runner/run.ts#runStatics) run with no bound of their own beyond their 
+            CLI
+        child's; the split path bounds a whole slice
+        (code:packages/flow-state-v3/conformance/runner/main.ts#sliceVerdicts), so an overrun there fails every case of
+        that slice with one reason.
+        outcome  Phase 3 bounds each static case on its own, and the split path keeps the verdicts its child stated
+                 before an overrun.
 
     Q13  Failure of R12 (I38): the guarantee map marks Reads I1 to I5, I18 and I19 as "case", yet no scenario cites
         any Reads rule; and its rows for oracles not yet built have no check at all.

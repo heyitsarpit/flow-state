@@ -9,6 +9,14 @@ import { makeStorage, type Storage } from "./storage.ts";
  */
 export class Unsettled extends Data.TaggedError("Unsettled")<{ readonly steps: number }> {}
 
+/**
+ * The case ran past its time bound (Conformance R8), seen at `at`: the bound is the one
+ * wall-clock read, made by the runner.
+ */
+export class Overdue extends Data.TaggedError("Overdue")<{
+  readonly at: "task" | "timer" | "request";
+}> {}
+
 const STEPS_PER_SETTLE = 100_000;
 
 /**
@@ -45,6 +53,9 @@ export type Hosts = {
  *   runtime says it has work pending and the page has nothing queued to run it: a spin, or a
  *   stall, no case asked for. `advance` throws it past 100,000 firings: a timer that re-arms
  *   itself at no delay.
+ * - Every settled task, timer firing and request first asks `overdue`, and throws `Overdue` once
+ *   it says yes, again on every later ask, so a runtime that swallows one still stops at the
+ *   next. A runtime that spins without touching its hosts is stopped only by the child's bound.
  */
 export type World = {
   readonly hosts: Hosts;
@@ -55,17 +66,23 @@ export type World = {
 
 /**
  * A fresh world for one case, with its hosts: `seed` fixes the store's load order and the
- * session seeds.
+ * session seeds; `overdue` says whether the case is past its time bound.
  */
 // RETURN_TYPE: the exported World contract the Case and the runtimes both name.
-export const makeWorld = (seed: number): World => {
+export const makeWorld = (seed: number, overdue: () => boolean): World => {
+  const guard = (at: Overdue["at"]) => () => {
+    if (overdue()) throw new Overdue({ at });
+  };
+
   const clock = makeClock();
   const page = makePage(seed);
   const storage = makeStorage(seed, page);
-  const network = makeNetwork();
+  const network = makeNetwork(guard("request"));
 
   const settle = (pending: () => boolean) => {
     for (let steps = 0; steps <= STEPS_PER_SETTLE; steps += 1) {
+      guard("task")();
+
       if (!page.runOne()) {
         if (!pending()) return;
         throw new Unsettled({ steps });
@@ -83,6 +100,7 @@ export const makeWorld = (seed: number): World => {
       settle(pending);
 
       for (let fired = 0; fired <= STEPS_PER_SETTLE; fired += 1) {
+        guard("timer")();
         const due = clock.nextDue(end);
 
         if (Option.isSome(due)) clock.fire(due.value);

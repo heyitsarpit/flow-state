@@ -532,4 +532,8 @@ note 2026-11-10T23:19:26Z
     two Highs in step (an unanchored release, a deadline that names no turn) and four Mediums sent to the step-4 lead, 
     to fix before lane-queue reads the fold.
 note 2026-11-10T23:44:41Z
-    Convergence step 4 landed at cf825289 (lane-queue on the fold; 86/86, null 0/86, sweep 73 of 74 with one timeout). Decisions (orchestrator): each case gets a time bound, and a case past it fails as Timeout, which never counts as a catch; a turn whose reported members match no row of its alternative is a violation under the Invariant that states declared members, or a guarantee gap for the user if none does. **Why:** a hang and a dropped member must not pass. **Reverse:** drop PAY-22 from the sweep; keep v2's no-violation rule.
+    Convergence step 4 landed at cf825289 (lane-queue on the fold; 86/86, null 0/86, sweep 73 of 74 with one timeout). 
+    Decisions (orchestrator): each case gets a time bound, and a case past it fails as Timeout, which never counts as a 
+    catch; a turn whose reported members match no row of its alternative is a violation under the Invariant that states 
+    declared members, or a guarantee gap for the user if none does. **Why:** a hang and a dropped member must not pass. 
+    **Reverse:** drop PAY-22 from the sweep; keep v2's no-violation rule.
