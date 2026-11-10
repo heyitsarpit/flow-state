@@ -14,6 +14,7 @@
     "check:effect": "effect-tsgo tsc -p packages/flow-state-v3/tsconfig.json",
     "check:fix": "vp check --fix --no-error-on-unmatched-pattern packages/flow-state-v3",
     "check:toolchain": "node ./scripts/check-toolchain.mjs",
+    "conformance:coverage": "bun packages/flow-state-v3/conformance/runner/main.ts coverage",
     "docs:build": "nub run --filter @flow-state/docs build",
     "docs:dev": "nub run --filter @flow-state/docs dev",
     "docs:preview": "nub run --filter @flow-state/docs preview",

@@ -19,10 +19,15 @@ bun conformance/runner/main.ts suite --runtime null       # the null runtime: ev
 bun conformance/runner/main.ts suite --runtime <dir>      # another prototype tree (an edited copy)
 bun conformance/runner/main.ts falsify --parallel 4 --scratch <dir>
 bun conformance/runner/main.ts falsify --sweep --parallel 5 --scratch <dir>   # every mutant on every case
+bun conformance/runner/main.ts coverage                   # every core Invariant checked or owned (nub run conformance:coverage)
 ```
 
 Every case runs under world seeds 1 and 2 (store load order, session seeds); a case fails on the
-first seed that fails it. `falsify` checks, in order: every oracle has a mutant for this runtime; the
+first seed that fails it. `coverage` (Conformance R12, I38) reads every Invariant of the ten core
+Specs with `workflow show @spec.<name> --json` and fails unless each is checked (an oracle's
+guarantee names it and one of that oracle's mutants expects it) or listed once in `not-yet.ts`
+with the Task that owns it; a row that still lists a checked Invariant, and an Invariant no core
+Spec has, fail it too. `falsify` checks, in order: the coverage gate; every oracle has a mutant for this runtime; the
 null runtime (every case must state a failure); the control (each mutant's cases pass on the
 unedited runtime); then each mutant on its own edited copy of the runtime in `--scratch` (default the
 OS temp dir; removed after). It ends `VERDICT pass` only when every mutant is caught by its own
@@ -49,8 +54,8 @@ write, advance past the 5 s disposal bound, answer the writes again, expect the 
 | `dsl/oracle.ts`         | The timeline (`Fact`); `Judge` (an oracle as a step fold with typed `Violation`s and `InvariantId` guarantees) registered with `oracle`; `Mutant` and `Guarantee`; the failures a case throws, `Violated` and `Mismatch`. `dsl/domain.ts`: `attemptKey`, `LaneId`, `laneAtMint`, `laneAtSend`, `endingOf`.                                                                                               |
 | `<area>/`               | One folder per core Spec area (`write-lanes/`, `actors/`, ...). Each check by its behaviour (`<check>.ts`, such as `ending-channels.ts`) with its mutants beside it (`<check>.mutants.ts`), and the cases by behaviour (`<behaviour>.scenarios.ts`, such as `payment-retry.scenarios.ts`); a case keeps its old-suite id (`PAY-nn`, `LANE-nn`, `DLV-nn`) in its `id` field for the old-suite comparison. |
 | `fixtures/`             | The suite's fixtures: `fixture.ts` (the `Fixture` type: Schemas of events, memory, input and write keys), `pay.ts`, `one-lane.ts` (one-lane machines per lane policy); `reference.ts`, the expectations of each write written by hand from the fixture's source; `pay-steps.ts`, the Pay cases' shared steps and constants (T40, S4).                                                                    |
-| `suite.ts`              | The registry: every guarantee (oracle and its mutants) and every case.                                                                                                                                                                                                                                                                                                                                   |
-| `runner/`               | `main.ts` (CLI), `run.ts` (cases in process), `falsify.ts` (mutants on copies), `child.ts` (bounded child processes), `verdict.ts` (the verdict line children print).                                                                                                                                                                                                                                    |
+| `suite.ts`              | The registry: every guarantee (oracle and its mutants) and every case. `coverage.ts`: the coverage gate's rule; `not-yet.ts`: the Invariants each owning Task still owes.                                                                                                                                                                                                                                |
+| `runner/`               | `main.ts` (CLI), `run.ts` (cases in process), `falsify.ts` (mutants on copies), `child.ts` (bounded child processes), `verdict.ts` (the verdict line children print), `specs.ts` (the core Specs' Invariants, read with the workflow CLI).                                                                                                                                                               |
 
 ## Decisions
 

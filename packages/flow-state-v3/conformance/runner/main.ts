@@ -5,14 +5,18 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { nullPort } from "../adapters/null.ts";
 import { loadPrototype, prototypePort } from "../adapters/prototype.ts";
+import { coverageOf, Gap, Standing } from "../coverage.ts";
+import { notYet } from "../not-yet.ts";
 import { guarantees, oracles, scenarios } from "../suite.ts";
 import { falsifyOne, MutantVerdict, suiteIn } from "./falsify.ts";
 import { runCases } from "./run.ts";
+import { coreInvariants } from "./specs.ts";
 import { type CaseVerdict, VERDICTS_LINE, VerdictsJson } from "./verdict.ts";
 
 const MAIN = fileURLToPath(import.meta.url);
 const NULL_RUNTIME = "null";
 const DEFAULT_RUNTIME = resolve(dirname(MAIN), "..", "..", "prototypes", "round-14");
+const REPOSITORY = resolve(dirname(MAIN), "..", "..", "..", "..");
 
 const flag = (args: ReadonlyArray<string>, name: string) => {
   const at = args.indexOf(name);
@@ -109,9 +113,58 @@ const suite = (args: ReadonlyArray<string>) =>
     return yield* report([...(yield* runCases(port, chosen, oracles)), ...missing], json);
   });
 
+const gapLine = (gap: Gap) =>
+  Gap.$match(gap, {
+    Uncovered: ({ invariant }) =>
+      `BAD  ${invariant}: no oracle with a mutant, and no "not yet" row`,
+    Stale: ({ invariant, owner }) =>
+      `BAD  ${invariant}: checked now, but still in ${owner}'s "not yet" row`,
+    Unknown: ({ invariant, where }) => `BAD  ${invariant}: named by ${where}, in no core Spec`,
+    Twice: ({ invariant }) => `BAD  ${invariant}: in two "not yet" rows`,
+  });
+
+const standingLine = (standing: Standing) =>
+  Standing.$match(standing, {
+    Checked: ({ invariant, oracle, mutants }) =>
+      `checked ${invariant}  ${oracle}: ${mutants.join(", ")}`,
+    Owed: ({ invariant, owner }) => `not yet ${invariant}  ${owner}`,
+  });
+
+const covered = (verbose: boolean) =>
+  Effect.gen(function* () {
+    const invariants = yield* coreInvariants(REPOSITORY);
+    const { standings, gaps } = coverageOf(invariants, guarantees, notYet);
+    const checked = standings.filter(Standing.$is("Checked")).length;
+
+    if (verbose) for (const s of standings) yield* Console.log(standingLine(s));
+
+    for (const gap of gaps) yield* Console.log(gapLine(gap));
+
+    yield* Console.log(
+      `${gaps.length === 0 ? "ok  " : "BAD "} coverage: ${checked} of ${invariants.length} core Invariants checked, ${standings.length - checked} owed by a Task, ${gaps.length} gap(s)`,
+    );
+
+    return gaps.length === 0;
+  }).pipe(
+    Effect.catchTag("SpecUnreadable", (e) =>
+      Effect.as(
+        Console.log(`BAD  coverage: the Spec ${e.spec} could not be read: ${e.why}`),
+        false,
+      ),
+    ),
+  );
+
+const coverage = () =>
+  Effect.gen(function* () {
+    const ok = yield* covered(true);
+
+    if (!ok) process.exitCode = 1;
+  });
+
 const falsify = (args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
     const runtime = resolve(Option.getOrElse(flag(args, "--runtime"), () => DEFAULT_RUNTIME));
+    const coverageOk = yield* covered(false);
     const scratch = resolve(Option.getOrElse(flag(args, "--scratch"), () => tmpdir()));
     const only = list(flag(args, "--mutant"));
     const sweep = args.includes("--sweep");
@@ -192,6 +245,7 @@ const falsify = (args: ReadonlyArray<string>) =>
     const caught = verdicts.filter(MutantVerdict.$is("Caught")).length;
 
     const ok =
+      coverageOk &&
       unfalsified.length === 0 &&
       nullRed &&
       controlGreen &&
@@ -212,8 +266,10 @@ const main = (args: ReadonlyArray<string>) => {
 
   if (mode === "falsify") return falsify(rest);
 
+  if (mode === "coverage") return coverage();
+
   return Console.error(
-    "usage: bun conformance/runner/main.ts suite|falsify [--runtime DIR] [--only IDS] [--mutant NAMES] [--parallel N]",
+    "usage: bun conformance/runner/main.ts suite|falsify|coverage [--runtime DIR] [--only IDS] [--mutant NAMES] [--parallel N]",
   ).pipe(
     Effect.andThen(
       Effect.sync(() => {
