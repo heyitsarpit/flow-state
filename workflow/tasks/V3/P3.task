@@ -847,6 +847,8 @@ tasks
             - suite, null and falsify sweep outputs match before and after, except S5 mayHaveApplied changes
               listed with their rules;
             - `nub run check` at zero.
+        comment 2026-11-10T18:20:51Z
+            Evidence (builder, 2026-11-10), first pass: commits a6063da3 (S5 attemptKey, writeNamed, LaneId in dsl/domain.ts), 4f597c6f (S7 key fields from the key Schema, CHANNEL gone), fad7296e and aa3d56ca (S6 dead world surface), 83c50e8f (S1 step-fold contract: Judge, oracle, typed Violation, InvariantId guarantees; the Case folds only new facts and keeps every violation), fade76e0 (S3 part: landLate, storage match, answerWhere, ensureWith gone), 0b1a65f0 (S4 fixtures/pay-steps.ts, REREAD_MS and PAY_TIMEOUT_MS named from the fixture), 3aba4279 (S5 one mayHaveApplied from the server log; no verdict changed). Gates per item from packages/flow-state-v3: suite --json, suite --runtime null --json and falsify --sweep --parallel 6 byte-identical to the item before, except S1, whose per-case verdict kind, oracles and first Invariant and the sweep's red and caught-by sets are identical (texts now list every violation). End: suite 67/67, null 0/67, sweep 38/38, nub run check at zero. Rejected: S7's dropping of Fixture's generic parameters (they are the lint's sanctioned place for Schema.Codec<unknown, unknown>; Schema.Top lacks the requirement-free Codec the encoders need). Kept for T7: S7's attempts flag (dropping it touches lane-model and delivered-once). Not done: S3's openCase split, Driver, inlined timeline, counters and reportsOf; S8's runner items. No sidecars this pass. Detail: conformance/STATUS.md, T40 section.
 
     T7
         title       WriteLanes area complete
