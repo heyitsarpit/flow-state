@@ -1,6 +1,6 @@
 import { Effect } from "effect";
-import { Mismatch, playCase, type Scenario, Violated } from "../dsl/case.ts";
-import type { Oracle } from "../dsl/oracle.ts";
+import { playCase, type Scenario } from "../dsl/case.ts";
+import { Mismatch, type Oracle, Violated } from "../dsl/oracle.ts";
 import type { Port } from "../port.ts";
 import type { CaseVerdict } from "./verdict.ts";
 

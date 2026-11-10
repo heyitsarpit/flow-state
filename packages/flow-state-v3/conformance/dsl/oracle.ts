@@ -91,6 +91,24 @@ export class UnnamedViolation extends Data.TaggedError("UnnamedViolation")<{
 }> {}
 
 /**
+ * A case's own expectation did not hold. `expected` and `actual` are the values as JSON text.
+ */
+export class Mismatch extends Data.TaggedError("Mismatch")<{
+  readonly label: string;
+  readonly expected: string;
+  readonly actual: string;
+}> {}
+
+/**
+ * An oracle found a violation after a step.
+ */
+export class Violated extends Data.TaggedError("Violated")<{
+  readonly oracles: ReadonlyArray<string>;
+  readonly violation: string;
+  readonly step: string;
+}> {}
+
+/**
  * One guarantee's check as a pure fold over the steps of a case.
  *
  * **When to use**

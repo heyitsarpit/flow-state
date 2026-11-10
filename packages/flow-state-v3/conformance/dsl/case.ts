@@ -1,6 +1,15 @@
-import { Data, Equal, Option } from "effect";
+import { Equal, Option } from "effect";
 import { type Fixture, referenceFor } from "../fixtures/fixture.ts";
-import { disposalBoundMs, Fact, type Oracle, reported, steps, usesHeld } from "./oracle.ts";
+import {
+  disposalBoundMs,
+  Fact,
+  Mismatch,
+  type Oracle,
+  reported,
+  steps,
+  usesHeld,
+  Violated,
+} from "./oracle.ts";
 import {
   type ActorRef,
   type Ended,
@@ -14,27 +23,8 @@ import {
 } from "../port.ts";
 import { type Answer, NoHeldRequest, type Request } from "../world/network.ts";
 import type { StorageAnswer } from "../world/storage.ts";
-import { makeWorld } from "../world/world.ts";
+import { makeWorld, type World } from "../world/world.ts";
 import { type Actor, actorView } from "./actor.ts";
-import { makeTimeline } from "./timeline.ts";
-
-/**
- * A case's own expectation did not hold. `expected` and `actual` are the values as JSON text.
- */
-export class Mismatch extends Data.TaggedError("Mismatch")<{
-  readonly label: string;
-  readonly expected: string;
-  readonly actual: string;
-}> {}
-
-/**
- * An oracle found a violation after a step.
- */
-export class Violated extends Data.TaggedError("Violated")<{
-  readonly oracles: ReadonlyArray<string>;
-  readonly violation: string;
-  readonly step: string;
-}> {}
 
 /**
  * One event the suite sends to one actor, its payload encoded: build one with an actor's
@@ -110,14 +100,6 @@ export type Case = {
 };
 
 /**
- * The steps and reads an actor view is made of: the Case's own.
- */
-export type Driver = Pick<
-  Case,
-  "ensure" | "release" | "dispose" | "forget" | "send" | "eq" | "snapshot" | "row"
->;
-
-/**
  * What one run of a case needs: the port to boot, the fixtures, the oracles run after every step,
  * and the world's seed.
  *
@@ -133,40 +115,55 @@ export type CaseOptions = {
   readonly seed: number;
 };
 
-const openCase = (options: CaseOptions) => {
-  const world = makeWorld(options.seed);
-  const { network, storage, page } = world.hosts;
-  const timeline = makeTimeline();
-  const reference = referenceFor(options.fixtures);
+const runtimeLife = (options: CaseOptions, world: World, record: (fact: Fact) => void) => {
   const fixtures = options.fixtures.map((f) => f.name);
 
   const boot = () =>
     options.port.boot({
       fixtures,
       captureMs: 0,
-      sessionSeed: page.sessionSeed(),
+      sessionSeed: world.hosts.page.sessionSeed(),
       hosts: world.hosts,
-      observe: (observation) => timeline.record(Fact.Reported({ observation })),
+      observe: (observation) => record(Fact.Reported({ observation })),
     });
 
   let runtime = boot();
-  const pending = () => runtime.pending();
 
-  const count = (tag: "Stepped" | "Requested") =>
-    timeline.facts().filter((fact) => fact._tag === tag).length;
+  return {
+    runtime: () => runtime,
+    pending: () => runtime.pending(),
+    reboot: () => {
+      world.kill();
+      record(Fact.Reloaded());
+      runtime = boot();
 
-  const noteRequests = () => {
-    for (const request of network.requests().slice(count("Requested")))
-      timeline.record(Fact.Requested({ request }));
+      return runtime;
+    },
   };
+};
 
-  const uses = () => usesHeld(timeline.facts());
-
+const stepEngine = (
+  options: CaseOptions,
+  world: World,
+  facts: ReadonlyArray<Fact>,
+  record: (fact: Fact) => void,
+  pending: () => boolean,
+) => {
+  const { network } = world.hosts;
+  const reference = referenceFor(options.fixtures);
   const judges = options.oracles.map((o) => ({ name: o.name, next: o.open(reference) }));
+  let stepped = 0;
+  let noted = 0;
   let judged = 0;
 
+  const noteRequests = () => {
+    const made = network.requests();
+
+    for (const request of made.slice(noted)) record(Fact.Requested({ request }));
+    noted = made.length;
+  };
+
   const judge = (what: string) => {
-    const facts = timeline.facts();
     const fresh = steps(facts.slice(judged));
     judged = facts.length;
 
@@ -183,12 +180,24 @@ const openCase = (options: CaseOptions) => {
   };
 
   const act = (what: string, run: () => void) => {
-    timeline.record(Fact.Stepped({ step: count("Stepped") + 1, what }));
+    stepped += 1;
+    record(Fact.Stepped({ step: stepped, what }));
     run();
     world.settle(pending);
     noteRequests();
     judge(what);
   };
+
+  return { act, judge };
+};
+
+const openCase = (options: CaseOptions) => {
+  const world = makeWorld(options.seed);
+  const { network, storage, page } = world.hosts;
+  const facts: Array<Fact> = [];
+  const record = (fact: Fact) => void facts.push(fact);
+  const life = runtimeLife(options, world, record);
+  const { act, judge } = stepEngine(options, world, facts, record, life.pending);
 
   const held = (operation: string, request: Option.Option<Request>) =>
     Option.getOrThrowWith(request, () => new NoHeldRequest({ operation }));
@@ -196,42 +205,43 @@ const openCase = (options: CaseOptions) => {
   const answer = (operation: string, given: Answer) =>
     act(`answer ${operation} ${given._tag}`, () => {
       const request = held(operation, network.oldestOpen(operation));
-      timeline.record(Fact.Answered({ request, answer: given }));
+      record(Fact.Answered({ request, answer: given }));
       network.answer(request, given);
     });
 
-  const answerStorage = (how: StorageAnswer) => act(how, () => void storage.answer(how));
+  const answerStorage = (what: string, how: StorageAnswer) =>
+    act(what, () => void storage.answer(how));
 
   const send = (drives: ReadonlyArray<Drive>) =>
     act(`send ${drives.map((d) => d.event).join(", ")}`, () => {
       for (const { actor, event, payload } of drives) {
-        timeline.record(Fact.Drove({ actor, event }));
-        runtime.send(actor, event, payload);
+        record(Fact.Drove({ actor, event }));
+        life.runtime().send(actor, event, payload);
       }
     });
 
   const ensure = (actor: ActorRef, input: Option.Option<Json>) =>
     act(`ensure ${actor.id}`, () => {
-      timeline.record(Fact.Ensured({ actor, use: "story" }));
-      runtime.ensure(actor, input, "story");
+      record(Fact.Ensured({ actor, use: "story" }));
+      life.runtime().ensure(actor, input, "story");
     });
 
   const release = (actor: ActorRef, use: Use) =>
     act(`release ${actor.id}`, () => {
-      timeline.record(Fact.Released({ actor, use }));
-      runtime.release(actor, use);
+      record(Fact.Released({ actor, use }));
+      life.runtime().release(actor, use);
     });
 
   const dispose = (actor: ActorRef) =>
     act(`dispose ${actor.id}`, () => {
-      timeline.record(Fact.Disposed({ actor }));
-      runtime.dispose(actor);
+      record(Fact.Disposed({ actor }));
+      life.runtime().dispose(actor);
     });
 
   const forget = (actor: ActorRef) =>
     act(`forget ${actor.id}`, () => {
-      timeline.record(Fact.Forgot({ actor }));
-      runtime.forget(actor);
+      record(Fact.Forgot({ actor }));
+      life.runtime().forget(actor);
     });
 
   const eq = <A>(label: string, actual: A, expected: NoInfer<A>) => {
@@ -239,11 +249,9 @@ const openCase = (options: CaseOptions) => {
       throw new Mismatch({ label, expected: shown(expected), actual: shown(actual) });
   };
 
-  const snapshot = (actor: ActorRef) => runtime.snapshot(actor);
-
   const row = (actor: ActorRef, operation: string, key: Json) => {
-    const read = runtime.row(actor, operation, key);
-    timeline.record(Fact.Read({ actor, operation, key, row: read }));
+    const read = life.runtime().row(actor, operation, key);
+    record(Fact.Read({ actor, operation, key, row: read }));
     judge(`read ${operation}`);
 
     return read;
@@ -258,86 +266,53 @@ const openCase = (options: CaseOptions) => {
       .filter((r) => r.operation === operation)
       .flatMap((r) => Option.toArray(r.key));
 
-  const observed = () => reported(timeline.facts());
-
-  const driver: Driver = { ensure, release, dispose, forget, send, eq, snapshot, row };
-
-  const thisBoot = () => {
-    const facts = timeline.facts();
-
-    return facts.slice(facts.findLastIndex(Fact.$is("Reloaded")) + 1);
-  };
+  const reportsOf = <T extends Observation["_tag"]>(tag: T) =>
+    reported(facts).filter(Observation.$is(tag));
 
   const disposeRuntime = (what: string) =>
     act(what, () => {
-      timeline.record(Fact.DisposingRuntime());
-      runtime.disposeRuntime();
+      record(Fact.DisposingRuntime());
+      life.runtime().disposeRuntime();
     });
 
   const advance = (what: string, ms: number) =>
     act(what, () => {
-      timeline.record(Fact.Advanced({ ms }));
-      world.advance(ms, pending);
+      record(Fact.Advanced({ ms }));
+      world.advance(ms, life.pending);
     });
 
   const reload = (what: string, attach: () => ReadonlyArray<ActorRef>) =>
     act(what, () => {
-      world.kill();
-      timeline.record(Fact.Reloaded());
-      runtime = boot();
+      const runtime = life.reboot();
 
-      for (const [actor, use] of uses()) runtime.ensureExisting(actor, use);
+      for (const [actor, use] of usesHeld(facts)) runtime.ensureExisting(actor, use);
 
       for (const actor of attach()) {
-        timeline.record(Fact.Ensured({ actor, use: "story" }));
+        record(Fact.Ensured({ actor, use: "story" }));
         runtime.ensureExisting(actor, "story");
       }
     });
 
-  const writers = () => {
-    const held = uses().map(([actor]) => actor);
-
-    return reported(timeline.facts())
-      .flatMap((o) => (Observation.$is("Minted")(o) ? Option.toArray(o.actor) : []))
-      .filter((actor, at, all) => all.findIndex((a) => sameActor(a, actor)) === at)
-      .filter((actor) => !held.some((h) => sameActor(h, actor)));
-  };
-
-  const end = () => {
-    if (!thisBoot().some(Fact.$is("DisposingRuntime")))
-      disposeRuntime("end of case: dispose the runtime");
-    const ackAll = () => act("end of case: ack", () => void storage.answer("ack"));
-    ackAll();
-    advance(`end of case: advance ${disposalBoundMs}`, disposalBoundMs);
-    ackAll();
-    eq(
-      "end of case: the Runtime's disposal ended within its bound (Actors R22, R23)",
-      reported(thisBoot()).filter(Observation.$is("RuntimeDisposed")).length,
-      1,
-    );
-    reload("end of case: reload", writers);
-  };
-
   const driven: Case = {
-    actor: (fixture, id) => actorView(driver, fixture, id),
+    actor: (fixture, id) => actorView(driven, fixture, id),
     ensure,
     release,
     dispose,
     forget,
     disposeRuntime: () => disposeRuntime("dispose the runtime"),
     send,
-    ack: () => answerStorage("ack"),
-    answerStorage,
+    ack: () => answerStorage("ack", "ack"),
+    answerStorage: (how) => answerStorage(how, how),
     answer,
     answerLate: (operation, given) =>
       act(`late answer ${operation} ${given._tag}`, () => {
         const request = held(operation, network.oldestUndecided(operation));
-        timeline.record(Fact.Answered({ request, answer: given }));
+        record(Fact.Answered({ request, answer: given }));
         network.answerLate(request, given);
       }),
     uninterruptible: (operation) =>
       act(`uninterruptible ${operation}`, () => {
-        timeline.record(Fact.Unstoppable({ operation }));
+        record(Fact.Unstoppable({ operation }));
         network.uninterruptible(operation);
       }),
     answerAtOnce: (operation, given) =>
@@ -352,22 +327,43 @@ const openCase = (options: CaseOptions) => {
     advance: (ms) => advance(`advance ${ms}`, ms),
     reload: () => reload("reload", () => []),
     eq,
-    snapshot,
+    snapshot: (actor) => life.runtime().snapshot(actor),
     row,
     requests,
     keys: (operation) => [...new Set(requests(operation).flatMap((r) => Option.toArray(r.key)))],
     landed: (operation) => new Set(landedKeys(operation)).size,
     landedKeys,
-    endings: (operation) =>
-      observed().flatMap((o) =>
-        Observation.$is("Ended")(o) && o.operation === operation ? [o] : [],
-      ),
-    evidence: (kind) =>
-      observed().filter((o) => Observation.$is("Evidence")(o) && o.kind === kind).length,
-    issues: () => observed().flatMap((o) => (Observation.$is("Issue")(o) ? [o.code] : [])),
-    denials: () => observed().flatMap((o) => (Observation.$is("Denied")(o) ? [o.reasons] : [])),
-    runtimeDisposals: () => observed().filter(Observation.$is("RuntimeDisposed")).length,
-    reports: observed,
+    endings: (operation) => reportsOf("Ended").filter((o) => o.operation === operation),
+    evidence: (kind) => reportsOf("Evidence").filter((o) => o.kind === kind).length,
+    issues: () => reportsOf("Issue").map((o) => o.code),
+    denials: () => reportsOf("Denied").map((o) => o.reasons),
+    runtimeDisposals: () => reportsOf("RuntimeDisposed").length,
+    reports: () => reported(facts),
+  };
+
+  const thisBoot = () => facts.slice(facts.findLastIndex(Fact.$is("Reloaded")) + 1);
+
+  const writers = () => {
+    const attached = usesHeld(facts).map(([actor]) => actor);
+
+    return reportsOf("Minted")
+      .flatMap((o) => Option.toArray(o.actor))
+      .filter((actor, at, all) => all.findIndex((a) => sameActor(a, actor)) === at)
+      .filter((actor) => !attached.some((h) => sameActor(h, actor)));
+  };
+
+  const end = () => {
+    if (!thisBoot().some(Fact.$is("DisposingRuntime")))
+      disposeRuntime("end of case: dispose the runtime");
+    answerStorage("end of case: ack", "ack");
+    advance(`end of case: advance ${disposalBoundMs}`, disposalBoundMs);
+    answerStorage("end of case: ack", "ack");
+    eq(
+      "end of case: the Runtime's disposal ended within its bound (Actors R22, R23)",
+      reported(thisBoot()).filter(Observation.$is("RuntimeDisposed")).length,
+      1,
+    );
+    reload("end of case: reload", writers);
   };
 
   return { driven, end };

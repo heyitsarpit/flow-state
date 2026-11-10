@@ -1,7 +1,8 @@
 import { Data, Option, Schema } from "effect";
 import type { Fixture } from "../fixtures/fixture.ts";
-import { type ActorRef, Snapshot, type Use } from "../port.ts";
-import { type Drive, type Driver, Mismatch } from "./case.ts";
+import { Snapshot, type Use } from "../port.ts";
+import type { Case, Drive } from "./case.ts";
+import { Mismatch } from "./oracle.ts";
 
 /**
  * The events a fixture's actor takes, by name.
@@ -32,7 +33,6 @@ export type OperationName<F extends Fixture> = keyof F["operations"] & string;
  *   operation's concurrency; a row that does not decode is a defect.
  */
 export type Actor<F extends Fixture> = {
-  readonly ref: ActorRef;
   readonly ensure: () => void;
   readonly event: <E extends EventName<F>>(event: E, payload: F["events"][E]["Type"]) => Drive;
   readonly send: <E extends EventName<F>>(event: E, payload: F["events"][E]["Type"]) => void;
@@ -64,7 +64,7 @@ const encoded = <A, E>(schema: Schema.Codec<A, E>, value: A) =>
  * The typed view of actor `id` of `fixture` over a Case's steps.
  */
 // RETURN_TYPE: the exported Actor contract; inference would lose the generic methods' links.
-export const actorView = <F extends Fixture>(driver: Driver, fixture: F, id: string): Actor<F> => {
+export const actorView = <F extends Fixture>(c: Case, fixture: F, id: string): Actor<F> => {
   const ref = { machine: fixture.machine, id };
 
   const event = <E extends EventName<F>>(name: E, payload: F["events"][E]["Type"]) => ({
@@ -74,24 +74,23 @@ export const actorView = <F extends Fixture>(driver: Driver, fixture: F, id: str
   });
 
   return {
-    ref,
-    ensure: () => driver.ensure(ref, Option.none()),
+    ensure: () => c.ensure(ref, Option.none()),
     event,
-    send: (name, payload) => driver.send([event(name, payload)]),
-    release: (use) => driver.release(ref, use),
-    dispose: () => driver.dispose(ref),
-    forget: () => driver.forget(ref),
+    send: (name, payload) => c.send([event(name, payload)]),
+    release: (use) => c.release(ref, use),
+    dispose: () => c.dispose(ref),
+    forget: () => c.forget(ref),
     state: (expected) =>
-      driver.eq(
+      c.eq(
         "state",
-        Snapshot.$match(driver.snapshot(ref), {
+        Snapshot.$match(c.snapshot(ref), {
           Live: ({ state }) => state,
           Absent: () => "(absent)",
         }),
         expected,
       ),
     memory: () =>
-      Snapshot.$match(driver.snapshot(ref), {
+      Snapshot.$match(c.snapshot(ref), {
         Live: ({ memory }) => Schema.decodeSync(Schema.toCodecJson(fixture.memory))(memory),
         Absent: () => {
           throw new Mismatch({ label: "memory", expected: "(live)", actual: "(absent)" });
@@ -101,7 +100,7 @@ export const actorView = <F extends Fixture>(driver: Driver, fixture: F, id: str
       const write = declared(fixture.operations, operation);
 
       return Option.map(
-        driver.row(ref, operation, encoded(write.key, key)),
+        c.row(ref, operation, encoded(write.key, key)),
         Schema.decodeUnknownSync(write.row),
       );
     },
