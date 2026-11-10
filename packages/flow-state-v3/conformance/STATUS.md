@@ -250,7 +250,7 @@ delivery carries no channel; latent: no case disposes without re-ensuring).
 
 ## T7 (2026-11-10 and 2026-11-11): WriteLanes area (in progress)
 
-Bottom line: the convergence v2 build is under way (steps 2 and 1 part 1 in; see "Convergence v2 build" below).
+Bottom line: the convergence v2 build is under way (steps 2 and 1 in; see "Convergence v2 build" below).
 Open: the rest of v2's migration; I22; T7's own rows.
 
 - First step (`392147bc`): H5 in `ending-channels` (`mutant.success-without-answer`, I3) and case `DISP-06`.
@@ -405,8 +405,9 @@ Open: the rest of v2's migration; I22; T7's own rows.
 
 ### Convergence v2 build (2026-11-11; `references/proposals/lane-oracle-convergence-v2-2026-11-11.md`)
 
-Bottom line: steps 2 and 1 (part 1) landed; part 2 of step 1 is next. Suite 84/84, null 0/84, sweep 68/68 at
-`cc0763b3`; the lifecycle's mutation test passes; `nub run check` at zero.
+Bottom line: steps 2 and 1 landed; step 3 with `step(model, reference, facts)` is next. At `1a850b5d`: suite 84/84,
+null 0/84, sweep 68/68, coverage 0 gaps; the lifecycle's mutation test (Tables A, B, C, deadlines, promotion) passes;
+`nub run check` at zero.
 
 - **Order:** step 2 before step 1, so the lifecycle's facts-to-moves step reads the real Port. Step 1 is split: part 1
   (Table A, deadlines, promotion) is in; part 2 (Table B, Table C, the actor moves, `step(model, reference, facts)`)
@@ -457,7 +458,30 @@ Bottom line: steps 2 and 1 (part 1) landed; part 2 of step 1 is next. Suite 84/8
     `PendingCancel` deadline's Invariant is unread while it has no deadline.
   - `527429c4` alone failed `nub run check` (the test imported `@effect/vitest`, an Effect unstable-API warning);
     the next commit imports `vite-plus/test` and is at zero.
-- **Next (step 1, part 2):** Table B (members by head phase, `mint`, `decl`, `supH`, `supQ`, `queue`, `repl`,
+- **Step 1, part 2 (`1a850b5d`):** Table B (`tableB`, `dsl/lifecycle-lanes.ts`), Table C (`tableC`,
+  `dsl/lifecycle-lives.ts`), the actor moves and `apply` over every move (`dsl/lifecycle-fold.ts`); traces in
+  `lifecycle-members.traces.ts`, `lifecycle-turns.traces.ts`, `lifecycle-lives.traces.ts`. The test kills every other
+  action of every Table B cell and every other fate of every Table C cell (planted: without their traces, each gate
+  fails). No oracle reads it, so no verdict changed.
+  - Lead's calls: `step` moves to step 3, since it anchors members against step 3's rows; the open turn is a Model
+    field (`turn`); a commit's cell is read at member time and waits for its mint or decline, holding later members
+    (I10); a commit with neither by the turn's close is WriteLanes I15 (deadline `Commit`, every commit delivers its
+    ending); a stray decline is I1; a member with no lane (`Every` on an operation with none, a commit whose key did
+    not encode) acts on the key-less Idle lane; the Idle cancel with a kept ending lets it go (Actors R15 as written,
+    CQ3); a delivered ending discharges its Attempt's `AwaitRestore`; head-less actions on the Idle row, and moves to
+    the head's own phase, are excluded from mutation as equivalent.
+  - Reviewer (Haiku) of the diff, 13 findings: accepted and fixed: a key-less commit's `Unencodable` decline was I1;
+    `Every` on an operation with no lane; the commit deadline as I10 (design: I10 is order only; now I15); a disposing
+    delivery of a Kept ending (footnote ᵈ: I15); a repeated cancel owed twice; `Heard` names the delivering ending;
+    `SupersedeHead` on Idle is not equivalent (now mutated); the fold's doc states anchoring is the caller's. Changed:
+    the `Every` trace's cite (see decision below). Rejected: the cancel-policy replacement of a cancelled never-sent
+    head keeps its cancel (the design's `replC` note, R14); `AwaitRestore` discharge ignores the incarnation (an older
+    one is already due by its step's end). Noted: a refused 65th mint also fails the commit deadline (refused-move
+    rule).
+  - For the user: WriteLanes R9 makes a key-less member on a keyed operation outside an ending KeyRequired, while
+    round-14 (`turn.ts:752-757`) and v2's Port change 1 act on every lane (`Every`). The suite follows round-14 until a
+    Spec answer.
+- **Next (step 3, then `step`):** Table B (members by head phase, `mint`, `decl`, `supH`, `supQ`, `queue`, `repl`,
   `replC`, `PCancel`, `AwRel`, `Interr`, `Q→NS`, `mark`, `Every`, the Idle cancel and cancelAll), Table C (an
   ending's life, with `Opens`), the actor moves (`Incarnated`, `Finished`, `Adopt`, `Disposed`, `Forgot`), and
   `step(model, reference, facts)` that anchors facts into moves (a `Turn`'s members against the reference rows of
@@ -465,6 +489,12 @@ Bottom line: steps 2 and 1 (part 1) landed; part 2 of step 1 is next. Suite 84/8
 - **Queued after the convergence steps, before T8 (coordinator, 2026-11-11):** the T41/T13 review
   (`references/proposals/t41-t13-review-2026-11-11.md`): H1, M1 to M4 and the Lows in the files touched. Its M4
   (whether `ending-channels` and `attempt-identity` move onto the lifecycle) is decided at step 7.
+- **Queued with them (coordinator, 2026-11-11):** the StaticCli and Port review
+  (`references/proposals/staticcli-port-review-2026-11-11.md`): H1 the graph gate both ways (with the rename probe as
+  a mutant); M1 a "partial" coverage standing (StaticCli I1, I4, I6, I8, I12; Compile I1, I6, I11, I15); M2 R10's
+  `Rule20Late` case and mutant, T22's comment and the "every static Invariant" claim; M3 make the new suite kill
+  `pay16.decline-not-delivered` and `lost.decline.mail` (anchors broken by step 2's `lane.ts:277`), and log it; the
+  Lows in files touched.
 
 ## T13 (2026-11-11): static cases, first slice (in progress)
 

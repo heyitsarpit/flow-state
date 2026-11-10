@@ -545,6 +545,9 @@ tasks
             null 0/84, sweep 68/68, lifecycle mutation test green, check at zero. One intended reach change 
             (lane.held-auto-resend, key at mint). Next: step 1 part 2 (Tables B and C, actor moves, the facts step). 
             Detail: code:packages/flow-state-v3/conformance/STATUS.md (T7, Convergence v2 build).
+        comment     2026-11-10T22:31:33Z
+            Convergence step 1 part 2 landed at 1a850b5d (Tables B and C, actor moves, apply; mutation gate passes; 
+            suite 84/84, null 0/84, sweep 68/68). Detail: conformance/STATUS.md, Convergence v2 build.
     T8
         title       Turn area complete
         status      open
