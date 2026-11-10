@@ -250,8 +250,8 @@ delivery carries no channel; latent: no case disposes without re-ensuring).
 
 ## T7 (2026-11-10 and 2026-11-11): WriteLanes area (in progress)
 
-Bottom line: S2, the T6 completion review's disposal findings and the T40/S2 review's H1, M2 and M3 are done. Suite
-68/68, null 0/68, falsify sweep 46/46. Open: that review's M1 (needs a call), M4, M5 and Lows; T41; I22; T7's own rows.
+Bottom line: S2, the T6 completion review's disposal findings and the T40/S2 review are done (M1 by the Port rule).
+Suite 69/69, null 0/69, falsify sweep 47/47. Open: T41; I22; T7's own rows.
 
 - First step (`392147bc`): H5 in `ending-channels` (`mutant.success-without-answer`, I3) and case `DISP-06`.
 - S2 (`a8714be6`, `c1f02294`):
@@ -316,7 +316,44 @@ Bottom line: S2, the T6 completion review's disposal findings and the T40/S2 rev
   - The ported `lie.held-released-unguarded` releases every hold when it is held (no turn anchors it); the old lie
     released only `Lab/R15Late`'s holds and was caught by the old cancel-cause check. The guarded-cancel case is
     now `lie.release-on-guarded-read`.
-- **M4, M5, Lows: not started.**
+- **M4, done (`1ab7e889`):** `delivered-once` gives each ending a life `Refused { event }` after an
+  `InvalidTurn` of its one pending delivery, settled by a later turn of that event by its actor (the
+  redelivery) or by a second refusal, which makes it `Kept` (Actors R15: one try per boot or
+  adoption; a `Delivered` with none owed takes a kept one as its last try). Port contract: the
+  redelivery is not reported again as `Delivered` (round-14's behaviour; stated in `port.ts`). New
+  case `DLV-04` (place answered with a malformed body, so `Placed`'s mapper throws) and
+  `1b.r8-refused-ending-not-redelivered` (I15), caught for its reason. The file split into
+  `ending-lives.ts` and `written-attempts.ts` (the 500-line warning).
+  - Expectation drafter (Haiku, Spec only): agreed on state (PLACING throughout, no receipt), no
+    re-send, kept across the boot. Disagreed: it counted no issue at the first refusal (A3: the
+    Specs say only that the issue "names the cause"); the case checks only that an `InvalidTurn` is
+    raised. Its A2 (WriteLanes I15 "final" against Actors R15 "one try per boot") is read as Actors
+    R15; A1 (a kept ending's lane state), A4 (how a kept ending is let go) and A5 (does a kept
+    ending keep its actor alive) are Spec gaps for the user.
+  - Reviewer (Haiku) of the diff: 2A "a refused redelivery's turn drops the ending" rejected (a
+    refused turn reports no `Turn`; DLV-04 runs that path and its boot try); accepted as stated
+    limits in the Gotchas: a third try in the same step and a lost kept ending are not seen; two
+    pending deliveries make a refusal unattributable; another `InvalidTurn` in the step excuses a
+    missing redelivery (the Port's `Issue` has only a code). Noted: a redelivery during disposal is
+    not judged.
+- **M5, done (`4ad1daa8`, `a5df7376`):** `ending-channels` and `attempt-identity` are pure folds
+  (no `Set`/`Map` mutated; `attempt-identity` derives the first request per id from the log and
+  keeps one list of mints); the "in place" Gotcha in `dsl/oracle.ts` is gone. L6: whether an
+  answered send is live and newest is judged at the step's end, so a send answered at request
+  time is no longer missed (probe: `mutant.ending-without-id` on `PAY-12/sync` now reports "answered
+  on a live send"; not kept as a registration). Reviewer (Haiku): found that the first cut still
+  judged "newest" at ask time (accepted, fixed in `a5df7376`); a same-id re-send in the step is
+  covered by the same fix; a `Reloaded` between an answer and the step's end is not reachable
+  (noted); attempt-identity, the `-1` removal and the lane-naming move are equivalent.
+- **Lows (`edcf62be`):** L2 an Idle cancel counts only the cancelling actor's endings; L3 `-1`
+  sentinels gone from `delivered-once` and `lane-queue`, lane naming once in `dsl/domain.ts`
+  (`laneAtMint`, `laneAtSend`); L4 doc drift (mutant headers, README `writeNamed`, the reload
+  Gotcha after M2); M1's decision written into `port.ts` and the README limits. Carried: L1 (stated
+  Gotcha), L5 and L8 (stated limits), L7 (types; carried from T40), L9 (a repeated mint is
+  `attempt-identity`'s I6), L3's template-literal keys and `Written`'s flags.
+- **Verdicts against `b2b51634`** (Conformance R11): no case verdict changed; the sweep gains only
+  `DLV-04` and the new mutant (47/47). Suite 69/69, null 0/69, `nub run check` at zero at
+  `a5df7376`.
 - **Reviewer** (Haiku, H1 and M2 diff against WriteLanes I12, R8 and Restore): the Pay transitions match the machine;
   a boot send is never correct (Restore R3, I2); both mutants do what they say (accepted, re-run here). Carried: a
   machine's own timer-fired retry sits in a step with no `Drove` or `Answered`, so it reads as not driven (pre-existing,

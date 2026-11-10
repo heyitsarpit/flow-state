@@ -529,6 +529,10 @@ tasks
             landed (bcc2bbbb and the next commit). Suite 68/68, null 0/68, falsify 46/46, check at zero. Open: that 
             review's M1 (needs a call), M4, M5, Lows; T41; I22; T7's own rows. Detail: 
             code:packages/flow-state-v3/conformance/STATUS.md (T7 section).
+        comment     2026-11-10T20:09:33Z
+            Evidence (builder, 2026-11-11): the T40/S2 review's M4, M5 and Lows landed (1ab7e889..a5df7376); suite 
+            69/69, null 0/69, falsify 47/47, check at zero. Detail and sidecar logs: 
+            code:packages/flow-state-v3/conformance/STATUS.md (T7 section).
     T8
         title       Turn area complete
         status      open
