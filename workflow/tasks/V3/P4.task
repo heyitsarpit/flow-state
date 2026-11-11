@@ -744,6 +744,36 @@ tasks
             catch against catch-sweep.prototype.tsv at 0d1c5e87; coverage-standings.txt unchanged (no feature matrix 
             exists yet; say so); fixtures/rows.test.ts green (derived reference equals the hand rows); the CMP and CLI 
             static cases green in suite round-14. Then refresh gates.json with gates --gate and set review.
+        comment     2026-11-11T23:52:22Z
+            Item 8 in part (df2b9cfb). Claimed rows gone: a row's alternative is its `at` (`alternativeAt`), the stored 
+            `claimed` flag deleted (it equalled `at` being set); rows.test derives each tied row's `at` from Compiled, 
+            seen failing on a planted wrong `at`. not-yet.ts and the README keep no prose round-14 limits: no not-yet 
+            row is a case round-14 fails (each Invariant there has no check), so no new limits row is possible (R22); 
+            the I32 arm-order deviation becomes a limits row once T18's check exists.
+        comment     2026-11-11T23:52:28Z
+            Stop on Table A, the user decides (relaxing a gate): deleting its refusing cells (each refusal falling to 
+            the row's `each()` Invariant) loses named catches. Experiment, reverted: falsify round-14 146/154, 8 
+            mutants red by another check (lane.fresh-mint-on-held, lane.unknown-promotes, 
+            lane.cancel-wire-as-never-sent, lane.held-auto-resend, 1b.cancel-all-wire-held-at-once, 
+            audit-1.cancel-all-leaves-the-head, mutant.boot-resends-held, mutant.disposal-skips-never-sent). Options: 
+            keep the cells as the compare's named refusals (recommended; the previous lead's 18:38 note), or accept the 
+            moved Invariants.
+        comment     2026-11-11T23:52:34Z
+            Item 9 at df2b9cfb. V1: round-14 sweep (8 slices, --runtime prototypes/round-14) equals 
+            catch-sweep.prototype.tsv at 0d1c5e87 row for row, 0 lost. V2: coverage-standings.txt unchanged; no feature 
+            matrix exists yet (T47 builds it), so none is compared. V3: fixtures/rows.test.ts green, derived equal to 
+            hand, now including each row's `at`. V4: suite round-14 122/122 with CMP-01 to 11 and CLI-01 to 09 green; 
+            production has no static surface yet (T17).
+        comment     2026-11-11T23:52:39Z
+            Gates at df2b9cfb (gates.json, 848a85f4): suite round-14 122/122, production 76/76, falsify 154/154 (4/4 
+            probes) and 18/18, coverage 75/184 0 gaps, liar 126/126 and 13/13, limits 7/7, crash production 690/723, 
+            core mutants 62/85. Core mutants equal 43cc6cc2's 62/85; 0d1c5e87's 85/85 counted kills by ACT-02 and 
+            ACT-03, red on unmutated production then.
+        comment     2026-11-11T23:52:45Z
+            Haiku review sidecar on df2b9cfb's row diff: accepted 1 (a state-level alternative's `at` needs the 
+            `states.<node>.` prefix the handler table uses; derived side fixed before commit); points 1 to 3 
+            (flag-to-at pairing, consumer equivalence, step mutants still applying) found nothing, re-checked by the 
+            unit tests (58/58) and the identical sweep. T45 stays in_progress until the Table A decision.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open
