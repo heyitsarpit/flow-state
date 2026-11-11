@@ -468,6 +468,13 @@ tasks
             reports a turn's evidence after its writes); a flush landing ahead of held batches in the fake store (the 
             world's order, R12); landing decided by the runtime's purpose label. Rejected 1 (`Acknowledged` with 
             nothing held is kept: `lane-queue`'s resend check needs it, 2 catches lost without it).
+        comment     2026-11-11T16:34:35Z
+            Paused before step 3 (the lead, 2026-11-11) at c12bbfdd: the expect/compare split is a rewrite of the 
+            model's expect half, not an edit. A locator sidecar counts about 15 report uses that create obligations and 
+            55 that choose among them across `dsl/lifecycle*.ts` and `turn/`; four have no suite fact yet (claimed 
+            rows, NO_POLICY declines, `Finished`, `RuntimeDisposed`). Next: one from-scratch design of `expect` 
+            (anchored leaf, keys from `Requested`, outcomes from `Answered` via `classify`, Pay's guards as suite 
+            folds, allowed sets where a Spec leaves a choice), reviewed, then built behind the sweep baseline.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open
