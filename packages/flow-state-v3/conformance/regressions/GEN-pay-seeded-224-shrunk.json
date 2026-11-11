@@ -34,5 +34,6 @@
         "paymentMethodId": "visa"
       }
     }
-  ]
+  ],
+  "by": "pass"
 }

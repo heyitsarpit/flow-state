@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { Schema } from "effect";
+import { Option, Schema } from "effect";
 import { type Alphabet, exhaustive, seeded } from "./dsl/generate.ts";
 import { Script, scenarioOf } from "./dsl/script.ts";
 import { Cells, Pay } from "./fixtures/pay.ts";
@@ -96,14 +96,29 @@ export const cellsAlphabet: Alphabet = {
 const REGRESSIONS = join(dirname(fileURLToPath(import.meta.url)), "regressions");
 
 /**
+ * A regression file: its script and the failure signature it was saved with (`by`, the oracles and
+ * Invariants, or the defect's message), which its replay must match.
+ */
+const Regression = Schema.Struct({ ...Script.fields, by: Schema.optionalKey(Schema.String) });
+
+/**
  * The shrunk regression scripts the generators found (T32), one JSON file each in `regressions/`.
  */
-export const regressionScripts = readdirSync(REGRESSIONS)
+export const regressionFiles = readdirSync(REGRESSIONS)
   .filter((f) => f.endsWith(".json"))
   .toSorted()
-  .map((f) =>
-    Schema.decodeUnknownSync(Script)(JSON.parse(readFileSync(join(REGRESSIONS, f), "utf8"))),
-  );
+  .map((f) => {
+    const path = join(REGRESSIONS, f);
+    const decoded = Schema.decodeUnknownSync(Regression)(JSON.parse(readFileSync(path, "utf8")));
+    const { by, ...script } = decoded;
+
+    return { path, script, by: Option.fromUndefinedOr(by) };
+  });
+
+/**
+ * The shrunk scripts alone, as the generated set plays them.
+ */
+export const regressionScripts = regressionFiles.map((r) => r.script);
 
 /**
  * Every generated script, in run order: the small exhaustive search, the seeded runs, and the

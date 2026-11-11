@@ -75,33 +75,3 @@ export const exhaustive = (alphabet: Alphabet, depth: number) =>
       [[]],
     )
     .map((tail, n) => scriptOf(alphabet, `search-${n}`, tail));
-
-/**
- * The shrinker (T32): the smallest sublist of a failing script's steps after its prefix that still
- * fails as it did (delta debugging, one step removed at a time until none can be).
- */
-// RETURN_TYPE: the Script contract; a candidate's id and steps keep the Script shape.
-export const shrunk = (
-  script: Script,
-  prefix: number,
-  fails: (candidate: Script) => boolean,
-): Script => {
-  const head = script.steps.slice(0, prefix);
-  let tail = script.steps.slice(prefix);
-
-  for (let removed = true; removed;) {
-    removed = false;
-
-    for (let at = 0; at < tail.length; at += 1) {
-      const candidate = [...tail.slice(0, at), ...tail.slice(at + 1)];
-
-      if (fails({ ...script, steps: [...head, ...candidate] })) {
-        tail = candidate;
-        removed = true;
-        break;
-      }
-    }
-  }
-
-  return { ...script, id: `${script.id}-shrunk`, steps: [...head, ...tail] };
-};

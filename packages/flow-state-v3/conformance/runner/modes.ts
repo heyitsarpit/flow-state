@@ -20,7 +20,7 @@ import {
   runtimeSurface,
 } from "./args.ts";
 import { falsifyOne, liarOne, suiteIn } from "./falsify.ts";
-import { generatedScenarios, generatedScripts } from "../generated.ts";
+import { generatedScenarios, generatedScripts, regressionFiles } from "../generated.ts";
 import { type Script, scenarioOf, type Step } from "../dsl/script.ts";
 import type { Scenario } from "../dsl/case.ts";
 import { Cells, Pay } from "../fixtures/pay.ts";
@@ -143,9 +143,11 @@ const inArea = (id: string) => AREA.some((prefix) => id === prefix || id.startsW
 
 /**
  * Kill counts (T45 acceptance 1): every prototype mutant whose own cases lie in the persistence
- * area, run on the generated scripts alone, against the hand cases of the area (from the sweep
- * record, `catch-sweep.prototype.tsv`). A mutant is killed when any case goes red; a generated case
- * already red on the unedited runtime (a finding, kept in `regressions/`) is left out.
+ * area (`--mutant` names a slice), run on the generated scripts alone, against the hand cases of
+ * the area (from the sweep record, `catch-sweep.prototype.tsv`), mutant by mutant. A mutant is
+ * killed when a case gives it a verdict that is red (`caught` or `red`); a mutant that did not
+ * apply, gave no verdict or timed out kills nothing. A generated case already red on the unedited
+ * runtime (a finding, kept in `regressions/`) is left out.
  */
 export const kills = (args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
@@ -156,13 +158,18 @@ export const kills = (args: ReadonlyArray<string>) =>
     const area = [
       ...guarantees.flatMap((g) => g.mutants.map((m) => ({ oracle: g.oracle.name, m }))),
       ...caseChecks.mutants.map((m) => ({ oracle: "case expectations", m })),
-    ].filter(({ m }) => m.runtime === "prototype" && m.cases.some(inArea));
+    ]
+      .filter(({ m }) => m.runtime === "prototype" && m.cases.some(inArea))
+      .filter(({ m }) =>
+        Option.match(list(flag(args, "--mutant")), {
+          onNone: () => true,
+          onSome: (names) => names.includes(m.name),
+        }),
+      );
 
     const byHand = new Set(
       sweep
-        .filter(
-          ([, id, verdict]) => inArea(id ?? "") && verdict !== "green" && verdict !== undefined,
-        )
+        .filter(([, id, verdict]) => inArea(id ?? "") && KILLING.test(verdict ?? ""))
         .map(([name]) => name),
     );
 
@@ -187,7 +194,7 @@ export const kills = (args: ReadonlyArray<string>) =>
         ).pipe(
           Effect.map((r) => ({
             mutant: m.name,
-            killed: r.rows.some((row) => !row.endsWith("\tgreen")),
+            killed: r.rows.some((row) => KILLING.test(row.split("\t")[2] ?? "")),
             rows: r.rows.length,
           })),
         ),
@@ -205,6 +212,12 @@ export const kills = (args: ReadonlyArray<string>) =>
         `${r.killed ? "kill" : "live"} ${r.mutant}  hand ${byHand.has(r.mutant) ? "kill" : "live"}  (${r.rows} runs)`,
       );
 
+    const missed = runs.filter((r) => !r.killed && byHand.has(r.mutant)).map((r) => r.mutant);
+
+    yield* Console.log(
+      `hand kills the generators miss: ${missed.length === 0 ? "none" : missed.join(" ")}`,
+    );
+
     yield* Console.log(
       `VERDICT ${gen >= hand ? "pass" : "fail"} generated runs kill ${gen} of ${area.length} persistence mutants; the area's hand cases kill ${hand}`,
     );
@@ -213,17 +226,35 @@ export const kills = (args: ReadonlyArray<string>) =>
   });
 
 /**
+ * A sweep verdict that kills: a case red by a mutant's own oracle or by another check.
+ */
+const KILLING = /^(caught|red) /u;
+
+/**
  * A failure's signature: its oracles and the Invariants its violations name, so one regression is
- * kept per kind of finding.
+ * kept per kind of finding. A failure no oracle names (a case expectation, a thrown defect, an
+ * unreadable report) is signed by its message with ids, seeds and step names taken out; a time-out
+ * by its kind.
  */
 const failing = (verdicts: ReadonlyArray<CaseVerdict>) =>
-  verdicts.flatMap((v) =>
-    v._tag === "Fail"
-      ? [
-          `${v.oracles.join(",")} ${[...new Set(v.why.match(/[A-Z][A-Za-z]+ I\d+/gu) ?? [])].join(",")}`,
-        ]
-      : [],
-  );
+  verdicts.flatMap((v) => {
+    if (v._tag === "Timeout") return ["timeout"];
+
+    if (v._tag === "Pass") return [];
+
+    if (v.oracles.length === 0)
+      return [
+        `unnamed ${v.why
+          .replace(/^seed \d+: /u, "")
+          .replace(/\(at [^)]*\)/gu, "")
+          .replace(/att-[\d-]+/gu, "ATT")
+          .trim()}`,
+      ];
+
+    return [
+      `${v.oracles.join(",")} ${[...new Set(v.why.match(/[A-Z][A-Za-z]+ I\d+/gu) ?? [])].join(",")}`,
+    ];
+  });
 
 type Play = (scenario: Scenario) => ReturnType<typeof playChosen>;
 
@@ -253,9 +284,9 @@ const shrunkSteps = (play: Play, script: Script, by: string) =>
     return steps;
   });
 
-const regressed = (script: Script, steps: ReadonlyArray<Step>) =>
+const regressed = (script: Script, steps: ReadonlyArray<Step>, by: string) =>
   Effect.sync(() => {
-    const regression = { ...script, id: `${script.id}-shrunk`, steps };
+    const regression = { ...script, id: `${script.id}-shrunk`, steps, by };
 
     writeFileSync(
       resolve(dirname(MAIN), "..", "regressions", `${regression.id}.json`),
@@ -290,7 +321,7 @@ export const shrink = (args: ReadonlyArray<string>) =>
           seen.add(by);
 
           return shrunkSteps(play, script, by).pipe(
-            Effect.flatMap((steps) => regressed(script, steps)),
+            Effect.flatMap((steps) => regressed(script, steps, by)),
             Effect.map((id) => [`${id}: failed by ${by}`]),
           );
         }),
@@ -298,5 +329,53 @@ export const shrink = (args: ReadonlyArray<string>) =>
     );
 
     for (const line of found.flat()) yield* Console.log(`FOUND ${line}`);
-    yield* Console.log(`VERDICT ${found.flat().length} generated script(s) failed and were shrunk`);
+    yield* Console.log(
+      `VERDICT ${found.flat().length} failure signature(s) found, one script each shrunk`,
+    );
+  });
+
+/**
+ * The regressions' check (T32): each shrunk script in `regressions/` replayed on `--runtime`
+ * must still fail with the signature it was saved with (`by`). `--record` saves the signature of
+ * one saved without it.
+ */
+export const regressions = (args: ReadonlyArray<string>) =>
+  Effect.gen(function* () {
+    const runtime = runtimeOf(args);
+    const surface = yield* runtimeSurface(runtime);
+    const record = args.includes("--record");
+
+    const lines = yield* Effect.forEach(
+      regressionFiles,
+      ({ path, script, by }) =>
+        Effect.map(
+          playChosen(args, runtime, [scenarioOf(script, [Pay, Cells])], graphsFor(surface, [])),
+          (verdicts) => {
+            const [now = "pass"] = failing(verdicts);
+
+            if (Option.isNone(by) && record) {
+              writeFileSync(path, `${JSON.stringify({ ...script, by: now }, null, 2)}\n`);
+
+              return `ok   ${script.id}: recorded ${now}`;
+            }
+
+            return Option.match(by, {
+              onNone: () => `BAD  ${script.id}: no signature saved (now ${now})`,
+              onSome: (saved) =>
+                saved === now
+                  ? `ok   ${script.id}: still ${now}`
+                  : `BAD  ${script.id}: saved ${saved}, now ${now}`,
+            });
+          },
+        ),
+      { concurrency: 1 },
+    );
+
+    for (const line of lines) yield* Console.log(line);
+    const bad = lines.filter((l) => l.startsWith("BAD")).length;
+    yield* Console.log(
+      `VERDICT ${bad === 0 ? "pass" : "fail"} ${lines.length - bad}/${lines.length} regressions fail as saved`,
+    );
+
+    if (bad > 0) process.exitCode = 1;
   });

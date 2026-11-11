@@ -43,7 +43,7 @@ import {
 import { falsifyOnProduction } from "./falsify-production.ts";
 import { productionCases, writeGates } from "./gates.ts";
 import { matrixFile, writeMatrix } from "./matrix.ts";
-import { crash, kills, liar, shrink } from "./modes.ts";
+import { crash, kills, liar, regressions, shrink } from "./modes.ts";
 import { runCoreMutants } from "./mutate.ts";
 import { runStatics } from "./run.ts";
 import { coreInvariants, openTasks } from "./specs.ts";
@@ -410,6 +410,8 @@ const main = (args: ReadonlyArray<string>) => {
   if (mode === "kills") return kills(rest);
 
   if (mode === "shrink") return shrink(rest);
+
+  if (mode === "regressions") return regressions(rest);
 
   if (mode === "mutate")
     return runCoreMutants({
