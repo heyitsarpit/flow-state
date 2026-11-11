@@ -728,6 +728,22 @@ tasks
             repairing), which have no fixtures or oracles here. 8 partly: sweeps, gates.json and limits.ts exist and 
             the perturbations are gone; Table A's refusing cells and the claimed rows remain, and not-yet.ts still has 
             prose round-14 reasons. 9: no lost catch (0d1c5e87); the other three checks not rerun.
+        comment     2026-11-11T23:29:13Z
+            Coordinator 7b15241b, done (4cf200b6): ACT-02 and ACT-03 are production's owed reds, owned by @task.V3.T51 
+            in runner/gates.ts productionOwed and left out of production's gates (suite production 76/76, crash 
+            production 690/723); the B1 rule is unchanged. Item 7 met for persistence: s13.older-sent-after-newer is 
+            kept, and the other old search kills have dated owners: drain.* x4 and b5.quiet-mark-unshown on 
+            @task.V3.T21, the session and repairing ones on @task.V3.T25.
+        comment     2026-11-11T23:29:17Z
+            Resume note (lead stopping near the 75% usage reserve; weekly usage 71%). Left before review: item 8, 
+            phase-out steps 1 and 2. Delete Table A's refusing cells (dsl/lifecycle-rules.ts tableA: rely on each() and 
+            refuse for missing cells), delete the claimed rows (fixtures/pay.ts claimed(...), owedMembers' row.claimed 
+            in dsl/lifecycle-owed.ts and retriesOwed in turn/credits.ts), and replace not-yet.ts's prose round-14 
+            reasons with limits.ts rows or report-truth entries. Then item 9's four validations on round-14 sweep 
+            slices (--runtime prototypes/round-14 --sweep --rows, 5 slices in the scratchpad, then merge): no lost 
+            catch against catch-sweep.prototype.tsv at 0d1c5e87; coverage-standings.txt unchanged (no feature matrix 
+            exists yet; say so); fixtures/rows.test.ts green (derived reference equals the hand rows); the CMP and CLI 
+            static cases green in suite round-14. Then refresh gates.json with gates --gate and set review.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open
@@ -984,5 +1000,7 @@ tasks
         comment     2026-11-11T22:21:23Z
             Gap (orchestrator, from T45): production reports no incarnation at an end-of-case ensure after a dispose 
             (GEN-pay-seeded-281; Actors I14). Fix here with the Held-head disposal bug; log.task 36e55d53.
-        comment 2026-11-11T23:26:09Z
-            Gap (orchestrator, from T45 at 0d1c5e87): production ends an actor with a dirty record without writing it in the end step, waiting for the capture instead (Actors R8: encoded in that step); ACT-02 and ACT-03 are red on production until fixed here.
+        comment     2026-11-11T23:26:09Z
+            Gap (orchestrator, from T45 at 0d1c5e87): production ends an actor with a dirty record without writing it 
+            in the end step, waiting for the capture instead (Actors R8: encoded in that step); ACT-02 and ACT-03 are 
+            red on production until fixed here.
