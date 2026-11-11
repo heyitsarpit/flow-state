@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { Option, Schema } from "effect";
 import { type Alphabet, exhaustive, seeded } from "./dsl/generate.ts";
 import { Script, scenarioOf } from "./dsl/script.ts";
+import { Serialize } from "./fixtures/one-lane.ts";
 import { Cells, Pay } from "./fixtures/pay.ts";
 
 const ok = (value: Schema.Json) => ({ _tag: "ok" as const, value });
@@ -81,6 +82,115 @@ export const payAlphabet: Alphabet = {
     ],
     [[{ _tag: "disposeRuntime" }, { _tag: "advance", ms: 5000 }, { _tag: "reload" }], 1],
     [[{ _tag: "dispose" }, { _tag: "reload" }, { _tag: "ensure" }], 1],
+    [[{ _tag: "forget" }, { _tag: "reload" }, { _tag: "ensure" }], 1],
+    [[{ _tag: "release" }, { _tag: "advance", ms: 1000 }], 1],
+    [
+      [
+        { _tag: "dispose" },
+        {
+          _tag: "answer",
+          operation: "pay",
+          answer: ok({ status: "requires_capture", clientSecret: "" }),
+        },
+        { _tag: "ensure" },
+      ],
+      1,
+    ],
+    [
+      [
+        { _tag: "answer", operation: "pay", answer: { _tag: "lost" } },
+        { _tag: "advance", ms: 3000 },
+        { _tag: "answer", operation: "order", answer: ok(null) },
+        { _tag: "answer", operation: "intent", answer: ok({ status: "requires_action" }) },
+      ],
+      1,
+    ],
+    [
+      [
+        { _tag: "answer", operation: "pay", answer: { _tag: "lost" } },
+        ...[1, 2, 3, 4].flatMap(() => [
+          { _tag: "advance" as const, ms: 3000 },
+          { _tag: "answer" as const, operation: "order", answer: ok(null) },
+          {
+            _tag: "answer" as const,
+            operation: "intent",
+            answer: ok({ status: "requires_payment_method" }),
+          },
+          { _tag: "ack" as const },
+          { _tag: "answer" as const, operation: "pay", answer: { _tag: "lost" as const } },
+        ]),
+      ],
+      1,
+    ],
+    [
+      [500, 500, 500].flatMap((retryAfterMs) => [
+        {
+          _tag: "answer" as const,
+          operation: "pay",
+          answer: { _tag: "fail" as const, tag: "Busy", fields: { retryAfterMs } },
+        },
+        { _tag: "advance" as const, ms: 600 },
+        { _tag: "ack" as const },
+      ]),
+      1,
+    ],
+    [
+      [
+        { _tag: "disposeRuntime" },
+        {
+          _tag: "answer",
+          operation: "pay",
+          answer: ok({ status: "requires_capture", clientSecret: "" }),
+        },
+        { _tag: "advance", ms: 5000 },
+        { _tag: "reload" },
+      ],
+      1,
+    ],
+    [
+      [
+        { _tag: "answer", operation: "pay", answer: { _tag: "lost" } },
+        { _tag: "ack" },
+        { _tag: "answer", operation: "intent", answer: ok({ status: "requires_payment_method" }) },
+      ],
+      1,
+    ],
+    [
+      [
+        {
+          _tag: "answer",
+          operation: "pay",
+          answer: { _tag: "fail", tag: "Busy", fields: { retryAfterMs: 1000 } },
+        },
+        { _tag: "advance", ms: 1000 },
+        { _tag: "ack" },
+      ],
+      1,
+    ],
+  ],
+};
+
+/**
+ * Serialize's alphabet: one unkeyed `serialize` lane, `put`, whose commits queue behind its head,
+ * sent, answered, cancelled together (`All`), across a reload and the Runtime's disposal
+ * (WriteLanes R8, Actors R22).
+ */
+export const serializeAlphabet: Alphabet = {
+  fixture: "serialize",
+  actor: "p1",
+  prefix: [{ _tag: "ensure" }],
+  steps: [
+    [[{ _tag: "send", event: "Go", payload: { n: 1 } }, { _tag: "ack" }], 4],
+    [[{ _tag: "send", event: "Go", payload: { n: 2 } }], 2],
+    [[{ _tag: "ack" }], 3],
+    [[{ _tag: "answer", operation: "put", answer: ok({}) }], 3],
+    [[{ _tag: "answer", operation: "put", answer: { _tag: "lost" } }], 2],
+    [[{ _tag: "send", event: "All", payload: {} }], 1],
+    [[{ _tag: "advance", ms: 3000 }], 1],
+    [[{ _tag: "reload" }], 2],
+    [[{ _tag: "disposeRuntime" }, { _tag: "advance", ms: 6000 }, { _tag: "reload" }], 2],
+    [[{ _tag: "release" }, { _tag: "advance", ms: 1000 }], 1],
+    [[{ _tag: "ensure" }], 1],
   ],
 };
 
@@ -128,6 +238,7 @@ export const generatedScripts = [
   ...exhaustive(payAlphabet, 2),
   ...seeded(payAlphabet, 1, 300, 8),
   ...seeded(cellsAlphabet, 1001, 100, 8),
+  ...seeded(serializeAlphabet, 2001, 100, 8),
   ...regressionScripts,
 ];
 
@@ -135,4 +246,6 @@ export const generatedScripts = [
  * The generated scripts as cases the runner plays (`suite --generated`), judged by the oracles
  * alone.
  */
-export const generatedScenarios = generatedScripts.map((s) => scenarioOf(s, [Pay, Cells]));
+export const generatedScenarios = generatedScripts.map((s) =>
+  scenarioOf(s, [Pay, Cells, Serialize]),
+);

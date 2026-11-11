@@ -30,6 +30,7 @@ import { judgeTurn, name, PENDING_RESET, selectedParts } from "./judge.ts";
 import {
   attachingKind,
   closed,
+  keysOf,
   machineOfCall,
   mintOwed,
   retriesOwed,
@@ -38,17 +39,10 @@ import {
 import { lateLeftWork } from "./late.ts";
 import { decideFor, foldedAfter, keysFor, labelsFor } from "./predict.ts";
 import { Input, leafOf, Phase } from "./phases.ts";
-import { type Folded, type Labels, noFolds } from "../fixtures/folds.ts";
+import { type Labels, noFolds } from "../fixtures/folds.ts";
 import { type Machines, possible, scheduledEvents } from "../fixtures/handlers.ts";
 import type { Reference, Rows } from "../fixtures/reference.ts";
-import {
-  type ActorRef,
-  type Delivered,
-  MemberTarget,
-  Observation,
-  sameJson,
-  type Turn,
-} from "../port.ts";
+import { type ActorRef, type Delivered, Observation, type Turn } from "../port.ts";
 
 /**
  * The driven credit of an event the suite sent to a part: it admits only a turn that ran no root
@@ -183,33 +177,9 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
 };
 
 /**
- * The keys a turn's members are owed, by operation: the fixture's folds over the fields the suite
- * carries. Where it carries none (an actor it never saw ensured, Turn's Unanchored phase), the
- * report's own keys stand in: a stated limit, the one place a key is taken from the runtime.
- */
-const keysOf = (turn: Turn, carried: Option.Option<Folded>, folded: ReturnType<typeof keysFor>) =>
-  Option.isNone(carried) ? { ...reportedKeys(turn), ...folded } : folded;
-
-const reportedKeys = (turn: Turn) =>
-  Object.fromEntries(
-    turn.members.flatMap((m) => {
-      const named = turn.members.flatMap((o) =>
-        o.operation === m.operation && MemberTarget.$is("Key")(o.target) ? [o.target.key] : [],
-      );
-
-      const [first] = named;
-
-      return first !== undefined && named.every((k) => sameJson(k, first))
-        ? [[m.operation, first] as const]
-        : [];
-    }),
-  );
-
-/**
  * Whether the suite booted a page or attached a use in this step.
  */
-const attaching = (step: ReadonlyArray<Fact>) =>
-  step.some((f) => Fact.$is("Reloaded")(f) || Fact.$is("Ensured")(f));
+const attaching = (step: ReadonlyArray<Fact>) => attachingKind(step) !== "none";
 
 const isTurn = (fact: Fact) =>
   Fact.$is("Reported")(fact) && Observation.$is("Turn")(fact.observation);
@@ -367,7 +337,13 @@ const onFact = (
     Disposed: ({ actor }) =>
       keep(moved(unbound(uncredited(state, actor), actor), actor, Input.Disposed())),
     Forgot: ({ actor }) =>
-      keep(moved(unbound(uncredited(state, actor), actor), actor, Input.Forgot())),
+      keep(
+        moved(
+          unbound(uncredited(state, actor), actor),
+          actor,
+          state.disposing ? Input.Disposed() : Input.Forgot(),
+        ),
+      ),
     Reloaded: () => keep(reloaded(state)),
     Drove: ({ actor, event, to, labels }) =>
       keep(drove(state, actor, Address.$is("Root")(to) ? event : partCredit(event), labels)),

@@ -440,9 +440,10 @@ export const reloaded = (state: State) => ({
         key,
         {
           ...a,
-          phase: lost
-            ? Phase.Stored({ state: Option.none() })
-            : TABLE[a.phase._tag].Reloaded(Input.Reloaded(), a.phase),
+          phase:
+            lost || (a.removed && Phase.$is("Fresh")(a.phase))
+              ? Phase.Stored({ state: Option.none() })
+              : TABLE[a.phase._tag].Reloaded(Input.Reloaded(), a.phase),
           driven: [],
           entry: a.entry + 1,
           fields: a.saved.fields,

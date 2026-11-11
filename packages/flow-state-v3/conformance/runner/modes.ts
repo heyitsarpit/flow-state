@@ -23,6 +23,7 @@ import { falsifyOne, liarOne, suiteIn } from "./falsify.ts";
 import { generatedScenarios, generatedScripts, regressionFiles } from "../generated.ts";
 import { type Script, scenarioOf, type Step } from "../dsl/script.ts";
 import type { Scenario } from "../dsl/case.ts";
+import { Serialize } from "../fixtures/one-lane.ts";
 import { Cells, Pay } from "../fixtures/pay.ts";
 import type { CaseVerdict } from "./verdict.ts";
 import { crashCase } from "./run.ts";
@@ -273,7 +274,7 @@ const shrunkSteps = (play: Play, script: Script, by: string) =>
 
       for (let at = PREFIX; at < steps.length && !removed; at += 1) {
         const candidate = { ...script, steps: steps.toSpliced(at, 1) };
-        const again = failing(yield* play(scenarioOf(candidate, [Pay, Cells])));
+        const again = failing(yield* play(scenarioOf(candidate, [Pay, Cells, Serialize])));
 
         removed = again[0] === by;
 
@@ -314,7 +315,7 @@ export const shrink = (args: ReadonlyArray<string>) =>
     const found = yield* Effect.forEach(
       generatedScripts.filter((s) => !s.id.endsWith("-shrunk")),
       (script) =>
-        Effect.flatMap(play(scenarioOf(script, [Pay, Cells])), (verdicts) => {
+        Effect.flatMap(play(scenarioOf(script, [Pay, Cells, Serialize])), (verdicts) => {
           const [by] = failing(verdicts);
 
           if (by === undefined || seen.has(by)) return Effect.succeed<ReadonlyArray<string>>([]);
@@ -349,7 +350,12 @@ export const regressions = (args: ReadonlyArray<string>) =>
       regressionFiles,
       ({ path, script, by }) =>
         Effect.map(
-          playChosen(args, runtime, [scenarioOf(script, [Pay, Cells])], graphsFor(surface, [])),
+          playChosen(
+            args,
+            runtime,
+            [scenarioOf(script, [Pay, Cells, Serialize])],
+            graphsFor(surface, []),
+          ),
           (verdicts) => {
             const [now = "pass"] = failing(verdicts);
 

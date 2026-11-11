@@ -2,14 +2,18 @@ import { Option } from "effect";
 import { endingOf } from "../dsl/domain.ts";
 import type { Predicted } from "../dsl/lifecycle-owed.ts";
 import { Fact, type Violation, violation } from "../dsl/oracle.ts";
+import type { Folded } from "../fixtures/folds.ts";
 import {
   type ActorRef,
   type Channel,
   type Json,
+  MemberTarget,
   Observation,
   sameActor,
   sameJson,
+  type Turn,
 } from "../port.ts";
+import type { keysFor } from "./predict.ts";
 import { attemptKey, type Call, requested, type State } from "./anchor.ts";
 import { RequestPhase } from "../world/network.ts";
 import { Phase } from "./phases.ts";
@@ -166,10 +170,39 @@ export const machineOfCall = (state: State, operation: string, attempt: Option.O
   });
 
 /**
- * Whether a step boots a page, attaches a use, or neither, by the suite's facts.
+ * Whether a step boots a page, attaches a use or sends an event (a send may wake an identity that
+ * ended, Actors R9, whose restore then arrives), or neither, by the suite's facts.
  */
 export const attachingKind = (step: ReadonlyArray<Fact>) => {
   if (step.some(Fact.$is("Reloaded"))) return "boot" as const;
 
-  return step.some(Fact.$is("Ensured")) ? ("attach" as const) : ("none" as const);
+  return step.some((f) => Fact.$is("Ensured")(f) || Fact.$is("Drove")(f))
+    ? ("attach" as const)
+    : ("none" as const);
 };
+
+/**
+ * The keys a turn's members are owed, by operation: the fixture's folds over the fields the suite
+ * carries. Where it carries none (an actor it never saw ensured, Turn's Unanchored phase), the
+ * report's own keys stand in: a stated limit, the one place a key is taken from the runtime.
+ */
+export const keysOf = (
+  turn: Turn,
+  carried: Option.Option<Folded>,
+  folded: ReturnType<typeof keysFor>,
+) => (Option.isNone(carried) ? { ...reportedKeys(turn), ...folded } : folded);
+
+const reportedKeys = (turn: Turn) =>
+  Object.fromEntries(
+    turn.members.flatMap((m) => {
+      const named = turn.members.flatMap((o) =>
+        o.operation === m.operation && MemberTarget.$is("Key")(o.target) ? [o.target.key] : [],
+      );
+
+      const [first] = named;
+
+      return first !== undefined && named.every((k) => sameJson(k, first))
+        ? [[m.operation, first] as const]
+        : [];
+    }),
+  );

@@ -1,0 +1,42 @@
+{
+  "id": "GEN-serialize-seeded-2010-shrunk",
+  "fixture": "serialize",
+  "actor": "p1",
+  "steps": [
+    {
+      "_tag": "ensure"
+    },
+    {
+      "_tag": "send",
+      "event": "Go",
+      "payload": {
+        "n": 1
+      }
+    },
+    {
+      "_tag": "send",
+      "event": "Go",
+      "payload": {
+        "n": 2
+      }
+    },
+    {
+      "_tag": "ack"
+    },
+    {
+      "_tag": "answer",
+      "operation": "put",
+      "answer": {
+        "_tag": "ok",
+        "value": {}
+      }
+    },
+    {
+      "_tag": "disposeRuntime"
+    },
+    {
+      "_tag": "reload"
+    }
+  ],
+  "by": "delivered-once WriteLanes I16,WriteLanes I15"
+}
