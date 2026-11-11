@@ -89,7 +89,8 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
       else if (disposing) disposal.settledWhileDisposing(call, result);
     },
     Fired: ({ timer }) => (open || disposing ? fired(timer) : undefined),
-    Stored: ({ ticket, ok }) => (open ? answers.stored(ticket, ok) : undefined),
+    Stored: ({ ticket }) => (open ? answers.stored(ticket) : undefined),
+    Refused: ({ ticket }) => (open ? answers.storeRefused(ticket) : undefined),
     DisposeRuntime: () => (open ? disposal.disposeRuntime() : undefined),
     DisposeActor: ({ actor }) => (open ? incarnations.dispose(actor, false) : undefined),
     Forget: ({ actor }) => (open ? incarnations.dispose(actor, true) : undefined),

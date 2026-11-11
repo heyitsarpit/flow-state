@@ -186,14 +186,15 @@ export const constructOn = (
         );
       }
 
+      const loaded = yield* Option.match(persistence ? host.store : Option.none(), {
+        onNone: () => Effect.succeed(new Map<string, string>()),
+        onSome: (store) => store.load,
+      });
+
       const stored = new Map(
-        Option.match(persistence ? host.store : Option.none(), {
-          onNone: () => [],
-          onSome: (store) =>
-            [...store.load()].flatMap(([k, v]) =>
-              Option.toArray(Option.map(parsed(v), (x) => [k, x] as const)),
-            ),
-        }),
+        [...loaded].flatMap(([k, v]) =>
+          Option.toArray(Option.map(parsed(v), (x) => [k, x] as const)),
+        ),
       );
 
       driver.input(Input.Boot({ stored }));

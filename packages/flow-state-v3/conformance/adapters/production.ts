@@ -12,7 +12,7 @@ import {
 } from "effect";
 import { Evidence as EvidenceRecord, type Evidence } from "../../src/core/evidence.ts";
 import type { Machine } from "../../src/definition.ts";
-import { Host, testing } from "../../src/host/testing.ts";
+import { Host, StoreRefused, testing } from "../../src/host/testing.ts";
 import { actorRef, app } from "../../src/index.ts";
 import { attachInspector } from "../../src/inspect.ts";
 import { PayMachine, ShopApi } from "../machines/pay.ts";
@@ -295,18 +295,20 @@ export const productionPort: Port = {
           onHidden: page.onHidden,
           sessionSeed: boot.sessionSeed,
           store: Option.some({
-            load: storage.load,
-            write: (writes, purpose, answer, acknowledges) =>
-              storage.write(
-                writes.map((w) =>
-                  Option.match(w.value, {
-                    onNone: () => Write.Remove({ key: w.key }),
-                    onSome: (value) => Write.Put({ key: w.key, value }),
-                  }),
+            load: Effect.sync(storage.load),
+            write: (writes, purpose, acknowledges) =>
+              Effect.callback<void, StoreRefused>((resume) =>
+                storage.write(
+                  writes.map((w) =>
+                    Option.match(w.value, {
+                      onNone: () => Write.Remove({ key: w.key }),
+                      onSome: (value) => Write.Put({ key: w.key, value }),
+                    }),
+                  ),
+                  purpose,
+                  (ok) => resume(ok ? Effect.void : Effect.fail(new StoreRefused({}))),
+                  acknowledges,
                 ),
-                purpose,
-                answer,
-                acknowledges,
               ),
           }),
         }),

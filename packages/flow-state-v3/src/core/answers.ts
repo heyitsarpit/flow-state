@@ -126,7 +126,7 @@ export const makeAnswers = (tx: Tx, persistence: Persistence, lanes: LaneSteps) 
       Held: () => false,
     });
 
-  const stored = (ticket: TicketId, ok: boolean) => {
+  const answered = (ticket: TicketId, landed: boolean) => {
     const silent = tx.world().tickets.get(ticket);
 
     if (silent !== undefined) {
@@ -141,12 +141,33 @@ export const makeAnswers = (tx: Tx, persistence: Persistence, lanes: LaneSteps) 
     for (const lane of tx.world().lanes.values()) {
       if (!awaits(lane, ticket)) continue;
 
-      if (ok) invoke(lane);
+      if (landed) invoke(lane);
       else refused(lane, Phase.$is("Recapturing")(lane.head.phase));
     }
   };
 
-  return { classified, classify, settledRead, settledLane, settled, refused, awaits, stored };
+  /**
+   * The store landed a ticket's batch: each send waiting on it is invoked (WriteAhead R13).
+   */
+  const stored = (ticket: TicketId) => answered(ticket, true);
+
+  /**
+   * The store refused a ticket's batch: a first send ends NotSent StorageRefused, a re-send returns
+   * to Held (WriteAhead R13).
+   */
+  const storeRefused = (ticket: TicketId) => answered(ticket, false);
+
+  return {
+    classified,
+    classify,
+    settledRead,
+    settledLane,
+    settled,
+    refused,
+    awaits,
+    stored,
+    storeRefused,
+  };
 };
 
 /**

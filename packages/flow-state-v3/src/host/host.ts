@@ -1,4 +1,4 @@
-import { Context, type Option } from "effect";
+import { Context, Data, type Effect, type Option } from "effect";
 
 /**
  * Why the runtime writes a batch: to acknowledge an Attempt before its send, to capture a lane
@@ -12,17 +12,27 @@ export type Purpose = "acknowledge" | "capture" | "flush";
 export type Bytes = { readonly key: string; readonly value: Option.Option<string> };
 
 /**
+ * The store refused a batch: nothing in it landed.
+ */
+export class StoreRefused extends Data.TaggedError("StoreRefused")<Record<string, never>> {}
+
+/**
  * A scope's durable store as the runtime uses it (WriteAhead R12): it loads every record at boot
- * and writes atomic batches, answering each once.
+ * and writes atomic batches.
+ *
+ * **Details**
+ *
+ * `write` succeeds when the batch landed and fails `StoreRefused` when it did not; an
+ * interrupted write is unanswered, as a hung store is. `acknowledges` names the Attempts the
+ * batch acknowledges.
  */
 export type Store = {
-  readonly load: () => ReadonlyMap<string, string>;
+  readonly load: Effect.Effect<ReadonlyMap<string, string>>;
   readonly write: (
     writes: ReadonlyArray<Bytes>,
     purpose: Purpose,
-    answer: (ok: boolean) => void,
     acknowledges: ReadonlyArray<string>,
-  ) => void;
+  ) => Effect.Effect<void, StoreRefused>;
 };
 
 /**

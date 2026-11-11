@@ -32,7 +32,8 @@ export type Input = Data.TaggedEnum<{
   Send: { actor: ActorId; tag: string; payload: Values };
   Settled: { call: CallId; result: CallResult };
   Fired: { timer: TimerId };
-  Stored: { ticket: TicketId; ok: boolean };
+  Stored: { ticket: TicketId };
+  Refused: { ticket: TicketId };
   DisposeRuntime: {};
   DisposeActor: { actor: ActorId };
   Forget: { actor: ActorId };

@@ -71,7 +71,8 @@ export const makeDriver = (options: {
 
   const edge = makeEdge(options.platform, fibers, {
     captureMs: options.captureMs,
-    stored: (ticket, ok) => input(Input.Stored({ ticket, ok })),
+    answered: (ticket, landed) =>
+      input(landed ? Input.Stored({ ticket }) : Input.Refused({ ticket })),
   });
 
   const perform = (command: Command) =>

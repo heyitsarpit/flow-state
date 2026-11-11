@@ -41,6 +41,6 @@ export const testing = {
     internalsOf(runtime).driver.input(Input.Ensure({ actor, use: Option.none(), existing: true })),
 };
 
-export { Host } from "./host.ts";
+export { Host, StoreRefused } from "./host.ts";
 
 export type { Bytes, Platform, Purpose, Store } from "./host.ts";

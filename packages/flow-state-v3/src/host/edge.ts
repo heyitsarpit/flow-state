@@ -1,4 +1,4 @@
-import { Clock, Context, Duration, Effect, Exit, Option } from "effect";
+import { Cause, Clock, Context, Duration, Effect, Exit, Option } from "effect";
 import type { Ticket, TicketId, Write } from "../core/world.ts";
 import type { Fibers } from "./fibers.ts";
 import { Host, type Platform, type Purpose } from "./host.ts";
@@ -40,12 +40,15 @@ const purposeOf = (tickets: ReadonlyArray<Ticket>) => {
  * - A batch with a ticket, or any batch with `captureMs` at 0 or on a hidden page, is issued in
  *   the next host task; a plain one waits at most `captureMs`.
  * - A refused batch is put back unless something newer was accepted for the same key.
- * - Each ticket's answer is passed to `stored`, which runs a step of the core.
+ * - Each ticket's answer is passed to `answered`, which runs a step of the core.
  */
 export const makeEdge = (
   platform: Platform,
   fibers: Fibers,
-  options: { readonly captureMs: number; readonly stored: (ticket: TicketId, ok: boolean) => void },
+  options: {
+    readonly captureMs: number;
+    readonly answered: (ticket: TicketId, landed: boolean) => void;
+  },
 ) => {
   const host = Context.get(platform, Host);
   const clock = Context.get(platform, Clock.Clock);
@@ -73,24 +76,27 @@ export const makeEdge = (
       due: Number.POSITIVE_INFINITY,
     });
 
-    store.value.write(
-      writes.map((w) => ({
-        key: w.key,
-        value: Option.map(w.record, (r) => JSON.stringify(r)),
-      })),
-      purposeOf(tickets),
-      (ok) => {
+    fibers.fork(
+      `store/${name}`,
+      store.value.write(
+        writes.map((w) => ({ key: w.key, value: Option.map(w.record, (r) => JSON.stringify(r)) })),
+        purposeOf(tickets),
+        tickets.filter((t) => t.purpose === "acknowledge").map((t) => t.attempt),
+      ),
+      (exit) => {
+        // An interrupted write is unanswered, as a hung store is (WriteAhead R12).
+        if (Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause)) return;
+        const landed = Exit.isSuccess(exit);
         const now = scopeOf(name);
         const dirty = new Map(now.dirty);
 
-        if (!ok) for (const w of writes) if (!dirty.has(w.key)) dirty.set(w.key, w);
+        if (!landed) for (const w of writes) if (!dirty.has(w.key)) dirty.set(w.key, w);
 
         scopes.set(name, { ...now, dirty, out: false });
 
-        for (const t of tickets) options.stored(t.id, ok);
+        for (const t of tickets) options.answered(t.id, landed);
         pump(name);
       },
-      tickets.filter((t) => t.purpose === "acknowledge").map((t) => t.attempt),
     );
   };
 
