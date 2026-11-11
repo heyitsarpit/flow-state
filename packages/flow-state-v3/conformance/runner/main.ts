@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { nullPort } from "../adapters/null.ts";
 import { nullSurface } from "../adapters/null-static.ts";
 import { loadPrototypeSurface } from "../adapters/prototype-static.ts";
+import { productionPort } from "../adapters/production.ts";
 import { loadPrototype, prototypePort } from "../adapters/prototype.ts";
 import { coverageOf, Gap, Standing } from "../coverage.ts";
 import type { Scenario } from "../dsl/case.ts";
@@ -36,6 +37,7 @@ import { type CaseVerdict, VERDICTS_LINE, VerdictsJson } from "./verdict.ts";
 
 const MAIN = fileURLToPath(import.meta.url);
 const NULL_RUNTIME = "null";
+const PRODUCTION_RUNTIME = "production";
 const DEFAULT_RUNTIME = resolve(dirname(MAIN), "..", "..", "prototypes", "round-14");
 const REPOSITORY = resolve(dirname(MAIN), "..", "..", "..", "..");
 
@@ -48,16 +50,23 @@ const flag = (args: ReadonlyArray<string>, name: string) => {
 const runtimeOf = (args: ReadonlyArray<string>) => {
   const given = Option.getOrElse(flag(args, "--runtime"), () => DEFAULT_RUNTIME);
 
-  return given === NULL_RUNTIME ? given : resolve(given);
+  return given === NULL_RUNTIME || given === PRODUCTION_RUNTIME ? given : resolve(given);
 };
 
-const runtimePort = (runtime: string) =>
-  runtime === NULL_RUNTIME
-    ? Effect.succeed(nullPort)
-    : Effect.map(loadPrototype(runtime), prototypePort);
+const runtimePort = (runtime: string) => {
+  if (runtime === NULL_RUNTIME) return Effect.succeed(nullPort);
 
+  if (runtime === PRODUCTION_RUNTIME) return Effect.succeed(productionPort);
+
+  return Effect.map(loadPrototype(runtime), prototypePort);
+};
+
+// The production runtime has no static surface yet (T17 builds the compiler's and the CLI's): its
+// cases run with no `flow graph`, so the graph gate does not judge its turns.
 const runtimeSurface = (runtime: string) =>
-  runtime === NULL_RUNTIME ? Effect.succeed(nullSurface) : loadPrototypeSurface(runtime);
+  runtime === NULL_RUNTIME || runtime === PRODUCTION_RUNTIME
+    ? Effect.succeed(nullSurface)
+    : loadPrototypeSurface(runtime);
 
 const graphsFor = (surface: Surface, chosen: ReadonlyArray<Scenario>) => {
   const names = new Set(chosen.flatMap((s) => s.fixtures.map((f) => f.name)));

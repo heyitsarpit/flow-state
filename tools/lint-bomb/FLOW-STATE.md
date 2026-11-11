@@ -154,15 +154,16 @@ on internal modules and `off` on public entrypoint modules.
 - When the module layout is decided:
   - Enable `no-inward-module-dependency` and `no-public-entrypoint-export-drift`.
   - Scope `no-optional-domain-properties` to internal modules as `error`, and turn it off on
-    public modules.
+    public modules. Done 2026-11-11 (T16): off on `contract.ts`, `definition.ts`, `machine.ts`,
+    `flow.ts`, `host/runtime.ts` and the suite's `machines/`.
   - Allow plain `try/catch` in exactly one module, the one that calls user callbacks and returns a
     `Result`. `Effect.try` costs about 170 ns against 7 ns per callback and would put Effect in the
     turn. `no-raw-try-catch` stays `error` everywhere else.
-  - Narrow `no-allocation-in-loop` to the turn's hot modules.
+  - Narrow `no-allocation-in-loop` to the turn's hot modules. Done 2026-11-11 (T16): `src/core/turn.ts`.
   - Replace the proposed `src/host/` in `vite.config.ts` with the real host adapter directory, and
     narrow the "no Effect runtime" ban to the turn's modules if the compiler needs Effect.
   - Add the host adapter directory to `no-effect-runner-in-domain`,
     `no-unwrapped-promise-in-effect-core` and `no-unsafe-fiber-methods`.
 - When v3 has an issue or diagnostic type: port `no-parallel-diagnostic-errors` to v3's path.
-- When the first file lands in `src/`: remove `--no-error-on-unmatched-pattern`.
+- When the first file lands in `src/`: remove `--no-error-on-unmatched-pattern`. Done 2026-11-11 (T16).
 - Examples and docs apps: add each to the linted paths when it is created.

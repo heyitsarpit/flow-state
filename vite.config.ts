@@ -95,8 +95,9 @@ export default defineConfig({
         "error",
         { sourceRoots: [productionSource], defects: ["Defect", "unreachable"] },
       ],
-      // A review signal for hot paths. Narrow sourceRoots to the turn's modules once the layout exists.
-      "lint-bomb/no-allocation-in-loop": ["warn", { sourceRoots: [productionSource] }],
+      // A review signal for hot paths: the turn's own module (T16 layout, 2026-11-11). The step and the
+      // host build new values per change by design (plain immutable data), so they are not narrowed in.
+      "lint-bomb/no-allocation-in-loop": ["warn", { sourceRoots: [`${productionSource}/core/turn.ts`] }],
       // The host boundary that runs fibers gets allowedDirectories once the layout exists.
       "lint-bomb/no-effect-runner-in-domain": "error",
       "lint-bomb/no-empty-context-make-unsafe": "error",
@@ -165,7 +166,8 @@ export default defineConfig({
       "lint-bomb/prefer-effect-native-tagged-types": "warn",
       // Off: it exists to stop agents overusing readonly elsewhere; here readonly guards shared turn state.
       "lint-bomb/no-readonly": "off",
-      "lint-bomb/no-optional-domain-properties": ["warn", { sourceRoots: productionCode }],
+      // Internal records use Option; the public option-bag modules are exempt below (T16 layout).
+      "lint-bomb/no-optional-domain-properties": ["error", { sourceRoots: productionCode }],
       // No exemption: user values arrive through their Schema, so typeof means a value skipped it.
       "lint-bomb/no-runtime-typeof": "error",
 
@@ -174,6 +176,19 @@ export default defineConfig({
       "lint-bomb/no-public-entrypoint-export-drift": "off",
     },
     overrides: [
+      {
+        // Public option bags use `?:` under exactOptionalPropertyTypes, as Effect does
+        // (tools/lint-bomb/FLOW-STATE.md). The suite's machines are app code over those bags.
+        files: [
+          `${productionSource}/contract.ts`,
+          `${productionSource}/definition.ts`,
+          `${productionSource}/machine.ts`,
+          `${productionSource}/flow.ts`,
+          `${productionSource}/host/runtime.ts`,
+          `${productionSuite}/machines/**/*.ts`,
+        ],
+        rules: { "lint-bomb/no-optional-domain-properties": "off" },
+      },
       {
         files: [`${productionSource}/**/*.{ts,tsx}`, `${productionSuite}/**/*.{ts,tsx}`],
         rules: {

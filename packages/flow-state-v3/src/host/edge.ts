@@ -1,0 +1,154 @@
+import { Option } from "effect";
+import type { Values } from "../core/compiled.ts";
+import type { Host, Purpose } from "./host.ts";
+
+/**
+ * A ticket a batch carries: the Attempt it acknowledges or captures.
+ */
+export type Ticket = {
+  readonly id: string;
+  readonly attempt: string;
+  readonly purpose: "acknowledge" | "capture";
+};
+
+type Write = { readonly key: string; readonly record: Option.Option<Values> };
+
+/**
+ * One scope's pending persistence: what is dirty, the tickets waiting on it, whether a batch is
+ * out, and when the next plain batch is due.
+ */
+type Scope = {
+  readonly dirty: ReadonlyMap<string, Write>;
+  readonly tickets: ReadonlyArray<Ticket>;
+  readonly out: boolean;
+  readonly due: number;
+  readonly stopWake: Option.Option<() => void>;
+};
+
+const fresh: Scope = {
+  dirty: new Map(),
+  tickets: [],
+  out: false,
+  due: Number.POSITIVE_INFINITY,
+  stopWake: Option.none(),
+};
+
+const purposeOf = (tickets: ReadonlyArray<Ticket>) => {
+  const capture: Purpose = "capture";
+  const acknowledge: Purpose = "acknowledge";
+  const flush: Purpose = "flush";
+
+  if (tickets.some((t) => t.purpose === "capture")) return capture;
+
+  return tickets.length > 0 ? acknowledge : flush;
+};
+
+const stop = (scope: Scope) =>
+  Option.match(scope.stopWake, { onNone: () => undefined, onSome: (wake) => wake() });
+
+/**
+ * The persistence edge (WriteAhead R10, R12, R13): per scope, one batch out at a time, carrying
+ * everything not known to have landed.
+ *
+ * **Details**
+ *
+ * - A batch with a ticket, or any batch with `captureMs` at 0 or on a hidden page, is issued in
+ *   the next host task; a plain one waits at most `captureMs`.
+ * - A refused batch is put back unless something newer was accepted for the same key.
+ * - Each ticket's answer is passed to `stored`, which runs a step of the core.
+ */
+export const makeEdge = (
+  host: Host,
+  options: { readonly captureMs: number; readonly stored: (ticket: string, ok: boolean) => void },
+) => {
+  const scopes = new Map<string, Scope>();
+  const scopeOf = (name: string) => scopes.get(name) ?? fresh;
+
+  const issue = (name: string) => {
+    const scope = scopeOf(name);
+    stop(scope);
+    const store = host.store;
+
+    if (Option.isNone(store) || scope.dirty.size === 0) {
+      scopes.set(name, { ...scope, stopWake: Option.none(), due: Number.POSITIVE_INFINITY });
+
+      return;
+    }
+
+    const writes = [...scope.dirty.values()];
+    const { tickets } = scope;
+
+    scopes.set(name, {
+      dirty: new Map(),
+      tickets: [],
+      out: true,
+      due: Number.POSITIVE_INFINITY,
+      stopWake: Option.none(),
+    });
+
+    store.value.write(
+      writes.map((w) => ({
+        key: w.key,
+        value: Option.map(w.record, (r) => JSON.stringify(r)),
+      })),
+      purposeOf(tickets),
+      (ok) => {
+        const now = scopeOf(name);
+        const dirty = new Map(now.dirty);
+
+        if (!ok) for (const w of writes) if (!dirty.has(w.key)) dirty.set(w.key, w);
+
+        scopes.set(name, { ...now, dirty, out: false });
+
+        for (const t of tickets) options.stored(t.id, ok);
+        pump(name);
+      },
+      tickets.filter((t) => t.purpose === "acknowledge").map((t) => t.attempt),
+    );
+  };
+
+  const pump = (name: string) => {
+    const scope = scopeOf(name);
+
+    if (scope.out || scope.dirty.size === 0) return;
+
+    if (scope.tickets.length > 0 || host.now() >= scope.due || host.hidden()) issue(name);
+  };
+
+  const wakeAt = (name: string, at: number) => {
+    const scope = scopeOf(name);
+
+    if (at >= scope.due) return;
+    stop(scope);
+
+    const wake = host.arm(at, () => {
+      scopes.set(name, {
+        ...scopeOf(name),
+        due: Number.NEGATIVE_INFINITY,
+        stopWake: Option.none(),
+      });
+      pump(name);
+    });
+
+    scopes.set(name, { ...scope, due: at, stopWake: Option.some(wake) });
+  };
+
+  host.onHidden(() => {
+    for (const [name, scope] of scopes) if (!scope.out) issue(name);
+  });
+
+  return {
+    accept: (name: string, writes: ReadonlyArray<Write>, ticket: Option.Option<Ticket>) => {
+      const scope = scopeOf(name);
+      const dirty = new Map(scope.dirty);
+
+      for (const w of writes) dirty.set(w.key, w);
+      scopes.set(name, { ...scope, dirty, tickets: [...scope.tickets, ...Option.toArray(ticket)] });
+
+      if (Option.isSome(ticket) || options.captureMs <= 0 || host.hidden()) {
+        scopes.set(name, { ...scopeOf(name), due: Number.NEGATIVE_INFINITY });
+        host.later(() => pump(name));
+      } else wakeAt(name, host.now() + options.captureMs);
+    },
+  };
+};
