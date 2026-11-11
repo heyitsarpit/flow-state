@@ -39,15 +39,15 @@ diffed them (scratch `s5d/sweep.ts`, `s5d/diff.ts`; the step 4 reviewer's driver
 
 Probes (scratch `s5d/p*.json`, each run on both trees):
 
-| Probe | Edit to round-14 | `1186683d` | `48109efd` |
-| --- | --- | --- | --- |
-| P1 | drop Leave's `void.commit` from act and report | PAY-19 ×2, case only | same |
-| P2 | never report `Unparked` (boot, adopt, thaw) | 33 cases, delivered-once I15 | 0 red |
-| P3 | no `unknown { Restored }` for a head that is not Held | 7, all case only | 5 delivered-once Restore I6, 2 case only |
-| P4 | drop cancels, and report a release in their place | not run | 14 red; lane-queue only I1, misattributed |
-| P5b | adoption delivers no parked ending, silently | 3, disposal I29/I32 | same, plus delivered-once I15 |
-| P5d | boot delivers no parked ending | 14, disposal I29 | 16, plus I15 and DLV-04 Actors I24 |
-| P5c | a thaw delivers no parked ending | 0 red | 0 red |
+| Probe | Edit to round-14                                      | `1186683d`                   | `48109efd`                                |
+| ----- | ----------------------------------------------------- | ---------------------------- | ----------------------------------------- |
+| P1    | drop Leave's `void.commit` from act and report        | PAY-19 ×2, case only         | same                                      |
+| P2    | never report `Unparked` (boot, adopt, thaw)           | 33 cases, delivered-once I15 | 0 red                                     |
+| P3    | no `unknown { Restored }` for a head that is not Held | 7, all case only             | 5 delivered-once Restore I6, 2 case only  |
+| P4    | drop cancels, and report a release in their place     | not run                      | 14 red; lane-queue only I1, misattributed |
+| P5b   | adoption delivers no parked ending, silently          | 3, disposal I29/I32          | same, plus delivered-once I15             |
+| P5d   | boot delivers no parked ending                        | 14, disposal I29             | 16, plus I15 and DLV-04 Actors I24        |
+| P5c   | a thaw delivers no parked ending                      | 0 red                        | 0 red                                     |
 
 ## Findings, ranked
 

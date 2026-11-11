@@ -555,6 +555,9 @@ note 2026-11-11T00:46:18Z
 note 2026-11-11T01:00:31Z
     Review started on 1186683d..48109efd (step 5 and the H1 fix); weekly usage 23 percent.
 note 2026-11-11T01:22:48Z
-    Step 4 review fixes and the rest of step 5 landed at 560b911d (87/87, null 0/87, sweep 81/81, 36 checked). A fresh lead takes steps 6 to 8.
+    Step 4 review fixes and the rest of step 5 landed at 560b911d (87/87, null 0/87, sweep 81/81, 36 checked). A fresh 
+    lead takes steps 6 to 8.
 note 2026-11-11T01:30:12Z
-    Step 5 review (code:workflow/plans/flow/references/proposals/step5-review-2026-11-11.md): step 5 sound and no mutant lost, but H1 (a reported release still undoes owed members), M1 (Restore I6 skips a never-sent acknowledged head) and M2 go to the step 6 lead first. Decision: what a turn owes comes only from its row.
+    Step 5 review (code:workflow/plans/flow/references/proposals/step5-review-2026-11-11.md): step 5 sound and no 
+    mutant lost, but H1 (a reported release still undoes owed members), M1 (Restore I6 skips a never-sent acknowledged 
+    head) and M2 go to the step 6 lead first. Decision: what a turn owes comes only from its row.

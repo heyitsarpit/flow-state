@@ -588,6 +588,11 @@ tasks
             87/87, null 0/87, sweep 81/81, coverage 0 gaps (36), tests 30/30, check at zero. Pending CQ1, CQ2, CQ6 
             followed as written. Next: steps 6 and 7. Detail: code:packages/flow-state-v3/conformance/STATUS.md 
             (Convergence v2 build, Run 4).
+        comment     2026-11-11T01:50:49Z
+            Run 5: step 6 landed (c95fdf78; disposal reads the fold, mutant.bound-ending-wrong-tag; the two boot lies 
+            relabelled to WriteLanes I15, logged in STATUS). Step 5 review H1, L4, L5 fixed (7b0a4696); M1 open (needs 
+            a storage fact: PAY-09/ack-not-stored), M2 mutant not added (no Invariant to expect). Next: steps 7 and 8. 
+            Suite 87/87, null 0/87, sweep 83/83, coverage 0 gaps (36).
     T8
         title       Turn area complete
         status      open

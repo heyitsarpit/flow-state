@@ -756,6 +756,59 @@ check` at zero.
   - **Pending, the Spec followed as written (marked in code):** CQ1 and CQ2 (a twice-refused decline or
     never-sent ending is `Closed`; `lifecycle-rules.ts`, `delivered-once.ts`, traces), CQ6 (a never-sent commit's
     disposal ending stays `Parked`, unjudged; `lifecycle-rules.ts`, traces).
+- **Run 5 (2026-11-11, from `2bf524ac`):**
+  - **Step 6 (`c95fdf78`):** `disposal` reports the fold's Actors I29, I32, I35, I36 and keeps its own views: the
+    window (Attempts `OnWire` or `Interrupted` at `DisposalStarts`; an `Interrupted` call's own `unknown
+    { Cancelled }` is the cancel's) for I35's four violations, I30 from the server log, I31 over the deliveries
+    after a disposing `Reload` (distinct endings), I36's read check, and a release of an unbound actor's in-flight
+    head (I29, I32). `disposal-ledger.ts` and `disposal-kept.ts` went in `2bf524ac` (a staged deletion swept into
+    the coordinator's commit; `c95fdf78` repairs HEAD). Mutant `mutant.bound-ending-wrong-tag` (PAY-16
+    settled-during-disposal-parked): I35 violation 2, also ending-channels I3.
+    - Verdict diff against `2ab39d18` (reasons per red case): `lie.boot-says-disposed` and `lie.boot-drops-held`
+      lose disposal I29 in 26 cases and keep delivered-once I15; moved to delivered-once's mutants expecting I15
+      (the boot decides `unknown { Restored }` and drops its mail: the lane survives, Actors I29 holds; the
+      decided ending is never delivered, WriteLanes I15). `mutant.adoption-skips-parked` DISP-06 loses I29, keeps
+      I15 (T6 L11). Gains: `mutant.delivered-during-disposal` I29 in two PAY-16 cases; `mutant.boot-skips-restored`
+      PAY-06 x2 and `lane.unknown-promotes` PAY-06/uninterruptible and PAY-18 red by I29 (an unmet `AwaitRestore`
+      after the end-of-case disposal, R22); `o6.no-bound`, `mutant.short-disposal-bound`,
+      `mutant.success-without-answer` gain I35 in PAY-16/stale-send-fenced (a re-send on the wire is in the window;
+      v2 drops that limit). Sweep 82/82.
+    - Reviewer (Haiku), 8 findings: accepted and fixed 1 (an on-wire or re-sending unbound head released was
+      lost) and 2 (the `Interrupted` exemption on the settled path too). Rejected 8 (the window keeps each call's
+      start phase, a fact of the start). Noted: 3 (I31 is per step and ignores `Parked`, as before; Actors I31 says
+      "delivered or parked together", for step 9), 4 (the read's key is compared raw with the mint key; checked
+      equal on PAY-16, where `o6.settled-in-bound-stays-held` is caught by the read), 5 (a non-`Restored` unknown of
+      a settled head is now I16), 6 (an `AwaitRestore` is discharged by any delivery of its Attempt; a wrong event
+      is F2's I15), 7 (settled while unbound is I15).
+  - **Step 5 review (`references/proposals/step5-review-2026-11-11.md`, `7b0a4696`):**
+    - H1 fixed: lane members are owed only by the chosen row; a non-leaving reported release, or a member of an
+      unknown operation, drops only itself. Mutant `lie.cancels-reported-as-release` (lane-queue I12, 14 cases).
+      Diff: `lie.release-member-claimed` green in PAY-03, PAY-08/reloadDuringCharge, PAY-14, PAY-20 x2 and PAY-21
+      (was I1 and I12, the misattribution H1 names; the release there is report-only), still caught in its case.
+    - **M1 open:** owing a restore to a `Restoring { head: true }` head turns PAY-09/ack-not-stored red
+      (Restore I6): the suite has no storage fact telling an acknowledged batch from one that never landed (v2
+      Risk 4). Needs a storage fact (a Port or world change); reverted, stated in `incarnate`'s Gotcha.
+    - **M2 part:** the `claimed` doc corrected; no mutant, since no Invariant says a turn runs its selected
+      alternative's members (the member-mismatch gap for the user), so a case mutant has nothing to expect.
+    - M3, the six reach changes step 5's log missed (Conformance R11): `k.failure-as-success` also delivered-once
+      I15 in 23 cases (F2: event against its mapping); `mutant.success-then-failure` loses delivered-once I15 in 18
+      cases, keeps I16 (a refused `End` records no ending); `lane.unknown-promotes` first catch moves to Restore I6
+      in PAY-15/reload-holds-exactly-once and PAY-08/reload-while-reconciling (was a case expectation) and in
+      DISP-05 (was disposal I32); `lane.fresh-mint-on-held` (PAY-15/press-pay-while-held) and
+      `lie.serialize-as-latest` (LANE-02) also delivered-once I15; `mutant.boot-resends-held` also I16 and I15 in
+      PAY-07/late-may-not-leave. The "seven lane mutants" of step 5 are six.
+    - L4: `AwaitRestore.incarnation` removed (its read was always met). L5: the CQ6 Gotcha cites I15 and R10
+      against Actors R22. L1: the old ledger's "parked ending delivered with no `Unparked`" check stays dropped,
+      as v2's Table C admits `Delivered` on `Parked` (consistency only, Conformance R4).
+    - Reviewer (Haiku) of the fixes: accepted 2, 3 (no-row leaving releases anchor), 7 (doc wording); verified 5
+      (incarnation) and 6 (mutant edits). **Carried, Medium:** 1, a reported `Nothing` target on an owed member
+      voids it (`owedMembers` takes the report's target; round-14 reports `nothing` for a cancel inside another
+      operation's ending, where v2's fallback gives `Every`). The same class as H1; tied to R9's `Only`/`Every`
+      question, so not changed here.
+  - **Stopped here** (context). Now: suite 87/87, null 0/87, sweep 83/83, coverage 0 gaps (36), lifecycle tests
+    30/30, `nub run check` at zero. Next: step 7 (whether `ending-channels` and `attempt-identity` read the fold;
+    the key check; whether the fold's I6 refusal is claimed), step 8 (`cancels` in the references is unread
+    since step 6; `dsl/domain.ts`'s `laneAtSend`, `laneAtMint` and template key; README and mutant headers).
 - **Queued after the convergence steps, before T8 (coordinator, 2026-11-11):** the T41/T13 review
   (`references/proposals/t41-t13-review-2026-11-11.md`): H1, M1 to M4 and the Lows in the files touched. Its M4
   (whether `ending-channels` and `attempt-identity` move onto the lifecycle) is decided at step 7.
