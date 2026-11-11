@@ -628,6 +628,22 @@ the lifecycle tests 23/23, sweep 74/74, `nub run check` at zero.
       their coverage line reads BAD; coverage in the checkout is 0 gaps.)
   - Next: step 5 (`delivered-once` onto `lives`, Port change 5, F2, DLV-05), then 6 to 9; L2 with step 5; the member
     mismatch waits on the user.
+- **Run 3 (2026-11-11, from `1186683d`):**
+  - **Reviewer (Haiku) of `2dec83cb^..1186683d` (`81127d25`), 11 findings, no High.** Accepted and fixed: (1) the
+    null gate took any non-`Pass`, so a null run of all `Timeout`s read ok; it now needs every case `Fail`; (3) no
+    test held Timeout judging: `judge` is exported and `runner/falsify.test.ts` pins a lone `Timeout` as
+    `WrongReason` and a catch beside one (seen failing with Timeout counted red); (4) the `releasesOnLeave` example
+    called the real `step`, not the mutated one, so it guarded no mutant (found while adding the asked mutants):
+    it now runs through `using`, with one negative per field (event, from, to) and three mutants, each killed;
+    (5) a step mutant is killed only by an `AssertionError` (any other throw fails the test); (6) the stale
+    `heard` doc. Rejected: (2) checking the bound in `judge`: a violation judged from reported facts is true at any
+    wall time, and a bound there turns it into a `Timeout` on a slow machine; (9) the two
+    `FLOW_STATE_ALLOW_UNKNOWN` markers are one per `unknown` use (FLOW-STATE.md). Carried to step 9: (7) Table A's
+    `End` × `Gone` (M2) and `Send` × `Resending` (L4) and Table C's twice-refused never-sent `Closed` (M1) are not
+    yet in v2's tables; (8) `ModuleDisabled` in the no-policy declines (WriteLanes R13 moves it to the entity
+    store; kept as a reason no lane policy gives) and `Disposed` at a decline while disposing (lead's call, logged
+    in M4). Noted: (10) a wrapped `Overdue` is a `Fail` with no oracle, never a catch; (11) a child past its 120 s
+    bound is `NoVerdict`, not `Timeout`.
 - **Queued after the convergence steps, before T8 (coordinator, 2026-11-11):** the T41/T13 review
   (`references/proposals/t41-t13-review-2026-11-11.md`): H1, M1 to M4 and the Lows in the files touched. Its M4
   (whether `ending-channels` and `attempt-identity` move onto the lifecycle) is decided at step 7.
