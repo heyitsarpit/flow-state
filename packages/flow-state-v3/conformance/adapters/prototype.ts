@@ -44,6 +44,7 @@ type PrototypeInstance = {
   readonly state: (actor: string) => unknown;
   readonly memory: (actor: string) => unknown;
   readonly row: (actor: string, op: string, key: Json) => unknown;
+  readonly record: (ref: string) => unknown;
   readonly pending: () => boolean;
 };
 
@@ -141,30 +142,43 @@ const FIXTURES = [
   { name: "keyed", file: "typed/round15b.ts", exported: "r15KeyedFixture", made: "call" },
   { name: "held", file: "typed/round15b.ts", exported: "r15HeldFixture", made: "call" },
   { name: "stamp", file: "typed/round13.ts", exported: "keyStampFixture", made: "release" },
+  { name: "issues", file: "typed/issues.ts", exported: "issuesFixture", made: "value" },
   { name: "cancel", file: "typed/round15.ts", exported: "r15SwitchFixture", made: "call" },
 ] as const;
 
 const actorKey = (actor: ActorRef) =>
   `${actor.machine}/${actor.id.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll("|", "%7C")}`;
 
+const BodyJson = Schema.fromJsonString(Schema.Json);
+
+/**
+ * A fixture's request body as the JSON a fetch would send: undefined fields dropped.
+ */
+// FLOW_STATE_ALLOW_UNKNOWN: a fixture's request body is its own code's value; it is serialised and decoded here, once.
+const asJson = (input: unknown) =>
+  Effect.orDie(
+    Schema.decodeUnknownEffect(BodyJson)(JSON.stringify(input === undefined ? null : input)),
+  );
+
 const apiOf = (network: Network, page: Page) => {
+  // FLOW_STATE_ALLOW_UNKNOWN: a fixture's request body, decoded by `asJson`.
   const write = (op: string) => (input: unknown, options: { readonly idempotencyKey: string }) =>
-    Effect.flatMap(Effect.orDie(Schema.decodeUnknownEffect(Schema.Json)(input)), (json) =>
+    Effect.flatMap(asJson(input), (json) =>
       network.request(op, json, Option.some(options.idempotencyKey)),
     );
 
+  // FLOW_STATE_ALLOW_UNKNOWN: a fixture's request body, decoded by `asJson`.
   const lookup = (op: string) => (input: unknown) =>
-    Effect.flatMap(Effect.orDie(Schema.decodeUnknownEffect(Schema.Json)(input)), (json) =>
-      network.request(op, json, Option.none()),
-    );
+    Effect.flatMap(asJson(input), (json) => network.request(op, json, Option.none()));
 
   return {
     call: (
       op: string,
+      // FLOW_STATE_ALLOW_UNKNOWN: a fixture's request body, decoded by `asJson`.
       input: unknown,
       ...options: ReadonlyArray<{ readonly idempotencyKey: string }>
     ) =>
-      Effect.flatMap(Effect.orDie(Schema.decodeUnknownEffect(Schema.Json)(input)), (json) =>
+      Effect.flatMap(asJson(input), (json) =>
         network.request(
           op,
           json,
@@ -241,6 +255,11 @@ const runtimeOf = (instance: PrototypeInstance): Runtime => ({
     Option.match(Option.fromUndefinedOr(instance.row(actorKey(actor), operation, key)), {
       onNone: () => Result.succeed(Option.none()),
       onSome: (raw) => Result.map(decodeJson(`row ${operation}`, raw), Option.some),
+    }),
+  entity: (ref) =>
+    Option.match(Option.fromUndefinedOr(instance.record(ref)), {
+      onNone: () => Result.succeed(Option.none()),
+      onSome: (raw) => Result.map(decodeJson(`entity ${ref}`, raw), Option.some),
     }),
   pending: instance.pending,
 });

@@ -19,6 +19,7 @@ export const nullPort: Port = {
     disposeRuntime: () => undefined,
     snapshot: () => Result.succeed(Snapshot.Absent()),
     row: () => Result.succeed(Option.none()),
+    entity: () => Result.succeed(Option.none()),
     pending: () => false,
   }),
 };

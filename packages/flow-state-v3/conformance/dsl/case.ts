@@ -135,6 +135,7 @@ export type Case = {
   readonly eq: <A>(label: string, actual: A, expected: NoInfer<A>) => void;
   readonly snapshot: (actor: ActorRef) => Snapshot;
   readonly row: (actor: ActorRef, operation: string, key: Json) => Option.Option<Json>;
+  readonly entity: (ref: string) => Option.Option<Json>;
   readonly requests: (operation: string) => ReadonlyArray<Request>;
   readonly keys: (operation: string) => ReadonlyArray<string>;
   readonly landed: (operation: string) => number;
@@ -466,6 +467,7 @@ const openCase = (options: CaseOptions) => {
     eq,
     snapshot: (actor) => Result.getOrThrowWith(life.runtime().snapshot(actor), (f) => f),
     row,
+    entity: (ref) => Result.getOrThrowWith(life.runtime().entity(ref), (f) => f),
     requests,
     keys: (operation) => [...new Set(requests(operation).flatMap((r) => Option.toArray(r.key)))],
     landed: (operation) => new Set(landedKeys(operation)).size,

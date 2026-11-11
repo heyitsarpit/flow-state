@@ -2,6 +2,8 @@ import type { Case, Scenario } from "../dsl/case.ts";
 import { coveredBy } from "../coverage.ts";
 import { Held, Keyed } from "../fixtures/keyed.ts";
 import { Stamp } from "../fixtures/stamp.ts";
+import { Issues } from "../fixtures/issues.ts";
+import { Option, Predicate } from "effect";
 import { Observation } from "../port.ts";
 import { Answer } from "../world/network.ts";
 
@@ -9,6 +11,19 @@ const OK = Answer.Ok({ value: {} });
 
 const endedAs = (c: Case, operation: string) =>
   c.endings(operation).map((e) => `${e.channel} ${e.reason}`);
+
+const titleOf = (c: Case) =>
+  Option.getOrUndefined(
+    Option.flatMap(c.entity("Issue|i1"), (r) =>
+      Predicate.hasProperty(r, "data") &&
+      Predicate.hasProperty(r.data, "title") &&
+      Predicate.isString(r.data.title) &&
+      Predicate.hasProperty(r, "predicted") &&
+      r.predicted === false
+        ? Option.some(r.data.title)
+        : Option.none(),
+    ),
+  );
 
 const turnsOf = (c: Case, event: string) =>
   c.reports().filter((o) => Observation.$is("Turn")(o) && o.event === event).length;
@@ -79,6 +94,24 @@ export const laneKeysScenarios: ReadonlyArray<Scenario> = [
       c.eq("WriteLanes I17: no commit of it is invoked", c.requests("charge").length, 1);
     },
   },
+  {
+    id: "LANE-16",
+    cites: ["WriteLanes R1", "WriteLanes R13", "WriteLanes I2", "WriteLanes I24"],
+    fixtures: [Issues],
+    run: (c) => {
+      const a = c.actor(Issues, "a");
+      a.ensure();
+      a.send("Edit", { id: "i1", title: "Lost" });
+      c.ack();
+      c.answer("rename", Answer.Fail({ tag: "Refused", fields: {} }));
+      c.eq("refused", a.memory().toast, "Couldn't save the title");
+      c.eq("WriteLanes I2: a failed commit applies no success write", titleOf(c), undefined);
+      a.send("Edit", { id: "i1", title: "Kept" });
+      c.ack();
+      c.answer("rename", Answer.Ok({ value: { title: "Kept" } }));
+      c.eq("WriteLanes I24: a succeeded commit's success write is applied", titleOf(c), "Kept");
+    },
+  },
 ];
 
 /**
@@ -88,5 +121,7 @@ export const laneKeysCovered = coveredBy(laneKeysScenarios).filter(
   (row) =>
     row.invariant === "WriteLanes I14" ||
     row.invariant === "WriteLanes I17" ||
+    row.invariant === "WriteLanes I2" ||
+    row.invariant === "WriteLanes I24" ||
     row.invariant === "WriteLanes I18",
 );

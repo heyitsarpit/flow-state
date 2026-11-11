@@ -48,4 +48,33 @@ export const laneKeysMutants: ReadonlyArray<Mutant> = [
       },
     ],
   },
+  {
+    name: "entity.failure-confirms",
+    says: "a failed domain write still applies its success write with the attempt's own value",
+    expects: "WriteLanes I2",
+    runtime: "prototype",
+    cases: ["LANE-16"],
+    edits: [
+      {
+        file: "entities.ts",
+        find: '  if (ending.ch === "failure") return removeEntry(s, attempt);',
+        replace:
+          '  if (ending.ch === "failure") {\n    const c = confirm(contradicted(s, e, cx), e, { title: "Lost" }, sentAt, cx);\n    return removeEntry(clearMarks(c.s, e, c.covered), attempt);\n  }',
+      },
+    ],
+  },
+  {
+    name: "entity.success-not-confirmed",
+    says: "a succeeded domain write's success write is not applied",
+    expects: "WriteLanes I24",
+    runtime: "prototype",
+    cases: ["LANE-16"],
+    edits: [
+      {
+        file: "entities.ts",
+        find: "    const c = confirm(contradicted(s, e, cx), e, ending.value, sentAt, cx);",
+        replace: "    const c = { s: contradicted(s, e, cx), covered: [] as never };",
+      },
+    ],
+  },
 ];

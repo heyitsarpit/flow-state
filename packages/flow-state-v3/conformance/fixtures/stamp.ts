@@ -5,7 +5,7 @@ import { classifyWith, row } from "./reference.ts";
 
 const Key = Schema.Struct({ k: Schema.String, region: Schema.optionalKey(Schema.String) });
 
-const stay = to("root");
+const stay = to("stay");
 
 /**
  * `Lab/KeyStamp` (`keyStampFixture` in `prototypes/conformance/typed/round13.ts`) under `reject`:

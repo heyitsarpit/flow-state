@@ -348,6 +348,8 @@ export type Boot = {
  * - `row` is a write's row as the runtime publishes it, untyped; the fixture's operation decodes it
  *   (`dsl/actor.ts`), and an absent row is `None`. `snapshot` and `row` fail with
  *   {@link Unreadable} when the runtime's value is not JSON.
+ * - `entity` is an entity record as the app's entity store publishes it (its `ref`, such as
+ *   `Ticket|t1`), `None` when the store has none.
  * - `ensure` attaches one use of the identity, creating it if needed.
  * - `send` sends an external event to the actor's root (`part` empty) or to the trait or fragment
  *   instance at `part`, as the public API's scoped events (`E.t.Go`) address it.
@@ -385,6 +387,7 @@ export type Runtime = {
     operation: string,
     key: Json,
   ) => Result.Result<Option.Option<Json>, Unreadable>;
+  readonly entity: (ref: string) => Result.Result<Option.Option<Json>, Unreadable>;
   readonly pending: () => boolean;
 };
 

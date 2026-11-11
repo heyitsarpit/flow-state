@@ -30,4 +30,9 @@ export const writeLanesRemainders: ReadonlyArray<Remainder> = [
     owner: "@task.V3.T7",
     owed: "no current member names the old-version lane, and a lane of an older identity version declines nothing (LANE-15 judges the decline only)",
   },
+  {
+    invariant: "WriteLanes I24",
+    owner: "@task.V3.T7",
+    owed: "a success write over data that landed after the commit started is marked stale, and an invalid one applies nothing and reports InvalidWrite (round-14 has no InvalidWrite)",
+  },
 ];
