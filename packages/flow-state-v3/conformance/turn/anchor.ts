@@ -385,6 +385,28 @@ export const dropped = (state: State) =>
  * R10, I10), with the fields that batch holds; any other keeps its stored leaf.
  */
 /**
+ * The leaves an actor's record may hold: the one its saved turns reached, each its later turns
+ * reached, and its initial leaf when its removal may have landed. A turn whose leaf the table
+ * could not tell (`UNKNOWN_LEAF` in `trail`) leaves nothing to check: empty, and the next turn's
+ * `from` is the report's, a stated limit.
+ */
+const reachedOf = (state: State, key: string, a: Actor, removed: boolean) => {
+  const initial = state.machines[key.split(" ")[0] ?? ""]?.initial;
+  const at = a.saved.turns === 0 ? initial : a.trail[a.saved.turns - 1];
+  const fresh = removed ? initial : undefined;
+  const leaves = [at, ...a.trail.slice(a.saved.turns), fresh];
+
+  return leaves.includes(UNKNOWN_LEAF)
+    ? []
+    : [...new Set(leaves.flatMap((l) => (l === undefined ? [] : [l])))];
+};
+
+/**
+ * A `trail` entry for a turn whose leaf the table could not tell.
+ */
+export const UNKNOWN_LEAF = "*";
+
+/**
  * The suite disposed or forgot `actor`: an unanswered ending of one of its calls in the step that
  * adopts it is that call's restore, and after a kill it may start fresh at its initial leaf (the
  * removal may have landed).
@@ -392,7 +414,10 @@ export const dropped = (state: State) =>
 export const unbound = (state: State, actor: ActorRef) => ({
   ...state,
   actors: new Map(
-    [...state.actors].map(([key, a]) => [key, key === keyOf(actor) ? { ...a, removed: true } : a]),
+    [...state.actors].map(([key, a]) => [
+      key,
+      key === keyOf(actor) ? { ...a, removed: true, allowed: reachedOf(state, key, a, true) } : a,
+    ]),
   ),
   calls: new Map(
     [...state.calls].map(([key, c]) => [
@@ -409,14 +434,7 @@ export const reloaded = (state: State) => ({
   actors: new Map(
     [...state.actors].map(([key, a]) => {
       const lost = a.turns > a.saved.turns;
-      const initial = state.machines[key.split(" ")[0] ?? ""]?.initial;
-      const at = a.saved.turns === 0 ? initial : a.trail[a.saved.turns - 1];
-
-      const fresh = a.removed ? initial : undefined;
-
-      const reached = [at, ...a.trail.slice(a.saved.turns), fresh].flatMap((l) =>
-        l === undefined ? [] : [l],
-      );
+      const reached = reachedOf(state, key, a, a.removed);
 
       return [
         key,
@@ -430,7 +448,7 @@ export const reloaded = (state: State) => ({
           fields: a.saved.fields,
           saved: { turns: a.turns, fields: a.saved.fields },
           pending: Option.none(),
-          allowed: lost || a.removed ? [...new Set(reached)] : [],
+          allowed: lost || a.removed ? reached : [],
           removed: false,
         },
       ] as const;

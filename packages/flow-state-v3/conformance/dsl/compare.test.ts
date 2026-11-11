@@ -134,4 +134,17 @@ describe("an actor's incarnation and end, owed from the suite's facts (Actors R6
       "Actors I10",
     ]);
   });
+
+  it("refuses an end before the grace could have run out (Actors I10)", () => {
+    const opened = [Fact.Ensured(story), incarnated];
+
+    assert.deepStrictEqual(walked([[...opened, Fact.Released(story), finished]]), ["Actors I10"]);
+    assert.deepStrictEqual(
+      walked([
+        [...opened, Fact.Released(story)],
+        [Fact.Advanced({ ms: 50 }), finished],
+      ]),
+      ["Actors I10"],
+    );
+  });
 });

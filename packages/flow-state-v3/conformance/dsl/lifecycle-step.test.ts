@@ -392,6 +392,7 @@ const examples: ReadonlyArray<Example> = [
         Fact.Ensured({ actor: shopper, use: "host" }),
         incarnated,
         Fact.Released({ actor: shopper, use: "host" }),
+        Fact.Advanced({ ms: 200 }),
         said(Observation.Finished({ actor: shopper })),
         incarnated,
       ]);
@@ -406,6 +407,7 @@ const examples: ReadonlyArray<Example> = [
         Fact.Ensured({ actor: shopper, use: "host" }),
         said(Observation.Incarnated({ actor: shopper })),
         Fact.Released({ actor: shopper, use: "host" }),
+        Fact.Advanced({ ms: 200 }),
         said(Observation.Finished({ actor: shopper })),
       ]);
 

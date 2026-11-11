@@ -150,7 +150,7 @@ export const opened = (walk: Walk, actor: ActorRef, given: Rules, woken = false)
     ...next,
     model: {
       ...next.model,
-      live: [...next.model.live, { actor, free: Option.some(0), woken }],
+      live: [...next.model.live, { actor, free: Option.some(0), upper: 0, woken }],
     },
     incarnated: [...next.incarnated, actor],
   };
@@ -206,7 +206,10 @@ const surelyFree = (walk: Walk, known: Known, actor: ActorRef) => {
   );
 };
 
-const GRACE_MS = 100;
+/**
+ * Actors R8's grace, on the Runtime Clock the suite drives.
+ */
+export const GRACE_MS = 100;
 
 /**
  * The clock moved `ms`: each live actor the suite knows is free counts it, and one free for the
@@ -225,7 +228,9 @@ const aged = (walk: Walk, known: Known, ms: number, given: Rules) =>
       ...w,
       model: {
         ...w.model,
-        live: w.model.live.map((x) => (sameActor(x.actor, l.actor) ? { ...x, free } : x)),
+        live: w.model.live.map((x) =>
+          sameActor(x.actor, l.actor) ? { ...x, free, upper: x.upper + ms } : x,
+        ),
       },
     };
   }, walk);
@@ -239,6 +244,17 @@ const restarted = (walk: Walk) => ({
   model: {
     ...walk.model,
     live: walk.model.live.map((l) => ({ ...l, free: Option.some(0) })),
+  },
+});
+
+/**
+ * A use of `actor` was attached or released: it was not free until now.
+ */
+const unfreed = (walk: Walk, actor: ActorRef) => ({
+  ...walk,
+  model: {
+    ...walk.model,
+    live: walk.model.live.map((l) => (sameActor(l.actor, actor) ? { ...l, upper: 0 } : l)),
   },
 });
 
@@ -287,7 +303,7 @@ const suiteMoved = (walk: Walk, fact: SuiteFact, given: Rules) =>
     DisposingRuntime: () => pushed(walk, Move.DisposalStarts(), given),
     Disposed: ({ actor }) => removed(holding(walk, fact), ActorMove.Disposed({ actor }), given),
     Forgot: ({ actor }) => removed(holding(walk, fact), ActorMove.Forgot({ actor }), given),
-    Ensured: ({ actor }) => used(holding(walk, fact), actor, given),
+    Ensured: ({ actor }) => used(unfreed(holding(walk, fact), actor), actor, given),
     Drove: ({ actor }) => ({ ...walk, used: [...walk.used, actor] }),
     Unstoppable: ({ operation }) =>
       walk.model.unstoppable.includes(operation)
@@ -307,7 +323,7 @@ const suiteMoved = (walk: Walk, fact: SuiteFact, given: Rules) =>
       purposes: walk.purposes.slice(1),
     }),
     Dropped: () => ({ ...walk, model: { ...walk.model, pending: Option.none() } }),
-    Released: () => holding(walk, fact),
+    Released: ({ actor }) => unfreed(holding(walk, fact), actor),
     Stepped: () => walk,
     Requested: () => walk,
     Answered: () => walk,

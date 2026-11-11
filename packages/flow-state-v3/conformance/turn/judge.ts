@@ -104,7 +104,12 @@ export const judgeTurn = (
   const handlers = machines[turn.actor.machine];
 
   if (handlers === undefined)
-    return { to: Option.none(), found: [], match: Option.none(), from: turn.from };
+    return {
+      to: Option.none(),
+      found: [`Turn I2: ${name(turn)}, a machine no fixture of the case declares`],
+      match: Option.none(),
+      from: turn.from,
+    };
 
   const anchored = Option.orElse(leafOf(phase), () =>
     Phase.$is("Fresh")(phase) ? Option.some(handlers.initial) : Option.none(),

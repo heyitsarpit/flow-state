@@ -204,12 +204,18 @@ export type AttemptLife = { readonly id: string; readonly lane: LaneId; readonly
  * ends. `lives` and `ended` are the step's end, the most the batch can hold: each ending's life by
  * index, and how many of the model's `ended` Attempts. `least` is the model before the step's
  * second turn (its end when it ran fewer), the least it holds, since a lane batch is issued at once
- * by its turn (WriteAhead R10).
+ * by its turn (WriteAhead R10). `least.removed` are the actors whose `disposeActor` record it
+ * surely holds: a boot owes their Held heads no restore once that removal has landed (Actors R20,
+ * orchestrator a42f0bff).
  */
 export type Capture = {
   readonly lives: ReadonlyArray<Life>;
   readonly ended: number;
-  readonly least: { readonly lives: ReadonlyArray<Life>; readonly ended: number };
+  readonly least: {
+    readonly lives: ReadonlyArray<Life>;
+    readonly ended: number;
+    readonly removed: ReadonlyArray<ActorRef>;
+  };
 };
 
 /**
@@ -277,11 +283,13 @@ export type Model = {
 /**
  * A live incarnation, and how long the suite knows it has been free (Actors R7, R8): counted from
  * the last suite fact, `None` while it holds a use or may have work the suite cannot compute.
- * `woken`: the runtime opened it unasked (a boot's hydrate hold, a send), so its uses are unknown.
+ * `upper`: the most it can have been free, the clock since it opened or its last use was attached
+ * or released (Actors I10: an end before the grace is refused). `woken`: the runtime opened it unasked (a boot's hydrate hold, a send), so its uses are unknown.
  */
 export type Live = {
   readonly actor: ActorRef;
   readonly free: Option.Option<number>;
+  readonly upper: number;
   readonly woken: boolean;
 };
 
@@ -298,7 +306,11 @@ export const unsavedOf = (model: Model) => model.ended.slice(model.saved.least.e
 export const captureOf = (model: Model, least: Model) => ({
   lives: model.endings.map((e) => e.life),
   ended: model.ended.length,
-  least: { lives: least.endings.map((e) => e.life), ended: least.ended.length },
+  least: {
+    lives: least.endings.map((e) => e.life),
+    ended: least.ended.length,
+    removed: least.actors.filter((a) => a.record === "disposeActor").map((a) => a.actor),
+  },
 });
 
 /**
@@ -319,7 +331,7 @@ export const empty: Model = {
   release: 1,
   mintedIn: [],
   unencodable: false,
-  saved: { lives: [], ended: 0, least: { lives: [], ended: 0 } },
+  saved: { lives: [], ended: 0, least: { lives: [], ended: 0, removed: [] } },
   pending: Option.none(),
   held: [],
   live: [],

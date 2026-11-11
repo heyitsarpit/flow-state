@@ -1,6 +1,7 @@
 import { Option } from "effect";
 import { type ActorRef, sameActor } from "../port.ts";
-import { advance, incarnate } from "./lifecycle.ts";
+import { advance } from "./lifecycle.ts";
+import { incarnate } from "./lifecycle-incarnate.ts";
 import { applyLane } from "./lifecycle-lanes.ts";
 import { applyLives, applyLife } from "./lifecycle-lives.ts";
 import {

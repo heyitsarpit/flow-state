@@ -13,6 +13,7 @@ import {
   answeredEnding,
   closedTurn,
   finished,
+  GRACE_MS,
   holds,
   isLive,
   isWrite,
@@ -156,25 +157,29 @@ const incarnationHeard = (walk: Walk, actor: ActorRef, given: Rules) => {
 
 /**
  * A reported end (Actors R8, I10): one the step owes, or one the suite cannot rule out (a live
- * actor it holds no use of, whose free time it could not count). An end while the suite holds a
- * use breaks I10.
+ * actor it holds no use of, free for at least the grace by the clock it drives, whose work it
+ * could not follow). An end while the suite holds a use, or before the grace could have run out,
+ * breaks I10.
  */
 const endHeard = (walk: Walk, actor: ActorRef, given: Rules) => {
   const heard = { ...walk, endsHeard: [...walk.endsHeard, actor] };
 
   if (owedOnce(walk.ends, walk.endsHeard, actor)) return heard;
 
+  const early = (text: string) => ({
+    ...walk,
+    unmatched: [...walk.unmatched, { invariant: "Actors I10" as const, text }],
+  });
+
   if (holds(walk.model, actor))
-    return {
-      ...walk,
-      unmatched: [
-        ...walk.unmatched,
-        {
-          invariant: "Actors I10" as const,
-          text: `${actor.machine} ${actor.id} ended while the suite held a use of it`,
-        },
-      ],
-    };
+    return early(`${actor.machine} ${actor.id} ended while the suite held a use of it`);
+
+  const upper = walk.model.live.find((l) => sameActor(l.actor, actor))?.upper;
+
+  if (upper !== undefined && upper < GRACE_MS)
+    return early(
+      `${actor.machine} ${actor.id} ended after at most ${upper} ms free, before the ${GRACE_MS} ms grace`,
+    );
 
   return isLive(walk.model, actor) ? finished(heard, actor, given) : walk;
 };
