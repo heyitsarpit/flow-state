@@ -1,17 +1,17 @@
 {
-  "revision": "d50d54ea",
+  "revision": "43cc6cc2",
   "gates": [
     {
       "gate": "suite round-14",
-      "verdict": "VERDICT pass 119/119"
+      "verdict": "VERDICT pass 120/120"
     },
     {
       "gate": "suite production",
-      "verdict": "VERDICT pass 75/75"
+      "verdict": "VERDICT pass 76/76"
     },
     {
       "gate": "falsify round-14",
-      "verdict": "VERDICT pass 147/147 mutants caught, 4/4 probes hold"
+      "verdict": "VERDICT pass 152/152 mutants caught, 4/4 probes hold"
     },
     {
       "gate": "falsify production",
@@ -19,11 +19,15 @@
     },
     {
       "gate": "coverage",
-      "verdict": "ok   coverage: 72 of 184 core Invariants checked (40 in part), 112 owed by a Task, 0 gap(s)"
+      "verdict": "ok   coverage: 75 of 184 core Invariants checked (40 in part), 109 owed by a Task, 0 gap(s)"
     },
     {
       "gate": "liar round-14",
-      "verdict": "VERDICT fail 122/131 behavioural mutants red under the liar gate"
+      "verdict": "VERDICT fail 124/133 behavioural mutants red under the liar gate"
+    },
+    {
+      "gate": "limits round-14",
+      "verdict": "VERDICT pass 3/3 limits rows hold on round-14"
     },
     {
       "gate": "liar production",
@@ -31,11 +35,11 @@
     },
     {
       "gate": "crash production",
-      "verdict": "VERDICT fail 685/716 crash points"
+      "verdict": "VERDICT fail 690/723 crash points"
     },
     {
       "gate": "core mutants",
-      "verdict": "VERDICT core mutants: 61/85 killed (85 candidates)"
+      "verdict": "VERDICT core mutants: 62/85 killed (85 candidates)"
     }
   ]
 }

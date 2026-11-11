@@ -686,6 +686,21 @@ tasks
             now a limits.ts row (3/3 hold). Finding: GEN-pay-seeded-281 shows production also reports no incarnation at 
             the end-of-case ensure after a dispose that reported Finished (Actors I14 red on both runtimes), not yet 
             triaged.
+        comment     2026-11-11T22:19:39Z
+            Stop (lead, 2026-11-12): the 9 older liar greens need new round-14 fixture machines, which is out of scope. 
+            The locator sidecar a3ae086e found that none changes a world fact in its own case. Each is visible only on 
+            a machine whose No/Unsure/NotSent handlers move state or write memory (Serialize, Latest and Held all 
+            stay), or as request order (mutant.members-reversed; WriteLanes I10 owes action order, and the fixtures do 
+            not declare read order). Adding machines means editing prototypes/conformance or round-14, outside May 
+            change. The user decides: widen the scope, or list them as report truth with that why.
+        comment     2026-11-11T22:19:49Z
+            Resume note. Done: items 1 to 3 of 429f6eac; T14's planted slow child (43cc6cc2); gates --gate (ff215e70). 
+            Left: the suite's stated limits as limits.ts rows, each with a mutant (unowed Incarnated on reload, 
+            disposal or send; report keys for Unanchored; report positions of Sent, Unparked and unanswered endings; 
+            unknown-leaf from); reproducing the old search kills (prototypes/conformance/search/*.search.ts); 
+            acceptance item 4 (T10/T19 persistence rows versus generated runs); GEN-pay-seeded-281 (production also 
+            reports no incarnation at an end-of-case ensure). Sweeps must pass --runtime prototypes/round-14 now that 
+            the default is production.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open
