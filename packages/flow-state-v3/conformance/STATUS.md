@@ -1246,6 +1246,20 @@ remaining report-excuses first:
 5. `schedules` (I20 to I23), `activations` (I4, I10, I11), `turn-purity` (I12, I13, I17, I19),
    `placements` (I24, I25), `context` (I28), and I18's case: each needs Port facts first.
 
+### Next steps (paused 2026-11-11, after `498e5a76`)
+
+1. Apply the publication review (Haiku, not yet applied): clear an actor's last publication on
+   `Incarnated` or `Finished` (a fresh incarnation may republish equal memory as a new object,
+   R25); say in port.ts that `memoryId` is per boot and that round-14 reports `root.memory`, not
+   `viewOf` (kid-bearing actors' views unjudged); the "64 and 21 cases" below are sweep counts,
+   the mutants run PAY-01 and PAY-04; carry `w.row-in-place` (old lie) to `turn-purity`.
+2. The rest of T8 by the plan above: `refusal` (I14 to I16, judging `InvalidTurn`), `issues`
+   (I31), I27 (a late turn leaving live work), then I1, I7, I9, schedules, activations, purity,
+   placements, context and I18, each needing Port facts first; test-first throughout.
+3. Carried from the step 9 revision: CQ3's commit half (a Table B row for a lane holding a kept
+   ending), `Finished` and an unattributable `Unhandled` still excused by report.
+4. Queued after T8 (the user): adapters use typed failures with defects kept apart.
+
 ### Snapshot values (Turn I29, I30) and the Port's `Published`
 
 Bottom line: a ninth Port change, `Published { actor, state, memory, memoryId }`, reports each
