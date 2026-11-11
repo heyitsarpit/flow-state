@@ -263,6 +263,8 @@ instructions
       reviewing lead, or an independent skill:check-spec or skill:check-task agent, which takes the
       review slot), plus their sidecars (amendment 3). Processes: up to 8 deterministic, about 16
       GB, after checking `vm_stat`. Always alone: real-browser runs and benchmarks.
+    - Leads keep working through context compaction, up to three compactions, and hand off only
+      after the third; they don't stop early because context is long (the user, 2026-11-11).
     - Checkpoints (a builder commit at the end of a coherent step) about every 50 minutes, which
       feed the hourly review.
     - Weekly usage: the weekly all-models window, never the 5-hour one; read it from the agent
