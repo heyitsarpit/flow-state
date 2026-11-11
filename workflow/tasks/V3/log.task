@@ -575,3 +575,5 @@ note 2026-11-11T02:24:32Z
     re-sends (WriteLanes R8 is a requirement only). **Reverse:** patch each probe.
 note 2026-11-11T02:29:38Z
     Convergence steps 7 and 8 and the Restore R3 storage fact landed at bf4beaf6 (87/87, null 0/87, falsify 86/86); ending-channels and attempt-identity stay independent of the fold. Next: the member-resolution convergence, then step 9's review.
+note 2026-11-11T03:07:21Z
+    Member resolution converged at 857873d8 (one rule in lifecycle-owed.ts; 340 report perturbations; 87/87, falsify 87/87, no verdict changed). Step 9, the one adversarial review of the whole convergence, starts; a builder meanwhile takes the reopened T13 items and the StaticCli review findings, then T8.
