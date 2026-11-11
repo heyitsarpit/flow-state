@@ -386,9 +386,13 @@ requirements
                 The gate passes only when every interacting pair of codes the runtime under test declares
                 is reached together in the executed steps of some generated run: within one composite, or in
                 the app mix when one of the two is a shared-resource code. A pair with a code owned by a
-                later slice is waived with that slice and a date; no interacting pair is waived for any
-                other reason. Triples whose three pairs all interact are reported, per composite and in
-                total, and never fail the gate.
+                later slice is waived with that slice and a date. During the slices, an unreached pair of
+                two implemented codes passes only if it has an owner: the slice and the part, operation or
+                pair-sweep case that will reach it, with a date; an unreached pair with no owner fails. At
+                the cross-area audit (@task.V3.T15) and at round-14's retirement (@task.V3.T53) no interacting
+                pair of implemented codes may be unreached; any left gets a pair-sweep case there. Triples
+                whose three pairs all interact are reported, per composite and in total, and never fail the
+                gate.
 
     R19  The Spec model computes expected results
         source  Advisor Q1, Q2 and Q3 (code:workflow/plans/flow/references/proposals/advisor-answers-2026-11-11.md);

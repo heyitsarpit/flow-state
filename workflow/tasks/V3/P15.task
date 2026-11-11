@@ -131,6 +131,7 @@ tasks
             - **Stops:** the Plan edit for the coverage record (list and wait).
             - **User's read:** the audit's findings.
         acceptance
+            - no interacting pair of implemented codes is unreached; any left gets a pair-sweep case (R18);
             - Audit and re-audit pass;
             - `nub run verify` runs the fast gates;
             - the coverage record is in the Plan;

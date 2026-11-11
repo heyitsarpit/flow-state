@@ -429,3 +429,7 @@ Both written by the replan records review, under the orchestrator's ruling (V3 l
   frozen golden. R22 says @task.V3.T53 retires round-14 after parity per Invariant. Q17 names the three blocking
   gaps. Why: the user accepted the phase-out proposal; Pay reverses replan decision 5. Reverse: git restore
   workflow/specs and workflow/tasks/V3.
+
+- 2026-11-11, Conformance R18: an unreached interacting pair passes during the slices only with a dated owner, and
+  none may be unreached at T15 and T53. Why: the gate as written could never pass (fixtures trail the runtime); the
+  user chose the option that ends as strict as a gate that never waives (records review B1).

@@ -590,6 +590,7 @@ tasks
             - **Gates:** matrix, combination, falsify, liar and core-mutant gates; `nub run check`.
             - **Stops:** the user's approval of the non-interacting pair list.
         acceptance
+            - the combination gate: every unreached interacting pair has a dated owner (Conformance R18);
             - `shape()` modules, JSON scripts and the script player exist: a script generated from a part replays under
               the oracles on production, and the Spec model computes its expected reports.
             - each fixture part declares the feature codes it needs, and each runtime (production, the Spec model,
