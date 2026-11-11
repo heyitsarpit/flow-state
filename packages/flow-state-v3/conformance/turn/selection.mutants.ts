@@ -40,6 +40,20 @@ export const headerLaneMutants: ReadonlyArray<Mutant> = [
  */
 export const selectionMutants: ReadonlyArray<Mutant> = [
   {
+    name: "turn.late-leaves-work",
+    says: "a late turn may leave a state whose Activation owns pending work",
+    expects: "Turn I27",
+    runtime: "prototype",
+    cases: ["PAY-07/late-may-not-leave"],
+    edits: [
+      {
+        file: "turn.ts",
+        find: '      if (w.late && leavesWork(w, inc, alt)) {\n        reasons.push("LateMayNotLeave");\n        continue;\n      }\n',
+        replace: "",
+      },
+    ],
+  },
+  {
     name: "turn.header-to-nowhere",
     says: "a turn drops its cancel and cancelAll members and reports ending at a state that does not exist",
     expects: "Turn I2",

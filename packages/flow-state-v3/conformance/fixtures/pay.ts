@@ -1,6 +1,6 @@
 import { Option, Schema } from "effect";
 import { Empty, type Fixture, writeOf } from "./fixture.ts";
-import { guarded, type Handlers, indexed, inStates, to, updating } from "./handlers.ts";
+import { guarded, type Handlers, indexed, inStates, schedule, to, updating } from "./handlers.ts";
 import { claimed, classifyWith, type OperationReference, type Row, row } from "./reference.ts";
 
 const Address = Schema.Struct({
@@ -207,7 +207,11 @@ const payHandlers: Handlers<State> = {
     STUCK: { CheckAgain: [to("UNSURE")] },
     LEFT: { Start: [updating(to("CARD"))] },
   },
-  scheduled: ["CheckTick", "RetryNow"],
+  schedules: {
+    PAYING: [schedule("slow", "CheckTick", Option.some(8000))],
+    WAITING: [schedule("retry", "RetryNow", Option.none())],
+    UNSURE: [schedule("check", "CheckTick", Option.some(3000), ["CheckTick"])],
+  },
 };
 
 /**

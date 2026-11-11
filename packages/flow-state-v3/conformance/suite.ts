@@ -8,7 +8,7 @@ import {
   constructionCovered,
   constructionRemainders,
 } from "./compile/construction.cases.ts";
-import type { CaseChecks, Remainder } from "./coverage.ts";
+import { type CaseChecks, coveredBy, type Remainder } from "./coverage.ts";
 import type { Scenario } from "./dsl/case.ts";
 import type { StaticCase } from "./dsl/static-case.ts";
 import type { Guarantee, Probe } from "./dsl/oracle.ts";
@@ -16,6 +16,13 @@ import { cliMutants } from "./static-cli/cli.mutants.ts";
 import { cliCases, cliCovered, cliRemainders } from "./static-cli/cli.cases.ts";
 import { graphNames } from "./static-cli/graph-names.ts";
 import { graphNamesMutants } from "./static-cli/graph-names.mutants.ts";
+import { refusalMutants } from "./turn/refusal.mutants.ts";
+import { refusalScenarios } from "./turn/refusal.scenarios.ts";
+import { refusal } from "./turn/refusal.ts";
+import { turnRemainders } from "./turn/remainders.ts";
+import { schedulesCaseMutants, schedulesMutants } from "./turn/schedules.mutants.ts";
+import { schedulesScenarios } from "./turn/schedules.scenarios.ts";
+import { schedules } from "./turn/schedules.ts";
 import { publicationMutants } from "./turn/publication.mutants.ts";
 import { publication } from "./turn/publication.ts";
 import { headerLaneMutants, selectionMutants } from "./turn/selection.mutants.ts";
@@ -58,6 +65,8 @@ export const guarantees: ReadonlyArray<Guarantee> = [
   { oracle: graphNames, mutants: graphNamesMutants },
   { oracle: selection, mutants: selectionMutants },
   { oracle: publication, mutants: publicationMutants },
+  { oracle: refusal, mutants: refusalMutants },
+  { oracle: schedules, mutants: schedulesMutants },
 ];
 
 /**
@@ -85,6 +94,8 @@ export const scenarios: ReadonlyArray<Scenario> = [
   ...laneKeepingScenarios,
   ...lanePoliciesScenarios,
   ...endingDeliveryScenarios,
+  ...refusalScenarios,
+  ...schedulesScenarios,
 ];
 
 /**
@@ -102,12 +113,20 @@ export const caseIds = [...scenarios.map((s) => s.id), ...staticCases.map((s) =>
  * case's citations (the coverage gate's second kind).
  */
 export const caseChecks: CaseChecks = {
-  rows: [...constructionCovered, ...cliCovered],
-  mutants: [...constructionMutants, ...cliMutants],
+  rows: [
+    ...constructionCovered,
+    ...cliCovered,
+    ...coveredBy(schedulesScenarios).filter((row) => row.invariant === "Turn I22"),
+  ],
+  mutants: [...constructionMutants, ...cliMutants, ...schedulesCaseMutants],
   cases: [...scenarios, ...staticCases].map((c) => ({ id: c.id, cites: c.cites })),
 };
 
 /**
  * The part of each checked Invariant its checks do not judge yet, by the Task that owes it.
  */
-export const remainders: ReadonlyArray<Remainder> = [...constructionRemainders, ...cliRemainders];
+export const remainders: ReadonlyArray<Remainder> = [
+  ...constructionRemainders,
+  ...cliRemainders,
+  ...turnRemainders,
+];

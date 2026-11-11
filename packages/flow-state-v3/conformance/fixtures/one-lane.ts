@@ -45,7 +45,7 @@ export const Serialize = {
       Unsure: [to("stay")],
     },
     states: {},
-    scheduled: [],
+    schedules: {},
   },
 } satisfies Fixture;
 
@@ -66,7 +66,7 @@ export const Latest = {
     initial: "A",
     root: { Go: [to("stay")], Ok: [to("stay")], No: [to("stay")], Unsure: [to("stay")] },
     states: {},
-    scheduled: [],
+    schedules: {},
   },
 } satisfies Fixture;
 
@@ -96,6 +96,6 @@ export const Cancel = {
       Unsure: [guarded(to("stay")), to("A")],
     },
     states: {},
-    scheduled: [],
+    schedules: {},
   },
 } satisfies Fixture;

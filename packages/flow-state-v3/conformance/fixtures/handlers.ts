@@ -30,8 +30,38 @@ export type Level<State extends string = string> = Readonly<
 >;
 
 /**
+ * One schedule a state declares (Turn R14, R15), written by hand from the fixture's source.
+ *
+ * **Details**
+ *
+ * - `id`: its name in the state's `schedules`.
+ * - `send`: the event it sends.
+ * - `delayMs`: its Duration, `None` when a function of memory computes it.
+ * - `armOn`: the events that arm or restart it while its state is active; it is armed on entry
+ *   too unless `armOn` is written without `"entry"` (`entry: false`).
+ */
+export type Schedule = {
+  readonly id: string;
+  readonly send: string;
+  readonly delayMs: Option.Option<number>;
+  readonly armOn: ReadonlyArray<string>;
+  readonly entry: boolean;
+};
+
+/**
+ * A schedule armed on entry only, sending `send` after `delayMs` (`None`: a function of memory).
+ */
+// RETURN_TYPE: keeps `delayMs` an Option and `armOn` a list for later spreads.
+export const schedule = (
+  id: string,
+  send: string,
+  delayMs: Option.Option<number>,
+  armOn: ReadonlyArray<string> = [],
+): Schedule => ({ id, send, delayMs, armOn, entry: true });
+
+/**
  * A machine's handler table (Turn R2): its initial leaf, its root's handlers, each leaf's own
- * handlers, and the events its schedules send.
+ * handlers, and each leaf's schedules.
  *
  * **Gotchas**
  *
@@ -42,8 +72,16 @@ export type Handlers<State extends string = string> = {
   readonly initial: State;
   readonly root: Level<State>;
   readonly states: Readonly<Partial<Record<State, Level<State>>>>;
-  readonly scheduled: ReadonlyArray<string>;
+  readonly schedules: Readonly<Partial<Record<State, ReadonlyArray<Schedule>>>>;
 };
+
+/**
+ * The events a machine's schedules send.
+ */
+export const scheduledEvents = (handlers: Handlers) =>
+  Object.values<ReadonlyArray<Schedule> | undefined>(handlers.schedules).flatMap((list) =>
+    (list ?? []).map((s) => s.send),
+  );
 
 /**
  * An alternative moving to `target`, or staying (`stay`), with no guard.

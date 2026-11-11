@@ -36,6 +36,7 @@ export type State = {
   readonly owners: ReadonlyMap<string, Owner>;
   readonly restored: ReadonlySet<string>;
   readonly open: ReadonlyArray<OpenCall>;
+  readonly held: ReadonlySet<string>;
 };
 
 export const keyOf = (actor: ActorRef) => `${actor.machine} ${actor.id}`;
@@ -126,6 +127,38 @@ export const current = (
     ? { ...state, restored: new Set([...state.restored, attemptKey(operation, attempt.value)]) }
     : state;
 
+const heldToo = (state: State, operation: string, attempt: Option.Option<string>) =>
+  Option.match(attempt, {
+    onNone: () => state,
+    onSome: (a) => ({ ...state, held: new Set([...state.held, attemptKey(operation, a)]) }),
+  });
+
+/**
+ * A call sent again: a Held head re-sent by its retry is in flight once more.
+ */
+export const sent = (state: State, operation: string, attempt: string) => ({
+  ...state,
+  held: new Set([...state.held].filter((k) => k !== attemptKey(operation, attempt))),
+});
+
+/**
+ * The calls an Activation owns that are pending work (Turn R21): minted, with no definite ending,
+ * and not Held by an unknown one since their last send.
+ */
+export const pendingOf = (state: State, actor: ActorRef, owner: Owner) =>
+  state.open.filter((c) => {
+    const key = attemptKey(c.operation, c.attempt);
+    const by = state.owners.get(key);
+
+    return (
+      c.actor === keyOf(actor) &&
+      !state.held.has(key) &&
+      by !== undefined &&
+      by.state === owner.state &&
+      by.entry === owner.entry
+    );
+  });
+
 export const ended = (
   state: State,
   operation: string,
@@ -135,7 +168,11 @@ export const ended = (
   step: ReadonlyArray<Fact>,
 ) => {
   if (channel === "unknown")
-    return reason === "Restored" ? current(state, operation, attempt, step) : state;
+    return heldToo(
+      reason === "Restored" ? current(state, operation, attempt, step) : state,
+      operation,
+      attempt,
+    );
 
   return {
     ...state,

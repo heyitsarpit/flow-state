@@ -50,4 +50,18 @@ export const publicationMutants: ReadonlyArray<Mutant> = [
       },
     ],
   },
+  {
+    name: "pub.turn-not-published",
+    says: "a committed turn does not mark its step visible, so a move with no lane change is never published",
+    expects: "Turn I9",
+    runtime: "prototype",
+    cases: ["PAY-01"],
+    edits: [
+      {
+        file: "turn.ts",
+        find: "  tx.touchedActors.add(w.a.key);\n  tx.visible = true;\n",
+        replace: "  tx.touchedActors.add(w.a.key);\n",
+      },
+    ],
+  },
 ];

@@ -54,6 +54,19 @@ const onPublished = (state: State, fact: Fact, step: ReadonlyArray<Fact>) => {
   if (Fact.$is("Reloaded")(fact))
     return { state: { ...state, contents: new Map(), last: new Map() }, found: [] };
 
+  if (
+    Fact.$is("Reported")(fact) &&
+    (Observation.$is("Incarnated")(fact.observation) ||
+      Observation.$is("Finished")(fact.observation))
+  ) {
+    const gone = keyOf(fact.observation.actor);
+
+    return {
+      state: { ...state, last: new Map([...state.last].filter(([key]) => key !== gone)) },
+      found: [],
+    };
+  }
+
   if (!Fact.$is("Reported")(fact) || !Observation.$is("Published")(fact.observation))
     return { state, found: [] };
 
@@ -73,19 +86,58 @@ const onPublished = (state: State, fact: Fact, step: ReadonlyArray<Fact>) => {
   };
 };
 
+const turnsOf = (step: ReadonlyArray<Fact>) =>
+  step.flatMap((fact) =>
+    Fact.$is("Reported")(fact) && Observation.$is("Turn")(fact.observation)
+      ? [fact.observation]
+      : [],
+  );
+
 /**
- * Snapshot values (Turn I29, I30): a published memory object is never published again with other
- * content, and an actor's unchanged memory is published as the same object.
+ * Each actor whose turns in this step moved it to another leaf and that no `Published` of the step
+ * names (Turn I9: an accepted transition publishes).
+ */
+const unpublished = (step: ReadonlyArray<Fact>) => {
+  const turns = turnsOf(step);
+  const actors = [...new Map(turns.map((t) => [keyOf(t.actor), t.actor])).values()];
+
+  return actors.flatMap((actor) => {
+    const own = turns.filter((t) => keyOf(t.actor) === keyOf(actor));
+    const first = own[0];
+    const last = own.at(-1);
+
+    const published = step.some(
+      (fact) =>
+        Fact.$is("Reported")(fact) &&
+        Observation.$is("Published")(fact.observation) &&
+        keyOf(fact.observation.actor) === keyOf(actor),
+    );
+
+    return first === undefined || last === undefined || first.from === last.to || published
+      ? []
+      : [
+          `Turn I9: ${keyOf(actor)} moved from ${first.from} to ${last.to} and published nothing: an accepted transition publishes once`,
+        ];
+  });
+};
+
+/**
+ * Publication and snapshot values (Turn I9, I29, I30): a turn that moves its actor publishes it,
+ * a published memory object is never published again with other content, and an actor's unchanged
+ * memory is published as the same object.
  *
  * **Details**
  *
  * The runtime's `Published` reports carry each memory's content and the adapter's identity for
  * its object. Both checks compare reports with each other: consistency of what the runtime
  * published, as a subscriber would see it. Identity is judged within one page: a reload starts
- * over. I30 is judged where the step's turns ran no `updateMemory` (the handler table's `updates`).
+ * over. I30 is judged where the step's turns ran no `updateMemory` (the handler table's `updates`),
+ * and within one incarnation: a fresh one may publish equal memory as a new object (Turn R25).
  *
  * **Gotchas**
  *
+ * - I9 is judged per step from the turns' headers (a step whose turns move an actor publishes it);
+ *   "at most once per turn" is not judged, since a `Published` names no turn.
  * - Memory as a whole is the one part judged; a snapshot's other parts (context, issues,
  *   operations) are not on the Port yet.
  * - A patch that writes equal values gives round-14 a new memory object with the same content;
@@ -93,7 +145,7 @@ const onPublished = (state: State, fact: Fact, step: ReadonlyArray<Fact>) => {
  */
 export const publication = oracle<State>({
   name: "publication",
-  guarantee: ["Turn I29", "Turn I30"],
+  guarantee: ["Turn I9", "Turn I29", "Turn I30"],
   start: (_reference, _graphs, machines) => ({ machines, contents: new Map(), last: new Map() }),
   step: (state, step) => {
     const folded = step.reduce<{ readonly state: State; readonly found: ReadonlyArray<string> }>(
@@ -105,6 +157,6 @@ export const publication = oracle<State>({
       { state, found: [] },
     );
 
-    return [folded.state, folded.found.map(violation)];
+    return [folded.state, [...folded.found, ...unpublished(step)].map(violation)];
   },
 });

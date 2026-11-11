@@ -20,12 +20,14 @@ export const notYet: ReadonlyArray<NotYet> = [
     ),
   },
   {
-    owner: "@task.V3.T8",
-    why: "the Turn area is being built: selection (I2), late routing (I26) and snapshot values (I29, I30) are checked; publication's I1, I7, I9, activations, purity, refusal, schedules, placements, I27, context and issues are not; T42 cut I7, I8, I13 and I19 and added I32 to I35 (equal deadlines, step delays, restartOn, keyed schedules)",
-    invariants: invariantsOf(
-      "Turn",
-      upTo(35).filter((n) => ![2, 7, 8, 13, 19, 26, 29, 30].includes(n)),
-    ),
+    owner: "@task.V3.T18",
+    why: "round-14 and the catalog's flat fixtures cannot show these (T8, proposed for the user's read): no compound state (I1, I4 to I6), no Port view of a callback's reads (I12), post-commit defects only from module-hook faults (I16), no pure turn or check() to call (I17, I18), no onContext (I28), no issues in snapshots (I31), timer order left to the host (I32), no multi-step, restartOn or keyed schedules (I33 to I35); production's turn builds them with their cases",
+    invariants: invariantsOf("Turn", [1, 4, 5, 6, 12, 16, 17, 18, 28, 31, 32, 33, 34, 35]),
+  },
+  {
+    owner: "@task.V3.T21",
+    why: "no catalog fixture has fragments or placements (T8, proposed for the user's read): a child part's refusal (I3), pending resets (I10), whenAbandoned (I11), placements and value outcomes (I24, I25); built with fragments and operations",
+    invariants: invariantsOf("Turn", [3, 10, 11, 24, 25]),
   },
   {
     owner: "@task.V3.T9",

@@ -8,8 +8,10 @@ import {
   keyOf,
   minted,
   moved,
+  pendingOf,
   ROOT,
   routeOf,
+  sent,
   type State,
   withActor,
   withoutOne,
@@ -21,6 +23,7 @@ import {
   type Possible,
   possible,
   type Route,
+  scheduledEvents,
 } from "../fixtures/handlers.ts";
 import {
   type ActorRef,
@@ -146,6 +149,32 @@ const judgeTurn = (machines: Machines, phase: Phase, turn: Turn, route: Route): 
   return { to: Option.some(match.to), found: wrongFrom, match: Option.some(match), from };
 };
 
+/**
+ * A late turn that exits the active leaf's Activation while it owns pending work (Turn I27).
+ */
+const lateLeftWork = (
+  state: State,
+  now: ReturnType<typeof actorIn>,
+  turn: Turn,
+  route: Route,
+  judged: Judged,
+) => {
+  if (
+    route !== "late" ||
+    !Phase.$is("Live")(now.phase) ||
+    !Option.exists(judged.match, (m) => m.enters)
+  )
+    return [];
+
+  const pending = pendingOf(state, turn.actor, { state: now.phase.state, entry: now.entry });
+
+  return pending.length === 0
+    ? []
+    : [
+        `Turn I27: ${name(turn)}, a late turn, and left ${now.phase.state}, whose Activation owns pending work (${pending.map((c) => `${c.operation} ${c.attempt}`).join(", ")})`,
+      ];
+};
+
 const heardBy = (actor: ActorRef, event: string, step: ReadonlyArray<Fact>) =>
   step.flatMap((fact) =>
     Fact.$is("Reported")(fact) &&
@@ -168,7 +197,7 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
   const route = !driven && delivered !== undefined ? routeOf(state, now, delivered) : "current";
 
   const admitted =
-    driven || heard || handlers === undefined || handlers.scheduled.includes(turn.event);
+    driven || heard || handlers === undefined || scheduledEvents(handlers).includes(turn.event);
 
   const unadmitted = admitted
     ? []
@@ -177,6 +206,7 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
       ];
 
   const judged = judgeTurn(state.machines, now.phase, turn, route);
+  const leftWork = lateLeftWork(state, now, turn, route, judged);
   const entry = Option.exists(judged.match, (m) => m.enters) ? now.entry + 1 : now.entry;
 
   const owner = Option.match(judged.match, {
@@ -231,7 +261,7 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
 
   return [
     next,
-    [...unadmitted, ...judged.found].map(violation),
+    [...unadmitted, ...judged.found, ...leftWork].map(violation),
     Fact.Reported({ observation: anchored }),
   ] as const;
 };
@@ -368,7 +398,7 @@ const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>): Stepped =>
         Denied: ({ event }) => judgedRefusal(refused(state, event, "Denied", step)),
         Minted: ({ operation, attempt, actor, key }) =>
           keep(minted(state, operation, attempt, actor, key)),
-        Sent: () => keep(state),
+        Sent: ({ operation, attempt }) => keep(sent(state, operation, attempt)),
         Ended: ({ operation, attempt, channel, reason }) =>
           keep(ended(state, operation, attempt, channel, reason, step)),
         Delivered: () => keep(state),
@@ -430,7 +460,7 @@ const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>): Stepped =>
  */
 export const selection = oracle<State>({
   name: "selection",
-  guarantee: ["Turn I2", "Turn I26"],
+  guarantee: ["Turn I2", "Turn I26", "Turn I27"],
   start: (_reference, _graphs, machines) => anchorOf(machines),
   step: (state, step) => {
     const judged = judgedStep(state, step);
@@ -456,6 +486,7 @@ export const anchorOf = (machines: Machines): Anchor => ({
   owners: new Map(),
   restored: new Set(),
   open: [],
+  held: new Set(),
 });
 
 /**
@@ -480,6 +511,7 @@ export const anchorAt = (
   owners: new Map(),
   restored: new Set(),
   open: [],
+  held: new Set(),
 });
 
 /**
