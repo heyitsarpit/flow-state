@@ -404,10 +404,10 @@ const laneWideTraces: ReadonlyArray<Trace> = [
     { r: H },
   ),
   laneWide(
-    "the Runtime's disposal ends with never-sent commits left (pending CQ6)",
-    "Actors I29 as written",
+    "the Runtime's disposal ends with never-sent commits left",
+    "Actors I38, R22 (ruling CQ6): every never-sent commit ends NotSent { Disposed } first",
     Move.RuntimeDisposed(),
-    [actors(29), actors(29), actors(29)],
+    [actors(38), actors(38), actors(38)],
     {},
   ),
   laneWide(

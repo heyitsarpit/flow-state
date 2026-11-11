@@ -24,7 +24,7 @@ export const disposalMutants: ReadonlyArray<Mutant> = [
   {
     name: "mutant.disposal-skips-never-sent",
     says: "the Runtime's disposal leaves a never-sent commit as it was, with no ending",
-    expects: "Actors I29",
+    expects: "Actors I38",
     runtime: "prototype",
     cases: ["PAY-13/waiting-flushed"],
     edits: [

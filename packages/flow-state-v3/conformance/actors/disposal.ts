@@ -22,6 +22,7 @@ const GUARANTEE: ReadonlyArray<InvariantId> = [
   "Actors I32",
   "Actors I35",
   "Actors I36",
+  "Actors I38",
 ];
 
 type Answered = { readonly channel: Channel; readonly reason: Option.Option<string> };
@@ -306,7 +307,7 @@ const readHeld = (context: Context) =>
  * **Details**
  *
  * - The fold's refusals (`dsl/lifecycle-step.ts`): a never-sent commit left as it was when the
- *   disposal ends (Actors I29, pending CQ6); an incarnation after a Runtime disposal or a
+ *   disposal ends (Actors I38, ruling CQ6); an incarnation after a Runtime disposal or a
  *   disposeActor that delivers a Held head neither `unknown { Restored }` nor its parked ending by
  *   its step's end (Actors I29), and after a forget (Actors I32); `unknown { Disposed }` while the
  *   Runtime is not disposing (Actors I35); `unknown { Restored }` of an Attempt that settled

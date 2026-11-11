@@ -172,9 +172,9 @@ const tableTraces: ReadonlyArray<Trace> = [
   ),
   lifeTrace(
     "InvalidTurn",
-    "Actors R15: only a sent write's twice-refused ending stays parked (pending CQ1, CQ2)",
+    "Actors R15 (ruling CQ1): a second refusal ends the tries until the next boot or adoption",
     DT,
-    CL,
+    KP,
     alone,
     { channel: "failure", reason: "Cancelled" },
     " of a never-sent Attempt",

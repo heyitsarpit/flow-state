@@ -34,9 +34,9 @@ const GUARANTEE: ReadonlyArray<InvariantId> = [
  * - `Unhandled` and `Denied` carry no actor; `Heard` takes the one delivering ending of that
  *   event.
  * - A parked ending still parked at the case's end is not judged.
- * - Pending Spec answers: a twice-refused never-sent ending closes (CQ1, CQ2, Actors R15 as
- *   written); a refusal across a reload is dropped and `UnmappedEnding` is final (CQ10); the try
- *   of a kept ending comes in the step its incarnation begins (CQ8).
+ * - A second refusal keeps the ending until the next boot or adoption, sent or not (Actors R15,
+ *   ruling CQ1). Pending: a refusal across a reload is dropped and `UnmappedEnding` is final
+ *   (CQ10); the try of a kept ending comes in the step its incarnation begins (CQ8).
  */
 export const deliveredOnce = oracle({
   name: "delivered-once",

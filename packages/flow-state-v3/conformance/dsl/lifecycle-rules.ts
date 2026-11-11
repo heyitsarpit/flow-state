@@ -70,9 +70,9 @@ const each = (outcome: Outcome) => ({
  *
  * **Gotchas**
  *
- * - Cells marked pending in the design follow the Spec as written until the user answers: the
- *   never-sent unknown (CQ5), the never-sent commit at the disposal's end (CQ6) and the superseded
- *   head's promotion (CQ7, in the promotion rule).
+ * - The rulings of 2026-11-11 (spec-log, T42): a never-sent commit still unended when the
+ *   disposal ends is Actors I38 (CQ6), and a superseded head promotes the next (CQ7, in the
+ *   promotion rule). The never-sent unknown (CQ5) is `ending-channels`'.
  * - A re-send after a cancel in the same turn owes the head's release, so its send is WriteLanes
  *   I12 (R14: it returns to Held and is released; review L4).
  */
@@ -155,8 +155,8 @@ export const tableA: TableA = {
   DisposalStarts: { ...each(stay), Resending: always(to(Phase.Held())) },
   RuntimeDisposed: {
     ...each(stay),
-    Queued: always(Outcome.Refuse({ invariant: actors(29) })),
-    Unsent: always(Outcome.Refuse({ invariant: actors(29) })),
+    Queued: always(Outcome.Refuse({ invariant: actors(38) })),
+    Unsent: always(Outcome.Refuse({ invariant: actors(38) })),
   },
   StepEnds: { ...each(stay), Interrupted: { stoppable: refuse(20), unstoppable: stay } },
 };
@@ -292,7 +292,7 @@ const replaced = {
  *
  * **Gotchas**
  *
- * - The never-sent head's promotion after `Superseded` follows the design (CQ7 pending).
+ * - A superseded never-sent head promotes the next queued commit (WriteLanes I11, ruling CQ7).
  */
 export const tableB: TableB = {
   Idle: {
@@ -409,18 +409,16 @@ const admitted = (retry: boolean) => ({
  *
  * **Gotchas**
  *
- * - A refusal's next life (`Refused` or `Kept`) waits on CQ1 and CQ2, an unmapped ending's on
- *   CQ10, and a refused ending at a reload on CQ10: each follows today's rule. A twice-refused
- *   decline or never-sent ending is `Closed`, as Actors R15 is written ("only a sent write's
- *   twice-refused ending stays parked"), pending CQ1 and CQ2 (round-14 keeps declines, D123).
+ * - A first refusal gives `Refused` and a second `Kept`, whatever was sent: the second ends its
+ *   tries until the next boot or adoption, which gives it one more (Actors R15, ruling CQ1). An
+ *   unmapped ending's next life and a refused ending at a reload follow today's rule (CQ10).
  * - `Opens` on a parked ending gives `ParkedOpen`, not the design's `Owed`: a runtime may report
  *   the unpark after the incarnation opens (round-14's boot), and `Unparked` on `Owed` stays a
  *   refusal. `ParkedOpen` is owed by the step's end, as the design's `Owed` was (T6 L11).
- * - A never-sent commit's ending decided in the Runtime's disposal (`NotSent { Disposed }`, Actors
- *   R22) stays `Parked` at `Opens`, unjudged, pending CQ6: round-14 does not deliver it after the
- *   reload (`PAY-10/hang`, `PAY-13/waiting-flush-lost`), though WriteLanes I15 and R10 say it
- *   must be delivered or be evidence. The conflict is with Actors R22 (a definite ending drops
- *   the head, so nothing is on disk to deliver).
+ * - A never-sent commit's ending decided in the Runtime's disposal (`NotSent { Disposed }`) stays
+ *   `Parked` at `Opens`, unjudged: Actors I38 (ruling CQ6) says it is delivered once to the next
+ *   incarnation, and round-14 never delivers it after the reload (`PAY-10/hang`,
+ *   `PAY-13/waiting-flush-lost`), a stated limit of round-14. Production is judged on it (T16).
  */
 export const tableC: TableC = {
   Delivered: {
@@ -437,7 +435,7 @@ export const tableC: TableC = {
     Delivering: {
       first: live(Life.Refused()),
       retry: live(Life.Kept()),
-      retryNeverSent: live(Life.Closed()),
+      retryNeverSent: live(Life.Kept()),
     },
   },
   Unmapped: { ...lives(deny(15)), Delivering: once(live(Life.Closed())) },

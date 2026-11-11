@@ -32,7 +32,7 @@ export const notYet: ReadonlyArray<NotYet> = [
     why: "the Actors area is not built beyond Runtime disposal; I24 is delivered-once's; T42 cut I11, I16 and I18 and added I37 (Free actors end), I38 (never-sent commits at disposal, CQ6) and I39 (identity versions)",
     invariants: invariantsOf(
       "Actors",
-      upTo(39).filter((n) => ![11, 16, 18, 24, 29, 30, 31, 32, 35, 36].includes(n)),
+      upTo(39).filter((n) => ![11, 16, 18, 24, 29, 30, 31, 32, 35, 36, 38].includes(n)),
     ),
   },
   {
