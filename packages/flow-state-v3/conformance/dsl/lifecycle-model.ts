@@ -152,7 +152,8 @@ export const Obligation = Data.taggedEnum<Obligation>();
  * - `Evidence`: evidence by declaration (WriteLanes R10, I15).
  * - `Closed`: heard, recorded, or orphaned at a reload.
  * - `Maybe`: after a kill, an ending the latest landed batch may or may not hold (it changed in the
- *   step that wrote that batch, design B4): it may be delivered or unparked, and is owed nothing.
+ *   step that wrote that batch, design B4): it may be delivered (as a retry, since it may have
+ *   been a kept ending), unparked, let go or recorded at a forget, and is owed nothing.
  */
 export type Life = Data.TaggedEnum<{
   Owed: {};
@@ -202,7 +203,8 @@ export type AttemptLife = { readonly id: string; readonly lane: LaneId; readonly
  * What one batch saves: some prefix of the step that wrote it (design B4), so it is taken at both
  * ends. `lives` and `ended` are the step's end, the most the batch can hold: each ending's life by
  * index, and how many of the model's `ended` Attempts. `least` is the model before the step's
- * second turn (its end when it ran fewer), the least it holds: a lane batch is issued by its turn.
+ * second turn (its end when it ran fewer), the least it holds, since a lane batch is issued at once
+ * by its turn (WriteAhead R10).
  */
 export type Capture = {
   readonly lives: ReadonlyArray<Life>;
@@ -235,11 +237,13 @@ export type Capture = {
  *
  * - The lane is derived from `attempts`, never stored: its head is its first addressable Attempt
  *   in mint order, and its waiting list the `Queued` ones.
- * - A capture is taken where its `Wrote` is noted, at the end of the step that wrote it: a runtime
- *   may report a turn after its batch is written, so the batch is credited with the whole step. A
- *   later change of that step is credited too, which can owe more than the disk holds (a stated
- *   limit). A flush lands at once in the fake store even while older batches are held; a landing
- *   keeps the capture that holds more endings.
+ * - A capture is kept at both ends of the step that wrote it (design B4), since the step's facts
+ *   do not say where in it the batch was issued. Stated limit (review of 4d7e0f5d): a batch issued
+ *   before the step's first turn (a capture deadline in an `advance`), or one a later report of
+ *   the same turn changed, can hold less than `least`; the step's start would be sound but loses
+ *   three catches and turns eight production crash points red, so it waits for the write
+ *   position to be a fact. A flush lands at once in the fake store even while older batches are
+ *   held; a landing keeps the capture that holds more endings.
  */
 export type Model = {
   readonly mode: "running" | "disposing";

@@ -435,7 +435,7 @@ export const tableC: TableC = {
     Refused: admitted(true),
     KeptOpen: admitted(true),
     Kept: { running: Fate.Refuse({ invariant: actors(24) }), disposing: deny(15) },
-    Maybe: admitted(false),
+    Maybe: admitted(true),
   },
   InvalidTurn: {
     ...lives(deny(15)),
@@ -460,7 +460,7 @@ export const tableC: TableC = {
     ParkedOpen: once(live(Life.Owed())),
     Kept: once(kept),
     KeptOpen: once(kept),
-    Maybe: once(live(Life.Owed())),
+    Maybe: once(kept),
   },
   RecordedLetGo: {
     ...lives(deny(15)),
@@ -470,6 +470,7 @@ export const tableC: TableC = {
     Kept: { letGo: live(Life.Closed()), none: deny(15) },
     KeptOpen: { letGo: live(Life.Closed()), none: deny(15) },
     Evidence: once(live(Life.Closed())),
+    Maybe: { letGo: live(Life.Closed()), none: deny(15) },
   },
   RecordedOther: {
     ...lives(deny(15)),
@@ -477,6 +478,7 @@ export const tableC: TableC = {
     Parked: { forgotten: live(Life.Closed()), none: deny(15) },
     ParkedOpen: { forgotten: live(Life.Closed()), none: deny(15) },
     Evidence: once(live(Life.Closed())),
+    Maybe: { forgotten: live(Life.Closed()), none: deny(15) },
   },
   Opens: {
     ...lives(kept),

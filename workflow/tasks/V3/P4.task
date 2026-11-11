@@ -549,6 +549,16 @@ tasks
             gone; Table A's refusing cells are kept, since they are the compare's allowed sets and name each refusal's 
             Invariant (R19), so deleting them would lose that; flagged for the orchestrator. Gates unchanged; liar 
             round-14 9 greens (the threshold).
+        comment     2026-11-11T18:54:43Z
+            B4 review (Haiku): accepted 4. An ending saved mid-delivery becomes Maybe; Maybe may be let go or recorded 
+            at a forget; an unpark of a Maybe owes nothing; a Maybe delivers as a retry, since it may have been kept 
+            (as a first delivery it turned three round-14 cases red). Tried and reverted: the step's start as the least 
+            a batch holds. It is sound, but it lost three catches (o6.settled-in-bound-stays-held, 
+            prod.actor-never-saved, lie.no-incarnated) and turned eight production crash points red. Recorded instead 
+            as a stated limit in `Model`: a batch issued before the step's first turn, or changed by a later report of 
+            the same turn, can hold less than `least`, until the write's position is a fact. Also noted: a Maybe hides 
+            a parked ending never delivered when the park fell in the batch's own step (a mutant for it is owed). Gates 
+            unchanged.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open

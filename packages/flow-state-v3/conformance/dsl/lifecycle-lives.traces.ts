@@ -132,7 +132,7 @@ const tableTraces: ReadonlyArray<Trace> = [
       KeptOpen: DT,
       Evidence: wl(15),
       Closed: wl(15),
-      Maybe: DF,
+      Maybe: DT,
     },
   ),
   ...rowTraces(
@@ -217,12 +217,12 @@ const tableTraces: ReadonlyArray<Trace> = [
     KeptOpen: KO,
     Evidence: wl(15),
     Closed: wl(15),
-    Maybe: OW,
+    Maybe: MB,
   }),
   ...rowTraces(
     "RecordedLetGo",
     "Actors R15, R21: a kept ending is let go when cancelled or forgotten",
-    { Owed: CL, Parked: CL, ParkedOpen: CL, Kept: CL, KeptOpen: CL },
+    { Owed: CL, Parked: CL, ParkedOpen: CL, Kept: CL, KeptOpen: CL, Maybe: CL },
     lettingGo,
     {},
     " owing its let-go",
@@ -251,7 +251,7 @@ const tableTraces: ReadonlyArray<Trace> = [
     Closed: wl(15),
     Maybe: wl(15),
   }),
-  ...[OW, PK, PO].map((life) =>
+  ...[OW, PK, PO, MB].map((life) =>
     lifeTrace(
       "RecordedOther",
       "Actors R21: forget's parked and boot-queued endings become evidence",

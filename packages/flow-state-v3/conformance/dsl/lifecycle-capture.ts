@@ -12,9 +12,11 @@ const rolledEnding = (model: Model, e: Ending, index: number) => {
   return Option.match(Option.fromUndefinedOr(model.saved.lives[index]), {
     onNone: () => ({ ...e, life: Life.Closed() }),
     onSome: (life) => {
-      if (held || Life.$is("Delivering")(life)) return e;
+      if (held) return e;
 
-      return least?._tag === life._tag ? { ...e, life } : { ...e, life: Life.Maybe() };
+      return least?._tag === life._tag && !Life.$is("Delivering")(life)
+        ? { ...e, life }
+        : { ...e, life: Life.Maybe() };
     },
   });
 };
@@ -30,7 +32,8 @@ const rolledEnding = (model: Model, e: Ending, index: number) => {
  * Each ending takes back its life at the last landing or boot (the model's `saved`), unless its
  * Attempt is a Held head, whose restore the boot owes instead (Restore I6); an ending decided since
  * is not on disk, so it closes, and the restore alone may follow. An ending that changed in the
- * step that wrote the landed batch may or may not be held by it (design B4): it becomes `Maybe`.
+ * step that wrote the landed batch may or may not be held by it (design B4), and so may one saved
+ * mid-delivery: it becomes `Maybe`.
  */
 export const rolledBack = (model: Model) => {
   const unsaved = unsavedOf(model);
@@ -69,8 +72,8 @@ export const booted = (model: Model) => ({
 });
 
 /**
- * The store received a batch, holding at least `least` and at most `model` (design B4): a flush
- * lands at once, any other waits for an answer.
+ * The store received a batch, holding at least `least` (before the step's second turn) and at most
+ * `model` (design B4): a flush lands at once, any other waits for an answer.
  */
 export const wrote = (model: Model, least: Model, purpose: Purpose) =>
   purpose === "flush"
