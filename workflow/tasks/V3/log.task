@@ -227,3 +227,8 @@ note 2026-11-11T23:30:19Z
 note 2026-11-11T23:47:29Z
     Review started (90-minute wake): T45's 2f77e7ab..178df54c (B1, B2, limits rows, report truth, production's owed 
     reds), one Opus lead with two Haiku sidecars. Weekly usage 71 percent of 95.
+note 2026-11-11T23:53:36Z
+    Decision (orchestrator, suite layout): Table A's refusing cells stay as the compare's named refusals; deleting them 
+    moves 8 catches to other checks (falsify 146/154), which the phase-out's own no-lost-catch validation forbids, and 
+    no report reads remain in them. Phase-out step 1 counts as met by the claimed flag's removal. For the user's read. 
+    **Reverse:** delete the cells and accept the moved Invariants (a gate relaxation, the user's call).
