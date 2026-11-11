@@ -1,31 +1,36 @@
-import { Data, Option, Predicate, Result, Schema } from "effect";
+import { Option, Predicate, Result, Schema } from "effect";
 import {
+  type ActorRef,
   Channel,
   EvidenceKind,
   MemberKind,
   MemberTarget,
   Observation,
   type RecordedWhy,
+  Unreadable,
 } from "../port.ts";
 
 /**
- * A report the prototype gave in a shape the adapter cannot read: the runtime broke its own
- * evidence contract, so the case stops.
- */
-export class PrototypeReportUnreadable extends Data.TaggedError("PrototypeReportUnreadable")<{
-  readonly kind: string;
-  readonly issue: string;
-}> {}
-
-/**
  * The actor a prototype actor key names: `<machine>/<id>`, with `%`, `/` and `|` in the id
- * percent-encoded.
+ * percent-encoded. A key with no machine or a malformed escape is {@link Unreadable}.
  */
 export const actorRef = (key: string) => {
   const at = key.lastIndexOf("/");
+  const unreadable = () => new Unreadable({ report: "actor key", issue: `cannot read ${key}` });
 
-  return { machine: key.slice(0, at), id: decodeURIComponent(key.slice(at + 1)) };
+  if (at <= 0) return Result.fail(unreadable());
+
+  return Result.map(
+    Result.try({ try: () => decodeURIComponent(key.slice(at + 1)), catch: unreadable }),
+    (id) => ({ machine: key.slice(0, at), id }),
+  );
 };
+
+const optionalActor = (key: Option.Option<string>) =>
+  Option.match(key, {
+    onNone: () => Result.succeed(Option.none<ActorRef>()),
+    onSome: (k) => Result.map(actorRef(k), Option.some),
+  });
 
 const attemptOf = (attempt: Option.Option<string>) => Option.filter(attempt, (id) => id !== "");
 
@@ -67,10 +72,10 @@ type Report = unknown;
 const Kind = Schema.Struct({ kind: Schema.String });
 
 const kindOf = (report: Report) =>
-  Result.getOrThrowWith(
-    Schema.decodeUnknownResult(Kind)(report),
-    (issue) => new PrototypeReportUnreadable({ kind: "(no kind)", issue: String(issue) }),
-  ).kind;
+  Result.mapBoth(Schema.decodeUnknownResult(Kind)(report), {
+    onFailure: (issue) => new Unreadable({ report: "(no kind)", issue: String(issue) }),
+    onSuccess: (r) => r.kind,
+  });
 
 const reports = {
   turn: Schema.Struct({
@@ -128,59 +133,61 @@ const RECORDED = new Map<string, RecordedWhy>([
 ]);
 
 const read = <A, E>(schema: Schema.Codec<A, E>, report: Report, kind: string) =>
-  Result.getOrThrowWith(
+  Result.mapError(
     Schema.decodeUnknownResult(schema)(report),
-    (issue) => new PrototypeReportUnreadable({ kind, issue: String(issue) }),
+    (issue) => new Unreadable({ report: kind, issue: String(issue) }),
   );
 
-// RETURN_TYPE: each branch builds one variant; inference keeps a union of Options, not one Option.
-const laneReport = (report: Report, kind: string): Option.Option<Observation> => {
-  if (kind === "Disposed") return Option.some(Observation.RuntimeDisposed());
+const laneReport = (report: Report, kind: string) =>
+  Result.gen(function* () {
+    if (kind === "Disposed") return Option.some(Observation.RuntimeDisposed());
 
-  if (kind === "incarnation" || kind === "ended") {
-    const actor = actorRef(read(reports.incarnation, report, kind).actor);
+    if (kind === "incarnation" || kind === "ended") {
+      const actor = yield* actorRef((yield* read(reports.incarnation, report, kind)).actor);
+
+      return Option.some(
+        kind === "incarnation"
+          ? Observation.Incarnated({ actor })
+          : Observation.Finished({ actor }),
+      );
+    }
+
+    if (kind === "Unhandled") {
+      const r = yield* read(reports.unhandled, report, kind);
+
+      return Option.some(Observation.Unhandled({ event: r.event }));
+    }
+
+    if (kind === "Denied") {
+      const r = yield* read(reports.denied, report, kind);
+
+      return Option.some(Observation.Denied({ event: r.event, reasons: r.reasons }));
+    }
+
+    if (kind === "parked" || kind === "unparked") {
+      const r = yield* read(reports.onLane, report, kind);
+      const at = { operation: r.op, attempt: attemptOf(r.attempt) };
+
+      return Option.some(kind === "parked" ? Observation.Parked(at) : Observation.Unparked(at));
+    }
+
+    const why = Option.fromUndefinedOr(RECORDED.get(kind));
+
+    if (Option.isSome(why)) {
+      const r = yield* read(reports.onLane, report, kind);
+
+      return Option.some(
+        Observation.Recorded({ operation: r.op, attempt: attemptOf(r.attempt), why: why.value }),
+      );
+    }
+
+    if (!Schema.is(EvidenceKind)(kind)) return Option.none();
+    const r = yield* read(reports.evidence, report, kind);
 
     return Option.some(
-      kind === "incarnation" ? Observation.Incarnated({ actor }) : Observation.Finished({ actor }),
+      Observation.Evidence({ kind: r.kind, operation: r.op, attempt: attemptOf(r.attempt) }),
     );
-  }
-
-  if (kind === "Unhandled") {
-    const r = read(reports.unhandled, report, kind);
-
-    return Option.some(Observation.Unhandled({ event: r.event }));
-  }
-
-  if (kind === "Denied") {
-    const r = read(reports.denied, report, kind);
-
-    return Option.some(Observation.Denied({ event: r.event, reasons: r.reasons }));
-  }
-
-  if (kind === "parked" || kind === "unparked") {
-    const r = read(reports.onLane, report, kind);
-    const at = { operation: r.op, attempt: attemptOf(r.attempt) };
-
-    return Option.some(kind === "parked" ? Observation.Parked(at) : Observation.Unparked(at));
-  }
-
-  const why = Option.fromUndefinedOr(RECORDED.get(kind));
-
-  if (Option.isSome(why)) {
-    const r = read(reports.onLane, report, kind);
-
-    return Option.some(
-      Observation.Recorded({ operation: r.op, attempt: attemptOf(r.attempt), why: why.value }),
-    );
-  }
-
-  if (!Schema.is(EvidenceKind)(kind)) return Option.none();
-  const r = read(reports.evidence, report, kind);
-
-  return Option.some(
-    Observation.Evidence({ kind: r.kind, operation: r.op, attempt: attemptOf(r.attempt) }),
-  );
-};
+  });
 
 // RETURN_TYPE: each branch builds one variant; inference keeps a union of Options, not one Option.
 /**
@@ -188,96 +195,97 @@ const laneReport = (report: Report, kind: string): Option.Option<Observation> =>
  */
 export type Identify = (value: WeakKey) => number;
 
-const decodeJson = Schema.decodeUnknownSync(Schema.Json);
+const observationOf = (report: Report, identify: Identify) =>
+  Result.gen(function* () {
+    const kind = yield* kindOf(report);
 
-// RETURN_TYPE: each branch builds one variant; inference keeps a union of Options, not one Option.
-const observationOf = (report: Report, identify: Identify): Option.Option<Observation> => {
-  const kind = kindOf(report);
+    if (kind === "published") {
+      const r = yield* read(reports.published, report, kind);
+      const memory = yield* read(Schema.Json, r.memory, "published memory");
 
-  if (kind === "published") {
-    const r = read(reports.published, report, kind);
+      return Option.some(
+        Observation.Published({
+          actor: yield* actorRef(r.actor),
+          state: r.state,
+          memory,
+          memoryId: Predicate.isObject(r.memory) ? identify(r.memory) : 0,
+        }),
+      );
+    }
 
-    return Option.some(
-      Observation.Published({
-        actor: actorRef(r.actor),
-        state: r.state,
-        memory: decodeJson(r.memory),
-        memoryId: Predicate.isObject(r.memory) ? identify(r.memory) : 0,
-      }),
-    );
-  }
+    if (kind === "turn") {
+      const r = yield* read(reports.turn, report, kind);
 
-  if (kind === "turn") {
-    const r = read(reports.turn, report, kind);
+      return Option.some(
+        Observation.Turn({
+          actor: yield* actorRef(r.actor),
+          event: r.event,
+          from: r.from,
+          to: r.to,
+          parts: r.parts.map((p) => ({
+            part: p.path,
+            definition: p.definition,
+            at: p.at === IMPLICIT ? `trigger:${p.node}:${p.tag}` : p.at,
+            node: p.node,
+            target: p.target,
+          })),
+          members: r.members.map(memberOf),
+        }),
+      );
+    }
 
-    return Option.some(
-      Observation.Turn({
-        actor: actorRef(r.actor),
-        event: r.event,
-        from: r.from,
-        to: r.to,
-        parts: r.parts.map((p) => ({
-          part: p.path,
-          definition: p.definition,
-          at: p.at === IMPLICIT ? `trigger:${p.node}:${p.tag}` : p.at,
-          node: p.node,
-          target: p.target,
-        })),
-        members: r.members.map(memberOf),
-      }),
-    );
-  }
+    if (kind === "mint") {
+      const r = yield* read(reports.mint, report, kind);
 
-  if (kind === "mint") {
-    const r = read(reports.mint, report, kind);
+      return Option.some(
+        Observation.Minted({
+          operation: r.op,
+          attempt: r.attempt,
+          actor: yield* optionalActor(r.actor),
+          key: Option.liftPredicate(r.key, Schema.is(Schema.Json)),
+        }),
+      );
+    }
 
-    return Option.some(
-      Observation.Minted({
-        operation: r.op,
-        attempt: r.attempt,
-        actor: Option.map(r.actor, actorRef),
-        key: Option.liftPredicate(r.key, Schema.is(Schema.Json)),
-      }),
-    );
-  }
+    if (kind === "invoked") {
+      const r = yield* read(reports.invoked, report, kind);
 
-  if (kind === "invoked") {
-    const r = read(reports.invoked, report, kind);
+      return Option.some(Observation.Sent({ operation: r.op, attempt: r.attempt }));
+    }
 
-    return Option.some(Observation.Sent({ operation: r.op, attempt: r.attempt }));
-  }
+    if (kind === "ending") {
+      const r = yield* read(reports.ending, report, kind);
 
-  if (kind === "ending") {
-    const r = read(reports.ending, report, kind);
+      return Option.some(
+        Observation.Ended({
+          operation: r.op,
+          attempt: attemptOf(r.attempt),
+          channel: r.channel,
+          reason: r.reason,
+          actor: Option.isNone(attemptOf(r.attempt))
+            ? yield* optionalActor(r.actor)
+            : Option.none(),
+          failure: Option.none(),
+        }),
+      );
+    }
 
-    return Option.some(
-      Observation.Ended({
-        operation: r.op,
-        attempt: attemptOf(r.attempt),
-        channel: r.channel,
-        reason: r.reason,
-        actor: Option.isNone(attemptOf(r.attempt)) ? Option.map(r.actor, actorRef) : Option.none(),
-        failure: Option.none(),
-      }),
-    );
-  }
+    if (kind === "delivered") {
+      const r = yield* read(reports.delivered, report, kind);
+      const event = Option.getOrElse(r.event, () => "(unmapped)");
 
-  if (kind === "delivered") {
-    const r = read(reports.delivered, report, kind);
-    const event = Option.getOrElse(r.event, () => "(unmapped)");
+      return Option.some(
+        Observation.Delivered({
+          operation: r.op,
+          attempt: attemptOf(r.attempt),
+          event,
+          actor: yield* optionalActor(r.actor),
+        }),
+      );
+    }
 
-    return Option.some(
-      Observation.Delivered({
-        operation: r.op,
-        attempt: attemptOf(r.attempt),
-        event,
-        actor: Option.map(r.actor, actorRef),
-      }),
-    );
-  }
-
-  return laneReport(report, kind);
-};
+    return yield* laneReport(report, kind);
+  });
 
 /**
  * The Port's observations in one batch of the prototype's evidence, in order.
@@ -289,11 +297,23 @@ const observationOf = (report: Report, identify: Identify): Option.Option<Observ
  * - A mint, a decline and a delivery name their actor; a report of a mutated runtime that drops it
  *   reads as `None`.
  *
- * **Gotchas**
- *
- * - Throws `PrototypeReportUnreadable` when a report has no `kind` or a report of a known kind
- *   does not decode. The prototype catches a throw from its evidence sink and reports it as a
- *   `SinkFailed` issue, dropping the batch.
+ * - A report with no `kind`, or of a known kind that does not decode, is an {@link Unreadable}
+ *   failure in its place; the reports around it are kept.
  */
-export const observationsOf = (batch: ReadonlyArray<Report>, identify: Identify) =>
-  batch.flatMap((raw) => Option.toArray(observationOf(raw, identify)));
+// RETURN_TYPE: one Result per readable report, its failure in an unreadable one's place.
+export const observationsOf = (
+  batch: ReadonlyArray<Report>,
+  identify: Identify,
+): ReadonlyArray<Result.Result<Observation, Unreadable>> =>
+  batch.flatMap((raw) => {
+    const read: Result.Result<Option.Option<Observation>, Unreadable> = observationOf(
+      raw,
+      identify,
+    );
+
+    const out: ReadonlyArray<Result.Result<Observation, Unreadable>> = Result.isFailure(read)
+      ? [Result.fail(read.failure)]
+      : Option.toArray(read.success).map((o) => Result.succeed(o));
+
+    return out;
+  });

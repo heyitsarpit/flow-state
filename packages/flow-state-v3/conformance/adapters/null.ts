@@ -1,4 +1,4 @@
-import { Option } from "effect";
+import { Option, Result } from "effect";
 import { type Port, Snapshot } from "../port.ts";
 
 /**
@@ -17,8 +17,8 @@ export const nullPort: Port = {
     dispose: () => undefined,
     forget: () => undefined,
     disposeRuntime: () => undefined,
-    snapshot: () => Snapshot.Absent(),
-    row: () => Option.none(),
+    snapshot: () => Result.succeed(Snapshot.Absent()),
+    row: () => Result.succeed(Option.none()),
     pending: () => false,
   }),
 };

@@ -1,4 +1,4 @@
-import { Data, type Option, Schema } from "effect";
+import { Data, type Option, type Result, Schema } from "effect";
 import type { Hosts } from "./world/world.ts";
 
 /**
@@ -213,8 +213,7 @@ export type EndingRef = {
  * - Every observation is the runtime's own claim. An oracle that reads one alone checks only
  *   consistency; each must be anchored to a suite fact.
  * - `actor` on `Minted` is required, and so is `key` on a keyed operation (`None` only on an
- *   unkeyed one): the Case stops with `UnreadableReport`, a defect naming the field, when either is
- *   missing. On a decline's `Ended` and on `Delivered`, `actor` names the actor, `None` when the
+ *   unkeyed one): the Case stops with {@link Unreadable} naming the field when either is missing. On a decline's `Ended` and on `Delivered`, `actor` names the actor, `None` when the
  *   runtime does not say.
  * - `Delivered` is reported on every admission of an operation's ending, the redelivery after a
  *   refused turn (an `InvalidTurn` issue) and a kept ending's try included. Module deliveries are
@@ -299,6 +298,20 @@ export type Delivered = Data.TaggedEnum.Value<Observation, "Delivered">;
 export type Recorded = Data.TaggedEnum.Value<Observation, "Recorded">;
 
 /**
+ * A runtime's report or read the Port cannot read: the runtime (or its adapter) broke the Port's
+ * contract, an expected failure of a runtime under test, apart from a defect of the suite.
+ *
+ * **Details**
+ *
+ * `report` names what was read (an evidence kind, a snapshot, a row, an issue); `issue` says what
+ * is wrong with it. The Case stops with it at the end of the step that met it.
+ */
+export class Unreadable extends Data.TaggedError("Unreadable")<{
+  readonly report: string;
+  readonly issue: string;
+}> {}
+
+/**
  * What the suite gives a runtime when it boots one page.
  *
  * **Details**
@@ -309,6 +322,7 @@ export type Recorded = Data.TaggedEnum.Value<Observation, "Recorded">;
  *   Attempt ids from it.
  * - `hosts`: the fake world's hosts: clock, page, store and server.
  * - `observe`: called with each public report as it happens.
+ * - `unreadable`: called with each report the adapter could not read ({@link Unreadable}).
  */
 export type Boot = {
   readonly fixtures: ReadonlyArray<string>;
@@ -316,6 +330,7 @@ export type Boot = {
   readonly sessionSeed: number;
   readonly hosts: Hosts;
   readonly observe: (observation: Observation) => void;
+  readonly unreadable: (failure: Unreadable) => void;
 };
 
 /**
@@ -328,7 +343,8 @@ export type Boot = {
  * **Details**
  *
  * - `row` is a write's row as the runtime publishes it, untyped; the fixture's operation decodes it
- *   (`dsl/actor.ts`), and an absent row is `None`.
+ *   (`dsl/actor.ts`), and an absent row is `None`. `snapshot` and `row` fail with
+ *   {@link Unreadable} when the runtime's value is not JSON.
  * - `ensure` attaches one use of the identity, creating it if needed.
  * - `send` sends an external event to the actor's root (`part` empty) or to the trait or fragment
  *   instance at `part`, as the public API's scoped events (`E.t.Go`) address it.
@@ -360,8 +376,12 @@ export type Runtime = {
   readonly dispose: (actor: ActorRef) => void;
   readonly forget: (actor: ActorRef) => void;
   readonly disposeRuntime: () => void;
-  readonly snapshot: (actor: ActorRef) => Snapshot;
-  readonly row: (actor: ActorRef, operation: string, key: Json) => Option.Option<Json>;
+  readonly snapshot: (actor: ActorRef) => Result.Result<Snapshot, Unreadable>;
+  readonly row: (
+    actor: ActorRef,
+    operation: string,
+    key: Json,
+  ) => Result.Result<Option.Option<Json>, Unreadable>;
   readonly pending: () => boolean;
 };
 

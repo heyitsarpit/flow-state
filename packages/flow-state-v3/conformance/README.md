@@ -159,6 +159,7 @@ type Boot = {
   sessionSeed: number; // the runtime mints Attempt ids from it
   hosts: Hosts; // clock, page, storage, network
   observe: (o: Observation) => void;
+  unreadable: (failure: Unreadable) => void; // a report the adapter could not read (T8)
 };
 type Use = "story" | "host" | "component";
 type Runtime = {
@@ -169,8 +170,8 @@ type Runtime = {
   send(actor, event, payload: Json): void;
   dispose(actor): void;
   disposeRuntime(): void; // starts the Runtime's disposal; RuntimeDisposed reports its end
-  snapshot(actor): Snapshot; // Live { state, memory: Json } | Absent
-  row(actor, operation, key: Json): Option<Json>; // the public O.x.get row; the fixture decodes it by policy (Reads R14)
+  snapshot(actor): Result<Snapshot, Unreadable>; // Live { state, memory: Json } | Absent
+  row(actor, operation, key: Json): Result<Option<Json>, Unreadable>; // the public O.x.get row; the fixture decodes it by policy (Reads R14)
   pending(): boolean; // settling only
 };
 // Observation: Turn, Minted { actor, key }, Sent, Ended { actor (a decline's), failure (StillUnknown's) },

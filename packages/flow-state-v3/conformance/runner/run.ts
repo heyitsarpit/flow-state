@@ -2,7 +2,7 @@ import { Clock, Effect } from "effect";
 import { playCase, type Scenario } from "../dsl/case.ts";
 import { citedBy, type Graphed, Mismatch, type Oracle, Violated } from "../dsl/oracle.ts";
 import { playStatic, type StaticCase } from "../dsl/static-case.ts";
-import type { Port } from "../port.ts";
+import { type Port, Unreadable } from "../port.ts";
 import type { Surface } from "../surface.ts";
 import { Overdue } from "../world/world.ts";
 import type { CaseVerdict } from "./verdict.ts";
@@ -30,7 +30,14 @@ const failed = (failure: unknown) => {
       cites: citedBy(failure.label),
     };
 
-  return { oracles: [], why: `threw: ${String(failure)}`, cites: [] };
+  if (failure instanceof Unreadable)
+    return {
+      oracles: [],
+      why: `unreadable ${failure.report}: ${failure.issue} (the runtime broke the Port's contract)`,
+      cites: [],
+    };
+
+  return { oracles: [], why: `defect: ${String(failure)}`, cites: [] };
 };
 
 const citing = (cites: ReadonlyArray<string>) => (cites.length === 0 ? {} : { cites });
@@ -85,8 +92,9 @@ const deadline = Clock.clockWith((clock) =>
  *
  * **Details**
  *
- * A step's oracle violation, a case's own mismatch and a thrown defect (a scenario bug, an
- * unsettled world, a runtime that throws) are each a `Fail`; nothing a case does escapes as a
+ * A step's oracle violation, a case's own mismatch, a report the Port cannot read (`Unreadable`,
+ * the runtime's fault) and a thrown defect (a scenario bug, an unsettled world, a runtime that
+ * throws) are each a `Fail`, each named apart; nothing a case does escapes as a
  * failure of this Effect. Every case runs under seeds 1 and 2, which change the store's load
  * order and the session seeds. `graphs` are what `flow graph` printed for the fixtures.
  *

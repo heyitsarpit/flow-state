@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { Context, Data, Effect, Option, Predicate, type Scheduler, Schema } from "effect";
+import { Context, Data, Effect, Option, Predicate, Result, type Scheduler, Schema } from "effect";
 import { join } from "node:path";
 import {
   type ActorRef,
@@ -8,6 +8,7 @@ import {
   type Port,
   type Runtime,
   Snapshot,
+  Unreadable,
 } from "../port.ts";
 import { makeNetwork, type Network } from "../world/network.ts";
 import { makePage, type Page } from "../world/page.ts";
@@ -62,18 +63,24 @@ const PrototypeIssue = Schema.Struct({
   ),
 });
 
-const issueOf = (raw: typeof PrototypeIssue.Encoded) => {
-  const issue = Schema.decodeSync(PrototypeIssue)(raw);
+// FLOW_STATE_ALLOW_UNKNOWN: the prototype's issues are untyped; each is decoded here, once.
+const issueOf = (raw: unknown) =>
+  Result.gen(function* () {
+    const issue = yield* Result.mapError(
+      Schema.decodeUnknownResult(PrototypeIssue)(raw),
+      (why) => new Unreadable({ report: "issue", issue: String(why) }),
+    );
 
-  return Observation.Issue({
-    code: issue.code,
-    ending: Option.map(issue.ending, (e) => ({
-      operation: e.op,
-      attempt: e.attempt,
-      actor: actorRef(e.actor),
-    })),
+    const ending = Option.isNone(issue.ending)
+      ? Option.none()
+      : Option.some({
+          operation: issue.ending.value.op,
+          attempt: issue.ending.value.attempt,
+          actor: yield* actorRef(issue.ending.value.actor),
+        });
+
+    return Observation.Issue({ code: issue.code, ending });
   });
-};
 
 type PrototypeHost = {
   readonly now: () => number;
@@ -107,7 +114,8 @@ type PrototypePort = {
     };
     readonly services: Context.Context<never>;
     readonly onEvidence: (batch: Parameters<typeof observationsOf>[0]) => void;
-    readonly onIssue: (issues: ReadonlyArray<typeof PrototypeIssue.Encoded>) => void;
+    // FLOW_STATE_ALLOW_UNKNOWN: the prototype's issues are untyped; `issueOf` decodes each.
+    readonly onIssue: (issues: ReadonlyArray<unknown>) => void;
   }) => PrototypeInstance;
 };
 
@@ -182,9 +190,14 @@ type PrototypeFixture = {
   readonly services: Option.Option<(api: PrototypeApi) => Context.Context<never>>;
 };
 
-const decodeState = Schema.decodeUnknownOption(Schema.String);
-const decodeMemory = Schema.decodeUnknownSync(Schema.Json);
-const decodeRow = Schema.decodeUnknownSync(Schema.Json);
+const decodeState = Schema.decodeUnknownResult(Schema.String);
+
+// FLOW_STATE_ALLOW_UNKNOWN: the prototype's memory and rows are untyped; each is decoded here, once.
+const decodeJson = (report: string, value: unknown) =>
+  Result.mapError(
+    Schema.decodeUnknownResult(Schema.Json)(value),
+    (issue) => new Unreadable({ report, issue: String(issue) }),
+  );
 
 // RETURN_TYPE: the Port's Runtime contract types the methods' parameters.
 const runtimeOf = (instance: PrototypeInstance): Runtime => ({
@@ -204,13 +217,26 @@ const runtimeOf = (instance: PrototypeInstance): Runtime => ({
   snapshot: (actor) => {
     const key = actorKey(actor);
 
-    return Option.match(decodeState(instance.state(key)), {
-      onNone: () => Snapshot.Absent(),
-      onSome: (state) => Snapshot.Live({ state, memory: decodeMemory(instance.memory(key)) }),
+    const raw = instance.state(key);
+
+    if (raw === undefined) return Result.succeed(Snapshot.Absent());
+
+    return Result.gen(function* () {
+      const state = yield* Result.mapError(
+        decodeState(raw),
+        (why) => new Unreadable({ report: `snapshot ${key}`, issue: String(why) }),
+      );
+
+      const memory = yield* decodeJson(`snapshot ${key}`, instance.memory(key));
+
+      return Snapshot.Live({ state, memory });
     });
   },
   row: (actor, operation, key) =>
-    Option.map(Option.fromUndefinedOr(instance.row(actorKey(actor), operation, key)), decodeRow),
+    Option.match(Option.fromUndefinedOr(instance.row(actorKey(actor), operation, key)), {
+      onNone: () => Result.succeed(Option.none()),
+      onSome: (raw) => Result.map(decodeJson(`row ${operation}`, raw), Option.some),
+    }),
   pending: instance.pending,
 });
 
@@ -331,7 +357,8 @@ export const compiledOf = (loaded: LoadedPrototype, name: string) =>
  * - `boot` boots the prototype over the world's hosts with the case's fixtures, wired to the
  *   suite's server.
  * - The prototype's evidence is translated into the Port's observations; its other reports are
- *   dropped.
+ *   dropped. A report, issue, memory or row that does not decode is an `Unreadable` failure
+ *   (`boot.unreadable`, or the read's failure), never a throw into the prototype's sink.
  *
  * **Gotchas**
  *
@@ -407,10 +434,12 @@ export const prototypePort = (loaded: LoadedPrototype): Port => ({
         faults: { moduleThrows: new Map(), moduleThrowsAfter: new Map(), coreThrows: 0 },
         services,
         onEvidence: (batch) => {
-          for (const o of observationsOf(batch, identify)) boot.observe(o);
+          for (const o of observationsOf(batch, identify))
+            Result.match(o, { onFailure: boot.unreadable, onSuccess: boot.observe });
         },
         onIssue: (issues) => {
-          for (const issue of issues) boot.observe(issueOf(issue));
+          for (const issue of issues)
+            Result.match(issueOf(issue), { onFailure: boot.unreadable, onSuccess: boot.observe });
         },
       }),
     );

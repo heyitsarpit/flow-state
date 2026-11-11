@@ -456,7 +456,9 @@ const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>): Stepped =>
  *   unknown { Restored } or an adopted ending is current (in a step with a reload or an attach);
  *   an owner the suite did not see (a read's, a part's), or an unanchored actor, allows either.
  * - The reported `to` is judged, never trusted: the carried leaf is the selected alternative's
- *   (only an unanchored actor's reported `from` is taken, once).
+ *   (only an unanchored actor's reported `from` is taken, once). A turn with no root part breaks
+ *   I2: the tables are flat, so a root part is the only one a turn can run; a fixture with parts
+ *   needs its table to name them first (T21).
  * - Driven events are credited to the actor until a turn of it runs them, an `Unhandled` or
  *   `Denied` of that event is reported while exactly one actor holds its credit, or the actor is
  *   disposed, forgotten or reloaded.

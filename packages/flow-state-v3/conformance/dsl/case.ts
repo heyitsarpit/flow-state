@@ -1,4 +1,4 @@
-import { Data, Equal, Option, Schema } from "effect";
+import { Equal, Option, Result, Schema } from "effect";
 import { type Fixture, handlersFor, referenceFor, rowsFor } from "../fixtures/fixture.ts";
 import { operationNamed, type Reference } from "../fixtures/reference.ts";
 import {
@@ -25,6 +25,7 @@ import {
   sameJson,
   type Snapshot,
   type Use,
+  Unreadable,
 } from "../port.ts";
 import { type Answer, NoHeldRequest, type Request, RequestPhase } from "../world/network.ts";
 import type { StorageAnswer } from "../world/storage.ts";
@@ -48,16 +49,6 @@ export type Drive = {
 
 const shown = <A>(value: A) => String(JSON.stringify(value));
 
-/**
- * A runtime report lacks a field the Port requires: a defect of the runtime or its adapter, never
- * a verdict on a guarantee. `field` names what is missing.
- */
-export class UnreadableReport extends Data.TaggedError("UnreadableReport")<{
-  readonly report: string;
-  readonly field: string;
-  readonly message: string;
-}> {}
-
 const missingField = (reference: Reference, minted: Minted) => {
   if (Option.isNone(minted.actor)) return Option.some("actor");
 
@@ -74,10 +65,9 @@ const decodeReports = (reference: Reference, fresh: ReadonlyArray<Fact>) => {
     const field = missingField(reference, minted);
 
     if (Option.isSome(field))
-      throw new UnreadableReport({
+      throw new Unreadable({
         report: `Minted ${minted.operation} ${minted.attempt}`,
-        field: field.value,
-        message: `Minted ${minted.operation} ${minted.attempt} has no ${field.value}`,
+        issue: `it has no ${field.value}`,
       });
   }
 };
@@ -176,6 +166,7 @@ export type CaseOptions = {
 
 const runtimeLife = (options: CaseOptions, world: World, record: (fact: Fact) => void) => {
   const fixtures = options.fixtures.map((f) => f.name);
+  const unread: Array<Unreadable> = [];
 
   const boot = () =>
     options.port.boot({
@@ -184,6 +175,7 @@ const runtimeLife = (options: CaseOptions, world: World, record: (fact: Fact) =>
       sessionSeed: world.hosts.page.sessionSeed(),
       hosts: world.hosts,
       observe: (observation) => record(Fact.Reported({ observation })),
+      unreadable: (failure) => void unread.push(failure),
     });
 
   let runtime = boot();
@@ -191,6 +183,7 @@ const runtimeLife = (options: CaseOptions, world: World, record: (fact: Fact) =>
   return {
     runtime: () => runtime,
     pending: () => runtime.pending(),
+    unread: () => Option.fromUndefinedOr(unread[0]),
     reboot: () => {
       world.kill();
       record(Fact.Reloaded());
@@ -207,6 +200,7 @@ const stepEngine = (
   facts: ReadonlyArray<Fact>,
   record: (fact: Fact) => void,
   pending: () => boolean,
+  unread: () => Option.Option<Unreadable>,
 ) => {
   const { network } = world.hosts;
   const reference = referenceFor(options.fixtures);
@@ -231,7 +225,16 @@ const stepEngine = (
     noted = made.length;
   };
 
+  const stopIfUnread = (what: string) =>
+    Option.match(unread(), {
+      onNone: () => undefined,
+      onSome: (failure) => {
+        throw new Unreadable({ report: failure.report, issue: `${failure.issue} (at ${what})` });
+      },
+    });
+
   const judge = (what: string) => {
+    stopIfUnread(what);
     decodeReports(reference, facts.slice(judged));
     const fresh = steps(facts.slice(judged));
     const requests = network.requests();
@@ -262,7 +265,11 @@ const stepEngine = (
     stepped += 1;
     record(Fact.Stepped({ step: stepped, what }));
     run();
-    world.settle(pending);
+    // FLOW_STATE_ALLOW_UNKNOWN: settling throws a world failure (Unsettled, Overdue); it is rethrown unread.
+    const settled = Result.try({ try: () => world.settle(pending), catch: (e: unknown) => e });
+    stopIfUnread(what);
+
+    if (Result.isFailure(settled)) throw settled.failure;
     noteRequests();
     judge(what);
   };
@@ -281,7 +288,7 @@ const openCase = (options: CaseOptions) => {
   const facts: Array<Fact> = [];
   const record = (fact: Fact) => void facts.push(fact);
   const life = runtimeLife(options, world, record);
-  const { act, judge } = stepEngine(options, world, facts, record, life.pending);
+  const { act, judge } = stepEngine(options, world, facts, record, life.pending, life.unread);
 
   const held = (operation: string, request: Option.Option<Request>) =>
     Option.getOrThrowWith(request, () => new NoHeldRequest({ operation }));
@@ -367,7 +374,7 @@ const openCase = (options: CaseOptions) => {
   };
 
   const row = (actor: ActorRef, operation: string, key: Json) => {
-    const read = life.runtime().row(actor, operation, key);
+    const read = Result.getOrThrowWith(life.runtime().row(actor, operation, key), (f) => f);
     record(Fact.Read({ actor, operation, key, row: read }));
     judge(`read ${operation}`);
 
@@ -445,7 +452,7 @@ const openCase = (options: CaseOptions) => {
     advance: (ms) => advance(`advance ${ms}`, ms),
     reload: () => reload("reload", () => []),
     eq,
-    snapshot: (actor) => life.runtime().snapshot(actor),
+    snapshot: (actor) => Result.getOrThrowWith(life.runtime().snapshot(actor), (f) => f),
     row,
     requests,
     keys: (operation) => [...new Set(requests(operation).flatMap((r) => Option.toArray(r.key)))],

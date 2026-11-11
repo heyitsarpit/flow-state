@@ -360,7 +360,7 @@ const ended = (walk: Walk, given: Rules) => {
  *   a decline from the oldest open decline of the operation (else its newest, so its cell
  *   refuses). One naming neither (an Attempt never minted) is not applied; a decline's `Ended`
  *   with no actor outside a turn likewise.
- * - A `Minted` with no actor is not applied: the Case stops it as `UnreadableReport`.
+ * - A `Minted` with no actor is not applied: the Case stops it as `Unreadable`.
  * - A report of an operation no fixture declares as a write (a read's send or ending) is not a
  *   lifecycle move.
  */

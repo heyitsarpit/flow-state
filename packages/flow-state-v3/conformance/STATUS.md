@@ -1309,10 +1309,42 @@ verified and fixed:
   for Turn I2, I26, I29, I30 and Actors I38. Low: a `step()` test of the once-per-step `Incarnated`
   guard (red without it); README and STATUS drift fixed. M7, L2 to L7 carried as the review says.
 
+Reviewer (Haiku) of `8d0c3729`, 10 findings. Rejected: a turn with no root part on a fixture with
+parts (3): the tables are flat, so the rule stands until a table names parts (T21; stated in
+`selection`). Stated, not changed: the first turn after a disposal takes the reported `from` (1;
+the I2 remainder); a reload whose record lags its last turn would go red, a risk no case reaches
+(2; WriteAhead I10, I12 allow the lag, so a production case for it is T18's); a cancelAll's NotSent
+end leaves a Superseded `Await` (4) and a two-actor Unhandled leaves its ending owed (5), both
+unreachable with today's fixtures; the Activation bump drops pre-boot queued commits from I27 (6);
+an actor-less `Delivered` admits nothing (7, the Port names the actor). Confirmed: the mutants'
+edits (8) and the table-built perturbation headers (9).
+
+### Typed adapter failures (2026-11-11, queued after T8 by the user)
+
+Bottom line: a runtime report, issue, snapshot or row the Port cannot read is a typed `Unreadable`
+(port.ts), apart from defects; the runner names it ("unreadable ... the runtime broke the Port's
+contract") and a defect "defect: ...". Before, an unreadable report threw inside the prototype's
+evidence sink, which round-14 swallowed as a `SinkFailed` issue and dropped the whole batch.
+
+- `observationsOf` decodes each report to a `Result`, keeping the reports around a bad one; the
+  adapter sends failures to `Boot.unreadable`, and the Case stops with the first at the step's end.
+  `Runtime.snapshot` and `row` return `Result<_, Unreadable>`; the Case's missing-field check
+  (`Minted` with no actor or key) is the same failure.
+- Kept as defects: an unknown fixture name, a fixture's non-JSON input, the static adapter's
+  `Undeclared` and `ForeignHandle` (suite bugs); `PrototypeLoadFailed` was already typed.
+- Proved: tests of `observationsOf` and `actorRef`; an edited round-14 whose turn reports
+  `event: 42` fails PAY-01 as `unreadable turn`, not a dropped batch.
+- Reviewer (Haiku), 8 findings. Accepted and fixed: memory and rows that fail the fixture's Schema
+  are `Unreadable`, not a defect (1); a non-string state is `Unreadable`, only `undefined` is
+  absent (2); a malformed actor key is `Unreadable` (3); a step's `Unreadable` names the step, and
+  wins over a settle failure it caused (4, 5); stale `UnreadableReport` docs (7). Stated, not
+  changed: fixture inputs that are not JSON stay defects (6; the fixtures are the suite's own,
+  decision 4), and a `Delivered` with no event (an `UnmappedEnding`'s) reads `(unmapped)`; a read's
+  `Unreadable` (snapshot, row) has no step, being no step; schema issues are flattened to text (8).
+
 ### Next steps
 
-1. Adapters use typed failures with defects kept apart (queued after T8, the user).
-2. Carried: CQ3's commit half (a Table B row for a lane holding a kept ending); the review's M7.
+1. Carried: CQ3's commit half (a Table B row for a lane holding a kept ending); the review's M7.
 
 ### Snapshot values (Turn I29, I30) and the Port's `Published`
 

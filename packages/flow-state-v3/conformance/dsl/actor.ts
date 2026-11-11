@@ -1,6 +1,6 @@
-import { Data, Option, Schema } from "effect";
+import { Data, Option, Result, Schema } from "effect";
 import type { Fixture } from "../fixtures/fixture.ts";
-import { Snapshot, type Use } from "../port.ts";
+import { Snapshot, Unreadable, type Use } from "../port.ts";
 import type { Case, Drive } from "./case.ts";
 import { Address, Mismatch } from "./oracle.ts";
 
@@ -92,7 +92,11 @@ export const actorView = <F extends Fixture>(c: Case, fixture: F, id: string): A
       ),
     memory: () =>
       Snapshot.$match(c.snapshot(ref), {
-        Live: ({ memory }) => Schema.decodeSync(Schema.toCodecJson(fixture.memory))(memory),
+        Live: ({ memory }) =>
+          Result.getOrThrowWith(
+            Schema.decodeUnknownResult(Schema.toCodecJson(fixture.memory))(memory),
+            (why) => new Unreadable({ report: `memory of ${ref.id}`, issue: String(why) }),
+          ),
         Absent: () => {
           throw new Mismatch({ label: "memory", expected: "(live)", actual: "(absent)" });
         },
@@ -100,9 +104,11 @@ export const actorView = <F extends Fixture>(c: Case, fixture: F, id: string): A
     row: (operation, key) => {
       const write = declared(fixture.operations, operation);
 
-      return Option.map(
-        c.row(ref, operation, encoded(write.key, key)),
-        Schema.decodeUnknownSync(write.row),
+      return Option.map(c.row(ref, operation, encoded(write.key, key)), (raw) =>
+        Result.getOrThrowWith(
+          Schema.decodeUnknownResult(write.row)(raw),
+          (why) => new Unreadable({ report: `row ${operation}`, issue: String(why) }),
+        ),
       );
     },
   };
