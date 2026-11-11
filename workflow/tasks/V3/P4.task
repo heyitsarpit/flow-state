@@ -605,6 +605,11 @@ tasks
             limits.ts; an unpredicted turn is a defect. Gates unchanged (suite 119, prod 75, falsify 147, liar 122/131, 
             crash 870/887). Still open: K2 (endings, Sent, Unparked into the anchor; data-flow boundary test), S3, S5, 
             boundary regex, naming the new crash red.
+        comment     2026-11-11T20:16:41Z
+            K2 further (8429e5aa): the anchor's calls end as the suite's server answered them (Ok success, lost 
+            unknown). Still report-fed, as stated limits: a failure's, cancel's, decline's or restore's channel, the 
+            re-send (Sent) and Unparked; the world's Requested facts follow the step's reports, so a mid-step re-send 
+            cannot come from them yet. Boundary minor done (5cea12c1); the data-flow boundary test, S3 and S5 remain.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open
