@@ -263,6 +263,10 @@ instructions
       reviewing lead, or an independent skill:check-spec or skill:check-task agent, which takes the
       review slot), plus their sidecars (amendment 3). Processes: up to 8 deterministic, about 16
       GB, after checking `vm_stat`. Always alone: real-browser runs and benchmarks.
+    - One lead at a time: the building lead, with the 90-minute reviewer the only other Opus agent;
+      design, Spec and audit leads take the building lead's slot in turn. Leads report once per
+      batch or stop, in at most 10 lines, with no progress messages (the user, 2026-11-11, to
+      preserve usage, the orchestrator's included).
     - Leads keep working through context compaction, up to three compactions, and hand off only
       after the third; they don't stop early because context is long (the user, 2026-11-11).
     - Checkpoints (a builder commit at the end of a coherent step) about every 50 minutes, which
@@ -275,11 +279,9 @@ instructions
       `watch.ts --seconds N`; stdin never read (`</dev/null`); files only with the Write and Edit
       tools (memory, 2026-11-04).
 cadence
-    Review every 60 minutes on the latest checkpoint while reviews keep surfacing mid-build issues;
-    after two reviews in a row with no High or Medium finding, every 90 minutes, back to 60 when one
-    does (the user, 2026-11-11).
+    Review every 90 minutes on the latest checkpoint (the user, 2026-11-11, to save usage).
 
-    Session cron `7 * * * *`.
+    Session crons `7 0-23/3 * * *` and `37 1-23/3 * * *` (every 90 minutes).
 
     Prompt: "V3 review wake. Read workflow/tasks/V3/epic.task and the last notes in its log.task. If its Limits
     section sets a usage reserve, read the weekly usage from the harness's usage view, and if the

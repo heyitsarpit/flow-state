@@ -607,4 +607,10 @@ note 2026-11-11T03:48:39Z
     mid-build issues and move to 90 minutes after two quiet reviews in a row. Reviews per Task were declined (a long 
     Task would go unreviewed). **Reverse:** restore the old effort line and a fixed 60-minute cadence.
 note 2026-11-11T04:03:53Z
-    Invariant audit done (code:workflow/plans/flow/references/proposals/invariant-audit-2026-11-11.md): 161 essential, 9 implied, 5 redundant, 8 untestable, 3 low value; 26 conflicts, 21 new. Decision (orchestrator, under the user's delegation of Spec questions): the 18 cuts are accepted; @task.V3.T42 revises the core Specs for C1 to C26, the rulings and the gaps, in parallel with the builder. The builder does the step 9 trigger-anchoring revision next, now that T8's selection oracle judges turn headers (784826f2). **Reverse:** keep the cut Invariants.
+    Invariant audit done (code:workflow/plans/flow/references/proposals/invariant-audit-2026-11-11.md): 161 essential, 
+    9 implied, 5 redundant, 8 untestable, 3 low value; 26 conflicts, 21 new. Decision (orchestrator, under the user's 
+    delegation of Spec questions): the 18 cuts are accepted; @task.V3.T42 revises the core Specs for C1 to C26, the 
+    rulings and the gaps, in parallel with the builder. The builder does the step 9 trigger-anchoring revision next, 
+    now that T8's selection oracle judges turn headers (784826f2). **Reverse:** keep the cut Invariants.
+note 2026-11-11T04:20:53Z
+    Amendment (the user, 2026-11-11): one lead at a time, all Opus at medium, sidecars kept, reviews every 90 minutes, leads report once per batch in at most 10 lines. T42 pauses at its next clean commit and resumes after the builder. **Why:** weekly usage was burning about 2.4 points an hour. **Reverse:** restore the hourly cron and parallel leads.
