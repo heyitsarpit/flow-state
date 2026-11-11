@@ -209,3 +209,9 @@ note 2026-11-11T22:21:09Z
     or memory, and none declares request order), owned by T47's fixtures on production, within the phase-out cap of 9. 
     Production's missing incarnation after a dispose (GEN-pay-seeded-281) goes to T51. **Reverse:** widen T45 to add 
     round-14 fixture machines.
+note 2026-11-11T22:32:05Z
+    Review (T45 823f118f..2f77e7ab): not done; B1 (an owed end refused in any step with no write, per step not per 
+    actor) and B2 (the data-flow test compares only live and held; its planted test is a tautology) verified and 
+    accepted with the should-fix list. Decision (orchestrator), no Spec change: an owed end owes its own record's write 
+    only when that record is dirty at the end (Actors R8 with WriteAhead R10), and the early-end check fires only when 
+    no capture is due; the reviewer's R8 amendment is not needed. **Reverse:** ask the user to amend R8 to written.
