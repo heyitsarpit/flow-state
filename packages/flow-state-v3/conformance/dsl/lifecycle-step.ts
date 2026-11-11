@@ -38,9 +38,14 @@ import { type Rules, rules } from "./lifecycle-rules.ts";
 import { Fact } from "./oracle.ts";
 
 /**
- * One move the step applied, with the refusals its cell (or a deadline it reached) gave.
+ * One move the step applied: the model it applied to, and the refusals its cell (or a deadline it
+ * reached) gave.
  */
-export type Applied = { readonly move: Input; readonly refusals: ReadonlyArray<Refusal> };
+export type Applied = {
+  readonly move: Input;
+  readonly on: Model;
+  readonly refusals: ReadonlyArray<Refusal>;
+};
 
 /**
  * One step of the lifecycle: the model before and after it, and every move applied, in order.
@@ -73,7 +78,7 @@ const isWrite = (known: Known, operation: string) =>
 const pushed = (walk: Walk, move: Input, given: Rules) => {
   const [model, refusals] = apply(walk.model, move, given);
 
-  return { ...walk, model, applied: [...walk.applied, { move, refusals }] };
+  return { ...walk, model, applied: [...walk.applied, { move, on: walk.model, refusals }] };
 };
 
 const closedTurn = (walk: Walk, given: Rules) =>

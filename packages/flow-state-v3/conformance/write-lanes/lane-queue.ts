@@ -168,76 +168,92 @@ const memberOrder = (lives: LifeStep) =>
     { order: Option.none(), found: [] },
   ).found;
 
-const endedAt = (lives: LifeStep, id: string) =>
-  Arr.findFirstIndex(lives.applied, ({ move }) => Move.$is("End")(move) && move.attempt === id);
-
-const cancelledQueue = (lives: LifeStep) =>
-  lives.applied.flatMap(({ move }) =>
-    Move.$is("End")(move) && move.channel === "failure" && move.reason === "Cancelled"
-      ? lives.before.attempts.filter((a) => a.id === move.attempt && a.phase._tag === "Queued")
-      : [],
+const cancelledAfter = (lives: LifeStep, from: number, id: string) =>
+  lives.applied.some(
+    ({ move }, i) =>
+      i > from &&
+      Move.$is("End")(move) &&
+      move.attempt === id &&
+      move.channel === "failure" &&
+      move.reason === "Cancelled",
   );
 
-const deliveredOrder = (lives: LifeStep) =>
-  lives.applied.flatMap(({ move }) =>
-    LifeMove.$is("Delivered")(move) ? Option.toArray(move.ending.attempt) : [],
+const endedAfter = (lives: LifeStep, from: number, id: string) =>
+  lives.applied.some(({ move }, i) => i > from && Move.$is("End")(move) && move.attempt === id);
+
+const deliveredFrom = (lives: LifeStep, from: number) =>
+  lives.applied.flatMap(({ move }, i) =>
+    i > from && LifeMove.$is("Delivered")(move) ? Option.toArray(move.ending.attempt) : [],
   );
 
-const stillOnWire = (lives: LifeStep, head: string, queued: string) =>
-  Option.exists(endedAt(lives, queued), (q) =>
-    Option.match(endedAt(lives, head), { onNone: () => true, onSome: (h) => h > q }),
+const cancelAllLanes = (on: Model, actor: LaneId["actor"], members: ReadonlyArray<LaneMember>) =>
+  lanesOf(on).filter((lane) =>
+    members.some((m) => m.kind === "cancelAll" && memberLane(actor, m, lane)),
   );
 
-const headLast = (lives: LifeStep) => {
-  const queued = cancelledQueue(lives);
-  const order = deliveredOrder(lives);
+const headLast = (lives: LifeStep) =>
+  lives.applied.flatMap(({ move, on }, turn) => {
+    if (!LaneMove.$is("Turn")(move)) return [];
 
-  return lives.before.attempts
-    .filter((h) => h.phase._tag === "OnWire" || h.phase._tag === "Interrupted")
-    .flatMap((head) => {
-      const at = (id: string) => Arr.findFirstIndex(order, (d) => d === id);
-      const heard = at(head.id);
+    const order = deliveredFrom(lives, turn);
+    const at = (id: string) => Arr.findFirstIndex(order, (d) => d === id);
 
-      const later = queued.filter(
-        (q) =>
-          sameLane(q.lane, head.lane) &&
-          stillOnWire(lives, head.id, q.id) &&
-          Option.exists(heard, (h) => Option.exists(at(q.id), (i) => i > h)),
+    return cancelAllLanes(on, move.actor, move.members).flatMap((lane) => {
+      const onLane = on.attempts.filter((a) => sameLane(a.lane, lane));
+
+      const head = Arr.findFirst(
+        onLane,
+        (a) => addressable(a.phase) && endedAfter(lives, turn, a.id),
       );
 
-      return later.length === 0
-        ? []
-        : [
-            {
-              invariant: "WriteLanes I21" as const,
-              text: `cancelAll delivered the head ${head.id}'s ending before the queued ${later.map((q) => q.id).join(", ")}; the head's comes last`,
-            },
-          ];
+      return Option.match(
+        Option.flatMap(head, (h) => Option.map(at(h.id), (heard) => [h, heard] as const)),
+        {
+          onNone: () => [],
+          onSome: ([h, heard]) => {
+            const later = onLane.filter(
+              (q) =>
+                q.phase._tag === "Queued" &&
+                cancelledAfter(lives, turn, q.id) &&
+                Option.exists(at(q.id), (i) => i > heard),
+            );
+
+            return later.length === 0
+              ? []
+              : [
+                  {
+                    invariant: "WriteLanes I21" as const,
+                    text: `cancelAll delivered the head ${h.id}'s ending before the queued ${later.map((q) => q.id).join(", ")}; the head's comes last`,
+                  },
+                ];
+          },
+        },
+      );
     });
-};
+  });
 
 type State = { readonly reference: Reference };
 
 /**
  * Each write lane keeps its cells, read from the Case's one lifecycle fold: every refusal of
- * WriteLanes I1, I8, I9, I10, I11, I12, I20 and I21, the waiting list within its policy's bound,
+ * WriteLanes I1, I8, I10, I11, I12, I20 and I21, the waiting list within its policy's bound,
  * at most one addressable Attempt, and a turn's members' reports in member order.
  *
  * **Details**
  *
- * - The refusals are the lifecycle's (`dsl/lifecycle-step.ts`, Tables A and B and the obligation
- *   deadlines): a send only of an addressable Attempt, never of a Held one without a retry (I1,
+ * - The refusals are the lifecycle's (`dsl/lifecycle-step.ts` over Tables A and B and the
+ *   obligation deadlines in `dsl/lifecycle-rules.ts`): a send only of an addressable Attempt, never of a Held one without a retry (I1,
  *   I12); a mint or decline only where its anchored commit member admits one (I1, I8); promotion
- *   only past a head that left (I11); `Released` only where a cancel, a retry's resolution or a
- *   release owes it, and owed ones by the turn's close (I12); a cancel's ending by the head's
+ *   only past a head that left (I11); `Released` only where a cancel or a release owes it, and owed ones by the turn's close (I12); a cancel's ending by the head's
  *   history (I20); cancelAll's queue ended `NotSent { Cancelled }` in mint order (I21).
  * - Views of its own: at the step's end each lane's waiting list is within its policy's bound (0
  *   under reject and cancel, 1 under latest, 64 under serialize; I8) and holds at most one
  *   addressable Attempt (I9); within a turn, each report a member causes (a mint or decline of a
  *   commit, a `Superseded`, a `Released`, a `NotSent { Cancelled }`) comes no earlier than the
- *   reports of the members before it (I10, order only); a cancelAll's queued commits, ended
- *   `NotSent { Cancelled }`, are delivered before the ending of a head still on the wire when
- *   they ended (I21, "then the head's ending").
+ *   reports of the members before it (I10, order only); from a turn with a cancelAll member, the
+ *   commits queued on its lane when the turn opened, ended `NotSent { Cancelled }`, are delivered
+ *   before the ending of the lane's head at that open, when the head ends after the turn (I21,
+ *   "then the head's ending").
  *
  * **Gotchas**
  *
@@ -245,7 +261,8 @@ type State = { readonly reference: Reference };
  *   caught by the lifecycle's traces and mutation test, and by the runtime mutants.
  * - The bound view reads the model at the step's end, not at each turn's close: an over-admitting
  *   mint is refused at the mint itself, so only a waiting Attempt left unsuperseded is seen there.
- * - The head-last view judges one step's deliveries only; an order across steps is not seen.
+ * - The head-last view judges the deliveries after the turn in its own step only; an order across
+ *   steps is not seen.
  * - I10's view places a report on the earliest member of its kind and lane at or after the last
  *   placed one, so two like members of one lane in one turn are not told apart.
  */
