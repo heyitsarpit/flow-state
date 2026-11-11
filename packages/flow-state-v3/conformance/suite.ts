@@ -16,6 +16,8 @@ import { cliMutants } from "./static-cli/cli.mutants.ts";
 import { cliCases, cliCovered, cliRemainders } from "./static-cli/cli.cases.ts";
 import { graphNames } from "./static-cli/graph-names.ts";
 import { graphNamesMutants } from "./static-cli/graph-names.mutants.ts";
+import { publicationMutants } from "./turn/publication.mutants.ts";
+import { publication } from "./turn/publication.ts";
 import { headerLaneMutants, selectionMutants } from "./turn/selection.mutants.ts";
 import { selection } from "./turn/selection.ts";
 import {
@@ -55,6 +57,7 @@ export const guarantees: ReadonlyArray<Guarantee> = [
   { oracle: disposal, mutants: [...disposalMutants, ...carriedDisposalMutants] },
   { oracle: graphNames, mutants: graphNamesMutants },
   { oracle: selection, mutants: selectionMutants },
+  { oracle: publication, mutants: publicationMutants },
 ];
 
 /**

@@ -196,6 +196,9 @@ export type EndingRef = {
  * - `Unhandled`: an admitted event had no handler.
  * - `Denied`: an admitted event's handlers all refused it, with the guards' reasons.
  * - `Evidence`: a lane fact that is not an ending's disposition.
+ * - `Published`: the runtime published a new snapshot of this actor (Turn R5, R24): its leaf, its
+ *   memory, and the identity of the memory object (`memoryId`: equal numbers are the same
+ *   object, numbered by the adapter, never the runtime's own handle).
  * - `Issue`: an issue the runtime reported, by code; `ending` names the operation ending it
  *   concerns (`Some` on an `InvalidTurn` or `UnmappedEnding` of an ending, `None` otherwise).
  * - `Incarnated`: an incarnation of the actor began (created, restored at a boot, returned, or
@@ -255,6 +258,7 @@ export type Observation = Data.TaggedEnum<{
   Incarnated: { actor: ActorRef };
   Finished: { actor: ActorRef };
   RuntimeDisposed: {};
+  Published: { actor: ActorRef; state: string; memory: Json; memoryId: number };
 }>;
 
 /**

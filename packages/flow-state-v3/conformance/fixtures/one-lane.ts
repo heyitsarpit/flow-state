@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import { Empty, type Fixture, writeOf } from "./fixture.ts";
-import { guarded, to } from "./handlers.ts";
+import { guarded, to, updating } from "./handlers.ts";
 import { type Concurrency, classifyWith, row } from "./reference.ts";
 
 const Unkeyed = Empty;
@@ -90,8 +90,8 @@ export const Cancel = {
     initial: "A",
     root: {
       Go: [to("W")],
-      Retrying: [to("stay")],
-      Ok: [to("A")],
+      Retrying: [updating(to("stay"))],
+      Ok: [updating(to("A"))],
       No: [to("A")],
       Unsure: [guarded(to("stay")), to("A")],
     },

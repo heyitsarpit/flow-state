@@ -855,6 +855,11 @@ export const step = (world: World, input: Input, env: Env, sys: System): StepOut
   flush(tx);
   if (!tx.visible)
     return { world: tx.w, commands: tx.commands, evidence: tx.evidence, issues: tx.issues };
+  // Conformance Port (T8): each actor this visible step changed is published; read only by the suite.
+  for (const key of changedActors(world.actors, tx.w.actors)) {
+    const a = getActor(tx.w.actors, key);
+    if (a) note(tx, "published", { actor: key, state: a.root.leaf, memory: a.root.memory });
+  }
   const seq = tx.w.seq + 1;
   const w = { ...tx.w, seq };
   return {

@@ -1,6 +1,6 @@
 import { Option, Schema } from "effect";
 import { Empty, type Fixture, writeOf } from "./fixture.ts";
-import { guarded, type Handlers, indexed, inStates, to } from "./handlers.ts";
+import { guarded, type Handlers, indexed, inStates, to, updating } from "./handlers.ts";
 import { claimed, classifyWith, type OperationReference, type Row, row } from "./reference.ts";
 
 const Address = Schema.Struct({
@@ -150,21 +150,22 @@ const stay = to<State>("stay");
 
 /**
  * Pay's handler table (`prototypes/conformance/typed/pay.ts`), by hand from its source:
- * `capturable`, the busy count, `retryable`, `idle` and the payload checks are opaque guards.
+ * `capturable`, the busy count, `retryable`, `idle` and the payload checks are opaque guards;
+ * `updating` marks each alternative with an `updateMemory`.
  */
 const payHandlers: Handlers<State> = {
   initial: "IDLE",
   root: {
-    PayRequested: [inStates(["PAYING"], stay), to("PAYING")],
-    CartLoaded: [stay],
-    CardChosen: [stay],
+    PayRequested: [inStates(["PAYING"], stay), updating(to("PAYING"))],
+    CartLoaded: [updating(stay)],
+    CardChosen: [updating(stay)],
     Leave: [guarded(to("LEFT")), to("LEFT")],
     Confirmed: [
-      inStates(["LEFT"], guarded(stay)),
-      inStates(["IDLE"], guarded(to("PLACING"))),
+      inStates(["LEFT"], guarded(updating(stay))),
+      inStates(["IDLE"], guarded(updating(to("PLACING")))),
       stay,
     ],
-    PayUnsure: [inStates(["LEFT"], stay), to("UNSURE")],
+    PayUnsure: [inStates(["LEFT"], updating(stay)), to("UNSURE")],
     Declined: [stay],
     Busy: [stay],
     PayRefused: [stay],
@@ -173,34 +174,38 @@ const payHandlers: Handlers<State> = {
     IntentReadFailed: [stay],
     OrderSeen: [stay],
     CheckTick: [stay],
-    Placed: [to("PAID")],
-    PlaceRefused: [stay],
+    Placed: [updating(to("PAID"))],
+    PlaceRefused: [updating(stay)],
     PlaceUnsure: [guarded(stay), to("STUCK")],
-    Voided: [stay],
-    VoidRefused: [stay],
-    VoidUnsure: [guarded(stay), stay],
+    Voided: [updating(stay)],
+    VoidRefused: [updating(stay)],
+    VoidUnsure: [guarded(stay), updating(stay)],
   },
   states: {
-    IDLE: { Start: [to("CARD")] },
+    IDLE: { Start: [updating(to("CARD"))] },
     PAYING: {
-      CheckTick: [stay],
-      Confirmed: [indexed(1, guarded(to("PLACING"))), indexed(2, to("CARD"))],
-      Declined: [to("CARD")],
-      Busy: [guarded(to("WAITING")), to("CARD")],
-      PayRefused: [to("CARD")],
-      PayNotSent: [guarded(stay), to("CARD")],
-      PayUnsure: [to("UNSURE")],
+      CheckTick: [updating(stay)],
+      Confirmed: [indexed(1, guarded(updating(to("PLACING")))), indexed(2, updating(to("CARD")))],
+      Declined: [updating(to("CARD"))],
+      Busy: [guarded(updating(to("WAITING"))), updating(to("CARD"))],
+      PayRefused: [updating(to("CARD"))],
+      PayNotSent: [guarded(stay), updating(to("CARD"))],
+      PayUnsure: [updating(to("UNSURE"))],
     },
     WAITING: { RetryNow: [guarded(to("PAYING")), stay] },
     UNSURE: {
       CheckTick: [stay],
-      IntentRead: [guarded(to("PLACING")), indexed(2, guarded(to("PAYING"))), indexed(3, stay)],
-      OrderSeen: [guarded(to("PAID")), stay],
+      IntentRead: [
+        guarded(updating(to("PLACING"))),
+        indexed(2, guarded(to("PAYING"))),
+        indexed(3, stay),
+      ],
+      OrderSeen: [guarded(updating(to("PAID"))), stay],
       PayUnsure: [stay],
     },
-    PAID: { Start: [to("CARD")], Done: [to("IDLE")] },
+    PAID: { Start: [updating(to("CARD"))], Done: [to("IDLE")] },
     STUCK: { CheckAgain: [to("UNSURE")] },
-    LEFT: { Start: [to("CARD")] },
+    LEFT: { Start: [updating(to("CARD"))] },
   },
   scheduled: ["CheckTick", "RetryNow"],
 };

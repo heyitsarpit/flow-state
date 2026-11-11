@@ -342,6 +342,18 @@ export const compiledOf = (loaded: LoadedPrototype, name: string) =>
 // RETURN_TYPE: the exported Port contract the runner boots every case through.
 export const prototypePort = (loaded: LoadedPrototype): Port => ({
   boot: (boot) => {
+    const ids = new Map<WeakKey, number>();
+
+    const identify = (value: WeakKey) => {
+      const known = ids.get(value);
+
+      if (known !== undefined) return known;
+
+      ids.set(value, ids.size + 1);
+
+      return ids.size;
+    };
+
     const { clock, page, storage, network } = boot.hosts;
     const api = apiOf(network, page);
 
@@ -395,7 +407,7 @@ export const prototypePort = (loaded: LoadedPrototype): Port => ({
         faults: { moduleThrows: new Map(), moduleThrowsAfter: new Map(), coreThrows: 0 },
         services,
         onEvidence: (batch) => {
-          for (const o of observationsOf(batch)) boot.observe(o);
+          for (const o of observationsOf(batch, identify)) boot.observe(o);
         },
         onIssue: (issues) => {
           for (const issue of issues) boot.observe(issueOf(issue));

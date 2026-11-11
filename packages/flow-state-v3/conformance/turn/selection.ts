@@ -380,6 +380,7 @@ const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>): Stepped =>
         Incarnated: () => keep(state),
         Finished: () => keep(state),
         RuntimeDisposed: () => keep(state),
+        Published: () => keep(state),
       }),
     Stepped: () => keep(state),
     Requested: () => keep(state),

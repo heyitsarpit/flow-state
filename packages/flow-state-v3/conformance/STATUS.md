@@ -1246,6 +1246,20 @@ remaining report-excuses first:
 5. `schedules` (I20 to I23), `activations` (I4, I10, I11), `turn-purity` (I12, I13, I17, I19),
    `placements` (I24, I25), `context` (I28), and I18's case: each needs Port facts first.
 
+### Snapshot values (Turn I29, I30) and the Port's `Published`
+
+Bottom line: a ninth Port change, `Published { actor, state, memory, memoryId }`, reports each
+actor a visible step changed (round-14 notes it at the step's frame; the adapter numbers memory
+objects within a boot). `turn/publication.ts` judges I29 (a memory object never republished with
+other content) and I30 (unchanged memory republished as the same object, on steps whose turns
+ran no `updateMemory`, from the handler table's new `updates` flag). Test-first: the mutants
+were written before the oracle: `w.patch-in-place` (the old lie, with round-14's freeze dropped;
+64 cases) and `pub.move-copies-memory` (21 cases). Suite 92/92, falsify 113/113, coverage 43.
+Limits: memory is the one part judged; equal-value patches give round-14 a new object (R24 would
+keep it), so those steps are not judged for I30; I1, I7 and I9 are owed (flat fixtures have no
+non-leaf to publish; a per-turn publication count needs the Port to tie a publication to its
+turn).
+
 ### Late routing (Turn I26)
 
 Bottom line: `selection` also claims Turn I26. It records each call's owner (the state the

@@ -1,4 +1,4 @@
-import { Data, Option, Result, Schema } from "effect";
+import { Data, Option, Predicate, Result, Schema } from "effect";
 import {
   Channel,
   EvidenceKind,
@@ -116,6 +116,8 @@ const reports = {
   onLane: Schema.Struct({ op: Schema.String, attempt: OptionalText }),
   unhandled: Schema.Struct({ event: Schema.String }),
   denied: Schema.Struct({ event: Schema.String, reasons: Schema.Array(Schema.String) }),
+  // FLOW_STATE_ALLOW_UNKNOWN: the published memory is the runtime's own object; its identity is read before it is decoded.
+  published: Schema.Struct({ actor: Schema.String, state: Schema.String, memory: Schema.Unknown }),
 };
 
 const RECORDED = new Map<string, RecordedWhy>([
@@ -181,8 +183,29 @@ const laneReport = (report: Report, kind: string): Option.Option<Observation> =>
 };
 
 // RETURN_TYPE: each branch builds one variant; inference keeps a union of Options, not one Option.
-const observationOf = (report: Report): Option.Option<Observation> => {
+/**
+ * The identity of a published object, the same number for the same object (Turn R24).
+ */
+export type Identify = (value: WeakKey) => number;
+
+const decodeJson = Schema.decodeUnknownSync(Schema.Json);
+
+// RETURN_TYPE: each branch builds one variant; inference keeps a union of Options, not one Option.
+const observationOf = (report: Report, identify: Identify): Option.Option<Observation> => {
   const kind = kindOf(report);
+
+  if (kind === "published") {
+    const r = read(reports.published, report, kind);
+
+    return Option.some(
+      Observation.Published({
+        actor: actorRef(r.actor),
+        state: r.state,
+        memory: decodeJson(r.memory),
+        memoryId: Predicate.isObject(r.memory) ? identify(r.memory) : 0,
+      }),
+    );
+  }
 
   if (kind === "turn") {
     const r = read(reports.turn, report, kind);
@@ -272,5 +295,5 @@ const observationOf = (report: Report): Option.Option<Observation> => {
  *   does not decode. The prototype catches a throw from its evidence sink and reports it as a
  *   `SinkFailed` issue, dropping the batch.
  */
-export const observationsOf = (batch: ReadonlyArray<Report>) =>
-  batch.flatMap((raw) => Option.toArray(observationOf(raw)));
+export const observationsOf = (batch: ReadonlyArray<Report>, identify: Identify) =>
+  batch.flatMap((raw) => Option.toArray(observationOf(raw, identify)));

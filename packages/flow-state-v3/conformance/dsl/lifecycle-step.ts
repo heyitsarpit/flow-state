@@ -228,6 +228,7 @@ const reported = (
     },
     Finished: ({ actor }) => push(walk, ActorMove.Finished({ actor })),
     RuntimeDisposed: () => push(walk, Move.RuntimeDisposed()),
+    Published: () => walk,
   });
 };
 

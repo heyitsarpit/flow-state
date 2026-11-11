@@ -12,12 +12,14 @@ import { Option } from "effect";
  *   one of them. Empty when its guard names none.
  * - `opaque`: its guard has a part the suite does not compute (memory, the event's payload, a
  *   lane read), so it may pass or fail.
+ * - `updates`: it has an `updateMemory`, so its turn may publish new memory.
  */
 export type Alternative<State extends string = string> = {
   readonly index: Option.Option<number>;
   readonly target: State | "stay";
   readonly when: ReadonlyArray<State>;
   readonly opaque: boolean;
+  readonly updates: boolean;
 };
 
 /**
@@ -52,6 +54,15 @@ export const to = <State extends string>(target: State | "stay"): Alternative<St
   target,
   when: [],
   opaque: false,
+  updates: false,
+});
+
+/**
+ * The same alternative with an `updateMemory`.
+ */
+export const updating = <State extends string>(alternative: Alternative<State>) => ({
+  ...alternative,
+  updates: true,
 });
 
 /**
@@ -152,6 +163,25 @@ export const possible = (handlers: Handlers, from: string, event: string, route:
     ],
     handled: current.handled && late.handled,
   };
+};
+
+/**
+ * Whether the alternative at `at` (as a turn record names it) has an `updateMemory`; false for a
+ * place the table does not hold.
+ */
+export const updatesAt = (handlers: Handlers, at: string) => {
+  const leaf = /^states\.([^.]+)\.on\.([^[]+)\[(\d+)\]$/u.exec(at);
+  const root = /^on\.([^[]+)\[(\d+)\]$/u.exec(at);
+
+  const find = (level: Level, event: string, index: number) =>
+    (level[event] ?? []).some(
+      (a, position) => Option.getOrElse(a.index, () => position) === index && a.updates,
+    );
+
+  if (leaf !== null)
+    return find(handlers.states[leaf[1] ?? ""] ?? {}, leaf[2] ?? "", Number(leaf[3]));
+
+  return root !== null && find(handlers.root, root[1] ?? "", Number(root[2]));
 };
 
 /**
