@@ -397,3 +397,15 @@ providers are actors. Changed: StaticCli R12's package-instance rule stays for s
 - 6 (@task.V3.T22): StaticCli C13 and C15.
 - 7 to 10: Streams, Entities, MultiTab and Lazy, Inspection and Testing (new Specs); then React and
   ServerRendering (P6) and Package (P10).
+
+## 2026-11-11, the two guarantee changes above, written in
+
+Both written by the replan records review, under the orchestrator's ruling (V3 log, 2026-11-11T12:58:40Z).
+
+- **Compile R16, R17, I15, T8 widened:** functions Flow derives from a Schema the definition declares (a memory
+  field's equality, its codec) may sit on Compiled, are not Slots, and the data view omits them. Why: production
+  holds them there (T43 R2) and they carry no author code, consistent with ruling Compile Q3. Reverse: move
+  derived functions off Compiled and restore the four texts.
+- **Reads I21 and T13 added:** no lookup's context carries an Attempt, nor an id or key standing in for one. Why:
+  R6 said so with no Invariant, and production's read context carried a made-up Attempt (@task.V3.T51 fixes it).
+  Reverse: drop I21 and T13.

@@ -145,11 +145,18 @@ requirements
                 are not Slots. The machine callback is construction: Compiled holds its output, never
                 the callback. Decision (agent, 2026-11-11): ruling Compile Q3 (spec-log.md, T42).
 
+                Functions Flow derives from a Schema the definition declares, such as a memory
+                field's equality or its codec, may sit on Compiled and are not Slots; the data view
+                omits them, since their Schema determines them. Decision (agent, 2026-11-11): widened
+                with Q3's ruling (V3 log, 2026-11-11T12:58:40Z). Why: production holds
+                Schema.toEquivalence and compiled codecs on Compiled (T43 R2), and they carry no
+                author code. Reverse: move derived functions off Compiled into a cache beside it.
+
     R17  Runtime refuses a malformed Compiled
         source  @plan.Runtime.O1.
         must    Creating a Runtime refuses a Compiled with a key field outside the input, a missing
-                events table, or a function outside a Schema that is not a Slot (R16's exemption;
-                ruling Compile Q3).
+                events table, or a function that is neither a Slot, a Schema's own function nor a
+                function Flow derived from a declared Schema (R16's exemptions; ruling Compile Q3).
 
                 Decision (agent, 2026-11-11): the refusal's code is InvalidConfiguration, whose
                 owners include @plan.Runtime.O1 (@plan.Diagnostics.O2), with details.reason naming
@@ -225,8 +232,9 @@ invariants
     I14  In an App, machine id to machine is a function and injective, and operation, domain and entity ids are 
          pairwise distinct. [@R15]
 
-    I15  Every function reachable in Compiled outside a Schema is a Slot, and the DataView holds no function outside a 
-         Schema. Reworded 2026-11-11: ruling Compile Q3 (audit C4). [@R16, @R17]
+    I15  Every function reachable in Compiled outside a Schema is a Slot or a function Flow derived from a Schema the 
+         definition declares, and the DataView holds no function outside a Schema. Reworded 2026-11-11: ruling Compile
+        Q3 (audit C4); widened 2026-11-11 for derived functions (memory equality, codecs). [@R16, @R17]
 
     I16  machine() never emits a Compiled with an operation whose key fields are not a subset of its input fields, and 
          Runtime creation refuses such a Compiled. Reworded 2026-11-11 (audit C20). [@R17]
@@ -342,7 +350,8 @@ tests
     T7  App construction with a duplicate machine id, one machine under two keys, and two contracts with one id each 
         throws one FlowError naming both entries. [@I14]
     T8  Hand a Runtime a Compiled with a bare function, a key field outside input, and no events table; each is refused 
-        at creation, before any actor. [@I15, @I16]
+        at creation, before any actor. A Compiled carrying a memory field's derived equality and codec is accepted, and
+            its DataView holds neither. [@I15, @I16]
     T9  Equal identities compile from equal source on two hosts to equal data views. Compare them structurally, each 
         Schema by its JSON Schema document, since the Codec refuses a Schema as notPlain (audit C4). [@I15]
     T10  Wire a slot to a missing provider and to an incompatible one; admitting the actor refuses with the slot named, 

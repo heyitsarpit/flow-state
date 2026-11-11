@@ -178,6 +178,11 @@ invariants
         with a UserClosure issue. Added 2026-11-11: R9's own rule, once the cut I12 left it with none (audit G10).
         [@R9]
 
+    I21  No lookup's context carries an Attempt: the ctx of every lookup(input, ctx) call, whether started by lookup, 
+         refetch or subscribe, has no Attempt and no Attempt-shaped field (id, key) standing in for one. Added
+        2026-11-11: ruling of the replan's Spec pass (V3 log, 2026-11-11T12:58:40Z); R6 stated it with no
+        Invariant. [@R6]
+
 coverage
     @R1
         enforced_by  [@I1]
@@ -196,7 +201,7 @@ coverage
         open_by      [@Q1]
 
     @R6
-        enforced_by  [@I8, @I9]
+        enforced_by  [@I8, @I9, @I21]
         open_by      [@Q1]
 
     @R8
@@ -244,3 +249,7 @@ tests
          `STORE-03`, `STORE-08`. [@I15, @I16, @I17]
     T12  Rows: pending, uncertain and waiting follow the lane; identity is kept while unchanged; O.x.get of an unknown 
          key reads the idle row. Case `LIKE-01`; lie `lie:a3.like-row-hidden`. [@I19, @spec.Turn.I30]
+    T13  Lookup context: a lookup function records its ctx on a first lookup, a refetch and a subscribe's automatic 
+         request; none has an Attempt or an id or key field standing in for one. Wrong runtime: the read context with
+             a made-up Attempt (`id: ""`, `key: {}`), as code:packages/flow-state-v3/src/host/driver.ts had before
+             @task.V3.T51. [@I21]

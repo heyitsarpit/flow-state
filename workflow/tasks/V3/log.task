@@ -322,4 +322,8 @@ note 2026-11-11T12:43:21Z
     Replan applied to the Tasks (the user, 2026-11-11): slices R and 1 to 10, T51 new, T7, T8, T10, T11, T12, T14, T26 
     merged, progressive fixtures in T47. Reverse: git restore workflow/tasks/V3.
 note 2026-11-11T12:58:40Z
-    Decision (orchestrator, under the user's delegation of Spec questions): Compile I15 widens so functions Flow derives from a declared Schema (memory equality, codecs) may sit on Compiled and are not Slots, consistent with the Compile Q3 ruling; Reads gains an Invariant that no lookup context carries an Attempt. Production's dispose skipping the core's disposal (Actors R22) goes to T51. **Reverse:** move derived functions off Compiled; drop the Reads Invariant.
+    Decision (orchestrator, under the user's delegation of Spec questions): Compile I15 widens so functions Flow 
+    derives from a declared Schema (memory equality, codecs) may sit on Compiled and are not Slots, consistent with the 
+    Compile Q3 ruling; Reads gains an Invariant that no lookup context carries an Attempt. Production's dispose 
+    skipping the core's disposal (Actors R22) goes to T51. **Reverse:** move derived functions off Compiled; drop the 
+    Reads Invariant.
