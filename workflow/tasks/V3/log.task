@@ -170,3 +170,5 @@ note 2026-11-11T18:53:31Z
     active Task).
 note 2026-11-11T18:55:14Z
     Amendment (the user, 2026-11-12): compaction runs once a day (cron 2e0ef6f9, 05:13), no size limits or slice-close runs; the T45 size note above is void. Review crons re-created as edb6e5bc and daad31f5 without the size check. **Reverse:** restore the slice-close and size-limit rule.
+note 2026-11-11T19:02:48Z
+    Amendment (the user, 2026-11-12), correcting the one above: compaction has no timer; a review wake runs compact-records when the last compaction (now 2026-11-11T15:30:31Z, compact-records' first run) is over 24 hours old. Cron 2e0ef6f9 deleted; review crons are ae0019e5 and c647d724. **Reverse:** restore the daily cron.
