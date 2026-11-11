@@ -365,6 +365,7 @@ describe("The lane lifecycle (Table A, deadlines, promotion)", () => {
       Life.KeptOpen(),
       Life.Evidence(),
       Life.Closed(),
+      Life.Maybe(),
     ];
 
     const fates = [

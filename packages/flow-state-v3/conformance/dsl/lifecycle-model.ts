@@ -151,6 +151,8 @@ export const Obligation = Data.taggedEnum<Obligation>();
  *   with a try owed to the incarnation that just began.
  * - `Evidence`: evidence by declaration (WriteLanes R10, I15).
  * - `Closed`: heard, recorded, or orphaned at a reload.
+ * - `Maybe`: after a kill, an ending the latest landed batch may or may not hold (it changed in the
+ *   step that wrote that batch, design B4): it may be delivered or unparked, and is owed nothing.
  */
 export type Life = Data.TaggedEnum<{
   Owed: {};
@@ -162,6 +164,7 @@ export type Life = Data.TaggedEnum<{
   KeptOpen: {};
   Evidence: {};
   Closed: {};
+  Maybe: {};
 }>;
 
 /**
@@ -196,10 +199,16 @@ export type ActorRecord = "bound" | "grace" | "disposeActor" | "forget";
 export type AttemptLife = { readonly id: string; readonly lane: LaneId; readonly phase: Phase };
 
 /**
- * What one batch saves, taken when the step that wrote it settles: each ending's life by index,
- * and how many of the model's `ended` Attempts it holds.
+ * What one batch saves: some prefix of the step that wrote it (design B4), so it is taken at both
+ * ends. `lives` and `ended` are the step's end, the most the batch can hold: each ending's life by
+ * index, and how many of the model's `ended` Attempts. `least` is the model before the step's
+ * second turn (its end when it ran fewer), the least it holds: a lane batch is issued by its turn.
  */
-export type Capture = { readonly lives: ReadonlyArray<Life>; readonly ended: number };
+export type Capture = {
+  readonly lives: ReadonlyArray<Life>;
+  readonly ended: number;
+  readonly least: { readonly lives: ReadonlyArray<Life>; readonly ended: number };
+};
 
 /**
  * The one lifecycle a Case folds: every Attempt's phase, every ending's life, what is still owed,
@@ -253,17 +262,19 @@ export type Model = {
 };
 
 /**
- * The Attempts whose ending or evidence no landed batch holds: a kill rolls each back to the head
- * its landed capture holds (WriteAhead I10, I17).
+ * The Attempts whose ending or evidence the landed batch may not hold (ended after the start of the
+ * step that wrote it): a kill rolls each back to the head its landed capture holds, allowed and not
+ * owed (WriteAhead I10, I17).
  */
-export const unsavedOf = (model: Model) => model.ended.slice(model.saved.ended);
+export const unsavedOf = (model: Model) => model.ended.slice(model.saved.least.ended);
 
 /**
- * The capture a batch written now holds.
+ * The capture a batch holds, at most `model` and at least `least`.
  */
-export const captureOf = (model: Model) => ({
+export const captureOf = (model: Model, least: Model) => ({
   lives: model.endings.map((e) => e.life),
   ended: model.ended.length,
+  least: { lives: least.endings.map((e) => e.life), ended: least.ended.length },
 });
 
 /**
@@ -281,7 +292,7 @@ export const empty: Model = {
   unstoppable: [],
   acknowledged: [],
   ended: [],
-  saved: { lives: [], ended: 0 },
+  saved: { lives: [], ended: 0, least: { lives: [], ended: 0 } },
   pending: Option.none(),
   held: [],
 };

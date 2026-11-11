@@ -401,6 +401,7 @@ const lives = (fate: Fate) => ({
   KeptOpen: once(fate),
   Evidence: once(fate),
   Closed: once(fate),
+  Maybe: once(fate),
 });
 
 const admitted = (retry: boolean) => ({
@@ -434,6 +435,7 @@ export const tableC: TableC = {
     Refused: admitted(true),
     KeptOpen: admitted(true),
     Kept: { running: Fate.Refuse({ invariant: actors(24) }), disposing: deny(15) },
+    Maybe: admitted(false),
   },
   InvalidTurn: {
     ...lives(deny(15)),
@@ -450,6 +452,7 @@ export const tableC: TableC = {
     Owed: once(live(Life.Parked())),
     Parked: once(kept),
     ParkedOpen: once(live(Life.Parked())),
+    Maybe: once(live(Life.Parked())),
   },
   Unparked: {
     ...lives(deny(15)),
@@ -457,6 +460,7 @@ export const tableC: TableC = {
     ParkedOpen: once(live(Life.Owed())),
     Kept: once(kept),
     KeptOpen: once(kept),
+    Maybe: once(live(Life.Owed())),
   },
   RecordedLetGo: {
     ...lives(deny(15)),

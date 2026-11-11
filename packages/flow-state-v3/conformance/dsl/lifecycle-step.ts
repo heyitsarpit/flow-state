@@ -24,7 +24,13 @@ const onFact = (
 ) => {
   if (!isRuntimeFact(fact)) return onSuiteFact(walk, fact, given);
 
-  if (Fact.$is("Reported")(fact)) return reported(walk, known, fact.observation, earlier, given);
+  if (Fact.$is("Reported")(fact)) {
+    const second = fact.observation._tag === "Turn" && walk.seen === 1;
+    const counted = { ...walk, seen: walk.seen + (fact.observation._tag === "Turn" ? 1 : 0) };
+    const marked = second ? { ...counted, least: Option.some(walk.model) } : counted;
+
+    return reported(marked, known, fact.observation, earlier, given);
+  }
 
   if (Fact.$is("Acknowledges")(fact)) return acknowledged(walk, fact.attempts);
 
@@ -86,6 +92,8 @@ export const step = (
       Fact.$is("Answered")(f) ? [{ request: f.request, answer: f.answer }] : [],
     ),
     unmatched: [],
+    seen: 0,
+    least: Option.none(),
   };
 
   const walk = facts.reduce((w, fact) => onFact(w, fact, known, earlier, given), start);

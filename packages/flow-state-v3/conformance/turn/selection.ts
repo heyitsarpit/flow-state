@@ -200,6 +200,9 @@ const reportedKeys = (turn: Turn) =>
 const attaching = (step: ReadonlyArray<Fact>) =>
   step.some((f) => Fact.$is("Reloaded")(f) || Fact.$is("Ensured")(f));
 
+const isTurn = (fact: Fact) =>
+  Fact.$is("Reported")(fact) && Observation.$is("Turn")(fact.observation);
+
 const initialOf = (state: State, actor: ActorRef) =>
   Option.fromUndefinedOr(state.machines[actor.machine]?.initial);
 
@@ -330,7 +333,7 @@ const refused = (
   });
 
 // RETURN_TYPE: every branch gives the next state, its violations and the fact as judged.
-const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>): Stepped => {
+const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>, least: State): Stepped => {
   // RETURN_TYPE: a tuple; inference would widen it to an array.
   const keep = (next: State): Stepped => [next, [], fact, Option.none()];
 
@@ -385,7 +388,7 @@ const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>): Stepped =>
     Unstoppable: () => keep(state),
     Landed: () => keep(landed(state)),
     Acknowledges: () => keep(state),
-    Wrote: (w) => keep(wrote(state, purposeOf(step, w))),
+    Wrote: (w) => keep(wrote(state, least, purposeOf(step, w))),
     Purposed: () => keep(state),
     Dropped: () => keep(dropped(state)),
     Advanced: () => keep(state),
@@ -509,16 +512,26 @@ export const judgedStep = (state: Anchor, step: ReadonlyArray<Fact>) =>
     readonly violations: ReadonlyArray<Violation>;
     readonly facts: ReadonlyArray<Fact>;
     readonly turns: ReadonlyArray<Predicted>;
+    readonly least: Option.Option<Anchor>;
   }>(
     (judged, fact) => {
-      const [next, found, seen, predicted] = onFact(judged.state, fact, step);
+      const second = isTurn(fact) && judged.turns.length === 1 && Option.isNone(judged.least);
+      const least = second ? Option.some(judged.state) : judged.least;
+
+      const [next, found, seen, predicted] = onFact(
+        judged.state,
+        fact,
+        step,
+        Option.getOrElse(least, () => judged.state),
+      );
 
       return {
         state: next,
         violations: [...judged.violations, ...found],
         facts: [...judged.facts, seen],
         turns: [...judged.turns, ...Option.toArray(predicted)],
+        least,
       };
     },
-    { state, violations: [], facts: [], turns: [] },
+    { state, violations: [], facts: [], turns: [], least: Option.none() },
   );

@@ -539,6 +539,16 @@ tasks
             delivery I15, a mint outside a turn I1). Still open: an unmatched `Sent` stays unjudged (its request may be 
             noted later in the step), and a kill with turns no capture holds still takes the leaf, keys and re-owned 
             calls from the report (B4, next). Gates unchanged; liar round-14 9 greens.
+        comment     2026-11-11T18:38:45Z
+            B4 built: a batch holds some prefix of the step that wrote it, at least up to the step's second turn (a 
+            lane batch is issued by its turn), so a capture is kept at both ends. A kill makes an Attempt ended in that 
+            span an allowed restore, and an ending changed in it the new life `Maybe` (may be delivered or unparked, 
+            owed nothing), with Table C cells and traces for every row (mutation test: no survivors). The anchor keeps 
+            the least: turns and fields before the second turn. Not narrowed yet: after a lost kill the leaf is any 
+            leaf, not the set the unsaved turns reached. Phase-out step 1: perturbations deleted and claim confirmation 
+            gone; Table A's refusing cells are kept, since they are the compare's allowed sets and name each refusal's 
+            Invariant (R19), so deleting them would lose that; flagged for the orchestrator. Gates unchanged; liar 
+            round-14 9 greens (the threshold).
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open

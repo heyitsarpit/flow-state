@@ -9,15 +9,14 @@ import {
   Move,
   Obligation,
 } from "./lifecycle-model.ts";
-import { at, build, Check, type Trace } from "./lifecycle-trace.ts";
+import { build, Check, type Trace } from "./lifecycle-trace.ts";
 import type { InvariantId } from "./facts.ts";
 
-const { H } = at;
-const { shopper, lane, model, wl, actors, unknown } = build;
+const { shopper, model, wl, actors } = build;
 
-const other = { machine: "Checkout/Pay", id: "shopper-2" };
+export const other = { machine: "Checkout/Pay", id: "shopper-2" };
 
-const ending = (life: Life, more: Partial<Ending> = {}) => ({
+export const ending = (life: Life, more: Partial<Ending> = {}) => ({
   attempt: Option.some("s"),
   operation: "pay",
   actor: shopper,
@@ -28,18 +27,19 @@ const ending = (life: Life, more: Partial<Ending> = {}) => ({
   ...more,
 });
 
-const named = { operation: "pay", attempt: Option.some("s"), actor: shopper };
+export const named = { operation: "pay", attempt: Option.some("s"), actor: shopper };
 
-const OW = Life.Owed();
-const PK = Life.Parked();
+export const OW = Life.Owed();
+export const PK = Life.Parked();
 const PO = Life.ParkedOpen();
-const DF = Life.Delivering({ retry: false });
+export const DF = Life.Delivering({ retry: false });
 const DT = Life.Delivering({ retry: true });
 const RF = Life.Refused();
-const KP = Life.Kept();
+export const KP = Life.Kept();
 const KO = Life.KeptOpen();
 const EV = Life.Evidence();
-const CL = Life.Closed();
+export const CL = Life.Closed();
+const MB = Life.Maybe();
 
 const lives: ReadonlyArray<readonly [string, Life]> = [
   ["Owed", OW],
@@ -51,6 +51,7 @@ const lives: ReadonlyArray<readonly [string, Life]> = [
   ["KeptOpen", KO],
   ["Evidence", EV],
   ["Closed", CL],
+  ["Maybe", MB],
 ];
 
 type Expected = Life | InvariantId;
@@ -131,6 +132,7 @@ const tableTraces: ReadonlyArray<Trace> = [
       KeptOpen: DT,
       Evidence: wl(15),
       Closed: wl(15),
+      Maybe: DF,
     },
   ),
   ...rowTraces(
@@ -143,6 +145,7 @@ const tableTraces: ReadonlyArray<Trace> = [
       Refused: wl(15),
       Kept: wl(15),
       KeptOpen: wl(15),
+      Maybe: wl(15),
     },
     disposing,
     {},
@@ -161,6 +164,7 @@ const tableTraces: ReadonlyArray<Trace> = [
       KeptOpen: wl(15),
       Evidence: wl(15),
       Closed: wl(15),
+      Maybe: wl(15),
     },
   ),
   lifeTrace(
@@ -188,6 +192,7 @@ const tableTraces: ReadonlyArray<Trace> = [
     KeptOpen: wl(15),
     Evidence: wl(15),
     Closed: wl(15),
+    Maybe: wl(15),
   }),
   lifeTrace("Heard", "WriteLanes R10: a delivered ending is heard by its turn", DF, CL),
   ...rowTraces("Parked", "WriteLanes R10, Actors R22: an owed ending parks for its incarnation", {
@@ -200,6 +205,7 @@ const tableTraces: ReadonlyArray<Trace> = [
     KeptOpen: wl(15),
     Evidence: wl(15),
     Closed: wl(15),
+    Maybe: PK,
   }),
   ...rowTraces("Unparked", "WriteLanes R10: a parked ending is owed again", {
     Owed: wl(15),
@@ -211,6 +217,7 @@ const tableTraces: ReadonlyArray<Trace> = [
     KeptOpen: KO,
     Evidence: wl(15),
     Closed: wl(15),
+    Maybe: OW,
   }),
   ...rowTraces(
     "RecordedLetGo",
@@ -230,6 +237,7 @@ const tableTraces: ReadonlyArray<Trace> = [
     KeptOpen: wl(15),
     Evidence: CL,
     Closed: wl(15),
+    Maybe: wl(15),
   }),
   ...rowTraces("RecordedOther", "WriteLanes R10, I15: evidence is recorded, never delivered", {
     Owed: wl(15),
@@ -241,6 +249,7 @@ const tableTraces: ReadonlyArray<Trace> = [
     KeptOpen: wl(15),
     Evidence: CL,
     Closed: wl(15),
+    Maybe: wl(15),
   }),
   ...[OW, PK, PO].map((life) =>
     lifeTrace(
@@ -266,6 +275,7 @@ const tableTraces: ReadonlyArray<Trace> = [
       KeptOpen: KO,
       Evidence: EV,
       Closed: CL,
+      Maybe: MB,
     },
   ),
   lifeTrace(
@@ -287,6 +297,7 @@ const tableTraces: ReadonlyArray<Trace> = [
     KeptOpen: actors(24),
     Evidence: wl(15),
     Closed: CL,
+    Maybe: MB,
   }),
   lifeTrace(
     "StepEnds",
@@ -316,6 +327,7 @@ const tableTraces: ReadonlyArray<Trace> = [
     KeptOpen: KP,
     Evidence: CL,
     Closed: CL,
+    Maybe: MB,
   }),
   lifeTrace(
     "Reload",
@@ -336,168 +348,12 @@ const tableTraces: ReadonlyArray<Trace> = [
     KeptOpen: KO,
     Evidence: EV,
     Closed: CL,
+    Maybe: MB,
   }),
 ];
 
-const restoring = Obligation.AwaitRestore({ attempt: "s", cause: "plain" });
-
-const actorTraces: ReadonlyArray<Trace> = [
-  {
-    name: "a forgotten actor's kept ending is let go",
-    cites: "Actors R21: forget lets every kept ending go",
-    start: model([], { endings: [ending(KP)] }),
-    steps: [
-      ActorMove.Forgot({ actor: shopper }),
-      LifeMove.Recorded({ ending: named, letGo: true }),
-    ],
-    refusals: [[], []],
-    phases: {},
-    owed: 0,
-    checks: [Check.Lives({ lives: [CL] })],
-  },
-  {
-    name: "a reload owes its Held head one restore, and the boot's incarnation owes no second",
-    cites: "Restore R3, I6: unknown Restored once per incarnation",
-    start: model(lane("A", ["s", H])),
-    steps: [Move.Reload(), ActorMove.Incarnated({ actor: shopper })],
-    refusals: [[], []],
-    phases: { s: H },
-    owed: 1,
-    checks: [Check.Owing({ obligations: [restoring] })],
-  },
-  {
-    name: "a boot's restore ending comes before its incarnation opens, owed until delivered",
-    cites:
-      "Restore R3, I6: the boot decides its restore endings, then opens incarnations; R1: restored live",
-    start: model(lane("A", ["s", H])),
-    steps: [Move.Reload(), unknown("s", "Restored")],
-    refusals: [[], []],
-    phases: { s: H },
-    owed: 1,
-    checks: [],
-  },
-  {
-    name: "a boot owes no restore to a head whose own ending is parked",
-    cites: "Actors R10, Restore R3 (C22): its parked ending is what the next incarnation hears",
-    start: model(lane("A", ["s", H]), { endings: [ending(PK)] }),
-    steps: [Move.Reload()],
-    refusals: [[]],
-    phases: { s: H },
-    owed: 0,
-    checks: [],
-  },
-  {
-    name: "a boot owes no restore to a head whose ending was decided in the disposal",
-    cites:
-      "Actors R10, R22: that ending parks at the reload and is what the next incarnation hears",
-    start: model(lane("A", ["s", H]), { endings: [ending(OW, { inDisposal: true })] }),
-    steps: [Move.Reload()],
-    refusals: [[]],
-    phases: { s: H },
-    owed: 0,
-    checks: [],
-  },
-  {
-    name: "a bound actor's incarnation with no reload owes no restore",
-    cites: "Restore I6: no boot and no return, so no restore ending",
-    start: model(lane("A", ["s", H])),
-    steps: [ActorMove.Incarnated({ actor: shopper })],
-    refusals: [[]],
-    phases: { s: H },
-    owed: 0,
-    checks: [],
-  },
-  {
-    name: "an adoption after the actor's disposal owes its Held head a restore",
-    cites: "Actors R20, I29: a disposed actor's holds are restored at adoption",
-    start: model(lane("A", ["s", H])),
-    steps: [ActorMove.Disposed({ actor: shopper }), ActorMove.Adopt({ actor: shopper })],
-    refusals: [[], []],
-    phases: { s: H },
-    owed: 1,
-    checks: [
-      Check.Owing({
-        obligations: [Obligation.AwaitRestore({ attempt: "s", cause: "disposeActor" })],
-      }),
-    ],
-  },
-  {
-    name: "a return after the grace owes a plain restore",
-    cites: "Actors R9, Restore I6",
-    start: model(lane("A", ["s", H])),
-    steps: [ActorMove.Finished({ actor: shopper }), ActorMove.Incarnated({ actor: shopper })],
-    refusals: [[], []],
-    phases: { s: H },
-    owed: 1,
-    checks: [Check.Owing({ obligations: [restoring] })],
-  },
-  {
-    name: "a Held head's parked ending delivered meets its restore",
-    cites: "Restore I6: the parked ending is the restore's delivery",
-    start: model(lane("A", ["s", H]), { endings: [ending(PK)] }),
-    steps: [
-      Move.Reload(),
-      ActorMove.Incarnated({ actor: shopper }),
-      LifeMove.Delivered({ ending: named }),
-    ],
-    refusals: [[], [], []],
-    phases: { s: H },
-    owed: 0,
-    checks: [Check.Lives({ lives: [DF] })],
-  },
-  {
-    name: "an incarnation opens only its own actor's endings",
-    cites: "Actors R10: parked endings belong to their identity",
-    start: model([], { endings: [ending(PK, { actor: other })] }),
-    steps: [ActorMove.Incarnated({ actor: shopper })],
-    refusals: [[]],
-    phases: {},
-    owed: 0,
-    checks: [Check.Lives({ lives: [PK] })],
-  },
-  {
-    name: "a delivery names the oldest open ending",
-    cites: "WriteLanes I15: each ending delivered once, in order",
-    start: model([], { endings: [ending(CL), ending(OW)] }),
-    steps: [LifeMove.Delivered({ ending: named })],
-    refusals: [[]],
-    phases: {},
-    owed: 0,
-    checks: [Check.Lives({ lives: [CL, DF] })],
-  },
-  {
-    name: "a delivery with no ending",
-    cites: "WriteLanes I15",
-    start: model([]),
-    steps: [LifeMove.Delivered({ ending: named })],
-    refusals: [[wl(15)]],
-    phases: {},
-    owed: 0,
-    checks: [Check.Lives({ lives: [] })],
-  },
-  {
-    name: "a turn heard while an older ending is still owed",
-    cites: "the design: Heard moves only a Delivering life",
-    start: model([], { endings: [ending(OW), ending(DF)] }),
-    steps: [LifeMove.Heard({ ending: named })],
-    refusals: [[]],
-    phases: {},
-    owed: 0,
-    checks: [Check.Lives({ lives: [OW, CL] })],
-  },
-  {
-    name: "a turn of an ending not being delivered",
-    cites: "the design: Heard moves only a Delivering life",
-    start: model([], { endings: [ending(OW)] }),
-    steps: [LifeMove.Heard({ ending: named })],
-    refusals: [[]],
-    phases: {},
-    owed: 0,
-    checks: [Check.Lives({ lives: [OW] })],
-  },
-];
-
 /**
- * The traces of Table C: each cell at each guard value, and the actor moves.
+ * The traces of Table C: each cell at each guard value (the actor moves are
+ * `lifecycle-actor-lives.traces.ts`).
  */
-export const lifeTraces: ReadonlyArray<Trace> = [...tableTraces, ...actorTraces];
+export const lifeTraces: ReadonlyArray<Trace> = tableTraces;

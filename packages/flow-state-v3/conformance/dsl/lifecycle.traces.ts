@@ -1,5 +1,6 @@
 import { Move, type Model, Obligation, type Phase } from "./lifecycle-model.ts";
 import { endTraces } from "./lifecycle-ends.traces.ts";
+import { actorTraces } from "./lifecycle-actor-lives.traces.ts";
 import { lifeTraces } from "./lifecycle-lives.traces.ts";
 import { memberTraces } from "./lifecycle-members.traces.ts";
 import { turnTraces } from "./lifecycle-turns.traces.ts";
@@ -438,4 +439,5 @@ export const traces: ReadonlyArray<Trace> = [
   ...memberTraces,
   ...turnTraces,
   ...lifeTraces,
+  ...actorTraces,
 ];

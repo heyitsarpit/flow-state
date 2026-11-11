@@ -156,6 +156,7 @@ const guards: Partial<Record<LifeRow, Partial<Record<Life["_tag"], Guard>>>> = {
     Refused: byMode,
     Kept: byMode,
     KeptOpen: byMode,
+    Maybe: byMode,
   },
   InvalidTurn: { Delivering: byRetry },
   RecordedLetGo: {

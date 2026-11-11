@@ -41,7 +41,8 @@ export type LifeStep = {
 /**
  * The expect half's state through one step (Conformance R19, R20): the lifecycle, the moves applied
  * so far, and what the step's suite facts gave: the uses and incarnations it anchored, the sends
- * its server saw, the purposes of its batches, its predicted turns and its answers.
+ * its server saw, the purposes of its batches, its predicted turns and its answers. `least` is the
+ * model before the step's second turn, the least a batch the step wrote holds (design B4).
  *
  * **Gotchas**
  *
@@ -60,6 +61,8 @@ export type Walk = {
   readonly requests: ReadonlyArray<Request>;
   readonly answers: ReadonlyArray<{ readonly request: Request; readonly answer: Answer }>;
   readonly unmatched: ReadonlyArray<Refusal>;
+  readonly seen: number;
+  readonly least: Option.Option<Model>;
 };
 
 /**
@@ -160,7 +163,11 @@ export const onSuiteFact = (walk: Walk, fact: SuiteFact, given: Rules) =>
     Landed: () => ({ ...walk, model: landed(walk.model) }),
     Wrote: () => ({
       ...walk,
-      model: wrote(walk.model, walk.purposes[0] ?? "capture"),
+      model: wrote(
+        walk.model,
+        Option.getOrElse(walk.least, () => walk.model),
+        walk.purposes[0] ?? "capture",
+      ),
       purposes: walk.purposes.slice(1),
     }),
     Dropped: () => ({ ...walk, model: { ...walk.model, pending: Option.none() } }),

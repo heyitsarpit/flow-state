@@ -268,15 +268,25 @@ const eachActor = (state: State, change: (a: Actor) => Actor) => ({
 });
 
 /**
- * The runtime wrote a batch, which holds every actor's turns so far: a flush lands at once, any
- * other once the store lands it.
+ * The runtime wrote a batch in a step: it holds some prefix of that step (design B4), at least up to
+ * the turn that issued it. `least` is the state before the step's second turn (the step's end when
+ * it ran fewer than two), so a batch is kept as each actor's turns and fields there. A flush lands
+ * at once, any other once the store lands it.
  */
-export const wrote = (state: State, purpose: Purpose) =>
-  eachActor(state, (a) => {
-    const kept = { turns: a.turns, fields: a.fields };
+export const wrote = (state: State, least: State, purpose: Purpose) => ({
+  ...state,
+  actors: new Map(
+    [...state.actors].map(([key, a]) => {
+      const start = least.actors.get(key) ?? FRESH;
+      const kept = { turns: start.turns, fields: start.fields };
 
-    return purpose === "flush" ? { ...a, saved: kept } : { ...a, pending: Option.some(kept) };
-  });
+      return [
+        key,
+        purpose === "flush" ? { ...a, saved: kept } : { ...a, pending: Option.some(kept) },
+      ] as const;
+    }),
+  ),
+});
 
 /**
  * The store landed the held batches: each actor's turns the latest of them holds are on disk.
