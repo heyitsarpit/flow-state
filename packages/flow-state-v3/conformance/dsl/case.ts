@@ -1,4 +1,4 @@
-import { Data, Equal, Option } from "effect";
+import { Data, Equal, Option, Schema } from "effect";
 import { type Fixture, referenceFor, rowsFor } from "../fixtures/fixture.ts";
 import { operationNamed, type Reference } from "../fixtures/reference.ts";
 import {
@@ -21,10 +21,11 @@ import {
   Observation,
   type Port,
   sameActor,
+  sameJson,
   type Snapshot,
   type Use,
 } from "../port.ts";
-import { type Answer, NoHeldRequest, type Request } from "../world/network.ts";
+import { type Answer, NoHeldRequest, type Request, RequestPhase } from "../world/network.ts";
 import type { StorageAnswer } from "../world/storage.ts";
 import { makeWorld, type World } from "../world/world.ts";
 import { type Actor, actorView } from "./actor.ts";
@@ -105,7 +106,8 @@ const decodeReports = (reference: Reference, fresh: ReadonlyArray<Fact>) => {
  *   applied request, repeats included.
  * - World faults: `answerLate` (the server's answer arrives after all), `uninterruptible` and
  *   `answerAtOnce` (from now on, for an operation).
- * - `answer` takes the oldest open request of the operation.
+ * - `answer` takes the oldest open request of the operation; `answerTo` the oldest open one whose
+ *   input has `fields` (its key fields), so a case with two callers names which it answers.
  *
  * **Gotchas**
  *
@@ -123,6 +125,11 @@ export type Case = {
   readonly ack: () => void;
   readonly answerStorage: (how: StorageAnswer) => void;
   readonly answer: (operation: string, answer: Answer) => void;
+  readonly answerTo: (
+    operation: string,
+    fields: Readonly<Record<string, Json>>,
+    answer: Answer,
+  ) => void;
   readonly answerLate: (operation: string, answer: Answer) => void;
   readonly uninterruptible: (operation: string) => void;
   readonly answerAtOnce: (operation: string, answer: Answer) => void;
@@ -256,6 +263,11 @@ const stepEngine = (
   return { act, judge };
 };
 
+const isRecord = Schema.is(Schema.Record(Schema.String, Schema.Json));
+
+const fieldOf = (input: Json, name: string) =>
+  isRecord(input) ? Option.fromUndefinedOr(input[name]) : Option.none();
+
 const openCase = (options: CaseOptions) => {
   const world = makeWorld(options.seed, options.overdue);
   const { network, storage, page } = world.hosts;
@@ -270,6 +282,28 @@ const openCase = (options: CaseOptions) => {
   const answer = (operation: string, given: Answer) =>
     act(`answer ${operation} ${given._tag}`, () => {
       const request = held(operation, network.oldestOpen(operation));
+      record(Fact.Answered({ request, answer: given }));
+      network.answer(request, given);
+    });
+
+  const answerTo = (operation: string, fields: Readonly<Record<string, Json>>, given: Answer) =>
+    act(`answer ${operation} ${JSON.stringify(fields)} ${given._tag}`, () => {
+      const request = held(
+        operation,
+        Option.fromUndefinedOr(
+          network
+            .requests()
+            .find(
+              (r) =>
+                r.operation === operation &&
+                RequestPhase.$is("Open")(r.phase) &&
+                Object.entries(fields).every(([name, value]) =>
+                  Option.exists(fieldOf(r.input, name), (v) => sameJson(v, value)),
+                ),
+            ),
+        ),
+      );
+
       record(Fact.Answered({ request, answer: given }));
       network.answer(request, given);
     });
@@ -369,6 +403,7 @@ const openCase = (options: CaseOptions) => {
     ack: () => answerStorage("ack", "ack"),
     answerStorage: (how) => answerStorage(how, how),
     answer,
+    answerTo,
     answerLate: (operation, given) =>
       act(`late answer ${operation} ${given._tag}`, () => {
         const request = held(operation, network.oldestUndecided(operation));

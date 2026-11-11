@@ -25,8 +25,9 @@ const VOID_GAVE_UP =
  *
  * **Details**
  *
- * - `PAY-21`: two shoppers each hold a `pay`; the one whose intent read says captured cancels its
- *   own hold, and the other's stays Held (WriteLanes R9, I12).
+ * - `PAY-21`: two shoppers each hold a `pay` on their own intent; the one whose intent read says
+ *   captured cancels its own hold, and the other's stays Held (WriteLanes R9, R14, I10, I12). Each
+ *   request is answered by its input, so no order of the two rereads is assumed.
  * - `PAY-22`: a `void` answered Lost four times is retried while `retryable({ times: 3 })` passes,
  *   then cancelled, so it is released only on the fourth `VoidUnsure` (WriteLanes R9, R14, I12).
  * - The design named them PAY-17 and PAY-18; those ids belong to ported cases.
@@ -39,27 +40,29 @@ export const laneAnchorScenarios: ReadonlyArray<Scenario> = [
     run: (c) => {
       const one = shopper(c);
       const two = c.actor(Pay, "shopper-2");
+      const other = { cartId: "c2", intentId: "pi2" };
+      const twoRow = () => Option.getOrUndefined(two.row("pay", { intentId: other.intentId }));
 
-      for (const s of [one, two]) {
-        s.ensure();
-        start(s);
-        pay(s);
-      }
-
+      one.ensure();
+      start(one);
+      pay(one);
+      two.ensure();
+      two.send("Start", other);
+      pay(two);
       c.ack();
       c.eq("both sent", sent(c, "pay"), 2);
-      c.answer("pay", LANDED);
-      c.answer("pay", LANDED);
+      c.answerTo("pay", KEY, LANDED);
+      c.answerTo("pay", { intentId: other.intentId }, LANDED);
       one.state("UNSURE");
       two.state("UNSURE");
       c.eq("one held", row(one)?.uncertain, true);
-      c.eq("two held", row(two)?.uncertain, true);
+      c.eq("two held", twoRow()?.uncertain, true);
       c.advance(REREAD_MS);
-      c.answer("intent", Answer.Ok({ value: { status: "requires_capture" } }));
+      c.answerTo("intent", KEY, Answer.Ok({ value: { status: "requires_capture" } }));
       one.state("PLACING");
       two.state("UNSURE");
       c.eq("one released", row(one), undefined);
-      c.eq("two still held", row(two)?.uncertain, true);
+      c.eq("two still held", twoRow()?.uncertain, true);
       c.eq("one release", c.evidence("Released"), 1);
       c.eq("no re-send", sent(c, "pay"), 2);
     },
