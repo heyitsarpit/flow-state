@@ -32,4 +32,18 @@ export const partsMutants: ReadonlyArray<Mutant> = [
       },
     ],
   },
+  {
+    name: "part.pending-reset-dropped",
+    says: "a key a part writes never runs its pending reset as a turn of its own",
+    expects: "Turn I10",
+    runtime: "prototype",
+    cases: ["TURN-05/a-part-writing-the-key-is-a-pending-reset"],
+    edits: [
+      {
+        file: "turn.ts",
+        find: '  const loops: Mail[] = [...(reset ? [{ k: "recheck" as const, actor: w.a.key }] : [])];',
+        replace: "  const loops: Mail[] = [];",
+      },
+    ],
+  },
 ];

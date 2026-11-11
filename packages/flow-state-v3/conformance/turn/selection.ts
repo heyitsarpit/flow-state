@@ -70,6 +70,31 @@ const lateRanLeaf = (
   );
 
 /**
+ * The turn a pending reset runs as, Flow's own (Turn R5): it selects no alternative.
+ */
+const PENDING_RESET = "PendingReset";
+
+/**
+ * The parts of a turn that are selected alternatives: not the callbacks a trait notified its host
+ * with (`traits.<name>.callbacks...`), which run beside them.
+ */
+const selectedParts = (turn: Turn) => turn.parts.filter((p) => !p.at.startsWith("traits."));
+
+/**
+ * A turn that selects no root alternative and so stays at its leaf: a pending reset, or one whose
+ * every selected part is a trait or fragment alternative the table names, where neither the leaf
+ * nor the root handles its event.
+ */
+const noRootAlternative = (
+  handlers: Handlers,
+  turn: Turn,
+  rootAlternatives: number,
+  selected: ReadonlyArray<TurnPart>,
+) =>
+  (selected.length === 0 && turn.event === PENDING_RESET) ||
+  (rootAlternatives === 0 && partsOnly(handlers, turn.event, selected));
+
+/**
  * A part-only turn leaves the root's leaf where it was; one that says otherwise breaks Turn I2.
  */
 const partLeft = (turn: Turn, from: string) =>
@@ -103,14 +128,11 @@ const judgeTurn = (machines: Machines, phase: Phase, turn: Turn, route: Route): 
   });
 
   const allowed = possible(handlers, from, turn.event, route);
-  const ran = turn.parts.find((p) => p.part.length === 0 && p.definition === turn.actor.machine);
+  const selected = selectedParts(turn);
+  const ran = selected.find((p) => p.part.length === 0 && p.definition === turn.actor.machine);
   const ats = allowed.alternatives.map((a) => a.at).join(", ");
 
-  if (
-    ran === undefined &&
-    allowed.alternatives.length === 0 &&
-    partsOnly(handlers, turn.event, turn.parts)
-  )
+  if (ran === undefined && noRootAlternative(handlers, turn, allowed.alternatives.length, selected))
     return {
       to: Option.some(from),
       found: [...wrongFrom, ...partLeft(turn, from)],
@@ -200,18 +222,20 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
   const now = actorIn(state, turn.actor);
   const handlers = state.machines[turn.actor.machine];
 
-  const rootRan = turn.parts.some(
-    (p) => p.part.length === 0 && p.definition === turn.actor.machine,
-  );
-
-  const credit = rootRan || turn.parts.length === 0 ? turn.event : partCredit(turn.event);
+  const selected = selectedParts(turn);
+  const rootRan = selected.some((p) => p.part.length === 0 && p.definition === turn.actor.machine);
+  const credit = rootRan || selected.length === 0 ? turn.event : partCredit(turn.event);
   const driven = now.driven.includes(credit);
   const [delivered] = heardBy(turn.actor, turn.event, step);
   const heard = !driven && delivered !== undefined;
   const route = !driven && delivered !== undefined ? routeOf(state, now, delivered) : "current";
 
   const admitted =
-    driven || heard || handlers === undefined || scheduledEvents(handlers).includes(turn.event);
+    driven ||
+    heard ||
+    handlers === undefined ||
+    scheduledEvents(handlers).includes(turn.event) ||
+    (turn.event === PENDING_RESET && selected.length === 0);
 
   const unadmitted = admitted
     ? []

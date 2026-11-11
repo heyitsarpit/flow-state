@@ -1,6 +1,8 @@
 import type { Scenario } from "../dsl/case.ts";
 import { coveredBy } from "../coverage.ts";
+import { Address } from "../dsl/oracle.ts";
 import { Form } from "../fixtures/form.ts";
+import { Observation } from "../port.ts";
 
 /**
  * The part cases (Turn R2, R5, R6), ported from the old suite's FRAG-01 and FRAG-17 on `Form`.
@@ -45,11 +47,38 @@ export const partsScenarios: ReadonlyArray<Scenario> = [
       ]);
     },
   },
+  {
+    id: "TURN-05/a-part-writing-the-key-is-a-pending-reset",
+    cites: ["Turn R5", "Turn R6", "Turn I10"],
+    fixtures: [Form],
+    run: (c) => {
+      const a = c.actor(Form, "a");
+      a.ensure();
+      c.send([
+        {
+          actor: { machine: Form.machine, id: "a" },
+          event: "Changed",
+          payload: { value: "subject:s9" },
+          to: Address.Part({ path: ["check"] }),
+        },
+      ]);
+      c.eq("the part's callback wrote the key", a.memory().subject, "s9");
+      c.eq(
+        "Turn I10: the pending reset runs as a turn of its own, after the turn that wrote the key",
+        c
+          .reports()
+          .flatMap((o) => (Observation.$is("Turn")(o) ? [o.event] : []))
+          .slice(-2),
+        ["Changed", "PendingReset"],
+      );
+    },
+  },
 ];
 
 /**
  * The Invariants these cases check by their own expectations.
  */
 export const partsCovered = coveredBy(partsScenarios).filter(
-  (row) => row.invariant === "Turn I3" || row.invariant === "Turn I11",
+  (row) =>
+    row.invariant === "Turn I3" || row.invariant === "Turn I10" || row.invariant === "Turn I11",
 );
