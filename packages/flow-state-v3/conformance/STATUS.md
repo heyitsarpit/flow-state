@@ -1231,6 +1231,21 @@ must be a suite fact or a judged claim.
 
 ## T8 (2026-11-11): Turn area (in progress)
 
+### Plan for the rest (2026-11-11, after the step 9 revision)
+
+Test-first (the user, 2026-11-11): for each Invariant, its scenarios or mutants and the expected
+results (a Haiku drafter, from the Spec) before the oracle. Order, by what closes the revision's
+remaining report-excuses first:
+
+1. `late-routing` (I26, I27): owner Activations from the anchor (the leaf an alternative with a
+   commit enters, a new Activation per entry or re-entry); a late ending walks the root only, an
+   on-time one the leaf then root; an on-time ending's `Denied` is judged.
+2. `refusal` (I14 to I16): `InvalidTurn` judged against faults the fixture plants.
+3. `issues` (I31).
+4. `publication` (I1, I7, I9, I29, I30): needs the Port's `Published` (README Port table).
+5. `schedules` (I20 to I23), `activations` (I4, I10, I11), `turn-purity` (I12, I13, I17, I19),
+   `placements` (I24, I25), `context` (I28), and I18's case: each needs Port facts first.
+
 ### Selection (first, from the step 9 review's H1)
 
 Bottom line: `turn/selection.ts` judges every reported turn header (Turn I2) against a hand-written
