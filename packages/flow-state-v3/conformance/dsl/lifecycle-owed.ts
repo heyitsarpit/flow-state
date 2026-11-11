@@ -1,5 +1,12 @@
-import { Option } from "effect";
-import type { Reference, Row, RowMember, Rows } from "../fixtures/reference.ts";
+import { Data, Option } from "effect";
+import {
+  type OperationReference,
+  type Reference,
+  type Row,
+  type RowMember,
+  type Rows,
+  unknownEvent,
+} from "../fixtures/reference.ts";
 import { type ActorRef, type Json, type Member, MemberTarget, sameJson } from "../port.ts";
 import {
   addressable,
@@ -55,15 +62,52 @@ const heardLane = (model: Model, hearing: EndingName) =>
     ),
   );
 
-const keylessTarget = (model: Model, hearing: Option.Option<EndingName>, member: RowMember) =>
-  Option.match(hearing, {
-    onNone: () => (member.kind === "retry" ? MemberTarget.Nothing() : MemberTarget.Every()),
-    onSome: (h) =>
-      Option.match(h.operation === member.operation ? heardLane(model, h) : Option.none(), {
-        onNone: () => MemberTarget.Nothing(),
-        onSome: (key) => MemberTarget.Key({ key }),
-      }),
-  });
+/**
+ * A fixture whose row has a key-less retry or cancel on a keyed operation outside that operation's
+ * own ending: a program WriteLanes R9 rejects as KeyRequired, so a suite defect.
+ */
+export class KeyRequired extends Data.TaggedError("KeyRequired")<{
+  readonly operation: string;
+  readonly kind: string;
+}> {}
+
+const mapsOf = (operation: OperationReference) => [
+  operation.success,
+  ...Object.values(operation.failure),
+  ...Option.toArray(unknownEvent(operation)),
+];
+
+/**
+ * Whether `event` is one only `operation` maps, of its machine's operations (WriteLanes R9).
+ */
+const mapsAlone = (known: Known, actor: ActorRef, operation: string, event: string) =>
+  Object.entries(known.reference[actor.machine] ?? {}).every(
+    ([name, o]) => mapsOf(o).includes(event) === (name === operation),
+  );
+
+const keylessTarget = (
+  model: Model,
+  known: Known,
+  turn: Predicted,
+  hearing: Option.Option<EndingName>,
+  member: RowMember,
+) => {
+  const ownHandler = mapsAlone(known, turn.actor, member.operation, turn.event);
+
+  if (member.kind === "cancelAll" && !ownHandler) return MemberTarget.Every();
+
+  if (!ownHandler) throw new KeyRequired({ operation: member.operation, kind: member.kind });
+
+  const own = Option.filter(hearing, (h) => h.operation === member.operation);
+
+  return Option.match(
+    Option.flatMap(own, (h) => heardLane(model, h)),
+    {
+      onNone: () => MemberTarget.Nothing(),
+      onSome: (key) => MemberTarget.Key({ key }),
+    },
+  );
+};
 
 const targetOf = (
   model: Model,
@@ -87,7 +131,7 @@ const targetOf = (
       onSome: (key) => MemberTarget.Key({ key }),
     });
 
-  if (!member.keyed) return keylessTarget(model, hearing, member);
+  if (!member.keyed) return keylessTarget(model, known, turn, hearing, member);
 
   const held = Option.filter(said, (key) =>
     lanesOfOperation(model, turn.actor, member.operation).some((l) =>
@@ -199,10 +243,9 @@ const releasesOwed = (known: Known, turn: Predicted) =>
  * - A member's target: `Only` on an unkeyed operation. A commit's is its operation's `Key` in
  *   the predicted turn, else `Nothing` (the key-less lane). A `keyed` retry, cancel or cancelAll's
  *   is that `Key` when it names a lane the model holds for the actor and operation, else
- *   `Every`. A key-less one's comes from the heard ending alone (WriteLanes R9, I14): its
- *   Attempt's lane in an ending of its operation, `Nothing` in a decline's or another
- *   operation's ending, and outside an ending `Every` for a cancel or cancelAll and `Nothing`
- *   for a retry.
+ *   `Every`. A key-less retry or cancel names its own ending's Attempt (WriteLanes R9, I14): its
+ *   lane, or `Nothing` for a decline's; elsewhere it is KeyRequired, a fixture defect. A
+ *   key-less cancelAll outside its own ending is `Every`.
  * - A `retryable` guard reads the heads of its member's owed lanes: it passes when one is Held and
  *   was sent fewer than `times` + 1 times (`sends`).
  * - A release is owed for each operation whose reference releases on the turn's (event, from,
@@ -213,8 +256,6 @@ const releasesOwed = (known: Known, turn: Predicted) =>
  * **Gotchas**
  *
  * - A turn hearing a read's ending is seen as hearing none.
- * - A key-less member on a keyed operation outside its own ending is KeyRequired by WriteLanes
- *   R9; the targets above follow round-14 until the user answers that question.
  */
 // RETURN_TYPE: the Table B members a turn opens with, whatever the rows' operation names.
 export const owedMembers = (

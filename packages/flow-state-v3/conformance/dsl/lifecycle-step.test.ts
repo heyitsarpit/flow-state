@@ -568,9 +568,9 @@ const STEP_MUTANTS: ReadonlyArray<{
   {
     name: "a predicted key retargets a key-less member",
     file: "lifecycle-owed.ts",
-    find: "  if (!member.keyed) return keylessTarget(model, hearing, member);",
+    find: "  if (!member.keyed) return keylessTarget(model, known, turn, hearing, member);",
     replace:
-      "  if (!member.keyed)\n    return Option.match(said, { onNone: () => keylessTarget(model, hearing, member), onSome: (key) => MemberTarget.Key({ key }) });",
+      "  if (!member.keyed)\n    return Option.match(said, { onNone: () => keylessTarget(model, known, turn, hearing, member), onSome: (key) => MemberTarget.Key({ key }) });",
   },
   {
     name: "a keyed member takes any reported key",
