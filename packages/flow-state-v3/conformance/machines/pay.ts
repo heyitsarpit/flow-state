@@ -1,5 +1,6 @@
 import { Schema } from "effect";
 import { definition, deny, Flow, machine } from "../../src/index.ts";
+import type { MachineBody } from "../../src/machine.ts";
 import {
   type AlreadyCaptured,
   type Busy,
@@ -173,16 +174,16 @@ const withCard = ({
   paymentMethodId: event.paymentMethodId,
 });
 
-/**
- * Checkout's Pay machine in the production API.
- *
- * **Details**
- *
- * The real machine's 3-D Secure alternatives (a `requires_action` intent, which goes to its
- * CHALLENGE state) are outside this subset; each keeps its place as an alternative that stays, so
- * every other alternative's place matches the real Pay's (`states.PAYING.on.Confirmed[1]`).
- */
-export const PayMachine = machine(Pay, ({ S, E, O }) => {
+const payBody = ({
+  S,
+  E,
+  O,
+}: {
+  readonly S: typeof Pay.S;
+  readonly E: typeof Pay.E;
+  readonly O: typeof Pay.O;
+  // RETURN_TYPE: the machine body's contract types every handler's event and memory.
+}): MachineBody<typeof Pay> => {
   const start = {
     target: S.CARD,
     updateMemory: ({
@@ -428,5 +429,42 @@ export const PayMachine = machine(Pay, ({ S, E, O }) => {
       STUCK: { on: { CheckAgain: { target: S.UNSURE } } },
       LEFT: { on: { Start: start } },
     },
+  };
+};
+
+/**
+ * Checkout's Pay machine in the production API.
+ *
+ * **Details**
+ *
+ * The real machine's 3-D Secure alternatives (a `requires_action` intent, which goes to its
+ * CHALLENGE state) are outside this subset; each keeps its place, its guard and its actions and
+ * stays, so every other alternative's place matches the real Pay's.
+ */
+export const PayMachine = machine(Pay, payBody);
+
+/**
+ * Pay with one more root event, `AbortPay`, which cancels `pay` (the suite's `cells` fixture,
+ * `prototypes/conformance/typed/cells.ts`).
+ */
+export const Cells = definition({
+  id: Pay.id,
+  persist: true,
+  states: Pay.states,
+  events: { ...Pay.events, AbortPay: {} },
+  internalEvents: Pay.internalEvents,
+  memory: Pay.memory,
+  operations: () => Pay.operations,
+});
+
+/**
+ * The `cells` machine: Pay's handlers, and `AbortPay` cancelling the intent's `pay`.
+ */
+export const CellsMachine = machine(Cells, (tokens) => {
+  const base = payBody(tokens);
+
+  return {
+    ...base,
+    on: { ...base.on, AbortPay: { actions: [tokens.O.pay.cancel(intent)] } },
   };
 });

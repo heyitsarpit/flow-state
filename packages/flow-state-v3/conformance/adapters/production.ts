@@ -15,7 +15,7 @@ import type { Machine } from "../../src/definition.ts";
 import { Host, StoreRefused, testing } from "../../src/host/testing.ts";
 import { actorRef, app } from "../../src/index.ts";
 import { attachInspector } from "../../src/host/inspect.ts";
-import { PayMachine, ShopApi } from "../machines/pay.ts";
+import { CellsMachine, PayMachine, ShopApi } from "../machines/pay.ts";
 import {
   type ActorRef,
   type Json,
@@ -47,7 +47,10 @@ export class UnknownProductionFixture extends Data.TaggedError("UnknownProductio
 /**
  * The machines the production adapter boots, by the suite's catalog name.
  */
-const MACHINES: ReadonlyMap<string, Machine> = new Map([["pay", PayMachine]]);
+const MACHINES: ReadonlyMap<string, Machine> = new Map<string, Machine>([
+  ["pay", PayMachine],
+  ["cells", CellsMachine],
+]);
 
 const decodeJson = Schema.decodeUnknownResult(Schema.Json);
 

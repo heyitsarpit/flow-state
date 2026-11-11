@@ -39,7 +39,11 @@ type DefinitionParts<D> =
     ? { readonly S: States[number]; readonly Events: Ev & In; readonly Memory: MemoryOf<M> }
     : never;
 
-type MachineBody<D extends AnyDefinition> = {
+/**
+ * What a machine body returns: its default state, the root's handlers and each state's handlers
+ * and schedules, typed by its definition.
+ */
+export type MachineBody<D extends AnyDefinition> = {
   readonly default: StateToken<DefinitionParts<D>["S"]>;
   readonly on?: On<
     DefinitionParts<D>["Memory"],
