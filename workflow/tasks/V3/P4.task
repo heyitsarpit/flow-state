@@ -93,7 +93,7 @@ tasks
         title       Compiled and the compiler
         status      draft
         priority    high
-        blocked_by  [@T16, @task.V3.T15]
+        blocked_by  [@T16]
         description
             Build Compiled and the compiler: @spec.Compile and @spec.Diagnostics from the public API.
 
@@ -120,7 +120,7 @@ tasks
         title       Lane, step and turn
         status      draft
         priority    high
-        blocked_by  [@T17]
+        blocked_by  [@T17, @task.V3.T8]
         description
             Build lane, step and turn from @spec.Turn, @spec.WriteLanes and @spec.Actors.
 
@@ -141,7 +141,7 @@ tasks
         title       Persistence edge, write-ahead and the driver
         status      draft
         priority    high
-        blocked_by  [@T18]
+        blocked_by  [@T18, @task.V3.T10]
         description
             Build the persistence edge, write-ahead and the Effect driver in `src/host/` from @spec.WriteAhead.
 
@@ -163,7 +163,7 @@ tasks
         title       Restore and key versions
         status      draft
         priority    high
-        blocked_by  [@T19]
+        blocked_by  [@T19, @task.V3.T11]
         description
             Build restore and key versions from @spec.Restore and @spec.Codec, with record formats tagged from
             the first release.
@@ -188,7 +188,7 @@ tasks
         title       Fragments and operations
         status      draft
         priority    high
-        blocked_by  [@T20]
+        blocked_by  [@T20, @task.V3.T9, @task.V3.T12]
         description
             Build fragments, then operations with the required services list, and @spec.Reads, with the round-14
             carry list's unbuilt design items.
@@ -242,7 +242,7 @@ tasks
         title       Prototype adapter retired; verify builds v3
         status      draft
         priority    medium
-        blocked_by  [@T22]
+        blocked_by  [@T22, @task.V3.T15]
         description
             Retire the prototype adapter, point `nub run build` at `packages/flow-state-v3` (it still builds the
             frozen library), and pass `nub run verify`.

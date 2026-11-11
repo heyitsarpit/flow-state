@@ -272,6 +272,12 @@ instructions
       public interface with real components (not unit tests of internals), and the scenarios and
       cases that enforce each Invariant the work implements, with expectations from the Spec; then
       build until they pass.
+    - P3 and P4 interleave by area (the user, 2026-11-11, for correctness and speed): T16, T17, T18,
+      then T10 and T19, T11 and T20, T9 and T12 and T21, T22, then T15 as the final cross-area audit
+      before T23. An area's suite is green on round-14, null-red, mutant-proven, reviewed and
+      adversarially audited (its own auditor, its own mutants) before its production module starts,
+      so the suite never learns from production; when production and a case disagree, the Spec
+      decides and the fix cites its rule; a case is never edited just to pass.
     - A coverage row leaves P3 for a later phase only with evidence: the round-14 and old-suite code
       searched, and why it cannot show the Invariant; the next review checks each claim (the
       orchestrator, 2026-11-11, after three wrong moves).
