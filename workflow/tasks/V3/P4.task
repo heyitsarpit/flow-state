@@ -335,6 +335,9 @@ tasks
             Pay path runs on production: 61/61 Pay cases, falsify --runtime production 13/13 at 8bd0cfb9. Public 
             exports (provisional), layout, decisions and review logs: packages/flow-state-v3/conformance/STATUS.md, T16 
             section.
+        comment     2026-11-11T10:29:55Z
+            Review fixes (t16-review-2026-11-11.md) landed with failing-first public-API tests; kept-ignored owed to 
+            T44. Log: packages/flow-state-v3/conformance/STATUS.md, T16 review fixes.
     T43
         title       Production code uses Effect's features instead of hand-rolled ones (audit R1 to R8)
         status      open
@@ -362,6 +365,10 @@ tasks
             - R1 to R8 applied, or one rejected with a logged reason;
             - suite green on round-14; Pay cases green on production; production mutants all caught;
             - `nub run check` at zero.
+        comment     2026-11-11T10:29:50Z
+            R1 to R8 applied, each alone, suite green on round-14, Pay cases and 17 production mutants on production, 
+            at 90c9f3bd; none rejected. The advisor's wedged-inbox bug confirmed by a failing test and fixed. Details: 
+            packages/flow-state-v3/conformance/STATUS.md, T43 section.
 
     T44
         title       The suite judges from its own facts only, gated by machines

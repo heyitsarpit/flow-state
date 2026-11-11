@@ -1580,6 +1580,41 @@ booted yet (`UnknownProductionFixture`).
   gate does not judge production turns; the coverage gate reports 5 gaps owed by @task.V3.T7, which
   is done (from the phase restructure, not T16).
 
+### T16 review fixes (2026-11-11, `t16-review-2026-11-11.md`)
+
+- **Fixed, each with a public-API test that failed first** (`9bfdb839`, `src/host/runtime.test.ts`):
+  ready() once, storage before services, RuntimeNotReady before it (H2); an unencodable commit
+  declines Unencodable (H3); non-reject concurrency refused at compile time, a stated limit (H4).
+  dispose() runs the disposal (H1, fixed by R1; pinned by a test). Computed entry delays arm (R6).
+- **Restore R1** (`27618769`): Held-lane identities stay records at the boot; an owed identity
+  whose record does not decode is not woken (`9bfdb839`).
+- **The internal symbol is gone:** a Runtime carries only an inspector hook; the suite builds
+  through `testing.build`, which returns the driver beside the Runtime (M7).
+- **Pay's UNSURE stand-in** takes the real guard and cancel; PAY-23 reaches it (L2).
+- **Mutants** (`7419dadb`): persist, record and tx, and one the Cancelled exemption hid; 17 caught.
+- **T7:** I23 is partial (data and forget owed by T7); unknown Cancelled now needs a cancel.
+- **Owed:** the reviewer's `kept-ignored` probe needs a case, and the case (drafted: a commit on a
+  kept ending's key declines Rejected) fails on both runtimes because the suite's lifecycle does not
+  model a kept ending holding its lane (WriteLanes R6, CQ3): owed to T44.
+
+## T43 (2026-11-11): Effect simplification R1 to R8
+
+All eight applied, each alone with the round-14 suite and the Pay cases green and the production
+mutants caught, at 90c9f3bd.
+
+- **R2** (`7467df5c`): codecs compiled once; the public send decodes payloads and throws
+  InvalidEvent (a real bug: payloads were never decoded); an equal update keeps the memory object.
+- **R1** (`181caa16`): Host is a Context.Service with only what Effect lacks; Clock and Scheduler
+  come from the Platform Context; calls, timers and wakes are keyed fibers in one FiberMap in the
+  Runtime's one Scope; dispose closes the core, then the Scope.
+- **R3** (`119bb1fc`), **R4** (`e563d710`), **R5** (`9064f874`), **R6** (`9f48aa50`, also arms
+  computed entry delays at creation), **R7** (`9118e224`), **R8** with the time ban (`90c9f3bd`).
+- **The advisor's bug, confirmed:** a throwing inspector left the driver's loop marked running,
+  so later inputs stayed queued. A test failed first; a throwing sink now detaches itself and the
+  loop is released before a step defect is rethrown. No production mutant: no Port path throws in
+  a sink; the test was falsified by hand (both guards removed: red).
+- **Rejected:** none. R7's string TypeId became T16's removal of the internal symbol.
+
 ## T41 (2026-11-11): coverage gate
 
 Bottom line: `coverage` (and the first line of `falsify`) fails unless every Invariant of the ten core Specs is checked
