@@ -337,9 +337,14 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence) => {
           parked: true,
         });
 
-    const owed = new Map(
-      [...tx.world().parked.values()].map((p) => [actorKey(p.actor), p.actor] as const),
-    );
+    // Restore R1: only an identity whose captured lanes owe it an ending (a lane InFlight at
+    // capture, or an ending parked before the boot) is live at ready; a Held lane's stays a record.
+    const owed = new Map([
+      ...restored.lanes
+        .filter((l) => l.inFlight)
+        .map(({ lane }) => [actorKey(lane.actor), lane.actor] as const),
+      ...restored.parked.map((p) => [actorKey(p.actor), p.actor] as const),
+    ]);
 
     for (const actor of owed.values()) ensure(actor, Option.none(), false);
   };

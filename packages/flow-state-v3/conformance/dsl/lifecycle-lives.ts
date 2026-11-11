@@ -202,7 +202,14 @@ const discharged = (model: Model, row: LifeRow, index: number, guard: string, en
       ),
     };
 
-  if (row === "Delivered" && ending.channel === "unknown" && ending.reason === "Restored")
+  // Restore R1 (the user, 2026-11-11): a boot decides each held head's unknown Restored, and an
+  // identity no one reaches stays a record; parked, the ending is owed to its next incarnation by
+  // its Parked life (Opens, then StepEnds), so parking it meets the boot's obligation.
+  if (
+    (row === "Delivered" || row === "Parked") &&
+    ending.channel === "unknown" &&
+    ending.reason === "Restored"
+  )
     return {
       ...model,
       obligations: model.obligations.filter(

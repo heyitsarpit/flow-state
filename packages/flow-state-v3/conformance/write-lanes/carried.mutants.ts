@@ -1,4 +1,4 @@
-import type { Mutant } from "../dsl/oracle.ts";
+import type { Mutant, Probe } from "../dsl/oracle.ts";
 
 const DECLINE = "  noteEnding(tx, { op: a.op, actor: a.actor }, e);\n  enqueue(tx, {";
 
@@ -44,17 +44,23 @@ export const carriedDeliveredOnceMutants: ReadonlyArray<Mutant> = [
 ];
 
 /**
- * The old suite's wrong runtimes whose `disposal` catches (Actors I29) the step 9 review found
- * lost (its H2), held again now that a boot's restore is owed until it is delivered, not merely
- * decided, and a held actor's parked ending is refused at the step's end.
+ * Two wrong runtimes the step 9 review found (its H2), both losing a restorable record at a boot.
+ *
+ * **Details**
+ *
+ * They were `disposal` mutants (Actors I29) while a boot owed each held head's restore by its own
+ * step's end. Restore R1 stands (the user, 2026-11-11): a Held lane's identity stays a record until
+ * something reaches it, so a restore parked at the boot is on time, and Actors I29 no longer
+ * catches them. What they break, a record that does not round-trip (WriteAhead I4), has no oracle
+ * yet; they stay as pending probes, red by case expectations, until one exists.
  */
-export const carriedDisposalMutants: ReadonlyArray<Mutant> = [
+export const carriedRecordProbes: ReadonlyArray<Probe> = [
   {
     name: "k.drop-row",
     says: "a boot deletes every actor with a restored ending in its mail, so the ending parks with no incarnation (step 9 review H2)",
-    expects: "Actors I29",
+    holds: "pending",
     runtime: "prototype",
-    cases: ["PAY-05"],
+    cases: ["PAY-05", "PAY-08/reloadDuringCharge"],
     edits: [
       {
         file: "durable.ts",
@@ -73,9 +79,9 @@ export const carriedDisposalMutants: ReadonlyArray<Mutant> = [
   {
     name: "q1a.unchanged-resets",
     says: "a boot resets every restored actor as if its definition's shape changed (step 9 review H2)",
-    expects: "Actors I29",
+    holds: "pending",
     runtime: "prototype",
-    cases: ["PAY-05"],
+    cases: ["PAY-05", "PAY-08/reloadDuringCharge"],
     edits: [
       {
         file: "durable.ts",

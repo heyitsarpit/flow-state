@@ -301,3 +301,15 @@ moves to Compile T6; Turn I18 takes I19's old-snapshot clause. The seven rewordi
   Restored to be decided and parked at the boot, so its identity is live at ready even when its lane was Held,
   not InFlight, at capture; R1's text keeps such a record a record until reached. Production follows the suite.
   Open for the user: reword R1, or change DISP-05.
+
+## 2026-11-11, Restore R1 ruled (the user): DISP-05's expectation follows R1
+
+- **Restore R1 stands:** a Held lane's identity stays a record until something reaches it. The suite's
+  lifecycle now takes a held head's unknown Restored, decided and parked at the boot, as meeting the boot's
+  restore obligation; its Parked life owes it to the identity's next incarnation (Opens, then StepEnds), so a
+  parked-and-never-delivered restore is still caught. Why: the user's ruling of the T16 finding above.
+  Reverse: drop the `Parked` row from `discharged` in conformance/dsl/lifecycle-lives.ts.
+- **Two prototype mutants retired from Actors I29:** `k.drop-row` and `q1a.unchanged-resets` lose a
+  restorable record at a boot; under R1 a parked restore is on time, so they are pending probes now, red by
+  case expectations, until an oracle checks WriteAhead I4. The production runtime keeps a Held lane's
+  identity a record at the boot (src/core/incarnations.ts).

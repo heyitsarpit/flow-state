@@ -40,7 +40,7 @@ import { headerLaneMutants, selectionMutants } from "./turn/selection.mutants.ts
 import { selection } from "./turn/selection.ts";
 import {
   carriedDeliveredOnceMutants,
-  carriedDisposalMutants,
+  carriedRecordProbes,
   reportLieMutants,
 } from "./write-lanes/carried.mutants.ts";
 import { attemptIdentityMutants } from "./write-lanes/attempt-identity.mutants.ts";
@@ -86,7 +86,7 @@ const pinned: ReadonlyArray<Guarantee> = [
     mutants: [...deliveredOnceMutants, ...carriedDeliveredOnceMutants, ...reportLieMutants],
   },
   { oracle: laneQueue, mutants: [...laneQueueMutants, ...resendMutants, ...headerLaneMutants] },
-  { oracle: disposal, mutants: [...disposalMutants, ...carriedDisposalMutants] },
+  { oracle: disposal, mutants: disposalMutants },
   { oracle: graphNames, mutants: graphNamesMutants },
   { oracle: retryCount, mutants: retryCountMutants },
   { oracle: evidenceKinds, mutants: evidenceKindsMutants },
@@ -114,7 +114,7 @@ export const guarantees: ReadonlyArray<Guarantee> = pinned.map((g) => ({
 /**
  * Every probe falsify runs beside the mutants ({@link Probe}).
  */
-export const probes: ReadonlyArray<Probe> = laneQueueProbes;
+export const probes: ReadonlyArray<Probe> = [...laneQueueProbes, ...carriedRecordProbes];
 
 /**
  * Every oracle, run after every step of every case.
