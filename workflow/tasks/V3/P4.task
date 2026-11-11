@@ -645,6 +645,29 @@ tasks
             the expect modules); item 3 met (falsify 152/152); phase-out check 1 met (sweep 4064de75: 0 lost, gains 
             only). Not met here: phase-out step 1's liar greens at most 9 (11, see above). kills re-measured with red 
             verdicts only: 27 of 37 (2a35981c), so acceptance 1 is open for step 5.
+        comment     2026-11-11T21:42:38Z
+            Fix round (2d9fddef, 2a35981c, a42f0bff's decision applied): K1 early ends refused by an upper bound on 
+            free time (I10); K3 remainder (disposal allowed sets, unknown leaves, undeclared machines); S6 heads still 
+            Resending only; kills count only red verdicts (old 11/37 counted non-catches); regressions save their 
+            signature, checked by the regressions mode. The unowed-Incarnated and other suite-side stated limits are 
+            named in code docs; a limits.ts row each with a mutant is not yet built.
+        comment     2026-11-11T21:43:11Z
+            Step 4 against acceptance: production crash 690/723; 29 of the 33 reds are one family, a Held head ended 
+            unknown then NotSent Disposed at the disposal (WriteLanes I3/I16), the Held-head disposal bug kept for 
+            @task.V3.T51; the rest are named in the crash comment above. No acceptance item is step 4's alone.
+        comment     2026-11-11T21:43:17Z
+            Step 5 against acceptance (5c8f58de): item 1 at 36 of 37 (kills, red verdicts only); the one left, 
+            pay16.schedule-reads-pre-transition-memory, only a case expectation catches (the phase-out Gap: no oracle 
+            checks Turn I12), so generated runs cannot kill it. Item 2 met: round-14's missing incarnation after a 
+            disposal and reload (search-55) and its restore of a disposed actor's Held head (search-25), both passing 
+            on production, now limits rows. Open: two serialize regressions (2004 Actors I38, 2010 WriteLanes I16) are 
+            untriaged, production has no Lab machines to compare; item 4 (T10/T19 persistence rows) is not checked.
+        comment     2026-11-11T21:43:23Z
+            Step 6 so far (1b976997): limits.ts and the limits gate (T42, 2/2 rows hold, planted rows in 
+            limits.test.ts); default runtime production (T43, first line names it; round-14 modes and gates name 
+            round-14). Liar round-14 122/131: life.* moved to the report-truth list (no write, request or read changes 
+            at CARD); the 9 older greens remain (T41). Boundary and data-flow tests cover T37/T40. T14's planted slow 
+            child and old-search kills are not done.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open
