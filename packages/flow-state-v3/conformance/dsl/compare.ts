@@ -145,7 +145,7 @@ const owedOnce = (owed: ReadonlyArray<ActorRef>, heard: ReadonlyArray<ActorRef>,
 /**
  * A reported incarnation: one the step owes, or an allowed one of an actor with none, in a step
  * that sent it an event, reloaded, or runs during the disposal (a send, a boot or a disposal may
- * wake a record: a stated limit). Any other is not applied.
+ * wake a record: a stated limit), once per actor per step. Any other is not applied.
  */
 const incarnationHeard = (walk: Walk, actor: ActorRef, given: Rules) => {
   const heard = { ...walk, incarnationsHeard: [...walk.incarnationsHeard, actor] };
@@ -155,7 +155,9 @@ const incarnationHeard = (walk: Walk, actor: ActorRef, given: Rules) => {
   const allowed =
     walk.reloaded || walk.model.mode === "disposing" || walk.used.some((a) => sameActor(a, actor));
 
-  return allowed && !isLive(walk.model, actor) ? opened(heard, actor, given, true) : walk;
+  const again = walk.incarnationsHeard.some((a) => sameActor(a, actor));
+
+  return allowed && !again && !isLive(walk.model, actor) ? opened(heard, actor, given, true) : walk;
 };
 
 /**

@@ -371,6 +371,7 @@ const examples: ReadonlyArray<Example> = [
       const twice = after(empty, [
         Fact.Ensured({ actor: shopper, use: "host" }),
         incarnated,
+        Fact.Released({ actor: shopper, use: "host" }),
         said(Observation.Finished({ actor: shopper })),
         incarnated,
       ]);
@@ -384,6 +385,7 @@ const examples: ReadonlyArray<Example> = [
       const graced = after(empty, [
         Fact.Ensured({ actor: shopper, use: "host" }),
         said(Observation.Incarnated({ actor: shopper })),
+        Fact.Released({ actor: shopper, use: "host" }),
         said(Observation.Finished({ actor: shopper })),
       ]);
 
