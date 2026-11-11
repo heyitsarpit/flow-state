@@ -157,3 +157,5 @@ note 2026-11-11T17:02:44Z
     spot-checks (Wrote.purpose and Acknowledged.attempts typed as facts, Finished folds the grace record, Pay keys from 
     intentId in memory). Decisions 1 to 5 taken as the reviewer recommends; Conformance R19 gains a wording note for 
     the user's read. Findings: proposals/t45-expect-half-review-2026-11-11.md. **Reverse:** reopen the design.
+note 2026-11-11T18:22:31Z
+    Amendment (the user, 2026-11-11): reviews every 90 minutes on a new checkpoint, one Opus lead with two Haiku sidecars, besides the event reviews; stall threshold 100 minutes. Crons 1123ecbe and 15f3947a replace 3c84955c. **Reverse:** restore the 3-hour stall cron and event-only reviews.

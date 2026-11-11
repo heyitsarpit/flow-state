@@ -288,10 +288,12 @@ instructions
 
     **Reviews**
 
-    - Reviews start on events, not the clock: a lost catch in the catch matrix, a Port change, a new oracle, a Spec
-      change, or an area's gate. Machine gates run on every checkpoint. Reviews per Task were declined. Loop
+    - Reviews run every 90 minutes on a new checkpoint (cadence; the user, 2026-11-11), and also on events: a lost
+      catch in the catch matrix, a Port change, a new oracle, a Spec change, or an area's gate. Machine gates run
+      on every checkpoint. Reviews per Task were declined. Loop
       amendments are batched at an area's close-out unless one fixes a wrong result (the user, 2026-11-11).
-    - Every review, audit or research task goes to one Opus lead with zero to two read-only Haiku sidecars by need;
+    - Every review goes to one Opus lead with two read-only Haiku sidecars on named angles (the user, 2026-11-11);
+      every audit or research task to one Opus lead with zero to two by need;
       code quality is left to lint. A close-out review ends each phase or area.
 
     **Records, usage, commands**
@@ -310,19 +312,21 @@ instructions
       read (`</dev/null`); files only with the Write and Edit tools (memory, 2026-11-04).
     - R43: no worktrees; the builder works in the main checkout on `flow-rewrite` (the user, 2026-11-08).
 cadence
-    Reviews start on events (Reviews, in instructions), not on a clock; machine gates run on every checkpoint. A
-    fallback wake every 3 hours checks only for a stalled lead, the usage reserve and the records' size limits
+    A review every 90 minutes (the user, 2026-11-11), besides the event reviews in instructions; machine gates run
+    on every checkpoint. The same wake checks for a stalled lead, the usage reserve and the records' size limits
     (a line count, no model).
 
-    Session cron `23 */3 * * *` (the stall check).
+    Session crons `17 0-23/3 * * *` and `47 1-23/3 * * *` (together, one wake every 90 minutes).
 
     Prompt: "V3 review wake. Read workflow/tasks/V3/epic.task and the last notes in its log.task. If its Limits
     section sets a usage reserve, read the weekly usage from the harness's usage view, and if the reserve is reached,
-    stop the run by R21 and note it. If a review event has happened with no review or audit covering it, start one
-    Opus reviewing lead at medium effort with sidecars by need; verify its findings, send the accepted ones to the
-    building lead in the same wake, and note the review. If the building lead has shown no activity for 70 minutes,
-    resume it by message or replace it (R7) and note it. Otherwise write nothing." Quiet rule: a wake that finds
-    nothing writes no note and sends no message.
+    stop the run by R21 and note it. If there is a checkpoint newer than the last noted review or audit, or a review
+    event with none covering it, start one Opus reviewing lead at medium effort with two read-only Haiku sidecars at
+    effort high, each on a named angle; verify its findings, send the accepted ones to the building lead in the same
+    wake, and note the review. If the building lead has shown no activity for 100 minutes, resume it by message or
+    replace it (R7) and note it. If log.task passes 300 lines or one Task's comments pass 100, note it for the next
+    clean point. Otherwise write nothing." Quiet rule: a wake that finds nothing writes no note and sends no
+    message; a review already covering the newest checkpoint counts as that period's review (R24).
 stops
     - The user's decisions in the Authority section;
     - a guarantee that can't be met;
