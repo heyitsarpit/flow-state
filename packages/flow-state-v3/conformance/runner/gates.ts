@@ -1,6 +1,6 @@
 /// <reference types="node" />
-import { Console, Effect, Option } from "effect";
-import { writeFileSync } from "node:fs";
+import { Console, Effect, Option, Schema } from "effect";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { productionFixtures } from "../adapters/production.ts";
 import { scenarios } from "../suite.ts";
 import { ROUND_14 } from "./args.ts";
@@ -28,13 +28,24 @@ const verdictLine = (stdout: string) =>
     () => "no verdict",
   );
 
+const GatesFile = Schema.Struct({
+  revision: Schema.String,
+  gates: Schema.Array(Schema.Struct({ gate: Schema.String, verdict: Schema.String })),
+});
+
 /**
  * The gate file (advisor Q6): runs every machine gate in a child process at the current revision
  * and writes their verdict lines to `gates.json`, which notes and reports cite instead of
- * hand-copied numbers. A gate's verdict is recorded as it is, red included: the liar gate's
+ * hand-copied numbers. `--gate NAME` runs one gate and keeps the others' last verdicts, so each
+ * run stays under a command's time bound. A gate's verdict is recorded as it is, red included: the liar gate's
  * greens and the crash generator's red points are open work, not a stop.
  */
-export const writeGates = (main: string, path: string, scratch: string) =>
+export const writeGates = (
+  main: string,
+  path: string,
+  scratch: string,
+  chosen: Option.Option<string> = Option.none(),
+) =>
   Effect.gen(function* () {
     const revision = yield* runChild("git", ["rev-parse", "--short", "HEAD"], 30).pipe(
       Effect.map((out) => out.stdout.trim()),
@@ -74,8 +85,13 @@ export const writeGates = (main: string, path: string, scratch: string) =>
       },
     ];
 
-    const results = yield* Effect.forEach(
-      gates,
+    const picked = Option.match(chosen, {
+      onNone: () => gates,
+      onSome: (name) => gates.filter((g) => g.gate === name),
+    });
+
+    const fresh = yield* Effect.forEach(
+      picked,
       ({ gate, args }) =>
         runChild("bun", [main, ...args], 280).pipe(
           Effect.map((out) => ({ gate, verdict: verdictLine(out.stdout) })),
@@ -84,6 +100,15 @@ export const writeGates = (main: string, path: string, scratch: string) =>
           ),
         ),
       { concurrency: 1 },
+    );
+
+    const kept: ReadonlyArray<{ readonly gate: string; readonly verdict: string }> =
+      Option.isSome(chosen) && existsSync(path)
+        ? Schema.decodeUnknownSync(GatesFile)(JSON.parse(readFileSync(path, "utf8"))).gates
+        : [];
+
+    const results = gates.flatMap(
+      (g) => fresh.find((f) => f.gate === g.gate) ?? kept.find((k) => k.gate === g.gate) ?? [],
     );
 
     writeFileSync(path, `${JSON.stringify({ revision, gates: results }, null, 2)}\n`);

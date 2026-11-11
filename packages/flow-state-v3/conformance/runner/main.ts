@@ -464,6 +464,7 @@ const dispatch = (args: ReadonlyArray<string>) => {
       MAIN,
       resolve(dirname(MAIN), "..", "gates.json"),
       resolve(Option.getOrElse(flag(rest, "--scratch"), () => tmpdir())),
+      flag(rest, "--gate"),
     );
 
   return Console.error(
