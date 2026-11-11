@@ -5,27 +5,26 @@ description
 
     **Kind:** verification-suite.
 
-    **Goal:** the actors area (@task.V3.T9) and the reads area (@task.V3.T12) proven in the suite, then fragments and 
-    operations in production.
+    **Goal:** slices 3 to 5: machine structure (T17), actor identity (T9) and reads (T21, absorbing T12); T8 closed as 
+    moved into T17 and T9.
 
     **Verified by:**
 
-    - the area's suite: green on round 14, null 0 of N, every oracle killing its own mutants for the expected reason,
-      reviewed, and audited by its own adversarial auditor (skill:policy-testing#audit-a-suite);
-    - then the production module through the production adapter: that suite passes, with its coverage rows in
+    - the slice's suite half: parts and the Spec model's section green, killing table-cell mutants of the model,
+      reviewed and audited by its own adversarial auditor (skill:policy-testing#audit-a-suite);
+    - then the production half through the production adapter: model-predicted runs pass, with its coverage rows in
       @plan.Runtime's verification;
     - skill:check-task per Task; `nub run check` at zero.
 
-    **One iteration:** the area's suite Task first (from its Spec, run on round 14 and the null runtime, its mutants, 
-    the
-    review, findings gathered by root cause); then its production Task, built test-first against the proven suite.
-    When production and a case disagree, the Spec decides and the fix cites its rule.
+    **One iteration:** a slice's suite half first (Spec change, model section, parts, model mutation, audit), then its
+    production half built test-first against model-predicted runs, then the benchmark replay and the gates. When
+    production and a case disagree, the Spec decides and the fix cites its rule.
 
     **Exit criteria:**
 
-    - the area's suite is green on round 14, null-red, mutant-proven, reviewed and audited by its own auditor before the
-      production module starts;
-    - the production module then passes it, with its gates failing on a broken runtime.
+    - the slice's suite half is green on the model, mutant-proven by model mutation, reviewed and audited before its
+      production half starts;
+    - the slice's new codes are declared, enabled and covered by the combination gate before it closes.
 
     **False pass:** the production adapter doing work the runtime should; a case edited to pass.
 
@@ -56,49 +55,149 @@ description
     - skill:playbook-build (long runs), skill:execute-task, skill:check-task; skill:diagnose when a case fails
       unexplained.
 tasks
-    T9
-        title       Actors area complete
-        status      open
+    T17
+        title       Machine structure: Compiled, turn features, fragments and schedules (slice 3)
+        status      draft
         priority    high
-        blocked_by  [@task.V3.T6]
+        blocked_by  [@task.V3.T20]
+        satisfies   [
+                    @plan.Diagnostics.O1,
+                    @plan.Diagnostics.O2,
+                    @plan.Diagnostics.O3,
+                    @plan.Diagnostics.O4,
+                    @plan.Machines.O1,
+                    @plan.Machines.O2,
+                    @plan.Machines.O3,
+                    @plan.Machines.O4,
+                    @plan.Machines.O5,
+                    @plan.Machines.O6,
+                    @plan.Machines.O7,
+                    @plan.Machines.O8,
+                    @plan.Operations.O1,
+                    @plan.Runtime.O1
+                    ]
         description
-            Cover @spec.Actors' guarantee map apart from disposal (@task.V3.T6) with oracles and cases.
+            Build Compiled and the compiler: @spec.Compile and @spec.Diagnostics from the public API.
 
-            **Why now:** the Actors area has only the disposal scenarios, so the suite can't judge actor identity,
-            lifetime, incarnations or mailboxes.
+            **Why now:** the skeleton compiles only the Pay machine; the full construction rules and the
+            diagnostics are unbuilt, and every module after this reads Compiled.
 
-            **Read first:** code:packages/flow-state-v3/conformance/README.md (the Actors rows of the
-            guarantee map, and U8 in its round-14 carry list), @spec.Actors,
-            code:packages/flow-state-v3/conformance/actors/runtime-disposal.scenarios.ts#runtimeDisposalScenarios.
-            Blocked by @task.V3.T6, which adds the disposal oracle these share.
-
-            **Approach:** oracles `identity`, `lifetime`, `incarnations`, `mailbox`, `cuts-and-context`;
-            cases, fake world behaviours, ported cases, verdict compare and carry rows (the boot-queue bound,
-            U8).
+            **Read first:** @spec.Compile, @spec.Diagnostics, @task.V3.T13 (the static cases that judge it),
+            code:packages/flow-state-v3/conformance/README.md (the round-14 carry list).
 
             **Scope added** (the user, 2026-11-11, from
-            code:workflow/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md): add a value-named machine
-            fixture, so that Actors I7 and Compile I9 run through ensureActor(actorRef(machine, value)), with
-            ConflictingActorRef and createActor's Equal.equals identity. **Owed checks:** R14 (Actors R5) and R19
-            (Actors R7, R17).
+            code:workflow/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md): name the author-facing
+            features, each passing a case on production: Flow.input, computed Flow.initial, Flow.private, one source per
+            field, ImpureDefault, creation purity, identity and fragment inputs, compound states and Flow.state traits,
+            context slots, the Definition Schemas, E.X with InvalidEvent, payload checks and app entries (rows M03 to
+            M16, M19 to M21, M35 to M37, M39 to M41, R01 to R03; @plan.Machines.O1, @plan.Runtime.O1). Also own
+            handler(), guard(), Flow.state and the "Flow outermost" type rule (M05, M13, M22), which no Spec states, and
+            Invariants for Compile R10, R13 and R14 (a Spec revision). **Owed checks** (no Invariant or case today):
+            M06, M19, M39, M40, M41 (Compile R14), M23, M24, M27, M28 (Compile R10) and M33 (Compile R11).
 
-            **Read first (added):** @plan.Runtime.O3.
+            **Read first (added):** @plan.Machines.O1, @plan.Runtime.O1, @plan.Diagnostics.O1.
 
-            - **May change:** the suite's actors area.
+            **Slice 3, machine structure (replan, accepted 2026-11-11):** the compiler and turn for compound states,
+            history, traits and fragments, `.each`, raise and notify, `Flow.input` (compile half; the naming half is
+            slice 4), computed initial, private fields and `check()`; Diagnostics with multi-violation errors; schedules
+            (multi-step, `restartOn`, keyed, `disarmOn`, metadata). Absorbs the Turn rows of @task.V3.T8 (I1, I4, I6,
+            I24, I35, I16, I18, I32 to I34, each with its evidence; T8 is closed as moved), the turn features
+            @task.V3.T18 held (M42 to M63, M68, M69, M71 to M73) and the fragments of @task.V3.T21. Codes: cs hs fr ea
+            rn ci pv ck ms rs ks dm, and the catalogue 5B codes su nf rz ro po. Parts built: S20 [C]; S06 [H]; S15 [G];
+            S07 [I]; S14 [D]; and, with the subset available, S28 [J] and S29 [K], which gain operations in slices 4, 5,
+            7 and 9 as their codes land. Turn R4 (history) and R23 (snapshot) each get an Invariant. Bench: turn cost on
+            compound parts (S06, S20); memory per `.each` copy (S15). Effort 8 (estimate); split at schedules if
+            first-contact reds pile up. Read first: code:workflow/plans/flow/references/proposals/replan-2026-11-11.md
+            (part 3, "3 Machine structure") and
+            code:workflow/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md (5B, "Composites and the
+            matrix").
+
+            - **May change:** `src/`.
+            - **Evidence:** this Task's comments.
+            - **False pass:** pins matching output rather than the Spec → caught by T13's cited
+              cases.
+            - **Gates:** static cases; `nub run check`.
+            - **Stops:** public entry-point names.
+            - **User's read:** small API calls.
+        acceptance
+            - The Compile and Diagnostics cases pass on production.
+            - Flow.input, computed Flow.initial, Flow.private, the Definition Schemas, E.X with InvalidEvent, payload
+              checks, compounds, Flow.state traits, context slots and app entries each pass a case on production
+              (@plan.Machines.O1, @plan.Runtime.O1).
+            - Compile R10, R13 and R14 each have an Invariant, and handler(), guard(), Flow.state and the "Flow
+              outermost" rule a case; the owed checks above exist.
+            - The Turn rows moved from @task.V3.T8 (I1, I4, I6, I24, I35, I16, I18, I32 to I34) pass on production, each
+              with its evidence.
+            - Compounds, history, raise and notify, disarmOn, schedule keys and metadata, and the snapshot shape pass
+              cases on production (@plan.Machines.O2 to O8).
+            - Fragments (traits, subroutines, `.each`, nested) pass cases on production.
+            - The slice's generated runs pass on production, and its benchmark replay matches the work fingerprint.
+            - Declared: cs hs fr ea rn ci pv ck ms rs ks dm su nf rz ro po are in the production and Spec-model
+              capability lists, and the feature-matrix gate shows none of them as owed.
+            - Enabled: S20, S06, S15, S07, S14, and J and K with their available subsets declare those codes among their
+              needs, the generator draws their operations, and the app mix runs them.
+            - Covered: the combination gate counts the pairs among implemented codes, fails an unexercised interacting
+              pair with no dated waiver, and passes before this Task closes.
+            - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
+              the model's expectations is read by a different model family (Fable).
+        comment     2026-11-10T20:59:36Z
+            Owns, in conformance/not-yet.ts, the static Invariants round-14 cannot make: Compile I3, I7 to I10, I12 to 
+            I14, I17 and Diagnostics I1 to I10. Their static cases land before this Task closes (orchestrator decision, 
+            log 2026-11-10T20:57:29Z).
+    T9
+        title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
+        status      open
+        priority    high
+        blocked_by  [@task.V3.T6, @T17]
+        satisfies   [@plan.Runtime.O3, @plan.Runtime.O4, @plan.Runtime.O5, @plan.Runtime.O6, @plan.Runtime.O7]
+        description
+            Build actor identity and lifetime on production with the Actors oracles: `actorRef` by value, `createActor`,
+            `snapshots`, `getSnapshot` fallbacks, `runPromise`, ConflictingActorRef, the send table, context waves with
+            `onContext`, issues by source, the 1,024 admission bound and IdentityExhausted (slice 4).
+
+            **Why now:** the Actors area has only the disposal scenarios, so the suite can't judge identity, lifetime,
+            incarnations or mailboxes, and `host/runtime.ts` holds actor state in flags beside the core's disposal
+            state. This Task absorbs the actor scope of @task.V3.T18 (rows R06 to R34; @plan.Runtime.O2 to O7) and was
+            the Actors suite Task before the replan.
+
+            **Read first:** @spec.Actors, @plan.Runtime.O3,
+            code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part 3, "4 Actor identity"),
+            code:packages/flow-state-v3/conformance/README.md (the Actors rows and U8 in its carry list),
+            code:packages/flow-state-v3/conformance/actors/runtime-disposal.scenarios.ts#runtimeDisposalScenarios.
+
+            **Approach:** the Actors Spec change first (R11 `runPromise` with services, R14 the form fixed in types, R19
+            the handle's `send`, `getSnapshot` and `snapshots`, each with an Invariant), the model section, the oracles
+            `identity`, `lifetime`, `incarnations`, `mailbox` and `cuts-and-context`, and a value-named machine fixture
+            so Actors I7 and Compile I9 run through `ensureActor(actorRef(machine, value))`. Then production:
+            value-named and local actors in `core/incarnations.ts`, and `host/runtime.ts`'s flags moved into the core's
+            disposal state. Codes: in lc sd sn is cx. Parts built: S27 [D]; S04 without streams [E]; J and K gain their
+            actor-naming operations. Bench: restore with 1,000 carts (S14); retained heap after disposal (S27). Effort 6
+            (estimate).
+
+            - **May change:** `src/`, the suite's actors area, the conformance fixtures, model and generator.
             - **Evidence:** this Task's comments.
             - **False pass:** a lenient oracle → caught by its mutants and the audit.
-            - **Gates:** falsify; `nub run check`.
+            - **Gates:** falsify; the matrix and combination gates; `nub run check`.
             - **Stops:** a guarantee change.
             - **User's read:** Spec revisions, changed expected results.
         acceptance
-            - Every Actors Invariant has its oracle or case;
-            - each oracle kills its listed mutants;
-            - verdicts match the old suite's or each difference is logged with its cited rule.
-            - A value-named fixture runs Actors I7 and Compile I9, ConflictingActorRef and createActor identity; the
-              owed checks above exist.
+            - Every Actors Invariant has its oracle or case (R14 and R19 included), each oracle kills its mutants, and
+              verdicts match the old suite's or each difference is logged with its cited rule.
+            - A value-named fixture runs Actors I7 and Compile I9, ConflictingActorRef and createActor identity.
+            - actorRef by value, createActor, `snapshots`, getSnapshot's fallbacks, runPromise and ConflictingActorRef
+              pass cases on production (@plan.Runtime.O3).
+            - The slice's generated runs pass on production, and its benchmark replay matches the work fingerprint.
+            - Declared: in lc sd sn is cx are in the production and Spec-model capability lists, and the feature-matrix
+              gate shows none of them as owed.
+            - Enabled: S27, S04, and J and K's actor-naming operations declare those codes among their needs, the
+              generator draws their operations, and the app mix runs them.
+            - Covered: the combination gate counts the pairs among implemented codes, fails an unexercised interacting
+              pair with no dated waiver, and passes before this Task closes.
+            - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
+              the model's expectations is read by a different model family (Fable).
     T12
         title       Reads area complete
-        status      open
+        status      done
         priority    medium
         blocked_by  [@task.V3.T5, @task.V3.T40]
         description
@@ -124,11 +223,13 @@ tasks
             - Every Reads Invariant has its oracle or case;
             - each oracle kills its listed mutants;
             - verdicts match the old suite's or each difference is logged.
+        comment     2026-11-11T12:41:59Z
+            Merged into T21 (replan, accepted 2026-11-11). Done as merged.
     T21
-        title       Fragments and operations
+        title       Reads and operations (slice 5)
         status      draft
         priority    high
-        blocked_by  [@task.V3.T20, @T9, @T12]
+        blocked_by  [@T9]
         satisfies   [
                     @plan.Machines.O1,
                     @plan.Machines.O2,
@@ -141,8 +242,8 @@ tasks
                     @plan.Runtime.O2
                     ]
         description
-            Build fragments, then operations with the required services list, and @spec.Reads, with the round-14
-            carry list's unbuilt design items.
+            Build operations with the required services list and @spec.Reads, with the round-14 carry list's
+            unbuilt design items (slice 5).
 
             **Why now:** the runtime cannot yet declare fragments or operations, or read resources, which
             the Reads area and the carry items judge.
@@ -162,6 +263,15 @@ tasks
 
             **Read first (added):** @plan.Operations.O1, @plan.Operations.O2, @plan.Operations.O5, @plan.Operations.O6.
 
+            **Slice 5, reads (replan, accepted 2026-11-11):** absorbs @task.V3.T12 (the Reads oracles `lookups` and
+            `optimistic`; the mutants `drain.*` and `lie.settled-*`). Fragments moved to @task.V3.T17. The world gains
+            focus, online and an offline span. Adds the Reads oracles, lookups shared by key, `subscribe` and the lifted
+            Reads Q2 section (freshness, refetch, holds, cache writes, batches, placeholders, key bounds, triggers,
+            stacking). Codes: sb fz sw ph kb os op of. Parts built: S02, S26, S18 and S11 without streams [F]; J gains
+            its lookup operations. It completes F and G and adds the most pairs of any slice. Bench: retained entries
+            (S26); burst linearity, 10,000 against 100,000 events, ratio under 30 (S02). Effort 7 (estimate). Read
+            first: code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part 3, "5 Reads").
+
             - **May change:** `src/`.
             - **Evidence:** this Task's comments.
             - **False pass:** a carry item marked built with no case → caught by the completion
@@ -173,3 +283,13 @@ tasks
             - The Reads area and every carry item's case pass on production.
             - The Reads features above pass cases on production, and Reads has a Spec section for them.
             - Reads R8 has an Invariant (subscribe starts a request only when missing; no automatic retry).
+            - Every Reads Invariant has its oracle or case and each oracle kills its mutants (from @task.V3.T12).
+            - The slice's generated runs pass on production, and its benchmark replay matches the work fingerprint.
+            - Declared: sb fz sw ph kb os op of are in the production and Spec-model capability lists, and the
+              feature-matrix gate shows none of them as owed.
+            - Enabled: S02, S26, S18, S11, and J's lookup operations declare those codes among their needs, the
+              generator draws their operations, and the app mix runs them.
+            - Covered: the combination gate counts the pairs among implemented codes, fails an unexercised interacting
+              pair with no dated waiver, and passes before this Task closes.
+            - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
+              the model's expectations is read by a different model family (Fable).

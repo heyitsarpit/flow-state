@@ -5,27 +5,26 @@ description
 
     **Kind:** verification-suite.
 
-    **Goal:** the CLI's `check`, `explain` and `graph` from @spec.StaticCli, with its static cases in the suite 
-    (@task.V3.T13) and the production module T22.
+    **Goal:** slice 6, first half: the CLI's `check`, `explain` and `graph` from @spec.StaticCli (T22), with the static 
+    cases of T13.
 
     **Verified by:**
 
-    - the area's suite: green on round 14, null 0 of N, every oracle killing its own mutants for the expected reason,
-      reviewed, and audited by its own adversarial auditor (skill:policy-testing#audit-a-suite);
-    - then the production module through the production adapter: that suite passes, with its coverage rows in
+    - the slice's suite half: parts and the Spec model's section green, killing table-cell mutants of the model,
+      reviewed and audited by its own adversarial auditor (skill:policy-testing#audit-a-suite);
+    - then the production half through the production adapter: model-predicted runs pass, with its coverage rows in
       @plan.Runtime's verification;
     - skill:check-task per Task; `nub run check` at zero.
 
-    **One iteration:** the area's suite Task first (from its Spec, run on round 14 and the null runtime, its mutants, 
-    the
-    review, findings gathered by root cause); then its production Task, built test-first against the proven suite.
-    When production and a case disagree, the Spec decides and the fix cites its rule.
+    **One iteration:** a slice's suite half first (Spec change, model section, parts, model mutation, audit), then its
+    production half built test-first against model-predicted runs, then the benchmark replay and the gates. When
+    production and a case disagree, the Spec decides and the fix cites its rule.
 
     **Exit criteria:**
 
-    - the area's suite is green on round 14, null-red, mutant-proven, reviewed and audited by its own auditor before the
-      production module starts;
-    - the production module then passes it, with its gates failing on a broken runtime.
+    - the slice's suite half is green on the model, mutant-proven by model mutation, reviewed and audited before its
+      production half starts;
+    - the slice's new codes are declared, enabled and covered by the combination gate before it closes.
 
     **False pass:** the production adapter doing work the runtime should; a case edited to pass.
 
@@ -86,6 +85,13 @@ tasks
 
             **Read first (added):** @plan.CommandLine.O1, @plan.CommandLine.O5.
 
+            **Slice 6, CLI and close-out (replan, accepted 2026-11-11):** `flow check`, `explain` and `graph` with the
+            static cases StaticCli I3, I10 and I11 from `not-yet.ts`, then @task.V3.T15 (the cross-slice audit) and
+            @task.V3.T23 (the round-14 adapter leaves the gates). This is the old P3 and P4 close-out, now after every
+            core Spec is built. The StaticCli Spec change comes first (C13 lint autofix order; C15 one sentence on
+            package instances). No parts are built. Effort 4 (estimate). Read first:
+            code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part 3, "6 CLI and close-out").
+
             - **May change:** `src/`.
             - **Evidence:** this Task's comments.
             - **False pass:** graph edges named differently from the turn record → caught by the
@@ -95,6 +101,13 @@ tasks
         acceptance
             - StaticCli cases and the graph gate pass on production.
             - StaticCli R6 has cases for static explain and `--since`; lint autofix orders category keys.
+            - Declared: no new runtime code; the matrix rows for `check`, `explain`, `graph` and lint name their static
+              cases as the fixture kind, and none is owed.
+            - Enabled: the Compile static cases run on every composite's `Compiled`, not on one fixture.
+            - Covered: the combination and matrix gates pass over every implemented code, with dated waivers only for
+              codes of slices 7 to 10.
+            - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
+              the model's expectations is read by a different model family (Fable).
         comment     2026-11-10T21:23:15Z
             Owns, in conformance/not-yet.ts, StaticCli I3, I10 and I11 (round-14's CLI loads every fixture before 
             reading its arguments and has no config discovery or project tree); their static cases land before this 

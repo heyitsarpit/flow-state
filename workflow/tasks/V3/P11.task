@@ -5,27 +5,25 @@ description
 
     **Kind:** verification-suite.
 
-    **Goal:** the persistence area (@task.V3.T10) proven in the suite, then the persistence edge, write-ahead and the 
-    Effect driver in `src/host/`.
+    **Goal:** slice 2, durability, first half: WriteAhead and the persistence edge (T19, absorbing T10), model first.
 
     **Verified by:**
 
-    - the area's suite: green on round 14, null 0 of N, every oracle killing its own mutants for the expected reason,
-      reviewed, and audited by its own adversarial auditor (skill:policy-testing#audit-a-suite);
-    - then the production module through the production adapter: that suite passes, with its coverage rows in
+    - the slice's suite half: parts and the Spec model's section green, killing table-cell mutants of the model,
+      reviewed and audited by its own adversarial auditor (skill:policy-testing#audit-a-suite);
+    - then the production half through the production adapter: model-predicted runs pass, with its coverage rows in
       @plan.Runtime's verification;
     - skill:check-task per Task; `nub run check` at zero.
 
-    **One iteration:** the area's suite Task first (from its Spec, run on round 14 and the null runtime, its mutants, 
-    the
-    review, findings gathered by root cause); then its production Task, built test-first against the proven suite.
-    When production and a case disagree, the Spec decides and the fix cites its rule.
+    **One iteration:** a slice's suite half first (Spec change, model section, parts, model mutation, audit), then its
+    production half built test-first against model-predicted runs, then the benchmark replay and the gates. When
+    production and a case disagree, the Spec decides and the fix cites its rule.
 
     **Exit criteria:**
 
-    - the area's suite is green on round 14, null-red, mutant-proven, reviewed and audited by its own auditor before the
-      production module starts;
-    - the production module then passes it, with its gates failing on a broken runtime.
+    - the slice's suite half is green on the model, mutant-proven by model mutation, reviewed and audited before its
+      production half starts;
+    - the slice's new codes are declared, enabled and covered by the combination gate before it closes.
 
     **False pass:** the production adapter doing work the runtime should; a case edited to pass.
 
@@ -79,7 +77,7 @@ tasks
 
     T10
         title       WriteAhead area complete
-        status      open
+        status      done
         priority    high
         blocked_by  [@task.V3.T5, @task.V3.T40, @task.V3.T45]
         description
@@ -109,11 +107,14 @@ tasks
             - Every WriteAhead Invariant has its oracle or case;
             - each oracle kills its listed mutants;
             - verdicts match the old suite's or each difference is logged.
+        comment     2026-11-11T12:41:49Z
+            Merged into T19 (replan, accepted 2026-11-11). Done as merged; T45's generated runs cover its persistence 
+            rows.
     T19
-        title       Persistence edge, write-ahead and the driver
+        title       Durability: persistence edge, write-ahead and the driver (slice 2)
         status      draft
         priority    high
-        blocked_by  [@task.V3.T18, @T10]
+        blocked_by  [@task.V3.T18]
         satisfies   [@plan.Persistence.O1, @plan.Persistence.O2, @plan.Persistence.O3, @plan.Persistence.O6]
         description
             Build the persistence edge, write-ahead and the Effect driver in `src/host/` from @spec.WriteAhead.
@@ -131,6 +132,15 @@ tasks
 
             **Read first (added):** @plan.Persistence.O1.
 
+            **Slice 2, durability (replan, accepted 2026-11-11), with @task.V3.T20:** model first, continuing T45's
+            pilot. Absorbs @task.V3.T10 (the WriteAhead area suite): oracles `write-ahead`, `capture` and `persistence`,
+            a disk reader on the Port that shows no internals, the storage faults, and the carry rows; its Read first is
+            code:packages/flow-state-v3/conformance/README.md (the WriteAhead rows, "Planned Port changes"). Adds the
+            WriteAhead oracles, which re-judge every composite already built, and an in-memory host store so production
+            persists on a real host (IndexedDB is slice 9). Codes: wa. Part built: S13 [E]. Bench: `ready()` with 64
+            queued (S08) and 500 keyed lanes (S16). Effort 7 with T20 (estimate). Read first:
+            code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part 3, "2 Durability").
+
             - **May change:** `src/`.
             - **Evidence:** this Task's comments.
             - **False pass:** durability judged from the runtime's report → caught by the disk
@@ -140,3 +150,14 @@ tasks
         acceptance
             - The WriteAhead area passes on production.
             - WriteAhead R2 has an Invariant with an oracle or case.
+            - Every WriteAhead Invariant has its oracle or case, each oracle kills its mutants, and the disk reader
+              shows no internals (from @task.V3.T10).
+            - The slice's generated runs pass on production, and its benchmark replay matches the work fingerprint.
+            - Declared: wa are in the production and Spec-model capability lists, and the feature-matrix gate shows none
+              of them as owed.
+            - Enabled: S13 [E] and the parts built earlier declare those codes among their needs, the generator draws
+              their operations, and the app mix runs them.
+            - Covered: the combination gate counts the pairs among implemented codes, fails an unexercised interacting
+              pair with no dated waiver, and passes before this Task closes.
+            - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
+              the model's expectations is read by a different model family (Fable).

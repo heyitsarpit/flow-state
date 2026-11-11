@@ -5,28 +5,27 @@ description
 
     **Kind:** verification-suite.
 
-    **Goal:** the Pay path (@task.V3.T7 the WriteLanes area, @task.V3.T8 Turn, @task.V3.T13 static cases) proven in the 
-    suite, then built as the production walking skeleton in `packages/flow-state-v3/src/` through the production 
-    adapter; Compiled and the compiler, then lane, step and turn grow from it.
+    **Goal:** slice R, the rework before any feature (T45 the Spec model with generators and limits, T51 production's 
+    lanes as one table function, T47 the fixture infrastructure and three pilot parts, in that order), then slice 1, 
+    lane policies (T18); the Pay path (T16), T43 and T44 are done.
 
     **Verified by:**
 
-    - the area's suite: green on round 14, null 0 of N, every oracle killing its own mutants for the expected reason,
-      reviewed, and audited by its own adversarial auditor (skill:policy-testing#audit-a-suite);
-    - then the production module through the production adapter: that suite passes, with its coverage rows in
+    - the slice's suite half: parts and the Spec model's section green, killing table-cell mutants of the model,
+      reviewed and audited by its own adversarial auditor (skill:policy-testing#audit-a-suite);
+    - then the production half through the production adapter: model-predicted runs pass, with its coverage rows in
       @plan.Runtime's verification;
     - skill:check-task per Task; `nub run check` at zero.
 
-    **One iteration:** the area's suite Task first (from its Spec, run on round 14 and the null runtime, its mutants, 
-    the
-    review, findings gathered by root cause); then its production Task, built test-first against the proven suite.
-    When production and a case disagree, the Spec decides and the fix cites its rule.
+    **One iteration:** a slice's suite half first (Spec change, model section, parts, model mutation, audit), then its
+    production half built test-first against model-predicted runs, then the benchmark replay and the gates. When
+    production and a case disagree, the Spec decides and the fix cites its rule.
 
     **Exit criteria:**
 
-    - the area's suite is green on round 14, null-red, mutant-proven, reviewed and audited by its own auditor before the
-      production module starts;
-    - the production module then passes it, with its gates failing on a broken runtime.
+    - the slice's suite half is green on the model, mutant-proven by model mutation, reviewed and audited before its
+      production half starts;
+    - the slice's new codes are declared, enabled and covered by the combination gate before it closes.
 
     **False pass:** the production adapter doing work the runtime should; a case edited to pass.
 
@@ -59,7 +58,7 @@ description
 tasks
     T7
         title       WriteLanes area complete
-        status      open
+        status      done
         priority    high
         blocked_by  [@task.V3.T5, @task.V3.T40]
         description
@@ -205,9 +204,12 @@ tasks
         comment     2026-11-11T08:10:24Z
             Rows round 2: I9, I14, I17, I18, I23, I26 checked; I2, I24, I27 in part; Port gained a release per boot and 
             entity reads; only I19 is still T7's. Detail: conformance/STATUS.md, T7.
+        comment     2026-11-11T12:41:40Z
+            Merged into T18 (replan, accepted 2026-11-11). Done as merged; its open rows (I2, I19, I24, I27, I28) go 
+            with T18.
     T8
         title       Turn area complete
-        status      in_progress
+        status      done
         priority    high
         blocked_by  [@task.V3.T5, @task.V3.T40]
         description
@@ -259,6 +261,9 @@ tasks
             Review fixes H2, M1, M2, M4 to M6, R11 done; H1 in part: Turn I3, I10, I11, I17 checked, I5 in part; I1, 
             I4, I6, I24, I35 still T8's; I32 to T18 as a round-14 deviation. M3 needs the user: Actors R15 vs 
             WriteLanes R10 and D4 on redelivering refused turns. Falsify 149/149. Detail: conformance/STATUS.md, T8.
+        comment     2026-11-11T12:41:45Z
+            Merged into T17 and T9 (replan, accepted 2026-11-11), closed as moved: the Turn rows to T17, actor rows to 
+            T9, each with its evidence in STATUS.md, T8.
     T13
         title       Static cases for Compile, Diagnostics, Codec and StaticCli
         status      done
@@ -433,6 +438,15 @@ tasks
             the existing cases, the old suite's search, and seeded sequences with shrinking; hand cases become the
             model's tests; round-14 becomes a mutant host with a limits list a run verifies.
 
+            **Narrowed (replan, accepted 2026-11-11), slice R:** first restore the disposal catch of
+            `o6.settled-in-bound-stays-held`, so falsify round-14 is 147/147 and nothing else in the Epic starts red.
+            Then the expect/compare split (obligation code takes no observation; lint covers `lifecycle-step.ts`,
+            `lifecycle-owed.ts` and `turn/selection.ts`; claim cells collapse into a generic compare), the model's
+            rollback to the last landed capture at a kill, and three generators (a crash at every step, the small
+            exhaustive search, and seeded `fc.commands` runs with shrinking to regression files). Adds `limits.ts` with
+            its gate. Absorbs @task.V3.T14 (searches and mutants as runner modes; the machine verdict form). Effort 3
+            (estimate). Read code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part 3, "R Rework").
+
             - **May change:** `packages/flow-state-v3/conformance/`.
             - **Evidence:** STATUS.md, one T45 section.
             - **False pass:** the model shares a runtime's misreading → caught by a different model family reading
@@ -441,7 +455,13 @@ tasks
             - on round-14 with the suite's mutants, generated runs alone kill at least as many as the hand cases in
               the area;
             - the search finds at least one Spec conflict or runtime difference no case had, or reports none;
-            - T10's rows are covered by generated runs.
+            - falsify round-14 is 147/147 before any other step of this Task.
+            - the persistence rows of @task.V3.T10 (now the suite half of @task.V3.T19) are covered by generated runs.
+            - obligation code takes no observation, enforced by lint on `lifecycle-step.ts`, `lifecycle-owed.ts` and
+              `turn/selection.ts`.
+            - `limits.ts` rows each fail on round-14 by their named Invariant, and a gate verifies it.
+            - searches and mutants run from the one runner with `--parallel`, a planted slow child reads as unknown, and
+              the old suite's search kills are reproduced (from @task.V3.T14).
         comment     2026-11-11T11:51:17Z
             Paused at 1f1a1676. Red: falsify round-14 146/147 (o6.settled-in-bound-stays-held lost its disposal catch). 
             Done: an unsaved ending may restore at a boot, and an actor with unsaved turns resumes at an unknown leaf 
@@ -449,178 +469,154 @@ tasks
             Disposed. Resume: restore that catch, then evidence and parked endings. 
             code:packages/flow-state-v3/conformance/STATUS.md#T45
     T47
-        title       A wide net of small fixtures, each run under generated flows and network faults
+        title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
+        status      open
+        priority    high
+        blocked_by  [@T51]
+        description
+            Build the fixture infrastructure and pilot it on three composite parts: `shape()` modules as data, scripts
+            as JSON, a script player, runtime capability lists, the reach recorder, the feature matrix with the
+            combination gate, and the `bench` runner (slice R).
+
+            **Why now:** about 70 of 112 hand cases use one application (checkout Pay); the user wants a wide net of
+            flows, state transitions and network faults, written once and read by the generator, the Spec model and the
+            benchmark replay (2026-11-11). Composites run on production and the model only; round-14 stays a mutant host
+            for the 99 hand cases, which freeze.
+
+            **Read first:** @task.V3.T45, code:workflow/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md
+            (sections 2, 4, 5A, 5B and 7), code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part 3,
+            "R Rework"), code:packages/flow-state-v3/conformance/world/network.ts.
+
+            **Risk:** the interacting-pair count is an estimate (671 by the replan's reading, 777 by the catalogue's).
+            The reach recorder measures it, and the user approves the non-interacting rules once, as one list (replan
+            question 12).
+
+            **Approach, progressive fixtures:** fixtures grow with the slices, so no part waits on a missing runtime
+            feature. Each part declares the feature codes it needs. Each runtime (production, the Spec model, round-14)
+            declares the codes it implements. The generator enables only operations whose codes the runtime has. The
+            feature-matrix gate reads a feature with no runtime as "owed by slice N" and fails one that a runtime
+            implements but no fixture covers. The combination gate counts only pairs among implemented codes. A part
+            lands in the slice that builds its first feature and gains operations as later slices land theirs.
+
+            **Approach, build:** one `shape()` module per part, with its reference derived from production's `Compiled`,
+            a user model and a server model; usual and stress profiles; the app mix; the matrix maps all 265 Plan
+            features, each row naming its fixture kind (composite part, static case, example-app check or package
+            check). Pilot parts: S16 into C, S21 flattened into H, S10 into I (39 interacting pairs, an estimate).
+            Composites A to K are placed by slice in the replan's part tables; J and K (catalogue 5B) are built in slice
+            3 with the subset available. S27 and the Plan-check shapes arrive with their slices. Effort 4 (estimate).
+
+            **Catalogue correction:** the catalogue's section 1 claims (production writes under four policies and has
+            `cancelAll`) and its P tiers (section 7: 11 shapes run on production now) are wrong for production today
+            (replan part 1). This Task corrects them, and the slice tables supersede the tiers.
+
+            **Order:** one lead at a time: T45, then T51, then T47; in every slice the suite half finishes before the
+            production half, by the same builder or the next.
+
+            - **May change:** `packages/flow-state-v3/conformance/` (fixtures, world, generator, runner).
+            - **Evidence:** STATUS.md, one T47 section; the generated gate file.
+            - **False pass:** parts that differ in name but reach the same cells → caught by table-cell reach and model
+              mutation across parts.
+            - **Gates:** matrix, combination, falsify, liar and core-mutant gates; `nub run check`.
+            - **Stops:** the user's approval of the non-interacting pair list.
+        acceptance
+            - `shape()` modules, JSON scripts and the script player exist: a script generated from a part replays under
+              the oracles on production, and the Spec model computes its expected reports.
+            - each fixture part declares the feature codes it needs, and each runtime (production, the Spec model,
+              round-14) declares the codes it implements.
+            - the generator enables only operations whose codes the runtime has.
+            - the feature-matrix gate treats a feature with no runtime as "owed by slice N", fails a feature a runtime
+              implements that is in no fixture, and maps all 265 Plan features with the fixture kind per row.
+            - the combination gate counts only pairs among implemented codes, takes the interacting-pair list from the
+              channel table, fails an unexercised pair with no dated waiver, and reports triples and cell-pair reach.
+            - the pilot parts S16 [C], S21 flattened [H] and S10 [I] each have usual and stress profiles, kill
+              table-cell mutants of the model, and run on production, alone and in the app mix.
+            - the `bench` runner replays the same scripts without oracles and reproduces the work fingerprint; turn cost
+              per part is recorded (median and p99) as a measurement, not a gate; the fingerprint check is a gate.
+            - every failure found shrinks to a kept regression case or is logged as a runtime limit.
+            - Declared: the capability lists exist and today's implemented codes are declared in each.
+            - Enabled: S16, S21 and S10 declare their needs and the generator draws only declared operations.
+            - Covered: the combination gate passes over the pairs among today's implemented codes.
+            - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
+              the model's expectations is read by a different model family (Fable).
+            - the non-interacting pair list is generated from the channel table, and the user approves its rules once,
+              as one list.
+            - the Compile static cases run on every composite's `Compiled`.
+    T18
+        title       Lane policies: latest, serialize, cancel and cancelAll (slice 1)
+        status      draft
+        priority    high
+        blocked_by  [@T47]
+        satisfies   [@plan.Operations.O3, @plan.Runtime.O2]
+        description
+            Build the write-lane policies `latest`, `serialize` (up to 64, Overloaded), `cancel` and `cancelAll` on
+            production, plus the `waiting` row, as rows of the lane table @task.V3.T51 builds (slice 1).
+
+            **Why now:** production refuses every policy but `reject`. The WriteLanes oracles are converged, so this is
+            the safest first slice on the new infrastructure, and it unlocks composites A, B and C. It absorbs
+            @task.V3.T7 (the WriteLanes area suite; I19 is @task.V3.T24's and I28 moves here). Actor scope moved to
+            @task.V3.T9 and turn features to @task.V3.T17.
+
+            **Read first:** @spec.WriteLanes, code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part
+            3, "1 Lane policies"), @epic.V3 (instructions: the slice template),
+            code:packages/flow-state-v3/conformance/README.md (the WriteLanes rows).
+
+            **Approach:** Spec check first (no change expected; revise if building shows one), then the slice template.
+            Codes: lt se ca cA ad. Parts built: S01 and S24 [A]; S08, S03 and S22 flat [B]; S12 and S23 [C]; S09 flat
+            [G]. Reaches the pairs `lt`+`cA`, `ca`+`cA`, `cA`+`gr` and the deep stacks "reload + cancel + retry +
+            storage refusal" and "disposal + serialize + write-ahead + refusal". Bench: capture bytes and batches per
+            minute (S01, S08, S24); disposal with calls on the wire (S03, S12). Effort 4 (estimate).
+
+            - **May change:** `src/`, the conformance fixtures, model and generator.
+            - **Evidence:** this Task's comments.
+            - **False pass:** a lenient oracle → caught by the proven mutants and model mutation.
+            - **Gates:** the suite; falsify; the matrix and combination gates.
+            - **Stops:** a guarantee change.
+        acceptance
+            - The WriteLanes area passes on production under `reject`, `latest`, `serialize`, `cancel` and `cancelAll`:
+              every WriteLanes Invariant has its oracle or case and each oracle kills its mutants (from @task.V3.T7).
+            - The slice's generated runs pass on production, and its benchmark replay matches the work fingerprint.
+            - Declared: lt se ca cA ad are in the production and Spec-model capability lists, and the feature-matrix
+              gate shows none of them as owed.
+            - Enabled: S01, S24, S08, S03, S22, S12, S23 and S09 declare those codes among their needs, the generator
+              draws their operations, and the app mix runs them.
+            - Covered: the combination gate counts the pairs among implemented codes, fails an unexercised interacting
+              pair with no dated waiver, and passes before this Task closes.
+            - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
+              the model's expectations is read by a different model family (Fable).
+    T51
+        title       Production lanes reworked: one table function, reports derived from acts
         status      open
         priority    high
         blocked_by  [@T45]
         description
-            Many small fixtures of very different application shapes run under the T45 generator's seeded event
-            sequences and network fault schedules, so the suite stresses combinations no hand-written case reaches.
+            Rework production's lane under the unchanged suite: one total function from WriteLanes' table, reports
+            derived from acts, no implicit states (slice R).
 
-            **Why now:** about 70 of 112 cases use one real application (checkout Pay); the user wants a wide,
-            complex net of flows, state transitions and network interactions (2026-11-11).
+            **Why now:** `latest`, `serialize`, `cancel` and `cancelAll` added to today's chain of `if`s would build the
+            implicit state machine AGENTS.md forbids, and a refactor mixed into slice 1 hides its reds among four new
+            policies. T45 also found a production bug to fix here: a restored Held head is ended `NotSent { Disposed }`.
 
-            **Read first:** @task.V3.T45; code:packages/flow-state-v3/conformance/fixtures/pay.ts;
-            code:packages/flow-state-v3/conformance/world/network.ts.
+            **Read first:** code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part 1, "What drives the
+            rework"), @spec.WriteLanes, code:packages/flow-state-v3/src/core/lanes.ts, @task.V3.T45.
 
-            **Approach:** about 15 to 20 shapes, each under 30 lines and no hand-written rows: an autosave form,
-            search as you type (`latest`), an upload with cancel and retry, a two-actor chat thread, multi-tab
-            editing, a wizard with back and forward, a polling dashboard, an offline queue that drains, an
-            optimistic toggle, a rate-limited API, a stream of server pushes, a long job with progress, token
-            refresh, a cart synced across actors, a keyed per-row editor. Fault schedules: lost, late, duplicated,
-            reordered and slow answers, timeouts, offline spans, storage refusals, reloads and disposal mid-flight.
-            Each shape runs two generator profiles: a usual one (realistic timings and behaviour, no faults) and a
-            stress one (high event rates, every fault, reloads and disposal mid-flight). Shapes keep being added
-            while each raises table-cell reach or mutation score; 15 is a floor, not a target. Every run is
-            judged by the same oracles; failures shrink to small reviewable cases kept as regressions.
+            **Approach:** the lane as one exhaustive match over (phase, member or ending); `evidenceOf(before, input,
+            after, commands)` derives Sent, Minted and endings; tagged states replace the ending, `cancelled` and `sent`
+            booleans; drop derived fields (`tickets`, a lane's `key`, `keyText` and `id`); the restored Held head fixed
+            with a failing case first; reads get a context with no Attempt; the seam lint list; Spec ids out of `src/`
+            comments, with a lint pattern. Effort 2.5 (estimate).
 
-            **Scope added** (the user, 2026-11-11, from
-            code:workflow/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md): add the
-            conformance-reachable rows from the Plan check to the catalogue: 18 feature codes and one new shape (S27),
-            as set out under "Features found by the Plan check" in
-            code:workflow/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md.
-
-            **Combinations (proposed, 2026-11-11):** test features together, not one at a time. Merge the sketches into
-            about 9 denser composite shapes (each keeps its parts readable, at most 5 operations, and must shrink to a 
-            small
-            case; split one that does not). Add an app-mix profile: one runtime runs several composites at once, sharing
-            storage, network and clock, to reach write-ahead batching across actors, a storage refusal mid-commit of 
-            another
-            machine, disposal while others run, and shapes contending for a lane through a shared actor. S27 and the 19 
-            shapes
-            changed by the Plan check are in the build order. Measures and consolidation are in "Combinations" in
-            code:workflow/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md.
-
-            - **May change:** `packages/flow-state-v3/conformance/` (fixtures, world, generator).
-            - **Evidence:** STATUS.md, one T47 section; the generated gate file.
-            - **False pass:** shapes that differ in name but exercise the same paths → caught by table-cell reach
-              and per-Invariant mutation score across shapes.
-        acceptance
-            - a checked feature matrix maps every Plan feature id to its fixtures, and a gate fails on a
-              feature with no fixture or a fixture that does not exist;
-            - at least 15 shapes, each with a usual and a stress profile, run on round-14 and production, and
-              shapes added until reach and mutation score plateau;
-            - table-cell reach and mutation score rise over the hand cases alone, and are recorded;
-            - every failure found shrinks to a kept regression case, or is logged as a runtime limit.
-            - The catalogue's 18 added feature codes and S27 are covered by at least two shapes each.
-            - feature-pair coverage is the gate: every interacting pair of features appears together in some run, the
-              non-interacting pairs are listed with a reason, and the gate fails on an unexercised interacting pair 
-              that has no
-              dated waiver (proposed);
-            - 3-way coverage (triples of interacting features in one run) and cell-pair reach (pairs of lifecycle table
-              cells reached in sequence in one run) are reported, not gating, and the named deep stacks (reload, 
-              cancel, retry,
-              storage refusal) have a kept case each (proposed);
-            - an app-mix profile runs several composites in one runtime over shared storage, network and clock, with a 
-              pass
-              that mixes the wave-1 composites first (proposed);
-            - the gated shape list is the consolidated composite list (about 9, each a union of named parts), and the 
-              build
-              order includes S27 and the 19 shapes changed by the Plan check; the 15-shape floor counts parts 
-              (proposed).
-
-    T17
-        title       Compiled and the compiler
-        status      draft
-        priority    high
-        blocked_by  [@T16, @T43, @T44, @T47]
-        satisfies   [
-                    @plan.Diagnostics.O1,
-                    @plan.Diagnostics.O2,
-                    @plan.Diagnostics.O3,
-                    @plan.Diagnostics.O4,
-                    @plan.Machines.O1,
-                    @plan.Operations.O1,
-                    @plan.Runtime.O1
-                    ]
-        description
-            Build Compiled and the compiler: @spec.Compile and @spec.Diagnostics from the public API.
-
-            **Why now:** the skeleton compiles only the Pay machine; the full construction rules and the
-            diagnostics are unbuilt, and every module after this reads Compiled.
-
-            **Read first:** @spec.Compile, @spec.Diagnostics, @task.V3.T13 (the static cases that judge it),
-            code:packages/flow-state-v3/conformance/README.md (the round-14 carry list).
-
-            **Scope added** (the user, 2026-11-11, from
-            code:workflow/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md): name the author-facing
-            features, each passing a case on production: Flow.input, computed Flow.initial, Flow.private, one source per
-            field, ImpureDefault, creation purity, identity and fragment inputs, compound states and Flow.state traits,
-            context slots, the Definition Schemas, E.X with InvalidEvent, payload checks and app entries (rows M03 to
-            M16, M19 to M21, M35 to M37, M39 to M41, R01 to R03; @plan.Machines.O1, @plan.Runtime.O1). Also own
-            handler(), guard(), Flow.state and the "Flow outermost" type rule (M05, M13, M22), which no Spec states, and
-            Invariants for Compile R10, R13 and R14 (a Spec revision). **Owed checks** (no Invariant or case today):
-            M06, M19, M39, M40, M41 (Compile R14), M23, M24, M27, M28 (Compile R10) and M33 (Compile R11).
-
-            **Read first (added):** @plan.Machines.O1, @plan.Runtime.O1, @plan.Diagnostics.O1.
-
-            - **May change:** `src/`.
-            - **Evidence:** this Task's comments.
-            - **False pass:** pins matching output rather than the Spec → caught by T13's cited
-              cases.
-            - **Gates:** static cases; `nub run check`.
-            - **Stops:** public entry-point names.
-            - **User's read:** small API calls.
-        acceptance
-            - The Compile and Diagnostics cases pass on production.
-            - Flow.input, computed Flow.initial, Flow.private, the Definition Schemas, E.X with InvalidEvent, payload
-              checks, compounds, Flow.state traits, context slots and app entries each pass a case on production
-              (@plan.Machines.O1, @plan.Runtime.O1).
-            - Compile R10, R13 and R14 each have an Invariant, and handler(), guard(), Flow.state and the "Flow
-              outermost" rule a case; the owed checks above exist.
-        comment     2026-11-10T20:59:36Z
-            Owns, in conformance/not-yet.ts, the static Invariants round-14 cannot make: Compile I3, I7 to I10, I12 to 
-            I14, I17 and Diagnostics I1 to I10. Their static cases land before this Task closes (orchestrator decision, 
-            log 2026-11-10T20:57:29Z).
-    T18
-        title       Lane, step and turn
-        status      draft
-        priority    high
-        blocked_by  [@T17, @T8]
-        satisfies   [
-                    @plan.LazyFeatures.O2,
-                    @plan.Machines.O2,
-                    @plan.Machines.O3,
-                    @plan.Machines.O4,
-                    @plan.Machines.O5,
-                    @plan.Machines.O6,
-                    @plan.Machines.O7,
-                    @plan.Machines.O8,
-                    @plan.Operations.O3,
-                    @plan.Runtime.O2,
-                    @plan.Runtime.O3,
-                    @plan.Runtime.O4,
-                    @plan.Runtime.O5,
-                    @plan.Runtime.O6,
-                    @plan.Runtime.O7
-                    ]
-        description
-            Build lane, step and turn from @spec.Turn, @spec.WriteLanes and @spec.Actors.
-
-            **Why now:** the skeleton runs one path; the full turn, the write lanes and the actors' lifetime
-            and mailboxes are what the suite's runtime areas judge.
-
-            **Read first:** @spec.Turn, @spec.WriteLanes, @spec.Actors,
-            code:packages/flow-state-v3/conformance/README.md (the guarantee map and the round-14 carry list).
-
-            **Scope added** (the user, 2026-11-11, from
-            code:workflow/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md): name actor identity and
-            lifetime: actorRef's value form and identity encoding, createActor, the `snapshots` subscription,
-            getSnapshot's fallbacks, runPromise, ConflictingActorRef, context waves, the send table, admission bounds,
-            disposal APIs and IdentityExhausted (rows R06 to R34; @plan.Runtime.O2 to O7). Also name the turn features:
-            compounds, history, raise and notify, disarmOn, schedule keys and metadata, and the snapshot shape (M42 to
-            M63, M68, M69, M71 to M73; @plan.Machines.O2 to O8).
-
-            **Read first (added):** @plan.Runtime.O3, @plan.Machines.O2, @plan.Machines.O8.
-
-            - **May change:** `src/`.
-            - **Evidence:** this Task's comments.
-            - **False pass:** a lenient oracle → caught by P3's proven mutants.
-            - **Gates:** the suite; falsify.
+            - **May change:** `packages/flow-state-v3/src/`, the production adapter, lint configuration.
+            - **Evidence:** STATUS.md, one T51 section.
+            - **False pass:** a rewrite that changes behaviour unnoticed → caught by the unchanged suite on production
+              and the core mutants.
+            - **Gates:** production 75/75, falsify production 18/18, liar 13/13, core mutants; `nub run check`.
             - **Stops:** a guarantee change.
         acceptance
-            - The Turn, WriteLanes and Actors areas pass on production.
-            - actorRef by value, createActor, `snapshots`, getSnapshot's fallbacks, runPromise and ConflictingActorRef
-              pass cases on production (@plan.Runtime.O3).
-            - Compounds, history, raise and notify, disarmOn, schedule keys and metadata, and the snapshot shape pass
-              cases on production (@plan.Machines.O2 to O8).
+            - The lane is one total function from WriteLanes' table: no `if` chain, and no `cancelled`, `sent` or
+              `redelivered` boolean carries an ending.
+            - Reports an act determines come from `evidenceOf`; report-only production mutants fall and core-mutant
+              survivors do not rise.
+            - The restored Held head bug has a failing case first, then passes.
+            - Production gates are unchanged: 75/75, falsify 18/18, liar 13/13; `nub run check` at zero.
+        comment     2026-11-11T12:42:12Z
+            New (replan, accepted 2026-11-11): production rework before slice 1.

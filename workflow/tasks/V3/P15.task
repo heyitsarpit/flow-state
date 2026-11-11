@@ -5,34 +5,26 @@ description
 
     **Kind:** verification-suite.
 
-    **Goal:** close out the suite and the core: the performance and process leftovers (T14), the final cross-area audit 
-    of the whole suite (T15), then retire the prototype adapter (T23).
+    **Goal:** slice 6, second half: the cross-slice audit (T15) and the retirement of the round-14 adapter from the 
+    gates (T23); T14 merged into T45.
 
     **Verified by:**
 
-    - the area's suite: green on round 14, null 0 of N, every oracle killing its own mutants for the expected reason,
-      reviewed, and audited by its own adversarial auditor (skill:policy-testing#audit-a-suite);
-    - then the production module through the production adapter: that suite passes, with its coverage rows in
+    - the slice's suite half: parts and the Spec model's section green, killing table-cell mutants of the model,
+      reviewed and audited by its own adversarial auditor (skill:policy-testing#audit-a-suite);
+    - then the production half through the production adapter: model-predicted runs pass, with its coverage rows in
       @plan.Runtime's verification;
     - skill:check-task per Task; `nub run check` at zero.
 
-    **One iteration:** one Task: T14, then the T15 audit and its findings by root cause, then T23. When production and a
-    case disagree, the Spec decides and the fix cites its rule.
+    **One iteration:** a slice's suite half first (Spec change, model section, parts, model mutation, audit), then its
+    production half built test-first against model-predicted runs, then the benchmark replay and the gates. When
+    production and a case disagree, the Spec decides and the fix cites its rule.
 
     **Exit criteria:**
 
-    - every area's suite is green on round 14, null-red, mutant-proven, reviewed and audited by its own auditor, and
-      production passes each; the final cross-area audit and re-audit pass (T15), which gates T23;
-    - the suite passes on the production runtime alone, the prototype adapter retired, every gate failing on its
-      broken runtime;
-    - its fast gates run in `nub run verify`, and `nub run verify` passes; its coverage record exists;
-    - the user's speed targets hold (Q4 A, 2026-11-08):
-      - the suite in one process at most 15 s,
-      - peak RSS per suite process at most 600 MB,
-      - the builder's fast loop at most 30 s wall,
-      - every final-commit gate at up to 8 in parallel at most 10 min wall,
-      - or the gap reported with its limiter;
-    - the completion audit passes.
+    - the slice's suite half is green on the model, mutant-proven by model mutation, reviewed and audited before its
+      production half starts;
+    - the slice's new codes are declared, enabled and covered by the combination gate before it closes.
 
     **False pass:** the production adapter doing work the runtime should; a case edited to pass.
 
@@ -66,7 +58,7 @@ description
 tasks
     T14
         title       Searches and mutants as runner modes
-        status      open
+        status      done
         priority    medium
         blocked_by  [@task.V3.T5, @task.V3.T40]
         description
@@ -101,21 +93,13 @@ tasks
             Carried here (orchestrator, 2026-11-11): R9's machine verdict form (typed violations, numbered steps, every 
             failing seed, a thrown defect as its own verdict kind), Conformance Q2 and R9; it changes every verdict 
             line.
+        comment     2026-11-11T12:42:03Z
+            Merged into T45 (replan, accepted 2026-11-11). Done as merged; its acceptance is in T45's.
     T15
         title       Suite audited, fast gates in verify, coverage record, speed targets
         status      open
         priority    high
-        blocked_by  [
-                    @task.V3.T7,
-                    @task.V3.T8,
-                    @task.V3.T9,
-                    @task.V3.T10,
-                    @task.V3.T11,
-                    @task.V3.T12,
-                    @task.V3.T13,
-                    @T14,
-                    @task.V3.T41
-                    ]
+        blocked_by  [@task.V3.T22, @task.V3.T41]
         description
             Close the suite out:
 
@@ -133,6 +117,10 @@ tasks
             rewrite"), skill:policy-testing#audit-a-suite, skill:policy-verification (the coverage record),
             skill:check-benchmark.
 
+            **Slice 6 (replan, accepted 2026-11-11):** runs after @task.V3.T22 as the cross-slice audit over everything
+            built, in place of the per-area close-outs; @task.V3.T7 to T12 and T14 were merged into slices. The audit
+            also covers the combination gate and the model-mutation record.
+
             - **May change:** `package.json`, the suite.
             - **Evidence:** this Task's comments.
             - **False pass:** a speedup that skips work → caught by skill:check-benchmark comparing
@@ -147,6 +135,14 @@ tasks
             - the coverage record is in the Plan;
             - suite at most 15 s, peak RSS at most 600 MB, fast loop at most 30 s, final-commit
               gates at most 10 min at up to 8 in parallel, or each gap reported with its limiter.
+            - Declared: the audit checks each runtime's capability list against its code and finds no code declared
+              without a fixture or implemented without a declaration.
+            - Enabled: the audit finds every part's declared needs enabled by the generator, and no operation drawn for
+              a code the runtime lacks.
+            - Covered: the audit re-runs the combination gate with its own seeds and finds no pair reported covered that
+              it cannot reach.
+            - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
+              the model's expectations is read by a different model family (Fable).
     T23
         title       Prototype adapter retired; verify builds v3
         status      draft
@@ -163,6 +159,9 @@ tasks
             **Read first:** code:packages/flow-state-v3/conformance/adapters/prototype.ts,
             code:packages/flow-state-v3/conformance/suite.ts, @spec.Conformance.R3, @spec.Conformance.R11.
 
+            **Slice 6 (replan, accepted 2026-11-11):** the round-14 adapter leaves the gates after @task.V3.T15. It
+            stays as a mutant host for the 99 hand cases, behind `limits.ts` (@task.V3.T45).
+
             - **May change:** `package.json`, the suite's adapters.
             - **Evidence:** this Task's comments.
             - **False pass:** verify green because the suite was skipped → caught by a planted
@@ -171,3 +170,10 @@ tasks
         acceptance
             The suite passes on production alone; `nub run verify` passes and fails on the
             planted case.
+            - Declared: round-14's capability list is kept only for the limits list, each limit failing by its named
+              Invariant.
+            - Enabled: generated composites run on production and the Spec model only; round-14 runs the hand cases as
+              mutant host.
+            - Covered: the combination gate counts pairs on production alone and passes.
+            - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
+              the model's expectations is read by a different model family (Fable).

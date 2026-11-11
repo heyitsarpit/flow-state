@@ -40,7 +40,7 @@ description
 
     ## Scope
 
-    Bounds: P0 to P10, with P11 to P15 as the P3 and P4 area phases; UI is React and Next.js only.
+    Bounds: P0 to P10, with P11 to P15 as slice phases of stage B; UI is React and Next.js only.
     Assumptions: the prototype is the reference implementation.
 
     Order of authority:
@@ -215,8 +215,8 @@ instructions
 
     - Every public feature in the Plans is represented in fixtures, and the same fixtures feed both the
       conformance suite (judged by oracles) and the benchmark suite (replayed without oracles); a checked
-      feature matrix maps each Plan feature id to its fixtures, and a gate fails on a feature with no fixture
-      (the user, 2026-11-11).
+      feature matrix maps each Plan feature id to its fixtures, and a gate fails on an implemented feature with no
+      fixture, reading one with no runtime as owed by its slice (the user, 2026-11-11).
     - An agent orchestrator (Claude) until a stop (roadmap, 2026-11-07). It never builds: it starts and tracks leads,
       verifies their findings, and sends the accepted ones to the building lead in the same wake.
     - One lead at a time: the building lead, and at review time one reviewing or checking agent (a reviewing lead, or
@@ -229,11 +229,13 @@ instructions
       review file, and the report names where (the user, 2026-11-11). Sidecars report only to their lead.
     - Source of truth: the core Specs for the core; the Plans for the rest; where a Plan and the prototype disagree,
       the prototype, until a Spec records it (amendment 11; holds until P5's feature Specs exist).
-    - P3 and P4 interleave by area (the user, 2026-11-11): T16, T17, T18, then T10 and T19, T11 and T20, T9 and T12
-      and T21, T22, then T15 as the final cross-area audit before T23. An area's suite is green, null-red,
-      mutant-proven, reviewed and adversarially audited (its own auditor, its own mutants) before its production
-      module starts; when the two disagree the Spec decides and the fix cites its rule; a case is never edited just
-      to pass.
+    - Slices interleave (the user, 2026-11-11, replan accepted): R (T45, then T51, then T47), 1 T18, 2 T19 and T20,
+      3 T17, 4 T9, 5 T21, 6 T22 then T15 then T23, 7 T25, 8 T24, 9 T27, T48, T28, 10 T49, T29, T31. A slice's suite half
+      (Spec change, model section, parts, model mutation, audit) is green on the model, mutant-proven by model mutation,
+      reviewed and audited before its production half starts; its production half is built test-first, then the
+      benchmark replay and the gates. When the two disagree the Spec decides and the fix cites its rule; a case is
+      never edited just to pass. Fixtures grow with the slices: each part declares the codes it needs, each runtime
+      the codes it implements, and the gates count only implemented codes (T47).
     - Checkpoint: a builder commit at the end of a coherent step, about every 50 minutes.
 
     **Agents and effort**

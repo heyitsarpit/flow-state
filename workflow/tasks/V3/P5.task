@@ -9,7 +9,8 @@ description
     time, each area's Specs written when it starts: entities, streams, record migration, multi-tab
     and sessions, host adapters, Stories, React and Next.js bindings, CLI outputs, lazy features, inspection.
 
-    **Starts when:** P15's completion audit passes (the core is done).
+    **Starts when:** P15's completion audit passes (the core is done). Slices 7 to 10 live here: streams (T25),
+    entities (T24), second page and lazy (T27, T48, T28), tooling (T49, T29, T31); T30 follows them.
 
     **Verified by:** each area's suite slice, built and proven first (mutants, audit), then the area
     built against it; real-browser runs in Chrome and Safari; reviews. Coverage records in the
@@ -57,6 +58,7 @@ tasks
         title       Entity store
         status      draft
         priority    high
+        blocked_by  [@T25]
         satisfies   [
                     @plan.EntityDomains.O1,
                     @plan.EntityDomains.O2,
@@ -85,6 +87,13 @@ tasks
             **Read first (added):** @plan.EntityDomains.O2, @plan.EntityDomains.O3, @plan.EntityDomains.O4,
             @plan.EntityDomains.O5.
 
+            **Slice 8, entities (replan, accepted 2026-11-11):** the Entities Spec (new) first, with WriteLanes I19
+            (store effects before the ending); owns the rows R12, E12 and E01 to E10, E13. Codes: en, and the catalogue
+            5B codes er (repair depth: `alsoChanges`, `derivedFrom`, queues, marks, paging) and ls (`listen` entries:
+            deltas, `covers`, tombstones). Parts: entities added to S09, S14, S18, S22 and S23, which completes B, D and
+            G. Bench: repair under bursts (S22). Effort 6 (estimate). Read first:
+            code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part 3, "8 Entities").
+
             - **Evidence:** this Task's comments.
             - **False pass:** a lenient slice → caught by the area audit's mutants.
             - **Gates:** the area's falsify entries.
@@ -94,10 +103,19 @@ tasks
             - The entities slice is proven and passes on production.
             - Audit mode, HiddenFilter, UndeclaredEffect, and runtimeSetup's repairSlots and audit options pass cases on
               production.
+            - Declared: en er ls are in the production and Spec-model capability lists, and the feature-matrix gate
+              shows none of them as owed.
+            - Enabled: S09, S14, S18, S22 and S23 declare those codes among their needs, the generator draws their
+              operations, and the app mix runs them.
+            - Covered: the combination gate counts the pairs among implemented codes, fails an unexercised interacting
+              pair with no dated waiver, and passes before this Task closes.
+            - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
+              the model's expectations is read by a different model family (Fable).
     T25
         title       Streams
         status      draft
         priority    high
+        blocked_by  [@task.V3.T23]
         satisfies   [@plan.Operations.O1, @plan.Operations.O4]
         description
             Prove the streams slice, then build streams on production as merged (OD53), with a real EventSource path.
@@ -107,6 +125,13 @@ tasks
 
             **Read first:** @plan.Operations.O4, code:packages/flow-state-v3/conformance/README.md (the carry rows).
 
+            **Slice 7, streams (replan, accepted 2026-11-11):** the Streams Spec (new) first, then the world's push
+            channel and stream sessions. Owns Streams I09 and the rows P07, P41 to P43. Codes: st, and the catalogue 5B
+            codes sc (catch-up, bookmarks, `fills`) and sf (signals, failures, `idleTime`). Parts built: S17 [E];
+            streams added to S04, S11 and S23; K gains its catch-up steps (S29.3, S29.4). Bench: burst linearity with
+            peers (S17). Effort 5 (estimate). Read first:
+            code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part 3, "7 Streams").
+
             - **Evidence:** this Task's comments.
             - **False pass:** a lenient slice → caught by the area audit's mutants.
             - **Gates:** the area's falsify entries.
@@ -114,9 +139,17 @@ tasks
             - **User's read:** small API calls.
         acceptance
             The streams slice is proven and passes on production, with a real EventSource path.
+            - Declared: st sc sf are in the production and Spec-model capability lists, and the feature-matrix gate
+              shows none of them as owed.
+            - Enabled: S17, S04, S11, S23 and K declare those codes among their needs, the generator draws their
+              operations, and the app mix runs them.
+            - Covered: the combination gate counts the pairs among implemented codes, fails an unexercised interacting
+              pair with no dated waiver, and passes before this Task closes.
+            - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
+              the model's expectations is read by a different model family (Fable).
     T26
         title       Record migration
-        status      draft
+        status      done
         priority    high
         satisfies   [@plan.Persistence.O5]
         description
@@ -135,10 +168,13 @@ tasks
             - **User's read:** small API calls.
         acceptance
             The migration slice is proven and passes on production.
+        comment     2026-11-11T12:42:08Z
+            Merged into T20 (replan, accepted 2026-11-11); satisfies Persistence.O5 through T20. Done as merged.
     T27
         title       Multi-tab and sessions
         status      draft
         priority    medium
+        blocked_by  [@T24]
         satisfies   [@plan.Persistence.O7]
         description
             Prove the multi-tab and sessions slice, then build multi-tab ownership and sessions from @plan.Runtime.
@@ -148,6 +184,11 @@ tasks
 
             **Read first:** @plan.Runtime.O3, @plan.Runtime.O7, @plan.Persistence.O7.
 
+            **Slice 9, second page and lazy (replan, accepted 2026-11-11), with @task.V3.T48 and @task.V3.T28:** the
+            MultiTab Spec (new) first, then the world's second page. Code: mt. Part built: S05 [A], which completes A.
+            Bench with T28: the host benchmark on a real host. Effort 6 for the slice (estimate). Read first:
+            code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part 3, "9 Second page and lazy").
+
             - **Evidence:** this Task's comments.
             - **False pass:** one-tab tests standing in for two → caught by a real two-tab browser
               run.
@@ -155,10 +196,19 @@ tasks
             - **Stops:** a guarantee change.
         acceptance
             The slice is proven and passes on production in real Chrome and Safari.
+            - Declared: mt are in the production and Spec-model capability lists, and the feature-matrix gate shows none
+              of them as owed.
+            - Enabled: S05 [A] declare those codes among their needs, the generator draws their operations, and the app
+              mix runs them.
+            - Covered: the combination gate counts the pairs among implemented codes, fails an unexercised interacting
+              pair with no dated waiver, and passes before this Task closes.
+            - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
+              the model's expectations is read by a different model family (Fable).
     T28
         title       Host adapters: IndexedDB and in-memory
         status      draft
         priority    high
+        blocked_by  [@T48]
         satisfies   [@plan.Persistence.O1, @plan.Persistence.O3]
         description
             Build the IndexedDB host adapter, meeting Safari's four requirements, and an in-memory adapter.
@@ -168,12 +218,22 @@ tasks
             **Read first:** code:packages/flow-state-v3/prototypes/safari/RESULTS.md, @plan.Persistence.O1,
             @plan.Persistence.D1, @spec.WriteAhead.
 
+            **Slice 9 (replan, accepted 2026-11-11):** the IndexedDB adapter replaces the in-memory store of slice 2 on
+            a real host. Bench: IndexedDB batch latency, the flush on `pagehide` and timer drift (S07, S24), and bundle
+            size per part; browser runs stay in P8.
+
             - **Evidence:** this Task's comments.
             - **False pass:** a fake standing in for IndexedDB → caught by skill:check-runtime in
               real Safari.
             - **Gates:** the area's falsify entries; real-browser runs.
         acceptance
             Both adapters pass the slice; the four Safari requirements hold in real Safari.
+            - Declared: no new feature code; the IndexedDB adapter is declared as a host the production runtime runs on,
+              and the matrix lists the host benchmark's rows.
+            - Enabled: the same scripts replay on the in-memory store and on IndexedDB with the same work fingerprint.
+            - Covered: the combination gate passes unchanged on the new host.
+            - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
+              the model's expectations is read by a different model family (Fable).
     T29
         title       Stories with flow story and flow trace
         status      draft
@@ -219,10 +279,17 @@ tasks
             - The slice is proven and passes on production.
             - propertyTest with fault steps and shrinking, `story list --coverage`, `explain --trace` and trace export
               and import pass on production.
+            - Declared: no new feature code; Stories, propertyTest, `flow story` and `flow trace` are matrix rows with a
+              fixture kind, and none is owed.
+            - Enabled: a generated script exports as a trace and imports back to replay with the same work fingerprint.
+            - Covered: the combination gate's counts are unchanged, and the Story and trace cases run on composites.
+            - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
+              the model's expectations is read by a different model family (Fable).
     T30
         title       React and Next.js bindings
         status      draft
         priority    high
+        blocked_by  [@T31]
         satisfies   [
                     @plan.React.O1,
                     @plan.React.O2,
@@ -266,6 +333,7 @@ tasks
         title       CLI outputs designed for people
         status      draft
         priority    medium
+        blocked_by  [@T29]
         satisfies   [@plan.CommandLine.O3]
         description
             Design the CLI outputs for people: source locations, a trace that reads like a story, a graph grouped by
@@ -282,11 +350,16 @@ tasks
             - **User's read:** the mocks.
         acceptance
             The user accepts the outputs; the pins match them.
+            - Declared: no new feature code; the CLI output pins are matrix rows of the kind static case.
+            - Enabled: the pins are read from the outputs the user accepted, not from the code.
+            - Covered: the combination and matrix gates pass unchanged.
+            - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
+              the model's expectations is read by a different model family (Fable).
     T48
         title       Lazy features
         status      draft
         priority    medium
-        blocked_by  [@task.V3.T20, @task.V3.T21]
+        blocked_by  [@T27]
         satisfies   [
                     @plan.LazyFeatures.O1,
                     @plan.LazyFeatures.O2,
@@ -310,6 +383,10 @@ tasks
             check's lazy warnings (L07, shared with @task.V3.T49). Blocked by T20 (restore of dormant records) and
             T21 (app entries and fragments).
 
+            **Slice 9 (replan, accepted 2026-11-11):** the Lazy Spec (new) first, then the world's lazy loader. Code:
+            lz. Part built: S19 [H]; J gains its lazy-entry steps (S28.11, S28.12), which completes J and H. A lazy
+            entry with a domain write has no step yet (catalogue 5B, the Lazy table's row 7).
+
             - **Evidence:** this Task's comments.
             - **False pass:** a slice that loads every entry eagerly → caught by the area audit's mutants.
             - **Gates:** the area's falsify entries.
@@ -319,11 +396,19 @@ tasks
             - The lazy-features slice is proven and passes on production.
             - A lazy entry loads only on adoption, a failed load can be retried, and a dormant record is kept until
               its entry is adopted (@plan.LazyFeatures.O1 to O5).
+            - Declared: lz are in the production and Spec-model capability lists, and the feature-matrix gate shows none
+              of them as owed.
+            - Enabled: S19 [H] and J declare those codes among their needs, the generator draws their operations, and
+              the app mix runs them.
+            - Covered: the combination gate counts the pairs among implemented codes, fails an unexercised interacting
+              pair with no dated waiver, and passes before this Task closes.
+            - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
+              the model's expectations is read by a different model family (Fable).
     T49
         title       Inspection and the flow-state/inspect route
         status      draft
         priority    medium
-        blocked_by  [@task.V3.T20, @task.V3.T21]
+        blocked_by  [@T28]
         satisfies   [
                     @plan.Inspection.O1,
                     @plan.Inspection.O3,
@@ -346,6 +431,12 @@ tasks
             trace.export and trace.import with the 4,096 cap (I06); redaction (I07); render(model, format) (I08);
             stream-session flags (I09). @task.V3.T29 wires the CLI over this route and is blocked by this Task.
 
+            **Slice 10, tooling (replan, accepted 2026-11-11), with @task.V3.T29 and @task.V3.T31:** the Inspection and
+            Testing Specs (new) first. The inspector attaches to every composite run, and trace export and import carry
+            generated scripts; these share the generator's design but not its code, since the suite is not product code.
+            No parts are built. Effort 7 for the slice (estimate). Read first:
+            code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part 3, "10 Tooling").
+
             - **Evidence:** this Task's comments.
             - **False pass:** an inspector that changes what it observes → caught by the area audit's mutants.
             - **Gates:** the area's falsify entries.
@@ -355,3 +446,9 @@ tasks
             - The inspection slice is proven and passes on production.
             - inspect(app), inspect(runtime), sinks, trace export and import, redaction and renderers pass cases, and
               a sensitive value never appears raw in a trace (@plan.Inspection.O1 to O6).
+            - Declared: no new feature code; inspect(app), inspect(runtime), sinks, trace and renderers are matrix rows
+              of the kind composite run with the inspector attached, and none is owed.
+            - Enabled: the inspector attaches to every composite's runs and to the app mix without changing a part.
+            - Covered: the combination gate's counts are the same with the inspector attached.
+            - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
+              the model's expectations is read by a different model family (Fable).

@@ -30,3 +30,12 @@ Deferred items.
 - **Mint order of disposal endings** (2026-11-10, V3 T6, deferred). The old mutant `1b.disposal-definite-w-first`
   expects a definite head's ending before its queue's NotSent { Disposed }. No Invariant states that order, and
   WriteLanes I21 orders cancelAll the other way, so it stays unported; adding one would be a guarantee change.
+- **`.each` `max`** (2026-11-11, fixture catalogue 5B, Plan gap 1). Machines.O1 names it, but going over it has no rule.
+- **`.each` `by`** (2026-11-11, catalogue 5B, gap 2). Machines.O1 names it, but its meaning is not stated; the
+  reference apps use it as the item's key field.
+- **A frozen trait's `resetOn`** (2026-11-11, catalogue 5B, gap 3). The Plan does not say whether it runs while frozen
+  or at thaw; the dispatch-desk panels assume a reset at return.
+- **A raise into a trait the same transition enters or thaws** (2026-11-11, catalogue 5B, gap 4). Undecided; the
+  dispatch-desk panels comment says so.
+- **A raise into a `.each` copy the same turn removes** (2026-11-11, catalogue 5B, gap 5). Not covered by the rule on
+  raises into exited fragments.

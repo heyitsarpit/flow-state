@@ -5,26 +5,25 @@ description
 
     **Kind:** verification-suite.
 
-    **Goal:** the restore area (@task.V3.T11) proven in the suite, then restore and key versions in production.
+    **Goal:** slice 2, durability, second half: restore, key versions and record migration (T20, absorbing T11 and T26).
 
     **Verified by:**
 
-    - the area's suite: green on round 14, null 0 of N, every oracle killing its own mutants for the expected reason,
-      reviewed, and audited by its own adversarial auditor (skill:policy-testing#audit-a-suite);
-    - then the production module through the production adapter: that suite passes, with its coverage rows in
+    - the slice's suite half: parts and the Spec model's section green, killing table-cell mutants of the model,
+      reviewed and audited by its own adversarial auditor (skill:policy-testing#audit-a-suite);
+    - then the production half through the production adapter: model-predicted runs pass, with its coverage rows in
       @plan.Runtime's verification;
     - skill:check-task per Task; `nub run check` at zero.
 
-    **One iteration:** the area's suite Task first (from its Spec, run on round 14 and the null runtime, its mutants, 
-    the
-    review, findings gathered by root cause); then its production Task, built test-first against the proven suite.
-    When production and a case disagree, the Spec decides and the fix cites its rule.
+    **One iteration:** a slice's suite half first (Spec change, model section, parts, model mutation, audit), then its
+    production half built test-first against model-predicted runs, then the benchmark replay and the gates. When
+    production and a case disagree, the Spec decides and the fix cites its rule.
 
     **Exit criteria:**
 
-    - the area's suite is green on round 14, null-red, mutant-proven, reviewed and audited by its own auditor before the
-      production module starts;
-    - the production module then passes it, with its gates failing on a broken runtime.
+    - the slice's suite half is green on the model, mutant-proven by model mutation, reviewed and audited before its
+      production half starts;
+    - the slice's new codes are declared, enabled and covered by the combination gate before it closes.
 
     **False pass:** the production adapter doing work the runtime should; a case edited to pass.
 
@@ -57,7 +56,7 @@ description
 tasks
     T11
         title       Restore area complete
-        status      open
+        status      done
         priority    high
         blocked_by  [@task.V3.T10]
         description
@@ -84,11 +83,13 @@ tasks
             - Every Restore Invariant has its oracle or case;
             - each oracle kills its listed mutants;
             - verdicts match the old suite's or each difference is logged.
+        comment     2026-11-11T12:41:54Z
+            Merged into T20 (replan, accepted 2026-11-11). Done as merged.
     T20
-        title       Restore and key versions
+        title       Durability: restore, key versions and record migration (slice 2)
         status      draft
         priority    high
-        blocked_by  [@task.V3.T19, @T11]
+        blocked_by  [@task.V3.T19]
         satisfies   [@plan.Inspection.O2, @plan.Persistence.O4, @plan.Persistence.O5, @plan.Runtime.O3]
         description
             Build restore and key versions from @spec.Restore and @spec.Codec, with record formats tagged from
@@ -100,6 +101,15 @@ tasks
             **Read first:** @spec.Restore, @spec.Codec, @spec.WriteAhead,
             code:packages/flow-state-v3/conformance/README.md (the `restore` row and the carry list).
 
+            **Slice 2, durability (replan, accepted 2026-11-11), after @task.V3.T19:** absorbs @task.V3.T11 (the Restore
+            area suite: oracles `restore` and `quarantine`, the migration wrong runtimes, C168 and the record-format
+            carry rows) and @task.V3.T26 (record migration, @plan.Persistence.O5; real storage shapes are localStorage
+            text now and IndexedDB structured clone in slice 9). Adds the Restore oracles, which re-judge every
+            composite already built, record format tags, versions and resets, `forget` on the public route, and
+            `previous` holds checked against Restore R6; the Restore and WriteAhead Specs gain the R2 KeyValueStore
+            Invariant and a host store section. Codes: sr rl up fg pg. Part built: S25 [A]. Bench: the S25 upgrade boot.
+            Read first: code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part 3, "2 Durability").
+
             - **May change:** `src/`.
             - **Evidence:** this Task's comments.
             - **False pass:** restore read from memory, not bytes → caught by the restore oracle.
@@ -107,6 +117,18 @@ tasks
             - **Stops:** a guarantee change.
         acceptance
             The Restore and Codec areas pass on production.
+            - Every Restore Invariant has its oracle or case and each oracle kills its mutants (from @task.V3.T11).
+            - Record migration passes cases on production: a changed saved shape resets its definition's records with
+              the writes in flight kept (from @task.V3.T26, @plan.Persistence.O5).
+            - The slice's generated runs pass on production, and its benchmark replay matches the work fingerprint.
+            - Declared: sr rl up fg pg are in the production and Spec-model capability lists, and the feature-matrix
+              gate shows none of them as owed.
+            - Enabled: S25 [A] and the parts built earlier declare those codes among their needs, the generator draws
+              their operations, and the app mix runs them.
+            - Covered: the combination gate counts the pairs among implemented codes, fails an unexercised interacting
+              pair with no dated waiver, and passes before this Task closes.
+            - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
+              the model's expectations is read by a different model family (Fable).
         comment     2026-11-10T20:59:41Z
             Owns, in conformance/not-yet.ts, Codec I1 to I6 (round-14 has no canonical byte codec, Codec Q2). Their 
             static cases land before this Task closes (orchestrator decision, log 2026-11-10T20:57:29Z).
