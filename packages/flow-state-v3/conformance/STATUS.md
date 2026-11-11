@@ -696,6 +696,66 @@ check` at zero.
       read coverage as BAD (no `workflow/`); in the checkout coverage is 0 gaps.
     - M2: already fixed by `dcc13b4c` (`Await` names its ending through `hearing`).
     - M1, M3, M4 and the Lows: not started (next run).
+- **Run 4 (2026-11-11, from `48109efd`):**
+  - **Method for the verdict diffs (Conformance R11):** besides the falsify sweep, every runtime mutant (58) runs
+    the whole suite on its edited copy and each red case's `oracle: Invariant` set is diffed between trees (scratch
+    driver, as the step 4 reviewer did). So reason losses show, not only red sets.
+  - **Step 4 review M1 (`c51f6501`):** `Applied` carries the model each move applied to (`on`); cancelAll's
+    head-last (I21) takes, per turn with a cancelAll member, the lane's head and queue at that turn's open and
+    judges the deliveries after it. Reviewer (Haiku) finding 1 accepted: the head counts only when it ends after
+    the turn (a Held head's earlier ending is not cancelAll's). Diff: `lane.cancel-wire-as-never-sent` LANE-04
+    gains lane-queue I21 again (R15, I21), the check lost at `cf825289`; nothing else. The same commit also
+    deleted `lane-model.ts` (L1; a staging slip, verdict-neutral) and fixed the L5 doc errors in `lane-queue.ts`.
+  - **M3 (`47f27231`):** `Case.answerTo(operation, fields, answer)` answers the oldest open request whose input
+    has those fields; PAY-21's second shopper pays on its own intent (`pi2`) and every pay answer and the intent
+    reread are answered by intent, so no reread order is assumed (Conformance R5). Reviewer finding 8 accepted:
+    match on the key fields, not the whole input. Diff: none.
+  - **M4 (`c50bd327`):** I1 is no longer a catch-all. A second mint of one id is WriteLanes I6 (judged by
+    `attempt-identity` from reports; no lifecycle oracle claims I6, so the fold's copy is not reported); a decline
+    outside a turn or with no commit member is I15 ("an ending no commit owes", R7, R10); a move on an Attempt
+    never minted is I1 (`Send`), I15 (`End`), I12 (`Released`, R8, R14) or I8 (`Superseded`, R7). Deadline texts
+    name the awaited report (`Await Released of …`). Four traces, seen failing with the old I1. Diff:
+    `mutant.ending-without-id` loses lane-queue I1 in LANE-04, PAY-06/uninterruptible, PAY-12 and PAY-15
+    cancel-on-wire and PAY-16/stale-send-fenced (delivered-once's I15 already named those declines); it stays
+    caught by `ending-channels`.
+  - **The four rows M4 says were missing from step 4's log** (now logged): `lane.cancel-wire-as-never-sent` lost
+    I21 on LANE-04 (restored above); `mutant.ending-without-id` gained lane-queue I1 in the five cases above
+    (removed above); `d154.moved-fail-released` gained lane-queue I12 in LANE-04 ("att-1000-2 (Gone) got
+    Released", R14, I12: no release is owed there); `lane.unknown-promotes` first fails both PAY-20 cases with
+    lane-queue I12 (an unmet `Await Released`, R14) instead of `disposal` Actors I29, which still fails them.
+  - **L1 (`e114b165`):** `mayCancel` deleted (no reader). `cancels` stays: `disposal-ledger.ts` reads it until
+    step 6. Conformance Q8's `lane-queue` half closed and its broken link to `lane-model.ts` dropped (spec-log);
+    the README's matching stated limit removed.
+  - Reviewer (Haiku) of M1, M3, M4: accepted 1 (head must end after the turn), 5 to 7 (rule named in the
+    refusal texts beside the claimed Invariant), 8 (answer by key fields). Rejected: 2 (R15's "which leaves a
+    hold" describes the head's ending; I21 governs), 10 (formatter). Noted, carried: 3 (`memberLane`'s `Only`
+    names every lane of a keyed operation; round-14 acts on every lane, the user's R9 question), 4 (I6 judged by
+    `attempt-identity` only), 9 (no unit test of head-last beside LANE-04 and the mutant).
+  - **Rest of step 5 (`4ee99037`):** case DLV-05 (a twice-refused place success is kept and gets one try per
+    boot: deliveries 2, then 3 after a reload, 4 after another; Actors R15, I24); mutants
+    `1b.r8-third-try` (I15; also I24 for the delivery to a kept ending), `mutant.kept-retried-without-boot`
+    (Actors I24, at the reload), `mutant.adoption-skips-parked` (DISP-06, I15: ParkedOpen unmet at the step's
+    end; also `disposal` I29) and `mutant.restored-twice` (PAY-09/ack-stored-confirmation-lost, I15), each seen
+    caught for its reason. Actors I24 leaves T9's not-yet row (coverage 36 checked, 0 gaps). Reviewer (Haiku):
+    accepted 1 (the `Leave` step and the state after it were not from a cited rule; dropped), 5, 6, 8 (wording);
+    rejected 2 and 9 (Actors R15 says "a kept ending gets one try per boot or adoption", so the counts are
+    exact), 4 (seen: one try per reload), 7 (R15 states it).
+    - Sweep against `48109efd`: 81/81 caught (the scratch tree reads coverage BAD, no `workflow/`; in the
+      checkout 0 gaps). Reasons diff: no old case changed under any old mutant; DLV-05 widens seven mutants'
+      red sets only (`mutant.ending-without-id`, `mutant.sent-under-another-operation`,
+      `mutant.success-then-failure`, `1b.r8-refused-ending-not-redelivered`, `mutant.double-invoke` and the two
+      graph-name mutants, which judge every case's fixtures).
+  - **Step 8, part:** `ending-lives.ts` and `written-attempts.ts` (no importer since step 5) deleted; by a
+    staging slip they landed in `4ee99037`. Verdict-neutral. Left for step 8: `disposal-ledger.ts`,
+    `disposal-kept.ts` (step 6), `dsl/domain.ts`'s `laneAtSend` and template key, the README and mutant headers.
+  - **Stopped here** (context). Now: suite 87/87, null 0/87, sweep 81/81, coverage 0 gaps (36), lifecycle
+    tests 30/30, `nub run check` at zero. Next: step 6 (`disposal` onto the fold: the window, I35's four
+    violations, I30, I31, I36, I29/I32 from `AwaitRestore`; the ledger and kept files go, with
+    `mutant.bound-ending-wrong-tag`), step 7 (decide whether `ending-channels` and `attempt-identity` read the
+    fold, the T41/T13 review's M4; add the key check), the rest of step 8, then the user's step 9 review.
+  - **Pending, the Spec followed as written (marked in code):** CQ1 and CQ2 (a twice-refused decline or
+    never-sent ending is `Closed`; `lifecycle-rules.ts`, `delivered-once.ts`, traces), CQ6 (a never-sent commit's
+    disposal ending stays `Parked`, unjudged; `lifecycle-rules.ts`, traces).
 - **Queued after the convergence steps, before T8 (coordinator, 2026-11-11):** the T41/T13 review
   (`references/proposals/t41-t13-review-2026-11-11.md`): H1, M1 to M4 and the Lows in the files touched. Its M4
   (whether `ending-channels` and `attempt-identity` move onto the lifecycle) is decided at step 7.

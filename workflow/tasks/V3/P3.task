@@ -578,6 +578,15 @@ tasks
             case verdict changed (sweeps 74/74 and 77/77); suite 86/86, null 0/86, coverage 0 gaps (35), lifecycle 
             tests 30/30, check at zero. Next: review M1, M3, M4, Lows, then steps 6 to 9. Detail: 
             code:packages/flow-state-v3/conformance/STATUS.md (Convergence v2 build, Run 3).
+        comment     2026-11-11T01:21:54Z
+            Progress (builder, 2026-11-11): step 4 review M1 (c51f6501, cancelAll head-last anchored to its turn; 
+            LANE-04 I21 restored), M3 (47f27231, PAY-21 answers by key), M4 (c50bd327, refusals cite their own rule; 
+            the four missing verdict rows logged), L1 (e114b165, lane-model.ts and mayCancel gone). Rest of step 5 
+            (4ee99037): DLV-05 and mutants 1b.r8-third-try, kept-retried-without-boot (Actors I24), 
+            adoption-skips-parked, restored-twice. Step 8 part: ending-lives.ts and written-attempts.ts deleted. Suite 
+            87/87, null 0/87, sweep 81/81, coverage 0 gaps (36), tests 30/30, check at zero. Pending CQ1, CQ2, CQ6 
+            followed as written. Next: steps 6 and 7. Detail: code:packages/flow-state-v3/conformance/STATUS.md 
+            (Convergence v2 build, Run 4).
     T8
         title       Turn area complete
         status      open
