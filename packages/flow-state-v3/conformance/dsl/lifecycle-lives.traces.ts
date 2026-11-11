@@ -136,7 +136,7 @@ const tableTraces: ReadonlyArray<Trace> = [
   ),
   ...rowTraces(
     "Delivered",
-    "WriteLanes R17, I15: nothing is delivered during the Runtime's disposal (today's rule)",
+    "Actors R22, WriteLanes I15: during the Runtime's disposal an ending is parked, not delivered",
     {
       Owed: wl(15),
       Parked: wl(15),
@@ -191,7 +191,7 @@ const tableTraces: ReadonlyArray<Trace> = [
     Closed: wl(15),
   }),
   lifeTrace("Heard", "WriteLanes R10: a delivered ending is heard by its turn", DF, CL),
-  ...rowTraces("Parked", "WriteLanes R10, R17: an owed ending parks for its incarnation", {
+  ...rowTraces("Parked", "WriteLanes R10, Actors R22: an owed ending parks for its incarnation", {
     Owed: PK,
     Parked: PK,
     ParkedOpen: PK,
@@ -243,6 +243,18 @@ const tableTraces: ReadonlyArray<Trace> = [
     Evidence: CL,
     Closed: wl(15),
   }),
+  ...[OW, PK, PO].map((life) =>
+    lifeTrace(
+      "RecordedOther",
+      "Actors R21: forget's parked and boot-queued endings become evidence",
+      life,
+      CL,
+      (e) =>
+        model([], { endings: [e], actors: [{ actor: shopper, record: "forget", incarnation: 1 }] }),
+      {},
+      " of a forgotten identity",
+    ),
+  ),
   ...rowTraces(
     "Opens",
     "Actors R10, R15: an incarnation is owed its parked endings and one kept try",
@@ -289,31 +301,27 @@ const tableTraces: ReadonlyArray<Trace> = [
   ),
   lifeTrace(
     "StepEnds",
-    "WriteLanes R17: an ending decided during disposal waits for the reload",
+    "Actors R22: an ending decided during disposal is parked for the next incarnation",
     OW,
     OW,
     alone,
     { inDisposal: true },
     " decided in disposal",
   ),
-  ...rowTraces(
-    "Reload",
-    "WriteLanes R17; Actors R15: what survives comes back as the boot's (CQ10)",
-    {
-      Owed: CL,
-      Parked: PK,
-      ParkedOpen: PK,
-      Delivering: wl(15),
-      Refused: CL,
-      Kept: KP,
-      KeptOpen: KP,
-      Evidence: CL,
-      Closed: CL,
-    },
-  ),
+  ...rowTraces("Reload", "Actors R15, R22: what survives comes back as the boot's (CQ10)", {
+    Owed: CL,
+    Parked: PK,
+    ParkedOpen: PK,
+    Delivering: wl(15),
+    Refused: CL,
+    Kept: KP,
+    KeptOpen: KP,
+    Evidence: CL,
+    Closed: CL,
+  }),
   lifeTrace(
     "Reload",
-    "WriteLanes R17: an ending decided during disposal parks at the reload",
+    "Actors R22: an ending decided during disposal parks at the reload",
     OW,
     PK,
     alone,

@@ -133,6 +133,9 @@ const byLetGo: Guard = (model, index, ending) => {
   return owed || recordOf(model, ending.actor) === "forget" ? "letGo" : "none";
 };
 
+const byForgotten: Guard = (model, _index, ending) =>
+  recordOf(model, ending.actor) === "forget" ? "forgotten" : "none";
+
 const byDisposal: Guard = (_model, _index, ending) => (ending.inDisposal ? "inDisposal" : "live");
 
 const byHeld: Guard = (model, _index, ending) =>
@@ -162,6 +165,7 @@ const guards: Partial<Record<LifeRow, Partial<Record<Life["_tag"], Guard>>>> = {
     Kept: byLetGo,
     KeptOpen: byLetGo,
   },
+  RecordedOther: { Owed: byForgotten, Parked: byForgotten, ParkedOpen: byForgotten },
   Opens: { Parked: byDisposalNeverSent },
   StepEnds: { Owed: byDisposal, Parked: byHeld },
   Reload: { Owed: byDisposal },

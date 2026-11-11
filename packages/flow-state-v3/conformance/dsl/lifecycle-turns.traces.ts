@@ -51,7 +51,7 @@ const orderTraces: ReadonlyArray<Trace> = [
   },
   {
     name: "a member that names no lane does nothing",
-    cites: "the Port's MemberTarget.Nothing: a cancel whose key did not encode names no lane",
+    cites: "WriteLanes R9: a member whose key does not encode names no lane (the Port's Nothing)",
     start: twoLanes,
     steps: [turn(member("cancel", "serialize", MemberTarget.Nothing()))],
     refusals: [[]],

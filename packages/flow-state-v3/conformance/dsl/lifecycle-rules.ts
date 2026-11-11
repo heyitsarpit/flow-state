@@ -462,7 +462,13 @@ export const tableC: TableC = {
     KeptOpen: { letGo: live(Life.Closed()), none: deny(15) },
     Evidence: once(live(Life.Closed())),
   },
-  RecordedOther: { ...lives(deny(15)), Evidence: once(live(Life.Closed())) },
+  RecordedOther: {
+    ...lives(deny(15)),
+    Owed: { forgotten: live(Life.Closed()), none: deny(15) },
+    Parked: { forgotten: live(Life.Closed()), none: deny(15) },
+    ParkedOpen: { forgotten: live(Life.Closed()), none: deny(15) },
+    Evidence: once(live(Life.Closed())),
+  },
   Opens: {
     ...lives(kept),
     Parked: { neverSentInDisposal: kept, other: live(Life.ParkedOpen()) },

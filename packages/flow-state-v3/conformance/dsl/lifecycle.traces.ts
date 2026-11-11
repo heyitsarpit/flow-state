@@ -391,7 +391,7 @@ const laneWideTraces: ReadonlyArray<Trace> = [
   ),
   laneWide(
     "the boot settles",
-    "Restore R3: a never-sent commit with no restore ending is gone",
+    "carried to T11 (step 6 L2): Restore R3 says each queued commit ends NotSent { Restored } first; Pay cannot reach it",
     Move.BootSettles(),
     [],
     { t: GC, f: GC },
@@ -412,14 +412,14 @@ const laneWideTraces: ReadonlyArray<Trace> = [
   ),
   laneWide(
     "a step ends with an interruptible call still interrupted",
-    "today's rule (the design's guard 15): an interrupted call ends in its step",
+    'WriteLanes R14 read at quiescence ("when the fiber exits"), I20: an interrupted call ends by its step\'s end',
     Move.StepEnds({ unstoppable: [] }),
     [wl(20)],
     {},
   ),
   laneWide(
     "a step ends with an unstoppable call interrupted",
-    "today's rule (the design's guard 15): an unstoppable call ends with its answer",
+    "WriteLanes R14: an unstoppable call ends with its answer, not at the step's end",
     Move.StepEnds({ unstoppable: ["pay"] }),
     [],
     {},
