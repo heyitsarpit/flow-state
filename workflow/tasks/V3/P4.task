@@ -335,7 +335,7 @@ tasks
 
     T45
         title       An executable Spec model computes expected results and generates cases (pilot: persistence)
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T44]
         description
@@ -774,6 +774,10 @@ tasks
             `states.<node>.` prefix the handler table uses; derived side fixed before commit); points 1 to 3 
             (flag-to-at pairing, consumer equivalence, step mutants still applying) found nothing, re-checked by the 
             unit tests (58/58) and the identical sweep. T45 stays in_progress until the Table A decision.
+        comment     2026-11-11T23:53:56Z
+            Item 8 met (coordinator, 44831f22, log.task): Table A's refusing cells stay as the compare's named 
+            refusals, since deleting them loses 8 named catches (V1) and they read no reports. Phase-out step 1 is met 
+            by removing the claimed flag (df2b9cfb). Set to review.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open
