@@ -43,16 +43,16 @@ Gates on a `git archive 857873d8` copy reproduce the builder's numbers (the copy
 - **Probes.** These are edits to round-14, run on both trees (scratch `s9d/probes*.json`, results
   `s9d/pr-*.jsonl`):
 
-| Probe (an edit to round-14)                            | `b2b51634`             | `857873d8`                         |
-| ------------------------------------------------------ | ---------------------- | ---------------------------------- |
-| drop cancel and cancelAll, act and report (control)    | 8 red, 7 by lane-queue | 14 red, all lane-queue I12/I20/I21 |
-| the same, with `to: "Nowhere"` on each such turn       | 8 red, 7 by lane-queue | 14 red: 8 case-only, 6 a wrong I1  |
-| the header lie alone, act unchanged                    | 5 red, I12             | 12 red, I12/I1/I15/I11/I20         |
-| no `Incarnated` reported, act unchanged                | 0 red                  | DLV-04, DLV-05 (Actors I24, I15)   |
-| no `Finished` reported                                 | 0 red                  | 0 red (no case reaches grace end)  |
-| park every unknown ending of a live actor              | 47 red, 16 by oracles  | 49 red, 20 by oracles              |
-| every commit declines `NoPersistence`                  | 67 red, all case-only  | 71 red, all case-only              |
-| a reload drops queued commits with no ending           | 0 red                  | 0 red (unreached; Pay is `reject`) |
+| Probe (an edit to round-14)                         | `b2b51634`             | `857873d8`                         |
+| --------------------------------------------------- | ---------------------- | ---------------------------------- |
+| drop cancel and cancelAll, act and report (control) | 8 red, 7 by lane-queue | 14 red, all lane-queue I12/I20/I21 |
+| the same, with `to: "Nowhere"` on each such turn    | 8 red, 7 by lane-queue | 14 red: 8 case-only, 6 a wrong I1  |
+| the header lie alone, act unchanged                 | 5 red, I12             | 12 red, I12/I1/I15/I11/I20         |
+| no `Incarnated` reported, act unchanged             | 0 red                  | DLV-04, DLV-05 (Actors I24, I15)   |
+| no `Finished` reported                              | 0 red                  | 0 red (no case reaches grace end)  |
+| park every unknown ending of a live actor           | 47 red, 16 by oracles  | 49 red, 20 by oracles              |
+| every commit declines `NoPersistence`               | 67 red, all case-only  | 71 red, all case-only              |
+| a reload drops queued commits with no ending        | 0 red                  | 0 red (unreached; Pay is `reject`) |
 
 - **Reading.** Four Haiku sidecars, each verified (below), and my own reading of `dsl/lifecycle-step.ts`,
   `lifecycle-owed.ts`, `lifecycle-rules.ts` and `lifecycle-lanes.ts`, and `actors/disposal.ts`.
