@@ -40,9 +40,8 @@ description
 
     ## Scope
 
-    Bounds: P0 to P10, with P11 to P15 as the P3 and P4 area phases; UI is React and Next.js only. Assumptions: the 
-    prototype is the reference
-    implementation.
+    Bounds: P0 to P10, with P11 to P15 as the P3 and P4 area phases; UI is React and Next.js only.
+    Assumptions: the prototype is the reference implementation.
 
     Order of authority:
 
@@ -111,8 +110,8 @@ description
     - Lint covers `src` and `conformance` (the user, 2026-11-09; whole run).
     - Ask in numbered rounds with before and after and a recommendation; never present a
       recommendation as decided; call him "the user" (AGENTS.md; memory; whole run).
-    - Work serially: one builder, an hourly review, a close-out per phase or area (amendment 3,
-      2026-11-08; whole run). Up to 8 deterministic processes, about 16 GB; real-browser runs and
+    - Work serially: one lead at a time, reviews on events, a close-out per phase or area
+      (amendment 3, 2026-11-08; whole run). Up to 8 deterministic processes, about 16 GB; real-browser runs and
       benchmarks alone; kill only this run's processes, by exact pid (memory, 2026-11-04; whole
       run).
     - Business keys for money (`prototypes/round-8/RESULTS.md`, 2026-11-01; P4, P5). Entities are
@@ -149,9 +148,12 @@ description
     No budget of iterations, time or usage, for the Epic, a phase or a Task (the user, 2026-11-10):
     the reviews and each phase's exit criteria judge progress. Failure limit (the default for each
     phase): 2 failures with the same root cause after convergence. Usage reserve: the run stops at
-    75 percent weekly usage, all models (the user, 2026-11-11; was 50). Usage limits and reserves
-    always mean the weekly window, never the 5-hour one. The user changes the reserve as planned
-    work changes: a new value is an edit here and a note, with no confirmation round.
+    75 percent weekly usage, all models (the user, 2026-11-11). Usage limits and reserves always mean
+    the weekly window, never the 5-hour one; read it from the harness's usage view (in the Claude
+    desktop app, its usage tool; otherwise ask the user). The user changes the reserve as planned
+    work changes: a new value is an edit here and a note, with no confirmation round. R20 (b) and
+    R21 at the pinned revision name budgets: this Epic has none to spend, and the reserve is its
+    only usage stop.
 
     ## Glossary
 
@@ -181,7 +183,6 @@ description
       convergence records.
     - Amendment N: a numbered change to the old roadmap (git `b30be69d`); each one that still
       applies has an Amendment note in log.task, which names its number and says what it changed.
-    - Checkpoint: a builder commit at the end of a coherent step, about every 50 minutes.
 skill        workflow@131b1fc
 run
     To start: "run the loop in workflow/tasks/V3/epic.task". You are the orchestrator: you start,
@@ -210,127 +211,107 @@ run
        skill:build-a-loop at the pinned revision; before adding or editing a Task, read
        skill:to-task (and skill:to-epic for a phase); before adding a phase, read skill:to-epic.
 instructions
-    - Who runs the loop: an agent orchestrator (Claude), until a stop (roadmap, 2026-11-07).
-    - Source of truth, by area: the core Specs for the core (P3, P4, P11 to P15); the Plans for everything else;
-      where a Plan and the prototype disagree, the prototype, until a Spec records it (amendment 11;
-      holds until P5's feature Specs exist); code style: AGENTS.md and
-      `tools/lint-bomb/FLOW-STATE.md` (whole run).
-    - Lead and sidecar models: Opus and Haiku, Claude Code, detected 2026-11-09; told the user in
-      the summary they confirmed.
-    - Constraints: the Epic's Constraints section. Limits: its Limits section. R20 (b) and R21 at
-      the pinned revision name budgets: this Epic has none to spend, and its only usage stop is
-      the reserve in the Limits section (the user, 2026-11-10).
-      R35's convergence threshold: 3, the third review in a row finding the same root cause in the
-      same part (amendment 4, the user, 2026-11-08).
-    - R30's effort: every lead (building, reviewing, auditing, designing) is Opus at medium; every
-      Haiku agent high (the user, 2026-11-11; was building medium with every third high, reviews
-      high).
-    - Reviews: every review, audit or research task goes to one Opus lead that starts its own four
-      Haiku sidecars, two of them on code quality (STYLE.md and Effect idioms; types, comments and
-      lint), two on correctness against the Spec the change implements; sidecars report only to
-      their lead (amendment 7, 2026-11-08; two on code quality: the user, 2026-11-09).
-    - Only leads report to the orchestrator, and briefly, to keep its context light (the user,
-      2026-11-10): the verdict, commits, gate counts, and only the items that need a decision or
-      routing, in about 30 lines; the full findings, sidecar logs and evidence go in the Task's
-      comments, STATUS.md or a review file, and the report names where.
-    - Plan changes found while building go to @plan.Pending as decisions, never into the Plans; one is
-      merged only once building proves it right and the user says yes (the user, 2026-11-11).
-    - Expected results are drafted independently (the user, 2026-11-11): for every new case a Haiku
-      expectation drafter writes the expected result from the Spec alone, citing the rule, before
-      the code exists; the builder changes one only with a logged reason, and logs which side was
-      right whenever its result and the draft disagree.
-    - Records lead with the bottom line and hold each fact once (the user, 2026-11-11): an Epic note
-      is 1 to 3 lines, decision or fact first, with one Why and one Reverse line for a decision; a
-      Task comment is a verdict line plus a link to its STATUS.md section or review file; sidecar
-      logs and findings tables live only in STATUS.md or the review file; STATUS.md keeps one short
-      section per Task, cut to a summary when the Task is done; no commit lists or gate counts
-      beyond the one revision verified. Briefs and handoffs follow the user's Writing order.
-    - Building leads plan their round's tasks up front and write every committed line themselves;
-      Haiku never writes committed code (the user, 2026-11-10, Q2 A; replaces amendment 8's coders).
-      They may run up to four Haiku sidecars as runners (gates, falsify, sweeps, timings, traces),
-      reviewers of one diff against one rule, locators (each Invariant's prototype code, old case
-      and old mutant as file:line lists), drafters of expected results from the Spec (prose, cited,
-      before the code), and writers of adversarial mutants from the Spec alone in scratch (a mutant
-      kept is rewritten by the lead); a reviewer sidecar checks every oracle, test harness or
-      runtime change (amendment 8, adopted 2026-11-08).
-    - Every lead reads every line a sidecar wrote, re-runs each check itself, confirms a mutant
-      fails for the expected reason, and logs each result as accepted, changed or rejected, in the
-      Task's comments (for P3, also in the suite's STATUS.md) (the user, 2026-11-08).
-    - Every build and review brief carries the code-style list in the Constraints section, the Spec
-      it implements, and the test-the-spec rule (the user, 2026-11-09), and tells the lead to run
-      `workflow brief @task.V3.Tn` and read the skills its phase links before it starts (the user,
-      2026-11-10).
-    - Agents at once: one building lead and, at review time, one reviewing or checking agent (a
-      reviewing lead, or an independent skill:check-spec or skill:check-task agent, which takes the
-      review slot), plus their sidecars (amendment 3). Processes: up to 8 deterministic, about 16
-      GB, after checking `vm_stat`. Always alone: real-browser runs and benchmarks.
-    - One lead at a time: the building lead, with the 90-minute reviewer the only other Opus agent;
-      design, Spec and audit leads take the building lead's slot in turn. Leads report once per
-      batch or stop, in at most 10 lines, with no progress messages (the user, 2026-11-11, to
-      preserve usage, the orchestrator's included).
-    - Test first, at the module boundary (the user, 2026-11-11; skill:policy-testing, installed in
-      `.agents/skills/policy-testing`): before code, write module integration tests through the
-      public interface with real components (not unit tests of internals), and the scenarios and
-      cases that enforce each Invariant the work implements, with expectations from the Spec; then
-      build until they pass.
-    - P3 and P4 interleave by area (the user, 2026-11-11, for correctness and speed; phases P3, P4, P11 to P15): T16, 
-      T17, T18,
-      then T10 and T19, T11 and T20, T9 and T12 and T21, T22, then T15 as the final cross-area audit
-      before T23. An area's suite is green on round-14, null-red, mutant-proven, reviewed and
-      adversarially audited (its own auditor, its own mutants) before its production module starts,
-      so the suite never learns from production; when production and a case disagree, the Spec
-      decides and the fix cites its rule; a case is never edited just to pass.
-    - Effect prior art (the user, 2026-11-11): each production module's Spec skeleton (skill:to-design)
-      lists the Effect features that cover its needs and why each is used or skipped; a reviewer checks
-      it. One of every review's two code-quality sidecars asks what the change re-creates of Effect.
-      Lint bans `setTimeout`, `clearTimeout`, `Date.now`, `performance.now` and `Math.random` in `src/`
-      outside the real host's adapter.
-    - From the advisor's answers (the user, 2026-11-11; advisor-answers-2026-11-11.md in the proposals
-      folder): obligations come only from suite facts, enforced by type and lint (T44);
-      an executable Spec model computes expected results and generates cases, Haiku no longer drafts them, and
-      a different model family reads a sample (T45); round-14 green is no longer an exit but a mutant host with
-      a verified limits list; strength is measured by mutation score, liar score, oracle share and table-cell
-      reach, not Invariant count; reviews use zero to two sidecars by need, with code quality left to lint;
-      no per-step reviews inside a convergence, whose acceptance is the class gate; loop amendments are batched
-      at an area's close-out unless one fixes a wrong result; production is driven through its public API
-      (`src/index.ts`) plus a short listed seam.
-    - A coverage row leaves P3 for a later phase only with evidence: the round-14 and old-suite code
-      searched, and why it cannot show the Invariant; the next review checks each claim (the
-      orchestrator, 2026-11-11, after three wrong moves).
-    - Every suite brief and review applies skill:policy-testing#audit-a-suite as a checklist: an
-      inventory of each check's inputs (observed by the harness or reported by the runtime), excuses
-      only from observed causes, a mutant for each report a check reads, and expected results never
-      copied from round-14 (the user, 2026-11-11). Adapters use typed failures with defects kept
-      apart; in `src/`, no throw outside a defect is a standing review angle from P4.
-    - Leads keep working through context compaction, up to three compactions, and hand off only
-      after the third; they don't stop early because context is long (the user, 2026-11-11).
-    - Checkpoints (a builder commit at the end of a coherent step) about every 50 minutes, which
-      feed the hourly review.
-    - Weekly usage: the weekly all-models window, never the 5-hour one; read it from the agent
-      harness's usage view (in the Claude desktop app, its usage tool; otherwise ask the user).
-    - R43: no worktrees; the builder works in the main checkout on `flow-rewrite` (the user,
-      2026-11-08).
-    - Command time limit: under 5 minutes each, with `perl -e 'alarm N; exec @ARGV' --` or
-      `watch.ts --seconds N`; stdin never read (`</dev/null`); files only with the Write and Edit
-      tools (memory, 2026-11-04).
+    **Who runs the loop**
+
+    - An agent orchestrator (Claude) until a stop (roadmap, 2026-11-07). It never builds: it starts and tracks leads,
+      verifies their findings, and sends the accepted ones to the building lead in the same wake.
+    - One lead at a time: the building lead, and at review time one reviewing or checking agent (a reviewing lead, or
+      an independent skill:check-spec or skill:check-task agent) in the review slot. Design, Spec and audit leads
+      take the building lead's slot in turn (amendment 3; the user, 2026-11-11, to preserve usage).
+    - One builder carries related Tasks; a fresh one starts only when context runs long or work moves from suite to
+      production. Leads work through up to three context compactions before handing off (the user, 2026-11-11).
+    - Leads report once per batch or stop, in at most 10 lines, no progress messages: verdict, commits, gate counts,
+      and the items needing a decision. Full findings and sidecar logs go in the Task's comments, STATUS.md or a
+      review file, and the report names where (the user, 2026-11-11). Sidecars report only to their lead.
+    - Source of truth: the core Specs for the core; the Plans for the rest; where a Plan and the prototype disagree,
+      the prototype, until a Spec records it (amendment 11; holds until P5's feature Specs exist).
+    - P3 and P4 interleave by area (the user, 2026-11-11): T16, T17, T18, then T10 and T19, T11 and T20, T9 and T12
+      and T21, T22, then T15 as the final cross-area audit before T23. An area's suite is green, null-red,
+      mutant-proven, reviewed and adversarially audited (its own auditor, its own mutants) before its production
+      module starts; when the two disagree the Spec decides and the fix cites its rule; a case is never edited just
+      to pass.
+    - Checkpoint: a builder commit at the end of a coherent step, about every 50 minutes.
+
+    **Agents and effort**
+
+    - Opus leads and Haiku sidecars, Claude Code (detected 2026-11-09). Every lead (building, reviewing, auditing,
+      designing) runs at medium effort; every Haiku agent at high, and a lead tells its own sidecars so (the user,
+      2026-11-11).
+    - Building leads plan the round up front and write every committed line; Haiku never writes committed code (the
+      user, 2026-11-10). Up to four Haiku sidecars as runners (gates, falsify, sweeps, traces), one-rule diff
+      reviewers, locators (prototype code, old case and old mutant per Invariant as file:line lists), and writers of
+      adversarial mutants from the Spec in scratch (the lead rewrites any it keeps). A reviewer sidecar checks every
+      oracle, test harness or runtime change (amendment 8).
+    - A lead reads every line a sidecar wrote, re-runs each check itself, confirms a mutant fails for the expected
+      reason, and logs each result as accepted, changed or rejected in the Task's comments, and in STATUS.md for P3
+      (the user, 2026-11-08).
+    - Processes: up to 8 deterministic ones, about 16 GB, after checking `vm_stat`; browser runs and benchmarks alone.
+
+    **Building**
+
+    - Every build and review brief carries the Constraints' code-style list, the Spec it implements and the
+      test-the-spec rule, and tells the lead to run `workflow brief @task.V3.Tn` and read its phase's skills first
+      (the user, 2026-11-09 and 2026-11-10). Name a skill once, on the phase.
+    - Plan changes found while building go to @plan.Pending as decisions, never into the Plans; one merges only once
+      building proves it right and the user says yes (the user, 2026-11-11).
+    - Effect prior art (the user, 2026-11-11): each module's Spec skeleton (skill:to-design) lists the Effect features
+      that cover its needs and why each is used or skipped; a reviewer checks it, and what a change re-creates of
+      Effect is a standing review angle. Lint bans `setTimeout`, `clearTimeout`, `Date.now`, `performance.now` and
+      `Math.random` in `src/` outside the real host's adapter.
+    - Adapters use typed failures, defects apart; from P4, a throw outside a defect in `src/` is a standing review
+      angle (the user, 2026-11-11). Production is driven through its public API (`src/index.ts`) plus a short listed
+      seam (advisor answers, adopted 2026-11-11, in the proposals folder's advisor-answers-2026-11-11.md).
+
+    **Testing and the suite**
+
+    - Test first, at the module boundary (the user, 2026-11-11; skill:policy-testing in `.agents/skills`): before
+      code, write module integration tests through the public interface with real components, not unit tests of
+      internals, and the cases that enforce each Invariant the work implements; then build until they pass.
+    - Expected results come from an executable Spec model that computes them and generates cases; a different model
+      family reads a sample (T45). Haiku no longer drafts them. Obligations come only from suite facts, enforced by
+      type and lint (T44). Strength is mutation score, liar score, oracle share and table-cell reach, not Invariant
+      count; round-14 green is no longer an exit, a mutant host with a verified limits list is.
+    - Every suite brief and review applies skill:policy-testing#audit-a-suite as a checklist: each check's inputs
+      inventoried (observed by the harness or reported by the runtime), excuses only from observed causes, a mutant
+      for each report a check reads, expected results never copied from round-14 (the user, 2026-11-11).
+    - A coverage row leaves P3 only with evidence: the round-14 and old-suite code searched, and why it cannot show
+      the Invariant; the next review checks each claim (the orchestrator, 2026-11-11).
+    - Convergence threshold 3: the third review in a row finding one root cause in one part (amendment 4, the user,
+      2026-11-08); only when rounds keep surfacing many issues, otherwise fix the known bugs and go on (the user,
+      2026-11-10). No per-step reviews inside a convergence: its acceptance is the class gate.
+
+    **Reviews**
+
+    - Reviews start on events, not the clock: a lost catch in the catch matrix, a Port change, a new oracle, a Spec
+      change, or an area's gate. Machine gates run on every checkpoint. Reviews per Task were declined. Loop
+      amendments are batched at an area's close-out unless one fixes a wrong result (the user, 2026-11-11).
+    - Every review, audit or research task goes to one Opus lead with zero to two read-only Haiku sidecars by need;
+      code quality is left to lint. A close-out review ends each phase or area.
+
+    **Records, usage, commands**
+
+    - Records lead with the bottom line and hold each fact once (the user, 2026-11-11): an Epic note is 1 to 3 lines
+      with one Why and one Reverse for a decision; a Task comment is a verdict line plus a link to its STATUS.md
+      section or review file; sidecar logs and findings tables live only there; STATUS.md keeps one short section per
+      Task, cut to a summary when done; no commit lists or gate counts beyond the one revision verified. Briefs and
+      handoffs follow the user's Writing order.
+    - Usage: the run stops at the reserve in Limits and at nothing else; no budget of iterations, time or usage.
+    - Commands: under 5 minutes each, with `perl -e 'alarm N; exec @ARGV' --` or `watch.ts --seconds N`; stdin never
+      read (`</dev/null`); files only with the Write and Edit tools (memory, 2026-11-04).
+    - R43: no worktrees; the builder works in the main checkout on `flow-rewrite` (the user, 2026-11-08).
 cadence
-    Reviews start on events, not the clock (the user, 2026-11-11, from the advisor's Q7): a lost catch in the
-    catch matrix, a Port change, a new oracle, a Spec change, or an area's gate. Machine gates run on every
-    checkpoint at no model cost. A fallback wake every 3 hours checks only for a stalled lead.
+    Reviews start on events (Reviews, in instructions), not on a clock; machine gates run on every checkpoint. A
+    fallback wake every 3 hours checks only for a stalled lead and the usage reserve.
 
     Session cron `23 */3 * * *` (the stall check).
 
     Prompt: "V3 review wake. Read workflow/tasks/V3/epic.task and the last notes in its log.task. If its Limits
-    section sets a usage reserve, read the weekly usage from the harness's usage view, and if the
-    reserve is reached, stop the run by R21 and note it. If a checkpoint on
-    flow-rewrite is newer than the last noted review, and no review or audit already covers it,
-    start one Opus reviewing lead at high effort; it starts its own four Haiku sidecars at high
-    effort (two on code quality against tools/lint-bomb/STYLE.md and FLOW-STATE.md, two on
-    correctness against the Spec the change implements), checks the builder's accepted, changed or
-    rejected log, and reports to you; verify its findings, send the accepted ones to the building
-    lead in the same wake, and note the review. If the building lead has shown no
-    activity for 70 minutes, resume it by message or replace it (R7) and note it. Otherwise write
-    nothing." Quiet rule: a wake that finds nothing writes no note and sends no message.
+    section sets a usage reserve, read the weekly usage from the harness's usage view, and if the reserve is reached,
+    stop the run by R21 and note it. If a review event has happened with no review or audit covering it, start one
+    Opus reviewing lead at medium effort with sidecars by need; verify its findings, send the accepted ones to the
+    building lead in the same wake, and note the review. If the building lead has shown no activity for 70 minutes,
+    resume it by message or replace it (R7) and note it. Otherwise write nothing." Quiet rule: a wake that finds
+    nothing writes no note and sends no message.
 stops
     - The user's decisions in the Authority section;
     - a guarantee that can't be met;
