@@ -180,23 +180,33 @@ export const reowned = (
 /**
  * How a delivered ending is routed (Turn R20), from the owner the suite recorded at its mint or
  * retry: an unknown { Restored } or an adopted ending is current; an owner the suite did not see,
- * or an actor whose leaf it does not know, gives `either`.
+ * an actor whose leaf it does not know, or an ending decided earlier and delivered in a step that
+ * attaches a use or sends an event (`adopting`: an actor that ended may return and hear it,
+ * Actors R9), gives `either`.
  */
 // RETURN_TYPE: the Route union; the branches infer three literals.
 export const routeOf = (
   state: State,
   actor: Actor,
   delivered: { readonly operation: string; readonly attempt: Option.Option<string> },
+  adopting = false,
 ): Route => {
   if (Option.isNone(delivered.attempt)) return "either";
 
   const call = state.calls.get(attemptKey(delivered.operation, delivered.attempt.value));
-  const owner = call === undefined ? undefined : Option.getOrUndefined(call.owner);
+
+  if (call === undefined) return "either";
+
+  if (call.either || (adopting && !call.current && !CallPhase.$is("Open")(call.phase)))
+    return "either";
+
+  return call.current ? "current" : ownerRoute(call, actor);
+};
+
+// RETURN_TYPE: the Route union; the branches infer three literals.
+const ownerRoute = (call: Call, actor: Actor): Route => {
+  const owner = Option.getOrUndefined(call.owner);
   const leaf = leafOf(actor.phase);
-
-  if (call?.either === true) return "either";
-
-  if (call?.current === true) return "current";
 
   if (owner === undefined || Option.isNone(leaf) || !Phase.$is("Live")(actor.phase))
     return "either";

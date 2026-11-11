@@ -145,6 +145,16 @@ export const crash = (args: ReadonlyArray<string>) =>
  */
 const AREA = ["PAY-08", "PAY-09", "PAY-13", "PAY-14", "PAY-15", "PAY-16", "DISP-", "ACT-"];
 
+/**
+ * The mutants of @task.V3.T10's persistence rows the suite already checks (the README's WriteAhead
+ * and Restore rows): T45's acceptance 4 asks the generated runs to kill them too.
+ */
+const PERSISTENCE_ROWS: ReadonlyArray<string> = [
+  "mutant.still-unknown-dropped",
+  "mutant.boot-skips-restored",
+  "mutant.restore-skips-unsent",
+];
+
 const inArea = (id: string) => AREA.some((prefix) => id === prefix || id.startsWith(prefix));
 
 /**
@@ -165,7 +175,10 @@ export const kills = (args: ReadonlyArray<string>) =>
       ...guarantees.flatMap((g) => g.mutants.map((m) => ({ oracle: g.oracle.name, m }))),
       ...caseChecks.mutants.map((m) => ({ oracle: "case expectations", m })),
     ]
-      .filter(({ m }) => m.runtime === "prototype" && m.cases.some(inArea))
+      .filter(
+        ({ m }) =>
+          m.runtime === "prototype" && (m.cases.some(inArea) || PERSISTENCE_ROWS.includes(m.name)),
+      )
       .filter(({ m }) =>
         Option.match(list(flag(args, "--mutant")), {
           onNone: () => true,

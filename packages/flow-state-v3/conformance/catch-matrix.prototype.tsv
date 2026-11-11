@@ -179,6 +179,7 @@ r15c.duplicate-machine-allowed	CMP-11	caught case expectations Compile I14
 refusal.reports-kept	TURN-01/schedule-refused	caught refusal Turn I14
 refusal.state-kept	TURN-01/schedule-refused	caught refusal Turn I14
 refusal.unhandled-patches	TURN-02	caught refusal Turn I15
+s13.older-sent-after-newer	LANE-06	caught lane-queue WriteLanes I8
 sched.fires-at-once	TURN-03/on-time	caught schedules Turn I21
 sched.outlives-activation	TURN-03/exited	caught schedules Turn I20
 sched.outlives-activation	TURN-03/re-entered	red schedules

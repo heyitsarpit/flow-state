@@ -71,7 +71,11 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
   const driven = now.driven.some((c) => c.event === credit);
   const [delivered] = heardBy(turn.actor, turn.event, step);
   const heard = !driven && delivered !== undefined;
-  const route = !driven && delivered !== undefined ? routeOf(state, now, delivered) : "current";
+
+  const route =
+    !driven && delivered !== undefined
+      ? routeOf(state, now, delivered, attachingKind(step) !== "none")
+      : "current";
 
   const told = step.reduce(
     (s, f) =>

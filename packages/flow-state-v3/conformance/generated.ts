@@ -90,6 +90,23 @@ export const payAlphabet: Alphabet = {
       [
         { _tag: "send", event: "PayRequested", payload: { paymentMethodId: "visa" } },
         { _tag: "ack" },
+        { _tag: "reload" },
+        { _tag: "advance", ms: 3000 },
+        { _tag: "answer", operation: "order", answer: ok(null) },
+        { _tag: "answer", operation: "intent", answer: ok({ status: "requires_payment_method" }) },
+        { _tag: "ack" },
+        {
+          _tag: "answer",
+          operation: "pay",
+          answer: { _tag: "fail", tag: "CardDeclined", fields: { code: "x" } },
+        },
+      ],
+      1,
+    ],
+    [
+      [
+        { _tag: "send", event: "PayRequested", payload: { paymentMethodId: "visa" } },
+        { _tag: "ack" },
         {
           _tag: "answer",
           operation: "pay",
