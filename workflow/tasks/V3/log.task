@@ -200,3 +200,6 @@ note 2026-11-11T21:50:17Z
     life), so T45 adds fixtures where it shows. Raising the liar cap above 9 would relax a gate, the user's call, asked 
     only if no fixture can show it. Turn I12's case-only catch gets an oracle in T45, so acceptance 1 is met by 
     generated runs. **Reverse:** report-truth both, and ask the user for the cap.
+note 2026-11-11T22:17:25Z
+    Review started (90-minute wake): T45's 823f118f..2f77e7ab (steps 3 to 6 and the 429f6eac calls), one Opus lead with 
+    two Haiku sidecars. Weekly usage 69 percent of 95.
