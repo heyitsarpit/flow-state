@@ -304,7 +304,8 @@ instructions
       the review files; `conformance/STATUS.md` is retired; no commit lists or gate counts beyond the one revision
       verified. Briefs and handoffs follow the user's Writing order.
     - Compaction (the user, 2026-11-12): records are compacted with skill:compact-records when the last compaction
-      note in log.task is over 24 hours old, checked by the review wake in cadence; no timer, no size limits. It skips the active Task's own comments
+      note in log.task is over 24 hours old, checked by the review wake in cadence; no timer, no size limits. It skips 
+      the active Task's own comments
       while its builder runs, and commits only the records it changed.
     - Usage: the run stops at the reserve in Limits and at nothing else; no budget of iterations, time or usage.
     - Commands: under 5 minutes each, with `perl -e 'alarm N; exec @ARGV' --` or `watch.ts --seconds N`; stdin never
