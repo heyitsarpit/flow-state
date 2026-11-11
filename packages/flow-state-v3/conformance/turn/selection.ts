@@ -30,8 +30,10 @@ import { decideFor, foldedAfter, keysFor, labelsFor } from "./predict.ts";
 import { Input, leafOf, Phase } from "./phases.ts";
 import { type Folded, type Labels, noFolds } from "../fixtures/folds.ts";
 import { type Machines, possible, scheduledEvents } from "../fixtures/handlers.ts";
+import { Answer } from "../world/network.ts";
 import {
   type ActorRef,
+  type Channel,
   type Delivered,
   MemberTarget,
   Observation,
@@ -336,6 +338,34 @@ const refused = (
   });
 
 /**
+ * An ending's channel as the suite's server answered its Attempt in this step: `Ok` is a success,
+ * a lost answer an unknown. Any other ending (a failure, a cancel, a decline, a restore, a bound)
+ * keeps the reported channel and reason, a stated limit.
+ */
+const answeredChannel = (
+  step: ReadonlyArray<Fact>,
+  attempt: Option.Option<string>,
+  reported: { readonly channel: Channel; readonly reason: string },
+) => {
+  const answer = step.findLast(
+    (f) =>
+      Fact.$is("Answered")(f) && Option.exists(attempt, (id) => Option.contains(f.request.key, id)),
+  );
+
+  if (answer === undefined || !Fact.$is("Answered")(answer)) return reported;
+
+  return Answer.$match(answer.answer, {
+    Ok: () => ({ channel: "success" as const, reason: "" }),
+    Lost: () => ({ channel: "unknown" as const, reason: "NoResponse" }),
+    LostButLanded: () => ({ channel: "unknown" as const, reason: "NoResponse" }),
+    Fail: () => reported,
+    FailButLanded: () => reported,
+    Never: () => reported,
+    Die: () => reported,
+  });
+};
+
+/**
  * The predicted turn a mint belongs to: the step's latest, when it is the reported actor's. The
  * call's actor and key are the prediction's (the key its folds give, none for a key-less
  * operation); a mint no prediction owns records no call, so its ending routes `either`.
@@ -394,8 +424,11 @@ const onFact = (
           );
         },
         Sent: ({ operation, attempt }) => keep(sent(state, operation, attempt)),
-        Ended: ({ operation, attempt, channel, reason }) =>
-          keep(ended(state, operation, attempt, channel, reason, attaching(step))),
+        Ended: ({ operation, attempt, channel, reason }) => {
+          const said = answeredChannel(step, attempt, { channel, reason });
+
+          return keep(ended(state, operation, attempt, said.channel, said.reason, attaching(step)));
+        },
         Delivered: () => keep(state),
         Parked: () => keep(state),
         Unparked: ({ operation, attempt }) =>
