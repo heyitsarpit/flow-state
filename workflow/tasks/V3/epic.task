@@ -303,18 +303,16 @@ instructions
       still matter with their reason, and a link to its review file; sidecar logs and findings tables live only in
       the review files; `conformance/STATUS.md` is retired; no commit lists or gate counts beyond the one revision
       verified. Briefs and handoffs follow the user's Writing order.
-    - Compaction (the user, 2026-11-11): records are compacted with skill:compact-records at each slice's close,
-      after its last review and before the next slice starts, and at the next clean point when one passes its
-      limit: `log.task` 300 lines, one Task's comments 100 lines. Never mid-slice, and never the active Task's
-      own comments; the builder holds its record writes while it runs.
+    - Compaction (the user, 2026-11-12): records are compacted with skill:compact-records once a day, by the daily
+      compaction wake in cadence, and at no other time; no size limits. It skips the active Task's own comments
+      while its builder runs, and commits only the records it changed.
     - Usage: the run stops at the reserve in Limits and at nothing else; no budget of iterations, time or usage.
     - Commands: under 5 minutes each, with `perl -e 'alarm N; exec @ARGV' --` or `watch.ts --seconds N`; stdin never
       read (`</dev/null`); files only with the Write and Edit tools (memory, 2026-11-04).
     - R43: no worktrees; the builder works in the main checkout on `flow-rewrite` (the user, 2026-11-08).
 cadence
     A review every 90 minutes (the user, 2026-11-11), besides the event reviews in instructions; machine gates run
-    on every checkpoint. The same wake checks for a stalled lead, the usage reserve and the records' size limits
-    (a line count, no model).
+    on every checkpoint. The same wake checks for a stalled lead and the usage reserve.
 
     Session crons `17 0-23/3 * * *` and `47 1-23/3 * * *` (together, one wake every 90 minutes).
 
@@ -324,9 +322,13 @@ cadence
     event with none covering it, start one Opus reviewing lead at medium effort with two read-only Haiku sidecars at
     effort high, each on a named angle; verify its findings, send the accepted ones to the building lead in the same
     wake, and note the review. If the building lead has shown no activity for 100 minutes, resume it by message or
-    replace it (R7) and note it. If log.task passes 300 lines or one Task's comments pass 100, note it for the next
-    clean point. Otherwise write nothing." Quiet rule: a wake that finds nothing writes no note and sends no
-    message; a review already covering the newest checkpoint counts as that period's review (R24).
+    replace it (R7) and note it. Otherwise write nothing." Quiet rule: a wake that finds nothing writes no note and
+    sends no message; a review already covering the newest checkpoint counts as that period's review (R24).
+
+    Daily compaction: session cron `13 5 * * *`. Prompt: "V3 compaction wake. Start one Opus lead at medium effort,
+    no sidecars, to run skill:compact-records over workflow/tasks/V3 (log.task and the Task comments) and the review
+    files it cites, skipping the active Task's own comments while its builder runs; it commits only the records it
+    changed, with explicit paths, and reports in at most 5 lines. Note the result in one line."
 stops
     - The user's decisions in the Authority section;
     - a guarantee that can't be met;

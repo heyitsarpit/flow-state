@@ -168,3 +168,5 @@ note 2026-11-11T18:53:31Z
     Review started (90-minute wake): one Opus lead with two Haiku sidecars on T45's checkpoints 74911f8d to 4d7e0f5d. 
     Weekly usage 64 percent of 95. T45's comments are at 133 lines, past 100: compact at the slice's close (it is the 
     active Task).
+note 2026-11-11T18:55:14Z
+    Amendment (the user, 2026-11-12): compaction runs once a day (cron 2e0ef6f9, 05:13), no size limits or slice-close runs; the T45 size note above is void. Review crons re-created as edb6e5bc and daad31f5 without the size check. **Reverse:** restore the slice-close and size-limit rule.
