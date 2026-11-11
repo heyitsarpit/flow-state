@@ -315,7 +315,7 @@ const minted = (model: Model, attempt: string, lane: LaneId, given: Rules) => {
   const refuse = (invariant: Refusal["invariant"], why: string) =>
     stepOf(model, [{ invariant, text: `${lane.operation} minted ${attempt} ${why}` }]);
 
-  if (model.attempts.some((a) => a.id === attempt)) return refuse(wl(1), "a second time");
+  if (model.attempts.some((a) => a.id === attempt)) return refuse(wl(6), "a second time");
 
   if (Option.isNone(model.turn)) return refuse(wl(1), "outside a turn");
   const turn = model.turn.value;
@@ -377,7 +377,8 @@ const declined = (
   const refuse = (invariant: Refusal["invariant"], why: string) =>
     stepOf(model, [{ invariant, text: `${operation} declined ${reason} ${why}` }]);
 
-  if (Option.isNone(model.turn)) return refuse(wl(1), "outside a turn");
+  if (Option.isNone(model.turn))
+    return refuse(wl(15), "outside a turn, an ending no commit owes (R7, R10)");
   const turn = model.turn.value;
   const ours = (lane: LaneId) => sameActor(lane.actor, actor) && lane.operation === operation;
 
@@ -392,7 +393,7 @@ const declined = (
   const silent = turn.silent.find((s) => ours(s.lane));
 
   return silent === undefined
-    ? refuse(wl(1), "with no commit member")
+    ? refuse(wl(15), "with no commit member, an ending no commit owes (R7, R10)")
     : refuse(silent.invariant, "after a member that owes no ending");
 };
 

@@ -81,10 +81,10 @@ const orderTraces: ReadonlyArray<Trace> = [
   },
   {
     name: "an id minted twice",
-    cites: "WriteLanes I1, I6: no two writes share an id",
+    cites: "WriteLanes I6: no two writes share an id",
     start: model(lane("A", ["n", W])),
     steps: [turn(commit("serialize")), mint("n")],
-    refusals: [[], [wl(1)]],
+    refusals: [[], [wl(6)]],
     phases: { n: W },
     owed: 0,
     checks: [],

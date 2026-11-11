@@ -340,6 +340,23 @@ const attemptOfMove = (move: Move) =>
     ? Option.some(move.attempt)
     : Option.none();
 
+const owedText = (o: Obligation) =>
+  Obligation.$match(o, {
+    Await: ({ attempt, report }) => `Await ${report} of ${attempt}`,
+    PendingCancel: ({ attempt, ends }) => `PendingCancel ${ends} of ${attempt}`,
+    AwaitRestore: ({ attempt, incarnation }) =>
+      `AwaitRestore unknown Restored of ${attempt} for incarnation ${incarnation}`,
+    AwaitLetGo: ({ ending }) => `AwaitLetGo of ending ${ending}`,
+  });
+
+const unminted = (move: Move) => {
+  if (Move.$is("Send")(move)) return wl(1);
+
+  if (Move.$is("Evidence")(move)) return move.kind === "Released" ? wl(12) : wl(8);
+
+  return wl(15);
+};
+
 const bootOwes = (model: Model) => {
   const cause = model.mode === "disposing" ? ("runtimeDisposal" as const) : ("plain" as const);
 
@@ -384,7 +401,9 @@ const modeAfter = (model: Model, move: Move) => {
  *
  * **Gotchas**
  *
- * - A move naming an Attempt the lifecycle never minted is refused as WriteLanes I1.
+ * - A move naming an Attempt the lifecycle never minted is refused by what it claims: a `Send` as
+ *   WriteLanes I1 (an invoke no member admitted), an `End` as I15 (an ending no commit owes, R10),
+ *   a `Released` as I12 (R8, R14) and a `Superseded` as I8 (R7): evidence where none is owed.
  * - The model's mode moves after the cells, so a reload's cells see the mode it ends.
  */
 export const advance = (model: Model, move: Move, given: Rules = rules) => {
@@ -394,7 +413,9 @@ export const advance = (model: Model, move: Move, given: Rules = rules) => {
     const life = model.attempts.find((a) => a.id === named.value);
 
     if (life === undefined)
-      return stepOf(model, [{ invariant: wl(1), text: `${named.value} was never minted` }]);
+      return stepOf(model, [
+        { invariant: unminted(move), text: `${move._tag} of ${named.value}, never minted` },
+      ]);
 
     return applyOne(model, life, move, given);
   }
@@ -454,7 +475,7 @@ export const due = (model: Model, instant: "TurnCloses" | "StepEnds", given: Rul
     without(model, (o) => late.includes(o)),
     late.map((o) => ({
       invariant: deadlineOf(o).invariant,
-      text: `${o._tag} ${o._tag === "AwaitLetGo" ? `ending ${o.ending}` : o.attempt} was not met by ${instant}`,
+      text: `${owedText(o)} was not met by ${instant}`,
     })),
   );
 };
