@@ -126,14 +126,18 @@ tasks
             optimistic toggle, a rate-limited API, a stream of server pushes, a long job with progress, token
             refresh, a cart synced across actors, a keyed per-row editor. Fault schedules: lost, late, duplicated,
             reordered and slow answers, timeouts, offline spans, storage refusals, reloads and disposal mid-flight.
-            Every run is judged by the same oracles; failures shrink to small reviewable cases kept as regressions.
+            Each shape runs two generator profiles: a usual one (realistic timings and behaviour, no faults) and a
+            stress one (high event rates, every fault, reloads and disposal mid-flight). Shapes keep being added
+            while each raises table-cell reach or mutation score; 15 is a floor, not a target. Every run is
+            judged by the same oracles; failures shrink to small reviewable cases kept as regressions.
 
             - **May change:** `packages/flow-state-v3/conformance/` (fixtures, world, generator).
             - **Evidence:** STATUS.md, one T47 section; the generated gate file.
             - **False pass:** shapes that differ in name but exercise the same paths → caught by table-cell reach
               and per-Invariant mutation score across shapes.
         acceptance
-            - at least 15 shapes run under generated flows and fault schedules on round-14 and production;
+            - at least 15 shapes, each with a usual and a stress profile, run on round-14 and production, and
+              shapes added until reach and mutation score plateau;
             - table-cell reach and mutation score rise over the hand cases alone, and are recorded;
             - every failure found shrinks to a kept regression case, or is logged as a runtime limit.
 
