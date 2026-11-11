@@ -3,6 +3,7 @@ import type { Compiled, Values } from "./compiled.ts";
 import { Channel, ScheduleDeadline } from "./vocabulary.ts";
 import {
   type ActorRecord,
+  actorKey,
   type Incarnation,
   type Lane,
   laneId,
@@ -150,6 +151,7 @@ export type Restored = {
   readonly records: ReadonlyArray<ActorRecord>;
   readonly lanes: ReadonlyArray<{ readonly lane: Lane; readonly inFlight: boolean }>;
   readonly parked: ReadonlyArray<Parked>;
+  readonly undecodable: ReadonlySet<string>;
 };
 
 /**
@@ -252,8 +254,16 @@ export const decodeRecords = (
       key.startsWith(prefix) ? Option.toArray(decode(value)) : [],
     );
 
+  const records = of("actor/", actorRecord);
+  const decoded = new Set(records.map((r) => actorRecordKey(actorKey(r.actor))));
+
   return {
-    records: of("actor/", actorRecord),
+    records,
+    undecodable: new Set(
+      entries.flatMap(([key]) =>
+        key.startsWith("actor/") && !decoded.has(key) ? [key.slice(6)] : [],
+      ),
+    ),
     lanes: of("lane/", laneRecord),
     parked: of("parked/", parkedRecord),
   };

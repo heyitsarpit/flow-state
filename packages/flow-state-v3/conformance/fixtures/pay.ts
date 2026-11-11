@@ -206,6 +206,7 @@ const payHandlers: Handlers<State> = {
       CheckTick: [stay],
       IntentRead: [
         guarded(updating(to("PLACING"))),
+        indexed(1, guarded(stay)),
         indexed(2, guarded(to("PAYING"))),
         indexed(3, stay),
       ],

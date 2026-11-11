@@ -344,7 +344,10 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence) => {
       ...restored.parked.map((p) => [actorKey(p.actor), p.actor] as const),
     ]);
 
-    for (const actor of owed.values()) ensure(actor, Option.none(), false);
+    // Restore R1, R5: an owed identity whose record does not decode is not woken; its endings stay
+    // parked for the incarnation an adopting ensure starts.
+    for (const [key, actor] of owed)
+      if (!restored.undecodable.has(key)) ensure(actor, Option.none(), false);
   };
 
   return {

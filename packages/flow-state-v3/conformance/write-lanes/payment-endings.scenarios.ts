@@ -16,7 +16,9 @@ import {
 
 /**
  * The Pay cases of the first slice, ported from the prototype suite's `PAY-01` to `PAY-05` with
- * the same steps and expectations.
+ * the same steps and expectations, and `PAY-23`: in UNSURE a `requires_action` read with no client
+ * secret declines the real Pay's challenge alternative (its guard needs `clientSecret`), so the
+ * Held pay lane stays Held and nothing is sent again (the real Pay's `pay.machine.ts`).
  */
 export const paymentEndingsScenarios: ReadonlyArray<Scenario> = [
   {
@@ -128,6 +130,25 @@ export const paymentEndingsScenarios: ReadonlyArray<Scenario> = [
       c.eq("uncertain", row(s)?.uncertain, true);
       c.eq("reason", lastReason(c, "pay"), "StillUnknown");
       c.eq("notice unchanged", s.memory().notice, notice);
+    },
+  },
+  {
+    id: "PAY-23",
+    cites: ["Turn R2", "WriteLanes R8"],
+    fixtures: [Pay],
+    run: (c) => {
+      const s = shopper(c);
+      onWire(c);
+      c.answer("pay", Answer.Lost());
+      s.state("UNSURE");
+      c.advance(REREAD_MS);
+      c.answer("order", Answer.Ok({ value: null }));
+      const before = s.memory();
+      c.answer("intent", Answer.Ok({ value: { status: "requires_action" } }));
+      s.state("UNSURE");
+      c.eq("no alternative wrote memory", s.memory(), before);
+      c.eq("a challenge needs a client secret: the hold stays", row(s)?.uncertain, true);
+      c.eq("not sent again", sent(c, "pay"), 1);
     },
   },
 ];

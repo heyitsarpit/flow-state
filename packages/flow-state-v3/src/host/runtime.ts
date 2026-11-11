@@ -1,9 +1,9 @@
-import { Context, Effect, Exit, Layer, Option, Predicate, Result, Scope } from "effect";
+import { Context, Deferred, Effect, Exit, Layer, Option, Result, Scope } from "effect";
 import type { Values } from "../core/compiled.ts";
 import type { Evidence } from "../core/evidence.ts";
 import { rowOf, type Row } from "../core/rows.ts";
 import { Input } from "../core/step.ts";
-import { type ActorId, actorKey, type Use } from "../core/world.ts";
+import { type ActorId, actorKey } from "../core/world.ts";
 import type { AnyDefinition, Envelope, Machine, Operations } from "../definition.ts";
 import { FlowError } from "../error.ts";
 import { makeDriver, type Driver } from "./driver.ts";
@@ -79,13 +79,11 @@ export type Actor<D extends AnyDefinition = AnyDefinition> = {
   readonly getSnapshot: () => Option.Option<Snapshot>;
 };
 
-const Internal = Symbol.for("flow-state/runtime-internal");
-
-type Internals = {
-  readonly driver: Driver;
-  readonly sinks: Set<(evidence: Evidence) => void>;
-  readonly machines: ReadonlyMap<string, Machine>;
-};
+/**
+ * The key of a Runtime's one hook for `attachInspector` (Inspection O3): it attaches a sink and
+ * nothing else.
+ */
+export const InspectorId = "~flow-state/Inspector";
 
 /**
  * A constructed Runtime (Runtime O2).
@@ -100,7 +98,7 @@ export type Runtime = {
   readonly ensureActor: <D extends AnyDefinition>(ref: ActorRef<D>) => Actor<D>;
   readonly disposeActor: <D extends AnyDefinition>(actor: Actor<D> | ActorRef<D>) => void;
   readonly dispose: () => Effect.Effect<void>;
-  readonly [Internal]: Internals;
+  readonly [InspectorId]: (sink: (evidence: Evidence) => void) => () => void;
 };
 
 /**
@@ -138,19 +136,21 @@ export const snapshotOf = (driver: Driver, actor: ActorId): Option.Option<Snapsh
 };
 
 /**
- * Builds a Runtime over a host (the internal seam `runtimeSetup` and the test host share).
+ * The Runtime's construction options (Runtime O2).
  */
-// RETURN_TYPE: the exported Runtime contract.
-export const constructOn = (
-  config: {
-    readonly app: App;
-    // oxlint-disable-next-line lint-bomb/no-explicit-any -- the setup's services Layer provides whatever the contracts list; checked by type at runtimeSetup
-    readonly services?: Layer.Layer<any>;
-    readonly scope?: string;
-    readonly persistence?: { readonly captureMs?: number };
-  },
-  platform: Platform,
-): Runtime => {
+export type RuntimeConfig = {
+  readonly app: App;
+  // oxlint-disable-next-line lint-bomb/no-explicit-any -- the setup's services Layer provides whatever the contracts list; checked by type at runtimeSetup
+  readonly services?: Layer.Layer<any>;
+  readonly scope?: string;
+  readonly persistence?: { readonly captureMs?: number };
+};
+
+/**
+ * Builds a Runtime over a platform, with its driver beside it for Flow's own suite (the public
+ * Runtime does not carry it).
+ */
+export const buildRuntime = (config: RuntimeConfig, platform: Platform) => {
   const machines = new Map(Object.values(config.app.machines).map((m) => [m.compiled.id, m]));
   const sinks = new Set<(evidence: Evidence) => void>();
   const host = Context.get(platform, Host);
@@ -158,6 +158,9 @@ export const constructOn = (
   const scope = Scope.makeUnsafe();
   let services = Context.empty();
   const fibers = makeFibers(scope, () => Context.merge(services, platform));
+  const booted = Deferred.makeUnsafe<void, FlowError>();
+  let started = false;
+  let open = false;
 
   const persistence =
     config.persistence !== undefined && config.scope !== undefined && Option.isSome(host.store);
@@ -177,15 +180,8 @@ export const constructOn = (
     },
   });
 
-  const ready = Effect.fn("Runtime.ready")(function* () {
-    if (config.services !== undefined) {
-      services = yield* Layer.buildWithScope(config.services, scope).pipe(
-        Effect.mapError(
-          (cause) => new FlowError({ code: "ServiceFailed", problems: [String(cause)], cause }),
-        ),
-      );
-    }
-
+  // Actors R3, I4: storage is read and validated before any app service is acquired.
+  const boot = Effect.fn("Runtime.boot")(function* () {
     const loaded = yield* Option.match(persistence ? host.store : Option.none(), {
       onNone: () => Effect.succeed(new Map<string, string>()),
       onSome: (store) => store.load,
@@ -197,13 +193,49 @@ export const constructOn = (
       ),
     );
 
+    if (config.services !== undefined)
+      services = yield* Layer.buildWithScope(config.services, scope).pipe(
+        Effect.mapError(
+          (cause) => new FlowError({ code: "ServiceFailed", problems: [String(cause)], cause }),
+        ),
+      );
+
     driver.input(Input.Boot({ stored }));
+    open = true;
   });
 
-  return {
+  // Actors R2, I3: the first call runs the bootstrap once; every caller shares its Exit. The
+  // bootstrap is uninterruptible, so interrupting the first caller delays its own interrupt
+  // until the bootstrap ends (a stated limit: R2 asks that only that wait be interrupted).
+  const ready = () =>
+    Effect.suspend(() => {
+      if (started) return Deferred.await(booted);
+      started = true;
+
+      return Effect.uninterruptible(boot()).pipe(
+        Effect.exit,
+        Effect.flatMap((exit) => Deferred.done(booted, exit)),
+        Effect.andThen(Deferred.await(booted)),
+      );
+    });
+
+  const actorOf = (ref: { readonly machine: Machine; readonly name: string }) => ({
+    machine: ref.machine.compiled.id,
+    name: ref.name,
+  });
+
+  const runtime: Runtime = {
     ready,
     ensureActor: (ref) => {
-      const actor = { machine: ref.machine.compiled.id, name: ref.name };
+      // Actors R4, I5: before ready succeeds, no handle exists.
+      if (!open)
+        // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the public ensureActor's contract: before ready it rejects RuntimeNotReady (Actors R4)
+        throw new FlowError({
+          code: "RuntimeNotReady",
+          problems: [`ensureActor ${ref.name} before ready()`],
+        });
+
+      const actor = actorOf(ref);
       driver.input(Input.Ensure({ actor, use: Option.none(), existing: false }));
 
       return {
@@ -217,9 +249,7 @@ export const constructOn = (
     },
     disposeActor: (actor) => {
       const ref = "ref" in actor ? actor.ref : actor;
-      driver.input(
-        Input.DisposeActor({ actor: { machine: ref.machine.compiled.id, name: ref.name } }),
-      );
+      driver.input(Input.DisposeActor({ actor: actorOf(ref) }));
     },
     dispose: () =>
       Effect.suspend(() => {
@@ -227,8 +257,14 @@ export const constructOn = (
 
         return Scope.close(scope, Exit.void);
       }),
-    [Internal]: { driver, sinks, machines },
+    [InspectorId]: (sink) => {
+      sinks.add(sink);
+
+      return () => void sinks.delete(sink);
+    },
   };
+
+  return { runtime, driver };
 };
 
 /**
@@ -245,29 +281,4 @@ export const runtimeSetup = (config: {
   readonly services?: Layer.Layer<any>;
   readonly scope?: string;
   readonly persistence?: { readonly captureMs?: number };
-}): RuntimeSetup => ({ construct: () => constructOn(config, browserPlatform()) });
-
-/**
- * A Runtime's internals, for the internal routes (`inspect`, the test host).
- */
-export const internalsOf = (runtime: Runtime) => runtime[Internal];
-
-/**
- * Attaches or ends one use of an identity (Actors R7), as the snapshots stream and React hooks do.
- */
-export const attachUse = (runtime: Runtime, actor: ActorId, use: Use, existing: boolean) =>
-  runtime[Internal].driver.input(Input.Ensure({ actor, use: Option.some(use), existing }));
-
-/**
- * Ends one use of an identity.
- */
-export const detachUse = (runtime: Runtime, actor: ActorId, use: Use) =>
-  runtime[Internal].driver.input(Input.Release({ actor, use }));
-
-/**
- * Whether a value is a Runtime.
- */
-// FLOW_STATE_ALLOW_UNKNOWN: a narrowing predicate over any value.
-// RETURN_TYPE: a type guard over any value.
-export const isRuntime = (value: unknown): value is Runtime =>
-  Predicate.hasProperty(value, Internal);
+}): RuntimeSetup => ({ construct: () => buildRuntime(config, browserPlatform()).runtime });

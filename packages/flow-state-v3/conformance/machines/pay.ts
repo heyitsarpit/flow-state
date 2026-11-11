@@ -201,12 +201,25 @@ export const PayMachine = machine(Pay, ({ S, E, O }) => {
     }),
   };
 
-  const challenge = {
+  const requiresAction = ({ event }: { readonly event: { readonly status: string } }) =>
+    event.status === "requires_action" || deny("NoChallenge");
+
+  // The real Pay's 3-D Secure alternatives, with their CHALLENGE target outside this subset: each
+  // keeps the real guard and actions and stays (the real Pay's pay.machine.ts).
+  const payingChallenge = {
+    guard: [requiresAction],
+    updateMemory: ({ event }: { readonly event: { readonly clientSecret: string } }) => ({
+      clientSecret: event.clientSecret,
+    }),
+  };
+
+  const unsureChallenge = {
     guard: [
-      ({ event }: { readonly event: { readonly status: string } }) =>
-        event.status === "requires_action" || deny("NoChallenge"),
+      requiresAction,
+      ({ memory }: { readonly memory: { readonly clientSecret: string | null } }) =>
+        memory.clientSecret !== null || deny("NoClientSecret"),
     ],
-    updateMemory: () => ({ notice: "Confirm the payment with your bank." }),
+    actions: [O.pay.cancel(intent)],
   };
 
   return {
@@ -303,7 +316,7 @@ export const PayMachine = machine(Pay, ({ S, E, O }) => {
         on: {
           CheckTick: { updateMemory: () => ({ notice: "Still confirming with your bank…" }) },
           Confirmed: [
-            challenge,
+            payingChallenge,
             {
               target: S.PLACING,
               guard: [capturable],
@@ -386,7 +399,7 @@ export const PayMachine = machine(Pay, ({ S, E, O }) => {
               updateMemory: () => ({ authorized: true }),
               actions: [O.pay.cancel(intent), O.place.commit(cart)],
             },
-            challenge,
+            unsureChallenge,
             {
               target: S.PAYING,
               guard: [

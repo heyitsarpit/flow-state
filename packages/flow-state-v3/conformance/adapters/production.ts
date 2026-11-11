@@ -14,7 +14,7 @@ import { Evidence as EvidenceRecord, type Evidence } from "../../src/core/eviden
 import type { Machine } from "../../src/definition.ts";
 import { Host, StoreRefused, testing } from "../../src/host/testing.ts";
 import { actorRef, app } from "../../src/index.ts";
-import { attachInspector } from "../../src/inspect.ts";
+import { attachInspector } from "../../src/host/inspect.ts";
 import { PayMachine, ShopApi } from "../machines/pay.ts";
 import {
   type ActorRef,
@@ -277,7 +277,7 @@ export const productionPort: Port = {
 
     const { clock, page, storage, network } = boot.hosts;
 
-    const runtime = testing.constructOn(
+    const built = testing.build(
       {
         app: app({
           id: "conformance",
@@ -318,7 +318,7 @@ export const productionPort: Port = {
       ),
     );
 
-    attachInspector(runtime, (evidence) =>
+    attachInspector(built.runtime, (evidence) =>
       Result.match(observationOf(evidence, identify), {
         onFailure: boot.unreadable,
         onSuccess: boot.observe,
@@ -326,20 +326,20 @@ export const productionPort: Port = {
     );
 
     // oxlint-disable-next-line lint-bomb/no-effect-runner-in-domain -- the Port's boot is synchronous; ready() over the fake world's synchronous store and Layer completes in one run
-    Effect.runSync(runtime.ready());
+    Effect.runSync(built.runtime.ready());
 
     const machineOf = (actor: ActorRef) =>
       Option.fromUndefinedOr(machines.find((m) => m.compiled.id === actor.machine));
 
     return {
-      ensure: (actor, _input, use) => testing.attach(runtime, actorOf(actor), use, false),
-      ensureExisting: (actor, use) => testing.attach(runtime, actorOf(actor), use, true),
-      release: (actor, use) => testing.detach(runtime, actorOf(actor), use),
+      ensure: (actor, _input, use) => testing.attach(built, actorOf(actor), use, false),
+      ensureExisting: (actor, use) => testing.attach(built, actorOf(actor), use, true),
+      release: (actor, use) => testing.detach(built, actorOf(actor), use),
       send: (actor, event, payload, part) => {
         if (part.length > 0)
           throw new UnbuiltInProduction({ what: `a send to the part ${part.join(".")}` });
 
-        if (isRecord(payload)) testing.send(runtime, actorOf(actor), event, payload);
+        if (isRecord(payload)) testing.send(built, actorOf(actor), event, payload);
         else
           boot.unreadable(
             new Unreadable({ report: `send ${event}`, issue: "the payload is not a JSON object" }),
@@ -348,12 +348,12 @@ export const productionPort: Port = {
       dispose: (actor) =>
         Option.match(machineOf(actor), {
           onNone: () => undefined,
-          onSome: (m) => runtime.disposeActor(actorRef(m, actor.id)),
+          onSome: (m) => built.runtime.disposeActor(actorRef(m, actor.id)),
         }),
-      forget: (actor) => testing.forget(runtime, actorOf(actor)),
-      disposeRuntime: () => testing.disposeRuntime(runtime),
+      forget: (actor) => testing.forget(built, actorOf(actor)),
+      disposeRuntime: () => testing.disposeRuntime(built),
       snapshot: (actor) =>
-        Option.match(testing.snapshot(runtime, actorOf(actor)), {
+        Option.match(testing.snapshot(built, actorOf(actor)), {
           onNone: () => Result.succeed(Snapshot.Absent()),
           onSome: (s) =>
             Result.map(jsonOf(`snapshot ${actor.id}`, s.memory), (memory) =>
@@ -362,7 +362,7 @@ export const productionPort: Port = {
         }),
       row: (actor, operation, key) =>
         Option.match(
-          Option.flatMap(testing.snapshot(runtime, actorOf(actor)), (s) =>
+          Option.flatMap(testing.snapshot(built, actorOf(actor)), (s) =>
             Option.flatMap(machineOf(actor), (m) =>
               testing.row(m, s.operations, operation, recordOf(key)),
             ),
@@ -373,7 +373,7 @@ export const productionPort: Port = {
           },
         ),
       entity: () => Result.succeed(Option.none()),
-      pending: () => testing.pending(runtime),
+      pending: () => testing.pending(built),
     };
   },
 };

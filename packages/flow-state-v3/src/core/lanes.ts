@@ -96,8 +96,10 @@ export const makeLanes = (tx: Tx, persistence: Persistence) => {
     };
 
     const text = keyTextOf(operation, key);
+    const encodes = Result.isSuccess(Schema.encodeUnknownResult(operation.inputJson)(input));
 
-    if (Option.isNone(text)) {
+    // WriteLanes R12: an input or key with no encoded form declines; nothing is sent or saved.
+    if (Option.isNone(text) || !encodes) {
       decline(incarnation.actor, operation.name, "Unencodable", owner, Option.none());
 
       return member;

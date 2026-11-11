@@ -275,6 +275,13 @@ export const machine = <D extends AnyDefinition>(
 
   const root = levelOf(erased.on ?? {}, "", context);
 
+  // Stated limit: this build runs only the reject policy; another is refused, never run as reject.
+  for (const [name, bound] of Object.entries(definition.operations))
+    if (bound.kind === "write" && bound.concurrency !== "reject")
+      problems.push(
+        `operations.${name}.concurrency: "${bound.concurrency}" is not built yet (T18)`,
+      );
+
   if (problems.length > 0)
     // oxlint-disable-next-line lint-bomb/no-throw-in-core -- an invalid machine throws one FlowError before any work (Compile R2)
     throw new FlowError({ code: "InvalidMachine", problems });
