@@ -129,6 +129,17 @@ tasks
         status      draft
         priority    high
         blocked_by  [@task.V3.T20, @T9, @T12]
+        satisfies   [
+                    @plan.Machines.O1,
+                    @plan.Machines.O2,
+                    @plan.Machines.O6,
+                    @plan.Operations.O1,
+                    @plan.Operations.O2,
+                    @plan.Operations.O3,
+                    @plan.Operations.O5,
+                    @plan.Operations.O6,
+                    @plan.Runtime.O2
+                    ]
         description
             Build fragments, then operations with the required services list, and @spec.Reads, with the round-14
             carry list's unbuilt design items.

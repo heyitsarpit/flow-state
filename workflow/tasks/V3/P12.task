@@ -89,6 +89,7 @@ tasks
         status      draft
         priority    high
         blocked_by  [@task.V3.T19, @T11]
+        satisfies   [@plan.Inspection.O2, @plan.Persistence.O4, @plan.Persistence.O5, @plan.Runtime.O3]
         description
             Build restore and key versions from @spec.Restore and @spec.Codec, with record formats tagged from
             the first release.

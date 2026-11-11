@@ -57,6 +57,16 @@ tasks
         title       Entity store
         status      draft
         priority    high
+        satisfies   [
+                    @plan.EntityDomains.O1,
+                    @plan.EntityDomains.O2,
+                    @plan.EntityDomains.O3,
+                    @plan.EntityDomains.O5,
+                    @plan.Operations.O1,
+                    @plan.Operations.O2,
+                    @plan.Operations.O3,
+                    @plan.EntityDomains.O4
+                    ]
         description
             Prove the entities slice, then build the entity store on production from @plan.EntityDomains as merged
             (OD52).
@@ -88,6 +98,7 @@ tasks
         title       Streams
         status      draft
         priority    high
+        satisfies   [@plan.Operations.O1, @plan.Operations.O4]
         description
             Prove the streams slice, then build streams on production as merged (OD53), with a real EventSource path.
 
@@ -107,6 +118,7 @@ tasks
         title       Record migration
         status      draft
         priority    high
+        satisfies   [@plan.Persistence.O5]
         description
             Prove the record migration slice, then build @plan.Persistence's migration on production as merged (OD54),
             against real storage shapes (IndexedDB structured clone, `localStorage` text).
@@ -127,6 +139,7 @@ tasks
         title       Multi-tab and sessions
         status      draft
         priority    medium
+        satisfies   [@plan.Persistence.O7]
         description
             Prove the multi-tab and sessions slice, then build multi-tab ownership and sessions from @plan.Runtime.
 
@@ -146,6 +159,7 @@ tasks
         title       Host adapters: IndexedDB and in-memory
         status      draft
         priority    high
+        satisfies   [@plan.Persistence.O1, @plan.Persistence.O3]
         description
             Build the IndexedDB host adapter, meeting Safari's four requirements, and an in-memory adapter.
 
@@ -165,6 +179,21 @@ tasks
         status      draft
         priority    medium
         blocked_by  [@T49]
+        satisfies   [
+                    @plan.CommandLine.O1,
+                    @plan.CommandLine.O2,
+                    @plan.CommandLine.O4,
+                    @plan.LazyFeatures.O4,
+                    @plan.Testing.O1,
+                    @plan.Testing.O2,
+                    @plan.Testing.O3,
+                    @plan.Testing.O4,
+                    @plan.Testing.O7,
+                    @plan.Testing.O8,
+                    @plan.Testing.O9,
+                    @plan.EntityDomains.O4,
+                    @plan.Testing.O6
+                    ]
         description
             Build @plan.Testing's Stories, `flow story list/describe/run` and `flow trace` on production.
 
@@ -194,6 +223,20 @@ tasks
         title       React and Next.js bindings
         status      draft
         priority    high
+        satisfies   [
+                    @plan.React.O1,
+                    @plan.React.O2,
+                    @plan.React.O3,
+                    @plan.React.O4,
+                    @plan.React.O5,
+                    @plan.ServerRendering.O1,
+                    @plan.ServerRendering.O2,
+                    @plan.ServerRendering.O3,
+                    @plan.ServerRendering.O4,
+                    @plan.ServerRendering.O5,
+                    @plan.ServerRendering.O6,
+                    @plan.ServerRendering.O7
+                    ]
         description
             Build the React and Next.js bindings from @plan.React and @plan.ServerRendering.
 
@@ -223,6 +266,7 @@ tasks
         title       CLI outputs designed for people
         status      draft
         priority    medium
+        satisfies   [@plan.CommandLine.O3]
         description
             Design the CLI outputs for people: source locations, a trace that reads like a story, a graph grouped by
             state, and messages from the issue catalog; mocks first, then the user's one acceptance round.
@@ -243,6 +287,13 @@ tasks
         status      draft
         priority    medium
         blocked_by  [@task.V3.T20, @task.V3.T21]
+        satisfies   [
+                    @plan.LazyFeatures.O1,
+                    @plan.LazyFeatures.O2,
+                    @plan.LazyFeatures.O3,
+                    @plan.LazyFeatures.O4,
+                    @plan.LazyFeatures.O5
+                    ]
         description
             Prove the lazy-features slice, then build lazy app entries on production from @plan.LazyFeatures.O1 to
             O5, with their Spec written first.
@@ -273,6 +324,13 @@ tasks
         status      draft
         priority    medium
         blocked_by  [@task.V3.T20, @task.V3.T21]
+        satisfies   [
+                    @plan.Inspection.O1,
+                    @plan.Inspection.O3,
+                    @plan.Inspection.O4,
+                    @plan.Inspection.O5,
+                    @plan.Inspection.O6
+                    ]
         description
             Prove the inspection slice, then build the `flow-state/inspect` route on production from
             @plan.Inspection, with its Spec written first.

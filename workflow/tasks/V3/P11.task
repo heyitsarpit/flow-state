@@ -114,6 +114,7 @@ tasks
         status      draft
         priority    high
         blocked_by  [@task.V3.T18, @T10]
+        satisfies   [@plan.Persistence.O1, @plan.Persistence.O2, @plan.Persistence.O3, @plan.Persistence.O6]
         description
             Build the persistence edge, write-ahead and the Effect driver in `src/host/` from @spec.WriteAhead.
 

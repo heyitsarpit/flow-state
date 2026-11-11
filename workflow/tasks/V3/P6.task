@@ -51,6 +51,7 @@ tasks
         title       The user picks the apps and approves the criteria
         status      draft
         priority    medium
+        satisfies   [@plan.Package.O4]
         description
             Put the candidate apps and the proposed criteria to the user in one numbered round; then add one Task per
             picked app with skill:to-task.

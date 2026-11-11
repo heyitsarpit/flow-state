@@ -152,6 +152,7 @@ tasks
         status      draft
         priority    medium
         blocked_by  [@task.V3.T22, @T15]
+        satisfies   [@plan.FlowState.O1]
         description
             Retire the prototype adapter, point `nub run build` at `packages/flow-state-v3` (it still builds the
             frozen library), and pass `nub run verify`.

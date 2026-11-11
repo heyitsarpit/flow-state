@@ -319,6 +319,7 @@ tasks
         status      done
         priority    high
         blocked_by  [@task.V3.T6, @T7, @T8, @T13]
+        satisfies   [@plan.Operations.O1, @plan.Operations.O3, @plan.Operations.O7]
         description
             Build the thinnest production runtime that runs checkout's Pay machine through the public API and the
             production adapter: the walking skeleton.
@@ -382,7 +383,7 @@ tasks
 
     T44
         title       The suite judges from its own facts only, gated by machines
-        status      in_progress
+        status      done
         priority    high
         blocked_by  [@T43]
         description
@@ -486,6 +487,15 @@ tasks
         status      draft
         priority    high
         blocked_by  [@T16, @T43, @T44, @T47]
+        satisfies   [
+                    @plan.Diagnostics.O1,
+                    @plan.Diagnostics.O2,
+                    @plan.Diagnostics.O3,
+                    @plan.Diagnostics.O4,
+                    @plan.Machines.O1,
+                    @plan.Operations.O1,
+                    @plan.Runtime.O1
+                    ]
         description
             Build Compiled and the compiler: @spec.Compile and @spec.Diagnostics from the public API.
 
@@ -530,6 +540,23 @@ tasks
         status      draft
         priority    high
         blocked_by  [@T17, @T8]
+        satisfies   [
+                    @plan.LazyFeatures.O2,
+                    @plan.Machines.O2,
+                    @plan.Machines.O3,
+                    @plan.Machines.O4,
+                    @plan.Machines.O5,
+                    @plan.Machines.O6,
+                    @plan.Machines.O7,
+                    @plan.Machines.O8,
+                    @plan.Operations.O3,
+                    @plan.Runtime.O2,
+                    @plan.Runtime.O3,
+                    @plan.Runtime.O4,
+                    @plan.Runtime.O5,
+                    @plan.Runtime.O6,
+                    @plan.Runtime.O7
+                    ]
         description
             Build lane, step and turn from @spec.Turn, @spec.WriteLanes and @spec.Actors.
 

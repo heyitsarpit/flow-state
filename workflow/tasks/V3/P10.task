@@ -41,6 +41,7 @@ tasks
         status      draft
         priority    medium
         blocked_by  [@task.V3.T23]
+        satisfies   [@plan.FlowState.O2, @plan.Package.O1, @plan.Package.O2, @plan.Package.O3]
         description
             Build the six package routes, peers, `sideEffects`, removed surfaces and InvalidConfiguration help, and
             run the packed-consumer check from T23 onward.

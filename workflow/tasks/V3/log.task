@@ -293,3 +293,7 @@ note 2026-11-11T11:33:36Z
     Decision (user, 2026-11-11): every public Plan feature is represented in fixtures shared by the conformance and 
     benchmark suites, enforced by a checked feature matrix and gate (in T47). **Why:** 123 of 265 Plan features had no 
     Task, because Tasks were cut by module and the suite followed only the core Specs. **Reverse:** drop the gate.
+note 2026-11-11T11:43:17Z
+    T44 done with remainders moved: report-free obligations and lane rollback to T45, liar-gate survivors to T47, a 
+    kept-only lane's row to T18. Every open Task now carries satisfies links to the Plan outcomes it delivers; 
+    tools/plan-coverage/check.ts reports none uncovered.

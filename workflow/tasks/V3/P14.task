@@ -61,6 +61,15 @@ tasks
         status      draft
         priority    medium
         blocked_by  [@task.V3.T21]
+        satisfies   [
+                    @plan.CommandLine.O1,
+                    @plan.CommandLine.O3,
+                    @plan.CommandLine.O5,
+                    @plan.CommandLine.O6,
+                    @plan.Machines.O1,
+                    @plan.Operations.O1,
+                    @plan.Operations.O3
+                    ]
         description
             Build the CLI's `check`, `explain` and `graph` from @spec.StaticCli; the CLI stays at check, explain,
             graph, story, trace.
