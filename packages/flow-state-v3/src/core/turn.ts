@@ -100,26 +100,30 @@ export type TurnInput = {
 
 type Failed = { readonly slot: string };
 
-type Check = Result.Result<Option.Option<string>, Failed>;
+/**
+ * One guard's outcome: it passes, it declines with a code, or its callback is defective.
+ */
+type Verdict = Data.TaggedEnum<{
+  Pass: {};
+  Declined: { code: string };
+  Defect: { slot: string };
+}>;
 
-// RETURN_TYPE: Check is the guard protocol every verdict shares.
-const decline = (code: string): Check => Result.succeed(Option.some(code));
+const Verdict = Data.taggedEnum<Verdict>();
 
-const PASSED: Check = Result.succeed(Option.none());
+const PASSED = Verdict.Pass();
 
-const NOT_IN_STATE = decline("NotInState");
+const NOT_IN_STATE = Verdict.Declined({ code: "NotInState" });
 
-const LATE_MAY_NOT_LEAVE = decline("LateMayNotLeave");
+const LATE_MAY_NOT_LEAVE = Verdict.Declined({ code: "LateMayNotLeave" });
 
-const OPEN = Option.none<string>();
+const IN_FLIGHT = Verdict.Declined({ code: "InFlight" });
 
-const IN_FLIGHT = Option.some("InFlight");
+const UNCERTAIN = Verdict.Declined({ code: "Uncertain" });
 
-const UNCERTAIN = Option.some("Uncertain");
+const NOTHING_TO_RESEND = Verdict.Declined({ code: "NothingToResend" });
 
-const NOTHING_TO_RESEND = Option.some("NothingToResend");
-
-const RETRY_LIMIT = Option.some("RetryLimit");
+const RETRY_LIMIT = Verdict.Declined({ code: "RetryLimit" });
 
 const NO_KEY = Result.succeed(Option.none<Values>());
 
@@ -151,47 +155,53 @@ const keyOf = <I>(
 ) =>
   Option.match(key, {
     onNone: () => NO_KEY,
-    onSome: (k) =>
-      Result.map(
-        call(k.slot, () => k.run(read)),
-        Option.some,
-      ),
+    onSome: (k) => Result.map(recordFrom(k, read), Option.some),
   });
 
 const idleVerdict = (view: LaneView) =>
-  LaneView.$match(view, { Idle: () => OPEN, InFlight: () => IN_FLIGHT, Held: () => UNCERTAIN });
+  LaneView.$match(view, { Idle: () => PASSED, InFlight: () => IN_FLIGHT, Held: () => UNCERTAIN });
 
 const retryableVerdict = (view: LaneView, times: number) =>
   LaneView.$match(view, {
     Idle: () => NOTHING_TO_RESEND,
     InFlight: () => IN_FLIGHT,
-    Held: ({ retryCount }) => (retryCount < times ? OPEN : RETRY_LIMIT),
+    Held: ({ retryCount }) => (retryCount < times ? PASSED : RETRY_LIMIT),
   });
 
-// RETURN_TYPE: Check is the guard protocol every branch returns.
-const guardCheck = (guard: Guard, input: TurnInput, read: GuardRead): Check =>
+const verdictOf = (checked: Result.Result<Verdict, Failed>) =>
+  Result.getOrElse(checked, (failed) => Verdict.Defect({ slot: failed.slot }));
+
+const guardCheck = (guard: Guard, input: TurnInput, read: GuardRead) =>
   Guard.$match(guard, {
     InState: ({ states }) => (states.includes(input.state) ? PASSED : NOT_IN_STATE),
     Check: ({ check }) =>
-      call(check.slot, () => {
-        const verdict = check.run(read);
+      verdictOf(
+        call(check.slot, () => {
+          const verdict = check.run(read);
 
-        return verdict === true ? OPEN : Option.some(verdict.code);
-      }),
+          return verdict === true ? PASSED : Verdict.Declined({ code: verdict.code });
+        }),
+      ),
     Idle: ({ operation, key }) =>
-      Result.map(recordFrom(key, read), (k) => idleVerdict(input.lane(operation, Option.some(k)))),
+      verdictOf(
+        Result.map(recordFrom(key, read), (k) =>
+          idleVerdict(input.lane(operation, Option.some(k))),
+        ),
+      ),
     Retryable: ({ operation, key, times }) =>
-      Result.map(keyOf(key, read), (k) => retryableVerdict(input.lane(operation, k), times)),
+      verdictOf(
+        Result.map(keyOf(key, read), (k) => retryableVerdict(input.lane(operation, k), times)),
+      ),
   });
 
 type GuardRead = { readonly state: string; readonly memory: Values; readonly event: Values };
 
-// RETURN_TYPE: Check is the guard protocol every branch returns.
-const firstDecline = (alternative: Alternative, input: TurnInput, read: GuardRead): Check => {
+// RETURN_TYPE: the Verdict every guard returns; the first that is not a pass decides.
+const firstDecline = (alternative: Alternative, input: TurnInput, read: GuardRead): Verdict => {
   for (const guard of alternative.guards) {
     const checked = guardCheck(guard, input, read);
 
-    if (Result.isFailure(checked) || Option.isSome(checked.success)) return checked;
+    if (!Verdict.$is("Pass")(checked)) return checked;
   }
 
   if (input.late && Option.isSome(alternative.target) && input.leavingStrandsWork)
@@ -362,12 +372,12 @@ export const runTurn = (input: TurnInput): TurnResult => {
       handled = true;
       const checked = firstDecline(alternative, input, read);
 
-      if (Result.isFailure(checked))
+      if (Verdict.$is("Defect")(checked))
         // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- the refusal is the turn's one result; the loop ends here
-        return TurnResult.Refused({ code: "GuardDefect", slot: checked.failure.slot });
+        return TurnResult.Refused({ code: "GuardDefect", slot: checked.slot });
 
-      if (Option.isNone(checked.success)) return accept(alternative, level.node, input);
-      reasons.push(checked.success.value);
+      if (Verdict.$is("Pass")(checked)) return accept(alternative, level.node, input);
+      reasons.push(checked.code);
     }
 
   return handled ? TurnResult.Denied({ reasons }) : TurnResult.Unhandled();

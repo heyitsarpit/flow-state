@@ -144,7 +144,7 @@ export const productionMutants = {
       edits: [
         {
           file: "src/core/turn.ts",
-          find: "Idle: () => OPEN, InFlight: () => IN_FLIGHT, Held: () => UNCERTAIN",
+          find: "Idle: () => PASSED, InFlight: () => IN_FLIGHT, Held: () => UNCERTAIN",
           replace: "Idle: () => IN_FLIGHT, InFlight: () => IN_FLIGHT, Held: () => UNCERTAIN",
         },
       ],
