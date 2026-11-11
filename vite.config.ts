@@ -347,6 +347,37 @@ export default defineConfig({
           ],
         },
       },
+      {
+        // The lifecycle's tables decide obligations; a runtime report never reaches them (advisor Q1,
+        // T44). Reports enter only through lifecycle-step.ts, which turns them into moves.
+        files: [
+          `${productionSuite}/dsl/lifecycle.ts`,
+          `${productionSuite}/dsl/lifecycle-fold.ts`,
+          `${productionSuite}/dsl/lifecycle-lanes.ts`,
+          `${productionSuite}/dsl/lifecycle-lives.ts`,
+          `${productionSuite}/dsl/lifecycle-model.ts`,
+          `${productionSuite}/dsl/lifecycle-rules.ts`,
+        ],
+        rules: {
+          "no-restricted-imports": [
+            "error",
+            {
+              paths: [
+                {
+                  name: "../port.ts",
+                  importNames: ["Observation", "Turn", "Minted", "Sent", "Ended", "Delivered", "Recorded"],
+                  message: "Obligation tables take no runtime report (advisor Q1, T44).",
+                },
+                {
+                  name: "./oracle.ts",
+                  importNames: ["Fact"],
+                  message: "Obligation tables take no runtime report (advisor Q1, T44).",
+                },
+              ],
+            },
+          ],
+        },
+      },
     ],
     ignorePatterns: frozen,
   },
