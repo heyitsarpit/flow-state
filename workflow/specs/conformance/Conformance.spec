@@ -496,7 +496,7 @@ open
         outcome  The four-angle audit re-derives the expectations from their cited rules and writes its
                  own mutants from the Specs (P3's "caught by").
 
-    Q7  The old-suite comparison is done by hand in STATUS.md.
+    Q7  The old-suite comparison is done by hand and logged in the Task's comments (@task.V3.T7).
         outcome  Phase 3 writes the verdict-compare mode (README work list item 4).
 
     Q8  Failure of R2: the `ending-channels` oracle accepts any value when a report is absent (`onNone: () => true`, 
@@ -1014,9 +1014,10 @@ tests
     T22  Falsify verdict. Phase 3 writes this: a runner self-test with a planted surviving mutant, a planted null pass
             and a planted case-only Invariant with no mutant, a planted red control, a run with no mutants and a
             planted edit that does not apply, each seen giving `VERDICT fail` and exit 1. [@I28]
-    T23  Old-suite comparison. Exists by hand: STATUS.md compares the ported payment cases and each mutant against the
-            old suite. Phase 3 writes this: the verdict-compare mode (README work list item 4), run per ported area,
-            and the area's ported mark refused while a new-suite bug is open. [@I29, @I30, @I39]
+    T23  Old-suite comparison. Exists by hand: the Task comments compare the ported payment cases and each mutant 
+         against the
+             old suite. Phase 3 writes this: the verdict-compare mode (README work list item 4), run per ported area,
+             and the area's ported mark refused while a new-suite bug is open. [@I29, @I30, @I39]
     T24  Port values. Phase 3 writes this: a type-level check that every Port data type's Schema encodes to JSON and
             that only the world's hosts and the report sink are function-typed, seen rejecting a planted `Map` field.
             [@I31]

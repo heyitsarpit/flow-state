@@ -115,4 +115,4 @@ tasks
             Task closes. Also owed here: spies for I1 (StaticCli T1), the R10 rules round-14 lacks (unfilled ports, 
             late handler, DuplicatePlacement, VerbMismatch, KeyFieldOptional, ReservedReason, the allowlist grammar), 
             I4 for graph and explain, R7's envelope (version, status, data), and whether desk's UnresolvedHold errors 
-            are right. Detail: conformance/STATUS.md, T13 part 2.
+            are right. Detail: @task.V3.T13's comments.

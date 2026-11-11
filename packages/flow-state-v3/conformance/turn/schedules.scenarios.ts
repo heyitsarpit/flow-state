@@ -24,7 +24,7 @@ const ticks = (c: Case) =>
  * - `TURN-03/re-entered`: leaving PAYING and entering it again starts a new deadline; the first
  *   activation's never fires (R14, R15, I20).
  *
- * Expected results were drafted from the Specs before the cases ran (STATUS.md, T8 schedules).
+ * Expected results were drafted from the Specs before the cases ran (@task.V3.T8).
  */
 export const schedulesScenarios: ReadonlyArray<Scenario> = [
   {

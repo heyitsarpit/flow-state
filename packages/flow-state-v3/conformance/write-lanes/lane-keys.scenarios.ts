@@ -32,7 +32,7 @@ const turnsOf = (c: Case, event: string) =>
  * The keyed-lane cases: a key-less member on a keyed operation (WriteLanes R9, I14) and a commit
  * whose input cannot encode (R12, I18), on `Lab/R15Keyed` and `Lab/R15Held`.
  *
- * Expected results were drafted from the Spec before the cases ran (STATUS.md, T7).
+ * Expected results were drafted from the Spec before the cases ran (@task.V3.T7).
  */
 export const laneKeysScenarios: ReadonlyArray<Scenario> = [
   {

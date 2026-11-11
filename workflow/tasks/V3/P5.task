@@ -480,13 +480,13 @@ tasks
 
             **Approach:** delete `adapters/prototype*.ts`, every `runtime: "prototype"` mutant, the round-14 compiler
             and CLI mutants, `limits.ts`, `catch-matrix.prototype.tsv`, `liar-prototype.txt`, the round-14 rows check,
-            the runner's prototype paths (`DEFAULT_RUNTIME`, the copy and edit of a runtime tree) and `STATUS.md`'s
-            history. Precondition: production static mutants exist (Compile in @task.V3.T17, CLI in @task.V3.T22), and
+            the runner's prototype paths (`DEFAULT_RUNTIME`, the copy and edit of a runtime tree). Precondition: 
+            production static mutants exist (Compile in @task.V3.T17, CLI in @task.V3.T22), and
             parity per Invariant holds: each Invariant some round-14 mutant proves is proved on production by a
             production mutant or by model mutation. Effort about 1 (estimate).
 
             - **May change:** `packages/flow-state-v3/conformance/`.
-            - **Evidence:** STATUS.md, one T53 section.
+            - **Evidence:** this Task's comments.
             - **False pass:** an Invariant left proved only by a deleted mutant → caught by the parity check.
             - **Gates:** falsify production, liar production and core mutants no worse than at T53's start;
               `nub run check`.

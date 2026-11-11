@@ -183,7 +183,7 @@ description
       convergence records.
     - Amendment N: a numbered change to the old roadmap (git `b30be69d`); each one that still
       applies has an Amendment note in log.task, which names its number and says what it changed.
-skill        workflow@7043010
+skill        workflow@55c7ab7
 run
     To start: "run the loop in workflow/tasks/V3/epic.task". You are the orchestrator: you start,
     track and route agents; you never build.
@@ -206,7 +206,7 @@ run
        `/Users/arpit/Developer/workflow/skills` (a Git repository); check the pin with
        `git -C /Users/arpit/Developer/workflow/skills rev-parse --short HEAD`. If it is at another
        revision, read the pinned one with
-       `git -C /Users/arpit/Developer/workflow/skills show 7043010:suites/workflow/NAME/SKILL.md`,
+       `git -C /Users/arpit/Developer/workflow/skills show 55c7ab7:suites/workflow/NAME/SKILL.md`,
        or ask the user. Before changing the loop fields (run, instructions, cadence, stops), read
        skill:build-a-loop at the pinned revision; before adding or editing a Task, read
        skill:to-task (and skill:to-epic for a phase); before adding a phase, read skill:to-epic.
@@ -225,7 +225,7 @@ instructions
     - One builder carries related Tasks; a fresh one starts only when context runs long or work moves from suite to
       production. Leads work through up to three context compactions before handing off (the user, 2026-11-11).
     - Leads report once per batch or stop, in at most 10 lines, no progress messages: verdict, commits, gate counts,
-      and the items needing a decision. Full findings and sidecar logs go in the Task's comments, STATUS.md or a
+      and the items needing a decision. Full findings and sidecar logs go in the Task's comments or a
       review file, and the report names where (the user, 2026-11-11). Sidecars report only to their lead.
     - Source of truth: the core Specs for the core; the Plans for the rest; where a Plan and the prototype disagree,
       the prototype, until a Spec records it (amendment 11; holds until P5's feature Specs exist).
@@ -249,7 +249,7 @@ instructions
       adversarial mutants from the Spec in scratch (the lead rewrites any it keeps). A reviewer sidecar checks every
       oracle, test harness or runtime change (amendment 8).
     - A lead reads every line a sidecar wrote, re-runs each check itself, confirms a mutant fails for the expected
-      reason, and logs each result as accepted, changed or rejected in the Task's comments, and in STATUS.md for P3
+      reason, and logs each result as accepted, changed or rejected in the Task's comments
       (the user, 2026-11-08).
     - Processes: up to 8 deterministic ones, about 16 GB, after checking `vm_stat`; browser runs and benchmarks alone.
 
@@ -297,14 +297,14 @@ instructions
     **Records, usage, commands**
 
     - Records lead with the bottom line and hold each fact once (the user, 2026-11-11): an Epic note is 1 to 3 lines
-      with one Why and one Reverse for a decision; a Task comment is a verdict line plus a link to its STATUS.md
-      section or review file; sidecar logs and findings tables live only there; STATUS.md keeps one short section per
-      Task, cut to a summary when done; no commit lists or gate counts beyond the one revision verified. Briefs and
-      handoffs follow the user's Writing order.
+      with one Why and one Reverse for a decision; a Task comment is a verdict line, the decisions and traps that
+      still matter with their reason, and a link to its review file; sidecar logs and findings tables live only in
+      the review files; `conformance/STATUS.md` is retired; no commit lists or gate counts beyond the one revision
+      verified. Briefs and handoffs follow the user's Writing order.
     - Compaction (the user, 2026-11-11): records are compacted with skill:compact-records at each slice's close,
       after its last review and before the next slice starts, and at the next clean point when one passes its
-      limit: `log.task` 300 lines, one Task's comments 100 lines, one STATUS.md section 150 lines. Never mid-slice,
-      and never the active Task's own section; the builder holds its record writes while it runs.
+      limit: `log.task` 300 lines, one Task's comments 100 lines. Never mid-slice, and never the active Task's
+      own comments; the builder holds its record writes while it runs.
     - Usage: the run stops at the reserve in Limits and at nothing else; no budget of iterations, time or usage.
     - Commands: under 5 minutes each, with `perl -e 'alarm N; exec @ARGV' --` or `watch.ts --seconds N`; stdin never
       read (`</dev/null`); files only with the Write and Edit tools (memory, 2026-11-04).

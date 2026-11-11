@@ -184,8 +184,9 @@ tasks
             code:packages/flow-state-v3/conformance/README.md (the Actors rows and U8 in its carry list),
             code:packages/flow-state-v3/conformance/actors/runtime-disposal.scenarios.ts#runtimeDisposalScenarios.
 
-            **Rows from T8:** the actor rows moved here are listed in code:packages/flow-state-v3/conformance/STATUS.md
-            (T8); read them before the Actors oracles.
+            **Rows from T8:** the actor rows moved here are in
+            code:packages/flow-state-v3/conformance/not-yet.ts and @task.V3.T8's comments; read them before the Actors
+            oracles.
 
             **Approach:** the Actors Spec change first (R11 `runPromise` with services, R14 the form fixed in types, R19
             the handle's `send`, `getSnapshot` and `snapshots`, each with an Invariant), the model section, the oracles

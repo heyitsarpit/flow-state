@@ -31,7 +31,7 @@ table (every obligation from a suite fact or a claim another oracle judges); (b)
 runs the machine definition on the driven events and compares; (c) something else. Weigh common-mode risk with the
 runtime.
 Read: `proposals/convergence-step9-review-2026-11-11.md`, `proposals/step9-revision-review-2026-11-11.md`,
-`conformance/dsl/lifecycle*.ts`, the trigger table in `conformance/STATUS.md`, skill:policy-testing.
+`conformance/dsl/lifecycle*.ts`, the trigger table in the retired `conformance/STATUS.md` (git), skill:policy-testing.
 
 ## Q2. Suite size and where the line is
 
@@ -45,7 +45,7 @@ Read: `proposals/lane-oracle-convergence-v2-2026-11-11.md`, `conformance/dsl/`, 
 P3's exit needs the suite green on round-14, but round-14 differs from the Spec in a growing list (redelivery,
 equal-deadline order, KeyRequired, queued commits at disposal), each a stated limit. Should the second implementation
 be a small Spec-derived executable model instead? What would it cost and what would it catch?
-Read: the round-14 limits in `conformance/STATUS.md` and `conformance/not-yet.ts`, `workflow/specs/spec-log.md`.
+Read: the round-14 limits in `conformance/README.md` and `conformance/not-yet.ts`, `workflow/specs/spec-log.md`.
 
 ## Q4. Checking the Specs' consistency, and which prover
 

@@ -5,7 +5,7 @@ The production conformance suite for Flow State v3: it runs the core Specs' guar
 (`prototypes/round-14`) now and on the production runtime in phase 4. It replaces the prototype
 harness in `prototypes/conformance/`, which stays as prior art.
 
-Round log and sidecar results: [STATUS.md](STATUS.md).
+Round and Task history: the Tasks' comments (workflow/tasks/V3), `gates.json` for numbers, git for the rest.
 
 ## How to run
 
@@ -384,7 +384,7 @@ Expectations that come from a Requirement with no Invariant of its own cite it (
    wipe, tear, corrupt; the clock set back and frozen timers; streams (sockets, EventSource,
    WebSocket).
 2. All scenarios ported (about 1,080 cases), area by area with their oracles. Pay: PAY-01 to
-   PAY-20 ported where the Port reaches (STATUS.md lists the variants not ported and why). Lane
+   PAY-20 ported where the Port reaches (@task.V3.T7's comments list what was not ported). Lane
    cases: `LANE-01` to `LANE-10` (new, from WriteLanes R6-R8, R14, R15).
 3. Searches (`prototypes/conformance/search/`) as a runner mode; the old suite's mutants (`mutants-*.ts`)
    as suite mutants; `--parallel` for both.
@@ -401,7 +401,7 @@ Expectations that come from a Requirement with no Invariant of its own cite it (
 8. **Rename to Spec areas and behaviours** (the user, 2026-11-09) **done** (@task.V3.T5, whose comment holds
    the old → new map): one folder per core Spec (`write-lanes/`, `actors/`), checks named by behaviour
    (`three-channels` → `ending-channels`, `one-delivery` → `delivered-once`, `lane-cells` → `lane-queue`),
-   `*.lies.ts` → `*.mutants.ts` and "lie" → "mutant" in this README and STATUS, scenario files by behaviour
+   `*.lies.ts` → `*.mutants.ts` and "lie" → "mutant" in this README, scenario files by behaviour
    (`pay-16.ts` → `payment-retry.scenarios.ts`, ...) with the old `PAY-nn` id kept in the `id` field for the
    old-suite comparison; prototype leftovers (`prototype-reports.ts`, `fixtures/lab.ts`) renamed. The suite's own
    mutant names `lie.*` became `mutant.*`; the old suite's names (`lie.released`, `lie.serialize-as-latest`, `k.*`,

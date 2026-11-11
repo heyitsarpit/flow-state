@@ -91,122 +91,33 @@ tasks
             - each oracle kills its listed mutants;
             - the area's verdicts match the old suite's or each difference is logged with its cited
               rule.
-        comment     2026-11-10T17:55:53Z
-            Decision (orchestrator, 2026-11-10): T7 now also rewrites lane-queue (with lane-model) and delivered-once 
-            from WriteLanes R6 to R8, R10, R14 and R15 in T40's step-fold contract (S2 of 
-            code:workflow/plans/flow/references/proposals/suite-simplicity-review-2026-11-10.md), folding in the 
-            Haiku-code review's H1 to H4, plus H5 and the I1 note; patching them is dropped. Land the rewrite with the 
-            changed verdicts listed, each with its rule (Conformance R11), and keep every constraint S2 lists. T7 goes 
-            back to open, blocked by T40. Reverse: patch the two oracles in place.
-        comment     2026-11-10T17:56:25Z
-            Evidence (builder, 2026-11-10): commit 392147bc. H5 accepted: ending-channels fails a success or commit 
-            failure with no server answer in its step (request-time answers count; unknowns and Flow's own failures 
-            exempt), mutant.success-without-answer caught as WriteLanes I3; case DISP-06. Gates from 
-            packages/flow-state-v3: suite 67/67, suite --runtime null 0/67, falsify --parallel 6 38/38, nub run check 
-            at zero. Parked by the orchestrator's call (rewrite from the Spec after T40, S2): H1 keyed lanes in 
-            lane-queue; H2 (I16 check; I22 dropped from delivered-once's guarantee until it has a check), H3 (a 
-            replaced Attempt's delivery) and H4 (no disposal excuse, only forget's) in delivered-once; mutants 
-            mutant.replaced-delivered (LANE-07, I15), mutant.success-then-failure (PAY-01, I16), 
-            d6.disposed-ending-is-evidence (DISP-06, I15), each seen caught for its reason on the parked patch, kept as 
-            the rewrite's acceptance list (patch saved outside the repo; listed in conformance/STATUS.md T7). I1 (a 
-            Sent while already on the wire) not started. Haiku reviewer of the H diff: 7 findings, 2 accepted, 4 
-            carried to the rewrite, 1 rejected, with why in STATUS.md. None of T7's own rows (I1, I2, I4, I5, I7, I10, 
-            I13, I14, I17 to I19, I23) is built yet.
-        comment     2026-11-10T19:08:38Z
-            In progress (builder, 2026-11-11): S2 is done. lane-queue and delivered-once were rewritten from WriteLanes 
-            R6 to
-            R8, R10, R14 and R15 (commits a8714be6, c1f02294). No case verdict changed. Falsify sweep: 43/43 caught. 
-            T7's own rows,
-            I22 and the T6 completion review's disposal findings (M1 to M4, M6, Lows) are not started. Detail, verdict
-            changes and sidecar log: code:packages/flow-state-v3/conformance/STATUS.md (T7 section).
-        comment     2026-11-10T19:40:28Z
-            Evidence (builder, 2026-11-11): the T6 review's disposal findings, and the T40/S2 review's H1, M2 and M3, 
-            landed (bcc2bbbb and the next commit). Suite 68/68, null 0/68, falsify 46/46, check at zero. Open: that 
-            review's M1 (needs a call), M4, M5, Lows; T41; I22; T7's own rows. Detail: 
-            code:packages/flow-state-v3/conformance/STATUS.md (T7 section).
-        comment     2026-11-10T20:09:33Z
-            Evidence (builder, 2026-11-11): the T40/S2 review's M4, M5 and Lows landed (1ab7e889..a5df7376); suite 
-            69/69, null 0/69, falsify 47/47, check at zero. Detail and sidecar logs: 
-            code:packages/flow-state-v3/conformance/STATUS.md (T7 section).
-        comment     2026-11-10T20:25:58Z
-            Handover (builder, 2026-11-11): stopped at the convergence pass on the oracles' phase state; I22 and T7's 
-            own rows wait for it. Port send-to-part kept (0eb28949). Detail: 
-            code:packages/flow-state-v3/conformance/STATUS.md (T7 section, Handover).
-        comment     2026-11-10T22:05:43Z
-            In progress (builder, 2026-11-11): convergence v2 steps 2 and 1 (part 1) landed at b6567180; suite 84/84, 
-            null 0/84, sweep 68/68, lifecycle mutation test green, check at zero. One intended reach change 
-            (lane.held-auto-resend, key at mint). Next: step 1 part 2 (Tables B and C, actor moves, the facts step). 
-            Detail: code:packages/flow-state-v3/conformance/STATUS.md (T7, Convergence v2 build).
-        comment     2026-11-10T22:31:33Z
-            Convergence step 1 part 2 landed at 1a850b5d (Tables B and C, actor moves, apply; mutation gate passes; 
-            suite 84/84, null 0/84, sweep 68/68). Detail: conformance/STATUS.md, Convergence v2 build.
-        comment     2026-11-10T22:56:26Z
-            Convergence step 3 landed (e760b472 and the next commit): reference rows with guard and unknown, a change 
-            detector against round-14's compiled machines, dsl/lifecycle-step.ts (step from facts to moves) with tests; 
-            Table B's Resend discharges an owed release (a false I12 under cancel). No oracle reads it; suite 84/84, 
-            null 0/84, coverage 0 gaps, check at zero. Next: step 4. Detail: conformance/STATUS.md, Convergence v2 
-            build.
-        comment     2026-11-10T23:43:32Z
-            Convergence step 4 landed (cf825289): lane-queue reads the Case's one fold, Port change 2, lifecycle review 
-            H1 and H2 fixed (F3 settled), PAY-21 and PAY-22 with six mutants; no case verdict changed, 
-            p1h.cancel-all-idle-declines now I21. Open: lane.held-auto-resend gets no verdict on PAY-22 in the sweep 
-            (120 s bound); the review's M1 to M4 and Lows before step 5. Detail: 
-            code:packages/flow-state-v3/conformance/STATUS.md (Convergence v2 build, Step 4).
-        comment     2026-11-11T00:06:37Z
-            Progress (builder, 2026-11-11): a time bound per case (2dec83cb; overrun is a Timeout verdict, never a 
-            catch; lane.held-auto-resend now caught, sweep 74/74); lifecycle review M2, M4, M3, M1 (pending CQ1, CQ2) 
-            and Lows L3, L4, L6, L9 (88188934..b0280fb8); step-4 reviewer items: unheard release keyed by ending and 
-            due when its ending closes unheard (dcc13b4c), releasesOnLeave per leaving transition with a positive 
-            example (b09b983b). Member mismatch stopped as a guarantee gap: no Invariant states a turn's declared 
-            members (user's call). No case verdict changed; suite 86/86, null 0/86, coverage 0 gaps, check at zero. 
-            Next: step 5. Detail: code:packages/flow-state-v3/conformance/STATUS.md (Convergence v2 build, Next run).
-        comment     2026-11-11T00:45:27Z
-            Progress (builder, 2026-11-11): reviewer of 2dec83cb..1186683d folded in (81127d25: null gate needs Fail, 
-            Timeout judging tested, the releasesOnLeave example now runs the mutated step). Step 5 landed (1f922556, 
-            31933a7b): delivered-once reads the fold; Port change 5; F2; three lead's calls from round-14 (a Reload 
-            owes each Held head's restore; Opens on a parked ending is ParkedOpen; a never-sent commit's disposal 
-            ending stays Parked, pending CQ6). Step 4 review H1 fixed (7f8c331b): a turn owes its chosen row's members; 
-            mutant.cancel-members-dropped caught again in the reviewer's 8 cases; retires the member-mismatch item. No 
-            case verdict changed (sweeps 74/74 and 77/77); suite 86/86, null 0/86, coverage 0 gaps (35), lifecycle 
-            tests 30/30, check at zero. Next: review M1, M3, M4, Lows, then steps 6 to 9. Detail: 
-            code:packages/flow-state-v3/conformance/STATUS.md (Convergence v2 build, Run 3).
-        comment     2026-11-11T01:21:54Z
-            Progress (builder, 2026-11-11): step 4 review M1 (c51f6501, cancelAll head-last anchored to its turn; 
-            LANE-04 I21 restored), M3 (47f27231, PAY-21 answers by key), M4 (c50bd327, refusals cite their own rule; 
-            the four missing verdict rows logged), L1 (e114b165, lane-model.ts and mayCancel gone). Rest of step 5 
-            (4ee99037): DLV-05 and mutants 1b.r8-third-try, kept-retried-without-boot (Actors I24), 
-            adoption-skips-parked, restored-twice. Step 8 part: ending-lives.ts and written-attempts.ts deleted. Suite 
-            87/87, null 0/87, sweep 81/81, coverage 0 gaps (36), tests 30/30, check at zero. Pending CQ1, CQ2, CQ6 
-            followed as written. Next: steps 6 and 7. Detail: code:packages/flow-state-v3/conformance/STATUS.md 
-            (Convergence v2 build, Run 4).
-        comment     2026-11-11T01:50:49Z
-            Run 5: step 6 landed (c95fdf78; disposal reads the fold, mutant.bound-ending-wrong-tag; the two boot lies 
-            relabelled to WriteLanes I15, logged in STATUS). Step 5 review H1, L4, L5 fixed (7b0a4696); M1 open (needs 
-            a storage fact: PAY-09/ack-not-stored), M2 mutant not added (no Invariant to expect). Next: steps 7 and 8. 
-            Suite 87/87, null 0/87, sweep 83/83, coverage 0 gaps (36).
-        comment     2026-11-11T02:28:31Z
-            Run 6 (builder, 2026-11-11): step 7 (9bb7fa5d; ending-channels and attempt-identity stay off the fold as 
-            its independent judges, template keys gone, key check with mutant.mint-key-differs, the fold's I6 
-            unclaimed, claim test), step 5 review M1 (87ee9d9f; Port change 8, Acknowledged storage fact, 
-            mutant.restore-skips-unsent; mutant.boot-skips-restored now Restore I6 in 
-            PAY-09/ack-stored-confirmation-lost and PAY-18), step 8 (a6c2bfcf; cancels gone, README), step 6 review M3 
-            mutant. Falsify 86/86, suite 87/87, null 0/87, coverage 0 gaps (36), check at zero. Not started: the 
-            coordinator's member-resolution convergence (step 6 review H1, M2); M1 (owed retry unchecked) pending for 
-            the user. Detail: code:packages/flow-state-v3/conformance/STATUS.md (Convergence v2 build, Run 6).
-        comment     2026-11-11T03:04:51Z
-            Member resolution converged (R35, step 4-6 reviews' H1): one rule, owedMembers in dsl/lifecycle-owed.ts; PD 
-            caught, PG/PH green probes, PF pending the user (owed retry re-send unchecked); Lows dispositioned. See 
-            packages/flow-state-v3/conformance/STATUS.md, Run 7.
-        comment     2026-11-11T07:05:52Z
-            Rows round: I4, I5, I7, I13 (in part), I25 and I15's releasing clause checked; I28 to T18; I2, I9, I14, I17 
-            to I19, I23, I24, I26, I27 still T7's; R11 compare finds no gap. Falsify 132/132. Detail: 
-            conformance/STATUS.md, T7 Rows round.
-        comment     2026-11-11T08:10:24Z
-            Rows round 2: I9, I14, I17, I18, I23, I26 checked; I2, I24, I27 in part; Port gained a release per boot and 
-            entity reads; only I19 is still T7's. Detail: conformance/STATUS.md, T7.
-        comment     2026-11-11T12:41:40Z
-            Merged into T18 (replan, accepted 2026-11-11). Done as merged; its open rows (I2, I19, I24, I27, I28) go 
+        comment     2026-11-11T15:10:00Z
+            Verdict: done as merged into T18 (replan, 2026-11-11); open rows (I2, I24, I27, I28; I19 went to T24) go 
             with T18.
+            Reviews are under `workflow/plans/flow/references/proposals/` (t6-completion, t40-s2, t7-fixes, lifecycle, 
+            step4,
+            step5, step6, t8-t7-rows). Counts: `gates.json`.
+            Decision (orchestrator, R35): one lifecycle fold (`dsl/lifecycle*.ts`) is read by `lane-queue`, 
+            `delivered-once` and
+            `disposal`; `ending-channels` and `attempt-identity` stay off it as independent judges. What a turn owes 
+            comes only
+            from the reference and suite facts, never the report (`dsl/lifecycle-owed.ts#owedMembers`); a claimed row 
+            (Pay's
+            `Leave`, `Confirmed` from LEFT) is owed only when its members are reported, a stated limit.
+            Landing rule (Conformance R11): list every changed verdict with its rule, and diff each red case's
+            `oracle: Invariant` set per mutant, not only the red sets.
+            Rulings that replaced old pending items: CQ1, CQ3, CQ6, R9 and an owed retry's re-send (WriteLanes I26,
+            `lane.retry-members-dropped`), in log.task 2026-11-11T03:30:58Z.
+            Traps: a sweep on a scratch copy has no `workflow/`, so its coverage line reads BAD; the lifecycle reads 
+            each turn
+            header as `selection` judged it, never as reported; `Finished`, a delivered ending's `Denied` and an 
+            unattributable
+            `Unhandled` are still excused by a report (T9, T17).
+            Open for T18 and T15's audit: no oracle catches a key-less cancel landing on the other key's lane (LANE-13's
+            expectation alone does); a commit on a lane holding a kept ending needs a Table B row (CQ3); I23, I17, I2, 
+            I19, I24
+            need an oracle on late answers, a fixture release at `Boot`, and a domain-write fixture with a Port read of 
+            entity data.
     T8
         title       Turn area complete
         status      done
@@ -246,24 +157,23 @@ tasks
             - verdicts match the old suite's or each difference is logged with its cited rule.
             - Turn R4 and R23 each have an Invariant with an oracle or case, and token.child a case; the owed checks
               above exist.
-        comment     2026-11-11T04:02:34Z
-            Selection oracle built (Turn I2): every turn header judged against hand-written handler tables and suite 
-            facts; the step 9 review's header probe is its first mutant, caught. Suite 92/92, null 0/92, falsify 
-            103/103, coverage 41/186, 0 gaps. Detail: packages/flow-state-v3/conformance/STATUS.md, T8.
-        comment     2026-11-11T06:07:05Z
-            Every Turn Invariant checked, in part (rest in turn/remainders.ts), or owed by T18/T21 (proposed, for the 
-            user's read); step 9 revision review H1, H2, probes and Mediums fixed. Suite 98/98, null 0/98, falsify 
-            126/126. Detail: packages/flow-state-v3/conformance/STATUS.md, T8 round 2.
-        comment     2026-11-11T06:26:56Z
-            Typed adapter failures done: an unreadable report, issue, snapshot or row is Unreadable (port.ts), named 
-            apart from defects; falsify 126/126 at 1e11786c. Detail: conformance/STATUS.md, T8.
-        comment     2026-11-11T08:10:20Z
-            Review fixes H2, M1, M2, M4 to M6, R11 done; H1 in part: Turn I3, I10, I11, I17 checked, I5 in part; I1, 
-            I4, I6, I24, I35 still T8's; I32 to T18 as a round-14 deviation. M3 needs the user: Actors R15 vs 
-            WriteLanes R10 and D4 on redelivering refused turns. Falsify 149/149. Detail: conformance/STATUS.md, T8.
-        comment     2026-11-11T12:41:45Z
-            Merged into T17 and T9 (replan, accepted 2026-11-11), closed as moved: the Turn rows to T17, actor rows to 
-            T9, each with its evidence in STATUS.md, T8.
+        comment     2026-11-11T15:10:00Z
+            Verdict: merged into T17 (Turn rows) and T9 (actor rows) by the replan; rows and evidence are in
+            `conformance/not-yet.ts` and `turn/remainders.ts`.
+            Trap: `not-yet.ts` still names T7, T8, T10, T11 and T12 as owners, so `nub run conformance:coverage` fails 
+            (64 gaps).
+            Decisions (agent): `selection` judges every turn header (Turn I2) from hand-written handler tables, and the 
+            carried
+            leaf is the table's, never the report's; a disposal drops the leaf because the record may lag (DISP-02, 
+            DISP-06 go red
+            otherwise: round-14 restores IDLE). An unreadable report is a typed `Unreadable` (`port.ts`), not a thrown 
+            defect
+            that round-14's sink swallows and drops the batch. TURN-01 asserts two issues (Actors R15, CQ2 in 
+            spec-log.md).
+            Round-14 deviations (README): Turn I32 (arm order) goes to T18, Actors I38 to T9.
+            Unresolved: rows owed to T18 and T21 (Turn I16, I18, I28, I31 to I34; I25) were proposed for the user's 
+            read; check
+            that those Tasks now allow suite cases. Open for T17: Turn I1, I4, I6, I24, I35 (evidence in `not-yet.ts`).
     T13
         title       Static cases for Compile, Diagnostics, Codec and StaticCli
         status      done
@@ -296,29 +206,18 @@ tasks
         acceptance
             - Every Compile, Diagnostics, Codec and StaticCli Invariant has a case;
             - each case fails on its planted wrong compiler or CLI output.
-        comment     2026-11-10T20:55:42Z
-            First slice built and gated: static cases on a Surface, a case-covered coverage kind, Compile I1, I2, I4, 
-            I5, I6, I11, I15, I16 checked (CMP-01 to CMP-07, ten mutants caught). StaticCli, and the Invariants 
-            round-14 cannot make, still owed. Detail: packages/flow-state-v3/conformance/STATUS.md, T13.
-        comment     2026-11-10T21:23:20Z
-            Part 2 built and gated: StaticCli I1, I4 to I9, I12 by CLI-01 to CLI-08, I2 by the graph-names oracle; the 
-            28 static Invariants round-14 cannot make moved to T17, T20 and T22 in not-yet.ts; Conformance Q5, Q11, 
-            Q12, Q14 and Compile R17 revised, Compile Q3 open for the user. Suite 84/84, null 0/84, falsify 68/68, 
-            coverage 33/186 with 0 gaps. Detail: packages/flow-state-v3/conformance/STATUS.md, T13 part 2.
-        comment     2026-11-10T21:25:18Z
-            Orchestrator verification at c1427047: 84/84, null 0/84, falsify 68/68; every static Invariant round-14 can 
-            make is checked, the rest owned by T17, T20 and T22. Done. Detail: STATUS.md "T13 part 2".
-        comment     2026-11-10T21:28:33Z
-            Reopened (orchestrator, from code:workflow/plans/flow/references/proposals/t41-t13-review-2026-11-11.md): 
-            H1 a crash at Runtime creation is read as a refusal (R9); M1 I15's Slot half and M3 I1, I6, I11 halves 
-            claimed but unchecked; Compile I7, I8, I13, I14 are makeable on round-14 (ReservedStateName, 
-            DuplicateMachine) and come back from T17.
-        comment     2026-11-11T03:39:56Z
-            Review fixes built and gated (T41/T13 H1, M1 to M3; StaticCli/Port H1, M1 to M3): crash is never a refusal, 
-            remainder rows for partial checks, owners must be open Tasks, Compile I7, I8, I13, I14 checked on round-14, 
-            CLI-09 graph-vs-Compiled, Rule20Late row, two old mutants re-anchored. Suite 92/92, null 0/92, falsify 
-            100/100, coverage 40/186 (18 in part), 0 gaps. Detail: packages/flow-state-v3/conformance/STATUS.md, T13 
-            part 3.
+        comment     2026-11-11T15:10:00Z
+            Verdict: done; every static Invariant round-14 can make is checked; the rest are owed in `not-yet.ts` 
+            (Compile and
+            Diagnostics to T17, Codec to T20, StaticCli I3, I10, I11 to T22). Reviews: t41-t13-review and
+            staticcli-port-review under `workflow/plans/flow/references/proposals/`.
+            Decisions (agent): a crash is never a refusal (only a throw with a leading `Code:` counts); every 
+            `not-yet.ts` owner
+            must be an open Task; CMP-10 accepts a refusal at construction or at Runtime creation (round-14 refuses at 
+            creation).
+            Limits: the graph gate judges only `pay`; `desk` and `desk-listen` report UnresolvedHold errors (T22); CLI 
+            I1 reads
+            the CLI's own `callbacksRun`, not spies (T22).
     T16
         title       The Pay path end to end on production
         status      done
@@ -347,13 +246,16 @@ tasks
             - **User's read:** module layout.
         acceptance
             The Pay cases pass on production through the Port; their mutants are killed.
-        comment     2026-11-11T09:24:19Z
-            Pay path runs on production: 61/61 Pay cases, falsify --runtime production 13/13 at 8bd0cfb9. Public 
-            exports (provisional), layout, decisions and review logs: packages/flow-state-v3/conformance/STATUS.md, T16 
-            section.
-        comment     2026-11-11T10:29:55Z
-            Review fixes (t16-review-2026-11-11.md) landed with failing-first public-API tests; kept-ignored owed to 
-            T44. Log: packages/flow-state-v3/conformance/STATUS.md, T16 review fixes.
+        comment     2026-11-11T15:10:00Z
+            Verdict: the Pay and Cells cases pass on production; review fixes (t16-review) landed with failing-first 
+            tests.
+            Proposed, for the user's read: the layout, `src/core/` pure and `src/host/` the Effect edge.
+            Decision (agent): Pay keeps the 3-D Secure alternatives as guarded stays so places match; its deadline is 
+            the
+            commit's `Effect.timeoutOrElse` over a detached request fiber. **Reverse:** drop both.
+            Traps: non-reject concurrency is refused at compile time; production has no `flow graph`, so the graph gate 
+            does not
+            judge its turns; the real host's visibility and storage are T19's.
     T43
         title       Production code uses Effect's features instead of hand-rolled ones (audit R1 to R8)
         status      done
@@ -373,7 +275,7 @@ tasks
             alone with the suite green on round-14 and the Pay cases green on production.
 
             - **May change:** `packages/flow-state-v3/src/`, the production adapter, lint configuration.
-            - **Evidence:** STATUS.md, one T43 section.
+            - **Evidence:** this Task's comments.
             - **False pass:** a refactor that changes behaviour unnoticed → caught by the suite on production and
               the production mutants.
             - **Stops:** a guarantee change.
@@ -381,10 +283,13 @@ tasks
             - R1 to R8 applied, or one rejected with a logged reason;
             - suite green on round-14; Pay cases green on production; production mutants all caught;
             - `nub run check` at zero.
-        comment     2026-11-11T10:29:50Z
-            R1 to R8 applied, each alone, suite green on round-14, Pay cases and 17 production mutants on production, 
-            at 90c9f3bd; none rejected. The advisor's wedged-inbox bug confirmed by a failing test and fixed. Details: 
-            packages/flow-state-v3/conformance/STATUS.md, T43 section.
+        comment     2026-11-11T15:10:00Z
+            Verdict: R1 to R8 applied at 90c9f3bd, each alone, none rejected.
+            Trap (the advisor's bug, confirmed by a failing test first): a throwing inspector left the driver's loop
+            marked running, so later inputs stayed queued. A throwing sink now detaches itself, and the loop is released
+            before a step defect is rethrown. No production mutant reaches it (no Port path throws in a sink); the test
+            was falsified by hand.
+            R2 fixed a real bug: payloads were never decoded; the public send now decodes and throws InvalidEvent.
 
     T44
         title       The suite judges from its own facts only, gated by machines
@@ -407,17 +312,26 @@ tasks
             generated gate file that notes and reports cite instead of hand-copied numbers.
 
             - **May change:** `packages/flow-state-v3/conformance/`, lint configuration, `package.json` scripts.
-            - **Evidence:** STATUS.md, one T44 section; the generated gate file.
+            - **Evidence:** this Task's comments; the generated gate file.
             - **False pass:** a report path left open → caught by the liar gate.
         acceptance
             - obligation code takes no runtime report (type and lint enforced);
             - under the liar gate no behavioural mutant turns green;
             - catch matrix, core mutants, crash generator and gate file run on every checkpoint.
-        comment     2026-11-11T11:44:31Z
-            Liar gate: production 13/13 red, round-14 122/131; the 9 greens need fixtures that hear the act (T47). Lint 
-            bars reports from the lifecycle tables only; lifecycle-step, lifecycle-owed and selection still read 
-            reports (T45). Gates run liar, crash (70 red, kill rollback gap, T45) and 85 core mutants (61 killed). 
-            code:packages/flow-state-v3/conformance/STATUS.md#T44
+        comment     2026-11-11T15:10:00Z
+            Verdict: done, remainders moved to T45, T47 and T18; counts are in `gates.json`.
+            The round-14 liar greens need fixtures whose handler hears the act or the order, such as a serialize or
+            latest machine counting `No` and `Unsure`, or a same-lane member pair (T47).
+            18 mutants are recorded as report truth only, each with its reason (`suite.ts` `reportTruth`).
+            Trap: lint bars `Observation` and `Fact` from the lifecycle's six table modules only. `lifecycle-step.ts`,
+            `lifecycle-owed.ts` and `turn/selection.ts` still read reports (owed members read the reported header and
+            keys) until T45's expect/compare split.
+            Decision (orchestrator): a kept ending holds its lane (WriteLanes R6, CQ3; DLV-06, `prod.kept-ignored`).
+            Open for T18: other concurrencies beside a kept ending, and a kept-only lane's production row (Plan
+            Operations O6 is silent; I8 says the lane exists).
+            The production crash gate is red because the model does not roll a lane back to its last landed capture at
+            a kill (Restore R3, WriteAhead R10): T45. `k.drop-row` and `q1a.unchanged-resets` stay pending probes until
+            WriteAhead I4 has an oracle (T45, T10).
 
     T45
         title       An executable Spec model computes expected results and generates cases (pilot: persistence)
@@ -454,7 +368,7 @@ tasks
             its gate. Absorbs @task.V3.T14 (searches and mutants as runner modes; the machine verdict form). Effort 3
             (estimate). Read code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part 3, "R Rework").
 
-            **Remaining steps, in order** (rebuilt 2026-11-11 from STATUS.md, T45; the lead's scratchpad plan is gone):
+            **Remaining steps, in order** (rebuilt 2026-11-11; the lead's scratchpad plan is gone):
 
             1. Restore the disposal catch of `o6.settled-in-bound-stays-held` (falsify round-14 147/147). Keep a parked
                ending saved in disposal owed; allow only unsaved definite endings.
@@ -483,7 +397,7 @@ tasks
               in @task.V3.T52.
 
             - **May change:** `packages/flow-state-v3/conformance/`.
-            - **Evidence:** STATUS.md, one T45 section.
+            - **Evidence:** this Task's comments.
             - **False pass:** the model shares a runtime's misreading → caught by a different model family reading
               a sample of expectations, and by the mutants.
         acceptance
@@ -502,12 +416,23 @@ tasks
             - Phase-out checks (the four validations): no lost catch in the catch matrix; the same coverage and
               feature-matrix rows; the derived reference equal to the hand rows wherever both exist;
               Compile static cases green on each fixture's `Compiled`.
-        comment     2026-11-11T11:51:17Z
-            Paused at 1f1a1676. Red: falsify round-14 146/147 (o6.settled-in-bound-stays-held lost its disposal catch). 
-            Done: an unsaved ending may restore at a boot, and an actor with unsaved turns resumes at an unknown leaf 
-            (production crash points 600 to 629 of 670). Found: production's disposal ends a restored Held head NotSent 
-            Disposed. Resume: restore that catch, then evidence and parked endings. 
-            code:packages/flow-state-v3/conformance/STATUS.md#T45
+        comment     2026-11-11T15:10:00Z
+            Paused (the user, 2026-11-11) at c2f6983b (WIP at 1f1a1676). Red: falsify round-14 146 of 147, because
+            `o6.settled-in-bound-stays-held` is caught only by its case since the allowed-restore change.
+            Done: every storage landing is a fact. An ending with no landing after it may restore `unknown { Restored }`
+            at the boot (allowed, not owed). An actor with turns no landing holds resumes at an unknown leaf.
+            Production crash points went from 600 to 629 of 670 (`gates.json` still holds the earlier 600).
+            Found: after a boot restores a Held head, production's disposal ends it `NotSent { Disposed }` (26
+            production-only crash points, e.g. PAY-01@6). That fix is production work outside `conformance/`:
+            @task.V3.T51.
+            Open: evidence endings (Released, Superseded) and parked endings saved by no landing, in the lifecycle and
+            in `evidence-kinds` (PAY-03@7, DISP-0x); the PAY-07 and DLV-06 leaves; the generators (exhaustive search,
+            seeded runs with shrinking); report-free owed members; the kill counts.
+            Resume:
+            1. Restore `o6.settled-in-bound-stays-held`'s disposal catch first.
+            2. Keep a parked ending saved in disposal owed, and allow only unsaved definite endings.
+            3. Rerun falsify and `crash --runtime production`.
+            4. Then the remaining steps in the description, in order.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open
@@ -556,7 +481,7 @@ tasks
             (replan part 1). The catalogue file is not edited; this Task's matrix and the slice tables supersede them.
 
             **Declares today's codes:** the 15 codes production implements now (the replan's R row), listed from
-            `adapters/production.ts` and recorded in STATUS.md, T47.
+            `adapters/production.ts` and recorded in this Task's comments.
 
             **Bench:** turn cost per part (median and p99) is recorded as a measurement, not a gate; only the work
             fingerprint check gates (the user declined up-front optimisation, 2026-11-11).
@@ -584,7 +509,7 @@ tasks
 
             - **May change:** `packages/flow-state-v3/conformance/`, `packages/flow-state-v3/fixtures/`,
               `packages/flow-state-v3/bench/` (fixtures, world, generator, runner).
-            - **Evidence:** STATUS.md, one T47 section; the generated gate file.
+            - **Evidence:** this Task's comments; the generated gate file.
             - **False pass:** parts that differ in name but reach the same cells → caught by table-cell reach and model
               mutation across parts.
             - **Gates:** matrix, combination, falsify, liar and core-mutant gates; `nub run check`.
@@ -648,7 +573,7 @@ tasks
             model (here or @task.V3.T45); their cases stay until then.
 
             - **May change:** `packages/flow-state-v3/conformance/`, `packages/flow-state-v3/fixtures/`.
-            - **Evidence:** STATUS.md, one T52 section.
+            - **Evidence:** this Task's comments.
             - **False pass:** a derived reference that copies a compiler bug → caught by the frozen golden and the
               Compile static cases.
             - **Gates:** falsify on round-14 and production; matrix and coverage; `nub run check`.
@@ -740,7 +665,7 @@ tasks
             comments, with a lint pattern. Effort 2.5 (estimate).
 
             - **May change:** `packages/flow-state-v3/src/`, the production adapter, lint configuration.
-            - **Evidence:** STATUS.md, one T51 section.
+            - **Evidence:** this Task's comments.
             - **False pass:** a rewrite that changes behaviour unnoticed → caught by the unchanged suite on production
               and the core mutants.
             - **Gates:** production, falsify production, liar and core mutants no worse than at T51's start, as recorded

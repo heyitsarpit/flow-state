@@ -372,6 +372,22 @@ tasks
             changed). Orchestrator verification: re-ran the map over the before captures, all six match byte for byte;
             nothing under `prototypes/` changed; @spec.Conformance's `code:` links and Q8 and Q10 use the new check
             names, its prose said `three-channels` and `lane-cells` when this closed. Acceptance met.
+        comment     2026-11-11T15:10:00Z
+            Suite build, rounds 1 to 5 (2026-11-09; the round log is in git before STATUS.md's retirement). Stated
+            limits are in code:packages/flow-state-v3/conformance/README.md ("Stated limits"); counts in `gates.json`.
+            Decision (the user, round 5, as logged then): revert the `Context.Service` restructure, because scenarios
+            had to `yield*` every step, noise that turned simple code into noisy code. A `Port`'s `boot` returns a
+            plain `Runtime` record, the world is plain owned state with synchronous steps, a scenario's `run` is
+            `(c: Case) => void` (README decision 6). Reverse: re-apply `c7f72a9c` and `3097ea3c`.
+            Decision (the user, round 3 to 4): fixtures and actor views are typed by their Schemas, the Port per
+            fixture with generics.
+            Trap: the old suite runs only with `--no-catalog` (its catalog reads a deleted design file).
+            Old-suite weaknesses the ports found (all covered now): no named oracle for "every send carries the same
+            input" (`mutant.resend-new-input` was caught only by the recorded-output compare), none for the queue bound
+            (I8) or R7 under latest, and cancelAll's order was checked by one case.
+            Trap: `ending-channels` does not judge an ending in a later step than its answer, because pairing across
+            steps misjudges a cancel or timeout between an answer and a re-send; `delivered-once` owns "every send 
+            ends".
     T6
         title       Judged Runtime disposal per case, and tsgo in check
         status      done
@@ -417,7 +433,6 @@ tasks
             - A kept lane needs a delivery plus unknown { Restored } or a disposal-reported ending; `Delivered` carries
               no channel, so a parked ending's channel is not compared (stated limit). `judge` keeps the first violation
               per oracle per step (noted, pre-existing).
-            - Sidecar logs for T6: conformance/STATUS.md, T6 section.
         comment     2026-11-10T17:42:40Z
             **Decisions:**
 
@@ -434,7 +449,7 @@ tasks
               ending at the next boot when its actor is re-attached, Restore I6; a never-sent commit ends during the
               disposal) and I30 (no request from the start to the next reload). **Why:** one oracle per guarantee,
               anchored to the server log. **Reverse:** drop `end()` from `playCase` and the guarantee from `suite.ts`.
-            - Decision (user, 2026-11-10, Q1 A): R22's bound gets Actors I35 and I36 (see STATUS.md, T6), judged by the
+            - Decision (user, 2026-11-10, Q1 A): R22's bound gets Actors I35 and I36, judged by the
               `disposal` oracle, with `o6.dispose-interrupts-wire` and `o6.no-bound` (I35) and
               `o6.settled-in-bound-stays-held` (I36) registered; reason in `workflow/specs/spec-log.md`. **Reverse:**
               drop I35 and I36 and re-list the o6 mutants as unregistered.
@@ -465,8 +480,9 @@ tasks
             --parallel 6` 38/38 caught, each by the Invariant it expects; `nub run check` zero, and a planted
             `unknownInEffectCatch` fails it. Every case ends with a judged disposal, the disposal mutants (including the
             three `o6.*` under I35 and I36) are killed, and tsgo runs in `nub run check`. The R22-bound stop was
-            resolved by the user (Q1 A, above). Haiku reviewers' results (accepted and rejected, with why):
-            conformance/STATUS.md, T6 section.
+            resolved by the user (Q1 A, above). Reviews:
+            code:workflow/plans/flow/references/proposals/t6-completion-review-2026-11-10.md; the catch of each mutant
+            is in `conformance/catch-matrix.prototype.tsv`.
     T40
         title       Suite simplified: one oracle contract, shared domain facts, dead surface removed
         status      done
@@ -495,7 +511,7 @@ tasks
 
             - **May change:** `packages/flow-state-v3/conformance/` outside the two oracles T7 rewrites;
               `tools/lint-bomb/STYLE.md` for the review's two lines.
-            - **Evidence:** this Task's comments; STATUS.md.
+            - **Evidence:** this Task's comments.
             - **False pass:** a simplification that drops a check while verdicts look the same → caught by the
               falsify sweep's red and caught-by sets compared before and after.
             - **Gates:** suite, null and falsify sweep byte-identical for verdict-neutral items; per-case verdict
@@ -537,7 +553,20 @@ tasks
             oracles and first Invariant and in the sweep's red and caught-by sets; texts now list every violation).
             Verified (orchestrator, HEAD `ac9e0fa0`, clean tree): suite 67/67; null 0/67; falsify 38/38 caught, each by
             its expected Invariant; `nub run check` zero. Acceptance met. Sidecars (R5/R9 reviewer of S1, 15 findings;
-            parity reviewer of S3 and S8, none): conformance/STATUS.md, T40 section.
+            parity reviewer of S3 and S8, none): accepted fixes are in `1592361b`.
+        comment     2026-11-11T15:10:00Z
+            Decisions (agent): `reportsOf` stays inside the Case behind its five readers (`endings`, `evidence`, 
+            `issues`,
+            `denials`, `runtimeDisposals`), so 42 scenario call sites keep their one-word reads; `Mismatch` and 
+            `Violated`
+            live in `dsl/oracle.ts`. Rejected, with reasons: dropping `Fixture`'s four generic parameters (the lint's
+            sanctioned place for `Schema.Codec<unknown, unknown>`), and dropping `declared` and `NotInFixture` in
+            `actor.ts` (with `noUncheckedIndexedAccess` a generic table lookup is `| undefined`).
+            Noted: an oracle's defect hides later oracles' violations in that step, and a `Read` is its own cut.
+            Carried: the machine verdict form (violations flattened to text, a step label, one failing seed, a thrown
+            defect counted `Fail`: Conformance Q2 and R9), moved to T14, which @task.V3.T45 absorbed; S8's adapter 
+            decode-once, by
+            the brief.
     T41
         title       Coverage gate: every core Invariant checked or owned
         status      done
@@ -558,7 +587,7 @@ tasks
             in the fast gates. Prove it with a planted uncovered Invariant that makes it fail.
 
             - **May change:** `packages/flow-state-v3/conformance/`, `package.json` scripts.
-            - **Evidence:** STATUS.md, one T41 section.
+            - **Evidence:** this Task's comments.
             - **False pass:** a "not yet" row that never expires → caught by T15's audit, which reads the table.
             - **Gates:** the planted uncovered Invariant; `nub run check`.
         acceptance
@@ -568,7 +597,12 @@ tasks
             - it runs with the suite's fast gates.
         comment     2026-11-10T20:21:11Z
             Evidence (builder, 2026-11-11): coverage gate built and run before falsify; planted gaps fail it; 16 of 186 
-            checked, 170 owed, 0 gaps. Detail: code:packages/flow-state-v3/conformance/STATUS.md (T41 section).
+            checked, 170 owed, 0 gaps. Numbers: `gates.json`.
+        comment     2026-11-11T15:10:00Z
+            Trap: an Invariant counts as covered by declaration; falsify proves the catch. Coverage reads each owner 
+            with
+            `workflow show --json` and fails on an owner that does not resolve or is done, so a Task merged away leaves
+            its `not-yet.ts` rows red (see @task.V3.T8).
     T42
         title       Core Specs revised from the Invariant audit and the open rulings
         status      done

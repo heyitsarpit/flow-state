@@ -47,7 +47,8 @@ fell into. This skill exists to delete everything else.
 - At the close of an area or phase, after its last review, so the next one starts from short
   records.
 - When one record passes its limit: by default 300 lines for a log, 100 lines of comments on one
-  Task, or an instruction section that repeats a rule.
+  Task, or an instruction section that repeats a rule. A limit applies to the unit it names (a whole
+  log, one Task's comments, one section), so compact that unit, not the whole file.
 - When the user asks.
 
 Not on every change: compacting mid-work deletes context the current builder still needs, and two
@@ -61,10 +62,14 @@ agents editing one record overwrite each other.
 2. **Name its sources.** For each record, list what its entries can be checked against: the version
    history, the code, generated result files (test counts, gate results), and the records it links
    to. An entry with no source to check is kept, marked unverified.
+3. **Pin the old text.** Note the commit the record is at before you start, and give it to the
+   second reader. Compact on a clean tree, or commit the record first, so that commit holds the
+   whole input.
 
 ## Steps
 
-1. **Classify every entry,** reading its source as you go:
+1. **Classify every entry,** reading its source as you go. The test for keeping one: would a future
+   reader act differently without it? If not, it goes, whatever its age.
    - **Keep** a decision, a correction or a trap: what was decided or found, why, who decided it,
      and how to reverse it. Keep the decider's own words verbatim where they settle something, and
      quote exact rule text (an invariant, a requirement) rather than paraphrasing it.
@@ -85,18 +90,24 @@ agents editing one record overwrite each other.
 3. **Mark status.** Each kept decision says whether it is confirmed (by whom, when) or proposed.
    Each kept fact says how it was known (a test, a review, a reading of the code). Where the entry
    gives no decider or date and the history doesn't either, write "unattributed" and list it.
-4. **Keep a short head.** A record that agents load at the start of every session starts with a few
+4. **Check what entries point at.** Ids and owners go stale: a rule renumbered or folded into
+   another, a Task merged or closed, a file moved. Every id, owner and path a kept entry cites must
+   still resolve to what the entry means; fix it or flag it. Generated or data files that name
+   owners (a list of owed checks, for example) go stale the same way: re-own their rows when a Task
+   is merged or closed, and run whatever gate reads them.
+5. **Keep a short head.** A record that agents load at the start of every session starts with a few
    lines saying what is current, linking to the rest. The head is part of the record, not a new
    page. Instruction sections state each rule
    once, in its current form, grouped by topic, with no history.
-5. **Shrink, don't grow.** The result must be shorter than the input. If every entry is a kept
+6. **Shrink, don't grow.** The result must be shorter than the input. If every entry is a kept
    decision and nothing can go, report that and change nothing; the result is never longer. Do not
    create pages that only restate other pages; a page that abstracts nothing is bloat.
 
 ## Check before you hand back
 
-- **No decision lost:** list every decision, amendment and correction in the input, and show where
-  each one is in the output, or which later entry supersedes it.
+- **No decision lost:** make a table with one row per decision, amendment and correction in the
+  input: the entry, and where it now lives (the output entry, a later entry that supersedes it, or
+  the instructions, Spec or plan that already state it). A row with no destination is a loss.
 - **No link broken:** every link in the output resolves; run the link check the project's
   instructions name, or check each link by hand if it names none.
 - **No contradiction kept:** every flagged entry is fixed or listed.

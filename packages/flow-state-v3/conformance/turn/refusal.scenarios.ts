@@ -16,7 +16,7 @@ import { CAPTURABLE, CART, onWire, sent, shopper, start } from "../fixtures/pay-
  *   (WriteLanes R10).
  * - `TURN-02`: an event no state handles is Unhandled and changes nothing (Turn R9).
  *
- * Expected results were drafted from the Specs before the cases ran (STATUS.md, T8 refusal).
+ * Expected results were drafted from the Specs before the cases ran (@task.V3.T8).
  * Any refused turn's ending is redelivered once and a second refusal is final (WriteLanes R10,
  * Actors R15; @plan.Pending D4), so both variants expect two `InvalidTurn` issues.
  */

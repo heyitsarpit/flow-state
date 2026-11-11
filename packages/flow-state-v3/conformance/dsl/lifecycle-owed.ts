@@ -175,7 +175,7 @@ const releasesOwed = (known: Known, turn: Turn) =>
 /**
  * The lane members a turn owes, in order: its row's members, then its releases on leave. They come
  * only from the reference and the turn's facts; the report can confirm a member and give a key,
- * never retarget, remove or unclaim one (STATUS, "Member resolution").
+ * never retarget, remove or unclaim one (@task.V3.T7's comments).
  *
  * **When to use**
  *

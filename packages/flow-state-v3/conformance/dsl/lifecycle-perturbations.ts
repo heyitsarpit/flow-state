@@ -495,7 +495,7 @@ const judgeRow = (run: Step, known: Known, fixture: Fixture, row: Row) => {
  * **When to use**
  *
  * The step's tests run it on `step` and on each step mutant: the perturbation test of the
- * member-resolution convergence (STATUS, Run 7).
+ * member-resolution convergence (@task.V3.T7's comments).
  *
  * **Details**
  *

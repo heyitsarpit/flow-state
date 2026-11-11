@@ -17,13 +17,13 @@ export const notYet: ReadonlyArray<NotYet> = [
     invariants: invariantsOf("WriteLanes", [19]),
   },
   {
-    owner: "@task.V3.T8",
+    owner: "@task.V3.T17",
     why: "showable on round-14, not built yet (the T8/T7 rows review's H1): a self transition and exit and entry order in compound states (I4, I6; turn.ts:186-196, audit1b's history fixture, R15-01), placements by key (I24; roomFixture, P1-S, mutants-p1s.ts), .each copies' per-key timers (I35 in part; FRAG-06, FRAG-20); I1 is one leaf name on the Port (publish.ts:34), so only a compound fixture's Published path could show it",
     invariants: invariantsOf("Turn", [1, 4, 6, 24, 35]),
   },
   {
     owner: "@task.V3.T18",
-    why: "round-14 cannot show these (searched round-14's turn.ts, step.ts, publish.ts and the old suite's scenarios): no check() (I18), no onContext (I28), no issues in snapshots (I31; publish.ts:31-36), no multi-step Schedule (I33), no restartOn (I34); equal deadlines fire in arm order, not actor admission order (I32: a round-14 deviation, driver.ts:163-171; a case with two shoppers arming against admission order went red, STATUS T8), so no green round-14 case can tell them apart; post-commit defects come only from module-hook faults, which the Port refuses (I16)",
+    why: "round-14 cannot show these (searched round-14's turn.ts, step.ts, publish.ts and the old suite's scenarios): no check() (I18), no onContext (I28), no issues in snapshots (I31; publish.ts:31-36), no multi-step Schedule (I33), no restartOn (I34); equal deadlines fire in arm order, not actor admission order (I32: a round-14 deviation, driver.ts:163-171; a case with two shoppers arming against admission order went red, @task.V3.T8), so no green round-14 case can tell them apart; post-commit defects come only from module-hook faults, which the Port refuses (I16)",
     invariants: invariantsOf("Turn", [16, 18, 28, 31, 32, 33, 34]),
   },
   {
@@ -45,7 +45,7 @@ export const notYet: ReadonlyArray<NotYet> = [
     ),
   },
   {
-    owner: "@task.V3.T10",
+    owner: "@task.V3.T19",
     why: "the WriteAhead area is not built; T42 cut I16 and I18 and added I19 (a Runtime refused scope ownership)",
     invariants: invariantsOf(
       "WriteAhead",
@@ -53,7 +53,7 @@ export const notYet: ReadonlyArray<NotYet> = [
     ),
   },
   {
-    owner: "@task.V3.T11",
+    owner: "@task.V3.T20",
     why: "the Restore area is not built; I6's lower bound is delivered-once's (CQ11); T42 cut I3 and I4 and added I19 (a changed reset runs first after restore)",
     invariants: invariantsOf(
       "Restore",
@@ -61,9 +61,9 @@ export const notYet: ReadonlyArray<NotYet> = [
     ),
   },
   {
-    owner: "@task.V3.T12",
+    owner: "@task.V3.T21",
     why: "the Reads area is not built; T42 cut I7, I12 and I18 and added I20 (read endings)",
-    invariants: invariantsOf("Reads", [1, 2, 3, 4, 5, 8, 9, 11, 15, 16, 17, 19, 20]),
+    invariants: invariantsOf("Reads", [1, 2, 3, 4, 5, 8, 9, 11, 15, 16, 17, 19, 20, 21]),
   },
   {
     owner: "@task.V3.T17",

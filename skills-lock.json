@@ -9,7 +9,7 @@
     "compact-records": {
       "source": "../workflow/skills/suites/workflow",
       "sourceType": "local",
-      "computedHash": "71a1deeb0cc80669cb11fa620777a3270afbf6ee0776935a4f08ca58548d7c9b"
+      "computedHash": "f129ad84a6a091f62053a20443da399563aaadefb706ca3e864dd69a44a1d017"
     },
     "effect-api-documentation": {
       "source": "../workflow/skills/suites/effect",

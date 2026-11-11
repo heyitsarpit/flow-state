@@ -120,7 +120,7 @@ builds it. Today the Compile static cases run only on round-14's compiler.
 
 `gates.json` (at `294f63a3`, stale against HEAD `0e491c4c`), the catch matrices (prototype 200 rows, production
 19), `core-mutants.tsv` and the liar lists are regenerated outputs; they stay, and the prototype ones go in T53.
-`STATUS.md` (1,730 lines) is history: T53 trims it to the current state, since git keeps the rest.
+`STATUS.md` (1,730 lines) was history; it was retired on 2026-11-11 and its live content moved to the Tasks' comments.
 
 ## 2. Verdicts by kind (proposed)
 
@@ -279,7 +279,6 @@ from "hand case" to "part" or "regression" as the case moves.
   - every `runtime: "prototype"` mutant and the round-14 compiler and CLI mutants;
   - `limits.ts`, `catch-matrix.prototype.tsv`, `liar-prototype.txt` and the round-14 rows check;
   - the runner's prototype paths: `DEFAULT_RUNTIME` and the copy and edit of a runtime tree;
-  - `STATUS.md`'s history.
 - **Precondition:**
   - every hand fixture has a twin, which happens after slice 8;
   - production static mutants exist (T17 for Compile, T22 for the CLI);

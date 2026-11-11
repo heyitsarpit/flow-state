@@ -7,12 +7,12 @@ import type { Remainder } from "../coverage.ts";
 export const turnRemainders: ReadonlyArray<Remainder> = [
   {
     invariant: "Turn I5",
-    owner: "@task.V3.T8",
+    owner: "@task.V3.T17",
     owed: "every Activation at or above the Boundary kept (compound states; a3.r14-reenters-the-parent, 1b.r14-history-reentry-keeps-activation need the old suite's compound fixtures); only a re-entry's new Activation is judged, through its late ending",
   },
   {
     invariant: "Turn I12",
-    owner: "@task.V3.T8",
+    owner: "@task.V3.T17",
     owed: "guards, payload mappers and updates reading PreTurn, and selects, keys and placement reads reading After; only a schedule function's After read is cased",
   },
   {
@@ -52,7 +52,7 @@ export const turnRemainders: ReadonlyArray<Remainder> = [
   },
   {
     invariant: "Turn I20",
-    owner: "@task.V3.T8",
+    owner: "@task.V3.T17",
     owed: "the arming id a firing carries (not on the Port), disarmOn (no catalog fixture declares one; round-14 has it, turn.ts), firings after a reload before a turn enters a state again, and part and keyed schedules",
   },
   {
@@ -62,7 +62,7 @@ export const turnRemainders: ReadonlyArray<Remainder> = [
   },
   {
     invariant: "Turn I22",
-    owner: "@task.V3.T8",
+    owner: "@task.V3.T17",
     owed: "overdue on restore and on a frozen trait's return; only a returning use is cased",
   },
   {
@@ -72,7 +72,7 @@ export const turnRemainders: ReadonlyArray<Remainder> = [
   },
   {
     invariant: "Turn I27",
-    owner: "@task.V3.T8",
+    owner: "@task.V3.T17",
     owed: "exits of compound ancestors and active subroutines; owners per part; calls minted before a reload, which the Activation bump drops from the pending set",
   },
 ];
