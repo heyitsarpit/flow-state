@@ -152,3 +152,8 @@ note 2026-11-11T16:35:27Z
     know an unsaved ending. T45's model follows I17 there and counts it as the search's Spec conflict; the I36 wording 
     goes to the user's read. **Reverse:** model follows I36 and I17 gains the exception. Also: the T45 lead designs the 
     expect half itself, as a proposal file reviewed by one Opus reviewing lead before code.
+note 2026-11-11T17:02:44Z
+    Review (T45 expect-half design, 77c7342d): ready with changes; B1 to B4 and the minor findings accepted after 
+    spot-checks (Wrote.purpose and Acknowledged.attempts typed as facts, Finished folds the grace record, Pay keys from 
+    intentId in memory). Decisions 1 to 5 taken as the reviewer recommends; Conformance R19 gains a wording note for 
+    the user's read. Findings: proposals/t45-expect-half-review-2026-11-11.md. **Reverse:** reopen the design.
