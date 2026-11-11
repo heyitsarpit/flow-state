@@ -117,7 +117,7 @@ tasks
             **Why now:** about 70 of 112 cases use one real application (checkout Pay); the user wants a wide,
             complex net of flows, state transitions and network interactions (2026-11-11).
 
-            **Read first:** @task.V3.T45; code:packages/flow-state-v3/conformance/fixtures/;
+            **Read first:** @task.V3.T45; code:packages/flow-state-v3/conformance/fixtures/pay.ts;
             code:packages/flow-state-v3/conformance/world/network.ts.
 
             **Approach:** about 15 to 20 shapes, each under 30 lines and no hand-written rows: an autosave form,
