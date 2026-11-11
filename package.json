@@ -10,8 +10,9 @@
   "scripts": {
     "build": "nub run build:library",
     "build:library": "nub run --filter flow-state build && nub run --filter flow-state check:packed-consumers",
-    "check": "vp check packages/flow-state-v3 && nub run check:effect",
+    "check": "vp check packages/flow-state-v3 && nub run check:effect && nub run check:plans",
     "check:effect": "effect-tsgo tsc -p packages/flow-state-v3/tsconfig.json",
+    "check:plans": "bun tools/plan-coverage/check.ts",
     "check:fix": "vp check --fix packages/flow-state-v3",
     "check:toolchain": "node ./scripts/check-toolchain.mjs",
     "conformance:coverage": "bun packages/flow-state-v3/conformance/runner/main.ts coverage",
