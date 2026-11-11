@@ -539,3 +539,5 @@ note 2026-11-10T23:44:41Z
     **Reverse:** drop PAY-22 from the sweep; keep v2's no-violation rule.
 note 2026-11-11T00:00:18Z
     Review started on convergence step 4 (3d03715c..cf825289); weekly usage 21 percent.
+note 2026-11-11T00:07:39Z
+    Convergence items 1 to 3 landed at 1186683d (86/86, null 0/86, sweep 74/74 with case time bounds); no reviewer sidecar ran on them, so the next lead runs one first. For the user: no Invariant says a turn runs exactly its declared members (a guarantee gap).
