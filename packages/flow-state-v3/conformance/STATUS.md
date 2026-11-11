@@ -1118,6 +1118,47 @@ the selection oracle (T8) landed. Plan, in order:
 5. M2: Run 7's account and its five narrowings corrected here.
 6. Cuts (the lifecycle is 2.6 times v2's estimate: M3's unread distinctions and duplication).
 
+### Obligation triggers (step 1; after `b39461d0`)
+
+Every place a fact or report creates, discharges or changes what the lifecycle judges. A trigger
+must be a suite fact or a judged claim.
+
+| Trigger (what it moves)                                     | Source                  | Judged by                                                                                              |
+| ----------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------ |
+| `Ensured`, `Released`, `Disposed`, `Forgot` (uses, records) | suite                   | (fact)                                                                                                 |
+| `Reloaded`, `DisposingRuntime`, `Drove`, `Unstoppable`      | suite                   | (fact)                                                                                                 |
+| `Requested`, `Answered`, `Advanced`, `Read`                 | suite                   | (fact)                                                                                                 |
+| `Acknowledged` (the restorable set)                         | store fact              | which Attempts a batch names is the runtime's (stated)                                                 |
+| `Turn.event`, `from`, `to` (row, releases on leave)         | claim                   | Turn I2 (`selection`); the lifecycle reads the judged header (H1)                                      |
+| `Turn.members` (confirm a claimed row, give a key)          | claim                   | bounded: never retargets or drops what a row owes (step 8); claimed rows a stated limit                |
+| `Minted`, `Sent`                                            | claim                   | WriteLanes I6 (`attempt-identity`) against the server log; lane order I1, I10                          |
+| `Ended` (an ending decided)                                 | claim                   | WriteLanes I3 (`ending-channels`) against the server's answers                                         |
+| `Delivered` (a delivery discharged)                         | claim                   | WriteLanes I15 once; the mapped event (`misdelivered`)                                                 |
+| `Parked`, `Unparked`                                        | claim                   | held uses (suite): a held actor's ending may not stay parked at a step's end (H2)                      |
+| a boot's `AwaitRestore`                                     | suite (reload, records) | discharged by delivery, not the decision; a forgotten identity's by the decision (H2)                  |
+| `Recorded`                                                  | claim                   | closes only an owed let-go or a suite-forgotten record                                                 |
+| `Unhandled`, `Denied` (close a delivered ending)            | claim                   | Turn I2 when the suite can attribute it; a delivered ending's `Denied` is `late-routing`'s (R21, owed) |
+| `Evidence` (Released, Superseded)                           | claim                   | it is what the row owes (an `Await`), never a discharge of another                                     |
+| `Issue` InvalidTurn, UnmappedEnding                         | claim                   | **not judged**: the `refusal` oracle (Turn I14 to I16, T8) owes it                                     |
+| `Incarnated` (open parked and kept endings)                 | claim, gated            | gated by a suite `Ensured`, `Drove` or `Reloaded` in the step                                          |
+| `Finished` (record `grace`, read by adoption)               | claim                   | **not judged**: Actors I13 to I16 (`incarnations`, T9)                                                 |
+| `RuntimeDisposed`                                           | claim                   | Actors I35 (`disposal`) against the answers and the bound                                              |
+
+### Step 2 so far
+
+- H1 (`de899357`): the Case passes the lifecycle each step's facts with every `Turn` header as Turn
+  I2 judged it (`judgedStep` in `turn/selection.ts`). The review's probe is now also a `lane-queue`
+  mutant, `lie.cancels-dropped-header-nowhere` (WriteLanes I12, 9 cases by its oracle; 0 before).
+- H2 (`b39461d0`): the lifecycle keeps the suite's held uses; a held actor's `Parked` ending at a
+  step's end is WriteLanes I15; a boot's restore stays owed until delivered (Restore R1), except a
+  forgotten identity's, which the decision discharges and adoption delivers. `k.drop-row` and
+  `q1a.unchanged-resets` are `disposal` mutants again (Actors I29, 31 and 32 cases by its oracle):
+  16 of the review's 18 cases are back; PAY-16/disposal-ends-with-the-last-fiber and
+  /settled-during-disposal-parked are disposal-time cases (CQ6's never-sent parking).
+- `Unhandled` and `Denied` are judged by `selection` (`turn.cancel-turns-unhandled`, 12 cases).
+- Two traces changed with the rule: a decided restore stays owed (owed 1); a new trace for a
+  forgotten identity's and one for a held actor's parked ending (the cell-mutation gate).
+
 ## T8 (2026-11-11): Turn area (in progress)
 
 ### Selection (first, from the step 9 review's H1)
