@@ -1434,6 +1434,10 @@ placement cases) and M6 (the implicit state machines) are next. T8 stays open.
   reload) and I15 (counts as delivered).
 - L1: a drive to a part credits only a part-only turn.
 - R11: the comparison script is `prototypes/conformance/compare-new-suite.ts`.
+- M6: `schedules` keeps one tagged `Arming` per actor (`Known` armings or `Unknown`); `anchor` keeps
+  one `Call` per Attempt (owner, `CallPhase` Open, Held or Ended, and whether its ending is current),
+  in mint order, replacing four parallel collections. The per-actor reset copied across four
+  oracles is not merged yet (carried). Falsify 143/143 after both.
 
 ### Next steps
 

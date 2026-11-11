@@ -2,13 +2,13 @@ import { Option } from "effect";
 import { Address, Fact, oracle, type Violation, violation } from "../dsl/oracle.ts";
 import {
   actorIn,
-  attemptKey,
   current,
   ended,
   keyOf,
   minted,
   moved,
   pendingOf,
+  reowned,
   ROOT,
   routeOf,
   sent,
@@ -256,30 +256,27 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
     },
   });
 
-  const owned = {
-    ...state,
-    owning: new Map([...state.owning, [keyOf(turn.actor), owner]]),
-    owners: new Map([
-      ...state.owners,
-      ...turn.members.flatMap((m) => {
-        const head = state.open.find(
+  const owning = { ...state, owning: new Map([...state.owning, [keyOf(turn.actor), owner]]) };
+
+  const owned = turn.members
+    .filter((m) => m.kind === "retry")
+    .reduce<State>(
+      (acc, m) =>
+        reowned(
+          acc,
+          turn.actor,
+          m.operation,
           (c) =>
-            c.actor === keyOf(turn.actor) &&
-            c.operation === m.operation &&
             MemberTarget.$match(m.target, {
               Key: ({ key }) => Option.exists(c.key, (k) => sameJson(k, key)),
               Only: () => true,
               Every: () => true,
               Nothing: () => false,
             }),
-        );
-
-        return m.kind === "retry" && head !== undefined
-          ? [[attemptKey(m.operation, head.attempt), owner] as const]
-          : [];
-      }),
-    ]),
-  };
+          owner,
+        ),
+      owning,
+    );
 
   const next = moved(
     withActor(owned, turn.actor, {
@@ -534,10 +531,7 @@ export const anchorOf = (machines: Machines): Anchor => ({
   machines,
   actors: new Map(),
   owning: new Map(),
-  owners: new Map(),
-  restored: new Set(),
-  open: [],
-  held: new Set(),
+  calls: new Map(),
 });
 
 /**
@@ -559,10 +553,7 @@ export const anchorAt = (
   machines,
   actors: new Map([[keyOf(actor), { phase: Phase.Live({ state: leaf }), driven, entry: 0 }]]),
   owning: new Map(),
-  owners: new Map(),
-  restored: new Set(),
-  open: [],
-  held: new Set(),
+  calls: new Map(),
 });
 
 /**

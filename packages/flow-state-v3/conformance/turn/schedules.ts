@@ -1,4 +1,4 @@
-import { Option } from "effect";
+import { Data, Option } from "effect";
 import { Address, Fact, holdUse, oracle, violation } from "../dsl/oracle.ts";
 import { type Handlers, possible, type Schedule } from "../fixtures/handlers.ts";
 import { type ActorRef, Observation, sameActor, type Turn, type Use } from "../port.ts";
@@ -11,13 +11,24 @@ type Armed = {
   readonly step: number;
 };
 
+/**
+ * What the suite knows of one actor's armed schedules: the armings it carried (`Known`), or none
+ * it can tell (`Unknown`: after a reload or an incarnation's end, a record's timers come back
+ * unseen, until a turn enters a state again).
+ */
+type Arming = Data.TaggedEnum<{
+  Known: { armed: ReadonlyArray<Armed> };
+  Unknown: {};
+}>;
+
+const Arming = Data.taggedEnum<Arming>();
+
 type State = {
   readonly anchor: Anchor;
   readonly clock: number;
   readonly step: number;
   readonly uses: ReadonlyArray<readonly [ActorRef, Use]>;
-  readonly armed: ReadonlyMap<string, ReadonlyArray<Armed>>;
-  readonly unknown: ReadonlySet<string>;
+  readonly actors: ReadonlyMap<string, Arming>;
 };
 
 type Walk = { readonly state: State; readonly found: ReadonlyArray<string> };
@@ -26,25 +37,29 @@ const keyOf = (actor: ActorRef) => `${actor.machine} ${actor.id}`;
 
 const name = (turn: Turn) => `${turn.actor.machine} ${turn.actor.id} ran ${turn.event}`;
 
-// RETURN_TYPE: the oracle's State contract; inference would widen the Maps' entries.
-const withArmed = (state: State, key: string, armed: ReadonlyArray<Armed>): State => ({
+// RETURN_TYPE: the oracle's State contract; inference would widen the Map's entries.
+const withArming = (state: State, key: string, arming: Arming): State => ({
   ...state,
-  armed: new Map([...state.armed, [key, armed]]),
+  actors: new Map([...state.actors, [key, arming]]),
 });
 
-// RETURN_TYPE: the oracle's State contract; inference would widen the Maps' entries.
+// RETURN_TYPE: the oracle's State contract; inference would widen the Map's entries.
 const forgotten = (state: State, key: string): State => ({
   ...state,
-  armed: new Map([...state.armed].filter(([k]) => k !== key)),
-  unknown: new Set([...state.unknown].filter((k) => k !== key)),
+  actors: new Map([...state.actors].filter(([k]) => k !== key)),
 });
 
-// RETURN_TYPE: the oracle's State contract; an empty Map infers entries of never.
+// RETURN_TYPE: the oracle's State contract; inference would widen the Map's entries.
 const reloaded = (state: State): State => ({
   ...state,
-  armed: new Map(),
-  unknown: new Set([...state.unknown, ...state.armed.keys()]),
+  actors: new Map([...state.actors.keys()].map((k) => [k, Arming.Unknown()])),
 });
+
+const armedOf = (state: State, key: string) => {
+  const arming = state.actors.get(key);
+
+  return arming !== undefined && Arming.$is("Known")(arming) ? arming.armed : [];
+};
 
 const wasSent = (step: ReadonlyArray<Fact>, turn: Turn) =>
   step.some(
@@ -73,9 +88,10 @@ const judgeFiring = (state: State, turn: Turn, clockAfter: number) => {
     ? []
     : [`Turn I23: ${name(turn)}, sent by its schedule while the actor was not Used`];
 
-  if (state.unknown.has(key)) return { armed: Option.none<Armed>(), found: unused };
+  if (Option.exists(Option.fromUndefinedOr(state.actors.get(key)), Arming.$is("Unknown")))
+    return { armed: Option.none<Armed>(), found: unused };
 
-  const armed = (state.armed.get(key) ?? []).find(
+  const armed = armedOf(state, key).find(
     (a) => a.state === turn.from && a.schedule.send === turn.event,
   );
 
@@ -117,7 +133,7 @@ const enteredBy = (handlers: Handlers, turn: Turn) => {
 
 const armedAfter = (state: State, handlers: Handlers, turn: Turn, fired: Option.Option<Armed>) => {
   const key = keyOf(turn.actor);
-  const before = (state.armed.get(key) ?? []).filter((a) => !Option.exists(fired, (f) => f === a));
+  const before = armedOf(state, key).filter((a) => !Option.exists(fired, (f) => f === a));
   const enters = enteredBy(handlers, turn);
 
   const armedAt = (state_: string, which: (s: Schedule) => boolean) =>
@@ -148,13 +164,11 @@ const onTurn = (walk: Walk, turn: Turn, step: ReadonlyArray<Fact>, clockAfter: n
     : { armed: Option.none<Armed>(), found: [] };
 
   const armed = armedAfter(walk.state, handlers, turn, judged.armed);
-  const next = withArmed(walk.state, key, armed);
+  const was = walk.state.actors.get(key);
+  const unknown = was !== undefined && Arming.$is("Unknown")(was) && !enteredBy(handlers, turn);
+  const next = withArming(walk.state, key, unknown ? Arming.Unknown() : Arming.Known({ armed }));
 
-  const known = enteredBy(handlers, turn)
-    ? { ...next, unknown: new Set([...next.unknown].filter((k) => k !== key)) }
-    : next;
-
-  return { state: known, found: [...walk.found, ...judged.found] };
+  return { state: next, found: [...walk.found, ...judged.found] };
 };
 
 // RETURN_TYPE: the fold's Walk contract, shared by every branch.
@@ -171,12 +185,8 @@ const onFact = (walk: Walk, fact: Fact, step: ReadonlyArray<Fact>, clockAfter: n
 
   const o = fact.observation;
 
-  if (Observation.$is("Finished")(o)) {
-    const key = keyOf(o.actor);
-    const gone = forgotten(state, key);
-
-    return { ...walk, state: { ...gone, unknown: new Set([...gone.unknown, key]) } };
-  }
+  if (Observation.$is("Finished")(o))
+    return { ...walk, state: withArming(state, keyOf(o.actor), Arming.Unknown()) };
 
   return Observation.$is("Turn")(o) ? onTurn(kept, o, step, clockAfter) : kept;
 };
@@ -218,8 +228,7 @@ export const schedules = oracle<State>({
     clock: 0,
     step: 0,
     uses: [],
-    armed: new Map(),
-    unknown: new Set(),
+    actors: new Map(),
   }),
   step: (state, step) => {
     const judged = judgedStep(state.anchor, step);
