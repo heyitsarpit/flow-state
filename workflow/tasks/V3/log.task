@@ -203,3 +203,9 @@ note 2026-11-11T21:50:17Z
 note 2026-11-11T22:17:25Z
     Review started (90-minute wake): T45's 823f118f..2f77e7ab (steps 3 to 6 and the 429f6eac calls), one Opus lead with 
     two Haiku sidecars. Weekly usage 69 percent of 95.
+note 2026-11-11T22:21:09Z
+    Decision (orchestrator): T45 keeps its scope; round-14 gets no new machines (no new prototyping). The 9 older liar 
+    greens are listed as report truth with the sidecar's reason (no fixture's No, Unsure or NotSent handler moves state 
+    or memory, and none declares request order), owned by T47's fixtures on production, within the phase-out cap of 9. 
+    Production's missing incarnation after a dispose (GEN-pay-seeded-281) goes to T51. **Reverse:** widen T45 to add 
+    round-14 fixture machines.
