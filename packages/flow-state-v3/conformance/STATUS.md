@@ -1231,7 +1231,7 @@ must be a suite fact or a judged claim.
 
 ## T8 (2026-11-11): Turn area (in progress)
 
-### Plan for the rest (2026-11-11, after the step 9 revision)
+### Plan for the rest (2026-11-11, after the step 9 revision; done in round 2 below)
 
 Test-first (the user, 2026-11-11): for each Invariant, its scenarios or mutants and the expected
 results (a Haiku drafter, from the Spec) before the oracle. Order, by what closes the revision's
@@ -1246,19 +1246,73 @@ remaining report-excuses first:
 5. `schedules` (I20 to I23), `activations` (I4, I10, I11), `turn-purity` (I12, I13, I17, I19),
    `placements` (I24, I25), `context` (I28), and I18's case: each needs Port facts first.
 
-### Next steps (paused 2026-11-11, after `498e5a76`)
+### Round 2 (2026-11-11, after `62bb4002`): refusal, schedules, I27, I9; the step 9 revision review
 
-1. Apply the publication review (Haiku, not yet applied): clear an actor's last publication on
-   `Incarnated` or `Finished` (a fresh incarnation may republish equal memory as a new object,
-   R25); say in port.ts that `memoryId` is per boot and that round-14 reports `root.memory`, not
-   `viewOf` (kid-bearing actors' views unjudged); the "64 and 21 cases" below are sweep counts,
-   the mutants run PAY-01 and PAY-04; carry `w.row-in-place` (old lie) to `turn-purity`.
-2. The rest of T8 by the plan above: `refusal` (I14 to I16, judging `InvalidTurn`), `issues`
-   (I31), I27 (a late turn leaving live work), then I1, I7, I9, schedules, activations, purity,
-   placements, context and I18, each needing Port facts first; test-first throughout.
-3. Carried from the step 9 revision: CQ3's commit half (a Table B row for a lane holding a kept
-   ending), `Finished` and an unattributable `Unhandled` still excused by report.
-4. Queued after T8 (the user): adapters use typed failures with defects kept apart.
+Bottom line: every Turn Invariant is checked, in part with its rest in `turn/remainders.ts`, or owed
+by a P4 Task with its reason in `not-yet.ts`. The T18 and T21 rows are proposed, for the user's
+read: round-14 and the flat fixtures cannot show them, and T18's and T21's "May change" would need
+the suite's Turn cases added.
+
+- `refusal` (I14, I15): a refused turn (`InvalidTurn` naming an ending) and an Unhandled or Denied
+  event report no work in their span, the next turn runs from the pre-turn leaf, and a step with no
+  other turn of the actor publishes the same state and memory. Faults come through the fixture's
+  user code from the suite's answers: `Busy { retryAfterMs: -1 }` (an invalid delay rejects the
+  turn, plan O3) and `place` answered `null` (the mapper throws, WriteLanes R10). No Port change.
+- `schedules` (I20, I21, I23) and `TURN-03`: firings judged against the suite's clock, uses and the
+  carried leaf; I22's returning use is a case expectation.
+- `selection` claims I27 (a late turn leaving an Activation that owns pending work; a Held head is
+  not pending). `publication` claims I9 (a step whose turns move an actor publishes it).
+- Mutants: `refusal.reports-kept`, `refusal.state-kept`, `refusal.unhandled-patches`,
+  `sched.outlives-activation`, `sched.fires-at-once`, `life.schedule-fires-unused`,
+  `life.waiting-never-wakes` (case), `turn.late-leaves-work`, `pub.turn-not-published`.
+- Drafter (Haiku) of `TURN-01` to `TURN-03`. Accepted cases 1 and 3. Changed case 2: the drafter
+  read a throwing outcome mapper as a post-commit defect (one issue, committed); WriteLanes R10
+  says it refuses the turn and is redelivered once, which the case expects and round-14 does. Its
+  case 4 (no reachable Denied in Pay) is right: the late `LateMayNotLeave` denial in PAY-07 is the
+  one Denied judged.
+- Open for the user (not a stop): plan O3 says a pre-commit defect "is not retried for that
+  input"; round-14 redelivers a refused ending once for any cause (D50), and WriteLanes R10 says so
+  only for a mapper throw. `TURN-01/schedule-refused` expects at least one `InvalidTurn`, not a
+  count.
+- Publication review (Haiku) applied: the last publication cleared on `Incarnated` and `Finished`;
+  port.ts says `memoryId` is per boot and round-14 reports the root's memory; the "64 and 21 cases"
+  below are sweep counts (the mutants run PAY-01 and PAY-04); `w.row-in-place` needs a row
+  identity read (T18, README).
+- Reviewer (Haiku) of this diff, 12 findings. Accepted and fixed: `Finished` makes an actor's
+  armings unknown (1); a firing is excused only by a `Drove` to that actor's root or a `Delivered`
+  naming it (2); an Unhandled or Denied is judged only when its event's sources name one actor
+  (3); unknown armings end at any entering turn (5); `refusal` resets on `Incarnated` and
+  `Finished`, and `selection` bumps an actor's Activation count on dispose, forget and reload, so
+  an old owner never matches (6); `publication` matches a part's definition (10); the memory-delay
+  gotcha (12). Stated in the docs, not changed: the publication excuse rests on a reported turn
+  that `selection` judges (4), no arming id on the Port (7), I9 A-to-B-to-A and raw headers (8).
+  Carried to T15's audit: reports read with no lying mutant (9); the admission check named I2
+  (11).
+
+The step 9 revision review (`references/proposals/step9-revision-review-2026-11-11.md`), each
+verified and fixed:
+
+- H1: a turn with no root part breaks I2; an alternative is never chosen by `to`.
+- H2: `Stored` keeps the leaf across a reload (a restore keeps it); a restored ending routes
+  `current` before the phase check. Changed: a disposal still drops the leaf, since the record may
+  lag its last turn (DISP-02 and DISP-06 go red otherwise: round-14 restores IDLE).
+- Probes as `selection` mutants, written from the review's description: p2
+  `turn.root-first-no-part` (24 red, 26 listed by the sweep, all by `selection`), p4
+  `turn.root-first-on-restored` (32 red, all by `selection`; its review cases PAY-13 and PAY-16 do
+  not go red under this edit, so it runs DLV-01, PAY-05, PAY-08), p5 `turn.cancels-dropped-no-part`
+  (16 red, all by `selection`). The perturbation test's reference headers now carry their root part.
+- M1: a report discharges only the `Await` it answers. M2: an Unhandled or Denied closes a
+  delivering ending only when one actor's endings match. M3: an actor-less `Delivered` admits
+  nothing. M4: the I30 excuse needs a root-machine part the table says updates; `Published.state`
+  and `memoryId 0` stay unjudged (remainders). M5: `unknown { Restored }` of a never-sent Attempt
+  only in a step with a reload or an attach (`mutant.unsent-restored-outside-boot`). M6: remainders
+  for Turn I2, I26, I29, I30 and Actors I38. Low: a `step()` test of the once-per-step `Incarnated`
+  guard (red without it); README and STATUS drift fixed. M7, L2 to L7 carried as the review says.
+
+### Next steps
+
+1. Adapters use typed failures with defects kept apart (queued after T8, the user).
+2. Carried: CQ3's commit half (a Table B row for a lane holding a kept ending); the review's M7.
 
 ### Snapshot values (Turn I29, I30) and the Port's `Published`
 

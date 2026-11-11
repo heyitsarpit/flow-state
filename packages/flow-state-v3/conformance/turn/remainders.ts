@@ -6,6 +6,26 @@ import type { Remainder } from "../coverage.ts";
  */
 export const turnRemainders: ReadonlyArray<Remainder> = [
   {
+    invariant: "Turn I2",
+    owner: "@task.V3.T18",
+    owed: "an Unhandled or Denied that should have run and that the suite cannot attribute to one actor; part-level alternatives and compound states; the first turn after a disposal",
+  },
+  {
+    invariant: "Turn I26",
+    owner: "@task.V3.T18",
+    owed: "the converse (a current ending routed late) beyond the leaf's own alternatives; reads' endings, which name no owner on the Port; owners per part",
+  },
+  {
+    invariant: "Turn I29",
+    owner: "@task.V3.T18",
+    owed: "snapshot parts other than memory (context, issues, operations) and kid-bearing actors' views",
+  },
+  {
+    invariant: "Turn I30",
+    owner: "@task.V3.T18",
+    owed: "parts other than memory; equal-value patches (round-14 gives a new object); memory that is not an object",
+  },
+  {
     invariant: "Turn I9",
     owner: "@task.V3.T18",
     owed: "at most one publication per turn: a Published names no turn",

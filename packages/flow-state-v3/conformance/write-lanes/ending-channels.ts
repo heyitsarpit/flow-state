@@ -347,9 +347,11 @@ const neverSentEnds = (
       (r) => r.operation === operation && Option.contains(r.key, attempt.value),
     );
 
+    const booted = step.some((f) => Fact.$is("Reloaded")(f) || Fact.$is("Ensured")(f));
+
     const allowed =
       (channel === "failure" && FLOW_DECLINES.some((d) => d === reason)) ||
-      (channel === "unknown" && reason === "Restored");
+      (channel === "unknown" && reason === "Restored" && booted);
 
     return sent || allowed
       ? []

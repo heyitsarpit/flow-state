@@ -55,36 +55,31 @@ const refusalOfIssue = (step: ReadonlyArray<Fact>, at: number, o: Observation) =
       ];
 };
 
+const sourceActor = (fact: Fact, event: string) => {
+  if (Fact.$is("Drove")(fact))
+    return fact.event === event ? Option.some(fact.actor) : Option.none();
+
+  return Option.flatMap(reportOf(fact), (d) =>
+    Observation.$is("Delivered")(d) && d.event === event ? d.actor : Option.none(),
+  );
+};
+
 const refusalOfEvent = (step: ReadonlyArray<Fact>, at: number, o: Observation) => {
   if (!Observation.$is("Unhandled")(o) && !Observation.$is("Denied")(o)) return [];
 
-  const from = lastIndex(
-    step,
-    at,
-    (fact) =>
-      (Fact.$is("Drove")(fact) && fact.event === o.event) ||
-      Option.exists(
-        reportOf(fact),
-        (d) => Observation.$is("Delivered")(d) && d.event === o.event && Option.isSome(d.actor),
-      ),
-  );
+  const sources = step
+    .slice(0, at)
+    .flatMap((fact, i) =>
+      Option.toArray(Option.map(sourceActor(fact, o.event), (a) => ({ a, i }))),
+    );
 
-  const source = step[from];
+  const last = sources.at(-1);
 
-  if (source === undefined) return [];
+  if (last === undefined || sources.some((s) => keyOf(s.a) !== keyOf(last.a))) return [];
 
-  const actor = Fact.$is("Drove")(source)
-    ? Option.some(source.actor)
-    : Option.flatMap(reportOf(source), (d) =>
-        Observation.$is("Delivered")(d) ? d.actor : Option.none(),
-      );
-
-  return Option.match(actor, {
-    onNone: () => [],
-    onSome: (who) => [
-      { actor: who, rule: "Turn I15" as const, what: `${o._tag} ${o.event}`, from, at },
-    ],
-  });
+  return [
+    { actor: last.a, rule: "Turn I15" as const, what: `${o._tag} ${o.event}`, from: last.i, at },
+  ];
 };
 
 const workOf = (actor: ActorRef, o: Observation) =>
@@ -170,6 +165,17 @@ const published = (state: State, step: ReadonlyArray<Fact>): State =>
   step.reduce<State>((acc, fact) => {
     if (Fact.$is("Reloaded")(fact)) return { published: new Map() };
 
+    const began = Option.filter(
+      reportOf(fact),
+      (o) => Observation.$is("Incarnated")(o) || Observation.$is("Finished")(o),
+    );
+
+    if (Option.isSome(began) && "actor" in began.value) {
+      const gone = keyOf(began.value.actor);
+
+      return { published: new Map([...acc.published].filter(([k]) => k !== gone)) };
+    }
+
     return Option.match(reportOf(fact), {
       onNone: () => acc,
       onSome: (o) =>
@@ -201,6 +207,10 @@ const published = (state: State, step: ReadonlyArray<Fact>): State =>
  *
  * **Gotchas**
  *
+ * - An Unhandled or Denied is judged only when every `Drove` and `Delivered` of its event earlier
+ *   in the step names one actor; an `InvalidTurn` whose `Delivered` names no actor is not judged.
+ * - The excuse for a changed publication (a `Turn` or `Incarnated` of the actor in the step) is the
+ *   runtime's report; `selection` judges that turn's header.
  * - The refusal itself is the runtime's report; a runtime that reports none is caught by the
  *   cases' own expectations (`TURN-01`, `TURN-02`).
  * - A refused turn in a step that also runs another turn of the actor is judged only for its span.

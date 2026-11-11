@@ -281,6 +281,21 @@ const examples: ReadonlyArray<Example> = [
   },
 
   {
+    name: "a second Incarnated of one actor in a step opens nothing",
+    run: ({ after }) => {
+      const incarnated = said(Observation.Incarnated({ actor: shopper }));
+
+      const twice = after(empty, [
+        Fact.Ensured({ actor: shopper, use: "host" }),
+        incarnated,
+        said(Observation.Finished({ actor: shopper })),
+        incarnated,
+      ]);
+
+      assert.notEqual(twice.actors[0]?.record, "bound");
+    },
+  },
+  {
     name: "an Ensured of an unbound actor adopts it",
     run: ({ after }) => {
       const graced = after(empty, [

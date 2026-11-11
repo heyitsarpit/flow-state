@@ -3,6 +3,7 @@ import { Option } from "effect";
 import { type Fixture, handlersFor, referenceFor, rowsFor } from "../fixtures/fixture.ts";
 import { Cancel, Latest, Serialize } from "../fixtures/one-lane.ts";
 import { Cells, Pay } from "../fixtures/pay.ts";
+import { possible } from "../fixtures/handlers.ts";
 import { type Row, type RowMember, unknownEvent } from "../fixtures/reference.ts";
 import { type ActorRef, type Member, MemberTarget, Observation, type Turn } from "../port.ts";
 import { anchorAt, judgedStep } from "../turn/selection.ts";
@@ -50,8 +51,28 @@ const leafOf = (fixture: Fixture, row: Row) => {
   return { from, to: row.to === "same" ? from : row.to };
 };
 
+const rootPartOf = (fixture: Fixture, row: Row) => {
+  const { from, to } = leafOf(fixture, row);
+
+  const chosen = possible(fixture.handlers, from, row.event, "current").alternatives.find(
+    (a) => a.to === to,
+  );
+
+  if (chosen === undefined) return [];
+
+  const target = chosen.enters ? chosen.to : "";
+
+  return [{ part: [], definition: fixture.machine, at: chosen.at, node: "", target }];
+};
+
 const turnOf = (fixture: Fixture, actor: ActorRef, row: Row, members: ReadonlyArray<Member>) =>
-  Observation.Turn({ actor, event: row.event, ...leafOf(fixture, row), parts: [], members });
+  Observation.Turn({
+    actor,
+    event: row.event,
+    ...leafOf(fixture, row),
+    parts: rootPartOf(fixture, row),
+    members,
+  });
 
 const correctTarget = (fixture: Fixture, operation: string) =>
   keyedOf(fixture, operation) ? MemberTarget.Key({ key: KEY }) : MemberTarget.Only();

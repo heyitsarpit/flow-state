@@ -1,4 +1,5 @@
 import { disposalMutants } from "./actors/disposal.mutants.ts";
+import { actorsRemainders } from "./actors/remainders.ts";
 import { disposal } from "./actors/disposal.ts";
 import { laneKeepingScenarios } from "./actors/lane-keeping.scenarios.ts";
 import { runtimeDisposalScenarios } from "./actors/runtime-disposal.scenarios.ts";
@@ -129,4 +130,5 @@ export const remainders: ReadonlyArray<Remainder> = [
   ...constructionRemainders,
   ...cliRemainders,
   ...turnRemainders,
+  ...actorsRemainders,
 ];

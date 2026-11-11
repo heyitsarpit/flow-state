@@ -58,20 +58,30 @@ const pushed = (walk: Walk, move: Input, given: Rules) => {
 const closedTurn = (walk: Walk, given: Rules) =>
   Option.isSome(walk.model.turn) ? pushed(walk, LaneMove.TurnCloses(), given) : walk;
 
-const deliveringOf = (model: Model, known: Known, actor: Option.Option<ActorRef>, event: string) =>
-  Option.map(
-    Option.fromUndefinedOr(
-      model.endings.find(
-        (e) =>
-          e.life._tag === "Delivering" &&
-          Option.match(actor, { onNone: () => true, onSome: (a) => sameActor(a, e.actor) }) &&
-          Option.exists(operationOf(known, e.actor, e.operation), (o) =>
-            Option.contains(mappedEvent(o, e.channel, e.reason), event),
-          ),
+const deliveringOf = (
+  model: Model,
+  known: Known,
+  actor: Option.Option<ActorRef>,
+  event: string,
+) => {
+  const matching = model.endings.filter(
+    (e) =>
+      e.life._tag === "Delivering" &&
+      Option.match(actor, { onNone: () => true, onSome: (a) => sameActor(a, e.actor) }) &&
+      Option.exists(operationOf(known, e.actor, e.operation), (o) =>
+        Option.contains(mappedEvent(o, e.channel, e.reason), event),
       ),
-    ),
-    (e) => ({ operation: e.operation, attempt: e.attempt, actor: e.actor }),
   );
+
+  const [first] = matching;
+  const one = first !== undefined && matching.every((e) => sameActor(e.actor, first.actor));
+
+  return Option.map(Option.fromUndefinedOr(one ? first : undefined), (e) => ({
+    operation: e.operation,
+    attempt: e.attempt,
+    actor: e.actor,
+  }));
+};
 
 const heardOf = (
   walk: Walk,

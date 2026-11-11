@@ -1,5 +1,5 @@
 import { Option } from "effect";
-import { Fact, holdUse, oracle, violation } from "../dsl/oracle.ts";
+import { Address, Fact, holdUse, oracle, violation } from "../dsl/oracle.ts";
 import { type Handlers, possible, type Schedule } from "../fixtures/handlers.ts";
 import { type ActorRef, Observation, sameActor, type Turn, type Use } from "../port.ts";
 import { type Anchor, anchorOf, judgedStep } from "./selection.ts";
@@ -49,10 +49,14 @@ const reloaded = (state: State): State => ({
 const wasSent = (step: ReadonlyArray<Fact>, turn: Turn) =>
   step.some(
     (fact) =>
-      (Fact.$is("Drove")(fact) && sameActor(fact.actor, turn.actor) && fact.event === turn.event) ||
+      (Fact.$is("Drove")(fact) &&
+        sameActor(fact.actor, turn.actor) &&
+        Address.$is("Root")(fact.to) &&
+        fact.event === turn.event) ||
       (Fact.$is("Reported")(fact) &&
         Observation.$is("Delivered")(fact.observation) &&
-        fact.observation.event === turn.event),
+        fact.observation.event === turn.event &&
+        Option.exists(fact.observation.actor, (a) => sameActor(a, turn.actor))),
   );
 
 const firing = (handlers: Handlers, turn: Turn, step: ReadonlyArray<Fact>) =>
@@ -103,14 +107,18 @@ const judgeFiring = (state: State, turn: Turn, clockAfter: number) => {
   return { armed: Option.some(armed), found: [...unused, ...timing] };
 };
 
+const enteredBy = (handlers: Handlers, turn: Turn) => {
+  const ran = turn.parts.find((p) => p.part.length === 0 && p.definition === turn.actor.machine);
+
+  return possible(handlers, turn.from, turn.event, "either").alternatives.some(
+    (a) => a.at === ran?.at && a.enters,
+  );
+};
+
 const armedAfter = (state: State, handlers: Handlers, turn: Turn, fired: Option.Option<Armed>) => {
   const key = keyOf(turn.actor);
   const before = (state.armed.get(key) ?? []).filter((a) => !Option.exists(fired, (f) => f === a));
-  const ran = turn.parts.find((p) => p.part.length === 0 && p.definition === turn.actor.machine);
-
-  const enters = possible(handlers, turn.from, turn.event, "either").alternatives.some(
-    (a) => a.at === ran?.at && a.enters,
-  );
+  const enters = enteredBy(handlers, turn);
 
   const armedAt = (state_: string, which: (s: Schedule) => boolean) =>
     (handlers.schedules[state_] ?? [])
@@ -142,7 +150,7 @@ const onTurn = (walk: Walk, turn: Turn, step: ReadonlyArray<Fact>, clockAfter: n
   const armed = armedAfter(walk.state, handlers, turn, judged.armed);
   const next = withArmed(walk.state, key, armed);
 
-  const known = armed.some((a) => a.step === walk.state.step)
+  const known = enteredBy(handlers, turn)
     ? { ...next, unknown: new Set([...next.unknown].filter((k) => k !== key)) }
     : next;
 
@@ -163,7 +171,12 @@ const onFact = (walk: Walk, fact: Fact, step: ReadonlyArray<Fact>, clockAfter: n
 
   const o = fact.observation;
 
-  if (Observation.$is("Finished")(o)) return { ...walk, state: forgotten(state, keyOf(o.actor)) };
+  if (Observation.$is("Finished")(o)) {
+    const key = keyOf(o.actor);
+    const gone = forgotten(state, key);
+
+    return { ...walk, state: { ...gone, unknown: new Set([...gone.unknown, key]) } };
+  }
 
   return Observation.$is("Turn")(o) ? onTurn(kept, o, step, clockAfter) : kept;
 };
@@ -188,10 +201,13 @@ const onFact = (walk: Walk, fact: Fact, step: ReadonlyArray<Fact>, clockAfter: n
  *
  * **Gotchas**
  *
- * - After a reload an actor's armings are unknown (the record may lag its last turn) until a turn
- *   arms its schedules again; its firings are judged only for use. Overdue firings on resume
- *   (I22) are not judged.
- * - A delay a function of memory computes (WAITING's `retry`) is not checked for time.
+ * - After a reload or an incarnation's end (`Finished`; a persisted record keeps its timers) an
+ *   actor's armings are unknown until a turn enters a state again; until then its firings are
+ *   judged only for use. Overdue firings on resume (I22) are the cases' (`TURN-03/unused`).
+ * - A firing names no arming id on the Port: one of a superseded arming is caught only when it
+ *   lands before the latest arming's delay, or at a leaf with no armed schedule.
+ * - A delay a function of memory computes (WAITING's `retry`) is checked only in its arming step,
+ *   when no time passed.
  * - An initial state's schedules are not armed by a turn; no fixture's initial state has one.
  */
 export const schedules = oracle<State>({

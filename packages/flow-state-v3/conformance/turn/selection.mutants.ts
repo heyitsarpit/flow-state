@@ -40,6 +40,63 @@ export const headerLaneMutants: ReadonlyArray<Mutant> = [
  */
 export const selectionMutants: ReadonlyArray<Mutant> = [
   {
+    name: "turn.root-first-no-part",
+    says: "selection reads the root before the leaf on CheckTick and those turns report no root part",
+    expects: "Turn I2",
+    runtime: "prototype",
+    cases: ["TURN-03/on-time", "PAY-08/reload-while-reconciling"],
+    edits: [
+      {
+        file: "turn.ts",
+        find: "  for (const node of up(frag, start ?? inc.leaf)) {",
+        replace:
+          '  for (const node of ev.tag === "CheckTick" ? up(frag, start ?? inc.leaf).reverse() : up(frag, start ?? inc.leaf)) {',
+      },
+      {
+        file: "turn.ts",
+        find: "    parts: w.parts.map((p) => ({ path: p.path,",
+        replace: '    parts: (ev.tag === "CheckTick" ? [] : w.parts).map((p) => ({ path: p.path,',
+      },
+    ],
+  },
+  {
+    name: "turn.root-first-on-restored",
+    says: "selection reads the root before the leaf for an unknown { Restored } ending only",
+    expects: "Turn I2",
+    runtime: "prototype",
+    cases: ["DLV-01", "PAY-05", "PAY-08/reload-while-reconciling"],
+    edits: [
+      {
+        file: "turn.ts",
+        find: "  for (const node of up(frag, start ?? inc.leaf)) {",
+        replace:
+          '  for (const node of w.item?.k === "ending" && endingReason(w.item.ending) === "Restored" ? up(frag, start ?? inc.leaf).reverse() : up(frag, start ?? inc.leaf)) {',
+      },
+    ],
+  },
+  {
+    name: "turn.cancels-dropped-no-part",
+    says: "a turn drops its cancels, reports staying where it was and reports no root part",
+    expects: "Turn I2",
+    runtime: "prototype",
+    cases: ["PAY-03", "PAY-14", "PAY-21", "LANE-09"],
+    edits: [
+      DROP_CANCELS,
+      {
+        file: "turn.ts",
+        find: "    to: w.root.leaf,",
+        replace:
+          '    to: w.parts.some((p) => p.alt.members.some((m: Member) => m.verb === "cancel" || m.verb === "cancelAll")) ? from : w.root.leaf,',
+      },
+      {
+        file: "turn.ts",
+        find: "    parts: w.parts.map((p) => ({ path: p.path,",
+        replace:
+          '    parts: (w.parts.some((p) => p.alt.members.some((m: Member) => m.verb === "cancel" || m.verb === "cancelAll")) ? [] : w.parts).map((p) => ({ path: p.path,',
+      },
+    ],
+  },
+  {
     name: "turn.late-leaves-work",
     says: "a late turn may leave a state whose Activation owns pending work",
     expects: "Turn I27",

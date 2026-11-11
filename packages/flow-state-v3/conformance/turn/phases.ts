@@ -1,15 +1,16 @@
 import { Data, Option } from "effect";
 
 /**
- * Where one actor's leaf stands for the suite: never created or forgotten (`Fresh`), disposed with
- * its record kept (`Stored`), live at a leaf the suite carried from facts it owns (`Live`), or
- * live at a leaf the suite cannot know until its next turn (`Unanchored`: a use of a disposed or
- * reloaded actor, whose leaf comes back from a record, or a turn the table could not judge). A
- * reload makes every known actor `Stored`.
+ * Where one actor's leaf stands for the suite: never created or forgotten (`Fresh`), with its
+ * record kept (`Stored`: at the leaf the suite last carried across a reload, which a restore keeps;
+ * unknown after a disposal, whose record may lag its last turn), live at a leaf the suite carried from facts it owns (`Live`), or live
+ * at a leaf the suite cannot know until its next turn (`Unanchored`: a turn the table could not
+ * judge, or a use of a stored actor whose leaf was unknown). A reload makes every known actor
+ * `Stored`.
  */
 export type Phase = Data.TaggedEnum<{
   Fresh: {};
-  Stored: {};
+  Stored: { state: Option.Option<string> };
   Live: { state: string };
   Unanchored: {};
 }>;
@@ -44,6 +45,25 @@ const carried = (to: Option.Option<string>) =>
   });
 
 /**
+ * The leaf the suite carries for an actor: a live one's, or the one a stored record keeps.
+ */
+export const leafOf = (phase: Phase) =>
+  Phase.$match(phase, {
+    Fresh: () => Option.none<string>(),
+    Stored: ({ state }) => state,
+    Live: ({ state }) => Option.some(state),
+    Unanchored: () => Option.none<string>(),
+  });
+
+const stored = (phase: Phase) => Phase.Stored({ state: leafOf(phase) });
+
+const restored = (phase: Phase) =>
+  Option.match(leafOf(phase), {
+    onNone: () => Phase.Unanchored(),
+    onSome: (state) => Phase.Live({ state }),
+  });
+
+/**
  * The one transition table: each phase's next phase for each input.
  */
 export const TABLE: {
@@ -60,24 +80,24 @@ export const TABLE: {
     Turned: (input) => (Input.$is("Turned")(input) ? carried(input.to) : Phase.Unanchored()),
   },
   Stored: {
-    Ensured: () => Phase.Unanchored(),
-    Disposed: () => Phase.Stored(),
+    Ensured: (_input, phase) => restored(phase),
+    Disposed: () => Phase.Stored({ state: Option.none() }),
     Forgot: () => Phase.Fresh(),
-    Reloaded: () => Phase.Stored(),
+    Reloaded: (_input, phase) => phase,
     Turned: (input) => (Input.$is("Turned")(input) ? carried(input.to) : Phase.Unanchored()),
   },
   Live: {
     Ensured: (_input, phase) => phase,
-    Disposed: () => Phase.Stored(),
+    Disposed: () => Phase.Stored({ state: Option.none() }),
     Forgot: () => Phase.Fresh(),
-    Reloaded: () => Phase.Stored(),
+    Reloaded: (_input, phase) => stored(phase),
     Turned: (input) => (Input.$is("Turned")(input) ? carried(input.to) : Phase.Unanchored()),
   },
   Unanchored: {
     Ensured: () => Phase.Unanchored(),
-    Disposed: () => Phase.Stored(),
+    Disposed: () => Phase.Stored({ state: Option.none() }),
     Forgot: () => Phase.Fresh(),
-    Reloaded: () => Phase.Stored(),
+    Reloaded: (_input, phase) => stored(phase),
     Turned: (input) => (Input.$is("Turned")(input) ? carried(input.to) : Phase.Unanchored()),
   },
 };

@@ -83,4 +83,19 @@ export const endingChannelsMutants: ReadonlyArray<Mutant> = [
       },
     ],
   },
+  {
+    name: "mutant.unsent-restored-outside-boot",
+    says: "a refused first capture ends the never-sent head unknown { Restored } instead of NotSent { StorageRefused }",
+    expects: "WriteLanes I3",
+    runtime: "prototype",
+    cases: ["PAY-10/refuse"],
+    edits: [
+      {
+        file: "lane.ts",
+        find: '    const e = declined("StorageRefused");\n    noteEnding(tx, { op: l!.op, attempt: h.id }, e);',
+        replace:
+          '    const e: Ending = { ch: "unknown", reason: "Restored" };\n    noteEnding(tx, { op: l!.op, attempt: h.id }, e);',
+      },
+    ],
+  },
 ];

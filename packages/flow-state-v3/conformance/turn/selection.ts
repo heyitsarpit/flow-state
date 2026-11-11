@@ -16,7 +16,7 @@ import {
   withActor,
   withoutOne,
 } from "./anchor.ts";
-import { Input, Phase, TABLE } from "./phases.ts";
+import { Input, leafOf, Phase, TABLE } from "./phases.ts";
 import {
   type Handlers,
   type Machines,
@@ -80,7 +80,7 @@ const judgeTurn = (machines: Machines, phase: Phase, turn: Turn, route: Route): 
   if (handlers === undefined)
     return { to: Option.none(), found: [], match: Option.none(), from: turn.from };
 
-  const anchored = Phase.$is("Live")(phase) ? Option.some(phase.state) : Option.none();
+  const anchored = leafOf(phase);
   const from = Option.getOrElse(anchored, () => turn.from);
 
   const wrongFrom = Option.match(anchored, {
@@ -116,20 +116,28 @@ const judgeTurn = (machines: Machines, phase: Phase, turn: Turn, route: Route): 
       from,
     };
 
-  const chosen = allowed.alternatives.filter((a) =>
-    ran === undefined ? a.to === turn.to : a.at === ran.at,
-  );
-
   const [only] = allowed.alternatives;
   const fallback = allowed.alternatives.length === 1 && only !== undefined ? [only.to] : [];
-  const [match] = chosen;
+
+  if (ran === undefined)
+    return {
+      to: Option.fromUndefinedOr(fallback[0]),
+      found: [
+        ...wrongFrom,
+        `Turn I2: ${name(turn)} at ${from} and reported no part of its root, so no selected alternative (${ats}) can be told`,
+      ],
+      match: Option.none(),
+      from,
+    };
+
+  const match = allowed.alternatives.find((a) => a.at === ran.at);
 
   if (match === undefined)
     return {
       to: Option.fromUndefinedOr(fallback[0]),
       found: [
         ...wrongFrom,
-        `Turn I2: ${name(turn)} at ${from} by ${ran?.at ?? "(no root part)"}, not one of the alternatives selection allows (${ats})`,
+        `Turn I2: ${name(turn)} at ${from} by ${ran.at}, not one of the alternatives selection allows (${ats})`,
       ],
       match: Option.none(),
       from,
@@ -159,19 +167,17 @@ const lateLeftWork = (
   route: Route,
   judged: Judged,
 ) => {
-  if (
-    route !== "late" ||
-    !Phase.$is("Live")(now.phase) ||
-    !Option.exists(judged.match, (m) => m.enters)
-  )
+  const leaf = leafOf(now.phase);
+
+  if (route !== "late" || Option.isNone(leaf) || !Option.exists(judged.match, (m) => m.enters))
     return [];
 
-  const pending = pendingOf(state, turn.actor, { state: now.phase.state, entry: now.entry });
+  const pending = pendingOf(state, turn.actor, { state: leaf.value, entry: now.entry });
 
   return pending.length === 0
     ? []
     : [
-        `Turn I27: ${name(turn)}, a late turn, and left ${now.phase.state}, whose Activation owns pending work (${pending.map((c) => `${c.operation} ${c.attempt}`).join(", ")})`,
+        `Turn I27: ${name(turn)}, a late turn, and left ${leaf.value}, whose Activation owns pending work (${pending.map((c) => `${c.operation} ${c.attempt}`).join(", ")})`,
       ];
 };
 
@@ -180,10 +186,7 @@ const heardBy = (actor: ActorRef, event: string, step: ReadonlyArray<Fact>) =>
     Fact.$is("Reported")(fact) &&
     Observation.$is("Delivered")(fact.observation) &&
     fact.observation.event === event &&
-    Option.match(fact.observation.actor, {
-      onNone: () => true,
-      onSome: (to) => keyOf(to) === keyOf(actor),
-    })
+    Option.exists(fact.observation.actor, (to) => keyOf(to) === keyOf(actor))
       ? [fact.observation]
       : [],
   );
@@ -255,7 +258,7 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
 
   const anchored = Observation.Turn({
     ...turn,
-    from: Phase.$is("Live")(now.phase) ? now.phase.state : turn.from,
+    from: Option.getOrElse(leafOf(now.phase), () => turn.from),
     to: Option.getOrElse(judged.to, () => turn.to),
   });
 
@@ -276,7 +279,12 @@ const reloaded = (state: State) => ({
   actors: new Map(
     [...state.actors].map(([key, a]) => [
       key,
-      { ...a, phase: TABLE[a.phase._tag].Reloaded(Input.Reloaded(), a.phase), driven: [] },
+      {
+        ...a,
+        phase: TABLE[a.phase._tag].Reloaded(Input.Reloaded(), a.phase),
+        driven: [],
+        entry: a.entry + 1,
+      },
     ]),
   ),
 });
@@ -287,8 +295,11 @@ const drove = (state: State, actor: ActorRef, event: string) => {
   return withActor(state, actor, { ...now, driven: [...now.driven, event] });
 };
 
-const uncredited = (state: State, actor: ActorRef) =>
-  withActor(state, actor, { ...actorIn(state, actor), driven: [] });
+const uncredited = (state: State, actor: ActorRef) => {
+  const now = actorIn(state, actor);
+
+  return withActor(state, actor, { ...now, driven: [], entry: now.entry + 1 });
+};
 
 const deliveredTo = (step: ReadonlyArray<Fact>, event: string) =>
   step.flatMap((fact) =>
@@ -350,9 +361,11 @@ const refused = (
 
       const lateMayDeny = tag === "Denied" && route !== "current";
 
-      if (handlers === undefined || lateMayDeny || !Phase.$is("Live")(now.phase)) return [next, []];
+      const carried = leafOf(now.phase);
 
-      const leaf = now.phase.state;
+      if (handlers === undefined || lateMayDeny || Option.isNone(carried)) return [next, []];
+
+      const leaf = carried.value;
       const allowed = possible(handlers, leaf, event, route);
 
       return [

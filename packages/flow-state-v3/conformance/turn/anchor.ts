@@ -2,7 +2,7 @@ import { Option } from "effect";
 import { Fact } from "../dsl/oracle.ts";
 import type { Machines, Route } from "../fixtures/handlers.ts";
 import type { ActorRef, Channel, Delivered, Json } from "../port.ts";
-import { type Input, Phase, TABLE } from "./phases.ts";
+import { type Input, leafOf, Phase, TABLE } from "./phases.ts";
 
 export type Actor = {
   readonly phase: Phase;
@@ -74,18 +74,19 @@ export const attemptKey = (operation: string, attempt: string) => `${operation} 
  */
 // RETURN_TYPE: the Route union; the branches infer three literals.
 export const routeOf = (state: State, actor: Actor, delivered: Delivered): Route => {
-  if (Option.isNone(delivered.attempt) || !Phase.$is("Live")(actor.phase)) return "either";
+  if (Option.isNone(delivered.attempt)) return "either";
 
   const key = attemptKey(delivered.operation, delivered.attempt.value);
   const owner = state.owners.get(key);
+  const leaf = leafOf(actor.phase);
 
   if (state.restored.has(key)) return "current";
 
-  if (owner === undefined) return "either";
+  if (owner === undefined || Option.isNone(leaf) || !Phase.$is("Live")(actor.phase))
+    return "either";
 
   const alive =
-    owner.state === ROOT.state ||
-    (actor.phase.state === owner.state && actor.entry === owner.entry);
+    owner.state === ROOT.state || (leaf.value === owner.state && actor.entry === owner.entry);
 
   return alive ? "current" : "late";
 };

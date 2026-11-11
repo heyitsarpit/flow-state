@@ -216,8 +216,11 @@ const discharge = (model: Model, attempt: string, guard: string, move: Move) => 
   if (guard === "pendingCancel")
     return without(model, (o) => mine(o) && o._tag === "PendingCancel");
 
-  if (guard === "cancelAll" || guard === "awaited")
-    return without(model, (o) => mine(o) && o._tag === "Await");
+  if (guard === "cancelAll")
+    return without(model, (o) => mine(o) && o._tag === "Await" && o.report === "NotSentCancelled");
+
+  if (guard === "awaited" && Move.$is("Evidence")(move))
+    return without(model, (o) => mine(o) && o._tag === "Await" && o.report === move.kind);
 
   if (guard === "owedRestore")
     return without(model, (o) => mine(o) && o._tag === "AwaitRestore" && o.cause === "forget");

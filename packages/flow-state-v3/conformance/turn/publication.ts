@@ -19,7 +19,8 @@ const updatedIn = (machines: Machines, step: ReadonlyArray<Fact>, actor: ActorRe
 
     return (
       keyOf(turn.actor) === keyOf(actor) &&
-      (handlers === undefined || turn.parts.some((p) => updatesAt(handlers, p.at)))
+      (handlers === undefined ||
+        turn.parts.some((p) => p.definition === turn.actor.machine && updatesAt(handlers, p.at)))
     );
   });
 
