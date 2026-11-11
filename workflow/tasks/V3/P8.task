@@ -62,7 +62,9 @@ tasks
             **Read first:** skill:check-benchmark, skill:check-runtime, skill:policy-verification,
             skill:principle-explain-measurements, @task.V3.T32.
 
-            **Approach:** benchmarks and browser runs run alone; drafted in full when P8 starts.
+            **Approach:** benchmarks and browser runs run alone; drafted in full when P8 starts. Narrowed (records 
+            review):
+            prove the `bench` runner the slices built (@task.V3.T47), not rebuild it.
 
             **Scope added** (the user, 2026-11-11, from
             code:workflow/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md): run every real-browser

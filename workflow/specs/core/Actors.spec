@@ -390,9 +390,10 @@ composition
         (round-14/driver.ts). In production (src/host/) the inbox stays one synchronous loop,
         since Inspection O3 delivers at the end of each step; the fibers are a FiberMap owned by
         the Runtime's one Scope, which also holds the services Layer, so closing it interrupts
-        every call and releases every service. Proposed: dispose runs the core's disposal (R22, its
-        bound included) before it closes the Scope, so an interrupt there settles into a closed
-        core; today dispose closes the driver and then the Scope, skipping the core's disposal.
+        every call and releases every service. Required (R22; production gap, @task.V3.T51): dispose
+        runs the core's disposal (its bound included) before it closes the Scope, so an interrupt
+        there settles into a closed core; today dispose closes the driver and then the Scope,
+        skipping the core's disposal.
         Lifetime, the grace and the send table are decided in the step, so the
         conformance suite's lifetime wrong runtimes all edit step.ts.
 

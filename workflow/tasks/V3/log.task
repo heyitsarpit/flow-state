@@ -327,3 +327,12 @@ note 2026-11-11T12:58:40Z
     Compile Q3 ruling; Reads gains an Invariant that no lookup context carries an Attempt. Production's dispose 
     skipping the core's disposal (Actors R22) goes to T51. **Reverse:** move derived functions off Compiled; drop the 
     Reads Invariant.
+note 2026-11-11T13:08:47Z
+    Decision (orchestrator, 2026-11-11): records review fixes applied. Round-14 also runs T45's generators over hand 
+    fixtures; T45 owns the script Schema, player and shrinker, T47 reuses them (Conformance R22, R15). T51 gains the 
+    dispose gap. Reverse: git restore workflow/tasks/V3 workflow/specs. Open for the user: combination gate (B1), bench 
+    budget, T9/T15/T46 status.
+note 2026-11-11T13:09:43Z
+    Decision (user, 2026-11-11): turn cost is a measurement, not a gate; only the work fingerprint gates. Records 
+    review findings fixed (B2: T45 owns scripts, player and shrinker, and its generators may run on round-14). Open for 
+    the user: the combination gate's rule for unreached pairs (records review B1).

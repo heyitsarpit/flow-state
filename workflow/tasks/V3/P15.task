@@ -10,8 +10,9 @@ description
 
     **Verified by:**
 
-    - the slice's suite half: parts and the Spec model's section green, killing table-cell mutants of the model,
-      reviewed and audited by its own adversarial auditor (skill:policy-testing#audit-a-suite);
+    - the slice's suite half: the audit and the adapter retirement (no parts, no model section) green, reviewed and 
+      audited by its own
+      adversarial auditor (skill:policy-testing#audit-a-suite);
     - then the production half through the production adapter: model-predicted runs pass, with its coverage rows in
       @plan.Runtime's verification;
     - skill:check-task per Task; `nub run check` at zero.
@@ -22,8 +23,8 @@ description
 
     **Exit criteria:**
 
-    - the slice's suite half is green on the model, mutant-proven by model mutation, reviewed and audited before its
-      production half starts;
+    - the slice's suite half is green and audited before its production half starts (no model mutation: this slice
+      has no parts);
     - the slice's new codes are declared, enabled and covered by the combination gate before it closes.
 
     **False pass:** the production adapter doing work the runtime should; a case edited to pass.

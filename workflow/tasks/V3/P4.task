@@ -1,5 +1,5 @@
 phase P4
-title Pay path
+title Pay path, slice R and lane policies
 description
     **Class:** not readily verifiable.
 
@@ -432,11 +432,18 @@ tasks
             model cheaper and stronger than hand cases, with round-14 kept as a mutant host.
 
             **Read first:** code:workflow/plans/flow/references/proposals/advisor-answers-2026-11-11.md (Q2, Q3, Q5); 
-            @spec.WriteAhead; code:packages/flow-state-v3/conformance/dsl/case.ts.
+            @spec.WriteAhead; code:packages/flow-state-v3/conformance/dsl/case.ts; @spec.Conformance.R19 to R22
+            (the model's limits, the generic compare, facts only, the limits list; tests T32, T37, T38, T40 to T43 are
+            this Task's).
 
-            **Approach:** the model imports nothing from a runtime; generated runs are a reload after every step of
+            **Approach:** the model is the existing `dsl/lifecycle*.ts` modules (rules, step, owed), adapted, and
+            imports nothing from a runtime; generated runs are a reload after every step of
             the existing cases, the old suite's search, and seeded sequences with shrinking; hand cases become the
             model's tests; round-14 becomes a mutant host with a limits list a run verifies.
+
+            **Owns (records review, 2026-11-11):** the script Schema, the script player and the shrinker, over hand
+            fixtures; @task.V3.T47 reuses them for parts and builds none of its own (@spec.Conformance.R15, R22). The
+            generators run on round-14, still with no composite.
 
             **Narrowed (replan, accepted 2026-11-11), slice R:** first restore the disposal catch of
             `o6.settled-in-bound-stays-held`, so falsify round-14 is 147/147 and nothing else in the Epic starts red.
@@ -446,6 +453,21 @@ tasks
             exhaustive search, and seeded `fc.commands` runs with shrinking to regression files). Adds `limits.ts` with
             its gate. Absorbs @task.V3.T14 (searches and mutants as runner modes; the machine verdict form). Effort 3
             (estimate). Read code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part 3, "R Rework").
+
+            **Remaining steps, in order** (rebuilt 2026-11-11 from STATUS.md, T45; the lead's scratchpad plan is gone):
+
+            1. Restore the disposal catch of `o6.settled-in-bound-stays-held` (falsify round-14 147/147). Keep a parked
+               ending saved in disposal owed; allow only unsaved definite endings.
+            2. Evidence endings (Released, Superseded) and parked endings saved by no landing, in the lifecycle and in
+               evidence-kinds (PAY-03@7, DISP-0x); the PAY-07 and DLV-06 leaves.
+            3. Expect/compare split: report-free owed members; lint on `lifecycle-step.ts`, `lifecycle-owed.ts` and
+               `turn/selection.ts`; claim cells into one generic compare (Conformance R19, R20, T38, T40).
+            4. The model's rollback to the last landed capture at a kill (production crash 70 red; Restore R3,
+               WriteAhead R10); rerun `crash --runtime production` (the Held-head bug stays for @task.V3.T51).
+            5. Script Schema, player and shrinker; the generators (crash at every step, small exhaustive search, seeded
+               `fc.commands` runs) with regressions kept (T32); round-14 kill counts (acceptance 1).
+            6. `limits.ts` with its gate (T42), the liar greens on round-14 (T41), the runner's default runtime
+               production (T43), model purity lint (T37), the runner modes of @task.V3.T14.
 
             - **May change:** `packages/flow-state-v3/conformance/`.
             - **Evidence:** STATUS.md, one T45 section.
@@ -485,7 +507,12 @@ tasks
 
             **Read first:** @task.V3.T45, code:workflow/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md
             (sections 2, 4, 5A, 5B and 7), code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part 3,
-            "R Rework"), code:packages/flow-state-v3/conformance/world/network.ts.
+            "R Rework"), code:packages/flow-state-v3/conformance/world/network.ts,
+            @spec.Conformance.R15 to R23 (tests T30, T31, T33 to T36, T39, T44 are this Task's),
+            code:workflow/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md (the 265 features).
+
+            **Builds on T45:** the script Schema, player and shrinker are @task.V3.T45's; this Task adds parts and the
+            scripts generated from them, and writes no second set.
 
             **Risk:** the interacting-pair count is an estimate (671 by the replan's reading, 777 by the catalogue's).
             The reach recorder measures it, and the user approves the non-interacting rules once, as one list (replan
@@ -500,14 +527,21 @@ tasks
 
             **Approach, build:** one `shape()` module per part, with its reference derived from production's `Compiled`,
             a user model and a server model; usual and stress profiles; the app mix; the matrix maps all 265 Plan
-            features, each row naming its fixture kind (composite part, static case, example-app check or package
+            features, each row naming its fixture kind (composite part, hand case, static case, example-app check or 
+            package
             check). Pilot parts: S16 into C, S21 flattened into H, S10 into I (39 interacting pairs, an estimate).
             Composites A to K are placed by slice in the replan's part tables; J and K (catalogue 5B) are built in slice
             3 with the subset available. S27 and the Plan-check shapes arrive with their slices. Effort 4 (estimate).
 
             **Catalogue correction:** the catalogue's section 1 claims (production writes under four policies and has
             `cancelAll`) and its P tiers (section 7: 11 shapes run on production now) are wrong for production today
-            (replan part 1). This Task corrects them, and the slice tables supersede the tiers.
+            (replan part 1). The catalogue file is not edited; this Task's matrix and the slice tables supersede them.
+
+            **Declares today's codes:** the 15 codes production implements now (the replan's R row), listed from
+            `adapters/production.ts` and recorded in STATUS.md, T47.
+
+            **Bench:** turn cost per part (median and p99) is recorded as a measurement, not a gate; only the work
+            fingerprint check gates (the user declined up-front optimisation, 2026-11-11).
 
             **Order:** one lead at a time: T45, then T51, then T47; in every slice the suite half finishes before the
             production half, by the same builder or the next.
@@ -560,7 +594,8 @@ tasks
             3, "1 Lane policies"), @epic.V3 (instructions: the slice template),
             code:packages/flow-state-v3/conformance/README.md (the WriteLanes rows).
 
-            **Approach:** Spec check first (no change expected; revise if building shows one), then the slice template.
+            **Approach:** Spec check first: rule WriteLanes Q5 (a cancel commit on a Kept lane; a kept unknown on a
+            Held head), which @task.V3.T51's table refuses until then; then the slice template.
             Codes: lt se ca cA ad. Parts built: S01 and S24 [A]; S08, S03 and S22 flat [B]; S12 and S23 [C]; S09 flat
             [G]. Reaches the pairs `lt`+`cA`, `ca`+`cA`, `cA`+`gr` and the deep stacks "reload + cancel + retry +
             storage refusal" and "disposal + serialize + write-ahead + refusal". Bench: capture bytes and batches per
@@ -601,7 +636,9 @@ tasks
 
             **Approach:** the lane as one exhaustive match over (phase, member or ending); `evidenceOf(before, input,
             after, commands)` derives Sent, Minted and endings; tagged states replace the ending, `cancelled` and `sent`
-            booleans; drop derived fields (`tickets`, a lane's `key`, `keyText` and `id`); the restored Held head fixed
+            booleans; production's `dispose` runs the core's disposal (Actors R22) before it closes the Scope (the
+            Actors R15 note, now marked Required; it skips it today); drop derived fields (`tickets`, a lane's `key`, 
+            `keyText` and `id`); the restored Held head fixed
             with a failing case first; reads get a context with no Attempt; the seam lint list; Spec ids out of `src/`
             comments, with a lint pattern. Effort 2.5 (estimate).
 
@@ -609,7 +646,8 @@ tasks
             - **Evidence:** STATUS.md, one T51 section.
             - **False pass:** a rewrite that changes behaviour unnoticed → caught by the unchanged suite on production
               and the core mutants.
-            - **Gates:** production 75/75, falsify production 18/18, liar 13/13, core mutants; `nub run check`.
+            - **Gates:** production, falsify production, liar and core mutants no worse than at T51's start, as recorded
+              in `gates.json`; the crash generator; `nub run check`.
             - **Stops:** a guarantee change.
         acceptance
             - The lane is one total function from WriteLanes' table: no `if` chain, and no `cancelled`, `sent` or
@@ -617,6 +655,12 @@ tasks
             - Reports an act determines come from `evidenceOf`; report-only production mutants fall and core-mutant
               survivors do not rise.
             - The restored Held head bug has a failing case first, then passes.
-            - Production gates are unchanged: 75/75, falsify 18/18, liar 13/13; `nub run check` at zero.
+            - Production gates are no worse than at T51's start, as recorded in `gates.json`; `nub run check` at zero.
+            - No new crash-generator reds; the Held-head points (26 production-only at T45) go green.
+            - `dispose` runs the core's disposal (Actors R22) before it closes the Scope, with a failing case first.
+            - Reads I21 holds (no Attempt in a lookup's context), and the seam lint (Conformance T29) and the Spec-id
+              lint in `src/` exist.
+            - WriteLanes Q5's two open cells (a cancel commit on a Kept lane; a kept unknown on a Held head) are
+              refused as a defect by the total function; @task.V3.T18 rules them.
         comment     2026-11-11T12:42:12Z
             New (replan, accepted 2026-11-11): production rework before slice 1.

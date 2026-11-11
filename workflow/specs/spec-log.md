@@ -409,3 +409,14 @@ Both written by the replan records review, under the orchestrator's ruling (V3 l
 - **Reads I21 and T13 added:** no lookup's context carries an Attempt, nor an id or key standing in for one. Why:
   R6 said so with no Invariant, and production's read context carried a made-up Attempt (@task.V3.T51 fixes it).
   Reverse: drop I21 and T13.
+
+## 2026-11-11, records review: round-14 generators and script ownership
+
+- **Conformance R22, R14, R15, Q15:** round-14 also runs T45's generators over hand fixtures (a crash at every step,
+  the small exhaustive search, seeded runs); still no composite. @task.V3.T45 owns the script Schema, the player
+  and the shrinker; @task.V3.T47 reuses them. Why: T45's acceptance needs generated runs, and R22 forbade them.
+  Reverse: restore "runs only the frozen hand cases" and move the generators to T47.
+- **Conformance tests T31 to T43:** each "Slice R writes this" names its Task (T45: T38, T43; T47: T31, T33 to T36,
+  T39). Q15 no longer lists the liar mode as unbuilt (T44 built it).
+- **Actors R15 note:** "Proposed" is now "Required", owned by @task.V3.T51 (production's dispose skips the core's
+  disposal, Actors R22).

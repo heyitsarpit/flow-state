@@ -304,7 +304,8 @@ requirements
                 | Time bound (R8) | own, every runner mode                    | own, every runner mode                 |
 
                 A runtime case is a hand case (a scenario module) or a generated run, the replay of a script
-                (R15).
+                (R15). A generated run draws from a hand fixture or from a part; round-14 hosts only the
+                first (R22).
 
                 A runtime case's steps are its numbered `Stepped` entries; each check it makes happens at
                 one: an oracle at the step it judges, an expectation at the last step taken before the
@@ -326,7 +327,8 @@ requirements
                 from it (R19); the player replays it on a runtime through the Port, under oracles; the bench
                 replays it with no observer and no oracles (R23). A script decodes with one Schema and
                 replays with no generator. A failure the generator finds shrinks to a kept regression script
-                that every later suite run replays.
+                that every later suite run replays. @task.V3.T45 owns the script Schema, the player and the
+                shrinker, over hand fixtures; @task.V3.T47 reuses them for parts and builds no second set.
 
                 Hand cases freeze: a hand case is added only to document a ruling, which it cites. The 99
                 hand cases are named examples and the Spec model's tests.
@@ -416,8 +418,9 @@ requirements
 
     R22  Round-14 is a mutant host
         source  The replan's question 1 and advisor Q3 (a verified limits list).
-        must    Round-14 runs only the frozen hand cases, as the host of their mutants; no composite part
-                runs on it. The runner's default runtime is production.
+        must    Round-14 runs the frozen hand cases, as the host of their mutants, and the generators built on
+                hand fixtures: a crash at every step, the small exhaustive search and seeded runs
+                (@task.V3.T45). No composite part runs on it. The runner's default runtime is production.
 
                 Round-14's limits are rows of one list, each naming a case, a check and the Invariant
                 round-14 breaks there. A run verifies every row: the row's case fails on round-14 by that
@@ -543,9 +546,11 @@ open
     Q15  R15 to R23 are not built: no part module, generator, script player, reach recorder, feature matrix,
         combination gate, liar mode, limits list or bench exists, and obligations still read reports in
         `dsl/lifecycle-step.ts`, `dsl/lifecycle-owed.ts` and `turn/selection.ts`.
-        outcome  Slice R builds them: @task.V3.T45 the expect and compare split, the generators, the liar mode and
-                 the limits list; @task.V3.T47 parts, scripts, the player, declarations, the matrix, the
-                 combination gate and the bench; @task.V3.T51 the production adapter's seam lint.
+        outcome  Slice R builds them: @task.V3.T45 the expect and compare split, the script Schema, the player and
+                 the shrinker, the generators over hand fixtures, the liar mode and the limits list;
+                 @task.V3.T47 parts, scripts from parts, declarations, the matrix, the combination gate and
+                 the bench; @task.V3.T51 the production adapter's seam lint. The liar mode is built (T44,
+                 production 13 of 13); T45 closes its round-14 greens.
 
     Q16  The non-interacting rules (R18) are the catalogue's six, which a script cannot rebuild exactly (777
         interacting pairs in the catalogue, 671 in the replan's reading).
@@ -1003,28 +1008,35 @@ tests
             `Compiled`, seen rejecting a planted part with a hand row; the three pilot parts (S16, S21 flattened,
             S10) replayed from their emitted scripts by the player, the model and the bench, with equal step
             counts. [@I46, @I47]
-    T31  Composites stay off round-14. Slice R writes this: the runner refuses a part on round-14, seen with a
-            planted request. [@I48]
+    T31  Composites stay off round-14. Slice R writes this (@task.V3.T47): the runner refuses a part on round-14, seen 
+         with a
+             planted request. [@I48]
     T32  Regressions. Slice R writes this (@task.V3.T45): a planted mutant found by a seeded run shrinks to a
             script in `regressions/`, which the next suite run replays red. [@I49]
-    T33  Frozen hand cases. Slice R writes this: a check that each hand case newer than 2026-11-11 cites a ruling,
-            seen rejecting a planted uncited case. [@I50]
-    T34  Declarations. Slice R writes this: the declared codes of every part and adapter resolve against the code
-            list, seen rejecting a planted code; generated scripts for a runtime that does not declare `ca` contain
-            no `ca` command. [@I51, @I52]
-    T35  Matrix. Slice R writes this: the gate run over all Plan features, seen failing on a deleted row, on a row
-            owed to a closed Task, on a declared code no fixture reaches and on a part claiming an undeclared
-            code. [@I53, @I54, @I55]
-    T36  Pairs. Slice R writes this: the pair list regenerated from the channel table equals the gate's list; the
-            gate seen failing on a planted unreached pair of declared codes and on a waiver without a later slice;
-            a triple left unreached changes no verdict. [@I56, @I57, @I58]
+    T33  Frozen hand cases. Slice R writes this (@task.V3.T47): a check that each hand case newer than 2026-11-11 cites 
+         a ruling,
+             seen rejecting a planted uncited case. [@I50]
+    T34  Declarations. Slice R writes this (@task.V3.T47): the declared codes of every part and adapter resolve against 
+         the code
+             list, seen rejecting a planted code; generated scripts for a runtime that does not declare `ca` contain
+             no `ca` command. [@I51, @I52]
+    T35  Matrix. Slice R writes this (@task.V3.T47): the gate run over all Plan features, seen failing on a deleted 
+         row, on a row
+             owed to a closed Task, on a declared code no fixture reaches and on a part claiming an undeclared
+             code. [@I53, @I54, @I55]
+    T36  Pairs. Slice R writes this (@task.V3.T47): the pair list regenerated from the channel table equals the gate's 
+         list; the
+             gate seen failing on a planted unreached pair of declared codes and on a waiver without a later slice;
+             a triple left unreached changes no verdict. [@I56, @I57, @I58]
     T37  Model purity. Slice R writes this (@task.V3.T45): an import-boundary lint over the model's modules, seen
             rejecting a planted runtime import. [@I59]
-    T38  Compare. Slice R writes this: a runtime that omits an owed report, one that adds a report the model
-            neither owes nor allows, and one whose report breaks a named cell, each refused at its step with the
-            cell's Invariant. [@I60]
-    T39  Model mutation. Slice R writes this: each model table cell mutated in turn; a cell no part's expected
-            trace notices is listed, and a model field no mutation reaches fails the gate. [@I61]
+    T38  Compare. Slice R writes this (@task.V3.T45): a runtime that omits an owed report, one that adds a report the 
+         model
+             neither owes nor allows, and one whose report breaks a named cell, each refused at its step with the
+             cell's Invariant. [@I60]
+    T39  Model mutation. Slice R writes this (@task.V3.T47): each model table cell mutated in turn; a cell no part's 
+         expected
+             trace notices is listed, and a model field no mutation reaches fails the gate. [@I61]
     T40  Facts only. Slice R writes this (@task.V3.T45): a lint banning Observation imports in the expect
             modules, seen rejecting a planted import. [@I62]
     T41  Liar gate. Slice R writes this (@task.V3.T45): `falsify --liar` on production, with the count of
@@ -1032,8 +1044,9 @@ tests
             only by its own report. [@I63]
     T42  Limits. Slice R writes this (@task.V3.T45): the limits run on round-14, seen failing on a planted row
             whose case passes and on one whose case fails by another Invariant. [@I64, @I66]
-    T43  Default runtime. Slice R writes this: the runner with no runtime flag names production in its first
-            line. [@I65]
+    T43  Default runtime. Slice R writes this (@task.V3.T45): the runner with no runtime flag names production in its 
+         first
+             line. [@I65]
     T44  Fingerprints. Slice R writes this (@task.V3.T47): conformance and bench replays of each pilot part's
             usual script give equal fingerprints; seen failing on a planted bench that skips the persistence
             edge. [@I67]

@@ -130,7 +130,8 @@ tasks
             WriteAhead R2: the KeyValueStore type rule and untyped missing storage (row Q02, an owed check;
             @plan.Persistence.O1).
 
-            **Read first (added):** @plan.Persistence.O1.
+            **Read first (added):** @plan.Persistence.O1, @spec.WriteAhead.Q4 (Effect's KeyValueStore has no batch,
+            R12 needs one; this slice settles the store service with R2's Invariant, with @task.V3.T20).
 
             **Slice 2, durability (replan, accepted 2026-11-11), with @task.V3.T20:** model first, continuing T45's
             pilot. Absorbs @task.V3.T10 (the WriteAhead area suite): oracles `write-ahead`, `capture` and `persistence`,

@@ -33,7 +33,7 @@ description
     | Stage | Phases | Stage exit |
     | --- | --- | --- |
     | A Settle | P0, P1, P2 | The design and the prototype agree; Plans and core Specs written from them |
-    | B Suite and core | P3, P4, P11 to P15 | The suite audited and green on both runtimes; the core passes it alone |
+    | B Suite and core | P3, P4, P11 to P15 | The suite audited, green on production and the Spec model, round-14 a mutant host; the core passes it alone |
     | C Features | P5 | Each feature's slice audited, then green on production |
     | D Examples and docs | P6, P7 | Example apps run in real Chrome and Safari; docs generated from source |
     | E Hardening and release | P8, P9, P10 | Budgets met, findings swept, released as far as the user asks |
