@@ -688,3 +688,5 @@ note 2026-11-11T08:34:47Z
     Advisor questions queued (code:workflow/plans/flow/references/proposals/advisor-questions-2026-11-11.md) for a Fable 5.2 high-effort advisor after the 5-hour window resets; the user will bring back TLA+ or another prover if it helps (Q4). T16's builder stopped when the session ended; its uncommitted src/ work resumes after the reset.
 note 2026-11-11T08:56:53Z
     Decision (user, 2026-11-11): one Opus auditor reviews src/ and the conformance edges for hand-rolled code that Effect already provides and for broad top-down simplifications; it writes before/after recommendations to effect-simplification-2026-11-11.md for the user to confirm before anything is applied. The T16 builder fixes the host clock's monotonic source and records realHost's stubs as owed by T19.
+note 2026-11-11T08:59:42Z
+    Decision (user, 2026-11-11): the advisor waits until the Effect audit is done and its confirmed fixes are applied. Review crons recreated (90 minutes).
