@@ -1,10 +1,10 @@
 import { Schema } from "effect";
 import { Empty, type Fixture, writeOf } from "./fixture.ts";
-import { type CancelsOf, type Concurrency, classifyWith, row } from "./reference.ts";
+import { type Concurrency, classifyWith, row } from "./reference.ts";
 
 const Unkeyed = Empty;
 
-const oneLaneWrite = <C extends Concurrency>(concurrency: C, cancels: CancelsOf<string>) =>
+const oneLaneWrite = <C extends Concurrency>(concurrency: C) =>
   writeOf(Unkeyed, {
     concurrency,
     releasesOnLeave: [],
@@ -12,7 +12,6 @@ const oneLaneWrite = <C extends Concurrency>(concurrency: C, cancels: CancelsOf<
     failure: { NotSent: "No" },
     unknown: { event: "Unsure" },
     classify: classifyWith(() => false),
-    cancels,
   });
 
 const serializeEvents = { Go: Schema.Struct({ n: Schema.Number }), All: Empty };
@@ -29,9 +28,7 @@ export const Serialize = {
   input: Empty,
   states: ["A"] as const,
   operations: {
-    put: oneLaneWrite("serialize", {
-      All: "cancelAll",
-    } satisfies CancelsOf<keyof typeof serializeEvents>),
+    put: oneLaneWrite("serialize"),
   },
   rows: [
     row("Go", "any", "same", [{ operation: "put", kind: "commit" }]),
@@ -50,7 +47,7 @@ export const Latest = {
   memory: Schema.Struct({}),
   input: Empty,
   states: ["A"] as const,
-  operations: { search: oneLaneWrite("latest", {}) },
+  operations: { search: oneLaneWrite("latest") },
   rows: [row("Go", "any", "same", [{ operation: "search", kind: "commit" }])],
 } satisfies Fixture;
 
@@ -65,7 +62,7 @@ export const Cancel = {
   memory: Schema.Struct({ retrying: Schema.Boolean, oks: Schema.Number }),
   input: Empty,
   states: ["A", "W"] as const,
-  operations: { search: oneLaneWrite("cancel", {}) },
+  operations: { search: oneLaneWrite("cancel") },
   rows: [
     row("Go", "any", "W", [{ operation: "search", kind: "commit" }]),
     row("Unsure", "any", "same", [{ operation: "search", kind: "retry" }]),

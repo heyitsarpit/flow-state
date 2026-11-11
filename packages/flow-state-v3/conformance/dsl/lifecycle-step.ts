@@ -506,6 +506,10 @@ const ended = (walk: Walk, given: Rules) => {
  * **Gotchas**
  *
  * - Rows with the same members are not told apart, so two of them matching one turn anchor it.
+ * - A stated limit: a `claimed` row (Pay's `Leave`, whose guard the suite does not compute) is
+ *   owed only when the turn reports its members. A runtime that drops `void.commit` from both
+ *   its act and its report passes every oracle; only PAY-19's state expectations catch it (v2
+ *   Risk 2; step 5 review M2).
  * - A `Parked`, `Unparked` or `Recorded` names no actor: it is read from the Attempt's lane, or for
  *   a decline from the oldest open decline of the operation (else its newest, so its cell refuses). One naming neither (an Attempt never
  *   minted) is not applied; a decline's `Ended` with no actor outside a turn likewise.

@@ -19,11 +19,8 @@ import { Answer } from "../world/network.ts";
  *   earlier send of the same Attempt ended unknown. A tag the commit turns into a success or an
  *   unknown is named here; the Spec's rules on top of it (StillUnknown) are the oracle's.
  * - `keyFields`: the input fields its key is made of; empty for an unkeyed operation.
- * - `cancels`: the events whose handler, in every state, runs this operation's `cancel` or
- *   `cancelAll` with no guard, so a turn of one is a cancel the suite drove. Typed by the
- *   fixture's event names (`Event`), see {@link CancelsOf}.
  */
-export type OperationReference<Event extends string = string> = {
+export type OperationReference = {
   readonly concurrency: Concurrency;
   readonly success: string;
   readonly failure: Readonly<Record<string, string>>;
@@ -31,7 +28,6 @@ export type OperationReference<Event extends string = string> = {
   readonly classify: (answer: Answer, mayHaveApplied: boolean) => Channel;
   readonly keyFields: ReadonlyArray<string>;
   readonly releasesOnLeave: ReadonlyArray<Transition>;
-  readonly cancels: CancelsOf<Event>;
 };
 
 /**
@@ -129,6 +125,11 @@ export const row = <Event extends string, State extends string, Operation extend
  * sibling alternative of the same event, state and target has other lane members, or none (Pay's
  * `Leave` runs `void.commit` only when its compiled guard holds, beside a member-less
  * fallthrough), so the turn's reported members say which ran (a runtime claim, v2 Risk 2).
+ *
+ * **Gotchas**
+ *
+ * - A stated limit: a runtime that drops a claimed row's members from both its act and its
+ *   report is caught only by its cases' state expectations (PAY-19 for Pay's `Leave`).
  */
 // RETURN_TYPE: keeps the fixture's typed row (its event, state and operation names).
 export const claimed = <R extends Row>(r: R): R => ({ ...r, claimed: true });
@@ -142,14 +143,6 @@ export type Transition = { readonly event: string; readonly from: string; readon
  * The declared concurrency policy of a write.
  */
 export type Concurrency = "reject" | "latest" | "serialize" | "cancel";
-
-/**
- * The `cancels` of an operation whose fixture has the events `Event`: each named event runs the
- * operation's `cancel` or `cancelAll`.
- */
-export type CancelsOf<Event extends string> = Readonly<
-  Partial<Record<Event, "cancel" | "cancelAll">>
->;
 
 /**
  * The references of the fixtures one case runs, by machine id, then by operation.
