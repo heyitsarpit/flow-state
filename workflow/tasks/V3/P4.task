@@ -11,8 +11,8 @@ description
     write-ahead and the driver; restore and key versions; fragments; operations; the CLI's `check`,
     `explain` and `graph`.
 
-    **Starts when:** P3's completion audit passes (its suite is proven); T16 alone starts once the
-    suite areas the Pay path uses are complete (T6, T7, T8, T13).
+    **Starts when:** interleaved with P3 by area (the Epic's instructions): each module starts once
+    its area's suite is proven and audited; T15's cross-area audit gates T23.
 
     **Verified by:**
 
