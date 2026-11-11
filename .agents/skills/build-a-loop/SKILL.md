@@ -223,9 +223,13 @@ short name.
   ISSUES, the Task goes back to its author. An author never marks its own Task done.
 - **R18 Phase done.** A phase has no status. It is done when every Task in it is done, every
   finding of its close-out review is fixed or recorded as deferred, and its completion audit has
-  written PASS as a phase comment. The orchestrator then notes "Phase <P> done". The next phase
-  starts only if the authority allows it; otherwise that is a stop.
-- **R19 Epic done.** After the last phase, a completion audit of the goal and every stage exit. On
+  written PASS as a phase comment. The completion audit also lists the Plan outcomes the phase's
+  Tasks `satisfy` and checks each one is delivered, not only that the suites pass: a suite covers
+  what its Spec states, and a Plan outcome with no Spec can be missing while every gate is green.
+  The orchestrator then notes "Phase <P> done". The next phase starts only if the authority allows
+  it; otherwise that is a stop.
+- **R19 Epic done.** After the last phase, a completion audit of the goal and every stage exit,
+  and of every in-scope Plan outcome: each one delivered, or deferred in writing. On
   PASS, the orchestrator sets the Epic's `status closed`, removes the review cron, and appends a
   closing note: what was delivered, at which revision, what stayed unverified, deferred items, and
   the agent decisions made.
@@ -285,8 +289,10 @@ short name.
   period, and the close-out reviews (R11).
 - **R30 Reviews go to a lead with its sidecars.** Every review, audit or research task goes to a
   lead with its sidecars, by skill:policy-delegation's Reviews table. Sidecars report only to their
-  lead; the orchestrator receives one combined report. Default effort, where the harness offers
-  effort levels (Claude Code's effort, Codex's reasoning effort): building leads medium, and every
+  lead; the orchestrator receives one combined report. Every review also names the Plan outcomes
+  the change delivers and any it was meant to deliver but doesn't. Default effort, where the
+  harness offers effort levels (Claude Code's effort, Codex's reasoning effort): building leads
+  medium, and every
   third building iteration high, for a periodic deeper pass at a fraction of the cost; reviewing
   and auditing leads high, so reviews stay a fixed measure. Where it offers none, this default does
   not apply.

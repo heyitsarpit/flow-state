@@ -4,7 +4,7 @@
     "build-a-loop": {
       "source": "../workflow/skills/suites/workflow",
       "sourceType": "local",
-      "computedHash": "cc5cdc4e17c1d3f858fa70218972c1f8df16eeaf32f763c416eba00944cd4989"
+      "computedHash": "fb467543eb57333e005dab1ead83fddc2649380d61e4a75fa964268024c23ef1"
     },
     "effect-api-documentation": {
       "source": "../workflow/skills/suites/effect",
