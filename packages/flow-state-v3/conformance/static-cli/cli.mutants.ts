@@ -156,4 +156,17 @@ export const cliMutants: ReadonlyArray<Mutant> = [
       },
     ],
   ),
+  cliMutant(
+    "cli.shared-contract-unchecked",
+    "check does not report two write operations on one write contract",
+    "Compile I10",
+    ["CLI-06"],
+    [
+      {
+        file: CHECK,
+        find: '    if (names.length > 1)\n      push({ severity: "error", rule: "SharedContract",',
+        replace: '    if (false)\n      push({ severity: "error", rule: "SharedContract",',
+      },
+    ],
+  ),
 ];

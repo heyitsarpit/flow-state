@@ -1,4 +1,5 @@
-import { type Scenario, variants } from "../dsl/case.ts";
+import { type Case, type Scenario, variants } from "../dsl/case.ts";
+import { Snapshot } from "../port.ts";
 import { Pay } from "../fixtures/pay.ts";
 import { Answer, RequestPhase } from "../world/network.ts";
 import {
@@ -18,11 +19,31 @@ import {
 /**
  * The Pay case `PAY-16`'s variants, ported from the prototype suite.
  */
+const stateOf = (c: Case) => {
+  const at = c.snapshot({ machine: Pay.machine, id: "shopper-1" });
+
+  return Snapshot.$is("Live")(at) ? at.state : "(absent)";
+};
+
+/**
+ * Turn I12's case: a schedule function reads the After memory (`PAY-16/schedule-reads-after-memory`).
+ */
+export const paymentRetryCovered = [
+  { invariant: "Turn I12" as const, cases: ["PAY-16/schedule-reads-after-memory"] },
+];
+
 export const paymentRetryScenarios: ReadonlyArray<Scenario> = [
   ...variants(
     {
       id: "PAY-16",
-      cites: ["WriteLanes R2", "WriteLanes R3", "WriteLanes R5", "WriteLanes R8", "Restore R3"],
+      cites: [
+        "WriteLanes R2",
+        "WriteLanes R3",
+        "WriteLanes R5",
+        "WriteLanes R8",
+        "Restore R3",
+        "Turn I12",
+      ],
       fixtures: [Pay],
     },
     {
@@ -110,7 +131,11 @@ export const paymentRetryScenarios: ReadonlyArray<Scenario> = [
         c.answer("pay", Answer.Fail({ tag: "Busy", fields: { retryAfterMs: 500 } }));
         s.state("WAITING");
         c.advance(499);
-        s.state("WAITING");
+        c.eq(
+          "Turn I12: WAITING's retry delay is read from the After memory (500 ms), not the pre-turn one",
+          stateOf(c),
+          "WAITING",
+        );
         c.advance(1);
         s.state("PAYING");
       },

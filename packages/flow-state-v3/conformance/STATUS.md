@@ -1408,6 +1408,33 @@ evidence sink, which round-14 swallowed as a `SinkFailed` issue and dropped the 
   decision 4), and a `Delivered` with no event (an `UnmappedEnding`'s) reads `(unmapped)`; a read's
   `Unreadable` (snapshot, row) has no step, being no step; schema issues are flattened to text (8).
 
+### The T8/T7 rows review (`references/proposals/t8-t7-rows-review-2026-11-11.md`), fixes so far
+
+Bottom line: H2, M1 to M5, M2, M3 and R11 are done; H1 (porting the compound, fragment and
+placement cases) and M6 (the implicit state machines) are next. T8 stays open.
+
+- H1 (rows): Turn I1, I3 to I6, I10, I11, I17, I24, I32 and I35 are back on T8 with their round-14
+  and old-suite evidence in `not-yet.ts`; I16, I18, I28, I31, I33, I34 stay T18's and I25 T21's, each
+  citing the code searched. The I20, I22 and I27 remainders are T8's again.
+- H2: PAY-16/schedule-reads-after-memory cites Turn I12 (After memory read by a schedule), with
+  round-14's `pay16.schedule-reads-pre-transition-memory`; the guard and mapper reads are a T8
+  remainder.
+- M1: `evidence-kinds` judges a delivery after an evidence ending the fold accepted (whatever its
+  label), in fact order (an unretained unknown is delivered, then released). Its mutant now mails
+  the superseded `x` labelled `Overloaded`; `ending-channels` and `delivered-once` catch it too,
+  since they judge the same delivery from other sides.
+- M2: CLI-06 checks Compile I10's SharedContract report (`cli.shared-contract-unchecked`); the
+  construction refusal stays T17's as a remainder.
+- M3: WriteLanes I15's redelivery clause now names a mapper throw (spec-log, for the user's read).
+  TURN-01/schedule-refused still asserts no issue count: R10 makes it one, round-14 gives two (a
+  round-14 limit, @plan.Pending D4); asserting it would turn round-14 red.
+- M4: `refusal` excuses a changed publication only by a turn of an event the suite drove, or an
+  incarnation in a step that reloaded or attached.
+- M5: remainders for I9 (a turn that stays), I20 (arming ids, disarmOn), I27 (calls before a
+  reload) and I15 (counts as delivered).
+- L1: a drive to a part credits only a part-only turn.
+- R11: the comparison script is `prototypes/conformance/compare-new-suite.ts`.
+
 ### Next steps
 
 1. Carried: CQ3's commit half (a Table B row for a lane holding a kept ending); the review's M7.

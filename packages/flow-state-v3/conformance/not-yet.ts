@@ -17,19 +17,24 @@ export const notYet: ReadonlyArray<NotYet> = [
     invariants: invariantsOf("WriteLanes", [19]),
   },
   {
-    owner: "@task.V3.T18",
-    why: "round-14 and the catalog's flat fixtures cannot show these (T8, proposed for the user's read): no compound state (I1, I4 to I6), no Port view of a callback's reads (I12), post-commit defects only from module-hook faults (I16), no pure turn or check() to call (I17, I18), no onContext (I28), no issues in snapshots (I31), timer order left to the host (I32), no multi-step, restartOn or keyed schedules (I33 to I35); production's turn builds them with their cases",
-    invariants: invariantsOf("Turn", [1, 4, 5, 6, 12, 16, 17, 18, 28, 31, 32, 33, 34, 35]),
+    owner: "@task.V3.T8",
+    why: "showable on round-14, not built yet (the T8/T7 rows review's H1): compound states and re-entry (I4 to I6; turn.ts exit and entry sets, fixpass and R14-FIX cases), child refusal (I3; turn.ts:321, FRAG-17), pending resets and whenAbandoned (I10, I11; turn.ts:633-652, FRAG-02), determinism by replay (I17), placements by key (I24; P1-S), equal deadlines by arm order (I32; timers.ts, world/clock.ts) and .each copies' per-key timers (I35 in part); I1 is one leaf name on the Port",
+    invariants: invariantsOf("Turn", [1, 3, 4, 5, 6, 10, 11, 17, 24, 32, 35]),
   },
   {
     owner: "@task.V3.T18",
-    why: "a seed per boot (WriteLanes I28): round-14 cannot take a seed and asks its host for every id (README decision 8); the seed cases and their wrong runtime are production builds",
-    invariants: invariantsOf("WriteLanes", [28]),
+    why: "round-14 cannot show these (searched round-14's turn.ts, step.ts, publish.ts and the old suite's scenarios): no check() (I18), no onContext (I28), no issues in snapshots (I31; publish.ts:31-36), no multi-step Schedule (I33), no restartOn (I34); post-commit defects come only from module-hook faults, which the Port refuses (I16)",
+    invariants: invariantsOf("Turn", [16, 18, 28, 31, 33, 34]),
   },
   {
     owner: "@task.V3.T21",
-    why: "no catalog fixture has fragments or placements (T8, proposed for the user's read): a child part's refusal (I3), pending resets (I10), whenAbandoned (I11), placements and value outcomes (I24, I25); built with fragments and operations",
-    invariants: invariantsOf("Turn", [3, 10, 11, 24, 25]),
+    why: "a value outcome of a placement (I25): round-14 has placements but no value-outcome case (Turn Spec T22); searched turn.ts placements and the old suite's phase1s and frag scenarios",
+    invariants: invariantsOf("Turn", [25]),
+  },
+  {
+    owner: "@task.V3.T18",
+    why: "a seed per boot (WriteLanes I28): round-14 asks its host for every id (adapter.ts host.id; README decision 8), so no round-14 mutant can break the seed; the case can run on round-14 (the adapter mints att-<sessionSeed>-n) but its wrong runtime is a production mutant",
+    invariants: invariantsOf("WriteLanes", [28]),
   },
   {
     owner: "@task.V3.T9",
@@ -62,8 +67,8 @@ export const notYet: ReadonlyArray<NotYet> = [
   },
   {
     owner: "@task.V3.T17",
-    why: "round-14 cannot make these results: it throws at the first violation (I3), and has no IdentityFieldOptional, SharedContract or write-scope check, or context wiring (I9, I10, I12, I17); T17 builds the compiler that does, and its static cases land before T17 closes",
-    invariants: invariantsOf("Compile", [3, 9, 10, 12, 17]),
+    why: "round-14 cannot make these results: it throws at the first violation (I3), and has no IdentityFieldOptional or write-scope check, or context wiring (I9, I12, I17; searched round-14's compile and cli/check.ts); T17 builds the compiler that does, and its static cases land before T17 closes",
+    invariants: invariantsOf("Compile", [3, 9, 12, 17]),
   },
   {
     owner: "@task.V3.T17",

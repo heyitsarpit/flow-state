@@ -263,8 +263,17 @@ export const cliCases: ReadonlyArray<StaticCase> = [
   },
   {
     id: "CLI-06",
-    cites: ["StaticCli R10", "StaticCli I8"],
+    cites: ["StaticCli R10", "StaticCli I8", "Compile I10"],
     run: (surface, expect) => {
+      expect(
+        "Compile I10",
+        "two write operations on one contract in an actor tree are an error",
+        Option.map(errorsOf(check(surface, "shared-contract").result), (errors) =>
+          errors.some((f) => f.rule === "SharedContract"),
+        ),
+        Option.some(true),
+      );
+
       for (const { project, breaks, reports } of BREAKING) {
         const found = check(surface, project);
 
@@ -357,6 +366,17 @@ export const cliCases: ReadonlyArray<StaticCase> = [
  * falsify as a case-expectation catch beside it.
  */
 export const cliCovered = coveredBy(cliCases).filter((row) => row.invariant !== "StaticCli I2");
+
+/**
+ * The part of Compile I10 CLI-06 does not judge.
+ */
+export const cliCompileRemainders: ReadonlyArray<Remainder> = [
+  {
+    invariant: "Compile I10",
+    owner: "@task.V3.T17",
+    owed: "the construction-time refusal (Compile R9) and a fragment placed twice: round-14 only reports it from flow check",
+  },
+];
 
 /**
  * The part of each checked StaticCli Invariant no case or oracle judges yet, by the Task that

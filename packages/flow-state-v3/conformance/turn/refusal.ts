@@ -141,9 +141,20 @@ const changed = (state: State, step: ReadonlyArray<Fact>, r: Refusal) => {
   const reports = reportsIn(step);
   const name = keyOf(r.actor);
 
+  const driven = step.flatMap((f) =>
+    Fact.$is("Drove")(f) && keyOf(f.actor) === name ? [f.event] : [],
+  );
+
+  const attached = step.some(
+    (f) =>
+      Fact.$is("Reloaded")(f) ||
+      ((Fact.$is("Ensured")(f) || Fact.$is("Released")(f)) && keyOf(f.actor) === name),
+  );
+
   const ranOrBegan = reports.some(
     (o) =>
-      (Observation.$is("Turn")(o) || Observation.$is("Incarnated")(o)) && keyOf(o.actor) === name,
+      (Observation.$is("Turn")(o) && keyOf(o.actor) === name && driven.includes(o.event)) ||
+      (Observation.$is("Incarnated")(o) && keyOf(o.actor) === name && attached),
   );
 
   const before = state.published.get(name);
@@ -209,8 +220,9 @@ const published = (state: State, step: ReadonlyArray<Fact>): State =>
  *
  * - An Unhandled or Denied is judged only when every `Drove` and `Delivered` of its event earlier
  *   in the step names one actor; an `InvalidTurn` whose `Delivered` names no actor is not judged.
- * - The excuse for a changed publication (a `Turn` or `Incarnated` of the actor in the step) is the
- *   runtime's report; `selection` judges that turn's header.
+ * - A changed publication is excused only by a turn of an event the suite drove to the actor in
+ *   that step, or an incarnation in a step that reloaded or attached a use (suite facts); a turn of
+ *   an ending or a firing in the same step is not an excuse, so such steps may go red.
  * - The refusal itself is the runtime's report; a runtime that reports none is caught by the
  *   cases' own expectations (`TURN-01`, `TURN-02`).
  * - A refused turn in a step that also runs another turn of the actor is judged only for its span.

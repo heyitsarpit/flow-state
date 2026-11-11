@@ -14,7 +14,12 @@ import type { Scenario } from "./dsl/case.ts";
 import type { StaticCase } from "./dsl/static-case.ts";
 import type { Guarantee, Probe } from "./dsl/oracle.ts";
 import { cliMutants } from "./static-cli/cli.mutants.ts";
-import { cliCases, cliCovered, cliRemainders } from "./static-cli/cli.cases.ts";
+import {
+  cliCases,
+  cliCompileRemainders,
+  cliCovered,
+  cliRemainders,
+} from "./static-cli/cli.cases.ts";
 import { graphNames } from "./static-cli/graph-names.ts";
 import { graphNamesMutants } from "./static-cli/graph-names.mutants.ts";
 import { refusalMutants } from "./turn/refusal.mutants.ts";
@@ -61,7 +66,10 @@ import { lateResultsMutants } from "./write-lanes/late-results.mutants.ts";
 import { lateResults } from "./write-lanes/late-results.ts";
 import { retryCountMutants } from "./write-lanes/retry-count.mutants.ts";
 import { retryCount } from "./write-lanes/retry-count.ts";
-import { paymentRetryScenarios } from "./write-lanes/payment-retry.scenarios.ts";
+import {
+  paymentRetryCovered,
+  paymentRetryScenarios,
+} from "./write-lanes/payment-retry.scenarios.ts";
 
 /**
  * Every guarantee the suite runs: each oracle with the mutants it must catch.
@@ -136,6 +144,7 @@ export const caseChecks: CaseChecks = {
     ...cliCovered,
     ...coveredBy(schedulesScenarios).filter((row) => row.invariant === "Turn I22"),
     ...laneKeysCovered,
+    ...paymentRetryCovered,
   ],
   mutants: [...constructionMutants, ...cliMutants, ...schedulesCaseMutants, ...laneKeysMutants],
   cases: [...scenarios, ...staticCases].map((c) => ({ id: c.id, cites: c.cites })),
@@ -147,6 +156,7 @@ export const caseChecks: CaseChecks = {
 export const remainders: ReadonlyArray<Remainder> = [
   ...constructionRemainders,
   ...cliRemainders,
+  ...cliCompileRemainders,
   ...turnRemainders,
   ...actorsRemainders,
   ...writeLanesRemainders,

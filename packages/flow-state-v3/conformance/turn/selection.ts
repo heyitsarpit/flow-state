@@ -1,5 +1,5 @@
 import { Option } from "effect";
-import { Fact, oracle, type Violation, violation } from "../dsl/oracle.ts";
+import { Address, Fact, oracle, type Violation, violation } from "../dsl/oracle.ts";
 import {
   actorIn,
   attemptKey,
@@ -204,6 +204,12 @@ const lateLeftWork = (
       ];
 };
 
+/**
+ * The driven credit of an event the suite sent to a part: it admits only a turn that ran no root
+ * part.
+ */
+const partCredit = (event: string) => `part ${event}`;
+
 const heardBy = (actor: ActorRef, event: string, step: ReadonlyArray<Fact>) =>
   step.flatMap((fact) =>
     Fact.$is("Reported")(fact) &&
@@ -217,7 +223,13 @@ const heardBy = (actor: ActorRef, event: string, step: ReadonlyArray<Fact>) =>
 const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
   const now = actorIn(state, turn.actor);
   const handlers = state.machines[turn.actor.machine];
-  const driven = now.driven.includes(turn.event);
+
+  const rootRan = turn.parts.some(
+    (p) => p.part.length === 0 && p.definition === turn.actor.machine,
+  );
+
+  const credit = rootRan || turn.parts.length === 0 ? turn.event : partCredit(turn.event);
+  const driven = now.driven.includes(credit);
   const [delivered] = heardBy(turn.actor, turn.event, step);
   const heard = !driven && delivered !== undefined;
   const route = !driven && delivered !== undefined ? routeOf(state, now, delivered) : "current";
@@ -272,7 +284,7 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
   const next = moved(
     withActor(owned, turn.actor, {
       ...now,
-      driven: withoutOne(now.driven, turn.event),
+      driven: withoutOne(now.driven, credit),
       entry,
     }),
     turn.actor,
@@ -425,7 +437,8 @@ const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>): Stepped =>
     Disposed: ({ actor }) => keep(moved(uncredited(state, actor), actor, Input.Disposed())),
     Forgot: ({ actor }) => keep(moved(uncredited(state, actor), actor, Input.Forgot())),
     Reloaded: () => keep(reloaded(state)),
-    Drove: ({ actor, event }) => keep(drove(state, actor, event)),
+    Drove: ({ actor, event, to }) =>
+      keep(drove(state, actor, Address.$is("Root")(to) ? event : partCredit(event))),
     Reported: ({ observation }) =>
       Observation.$match(observation, {
         Turn: (turn) => onTurn(state, turn, step),

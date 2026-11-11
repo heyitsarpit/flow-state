@@ -1,4 +1,6 @@
 import { Option, Schema } from "effect";
+import { Move } from "../dsl/lifecycle-model.ts";
+import type { LifeStep } from "../dsl/lifecycle-step.ts";
 import { Fact, oracle, violation } from "../dsl/oracle.ts";
 import { EvidenceKind, Observation } from "../port.ts";
 
@@ -14,21 +16,58 @@ const isEvidence = Schema.is(EvidenceKind);
  *
  * **Details**
  *
- * An `Ended` whose reason is an evidence kind (`Superseded`, `Released`, ...) is held per step
- * until its operation and Attempt are delivered; a `Delivered` of it breaks I4. It reads the
- * runtime's reports only (a consistency check): which reason an ending carries is the runtime's
- * word, and `ending-channels` judges the channel against the server.
+ * - A `Delivered` of an Attempt after its `Superseded` or `Released`, which the Case's lifecycle
+ *   accepted (it owed it from a turn's members and rows, or a cancel's history), breaks I4,
+ *   whatever label the runtime gives the delivery. An unretained unknown is delivered, then
+ *   released: the order matters.
+ * - An `Ended` whose reason is an evidence kind, then a `Delivered` of it, breaks I4 too (report
+ *   consistency).
  *
  * **Gotchas**
  *
  * - "No author tag equals a Flow reason" is a construction rule on the fixtures' failure tags,
  *   not judged here (Compile's).
  */
-export const evidenceKinds = oracle<{ readonly held: ReadonlyArray<Ending> }>({
+const evidenceEnded = (lives: LifeStep) =>
+  lives.applied.flatMap(({ move, refusals }) =>
+    Move.$is("Evidence")(move) && refusals.length === 0 ? [move.attempt] : [],
+  );
+
+const evidenceOnly = (
+  earlier: ReadonlySet<string>,
+  accepted: ReadonlyArray<string>,
+  step: ReadonlyArray<Fact>,
+) =>
+  step.reduce<{ readonly ended: ReadonlySet<string>; readonly found: ReadonlyArray<string> }>(
+    (acc, fact) => {
+      if (!Fact.$is("Reported")(fact)) return acc;
+
+      const o = fact.observation;
+
+      if (Observation.$is("Evidence")(o) && Option.exists(o.attempt, (id) => accepted.includes(id)))
+        return { ...acc, ended: new Set([...acc.ended, ...Option.toArray(o.attempt)]) };
+
+      if (!Observation.$is("Delivered")(o) || !Option.exists(o.attempt, (id) => acc.ended.has(id)))
+        return acc;
+
+      return {
+        ...acc,
+        found: [
+          ...acc.found,
+          `WriteLanes I4: ${o.operation} ${Option.getOrElse(o.attempt, () => "")} ended as evidence (superseded or released) and was then delivered as ${o.event}`,
+        ],
+      };
+    },
+    { ended: earlier, found: [] },
+  );
+
+type State = { readonly held: ReadonlyArray<Ending>; readonly ended: ReadonlySet<string> };
+
+export const evidenceKinds = oracle<State>({
   name: "evidence-kinds",
   guarantee: ["WriteLanes I4"],
-  start: () => ({ held: [] }),
-  step: (state, step) => {
+  start: () => ({ held: [], ended: new Set() }),
+  step: (state, step, _requests, lives) => {
     const walked = step.reduce<{
       readonly held: ReadonlyArray<Ending>;
       readonly found: ReadonlyArray<string>;
@@ -60,6 +99,11 @@ export const evidenceKinds = oracle<{ readonly held: ReadonlyArray<Ending> }>({
       { held: state.held, found: [] },
     );
 
-    return [{ held: walked.held }, walked.found.map(violation)];
+    const judged = evidenceOnly(state.ended, evidenceEnded(lives), step);
+
+    return [
+      { held: walked.held, ended: judged.ended },
+      [...new Set([...walked.found, ...judged.found])].map(violation),
+    ];
   },
 });

@@ -6,6 +6,11 @@ import type { Remainder } from "../coverage.ts";
  */
 export const turnRemainders: ReadonlyArray<Remainder> = [
   {
+    invariant: "Turn I12",
+    owner: "@task.V3.T8",
+    owed: "guards, payload mappers and updates reading PreTurn, and selects, keys and placement reads reading After; only a schedule function's After read is cased",
+  },
+  {
     invariant: "Turn I2",
     owner: "@task.V3.T18",
     owed: "an Unhandled or Denied that should have run and that the suite cannot attribute to one actor; part-level alternatives and compound states; the first turn after a disposal",
@@ -28,7 +33,7 @@ export const turnRemainders: ReadonlyArray<Remainder> = [
   {
     invariant: "Turn I9",
     owner: "@task.V3.T18",
-    owed: "at most one publication per turn: a Published names no turn",
+    owed: "at most one publication per turn (a Published names no turn), and an accepted turn that stays on its leaf (an update or self) publishing",
   },
   {
     invariant: "Turn I14",
@@ -38,12 +43,12 @@ export const turnRemainders: ReadonlyArray<Remainder> = [
   {
     invariant: "Turn I15",
     owner: "@task.V3.T18",
-    owed: "no revision change (no revision on the Port); an ending admitted in an Unhandled or Denied turn still applying its lane effects",
+    owed: "no revision change (no revision on the Port); an ending admitted in an Unhandled or Denied turn still applying its lane effects and counting as delivered",
   },
   {
     invariant: "Turn I20",
-    owner: "@task.V3.T18",
-    owed: "firings after a reload, before a turn arms again; part and keyed schedules",
+    owner: "@task.V3.T8",
+    owed: "the arming id a firing carries (not on the Port), disarmOn (no catalog fixture declares one; round-14 has it, turn.ts), firings after a reload before a turn enters a state again, and part and keyed schedules",
   },
   {
     invariant: "Turn I21",
@@ -52,7 +57,7 @@ export const turnRemainders: ReadonlyArray<Remainder> = [
   },
   {
     invariant: "Turn I22",
-    owner: "@task.V3.T18",
+    owner: "@task.V3.T8",
     owed: "overdue on restore and on a frozen trait's return; only a returning use is cased",
   },
   {
@@ -62,7 +67,7 @@ export const turnRemainders: ReadonlyArray<Remainder> = [
   },
   {
     invariant: "Turn I27",
-    owner: "@task.V3.T21",
-    owed: "exits of compound ancestors and active subroutines; owners per part",
+    owner: "@task.V3.T8",
+    owed: "exits of compound ancestors and active subroutines; owners per part; calls minted before a reload, which the Activation bump drops from the pending set",
   },
 ];
