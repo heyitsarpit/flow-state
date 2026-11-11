@@ -164,3 +164,7 @@ note 2026-11-11T18:22:31Z
 note 2026-11-11T18:30:08Z
     Usage reserve moved from 75 to 95 percent weekly, all models (the user, 2026-11-12). **Reverse:** set it back to 75 
     in Limits.
+note 2026-11-11T18:53:31Z
+    Review started (90-minute wake): one Opus lead with two Haiku sidecars on T45's checkpoints 74911f8d to 4d7e0f5d. 
+    Weekly usage 64 percent of 95. T45's comments are at 133 lines, past 100: compact at the slice's close (it is the 
+    active Task).
