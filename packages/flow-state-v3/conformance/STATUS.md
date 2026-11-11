@@ -405,10 +405,10 @@ Open: the rest of v2's migration; I22; T7's own rows.
 
 ### Convergence v2 build (2026-11-11; `references/proposals/lane-oracle-convergence-v2-2026-11-11.md`)
 
-Bottom line: steps 2, 1, 3 and 4 landed; `lane-queue` reads the Case's one fold. A case time bound, the lifecycle
-review's Mediums (M1 pending CQ1, CQ2) and the step-4 reviewers' items are in ("Next run" below). Step 5
-(`delivered-once` onto `lives`, Port change 5, F2) is next. Now: suite 86/86, null 0/86, coverage 0 gaps (34 checked),
-the lifecycle tests 23/23, sweep 74/74, `nub run check` at zero.
+Bottom line: steps 2, 1, 3, 4 and 5 landed; `lane-queue` and `delivered-once` read the Case's one fold. The step 4
+review's H1 is fixed (a turn owes its chosen row's members); its M1, M3, M4 and Lows are next, then steps 6 to 9
+("Run 3" below). Now: suite 86/86, null 0/86, coverage 0 gaps (35 checked), the lifecycle tests 30/30, `nub run
+check` at zero.
 
 - **Order:** step 2 before step 1, so the lifecycle's facts-to-moves step reads the real Port. Step 1 is split: part 1
   (Table A, deadlines, promotion) is in; part 2 (Table B, Table C, the actor moves, `step(model, reference, facts)`)
@@ -644,6 +644,58 @@ the lifecycle tests 23/23, sweep 74/74, `nub run check` at zero.
     store; kept as a reason no lane policy gives) and `Disposed` at a decline while disposing (lead's call, logged
     in M4). Noted: (10) a wrapped `Overdue` is a `Fail` with no oracle, never a catch; (11) a child past its 120 s
     bound is `NoVerdict`, not `Timeout`.
+  - **Step 5 (`1f922556`, `31933a7b`):** `delivered-once` reports the fold's refusals of WriteLanes I15, I16,
+    Actors I24 and Restore I6, with no views of its own. Port change 5: round-14 notes every admission of an
+    operation's ending (`turn.ts` `deliver`), the redelivery after a refusal and a kept try included. F2: a
+    delivery whose event is not its ending's mapping (`mappedEvent`) is refused as I15 (lead's call: it delivers
+    an ending that does not exist; I3 stays `ending-channels`'). The old ledger code is now unread (step 8 deletes
+    `ending-lives.ts`, `written-attempts.ts`, `lane-model.ts`).
+    - Found on round-14, three lead's calls (each with traces, seen failing on the old code):
+      1. A boot decides its restore endings before it opens incarnations (`step.ts` `onBoot`: `restore`, then the
+         `incarnation` notes), and a record not woken at ready hears them parked at its return. So `Reload` owes
+         each Held head's `AwaitRestore` to the actor's next incarnation (cause `plain`, or `runtimeDisposal` after
+         a disposal), and only a return from grace, `disposeActor` or `forget` owes its own at `incarnate`. A Held
+         head that owes its release owes no restore (R4). v2 had the incarnation owe it; the boot's order refuted
+         that (51 cases red).
+      2. `Opens` on a `Parked` ending gives a new life `ParkedOpen` (v2: `Owed`): round-14 reports the unpark after
+         the incarnation opens, and `Unparked` on `Owed` stays a refusal. `ParkedOpen` is owed by the step's end,
+         as v2's `Owed` was (T6 L11). Every Table C row has its `ParkedOpen` cell and trace.
+      3. **Pending CQ6:** a never-sent commit's ending decided in the Runtime's disposal (`NotSent { Disposed }`)
+         stays `Parked` at `Opens`, unjudged. Round-14 never delivers it after the reload (`PAY-10/hang`,
+         `PAY-13/waiting-flush-lost`), and I15 as written says it must be delivered or be evidence. For the user
+         with CQ6: deliver it at the next incarnation, or name it evidence by declaration.
+    - Mutants: `mutant.parked-delivered-as-other-tag` (DISP-06, I15 by F2; also ending-channels I3) and
+      `mutant.boot-skips-restored` (PAY-15/reload-holds-exactly-once, Restore I6), each caught for its reason.
+      Restore I6 leaves T11's not-yet row (coverage 35 checked, 0 gaps). Actors I24 is claimed with no mutant yet
+      (`mutant.kept-retried-without-boot` and DLV-05 not built; it stays in T9's row). Not built from v2's list:
+      `mutant.adoption-skips-parked`, `mutant.restored-twice`, `1b.r8-third-try`, DLV-05.
+    - M1 (pending CQ1, CQ2) against round-14: no case differs. No suite case refuses a decline or never-sent
+      ending twice, so the `Closed`-versus-`Kept` cell is reached only by traces.
+    - Sweep against `81feeae5` (Conformance R11): 74/74 both; **no case verdict changed.** Reach:
+      `d6.disposed-ending-is-evidence` is also caught in DISP-05 (R17, I15: a disposed actor's ending is parked,
+      never recorded; `RecordedOther` on `Owed`). Seven lane mutants (`lane.queue-unbounded`,
+      `lane.cancel-wire-as-never-sent`, `1b.cancel-all-queue-reversed`, `p1h.cancel-all-idle-declines`,
+      `lane.reject-queues`, `1b.forget-marks-held-lane`) now also draw delivered-once I15 in their caught case
+      (the refused-move rule: a refused `End` records no ending, so its delivery names none; and Table B's
+      `Commit` deadline, I15, which no oracle reported before); each is still caught by lane-queue.
+  - **Step 4 review (`references/proposals/step4-review-2026-11-11.md`), arrived after step 5 had landed:**
+    - **H1 (`7f8c331b`), accepted and fixed:** a turn's row is chosen by event, from, to and guard; its members
+      are owed whatever the runtime reports, and the report only confirms the row and gives a member's key (a
+      missing member's target: `Only` if unkeyed, the heard ending's lane, else `Every`). A row with a sibling
+      alternative of the same state and target, other lane members and a guard the suite does not compute is
+      `claimed` (Pay's `Leave` only, derived by the change detector): owed only when the report names it (v2 Risk
+      2). Mutant `mutant.cancel-members-dropped` (the probe): lane-queue catches it again in all 8 of the
+      reviewer's cases, LANE-03 and LANE-09 by I12, PAY-12 and PAY-15 cancel-on-wire, LANE-04 and LANE-08 by I20,
+      LANE-04 and LANE-10 by I21 (checked by throwaway I20 and I21 copies of the mutant), plus 7 more by I12. Two
+      step mutants (report-chosen row, claimed ignored), each killed. **This retires the member-mismatch item:**
+      the owed members' effects are judged under I12, I20 and I21. Step examples restated: a reported cancel
+      where the retry row is chosen leaves the head `Resending`; a reported retry where the cancel row is chosen
+      owes its release (I12).
+    - Sweep against step 5 (Conformance R11): 77/77; every one of the 74 older mutants has the same red set,
+      the same cases caught by its oracle and the same first catch. **No verdict changed.** The scratch sweeps
+      read coverage as BAD (no `workflow/`); in the checkout coverage is 0 gaps.
+    - M2: already fixed by `dcc13b4c` (`Await` names its ending through `hearing`).
+    - M1, M3, M4 and the Lows: not started (next run).
 - **Queued after the convergence steps, before T8 (coordinator, 2026-11-11):** the T41/T13 review
   (`references/proposals/t41-t13-review-2026-11-11.md`): H1, M1 to M4 and the Lows in the files touched. Its M4
   (whether `ending-channels` and `attempt-identity` move onto the lifecycle) is decided at step 7.
