@@ -398,11 +398,75 @@ tasks
             - under the liar gate no behavioural mutant turns green;
             - catch matrix, core mutants, crash generator and gate file run on every checkpoint.
 
+    T45
+        title       An executable Spec model computes expected results and generates cases (pilot: persistence)
+        status      open
+        priority    high
+        blocked_by  [@T44]
+        description
+            One executable model written from the Specs computes each case's expected result and generates runs,
+            piloted on the persistence area, replacing hand-written cases there.
+
+            **Why now:** 111 Invariants are still owed; the advisor's Q2, Q3 and Q5 find generated runs from one
+            model cheaper and stronger than hand cases, with round-14 kept as a mutant host.
+
+            **Read first:** code:workflow/plans/flow/references/proposals/advisor-answers-2026-11-11.md (Q2, Q3, Q5); 
+            @spec.WriteAhead; code:packages/flow-state-v3/conformance/dsl/case.ts.
+
+            **Approach:** the model imports nothing from a runtime; generated runs are a reload after every step of
+            the existing cases, the old suite's search, and seeded sequences with shrinking; hand cases become the
+            model's tests; round-14 becomes a mutant host with a limits list a run verifies.
+
+            - **May change:** `packages/flow-state-v3/conformance/`.
+            - **Evidence:** STATUS.md, one T45 section.
+            - **False pass:** the model shares a runtime's misreading → caught by a different model family reading
+              a sample of expectations, and by the mutants.
+        acceptance
+            - on round-14 with the suite's mutants, generated runs alone kill at least as many as the hand cases in
+              the area;
+            - the search finds at least one Spec conflict or runtime difference no case had, or reports none;
+            - T10's rows are covered by generated runs.
+    T47
+        title       A wide net of small fixtures, each run under generated flows and network faults
+        status      open
+        priority    high
+        blocked_by  [@T45]
+        description
+            Many small fixtures of very different application shapes run under the T45 generator's seeded event
+            sequences and network fault schedules, so the suite stresses combinations no hand-written case reaches.
+
+            **Why now:** about 70 of 112 cases use one real application (checkout Pay); the user wants a wide,
+            complex net of flows, state transitions and network interactions (2026-11-11).
+
+            **Read first:** @task.V3.T45; code:packages/flow-state-v3/conformance/fixtures/pay.ts;
+            code:packages/flow-state-v3/conformance/world/network.ts.
+
+            **Approach:** about 15 to 20 shapes, each under 30 lines and no hand-written rows: an autosave form,
+            search as you type (`latest`), an upload with cancel and retry, a two-actor chat thread, multi-tab
+            editing, a wizard with back and forward, a polling dashboard, an offline queue that drains, an
+            optimistic toggle, a rate-limited API, a stream of server pushes, a long job with progress, token
+            refresh, a cart synced across actors, a keyed per-row editor. Fault schedules: lost, late, duplicated,
+            reordered and slow answers, timeouts, offline spans, storage refusals, reloads and disposal mid-flight.
+            Each shape runs two generator profiles: a usual one (realistic timings and behaviour, no faults) and a
+            stress one (high event rates, every fault, reloads and disposal mid-flight). Shapes keep being added
+            while each raises table-cell reach or mutation score; 15 is a floor, not a target. Every run is
+            judged by the same oracles; failures shrink to small reviewable cases kept as regressions.
+
+            - **May change:** `packages/flow-state-v3/conformance/` (fixtures, world, generator).
+            - **Evidence:** STATUS.md, one T47 section; the generated gate file.
+            - **False pass:** shapes that differ in name but exercise the same paths → caught by table-cell reach
+              and per-Invariant mutation score across shapes.
+        acceptance
+            - at least 15 shapes, each with a usual and a stress profile, run on round-14 and production, and
+              shapes added until reach and mutation score plateau;
+            - table-cell reach and mutation score rise over the hand cases alone, and are recorded;
+            - every failure found shrinks to a kept regression case, or is logged as a runtime limit.
+
     T17
         title       Compiled and the compiler
         status      draft
         priority    high
-        blocked_by  [@T16, @T43, @T44]
+        blocked_by  [@T16, @T43, @T44, @T47]
         description
             Build Compiled and the compiler: @spec.Compile and @spec.Diagnostics from the public API.
 

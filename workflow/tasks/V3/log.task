@@ -278,4 +278,7 @@ note 2026-11-11T10:33:21Z
     time). Decision (orchestrator): k.drop-row and q1a.unchanged-resets stay pending probes until WriteAhead I4 has an 
     oracle (T45 and T10). Next: T44.
 note 2026-11-11T10:36:02Z
-    Decision (user, 2026-11-11): a wide net of small, very different fixtures (about 15 to 20 app shapes) run under generated flows and network fault schedules: @task.V3.T47, after T45's generator pilot.
+    Decision (user, 2026-11-11): a wide net of small, very different fixtures (about 15 to 20 app shapes) run under 
+    generated flows and network fault schedules: @task.V3.T47, after T45's generator pilot.
+note 2026-11-11T10:43:45Z
+    Decision (user, 2026-11-11): T45 (Spec model and generator) and T47 (wide fixture net) move into P4 before T17, so production's compiler and turn are judged by the wide net from the start; T46 stays in P11. Order: T44, T45, T47, T17, T18, then P11.
