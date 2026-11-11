@@ -663,4 +663,9 @@ note 2026-11-11T07:31:08Z
     rows moved to P4 are showable on round-14 (third wrong move, after T13 and T17). Decision: rows leave P3 only with 
     cited evidence, checked by the next review; H1, H2 and M1 to M6 to the builder; R10 governs I15's wording.
 note 2026-11-11T08:11:31Z
-    Decision (orchestrator, under the user's delegation of Spec questions): any refused turn's ending is redelivered once, a second refusal final until the next boot or adoption (Actors R15, I24 and the CQ1 ruling govern); WriteLanes R10 and I15 are widened to match, and @plan.Pending D4 is rewritten. **Reverse:** limit redelivery to a mapper throw. T7 done but I19 at 52deba77 (111/111, falsify 149/149, coverage 72/183).
+    Decision (orchestrator, under the user's delegation of Spec questions): any refused turn's ending is redelivered 
+    once, a second refusal final until the next boot or adoption (Actors R15, I24 and the CQ1 ruling govern); 
+    WriteLanes R10 and I15 are widened to match, and @plan.Pending D4 is rewritten. **Reverse:** limit redelivery to a 
+    mapper throw. T7 done but I19 at 52deba77 (111/111, falsify 149/149, coverage 72/183).
+note 2026-11-11T08:13:35Z
+    Decision (user, 2026-11-11, "i would like to start building sooner"): T16 starts as soon as the suite builder reaches a clean commit, before T8's last rows and T9 to T12, one lead at a time; the rest of P3 resumes after T16's first checkpoint. T16 uses the Plans' proposed public names provisionally and lists them for the user (public entry-point names stay the user's stop). **Reverse:** finish P3 first.
