@@ -36,7 +36,7 @@ export const retryCount = oracle<Record<string, never>>({
   start: () => ({}),
   step: (state, step, requests, lives) => {
     const found = step.flatMap((fact) => {
-      if (!Fact.$is("Read")(fact)) return [];
+      if (!Fact.$is("RowRead")(fact)) return [];
 
       return Option.match(retryCountOf(fact.row), {
         onNone: () => [],

@@ -18,6 +18,8 @@ import { attachInspector } from "../../src/host/inspect.ts";
 import { CellsMachine, PayMachine, ShopApi } from "../machines/pay.ts";
 import {
   type ActorRef,
+  DisposeExit,
+  heard,
   type Json,
   MemberTarget,
   Observation,
@@ -209,7 +211,7 @@ const observationOf = (evidence: Evidence, identify: (value: WeakKey) => number)
       ),
     Incarnated: (e) => Result.succeed(Observation.Incarnated({ actor: ref(e.actor) })),
     Finished: (e) => Result.succeed(Observation.Finished({ actor: ref(e.actor) })),
-    RuntimeDisposed: () => Result.succeed(Observation.RuntimeDisposed()),
+    RuntimeDisposed: () => Result.succeed<Observation | DisposeExit>(DisposeExit.Done()),
     Published: (e) =>
       Result.map(jsonOf("published memory", e.memory), (memory) =>
         Observation.Published({
@@ -329,7 +331,7 @@ export const productionPort: Port = {
     attachInspector(built.runtime, (evidence) =>
       Result.match(observationOf(evidence, identify), {
         onFailure: boot.unreadable,
-        onSuccess: boot.observe,
+        onSuccess: heard(boot),
       }),
     );
 

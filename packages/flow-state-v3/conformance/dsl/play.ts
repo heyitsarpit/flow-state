@@ -1,7 +1,6 @@
 import { Result } from "effect";
-import type { Observation } from "../port.ts";
 import { type CaseOptions, Crashed, openCase, type Scenario } from "./case.ts";
-import { Fact } from "./oracle.ts";
+import { Fact, isRuntimeFact, type RuntimeFact } from "./oracle.ts";
 
 /**
  * Plays a case under the crash generator (Conformance's crash search): the page is killed and
@@ -26,19 +25,20 @@ export const playCrash = (options: CaseOptions, run: Scenario["run"]) => {
 };
 
 /**
- * Plays a case and returns its reports grouped by step, in order: what the liar gate replays.
+ * Plays a case and returns its runtime facts (reports and runtime answers) grouped by step, in
+ * order: what the liar gate replays.
  */
 export const playRecorded = (options: CaseOptions, run: Scenario["run"]) => {
   const opened = openCase(options);
   run(opened.driven);
   opened.end();
 
-  return opened.facts().reduce<ReadonlyArray<ReadonlyArray<Observation>>>((steps, fact) => {
+  return opened.facts().reduce<ReadonlyArray<ReadonlyArray<RuntimeFact>>>((steps, fact) => {
     if (Fact.$is("Stepped")(fact)) return [...steps, []];
 
-    if (!Fact.$is("Reported")(fact)) return steps;
+    if (!isRuntimeFact(fact)) return steps;
     const last = steps.at(-1) ?? [];
 
-    return [...steps.slice(0, -1), [...last, fact.observation]];
+    return [...steps.slice(0, -1), [...last, fact]];
   }, []);
 };

@@ -255,7 +255,6 @@ const reported = (
         : walk;
     },
     Finished: ({ actor }) => push(walk, ActorMove.Finished({ actor })),
-    RuntimeDisposed: () => push(walk, Move.RuntimeDisposed()),
     Published: () => walk,
   });
 };
@@ -389,11 +388,13 @@ const onFact = (
             ...walk,
             model: { ...walk.model, unstoppable: [...walk.model.unstoppable, operation] },
           },
-    Acknowledged: ({ attempts }) => ({
+    Landed: () => ({ ...walk, model: landed(walk.model) }),
+    Acknowledges: ({ attempts }) => ({
       ...walk,
-      model: landed({ ...walk.model, acknowledged: [...walk.model.acknowledged, ...attempts] }),
+      model: { ...walk.model, acknowledged: [...walk.model.acknowledged, ...attempts] },
     }),
-    Wrote: ({ purpose }) => ({ ...walk, model: wrote(walk.model, purpose) }),
+    Wrote: () => walk,
+    Purposed: ({ purpose }) => ({ ...walk, model: wrote(walk.model, purpose) }),
     Dropped: () => ({ ...walk, model: { ...walk.model, pending: Option.none() } }),
     Stepped: () => walk,
     Requested: () => walk,
@@ -401,6 +402,8 @@ const onFact = (
     Released: () => holding(walk, fact),
     Advanced: () => walk,
     Read: () => walk,
+    RowRead: () => walk,
+    Disposal: () => pushed(walk, Move.RuntimeDisposed(), given),
   });
 
 const ended = (walk: Walk, given: Rules) => {

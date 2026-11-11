@@ -141,8 +141,6 @@ const settledIn = (window: Window, context: Context, request: Request, answer: A
 };
 
 const reportedWhileDisposing = (window: Window, observation: Observation) => {
-  if (Observation.$is("RuntimeDisposed")(observation)) return [window, endedEarly(window)] as const;
-
   if (!Observation.$is("Ended")(observation) || Option.isNone(observation.attempt))
     return [window, []] as const;
   const id = observation.attempt.value;
@@ -190,11 +188,15 @@ const whileDisposing = (context: Context, window: Window, fact: Fact) => {
     DisposingRuntime: () => none,
     Drove: () => none,
     Unstoppable: () => none,
-    Acknowledged: () => none,
+    Landed: () => none,
+    Acknowledges: () => none,
     Wrote: () => none,
+    Purposed: () => none,
     Dropped: () => none,
     Advanced: ({ ms }) => kept([{ ...window, elapsed: window.elapsed + ms }, []]),
     Read: () => none,
+    RowRead: () => none,
+    Disposal: () => kept([window, endedEarly(window)]),
   });
 };
 
@@ -282,7 +284,7 @@ const uncertain = (row: Json) =>
 
 const readHeld = (context: Context) =>
   context.step.flatMap((fact) => {
-    if (!Fact.$is("Read")(fact) || !Option.exists(fact.row, uncertain)) return [];
+    if (!Fact.$is("RowRead")(fact) || !Option.exists(fact.row, uncertain)) return [];
 
     const newest = context.lives.after.attempts.findLast(
       (a) =>
@@ -318,7 +320,7 @@ const readHeld = (context: Context) =>
  *   until the server answers it (through `endingOf`) or it ends. Actors I35 is broken by a call
  *   that ends before it is answered and before the bound, an ending that is not its answer's
  *   (channel, and a failure's tag), a call still unsettled past the bound that ends other than
- *   `unknown { Disposed }` or not by the step that reaches the bound, and `RuntimeDisposed` before
+ *   `unknown { Disposed }` or not by the step that reaches the bound, and the disposal's exit (`Disposal`) before
  *   the bound while a call is open. An `Interrupted` call's own `unknown { Cancelled }` is the
  *   cancel's ending, not the disposal's (WriteLanes R14). The clock is the suite's `Advanced`
  *   facts since the start.

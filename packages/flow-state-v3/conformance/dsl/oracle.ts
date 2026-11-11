@@ -2,13 +2,20 @@ import { Data, type Option } from "effect";
 import type { Machines } from "../fixtures/handlers.ts";
 import type { Reference } from "../fixtures/reference.ts";
 import type { LifeStep } from "./lifecycle-step.ts";
-import { type ActorRef, type Json, type Observation, sameActor, type Use } from "../port.ts";
+import {
+  type ActorRef,
+  type DisposeExit,
+  type Json,
+  type Observation,
+  sameActor,
+  type Use,
+} from "../port.ts";
 import type { Answer, Request } from "../world/network.ts";
 import type { Purpose } from "../world/storage.ts";
 
 /**
- * One entry of a case's timeline: what the suite did, what its world saw, and what the runtime
- * reported, in the order they happened.
+ * What the suite did and what its world saw: the only facts the model's expect half reads
+ * (Conformance R20).
  *
  * **Details**
  *
@@ -16,7 +23,6 @@ import type { Purpose } from "../world/storage.ts";
  * - `Requested`: the suite's server received this request, noted when the step that made it
  *   settles, after that step's reports.
  * - `Answered`: the suite's server answered this request.
- * - `Reported`: the runtime reported this observation.
  * - `Reloaded`: the suite killed the page and booted a new one.
  * - `Disposed`: the suite disposed this actor.
  * - `Forgot`: the suite forgot this identity (its record removed; a live actor disposed first).
@@ -25,19 +31,17 @@ import type { Purpose } from "../world/storage.ts";
  * - `DisposingRuntime`: the suite started the Runtime's disposal; it holds until the next reload.
  * - `Drove`: the suite sent this event to this actor, at its root or at one of its parts.
  * - `Unstoppable`: from now on, calls of this operation cannot be interrupted.
- * - `Acknowledged`: the suite landed every held batch (perhaps none), which acknowledge these
- *   Attempts (the store's fact; which Attempts a batch acknowledges is the runtime's claim).
- * - `Wrote`: the runtime wrote a batch to the store, noted when the step that wrote it settles,
- *   after that step's reports: a flush lands at once, any other is held until an answer.
+ * - `Landed`: the suite landed every held batch (perhaps none).
+ * - `Wrote`: the store received a batch, noted when the step that wrote it settles, after that
+ *   step's reports.
  * - `Dropped`: the suite answered the held batches `refuse` or `hang`: none of them lands.
  * - `Advanced`: the suite moved the world's clock forward by `ms`, firing the timers due.
- * - `Read`: the suite read this write's row (`O.x.get`) and the runtime returned `row`.
+ * - `Read`: the suite read this write's row (`O.x.get`).
  */
-export type Fact = Data.TaggedEnum<{
+export type SuiteFact = Data.TaggedEnum<{
   Stepped: { step: number; what: string };
   Requested: { request: Request };
   Answered: { request: Request; answer: Answer };
-  Reported: { observation: Observation };
   Reloaded: {};
   Disposed: { actor: ActorRef };
   Forgot: { actor: ActorRef };
@@ -46,12 +50,46 @@ export type Fact = Data.TaggedEnum<{
   DisposingRuntime: {};
   Drove: { actor: ActorRef; event: string; to: Address };
   Unstoppable: { operation: string };
-  Acknowledged: { attempts: ReadonlyArray<string> };
-  Wrote: { purpose: Purpose };
+  Landed: {};
+  Wrote: {};
   Dropped: {};
   Advanced: { ms: number };
-  Read: { actor: ActorRef; operation: string; key: Json; row: Option.Option<Json> };
+  Read: { actor: ActorRef; operation: string; key: Json };
 }>;
+
+/**
+ * What the runtime chose outside its reports, recorded next to the suite fact that asked
+ * (Conformance R21: the liar gate replays these with the reports).
+ *
+ * **Details**
+ *
+ * - `Acknowledges`: the Attempts the landed batches acknowledge, the runtime's claim (a stated
+ *   limit: the store cannot read Attempt ids without a codec).
+ * - `Purposed`: the purpose the runtime gave the batch the store just received; a `flush` lands at
+ *   once, any other is held (a stated limit until the store can tell them apart).
+ * - `RowRead`: the row the runtime returned for the suite's `Read`.
+ * - `Disposal`: how the Runtime's disposal settled (Actors R22, R23), from its adapter.
+ */
+export type RuntimeAnswer = Data.TaggedEnum<{
+  Acknowledges: { attempts: ReadonlyArray<string> };
+  Purposed: { purpose: Purpose };
+  RowRead: { actor: ActorRef; operation: string; key: Json; row: Option.Option<Json> };
+  Disposal: { exit: DisposeExit };
+}>;
+
+/**
+ * One entry of a case's timeline, in the order it happened: a {@link SuiteFact}, a
+ * {@link RuntimeAnswer}, or an observation the runtime reported (`Reported`).
+ */
+export type Fact =
+  | SuiteFact
+  | RuntimeAnswer
+  | { readonly _tag: "Reported"; readonly observation: Observation };
+
+/**
+ * A fact the runtime chose: a report or a runtime answer. The liar gate replays these.
+ */
+export type RuntimeFact = Exclude<Fact, SuiteFact>;
 
 /**
  * Where in an actor an event the suite sends is addressed: its root, or the trait or fragment
@@ -82,6 +120,17 @@ export type Graphed = { readonly machine: string; readonly edges: ReadonlyArray<
  * Constructors and matchers for {@link Fact}.
  */
 export const Fact = Data.taggedEnum<Fact>();
+
+/**
+ * Whether a fact is the runtime's: a report or a runtime answer.
+ */
+// RETURN_TYPE: a type predicate; callers narrow a Fact by it.
+export const isRuntimeFact = (fact: Fact): fact is RuntimeFact =>
+  fact._tag === "Reported" ||
+  fact._tag === "Acknowledges" ||
+  fact._tag === "Purposed" ||
+  fact._tag === "RowRead" ||
+  fact._tag === "Disposal";
 
 /**
  * How long a Runtime's disposal waits for calls on the wire before it ends them, in ms.

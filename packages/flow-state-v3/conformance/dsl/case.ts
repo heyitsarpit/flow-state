@@ -5,9 +5,11 @@ import {
   disposalBoundMs,
   Fact,
   type Graphed,
+  isRuntimeFact,
   Mismatch,
   type Oracle,
   reported,
+  type RuntimeFact,
   steps,
   usesHeld,
   Violated,
@@ -30,6 +32,7 @@ import type { StorageAnswer } from "../world/storage.ts";
 import { makeWorld, type World } from "../world/world.ts";
 import { decodeReports } from "./reports.ts";
 import { type Actor, actorView } from "./actor.ts";
+import { runtimeLife } from "./life.ts";
 import { empty } from "./lifecycle-model.ts";
 import { step as lifeStep } from "./lifecycle-step.ts";
 import { anchorOf, judgedStep } from "../turn/selection.ts";
@@ -143,7 +146,7 @@ export type CaseOptions = {
   readonly graphs: ReadonlyArray<Graphed>;
   readonly overdue: () => boolean;
   readonly crashAt: Option.Option<number>;
-  readonly replay: Option.Option<ReadonlyArray<ReadonlyArray<Observation>>>;
+  readonly replay: Option.Option<ReadonlyArray<ReadonlyArray<RuntimeFact>>>;
 };
 
 /**
@@ -152,41 +155,6 @@ export type CaseOptions = {
  */
 export class Crashed extends Data.TaggedError("Crashed")<{ readonly after: number }> {}
 
-const runtimeLife = (options: CaseOptions, world: World, record: (fact: Fact) => void) => {
-  const fixtures = options.fixtures.map((f) => f.name);
-  const unread: Array<Unreadable> = [];
-  let release = 1;
-
-  const boot = () =>
-    options.port.boot({
-      fixtures,
-      captureMs: 0,
-      sessionSeed: world.hosts.page.sessionSeed(),
-      release,
-      hosts: world.hosts,
-      observe: (observation) => record(Fact.Reported({ observation })),
-      unreadable: (failure) => void unread.push(failure),
-    });
-
-  let runtime = boot();
-
-  return {
-    runtime: () => runtime,
-    pending: () => runtime.pending(),
-    unread: () => Option.fromUndefinedOr(unread[0]),
-    upgrade: (to: number) => {
-      release = to;
-    },
-    reboot: () => {
-      world.kill();
-      record(Fact.Reloaded());
-      runtime = boot();
-
-      return runtime;
-    },
-  };
-};
-
 const stepEngine = (
   options: CaseOptions,
   world: World,
@@ -194,7 +162,7 @@ const stepEngine = (
   record: (fact: Fact) => void,
   pending: () => boolean,
   unread: () => Option.Option<Unreadable>,
-  replaceReports: (from: number, reports: ReadonlyArray<Observation>) => void,
+  replaceReports: (from: number, replayed: ReadonlyArray<RuntimeFact>) => void,
 ) => {
   const { network, storage } = world.hosts;
   const reference = referenceFor(options.fixtures);
@@ -217,7 +185,11 @@ const stepEngine = (
   const noteWorld = () => {
     for (const request of network.requests().slice(noted)) record(Fact.Requested({ request }));
 
-    for (const purpose of storage.written().slice(wrote)) record(Fact.Wrote({ purpose }));
+    for (const purpose of storage.written().slice(wrote)) {
+      record(Fact.Wrote());
+      record(Fact.Purposed({ purpose }));
+    }
+
     noted = network.requests().length;
     wrote = storage.written().length;
   };
@@ -303,9 +275,9 @@ export const openCase = (options: CaseOptions) => {
   const record = (fact: Fact) => void facts.push(fact);
   const life = runtimeLife(options, world, record);
 
-  const replaceReports = (from: number, reports: ReadonlyArray<Observation>) => {
-    const kept = facts.splice(from).filter((f) => !Fact.$is("Reported")(f));
-    facts.push(...kept, ...reports.map((observation) => Fact.Reported({ observation })));
+  const replaceReports = (from: number, replayed: ReadonlyArray<RuntimeFact>) => {
+    const kept = facts.splice(from).filter((f) => !isRuntimeFact(f));
+    facts.push(...kept, ...replayed);
   };
 
   const engine = stepEngine(
@@ -361,8 +333,10 @@ export const openCase = (options: CaseOptions) => {
       const held = storage.holding();
       const attempts = storage.answer(how);
 
-      if (how === "ack" || how === "landNoAck") record(Fact.Acknowledged({ attempts }));
-      else if (held > 0) record(Fact.Dropped());
+      if (how === "ack" || how === "landNoAck") {
+        record(Fact.Landed());
+        record(Fact.Acknowledges({ attempts }));
+      } else if (held > 0) record(Fact.Dropped());
     });
 
   const send = (drives: ReadonlyArray<Drive>) =>
@@ -411,7 +385,8 @@ export const openCase = (options: CaseOptions) => {
 
   const row = (actor: ActorRef, operation: string, key: Json) => {
     const read = Result.getOrThrowWith(life.runtime().row(actor, operation, key), (f) => f);
-    record(Fact.Read({ actor, operation, key, row: read }));
+    record(Fact.Read({ actor, operation, key }));
+    record(Fact.RowRead({ actor, operation, key, row: read }));
     judge(`read ${operation}`);
 
     return read;
@@ -503,7 +478,7 @@ export const openCase = (options: CaseOptions) => {
     evidence: (kind) => reportsOf("Evidence").filter((o) => o.kind === kind).length,
     issues: () => reportsOf("Issue").map((o) => o.code),
     denials: () => reportsOf("Denied").map((o) => o.reasons),
-    runtimeDisposals: () => reportsOf("RuntimeDisposed").length,
+    runtimeDisposals: () => facts.filter(Fact.$is("Disposal")).length,
     reports: () => reported(facts),
   };
 
@@ -527,7 +502,7 @@ export const openCase = (options: CaseOptions) => {
     answerStorage("end of case: ack", "ack");
     eq(
       "end of case: the Runtime's disposal ended within its bound (Actors R22, R23)",
-      reported(thisBoot()).filter(Observation.$is("RuntimeDisposed")).length,
+      thisBoot().filter(Fact.$is("Disposal")).length,
       1,
     );
     reload("end of case: reload", writers);
@@ -582,7 +557,7 @@ export const variants = (
  * - Throws as a step does: `Violated`, `Mismatch`, or a defect.
  * - The end's expectation cites its rules in its own label, so a case's `cites` need not repeat
  *   them.
- * - That the disposal ended is the runtime's `RuntimeDisposed` report, counted once per boot: a
+ * - That the disposal ended is the runtime's answer (`Disposal`), counted once per boot: a
  *   consistency check, not anchored to a suite fact. The bound is counted from the end's own
  *   advance, so a case that advanced after starting the disposal allows more time.
  */

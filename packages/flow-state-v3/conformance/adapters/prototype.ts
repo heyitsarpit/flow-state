@@ -3,6 +3,7 @@ import { Context, Data, Effect, Option, Predicate, Result, type Scheduler, Schem
 import { join } from "node:path";
 import {
   type ActorRef,
+  heard,
   type Json,
   Observation,
   type Port,
@@ -479,7 +480,7 @@ export const prototypePort = (loaded: LoadedPrototype): Port => ({
         services,
         onEvidence: (batch) => {
           for (const o of observationsOf(batch, identify))
-            Result.match(o, { onFailure: boot.unreadable, onSuccess: boot.observe });
+            Result.match(o, { onFailure: boot.unreadable, onSuccess: heard(boot) });
         },
         onIssue: (issues) => {
           for (const issue of issues)

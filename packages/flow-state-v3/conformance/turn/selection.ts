@@ -454,7 +454,6 @@ const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>): Stepped =>
         Issue: () => keep(state),
         Incarnated: () => keep(state),
         Finished: () => keep(state),
-        RuntimeDisposed: () => keep(state),
         Published: () => keep(state),
       }),
     Stepped: () => keep(state),
@@ -463,11 +462,15 @@ const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>): Stepped =>
     Released: () => keep(state),
     DisposingRuntime: () => keep(state),
     Unstoppable: () => keep(state),
-    Acknowledged: () => keep(landed(state)),
-    Wrote: ({ purpose }) => keep(wrote(state, purpose)),
+    Landed: () => keep(landed(state)),
+    Acknowledges: () => keep(state),
+    Wrote: () => keep(state),
+    Purposed: ({ purpose }) => keep(wrote(state, purpose)),
     Dropped: () => keep(dropped(state)),
     Advanced: () => keep(state),
     Read: () => keep(state),
+    RowRead: () => keep(state),
+    Disposal: () => keep(state),
   });
 };
 

@@ -2,6 +2,7 @@ import { Option, Predicate, Result, Schema } from "effect";
 import {
   type ActorRef,
   Channel,
+  DisposeExit,
   EvidenceKind,
   MemberKind,
   MemberTarget,
@@ -140,7 +141,7 @@ const read = <A, E>(schema: Schema.Codec<A, E>, report: Report, kind: string) =>
 
 const laneReport = (report: Report, kind: string) =>
   Result.gen(function* () {
-    if (kind === "Disposed") return Option.some(Observation.RuntimeDisposed());
+    if (kind === "Disposed") return Option.some<Observation | DisposeExit>(DisposeExit.Done());
 
     if (kind === "incarnation" || kind === "ended") {
       const actor = yield* actorRef((yield* read(reports.incarnation, report, kind)).actor);
@@ -304,16 +305,17 @@ const observationOf = (report: Report, identify: Identify) =>
 export const observationsOf = (
   batch: ReadonlyArray<Report>,
   identify: Identify,
-): ReadonlyArray<Result.Result<Observation, Unreadable>> =>
+): ReadonlyArray<Result.Result<Observation | DisposeExit, Unreadable>> =>
   batch.flatMap((raw) => {
-    const read: Result.Result<Option.Option<Observation>, Unreadable> = observationOf(
+    const read: Result.Result<Option.Option<Observation | DisposeExit>, Unreadable> = observationOf(
       raw,
       identify,
     );
 
-    const out: ReadonlyArray<Result.Result<Observation, Unreadable>> = Result.isFailure(read)
-      ? [Result.fail(read.failure)]
-      : Option.toArray(read.success).map((o) => Result.succeed(o));
+    const out: ReadonlyArray<Result.Result<Observation | DisposeExit, Unreadable>> =
+      Result.isFailure(read)
+        ? [Result.fail(read.failure)]
+        : Option.toArray(read.success).map((o) => Result.succeed(o));
 
     return out;
   });

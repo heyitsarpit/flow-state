@@ -79,7 +79,7 @@ const bounds = (model: Model, reference: Reference) =>
  * invocation once its capture lands).
  */
 const owedResends = (lives: LifeStep, step: ReadonlyArray<Fact>) => {
-  const stored = step.some((f) => Fact.$is("Acknowledged")(f));
+  const stored = step.some((f) => Fact.$is("Landed")(f));
 
   if (!stored) return [];
 

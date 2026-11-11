@@ -205,8 +205,6 @@ export type EndingRef = {
  *   concerns (`Some` on an `InvalidTurn` or `UnmappedEnding` of an ending, `None` otherwise).
  * - `Incarnated`: an incarnation of the actor began (created, restored at a boot, returned, or
  *   adopting). `Finished`: the actor's incarnation ended at its grace.
- * - `RuntimeDisposed`: the Runtime's disposal finished (its public `dispose` settled): every call
- *   it waited for has ended or passed the bound.
  *
  * **Gotchas**
  *
@@ -258,7 +256,6 @@ export type Observation = Data.TaggedEnum<{
   Issue: { code: string; ending: Option.Option<EndingRef> };
   Incarnated: { actor: ActorRef };
   Finished: { actor: ActorRef };
-  RuntimeDisposed: {};
   Published: { actor: ActorRef; state: string; memory: Json; memoryId: number };
 }>;
 
@@ -266,6 +263,26 @@ export type Observation = Data.TaggedEnum<{
  * Constructors and matchers for {@link Observation}.
  */
 export const Observation = Data.taggedEnum<Observation>();
+
+/**
+ * How the Runtime's disposal settled (Actors R22, R23): `Done`, or `CleanupFailed` with what
+ * failed. A runtime answer, not a report: the adapter gives it to `Boot.disposed`.
+ */
+export type DisposeExit = Data.TaggedEnum<{ Done: {}; CleanupFailed: { why: string } }>;
+
+/**
+ * Constructors and matchers for {@link DisposeExit}.
+ */
+export const DisposeExit = Data.taggedEnum<DisposeExit>();
+
+/**
+ * Hands one thing an adapter read to the boot: a disposal's exit to `disposed`, a report to
+ * `observe`.
+ */
+export const heard = (boot: Boot) => (reading: Observation | DisposeExit) => {
+  if (reading._tag === "Done" || reading._tag === "CleanupFailed") boot.disposed(reading);
+  else boot.observe(reading);
+};
 
 /**
  * A `Turn` observation.
@@ -325,6 +342,7 @@ export class Unreadable extends Data.TaggedError("Unreadable")<{
  *   reload); a fixture written for several releases boots the one named.
  * - `observe`: called with each public report as it happens.
  * - `unreadable`: called with each report the adapter could not read ({@link Unreadable}).
+ * - `disposed`: called once with the Runtime's disposal exit when it settles ({@link DisposeExit}).
  */
 export type Boot = {
   readonly fixtures: ReadonlyArray<string>;
@@ -334,6 +352,7 @@ export type Boot = {
   readonly hosts: Hosts;
   readonly observe: (observation: Observation) => void;
   readonly unreadable: (failure: Unreadable) => void;
+  readonly disposed: (exit: DisposeExit) => void;
 };
 
 /**
@@ -359,7 +378,8 @@ export type Boot = {
  * - `forget` removes the identity's record, disposing a live actor first; its held lanes stay
  *   unbound until an ensure adopts them.
  * - `disposeRuntime` starts the Runtime's disposal: admission closes, nothing new is invoked, and
- *   calls on the wire may settle within the bound. It reports `RuntimeDisposed` when it ends.
+ *   calls on the wire may settle within the bound. Its adapter gives `Boot.disposed` the exit when it
+ *   settles.
  * - The operations are synchronous: the world is a synchronous simulator and the suite settles it
  *   after each call.
  *
