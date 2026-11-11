@@ -135,17 +135,27 @@ export const cliCases: ReadonlyArray<StaticCase> = [
           (r) => r.callbacksRun,
         );
 
-      expect("StaticCli I1", "check runs no callback", ran(["check", "pay"]), Option.some(0));
+      expect(
+        "StaticCli I1",
+        "check runs no runtime callback (its configuration callback is construction, C8)",
+        ran(["check", "pay"]),
+        Option.some(0),
+      );
       expect(
         "StaticCli I1",
         "check of a broken project runs none",
         ran(["check", "broken"]),
         Option.some(0),
       );
-      expect("StaticCli I1", "graph runs no callback", ran(["graph", "pay"]), Option.some(0));
       expect(
         "StaticCli I1",
-        "static explain runs no callback",
+        "graph runs no runtime callback (its configuration callback is construction, C8)",
+        ran(["graph", "pay"]),
+        Option.some(0),
+      );
+      expect(
+        "StaticCli I1",
+        "static explain runs no runtime callback (its configuration callback is construction, C8)",
         ran(["explain", "pay", "--state", "UNSURE", "--event", "IntentRead"]),
         Option.some(0),
       );
@@ -371,12 +381,12 @@ export const cliRemainders: ReadonlyArray<Remainder> = [
   {
     invariant: "StaticCli I6",
     owner: "@task.V3.T22",
-    owed: "exit codes 130 and 143 (R8, T6), exit 2 for loading, artifact and I/O failures (R8), and info findings (only warnings are judged)",
+    owed: "exit codes 130 and 143 (R8, T6), exit 2 for loading, artifact and I/O failures (R8), a construction's FlowError reported as error findings with exit 1 (R11, C6), and info findings (only warnings are judged)",
   },
   {
     invariant: "StaticCli I7",
     owner: "@task.V3.T22",
-    owed: "R9's failure in place of a complete claim; only complete false on two hand projects is judged",
+    owed: "R9's failure in place of a complete claim: missing type facts give status failed (C18); only complete false on two hand projects is judged",
   },
   {
     invariant: "StaticCli I8",

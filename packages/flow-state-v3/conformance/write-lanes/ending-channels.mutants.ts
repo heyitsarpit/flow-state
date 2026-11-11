@@ -68,4 +68,19 @@ export const endingChannelsMutants: ReadonlyArray<Mutant> = [
       },
     ],
   },
+  {
+    name: "mutant.unsent-ends-unknown",
+    says: "the Runtime's disposal ends each queued, never-sent commit unknown { Disposed } instead of NotSent { Disposed }",
+    expects: "WriteLanes I3",
+    runtime: "prototype",
+    cases: ["DISP-03"],
+    edits: [
+      {
+        file: "lane.ts",
+        find: '  const parked = lane.w.map((a) => {\n    const e = declined("Disposed");',
+        replace:
+          '  const parked = lane.w.map((a) => {\n    const e: Ending = { ch: "unknown", reason: "Disposed" };',
+      },
+    ],
+  },
 ];

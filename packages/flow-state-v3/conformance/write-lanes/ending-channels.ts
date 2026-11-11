@@ -331,13 +331,40 @@ type State = {
   readonly unsure: Unsure;
 };
 
+const neverSentEnds = (
+  step: ReadonlyArray<Fact>,
+  reference: Reference,
+  requests: ReadonlyArray<Request>,
+) =>
+  step.flatMap((fact) => {
+    if (!Fact.$is("Reported")(fact) || !Observation.$is("Ended")(fact.observation)) return [];
+
+    const { operation, attempt, channel, reason } = fact.observation;
+
+    if (Option.isNone(attempt) || Option.isNone(operationNamed(reference, operation))) return [];
+
+    const sent = requests.some(
+      (r) => r.operation === operation && Option.contains(r.key, attempt.value),
+    );
+
+    const allowed =
+      (channel === "failure" && FLOW_DECLINES.some((d) => d === reason)) ||
+      (channel === "unknown" && reason === "Restored");
+
+    return sent || allowed
+      ? []
+      : [
+          `WriteLanes I3: ${operation} ${attempt.value} never reached the server and ended ${channel} ${reason}: an Attempt never sent ends only NotSent, or unknown { Restored } at a boot`,
+        ];
+  });
+
 /**
  * Every delivered ending is exactly one of success, failure and unknown, and an Attempt that ever
  * ended unknown never delivers a definite failure.
  *
  * **Details**
  *
- * Four checks:
+ * Five checks:
  * - an answer the suite's server gives to a live send (an answer given at request time counts in
  *   the step that sent it) (the newest request of that id, with a send reported and no ending
  *   since, judged at the step's end; an older send's late answer is fenced and ends nothing) ends
@@ -353,6 +380,8 @@ type State = {
  * - an Attempt of a referenced write ends success, or with its commit's own failure, only in a step
  *   where the server answered one of its sends: a definite ending the server did not give is made
  *   up. Only unknowns and Flow's own failures end without an answer.
+ * - an Attempt that never reached the server ends only NotSent (a Flow decline reason), or
+ *   unknown { Restored } at a boot (ruling CQ5). Anchored to the server's log.
  *
  * It reads the server's log and the reports, never the Case's lifecycle fold: it is one of the
  * independent judges that guard the fold's common mode.
@@ -377,9 +406,11 @@ export const endingChannels = oracle<State>({
     const [mapped, delivered] = deliveredAsMapped(state.mapped, step, state.reference);
     const [unsure, failed] = failureAfterUnknown(state.unsure, step);
 
+    const unsent = neverSentEnds(step, state.reference, requests);
+
     return [
       { ...state, live, mapped, unsure },
-      [...answered, ...delivered, ...failed].map(violation),
+      [...answered, ...delivered, ...failed, ...unsent].map(violation),
     ] as const;
   },
 });

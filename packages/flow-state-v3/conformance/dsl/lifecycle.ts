@@ -369,8 +369,15 @@ const bootOwes = (model: Model) => {
   const unbound = (a: AttemptLife) =>
     model.actors.some((x) => sameActor(x.actor, a.lane.actor) && x.record === "forget");
 
+  const parked = (a: AttemptLife) =>
+    model.endings.some(
+      (e) =>
+        Option.contains(e.attempt, a.id) &&
+        (e.life._tag === "Parked" || e.life._tag === "ParkedOpen"),
+    );
+
   const owing = model.attempts.filter(
-    (a) => restorable(a) && isHead(model, a) && !owesRelease(model, a.id),
+    (a) => restorable(a) && isHead(model, a) && !owesRelease(model, a.id) && !parked(a),
   );
 
   return [
