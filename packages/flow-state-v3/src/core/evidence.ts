@@ -1,10 +1,9 @@
 import { Data, type Option } from "effect";
+import type { Channel, IssueCode } from "./vocabulary.ts";
+import type { ActorId } from "./world.ts";
 import type { Values } from "./compiled.ts";
 
-/**
- * The channel an ending was decided on (WriteLanes R2).
- */
-export type Channel = "success" | "failure" | "unknown";
+export type { Channel } from "./vocabulary.ts";
 
 /**
  * A lane fact that is not an ending's disposition (WriteLanes R3, WriteAhead R12, R13).
@@ -55,7 +54,7 @@ export type Part = { readonly at: string; readonly node: string; readonly target
 /**
  * An actor as evidence names it.
  */
-export type Who = { readonly machine: string; readonly name: string };
+export type Who = ActorId;
 
 /**
  * One Runtime decision, in the order it happened (Inspection O4).
@@ -109,7 +108,7 @@ export type Evidence = Data.TaggedEnum<{
     attempt: Option.Option<string>;
   };
   Issue: {
-    code: string;
+    code: IssueCode;
     ending: Option.Option<{
       readonly operation: string;
       readonly attempt: Option.Option<string>;

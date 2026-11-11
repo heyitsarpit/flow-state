@@ -1,5 +1,5 @@
 import type { Compiled, Values } from "./compiled.ts";
-import type { Evidence, Who } from "./evidence.ts";
+import type { Evidence } from "./evidence.ts";
 import {
   type ActorId,
   actorKey,
@@ -10,6 +10,7 @@ import {
   type Out,
   Phase,
   type Timer,
+  type TimerId,
   type World,
 } from "./world.ts";
 
@@ -44,26 +45,6 @@ export const DISPOSAL_BOUND_MS = 5000;
 export const ROOT_ACTIVATION = 0;
 
 /**
- * Flow's decline reasons: the failure NotSent { why } (WriteLanes R3).
- */
-export const DECLINES: ReadonlySet<string> = new Set([
-  "Cancelled",
-  "Restored",
-  "Rejected",
-  "Overloaded",
-  "StorageRefused",
-  "Disposed",
-  "NoPersistence",
-  "OldVersion",
-  "Unencodable",
-]);
-
-/**
- * An actor as evidence names it.
- */
-export const who = (actor: ActorId) => ({ machine: actor.machine, name: actor.name }) satisfies Who;
-
-/**
  * A map with one more entry.
  */
 export const withEntry = <K, V>(map: ReadonlyMap<K, V>, key: K, value: V) =>
@@ -91,6 +72,14 @@ export const pick = (input: Values, fields: ReadonlyArray<string>) =>
   Object.fromEntries(fields.map((f) => [f, input[f]]));
 
 /**
+ * A minted id as its kind: the mint is the one place ids of each kind are made.
+ */
+const branded = <Id extends string>(id: string) =>
+  // SAFETY: the world's mint makes each id once, under the kind its caller names.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a brand is type-only; the mint is where it is given
+  id as Id;
+
+/**
  * One step's working state (Turn's composition note): the world it replaces, the commands and
  * evidence it returns, and its environment. Every module of the step reads and writes through it.
  *
@@ -115,10 +104,10 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     evidenceCount: () => evidence.length,
     insertEvidence: (at: number, e: Evidence) => void evidence.splice(at, 0, e),
     command: (c: Command) => void commands.push(c),
-    mint: (prefix: string) => {
+    mint: <Id extends string = string>(prefix: string) => {
       world = { ...world, counter: world.counter + 1 };
 
-      return `${prefix}-${env.seed}-${world.counter}`;
+      return branded<Id>(`${prefix}-${env.seed}-${world.counter}`);
     },
     next: () => {
       world = { ...world, counter: world.counter + 1 };
@@ -132,7 +121,7 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     machines.get(actor.machine)?.persist === true && world.persistence;
 
   const armTimer = (timer: Timer, at: number) => {
-    const id = tx.mint("timer");
+    const id = tx.mint<TimerId>("timer");
     world = { ...world, timers: withEntry(world.timers, id, timer) };
     commands.push(Command.Arm({ timer: id, at }));
 

@@ -2,7 +2,8 @@ import { Option, Result } from "effect";
 import { type Mapping, Operation, type Values } from "./compiled.ts";
 import { Evidence, type Member } from "./evidence.ts";
 import { Resolved, runTurn, TurnResult } from "./turn.ts";
-import { DECLINES, isInFlight, ROOT_ACTIVATION, type Tx, who, without } from "./tx.ts";
+import { isInFlight, ROOT_ACTIVATION, type Tx, without } from "./tx.ts";
+import { isDecline } from "./vocabulary.ts";
 import { actorKey, type Ending, type Incarnation, Mail } from "./world.ts";
 import type { Persistence } from "./persist.ts";
 import type { LaneSteps } from "./lanes.ts";
@@ -30,7 +31,7 @@ export const makeServe = (
     if (ending.channel === "failure")
       return Option.fromUndefinedOr(
         operation.failure.get(ending.reason) ??
-          (DECLINES.has(ending.reason) ? operation.failure.get("NotSent") : undefined),
+          (isDecline(ending.reason) ? operation.failure.get("NotSent") : undefined),
       );
 
     return Operation.$match(operation, {
@@ -73,9 +74,9 @@ export const makeServe = (
     });
 
     TurnResult.$match(result, {
-      Unhandled: () => tx.emit(Evidence.Unhandled({ actor: who(incarnation.actor), event: tag })),
+      Unhandled: () => tx.emit(Evidence.Unhandled({ actor: incarnation.actor, event: tag })),
       Denied: ({ reasons }) =>
-        tx.emit(Evidence.Denied({ actor: who(incarnation.actor), event: tag, reasons })),
+        tx.emit(Evidence.Denied({ actor: incarnation.actor, event: tag, reasons })),
       Refused: ({ code }) => {
         tx.emit(
           Evidence.Issue({
@@ -83,7 +84,7 @@ export const makeServe = (
             ending: Option.map(route.ending, (e) => ({
               operation: e.operation,
               attempt: e.attempt,
-              actor: who(incarnation.actor),
+              actor: incarnation.actor,
             })),
           }),
         );
@@ -136,7 +137,7 @@ export const makeServe = (
         tx.insertEvidence(
           reports,
           Evidence.Turn({
-            actor: who(after.actor),
+            actor: after.actor,
             event: tag,
             from: incarnation.state,
             to: after.state,
@@ -169,7 +170,7 @@ export const makeServe = (
           attempt: ending.attempt,
           channel: ending.channel,
           reason: ending.reason,
-          actor: who(incarnation.actor),
+          actor: incarnation.actor,
         }),
       );
 
@@ -198,7 +199,7 @@ export const makeServe = (
         operation: ending.operation,
         attempt: ending.attempt,
         event: mapping.value.event,
-        actor: who(incarnation.actor),
+        actor: incarnation.actor,
       }),
     );
 
@@ -209,7 +210,7 @@ export const makeServe = (
           ending: Option.some({
             operation: ending.operation,
             attempt: ending.attempt,
-            actor: who(incarnation.actor),
+            actor: incarnation.actor,
           }),
         }),
       );

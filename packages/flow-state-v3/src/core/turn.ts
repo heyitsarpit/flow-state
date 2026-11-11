@@ -9,6 +9,7 @@ import {
   type Values,
 } from "./compiled.ts";
 import type { Part } from "./evidence.ts";
+import type { RefusedCode } from "./vocabulary.ts";
 
 /**
  * What a guard or member sees of one lane: Idle, InFlight, or Held with its re-sends.
@@ -65,7 +66,7 @@ export type TurnResult = Data.TaggedEnum<{
   };
   Denied: { reasons: ReadonlyArray<string> };
   Unhandled: {};
-  Refused: { code: string; slot: string };
+  Refused: { code: RefusedCode; slot: string };
 }>;
 
 /**

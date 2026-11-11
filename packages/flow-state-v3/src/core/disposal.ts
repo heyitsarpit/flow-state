@@ -1,8 +1,18 @@
 import { Option } from "effect";
 import { type Channel, Evidence } from "./evidence.ts";
 import type { CallResult } from "./input.ts";
-import { DECLINES, DISPOSAL_BOUND_MS, ROOT_ACTIVATION, type Tx } from "./tx.ts";
-import { Command, Disposal, type Ending, type Lane, Mail, Phase, Timer } from "./world.ts";
+import { DISPOSAL_BOUND_MS, ROOT_ACTIVATION, type Tx } from "./tx.ts";
+import { isDecline } from "./vocabulary.ts";
+import {
+  Command,
+  Disposal,
+  type Ending,
+  type Lane,
+  Mail,
+  Phase,
+  Timer,
+  type CallId,
+} from "./world.ts";
 import type { Persistence } from "./persist.ts";
 import type { AnswerSteps } from "./answers.ts";
 
@@ -22,11 +32,11 @@ export const makeDisposal = (tx: Tx, persistence: Persistence, answers: AnswerSt
       attempt: Option.some(lane.head.id),
       lane: Option.some(lane.id),
       channel:
-        channel === "failure" && lane.head.mayHaveApplied && !DECLINES.has(reason)
+        channel === "failure" && lane.head.mayHaveApplied && !isDecline(reason)
           ? "unknown"
           : channel,
       reason:
-        channel === "failure" && lane.head.mayHaveApplied && !DECLINES.has(reason)
+        channel === "failure" && lane.head.mayHaveApplied && !isDecline(reason)
           ? "StillUnknown"
           : reason,
       value,
@@ -78,7 +88,7 @@ export const makeDisposal = (tx: Tx, persistence: Persistence, answers: AnswerSt
     armTimer(Timer.Bound(), tx.env.now + DISPOSAL_BOUND_MS);
   };
 
-  const settledWhileDisposing = (call: string, result: CallResult) => {
+  const settledWhileDisposing = (call: CallId, result: CallResult) => {
     for (const lane of tx.world().lanes.values())
       if (Phase.$is("OnWire")(lane.head.phase) && lane.head.phase.call === call) {
         const c = classify(result, lane.head.phase.cancelled);

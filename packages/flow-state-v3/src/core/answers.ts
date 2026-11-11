@@ -2,7 +2,7 @@ import { Option } from "effect";
 import { type Channel, Evidence } from "./evidence.ts";
 import { CallResult } from "./input.ts";
 import { type Tx, without } from "./tx.ts";
-import { Command, type Lane, Phase, type Read } from "./world.ts";
+import { type CallId, Command, type Lane, Phase, type Read, type TicketId } from "./world.ts";
 import type { Persistence } from "./persist.ts";
 import type { LaneSteps } from "./lanes.ts";
 
@@ -55,7 +55,7 @@ export const makeAnswers = (tx: Tx, persistence: Persistence, lanes: LaneSteps) 
     });
   };
 
-  const settledLane = (lane: Lane, call: string, result: CallResult) => {
+  const settledLane = (lane: Lane, call: CallId, result: CallResult) => {
     if (!Phase.$is("OnWire")(lane.head.phase) || lane.head.phase.call !== call) return;
     const c = classify(result, lane.head.phase.cancelled);
 
@@ -74,7 +74,7 @@ export const makeAnswers = (tx: Tx, persistence: Persistence, lanes: LaneSteps) 
     });
   };
 
-  const settled = (call: string, result: CallResult) => {
+  const settled = (call: CallId, result: CallResult) => {
     const read = tx.world().reads.get(call);
 
     if (read !== undefined) {
@@ -117,7 +117,7 @@ export const makeAnswers = (tx: Tx, persistence: Persistence, lanes: LaneSteps) 
     });
   };
 
-  const awaits = (lane: Lane, ticket: string) =>
+  const awaits = (lane: Lane, ticket: TicketId) =>
     Phase.$match(lane.head.phase, {
       Acknowledging: (p) => p.ticket === ticket,
       Recapturing: (p) => p.ticket === ticket,
@@ -126,7 +126,7 @@ export const makeAnswers = (tx: Tx, persistence: Persistence, lanes: LaneSteps) 
       Held: () => false,
     });
 
-  const stored = (ticket: string, ok: boolean) => {
+  const stored = (ticket: TicketId, ok: boolean) => {
     const silent = tx.world().tickets.get(ticket);
 
     if (silent !== undefined) {

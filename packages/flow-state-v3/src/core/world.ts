@@ -1,5 +1,6 @@
-import { Data, type Option } from "effect";
-import type { Channel, Evidence } from "./evidence.ts";
+import { type Brand, Data, type Option } from "effect";
+import type { Evidence } from "./evidence.ts";
+import type { Channel, ScheduleDeadline } from "./vocabulary.ts";
 import type { Values } from "./compiled.ts";
 
 /**
@@ -12,6 +13,35 @@ export type ActorId = { readonly machine: string; readonly name: string };
  */
 export const actorKey = (actor: ActorId) =>
   `${actor.machine}/${actor.name.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll("|", "%7C")}`;
+
+/**
+ * A storage ticket's id: the batch an acknowledgement or capture waits on.
+ */
+export type TicketId = string & Brand.Brand<"flow-state/TicketId">;
+
+/**
+ * A host timer's id.
+ */
+export type TimerId = string & Brand.Brand<"flow-state/TimerId">;
+
+/**
+ * A call's id: one invocation of a commit or lookup.
+ */
+export type CallId = string & Brand.Brand<"flow-state/CallId">;
+
+/**
+ * A ticket a batch carries: the Attempt it acknowledges or captures.
+ */
+export type Ticket = {
+  readonly id: TicketId;
+  readonly attempt: string;
+  readonly purpose: "acknowledge" | "capture";
+};
+
+/**
+ * One record write of a batch: its new value, or `None` to remove it.
+ */
+export type Write = { readonly key: string; readonly record: Option.Option<Values> };
 
 /**
  * A schedule's live arming: its arming number (a firing of an older arming is discarded) and its
@@ -49,10 +79,10 @@ export type Incarnation = {
  * - `Held`: a retained unknown.
  */
 export type Phase = Data.TaggedEnum<{
-  Acknowledging: { ticket: string };
+  Acknowledging: { ticket: TicketId };
   Ready: {};
-  OnWire: { call: string; cancelled: boolean };
-  Recapturing: { ticket: string };
+  OnWire: { call: CallId; cancelled: boolean };
+  Recapturing: { ticket: TicketId };
   Held: {};
 }>;
 
@@ -90,7 +120,7 @@ export type Lane = {
  * A lookup in flight: the activation that owns it and the incarnation it reports to.
  */
 export type Read = {
-  readonly call: string;
+  readonly call: CallId;
   readonly actor: ActorId;
   readonly incarnation: string;
   readonly operation: string;
@@ -144,7 +174,7 @@ export type Timer = Data.TaggedEnum<{
     arming: number;
   };
   Grace: { actor: ActorId; incarnation: string };
-  Silent: { ticket: string };
+  Silent: { ticket: TicketId };
   Bound: {};
 }>;
 
@@ -165,11 +195,7 @@ export type ActorRecord = {
   readonly actor: ActorId;
   readonly state: string;
   readonly memory: Values;
-  readonly schedules: ReadonlyArray<{
-    readonly name: string;
-    readonly dueAt: number;
-    readonly send: string;
-  }>;
+  readonly schedules: ReadonlyArray<typeof ScheduleDeadline.Type>;
 };
 
 /**
@@ -206,11 +232,11 @@ export type World = {
   readonly records: ReadonlyMap<string, ActorRecord>;
   readonly lanes: ReadonlyMap<string, Lane>;
   readonly parked: ReadonlyMap<string, Parked>;
-  readonly reads: ReadonlyMap<string, Read>;
+  readonly reads: ReadonlyMap<CallId, Read>;
   readonly mail: ReadonlyArray<Mail>;
   readonly uses: ReadonlyMap<string, ReadonlyArray<Use>>;
-  readonly timers: ReadonlyMap<string, Timer>;
-  readonly tickets: ReadonlyMap<string, string>;
+  readonly timers: ReadonlyMap<TimerId, Timer>;
+  readonly tickets: ReadonlyMap<TicketId, TimerId>;
   readonly counter: number;
   readonly persistence: boolean;
   readonly disposal: Disposal;
@@ -240,7 +266,7 @@ export const emptyWorld = (persistence: boolean): World => ({
  */
 export type Command = Data.TaggedEnum<{
   Invoke: {
-    call: string;
+    call: CallId;
     machine: string;
     operation: string;
     input: Values;
@@ -251,20 +277,13 @@ export type Command = Data.TaggedEnum<{
       readonly mayHaveApplied: boolean;
     }>;
   };
-  Interrupt: { call: string };
-  Arm: { timer: string; at: number };
-  Disarm: { timer: string };
+  Interrupt: { call: CallId };
+  Arm: { timer: TimerId; at: number };
+  Disarm: { timer: TimerId };
   Persist: {
     scope: string;
-    writes: ReadonlyArray<{
-      readonly key: string;
-      readonly record: Option.Option<Values>;
-    }>;
-    ticket: Option.Option<{
-      readonly id: string;
-      readonly attempt: string;
-      readonly purpose: "acknowledge" | "capture";
-    }>;
+    writes: ReadonlyArray<Write>;
+    ticket: Option.Option<Ticket>;
   };
 }>;
 

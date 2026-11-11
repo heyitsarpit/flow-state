@@ -192,7 +192,7 @@ export const productionMutants = {
           file: "src/core/serve.ts",
           find: "      Refused: ({ code }) => {\n",
           replace:
-            "      Refused: ({ code }) => {\n        tx.emit(Evidence.Turn({ actor: who(incarnation.actor), event: tag, from: incarnation.state, to: incarnation.state, parts: [], members: [] }));\n",
+            "      Refused: ({ code }) => {\n        tx.emit(Evidence.Turn({ actor: incarnation.actor, event: tag, from: incarnation.state, to: incarnation.state, parts: [], members: [] }));\n",
         },
       ],
     }),

@@ -2,7 +2,8 @@ import { Option, Result, Schema } from "effect";
 import { Operation, type Values } from "./compiled.ts";
 import { Evidence, type Member, MemberTarget } from "./evidence.ts";
 import { LaneView } from "./turn.ts";
-import { DECLINES, isInFlight, pick, type Tx, who, without, withEntry } from "./tx.ts";
+import { isInFlight, pick, type Tx, without, withEntry } from "./tx.ts";
+import { isDecline } from "./vocabulary.ts";
 import {
   type ActorId,
   actorKey,
@@ -11,6 +12,7 @@ import {
   type Incarnation,
   type Lane,
   Phase,
+  type CallId,
 } from "./world.ts";
 import type { Persistence } from "./persist.ts";
 
@@ -22,7 +24,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence) => {
   const { persist, actorWrite, laneWrite, setLane, dropLane } = persistence;
 
   const invoke = (lane: Lane) => {
-    const call = tx.mint("call");
+    const call = tx.mint<CallId>("call");
     const resend = lane.head.sent;
 
     const head = {
@@ -116,9 +118,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence) => {
     }
 
     const attempt = tx.mint("att");
-    tx.emit(
-      Evidence.Minted({ operation: operation.name, attempt, actor: who(incarnation.actor), key }),
-    );
+    tx.emit(Evidence.Minted({ operation: operation.name, attempt, actor: incarnation.actor, key }));
 
     const lane: Lane = {
       id,
@@ -285,7 +285,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence) => {
         );
       }
 
-    const call = tx.mint("call");
+    const call = tx.mint<CallId>("call");
     tx.set({
       ...tx.world(),
       reads: withEntry(tx.world().reads, call, {
@@ -360,7 +360,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence) => {
       return ending;
     const l = lane.value;
 
-    if (ending.channel === "failure" && l.head.mayHaveApplied && !DECLINES.has(ending.reason)) {
+    if (ending.channel === "failure" && l.head.mayHaveApplied && !isDecline(ending.reason)) {
       setLane({ ...l, head: { ...l.head, phase: Phase.Held() } });
 
       return { ...ending, channel: "unknown", reason: "StillUnknown" };

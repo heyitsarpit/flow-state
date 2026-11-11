@@ -1,5 +1,6 @@
 import { Option, Result, Schema } from "effect";
 import type { Compiled, Values } from "./compiled.ts";
+import { Channel, ScheduleDeadline } from "./vocabulary.ts";
 import {
   type ActorRecord,
   actorKey,
@@ -14,19 +15,13 @@ import {
  */
 export const FORMAT = 1;
 
-const ScheduleRecord = Schema.Struct({
-  name: Schema.String,
-  dueAt: Schema.Number,
-  send: Schema.String,
-});
-
 const ActorRecordJson = Schema.Struct({
   format: Schema.Literal(FORMAT),
   machine: Schema.String,
   name: Schema.String,
   state: Schema.String,
   memory: Schema.Json,
-  schedules: Schema.Array(ScheduleRecord),
+  schedules: Schema.Array(ScheduleDeadline),
 });
 
 const LaneRecordJson = Schema.Struct({
@@ -53,7 +48,7 @@ const ParkedJson = Schema.Struct({
   endings: Schema.Array(
     Schema.Struct({
       attempt: Schema.NullOr(Schema.String),
-      channel: Schema.Literals(["success", "failure", "unknown"]),
+      channel: Channel,
       reason: Schema.String,
       value: Schema.Json,
     }),

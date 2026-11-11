@@ -8,7 +8,7 @@ import { makeLanes } from "./lanes.ts";
 import { makePersistence } from "./persist.ts";
 import { makeServe } from "./serve.ts";
 import { type Env, type Machines, makeTx, without } from "./tx.ts";
-import { actorKey, Disposal, Mail, Timer, type World } from "./world.ts";
+import { actorKey, Disposal, Mail, Timer, type TimerId, type World } from "./world.ts";
 
 export { CallResult, Input } from "./input.ts";
 
@@ -37,7 +37,7 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
   const { awaits } = answers;
   const { boundPassed } = disposal;
 
-  const fired = (id: string) => {
+  const fired = (id: TimerId) => {
     const timer = tx.world().timers.get(id);
 
     if (timer === undefined) return;

@@ -1,6 +1,6 @@
 import { Data, type Option } from "effect";
 import type { Values } from "./compiled.ts";
-import type { ActorId, Use } from "./world.ts";
+import type { ActorId, CallId, TicketId, TimerId, Use } from "./world.ts";
 
 /**
  * How a call ended, as the host classifies its fiber's Exit (WriteLanes R2).
@@ -30,9 +30,9 @@ export type Input = Data.TaggedEnum<{
   Ensure: { actor: ActorId; use: Option.Option<Use>; existing: boolean };
   Release: { actor: ActorId; use: Use };
   Send: { actor: ActorId; tag: string; payload: Values };
-  Settled: { call: string; result: CallResult };
-  Fired: { timer: string };
-  Stored: { ticket: string; ok: boolean };
+  Settled: { call: CallId; result: CallResult };
+  Fired: { timer: TimerId };
+  Stored: { ticket: TicketId; ok: boolean };
   DisposeRuntime: {};
   DisposeActor: { actor: ActorId };
   Forget: { actor: ActorId };

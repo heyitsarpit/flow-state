@@ -1,18 +1,7 @@
 import { Clock, Context, Duration, Effect, Exit, Option } from "effect";
-import type { Values } from "../core/compiled.ts";
+import type { Ticket, TicketId, Write } from "../core/world.ts";
 import type { Fibers } from "./fibers.ts";
 import { Host, type Platform, type Purpose } from "./host.ts";
-
-/**
- * A ticket a batch carries: the Attempt it acknowledges or captures.
- */
-export type Ticket = {
-  readonly id: string;
-  readonly attempt: string;
-  readonly purpose: "acknowledge" | "capture";
-};
-
-type Write = { readonly key: string; readonly record: Option.Option<Values> };
 
 /**
  * One scope's pending persistence: what is dirty, the tickets waiting on it, whether a batch is
@@ -56,7 +45,7 @@ const purposeOf = (tickets: ReadonlyArray<Ticket>) => {
 export const makeEdge = (
   platform: Platform,
   fibers: Fibers,
-  options: { readonly captureMs: number; readonly stored: (ticket: string, ok: boolean) => void },
+  options: { readonly captureMs: number; readonly stored: (ticket: TicketId, ok: boolean) => void },
 ) => {
   const host = Context.get(platform, Host);
   const clock = Context.get(platform, Clock.Clock);

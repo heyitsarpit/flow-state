@@ -8,6 +8,6 @@ import { Data } from "effect";
  * `problems` lists each violation found, in declaration order, each with its field path.
  */
 export class FlowError extends Data.TaggedError("FlowError")<{
-  readonly code: string;
+  readonly code: "InvalidMachine" | "DuplicateMachine" | "ServiceFailed" | "InvalidEvent";
   readonly problems: ReadonlyArray<string>;
 }> {}

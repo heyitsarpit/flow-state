@@ -9,7 +9,7 @@ import {
   parkedRecordKey,
 } from "./record.ts";
 import { Evidence } from "./evidence.ts";
-import { SILENT_MS, type Tx, who, without, withEntry } from "./tx.ts";
+import { SILENT_MS, type Tx, without, withEntry } from "./tx.ts";
 import {
   type ActorId,
   actorKey,
@@ -20,6 +20,9 @@ import {
   Timer,
   type Parked,
   type Ending,
+  type Ticket,
+  type TicketId,
+  type Write,
 } from "./world.ts";
 
 /**
@@ -31,15 +34,12 @@ export const makePersistence = (tx: Tx) => {
   // ── persistence: each change to a persisted identity becomes a write of its scope.
   const persist = (
     actor: ActorId,
-    writes: ReadonlyArray<{ readonly key: string; readonly record: Option.Option<Values> }>,
-    ticket: Option.Option<{
-      readonly attempt: string;
-      readonly purpose: "acknowledge" | "capture";
-    }>,
+    writes: ReadonlyArray<Write>,
+    ticket: Option.Option<Omit<Ticket, "id">>,
   ) => {
-    if (!persisted(actor)) return Option.none<string>();
+    if (!persisted(actor)) return Option.none<TicketId>();
 
-    const id = Option.map(ticket, () => tx.mint("ticket"));
+    const id = Option.map(ticket, () => tx.mint<TicketId>("ticket"));
     const scope = actorKey(actor);
 
     tx.command(
@@ -162,7 +162,7 @@ export const makePersistence = (tx: Tx) => {
         attempt: ending.attempt,
         channel: ending.channel,
         reason: ending.reason,
-        actor: who(actor),
+        actor: actor,
       }),
     );
     tx.emit(Evidence.Parked({ operation, attempt: ending.attempt }));

@@ -1,7 +1,7 @@
 import { Option } from "effect";
 import { Evidence } from "./evidence.ts";
 import { actorRecordKey, decodeRecords, parkedRecordKey } from "./record.ts";
-import { GRACE_MS, isInFlight, ROOT_ACTIVATION, type Tx, who, without, withEntry } from "./tx.ts";
+import { GRACE_MS, isInFlight, ROOT_ACTIVATION, type Tx, without, withEntry } from "./tx.ts";
 import {
   type ActorId,
   actorKey,
@@ -66,7 +66,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence) => {
   const publish = (incarnation: Incarnation) =>
     tx.emit(
       Evidence.Published({
-        actor: who(incarnation.actor),
+        actor: incarnation.actor,
         state: incarnation.state,
         memory: incarnation.memory,
       }),
@@ -128,7 +128,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence) => {
     };
 
     setIncarnation(base);
-    tx.emit(Evidence.Incarnated({ actor: who(actor) }));
+    tx.emit(Evidence.Incarnated({ actor: actor }));
 
     const incarnation = Option.match(from, {
       onNone: () =>
@@ -226,7 +226,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence) => {
       incarnations: without(tx.world().incarnations, actorKey(actor)),
       reads: new Map([...tx.world().reads].filter(([, r]) => r.incarnation !== incarnation.id)),
     });
-    tx.emit(Evidence.Finished({ actor: who(actor) }));
+    tx.emit(Evidence.Finished({ actor: actor }));
   };
 
   /**
@@ -246,7 +246,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence) => {
         incarnations: without(tx.world().incarnations, key),
         reads: new Map([...tx.world().reads].filter(([, r]) => r.incarnation !== incarnation.id)),
       });
-      tx.emit(Evidence.Finished({ actor: who(actor) }));
+      tx.emit(Evidence.Finished({ actor: actor }));
     }
 
     tx.set({
