@@ -1,6 +1,6 @@
 import { Option, Schema } from "effect";
 import { Empty, type Fixture, writeOf } from "./fixture.ts";
-import { classifyWith, type OperationReference, type Row, row } from "./reference.ts";
+import { claimed, classifyWith, type OperationReference, type Row, row } from "./reference.ts";
 
 const Address = Schema.Struct({
   name: Schema.String,
@@ -114,7 +114,7 @@ const payRow = row<string, State, Write>;
 const payRows = [
   payRow("PayRequested", "PAYING", "same", [{ operation: "pay", kind: "commit" }]),
   payRow("PayRequested", "any", "PAYING", [{ operation: "pay", kind: "commit" }]),
-  payRow("Leave", "any", "LEFT", [{ operation: "void", kind: "commit" }]),
+  claimed(payRow("Leave", "any", "LEFT", [{ operation: "void", kind: "commit" }])),
   payRow("Confirmed", "LEFT", "same", [{ operation: "void", kind: "commit" }]),
   payRow("Confirmed", "IDLE", "PLACING", [{ operation: "place", kind: "commit" }]),
   payRow(

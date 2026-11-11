@@ -23,7 +23,8 @@ const CANCEL_ALL =
  * `mutant.boot-resends-held` (I12) and `mutant.double-invoke` (I1); for the convergence design's
  * anchoring, `lie.release-other-lane` and `lie.void-retry-releases` (I12), `lane.reject-queues`
  * (I8), `mutant.boot-replays-never-sent` (I1), `mutant.members-reversed` (I10, order) and
- * `lie.release-member-claimed` (I12, review H1).
+ * `lie.release-member-claimed` (I12, review H1); `mutant.cancel-members-dropped` (I12; step 4
+ * review H1: a runtime that drops every cancel and cancelAll member from its act and its report).
  */
 export const laneQueueMutants: ReadonlyArray<Mutant> = [
   {
@@ -379,6 +380,29 @@ export const laneQueueMutants: ReadonlyArray<Mutant> = [
         file: "turn.ts",
         find: "  applyMembers(w, reads);",
         replace: "  for (const l of claimed) release(tx, l);\n  applyMembers(w, reads);",
+      },
+    ],
+  },
+  {
+    name: "mutant.cancel-members-dropped",
+    says: "a turn drops every cancel and cancelAll member, from its act and from its report",
+    expects: "WriteLanes I12",
+    runtime: "prototype",
+    cases: [
+      "LANE-03",
+      "LANE-04",
+      "LANE-08",
+      "LANE-09",
+      "LANE-10",
+      "PAY-12/cancel-on-wire",
+      "PAY-15/cancel-on-wire",
+    ],
+    edits: [
+      {
+        file: "turn.ts",
+        find: "    return part.alt.members.map((mem: Member) => {",
+        replace:
+          '    return part.alt.members.filter((mem: Member) => mem.verb !== "cancel" && mem.verb !== "cancelAll").map((mem: Member) => {',
       },
     ],
   },

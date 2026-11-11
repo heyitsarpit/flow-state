@@ -166,6 +166,24 @@ const examples: ReadonlyArray<Example> = [
   },
 
   {
+    name: "a cancel the chosen row owes is owed though the report drops it (step 4 review H1)",
+    run: ({ refused }) => {
+      assert.deepStrictEqual(refused(voidSent, voidUnsure("cancel"), sends(4)), [wl(12)]);
+      assert.deepStrictEqual(
+        refused(voidSent, [...unsure, turn(shopper, "VoidUnsure", "LEFT", "LEFT", [])], sends(4)),
+        [wl(12)],
+      );
+    },
+  },
+
+  {
+    name: "a claimed row is owed only when the report names its members",
+    run: ({ refused }) => {
+      assert.deepStrictEqual(refused(empty, [turn(shopper, "Leave", "CARD", "LEFT", [])]), []);
+    },
+  },
+
+  {
     name: "a root row with `same` matches a turn that stays",
     run: ({ refused }) => {
       const go = turn(putter, "Go", "A", "A", [only("put", "commit")]);
@@ -175,12 +193,12 @@ const examples: ReadonlyArray<Example> = [
   },
 
   {
-    name: "retryable picks the retry row while the head has retries left",
+    name: "retryable picks the retry row while the head has retries left, whatever was reported",
     run: ({ refused, after }) => {
       assert.deepStrictEqual(refused(voidSent, voidUnsure("retry"), sends(3)), []);
       assert.equal(phaseOf(after(voidSent, voidUnsure("retry"), sends(3)), "v1"), "Resending");
       assert.deepStrictEqual(refused(voidSent, voidUnsure("cancel"), sends(3)), []);
-      assert.equal(phaseOf(after(voidSent, voidUnsure("cancel"), sends(3)), "v1"), "Held");
+      assert.equal(phaseOf(after(voidSent, voidUnsure("cancel"), sends(3)), "v1"), "Resending");
     },
   },
 
@@ -205,7 +223,7 @@ const examples: ReadonlyArray<Example> = [
       ];
 
       assert.equal(phaseOf(resending, "v1"), "Resending");
-      assert.deepStrictEqual(refused(resending, facts, [...sends(3), fresh]), []);
+      assert.deepStrictEqual(refused(resending, facts, [...sends(3), fresh]), [wl(12)]);
       assert.equal(phaseOf(after(resending, facts, [...sends(3), fresh]), "v1"), "Held");
       assert.equal(phaseOf(after(resending, facts, [...sends(2), fresh]), "v1"), "Resending");
     },
@@ -365,6 +383,16 @@ const STEP_MUTANTS: ReadonlyArray<{
   readonly find: string;
   readonly replace: string;
 }> = [
+  {
+    name: "a reported member list chooses the row (step 4 review H1 undone)",
+    find: "      (!row.claimed || sameMembers(row, lane)) &&",
+    replace: "      sameMembers(row, lane) &&",
+  },
+  {
+    name: "a claimed row is owed whatever was reported",
+    find: "      (!row.claimed || sameMembers(row, lane)) &&\n",
+    replace: "",
+  },
   {
     name: "a release member anchors on any operation",
     find: "o.releasesOnLeave.some(",

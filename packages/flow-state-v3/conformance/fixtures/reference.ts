@@ -110,6 +110,7 @@ export type Row<
   readonly to: State | "same";
   readonly members: ReadonlyArray<RowMember<Operation>>;
   readonly guard: Option.Option<Retryable<Operation>>;
+  readonly claimed: boolean;
 };
 
 /**
@@ -126,7 +127,15 @@ export const row = <Event extends string, State extends string, Operation extend
   to: State | "same",
   members: ReadonlyArray<RowMember<Operation>>,
   guard: Option.Option<Retryable<Operation>> = Option.none(),
-) => ({ event, from, to, members, guard });
+) => ({ event, from, to, members, guard, claimed: false });
+
+/**
+ * A {@link Row} the suite cannot choose: a sibling alternative of the same event, state and
+ * target runs other lane members behind a guard the suite does not compute, so the turn's
+ * reported members say which ran (a runtime claim, v2 Risk 2).
+ */
+// RETURN_TYPE: keeps the fixture's typed row (its event, state and operation names).
+export const claimed = <R extends Row>(r: R): R => ({ ...r, claimed: true });
 
 /**
  * One transition of a machine: an event's turn from one state to another.

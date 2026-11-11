@@ -5,6 +5,7 @@ import {
   type Reference,
   retains,
   type Row,
+  type RowMember,
   type Rows,
 } from "../fixtures/reference.ts";
 import {
@@ -19,7 +20,7 @@ import {
 import type { Request } from "../world/network.ts";
 import { due } from "./lifecycle.ts";
 import { apply } from "./lifecycle-fold.ts";
-import { endingNamed } from "./lifecycle-lives.ts";
+import { lifeNamed, misdelivered } from "./lifecycle-lives.ts";
 import {
   ActorMove,
   addressable,
@@ -78,30 +79,6 @@ const pushed = (walk: Walk, move: Input, given: Rules) => {
 const closedTurn = (walk: Walk, given: Rules) =>
   Option.isSome(walk.model.turn) ? pushed(walk, LaneMove.TurnCloses(), given) : walk;
 
-const lifeNamed = (
-  model: Model,
-  operation: string,
-  attempt: Option.Option<string>,
-  actor: Option.Option<ActorRef>,
-) => {
-  const ofAttempt = Option.flatMap(attempt, (id) =>
-    Option.fromUndefinedOr(model.attempts.find((a) => a.id === id)?.lane.actor),
-  );
-
-  const declines = model.endings.filter(
-    (e) => Option.isNone(e.attempt) && e.operation === operation,
-  );
-
-  const ofDecline = Option.fromUndefinedOr(
-    (declines.find((e) => e.life._tag !== "Closed") ?? declines.at(-1))?.actor,
-  );
-
-  return Option.map(
-    Option.orElse(actor, () => (Option.isSome(attempt) ? ofAttempt : ofDecline)),
-    (who) => ({ operation, attempt, actor: who }),
-  );
-};
-
 const deliveringOf = (model: Model, known: Known, actor: Option.Option<ActorRef>, event: string) =>
   Option.map(
     Option.fromUndefinedOr(
@@ -130,29 +107,18 @@ const heardOf = (
   });
 
 const asMapped = (walk: Walk, before: Model, known: Known, name: EndingName, event: string) => {
-  const ending = Option.flatMap(endingNamed(before, name), (i) =>
-    Option.fromUndefinedOr(before.endings[i]),
-  );
-
-  const expected = Option.flatMap(ending, (e) =>
-    Option.flatMap(operationOf(known, e.actor, e.operation), (o) =>
-      mappedEvent(o, e.channel, e.reason),
-    ),
-  );
-
   const last = walk.applied.at(-1);
+  const wrong = misdelivered(before, known.reference, name, event);
 
-  if (last === undefined || Option.isNone(expected) || expected.value === event) return walk;
-
-  const wrong = {
-    invariant: "WriteLanes I15" as const,
-    text: `${name.operation} ${Option.getOrElse(name.attempt, () => "decline")} was delivered as ${event}, not its ending's ${expected.value}`,
-  };
-
-  return {
-    ...walk,
-    applied: [...walk.applied.slice(0, -1), { ...last, refusals: [...last.refusals, wrong] }],
-  };
+  return last === undefined || Option.isNone(wrong)
+    ? walk
+    : {
+        ...walk,
+        applied: [
+          ...walk.applied.slice(0, -1),
+          { ...last, refusals: [...last.refusals, wrong.value] },
+        ],
+      };
 };
 
 const sendsOf = (walk: Walk, attempt: string, earlier: ReadonlyArray<Request>) =>
@@ -203,8 +169,10 @@ const guardHolds = (
 const spelled = (members: ReadonlyArray<{ readonly operation: string; readonly kind: string }>) =>
   members.map((m) => `${m.operation}.${m.kind}`).join(" ");
 
-const sameMembers = (row: Row, members: ReadonlyArray<Member>) =>
-  spelled(row.members) === spelled(members);
+const sameMembers = (
+  row: Row,
+  members: ReadonlyArray<{ readonly operation: string; readonly kind: string }>,
+) => spelled(row.members) === spelled(members);
 
 const fromMatches = (row: Row, from: string, to: string) =>
   (row.from === "any" || row.from === from) && (row.to === "same" ? to === from : row.to === to);
@@ -215,32 +183,109 @@ const laneMemberOf = (known: Known, actor: ActorRef) => (member: Member) =>
     concurrency: o.concurrency,
   }));
 
-const anchoredMembers = (walk: Walk, known: Known, turn: Turn, earlier: ReadonlyArray<Request>) => {
+const owedTarget = (
+  walk: Walk,
+  known: Known,
+  turn: Turn,
+  hearing: Option.Option<EndingName>,
+  member: RowMember,
+) => {
+  const keyed = Option.exists(
+    operationOf(known, turn.actor, member.operation),
+    (o) => o.keyFields.length > 0,
+  );
+
+  if (!keyed) return MemberTarget.Only();
+
+  const own = Option.flatMap(
+    Option.filter(hearing, (h) => h.operation === member.operation),
+    (h) =>
+      Option.flatMap(h.attempt, (id) =>
+        Option.fromUndefinedOr(walk.model.attempts.find((a) => a.id === id)?.lane.key),
+      ),
+  );
+
+  return Option.match(Option.flatten(own), {
+    onNone: () => MemberTarget.Every(),
+    onSome: (key) => MemberTarget.Key({ key }),
+  });
+};
+
+// RETURN_TYPE: each member's target is a MemberTarget, so the list is the Port's Member list.
+const owedMembers = (
+  walk: Walk,
+  known: Known,
+  turn: Turn,
+  hearing: Option.Option<EndingName>,
+  row: Row,
+): ReadonlyArray<Member> =>
+  row.members.map((m) => {
+    const said = turn.members.find((r) => r.operation === m.operation && r.kind === m.kind);
+
+    return {
+      operation: m.operation,
+      kind: m.kind,
+      target: said === undefined ? owedTarget(walk, known, turn, hearing, m) : said.target,
+    };
+  });
+
+const chosenRow = (
+  walk: Walk,
+  known: Known,
+  turn: Turn,
+  hearing: Option.Option<EndingName>,
+  earlier: ReadonlyArray<Request>,
+) => {
   const lane = turn.members.filter((m) => m.kind !== "release");
 
-  const matched =
-    lane.length === 0 ||
-    (known.rows[turn.actor.machine] ?? []).some(
-      (row) =>
-        row.event === turn.event &&
-        fromMatches(row, turn.from, turn.to) &&
-        sameMembers(row, lane) &&
-        guardHolds(walk, row, turn.actor, lane, earlier),
-    );
+  const taken = (known.rows[turn.actor.machine] ?? []).filter(
+    (row) =>
+      row.event === turn.event &&
+      fromMatches(row, turn.from, turn.to) &&
+      (!row.claimed || sameMembers(row, lane)) &&
+      guardHolds(walk, row, turn.actor, owedMembers(walk, known, turn, hearing, row), earlier),
+  );
 
-  const leaving = turn.members
-    .filter((m) => m.kind === "release")
-    .every((m) =>
-      Option.exists(operationOf(known, turn.actor, m.operation), (o) =>
-        o.releasesOnLeave.some(
-          (t) => t.event === turn.event && t.from === turn.from && t.to === turn.to,
-        ),
+  const [first] = taken;
+  const alike = taken.every((row) => first !== undefined && sameMembers(row, first.members));
+
+  return Option.fromUndefinedOr(alike ? first : taken.find((row) => sameMembers(row, lane)));
+};
+
+const anchoredMembers = (
+  walk: Walk,
+  known: Known,
+  turn: Turn,
+  hearing: Option.Option<EndingName>,
+  earlier: ReadonlyArray<Request>,
+) => {
+  const lane = turn.members.filter((m) => m.kind !== "release");
+  const releases = turn.members.filter((m) => m.kind === "release");
+  const row = chosenRow(walk, known, turn, hearing, earlier);
+
+  const owed = Option.match(row, {
+    onNone: () => (lane.length === 0 ? Option.some(turn.members) : Option.none()),
+    onSome: (r) =>
+      Option.some(
+        sameMembers(r, lane)
+          ? turn.members
+          : [...owedMembers(walk, known, turn, hearing, r), ...releases],
       ),
-    );
+  });
 
-  const members = turn.members.map(laneMemberOf(known, turn.actor));
+  const leaving = releases.every((m) =>
+    Option.exists(operationOf(known, turn.actor, m.operation), (o) =>
+      o.releasesOnLeave.some(
+        (t) => t.event === turn.event && t.from === turn.from && t.to === turn.to,
+      ),
+    ),
+  );
 
-  return matched && leaving && members.every(Option.isSome) ? members.flatMap(Option.toArray) : [];
+  const members = Option.getOrElse(owed, () => []).map(laneMemberOf(known, turn.actor));
+
+  return Option.isSome(owed) && leaving && members.every(Option.isSome)
+    ? members.flatMap(Option.toArray)
+    : [];
 };
 
 const recordOf = (model: Model, actor: ActorRef) =>
@@ -264,11 +309,15 @@ const reported = (
 
   return Observation.$match(observation, {
     Turn: (turn) => {
+      const hearing = deliveringOf(walk.model, known, Option.some(turn.actor), turn.event);
       const heard = heardOf(walk, known, Option.some(turn.actor), turn.event, given);
 
       return push(
         heard,
-        LaneMove.Turn({ actor: turn.actor, members: anchoredMembers(heard, known, turn, earlier) }),
+        LaneMove.Turn({
+          actor: turn.actor,
+          members: anchoredMembers(heard, known, turn, hearing, earlier),
+        }),
       );
     },
     Minted: ({ operation, attempt, actor, key }) =>

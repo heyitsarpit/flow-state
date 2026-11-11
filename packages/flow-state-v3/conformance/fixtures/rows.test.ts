@@ -78,6 +78,9 @@ const guardOf = (alternatives: ReadonlyArray<Alternative>, index: number) => {
   }));
 };
 
+const spelledOf = (members: ReadonlyArray<RowMember>) =>
+  members.map((m) => `${m.operation}.${m.kind}`).join(" ");
+
 const compiledRows = (compiled: typeof Compiled.Type, writes: ReadonlyArray<string>) =>
   Object.entries(compiled.nodes).flatMap(([node, { on }]) =>
     Object.entries(on).flatMap(([event, alternatives]) =>
@@ -89,7 +92,17 @@ const compiledRows = (compiled: typeof Compiled.Type, writes: ReadonlyArray<stri
         const from = node === compiled.root ? (state ?? "any") : node;
         const to = alternative.target === "self" ? "same" : alternative.target;
 
-        return [{ event, from, to, members, guard: guardOf(alternatives, index) }];
+        const guard = guardOf(alternatives, index);
+
+        const tied = alternatives.some(
+          (other, at) =>
+            at !== index &&
+            other.target === alternative.target &&
+            other.tokens.find((t) => t.node !== undefined)?.node === state &&
+            spelledOf(laneMembers(other, writes)) !== spelledOf(members),
+        );
+
+        return [{ event, from, to, members, guard, claimed: tied && Option.isNone(guard) }];
       }),
     ),
   );
@@ -102,7 +115,7 @@ const shown = (rows: ReadonlyArray<Row>) =>
         onSome: (g) => ` retryable(${g.operation}, ${g.times}) ${g.passes ? "passes" : "fails"}`,
       });
 
-      return `${r.event} ${r.from}->${r.to} [${r.members.map((m) => `${m.operation}.${m.kind}`).join(", ")}]${guard}`;
+      return `${r.event} ${r.from}->${r.to} [${r.members.map((m) => `${m.operation}.${m.kind}`).join(", ")}]${guard}${r.claimed ? " claimed" : ""}`;
     })
     .toSorted();
 

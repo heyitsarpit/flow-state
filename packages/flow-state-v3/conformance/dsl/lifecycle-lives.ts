@@ -1,4 +1,4 @@
-import { FLOW_DECLINES } from "../fixtures/reference.ts";
+import { FLOW_DECLINES, mappedEvent, type Reference } from "../fixtures/reference.ts";
 import { Data, Option } from "effect";
 import { type ActorRef, sameActor } from "../port.ts";
 import {
@@ -38,6 +38,66 @@ export const endingNamed = (model: Model, name: EndingName) => {
   const open = mine.find((i) => model.endings[i]?.life._tag !== "Closed");
 
   return Option.fromUndefinedOr(open ?? mine.at(-1));
+};
+
+/**
+ * The ending a report names: its Attempt's actor (or the actor it says), and for a decline, the
+ * actor of its operation's oldest decline not yet `Closed`, else its newest. None when no actor
+ * can be named.
+ */
+export const lifeNamed = (
+  model: Model,
+  operation: string,
+  attempt: Option.Option<string>,
+  actor: Option.Option<ActorRef>,
+) => {
+  const ofAttempt = Option.flatMap(attempt, (id) =>
+    Option.fromUndefinedOr(model.attempts.find((a) => a.id === id)?.lane.actor),
+  );
+
+  const declines = model.endings.filter(
+    (e) => Option.isNone(e.attempt) && e.operation === operation,
+  );
+
+  const ofDecline = Option.fromUndefinedOr(
+    (declines.find((e) => e.life._tag !== "Closed") ?? declines.at(-1))?.actor,
+  );
+
+  return Option.map(
+    Option.orElse(actor, () => (Option.isSome(attempt) ? ofAttempt : ofDecline)),
+    (who) => ({ operation, attempt, actor: who }),
+  );
+};
+
+/**
+ * A delivery of `name` as `event` where its ending maps to another event: WriteLanes I15, since it
+ * delivers an ending that does not exist (review F2). None when the event is its mapping, or the
+ * ending has none.
+ */
+export const misdelivered = (
+  model: Model,
+  reference: Reference,
+  name: EndingName,
+  event: string,
+) => {
+  const ending = Option.flatMap(endingNamed(model, name), (i) =>
+    Option.fromUndefinedOr(model.endings[i]),
+  );
+
+  const expected = Option.flatMap(ending, (e) =>
+    Option.flatMap(Option.fromUndefinedOr(reference[e.actor.machine]?.[e.operation]), (o) =>
+      mappedEvent(o, e.channel, e.reason),
+    ),
+  );
+
+  return Option.flatMap(expected, (wanted) =>
+    wanted === event
+      ? Option.none()
+      : Option.some<Refusal>({
+          invariant: wl(15),
+          text: `${name.operation} ${Option.getOrElse(name.attempt, () => "decline")} was delivered as ${event}, not its ending's ${wanted}`,
+        }),
+  );
 };
 
 const delivering = (model: Model, name: EndingName) =>
