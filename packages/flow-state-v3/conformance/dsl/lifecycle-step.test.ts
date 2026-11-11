@@ -5,20 +5,24 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "vite-plus/test";
 import { Option } from "effect";
-import { referenceFor, rowsFor } from "../fixtures/fixture.ts";
+import { handlersFor, referenceFor, rowsFor } from "../fixtures/fixture.ts";
+import { type Anchor, anchorOf, judgedStep } from "../turn/selection.ts";
+import { possible } from "../fixtures/handlers.ts";
 import { Cancel, Serialize } from "../fixtures/one-lane.ts";
 import { Pay } from "../fixtures/pay.ts";
 import { type ActorRef, type Member, MemberTarget, Observation } from "../port.ts";
 import { type Request, RequestPhase } from "../world/network.ts";
 import { empty, type Model } from "./lifecycle-model.ts";
-import type { Known, Predicted } from "./lifecycle-owed.ts";
+import type { Known } from "./lifecycle-owed.ts";
 import { rules } from "./lifecycle-rules.ts";
 import { step } from "./lifecycle-step.ts";
 import { Fact } from "./oracle.ts";
 
+const FIXTURES = [Pay, Serialize, Cancel];
+
 const known: Known = {
-  reference: referenceFor([Pay, Serialize, Cancel]),
-  rows: rowsFor([Pay, Serialize, Cancel]),
+  reference: referenceFor(FIXTURES),
+  rows: rowsFor(FIXTURES),
   timed: {},
 };
 
@@ -32,13 +36,37 @@ const KEY = { intentId: "pi1" };
 
 const said = (observation: Observation) => Fact.Reported({ observation });
 
+/**
+ * A turn as a runtime reports it: its root part names the alternative of the machine's table that
+ * leads from `from` to `to` (the first such, or `at`).
+ */
 const turn = (
   actor: ActorRef,
   event: string,
   from: string,
   to: string,
   members: ReadonlyArray<Member>,
-) => said(Observation.Turn({ actor, event, from, to, parts: [], members }));
+  at: Option.Option<string> = Option.none(),
+) => {
+  const handlers = handlersFor(FIXTURES)[actor.machine];
+
+  const ran = Option.getOrUndefined(
+    Option.orElse(at, () =>
+      Option.fromUndefinedOr(
+        handlers === undefined
+          ? undefined
+          : possible(handlers, from, event, "either").alternatives.find((a) => a.to === to)?.at,
+      ),
+    ),
+  );
+
+  const parts =
+    ran === undefined
+      ? []
+      : [{ part: [], definition: actor.machine, at: ran, node: "", target: "" }];
+
+  return said(Observation.Turn({ actor, event, from, to, parts, members }));
+};
 
 const keyed = (operation: string, kind: Member["kind"]) => ({
   operation,
@@ -101,69 +129,51 @@ const sent = (operation: string, attempt: string) => [
 type Step = typeof step;
 
 /**
- * The prediction selection would hand the step for each reported turn: its header, the claimed
- * alternative a row names when the turn reports that row's members (standing in for a fold), and
- * the keys its members name.
+ * The turn anchor each model was reached with, so a step that starts from it is predicted from
+ * the same anchor (selection carries it between steps, as the Case does).
  */
-// RETURN_TYPE: the step's Predicted contract; `at` and `keys` would infer narrower shapes.
-const predictedFrom = (under: Known, facts: ReadonlyArray<Fact>): ReadonlyArray<Predicted> =>
-  facts.flatMap((f) => {
-    if (!Fact.$is("Reported")(f) || !Observation.$is("Turn")(f.observation)) return [];
-    const t = f.observation;
+const anchors = new WeakMap<Model, Anchor>();
 
-    const claims = (under.rows[t.actor.machine] ?? []).filter(
-      (r) => r.claimed && r.event === t.event,
-    );
+/**
+ * Selection's own predictions of a step's turns (`turn/selection.ts` `judgedStep`) from the anchor
+ * that reached `model`, over the fixtures' handler tables: the step never sees a prediction
+ * copied from the report (T45 S5).
+ */
+const predicted = (model: Model, under: Known, facts: ReadonlyArray<Fact>) =>
+  judgedStep(
+    anchors.get(model) ?? anchorOf(handlersFor(FIXTURES), under.reference, under.rows),
+    facts,
+  );
 
-    const ran = claims.find((r) =>
-      r.members.every((m) =>
-        t.members.some((s) => s.operation === m.operation && s.kind === m.kind),
-      ),
-    )?.at;
-
-    const at = ran ?? (claims.length > 0 ? Option.some("another alternative") : undefined);
-
-    return [
-      {
-        actor: t.actor,
-        event: t.event,
-        from: t.from,
-        to: t.to,
-        at: at ?? Option.none(),
-        encodable: true,
-        keys: Object.fromEntries(
-          t.members.flatMap((m) => {
-            const named = t.members.flatMap((o) =>
-              o.operation === m.operation && MemberTarget.$is("Key")(o.target)
-                ? [o.target.key]
-                : [],
-            );
-
-            return MemberTarget.$is("Key")(m.target) &&
-              named.every((k) => JSON.stringify(k) === JSON.stringify(named[0]))
-              ? [[m.operation, m.target.key] as const]
-              : [];
-          }),
-        ),
-      },
-    ];
-  });
-
-const using = (run: Step) => ({
-  run: (model: Model, under: Known, facts: ReadonlyArray<Fact>, requests: ReadonlyArray<Request>) =>
-    run(model, under, facts, requests, rules, predictedFrom(under, facts)),
-  refused: (
+const using = (run: Step) => {
+  const stepped = (
     model: Model,
+    under: Known,
     facts: ReadonlyArray<Fact>,
-    requests: ReadonlyArray<Request> = [],
-    under: Known = known,
-  ) =>
-    run(model, under, facts, requests, rules, predictedFrom(under, facts)).applied.flatMap((a) =>
-      a.refusals.map((r) => r.invariant),
-    ),
-  after: (model: Model, facts: ReadonlyArray<Fact>, requests: ReadonlyArray<Request> = []) =>
-    run(model, known, facts, requests, rules, predictedFrom(known, facts)).after,
-});
+    requests: ReadonlyArray<Request>,
+  ) => {
+    const judged = predicted(model, under, facts);
+    const life = run(model, under, facts, requests, rules, judged.turns);
+    anchors.set(life.after, judged.state);
+
+    return life;
+  };
+
+  return {
+    run: stepped,
+    refused: (
+      model: Model,
+      facts: ReadonlyArray<Fact>,
+      requests: ReadonlyArray<Request> = [],
+      under: Known = known,
+    ) =>
+      stepped(model, under, facts, requests).applied.flatMap((a) =>
+        a.refusals.map((r) => r.invariant),
+      ),
+    after: (model: Model, facts: ReadonlyArray<Fact>, requests: ReadonlyArray<Request> = []) =>
+      stepped(model, known, facts, requests).after,
+  };
+};
 
 const phaseOf = (model: Model, attempt: string) =>
   model.attempts.find((a) => a.id === attempt)?.phase._tag;
@@ -219,7 +229,14 @@ const examples: ReadonlyArray<Example> = [
     run: ({ refused }) => {
       assert.deepStrictEqual(
         refused(empty, [
-          turn(shopper, "Leave", "CARD", "LEFT", [keyed("pay", "commit")]),
+          turn(
+            shopper,
+            "Leave",
+            "CARD",
+            "LEFT",
+            [keyed("pay", "commit")],
+            Option.some("on.Leave[1]"),
+          ),
           minted(shopper, "pay", "p1"),
         ]),
         [wl(1)],
@@ -241,7 +258,10 @@ const examples: ReadonlyArray<Example> = [
   {
     name: "a claimed row is owed only when the report names its members",
     run: ({ refused }) => {
-      assert.deepStrictEqual(refused(empty, [turn(shopper, "Leave", "CARD", "LEFT", [])]), []);
+      assert.deepStrictEqual(
+        refused(empty, [turn(shopper, "Leave", "CARD", "LEFT", [], Option.some("on.Leave[1]"))]),
+        [],
+      );
     },
   },
 
@@ -282,7 +302,7 @@ const examples: ReadonlyArray<Example> = [
   {
     name: "a claimed row is owed only when its own alternative ran",
     run: ({ refused }) => {
-      const fallthrough = turn(shopper, "Leave", "CARD", "LEFT", []);
+      const fallthrough = turn(shopper, "Leave", "CARD", "LEFT", [], Option.some("on.Leave[1]"));
 
       assert.deepStrictEqual(refused(empty, [fallthrough]), []);
     },
