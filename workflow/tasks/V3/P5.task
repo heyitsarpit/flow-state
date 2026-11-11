@@ -158,6 +158,10 @@ tasks
               pair with no dated waiver, and passes before this Task closes.
             - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
               the model's expectations is read by a different model family (Fable).
+        comment 2026-11-11T23:27:37Z
+            Owns 4 of the old suite's search kills (from @task.V3.T45 item 7, 2026-11-12, coordinator 7b15241b): lie:s1.overdue-excuse, r71.bookmark-ahead, the three lie:s1b ones (session search, rules 70 and 71) and lie:s1c.repair-wedge-says-inflight (repairing). Port each as a suite mutant with a fixture and oracle that kill it; edits in prototypes/conformance/falsify.ts SEARCH_KILLS.
+        comment 2026-11-11T23:27:53Z
+            Correction to the comment above: it owns 6 kills, not 4 (the three lie:s1b ones count separately).
     T26
         title       Record migration
         status      done

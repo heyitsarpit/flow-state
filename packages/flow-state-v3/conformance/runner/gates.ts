@@ -7,11 +7,34 @@ import { ROUND_14 } from "./args.ts";
 import { runChild } from "./child.ts";
 
 /**
- * The cases the production runtime boots: every fixture of each is in the production adapter.
+ * Production's owed reds: a case it fails by a production bug a Task owns, left out of its gates
+ * until that Task fixes it (the case still runs on round-14 and in `suite --only`).
+ */
+export const productionOwed: ReadonlyArray<{
+  readonly case: string;
+  readonly owner: string;
+  readonly why: string;
+}> = [
+  {
+    case: "ACT-02/dirty-record-written-at-end",
+    owner: "@task.V3.T51",
+    why: "production writes a dirty record at its capture, not in the end's step (Actors R8; coordinator 7b15241b)",
+  },
+  {
+    case: "ACT-03/no-end-before-the-grace",
+    owner: "@task.V3.T51",
+    why: "production writes a dirty record at its capture, not in the end's step (Actors R8; coordinator 7b15241b)",
+  },
+];
+
+/**
+ * The cases the production runtime boots: every fixture of each is in the production adapter,
+ * less its owed reds.
  */
 export const productionCases = scenarios
   .filter((s) => s.fixtures.every((f) => productionFixtures.has(f.name)))
-  .map((s) => s.id);
+  .map((s) => s.id)
+  .filter((id) => !productionOwed.some((o) => o.case === id));
 
 const verdictLine = (stdout: string) =>
   Option.getOrElse(
