@@ -1297,6 +1297,14 @@ must be a suite fact or a judged claim.
 
 ## T8 (2026-11-11): Turn area (in progress)
 
+**Left, to resume after T16's first checkpoint (2026-11-11):** the T8 H1 rows Turn I1, I4, I6, I24
+and I35 (evidence and plans in `not-yet.ts`; I4: a `self` transition keeping Activations, e.g.
+`Cells`' `AbortPay` target `self` or audit1b's `A1bHist` compound fixture; I24: `roomFixture`, P1-S,
+`mutants-p1s.ts`; I35: `.each` per-key timers, FRAG-06 and FRAG-20; I6 has no old case). Done in
+this run: M3 as ruled (WriteLanes R10 and I15 widened to any refused turn, TURN-01 asserts two
+issues), I19 moved to T24 with evidence, and the round-14 limits for Turn I32 (arm order) and
+Actors I38 (a commit queued behind a Held head at disposal) recorded in README's Stated limits.
+
 ### Plan for the rest (2026-11-11, after the step 9 revision; done in round 2 below)
 
 Test-first (the user, 2026-11-11): for each Invariant, its scenarios or mutants and the expected
