@@ -1,0 +1,87 @@
+phase P14
+title CLI
+description
+    **Class:** not readily verifiable.
+
+    **Kind:** verification-suite.
+
+    **Goal:** the CLI's `check`, `explain` and `graph` from @spec.StaticCli, with its static cases in the suite 
+    (@task.V3.T13) and the production module T22.
+
+    **Verified by:**
+
+    - the area's suite: green on round 14, null 0 of N, every oracle killing its own mutants for the expected reason,
+      reviewed, and audited by its own adversarial auditor (skill:policy-testing#audit-a-suite);
+    - then the production module through the production adapter: that suite passes, with its coverage rows in
+      @plan.Runtime's verification;
+    - skill:check-task per Task; `nub run check` at zero.
+
+    **One iteration:** the area's suite Task first (from its Spec, run on round 14 and the null runtime, its mutants, 
+    the
+    review, findings gathered by root cause); then its production Task, built test-first against the proven suite.
+    When production and a case disagree, the Spec decides and the fix cites its rule.
+
+    **Exit criteria:**
+
+    - the area's suite is green on round 14, null-red, mutant-proven, reviewed and audited by its own auditor before the
+      production module starts;
+    - the production module then passes it, with its gates failing on a broken runtime.
+
+    **False pass:** the production adapter doing work the runtime should; a case edited to pass.
+
+    **Caught by:** mutants run against the production adapter, a review section on the adapter's role, and the audit.
+
+    **Gates:**
+
+    - falsify on both adapters (`packages/flow-state-v3/conformance/`, each oracle's mutants file);
+    - `nub run check`, which rejects a planted lint violation (`tools/lint-bomb/`).
+
+    **Failure limit:** 2.
+
+    **Stops:**
+
+    - a guarantee change or one that can't be met;
+    - public entry-point names or a large public API change.
+
+    **User's read:** each Spec revision, each changed expected result with its reason, the internal module layout, small
+    public API calls.
+
+    **Draws from:**
+
+    - skill:policy-verification (prove a suite; the coverage record);
+    - skill:policy-testing (audit a suite; test first: module integration tests through the public interface, no unit
+      tests of internals, and the scenarios that enforce each Invariant written before the code);
+    - skill:to-spec for the area's Spec and skill:to-design per module;
+    - skill:policy-convergence at the threshold; skill:review at the cadence;
+    - skill:playbook-build (long runs), skill:execute-task, skill:check-task; skill:diagnose when a case fails
+      unexplained.
+tasks
+    T22
+        title       CLI check, explain and graph
+        status      draft
+        priority    medium
+        blocked_by  [@task.V3.T21]
+        description
+            Build the CLI's `check`, `explain` and `graph` from @spec.StaticCli; the CLI stays at check, explain,
+            graph, story, trace.
+
+            **Why now:** Compiled has no static front end, so nothing yet answers the static cases.
+
+            **Read first:** @spec.StaticCli, @spec.StaticCli.I2 (graph edge names equal the turn record's),
+            @spec.Compile, @spec.Diagnostics.
+
+            - **May change:** `src/`.
+            - **Evidence:** this Task's comments.
+            - **False pass:** graph edges named differently from the turn record → caught by the
+              graph gate.
+            - **Gates:** StaticCli cases; graph gate.
+            - **Stops:** public entry-point names.
+        acceptance
+            StaticCli cases and the graph gate pass on production.
+        comment     2026-11-10T21:23:15Z
+            Owns, in conformance/not-yet.ts, StaticCli I3, I10 and I11 (round-14's CLI loads every fixture before 
+            reading its arguments and has no config discovery or project tree); their static cases land before this 
+            Task closes. Also owed here: spies for I1 (StaticCli T1), the R10 rules round-14 lacks (unfilled ports, 
+            late handler, DuplicatePlacement, VerbMismatch, KeyFieldOptional, ReservedReason, the allowlist grammar), 
+            I4 for graph and explain, R7's envelope (version, status, data), and whether desk's UnresolvedHold errors 
+            are right. Detail: conformance/STATUS.md, T13 part 2.

@@ -9,7 +9,7 @@ description
     time, each area's Specs written when it starts: entities, streams, record migration, multi-tab
     and sessions, host adapters, Stories, React and Next.js bindings, CLI outputs.
 
-    **Starts when:** P4's completion audit passes.
+    **Starts when:** P15's completion audit passes (the core is done).
 
     **Verified by:** each area's suite slice, built and proven first (mutants, audit), then the area
     built against it; real-browser runs in Chrome and Safari; reviews. Coverage records in the

@@ -1,0 +1,112 @@
+phase P11
+title Persistence
+description
+    **Class:** not readily verifiable.
+
+    **Kind:** verification-suite.
+
+    **Goal:** the persistence area (@task.V3.T10) proven in the suite, then the persistence edge, write-ahead and the 
+    Effect driver in `src/host/`.
+
+    **Verified by:**
+
+    - the area's suite: green on round 14, null 0 of N, every oracle killing its own mutants for the expected reason,
+      reviewed, and audited by its own adversarial auditor (skill:policy-testing#audit-a-suite);
+    - then the production module through the production adapter: that suite passes, with its coverage rows in
+      @plan.Runtime's verification;
+    - skill:check-task per Task; `nub run check` at zero.
+
+    **One iteration:** the area's suite Task first (from its Spec, run on round 14 and the null runtime, its mutants, 
+    the
+    review, findings gathered by root cause); then its production Task, built test-first against the proven suite.
+    When production and a case disagree, the Spec decides and the fix cites its rule.
+
+    **Exit criteria:**
+
+    - the area's suite is green on round 14, null-red, mutant-proven, reviewed and audited by its own auditor before the
+      production module starts;
+    - the production module then passes it, with its gates failing on a broken runtime.
+
+    **False pass:** the production adapter doing work the runtime should; a case edited to pass.
+
+    **Caught by:** mutants run against the production adapter, a review section on the adapter's role, and the audit.
+
+    **Gates:**
+
+    - falsify on both adapters (`packages/flow-state-v3/conformance/`, each oracle's mutants file);
+    - `nub run check`, which rejects a planted lint violation (`tools/lint-bomb/`).
+
+    **Failure limit:** 2.
+
+    **Stops:**
+
+    - a guarantee change or one that can't be met;
+    - public entry-point names or a large public API change.
+
+    **User's read:** each Spec revision, each changed expected result with its reason, the internal module layout, small
+    public API calls.
+
+    **Draws from:**
+
+    - skill:policy-verification (prove a suite; the coverage record);
+    - skill:policy-testing (audit a suite; test first: module integration tests through the public interface, no unit
+      tests of internals, and the scenarios that enforce each Invariant written before the code);
+    - skill:to-spec for the area's Spec and skill:to-design per module;
+    - skill:policy-convergence at the threshold; skill:review at the cadence;
+    - skill:playbook-build (long runs), skill:execute-task, skill:check-task; skill:diagnose when a case fails
+      unexplained.
+tasks
+    T10
+        title       WriteAhead area complete
+        status      open
+        priority    high
+        blocked_by  [@task.V3.T5, @task.V3.T40]
+        description
+            Cover @spec.WriteAhead's guarantee map, with a disk reader on the Port or the adapter.
+
+            **Why now:** the Port has no disk reader yet (README, "Planned Port changes"), so no WriteAhead
+            Invariant can be judged; @task.V3.T11 reads the same disk reader.
+
+            **Read first:** code:packages/flow-state-v3/conformance/README.md (the WriteAhead rows of the
+            guarantee map, and "Planned Port changes"), @spec.WriteAhead,
+            code:packages/flow-state-v3/conformance/port.ts#Port,
+            code:packages/flow-state-v3/conformance/world/storage.ts#makeStorage. A disk reader must not show
+            internals: @spec.Conformance.R1.
+
+            **Approach:** oracles `write-ahead` (the old oracle (h) against the storage host), `capture`,
+            `persistence`; cases; the storage faults (failLate, plain-write failures, slow and failing loads,
+            wipe, tear, corrupt); ported cases, verdict compare and carry rows.
+
+            - **May change:** the Port, the suite's write-ahead area and storage host.
+            - **Evidence:** this Task's comments.
+            - **False pass:** a disk reader that shows internals → caught by T4's Spec and the
+              audit.
+            - **Gates:** falsify; `nub run check`.
+            - **Stops:** a guarantee change.
+            - **User's read:** the Port change, Spec revisions.
+        acceptance
+            - Every WriteAhead Invariant has its oracle or case;
+            - each oracle kills its listed mutants;
+            - verdicts match the old suite's or each difference is logged.
+    T19
+        title       Persistence edge, write-ahead and the driver
+        status      draft
+        priority    high
+        blocked_by  [@task.V3.T18, @T10]
+        description
+            Build the persistence edge, write-ahead and the Effect driver in `src/host/` from @spec.WriteAhead.
+
+            **Why now:** the core returns work as data; nothing runs it or writes records yet, so durability
+            cannot be judged.
+
+            **Read first:** @spec.WriteAhead, @spec.WriteAhead.I15 (which took the cut I16), @spec.WriteAhead.I17,
+            code:packages/flow-state-v3/conformance/README.md ("Planned Port changes": the disk reader).
+
+            - **May change:** `src/`.
+            - **Evidence:** this Task's comments.
+            - **False pass:** durability judged from the runtime's report → caught by the disk
+              reader.
+            - **Gates:** the suite; falsify.
+            - **Stops:** a guarantee change.
+        acceptance
+            The WriteAhead area passes on production.

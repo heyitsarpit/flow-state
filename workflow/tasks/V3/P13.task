@@ -1,0 +1,141 @@
+phase P13
+title Actors and Reads
+description
+    **Class:** not readily verifiable.
+
+    **Kind:** verification-suite.
+
+    **Goal:** the actors area (@task.V3.T9) and the reads area (@task.V3.T12) proven in the suite, then fragments and 
+    operations in production.
+
+    **Verified by:**
+
+    - the area's suite: green on round 14, null 0 of N, every oracle killing its own mutants for the expected reason,
+      reviewed, and audited by its own adversarial auditor (skill:policy-testing#audit-a-suite);
+    - then the production module through the production adapter: that suite passes, with its coverage rows in
+      @plan.Runtime's verification;
+    - skill:check-task per Task; `nub run check` at zero.
+
+    **One iteration:** the area's suite Task first (from its Spec, run on round 14 and the null runtime, its mutants, 
+    the
+    review, findings gathered by root cause); then its production Task, built test-first against the proven suite.
+    When production and a case disagree, the Spec decides and the fix cites its rule.
+
+    **Exit criteria:**
+
+    - the area's suite is green on round 14, null-red, mutant-proven, reviewed and audited by its own auditor before the
+      production module starts;
+    - the production module then passes it, with its gates failing on a broken runtime.
+
+    **False pass:** the production adapter doing work the runtime should; a case edited to pass.
+
+    **Caught by:** mutants run against the production adapter, a review section on the adapter's role, and the audit.
+
+    **Gates:**
+
+    - falsify on both adapters (`packages/flow-state-v3/conformance/`, each oracle's mutants file);
+    - `nub run check`, which rejects a planted lint violation (`tools/lint-bomb/`).
+
+    **Failure limit:** 2.
+
+    **Stops:**
+
+    - a guarantee change or one that can't be met;
+    - public entry-point names or a large public API change.
+
+    **User's read:** each Spec revision, each changed expected result with its reason, the internal module layout, small
+    public API calls.
+
+    **Draws from:**
+
+    - skill:policy-verification (prove a suite; the coverage record);
+    - skill:policy-testing (audit a suite; test first: module integration tests through the public interface, no unit
+      tests of internals, and the scenarios that enforce each Invariant written before the code);
+    - skill:to-spec for the area's Spec and skill:to-design per module;
+    - skill:policy-convergence at the threshold; skill:review at the cadence;
+    - skill:playbook-build (long runs), skill:execute-task, skill:check-task; skill:diagnose when a case fails
+      unexplained.
+tasks
+    T9
+        title       Actors area complete
+        status      open
+        priority    high
+        blocked_by  [@task.V3.T6]
+        description
+            Cover @spec.Actors' guarantee map apart from disposal (@task.V3.T6) with oracles and cases.
+
+            **Why now:** the Actors area has only the disposal scenarios, so the suite can't judge actor identity,
+            lifetime, incarnations or mailboxes.
+
+            **Read first:** code:packages/flow-state-v3/conformance/README.md (the Actors rows of the
+            guarantee map, and U8 in its round-14 carry list), @spec.Actors,
+            code:packages/flow-state-v3/conformance/actors/runtime-disposal.scenarios.ts#runtimeDisposalScenarios.
+            Blocked by @task.V3.T6, which adds the disposal oracle these share.
+
+            **Approach:** oracles `identity`, `lifetime`, `incarnations`, `mailbox`, `cuts-and-context`;
+            cases, fake world behaviours, ported cases, verdict compare and carry rows (the boot-queue bound,
+            U8).
+
+            - **May change:** the suite's actors area.
+            - **Evidence:** this Task's comments.
+            - **False pass:** a lenient oracle → caught by its mutants and the audit.
+            - **Gates:** falsify; `nub run check`.
+            - **Stops:** a guarantee change.
+            - **User's read:** Spec revisions, changed expected results.
+        acceptance
+            - Every Actors Invariant has its oracle or case;
+            - each oracle kills its listed mutants;
+            - verdicts match the old suite's or each difference is logged with its cited rule.
+    T12
+        title       Reads area complete
+        status      open
+        priority    medium
+        blocked_by  [@task.V3.T5, @task.V3.T40]
+        description
+            Cover @spec.Reads' guarantee map with oracles `lookups` and `optimistic`.
+
+            **Why now:** the guarantee map marks Reads rows as "case", yet no scenario cites Reads
+            (@spec.Conformance.Q13).
+
+            **Read first:** code:packages/flow-state-v3/conformance/README.md (the Reads rows of the guarantee
+            map), @spec.Reads. The mutants `drain.*` and `lie.settled-*` are in
+            code:packages/flow-state-v3/prototypes/conformance/falsify.ts.
+
+            **Approach:** cases (the idle row per @spec.Reads.R14), ported cases, verdict compare and carry
+            rows.
+
+            - **May change:** the suite's reads area.
+            - **Evidence:** this Task's comments.
+            - **False pass:** a lenient oracle → caught by its mutants (`drain.*`, `lie.settled-*`).
+            - **Gates:** falsify; `nub run check`.
+            - **Stops:** a guarantee change.
+            - **User's read:** Spec revisions, changed expected results.
+        acceptance
+            - Every Reads Invariant has its oracle or case;
+            - each oracle kills its listed mutants;
+            - verdicts match the old suite's or each difference is logged.
+    T21
+        title       Fragments and operations
+        status      draft
+        priority    high
+        blocked_by  [@task.V3.T20, @T9, @T12]
+        description
+            Build fragments, then operations with the required services list, and @spec.Reads, with the round-14
+            carry list's unbuilt design items.
+
+            **Why now:** the runtime cannot yet declare fragments or operations, or read resources, which
+            the Reads area and the carry items judge.
+
+            **Read first:** @spec.Reads, @spec.Compile.R9, @spec.Compile.R10, @spec.Compile.R11,
+            code:packages/flow-state-v3/conformance/README.md (the round-14 carry list: the "design items not
+            built" row).
+
+            - **May change:** `src/`.
+            - **Evidence:** this Task's comments.
+            - **False pass:** a carry item marked built with no case → caught by the completion
+              audit.
+            - **Gates:** the suite; falsify.
+            - **Stops:** a large public API change.
+            - **User's read:** small API calls.
+        acceptance
+            The Reads area and every carry item's case pass on production.

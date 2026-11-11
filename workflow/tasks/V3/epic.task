@@ -33,14 +33,15 @@ description
     | Stage | Phases | Stage exit |
     | --- | --- | --- |
     | A Settle | P0, P1, P2 | The design and the prototype agree; Plans and core Specs written from them |
-    | B Suite and core | P3, P4 | The new suite audited and green on both runtimes; the core passes it alone |
+    | B Suite and core | P3, P4, P11 to P15 | The suite audited and green on both runtimes; the core passes it alone |
     | C Features | P5 | Each feature's slice audited, then green on production |
     | D Examples and docs | P6, P7 | Example apps run in real Chrome and Safari; docs generated from source |
     | E Hardening and release | P8, P9, P10 | Budgets met, findings swept, released as far as the user asks |
 
     ## Scope
 
-    Bounds: P0 to P10; UI is React and Next.js only. Assumptions: the prototype is the reference
+    Bounds: P0 to P10, with P11 to P15 as the P3 and P4 area phases; UI is React and Next.js only. Assumptions: the 
+    prototype is the reference
     implementation.
 
     Order of authority:
@@ -79,12 +80,12 @@ description
 
     - No new prototyping; production may converge again (session, 2026-11-04; whole run).
     - The suite and the core are written cleanly, with the prototype open beside them; prototype
-      code never moves into the package (session, 2026-11-04; P3, P4).
+      code never moves into the package (session, 2026-11-04; P3, P4, P11 to P15).
     - Production code is built from `.spec` files written with skill:to-design and skill:to-spec;
       briefs cite the Spec, reviews check code against it (the user, 2026-11-09; whole run).
     - Specs are guides, written just in time, revised whenever building shows them wrong, with the
       reason logged (amendment 13, 2026-11-09; whole run).
-    - Production features are built test-first (memory, 2026-11-04; P3 to P10).
+    - Production features are built test-first (memory, 2026-11-04; P3 to P15).
     - Test the spec, not the code: expected results come from a cited Spec rule, are written before
       the code by someone other than the builder, and never come from running the code; recorded
       output is a change detector only (memory, 2026-11-04; whole run).
@@ -102,7 +103,7 @@ description
       `tools/lint-bomb/FLOW-STATE.md`; the core in `src/` is plain, pure, synchronous and
       deterministic, returning work as data; Effect only in `src/host/` and the edges; doc comments
       only on exported API; `nub run check:fix`, then `nub run check` at zero errors and warnings;
-      the pinned `nub` toolchain (AGENTS.md; the user, 2026-11-09; P3 to P10).
+      the pinned `nub` toolchain (AGENTS.md; the user, 2026-11-09; P3 to P15).
     - No plan or invariant ids in code; the Spec owns them and tests cite them (session, 2026-11-04;
       whole run).
     - Conformance code stays plain synchronous values, not Context.Services (the user, 2026-11-09;
@@ -190,7 +191,7 @@ run
        resume, run skill:catch-up first. If status is not active or the loop fields are missing,
        stop and tell the user.
     2. Current Task: the in_progress one, otherwise `workflow next --epic V3`. It returns "No ready
-       tasks." while the Epic is draft (readiness needs an active Epic) and while P4 to P10's Tasks
+       tasks." while the Epic is draft (readiness needs an active Epic) and while P4 to P15's Tasks
        are draft: set a phase's Tasks open when the phase starts.
     3. Create the session cron from cadence; without one, run its prompt at each wake (R25).
     4. Keep the machine awake for the run (R26), for example `caffeinate -i` on this Mac.
@@ -210,7 +211,7 @@ run
        skill:to-task (and skill:to-epic for a phase); before adding a phase, read skill:to-epic.
 instructions
     - Who runs the loop: an agent orchestrator (Claude), until a stop (roadmap, 2026-11-07).
-    - Source of truth, by area: the core Specs for the core (P3, P4); the Plans for everything else;
+    - Source of truth, by area: the core Specs for the core (P3, P4, P11 to P15); the Plans for everything else;
       where a Plan and the prototype disagree, the prototype, until a Spec records it (amendment 11;
       holds until P5's feature Specs exist); code style: AGENTS.md and
       `tools/lint-bomb/FLOW-STATE.md` (whole run).
@@ -272,7 +273,8 @@ instructions
       public interface with real components (not unit tests of internals), and the scenarios and
       cases that enforce each Invariant the work implements, with expectations from the Spec; then
       build until they pass.
-    - P3 and P4 interleave by area (the user, 2026-11-11, for correctness and speed): T16, T17, T18,
+    - P3 and P4 interleave by area (the user, 2026-11-11, for correctness and speed; phases P3, P4, P11 to P15): T16, 
+      T17, T18,
       then T10 and T19, T11 and T20, T9 and T12 and T21, T22, then T15 as the final cross-area audit
       before T23. An area's suite is green on round-14, null-red, mutant-proven, reviewed and
       adversarially audited (its own auditor, its own mutants) before its production module starts,

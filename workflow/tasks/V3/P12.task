@@ -1,0 +1,111 @@
+phase P12
+title Restore
+description
+    **Class:** not readily verifiable.
+
+    **Kind:** verification-suite.
+
+    **Goal:** the restore area (@task.V3.T11) proven in the suite, then restore and key versions in production.
+
+    **Verified by:**
+
+    - the area's suite: green on round 14, null 0 of N, every oracle killing its own mutants for the expected reason,
+      reviewed, and audited by its own adversarial auditor (skill:policy-testing#audit-a-suite);
+    - then the production module through the production adapter: that suite passes, with its coverage rows in
+      @plan.Runtime's verification;
+    - skill:check-task per Task; `nub run check` at zero.
+
+    **One iteration:** the area's suite Task first (from its Spec, run on round 14 and the null runtime, its mutants, 
+    the
+    review, findings gathered by root cause); then its production Task, built test-first against the proven suite.
+    When production and a case disagree, the Spec decides and the fix cites its rule.
+
+    **Exit criteria:**
+
+    - the area's suite is green on round 14, null-red, mutant-proven, reviewed and audited by its own auditor before the
+      production module starts;
+    - the production module then passes it, with its gates failing on a broken runtime.
+
+    **False pass:** the production adapter doing work the runtime should; a case edited to pass.
+
+    **Caught by:** mutants run against the production adapter, a review section on the adapter's role, and the audit.
+
+    **Gates:**
+
+    - falsify on both adapters (`packages/flow-state-v3/conformance/`, each oracle's mutants file);
+    - `nub run check`, which rejects a planted lint violation (`tools/lint-bomb/`).
+
+    **Failure limit:** 2.
+
+    **Stops:**
+
+    - a guarantee change or one that can't be met;
+    - public entry-point names or a large public API change.
+
+    **User's read:** each Spec revision, each changed expected result with its reason, the internal module layout, small
+    public API calls.
+
+    **Draws from:**
+
+    - skill:policy-verification (prove a suite; the coverage record);
+    - skill:policy-testing (audit a suite; test first: module integration tests through the public interface, no unit
+      tests of internals, and the scenarios that enforce each Invariant written before the code);
+    - skill:to-spec for the area's Spec and skill:to-design per module;
+    - skill:policy-convergence at the threshold; skill:review at the cadence;
+    - skill:playbook-build (long runs), skill:execute-task, skill:check-task; skill:diagnose when a case fails
+      unexplained.
+tasks
+    T11
+        title       Restore area complete
+        status      open
+        priority    high
+        blocked_by  [@task.V3.T10]
+        description
+            Cover @spec.Restore's guarantee map with oracles and cases.
+
+            **Why now:** the suite has no Restore area, so the suite can't judge what a runtime restores.
+
+            **Read first:** code:packages/flow-state-v3/conformance/README.md (the Restore rows of the
+            guarantee map, and C168 in its round-14 carry list), @spec.Restore, @spec.Conformance.R4. Blocked
+            by @task.V3.T10, whose disk reader it reads.
+
+            **Approach:** oracles `restore` (anchored to bytes the suite owns) and `quarantine`; cases, the
+            migration wrong runtimes, ported cases, verdict compare and carry rows (C168, a crash between
+            moving a lane and deleting the old name, record formats).
+
+            - **May change:** the suite's restore area.
+            - **Evidence:** this Task's comments.
+            - **False pass:** restore judged from the runtime's own report → caught by anchoring to
+              suite-owned bytes, and the audit.
+            - **Gates:** falsify; `nub run check`.
+            - **Stops:** a guarantee change.
+            - **User's read:** Spec revisions, changed expected results.
+        acceptance
+            - Every Restore Invariant has its oracle or case;
+            - each oracle kills its listed mutants;
+            - verdicts match the old suite's or each difference is logged.
+    T20
+        title       Restore and key versions
+        status      draft
+        priority    high
+        blocked_by  [@task.V3.T19, @T11]
+        description
+            Build restore and key versions from @spec.Restore and @spec.Codec, with record formats tagged from
+            the first release.
+
+            **Why now:** write-ahead records exist but nothing reads them back, so a reload cannot restore
+            actors or deliver what was owed.
+
+            **Read first:** @spec.Restore, @spec.Codec, @spec.WriteAhead,
+            code:packages/flow-state-v3/conformance/README.md (the `restore` row and the carry list).
+
+            - **May change:** `src/`.
+            - **Evidence:** this Task's comments.
+            - **False pass:** restore read from memory, not bytes → caught by the restore oracle.
+            - **Gates:** the suite; falsify.
+            - **Stops:** a guarantee change.
+        acceptance
+            The Restore and Codec areas pass on production.
+        comment     2026-11-10T20:59:41Z
+            Owns, in conformance/not-yet.ts, Codec I1 to I6 (round-14 has no canonical byte codec, Codec Q2). Their 
+            static cases land before this Task closes (orchestrator decision, log 2026-11-10T20:57:29Z).

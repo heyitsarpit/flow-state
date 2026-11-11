@@ -1,0 +1,172 @@
+phase P15
+title Close-out
+description
+    **Class:** not readily verifiable.
+
+    **Kind:** verification-suite.
+
+    **Goal:** close out the suite and the core: the performance and process leftovers (T14), the final cross-area audit 
+    of the whole suite (T15), then retire the prototype adapter (T23).
+
+    **Verified by:**
+
+    - the area's suite: green on round 14, null 0 of N, every oracle killing its own mutants for the expected reason,
+      reviewed, and audited by its own adversarial auditor (skill:policy-testing#audit-a-suite);
+    - then the production module through the production adapter: that suite passes, with its coverage rows in
+      @plan.Runtime's verification;
+    - skill:check-task per Task; `nub run check` at zero.
+
+    **One iteration:** one Task: T14, then the T15 audit and its findings by root cause, then T23. When production and a
+    case disagree, the Spec decides and the fix cites its rule.
+
+    **Exit criteria:**
+
+    - every area's suite is green on round 14, null-red, mutant-proven, reviewed and audited by its own auditor, and
+      production passes each; the final cross-area audit and re-audit pass (T15), which gates T23;
+    - the suite passes on the production runtime alone, the prototype adapter retired, every gate failing on its
+      broken runtime;
+    - its fast gates run in `nub run verify`, and `nub run verify` passes; its coverage record exists;
+    - the user's speed targets hold (Q4 A, 2026-11-08):
+      - the suite in one process at most 15 s,
+      - peak RSS per suite process at most 600 MB,
+      - the builder's fast loop at most 30 s wall,
+      - every final-commit gate at up to 8 in parallel at most 10 min wall,
+      - or the gap reported with its limiter;
+    - the completion audit passes.
+
+    **False pass:** the production adapter doing work the runtime should; a case edited to pass.
+
+    **Caught by:** mutants run against the production adapter, a review section on the adapter's role, and the audit.
+
+    **Gates:**
+
+    - falsify on both adapters (`packages/flow-state-v3/conformance/`, each oracle's mutants file);
+    - `nub run check`, which rejects a planted lint violation (`tools/lint-bomb/`).
+
+    **Failure limit:** 2.
+
+    **Stops:**
+
+    - a guarantee change or one that can't be met;
+    - public entry-point names or a large public API change.
+
+    **User's read:** each Spec revision, each changed expected result with its reason, the internal module layout, small
+    public API calls.
+
+    **Draws from:**
+
+    - skill:policy-verification (prove a suite; the coverage record);
+    - skill:policy-testing (audit a suite; test first: module integration tests through the public interface, no unit
+      tests of internals, and the scenarios that enforce each Invariant written before the code);
+    - skill:to-spec for the area's Spec and skill:to-design per module;
+    - skill:check-benchmark on the speed numbers;
+    - skill:policy-convergence at the threshold; skill:review at the cadence;
+    - skill:playbook-build (long runs), skill:execute-task, skill:check-task; skill:diagnose when a case fails
+      unexplained.
+tasks
+    T14
+        title       Searches and mutants as runner modes
+        status      open
+        priority    medium
+        blocked_by  [@task.V3.T5, @task.V3.T40]
+        description
+            Run the old suite's searches as a runner mode and its `mutants-*.ts` as mutants, both with
+            `--parallel`.
+
+            **Why now:** the new runner has neither, and the phase exit needs the suite to kill every mutant
+            the old suite kills, its search kills included.
+
+            **Read first:** code:packages/flow-state-v3/conformance/README.md (item 3 of "The rest of the
+            rewrite", and its round-14 carry list), @spec.Conformance.R8 (the time bound),
+            code:packages/flow-state-v3/conformance/runner/falsify.ts#falsifyOne. The searches are in
+            `packages/flow-state-v3/prototypes/conformance/search/`, the mutants in
+            `packages/flow-state-v3/prototypes/round-14/` (`mutants-*.ts`).
+
+            **Risk:** the acceptance has a planted slow child read as unknown, but @spec.Conformance.R9 makes
+            a case over its time bound a defect; which one holds is open.
+
+            **Approach:** with the modes, the carry rows owned by the runner: search budgets, search oracles
+            reading only the state hash, process-group kill and watchdog, partial evidence notes.
+
+            - **May change:** the suite's runner.
+            - **Evidence:** this Task's comments.
+            - **False pass:** a time kill read as a verdict → caught by a planted slow child that
+              must read as unknown.
+            - **Gates:** falsify; `nub run check`.
+        acceptance
+            - Searches and mutants run from the one runner with `--parallel`;
+            - a planted slow child reads as unknown;
+            - the old suite's search kills are reproduced.
+        comment     2026-11-10T19:10:00Z
+            Carried here (orchestrator, 2026-11-11): R9's machine verdict form (typed violations, numbered steps, every 
+            failing seed, a thrown defect as its own verdict kind), Conformance Q2 and R9; it changes every verdict 
+            line.
+    T15
+        title       Suite audited, fast gates in verify, coverage record, speed targets
+        status      open
+        priority    high
+        blocked_by  [
+                    @task.V3.T7,
+                    @task.V3.T8,
+                    @task.V3.T9,
+                    @task.V3.T10,
+                    @task.V3.T11,
+                    @task.V3.T12,
+                    @task.V3.T13,
+                    @T14,
+                    @task.V3.T41
+                    ]
+        description
+            Close the suite out:
+
+            - an audit and re-audit by a lead that did not build the suite, writing its own mutants from the
+              Specs;
+            - the fast gates in `nub run verify`;
+            - the coverage record (Covers, Suite, Rerun, Mutants, Audit, Matched at, Scope) drafted for
+              @plan.Runtime's verification and listed for the user's yes before it is written;
+            - the speed targets measured.
+
+            **Why now:** the areas are proven one by one; this is the final cross-area audit, the close-out
+            phase's last gate before T23.
+
+            **Read first:** code:packages/flow-state-v3/conformance/README.md (item 5 of "The rest of the
+            rewrite"), skill:policy-testing#audit-a-suite, skill:policy-verification (the coverage record),
+            skill:check-benchmark.
+
+            - **May change:** `package.json`, the suite.
+            - **Evidence:** this Task's comments.
+            - **False pass:** a speedup that skips work → caught by skill:check-benchmark comparing
+              the work done; an audit that reads the tests instead of the record → caught by its
+              brief.
+            - **Gates:** falsify; `nub run verify`.
+            - **Stops:** the Plan edit for the coverage record (list and wait).
+            - **User's read:** the audit's findings.
+        acceptance
+            - Audit and re-audit pass;
+            - `nub run verify` runs the fast gates;
+            - the coverage record is in the Plan;
+            - suite at most 15 s, peak RSS at most 600 MB, fast loop at most 30 s, final-commit
+              gates at most 10 min at up to 8 in parallel, or each gap reported with its limiter.
+    T23
+        title       Prototype adapter retired; verify builds v3
+        status      draft
+        priority    medium
+        blocked_by  [@task.V3.T22, @T15]
+        description
+            Retire the prototype adapter, point `nub run build` at `packages/flow-state-v3` (it still builds the
+            frozen library), and pass `nub run verify`.
+
+            **Why now:** the Epic's core exit needs the suite to pass on the production runtime alone, with `verify`
+            green.
+
+            **Read first:** code:packages/flow-state-v3/conformance/adapters/prototype.ts,
+            code:packages/flow-state-v3/conformance/suite.ts, @spec.Conformance.R3, @spec.Conformance.R11.
+
+            - **May change:** `package.json`, the suite's adapters.
+            - **Evidence:** this Task's comments.
+            - **False pass:** verify green because the suite was skipped → caught by a planted
+              failing case that must turn verify red.
+            - **Gates:** `nub run verify`.
+        acceptance
+            The suite passes on production alone; `nub run verify` passes and fails on the
+            planted case.

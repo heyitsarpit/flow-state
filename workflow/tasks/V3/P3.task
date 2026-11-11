@@ -1,73 +1,41 @@
 phase P3
-title Conformance rewrite
+title Suite foundations
 description
     **Class:** not readily verifiable.
 
     **Kind:** verification-suite.
 
-    **Goal:** a new, clean conformance suite at production quality in
-    `packages/flow-state-v3/conformance/`, running against the prototype runtime (round 14) and,
-    from P4, the production runtime, through one Port; one oracle per guarantee with its mutants;
-    the old suite's fixtures, scenarios, reference model and lies copied, its runner, lock, shims
-    and text formats rewritten.
+    **Goal:** the suite's foundations, shared by every area: a new, clean conformance suite at production quality in
+    `packages/flow-state-v3/conformance/`, run through one Port against round 14 and, area by area, production; the 
+    Spec,
+    runner, coverage gate, one verdict form and the static-case surface. All Tasks here are done.
 
-    **Verified by:**
+    **Verified by:** the Tasks' acceptance; the suite green on round 14, null-red and falsify clean at each Task's 
+    close.
 
-    - the new suite green on round 14 with the old suite's verdicts;
-    - null 0 of N;
-    - falsify (every oracle kills its mutants, each for the expected reason);
-    - an audit and re-audit by a lead that did not build it (skill:policy-testing#audit-a-suite);
-    - its coverage record, in @plan.Runtime's verification once the user says yes to that Plan edit.
+    **One iteration:** one Task: build it, run it on round 14 and the null runtime, run its mutants, review, gather
+    findings by root cause.
 
-    **One iteration:** one Task: grow the suite from its Spec, run it on round 14 and the null
-    runtime, run its mutants, get the hourly review, gather findings by root cause.
-
-    **Exit criteria:**
-
-    - the suite passes on round 14;
-    - it kills every mutant the old suite kills;
-    - every oracle kills its own mutants;
-    - it passes its audit and re-audit;
-    - its fast gates run in `nub run verify`;
-    - its coverage record exists;
-    - the user's speed targets hold (Q4 A, 2026-11-08):
-      - the suite in one process at most 15 s,
-      - peak RSS per suite process at most 600 MB,
-      - the builder's fast loop at most 30 s wall,
-      - every final-commit gate at up to 8 in parallel at most 10 min wall,
-      - or the gap reported with its limiter.
+    **Exit criteria:** every Task here is done (the area phases build on them); the foundations' own mutants are killed.
 
     **False pass:** agreeing with the old suite because it was copied, weaknesses included.
 
-    **Caught by:** the audit on the new suite, whose auditor writes its own mutants from the Specs.
+    **Caught by:** each area's audit, whose auditor writes its own mutants from the Specs.
 
-    **Gates:**
-
-    - falsify, which rejects the null runtime and every registered mutant
-      (`packages/flow-state-v3/conformance/`, each oracle's mutants file);
-    - `nub run check`, which rejects a planted lint violation.
+    **Gates:** falsify (`packages/flow-state-v3/conformance/`); `nub run check`, which rejects a planted lint violation.
 
     **Failure limit:** 2.
 
-    **Stops:**
+    **Stops:** a guarantee change (a Spec Invariant added, dropped or changed); a guarantee that can't be met.
 
-    - a guarantee change (a Spec Invariant added, dropped or changed);
-    - a guarantee that can't be met.
-
-    **User's read:**
-
-    - the suite layout (decided in round 1),
-    - each Spec revision,
-    - each changed expected result with its reason.
+    **User's read:** the suite layout (round 1), each Spec revision, each changed expected result with its reason.
 
     **Draws from:**
 
     - skill:policy-verification (prove a suite; the coverage record);
     - skill:policy-testing (audit a suite; scenarios that enforce each Invariant written first);
     - skill:to-spec for the suite's own Spec;
-    - skill:policy-convergence at the threshold;
-    - skill:review for the hourly reviews;
-    - skill:check-benchmark on the speed numbers.
+    - skill:policy-convergence at the threshold; skill:review at the cadence; skill:check-benchmark on speed numbers.
 comment 2026-11-09T13:30:00Z
     Rounds 1 to 5 done before the move to this Epic (`976ca17c` to `bc8dffba`):
 
@@ -79,6 +47,143 @@ comment 2026-11-09T13:30:00Z
     **Unreviewed:** `3097ea3c` and `bc8dffba`, the run's first cadence review.
 
     **Work list:** the README's guarantee map and items 1 to 9.
+comment 2026-11-11T12:00:00Z
+    Prior art: the P3 and P4 cards before the interleave (the user, 2026-11-11). Superseded by the area cards
+    (P3, P4, P11 to P15); general content moved to them (speed targets and coverage record to P15).
+
+    P3 card:
+
+    > **Class:** not readily verifiable.
+    >
+    > **Kind:** verification-suite.
+    >
+    > **Goal:** a new, clean conformance suite at production quality in
+    > `packages/flow-state-v3/conformance/`, running against the prototype runtime (round 14) and,
+    > from P4, the production runtime, through one Port; one oracle per guarantee with its mutants;
+    > the old suite's fixtures, scenarios, reference model and lies copied, its runner, lock, shims
+    > and text formats rewritten.
+    >
+    > **Verified by:**
+    >
+    > - the new suite green on round 14 with the old suite's verdicts;
+    > - null 0 of N;
+    > - falsify (every oracle kills its mutants, each for the expected reason);
+    > - an audit and re-audit by a lead that did not build it (skill:policy-testing#audit-a-suite);
+    > - its coverage record, in @plan.Runtime's verification once the user says yes to that Plan edit.
+    >
+    > **One iteration:** one Task: grow the suite from its Spec, run it on round 14 and the null
+    > runtime, run its mutants, get the hourly review, gather findings by root cause.
+    >
+    > **Exit criteria:**
+    >
+    > - the suite passes on round 14;
+    > - it kills every mutant the old suite kills;
+    > - every oracle kills its own mutants;
+    > - it passes its audit and re-audit;
+    > - its fast gates run in `nub run verify`;
+    > - its coverage record exists;
+    > - the user's speed targets hold (Q4 A, 2026-11-08):
+    >   - the suite in one process at most 15 s,
+    >   - peak RSS per suite process at most 600 MB,
+    >   - the builder's fast loop at most 30 s wall,
+    >   - every final-commit gate at up to 8 in parallel at most 10 min wall,
+    >   - or the gap reported with its limiter.
+    >
+    > **False pass:** agreeing with the old suite because it was copied, weaknesses included.
+    >
+    > **Caught by:** the audit on the new suite, whose auditor writes its own mutants from the Specs.
+    >
+    > **Gates:**
+    >
+    > - falsify, which rejects the null runtime and every registered mutant
+    >   (`packages/flow-state-v3/conformance/`, each oracle's mutants file);
+    > - `nub run check`, which rejects a planted lint violation.
+    >
+    > **Failure limit:** 2.
+    >
+    > **Stops:**
+    >
+    > - a guarantee change (a Spec Invariant added, dropped or changed);
+    > - a guarantee that can't be met.
+    >
+    > **User's read:**
+    >
+    > - the suite layout (decided in round 1),
+    > - each Spec revision,
+    > - each changed expected result with its reason.
+    >
+    > **Draws from:**
+    >
+    > - skill:policy-verification (prove a suite; the coverage record);
+    > - skill:policy-testing (audit a suite; scenarios that enforce each Invariant written first);
+    > - skill:to-spec for the suite's own Spec;
+    > - skill:policy-convergence at the threshold;
+    > - skill:review for the hourly reviews;
+    > - skill:check-benchmark on the speed numbers.
+
+    P4 card:
+
+    > **Class:** verifiable.
+    >
+    > **Kind:** feature.
+    >
+    > **Goal:** the production runtime for what the prototypes proved, in
+    > `packages/flow-state-v3/src/`, built from the core Specs with the prototype open beside it, one
+    > module at a time: Compiled and the compiler; lane, step and turn; the persistence edge,
+    > write-ahead and the driver; restore and key versions; fragments; operations; the CLI's `check`,
+    > `explain` and `graph`.
+    >
+    > **Starts when:** interleaved with P3 by area (the Epic's instructions): each module starts once
+    > its area's suite is proven and audited; T15's cross-area audit gates T23.
+    >
+    > **Verified by:**
+    >
+    > - P3's suite through a production adapter (coverage record in @plan.Runtime);
+    > - skill:check-task per Task;
+    > - `nub run check` at zero;
+    > - `nub run verify`.
+    >
+    > **One iteration:** the next ready Task: build it against its Spec, check it independently,
+    > repair. The Pay path first, end to end, as the walking skeleton.
+    >
+    > **Exit criteria:**
+    >
+    > - the suite passes on the production runtime alone, the prototype adapter retired;
+    > - every gate fails on its broken runtime;
+    > - `nub run verify` passes;
+    > - the completion audit passes.
+    >
+    > **False pass:** the production adapter doing work the runtime should.
+    >
+    > **Caught by:** mutants run against the production adapter, and a review section on the adapter's
+    > role.
+    >
+    > **Gates:**
+    >
+    > - falsify on the production adapter;
+    > - one probe file per lint rule that `nub run check` must reject (`tools/lint-bomb/`).
+    >
+    > **Failure limit:** 2.
+    >
+    > **Stops:**
+    >
+    > - public entry-point names;
+    > - a large public API change;
+    > - a guarantee that can't be met;
+    > - a guarantee change.
+    >
+    > **User's read:** the internal module layout; small public API calls.
+    >
+    > **Draws from:**
+    >
+    > - skill:policy-testing: test first, module integration tests through the public interface (no
+    >   unit tests of internals), and the scenarios that enforce each Invariant written before the code;
+    > - skill:playbook-build (long runs);
+    > - skill:execute-task;
+    > - skill:check-task;
+    > - skill:to-design per module;
+    > - skill:review;
+    > - skill:diagnose when a case fails unexplained.
 tasks
     T4
         title       The suite's own Spec, Conformance.spec
@@ -433,10 +538,9 @@ tasks
             Verified (orchestrator, HEAD `ac9e0fa0`, clean tree): suite 67/67; null 0/67; falsify 38/38 caught, each by
             its expected Invariant; `nub run check` zero. Acceptance met. Sidecars (R5/R9 reviewer of S1, 15 findings;
             parity reviewer of S3 and S8, none): conformance/STATUS.md, T40 section.
-
     T41
         title       Coverage gate: every core Invariant checked or owned
-        status      open
+        status      done
         priority    high
         description
             A fast gate fails unless every Invariant in the core Specs has an oracle claiming it with a mutant
@@ -465,7 +569,6 @@ tasks
         comment     2026-11-10T20:21:11Z
             Evidence (builder, 2026-11-11): coverage gate built and run before falsify; planted gaps fail it; 16 of 186 
             checked, 170 owed, 0 gaps. Detail: code:packages/flow-state-v3/conformance/STATUS.md (T41 section).
-
     T42
         title       Core Specs revised from the Invariant audit and the open rulings
         status      done
@@ -521,442 +624,3 @@ tasks
             **Not done:** CQ8, CQ10, CQ11 (no-change or wording questions, left as the convergence v2 file says); gaps 
             G3's propagation retry and G8 to G16, for their Tasks with to-spec; @plan.Pending D2 and D3 record G7 and 
             G17. log.task's 04:03:53Z line was reflowed by `workflow format` and left uncommitted.
-
-    T7
-        title       WriteLanes area complete
-        status      done
-        priority    high
-        blocked_by  [@T5, @T40]
-        description
-            Cover the guarantee map's remaining WriteLanes rows with oracles and cases.
-
-            **Why now:** P3 can't judge a production runtime on WriteLanes until every WriteLanes Invariant
-            has a check, and these rows have none.
-
-            **Read first:** code:packages/flow-state-v3/conformance/README.md (the WriteLanes rows of the
-            guarantee map, and its round-14 carry list), @spec.WriteLanes, @spec.Conformance.R11 (the verdict
-            compare), code:packages/flow-state-v3/conformance/write-lanes/lane-queue.ts#laneQueue. The rows:
-            @spec.WriteLanes.I1, @spec.WriteLanes.I2, @spec.WriteLanes.I4, @spec.WriteLanes.I5,
-            @spec.WriteLanes.I7, @spec.WriteLanes.I10, @spec.WriteLanes.I13, @spec.WriteLanes.I14,
-            @spec.WriteLanes.I17 to @spec.WriteLanes.I19, @spec.WriteLanes.I23, and the pending mutants of
-            @spec.WriteLanes.I15 (which took the cut I22) and
-            @spec.WriteLanes.I16.
-
-            **Approach:** oracles `members`, `members-only`, `write-before-ending`, `old-version-holds`;
-            cases; the fake world behaviours they need; the area's ported cases; its verdict compare with the
-            old suite; its round-14 carry rows.
-
-            - **May change:** the suite's write-lanes area.
-            - **Evidence:** this Task's comments.
-            - **False pass:** an oracle too lenient to fail → caught by its mutants and the audit.
-            - **Gates:** falsify; `nub run check`.
-            - **Stops:** a guarantee change.
-            - **User's read:** Spec revisions, changed expected results.
-        acceptance
-            - Every WriteLanes Invariant has its oracle or case;
-            - each oracle kills its listed mutants;
-            - the area's verdicts match the old suite's or each difference is logged with its cited
-              rule.
-        comment     2026-11-10T17:55:53Z
-            Decision (orchestrator, 2026-11-10): T7 now also rewrites lane-queue (with lane-model) and delivered-once 
-            from WriteLanes R6 to R8, R10, R14 and R15 in T40's step-fold contract (S2 of 
-            code:workflow/plans/flow/references/proposals/suite-simplicity-review-2026-11-10.md), folding in the 
-            Haiku-code review's H1 to H4, plus H5 and the I1 note; patching them is dropped. Land the rewrite with the 
-            changed verdicts listed, each with its rule (Conformance R11), and keep every constraint S2 lists. T7 goes 
-            back to open, blocked by T40. Reverse: patch the two oracles in place.
-        comment     2026-11-10T17:56:25Z
-            Evidence (builder, 2026-11-10): commit 392147bc. H5 accepted: ending-channels fails a success or commit 
-            failure with no server answer in its step (request-time answers count; unknowns and Flow's own failures 
-            exempt), mutant.success-without-answer caught as WriteLanes I3; case DISP-06. Gates from 
-            packages/flow-state-v3: suite 67/67, suite --runtime null 0/67, falsify --parallel 6 38/38, nub run check 
-            at zero. Parked by the orchestrator's call (rewrite from the Spec after T40, S2): H1 keyed lanes in 
-            lane-queue; H2 (I16 check; I22 dropped from delivered-once's guarantee until it has a check), H3 (a 
-            replaced Attempt's delivery) and H4 (no disposal excuse, only forget's) in delivered-once; mutants 
-            mutant.replaced-delivered (LANE-07, I15), mutant.success-then-failure (PAY-01, I16), 
-            d6.disposed-ending-is-evidence (DISP-06, I15), each seen caught for its reason on the parked patch, kept as 
-            the rewrite's acceptance list (patch saved outside the repo; listed in conformance/STATUS.md T7). I1 (a 
-            Sent while already on the wire) not started. Haiku reviewer of the H diff: 7 findings, 2 accepted, 4 
-            carried to the rewrite, 1 rejected, with why in STATUS.md. None of T7's own rows (I1, I2, I4, I5, I7, I10, 
-            I13, I14, I17 to I19, I23) is built yet.
-        comment     2026-11-10T19:08:38Z
-            In progress (builder, 2026-11-11): S2 is done. lane-queue and delivered-once were rewritten from WriteLanes 
-            R6 to
-            R8, R10, R14 and R15 (commits a8714be6, c1f02294). No case verdict changed. Falsify sweep: 43/43 caught. 
-            T7's own rows,
-            I22 and the T6 completion review's disposal findings (M1 to M4, M6, Lows) are not started. Detail, verdict
-            changes and sidecar log: code:packages/flow-state-v3/conformance/STATUS.md (T7 section).
-        comment     2026-11-10T19:40:28Z
-            Evidence (builder, 2026-11-11): the T6 review's disposal findings, and the T40/S2 review's H1, M2 and M3, 
-            landed (bcc2bbbb and the next commit). Suite 68/68, null 0/68, falsify 46/46, check at zero. Open: that 
-            review's M1 (needs a call), M4, M5, Lows; T41; I22; T7's own rows. Detail: 
-            code:packages/flow-state-v3/conformance/STATUS.md (T7 section).
-        comment     2026-11-10T20:09:33Z
-            Evidence (builder, 2026-11-11): the T40/S2 review's M4, M5 and Lows landed (1ab7e889..a5df7376); suite 
-            69/69, null 0/69, falsify 47/47, check at zero. Detail and sidecar logs: 
-            code:packages/flow-state-v3/conformance/STATUS.md (T7 section).
-        comment     2026-11-10T20:25:58Z
-            Handover (builder, 2026-11-11): stopped at the convergence pass on the oracles' phase state; I22 and T7's 
-            own rows wait for it. Port send-to-part kept (0eb28949). Detail: 
-            code:packages/flow-state-v3/conformance/STATUS.md (T7 section, Handover).
-        comment     2026-11-10T22:05:43Z
-            In progress (builder, 2026-11-11): convergence v2 steps 2 and 1 (part 1) landed at b6567180; suite 84/84, 
-            null 0/84, sweep 68/68, lifecycle mutation test green, check at zero. One intended reach change 
-            (lane.held-auto-resend, key at mint). Next: step 1 part 2 (Tables B and C, actor moves, the facts step). 
-            Detail: code:packages/flow-state-v3/conformance/STATUS.md (T7, Convergence v2 build).
-        comment     2026-11-10T22:31:33Z
-            Convergence step 1 part 2 landed at 1a850b5d (Tables B and C, actor moves, apply; mutation gate passes; 
-            suite 84/84, null 0/84, sweep 68/68). Detail: conformance/STATUS.md, Convergence v2 build.
-        comment     2026-11-10T22:56:26Z
-            Convergence step 3 landed (e760b472 and the next commit): reference rows with guard and unknown, a change 
-            detector against round-14's compiled machines, dsl/lifecycle-step.ts (step from facts to moves) with tests; 
-            Table B's Resend discharges an owed release (a false I12 under cancel). No oracle reads it; suite 84/84, 
-            null 0/84, coverage 0 gaps, check at zero. Next: step 4. Detail: conformance/STATUS.md, Convergence v2 
-            build.
-        comment     2026-11-10T23:43:32Z
-            Convergence step 4 landed (cf825289): lane-queue reads the Case's one fold, Port change 2, lifecycle review 
-            H1 and H2 fixed (F3 settled), PAY-21 and PAY-22 with six mutants; no case verdict changed, 
-            p1h.cancel-all-idle-declines now I21. Open: lane.held-auto-resend gets no verdict on PAY-22 in the sweep 
-            (120 s bound); the review's M1 to M4 and Lows before step 5. Detail: 
-            code:packages/flow-state-v3/conformance/STATUS.md (Convergence v2 build, Step 4).
-        comment     2026-11-11T00:06:37Z
-            Progress (builder, 2026-11-11): a time bound per case (2dec83cb; overrun is a Timeout verdict, never a 
-            catch; lane.held-auto-resend now caught, sweep 74/74); lifecycle review M2, M4, M3, M1 (pending CQ1, CQ2) 
-            and Lows L3, L4, L6, L9 (88188934..b0280fb8); step-4 reviewer items: unheard release keyed by ending and 
-            due when its ending closes unheard (dcc13b4c), releasesOnLeave per leaving transition with a positive 
-            example (b09b983b). Member mismatch stopped as a guarantee gap: no Invariant states a turn's declared 
-            members (user's call). No case verdict changed; suite 86/86, null 0/86, coverage 0 gaps, check at zero. 
-            Next: step 5. Detail: code:packages/flow-state-v3/conformance/STATUS.md (Convergence v2 build, Next run).
-        comment     2026-11-11T00:45:27Z
-            Progress (builder, 2026-11-11): reviewer of 2dec83cb..1186683d folded in (81127d25: null gate needs Fail, 
-            Timeout judging tested, the releasesOnLeave example now runs the mutated step). Step 5 landed (1f922556, 
-            31933a7b): delivered-once reads the fold; Port change 5; F2; three lead's calls from round-14 (a Reload 
-            owes each Held head's restore; Opens on a parked ending is ParkedOpen; a never-sent commit's disposal 
-            ending stays Parked, pending CQ6). Step 4 review H1 fixed (7f8c331b): a turn owes its chosen row's members; 
-            mutant.cancel-members-dropped caught again in the reviewer's 8 cases; retires the member-mismatch item. No 
-            case verdict changed (sweeps 74/74 and 77/77); suite 86/86, null 0/86, coverage 0 gaps (35), lifecycle 
-            tests 30/30, check at zero. Next: review M1, M3, M4, Lows, then steps 6 to 9. Detail: 
-            code:packages/flow-state-v3/conformance/STATUS.md (Convergence v2 build, Run 3).
-        comment     2026-11-11T01:21:54Z
-            Progress (builder, 2026-11-11): step 4 review M1 (c51f6501, cancelAll head-last anchored to its turn; 
-            LANE-04 I21 restored), M3 (47f27231, PAY-21 answers by key), M4 (c50bd327, refusals cite their own rule; 
-            the four missing verdict rows logged), L1 (e114b165, lane-model.ts and mayCancel gone). Rest of step 5 
-            (4ee99037): DLV-05 and mutants 1b.r8-third-try, kept-retried-without-boot (Actors I24), 
-            adoption-skips-parked, restored-twice. Step 8 part: ending-lives.ts and written-attempts.ts deleted. Suite 
-            87/87, null 0/87, sweep 81/81, coverage 0 gaps (36), tests 30/30, check at zero. Pending CQ1, CQ2, CQ6 
-            followed as written. Next: steps 6 and 7. Detail: code:packages/flow-state-v3/conformance/STATUS.md 
-            (Convergence v2 build, Run 4).
-        comment     2026-11-11T01:50:49Z
-            Run 5: step 6 landed (c95fdf78; disposal reads the fold, mutant.bound-ending-wrong-tag; the two boot lies 
-            relabelled to WriteLanes I15, logged in STATUS). Step 5 review H1, L4, L5 fixed (7b0a4696); M1 open (needs 
-            a storage fact: PAY-09/ack-not-stored), M2 mutant not added (no Invariant to expect). Next: steps 7 and 8. 
-            Suite 87/87, null 0/87, sweep 83/83, coverage 0 gaps (36).
-        comment     2026-11-11T02:28:31Z
-            Run 6 (builder, 2026-11-11): step 7 (9bb7fa5d; ending-channels and attempt-identity stay off the fold as 
-            its independent judges, template keys gone, key check with mutant.mint-key-differs, the fold's I6 
-            unclaimed, claim test), step 5 review M1 (87ee9d9f; Port change 8, Acknowledged storage fact, 
-            mutant.restore-skips-unsent; mutant.boot-skips-restored now Restore I6 in 
-            PAY-09/ack-stored-confirmation-lost and PAY-18), step 8 (a6c2bfcf; cancels gone, README), step 6 review M3 
-            mutant. Falsify 86/86, suite 87/87, null 0/87, coverage 0 gaps (36), check at zero. Not started: the 
-            coordinator's member-resolution convergence (step 6 review H1, M2); M1 (owed retry unchecked) pending for 
-            the user. Detail: code:packages/flow-state-v3/conformance/STATUS.md (Convergence v2 build, Run 6).
-        comment     2026-11-11T03:04:51Z
-            Member resolution converged (R35, step 4-6 reviews' H1): one rule, owedMembers in dsl/lifecycle-owed.ts; PD 
-            caught, PG/PH green probes, PF pending the user (owed retry re-send unchecked); Lows dispositioned. See 
-            packages/flow-state-v3/conformance/STATUS.md, Run 7.
-        comment     2026-11-11T07:05:52Z
-            Rows round: I4, I5, I7, I13 (in part), I25 and I15's releasing clause checked; I28 to T18; I2, I9, I14, I17 
-            to I19, I23, I24, I26, I27 still T7's; R11 compare finds no gap. Falsify 132/132. Detail: 
-            conformance/STATUS.md, T7 Rows round.
-        comment     2026-11-11T08:10:24Z
-            Rows round 2: I9, I14, I17, I18, I23, I26 checked; I2, I24, I27 in part; Port gained a release per boot and 
-            entity reads; only I19 is still T7's. Detail: conformance/STATUS.md, T7.
-    T8
-        title       Turn area complete
-        status      in_progress
-        priority    high
-        blocked_by  [@T5, @T40]
-        description
-            Cover @spec.Turn's guarantee map with oracles and cases.
-
-            **Why now:** the suite has no Turn area, so P3 can't judge a runtime's turns.
-
-            **Read first:** code:packages/flow-state-v3/conformance/README.md (the Turn rows of the guarantee
-            map), @spec.Turn, code:packages/flow-state-v3/prototypes/conformance/reference/model.ts,
-            @spec.Conformance.R5.
-
-            **Approach:** oracles `publication`, `selection` (with the reference model ported from the
-            prototype's), `activations`, `turn-purity`, `refusal`, `schedules`, `placements`, `late-routing`,
-            `context`, `issues`; cases, fake world behaviours, ported cases, verdict compare and carry rows.
-
-            - **May change:** the suite's turn area.
-            - **Evidence:** this Task's comments.
-            - **False pass:** a reference model copied from the runtime → caught by the audit (it
-              imports nothing from the code under test).
-            - **Gates:** falsify; `nub run check`.
-            - **Stops:** a guarantee change.
-            - **User's read:** Spec revisions, changed expected results.
-        acceptance
-            - Every Turn Invariant has its oracle or case;
-            - each oracle kills its listed mutants;
-            - verdicts match the old suite's or each difference is logged with its cited rule.
-        comment     2026-11-11T04:02:34Z
-            Selection oracle built (Turn I2): every turn header judged against hand-written handler tables and suite 
-            facts; the step 9 review's header probe is its first mutant, caught. Suite 92/92, null 0/92, falsify 
-            103/103, coverage 41/186, 0 gaps. Detail: packages/flow-state-v3/conformance/STATUS.md, T8.
-        comment     2026-11-11T06:07:05Z
-            Every Turn Invariant checked, in part (rest in turn/remainders.ts), or owed by T18/T21 (proposed, for the 
-            user's read); step 9 revision review H1, H2, probes and Mediums fixed. Suite 98/98, null 0/98, falsify 
-            126/126. Detail: packages/flow-state-v3/conformance/STATUS.md, T8 round 2.
-        comment     2026-11-11T06:26:56Z
-            Typed adapter failures done: an unreadable report, issue, snapshot or row is Unreadable (port.ts), named 
-            apart from defects; falsify 126/126 at 1e11786c. Detail: conformance/STATUS.md, T8.
-        comment     2026-11-11T08:10:20Z
-            Review fixes H2, M1, M2, M4 to M6, R11 done; H1 in part: Turn I3, I10, I11, I17 checked, I5 in part; I1, 
-            I4, I6, I24, I35 still T8's; I32 to T18 as a round-14 deviation. M3 needs the user: Actors R15 vs 
-            WriteLanes R10 and D4 on redelivering refused turns. Falsify 149/149. Detail: conformance/STATUS.md, T8.
-    T9
-        title       Actors area complete
-        status      open
-        priority    high
-        blocked_by  [@T6]
-        description
-            Cover @spec.Actors' guarantee map apart from disposal (@task.V3.T6) with oracles and cases.
-
-            **Why now:** the Actors area has only the disposal scenarios, so P3 can't judge actor identity,
-            lifetime, incarnations or mailboxes.
-
-            **Read first:** code:packages/flow-state-v3/conformance/README.md (the Actors rows of the
-            guarantee map, and U8 in its round-14 carry list), @spec.Actors,
-            code:packages/flow-state-v3/conformance/actors/runtime-disposal.scenarios.ts#runtimeDisposalScenarios.
-            Blocked by @task.V3.T6, which adds the disposal oracle these share.
-
-            **Approach:** oracles `identity`, `lifetime`, `incarnations`, `mailbox`, `cuts-and-context`;
-            cases, fake world behaviours, ported cases, verdict compare and carry rows (the boot-queue bound,
-            U8).
-
-            - **May change:** the suite's actors area.
-            - **Evidence:** this Task's comments.
-            - **False pass:** a lenient oracle → caught by its mutants and the audit.
-            - **Gates:** falsify; `nub run check`.
-            - **Stops:** a guarantee change.
-            - **User's read:** Spec revisions, changed expected results.
-        acceptance
-            - Every Actors Invariant has its oracle or case;
-            - each oracle kills its listed mutants;
-            - verdicts match the old suite's or each difference is logged with its cited rule.
-    T10
-        title       WriteAhead area complete
-        status      open
-        priority    high
-        blocked_by  [@T5, @T40]
-        description
-            Cover @spec.WriteAhead's guarantee map, with a disk reader on the Port or the adapter.
-
-            **Why now:** the Port has no disk reader yet (README, "Planned Port changes"), so no WriteAhead
-            Invariant can be judged; @task.V3.T11 reads the same disk reader.
-
-            **Read first:** code:packages/flow-state-v3/conformance/README.md (the WriteAhead rows of the
-            guarantee map, and "Planned Port changes"), @spec.WriteAhead,
-            code:packages/flow-state-v3/conformance/port.ts#Port,
-            code:packages/flow-state-v3/conformance/world/storage.ts#makeStorage. A disk reader must not show
-            internals: @spec.Conformance.R1.
-
-            **Approach:** oracles `write-ahead` (the old oracle (h) against the storage host), `capture`,
-            `persistence`; cases; the storage faults (failLate, plain-write failures, slow and failing loads,
-            wipe, tear, corrupt); ported cases, verdict compare and carry rows.
-
-            - **May change:** the Port, the suite's write-ahead area and storage host.
-            - **Evidence:** this Task's comments.
-            - **False pass:** a disk reader that shows internals → caught by T4's Spec and the
-              audit.
-            - **Gates:** falsify; `nub run check`.
-            - **Stops:** a guarantee change.
-            - **User's read:** the Port change, Spec revisions.
-        acceptance
-            - Every WriteAhead Invariant has its oracle or case;
-            - each oracle kills its listed mutants;
-            - verdicts match the old suite's or each difference is logged.
-    T11
-        title       Restore area complete
-        status      open
-        priority    high
-        blocked_by  [@T10]
-        description
-            Cover @spec.Restore's guarantee map with oracles and cases.
-
-            **Why now:** the suite has no Restore area, so P3 can't judge what a runtime restores.
-
-            **Read first:** code:packages/flow-state-v3/conformance/README.md (the Restore rows of the
-            guarantee map, and C168 in its round-14 carry list), @spec.Restore, @spec.Conformance.R4. Blocked
-            by @task.V3.T10, whose disk reader it reads.
-
-            **Approach:** oracles `restore` (anchored to bytes the suite owns) and `quarantine`; cases, the
-            migration wrong runtimes, ported cases, verdict compare and carry rows (C168, a crash between
-            moving a lane and deleting the old name, record formats).
-
-            - **May change:** the suite's restore area.
-            - **Evidence:** this Task's comments.
-            - **False pass:** restore judged from the runtime's own report → caught by anchoring to
-              suite-owned bytes, and the audit.
-            - **Gates:** falsify; `nub run check`.
-            - **Stops:** a guarantee change.
-            - **User's read:** Spec revisions, changed expected results.
-        acceptance
-            - Every Restore Invariant has its oracle or case;
-            - each oracle kills its listed mutants;
-            - verdicts match the old suite's or each difference is logged.
-    T12
-        title       Reads area complete
-        status      open
-        priority    medium
-        blocked_by  [@T5, @T40]
-        description
-            Cover @spec.Reads' guarantee map with oracles `lookups` and `optimistic`.
-
-            **Why now:** the guarantee map marks Reads rows as "case", yet no scenario cites Reads
-            (@spec.Conformance.Q13).
-
-            **Read first:** code:packages/flow-state-v3/conformance/README.md (the Reads rows of the guarantee
-            map), @spec.Reads. The mutants `drain.*` and `lie.settled-*` are in
-            code:packages/flow-state-v3/prototypes/conformance/falsify.ts.
-
-            **Approach:** cases (the idle row per @spec.Reads.R14), ported cases, verdict compare and carry
-            rows.
-
-            - **May change:** the suite's reads area.
-            - **Evidence:** this Task's comments.
-            - **False pass:** a lenient oracle → caught by its mutants (`drain.*`, `lie.settled-*`).
-            - **Gates:** falsify; `nub run check`.
-            - **Stops:** a guarantee change.
-            - **User's read:** Spec revisions, changed expected results.
-        acceptance
-            - Every Reads Invariant has its oracle or case;
-            - each oracle kills its listed mutants;
-            - verdicts match the old suite's or each difference is logged.
-    T13
-        title       Static cases for Compile, Diagnostics, Codec and StaticCli
-        status      in_progress
-        priority    medium
-        blocked_by  [@T5, @T40]
-        description
-            Write one static case module each for Compile, Diagnostics, Codec and StaticCli, over `Compiled`
-            and the CLI.
-
-            **Why now:** no static case module exists, and the guarantee map has prose only for these four
-            Specs (@spec.Conformance.Q14), so their Invariants have no check.
-
-            **Read first:** @spec.Conformance.R14 (the two case kinds),
-            code:packages/flow-state-v3/conformance/README.md ("Compile, Diagnostics, Codec, StaticCli" and
-            its round-14 carry list), @spec.Compile, @spec.Diagnostics, @spec.Codec, @spec.StaticCli. Expected
-            values come from the Specs: @spec.Conformance.R5.
-
-            **Approach:** port the prototype's front-check
-            (code:packages/flow-state-v3/prototypes/round-14/checks/front-check.ts), the CLI pins and the
-            graph gate (@spec.StaticCli.I2), plus their carry rows (`SharedContract`, the widened `key: []`
-            warning, rule 13's `byReason` keys, C184's message check).
-
-            - **May change:** the suite's static areas.
-            - **Evidence:** this Task's comments.
-            - **False pass:** pins copied from current output → caught by expectations cited from
-              the Specs and the audit.
-            - **Gates:** falsify; `nub run check`.
-            - **Stops:** a guarantee change.
-            - **User's read:** Spec revisions.
-        acceptance
-            - Every Compile, Diagnostics, Codec and StaticCli Invariant has a case;
-            - each case fails on its planted wrong compiler or CLI output.
-        comment     2026-11-10T20:55:42Z
-            First slice built and gated: static cases on a Surface, a case-covered coverage kind, Compile I1, I2, I4, 
-            I5, I6, I11, I15, I16 checked (CMP-01 to CMP-07, ten mutants caught). StaticCli, and the Invariants 
-            round-14 cannot make, still owed. Detail: packages/flow-state-v3/conformance/STATUS.md, T13.
-        comment     2026-11-10T21:23:20Z
-            Part 2 built and gated: StaticCli I1, I4 to I9, I12 by CLI-01 to CLI-08, I2 by the graph-names oracle; the 
-            28 static Invariants round-14 cannot make moved to T17, T20 and T22 in not-yet.ts; Conformance Q5, Q11, 
-            Q12, Q14 and Compile R17 revised, Compile Q3 open for the user. Suite 84/84, null 0/84, falsify 68/68, 
-            coverage 33/186 with 0 gaps. Detail: packages/flow-state-v3/conformance/STATUS.md, T13 part 2.
-        comment     2026-11-10T21:25:18Z
-            Orchestrator verification at c1427047: 84/84, null 0/84, falsify 68/68; every static Invariant round-14 can 
-            make is checked, the rest owned by T17, T20 and T22. Done. Detail: STATUS.md "T13 part 2".
-        comment     2026-11-10T21:28:33Z
-            Reopened (orchestrator, from code:workflow/plans/flow/references/proposals/t41-t13-review-2026-11-11.md): 
-            H1 a crash at Runtime creation is read as a refusal (R9); M1 I15's Slot half and M3 I1, I6, I11 halves 
-            claimed but unchecked; Compile I7, I8, I13, I14 are makeable on round-14 (ReservedStateName, 
-            DuplicateMachine) and come back from T17.
-        comment     2026-11-11T03:39:56Z
-            Review fixes built and gated (T41/T13 H1, M1 to M3; StaticCli/Port H1, M1 to M3): crash is never a refusal, 
-            remainder rows for partial checks, owners must be open Tasks, Compile I7, I8, I13, I14 checked on round-14, 
-            CLI-09 graph-vs-Compiled, Rule20Late row, two old mutants re-anchored. Suite 92/92, null 0/92, falsify 
-            100/100, coverage 40/186 (18 in part), 0 gaps. Detail: packages/flow-state-v3/conformance/STATUS.md, T13 
-            part 3.
-    T14
-        title       Searches and mutants as runner modes
-        status      open
-        priority    medium
-        blocked_by  [@T5, @T40]
-        description
-            Run the old suite's searches as a runner mode and its `mutants-*.ts` as mutants, both with
-            `--parallel`.
-
-            **Why now:** the new runner has neither, and the phase exit needs the suite to kill every mutant
-            the old suite kills, its search kills included.
-
-            **Read first:** code:packages/flow-state-v3/conformance/README.md (item 3 of "The rest of the
-            rewrite", and its round-14 carry list), @spec.Conformance.R8 (the time bound),
-            code:packages/flow-state-v3/conformance/runner/falsify.ts#falsifyOne. The searches are in
-            `packages/flow-state-v3/prototypes/conformance/search/`, the mutants in
-            `packages/flow-state-v3/prototypes/round-14/` (`mutants-*.ts`).
-
-            **Risk:** the acceptance has a planted slow child read as unknown, but @spec.Conformance.R9 makes
-            a case over its time bound a defect; which one holds is open.
-
-            **Approach:** with the modes, the carry rows owned by the runner: search budgets, search oracles
-            reading only the state hash, process-group kill and watchdog, partial evidence notes.
-
-            - **May change:** the suite's runner.
-            - **Evidence:** this Task's comments.
-            - **False pass:** a time kill read as a verdict → caught by a planted slow child that
-              must read as unknown.
-            - **Gates:** falsify; `nub run check`.
-        acceptance
-            - Searches and mutants run from the one runner with `--parallel`;
-            - a planted slow child reads as unknown;
-            - the old suite's search kills are reproduced.
-        comment     2026-11-10T19:10:00Z
-            Carried here (orchestrator, 2026-11-11): R9's machine verdict form (typed violations, numbered steps, every 
-            failing seed, a thrown defect as its own verdict kind), Conformance Q2 and R9; it changes every verdict 
-            line.
-    T15
-        title       Suite audited, fast gates in verify, coverage record, speed targets
-        status      open
-        priority    high
-        blocked_by  [@T7, @T8, @T9, @T10, @T11, @T12, @T13, @T14, @T41]
-        description
-            Close the suite out:
-
-            - an audit and re-audit by a lead that did not build the suite, writing its own mutants from the
-              Specs;
-            - the fast gates in `nub run verify`;
-            - the coverage record (Covers, Suite, Rerun, Mutants, Audit, Matched at, Scope) drafted for
-              @plan.Runtime's verification and listed for the user's yes before it is written;
-            - the speed targets measured.
-
-            **Why now:** these are the phase's remaining exit criteria.
-
-            **Read first:** code:packages/flow-state-v3/conformance/README.md (item 5 of "The rest of the
-            rewrite"), skill:policy-testing#audit-a-suite, skill:policy-verification (the coverage record),
-            skill:check-benchmark.
-
-            - **May change:** `package.json`, the suite.
-            - **Evidence:** this Task's comments.
-            - **False pass:** a speedup that skips work → caught by skill:check-benchmark comparing
-              the work done; an audit that reads the tests instead of the record → caught by its
-              brief.
-            - **Gates:** falsify; `nub run verify`.
-            - **Stops:** the Plan edit for the coverage record (list and wait).
-            - **User's read:** the audit's findings.
-        acceptance
-            - Audit and re-audit pass;
-            - `nub run verify` runs the fast gates;
-            - the coverage record is in the Plan;
-            - suite at most 15 s, peak RSS at most 600 MB, fast loop at most 30 s, final-commit
-              gates at most 10 min at up to 8 in parallel, or each gap reported with its limiter.

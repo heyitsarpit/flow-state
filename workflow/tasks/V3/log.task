@@ -680,3 +680,7 @@ note 2026-11-11T08:19:21Z
     2026-11-10 phase-by-phase decision; each area is audited before its production module; T15 becomes the final 
     cross-area audit before T23. Blockers relinked to match. **Reverse:** restore T17's block on T15 and drop the area 
     links.
+note 2026-11-11T08:23:44Z
+    P3 and P4 restructured into area phases (P3 foundations, P4 Pay path, P11 Persistence, P12 Restore, P13 Actors and 
+    Reads, P14 CLI, P15 close-out); Task ids and history kept, old cards quoted on P3. T41 and T13 done (their review 
+    findings fixed and re-reviewed).
