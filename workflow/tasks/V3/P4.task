@@ -408,10 +408,15 @@ tasks
             - obligation code takes no runtime report (type and lint enforced);
             - under the liar gate no behavioural mutant turns green;
             - catch matrix, core mutants, crash generator and gate file run on every checkpoint.
+        comment     2026-11-11T11:44:31Z
+            Liar gate: production 13/13 red, round-14 122/131; the 9 greens need fixtures that hear the act (T47). Lint 
+            bars reports from the lifecycle tables only; lifecycle-step, lifecycle-owed and selection still read 
+            reports (T45). Gates run liar, crash (70 red, kill rollback gap, T45) and 85 core mutants (61 killed). 
+            code:packages/flow-state-v3/conformance/STATUS.md#T44
 
     T45
         title       An executable Spec model computes expected results and generates cases (pilot: persistence)
-        status      open
+        status      in_progress
         priority    high
         blocked_by  [@T44]
         description
