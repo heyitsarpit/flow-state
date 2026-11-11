@@ -908,6 +908,131 @@ shapes         6  6  6  3  10 4  3  5  13 9  3  3  3  7  3  3  3  8  3  4  4  4 
 - **Not in the net at all:** server rendering and hydration, and the React hooks. They are outside the Port's
   scope, and their own Plans test them (ServerRendering, React).
 
+### Features found by the Plan check (proposed, 2026-11-11)
+
+**Bottom line (proposed):** the Plan check (`plan-task-coverage-2026-11-11.md`) found 18 runtime features that
+conformance should exercise and that the 35 codes above leave out. The most important is actor identity by value:
+`Flow.input` appears in S07 and S15 only as a trait's input, so no shape names a shared actor by
+`actorRef(machine, value)`. One new shape (S27) and additions to 19 existing shapes cover them, each code by at
+least 2 shapes. Production has none of the 18 today. Each one's tier is set when a runtime builds it, as for the
+planned columns above.
+
+**Feature codes added** (`Machines.O1` is @plan.Machines.O1; the row ids are the coverage report's):
+
+| Code | Feature | Plan | Rows |
+| --- | --- | --- | --- |
+| in | `Flow.input`; shared actor named by value; ConflictingActorRef | Machines.O1, Runtime.O3 | M08, M15, R13-R16 |
+| ci | computed `Flow.initial`; creation pure and once per incarnation | Machines.O1 | M09, M14 |
+| pv | `Flow.private`: kept in records, omitted from outside snapshots | Machines.O1, Machines.O8 | M10 |
+| lc | `createActor`: local identity by Equal.equals, lanes adopted on remount | Runtime.O3 | R17 |
+| ck | `check(snapshot, event)`: Allowed, Denied with reasons, Unhandled | Machines.O4 | M58 |
+| hs | `S.X.history` targets and `history.child` (Turn R4 has no Invariant) | Machines.O2 | M45 |
+| rn | `raise` and `notify` parts inside one turn | Machines.O2, Machines.O3 | M46, M50 |
+| sd | action `send(ref, event)` and the send table (SendTargetAbsent, restore) | Runtime.O4 | R29 |
+| sn | `snapshots` subscription; `getSnapshot` from a record or terminal snapshot | Runtime.O3, Runtime.O4 | R19, R30 |
+| dm | `disarmOn`; schedule metadata (`E.X.from`, `dueAt` in the snapshot) | Machines.O5 | M59 |
+| fz | staleTime, gcTime, trailing refetch, focus and reconnect | Operations.O1, Operations.O2 | P12, P20-P23, P28 |
+| sw | `setData`, `invalidate`, `clear`, write batches (256 bound) | Operations.O5 | P16, P44, P45 |
+| ph | `placeholder({ previous, input })` and `contract.get` | Operations.O6 | P50 |
+| kb | key bounds and InvalidKey; canonical key text (bigint `"$1n"`) | Operations.O1 | P14, P15 |
+| os | optimistic stacking; uncertain look after a failed refetch | Operations.O5 | P47 |
+| pg | transaction `progress`; `previous: [{ key }]` holds | Operations.O1, Operations.O3 | P03, P06 |
+| fg | `forget` and `dispose({ forget: true })` | Runtime.O6, Persistence.O5 | R32, Q20 |
+| is | issues by source: set, cleared only by their own source, none inherited | Machines.O8 | M74 |
+
+**Matrix extension.** This block extends the matrix above with the new columns. The original block stays as it
+was, and its script check (no shape contained in another) still holds, since adding columns only adds differences.
+
+```text
+shape          in ci pv lc ck hs rn sd sn dm fz sw ph kb os pg fg is
+S02 typeahead  .  .  .  x  .  .  .  .  .  .  x  .  x  .  .  .  .  .
+S03 uploads    .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  x
+S04 chat       x  .  .  .  .  .  .  x  x  .  .  .  .  .  .  .  .  .
+S06 wizard     .  x  .  .  x  x  x  .  .  .  .  .  .  .  .  .  .  .
+S07 dashboard  .  .  .  .  .  .  .  .  .  .  x  .  .  .  .  .  .  .
+S09 like       .  .  .  .  .  .  .  .  .  .  .  x  .  .  x  .  .  .
+S10 rate-limit .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  x
+S11 ticker     .  .  .  .  .  .  .  .  x  .  .  .  .  .  .  .  .  .
+S12 long-job   .  .  .  .  .  .  .  .  .  x  .  .  .  .  .  x  .  .
+S13 session    .  .  x  .  .  .  .  .  .  .  .  .  .  .  .  .  x  .
+S14 cart       x  .  .  .  .  .  .  x  .  .  .  .  .  .  .  .  .  .
+S15 grid-rows  .  .  .  .  .  .  .  .  .  .  .  x  .  x  .  .  .  .
+S16 transfers  x  .  .  .  x  .  .  .  .  .  .  .  .  .  .  .  .  .
+S18 inbox      .  .  .  .  .  .  .  .  .  .  x  x  x  .  .  .  .  .
+S20 player     .  .  .  .  .  x  .  .  .  .  .  .  .  .  .  .  .  .
+S21 sign-in    .  .  .  x  .  .  x  .  .  .  .  .  .  .  .  .  .  .
+S22 kanban     .  .  .  .  .  .  .  .  .  .  .  .  .  .  x  .  .  .
+S24 exam       .  x  .  .  x  .  .  .  .  x  .  .  .  .  .  .  .  .
+S25 upgrade    .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  x  .  .
+S26 fan-out    .  .  .  .  .  .  .  .  .  .  x  .  x  x  .  .  .  .
+S27 workspaces x  x  x  x  x  .  .  x  x  .  .  .  .  .  .  .  x  x
+shapes         4  3  2  3  4  2  2  3  3  2  4  3  3  2  2  2  2  3
+```
+
+What each addition does, in one line per shape:
+
+- **S02** keeps one local typeahead per field (`createActor`), and shows the previous results as a placeholder
+  while the next lookup runs. Freshness comes from staleTime.
+- **S03** raises an issue on a failed upload and clears it only when that upload is retried.
+- **S04** names each thread by value, `actorRef(Thread, { threadId })`. A send to a closed thread exercises the send
+  table. The thread list subscribes to `snapshots`.
+- **S06** computes the quote's expiry from input, enables Next with `check()`, returns by history, and raises
+  `Validate` into the address step.
+- **S07** gives the panels a staleTime and a gcTime, and refetches when the page regains focus.
+- **S09** stacks two optimistic toggles and invalidates the counts after a success.
+- **S10** raises an issue for a 429 and clears it on the next success.
+- **S11** reads the ticker through `snapshots`, and through `getSnapshot` from the terminal snapshot after
+  disposal.
+- **S12** shows the export's `progress` row, and disarms the timeout when the export ends.
+- **S13** keeps the token in `Flow.private`, and signs out with `dispose({ forget: true })`.
+- **S14** names the cart by `{ userId }`, and the header sends `ItemAdded` to it.
+- **S15** writes cell edits by `setData`, and keys rows by a composite key, including a bigint id at the key
+  bounds.
+- **S16** names the account actor by `{ accountId }`, and checks "can transfer" with `check()`.
+- **S18** pages behind a placeholder, invalidates on new mail, refetches with a trailing request, and clears the
+  folder on sign-out.
+- **S20** resumes playback by `S.ON.history`.
+- **S21** shows the code entry as a local actor, and raises `Resend` and notifies `Verified` within one turn.
+- **S22** stacks moves optimistically, and keeps the look uncertain after a failed refetch.
+- **S24** computes the deadline from input, disarms the timer on submit (its `dueAt` is in the snapshot), and
+  checks Submit with `check()`.
+- **S25** keeps the old key fingerprint's lanes as `previous: [{ key }]` holds, and retries through
+  `O.x.previous[0]`.
+- **S26** fans out across keys at the key bounds (InvalidKey is refused before any request), shows placeholders,
+  and stops refetching after staleTime.
+
+#### S27 Workspace switcher (multi-account work app) — N
+
+Models a user who switches between workspaces. Each workspace document is a shared actor named by
+`{ workspaceId, docId }`. Signing out of one account forgets its scope.
+**Features:** in, ci, pv, lc, ck, sd, sn, fg, is; also lt, wa, rl, dp, ma, gr.
+**Targets:** Actors I7, I8, I9, I25, I32 (owed T9); Compile I5, I7, I9; Restore I18 (owed T11); Turn I18, I31
+(owed T18).
+**Needs:** `Flow.input` with `actorRef` by value, `createActor`, `check()`, `snapshots`, `Flow.private` and
+`dispose({ forget: true })` in a runtime. Production has none of these (coverage report rows M08, R13 to R19,
+M58, R32).
+
+```ts
+const save = tx("Work/save", { workspaceId: S.String, docId: S.String, body: S.String },
+  { key: ["workspaceId", "docId"], concurrency: "latest" })
+const Doc = definition({                                              // planned: Flow.input, Flow.private
+  id: "Work/Doc", persist: true, states: ["CLEAN", "DIRTY"],
+  events: { Edit: { body: S.String }, Save: {} },
+  internalEvents: { Saved: {}, Refused: { reason: S.String }, Unsure: Flow.uncertain({}) },
+  memory: {
+    workspaceId: Flow.input(S.String), docId: Flow.input(S.String),   // identity: read-only, required
+    body: Flow.initial(S.String, ""),
+    title: Flow.initial(S.String, ({ docId }) => `Untitled ${docId}`), // planned: computed initial
+    draftKey: Flow.private(S.String),           // planned: private; how it takes a start is the Plan's
+  },
+})
+// DIRTY.on.Save: { actions: [O.save.commit(...)] }; an unmapped failure leaves an issue; the next success clears it
+// app: const doc = actorRef(DocMachine, { workspaceId: "north", docId: "d-1" })   // planned: value form
+//      runtime.ensureActor(doc); a second ref with other context → ConflictingActorRef
+//      a local preview: runtime.createActor(PreviewMachine, { input: { docId: "d-1" } })
+//      check(snapshot, E.Save()) enables the button; runtime.dispose({ forget: true }) on sign-out
+```
+
 ## 5. Usual and stress runs
 
 ### One fixture module
