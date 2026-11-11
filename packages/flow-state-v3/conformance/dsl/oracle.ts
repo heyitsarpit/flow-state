@@ -22,7 +22,7 @@ import type { Answer, Request } from "../world/network.ts";
  * - `Ensured`: the suite attached a use of this actor, creating it if needed.
  * - `Released`: the suite ended one use of this actor.
  * - `DisposingRuntime`: the suite started the Runtime's disposal; it holds until the next reload.
- * - `Drove`: the suite sent this event to this actor.
+ * - `Drove`: the suite sent this event to this actor, at its root or at one of its parts.
  * - `Unstoppable`: from now on, calls of this operation cannot be interrupted.
  * - `Acknowledged`: the store landed the batches that acknowledge these Attempts (the store's
  *   fact; which Attempts a batch acknowledges is the runtime's claim).
@@ -40,12 +40,26 @@ export type Fact = Data.TaggedEnum<{
   Ensured: { actor: ActorRef; use: Use };
   Released: { actor: ActorRef; use: Use };
   DisposingRuntime: {};
-  Drove: { actor: ActorRef; event: string };
+  Drove: { actor: ActorRef; event: string; to: Address };
   Unstoppable: { operation: string };
   Acknowledged: { attempts: ReadonlyArray<string> };
   Advanced: { ms: number };
   Read: { actor: ActorRef; operation: string; key: Json; row: Option.Option<Json> };
 }>;
+
+/**
+ * Where in an actor an event the suite sends is addressed: its root, or the trait or fragment
+ * instance at `path` (as the public API's scoped events, `E.t.Go`, address it).
+ */
+export type Address = Data.TaggedEnum<{
+  Root: {};
+  Part: { path: readonly [string, ...Array<string>] };
+}>;
+
+/**
+ * Constructors and matchers for {@link Address}.
+ */
+export const Address = Data.taggedEnum<Address>();
 
 /**
  * An edge of `flow graph` by its name: the definition whose table holds it and its place there.

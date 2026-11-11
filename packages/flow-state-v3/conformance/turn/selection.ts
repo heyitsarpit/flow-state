@@ -1,5 +1,5 @@
 import { Data, Option } from "effect";
-import { Fact, oracle, type Violation, violation } from "../dsl/oracle.ts";
+import { Address, Fact, oracle, type Violation, violation } from "../dsl/oracle.ts";
 import { type Machines, possible } from "../fixtures/handlers.ts";
 import { type ActorRef, Observation, type Turn } from "../port.ts";
 
@@ -275,7 +275,8 @@ const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>): Stepped =>
     Disposed: ({ actor }) => keep(moved(uncredited(state, actor), actor, Input.Disposed())),
     Forgot: ({ actor }) => keep(moved(uncredited(state, actor), actor, Input.Forgot())),
     Reloaded: () => keep(reloaded(state)),
-    Drove: ({ actor, event }) => keep(drove(state, actor, event)),
+    Drove: ({ actor, event, to }) =>
+      keep(Address.$is("Root")(to) ? drove(state, actor, event) : state),
     Reported: ({ observation }) =>
       Observation.$match(observation, {
         Turn: (turn) => onTurn(state, turn, step),

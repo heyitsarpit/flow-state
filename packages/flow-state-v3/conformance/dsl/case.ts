@@ -2,6 +2,7 @@ import { Data, Equal, Option, Schema } from "effect";
 import { type Fixture, handlersFor, referenceFor, rowsFor } from "../fixtures/fixture.ts";
 import { operationNamed, type Reference } from "../fixtures/reference.ts";
 import {
+  Address,
   disposalBoundMs,
   Fact,
   type Graphed,
@@ -34,14 +35,14 @@ import { step as lifeStep } from "./lifecycle-step.ts";
 
 /**
  * One event the suite sends to one actor, its payload encoded, addressed to the actor's root
- * (`part` empty) or to a trait or fragment instance: build one with an actor's `event` or
- * `eventInto`.
+ * (`to` is `Root`) or to a trait or fragment instance (`to` is `Part`): build one with an actor's
+ * `event`.
  */
 export type Drive = {
   readonly actor: ActorRef;
   readonly event: string;
   readonly payload: Json;
-  readonly part: ReadonlyArray<string>;
+  readonly to: Address;
 };
 
 const shown = <A>(value: A) => String(JSON.stringify(value));
@@ -319,9 +320,16 @@ const openCase = (options: CaseOptions) => {
 
   const send = (drives: ReadonlyArray<Drive>) =>
     act(`send ${drives.map((d) => d.event).join(", ")}`, () => {
-      for (const { actor, event, payload, part } of drives) {
-        record(Fact.Drove({ actor, event }));
-        life.runtime().send(actor, event, payload, part);
+      for (const { actor, event, payload, to } of drives) {
+        record(Fact.Drove({ actor, event, to }));
+        life
+          .runtime()
+          .send(
+            actor,
+            event,
+            payload,
+            Address.$match(to, { Root: () => [], Part: ({ path }) => path }),
+          );
       }
     });
 

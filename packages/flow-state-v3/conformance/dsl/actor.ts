@@ -2,7 +2,7 @@ import { Data, Option, Schema } from "effect";
 import type { Fixture } from "../fixtures/fixture.ts";
 import { Snapshot, type Use } from "../port.ts";
 import type { Case, Drive } from "./case.ts";
-import { Mismatch } from "./oracle.ts";
+import { Address, Mismatch } from "./oracle.ts";
 
 /**
  * The events a fixture's actor takes, by name.
@@ -71,7 +71,7 @@ export const actorView = <F extends Fixture>(c: Case, fixture: F, id: string): A
     actor: ref,
     event: name,
     payload: encoded(declared(fixture.events, name), payload),
-    part: [],
+    to: Address.Root(),
   });
 
   return {
