@@ -10,6 +10,7 @@ type Armed = {
   readonly schedule: Schedule;
   readonly at: number;
   readonly step: number;
+  readonly due: Option.Option<number>;
 };
 
 /**
@@ -26,6 +27,8 @@ const Arming = Data.taggedEnum<Arming>();
 
 type State = {
   readonly anchor: Anchor;
+  readonly after: Anchor;
+  readonly disposing: boolean;
   readonly clock: number;
   readonly step: number;
   readonly uses: ReadonlyArray<readonly [ActorRef, Use]>;
@@ -106,7 +109,7 @@ const judgeFiring = (state: State, turn: Turn, clockAfter: number) => {
     };
 
   const sameStep = armed.step === state.step;
-  const due = Option.map(armed.schedule.delayMs, (ms) => armed.at + ms);
+  const { due } = armed;
 
   const tooSoon = Option.match(due, {
     onNone: () => sameStep && clockAfter === armed.at,
@@ -115,9 +118,11 @@ const judgeFiring = (state: State, turn: Turn, clockAfter: number) => {
 
   const where = sameStep ? ", in this step" : "";
 
+  const invariant = Option.isNone(armed.schedule.delayMs) ? "Turn I12" : "Turn I21";
+
   const timing = tooSoon
     ? [
-        `Turn I21: ${name(turn)}, the firing of ${armed.schedule.id}, at ${clockAfter} ms, before the delay of its arming (at ${armed.at} ms or later${where}) passed`,
+        `${invariant}: ${name(turn)}, the firing of ${armed.schedule.id}, at ${clockAfter} ms, before the delay of its arming (at ${armed.at} ms or later${where}) passed`,
       ]
     : [];
 
@@ -137,10 +142,28 @@ const armedAfter = (state: State, handlers: Handlers, turn: Turn, fired: Option.
   const before = armedOf(state, key).filter((a) => !Option.exists(fired, (f) => f === a));
   const enters = enteredBy(handlers, turn);
 
+  const fields = Option.flatMap(
+    Option.fromUndefinedOr(state.after.actors.get(key)),
+    (a) => a.fields,
+  );
+
+  const dueOf = (schedule: Schedule) =>
+    Option.orElse(
+      Option.map(schedule.delayMs, (ms) => state.clock + ms),
+      () =>
+        Option.flatMap(Option.fromUndefinedOr(handlers.folds.delays[schedule.id]), (delay) =>
+          Option.map(fields, (f) => state.clock + delay(f)),
+        ),
+    );
+
   const armedAt = (state_: string, which: (s: Schedule) => boolean) =>
-    (handlers.schedules[state_] ?? [])
-      .filter(which)
-      .map((schedule) => ({ state: state_, schedule, at: state.clock, step: state.step }));
+    (handlers.schedules[state_] ?? []).filter(which).map((schedule) => ({
+      state: state_,
+      schedule,
+      at: state.clock,
+      step: state.step,
+      due: dueOf(schedule),
+    }));
 
   if (enters) return armedAt(turn.to, (s) => s.entry);
 
@@ -151,6 +174,24 @@ const armedAfter = (state: State, handlers: Handlers, turn: Turn, fired: Option.
     ...rearmed,
   ];
 };
+
+/**
+ * Each schedule whose delay memory computes, armed for a used actor, that was due by `clock` and
+ * has not fired (Turn I12: its delay is read from the After memory).
+ */
+const overdue = (state: State, clock: number) =>
+  (state.disposing ? [] : [...state.actors]).flatMap(([key, arming]) =>
+    Arming.$is("Known")(arming) && state.uses.some(([a]) => keyOf(a) === key)
+      ? arming.armed
+          .filter(
+            (a) => Option.isNone(a.schedule.delayMs) && Option.exists(a.due, (due) => due <= clock),
+          )
+          .map(
+            (a) =>
+              `Turn I12: ${key}'s ${a.schedule.id} at ${a.state}, armed at ${a.at} ms with the delay its After memory gives, was due by ${Option.getOrElse(a.due, () => 0)} ms but had not fired at ${clock} ms`,
+          )
+      : [],
+  );
 
 // RETURN_TYPE: the fold's Walk contract, shared by every branch.
 const onTurn = (walk: Walk, turn: Turn, step: ReadonlyArray<Fact>, clockAfter: number): Walk => {
@@ -181,7 +222,10 @@ const onFact = (walk: Walk, fact: Fact, step: ReadonlyArray<Fact>, clockAfter: n
 
   const kept = { ...walk, state };
 
-  if (Fact.$is("Reloaded")(fact)) return { ...walk, state: reloaded(state) };
+  if (Fact.$is("Reloaded")(fact))
+    return { ...walk, state: { ...reloaded(state), disposing: false } };
+
+  if (Fact.$is("DisposingRuntime")(fact)) return { ...walk, state: { ...state, disposing: true } };
 
   if (Fact.$is("Disposed")(fact) || Fact.$is("Forgot")(fact))
     return { ...walk, state: forgotten(state, keyOf(fact.actor)) };
@@ -221,15 +265,19 @@ const onFact = (walk: Walk, fact: Fact, step: ReadonlyArray<Fact>, clockAfter: n
  *   judged only for use. Overdue firings on resume (I22) are the cases' (`TURN-03/unused`).
  * - A firing names no arming id on the Port: one of a superseded arming is caught only when it
  *   lands before the latest arming's delay, or at a leaf with no armed schedule.
- * - A delay a function of memory computes (WAITING's `retry`) is checked only in its arming step,
- *   when no time passed.
+ * - A delay a function of memory computes (WAITING's `retry`) is the fixture's delay fold over the
+ *   memory after the arming turn (Turn I12: a schedule reads the After memory). A used actor's
+ *   such schedule still armed at the step's end once its due time passed, or firing before it,
+ *   breaks I12.
  * - An initial state's schedules are not armed by a turn; no fixture's initial state has one.
  */
 export const schedules = oracle<State>({
   name: "schedules",
-  guarantee: ["Turn I20", "Turn I21", "Turn I23"],
+  guarantee: ["Turn I12", "Turn I20", "Turn I21", "Turn I23"],
   start: (reference, _graphs, machines, rows) => ({
     anchor: anchorOf(machines, reference, rows),
+    after: anchorOf(machines, reference, rows),
+    disposing: false,
     clock: 0,
     step: 0,
     uses: [],
@@ -239,7 +287,7 @@ export const schedules = oracle<State>({
     const judged = judgedStep(state.anchor, step);
     const advanced = step.reduce((ms, f) => (Fact.$is("Advanced")(f) ? ms + f.ms : ms), 0);
     const clockAfter = state.clock + advanced;
-    const counted = { ...state, step: state.step + 1 };
+    const counted = { ...state, step: state.step + 1, after: judged.state };
 
     const walked = judged.facts.reduce<Walk>((walk, fact) => onFact(walk, fact, step, clockAfter), {
       state: counted,
@@ -248,7 +296,7 @@ export const schedules = oracle<State>({
 
     return [
       { ...walked.state, anchor: judged.state, clock: clockAfter },
-      [...new Set(walked.found)].map(violation),
+      [...new Set([...walked.found, ...overdue(walked.state, clockAfter)])].map(violation),
     ];
   },
 });

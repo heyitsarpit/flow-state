@@ -171,7 +171,7 @@ part.pending-reset-dropped	TURN-05/a-part-writing-the-key-is-a-pending-reset	cau
 pay16.decline-not-delivered	LANE-02	caught delivered-once WriteLanes I15
 pay16.decline-not-delivered	LANE-15	caught delivered-once WriteLanes I15
 pay16.decline-not-delivered	PAY-02	caught delivered-once WriteLanes I15
-pay16.schedule-reads-pre-transition-memory	PAY-16/schedule-reads-after-memory	caught case expectations Turn I12
+pay16.schedule-reads-pre-transition-memory	PAY-16/schedule-reads-after-memory	caught schedules Turn I12
 pub.move-copies-memory	PAY-04	caught publication Turn I30
 pub.turn-not-published	PAY-01	caught publication Turn I9
 r15.creation-decodes-input	CMP-08	caught case expectations Compile I7

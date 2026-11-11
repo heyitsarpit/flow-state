@@ -15,6 +15,21 @@ import type { Mutant } from "../dsl/oracle.ts";
  */
 export const schedulesMutants: ReadonlyArray<Mutant> = [
   {
+    name: "pay16.schedule-reads-pre-transition-memory",
+    says: "a schedule function reads the pre-turn memory instead of the After memory (round-14's own mutant, Turn Spec T5)",
+    expects: "Turn I12",
+    runtime: "prototype",
+    cases: ["PAY-16/schedule-reads-after-memory"],
+    edits: [
+      {
+        file: "turn.ts",
+        find: "run(spec.schedule, inView(inc, {}) as never)",
+        replace:
+          "run(spec.schedule, inView(kidAt(w.root0, pathOfId(w.root, inc.id)!) ?? inc, {}) as never)",
+      },
+    ],
+  },
+  {
     name: "life.schedule-fires-unused",
     says: "a deadline fires while its actor is not used",
     expects: "Turn I23",
@@ -63,21 +78,6 @@ export const schedulesMutants: ReadonlyArray<Mutant> = [
  * Wrong runtimes the schedule cases' own expectations must catch.
  */
 export const schedulesCaseMutants: ReadonlyArray<Mutant> = [
-  {
-    name: "pay16.schedule-reads-pre-transition-memory",
-    says: "a schedule function reads the pre-turn memory instead of the After memory (round-14's own mutant, Turn Spec T5)",
-    expects: "Turn I12",
-    runtime: "prototype",
-    cases: ["PAY-16/schedule-reads-after-memory"],
-    edits: [
-      {
-        file: "turn.ts",
-        find: "run(spec.schedule, inView(inc, {}) as never)",
-        replace:
-          "run(spec.schedule, inView(kidAt(w.root0, pathOfId(w.root, inc.id)!) ?? inc, {}) as never)",
-      },
-    ],
-  },
   {
     name: "life.waiting-never-wakes",
     says: "a deadline that waited for a use is never fired when the use returns",

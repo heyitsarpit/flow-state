@@ -28,6 +28,7 @@ import {
 } from "./anchor.ts";
 import { judgeTurn, name, PENDING_RESET, selectedParts } from "./judge.ts";
 import {
+  answeredRequest,
   attachingKind,
   closed,
   keysOf,
@@ -394,8 +395,13 @@ const onFact = (
       }),
     Stepped: () => keep(state),
     Requested: ({ request }) => keep(requested(state, request)),
-    Answered: ({ request, labels }) =>
-      keep(requested(answered(state, request.operation, request.key, labels), request)),
+    Answered: ({ request, answer, labels }) =>
+      keep(
+        requested(
+          answered(state, request.operation, request.key, labels),
+          answeredRequest(request, answer),
+        ),
+      ),
     Released: () => keep(state),
     DisposingRuntime: () => keep({ ...state, disposing: true }),
     Unstoppable: () => keep(state),

@@ -88,6 +88,20 @@ export const payAlphabet: Alphabet = {
     [[{ _tag: "advance", ms: 1000 }], 1],
     [
       [
+        { _tag: "send", event: "PayRequested", payload: { paymentMethodId: "visa" } },
+        { _tag: "ack" },
+        {
+          _tag: "answer",
+          operation: "pay",
+          answer: { _tag: "fail", tag: "Busy", fields: { retryAfterMs: 500 } },
+        },
+        { _tag: "advance", ms: 499 },
+        { _tag: "advance", ms: 1 },
+      ],
+      1,
+    ],
+    [
+      [
         { _tag: "dispose" },
         {
           _tag: "answer",

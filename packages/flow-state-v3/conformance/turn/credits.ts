@@ -15,7 +15,7 @@ import {
 } from "../port.ts";
 import type { keysFor } from "./predict.ts";
 import { attemptKey, type Call, requested, type State } from "./anchor.ts";
-import { RequestPhase } from "../world/network.ts";
+import { type Answer, type Request, RequestPhase } from "../world/network.ts";
 import { Phase } from "./phases.ts";
 
 const refusedTurn = (step: ReadonlyArray<Fact>) =>
@@ -72,10 +72,11 @@ export const settledBy = (
   machine: string,
   attempt: Option.Option<string>,
 ) => {
-  const requests = step.reduce(
-    (s, f) => (Fact.$is("Requested")(f) || Fact.$is("Answered")(f) ? requested(s, f.request) : s),
-    state,
-  ).requests;
+  const requests = step.reduce((s, f) => {
+    if (Fact.$is("Requested")(f)) return requested(s, f.request);
+
+    return Fact.$is("Answered")(f) ? requested(s, answeredRequest(f.request, f.answer)) : s;
+  }, state).requests;
 
   const request = requests.findLast(
     (r) =>
@@ -107,7 +108,8 @@ export const mintOwed = (open: Option.Option<Predicted>, actor: Option.Option<Ac
  * Turn R20), never its reported members: each names which calls it re-owns. Every row whose
  * event, from, to and claimed alternative match counts, since the guards that choose among them
  * are not all computed here (an allowed set: a retry no row of the turn names re-owns nothing).
- * A keyed retry names its folded key's lane, or every lane of its operation without one; a
+ * A keyed retry names its folded key's lane (a call minted where no fold gave a key may be it), or
+ * every lane of its operation without one; a
  * key-less one on a keyed operation names its own ending's Attempt; on an unkeyed operation, its
  * one lane.
  */
@@ -151,7 +153,8 @@ export const retriesOwed = (
         if (m.keyed)
           return Option.match(key, {
             onNone: () => true,
-            onSome: (k) => Option.exists(call.key, (ck) => sameJson(ck, k)),
+            onSome: (k) =>
+              Option.match(call.key, { onNone: () => true, onSome: (ck) => sameJson(ck, k) }),
           });
 
         return Option.contains(own, call.attempt);
@@ -206,3 +209,12 @@ const reportedKeys = (turn: Turn) =>
         : [];
     }),
   );
+
+/**
+ * The request as the suite's server answered it: the `Answered` fact's request may still carry the
+ * phase it had when the suite chose to answer it.
+ */
+export const answeredRequest = (request: Request, answer: Answer) => ({
+  ...request,
+  phase: RequestPhase.Answered({ answer }),
+});
