@@ -306,7 +306,7 @@ tasks
             part 3.
     T16
         title       The Pay path end to end on production
-        status      in_progress
+        status      done
         priority    high
         blocked_by  [@task.V3.T6, @T7, @T8, @T13]
         description
@@ -340,7 +340,7 @@ tasks
             T44. Log: packages/flow-state-v3/conformance/STATUS.md, T16 review fixes.
     T43
         title       Production code uses Effect's features instead of hand-rolled ones (audit R1 to R8)
-        status      open
+        status      done
         priority    high
         blocked_by  [@T16]
         description

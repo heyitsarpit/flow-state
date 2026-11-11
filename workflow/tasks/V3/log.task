@@ -272,3 +272,5 @@ note 2026-11-11T10:20:45Z
     pilot on persistence) before T10; T46 (prover backtest) after T45; reviews start on events with a 3-hour stall
     check; zero to two sidecars by need; Result.gen set aside. **Reverse:** drop T44 to T46; restore the 90-minute
     review.
+note 2026-11-11T10:33:21Z
+    T43 and T16 done (70 Pay and Cells cases on production, 112/112 on round-14, 17 production mutants; payload decoding fixed, host on Effect Clock, Scheduler and Scope, driver jam fixed, unbuilt policies refused at compile time). Decision (orchestrator): k.drop-row and q1a.unchanged-resets stay pending probes until WriteAhead I4 has an oracle (T45 and T10). Next: T44.
