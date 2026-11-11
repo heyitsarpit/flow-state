@@ -700,6 +700,9 @@ tasks
             Every Turn Invariant checked, in part (rest in turn/remainders.ts), or owed by T18/T21 (proposed, for the 
             user's read); step 9 revision review H1, H2, probes and Mediums fixed. Suite 98/98, null 0/98, falsify 
             126/126. Detail: packages/flow-state-v3/conformance/STATUS.md, T8 round 2.
+        comment     2026-11-11T06:26:56Z
+            Typed adapter failures done: an unreadable report, issue, snapshot or row is Unreadable (port.ts), named 
+            apart from defects; falsify 126/126 at 1e11786c. Detail: conformance/STATUS.md, T8.
     T9
         title       Actors area complete
         status      open
