@@ -105,6 +105,38 @@ tasks
             - each protocol conflict from the audit marked found or missed by the search;
             - a recommendation on TLC, per the three-miss rule.
 
+    T47
+        title       A wide net of small fixtures, each run under generated flows and network faults
+        status      open
+        priority    high
+        blocked_by  [@T45]
+        description
+            Many small fixtures of very different application shapes run under the T45 generator's seeded event
+            sequences and network fault schedules, so the suite stresses combinations no hand-written case reaches.
+
+            **Why now:** about 70 of 112 cases use one real application (checkout Pay); the user wants a wide,
+            complex net of flows, state transitions and network interactions (2026-11-11).
+
+            **Read first:** @task.V3.T45; code:packages/flow-state-v3/conformance/fixtures/;
+            code:packages/flow-state-v3/conformance/world/network.ts.
+
+            **Approach:** about 15 to 20 shapes, each under 30 lines and no hand-written rows: an autosave form,
+            search as you type (`latest`), an upload with cancel and retry, a two-actor chat thread, multi-tab
+            editing, a wizard with back and forward, a polling dashboard, an offline queue that drains, an
+            optimistic toggle, a rate-limited API, a stream of server pushes, a long job with progress, token
+            refresh, a cart synced across actors, a keyed per-row editor. Fault schedules: lost, late, duplicated,
+            reordered and slow answers, timeouts, offline spans, storage refusals, reloads and disposal mid-flight.
+            Every run is judged by the same oracles; failures shrink to small reviewable cases kept as regressions.
+
+            - **May change:** `packages/flow-state-v3/conformance/` (fixtures, world, generator).
+            - **Evidence:** STATUS.md, one T47 section; the generated gate file.
+            - **False pass:** shapes that differ in name but exercise the same paths → caught by table-cell reach
+              and per-Invariant mutation score across shapes.
+        acceptance
+            - at least 15 shapes run under generated flows and fault schedules on round-14 and production;
+            - table-cell reach and mutation score rise over the hand cases alone, and are recorded;
+            - every failure found shrinks to a kept regression case, or is logged as a runtime limit.
+
     T10
         title       WriteAhead area complete
         status      open
