@@ -3,8 +3,6 @@ a2.deliv-fail-samemail
 d154.moved-fail-released
 lane.superseded-delivered
 lane.unencodable-refuses-turn
-life.ends-while-used
-life.never-ends
 mutant.disposal-hold-first
 mutant.members-reversed
 mutant.unsent-ends-unknown

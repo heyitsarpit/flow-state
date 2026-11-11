@@ -176,9 +176,9 @@ export const machineOfCall = (state: State, operation: string, attempt: Option.O
 export const attachingKind = (step: ReadonlyArray<Fact>) => {
   if (step.some(Fact.$is("Reloaded"))) return "boot" as const;
 
-  return step.some((f) => Fact.$is("Ensured")(f) || Fact.$is("Drove")(f))
-    ? ("attach" as const)
-    : ("none" as const);
+  if (step.some(Fact.$is("Ensured"))) return "attach" as const;
+
+  return step.some(Fact.$is("Drove")) ? ("send" as const) : ("none" as const);
 };
 
 /**

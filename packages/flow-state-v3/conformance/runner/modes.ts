@@ -5,7 +5,6 @@ import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { caseChecks, guarantees, oracles, reportOnly, scenarios } from "../suite.ts";
 import {
-  DEFAULT_RUNTIME,
   flag,
   graphsFor,
   lineOf,
@@ -15,12 +14,15 @@ import {
   parallelOf,
   playChosen,
   PRODUCTION_RUNTIME,
+  ROUND_14,
   runtimeOf,
   runtimePort,
   runtimeSurface,
 } from "./args.ts";
 import { falsifyOne, liarOne, suiteIn } from "./falsify.ts";
+import { productionCases } from "./gates.ts";
 import { generatedScenarios, generatedScripts, regressionFiles } from "../generated.ts";
+import { limits, verdictOfLimit } from "../limits.ts";
 import { type Script, scenarioOf, type Step } from "../dsl/script.ts";
 import type { Scenario } from "../dsl/case.ts";
 import { Serialize } from "../fixtures/one-lane.ts";
@@ -36,7 +38,7 @@ import { crashCase } from "./run.ts";
  */
 export const liar = (args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
-    const production = Option.contains(flag(args, "--runtime"), PRODUCTION_RUNTIME);
+    const production = runtimeOf(args) === PRODUCTION_RUNTIME;
     const target = production ? PRODUCTION_RUNTIME : "prototype";
     const only = list(flag(args, "--mutant"));
 
@@ -50,10 +52,10 @@ export const liar = (args: ReadonlyArray<string>) =>
     // red under the liar gate is the mutant's, not the replay's.
     const control = yield* suiteIn(
       MAIN,
-      production ? PRODUCTION_RUNTIME : DEFAULT_RUNTIME,
+      production ? PRODUCTION_RUNTIME : ROUND_14,
       [...new Set(chosen.flatMap((m) => m.cases))],
       240,
-      ["--liar-reference", production ? `production:${PACKAGE}` : DEFAULT_RUNTIME],
+      ["--liar-reference", production ? `production:${PACKAGE}` : ROUND_14],
     ).pipe(
       Effect.map((v) => v.length > 0 && v.every((x) => x._tag === "Pass")),
       Effect.catchTag("NoVerdicts", () => Effect.succeed(false)),
@@ -68,7 +70,7 @@ export const liar = (args: ReadonlyArray<string>) =>
       (mutant) =>
         liarOne({
           main: MAIN,
-          runtimeDir: DEFAULT_RUNTIME,
+          runtimeDir: ROUND_14,
           packageDir: PACKAGE,
           production,
           scratch: resolve(Option.getOrElse(flag(args, "--scratch"), () => tmpdir())),
@@ -112,7 +114,10 @@ export const crash = (args: ReadonlyArray<string>) =>
     const only = list(flag(args, "--only"));
 
     const chosen = scenarios.filter((s) =>
-      Option.match(only, { onNone: () => true, onSome: (ids) => ids.includes(s.id) }),
+      Option.match(only, {
+        onNone: () => runtime !== PRODUCTION_RUNTIME || productionCases.includes(s.id),
+        onSome: (ids) => ids.includes(s.id),
+      }),
     );
 
     const port = yield* runtimePort(runtime);
@@ -176,7 +181,7 @@ export const kills = (args: ReadonlyArray<string>) =>
 
     const control = yield* suiteIn(
       MAIN,
-      DEFAULT_RUNTIME,
+      ROUND_14,
       generatedScenarios.map((s) => s.id),
       240,
     ).pipe(Effect.catchTag("NoVerdicts", () => Effect.succeed<ReadonlyArray<CaseVerdict>>([])));
@@ -188,7 +193,7 @@ export const kills = (args: ReadonlyArray<string>) =>
       ({ oracle, m }) =>
         falsifyOne(
           MAIN,
-          DEFAULT_RUNTIME,
+          ROUND_14,
           resolve(Option.getOrElse(flag(args, "--scratch"), () => tmpdir())),
           oracle,
           { ...m, cases: generated },
@@ -304,7 +309,7 @@ const regressed = (script: Script, steps: ReadonlyArray<Step>, by: string) =>
  */
 export const shrink = (args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
-    const runtime = runtimeOf(args);
+    const runtime = Option.isSome(flag(args, "--runtime")) ? runtimeOf(args) : ROUND_14;
     const surface = yield* runtimeSurface(runtime);
 
     const play: Play = (scenario) =>
@@ -342,7 +347,7 @@ export const shrink = (args: ReadonlyArray<string>) =>
  */
 export const regressions = (args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
-    const runtime = runtimeOf(args);
+    const runtime = Option.isSome(flag(args, "--runtime")) ? runtimeOf(args) : ROUND_14;
     const surface = yield* runtimeSurface(runtime);
     const record = args.includes("--record");
 
@@ -384,4 +389,35 @@ export const regressions = (args: ReadonlyArray<string>) =>
     );
 
     if (bad > 0) process.exitCode = 1;
+  });
+
+/**
+ * The limits gate (Conformance R22, I64, T42): every row of `limits.ts` played on round-14 must
+ * fail by its check and Invariant; a row whose case passes, or fails by another, fails the gate.
+ */
+export const limitsGate = (args: ReadonlyArray<string>) =>
+  Effect.gen(function* () {
+    const verdicts = yield* suiteIn(
+      MAIN,
+      ROUND_14,
+      limits.map((l) => l.case),
+      240,
+      args.includes("--parallel") ? ["--parallel", String(parallelOf(args))] : [],
+    ).pipe(Effect.catchTag("NoVerdicts", () => Effect.succeed<ReadonlyArray<CaseVerdict>>([])));
+
+    const found = limits.map((l) =>
+      Option.match(Option.fromUndefinedOr(verdicts.find((v) => v.id === l.case)), {
+        onNone: () => ({ held: false, why: `${l.case} gave no verdict` }),
+        onSome: (v) => verdictOfLimit(l, v),
+      }),
+    );
+
+    for (const f of found) yield* Console.log(`${f.held ? "ok  " : "BAD "} ${f.why}`);
+    const held = found.filter((f) => f.held).length;
+
+    yield* Console.log(
+      `VERDICT ${held === found.length ? "pass" : "fail"} ${held}/${found.length} limits rows hold on round-14`,
+    );
+
+    if (held < found.length) process.exitCode = 1;
   });

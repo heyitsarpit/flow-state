@@ -20,7 +20,16 @@ export const MAIN = resolve(dirname(fileURLToPath(import.meta.url)), "main.ts");
 export const PACKAGE = resolve(dirname(MAIN), "..", "..");
 export const NULL_RUNTIME = "null";
 export const PRODUCTION_RUNTIME = "production";
-export const DEFAULT_RUNTIME = resolve(dirname(MAIN), "..", "..", "prototypes", "round-14");
+
+/**
+ * Round-14, the mutant host (Conformance R22).
+ */
+export const ROUND_14 = resolve(dirname(MAIN), "..", "..", "prototypes", "round-14");
+
+/**
+ * The runtime a run uses with no `--runtime` (Conformance R22, I65, T43): production.
+ */
+export const DEFAULT_RUNTIME = PRODUCTION_RUNTIME;
 export const REPOSITORY = resolve(dirname(MAIN), "..", "..", "..", "..");
 
 export const flag = (args: ReadonlyArray<string>, name: string) => {

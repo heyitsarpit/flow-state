@@ -2,7 +2,7 @@
 import { Console, Effect, Option, Schema } from "effect";
 import { writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, resolve } from "node:path";
+import { basename, dirname, resolve } from "node:path";
 import { coverageOf, Gap, Standing } from "../coverage.ts";
 import { generatedScenarios } from "../generated.ts";
 import { notYet } from "../not-yet.ts";
@@ -16,7 +16,7 @@ import {
   staticCases,
 } from "../suite.ts";
 import {
-  DEFAULT_RUNTIME,
+  ROUND_14,
   failed,
   flag,
   graphsFor,
@@ -43,7 +43,7 @@ import {
 import { falsifyOnProduction } from "./falsify-production.ts";
 import { productionCases, writeGates } from "./gates.ts";
 import { matrixFile, writeMatrix } from "./matrix.ts";
-import { crash, kills, liar, regressions, shrink } from "./modes.ts";
+import { crash, kills, liar, limitsGate, regressions, shrink } from "./modes.ts";
 import { runCoreMutants } from "./mutate.ts";
 import { runStatics } from "./run.ts";
 import { coreInvariants, openTasks } from "./specs.ts";
@@ -87,12 +87,19 @@ const suite = (args: ReadonlyArray<string>) =>
     const generated = args.includes("--generated");
 
     const pool = Option.match(only, {
-      onNone: () => (generated ? generatedScenarios : scenarios),
+      onNone: () => {
+        if (generated) return generatedScenarios;
+
+        return runtime === PRODUCTION_RUNTIME
+          ? scenarios.filter((s) => productionCases.includes(s.id))
+          : scenarios;
+      },
       onSome: () => [...scenarios, ...generatedScenarios],
     });
 
     const chosen = pool.filter((s) => wanted(s.id));
-    const chosenStatic = generated ? [] : staticCases.filter((s) => wanted(s.id));
+    const surfaceless = runtime === PRODUCTION_RUNTIME && Option.isNone(only);
+    const chosenStatic = generated || surfaceless ? [] : staticCases.filter((s) => wanted(s.id));
     const known = [...caseIds, ...generatedScenarios.map((s) => s.id)];
 
     const missing = Option.getOrElse(only, () => []).flatMap((id) =>
@@ -248,7 +255,7 @@ const matrixOf = (full: boolean, sweep: boolean, rows: ReadonlyArray<string>) =>
 
 const falsify = (args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
-    const runtime = resolve(Option.getOrElse(flag(args, "--runtime"), () => DEFAULT_RUNTIME));
+    const runtime = resolve(Option.getOrElse(flag(args, "--runtime"), () => ROUND_14));
     const coverageOk = yield* covered(false);
     const scratch = resolve(Option.getOrElse(flag(args, "--scratch"), () => tmpdir()));
     const only = list(flag(args, "--mutant"));
@@ -391,15 +398,43 @@ const falsify = (args: ReadonlyArray<string>) =>
     if (!ok) process.exitCode = 1;
   });
 
+/**
+ * The modes that play a runtime: production unless `--runtime` names another (Conformance I65),
+ * except those that work on round-14 itself, the mutant host.
+ */
+const RUNTIME_MODES: ReadonlyArray<string> = ["suite", "falsify", "crash", "liar"];
+
+const ROUND_14_MODES: ReadonlyArray<string> = ["kills", "shrink", "regressions", "limits"];
+
+const runtimeNameOf = (mode: string, rest: ReadonlyArray<string>) => {
+  const runtime =
+    ROUND_14_MODES.includes(mode) && Option.isNone(flag(rest, "--runtime"))
+      ? ROUND_14
+      : runtimeOf(rest);
+
+  return runtime === PRODUCTION_RUNTIME ? PRODUCTION_RUNTIME : basename(runtime);
+};
+
+/**
+ * The runner: its first line names the runtime the mode plays (T43), unless a parent reads its
+ * verdicts as JSON.
+ */
 const main = (args: ReadonlyArray<string>) => {
+  const [mode = "", ...rest] = args;
+  const named = [...RUNTIME_MODES, ...ROUND_14_MODES].includes(mode) && !rest.includes("--json");
+
+  return named
+    ? Console.log(`runtime: ${runtimeNameOf(mode, rest)}`).pipe(Effect.andThen(dispatch(args)))
+    : dispatch(args);
+};
+
+const dispatch = (args: ReadonlyArray<string>) => {
   const [mode, ...rest] = args;
 
   if (mode === "suite") return suite(rest);
 
   if (mode === "falsify")
-    return Option.getOrUndefined(flag(rest, "--runtime")) === PRODUCTION_RUNTIME
-      ? falsifyProductionRuntime(rest)
-      : falsify(rest);
+    return runtimeOf(rest) === PRODUCTION_RUNTIME ? falsifyProductionRuntime(rest) : falsify(rest);
 
   if (mode === "coverage") return coverage();
 
@@ -412,6 +447,8 @@ const main = (args: ReadonlyArray<string>) => {
   if (mode === "shrink") return shrink(rest);
 
   if (mode === "regressions") return regressions(rest);
+
+  if (mode === "limits") return limitsGate(rest);
 
   if (mode === "mutate")
     return runCoreMutants({

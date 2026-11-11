@@ -281,9 +281,10 @@ export const pendingOf = (state: State, actor: ActorRef, owner: Owner) =>
   );
 
 /**
- * Whether a step boots a page (`boot`), attaches a use (`attach`), or neither.
+ * Whether a step boots a page (`boot`), attaches a use (`attach`), sends an event (`send`: it may
+ * wake an identity that ended, whose Held call's restore then arrives), or none of these.
  */
-export type Attaching = "boot" | "attach" | "none";
+export type Attaching = "boot" | "attach" | "send" | "none";
 
 /**
  * An ending of a call: one the suite's server answered (in any step) settles as that answer
@@ -319,7 +320,12 @@ export const ended = (
         ...call,
         phase: CallPhase.Held(),
         current: call.current || (attaching !== "none" && call.booted),
-        either: call.either || (attaching === "attach" && !call.current && !call.booted),
+        either:
+          call.either ||
+          (!call.current &&
+            !call.booted &&
+            (attaching === "attach" ||
+              (attaching === "send" && CallPhase.$is("Held")(call.phase)))),
       }),
   });
 };

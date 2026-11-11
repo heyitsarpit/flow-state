@@ -3,6 +3,7 @@ import { Console, Effect, Option } from "effect";
 import { writeFileSync } from "node:fs";
 import { productionFixtures } from "../adapters/production.ts";
 import { scenarios } from "../suite.ts";
+import { ROUND_14 } from "./args.ts";
 import { runChild } from "./child.ts";
 
 /**
@@ -43,18 +44,25 @@ export const writeGates = (main: string, path: string, scratch: string) =>
     const only = productionCases.join(",");
 
     const gates = [
-      { gate: "suite round-14", args: ["suite", "--parallel", "6"] },
+      { gate: "suite round-14", args: ["suite", "--runtime", ROUND_14, "--parallel", "6"] },
       {
         gate: "suite production",
         args: ["suite", "--runtime", "production", "--only", only, "--parallel", "6"],
       },
-      { gate: "falsify round-14", args: ["falsify", "--parallel", "6", "--scratch", scratch] },
+      {
+        gate: "falsify round-14",
+        args: ["falsify", "--runtime", ROUND_14, "--parallel", "6", "--scratch", scratch],
+      },
       {
         gate: "falsify production",
         args: ["falsify", "--runtime", "production", "--parallel", "6", "--scratch", scratch],
       },
       { gate: "coverage", args: ["coverage"] },
-      { gate: "liar round-14", args: ["liar", "--parallel", "6", "--scratch", scratch] },
+      {
+        gate: "liar round-14",
+        args: ["liar", "--runtime", ROUND_14, "--parallel", "6", "--scratch", scratch],
+      },
+      { gate: "limits round-14", args: ["limits"] },
       {
         gate: "liar production",
         args: ["liar", "--runtime", "production", "--parallel", "6", "--scratch", scratch],
