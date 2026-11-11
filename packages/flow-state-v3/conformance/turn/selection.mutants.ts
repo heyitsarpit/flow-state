@@ -90,4 +90,18 @@ export const selectionMutants: ReadonlyArray<Mutant> = [
       },
     ],
   },
+  {
+    name: "late.routed-from-leaf",
+    says: "an ending whose owner Activation has ended is routed from the active leaf, as a current one",
+    expects: "Turn I26",
+    runtime: "prototype",
+    cases: ["PAY-07/late-in-a-new-PAYING"],
+    edits: [
+      {
+        file: "turn.ts",
+        find: "  if (inc.activations[item.owner.node] === item.owner.activation)\n    return { start: undefined, late: false };",
+        replace: "  if (true)\n    return { start: undefined, late: false };",
+      },
+    ],
+  },
 ];

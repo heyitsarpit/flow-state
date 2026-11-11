@@ -1246,6 +1246,17 @@ remaining report-excuses first:
 5. `schedules` (I20 to I23), `activations` (I4, I10, I11), `turn-purity` (I12, I13, I17, I19),
    `placements` (I24, I25), `context` (I28), and I18's case: each needs Port facts first.
 
+### Late routing (Turn I26)
+
+Bottom line: `selection` also claims Turn I26. It records each call's owner (the state the
+alternative that ran names: the target it enters, a new Activation per entry or re-entry; else
+the node holding it, the root's never ending) at the mint and at a retry, and routes a delivered
+ending current while that Activation lives, else late (the root alone). Test-first:
+`late.routed-from-leaf` was written first and was red only by PAY-07's state expectation; now
+caught by I26. A current ending's `Denied` is judged; a late one's stays R21's (I27, owed).
+`turn.root-first` is now caught on endings too (I2). Suite 92/92, falsify 111/111, coverage 41,
+0 gaps. Phases and the transition table moved to `turn/phases.ts`.
+
 ### Selection (first, from the step 9 review's H1)
 
 Bottom line: `turn/selection.ts` judges every reported turn header (Turn I2) against a hand-written

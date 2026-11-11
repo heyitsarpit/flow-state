@@ -79,9 +79,15 @@ export const indexed = <State extends string>(index: number, alternative: Altern
 });
 
 /**
- * An alternative the turn may have run: its place and the leaf it ends in.
+ * An alternative the turn may have run: its place, the leaf it ends in, whether it names a target
+ * (it enters that state, a new Activation, re-entry included), and whether the root holds it.
  */
-export type Possible = { readonly at: string; readonly to: string };
+export type Possible = {
+  readonly at: string;
+  readonly to: string;
+  readonly enters: boolean;
+  readonly atRoot: boolean;
+};
 
 const walk = (
   levels: ReadonlyArray<{ readonly prefix: string; readonly level: Level }>,
@@ -104,39 +110,47 @@ const walk = (
     alternatives: taken.map(({ alternative, at }) => ({
       at,
       to: alternative.target === "stay" ? from : alternative.target,
+      enters: alternative.target !== "stay",
+      atRoot: !at.startsWith("states."),
     })),
     handled: certain >= 0,
   };
 };
 
 /**
- * What Turn R2 and I2 allow for `event` at leaf `from`: the alternatives that may be selected,
- * in order, and whether one is selected for certain (`handled`: the event can be neither
- * Unhandled nor Denied).
+ * How an event is routed (Turn R20): from the active leaf (`current`), from the owner's nearest
+ * surviving strict ancestor, the root here (`late`), or either, when the suite cannot tell.
+ */
+export type Route = "current" | "late" | "either";
+
+/**
+ * What Turn R2, I2 and I26 allow for `event` at leaf `from` on `route`: the alternatives that may
+ * be selected, in order, and whether one is selected for certain (`handled`: the event can be
+ * neither Unhandled nor Denied).
  *
  * **Details**
  *
- * The leaf's level is read first, then the root's. An alternative whose state tokens exclude
- * `from` is skipped; the first with no opaque guard is selected for certain and ends the walk;
- * each opaque one before it may be selected. With `mayBeLate`, an ending whose owner may be
- * gone, the walk from the root alone is allowed as well (Turn R19, R20), and it is handled for
- * certain only when both walks are.
+ * A current event reads the leaf's level, then the root's; a late one the root's alone. An
+ * alternative whose state tokens exclude `from` is skipped; the first with no opaque guard is
+ * selected for certain and ends the walk; each opaque one before it may be selected. On `either`,
+ * both walks are allowed, and the event is handled for certain only when both are.
  */
-export const possible = (handlers: Handlers, from: string, event: string, mayBeLate: boolean) => {
+export const possible = (handlers: Handlers, from: string, event: string, route: Route) => {
   const leaf = { prefix: `states.${from}.`, level: handlers.states[from] ?? {} };
   const root = { prefix: "", level: handlers.root };
-  const onTime = walk([leaf, root], from, event);
-
-  if (!mayBeLate) return onTime;
-
+  const current = walk([leaf, root], from, event);
   const late = walk([root], from, event);
+
+  if (route === "current") return current;
+
+  if (route === "late") return late;
 
   return {
     alternatives: [
-      ...onTime.alternatives,
-      ...late.alternatives.filter((a) => !onTime.alternatives.some((b) => b.at === a.at)),
+      ...current.alternatives,
+      ...late.alternatives.filter((a) => !current.alternatives.some((b) => b.at === a.at)),
     ],
-    handled: onTime.handled && late.handled,
+    handled: current.handled && late.handled,
   };
 };
 

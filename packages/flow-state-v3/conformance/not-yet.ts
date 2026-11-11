@@ -21,10 +21,10 @@ export const notYet: ReadonlyArray<NotYet> = [
   },
   {
     owner: "@task.V3.T8",
-    why: "the Turn area is being built: selection (I2) is checked; publication, activations, purity, refusal, schedules, placements, late routing, context and issues are not; T42 cut I7, I8, I13 and I19 and added I32 to I35 (equal deadlines, step delays, restartOn, keyed schedules)",
+    why: "the Turn area is being built: selection (I2) and late routing (I26) are checked; publication, activations, purity, refusal, schedules, placements, I27, context and issues are not; T42 cut I7, I8, I13 and I19 and added I32 to I35 (equal deadlines, step delays, restartOn, keyed schedules)",
     invariants: invariantsOf(
       "Turn",
-      upTo(35).filter((n) => ![2, 7, 8, 13, 19].includes(n)),
+      upTo(35).filter((n) => ![2, 7, 8, 13, 19, 26].includes(n)),
     ),
   },
   {
