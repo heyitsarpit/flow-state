@@ -185,3 +185,6 @@ note 2026-11-11T20:18:04Z
     on to close K2 (Requested ordering or liar-visible limits), the data-flow boundary test, S3, S5 and Actors I10/I37 
     cases, then steps 4 to 6. Round-14's missing incarnation after disposal and reload goes to limits.ts. Weekly usage 
     66 percent.
+note 2026-11-11T20:47:23Z
+    Review started (90-minute wake): T45's fix round 4d7e0f5d..823f118f and the step-5 checkpoint d50d54ea, one Opus 
+    lead with two Haiku sidecars. Weekly usage 67 percent of 95.
