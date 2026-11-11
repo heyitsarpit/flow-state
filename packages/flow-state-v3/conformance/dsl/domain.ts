@@ -1,83 +1,38 @@
 import { Option, Predicate } from "effect";
 import { operationNamed, type OperationReference, type Reference } from "../fixtures/reference.ts";
 import { Answer, type Request, RequestPhase } from "../world/network.ts";
-import { type ActorRef, type Channel, type Json, sameActor, sameJson } from "../port.ts";
+import type { Channel, Json } from "../port.ts";
 
 /**
- * The text that names one Attempt of an operation in a violation and in an oracle's maps.
- *
- * **When to use**
- *
- * Every oracle that keys state by Attempt uses this one spelling.
+ * One Attempt as the server and the reports name it: its operation and its id.
  */
-export const attemptKey = (operation: string, attempt: string) => `${operation} ${attempt}`;
+export type AttemptRef = { readonly operation: string; readonly attempt: string };
 
 /**
- * One write lane: its owner, operation, and the values of its key fields in their declared order.
+ * Whether two {@link AttemptRef}s name the same Attempt.
  */
-export type LaneId = {
-  readonly owner: ActorRef;
-  readonly operation: string;
-  readonly key: ReadonlyArray<Json>;
-};
+export const sameAttempt = (a: AttemptRef, b: AttemptRef) =>
+  a.operation === b.operation && a.attempt === b.attempt;
 
 /**
- * Whether two {@link LaneId}s name the same lane; key values compare as JSON values.
+ * How a violation names one Attempt: its operation, then its id.
  */
-export const sameLane = (a: LaneId, b: LaneId) =>
-  sameActor(a.owner, b.owner) && a.operation === b.operation && sameJson(a.key, b.key);
-
-const keyFieldsOf = (input: Json, fields: ReadonlyArray<string>) =>
-  fields.map((field) =>
-    Predicate.isObjectKeyword(input) && !Array.isArray(input)
-      ? (Object.entries(input).find(([key]) => key === field)?.[1] ?? null)
-      : null,
-  );
+export const attemptText = ({ operation, attempt }: AttemptRef) => `${operation} ${attempt}`;
 
 /**
- * The lane a write's input or key names: its key fields' values, by the fixture's reference.
+ * The values of a write's key fields in a request's input or a reported key, in the order the
+ * fixture's reference declares them; empty for an unkeyed operation, `null` for a missing field.
  */
-export const laneOf = (owner: ActorRef, reference: Reference, operation: string, key: Json) => {
-  const fields = Option.match(operationNamed(reference, operation), {
+export const keyValues = (reference: Reference, operation: string, value: Json) =>
+  Option.match(operationNamed(reference, operation), {
     onNone: () => [],
-    onSome: (o) => o.keyFields,
+    onSome: (o) =>
+      o.keyFields.map((field) =>
+        Predicate.isObjectKeyword(value) && !Array.isArray(value)
+          ? (Object.entries(value).find(([key]) => key === field)?.[1] ?? null)
+          : null,
+      ),
   });
-
-  return { owner, operation, key: keyFieldsOf(key, fields) };
-};
-
-/**
- * The lane an Attempt joins at its mint: the one lane of an unkeyed operation, or the lane of the
- * key `Minted` reports; `None` for a keyed operation whose key was not reported.
- */
-export const laneAtMint = (
-  reference: Reference,
-  owner: ActorRef,
-  operation: string,
-  policy: OperationReference,
-  key: Option.Option<Json>,
-) =>
-  policy.keyFields.length === 0
-    ? Option.some(laneOf(owner, reference, operation, {}))
-    : Option.map(key, (k) => laneOf(owner, reference, operation, k));
-
-/**
- * The lane the server's log names for an Attempt: the key fields of the input of its first
- * request, `None` before the server received one.
- */
-export const laneAtSend = (
-  reference: Reference,
-  owner: ActorRef,
-  operation: string,
-  attempt: string,
-  requests: ReadonlyArray<Request>,
-) =>
-  Option.map(
-    Option.fromUndefinedOr(
-      requests.find((r) => r.operation === operation && Option.contains(r.key, attempt)),
-    ),
-    (r) => laneOf(owner, reference, operation, r.input),
-  );
 
 const heard = (request: Request, operation: OperationReference) =>
   RequestPhase.$match(request.phase, {

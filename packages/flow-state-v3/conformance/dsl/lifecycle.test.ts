@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vite-plus/test";
-import { Equal } from "effect";
+import { Equal, Predicate } from "effect";
 import { cellOf, due } from "./lifecycle.ts";
 import { apply } from "./lifecycle-fold.ts";
 import { type Input, Life, type Model, type Move, Phase } from "./lifecycle-model.ts";
@@ -21,6 +21,10 @@ import {
 import { Check, type Trace } from "./lifecycle-trace.ts";
 import { traces } from "./lifecycle.traces.ts";
 import type { InvariantId } from "./oracle.ts";
+import { disposal } from "../actors/disposal.ts";
+import { attemptIdentity } from "../write-lanes/attempt-identity.ts";
+import { deliveredOnce } from "../write-lanes/delivered-once.ts";
+import { laneQueue } from "../write-lanes/lane-queue.ts";
 
 const run = (trace: Trace, given: Rules) =>
   trace.steps.reduce<{ model: Model; refusals: ReadonlyArray<ReadonlyArray<InvariantId>> }>(
@@ -411,5 +415,29 @@ describe("The lane lifecycle (Table A, deadlines, promotion)", () => {
       others.filter((promotion) => !killed({ ...rules, promotion })),
       [],
     );
+  });
+
+  it("every Invariant the lifecycle refuses under is claimed by exactly one lifecycle oracle", () => {
+    // RETURN_TYPE: a recursive walk needs its own type.
+    const named = (value: unknown): ReadonlyArray<string> =>
+      Predicate.isObject(value)
+        ? Object.entries(value).flatMap(([field, inner]) =>
+            field === "invariant" && Predicate.isString(inner) ? [inner] : named(inner),
+          )
+        : [];
+
+    const refused = new Set([...named(rules), ...traces.flatMap((trace) => trace.refusals.flat())]);
+
+    const owners = (invariant: string) =>
+      [laneQueue, deliveredOnce, disposal].filter((o) => o.guarantee.some((g) => g === invariant));
+
+    const unclaimed = [...refused].filter(
+      (invariant) => invariant !== "WriteLanes I6" && owners(invariant).length !== 1,
+    );
+
+    assert.deepEqual(unclaimed, []);
+    assert.deepEqual(owners("WriteLanes I6"), []);
+    assert.ok(attemptIdentity.guarantee.includes("WriteLanes I6"));
+    assert.ok(refused.has("WriteLanes I6"));
   });
 });

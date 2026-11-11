@@ -1,5 +1,5 @@
 import { Option } from "effect";
-import { attemptKey, endingOf } from "../dsl/domain.ts";
+import { type AttemptRef, attemptText, endingOf, sameAttempt } from "../dsl/domain.ts";
 import { Fact, oracle, violation } from "../dsl/oracle.ts";
 import {
   FLOW_DECLINES,
@@ -23,26 +23,31 @@ const deliveredOf = (fact: Fact) =>
     ? Option.some(fact.observation)
     : Option.none();
 
-const attemptText = (attempt: Option.Option<string>) =>
+const idText = (attempt: Option.Option<string>) =>
   Option.match(attempt, { onNone: () => "(none)", onSome: (id) => id });
+
+const refOf = (operation: string, attempt: Option.Option<string>) =>
+  Option.map(attempt, (id) => ({ operation, attempt: id }));
 
 const withKey = <A>(map: ReadonlyMap<string, A>, key: string, value: A) =>
   new Map([...map, [key, value]]);
 
-const withoutKey = <A>(map: ReadonlyMap<string, A>, key: string) =>
-  new Map([...map].filter(([k]) => k !== key));
-
-type Unsure = ReadonlySet<string>;
+type Unsure = ReadonlyArray<AttemptRef>;
 
 // RETURN_TYPE: a [state, violations] pair; the branches' literal arrays would infer different tuples.
 const unsureAfter = (unsure: Unsure, ended: Ended): readonly [Unsure, Found] => {
-  if (Option.isNone(ended.attempt)) return [unsure, []];
-  const id = attemptKey(ended.operation, ended.attempt.value);
+  const named = refOf(ended.operation, ended.attempt);
 
-  if (ended.channel === "unknown") return [new Set([...unsure, id]), []];
+  if (Option.isNone(named)) return [unsure, []];
+  const ref = named.value;
 
-  return ended.channel === "failure" && unsure.has(id)
-    ? [unsure, [`WriteLanes I3: ${id} ended unknown, then delivered a definite failure`]]
+  if (ended.channel === "unknown") return [[...unsure, ref], []];
+
+  return ended.channel === "failure" && unsure.some((u) => sameAttempt(u, ref))
+    ? [
+        unsure,
+        [`WriteLanes I3: ${attemptText(ref)} ended unknown, then delivered a definite failure`],
+      ]
     : [unsure, []];
 };
 
@@ -68,22 +73,19 @@ const mismatch = (delivered: Delivered, ended: Ended, operation: OperationRefere
   const named = Option.match(expected, { onNone: () => "(no mapping)", onSome: (e) => e });
 
   return [
-    `WriteLanes I3: ${delivered.operation} ${attemptText(delivered.attempt)} ended ${ended.channel} ${ended.reason} and ran ${delivered.event}, not ${named}`,
+    `WriteLanes I3: ${delivered.operation} ${idText(delivered.attempt)} ended ${ended.channel} ${ended.reason} and ran ${delivered.event}, not ${named}`,
   ];
 };
 
 type Mapped = {
-  readonly latest: ReadonlyMap<string, Ended>;
+  readonly endings: ReadonlyArray<Ended>;
   readonly declines: ReadonlyMap<string, ReadonlyArray<Ended>>;
 };
 
 // RETURN_TYPE: both branches rebuild one field; without it each infers a different Map type.
 const remembered = (mapped: Mapped, ended: Ended): Mapped =>
   Option.match(ended.attempt, {
-    onSome: (id) => ({
-      ...mapped,
-      latest: withKey(mapped.latest, attemptKey(ended.operation, id), ended),
-    }),
+    onSome: () => ({ ...mapped, endings: [...mapped.endings, ended] }),
     onNone: () => ({
       ...mapped,
       declines: withKey(mapped.declines, ended.operation, [
@@ -98,7 +100,11 @@ const endedFor = (mapped: Mapped, delivered: Delivered): readonly [Mapped, Optio
   Option.match(delivered.attempt, {
     onSome: (id) => [
       mapped,
-      Option.fromUndefinedOr(mapped.latest.get(attemptKey(delivered.operation, id))),
+      Option.fromUndefinedOr(
+        mapped.endings.findLast(
+          (e) => e.operation === delivered.operation && Option.contains(e.attempt, id),
+        ),
+      ),
     ],
     onNone: () => {
       const [first, ...rest] = mapped.declines.get(delivered.operation) ?? [];
@@ -113,7 +119,7 @@ const endedFor = (mapped: Mapped, delivered: Delivered): readonly [Mapped, Optio
 const judgeDelivered = (reference: Reference, delivered: Delivered, ended: Option.Option<Ended>) =>
   Option.match(ended, {
     onNone: () => [
-      `WriteLanes I3: ${delivered.operation} ${attemptText(delivered.attempt)} delivered ${delivered.event} with no ending decided`,
+      `WriteLanes I3: ${delivered.operation} ${idText(delivered.attempt)} delivered ${delivered.event} with no ending decided`,
     ],
     onSome: (e) =>
       Option.match(operationNamed(reference, delivered.operation), {
@@ -148,6 +154,7 @@ const failureTag = (answer: Answer) =>
     : Option.none();
 
 type Asked = {
+  readonly ref: AttemptRef;
   readonly answer: Answer;
   readonly expected: { readonly channel: Channel; readonly reason: Option.Option<string> };
   readonly seq: number;
@@ -190,42 +197,36 @@ const madeUp = (id: string, ended: Ended) =>
       ];
 
 /**
- * Which sends are live (sent, with no ending since) and the newest request of each Attempt.
+ * The sends that are live: sent, with no ending since.
  */
-type Answering = {
-  readonly live: ReadonlySet<string>;
-  readonly latest: ReadonlyMap<string, number>;
-};
+type Live = ReadonlyArray<AttemptRef>;
 
-// RETURN_TYPE: the branches build Sets and Maps whose inferred types differ from the readonly state.
-const learned = ({ live, latest }: Answering, fact: Fact): Answering => {
-  if (Fact.$is("Reloaded")(fact)) return { live: new Set(), latest };
+// RETURN_TYPE: the branches return literal arrays that would infer narrower types than the state.
+const learned = (live: Live, fact: Fact): Live => {
+  if (Fact.$is("Reloaded")(fact)) return [];
 
-  if (Fact.$is("Requested")(fact))
-    return Option.match(fact.request.key, {
-      onNone: () => ({ live, latest }),
-      onSome: (key) => ({
-        live,
-        latest: withKey(latest, attemptKey(fact.request.operation, key), fact.request.seq),
-      }),
-    });
-
-  if (!Fact.$is("Reported")(fact)) return { live, latest };
+  if (!Fact.$is("Reported")(fact)) return live;
   const observed = fact.observation;
 
   if (Observation.$is("Sent")(observed))
-    return { live: new Set([...live, attemptKey(observed.operation, observed.attempt)]), latest };
+    return [...live, { operation: observed.operation, attempt: observed.attempt }];
 
-  if (Observation.$is("Ended")(observed) && Option.isSome(observed.attempt)) {
-    const id = attemptKey(observed.operation, observed.attempt.value);
-
-    return { live: new Set([...live].filter((x) => x !== id)), latest };
-  }
-
-  return { live, latest };
+  return Option.match(
+    Observation.$is("Ended")(observed)
+      ? refOf(observed.operation, observed.attempt)
+      : Option.none(),
+    {
+      onNone: () => live,
+      onSome: (ended) => live.filter((x) => !sameAttempt(x, ended)),
+    },
+  );
 };
 
-type Answers = { readonly answering: Answering; readonly asked: ReadonlyMap<string, Asked> };
+const newestRequest = (requests: ReadonlyArray<Request>, ref: AttemptRef) =>
+  requests.findLast((r) => r.operation === ref.operation && Option.contains(r.key, ref.attempt))
+    ?.seq;
+
+type Answers = { readonly live: Live; readonly asked: ReadonlyArray<Asked> };
 
 const answerOf = (fact: Fact) =>
   Fact.$is("Answered")(fact)
@@ -243,7 +244,7 @@ const asking =
   (answers: Answers, given: ReturnType<typeof answerOf>): Answers => {
     if (Option.isNone(given) || Option.isNone(given.value.request.key)) return answers;
     const { request, answer } = given.value;
-    const id = attemptKey(request.operation, given.value.request.key.value);
+    const ref = { operation: request.operation, attempt: given.value.request.key.value };
 
     const expected = Option.flatMap(operationNamed(reference, request.operation), (o) =>
       endingOf(o, requests, request, answer),
@@ -253,7 +254,10 @@ const asking =
 
     return {
       ...answers,
-      asked: withKey(answers.asked, id, { answer, expected: expected.value, seq: request.seq }),
+      asked: [
+        ...answers.asked.filter((a) => !sameAttempt(a.ref, ref)),
+        { ref, answer, expected: expected.value, seq: request.seq },
+      ],
     };
   };
 
@@ -263,33 +267,35 @@ const ending = (
   reference: Reference,
   ended: Ended,
 ): readonly [Answers, Found] => {
-  if (Option.isNone(ended.attempt)) return [answers, []];
-  const id = attemptKey(ended.operation, ended.attempt.value);
-  const answered = Option.fromUndefinedOr(answers.asked.get(id));
-  const next = { ...answers, asked: withoutKey(answers.asked, id) };
+  const named = refOf(ended.operation, ended.attempt);
+
+  if (Option.isNone(named)) return [answers, []];
+  const ref = named.value;
+  const answered = Option.fromUndefinedOr(answers.asked.find((a) => sameAttempt(a.ref, ref)));
+  const next = { ...answers, asked: answers.asked.filter((a) => !sameAttempt(a.ref, ref)) };
 
   if (Option.isNone(operationNamed(reference, ended.operation))) return [next, []];
 
   return [
     next,
     Option.match(answered, {
-      onNone: () => madeUp(id, ended),
-      onSome: (a) => judgeAnswered(id, a, ended),
+      onNone: () => madeUp(attemptText(ref), ended),
+      onSome: (a) => judgeAnswered(attemptText(ref), a, ended),
     }),
   ];
 };
 
-const unended = ({ answering, asked }: Answers) =>
-  [...asked].flatMap(([id, a]) =>
-    answering.latest.get(id) === a.seq && answering.live.has(id)
+const unended = ({ live, asked }: Answers, requests: ReadonlyArray<Request>) =>
+  asked.flatMap((a) =>
+    newestRequest(requests, a.ref) === a.seq && live.some((x) => sameAttempt(x, a.ref))
       ? [
-          `WriteLanes I3: the server answered ${id} ${a.answer._tag} on a live send, and no ending names it`,
+          `WriteLanes I3: the server answered ${attemptText(a.ref)} ${a.answer._tag} on a live send, and no ending names it`,
         ]
       : [],
   );
 
 const endedAsAnswered = (
-  answering: Answering,
+  live: Live,
   step: ReadonlyArray<Fact>,
   reference: Reference,
   requests: ReadonlyArray<Request>,
@@ -297,8 +303,8 @@ const endedAsAnswered = (
   const ask = asking(reference, requests);
 
   const early = step.reduce<Answers>((answers, fact) => ask(answers, atOnce(fact)), {
-    answering,
-    asked: new Map(),
+    live,
+    asked: [],
   });
 
   const [walked, found] = step.reduce<readonly [Answers, Found]>(
@@ -310,17 +316,17 @@ const endedAsAnswered = (
         onSome: (ended) => ending(told, reference, ended),
       });
 
-      return [{ ...judged, answering: learned(judged.answering, fact) }, [...seen, ...more]];
+      return [{ ...judged, live: learned(judged.live, fact) }, [...seen, ...more]];
     },
     [early, []],
   );
 
-  return [walked.answering, [...found, ...unended(walked)]] as const;
+  return [walked.live, [...found, ...unended(walked, requests)]] as const;
 };
 
 type State = {
   readonly reference: Reference;
-  readonly answering: Answering;
+  readonly live: Live;
   readonly mapped: Mapped;
   readonly unsure: Unsure;
 };
@@ -348,6 +354,9 @@ type State = {
  *   where the server answered one of its sends: a definite ending the server did not give is made
  *   up. Only unknowns and Flow's own failures end without an answer.
  *
+ * It reads the server's log and the reports, never the Case's lifecycle fold: it is one of the
+ * independent judges that guard the fold's common mode.
+ *
  * **Gotchas**
  *
  * - Only operations the case's references name, once, are checked by mapping.
@@ -359,17 +368,17 @@ export const endingChannels = oracle<State>({
   guarantee: ["WriteLanes I3"],
   start: (reference) => ({
     reference,
-    answering: { live: new Set(), latest: new Map() },
-    mapped: { latest: new Map(), declines: new Map() },
-    unsure: new Set(),
+    live: [],
+    mapped: { endings: [], declines: new Map() },
+    unsure: [],
   }),
   step: (state, step, requests) => {
-    const [answering, answered] = endedAsAnswered(state.answering, step, state.reference, requests);
+    const [live, answered] = endedAsAnswered(state.live, step, state.reference, requests);
     const [mapped, delivered] = deliveredAsMapped(state.mapped, step, state.reference);
     const [unsure, failed] = failureAfterUnknown(state.unsure, step);
 
     return [
-      { ...state, answering, mapped, unsure },
+      { ...state, live, mapped, unsure },
       [...answered, ...delivered, ...failed].map(violation),
     ] as const;
   },

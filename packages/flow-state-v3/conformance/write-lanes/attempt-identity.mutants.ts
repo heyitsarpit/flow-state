@@ -9,7 +9,8 @@ const SEND = "      input: h.input,\n      ctx: { id: h.id, mayHaveApplied: h.ma
  *
  * The first two edit the prototype's invoke command, where a re-send's commit gets its id and
  * input; the third edits the report of an invoke, which names another operation than the one
- * the Attempt was minted under.
+ * the Attempt was minted under; the fourth edits the invoke command's input, so the sends carry
+ * another key than the one the mint reported.
  */
 export const attemptIdentityMutants: ReadonlyArray<Mutant> = [
   {
@@ -53,6 +54,21 @@ export const attemptIdentityMutants: ReadonlyArray<Mutant> = [
         file: "lane.ts",
         find: 'note(tx, "invoked", { op: l!.op, attempt: h.id, send: gen });',
         replace: 'note(tx, "invoked", { op: "place", attempt: h.id, send: gen });',
+      },
+    ],
+  },
+  {
+    name: "mutant.mint-key-differs",
+    says: "an Attempt's sends carry another intent than the key its mint reported",
+    expects: "WriteLanes I6",
+    runtime: "prototype",
+    cases: ["PAY-01"],
+    edits: [
+      {
+        file: "lane.ts",
+        find: SEND,
+        replace:
+          '      input: h.input !== null && typeof h.input === "object" && "intentId" in h.input ? { ...h.input, intentId: "elsewhere" } : h.input,\n      ctx: { id: h.id, mayHaveApplied: h.mayHaveApplied },',
       },
     ],
   },
