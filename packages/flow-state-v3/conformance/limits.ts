@@ -1,3 +1,5 @@
+import { Data } from "effect";
+import type { Mutant } from "./dsl/oracle.ts";
 import type { CaseVerdict } from "./runner/verdict.ts";
 
 /**
@@ -50,3 +52,142 @@ export const verdictOfLimit = (limit: Limit, verdict: CaseVerdict) => {
     ? { held: true, why: `${limit.case} fails by ${limit.invariant}` }
     : { held: false, why: `${limit.case} fails, but not by ${limit.check} ${limit.invariant}` };
 };
+
+/**
+ * What a stated limit's mutant does in its cases on round-14: it survives (the limit admits it),
+ * or a check still catches it (the limit is narrower than it reads).
+ */
+export type Outcome = Data.TaggedEnum<{ Survives: {}; Caught: { check: string } }>;
+
+/**
+ * Constructors and matchers for {@link Outcome}.
+ */
+export const Outcome = Data.taggedEnum<Outcome>();
+
+/**
+ * One of the suite's own stated limits (Conformance R22, the T45 reviews): where the suite takes a
+ * runtime's report for a fact, what it admits, and a mutant that exercises it, with the outcome
+ * the `limits` gate verifies on round-14.
+ */
+export type StatedLimit = {
+  readonly limit: string;
+  readonly where: string;
+  readonly admits: string;
+  readonly mutant: Mutant;
+  readonly outcome: Outcome;
+};
+
+/**
+ * The suite's stated limits, each with its mutant and outcome.
+ */
+export const statedLimits: ReadonlyArray<StatedLimit> = [
+  {
+    limit: "the unowed Incarnated",
+    where: "dsl/compare.ts incarnationHeard",
+    admits:
+      "an incarnation the suite did not owe, in a step that reloads, disposes or sends, is applied as a woken incarnation once per actor per step; a second one is not applied",
+    mutant: {
+      name: "limit.incarnation-twice",
+      says: "every incarnation is reported twice",
+      expects: "WriteLanes I15",
+      runtime: "prototype",
+      cases: ["PAY-01"],
+      edits: [
+        {
+          file: "world.ts",
+          find: "  void tx.evidence.push({ kind, ...fields });",
+          replace:
+            '  void (tx.evidence.push({ kind, ...fields }), kind === "incarnation" && tx.evidence.push({ kind, ...fields }));',
+        },
+      ],
+    },
+    outcome: Outcome.Survives(),
+  },
+  {
+    limit: "the Unanchored actor's keys",
+    where: "turn/credits.ts keysOf",
+    admits:
+      "where the suite carries no folded fields (an actor it never saw ensured), a turn's member keys are the report's",
+    mutant: {
+      name: "limit.mint-key-lies",
+      says: "every mint reports a key no fold gives",
+      expects: "WriteLanes I15",
+      runtime: "prototype",
+      cases: ["PAY-01"],
+      edits: [
+        {
+          file: "world.ts",
+          find: "  void tx.evidence.push({ kind, ...fields });",
+          replace:
+            '  void tx.evidence.push(kind === "mint" ? { kind, ...fields, key: { lie: true } } : { kind, ...fields });',
+        },
+      ],
+    },
+    outcome: Outcome.Caught({ check: "lane-queue" }),
+  },
+  {
+    limit: "the position of a re-send",
+    where: "turn/selection.ts Sent",
+    admits:
+      "a re-send moves its call Open at its Sent report, once the server log holds its request; a missing Sent leaves the call Held",
+    mutant: {
+      name: "limit.invoked-dropped",
+      says: "the runtime never reports a send",
+      expects: "WriteLanes I15",
+      runtime: "prototype",
+      cases: ["PAY-04"],
+      edits: [
+        {
+          file: "world.ts",
+          find: "  void tx.evidence.push({ kind, ...fields });",
+          replace: '  void (kind === "invoked" || tx.evidence.push({ kind, ...fields }));',
+        },
+      ],
+    },
+    outcome: Outcome.Caught({ check: "attempt-identity" }),
+  },
+  {
+    limit: "the channel of an ending the server did not answer",
+    where: "turn/anchor.ts ended",
+    admits:
+      "a cancel's, decline's, restore's or bound's ending keeps its call Held whatever channel it reports",
+    mutant: {
+      name: "limit.cancelled-as-failure",
+      says: "an unknown { Cancelled } ending is reported as a failure",
+      expects: "WriteLanes I15",
+      runtime: "prototype",
+      cases: ["PAY-12/cancel-on-wire"],
+      edits: [
+        {
+          file: "world.ts",
+          find: "  void tx.evidence.push({ kind, ...fields });",
+          replace:
+            '  void tx.evidence.push(kind === "ending" && fields["reason"] === "Cancelled" ? { kind, ...fields, channel: "failure" } : { kind, ...fields });',
+        },
+      ],
+    },
+    outcome: Outcome.Caught({ check: "ending-channels" }),
+  },
+  {
+    limit: "the from of a turn whose leaf the table could not tell",
+    where: "turn/judge.ts judgeTurn",
+    admits:
+      "after a turn the table could not judge, or for an Unanchored actor with nothing lost, the next turn's from is the report's",
+    mutant: {
+      name: "limit.from-lies",
+      says: "every turn reports starting at the leaf it ends at",
+      expects: "WriteLanes I15",
+      runtime: "prototype",
+      cases: ["PAY-01"],
+      edits: [
+        {
+          file: "world.ts",
+          find: "  void tx.evidence.push({ kind, ...fields });",
+          replace:
+            '  void tx.evidence.push(kind === "turn" ? { kind, ...fields, from: fields["to"] } : { kind, ...fields });',
+        },
+      ],
+    },
+    outcome: Outcome.Caught({ check: "selection" }),
+  },
+];

@@ -19,10 +19,10 @@ import {
   runtimePort,
   runtimeSurface,
 } from "./args.ts";
-import { falsifyOne, liarOne, suiteIn } from "./falsify.ts";
+import { falsifyOne, liarOne, MutantVerdict, suiteIn } from "./falsify.ts";
 import { productionCases } from "./gates.ts";
 import { generatedScenarios, generatedScripts, regressionFiles } from "../generated.ts";
-import { limits, verdictOfLimit } from "../limits.ts";
+import { limits, Outcome, type StatedLimit, statedLimits, verdictOfLimit } from "../limits.ts";
 import { type Script, scenarioOf, type Step } from "../dsl/script.ts";
 import type { Scenario } from "../dsl/case.ts";
 import { Serialize } from "../fixtures/one-lane.ts";
@@ -392,6 +392,27 @@ export const regressions = (args: ReadonlyArray<string>) =>
   });
 
 /**
+ * A stated limit's verdict: its mutant survives where the limit admits it, or the named check
+ * catches it where the limit is narrower.
+ */
+const statedVerdict = (row: StatedLimit, verdict: MutantVerdict) => {
+  const what = `${row.limit} (${row.mutant.name})`;
+
+  return Outcome.$match(row.outcome, {
+    Survives: () => ({
+      held: MutantVerdict.$is("Survived")(verdict),
+      why: `${what}: ${verdict._tag === "Survived" ? "survives, as stated" : `expected to survive, got ${verdict._tag}`}`,
+    }),
+    Caught: ({ check }) => ({
+      held:
+        MutantVerdict.$is("Caught")(verdict) ||
+        (MutantVerdict.$is("WrongReason")(verdict) && verdict.why.includes(`${check}:`)),
+      why: `${what}: ${verdict._tag === "Survived" ? `expected ${check} to catch it, it survived` : `${verdict._tag} (${check} expected)`}`,
+    }),
+  });
+};
+
+/**
  * The limits gate (Conformance R22, I64, T42): every row of `limits.ts` played on round-14 must
  * fail by its check and Invariant; a row whose case passes, or fails by another, fails the gate.
  */
@@ -412,12 +433,27 @@ export const limitsGate = (args: ReadonlyArray<string>) =>
       }),
     );
 
-    for (const f of found) yield* Console.log(`${f.held ? "ok  " : "BAD "} ${f.why}`);
-    const held = found.filter((f) => f.held).length;
-
-    yield* Console.log(
-      `VERDICT ${held === found.length ? "pass" : "fail"} ${held}/${found.length} limits rows hold on round-14`,
+    const stated = yield* Effect.forEach(
+      statedLimits,
+      (row) =>
+        falsifyOne(
+          MAIN,
+          ROUND_14,
+          resolve(Option.getOrElse(flag(args, "--scratch"), () => tmpdir())),
+          Outcome.$match(row.outcome, { Survives: () => "-", Caught: ({ check }) => check }),
+          row.mutant,
+        ).pipe(Effect.map((r) => statedVerdict(row, r.verdict))),
+      { concurrency: parallelOf(args) },
     );
 
-    if (held < found.length) process.exitCode = 1;
+    for (const f of [...found, ...stated])
+      yield* Console.log(`${f.held ? "ok  " : "BAD "} ${f.why}`);
+    const held = [...found, ...stated].filter((f) => f.held).length;
+    const total = found.length + stated.length;
+
+    yield* Console.log(
+      `VERDICT ${held === total ? "pass" : "fail"} ${held}/${total} limits rows hold on round-14`,
+    );
+
+    if (held < total) process.exitCode = 1;
   });
