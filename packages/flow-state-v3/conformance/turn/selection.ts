@@ -220,9 +220,17 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
  */
 const reportedKeys = (turn: Turn) =>
   Object.fromEntries(
-    turn.members.flatMap((m) =>
-      MemberTarget.$is("Key")(m.target) ? [[m.operation, m.target.key] as const] : [],
-    ),
+    turn.members.flatMap((m) => {
+      const named = turn.members.flatMap((o) =>
+        o.operation === m.operation && MemberTarget.$is("Key")(o.target) ? [o.target.key] : [],
+      );
+
+      const [first] = named;
+
+      return first !== undefined && named.every((k) => sameJson(k, first))
+        ? [[m.operation, first] as const]
+        : [];
+    }),
   );
 
 const initialOf = (state: State, actor: ActorRef) =>
@@ -266,7 +274,14 @@ const uncredited = (state: State, actor: ActorRef) => {
     (h) => h.folds.initial,
   );
 
-  return withActor(state, actor, { ...now, driven: [], entry: now.entry + 1, fields: initial });
+  return withActor(state, actor, {
+    ...now,
+    driven: [],
+    entry: now.entry + 1,
+    fields: initial,
+    saved: { turns: now.turns, fields: initial },
+    pending: Option.none(),
+  });
 };
 
 const deliveredTo = (step: ReadonlyArray<Fact>, event: string) =>

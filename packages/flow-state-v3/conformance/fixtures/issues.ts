@@ -1,4 +1,4 @@
-import { noFolds } from "./folds.ts";
+import { labelledKey, noFolds, payloadLabels } from "./folds.ts";
 import { Schema } from "effect";
 import { Empty, type Fixture, writeOf } from "./fixture.ts";
 import { guarded, to, updating } from "./handlers.ts";
@@ -50,7 +50,15 @@ export const Issues = {
     row("CancelRename", "any", "same", [{ operation: "rename", kind: "cancel", keyed: true }]),
   ],
   handlers: {
-    folds: noFolds,
+    folds: {
+      ...noFolds,
+      driven: {
+        Edit: payloadLabels("id"),
+        Toggle: payloadLabels("id"),
+        CancelRename: payloadLabels("id"),
+      },
+      keys: { rename: labelledKey("id"), like: labelledKey("id") },
+    },
     initial: "READY",
     root: {
       Load: [stay],

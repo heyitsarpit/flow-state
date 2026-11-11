@@ -1,4 +1,4 @@
-import { noFolds } from "./folds.ts";
+import { type Labels, labelledKey, noFolds, payloadLabels } from "./folds.ts";
 import { Schema } from "effect";
 import { Empty, type Fixture, writeOf } from "./fixture.ts";
 import { guarded, to, updating } from "./handlers.ts";
@@ -49,7 +49,27 @@ export const Stamp = {
   },
   rows: [row("Go", "any", "same", [{ operation: "charge", kind: "commit" }])],
   handlers: {
-    folds: noFolds,
+    folds: {
+      ...noFolds,
+      driven: Object.fromEntries(
+        [
+          "Go",
+          "Guarded",
+          "Retry",
+          "Cancel",
+          "Retryable",
+          "OldRetry",
+          "OldCancel",
+          "OldRetryable",
+        ].map((event) => [event, payloadLabels("k", "region")]),
+      ),
+      keys: {
+        charge: (labels: Labels) =>
+          (labels["region"] ?? null) === null
+            ? labelledKey("k")(labels)
+            : labelledKey("k", "region")(labels),
+      },
+    },
     initial: "root",
     root: {
       Go: [stay],

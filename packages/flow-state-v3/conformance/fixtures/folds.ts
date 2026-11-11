@@ -1,4 +1,4 @@
-import type { Option } from "effect";
+import { type Option, Schema } from "effect";
 import type { Json } from "../port.ts";
 import type { Answer } from "../world/network.ts";
 
@@ -45,6 +45,24 @@ export type Folds = {
   readonly keys: Readonly<Record<string, (labels: Labels, fields: Folded) => Json>>;
   readonly delays: Readonly<Record<string, (fields: Folded) => number>>;
 };
+
+const isObject = Schema.is(Schema.Record(Schema.String, Schema.Json));
+
+/**
+ * Labels a payload by the named fields it carries (`null` for one it lacks).
+ */
+export const payloadLabels =
+  (...names: ReadonlyArray<string>) =>
+  (payload: Json) =>
+    Object.fromEntries(names.map((n) => [n, isObject(payload) ? (payload[n] ?? null) : null]));
+
+/**
+ * A key made of the named labels of the fact that caused the turn (a key the driven event names).
+ */
+export const labelledKey =
+  (...names: ReadonlyArray<string>) =>
+  (labels: Labels) =>
+    Object.fromEntries(names.map((n) => [n, labels[n] ?? null]));
 
 /**
  * The folds of a fixture whose guards, keys and delays read no memory.

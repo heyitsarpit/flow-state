@@ -509,6 +509,14 @@ tasks
             turns 20 cases red. A removed record (disposeActor, forget) restarts the fields at initial (Actors R20, 
             R21). Stated limit: a turn's reported key stands in where a fixture folds none or the fields are unknown 
             after a kill. Gates unchanged; liar round-14 still 9 greens (endings next).
+        comment     2026-11-11T18:04:33Z
+            Review sidecar on the turn-prediction stage: accepted 4 (Stamp and Issues fold their keys, Stamp's 
+            release-2 key names region; a reported key counts only when its copies agree; disposeActor and forget also 
+            reset the saved fields; a failed pay answer labels its status). Carried to B4 (before step 5): the leaf and 
+            keys after a kill with turns no capture holds still come from the report, and a retry re-owns its call by 
+            the reported target. Carried to the schedules step: the `delays` fold is not read yet. Rejected 2: reported 
+            members were never a runtime check (their effects are judged as lane moves); one pending capture is right, 
+            since an answer lands every held batch.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open

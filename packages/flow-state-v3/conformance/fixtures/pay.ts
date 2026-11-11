@@ -230,7 +230,10 @@ const payFolds: Folds = {
   answers: {
     pay: (answer) =>
       Answer.$is("Fail")(answer) || Answer.$is("FailButLanded")(answer)
-        ? { retryAfterMs: answer.fields["retryAfterMs"] ?? 1000 }
+        ? {
+            retryAfterMs: answer.fields["retryAfterMs"] ?? 1000,
+            status: answer.fields["status"] ?? null,
+          }
         : statusOf(answer),
     intent: statusOf,
     order: (answer) => ({
