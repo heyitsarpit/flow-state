@@ -139,4 +139,16 @@ note 2026-11-11T15:20:00Z
     Task comments, numbers are in gates.json, findings in the reviews under proposals/. **Reverse:** restore the file
     from git.
 note 2026-11-11T15:30:31Z
-    compact-records' first run: STATUS.md retired into Task comments, log.task cut from 350 to 140 lines, coverage rows re-owned from merged Tasks; the skill gained five fixes from the run and the pin moved. **Reverse:** restore STATUS.md from git.
+    compact-records' first run: STATUS.md retired into Task comments, log.task cut from 350 to 140 lines, coverage rows 
+    re-owned from merged Tasks; the skill gained five fixes from the run and the pin moved. **Reverse:** restore 
+    STATUS.md from git.
+note 2026-11-11T15:32:15Z
+    Run started (the user's go, 2026-11-11, which lifts the 12:42 stop) at 0ddedbf8, pin workflow@55c7ab7, weekly usage 
+    58 percent of a 75 reserve. Current Task T45, resuming at its step 1 (o6 disposal catch). No live agents; first 
+    action: one Opus building lead on T45.
+note 2026-11-11T16:35:27Z
+    Decision (orchestrator, Spec delegation): a kill during disposal before the ending's batch lands falls under 
+    WriteAhead I17 (restore unknown { Restored }); Actors I36 holds only once the ending landed, since a boot cannot 
+    know an unsaved ending. T45's model follows I17 there and counts it as the search's Spec conflict; the I36 wording 
+    goes to the user's read. **Reverse:** model follows I36 and I17 gains the exception. Also: the T45 lead designs the 
+    expect half itself, as a proposal file reviewed by one Opus reviewing lead before code.
