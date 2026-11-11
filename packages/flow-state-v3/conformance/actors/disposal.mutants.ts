@@ -1,48 +1,23 @@
 import type { Mutant } from "../dsl/oracle.ts";
 
-const RESTORED_MAIL = "mail(tx, l, h, ending, true, !h.held);";
-
 /**
  * Wrong runtimes the disposal oracle must catch.
  *
  * **Details**
  *
- * - `lie.boot-says-disposed` and `lie.boot-drops-held` edit the prototype's boot, where a Held
- *   head's unknown { Restored } is queued for its actor: each drops a lane that was Held when an
- *   earlier Runtime disposal began.
  * - `mutant.disposal-skips-never-sent` leaves a never-sent commit unended by the disposal.
  * - `mutant.disposal-dispatches` also sends such a commit once its write lands.
  * - The `o6.*` ones edit the disposal's bound: `o6.dispose-interrupts-wire` interrupts the
  *   call on the wire at the start, `o6.no-bound` ends the disposal at once, and
  *   `o6.settled-in-bound-stays-held` keeps a definite in-bound ending's head Held;
- *   `mutant.short-disposal-bound` cuts the bound to 1 s, which a call that never answers shows.
+ *   `mutant.short-disposal-bound` cuts the bound to 1 s, which a call that never answers shows;
+ *   `mutant.bound-ending-wrong-tag` ends a call answered within the bound as the bound does, not
+ *   by its answer (T6 L7: I35's ending is its answer's, channel and reason).
  * - `id.dispose-drops-lanes` drops lanes at an actor's disposal, `mutant.disposal-hold-first`
  *   delivers the hold-leaving ending first, `mutant.disposal-rereads` sends a read during the
  *   disposal, and `1b.forget-marks-held-lane` marks a forgotten actor's Held lane releasing.
  */
 export const disposalMutants: ReadonlyArray<Mutant> = [
-  {
-    name: "lie.boot-says-disposed",
-    says: "a boot drops a Held head's restored ending and notes a disposal start instead",
-    expects: "Actors I29",
-    runtime: "prototype",
-    cases: ["PAY-15/dispose-held"],
-    edits: [
-      {
-        file: "durable.ts",
-        find: RESTORED_MAIL,
-        replace: `if (h.held) note(tx, "DisposeStart", {}); else ${RESTORED_MAIL}`,
-      },
-    ],
-  },
-  {
-    name: "lie.boot-drops-held",
-    says: "a boot drops a Held head's restored ending and says nothing",
-    expects: "Actors I29",
-    runtime: "prototype",
-    cases: ["PAY-15/dispose-held"],
-    edits: [{ file: "durable.ts", find: RESTORED_MAIL, replace: `if (!h.held) ${RESTORED_MAIL}` }],
-  },
   {
     name: "mutant.disposal-skips-never-sent",
     says: "the Runtime's disposal leaves a never-sent commit as it was, with no ending",
@@ -175,6 +150,21 @@ export const disposalMutants: ReadonlyArray<Mutant> = [
         file: "step.ts",
         find: "else setLane(tx, { ...l, parked: [] });",
         replace: "else setLane(tx, { ...l, parked: [], releasing: true as const });",
+      },
+    ],
+  },
+  {
+    name: "mutant.bound-ending-wrong-tag",
+    says: "a call the server answers within the disposal bound ends with the bound's unknown Disposed",
+    expects: "Actors I35",
+    runtime: "prototype",
+    cases: ["PAY-16/settled-during-disposal-parked"],
+    edits: [
+      {
+        file: "lane.ts",
+        find: '  const final: Ending =\n    ending.ch === "failure" && h.mayHaveApplied',
+        replace:
+          '  const final: Ending = tx.w.status === "disposing" ? { ch: "unknown", reason: "Disposed" } :\n    ending.ch === "failure" && h.mayHaveApplied',
       },
     ],
   },

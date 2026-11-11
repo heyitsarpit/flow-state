@@ -379,7 +379,8 @@ tasks
             **Read first:** code:workflow/plans/flow/references/proposals/suite-simplicity-review-2026-11-10.md
             (S1, S3 to S8, the patterns, and "Showing nothing got weaker"); @spec.Conformance;
             code:packages/flow-state-v3/conformance/dsl/oracle.ts;
-            code:packages/flow-state-v3/conformance/actors/disposal-ledger.ts.
+            code:packages/flow-state-v3/conformance/actors/disposal.ts (its ledger, `disposal-ledger.ts`, was
+            deleted at T7's step 6).
 
             **Approach:** in order, each landing alone with its gate: S5's attemptKey, write lookup and LaneId;
             S1 as a mechanical move, step bodies unchanged; S3, S4, S6, S7, and S8's runner items (not the adapter

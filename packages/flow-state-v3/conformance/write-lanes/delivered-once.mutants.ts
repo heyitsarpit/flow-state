@@ -2,6 +2,8 @@ import type { Mutant } from "../dsl/oracle.ts";
 
 const ADMIT = "  const a = getActor(tx.w.actors, item.actor);\n  const lane = tx.w.lanes[laneId];";
 
+const RESTORED_MAIL = "mail(tx, l, h, ending, true, !h.held);";
+
 const FAIL = 'item.ending.ch !== "success"';
 
 const SAME_MAIL =
@@ -58,6 +60,10 @@ const when = (condition: string, body: string) => `${ADMIT}\n  if (a && ${condit
  *   (S2 L5).
  * - `mutant.kept-retried-without-boot`: a kept ending's boot try, refused, is tried once more in
  *   the same boot (Actors R15, I24: one try per boot or adoption).
+ * - `lie.boot-says-disposed` and `lie.boot-drops-held` edit the prototype's boot, where a Held
+ *   head's decided `unknown { Restored }` is queued for its actor: each drops that mail, so the
+ *   restore ending is decided and never delivered (WriteLanes I15; the lane itself survives, so
+ *   not Actors I29).
  */
 export const deliveredOnceMutants: ReadonlyArray<Mutant> = [
   {
@@ -301,5 +307,27 @@ export const deliveredOnceMutants: ReadonlyArray<Mutant> = [
           "        mail(tx, l, h, ending, true, !h.held);\n        noteEnding(tx, { op: l.op, attempt: h.id }, ending);\n        mail(tx, l, h, ending, true, !h.held);",
       },
     ],
+  },
+  {
+    name: "lie.boot-says-disposed",
+    says: "a boot drops a Held head's restored ending and notes a disposal start instead",
+    expects: "WriteLanes I15",
+    runtime: "prototype",
+    cases: ["PAY-15/dispose-held"],
+    edits: [
+      {
+        file: "durable.ts",
+        find: RESTORED_MAIL,
+        replace: `if (h.held) note(tx, "DisposeStart", {}); else ${RESTORED_MAIL}`,
+      },
+    ],
+  },
+  {
+    name: "lie.boot-drops-held",
+    says: "a boot drops a Held head's restored ending and says nothing",
+    expects: "WriteLanes I15",
+    runtime: "prototype",
+    cases: ["PAY-15/dispose-held"],
+    edits: [{ file: "durable.ts", find: RESTORED_MAIL, replace: `if (!h.held) ${RESTORED_MAIL}` }],
   },
 ];

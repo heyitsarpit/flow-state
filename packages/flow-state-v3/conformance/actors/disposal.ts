@@ -1,215 +1,66 @@
-import { Data, Option } from "effect";
-import { disposalBoundMs, Fact, holdUse, oracle, violation } from "../dsl/oracle.ts";
+import { Data, Option, Predicate } from "effect";
+import { endingOf } from "../dsl/domain.ts";
+import { endingNamed } from "../dsl/lifecycle-lives.ts";
 import {
-  operationNamed,
-  type OperationReference,
-  type Reference,
-  unknownEvent,
-} from "../fixtures/reference.ts";
-import { type ActorRef, type Channel, type Ended, Observation, sameActor } from "../port.ts";
+  type AttemptLife,
+  LifeMove,
+  type Model,
+  Move,
+  Phase,
+  sameLane,
+} from "../dsl/lifecycle-model.ts";
+import type { LifeStep } from "../dsl/lifecycle-step.ts";
+import { disposalBoundMs, Fact, type InvariantId, oracle, violation } from "../dsl/oracle.ts";
+import { operationNamed, type Reference } from "../fixtures/reference.ts";
+import { type Channel, type Ended, type Json, Observation, sameActor, sameJson } from "../port.ts";
 import { type Answer, type Request, RequestPhase } from "../world/network.ts";
-import {
-  freshLedger,
-  type Ledger,
-  laneOfHead,
-  learn,
-  named,
-  onFirstSend,
-  openHeads,
-  type Owed,
-  unsent,
-} from "./disposal-ledger.ts";
-import { deliveredEvents, dropHeads, type Kept, keptFact, reportsAfter } from "./disposal-kept.ts";
-import { endingOf, sameLane } from "../dsl/domain.ts";
 
-type Ending = Pick<Ended, "channel" | "reason">;
+const GUARANTEE: ReadonlyArray<InvariantId> = [
+  "Actors I29",
+  "Actors I30",
+  "Actors I31",
+  "Actors I32",
+  "Actors I35",
+  "Actors I36",
+];
 
 type Answered = { readonly channel: Channel; readonly reason: Option.Option<string> };
 
 type Call = Data.TaggedEnum<{
   Open: {};
   Settled: { answer: Answered };
-  Done: { ending: Ending; settled: Option.Option<Answered> };
+  Done: {};
 }>;
 
 const Call = Data.taggedEnum<Call>();
 
-type CallMove = Data.TaggedEnum<{ Settle: { answer: Answered }; End: { ending: Ending } }>;
-
-const CallMove = Data.taggedEnum<CallMove>();
-
-const settledOf = (call: Call) =>
-  Call.$match(call, {
-    Open: () => Option.none<Answered>(),
-    Settled: ({ answer }) => Option.some(answer),
-    Done: ({ settled }) => settled,
-  });
-
-const callStep = (call: Call, by: CallMove) =>
-  CallMove.$match(by, {
-    Settle: ({ answer }) => (Call.$is("Open")(call) ? Call.Settled({ answer }) : call),
-    End: ({ ending }) => Call.Done({ ending, settled: settledOf(call) }),
-  });
-
-type Life = Data.TaggedEnum<{
-  Live: {};
-  Disposing: {
-    since: string;
-    held: ReadonlyArray<Owed>;
-    unsent: ReadonlyArray<Owed>;
-    calls: ReadonlyMap<string, Call>;
-    elapsed: number;
-  };
-}>;
-
-const Life = Data.taggedEnum<Life>();
-
-type Disposing = Data.TaggedEnum.Value<Life, "Disposing">;
-
-const callOf = (life: Disposing, id: string) => life.calls.get(id) ?? Call.Open();
-
-const moveCall = (life: Disposing, id: string, by: CallMove) =>
-  Life.Disposing({ ...life, calls: new Map(life.calls).set(id, callStep(callOf(life, id), by)) });
-
-const wire = (life: Disposing) => life.held.filter(onFirstSend);
-
-const endingOfCall = (life: Disposing, id: string) => {
-  const call = callOf(life, id);
-
-  return Call.$is("Done")(call) ? Option.some(call.ending) : Option.none();
+type Window = {
+  readonly since: string;
+  readonly elapsed: number;
+  readonly calls: ReadonlyArray<{ readonly life: AttemptLife; readonly call: Call }>;
 };
 
-type State = {
-  readonly reference: Reference;
-  readonly ledger: Ledger;
-  readonly kept: Kept;
-  readonly life: Life;
-};
+type State = { readonly reference: Reference; readonly window: Option.Option<Window> };
 
 type Context = {
   readonly reference: Reference;
   readonly requests: ReadonlyArray<Request>;
   readonly step: ReadonlyArray<Fact>;
+  readonly lives: LifeStep;
 };
 
-const restoredIn = (reports: ReadonlyArray<Observation>, { id }: Owed) =>
-  reports.some(
-    (o) =>
-      Observation.$is("Ended")(o) &&
-      o.channel === "unknown" &&
-      o.reason === "Restored" &&
-      Option.contains(o.attempt, id),
-  );
+const named = ({ id, lane }: AttemptLife) =>
+  `${lane.operation} ${id} of ${lane.actor.machine}/${lane.actor.id}`;
 
-const CHANNELS: ReadonlyArray<Channel> = ["success", "failure", "unknown"];
+const at = (window: Window) => `(at "${window.since}")`;
 
-const channelsOfEvent = (operation: OperationReference, event: string) => {
-  const events = {
-    success: [operation.success],
-    failure: Object.values(operation.failure),
-    unknown: Option.toArray(unknownEvent(operation)),
-  };
+const onWire = (life: AttemptLife) =>
+  Phase.$is("OnWire")(life.phase) || Phase.$is("Interrupted")(life.phase);
 
-  return CHANNELS.filter((channel) => events[channel].includes(event));
-};
-
-const deliveredAs = (reference: Reference, owed: Owed, event: string, channel: Channel) =>
-  Option.match(operationNamed(reference, owed.attempt.operation), {
-    onNone: () => true,
-    onSome: (o) => channelsOfEvent(o, event).includes(channel),
-  });
-
-const at = (life: Disposing) => `(at "${life.since}")`;
-
-const keptLane = (
-  reference: Reference,
-  life: Disposing,
-  reports: ReadonlyArray<Observation>,
-  owed: Owed,
-) => {
-  const events = deliveredEvents(reports, owed);
-  const parked = endingOfCall(life, owed.id);
-
-  const asParked = Option.exists(parked, (ending) =>
-    events.some((e) => deliveredAs(reference, owed, e, ending.channel)),
-  );
-
-  const asRestored =
-    restoredIn(reports, owed) && events.some((e) => deliveredAs(reference, owed, e, "unknown"));
-
-  return asParked || asRestored;
-};
-
-const survived = (
-  reference: Reference,
-  life: Disposing,
-  attached: (owner: ActorRef) => boolean,
-  reports: ReadonlyArray<Observation>,
-) => {
-  const dropped = life.held
-    .filter((o) => attached(o.attempt.owner) && !keptLane(reference, life, reports, o))
-    .map(
-      (o) =>
-        `Actors I29: ${named(o)} was Held or on the wire when the Runtime's disposal began ${at(life)}; the next boot re-attached its actor and delivered neither unknown Restored nor the ending the disposal parked for it (as that ending's event), so its lane did not survive the disposal`,
-    );
-
-  const vanished = life.unsent
-    .filter((o) => Option.isNone(endingOfCall(life, o.id)))
-    .map(
-      (o) =>
-        `Actors I29: ${named(o)} was minted and never sent when the Runtime's disposal began ${at(life)}, and the disposal reported no ending of it; a never-sent commit ends NotSent { Disposed }`,
-    );
-
-  return [...vanished, ...dropped];
-};
-
-const holdLeaving = (life: Disposing, reports: ReadonlyArray<Observation>, id: string) =>
-  Option.exists(endingOfCall(life, id), (e) => e.channel === "unknown") ||
-  reports.some(
-    (o) => Observation.$is("Ended")(o) && o.channel === "unknown" && Option.contains(o.attempt, id),
-  );
-
-const laneOfDelivered = (ledger: Ledger, life: Disposing, id: string) =>
-  Option.orElse(laneOfHead(ledger, id), () => {
-    const owed = [...life.unsent, ...life.held].find((o) => o.id === id);
-
-    const heads = ledger.heads.filter(
-      (h) =>
-        owed !== undefined &&
-        sameActor(h.lane.owner, owed.attempt.owner) &&
-        h.lane.operation === owed.attempt.operation,
-    );
-
-    const [only] = heads;
-
-    return heads.length === 1 && only !== undefined ? Option.some(only.lane) : Option.none();
-  });
-
-const holdLast = (ledger: Ledger, life: Disposing, reports: ReadonlyArray<Observation>) => {
-  const delivered = reports.flatMap((o) =>
-    Observation.$is("Delivered")(o) ? Option.toArray(o.attempt) : [],
-  );
-
-  return delivered.flatMap((id, index) => {
-    const lane = laneOfDelivered(ledger, life, id);
-
-    if (Option.isNone(lane) || !holdLeaving(life, reports, id)) return [];
-
-    const later = delivered
-      .slice(index + 1)
-      .filter(
-        (other) =>
-          other !== id &&
-          Option.exists(laneOfDelivered(ledger, life, other), (l) => sameLane(l, lane.value)),
-      );
-
-    return later.length === 0
-      ? []
-      : [
-          `Actors I31: the boot after the Runtime's disposal ${at(life)} delivered ${id}'s hold-leaving ending before ${later.join(", ")} of the same lane; the ending that leaves a hold comes last`,
-        ];
-  });
-};
+const moveCall = (window: Window, id: string, to: (call: Call) => Call) => ({
+  ...window,
+  calls: window.calls.map((c) => (c.life.id === id ? { ...c, call: to(c.call) } : c)),
+});
 
 const reasonSaid = (answer: Answered) =>
   Option.match(answer.reason, { onNone: () => "", onSome: (r) => ` ${r}` });
@@ -218,51 +69,58 @@ const endsAs = (answer: Answered, ended: Ended) =>
   answer.channel === ended.channel &&
   Option.match(answer.reason, { onNone: () => true, onSome: (r) => r === ended.reason });
 
-const cutShortOpen = (life: Disposing, owed: Owed, ended: Ended) => {
-  if (life.elapsed < disposalBoundMs)
+const cancelsOwn = (life: AttemptLife, ended: Ended) =>
+  Phase.$is("Interrupted")(life.phase) &&
+  ended.channel === "unknown" &&
+  ended.reason === "Cancelled";
+
+const cutShortOpen = (window: Window, life: AttemptLife, ended: Ended) => {
+  if (window.elapsed < disposalBoundMs)
     return [
-      `Actors I35: ${named(owed)} was on the wire when the Runtime's disposal began ${at(life)}; it ended ${ended.channel} ${ended.reason} ${life.elapsed} ms in, before its call settled and before the ${disposalBoundMs} ms bound`,
+      `Actors I35: ${named(life)} was on the wire when the Runtime's disposal began ${at(window)}; it ended ${ended.channel} ${ended.reason} ${window.elapsed} ms in, before its call settled and before the ${disposalBoundMs} ms bound`,
     ];
 
   if (ended.channel === "unknown" && ended.reason === "Disposed") return [];
 
   return [
-    `Actors I35: ${named(owed)} was still on the wire, unsettled, at the ${disposalBoundMs} ms disposal bound; it ends unknown { Disposed }, not ${ended.channel} ${ended.reason}`,
+    `Actors I35: ${named(life)} was still on the wire, unsettled, at the ${disposalBoundMs} ms disposal bound; it ends unknown { Disposed }, not ${ended.channel} ${ended.reason}`,
   ];
 };
 
-const cutShort = (life: Disposing, owed: Owed, ended: Ended) =>
-  Call.$match(callOf(life, owed.id), {
-    Done: () => [],
-    Settled: ({ answer }) =>
-      endsAs(answer, ended)
-        ? []
-        : [
-            `Actors I35: ${named(owed)} settled within the disposal bound, which its commit takes as ${answer.channel}${reasonSaid(answer)}; it ends by its own result, not ${ended.channel} ${ended.reason}`,
-          ],
-    Open: () => cutShortOpen(life, owed, ended),
-  });
-
-const unsettled = (life: Disposing) =>
-  wire(life).filter((o) => Call.$is("Open")(callOf(life, o.id)));
-
-const pastBound = (life: Disposing) =>
-  life.elapsed < disposalBoundMs
+const cutShort = (window: Window, life: AttemptLife, call: Call, ended: Ended) =>
+  cancelsOwn(life, ended)
     ? []
-    : unsettled(life).map(
-        (o) =>
-          `Actors I35: ${named(o)} was on the wire when the Runtime's disposal began ${at(life)} and is unsettled ${life.elapsed} ms in, past the ${disposalBoundMs} ms bound, with no ending; past the bound it ends unknown { Disposed }`,
+    : Call.$match(call, {
+        Done: () => [],
+        Settled: ({ answer }) =>
+          endsAs(answer, ended)
+            ? []
+            : [
+                `Actors I35: ${named(life)} settled within the disposal bound, which its commit takes as ${answer.channel}${reasonSaid(answer)}; it ends by its own result, not ${ended.channel} ${ended.reason}`,
+              ],
+        Open: () => cutShortOpen(window, life, ended),
+      });
+
+const unsettled = (window: Window) =>
+  window.calls.filter((c) => Call.$is("Open")(c.call)).map((c) => c.life);
+
+const pastBound = (window: Window) =>
+  window.elapsed < disposalBoundMs
+    ? []
+    : unsettled(window).map(
+        (life) =>
+          `Actors I35: ${named(life)} was on the wire when the Runtime's disposal began ${at(window)} and is unsettled ${window.elapsed} ms in, past the ${disposalBoundMs} ms bound, with no ending; past the bound it ends unknown { Disposed }`,
       );
 
-const endedEarly = (life: Disposing) =>
-  life.elapsed >= disposalBoundMs
+const endedEarly = (window: Window) =>
+  window.elapsed >= disposalBoundMs
     ? []
-    : unsettled(life).map(
-        (o) =>
-          `Actors I35: the Runtime's disposal ${at(life)} ended ${life.elapsed} ms in, while ${named(o)} was on the wire, unsettled and within the ${disposalBoundMs} ms bound; the disposal waits for it to settle or reach the bound`,
+    : unsettled(window).map(
+        (life) =>
+          `Actors I35: the Runtime's disposal ${at(window)} ended ${window.elapsed} ms in, while ${named(life)} was on the wire, unsettled and within the ${disposalBoundMs} ms bound; the disposal waits for it to settle or reach the bound`,
       );
 
-const settledIn = (life: Disposing, context: Context, request: Request, answer: Answer) => {
+const settledIn = (window: Window, context: Context, request: Request, answer: Answer) => {
   const answered = Option.flatMap(operationNamed(context.reference, request.operation), (o) =>
     endingOf(o, context.requests, request, answer),
   );
@@ -271,28 +129,26 @@ const settledIn = (life: Disposing, context: Context, request: Request, answer: 
 
   const settles =
     !RequestPhase.$is("Orphaned")(request.phase) &&
-    life.elapsed < disposalBoundMs &&
-    id !== undefined &&
-    wire(life).some((o) => o.id === id);
+    window.elapsed < disposalBoundMs &&
+    window.calls.some((c) => c.life.id === id);
 
-  return settles && Option.isSome(answered)
-    ? moveCall(life, id, CallMove.Settle({ answer: answered.value }))
-    : life;
+  return settles && id !== undefined && Option.isSome(answered)
+    ? moveCall(window, id, (call) =>
+        Call.$is("Open")(call) ? Call.Settled({ answer: answered.value }) : call,
+      )
+    : window;
 };
 
-const judged = (life: Life, found: ReadonlyArray<string>) => [life, found] as const;
-
-const reportedWhileDisposing = (life: Disposing, observation: Observation) => {
-  if (Observation.$is("RuntimeDisposed")(observation)) return judged(life, endedEarly(life));
+const reportedWhileDisposing = (window: Window, observation: Observation) => {
+  if (Observation.$is("RuntimeDisposed")(observation)) return [window, endedEarly(window)] as const;
 
   if (!Observation.$is("Ended")(observation) || Option.isNone(observation.attempt))
-    return judged(life, []);
+    return [window, []] as const;
   const id = observation.attempt.value;
-  const owed = wire(life).find((o) => o.id === id);
-  const found = owed === undefined ? [] : cutShort(life, owed, observation);
-  const ending = { channel: observation.channel, reason: observation.reason };
+  const found = window.calls.find((c) => c.life.id === id);
+  const broken = found === undefined ? [] : cutShort(window, found.life, found.call, observation);
 
-  return judged(moveCall(life, id, CallMove.End({ ending })), found);
+  return [moveCall(window, id, () => Call.Done()), broken] as const;
 };
 
 const invoked = (request: Request) =>
@@ -304,52 +160,28 @@ const stepName = (step: ReadonlyArray<Fact>) =>
     onSome: (stepped) => stepped.what,
   });
 
-const definiteHeads = (ledger: Ledger, life: Disposing) =>
-  ledger.heads.flatMap(({ lane, id }) => {
-    const owed = wire(life).find((o) => o.id === id);
-    const definite = Option.exists(settledOf(callOf(life, id)), (a) => a.channel !== "unknown");
+const opened = (context: Context) => {
+  const start = context.lives.applied.find((a) => Move.$is("DisposalStarts")(a.move));
 
-    return owed !== undefined && definite ? [{ lane, owed }] : [];
-  });
-
-const disposing = (ledger: Ledger, since: string) =>
-  Life.Disposing({
-    since,
-    held: openHeads(ledger),
-    unsent: unsent(ledger),
-    calls: new Map(),
+  return {
+    since: stepName(context.step),
     elapsed: 0,
-  });
-
-const withLife = (state: State, [life, found]: readonly [Life, ReadonlyArray<string>]) =>
-  [{ ...state, life }, found] as const;
-
-const endDisposal = (context: Context, state: State, life: Disposing, fact: Fact) => {
-  const after = context.step.slice(context.step.indexOf(fact) + 1);
-  const back = after.reduce(holdUse, state.ledger.uses);
-  const attached = (owner: ActorRef) => back.some(([actor]) => sameActor(actor, owner));
-  const reports = reportsAfter(context.step, fact);
-
-  const found = [
-    ...survived(context.reference, life, attached, reports),
-    ...holdLast(state.ledger, life, reports),
-  ];
-
-  const kept = dropHeads(state.kept, definiteHeads(state.ledger, life));
-
-  return [{ ...state, kept, life: Life.Live() }, found] as const;
+    calls: (start?.on.attempts ?? []).filter(onWire).map((life) => ({ life, call: Call.Open() })),
+  };
 };
 
-const whileDisposing = (context: Context, state: State, life: Disposing, fact: Fact) => {
-  const none = withLife(state, judged(life, []));
+const whileDisposing = (context: Context, window: Window, fact: Fact) => {
+  const none = [Option.some(window), []] as const;
+
+  const kept = ([w, broken]: readonly [Window, ReadonlyArray<string>]) =>
+    [Option.some(w), broken] as const;
 
   return Fact.$match(fact, {
     Stepped: () => none,
-    Requested: ({ request }) => withLife(state, judged(life, [invoked(request)])),
-    Answered: ({ request, answer }) =>
-      withLife(state, judged(settledIn(life, context, request, answer), [])),
-    Reported: ({ observation }) => withLife(state, reportedWhileDisposing(life, observation)),
-    Reloaded: () => endDisposal(context, state, life, fact),
+    Requested: ({ request }) => [Option.some(window), [invoked(request)]] as const,
+    Answered: ({ request, answer }) => kept([settledIn(window, context, request, answer), []]),
+    Reported: ({ observation }) => kept(reportedWhileDisposing(window, observation)),
+    Reloaded: () => [Option.none<Window>(), []] as const,
     Disposed: () => none,
     Forgot: () => none,
     Ensured: () => none,
@@ -357,110 +189,180 @@ const whileDisposing = (context: Context, state: State, life: Disposing, fact: F
     DisposingRuntime: () => none,
     Drove: () => none,
     Unstoppable: () => none,
-    Advanced: ({ ms }) =>
-      withLife(state, judged(Life.Disposing({ ...life, elapsed: life.elapsed + ms }), [])),
+    Advanced: ({ ms }) => kept([{ ...window, elapsed: window.elapsed + ms }, []]),
     Read: () => none,
   });
 };
 
-type Judged = readonly [State, ReadonlyArray<string>];
+type Judged = readonly [Option.Option<Window>, ReadonlyArray<string>];
 
 // RETURN_TYPE: a reducer's step; `reduce` needs the accumulator's declared type.
 const judgeFact = (context: Context, [was, so]: Judged, fact: Fact): Judged => {
-  const learned = { ...was, ledger: learn(was.ledger, context.reference, fact, context.requests) };
-
-  const [lived, found] = Life.$match(learned.life, {
-    Live: () =>
-      withLife(
-        learned,
-        judged(
-          Fact.$is("DisposingRuntime")(fact)
-            ? disposing(learned.ledger, stepName(context.step))
-            : learned.life,
-          [],
-        ),
-      ),
-    Disposing: (d) => whileDisposing(context, learned, d, fact),
+  const [window, found] = Option.match(was, {
+    onNone: () =>
+      Fact.$is("DisposingRuntime")(fact)
+        ? ([Option.some(opened(context)), []] as const)
+        : ([was, []] as const),
+    onSome: (w) => whileDisposing(context, w, fact),
   });
 
-  const [kept, more] = keptFact(context.reference, context.step, lived.ledger, lived.kept, fact);
-
-  return [{ ...lived, kept }, [...so, ...found, ...more]];
+  return [window, [...so, ...found]];
 };
 
-const start = (reference: Reference) => ({
-  reference,
-  ledger: freshLedger,
-  kept: [],
-  life: Life.Live(),
-});
+const leavesHold = (model: Model, index: number) => model.endings[index]?.channel === "unknown";
+
+const laneOfAttempt = (model: Model, attempt: Option.Option<string>) =>
+  Option.flatMap(attempt, (id) => Option.fromUndefinedOr(model.attempts.find((a) => a.id === id)));
+
+const holdLast = (lives: LifeStep) => {
+  const reload = lives.applied.findIndex(
+    (a) => Move.$is("Reload")(a.move) && a.on.mode === "disposing",
+  );
+
+  if (reload < 0) return [];
+
+  const delivered = lives.applied.slice(reload + 1).flatMap(({ move, on }) =>
+    LifeMove.$is("Delivered")(move)
+      ? Option.toArray(
+          Option.flatMap(laneOfAttempt(on, move.ending.attempt), (life) =>
+            Option.map(endingNamed(on, move.ending), (index) => ({
+              life,
+              index,
+              hold: leavesHold(on, index),
+            })),
+          ),
+        )
+      : [],
+  );
+
+  return delivered.flatMap((d, i) => {
+    const later = delivered
+      .slice(i + 1)
+      .filter((o) => o.index !== d.index && sameLane(o.life.lane, d.life.lane));
+
+    return !d.hold || later.length === 0
+      ? []
+      : [
+          `Actors I31: the boot after the Runtime's disposal delivered ${named(d.life)}'s hold-leaving ending before ${later.map((o) => o.life.id).join(", ")} of the same lane; the ending that leaves a hold comes last`,
+        ];
+  });
+};
+
+const inFlight = (life: AttemptLife) =>
+  Phase.$is("Held")(life.phase) || Phase.$is("Resending")(life.phase) || onWire(life);
+
+const UNBOUND = { disposeActor: "Actors I29", forget: "Actors I32" } as const;
+
+const releasedUnbound = (lives: LifeStep) =>
+  lives.applied.flatMap((a) => {
+    if (!Move.$is("Evidence")(a.move) || a.move.kind !== "Released") return [];
+    const id = a.move.attempt;
+    const life = a.on.attempts.find((x) => x.id === id);
+
+    const record = a.on.actors.find(
+      (x) => life !== undefined && sameActor(x.actor, life.lane.actor),
+    );
+
+    if (life === undefined || record === undefined || !inFlight(life)) return [];
+
+    if (record.record !== "disposeActor" && record.record !== "forget") return [];
+
+    return [
+      `${UNBOUND[record.record]}: ${named(life)} was Held or on the wire when the suite called ${record.record} on its actor, and the runtime released it before any ensure adopted the lane; ${record.record} keeps every lane that is not Idle`,
+    ];
+  });
+
+const uncertain = (row: Json) =>
+  Predicate.isObjectKeyword(row) &&
+  Object.entries(row).some(([k, v]) => k === "uncertain" && v === true);
+
+const readHeld = (context: Context) =>
+  context.step.flatMap((fact) => {
+    if (!Fact.$is("Read")(fact) || !Option.exists(fact.row, uncertain)) return [];
+
+    const newest = context.lives.after.attempts.findLast(
+      (a) =>
+        sameActor(a.lane.actor, fact.actor) &&
+        a.lane.operation === fact.operation &&
+        Option.match(a.lane.key, { onNone: () => true, onSome: (k) => sameJson(k, fact.key) }),
+    );
+
+    return newest !== undefined &&
+      Phase.$is("Gone")(newest.phase) &&
+      newest.phase.why === "settledInDisposal"
+      ? [
+          `Actors I36: ${named(newest)} ended definitely during the Runtime's disposal, and after the next boot its row reads uncertain, so its head stayed Held; a definite ending drops the head`,
+        ]
+      : [];
+  });
 
 /**
- * Disposal keeps every lane that is not Idle, invokes nothing from the Runtime's disposal on,
- * keeps the disposal's 5 s bound, and delivers a lane's hold-leaving ending last.
+ * The Runtime's disposal keeps every lane that is not Idle, invokes nothing from its start, keeps
+ * its 5 s bound, and delivers a lane's hold-leaving ending last; disposeActor and forget keep
+ * lanes. Read from the Case's one lifecycle fold, with views of its own: the window of calls on
+ * the wire, the clock and the server's log.
  *
  * **Details**
  *
- * - Nothing invoked: from the start of the Runtime's disposal to the next reload, the suite's
- *   server receives no request, write or read. A request the next boot makes is not counted.
- * - A Held lane kept through Runtime disposal: a lane whose newest Attempt the server received,
- *   with no definite answer (none yet, one its commit takes as unknown, or a definite failure
- *   after an unknown), no cancel the suite drove on it while waiting or Held and no `Released`
- *   evidence for it, is Held or on the wire when the disposal starts. At the next boot, each such
- *   lane whose owner the reload attaches (every owner of a minted write is attached at the end of a
- *   case) must deliver an ending of that Attempt: the ending the disposal parked for it, delivered
- *   as an event of that ending's channel, or unknown { Restored }.
- * - A queued commit kept: an Attempt minted and never sent when the disposal starts, with no
- *   ending yet, must end (NotSent { Disposed }) before the next reload.
- * - The bound: a call on the wire when the disposal starts (its request open at the server) is
- *   not ended before it settles or the clock reaches 5 s from the start; one the server answers
- *   before then ends with the ending its commit gives that answer (channel, and a failure's tag);
- *   a `Never` answer settles nothing; the disposal does not report its end while such a call is
- *   unsettled within the bound; once the clock reaches the bound, every such call still unsettled
- *   has ended unknown { Disposed } by the end of that step. The clock is the suite's own
- *   `Advanced` facts since the start.
- * - A definite head dropped: a call on the wire at the start that the server answered within the
- *   bound with what its commit takes as success or failure gets no unknown ending after the next
- *   reload, and a read of its lane's row then (`Read`) is not `uncertain`, until a new commit of
- *   that lane.
- * - The hold-leaving ending last: among the endings the boot after a Runtime disposal delivers for
- *   one lane, none follows one that leaves a hold (an unknown).
- * - disposeActor and forget keep lanes: a lane Held or on the wire when the suite disposes or
- *   forgets its actor is never reported `Released` before an ensure adopts the actor, and the
- *   adopting ensure delivers an ending of it when it was Held or settled while unbound (one still
- *   on the wire hears its ending when it lands).
+ * - The fold's refusals (`dsl/lifecycle-step.ts`): a never-sent commit left as it was when the
+ *   disposal ends (Actors I29, pending CQ6); an incarnation after a Runtime disposal or a
+ *   disposeActor that delivers a Held head neither `unknown { Restored }` nor its parked ending by
+ *   its step's end (Actors I29), and after a forget (Actors I32); `unknown { Disposed }` while the
+ *   Runtime is not disposing (Actors I35); `unknown { Restored }` of an Attempt that settled
+ *   during the disposal (Actors I36).
+ * - The window: the Attempts `OnWire` or `Interrupted` when the disposal starts. A call is open
+ *   until the server answers it (through `endingOf`) or it ends. Actors I35 is broken by a call
+ *   that ends before it is answered and before the bound, an ending that is not its answer's
+ *   (channel, and a failure's tag), a call still unsettled past the bound that ends other than
+ *   `unknown { Disposed }` or not by the step that reaches the bound, and `RuntimeDisposed` before
+ *   the bound while a call is open. An `Interrupted` call's own `unknown { Cancelled }` is the
+ *   cancel's ending, not the disposal's (WriteLanes R14). The clock is the suite's `Advanced`
+ *   facts since the start.
+ * - Nothing invoked (Actors I30): the server receives no request, write or read, from the start
+ *   of the Runtime's disposal to the next reload. A request the next boot makes is not counted.
+ * - The hold-leaving ending last (Actors I31): among the distinct endings the boot after a Runtime
+ *   disposal delivers for one lane, none follows one that leaves a hold (an unknown). A second
+ *   delivery of one ending is WriteLanes I15's.
+ * - A definite head dropped (Actors I36): after a call settled definitely during the disposal, a
+ *   read of its lane's row is not `uncertain` while it is the lane's newest Attempt.
+ * - disposeActor and forget keep lanes: a Held, re-sending or on-the-wire head of an unbound
+ *   actor is never reported
+ *   `Released` before an ensure adopts it (Actors I29, I32).
  *
  * **Gotchas**
  *
- * - Anchored to the suite's facts: its server's requests and answers, the fixtures' references
- *   (how a commit classifies an answer, its key fields, the events that cancel it, the events
- *   endings map to), its clock and the uses the suite holds. The rest are the runtime's reports:
- *   who committed an Attempt and that it was minted (`Minted`), when and how an Attempt ended
- *   (`Ended`), that a boot delivered an ending and its event (`Delivered`; a recorded ending does
- *   not count), that the disposal ended (`RuntimeDisposed`, its only public signal), and a row's
- *   `uncertain` field.
- * - A handler's own cancel (one not on an event the suite drove) is known only from the runtime's
- *   `Released` evidence, and a superseded commit from its `Superseded` evidence; whether such a
- *   release was anchored is `lane-queue`'s to judge.
+ * - The fold is shared with the other lifecycle oracles: a wrong cell is wrong for all of them,
+ *   caught by the lifecycle's traces and mutation test, and by the runtime mutants.
  * - Time is counted per step: an ending in the step that reaches the bound passes as at it, though
- *   the runtime may have decided it earlier in that step. A re-send on the wire when the disposal
- *   starts is not told apart from a Held head, so the bound is judged on first sends.
- * - The hold-last order is judged per lane where the lane is known: a head by its request, a
- *   never-sent commit by the one head lane of its actor's operation.
- * - A reload with no disposal before it judges nothing here; what a plain reload restores is the
- *   restore oracle's.
+ *   the runtime may have decided it earlier in that step.
+ * - An ending settled while its actor was unbound, owed at the adoption, is WriteLanes I15's
+ *   (`delivered-once`, T6 L11).
+ * - The read check takes the lane's newest Attempt at the step's end.
+ * - `HoldForgotten` (Actors R21): no fixture removes an operation, a stated limit.
  * - The end of a case re-attaches with `ensureExisting`, which reads as an adoption.
  */
 export const disposal = oracle({
   name: "disposal",
-  guarantee: ["Actors I29", "Actors I30", "Actors I31", "Actors I32", "Actors I35", "Actors I36"],
-  start,
-  step: (state: State, step: ReadonlyArray<Fact>, requests) => {
-    const context = { reference: state.reference, requests, step };
-    const initial: Judged = [state, []];
-    const [after, found] = step.reduce((acc, fact) => judgeFact(context, acc, fact), initial);
-    const late = Life.$match(after.life, { Live: () => [], Disposing: pastBound });
+  guarantee: GUARANTEE,
+  start: (reference: Reference) => ({ reference, window: Option.none<Window>() }),
+  step: (state: State, step: ReadonlyArray<Fact>, requests, lives) => {
+    const context = { reference: state.reference, requests, step, lives };
+    const initial: Judged = [state.window, []];
+    const [window, found] = step.reduce((acc, fact) => judgeFact(context, acc, fact), initial);
+    const late = Option.match(window, { onNone: () => [], onSome: pastBound });
 
-    return [after, [...found, ...late].map(violation)] as const;
+    const refused = lives.applied
+      .flatMap((a) => a.refusals)
+      .filter((r) => GUARANTEE.includes(r.invariant));
+
+    const views = [
+      ...found,
+      ...late,
+      ...holdLast(lives),
+      ...releasedUnbound(lives),
+      ...readHeld(context),
+    ];
+
+    return [{ ...state, window }, [...refused, ...views.map(violation)]] as const;
   },
 });
