@@ -51,6 +51,14 @@ const sendTraces: ReadonlyArray<Trace> = [
     refused: [],
     phases: { s: W, w: Q },
   }),
+  one({
+    name: "a re-send after its cancel",
+    cites: "WriteLanes R14, I12: a cancelled re-send returns to Held and is released (review L4)",
+    start: model(lane("A", ["s", RS], ["w", Q]), { obligations: [awaiting("s", "Released")] }),
+    move: Move.Send({ attempt: "s" }),
+    refused: [wl(12)],
+    phases: { s: RS, w: Q },
+  }),
   ...phased([
     ["a send while already on the wire", W],
     ["a send of an interrupted call", I],

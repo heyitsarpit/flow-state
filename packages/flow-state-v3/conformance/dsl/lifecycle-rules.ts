@@ -71,14 +71,17 @@ const each = (outcome: Outcome) => ({
  * **Gotchas**
  *
  * - Cells marked pending in the design follow the Spec as written until the user answers: the
- *   never-sent unknown (CQ5) and the never-sent commit at the disposal's end (CQ6).
+ *   never-sent unknown (CQ5), the never-sent commit at the disposal's end (CQ6) and the superseded
+ *   head's promotion (CQ7, in the promotion rule).
+ * - A re-send after a cancel in the same turn owes the head's release, so its send is WriteLanes
+ *   I12 (R14: it returns to Held and is released; review L4).
  */
 export const tableA: TableA = {
   Send: {
     ...each(refuse(1)),
     Queued: always(refuse(11)),
     Unsent: { open: to(Phase.OnWire()), cancelPending: refuse(20) },
-    Resending: always(to(Phase.OnWire())),
+    Resending: { open: to(Phase.OnWire()), cancelPending: refuse(12) },
     Held: always(refuse(12)),
   },
   EndDefinite: {

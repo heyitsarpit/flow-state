@@ -360,10 +360,13 @@ const onFact = (
     Forgot: ({ actor }) => pushed(walk, ActorMove.Forgot({ actor }), given),
     Ensured: ({ actor }) => ensured(walk, actor, given),
     Drove: ({ actor }) => ({ ...walk, used: [...walk.used, actor] }),
-    Unstoppable: ({ operation }) => ({
-      ...walk,
-      model: { ...walk.model, unstoppable: [...walk.model.unstoppable, operation] },
-    }),
+    Unstoppable: ({ operation }) =>
+      walk.model.unstoppable.includes(operation)
+        ? walk
+        : {
+            ...walk,
+            model: { ...walk.model, unstoppable: [...walk.model.unstoppable, operation] },
+          },
     Stepped: () => walk,
     Requested: () => walk,
     Answered: () => walk,
@@ -379,18 +382,10 @@ const ended = (walk: Walk, given: Rules) => {
   const stepped = pushed(settled, Move.StepEnds({ unstoppable: settled.model.unstoppable }), given);
 
   const [model, late] = due(stepped.model, "StepEnds", given);
-  const last = stepped.applied.at(-1);
+  const before = stepped.applied.slice(0, -1);
+  const last = stepped.applied.slice(-1).map((a) => ({ ...a, refusals: [...a.refusals, ...late] }));
 
-  return last === undefined
-    ? { ...stepped, model }
-    : {
-        ...stepped,
-        model,
-        applied: [
-          ...stepped.applied.slice(0, -1),
-          { move: last.move, refusals: [...last.refusals, ...late] },
-        ],
-      };
+  return { ...stepped, model, applied: [...before, ...last] };
 };
 
 /**

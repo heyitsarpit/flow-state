@@ -170,6 +170,11 @@ const evidenceGuard = (model: Model, life: AttemptLife, kind: "Released" | "Supe
 const guardOf = (model: Model, life: AttemptLife, move: Move) =>
   Move.$match(move, {
     Send: () => {
+      if (life.phase._tag === "Resending")
+        return owed(model, life.id, "Await").some((o) => o.report === "Released")
+          ? "cancelPending"
+          : "open";
+
       if (life.phase._tag !== "Unsent") return "always";
 
       return owed(model, life.id, "PendingCancel").length > 0 ? "cancelPending" : "open";
