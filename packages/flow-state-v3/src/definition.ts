@@ -296,9 +296,9 @@ export const definition = <
   const States extends ReadonlyArray<string>,
   const Ev extends Readonly<Record<string, EventFields>>,
   // RETURN_TYPE: the exported Definition keeps every literal type for S, E and O.
-  const In extends Readonly<Record<string, EventFields>>,
-  M extends MemoryConfig,
-  O extends Readonly<Record<string, Bound>>,
+  const In extends Readonly<Record<string, EventFields>> = Record<never, never>,
+  M extends MemoryConfig = MemoryConfig,
+  O extends Readonly<Record<string, Bound>> = Record<never, never>,
 >(
   config: DefinitionConfig<States, Ev, In, M, O>,
 ): Definition<States, Ev, In, M, O> => {

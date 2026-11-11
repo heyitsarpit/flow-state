@@ -1,4 +1,4 @@
-import { Context, Effect, Exit, Layer, Option, Predicate, Schema, Scope } from "effect";
+import { Context, Effect, Exit, Layer, Option, Predicate, Result, Scope } from "effect";
 import type { Values } from "../core/compiled.ts";
 import type { Evidence } from "../core/evidence.ts";
 import { rowOf, type Row } from "../core/rows.ts";
@@ -8,6 +8,7 @@ import type { AnyDefinition, Envelope, Machine, Operations } from "../definition
 import { FlowError } from "../error.ts";
 import { makeDriver, type Driver } from "./driver.ts";
 import { browserPlatform } from "./browser.ts";
+import { decodeJsonText } from "./json.ts";
 import { makeFibers } from "./fibers.ts";
 import { Host, type Platform } from "./host.ts";
 
@@ -167,38 +168,37 @@ export const constructOn = (
     fibers,
     persistence,
     captureMs: config.persistence?.captureMs ?? 5000,
+    // Inspection O3: a callback that throws detaches only itself; sinks never change a step.
     sink: (batch) => {
-      for (const e of batch) for (const sink of sinks) sink(e);
+      for (const e of batch)
+        for (const sink of sinks)
+          if (Result.isFailure(Result.try({ try: () => sink(e), catch: () => sink })))
+            sinks.delete(sink);
     },
   });
 
-  // FLOW_STATE_ALLOW_UNKNOWN: stored values are JSON text, parsed here and decoded by the core.
-  const parsed = (text: string) =>
-    Schema.decodeUnknownOption(Schema.fromJsonString(Schema.Json))(text);
-
-  const ready = () =>
-    Effect.gen(function* () {
-      if (config.services !== undefined) {
-        services = yield* Layer.buildWithScope(config.services, scope).pipe(
-          Effect.mapError(
-            (cause) => new FlowError({ code: "ServiceFailed", problems: [String(cause)] }),
-          ),
-        );
-      }
-
-      const loaded = yield* Option.match(persistence ? host.store : Option.none(), {
-        onNone: () => Effect.succeed(new Map<string, string>()),
-        onSome: (store) => store.load,
-      });
-
-      const stored = new Map(
-        [...loaded].flatMap(([k, v]) =>
-          Option.toArray(Option.map(parsed(v), (x) => [k, x] as const)),
+  const ready = Effect.fn("Runtime.ready")(function* () {
+    if (config.services !== undefined) {
+      services = yield* Layer.buildWithScope(config.services, scope).pipe(
+        Effect.mapError(
+          (cause) => new FlowError({ code: "ServiceFailed", problems: [String(cause)], cause }),
         ),
       );
+    }
 
-      driver.input(Input.Boot({ stored }));
+    const loaded = yield* Option.match(persistence ? host.store : Option.none(), {
+      onNone: () => Effect.succeed(new Map<string, string>()),
+      onSome: (store) => store.load,
     });
+
+    const stored = new Map(
+      [...loaded].flatMap(([k, v]) =>
+        Option.toArray(Option.map(decodeJsonText(v), (x) => [k, x] as const)),
+      ),
+    );
+
+    driver.input(Input.Boot({ stored }));
+  });
 
   return {
     ready,

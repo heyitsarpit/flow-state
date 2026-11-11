@@ -184,6 +184,7 @@ export default defineConfig({
           `${productionSource}/definition.ts`,
           `${productionSource}/machine.ts`,
           `${productionSource}/flow.ts`,
+          `${productionSource}/error.ts`,
           `${productionSource}/host/runtime.ts`,
           `${productionSuite}/machines/**/*.ts`,
         ],

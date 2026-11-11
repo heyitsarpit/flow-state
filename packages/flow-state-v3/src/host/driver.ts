@@ -1,4 +1,4 @@
-import { Cause, Clock, Context, Duration, Effect, Exit, Option, Schema } from "effect";
+import { Cause, Clock, Context, Duration, Effect, Exit, Option, Result, Schema } from "effect";
 import type { Values } from "../core/compiled.ts";
 import type { Evidence } from "../core/evidence.ts";
 import { CallResult, type Env, Input, type Machines, step } from "../core/step.ts";
@@ -80,7 +80,9 @@ export const makeDriver = (options: {
       Invoke: ({ call, machine, operation, input: given, attempt }) => {
         const op = machines.get(machine)?.operations.get(operation);
 
-        if (op === undefined) return;
+        if (op === undefined)
+          // oxlint-disable-next-line lint-bomb/no-throw-in-core -- unreachable from a valid Compiled: a call that never settles would hang its lane
+          throw new Error(`Defect: no operation ${machine}.${operation}`);
 
         const context = {
           attempt: Option.match(attempt, {
@@ -115,9 +117,7 @@ export const makeDriver = (options: {
       Persist: ({ scope, writes, ticket }) => edge.accept(scope, writes, ticket),
     });
 
-  const run = () => {
-    running = true;
-
+  const drainInbox = () => {
     for (let next = inbox.shift(); next !== undefined; next = inbox.shift()) {
       const env: Env = { now: clock.currentTimeMillisUnsafe(), seed: host.sessionSeed };
       const out = step(machines, world, next, env);
@@ -127,8 +127,18 @@ export const makeDriver = (options: {
 
       for (const command of out.commands) perform(command);
     }
+  };
 
+  // A defect in a step must not wedge the inbox: the loop is released before the defect is
+  // rethrown, so the next input runs.
+  const run = () => {
+    running = true;
+    const drained = Result.try({ try: drainInbox, catch: (defect) => defect });
     running = false;
+
+    if (Result.isFailure(drained))
+      // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a step's defect is rethrown to the caller at the host boundary, after the loop is released
+      throw drained.failure;
   };
 
   const input = (next: Input) => {

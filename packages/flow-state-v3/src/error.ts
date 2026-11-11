@@ -10,4 +10,6 @@ import { Data } from "effect";
 export class FlowError extends Data.TaggedError("FlowError")<{
   readonly code: "InvalidMachine" | "DuplicateMachine" | "ServiceFailed" | "InvalidEvent";
   readonly problems: ReadonlyArray<string>;
+  // FLOW_STATE_ALLOW_UNKNOWN: the failure Flow wraps, kept whole (an Effect error's standard field).
+  readonly cause?: unknown;
 }> {}
