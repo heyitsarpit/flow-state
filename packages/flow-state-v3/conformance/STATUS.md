@@ -429,6 +429,34 @@ finds no new-suite gap.
   server (8); a decline matched by operation (9). Rejected: `unknown` on `Await` is not derivable
   (10): `hearing` is cleared once the ending is heard, before the deadline reads it.
 
+### Rows round 2 (2026-11-11, the coordinator's calls on PF, I9, I14, I17, I18, I23, I27)
+
+Bottom line: I9, I14, I18 and I26 are checked, and I27 in part; I2, I17, I19, I23 and I24 are
+still T7's (next round's plan below).
+
+- I26: probe PF is now `lane.retry-members-dropped`; `lane-queue` owes a head re-sending since the
+  step began its send by the end of a step in which the store answered every held write (`ack`;
+  the Case now records `Acknowledged` on every `ack`, even with no Attempts). I9: a re-send that
+  carries an Attempt its lane never sent (`lane.retry-sends-another-attempt`). Both in
+  `write-lanes/resend.mutants.ts`.
+- I27: `ending-channels`' "an answered live send ends in its step" check now names I27 (its "a
+  call that settles gives its Attempt an ending"), with `lane.settled-without-ending`; the rest of
+  I27 is a remainder.
+- I14, I18: fixtures `Keyed` and `Held` (`fixtures/keyed.ts`, from `round15b.ts`), cases LANE-13
+  (a key-less cancel in a's success leaves b's lane alone) and LANE-14 (an input that cannot encode
+  declines `NotSent { Unencodable }` and the turn runs), checked by their own expectations with
+  `lane.keyless-names-latest-lane` and `lane.unencodable-refuses-turn`. Drafter (Haiku): accepted;
+  its open point (whether the bigint reaches the encoder) is settled by R12's "cannot encode".
+  Finding: no oracle catches the key-less cancel landing on the other key's lane (b ends
+  `unknown { Cancelled }` with the fold silent); only LANE-13's expectation does. Carried to T15's
+  audit.
+- Next round, as approved: I17 needs `Boot` to carry a fixture release (the old suite mutated a
+  `Release { v }` between boots; `keyStampFixture(rel)`, `round13.ts`), and a hand Schema per
+  release; I2, I19, I24 need a domain-write fixture (`p1TicketFixture`, `phase1e.ts`, or
+  `docsFixture`, `stores.ts`) and a Port read of entity data (the store is not on the Port); I23 an
+  oracle on late answers after a release, forget or interrupt (no delivery, no lane, no replacement
+  work), with a mutant at round-14's interrupted fence (`step.ts`, `turn.ts` `admitEnding`).
+
 ### Handover (2026-11-11, end of this lead's run)
 
 - Convergence on the WriteLanes oracles' phase state started (orchestrator): `lane-queue.ts`, `lane-model.ts`,
