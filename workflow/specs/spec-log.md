@@ -313,3 +313,87 @@ moves to Compile T6; Turn I18 takes I19's old-snapshot clause. The seven rewordi
   restorable record at a boot; under R1 a parked restore is on time, so they are pending probes now, red by
   case expectations, until an oracle checks WriteAhead I4. The production runtime keeps a Held lane's
   identity a record at the boot (src/core/incarnations.ts).
+
+## 2026-11-11, the replan's Spec passes (slice R and slice 1; idiomatic Effect)
+
+Two passes before coding resumes, under the user's acceptance of the replan (V3 log, 2026-11-11). Source:
+code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (parts 2 and 3),
+code:workflow/plans/flow/references/proposals/effect-simplification-2026-11-11.md and advisor Q1, Q2, Q10. The
+Spec lead, under the orchestrator's delegation. No Invariant's meaning changed; the guarantee changes found are
+listed last for the user. Reverse: revert this pass's Spec edits.
+
+**Pass 1, what slice R and slice 1 need.**
+
+- **WriteLanes model: the cell table.** The model pointed at the deleted machine-design 2.7.13 table, so
+  production had no table to write its lane from (advisor Q10, risk 4). The model now holds Phase (one tag per
+  history and wait: Idle, Kept, Acknowledging, Unsent, Withdrawing, Recapturing, Resending, OnWire, Cancelling,
+  Held), Displaced, Promote and one cell per (phase, input), each citing its Requirement. Readings chosen where
+  the Requirements meet: a Cancelling head ends unknown { Cancelled } whatever its exit (I20, over the old
+  design's "the real ending if it had already settled"); latest does not supersede a Withdrawing head (R14 over
+  R7's "never-invoked head"); disposal ends a Withdrawing head NotSent { Disposed } (Actors R22). New Q5: a
+  cancel-policy commit on a Kept lane, and a kept unknown on a Held head, have no ruling; slice 1 rules them.
+- **WriteLanes composition.** Production's lane is one total function from that table, and reports an act
+  determines (Minted, Sent, endings) are derived once per step by evidenceOf; Turn parts and members stay
+  written (@task.V3.T51, advisor Q10 risk 1). Turn's production note points at it.
+- **Reads R6.** A lookup's context carries no Attempt (@plan.Operations.O1's lookup(input, ctx); only a commit
+  has one). The replan's T51 removes the made-up Attempt (`host/driver.ts`).
+- **Conformance R15 to R23, I45 to I67, Q15, Q16, T29 to T44.** Parts as data modules with four readers and a
+  reference derived from `Compiled`, hand cases frozen (R15); feature codes declared by parts and adapters, only
+  declared codes drawn (R16); the matrix gate, "owed by slice N" or a failure (R17); the combination gate, pairs
+  from the channel table enforced, triples reported (R18); the Spec model, its five limits, the generic compare
+  and model mutation (R19); obligations from suite facts only (R20); the liar gate (R21); round-14 as a mutant
+  host with a verified limits list and production as the default runtime (R22); the bench replay's work
+  fingerprint (R23). Widened, same ids: R1 (the adapter's listed seam, I45), R4 (a part's derived reference), R5
+  (the model is not an implementation), R8 (a script's seed), R14 (hand cases and generated runs).
+
+**Pass 2, idiomatic Effect.** Each change removes a hand-rolled design or a parallel abstraction from the text.
+
+- Turn and Actors composition: the driver's own fibers and a Clock "over host timers" become keyed fibers in
+  one FiberMap owned by the Runtime's Scope, sleeping on Effect's Clock and Scheduler (T43 R1). Actors R4's
+  reverse-order release is the services Layer's finalizers in that Scope; R8's grace is on the Effect Clock.
+- Actors composition, a code gap found (not a Spec change): R22 wants the core's disposal before the Scope
+  closes; today `dispose` closes the driver and then the Scope, skipping it. Marked proposed in the note.
+- WriteAhead R12: the batch "answers landed" protocol is an Effect that succeeds when the batch landed and fails
+  with a typed refusal; an interrupted write is unanswered, as R12's pending rule already reads. Composition: the
+  capture wait is a FiberMap sleep and an urgent batch a Scheduler yield (T43 R4, R8). New Q4: R2's KeyValueStore
+  has no batch, so R2 and R12 cannot both hold over it; slice 2 settles the store service.
+- Diagnostics R1, R2, R8: FlowError is one Data.TaggedError; Diagnostic one Schema.TaggedError class, so the
+  error and its codec are one declaration; R8's classification names Cause.hasDies and Cause.hasFails.
+- WriteLanes T19: the callback-era "adapter that never answers" is a commit Effect that never completes, one
+  that succeeds and one that fails with a tagged failure.
+- StaticCli composition: the CLI is one Effect program under the platform's runMain; failure classes are tagged
+  errors mapped to exit codes once, temporary files are scoped resources, and signals interrupt.
+- Conformance R1, I31: the world's "hosts" cross as Effect services (a virtual-time Clock, the page's Scheduler,
+  the Host service with the store wrapped once as Effects). R9: one Schema codec writes and reads the machine
+  form.
+
+**Sidecars (four Haiku, effort high, read-only; each finding checked against the Spec and effect 4.0.5).**
+Accepted: Turn's host-timer Clock, Actors' driver fibers and Layer release, Diagnostics' Error class and Cause
+fold, WriteLanes T19, WriteAhead's store protocol and its KeyValueStore gap (no batch in
+`effect/src/persistence/KeyValueStore.ts`), StaticCli's signals and temp files, Conformance's host bag and
+decoders. Rejected: FiberMap, Latch, Queue, RcMap, SubscriptionRef or Cache for schedules, mailboxes, uses,
+snapshots and shared lookups, since the core decides each as data that replays (the audit's "Schedule at the
+host" and "PubSub and Queue" rejections); `Effect.timeout` for the suite's case bound, since the world is
+synchronous; ManagedRuntime and a Result-returning codec, which are public-API calls (C6); Codec R4's "no raw
+Cause escapes", a safety rule FlowError's in-process cause already meets; Compile R18 as a Layer, since context
+providers are actors. Changed: StaticCli R12's package-instance rule stays for slice 6's C15.
+
+**Guarantee changes for the user (not made).**
+
+- Compile R16 and I15: production holds `sameMemory` (Schema.toEquivalence) on `Compiled`, and T43 R2 compiles
+  codecs there; these are neither Slots nor a Schema's own filters, so I15 as written refuses them. Widen R16 and
+  I15 to "functions Flow derives from a Schema", or keep them beside `Compiled`.
+- Reads: an Invariant that no lookup's context carries an Attempt (R6 now says so without one).
+
+**Owed, by slice (the replan's part 2; each written when its slice starts).**
+
+- 1 (@task.V3.T18): WriteLanes Q5; otherwise check WriteLanes against building.
+- 2 (@task.V3.T19, @task.V3.T20): WriteAhead R2's KeyValueStore Invariant and Q4; `previous: [{ key }]` holds
+  against Restore R6; a host store section (in memory now, IndexedDB's Safari rules in slice 9).
+- 3 (@task.V3.T17): Compile M05, M06, M13, M19, M21, M22, M39 to M41 and Invariants for R10, R13, R14; Turn's
+  history and snapshot-shape Invariants, M44, M59; Diagnostics' multi-violation errors.
+- 4 (@task.V3.T9): Actors R11's rule, R14's and R19's Invariants.
+- 5 (@task.V3.T21): Reads' lifted Q2 section and the R8 Invariant.
+- 6 (@task.V3.T22): StaticCli C13 and C15.
+- 7 to 10: Streams, Entities, MultiTab and Lazy, Inspection and Testing (new Specs); then React and
+  ServerRendering (P6) and Package (P10).

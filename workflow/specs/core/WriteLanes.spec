@@ -235,15 +235,82 @@ open
         outcome  Phase 4 builds the seeded mint; phase 3 writes the wrong runtime, a counter that 
                  collides across two devices.
 
-model
-    Lane = (identity with version, contract id, key) -> { state, head?, W }.
+    Q5  The cell table (model) has no ruling for a cancel-policy commit on a Kept lane (no head, a kept ending 
+        standing), nor for a kept unknown whose head is still Held.
+        outcome  Slice 1 (@task.V3.T18) rules both before it builds the cancel policy; until then those cells are
+                 open and no fixture drives them.
 
-    State = Idle | InFlight | Held.
+model
+    Lane = (identity with version, contract id, key) -> { phase, W, displaced, mode }. mode is Delivering, or
+        Releasing after R16's release. A lane in phase Idle is not stored.
+
+    State = Idle | InFlight | Held (R6). InFlight is every Phase from Acknowledging to Cancelling; Kept is a
+        non-Idle lane with no head.
 
     Head = the addressable Attempt: the one retry and cancel name.
 
-    Cell = (lane state, member or ending) -> next state, endings, evidence; the table of 
-        machine-design 2.7.13.
+    Phase = where the head stands, one tag per history and wait, never a flag:
+        - Idle: no head, W empty, no kept ending;
+        - Kept: no head; a kept ending (Actors Spec R15) blocks the key, and W waits;
+        - Acknowledging: never sent; its acknowledgement batch is out (WriteAhead Spec R13);
+        - Unsent: never sent; acknowledged or not persisted; waits for its turn's end and record queues;
+        - Withdrawing: never sent; a cancel came while it was Acknowledging and waits for storage (R14);
+        - Recapturing: sent before; its re-send waits for the lane record's capture;
+        - Resending: sent before; its re-send waits for its turn's end and record queues;
+        - OnWire: invoked, with no ending yet;
+        - Cancelling: on the wire, and interrupted by a cancel;
+        - Held: its last ending is a retained unknown, and it is not on the wire.
+
+    Displaced = an earlier Attempt the cancel policy replaced while it waited or was on the wire. Its ending is
+        delivered when a cancel was pending on it (Withdrawing, Cancelling), and is evidence otherwise (R7, R10).
+
+    Promote = W's head becomes the head, minted as Acknowledging when its identity persists, else Unsent; with W
+        empty the lane goes Idle. While a kept ending stands, promote goes Kept instead (R8). An unknown, a retry
+        and a restore never promote.
+
+    Cell = lane(phase, input) -> phase, endings, evidence: one total function. Every (phase, input) pair below has
+        exactly one cell; a pair marked impossible is a defect in Flow. The declines R11 and R12 give under every
+        policy (OldVersion, Unencodable, NoPersistence) come before the cell. A boot rebuilds lanes from records
+        (Restore Spec R3), not through cells. By input:
+        - commit under reject: Idle mints; every other phase declines NotSent { Rejected } (R7).
+        - commit under latest: Idle mints; Acknowledging and Unsent queue it, end the head Superseded (evidence)
+            and promote; every other phase queues it, ending a queued commit Superseded. Withdrawing's head is not
+            superseded, since a pending cancel is never lost (R7, R8, R14).
+        - commit under serialize: Idle mints; every other phase appends it to W, and past 64 it declines NotSent {
+            Overloaded } (R7).
+        - commit under cancel: Idle mints; Kept is open (Q5). Acknowledging and Unsent end the head Superseded
+            (evidence); Recapturing, Resending and Held release it (evidence Released); OnWire interrupts it and
+            displaces it, its ending evidence; Withdrawing and Cancelling displace it with its ending owed. In each,
+            the commit then mints (R7, R14).
+        - retry: Held goes Recapturing when its identity persists, else Resending, and the re-send is owed (I26);
+            Idle and Kept give evidence NothingToResend; every other phase gives evidence InFlight (R8).
+        - cancel: Idle does nothing and gives no ending; Kept lets the kept ending go (a recorded letGo) and
+            promotes; Acknowledging goes Withdrawing; Unsent ends NotSent { Cancelled } and promotes; Recapturing,
+            Resending and Held are released (evidence Released) and promote; OnWire is interrupted and goes
+            Cancelling; Withdrawing and Cancelling stay (R14).
+        - cancelAll: W's commits end NotSent { Cancelled } in admission order; then the head acts as under cancel,
+            except that nothing is promoted (R15).
+        - invoked, after the turn with every wait met: Unsent and Resending go OnWire, and a re-send adds one to
+            retryCount; impossible elsewhere (R5, R8).
+        - stored, its batch landed: Acknowledging goes Unsent; Recapturing goes Resending; Withdrawing ends NotSent
+            { Cancelled } and promotes; impossible elsewhere (R14; WriteAhead Spec R13).
+        - refused, its batch refused: Acknowledging and Withdrawing end NotSent { StorageRefused } and promote;
+            Recapturing goes Held and delivers unknown { StorageRefused }; impossible elsewhere (WriteAhead Spec
+            R13).
+        - success or failure: OnWire delivers it and promotes; Cancelling ends unknown { Cancelled } instead and
+            goes Held (I20); impossible elsewhere (R2).
+        - unknown, an interruption included: OnWire delivers it and goes Held; Cancelling ends unknown { Cancelled
+            } and goes Held; impossible elsewhere (R2, R14).
+        - the turn of a not-retained unknown ends (R4): Held is released (evidence Released) and promotes; nothing
+            elsewhere.
+        - a kept ending is heard or let go: Kept promotes; nothing elsewhere.
+        - release on leave (R16): mode goes Releasing; W's commits end as evidence; OnWire goes Cancelling; other
+            phases stay; later endings apply to the lane and store as evidence.
+        - Runtime disposal starts (Actors Spec R22): Acknowledging, Unsent and Withdrawing end NotSent { Disposed
+            }; Recapturing and Resending go Held; W's commits end NotSent { Disposed }; OnWire, Cancelling, Held, Kept
+            and Idle stay.
+        - the disposal bound passes: OnWire and Cancelling end unknown { Disposed } and go Held; nothing elsewhere. 
+            Where a lane's endings are parked together, the one that leaves a hold comes last (Actors Spec R22).
 
     Delivered = for an Attempt a, the endings of a delivered to an incarnation, parked endings 
         counted once.
@@ -338,17 +405,20 @@ invariants
 
 composition
     flow
-        Design note, proved by the prototype. The lane is the 2.7.13 table as data: a row (lane
-        state) and a column (phase, with "by history" as one bit) pick one action, and a pair
-        the table says cannot occur raises an issue
+        Design note, proved by the prototype. The lane is a table as data: a row (lane state)
+        and a column (phase, with "by history" as one bit) pick one action
         (packages/flow-state-v3/prototypes/round-14/lane.ts). The commit fiber's Exit is
         classified in the driver, outside the fiber (round-14/driver.ts).
 
-        Production (T16, proposed): a lane's head carries a Phase variant (src/core/world.ts):
-        Acknowledging and Recapturing wait on a storage ticket, Ready waits to be invoked after
-        the turn, OnWire names its call, Held is a retained unknown; the lane is InFlight in every
-        phase but Held. Parked and kept endings live in the world's parked map by lane id, kept
-        ones with one try per boot or adoption. Only reject concurrency is built.
+        Production (@task.V3.T51, proposed): `lane(phase, input)` is one total function written
+        from the cell table in `model`, an exhaustive match over Phase and the input, so a new
+        policy adds cells, not branches. Phase variants replace the head's `sent` and
+        `cancelled` flags and the ending booleans; a lane's id and key text are derived, never
+        stored. Reports an act already determines are derived from it once per step, not written
+        beside it: evidenceOf(before, input, after, commands) gives Minted for a new Attempt,
+        Sent for an Invoke and each ending from the mail. Turn parts and members, which no act
+        determines, stay written. Parked and kept endings live in the world's parked map by lane
+        id, kept ones with one try per boot or adoption. Only reject concurrency is built.
 
 coverage
     @R1
@@ -377,7 +447,7 @@ coverage
 
     @R7
         enforced_by  [@I8]
-        open_by      [@Q1]
+        open_by      [@Q1, @Q5]
 
     @R8
         enforced_by  [@I1, @I11, @I12, @I26, @I27]
@@ -475,9 +545,10 @@ tests
     T18  Ids across devices: two Runtimes with different session seeds, each on its own storage, mint writes to one 
          fake server keyed by Attempt id; no id repeats, and replaying one Runtime with its seed gives the same ids. 
          Phase 3 writes the wrong runtime of Q4. [@I6]
-    T19  Definite endings come from answers: a fake adapter that never answers, one that answers success and one that 
-         answers a failure tag; a success or author failure is delivered only for the two that answered, and a runtime 
-         that turns a missing answer into a failure is caught. Phase 3 writes the wrong runtime. [@I25]
+    T19  Definite endings come from answers: a commit whose Effect never completes (`Effect.never`), one that succeeds 
+         and one that fails with a tagged failure; a success or author failure is delivered only for the two that 
+         answered, and a runtime that turns a missing answer into a failure is caught. Phase 3 writes the wrong 
+         runtime. [@I25]
     T20  An owed retry re-sends: retry on a Held lane, with and without a later cancel in the same turn and with a 
          refused re-send capture; the adapter spy sees exactly one re-send with the same id only in the first case. 
          Phase 3 writes the wrong runtime that drops the re-send. [@I26]

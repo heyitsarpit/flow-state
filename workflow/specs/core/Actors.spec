@@ -40,7 +40,8 @@ requirements
     R4  Bootstrap failure and early calls
         source  @plan.Runtime.O2.
         must    A service acquisition failure fails ready() with FlowError and its Cause, releases
-                what was acquired in reverse order, and leaves no actor or evidence. Before ready
+                what was acquired in reverse order (the services Layer is built in the Runtime's
+                Scope, so its finalizers do this), and leaves no actor or evidence. Before ready
                 succeeds, `ensureActor` and `createActor` reject with RuntimeNotReady.
 
                 A send to a persisted actor before boot queues until boot within the boot bound;
@@ -75,9 +76,9 @@ requirements
 
     R8  The end
         source  @plan.Runtime.O3.
-        must    A shared actor free of uses and work in flight for the grace (100 ms on the Runtime
-                Clock) ends at the grace's end: a persisted actor's record is encoded in that step (the end waits while
-                it cannot encode), its lanes move to the Runtime unbound, its schedules are
+        must    A shared actor free of uses and work in flight for the grace (100 ms on the Runtime's
+                Effect Clock) ends at the grace's end: a persisted actor's record is encoded in that
+                step (the end waits while it cannot encode), its lanes move to the Runtime unbound, its schedules are
                 cancelled, its placements and unkept reads stop, and each stopped read parks failure
                 { Interrupted } for the identity.
 
@@ -385,8 +386,14 @@ composition
         input and an environment (time, ids); it returns the next world, at most one publication and
         commands (packages/flow-state-v3/prototypes/round-14/step.ts).
 
-        One impure driver owns the loop, the inbox and the fibers, and turns commands into Effects
-        (round-14/driver.ts). Lifetime, the grace and the send table are decided in the step, so the
+        One impure driver owns the loop and the inbox, and turns commands into Effects
+        (round-14/driver.ts). In production (src/host/) the inbox stays one synchronous loop,
+        since Inspection O3 delivers at the end of each step; the fibers are a FiberMap owned by
+        the Runtime's one Scope, which also holds the services Layer, so closing it interrupts
+        every call and releases every service. Proposed: dispose runs the core's disposal (R22, its
+        bound included) before it closes the Scope, so an interrupt there settles into a closed
+        core; today dispose closes the driver and then the Scope, skipping the core's disposal.
+        Lifetime, the grace and the send table are decided in the step, so the
         conformance suite's lifetime wrong runtimes all edit step.ts.
 
 coverage

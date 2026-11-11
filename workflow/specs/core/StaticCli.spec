@@ -187,6 +187,14 @@ composition
         view only, so they need no Runtime and report callbacksRun: 0 on every fixture
         (packages/flow-state-v3/prototypes/round-14/cli/check.ts, pins in round-14/cli/main.ts).
 
+        Production (@task.V3.T22, proposed): the CLI is an edge, so it is one Effect program run
+        by the platform's runMain. R8's failure classes are tagged errors in the typed error
+        channel, mapped to exit codes once at the entry; R13's temporary files are scoped
+        resources (acquireRelease), and runMain turns SIGINT and SIGTERM into interruption, so
+        their finalizers run with no signal handler of Flow's own. Output goes through Effect's
+        Stdio and Console services. @effect/platform-node is installed at a release candidate
+        older than effect; the slice pins a matching pair first.
+
 coverage
     @R1
         enforced_by  [@I4]

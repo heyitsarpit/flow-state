@@ -16,10 +16,20 @@ basis         A guide for the conformance suite's own contract: what a verdict o
               renumbered. Added: R14, I40 to I44, Q14, T28. Widened from runtime cases to both kinds, with
               the same id: R1, R2, R3, R6, R7, R8, R9, R10, R11, I2, I5, I12, I16, I18, I21, I22, I32, I35;
               "seed" became "run" where a static case has none.
+
+              Replan (2026-11-11, the user's acceptance of
+              code:workflow/plans/flow/references/proposals/replan-2026-11-11.md): composite parts are data
+              modules read by the generator, the Spec model, the player and the benchmark replay (R15, R23);
+              feature codes, the feature matrix and the combination gate (R16 to R18); the Spec model computes
+              expected results, compared with reports (R19); obligations read suite facts only, and the liar
+              gate proves it (R20, R21); round-14 is a mutant host for the frozen hand cases (R22). Added: R15
+              to R23, I45 to I67, Q15, Q16, T29 to T44. Widened, with the same id: R1, R4, R5, R8, R9, R14, I31.
 location      packages/flow-state-v3/conformance
 provides      Port, Boot, Runtime, Observation, Oracle, static surfaces, mutants (`Lie` until the rename),
-              case verdicts, mutant verdicts, the runner's suite and falsify modes
-derives_from  [@task.V3.T4]
+              case verdicts, mutant verdicts, the runner's suite and falsify modes, composite parts, scripts,
+              the generator, the Spec model, the feature matrix, the combination gate, the limits list, the
+              liar gate and the bench replay
+derives_from  [@task.V3.T4, @task.V3.T45, @task.V3.T47]
 
 requirements
     R1  Public behaviour only
@@ -34,9 +44,16 @@ requirements
                 the runtime only through public results (a snapshot, an operation's public row) and public
                 reports in the core Specs' vocabulary. Every data value crossing the Port (payloads, inputs,
                 keys, memory, rows, Observation fields) is JSON, or a Schema value whose encoded form is JSON
-                (an `Option` field). The only functions crossing it are the world's hosts and the report
-                sink that `Boot` hands the runtime. No lane cell, mint counter, frame, wait, replay, storage
-                key spelling or disk encoding crosses it.
+                (an `Option` field). Besides data, only the world's hosts cross it, as Effect services: a
+                Clock over the world's virtual time whose sleeps are world timers, the page's Scheduler, and
+                the Host service, whose store wraps the world's held storage answers once as Effects. The
+                report sink that `Boot` hands the runtime is the only other function. No lane cell, mint
+                counter, frame, wait, replay, storage key spelling or disk encoding crosses it.
+
+                A production adapter reaches its runtime only through the package's public entry and a
+                listed seam (advisor Q8 in
+                code:workflow/plans/flow/references/proposals/advisor-answers-2026-11-11.md), which a lint
+                enforces.
 
                 A static case reads its surface only through the public results its core Spec names:
                 `Compiled`, `Diagnostic` and `FlowError` values, the codec's bytes and decoded values, and
@@ -87,7 +104,8 @@ requirements
                 (code:packages/flow-state-v3/conformance/dsl/oracle.ts#Oracle).
         must    Every Observation is the runtime's claim. An oracle judges each report against a fact the
                 suite owns: what it drove, what its fake world received or answered, or a fixture's
-                hand-written reference. A check that only compares reports with each other says so in its
+                reference: hand-written for a hand fixture, derived from the machine's `Compiled` for a
+                composite part (R15). A check that only compares reports with each other says so in its
                 doc comment.
 
                 Oracles exist in runtime cases only (R14). A case expectation, in either kind, is a value
@@ -110,6 +128,9 @@ requirements
                 without running any implementation. Output recorded from an implementation is never an
                 expected result; it serves only as a change detector, labelled as one. An expectation
                 carried over from the old suite counts only when its cited rule gives the same value.
+
+                The Spec model (R19) is suite code written from the Specs, not an implementation: a value it
+                computes from a script and the fixture's source is derived from the rule and that source.
 
     R6  Every check has a mutant it kills
         source  skill:policy-verification#prove; README decision 5; the P3 gate "falsify, which rejects the
@@ -179,6 +200,9 @@ requirements
                     the world seed, distinct per page;
                 - a static case that generates inputs runs under one or more fixed input seeds; a static
                     case over a fixed input has one run. Each run gets a fresh copy of its fixture's project.
+                - a generated run is a function of its script, and the script a function of its part or app
+                    mix, its profile and one integer seed, which fixes the generator, the world seed and the
+                    session seeds.
 
                 Every case runs under a time bound of its own, in every runner mode, in process or split.
                 The bound is the one wall-clock read: a case that overruns it gets a defect (R9), never a
@@ -200,10 +224,10 @@ requirements
 
                 No requested case is absent from the verdicts, and none without a check's pass is a pass.
 
-                The machine form is one line, `VERDICTS ` followed by the JSON array, decoded with a Schema;
-                each item a stated failure names is a field of it, not only text. The human form is one line
-                per case and a final `VERDICT pass|fail <passed>/<total>`. A runner run with any non-pass
-                verdict, or with no case, exits non-zero.
+                The machine form is one line, `VERDICTS ` followed by the JSON array, written and decoded
+                by one Schema codec; each item a stated failure names is a field of it, not only text. The
+                human form is one line per case and a final `VERDICT pass|fail <passed>/<total>`. A runner
+                run with any non-pass verdict, or with no case, exits non-zero.
 
                 Decision (agent, 2026-11-09): a defect is its own verdict kind (`Defect`, proposed name),
                 apart from a stated failure, and covers wall-clock overruns as well as thrown defects. Why:
@@ -279,9 +303,136 @@ requirements
                 | Mutants (R6)    | each runtime under test                   | each surface implementation under test |
                 | Time bound (R8) | own, every runner mode                    | own, every runner mode                 |
 
+                A runtime case is a hand case (a scenario module) or a generated run, the replay of a script
+                (R15).
+
                 A runtime case's steps are its numbered `Stepped` entries; each check it makes happens at
                 one: an oracle at the step it judges, an expectation at the last step taken before the
                 expectation is checked.
+
+    R15  Fixtures are data modules
+        source  The replan (code:workflow/plans/flow/references/proposals/replan-2026-11-11.md, "How the change
+                flows" and its questions 1, 5 and 6, accepted 2026-11-11); the fixture catalogue's "One fixture
+                module" (code:workflow/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md); @task.V3.T47.
+        must    A composite part is one module: a machine written in the production public API, a user model
+                (per leaf state, weighted next actions with think times) and a server model (an answer per
+                operation). Its reference (events, states, handlers, rows) is derived from the machine's
+                `Compiled`, never written by hand. A part describes no faults: the usual, stress and app-mix
+                profiles are suite-wide. Composite parts run on production and the Spec model only, and no
+                part is authored twice.
+
+                One part module and one script have four readers: the generator emits the script as JSON
+                from (part or app mix, profile, seed); the Spec model computes the run's expected results
+                from it (R19); the player replays it on a runtime through the Port, under oracles; the bench
+                replays it with no observer and no oracles (R23). A script decodes with one Schema and
+                replays with no generator. A failure the generator finds shrinks to a kept regression script
+                that every later suite run replays.
+
+                Hand cases freeze: a hand case is added only to document a ruling, which it cites. The 99
+                hand cases are named examples and the Spec model's tests.
+
+    R16  Feature codes
+        source  The replan ("No fixture tests a missing feature becomes a check"); the fixture catalogue's
+                feature codes and its "Feature pairs" section.
+        must    Each command a part offers the generator declares the feature codes it exercises, and each
+                runtime adapter declares the codes its implementation builds. Every declared code is in the
+                catalogue's closed code list. A code is enabled for a runtime only when its adapter declares
+                it; the generator draws only commands whose every code the runtime under test declares.
+
+                An adapter declares a code only once its implementation builds it: declaring a code is a
+                claim under R3, never a switch to make a gate pass, and a slice's first-contact reds are
+                classified before its codes are declared.
+
+    R17  The feature matrix gate
+        source  The replan, part 3 (T47 "owns the matrix") and its question 4.
+        must    The matrix has one row per Plan feature, with its fixture kind (a composite part, a static
+                case, a hand case, an example-app check or a package check) and the fixtures that reach it.
+                The reach comes from the declarations (R16) and from what the reach recorder saw executed,
+                not from a part's list of codes.
+
+                The gate passes only when:
+
+                - a feature no runtime under test implements yet reads "owed by slice N", naming an open
+                    Task of that slice;
+                - every feature a runtime under test declares is reached by at least one fixture, and one
+                    that no fixture reaches is a failure;
+                - no part claims a code no runtime under test declares.
+
+    R18  The combination gate
+        source  The user's decision (V3 log, 2026-11-11: "pairs enforced, triples reported"); the replan's
+                question 12; the fixture catalogue's sections "Feature pairs: which interact", "The
+                technique" and "The app-mix profile".
+        must    The interacting pairs are generated from the catalogue's channel table: two codes interact
+                when both touch one channel, less the non-interacting rules the user approves once, as one
+                list. No pair is hand-listed.
+
+                The gate passes only when every interacting pair of codes the runtime under test declares
+                is reached together in the executed steps of some generated run: within one composite, or in
+                the app mix when one of the two is a shared-resource code. A pair with a code owned by a
+                later slice is waived with that slice and a date; no interacting pair is waived for any
+                other reason. Triples whose three pairs all interact are reported, per composite and in
+                total, and never fail the gate.
+
+    R19  The Spec model computes expected results
+        source  Advisor Q1, Q2 and Q3 (code:workflow/plans/flow/references/proposals/advisor-answers-2026-11-11.md);
+                @task.V3.T45; the replan's slice template ("Model", "Proof before production").
+        must    A generated run's expected results come from the Spec model: suite code written from the
+                core Specs' tables that reads the script and the suite's facts and computes, per step, the
+                reports and world requests owed and those allowed. It imports nothing from any runtime,
+                adapter or implementation's source. It stays a judge, not a second runtime: it performs
+                nothing, holds payloads and memory as opaque values with no codec, answers with a set of
+                allowed outcomes where a Spec leaves a choice, has no performance structure, and traces
+                every field to a Spec table cell; a field no model mutation kills is deleted.
+
+                One generic compare judges a run: each report matches an owed or allowed item or is refused,
+                and an owed item still unmatched at its step's end is refused. A refusal names the Invariant
+                of the cell that produced the item. Every disagreement between the model and a hand case's
+                expectation is a Spec question, settled before either changes.
+
+                A part proves a cell only if a model mutation that changes that cell changes the part's
+                expected trace; a slice's parts are proved this way before its production half starts.
+
+    R20  Obligations read suite facts only
+        source  Advisor Q1, part 1 and 2; T44's acceptance (the expect and compare split).
+        must    What a runtime owes (an obligation created, discharged or voided) is computed from suite
+                facts only: what the suite drove, what its world saw and answered, and a fixture's source
+                and reference. A report is never an input to an obligation; it is only compared (R19). The
+                modules that compute expectations import no Observation type, which a lint enforces.
+
+                Every choice a fixture makes is computable by the suite: a guard in a conformance fixture is
+                a function of what the suite knows. A fixture whose choice only a report can settle is a
+                fixture bug, not a stated limit.
+
+    R21  The liar gate
+        source  Advisor Q1, part 3 (`falsify --liar`).
+        must    Falsify's liar mode runs each behavioural mutant with its own reports discarded and the
+                unchanged runtime's recorded reports for the same run fed in their place. The gate passes
+                only when every behavioural mutant is still caught.
+
+                A mutant that turns green under it was caught only by its confession. Each such mutant is
+                fixed by a world fact (the fake server's log, the store, a snapshot or row read) or recorded
+                as report truth only, with why. Report-only mutants test a truthful trace, a separate
+                property, and are counted apart.
+
+    R22  Round-14 is a mutant host
+        source  The replan's question 1 and advisor Q3 (a verified limits list).
+        must    Round-14 runs only the frozen hand cases, as the host of their mutants; no composite part
+                runs on it. The runner's default runtime is production.
+
+                Round-14's limits are rows of one list, each naming a case, a check and the Invariant
+                round-14 breaks there. A run verifies every row: the row's case fails on round-14 by that
+                Invariant, and a row whose case passes, or fails by another Invariant, fails the gate. A
+                limited case counts neither as a pass nor as a mutant's control on round-14. Prose limits
+                do not count.
+
+    R23  The bench replay
+        source  The fixture catalogue's section 6, "Benchmark reuse" (skill:check-benchmark, "compare the
+                work done"); the replan's slice template, step 6.
+        must    A conformance replay of a script records a work fingerprint from facts it already records:
+                turns, publications, commits invoked by operation, requests by operation, batches landed and
+                bytes written. The bench replays the same script on production with no observer and no
+                oracles and fails when its fingerprint differs, so a benchmark never times less work than
+                the run the suite judged. Benchmarks run alone, never beside other suites.
 
 open
     Q1  Most checks below are not built: each test says whether it exists or "phase 3 writes this".
@@ -389,6 +540,18 @@ open
         compiler from a wrong one on it. Reverse: keep the rows under @task.V3.T13.
         outcome  Each owning Task adds its cases and mutants; until then those Invariants count as uncovered.
 
+    Q15  R15 to R23 are not built: no part module, generator, script player, reach recorder, feature matrix,
+        combination gate, liar mode, limits list or bench exists, and obligations still read reports in
+        `dsl/lifecycle-step.ts`, `dsl/lifecycle-owed.ts` and `turn/selection.ts`.
+        outcome  Slice R builds them: @task.V3.T45 the expect and compare split, the generators, the liar mode and
+                 the limits list; @task.V3.T47 parts, scripts, the player, declarations, the matrix, the
+                 combination gate and the bench; @task.V3.T51 the production adapter's seam lint.
+
+    Q16  The non-interacting rules (R18) are the catalogue's six, which a script cannot rebuild exactly (777
+        interacting pairs in the catalogue, 671 in the replan's reading).
+        outcome  @task.V3.T47 generates the list from the channel table, and the user approves the rules once, as
+                 one list.
+
 model
     Subject = what a case reads: a runtime (runtime case) or a static surface, the compiler, Diagnostics, the codec
         or the CLI (static case) (R14).
@@ -431,10 +594,45 @@ model
         check (`Lie` until the rename, @task.V3.T5).
 
     SuiteFact = a timeline entry the suite wrote itself (`Stepped`, `Drove`, `Requested`, `Answered`, `Reloaded` and
-        the rest), the server's log, a fixture's source or its reference.
+        the rest), the server's log, a script, a fixture's source or its reference; never a report (R20).
 
     Verdict = per case: pass, stated failure or defect (R9); per mutant: caught, red by another check, survived,
         not applied, no verdict (R6).
+
+    Part = a composite part's module: a machine in the production public API, a user model and a server model;
+        its reference is derived from the machine's `Compiled` (R15).
+
+    Composite = a dense application built from parts (the catalogue's A to I); the app mix runs several in one
+        runtime, sharing storage, network, clock, reload and disposal (R15, R18).
+
+    Profile = usual, stress or app mix: suite-wide command weights and faults; a part names none (R15).
+
+    Script = the JSON step list the generator emits for (part or app mix, profile, seed); decoded with one
+        Schema (R15).
+
+    HandCase = a scenario module written by hand; frozen except to document a ruling (R15).
+
+    FeatureCode = one of the catalogue's closed feature codes; declared by a part's commands and by a runtime
+        adapter (R16).
+
+    MatrixRow = a Plan feature with its fixture kind and either the fixtures that reach it or "owed by slice N"
+        (R17).
+
+    InteractingPair = two codes that touch one channel of the catalogue's channel table and fall under no
+        approved non-interacting rule (R18).
+
+    SpecModel = suite code written from the core Specs' tables that computes, per step, what a run owes and
+        allows (R19).
+
+    Expected = per step, the owed and the allowed reports and world requests the SpecModel computes (R19).
+
+    LiarRun = a behavioural mutant's run with the unchanged runtime's recorded reports fed in place of its own
+        (R21).
+
+    Limit = a row of round-14's limits list: a case, a check and the Invariant round-14 breaks there (R22).
+
+    WorkFingerprint = a replay's turns, publications, commits invoked by operation, requests by operation,
+        batches landed and bytes written (R23).
 
 invariants
     I1  Every Port operation, result and Observation tag is a public operation, public result or report named in a core 
@@ -516,7 +714,7 @@ invariants
     I30  Every verdict difference between the two suites on a ported area has a recorded reading. [@R11]
 
     I31  Every data value crossing the Port is JSON or a Schema value whose encoded form is JSON; the only functions
-        crossing it are the world's hosts and the report sink `Boot` hands over. [@R1]
+        crossing it are the world's hosts, as Effect services, and the report sink `Boot` hands over. [@R1]
 
     I32  Every stated failure names, for each failing run, the run's seed (none for a fixed-input static case) and
         each check that failed in it: its judge (an oracle, or an expectation's label), the Invariant or rule it
@@ -558,9 +756,70 @@ invariants
     I44  Every case is exactly one kind, runtime or static; a static case boots no runtime and has no step, and a
         runtime case is read only through the Port. [@R14]
 
+    I45  A production adapter imports from its runtime only the package's public entry and the modules on the
+        listed seam. [@R1]
+
+    I46  Every composite part's reference is derived from its machine's `Compiled`; no part holds a hand-written
+        handler table or row. [@R15]
+
+    I47  Every script decodes with the script Schema, and replaying it needs no generator: the player, the Spec
+        model and the bench each reproduce the run from the part modules and the script alone. [@R15]
+
+    I48  No composite part runs on round-14, and no composite is authored a second time for another runtime.
+        [@R15, @R22]
+
+    I49  Every failure the generator finds is kept as a regression script that every later suite run replays.
+        [@R15]
+
+    I50  Every hand case added after 2026-11-11 cites the ruling it documents. [@R15]
+
+    I51  Every code a part's command or a runtime adapter declares is in the catalogue's closed code list. [@R16]
+
+    I52  The generator draws no command with a code the runtime under test does not declare. [@R16]
+
+    I53  Every Plan feature has a matrix row with its fixture kind and either the fixtures that reach it or "owed by
+        slice N" naming an open Task of that slice. [@R17]
+
+    I54  Every code a runtime under test declares is reached by at least one fixture. [@R17]
+
+    I55  No part claims a code that no runtime under test declares. [@R17]
+
+    I56  The interacting pairs equal the pairs the channel table gives less the approved non-interacting rules.
+        [@R18]
+
+    I57  Every interacting pair of codes the runtime under test declares is reached together in the executed steps
+        of some generated run, or carries a dated waiver naming the later slice that owns one of its codes. [@R18]
+
+    I58  The combination gate's verdict depends on pairs only; triples are reported per composite and in total.
+        [@R18]
+
+    I59  The Spec model imports nothing from any runtime, adapter or implementation's source. [@R19]
+
+    I60  At every step of a generated run, every report matches an item the Spec model owes or allows, and every
+        owed item is matched by the step's end; each refusal names the Invariant of the cell that produced the
+        item. [@R19]
+
+    I61  Every Spec model field is changed by at least one model mutation that changes some part's expected
+        trace. [@R19]
+
+    I62  No module that computes an expectation imports an Observation type, so no report creates, discharges or
+        voids an obligation. [@R20]
+
+    I63  Under the liar mode every behavioural mutant is caught, or is listed as report truth only with why.
+        [@R21]
+
+    I64  Every limits row's case fails on round-14 by the row's Invariant in a verifying run. [@R22]
+
+    I65  With no runtime named, the runner runs production. [@R22]
+
+    I66  A limited case counts neither as a pass nor as a mutant's control on round-14. [@R22]
+
+    I67  A bench replay of a script has the same work fingerprint as the conformance replay of that script.
+        [@R23]
+
 coverage
     @R1
-        enforced_by  [@I1, @I2, @I3, @I31, @I42]
+        enforced_by  [@I1, @I2, @I3, @I31, @I42, @I45]
         open_by      [@Q1, @Q4, @Q14]
 
     @R2
@@ -614,6 +873,42 @@ coverage
     @R14
         enforced_by  [@I12, @I18, @I22, @I32, @I42, @I44]
         open_by      [@Q1, @Q14]
+
+    @R15
+        enforced_by  [@I46, @I47, @I48, @I49, @I50]
+        open_by      [@Q15]
+
+    @R16
+        enforced_by  [@I51, @I52]
+        open_by      [@Q15]
+
+    @R17
+        enforced_by  [@I53, @I54, @I55]
+        open_by      [@Q15]
+
+    @R18
+        enforced_by  [@I56, @I57, @I58]
+        open_by      [@Q15, @Q16]
+
+    @R19
+        enforced_by  [@I59, @I60, @I61]
+        open_by      [@Q15]
+
+    @R20
+        enforced_by  [@I62]
+        open_by      [@Q15]
+
+    @R21
+        enforced_by  [@I63]
+        open_by      [@Q15]
+
+    @R22
+        enforced_by  [@I48, @I64, @I65, @I66]
+        open_by      [@Q15]
+
+    @R23
+        enforced_by  [@I67]
+        open_by      [@Q15]
 
 tests
     T1  Boundaries. Exists: `nub run check` type-checks `port.ts`, whose types name no adapter. Phase 3 writes this: an 
@@ -702,3 +997,43 @@ tests
     T28  Case kinds. Phase 3 writes this: a type-level check that a case is a union of the two kinds, a static case's
             run has no world and its failures no step, seen rejecting a planted static case that boots a Port.
             [@I44, @I22]
+    T29  Seam. Slice R writes this (@task.V3.T51): a lint over `adapters/production.ts`, seen rejecting a planted
+            import of a core module not on the seam list. [@I45]
+    T30  Parts. Slice R writes this (@task.V3.T47): a check that each part's reference is built from its
+            `Compiled`, seen rejecting a planted part with a hand row; the three pilot parts (S16, S21 flattened,
+            S10) replayed from their emitted scripts by the player, the model and the bench, with equal step
+            counts. [@I46, @I47]
+    T31  Composites stay off round-14. Slice R writes this: the runner refuses a part on round-14, seen with a
+            planted request. [@I48]
+    T32  Regressions. Slice R writes this (@task.V3.T45): a planted mutant found by a seeded run shrinks to a
+            script in `regressions/`, which the next suite run replays red. [@I49]
+    T33  Frozen hand cases. Slice R writes this: a check that each hand case newer than 2026-11-11 cites a ruling,
+            seen rejecting a planted uncited case. [@I50]
+    T34  Declarations. Slice R writes this: the declared codes of every part and adapter resolve against the code
+            list, seen rejecting a planted code; generated scripts for a runtime that does not declare `ca` contain
+            no `ca` command. [@I51, @I52]
+    T35  Matrix. Slice R writes this: the gate run over all Plan features, seen failing on a deleted row, on a row
+            owed to a closed Task, on a declared code no fixture reaches and on a part claiming an undeclared
+            code. [@I53, @I54, @I55]
+    T36  Pairs. Slice R writes this: the pair list regenerated from the channel table equals the gate's list; the
+            gate seen failing on a planted unreached pair of declared codes and on a waiver without a later slice;
+            a triple left unreached changes no verdict. [@I56, @I57, @I58]
+    T37  Model purity. Slice R writes this (@task.V3.T45): an import-boundary lint over the model's modules, seen
+            rejecting a planted runtime import. [@I59]
+    T38  Compare. Slice R writes this: a runtime that omits an owed report, one that adds a report the model
+            neither owes nor allows, and one whose report breaks a named cell, each refused at its step with the
+            cell's Invariant. [@I60]
+    T39  Model mutation. Slice R writes this: each model table cell mutated in turn; a cell no part's expected
+            trace notices is listed, and a model field no mutation reaches fails the gate. [@I61]
+    T40  Facts only. Slice R writes this (@task.V3.T45): a lint banning Observation imports in the expect
+            modules, seen rejecting a planted import. [@I62]
+    T41  Liar gate. Slice R writes this (@task.V3.T45): `falsify --liar` on production, with the count of
+            behavioural mutants green under it and the report-truth list; seen failing on a planted mutant held
+            only by its own report. [@I63]
+    T42  Limits. Slice R writes this (@task.V3.T45): the limits run on round-14, seen failing on a planted row
+            whose case passes and on one whose case fails by another Invariant. [@I64, @I66]
+    T43  Default runtime. Slice R writes this: the runner with no runtime flag names production in its first
+            line. [@I65]
+    T44  Fingerprints. Slice R writes this (@task.V3.T47): conformance and bench replays of each pilot part's
+            usual script give equal fingerprints; seen failing on a planted bench that skips the persistence
+            edge. [@I67]

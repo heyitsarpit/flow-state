@@ -63,6 +63,9 @@ requirements
                 read lanes are not persisted, except the Interrupted ending a freeze or an end 
                 parks.
 
+                A lookup runs as lookup(input, ctx) (@plan.Operations.O1): its context carries no
+                Attempt, since only an admitted commit has one (WriteLanes Spec R5).
+
     R8  subscribe and triggers
         source  @plan.Operations.O2.
         must    O.x.subscribe places the operation and starts a request only when the entry is

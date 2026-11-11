@@ -120,6 +120,9 @@ requirements
                 - an awaited write waits for any plain batch of its actor still out;
                 - a batch answers landed only if every request in it succeeded.
 
+                The store is an Effect: a batch's write succeeds when the whole batch landed and fails
+                with a typed refusal when none of it did; an interrupted write is unanswered, as a hung
+                one is.
                 An unanswered write is pending, never "not sent"; StorageSilent names it after 10 s
                 and decides nothing. A record names the boot that wrote it, and no id minted after
                 restore equals an id on disk (WriteLanes Spec R5). Disposal waits for the last write
@@ -171,6 +174,10 @@ open
 
     Q3  The 5 s interval runs only in the prototype's runtime-default pass.
         outcome  The new suite runs R10's cases at the default interval in its normal run.
+
+    Q4  R2 names Effect's KeyValueStore, which has per-key get, set and remove but no batch, while R12 needs atomic 
+        batches; production's Host store is its own batch service.
+        outcome  Slice 2 (@task.V3.T19, @task.V3.T20) settles the store service with R2's Invariant.
 
 model
     Capture = one batch of actor records, lane records and resource records written as a whole.
@@ -234,6 +241,10 @@ composition
         (packages/flow-state-v3/prototypes/round-14/durable.ts). The storage edge, batching and
         flush timing live at the host edge (round-14/edge.ts).
 
+        Production (src/host/edge.ts): a capture's wait is a keyed fiber sleeping on Effect's
+        Clock in the Runtime's FiberMap, and an urgent batch is a Scheduler yield, not a second
+        task queue; the store's load and write are Effects (@task.V3.T43 R1, R4, R8).
+
 coverage
     @R1
         enforced_by  [@I1, @I2]
@@ -241,7 +252,7 @@ coverage
 
     @R2
         enforced_by  [@I1], type tests
-        open_by      [@Q1]
+        open_by      [@Q1, @Q4]
 
     @R3
         enforced_by  [@I3]
@@ -281,7 +292,7 @@ coverage
 
     @R12
         enforced_by  [@I10, @I12, @I14]
-        open_by      [@Q1, @Q2]
+        open_by      [@Q1, @Q2, @Q4]
 
     @R13
         enforced_by  [@I15]

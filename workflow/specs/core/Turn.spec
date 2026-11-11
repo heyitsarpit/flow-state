@@ -326,9 +326,12 @@ composition
         TurnResult; it never touches the world. `step` (src/core/step.ts) composes one step from
         modules over one working state (src/core/tx.ts): persist, lanes, answers, incarnations,
         serve and disposal, each `make*(tx, ...)`. The world is replaced whole; ids come from its
-        counter and the boot's seed. The driver (src/host/driver.ts) runs commands with Effect:
-        fibers on the host scheduler with the Runtime Clock over host timers, and the persistence
-        edge (src/host/edge.ts).
+        counter and the boot's seed. Reports an act determines are derived from the step's acts
+        (WriteLanes Spec composition, @task.V3.T51). The driver (src/host/driver.ts) runs
+        commands with Effect: every call, timer and persistence wake is a keyed fiber in one
+        FiberMap owned by the Runtime's Scope, sleeping on Effect's Clock and run on its
+        Scheduler, which a test or the suite's world provides; Disarm interrupts the key's fiber.
+        Arm, Disarm and Fired stay data, so a replay needs no host.
 
 coverage
     @R1

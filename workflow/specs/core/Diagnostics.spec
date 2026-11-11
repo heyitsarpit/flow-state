@@ -20,15 +20,16 @@ requirements
                 expected failures as FlowError in the typed error channel, keeping their success and
                 service types.
 
-                FlowError extends Error with readonly _tag "FlowError", code, diagnostics (nonempty,
-                code == diagnostics[0].code), optional cause and optional evidence. Defects and
-                interruption stay distinct Effect outcomes. No other public error class exists
-                except the testing route's PropertyTestFailed.
+                FlowError is one Effect tagged error (Data.TaggedError, an Error with readonly _tag
+                "FlowError"), with code, diagnostics (nonempty, code == diagnostics[0].code), optional
+                cause and optional evidence. Defects and interruption stay distinct Effect outcomes. No
+                other public error class exists except the testing route's PropertyTestFailed.
 
     R2  Diagnostic
         source  @plan.Diagnostics.O1.
-        must    Diagnostic is an Error authors can yield in Effect and encode and decode with its
-                exported Schema: classification (Failure, Defect or Interruption), code, path
+        must    Diagnostic is one Schema-backed tagged error class (Schema.TaggedError), so the Error
+                authors yield in Effect and the exported Schema that encodes and decodes it are one
+                declaration: classification (Failure, Defect or Interruption), code, path
                 (strings or finite numbers), details (string keys to string, finite number, boolean
                 or null), summary and help.
 
@@ -78,10 +79,10 @@ requirements
         source  @plan.Diagnostics.O3.
         must    An in-process failure keeps its complete Effect Cause, finalizer and cancellation
                 failures included. Cleanup never replaces the execution failure or erases another.
-                For a code R6 does not fix, classification is Defect if any defect exists, else
-                Failure if a typed failure exists, else Interruption. Execution or cancellation stays primary; when only
-                cleanup fails, the first cleanup failure is primary; the rest keep phase order and
-                multiplicity.
+                For a code R6 does not fix, classification is Defect if any defect exists
+                (Cause.hasDies), else Failure if a typed failure exists (Cause.hasFails), else
+                Interruption. Execution or cancellation stays primary; when only cleanup fails, the
+                first cleanup failure is primary; the rest keep phase order and multiplicity.
 
                 Operation failure, defect, interruption and an unknown remote ending stay distinct.
                 Promise adapters and Effect's own AbortSignal keep the complete Cause until the host
