@@ -331,6 +331,10 @@ tasks
             - **User's read:** module layout.
         acceptance
             The Pay cases pass on production through the Port; their mutants are killed.
+        comment     2026-11-11T09:24:19Z
+            Pay path runs on production: 61/61 Pay cases, falsify --runtime production 13/13 at 8bd0cfb9. Public 
+            exports (provisional), layout, decisions and review logs: packages/flow-state-v3/conformance/STATUS.md, T16 
+            section.
     T17
         title       Compiled and the compiler
         status      draft

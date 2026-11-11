@@ -1541,6 +1541,45 @@ handler table and facts the suite owns, so a lane oracle may trust a header that
   its last turn, WriteAhead's capture interval); "the walk doc is inverted" (it matched the code).
   Carried: the late allowance and the `Delivered` admission above.
 
+## T16 (2026-11-11): the Pay path on production
+
+The 61 Pay cases (fixture `pay`) pass on production (`suite --runtime production`), and
+`falsify --runtime production` catches 13/13 production mutants, at 8bd0cfb9. Cells cases are not
+booted yet (`UnknownProductionFixture`).
+
+- **Layout (proposed, the user's read):** `src/core/` is the pure core: `compiled.ts` (Compiled),
+  `turn.ts` (the turn), `step.ts` composing `tx.ts`, `persist.ts`, `lanes.ts`, `answers.ts`,
+  `incarnations.ts`, `serve.ts`, `disposal.ts`, with `record.ts`, `rows.ts`, `evidence.ts`,
+  `world.ts`, `input.ts`. `src/host/` is the Effect edge: `host.ts` (the Host contract),
+  `driver.ts`, `edge.ts`, `runtime.ts`, `testing.ts` (Flow's own seam, not a route). The Pay
+  machine in the public API is `conformance/machines/pay.ts` with `pay.contracts.ts`.
+- **Public exports (provisional, the user's call):** root: `definition`, `machine`, `transaction`,
+  `resource`, `deny`, `Flow` (`initial`, `uncertain`, `entry`), `Outcome`, `FlowError`, `app`,
+  `runtimeSetup`, `actorRef`; types `Definition`, `Machine`, `Resource`, `Transaction`, `Attempt`,
+  `Actor`, `ActorRef`, `App`, `Runtime`, `RuntimeSetup`, `Snapshot`. Inspect: `attachInspector`.
+  Runtime members: `ready`, `ensureActor`, `disposeActor`, `dispose`; handle: `send`, `getSnapshot`.
+- **Decisions:** the Pay machine keeps the real Pay's 3-D Secure alternatives as guarded stays
+  (CHALLENGE is outside the subset) so alternative places match `states.PAYING.on.Confirmed[1]`;
+  Pay's deadline is its commit's `Effect.timeoutOrElse` over a detached request fiber (an
+  uninterruptible request still times out); uses, `ensureExisting`, `forget` and runtime disposal go
+  through `src/host/testing.ts`; lint: `no-allocation-in-loop` narrowed to `core/turn.ts`,
+  `no-optional-domain-properties` an error on internal modules and off on the public option-bag
+  modules, `--no-error-on-unmatched-pattern` removed (FLOW-STATE.md updated).
+- **Review sidecars (Haiku, one rule each):** adapter role: accepted 3 (parts ignored → refused with
+  `UnbuiltInProduction`; non-object payload → `Unreadable`; dispose and forget were no-ops →
+  built), rejected 4 as stated limits of this skeleton (flat parts and `definition` constants,
+  input ignored for an input-less machine, `entity` none, the row read through the public
+  `O.x.get` path); core purity: accepted 3 (guard verdicts and select or key records now read
+  inside `Result.try`), deferred 1 (a user Schema that throws escapes the `*Result` adapters) to
+  T18.
+- **The user's notes, folded in:** `Host.monotonic` (the real host uses `performance.now()`); real
+  entropy for the session seed (`crypto.getRandomValues`). Owed by @task.V3.T19: the real host's
+  visibility (`hidden`, `onHidden` stubbed) and storage (`store: none`).
+- **Open:** Restore R1 against DISP-05 (spec-log, 2026-11-11 T16); no module integration tests yet
+  beside the suite; reject is the only concurrency; no `flow graph` on production, so the graph
+  gate does not judge production turns; the coverage gate reports 5 gaps owed by @task.V3.T7, which
+  is done (from the phase restructure, not T16).
+
 ## T41 (2026-11-11): coverage gate
 
 Bottom line: `coverage` (and the first line of `falsify`) fails unless every Invariant of the ten core Specs is checked

@@ -344,6 +344,12 @@ composition
         (packages/flow-state-v3/prototypes/round-14/lane.ts). The commit fiber's Exit is
         classified in the driver, outside the fiber (round-14/driver.ts).
 
+        Production (T16, proposed): a lane's head carries a Phase variant (src/core/world.ts):
+        Acknowledging and Recapturing wait on a storage ticket, Ready waits to be invoked after
+        the turn, OnWire names its call, Held is a retained unknown; the lane is InFlight in every
+        phase but Held. Parked and kept endings live in the world's parked map by lane id, kept
+        ones with one try per boot or adoption. Only reject concurrency is built.
+
 coverage
     @R1
         enforced_by  [@I1, @I2, @I24]

@@ -292,3 +292,12 @@ moves to Compile T6; Turn I18 takes I19's old-snapshot clause. The seven rewordi
   M3 (log.task, D4), so WriteLanes agrees with Actors R15, I24 and ruling CQ1. Reverse: restore "a throw from
   the outcome mapper".
 
+
+## 2026-11-11, T16 (production walking skeleton)
+
+- **Turn, WriteLanes, Compile composition:** production layout notes added, marked proposed for the user's
+  read. Why: skill:to-design records the chosen shape in the owning Spec. Reverse: delete the three notes.
+- **Restore R1 (found, not changed):** the suite (DISP-05, after the prototype) expects each Held head's unknown
+  Restored to be decided and parked at the boot, so its identity is live at ready even when its lane was Held,
+  not InFlight, at capture; R1's text keeps such a record a record until reached. Production follows the suite.
+  Open for the user: reword R1, or change DISP-05.

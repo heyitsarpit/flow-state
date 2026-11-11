@@ -241,6 +241,12 @@ composition
         packages/flow-state-v3/prototypes/conformance/fixtures/compiled.ts). Tools read the data
         view only, so flow check and flow graph need no Runtime.
 
+        Production (T16, proposed): src/definition.ts (definition, event, state and operation
+        tokens), src/contract.ts (transaction, resource, outcomes) and src/machine.ts (machine)
+        emit Compiled (src/core/compiled.ts) for a flat state list; each closure is a Slot named
+        by its place (`states.PAYING.on.Confirmed[1].guard[0]`). Construction checks are only
+        unknown targets and events so far (T17 owns the rest).
+
 coverage
     @R1
         enforced_by  [@I1]

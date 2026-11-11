@@ -321,6 +321,15 @@ composition
         takes time and ids from its environment and returns the next world, at most one
         publication and commands (round-14/step.ts); only the driver performs effects.
 
+        Production layout (T16, proposed, for the user's read). `runTurn` (src/core/turn.ts) is
+        the pure turn: selection, guards, the memory patch, selects and armings, returning a
+        TurnResult; it never touches the world. `step` (src/core/step.ts) composes one step from
+        modules over one working state (src/core/tx.ts): persist, lanes, answers, incarnations,
+        serve and disposal, each `make*(tx, ...)`. The world is replaced whole; ids come from its
+        counter and the boot's seed. The driver (src/host/driver.ts) runs commands with Effect:
+        fibers on the host scheduler with the Runtime Clock over host timers, and the persistence
+        edge (src/host/edge.ts).
+
 coverage
     @R1
         enforced_by  [@I1]
