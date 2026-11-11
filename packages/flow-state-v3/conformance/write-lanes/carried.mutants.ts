@@ -100,8 +100,6 @@ export const carriedRecordProbes: ReadonlyArray<Probe> = [
  *
  * - `lie.failures-unmapped`: every failure ending is called unmapped and dropped, though the
  *   fixture maps it; its `UnmappedEnding` excuses nothing (WriteLanes I15).
- * - `lie.no-incarnated`: no incarnation is reported, so no parked or kept ending would be owed if
- *   the lifecycle took liveness from the report (WriteLanes I15, `delivered-once`).
  */
 export const reportLieMutants: ReadonlyArray<Mutant> = [
   {
@@ -118,10 +116,17 @@ export const reportLieMutants: ReadonlyArray<Mutant> = [
       },
     ],
   },
+];
+
+/**
+ * A runtime that lies about an actor's lifetime: `lie.no-incarnated` never reports an incarnation
+ * beginning, so an ensure's owed incarnation goes unreported (Actors I14, `disposal`).
+ */
+export const incarnationLieMutants: ReadonlyArray<Mutant> = [
   {
     name: "lie.no-incarnated",
     says: "the runtime never reports an incarnation beginning",
-    expects: "WriteLanes I15",
+    expects: "Actors I14",
     runtime: "prototype",
     cases: ["DLV-04"],
     edits: [

@@ -19,6 +19,7 @@ import { Fact } from "./oracle.ts";
 const known: Known = {
   reference: referenceFor([Pay, Serialize, Cancel]),
   rows: rowsFor([Pay, Serialize, Cancel]),
+  timed: {},
 };
 
 const shopper: ActorRef = { machine: "Checkout/Pay", id: "s1" };

@@ -17,6 +17,9 @@ import { type Channel, type Ended, type Json, Observation, sameActor, sameJson }
 import { type Answer, type Request, RequestPhase } from "../world/network.ts";
 
 const GUARANTEE: ReadonlyArray<InvariantId> = [
+  "Actors I10",
+  "Actors I14",
+  "Actors I37",
   "Actors I29",
   "Actors I30",
   "Actors I31",

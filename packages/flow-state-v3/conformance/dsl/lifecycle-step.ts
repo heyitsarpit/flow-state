@@ -22,7 +22,7 @@ const onFact = (
   earlier: ReadonlyArray<Request>,
   given: Rules,
 ) => {
-  if (!isRuntimeFact(fact)) return onSuiteFact(walk, fact, given);
+  if (!isRuntimeFact(fact)) return onSuiteFact(walk, fact, known, given);
 
   if (Fact.$is("Reported")(fact)) {
     const second = fact.observation._tag === "Turn" && walk.seen === 1;
@@ -68,6 +68,7 @@ export const step = (
   requests: ReadonlyArray<Request>,
   given: Rules = rules,
   turns: ReadonlyArray<Predicted> = [],
+  leaves: ReadonlyMap<string, string> = new Map(),
 ) => {
   const fresh = facts.flatMap((f) => (Fact.$is("Requested")(f) ? [f.request.seq] : []));
   const earlier = requests.filter((r) => !fresh.includes(r.seq));
@@ -84,6 +85,10 @@ export const step = (
     reloaded: false,
     used: [],
     incarnated: [],
+    incarnationsHeard: [],
+    ends: [],
+    endsHeard: [],
+    leaves,
     unsent,
     purposes: facts.flatMap((f) => (Fact.$is("Purposed")(f) ? [f.purpose] : [])),
     turns,

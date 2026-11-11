@@ -1,3 +1,4 @@
+checked Actors I14  disposal: lie.no-incarnated
 checked Actors I24  delivered-once: mutant.kept-retried-without-boot
 checked Actors I29  disposal: id.dispose-drops-lanes, mutant.boot-after-disposal-skips-restored
 checked Actors I30  disposal: mutant.disposal-dispatches, mutant.disposal-rereads
@@ -17,7 +18,7 @@ checked WriteLanes I10  lane-queue: mutant.members-reversed
 checked WriteLanes I11  lane-queue: lane.fresh-mint-on-held, lane.unknown-promotes
 checked WriteLanes I12  lane-queue: lane.cancel-held-keeps, lane.held-auto-resend, lie.held-released-unguarded, mutant.release-drops-held, mutant.boot-resends-held, lie.release-on-guarded-read, lie.release-other-lane, lie.void-retry-releases, lie.release-member-claimed, mutant.cancel-members-dropped, lie.cancels-reported-as-release, lie.cancels-reported-as-nothing, lie.cancels-dropped-header-nowhere
 checked WriteLanes I14  cases LANE-13: lane.keyless-names-latest-lane
-checked WriteLanes I15  delivered-once: lane.releasing-delivers, a2.deliv-fail-samemail, d154.moved-fail-released, lie.released, e8.wa-failure, mutant.superseded-claimed, mutant.delivered-during-disposal, mutant.replaced-delivered, 1b.r8-refused-ending-not-redelivered, d6.disposed-ending-is-evidence, mutant.parked-delivered-as-other-tag, 1b.r8-third-try, mutant.adoption-skips-parked, mutant.restored-twice, lie.boot-says-disposed, lie.boot-drops-held, pay16.decline-not-delivered, lost.decline.mail, lie.failures-unmapped, lie.no-incarnated
+checked WriteLanes I15  delivered-once: lane.releasing-delivers, a2.deliv-fail-samemail, d154.moved-fail-released, lie.released, e8.wa-failure, mutant.superseded-claimed, mutant.delivered-during-disposal, mutant.replaced-delivered, 1b.r8-refused-ending-not-redelivered, d6.disposed-ending-is-evidence, mutant.parked-delivered-as-other-tag, 1b.r8-third-try, mutant.adoption-skips-parked, mutant.restored-twice, lie.boot-says-disposed, lie.boot-drops-held, pay16.decline-not-delivered, lost.decline.mail, lie.failures-unmapped
 checked WriteLanes I16  delivered-once: mutant.success-then-failure
 checked WriteLanes I18  cases LANE-14: lane.unencodable-refuses-turn
 checked WriteLanes I2  cases LANE-16: entity.failure-confirms
@@ -34,7 +35,6 @@ not yet Actors I1  @task.V3.T9
 not yet Actors I10  @task.V3.T9
 not yet Actors I12  @task.V3.T9
 not yet Actors I13  @task.V3.T9
-not yet Actors I14  @task.V3.T9
 not yet Actors I15  @task.V3.T9
 not yet Actors I17  @task.V3.T9
 not yet Actors I19  @task.V3.T9

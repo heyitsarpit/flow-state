@@ -9,10 +9,20 @@ import {
   type Turn,
 } from "../port.ts";
 import type { Request } from "../world/network.ts";
-import { answeredEnding, closedTurn, isWrite, pushed, unsaved, type Walk } from "./expect.ts";
+import {
+  answeredEnding,
+  closedTurn,
+  finished,
+  holds,
+  isLive,
+  isWrite,
+  opened,
+  pushed,
+  unsaved,
+  type Walk,
+} from "./expect.ts";
 import { lifeNamed, misdelivered } from "./lifecycle-lives.ts";
 import {
-  ActorMove,
   type EndingName,
   type Input,
   LaneMove,
@@ -129,6 +139,50 @@ const mapped = (walk: Walk, known: Known, ref: EndingRef) =>
       ),
   );
 
+const owedOnce = (owed: ReadonlyArray<ActorRef>, heard: ReadonlyArray<ActorRef>, actor: ActorRef) =>
+  owed.filter((a) => sameActor(a, actor)).length > heard.filter((a) => sameActor(a, actor)).length;
+
+/**
+ * A reported incarnation: one the step owes, or an allowed one of an actor with none, in a step
+ * that sent it an event, reloaded, or runs during the disposal (a send, a boot or a disposal may
+ * wake a record: a stated limit). Any other is not applied.
+ */
+const incarnationHeard = (walk: Walk, actor: ActorRef, given: Rules) => {
+  const heard = { ...walk, incarnationsHeard: [...walk.incarnationsHeard, actor] };
+
+  if (owedOnce(walk.incarnated, walk.incarnationsHeard, actor)) return heard;
+
+  const allowed =
+    walk.reloaded || walk.model.mode === "disposing" || walk.used.some((a) => sameActor(a, actor));
+
+  return allowed && !isLive(walk.model, actor) ? opened(heard, actor, given, true) : walk;
+};
+
+/**
+ * A reported end (Actors R8, I10): one the step owes, or one the suite cannot rule out (a live
+ * actor it holds no use of, whose free time it could not count). An end while the suite holds a
+ * use breaks I10.
+ */
+const endHeard = (walk: Walk, actor: ActorRef, given: Rules) => {
+  const heard = { ...walk, endsHeard: [...walk.endsHeard, actor] };
+
+  if (owedOnce(walk.ends, walk.endsHeard, actor)) return heard;
+
+  if (holds(walk.model, actor))
+    return {
+      ...walk,
+      unmatched: [
+        ...walk.unmatched,
+        {
+          invariant: "Actors I10" as const,
+          text: `${actor.machine} ${actor.id} ended while the suite held a use of it`,
+        },
+      ],
+    };
+
+  return isLive(walk.model, actor) ? finished(heard, actor, given) : walk;
+};
+
 /**
  * Matches one report to the move the expect half allows for it, and applies that move (the compare
  * half, Conformance R19): a turn opens with its predicted members, an answered Attempt ends as the
@@ -140,8 +194,9 @@ const mapped = (walk: Walk, known: Known, ref: EndingRef) =>
  *   turn with the members selection predicted ({@link owedMembers}), never the report's.
  * - An Attempt's unknown `End` is `retained` by its operation's reference ({@link retains}).
  * - The open turn closes at the next `Delivered`, `Turn`, `Unhandled` or `Denied`.
- * - `Incarnated` counts only after a suite `Ensured` or `Drove` of that actor, or a `Reloaded`, in
- *   the same step, and once per actor per step.
+ * - `Incarnated` and `Finished` match the incarnations and ends the expect half owes from the
+ *   suite's facts (Actors R6, R8, R9, I10, I37); an owed one never reported is refused at the
+ *   step's end.
  *
  * **Gotchas**
  *
@@ -302,18 +357,8 @@ export const reported = (
         ? push(walk, LifeMove.Refused({ ending: ending.value, issue: named }))
         : walk;
     },
-    Incarnated: ({ actor }) => {
-      const anchored = walk.reloaded || walk.used.some((a) => sameActor(a, actor));
-      const twice = walk.incarnated.some((a) => sameActor(a, actor));
-
-      return anchored && !twice
-        ? {
-            ...push(walk, ActorMove.Incarnated({ actor })),
-            incarnated: [...walk.incarnated, actor],
-          }
-        : walk;
-    },
-    Finished: ({ actor }) => push(walk, ActorMove.Finished({ actor })),
+    Incarnated: ({ actor }) => incarnationHeard(walk, actor, given),
+    Finished: ({ actor }) => endHeard(walk, actor, given),
     Published: () => walk,
   });
 };

@@ -104,6 +104,16 @@ export const partsOnly = (
   });
 
 /**
+ * The leaves with schedules, by machine: where a firing may start work while the suite only
+ * advances the clock (Turn R14).
+ */
+// RETURN_TYPE: the record of leaves; `Object.fromEntries` would infer a wider value type.
+export const timedOf = (machines: Machines): Readonly<Record<string, ReadonlyArray<string>>> =>
+  Object.fromEntries(
+    Object.entries(machines).map(([machine, h]) => [machine, Object.keys(h.schedules)]),
+  );
+
+/**
  * The events a machine's schedules send.
  */
 export const scheduledEvents = (handlers: Handlers) =>

@@ -233,6 +233,7 @@ export type Capture = {
  *   release each Attempt was minted at: a lane minted at an older release is an old-version hold
  *   (WriteLanes R11). `unencodable`: the open turn's commit input cannot encode, by the fixture's
  *   label of the event that caused it (WriteLanes R12).
+ * - `live`: the actors with a live incarnation ({@link Live}); a kill ends every one.
  * - `saved`: the {@link Capture} the store holds: the latest landed batch's, or the boot's. A kill
  *   rolls the model back to it (WriteAhead I10: the readable scope is the latest landed capture).
  *   `pending`: the capture of the latest batch the store holds unanswered, which an `ack` lands.
@@ -270,6 +271,18 @@ export type Model = {
   readonly saved: Capture;
   readonly pending: Option.Option<Capture>;
   readonly held: ReadonlyArray<readonly [ActorRef, Use]>;
+  readonly live: ReadonlyArray<Live>;
+};
+
+/**
+ * A live incarnation, and how long the suite knows it has been free (Actors R7, R8): counted from
+ * the last suite fact, `None` while it holds a use or may have work the suite cannot compute.
+ * `woken`: the runtime opened it unasked (a boot's hydrate hold, a send), so its uses are unknown.
+ */
+export type Live = {
+  readonly actor: ActorRef;
+  readonly free: Option.Option<number>;
+  readonly woken: boolean;
 };
 
 /**
@@ -309,6 +322,7 @@ export const empty: Model = {
   saved: { lives: [], ended: 0, least: { lives: [], ended: 0 } },
   pending: Option.none(),
   held: [],
+  live: [],
 };
 
 /**

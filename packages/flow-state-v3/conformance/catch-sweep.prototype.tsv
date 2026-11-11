@@ -3709,54 +3709,54 @@ cmp.operation-dropped	CMP-10	green
 cmp.operation-dropped	CMP-11	green
 cmp.operation-dropped	DISP-01	red case
 cmp.operation-dropped	DISP-02	red case
-cmp.operation-dropped	DISP-03	red case
+cmp.operation-dropped	DISP-03	red selection
 cmp.operation-dropped	DISP-04	red case
 cmp.operation-dropped	DISP-05	red case
 cmp.operation-dropped	DISP-06	red case
 cmp.operation-dropped	DISP-07	green
-cmp.operation-dropped	DLV-01	red case
-cmp.operation-dropped	DLV-02	red case
+cmp.operation-dropped	DLV-01	red selection
+cmp.operation-dropped	DLV-02	red selection
 cmp.operation-dropped	DLV-03	red case
 cmp.operation-dropped	DLV-04	red case
 cmp.operation-dropped	DLV-05	red case
 cmp.operation-dropped	DLV-06	red case
-cmp.operation-dropped	DLV-07	red case
-cmp.operation-dropped	LANE-01	red case
-cmp.operation-dropped	LANE-02	red case
+cmp.operation-dropped	DLV-07	red selection
+cmp.operation-dropped	LANE-01	red selection
+cmp.operation-dropped	LANE-02	red selection
 cmp.operation-dropped	LANE-03	red case
-cmp.operation-dropped	LANE-04	red case
-cmp.operation-dropped	LANE-05	red case
-cmp.operation-dropped	LANE-06	red case
-cmp.operation-dropped	LANE-07	red case
-cmp.operation-dropped	LANE-08	red case
+cmp.operation-dropped	LANE-04	red selection
+cmp.operation-dropped	LANE-05	red selection
+cmp.operation-dropped	LANE-06	red selection
+cmp.operation-dropped	LANE-07	red selection
+cmp.operation-dropped	LANE-08	red selection
 cmp.operation-dropped	LANE-09	red case
-cmp.operation-dropped	LANE-10	red case
+cmp.operation-dropped	LANE-10	red selection
 cmp.operation-dropped	LANE-11	red case
 cmp.operation-dropped	LANE-12/release-ends-queue	green
 cmp.operation-dropped	LANE-12/release-leaves-head	green
 cmp.operation-dropped	LANE-12/release-uninterruptible	green
 cmp.operation-dropped	LANE-12/release-uninterruptible-lost	green
-cmp.operation-dropped	LANE-13	red case
+cmp.operation-dropped	LANE-13	red selection
 cmp.operation-dropped	LANE-14	red case
 cmp.operation-dropped	LANE-15	red case
 cmp.operation-dropped	LANE-16	green
 cmp.operation-dropped	PAY-01	red case
-cmp.operation-dropped	PAY-02	red case
+cmp.operation-dropped	PAY-02	red selection
 cmp.operation-dropped	PAY-03	red case
 cmp.operation-dropped	PAY-04	red case
 cmp.operation-dropped	PAY-05	red case
 cmp.operation-dropped	PAY-06/interruptible	red case
 cmp.operation-dropped	PAY-06/uninterruptible	red case
-cmp.operation-dropped	PAY-07/late-in-a-new-PAYING	red case
+cmp.operation-dropped	PAY-07/late-in-a-new-PAYING	red selection
 cmp.operation-dropped	PAY-07/late-may-not-leave	red case
-cmp.operation-dropped	PAY-07/leaveMidCharge	red case
+cmp.operation-dropped	PAY-07/leaveMidCharge	red selection
 cmp.operation-dropped	PAY-08/reload-while-reconciling	red case
 cmp.operation-dropped	PAY-08/reloadDuringCharge	red case
 cmp.operation-dropped	PAY-09/ack-not-stored	green
 cmp.operation-dropped	PAY-09/ack-stored-confirmation-lost	red case
 cmp.operation-dropped	PAY-10/hang	red case
 cmp.operation-dropped	PAY-10/refuse	red case
-cmp.operation-dropped	PAY-12/cancel-on-wire	red case
+cmp.operation-dropped	PAY-12/cancel-on-wire	red selection
 cmp.operation-dropped	PAY-12/defect	red case
 cmp.operation-dropped	PAY-12/sync	red case
 cmp.operation-dropped	PAY-13/hung-commit	red case
@@ -3765,7 +3765,7 @@ cmp.operation-dropped	PAY-13/waiting-flushed	red case
 cmp.operation-dropped	PAY-14	red case
 cmp.operation-dropped	PAY-15/busy-then-new-write	red case
 cmp.operation-dropped	PAY-15/cancel-idle	red case
-cmp.operation-dropped	PAY-15/cancel-on-wire	red case
+cmp.operation-dropped	PAY-15/cancel-on-wire	red selection
 cmp.operation-dropped	PAY-15/dead-activation-timer	red case
 cmp.operation-dropped	PAY-15/dispose-held	red case
 cmp.operation-dropped	PAY-15/dispose-held-moved	red case
@@ -3791,8 +3791,8 @@ cmp.operation-dropped	PAY-19/place-answers-first	red case
 cmp.operation-dropped	PAY-19/void-answers-first	red case
 cmp.operation-dropped	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	red case
 cmp.operation-dropped	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	red case
-cmp.operation-dropped	PAY-21	red case
-cmp.operation-dropped	PAY-22	red case
+cmp.operation-dropped	PAY-21	red disposal
+cmp.operation-dropped	PAY-22	red selection
 cmp.operation-dropped	PAY-23	red case
 cmp.operation-dropped	TURN-01/mapper-refused	red case
 cmp.operation-dropped	TURN-01/schedule-refused	red case
@@ -3800,9 +3800,9 @@ cmp.operation-dropped	TURN-02	green
 cmp.operation-dropped	TURN-03/exited	red case
 cmp.operation-dropped	TURN-03/on-time	red case
 cmp.operation-dropped	TURN-03/re-entered	red case
-cmp.operation-dropped	TURN-03/unused	red case
-cmp.operation-dropped	TURN-04/a-late-exit-with-nothing-queued-goes	red case
-cmp.operation-dropped	TURN-04/re-entry-makes-the-first-ending-late	red case
+cmp.operation-dropped	TURN-03/unused	red disposal
+cmp.operation-dropped	TURN-04/a-late-exit-with-nothing-queued-goes	red selection
+cmp.operation-dropped	TURN-04/re-entry-makes-the-first-ending-late	red selection
 cmp.operation-dropped	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 cmp.operation-dropped	TURN-05/child-refusal	green
 cmp.operation-dropped	TURN-05/removed-copy-ends-once	green
@@ -3870,7 +3870,7 @@ cmp.restore-runs-creation	PAY-07/late-in-a-new-PAYING	green
 cmp.restore-runs-creation	PAY-07/late-may-not-leave	green
 cmp.restore-runs-creation	PAY-07/leaveMidCharge	green
 cmp.restore-runs-creation	PAY-08/reload-while-reconciling	green
-cmp.restore-runs-creation	PAY-08/reloadDuringCharge	red lane-queue
+cmp.restore-runs-creation	PAY-08/reloadDuringCharge	red delivered-once,lane-queue
 cmp.restore-runs-creation	PAY-09/ack-not-stored	green
 cmp.restore-runs-creation	PAY-09/ack-stored-confirmation-lost	green
 cmp.restore-runs-creation	PAY-10/hang	green
@@ -3881,7 +3881,7 @@ cmp.restore-runs-creation	PAY-12/sync	green
 cmp.restore-runs-creation	PAY-13/hung-commit	green
 cmp.restore-runs-creation	PAY-13/waiting-flush-lost	green
 cmp.restore-runs-creation	PAY-13/waiting-flushed	green
-cmp.restore-runs-creation	PAY-14	red lane-queue
+cmp.restore-runs-creation	PAY-14	red delivered-once,lane-queue
 cmp.restore-runs-creation	PAY-15/busy-then-new-write	green
 cmp.restore-runs-creation	PAY-15/cancel-idle	green
 cmp.restore-runs-creation	PAY-15/cancel-on-wire	green
@@ -3891,8 +3891,8 @@ cmp.restore-runs-creation	PAY-15/dispose-held-moved	green
 cmp.restore-runs-creation	PAY-15/press-pay-while-held	green
 cmp.restore-runs-creation	PAY-15/reload-holds-exactly-once	green
 cmp.restore-runs-creation	PAY-15/retry-budget	green
-cmp.restore-runs-creation	PAY-16/answered-inside-the-bound	green
-cmp.restore-runs-creation	PAY-16/disposal-ends-with-the-last-fiber	green
+cmp.restore-runs-creation	PAY-16/answered-inside-the-bound	red delivered-once,lane-queue
+cmp.restore-runs-creation	PAY-16/disposal-ends-with-the-last-fiber	red delivered-once,lane-queue
 cmp.restore-runs-creation	PAY-16/dispose-waiting-resend	green
 cmp.restore-runs-creation	PAY-16/never-answered-waits-for-the-bound	green
 cmp.restore-runs-creation	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	green
@@ -3901,7 +3901,7 @@ cmp.restore-runs-creation	PAY-16/resend-refused-capture	green
 cmp.restore-runs-creation	PAY-16/restore-keeps-mayHaveApplied	red case
 cmp.restore-runs-creation	PAY-16/retry-count-persists	green
 cmp.restore-runs-creation	PAY-16/schedule-reads-after-memory	green
-cmp.restore-runs-creation	PAY-16/settled-during-disposal-parked	green
+cmp.restore-runs-creation	PAY-16/settled-during-disposal-parked	red delivered-once,lane-queue
 cmp.restore-runs-creation	PAY-16/stale-send-fenced	green
 cmp.restore-runs-creation	PAY-16/superseded-read	green
 cmp.restore-runs-creation	PAY-16/timeout-per-send	green
@@ -5638,8 +5638,8 @@ lane.cancel-held-keeps	LANE-10	green
 lane.cancel-held-keeps	LANE-11	green
 lane.cancel-held-keeps	LANE-12/release-ends-queue	red disposal
 lane.cancel-held-keeps	LANE-12/release-leaves-head	red disposal
-lane.cancel-held-keeps	LANE-12/release-uninterruptible	red late-results
-lane.cancel-held-keeps	LANE-12/release-uninterruptible-lost	red late-results
+lane.cancel-held-keeps	LANE-12/release-uninterruptible	red disposal
+lane.cancel-held-keeps	LANE-12/release-uninterruptible-lost	red case
 lane.cancel-held-keeps	LANE-13	green
 lane.cancel-held-keeps	LANE-14	green
 lane.cancel-held-keeps	LANE-15	green
@@ -7780,8 +7780,8 @@ lane.unknown-promotes	LANE-10	green
 lane.unknown-promotes	LANE-11	red lane-queue
 lane.unknown-promotes	LANE-12/release-ends-queue	red disposal
 lane.unknown-promotes	LANE-12/release-leaves-head	red disposal
-lane.unknown-promotes	LANE-12/release-uninterruptible	red late-results
-lane.unknown-promotes	LANE-12/release-uninterruptible-lost	red late-results
+lane.unknown-promotes	LANE-12/release-uninterruptible	red disposal
+lane.unknown-promotes	LANE-12/release-uninterruptible-lost	red disposal
 lane.unknown-promotes	LANE-13	green
 lane.unknown-promotes	LANE-14	green
 lane.unknown-promotes	LANE-15	red delivered-once
@@ -8943,105 +8943,105 @@ lie.no-incarnated	CMP-08	green
 lie.no-incarnated	CMP-09	green
 lie.no-incarnated	CMP-10	green
 lie.no-incarnated	CMP-11	green
-lie.no-incarnated	DISP-01	green
-lie.no-incarnated	DISP-02	green
-lie.no-incarnated	DISP-03	green
-lie.no-incarnated	DISP-04	green
-lie.no-incarnated	DISP-05	green
-lie.no-incarnated	DISP-06	green
-lie.no-incarnated	DISP-07	green
-lie.no-incarnated	DLV-01	green
-lie.no-incarnated	DLV-02	green
-lie.no-incarnated	DLV-03	green
-lie.no-incarnated	DLV-04	caught delivered-once WriteLanes I15
-lie.no-incarnated	DLV-05	caught delivered-once WriteLanes I15
-lie.no-incarnated	DLV-06	caught delivered-once WriteLanes I15
-lie.no-incarnated	DLV-07	green
-lie.no-incarnated	LANE-01	green
-lie.no-incarnated	LANE-02	green
-lie.no-incarnated	LANE-03	green
-lie.no-incarnated	LANE-04	green
-lie.no-incarnated	LANE-05	green
-lie.no-incarnated	LANE-06	green
-lie.no-incarnated	LANE-07	green
-lie.no-incarnated	LANE-08	green
-lie.no-incarnated	LANE-09	green
-lie.no-incarnated	LANE-10	green
-lie.no-incarnated	LANE-11	green
-lie.no-incarnated	LANE-12/release-ends-queue	green
-lie.no-incarnated	LANE-12/release-leaves-head	green
-lie.no-incarnated	LANE-12/release-uninterruptible	green
-lie.no-incarnated	LANE-12/release-uninterruptible-lost	green
-lie.no-incarnated	LANE-13	green
-lie.no-incarnated	LANE-14	green
-lie.no-incarnated	LANE-15	green
-lie.no-incarnated	LANE-16	green
-lie.no-incarnated	PAY-01	green
-lie.no-incarnated	PAY-02	green
-lie.no-incarnated	PAY-03	green
-lie.no-incarnated	PAY-04	green
-lie.no-incarnated	PAY-05	green
-lie.no-incarnated	PAY-06/interruptible	green
-lie.no-incarnated	PAY-06/uninterruptible	green
-lie.no-incarnated	PAY-07/late-in-a-new-PAYING	green
-lie.no-incarnated	PAY-07/late-may-not-leave	green
-lie.no-incarnated	PAY-07/leaveMidCharge	green
-lie.no-incarnated	PAY-08/reload-while-reconciling	green
-lie.no-incarnated	PAY-08/reloadDuringCharge	green
-lie.no-incarnated	PAY-09/ack-not-stored	green
-lie.no-incarnated	PAY-09/ack-stored-confirmation-lost	green
-lie.no-incarnated	PAY-10/hang	green
-lie.no-incarnated	PAY-10/refuse	green
-lie.no-incarnated	PAY-12/cancel-on-wire	green
-lie.no-incarnated	PAY-12/defect	green
-lie.no-incarnated	PAY-12/sync	green
-lie.no-incarnated	PAY-13/hung-commit	green
-lie.no-incarnated	PAY-13/waiting-flush-lost	green
-lie.no-incarnated	PAY-13/waiting-flushed	green
-lie.no-incarnated	PAY-14	green
-lie.no-incarnated	PAY-15/busy-then-new-write	green
-lie.no-incarnated	PAY-15/cancel-idle	green
-lie.no-incarnated	PAY-15/cancel-on-wire	green
-lie.no-incarnated	PAY-15/dead-activation-timer	green
-lie.no-incarnated	PAY-15/dispose-held	green
-lie.no-incarnated	PAY-15/dispose-held-moved	green
-lie.no-incarnated	PAY-15/press-pay-while-held	green
-lie.no-incarnated	PAY-15/reload-holds-exactly-once	green
-lie.no-incarnated	PAY-15/retry-budget	green
-lie.no-incarnated	PAY-16/answered-inside-the-bound	green
-lie.no-incarnated	PAY-16/disposal-ends-with-the-last-fiber	green
-lie.no-incarnated	PAY-16/dispose-waiting-resend	green
-lie.no-incarnated	PAY-16/never-answered-waits-for-the-bound	green
-lie.no-incarnated	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	green
-lie.no-incarnated	PAY-16/read-defect-issue	green
-lie.no-incarnated	PAY-16/resend-refused-capture	green
-lie.no-incarnated	PAY-16/restore-keeps-mayHaveApplied	green
-lie.no-incarnated	PAY-16/retry-count-persists	green
-lie.no-incarnated	PAY-16/schedule-reads-after-memory	green
-lie.no-incarnated	PAY-16/settled-during-disposal-parked	green
-lie.no-incarnated	PAY-16/stale-send-fenced	green
-lie.no-incarnated	PAY-16/superseded-read	green
-lie.no-incarnated	PAY-16/timeout-per-send	green
-lie.no-incarnated	PAY-18	green
-lie.no-incarnated	PAY-19/place-answers-first	green
-lie.no-incarnated	PAY-19/void-answers-first	green
-lie.no-incarnated	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	green
-lie.no-incarnated	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	green
-lie.no-incarnated	PAY-21	green
-lie.no-incarnated	PAY-22	green
-lie.no-incarnated	PAY-23	green
-lie.no-incarnated	TURN-01/mapper-refused	caught delivered-once WriteLanes I15
-lie.no-incarnated	TURN-01/schedule-refused	caught delivered-once WriteLanes I15
-lie.no-incarnated	TURN-02	green
-lie.no-incarnated	TURN-03/exited	green
-lie.no-incarnated	TURN-03/on-time	green
-lie.no-incarnated	TURN-03/re-entered	green
-lie.no-incarnated	TURN-03/unused	green
-lie.no-incarnated	TURN-04/a-late-exit-with-nothing-queued-goes	green
-lie.no-incarnated	TURN-04/re-entry-makes-the-first-ending-late	green
-lie.no-incarnated	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
-lie.no-incarnated	TURN-05/child-refusal	green
-lie.no-incarnated	TURN-05/removed-copy-ends-once	green
+lie.no-incarnated	DISP-01	caught disposal Actors I14
+lie.no-incarnated	DISP-02	caught disposal Actors I14
+lie.no-incarnated	DISP-03	caught disposal Actors I14
+lie.no-incarnated	DISP-04	caught disposal Actors I14
+lie.no-incarnated	DISP-05	caught disposal Actors I14
+lie.no-incarnated	DISP-06	caught disposal Actors I14
+lie.no-incarnated	DISP-07	caught disposal Actors I14
+lie.no-incarnated	DLV-01	caught disposal Actors I14
+lie.no-incarnated	DLV-02	caught disposal Actors I14
+lie.no-incarnated	DLV-03	caught disposal Actors I14
+lie.no-incarnated	DLV-04	caught disposal Actors I14
+lie.no-incarnated	DLV-05	caught disposal Actors I14
+lie.no-incarnated	DLV-06	caught disposal Actors I14
+lie.no-incarnated	DLV-07	caught disposal Actors I14
+lie.no-incarnated	LANE-01	caught disposal Actors I14
+lie.no-incarnated	LANE-02	caught disposal Actors I14
+lie.no-incarnated	LANE-03	caught disposal Actors I14
+lie.no-incarnated	LANE-04	caught disposal Actors I14
+lie.no-incarnated	LANE-05	caught disposal Actors I14
+lie.no-incarnated	LANE-06	caught disposal Actors I14
+lie.no-incarnated	LANE-07	caught disposal Actors I14
+lie.no-incarnated	LANE-08	caught disposal Actors I14
+lie.no-incarnated	LANE-09	caught disposal Actors I14
+lie.no-incarnated	LANE-10	caught disposal Actors I14
+lie.no-incarnated	LANE-11	caught disposal Actors I14
+lie.no-incarnated	LANE-12/release-ends-queue	caught disposal Actors I14
+lie.no-incarnated	LANE-12/release-leaves-head	caught disposal Actors I14
+lie.no-incarnated	LANE-12/release-uninterruptible	caught disposal Actors I14
+lie.no-incarnated	LANE-12/release-uninterruptible-lost	caught disposal Actors I14
+lie.no-incarnated	LANE-13	caught disposal Actors I14
+lie.no-incarnated	LANE-14	caught disposal Actors I14
+lie.no-incarnated	LANE-15	caught disposal Actors I14
+lie.no-incarnated	LANE-16	caught disposal Actors I14
+lie.no-incarnated	PAY-01	caught disposal Actors I14
+lie.no-incarnated	PAY-02	caught disposal Actors I14
+lie.no-incarnated	PAY-03	caught disposal Actors I14
+lie.no-incarnated	PAY-04	caught disposal Actors I14
+lie.no-incarnated	PAY-05	caught disposal Actors I14
+lie.no-incarnated	PAY-06/interruptible	caught disposal Actors I14
+lie.no-incarnated	PAY-06/uninterruptible	caught disposal Actors I14
+lie.no-incarnated	PAY-07/late-in-a-new-PAYING	caught disposal Actors I14
+lie.no-incarnated	PAY-07/late-may-not-leave	caught disposal Actors I14
+lie.no-incarnated	PAY-07/leaveMidCharge	caught disposal Actors I14
+lie.no-incarnated	PAY-08/reload-while-reconciling	caught disposal Actors I14
+lie.no-incarnated	PAY-08/reloadDuringCharge	caught disposal Actors I14
+lie.no-incarnated	PAY-09/ack-not-stored	caught disposal Actors I14
+lie.no-incarnated	PAY-09/ack-stored-confirmation-lost	caught disposal Actors I14
+lie.no-incarnated	PAY-10/hang	caught disposal Actors I14
+lie.no-incarnated	PAY-10/refuse	caught disposal Actors I14
+lie.no-incarnated	PAY-12/cancel-on-wire	caught disposal Actors I14
+lie.no-incarnated	PAY-12/defect	caught disposal Actors I14
+lie.no-incarnated	PAY-12/sync	caught disposal Actors I14
+lie.no-incarnated	PAY-13/hung-commit	caught disposal Actors I14
+lie.no-incarnated	PAY-13/waiting-flush-lost	caught disposal Actors I14
+lie.no-incarnated	PAY-13/waiting-flushed	caught disposal Actors I14
+lie.no-incarnated	PAY-14	caught disposal Actors I14
+lie.no-incarnated	PAY-15/busy-then-new-write	caught disposal Actors I14
+lie.no-incarnated	PAY-15/cancel-idle	caught disposal Actors I14
+lie.no-incarnated	PAY-15/cancel-on-wire	caught disposal Actors I14
+lie.no-incarnated	PAY-15/dead-activation-timer	caught disposal Actors I14
+lie.no-incarnated	PAY-15/dispose-held	caught disposal Actors I14
+lie.no-incarnated	PAY-15/dispose-held-moved	caught disposal Actors I14
+lie.no-incarnated	PAY-15/press-pay-while-held	caught disposal Actors I14
+lie.no-incarnated	PAY-15/reload-holds-exactly-once	caught disposal Actors I14
+lie.no-incarnated	PAY-15/retry-budget	caught disposal Actors I14
+lie.no-incarnated	PAY-16/answered-inside-the-bound	caught disposal Actors I14
+lie.no-incarnated	PAY-16/disposal-ends-with-the-last-fiber	caught disposal Actors I14
+lie.no-incarnated	PAY-16/dispose-waiting-resend	caught disposal Actors I14
+lie.no-incarnated	PAY-16/never-answered-waits-for-the-bound	caught disposal Actors I14
+lie.no-incarnated	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	caught disposal Actors I14
+lie.no-incarnated	PAY-16/read-defect-issue	caught disposal Actors I14
+lie.no-incarnated	PAY-16/resend-refused-capture	caught disposal Actors I14
+lie.no-incarnated	PAY-16/restore-keeps-mayHaveApplied	caught disposal Actors I14
+lie.no-incarnated	PAY-16/retry-count-persists	caught disposal Actors I14
+lie.no-incarnated	PAY-16/schedule-reads-after-memory	caught disposal Actors I14
+lie.no-incarnated	PAY-16/settled-during-disposal-parked	caught disposal Actors I14
+lie.no-incarnated	PAY-16/stale-send-fenced	caught disposal Actors I14
+lie.no-incarnated	PAY-16/superseded-read	caught disposal Actors I14
+lie.no-incarnated	PAY-16/timeout-per-send	caught disposal Actors I14
+lie.no-incarnated	PAY-18	caught disposal Actors I14
+lie.no-incarnated	PAY-19/place-answers-first	caught disposal Actors I14
+lie.no-incarnated	PAY-19/void-answers-first	caught disposal Actors I14
+lie.no-incarnated	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	caught disposal Actors I14
+lie.no-incarnated	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	caught disposal Actors I14
+lie.no-incarnated	PAY-21	caught disposal Actors I14
+lie.no-incarnated	PAY-22	caught disposal Actors I14
+lie.no-incarnated	PAY-23	caught disposal Actors I14
+lie.no-incarnated	TURN-01/mapper-refused	caught disposal Actors I14
+lie.no-incarnated	TURN-01/schedule-refused	caught disposal Actors I14
+lie.no-incarnated	TURN-02	caught disposal Actors I14
+lie.no-incarnated	TURN-03/exited	caught disposal Actors I14
+lie.no-incarnated	TURN-03/on-time	caught disposal Actors I14
+lie.no-incarnated	TURN-03/re-entered	caught disposal Actors I14
+lie.no-incarnated	TURN-03/unused	caught disposal Actors I14
+lie.no-incarnated	TURN-04/a-late-exit-with-nothing-queued-goes	caught disposal Actors I14
+lie.no-incarnated	TURN-04/re-entry-makes-the-first-ending-late	caught disposal Actors I14
+lie.no-incarnated	TURN-05/a-part-writing-the-key-is-a-pending-reset	caught disposal Actors I14
+lie.no-incarnated	TURN-05/child-refusal	caught disposal Actors I14
+lie.no-incarnated	TURN-05/removed-copy-ends-once	caught disposal Actors I14
 lie.release-member-claimed	CLI-01	green
 lie.release-member-claimed	CLI-02	green
 lie.release-member-claimed	CLI-03	green

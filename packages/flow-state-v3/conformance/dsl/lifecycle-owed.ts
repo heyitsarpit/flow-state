@@ -14,7 +14,11 @@ import {
 /**
  * What the step reads besides the facts: the case's operation references and its rows.
  */
-export type Known = { readonly reference: Reference; readonly rows: Rows };
+export type Known = {
+  readonly reference: Reference;
+  readonly rows: Rows;
+  readonly timed: Readonly<Record<string, ReadonlyArray<string>>>;
+};
 
 /**
  * The reference of `actor`'s operation, if its machine declares that write.

@@ -70,6 +70,18 @@ export type State = {
 
 export const keyOf = (actor: ActorRef) => `${actor.machine} ${actor.id}`;
 
+/**
+ * Each anchored actor's leaf, by {@link keyOf}: what its schedules may fire from while the suite
+ * advances the clock.
+ */
+// RETURN_TYPE: a read-only map, so a reader cannot change the anchor's leaves.
+export const leavesOf = (state: State): ReadonlyMap<string, string> =>
+  new Map(
+    [...state.actors].flatMap(([key, a]) =>
+      Option.toArray(leafOf(a.phase)).map((leaf) => [key, leaf] as const),
+    ),
+  );
+
 export const FRESH: Actor = {
   phase: Phase.Fresh(),
   driven: [],

@@ -93,7 +93,7 @@ lie.cancels-reported-as-release	PAY-03	caught lane-queue WriteLanes I12
 lie.failures-unmapped	PAY-02	caught delivered-once WriteLanes I15
 lie.held-released-unguarded	LANE-03	caught lane-queue WriteLanes I12
 lie.held-released-unguarded	PAY-15/press-pay-while-held	caught lane-queue WriteLanes I12
-lie.no-incarnated	DLV-04	caught delivered-once WriteLanes I15
+lie.no-incarnated	DLV-04	caught disposal Actors I14
 lie.release-member-claimed	PAY-15/retry-budget	caught lane-queue WriteLanes I12
 lie.release-on-guarded-read	PAY-15/retry-budget	caught lane-queue WriteLanes I12
 lie.release-on-guarded-read	PAY-23	caught lane-queue WriteLanes I12

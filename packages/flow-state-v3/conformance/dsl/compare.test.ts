@@ -10,7 +10,7 @@ import { rules } from "./lifecycle-rules.ts";
 import { step } from "./lifecycle-step.ts";
 import { Fact } from "./oracle.ts";
 
-const known: Known = { reference: referenceFor([Pay]), rows: rowsFor([Pay]) };
+const known: Known = { reference: referenceFor([Pay]), rows: rowsFor([Pay]), timed: {} };
 
 const shopper: ActorRef = { machine: "Checkout/Pay", id: "s1" };
 
@@ -90,5 +90,48 @@ describe("the compare half (Conformance R19, T38)", () => {
     );
 
     assert.deepStrictEqual(refusals([leave, minted], [predicted]), []);
+  });
+});
+
+describe("an actor's incarnation and end, owed from the suite's facts (Actors R6, R8, I10, I37)", () => {
+  const leaves = new Map([["Checkout/Pay s1", "IDLE"]]);
+  const story = { actor: shopper, use: "story" as const };
+  const incarnated = said(Observation.Incarnated({ actor: shopper }));
+  const finished = said(Observation.Finished({ actor: shopper }));
+
+  const walked = (steps: ReadonlyArray<ReadonlyArray<Fact>>) =>
+    steps.reduce<{ readonly model: typeof empty; readonly found: ReadonlyArray<string> }>(
+      (acc, facts) => {
+        const life = step(acc.model, known, facts, [], rules, [], leaves);
+
+        return {
+          model: life.after,
+          found: [...acc.found, ...life.applied.flatMap((a) => a.refusals.map((r) => r.invariant))],
+        };
+      },
+      { model: empty, found: [] },
+    ).found;
+
+  it("refuses an ensure whose incarnation is never reported", () => {
+    assert.deepStrictEqual(walked([[Fact.Ensured(story)]]), ["Actors I14"]);
+  });
+
+  it("owes the end of an actor free for the whole grace, and accepts it", () => {
+    const opened = [Fact.Ensured(story), incarnated, Fact.Released(story)];
+
+    assert.deepStrictEqual(walked([opened, [Fact.Advanced({ ms: 200 })]]), ["Actors I37"]);
+    assert.deepStrictEqual(walked([opened, [Fact.Advanced({ ms: 200 }), finished]]), []);
+  });
+
+  it("owes no end before the grace is over, and refuses one while a use is held", () => {
+    const opened = [Fact.Ensured(story), incarnated];
+
+    assert.deepStrictEqual(
+      walked([[...opened, Fact.Released(story)], [Fact.Advanced({ ms: 50 })]]),
+      [],
+    );
+    assert.deepStrictEqual(walked([opened, [Fact.Advanced({ ms: 200 }), finished]]), [
+      "Actors I10",
+    ]);
   });
 });

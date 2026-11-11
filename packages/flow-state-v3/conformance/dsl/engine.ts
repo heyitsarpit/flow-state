@@ -1,6 +1,8 @@
 import { Option, Result } from "effect";
 import { answerLabels, handlersFor, referenceFor, rowsFor } from "../fixtures/fixture.ts";
+import { timedOf } from "../fixtures/handlers.ts";
 import { Unreadable } from "../port.ts";
+import { leavesOf } from "../turn/anchor.ts";
 import { anchorOf, judgedStep } from "../turn/selection.ts";
 import { RequestPhase } from "../world/network.ts";
 import type { World } from "../world/world.ts";
@@ -35,7 +37,7 @@ export const stepEngine = (
   const { network, storage } = world.hosts;
   const reference = referenceFor(options.fixtures);
   const machines = handlersFor(options.fixtures);
-  const known = { reference, rows: rowsFor(options.fixtures) };
+  const known = { reference, rows: rowsFor(options.fixtures), timed: timedOf(machines) };
   let anchor = anchorOf(machines);
 
   const judges = options.oracles.map((o) => ({
@@ -89,9 +91,20 @@ export const stepEngine = (
     judged = facts.length;
 
     const cuts = fresh.map((cut) => {
+      const leaves = leavesOf(anchor);
       const judgedCut = judgedStep(anchor, cut);
       anchor = judgedCut.state;
-      const life = lifeStep(model, known, judgedCut.facts, requests, rules, judgedCut.turns);
+
+      const life = lifeStep(
+        model,
+        known,
+        judgedCut.facts,
+        requests,
+        rules,
+        judgedCut.turns,
+        leaves,
+      );
+
       model = life.after;
 
       return { cut, life };

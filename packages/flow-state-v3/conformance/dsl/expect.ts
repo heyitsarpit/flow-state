@@ -1,5 +1,5 @@
 import { Option } from "effect";
-import type { ActorRef } from "../port.ts";
+import { type ActorRef, sameActor } from "../port.ts";
 import type { Answer, Request } from "../world/network.ts";
 import type { Purpose } from "../world/storage.ts";
 import { endingOf } from "./domain.ts";
@@ -13,6 +13,7 @@ import {
   LaneMove,
   type Model,
   Move,
+  Phase,
   type Refusal,
 } from "./lifecycle-model.ts";
 import { type Known, operationOf, type Predicted } from "./lifecycle-owed.ts";
@@ -55,6 +56,10 @@ export type Walk = {
   readonly reloaded: boolean;
   readonly used: ReadonlyArray<ActorRef>;
   readonly incarnated: ReadonlyArray<ActorRef>;
+  readonly incarnationsHeard: ReadonlyArray<ActorRef>;
+  readonly ends: ReadonlyArray<ActorRef>;
+  readonly endsHeard: ReadonlyArray<ActorRef>;
+  readonly leaves: ReadonlyMap<string, string>;
   readonly unsent: ReadonlyArray<string>;
   readonly purposes: ReadonlyArray<Purpose>;
   readonly turns: ReadonlyArray<Predicted>;
@@ -115,16 +120,139 @@ const ADOPTABLE: ReadonlyArray<string> = ["grace", "disposeActor", "forget"];
 const recordOf = (model: Model, actor: ActorRef) =>
   model.actors.find((a) => a.actor.machine === actor.machine && a.actor.id === actor.id)?.record;
 
-const ensured = (walk: Walk, actor: ActorRef, given: Rules) => {
-  const used = { ...walk, used: [...walk.used, actor] };
+/**
+ * Whether `actor` has a live incarnation.
+ */
+export const isLive = (model: Model, actor: ActorRef) =>
+  model.live.some((l) => sameActor(l.actor, actor));
+
+/**
+ * Whether the suite holds a use of `actor`.
+ */
+export const holds = (model: Model, actor: ActorRef) =>
+  model.held.some(([a]) => sameActor(a, actor));
+
+/**
+ * Opens an incarnation of `actor` (Actors R6, R9): an adoption when its record is unbound or in
+ * its grace, else a fresh one, counted free from now.
+ */
+export const opened = (walk: Walk, actor: ActorRef, given: Rules, woken = false) => {
   const record = recordOf(walk.model, actor);
 
-  return record !== undefined && ADOPTABLE.includes(record)
-    ? {
-        ...pushed(used, ActorMove.Adopt({ actor }), given),
-        incarnated: [...walk.incarnated, actor],
-      }
-    : used;
+  const move =
+    record !== undefined && ADOPTABLE.includes(record)
+      ? ActorMove.Adopt({ actor })
+      : ActorMove.Incarnated({ actor });
+
+  const next = pushed(walk, move, given);
+
+  return {
+    ...next,
+    model: {
+      ...next.model,
+      live: [...next.model.live, { actor, free: Option.some(0), woken }],
+    },
+    incarnated: [...next.incarnated, actor],
+  };
+};
+
+/**
+ * Ends `actor`'s incarnation (Actors R8): its record waits out the grace, unbound.
+ */
+export const finished = (walk: Walk, actor: ActorRef, given: Rules) => {
+  const next = pushed(walk, ActorMove.Finished({ actor }), given);
+
+  return {
+    ...next,
+    model: { ...next.model, live: next.model.live.filter((l) => !sameActor(l.actor, actor)) },
+  };
+};
+
+/**
+ * An `Ensured` owes `actor` an incarnation when it has none (Actors R6, R9), while the Runtime
+ * runs. A send may reach a disposed or forgotten identity, so a `Drove` only allows one.
+ */
+const used = (walk: Walk, actor: ActorRef, given: Rules) => {
+  const marked = { ...walk, used: [...walk.used, actor] };
+
+  return walk.model.mode === "running" && !isLive(walk.model, actor)
+    ? opened(marked, actor, given)
+    : marked;
+};
+
+const ENDED_LIVES: ReadonlyArray<string> = ["Closed", "Refused", "Evidence"];
+
+/**
+ * Whether the suite knows `actor` is free while the clock moves (Actors R7): opened by its own
+ * ensure, no use held, every
+ * Attempt of its lanes gone and every ending of them settled, its record encodable, the Runtime
+ * running, and no schedule at its leaf that could fire first.
+ */
+const surelyFree = (walk: Walk, known: Known, actor: ActorRef) => {
+  const { model } = walk;
+  const leaf = walk.leaves.get(`${actor.machine} ${actor.id}`);
+  const woken = model.live.some((l) => sameActor(l.actor, actor) && l.woken);
+  const timed = known.timed[actor.machine] ?? [];
+
+  return (
+    model.mode === "running" &&
+    !woken &&
+    !model.unencodable &&
+    !holds(model, actor) &&
+    leaf !== undefined &&
+    !timed.includes(leaf) &&
+    model.attempts.every((a) => !sameActor(a.lane.actor, actor) || Phase.$is("Gone")(a.phase)) &&
+    model.endings.every((e) => !sameActor(e.actor, actor) || ENDED_LIVES.includes(e.life._tag))
+  );
+};
+
+const GRACE_MS = 100;
+
+/**
+ * The clock moved `ms`: each live actor the suite knows is free counts it, and one free for the
+ * whole grace owes its end in this step (Actors R8, I10, I37); any other's free time is unknown.
+ */
+const aged = (walk: Walk, known: Known, ms: number, given: Rules) =>
+  walk.model.live.reduce<Walk>((w, l) => {
+    const free = surelyFree(w, known, l.actor)
+      ? Option.map(l.free, (n) => n + ms)
+      : Option.none<number>();
+
+    if (Option.exists(free, (n) => n >= GRACE_MS))
+      return { ...finished(w, l.actor, given), ends: [...w.ends, l.actor] };
+
+    return {
+      ...w,
+      model: {
+        ...w.model,
+        live: w.model.live.map((x) => (sameActor(x.actor, l.actor) ? { ...x, free } : x)),
+      },
+    };
+  }, walk);
+
+/**
+ * Any suite fact but the clock's restarts every live actor's count: what it changed is judged at
+ * the next `Advanced`.
+ */
+const restarted = (walk: Walk) => ({
+  ...walk,
+  model: {
+    ...walk.model,
+    live: walk.model.live.map((l) => ({ ...l, free: Option.some(0) })),
+  },
+});
+
+const removed = (walk: Walk, move: Input, given: Rules) => {
+  const next = pushed(walk, move, given);
+  const actor = "actor" in move ? move.actor : undefined;
+
+  return {
+    ...next,
+    model: {
+      ...next.model,
+      live: next.model.live.filter((l) => actor === undefined || !sameActor(l.actor, actor)),
+    },
+  };
 };
 
 const holding = (walk: Walk, fact: SuiteFact) => ({
@@ -136,7 +264,15 @@ const holding = (walk: Walk, fact: SuiteFact) => ({
  * Applies one suite fact: what the suite drove, what its world saw, and the runtime answers a
  * `limits.ts` row admits (a batch's purpose, the Attempts it acknowledges).
  */
-export const onSuiteFact = (walk: Walk, fact: SuiteFact, given: Rules) =>
+export const onSuiteFact = (walk: Walk, fact: SuiteFact, known: Known, given: Rules) => {
+  if (SuiteFact.$is("Advanced")(fact)) return aged(walk, known, fact.ms, given);
+
+  return suiteMoved(QUIET_FACTS.includes(fact._tag) ? walk : restarted(walk), fact, given);
+};
+
+const QUIET_FACTS: ReadonlyArray<string> = ["Stepped", "Read"];
+
+const suiteMoved = (walk: Walk, fact: SuiteFact, given: Rules) =>
   SuiteFact.$match(fact, {
     Reloaded: ({ release }) => {
       const closed = closedTurn({ ...walk, model: { ...walk.model, release } }, given);
@@ -144,14 +280,14 @@ export const onSuiteFact = (walk: Walk, fact: SuiteFact, given: Rules) =>
 
       return {
         ...reloaded,
-        model: booted({ ...unlanded(reloaded.model), held: [] }),
+        model: booted({ ...unlanded(reloaded.model), held: [], live: [] }),
         reloaded: true,
       };
     },
     DisposingRuntime: () => pushed(walk, Move.DisposalStarts(), given),
-    Disposed: ({ actor }) => pushed(holding(walk, fact), ActorMove.Disposed({ actor }), given),
-    Forgot: ({ actor }) => pushed(holding(walk, fact), ActorMove.Forgot({ actor }), given),
-    Ensured: ({ actor }) => ensured(holding(walk, fact), actor, given),
+    Disposed: ({ actor }) => removed(holding(walk, fact), ActorMove.Disposed({ actor }), given),
+    Forgot: ({ actor }) => removed(holding(walk, fact), ActorMove.Forgot({ actor }), given),
+    Ensured: ({ actor }) => used(holding(walk, fact), actor, given),
     Drove: ({ actor }) => ({ ...walk, used: [...walk.used, actor] }),
     Unstoppable: ({ operation }) =>
       walk.model.unstoppable.includes(operation)
@@ -180,6 +316,24 @@ export const onSuiteFact = (walk: Walk, fact: SuiteFact, given: Rules) =>
   });
 
 /**
+ * The incarnations and ends the step owed that the runtime never reported (Actors R6, R9, I37).
+ */
+const unheard = (walk: Walk) => [
+  ...walk.incarnated
+    .filter((a) => !walk.incarnationsHeard.some((h) => sameActor(h, a)))
+    .map((a) => ({
+      invariant: "Actors I14" as const,
+      text: `${a.machine} ${a.id} was used with no live incarnation, but none was reported`,
+    })),
+  ...walk.ends
+    .filter((a) => !walk.endsHeard.some((h) => sameActor(h, a)))
+    .map((a) => ({
+      invariant: "Actors I37" as const,
+      text: `${a.machine} ${a.id} was free for the whole grace, but its end was not reported`,
+    })),
+];
+
+/**
  * Applies the Attempts a landed batch acknowledges: a runtime answer `limits.ts` admits, since the
  * store cannot read Attempt ids without a codec.
  */
@@ -202,9 +356,10 @@ export const ended = (walk: Walk, given: Rules) => {
   const [model, late] = due(stepped.model, "StepEnds", given);
   const before = stepped.applied.slice(0, -1);
 
-  const last = stepped.applied
-    .slice(-1)
-    .map((a) => ({ ...a, refusals: [...a.refusals, ...walk.unmatched, ...late] }));
+  const last = stepped.applied.slice(-1).map((a) => ({
+    ...a,
+    refusals: [...a.refusals, ...walk.unmatched, ...late, ...unheard(walk)],
+  }));
 
   return { ...stepped, model, applied: [...before, ...last] };
 };

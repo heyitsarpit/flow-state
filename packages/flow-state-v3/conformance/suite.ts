@@ -41,6 +41,7 @@ import { selection } from "./turn/selection.ts";
 import {
   carriedDeliveredOnceMutants,
   carriedRecordProbes,
+  incarnationLieMutants,
   reportLieMutants,
 } from "./write-lanes/carried.mutants.ts";
 import { attemptIdentityMutants } from "./write-lanes/attempt-identity.mutants.ts";
@@ -86,7 +87,7 @@ const pinned: ReadonlyArray<Guarantee> = [
     mutants: [...deliveredOnceMutants, ...carriedDeliveredOnceMutants, ...reportLieMutants],
   },
   { oracle: laneQueue, mutants: [...laneQueueMutants, ...resendMutants, ...headerLaneMutants] },
-  { oracle: disposal, mutants: disposalMutants },
+  { oracle: disposal, mutants: [...disposalMutants, ...incarnationLieMutants] },
   { oracle: graphNames, mutants: graphNamesMutants },
   { oracle: retryCount, mutants: retryCountMutants },
   { oracle: evidenceKinds, mutants: evidenceKindsMutants },
@@ -143,6 +144,7 @@ const reportTruth = {
  */
 export const reportOnly: ReadonlySet<string> = new Set([
   ...reportLieMutants.map((m) => m.name),
+  ...incarnationLieMutants.map((m) => m.name),
   ...Object.values(productionMutants)
     .flat()
     .filter((m) => m.edits.every((e) => e.file.startsWith("conformance/adapters/")))
