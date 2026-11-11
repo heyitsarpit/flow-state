@@ -267,6 +267,11 @@ instructions
       design, Spec and audit leads take the building lead's slot in turn. Leads report once per
       batch or stop, in at most 10 lines, with no progress messages (the user, 2026-11-11, to
       preserve usage, the orchestrator's included).
+    - Every suite brief and review applies skill:policy-testing#audit-a-suite as a checklist: an
+      inventory of each check's inputs (observed by the harness or reported by the runtime), excuses
+      only from observed causes, a mutant for each report a check reads, and expected results never
+      copied from round-14 (the user, 2026-11-11). Adapters use typed failures with defects kept
+      apart; in `src/`, no throw outside a defect is a standing review angle from P4.
     - Leads keep working through context compaction, up to three compactions, and hand off only
       after the third; they don't stop early because context is long (the user, 2026-11-11).
     - Checkpoints (a builder commit at the end of a coherent step) about every 50 minutes, which

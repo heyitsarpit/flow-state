@@ -616,3 +616,5 @@ note 2026-11-11T04:20:53Z
     Amendment (the user, 2026-11-11): one lead at a time, all Opus at medium, sidecars kept, reviews every 90 minutes, leads report once per batch in at most 10 lines. T42 pauses at its next clean commit and resumes after the builder. **Why:** weekly usage was burning about 2.4 points an hour. **Reverse:** restore the hourly cron and parallel leads.
 note 2026-11-11T04:21:25Z
     T42 done at 9230fae6: 26 conflicts resolved, rulings and gap Invariants written, 18 cut (183 core Invariants, coverage 0 gaps). 16 suite updates for the builder are in T42's comment; CQ8, CQ10, CQ11 and gaps G3, G8 to G16 go to their own Tasks.
+note 2026-11-11T04:41:35Z
+    Amendment (the user, 2026-11-11): suite work and reviews apply policy-testing's audit section as a checklist; the repeated 'report decides an obligation' bugs broke its rule 'excuse only what the harness observed'. Adapters get typed failures; P4 reviews check no throw outside a defect.
