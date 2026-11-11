@@ -541,3 +541,5 @@ note 2026-11-11T00:00:18Z
     Review started on convergence step 4 (3d03715c..cf825289); weekly usage 21 percent.
 note 2026-11-11T00:07:39Z
     Convergence items 1 to 3 landed at 1186683d (86/86, null 0/86, sweep 74/74 with case time bounds); no reviewer sidecar ran on them, so the next lead runs one first. For the user: no Invariant says a turn runs exactly its declared members (a guarantee gap).
+note 2026-11-11T00:36:49Z
+    Step 4 review (code:workflow/plans/flow/references/proposals/step4-review-2026-11-11.md): not yet; H1 is a regression (cancel obligations anchored to reported members, so dropped cancels pass where they were caught under I12, I20, I21). Decision (orchestrator): obligations come from the reference rows, reports only confirm; the 'dropped member' guarantee gap is withdrawn, since existing Invariants cover it. Sent to the lead with M1 to M4.
