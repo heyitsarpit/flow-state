@@ -48,7 +48,8 @@ const when = (condition: string, body: string) => `${ADMIT}\n  if (a && ${condit
  * - `d6.disposed-ending-is-evidence`: an ending of a disposed persisted actor is recorded, not
  *   parked.
  * - `mutant.parked-delivered-as-other-tag`: a parked definite ending is delivered, at adoption,
- *   as an unknown (review F2; T6 M1).
+ *   as an unknown (review F2; T6 M1). It proves F2's cell (also `ending-channels` I3), not I15's
+ *   delivery count.
  * - `mutant.boot-skips-restored`: a boot restores a Held head without its `unknown { Restored }`
  *   (Restore I6, CQ11).
  * - `mutant.restore-skips-unsent`: a boot restores an acknowledged head that was never sent

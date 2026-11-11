@@ -246,6 +246,33 @@ export type Mutant = {
 };
 
 /**
+ * An edit of a runtime that falsify runs beside the mutants and never counts as one: a report-only
+ * edit, whose cases must all pass (`holds: "green"`, Conformance R4: a report-only mismatch is no
+ * violation), or a wrong runtime no Invariant states yet (`holds: "pending"`), whose red cases
+ * falsify prints for the user's call.
+ *
+ * **When to use**
+ *
+ * - `green`: to pin that the suite does not refuse a correct act whose report differs only in
+ *   what the suite never reads (member order, a member the turn does not owe).
+ * - `pending`: to keep a reviewer's probe of a guarantee gap runnable until the user decides it.
+ *
+ * **Details**
+ *
+ * - Edits apply as a {@link Mutant}'s do; one that does not apply fails falsify.
+ * - `cases`: for `green`, the cases that must pass; for `pending`, those it is expected to turn
+ *   red.
+ */
+export type Probe = {
+  readonly name: string;
+  readonly says: string;
+  readonly holds: "green" | "pending";
+  readonly runtime: "prototype" | "production";
+  readonly cases: ReadonlyArray<string>;
+  readonly edits: Mutant["edits"];
+};
+
+/**
  * One guarantee as the suite runs it: its oracle and the mutants that oracle must catch.
  *
  * **Gotchas**

@@ -7,8 +7,8 @@ import type { Mutant } from "../dsl/oracle.ts";
  *
  * - `mutant.disposal-skips-never-sent` leaves a never-sent commit unended by the disposal.
  * - `mutant.disposal-dispatches` also sends such a commit once its write lands.
- * - The `o6.*` ones edit the disposal's bound: `o6.dispose-interrupts-wire` interrupts the
- *   call on the wire at the start, `o6.no-bound` ends the disposal at once, and
+ * - The `o6.*` ones edit the disposal: `o6.dispose-interrupts-wire` interrupts the call on
+ *   the wire at the start, `o6.no-bound` ends the disposal at once, and
  *   `o6.settled-in-bound-stays-held` keeps a definite in-bound ending's head Held;
  *   `mutant.short-disposal-bound` cuts the bound to 1 s, which a call that never answers shows;
  *   `mutant.bound-ending-wrong-tag` ends a call answered within the bound as the bound does, not

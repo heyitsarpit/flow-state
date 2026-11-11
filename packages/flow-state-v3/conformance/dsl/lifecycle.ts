@@ -353,19 +353,21 @@ const unminted = (move: Move) => {
   return wl(15);
 };
 
+const owesRelease = (model: Model, attempt: string) =>
+  model.obligations.some(
+    (o) => Obligation.$is("Await")(o) && o.attempt === attempt && o.report === "Released",
+  );
+
 const bootOwes = (model: Model) => {
   const cause = model.mode === "disposing" ? ("runtimeDisposal" as const) : ("plain" as const);
-
-  const released = (attempt: string) =>
-    model.obligations.some(
-      (o) => Obligation.$is("Await")(o) && o.attempt === attempt && o.report === "Released",
-    );
 
   const restorable = (a: AttemptLife) =>
     a.phase._tag === "Held" ||
     (Phase.$is("Restoring")(a.phase) && a.phase.head && model.acknowledged.includes(a.id));
 
-  const owing = model.attempts.filter((a) => restorable(a) && isHead(model, a) && !released(a.id));
+  const owing = model.attempts.filter(
+    (a) => restorable(a) && isHead(model, a) && !owesRelease(model, a.id),
+  );
 
   return [
     ...model.obligations,
@@ -498,7 +500,11 @@ export const incarnate = (model: Model, actor: ActorRef) => {
 
   const owing = model.attempts.filter(
     (a) =>
-      returning && sameActor(a.lane.actor, actor) && a.phase._tag === "Held" && isHead(model, a),
+      returning &&
+      sameActor(a.lane.actor, actor) &&
+      a.phase._tag === "Held" &&
+      isHead(model, a) &&
+      !owesRelease(model, a.id),
   );
 
   return {

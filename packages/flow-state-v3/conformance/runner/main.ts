@@ -12,8 +12,23 @@ import type { Scenario } from "../dsl/case.ts";
 import { notYet } from "../not-yet.ts";
 import { graphedOf } from "../static-cli/graph.ts";
 import type { Surface } from "../surface.ts";
-import { caseChecks, caseIds, guarantees, oracles, scenarios, staticCases } from "../suite.ts";
-import { CASE_EXPECTATIONS, falsifyOne, MutantVerdict, suiteIn } from "./falsify.ts";
+import {
+  caseChecks,
+  caseIds,
+  guarantees,
+  oracles,
+  probes,
+  scenarios,
+  staticCases,
+} from "../suite.ts";
+import {
+  CASE_EXPECTATIONS,
+  falsifyOne,
+  MutantVerdict,
+  probeOne,
+  ProbeVerdict,
+  suiteIn,
+} from "./falsify.ts";
 import { runCases, runStatics } from "./run.ts";
 import { coreInvariants } from "./specs.ts";
 import { type CaseVerdict, VERDICTS_LINE, VerdictsJson } from "./verdict.ts";
@@ -238,6 +253,13 @@ const falsify = (args: ReadonlyArray<string>) =>
         })),
     );
 
+    const chosenProbes = probes
+      .filter((p) => p.runtime === "prototype")
+      .filter((p) =>
+        Option.match(only, { onNone: () => true, onSome: (names) => names.includes(p.name) }),
+      )
+      .map((p) => (sweep ? { ...p, cases: caseIds } : p));
+
     const stated = (run: string, ids: ReadonlyArray<string>) =>
       suiteIn(MAIN, run, ids, 120).pipe(
         Effect.map(Option.some),
@@ -258,7 +280,10 @@ const falsify = (args: ReadonlyArray<string>) =>
     );
 
     const control = yield* stated(runtime, [
-      ...new Set(chosen.flatMap(({ mutant }) => mutant.cases)),
+      ...new Set([
+        ...chosen.flatMap(({ mutant }) => mutant.cases),
+        ...chosenProbes.flatMap((p) => p.cases),
+      ]),
     ]);
 
     const controlGreen = Option.match(control, {
@@ -290,16 +315,35 @@ const falsify = (args: ReadonlyArray<string>) =>
       );
     const caught = verdicts.filter(MutantVerdict.$is("Caught")).length;
 
+    const probed = yield* Effect.forEach(
+      chosenProbes,
+      (probe) => probeOne(MAIN, runtime, scratch, probe),
+      { concurrency: parallelOf(args) },
+    );
+
+    for (const v of probed)
+      yield* Console.log(
+        ProbeVerdict.$match(v, {
+          Holds: ({ probe, holds, red }) =>
+            holds === "green"
+              ? `ok   ${probe}  stays green`
+              : `PEND ${probe}  pending the user's call; red in ${red.length}: ${red.join(" ")}`,
+          Broken: ({ probe, why }) => `BAD  ${probe}  ${why}`,
+        }),
+      );
+    const held = probed.filter(ProbeVerdict.$is("Holds")).length;
+
     const ok =
       coverageOk &&
       unfalsified.length === 0 &&
       nullRed &&
       controlGreen &&
       caught === verdicts.length &&
-      verdicts.length > 0;
+      held === probed.length &&
+      verdicts.length + probed.length > 0;
 
     yield* Console.log(
-      `VERDICT ${ok ? "pass" : "fail"} ${caught}/${verdicts.length} mutants caught`,
+      `VERDICT ${ok ? "pass" : "fail"} ${caught}/${verdicts.length} mutants caught, ${held}/${probed.length} probes hold`,
     );
 
     if (!ok) process.exitCode = 1;

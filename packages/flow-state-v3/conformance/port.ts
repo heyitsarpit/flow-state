@@ -190,7 +190,8 @@ export type EndingRef = {
  * - `Ended`: an Attempt, or a decline with none, was decided on a channel with a reason. `actor`
  *   names a decline's actor; `failure` is the definite failure inside `unknown StillUnknown`.
  * - `Delivered`: an ending was admitted to `actor` as the named event.
- * - `Parked`, `Unparked`: an ending waits for an incarnation, and stops waiting.
+ * - `Parked`, `Unparked`: an ending waits for an incarnation, and stops waiting. `Unparked` may
+ *   come before or after the `Incarnated` it waits for.
  * - `Recorded`: an ending was recorded and not delivered, and why.
  * - `Unhandled`: an admitted event had no handler.
  * - `Denied`: an admitted event's handlers all refused it, with the guards' reasons.

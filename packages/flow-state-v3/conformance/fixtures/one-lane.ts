@@ -32,7 +32,7 @@ export const Serialize = {
   },
   rows: [
     row("Go", "any", "same", [{ operation: "put", kind: "commit" }]),
-    row("All", "any", "same", [{ operation: "put", kind: "cancelAll" }]),
+    row("All", "any", "same", [{ operation: "put", kind: "cancelAll", keyed: false }]),
   ],
 } satisfies Fixture;
 
@@ -65,6 +65,6 @@ export const Cancel = {
   operations: { search: oneLaneWrite("cancel") },
   rows: [
     row("Go", "any", "W", [{ operation: "search", kind: "commit" }]),
-    row("Unsure", "any", "same", [{ operation: "search", kind: "retry" }]),
+    row("Unsure", "any", "same", [{ operation: "search", kind: "retry", keyed: false }]),
   ],
 } satisfies Fixture;

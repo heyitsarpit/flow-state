@@ -1,6 +1,17 @@
-import type { Mutant } from "../dsl/oracle.ts";
+import type { Mutant, Probe } from "../dsl/oracle.ts";
 
 const lane = (find: string, replace: string) => [{ file: "lane.ts", find, replace }];
+
+const READ_MEMBERS = {
+  file: "turn.ts",
+  find: "const readMembers = (w: Walk) => {\n  const tx = w.tx;",
+  replace:
+    'const readMembers = (w: Walk) => {\n  const tx = w.tx;\n  const dropped: Array<{ op: string; kind: string; target: { t: "only" | "every" | "nothing" } }> = [];',
+};
+
+const REPORTED = "    ...reads.flatMap((r) => memberOf(w, r.mem, r.key, r.unencodable)),";
+
+const END_OF_READ = "  return reads;\n};\nconst applyMembers";
 
 const CANCEL_ALL =
   '  setLane(tx, cleared);\n  cell(tx, "cancel", cleared, a);\n  for (const x of queued) {';
@@ -26,7 +37,8 @@ const CANCEL_ALL =
  * `lie.release-member-claimed` (I12, review H1); `mutant.cancel-members-dropped` (I12; step 4
  * review H1: a runtime that drops every cancel and cancelAll member from its act and its report);
  * `lie.cancels-reported-as-release` (I12; step 5 review H1: the same, reporting a release in
- * their place, which must not cancel what the row owes).
+ * their place, which must not cancel what the row owes); `lie.cancels-reported-as-nothing` (I12;
+ * step 6 review probe PD: the same, reporting each cancel with target `Nothing`).
  */
 export const laneQueueMutants: ReadonlyArray<Mutant> = [
   {
@@ -415,17 +427,99 @@ export const laneQueueMutants: ReadonlyArray<Mutant> = [
     runtime: "prototype",
     cases: ["LANE-09", "PAY-03"],
     edits: [
+      READ_MEMBERS,
       {
         file: "turn.ts",
         find: "    return part.alt.members.map((mem: Member) => {",
         replace:
-          '    for (const m0 of part.alt.members) if (m0.verb === "cancel" || m0.verb === "cancelAll") (w as any).said = [...((w as any).said ?? []), m0.op];\n    return part.alt.members.filter((mem: Member) => mem.verb !== "cancel" && mem.verb !== "cancelAll").map((mem: Member) => {',
+          '    for (const m of part.alt.members) if (m.verb === "cancel" || m.verb === "cancelAll") dropped.push({ op: m.op, kind: "release", target: w.m.ops[m.op]?.keyFields?.length === 0 ? { t: "only" } : { t: "every" } });\n    return part.alt.members.filter((mem: Member) => mem.verb !== "cancel" && mem.verb !== "cancelAll").map((mem: Member) => {',
+      },
+      { file: "turn.ts", find: REPORTED, replace: `${REPORTED}\n    ...dropped,` },
+    ],
+  },
+  {
+    name: "lie.cancels-reported-as-nothing",
+    says: "a turn drops every cancel and cancelAll member from its act and reports each with target Nothing",
+    expects: "WriteLanes I12",
+    runtime: "prototype",
+    cases: ["PAY-03", "PAY-14"],
+    edits: [
+      READ_MEMBERS,
+      {
+        file: "turn.ts",
+        find: "    return part.alt.members.map((mem: Member) => {",
+        replace:
+          '    for (const m of part.alt.members) if (m.verb === "cancel" || m.verb === "cancelAll") dropped.push({ op: m.op, kind: m.verb, target: { t: "nothing" } });\n    return part.alt.members.filter((mem: Member) => mem.verb !== "cancel" && mem.verb !== "cancelAll").map((mem: Member) => {',
       },
       {
         file: "turn.ts",
-        find: '    ...w.releases.map(({ op }) => ({ op, kind: "release"',
+        find: REPORTED,
+        replace: `${REPORTED}\n    ...dropped,`,
+      },
+    ],
+  },
+];
+
+/**
+ * Probes of how a turn's report is read (step 6 review PF, PG, PH), run by falsify beside the
+ * mutants.
+ *
+ * **Details**
+ *
+ * - `probe.members-reported-reversed` (PG) and `probe.unknown-member-reported` (PH) change only
+ *   the report, so every case must pass: a turn owes only what its row and facts give
+ *   (Conformance R4).
+ * - `probe.retry-members-dropped` (PF) drops every retry member from the act and the report.
+ *   The row still owes it (the head is `Resending`), but no Invariant says an owed retry
+ *   re-sends, so only case expectations turn red: pending the user (STATUS, Run 7).
+ */
+export const laneQueueProbes: ReadonlyArray<Probe> = [
+  {
+    name: "probe.members-reported-reversed",
+    says: "a turn reports its members in reverse order and acts as it should",
+    holds: "green",
+    runtime: "prototype",
+    cases: ["PAY-03", "PAY-21", "PAY-22", "LANE-04", "LANE-10"],
+    edits: [
+      {
+        file: "turn.ts",
+        find: END_OF_READ,
+        replace: `  w.members = [...w.members].reverse();\n${END_OF_READ}`,
+      },
+    ],
+  },
+  {
+    name: "probe.unknown-member-reported",
+    says: "a turn reports one more member, of an operation no machine has, and acts as it should",
+    holds: "green",
+    runtime: "prototype",
+    cases: [
+      "PAY-03",
+      "PAY-07/late-may-not-leave",
+      "PAY-19/place-answers-first",
+      "PAY-19/void-answers-first",
+      "LANE-04",
+    ],
+    edits: [
+      {
+        file: "turn.ts",
+        find: END_OF_READ,
+        replace: `  w.members = [...w.members, { op: "ghost", kind: "commit", target: { t: "only" } }];\n${END_OF_READ}`,
+      },
+    ],
+  },
+  {
+    name: "probe.retry-members-dropped",
+    says: "a turn drops every retry member from its act and its report",
+    holds: "pending",
+    runtime: "prototype",
+    cases: ["PAY-04", "PAY-22"],
+    edits: [
+      {
+        file: "turn.ts",
+        find: "    return part.alt.members.map((mem: Member) => {",
         replace:
-          '    ...((w as any).said ?? []).map((op: string) => ({ op, kind: "release", target: w.m.ops[op]?.keyFields?.length === 0 ? { t: "only" as const } : { t: "every" as const } })),\n    ...w.releases.map(({ op }) => ({ op, kind: "release"',
+          '    return part.alt.members.filter((mem: Member) => mem.verb !== "retry").map((mem: Member) => {',
       },
     ],
   },

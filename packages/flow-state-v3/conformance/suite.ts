@@ -7,7 +7,7 @@ import { constructionCases, constructionCovered } from "./compile/construction.c
 import type { CaseChecks } from "./coverage.ts";
 import type { Scenario } from "./dsl/case.ts";
 import type { StaticCase } from "./dsl/static-case.ts";
-import type { Guarantee } from "./dsl/oracle.ts";
+import type { Guarantee, Probe } from "./dsl/oracle.ts";
 import { cliMutants } from "./static-cli/cli.mutants.ts";
 import { cliCases, cliCovered } from "./static-cli/cli.cases.ts";
 import { graphNames } from "./static-cli/graph-names.ts";
@@ -20,7 +20,7 @@ import { endingChannelsMutants } from "./write-lanes/ending-channels.mutants.ts"
 import { endingChannels } from "./write-lanes/ending-channels.ts";
 import { endingDeliveryScenarios } from "./write-lanes/ending-delivery.scenarios.ts";
 import { lanePoliciesScenarios } from "./write-lanes/lane-policies.scenarios.ts";
-import { laneQueueMutants } from "./write-lanes/lane-queue.mutants.ts";
+import { laneQueueMutants, laneQueueProbes } from "./write-lanes/lane-queue.mutants.ts";
 import { laneQueue } from "./write-lanes/lane-queue.ts";
 import { paymentEndingsScenarios } from "./write-lanes/payment-endings.scenarios.ts";
 import { paymentFaultsScenarios } from "./write-lanes/payment-faults.scenarios.ts";
@@ -41,6 +41,11 @@ export const guarantees: ReadonlyArray<Guarantee> = [
   { oracle: disposal, mutants: disposalMutants },
   { oracle: graphNames, mutants: graphNamesMutants },
 ];
+
+/**
+ * Every probe falsify runs beside the mutants ({@link Probe}).
+ */
+export const probes: ReadonlyArray<Probe> = laneQueueProbes;
 
 /**
  * Every oracle, run after every step of every case.

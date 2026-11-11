@@ -864,6 +864,136 @@ check` at zero.
   - **Stopped here** (context). Now: suite 87/87, null 0/87, sweep 85/85 plus the M3 mutant, coverage 0 gaps
     (36), conformance tests 31/31, `nub run check` at zero. Next: the member-resolution convergence above, then
     step 9.
+- **Run 7 (2026-11-11, from `fcfa2635`): member resolution, converged (R35: step 4, 5 and 6 reviews' H1).**
+  Bottom line: what a turn owes is now derived in one place, `code:dsl/lifecycle-owed.ts#owedMembers`, from the
+  rule below; no report can retarget, remove or unclaim an owed member (a claimed row is owed only once its
+  members are reported, the stated limit in rule 7). Probe PD is caught like the omitted
+  member (14 cases, the same reasons); PG and PH stay green; PF is pending the user.
+  - **Member resolution (the rule).** What a turn owes comes only from the reference and the turn's facts (its
+    event, from, to and actor, the ending it hears, the lanes the model holds, the server's log). The report is a
+    claim: it confirms a member, gives a commit's or keyed member's key, and chooses among claimed rows. Nothing
+    else of it is read.
+    1. _Row._ Event, from, to and the computed guard match. A `claimed` row matches only when the report names
+       each of its members (operation and kind; order and other members not read). Rows that tie with other
+       members are claimed (the change detector derives it); the one with the most members is taken (the first
+       of equals), so other reported members never choose. No row: no lane member is owed (releases still are,
+       rule 4). A reported key counts only when every reported copy of the member names the same one.
+    2. _Target, by how the source names the lane_ (`RowMember.keyed`, checked against the compiled `mem.key`):
+       - unkeyed operation: `Only`, whatever was reported;
+       - commit: the reported `Key` (its input's key), else `Nothing` (the key-less lane). Its mint or decline is
+         owed either way (WriteLanes I15); a mint on another lane is I1;
+       - keyed retry, cancel or cancelAll (`O.pay.cancel(intent)`): the reported `Key` when it names a lane the
+         model holds for the actor and operation, else `Every` such lane;
+       - key-less on a keyed operation (`O.void.cancel`): from the heard ending alone (R9, I14): its Attempt's
+         lane in an ending of its operation; `Nothing` in a decline's or another operation's ending; outside an
+         ending `Every` for a cancel or cancelAll, `Nothing` for a retry (round-14; R9's KeyRequired is the
+         user's question). The report is not read.
+    3. _Guard._ `retryable` reads the heads of its member's owed lanes: it passes when one is Held with retries
+       left; so the guarded rows stay exclusive whatever was reported.
+    4. _Releases._ Owed for each operation whose reference releases on the turn's (event, from, to) (R16),
+       reported or not: `Only` unkeyed, `Every` keyed.
+    5. _Order._ The row's member order, then releases. Report order is not read; act order is judged by the
+       mints (I10).
+    6. _Extras._ A reported member the turn does not owe (an unknown operation, one outside the row, a release
+       on a transition that releases nothing, a second copy) anchors nothing: its effects are refused under
+       their own Invariants (a `Released` I12, a mint I1). It never removes or unclaims an owed member.
+    7. _Stated limits._ A claimed row is owed only when its members are reported (v2 Risk 2: Pay `Leave`, and
+       now `Confirmed` from `LEFT`); a commit's key, and a keyed member's key between two lanes one actor holds,
+       are the runtime's claim (a mint elsewhere is I1; `attempt-identity` checks the send's input against the
+       mint); a turn hearing a read's ending is seen as hearing none; a keyed member whose key names no lane
+       the actor holds is owed on every lane of its operation, so a correct runtime that cancels a fresh key
+       while another is Held, or whose member key does not encode (round-14 reports `Nothing` and acts on
+       none), would be refused (no fixture reaches either; the other choice lets a wrong key retarget the
+       member). **Pending, for the user:** nothing checks
+       that an owed retry re-sends (step 6 review M1): its obligation is the head's `Resending`, and no Invariant
+       says a `Resending` head must send.
+  - **Built.** `dsl/lifecycle-owed.ts` (the rule; `step` calls it once per `Turn`); `RowMember.keyed` on the
+    retry, cancel and cancelAll members of Pay, Cells and the Lab fixtures, derived and compared by
+    `fixtures/rows.test.ts`. The detector now also ties a row with a state-less sibling (a root fallthrough), so
+    Pay's `Confirmed` LEFT→same is `claimed` (its `{}` fallthrough stays in LEFT when `capturable` fails; owing
+    `void.commit` there was a false I15 waiting for a case). `step` lost `anchoredMembers`, `owedTarget` and the
+    report-read guard. Step 6 L6 is fixed by rule 4.
+  - **Perturbation test** (`code:dsl/lifecycle-perturbations.ts#perturbationsOf`, run on `step` and on every step
+    mutant): for every member of every row of every fixture (32 rows, 34 members), the row's reference turn with
+    each member's lane holding a Held head runs with its correct report and with the member dropped, retargeted
+    to each other target (`Only`, `Key` of its lane, `Key` of another, `Every`, `Nothing`), an unknown
+    operation's member added, an extra member of another kind added, a non-leaving release added, and the
+    members reversed: 306 perturbations. Unacted, each leaves the same model and refusals as the correct report,
+    which is refused under the member's Invariant (I15 commit, I12 cancel and cancelAll; a retry leaves its head
+    `Resending`, pending above). Acted, the correct report and every perturbation naming the same lanes pass
+    (Conformance R4). Claimed rows' dropped members are the 4 stated limits. On `fcfa2635`'s `step` it reports
+    the three reviews' holes: `Nothing`, `Only` and another `Key` retargeting cancels and retries, an unknown
+    member unclaiming `Leave`, the guard reading the report.
+  - **Step mutants** restated for the new module (18, each killed, the harness mutating `lifecycle-owed.ts`
+    through a mutated `lifecycle-step.ts`): a reported key retargets a key-less member; a keyed member takes any
+    key; an unreported keyed key names nothing; an unkeyed member takes the reported target; a commit ignores its
+    key; the guard reads the report (H1); a claimed row needs an exact report (M2); claimed ignored; releases from
+    the report (L6); three release-transition ones; retry count; and the four step ones kept. Not mutated: a
+    key-less cancel outside an ending (`Every`) and one in another operation's ending (`Nothing`): no fixture
+    reaches them, and the first is R9's question.
+  - **Probes.** `lie.cancels-reported-as-nothing` (PD, lane-queue I12; PAY-03, PAY-14): on `fcfa2635`'s `step`
+    red only by case expectations; now caught in the same 14 cases with the same reasons as
+    `mutant.cancel-members-dropped`. A new kind, `Probe` (`dsl/oracle.ts`), which falsify runs beside the
+    mutants and never counts as one: `probe.members-reported-reversed` (PG) and `probe.unknown-member-reported`
+    (PH, green; PH was red in PAY-07/late-may-not-leave and both PAY-19 on the old `step`) must pass every case;
+    `probe.retry-members-dropped` (PF, pending) prints its red set (9 cases, case expectations only).
+  - **Verdict diff (Conformance R11)**, every runtime mutant's whole suite, each red case's oracle and Invariant,
+    `fcfa2635` against the rewrite: **no verdict of the 86 older mutants changed.** New: PD as above; the
+    probes as above. Pay's `Confirmed` LEFT→same becoming `claimed` changed none either.
+  - **Reviewer (Haiku) of the rewrite, 15 findings.** Accepted and fixed: 1 (the claimed tie-break read the
+    whole report, so an extra member could choose the row: now the row with the most members, report-free);
+    2 (two reported copies with different keys let order set the key: a key counts only when every copy agrees;
+    new perturbation "reported twice, first with another key", two-lane example, mutant); 8 (rule 1's "no row"
+    against rule 4's releases: text settled); 9 (the perturbation test now fails on a refused setup or a missing
+    head); 10 (one lane cannot tell `Every` from `Key`: two-lane step example and mutant "a keyed member always
+    names every lane"); 11 (a pending probe that turns green fails falsify); 14 (one `lanesOfOperation` in
+    `lifecycle-model.ts` for the owed targets and Table B's `Every`; a doc comment on an unexported helper
+    dropped). Changed to stated limits (rule 7): 3 and 4 (a keyed key naming no held lane, or one that does not
+    encode, is owed on every lane, where round-14 acts on none), 7 (STATUS's bottom line now names the claimed
+    limit). Noted: 5 (key-less cancel outside an ending, R9's question, already stated), 6 (`Every` with no lane
+    falls to Table B's key-less Idle cell, as before the rewrite), 13 (a lane counts as known from any Attempt,
+    `Gone` included: naming it is the runtime's claim either way). Rejected: 12 (a missing case id comes back as
+    a failed verdict, `failed(id, "no such case")` in `runner/main.ts`, so a green probe cannot pass on a gap).
+    15 is covered by 1, 2 and 10.
+  - **Lows' dispositions.** Step 6 review:
+    - L1: reading for `mutant.delivered-during-disposal`'s I29 in two PAY-16 cases: the delivered ending's turn
+      mints `place` during the disposal and `RuntimeDisposed` finds it `Unsent` (Actors R22: a never-sent queued
+      commit ends `NotSent { Disposed }`). Accepted. Its second half is this list.
+    - L2: accepted as stated (the never-sent check fires at `RuntimeDisposed`, which every case ends with);
+      Restore R3's `NotSent { Restored }` for a queued commit at a reload has no cell: carried to T11.
+    - L3: accepted; the timing assumption is now a Gotcha of `disposal`.
+    - L4 (`cutShort` against `pastBound` on a late `Cancelled`), L5 (`endsAs` with no reason; I31's parked half):
+      unreached or pre-existing; carried to T9.
+    - L6: fixed by rule 4 (releases on leave owed from the reference; mutant "releases come from the report").
+    - L7: fixed: `ending-delivery.scenarios.ts` (no "ending ledger"), `case.ts` (`answerTo` takes any fields),
+      `disposal.mutants.ts` (the `o6.*` grouping). Already done at step 8: `cancels`, `laneAtMint`, `laneAtSend`,
+      the README rows. Review tags in doc comments and test names: kept where they name the finding a test
+      holds.
+    - L8: fixed: `lie.cancels-reported-as-release` no longer passes state through `(w as any)` (a local list,
+      as PD); the step's `UNBOUND` is `ADOPTABLE`. Noted: `disposal.ts`'s `findIndex` and `?? []` (style, no
+      verdict), for the T41/T13 queue.
+  - Step 5 review:
+    - L2 (a report naming no actor applies nothing): carried; only a runtime using the Port's `None` reaches it
+      (T16).
+    - L3: logged under R11: `d123.delivered-silent-at-boot` (old suite) lost its anchor to Port change 5; its
+      intent is caught by Table C's `Refused` × `StepEnds` (I15).
+    - L6: fixed: `mutant.parked-delivered-as-other-tag`'s header says it proves F2's cell (also I3), not I15's
+      delivery count.
+    - L7: P5b is `mutant.adoption-skips-parked` (built, `4ee99037`); P5d's lost kept try is
+      `mutant.kept-retried-without-boot`'s Actors I24.
+    - L8 (`Guard` returns `string`): carried, a type tightening with no verdict.
+    - L9: fixed: `lifeNamed`'s doc (the reported actor first), `delivered-once.ts` (tables in
+      `lifecycle-rules.ts`), the clashing `LifeStep` tuple in `lifecycle-lives.ts` is the unexported
+      `LivesStep`.
+    - L10: fixed: `port.ts` says `Unparked` may come before or after its `Incarnated`.
+    - L11: noted; I20 and I21 have mutants of their own, so their catches by `mutant.cancel-members-dropped`
+      need no count.
+    - L12 (no case reaches a thaw): carried to T9.
+    - L13: fixed: one `owesRelease` helper; `incarnate` now also skips a Held head that owes its release, as
+      its Gotcha said.
+  - **Stopped here, before step 9** (its adversarial review is the coordinator's). Now: suite 87/87, null 0/87,
+    falsify 87/87 with 3/3 probes holding, coverage 0 gaps (36), conformance tests 35/35, `nub run check` at
+    zero.
 - **Queued after the convergence steps, before T8 (coordinator, 2026-11-11):** the T41/T13 review
   (`references/proposals/t41-t13-review-2026-11-11.md`): H1, M1 to M4 and the Lows in the files touched. Its M4
   (whether `ending-channels` and `attempt-identity` move onto the lifecycle) is decided at step 7.

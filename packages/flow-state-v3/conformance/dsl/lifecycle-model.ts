@@ -34,6 +34,15 @@ export const sameLane = (a: LaneId, b: LaneId) =>
   Option.makeEquivalence(sameJson)(a.key, b.key);
 
 /**
+ * Every lane of `actor`'s `operation` that any Attempt the model knows was minted on, once each.
+ */
+export const lanesOfOperation = (model: Model, actor: ActorRef, operation: string) =>
+  model.attempts
+    .map((a) => a.lane)
+    .filter((l) => sameActor(l.actor, actor) && l.operation === operation)
+    .filter((l, i, all) => all.findIndex((other) => sameLane(other, l)) === i);
+
+/**
  * Why an Attempt left its lane: it closed (an ending or a release), its ending is evidence (it was
  * replaced), or it settled during the Runtime's disposal.
  */

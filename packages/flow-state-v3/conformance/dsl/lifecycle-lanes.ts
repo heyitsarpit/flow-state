@@ -8,6 +8,7 @@ import {
   type LaneId,
   type LaneMember,
   LaneMove,
+  lanesOfOperation,
   Life,
   type Model,
   Obligation,
@@ -115,10 +116,7 @@ const lanesOf = (model: Model, actor: ActorRef, member: LaneMember) => {
     Only: () => [keyless],
     Key: ({ key }) => [{ actor, operation: member.operation, key: Option.some(key) }],
     Every: () => {
-      const lanes = model.attempts
-        .map((a) => a.lane)
-        .filter((l) => sameActor(l.actor, actor) && l.operation === member.operation)
-        .filter((l, i, all) => all.findIndex((other) => sameLane(other, l)) === i);
+      const lanes = lanesOfOperation(model, actor, member.operation);
 
       return lanes.length > 0 ? lanes : [keyless];
     },

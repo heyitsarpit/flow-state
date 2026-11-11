@@ -2,7 +2,7 @@
 import { Data, Effect, Option, Schema } from "effect";
 import { cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
-import type { Mutant } from "../dsl/oracle.ts";
+import type { Mutant, Probe } from "../dsl/oracle.ts";
 import { type ChildFailed, runChild } from "./child.ts";
 import { type CaseVerdict, VERDICTS_LINE, VerdictsJson } from "./verdict.ts";
 
@@ -88,8 +88,8 @@ const applyEdit = (runtime: string, edit: Mutant["edits"][number]) =>
     ),
   );
 
-const applyEdits = (runtime: string, mutant: Mutant) =>
-  Effect.forEach(mutant.edits, (edit) => applyEdit(runtime, edit), { concurrency: 1 });
+const applyEdits = (runtime: string, edited: { readonly edits: Mutant["edits"] }) =>
+  Effect.forEach(edited.edits, (edit) => applyEdit(runtime, edit), { concurrency: 1 });
 
 const verdictsOf = (stdout: string, stderr: string, code: number) =>
   Option.match(
@@ -222,5 +222,60 @@ export const falsifyOne = (
         Effect.succeed(MutantVerdict.NotApplied({ mutant: mutant.name, why: e.why })),
       NoVerdicts: (e: NoVerdicts) =>
         Effect.succeed(MutantVerdict.NoVerdict({ mutant: mutant.name, why: e.why })),
+    }),
+  );
+
+/**
+ * What became of one {@link Probe}: as it should be (a green probe's cases all pass; a pending
+ * one's red cases, printed), or not (a green probe turned a case red, or the probe did not run).
+ */
+export type ProbeVerdict = Data.TaggedEnum<{
+  Holds: { probe: string; holds: Probe["holds"]; red: ReadonlyArray<string> };
+  Broken: { probe: string; why: string };
+}>;
+
+/**
+ * Constructors and matchers for {@link ProbeVerdict}.
+ */
+export const ProbeVerdict = Data.taggedEnum<ProbeVerdict>();
+
+/**
+ * A probe's verdict from the cases it ran: a green probe holds only when every case passed; a
+ * pending one only while it turns at least one red (a pending probe gone green needs a look).
+ */
+// RETURN_TYPE: each branch builds one variant; the union keeps them one ProbeVerdict.
+export const judgeProbe = (probe: Probe, verdicts: ReadonlyArray<CaseVerdict>): ProbeVerdict => {
+  const red = verdicts.flatMap((v) => (v._tag === "Pass" ? [] : [v.id]));
+
+  if (probe.holds === "green" && red.length > 0)
+    return ProbeVerdict.Broken({ probe: probe.name, why: `red in ${red.join(" ")}` });
+
+  if (probe.holds === "pending" && red.length === 0)
+    return ProbeVerdict.Broken({
+      probe: probe.name,
+      why: "no longer red: the pending call changed",
+    });
+
+  return ProbeVerdict.Holds({ probe: probe.name, holds: probe.holds, red });
+};
+
+/**
+ * Applies one probe to a fresh copy of the runtime, runs its cases there and judges the result
+ * ({@link judgeProbe}). The copy is made and removed as for a mutant.
+ */
+export const probeOne = (main: string, runtimeDir: string, scratch: string, probe: Probe) =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const copy = yield* copyRuntime(runtimeDir, scratch);
+      yield* applyEdits(copy.runtime, probe);
+
+      return judgeProbe(probe, yield* suiteIn(main, copy.runtime, probe.cases, 120));
+    }),
+  ).pipe(
+    Effect.catchTags({
+      Unapplied: (e: Unapplied) =>
+        Effect.succeed(ProbeVerdict.Broken({ probe: probe.name, why: `does not apply: ${e.why}` })),
+      NoVerdicts: (e: NoVerdicts) =>
+        Effect.succeed(ProbeVerdict.Broken({ probe: probe.name, why: `no verdict: ${e.why}` })),
     }),
   );

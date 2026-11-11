@@ -1,5 +1,5 @@
 import { Option, type Schema } from "effect";
-import type { Channel, MemberKind } from "../port.ts";
+import type { Channel } from "../port.ts";
 import { Answer } from "../world/network.ts";
 
 /**
@@ -58,12 +58,23 @@ export const retains = (operation: OperationReference, reason: string) =>
   (operation.concurrency !== "cancel" || reason === "Cancelled");
 
 /**
- * One lane member of a reference row: its operation and kind. A release is never in a row.
+ * One lane member of a reference row: its operation, its kind and how its source names its lane.
+ * A release is never in a row.
+ *
+ * **Details**
+ *
+ * - A commit names the lane of its input's key.
+ * - A `retry`, `cancel` or `cancelAll` is `keyed` when its source passes a key
+ *   (`O.pay.cancel(intent)`), and key-less otherwise (`O.void.cancel`), which on a keyed operation
+ *   names the lane of the ending its turn hears (WriteLanes R9, I14).
  */
-export type RowMember<Operation extends string = string> = {
-  readonly operation: Operation;
-  readonly kind: Exclude<MemberKind, "release">;
-};
+export type RowMember<Operation extends string = string> =
+  | { readonly operation: Operation; readonly kind: "commit" }
+  | {
+      readonly operation: Operation;
+      readonly kind: "retry" | "cancel" | "cancelAll";
+      readonly keyed: boolean;
+    };
 
 /**
  * A row guard the suite computes: `retryable({ times })` of the lane `operation`'s member names,
@@ -122,9 +133,10 @@ export const row = <Event extends string, State extends string, Operation extend
 
 /**
  * A {@link Row} the suite cannot choose: its own guard is one the suite does not compute, and a
- * sibling alternative of the same event, state and target has other lane members, or none (Pay's
- * `Leave` runs `void.commit` only when its compiled guard holds, beside a member-less
- * fallthrough), so the turn's reported members say which ran (a runtime claim, v2 Risk 2).
+ * sibling alternative of the same event and target, from the same state or from any, has other
+ * lane members, or none (Pay's `Leave` runs `void.commit` only when its compiled guard holds,
+ * beside a member-less fallthrough; so does `Confirmed` from `LEFT`, whose fallthrough stays).
+ * It is owed only when the turn's report confirms its members (a runtime claim, v2 Risk 2).
  *
  * **Gotchas**
  *

@@ -17,10 +17,13 @@ const wl = (n: number) => `WriteLanes I${n}` as const;
 /**
  * One fold result of a life move: the next model and the refusals found.
  */
-export type LifeStep = readonly [Model, ReadonlyArray<Refusal>];
+type LivesStep = readonly [Model, ReadonlyArray<Refusal>];
 
 // RETURN_TYPE: the fold's result is the named tuple; a literal would infer as an array.
-const stepOf = (model: Model, refusals: ReadonlyArray<Refusal> = []): LifeStep => [model, refusals];
+const stepOf = (model: Model, refusals: ReadonlyArray<Refusal> = []): LivesStep => [
+  model,
+  refusals,
+];
 
 const sameAttempt = Option.makeEquivalence((a: string, b: string) => a === b);
 
@@ -41,9 +44,9 @@ export const endingNamed = (model: Model, name: EndingName) => {
 };
 
 /**
- * The ending a report names: its Attempt's actor (or the actor it says), and for a decline, the
- * actor of its operation's oldest decline not yet `Closed`, else its newest. None when no actor
- * can be named.
+ * The ending a report names: the actor the report says, else its Attempt's actor, and for a
+ * decline the actor of its operation's oldest decline not yet `Closed`, else its newest. None
+ * when no actor can be named.
  */
 export const lifeNamed = (
   model: Model,
@@ -295,7 +298,7 @@ export const applyLives = (
   actor: Option.Option<ActorRef> = Option.none(),
   given: Rules = rules,
 ) =>
-  model.endings.reduce<LifeStep>(
+  model.endings.reduce<LivesStep>(
     ([m, refusals], ending, index) => {
       if (Option.isSome(actor) && !sameActor(ending.actor, actor.value)) return [m, refusals];
       const [next, more] = applyAt(m, row, index, given);

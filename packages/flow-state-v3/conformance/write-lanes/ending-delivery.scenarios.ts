@@ -18,7 +18,7 @@ const tries = (c: Case, operation: string) =>
 const restored = (c: Case) => c.endings("pay").filter((e) => e.reason === "Restored").length;
 
 /**
- * Cases built for the ending ledger: two endings owed to one actor, or to two actors, at once,
+ * Cases built for the endings oracle: two endings owed to one actor, or to two actors, at once,
  * and a failure ending while another actor of the same machine lives. The endings' counts and
  * owners follow from the Specs (an Attempt on the wire at a kill restores as `unknown Restored`,
  * once, to its own actor); the states and notice come from the Pay fixture's mapping. `DLV-05`:

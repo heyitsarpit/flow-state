@@ -341,6 +341,10 @@ const readHeld = (context: Context) =>
  * - The read check takes the lane's newest Attempt at the step's end.
  * - `HoldForgotten` (Actors R21): no fixture removes an operation, a stated limit.
  * - The end of a case re-attaches with `ensureExisting`, which reads as an adoption.
+ * - A timing assumption: a Held head's restore ending is owed by the reload step's end, whether
+ *   or not its actor attaches then (the lifecycle's `Reload`). A runtime that decides restores
+ *   only when an actor wakes fails Actors I29 here (step 6 review L3; Restore I6 took the same
+ *   reading at step 5).
  */
 export const disposal = oracle({
   name: "disposal",

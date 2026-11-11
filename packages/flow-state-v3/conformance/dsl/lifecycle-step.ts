@@ -1,39 +1,21 @@
 import { Option } from "effect";
-import {
-  mappedEvent,
-  type OperationReference,
-  type Reference,
-  retains,
-  type Row,
-  type RowMember,
-  type Rows,
-} from "../fixtures/reference.ts";
-import {
-  type ActorRef,
-  type Json,
-  type Member,
-  MemberTarget,
-  Observation,
-  sameActor,
-  type Turn,
-} from "../port.ts";
+import { mappedEvent, retains } from "../fixtures/reference.ts";
+import { type ActorRef, type Json, Observation, sameActor } from "../port.ts";
 import type { Request } from "../world/network.ts";
 import { due } from "./lifecycle.ts";
 import { apply } from "./lifecycle-fold.ts";
 import { lifeNamed, misdelivered } from "./lifecycle-lives.ts";
 import {
   ActorMove,
-  addressable,
   type EndingName,
   type Input,
-  type LaneId,
   LaneMove,
   LifeMove,
   type Model,
   Move,
   type Refusal,
-  sameLane,
 } from "./lifecycle-model.ts";
+import { type Known, operationOf, owedMembers } from "./lifecycle-owed.ts";
 import { type Rules, rules } from "./lifecycle-rules.ts";
 import { Fact } from "./oracle.ts";
 
@@ -56,11 +38,6 @@ export type LifeStep = {
   readonly applied: ReadonlyArray<Applied>;
 };
 
-/**
- * What the step reads besides the facts: the case's operation references and its rows.
- */
-export type Known = { readonly reference: Reference; readonly rows: Rows };
-
 type Walk = {
   readonly model: Model;
   readonly applied: ReadonlyArray<Applied>;
@@ -68,9 +45,6 @@ type Walk = {
   readonly used: ReadonlyArray<ActorRef>;
   readonly incarnated: ReadonlyArray<ActorRef>;
 };
-
-const operationOf = (known: Known, actor: ActorRef, operation: string) =>
-  Option.fromUndefinedOr(known.reference[actor.machine]?.[operation]);
 
 const isWrite = (known: Known, operation: string) =>
   Object.values(known.reference).some((operations) => Object.hasOwn(operations, operation));
@@ -132,161 +106,6 @@ const sendsOf = (walk: Walk, attempt: string, earlier: ReadonlyArray<Request>) =
     (a) => Move.$is("Send")(a.move) && a.move.attempt === attempt && a.refusals.length === 0,
   ).length;
 
-const laneOfMember = (actor: ActorRef, member: Member) =>
-  MemberTarget.$match(member.target, {
-    Only: () => Option.some<LaneId>({ actor, operation: member.operation, key: Option.none() }),
-    Key: ({ key }) =>
-      Option.some<LaneId>({ actor, operation: member.operation, key: Option.some(key) }),
-    Every: () => Option.none<LaneId>(),
-    Nothing: () => Option.none<LaneId>(),
-  });
-
-const guardHolds = (
-  walk: Walk,
-  row: Row,
-  actor: ActorRef,
-  members: ReadonlyArray<Member>,
-  earlier: ReadonlyArray<Request>,
-) =>
-  Option.match(row.guard, {
-    onNone: () => true,
-    onSome: (guard) => {
-      const named = Option.flatMap(
-        Option.fromUndefinedOr(members.find((m) => m.operation === guard.operation)),
-        (m) => laneOfMember(actor, m),
-      );
-
-      const head = Option.flatMap(named, (lane) =>
-        Option.fromUndefinedOr(
-          walk.model.attempts.find((a) => sameLane(a.lane, lane) && addressable(a.phase)),
-        ),
-      );
-
-      const passes = Option.exists(
-        head,
-        (h) => h.phase._tag === "Held" && sendsOf(walk, h.id, earlier) - 1 < guard.times,
-      );
-
-      return Option.isSome(named) && passes === guard.passes;
-    },
-  });
-
-const spelled = (members: ReadonlyArray<{ readonly operation: string; readonly kind: string }>) =>
-  members.map((m) => `${m.operation}.${m.kind}`).join(" ");
-
-const sameMembers = (
-  row: Row,
-  members: ReadonlyArray<{ readonly operation: string; readonly kind: string }>,
-) => spelled(row.members) === spelled(members);
-
-const fromMatches = (row: Row, from: string, to: string) =>
-  (row.from === "any" || row.from === from) && (row.to === "same" ? to === from : row.to === to);
-
-const laneMemberOf = (known: Known, actor: ActorRef) => (member: Member) =>
-  Option.map(operationOf(known, actor, member.operation), (o: OperationReference) => ({
-    ...member,
-    concurrency: o.concurrency,
-  }));
-
-const owedTarget = (
-  walk: Walk,
-  known: Known,
-  turn: Turn,
-  hearing: Option.Option<EndingName>,
-  member: RowMember,
-) => {
-  const keyed = Option.exists(
-    operationOf(known, turn.actor, member.operation),
-    (o) => o.keyFields.length > 0,
-  );
-
-  if (!keyed) return MemberTarget.Only();
-
-  const own = Option.flatMap(
-    Option.filter(hearing, (h) => h.operation === member.operation),
-    (h) =>
-      Option.flatMap(h.attempt, (id) =>
-        Option.fromUndefinedOr(walk.model.attempts.find((a) => a.id === id)?.lane.key),
-      ),
-  );
-
-  return Option.match(Option.flatten(own), {
-    onNone: () => MemberTarget.Every(),
-    onSome: (key) => MemberTarget.Key({ key }),
-  });
-};
-
-// RETURN_TYPE: each member's target is a MemberTarget, so the list is the Port's Member list.
-const owedMembers = (
-  walk: Walk,
-  known: Known,
-  turn: Turn,
-  hearing: Option.Option<EndingName>,
-  row: Row,
-): ReadonlyArray<Member> =>
-  row.members.map((m) => {
-    const said = turn.members.find((r) => r.operation === m.operation && r.kind === m.kind);
-
-    return {
-      operation: m.operation,
-      kind: m.kind,
-      target: said === undefined ? owedTarget(walk, known, turn, hearing, m) : said.target,
-    };
-  });
-
-const chosenRow = (
-  walk: Walk,
-  known: Known,
-  turn: Turn,
-  hearing: Option.Option<EndingName>,
-  earlier: ReadonlyArray<Request>,
-) => {
-  const lane = turn.members.filter((m) => m.kind !== "release");
-
-  const taken = (known.rows[turn.actor.machine] ?? []).filter(
-    (row) =>
-      row.event === turn.event &&
-      fromMatches(row, turn.from, turn.to) &&
-      (!row.claimed || sameMembers(row, lane)) &&
-      guardHolds(walk, row, turn.actor, owedMembers(walk, known, turn, hearing, row), earlier),
-  );
-
-  const [first] = taken;
-  const alike = taken.every((row) => first !== undefined && sameMembers(row, first.members));
-
-  return Option.fromUndefinedOr(alike ? first : taken.find((row) => sameMembers(row, lane)));
-};
-
-const anchoredMembers = (
-  walk: Walk,
-  known: Known,
-  turn: Turn,
-  hearing: Option.Option<EndingName>,
-  earlier: ReadonlyArray<Request>,
-) => {
-  const leaves = (m: Member) =>
-    m.kind !== "release" ||
-    Option.exists(operationOf(known, turn.actor, m.operation), (o) =>
-      o.releasesOnLeave.some(
-        (t) => t.event === turn.event && t.from === turn.from && t.to === turn.to,
-      ),
-    );
-
-  const lane = turn.members.filter((m) => m.kind !== "release");
-  const releases = turn.members.filter((m) => m.kind === "release" && leaves(m));
-  const row = chosenRow(walk, known, turn, hearing, earlier);
-
-  const owed = Option.match(row, {
-    onNone: () => releases,
-    onSome: (r) =>
-      sameMembers(r, lane)
-        ? turn.members.filter(leaves)
-        : [...owedMembers(walk, known, turn, hearing, r), ...releases],
-  });
-
-  return owed.flatMap((m) => Option.toArray(laneMemberOf(known, turn.actor)(m)));
-};
-
 const recordOf = (model: Model, actor: ActorRef) =>
   model.actors.find((a) => sameActor(a.actor, actor))?.record;
 
@@ -315,7 +134,9 @@ const reported = (
         heard,
         LaneMove.Turn({
           actor: turn.actor,
-          members: anchoredMembers(heard, known, turn, hearing, earlier),
+          members: owedMembers(heard.model, known, turn, hearing, (attempt) =>
+            sendsOf(heard, attempt, earlier),
+          ),
         }),
       );
     },
@@ -409,13 +230,13 @@ const reported = (
   });
 };
 
-const UNBOUND: ReadonlyArray<string> = ["grace", "disposeActor", "forget"];
+const ADOPTABLE: ReadonlyArray<string> = ["grace", "disposeActor", "forget"];
 
 const ensured = (walk: Walk, actor: ActorRef, given: Rules) => {
   const used = { ...walk, used: [...walk.used, actor] };
   const record = recordOf(walk.model, actor);
 
-  return record !== undefined && UNBOUND.includes(record)
+  return record !== undefined && ADOPTABLE.includes(record)
     ? {
         ...pushed(used, ActorMove.Adopt({ actor }), given),
         incarnated: [...walk.incarnated, actor],
@@ -484,17 +305,8 @@ const ended = (walk: Walk, given: Rules) => {
  * **Details**
  *
  * - A `Turn` is first the delivering ending's `Heard` (its actor's ending of that event), then a
- *   turn with its members. Its lane members are owed only by its row, chosen by event, from, to
- *   and computed guard; the report confirms the row and gives a member's key. A turn no row matches
- *   opens with no lane members, so its effects are refused under their own Invariants (a
- *   `Minted` with no commit member is WriteLanes I1). A reported `release` member anchors only
- *   on an operation whose reference lists the turn's transition among those that release it on
- *   leaving (WriteLanes R16); any other drops only itself, so its `Released` is WriteLanes I12.
- *   A member of an operation the reference does not know drops only itself. Neither ever
- *   cancels what the row owes (step 5 review H1).
- * - A row's `retryable` guard reads the head of the lane its reported member names: it passes
- *   when the head is Held and was sent fewer than `times` + 1 times (the server's log before
- *   this step, and the step's accepted `Send`s so far).
+ *   turn with the members it owes ({@link owedMembers}): they come only from the reference and
+ *   the turn's facts, never from what the report adds, drops, retargets or reorders.
  * - An Attempt's unknown `End` is `retained` by its operation's reference ({@link retains}).
  * - The open turn closes at the next `Delivered`, `Turn`, `Unhandled`, `Denied` or `Reloaded`,
  *   and at the step's end.
@@ -505,14 +317,10 @@ const ended = (walk: Walk, given: Rules) => {
  *
  * **Gotchas**
  *
- * - Rows with the same members are not told apart, so two of them matching one turn anchor it.
- * - A stated limit: a `claimed` row (Pay's `Leave`, whose guard the suite does not compute) is
- *   owed only when the turn reports its members. A runtime that drops `void.commit` from both
- *   its act and its report passes every oracle; only PAY-19's state expectations catch it (v2
- *   Risk 2; step 5 review M2).
  * - A `Parked`, `Unparked` or `Recorded` names no actor: it is read from the Attempt's lane, or for
- *   a decline from the oldest open decline of the operation (else its newest, so its cell refuses). One naming neither (an Attempt never
- *   minted) is not applied; a decline's `Ended` with no actor outside a turn likewise.
+ *   a decline from the oldest open decline of the operation (else its newest, so its cell
+ *   refuses). One naming neither (an Attempt never minted) is not applied; a decline's `Ended`
+ *   with no actor outside a turn likewise.
  * - A `Minted` with no actor is not applied: the Case stops it as `UnreadableReport`.
  * - A report of an operation no fixture declares as a write (a read's send or ending) is not a
  *   lifecycle move.

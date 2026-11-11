@@ -106,43 +106,43 @@ const payRows = [
   payRow("PayRequested", "PAYING", "same", [{ operation: "pay", kind: "commit" }]),
   payRow("PayRequested", "any", "PAYING", [{ operation: "pay", kind: "commit" }]),
   claimed(payRow("Leave", "any", "LEFT", [{ operation: "void", kind: "commit" }])),
-  payRow("Confirmed", "LEFT", "same", [{ operation: "void", kind: "commit" }]),
+  claimed(payRow("Confirmed", "LEFT", "same", [{ operation: "void", kind: "commit" }])),
   payRow("Confirmed", "IDLE", "PLACING", [{ operation: "place", kind: "commit" }]),
   payRow(
     "PlaceUnsure",
     "any",
     "same",
-    [{ operation: "place", kind: "retry" }],
+    [{ operation: "place", kind: "retry", keyed: false }],
     retryable("place", true),
   ),
   payRow(
     "VoidUnsure",
     "any",
     "same",
-    [{ operation: "void", kind: "retry" }],
+    [{ operation: "void", kind: "retry", keyed: false }],
     retryable("void", true),
   ),
   payRow(
     "VoidUnsure",
     "any",
     "same",
-    [{ operation: "void", kind: "cancel" }],
+    [{ operation: "void", kind: "cancel", keyed: false }],
     retryable("void", false),
   ),
   payRow("Confirmed", "PAYING", "PLACING", [{ operation: "place", kind: "commit" }]),
   payRow("RetryNow", "WAITING", "PAYING", [{ operation: "pay", kind: "commit" }]),
   payRow("IntentRead", "UNSURE", "PLACING", [
-    { operation: "pay", kind: "cancel" },
+    { operation: "pay", kind: "cancel", keyed: true },
     { operation: "place", kind: "commit" },
   ]),
   payRow(
     "IntentRead",
     "UNSURE",
     "PAYING",
-    [{ operation: "pay", kind: "retry" }],
+    [{ operation: "pay", kind: "retry", keyed: true }],
     retryable("pay", true),
   ),
-  payRow("OrderSeen", "UNSURE", "PAID", [{ operation: "pay", kind: "cancel" }]),
+  payRow("OrderSeen", "UNSURE", "PAID", [{ operation: "pay", kind: "cancel", keyed: true }]),
 ] satisfies ReadonlyArray<Row<string, State, Write>>;
 
 /**
@@ -185,5 +185,8 @@ export const Cells = {
     ...operations,
     pay: writeOf(ByIntent, cellsPay),
   },
-  rows: [...payRows, payRow("AbortPay", "any", "same", [{ operation: "pay", kind: "cancel" }])],
+  rows: [
+    ...payRows,
+    payRow("AbortPay", "any", "same", [{ operation: "pay", kind: "cancel", keyed: true }]),
+  ],
 } satisfies Fixture;

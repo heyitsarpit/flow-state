@@ -15,8 +15,8 @@ const GUARANTEE: ReadonlyArray<InvariantId> = [
  *
  * **Details**
  *
- * - The refusals are the lifecycle's (`dsl/lifecycle-step.ts`, Table A's endings and Table C's
- *   lives, with the obligation deadlines): an ending delivered, parked or recorded only while
+ * - The refusals are the lifecycle's (`dsl/lifecycle-step.ts` applying `dsl/lifecycle-rules.ts`'s
+ *   Table A endings and Table C lives, with the obligation deadlines): an ending delivered, parked or recorded only while
  *   owed, and none still owed at its step's end unless decided in the Runtime's disposal (I15);
  *   nothing delivered while the Runtime disposes (I15); a delivery heard by a turn of its actor,
  *   `Unhandled`, `Denied` or refused in its step (I15); a refused ending delivered once more in

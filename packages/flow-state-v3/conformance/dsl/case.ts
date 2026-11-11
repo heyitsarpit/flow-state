@@ -107,7 +107,8 @@ const decodeReports = (reference: Reference, fresh: ReadonlyArray<Fact>) => {
  * - World faults: `answerLate` (the server's answer arrives after all), `uninterruptible` and
  *   `answerAtOnce` (from now on, for an operation).
  * - `answer` takes the oldest open request of the operation; `answerTo` the oldest open one whose
- *   input has `fields` (its key fields), so a case with two callers names which it answers.
+ *   input has every field of `fields` (any fields, not only the key's), so a case with two
+ *   callers names which it answers.
  *
  * **Gotchas**
  *

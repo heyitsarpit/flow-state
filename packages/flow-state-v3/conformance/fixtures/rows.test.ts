@@ -27,7 +27,13 @@ const Token = Schema.Struct({
 const Alternative = Schema.Struct({
   target: Schema.String,
   tokens: Schema.Array(Token),
-  members: Schema.Array(Schema.Struct({ op: Schema.String, verb: Schema.String })),
+  members: Schema.Array(
+    Schema.Struct({
+      op: Schema.String,
+      verb: Schema.String,
+      key: Schema.optionalKey(Schema.Unknown),
+    }),
+  ),
 });
 
 const Compiled = Schema.Struct({
@@ -40,15 +46,26 @@ const Compiled = Schema.Struct({
 
 type Alternative = typeof Alternative.Type;
 
-const LANE_KINDS: ReadonlyArray<string> = ["commit", "retry", "cancel", "cancelAll"];
+const NAMING_KINDS: ReadonlyArray<string> = ["retry", "cancel", "cancelAll"];
 
 // RETURN_TYPE: a type predicate narrows the verb; it cannot be inferred.
-const isRowKind = (verb: string): verb is RowMember["kind"] => LANE_KINDS.includes(verb);
+const isNaming = (verb: string): verb is "retry" | "cancel" | "cancelAll" =>
+  NAMING_KINDS.includes(verb);
+
+// RETURN_TYPE: each branch builds one RowMember variant; the union keeps them one list.
+const rowMemberOf = (
+  m: Alternative["members"][number],
+  writes: ReadonlyArray<string>,
+): ReadonlyArray<RowMember> => {
+  if (!writes.includes(m.op)) return [];
+
+  if (m.verb === "commit") return [{ operation: m.op, kind: "commit" }];
+
+  return isNaming(m.verb) ? [{ operation: m.op, kind: m.verb, keyed: m.key !== undefined }] : [];
+};
 
 const laneMembers = (alternative: Alternative, writes: ReadonlyArray<string>) =>
-  alternative.members.flatMap((m) =>
-    writes.includes(m.op) && isRowKind(m.verb) ? [{ operation: m.op, kind: m.verb }] : [],
-  );
+  alternative.members.flatMap((m) => rowMemberOf(m, writes));
 
 const retryableOf = (alternative: Alternative) =>
   Option.fromUndefinedOr(alternative.tokens.find((t) => t.verb === "retryable"));
@@ -79,7 +96,9 @@ const guardOf = (alternatives: ReadonlyArray<Alternative>, index: number) => {
 };
 
 const spelledOf = (members: ReadonlyArray<RowMember>) =>
-  members.map((m) => `${m.operation}.${m.kind}`).join(" ");
+  members
+    .map((m) => `${m.operation}.${m.kind}${m.kind !== "commit" && m.keyed ? "(key)" : ""}`)
+    .join(" ");
 
 const compiledRows = (compiled: typeof Compiled.Type, writes: ReadonlyArray<string>) =>
   Object.entries(compiled.nodes).flatMap(([node, { on }]) =>
@@ -94,13 +113,16 @@ const compiledRows = (compiled: typeof Compiled.Type, writes: ReadonlyArray<stri
 
         const guard = guardOf(alternatives, index);
 
-        const tied = alternatives.some(
-          (other, at) =>
+        const tied = alternatives.some((other, at) => {
+          const otherState = other.tokens.find((t) => t.node !== undefined)?.node;
+
+          return (
             at !== index &&
             other.target === alternative.target &&
-            other.tokens.find((t) => t.node !== undefined)?.node === state &&
-            spelledOf(laneMembers(other, writes)) !== spelledOf(members),
-        );
+            (otherState === state || otherState === undefined) &&
+            spelledOf(laneMembers(other, writes)) !== spelledOf(members)
+          );
+        });
 
         return [{ event, from, to, members, guard, claimed: tied && Option.isNone(guard) }];
       }),
@@ -115,7 +137,7 @@ const shown = (rows: ReadonlyArray<Row>) =>
         onSome: (g) => ` retryable(${g.operation}, ${g.times}) ${g.passes ? "passes" : "fails"}`,
       });
 
-      return `${r.event} ${r.from}->${r.to} [${r.members.map((m) => `${m.operation}.${m.kind}`).join(", ")}]${guard}${r.claimed ? " claimed" : ""}`;
+      return `${r.event} ${r.from}->${r.to} [${spelledOf(r.members)}]${guard}${r.claimed ? " claimed" : ""}`;
     })
     .toSorted();
 
