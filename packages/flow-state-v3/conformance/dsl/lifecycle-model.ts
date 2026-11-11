@@ -206,7 +206,7 @@ export type AttemptLife = { readonly id: string; readonly lane: LaneId; readonly
  * second turn (its end when it ran fewer), the least it holds, since a lane batch is issued at once
  * by its turn (WriteAhead R10). `least.removed` are the actors whose `disposeActor` record it
  * surely holds: a boot owes their Held heads no restore once that removal has landed (Actors R20,
- * orchestrator a42f0bff).
+ * orchestrator a42f0bff). `least.minted` counts the Attempts it surely holds, queued or sent.
  */
 export type Capture = {
   readonly lives: ReadonlyArray<Life>;
@@ -215,6 +215,7 @@ export type Capture = {
     readonly lives: ReadonlyArray<Life>;
     readonly ended: number;
     readonly removed: ReadonlyArray<ActorRef>;
+    readonly minted: number;
   };
 };
 
@@ -310,6 +311,7 @@ export const captureOf = (model: Model, least: Model) => ({
     lives: least.endings.map((e) => e.life),
     ended: least.ended.length,
     removed: least.actors.filter((a) => a.record === "disposeActor").map((a) => a.actor),
+    minted: least.attempts.length,
   },
 });
 
@@ -331,7 +333,7 @@ export const empty: Model = {
   release: 1,
   mintedIn: [],
   unencodable: false,
-  saved: { lives: [], ended: 0, least: { lives: [], ended: 0, removed: [] } },
+  saved: { lives: [], ended: 0, least: { lives: [], ended: 0, removed: [], minted: 0 } },
   pending: Option.none(),
   held: [],
   live: [],

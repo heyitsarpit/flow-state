@@ -25,7 +25,9 @@ const rolledEnding = (model: Model, e: Ending, index: number) => {
  * The lanes a kill may leave: an acknowledged Attempt whose ending no landing answer followed may
  * be on disk as its ending or, if the batch holding it died, as its acknowledged head
  * (WriteAhead R10, I10, I17). It restores as a never-sent head does, allowed and not owed: the
- * boot may restore it unknown { Restored } once, or not at all.
+ * boot may restore it unknown { Restored } once, or not at all. A queued commit the landed batch
+ * holds, whose ending no landing followed, is on disk queued: it restores as a queued commit
+ * (Restore R3).
  *
  * **Details**
  *
@@ -40,11 +42,16 @@ export const rolledBack = (model: Model) => {
 
   return {
     ...model,
-    attempts: model.attempts.map((a) =>
-      a.phase._tag === "Gone" && unsaved.includes(a.id) && model.acknowledged.includes(a.id)
-        ? { ...a, phase: Phase.Restoring({ head: true }) }
-        : a,
-    ),
+    attempts: model.attempts.map((a, index) => {
+      if (a.phase._tag !== "Gone" || !unsaved.includes(a.id)) return a;
+
+      if (model.acknowledged.includes(a.id))
+        return { ...a, phase: Phase.Restoring({ head: true }) };
+
+      return index < model.saved.least.minted
+        ? { ...a, phase: Phase.Restoring({ head: false }) }
+        : a;
+    }),
     endings: model.endings.map((e, i) => rolledEnding(model, e, i)),
   };
 };

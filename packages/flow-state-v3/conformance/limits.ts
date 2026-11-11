@@ -29,6 +29,12 @@ export const limits: ReadonlyArray<Limit> = [
     invariant: "WriteLanes I15",
     why: "round-14 alone restores and parks a disposed actor's Held head at the boot after a Runtime disposal; production passes the same script",
   },
+  {
+    case: "GEN-serialize-seeded-2004-shrunk",
+    check: "disposal",
+    invariant: "Actors I38",
+    why: "round-14 ends its disposal without ending a commit queued behind a Held head NotSent { Disposed }; the head was cancelled on the wire (unknown { Cancelled }). Production has no Lab machine to compare",
+  },
 ];
 
 /**
