@@ -187,3 +187,7 @@ Found while writing the `lane-cells` oracle and its lies (packages/flow-state-v3
   `Timeout`, which never counts as a catch. Still open: static cases, a runtime that spins without
   touching its hosts, and the split path's whole-slice bound. The orchestrator's decision (V3 log,
   2026-11-10T23:44:41Z). Reverse: drop the `Timeout` verdict and the world's bound.
+- **Conformance Q8.** The `lane-queue` half is closed and its code link dropped: since convergence
+  step 4 a Held head's re-send needs an anchored retry member of the reference rows, and
+  `lane-model.ts` (with `permittedResend`) was deleted as dead code (step 4 review L1, landed in `c51f6501`). The
+  `ending-channels` half stays open. The V3 builder (2026-11-11). Reverse: restore the sentence.

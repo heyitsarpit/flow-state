@@ -325,12 +325,11 @@ open
 
     Q8  Failure of R2: the `ending-channels` oracle accepts any value when a report is absent (`onNone: () => true`, 
         code:packages/flow-state-v3/conformance/write-lanes/ending-channels.ts#onNone), which can accept a value that
-        contradicts its rule rather than only skipping a report the runtime does not make. Likewise, `lane-queue`
-        accepts a Held head's re-send after any suite-driven turn of its actor
-        (code:packages/flow-state-v3/conformance/write-lanes/lane-model.ts#permittedResend), so a re-send riding on an
-        unrelated driven event passes on every runtime, production included (README, the `lane-queue` limit).
-        outcome  A later Task narrows each such branch to a skip that a stated limit names, or a strict check; for
-                 `lane-queue`, a per-operation map of retrying events in the reference.
+        contradicts its rule rather than only skipping a report the runtime does not make. The `lane-queue` half
+        (a Held head's re-send accepted after any driven turn) is closed: since convergence step 4 a re-send needs
+        an anchored retry member of the lane's reference rows, and the old `lane-model.ts` is deleted.
+        outcome  A later Task narrows the `ending-channels` branch to a skip that a stated limit names, or a strict
+                 check.
 
     Q9  Failure of R2 and R5 (I36, I41): the idle-row limit (README, "Round-14 has no idle row") makes cases expect 
         `None` for a key with no lane, where Reads R14 gives the idle row. The limit changes an expected value away

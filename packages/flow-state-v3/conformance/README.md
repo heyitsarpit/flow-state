@@ -213,9 +213,6 @@ the case holds.
   PAY-16/restore-keeps-mayHaveApplied red on round-14; the adapter will not fill the failure in
   from the suite's own `Answered` fact, since that would report for the runtime what it did not.
   Production must report it, and the check becomes strict with the production adapter.
-- `lane-queue` accepts a Held head's re-send after any suite-driven turn of its actor since it was
-  held (a retry, or the answer that triggers one); a re-send riding on an unrelated driven event
-  is not caught. A per-operation map of retrying events in the reference would tighten it.
 - `Minted` requires `actor`, and `key` on a keyed operation: the Case stops with `UnreadableReport`
   naming the field (convergence v2's Port change 6).
 - `delivered-once` counts an ending decided after the Runtime's disposal began as parked at the next
