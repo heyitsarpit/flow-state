@@ -2,7 +2,8 @@ import { Data, Option, Result, Schema } from "effect";
 import type { Fixture } from "../fixtures/fixture.ts";
 import { Snapshot, Unreadable, type Use } from "../port.ts";
 import type { Case, Drive } from "./case.ts";
-import { Address, Mismatch } from "./oracle.ts";
+import { Mismatch } from "./oracle.ts";
+import { Address } from "./facts.ts";
 
 /**
  * The events a fixture's actor takes, by name.

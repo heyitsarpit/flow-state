@@ -10,7 +10,7 @@ import {
   Obligation,
 } from "./lifecycle-model.ts";
 import { at, build, Check, type Trace } from "./lifecycle-trace.ts";
-import type { InvariantId } from "./oracle.ts";
+import type { InvariantId } from "./facts.ts";
 
 const { H } = at;
 const { shopper, lane, model, wl, actors, unknown } = build;

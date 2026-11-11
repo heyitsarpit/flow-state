@@ -1,4 +1,5 @@
-import { type InvariantId, oracle } from "../dsl/oracle.ts";
+import { oracle } from "../dsl/oracle.ts";
+import type { InvariantId } from "../dsl/facts.ts";
 
 const GUARANTEE: ReadonlyArray<InvariantId> = [
   "WriteLanes I15",

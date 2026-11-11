@@ -20,7 +20,7 @@ import {
 } from "./lifecycle-rules.ts";
 import { Check, type Trace } from "./lifecycle-trace.ts";
 import { traces } from "./lifecycle.traces.ts";
-import type { InvariantId } from "./oracle.ts";
+import type { InvariantId } from "./facts.ts";
 import { disposal } from "../actors/disposal.ts";
 import { attemptIdentity } from "../write-lanes/attempt-identity.ts";
 import { deliveredOnce } from "../write-lanes/delivered-once.ts";

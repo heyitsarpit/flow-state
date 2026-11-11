@@ -1,7 +1,6 @@
 import { Data, Equal, Option, Result, Schema } from "effect";
 import { answerLabels, drivenLabels, type Fixture } from "../fixtures/fixture.ts";
 import {
-  Address,
   disposalBoundMs,
   Fact,
   type Graphed,
@@ -12,6 +11,7 @@ import {
   type RuntimeFact,
   usesHeld,
 } from "./oracle.ts";
+import { Address } from "./facts.ts";
 import {
   type ActorRef,
   type Ended,

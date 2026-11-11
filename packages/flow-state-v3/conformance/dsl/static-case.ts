@@ -1,6 +1,7 @@
 import { Equal } from "effect";
 import type { Surface } from "../surface.ts";
-import { type InvariantId, Mismatch } from "./oracle.ts";
+import { Mismatch } from "./oracle.ts";
+import type { InvariantId } from "./facts.ts";
 
 /**
  * A core Spec rule an expectation cites: an Invariant (`Compile I6`) or a Requirement with no

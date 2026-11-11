@@ -1,5 +1,5 @@
 import { Data } from "effect";
-import type { InvariantId } from "./oracle.ts";
+import type { InvariantId } from "./facts.ts";
 import type { Concurrency } from "../fixtures/reference.ts";
 import { type Admit, type Cause, type GoneWhy, Life, Phase } from "./lifecycle-model.ts";
 

@@ -1,6 +1,6 @@
 import type { Scenario } from "../dsl/case.ts";
 import { coveredBy } from "../coverage.ts";
-import { Address } from "../dsl/oracle.ts";
+import { Address } from "../dsl/facts.ts";
 import { Form } from "../fixtures/form.ts";
 import { Observation } from "../port.ts";
 

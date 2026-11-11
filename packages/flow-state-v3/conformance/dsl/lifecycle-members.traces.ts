@@ -11,7 +11,7 @@ import {
   type Phase,
 } from "./lifecycle-model.ts";
 import { at, build, Check, type Trace } from "./lifecycle-trace.ts";
-import type { InvariantId } from "./oracle.ts";
+import type { InvariantId } from "./facts.ts";
 
 const { Q, U, RS, W, I, H, RT, GC, GE } = at;
 const { shopper, laneNamed, lane, model, wl, pending, awaiting } = build;

@@ -1,5 +1,5 @@
 import { Array as Arr, Option } from "effect";
-import type { Applied, LifeStep } from "../dsl/lifecycle-step.ts";
+import type { Applied, LifeStep } from "../dsl/expect.ts";
 import {
   type LaneId,
   type LaneMember,
@@ -10,7 +10,8 @@ import {
   sameLane,
   addressable,
 } from "../dsl/lifecycle-model.ts";
-import { Fact, type InvariantId, oracle, type Violation } from "../dsl/oracle.ts";
+import { Fact, oracle, type Violation } from "../dsl/oracle.ts";
+import type { InvariantId } from "../dsl/facts.ts";
 import type { Concurrency, Reference } from "../fixtures/reference.ts";
 import { MemberTarget, sameActor, sameJson } from "../port.ts";
 

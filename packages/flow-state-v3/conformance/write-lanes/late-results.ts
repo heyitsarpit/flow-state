@@ -1,6 +1,6 @@
 import { Option } from "effect";
 import { sameLane } from "../dsl/lifecycle-model.ts";
-import type { LifeStep } from "../dsl/lifecycle-step.ts";
+import type { LifeStep } from "../dsl/expect.ts";
 import { Fact, oracle, violation } from "../dsl/oracle.ts";
 import { Observation } from "../port.ts";
 

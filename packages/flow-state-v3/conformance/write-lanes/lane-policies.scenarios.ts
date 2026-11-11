@@ -3,7 +3,7 @@ import type { Actor } from "../dsl/actor.ts";
 import type { Case, Scenario } from "../dsl/case.ts";
 import { Cells } from "../fixtures/pay.ts";
 import { Cancel, Latest, Release, Serialize } from "../fixtures/one-lane.ts";
-import { Address } from "../dsl/oracle.ts";
+import { Address } from "../dsl/facts.ts";
 import { Observation } from "../port.ts";
 import { Answer } from "../world/network.ts";
 

@@ -10,7 +10,7 @@ import {
   sameJson,
   type Use,
 } from "../port.ts";
-import type { InvariantId } from "./oracle.ts";
+import type { InvariantId } from "./facts.ts";
 
 /**
  * One write lane: its actor, its operation, and its key (`None` on an unkeyed operation).

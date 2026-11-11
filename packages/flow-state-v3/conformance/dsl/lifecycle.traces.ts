@@ -5,7 +5,7 @@ import { memberTraces } from "./lifecycle-members.traces.ts";
 import { turnTraces } from "./lifecycle-turns.traces.ts";
 import { obligationTraces } from "./lifecycle-obligations.traces.ts";
 import { at, build, Check, type Trace } from "./lifecycle-trace.ts";
-import type { InvariantId } from "./oracle.ts";
+import type { InvariantId } from "./facts.ts";
 
 const { Q, U, RS, W, I, H, RT, RF, GC, GE, GS } = at;
 

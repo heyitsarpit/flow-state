@@ -1,5 +1,6 @@
 import { Data, Option } from "effect";
-import { Address, Fact, holdUse, oracle, violation } from "../dsl/oracle.ts";
+import { Fact, isRuntimeFact, oracle, violation } from "../dsl/oracle.ts";
+import { Address, holdUse } from "../dsl/facts.ts";
 import { type Handlers, possible, type Schedule } from "../fixtures/handlers.ts";
 import { type ActorRef, Observation, sameActor, type Turn, type Use } from "../port.ts";
 import { type Anchor, anchorOf, judgedStep } from "./selection.ts";
@@ -173,7 +174,11 @@ const onTurn = (walk: Walk, turn: Turn, step: ReadonlyArray<Fact>, clockAfter: n
 
 // RETURN_TYPE: the fold's Walk contract, shared by every branch.
 const onFact = (walk: Walk, fact: Fact, step: ReadonlyArray<Fact>, clockAfter: number): Walk => {
-  const state = { ...walk.state, uses: holdUse(walk.state.uses, fact) };
+  const state = {
+    ...walk.state,
+    uses: isRuntimeFact(fact) ? walk.state.uses : holdUse(walk.state.uses, fact),
+  };
+
   const kept = { ...walk, state };
 
   if (Fact.$is("Reloaded")(fact)) return { ...walk, state: reloaded(state) };

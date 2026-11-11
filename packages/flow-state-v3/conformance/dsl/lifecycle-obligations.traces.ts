@@ -2,7 +2,7 @@ import { Option } from "effect";
 import { Life, LifeMove, Move, Obligation } from "./lifecycle-model.ts";
 import { member, turn } from "./lifecycle-members.traces.ts";
 import { at, build, type Trace } from "./lifecycle-trace.ts";
-import type { InvariantId } from "./oracle.ts";
+import type { InvariantId } from "./facts.ts";
 
 const { Q, U, RS, W, H, RF, GC, GE } = at;
 

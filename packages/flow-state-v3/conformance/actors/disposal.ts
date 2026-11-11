@@ -9,8 +9,9 @@ import {
   Phase,
   sameLane,
 } from "../dsl/lifecycle-model.ts";
-import type { LifeStep } from "../dsl/lifecycle-step.ts";
-import { disposalBoundMs, Fact, type InvariantId, oracle, violation } from "../dsl/oracle.ts";
+import type { LifeStep } from "../dsl/expect.ts";
+import { disposalBoundMs, Fact, oracle, violation } from "../dsl/oracle.ts";
+import type { InvariantId } from "../dsl/facts.ts";
 import { operationNamed, type Reference } from "../fixtures/reference.ts";
 import { type Channel, type Ended, type Json, Observation, sameActor, sameJson } from "../port.ts";
 import { type Answer, type Request, RequestPhase } from "../world/network.ts";

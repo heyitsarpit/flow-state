@@ -1,5 +1,5 @@
 import { Option } from "effect";
-import type { LifeStep } from "../dsl/lifecycle-step.ts";
+import type { LifeStep } from "../dsl/expect.ts";
 import { Fact, oracle, violation } from "../dsl/oracle.ts";
 import { type Machines, possible } from "../fixtures/handlers.ts";
 import { Observation, sameActor, type Turn } from "../port.ts";

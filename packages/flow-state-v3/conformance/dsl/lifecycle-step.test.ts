@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import assert from "node:assert/strict";
-import { readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "vite-plus/test";
@@ -557,7 +557,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 
 const STEP_MUTANTS: ReadonlyArray<{
   readonly name: string;
-  readonly file: "lifecycle-owed.ts" | "lifecycle-step.ts";
+  readonly file: "lifecycle-owed.ts" | "compare.ts";
   readonly find: string;
   readonly replace: string;
 }> = [
@@ -637,25 +637,25 @@ const STEP_MUTANTS: ReadonlyArray<{
   },
   {
     name: "a turn hears no ending",
-    file: "lifecycle-step.ts",
+    file: "compare.ts",
     find: "onSome: (ending) => pushed(walk, LifeMove.Heard({ ending }), given),",
     replace: "onSome: () => walk,",
   },
   {
     name: "retention inverted",
-    file: "lifecycle-step.ts",
+    file: "compare.ts",
     find: "onSome: (o) => retains(o, said.reason),",
     replace: "onSome: (o) => !retains(o, said.reason),",
   },
   {
     name: "a turn hears another actor's ending",
-    file: "lifecycle-step.ts",
+    file: "compare.ts",
     find: "onSome: (a) => sameActor(a, e.actor)",
     replace: "onSome: () => true",
   },
   {
     name: "a Delivered closes no turn",
-    file: "lifecycle-step.ts",
+    file: "compare.ts",
     find: "const open = closedTurn(walk, given);",
     replace: "const open = walk;",
   },
@@ -677,37 +677,22 @@ describe("lifecycle step", () => {
   for (const example of examples) it(example.name, () => example.run(using(step)));
 
   it("every step mutant is killed by an example (review M3)", async () => {
-    const sources = {
-      "lifecycle-owed.ts": readFileSync(join(HERE, "lifecycle-owed.ts"), "utf8"),
-      "lifecycle-step.ts": readFileSync(join(HERE, "lifecycle-step.ts"), "utf8"),
-    };
-
     for (const [index, mutant] of STEP_MUTANTS.entries()) {
-      const source = sources[mutant.file];
+      const source = readFileSync(join(HERE, mutant.file), "utf8");
 
       assert.equal(source.split(mutant.find).length - 1, 1, `${mutant.name}: applies once`);
-      const tag = `mutant-${process.pid}-${index}`;
-      const owed = join(HERE, `lifecycle-owed.${tag}.ts`);
-      const stepped = join(HERE, `lifecycle-step.${tag}.ts`);
-      const mutated = source.replace(mutant.find, () => mutant.replace);
-
-      if (mutant.file === "lifecycle-owed.ts") writeFileSync(owed, mutated);
+      const copy = join(HERE, "..", `dsl-mutant-${process.pid}-${index}`);
+      cpSync(HERE, copy, { recursive: true });
       writeFileSync(
-        stepped,
-        mutant.file === "lifecycle-step.ts"
-          ? mutated
-          : sources["lifecycle-step.ts"].replace(
-              "./lifecycle-owed.ts",
-              `./lifecycle-owed.${tag}.ts`,
-            ),
+        join(copy, mutant.file),
+        source.replace(mutant.find, () => mutant.replace),
       );
 
       try {
-        const imported: { readonly step: Step } = await import(stepped);
+        const imported: { readonly step: Step } = await import(join(copy, "lifecycle-step.ts"));
         assert.ok(killed(imported.step), `${mutant.name}: survived`);
       } finally {
-        rmSync(owed, { force: true });
-        rmSync(stepped, { force: true });
+        rmSync(copy, { recursive: true, force: true });
       }
     }
   });

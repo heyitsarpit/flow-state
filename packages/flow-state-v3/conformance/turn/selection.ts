@@ -1,6 +1,7 @@
 import { Option } from "effect";
 import type { Predicted } from "../dsl/lifecycle-owed.ts";
-import { Address, Fact, oracle, type Violation, violation } from "../dsl/oracle.ts";
+import { Fact, oracle, type Violation, violation } from "../dsl/oracle.ts";
+import { Address } from "../dsl/facts.ts";
 import {
   actorIn,
   current,
@@ -14,9 +15,6 @@ import {
   dropped,
   FRESH,
   answered,
-  answerOf,
-  type Actor,
-  creditLabels,
   reowned,
   ROOT,
   routeOf,
@@ -27,8 +25,9 @@ import {
 } from "./anchor.ts";
 import { judgeTurn, name, PENDING_RESET, selectedParts } from "./judge.ts";
 import { lateLeftWork } from "./late.ts";
+import { decideFor, foldedAfter, keysFor, labelsFor } from "./predict.ts";
 import { Input, leafOf, Phase } from "./phases.ts";
-import type { Labels } from "../fixtures/folds.ts";
+import { type Labels, noFolds } from "../fixtures/folds.ts";
 import { type Machines, possible, scheduledEvents } from "../fixtures/handlers.ts";
 import {
   type ActorRef,
@@ -55,25 +54,6 @@ const heardBy = (actor: ActorRef, event: string, step: ReadonlyArray<Fact>) =>
       : [],
   );
 
-/**
- * The labels of the fact a turn runs on: a driven event's payload, or the answer a delivered
- * ending came from; none otherwise.
- */
-const labelsOf = (
-  state: State,
-  now: Actor,
-  credit: string,
-  driven: boolean,
-  delivered: Option.Option<Delivered>,
-) => {
-  if (driven) return creditLabels(now.driven, credit);
-
-  return Option.match(delivered, {
-    onNone: () => ({}),
-    onSome: (d) => answerOf(state, d.operation, d.attempt),
-  });
-};
-
 const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
   const now = actorIn(state, turn.actor);
   const handlers = state.machines[turn.actor.machine];
@@ -92,13 +72,9 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
     state,
   );
 
-  const labels = labelsOf(told, now, credit, driven, Option.fromUndefinedOr(delivered));
-  const folds = handlers?.folds;
-
-  const decide = (at: string) =>
-    Option.flatMap(now.fields, (fields) =>
-      Option.flatMap(Option.fromUndefinedOr(folds?.guards[at]), (guard) => guard(labels, fields)),
-    );
+  const labels = labelsFor(told, now, credit, driven, Option.fromUndefinedOr(delivered));
+  const folds = handlers?.folds ?? noFolds;
+  const decide = decideFor(folds, now.fields, labels);
 
   const admitted =
     driven ||
@@ -115,15 +91,12 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
 
   const judged = judgeTurn(state.machines, now.phase, turn, route, decide);
 
-  const fields = Option.match(judged.match, {
-    onNone: () => now.fields,
-    onSome: (m) =>
-      Option.map(now.fields, (before) => {
-        const update = folds?.updates[m.at];
-
-        return update === undefined ? before : { ...before, ...update(labels, before) };
-      }),
-  });
+  const fields = foldedAfter(
+    folds,
+    now.fields,
+    Option.map(judged.match, (m) => m.at),
+    labels,
+  );
 
   const leftWork = lateLeftWork(
     state,
@@ -191,19 +164,7 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
     from: anchored.from,
     to: anchored.to,
     at: Option.map(judged.match, (m) => m.at),
-    keys: {
-      ...reportedKeys(turn),
-      ...Option.match(fields, {
-        onNone: () => ({}),
-        onSome: (f) =>
-          Object.fromEntries(
-            Object.entries(folds?.keys ?? {}).map(([operation, key]) => [
-              operation,
-              key(labels, f),
-            ]),
-          ),
-      }),
-    },
+    keys: { ...reportedKeys(turn), ...keysFor(folds, fields, labels) },
   };
 
   return [
@@ -232,6 +193,12 @@ const reportedKeys = (turn: Turn) =>
         : [];
     }),
   );
+
+/**
+ * Whether the suite booted a page or attached a use in this step.
+ */
+const attaching = (step: ReadonlyArray<Fact>) =>
+  step.some((f) => Fact.$is("Reloaded")(f) || Fact.$is("Ensured")(f));
 
 const initialOf = (state: State, actor: ActorRef) =>
   Option.fromUndefinedOr(state.machines[actor.machine]?.initial);
@@ -397,10 +364,11 @@ const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>): Stepped =>
           keep(minted(state, operation, attempt, actor, key)),
         Sent: ({ operation, attempt }) => keep(sent(state, operation, attempt)),
         Ended: ({ operation, attempt, channel, reason }) =>
-          keep(ended(state, operation, attempt, channel, reason, step)),
+          keep(ended(state, operation, attempt, channel, reason, attaching(step))),
         Delivered: () => keep(state),
         Parked: () => keep(state),
-        Unparked: ({ operation, attempt }) => keep(current(state, operation, attempt, step)),
+        Unparked: ({ operation, attempt }) =>
+          keep(current(state, operation, attempt, attaching(step))),
         Recorded: () => keep(state),
         Evidence: () => keep(state),
         Issue: () => keep(state),

@@ -1,8 +1,7 @@
 import { Data, Option } from "effect";
-import { Fact } from "../dsl/oracle.ts";
 import type { Folded, Labels } from "../fixtures/folds.ts";
 import type { Machines, Route } from "../fixtures/handlers.ts";
-import type { ActorRef, Channel, Delivered, Json } from "../port.ts";
+import type { ActorRef, Channel, Json } from "../port.ts";
 import type { Purpose } from "../world/storage.ts";
 import { Input, leafOf, Phase, TABLE } from "./phases.ts";
 
@@ -156,7 +155,11 @@ export const reowned = (
  * or an actor whose leaf it does not know, gives `either`.
  */
 // RETURN_TYPE: the Route union; the branches infer three literals.
-export const routeOf = (state: State, actor: Actor, delivered: Delivered): Route => {
+export const routeOf = (
+  state: State,
+  actor: Actor,
+  delivered: { readonly operation: string; readonly attempt: Option.Option<string> },
+): Route => {
   if (Option.isNone(delivered.attempt)) return "either";
 
   const call = state.calls.get(attemptKey(delivered.operation, delivered.attempt.value));
@@ -201,15 +204,15 @@ export const minted = (
 /**
  * An Attempt whose ending is current whatever its owner (R20): an unknown { Restored }, or an
  * adopted ending (its `Unparked`), but only in a step where the suite booted a page or attached a
- * use, the only steps a restore or an adoption can come in.
+ * use (`attaching`), the only steps a restore or an adoption can come in.
  */
 export const current = (
   state: State,
   operation: string,
   attempt: Option.Option<string>,
-  step: ReadonlyArray<Fact>,
+  attaching: boolean,
 ) =>
-  Option.isSome(attempt) && step.some((f) => Fact.$is("Reloaded")(f) || Fact.$is("Ensured")(f))
+  Option.isSome(attempt) && attaching
     ? withCall(state, {
         ...callOf(state, operation, attempt.value),
         current: true,
@@ -246,12 +249,12 @@ export const ended = (
   attempt: Option.Option<string>,
   channel: Channel,
   reason: string,
-  step: ReadonlyArray<Fact>,
+  attaching: boolean,
 ) => {
   if (Option.isNone(attempt)) return state;
 
   if (channel === "unknown") {
-    const restored = reason === "Restored" ? current(state, operation, attempt, step) : state;
+    const restored = reason === "Restored" ? current(state, operation, attempt, attaching) : state;
 
     return moveCall(restored, operation, attempt.value, CallPhase.Held());
   }

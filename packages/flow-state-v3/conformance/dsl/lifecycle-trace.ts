@@ -11,7 +11,7 @@ import {
   Obligation,
   Phase,
 } from "./lifecycle-model.ts";
-import type { InvariantId } from "./oracle.ts";
+import type { InvariantId } from "./facts.ts";
 
 /**
  * One step of a {@link Trace}: any lifecycle move, or an instant at which obligations are due.

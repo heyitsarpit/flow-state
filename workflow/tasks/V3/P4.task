@@ -517,6 +517,14 @@ tasks
             the reported target. Carried to the schedules step: the `delays` fold is not read yet. Rejected 2: reported 
             members were never a runtime check (their effects are judged as lane moves); one pending capture is right, 
             since an answer lands every held batch.
+        comment     2026-11-11T18:21:15Z
+            Step 3 split built: `dsl/expect.ts` and `turn/predict.ts` (with `dsl/facts.ts`, the lifecycle tables, 
+            `turn/anchor.ts` and the fixtures' folds) hold every obligation; `dsl/compare.ts` and `turn/selection.ts` 
+            match reports; `dsl/lifecycle-step.ts` only dispatches. T40 and T37 are `dsl/boundary.test.ts` in `nub run 
+            test`: it walks the expect half's imports and fails on a report type, a runtime answer, a compare module or 
+            a runtime module, and rejects three planted imports. A conformance test, not a `vite.config.ts` rule, 
+            because `May change` is `conformance/` only; moving it into the lint config is a one-line follow-up for 
+            whoever owns the config. Gates unchanged.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open

@@ -1,5 +1,6 @@
 import { Data } from "effect";
-import { citedBy, type Guarantee, type InvariantId, type Mutant } from "./dsl/oracle.ts";
+import { citedBy, type Guarantee, type Mutant } from "./dsl/oracle.ts";
+import type { InvariantId } from "./dsl/facts.ts";
 
 /**
  * The core Specs the suite judges (Conformance R12), by the name each Invariant id starts with.
