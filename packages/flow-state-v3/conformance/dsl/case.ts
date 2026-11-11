@@ -66,15 +66,15 @@ const shown = <A>(value: A) => String(JSON.stringify(value));
  *   made, folds the lifecycle once over the step's facts, then runs every oracle with that fold;
  *   any violation throws `Violated`, naming every oracle that found one in that step.
  * - `eq` throws `Mismatch` unless the two values are equal by Effect's structural equality.
- * - `row` records the read on the timeline and runs every oracle on it, as a step does.
+ * - `row` is a step: it reads the row, records the read and the runtime's answer, and judges.
  * - `upgrade(release)` reloads with the app's code at another release (Boot's `release`), as a
  *   deploy between two page loads does.
  * - A reload kills the page and boots the port again over the same world (the dead page's
  *   Runtime is dropped: a dead page runs nothing), then re-attaches every use the case holds:
  *   those its `Ensured`, `Released` and `Disposed` facts leave.
  * - `send` makes several sends in one step, with no settling between them.
- * - `disposeRuntime` starts the Runtime's disposal; `runtimeDisposals` counts the reports that it
- *   ended.
+ * - `disposeRuntime` starts the Runtime's disposal; `runtimeDisposals` counts the times its
+ *   adapter answered that it ended (`Disposal`).
  * - `landed` counts the distinct Attempts the server applied; `landedKeys` lists the key of every
  *   applied request, repeats included.
  * - World faults: `answerLate` (the server's answer arrives after all), `uninterruptible` and
@@ -162,7 +162,7 @@ const stepEngine = (
   record: (fact: Fact) => void,
   pending: () => boolean,
   unread: () => Option.Option<Unreadable>,
-  replaceReports: (from: number, replayed: ReadonlyArray<RuntimeFact>) => void,
+  replaceReports: (from: number, noted: number, replayed: ReadonlyArray<RuntimeFact>) => void,
 ) => {
   const { network, storage } = world.hosts;
   const reference = referenceFor(options.fixtures);
@@ -241,13 +241,14 @@ const stepEngine = (
 
     if (Result.isFailure(settled)) throw settled.failure;
 
+    const noted = facts.length;
+    noteWorld();
     // The liar gate (advisor Q1): the runtime under test acts, and a correct runtime's reports
-    // for this step replace its own.
+    // and answers for this step replace its own; what the world noted at the settle stays last.
     Option.match(options.replay, {
       onNone: () => undefined,
-      onSome: (steps) => replaceReports(from, steps[stepped - 1] ?? []),
+      onSome: (steps) => replaceReports(from, noted, steps[stepped - 1] ?? []),
     });
-    noteWorld();
     judge(what);
 
     if (crashing && Option.contains(options.crashAt, stepped)) {
@@ -275,9 +276,15 @@ export const openCase = (options: CaseOptions) => {
   const record = (fact: Fact) => void facts.push(fact);
   const life = runtimeLife(options, world, record);
 
-  const replaceReports = (from: number, replayed: ReadonlyArray<RuntimeFact>) => {
-    const kept = facts.splice(from).filter((f) => !isRuntimeFact(f));
-    facts.push(...kept, ...replayed);
+  const replaceReports = (from: number, noted: number, replayed: ReadonlyArray<RuntimeFact>) => {
+    const tail = facts.splice(from);
+    const suite = (f: Fact) => !isRuntimeFact(f);
+    const settled = noted - from;
+    facts.push(
+      ...tail.slice(0, settled).filter(suite),
+      ...replayed,
+      ...tail.slice(settled).filter(suite),
+    );
   };
 
   const engine = stepEngine(
@@ -289,8 +296,6 @@ export const openCase = (options: CaseOptions) => {
     life.unread,
     replaceReports,
   );
-
-  const { judge } = engine;
 
   // The crash generator's kill: a reload after the step, settled and judged as a step of its own.
   const crash = () => reload("crash: kill the page and reload", () => []);
@@ -384,10 +389,13 @@ export const openCase = (options: CaseOptions) => {
   };
 
   const row = (actor: ActorRef, operation: string, key: Json) => {
-    const read = Result.getOrThrowWith(life.runtime().row(actor, operation, key), (f) => f);
-    record(Fact.Read({ actor, operation, key }));
-    record(Fact.RowRead({ actor, operation, key, row: read }));
-    judge(`read ${operation}`);
+    let read = Option.none<Json>();
+
+    act(`read ${operation}`, () => {
+      read = Result.getOrThrowWith(life.runtime().row(actor, operation, key), (f) => f);
+      record(Fact.Read({ actor, operation, key }));
+      record(Fact.RowRead({ actor, operation, key, row: read }));
+    });
 
     return read;
   };

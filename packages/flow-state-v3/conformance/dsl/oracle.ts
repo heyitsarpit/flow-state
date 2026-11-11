@@ -14,8 +14,8 @@ import type { Answer, Request } from "../world/network.ts";
 import type { Purpose } from "../world/storage.ts";
 
 /**
- * What the suite did and what its world saw: the only facts the model's expect half reads
- * (Conformance R20).
+ * What the suite did and what its world saw: the facts the model's expect half reads (Conformance
+ * R20). It also reads the two runtime answers `limits.ts` names, `Purposed` and `Acknowledges`.
  *
  * **Details**
  *

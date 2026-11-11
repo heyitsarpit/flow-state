@@ -494,6 +494,13 @@ tasks
             and their imports) instead of the three files the split empties (N5); intent unchanged. Decision 4 checked: 
             WriteAhead R5 fixes a lane record's identity, not its store key spelling, so the acknowledged set stays a 
             limits row. R19 wording note proposed in spec-log for the user's read.
+        comment     2026-11-11T17:28:06Z
+            Fact split built (B1, decision 2): suite facts, runtime answers (`Acknowledges`, `Purposed`, `RowRead`, 
+            `Disposal`) and reports; the disposal's end is `Boot.disposed`, not an observation. Review sidecar: 
+            accepted 4 (a batch's purpose pairs with the store's `Wrote`; the mutant's own answers are replaced; a read 
+            is a step; docs), noted 2 (`CleanupFailed` has no producer yet: a limits row in step 6; `heard` routes by 
+            tag). Its self-replay check found the replay moved world facts before replayed reports (22 cases red): 
+            fixed, and the liar gate now runs that control first. Crash production 685/716 (a read is now a step).
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open

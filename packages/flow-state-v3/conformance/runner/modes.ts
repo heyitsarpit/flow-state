@@ -18,7 +18,7 @@ import {
   runtimePort,
   runtimeSurface,
 } from "./args.ts";
-import { liarOne } from "./falsify.ts";
+import { liarOne, suiteIn } from "./falsify.ts";
 import { crashCase } from "./run.ts";
 
 /**
@@ -38,6 +38,23 @@ export const liar = (args: ReadonlyArray<string>) =>
       .filter((m) =>
         Option.match(only, { onNone: () => true, onSome: (names) => names.includes(m.name) }),
       );
+
+    // The control: the unedited runtime replaying its own reports and answers stays green, so a
+    // red under the liar gate is the mutant's, not the replay's.
+    const control = yield* suiteIn(
+      MAIN,
+      production ? PRODUCTION_RUNTIME : DEFAULT_RUNTIME,
+      [...new Set(chosen.flatMap((m) => m.cases))],
+      240,
+      ["--liar-reference", production ? `production:${PACKAGE}` : DEFAULT_RUNTIME],
+    ).pipe(
+      Effect.map((v) => v.length > 0 && v.every((x) => x._tag === "Pass")),
+      Effect.catchTag("NoVerdicts", () => Effect.succeed(false)),
+    );
+
+    yield* Console.log(
+      `${control ? "ok  " : "BAD "} control: the unedited runtime replaying its own run passes`,
+    );
 
     const runs = yield* Effect.forEach(
       chosen,
@@ -72,10 +89,10 @@ export const liar = (args: ReadonlyArray<string>) =>
         `GREEN ${r.mutant}  caught only by its own reports${r.why === "" ? "" : `: ${r.why}`}`,
       );
     yield* Console.log(
-      `VERDICT ${green.length === 0 ? "pass" : "fail"} ${runs.length - green.length}/${runs.length} behavioural mutants red under the liar gate`,
+      `VERDICT ${green.length === 0 && control ? "pass" : "fail"} ${runs.length - green.length}/${runs.length} behavioural mutants red under the liar gate`,
     );
 
-    if (green.length > 0) process.exitCode = 1;
+    if (green.length > 0 || !control) process.exitCode = 1;
   });
 
 /**

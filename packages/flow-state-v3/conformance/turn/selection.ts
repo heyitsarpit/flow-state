@@ -321,6 +321,12 @@ const initialOf = (state: State, actor: ActorRef) =>
 
 type Stepped = readonly [State, ReadonlyArray<Violation>, Fact];
 
+const purposeOf = (step: ReadonlyArray<Fact>, wrote: Extract<Fact, { readonly _tag: "Wrote" }>) => {
+  const nth = step.filter(Fact.$is("Wrote")).indexOf(wrote);
+
+  return step.filter(Fact.$is("Purposed"))[nth]?.purpose ?? "capture";
+};
+
 const drove = (state: State, actor: ActorRef, event: string) => {
   const now = actorIn(state, actor);
 
@@ -464,8 +470,8 @@ const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>): Stepped =>
     Unstoppable: () => keep(state),
     Landed: () => keep(landed(state)),
     Acknowledges: () => keep(state),
-    Wrote: () => keep(state),
-    Purposed: ({ purpose }) => keep(wrote(state, purpose)),
+    Wrote: (w) => keep(wrote(state, purposeOf(step, w))),
+    Purposed: () => keep(state),
     Dropped: () => keep(dropped(state)),
     Advanced: () => keep(state),
     Read: () => keep(state),

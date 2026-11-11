@@ -51,6 +51,7 @@ type Walk = {
   readonly used: ReadonlyArray<ActorRef>;
   readonly incarnated: ReadonlyArray<ActorRef>;
   readonly unsent: ReadonlyArray<string>;
+  readonly purposes: ReadonlyArray<Purpose>;
 };
 
 const isWrite = (known: Known, operation: string) =>
@@ -393,8 +394,12 @@ const onFact = (
       ...walk,
       model: { ...walk.model, acknowledged: [...walk.model.acknowledged, ...attempts] },
     }),
-    Wrote: () => walk,
-    Purposed: ({ purpose }) => ({ ...walk, model: wrote(walk.model, purpose) }),
+    Wrote: () => ({
+      ...walk,
+      model: wrote(walk.model, walk.purposes[0] ?? "capture"),
+      purposes: walk.purposes.slice(1),
+    }),
+    Purposed: () => walk,
     Dropped: () => ({ ...walk, model: { ...walk.model, pending: Option.none() } }),
     Stepped: () => walk,
     Requested: () => walk,
@@ -469,7 +474,18 @@ export const step = (
       : [],
   );
 
-  const start: Walk = { model, applied: [], reloaded: false, used: [], incarnated: [], unsent };
+  const purposes = facts.flatMap((f) => (Fact.$is("Purposed")(f) ? [f.purpose] : []));
+
+  const start: Walk = {
+    model,
+    applied: [],
+    reloaded: false,
+    used: [],
+    incarnated: [],
+    unsent,
+    purposes,
+  };
+
   const walk = facts.reduce((w, fact) => onFact(w, fact, known, earlier, given), start);
 
   const sent = walk.unsent.reduce<Walk>((w, attempt) => pushed(w, Move.Send({ attempt }), given), {

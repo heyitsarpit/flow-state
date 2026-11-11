@@ -160,6 +160,7 @@ type Boot = {
   hosts: Hosts; // clock, page, storage, network
   observe: (o: Observation) => void;
   unreadable: (failure: Unreadable) => void; // a report the adapter could not read (T8)
+  disposed: (exit: DisposeExit) => void; // the Runtime's disposal settled: Done or CleanupFailed (T45)
 };
 type Use = "story" | "host" | "component";
 type Runtime = {
@@ -169,7 +170,7 @@ type Runtime = {
   forget(actor): void; // removes the record; held lanes stay unbound until an adopting ensure
   send(actor, event, payload: Json): void;
   dispose(actor): void;
-  disposeRuntime(): void; // starts the Runtime's disposal; RuntimeDisposed reports its end
+  disposeRuntime(): void; // starts the Runtime's disposal; Boot.disposed answers its end
   snapshot(actor): Result<Snapshot, Unreadable>; // Live { state, memory: Json } | Absent
   row(actor, operation, key: Json): Result<Option<Json>, Unreadable>; // the public O.x.get row; the fixture decodes it by policy (Reads R14)
   pending(): boolean; // settling only
@@ -178,14 +179,16 @@ type Runtime = {
 // Delivered { actor }, Parked, Unparked, Recorded { why: ignored | evidence | letGo },
 // Unhandled, Denied { reasons }, Evidence { Superseded | Released | InFlight | NothingToResend |
 // StorageFailure | StorageSilent }, Issue { code, ending }, Incarnated { actor }, Finished { actor },
-// RuntimeDisposed. Turn carries its members ({ operation, kind, target }).
+// (no RuntimeDisposed: the disposal's end is Boot.disposed, T45). Turn carries its members ({ operation, kind, target }).
 ```
 
 The suite's own timeline facts (round 3 adds the last three): `Stepped`, `Requested`,
 `Answered`, `Reported`, `Reloaded`, `Disposed`, `Ensured`, `DisposingRuntime`, `Drove { actor,
 event }` (an event the suite sent) and `Unstoppable { operation }` (calls made uninterruptible);
 round 4 adds `Released { actor, use }`, so the uses a reload re-attaches are derived from facts;
-T7 adds `Acknowledged { attempts }`, the Attempts whose acknowledging batch the store landed.
+T7 adds the Attempts whose acknowledging batch the store landed. T45 splits the timeline: suite facts
+(`Landed`, `Wrote`, `Read`, ...), runtime answers (`Acknowledges`, `Purposed`, `RowRead`, `Disposal`), and
+reports; the liar gate replays runtime answers with the reports.
 
 A reload is: kill the page (timers, tasks, held batches, live calls die; bytes and the server's log
 stay; open requests become orphaned), `boot` again over the same world, `ensureExisting` each use
@@ -202,10 +205,10 @@ the case holds.
 | A publish feed                          | Turn I9, I29, I30 (`publication`)                                         | `Published { actor, state, memory, memoryId }` per changed actor per step                                                                                       | **built** (T8)                                                                                    |
 | Boot's result                           | Actors I3 to I6 (readiness)                                               | `boot` returns `Result<Runtime, BootFailed { diagnostics }>`; a `ready` observation                                                                             | planned                                                                                           |
 | A disk reader                           | WriteAhead I15 to I17 (`write-ahead`), Restore I1 to I8 (`restore`)       | `Port.disk: { heads(bytes), parked(bytes), leaves(bytes, actor), scope(key) }`, reading the runtime's own format from the suite's bytes, apart from its restore | planned                                                                                           |
-| Runtime disposal                        | Actors I29, I30; PAY-13, PAY-16 disposal variants                         | `Runtime.disposeRuntime()`; `RuntimeDisposed` when it ends                                                                                                      | **built** (round 3)                                                                               |
+| Runtime disposal                        | Actors I29, I30; PAY-13, PAY-16 disposal variants                         | `Runtime.disposeRuntime()`; `Boot.disposed` when it ends                                                                                                        | **built** (round 3)                                                                               |
 | forget                                  | Actors I32                                                                | `Runtime.forget(actor)`                                                                                                                                         | **built** (T6)                                                                                    |
 | The Attempt's key on `Minted`           | `lane-queue` on keyed operations (lanes per key, WriteLanes R6)           | `key: Option<Json>` on `Minted` (a public Attempt field, R5)                                                                                                    | **built** (round 4; round-14's mint note carries it from T7; a missing one is `UnreadableReport`) |
-| Acknowledged Attempts on a batch        | Restore R3, I6 (a never-sent acknowledged head's restore), I8             | the store's `write` names the Attempts a batch acknowledges; answering returns those that landed (`Acknowledged`)                                               | **built** (T7; an eighth Port change, after convergence v2's seven)                               |
+| Acknowledged Attempts on a batch        | Restore R3, I6 (a never-sent acknowledged head's restore), I8             | the store's `write` names the Attempts a batch acknowledges; answering returns those that landed (`Acknowledges`)                                               | **built** (T7; an eighth Port change, after convergence v2's seven)                               |
 | Faults the Specs name                   | Turn I14 to I16 (`refusal`), Diagnostics                                  | slot faults through the fixtures: answers the fixture's user code cannot take (a negative delay, a mapper reading a null)                                       | **built** for I14, I15 (T8, no Port change)                                                       |
 
 ## Stated limits
@@ -263,7 +266,7 @@ the case holds.
 - `attempt-identity`'s check that a send names the operation its Attempt was minted under has no
   mutant that isolates it: `mutant.sent-under-another-operation`, listed in the I6 row, is caught by
   the same oracle's count check.
-- Round-14 reports `RuntimeDisposed` when its last call ends, before the final persistence write
+- Round-14 answers that its disposal ended (`Boot.disposed`) when its last call ends, before the final persistence write
   (Actors R23 has disposal wait for it); cases assert disposal's end only after that write is
   answered.
 - The fake network ports `Ok`, `Fail`, `Lost`, `LostButLanded`, `FailButLanded`, `Never`, `Die`, late answers,
