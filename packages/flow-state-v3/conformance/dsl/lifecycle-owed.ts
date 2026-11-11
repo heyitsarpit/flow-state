@@ -25,6 +25,7 @@ export type Known = {
   readonly reference: Reference;
   readonly rows: Rows;
   readonly timed: Readonly<Record<string, ReadonlyArray<string>>>;
+  readonly captureMs: number;
 };
 
 /**
@@ -52,6 +53,7 @@ export type Predicted = {
   readonly at: Option.Option<string>;
   readonly keys: Readonly<Record<string, Json>>;
   readonly encodable: boolean;
+  readonly changes: Option.Option<boolean>;
 };
 
 const heardLane = (model: Model, hearing: EndingName) =>

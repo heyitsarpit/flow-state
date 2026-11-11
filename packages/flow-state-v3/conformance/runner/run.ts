@@ -1,5 +1,6 @@
 import { Clock, Effect, Option, Result } from "effect";
 import { playCase, type Scenario } from "../dsl/case.ts";
+import { captureMsOf } from "../actors/lifetime.scenarios.ts";
 import { playCrash, playRecorded } from "../dsl/play.ts";
 import { citedBy, type Graphed, Mismatch, type Oracle, Violated } from "../dsl/oracle.ts";
 import { playStatic, type StaticCase } from "../dsl/static-case.ts";
@@ -74,6 +75,7 @@ const runSeed = (
         {
           port,
           fixtures: scenario.fixtures,
+          captureMs: captureMsOf(scenario.id),
           oracles,
           seed,
           graphs,
@@ -235,6 +237,7 @@ export const crashCase = (
             {
               port,
               fixtures: scenario.fixtures,
+              captureMs: captureMsOf(scenario.id),
               oracles,
               seed: 1,
               graphs,
@@ -274,6 +277,7 @@ export const runCaseLiar = (
       (seed) => {
         const options = {
           fixtures: scenario.fixtures,
+          captureMs: captureMsOf(scenario.id),
           oracles,
           seed,
           graphs,

@@ -31,7 +31,7 @@ checked WriteLanes I26  lane-queue: lane.retry-members-dropped
 checked WriteLanes I3  ending-channels: mutant.ending-without-id, k.failure-as-success, mutant.still-unknown-dropped, mutant.unsent-ends-unknown, mutant.unsent-restored-outside-boot, lie.failure-as-success
 checked WriteLanes I6  attempt-identity: mutant.resend-new-id, mutant.resend-new-input, mutant.sent-under-another-operation, mutant.mint-key-differs, lie.invoked-dropped
 checked WriteLanes I7  retry-count: lane.retry-count-frozen
-checked WriteLanes I8  lane-queue: lie.serialize-as-latest, lane.queue-unbounded, lane.latest-as-serialize, lane.reject-queues
+checked WriteLanes I8  lane-queue: s13.older-sent-after-newer, lie.serialize-as-latest, lane.queue-unbounded, lane.latest-as-serialize, lane.reject-queues
 checked WriteLanes I9  lane-queue: lane.retry-sends-another-attempt
 not yet Actors I1  @task.V3.T9
 not yet Actors I12  @task.V3.T9

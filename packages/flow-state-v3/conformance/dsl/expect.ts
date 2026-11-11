@@ -63,6 +63,9 @@ export type Walk = {
   readonly writes: number;
   readonly stirred: boolean;
   readonly planned: number;
+  readonly captureMs: number;
+  readonly dirtyEnds: ReadonlyArray<ActorRef>;
+  readonly captured: boolean;
   readonly unsent: ReadonlyArray<string>;
   readonly purposes: ReadonlyArray<Purpose>;
   readonly turns: ReadonlyArray<Predicted>;
@@ -137,7 +140,7 @@ export const holds = (model: Model, actor: ActorRef) =>
 
 /**
  * Opens an incarnation of `actor` (Actors R6, R9): an adoption when its record is unbound or in
- * its grace, else a fresh one, counted free from now.
+ * its grace, else a fresh one, counted free from now; its record may be new, so it may be unwritten.
  */
 export const opened = (walk: Walk, actor: ActorRef, given: Rules, woken = false) => {
   const record = recordOf(walk.model, actor);
@@ -153,7 +156,17 @@ export const opened = (walk: Walk, actor: ActorRef, given: Rules, woken = false)
     ...next,
     model: {
       ...next.model,
-      live: [...next.model.live, { actor, free: Option.some(0), upper: 0, woken }],
+      live: [
+        ...next.model.live,
+        {
+          actor,
+          free: Option.some(0),
+          upper: 0,
+          woken,
+          dirty: Option.none(),
+          unwritten: Option.some(next.model.clock),
+        },
+      ],
     },
     incarnated: [...next.incarnated, actor],
   };
@@ -219,24 +232,31 @@ export const GRACE_MS = 100;
  * whole grace owes its end in this step (Actors R8, I10, I37); any other's free time is unknown.
  */
 const aged = (walk: Walk, known: Known, ms: number, given: Rules) =>
-  walk.model.live.reduce<Walk>((w, l) => {
-    const free = surelyFree(w, known, l.actor)
-      ? Option.map(l.free, (n) => n + ms)
-      : Option.none<number>();
+  walk.model.live.reduce<Walk>(
+    (w, l) => {
+      const free = surelyFree(w, known, l.actor)
+        ? Option.map(l.free, (n) => n + ms)
+        : Option.none<number>();
 
-    if (Option.exists(free, (n) => n >= GRACE_MS))
-      return { ...finished(w, l.actor, given), ends: [...w.ends, l.actor] };
+      if (Option.exists(free, (n) => n >= GRACE_MS))
+        return {
+          ...finished(w, l.actor, given),
+          ends: [...w.ends, l.actor],
+          dirtyEnds: Option.isSome(l.dirty) ? [...w.dirtyEnds, l.actor] : w.dirtyEnds,
+        };
 
-    return {
-      ...w,
-      model: {
-        ...w.model,
-        live: w.model.live.map((x) =>
-          sameActor(x.actor, l.actor) ? { ...x, free, upper: x.upper + ms } : x,
-        ),
-      },
-    };
-  }, walk);
+      return {
+        ...w,
+        model: {
+          ...w.model,
+          live: w.model.live.map((x) =>
+            sameActor(x.actor, l.actor) ? { ...x, free, upper: x.upper + ms } : x,
+          ),
+        },
+      };
+    },
+    { ...walk, model: { ...walk.model, clock: walk.model.clock + ms } },
+  );
 
 /**
  * Any suite fact but the clock's restarts every live actor's count: what it changed is judged at
@@ -248,6 +268,43 @@ const restarted = (walk: Walk) => ({
     ...walk.model,
     live: walk.model.live.map((l) => ({ ...l, free: Option.some(0) })),
   },
+});
+
+/**
+ * The step's predicted turns changed records: a turn surely changing one (its alternative updates
+ * memory or moves the leaf) leaves it `dirty`, and any turn but one surely changing nothing leaves
+ * it `unwritten`, from now.
+ */
+export const changed = (walk: Walk, turns: ReadonlyArray<Predicted>) => ({
+  ...walk,
+  model: {
+    ...walk.model,
+    live: walk.model.live.map((l) => {
+      const mine = turns.filter((t) => sameActor(t.actor, l.actor));
+      const now = Option.some(walk.model.clock);
+      const sure = mine.some((t) => Option.contains(t.changes, true));
+      const maybe = mine.some((t) => !Option.contains(t.changes, false));
+
+      return {
+        ...l,
+        dirty: sure ? Option.orElse(l.dirty, () => now) : l.dirty,
+        unwritten: maybe ? Option.orElse(l.unwritten, () => now) : l.unwritten,
+      };
+    }),
+  },
+});
+
+/**
+ * A batch was written: no record is surely dirty any more (the batch may hold it), and one that
+ * may be is written once its capture was due by now (WriteAhead R10).
+ */
+const written = (model: Model, captureMs: number) => ({
+  ...model,
+  live: model.live.map((l) => ({
+    ...l,
+    dirty: Option.none<number>(),
+    unwritten: Option.filter(l.unwritten, (since) => since + captureMs > model.clock),
+  })),
 });
 
 /**
@@ -328,15 +385,24 @@ const suiteMoved = (walk: Walk, fact: SuiteFact, given: Rules) =>
             model: { ...walk.model, unstoppable: [...walk.model.unstoppable, operation] },
           },
     Landed: () => ({ ...walk, model: landed(walk.model) }),
-    Wrote: () => ({
-      ...walk,
-      model: wrote(
+    Wrote: () => {
+      const model = wrote(
         walk.model,
         Option.getOrElse(walk.least, () => walk.model),
         walk.purposes[0] ?? "capture",
-      ),
-      purposes: walk.purposes.slice(1),
-    }),
+      );
+
+      const due = model.live.some((l) =>
+        Option.exists(l.unwritten, (since) => since + walk.captureMs <= model.clock),
+      );
+
+      return {
+        ...walk,
+        model: written(model, walk.captureMs),
+        purposes: walk.purposes.slice(1),
+        captured: walk.captured || due,
+      };
+    },
     Dropped: () => ({ ...walk, model: { ...walk.model, pending: Option.none() } }),
     Released: ({ actor }) => unfreed(holding(walk, fact), actor),
     Stepped: () => walk,
@@ -362,16 +428,17 @@ const unheard = (walk: Walk) => [
       invariant: "Actors I37" as const,
       text: `${a.machine} ${a.id} was free for the whole grace, but its end was not reported`,
     })),
-  ...walk.ends.slice(0, walk.writes === 0 ? walk.ends.length : 0).map((a) => ({
+  ...walk.dirtyEnds.slice(0, walk.writes === 0 ? walk.dirtyEnds.length : 0).map((a) => ({
     invariant: "Actors I37" as const,
-    text: `${a.machine} ${a.id} was free for the whole grace, but no record was written at its end (R8)`,
+    text: `${a.machine} ${a.id} ended with its record dirty, but no record was written at its end (R8, orchestrator's decision on review B1)`,
   })),
   ...usedWrite(walk),
 ];
 
 /**
- * A record written in a step that only moved the clock, with no turn, no end owed and every live
- * actor used: only an end could write it, and no actor may end (Actors R8, I10).
+ * A record written in a step that only moved the clock, with no turn, no end owed, every live
+ * actor used and no capture due for a record that may be dirty (WriteAhead R10): only an end
+ * could write it, and no actor may end (Actors R8, I10).
  */
 const usedWrite = (walk: Walk) =>
   walk.writes > 0 &&
@@ -380,6 +447,7 @@ const usedWrite = (walk: Walk) =>
   walk.ends.length === 0 &&
   walk.model.mode === "running" &&
   walk.model.live.length > 0 &&
+  !walk.captured &&
   walk.model.live.every((l) => holds(walk.model, l.actor))
     ? [
         {

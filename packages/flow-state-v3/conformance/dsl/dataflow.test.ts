@@ -12,6 +12,7 @@ import { scenarios } from "../suite.ts";
 import { leavesOf } from "../turn/anchor.ts";
 import { leafOf } from "../turn/phases.ts";
 import { type Anchor, anchorOf, judgedStep } from "../turn/selection.ts";
+import { captureMsOf } from "../actors/lifetime.scenarios.ts";
 import { openCase } from "./case.ts";
 import { empty, type Model } from "./lifecycle-model.ts";
 import { rules } from "./lifecycle-rules.ts";
@@ -97,7 +98,7 @@ const modelView = (model: Model) => ({ live: model.live, held: model.held });
 const expectStates = (fixtures: Parameters<typeof handlersFor>[0], facts: ReadonlyArray<Fact>) => {
   const machines = handlersFor(fixtures);
   const reference = referenceFor(fixtures);
-  const known = { reference, rows: rowsFor(fixtures), timed: timedOf(machines) };
+  const known = { reference, rows: rowsFor(fixtures), timed: timedOf(machines), captureMs: 0 };
 
   const cuts = facts.reduce<ReadonlyArray<ReadonlyArray<Fact>>>(
     (all, f) =>
@@ -146,6 +147,7 @@ describe("no report value reaches expect state (Conformance R20, T45 K2)", () =>
       const opened = openCase({
         port,
         fixtures: scenario.fixtures,
+        captureMs: captureMsOf(scenario.id),
         oracles: [],
         seed: 1,
         graphs: [],

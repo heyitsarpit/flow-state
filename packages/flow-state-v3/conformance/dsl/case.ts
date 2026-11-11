@@ -141,6 +141,7 @@ export type CaseOptions = {
   readonly overdue: () => boolean;
   readonly crashAt: Option.Option<number>;
   readonly replay: Option.Option<ReadonlyArray<ReadonlyArray<RuntimeFact>>>;
+  readonly captureMs: number;
 };
 
 /**

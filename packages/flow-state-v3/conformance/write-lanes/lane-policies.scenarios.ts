@@ -192,6 +192,8 @@ export const lanePoliciesScenarios: ReadonlyArray<Scenario> = [
       c.eq<Ids>("the head, then the newest", attemptsOf(c, "search"), [head, last]);
       c.answer("search", OK);
       c.eq("two endings, both successes", c.endings("search").length, 2);
+      c.ack();
+      c.eq<Ids>("the superseded commit is never sent", attemptsOf(c, "search"), [head, last]);
     },
   },
   {

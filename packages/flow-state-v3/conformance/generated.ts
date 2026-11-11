@@ -204,6 +204,27 @@ export const payAlphabet: Alphabet = {
 };
 
 /**
+ * Pay's alphabet under a 5 s capture interval (`captureMsOf`, seeds 3001 on): a memory change
+ * (`CardChosen`) leaves the record dirty until its capture, so an end through the grace must
+ * write it (Actors R8, WriteAhead R10).
+ */
+export const payCaptureAlphabet: Alphabet = {
+  ...payAlphabet,
+  steps: [
+    ...payAlphabet.steps,
+    [[{ _tag: "send", event: "CardChosen", payload: { paymentMethodId: "visa" } }], 3],
+    [
+      [
+        { _tag: "send", event: "CardChosen", payload: { paymentMethodId: "visa" } },
+        { _tag: "release" },
+        { _tag: "advance", ms: 1000 },
+      ],
+      2,
+    ],
+  ],
+};
+
+/**
  * Serialize's alphabet: one unkeyed `serialize` lane, `put`, whose commits queue behind its head,
  * sent, answered, cancelled together (`All`), across a reload and the Runtime's disposal
  * (WriteLanes R8, Actors R22).
@@ -272,6 +293,7 @@ export const generatedScripts = [
   ...seeded(payAlphabet, 1, 300, 8),
   ...seeded(cellsAlphabet, 1001, 100, 8),
   ...seeded(serializeAlphabet, 2001, 100, 8),
+  ...seeded(payCaptureAlphabet, 3001, 100, 8),
   ...regressionScripts,
 ];
 

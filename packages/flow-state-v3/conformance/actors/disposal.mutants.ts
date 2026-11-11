@@ -28,7 +28,7 @@ export const disposalMutants: ReadonlyArray<Mutant> = [
     says: "a free actor's grace never runs out, so it never ends",
     expects: "Actors I37",
     runtime: "prototype",
-    cases: ["ACT-01/free-actor-ends"],
+    cases: ["ACT-02/dirty-record-written-at-end"],
     edits: [{ file: "world.ts", find: "  graceMs: 100,", replace: "  graceMs: 1e12," }],
   },
   {

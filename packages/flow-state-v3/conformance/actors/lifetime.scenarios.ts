@@ -12,6 +12,9 @@ import { Observation } from "../port.ts";
  *   no schedule. While the story uses it, the clock moving past the grace ends nothing (I10); once
  *   released, it ends by the grace's end (I37), and the next ensure opens a new incarnation.
  *
+ * - `ACT-02/dirty-record-written-at-end`: a memory change after the last capture leaves the
+ *   record dirty; the end writes it (Actors R8, I12).
+ *
  * Expected results come from the cited Requirements and Invariants.
  */
 export const lifetimeScenarios: ReadonlyArray<Scenario> = [
@@ -35,4 +38,35 @@ export const lifetimeScenarios: ReadonlyArray<Scenario> = [
       s.state("CARD");
     },
   },
+  {
+    id: "ACT-02/dirty-record-written-at-end",
+    cites: ["Actors R8", "Actors I12", "Actors I37"],
+    fixtures: [Pay],
+    run: (c) => {
+      const s = shopper(c);
+      s.ensure();
+      start(s);
+      s.send("CardChosen", { paymentMethodId: "visa" });
+      s.release("story");
+      c.advance(1000);
+
+      const ended = () => c.reports().filter((o) => Observation.$is("Finished")(o)).length;
+
+      c.eq("Actors I37: a free actor ends by the grace's end", ended(), 1);
+    },
+  },
 ];
+
+/**
+ * The capture interval a case boots with (Port `captureMs`): 0, so every change is written at
+ * once, except where a case needs a record left dirty until its capture is due (WriteAhead R10).
+ */
+const CAPTURE_MS: ReadonlyMap<string, number> = new Map([
+  ["ACT-02/dirty-record-written-at-end", 5000],
+]);
+
+/**
+ * The capture interval of the case `id`.
+ */
+export const captureMsOf = (id: string) =>
+  CAPTURE_MS.get(id) ?? (/^GEN-pay-seeded-3\d{3}/u.test(id) ? 5000 : 0);

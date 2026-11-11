@@ -10,7 +10,12 @@ import { rules } from "./lifecycle-rules.ts";
 import { step } from "./lifecycle-step.ts";
 import { Fact } from "./oracle.ts";
 
-const known: Known = { reference: referenceFor([Pay]), rows: rowsFor([Pay]), timed: {} };
+const known: Known = {
+  reference: referenceFor([Pay]),
+  rows: rowsFor([Pay]),
+  timed: {},
+  captureMs: 0,
+};
 
 const shopper: ActorRef = { machine: "Checkout/Pay", id: "s1" };
 
@@ -41,6 +46,7 @@ const predicted: Predicted = {
   at: Option.some("on.Leave[0]"),
   keys: { void: KEY },
   encodable: true,
+  changes: Option.some(true),
 };
 
 const refusals = (facts: ReadonlyArray<Fact>, turns: ReadonlyArray<Predicted>) =>
@@ -99,10 +105,14 @@ describe("an actor's incarnation and end, owed from the suite's facts (Actors R6
   const incarnated = said(Observation.Incarnated({ actor: shopper }));
   const finished = said(Observation.Finished({ actor: shopper }));
 
-  const walked = (steps: ReadonlyArray<ReadonlyArray<Fact>>) =>
+  const walked = (
+    steps: ReadonlyArray<ReadonlyArray<Fact>>,
+    turnsAt: ReadonlyMap<number, ReadonlyArray<Predicted>> = new Map(),
+  ) =>
     steps.reduce<{ readonly model: typeof empty; readonly found: ReadonlyArray<string> }>(
-      (acc, facts) => {
-        const life = step(acc.model, known, facts, [], rules, [], leaves);
+      (acc, facts, index) => {
+        const turns = turnsAt.get(index) ?? [];
+        const life = step(acc.model, known, facts, [], rules, turns, leaves);
 
         return {
           model: life.after,
@@ -119,25 +129,35 @@ describe("an actor's incarnation and end, owed from the suite's facts (Actors R6
   it("owes the end of an actor free for the whole grace, and accepts it", () => {
     const opened = [Fact.Ensured(story), incarnated, Fact.Released(story)];
 
-    assert.deepStrictEqual(walked([opened, [Fact.Advanced({ ms: 200 })]]), [
-      "Actors I37",
-      "Actors I37",
-    ]);
-    assert.deepStrictEqual(
-      walked([opened, [Fact.Advanced({ ms: 200 }), finished, Fact.Wrote()]]),
-      [],
-    );
+    assert.deepStrictEqual(walked([opened, [Fact.Advanced({ ms: 200 })]]), ["Actors I37"]);
+    assert.deepStrictEqual(walked([opened, [Fact.Advanced({ ms: 200 }), finished]]), []);
   });
 
-  it("owes the record's write at an end, and refuses one written while every actor is used", () => {
-    const opened = [Fact.Ensured(story), incarnated, Fact.Released(story)];
+  it("owes a dirty record's write at its end, and refuses a write while every actor is used", () => {
+    const moved: Predicted = {
+      actor: shopper,
+      event: "CardChosen",
+      from: "CARD",
+      to: "CARD",
+      at: Option.some("on.CardChosen[0]"),
+      keys: {},
+      encodable: true,
+      changes: Option.some(true),
+    };
 
-    assert.deepStrictEqual(walked([opened, [Fact.Advanced({ ms: 200 }), finished]]), [
+    const dirty = [[Fact.Ensured(story), incarnated], [Fact.Released(story)]];
+    const turns = new Map([[1, [moved]]]);
+
+    assert.deepStrictEqual(walked([...dirty, [Fact.Advanced({ ms: 200 }), finished]], turns), [
       "Actors I37",
     ]);
     assert.deepStrictEqual(
+      walked([...dirty, [Fact.Advanced({ ms: 200 }), finished, Fact.Wrote()]], turns),
+      [],
+    );
+    assert.deepStrictEqual(
       walked([
-        [Fact.Ensured(story), incarnated],
+        [Fact.Ensured(story), incarnated, Fact.Wrote()],
         [Fact.Advanced({ ms: 200 }), Fact.Wrote()],
       ]),
       ["Actors I10"],

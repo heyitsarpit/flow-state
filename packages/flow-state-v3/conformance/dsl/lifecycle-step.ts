@@ -3,6 +3,7 @@ import type { Request } from "../world/network.ts";
 import { reported } from "./compare.ts";
 import {
   acknowledged,
+  changed,
   ended,
   isWrite,
   type LifeStep,
@@ -93,6 +94,9 @@ export const step = (
     writes: 0,
     stirred: false,
     planned: turns.length,
+    captureMs: known.captureMs,
+    dirtyEnds: [],
+    captured: false,
     unsent,
     purposes: facts.flatMap((f) => (Fact.$is("Purposed")(f) ? [f.purpose] : [])),
     turns,
@@ -105,7 +109,10 @@ export const step = (
     least: Option.none(),
   };
 
-  const walk = facts.reduce((w, fact) => onFact(w, fact, known, earlier, given), start);
+  const walk = facts.reduce<Walk>(
+    (w, fact) => onFact(w, fact, known, earlier, given),
+    changed(start, turns),
+  );
 
   const sent = walk.unsent.reduce<Walk>((w, attempt) => pushed(w, Move.Send({ attempt }), given), {
     ...walk,

@@ -22,7 +22,7 @@ export const runtimeLife = (options: CaseOptions, world: World, record: (fact: F
   const boot = () =>
     options.port.boot({
       fixtures,
-      captureMs: 0,
+      captureMs: options.captureMs,
       sessionSeed: world.hosts.page.sessionSeed(),
       release,
       hosts: world.hosts,

@@ -37,7 +37,14 @@ export const stepEngine = (
   const { network, storage } = world.hosts;
   const reference = referenceFor(options.fixtures);
   const machines = handlersFor(options.fixtures);
-  const known = { reference, rows: rowsFor(options.fixtures), timed: timedOf(machines) };
+
+  const known = {
+    reference,
+    rows: rowsFor(options.fixtures),
+    timed: timedOf(machines),
+    captureMs: options.captureMs,
+  };
+
   let anchor = anchorOf(machines, reference, known.rows);
 
   const judges = options.oracles.map((o) => ({

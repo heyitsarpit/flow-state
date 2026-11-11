@@ -273,6 +273,7 @@ export type Model = {
   readonly acknowledged: ReadonlyArray<string>;
   readonly ended: ReadonlyArray<string>;
   readonly release: number;
+  readonly clock: number;
   readonly mintedIn: ReadonlyArray<readonly [string, number]>;
   readonly unencodable: boolean;
   readonly saved: Capture;
@@ -284,13 +285,17 @@ export type Model = {
 /**
  * A live incarnation, and how long the suite knows it has been free (Actors R7, R8): counted from
  * the last suite fact, `None` while it holds a use or may have work the suite cannot compute.
- * `upper`: the most it can have been free, the clock since it opened or its last use was attached
+ * `dirty`: since when its record surely holds a change no write took (a turn that changed it, and
+ * no write since); `unwritten`: since when it may, cleared by a write once its capture was due
+ * (WriteAhead R10). `upper`: the most it can have been free, the clock since it opened or its last use was attached
  * or released (Actors I10: an end before the grace is refused). `woken`: the runtime opened it unasked (a boot's hydrate hold, a send), so its uses are unknown.
  */
 export type Live = {
   readonly actor: ActorRef;
   readonly free: Option.Option<number>;
   readonly upper: number;
+  readonly dirty: Option.Option<number>;
+  readonly unwritten: Option.Option<number>;
   readonly woken: boolean;
 };
 
@@ -331,6 +336,7 @@ export const empty: Model = {
   acknowledged: [],
   ended: [],
   release: 1,
+  clock: 0,
   mintedIn: [],
   unencodable: false,
   saved: { lives: [], ended: 0, least: { lives: [], ended: 0, removed: [], minted: 0 } },

@@ -105,7 +105,7 @@ lie.released	DLV-02	caught delivered-once WriteLanes I15
 lie.serialize-as-latest	LANE-01	caught lane-queue WriteLanes I8
 lie.void-retry-releases	PAY-22	caught lane-queue WriteLanes I12
 life.ends-while-used	ACT-01/free-actor-ends	caught disposal Actors I10
-life.never-ends	ACT-01/free-actor-ends	caught disposal Actors I37
+life.never-ends	ACT-02/dirty-record-written-at-end	caught disposal Actors I37
 life.schedule-fires-unused	TURN-03/unused	caught schedules Turn I23
 life.waiting-never-wakes	TURN-03/unused	caught case expectations Turn I22
 lost.decline.mail	LANE-02	caught delivered-once WriteLanes I15

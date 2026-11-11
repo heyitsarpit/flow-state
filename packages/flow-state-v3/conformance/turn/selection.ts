@@ -171,6 +171,7 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
     at: Option.map(judged.match, (m) => m.at),
     keys,
     encodable: labels["encodable"] !== false,
+    changes: Option.map(judged.match, (m) => m.updates || m.to !== judged.from),
   };
 
   return [

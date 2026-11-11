@@ -189,6 +189,7 @@ export type Possible = {
   readonly enters: boolean;
   readonly atRoot: boolean;
   readonly idle: Option.Option<string>;
+  readonly updates: boolean;
 };
 
 /**
@@ -231,6 +232,7 @@ const walk = (
       enters: alternative.target !== "stay",
       atRoot: !at.startsWith("states."),
       idle: alternative.idle,
+      updates: alternative.updates,
     })),
     handled: certain >= 0,
   };

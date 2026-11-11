@@ -24,6 +24,7 @@ const known: Known = {
   reference: referenceFor(FIXTURES),
   rows: rowsFor(FIXTURES),
   timed: {},
+  captureMs: 0,
 };
 
 const shopper: ActorRef = { machine: "Checkout/Pay", id: "s1" };
