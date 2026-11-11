@@ -41,6 +41,8 @@ import { deliveredOnce } from "./write-lanes/delivered-once.ts";
 import { endingChannelsMutants } from "./write-lanes/ending-channels.mutants.ts";
 import { endingChannels } from "./write-lanes/ending-channels.ts";
 import { endingDeliveryScenarios } from "./write-lanes/ending-delivery.scenarios.ts";
+import { laneKeysMutants } from "./write-lanes/lane-keys.mutants.ts";
+import { laneKeysCovered, laneKeysScenarios } from "./write-lanes/lane-keys.scenarios.ts";
 import { lanePoliciesScenarios } from "./write-lanes/lane-policies.scenarios.ts";
 import { laneQueueMutants, laneQueueProbes } from "./write-lanes/lane-queue.mutants.ts";
 import { resendMutants } from "./write-lanes/resend.mutants.ts";
@@ -105,6 +107,7 @@ export const scenarios: ReadonlyArray<Scenario> = [
   ...runtimeDisposalScenarios,
   ...laneKeepingScenarios,
   ...lanePoliciesScenarios,
+  ...laneKeysScenarios,
   ...endingDeliveryScenarios,
   ...refusalScenarios,
   ...schedulesScenarios,
@@ -129,8 +132,9 @@ export const caseChecks: CaseChecks = {
     ...constructionCovered,
     ...cliCovered,
     ...coveredBy(schedulesScenarios).filter((row) => row.invariant === "Turn I22"),
+    ...laneKeysCovered,
   ],
-  mutants: [...constructionMutants, ...cliMutants, ...schedulesCaseMutants],
+  mutants: [...constructionMutants, ...cliMutants, ...schedulesCaseMutants, ...laneKeysMutants],
   cases: [...scenarios, ...staticCases].map((c) => ({ id: c.id, cites: c.cites })),
 };
 
