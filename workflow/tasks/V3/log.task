@@ -215,3 +215,5 @@ note 2026-11-11T22:32:05Z
     accepted with the should-fix list. Decision (orchestrator), no Spec change: an owed end owes its own record's write 
     only when that record is dirty at the end (Actors R8 with WriteAhead R10), and the early-end check fires only when 
     no capture is due; the reviewer's R8 amendment is not needed. **Reverse:** ask the user to amend R8 to written.
+note 2026-11-11T23:26:14Z
+    Decision (orchestrator): production's deferred write at an end is a production bug under Actors R8 (the record is encoded in the end step), owned by T51; the B1 rule stands and ACT-02, ACT-03 stay red on production until T51. T45 finishes acceptance items 8 and 9; item 7's eight Reads and Sessions search kills move to their slices with dated owners. **Reverse:** revise R8 so an end may defer to the capture.
