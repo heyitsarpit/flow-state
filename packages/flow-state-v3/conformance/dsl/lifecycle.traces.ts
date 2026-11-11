@@ -119,12 +119,22 @@ const unknownTraces: ReadonlyArray<Trace> = [
     refused: [wl(20)],
     phases: { s: I, w: Q },
   }),
+  one({
+    name: "a Held head's restore ending, owed to this incarnation: decided, still owed until delivered",
+    cites: "Restore R1 (restored live at ready), Restore I6, WriteLanes I15",
+    start: model(lane("A", ["s", H], ["w", Q]), {
+      obligations: [Obligation.AwaitRestore({ attempt: "s", cause: "plain" })],
+    }),
+    move: unknown("s", "Restored"),
+    refused: [],
+    phases: { s: H, w: Q },
+  }),
   one(
     {
-      name: "a Held head's restore ending, owed to this incarnation",
-      cites: "Restore I6, WriteLanes I15: unknown Restored once per incarnation",
+      name: "a forgotten identity's restore ending: decided at the boot, delivered at adoption",
+      cites: "Actors R21 (forget drops no hold), Restore R1 (no record, so nothing live at ready)",
       start: model(lane("A", ["s", H], ["w", Q]), {
-        obligations: [Obligation.AwaitRestore({ attempt: "s", cause: "plain" })],
+        obligations: [Obligation.AwaitRestore({ attempt: "s", cause: "forget" })],
       }),
       move: unknown("s", "Restored"),
       refused: [],

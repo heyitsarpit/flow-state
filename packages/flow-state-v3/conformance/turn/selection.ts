@@ -255,24 +255,79 @@ const drove = (state: State, actor: ActorRef, event: string) => {
 const uncredited = (state: State, actor: ActorRef) =>
   withActor(state, actor, { ...actorIn(state, actor), driven: [] });
 
-const refused = (state: State, event: string) => {
+const deliveredTo = (step: ReadonlyArray<Fact>, event: string) =>
+  step.flatMap((fact) =>
+    Fact.$is("Reported")(fact) &&
+    Observation.$is("Delivered")(fact.observation) &&
+    fact.observation.event === event
+      ? Option.toArray(fact.observation.actor)
+      : [],
+  );
+
+/**
+ * The actor an `Unhandled` or `Denied` of `event` is about: the one an ending of that event was
+ * delivered to in this step, else the one actor holding a driven credit for it; `None` when the
+ * suite cannot tell.
+ */
+const refusing = (state: State, event: string, step: ReadonlyArray<Fact>) => {
+  const [delivered] = deliveredTo(step, event);
+
+  if (delivered !== undefined) return Option.some({ actor: delivered, heard: true });
+
   const holders = [...state.actors].filter(([, a]) => a.driven.includes(event));
   const [only, ...more] = holders;
 
-  if (only === undefined || more.length > 0) return state;
+  if (only === undefined || more.length > 0) return Option.none();
 
-  const [key, a] = only;
+  const [key] = only;
+  const [machine = "", id = ""] = key.split(" ");
 
-  return {
-    ...state,
-    actors: new Map([...state.actors, [key, { ...a, driven: withoutOne(a.driven, event) }]]),
-  };
+  return Option.some({ actor: { machine, id }, heard: false });
 };
+
+// RETURN_TYPE: a tuple; inference would widen it to an array.
+const refused = (
+  state: State,
+  event: string,
+  tag: "Unhandled" | "Denied",
+  step: ReadonlyArray<Fact>,
+): readonly [State, ReadonlyArray<string>] =>
+  Option.match(refusing(state, event, step), {
+    onNone: () => [state, []],
+    onSome: ({ actor, heard }) => {
+      const now = actorIn(state, actor);
+      const handlers = state.machines[actor.machine];
+      const next = withActor(state, actor, { ...now, driven: withoutOne(now.driven, event) });
+
+      const lateMayDeny = tag === "Denied" && heard;
+
+      if (handlers === undefined || lateMayDeny || !Phase.$is("Live")(now.phase)) return [next, []];
+
+      const leaf = now.phase.state;
+      const allowed = possible(handlers, leaf, event, heard);
+
+      return [
+        next,
+        allowed.handled
+          ? [
+              `Turn I2: ${actor.machine} ${actor.id}'s ${event} was reported ${tag} at ${leaf}, where ${allowed.alternatives.at(-1)?.at ?? "an alternative"} is selected for certain`,
+            ]
+          : [],
+      ];
+    },
+  });
 
 // RETURN_TYPE: every branch gives the next state, its violations and the fact as judged.
 const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>): Stepped => {
   // RETURN_TYPE: a tuple; inference would widen it to an array.
   const keep = (next: State): Stepped => [next, [], fact];
+
+  // RETURN_TYPE: a tuple; inference would widen it to an array.
+  const judgedRefusal = ([next, found]: readonly [State, ReadonlyArray<string>]): Stepped => [
+    next,
+    found.map(violation),
+    fact,
+  ];
 
   return Fact.$match(fact, {
     Ensured: ({ actor }) =>
@@ -290,8 +345,8 @@ const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>): Stepped =>
     Reported: ({ observation }) =>
       Observation.$match(observation, {
         Turn: (turn) => onTurn(state, turn, step),
-        Unhandled: ({ event }) => keep(refused(state, event)),
-        Denied: ({ event }) => keep(refused(state, event)),
+        Unhandled: ({ event }) => judgedRefusal(refused(state, event, "Unhandled", step)),
+        Denied: ({ event }) => judgedRefusal(refused(state, event, "Denied", step)),
         Minted: () => keep(state),
         Sent: () => keep(state),
         Ended: () => keep(state),
@@ -338,10 +393,15 @@ const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>): Stepped =>
  *   `Denied` of that event is reported while exactly one actor holds its credit, or the actor is
  *   disposed, forgotten or reloaded.
  *
+ * - An `Unhandled` or `Denied` names no actor: it is judged for the actor an ending of its event
+ *   was delivered to in that step, else the one actor holding a driven credit for it, and it
+ *   breaks I2 when that actor's leaf selects an alternative for certain. A delivered ending may
+ *   still be Denied: a late turn may not leave live work (R21), which is `late-routing`'s.
+ *
  * **Gotchas**
  *
- * - `Unhandled` and `Denied` name no actor, so an event that should have run a turn and is
- *   reported unhandled is not judged here; nor are part-level alternatives.
+ * - An `Unhandled` or `Denied` the suite cannot attribute is not judged; nor are part-level
+ *   alternatives.
  */
 export const selection = oracle<State>({
   name: "selection",

@@ -42,3 +42,46 @@ export const carriedDeliveredOnceMutants: ReadonlyArray<Mutant> = [
     ],
   },
 ];
+
+/**
+ * The old suite's wrong runtimes whose `disposal` catches (Actors I29) the step 9 review found
+ * lost (its H2), held again now that a boot's restore is owed until it is delivered, not merely
+ * decided, and a held actor's parked ending is refused at the step's end.
+ */
+export const carriedDisposalMutants: ReadonlyArray<Mutant> = [
+  {
+    name: "k.drop-row",
+    says: "a boot deletes every actor with a restored ending in its mail, so the ending parks with no incarnation (step 9 review H2)",
+    expects: "Actors I29",
+    runtime: "prototype",
+    cases: ["PAY-05"],
+    edits: [
+      {
+        file: "durable.ts",
+        find: 'import { getActor, setActor, noActors, type Actors } from "./actors.ts";',
+        replace:
+          'import { getActor, setActor, noActors, deleteActor, type Actors } from "./actors.ts";',
+      },
+      {
+        file: "durable.ts",
+        find: "tx.w = { ...tx.w, nextMint: maxMint + 1 };",
+        replace:
+          'tx.w = { ...tx.w, nextMint: maxMint + 1 }; for (const m of [...(tx.w.mail as any)] as any[]) if (m.k === "ending" && m.restored && getActor(tx.w.actors, m.actor)) tx.w = { ...tx.w, actors: deleteActor(tx.w.actors, m.actor) };',
+      },
+    ],
+  },
+  {
+    name: "q1a.unchanged-resets",
+    says: "a boot resets every restored actor as if its definition's shape changed (step 9 review H2)",
+    expects: "Actors I29",
+    runtime: "prototype",
+    cases: ["PAY-05"],
+    edits: [
+      {
+        file: "durable.ts",
+        find: "  if (!now || !isShape(was) || (sameList(was.states, now.states) && sameList(was.fields, now.fields))) return false;",
+        replace: "  if (!now || !isShape(was)) return false;\n  return true;",
+      },
+    ],
+  },
+];

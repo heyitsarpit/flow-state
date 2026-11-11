@@ -8,6 +8,7 @@ import {
   type MemberTarget,
   sameActor,
   sameJson,
+  type Use,
 } from "../port.ts";
 import type { InvariantId } from "./oracle.ts";
 
@@ -228,6 +229,7 @@ export type Model = {
   readonly releasing: ReadonlyArray<LaneId>;
   readonly unstoppable: ReadonlyArray<string>;
   readonly acknowledged: ReadonlyArray<string>;
+  readonly held: ReadonlyArray<readonly [ActorRef, Use]>;
 };
 
 /**
@@ -244,6 +246,7 @@ export const empty: Model = {
   releasing: [],
   unstoppable: [],
   acknowledged: [],
+  held: [],
 };
 
 /**

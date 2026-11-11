@@ -17,7 +17,7 @@ import {
 } from "./lifecycle-model.ts";
 import { type Known, operationOf, owedMembers } from "./lifecycle-owed.ts";
 import { type Rules, rules } from "./lifecycle-rules.ts";
-import { Fact } from "./oracle.ts";
+import { Fact, holdUse } from "./oracle.ts";
 
 /**
  * One move the step applied: the model it applied to, and the refusals its cell (or a deadline it
@@ -244,6 +244,11 @@ const ensured = (walk: Walk, actor: ActorRef, given: Rules) => {
     : used;
 };
 
+const holding = (walk: Walk, fact: Fact) => ({
+  ...walk,
+  model: { ...walk.model, held: holdUse(walk.model.held, fact) },
+});
+
 const onFact = (
   walk: Walk,
   fact: Fact,
@@ -253,14 +258,15 @@ const onFact = (
 ) =>
   Fact.$match(fact, {
     Reported: ({ observation }) => reported(walk, known, observation, earlier, given),
-    Reloaded: () => ({
-      ...pushed(closedTurn(walk, given), Move.Reload(), given),
-      reloaded: true,
-    }),
+    Reloaded: () => {
+      const reloaded = pushed(closedTurn(walk, given), Move.Reload(), given);
+
+      return { ...reloaded, model: { ...reloaded.model, held: [] }, reloaded: true };
+    },
     DisposingRuntime: () => pushed(walk, Move.DisposalStarts(), given),
-    Disposed: ({ actor }) => pushed(walk, ActorMove.Disposed({ actor }), given),
-    Forgot: ({ actor }) => pushed(walk, ActorMove.Forgot({ actor }), given),
-    Ensured: ({ actor }) => ensured(walk, actor, given),
+    Disposed: ({ actor }) => pushed(holding(walk, fact), ActorMove.Disposed({ actor }), given),
+    Forgot: ({ actor }) => pushed(holding(walk, fact), ActorMove.Forgot({ actor }), given),
+    Ensured: ({ actor }) => ensured(holding(walk, fact), actor, given),
     Drove: ({ actor }) => ({ ...walk, used: [...walk.used, actor] }),
     Unstoppable: ({ operation }) =>
       walk.model.unstoppable.includes(operation)
@@ -276,7 +282,7 @@ const onFact = (
     Stepped: () => walk,
     Requested: () => walk,
     Answered: () => walk,
-    Released: () => walk,
+    Released: () => holding(walk, fact),
     Advanced: () => walk,
     Read: () => walk,
   });
@@ -314,6 +320,9 @@ const ended = (walk: Walk, given: Rules) => {
  *   the same step, and once per actor per step; an `Ensured` of an unbound actor is `Adopt`.
  * - At the step's end: the turn closes, a reload's boot settles, every Attempt and ending sees
  *   `StepEnds`, and the obligations due by then are refused on that move.
+ * - The uses the suite holds (`held`) follow its `Ensured`, `Released`, `Disposed` and `Forgot`
+ *   facts, and a reload drops them until the boot re-attaches them: an actor with a held use is
+ *   live by the suite's own facts, whatever the runtime reports.
  *
  * **Gotchas**
  *

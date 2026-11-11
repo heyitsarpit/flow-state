@@ -473,6 +473,7 @@ export const tableC: TableC = {
   StepEnds: {
     ...lives(kept),
     Owed: { inDisposal: kept, live: deny(15) },
+    Parked: { held: deny(15), free: kept },
     ParkedOpen: once(deny(15)),
     Delivering: once(deny(15)),
     Refused: once(deny(15)),

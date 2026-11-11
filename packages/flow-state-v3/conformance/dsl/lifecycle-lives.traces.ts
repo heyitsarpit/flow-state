@@ -280,6 +280,15 @@ const tableTraces: ReadonlyArray<Trace> = [
   }),
   lifeTrace(
     "StepEnds",
+    "Restore R1, WriteLanes I15: an actor the suite holds is live, so its ending may not stay parked",
+    PK,
+    wl(15),
+    (e) => model([], { endings: [e], held: [[shopper, "story"]] }),
+    {},
+    " of an actor the suite holds",
+  ),
+  lifeTrace(
+    "StepEnds",
     "WriteLanes R17: an ending decided during disposal waits for the reload",
     OW,
     OW,
@@ -351,13 +360,14 @@ const actorTraces: ReadonlyArray<Trace> = [
     checks: [Check.Owing({ obligations: [restoring] })],
   },
   {
-    name: "a boot's restore ending comes before its incarnation opens",
-    cites: "Restore R3, I6: the boot decides its restore endings, then opens incarnations",
+    name: "a boot's restore ending comes before its incarnation opens, owed until delivered",
+    cites:
+      "Restore R3, I6: the boot decides its restore endings, then opens incarnations; R1: restored live",
     start: model(lane("A", ["s", H])),
     steps: [Move.Reload(), unknown("s", "Restored")],
     refusals: [[], []],
     phases: { s: H },
-    owed: 0,
+    owed: 1,
     checks: [],
   },
   {

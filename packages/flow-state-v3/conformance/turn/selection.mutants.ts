@@ -75,4 +75,19 @@ export const selectionMutants: ReadonlyArray<Mutant> = [
       },
     ],
   },
+  {
+    name: "turn.cancel-turns-unhandled",
+    says: "an event whose selected alternative runs a cancel is reported Unhandled and runs nothing",
+    expects: "Turn I2",
+    runtime: "prototype",
+    cases: ["PAY-03"],
+    edits: [
+      {
+        file: "turn.ts",
+        find: "      return { node, alt };",
+        replace:
+          '      if (alt.members.some((m: Member) => m.verb === "cancel")) return { denied: false, reasons };\n      return { node, alt };',
+      },
+    ],
+  },
 ];

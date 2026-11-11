@@ -135,6 +135,13 @@ const byLetGo: Guard = (model, index, ending) => {
 
 const byDisposal: Guard = (_model, _index, ending) => (ending.inDisposal ? "inDisposal" : "live");
 
+const byHeld: Guard = (model, _index, ending) =>
+  model.mode === "running" &&
+  !ending.inDisposal &&
+  model.held.some(([actor]) => sameActor(actor, ending.actor))
+    ? "held"
+    : "free";
+
 const byDisposalNeverSent: Guard = (_model, _index, ending) =>
   ending.inDisposal && neverSent(ending) ? "neverSentInDisposal" : "other";
 
@@ -156,7 +163,7 @@ const guards: Partial<Record<LifeRow, Partial<Record<Life["_tag"], Guard>>>> = {
     KeptOpen: byLetGo,
   },
   Opens: { Parked: byDisposalNeverSent },
-  StepEnds: { Owed: byDisposal },
+  StepEnds: { Owed: byDisposal, Parked: byHeld },
   Reload: { Owed: byDisposal },
 };
 

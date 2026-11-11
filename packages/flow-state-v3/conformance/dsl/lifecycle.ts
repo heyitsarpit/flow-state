@@ -219,7 +219,8 @@ const discharge = (model: Model, attempt: string, guard: string, move: Move) => 
   if (guard === "cancelAll" || guard === "awaited")
     return without(model, (o) => mine(o) && o._tag === "Await");
 
-  if (guard === "owedRestore") return without(model, (o) => mine(o) && o._tag === "AwaitRestore");
+  if (guard === "owedRestore")
+    return without(model, (o) => mine(o) && o._tag === "AwaitRestore" && o.cause === "forget");
 
   if (guard === "released" && Move.$is("End")(move))
     return {
@@ -365,13 +366,18 @@ const bootOwes = (model: Model) => {
     a.phase._tag === "Held" ||
     (Phase.$is("Restoring")(a.phase) && a.phase.head && model.acknowledged.includes(a.id));
 
+  const unbound = (a: AttemptLife) =>
+    model.actors.some((x) => sameActor(x.actor, a.lane.actor) && x.record === "forget");
+
   const owing = model.attempts.filter(
     (a) => restorable(a) && isHead(model, a) && !owesRelease(model, a.id),
   );
 
   return [
     ...model.obligations,
-    ...owing.map((a) => Obligation.AwaitRestore({ attempt: a.id, cause })),
+    ...owing.map((a) =>
+      Obligation.AwaitRestore({ attempt: a.id, cause: unbound(a) ? "forget" : cause }),
+    ),
   ];
 };
 

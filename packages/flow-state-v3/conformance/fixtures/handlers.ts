@@ -105,19 +105,22 @@ const walk = (
       at,
       to: alternative.target === "stay" ? from : alternative.target,
     })),
+    handled: certain >= 0,
   };
 };
 
 /**
  * What Turn R2 and I2 allow for `event` at leaf `from`: the alternatives that may be selected,
- * in order.
+ * in order, and whether one is selected for certain (`handled`: the event can be neither
+ * Unhandled nor Denied).
  *
  * **Details**
  *
  * The leaf's level is read first, then the root's. An alternative whose state tokens exclude
  * `from` is skipped; the first with no opaque guard is selected for certain and ends the walk;
- * each opaque one before it may be selected. With `mayBeLate`, an ending whose owner may be gone, the walk from
- * the root alone is allowed as well (Turn R19, R20).
+ * each opaque one before it may be selected. With `mayBeLate`, an ending whose owner may be
+ * gone, the walk from the root alone is allowed as well (Turn R19, R20), and it is handled for
+ * certain only when both walks are.
  */
 export const possible = (handlers: Handlers, from: string, event: string, mayBeLate: boolean) => {
   const leaf = { prefix: `states.${from}.`, level: handlers.states[from] ?? {} };
@@ -133,6 +136,7 @@ export const possible = (handlers: Handlers, from: string, event: string, mayBeL
       ...onTime.alternatives,
       ...late.alternatives.filter((a) => !onTime.alternatives.some((b) => b.at === a.at)),
     ],
+    handled: onTime.handled && late.handled,
   };
 };
 
