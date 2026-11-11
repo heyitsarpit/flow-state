@@ -7497,7 +7497,7 @@ lane.settled-without-ending	PAY-02	caught ending-channels WriteLanes I27
 lane.settled-without-ending	PAY-03	caught ending-channels WriteLanes I27
 lane.settled-without-ending	PAY-04	caught ending-channels WriteLanes I27
 lane.settled-without-ending	PAY-05	caught ending-channels WriteLanes I27
-lane.settled-without-ending	PAY-06/interruptible	red case
+lane.settled-without-ending	PAY-06/interruptible	red disposal
 lane.settled-without-ending	PAY-06/uninterruptible	red case
 lane.settled-without-ending	PAY-07/late-in-a-new-PAYING	caught ending-channels WriteLanes I27
 lane.settled-without-ending	PAY-07/late-may-not-leave	caught ending-channels WriteLanes I27
@@ -10939,7 +10939,7 @@ mutant.boot-after-disposal-skips-restored	CMP-08	green
 mutant.boot-after-disposal-skips-restored	CMP-09	green
 mutant.boot-after-disposal-skips-restored	CMP-10	green
 mutant.boot-after-disposal-skips-restored	CMP-11	green
-mutant.boot-after-disposal-skips-restored	DISP-01	green
+mutant.boot-after-disposal-skips-restored	DISP-01	red selection
 mutant.boot-after-disposal-skips-restored	DISP-02	caught disposal Actors I29
 mutant.boot-after-disposal-skips-restored	DISP-03	caught disposal Actors I29
 mutant.boot-after-disposal-skips-restored	DISP-04	caught disposal Actors I29
@@ -11299,7 +11299,7 @@ mutant.boot-skips-restored	CMP-08	green
 mutant.boot-skips-restored	CMP-09	green
 mutant.boot-skips-restored	CMP-10	green
 mutant.boot-skips-restored	CMP-11	green
-mutant.boot-skips-restored	DISP-01	green
+mutant.boot-skips-restored	DISP-01	red selection
 mutant.boot-skips-restored	DISP-02	red disposal
 mutant.boot-skips-restored	DISP-03	red disposal
 mutant.boot-skips-restored	DISP-04	red disposal
@@ -15693,7 +15693,7 @@ pay16.schedule-reads-pre-transition-memory	PAY-16/read-defect-issue	green
 pay16.schedule-reads-pre-transition-memory	PAY-16/resend-refused-capture	green
 pay16.schedule-reads-pre-transition-memory	PAY-16/restore-keeps-mayHaveApplied	green
 pay16.schedule-reads-pre-transition-memory	PAY-16/retry-count-persists	green
-pay16.schedule-reads-pre-transition-memory	PAY-16/schedule-reads-after-memory	caught case expectations Turn I12
+pay16.schedule-reads-pre-transition-memory	PAY-16/schedule-reads-after-memory	caught schedules Turn I12
 pay16.schedule-reads-pre-transition-memory	PAY-16/settled-during-disposal-parked	green
 pay16.schedule-reads-pre-transition-memory	PAY-16/stale-send-fenced	green
 pay16.schedule-reads-pre-transition-memory	PAY-16/superseded-read	green
@@ -15707,7 +15707,7 @@ pay16.schedule-reads-pre-transition-memory	PAY-21	green
 pay16.schedule-reads-pre-transition-memory	PAY-22	green
 pay16.schedule-reads-pre-transition-memory	PAY-23	green
 pay16.schedule-reads-pre-transition-memory	TURN-01/mapper-refused	green
-pay16.schedule-reads-pre-transition-memory	TURN-01/schedule-refused	red case
+pay16.schedule-reads-pre-transition-memory	TURN-01/schedule-refused	caught schedules Turn I12
 pay16.schedule-reads-pre-transition-memory	TURN-02	green
 pay16.schedule-reads-pre-transition-memory	TURN-03/exited	green
 pay16.schedule-reads-pre-transition-memory	TURN-03/on-time	green
