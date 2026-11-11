@@ -181,6 +181,8 @@ const judgeAnswered = (id: string, asked: Asked, ended: Ended) => {
 
   if (expected.channel === ended.channel && reasonRight && failureKept(asked, ended)) return [];
 
+  if (ended.channel === "unknown" && ended.reason === "Cancelled") return [];
+
   const said = Option.match(expected.reason, { onNone: () => "", onSome: (r) => ` ${r}` });
 
   return [
@@ -376,8 +378,9 @@ const neverSentEnds = (
  *   that Attempt in the same step, under its id, on the channel the fixture's commit gives that
  *   answer (the fixture's reference); it is `unknown Defect` for a died call, and `unknown
  *   StillUnknown`, carrying the failure's tag when the runtime reports it, for a definite failure
- *   when an earlier send of that Attempt was never definitely answered by the server. Anchored to
- *   the server's log.
+ *   when an earlier send of that Attempt was never definitely answered by the server; or `unknown
+ *   Cancelled`, a cancelled or released send's ending whatever came back (WriteLanes R14). Anchored
+ *   to the server's log.
  * - a delivered ending runs the event the fixture's reference maps the ending's channel and reason
  *   to. The mapping is the suite's; the channel and reason are the runtime's own report, so for an
  *   ending the server did not decide (a decline, a restore, a cancel) this is consistency only.

@@ -57,6 +57,8 @@ import { evidenceKindsMutants } from "./write-lanes/evidence-kinds.mutants.ts";
 import { evidenceKinds } from "./write-lanes/evidence-kinds.ts";
 import { idleGuardMutants } from "./write-lanes/idle-guard.mutants.ts";
 import { idleGuard } from "./write-lanes/idle-guard.ts";
+import { lateResultsMutants } from "./write-lanes/late-results.mutants.ts";
+import { lateResults } from "./write-lanes/late-results.ts";
 import { retryCountMutants } from "./write-lanes/retry-count.mutants.ts";
 import { retryCount } from "./write-lanes/retry-count.ts";
 import { paymentRetryScenarios } from "./write-lanes/payment-retry.scenarios.ts";
@@ -77,6 +79,7 @@ export const guarantees: ReadonlyArray<Guarantee> = [
   { oracle: retryCount, mutants: retryCountMutants },
   { oracle: evidenceKinds, mutants: evidenceKindsMutants },
   { oracle: idleGuard, mutants: idleGuardMutants },
+  { oracle: lateResults, mutants: lateResultsMutants },
   { oracle: selection, mutants: selectionMutants },
   { oracle: publication, mutants: publicationMutants },
   { oracle: refusal, mutants: refusalMutants },

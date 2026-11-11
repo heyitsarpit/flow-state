@@ -14,7 +14,7 @@ export const notYet: ReadonlyArray<NotYet> = [
   {
     owner: "@task.V3.T7",
     why: "not built yet (round-14 can show each): success writes and store order need a domain-write fixture (I2, I19, I24), old-version holds a Port change to boot another release (I17), an unencodable commit a fixture (I18), late results after cleanup (I23), key-less members (I14); (I9 is checked by a re-send carrying another Attempt)",
-    invariants: invariantsOf("WriteLanes", [2, 17, 19, 23, 24]),
+    invariants: invariantsOf("WriteLanes", [2, 17, 19, 24]),
   },
   {
     owner: "@task.V3.T18",

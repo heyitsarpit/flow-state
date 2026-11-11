@@ -301,4 +301,24 @@ export const lanePoliciesScenarios: ReadonlyArray<Scenario> = [
       c.eq("only the head was sent", attemptsOf(c, "q").length, 1);
     },
   },
+  {
+    id: "LANE-12/release-uninterruptible",
+    cites: ["WriteLanes R16", "WriteLanes R17", "WriteLanes I23"],
+    fixtures: [Release],
+    run: (c) => {
+      const a = released(c);
+      a.ensure();
+      c.uninterruptible("q");
+      toTrait(c, 1);
+      c.ack();
+      a.send("Leave", {});
+      c.answer("q", OK);
+      a.state("AWAY");
+      c.eq(
+        "WriteLanes I23: the late result after the release is heard by no one",
+        delivered(c, "q"),
+        [],
+      );
+    },
+  },
 ];
