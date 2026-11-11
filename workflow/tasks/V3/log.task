@@ -299,3 +299,5 @@ note 2026-11-11T11:43:17Z
     tools/plan-coverage/check.ts reports none uncovered.
 note 2026-11-11T11:51:45Z
     Paused (the user, 2026-11-11) at c2f6983b: T45 in progress, one gate red (round-14 falsify 146 of 147; o6.settled-in-bound-stays-held caught only by its case). Production bug found: a restored unresolved write is ended again as NotSent { Disposed } at disposal (outside conformance/, for T45 or T18). Stall cron removed. Resume: restore that mutant's disposal catch first (STATUS T45 section).
+note 2026-11-11T11:59:30Z
+    Decision (user, 2026-11-11): coding stays paused for one replanning pass (audit of built work, Spec audit, Task re-cut into vertical slices of runtime feature, Spec, fixtures and benchmark replay, rework first); an Opus planner writes replan-2026-11-11.md for the user's review.
