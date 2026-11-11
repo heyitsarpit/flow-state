@@ -3,15 +3,20 @@ import { disposal } from "./actors/disposal.ts";
 import { laneKeepingScenarios } from "./actors/lane-keeping.scenarios.ts";
 import { runtimeDisposalScenarios } from "./actors/runtime-disposal.scenarios.ts";
 import { constructionMutants } from "./compile/construction.mutants.ts";
-import { constructionCases, constructionCovered } from "./compile/construction.cases.ts";
-import type { CaseChecks } from "./coverage.ts";
+import {
+  constructionCases,
+  constructionCovered,
+  constructionRemainders,
+} from "./compile/construction.cases.ts";
+import type { CaseChecks, Remainder } from "./coverage.ts";
 import type { Scenario } from "./dsl/case.ts";
 import type { StaticCase } from "./dsl/static-case.ts";
 import type { Guarantee, Probe } from "./dsl/oracle.ts";
 import { cliMutants } from "./static-cli/cli.mutants.ts";
-import { cliCases, cliCovered } from "./static-cli/cli.cases.ts";
+import { cliCases, cliCovered, cliRemainders } from "./static-cli/cli.cases.ts";
 import { graphNames } from "./static-cli/graph-names.ts";
 import { graphNamesMutants } from "./static-cli/graph-names.mutants.ts";
+import { carriedDeliveredOnceMutants } from "./write-lanes/carried.mutants.ts";
 import { attemptIdentityMutants } from "./write-lanes/attempt-identity.mutants.ts";
 import { attemptIdentity } from "./write-lanes/attempt-identity.ts";
 import { deliveredOnceMutants } from "./write-lanes/delivered-once.mutants.ts";
@@ -36,7 +41,7 @@ import { paymentRetryScenarios } from "./write-lanes/payment-retry.scenarios.ts"
 export const guarantees: ReadonlyArray<Guarantee> = [
   { oracle: endingChannels, mutants: endingChannelsMutants },
   { oracle: attemptIdentity, mutants: attemptIdentityMutants },
-  { oracle: deliveredOnce, mutants: deliveredOnceMutants },
+  { oracle: deliveredOnce, mutants: [...deliveredOnceMutants, ...carriedDeliveredOnceMutants] },
   { oracle: laneQueue, mutants: laneQueueMutants },
   { oracle: disposal, mutants: disposalMutants },
   { oracle: graphNames, mutants: graphNamesMutants },
@@ -88,3 +93,8 @@ export const caseChecks: CaseChecks = {
   mutants: [...constructionMutants, ...cliMutants],
   cases: [...scenarios, ...staticCases].map((c) => ({ id: c.id, cites: c.cites })),
 };
+
+/**
+ * The part of each checked Invariant its checks do not judge yet, by the Task that owes it.
+ */
+export const remainders: ReadonlyArray<Remainder> = [...constructionRemainders, ...cliRemainders];

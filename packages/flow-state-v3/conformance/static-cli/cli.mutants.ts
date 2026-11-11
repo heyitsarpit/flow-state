@@ -18,7 +18,8 @@ const cliMutant = (
  *
  * **Details**
  *
- * The edits apply to the round-14 CLI: its entry (`cli/flow.ts`) and `check` (`cli/check.ts`).
+ * The edits apply to the round-14 CLI: its entry (`cli/flow.ts`), `check` (`cli/check.ts`) and
+ * the graph it prints (`prototypes/conformance/graph.ts`).
  */
 export const cliMutants: ReadonlyArray<Mutant> = [
   cliMutant(
@@ -125,6 +126,33 @@ export const cliMutants: ReadonlyArray<Mutant> = [
         find: 'TARGETS[name]?.make(api) ?? fail("UnknownSelector", name)',
         replace:
           '(TARGETS[name] ?? TARGETS["typed-pay"])?.make(api) ?? fail("UnknownSelector", name)',
+      },
+    ],
+  ),
+  cliMutant(
+    "cli.late-handler-unreported",
+    "check never reports a late handler with no alternative that stays put",
+    "StaticCli I8",
+    ["CLI-06"],
+    [
+      {
+        file: CHECK,
+        find: '            push({ severity: "error", rule: "Rule20Late",',
+        replace: '            void ({ severity: "error", rule: "Rule20Late",',
+      },
+    ],
+  ),
+  cliMutant(
+    "cli.graph-renames-untaken-edge",
+    "flow graph names one edge no case takes by a place the Compiled does not have",
+    "StaticCli I2",
+    ["CLI-09"],
+    [
+      {
+        file: "../conformance/graph.ts",
+        find: "            at: a.at.path,",
+        replace:
+          '            at: a.at.path === "states.STUCK.on.CheckAgain[0]" ? "states.STUCK.on.Again[0]" : a.at.path,',
       },
     ],
   ),

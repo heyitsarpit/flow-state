@@ -1,8 +1,10 @@
 import { Option, Result, Schema } from "effect";
-import type { CaseCovered } from "../coverage.ts";
+import { coveredBy, type Remainder } from "../coverage.ts";
 import type { StaticCase } from "../dsl/static-case.ts";
 import type { CliRun, Surface } from "../surface.ts";
 import { graphIn } from "./graph.ts";
+
+const TRIGGER = "trigger:";
 
 const Severity = Schema.Literals(["error", "warn", "info"]);
 
@@ -97,6 +99,11 @@ const BREAKING: ReadonlyArray<{
     project: "no-owner",
     breaks: "a hold no state owns",
     reports: (f) => f.rule === "UnresolvedHold",
+  },
+  {
+    project: "broken",
+    breaks: "a late handler with no alternative that stays put",
+    reports: (f) => f.rule === "Rule20Late",
   },
   {
     project: "no-notsent",
@@ -310,18 +317,80 @@ export const cliCases: ReadonlyArray<StaticCase> = [
       );
     },
   },
+  {
+    id: "CLI-09",
+    cites: ["StaticCli R5", "StaticCli I2"],
+    run: (surface, expect) => {
+      const names = (edges: ReadonlyArray<{ readonly definition: string; readonly at: string }>) =>
+        edges.map((e) => `${e.definition} ${e.at}`).toSorted();
+
+      const graphed = Option.map(graphIn(surface.cli(["graph", "pay", "--json"])), (g) =>
+        names(g.edges.filter((e) => !e.at.startsWith(TRIGGER))),
+      );
+
+      expect(
+        "StaticCli I2",
+        "graph's edges are pay's alternatives, each by its place, none missing or extra",
+        graphed,
+        Option.some(names(surface.places("pay"))),
+      );
+    },
+  },
 ];
 
 /**
  * The StaticCli Invariants these cases judge, each with the cases whose expectations cite it.
+ *
+ * **Details**
+ *
+ * StaticCli I2 is left out: the `graph-names` oracle checks it, and CLI-09's mutant is proved by
+ * falsify as a case-expectation catch beside it.
  */
-export const cliCovered: ReadonlyArray<CaseCovered> = [
-  { invariant: "StaticCli I1", cases: ["CLI-01"] },
-  { invariant: "StaticCli I4", cases: ["CLI-02"] },
-  { invariant: "StaticCli I5", cases: ["CLI-03"] },
-  { invariant: "StaticCli I6", cases: ["CLI-04"] },
-  { invariant: "StaticCli I7", cases: ["CLI-05"] },
-  { invariant: "StaticCli I8", cases: ["CLI-06"] },
-  { invariant: "StaticCli I9", cases: ["CLI-07"] },
-  { invariant: "StaticCli I12", cases: ["CLI-08"] },
+export const cliCovered = coveredBy(cliCases).filter((row) => row.invariant !== "StaticCli I2");
+
+/**
+ * The part of each checked StaticCli Invariant no case or oracle judges yet, by the Task that
+ * owes it.
+ */
+export const cliRemainders: ReadonlyArray<Remainder> = [
+  {
+    invariant: "StaticCli I1",
+    owner: "@task.V3.T22",
+    owed: "spies on the closures (T1); the cases read the CLI's own callbacksRun count",
+  },
+  {
+    invariant: "StaticCli I2",
+    owner: "@task.V3.T22",
+    owed: "schedule-trigger edges, which no Compiled place names (graph's trigger: edges are left out); only pay is graphed",
+  },
+  {
+    invariant: "StaticCli I4",
+    owner: "@task.V3.T22",
+    owed: "explain and graph in both forms, and R7's envelope (version, status, data); only check's counts are compared",
+  },
+  {
+    invariant: "StaticCli I6",
+    owner: "@task.V3.T22",
+    owed: "exit codes 130 and 143 (R8, T6), and exit 2 for loading, artifact and I/O failures (R8)",
+  },
+  {
+    invariant: "StaticCli I7",
+    owner: "@task.V3.T22",
+    owed: "R9's failure in place of a complete claim; only complete false on two hand projects is judged",
+  },
+  {
+    invariant: "StaticCli I9",
+    owner: "@task.V3.T22",
+    owed: "info findings; only warnings are judged",
+  },
+  {
+    invariant: "StaticCli I8",
+    owner: "@task.V3.T22",
+    owed: "R10's other rules, and reference apps chosen from the Spec rather than from fixtures with no error (desk and desk-listen report UnresolvedHold); 5 of R10's 11 rules are checked",
+  },
+  {
+    invariant: "StaticCli I12",
+    owner: "@task.V3.T22",
+    owed: "the --app operand (R3)",
+  },
 ];

@@ -1,12 +1,13 @@
-import { Option, Predicate } from "effect";
+import { Equal, Option, Predicate } from "effect";
 import type { Json } from "../port.ts";
-import type { CaseCovered } from "../coverage.ts";
+import { coveredBy, type Remainder } from "../coverage.ts";
 import type { StaticCase } from "../dsl/static-case.ts";
 import {
-  Admission,
+  type Admission,
   Built,
   type DataView,
   Default,
+  Made,
   MemoryField,
   type Source,
   type Surface,
@@ -87,27 +88,55 @@ const withCount = (count: MemoryField) => (s: Source) => ({
 
 const NONE: ReadonlyArray<string> = [];
 
+const crash = (thrown: string) => [`crashed: ${thrown}`];
+
 const codes = (built: Built) =>
   Built.$match(built, {
     Compiled: () => NONE,
     Refused: ({ codes: found }) => found,
+    Crashed: ({ thrown }) => crash(thrown),
   });
 
 const viewOf = (built: Built) =>
   Built.$match(built, {
     Compiled: ({ view }) => Option.some(view),
     Refused: () => Option.none<DataView>(),
+    Crashed: () => Option.none<DataView>(),
   });
 
 const compiled = (surface: Surface, source: Source) =>
   Built.$match(surface.construct(source), {
     Compiled: ({ compiled: c }) => c,
     Refused: ({ codes: found }) => {
-      throw new Error(`S1 was refused (${found.join(", ")}); every case below builds on it`);
+      throw new Error(`${source.id} was refused (${found.join(", ")}); the case builds on it`);
+    },
+    Crashed: ({ thrown }) => {
+      throw new Error(`${source.id} crashed at construction (${thrown}); the case builds on it`);
     },
   });
 
-const admitted = (admission: Admission) => Admission.$is("Admitted")(admission);
+const outcome = (result: Admission | Made) =>
+  result._tag === "Crashed" ? `Crashed: ${result.thrown}` : result._tag;
+
+const refusedCodes = (result: Admission | Made) => {
+  if (result._tag === "Refused") return result.codes;
+
+  return result._tag === "Crashed" ? crash(result.thrown) : NONE;
+};
+
+const memoryOf = (made: Made) =>
+  Made.$match(made, {
+    Memory: ({ memory }) => Option.some(memory),
+    Refused: () => Option.none<Json>(),
+    Crashed: () => Option.none<Json>(),
+  });
+
+const withNumber = (s: Source) => ({
+  ...s,
+  memory: { ...s.memory, n: MemoryField.NumberInput() },
+});
+
+const withSelf = (s: Source) => ({ ...s, states: [...s.states, "self"] });
 
 const functionsIn = (value: Json) => {
   const found: Array<string> = [];
@@ -122,8 +151,14 @@ const functionsIn = (value: Json) => {
 };
 
 /**
- * Static cases for Compile's construction: inert, named, shaped as declared, refusing what R5
- * and R9 name, and refused at Runtime creation when malformed (R17).
+ * Static cases for Compile's construction: inert, named, shaped as declared, refusing what R5,
+ * R9 and R12 name, refused at Runtime creation when malformed (R17), creation by the input alone
+ * (R6), restore without creation (R8), and one machine per id in an app (R15).
+ *
+ * **Details**
+ *
+ * A surface that crashes where a case expects a result or a refusal fails the expectation, with
+ * the crash in its text: a crash is never a refusal (Conformance R9).
  */
 export const constructionCases: ReadonlyArray<StaticCase> = [
   {
@@ -137,7 +172,7 @@ export const constructionCases: ReadonlyArray<StaticCase> = [
       expect("Compile I2", "the machine callback runs once", calls.of("cb"), 1);
       expect("Compile I6", "no computed initial runs at construction", calls.of("label"), 0);
       expect("Compile I1", "no commit runs at construction", calls.of("commit"), 0);
-      expect("Compile I1", "no guard runs at construction", calls.of("guard"), 0);
+      expect("Compile R1", "no guard runs at construction", calls.of("guard"), 0);
     },
   },
   {
@@ -246,22 +281,27 @@ export const constructionCases: ReadonlyArray<StaticCase> = [
     cites: ["Compile R17", "Compile I15", "Compile I16"],
     run: (surface, expect) => {
       const c = compiled(surface, s1(counted()));
-      const admit = (tamper: Tamper) => admitted(surface.admit(c, tamper));
+      const admit = (tamper: Tamper) => outcome(surface.admit(c, tamper));
 
-      expect("Compile R17", "S1 untouched is admitted", admit(Tamper.Untouched()), true);
+      expect(
+        "Compile I15",
+        "S1 as compiled holds only Slots, so Runtime creation admits it",
+        admit(Tamper.Untouched()),
+        "Admitted",
+      );
       expect(
         "Compile I15",
         "a bare function in a Slot's place is refused",
         admit(Tamper.BareFunction()),
-        false,
+        "Refused",
       );
       expect(
         "Compile I16",
         "a key field outside the input is refused",
         admit(Tamper.KeyOutsideInput({ operation: "save", field: "nope" })),
-        false,
+        "Refused",
       );
-      expect("Compile R17", "no events table is refused", admit(Tamper.NoEvents()), false);
+      expect("Compile R17", "no events table is refused", admit(Tamper.NoEvents()), "Refused");
     },
   },
   {
@@ -286,18 +326,152 @@ export const constructionCases: ReadonlyArray<StaticCase> = [
       );
     },
   },
+  {
+    id: "CMP-08",
+    cites: ["Compile R6", "Compile I7"],
+    run: (surface, expect) => {
+      const c = compiled(surface, s1(counted(), withNumber));
+      const create = (input: Readonly<Record<string, Json>>) => surface.create(c, input);
+      const expected = { count: 0, label: "n=0", who: "w", n: 3 };
+
+      expect(
+        "Compile I7",
+        "an input given in its encoded form is refused, never decoded",
+        outcome(create({ who: "w", n: "3" })),
+        "Refused",
+      );
+      expect(
+        "Compile I7",
+        "an input given in its type form is stored unchanged",
+        memoryOf(create({ who: "w", n: 3 })),
+        Option.some<Json>(expected),
+      );
+      const first = memoryOf(create({ who: "w", n: 3 }));
+
+      expect(
+        "Compile I7",
+        "equal inputs give equal memory",
+        Option.exists(first, () => Equal.equals(first, memoryOf(create({ who: "w", n: 3 })))),
+        true,
+      );
+    },
+  },
+  {
+    id: "CMP-09",
+    cites: ["Compile R8", "Compile I8"],
+    run: (surface, expect) => {
+      const c = compiled(surface, s1(counted()));
+
+      expect(
+        "Compile I8",
+        "restore keeps the record's fields and runs no creation",
+        memoryOf(surface.restore(c, { count: 5, who: "w" })),
+        Option.some<Json>({ count: 5, who: "w", label: "n=5" }),
+      );
+      expect(
+        "Compile R8",
+        "a record lacking an input field with no default is refused",
+        refusedCodes(surface.restore(c, { count: 5 })),
+        ["RestoreMissingInput"],
+      );
+    },
+  },
+  {
+    id: "CMP-10",
+    cites: ["Compile R12", "Compile I13"],
+    run: (surface, expect) => {
+      const built = surface.construct(s1(counted(), withSelf));
+
+      const found = Built.$match(built, {
+        Compiled: ({ compiled: c }) => refusedCodes(surface.admit(c, Tamper.Untouched())),
+        Refused: ({ codes: refused }) => refused,
+        Crashed: ({ thrown }) => crash(thrown),
+      });
+
+      expect(
+        "Compile I13",
+        "a state named self is refused as ReservedStateName",
+        found.includes("ReservedStateName"),
+        true,
+      );
+    },
+  },
+  {
+    id: "CMP-11",
+    cites: ["Compile R15", "Compile I14"],
+    run: (surface, expect) => {
+      const one = compiled(surface, s1(counted()));
+      const two = compiled(surface, s1(counted()));
+
+      expect("Compile R15", "S1 alone is one app", outcome(surface.admitApp([one])), "Admitted");
+      expect(
+        "Compile I14",
+        "two machines under one id are refused",
+        outcome(surface.admitApp([one, two])),
+        "Refused",
+      );
+    },
+  },
 ];
 
 /**
  * The Compile Invariants these cases judge, each with the cases whose expectations cite it.
  */
-export const constructionCovered: ReadonlyArray<CaseCovered> = [
-  { invariant: "Compile I1", cases: ["CMP-01"] },
-  { invariant: "Compile I2", cases: ["CMP-01"] },
-  { invariant: "Compile I4", cases: ["CMP-02"] },
-  { invariant: "Compile I5", cases: ["CMP-03"] },
-  { invariant: "Compile I6", cases: ["CMP-01", "CMP-04"] },
-  { invariant: "Compile I11", cases: ["CMP-05"] },
-  { invariant: "Compile I15", cases: ["CMP-06", "CMP-07"] },
-  { invariant: "Compile I16", cases: ["CMP-06"] },
+export const constructionCovered = coveredBy(constructionCases);
+
+/**
+ * The part of each case-covered Compile Invariant these cases do not judge, by the Task that owes
+ * it.
+ */
+export const constructionRemainders: ReadonlyArray<Remainder> = [
+  {
+    invariant: "Compile I1",
+    owner: "@task.V3.T17",
+    owed: "spies on actors, timers, storage, loaders and evidence (T1); only a commit run is caught",
+  },
+  {
+    invariant: "Compile I5",
+    owner: "@task.V3.T17",
+    owed: "Flow.input beside a default, and a field with no source; only Flow.initial beside a Schema default is judged",
+  },
+  {
+    invariant: "Compile I15",
+    owner: "@task.V3.T17",
+    owed: "a bare function in an operation's or a handler's Slot place at Runtime creation; only the memory's creation Slot is tampered",
+  },
+  {
+    invariant: "Compile I4",
+    owner: "@task.V3.T17",
+    owed: "fragment states, events and operations; only a root machine's tables are compared",
+  },
+  {
+    invariant: "Compile I6",
+    owner: "@task.V3.T17",
+    owed: "a plain Schema default's evaluation: a surface source's plain default has no counter",
+  },
+  {
+    invariant: "Compile I7",
+    owner: "@task.V3.T17",
+    owed: "no clock or randomness read at creation (needs spies on both)",
+  },
+  {
+    invariant: "Compile I8",
+    owner: "@task.V3.T11",
+    owed: "adoption and hydration never invoke creation; only restore is judged",
+  },
+  {
+    invariant: "Compile I11",
+    owner: "@task.V3.T17",
+    owed: "the Flow.ignore clause: a surface source cannot map unknown: to Flow.ignore",
+  },
+  {
+    invariant: "Compile I13",
+    owner: "@task.V3.T17",
+    owed: "is, child, root and __proto__, at construction (round-14 refuses self at Runtime creation), path depth, length, control characters and code-unit equality",
+  },
+  {
+    invariant: "Compile I14",
+    owner: "@task.V3.T17",
+    owed: "one machine under two keys and colliding operation, domain and entity ids",
+  },
 ];

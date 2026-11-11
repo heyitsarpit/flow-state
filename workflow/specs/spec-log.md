@@ -191,3 +191,13 @@ Found while writing the `lane-cells` oracle and its lies (packages/flow-state-v3
   step 4 a Held head's re-send needs an anchored retry member of the reference rows, and
   `lane-model.ts` (with `permittedResend`) was deleted as dead code (step 4 review L1, landed in `c51f6501`). The
   `ending-channels` half stays open. The V3 builder (2026-11-11). Reverse: restore the sentence.
+
+## Conformance Q14: Compile I7, I8, I13, I14 back on round-14; partial standings (2026-11-11)
+
+- **Conformance Q14.** Round-14 makes results for 21 of the 45 static Invariants, not 17: creation
+  and restore are the Compiled's own Slots (I7, I8), `seal` refuses a state named self (I13) and
+  `sealAll` two machines under one id (I14). They are case-covered by `CMP-08` to `CMP-11` and
+  leave T17's row. A check that judges only some clauses of an Invariant now has a remainder row
+  naming the rest and its owning Task, and the gate fails a row whose owner is not an open Task.
+  From the T41 and T13 review (M2, M3) and the StaticCli review (M1). The V3 builder (2026-11-11).
+  Reverse: return the four to T17's row and drop the remainder rows.

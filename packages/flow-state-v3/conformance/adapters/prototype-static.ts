@@ -3,6 +3,7 @@ import { Effect, Option, Predicate, Result, Schema } from "effect";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import type { Json } from "../port.ts";
+import type { EdgeName } from "../dsl/oracle.ts";
 import {
   Admission,
   Built,
@@ -10,6 +11,7 @@ import {
   type CompiledHandle,
   Default,
   type Handler,
+  Made,
   MemoryField,
   type Operation,
   type Source,
@@ -23,35 +25,74 @@ declare const Opaque: unique symbol;
 /**
  * A value the prototype's compiler makes and takes back, never read here.
  */
-type Made<Name extends string> = { readonly [Opaque]: Name };
+type Held<Name extends string> = { readonly [Opaque]: Name };
 
-type Token = Made<"Token">;
+type Token = Held<"Token">;
 
 type Tokens = Readonly<Record<string, Token>>;
 
-type Bound = Made<"Bound">;
+type Bound = Held<"Bound">;
 
-type Denial = Made<"Denial">;
+type Denial = Held<"Denial">;
 
-type MadeField = Made<"MemoryField">;
+type MadeField = Held<"MemoryField">;
 
-type Uncertain = Made<"Uncertain">;
+type Uncertain = Held<"Uncertain">;
 
-type Definition = Made<"Definition">;
+type Definition = Held<"Definition">;
 
 type NoFields = Readonly<Record<string, never>>;
 
+type MemorySlot = { readonly run: (value: Readonly<Record<string, Json>>) => Json };
+
 type ProtoCompiled = {
-  readonly nodes: Readonly<Record<string, Made<"Node">>>;
+  readonly id: string;
+  readonly nodes: Readonly<Record<string, Held<"Node">>>;
   readonly root: string;
   readonly events: {
     readonly external: ReadonlyArray<string>;
     readonly internal: ReadonlyArray<string>;
     readonly uncertain: ReadonlyArray<string>;
   };
-  readonly ops: Readonly<Record<string, Made<"Operation">>>;
-  readonly memory: Made<"Memory">;
+  readonly ops: Readonly<Record<string, Held<"Operation">>>;
+  readonly memory: { readonly initial: MemorySlot; readonly restore: MemorySlot };
 };
+
+const Alternatives = Schema.Record(
+  Schema.String,
+  Schema.Array(
+    Schema.Struct({ at: Schema.Struct({ definition: Schema.String, path: Schema.String }) }),
+  ),
+);
+
+const Placed = Schema.Struct({
+  callbacks: Schema.optionalKey(Alternatives),
+  exits: Schema.optionalKey(Alternatives),
+});
+
+const Nodes = Schema.Record(
+  Schema.String,
+  Schema.Struct({
+    on: Alternatives,
+    placements: Schema.optionalKey(Schema.Array(Placed)),
+    subroutine: Schema.optionalKey(Placed),
+  }),
+);
+
+/**
+ * The part of a prototype `Compiled` that holds its alternatives' places: the machine's nodes
+ * and each fragment's, with the callbacks and exits each placement fills.
+ */
+const Placing = Schema.Struct({
+  id: Schema.String,
+  nodes: Nodes,
+  fragments: Schema.optionalKey(Schema.Record(Schema.String, Schema.Struct({ nodes: Nodes }))),
+});
+
+type ProxyApi = Readonly<Record<string, () => void>>;
+
+// FLOW_STATE_ALLOW_UNKNOWN: a catalog fixture makes the prototype's Compiled, decoded once by `Placing`.
+type CatalogFixture = { readonly make: (api: ProxyApi) => unknown };
 
 type HandlerConfig =
   | { readonly guard: ReadonlyArray<() => true | Denial> }
@@ -99,9 +140,11 @@ type Compile = {
 
 type Seal = (c: ProtoCompiled, given: ReadonlySet<string>) => ProtoCompiled;
 
+type SealAll = (list: ReadonlyArray<ProtoCompiled>, given: ReadonlySet<string>) => void;
+
 type ToData = (c: ProtoCompiled) => {
   readonly data: Json;
-  readonly table: ReadonlyMap<string, Made<"Closure">>;
+  readonly table: ReadonlyMap<string, Held<"Closure">>;
 };
 
 type Module = Effect.Success<ReturnType<typeof load>>;
@@ -116,23 +159,26 @@ const member = <A>(module: Module, name: string, path: string) =>
 const CODE = /^([A-Z][A-Za-z0-9]*):/u;
 
 /**
+ * A handle this adapter never gave out: a suite defect.
+ */
+class ForeignHandle extends Error {}
+
+/**
  * A source names a state or event it never declares: a suite defect.
  */
 class Undeclared extends Error {}
 
-// FLOW_STATE_ALLOW_UNKNOWN: a construction throws whatever the prototype throws; its code is read here, once.
-const codeOf = (thrown: unknown) => {
-  if (thrown instanceof Undeclared) throw thrown;
+// FLOW_STATE_ALLOW_UNKNOWN: the prototype throws whatever it throws; its code is read here, once.
+const failedOf = (thrown: unknown) => {
+  if (thrown instanceof Undeclared || thrown instanceof ForeignHandle) throw thrown;
 
   const message = thrown instanceof Error ? thrown.message : String(thrown);
+  const code = CODE.exec(message)?.[1];
 
-  return CODE.exec(message)?.[1] ?? `Unnamed(${message.slice(0, 80)})`;
+  return code === undefined
+    ? { _tag: "Crashed" as const, thrown: message.slice(0, 200) }
+    : { _tag: "Refused" as const, codes: [code] };
 };
-
-/**
- * A handle this adapter never gave out: a suite defect.
- */
-class ForeignHandle extends Error {}
 
 const tokenOf = (tokens: Tokens, name: string) => {
   const token = tokens[name];
@@ -160,6 +206,7 @@ const fieldOf = (api: Compile, field: MemoryField) =>
     Initial: ({ value, schemaDefault }) => api.Flow.initial(schemaOf(schemaDefault), value),
     Computed: ({ compute }) => api.Flow.initial(Schema.String, compute),
     Input: () => api.Flow.input(Schema.String),
+    NumberInput: () => api.Flow.input(Schema.NumberFromString),
   });
 
 const operationOf = (api: Compile, sourceId: string, op: Operation, E: Tokens) =>
@@ -246,9 +293,11 @@ const tampered = (c: ProtoCompiled, tamper: Tamper): ProtoCompiled =>
   Tamper.$match(tamper, {
     Untouched: () => c,
     BareFunction: () =>
-      // SAFETY: the malformation itself: a bare function where the memory's Slots sit.
-      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the tamper breaks the type on purpose
-      ({ ...c, memory: { ...c.memory, initial: () => ({}) } }) as ProtoCompiled,
+      // The bare function carries `run` only to keep the Slot's type: Runtime creation sees a function.
+      ({
+        ...c,
+        memory: { ...c.memory, initial: Object.assign(() => ({}), { run: () => ({}) }) },
+      }),
     KeyOutsideInput: ({ operation, field }) =>
       // SAFETY: the malformation itself: an operation's key fields outside its input.
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the tamper breaks the type on purpose
@@ -264,6 +313,35 @@ const tampered = (c: ProtoCompiled, tamper: Tamper): ProtoCompiled =>
       return rest as ProtoCompiled;
     },
   });
+
+const altsIn = (alternatives: typeof Alternatives.Type) =>
+  Object.values(alternatives).flatMap((alts) =>
+    alts.map((a) => ({ definition: a.at.definition, at: a.at.path }) satisfies EdgeName),
+  );
+
+const NO_ALTERNATIVES: typeof Alternatives.Type = {};
+
+const placedAlts = (p: typeof Placed.Type) => [
+  ...altsIn(p.callbacks ?? NO_ALTERNATIVES),
+  ...altsIn(p.exits ?? NO_ALTERNATIVES),
+];
+
+const nodeAlts = (nodes: typeof Nodes.Type) =>
+  Object.values(nodes).flatMap((n) => [
+    ...altsIn(n.on),
+    ...(n.placements ?? []).flatMap(placedAlts),
+    ...Option.toArray(Option.fromUndefinedOr(n.subroutine)).flatMap(placedAlts),
+  ]);
+
+const placesOf = (c: typeof Placing.Type) => [
+  ...nodeAlts(c.nodes),
+  ...Object.values(c.fragments ?? {}).flatMap((f) => nodeAlts(f.nodes)),
+];
+
+/**
+ * The suite's fixtures by catalog name, as the prototype's typed fixtures export them.
+ */
+const CATALOG = new Map([["pay", { file: "typed/pay.ts", name: "typedPayFixture" }]]);
 
 const CLI_SECONDS = 30;
 
@@ -296,9 +374,12 @@ const runCli = (runtimeDir: string, args: ReadonlyArray<string>) => {
  * - The data view is `toData`'s, the prototype's only one; `states` leaves out its root node,
  *   which no definition declares, and `slots` are its table's closure paths (a key is the
  *   definition, NUL, then the path).
- * - Runtime creation is `seal` with no services given; no source here names one.
- * - A refusal's code is the prototype error message's leading `Code:`; the prototype throws at
- *   its first violation, so a refusal lists one code.
+ * - Runtime creation is `seal` with no services given (`sealAll` for an app); no source here
+ *   names one. Creation and restore run the Compiled's `memory.initial` and `memory.restore`.
+ * - A refusal is a throw whose message starts with a `Code:`; the prototype throws at its first
+ *   violation, so a refusal lists one code. Any other throw is `Crashed`, never a refusal.
+ * - `places` reads the alternatives of the catalog fixture's Compiled (only `pay`); any other
+ *   fixture has none.
  * - A source's closures are passed to the compiler as they are, so the case counts every call.
  * - A source naming a state or event it never declares, and a handle another surface built, are
  *   suite defects: they throw, never a refusal.
@@ -326,6 +407,21 @@ export const loadPrototypeSurface = Effect.fn("loadPrototypeSurface")(function* 
   };
 
   const seal = yield* member<Seal>(gate, "seal", gatePath);
+  const sealAll = yield* member<SealAll>(gate, "sealAll", gatePath);
+  const catalog = new Map<string, ReadonlyArray<EdgeName>>();
+  const proxy = new Proxy<ProxyApi>({}, { get: () => () => undefined });
+
+  for (const [fixture, { file, name }] of CATALOG) {
+    const path = join(runtimeDir, "..", "conformance", file);
+    const made = yield* member<CatalogFixture>(yield* load(path), name, path);
+
+    const placing = yield* Schema.decodeUnknownEffect(Placing)(made.make(proxy)).pipe(
+      Effect.mapError((e) => new PrototypeLoadFailed({ path, why: String(e) })),
+    );
+
+    catalog.set(fixture, placesOf(placing));
+  }
+
   const toData = yield* member<ToData>(codec, "toData", codecPath);
   const held = new WeakMap<CompiledHandle, ProtoCompiled>();
 
@@ -346,20 +442,45 @@ export const loadPrototypeSurface = Effect.fn("loadPrototypeSurface")(function* 
     return c;
   };
 
+  const admission = (admit: () => unknown) =>
+    Result.match(Result.try({ try: admit, catch: failedOf }), {
+      onSuccess: () => Admission.Admitted(),
+      onFailure: (f) => (f._tag === "Refused" ? Admission.Refused(f) : Admission.Crashed(f)),
+    });
+
+  const made = (run: () => Json) =>
+    Result.match(Result.try({ try: run, catch: failedOf }), {
+      onSuccess: (memory) => Made.Memory({ memory }),
+      onFailure: (f) => (f._tag === "Refused" ? Made.Refused(f) : Made.Crashed(f)),
+    });
+
   return {
     construct: (source) =>
-      Result.match(Result.try({ try: () => build(api, source), catch: codeOf }), {
+      Result.match(Result.try({ try: () => build(api, source), catch: failedOf }), {
         onSuccess: (c) => Built.Compiled({ compiled: handleOf(c), view: viewOf(toData, c) }),
-        onFailure: (code) => Built.Refused({ codes: [code] }),
+        onFailure: (f) => (f._tag === "Refused" ? Built.Refused(f) : Built.Crashed(f)),
       }),
     admit: (handle, tamper) => {
       const malformed = tampered(compiledOf(handle), tamper);
 
-      return Result.match(Result.try({ try: () => seal(malformed, new Set()), catch: codeOf }), {
-        onSuccess: () => Admission.Admitted(),
-        onFailure: (code) => Admission.Refused({ codes: [code] }),
-      });
+      return admission(() => seal(malformed, new Set()));
+    },
+    admitApp: (handles) => {
+      const list = handles.map(compiledOf);
+
+      return admission(() => sealAll(list, new Set()));
+    },
+    create: (handle, input) => {
+      const c = compiledOf(handle);
+
+      return made(() => c.memory.initial.run(input));
+    },
+    restore: (handle, stored) => {
+      const c = compiledOf(handle);
+
+      return made(() => c.memory.restore.run(stored));
     },
     cli: (args) => runCli(runtimeDir, args),
+    places: (fixture) => catalog.get(fixture) ?? [],
   } satisfies Surface;
 });

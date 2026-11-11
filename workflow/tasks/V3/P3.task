@@ -756,7 +756,7 @@ tasks
             - verdicts match the old suite's or each difference is logged.
     T13
         title       Static cases for Compile, Diagnostics, Codec and StaticCli
-        status      open
+        status      in_progress
         priority    medium
         blocked_by  [@T5, @T40]
         description
@@ -803,6 +803,12 @@ tasks
             H1 a crash at Runtime creation is read as a refusal (R9); M1 I15's Slot half and M3 I1, I6, I11 halves 
             claimed but unchecked; Compile I7, I8, I13, I14 are makeable on round-14 (ReservedStateName, 
             DuplicateMachine) and come back from T17.
+        comment     2026-11-11T03:39:56Z
+            Review fixes built and gated (T41/T13 H1, M1 to M3; StaticCli/Port H1, M1 to M3): crash is never a refusal, 
+            remainder rows for partial checks, owners must be open Tasks, Compile I7, I8, I13, I14 checked on round-14, 
+            CLI-09 graph-vs-Compiled, Rule20Late row, two old mutants re-anchored. Suite 92/92, null 0/92, falsify 
+            100/100, coverage 40/186 (18 in part), 0 gaps. Detail: packages/flow-state-v3/conformance/STATUS.md, T13 
+            part 3.
     T14
         title       Searches and mutants as runner modes
         status      open

@@ -1,14 +1,17 @@
 import { Data, type Option } from "effect";
+import type { EdgeName } from "./dsl/oracle.ts";
 import type { Json } from "./port.ts";
 
 /**
- * A memory field's source in a {@link Source}: `Flow.initial` with a value, a computed initial,
- * or `Flow.input`; each may carry a Schema default (`schemaDefault`).
+ * A memory field's source in a {@link Source}: `Flow.initial` with a value and an optional
+ * Schema default (`schemaDefault`), a computed initial, `Flow.input` of a string, or `Flow.input`
+ * of a number whose Schema decodes it from a string (`NumberFromString`, a transforming Schema).
  */
 export type MemoryField = Data.TaggedEnum<{
   Initial: { value: number; schemaDefault: Option.Option<Default> };
   Computed: { compute: (fields: Readonly<Record<string, Json>>) => string };
   Input: {};
+  NumberInput: {};
 }>;
 
 /**
@@ -98,12 +101,18 @@ export type DataView = {
 };
 
 /**
- * What a construction gave: a `Compiled` with its data view, or one refusal with the code of
- * each violation it lists, in its order.
+ * What a construction gave: a `Compiled` with its data view, one refusal with the code of each
+ * violation it lists, in its order, or a crash.
+ *
+ * **Gotchas**
+ *
+ * - `Crashed` is a defect (Conformance R9): the surface threw something that is not a refusal.
+ *   No case expects it, so any expectation of a result fails on it.
  */
 export type Built = Data.TaggedEnum<{
   Compiled: { compiled: CompiledHandle; view: DataView };
   Refused: { codes: ReadonlyArray<string> };
+  Crashed: { thrown: string };
 }>;
 
 /**
@@ -129,17 +138,33 @@ export type Tamper = Data.TaggedEnum<{
 export const Tamper = Data.taggedEnum<Tamper>();
 
 /**
- * Whether creating a Runtime over a `Compiled` was refused.
+ * Whether creating a Runtime was refused, or crashed (a defect, as in {@link Built}).
  */
 export type Admission = Data.TaggedEnum<{
   Admitted: {};
   Refused: { codes: ReadonlyArray<string> };
+  Crashed: { thrown: string };
 }>;
 
 /**
  * Constructors and matchers for {@link Admission}.
  */
 export const Admission = Data.taggedEnum<Admission>();
+
+/**
+ * What creation or restore over a `Compiled` gave: the actor's memory, a refusal with its codes,
+ * or a crash (a defect, as in {@link Built}).
+ */
+export type Made = Data.TaggedEnum<{
+  Memory: { memory: Json };
+  Refused: { codes: ReadonlyArray<string> };
+  Crashed: { thrown: string };
+}>;
+
+/**
+ * Constructors and matchers for {@link Made}.
+ */
+export const Made = Data.taggedEnum<Made>();
 
 /**
  * What one run of the CLI gave: its exit code and everything it wrote to stdout and stderr.
@@ -159,12 +184,21 @@ export type CliRun = { readonly code: number; readonly stdout: string; readonly 
  *
  * - `construct` builds `source` with `definition` and `machine`.
  * - `admit` creates a Runtime over `compiled` after applying `tamper` and reports whether it was
- *   refused; no actor is started.
- * - `cli` runs the `flow` binary with `args` and waits for it to end. An operand naming a project
- *   names a fixture by its catalog name; each adapter turns it into a project its CLI selects.
+ *   refused; no actor is started. `admitApp` creates one over every `Compiled` given, as one app.
+ * - `create` runs `compiled`'s creation (Compile R6) over `input`; `restore` its restore
+ *   (Compile R8) over a stored record. Neither starts an actor.
+ * - `cli` runs the implementation's `flow` CLI with `args` and waits for it to end. An operand
+ *   naming a project names a fixture by its catalog name; each adapter turns it into a project its
+ *   CLI selects.
+ * - `places` gives the place of every alternative in the named fixture's `Compiled`
+ *   (Compile R16), as `flow graph` names its edges; none for a fixture the surface cannot build.
  */
 export type Surface = {
   readonly construct: (source: Source) => Built;
   readonly admit: (compiled: CompiledHandle, tamper: Tamper) => Admission;
+  readonly admitApp: (compiled: ReadonlyArray<CompiledHandle>) => Admission;
+  readonly create: (compiled: CompiledHandle, input: Readonly<Record<string, Json>>) => Made;
+  readonly restore: (compiled: CompiledHandle, stored: Readonly<Record<string, Json>>) => Made;
   readonly cli: (args: ReadonlyArray<string>) => CliRun;
+  readonly places: (fixture: string) => ReadonlyArray<EdgeName>;
 };

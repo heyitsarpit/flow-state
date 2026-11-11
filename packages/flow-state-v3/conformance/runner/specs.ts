@@ -1,5 +1,5 @@
 import { Data, Effect, Schema } from "effect";
-import { CORE_SPECS, type CoreSpec } from "../coverage.ts";
+import { CORE_SPECS, type CoreSpec, type TaskRef } from "../coverage.ts";
 import { runChild } from "./child.ts";
 
 /**
@@ -44,4 +44,35 @@ export const coreInvariants = (root: string) =>
   Effect.map(
     Effect.forEach(CORE_SPECS, (spec) => invariantsIn(root, spec), { concurrency: 4 }),
     (lists) => lists.flat(),
+  );
+
+const ShownTask = Schema.Struct({ task: Schema.Struct({ status: Schema.String }) });
+
+const decodeTask = Schema.decodeUnknownEffect(Schema.fromJsonString(ShownTask));
+
+const isOpen = (root: string, owner: TaskRef) =>
+  runChild("workflow", ["show", owner, "--json", "--root", root], 30).pipe(
+    Effect.flatMap((out) =>
+      out.code === 0 ? decodeTask(out.stdout) : Effect.fail(new Error(out.stderr)),
+    ),
+    Effect.map((shown) => shown.task.status !== "done"),
+    Effect.orElseSucceed(() => false),
+  );
+
+/**
+ * The owners, of those given, that the workflow CLI resolves to a Task whose status is not done.
+ *
+ * **Details**
+ *
+ * An owner that does not resolve, or whose record cannot be read, is left out, so the coverage
+ * gate reports every row it owns.
+ */
+export const openTasks = (root: string, owners: ReadonlyArray<TaskRef>) =>
+  Effect.map(
+    Effect.forEach(
+      [...new Set(owners)],
+      (owner) => Effect.map(isOpen(root, owner), (open) => [owner, open] as const),
+      { concurrency: 4 },
+    ),
+    (judged) => new Set(judged.flatMap(([owner, open]) => (open ? [owner] : []))),
   );

@@ -28,8 +28,11 @@ Specs with `workflow show @spec.<name> --json` and fails unless each is checked 
 `not-yet.ts` with the Task that owns it. Checked means an oracle's guarantee names it and one of
 that oracle's mutants expects it, or a case-covered row (`CaseCovered`, kept beside its cases)
 names it with cases that all cite it and a mutant that expects it runs one of them; falsify then
-proves that case goes red by a failed expectation citing it. A row that still lists a checked
-Invariant, a doubled row, and an Invariant no core Spec has fail it too. Static cases (Conformance
+proves that case goes red by a failed expectation citing it. A checked Invariant whose check
+judges only some clauses has a remainder row (`Remainder`, beside its cases) naming the rest and
+its owner, and counts as checked in part. A row that still lists a checked Invariant, a remainder
+on an unchecked one, a doubled row, a row whose owner is not an open Task (read with `workflow
+show @task.V3.Tn --json`), and an Invariant no core Spec has fail it too. Static cases (Conformance
 R14, `dsl/static-case.ts`) run once each, with no seed, on the surface of the same `--runtime`
 (the null surface for `null`). `falsify` checks, in order: the coverage gate; every oracle has a mutant for this runtime; the
 null runtime (every case must state a failure); the control (each mutant's cases pass on the
@@ -344,19 +347,27 @@ mutants and wrong runtimes named here are in `prototypes/conformance/falsify.ts`
 Static guarantees: checked by case expectations over a static surface, not by per-step oracles
 (Conformance R6, R14), each with its case-covered row and mutants.
 
-| Invariant                              | Cases          | Mutants                                                        |
-| -------------------------------------- | -------------- | -------------------------------------------------------------- |
-| Compile I1                             | CMP-01         | `cmp.guard-runs-at-construction`                               |
-| Compile I2                             | CMP-01         | `cmp.callback-twice`                                           |
-| Compile I4                             | CMP-02         | `cmp.uncertain-not-listed`                                     |
-| Compile I5                             | CMP-03         | `cmp.two-defaults-accepted`                                    |
-| Compile I6                             | CMP-01, CMP-04 | `cmp.computed-initial-runs`, `cmp.impure-default-accepted`     |
-| Compile I11                            | CMP-05         | `cmp.unknown-onto-sure-event`                                  |
-| Compile I15                            | CMP-06, CMP-07 | `cmp.bare-function-admitted`, `cmp.data-view-keeps-closures`   |
-| Compile I16                            | CMP-06         | `cmp.key-outside-input-admitted`                               |
-| Compile I3, I7 to I10, I12 to I14, I17 | none           | round-14 makes no such result (`not-yet.ts` says which)        |
-| Diagnostics, Codec                     | none           | round-14 has no Diagnostic carrier and no canonical byte codec |
-| StaticCli I1 to I12                    | not built      | the CLI pins, check rules, exit codes and the graph gate (T13) |
+| Invariant                     | Cases                               | Mutants                                                                                                                             |
+| ----------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Compile I1                    | CMP-01                              | `cmp.commit-runs-at-construction` (in part)                                                                                         |
+| Compile I2                    | CMP-01                              | `cmp.callback-twice`                                                                                                                |
+| Compile I4                    | CMP-02                              | `cmp.uncertain-not-listed`, `cmp.state-dropped`, `cmp.operation-dropped` (in part)                                                  |
+| Compile I5                    | CMP-03                              | `cmp.two-defaults-accepted` (in part)                                                                                               |
+| Compile I6                    | CMP-01, CMP-04                      | `cmp.computed-initial-runs`, `cmp.impure-default-accepted` (in part)                                                                |
+| Compile I7                    | CMP-08                              | `r15.creation-decodes-input` (in part)                                                                                              |
+| Compile I8                    | CMP-09                              | `cmp.restore-runs-creation` (in part)                                                                                               |
+| Compile I11                   | CMP-05                              | `cmp.unknown-onto-sure-event` (in part)                                                                                             |
+| Compile I13                   | CMP-10                              | `d138.self-allowed` (in part)                                                                                                       |
+| Compile I14                   | CMP-11                              | `r15c.duplicate-machine-allowed` (in part)                                                                                          |
+| Compile I15                   | CMP-06, CMP-07                      | `cmp.bare-function-admitted`, `cmp.compiler-emits-bare-guard`, `cmp.seal-crashes-on-bare`, `cmp.data-view-keeps-closures` (in part) |
+| Compile I16                   | CMP-06                              | `cmp.key-outside-input-admitted`, `cmp.seal-crashes-on-key`                                                                         |
+| Compile I3, I9, I10, I12, I17 | none                                | round-14 makes no such result (`not-yet.ts` says which)                                                                             |
+| Diagnostics, Codec            | none                                | round-14 has no Diagnostic carrier and no canonical byte codec                                                                      |
+| StaticCli I1, I4 to I9, I12   | CLI-01 to CLI-08                    | `static-cli/cli.mutants.ts`; I1, I4, I6 to I9, I12 in part                                                                          |
+| StaticCli I2                  | CLI-09 and the `graph-names` oracle | `cli.graph-renames-untaken-edge`, `graph-names.mutants.ts` (in part)                                                                |
+| StaticCli I3, I10, I11        | none                                | T22 builds config discovery and the project tree                                                                                    |
+
+The remainder of each "in part" row is in the case module's `Remainder` list.
 
 Expectations that come from a Requirement with no Invariant of its own cite it (`Compile R16`,
 `R17`); such a failure proves no case-covered row.

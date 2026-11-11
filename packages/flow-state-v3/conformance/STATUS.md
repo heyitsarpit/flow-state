@@ -1062,6 +1062,46 @@ I3, I10, I11 to T22. Suite 84/84, null 0/84, falsify 68/68, coverage 33 of 186 w
   scenario, and a space-joined name; (10) edge status is not judged (I2 is names only); (11) the surface now loads for
   runtime-only runs.
 
+### T13 part 3 (2026-11-11): review fixes (T41/T13 and StaticCli/Port reviews)
+
+Bottom line: a crash is never a refusal, partial checks say what they leave, every owner is an open
+Task, and Compile I7, I8, I13, I14 are checked on round-14. Suite 92/92, null 0/92, falsify 100/100,
+coverage 40 of 186 (18 in part), 0 gaps, `nub run check` zero.
+
+- T41/T13 H1: `Built`, `Admission` and the new `Made` have a `Crashed` variant; only a throw with a
+  leading `Code:` is a refusal. `cmp.seal-crashes-on-bare` (I15) and `-on-key` (I16) are caught by
+  CMP-06 failing with the crash in its text.
+- M1, M3: CMP-06's untouched admission cites I15 (`cmp.compiler-emits-bare-guard` caught); the guard
+  expectation cites R1 and `cmp.guard-runs-at-construction` is dropped (a guard is not in I1's list);
+  `cmp.commit-runs-at-construction` is I1's mutant; I4 gains `cmp.state-dropped` and
+  `cmp.operation-dropped`.
+- M2: Surface `create`, `restore` (the Compiled's memory Slots) and `admitApp` (`sealAll`); CMP-08
+  (I7, old `r15.creation-decodes-input`), CMP-09 (I8, `cmp.restore-runs-creation`), CMP-10 (I13,
+  old `d138.self-allowed`), CMP-11 (I14, old `r15c.duplicate-machine-allowed`). Coverage reads each
+  owner with `workflow show --json` and fails one that does not resolve or is done (planted T99 and
+  done T5: 18 `Unowned` gaps each, reverted).
+- StaticCli H1: CLI-09 compares `flow graph pay`'s edges with the places of pay's Compiled, both ways
+  (`cli.graph-renames-untaken-edge`, `states.STUCK.on.CheckAgain[0]`, caught). Trigger edges are left
+  out (no Compiled place names them; remainder).
+- M1: `Remainder` rows (beside their cases) give a `Partial` standing; gaps `Unchecked`, `Unowned`.
+  `cliCovered` and `constructionCovered` are derived from the cases' `cites` (L1).
+- M2: CLI-06 row for the late handler (`broken`, `Rule20Late`; `cli.late-handler-unreported`).
+- M3: `pay16.decline-not-delivered` and `lost.decline.mail` re-anchored in
+  `write-lanes/carried.mutants.ts`, caught by `delivered-once` (WriteLanes I15) on PAY-02 and LANE-02.
+- Expectation drafter (Haiku, Specs only): agreed on CMP-08, CMP-09, CMP-11, CLI-06. Disagreed on
+  CMP-10: R2/I3 put the refusal at construction, round-14 refuses at Runtime creation; the case
+  accepts either and the construction half is in I13's remainder (drafter right on the Spec). CLI-09:
+  trigger edges' places are not determined by the Spec; left out, owed.
+- Reviewer (Haiku) of the diff, 24 findings. Accepted: the vacuous equal-memory check (4), `isOpen`
+  ignoring the exit code (8), CLI-09's dedupe (10, part), `lost.decline.mail`'s `says` (13), missing
+  remainders for Compile I5, I15 and StaticCli I6, I7, I9 (16 to 20), the docs (6, 21 to 24).
+  Rejected: (2) a crash failing an expectation counts as a catch: I15 and I16 require a refusal and
+  the crash is not one, the case fails with the crash in its text and never passes; (11, 14) CMP-08
+  cites I7 as Compile T4 does; (12) restore's no-creation half is judged by values (count 5, not
+  creation's 0). Carried: (1) a non-code throw that happens to start `Word:` reads as a refusal of an
+  unknown code, which still fails any expected code; (3) CLI-04 reads exit 1 alone (CLI-02, CLI-03
+  read `broken`'s documents); (5) adapter defects in `handleOf` stay uncited throws.
+
 ## T41 (2026-11-11): coverage gate
 
 Bottom line: `coverage` (and the first line of `falsify`) fails unless every Invariant of the ten core Specs is checked

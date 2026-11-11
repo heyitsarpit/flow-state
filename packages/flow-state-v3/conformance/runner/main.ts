@@ -18,6 +18,7 @@ import {
   guarantees,
   oracles,
   probes,
+  remainders,
   scenarios,
   staticCases,
 } from "../suite.ts";
@@ -30,7 +31,7 @@ import {
   suiteIn,
 } from "./falsify.ts";
 import { runCases, runStatics } from "./run.ts";
-import { coreInvariants } from "./specs.ts";
+import { coreInvariants, openTasks } from "./specs.ts";
 import { type CaseVerdict, VERDICTS_LINE, VerdictsJson } from "./verdict.ts";
 
 const MAIN = fileURLToPath(import.meta.url);
@@ -168,11 +169,15 @@ const gapLine = (gap: Gap) =>
     Stale: ({ invariant, owner }) =>
       `BAD  ${invariant}: checked now, but still in ${owner}'s "not yet" row`,
     Unknown: ({ invariant, where }) => `BAD  ${invariant}: named by ${where}, in no core Spec`,
-    Twice: ({ invariant }) => `BAD  ${invariant}: in two "not yet" rows or two case-covered rows`,
+    Twice: ({ invariant }) => `BAD  ${invariant}: in two "not yet", case-covered or remainder rows`,
     Unproven: ({ invariant, cases }) =>
       `BAD  ${invariant}: case-covered by ${cases.join(", ")}, but no prototype mutant expecting it runs one`,
     Uncited: ({ invariant, case: id }) =>
       `BAD  ${invariant}: case-covered by ${id}, which does not exist or does not cite it`,
+    Unchecked: ({ invariant, owner }) =>
+      `BAD  ${invariant}: ${owner} owes a remainder of it, but it has no standing check`,
+    Unowned: ({ invariant, owner }) =>
+      `BAD  ${invariant}: owed by ${owner}, which does not resolve or is done`,
   });
 
 const standingLine = (standing: Standing) =>
@@ -181,21 +186,38 @@ const standingLine = (standing: Standing) =>
       `checked ${invariant}  ${oracle}: ${mutants.join(", ")}`,
     CaseChecked: ({ invariant, cases, mutants }) =>
       `checked ${invariant}  cases ${cases.join(", ")}: ${mutants.join(", ")}`,
+    Partial: ({ invariant, checkedBy, owner, owed }) =>
+      `partly  ${invariant}  ${checkedBy}; ${owner} owes ${owed}`,
     Owed: ({ invariant, owner }) => `not yet ${invariant}  ${owner}`,
   });
 
 const covered = (verbose: boolean) =>
   Effect.gen(function* () {
     const invariants = yield* coreInvariants(REPOSITORY);
-    const { standings, gaps } = coverageOf(invariants, guarantees, notYet, caseChecks);
+
+    const open = yield* openTasks(
+      REPOSITORY,
+      [...notYet, ...remainders].map((r) => r.owner),
+    );
+
+    const { standings, gaps } = coverageOf({
+      invariants,
+      guarantees,
+      notYet,
+      remainders,
+      checks: caseChecks,
+      open,
+    });
+
     const checked = standings.filter((s) => !Standing.$is("Owed")(s)).length;
+    const partly = standings.filter(Standing.$is("Partial")).length;
 
     if (verbose) for (const s of standings) yield* Console.log(standingLine(s));
 
     for (const gap of gaps) yield* Console.log(gapLine(gap));
 
     yield* Console.log(
-      `${gaps.length === 0 ? "ok  " : "BAD "} coverage: ${checked} of ${invariants.length} core Invariants checked, ${standings.length - checked} owed by a Task, ${gaps.length} gap(s)`,
+      `${gaps.length === 0 ? "ok  " : "BAD "} coverage: ${checked} of ${invariants.length} core Invariants checked (${partly} in part), ${standings.length - checked} owed by a Task, ${gaps.length} gap(s)`,
     );
 
     return gaps.length === 0;

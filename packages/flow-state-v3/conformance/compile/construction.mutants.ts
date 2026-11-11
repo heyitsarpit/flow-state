@@ -10,6 +10,8 @@ const COMPILE = "../conformance/compile";
  *
  * The edits apply to the prototype tree: its compiler in `prototypes/conformance/compile/`,
  * Runtime creation's check in `round-14/gate.ts` and the data view in `round-14/codec/codec.ts`.
+ * A `crashes` mutant throws a TypeError where a refusal belongs: the case fails on the crash,
+ * never reading it as a refusal (Conformance R9).
  */
 export const constructionMutants: ReadonlyArray<Mutant> = [
   {
@@ -24,26 +26,6 @@ export const constructionMutants: ReadonlyArray<Mutant> = [
         find: "  const b = body({",
         replace:
           "  body({ S: statesOf<T>(tree), E: { ...tokens({ ...d.events, ...d.internalEvents }), ...placeToksOf(tree) } as never, O: handles<O, MemoryOf<M>>(d.ops) });\n  const b = body({",
-      },
-    ],
-  },
-  {
-    name: "cmp.guard-runs-at-construction",
-    says: "construction calls each guard closure once to check it returns a guard result",
-    expects: "Compile I1",
-    runtime: "prototype",
-    cases: ["CMP-01"],
-    edits: [
-      {
-        file: `${COMPILE}/body.ts`,
-        find: 'import { Duration } from "effect";',
-        replace: 'import { Duration, Result } from "effect";',
-      },
-      {
-        file: `${COMPILE}/body.ts`,
-        find: "    else closures.push(slotOf(definition, `${path}.guard[${position}]`, g));",
-        replace:
-          "    else closures.push(slotOf(definition, `${path}.guard[${position}]`, (Result.try(() => (g as () => unknown)()), g)));",
       },
     ],
   },
@@ -159,6 +141,151 @@ export const constructionMutants: ReadonlyArray<Mutant> = [
         find: "      return { $slot: { definition: at.definition, path: at.path } };",
         replace:
           '      return { $slot: { definition: at.definition, path: at.path }, run: o["run"] };',
+      },
+    ],
+  },
+  {
+    name: "cmp.commit-runs-at-construction",
+    says: "construction calls each operation's commit once to check it gives an Effect",
+    expects: "Compile I1",
+    runtime: "prototype",
+    cases: ["CMP-01"],
+    edits: [
+      {
+        file: `${COMPILE}/operations.ts`,
+        find: "    commit: slotOf(definition, `operations.${name}.commit`, c.commit),",
+        replace:
+          "    commit: slotOf(definition, `operations.${name}.commit`, ((c.commit as (i: unknown, x: unknown) => unknown)({}, {}), c.commit)),",
+      },
+    ],
+  },
+  {
+    name: "cmp.state-dropped",
+    says: "the compiled node table leaves out the state Busy",
+    expects: "Compile I4",
+    runtime: "prototype",
+    cases: ["CMP-02"],
+    edits: [
+      {
+        file: `${COMPILE}/machine.ts`,
+        find: "  const nodes = compileNodes(d.id, tree, b as never, placed);",
+        replace:
+          '  const nodes = Object.fromEntries(Object.entries(compileNodes(d.id, tree, b as never, placed)).filter(([k]) => k !== "Busy"));',
+      },
+    ],
+  },
+  {
+    name: "cmp.operation-dropped",
+    says: "the compiled operations table leaves out the first operation",
+    expects: "Compile I4",
+    runtime: "prototype",
+    cases: ["CMP-02"],
+    edits: [
+      {
+        file: `${COMPILE}/machine.ts`,
+        find: "    ops: { ...Object.fromEntries(Object.entries(d.ops).map(",
+        replace: "    ops: { ...Object.fromEntries(Object.entries(d.ops).slice(1).map(",
+      },
+    ],
+  },
+  {
+    name: "cmp.compiler-emits-bare-guard",
+    says: "the compiler keeps a guard closure as a bare function, not a Slot",
+    expects: "Compile I15",
+    runtime: "prototype",
+    cases: ["CMP-06"],
+    edits: [
+      {
+        file: `${COMPILE}/body.ts`,
+        find: "    else closures.push(slotOf(definition, `${path}.guard[${position}]`, g));",
+        replace: "    else closures.push(g as never);",
+      },
+    ],
+  },
+  {
+    name: "cmp.seal-crashes-on-bare",
+    says: "Runtime creation crashes on a bare function instead of refusing it",
+    expects: "Compile I15",
+    runtime: "prototype",
+    cases: ["CMP-06"],
+    edits: [
+      {
+        file: "gate.ts",
+        find: '    if (typeof v === "function") throw new Error(`SealUnknownClosure: ${c.id} ${p}`);',
+        replace: '    if (typeof v === "function") (undefined as never as { x: () => void }).x();',
+      },
+    ],
+  },
+  {
+    name: "cmp.seal-crashes-on-key",
+    says: "Runtime creation crashes on a key field outside the input instead of refusing it",
+    expects: "Compile I16",
+    runtime: "prototype",
+    cases: ["CMP-06"],
+    edits: [
+      {
+        file: "gate.ts",
+        find: "  if (bad.length) throw new Error(`SealKeyField:",
+        replace:
+          "  if (bad.length) (undefined as never as { x: () => void }).x();\n  if (false) throw new Error(`SealKeyField:",
+      },
+    ],
+  },
+  {
+    name: "r15.creation-decodes-input",
+    says: "creation decodes a present input with its Schema's transformation (the old suite's mutant)",
+    expects: "Compile I7",
+    runtime: "prototype",
+    cases: ["CMP-08"],
+    edits: [
+      {
+        file: `${COMPILE}/memory.ts`,
+        find: "Schema.decodeUnknownSync(Schema.toType(Schema.Struct({ [k]: s.schema }) as unknown as Schema.Top)",
+        replace:
+          "Schema.decodeUnknownSync((Schema.Struct({ [k]: s.schema }) as unknown as Schema.Top)",
+      },
+    ],
+  },
+  {
+    name: "cmp.restore-runs-creation",
+    says: "restore runs creation over the stored record",
+    expects: "Compile I8",
+    runtime: "prototype",
+    cases: ["CMP-09"],
+    edits: [
+      {
+        file: `${COMPILE}/memory.ts`,
+        find: 'return slotOf<(stored: unknown) => object>(definition, "memory.restore", (stored: unknown) => {',
+        replace:
+          'return slotOf<(stored: unknown) => object>(definition, "memory.restore", (stored: unknown) => {\n    if (stored !== null) return initialOf(definition, m).run(stored);',
+      },
+    ],
+  },
+  {
+    name: "d138.self-allowed",
+    says: "a state named self is not reserved (the old suite's mutant)",
+    expects: "Compile I13",
+    runtime: "prototype",
+    cases: ["CMP-10"],
+    edits: [
+      {
+        file: "gate.ts",
+        find: 'new Set(["self", "__proto__"])',
+        replace: 'new Set(["__proto__"])',
+      },
+    ],
+  },
+  {
+    name: "r15c.duplicate-machine-allowed",
+    says: "an app may list two machines under one id (the old suite's mutant)",
+    expects: "Compile I14",
+    runtime: "prototype",
+    cases: ["CMP-11"],
+    edits: [
+      {
+        file: "gate.ts",
+        find: "  if (dup !== undefined) throw new Error(`DuplicateMachine: ${dup}`);",
+        replace: "",
       },
     ],
   },

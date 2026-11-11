@@ -49,8 +49,8 @@ export const notYet: ReadonlyArray<NotYet> = [
   },
   {
     owner: "@task.V3.T17",
-    why: "round-14 cannot make these results: it throws at the first violation (I3), runs creation and restore only in a runtime (I7, I8), and has no IdentityFieldOptional, SharedContract, write-scope, name or app check, or context wiring (I9, I10, I12, I13, I14, I17); T17 builds the compiler that does, and its static cases land before T17 closes",
-    invariants: invariantsOf("Compile", [3, 7, 8, 9, 10, 12, 13, 14, 17]),
+    why: "round-14 cannot make these results: it throws at the first violation (I3), and has no IdentityFieldOptional, SharedContract or write-scope check, or context wiring (I9, I10, I12, I17); T17 builds the compiler that does, and its static cases land before T17 closes",
+    invariants: invariantsOf("Compile", [3, 9, 10, 12, 17]),
   },
   {
     owner: "@task.V3.T17",

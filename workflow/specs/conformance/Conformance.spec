@@ -377,10 +377,12 @@ open
                  build the checks; until then those Invariants count as uncovered.
 
     Q14  Failure of R12 (I37, I38) for static cases: of the 45 static Invariants (Compile 17, Diagnostics 10,
-        Codec 6, StaticCli 12), round-14 can make results for 17, and 28 are owed rows in
+        Codec 6, StaticCli 12), round-14 can make results for 21, and 24 are owed rows in
         code:packages/flow-state-v3/conformance/not-yet.ts. The static surface (prototype and null), the case
         modules for Compile and StaticCli and their mutants exist; StaticCli I2 is judged by the `graph-names`
-        oracle on the runtime cases, against graphs the static surface printed. Decision (agent, 2026-11-11): each
+        oracle on the runtime cases and by `CLI-09` (the graph's edges equal the Compiled's places). A check that
+        judges only part of an Invariant has a remainder row naming the rest and its owning Task. Decision (agent, 
+            2026-11-11): each
         owed static Invariant belongs to the P4 Task that builds its surface (Compile and Diagnostics to
         @task.V3.T17, Codec to @task.V3.T20, StaticCli I3, I10 and I11 to @task.V3.T22) and is case-covered before
         that Task closes. Why: round-14 has no surface that makes those results, so no case can tell a right
