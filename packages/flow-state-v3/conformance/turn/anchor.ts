@@ -2,7 +2,9 @@ import { Data, Option } from "effect";
 import type { Folded, Labels } from "../fixtures/folds.ts";
 import type { Machines, Route } from "../fixtures/handlers.ts";
 import type { ActorRef, Channel, Json } from "../port.ts";
+import type { Request } from "../world/network.ts";
 import type { Purpose } from "../world/storage.ts";
+import type { Reference, Rows } from "../fixtures/reference.ts";
 import { Input, leafOf, Phase, TABLE } from "./phases.ts";
 
 /**
@@ -57,6 +59,8 @@ export type Call = {
   readonly owner: Option.Option<Owner>;
   readonly phase: CallPhase;
   readonly current: boolean;
+  readonly either: boolean;
+  readonly booted: boolean;
 };
 
 export type State = {
@@ -66,6 +70,9 @@ export type State = {
   readonly owning: ReadonlyMap<string, Owner>;
   readonly calls: ReadonlyMap<string, Call>;
   readonly disposing: boolean;
+  readonly reference: Reference;
+  readonly rows: Rows;
+  readonly requests: ReadonlyArray<Request>;
 };
 
 export const keyOf = (actor: ActorRef) => `${actor.machine} ${actor.id}`;
@@ -142,6 +149,8 @@ const callOf = (state: State, operation: string, attempt: string): Call =>
     owner: Option.none(),
     phase: CallPhase.Held(),
     current: false,
+    either: false,
+    booted: true,
   };
 
 /**
@@ -183,6 +192,8 @@ export const routeOf = (
   const owner = call === undefined ? undefined : Option.getOrUndefined(call.owner);
   const leaf = leafOf(actor.phase);
 
+  if (call?.either === true) return "either";
+
   if (call?.current === true) return "current";
 
   if (owner === undefined || Option.isNone(leaf) || !Phase.$is("Live")(actor.phase))
@@ -214,14 +225,17 @@ export const minted = (
           owner: Option.some(owner),
           phase: CallPhase.Open(),
           current: false,
+          either: false,
+          booted: false,
         }),
     },
   );
 
 /**
- * An Attempt whose ending is current whatever its owner (R20): an unknown { Restored }, or an
- * adopted ending (its `Unparked`), but only in a step where the suite booted a page or attached a
- * use (`attaching`), the only steps a restore or an adoption can come in.
+ * An adopted ending (its `Unparked`) is current whatever its owner (R20), but only in a step where
+ * the suite booted a page or attached a use (`attaching`), the only steps an adoption can come
+ * in, and only for a call the suite saw end (not `Open`); an `Unparked` of a call the suite never
+ * saw changes nothing, so its delivery routes `either`.
  */
 export const current = (
   state: State,
@@ -229,12 +243,15 @@ export const current = (
   attempt: Option.Option<string>,
   attaching: boolean,
 ) =>
-  Option.isSome(attempt) && attaching
-    ? withCall(state, {
-        ...callOf(state, operation, attempt.value),
-        current: true,
-      })
-    : state;
+  Option.match(
+    Option.filter(
+      Option.flatMap(attempt, (id) =>
+        Option.fromUndefinedOr(state.calls.get(attemptKey(operation, id))),
+      ),
+      (call) => attaching && !CallPhase.$is("Open")(call.phase),
+    ),
+    { onNone: () => state, onSome: (call) => withCall(state, { ...call, current: true }) },
+  );
 
 const moveCall = (state: State, operation: string, attempt: string, phase: CallPhase) => {
   const call = state.calls.get(attemptKey(operation, attempt));
@@ -243,7 +260,8 @@ const moveCall = (state: State, operation: string, attempt: string, phase: CallP
 };
 
 /**
- * A call sent again: a Held head re-sent by its retry is in flight once more.
+ * A call sent again: a Held head re-sent by its retry is in flight once more. The caller moves it
+ * only when the step's server log received that Attempt; the `Sent` report gives only the moment.
  */
 export const sent = (state: State, operation: string, attempt: string) =>
   moveCall(state, operation, attempt, CallPhase.Open());
@@ -260,24 +278,60 @@ export const pendingOf = (state: State, actor: ActorRef, owner: Owner) =>
       Option.exists(c.owner, (by) => by.state === owner.state && by.entry === owner.entry),
   );
 
+/**
+ * Whether a step boots a page (`boot`), attaches a use (`attach`), or neither.
+ */
+export type Attaching = "boot" | "attach" | "none";
+
+/**
+ * An ending of a call: one the suite's server answered (in any step) settles as that answer
+ * classifies (`settled`): an unknown keeps the call Held, any other ends it. One the server never
+ * answered (a cancel, a decline, a restore, a bound) leaves the call Held, whatever its reported
+ * channel, so a retry may re-own it (it delivers nothing more once ended). A step that both boots
+ * and attaches counts as a boot. In a
+ * boot's step, such an ending of a call the page held before the kill is its restore, current
+ * whatever its owner (Turn R20); so is one, in a step that attaches a use, of a call whose actor
+ * the suite disposed or forgot (its adoption's restore). Any other in an attaching step routes
+ * `either` (design section 3).
+ */
 export const ended = (
   state: State,
   operation: string,
   attempt: Option.Option<string>,
-  channel: Channel,
-  reason: string,
-  attaching: boolean,
+  settled: Option.Option<Channel>,
+  attaching: Attaching,
 ) => {
   if (Option.isNone(attempt)) return state;
+  const call = callOf(state, operation, attempt.value);
 
-  if (channel === "unknown") {
-    const restored = reason === "Restored" ? current(state, operation, attempt, attaching) : state;
-
-    return moveCall(restored, operation, attempt.value, CallPhase.Held());
-  }
-
-  return moveCall(state, operation, attempt.value, CallPhase.Ended());
+  return Option.match(settled, {
+    onSome: (channel) =>
+      moveCall(
+        state,
+        operation,
+        attempt.value,
+        channel === "unknown" ? CallPhase.Held() : CallPhase.Ended(),
+      ),
+    onNone: () =>
+      withCall(state, {
+        ...call,
+        phase: CallPhase.Held(),
+        current: call.current || (attaching !== "none" && call.booted),
+        either: call.either || (attaching === "attach" && !call.current && !call.booted),
+      }),
+  });
 };
+
+/**
+ * A request the suite's server received, or answered, kept at its latest phase so an answer is
+ * classified against the Attempt's earlier sends.
+ */
+export const requested = (state: State, request: Request) => ({
+  ...state,
+  requests: [...state.requests.filter((r) => r.seq !== request.seq), request].toSorted(
+    (a, b) => a.seq - b.seq,
+  ),
+});
 
 const eachActor = (state: State, change: (a: Actor) => Actor) => ({
   ...state,
@@ -328,9 +382,24 @@ export const dropped = (state: State) =>
  * those turns reached, from the one the batch surely holds (`allowed`, design section 3; WriteAhead
  * R10, I10), with the fields that batch holds; any other keeps its stored leaf.
  */
+/**
+ * The suite disposed or forgot `actor`: an unanswered ending of one of its calls in the step that
+ * adopts it is that call's restore.
+ */
+export const unbound = (state: State, actor: ActorRef) => ({
+  ...state,
+  calls: new Map(
+    [...state.calls].map(([key, c]) => [
+      key,
+      c.actor === keyOf(actor) ? { ...c, booted: true } : c,
+    ]),
+  ),
+});
+
 export const reloaded = (state: State) => ({
   ...state,
   disposing: false,
+  calls: new Map([...state.calls].map(([key, c]) => [key, { ...c, booted: true }])),
   actors: new Map(
     [...state.actors].map(([key, a]) => {
       const lost = a.turns > a.saved.turns;

@@ -90,10 +90,13 @@ lie.cancels-reported-as-nothing	PAY-03	caught lane-queue WriteLanes I12
 lie.cancels-reported-as-nothing	PAY-14	caught lane-queue WriteLanes I12
 lie.cancels-reported-as-release	LANE-09	caught lane-queue WriteLanes I12
 lie.cancels-reported-as-release	PAY-03	caught lane-queue WriteLanes I12
+lie.failure-as-success	PAY-02	caught ending-channels WriteLanes I3
 lie.failures-unmapped	PAY-02	caught delivered-once WriteLanes I15
 lie.held-released-unguarded	LANE-03	caught lane-queue WriteLanes I12
 lie.held-released-unguarded	PAY-15/press-pay-while-held	caught lane-queue WriteLanes I12
+lie.invoked-dropped	PAY-01	caught attempt-identity WriteLanes I6
 lie.no-incarnated	DLV-04	caught disposal Actors I14
+lie.parked-as-unparked	PAY-05	caught delivered-once WriteLanes I15
 lie.release-member-claimed	PAY-15/retry-budget	caught lane-queue WriteLanes I12
 lie.release-on-guarded-read	PAY-15/retry-budget	caught lane-queue WriteLanes I12
 lie.release-on-guarded-read	PAY-23	caught lane-queue WriteLanes I12

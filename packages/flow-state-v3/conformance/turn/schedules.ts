@@ -228,8 +228,8 @@ const onFact = (walk: Walk, fact: Fact, step: ReadonlyArray<Fact>, clockAfter: n
 export const schedules = oracle<State>({
   name: "schedules",
   guarantee: ["Turn I20", "Turn I21", "Turn I23"],
-  start: (_reference, _graphs, machines) => ({
-    anchor: anchorOf(machines),
+  start: (reference, _graphs, machines, rows) => ({
+    anchor: anchorOf(machines, reference, rows),
     clock: 0,
     step: 0,
     uses: [],

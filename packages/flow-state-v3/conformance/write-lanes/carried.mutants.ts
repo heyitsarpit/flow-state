@@ -138,3 +138,55 @@ export const incarnationLieMutants: ReadonlyArray<Mutant> = [
     ],
   },
 ];
+
+/**
+ * Runtimes that lie in the reports the turn anchor still reads for their position (T45 K2): a
+ * re-send's `Sent` (`attempt-identity` sees it), an adoption's `Unparked` (`delivered-once`), and
+ * an ending's channel (`ending-channels`). Each oracle takes its own by `expects`.
+ */
+export const anchorLieMutants: ReadonlyArray<Mutant> = [
+  {
+    name: "lie.invoked-dropped",
+    says: "the runtime never reports a send",
+    expects: "WriteLanes I6",
+    runtime: "prototype",
+    cases: ["PAY-01"],
+    edits: [
+      {
+        file: "world.ts",
+        find: "  void tx.evidence.push({ kind, ...fields });",
+        replace: '  void (kind === "invoked" || tx.evidence.push({ kind, ...fields }));',
+      },
+    ],
+  },
+  {
+    name: "lie.parked-as-unparked",
+    says: "the runtime reports every park as an unpark",
+    expects: "WriteLanes I15",
+    runtime: "prototype",
+    cases: ["PAY-05"],
+    edits: [
+      {
+        file: "world.ts",
+        find: "  void tx.evidence.push({ kind, ...fields });",
+        replace:
+          '  void tx.evidence.push({ ...fields, kind: kind === "parked" ? "unparked" : kind });',
+      },
+    ],
+  },
+  {
+    name: "lie.failure-as-success",
+    says: "the runtime reports every failure ending as a success",
+    expects: "WriteLanes I3",
+    runtime: "prototype",
+    cases: ["PAY-02"],
+    edits: [
+      {
+        file: "world.ts",
+        find: "  void tx.evidence.push({ kind, ...fields });",
+        replace:
+          '  void tx.evidence.push(kind === "ending" && fields["channel"] === "failure" ? { kind, ...fields, channel: "success", reason: "success" } : { kind, ...fields });',
+      },
+    ],
+  },
+];

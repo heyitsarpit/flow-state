@@ -41,6 +41,7 @@ import { selection } from "./turn/selection.ts";
 import {
   carriedDeliveredOnceMutants,
   carriedRecordProbes,
+  anchorLieMutants,
   incarnationLieMutants,
   reportLieMutants,
 } from "./write-lanes/carried.mutants.ts";
@@ -80,11 +81,28 @@ import {
  * Every guarantee the suite runs: each oracle with the mutants it must catch.
  */
 const pinned: ReadonlyArray<Guarantee> = [
-  { oracle: endingChannels, mutants: endingChannelsMutants },
-  { oracle: attemptIdentity, mutants: attemptIdentityMutants },
+  {
+    oracle: endingChannels,
+    mutants: [
+      ...endingChannelsMutants,
+      ...anchorLieMutants.filter((m) => m.expects === "WriteLanes I3"),
+    ],
+  },
+  {
+    oracle: attemptIdentity,
+    mutants: [
+      ...attemptIdentityMutants,
+      ...anchorLieMutants.filter((m) => m.expects === "WriteLanes I6"),
+    ],
+  },
   {
     oracle: deliveredOnce,
-    mutants: [...deliveredOnceMutants, ...carriedDeliveredOnceMutants, ...reportLieMutants],
+    mutants: [
+      ...deliveredOnceMutants,
+      ...carriedDeliveredOnceMutants,
+      ...reportLieMutants,
+      ...anchorLieMutants.filter((m) => m.expects === "WriteLanes I15"),
+    ],
   },
   { oracle: laneQueue, mutants: [...laneQueueMutants, ...resendMutants, ...headerLaneMutants] },
   { oracle: disposal, mutants: [...disposalMutants, ...incarnationLieMutants] },
@@ -145,6 +163,7 @@ const reportTruth = {
 export const reportOnly: ReadonlySet<string> = new Set([
   ...reportLieMutants.map((m) => m.name),
   ...incarnationLieMutants.map((m) => m.name),
+  ...anchorLieMutants.map((m) => m.name),
   ...Object.values(productionMutants)
     .flat()
     .filter((m) => m.edits.every((e) => e.file.startsWith("conformance/adapters/")))

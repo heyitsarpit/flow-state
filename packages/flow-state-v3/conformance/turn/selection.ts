@@ -16,7 +16,9 @@ import {
   FRESH,
   answered,
   reowned,
+  requested,
   ROOT,
+  unbound,
   routeOf,
   sent,
   type State,
@@ -24,20 +26,25 @@ import {
   withoutOne,
 } from "./anchor.ts";
 import { judgeTurn, name, PENDING_RESET, selectedParts } from "./judge.ts";
-import { closed } from "./credits.ts";
+import {
+  attachingKind,
+  closed,
+  machineOfCall,
+  mintOwed,
+  retriesOwed,
+  settledBy,
+} from "./credits.ts";
 import { lateLeftWork } from "./late.ts";
 import { decideFor, foldedAfter, keysFor, labelsFor } from "./predict.ts";
 import { Input, leafOf, Phase } from "./phases.ts";
 import { type Folded, type Labels, noFolds } from "../fixtures/folds.ts";
 import { type Machines, possible, scheduledEvents } from "../fixtures/handlers.ts";
-import { Answer } from "../world/network.ts";
+import type { Reference, Rows } from "../fixtures/reference.ts";
 import {
   type ActorRef,
-  type Channel,
   type Delivered,
   MemberTarget,
   Observation,
-  sameActor,
   sameJson,
   type Turn,
 } from "../port.ts";
@@ -124,25 +131,17 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
 
   const owning = { ...state, owning: new Map([...state.owning, [keyOf(turn.actor), owner]]) };
 
-  const owned = turn.members
-    .filter((m) => m.kind === "retry")
-    .reduce<State>(
-      (acc, m) =>
-        reowned(
-          acc,
-          turn.actor,
-          m.operation,
-          (c) =>
-            MemberTarget.$match(m.target, {
-              Key: ({ key }) => Option.exists(c.key, (k) => sameJson(k, key)),
-              Only: () => true,
-              Every: () => true,
-              Nothing: () => false,
-            }),
-          owner,
-        ),
-      owning,
-    );
+  const keys = keysOf(turn, now.fields, keysFor(folds, fields, labels));
+
+  const owned = retriesOwed(state, {
+    actor: turn.actor,
+    event: turn.event,
+    from: judged.from,
+    to: Option.getOrElse(judged.to, () => turn.to),
+    at: Option.map(judged.match, (m) => m.at),
+    keys,
+    delivered: Option.fromUndefinedOr(delivered),
+  }).reduce<State>((acc, r) => reowned(acc, turn.actor, r.operation, r.matches, owner), owning);
 
   const next = moved(
     withActor(owned, turn.actor, {
@@ -170,7 +169,7 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
     from: anchored.from,
     to: anchored.to,
     at: Option.map(judged.match, (m) => m.at),
-    keys: keysOf(turn, now.fields, keysFor(folds, fields, labels)),
+    keys,
     encodable: labels["encodable"] !== false,
   };
 
@@ -337,42 +336,6 @@ const refused = (
     },
   });
 
-/**
- * An ending's channel as the suite's server answered its Attempt in this step: `Ok` is a success,
- * a lost answer an unknown. Any other ending (a failure, a cancel, a decline, a restore, a bound)
- * keeps the reported channel and reason, a stated limit.
- */
-const answeredChannel = (
-  step: ReadonlyArray<Fact>,
-  attempt: Option.Option<string>,
-  reported: { readonly channel: Channel; readonly reason: string },
-) => {
-  const answer = step.findLast(
-    (f) =>
-      Fact.$is("Answered")(f) && Option.exists(attempt, (id) => Option.contains(f.request.key, id)),
-  );
-
-  if (answer === undefined || !Fact.$is("Answered")(answer)) return reported;
-
-  return Answer.$match(answer.answer, {
-    Ok: () => ({ channel: "success" as const, reason: "" }),
-    Lost: () => ({ channel: "unknown" as const, reason: "NoResponse" }),
-    LostButLanded: () => ({ channel: "unknown" as const, reason: "NoResponse" }),
-    Fail: () => reported,
-    FailButLanded: () => reported,
-    Never: () => reported,
-    Die: () => reported,
-  });
-};
-
-/**
- * The predicted turn a mint belongs to: the step's latest, when it is the reported actor's. The
- * call's actor and key are the prediction's (the key its folds give, none for a key-less
- * operation); a mint no prediction owns records no call, so its ending routes `either`.
- */
-const mintOwed = (open: Option.Option<Predicted>, actor: Option.Option<ActorRef>) =>
-  Option.filter(open, (t) => Option.exists(actor, (a) => sameActor(a, t.actor)));
-
 // RETURN_TYPE: every branch gives the next state, its violations and the fact as judged.
 const onFact = (
   state: State,
@@ -400,8 +363,10 @@ const onFact = (
           onSome: (initial) => moved(folded(state, actor), actor, Input.Ensured({ initial })),
         }),
       ),
-    Disposed: ({ actor }) => keep(moved(uncredited(state, actor), actor, Input.Disposed())),
-    Forgot: ({ actor }) => keep(moved(uncredited(state, actor), actor, Input.Forgot())),
+    Disposed: ({ actor }) =>
+      keep(moved(unbound(uncredited(state, actor), actor), actor, Input.Disposed())),
+    Forgot: ({ actor }) =>
+      keep(moved(unbound(uncredited(state, actor), actor), actor, Input.Forgot())),
     Reloaded: () => keep(reloaded(state)),
     Drove: ({ actor, event, to, labels }) =>
       keep(drove(state, actor, Address.$is("Root")(to) ? event : partCredit(event), labels)),
@@ -423,12 +388,22 @@ const onFact = (
             ),
           );
         },
-        Sent: ({ operation, attempt }) => keep(sent(state, operation, attempt)),
-        Ended: ({ operation, attempt, channel, reason }) => {
-          const said = answeredChannel(step, attempt, { channel, reason });
-
-          return keep(ended(state, operation, attempt, said.channel, said.reason, attaching(step)));
-        },
+        Sent: ({ operation, attempt }) =>
+          keep(
+            step.some((f) => Fact.$is("Requested")(f) && Option.contains(f.request.key, attempt))
+              ? sent(state, operation, attempt)
+              : state,
+          ),
+        Ended: ({ operation, attempt }) =>
+          keep(
+            ended(
+              state,
+              operation,
+              attempt,
+              settledBy(state, step, machineOfCall(state, operation, attempt), attempt),
+              attachingKind(step),
+            ),
+          ),
         Delivered: () => keep(state),
         Parked: () => keep(state),
         Unparked: ({ operation, attempt }) =>
@@ -441,9 +416,9 @@ const onFact = (
         Published: () => keep(state),
       }),
     Stepped: () => keep(state),
-    Requested: () => keep(state),
+    Requested: ({ request }) => keep(requested(state, request)),
     Answered: ({ request, labels }) =>
-      keep(answered(state, request.operation, request.key, labels)),
+      keep(requested(answered(state, request.operation, request.key, labels), request)),
     Released: () => keep(state),
     DisposingRuntime: () => keep({ ...state, disposing: true }),
     Unstoppable: () => keep(state),
@@ -501,7 +476,7 @@ const onFact = (
 export const selection = oracle<State>({
   name: "selection",
   guarantee: ["Turn I2", "Turn I5", "Turn I26", "Turn I27"],
-  start: (_reference, _graphs, machines) => anchorOf(machines),
+  start: (reference, _graphs, machines, rows) => anchorOf(machines, reference, rows),
   step: (state, step) => {
     const judged = judgedStep(state, step);
 
@@ -519,8 +494,15 @@ export type Anchor = State;
  * The {@link Anchor} a case starts from.
  */
 // RETURN_TYPE: the Anchor contract; inference would type the empty Map's entries as never.
-export const anchorOf = (machines: Machines): Anchor => ({
+export const anchorOf = (
+  machines: Machines,
+  reference: Reference = {},
+  rows: Rows = {},
+): Anchor => ({
   machines,
+  reference,
+  rows,
+  requests: [],
   answers: new Map(),
   actors: new Map(),
   owning: new Map(),
@@ -559,6 +541,9 @@ export const anchorAt = (
   owning: new Map(),
   calls: new Map(),
   disposing: false,
+  reference: {},
+  rows: {},
+  requests: [],
 });
 
 /**

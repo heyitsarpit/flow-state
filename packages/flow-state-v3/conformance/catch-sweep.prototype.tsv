@@ -8685,6 +8685,125 @@ lie.cancels-reported-as-release	TURN-04/re-entry-makes-the-first-ending-late	gre
 lie.cancels-reported-as-release	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lie.cancels-reported-as-release	TURN-05/child-refusal	green
 lie.cancels-reported-as-release	TURN-05/removed-copy-ends-once	green
+lie.failure-as-success	CLI-01	green
+lie.failure-as-success	CLI-02	green
+lie.failure-as-success	CLI-03	green
+lie.failure-as-success	CLI-04	green
+lie.failure-as-success	CLI-05	green
+lie.failure-as-success	CLI-06	green
+lie.failure-as-success	CLI-07	green
+lie.failure-as-success	CLI-08	green
+lie.failure-as-success	CLI-09	green
+lie.failure-as-success	CMP-01	green
+lie.failure-as-success	CMP-02	green
+lie.failure-as-success	CMP-03	green
+lie.failure-as-success	CMP-04	green
+lie.failure-as-success	CMP-05	green
+lie.failure-as-success	CMP-06	green
+lie.failure-as-success	CMP-07	green
+lie.failure-as-success	CMP-08	green
+lie.failure-as-success	CMP-09	green
+lie.failure-as-success	CMP-10	green
+lie.failure-as-success	CMP-11	green
+lie.failure-as-success	DISP-01	green
+lie.failure-as-success	DISP-02	green
+lie.failure-as-success	DISP-03	caught ending-channels WriteLanes I3
+lie.failure-as-success	DISP-04	green
+lie.failure-as-success	DISP-05	green
+lie.failure-as-success	DISP-06	caught ending-channels WriteLanes I3
+lie.failure-as-success	DISP-07	green
+lie.failure-as-success	DLV-01	green
+lie.failure-as-success	DLV-02	green
+lie.failure-as-success	DLV-03	caught ending-channels WriteLanes I3
+lie.failure-as-success	DLV-04	green
+lie.failure-as-success	DLV-05	green
+lie.failure-as-success	DLV-06	caught ending-channels WriteLanes I3
+lie.failure-as-success	DLV-07	green
+lie.failure-as-success	LANE-01	green
+lie.failure-as-success	LANE-02	caught ending-channels WriteLanes I3
+lie.failure-as-success	LANE-03	caught ending-channels WriteLanes I3
+lie.failure-as-success	LANE-04	caught ending-channels WriteLanes I3
+lie.failure-as-success	LANE-05	green
+lie.failure-as-success	LANE-06	green
+lie.failure-as-success	LANE-07	green
+lie.failure-as-success	LANE-08	caught ending-channels WriteLanes I3
+lie.failure-as-success	LANE-09	green
+lie.failure-as-success	LANE-10	caught ending-channels WriteLanes I3
+lie.failure-as-success	LANE-11	green
+lie.failure-as-success	LANE-12/release-ends-queue	caught ending-channels WriteLanes I3
+lie.failure-as-success	LANE-12/release-leaves-head	caught ending-channels WriteLanes I3
+lie.failure-as-success	LANE-12/release-uninterruptible	green
+lie.failure-as-success	LANE-12/release-uninterruptible-lost	green
+lie.failure-as-success	LANE-13	green
+lie.failure-as-success	LANE-14	caught ending-channels WriteLanes I3
+lie.failure-as-success	LANE-15	caught ending-channels WriteLanes I3
+lie.failure-as-success	LANE-16	caught ending-channels WriteLanes I3
+lie.failure-as-success	PAY-01	green
+lie.failure-as-success	PAY-02	caught ending-channels WriteLanes I3
+lie.failure-as-success	PAY-03	green
+lie.failure-as-success	PAY-04	caught ending-channels WriteLanes I3
+lie.failure-as-success	PAY-05	green
+lie.failure-as-success	PAY-06/interruptible	green
+lie.failure-as-success	PAY-06/uninterruptible	green
+lie.failure-as-success	PAY-07/late-in-a-new-PAYING	caught ending-channels WriteLanes I3
+lie.failure-as-success	PAY-07/late-may-not-leave	caught ending-channels WriteLanes I3
+lie.failure-as-success	PAY-07/leaveMidCharge	green
+lie.failure-as-success	PAY-08/reload-while-reconciling	green
+lie.failure-as-success	PAY-08/reloadDuringCharge	green
+lie.failure-as-success	PAY-09/ack-not-stored	green
+lie.failure-as-success	PAY-09/ack-stored-confirmation-lost	green
+lie.failure-as-success	PAY-10/hang	caught ending-channels WriteLanes I3
+lie.failure-as-success	PAY-10/refuse	caught ending-channels WriteLanes I3
+lie.failure-as-success	PAY-12/cancel-on-wire	green
+lie.failure-as-success	PAY-12/defect	green
+lie.failure-as-success	PAY-12/sync	caught ending-channels WriteLanes I3
+lie.failure-as-success	PAY-13/hung-commit	green
+lie.failure-as-success	PAY-13/waiting-flush-lost	caught ending-channels WriteLanes I3
+lie.failure-as-success	PAY-13/waiting-flushed	caught ending-channels WriteLanes I3
+lie.failure-as-success	PAY-14	green
+lie.failure-as-success	PAY-15/busy-then-new-write	caught ending-channels WriteLanes I3
+lie.failure-as-success	PAY-15/cancel-idle	green
+lie.failure-as-success	PAY-15/cancel-on-wire	green
+lie.failure-as-success	PAY-15/dead-activation-timer	green
+lie.failure-as-success	PAY-15/dispose-held	green
+lie.failure-as-success	PAY-15/dispose-held-moved	caught ending-channels WriteLanes I3
+lie.failure-as-success	PAY-15/press-pay-while-held	caught ending-channels WriteLanes I3
+lie.failure-as-success	PAY-15/reload-holds-exactly-once	green
+lie.failure-as-success	PAY-15/retry-budget	green
+lie.failure-as-success	PAY-16/answered-inside-the-bound	caught ending-channels WriteLanes I3
+lie.failure-as-success	PAY-16/disposal-ends-with-the-last-fiber	caught ending-channels WriteLanes I3
+lie.failure-as-success	PAY-16/dispose-waiting-resend	green
+lie.failure-as-success	PAY-16/never-answered-waits-for-the-bound	green
+lie.failure-as-success	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	green
+lie.failure-as-success	PAY-16/read-defect-issue	red case
+lie.failure-as-success	PAY-16/resend-refused-capture	caught ending-channels WriteLanes I3
+lie.failure-as-success	PAY-16/restore-keeps-mayHaveApplied	green
+lie.failure-as-success	PAY-16/retry-count-persists	green
+lie.failure-as-success	PAY-16/schedule-reads-after-memory	caught ending-channels WriteLanes I3
+lie.failure-as-success	PAY-16/settled-during-disposal-parked	caught ending-channels WriteLanes I3
+lie.failure-as-success	PAY-16/stale-send-fenced	green
+lie.failure-as-success	PAY-16/superseded-read	green
+lie.failure-as-success	PAY-16/timeout-per-send	green
+lie.failure-as-success	PAY-18	green
+lie.failure-as-success	PAY-19/place-answers-first	green
+lie.failure-as-success	PAY-19/void-answers-first	green
+lie.failure-as-success	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	caught ending-channels WriteLanes I3
+lie.failure-as-success	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	caught ending-channels WriteLanes I3
+lie.failure-as-success	PAY-21	caught ending-channels WriteLanes I3
+lie.failure-as-success	PAY-22	green
+lie.failure-as-success	PAY-23	green
+lie.failure-as-success	TURN-01/mapper-refused	green
+lie.failure-as-success	TURN-01/schedule-refused	caught ending-channels WriteLanes I3
+lie.failure-as-success	TURN-02	green
+lie.failure-as-success	TURN-03/exited	caught ending-channels WriteLanes I3
+lie.failure-as-success	TURN-03/on-time	green
+lie.failure-as-success	TURN-03/re-entered	caught ending-channels WriteLanes I3
+lie.failure-as-success	TURN-03/unused	green
+lie.failure-as-success	TURN-04/a-late-exit-with-nothing-queued-goes	green
+lie.failure-as-success	TURN-04/re-entry-makes-the-first-ending-late	green
+lie.failure-as-success	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
+lie.failure-as-success	TURN-05/child-refusal	green
+lie.failure-as-success	TURN-05/removed-copy-ends-once	green
 lie.failures-unmapped	CLI-01	green
 lie.failures-unmapped	CLI-02	green
 lie.failures-unmapped	CLI-03	green
@@ -8923,6 +9042,125 @@ lie.held-released-unguarded	TURN-04/re-entry-makes-the-first-ending-late	green
 lie.held-released-unguarded	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lie.held-released-unguarded	TURN-05/child-refusal	green
 lie.held-released-unguarded	TURN-05/removed-copy-ends-once	green
+lie.invoked-dropped	CLI-01	green
+lie.invoked-dropped	CLI-02	green
+lie.invoked-dropped	CLI-03	green
+lie.invoked-dropped	CLI-04	green
+lie.invoked-dropped	CLI-05	green
+lie.invoked-dropped	CLI-06	green
+lie.invoked-dropped	CLI-07	green
+lie.invoked-dropped	CLI-08	green
+lie.invoked-dropped	CLI-09	green
+lie.invoked-dropped	CMP-01	green
+lie.invoked-dropped	CMP-02	green
+lie.invoked-dropped	CMP-03	green
+lie.invoked-dropped	CMP-04	green
+lie.invoked-dropped	CMP-05	green
+lie.invoked-dropped	CMP-06	green
+lie.invoked-dropped	CMP-07	green
+lie.invoked-dropped	CMP-08	green
+lie.invoked-dropped	CMP-09	green
+lie.invoked-dropped	CMP-10	green
+lie.invoked-dropped	CMP-11	green
+lie.invoked-dropped	DISP-01	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	DISP-02	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	DISP-03	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	DISP-04	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	DISP-05	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	DISP-06	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	DISP-07	green
+lie.invoked-dropped	DLV-01	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	DLV-02	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	DLV-03	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	DLV-04	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	DLV-05	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	DLV-06	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	DLV-07	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	LANE-01	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	LANE-02	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	LANE-03	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	LANE-04	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	LANE-05	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	LANE-06	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	LANE-07	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	LANE-08	green
+lie.invoked-dropped	LANE-09	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	LANE-10	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	LANE-11	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	LANE-12/release-ends-queue	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	LANE-12/release-leaves-head	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	LANE-12/release-uninterruptible	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	LANE-12/release-uninterruptible-lost	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	LANE-13	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	LANE-14	green
+lie.invoked-dropped	LANE-15	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	LANE-16	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-01	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-02	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-03	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-04	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-05	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-06/interruptible	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-06/uninterruptible	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-07/late-in-a-new-PAYING	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-07/late-may-not-leave	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-07/leaveMidCharge	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-08/reload-while-reconciling	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-08/reloadDuringCharge	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-09/ack-not-stored	green
+lie.invoked-dropped	PAY-09/ack-stored-confirmation-lost	green
+lie.invoked-dropped	PAY-10/hang	green
+lie.invoked-dropped	PAY-10/refuse	green
+lie.invoked-dropped	PAY-12/cancel-on-wire	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-12/defect	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-12/sync	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-13/hung-commit	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-13/waiting-flush-lost	green
+lie.invoked-dropped	PAY-13/waiting-flushed	green
+lie.invoked-dropped	PAY-14	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-15/busy-then-new-write	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-15/cancel-idle	green
+lie.invoked-dropped	PAY-15/cancel-on-wire	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-15/dead-activation-timer	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-15/dispose-held	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-15/dispose-held-moved	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-15/press-pay-while-held	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-15/reload-holds-exactly-once	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-15/retry-budget	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-16/answered-inside-the-bound	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-16/disposal-ends-with-the-last-fiber	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-16/dispose-waiting-resend	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-16/never-answered-waits-for-the-bound	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-16/read-defect-issue	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-16/resend-refused-capture	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-16/restore-keeps-mayHaveApplied	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-16/retry-count-persists	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-16/schedule-reads-after-memory	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-16/settled-during-disposal-parked	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-16/stale-send-fenced	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-16/superseded-read	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-16/timeout-per-send	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-18	green
+lie.invoked-dropped	PAY-19/place-answers-first	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-19/void-answers-first	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-21	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-22	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-23	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	TURN-01/mapper-refused	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	TURN-01/schedule-refused	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	TURN-02	green
+lie.invoked-dropped	TURN-03/exited	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	TURN-03/on-time	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	TURN-03/re-entered	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	TURN-03/unused	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	TURN-04/a-late-exit-with-nothing-queued-goes	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	TURN-04/re-entry-makes-the-first-ending-late	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
+lie.invoked-dropped	TURN-05/child-refusal	green
+lie.invoked-dropped	TURN-05/removed-copy-ends-once	green
 lie.no-incarnated	CLI-01	green
 lie.no-incarnated	CLI-02	green
 lie.no-incarnated	CLI-03	green
@@ -9042,6 +9280,125 @@ lie.no-incarnated	TURN-04/re-entry-makes-the-first-ending-late	caught disposal A
 lie.no-incarnated	TURN-05/a-part-writing-the-key-is-a-pending-reset	caught disposal Actors I14
 lie.no-incarnated	TURN-05/child-refusal	caught disposal Actors I14
 lie.no-incarnated	TURN-05/removed-copy-ends-once	caught disposal Actors I14
+lie.parked-as-unparked	CLI-01	green
+lie.parked-as-unparked	CLI-02	green
+lie.parked-as-unparked	CLI-03	green
+lie.parked-as-unparked	CLI-04	green
+lie.parked-as-unparked	CLI-05	green
+lie.parked-as-unparked	CLI-06	green
+lie.parked-as-unparked	CLI-07	green
+lie.parked-as-unparked	CLI-08	green
+lie.parked-as-unparked	CLI-09	green
+lie.parked-as-unparked	CMP-01	green
+lie.parked-as-unparked	CMP-02	green
+lie.parked-as-unparked	CMP-03	green
+lie.parked-as-unparked	CMP-04	green
+lie.parked-as-unparked	CMP-05	green
+lie.parked-as-unparked	CMP-06	green
+lie.parked-as-unparked	CMP-07	green
+lie.parked-as-unparked	CMP-08	green
+lie.parked-as-unparked	CMP-09	green
+lie.parked-as-unparked	CMP-10	green
+lie.parked-as-unparked	CMP-11	green
+lie.parked-as-unparked	DISP-01	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	DISP-02	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	DISP-03	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	DISP-04	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	DISP-05	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	DISP-06	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	DISP-07	green
+lie.parked-as-unparked	DLV-01	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	DLV-02	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	DLV-03	green
+lie.parked-as-unparked	DLV-04	green
+lie.parked-as-unparked	DLV-05	green
+lie.parked-as-unparked	DLV-06	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	DLV-07	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	LANE-01	green
+lie.parked-as-unparked	LANE-02	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	LANE-03	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	LANE-04	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	LANE-05	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	LANE-06	green
+lie.parked-as-unparked	LANE-07	green
+lie.parked-as-unparked	LANE-08	green
+lie.parked-as-unparked	LANE-09	green
+lie.parked-as-unparked	LANE-10	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	LANE-11	green
+lie.parked-as-unparked	LANE-12/release-ends-queue	green
+lie.parked-as-unparked	LANE-12/release-leaves-head	green
+lie.parked-as-unparked	LANE-12/release-uninterruptible	green
+lie.parked-as-unparked	LANE-12/release-uninterruptible-lost	green
+lie.parked-as-unparked	LANE-13	green
+lie.parked-as-unparked	LANE-14	green
+lie.parked-as-unparked	LANE-15	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	LANE-16	green
+lie.parked-as-unparked	PAY-01	green
+lie.parked-as-unparked	PAY-02	green
+lie.parked-as-unparked	PAY-03	green
+lie.parked-as-unparked	PAY-04	green
+lie.parked-as-unparked	PAY-05	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-06/interruptible	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-06/uninterruptible	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-07/late-in-a-new-PAYING	green
+lie.parked-as-unparked	PAY-07/late-may-not-leave	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-07/leaveMidCharge	green
+lie.parked-as-unparked	PAY-08/reload-while-reconciling	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-08/reloadDuringCharge	green
+lie.parked-as-unparked	PAY-09/ack-not-stored	green
+lie.parked-as-unparked	PAY-09/ack-stored-confirmation-lost	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-10/hang	green
+lie.parked-as-unparked	PAY-10/refuse	green
+lie.parked-as-unparked	PAY-12/cancel-on-wire	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-12/defect	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-12/sync	green
+lie.parked-as-unparked	PAY-13/hung-commit	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-13/waiting-flush-lost	green
+lie.parked-as-unparked	PAY-13/waiting-flushed	green
+lie.parked-as-unparked	PAY-14	green
+lie.parked-as-unparked	PAY-15/busy-then-new-write	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-15/cancel-idle	green
+lie.parked-as-unparked	PAY-15/cancel-on-wire	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-15/dead-activation-timer	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-15/dispose-held	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-15/dispose-held-moved	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-15/press-pay-while-held	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-15/reload-holds-exactly-once	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-15/retry-budget	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-16/answered-inside-the-bound	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-16/disposal-ends-with-the-last-fiber	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-16/dispose-waiting-resend	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-16/never-answered-waits-for-the-bound	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-16/read-defect-issue	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-16/resend-refused-capture	green
+lie.parked-as-unparked	PAY-16/restore-keeps-mayHaveApplied	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-16/retry-count-persists	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-16/schedule-reads-after-memory	green
+lie.parked-as-unparked	PAY-16/settled-during-disposal-parked	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-16/stale-send-fenced	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-16/superseded-read	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-16/timeout-per-send	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-18	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-19/place-answers-first	green
+lie.parked-as-unparked	PAY-19/void-answers-first	green
+lie.parked-as-unparked	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	green
+lie.parked-as-unparked	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	green
+lie.parked-as-unparked	PAY-21	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-22	green
+lie.parked-as-unparked	PAY-23	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	TURN-01/mapper-refused	green
+lie.parked-as-unparked	TURN-01/schedule-refused	green
+lie.parked-as-unparked	TURN-02	green
+lie.parked-as-unparked	TURN-03/exited	green
+lie.parked-as-unparked	TURN-03/on-time	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	TURN-03/re-entered	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	TURN-03/unused	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	TURN-04/a-late-exit-with-nothing-queued-goes	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	TURN-04/re-entry-makes-the-first-ending-late	green
+lie.parked-as-unparked	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
+lie.parked-as-unparked	TURN-05/child-refusal	green
+lie.parked-as-unparked	TURN-05/removed-copy-ends-once	green
 lie.release-member-claimed	CLI-01	green
 lie.release-member-claimed	CLI-02	green
 lie.release-member-claimed	CLI-03	green

@@ -1,7 +1,7 @@
 import { Data, type Option } from "effect";
 import type { Machines } from "../fixtures/handlers.ts";
 import { holdUse, type InvariantId, type SuiteFact } from "./facts.ts";
-import type { Reference } from "../fixtures/reference.ts";
+import type { Reference, Rows } from "../fixtures/reference.ts";
 import type { LifeStep } from "./expect.ts";
 import type { ActorRef, DisposeExit, Json, Observation, Use } from "../port.ts";
 import type { Request } from "../world/network.ts";
@@ -170,7 +170,12 @@ export class Violated extends Data.TaggedError("Violated")<{
 export type Judge<S> = {
   readonly name: string;
   readonly guarantee: ReadonlyArray<InvariantId>;
-  readonly start: (reference: Reference, graphs: ReadonlyArray<Graphed>, machines: Machines) => S;
+  readonly start: (
+    reference: Reference,
+    graphs: ReadonlyArray<Graphed>,
+    machines: Machines,
+    rows: Rows,
+  ) => S;
   readonly step: (
     state: S,
     step: ReadonlyArray<Fact>,
@@ -181,7 +186,7 @@ export type Judge<S> = {
 
 /**
  * A registered oracle: its name, its Invariants, and `open`, which starts one case's fold from
- * the case's reference, graphs and handler tables and returns the function that judges each next
+ * the case's reference, graphs, handler tables and rows and returns the function that judges each next
  * step.
  */
 export type Oracle = {
@@ -191,6 +196,7 @@ export type Oracle = {
     reference: Reference,
     graphs: ReadonlyArray<Graphed>,
     machines: Machines,
+    rows: Rows,
   ) => (
     step: ReadonlyArray<Fact>,
     requests: ReadonlyArray<Request>,
@@ -205,8 +211,8 @@ export type Oracle = {
 export const oracle = <S>(judge: Judge<S>): Oracle => ({
   name: judge.name,
   guarantee: judge.guarantee,
-  open: (reference, graphs, machines) => {
-    let state = judge.start(reference, graphs, machines);
+  open: (reference, graphs, machines, rows) => {
+    let state = judge.start(reference, graphs, machines, rows);
 
     return (step, requests, lives) => {
       const [next, found] = judge.step(state, step, requests, lives);

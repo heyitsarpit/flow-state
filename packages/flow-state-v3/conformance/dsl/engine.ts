@@ -38,11 +38,11 @@ export const stepEngine = (
   const reference = referenceFor(options.fixtures);
   const machines = handlersFor(options.fixtures);
   const known = { reference, rows: rowsFor(options.fixtures), timed: timedOf(machines) };
-  let anchor = anchorOf(machines);
+  let anchor = anchorOf(machines, reference, known.rows);
 
   const judges = options.oracles.map((o) => ({
     name: o.name,
-    next: o.open(reference, options.graphs, machines),
+    next: o.open(reference, options.graphs, machines, known.rows),
   }));
 
   let stepped = 0;
