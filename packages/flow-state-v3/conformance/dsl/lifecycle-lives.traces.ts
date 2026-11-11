@@ -13,7 +13,7 @@ import { at, build, Check, type Trace } from "./lifecycle-trace.ts";
 import type { InvariantId } from "./oracle.ts";
 
 const { H } = at;
-const { shopper, lane, model, wl, actors } = build;
+const { shopper, lane, model, wl, actors, unknown } = build;
 
 const other = { machine: "Checkout/Pay", id: "shopper-2" };
 
@@ -33,6 +33,7 @@ const named = { operation: "pay", attempt: Option.some("s"), actor: shopper };
 
 const OW = Life.Owed();
 const PK = Life.Parked();
+const PO = Life.ParkedOpen();
 const DF = Life.Delivering({ retry: false });
 const DT = Life.Delivering({ retry: true });
 const RF = Life.Refused();
@@ -44,6 +45,7 @@ const CL = Life.Closed();
 const lives: ReadonlyArray<readonly [string, Life]> = [
   ["Owed", OW],
   ["Parked", PK],
+  ["ParkedOpen", PO],
   ["Delivering", DF],
   ["Refused", RF],
   ["Kept", KP],
@@ -123,6 +125,7 @@ const tableTraces: ReadonlyArray<Trace> = [
     {
       Owed: DF,
       Parked: DF,
+      ParkedOpen: DF,
       Delivering: wl(15),
       Refused: DT,
       Kept: actors(24),
@@ -134,7 +137,14 @@ const tableTraces: ReadonlyArray<Trace> = [
   ...rowTraces(
     "Delivered",
     "WriteLanes R17, I15: nothing is delivered during the Runtime's disposal (today's rule)",
-    { Owed: wl(15), Parked: wl(15), Refused: wl(15), Kept: wl(15), KeptOpen: wl(15) },
+    {
+      Owed: wl(15),
+      Parked: wl(15),
+      ParkedOpen: wl(15),
+      Refused: wl(15),
+      Kept: wl(15),
+      KeptOpen: wl(15),
+    },
     disposing,
     {},
     " during disposal",
@@ -145,6 +155,7 @@ const tableTraces: ReadonlyArray<Trace> = [
     {
       Owed: wl(15),
       Parked: wl(15),
+      ParkedOpen: wl(15),
       Delivering: RF,
       Refused: wl(15),
       Kept: wl(15),
@@ -171,6 +182,7 @@ const tableTraces: ReadonlyArray<Trace> = [
   ...rowTraces("Unmapped", "Actors R15: an unmapped ending is final (today's rule; CQ10)", {
     Owed: wl(15),
     Parked: wl(15),
+    ParkedOpen: wl(15),
     Delivering: CL,
     Refused: wl(15),
     Kept: wl(15),
@@ -182,6 +194,7 @@ const tableTraces: ReadonlyArray<Trace> = [
   ...rowTraces("Parked", "WriteLanes R10, R17: an owed ending parks for its incarnation", {
     Owed: PK,
     Parked: PK,
+    ParkedOpen: PK,
     Delivering: wl(15),
     Refused: wl(15),
     Kept: wl(15),
@@ -192,6 +205,7 @@ const tableTraces: ReadonlyArray<Trace> = [
   ...rowTraces("Unparked", "WriteLanes R10: a parked ending is owed again", {
     Owed: wl(15),
     Parked: OW,
+    ParkedOpen: OW,
     Delivering: wl(15),
     Refused: wl(15),
     Kept: KP,
@@ -202,7 +216,7 @@ const tableTraces: ReadonlyArray<Trace> = [
   ...rowTraces(
     "RecordedLetGo",
     "Actors R15, R21: a kept ending is let go when cancelled or forgotten",
-    { Owed: CL, Parked: CL, Kept: CL, KeptOpen: CL },
+    { Owed: CL, Parked: CL, ParkedOpen: CL, Kept: CL, KeptOpen: CL },
     lettingGo,
     {},
     " owing its let-go",
@@ -210,6 +224,7 @@ const tableTraces: ReadonlyArray<Trace> = [
   ...rowTraces("RecordedLetGo", "WriteLanes I15: an ending is let go only when owed", {
     Owed: wl(15),
     Parked: wl(15),
+    ParkedOpen: wl(15),
     Delivering: wl(15),
     Refused: wl(15),
     Kept: wl(15),
@@ -220,6 +235,7 @@ const tableTraces: ReadonlyArray<Trace> = [
   ...rowTraces("RecordedOther", "WriteLanes R10, I15: evidence is recorded, never delivered", {
     Owed: wl(15),
     Parked: wl(15),
+    ParkedOpen: wl(15),
     Delivering: wl(15),
     Refused: wl(15),
     Kept: wl(15),
@@ -232,7 +248,8 @@ const tableTraces: ReadonlyArray<Trace> = [
     "Actors R10, R15: an incarnation is owed its parked endings and one kept try",
     {
       Owed: OW,
-      Parked: OW,
+      Parked: PO,
+      ParkedOpen: PO,
       Delivering: DF,
       Refused: RF,
       Kept: KO,
@@ -241,9 +258,19 @@ const tableTraces: ReadonlyArray<Trace> = [
       Closed: CL,
     },
   ),
+  lifeTrace(
+    "Opens",
+    "Actors R22 as written, pending CQ6: a never-sent commit's disposal ending is not owed",
+    PK,
+    PK,
+    alone,
+    { channel: "failure", reason: "Disposed", inDisposal: true },
+    " of a never-sent commit decided in disposal",
+  ),
   ...rowTraces("StepEnds", "WriteLanes I15; Actors R10, I24: endings settle in their step (CQ8)", {
     Owed: wl(15),
     Parked: PK,
+    ParkedOpen: wl(15),
     Delivering: wl(15),
     Refused: wl(15),
     Kept: KP,
@@ -266,6 +293,7 @@ const tableTraces: ReadonlyArray<Trace> = [
     {
       Owed: CL,
       Parked: PK,
+      ParkedOpen: PK,
       Delivering: wl(15),
       Refused: CL,
       Kept: KP,
@@ -286,6 +314,7 @@ const tableTraces: ReadonlyArray<Trace> = [
   ...rowTraces("DisposalStarts", "Actors R22: the disposal's start moves no ending", {
     Owed: OW,
     Parked: PK,
+    ParkedOpen: PO,
     Delivering: DF,
     Refused: RF,
     Kept: KP,
@@ -312,14 +341,34 @@ const actorTraces: ReadonlyArray<Trace> = [
     checks: [Check.Lives({ lives: [CL] })],
   },
   {
-    name: "an incarnation owes its Held head a restore",
+    name: "a reload owes its Held head one restore, and the boot's incarnation owes no second",
     cites: "Restore R3, I6: unknown Restored once per incarnation",
+    start: model(lane("A", ["s", H])),
+    steps: [Move.Reload(), ActorMove.Incarnated({ actor: shopper })],
+    refusals: [[], []],
+    phases: { s: H },
+    owed: 1,
+    checks: [Check.Owing({ obligations: [restoring] })],
+  },
+  {
+    name: "a boot's restore ending comes before its incarnation opens",
+    cites: "Restore R3, I6: the boot decides its restore endings, then opens incarnations",
+    start: model(lane("A", ["s", H])),
+    steps: [Move.Reload(), unknown("s", "Restored")],
+    refusals: [[], []],
+    phases: { s: H },
+    owed: 0,
+    checks: [],
+  },
+  {
+    name: "a bound actor's incarnation with no reload owes no restore",
+    cites: "Restore I6: no boot and no return, so no restore ending",
     start: model(lane("A", ["s", H])),
     steps: [ActorMove.Incarnated({ actor: shopper })],
     refusals: [[]],
     phases: { s: H },
-    owed: 1,
-    checks: [Check.Owing({ obligations: [restoring] })],
+    owed: 0,
+    checks: [],
   },
   {
     name: "an adoption after the actor's disposal owes its Held head a restore",
@@ -351,8 +400,12 @@ const actorTraces: ReadonlyArray<Trace> = [
     name: "a Held head's parked ending delivered meets its restore",
     cites: "Restore I6: the parked ending is the restore's delivery",
     start: model(lane("A", ["s", H]), { endings: [ending(PK)] }),
-    steps: [ActorMove.Incarnated({ actor: shopper }), LifeMove.Delivered({ ending: named })],
-    refusals: [[], []],
+    steps: [
+      Move.Reload(),
+      ActorMove.Incarnated({ actor: shopper }),
+      LifeMove.Delivered({ ending: named }),
+    ],
+    refusals: [[], [], []],
     phases: { s: H },
     owed: 0,
     checks: [Check.Lives({ lives: [DF] })],

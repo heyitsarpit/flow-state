@@ -130,7 +130,8 @@ export const Obligation = Data.taggedEnum<Obligation>();
  *
  * **Details**
  *
- * - `Owed`: to a live incarnation; `Parked`: waiting for one.
+ * - `Owed`: to a live incarnation; `Parked`: waiting for one; `ParkedOpen`: parked, and owed to
+ *   the incarnation that just began, which unparks it or is delivered it in its step (T6 L11).
  * - `Delivering`: admitted and not yet heard; `retry` when it is a redelivery or a kept ending's
  *   try, whose refusal keeps it.
  * - `Refused`: its first turn was refused; `Kept`: refused twice, kept on its lane; `KeptOpen`: kept,
@@ -141,6 +142,7 @@ export const Obligation = Data.taggedEnum<Obligation>();
 export type Life = Data.TaggedEnum<{
   Owed: {};
   Parked: {};
+  ParkedOpen: {};
   Delivering: { retry: boolean };
   Refused: {};
   Kept: {};

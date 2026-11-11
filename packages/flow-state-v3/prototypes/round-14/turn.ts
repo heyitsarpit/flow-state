@@ -1238,8 +1238,7 @@ const deliver = (tx: Tx, a: ActorRec, path: Path, item: EndingMail) => {
   const m = machineOf(tx, a);
   const inc = kidAt(a.root, path)!;
   const mapped = mappedFor(m, item);
-  if (!item.redelivered || item.kept)
-    note(tx, "delivered", { op: item.op, attempt: item.attempt ?? "", event: mapped?.event, at: path, reason: endingReason(item.ending), actor: a.key }); // stage F: the copy it runs in
+  note(tx, "delivered", { op: item.op, attempt: item.attempt ?? "", event: mapped?.event, at: path, reason: endingReason(item.ending), actor: a.key }); // stage F: the copy it runs in
   if (!mapped) {
     issue(tx, { code: "UnmappedEnding", origin: `${a.machine} operations.${item.op}`, input: item.ending, ending: { op: item.op, ...(item.attempt ? { attempt: item.attempt } : {}), actor: a.key } });
     return endHeldThisTurn(tx, item.attempt);

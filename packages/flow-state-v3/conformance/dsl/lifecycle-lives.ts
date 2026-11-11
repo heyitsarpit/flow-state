@@ -72,10 +72,27 @@ const byLetGo: Guard = (model, index, ending) => {
 
 const byDisposal: Guard = (_model, _index, ending) => (ending.inDisposal ? "inDisposal" : "live");
 
+const byDisposalNeverSent: Guard = (_model, _index, ending) =>
+  ending.inDisposal && neverSent(ending) ? "neverSentInDisposal" : "other";
+
 const guards: Partial<Record<LifeRow, Partial<Record<Life["_tag"], Guard>>>> = {
-  Delivered: { Owed: byMode, Parked: byMode, Refused: byMode, Kept: byMode, KeptOpen: byMode },
+  Delivered: {
+    Owed: byMode,
+    Parked: byMode,
+    ParkedOpen: byMode,
+    Refused: byMode,
+    Kept: byMode,
+    KeptOpen: byMode,
+  },
   InvalidTurn: { Delivering: byRetry },
-  RecordedLetGo: { Owed: byLetGo, Parked: byLetGo, Kept: byLetGo, KeptOpen: byLetGo },
+  RecordedLetGo: {
+    Owed: byLetGo,
+    Parked: byLetGo,
+    ParkedOpen: byLetGo,
+    Kept: byLetGo,
+    KeptOpen: byLetGo,
+  },
+  Opens: { Parked: byDisposalNeverSent },
   StepEnds: { Owed: byDisposal },
   Reload: { Owed: byDisposal },
 };

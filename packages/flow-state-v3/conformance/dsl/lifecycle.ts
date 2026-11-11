@@ -116,9 +116,9 @@ const actorOf = (model: Model, actor: ActorRef) =>
 
 const heldRestore = (model: Model, life: AttemptLife, reason: string) => {
   if (reason !== "Restored") return "other";
-  const incarnation = actorOf(model, life.lane.actor)?.incarnation;
+  const incarnation = actorOf(model, life.lane.actor)?.incarnation ?? 0;
 
-  return owed(model, life.id, "AwaitRestore").some((o) => o.incarnation === incarnation)
+  return owed(model, life.id, "AwaitRestore").some((o) => o.incarnation >= incarnation)
     ? "owedRestore"
     : "unowedRestore";
 };
@@ -340,11 +340,40 @@ const attemptOfMove = (move: Move) =>
     ? Option.some(move.attempt)
     : Option.none();
 
+const bootOwes = (model: Model) => {
+  const cause = model.mode === "disposing" ? ("runtimeDisposal" as const) : ("plain" as const);
+
+  const released = (attempt: string) =>
+    model.obligations.some(
+      (o) => Obligation.$is("Await")(o) && o.attempt === attempt && o.report === "Released",
+    );
+
+  const owing = model.attempts.filter(
+    (a) => a.phase._tag === "Held" && isHead(model, a) && !released(a.id),
+  );
+
+  return [
+    ...model.obligations,
+    ...owing.map((a) =>
+      Obligation.AwaitRestore({
+        attempt: a.id,
+        incarnation: (actorOf(model, a.lane.actor)?.incarnation ?? 0) + 1,
+        cause,
+      }),
+    ),
+  ];
+};
+
 const modeAfter = (model: Model, move: Move) => {
   if (Move.$is("DisposalStarts")(move)) return { ...model, mode: "disposing" as const };
 
   if (Move.$is("Reload")(move))
-    return { ...model, mode: "running" as const, afterDisposal: model.mode === "disposing" };
+    return {
+      ...model,
+      mode: "running" as const,
+      afterDisposal: model.mode === "disposing",
+      obligations: bootOwes(model),
+    };
 
   return model;
 };
@@ -431,20 +460,30 @@ export const due = (model: Model, instant: "TurnCloses" | "StepEnds", given: Rul
 };
 
 /**
- * Begins an incarnation of `actor`: its ordinal moves on, and each Held head of its lanes owes its
- * restore ending to this incarnation, for a cause read from the actor's record.
+ * Begins an incarnation of `actor`: its ordinal moves on, and, on a return from grace,
+ * `disposeActor` or `forget`, each Held head of its lanes owes its restore ending to this
+ * incarnation, for a cause read from the actor's record.
  *
  * **Gotchas**
  *
  * - Only Held heads owe a restore: a never-sent or on-wire Attempt cannot show one.
+ * - A boot's restore endings are owed from the `Reload` itself, to each actor's next incarnation:
+ *   the boot decides them before it opens any incarnation (round-14 `step.ts` `onBoot`: `restore`,
+ *   then the `incarnation` notes), and a record not woken at ready hears them, parked, at its
+ *   return. So the incarnation a boot opens owes no second restore ending (Restore I6, WriteLanes
+ *   I15: once per incarnation). A Held head that owes its release is not kept (WriteLanes R4),
+ *   so it owes no restore.
  */
 export const incarnate = (model: Model, actor: ActorRef) => {
   const known = actorOf(model, actor);
   const incarnation = (known?.incarnation ?? 0) + 1;
   const cause = causeOf(model, known?.record ?? "bound");
 
+  const returning = known !== undefined && known.record !== "bound";
+
   const owing = model.attempts.filter(
-    (a) => sameActor(a.lane.actor, actor) && a.phase._tag === "Held" && isHead(model, a),
+    (a) =>
+      returning && sameActor(a.lane.actor, actor) && a.phase._tag === "Held" && isHead(model, a),
   );
 
   return {

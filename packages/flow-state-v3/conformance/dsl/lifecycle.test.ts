@@ -353,6 +353,7 @@ describe("The lane lifecycle (Table A, deadlines, promotion)", () => {
     const allLives = [
       Life.Owed(),
       Life.Parked(),
+      Life.ParkedOpen(),
       Life.Delivering({ retry: false }),
       Life.Delivering({ retry: true }),
       Life.Refused(),

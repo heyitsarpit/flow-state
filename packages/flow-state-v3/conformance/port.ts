@@ -210,9 +210,9 @@ export type EndingRef = {
  *   unkeyed one): the Case stops with `UnreadableReport`, a defect naming the field, when either is
  *   missing. On a decline's `Ended` and on `Delivered`, `actor` names the actor, `None` when the
  *   runtime does not say.
- * - A delivery is reported once. When its turn is refused (an `InvalidTurn` issue), the one
- *   redelivery after queued mail is not reported again as `Delivered`: its turn, or its second
- *   refusal, shows it.
+ * - `Delivered` is reported on every admission of an operation's ending, the redelivery after a
+ *   refused turn (an `InvalidTurn` issue) and a kept ending's try included. Module deliveries are
+ *   not operation endings and are not reported.
  */
 export type Observation = Data.TaggedEnum<{
   Turn: {

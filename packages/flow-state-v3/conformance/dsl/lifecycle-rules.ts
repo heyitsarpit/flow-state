@@ -389,6 +389,7 @@ const once = (fate: Fate) => ({ always: fate });
 const lives = (fate: Fate) => ({
   Owed: once(fate),
   Parked: once(fate),
+  ParkedOpen: once(fate),
   Delivering: once(fate),
   Refused: once(fate),
   Kept: once(fate),
@@ -412,12 +413,19 @@ const admitted = (retry: boolean) => ({
  *   CQ10, and a refused ending at a reload on CQ10: each follows today's rule. A twice-refused
  *   decline or never-sent ending is `Closed`, as Actors R15 is written ("only a sent write's
  *   twice-refused ending stays parked"), pending CQ1 and CQ2 (round-14 keeps declines, D123).
+ * - `Opens` on a parked ending gives `ParkedOpen`, not the design's `Owed`: a runtime may report
+ *   the unpark after the incarnation opens (round-14's boot), and `Unparked` on `Owed` stays a
+ *   refusal. `ParkedOpen` is owed by the step's end, as the design's `Owed` was (T6 L11).
+ * - A never-sent commit's ending decided in the Runtime's disposal (`NotSent { Disposed }`, Actors
+ *   R22) stays `Parked` at `Opens`, unjudged, pending CQ6: round-14 does not deliver it after the
+ *   reload (`PAY-10/hang`, `PAY-13/waiting-flush-lost`), and no Invariant says it must.
  */
 export const tableC: TableC = {
   Delivered: {
     ...lives(deny(15)),
     Owed: admitted(false),
     Parked: admitted(false),
+    ParkedOpen: admitted(false),
     Refused: admitted(true),
     KeptOpen: admitted(true),
     Kept: { running: Fate.Refuse({ invariant: actors(24) }), disposing: deny(15) },
@@ -432,10 +440,16 @@ export const tableC: TableC = {
   },
   Unmapped: { ...lives(deny(15)), Delivering: once(live(Life.Closed())) },
   Heard: { Delivering: once(live(Life.Closed())) },
-  Parked: { ...lives(deny(15)), Owed: once(live(Life.Parked())), Parked: once(kept) },
+  Parked: {
+    ...lives(deny(15)),
+    Owed: once(live(Life.Parked())),
+    Parked: once(kept),
+    ParkedOpen: once(live(Life.Parked())),
+  },
   Unparked: {
     ...lives(deny(15)),
     Parked: once(live(Life.Owed())),
+    ParkedOpen: once(live(Life.Owed())),
     Kept: once(kept),
     KeptOpen: once(kept),
   },
@@ -443,6 +457,7 @@ export const tableC: TableC = {
     ...lives(deny(15)),
     Owed: { letGo: live(Life.Closed()), none: deny(15) },
     Parked: { letGo: live(Life.Closed()), none: deny(15) },
+    ParkedOpen: { letGo: live(Life.Closed()), none: deny(15) },
     Kept: { letGo: live(Life.Closed()), none: deny(15) },
     KeptOpen: { letGo: live(Life.Closed()), none: deny(15) },
     Evidence: once(live(Life.Closed())),
@@ -450,12 +465,13 @@ export const tableC: TableC = {
   RecordedOther: { ...lives(deny(15)), Evidence: once(live(Life.Closed())) },
   Opens: {
     ...lives(kept),
-    Parked: once(live(Life.Owed())),
+    Parked: { neverSentInDisposal: kept, other: live(Life.ParkedOpen()) },
     Kept: once(live(Life.KeptOpen())),
   },
   StepEnds: {
     ...lives(kept),
     Owed: { inDisposal: kept, live: deny(15) },
+    ParkedOpen: once(deny(15)),
     Delivering: once(deny(15)),
     Refused: once(deny(15)),
     KeptOpen: once(Fate.Refuse({ invariant: actors(24) })),
@@ -464,6 +480,7 @@ export const tableC: TableC = {
   Reload: {
     ...lives(kept),
     Owed: { inDisposal: live(Life.Parked()), live: live(Life.Closed()) },
+    ParkedOpen: once(live(Life.Parked())),
     Delivering: once(deny(15)),
     Refused: once(live(Life.Closed())),
     KeptOpen: once(live(Life.Kept())),

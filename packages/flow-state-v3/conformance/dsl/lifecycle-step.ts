@@ -19,9 +19,11 @@ import {
 import type { Request } from "../world/network.ts";
 import { due } from "./lifecycle.ts";
 import { apply } from "./lifecycle-fold.ts";
+import { endingNamed } from "./lifecycle-lives.ts";
 import {
   ActorMove,
   addressable,
+  type EndingName,
   type Input,
   type LaneId,
   LaneMove,
@@ -126,6 +128,32 @@ const heardOf = (
     onNone: () => walk,
     onSome: (ending) => pushed(walk, LifeMove.Heard({ ending }), given),
   });
+
+const asMapped = (walk: Walk, before: Model, known: Known, name: EndingName, event: string) => {
+  const ending = Option.flatMap(endingNamed(before, name), (i) =>
+    Option.fromUndefinedOr(before.endings[i]),
+  );
+
+  const expected = Option.flatMap(ending, (e) =>
+    Option.flatMap(operationOf(known, e.actor, e.operation), (o) =>
+      mappedEvent(o, e.channel, e.reason),
+    ),
+  );
+
+  const last = walk.applied.at(-1);
+
+  if (last === undefined || Option.isNone(expected) || expected.value === event) return walk;
+
+  const wrong = {
+    invariant: "WriteLanes I15" as const,
+    text: `${name.operation} ${Option.getOrElse(name.attempt, () => "decline")} was delivered as ${event}, not its ending's ${expected.value}`,
+  };
+
+  return {
+    ...walk,
+    applied: [...walk.applied.slice(0, -1), { ...last, refusals: [...last.refusals, wrong] }],
+  };
+};
 
 const sendsOf = (walk: Walk, attempt: string, earlier: ReadonlyArray<Request>) =>
   earlier.filter((r) => Option.contains(r.key, attempt)).length +
@@ -279,12 +307,13 @@ const reported = (
             },
           ),
       }),
-    Delivered: ({ operation, attempt, actor }) => {
+    Delivered: ({ operation, attempt, actor, event }) => {
       const open = closedTurn(walk, given);
 
       return Option.match(lifeNamed(open.model, operation, attempt, actor), {
         onNone: () => open,
-        onSome: (ending) => push(open, LifeMove.Delivered({ ending })),
+        onSome: (ending) =>
+          asMapped(push(open, LifeMove.Delivered({ ending })), open.model, known, ending, event),
       });
     },
     Parked: ({ operation, attempt }) =>

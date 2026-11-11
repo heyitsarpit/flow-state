@@ -4,7 +4,7 @@ import { lifeTraces } from "./lifecycle-lives.traces.ts";
 import { memberTraces } from "./lifecycle-members.traces.ts";
 import { turnTraces } from "./lifecycle-turns.traces.ts";
 import { obligationTraces } from "./lifecycle-obligations.traces.ts";
-import { at, build, type Trace } from "./lifecycle-trace.ts";
+import { at, build, Check, type Trace } from "./lifecycle-trace.ts";
 import type { InvariantId } from "./oracle.ts";
 
 const { Q, U, RS, W, I, H, RT, RF, GC, GE, GS } = at;
@@ -345,6 +345,7 @@ const laneWide = (
   refusals: ReadonlyArray<InvariantId>,
   changed: Readonly<Record<string, Phase>>,
   more: Partial<Omit<Model, "attempts">> = {},
+  owes: ReadonlyArray<Obligation> = [],
 ) => ({
   name,
   cites,
@@ -352,9 +353,12 @@ const laneWide = (
   steps: [move],
   refusals: [refusals],
   phases: { ...zooPhases, ...changed },
-  owed: 1,
-  checks: [],
+  owed: 1 + owes.length,
+  checks: owes.length === 0 ? [] : [Check.Owing({ obligations: [pending("u"), ...owes] })],
 });
+
+const bootRestore = (attempt: string, cause: "plain" | "runtimeDisposal" = "plain") =>
+  Obligation.AwaitRestore({ attempt, incarnation: 2, cause });
 
 const laneWideTraces: ReadonlyArray<Trace> = [
   laneWide(
@@ -363,6 +367,17 @@ const laneWideTraces: ReadonlyArray<Trace> = [
     Move.Reload(),
     [],
     { q: RF, u: RT, uw: RF, r: H, o: H, i: H },
+    {},
+    ["hq", "r", "o", "i"].map((a) => bootRestore(a)),
+  ),
+  laneWide(
+    "a reload after the Runtime's disposal",
+    "Actors I29, Restore I6: each Held head owes its restore ending to the boot's incarnation",
+    Move.Reload(),
+    [],
+    { q: RF, u: RT, uw: RF, r: H, o: H, i: H },
+    { mode: "disposing" },
+    ["hq", "r", "o", "i"].map((a) => bootRestore(a, "runtimeDisposal")),
   ),
   laneWide(
     "the boot settles",
