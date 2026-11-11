@@ -75,40 +75,33 @@ const bounds = (model: Model, reference: Reference) =>
   });
 
 /**
- * Each head that was re-sending at the step's start and still is at its end, in a step where the
- * store answered every held write (WriteLanes I26: an accepted retry is followed by one
- * invocation once its capture lands).
+ * Each head that was re-sending at the step's start (the model's expectation, `lives.before`), in a
+ * step where the store answered every held write, that the server did not receive again in that
+ * step (WriteLanes I26: an accepted retry is followed by one invocation once its capture lands).
+ * A request of its operation that carried an Attempt the model never saw is WriteLanes I9.
  */
 const owedResends = (lives: LifeStep, step: ReadonlyArray<Fact>) => {
-  const stored = step.some((f) => Fact.$is("Landed")(f));
+  if (!step.some((f) => Fact.$is("Landed")(f))) return [];
 
-  if (!stored) return [];
-
-  const before = lives.before.attempts.filter((a) => a.phase._tag === "Resending").map((a) => a.id);
-
+  const received = step.flatMap((f) => (Fact.$is("Requested")(f) ? [f.request] : []));
   const known = lives.after.attempts.map((a) => a.id);
 
-  const strangers = step.flatMap((f) =>
-    Fact.$is("Reported")(f) &&
-    f.observation._tag === "Sent" &&
-    !known.includes(f.observation.attempt)
-      ? [f.observation]
-      : [],
-  );
-
-  return lives.after.attempts
-    .filter((a) => a.phase._tag === "Resending" && before.includes(a.id))
+  return lives.before.attempts
+    .filter((a) => a.phase._tag === "Resending")
+    .filter((a) => !received.some((r) => Option.contains(r.key, a.id)))
     .map((a) => {
-      const other = strangers.find((x) => x.operation === a.lane.operation);
+      const other = received.find(
+        (r) => r.operation === a.lane.operation && Option.exists(r.key, (k) => !known.includes(k)),
+      );
 
       return other === undefined
         ? {
             invariant: "WriteLanes I26" as const,
-            text: `${a.lane.operation} ${a.id} was retried and its capture landed, but it was not sent again`,
+            text: `${a.lane.operation} ${a.id} was retried and its capture landed, but the server did not receive it again`,
           }
         : {
             invariant: "WriteLanes I9" as const,
-            text: `${a.lane.operation} ${a.id} was retried, and the re-send carried ${other.attempt}, not the Attempt its lane last sent`,
+            text: `${a.lane.operation} ${a.id} was retried, and the re-send carried ${Option.getOrElse(other.key, () => "")}, not the Attempt its lane last sent`,
           };
     });
 };

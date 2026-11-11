@@ -525,6 +525,13 @@ tasks
             a runtime module, and rejects three planted imports. A conformance test, not a `vite.config.ts` rule, 
             because `May change` is `conformance/` only; moving it into the lint config is a one-line follow-up for 
             whoever owns the config. Gates unchanged.
+        comment     2026-11-11T18:29:19Z
+            N4 checked (Haiku sidecar over the six `lives` oracles): accepted 2, `late-results`' revival and 
+            `lane-queue`'s owed re-sends now take what happened from the server log (`Requested`), not the model's end 
+            state. Noted, not changed: `lane-queue`'s member order and hold-last and `disposal`'s hold-last read 
+            `applied` moves, which are the reports one for one (compare's matches), so they compare report order with 
+            the model; `idle-guard` takes lane idleness from the model, the only source. Open (N1): a report that fits 
+            no item is still dropped in five places in `dsl/compare.ts`. Gates unchanged.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open

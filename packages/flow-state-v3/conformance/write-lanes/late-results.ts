@@ -22,7 +22,9 @@ const cleaned = (lives: LifeStep, attempt: string) =>
  * A late result is a server answer (`Answered`, the suite's fact) to an Attempt the Case's
  * lifecycle holds `Gone` at the step's start (interrupted, superseded or settled in disposal), or
  * `Interrupted` on a lane a release marked. In that step no `Delivered` or `Parked` names it, and
- * it is not brought back to its lane (any phase but `Gone` or `Interrupted` at the step's end).
+ * it is not brought back to its lane: the server receives no request of it (a world fact). Its own
+ * cancel ending is not a revival.
+ * The cleanup is the model's expectation (`lives.before`); what happened is the runtime's reports.
  *
  * **Gotchas**
  *
@@ -52,12 +54,13 @@ export const lateResults = oracle<Record<string, never>>({
           : [],
       );
 
-      const revived = lives.after.attempts
-        .filter((a) => a.id === id && a.phase._tag !== "Gone" && a.phase._tag !== "Interrupted")
-        .map(
-          (a) =>
-            `WriteLanes I23: ${a.lane.operation} ${id} was cleaned up, and its late result made it ${a.phase._tag}`,
-        );
+      const revived = step.flatMap((fact) =>
+        Fact.$is("Requested")(fact) && Option.contains(fact.request.key, id)
+          ? [
+              `WriteLanes I23: ${fact.request.operation} ${id} was cleaned up, and the server received it again`,
+            ]
+          : [],
+      );
 
       return [...heard, ...revived];
     });
