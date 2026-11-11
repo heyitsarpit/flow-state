@@ -24,3 +24,8 @@ decisions
         outcome contradicts ("from its start nothing is invoked"); @spec.Actors.R22 and
         @spec.Actors.I30 follow the second reading. **Why:** the audit's G17. **Proven by:** P3's
         disposal cases (`o6.*` wrong runtimes) staying green on round 14. Found in @task.V3.T42.
+    D4  @plan.Operations.O3: a refused ending is redelivered once only for a mapper throw
+        Narrow O3's "a pre-commit defect is not retried for that input" to match @spec.WriteLanes.R10:
+        a refused ending is redelivered once when its mapper threw, and never otherwise. Round-14
+        redelivers any refused ending once, a prototype deviation. **Proven by:** P4's production
+        turn passing TURN-01 with the issue count asserted. Found in @task.V3.T8.

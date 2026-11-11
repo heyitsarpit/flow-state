@@ -38,17 +38,17 @@ leaf. Add p2, p4 and p5 as `selection` mutants (each one expects Turn I2, or I26
   by `selection` and 9 by `lane-queue`. H1 above is the same lie with the root part left out.
 - Probes are edits to round-14 run with `suite --runtime` (scratch `edits/*.json`, `tools/mk.ts`, `tools/run.sh`):
 
-| Probe                                                       | Result                                     |
-| ----------------------------------------------------------- | ------------------------------------------ |
-| p1ctl: leave out every root part, run unchanged             | 12 red, all false Turn I30 (see M4)        |
-| p1: root-first on every event, no root part                 | 38 red; `selection` catches driven events  |
-| p2r: root-first on `CheckTick`, root part reported          | 24 red, all by `selection` I2              |
-| p2: the same with no root part                              | 22 red, **0 by an oracle** (case only)     |
-| p4: root-first on restored endings only                     | 4 red, **1 by `selection`**, 3 case only   |
-| p5c: drop cancels (control)                                 | 14 red, all `lane-queue` I12/I20/I21       |
-| p5: drop cancels, `to = from`, no root part on those turns  | 14 red, **0 by `selection`**, 6 by wrong I1 |
-| p6c: decline reports with no actor                          | 0 red (correct: the open turn names it)    |
-| p6: the same plus an undelivered decline                    | 4 red, all `delivered-once` I15            |
+| Probe                                                      | Result                                      |
+| ---------------------------------------------------------- | ------------------------------------------- |
+| p1ctl: leave out every root part, run unchanged            | 12 red, all false Turn I30 (see M4)         |
+| p1: root-first on every event, no root part                | 38 red; `selection` catches driven events   |
+| p2r: root-first on `CheckTick`, root part reported         | 24 red, all by `selection` I2               |
+| p2: the same with no root part                             | 22 red, **0 by an oracle** (case only)      |
+| p4: root-first on restored endings only                    | 4 red, **1 by `selection`**, 3 case only    |
+| p5c: drop cancels (control)                                | 14 red, all `lane-queue` I12/I20/I21        |
+| p5: drop cancels, `to = from`, no root part on those turns | 14 red, **0 by `selection`**, 6 by wrong I1 |
+| p6c: decline reports with no actor                         | 0 red (correct: the open turn names it)     |
+| p6: the same plus an undelivered decline                   | 4 red, all `delivered-once` I15             |
 
 ## The three suspected Highs from the partial review
 

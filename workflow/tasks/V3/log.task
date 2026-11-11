@@ -625,12 +625,26 @@ note 2026-11-11T04:41:35Z
     repeated 'report decides an obligation' bugs broke its rule 'excuse only what the harness observed'. Adapters get 
     typed failures; P4 reviews check no throw outside a defect.
 note 2026-11-11T04:46:40Z
-    Amendment (the user, 2026-11-11): policy-testing is installed in .agents/skills; work is test-first with module integration tests through the public interface (no unit tests of internals) and the scenarios that enforce each Invariant written before the code. Named in instructions and on the P3, P4 and P5 phase cards. **Reverse:** remove the instructions line and the card lines.
+    Amendment (the user, 2026-11-11): policy-testing is installed in .agents/skills; work is test-first with module 
+    integration tests through the public interface (no unit tests of internals) and the scenarios that enforce each 
+    Invariant written before the code. Named in instructions and on the P3, P4 and P5 phase cards. **Reverse:** remove 
+    the instructions line and the card lines.
 note 2026-11-11T05:08:09Z
-    Review started on the step 9 revision and T8's selection oracle; weekly usage 33 percent (about 1 point an hour since the slowdown).
+    Review started on the step 9 revision and T8's selection oracle; weekly usage 33 percent (about 1 point an hour 
+    since the slowdown).
 note 2026-11-11T05:25:05Z
-    Paused (the user, 2026-11-11, restarting Claude Code) at 62bb4002, tree clean: suite 92/92, null 0/92, falsify 113/113, coverage 43 of 183. No agents running; crons deleted; caffeinate stopped. In progress: T7 (convergence and step 9 revision built; I22 and T7's rows left) and T8 (next steps in STATUS's T8 section). The step 9 revision review paused partial, with suspected Highs and resume steps in code:workflow/plans/flow/references/proposals/step9-revision-review-2026-11-11.md. On resume: recreate the 90-minute crons and caffeinate, finish that review, then one builder on T8's next steps.
+    Paused (the user, 2026-11-11, restarting Claude Code) at 62bb4002, tree clean: suite 92/92, null 0/92, falsify 
+    113/113, coverage 43 of 183. No agents running; crons deleted; caffeinate stopped. In progress: T7 (convergence and 
+    step 9 revision built; I22 and T7's rows left) and T8 (next steps in STATUS's T8 section). The step 9 revision 
+    review paused partial, with suspected Highs and resume steps in 
+    code:workflow/plans/flow/references/proposals/step9-revision-review-2026-11-11.md. On resume: recreate the 
+    90-minute crons and caffeinate, finish that review, then one builder on T8's next steps.
 note 2026-11-11T05:26:56Z
-    Run resumed after the restart at 61125c87: crons recreated (90 minutes), caffeinate on; the step 9 revision review resumes, and one builder continues T8.
+    Run resumed after the restart at 61125c87: crons recreated (90 minutes), caffeinate on; the step 9 revision review 
+    resumes, and one builder continues T8.
 note 2026-11-11T05:51:00Z
-    Step 9 revision review (code:workflow/plans/flow/references/proposals/step9-revision-review-2026-11-11.md): WriteLanes and disposal ready for T16; Turn selection not (two Highs: the reported to picks the alternative with no root part; a restored ending's leaf is dropped). Sent to the T8 builder with 7 Mediums.
+    Step 9 revision review (code:workflow/plans/flow/references/proposals/step9-revision-review-2026-11-11.md): 
+    WriteLanes and disposal ready for T16; Turn selection not (two Highs: the reported to picks the alternative with no 
+    root part; a restored ending's leaf is dropped). Sent to the T8 builder with 7 Mediums.
+note 2026-11-11T06:28:07Z
+    T8 built (1e11786c: 98/98, null 0/98, falsify 126/126) with typed adapter failures. Decisions (orchestrator): Turn rows round-14 cannot show move to T18 and T21 as owed suite cases, to be checked by the next review (the T13 rows were wrongly moved once); WriteLanes R10 governs the retry of a refused ending, round-14 differs, Plan O3 wording to @plan.Pending D4. T8 stays in_progress until that review; the builder takes the rest of T7.
