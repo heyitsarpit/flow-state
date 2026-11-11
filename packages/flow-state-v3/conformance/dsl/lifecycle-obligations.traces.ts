@@ -264,7 +264,63 @@ const deadlineTraces: ReadonlyArray<Trace> = [
   ),
 ];
 
+const unsentAtReload = (acknowledged: ReadonlyArray<string>) =>
+  model(lane("A", ["s", U]), { acknowledged });
+
+const restoreTraces: ReadonlyArray<Trace> = [
+  {
+    name: "an acknowledged head never sent owes its restore from the reload",
+    cites: "Restore R3, I6: acknowledged once, it ends unknown { Restored } even if never invoked",
+    start: unsentAtReload(["s"]),
+    steps: [Move.Reload(), Move.BootSettles(), { due: "StepEnds" as const }],
+    refusals: [[], [], ["Restore I6"]],
+    phases: { s: GC },
+    owed: 0,
+    checks: [],
+  },
+  {
+    name: "an acknowledged head never sent is restored to Held and still owes its delivery",
+    cites: "Restore R3, I6: the restore ending is owed until it is delivered",
+    start: unsentAtReload(["s"]),
+    steps: [Move.Reload(), unknown("s", "Restored"), Move.BootSettles()],
+    refusals: [[], [], []],
+    phases: { s: H },
+    owed: 1,
+    checks: [],
+  },
+  {
+    name: "an acknowledged head never sent meets its restore once it is delivered",
+    cites: "Restore R3, I6: delivered unknown { Restored } exactly once in the boot",
+    start: unsentAtReload(["s"]),
+    steps: [
+      Move.Reload(),
+      unknown("s", "Restored"),
+      LifeMove.Delivered({ ending: endingOfS }),
+      Move.BootSettles(),
+      { due: "StepEnds" as const },
+    ],
+    refusals: [[], [], [], [], []],
+    phases: { s: H },
+    owed: 0,
+    checks: [],
+  },
+  {
+    name: "a head whose acknowledgement never landed owes no restore",
+    cites: "Restore I8: killed before its batch landed, it restores with no lane",
+    start: unsentAtReload([]),
+    steps: [Move.Reload(), Move.BootSettles(), { due: "StepEnds" as const }],
+    refusals: [[], [], []],
+    phases: { s: GC },
+    owed: 0,
+    checks: [],
+  },
+];
+
 /**
- * The traces of promotion and of the obligations' deadlines.
+ * The traces of promotion, of the obligations' deadlines, and of a never-sent head's restore.
  */
-export const obligationTraces: ReadonlyArray<Trace> = [...promotionTraces, ...deadlineTraces];
+export const obligationTraces: ReadonlyArray<Trace> = [
+  ...promotionTraces,
+  ...deadlineTraces,
+  ...restoreTraces,
+];

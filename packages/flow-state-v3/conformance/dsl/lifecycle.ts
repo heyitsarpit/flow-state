@@ -361,9 +361,11 @@ const bootOwes = (model: Model) => {
       (o) => Obligation.$is("Await")(o) && o.attempt === attempt && o.report === "Released",
     );
 
-  const owing = model.attempts.filter(
-    (a) => a.phase._tag === "Held" && isHead(model, a) && !released(a.id),
-  );
+  const restorable = (a: AttemptLife) =>
+    a.phase._tag === "Held" ||
+    (Phase.$is("Restoring")(a.phase) && a.phase.head && model.acknowledged.includes(a.id));
+
+  const owing = model.attempts.filter((a) => restorable(a) && isHead(model, a) && !released(a.id));
 
   return [
     ...model.obligations,
@@ -477,9 +479,9 @@ export const due = (model: Model, instant: "TurnCloses" | "StepEnds", given: Rul
  *
  * **Gotchas**
  *
- * - Only Held heads owe a restore. A never-sent head acknowledged before its page died also owes
- *   one (Restore R3), but the suite has no storage fact to tell it from one whose batch never
- *   landed (`PAY-09/ack-not-stored`), so it owes nothing here: step 5 review M1, open.
+ * - Only Held heads owe a restore here. A never-sent head acknowledged before its page died owes
+ *   one from the `Reload` (Restore R3), when the store landed its acknowledging batch; one whose
+ *   batch never landed owes nothing (Restore I8).
  * - A boot's restore endings are owed from the `Reload` itself, to each actor's next incarnation:
  *   the boot decides them before it opens any incarnation (round-14 `step.ts` `onBoot`: `restore`,
  *   then the `incarnation` notes), and a record not woken at ready hears them, parked, at its

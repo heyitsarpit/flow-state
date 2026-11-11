@@ -23,6 +23,8 @@ import type { Answer, Request } from "../world/network.ts";
  * - `DisposingRuntime`: the suite started the Runtime's disposal; it holds until the next reload.
  * - `Drove`: the suite sent this event to this actor.
  * - `Unstoppable`: from now on, calls of this operation cannot be interrupted.
+ * - `Acknowledged`: the store landed the batches that acknowledge these Attempts (the store's
+ *   fact; which Attempts a batch acknowledges is the runtime's claim).
  * - `Advanced`: the suite moved the world's clock forward by `ms`, firing the timers due.
  * - `Read`: the suite read this write's row (`O.x.get`) and the runtime returned `row`.
  */
@@ -39,6 +41,7 @@ export type Fact = Data.TaggedEnum<{
   DisposingRuntime: {};
   Drove: { actor: ActorRef; event: string };
   Unstoppable: { operation: string };
+  Acknowledged: { attempts: ReadonlyArray<string> };
   Advanced: { ms: number };
   Read: { actor: ActorRef; operation: string; key: Json; row: Option.Option<Json> };
 }>;

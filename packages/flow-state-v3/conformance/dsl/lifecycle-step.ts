@@ -448,6 +448,10 @@ const onFact = (
             ...walk,
             model: { ...walk.model, unstoppable: [...walk.model.unstoppable, operation] },
           },
+    Acknowledged: ({ attempts }) => ({
+      ...walk,
+      model: { ...walk.model, acknowledged: [...walk.model.acknowledged, ...attempts] },
+    }),
     Stepped: () => walk,
     Requested: () => walk,
     Answered: () => walk,

@@ -51,6 +51,9 @@ const when = (condition: string, body: string) => `${ADMIT}\n  if (a && ${condit
  *   as an unknown (review F2; T6 M1).
  * - `mutant.boot-skips-restored`: a boot restores a Held head without its `unknown { Restored }`
  *   (Restore I6, CQ11).
+ * - `mutant.restore-skips-unsent`: a boot restores an acknowledged head that was never sent
+ *   without its `unknown { Restored }` (Restore R3, I6: the store landed its acknowledgement; step
+ *   5 review M1).
  * - `1b.r8-third-try`: a twice-refused ending is delivered a third time in the same life
  *   (WriteLanes I15: the second refusal is final; the fold reports the delivery to a kept ending
  *   as Actors I24 and its refusal as I15).
@@ -248,6 +251,26 @@ export const deliveredOnceMutants: ReadonlyArray<Mutant> = [
         file: "durable.ts",
         find: "        mail(tx, l, h, ending, true, !h.held);",
         replace: "",
+      },
+    ],
+  },
+  {
+    name: "mutant.restore-skips-unsent",
+    says: "a boot restores an acknowledged head that was never sent without its unknown { Restored }",
+    expects: "Restore I6",
+    runtime: "prototype",
+    cases: ["PAY-09/ack-stored-confirmation-lost", "PAY-18"],
+    edits: [
+      {
+        file: "durable.ts",
+        find: "      noteEnding(tx, { op: l.op, attempt: h.id }, ending);\n      const phase: Phase",
+        replace:
+          "      if (h.held) noteEnding(tx, { op: l.op, attempt: h.id }, ending);\n      const phase: Phase",
+      },
+      {
+        file: "durable.ts",
+        find: "        mail(tx, l, h, ending, true, !h.held);",
+        replace: "        if (h.held) mail(tx, l, h, ending, true, !h.held);",
       },
     ],
   },

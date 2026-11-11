@@ -90,6 +90,7 @@ type PrototypeHost = {
       writes: ReadonlyArray<typeof PrototypeWrite.Type>,
       purpose: Purpose,
       answer: (ok: boolean) => void,
+      acknowledges: ReadonlyArray<string>,
     ) => void;
   };
 };
@@ -372,7 +373,7 @@ export const prototypePort = (loaded: LoadedPrototype): Port => ({
       isHidden: page.hidden,
       storage: {
         load: storage.load,
-        write: (writes, purpose, answer) =>
+        write: (writes, purpose, answer, acknowledges) =>
           storage.write(
             writes.map((w) =>
               w.value === undefined
@@ -381,6 +382,7 @@ export const prototypePort = (loaded: LoadedPrototype): Port => ({
             ),
             purpose,
             answer,
+            acknowledges,
           ),
       },
     };

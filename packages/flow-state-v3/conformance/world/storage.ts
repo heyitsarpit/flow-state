@@ -28,6 +28,7 @@ export type StorageAnswer = "ack" | "refuse" | "hang" | "landNoAck";
 type Held = {
   readonly writes: ReadonlyArray<Write>;
   readonly purpose: Purpose;
+  readonly acknowledges: ReadonlyArray<string>;
   readonly answer: (ok: boolean) => void;
 };
 
@@ -67,7 +68,11 @@ const shuffled = <A>(items: ReadonlyArray<A>, seed: number) => {
  * - `load` returns the records in an order fixed by the seed and the page, never the order
  *   written, so a runtime's restore order is its own.
  * - A held batch dies with its page; the bytes that landed stay.
- * - `match` picks the held batches of one purpose, or those writing a key that contains it.
+ * - `write`'s `acknowledges` names the Attempts the batch acknowledges (the runtime's claim);
+ *   `answer` returns those of the batches that landed (`ack`, `landNoAck`), the suite's fact of
+ *   which acknowledgements are on disk (Restore R3, I8). A flush acknowledges nothing.
+ * - The ids are not checked against the bytes, whose encoding is the runtime's: a runtime that
+ *   leaves a landed acknowledgement unnamed is owed no restore for it (a stated limit).
  *
  * **Gotchas**
  *
@@ -79,8 +84,9 @@ export type Storage = {
     writes: ReadonlyArray<Write>,
     purpose: Purpose,
     answer: (ok: boolean) => void,
+    acknowledges: ReadonlyArray<string>,
   ) => void;
-  readonly answer: (how: StorageAnswer) => number;
+  readonly answer: (how: StorageAnswer) => ReadonlyArray<string>;
   readonly kill: () => void;
 };
 
@@ -107,7 +113,7 @@ export const makeStorage = (seed: number, page: Page): Storage => {
 
   return {
     load: () => new Map(shuffled([...kv], seed * 40_503 + page.page())),
-    write: (writes, purpose, answer) => {
+    write: (writes, purpose, answer, acknowledges) => {
       if (purpose === "flush") {
         land(writes);
         page.later(() => answer(true));
@@ -115,26 +121,21 @@ export const makeStorage = (seed: number, page: Page): Storage => {
         return;
       }
 
-      held = [...held, { writes, purpose, answer }];
+      held = [...held, { writes, purpose, answer, acknowledges }];
     },
     answer: (how) => {
       const chosen = held;
       held = [];
+      const landed = how === "ack" || how === "landNoAck";
 
-      if (how === "hang" || how === "landNoAck") {
-        if (how === "landNoAck") for (const h of chosen) land(h.writes);
+      if (landed) for (const h of chosen) land(h.writes);
 
-        return chosen.length;
-      }
-
-      if (how === "ack") for (const h of chosen) land(h.writes);
-
-      if (chosen.length > 0)
+      if ((how === "ack" || how === "refuse") && chosen.length > 0)
         page.later(() => {
           for (const h of chosen) h.answer(how === "ack");
         });
 
-      return chosen.length;
+      return landed ? chosen.flatMap((h) => h.acknowledges) : [];
     },
     kill: () => {
       held = [];

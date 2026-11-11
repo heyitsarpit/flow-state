@@ -29,6 +29,7 @@ export type EdgeHost = {
       writes: readonly Bytes[],
       purpose: Purpose,
       answer: (ok: boolean, why?: string) => void,
+      acknowledges: readonly string[],
     ): void;
   };
 };
@@ -116,7 +117,9 @@ export const makeEdge = (host: EdgeHost, o: EdgeOptions) => {
       : tickets.length > 0
         ? "acknowledge"
         : "flush";
-    host.storage.write(writes, purpose, (ok, why) => answered(scope, s, out, ok, why));
+    // Port change 8: a batch names the Attempts it acknowledges.
+    const acknowledges = tickets.filter((t) => t.purpose === "acknowledge").map((t) => t.attempt);
+    host.storage.write(writes, purpose, (ok, why) => answered(scope, s, out, ok, why), acknowledges);
   };
 
   const answered = (scope: string, s: Slot, out: Out, ok: boolean, why?: string) => {

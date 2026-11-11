@@ -107,7 +107,7 @@ export type Cause = "plain" | "runtimeDisposal" | "disposeActor" | "forget";
  * - `PendingCancel`: a cancel of a never-sent Attempt owes its ending, with no deadline
  *   (WriteLanes R14).
  * - `AwaitRestore`: a boot or an incarnation owes a Held head its `unknown { Restored }` by the
- *   step's end.
+ *   step's end; a boot owes one to a never-sent head whose acknowledgement the store landed.
  * - `AwaitLetGo`: a kept ending owes its let-go record by the step's end.
  */
 export type Obligation = Data.TaggedEnum<{
@@ -196,6 +196,8 @@ export type AttemptLife = { readonly id: string; readonly lane: LaneId; readonly
  * - `releasing`: the lanes a release marked (WriteLanes R16); their endings are evidence.
  * - `turn`: the open turn's members not yet applied ({@link OpenTurn}).
  * - `unstoppable`: the operations whose calls the suite made uninterruptible, from then on.
+ * - `acknowledged`: the Attempts whose acknowledging batch the store landed (that it landed is
+ *   the store's fact; which Attempts a batch acknowledges is the runtime's claim).
  *
  * **Gotchas**
  *
@@ -216,6 +218,7 @@ export type Model = {
   readonly obligations: ReadonlyArray<Obligation>;
   readonly releasing: ReadonlyArray<LaneId>;
   readonly unstoppable: ReadonlyArray<string>;
+  readonly acknowledged: ReadonlyArray<string>;
 };
 
 /**
@@ -231,6 +234,7 @@ export const empty: Model = {
   obligations: [],
   releasing: [],
   unstoppable: [],
+  acknowledged: [],
 };
 
 /**

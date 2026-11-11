@@ -309,7 +309,11 @@ const openCase = (options: CaseOptions) => {
     });
 
   const answerStorage = (what: string, how: StorageAnswer) =>
-    act(what, () => void storage.answer(how));
+    act(what, () => {
+      const attempts = storage.answer(how);
+
+      if (attempts.length > 0) record(Fact.Acknowledged({ attempts }));
+    });
 
   const send = (drives: ReadonlyArray<Drive>) =>
     act(`send ${drives.map((d) => d.event).join(", ")}`, () => {
