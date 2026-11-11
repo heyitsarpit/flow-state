@@ -1,10 +1,10 @@
 import { Option } from "effect";
-import { LifeMove, Obligation } from "./lifecycle-model.ts";
+import { Life, LifeMove, Move, Obligation } from "./lifecycle-model.ts";
 import { member, turn } from "./lifecycle-members.traces.ts";
 import { at, build, type Trace } from "./lifecycle-trace.ts";
 import type { InvariantId } from "./oracle.ts";
 
-const { Q, U, RS, W, H, GC, GE } = at;
+const { Q, U, RS, W, H, RF, GC, GE } = at;
 
 const {
   lane,
@@ -23,6 +23,14 @@ const {
 } = build;
 
 const endingOfS = { operation: "pay", attempt: Option.some("s"), actor: build.shopper };
+
+const ownEnding = {
+  ...endingOfS,
+  channel: "unknown" as const,
+  reason: "Interrupted",
+  incarnation: 1,
+  inDisposal: false,
+};
 
 const promotionTraces: ReadonlyArray<Trace> = [
   one({
@@ -84,6 +92,32 @@ const promotionTraces: ReadonlyArray<Trace> = [
     ],
     refusals: [[], [], [], [wl(12)]],
     phases: { s: H, w: Q },
+    owed: 0,
+    checks: [],
+  },
+  {
+    name: "an unretained unknown's release is owed by its own ending's turn, not the Attempt's other ending",
+    cites: "WriteLanes R4: released once its own ending's turn ends (step-4 reviewer, item 2)",
+    start: model(lane("A", ["s", H], ["w", Q]), {
+      endings: [
+        { ...ownEnding, life: Life.Delivering({ retry: false }) },
+        { ...ownEnding, life: Life.Owed() },
+      ],
+      obligations: [awaiting("s", "Released", Option.some(1))],
+    }),
+    steps: [LifeMove.Heard({ ending: endingOfS }), { due: "TurnCloses" as const }],
+    refusals: [[], []],
+    phases: { s: H, w: Q },
+    owed: 1,
+    checks: [],
+  },
+  {
+    name: "an unretained unknown whose ending closes unheard owes its release at once",
+    cites: "WriteLanes R4, I12: its ending got no turn (closed at a reload), so the release is due",
+    start: headed(W),
+    steps: [unknown("s", "Interrupted", false), Move.Reload(), { due: "StepEnds" as const }],
+    refusals: [[], [], [wl(12)]],
+    phases: { s: H, w: RF },
     owed: 0,
     checks: [],
   },

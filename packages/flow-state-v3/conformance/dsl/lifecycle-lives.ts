@@ -146,11 +146,11 @@ const applyAt = (model: Model, row: LifeRow, index: number, given: Rules) => {
   });
 };
 
-const owedByTurn = (model: Model, ending: Ending) => ({
+const owedByTurn = (model: Model, index: number) => ({
   ...model,
   obligations: model.obligations.map((o) =>
-    Obligation.$is("Await")(o) && Option.contains(ending.attempt, o.attempt)
-      ? Obligation.Await({ attempt: o.attempt, report: o.report, heard: true })
+    Obligation.$is("Await")(o) && Option.contains(o.hearing, index)
+      ? Obligation.Await({ attempt: o.attempt, report: o.report, hearing: Option.none() })
       : o,
   ),
 });
@@ -167,7 +167,7 @@ const heard = (model: Model, index: number, given: Rules) => {
   return Fate.$match(fate, {
     Refuse: ({ invariant }) => stepOf(model, [{ invariant, text: describe("Heard", ending) }]),
     Stay: () => stepOf(model),
-    Live: ({ to }) => stepOf(owedByTurn(lived(model, index, to), ending)),
+    Live: ({ to }) => stepOf(owedByTurn(lived(model, index, to), index)),
   });
 };
 

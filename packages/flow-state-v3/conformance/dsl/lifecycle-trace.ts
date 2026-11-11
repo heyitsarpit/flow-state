@@ -102,8 +102,8 @@ const pending = (attempt: string, ends: "NotSent" | "UnknownCancelled" = "NotSen
 const awaiting = (
   attempt: string,
   report: "Released" | "Superseded" | "NotSentCancelled",
-  heard = true,
-) => Obligation.Await({ attempt, report, heard });
+  hearing: Option.Option<number> = Option.none(),
+) => Obligation.Await({ attempt, report, hearing });
 
 type Case = {
   readonly name: string;

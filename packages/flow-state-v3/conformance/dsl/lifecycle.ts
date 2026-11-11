@@ -229,7 +229,11 @@ const discharge = (model: Model, attempt: string, guard: string, move: Move) => 
       ...model,
       obligations: [
         ...model.obligations,
-        Obligation.Await({ attempt, report: "Released", heard: false }),
+        Obligation.Await({
+          attempt,
+          report: "Released",
+          hearing: Option.some(model.endings.length),
+        }),
       ],
     };
 
@@ -399,7 +403,15 @@ export const due = (model: Model, instant: "TurnCloses" | "StepEnds", given: Rul
       AwaitLetGo: () => given.deadlines.AwaitLetGo,
     });
 
-  const owedNow = (o: Obligation) => !Obligation.$is("Await")(o) || o.heard;
+  const closedUnheard = (ending: number) => {
+    const life = model.endings[ending]?.life._tag;
+
+    return life === "Closed" || life === "Evidence";
+  };
+
+  const owedNow = (o: Obligation) =>
+    !Obligation.$is("Await")(o) ||
+    Option.match(o.hearing, { onNone: () => true, onSome: closedUnheard });
 
   const late = model.obligations.filter(
     (o) =>
