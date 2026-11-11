@@ -1176,6 +1176,22 @@ must be a suite fact or a judged claim.
   (T8's `context` and `activations`), C17 (T11, no Port fact for a quarantined record) and C24
   (CMP-09 already checks that a field the record has takes no initial) go to their areas.
 
+### Run 7's account, corrected (step 9 review M2)
+
+- "Nothing else of it is read" was not true at Run 7: the report's event, from and to chose the row
+  and the releases (H1). Since `de899357` the lifecycle reads the header as Turn I2 judged it (from
+  the carried leaf, to the selected alternative's leaf); the event stays the report's, admitted by
+  `selection` (driven, delivered or scheduled).
+- "The guarded rows stay exclusive whatever was reported" is not quite true: `retryable` counts
+  this step's reported `Sent`s; `attempt-identity` bounds that count against the server's log
+  (Low, kept).
+- Five narrowings Run 7 did not log, each checked in code by the review: an Idle cancel's I20 now
+  fires only on a decline in the same turn on that lane (before, any ending of the operation in the
+  step); cancelAll's head-last takes any addressable head, and only queued commits that ended
+  `Cancelled` count; Actors I29's (now I38's) never-sent check counts mints made during the
+  disposal, and an ending after `RuntimeDisposed` no longer excuses; forget's evidence was refused
+  (fixed in `d9c04e0a`, Actors R21); and H2's 18 cases (16 back since `b39461d0`).
+
 ## T8 (2026-11-11): Turn area (in progress)
 
 ### Selection (first, from the step 9 review's H1)
