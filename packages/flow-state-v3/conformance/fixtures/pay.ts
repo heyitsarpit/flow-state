@@ -1,5 +1,7 @@
-import { noFolds } from "./folds.ts";
 import { Option, Schema } from "effect";
+import type { Json } from "../port.ts";
+import { Answer } from "../world/network.ts";
+import type { Folded, Folds, Labels } from "./folds.ts";
 import { Empty, type Fixture, writeOf } from "./fixture.ts";
 import {
   guarded,
@@ -158,13 +160,131 @@ const payRows = [
 
 const stay = to<State>("stay");
 
+const isObject = Schema.is(Schema.Record(Schema.String, Schema.Json));
+
+const read = (value: Json, name: string) => (isObject(value) ? (value[name] ?? null) : null);
+
+const okValue = (answer: Answer) =>
+  Answer.$match(answer, {
+    Ok: ({ value }) => Option.some(value),
+    Fail: () => Option.none<Json>(),
+    Lost: () => Option.none<Json>(),
+    LostButLanded: () => Option.none<Json>(),
+    FailButLanded: () => Option.none<Json>(),
+    Never: () => Option.none<Json>(),
+    Die: () => Option.none<Json>(),
+  });
+
+const statusOf = (answer: Answer) => ({
+  status: Option.match(okValue(answer), { onNone: () => null, onSome: (v) => read(v, "status") }),
+});
+
+const label = (labels: Labels, name: string) =>
+  Option.filter(Option.fromUndefinedOr(labels[name]), (v) => v !== null);
+
+const capturableStatus = (labels: Labels) =>
+  Option.map(label(labels, "status"), (s) => s === "requires_capture" || s === "succeeded");
+
+const started = (labels: Labels) => ({
+  cartId: labels["cartId"] ?? "",
+  intentId: labels["intentId"] ?? "",
+  receipt: null,
+  authorized: false,
+  busyTries: 0,
+});
+
+const byIntent = (_labels: Labels, fields: Folded) => ({ intentId: fields["intentId"] ?? "" });
+
+/**
+ * Pay's folds (`prototypes/conformance/typed/pay.ts` and `machines/pay.ts`), alternative by
+ * alternative: the memory its keys (`intentId`, `cartId`), its `Leave`, `Busy`, `Confirmed`,
+ * `IntentRead` and `OrderSeen` guards and its `WAITING` delay read.
+ *
+ * **Details**
+ *
+ * - `capturable` reads the status of the pay or intent answer the suite gave; `receipt` is folded
+ *   as set or `null` only. The `PayNotSent` guard reads a Flow decline's reason, the `retryable`
+ *   and `idle` guards read lanes, and `IntentRead[2]` reads both: they stay opaque.
+ * - `clientSecret` is set only by the real Pay's `requires_action` alternative from `PAYING`,
+ *   which this table does not hold, so it stays `null`.
+ */
+const payFolds: Folds = {
+  initial: {
+    cartId: "",
+    intentId: "",
+    authorized: false,
+    receipt: null,
+    busyTries: 0,
+    retryInMs: 0,
+    clientSecret: null,
+  },
+  driven: {
+    Start: (payload) => ({
+      cartId: read(payload, "cartId"),
+      intentId: read(payload, "intentId"),
+    }),
+  },
+  answers: {
+    pay: (answer) =>
+      Answer.$is("Fail")(answer) || Answer.$is("FailButLanded")(answer)
+        ? { retryAfterMs: answer.fields["retryAfterMs"] ?? 1000 }
+        : statusOf(answer),
+    intent: statusOf,
+    order: (answer) => ({
+      orderId: Option.match(okValue(answer), {
+        onNone: () => "",
+        onSome: (v) => read(v, "orderId") ?? "",
+      }),
+    }),
+  },
+  updates: {
+    "states.IDLE.on.Start[0]": started,
+    "states.PAID.on.Start[0]": started,
+    "states.LEFT.on.Start[0]": started,
+    "on.Confirmed[0]": () => ({ authorized: true }),
+    "on.Confirmed[1]": () => ({ authorized: true }),
+    "states.PAYING.on.Confirmed[1]": () => ({ authorized: true }),
+    "states.PAYING.on.Busy[0]": (labels, fields) => ({
+      busyTries: Number(fields["busyTries"] ?? 0) + 1,
+      retryInMs: labels["retryAfterMs"] ?? 1000,
+    }),
+    "on.Placed[0]": () => ({ receipt: "set", authorized: false }),
+    "on.Voided[0]": () => ({ authorized: false }),
+    "states.UNSURE.on.IntentRead[0]": () => ({ authorized: true }),
+    "states.UNSURE.on.OrderSeen[0]": () => ({ receipt: "set" }),
+  },
+  guards: {
+    "on.Leave[0]": (_labels, fields) =>
+      Option.some(fields["authorized"] === true && fields["receipt"] === null),
+    "on.Confirmed[0]": capturableStatus,
+    "on.Confirmed[1]": capturableStatus,
+    "states.PAYING.on.Confirmed[1]": capturableStatus,
+    "states.PAYING.on.Busy[0]": (_labels, fields) =>
+      Option.some(Number(fields["busyTries"] ?? 0) < 3),
+    "states.UNSURE.on.IntentRead[0]": capturableStatus,
+    "states.UNSURE.on.IntentRead[1]": (labels, fields) =>
+      Option.map(
+        label(labels, "status"),
+        (s) => s === "requires_action" && fields["clientSecret"] !== null,
+      ),
+    "states.UNSURE.on.OrderSeen[0]": (labels) =>
+      Option.map(label(labels, "orderId"), (o) => o !== ""),
+  },
+  keys: {
+    pay: byIntent,
+    void: byIntent,
+    place: (_labels, fields) => ({ cartId: fields["cartId"] ?? "" }),
+  },
+  delays: { retry: (fields) => Number(fields["retryInMs"] ?? 0) },
+};
+
 /**
  * Pay's handler table (`prototypes/conformance/typed/pay.ts`), by hand from its source:
  * `capturable`, the busy count, `retryable`, `idle` and the payload checks are opaque guards;
  * `updating` marks each alternative with an `updateMemory`.
  */
 const payHandlers: Handlers<State> = {
-  folds: noFolds,
+  folds: payFolds,
   initial: "IDLE",
   root: {
     PayRequested: [inStates(["PAYING"], stay), updating(to("PAYING"))],

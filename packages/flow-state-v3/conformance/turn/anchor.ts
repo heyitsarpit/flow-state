@@ -317,8 +317,8 @@ export const reloaded = (state: State) =>
   });
 
 /**
- * The labels the suite's server gave a call's answer: `operation attempt` for a write, the
- * operation alone for a read (its latest answer).
+ * The labels the suite's server gave a call's answer, under `operation attempt` when the request
+ * named one, and under the operation alone (its latest answer: a read's ending names no Attempt).
  */
 export const answered = (
   state: State,
@@ -329,10 +329,8 @@ export const answered = (
   ...state,
   answers: new Map([
     ...state.answers,
-    [
-      Option.match(key, { onNone: () => operation, onSome: (k) => attemptKey(operation, k) }),
-      labels,
-    ],
+    [operation, labels],
+    ...Option.toArray(Option.map(key, (k) => [attemptKey(operation, k), labels] as const)),
   ]),
 });
 

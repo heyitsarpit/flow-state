@@ -1,4 +1,5 @@
-import { noFolds } from "./folds.ts";
+import type { Json } from "../port.ts";
+import { type Labels, noFolds } from "./folds.ts";
 import { Schema } from "effect";
 import { Empty, type Fixture, writeOf } from "./fixture.ts";
 import { to } from "./handlers.ts";
@@ -15,8 +16,16 @@ const keyedWrite = writeOf(ByK, {
   classify: classifyWith(() => false),
 });
 
+const isObject = Schema.is(Schema.Record(Schema.String, Schema.Json));
+
+const kOf = (payload: Json) => ({ k: isObject(payload) ? (payload["k"] ?? null) : null });
+
+const byK = (labels: Labels) => ({ k: labels["k"] ?? null });
+
+const keyedFolds = { ...noFolds, driven: { Go: kOf }, keys: { keyed: byK } };
+
 const handlers = {
-  folds: noFolds,
+  folds: keyedFolds,
   initial: "A",
   root: {
     Go: [to("W")],
@@ -69,6 +78,7 @@ export const Held = {
   ],
   handlers: {
     ...handlers,
+    folds: { ...noFolds, driven: { Go: kOf, GoBad: kOf }, keys: { holding: byK } },
     root: {
       Go: [to("W")],
       GoBad: [to("stay")],

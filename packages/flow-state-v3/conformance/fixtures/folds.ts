@@ -1,3 +1,4 @@
+import type { Option } from "effect";
 import type { Json } from "../port.ts";
 import type { Answer } from "../world/network.ts";
 
@@ -22,9 +23,10 @@ export type Folded = Readonly<Record<string, Json>>;
  *   labels of an answer the suite's server gives.
  * - `updates`: per alternative place (`states.IDLE.on.Start[0]`, `on.Leave[0]`), the fields its
  *   `updateMemory` sets, from the labels of the fact that caused the turn and the fields before.
- * - `guards`: per alternative place, its guard, where the suite computes it; any other guard stays
- *   opaque (both outcomes allowed).
- * - `keys`: per operation, the key its commits take, from the fields.
+ * - `guards`: per alternative place, its guard, where the suite computes it: `None` when a label
+ *   it reads is missing. Any other guard stays opaque (both outcomes allowed).
+ * - `keys`: per operation, the key its members take, from the labels of the fact that caused the
+ *   turn and the fields after its update.
  * - `delays`: per schedule id, the delay in ms its memory computes.
  *
  * **Gotchas**
@@ -37,8 +39,10 @@ export type Folds = {
   readonly driven: Readonly<Record<string, (payload: Json) => Labels>>;
   readonly answers: Readonly<Record<string, (answer: Answer) => Labels>>;
   readonly updates: Readonly<Record<string, (labels: Labels, fields: Folded) => Folded>>;
-  readonly guards: Readonly<Record<string, (labels: Labels, fields: Folded) => boolean>>;
-  readonly keys: Readonly<Record<string, (fields: Folded) => Json>>;
+  readonly guards: Readonly<
+    Record<string, (labels: Labels, fields: Folded) => Option.Option<boolean>>
+  >;
+  readonly keys: Readonly<Record<string, (labels: Labels, fields: Folded) => Json>>;
   readonly delays: Readonly<Record<string, (fields: Folded) => number>>;
 };
 

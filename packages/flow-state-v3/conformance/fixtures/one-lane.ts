@@ -1,5 +1,5 @@
 import { noFolds } from "./folds.ts";
-import { Schema } from "effect";
+import { Option, Schema } from "effect";
 import { Empty, type Fixture, writeOf } from "./fixture.ts";
 import { guarded, to, updating } from "./handlers.ts";
 import { type Concurrency, claimed, classifyWith, row } from "./reference.ts";
@@ -176,7 +176,12 @@ export const LateQueue = {
     claimed(row("Unsure", "any", "A", [{ operation: "charge", kind: "cancel", keyed: false }])),
   ],
   handlers: {
-    folds: noFolds,
+    folds: {
+      ...noFolds,
+      initial: { cancelling: false },
+      updates: { "on.Cancelling[0]": () => ({ cancelling: true }) },
+      guards: { "on.Unsure[0]": (_labels, fields) => Option.some(fields["cancelling"] === true) },
+    },
     initial: "A",
     root: {
       Go: [to("W")],

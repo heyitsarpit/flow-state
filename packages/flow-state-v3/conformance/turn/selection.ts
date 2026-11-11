@@ -84,12 +84,19 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
   const [delivered] = heardBy(turn.actor, turn.event, step);
   const heard = !driven && delivered !== undefined;
   const route = !driven && delivered !== undefined ? routeOf(state, now, delivered) : "current";
-  const labels = labelsOf(state, now, credit, driven, Option.fromUndefinedOr(delivered));
+
+  const told = step.reduce(
+    (s, f) =>
+      Fact.$is("Answered")(f) ? answered(s, f.request.operation, f.request.key, f.labels) : s,
+    state,
+  );
+
+  const labels = labelsOf(told, now, credit, driven, Option.fromUndefinedOr(delivered));
   const folds = handlers?.folds;
 
   const decide = (at: string) =>
     Option.flatMap(now.fields, (fields) =>
-      Option.map(Option.fromUndefinedOr(folds?.guards[at]), (guard) => guard(labels, fields)),
+      Option.flatMap(Option.fromUndefinedOr(folds?.guards[at]), (guard) => guard(labels, fields)),
     );
 
   const admitted =
