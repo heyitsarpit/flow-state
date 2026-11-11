@@ -1,13 +1,13 @@
 {
-  "revision": "1f0fedfe",
+  "revision": "294f63a3",
   "gates": [
     {
       "gate": "suite round-14",
-      "verdict": "VERDICT pass 112/112"
+      "verdict": "VERDICT pass 119/119"
     },
     {
       "gate": "suite production",
-      "verdict": "VERDICT pass 70/70"
+      "verdict": "VERDICT pass 75/75"
     },
     {
       "gate": "falsify round-14",
@@ -15,11 +15,27 @@
     },
     {
       "gate": "falsify production",
-      "verdict": "VERDICT pass 17/17 mutants caught"
+      "verdict": "VERDICT pass 18/18 mutants caught"
     },
     {
       "gate": "coverage",
       "verdict": "ok   coverage: 72 of 183 core Invariants checked (40 in part), 111 owed by a Task, 0 gap(s)"
+    },
+    {
+      "gate": "liar round-14",
+      "verdict": "VERDICT fail 122/131 behavioural mutants red under the liar gate"
+    },
+    {
+      "gate": "liar production",
+      "verdict": "VERDICT pass 13/13 behavioural mutants red under the liar gate"
+    },
+    {
+      "gate": "crash production",
+      "verdict": "VERDICT fail 600/670 crash points"
+    },
+    {
+      "gate": "core mutants",
+      "verdict": "VERDICT core mutants: 61/85 killed (85 candidates)"
     }
   ]
 }
