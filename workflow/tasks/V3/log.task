@@ -188,3 +188,9 @@ note 2026-11-11T20:18:04Z
 note 2026-11-11T20:47:23Z
     Review started (90-minute wake): T45's fix round 4d7e0f5d..823f118f and the step-5 checkpoint d50d54ea, one Opus 
     lead with two Haiku sidecars. Weekly usage 67 percent of 95.
+note 2026-11-11T20:59:36Z
+    Review (T45 fix round to 823f118f): not done. Accepted after checks: K1 (an unowed Finished on a free live actor is 
+    applied, not refused by I10), the K3 remainder, S6, the unowed Incarnated limit, the kill count counting no-verdict 
+    rows, regressions without their Invariant. Decision (orchestrator): disposeActor stops a restore once its removal 
+    lands (Actors R20) and forget drops no hold (R21), so the model's split stands; the reviewer's same-rule reading is 
+    rejected. **Reverse:** owe restores for disposeActor records too.
