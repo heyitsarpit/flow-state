@@ -69,7 +69,7 @@ SURVIVED	src/core/serve.ts:281	for (let served = 0; served < 10_000 || tx.world(
 SURVIVED	src/core/serve.ts:281	for (let served = 0; served <= 10_000 && tx.world().mail.length > 0; served += 1) {
 killed	src/core/serve.ts:285	if (first === undefined) serve(first);
 killed	src/core/step.ts:43	if (timer !== undefined) return;
-SURVIVED	src/core/step.ts:51	if (incarnationOf(actor)?.id !== incarnation) end(actor);
+killed	src/core/step.ts:51	if (incarnationOf(actor)?.id !== incarnation) end(actor);
 SURVIVED	src/core/step.ts:82	if (incarnationOf(actor) !== undefined && tx.world().records.has(actorKey(actor)))
 SURVIVED	src/core/step.ts:82	if (incarnationOf(actor) === undefined || tx.world().records.has(actorKey(actor)))
 killed	src/core/step.ts:85	if (incarnationOf(actor) === undefined) enqueue(Mail.Event({ actor, tag, payload }));
