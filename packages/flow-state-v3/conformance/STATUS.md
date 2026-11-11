@@ -809,6 +809,61 @@ check` at zero.
     30/30, `nub run check` at zero. Next: step 7 (whether `ending-channels` and `attempt-identity` read the fold;
     the key check; whether the fold's I6 refusal is claimed), step 8 (`cancels` in the references is unread
     since step 6; `dsl/domain.ts`'s `laneAtSend`, `laneAtMint` and template key; README and mutant headers).
+- **Run 6 (2026-11-11, from `161c0f9c`):**
+  - **Step 7 (`9bb7fa5d`), three lead's calls:**
+    1. `ending-channels` and `attempt-identity` stay off the fold. Why: they are v2's independent judges of the
+       fold's common mode; reading the fold would put WriteLanes I3 and I6 in it. This answers the T41/T13
+       review's M4: their RC2 shape goes instead. Both now keep `{ operation, attempt }` records compared by
+       `sameAttempt` (no template keys), and `ending-channels` derives an Attempt's newest request from the server
+       log rather than storing it. Reverse: give them `lives` and read `before`/`after`.
+    2. The key check: each send's input key fields must equal those of the key `Minted` reported (WriteLanes I6,
+       R5: an Attempt has one key and one input). Mutant `mutant.mint-key-differs` (PAY-01): the invoke sends
+       another `intentId` than the mint reported; caught in 54 cases, "pay att-1000-1 was minted on key
+       ["pi1"] and sent with key ["elsewhere"]". A first version edited the mint note instead and was caught
+       only by lane-queue I1 (the fold places the Attempt on the reported lane), so it was retargeted.
+    3. The fold's second-mint refusal (WriteLanes I6) stays unclaimed by the lifecycle oracles; `attempt-identity`
+       judges it from reports. v2's claim test is now built (`dsl/lifecycle.test.ts`): every Invariant the rules or
+       traces refuse under has exactly one lifecycle owner, I6 none (seen failing with I21 dropped from lane-queue).
+    - Reviewer (Haiku), 8 findings: accepted 1 (an older key version or a hand key closure is not told apart:
+      stated limit) and 2 (the citation now names R5 and v2's proposed check); noted 3 (unkeyed requests no longer
+      double-counted, same Invariant), 4 (the derived newest request needs one cut per judge batch, which holds),
+      5 (array scans), 6 (code-level refusals covered through traces), 7 (raw key fields, as 1); 8 checked by lint.
+    - Sweep against `161c0f9c`: 84/84; reasons diff: only the new mutant. **No verdict changed.**
+  - **Step 5 review M1 (`87ee9d9f`):** Port change 8 (after v2's seven): the store's `write` names the Attempts a
+    batch acknowledges (round-14 passes its acknowledge tickets, `edge.ts`), `answer` returns those of batches
+    that landed (`ack`, `landNoAck`), and the Case records `Acknowledged { attempts }`. A `Reload` owes
+    `AwaitRestore` to a `Restoring { head: true }` head whose acknowledgement landed (Restore R3, I6), none to one
+    whose batch never landed (Restore I8). PAY-09/ack-not-stored stays green. Mutant `mutant.restore-skips-unsent`
+    (PAY-09/ack-stored-confirmation-lost, PAY-18, Restore I6; also DLV-01, DLV-02, PAY-08, PAY-14,
+    PAY-16/restore-keeps-mayHaveApplied, the review's probe P3). Four traces; dropping the acknowledged guard
+    fails two.
+    - **Changed verdicts (Conformance R11):** `mutant.boot-skips-restored` in PAY-09/ack-stored-confirmation-lost
+      and PAY-18: case expectation → delivered-once Restore I6 (Restore R3, I6: an acknowledged never-sent head
+      ends `unknown { Restored }`). Nothing else.
+    - Reviewer (Haiku), 10 findings: **rejected 1** (High, "the owing is never discharged"): a delivery discharges
+      it (`lifecycle-lives.ts` `Delivered`), the suite is 87/87 and a trace now delivers and meets StepEnds.
+      Accepted 3 as a stated limit (the batch-to-Attempt claim is unchecked against the bytes, whose encoding is
+      the runtime's), 9 (docs), 10 (line wrapped). Carried: 2 (an `unknown { Restored }` on a never-acknowledged
+      Restoring head is accepted; Restore I8's, not claimed here), 4 (an unminted id in `Acknowledged` is
+      harmless), 5, 7, 8 (unreached).
+  - **Step 8 (`a6c2bfcf`, part in `9bb7fa5d`):** `dsl/domain.ts` lost `attemptKey`, `LaneId`, `sameLane`, `laneOf`,
+    `laneAtMint`, `laneAtSend`; the references lost `cancels` and `CancelsOf`; Pay `Leave`'s `claimed` exception is
+    a stated limit (decided). README brought to the build; mutant headers checked against entries. Reviewer
+    (Haiku): accepted 1 to 3, 5, 6 (stale limits and Port rows); 4 superseded (the `Nothing` Gotcha was removed,
+    see below); 7 to 11 noted (header wording, v2's kept limits not yet in the README). Sweep 85/85, no verdict
+    changed.
+  - **Step 6 review M3:** `mutant.boot-after-disposal-skips-restored` (PAY-15/dispose-held, disposal Actors I29;
+    red in 33 cases), from `mutant.boot-skips-restored`'s edits.
+  - **The coordinator's convergence order** (step 6 review H1, M2: a report retargets, removes or unclaims what a
+    turn owes, the third review in a row) arrived after steps 7, M1 and 8 had landed. The brief's "reported
+    `Nothing` waits on R9" is superseded by it: the Gotcha marking it pending was removed, and the rule replaces
+    it. **Not started:** the one member-resolution rule in STATUS, its rewrite in `step`, the exhaustive
+    perturbation test, the reviewer's probes PD, PF, PH (and PG) as mutants, the Lows' dispositions (step 6 L1 to
+    L8, step 5 L2, L3, L6 to L13). M1 (no oracle checks an owed `retry` re-sends) is **pending, for the user** as
+    a guarantee gap.
+  - **Stopped here** (context). Now: suite 87/87, null 0/87, sweep 85/85 plus the M3 mutant, coverage 0 gaps
+    (36), conformance tests 31/31, `nub run check` at zero. Next: the member-resolution convergence above, then
+    step 9.
 - **Queued after the convergence steps, before T8 (coordinator, 2026-11-11):** the T41/T13 review
   (`references/proposals/t41-t13-review-2026-11-11.md`): H1, M1 to M4 and the Lows in the files touched. Its M4
   (whether `ending-channels` and `attempt-identity` move onto the lifecycle) is decided at step 7.

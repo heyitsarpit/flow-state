@@ -16,6 +16,9 @@ import type { Mutant } from "../dsl/oracle.ts";
  * - `id.dispose-drops-lanes` drops lanes at an actor's disposal, `mutant.disposal-hold-first`
  *   delivers the hold-leaving ending first, `mutant.disposal-rereads` sends a read during the
  *   disposal, and `1b.forget-marks-held-lane` marks a forgotten actor's Held lane releasing.
+ * - `mutant.boot-after-disposal-skips-restored` drops a Held head's restore decision and mail at
+ *   the boot after a disposal (`mutant.boot-skips-restored`'s edits): its `AwaitRestore
+ *   { runtimeDisposal }` falls due (Actors I29; step 6 review M3).
  */
 export const disposalMutants: ReadonlyArray<Mutant> = [
   {
@@ -179,6 +182,25 @@ export const disposalMutants: ReadonlyArray<Mutant> = [
         file: "step.ts",
         find: "dueAt: tx.env.now + tx.bounds.disposeMs",
         replace: "dueAt: tx.env.now + 1000",
+      },
+    ],
+  },
+  {
+    name: "mutant.boot-after-disposal-skips-restored",
+    says: "a boot after the Runtime's disposal revives a Held head and never decides its unknown { Restored }",
+    expects: "Actors I29",
+    runtime: "prototype",
+    cases: ["PAY-15/dispose-held"],
+    edits: [
+      {
+        file: "durable.ts",
+        find: "      noteEnding(tx, { op: l.op, attempt: h.id }, ending);\n      const phase: Phase",
+        replace: "      const phase: Phase",
+      },
+      {
+        file: "durable.ts",
+        find: "        mail(tx, l, h, ending, true, !h.held);",
+        replace: "",
       },
     ],
   },

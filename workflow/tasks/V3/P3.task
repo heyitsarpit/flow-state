@@ -593,6 +593,15 @@ tasks
             relabelled to WriteLanes I15, logged in STATUS). Step 5 review H1, L4, L5 fixed (7b0a4696); M1 open (needs 
             a storage fact: PAY-09/ack-not-stored), M2 mutant not added (no Invariant to expect). Next: steps 7 and 8. 
             Suite 87/87, null 0/87, sweep 83/83, coverage 0 gaps (36).
+        comment     2026-11-11T02:28:31Z
+            Run 6 (builder, 2026-11-11): step 7 (9bb7fa5d; ending-channels and attempt-identity stay off the fold as 
+            its independent judges, template keys gone, key check with mutant.mint-key-differs, the fold's I6 
+            unclaimed, claim test), step 5 review M1 (87ee9d9f; Port change 8, Acknowledged storage fact, 
+            mutant.restore-skips-unsent; mutant.boot-skips-restored now Restore I6 in 
+            PAY-09/ack-stored-confirmation-lost and PAY-18), step 8 (a6c2bfcf; cancels gone, README), step 6 review M3 
+            mutant. Falsify 86/86, suite 87/87, null 0/87, coverage 0 gaps (36), check at zero. Not started: the 
+            coordinator's member-resolution convergence (step 6 review H1, M2); M1 (owed retry unchecked) pending for 
+            the user. Detail: code:packages/flow-state-v3/conformance/STATUS.md (Convergence v2 build, Run 6).
     T8
         title       Turn area complete
         status      open
