@@ -30,7 +30,8 @@ const verdictLine = (stdout: string) =>
 /**
  * The gate file (advisor Q6): runs every machine gate in a child process at the current revision
  * and writes their verdict lines to `gates.json`, which notes and reports cite instead of
- * hand-copied numbers. The crash generator runs on its own (`crash`): it is not a gate yet.
+ * hand-copied numbers. A gate's verdict is recorded as it is, red included: the liar gate's
+ * greens and the crash generator's red points are open work, not a stop.
  */
 export const writeGates = (main: string, path: string, scratch: string) =>
   Effect.gen(function* () {
@@ -53,6 +54,16 @@ export const writeGates = (main: string, path: string, scratch: string) =>
         args: ["falsify", "--runtime", "production", "--parallel", "6", "--scratch", scratch],
       },
       { gate: "coverage", args: ["coverage"] },
+      { gate: "liar round-14", args: ["liar", "--parallel", "6", "--scratch", scratch] },
+      {
+        gate: "liar production",
+        args: ["liar", "--runtime", "production", "--parallel", "6", "--scratch", scratch],
+      },
+      { gate: "crash production", args: ["crash", "--runtime", "production", "--only", only] },
+      {
+        gate: "core mutants",
+        args: ["mutate", "--limit", "100", "--parallel", "6", "--scratch", scratch],
+      },
     ];
 
     const results = yield* Effect.forEach(
