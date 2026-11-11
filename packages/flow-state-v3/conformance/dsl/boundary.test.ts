@@ -56,14 +56,22 @@ const COMPARE = [
 type Import = { readonly from: string; readonly names: ReadonlyArray<string> };
 
 // RETURN_TYPE: the matches' groups are optional strings; the contract states the parsed shape.
-const importsOf = (source: string): ReadonlyArray<Import> =>
-  [...source.matchAll(/import\s+(type\s+)?\{([^}]*)\}\s+from\s+"([^"]+)";/gu)].map((m) => ({
-    from: m[3] ?? "",
-    names: (m[2] ?? "")
-      .split(",")
-      .map((n) => n.trim().replace(/^type\s+/u, ""))
-      .filter((n) => n !== ""),
-  }));
+const importsOf = (source: string): ReadonlyArray<Import> => [
+  ...[...source.matchAll(/(?:import|export)\s+(type\s+)?\{([^}]*)\}\s+from\s+"([^"]+)";/gu)].map(
+    (m) => ({
+      from: m[3] ?? "",
+      names: (m[2] ?? "")
+        .split(",")
+        .map((n) => n.trim().replace(/^type\s+/u, ""))
+        .filter((n) => n !== ""),
+    }),
+  ),
+  ...[
+    ...source.matchAll(
+      /(?:import|export)\s+(?:type\s+)?\*(?:\s+as\s+\w+)?\s+from\s+"([^"]+)";|import\(\s*"([^"]+)"\s*\)/gu,
+    ),
+  ].map((m) => ({ from: m[1] ?? m[2] ?? "", names: ["*"] })),
+];
 
 const targetOf = (module: string, from: string) =>
   relative(SUITE, resolve(SUITE, dirname(module), from));
@@ -77,7 +85,13 @@ const breachesOf = (module: string, source: string) =>
   importsOf(source).flatMap((i) => {
     if (!i.from.startsWith(".")) return [];
     const target = targetOf(module, i.from);
-    const named = (BANNED.get(target) ?? []).filter((n) => i.names.includes(n));
+    const banned = BANNED.get(target) ?? [];
+
+    const named =
+      i.names.includes("*") && banned.length > 0
+        ? ["*"]
+        : banned.filter((n) => i.names.includes(n));
+
     const imported = COMPARE.filter((c) => c === target).map((c) => `${module}: imports ${c}`);
 
     const runtime = [target]
@@ -120,12 +134,18 @@ describe("the expect half's boundary (Conformance R20, T37, T40)", () => {
       'import { type Observation, sameActor } from "../port.ts";',
       'import { reported } from "./compare.ts";',
       'import { step } from "../../prototypes/round-14/step.ts";',
+      'import * as port from "../port.ts";',
+      'export { Fact } from "./oracle.ts";',
+      'const later = import("./compare.ts");',
     ].join("\n");
 
     assert.deepStrictEqual(breachesOf("dsl/expect.ts", planted), [
       "dsl/expect.ts: imports Observation from port.ts",
       "dsl/expect.ts: imports dsl/compare.ts",
       "dsl/expect.ts: imports the runtime module ../prototypes/round-14/step.ts",
+      "dsl/expect.ts: imports Fact from dsl/oracle.ts",
+      "dsl/expect.ts: imports * from port.ts",
+      "dsl/expect.ts: imports dsl/compare.ts",
     ]);
   });
 });
