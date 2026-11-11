@@ -701,10 +701,18 @@ note 2026-11-11T09:25:41Z
     reopened, since five partial rows (WriteLanes I5, I13, I17, I24, I27) still owe remainders and the coverage gate 
     flags a done owner. For the user: the provisional public names in T16's comment.
 note 2026-11-11T09:55:30Z
-    Decisions (user, 2026-11-11, "all accepted"): T16's provisional public names are accepted; the Effect recommendations R1 to R8 are applied in new @task.V3.T43 before T17; Restore R1 stands and DISP-05 changes to keep a Held lane's identity a record until reached. **Reverse:** rename, skip T43, or reword Restore R1.
+    Decisions (user, 2026-11-11, "all accepted"): T16's provisional public names are accepted; the Effect 
+    recommendations R1 to R8 are applied in new @task.V3.T43 before T17; Restore R1 stands and DISP-05 changes to keep 
+    a Held lane's identity a record until reached. **Reverse:** rename, skip T43, or reword Restore R1.
 note 2026-11-11T09:56:34Z
     Review started on T16's production code and T7 rows round 2; weekly usage 44 percent, reserve 50.
 note 2026-11-11T09:57:26Z
-    Amendment (the user, 2026-11-11): usage reserve raised to 75 percent weekly; AGENTS.md gains the idiomatic-Effect rule; the Epic adds Effect prior art in each module's design, a standing Effect review angle and lint bans on host time and randomness in src/ (built in T43). **Reverse:** reserve 50; drop the lines.
+    Amendment (the user, 2026-11-11): usage reserve raised to 75 percent weekly; AGENTS.md gains the idiomatic-Effect 
+    rule; the Epic adds Effect prior art in each module's design, a standing Effect review angle and lint bans on host 
+    time and randomness in src/ (built in T43). **Reverse:** reserve 50; drop the lines.
 note 2026-11-11T10:00:04Z
-    Advisor round started (the user, 2026-11-11): one Fable 5.2 agent at high effort on code:workflow/plans/flow/references/proposals/advisor-questions-2026-11-11.md, answers to advisor-answers-2026-11-11.md; read-only.
+    Advisor round started (the user, 2026-11-11): one Fable 5.2 agent at high effort on 
+    code:workflow/plans/flow/references/proposals/advisor-questions-2026-11-11.md, answers to 
+    advisor-answers-2026-11-11.md; read-only.
+note 2026-11-11T10:17:07Z
+    T16 review (code:workflow/plans/flow/references/proposals/t16-review-2026-11-11.md): the Pay path holds, but four public paths no case reaches are wrong (dispose, ready, an unencodable commit, unsupported concurrency policies acting as reject), and the internal driver leaks through a public symbol. Sent to the builder as T16 fixes, each with a public-API case that fails first.
