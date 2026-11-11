@@ -285,8 +285,8 @@ instructions
       it. One of every review's two code-quality sidecars asks what the change re-creates of Effect.
       Lint bans `setTimeout`, `clearTimeout`, `Date.now`, `performance.now` and `Math.random` in `src/`
       outside the real host's adapter.
-    - From the advisor's answers (the user, 2026-11-11, code:workflow/plans/flow/references/proposals/
-      advisor-answers-2026-11-11.md): obligations come only from suite facts, enforced by type and lint (T44);
+    - From the advisor's answers (the user, 2026-11-11; advisor-answers-2026-11-11.md in the proposals
+      folder): obligations come only from suite facts, enforced by type and lint (T44);
       an executable Spec model computes expected results and generates cases, Haiku no longer drafts them, and
       a different model family reads a sample (T45); round-14 green is no longer an exit but a mutant host with
       a verified limits list; strength is measured by mutation score, liar score, oracle share and table-cell
