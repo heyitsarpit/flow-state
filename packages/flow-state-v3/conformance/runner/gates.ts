@@ -47,7 +47,7 @@ export const writeGates = (main: string, path: string, scratch: string) =>
         gate: "suite production",
         args: ["suite", "--runtime", "production", "--only", only, "--parallel", "6"],
       },
-      { gate: "falsify round-14", args: ["falsify", "--parallel", "8", "--scratch", scratch] },
+      { gate: "falsify round-14", args: ["falsify", "--parallel", "6", "--scratch", scratch] },
       {
         gate: "falsify production",
         args: ["falsify", "--runtime", "production", "--parallel", "6", "--scratch", scratch],
