@@ -18,16 +18,16 @@ closing section on what carries over. Everything is **proposed**: nothing is app
 confirms. A builder is working in `src/` right now. It split `core/step.ts` into `tx.ts`, `lanes.ts`,
 `serve.ts` and others during this audit. Line numbers are from 2026-11-11 and will drift.
 
-| #  | Change                                                                  | Area       | Effort         |
-| -- | ----------------------------------------------------------------------- | ---------- | -------------- |
-| R1 | Host from `Clock` and `Scheduler`; one Scope with a `FiberMap`           | host       | about 0.5 day  |
-| R2 | Every codec compiled once onto `Compiled`; events decoded at `Send`      | core       | about 0.5 day  |
-| R3 | One Schema per closed vocabulary; one type per shape; branded ids        | core       | about 2-3 h    |
-| R4 | `Store` as an Effect service; `Stored` split into `Stored` and `Refused` | host, core | about 0.5 day  |
-| R5 | Guard verdict as a tagged enum, not `Result<Option<string>>`             | core       | about 1 h      |
-| R6 | Option and Result idioms, and `Struct` and `Record` helpers              | core       | about 1-2 h    |
-| R7 | Host conventions: named `Effect.fn`, typed `FlowError`, one JSON codec, `TypeId` | host | about 1 h |
-| R8 | Drop `Host.later`: an urgent batch is a `yieldNow` wake                  | host       | about 1 h, gated |
+| #   | Change                                                                           | Area       | Effort           |
+| --- | -------------------------------------------------------------------------------- | ---------- | ---------------- |
+| R1  | Host from `Clock` and `Scheduler`; one Scope with a `FiberMap`                   | host       | about 0.5 day    |
+| R2  | Every codec compiled once onto `Compiled`; events decoded at `Send`              | core       | about 0.5 day    |
+| R3  | One Schema per closed vocabulary; one type per shape; branded ids                | core       | about 2-3 h      |
+| R4  | `Store` as an Effect service; `Stored` split into `Stored` and `Refused`         | host, core | about 0.5 day    |
+| R5  | Guard verdict as a tagged enum, not `Result<Option<string>>`                     | core       | about 1 h        |
+| R6  | Option and Result idioms, and `Struct` and `Record` helpers                      | core       | about 1-2 h      |
+| R7  | Host conventions: named `Effect.fn`, typed `FlowError`, one JSON codec, `TypeId` | host       | about 1 h        |
+| R8  | Drop `Host.later`: an urgent batch is a `yieldNow` wake                          | host       | about 1 h, gated |
 
 Order: R1 before R4, since R4 uses R1's fibers. R2 and R3 are independent of the host work. R8 is safe
 only if the suite passes unchanged.

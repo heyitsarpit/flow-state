@@ -59,7 +59,7 @@ description
 tasks
     T7
         title       WriteLanes area complete
-        status      done
+        status      open
         priority    high
         blocked_by  [@task.V3.T5, @task.V3.T40]
         description
