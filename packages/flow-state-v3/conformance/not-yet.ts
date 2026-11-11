@@ -12,8 +12,8 @@ const upTo = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
  */
 export const notYet: ReadonlyArray<NotYet> = [
   {
-    owner: "@task.V3.T7",
-    why: "not built yet (round-14 can show each): success writes and store order need a domain-write fixture (I2, I19, I24), old-version holds a Port change to boot another release (I17), an unencodable commit a fixture (I18), late results after cleanup (I23), key-less members (I14); (I9 is checked by a re-send carrying another Attempt)",
+    owner: "@task.V3.T24",
+    why: "a domain write's store effects before its ending in the mailbox (WriteLanes I19): the Port reads the store only between steps (Runtime.entity, round-14 adapter.ts record), and round-14 applies a write's confirms and admits its ending in one step's settle (entities.ts onEnded, turn.ts admitEnding); the old suite's SURV-01 (review.scenario.ts:547-558) also asserts only after both; searched round-14's entities.ts, adapter.ts and the old suite's store and review scenarios. The entity store (T24) can report store changes in order",
     invariants: invariantsOf("WriteLanes", [19]),
   },
   {

@@ -284,3 +284,11 @@ coverage and tests now cite what covers them. Compile I2's count folds into I1 (
 expect I1); StaticCli I9 folds into I6 (`cli.warnings-fail`, CLI-07 and the remainder row). Turn I8's type clause
 moves to Compile T6; Turn I18 takes I19's old-snapshot clause. The seven rewordings are applied, plus Reads I19
 ("returns the idle row"), which the audit's table also asked for.
+
+## 2026-11-11, T8 (M3 ruled: @plan.Pending D4)
+
+- **WriteLanes R10 and I15:** an ending whose turn is refused for any cause, a mapper throw included, is
+  redelivered once; a second refusal is final until the next boot or adoption. Why: the coordinator's ruling of
+  M3 (log.task, D4), so WriteLanes agrees with Actors R15, I24 and ruling CQ1. Reverse: restore "a throw from
+  the outcome mapper".
+

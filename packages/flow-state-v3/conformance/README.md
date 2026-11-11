@@ -210,6 +210,12 @@ the case holds.
 
 ## Stated limits
 
+- Round-14 limit (Turn I32): equal deadlines fire in arm order, not actor admission order
+  (`driver.ts:163-171`); two shoppers arming against admission order go red, so the case is
+  production's (T18).
+- Round-14 limit (Actors I38): a commit queued behind a Held head is not ended `NotSent { Disposed }`
+  when the Runtime's disposal starts; no case leaves one there at the end-of-case disposal (TURN-04
+  avoids it), and the production case is T9's.
 - Fixtures are the prototype's typed fixtures (decision 4); a fixture's reference is hand-written.
 - `Ended` and `Delivered` name an operation, not its machine: an operation name two booted
   machines share is not checked by mapping.

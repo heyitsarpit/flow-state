@@ -7,6 +7,6 @@ export const actorsRemainders: ReadonlyArray<Remainder> = [
   {
     invariant: "Actors I38",
     owner: "@task.V3.T9",
-    owed: "the next incarnation after a reload hearing each never-sent commit's NotSent { Disposed } once (round-14 never delivers it, ruling CQ6)",
+    owed: "the next incarnation after a reload hearing each never-sent commit's NotSent { Disposed } once (round-14 never delivers it, ruling CQ6), and a commit queued behind a Held head ending at disposal (a round-14 limit: it is left queued)",
   },
 ];
