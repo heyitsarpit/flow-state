@@ -1,4 +1,4 @@
-import type { Lane } from "./world.ts";
+import { type Lane, Phase } from "./world.ts";
 
 /**
  * A write lane's row as `O.x.get` reads it (Operations O6): whether a send is pending, whether
@@ -16,8 +16,8 @@ export type Row = {
  */
 // RETURN_TYPE: the row is the public O.x.get shape.
 export const rowOf = (lane: Lane): Row => ({
-  pending: lane.head.phase._tag !== "Held",
-  uncertain: lane.head.phase._tag === "Held",
+  pending: !Phase.$is("Held")(lane.head.phase),
+  uncertain: Phase.$is("Held")(lane.head.phase),
   waiting: false,
   retryCount: lane.head.retryCount,
 });

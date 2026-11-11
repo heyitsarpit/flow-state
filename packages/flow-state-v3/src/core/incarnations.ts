@@ -1,4 +1,5 @@
-import { Option } from "effect";
+import { Option, Result } from "effect";
+import { armingsOf } from "./turn.ts";
 import { Evidence } from "./evidence.ts";
 import { actorRecordKey, decodeRecords, parkedRecordKey } from "./record.ts";
 import { GRACE_MS, isInFlight, ROOT_ACTIVATION, type Tx, without, withEntry } from "./tx.ts";
@@ -134,13 +135,10 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence) => {
       onNone: () =>
         armSchedules(
           base,
-          (compiled.states.get(base.state)?.schedules ?? [])
-            .filter((s) => s.onEntry && s.delay._tag === "Fixed")
-            .map((s) => ({
-              name: s.name,
-              send: s.send,
-              ms: s.delay._tag === "Fixed" ? s.delay.ms : 0,
-            })),
+          Result.getOrElse(
+            armingsOf(compiled.states.get(base.state)?.schedules ?? [], true, "", base.memory),
+            () => [],
+          ),
         ),
       onSome: (record) => {
         let schedules = base.schedules;

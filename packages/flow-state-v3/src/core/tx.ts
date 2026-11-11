@@ -1,3 +1,4 @@
+import { Struct } from "effect";
 import type { Compiled, Values } from "./compiled.ts";
 import type { Evidence } from "./evidence.ts";
 import {
@@ -68,8 +69,7 @@ export const isInFlight = (lane: Lane) => !Phase.$is("Held")(lane.head.phase);
 /**
  * The fields of a record a list names.
  */
-export const pick = (input: Values, fields: ReadonlyArray<string>) =>
-  Object.fromEntries(fields.map((f) => [f, input[f]]));
+export const pick = (input: Values, fields: ReadonlyArray<string>) => Struct.pick(input, fields);
 
 /**
  * A minted id as its kind: the mint is the one place ids of each kind are made.

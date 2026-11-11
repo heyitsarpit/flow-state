@@ -6,13 +6,13 @@ import { isInFlight, pick, type Tx, without, withEntry } from "./tx.ts";
 import { isDecline } from "./vocabulary.ts";
 import {
   type ActorId,
-  actorKey,
   Command,
   type Ending,
   type Incarnation,
   type Lane,
   Phase,
   type CallId,
+  laneId,
 } from "./world.ts";
 import type { Persistence } from "./persist.ts";
 
@@ -81,7 +81,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence) => {
     });
 
   const laneAt = (actor: ActorId, operation: string, keyText: string) =>
-    tx.world().lanes.get(`${actorKey(actor)}|${operation}|${keyText}`);
+    tx.world().lanes.get(laneId(actor, operation, keyText));
 
   const keyTextOf = (operation: Operation, key: Values) =>
     Result.getSuccess(Schema.encodeUnknownResult(operation.key)(pick(key, operation.keyFields)));
@@ -103,7 +103,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence) => {
       return member;
     }
 
-    const id = `${actorKey(incarnation.actor)}|${operation.name}|${text.value}`;
+    const id = laneId(incarnation.actor, operation.name, text.value);
 
     if (tx.world().lanes.has(id) || tx.world().parked.get(id)?.kept === true) {
       decline(incarnation.actor, operation.name, "Rejected", owner, Option.some(id));
@@ -198,7 +198,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence) => {
     return { operation: operation.name, kind: "retry", target } satisfies Member;
   };
 
-  const release_ = (lane: Lane) => {
+  const releaseLane = (lane: Lane) => {
     tx.emit(
       Evidence.Lane({
         kind: "Released",
@@ -218,9 +218,9 @@ export const makeLanes = (tx: Tx, persistence: Persistence) => {
           head: { ...lane.head, phase: Phase.OnWire({ call, cancelled: true }) },
         });
       },
-      Held: () => release_(lane),
-      Ready: () => (lane.head.sent ? release_(lane) : neverSent(lane)),
-      Recapturing: () => release_(lane),
+      Held: () => releaseLane(lane),
+      Ready: () => (lane.head.sent ? releaseLane(lane) : neverSent(lane)),
+      Recapturing: () => releaseLane(lane),
       Acknowledging: () => neverSent(lane),
     });
 
@@ -410,7 +410,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence) => {
     commit,
     laneFor,
     retry,
-    release_,
+    releaseLane,
     cancelWrite,
     neverSent,
     cancel,

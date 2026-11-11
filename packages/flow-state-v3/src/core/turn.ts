@@ -252,7 +252,11 @@ const delayOf = (schedule: Schedule, memory: Values) =>
       ),
   });
 
-const armingsOf = (
+/**
+ * The schedules a turn arms: on entry those armed on entry, and each one that lists the event,
+ * with its delay from the after memory; an invalid delay is its slot's defect.
+ */
+export const armingsOf = (
   schedules: ReadonlyArray<Schedule>,
   entered: boolean,
   tag: string,
@@ -351,10 +355,9 @@ const implicit = (input: TurnInput): Option.Option<Alternative> => {
 export const runTurn = (input: TurnInput): TurnResult => {
   const leafLevel = input.compiled.states.get(input.state)?.on;
 
-  const leafAlternatives = Option.match(Option.fromUndefinedOr(leafLevel?.get(input.tag)), {
-    onSome: (list) => list,
-    onNone: () => Option.toArray(implicit(input)),
-  });
+  const leafAlternatives = Option.getOrElse(Option.fromUndefinedOr(leafLevel?.get(input.tag)), () =>
+    Option.toArray(implicit(input)),
+  );
 
   const levels = input.late
     ? [{ node: "root", alternatives: input.compiled.root.get(input.tag) ?? [] }]

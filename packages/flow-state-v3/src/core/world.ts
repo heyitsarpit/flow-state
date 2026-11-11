@@ -15,6 +15,12 @@ export const actorKey = (actor: ActorId) =>
   `${actor.machine}/${actor.name.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll("|", "%7C")}`;
 
 /**
+ * The id a write lane is kept under: its identity, operation and key text.
+ */
+export const laneId = (actor: ActorId, operation: string, keyText: string) =>
+  `${actorKey(actor)}|${operation}|${keyText}`;
+
+/**
  * A storage ticket's id: the batch an acknowledgement or capture waits on.
  */
 export type TicketId = string & Brand.Brand<"flow-state/TicketId">;

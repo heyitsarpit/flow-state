@@ -25,7 +25,7 @@ export const makeServe = (
 
   // ── serving mail.
   // RETURN_TYPE: an Option of the operation's mapping, whichever channel selects it.
-  const mappingOf = (operation: Operation, ending: Ending): Option.Option<Mapping> => {
+  const endingMapping = (operation: Operation, ending: Ending): Option.Option<Mapping> => {
     if (ending.channel === "success") return Option.some(operation.success);
 
     if (ending.channel === "failure")
@@ -174,7 +174,7 @@ export const makeServe = (
         }),
       );
 
-    const mapping = mappingOf(operation, ending);
+    const mapping = endingMapping(operation, ending);
 
     if (Option.isNone(mapping)) {
       tx.emit(
@@ -286,7 +286,7 @@ export const makeServe = (
     }
   };
 
-  return { mappingOf, turn, serveEnding, serve, drain };
+  return { endingMapping, turn, serveEnding, serve, drain };
 };
 
 /**

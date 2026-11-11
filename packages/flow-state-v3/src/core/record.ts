@@ -1,11 +1,11 @@
-import { Option, Result, Schema } from "effect";
+import { Option, Result, Schema, Struct } from "effect";
 import type { Compiled, Values } from "./compiled.ts";
 import { Channel, ScheduleDeadline } from "./vocabulary.ts";
 import {
   type ActorRecord,
-  actorKey,
   type Incarnation,
   type Lane,
+  laneId,
   type Parked,
   Phase,
 } from "./world.ts";
@@ -166,91 +166,95 @@ export const decodeRecords = (
   // FLOW_STATE_ALLOW_UNKNOWN: the store's values are parsed JSON, decoded here once by their Schemas.
   stored: ReadonlyMap<string, unknown>,
 ): Restored => {
-  const records: Array<ActorRecord> = [];
-  const lanes: Array<{ readonly lane: Lane; readonly inFlight: boolean }> = [];
-  const parked: Array<Parked> = [];
+  // FLOW_STATE_ALLOW_UNKNOWN: one stored value, decoded by the Schema its key names.
+  const actorRecord = (value: unknown) =>
+    Option.gen(function* () {
+      const r = yield* Result.getSuccess(decodeActorJson(value));
+      const compiled = yield* Option.fromUndefinedOr(machines.get(r.machine));
 
-  for (const [key, value] of stored) {
-    if (key.startsWith("actor/"))
-      Result.match(decodeActorJson(value), {
-        onFailure: () => undefined,
-        onSuccess: (r) => {
-          const compiled = machines.get(r.machine);
+      const memory = yield* Result.getSuccess(
+        Schema.decodeUnknownResult(compiled.memoryJson)(r.memory),
+      );
 
-          if (compiled === undefined) return;
+      return {
+        actor: { machine: r.machine, name: r.name },
+        state: r.state,
+        memory,
+        schedules: r.schedules,
+      } satisfies ActorRecord;
+    });
 
-          Result.match(Schema.decodeUnknownResult(compiled.memoryJson)(r.memory), {
-            onFailure: () => undefined,
-            onSuccess: (memory) =>
-              void records.push({
-                actor: { machine: r.machine, name: r.name },
-                state: r.state,
-                memory,
-                schedules: r.schedules,
-              }),
-          });
-        },
-      });
-
-    if (key.startsWith("parked/"))
-      Result.match(Schema.decodeUnknownResult(ParkedJson)(value), {
-        onFailure: () => undefined,
-        onSuccess: (r) =>
-          void parked.push({
-            lane: r.lane,
-            actor: { machine: r.machine, name: r.name },
+  // FLOW_STATE_ALLOW_UNKNOWN: one stored value, decoded by the Schema its key names.
+  const parkedRecord = (value: unknown) =>
+    Option.map(
+      Result.getSuccess(Schema.decodeUnknownResult(ParkedJson)(value)),
+      (r) =>
+        ({
+          lane: r.lane,
+          actor: { machine: r.machine, name: r.name },
+          operation: r.operation,
+          kept: r.kept,
+          endings: r.endings.map((e) => ({
             operation: r.operation,
-            kept: r.kept,
-            endings: r.endings.map((e) => ({
-              operation: r.operation,
-              attempt: Option.fromNullOr(e.attempt),
-              lane: Option.some(r.lane),
-              channel: e.channel,
-              reason: e.reason,
-              value: e.value,
-              owner: 0,
-              current: true,
-              redelivered: false,
-              parked: true,
-            })),
-          }),
-      });
+            attempt: Option.fromNullOr(e.attempt),
+            lane: Option.some(r.lane),
+            channel: e.channel,
+            reason: e.reason,
+            value: e.value,
+            owner: 0,
+            current: true,
+            redelivered: false,
+            parked: true,
+          })),
+        }) satisfies Parked,
+    );
 
-    if (key.startsWith("lane/"))
-      Result.match(decodeLaneJson(value), {
-        onFailure: () => undefined,
-        onSuccess: (r) => {
-          const operation = machines.get(r.machine)?.operations.get(r.operation);
+  // FLOW_STATE_ALLOW_UNKNOWN: one stored value, decoded by the Schema its key names.
+  const laneRecord = (value: unknown) =>
+    Option.gen(function* () {
+      const r = yield* Result.getSuccess(decodeLaneJson(value));
 
-          if (operation === undefined) return;
-          const actor = { machine: r.machine, name: r.name };
+      const operation = yield* Option.fromUndefinedOr(
+        machines.get(r.machine)?.operations.get(r.operation),
+      );
 
-          Result.match(Schema.decodeUnknownResult(operation.inputJson)(r.input), {
-            onFailure: () => undefined,
-            onSuccess: (input) =>
-              void lanes.push({
-                inFlight: r.inFlight,
-                lane: {
-                  id: `${actorKey(actor)}|${r.operation}|${r.keyText}`,
-                  actor,
-                  operation: r.operation,
-                  key: Object.fromEntries(operation.keyFields.map((f) => [f, input[f]])),
-                  keyText: r.keyText,
-                  head: {
-                    id: r.attempt,
-                    input,
-                    retryCount: r.retryCount,
-                    mayHaveApplied: r.mayHaveApplied,
-                    sent: r.sent,
-                    owner: 0,
-                    phase: Phase.Held(),
-                  },
-                },
-              }),
-          });
+      const input = yield* Result.getSuccess(
+        Schema.decodeUnknownResult(operation.inputJson)(r.input),
+      );
+
+      const actor = { machine: r.machine, name: r.name };
+
+      const lane: Lane = {
+        id: laneId(actor, r.operation, r.keyText),
+        actor,
+        operation: r.operation,
+        key: Struct.pick(input, operation.keyFields),
+        keyText: r.keyText,
+        head: {
+          id: r.attempt,
+          input,
+          retryCount: r.retryCount,
+          mayHaveApplied: r.mayHaveApplied,
+          sent: r.sent,
+          owner: 0,
+          phase: Phase.Held(),
         },
-      });
-  }
+      };
 
-  return { records, lanes, parked };
+      return { inFlight: r.inFlight, lane };
+    });
+
+  const entries = [...stored];
+
+  // FLOW_STATE_ALLOW_UNKNOWN: a stored value is parsed JSON until its key's decoder reads it.
+  const of = <A>(prefix: string, decode: (value: unknown) => Option.Option<A>) =>
+    entries.flatMap(([key, value]) =>
+      key.startsWith(prefix) ? Option.toArray(decode(value)) : [],
+    );
+
+  return {
+    records: of("actor/", actorRecord),
+    lanes: of("lane/", laneRecord),
+    parked: of("parked/", parkedRecord),
+  };
 };
