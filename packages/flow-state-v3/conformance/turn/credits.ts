@@ -2,7 +2,6 @@ import { Option } from "effect";
 import { endingOf } from "../dsl/domain.ts";
 import type { Predicted } from "../dsl/lifecycle-owed.ts";
 import { Fact, type Violation, violation } from "../dsl/oracle.ts";
-import type { Folded } from "../fixtures/folds.ts";
 import {
   type ActorRef,
   type Channel,
@@ -13,6 +12,7 @@ import {
   sameJson,
   type Turn,
 } from "../port.ts";
+import type { Folded } from "../fixtures/folds.ts";
 import type { keysFor } from "./predict.ts";
 import { attemptKey, type Call, requested, type State } from "./anchor.ts";
 import { type Answer, type Request, RequestPhase } from "../world/network.ts";
@@ -103,13 +103,21 @@ export const settledBy = (
 export const mintOwed = (open: Option.Option<Predicted>, actor: Option.Option<ActorRef>) =>
   Option.filter(open, (t) => Option.exists(actor, (a) => sameActor(a, t.actor)));
 
+const keyedCall = (state: State, actor: ActorRef, operation: string, key: Json) =>
+  [...state.calls.values()].some(
+    (c) =>
+      c.actor === `${actor.machine} ${actor.id}` &&
+      c.operation === operation &&
+      Option.exists(c.key, (ck) => sameJson(ck, key)),
+  );
+
 /**
  * The retries a turn runs, by its predicted header and the rows of its machine (WriteLanes R9,
  * Turn R20), never its reported members: each names which calls it re-owns. Every row whose
  * event, from, to and claimed alternative match counts, since the guards that choose among them
  * are not all computed here (an allowed set: a retry no row of the turn names re-owns nothing).
- * A keyed retry names its folded key's lane (a call minted where no fold gave a key may be it), or
- * every lane of its operation without one; a
+ * A keyed retry names its folded key's lane (a call minted where no fold gave a key may be it only
+ * when no call of the operation carries that key), or every lane of its operation without one; a
  * key-less one on a keyed operation names its own ending's Attempt; on an unkeyed operation, its
  * one lane.
  */
@@ -154,7 +162,10 @@ export const retriesOwed = (
           return Option.match(key, {
             onNone: () => true,
             onSome: (k) =>
-              Option.match(call.key, { onNone: () => true, onSome: (ck) => sameJson(ck, k) }),
+              Option.match(call.key, {
+                onNone: () => !keyedCall(state, turn.actor, m.operation, k),
+                onSome: (ck) => sameJson(ck, k),
+              }),
           });
 
         return Option.contains(own, call.attempt);
@@ -185,9 +196,19 @@ export const attachingKind = (step: ReadonlyArray<Fact>) => {
 };
 
 /**
+ * The request as the suite's server answered it: the `Answered` fact's request may still carry the
+ * phase it had when the suite chose to answer it.
+ */
+export const answeredRequest = (request: Request, answer: Answer) => ({
+  ...request,
+  phase: RequestPhase.Answered({ answer }),
+});
+
+/**
  * The keys a turn's members are owed, by operation: the fixture's folds over the fields the suite
- * carries. Where it carries none (an actor it never saw ensured, Turn's Unanchored phase), the
- * report's own keys stand in: a stated limit, the one place a key is taken from the runtime.
+ * carries. Where it carries none (an actor whose record a kill lost before any write, or one it
+ * never saw ensured), the report's own keys stand in: a stated limit (`limits.ts`), the one place
+ * a key is taken from the runtime.
  */
 export const keysOf = (
   turn: Turn,
@@ -209,12 +230,3 @@ const reportedKeys = (turn: Turn) =>
         : [];
     }),
   );
-
-/**
- * The request as the suite's server answered it: the `Answered` fact's request may still carry the
- * phase it had when the suite chose to answer it.
- */
-export const answeredRequest = (request: Request, answer: Answer) => ({
-  ...request,
-  phase: RequestPhase.Answered({ answer }),
-});

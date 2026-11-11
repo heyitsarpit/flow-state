@@ -437,8 +437,8 @@ const unheard = (walk: Walk) => [
 
 /**
  * A record written in a step that only moved the clock, with no turn, no end owed, every live
- * actor used and no capture due for a record that may be dirty (WriteAhead R10): only an end
- * could write it, and no actor may end (Actors R8, I10).
+ * actor used or free for less than the grace, and no capture due for a record that may be dirty
+ * (WriteAhead R10): only an end could write it, and no actor may end (Actors R8, I10).
  */
 const usedWrite = (walk: Walk) =>
   walk.writes > 0 &&
@@ -448,11 +448,11 @@ const usedWrite = (walk: Walk) =>
   walk.model.mode === "running" &&
   walk.model.live.length > 0 &&
   !walk.captured &&
-  walk.model.live.every((l) => holds(walk.model, l.actor))
+  walk.model.live.every((l) => holds(walk.model, l.actor) || l.upper < GRACE_MS)
     ? [
         {
           invariant: "Actors I10" as const,
-          text: "a record was written in a step that only moved the clock while every live actor was used: an end before its time",
+          text: "a record was written in a step that only moved the clock while no live actor could end: an end before its time",
         },
       ]
     : [];

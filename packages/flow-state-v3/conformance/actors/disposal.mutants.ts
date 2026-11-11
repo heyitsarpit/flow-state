@@ -6,7 +6,7 @@ import type { Mutant } from "../dsl/oracle.ts";
  * **Details**
  *
  * - `life.never-ends` never ends a free actor (Actors I37); `life.ends-while-used` ends one its
- *   story still uses (I10).
+ *   story still uses (I10); `life.grace-short` ends one before the grace (I10).
  * - `mutant.disposal-skips-never-sent` leaves a never-sent commit unended by the disposal.
  * - `mutant.disposal-dispatches` also sends such a commit once its write lands.
  * - The `o6.*` ones edit the disposal: `o6.dispose-interrupts-wire` interrupts the call on
@@ -30,6 +30,14 @@ export const disposalMutants: ReadonlyArray<Mutant> = [
     runtime: "prototype",
     cases: ["ACT-02/dirty-record-written-at-end"],
     edits: [{ file: "world.ts", find: "  graceMs: 100,", replace: "  graceMs: 1e12," }],
+  },
+  {
+    name: "life.grace-short",
+    says: "a free actor's grace is 10 ms, so it ends before the 100 ms grace has run",
+    expects: "Actors I10",
+    runtime: "prototype",
+    cases: ["ACT-03/no-end-before-the-grace"],
+    edits: [{ file: "world.ts", find: "  graceMs: 100,", replace: "  graceMs: 10," }],
   },
   {
     name: "life.ends-while-used",

@@ -6,6 +6,9 @@ import { fileURLToPath } from "node:url";
 import { describe, it } from "vite-plus/test";
 import { Option } from "effect";
 import { handlersFor, referenceFor, rowsFor } from "../fixtures/fixture.ts";
+import type { Folded } from "../fixtures/folds.ts";
+import { FRESH, keyOf } from "../turn/anchor.ts";
+import { Phase } from "../turn/phases.ts";
 import { type Anchor, anchorOf, judgedStep } from "../turn/selection.ts";
 import { possible } from "../fixtures/handlers.ts";
 import { Cancel, Serialize } from "../fixtures/one-lane.ts";
@@ -140,11 +143,61 @@ const anchors = new WeakMap<Model, Anchor>();
  * that reached `model`, over the fixtures' handler tables: the step never sees a prediction
  * copied from the report (T45 S5).
  */
+/**
+ * The anchor a test starts from: the shopper's record holds the cart the examples' keys name
+ * (`KEY`), at a leaf each test's first turn gives, as an actor restored from an earlier page is.
+ */
+const seeded = (under: Known) => {
+  const start = anchorOf(handlersFor(FIXTURES), under.reference, under.rows);
+
+  return {
+    ...start,
+    actors: new Map([
+      [
+        keyOf(shopper),
+        {
+          ...FRESH,
+          phase: Phase.Unanchored(),
+          fields: Option.some({
+            intentId: KEY.intentId,
+            cartId: "c1",
+            authorized: true,
+            receipt: null,
+          }),
+        },
+      ],
+    ]),
+  };
+};
+
+/**
+ * The shopper's record now names another intent, as a new cart would: its next commit's key.
+ */
+const recarted = (model: Model, intentId: string) => refielded(model, { intentId });
+
+/**
+ * The shopper's record with `patch` folded into its fields.
+ */
+const refielded = (model: Model, patch: Folded) => {
+  const anchor = anchors.get(model);
+
+  if (anchor === undefined) return;
+
+  anchors.set(model, {
+    ...anchor,
+    actors: new Map(
+      [...anchor.actors].map(([key, a]) => [
+        key,
+        key === keyOf(shopper)
+          ? { ...a, fields: Option.map(a.fields, (f) => ({ ...f, ...patch })) }
+          : a,
+      ]),
+    ),
+  });
+};
+
 const predicted = (model: Model, under: Known, facts: ReadonlyArray<Fact>) =>
-  judgedStep(
-    anchors.get(model) ?? anchorOf(handlersFor(FIXTURES), under.reference, under.rows),
-    facts,
-  );
+  judgedStep(anchors.get(model) ?? seeded(under), facts);
 
 const using = (run: Step) => {
   const stepped = (
@@ -296,7 +349,10 @@ const examples: ReadonlyArray<Example> = [
         },
       ]);
 
-      assert.equal(phaseOf(after(voidSent, [...unsure, elsewhere], sends(1)), "v1"), "Resending");
+      const moved = after(empty, leave);
+      recarted(moved, "elsewhere");
+
+      assert.equal(phaseOf(after(moved, [...unsure, elsewhere], sends(1)), "v1"), "Resending");
     },
   },
 
@@ -304,8 +360,10 @@ const examples: ReadonlyArray<Example> = [
     name: "a claimed row is owed only when its own alternative ran",
     run: ({ refused }) => {
       const fallthrough = turn(shopper, "Leave", "CARD", "LEFT", [], Option.some("on.Leave[1]"));
+      const unauthorized = using(step).after(empty, []);
+      refielded(unauthorized, { authorized: false });
 
-      assert.deepStrictEqual(refused(empty, [fallthrough]), []);
+      assert.deepStrictEqual(refused(unauthorized, [fallthrough]), []);
     },
   },
 
@@ -524,6 +582,15 @@ const examples: ReadonlyArray<Example> = [
       assert.deepStrictEqual(seen(MemberTarget.Nothing()), [wl(12)]);
       assert.deepStrictEqual(seen(MemberTarget.Key({ key: { intentId: "elsewhere" } })), [wl(12)]);
       assert.deepStrictEqual(seen(MemberTarget.Key({ key: KEY })), [wl(12)]);
+
+      const moved = using(step).after(empty, pay);
+      recarted(moved, "elsewhere");
+
+      assert.deepStrictEqual(
+        refused(moved, [turn(shopper, "OrderSeen", "UNSURE", "PAID", [])]),
+        [wl(12)],
+        "a folded key naming no lane the actor holds owes the cancel on every lane",
+      );
     },
   },
   {
@@ -537,10 +604,15 @@ const examples: ReadonlyArray<Example> = [
         turn(shopper, "PayUnsure", "PAYING", "UNSURE", []),
       ];
 
-      const held = using(step).after(empty, [
+      const first = using(step).after(empty, [
         turn(shopper, "PayRequested", "CARD", "PAYING", [keyed("pay", "commit")]),
         minted(shopper, "pay", "p1"),
         ...sent("pay", "p1"),
+      ]);
+
+      recarted(first, two.intentId);
+
+      const held = using(step).after(first, [
         turn(shopper, "PayRequested", "PAYING", "PAYING", [
           { operation: "pay", kind: "commit", target: MemberTarget.Key({ key: two }) },
         ]),
@@ -550,6 +622,8 @@ const examples: ReadonlyArray<Example> = [
         ...unsure("p2"),
       ]);
 
+      recarted(held, KEY.intentId);
+
       const seen = turn(shopper, "OrderSeen", "UNSURE", "PAID", [keyed("pay", "cancel")]);
 
       const released = said(
@@ -558,13 +632,6 @@ const examples: ReadonlyArray<Example> = [
 
       assert.deepStrictEqual(refused(held, [seen, released]), []);
       assert.deepStrictEqual(refused(held, [seen]), [wl(12)]);
-
-      const twice = turn(shopper, "OrderSeen", "UNSURE", "PAID", [
-        { operation: "pay", kind: "cancel", target: MemberTarget.Key({ key: two }) },
-        keyed("pay", "cancel"),
-      ]);
-
-      assert.deepStrictEqual(refused(held, [twice]), [wl(12), wl(12)], "two keys name no one lane");
     },
   },
   {

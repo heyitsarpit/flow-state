@@ -82,6 +82,28 @@ export type StatedLimit = {
  */
 export const statedLimits: ReadonlyArray<StatedLimit> = [
   {
+    limit: "the keys of an actor whose fields the suite does not carry",
+    where: "turn/credits.ts keysOf",
+    admits:
+      "after a kill that lost every write of an actor's record (a capture not yet due), or for an actor never ensured, its turn's member keys are the report's",
+    mutant: {
+      name: "limit.mint-key-lies",
+      says: "every mint reports a key no fold gives",
+      expects: "WriteLanes I15",
+      runtime: "prototype",
+      cases: ["GEN-pay-seeded-3074"],
+      edits: [
+        {
+          file: "world.ts",
+          find: "  void tx.evidence.push({ kind, ...fields });",
+          replace:
+            '  void tx.evidence.push(kind === "mint" ? { kind, ...fields, key: { lie: true } } : { kind, ...fields });',
+        },
+      ],
+    },
+    outcome: Outcome.Caught({ check: "lane-queue" }),
+  },
+  {
     limit: "the unowed Incarnated",
     where: "dsl/compare.ts incarnationHeard",
     admits:
@@ -103,28 +125,7 @@ export const statedLimits: ReadonlyArray<StatedLimit> = [
     },
     outcome: Outcome.Survives(),
   },
-  {
-    limit: "the Unanchored actor's keys",
-    where: "turn/credits.ts keysOf",
-    admits:
-      "where the suite carries no folded fields (an actor it never saw ensured), a turn's member keys are the report's",
-    mutant: {
-      name: "limit.mint-key-lies",
-      says: "every mint reports a key no fold gives",
-      expects: "WriteLanes I15",
-      runtime: "prototype",
-      cases: ["PAY-01"],
-      edits: [
-        {
-          file: "world.ts",
-          find: "  void tx.evidence.push({ kind, ...fields });",
-          replace:
-            '  void tx.evidence.push(kind === "mint" ? { kind, ...fields, key: { lie: true } } : { kind, ...fields });',
-        },
-      ],
-    },
-    outcome: Outcome.Caught({ check: "lane-queue" }),
-  },
+
   {
     limit: "the position of a re-send",
     where: "turn/selection.ts Sent",
@@ -167,27 +168,5 @@ export const statedLimits: ReadonlyArray<StatedLimit> = [
       ],
     },
     outcome: Outcome.Caught({ check: "ending-channels" }),
-  },
-  {
-    limit: "the from of a turn whose leaf the table could not tell",
-    where: "turn/judge.ts judgeTurn",
-    admits:
-      "after a turn the table could not judge, or for an Unanchored actor with nothing lost, the next turn's from is the report's",
-    mutant: {
-      name: "limit.from-lies",
-      says: "every turn reports starting at the leaf it ends at",
-      expects: "WriteLanes I15",
-      runtime: "prototype",
-      cases: ["PAY-01"],
-      edits: [
-        {
-          file: "world.ts",
-          find: "  void tx.evidence.push({ kind, ...fields });",
-          replace:
-            '  void tx.evidence.push(kind === "turn" ? { kind, ...fields, from: fields["to"] } : { kind, ...fields });',
-        },
-      ],
-    },
-    outcome: Outcome.Caught({ check: "selection" }),
   },
 ];

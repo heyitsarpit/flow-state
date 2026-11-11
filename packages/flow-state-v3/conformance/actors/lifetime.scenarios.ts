@@ -15,6 +15,8 @@ import { Observation } from "../port.ts";
  * - `ACT-02/dirty-record-written-at-end`: a memory change after the last capture leaves the
  *   record dirty; the end writes it (Actors R8, I12).
  *
+ * - `ACT-03/no-end-before-the-grace`: released, the actor lives through 50 ms and ends by 110 ms.
+ *
  * Expected results come from the cited Requirements and Invariants.
  */
 export const lifetimeScenarios: ReadonlyArray<Scenario> = [
@@ -55,6 +57,24 @@ export const lifetimeScenarios: ReadonlyArray<Scenario> = [
       c.eq("Actors I37: a free actor ends by the grace's end", ended(), 1);
     },
   },
+  {
+    id: "ACT-03/no-end-before-the-grace",
+    cites: ["Actors R8", "Actors I10"],
+    fixtures: [Pay],
+    run: (c) => {
+      const s = shopper(c);
+      s.ensure();
+      start(s);
+      s.release("story");
+      c.advance(50);
+
+      const ended = () => c.reports().filter((o) => Observation.$is("Finished")(o)).length;
+
+      c.eq("Actors I10: no end before the grace has run", ended(), 0);
+      c.advance(60);
+      c.eq("Actors I37: the end by the grace's end", ended(), 1);
+    },
+  },
 ];
 
 /**
@@ -63,6 +83,7 @@ export const lifetimeScenarios: ReadonlyArray<Scenario> = [
  */
 const CAPTURE_MS: ReadonlyMap<string, number> = new Map([
   ["ACT-02/dirty-record-written-at-end", 5000],
+  ["ACT-03/no-end-before-the-grace", 5000],
 ]);
 
 /**

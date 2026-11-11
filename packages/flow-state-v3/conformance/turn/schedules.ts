@@ -28,6 +28,7 @@ const Arming = Data.taggedEnum<Arming>();
 type State = {
   readonly anchor: Anchor;
   readonly after: Anchor;
+  readonly stepEnd: number;
   readonly disposing: boolean;
   readonly clock: number;
   readonly step: number;
@@ -152,7 +153,7 @@ const armedAfter = (state: State, handlers: Handlers, turn: Turn, fired: Option.
       Option.map(schedule.delayMs, (ms) => state.clock + ms),
       () =>
         Option.flatMap(Option.fromUndefinedOr(handlers.folds.delays[schedule.id]), (delay) =>
-          Option.map(fields, (f) => state.clock + delay(f)),
+          Option.map(fields, (f) => state.stepEnd + delay(f)),
         ),
     );
 
@@ -266,7 +267,8 @@ const onFact = (walk: Walk, fact: Fact, step: ReadonlyArray<Fact>, clockAfter: n
  * - A firing names no arming id on the Port: one of a superseded arming is caught only when it
  *   lands before the latest arming's delay, or at a leaf with no armed schedule.
  * - A delay a function of memory computes (WAITING's `retry`) is the fixture's delay fold over the
- *   memory after the arming turn (Turn I12: a schedule reads the After memory). A used actor's
+ *   memory at the arming step's end, counted from that step's end too, so the due time and the
+ *   memory come from one point (Turn I12: a schedule reads the After memory). A used actor's
  *   such schedule still armed at the step's end once its due time passed, or firing before it,
  *   breaks I12.
  * - An initial state's schedules are not armed by a turn; no fixture's initial state has one.
@@ -277,6 +279,7 @@ export const schedules = oracle<State>({
   start: (reference, _graphs, machines, rows) => ({
     anchor: anchorOf(machines, reference, rows),
     after: anchorOf(machines, reference, rows),
+    stepEnd: 0,
     disposing: false,
     clock: 0,
     step: 0,
@@ -287,7 +290,7 @@ export const schedules = oracle<State>({
     const judged = judgedStep(state.anchor, step);
     const advanced = step.reduce((ms, f) => (Fact.$is("Advanced")(f) ? ms + f.ms : ms), 0);
     const clockAfter = state.clock + advanced;
-    const counted = { ...state, step: state.step + 1, after: judged.state };
+    const counted = { ...state, step: state.step + 1, after: judged.state, stepEnd: clockAfter };
 
     const walked = judged.facts.reduce<Walk>((walk, fact) => onFact(walk, fact, step, clockAfter), {
       state: counted,
