@@ -234,7 +234,8 @@ const drove = (state: State, actor: ActorRef, event: string, labels: Labels) => 
 
 /**
  * An actor whose record the suite removed (disposeActor or forget, Actors R20, R21): its credits
- * go, and its next ensure starts from the fixture's initial fields.
+ * go, and its next ensure starts from the fixture's initial fields. The removal is a write: until a
+ * batch holding it lands, a kill restores the record and its saved fields.
  */
 const uncredited = (state: State, actor: ActorRef) => {
   const now = actorIn(state, actor);
@@ -244,14 +245,7 @@ const uncredited = (state: State, actor: ActorRef) => {
     (h) => h.folds.initial,
   );
 
-  return withActor(state, actor, {
-    ...now,
-    driven: [],
-    entry: now.entry + 1,
-    fields: initial,
-    saved: { turns: now.turns, fields: initial },
-    pending: Option.none(),
-  });
+  return withActor(state, actor, { ...now, driven: [], entry: now.entry + 1, fields: initial });
 };
 
 const deliveredTo = (step: ReadonlyArray<Fact>, event: string) =>

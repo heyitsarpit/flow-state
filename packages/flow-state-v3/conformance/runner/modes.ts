@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { Console, Effect, Option } from "effect";
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { caseChecks, guarantees, oracles, reportOnly, scenarios } from "../suite.ts";
@@ -13,12 +13,18 @@ import {
   MAIN,
   PACKAGE,
   parallelOf,
+  playChosen,
   PRODUCTION_RUNTIME,
   runtimeOf,
   runtimePort,
   runtimeSurface,
 } from "./args.ts";
-import { liarOne, suiteIn } from "./falsify.ts";
+import { falsifyOne, liarOne, suiteIn } from "./falsify.ts";
+import { generatedScenarios, generatedScripts } from "../generated.ts";
+import { type Script, scenarioOf, type Step } from "../dsl/script.ts";
+import type { Scenario } from "../dsl/case.ts";
+import { Cells, Pay } from "../fixtures/pay.ts";
+import type { CaseVerdict } from "./verdict.ts";
 import { crashCase } from "./run.ts";
 
 /**
@@ -125,4 +131,172 @@ export const crash = (args: ReadonlyArray<string>) =>
     );
 
     if (red.length > 0) process.exitCode = 1;
+  });
+
+/**
+ * The persistence area's hand cases (T45 acceptance 1): the Pay cases that reload, restore, hold
+ * or dispose, whose fixture the generated scripts drive.
+ */
+const AREA = ["PAY-08", "PAY-09", "PAY-13", "PAY-14", "PAY-15", "PAY-16", "DISP-"];
+
+const inArea = (id: string) => AREA.some((prefix) => id === prefix || id.startsWith(prefix));
+
+/**
+ * Kill counts (T45 acceptance 1): every prototype mutant whose own cases lie in the persistence
+ * area, run on the generated scripts alone, against the hand cases of the area (from the sweep
+ * record, `catch-sweep.prototype.tsv`). A mutant is killed when any case goes red; a generated case
+ * already red on the unedited runtime (a finding, kept in `regressions/`) is left out.
+ */
+export const kills = (args: ReadonlyArray<string>) =>
+  Effect.gen(function* () {
+    const sweep = readFileSync(resolve(dirname(MAIN), "..", "catch-sweep.prototype.tsv"), "utf8")
+      .split("\n")
+      .map((line) => line.split("\t"));
+
+    const area = [
+      ...guarantees.flatMap((g) => g.mutants.map((m) => ({ oracle: g.oracle.name, m }))),
+      ...caseChecks.mutants.map((m) => ({ oracle: "case expectations", m })),
+    ].filter(({ m }) => m.runtime === "prototype" && m.cases.some(inArea));
+
+    const byHand = new Set(
+      sweep
+        .filter(
+          ([, id, verdict]) => inArea(id ?? "") && verdict !== "green" && verdict !== undefined,
+        )
+        .map(([name]) => name),
+    );
+
+    const control = yield* suiteIn(
+      MAIN,
+      DEFAULT_RUNTIME,
+      generatedScenarios.map((s) => s.id),
+      240,
+    ).pipe(Effect.catchTag("NoVerdicts", () => Effect.succeed<ReadonlyArray<CaseVerdict>>([])));
+
+    const generated = control.flatMap((v) => (v._tag === "Pass" ? [v.id] : []));
+
+    const runs = yield* Effect.forEach(
+      area,
+      ({ oracle, m }) =>
+        falsifyOne(
+          MAIN,
+          DEFAULT_RUNTIME,
+          resolve(Option.getOrElse(flag(args, "--scratch"), () => tmpdir())),
+          oracle,
+          { ...m, cases: generated },
+        ).pipe(
+          Effect.map((r) => ({
+            mutant: m.name,
+            killed: r.rows.some((row) => !row.endsWith("\tgreen")),
+            rows: r.rows.length,
+          })),
+        ),
+      { concurrency: parallelOf(args) },
+    );
+
+    yield* Console.log(
+      `control: ${generated.length} of ${generatedScenarios.length} generated cases pass`,
+    );
+    const hand = area.filter(({ m }) => byHand.has(m.name)).length;
+    const gen = runs.filter((r) => r.killed).length;
+
+    for (const r of runs)
+      yield* Console.log(
+        `${r.killed ? "kill" : "live"} ${r.mutant}  hand ${byHand.has(r.mutant) ? "kill" : "live"}  (${r.rows} runs)`,
+      );
+
+    yield* Console.log(
+      `VERDICT ${gen >= hand ? "pass" : "fail"} generated runs kill ${gen} of ${area.length} persistence mutants; the area's hand cases kill ${hand}`,
+    );
+
+    if (gen < hand) process.exitCode = 1;
+  });
+
+/**
+ * A failure's signature: its oracles and the Invariants its violations name, so one regression is
+ * kept per kind of finding.
+ */
+const failing = (verdicts: ReadonlyArray<CaseVerdict>) =>
+  verdicts.flatMap((v) =>
+    v._tag === "Fail"
+      ? [
+          `${v.oracles.join(",")} ${[...new Set(v.why.match(/[A-Z][A-Za-z]+ I\d+/gu) ?? [])].join(",")}`,
+        ]
+      : [],
+  );
+
+type Play = (scenario: Scenario) => ReturnType<typeof playChosen>;
+
+const PREFIX = 2;
+
+/**
+ * The shrinker (T32): one step after the prefix removed at a time, kept removed while the script
+ * still fails by the same oracles, until no step can go.
+ */
+const shrunkSteps = (play: Play, script: Script, by: string) =>
+  Effect.gen(function* () {
+    let steps = script.steps;
+
+    for (let removed = true; removed;) {
+      removed = false;
+
+      for (let at = PREFIX; at < steps.length && !removed; at += 1) {
+        const candidate = { ...script, steps: steps.toSpliced(at, 1) };
+        const again = failing(yield* play(scenarioOf(candidate, [Pay, Cells])));
+
+        removed = again[0] === by;
+
+        if (removed) steps = candidate.steps;
+      }
+    }
+
+    return steps;
+  });
+
+const regressed = (script: Script, steps: ReadonlyArray<Step>) =>
+  Effect.sync(() => {
+    const regression = { ...script, id: `${script.id}-shrunk`, steps };
+
+    writeFileSync(
+      resolve(dirname(MAIN), "..", "regressions", `${regression.id}.json`),
+      `${JSON.stringify(regression, null, 2)}\n`,
+    );
+
+    return regression.id;
+  });
+
+/**
+ * The generators' findings (T45 step 5, T32): every generated script on `--runtime` (round-14 by
+ * default), each failing one shrunk to the fewest steps that still fail by the same oracles, and
+ * written to `regressions/<id>.json`, which the generated set then plays as a case of its own.
+ */
+export const shrink = (args: ReadonlyArray<string>) =>
+  Effect.gen(function* () {
+    const runtime = runtimeOf(args);
+    const surface = yield* runtimeSurface(runtime);
+
+    const play: Play = (scenario) =>
+      playChosen(args, runtime, [scenario], graphsFor(surface, [scenario]));
+
+    const seen = new Set<string>();
+
+    const found = yield* Effect.forEach(
+      generatedScripts.filter((s) => !s.id.endsWith("-shrunk")),
+      (script) =>
+        Effect.flatMap(play(scenarioOf(script, [Pay, Cells])), (verdicts) => {
+          const [by] = failing(verdicts);
+
+          if (by === undefined || seen.has(by)) return Effect.succeed<ReadonlyArray<string>>([]);
+          seen.add(by);
+
+          return shrunkSteps(play, script, by).pipe(
+            Effect.flatMap((steps) => regressed(script, steps)),
+            Effect.map((id) => [`${id}: failed by ${by}`]),
+          );
+        }),
+      { concurrency: 1 },
+    );
+
+    for (const line of found.flat()) yield* Console.log(`FOUND ${line}`);
+    yield* Console.log(`VERDICT ${found.flat().length} generated script(s) failed and were shrunk`);
   });

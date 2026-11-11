@@ -559,6 +559,17 @@ tasks
             the same turn, can hold less than `least`, until the write's position is a fact. Also noted: a Maybe hides 
             a parked ending never delivered when the park fell in the batch's own step (a mutant for it is owed). Gates 
             unchanged.
+        comment     2026-11-11T19:13:14Z
+            Step 5 begun ahead of the step-3 review (checkpoint, not done): script Schema and player (`dsl/script.ts`), 
+            seeded runs, a small exhaustive search and a shrinker (`dsl/generate.ts`; own seeded draw, not fast-check, 
+            which the package does not declare), `generated.ts` with 1077 Pay and Cells scripts, `suite --generated`, 
+            `shrink` (one regression per kind of finding) and `kills` modes. Findings shrunk into `regressions/`: after 
+            disposeActor or forget with a call on the wire, then a Runtime disposal and a reload, neither runtime 
+            delivers the parked ending or the restore to the adopting incarnation (Actors I29, I32), and round-14 alone 
+            restores and parks a disposed actor's Held head at the reload. These are runtime differences, or a Spec 
+            question on R20 and R22; they await the orchestrator. Fixed: a record removal resets saved fields only once 
+            it lands. Kill counts are not met yet: 11 of 37 against the hand cases' 37, measured before the weighted 
+            moves. The end of a case now adopts a removed actor with a creating ensure. Gates unchanged.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open

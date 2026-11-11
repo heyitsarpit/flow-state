@@ -340,7 +340,9 @@ export const openCase = (options: CaseOptions) => {
 
       for (const actor of attach()) {
         record(Fact.Ensured({ actor, use: "story" }));
-        runtime.ensureExisting(actor, "story");
+
+        if (removed(actor)) runtime.ensure(actor, Option.none(), "story");
+        else runtime.ensureExisting(actor, "story");
       }
     });
 
@@ -405,6 +407,18 @@ export const openCase = (options: CaseOptions) => {
   };
 
   const thisBoot = () => facts.slice(facts.findLastIndex(Fact.$is("Reloaded")) + 1);
+
+  // An actor whose record the suite removed (disposeActor, forget) and never ensured again: only a
+  // creating ensure adopts its unbound lanes (Actors R20, R21).
+  const removed = (actor: ActorRef) => {
+    const last = facts.findLast(
+      (f) =>
+        (Fact.$is("Disposed")(f) || Fact.$is("Forgot")(f) || Fact.$is("Ensured")(f)) &&
+        sameActor(f.actor, actor),
+    );
+
+    return last !== undefined && !Fact.$is("Ensured")(last);
+  };
 
   const writers = () => {
     const attached = usesHeld(facts).map(([actor]) => actor);

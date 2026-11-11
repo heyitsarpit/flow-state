@@ -1,0 +1,38 @@
+{
+  "id": "GEN-pay-seeded-173-shrunk",
+  "fixture": "pay",
+  "actor": "shopper-1",
+  "steps": [
+    {
+      "_tag": "ensure"
+    },
+    {
+      "_tag": "send",
+      "event": "Start",
+      "payload": {
+        "cartId": "c1",
+        "intentId": "pi1"
+      }
+    },
+    {
+      "_tag": "send",
+      "event": "PayRequested",
+      "payload": {
+        "paymentMethodId": "visa"
+      }
+    },
+    {
+      "_tag": "ack"
+    },
+    {
+      "_tag": "disposeRuntime"
+    },
+    {
+      "_tag": "advance",
+      "ms": 8000
+    },
+    {
+      "_tag": "dispose"
+    }
+  ]
+}

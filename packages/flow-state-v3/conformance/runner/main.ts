@@ -4,6 +4,7 @@ import { writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { coverageOf, Gap, Standing } from "../coverage.ts";
+import { generatedScenarios } from "../generated.ts";
 import { notYet } from "../not-yet.ts";
 import {
   caseChecks,
@@ -42,7 +43,7 @@ import {
 import { falsifyOnProduction } from "./falsify-production.ts";
 import { productionCases, writeGates } from "./gates.ts";
 import { matrixFile, writeMatrix } from "./matrix.ts";
-import { crash, liar } from "./modes.ts";
+import { crash, kills, liar, shrink } from "./modes.ts";
 import { runCoreMutants } from "./mutate.ts";
 import { runStatics } from "./run.ts";
 import { coreInvariants, openTasks } from "./specs.ts";
@@ -83,11 +84,19 @@ const suite = (args: ReadonlyArray<string>) =>
     const wanted = (id: string) =>
       Option.match(only, { onNone: () => true, onSome: (ids) => ids.includes(id) });
 
-    const chosen = scenarios.filter((s) => wanted(s.id));
-    const chosenStatic = staticCases.filter((s) => wanted(s.id));
+    const generated = args.includes("--generated");
+
+    const pool = Option.match(only, {
+      onNone: () => (generated ? generatedScenarios : scenarios),
+      onSome: () => [...scenarios, ...generatedScenarios],
+    });
+
+    const chosen = pool.filter((s) => wanted(s.id));
+    const chosenStatic = generated ? [] : staticCases.filter((s) => wanted(s.id));
+    const known = [...caseIds, ...generatedScenarios.map((s) => s.id)];
 
     const missing = Option.getOrElse(only, () => []).flatMap((id) =>
-      caseIds.includes(id) ? [] : [failed(id, "no such case")],
+      known.includes(id) ? [] : [failed(id, "no such case")],
     );
 
     const json = args.includes("--json");
@@ -388,6 +397,10 @@ const main = (args: ReadonlyArray<string>) => {
   if (mode === "crash") return crash(rest);
 
   if (mode === "liar") return liar(rest);
+
+  if (mode === "kills") return kills(rest);
+
+  if (mode === "shrink") return shrink(rest);
 
   if (mode === "mutate")
     return runCoreMutants({
