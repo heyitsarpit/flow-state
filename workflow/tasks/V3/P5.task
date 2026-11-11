@@ -94,6 +94,12 @@ tasks
             G. Bench: repair under bursts (S22). Effort 6 (estimate). Read first:
             code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part 3, "8 Entities").
 
+            **Phase-out, step 5 (the user accepted 2026-11-11):** the Issues twin (entity writes) is written in
+            `fixtures/`; run the hand cases on each fixture on production; write production mutants per oracle the slice
+            judges, mapped by Invariant from the round-14 mutants; delete the descriptor once the derived reference
+            equals it (`issues.ts` and the last builders go). Read
+            code:workflow/plans/flow/references/proposals/conformance-phase-out-2026-11-11.md.
+
             - **Evidence:** this Task's comments.
             - **False pass:** a lenient slice → caught by the area audit's mutants.
             - **Gates:** the area's falsify entries.
@@ -111,6 +117,11 @@ tasks
               pair with no dated waiver, and passes before this Task closes.
             - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
               the model's expectations is read by a different model family (Fable).
+            - Phase-out step 5: the Issues twin exists in `fixtures/` and `issues.ts` and the last builders are deleted;
+              the same verdict per case on round-14 and production.
+            - Phase-out checks (the four validations): no lost catch in the catch matrix; the same coverage and
+              feature-matrix rows; the derived reference equal to the hand rows wherever both exist;
+              Compile static cases green on each fixture's `Compiled`.
     T25
         title       Streams
         status      draft
@@ -452,3 +463,37 @@ tasks
             - Covered: the combination gate's counts are the same with the inspector attached.
             - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
               the model's expectations is read by a different model family (Fable).
+    T53
+        title       Round-14 retired: prototype adapters, mutants and limits deleted
+        status      draft
+        priority    medium
+        blocked_by  [@T24, @task.V3.T22]
+        description
+            Retire round-14 entirely once every Invariant its mutants prove is also proved on production (phase-out
+            step 7).
+
+            **Why now:** the user accepted the phase-out (2026-11-11). After slice 8 every hand fixture has a twin, so
+            round-14 as mutant host (@task.V3.T23) has no remaining job.
+
+            **Read first:** code:workflow/plans/flow/references/proposals/conformance-phase-out-2026-11-11.md (step 7),
+            @task.V3.T23, @task.V3.T45 (`limits.ts`).
+
+            **Approach:** delete `adapters/prototype*.ts`, every `runtime: "prototype"` mutant, the round-14 compiler
+            and CLI mutants, `limits.ts`, `catch-matrix.prototype.tsv`, `liar-prototype.txt`, the round-14 rows check,
+            the runner's prototype paths (`DEFAULT_RUNTIME`, the copy and edit of a runtime tree) and `STATUS.md`'s
+            history. Precondition: production static mutants exist (Compile in @task.V3.T17, CLI in @task.V3.T22), and
+            parity per Invariant holds: each Invariant some round-14 mutant proves is proved on production by a
+            production mutant or by model mutation. Effort about 1 (estimate).
+
+            - **May change:** `packages/flow-state-v3/conformance/`.
+            - **Evidence:** STATUS.md, one T53 section.
+            - **False pass:** an Invariant left proved only by a deleted mutant → caught by the parity check.
+            - **Gates:** falsify production, liar production and core mutants no worse than at T53's start;
+              `nub run check`.
+        acceptance
+            - No round-14 adapter, mutant, limits row or runner path remains; the Checked set is unchanged.
+            - Parity per Invariant is recorded before deletion.
+            - falsify production, liar production and core mutants are no worse than at T53's start.
+            - Phase-out checks (the four validations): no lost catch in the catch matrix; the same coverage and
+              feature-matrix rows; the derived reference equal to the hand rows wherever both exist;
+              Compile static cases green on each fixture's `Compiled`.

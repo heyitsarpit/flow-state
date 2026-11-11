@@ -110,6 +110,12 @@ tasks
             Invariant and a host store section. Codes: sr rl up fg pg. Part built: S25 [A]. Bench: the S25 upgrade boot.
             Read first: code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part 3, "2 Durability").
 
+            **Phase-out, step 5 (the user accepted 2026-11-11):** the Stamp twin (release 1 and 2 keys; `up`) is written
+            in `fixtures/`; run the hand cases on each fixture on production; write production mutants per oracle the
+            slice judges, mapped by Invariant from the round-14 mutants; delete the descriptor once the derived
+            reference equals it (`stamp.ts` goes). Read
+            code:workflow/plans/flow/references/proposals/conformance-phase-out-2026-11-11.md.
+
             - **May change:** `src/`.
             - **Evidence:** this Task's comments.
             - **False pass:** restore read from memory, not bytes → caught by the restore oracle.
@@ -129,6 +135,11 @@ tasks
               pair with no dated waiver, and passes before this Task closes.
             - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
               the model's expectations is read by a different model family (Fable).
+            - Phase-out step 5: the Stamp twin exists in `fixtures/` and `stamp.ts` is deleted; the same verdict per
+              case on round-14 and production.
+            - Phase-out checks (the four validations): no lost catch in the catch matrix; the same coverage and
+              feature-matrix rows; the derived reference equal to the hand rows wherever both exist;
+              Compile static cases green on each fixture's `Compiled`.
         comment     2026-11-10T20:59:41Z
             Owns, in conformance/not-yet.ts, Codec I1 to I6 (round-14 has no canonical byte codec, Codec Q2). Their 
             static cases land before this Task closes (orchestrator decision, log 2026-11-10T20:57:29Z).

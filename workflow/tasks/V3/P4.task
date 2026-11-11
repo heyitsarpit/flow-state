@@ -469,6 +469,19 @@ tasks
             6. `limits.ts` with its gate (T42), the liar greens on round-14 (T41), the runner's default runtime
                production (T43), model purity lint (T37), the runner modes of @task.V3.T14.
 
+            **Phase-out, steps 0 to 2 (the user accepted 2026-11-11,
+            code:workflow/plans/flow/references/proposals/conformance-phase-out-2026-11-11.md):**
+
+            - Step 0, with step 1 above: refresh `gates.json` at HEAD and add `falsify --sweep` records per runtime
+              (`catch-sweep.<runtime>.tsv`, mutant by case) and the coverage standings per Invariant; every later
+              phase-out step compares against them.
+            - Step 1, with step 3: delete `lifecycle-perturbations.ts`, Table A's refuse-only cells and the `claimed`
+              handling in `lifecycle-owed.ts`; liar round-14 greens no more than 9.
+            - Step 2, with step 6: `limits.ts` rows replace the round-14 reasons in `not-yet.ts` and the README.
+            - **Gap:** five scenario files hold checks only case expectations make (schedules, lane-keys,
+              payment-retry, parts, refusal; `suite.ts` `caseChecks`); they wait for an oracle or the model, here or
+              in @task.V3.T52.
+
             - **May change:** `packages/flow-state-v3/conformance/`.
             - **Evidence:** STATUS.md, one T45 section.
             - **False pass:** the model shares a runtime's misreading → caught by a different model family reading
@@ -484,6 +497,11 @@ tasks
             - `limits.ts` rows each fail on round-14 by their named Invariant, and a gate verifies it.
             - searches and mutants run from the one runner with `--parallel`, a planted slow child reads as unknown, and
               the old suite's search kills are reproduced (from @task.V3.T14).
+            - Phase-out steps 0 to 2 are done: the baseline sweeps and `gates.json` at HEAD exist, the perturbations and
+              claim cells are gone, and `limits.ts` replaces the prose reasons.
+            - Phase-out checks (the four validations): no lost catch in the catch matrix; the same coverage and
+              feature-matrix rows; the derived reference equal to the hand rows wherever both exist;
+              Compile static cases green on each fixture's `Compiled`.
         comment     2026-11-11T11:51:17Z
             Paused at 1f1a1676. Red: falsify round-14 146/147 (o6.settled-in-bound-stays-held lost its disposal catch). 
             Done: an unsaved ending may restore at a boot, and an actor with unsaved turns resumes at an unknown leaf 
@@ -546,7 +564,26 @@ tasks
             **Order:** one lead at a time: T45, then T51, then T47; in every slice the suite half finishes before the
             production half, by the same builder or the next.
 
-            - **May change:** `packages/flow-state-v3/conformance/` (fixtures, world, generator, runner).
+            **Phase-out, step 3 (the user accepted 2026-11-11,
+            code:workflow/plans/flow/references/proposals/conformance-phase-out-2026-11-11.md):** this Task builds
+            `referenceOf(compiled)` (events, states, handlers, schedules, rows, each operation's concurrency, key fields
+            and ending map); the hand descriptors still exist, so it retires nothing and records the V4 baseline. It
+            also builds the production static surface (`construct` and the data view), moved from @task.V3.T17, so the
+            Compile static cases run on production's `Compiled` (`runner/args.ts:46-51` binds the null surface today).
+
+            **Layout (accepted):** `packages/flow-state-v3/fixtures/` holds real machines and imports only
+            `src/index.ts`; `packages/flow-state-v3/bench/` sits beside it and imports the world and player from
+            `conformance/`; `conformance/` is the input/output validator and a lint stops it importing `bench/`.
+            Expected results come only from the Spec model or a written ruling, and every bug found becomes a shrunk
+            regression script. The model search replaces the hand traces, apart from those that record a ruling.
+
+            **Gap (blocking):** production has no static surface yet; built here.
+
+            **Gap (blocking):** `classify` (a commit's answer to a channel) is not in `Compiled`, so each fixture
+            declares it beside its server model.
+
+            - **May change:** `packages/flow-state-v3/conformance/`, `packages/flow-state-v3/fixtures/`,
+              `packages/flow-state-v3/bench/` (fixtures, world, generator, runner).
             - **Evidence:** STATUS.md, one T47 section; the generated gate file.
             - **False pass:** parts that differ in name but reach the same cells → caught by table-cell reach and model
               mutation across parts.
@@ -575,11 +612,59 @@ tasks
             - the non-interacting pair list is generated from the channel table, and the user approves its rules once,
               as one list.
             - the Compile static cases run on every composite's `Compiled`.
+            - Phase-out step 3: `referenceOf(compiled)` exists; the production static surface (`construct`, data view)
+              exists; each fixture declares `classify` beside its server model; `fixtures/` imports only
+              `src/index.ts`, `bench/` sits beside it, and a lint bars `conformance/` from importing `bench/`.
+            - Phase-out checks (the four validations): no lost catch in the catch matrix; the same coverage and
+              feature-matrix rows; the derived reference equal to the hand rows wherever both exist; Compile static
+              cases green on each fixture's `Compiled`.
+    T52
+        title       Suite phase-out, first cut: Pay and Cells generated, hand traces thinned
+        status      draft
+        priority    high
+        blocked_by  [@T47]
+        description
+            Pay and Cells become generated parts in the top-level `fixtures/`; Pay's hand rows stay as one frozen
+            golden; the hand traces give way to the model search (phase-out step 4).
+
+            **Why now:** the user accepted the phase-out (2026-11-11), including Pay as a generated part, which reverses
+            replan decision 5 ("Pay is not converted") for Pay. Without this cut the suite keeps two descriptions of
+            Pay and two judges of every run.
+
+            **Read first:** code:workflow/plans/flow/references/proposals/conformance-phase-out-2026-11-11.md (step 4,
+            validations V1 to V4), @task.V3.T47, @task.V3.T45, @spec.Conformance.R15.
+
+            **Approach:** `machines/pay.ts` and `pay.contracts.ts` move to `fixtures/pay/`; Pay gains a user model and a
+            server model (about 30 lines) and declares its `classify`; `referenceOf` replaces `fixtures/pay.ts` for
+            every runtime, round-14 included; Pay's hand rows and handler table stay as one frozen golden static case
+            (about 300 lines); `fixture.ts` becomes the real-fixture registry and `dsl/actor.ts` types the view from the
+            definition's Schemas; traces whose cells the search reaches are deleted, and a kept trace names its ruling;
+            the step-mutant list gives way to cell mutation; `not-yet.ts`'s remaining rows become matrix rows and the
+            file is deleted; Pay's hand cases thin where a generated run or kept case catches the same mutants. Effort
+            about 1.5 (estimate).
+
+            **Gap:** the five scenario files that hold checks only case expectations make wait for an oracle or the
+            model (here or @task.V3.T45); their cases stay until then.
+
+            - **May change:** `packages/flow-state-v3/conformance/`, `packages/flow-state-v3/fixtures/`.
+            - **Evidence:** STATUS.md, one T52 section.
+            - **False pass:** a derived reference that copies a compiler bug → caught by the frozen golden and the
+              Compile static cases.
+            - **Gates:** falsify on round-14 and production; matrix and coverage; `nub run check`.
+        acceptance
+            - Pay and Cells run as generated parts from `fixtures/pay/`; Pay's hand rows remain as one frozen golden.
+            - `referenceOf` equals the hand rows for Pay and Cells (rows, handlers, schedules, every operation field,
+              `classify`) before any deletion.
+            - `not-yet.ts` and the deleted traces are gone; every hand-listed step mutant is still killed, by the search
+              or by a kept trace.
+            - Phase-out checks (the four validations): no lost catch in the catch matrix; the same coverage and
+              feature-matrix rows; the derived reference equal to the hand rows wherever both exist;
+              Compile static cases green on each fixture's `Compiled`.
     T18
         title       Lane policies: latest, serialize, cancel and cancelAll (slice 1)
         status      draft
         priority    high
-        blocked_by  [@T47]
+        blocked_by  [@T52]
         satisfies   [@plan.Operations.O3, @plan.Runtime.O2]
         description
             Build the write-lane policies `latest`, `serialize` (up to 64, Overloaded), `cancel` and `cancelAll` on
@@ -601,6 +686,12 @@ tasks
             storage refusal" and "disposal + serialize + write-ahead + refusal". Bench: capture bytes and batches per
             minute (S01, S08, S24); disposal with calls on the wire (S03, S12). Effort 4 (estimate).
 
+            **Phase-out, step 5 (the user accepted 2026-11-11):** each lab machine gets a real twin in `fixtures/`:
+            Serialize, Latest, Cancel, LateQueue, Keyed and Held; run the hand cases on each fixture on production;
+            write production mutants per oracle the slice judges, mapped by Invariant from the round-14 mutants; delete
+            the descriptor once the derived reference equals it (`one-lane.ts` but Release, and `keyed.ts`, go). Read
+            code:workflow/plans/flow/references/proposals/conformance-phase-out-2026-11-11.md.
+
             - **May change:** `src/`, the conformance fixtures, model and generator.
             - **Evidence:** this Task's comments.
             - **False pass:** a lenient oracle → caught by the proven mutants and model mutation.
@@ -618,6 +709,11 @@ tasks
               pair with no dated waiver, and passes before this Task closes.
             - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
               the model's expectations is read by a different model family (Fable).
+            - Phase-out step 5: the Serialize, Latest, Cancel, LateQueue, Keyed and Held twins exist in `fixtures/`;
+              the same verdict per case on round-14 and production.
+            - Phase-out checks (the four validations): no lost catch in the catch matrix; the same coverage and
+              feature-matrix rows; the derived reference equal to the hand rows wherever both exist;
+              Compile static cases green on each fixture's `Compiled`.
     T51
         title       Production lanes reworked: one table function, reports derived from acts
         status      open

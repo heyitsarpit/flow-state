@@ -420,3 +420,12 @@ Both written by the replan records review, under the orchestrator's ruling (V3 l
   T39). Q15 no longer lists the liar mode as unbuilt (T44 built it).
 - **Actors R15 note:** "Proposed" is now "Required", owned by @task.V3.T51 (production's dispose skips the core's
   disposal, Actors R22).
+
+## 2026-11-11, conformance phase-out accepted
+
+- **Conformance R15, R22, Q15, Q17 and derives_from:** R15 records the layout (`fixtures/` imports only
+  `src/index.ts`; `bench/` beside it; `conformance/` is the validator; expected results only from the model or a
+  ruling; every bug a shrunk regression script; the search replaces hand traces) and Pay as a generated part with a
+  frozen golden. R22 says @task.V3.T53 retires round-14 after parity per Invariant. Q17 names the three blocking
+  gaps. Why: the user accepted the phase-out proposal; Pay reverses replan decision 5. Reverse: git restore
+  workflow/specs and workflow/tasks/V3.

@@ -114,6 +114,16 @@ tasks
             code:workflow/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md (5B, "Composites and the
             matrix").
 
+            **Phase-out, step 5 (the user accepted 2026-11-11):** the Release (trait, `whenAbandoned`) and Form twins
+            are written in `fixtures/`, and the model's Turn section replaces the Turn helper tables (`turn/selection`,
+            `anchor`, `phases`, `late`) once it catches every mutant they caught (V1); run the hand cases on each
+            fixture on production; write production mutants per oracle the slice judges, mapped by Invariant from the
+            round-14 mutants; delete the descriptor once the derived reference equals it (rest of `one-lane.ts` and
+            `form.ts` go). Read code:workflow/plans/flow/references/proposals/conformance-phase-out-2026-11-11.md.
+
+            **Moved to @task.V3.T47:** the production static surface (`construct`, data view); this Task builds the
+            rest of it (CLI part and diagnostics).
+
             - **May change:** `src/`.
             - **Evidence:** this Task's comments.
             - **False pass:** pins matching output rather than the Spec → caught by T13's cited
@@ -143,6 +153,12 @@ tasks
               pair with no dated waiver, and passes before this Task closes.
             - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
               the model's expectations is read by a different model family (Fable).
+            - Phase-out step 5: the Release and Form twins exist in `fixtures/`; the model's Turn section catches every
+              mutant the Turn helper tables caught, and those tables are deleted; the same verdict per case on round-14
+              and production.
+            - Phase-out checks (the four validations): no lost catch in the catch matrix; the same coverage and
+              feature-matrix rows; the derived reference equal to the hand rows wherever both exist;
+              Compile static cases green on each fixture's `Compiled`.
         comment     2026-11-10T20:59:36Z
             Owns, in conformance/not-yet.ts, the static Invariants round-14 cannot make: Compile I3, I7 to I10, I12 to 
             I14, I17 and Diagnostics I1 to I10. Their static cases land before this Task closes (orchestrator decision, 

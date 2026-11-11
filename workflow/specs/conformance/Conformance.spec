@@ -29,7 +29,7 @@ provides      Port, Boot, Runtime, Observation, Oracle, static surfaces, mutants
               case verdicts, mutant verdicts, the runner's suite and falsify modes, composite parts, scripts,
               the generator, the Spec model, the feature matrix, the combination gate, the limits list, the
               liar gate and the bench replay
-derives_from  [@task.V3.T4, @task.V3.T45, @task.V3.T47]
+derives_from  [@task.V3.T4, @task.V3.T45, @task.V3.T47, @task.V3.T52, @task.V3.T53]
 
 requirements
     R1  Public behaviour only
@@ -333,6 +333,21 @@ requirements
                 Hand cases freeze: a hand case is added only to document a ruling, which it cites. The 99
                 hand cases are named examples and the Spec model's tests.
 
+                Layout (the user accepted the phase-out, 2026-11-11): `packages/flow-state-v3/fixtures/` holds
+                the real machines and imports only `src/index.ts`; `packages/flow-state-v3/bench/` sits beside
+                it and imports the world and player from `conformance/`, which a lint bars from importing
+                `bench/`; `conformance/` is the input and output validator. Expected results come only from
+                the Spec model or a written ruling, and every bug found becomes a shrunk regression script. The
+                model search replaces the hand traces, apart from those that record a ruling. Pay is a
+                generated part too (reversing replan decision 5 for Pay): its hand rows stay as one frozen
+                golden static case, and the derived reference must equal them while both exist. A fixture
+                declares `classify` beside its server model, since `Compiled` does not carry it. The retiring
+                steps, each held by the four validations (no lost catch, the same coverage and matrix rows,
+                derived equal to hand, Compile static cases green on each `Compiled`), are in
+                code:workflow/plans/flow/references/proposals/conformance-phase-out-2026-11-11.md and
+                @task.V3.T45, @task.V3.T47, @task.V3.T52, @task.V3.T18, @task.V3.T20, @task.V3.T17,
+                @task.V3.T24, @task.V3.T23.
+
     R16  Feature codes
         source  The replan ("No fixture tests a missing feature becomes a check"); the fixture catalogue's
                 feature codes and its "Feature pairs" section.
@@ -427,6 +442,9 @@ requirements
                 Invariant, and a row whose case passes, or fails by another Invariant, fails the gate. A
                 limited case counts neither as a pass nor as a mutant's control on round-14. Prose limits
                 do not count.
+
+                Round-14 retires entirely in @task.V3.T53, once every Invariant one of its mutants proves
+                is also proved on production, by a production mutant or by model mutation.
 
     R23  The bench replay
         source  The fixture catalogue's section 6, "Benchmark reuse" (skill:check-benchmark, "compare the
@@ -549,13 +567,22 @@ open
         outcome  Slice R builds them: @task.V3.T45 the expect and compare split, the script Schema, the player and
                  the shrinker, the generators over hand fixtures, the liar mode and the limits list;
                  @task.V3.T47 parts, scripts from parts, declarations, the matrix, the combination gate and
-                 the bench; @task.V3.T51 the production adapter's seam lint. The liar mode is built (T44,
+                 the bench, and the layout, the derived reference and the production static surface
+                 (step 3); @task.V3.T52 Pay and Cells as generated parts; @task.V3.T51 the production adapter's seam 
+                 lint. The liar mode is built (T44,
                  production 13 of 13); T45 closes its round-14 greens.
 
     Q16  The non-interacting rules (R18) are the catalogue's six, which a script cannot rebuild exactly (777
         interacting pairs in the catalogue, 671 in the replan's reading).
         outcome  @task.V3.T47 generates the list from the channel table, and the user approves the rules once, as
                  one list.
+
+    Q17  Three gaps block the phase-out (the user accepted it, 2026-11-11): production has no static surface
+        (`runner/args.ts:46-51` binds the null one); `classify` is not in `Compiled`; five scenario files hold
+        checks only case expectations make (schedules, lane-keys, payment-retry, parts, refusal).
+        outcome  @task.V3.T47 builds the production static surface and each fixture declares `classify` beside
+                 its server model; the five files wait for an oracle or the model (@task.V3.T45 or
+                 @task.V3.T52).
 
 model
     Subject = what a case reads: a runtime (runtime case) or a static surface, the compiler, Diagnostics, the codec
