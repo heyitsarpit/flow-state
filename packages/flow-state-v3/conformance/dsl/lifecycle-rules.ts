@@ -406,7 +406,9 @@ const admitted = (retry: boolean) => ({
  * **Gotchas**
  *
  * - A refusal's next life (`Refused` or `Kept`) waits on CQ1 and CQ2, an unmapped ending's on
- *   CQ10, and a refused ending at a reload on CQ10: each follows today's rule.
+ *   CQ10, and a refused ending at a reload on CQ10: each follows today's rule. A twice-refused
+ *   decline or never-sent ending is `Closed`, as Actors R15 is written ("only a sent write's
+ *   twice-refused ending stays parked"), pending CQ1 and CQ2 (round-14 keeps declines, D123).
  */
 export const tableC: TableC = {
   Delivered: {
@@ -419,7 +421,11 @@ export const tableC: TableC = {
   },
   InvalidTurn: {
     ...lives(deny(15)),
-    Delivering: { first: live(Life.Refused()), retry: live(Life.Kept()) },
+    Delivering: {
+      first: live(Life.Refused()),
+      retry: live(Life.Kept()),
+      retryNeverSent: live(Life.Closed()),
+    },
   },
   Unmapped: { ...lives(deny(15)), Delivering: once(live(Life.Closed())) },
   Heard: { Delivering: once(live(Life.Closed())) },

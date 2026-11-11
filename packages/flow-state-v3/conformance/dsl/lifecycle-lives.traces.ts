@@ -159,6 +159,15 @@ const tableTraces: ReadonlyArray<Trace> = [
     DT,
     KP,
   ),
+  lifeTrace(
+    "InvalidTurn",
+    "Actors R15: only a sent write's twice-refused ending stays parked (pending CQ1, CQ2)",
+    DT,
+    CL,
+    alone,
+    { channel: "failure", reason: "Cancelled" },
+    " of a never-sent Attempt",
+  ),
   ...rowTraces("Unmapped", "Actors R15: an unmapped ending is final (today's rule; CQ10)", {
     Owed: wl(15),
     Parked: wl(15),

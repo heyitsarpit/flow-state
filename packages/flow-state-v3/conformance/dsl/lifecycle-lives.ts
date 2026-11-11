@@ -1,3 +1,4 @@
+import { FLOW_DECLINES } from "../fixtures/reference.ts";
 import { Data, Option } from "effect";
 import { type ActorRef, sameActor } from "../port.ts";
 import {
@@ -51,8 +52,15 @@ type Guard = (model: Model, index: number, ending: Ending) => string;
 
 const byMode: Guard = (model) => model.mode;
 
-const byRetry: Guard = (_model, _index, ending) =>
-  Life.$is("Delivering")(ending.life) && ending.life.retry ? "retry" : "first";
+const neverSent = (ending: Ending) =>
+  Option.isNone(ending.attempt) ||
+  (ending.channel === "failure" && FLOW_DECLINES.some((d) => d === ending.reason));
+
+const byRetry: Guard = (_model, _index, ending) => {
+  if (!Life.$is("Delivering")(ending.life) || !ending.life.retry) return "first";
+
+  return neverSent(ending) ? "retryNeverSent" : "retry";
+};
 
 const byLetGo: Guard = (model, index, ending) => {
   const owed = model.obligations
