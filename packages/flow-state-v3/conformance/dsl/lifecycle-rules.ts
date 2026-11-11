@@ -291,7 +291,9 @@ const replaced = {
  *
  * - `latest` on a never-sent head with a pending cancel supersedes the waiting commit, not the
  *   head, and `cancel` replaces it keeping its cancel (WriteLanes R14).
- * - A cancel of an Idle lane with a kept ending lets it go (Actors R15 as written; CQ3 pending).
+ * - A cancel of an Idle lane with a kept ending lets it go (Actors R15 as written).
+ * - A reject commit on an Idle lane with a kept ending declines `Rejected`: the kept ending holds
+ *   its lane (WriteLanes R6, I8, ruling CQ3). The other concurrencies there are open.
  *
  * **Gotchas**
  *
@@ -299,7 +301,7 @@ const replaced = {
  */
 export const tableB: TableB = {
   Idle: {
-    reject: admit("Mint"),
+    reject: { always: Act.Admit({ admit: "Mint" }), kept: Act.Admit({ admit: "Decline" }) },
     latest: admit("Mint"),
     serialize: admit("Mint"),
     cancel: admit("Mint"),

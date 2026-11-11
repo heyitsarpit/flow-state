@@ -101,6 +101,19 @@ export const productionMutants = {
         },
       ],
     }),
+    mutant({
+      name: "prod.kept-ignored",
+      says: "a commit beside a kept ending mints, as if the kept ending held no lane",
+      expects: "WriteLanes I8",
+      cases: ["DLV-06"],
+      edits: [
+        {
+          file: "src/core/lanes.ts",
+          find: "if (tx.world().lanes.has(id) || tx.world().parked.get(id)?.kept === true) {",
+          replace: "if (tx.world().lanes.has(id)) {",
+        },
+      ],
+    }),
   ],
   disposal: [
     mutant({

@@ -74,11 +74,14 @@ const rowOf = (head: Option.Option<AttemptLife>): HeadRow =>
       life.phase._tag === "Queued" || life.phase._tag === "Gone" ? "Idle" : life.phase._tag,
   });
 
+const IDLE_UNKEPT: Partial<Record<Column, string>> = { Cancel: "none", reject: "always" };
+
 const guardOf = (model: Model, lane: LaneId, row: HeadRow, column: Column) => {
   const head = headOf(model, lane);
+  const unkept = IDLE_UNKEPT[column];
 
-  if (row === "Idle" && column === "Cancel")
-    return keptOn(model, lane).length > 0 ? "kept" : "none";
+  if (row === "Idle" && unkept !== undefined)
+    return keptOn(model, lane).length > 0 ? "kept" : unkept;
 
   const guarded =
     (row === "Unsent" && (column === "latest" || column === "cancel")) ||

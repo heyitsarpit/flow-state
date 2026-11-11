@@ -22,7 +22,8 @@ const restored = (c: Case) => c.endings("pay").filter((e) => e.reason === "Resto
  * and a failure ending while another actor of the same machine lives. The endings' counts and
  * owners follow from the Specs (an Attempt on the wire at a kill restores as `unknown Restored`,
  * once, to its own actor); the states and notice come from the Pay fixture's mapping. `DLV-05`:
- * a twice-refused place success is kept and gets one try per boot (Actors R15, I24).
+ * a twice-refused place success is kept and gets one try per boot (Actors R15, I24). `DLV-06`: that
+ * kept ending holds its lane, so the next place commit declines `Rejected` (WriteLanes R6, I8).
  */
 export const endingDeliveryScenarios: ReadonlyArray<Scenario> = [
   {
@@ -113,6 +114,37 @@ export const endingDeliveryScenarios: ReadonlyArray<Scenario> = [
       c.reload();
       c.eq("one try at the next boot", tries(c, "place"), 4);
       c.eq("still no receipt", a.memory().receipt, null);
+    },
+  },
+  {
+    id: "DLV-06",
+    cites: ["WriteLanes R6", "WriteLanes I8", "Actors R15"],
+    fixtures: [Pay],
+    run: (c) => {
+      const { a } = shoppers(c);
+      a.ensure();
+      onWire(c, a, "pi1");
+      c.answer("pay", Answer.Ok({ value: { status: "requires_capture", clientSecret: "" } }));
+      c.ack();
+      c.answer("place", Answer.Ok({ value: null }));
+      c.eq("kept after two refusals", tries(c, "place"), 2);
+      a.send("Leave", {});
+      a.state("LEFT");
+      a.send("Start", { cartId: "cart-pi1", intentId: "pi2" });
+      a.state("CARD");
+      a.send("PayRequested", { paymentMethodId: "visa" });
+      a.state("PAYING");
+      c.ack();
+      c.ack();
+      c.eq("second pay sent", c.requests("pay").length, 2);
+      c.answer("pay", Answer.Ok({ value: { status: "requires_capture", clientSecret: "" } }));
+      c.ack();
+      c.eq("WriteLanes I8: the kept ending holds its lane", c.requests("place").length, 1);
+      c.eq(
+        "WriteLanes R6: the next place declines Rejected",
+        c.endings("place").at(-1)?.reason,
+        "Rejected",
+      );
     },
   },
 ];

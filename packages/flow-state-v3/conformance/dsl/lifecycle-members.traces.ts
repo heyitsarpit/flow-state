@@ -74,17 +74,23 @@ type Row = {
   readonly cites: string;
   readonly start: Model;
   readonly member: LaneMember;
-  readonly probe: "mint" | "decline";
+  readonly probe: "mint" | "decline" | "rejected";
   readonly refused: ReadonlyArray<InvariantId>;
   readonly phases: Readonly<Record<string, Phase>>;
   readonly owing: ReadonlyArray<Obligation>;
+};
+
+const probed = {
+  mint: mint("n"),
+  decline: decline("Cancelled"),
+  rejected: decline("Rejected"),
 };
 
 const cell = (row: Row, marked = 0) => ({
   name: row.name,
   cites: row.cites,
   start: row.start,
-  steps: [turn(row.member), row.probe === "mint" ? mint("n") : decline("Cancelled")],
+  steps: [turn(row.member), probed[row.probe]],
   refusals: [[], row.refused],
   phases: row.phases,
   owed: row.owing.length,
@@ -101,7 +107,7 @@ const idleTraces: ReadonlyArray<Trace> = [
     cell({
       name: `a ${policy} commit on an Idle lane mints its head`,
       cites: "WriteLanes R6, R7: an Idle lane's commit is the head",
-      start: idle(),
+      start: idle(policy !== "reject"),
       member: commit(policy),
       probe: "mint",
       refused: [],
@@ -109,6 +115,16 @@ const idleTraces: ReadonlyArray<Trace> = [
       owing: [supersededQ],
     }),
   ),
+  cell({
+    name: "a reject commit beside a kept ending declines Rejected",
+    cites: "WriteLanes R6, I8: a kept ending holds its lane (ruling CQ3)",
+    start: idle(),
+    member: commit("reject"),
+    probe: "rejected",
+    refused: [],
+    phases: { k: GC, q: Q },
+    owing: [supersededQ],
+  }),
   cell({
     name: "a retry on an Idle lane does nothing",
     cites: "WriteLanes R8: a retry acts only on a Held head",
@@ -131,7 +147,7 @@ const idleTraces: ReadonlyArray<Trace> = [
   }),
   cell({
     name: "a cancel on an Idle lane lets its kept ending go",
-    cites: "Actors R15: a kept ending stands until cancelled (CQ3 pending)",
+    cites: "Actors R15: a kept ending stands until cancelled",
     start: idle(),
     member: member("cancel"),
     probe: "decline",
