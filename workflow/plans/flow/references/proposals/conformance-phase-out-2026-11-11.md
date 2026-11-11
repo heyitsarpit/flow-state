@@ -40,15 +40,15 @@ Counts come from `wc -l` at `0e491c4c`. Verdict codes: **S** stays, **R** replac
 
 ### The Spec model and its tests (`dsl/lifecycle*`, 7,192)
 
-| Module                                 | Lines | What it does                    | Verdict         |
-| -------------------------------------- | ----- | ------------------------------- | --------------- |
-| `lifecycle` and its 5 table modules   | 2,404 | Tables A to C; pure transitions | S (the model)   |
-| `lifecycle-step`, `lifecycle-owed`     | 667   | Step fold; owed (reads reports) | S, split in T45 |
-| `lifecycle-trace.ts`                   | 182   | Trace shape and builders        | S               |
-| six `*.traces.ts`                      | 2,267 | 117 hand runs (replan: 137)     | R, rulings kept |
-| `lifecycle.test.ts`                    | 443   | Replays the traces              | S, smaller      |
-| `lifecycle-step.test.ts`               | 686   | Hand step mutants               | R               |
-| `lifecycle-perturbations.ts`           | 543   | 340 perturbed reports (claims)  | D               |
+| Module                              | Lines | What it does                    | Verdict         |
+| ----------------------------------- | ----- | ------------------------------- | --------------- |
+| `lifecycle` and its 5 table modules | 2,404 | Tables A to C; pure transitions | S (the model)   |
+| `lifecycle-step`, `lifecycle-owed`  | 667   | Step fold; owed (reads reports) | S, split in T45 |
+| `lifecycle-trace.ts`                | 182   | Trace shape and builders        | S               |
+| six `*.traces.ts`                   | 2,267 | 117 hand runs (replan: 137)     | R, rulings kept |
+| `lifecycle.test.ts`                 | 443   | Replays the traces              | S, smaller      |
+| `lifecycle-step.test.ts`            | 686   | Hand step mutants               | R               |
+| `lifecycle-perturbations.ts`        | 543   | 340 perturbed reports (claims)  | D               |
 
 The model imports only types and helpers from `fixtures/reference.ts` (`Reference`, `Row`, `Concurrency`,
 `retains`, `mappedEvent`) and nothing from `src/`.
