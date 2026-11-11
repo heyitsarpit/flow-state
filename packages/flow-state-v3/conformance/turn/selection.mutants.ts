@@ -40,6 +40,35 @@ export const headerLaneMutants: ReadonlyArray<Mutant> = [
  */
 export const selectionMutants: ReadonlyArray<Mutant> = [
   {
+    name: "a3.r14-explicit-reentry-keeps-activation",
+    says: "an explicit re-entry keeps the state's Activation instead of starting a new one (Turn Spec T1)",
+    expects: "Turn I5",
+    runtime: "prototype",
+    cases: ["TURN-04/re-entry-makes-the-first-ending-late"],
+    edits: [
+      {
+        file: "turn.ts",
+        find: "for (const n of enters) activations[n] = nextGen(w.tx);",
+        replace:
+          "for (const n of enters) activations[n] = mv.history || inc.activations[n] === undefined ? nextGen(w.tx) : inc.activations[n];",
+      },
+    ],
+  },
+  {
+    name: "audit-1.r14-reentry-keeps-activation",
+    says: "every entered state keeps an Activation it already had (Turn Spec T1)",
+    expects: "Turn I5",
+    runtime: "prototype",
+    cases: ["TURN-04/re-entry-makes-the-first-ending-late"],
+    edits: [
+      {
+        file: "turn.ts",
+        find: "for (const n of enters) activations[n] = nextGen(w.tx);",
+        replace: "for (const n of enters) activations[n] = inc.activations[n] ?? nextGen(w.tx);",
+      },
+    ],
+  },
+  {
     name: "turn.part-turn-moves-header",
     says: "a turn that ran only a trait's alternative reports leaving the root's leaf",
     expects: "Turn I2",

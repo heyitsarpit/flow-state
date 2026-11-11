@@ -7,7 +7,6 @@ import {
   keyOf,
   minted,
   moved,
-  pendingOf,
   reowned,
   ROOT,
   routeOf,
@@ -16,6 +15,7 @@ import {
   withActor,
   withoutOne,
 } from "./anchor.ts";
+import { lateLeftWork } from "./late.ts";
 import { Input, leafOf, Phase, TABLE } from "./phases.ts";
 import {
   type Handlers,
@@ -181,30 +181,6 @@ const judgeTurn = (machines: Machines, phase: Phase, turn: Turn, route: Route): 
 };
 
 /**
- * A late turn that exits the active leaf's Activation while it owns pending work (Turn I27).
- */
-const lateLeftWork = (
-  state: State,
-  now: ReturnType<typeof actorIn>,
-  turn: Turn,
-  route: Route,
-  judged: Judged,
-) => {
-  const leaf = leafOf(now.phase);
-
-  if (route !== "late" || Option.isNone(leaf) || !Option.exists(judged.match, (m) => m.enters))
-    return [];
-
-  const pending = pendingOf(state, turn.actor, { state: leaf.value, entry: now.entry });
-
-  return pending.length === 0
-    ? []
-    : [
-        `Turn I27: ${name(turn)}, a late turn, and left ${leaf.value}, whose Activation owns pending work (${pending.map((c) => `${c.operation} ${c.attempt}`).join(", ")})`,
-      ];
-};
-
-/**
  * The driven credit of an event the suite sent to a part: it admits only a turn that ran no root
  * part.
  */
@@ -244,7 +220,16 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
       ];
 
   const judged = judgeTurn(state.machines, now.phase, turn, route);
-  const leftWork = lateLeftWork(state, now, turn, route, judged);
+
+  const leftWork = lateLeftWork(
+    state,
+    now,
+    turn,
+    route,
+    Option.exists(judged.match, (m) => m.enters),
+    Option.fromUndefinedOr(delivered),
+  );
+
   const entry = Option.exists(judged.match, (m) => m.enters) ? now.entry + 1 : now.entry;
 
   const owner = Option.match(judged.match, {
@@ -508,7 +493,7 @@ const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>): Stepped =>
  */
 export const selection = oracle<State>({
   name: "selection",
-  guarantee: ["Turn I2", "Turn I26", "Turn I27"],
+  guarantee: ["Turn I2", "Turn I5", "Turn I26", "Turn I27"],
   start: (_reference, _graphs, machines) => anchorOf(machines),
   step: (state, step) => {
     const judged = judgedStep(state, step);

@@ -143,6 +143,7 @@ const FIXTURES = [
   { name: "held", file: "typed/round15b.ts", exported: "r15HeldFixture", made: "call" },
   { name: "stamp", file: "typed/round13.ts", exported: "keyStampFixture", made: "release" },
   { name: "issues", file: "typed/issues.ts", exported: "issuesFixture", made: "value" },
+  { name: "latequeue", file: "typed/latequeue.ts", exported: "lateQueueFixture", made: "call" },
   { name: "cancel", file: "typed/round15.ts", exported: "r15SwitchFixture", made: "call" },
 ] as const;
 

@@ -6,6 +6,11 @@ import type { Remainder } from "../coverage.ts";
  */
 export const turnRemainders: ReadonlyArray<Remainder> = [
   {
+    invariant: "Turn I5",
+    owner: "@task.V3.T8",
+    owed: "every Activation at or above the Boundary kept (compound states; a3.r14-reenters-the-parent, 1b.r14-history-reentry-keeps-activation need the old suite's compound fixtures); only a re-entry's new Activation is judged, through its late ending",
+  },
+  {
     invariant: "Turn I12",
     owner: "@task.V3.T8",
     owed: "guards, payload mappers and updates reading PreTurn, and selects, keys and placement reads reading After; only a schedule function's After read is cased",

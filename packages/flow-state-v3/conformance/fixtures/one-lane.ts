@@ -1,7 +1,7 @@
 import { Schema } from "effect";
 import { Empty, type Fixture, writeOf } from "./fixture.ts";
 import { guarded, to, updating } from "./handlers.ts";
-import { type Concurrency, classifyWith, row } from "./reference.ts";
+import { type Concurrency, claimed, classifyWith, row } from "./reference.ts";
 
 const Unkeyed = Empty;
 
@@ -150,5 +150,38 @@ export const Release = {
         Unsure: [to("stay")],
       },
     },
+  },
+} satisfies Fixture;
+
+/**
+ * `Lab/LateQueue` (`prototypes/conformance/typed/latequeue.ts`): one unkeyed `serialize` write,
+ * `charge`, committed by `Go`, which re-enters W (a new Activation each time, Turn R3); `Away`
+ * leaves W for B; `Unsure` goes to A, cancelling the lane once `Cancelling` was sent.
+ */
+export const LateQueue = {
+  name: "latequeue",
+  machine: "Lab/LateQueue",
+  events: { Go: Empty, Away: Empty, Cancelling: Empty },
+  memory: Schema.Struct({ cancelling: Schema.Boolean }),
+  input: Empty,
+  states: ["A", "W", "B"] as const,
+  operations: { charge: oneLaneWrite("serialize") },
+  rows: [
+    row("Go", "any", "W", [{ operation: "charge", kind: "commit" }]),
+    claimed(row("Unsure", "any", "A", [{ operation: "charge", kind: "cancel", keyed: false }])),
+  ],
+  handlers: {
+    initial: "A",
+    root: {
+      Go: [to("W")],
+      Away: [to("B")],
+      Cancelling: [updating(to("stay"))],
+      Ok: [to("B")],
+      No: [to("A")],
+      Unsure: [guarded(to("A")), to("A")],
+    },
+    states: {},
+    schedules: {},
+    parts: {},
   },
 } satisfies Fixture;

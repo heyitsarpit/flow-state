@@ -22,6 +22,7 @@ import {
 } from "./static-cli/cli.cases.ts";
 import { graphNames } from "./static-cli/graph-names.ts";
 import { graphNamesMutants } from "./static-cli/graph-names.mutants.ts";
+import { activationsScenarios } from "./turn/activations.scenarios.ts";
 import { refusalMutants } from "./turn/refusal.mutants.ts";
 import { refusalScenarios } from "./turn/refusal.scenarios.ts";
 import { refusal } from "./turn/refusal.ts";
@@ -122,6 +123,7 @@ export const scenarios: ReadonlyArray<Scenario> = [
   ...endingDeliveryScenarios,
   ...refusalScenarios,
   ...schedulesScenarios,
+  ...activationsScenarios,
 ];
 
 /**
