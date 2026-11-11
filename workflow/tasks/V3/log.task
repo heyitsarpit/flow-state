@@ -297,3 +297,5 @@ note 2026-11-11T11:43:17Z
     T44 done with remainders moved: report-free obligations and lane rollback to T45, liar-gate survivors to T47, a 
     kept-only lane's row to T18. Every open Task now carries satisfies links to the Plan outcomes it delivers; 
     tools/plan-coverage/check.ts reports none uncovered.
+note 2026-11-11T11:51:45Z
+    Paused (the user, 2026-11-11) at c2f6983b: T45 in progress, one gate red (round-14 falsify 146 of 147; o6.settled-in-bound-stays-held caught only by its case). Production bug found: a restored unresolved write is ended again as NotSent { Disposed } at disposal (outside conformance/, for T45 or T18). Stall cron removed. Resume: restore that mutant's disposal catch first (STATUS T45 section).
