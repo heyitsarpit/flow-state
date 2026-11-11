@@ -13,7 +13,6 @@ const oneLaneWrite = <C extends Concurrency>(concurrency: C, cancels: CancelsOf<
     unknown: { event: "Unsure" },
     classify: classifyWith(() => false),
     cancels,
-    mayCancel: [],
   });
 
 const serializeEvents = { Go: Schema.Struct({ n: Schema.Number }), All: Empty };

@@ -72,10 +72,6 @@ const pay = {
     (tag, fields, mayHaveApplied) => tag === "IntentBusy" && mayHaveApplied && capturable(fields),
   ),
   cancels: {},
-  mayCancel: [
-    { event: "IntentRead", from: "UNSURE", to: "PLACING" },
-    { event: "OrderSeen", from: "UNSURE", to: "PAID" },
-  ],
 } satisfies Omit<OperationReference<keyof typeof events>, "keyFields">;
 
 const operations = {
@@ -88,7 +84,6 @@ const operations = {
     unknown: { event: "PlaceUnsure" },
     classify: classifyWith((tag) => tag === "OrderExists"),
     cancels: {},
-    mayCancel: [],
   }),
   void: writeOf(ByIntent, {
     concurrency: "reject",
@@ -98,7 +93,6 @@ const operations = {
     unknown: { event: "VoidUnsure" },
     classify: classifyWith(() => false),
     cancels: {},
-    mayCancel: [],
   }),
 } satisfies Fixture["operations"];
 
