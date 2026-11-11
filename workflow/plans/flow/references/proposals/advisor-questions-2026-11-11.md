@@ -11,6 +11,17 @@ proven against a prototype runtime (`packages/flow-state-v3/prototypes/round-14/
 (`packages/flow-state-v3/src/`). The run is the V3 Epic (`workflow/tasks/V3/epic.task`, notes in `log.task`). Agents
 (Claude Opus leads, Haiku sidecars) write the Specs, the suite and production, and review each other.
 
+## Q0. Open question, answered first: what are we missing?
+
+Step back from the questions below. Looking at the whole project (the Plans, the Specs, the suite, the prototype,
+the production start and the way agents run the work), what would you change that we haven't thought to ask?
+Name core assumptions that look wrong, techniques or concepts from other fields (testing, verification, distributed
+systems, state-machine runtimes, agent workflows) that would help, and anything we should stop doing. Rank them by
+how much correctness or speed each would buy, and say what evidence would show each one is right. Q1 to Q10 may be
+answered in its light, and you may say a question is the wrong question.
+Read: `AGENTS.md`, `workflow/plans/flow/*.plan` (goals and outcomes), `workflow/tasks/V3/epic.task`, the last 40
+notes in `workflow/tasks/V3/log.task`, and whatever else you need.
+
 ## Q1. Judging a runtime without trusting its reports
 
 Six reviews in a row found the same class: a runtime's own report deciding what it owes (the turn header choosing
