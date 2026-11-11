@@ -442,6 +442,12 @@ tasks
               the area;
             - the search finds at least one Spec conflict or runtime difference no case had, or reports none;
             - T10's rows are covered by generated runs.
+        comment     2026-11-11T11:51:17Z
+            Paused at 1f1a1676. Red: falsify round-14 146/147 (o6.settled-in-bound-stays-held lost its disposal catch). 
+            Done: an unsaved ending may restore at a boot, and an actor with unsaved turns resumes at an unknown leaf 
+            (production crash points 600 to 629 of 670). Found: production's disposal ends a restored Held head NotSent 
+            Disposed. Resume: restore that catch, then evidence and parked endings. 
+            code:packages/flow-state-v3/conformance/STATUS.md#T45
     T47
         title       A wide net of small fixtures, each run under generated flows and network faults
         status      open
