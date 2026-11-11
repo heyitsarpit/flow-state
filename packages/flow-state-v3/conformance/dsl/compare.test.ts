@@ -119,8 +119,29 @@ describe("an actor's incarnation and end, owed from the suite's facts (Actors R6
   it("owes the end of an actor free for the whole grace, and accepts it", () => {
     const opened = [Fact.Ensured(story), incarnated, Fact.Released(story)];
 
-    assert.deepStrictEqual(walked([opened, [Fact.Advanced({ ms: 200 })]]), ["Actors I37"]);
-    assert.deepStrictEqual(walked([opened, [Fact.Advanced({ ms: 200 }), finished]]), []);
+    assert.deepStrictEqual(walked([opened, [Fact.Advanced({ ms: 200 })]]), [
+      "Actors I37",
+      "Actors I37",
+    ]);
+    assert.deepStrictEqual(
+      walked([opened, [Fact.Advanced({ ms: 200 }), finished, Fact.Wrote()]]),
+      [],
+    );
+  });
+
+  it("owes the record's write at an end, and refuses one written while every actor is used", () => {
+    const opened = [Fact.Ensured(story), incarnated, Fact.Released(story)];
+
+    assert.deepStrictEqual(walked([opened, [Fact.Advanced({ ms: 200 }), finished]]), [
+      "Actors I37",
+    ]);
+    assert.deepStrictEqual(
+      walked([
+        [Fact.Ensured(story), incarnated],
+        [Fact.Advanced({ ms: 200 }), Fact.Wrote()],
+      ]),
+      ["Actors I10"],
+    );
   });
 
   it("owes no end before the grace is over, and refuses one while a use is held", () => {

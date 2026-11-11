@@ -60,6 +60,9 @@ export type Walk = {
   readonly ends: ReadonlyArray<ActorRef>;
   readonly endsHeard: ReadonlyArray<ActorRef>;
   readonly leaves: ReadonlyMap<string, string>;
+  readonly writes: number;
+  readonly stirred: boolean;
+  readonly planned: number;
   readonly unsent: ReadonlyArray<string>;
   readonly purposes: ReadonlyArray<Purpose>;
   readonly turns: ReadonlyArray<Predicted>;
@@ -283,10 +286,22 @@ const holding = (walk: Walk, fact: SuiteFact) => ({
 export const onSuiteFact = (walk: Walk, fact: SuiteFact, known: Known, given: Rules) => {
   if (SuiteFact.$is("Advanced")(fact)) return aged(walk, known, fact.ms, given);
 
-  return suiteMoved(QUIET_FACTS.includes(fact._tag) ? walk : restarted(walk), fact, given);
+  const counted = {
+    ...walk,
+    writes: walk.writes + (SuiteFact.$is("Wrote")(fact) ? 1 : 0),
+    stirred: walk.stirred || !CLOCK_ONLY.includes(fact._tag),
+  };
+
+  return suiteMoved(QUIET_FACTS.includes(fact._tag) ? counted : restarted(counted), fact, given);
 };
 
 const QUIET_FACTS: ReadonlyArray<string> = ["Stepped", "Read"];
+
+/**
+ * The suite facts of a step that only moved the clock: in such a step a record is written only by
+ * an actor's end (Actors R8) or the Runtime's disposal.
+ */
+const CLOCK_ONLY: ReadonlyArray<string> = ["Stepped", "Advanced", "Wrote", "Read"];
 
 const suiteMoved = (walk: Walk, fact: SuiteFact, given: Rules) =>
   SuiteFact.$match(fact, {
@@ -347,7 +362,32 @@ const unheard = (walk: Walk) => [
       invariant: "Actors I37" as const,
       text: `${a.machine} ${a.id} was free for the whole grace, but its end was not reported`,
     })),
+  ...walk.ends.slice(0, walk.writes === 0 ? walk.ends.length : 0).map((a) => ({
+    invariant: "Actors I37" as const,
+    text: `${a.machine} ${a.id} was free for the whole grace, but no record was written at its end (R8)`,
+  })),
+  ...usedWrite(walk),
 ];
+
+/**
+ * A record written in a step that only moved the clock, with no turn, no end owed and every live
+ * actor used: only an end could write it, and no actor may end (Actors R8, I10).
+ */
+const usedWrite = (walk: Walk) =>
+  walk.writes > 0 &&
+  !walk.stirred &&
+  walk.planned === 0 &&
+  walk.ends.length === 0 &&
+  walk.model.mode === "running" &&
+  walk.model.live.length > 0 &&
+  walk.model.live.every((l) => holds(walk.model, l.actor))
+    ? [
+        {
+          invariant: "Actors I10" as const,
+          text: "a record was written in a step that only moved the clock while every live actor was used: an end before its time",
+        },
+      ]
+    : [];
 
 /**
  * Applies the Attempts a landed batch acknowledges: a runtime answer taken as a stated limit, since

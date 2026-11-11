@@ -143,7 +143,7 @@ export const crash = (args: ReadonlyArray<string>) =>
  * The persistence area's hand cases (T45 acceptance 1): the Pay cases that reload, restore, hold
  * or dispose, whose fixture the generated scripts drive.
  */
-const AREA = ["PAY-08", "PAY-09", "PAY-13", "PAY-14", "PAY-15", "PAY-16", "DISP-"];
+const AREA = ["PAY-08", "PAY-09", "PAY-13", "PAY-14", "PAY-15", "PAY-16", "DISP-", "ACT-"];
 
 const inArea = (id: string) => AREA.some((prefix) => id === prefix || id.startsWith(prefix));
 

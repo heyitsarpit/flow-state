@@ -84,6 +84,8 @@ export const payAlphabet: Alphabet = {
     [[{ _tag: "dispose" }, { _tag: "reload" }, { _tag: "ensure" }], 1],
     [[{ _tag: "forget" }, { _tag: "reload" }, { _tag: "ensure" }], 1],
     [[{ _tag: "release" }, { _tag: "advance", ms: 1000 }], 1],
+    [[{ _tag: "release" }, { _tag: "advance", ms: 1000 }, { _tag: "ensure" }], 1],
+    [[{ _tag: "advance", ms: 1000 }], 1],
     [
       [
         { _tag: "dispose" },

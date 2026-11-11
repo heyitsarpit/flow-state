@@ -155,10 +155,6 @@ const reportTruth = {
   "1b.r8-third-try": "a refused try rolls back; only the Delivered count differs",
   "mutant.kept-retried-without-boot": "a refused try rolls back; only the Delivered count differs",
   "turn.memory-takes-a-random-nonce": "an undeclared memory key; every read decodes by the schema",
-  "life.never-ends":
-    "a free actor at a leaf with no schedule or read ends with no write, request or read; only Finished shows it",
-  "life.ends-while-used":
-    "an end at a leaf with no schedule or read changes no write, request or read; only Finished shows it",
 } satisfies Readonly<Record<string, string>>;
 
 /**
