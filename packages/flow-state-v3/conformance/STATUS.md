@@ -1600,6 +1600,31 @@ booted yet (`UnknownProductionFixture`).
   kept ending's key declines Rejected) fails on both runtimes because the suite's lifecycle does not
   model a kept ending holding its lane (WriteLanes R6, CQ3): owed to T44.
 
+## T44 (2026-11-11): the suite judges from its own facts, gated by machines (in progress)
+
+Production passes the liar gate (13 of 13); round-14 has 9 greens, all behind fixtures that cannot
+see the act, and the report-to-obligation split is enforced only for the lifecycle's tables.
+Numbers: `gates.json` (294f63a3).
+
+- **Liar gate** (`9ee3f417`, `6f286d8d`): reports recorded on a correct runtime replace the
+  mutant's. Sends now come from the server's log matched to Sent reports. 32 mutants anchored by
+  world reads in new or extended cases (DISP-07, DLV-07, PAY-15/dispose-held-moved,
+  PAY-16/answered-inside-the-bound, LANE-12/release-uninterruptible-lost, TURN-03/re-entered); 18
+  recorded as report truth only, each with why (`suite.ts` `reportTruth`). Greens:
+  `liar-prototype.txt`. Each needs a fixture whose handler hears the ending or the order (a
+  serialize or latest machine counting `No` and `Unsure`, a same-lane member pair).
+- **Kept ending holds its lane** (`3142ecf7`): DLV-06 and `prod.kept-ignored`. Other concurrencies
+  beside a kept ending are open; a kept-only lane has no production row (Plan Operations O6 is
+  silent, I8 says the lane exists).
+- **Split:** lint bars `Observation`, its variants and `Fact` from the lifecycle's six table
+  modules (`vite.config.ts`, proved on a planted import). Not met: `lifecycle-step.ts`,
+  `lifecycle-owed.ts` and `turn/selection.ts` still read reports; owed members read the reported
+  header and member keys. Closing it is the expect/compare rewrite (advisor Q1 part 1, Q2).
+- **Gates** (`294f63a3`): the gate file now runs both liar gates, the production crash generator
+  (70 red points: the model does not roll a lane back to its last landed capture at a kill,
+  Restore R3, WriteAhead R10) and all 85 core mutants (61 killed; survivors in `core-mutants.tsv`).
+- **Pending probes:** `k.drop-row`, `q1a.unchanged-resets` wait for a WriteAhead I4 oracle.
+
 ## T43 (2026-11-11): Effect simplification R1 to R8
 
 All eight applied, each alone with the round-14 suite and the Pay cases green and the production
