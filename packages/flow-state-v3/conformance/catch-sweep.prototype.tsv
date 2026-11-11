@@ -1,3 +1,4 @@
+1b.cancel-all-promotes-before-emptying	ACT-01/free-actor-ends	green
 1b.cancel-all-promotes-before-emptying	CLI-01	green
 1b.cancel-all-promotes-before-emptying	CLI-02	green
 1b.cancel-all-promotes-before-emptying	CLI-03	green
@@ -117,6 +118,7 @@
 1b.cancel-all-promotes-before-emptying	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 1b.cancel-all-promotes-before-emptying	TURN-05/child-refusal	green
 1b.cancel-all-promotes-before-emptying	TURN-05/removed-copy-ends-once	green
+1b.cancel-all-queue-reversed	ACT-01/free-actor-ends	green
 1b.cancel-all-queue-reversed	CLI-01	green
 1b.cancel-all-queue-reversed	CLI-02	green
 1b.cancel-all-queue-reversed	CLI-03	green
@@ -236,6 +238,7 @@
 1b.cancel-all-queue-reversed	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 1b.cancel-all-queue-reversed	TURN-05/child-refusal	green
 1b.cancel-all-queue-reversed	TURN-05/removed-copy-ends-once	green
+1b.cancel-all-wire-held-at-once	ACT-01/free-actor-ends	green
 1b.cancel-all-wire-held-at-once	CLI-01	green
 1b.cancel-all-wire-held-at-once	CLI-02	green
 1b.cancel-all-wire-held-at-once	CLI-03	green
@@ -355,6 +358,7 @@
 1b.cancel-all-wire-held-at-once	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 1b.cancel-all-wire-held-at-once	TURN-05/child-refusal	green
 1b.cancel-all-wire-held-at-once	TURN-05/removed-copy-ends-once	green
+1b.forget-marks-held-lane	ACT-01/free-actor-ends	green
 1b.forget-marks-held-lane	CLI-01	green
 1b.forget-marks-held-lane	CLI-02	green
 1b.forget-marks-held-lane	CLI-03	green
@@ -474,6 +478,7 @@
 1b.forget-marks-held-lane	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 1b.forget-marks-held-lane	TURN-05/child-refusal	green
 1b.forget-marks-held-lane	TURN-05/removed-copy-ends-once	green
+1b.r8-refused-ending-not-redelivered	ACT-01/free-actor-ends	green
 1b.r8-refused-ending-not-redelivered	CLI-01	green
 1b.r8-refused-ending-not-redelivered	CLI-02	green
 1b.r8-refused-ending-not-redelivered	CLI-03	green
@@ -593,6 +598,7 @@
 1b.r8-refused-ending-not-redelivered	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 1b.r8-refused-ending-not-redelivered	TURN-05/child-refusal	green
 1b.r8-refused-ending-not-redelivered	TURN-05/removed-copy-ends-once	green
+1b.r8-third-try	ACT-01/free-actor-ends	green
 1b.r8-third-try	CLI-01	green
 1b.r8-third-try	CLI-02	green
 1b.r8-third-try	CLI-03	green
@@ -712,6 +718,7 @@
 1b.r8-third-try	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 1b.r8-third-try	TURN-05/child-refusal	green
 1b.r8-third-try	TURN-05/removed-copy-ends-once	green
+a2.deliv-fail-samemail	ACT-01/free-actor-ends	green
 a2.deliv-fail-samemail	CLI-01	green
 a2.deliv-fail-samemail	CLI-02	green
 a2.deliv-fail-samemail	CLI-03	green
@@ -831,6 +838,7 @@ a2.deliv-fail-samemail	TURN-04/re-entry-makes-the-first-ending-late	green
 a2.deliv-fail-samemail	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 a2.deliv-fail-samemail	TURN-05/child-refusal	green
 a2.deliv-fail-samemail	TURN-05/removed-copy-ends-once	green
+a3.r14-explicit-reentry-keeps-activation	ACT-01/free-actor-ends	green
 a3.r14-explicit-reentry-keeps-activation	CLI-01	green
 a3.r14-explicit-reentry-keeps-activation	CLI-02	green
 a3.r14-explicit-reentry-keeps-activation	CLI-03	green
@@ -950,6 +958,7 @@ a3.r14-explicit-reentry-keeps-activation	TURN-04/re-entry-makes-the-first-ending
 a3.r14-explicit-reentry-keeps-activation	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 a3.r14-explicit-reentry-keeps-activation	TURN-05/child-refusal	green
 a3.r14-explicit-reentry-keeps-activation	TURN-05/removed-copy-ends-once	green
+audit-1.cancel-all-leaves-the-head	ACT-01/free-actor-ends	green
 audit-1.cancel-all-leaves-the-head	CLI-01	green
 audit-1.cancel-all-leaves-the-head	CLI-02	green
 audit-1.cancel-all-leaves-the-head	CLI-03	green
@@ -1069,6 +1078,7 @@ audit-1.cancel-all-leaves-the-head	TURN-04/re-entry-makes-the-first-ending-late	
 audit-1.cancel-all-leaves-the-head	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 audit-1.cancel-all-leaves-the-head	TURN-05/child-refusal	green
 audit-1.cancel-all-leaves-the-head	TURN-05/removed-copy-ends-once	green
+audit-1.r14-reentry-keeps-activation	ACT-01/free-actor-ends	green
 audit-1.r14-reentry-keeps-activation	CLI-01	green
 audit-1.r14-reentry-keeps-activation	CLI-02	green
 audit-1.r14-reentry-keeps-activation	CLI-03	green
@@ -1188,6 +1198,7 @@ audit-1.r14-reentry-keeps-activation	TURN-04/re-entry-makes-the-first-ending-lat
 audit-1.r14-reentry-keeps-activation	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 audit-1.r14-reentry-keeps-activation	TURN-05/child-refusal	green
 audit-1.r14-reentry-keeps-activation	TURN-05/removed-copy-ends-once	green
+cli.check-runs-callbacks	ACT-01/free-actor-ends	green
 cli.check-runs-callbacks	CLI-01	caught case expectations StaticCli I1
 cli.check-runs-callbacks	CLI-02	green
 cli.check-runs-callbacks	CLI-03	green
@@ -1307,6 +1318,7 @@ cli.check-runs-callbacks	TURN-04/re-entry-makes-the-first-ending-late	green
 cli.check-runs-callbacks	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 cli.check-runs-callbacks	TURN-05/child-refusal	green
 cli.check-runs-callbacks	TURN-05/removed-copy-ends-once	green
+cli.complete-always	ACT-01/free-actor-ends	green
 cli.complete-always	CLI-01	green
 cli.complete-always	CLI-02	green
 cli.complete-always	CLI-03	green
@@ -1426,6 +1438,7 @@ cli.complete-always	TURN-04/re-entry-makes-the-first-ending-late	green
 cli.complete-always	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 cli.complete-always	TURN-05/child-refusal	green
 cli.complete-always	TURN-05/removed-copy-ends-once	green
+cli.graph-renames-edge	ACT-01/free-actor-ends	caught graph-names StaticCli I2
 cli.graph-renames-edge	CLI-01	green
 cli.graph-renames-edge	CLI-02	green
 cli.graph-renames-edge	CLI-03	green
@@ -1545,6 +1558,7 @@ cli.graph-renames-edge	TURN-04/re-entry-makes-the-first-ending-late	green
 cli.graph-renames-edge	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 cli.graph-renames-edge	TURN-05/child-refusal	green
 cli.graph-renames-edge	TURN-05/removed-copy-ends-once	green
+cli.graph-renames-untaken-edge	ACT-01/free-actor-ends	green
 cli.graph-renames-untaken-edge	CLI-01	green
 cli.graph-renames-untaken-edge	CLI-02	green
 cli.graph-renames-untaken-edge	CLI-03	green
@@ -1664,6 +1678,7 @@ cli.graph-renames-untaken-edge	TURN-04/re-entry-makes-the-first-ending-late	gree
 cli.graph-renames-untaken-edge	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 cli.graph-renames-untaken-edge	TURN-05/child-refusal	green
 cli.graph-renames-untaken-edge	TURN-05/removed-copy-ends-once	green
+cli.late-handler-unreported	ACT-01/free-actor-ends	green
 cli.late-handler-unreported	CLI-01	green
 cli.late-handler-unreported	CLI-02	green
 cli.late-handler-unreported	CLI-03	green
@@ -1783,6 +1798,7 @@ cli.late-handler-unreported	TURN-04/re-entry-makes-the-first-ending-late	green
 cli.late-handler-unreported	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 cli.late-handler-unreported	TURN-05/child-refusal	green
 cli.late-handler-unreported	TURN-05/removed-copy-ends-once	green
+cli.loader-on-stderr	ACT-01/free-actor-ends	green
 cli.loader-on-stderr	CLI-01	green
 cli.loader-on-stderr	CLI-02	green
 cli.loader-on-stderr	CLI-03	caught case expectations StaticCli I5
@@ -1902,6 +1918,7 @@ cli.loader-on-stderr	TURN-04/re-entry-makes-the-first-ending-late	green
 cli.loader-on-stderr	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 cli.loader-on-stderr	TURN-05/child-refusal	green
 cli.loader-on-stderr	TURN-05/removed-copy-ends-once	green
+cli.loader-on-stdout	ACT-01/free-actor-ends	green
 cli.loader-on-stdout	CLI-01	red case
 cli.loader-on-stdout	CLI-02	red case
 cli.loader-on-stdout	CLI-03	caught case expectations StaticCli I5
@@ -2021,6 +2038,7 @@ cli.loader-on-stdout	TURN-04/re-entry-makes-the-first-ending-late	green
 cli.loader-on-stdout	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 cli.loader-on-stdout	TURN-05/child-refusal	green
 cli.loader-on-stdout	TURN-05/removed-copy-ends-once	green
+cli.notsent-off	ACT-01/free-actor-ends	green
 cli.notsent-off	CLI-01	green
 cli.notsent-off	CLI-02	green
 cli.notsent-off	CLI-03	green
@@ -2140,6 +2158,7 @@ cli.notsent-off	TURN-04/re-entry-makes-the-first-ending-late	green
 cli.notsent-off	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 cli.notsent-off	TURN-05/child-refusal	green
 cli.notsent-off	TURN-05/removed-copy-ends-once	green
+cli.shared-contract-unchecked	ACT-01/free-actor-ends	green
 cli.shared-contract-unchecked	CLI-01	green
 cli.shared-contract-unchecked	CLI-02	green
 cli.shared-contract-unchecked	CLI-03	green
@@ -2259,6 +2278,7 @@ cli.shared-contract-unchecked	TURN-04/re-entry-makes-the-first-ending-late	green
 cli.shared-contract-unchecked	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 cli.shared-contract-unchecked	TURN-05/child-refusal	green
 cli.shared-contract-unchecked	TURN-05/removed-copy-ends-once	green
+cli.text-miscounts	ACT-01/free-actor-ends	green
 cli.text-miscounts	CLI-01	green
 cli.text-miscounts	CLI-02	caught case expectations StaticCli I4
 cli.text-miscounts	CLI-03	green
@@ -2378,6 +2398,7 @@ cli.text-miscounts	TURN-04/re-entry-makes-the-first-ending-late	green
 cli.text-miscounts	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 cli.text-miscounts	TURN-05/child-refusal	green
 cli.text-miscounts	TURN-05/removed-copy-ends-once	green
+cli.unknown-falls-back	ACT-01/free-actor-ends	green
 cli.unknown-falls-back	CLI-01	green
 cli.unknown-falls-back	CLI-02	green
 cli.unknown-falls-back	CLI-03	red case
@@ -2497,6 +2518,7 @@ cli.unknown-falls-back	TURN-04/re-entry-makes-the-first-ending-late	green
 cli.unknown-falls-back	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 cli.unknown-falls-back	TURN-05/child-refusal	green
 cli.unknown-falls-back	TURN-05/removed-copy-ends-once	green
+cli.usage-exits-1	ACT-01/free-actor-ends	green
 cli.usage-exits-1	CLI-01	green
 cli.usage-exits-1	CLI-02	green
 cli.usage-exits-1	CLI-03	green
@@ -2616,6 +2638,7 @@ cli.usage-exits-1	TURN-04/re-entry-makes-the-first-ending-late	green
 cli.usage-exits-1	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 cli.usage-exits-1	TURN-05/child-refusal	green
 cli.usage-exits-1	TURN-05/removed-copy-ends-once	green
+cli.warnings-fail	ACT-01/free-actor-ends	green
 cli.warnings-fail	CLI-01	green
 cli.warnings-fail	CLI-02	green
 cli.warnings-fail	CLI-03	green
@@ -2735,6 +2758,7 @@ cli.warnings-fail	TURN-04/re-entry-makes-the-first-ending-late	green
 cli.warnings-fail	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 cli.warnings-fail	TURN-05/child-refusal	green
 cli.warnings-fail	TURN-05/removed-copy-ends-once	green
+cmp.bare-function-admitted	ACT-01/free-actor-ends	green
 cmp.bare-function-admitted	CLI-01	green
 cmp.bare-function-admitted	CLI-02	green
 cmp.bare-function-admitted	CLI-03	green
@@ -2854,6 +2878,7 @@ cmp.bare-function-admitted	TURN-04/re-entry-makes-the-first-ending-late	green
 cmp.bare-function-admitted	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 cmp.bare-function-admitted	TURN-05/child-refusal	green
 cmp.bare-function-admitted	TURN-05/removed-copy-ends-once	green
+cmp.callback-twice	ACT-01/free-actor-ends	green
 cmp.callback-twice	CLI-01	green
 cmp.callback-twice	CLI-02	green
 cmp.callback-twice	CLI-03	green
@@ -2973,6 +2998,7 @@ cmp.callback-twice	TURN-04/re-entry-makes-the-first-ending-late	green
 cmp.callback-twice	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 cmp.callback-twice	TURN-05/child-refusal	green
 cmp.callback-twice	TURN-05/removed-copy-ends-once	green
+cmp.commit-runs-at-construction	ACT-01/free-actor-ends	red case
 cmp.commit-runs-at-construction	CLI-01	red case
 cmp.commit-runs-at-construction	CLI-02	red case
 cmp.commit-runs-at-construction	CLI-03	red case
@@ -3092,6 +3118,7 @@ cmp.commit-runs-at-construction	TURN-04/re-entry-makes-the-first-ending-late	red
 cmp.commit-runs-at-construction	TURN-05/a-part-writing-the-key-is-a-pending-reset	red case
 cmp.commit-runs-at-construction	TURN-05/child-refusal	red case
 cmp.commit-runs-at-construction	TURN-05/removed-copy-ends-once	red case
+cmp.compiler-emits-bare-guard	ACT-01/free-actor-ends	red case
 cmp.compiler-emits-bare-guard	CLI-01	red case
 cmp.compiler-emits-bare-guard	CLI-02	green
 cmp.compiler-emits-bare-guard	CLI-03	red case
@@ -3211,6 +3238,7 @@ cmp.compiler-emits-bare-guard	TURN-04/re-entry-makes-the-first-ending-late	red c
 cmp.compiler-emits-bare-guard	TURN-05/a-part-writing-the-key-is-a-pending-reset	red case
 cmp.compiler-emits-bare-guard	TURN-05/child-refusal	red case
 cmp.compiler-emits-bare-guard	TURN-05/removed-copy-ends-once	red case
+cmp.computed-initial-runs	ACT-01/free-actor-ends	green
 cmp.computed-initial-runs	CLI-01	green
 cmp.computed-initial-runs	CLI-02	green
 cmp.computed-initial-runs	CLI-03	green
@@ -3330,6 +3358,7 @@ cmp.computed-initial-runs	TURN-04/re-entry-makes-the-first-ending-late	green
 cmp.computed-initial-runs	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 cmp.computed-initial-runs	TURN-05/child-refusal	green
 cmp.computed-initial-runs	TURN-05/removed-copy-ends-once	green
+cmp.data-view-keeps-closures	ACT-01/free-actor-ends	green
 cmp.data-view-keeps-closures	CLI-01	green
 cmp.data-view-keeps-closures	CLI-02	green
 cmp.data-view-keeps-closures	CLI-03	green
@@ -3449,6 +3478,7 @@ cmp.data-view-keeps-closures	TURN-04/re-entry-makes-the-first-ending-late	green
 cmp.data-view-keeps-closures	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 cmp.data-view-keeps-closures	TURN-05/child-refusal	green
 cmp.data-view-keeps-closures	TURN-05/removed-copy-ends-once	green
+cmp.impure-default-accepted	ACT-01/free-actor-ends	green
 cmp.impure-default-accepted	CLI-01	green
 cmp.impure-default-accepted	CLI-02	green
 cmp.impure-default-accepted	CLI-03	green
@@ -3568,6 +3598,7 @@ cmp.impure-default-accepted	TURN-04/re-entry-makes-the-first-ending-late	green
 cmp.impure-default-accepted	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 cmp.impure-default-accepted	TURN-05/child-refusal	green
 cmp.impure-default-accepted	TURN-05/removed-copy-ends-once	green
+cmp.key-outside-input-admitted	ACT-01/free-actor-ends	green
 cmp.key-outside-input-admitted	CLI-01	green
 cmp.key-outside-input-admitted	CLI-02	green
 cmp.key-outside-input-admitted	CLI-03	green
@@ -3687,6 +3718,7 @@ cmp.key-outside-input-admitted	TURN-04/re-entry-makes-the-first-ending-late	gree
 cmp.key-outside-input-admitted	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 cmp.key-outside-input-admitted	TURN-05/child-refusal	green
 cmp.key-outside-input-admitted	TURN-05/removed-copy-ends-once	green
+cmp.operation-dropped	ACT-01/free-actor-ends	green
 cmp.operation-dropped	CLI-01	green
 cmp.operation-dropped	CLI-02	green
 cmp.operation-dropped	CLI-03	green
@@ -3806,6 +3838,7 @@ cmp.operation-dropped	TURN-04/re-entry-makes-the-first-ending-late	red selection
 cmp.operation-dropped	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 cmp.operation-dropped	TURN-05/child-refusal	green
 cmp.operation-dropped	TURN-05/removed-copy-ends-once	green
+cmp.restore-runs-creation	ACT-01/free-actor-ends	green
 cmp.restore-runs-creation	CLI-01	green
 cmp.restore-runs-creation	CLI-02	green
 cmp.restore-runs-creation	CLI-03	green
@@ -3925,6 +3958,7 @@ cmp.restore-runs-creation	TURN-04/re-entry-makes-the-first-ending-late	green
 cmp.restore-runs-creation	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 cmp.restore-runs-creation	TURN-05/child-refusal	green
 cmp.restore-runs-creation	TURN-05/removed-copy-ends-once	green
+cmp.seal-crashes-on-bare	ACT-01/free-actor-ends	green
 cmp.seal-crashes-on-bare	CLI-01	green
 cmp.seal-crashes-on-bare	CLI-02	green
 cmp.seal-crashes-on-bare	CLI-03	green
@@ -4044,6 +4078,7 @@ cmp.seal-crashes-on-bare	TURN-04/re-entry-makes-the-first-ending-late	green
 cmp.seal-crashes-on-bare	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 cmp.seal-crashes-on-bare	TURN-05/child-refusal	green
 cmp.seal-crashes-on-bare	TURN-05/removed-copy-ends-once	green
+cmp.seal-crashes-on-key	ACT-01/free-actor-ends	green
 cmp.seal-crashes-on-key	CLI-01	green
 cmp.seal-crashes-on-key	CLI-02	green
 cmp.seal-crashes-on-key	CLI-03	green
@@ -4163,6 +4198,7 @@ cmp.seal-crashes-on-key	TURN-04/re-entry-makes-the-first-ending-late	green
 cmp.seal-crashes-on-key	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 cmp.seal-crashes-on-key	TURN-05/child-refusal	green
 cmp.seal-crashes-on-key	TURN-05/removed-copy-ends-once	green
+cmp.state-dropped	ACT-01/free-actor-ends	green
 cmp.state-dropped	CLI-01	green
 cmp.state-dropped	CLI-02	green
 cmp.state-dropped	CLI-03	green
@@ -4282,6 +4318,7 @@ cmp.state-dropped	TURN-04/re-entry-makes-the-first-ending-late	green
 cmp.state-dropped	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 cmp.state-dropped	TURN-05/child-refusal	green
 cmp.state-dropped	TURN-05/removed-copy-ends-once	green
+cmp.two-defaults-accepted	ACT-01/free-actor-ends	green
 cmp.two-defaults-accepted	CLI-01	green
 cmp.two-defaults-accepted	CLI-02	green
 cmp.two-defaults-accepted	CLI-03	green
@@ -4401,6 +4438,7 @@ cmp.two-defaults-accepted	TURN-04/re-entry-makes-the-first-ending-late	green
 cmp.two-defaults-accepted	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 cmp.two-defaults-accepted	TURN-05/child-refusal	green
 cmp.two-defaults-accepted	TURN-05/removed-copy-ends-once	green
+cmp.uncertain-not-listed	ACT-01/free-actor-ends	green
 cmp.uncertain-not-listed	CLI-01	green
 cmp.uncertain-not-listed	CLI-02	green
 cmp.uncertain-not-listed	CLI-03	green
@@ -4520,6 +4558,7 @@ cmp.uncertain-not-listed	TURN-04/re-entry-makes-the-first-ending-late	green
 cmp.uncertain-not-listed	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 cmp.uncertain-not-listed	TURN-05/child-refusal	green
 cmp.uncertain-not-listed	TURN-05/removed-copy-ends-once	green
+cmp.unknown-onto-sure-event	ACT-01/free-actor-ends	green
 cmp.unknown-onto-sure-event	CLI-01	green
 cmp.unknown-onto-sure-event	CLI-02	green
 cmp.unknown-onto-sure-event	CLI-03	green
@@ -4639,6 +4678,7 @@ cmp.unknown-onto-sure-event	TURN-04/re-entry-makes-the-first-ending-late	green
 cmp.unknown-onto-sure-event	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 cmp.unknown-onto-sure-event	TURN-05/child-refusal	green
 cmp.unknown-onto-sure-event	TURN-05/removed-copy-ends-once	green
+d138.self-allowed	ACT-01/free-actor-ends	green
 d138.self-allowed	CLI-01	green
 d138.self-allowed	CLI-02	green
 d138.self-allowed	CLI-03	green
@@ -4758,6 +4798,7 @@ d138.self-allowed	TURN-04/re-entry-makes-the-first-ending-late	green
 d138.self-allowed	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 d138.self-allowed	TURN-05/child-refusal	green
 d138.self-allowed	TURN-05/removed-copy-ends-once	green
+d154.moved-fail-released	ACT-01/free-actor-ends	green
 d154.moved-fail-released	CLI-01	green
 d154.moved-fail-released	CLI-02	green
 d154.moved-fail-released	CLI-03	green
@@ -4877,6 +4918,7 @@ d154.moved-fail-released	TURN-04/re-entry-makes-the-first-ending-late	green
 d154.moved-fail-released	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 d154.moved-fail-released	TURN-05/child-refusal	green
 d154.moved-fail-released	TURN-05/removed-copy-ends-once	green
+d6.disposed-ending-is-evidence	ACT-01/free-actor-ends	green
 d6.disposed-ending-is-evidence	CLI-01	green
 d6.disposed-ending-is-evidence	CLI-02	green
 d6.disposed-ending-is-evidence	CLI-03	green
@@ -4996,6 +5038,7 @@ d6.disposed-ending-is-evidence	TURN-04/re-entry-makes-the-first-ending-late	gree
 d6.disposed-ending-is-evidence	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 d6.disposed-ending-is-evidence	TURN-05/child-refusal	green
 d6.disposed-ending-is-evidence	TURN-05/removed-copy-ends-once	green
+e8.wa-failure	ACT-01/free-actor-ends	green
 e8.wa-failure	CLI-01	green
 e8.wa-failure	CLI-02	green
 e8.wa-failure	CLI-03	green
@@ -5115,6 +5158,7 @@ e8.wa-failure	TURN-04/re-entry-makes-the-first-ending-late	green
 e8.wa-failure	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 e8.wa-failure	TURN-05/child-refusal	green
 e8.wa-failure	TURN-05/removed-copy-ends-once	green
+entity.failure-confirms	ACT-01/free-actor-ends	green
 entity.failure-confirms	CLI-01	green
 entity.failure-confirms	CLI-02	green
 entity.failure-confirms	CLI-03	green
@@ -5234,6 +5278,7 @@ entity.failure-confirms	TURN-04/re-entry-makes-the-first-ending-late	green
 entity.failure-confirms	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 entity.failure-confirms	TURN-05/child-refusal	green
 entity.failure-confirms	TURN-05/removed-copy-ends-once	green
+entity.success-not-confirmed	ACT-01/free-actor-ends	green
 entity.success-not-confirmed	CLI-01	green
 entity.success-not-confirmed	CLI-02	green
 entity.success-not-confirmed	CLI-03	green
@@ -5353,6 +5398,7 @@ entity.success-not-confirmed	TURN-04/re-entry-makes-the-first-ending-late	green
 entity.success-not-confirmed	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 entity.success-not-confirmed	TURN-05/child-refusal	green
 entity.success-not-confirmed	TURN-05/removed-copy-ends-once	green
+id.dispose-drops-lanes	ACT-01/free-actor-ends	green
 id.dispose-drops-lanes	CLI-01	green
 id.dispose-drops-lanes	CLI-02	green
 id.dispose-drops-lanes	CLI-03	green
@@ -5472,6 +5518,7 @@ id.dispose-drops-lanes	TURN-04/re-entry-makes-the-first-ending-late	green
 id.dispose-drops-lanes	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 id.dispose-drops-lanes	TURN-05/child-refusal	green
 id.dispose-drops-lanes	TURN-05/removed-copy-ends-once	green
+k.failure-as-success	ACT-01/free-actor-ends	green
 k.failure-as-success	CLI-01	green
 k.failure-as-success	CLI-02	green
 k.failure-as-success	CLI-03	green
@@ -5591,6 +5638,7 @@ k.failure-as-success	TURN-04/re-entry-makes-the-first-ending-late	green
 k.failure-as-success	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 k.failure-as-success	TURN-05/child-refusal	green
 k.failure-as-success	TURN-05/removed-copy-ends-once	green
+lane.cancel-held-keeps	ACT-01/free-actor-ends	green
 lane.cancel-held-keeps	CLI-01	green
 lane.cancel-held-keeps	CLI-02	green
 lane.cancel-held-keeps	CLI-03	green
@@ -5710,6 +5758,7 @@ lane.cancel-held-keeps	TURN-04/re-entry-makes-the-first-ending-late	green
 lane.cancel-held-keeps	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lane.cancel-held-keeps	TURN-05/child-refusal	green
 lane.cancel-held-keeps	TURN-05/removed-copy-ends-once	green
+lane.cancel-wire-as-never-sent	ACT-01/free-actor-ends	green
 lane.cancel-wire-as-never-sent	CLI-01	green
 lane.cancel-wire-as-never-sent	CLI-02	green
 lane.cancel-wire-as-never-sent	CLI-03	green
@@ -5829,6 +5878,7 @@ lane.cancel-wire-as-never-sent	TURN-04/re-entry-makes-the-first-ending-late	gree
 lane.cancel-wire-as-never-sent	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lane.cancel-wire-as-never-sent	TURN-05/child-refusal	green
 lane.cancel-wire-as-never-sent	TURN-05/removed-copy-ends-once	green
+lane.fresh-mint-on-held	ACT-01/free-actor-ends	green
 lane.fresh-mint-on-held	CLI-01	green
 lane.fresh-mint-on-held	CLI-02	green
 lane.fresh-mint-on-held	CLI-03	green
@@ -5948,6 +5998,7 @@ lane.fresh-mint-on-held	TURN-04/re-entry-makes-the-first-ending-late	green
 lane.fresh-mint-on-held	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lane.fresh-mint-on-held	TURN-05/child-refusal	green
 lane.fresh-mint-on-held	TURN-05/removed-copy-ends-once	green
+lane.held-auto-resend	ACT-01/free-actor-ends	green
 lane.held-auto-resend	CLI-01	green
 lane.held-auto-resend	CLI-02	green
 lane.held-auto-resend	CLI-03	green
@@ -6067,6 +6118,7 @@ lane.held-auto-resend	TURN-04/re-entry-makes-the-first-ending-late	green
 lane.held-auto-resend	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lane.held-auto-resend	TURN-05/child-refusal	green
 lane.held-auto-resend	TURN-05/removed-copy-ends-once	green
+lane.idle-never-passes	ACT-01/free-actor-ends	green
 lane.idle-never-passes	CLI-01	green
 lane.idle-never-passes	CLI-02	green
 lane.idle-never-passes	CLI-03	green
@@ -6186,6 +6238,7 @@ lane.idle-never-passes	TURN-04/re-entry-makes-the-first-ending-late	green
 lane.idle-never-passes	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lane.idle-never-passes	TURN-05/child-refusal	green
 lane.idle-never-passes	TURN-05/removed-copy-ends-once	green
+lane.keyless-names-latest-lane	ACT-01/free-actor-ends	green
 lane.keyless-names-latest-lane	CLI-01	green
 lane.keyless-names-latest-lane	CLI-02	green
 lane.keyless-names-latest-lane	CLI-03	green
@@ -6305,6 +6358,7 @@ lane.keyless-names-latest-lane	TURN-04/re-entry-makes-the-first-ending-late	gree
 lane.keyless-names-latest-lane	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lane.keyless-names-latest-lane	TURN-05/child-refusal	green
 lane.keyless-names-latest-lane	TURN-05/removed-copy-ends-once	green
+lane.late-result-after-release	ACT-01/free-actor-ends	green
 lane.late-result-after-release	CLI-01	green
 lane.late-result-after-release	CLI-02	green
 lane.late-result-after-release	CLI-03	green
@@ -6424,6 +6478,7 @@ lane.late-result-after-release	TURN-04/re-entry-makes-the-first-ending-late	gree
 lane.late-result-after-release	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lane.late-result-after-release	TURN-05/child-refusal	green
 lane.late-result-after-release	TURN-05/removed-copy-ends-once	green
+lane.latest-as-serialize	ACT-01/free-actor-ends	green
 lane.latest-as-serialize	CLI-01	green
 lane.latest-as-serialize	CLI-02	green
 lane.latest-as-serialize	CLI-03	green
@@ -6543,6 +6598,7 @@ lane.latest-as-serialize	TURN-04/re-entry-makes-the-first-ending-late	green
 lane.latest-as-serialize	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lane.latest-as-serialize	TURN-05/child-refusal	green
 lane.latest-as-serialize	TURN-05/removed-copy-ends-once	green
+lane.old-version-sends	ACT-01/free-actor-ends	green
 lane.old-version-sends	CLI-01	green
 lane.old-version-sends	CLI-02	green
 lane.old-version-sends	CLI-03	green
@@ -6662,6 +6718,7 @@ lane.old-version-sends	TURN-04/re-entry-makes-the-first-ending-late	green
 lane.old-version-sends	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lane.old-version-sends	TURN-05/child-refusal	green
 lane.old-version-sends	TURN-05/removed-copy-ends-once	green
+lane.queue-unbounded	ACT-01/free-actor-ends	green
 lane.queue-unbounded	CLI-01	green
 lane.queue-unbounded	CLI-02	green
 lane.queue-unbounded	CLI-03	green
@@ -6781,6 +6838,7 @@ lane.queue-unbounded	TURN-04/re-entry-makes-the-first-ending-late	green
 lane.queue-unbounded	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lane.queue-unbounded	TURN-05/child-refusal	green
 lane.queue-unbounded	TURN-05/removed-copy-ends-once	green
+lane.reject-queues	ACT-01/free-actor-ends	green
 lane.reject-queues	CLI-01	green
 lane.reject-queues	CLI-02	green
 lane.reject-queues	CLI-03	green
@@ -6900,6 +6958,7 @@ lane.reject-queues	TURN-04/re-entry-makes-the-first-ending-late	green
 lane.reject-queues	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lane.reject-queues	TURN-05/child-refusal	green
 lane.reject-queues	TURN-05/removed-copy-ends-once	green
+lane.releasing-delivers	ACT-01/free-actor-ends	green
 lane.releasing-delivers	CLI-01	green
 lane.releasing-delivers	CLI-02	green
 lane.releasing-delivers	CLI-03	green
@@ -7019,6 +7078,7 @@ lane.releasing-delivers	TURN-04/re-entry-makes-the-first-ending-late	green
 lane.releasing-delivers	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lane.releasing-delivers	TURN-05/child-refusal	green
 lane.releasing-delivers	TURN-05/removed-copy-ends-once	green
+lane.retry-count-frozen	ACT-01/free-actor-ends	green
 lane.retry-count-frozen	CLI-01	green
 lane.retry-count-frozen	CLI-02	green
 lane.retry-count-frozen	CLI-03	green
@@ -7138,6 +7198,7 @@ lane.retry-count-frozen	TURN-04/re-entry-makes-the-first-ending-late	green
 lane.retry-count-frozen	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lane.retry-count-frozen	TURN-05/child-refusal	green
 lane.retry-count-frozen	TURN-05/removed-copy-ends-once	green
+lane.retry-members-dropped	ACT-01/free-actor-ends	green
 lane.retry-members-dropped	CLI-01	green
 lane.retry-members-dropped	CLI-02	green
 lane.retry-members-dropped	CLI-03	green
@@ -7257,6 +7318,7 @@ lane.retry-members-dropped	TURN-04/re-entry-makes-the-first-ending-late	green
 lane.retry-members-dropped	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lane.retry-members-dropped	TURN-05/child-refusal	green
 lane.retry-members-dropped	TURN-05/removed-copy-ends-once	green
+lane.retry-sends-another-attempt	ACT-01/free-actor-ends	green
 lane.retry-sends-another-attempt	CLI-01	green
 lane.retry-sends-another-attempt	CLI-02	green
 lane.retry-sends-another-attempt	CLI-03	green
@@ -7376,6 +7438,7 @@ lane.retry-sends-another-attempt	TURN-04/re-entry-makes-the-first-ending-late	gr
 lane.retry-sends-another-attempt	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lane.retry-sends-another-attempt	TURN-05/child-refusal	green
 lane.retry-sends-another-attempt	TURN-05/removed-copy-ends-once	green
+lane.settled-without-ending	ACT-01/free-actor-ends	green
 lane.settled-without-ending	CLI-01	green
 lane.settled-without-ending	CLI-02	green
 lane.settled-without-ending	CLI-03	green
@@ -7495,6 +7558,7 @@ lane.settled-without-ending	TURN-04/re-entry-makes-the-first-ending-late	caught 
 lane.settled-without-ending	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lane.settled-without-ending	TURN-05/child-refusal	green
 lane.settled-without-ending	TURN-05/removed-copy-ends-once	green
+lane.superseded-delivered	ACT-01/free-actor-ends	green
 lane.superseded-delivered	CLI-01	green
 lane.superseded-delivered	CLI-02	green
 lane.superseded-delivered	CLI-03	green
@@ -7614,6 +7678,7 @@ lane.superseded-delivered	TURN-04/re-entry-makes-the-first-ending-late	green
 lane.superseded-delivered	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lane.superseded-delivered	TURN-05/child-refusal	green
 lane.superseded-delivered	TURN-05/removed-copy-ends-once	green
+lane.unencodable-refuses-turn	ACT-01/free-actor-ends	green
 lane.unencodable-refuses-turn	CLI-01	green
 lane.unencodable-refuses-turn	CLI-02	green
 lane.unencodable-refuses-turn	CLI-03	green
@@ -7733,6 +7798,7 @@ lane.unencodable-refuses-turn	TURN-04/re-entry-makes-the-first-ending-late	green
 lane.unencodable-refuses-turn	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lane.unencodable-refuses-turn	TURN-05/child-refusal	green
 lane.unencodable-refuses-turn	TURN-05/removed-copy-ends-once	green
+lane.unknown-promotes	ACT-01/free-actor-ends	green
 lane.unknown-promotes	CLI-01	green
 lane.unknown-promotes	CLI-02	green
 lane.unknown-promotes	CLI-03	green
@@ -7852,6 +7918,7 @@ lane.unknown-promotes	TURN-04/re-entry-makes-the-first-ending-late	green
 lane.unknown-promotes	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lane.unknown-promotes	TURN-05/child-refusal	green
 lane.unknown-promotes	TURN-05/removed-copy-ends-once	green
+lane.unretained-unknown-held	ACT-01/free-actor-ends	green
 lane.unretained-unknown-held	CLI-01	green
 lane.unretained-unknown-held	CLI-02	green
 lane.unretained-unknown-held	CLI-03	green
@@ -7971,6 +8038,7 @@ lane.unretained-unknown-held	TURN-04/re-entry-makes-the-first-ending-late	green
 lane.unretained-unknown-held	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lane.unretained-unknown-held	TURN-05/child-refusal	green
 lane.unretained-unknown-held	TURN-05/removed-copy-ends-once	green
+late.routed-from-leaf	ACT-01/free-actor-ends	green
 late.routed-from-leaf	CLI-01	green
 late.routed-from-leaf	CLI-02	green
 late.routed-from-leaf	CLI-03	green
@@ -8090,6 +8158,7 @@ late.routed-from-leaf	TURN-04/re-entry-makes-the-first-ending-late	red selection
 late.routed-from-leaf	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 late.routed-from-leaf	TURN-05/child-refusal	green
 late.routed-from-leaf	TURN-05/removed-copy-ends-once	green
+lie.boot-drops-held	ACT-01/free-actor-ends	green
 lie.boot-drops-held	CLI-01	green
 lie.boot-drops-held	CLI-02	green
 lie.boot-drops-held	CLI-03	green
@@ -8209,6 +8278,7 @@ lie.boot-drops-held	TURN-04/re-entry-makes-the-first-ending-late	green
 lie.boot-drops-held	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lie.boot-drops-held	TURN-05/child-refusal	green
 lie.boot-drops-held	TURN-05/removed-copy-ends-once	green
+lie.boot-says-disposed	ACT-01/free-actor-ends	green
 lie.boot-says-disposed	CLI-01	green
 lie.boot-says-disposed	CLI-02	green
 lie.boot-says-disposed	CLI-03	green
@@ -8328,6 +8398,7 @@ lie.boot-says-disposed	TURN-04/re-entry-makes-the-first-ending-late	green
 lie.boot-says-disposed	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lie.boot-says-disposed	TURN-05/child-refusal	green
 lie.boot-says-disposed	TURN-05/removed-copy-ends-once	green
+lie.cancels-dropped-header-nowhere	ACT-01/free-actor-ends	green
 lie.cancels-dropped-header-nowhere	CLI-01	green
 lie.cancels-dropped-header-nowhere	CLI-02	green
 lie.cancels-dropped-header-nowhere	CLI-03	green
@@ -8447,6 +8518,7 @@ lie.cancels-dropped-header-nowhere	TURN-04/re-entry-makes-the-first-ending-late	
 lie.cancels-dropped-header-nowhere	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lie.cancels-dropped-header-nowhere	TURN-05/child-refusal	green
 lie.cancels-dropped-header-nowhere	TURN-05/removed-copy-ends-once	green
+lie.cancels-reported-as-nothing	ACT-01/free-actor-ends	green
 lie.cancels-reported-as-nothing	CLI-01	green
 lie.cancels-reported-as-nothing	CLI-02	green
 lie.cancels-reported-as-nothing	CLI-03	green
@@ -8566,6 +8638,7 @@ lie.cancels-reported-as-nothing	TURN-04/re-entry-makes-the-first-ending-late	gre
 lie.cancels-reported-as-nothing	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lie.cancels-reported-as-nothing	TURN-05/child-refusal	green
 lie.cancels-reported-as-nothing	TURN-05/removed-copy-ends-once	green
+lie.cancels-reported-as-release	ACT-01/free-actor-ends	green
 lie.cancels-reported-as-release	CLI-01	green
 lie.cancels-reported-as-release	CLI-02	green
 lie.cancels-reported-as-release	CLI-03	green
@@ -8685,6 +8758,7 @@ lie.cancels-reported-as-release	TURN-04/re-entry-makes-the-first-ending-late	gre
 lie.cancels-reported-as-release	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lie.cancels-reported-as-release	TURN-05/child-refusal	green
 lie.cancels-reported-as-release	TURN-05/removed-copy-ends-once	green
+lie.failure-as-success	ACT-01/free-actor-ends	green
 lie.failure-as-success	CLI-01	green
 lie.failure-as-success	CLI-02	green
 lie.failure-as-success	CLI-03	green
@@ -8804,6 +8878,7 @@ lie.failure-as-success	TURN-04/re-entry-makes-the-first-ending-late	green
 lie.failure-as-success	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lie.failure-as-success	TURN-05/child-refusal	green
 lie.failure-as-success	TURN-05/removed-copy-ends-once	green
+lie.failures-unmapped	ACT-01/free-actor-ends	green
 lie.failures-unmapped	CLI-01	green
 lie.failures-unmapped	CLI-02	green
 lie.failures-unmapped	CLI-03	green
@@ -8923,6 +8998,7 @@ lie.failures-unmapped	TURN-04/re-entry-makes-the-first-ending-late	green
 lie.failures-unmapped	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lie.failures-unmapped	TURN-05/child-refusal	green
 lie.failures-unmapped	TURN-05/removed-copy-ends-once	green
+lie.held-released-unguarded	ACT-01/free-actor-ends	green
 lie.held-released-unguarded	CLI-01	green
 lie.held-released-unguarded	CLI-02	green
 lie.held-released-unguarded	CLI-03	green
@@ -9042,6 +9118,7 @@ lie.held-released-unguarded	TURN-04/re-entry-makes-the-first-ending-late	green
 lie.held-released-unguarded	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lie.held-released-unguarded	TURN-05/child-refusal	green
 lie.held-released-unguarded	TURN-05/removed-copy-ends-once	green
+lie.invoked-dropped	ACT-01/free-actor-ends	green
 lie.invoked-dropped	CLI-01	green
 lie.invoked-dropped	CLI-02	green
 lie.invoked-dropped	CLI-03	green
@@ -9161,6 +9238,7 @@ lie.invoked-dropped	TURN-04/re-entry-makes-the-first-ending-late	caught attempt-
 lie.invoked-dropped	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lie.invoked-dropped	TURN-05/child-refusal	green
 lie.invoked-dropped	TURN-05/removed-copy-ends-once	green
+lie.no-incarnated	ACT-01/free-actor-ends	caught disposal Actors I14
 lie.no-incarnated	CLI-01	green
 lie.no-incarnated	CLI-02	green
 lie.no-incarnated	CLI-03	green
@@ -9280,6 +9358,7 @@ lie.no-incarnated	TURN-04/re-entry-makes-the-first-ending-late	caught disposal A
 lie.no-incarnated	TURN-05/a-part-writing-the-key-is-a-pending-reset	caught disposal Actors I14
 lie.no-incarnated	TURN-05/child-refusal	caught disposal Actors I14
 lie.no-incarnated	TURN-05/removed-copy-ends-once	caught disposal Actors I14
+lie.parked-as-unparked	ACT-01/free-actor-ends	green
 lie.parked-as-unparked	CLI-01	green
 lie.parked-as-unparked	CLI-02	green
 lie.parked-as-unparked	CLI-03	green
@@ -9399,6 +9478,7 @@ lie.parked-as-unparked	TURN-04/re-entry-makes-the-first-ending-late	green
 lie.parked-as-unparked	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lie.parked-as-unparked	TURN-05/child-refusal	green
 lie.parked-as-unparked	TURN-05/removed-copy-ends-once	green
+lie.release-member-claimed	ACT-01/free-actor-ends	green
 lie.release-member-claimed	CLI-01	green
 lie.release-member-claimed	CLI-02	green
 lie.release-member-claimed	CLI-03	green
@@ -9518,6 +9598,7 @@ lie.release-member-claimed	TURN-04/re-entry-makes-the-first-ending-late	green
 lie.release-member-claimed	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lie.release-member-claimed	TURN-05/child-refusal	green
 lie.release-member-claimed	TURN-05/removed-copy-ends-once	green
+lie.release-on-guarded-read	ACT-01/free-actor-ends	green
 lie.release-on-guarded-read	CLI-01	green
 lie.release-on-guarded-read	CLI-02	green
 lie.release-on-guarded-read	CLI-03	green
@@ -9637,6 +9718,7 @@ lie.release-on-guarded-read	TURN-04/re-entry-makes-the-first-ending-late	green
 lie.release-on-guarded-read	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lie.release-on-guarded-read	TURN-05/child-refusal	green
 lie.release-on-guarded-read	TURN-05/removed-copy-ends-once	green
+lie.release-other-lane	ACT-01/free-actor-ends	green
 lie.release-other-lane	CLI-01	green
 lie.release-other-lane	CLI-02	green
 lie.release-other-lane	CLI-03	green
@@ -9756,6 +9838,7 @@ lie.release-other-lane	TURN-04/re-entry-makes-the-first-ending-late	green
 lie.release-other-lane	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lie.release-other-lane	TURN-05/child-refusal	green
 lie.release-other-lane	TURN-05/removed-copy-ends-once	green
+lie.released	ACT-01/free-actor-ends	green
 lie.released	CLI-01	green
 lie.released	CLI-02	green
 lie.released	CLI-03	green
@@ -9875,6 +9958,7 @@ lie.released	TURN-04/re-entry-makes-the-first-ending-late	green
 lie.released	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lie.released	TURN-05/child-refusal	green
 lie.released	TURN-05/removed-copy-ends-once	green
+lie.serialize-as-latest	ACT-01/free-actor-ends	green
 lie.serialize-as-latest	CLI-01	green
 lie.serialize-as-latest	CLI-02	green
 lie.serialize-as-latest	CLI-03	green
@@ -9994,6 +10078,7 @@ lie.serialize-as-latest	TURN-04/re-entry-makes-the-first-ending-late	green
 lie.serialize-as-latest	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lie.serialize-as-latest	TURN-05/child-refusal	green
 lie.serialize-as-latest	TURN-05/removed-copy-ends-once	green
+lie.void-retry-releases	ACT-01/free-actor-ends	green
 lie.void-retry-releases	CLI-01	green
 lie.void-retry-releases	CLI-02	green
 lie.void-retry-releases	CLI-03	green
@@ -10113,6 +10198,247 @@ lie.void-retry-releases	TURN-04/re-entry-makes-the-first-ending-late	green
 lie.void-retry-releases	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lie.void-retry-releases	TURN-05/child-refusal	green
 lie.void-retry-releases	TURN-05/removed-copy-ends-once	green
+life.ends-while-used	ACT-01/free-actor-ends	caught disposal Actors I10
+life.ends-while-used	CLI-01	green
+life.ends-while-used	CLI-02	green
+life.ends-while-used	CLI-03	green
+life.ends-while-used	CLI-04	green
+life.ends-while-used	CLI-05	green
+life.ends-while-used	CLI-06	green
+life.ends-while-used	CLI-07	green
+life.ends-while-used	CLI-08	green
+life.ends-while-used	CLI-09	green
+life.ends-while-used	CMP-01	green
+life.ends-while-used	CMP-02	green
+life.ends-while-used	CMP-03	green
+life.ends-while-used	CMP-04	green
+life.ends-while-used	CMP-05	green
+life.ends-while-used	CMP-06	green
+life.ends-while-used	CMP-07	green
+life.ends-while-used	CMP-08	green
+life.ends-while-used	CMP-09	green
+life.ends-while-used	CMP-10	green
+life.ends-while-used	CMP-11	green
+life.ends-while-used	DISP-01	green
+life.ends-while-used	DISP-02	green
+life.ends-while-used	DISP-03	green
+life.ends-while-used	DISP-04	caught disposal Actors I10
+life.ends-while-used	DISP-05	green
+life.ends-while-used	DISP-06	green
+life.ends-while-used	DISP-07	green
+life.ends-while-used	DLV-01	green
+life.ends-while-used	DLV-02	green
+life.ends-while-used	DLV-03	green
+life.ends-while-used	DLV-04	green
+life.ends-while-used	DLV-05	green
+life.ends-while-used	DLV-06	green
+life.ends-while-used	DLV-07	green
+life.ends-while-used	LANE-01	green
+life.ends-while-used	LANE-02	green
+life.ends-while-used	LANE-03	green
+life.ends-while-used	LANE-04	green
+life.ends-while-used	LANE-05	green
+life.ends-while-used	LANE-06	green
+life.ends-while-used	LANE-07	green
+life.ends-while-used	LANE-08	green
+life.ends-while-used	LANE-09	green
+life.ends-while-used	LANE-10	green
+life.ends-while-used	LANE-11	green
+life.ends-while-used	LANE-12/release-ends-queue	green
+life.ends-while-used	LANE-12/release-leaves-head	green
+life.ends-while-used	LANE-12/release-uninterruptible	green
+life.ends-while-used	LANE-12/release-uninterruptible-lost	green
+life.ends-while-used	LANE-13	green
+life.ends-while-used	LANE-14	green
+life.ends-while-used	LANE-15	green
+life.ends-while-used	LANE-16	green
+life.ends-while-used	PAY-01	green
+life.ends-while-used	PAY-02	green
+life.ends-while-used	PAY-03	caught disposal Actors I10
+life.ends-while-used	PAY-04	caught disposal Actors I10
+life.ends-while-used	PAY-05	caught disposal Actors I10
+life.ends-while-used	PAY-06/interruptible	green
+life.ends-while-used	PAY-06/uninterruptible	green
+life.ends-while-used	PAY-07/late-in-a-new-PAYING	green
+life.ends-while-used	PAY-07/late-may-not-leave	green
+life.ends-while-used	PAY-07/leaveMidCharge	green
+life.ends-while-used	PAY-08/reload-while-reconciling	caught disposal Actors I10
+life.ends-while-used	PAY-08/reloadDuringCharge	red case
+life.ends-while-used	PAY-09/ack-not-stored	green
+life.ends-while-used	PAY-09/ack-stored-confirmation-lost	green
+life.ends-while-used	PAY-10/hang	green
+life.ends-while-used	PAY-10/refuse	green
+life.ends-while-used	PAY-12/cancel-on-wire	green
+life.ends-while-used	PAY-12/defect	green
+life.ends-while-used	PAY-12/sync	green
+life.ends-while-used	PAY-13/hung-commit	green
+life.ends-while-used	PAY-13/waiting-flush-lost	green
+life.ends-while-used	PAY-13/waiting-flushed	green
+life.ends-while-used	PAY-14	red case
+life.ends-while-used	PAY-15/busy-then-new-write	caught disposal Actors I10
+life.ends-while-used	PAY-15/cancel-idle	green
+life.ends-while-used	PAY-15/cancel-on-wire	green
+life.ends-while-used	PAY-15/dead-activation-timer	caught disposal Actors I10
+life.ends-while-used	PAY-15/dispose-held	green
+life.ends-while-used	PAY-15/dispose-held-moved	green
+life.ends-while-used	PAY-15/press-pay-while-held	green
+life.ends-while-used	PAY-15/reload-holds-exactly-once	green
+life.ends-while-used	PAY-15/retry-budget	caught disposal Actors I10
+life.ends-while-used	PAY-16/answered-inside-the-bound	green
+life.ends-while-used	PAY-16/disposal-ends-with-the-last-fiber	green
+life.ends-while-used	PAY-16/dispose-waiting-resend	caught disposal Actors I10
+life.ends-while-used	PAY-16/never-answered-waits-for-the-bound	green
+life.ends-while-used	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	green
+life.ends-while-used	PAY-16/read-defect-issue	caught disposal Actors I10
+life.ends-while-used	PAY-16/resend-refused-capture	caught disposal Actors I10
+life.ends-while-used	PAY-16/restore-keeps-mayHaveApplied	red case
+life.ends-while-used	PAY-16/retry-count-persists	caught disposal Actors I10
+life.ends-while-used	PAY-16/schedule-reads-after-memory	caught disposal Actors I10
+life.ends-while-used	PAY-16/settled-during-disposal-parked	green
+life.ends-while-used	PAY-16/stale-send-fenced	caught disposal Actors I10
+life.ends-while-used	PAY-16/superseded-read	caught disposal Actors I10
+life.ends-while-used	PAY-16/timeout-per-send	caught disposal Actors I10
+life.ends-while-used	PAY-18	green
+life.ends-while-used	PAY-19/place-answers-first	green
+life.ends-while-used	PAY-19/void-answers-first	green
+life.ends-while-used	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	caught disposal Actors I10
+life.ends-while-used	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	caught disposal Actors I10
+life.ends-while-used	PAY-21	caught disposal Actors I10
+life.ends-while-used	PAY-22	green
+life.ends-while-used	PAY-23	caught disposal Actors I10
+life.ends-while-used	TURN-01/mapper-refused	green
+life.ends-while-used	TURN-01/schedule-refused	green
+life.ends-while-used	TURN-02	green
+life.ends-while-used	TURN-03/exited	green
+life.ends-while-used	TURN-03/on-time	green
+life.ends-while-used	TURN-03/re-entered	green
+life.ends-while-used	TURN-03/unused	green
+life.ends-while-used	TURN-04/a-late-exit-with-nothing-queued-goes	green
+life.ends-while-used	TURN-04/re-entry-makes-the-first-ending-late	green
+life.ends-while-used	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
+life.ends-while-used	TURN-05/child-refusal	green
+life.ends-while-used	TURN-05/removed-copy-ends-once	green
+life.never-ends	ACT-01/free-actor-ends	caught disposal Actors I37
+life.never-ends	CLI-01	green
+life.never-ends	CLI-02	green
+life.never-ends	CLI-03	green
+life.never-ends	CLI-04	green
+life.never-ends	CLI-05	green
+life.never-ends	CLI-06	green
+life.never-ends	CLI-07	green
+life.never-ends	CLI-08	green
+life.never-ends	CLI-09	green
+life.never-ends	CMP-01	green
+life.never-ends	CMP-02	green
+life.never-ends	CMP-03	green
+life.never-ends	CMP-04	green
+life.never-ends	CMP-05	green
+life.never-ends	CMP-06	green
+life.never-ends	CMP-07	green
+life.never-ends	CMP-08	green
+life.never-ends	CMP-09	green
+life.never-ends	CMP-10	green
+life.never-ends	CMP-11	green
+life.never-ends	DISP-01	green
+life.never-ends	DISP-02	green
+life.never-ends	DISP-03	green
+life.never-ends	DISP-04	green
+life.never-ends	DISP-05	green
+life.never-ends	DISP-06	green
+life.never-ends	DISP-07	green
+life.never-ends	DLV-01	green
+life.never-ends	DLV-02	green
+life.never-ends	DLV-03	green
+life.never-ends	DLV-04	green
+life.never-ends	DLV-05	green
+life.never-ends	DLV-06	green
+life.never-ends	DLV-07	green
+life.never-ends	LANE-01	green
+life.never-ends	LANE-02	green
+life.never-ends	LANE-03	green
+life.never-ends	LANE-04	green
+life.never-ends	LANE-05	green
+life.never-ends	LANE-06	green
+life.never-ends	LANE-07	green
+life.never-ends	LANE-08	green
+life.never-ends	LANE-09	green
+life.never-ends	LANE-10	green
+life.never-ends	LANE-11	green
+life.never-ends	LANE-12/release-ends-queue	green
+life.never-ends	LANE-12/release-leaves-head	green
+life.never-ends	LANE-12/release-uninterruptible	green
+life.never-ends	LANE-12/release-uninterruptible-lost	green
+life.never-ends	LANE-13	green
+life.never-ends	LANE-14	green
+life.never-ends	LANE-15	green
+life.never-ends	LANE-16	green
+life.never-ends	PAY-01	green
+life.never-ends	PAY-02	green
+life.never-ends	PAY-03	green
+life.never-ends	PAY-04	green
+life.never-ends	PAY-05	green
+life.never-ends	PAY-06/interruptible	green
+life.never-ends	PAY-06/uninterruptible	green
+life.never-ends	PAY-07/late-in-a-new-PAYING	green
+life.never-ends	PAY-07/late-may-not-leave	green
+life.never-ends	PAY-07/leaveMidCharge	green
+life.never-ends	PAY-08/reload-while-reconciling	green
+life.never-ends	PAY-08/reloadDuringCharge	green
+life.never-ends	PAY-09/ack-not-stored	green
+life.never-ends	PAY-09/ack-stored-confirmation-lost	green
+life.never-ends	PAY-10/hang	green
+life.never-ends	PAY-10/refuse	green
+life.never-ends	PAY-12/cancel-on-wire	green
+life.never-ends	PAY-12/defect	green
+life.never-ends	PAY-12/sync	green
+life.never-ends	PAY-13/hung-commit	green
+life.never-ends	PAY-13/waiting-flush-lost	green
+life.never-ends	PAY-13/waiting-flushed	green
+life.never-ends	PAY-14	green
+life.never-ends	PAY-15/busy-then-new-write	green
+life.never-ends	PAY-15/cancel-idle	green
+life.never-ends	PAY-15/cancel-on-wire	green
+life.never-ends	PAY-15/dead-activation-timer	green
+life.never-ends	PAY-15/dispose-held	green
+life.never-ends	PAY-15/dispose-held-moved	green
+life.never-ends	PAY-15/press-pay-while-held	green
+life.never-ends	PAY-15/reload-holds-exactly-once	green
+life.never-ends	PAY-15/retry-budget	green
+life.never-ends	PAY-16/answered-inside-the-bound	green
+life.never-ends	PAY-16/disposal-ends-with-the-last-fiber	green
+life.never-ends	PAY-16/dispose-waiting-resend	green
+life.never-ends	PAY-16/never-answered-waits-for-the-bound	green
+life.never-ends	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	green
+life.never-ends	PAY-16/read-defect-issue	green
+life.never-ends	PAY-16/resend-refused-capture	green
+life.never-ends	PAY-16/restore-keeps-mayHaveApplied	green
+life.never-ends	PAY-16/retry-count-persists	green
+life.never-ends	PAY-16/schedule-reads-after-memory	green
+life.never-ends	PAY-16/settled-during-disposal-parked	green
+life.never-ends	PAY-16/stale-send-fenced	green
+life.never-ends	PAY-16/superseded-read	green
+life.never-ends	PAY-16/timeout-per-send	green
+life.never-ends	PAY-18	green
+life.never-ends	PAY-19/place-answers-first	green
+life.never-ends	PAY-19/void-answers-first	green
+life.never-ends	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	green
+life.never-ends	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	green
+life.never-ends	PAY-21	green
+life.never-ends	PAY-22	green
+life.never-ends	PAY-23	green
+life.never-ends	TURN-01/mapper-refused	green
+life.never-ends	TURN-01/schedule-refused	green
+life.never-ends	TURN-02	green
+life.never-ends	TURN-03/exited	green
+life.never-ends	TURN-03/on-time	green
+life.never-ends	TURN-03/re-entered	green
+life.never-ends	TURN-03/unused	green
+life.never-ends	TURN-04/a-late-exit-with-nothing-queued-goes	green
+life.never-ends	TURN-04/re-entry-makes-the-first-ending-late	green
+life.never-ends	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
+life.never-ends	TURN-05/child-refusal	green
+life.never-ends	TURN-05/removed-copy-ends-once	green
+life.schedule-fires-unused	ACT-01/free-actor-ends	green
 life.schedule-fires-unused	CLI-01	green
 life.schedule-fires-unused	CLI-02	green
 life.schedule-fires-unused	CLI-03	green
@@ -10232,6 +10558,7 @@ life.schedule-fires-unused	TURN-04/re-entry-makes-the-first-ending-late	green
 life.schedule-fires-unused	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 life.schedule-fires-unused	TURN-05/child-refusal	green
 life.schedule-fires-unused	TURN-05/removed-copy-ends-once	green
+life.waiting-never-wakes	ACT-01/free-actor-ends	green
 life.waiting-never-wakes	CLI-01	green
 life.waiting-never-wakes	CLI-02	green
 life.waiting-never-wakes	CLI-03	green
@@ -10351,6 +10678,7 @@ life.waiting-never-wakes	TURN-04/re-entry-makes-the-first-ending-late	green
 life.waiting-never-wakes	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 life.waiting-never-wakes	TURN-05/child-refusal	green
 life.waiting-never-wakes	TURN-05/removed-copy-ends-once	green
+lost.decline.mail	ACT-01/free-actor-ends	green
 lost.decline.mail	CLI-01	green
 lost.decline.mail	CLI-02	green
 lost.decline.mail	CLI-03	green
@@ -10470,6 +10798,7 @@ lost.decline.mail	TURN-04/re-entry-makes-the-first-ending-late	green
 lost.decline.mail	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 lost.decline.mail	TURN-05/child-refusal	green
 lost.decline.mail	TURN-05/removed-copy-ends-once	green
+mutant.adoption-skips-parked	ACT-01/free-actor-ends	green
 mutant.adoption-skips-parked	CLI-01	green
 mutant.adoption-skips-parked	CLI-02	green
 mutant.adoption-skips-parked	CLI-03	green
@@ -10589,6 +10918,7 @@ mutant.adoption-skips-parked	TURN-04/re-entry-makes-the-first-ending-late	green
 mutant.adoption-skips-parked	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.adoption-skips-parked	TURN-05/child-refusal	green
 mutant.adoption-skips-parked	TURN-05/removed-copy-ends-once	green
+mutant.boot-after-disposal-skips-restored	ACT-01/free-actor-ends	green
 mutant.boot-after-disposal-skips-restored	CLI-01	green
 mutant.boot-after-disposal-skips-restored	CLI-02	green
 mutant.boot-after-disposal-skips-restored	CLI-03	green
@@ -10708,6 +11038,7 @@ mutant.boot-after-disposal-skips-restored	TURN-04/re-entry-makes-the-first-endin
 mutant.boot-after-disposal-skips-restored	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.boot-after-disposal-skips-restored	TURN-05/child-refusal	green
 mutant.boot-after-disposal-skips-restored	TURN-05/removed-copy-ends-once	green
+mutant.boot-replays-never-sent	ACT-01/free-actor-ends	green
 mutant.boot-replays-never-sent	CLI-01	green
 mutant.boot-replays-never-sent	CLI-02	green
 mutant.boot-replays-never-sent	CLI-03	green
@@ -10827,6 +11158,7 @@ mutant.boot-replays-never-sent	TURN-04/re-entry-makes-the-first-ending-late	gree
 mutant.boot-replays-never-sent	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.boot-replays-never-sent	TURN-05/child-refusal	green
 mutant.boot-replays-never-sent	TURN-05/removed-copy-ends-once	green
+mutant.boot-resends-held	ACT-01/free-actor-ends	green
 mutant.boot-resends-held	CLI-01	green
 mutant.boot-resends-held	CLI-02	green
 mutant.boot-resends-held	CLI-03	green
@@ -10946,6 +11278,7 @@ mutant.boot-resends-held	TURN-04/re-entry-makes-the-first-ending-late	green
 mutant.boot-resends-held	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.boot-resends-held	TURN-05/child-refusal	green
 mutant.boot-resends-held	TURN-05/removed-copy-ends-once	green
+mutant.boot-skips-restored	ACT-01/free-actor-ends	green
 mutant.boot-skips-restored	CLI-01	green
 mutant.boot-skips-restored	CLI-02	green
 mutant.boot-skips-restored	CLI-03	green
@@ -11065,6 +11398,7 @@ mutant.boot-skips-restored	TURN-04/re-entry-makes-the-first-ending-late	green
 mutant.boot-skips-restored	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.boot-skips-restored	TURN-05/child-refusal	green
 mutant.boot-skips-restored	TURN-05/removed-copy-ends-once	green
+mutant.bound-ending-wrong-tag	ACT-01/free-actor-ends	green
 mutant.bound-ending-wrong-tag	CLI-01	green
 mutant.bound-ending-wrong-tag	CLI-02	green
 mutant.bound-ending-wrong-tag	CLI-03	green
@@ -11184,6 +11518,7 @@ mutant.bound-ending-wrong-tag	TURN-04/re-entry-makes-the-first-ending-late	green
 mutant.bound-ending-wrong-tag	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.bound-ending-wrong-tag	TURN-05/child-refusal	green
 mutant.bound-ending-wrong-tag	TURN-05/removed-copy-ends-once	green
+mutant.cancel-members-dropped	ACT-01/free-actor-ends	green
 mutant.cancel-members-dropped	CLI-01	green
 mutant.cancel-members-dropped	CLI-02	green
 mutant.cancel-members-dropped	CLI-03	green
@@ -11303,6 +11638,7 @@ mutant.cancel-members-dropped	TURN-04/re-entry-makes-the-first-ending-late	green
 mutant.cancel-members-dropped	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.cancel-members-dropped	TURN-05/child-refusal	green
 mutant.cancel-members-dropped	TURN-05/removed-copy-ends-once	green
+mutant.delivered-during-disposal	ACT-01/free-actor-ends	green
 mutant.delivered-during-disposal	CLI-01	green
 mutant.delivered-during-disposal	CLI-02	green
 mutant.delivered-during-disposal	CLI-03	green
@@ -11422,6 +11758,7 @@ mutant.delivered-during-disposal	TURN-04/re-entry-makes-the-first-ending-late	gr
 mutant.delivered-during-disposal	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.delivered-during-disposal	TURN-05/child-refusal	green
 mutant.delivered-during-disposal	TURN-05/removed-copy-ends-once	green
+mutant.disposal-dispatches	ACT-01/free-actor-ends	green
 mutant.disposal-dispatches	CLI-01	green
 mutant.disposal-dispatches	CLI-02	green
 mutant.disposal-dispatches	CLI-03	green
@@ -11541,6 +11878,7 @@ mutant.disposal-dispatches	TURN-04/re-entry-makes-the-first-ending-late	green
 mutant.disposal-dispatches	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.disposal-dispatches	TURN-05/child-refusal	green
 mutant.disposal-dispatches	TURN-05/removed-copy-ends-once	green
+mutant.disposal-hold-first	ACT-01/free-actor-ends	green
 mutant.disposal-hold-first	CLI-01	green
 mutant.disposal-hold-first	CLI-02	green
 mutant.disposal-hold-first	CLI-03	green
@@ -11660,6 +11998,7 @@ mutant.disposal-hold-first	TURN-04/re-entry-makes-the-first-ending-late	green
 mutant.disposal-hold-first	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.disposal-hold-first	TURN-05/child-refusal	green
 mutant.disposal-hold-first	TURN-05/removed-copy-ends-once	green
+mutant.disposal-rereads	ACT-01/free-actor-ends	green
 mutant.disposal-rereads	CLI-01	green
 mutant.disposal-rereads	CLI-02	green
 mutant.disposal-rereads	CLI-03	green
@@ -11779,6 +12118,7 @@ mutant.disposal-rereads	TURN-04/re-entry-makes-the-first-ending-late	green
 mutant.disposal-rereads	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.disposal-rereads	TURN-05/child-refusal	green
 mutant.disposal-rereads	TURN-05/removed-copy-ends-once	green
+mutant.disposal-skips-never-sent	ACT-01/free-actor-ends	green
 mutant.disposal-skips-never-sent	CLI-01	green
 mutant.disposal-skips-never-sent	CLI-02	green
 mutant.disposal-skips-never-sent	CLI-03	green
@@ -11898,6 +12238,7 @@ mutant.disposal-skips-never-sent	TURN-04/re-entry-makes-the-first-ending-late	gr
 mutant.disposal-skips-never-sent	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.disposal-skips-never-sent	TURN-05/child-refusal	green
 mutant.disposal-skips-never-sent	TURN-05/removed-copy-ends-once	green
+mutant.double-invoke	ACT-01/free-actor-ends	green
 mutant.double-invoke	CLI-01	green
 mutant.double-invoke	CLI-02	green
 mutant.double-invoke	CLI-03	green
@@ -12017,6 +12358,7 @@ mutant.double-invoke	TURN-04/re-entry-makes-the-first-ending-late	caught lane-qu
 mutant.double-invoke	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.double-invoke	TURN-05/child-refusal	green
 mutant.double-invoke	TURN-05/removed-copy-ends-once	green
+mutant.ending-without-id	ACT-01/free-actor-ends	green
 mutant.ending-without-id	CLI-01	green
 mutant.ending-without-id	CLI-02	green
 mutant.ending-without-id	CLI-03	green
@@ -12136,6 +12478,7 @@ mutant.ending-without-id	TURN-04/re-entry-makes-the-first-ending-late	caught end
 mutant.ending-without-id	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.ending-without-id	TURN-05/child-refusal	green
 mutant.ending-without-id	TURN-05/removed-copy-ends-once	green
+mutant.kept-retried-without-boot	ACT-01/free-actor-ends	green
 mutant.kept-retried-without-boot	CLI-01	green
 mutant.kept-retried-without-boot	CLI-02	green
 mutant.kept-retried-without-boot	CLI-03	green
@@ -12255,6 +12598,7 @@ mutant.kept-retried-without-boot	TURN-04/re-entry-makes-the-first-ending-late	gr
 mutant.kept-retried-without-boot	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.kept-retried-without-boot	TURN-05/child-refusal	green
 mutant.kept-retried-without-boot	TURN-05/removed-copy-ends-once	green
+mutant.members-reversed	ACT-01/free-actor-ends	green
 mutant.members-reversed	CLI-01	green
 mutant.members-reversed	CLI-02	green
 mutant.members-reversed	CLI-03	green
@@ -12374,6 +12718,7 @@ mutant.members-reversed	TURN-04/re-entry-makes-the-first-ending-late	green
 mutant.members-reversed	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.members-reversed	TURN-05/child-refusal	green
 mutant.members-reversed	TURN-05/removed-copy-ends-once	green
+mutant.mint-key-differs	ACT-01/free-actor-ends	green
 mutant.mint-key-differs	CLI-01	green
 mutant.mint-key-differs	CLI-02	green
 mutant.mint-key-differs	CLI-03	green
@@ -12493,6 +12838,7 @@ mutant.mint-key-differs	TURN-04/re-entry-makes-the-first-ending-late	green
 mutant.mint-key-differs	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.mint-key-differs	TURN-05/child-refusal	green
 mutant.mint-key-differs	TURN-05/removed-copy-ends-once	green
+mutant.parked-delivered-as-other-tag	ACT-01/free-actor-ends	green
 mutant.parked-delivered-as-other-tag	CLI-01	green
 mutant.parked-delivered-as-other-tag	CLI-02	green
 mutant.parked-delivered-as-other-tag	CLI-03	green
@@ -12612,6 +12958,7 @@ mutant.parked-delivered-as-other-tag	TURN-04/re-entry-makes-the-first-ending-lat
 mutant.parked-delivered-as-other-tag	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.parked-delivered-as-other-tag	TURN-05/child-refusal	green
 mutant.parked-delivered-as-other-tag	TURN-05/removed-copy-ends-once	green
+mutant.release-drops-held	ACT-01/free-actor-ends	green
 mutant.release-drops-held	CLI-01	green
 mutant.release-drops-held	CLI-02	green
 mutant.release-drops-held	CLI-03	green
@@ -12731,6 +13078,7 @@ mutant.release-drops-held	TURN-04/re-entry-makes-the-first-ending-late	green
 mutant.release-drops-held	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.release-drops-held	TURN-05/child-refusal	green
 mutant.release-drops-held	TURN-05/removed-copy-ends-once	green
+mutant.replaced-delivered	ACT-01/free-actor-ends	green
 mutant.replaced-delivered	CLI-01	green
 mutant.replaced-delivered	CLI-02	green
 mutant.replaced-delivered	CLI-03	green
@@ -12850,6 +13198,7 @@ mutant.replaced-delivered	TURN-04/re-entry-makes-the-first-ending-late	green
 mutant.replaced-delivered	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.replaced-delivered	TURN-05/child-refusal	green
 mutant.replaced-delivered	TURN-05/removed-copy-ends-once	green
+mutant.resend-new-id	ACT-01/free-actor-ends	green
 mutant.resend-new-id	CLI-01	green
 mutant.resend-new-id	CLI-02	green
 mutant.resend-new-id	CLI-03	green
@@ -12969,6 +13318,7 @@ mutant.resend-new-id	TURN-04/re-entry-makes-the-first-ending-late	green
 mutant.resend-new-id	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.resend-new-id	TURN-05/child-refusal	green
 mutant.resend-new-id	TURN-05/removed-copy-ends-once	green
+mutant.resend-new-input	ACT-01/free-actor-ends	green
 mutant.resend-new-input	CLI-01	green
 mutant.resend-new-input	CLI-02	green
 mutant.resend-new-input	CLI-03	green
@@ -13088,6 +13438,7 @@ mutant.resend-new-input	TURN-04/re-entry-makes-the-first-ending-late	green
 mutant.resend-new-input	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.resend-new-input	TURN-05/child-refusal	green
 mutant.resend-new-input	TURN-05/removed-copy-ends-once	green
+mutant.restore-skips-unsent	ACT-01/free-actor-ends	green
 mutant.restore-skips-unsent	CLI-01	green
 mutant.restore-skips-unsent	CLI-02	green
 mutant.restore-skips-unsent	CLI-03	green
@@ -13207,6 +13558,7 @@ mutant.restore-skips-unsent	TURN-04/re-entry-makes-the-first-ending-late	green
 mutant.restore-skips-unsent	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.restore-skips-unsent	TURN-05/child-refusal	green
 mutant.restore-skips-unsent	TURN-05/removed-copy-ends-once	green
+mutant.restored-twice	ACT-01/free-actor-ends	green
 mutant.restored-twice	CLI-01	green
 mutant.restored-twice	CLI-02	green
 mutant.restored-twice	CLI-03	green
@@ -13326,6 +13678,7 @@ mutant.restored-twice	TURN-04/re-entry-makes-the-first-ending-late	green
 mutant.restored-twice	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.restored-twice	TURN-05/child-refusal	green
 mutant.restored-twice	TURN-05/removed-copy-ends-once	green
+mutant.sent-under-another-operation	ACT-01/free-actor-ends	green
 mutant.sent-under-another-operation	CLI-01	green
 mutant.sent-under-another-operation	CLI-02	green
 mutant.sent-under-another-operation	CLI-03	green
@@ -13445,6 +13798,7 @@ mutant.sent-under-another-operation	TURN-04/re-entry-makes-the-first-ending-late
 mutant.sent-under-another-operation	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.sent-under-another-operation	TURN-05/child-refusal	green
 mutant.sent-under-another-operation	TURN-05/removed-copy-ends-once	green
+mutant.short-disposal-bound	ACT-01/free-actor-ends	green
 mutant.short-disposal-bound	CLI-01	green
 mutant.short-disposal-bound	CLI-02	green
 mutant.short-disposal-bound	CLI-03	green
@@ -13564,6 +13918,7 @@ mutant.short-disposal-bound	TURN-04/re-entry-makes-the-first-ending-late	green
 mutant.short-disposal-bound	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.short-disposal-bound	TURN-05/child-refusal	green
 mutant.short-disposal-bound	TURN-05/removed-copy-ends-once	green
+mutant.still-unknown-dropped	ACT-01/free-actor-ends	green
 mutant.still-unknown-dropped	CLI-01	green
 mutant.still-unknown-dropped	CLI-02	green
 mutant.still-unknown-dropped	CLI-03	green
@@ -13683,6 +14038,7 @@ mutant.still-unknown-dropped	TURN-04/re-entry-makes-the-first-ending-late	green
 mutant.still-unknown-dropped	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.still-unknown-dropped	TURN-05/child-refusal	green
 mutant.still-unknown-dropped	TURN-05/removed-copy-ends-once	green
+mutant.success-then-failure	ACT-01/free-actor-ends	green
 mutant.success-then-failure	CLI-01	green
 mutant.success-then-failure	CLI-02	green
 mutant.success-then-failure	CLI-03	green
@@ -13802,6 +14158,7 @@ mutant.success-then-failure	TURN-04/re-entry-makes-the-first-ending-late	caught 
 mutant.success-then-failure	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.success-then-failure	TURN-05/child-refusal	green
 mutant.success-then-failure	TURN-05/removed-copy-ends-once	green
+mutant.success-without-answer	ACT-01/free-actor-ends	green
 mutant.success-without-answer	CLI-01	green
 mutant.success-without-answer	CLI-02	green
 mutant.success-without-answer	CLI-03	green
@@ -13921,6 +14278,7 @@ mutant.success-without-answer	TURN-04/re-entry-makes-the-first-ending-late	green
 mutant.success-without-answer	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.success-without-answer	TURN-05/child-refusal	green
 mutant.success-without-answer	TURN-05/removed-copy-ends-once	green
+mutant.superseded-claimed	ACT-01/free-actor-ends	green
 mutant.superseded-claimed	CLI-01	green
 mutant.superseded-claimed	CLI-02	green
 mutant.superseded-claimed	CLI-03	green
@@ -14040,6 +14398,7 @@ mutant.superseded-claimed	TURN-04/re-entry-makes-the-first-ending-late	green
 mutant.superseded-claimed	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.superseded-claimed	TURN-05/child-refusal	green
 mutant.superseded-claimed	TURN-05/removed-copy-ends-once	green
+mutant.unsent-ends-unknown	ACT-01/free-actor-ends	green
 mutant.unsent-ends-unknown	CLI-01	green
 mutant.unsent-ends-unknown	CLI-02	green
 mutant.unsent-ends-unknown	CLI-03	green
@@ -14159,6 +14518,7 @@ mutant.unsent-ends-unknown	TURN-04/re-entry-makes-the-first-ending-late	green
 mutant.unsent-ends-unknown	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.unsent-ends-unknown	TURN-05/child-refusal	green
 mutant.unsent-ends-unknown	TURN-05/removed-copy-ends-once	green
+mutant.unsent-restored-outside-boot	ACT-01/free-actor-ends	green
 mutant.unsent-restored-outside-boot	CLI-01	green
 mutant.unsent-restored-outside-boot	CLI-02	green
 mutant.unsent-restored-outside-boot	CLI-03	green
@@ -14278,6 +14638,7 @@ mutant.unsent-restored-outside-boot	TURN-04/re-entry-makes-the-first-ending-late
 mutant.unsent-restored-outside-boot	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 mutant.unsent-restored-outside-boot	TURN-05/child-refusal	green
 mutant.unsent-restored-outside-boot	TURN-05/removed-copy-ends-once	green
+o6.dispose-interrupts-wire	ACT-01/free-actor-ends	green
 o6.dispose-interrupts-wire	CLI-01	green
 o6.dispose-interrupts-wire	CLI-02	green
 o6.dispose-interrupts-wire	CLI-03	green
@@ -14397,6 +14758,7 @@ o6.dispose-interrupts-wire	TURN-04/re-entry-makes-the-first-ending-late	green
 o6.dispose-interrupts-wire	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 o6.dispose-interrupts-wire	TURN-05/child-refusal	green
 o6.dispose-interrupts-wire	TURN-05/removed-copy-ends-once	green
+o6.no-bound	ACT-01/free-actor-ends	green
 o6.no-bound	CLI-01	green
 o6.no-bound	CLI-02	green
 o6.no-bound	CLI-03	green
@@ -14516,6 +14878,7 @@ o6.no-bound	TURN-04/re-entry-makes-the-first-ending-late	green
 o6.no-bound	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 o6.no-bound	TURN-05/child-refusal	green
 o6.no-bound	TURN-05/removed-copy-ends-once	green
+o6.settled-in-bound-stays-held	ACT-01/free-actor-ends	green
 o6.settled-in-bound-stays-held	CLI-01	green
 o6.settled-in-bound-stays-held	CLI-02	green
 o6.settled-in-bound-stays-held	CLI-03	green
@@ -14635,6 +14998,7 @@ o6.settled-in-bound-stays-held	TURN-04/re-entry-makes-the-first-ending-late	gree
 o6.settled-in-bound-stays-held	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 o6.settled-in-bound-stays-held	TURN-05/child-refusal	green
 o6.settled-in-bound-stays-held	TURN-05/removed-copy-ends-once	green
+p1h.cancel-all-idle-declines	ACT-01/free-actor-ends	green
 p1h.cancel-all-idle-declines	CLI-01	green
 p1h.cancel-all-idle-declines	CLI-02	green
 p1h.cancel-all-idle-declines	CLI-03	green
@@ -14754,6 +15118,7 @@ p1h.cancel-all-idle-declines	TURN-04/re-entry-makes-the-first-ending-late	green
 p1h.cancel-all-idle-declines	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 p1h.cancel-all-idle-declines	TURN-05/child-refusal	green
 p1h.cancel-all-idle-declines	TURN-05/removed-copy-ends-once	green
+part.abandoned-skips-callbacks	ACT-01/free-actor-ends	green
 part.abandoned-skips-callbacks	CLI-01	green
 part.abandoned-skips-callbacks	CLI-02	green
 part.abandoned-skips-callbacks	CLI-03	green
@@ -14873,6 +15238,7 @@ part.abandoned-skips-callbacks	TURN-04/re-entry-makes-the-first-ending-late	gree
 part.abandoned-skips-callbacks	TURN-05/a-part-writing-the-key-is-a-pending-reset	red case
 part.abandoned-skips-callbacks	TURN-05/child-refusal	green
 part.abandoned-skips-callbacks	TURN-05/removed-copy-ends-once	caught case expectations Turn I11
+part.child-refusal-ignored	ACT-01/free-actor-ends	green
 part.child-refusal-ignored	CLI-01	green
 part.child-refusal-ignored	CLI-02	green
 part.child-refusal-ignored	CLI-03	green
@@ -14992,6 +15358,7 @@ part.child-refusal-ignored	TURN-04/re-entry-makes-the-first-ending-late	green
 part.child-refusal-ignored	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 part.child-refusal-ignored	TURN-05/child-refusal	caught case expectations Turn I3
 part.child-refusal-ignored	TURN-05/removed-copy-ends-once	green
+part.pending-reset-dropped	ACT-01/free-actor-ends	green
 part.pending-reset-dropped	CLI-01	green
 part.pending-reset-dropped	CLI-02	green
 part.pending-reset-dropped	CLI-03	green
@@ -15111,6 +15478,7 @@ part.pending-reset-dropped	TURN-04/re-entry-makes-the-first-ending-late	green
 part.pending-reset-dropped	TURN-05/a-part-writing-the-key-is-a-pending-reset	caught case expectations Turn I10
 part.pending-reset-dropped	TURN-05/child-refusal	green
 part.pending-reset-dropped	TURN-05/removed-copy-ends-once	green
+pay16.decline-not-delivered	ACT-01/free-actor-ends	green
 pay16.decline-not-delivered	CLI-01	green
 pay16.decline-not-delivered	CLI-02	green
 pay16.decline-not-delivered	CLI-03	green
@@ -15230,6 +15598,7 @@ pay16.decline-not-delivered	TURN-04/re-entry-makes-the-first-ending-late	green
 pay16.decline-not-delivered	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 pay16.decline-not-delivered	TURN-05/child-refusal	green
 pay16.decline-not-delivered	TURN-05/removed-copy-ends-once	green
+pay16.schedule-reads-pre-transition-memory	ACT-01/free-actor-ends	green
 pay16.schedule-reads-pre-transition-memory	CLI-01	green
 pay16.schedule-reads-pre-transition-memory	CLI-02	green
 pay16.schedule-reads-pre-transition-memory	CLI-03	green
@@ -15349,6 +15718,7 @@ pay16.schedule-reads-pre-transition-memory	TURN-04/re-entry-makes-the-first-endi
 pay16.schedule-reads-pre-transition-memory	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 pay16.schedule-reads-pre-transition-memory	TURN-05/child-refusal	green
 pay16.schedule-reads-pre-transition-memory	TURN-05/removed-copy-ends-once	green
+pub.move-copies-memory	ACT-01/free-actor-ends	green
 pub.move-copies-memory	CLI-01	green
 pub.move-copies-memory	CLI-02	green
 pub.move-copies-memory	CLI-03	green
@@ -15468,6 +15838,7 @@ pub.move-copies-memory	TURN-04/re-entry-makes-the-first-ending-late	caught publi
 pub.move-copies-memory	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 pub.move-copies-memory	TURN-05/child-refusal	green
 pub.move-copies-memory	TURN-05/removed-copy-ends-once	green
+pub.turn-not-published	ACT-01/free-actor-ends	caught publication Turn I9
 pub.turn-not-published	CLI-01	green
 pub.turn-not-published	CLI-02	green
 pub.turn-not-published	CLI-03	green
@@ -15587,6 +15958,7 @@ pub.turn-not-published	TURN-04/re-entry-makes-the-first-ending-late	green
 pub.turn-not-published	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 pub.turn-not-published	TURN-05/child-refusal	green
 pub.turn-not-published	TURN-05/removed-copy-ends-once	green
+r15.creation-decodes-input	ACT-01/free-actor-ends	green
 r15.creation-decodes-input	CLI-01	green
 r15.creation-decodes-input	CLI-02	green
 r15.creation-decodes-input	CLI-03	green
@@ -15706,6 +16078,7 @@ r15.creation-decodes-input	TURN-04/re-entry-makes-the-first-ending-late	green
 r15.creation-decodes-input	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 r15.creation-decodes-input	TURN-05/child-refusal	green
 r15.creation-decodes-input	TURN-05/removed-copy-ends-once	green
+r15c.duplicate-machine-allowed	ACT-01/free-actor-ends	green
 r15c.duplicate-machine-allowed	CLI-01	green
 r15c.duplicate-machine-allowed	CLI-02	green
 r15c.duplicate-machine-allowed	CLI-03	green
@@ -15825,6 +16198,7 @@ r15c.duplicate-machine-allowed	TURN-04/re-entry-makes-the-first-ending-late	gree
 r15c.duplicate-machine-allowed	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 r15c.duplicate-machine-allowed	TURN-05/child-refusal	green
 r15c.duplicate-machine-allowed	TURN-05/removed-copy-ends-once	green
+refusal.reports-kept	ACT-01/free-actor-ends	green
 refusal.reports-kept	CLI-01	green
 refusal.reports-kept	CLI-02	green
 refusal.reports-kept	CLI-03	green
@@ -15944,6 +16318,7 @@ refusal.reports-kept	TURN-04/re-entry-makes-the-first-ending-late	green
 refusal.reports-kept	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 refusal.reports-kept	TURN-05/child-refusal	green
 refusal.reports-kept	TURN-05/removed-copy-ends-once	green
+refusal.state-kept	ACT-01/free-actor-ends	green
 refusal.state-kept	CLI-01	green
 refusal.state-kept	CLI-02	green
 refusal.state-kept	CLI-03	green
@@ -16063,6 +16438,7 @@ refusal.state-kept	TURN-04/re-entry-makes-the-first-ending-late	green
 refusal.state-kept	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 refusal.state-kept	TURN-05/child-refusal	green
 refusal.state-kept	TURN-05/removed-copy-ends-once	green
+refusal.unhandled-patches	ACT-01/free-actor-ends	green
 refusal.unhandled-patches	CLI-01	green
 refusal.unhandled-patches	CLI-02	green
 refusal.unhandled-patches	CLI-03	green
@@ -16182,6 +16558,7 @@ refusal.unhandled-patches	TURN-04/re-entry-makes-the-first-ending-late	caught re
 refusal.unhandled-patches	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 refusal.unhandled-patches	TURN-05/child-refusal	green
 refusal.unhandled-patches	TURN-05/removed-copy-ends-once	green
+sched.fires-at-once	ACT-01/free-actor-ends	green
 sched.fires-at-once	CLI-01	green
 sched.fires-at-once	CLI-02	green
 sched.fires-at-once	CLI-03	green
@@ -16301,6 +16678,7 @@ sched.fires-at-once	TURN-04/re-entry-makes-the-first-ending-late	green
 sched.fires-at-once	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 sched.fires-at-once	TURN-05/child-refusal	green
 sched.fires-at-once	TURN-05/removed-copy-ends-once	green
+sched.outlives-activation	ACT-01/free-actor-ends	green
 sched.outlives-activation	CLI-01	green
 sched.outlives-activation	CLI-02	green
 sched.outlives-activation	CLI-03	green
@@ -16420,6 +16798,7 @@ sched.outlives-activation	TURN-04/re-entry-makes-the-first-ending-late	green
 sched.outlives-activation	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 sched.outlives-activation	TURN-05/child-refusal	green
 sched.outlives-activation	TURN-05/removed-copy-ends-once	green
+turn.cancel-turns-unhandled	ACT-01/free-actor-ends	green
 turn.cancel-turns-unhandled	CLI-01	green
 turn.cancel-turns-unhandled	CLI-02	green
 turn.cancel-turns-unhandled	CLI-03	green
@@ -16539,6 +16918,7 @@ turn.cancel-turns-unhandled	TURN-04/re-entry-makes-the-first-ending-late	green
 turn.cancel-turns-unhandled	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 turn.cancel-turns-unhandled	TURN-05/child-refusal	green
 turn.cancel-turns-unhandled	TURN-05/removed-copy-ends-once	green
+turn.cancels-dropped-no-part	ACT-01/free-actor-ends	green
 turn.cancels-dropped-no-part	CLI-01	green
 turn.cancels-dropped-no-part	CLI-02	green
 turn.cancels-dropped-no-part	CLI-03	green
@@ -16658,6 +17038,7 @@ turn.cancels-dropped-no-part	TURN-04/re-entry-makes-the-first-ending-late	green
 turn.cancels-dropped-no-part	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 turn.cancels-dropped-no-part	TURN-05/child-refusal	green
 turn.cancels-dropped-no-part	TURN-05/removed-copy-ends-once	green
+turn.from-misreported	ACT-01/free-actor-ends	caught selection Turn I2
 turn.from-misreported	CLI-01	green
 turn.from-misreported	CLI-02	green
 turn.from-misreported	CLI-03	green
@@ -16777,6 +17158,7 @@ turn.from-misreported	TURN-04/re-entry-makes-the-first-ending-late	caught select
 turn.from-misreported	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 turn.from-misreported	TURN-05/child-refusal	green
 turn.from-misreported	TURN-05/removed-copy-ends-once	green
+turn.header-to-nowhere	ACT-01/free-actor-ends	green
 turn.header-to-nowhere	CLI-01	green
 turn.header-to-nowhere	CLI-02	green
 turn.header-to-nowhere	CLI-03	green
@@ -16896,6 +17278,7 @@ turn.header-to-nowhere	TURN-04/re-entry-makes-the-first-ending-late	green
 turn.header-to-nowhere	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 turn.header-to-nowhere	TURN-05/child-refusal	green
 turn.header-to-nowhere	TURN-05/removed-copy-ends-once	green
+turn.late-leaves-work	ACT-01/free-actor-ends	green
 turn.late-leaves-work	CLI-01	green
 turn.late-leaves-work	CLI-02	green
 turn.late-leaves-work	CLI-03	green
@@ -17015,6 +17398,7 @@ turn.late-leaves-work	TURN-04/re-entry-makes-the-first-ending-late	red selection
 turn.late-leaves-work	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 turn.late-leaves-work	TURN-05/child-refusal	green
 turn.late-leaves-work	TURN-05/removed-copy-ends-once	green
+turn.memory-takes-a-random-nonce	ACT-01/free-actor-ends	caught case expectations Turn I17
 turn.memory-takes-a-random-nonce	CLI-01	green
 turn.memory-takes-a-random-nonce	CLI-02	green
 turn.memory-takes-a-random-nonce	CLI-03	green
@@ -17134,6 +17518,7 @@ turn.memory-takes-a-random-nonce	TURN-04/re-entry-makes-the-first-ending-late	ca
 turn.memory-takes-a-random-nonce	TURN-05/a-part-writing-the-key-is-a-pending-reset	caught case expectations Turn I17
 turn.memory-takes-a-random-nonce	TURN-05/child-refusal	green
 turn.memory-takes-a-random-nonce	TURN-05/removed-copy-ends-once	caught case expectations Turn I17
+turn.part-turn-moves-header	ACT-01/free-actor-ends	green
 turn.part-turn-moves-header	CLI-01	green
 turn.part-turn-moves-header	CLI-02	green
 turn.part-turn-moves-header	CLI-03	green
@@ -17253,6 +17638,7 @@ turn.part-turn-moves-header	TURN-04/re-entry-makes-the-first-ending-late	green
 turn.part-turn-moves-header	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 turn.part-turn-moves-header	TURN-05/child-refusal	green
 turn.part-turn-moves-header	TURN-05/removed-copy-ends-once	green
+turn.record-renames-alternative	ACT-01/free-actor-ends	caught graph-names StaticCli I2
 turn.record-renames-alternative	CLI-01	green
 turn.record-renames-alternative	CLI-02	green
 turn.record-renames-alternative	CLI-03	green
@@ -17372,6 +17758,7 @@ turn.record-renames-alternative	TURN-04/re-entry-makes-the-first-ending-late	red
 turn.record-renames-alternative	TURN-05/a-part-writing-the-key-is-a-pending-reset	red selection
 turn.record-renames-alternative	TURN-05/child-refusal	green
 turn.record-renames-alternative	TURN-05/removed-copy-ends-once	red selection
+turn.root-first	ACT-01/free-actor-ends	green
 turn.root-first	CLI-01	green
 turn.root-first	CLI-02	green
 turn.root-first	CLI-03	green
@@ -17491,6 +17878,7 @@ turn.root-first	TURN-04/re-entry-makes-the-first-ending-late	green
 turn.root-first	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 turn.root-first	TURN-05/child-refusal	green
 turn.root-first	TURN-05/removed-copy-ends-once	green
+turn.root-first-no-part	ACT-01/free-actor-ends	green
 turn.root-first-no-part	CLI-01	green
 turn.root-first-no-part	CLI-02	green
 turn.root-first-no-part	CLI-03	green
@@ -17610,6 +17998,7 @@ turn.root-first-no-part	TURN-04/re-entry-makes-the-first-ending-late	green
 turn.root-first-no-part	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 turn.root-first-no-part	TURN-05/child-refusal	green
 turn.root-first-no-part	TURN-05/removed-copy-ends-once	green
+turn.root-first-on-restored	ACT-01/free-actor-ends	green
 turn.root-first-on-restored	CLI-01	green
 turn.root-first-on-restored	CLI-02	green
 turn.root-first-on-restored	CLI-03	green
@@ -17729,6 +18118,7 @@ turn.root-first-on-restored	TURN-04/re-entry-makes-the-first-ending-late	green
 turn.root-first-on-restored	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 turn.root-first-on-restored	TURN-05/child-refusal	green
 turn.root-first-on-restored	TURN-05/removed-copy-ends-once	green
+w.patch-in-place	ACT-01/free-actor-ends	caught publication Turn I29
 w.patch-in-place	CLI-01	green
 w.patch-in-place	CLI-02	green
 w.patch-in-place	CLI-03	green
