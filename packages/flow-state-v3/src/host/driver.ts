@@ -1,4 +1,4 @@
-import { Cause, Clock, Context, Duration, Effect, Exit, type Fiber, Option, Schema } from "effect";
+import { Cause, Clock, Context, Duration, Effect, Exit, Option, Schema } from "effect";
 import type { Values } from "../core/compiled.ts";
 import type { Evidence } from "../core/evidence.ts";
 import { CallResult, type Env, Input, type Machines, step } from "../core/step.ts";
@@ -6,27 +6,18 @@ import { Command, emptyWorld, type World } from "../core/world.ts";
 import { FlowError } from "../error.ts";
 import { OutcomeFailure, OutcomeUnknown, reasonOf } from "../flow.ts";
 import { makeEdge } from "./edge.ts";
-import type { Host } from "./host.ts";
+import type { Fibers } from "./fibers.ts";
+import { Host, type Platform } from "./host.ts";
 
 /**
- * The Runtime Clock over the host's time and timers, so a commit's own deadline
- * (`Effect.timeoutOrElse`) runs on the same clock as the machines.
+ * A call's Effect with its contract's services erased: the Runtime provides every service the
+ * machines' contracts list (Actors R1).
  */
-// RETURN_TYPE: Effect's Clock service shape.
-export const hostClock = (host: Host): Clock.Clock => ({
-  currentTimeMillisUnsafe: host.now,
-  currentTimeMillis: Effect.sync(host.now),
-  currentTimeNanosUnsafe: () => BigInt(host.now()) * 1_000_000n,
-  currentTimeNanos: Effect.sync(() => BigInt(host.now()) * 1_000_000n),
-  monotonicTimeNanosUnsafe: () => BigInt(Math.round(host.monotonic() * 1_000_000)),
-  monotonicTimeNanos: Effect.sync(() => BigInt(Math.round(host.monotonic() * 1_000_000))),
-  sleep: (duration) =>
-    Effect.callback<void>((resume) => {
-      const stop = host.arm(host.now() + Duration.toMillis(duration), () => resume(Effect.void));
-
-      return Effect.sync(stop);
-    }),
-});
+// FLOW_STATE_ALLOW_UNKNOWN: a call's value, error and services are the contract's own.
+const provided = (effect: Effect.Effect<unknown, unknown, unknown>) =>
+  // SAFETY: the boot provides every service the machines' contracts list (Actors R1).
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a contract's services are erased in Compiled and provided by the Runtime's fibers
+  effect as Effect.Effect<unknown, unknown>;
 
 /**
  * How a call ended, read from its fiber's Exit and whole Cause, outside the fiber (WriteLanes R2):
@@ -54,51 +45,34 @@ export const resultOf = (exit: Exit.Exit<unknown, unknown>) => {
 
 /**
  * The one impure loop: it owns the world, runs each step, and performs the step's commands with
- * Effect (fibers, timers, the persistence edge).
+ * Effect: calls and timers as keyed fibers in the Runtime's Scope, writes through the persistence
+ * edge.
  *
  * **Details**
  *
- * Inputs that arrive while a step's commands run are queued and run in order after it.
+ * Inputs that arrive while a step's commands run are queued and run in order after it. After
+ * `close`, inputs are dropped: the Runtime's Scope is about to interrupt every fiber.
  */
 export const makeDriver = (options: {
   readonly machines: Machines;
-  readonly host: Host;
+  readonly platform: Platform;
+  readonly fibers: Fibers;
   readonly persistence: boolean;
   readonly captureMs: number;
-  readonly services: Context.Context<never>;
   readonly sink: (evidence: ReadonlyArray<Evidence>) => void;
 }) => {
-  const { host, machines } = options;
+  const { machines, fibers } = options;
+  const clock = Context.get(options.platform, Clock.Clock);
+  const host = Context.get(options.platform, Host);
   let world: World = emptyWorld(options.persistence);
   const inbox: Array<Input> = [];
   let running = false;
-  // FLOW_STATE_ALLOW_UNKNOWN: a call's fiber carries the contract's own value and error.
-  const fibers = new Map<string, Fiber.Fiber<unknown, unknown>>();
-  const timers = new Map<string, () => void>();
-  const clock = hostClock(host);
+  let closed = false;
 
-  const edge = makeEdge(host, {
+  const edge = makeEdge(options.platform, fibers, {
     captureMs: options.captureMs,
     stored: (ticket, ok) => input(Input.Stored({ ticket, ok })),
   });
-
-  // FLOW_STATE_ALLOW_UNKNOWN: a call's Effect is the contract's own; its services are this Runtime's.
-  const fork = (call: string, effect: Effect.Effect<unknown, unknown, unknown>) => {
-    // SAFETY: the boot provides every service the machines' contracts list (Actors R1).
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a contract's services are erased in Compiled and provided by this Runtime's Layer
-    const provided = effect as Effect.Effect<unknown, unknown>;
-
-    // oxlint-disable-next-line lint-bomb/no-effect-runner-in-domain -- the driver is the host boundary that runs fibers, over the Runtime's own services
-    const fiber = Effect.runForkWith(Context.add(options.services, Clock.Clock, clock))(provided, {
-      scheduler: host.scheduler,
-    });
-
-    fibers.set(call, fiber);
-    fiber.addObserver((exit) => {
-      fibers.delete(call);
-      input(Input.Settled({ call, result: resultOf(exit) }));
-    });
-  };
 
   const perform = (command: Command) =>
     Command.$match(command, {
@@ -121,30 +95,22 @@ export const makeDriver = (options: {
           }),
         };
 
-        fork(
-          call,
-          Effect.suspend(() => op.call.run(given, context)),
+        fibers.fork(
+          `call/${call}`,
+          provided(Effect.suspend(() => op.call.run(given, context))),
+          (exit) => input(Input.Settled({ call, result: resultOf(exit) })),
         );
       },
-      Interrupt: ({ call }) => {
-        const fiber = fibers.get(call);
-
-        // oxlint-disable-next-line lint-bomb/no-unsafe-fiber-methods -- a cancel interrupts the call's fiber at once; its exit settles the call
-        if (fiber !== undefined) fiber.interruptUnsafe();
-      },
-      Arm: ({ timer, at }) => {
-        timers.set(
-          timer,
-          host.arm(at, () => {
-            timers.delete(timer);
-            input(Input.Fired({ timer }));
-          }),
-        );
-      },
-      Disarm: ({ timer }) => {
-        timers.get(timer)?.();
-        timers.delete(timer);
-      },
+      Interrupt: ({ call }) => fibers.cancel(`call/${call}`),
+      Arm: ({ timer, at }) =>
+        fibers.fork(
+          `timer/${timer}`,
+          Effect.sleep(Duration.millis(Math.max(0, at - clock.currentTimeMillisUnsafe()))),
+          (exit) => {
+            if (Exit.isSuccess(exit)) input(Input.Fired({ timer }));
+          },
+        ),
+      Disarm: ({ timer }) => fibers.cancel(`timer/${timer}`),
       Persist: ({ scope, writes, ticket }) => edge.accept(scope, writes, ticket),
     });
 
@@ -152,7 +118,7 @@ export const makeDriver = (options: {
     running = true;
 
     for (let next = inbox.shift(); next !== undefined; next = inbox.shift()) {
-      const env: Env = { now: host.now(), seed: host.sessionSeed };
+      const env: Env = { now: clock.currentTimeMillisUnsafe(), seed: host.sessionSeed };
       const out = step(machines, world, next, env);
       world = out.world;
 
@@ -165,6 +131,7 @@ export const makeDriver = (options: {
   };
 
   const input = (next: Input) => {
+    if (closed) return;
     inbox.push(next);
 
     if (!running) run();
@@ -194,9 +161,9 @@ export const makeDriver = (options: {
 
       input(Input.Send({ actor, tag, payload: decoded.value }));
     },
-    stop: () => {
-      for (const stop of timers.values()) stop();
-      timers.clear();
+    close: () => {
+      input(Input.DisposeRuntime());
+      closed = true;
     },
   };
 };

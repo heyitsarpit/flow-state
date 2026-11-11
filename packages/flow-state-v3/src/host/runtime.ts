@@ -1,4 +1,4 @@
-import { Context, Effect, Exit, Layer, Option, Predicate, Scheduler, Schema, Scope } from "effect";
+import { Context, Effect, Exit, Layer, Option, Predicate, Schema, Scope } from "effect";
 import type { Values } from "../core/compiled.ts";
 import type { Evidence } from "../core/evidence.ts";
 import { rowOf, type Row } from "../core/rows.ts";
@@ -7,7 +7,9 @@ import { type ActorId, actorKey, type Use } from "../core/world.ts";
 import type { AnyDefinition, Envelope, Machine, Operations } from "../definition.ts";
 import { FlowError } from "../error.ts";
 import { makeDriver, type Driver } from "./driver.ts";
-import type { Host } from "./host.ts";
+import { browserPlatform } from "./browser.ts";
+import { makeFibers } from "./fibers.ts";
+import { Host, type Platform } from "./host.ts";
 
 /**
  * An app: every machine a Runtime may run, by key (Runtime O1).
@@ -107,29 +109,6 @@ export type RuntimeSetup = {
   readonly construct: () => Runtime;
 };
 
-/**
- * A fresh 32-bit seed per boot from the platform's entropy, so two tabs never share one
- * (WriteLanes R5, I28).
- */
-const entropy = () => crypto.getRandomValues(new Uint32Array(1))[0] ?? 0;
-
-// RETURN_TYPE: the Host contract.
-const realHost = (): Host => ({
-  now: () => Date.now(),
-  monotonic: () => performance.now(),
-  arm: (at, fire) => {
-    const handle = setTimeout(fire, Math.max(0, at - Date.now()));
-
-    return () => clearTimeout(handle);
-  },
-  later: (task) => void setTimeout(task, 0),
-  scheduler: new Scheduler.MixedScheduler(),
-  hidden: () => false,
-  onHidden: () => undefined,
-  store: Option.none(),
-  sessionSeed: entropy(),
-});
-
 // RETURN_TYPE: the snapshot's Operations shape.
 const operationsOf = (driver: Driver, actor: ActorId): Operations => {
   const rows = new Map<string, Map<string, Row>>();
@@ -169,24 +148,25 @@ export const constructOn = (
     readonly scope?: string;
     readonly persistence?: { readonly captureMs?: number };
   },
-  host: Host,
+  platform: Platform,
 ): Runtime => {
   const machines = new Map(Object.values(config.app.machines).map((m) => [m.compiled.id, m]));
   const sinks = new Set<(evidence: Evidence) => void>();
-  let scope = Option.none<Scope.Closeable>();
+  const host = Context.get(platform, Host);
+  // oxlint-disable-next-line lint-bomb/no-unmanaged-effect-scope -- the Runtime owns one Scope for its whole life: its services and every fiber; dispose() closes it
+  const scope = Scope.makeUnsafe();
   let services = Context.empty();
+  const fibers = makeFibers(scope, () => Context.merge(services, platform));
 
   const persistence =
     config.persistence !== undefined && config.scope !== undefined && Option.isSome(host.store);
 
   const driver = makeDriver({
     machines: new Map([...machines].map(([id, m]) => [id, m.compiled])),
-    host,
+    platform,
+    fibers,
     persistence,
     captureMs: config.persistence?.captureMs ?? 5000,
-    get services() {
-      return services;
-    },
     sink: (batch) => {
       for (const e of batch) for (const sink of sinks) sink(e);
     },
@@ -199,10 +179,7 @@ export const constructOn = (
   const ready = () =>
     Effect.gen(function* () {
       if (config.services !== undefined) {
-        // oxlint-disable-next-line lint-bomb/no-unmanaged-effect-scope -- the Runtime owns its services' scope for its whole life; dispose() closes it
-        const owned = yield* Scope.make();
-        scope = Option.some(owned);
-        services = yield* Layer.buildWithScope(config.services, owned).pipe(
+        services = yield* Layer.buildWithScope(config.services, scope).pipe(
           Effect.mapError(
             (cause) => new FlowError({ code: "ServiceFailed", problems: [String(cause)] }),
           ),
@@ -245,12 +222,9 @@ export const constructOn = (
     },
     dispose: () =>
       Effect.suspend(() => {
-        driver.stop();
+        driver.close();
 
-        return Option.match(scope, {
-          onNone: () => Effect.void,
-          onSome: (s) => Scope.close(s, Exit.void),
-        });
+        return Scope.close(scope, Exit.void);
       }),
     [Internal]: { driver, sinks, machines },
   };
@@ -270,7 +244,7 @@ export const runtimeSetup = (config: {
   readonly services?: Layer.Layer<any>;
   readonly scope?: string;
   readonly persistence?: { readonly captureMs?: number };
-}): RuntimeSetup => ({ construct: () => constructOn(config, realHost()) });
+}): RuntimeSetup => ({ construct: () => constructOn(config, browserPlatform()) });
 
 /**
  * A Runtime's internals, for the internal routes (`inspect`, the test host).

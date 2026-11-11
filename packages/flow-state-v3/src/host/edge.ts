@@ -1,6 +1,7 @@
-import { Option } from "effect";
+import { Clock, Context, Duration, Effect, Exit, Option } from "effect";
 import type { Values } from "../core/compiled.ts";
-import type { Host, Purpose } from "./host.ts";
+import type { Fibers } from "./fibers.ts";
+import { Host, type Platform, type Purpose } from "./host.ts";
 
 /**
  * A ticket a batch carries: the Attempt it acknowledges or captures.
@@ -22,7 +23,6 @@ type Scope = {
   readonly tickets: ReadonlyArray<Ticket>;
   readonly out: boolean;
   readonly due: number;
-  readonly stopWake: Option.Option<() => void>;
 };
 
 const fresh: Scope = {
@@ -30,7 +30,6 @@ const fresh: Scope = {
   tickets: [],
   out: false,
   due: Number.POSITIVE_INFINITY,
-  stopWake: Option.none(),
 };
 
 const purposeOf = (tickets: ReadonlyArray<Ticket>) => {
@@ -42,9 +41,6 @@ const purposeOf = (tickets: ReadonlyArray<Ticket>) => {
 
   return tickets.length > 0 ? acknowledge : flush;
 };
-
-const stop = (scope: Scope) =>
-  Option.match(scope.stopWake, { onNone: () => undefined, onSome: (wake) => wake() });
 
 /**
  * The persistence edge (WriteAhead R10, R12, R13): per scope, one batch out at a time, carrying
@@ -58,19 +54,22 @@ const stop = (scope: Scope) =>
  * - Each ticket's answer is passed to `stored`, which runs a step of the core.
  */
 export const makeEdge = (
-  host: Host,
+  platform: Platform,
+  fibers: Fibers,
   options: { readonly captureMs: number; readonly stored: (ticket: string, ok: boolean) => void },
 ) => {
+  const host = Context.get(platform, Host);
+  const clock = Context.get(platform, Clock.Clock);
   const scopes = new Map<string, Scope>();
   const scopeOf = (name: string) => scopes.get(name) ?? fresh;
 
   const issue = (name: string) => {
     const scope = scopeOf(name);
-    stop(scope);
+    fibers.cancel(`wake/${name}`);
     const store = host.store;
 
     if (Option.isNone(store) || scope.dirty.size === 0) {
-      scopes.set(name, { ...scope, stopWake: Option.none(), due: Number.POSITIVE_INFINITY });
+      scopes.set(name, { ...scope, due: Number.POSITIVE_INFINITY });
 
       return;
     }
@@ -83,7 +82,6 @@ export const makeEdge = (
       tickets: [],
       out: true,
       due: Number.POSITIVE_INFINITY,
-      stopWake: Option.none(),
     });
 
     store.value.write(
@@ -112,25 +110,25 @@ export const makeEdge = (
 
     if (scope.out || scope.dirty.size === 0) return;
 
-    if (scope.tickets.length > 0 || host.now() >= scope.due || host.hidden()) issue(name);
+    if (scope.tickets.length > 0 || clock.currentTimeMillisUnsafe() >= scope.due || host.hidden())
+      issue(name);
   };
 
   const wakeAt = (name: string, at: number) => {
     const scope = scopeOf(name);
 
     if (at >= scope.due) return;
-    stop(scope);
+    scopes.set(name, { ...scope, due: at });
 
-    const wake = host.arm(at, () => {
-      scopes.set(name, {
-        ...scopeOf(name),
-        due: Number.NEGATIVE_INFINITY,
-        stopWake: Option.none(),
-      });
-      pump(name);
-    });
-
-    scopes.set(name, { ...scope, due: at, stopWake: Option.some(wake) });
+    fibers.fork(
+      `wake/${name}`,
+      Effect.sleep(Duration.millis(Math.max(0, at - clock.currentTimeMillisUnsafe()))),
+      (exit) => {
+        if (Exit.isFailure(exit)) return;
+        scopes.set(name, { ...scopeOf(name), due: Number.NEGATIVE_INFINITY });
+        pump(name);
+      },
+    );
   };
 
   host.onHidden(() => {
@@ -148,7 +146,7 @@ export const makeEdge = (
       if (Option.isSome(ticket) || options.captureMs <= 0 || host.hidden()) {
         scopes.set(name, { ...scopeOf(name), due: Number.NEGATIVE_INFINITY });
         host.later(() => pump(name));
-      } else wakeAt(name, host.now() + options.captureMs);
+      } else wakeAt(name, clock.currentTimeMillisUnsafe() + options.captureMs);
     },
   };
 };

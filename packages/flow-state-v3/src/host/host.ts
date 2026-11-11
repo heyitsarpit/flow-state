@@ -1,4 +1,4 @@
-import type { Option, Scheduler } from "effect";
+import { Context, type Option } from "effect";
 
 /**
  * Why the runtime writes a batch: to acknowledge an Attempt before its send, to capture a lane
@@ -26,24 +26,29 @@ export type Store = {
 };
 
 /**
- * The platform a Runtime runs on: its clock and timers, its task queue and fiber scheduler, its
- * page visibility, its store and the boot's entropy.
+ * The platform facts Effect has no service for: the host's task queue, page visibility, the
+ * durable store and the boot's entropy.
  *
  * **Details**
  *
- * Every operation is the host's synchronous primitive, as a page's `Date.now`, `setTimeout` and
- * IndexedDB callbacks are. `now` is wall-clock time; `monotonic` never goes backwards, whatever the
- * wall clock does (a browser's `performance.now()`). `sessionSeed` is fresh per boot; Attempt ids are minted from it
- * (WriteLanes R5).
+ * Time and fiber scheduling are Effect's own `Clock` and `Scheduler`, in the same Context: absent,
+ * Effect's defaults apply; a test host provides its own. Every operation is the host's synchronous
+ * primitive, as a page's IndexedDB callbacks are. `sessionSeed` is fresh per boot; Attempt ids are
+ * minted from it (WriteLanes R5).
  */
-export type Host = {
-  readonly now: () => number;
-  readonly monotonic: () => number;
-  readonly arm: (at: number, fire: () => void) => () => void;
-  readonly later: (task: () => void) => void;
-  readonly scheduler: Scheduler.Scheduler;
-  readonly hidden: () => boolean;
-  readonly onHidden: (listener: () => void) => void;
-  readonly store: Option.Option<Store>;
-  readonly sessionSeed: number;
-};
+export class Host extends Context.Service<
+  Host,
+  {
+    readonly later: (task: () => void) => void;
+    readonly hidden: () => boolean;
+    readonly onHidden: (listener: () => void) => void;
+    readonly store: Option.Option<Store>;
+    readonly sessionSeed: number;
+  }
+>()("flow-state/Host") {}
+
+/**
+ * What a Runtime runs over: the Host, with `Clock` and `Scheduler` where they are not Effect's
+ * defaults.
+ */
+export type Platform = Context.Context<Host>;

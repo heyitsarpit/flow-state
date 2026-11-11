@@ -1,7 +1,18 @@
-import { Data, Effect, Layer, Option, Result, Schema } from "effect";
+import {
+  Clock,
+  Context,
+  Data,
+  Duration,
+  Effect,
+  Layer,
+  Option,
+  Result,
+  Scheduler,
+  Schema,
+} from "effect";
 import { Evidence as EvidenceRecord, type Evidence } from "../../src/core/evidence.ts";
 import type { Machine } from "../../src/definition.ts";
-import { testing } from "../../src/host/testing.ts";
+import { Host, testing } from "../../src/host/testing.ts";
 import { actorRef, app } from "../../src/index.ts";
 import { attachInspector } from "../../src/inspect.ts";
 import { PayMachine, ShopApi } from "../machines/pay.ts";
@@ -15,6 +26,7 @@ import {
   Snapshot,
   Unreadable,
 } from "../port.ts";
+import type { WorldClock } from "../world/clock.ts";
 import type { Network } from "../world/network.ts";
 import { Write } from "../world/storage.ts";
 
@@ -200,6 +212,29 @@ const observationOf = (evidence: Evidence, identify: (value: WeakKey) => number)
       ),
   });
 
+/**
+ * Effect's Clock over the fake world's clock: virtual time, and sleeps as the world's timers, so
+ * the runtime's timers and a commit's own deadline move only when the suite advances time.
+ */
+const worldClock = (clock: WorldClock) => {
+  const nanos = () => BigInt(clock.now()) * 1_000_000n;
+
+  return Clock.Clock.of({
+    currentTimeMillisUnsafe: clock.now,
+    currentTimeMillis: Effect.sync(clock.now),
+    currentTimeNanosUnsafe: nanos,
+    currentTimeNanos: Effect.sync(nanos),
+    monotonicTimeNanosUnsafe: nanos,
+    monotonicTimeNanos: Effect.sync(nanos),
+    sleep: (duration) =>
+      Effect.callback<void>((resume) =>
+        Effect.sync(
+          clock.arm(clock.now() + Duration.toMillis(duration), () => resume(Effect.void)),
+        ),
+      ),
+  });
+};
+
 const isRecord = Schema.is(Schema.Record(Schema.String, Schema.Json));
 
 const recordOf = (json: Json) => (isRecord(json) ? json : {});
@@ -252,31 +287,33 @@ export const productionPort: Port = {
         scope: "conformance",
         persistence: { captureMs: boot.captureMs },
       },
-      {
-        now: clock.now,
-        monotonic: clock.now,
-        arm: clock.arm,
-        later: page.later,
-        scheduler: page.scheduler,
-        hidden: page.hidden,
-        onHidden: page.onHidden,
-        sessionSeed: boot.sessionSeed,
-        store: Option.some({
-          load: storage.load,
-          write: (writes, purpose, answer, acknowledges) =>
-            storage.write(
-              writes.map((w) =>
-                Option.match(w.value, {
-                  onNone: () => Write.Remove({ key: w.key }),
-                  onSome: (value) => Write.Put({ key: w.key, value }),
-                }),
+      Context.make(
+        Host,
+        Host.of({
+          later: page.later,
+          hidden: page.hidden,
+          onHidden: page.onHidden,
+          sessionSeed: boot.sessionSeed,
+          store: Option.some({
+            load: storage.load,
+            write: (writes, purpose, answer, acknowledges) =>
+              storage.write(
+                writes.map((w) =>
+                  Option.match(w.value, {
+                    onNone: () => Write.Remove({ key: w.key }),
+                    onSome: (value) => Write.Put({ key: w.key, value }),
+                  }),
+                ),
+                purpose,
+                answer,
+                acknowledges,
               ),
-              purpose,
-              answer,
-              acknowledges,
-            ),
+          }),
         }),
-      },
+      ).pipe(
+        Context.add(Clock.Clock, worldClock(clock)),
+        Context.add(Scheduler.Scheduler, page.scheduler),
+      ),
     );
 
     attachInspector(runtime, (evidence) =>
