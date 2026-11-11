@@ -1102,6 +1102,22 @@ coverage 40 of 186 (18 in part), 0 gaps, `nub run check` zero.
   unknown code, which still fails any expected code; (3) CLI-04 reads exit 1 alone (CLI-02, CLI-03
   read `broken`'s documents); (5) adapter defects in `handleOf` stay uncited throws.
 
+## Convergence step 9 revision (2026-11-11, in progress; the convergence's one allowed revision)
+
+From `references/proposals/convergence-step9-review-2026-11-11.md`, assigned by the coordinator after
+the selection oracle (T8) landed. Plan, in order:
+
+1. A table here of every obligation trigger in the lifecycle: suite fact or runtime claim, and for a
+   claim, the oracle that judges it (the turn header by Turn I2 now).
+2. One pass so every trigger is a suite fact or a judged claim: H1's header (the lifecycle reads the
+   anchored choice), H2 (a missing `Incarnated` or a bare `Parked` drops a delivery: anchor liveness
+   to `Ensured`, attach facts and the reload; recover `k.drop-row` and `q1a.unchanged-resets` on
+   their 18 cases), and `Unhandled`, `Denied` or a second `InvalidTurn` disposing of an ending.
+3. The perturbation test extended to the turn header and the actor facts.
+4. M1: six cells and about ten trace cites moved to the Spec (CQ1 and CQ6 rulings in log.task).
+5. M2: Run 7's account and its five narrowings corrected here.
+6. Cuts (the lifecycle is 2.6 times v2's estimate: M3's unread distinctions and duplication).
+
 ## T8 (2026-11-11): Turn area (in progress)
 
 ### Selection (first, from the step 9 review's H1)
