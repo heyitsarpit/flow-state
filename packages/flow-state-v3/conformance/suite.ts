@@ -69,7 +69,7 @@ export const guarantees: ReadonlyArray<Guarantee> = [
     oracle: deliveredOnce,
     mutants: [...deliveredOnceMutants, ...carriedDeliveredOnceMutants, ...reportLieMutants],
   },
-  { oracle: laneQueue, mutants: [...laneQueueMutants, ...headerLaneMutants] },
+  { oracle: laneQueue, mutants: [...laneQueueMutants, ...resendMutants, ...headerLaneMutants] },
   { oracle: disposal, mutants: [...disposalMutants, ...carriedDisposalMutants] },
   { oracle: graphNames, mutants: graphNamesMutants },
   { oracle: retryCount, mutants: retryCountMutants },
