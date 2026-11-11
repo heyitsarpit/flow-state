@@ -81,7 +81,8 @@ const bounds = (model: Model, reference: Reference) =>
 /**
  * Each head that was re-sending at the step's start (the model's expectation, `lives.before`), in a
  * step where the store answered every held write, that the server did not receive again in that
- * step (WriteLanes I26: an accepted retry is followed by one invocation once its capture lands).
+ * step (WriteLanes I26: an accepted retry is followed by one invocation once its capture lands),
+ * unless a later move of that step released, disposed or ended it (WriteLanes R8's exceptions).
  * A request of its operation that carried an Attempt the model never saw is WriteLanes I9.
  */
 const owedResends = (lives: LifeStep, step: ReadonlyArray<Fact>) => {
@@ -90,8 +91,10 @@ const owedResends = (lives: LifeStep, step: ReadonlyArray<Fact>) => {
   const received = step.flatMap((f) => (Fact.$is("Requested")(f) ? [f.request] : []));
   const known = lives.after.attempts.map((a) => a.id);
 
+  const gone = lives.after.attempts.filter((a) => a.phase._tag === "Gone").map((a) => a.id);
+
   return lives.before.attempts
-    .filter((a) => a.phase._tag === "Resending")
+    .filter((a) => a.phase._tag === "Resending" && !gone.includes(a.id))
     .filter((a) => !received.some((r) => Option.contains(r.key, a.id)))
     .map((a) => {
       const other = received.find(
