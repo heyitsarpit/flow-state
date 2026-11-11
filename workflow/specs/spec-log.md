@@ -433,3 +433,13 @@ Both written by the replan records review, under the orchestrator's ruling (V3 l
 - 2026-11-11, Conformance R18: an unreached interacting pair passes during the slices only with a dated owner, and
   none may be unreached at T15 and T53. Why: the gate as written could never pass (fixtures trail the runtime); the
   user chose the option that ends as strict as a gate that never waives (records review B1).
+
+## 2026-11-11, Conformance R19 wording note (proposed, for the user's read)
+
+- **Conformance R19, "holds payloads and memory as opaque values":** proposed note: a fixture's reference may declare
+  a fold per memory field that a guard, key or delay reads, from labels and earlier folds only; the model never
+  reads the runtime's memory or decodes a payload. Why: T45's expect half takes option (B) of the design review
+  (code:workflow/plans/flow/references/proposals/t45-expect-half-review-2026-11-11.md, decision 1). Pay's keys,
+  `WAITING`'s delay and several guards read memory, and R20 counts a fixture's reference as a suite fact. Not yet
+  written into the Spec; the user decides. Reverse: drop the note and the folds; the guards fall back to allowed
+  sets.

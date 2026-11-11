@@ -406,8 +406,8 @@ tasks
             - the search finds at least one Spec conflict or runtime difference no case had, or reports none;
             - falsify round-14 is 147/147 before any other step of this Task.
             - the persistence rows of @task.V3.T10 (now the suite half of @task.V3.T19) are covered by generated runs.
-            - obligation code takes no observation, enforced by lint on `lifecycle-step.ts`, `lifecycle-owed.ts` and
-              `turn/selection.ts`.
+            - obligation code takes no observation, enforced by lint on every expect module: `dsl/expect.ts`,
+              `turn/predict.ts` and what they import (`dsl/lifecycle*.ts`, `turn/anchor.ts`, the fixtures' folds).
             - `limits.ts` rows each fail on round-14 by their named Invariant, and a gate verifies it.
             - searches and mutants run from the one runner with `--parallel`, a planted slow child reads as unknown, and
               the old suite's search kills are reproduced (from @task.V3.T14).
@@ -488,6 +488,12 @@ tasks
             Restore R3, I6); no timeout reason; labels at the suite's driver and server instead of model codecs or 
             payload reads; per-lane compare; report kinds outside the lifecycle stay with their oracles. Five items 
             flagged for others to decide (memory guards, RuntimeDisposed, Finished, acknowledged set, capture position).
+        comment     2026-11-11T17:05:29Z
+            Step 3 design accepted with the review's changes (orchestrator, 74911f8d); design updated in place and 
+            marked accepted. Acceptance 5's file list now names the expect modules (`dsl/expect.ts`, `turn/predict.ts` 
+            and their imports) instead of the three files the split empties (N5); intent unchanged. Decision 4 checked: 
+            WriteAhead R5 fixes a lane record's identity, not its store key spelling, so the acknowledged set stays a 
+            limits row. R19 wording note proposed in spec-log for the user's read.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open
