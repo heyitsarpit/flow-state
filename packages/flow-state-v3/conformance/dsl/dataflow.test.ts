@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 import { describe, it } from "vite-plus/test";
 import { Effect, Option } from "effect";
 import { loadPrototype, prototypePort } from "../adapters/prototype.ts";
@@ -89,7 +90,21 @@ const anchorView = (anchor: Anchor) => ({
   })),
 });
 
-const modelView = (model: Model) => ({ live: model.live, held: model.held });
+/**
+ * Where a lying run first differs from the truthful one before anything refused it: `None` when
+ * every lie was refused before it reached expect state, or reached none.
+ */
+const leakAt = (
+  truth: ReadonlyArray<{ readonly view: unknown }>,
+  lying: ReadonlyArray<{ readonly view: unknown; readonly refused: boolean }>,
+) => {
+  const caught = lying.findIndex((v) => v.refused);
+  const upTo = caught < 0 ? lying.length : caught;
+
+  return Option.fromUndefinedOr(
+    lying.slice(0, upTo).findIndex((v, i) => !isDeepStrictEqual(v.view, truth[i]?.view)),
+  ).pipe(Option.filter((i) => i >= 0));
+};
 
 /**
  * The expect state after each step of a fact list: selection's predictions, the anchor, and the
@@ -125,9 +140,10 @@ const expectStates = (fixtures: Parameters<typeof handlersFor>[0], facts: Readon
             view: {
               turns: judged.turns,
               anchor: anchorView(judged.state),
-              model: modelView(life.after),
+              model: life.after,
             },
-            refused: judged.violations.length > 0,
+            refused:
+              judged.violations.length > 0 || life.applied.some((a) => a.refusals.length > 0),
           },
         ],
       };
@@ -160,48 +176,55 @@ describe("no report value reaches expect state (Conformance R20, T45 K2)", () =>
       opened.end();
       const facts = opened.facts();
 
-      const truth = expectStates(scenario.fixtures, facts).map((v) => v.view);
+      const truth = expectStates(scenario.fixtures, facts);
 
-      assert.deepStrictEqual(
-        expectStates(
-          scenario.fixtures,
-          facts.map((f) => lied(f)),
-        ).map((v) => v.view),
-        truth,
-        `${id}: a member, key or ending lie`,
-      );
-
-      const headed = expectStates(
-        scenario.fixtures,
-        facts.map((f) => lied(f, true)),
-      );
-
-      const caught = headed.findIndex((v) => v.refused);
-      const upTo = caught < 0 ? headed.length : caught + 1;
-
-      assert.deepStrictEqual(
-        headed.slice(0, upTo).map((v) => v.view),
-        truth.slice(0, upTo),
-        `${id}: a turn's from changes nothing before selection refuses it`,
-      );
+      for (const header of [false, true])
+        assert.deepStrictEqual(
+          leakAt(
+            truth,
+            expectStates(
+              scenario.fixtures,
+              facts.map((f) => lied(f, header)),
+            ),
+          ),
+          Option.none(),
+          `${id}: a ${header ? "turn's from" : "member, key or ending"} lie reaches expect state before any check refuses it`,
+        );
     }
   });
 
-  it("the check sees a report value that reaches expect state", () => {
-    const leaked = (fact: Fact) =>
-      Fact.$is("Reported")(fact) && Observation.$is("Minted")(fact.observation)
-        ? fact.observation.key
-        : Option.none();
-
+  it("the check sees a lied value that reaches any part of the expect state", () => {
     const fact = Fact.Reported({
-      observation: Observation.Minted({
+      observation: Observation.Ended({
         operation: "pay",
-        attempt: "a1",
+        attempt: Option.some("a1"),
+        channel: "unknown",
+        reason: "NoResponse",
         actor: Option.none(),
-        key: Option.some({ intentId: "pi1" }),
+        failure: Option.none(),
       }),
     });
 
-    assert.notDeepStrictEqual(leaked(lied(fact)), leaked(fact));
+    const told = lied(fact);
+    assert.ok(Fact.$is("Reported")(told) && Observation.$is("Ended")(told.observation));
+
+    const leaking = (channel: string, reason: string, refused: boolean) => [
+      { view: { endings: [], obligations: [], attempts: [] }, refused: false },
+      {
+        view: { endings: [{ channel, reason }], obligations: [reason], attempts: [channel] },
+        refused,
+      },
+    ];
+
+    const truth = leaking("unknown", "NoResponse", false);
+
+    assert.deepStrictEqual(
+      leakAt(truth, leaking(told.observation.channel, told.observation.reason, false)),
+      Option.some(1),
+    );
+    assert.deepStrictEqual(
+      leakAt(truth, leaking(told.observation.channel, told.observation.reason, true)),
+      Option.none(),
+    );
   });
 });

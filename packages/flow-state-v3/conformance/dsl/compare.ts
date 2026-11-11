@@ -30,6 +30,8 @@ import {
   LifeMove,
   type Model,
   Move,
+  Phase,
+  sameLane,
 } from "./lifecycle-model.ts";
 import { type Known, operationOf, owedMembers } from "./lifecycle-owed.ts";
 import type { Rules } from "./lifecycle-rules.ts";
@@ -191,6 +193,35 @@ const endHeard = (walk: Walk, actor: ActorRef, given: Rules) => {
 const ANSWERABLE: ReadonlyArray<string> = ["Unsent", "OnWire", "Resending"];
 
 /**
+ * The ending a newer mint owes the head it replaces on a `cancel` lane (WriteLanes R7): a head
+ * sent and not ended (on the wire, interrupted, or left as evidence by the replacement) ends
+ * unknown { Cancelled }. `None` where no newer Attempt of its lane exists.
+ */
+const replaced = (walk: Walk, known: Known, id: string) => {
+  const index = walk.model.attempts.findIndex((a) => a.id === id);
+  const head = walk.model.attempts[index];
+
+  const sent =
+    head !== undefined &&
+    (Phase.$is("OnWire")(head.phase) ||
+      Phase.$is("Interrupted")(head.phase) ||
+      (Phase.$is("Gone")(head.phase) && head.phase.why === "evidence"));
+
+  if (head === undefined || !sent) return Option.none();
+
+  const cancels = Option.exists(
+    operationOf(known, head.lane.actor, head.lane.operation),
+    (o) => o.concurrency === "cancel",
+  );
+
+  const newer = walk.model.attempts.slice(index + 1).some((a) => sameLane(a.lane, head.lane));
+
+  return cancels && newer
+    ? Option.some({ channel: "unknown" as const, reason: Option.some("Cancelled") })
+    : Option.none();
+};
+
+/**
  * Matches one report to the move the expect half allows for it, and applies that move (the compare
  * half, Conformance R19): a turn opens with its predicted members, an answered Attempt ends as the
  * suite's answer says, and every other report is a move its table cell accepts or refuses.
@@ -282,13 +313,18 @@ export const reported = (
             (l) => answeredEnding(known, l, walk, id),
           );
 
-          const said = Option.match(answered, {
-            onNone: () => ({ channel, reason }),
-            onSome: (e) => ({
-              channel: e.channel,
-              reason: Option.getOrElse(e.reason, () => reason),
-            }),
-          });
+          const said = Option.match(
+            Option.orElse(answered, () => replaced(walk, known, id)),
+            {
+              onNone: () => ({ channel, reason }),
+              onSome: (e) => ({
+                channel: e.channel,
+                reason: Option.getOrElse(e.reason, () =>
+                  e.channel === "success" ? "success" : "NoResponse",
+                ),
+              }),
+            },
+          );
 
           const retained =
             lane === undefined ||
