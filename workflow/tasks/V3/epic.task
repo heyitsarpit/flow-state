@@ -221,9 +221,9 @@ instructions
       the reserve in the Limits section (the user, 2026-11-10).
       R35's convergence threshold: 3, the third review in a row finding the same root cause in the
       same part (amendment 4, the user, 2026-11-08).
-    - R30's effort: building leads medium, every third building iteration high; reviewing and
-      auditing leads high; every Haiku agent high (the user, 2026-11-02 and 2026-11-08; kept by Q6
-      A, 2026-11-09).
+    - R30's effort: every lead (building, reviewing, auditing, designing) is Opus at medium; every
+      Haiku agent high (the user, 2026-11-11; was building medium with every third high, reviews
+      high).
     - Reviews: every review, audit or research task goes to one Opus lead that starts its own four
       Haiku sidecars, two of them on code quality (STYLE.md and Effect idioms; types, comments and
       lint), two on correctness against the Spec the change implements; sidecars report only to
@@ -275,7 +275,9 @@ instructions
       `watch.ts --seconds N`; stdin never read (`</dev/null`); files only with the Write and Edit
       tools (memory, 2026-11-04).
 cadence
-    Review every 60 minutes on the latest checkpoint.
+    Review every 60 minutes on the latest checkpoint while reviews keep surfacing mid-build issues;
+    after two reviews in a row with no High or Medium finding, every 90 minutes, back to 60 when one
+    does (the user, 2026-11-11).
 
     Session cron `7 * * * *`.
 
