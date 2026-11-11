@@ -180,6 +180,10 @@ const okValue = (answer: Answer) =>
 
 const statusOf = (answer: Answer) => ({
   status: Option.match(okValue(answer), { onNone: () => null, onSome: (v) => read(v, "status") }),
+  clientSecret: Option.match(okValue(answer), {
+    onNone: () => null,
+    onSome: (v) => read(v, "clientSecret"),
+  }),
 });
 
 const label = (labels: Labels, name: string) =>
@@ -208,8 +212,9 @@ const byIntent = (_labels: Labels, fields: Folded) => ({ intentId: fields["inten
  * - `capturable` reads the status of the pay or intent answer the suite gave; `receipt` is folded
  *   as set or `null` only. The `PayNotSent` guard reads a Flow decline's reason, the `retryable`
  *   and `idle` guards read lanes, and `IntentRead[2]` reads both: they stay opaque.
- * - `clientSecret` is set only by the real Pay's `requires_action` alternative from `PAYING`,
- *   which this table does not hold, so it stays `null`.
+ * - `clientSecret` is set by the real Pay's `requires_action` alternative from `PAYING`
+ *   (`machines/pay.ts`, `payingChallenge`), which round-14's Pay lacks; its guard is computed, so a
+ *   round-14 run never selects it.
  */
 const payFolds: Folds = {
   initial: {
@@ -249,6 +254,7 @@ const payFolds: Folds = {
     "states.LEFT.on.Start[0]": started,
     "on.Confirmed[0]": () => ({ authorized: true }),
     "on.Confirmed[1]": () => ({ authorized: true }),
+    "states.PAYING.on.Confirmed[0]": (labels) => ({ clientSecret: labels["clientSecret"] ?? null }),
     "states.PAYING.on.Confirmed[1]": () => ({ authorized: true }),
     "states.PAYING.on.Busy[0]": (labels, fields) => ({
       busyTries: Number(fields["busyTries"] ?? 0) + 1,
@@ -264,6 +270,8 @@ const payFolds: Folds = {
       Option.some(fields["authorized"] === true && fields["receipt"] === null),
     "on.Confirmed[0]": capturableStatus,
     "on.Confirmed[1]": capturableStatus,
+    "states.PAYING.on.Confirmed[0]": (labels) =>
+      Option.map(label(labels, "status"), (status) => status === "requires_action"),
     "states.PAYING.on.Confirmed[1]": capturableStatus,
     "states.PAYING.on.Busy[0]": (_labels, fields) =>
       Option.some(Number(fields["busyTries"] ?? 0) < 3),
@@ -322,7 +330,11 @@ const payHandlers: Handlers<State> = {
     IDLE: { Start: [updating(to("CARD"))] },
     PAYING: {
       CheckTick: [updating(stay)],
-      Confirmed: [indexed(1, guarded(updating(to("PLACING")))), indexed(2, updating(to("CARD")))],
+      Confirmed: [
+        indexed(0, guarded(updating(stay))),
+        indexed(1, guarded(updating(to("PLACING")))),
+        indexed(2, updating(to("CARD"))),
+      ],
       Declined: [updating(to("CARD"))],
       Busy: [guarded(updating(to("WAITING"))), updating(to("CARD"))],
       PayRefused: [updating(to("CARD"))],
