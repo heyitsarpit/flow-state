@@ -598,6 +598,13 @@ tasks
             K2 in part (see latest T45 commit): a call's actor and key now come from the step's predicted turn, and a 
             mint no prediction owns records no call (route either). Still from reports: ending channel and reason, Sent 
             and Unparked feeding routeOf and pendingOf; the boundary test still checks imports only. Gates unchanged.
+        comment     2026-11-11T20:14:01Z
+            S1, S4, S6, S7 and minors fixed (1900fa2a, 92cb8487, 756c112d, b24700ab): key-less retry/cancel outside its 
+            own handler is a KeyRequired fixture defect (R9; no fixture hits it); the suite's answer fixes an ending 
+            for any Unsent, OnWire or Resending Attempt; owed re-sends skip heads a later move ended; docs cite no 
+            limits.ts; an unpredicted turn is a defect. Gates unchanged (suite 119, prod 75, falsify 147, liar 122/131, 
+            crash 870/887). Still open: K2 (endings, Sent, Unparked into the anchor; data-flow boundary test), S3, S5, 
+            boundary regex, naming the new crash red.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open
