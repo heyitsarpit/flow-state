@@ -46,6 +46,7 @@ separately.
 | Fix something broken, or diagnose a symptom or capture | `playbook-fix` |
 | Make something faster or lighter, or climb toward a target | `playbook-performance` |
 | Understand how or why something works, or catch up | `playbook-understand` |
+| Shorten records that have grown long, at a close-out | skill:compact-records |
 | Review, open a PR, get it green, land it, or clean up | `playbook-ship` |
 | Learn from a session, or write, fix, or test a skill | `playbook-improve-skills` |
 

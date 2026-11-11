@@ -183,7 +183,7 @@ description
       convergence records.
     - Amendment N: a numbered change to the old roadmap (git `b30be69d`); each one that still
       applies has an Amendment note in log.task, which names its number and says what it changed.
-skill        workflow@e74b0e2
+skill        workflow@7043010
 run
     To start: "run the loop in workflow/tasks/V3/epic.task". You are the orchestrator: you start,
     track and route agents; you never build.
@@ -206,7 +206,7 @@ run
        `/Users/arpit/Developer/workflow/skills` (a Git repository); check the pin with
        `git -C /Users/arpit/Developer/workflow/skills rev-parse --short HEAD`. If it is at another
        revision, read the pinned one with
-       `git -C /Users/arpit/Developer/workflow/skills show e74b0e2:suites/workflow/NAME/SKILL.md`,
+       `git -C /Users/arpit/Developer/workflow/skills show 7043010:suites/workflow/NAME/SKILL.md`,
        or ask the user. Before changing the loop fields (run, instructions, cadence, stops), read
        skill:build-a-loop at the pinned revision; before adding or editing a Task, read
        skill:to-task (and skill:to-epic for a phase); before adding a phase, read skill:to-epic.

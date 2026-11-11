@@ -4,7 +4,12 @@
     "build-a-loop": {
       "source": "../workflow/skills/suites/workflow",
       "sourceType": "local",
-      "computedHash": "fb467543eb57333e005dab1ead83fddc2649380d61e4a75fa964268024c23ef1"
+      "computedHash": "4aa951a850e2f787548dfea57283b75011af702cb7a4d4f4485bb0db4f866a89"
+    },
+    "compact-records": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "71a1deeb0cc80669cb11fa620777a3270afbf6ee0776935a4f08ca58548d7c9b"
     },
     "effect-api-documentation": {
       "source": "../workflow/skills/suites/effect",
@@ -19,7 +24,7 @@
     "workflow": {
       "source": "../workflow/skills/suites/workflow",
       "sourceType": "local",
-      "computedHash": "78f305ce9386a5dfc18f9ad5b6ceede14ca96415ff8e5720d22b999116f88499"
+      "computedHash": "c835ddaa73f92de4d4b85545c66ce51a57bfdb394f0deb5657fd51283650cc28"
     },
     "workflow-cli": {
       "source": "../workflow/skills/suites/workflow",

@@ -226,8 +226,9 @@ short name.
   written PASS as a phase comment. The completion audit also lists the Plan outcomes the phase's
   Tasks `satisfy` and checks each one is delivered, not only that the suites pass: a suite covers
   what its Spec states, and a Plan outcome with no Spec can be missing while every gate is green.
-  The orchestrator then notes "Phase <P> done". The next phase starts only if the authority allows
-  it; otherwise that is a stop.
+  The orchestrator then notes "Phase <P> done", and compacts the phase's records with
+  skill:compact-records before the next phase starts. The next phase starts only if the authority
+  allows it; otherwise that is a stop.
 - **R19 Epic done.** After the last phase, a completion audit of the goal and every stage exit,
   and of every in-scope Plan outcome: each one delivered, or deferred in writing. On
   PASS, the orchestrator sets the Epic's `status closed`, removes the review cron, and appends a

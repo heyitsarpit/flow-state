@@ -78,6 +78,8 @@ Keep this list by hand: when a package is added, renamed, or deleted, change its
 
 - `workflow-cli`: find work (list, next, status), read and write Plans, Epics, Tasks, Specs and
   Epic notes, link records (`@`, `code:`, `skill:`), check them (check, refs).
+- `compact-records`: shrink grown records (notes, logs, Task comments, status files, instructions)
+  by replaying them against their sources; run at a close-out or when a record passes its limit.
 
 ## Principles
 

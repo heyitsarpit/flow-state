@@ -344,3 +344,5 @@ note 2026-11-11T14:00:00Z
 note 2026-11-11T14:48:53Z
     Decision (user, 2026-11-11, records review B1): unreached interacting pairs pass during the slices only with a 
     dated owner, and none may remain at T15's audit or T53; Conformance R18, T47 and T15 updated.
+note 2026-11-11T14:58:41Z
+    Amendment (the user, 2026-11-11): compact-records added to the library and installed (.agents/skills, linked in .claude/skills); pin moves to workflow@7043010; records are compacted at each slice's close and when one passes its size limit. **Reverse:** pin workflow@e74b0e2.
