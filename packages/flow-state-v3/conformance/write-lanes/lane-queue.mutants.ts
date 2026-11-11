@@ -480,9 +480,6 @@ export const laneQueueMutants: ReadonlyArray<Mutant> = [
  * - `probe.members-reported-reversed` (PG) and `probe.unknown-member-reported` (PH) change only
  *   the report, so every case must pass: a turn owes only what its row and facts give
  *   (Conformance R4).
- * - `probe.retry-members-dropped` (PF) drops every retry member from the act and the report.
- *   The row still owes it (the head is `Resending`), but no Invariant says an owed retry
- *   re-sends, so only case expectations turn red: pending the user (STATUS, Run 7).
  */
 export const laneQueueProbes: ReadonlyArray<Probe> = [
   {
@@ -516,21 +513,6 @@ export const laneQueueProbes: ReadonlyArray<Probe> = [
         file: "turn.ts",
         find: END_OF_READ,
         replace: `  w.members = [...w.members, { op: "ghost", kind: "commit", target: { t: "only" } }];\n${END_OF_READ}`,
-      },
-    ],
-  },
-  {
-    name: "probe.retry-members-dropped",
-    says: "a turn drops every retry member from its act and its report",
-    holds: "pending",
-    runtime: "prototype",
-    cases: ["PAY-04", "PAY-22"],
-    edits: [
-      {
-        file: "turn.ts",
-        find: "    return part.alt.members.map((mem: Member) => {",
-        replace:
-          '    return part.alt.members.filter((mem: Member) => mem.verb !== "retry").map((mem: Member) => {',
       },
     ],
   },

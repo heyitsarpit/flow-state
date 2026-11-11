@@ -10,7 +10,7 @@ import {
   sameLane,
   addressable,
 } from "../dsl/lifecycle-model.ts";
-import { type InvariantId, oracle, type Violation } from "../dsl/oracle.ts";
+import { Fact, type InvariantId, oracle, type Violation } from "../dsl/oracle.ts";
 import type { Concurrency, Reference } from "../fixtures/reference.ts";
 import { MemberTarget, sameActor, sameJson } from "../port.ts";
 
@@ -24,6 +24,7 @@ const GUARANTEE: ReadonlyArray<InvariantId> = [
   "WriteLanes I12",
   "WriteLanes I20",
   "WriteLanes I21",
+  "WriteLanes I26",
 ];
 
 const BOUND: Readonly<Record<Concurrency, number>> = {
@@ -71,6 +72,45 @@ const bounds = (model: Model, reference: Reference) =>
 
     return checks.flatMap(([broken, found]) => (broken ? [found] : []));
   });
+
+/**
+ * Each head that was re-sending at the step's start and still is at its end, in a step where the
+ * store answered every held write (WriteLanes I26: an accepted retry is followed by one
+ * invocation once its capture lands).
+ */
+const owedResends = (lives: LifeStep, step: ReadonlyArray<Fact>) => {
+  const stored = step.some((f) => Fact.$is("Acknowledged")(f));
+
+  if (!stored) return [];
+
+  const before = lives.before.attempts.filter((a) => a.phase._tag === "Resending").map((a) => a.id);
+
+  const known = lives.after.attempts.map((a) => a.id);
+
+  const strangers = step.flatMap((f) =>
+    Fact.$is("Reported")(f) &&
+    f.observation._tag === "Sent" &&
+    !known.includes(f.observation.attempt)
+      ? [f.observation]
+      : [],
+  );
+
+  return lives.after.attempts
+    .filter((a) => a.phase._tag === "Resending" && before.includes(a.id))
+    .map((a) => {
+      const other = strangers.find((x) => x.operation === a.lane.operation);
+
+      return other === undefined
+        ? {
+            invariant: "WriteLanes I26" as const,
+            text: `${a.lane.operation} ${a.id} was retried and its capture landed, but it was not sent again`,
+          }
+        : {
+            invariant: "WriteLanes I9" as const,
+            text: `${a.lane.operation} ${a.id} was retried, and the re-send carried ${other.attempt}, not the Attempt its lane last sent`,
+          };
+    });
+};
 
 const memberLane = (actor: LaneId["actor"], member: LaneMember, lane: LaneId) =>
   sameActor(actor, lane.actor) &&
@@ -247,7 +287,9 @@ type State = { readonly reference: Reference };
  *   I12); a mint or decline only where its anchored commit member admits one (I1, I8); promotion
  *   only past a head that left (I11); `Released` only where a cancel or a release owes it, and owed ones by the turn's close (I12); a cancel's ending by the head's
  *   history (I20); cancelAll's queue ended `NotSent { Cancelled }` in mint order (I21).
- * - Views of its own: at the step's end each lane's waiting list is within its policy's bound (0
+ * - Views of its own: a head re-sending since the step began is sent by the end of a step in which
+ *   the store answered every held write (I26), and a re-send that carries an Attempt the lane
+ *   never sent instead breaks I9; at the step's end each lane's waiting list is within its policy's bound (0
  *   under reject and cancel, 1 under latest, 64 under serialize; I8) and holds at most one
  *   addressable Attempt (I9); within a turn, each report a member causes (a mint or decline of a
  *   commit, a `Superseded`, a `Released`, a `NotSent { Cancelled }`) comes no earlier than the
@@ -271,7 +313,7 @@ export const laneQueue = oracle<State>({
   name: "lane-queue",
   guarantee: GUARANTEE,
   start: (reference) => ({ reference }),
-  step: (state, _facts, _requests, lives) => {
+  step: (state, facts, _requests, lives) => {
     const refused = lives.applied
       .flatMap((a) => a.refusals)
       .filter((r) => GUARANTEE.includes(r.invariant));
@@ -283,6 +325,7 @@ export const laneQueue = oracle<State>({
         ...bounds(lives.after, state.reference),
         ...memberOrder(lives),
         ...headLast(lives),
+        ...owedResends(lives, facts),
       ],
     ] as const;
   },

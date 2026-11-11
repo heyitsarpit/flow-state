@@ -326,7 +326,7 @@ const openCase = (options: CaseOptions) => {
     act(what, () => {
       const attempts = storage.answer(how);
 
-      if (attempts.length > 0) record(Fact.Acknowledged({ attempts }));
+      if (how === "ack" || attempts.length > 0) record(Fact.Acknowledged({ attempts }));
     });
 
   const send = (drives: ReadonlyArray<Drive>) =>

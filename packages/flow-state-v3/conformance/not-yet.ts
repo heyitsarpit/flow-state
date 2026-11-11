@@ -13,8 +13,8 @@ const upTo = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
 export const notYet: ReadonlyArray<NotYet> = [
   {
     owner: "@task.V3.T7",
-    why: "not built yet (round-14 can show each): success writes and store order need a domain-write fixture (I2, I19, I24), old-version holds a Port change to boot another release (I17), an unencodable commit a fixture (I18), late results after cleanup (I23), key-less members (I14), the owed retry (I26, pending the user's call on probe PF), every commit ends (I27); I9's view check is unreachable while the lifecycle refuses a second addressable Attempt first (I1, I11), so its mutant needs a retry or cancel that names another Attempt",
-    invariants: invariantsOf("WriteLanes", [2, 9, 14, 17, 18, 19, 23, 24, 26, 27]),
+    why: "not built yet (round-14 can show each): success writes and store order need a domain-write fixture (I2, I19, I24), old-version holds a Port change to boot another release (I17), an unencodable commit a fixture (I18), late results after cleanup (I23), key-less members (I14), every commit ends (I27); (I9 is checked by a re-send carrying another Attempt)",
+    invariants: invariantsOf("WriteLanes", [2, 14, 17, 18, 19, 23, 24, 27]),
   },
   {
     owner: "@task.V3.T18",

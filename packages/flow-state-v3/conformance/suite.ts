@@ -43,6 +43,7 @@ import { endingChannels } from "./write-lanes/ending-channels.ts";
 import { endingDeliveryScenarios } from "./write-lanes/ending-delivery.scenarios.ts";
 import { lanePoliciesScenarios } from "./write-lanes/lane-policies.scenarios.ts";
 import { laneQueueMutants, laneQueueProbes } from "./write-lanes/lane-queue.mutants.ts";
+import { resendMutants } from "./write-lanes/resend.mutants.ts";
 import { laneQueue } from "./write-lanes/lane-queue.ts";
 import { paymentEndingsScenarios } from "./write-lanes/payment-endings.scenarios.ts";
 import { paymentFaultsScenarios } from "./write-lanes/payment-faults.scenarios.ts";
