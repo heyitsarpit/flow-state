@@ -59,6 +59,7 @@ export type Walk = {
   readonly turns: ReadonlyArray<Predicted>;
   readonly requests: ReadonlyArray<Request>;
   readonly answers: ReadonlyArray<{ readonly request: Request; readonly answer: Answer }>;
+  readonly unmatched: ReadonlyArray<Refusal>;
 };
 
 /**
@@ -182,7 +183,8 @@ export const acknowledged = (walk: Walk, attempts: ReadonlyArray<string>) => ({
 
 /**
  * The step's end: the turn closes, a reload's boot settles, every Attempt and ending sees
- * `StepEnds`, and the obligations due by then are refused on that move.
+ * `StepEnds`, and the obligations due by then are refused on that move, with every report the step
+ * matched to no item (Conformance R19, design N1).
  */
 export const ended = (walk: Walk, given: Rules) => {
   const closed = closedTurn(walk, given);
@@ -192,7 +194,10 @@ export const ended = (walk: Walk, given: Rules) => {
 
   const [model, late] = due(stepped.model, "StepEnds", given);
   const before = stepped.applied.slice(0, -1);
-  const last = stepped.applied.slice(-1).map((a) => ({ ...a, refusals: [...a.refusals, ...late] }));
+
+  const last = stepped.applied
+    .slice(-1)
+    .map((a) => ({ ...a, refusals: [...a.refusals, ...walk.unmatched, ...late] }));
 
   return { ...stepped, model, applied: [...before, ...last] };
 };

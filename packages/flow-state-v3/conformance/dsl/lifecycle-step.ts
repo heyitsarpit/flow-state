@@ -85,6 +85,7 @@ export const step = (
     answers: facts.flatMap((f) =>
       Fact.$is("Answered")(f) ? [{ request: f.request, answer: f.answer }] : [],
     ),
+    unmatched: [],
   };
 
   const walk = facts.reduce((w, fact) => onFact(w, fact, known, earlier, given), start);

@@ -102,6 +102,15 @@ const mintedLane = (known: Known, actor: ActorRef, operation: string, key: Optio
     : Option.none();
 
 /**
+ * A report that fits no item the model holds: refused under its kind's Invariant (design N1),
+ * at the step's end.
+ */
+const unmatched = (walk: Walk, text: string) => ({
+  ...walk,
+  unmatched: [...walk.unmatched, { invariant: "WriteLanes I15" as const, text }],
+});
+
+/**
  * Whether the reference maps an ending the runtime called unmapped: then its `UnmappedEnding`
  * excuses nothing, and the ending stays owed (only a cause the suite sees may excuse one).
  */
@@ -231,7 +240,8 @@ export const reported = (
           Option.match(
             Option.orElse(actor, () => Option.map(walk.model.turn, (t) => t.actor)),
             {
-              onNone: () => walk,
+              onNone: () =>
+                unmatched(walk, `${operation} ended (${reason}) a decline no actor owes`),
               onSome: (who) => push(walk, LaneMove.Declined({ operation, actor: who, reason })),
             },
           ),
@@ -240,24 +250,40 @@ export const reported = (
       const open = closedTurn(walk, given);
 
       return Option.match(lifeNamed(open.model, operation, attempt, actor), {
-        onNone: () => open,
+        onNone: () =>
+          unmatched(
+            open,
+            `${operation} ${Option.getOrElse(attempt, () => "decline")} was delivered as ${event}, an ending no one owes`,
+          ),
         onSome: (ending) =>
           asMapped(push(open, LifeMove.Delivered({ ending })), open.model, known, ending, event),
       });
     },
     Parked: ({ operation, attempt }) =>
       Option.match(lifeNamed(walk.model, operation, attempt, Option.none()), {
-        onNone: () => walk,
+        onNone: () =>
+          unmatched(
+            walk,
+            `${operation} ${Option.getOrElse(attempt, () => "decline")} was parked, an ending no one owes`,
+          ),
         onSome: (ending) => push(walk, LifeMove.Parked({ ending })),
       }),
     Unparked: ({ operation, attempt }) =>
       Option.match(lifeNamed(walk.model, operation, attempt, Option.none()), {
-        onNone: () => walk,
+        onNone: () =>
+          unmatched(
+            walk,
+            `${operation} ${Option.getOrElse(attempt, () => "decline")} was unparked, an ending no one owes`,
+          ),
         onSome: (ending) => push(walk, LifeMove.Unparked({ ending })),
       }),
     Recorded: ({ operation, attempt, why }) =>
       Option.match(lifeNamed(walk.model, operation, attempt, Option.none()), {
-        onNone: () => walk,
+        onNone: () =>
+          unmatched(
+            walk,
+            `${operation} ${Option.getOrElse(attempt, () => "decline")} was recorded (${why}), an ending no one owes`,
+          ),
         onSome: (ending) => push(walk, LifeMove.Recorded({ ending, letGo: why === "letGo" })),
       }),
     Unhandled: ({ event }) => heardOf(closedTurn(walk, given), known, Option.none(), event, given),

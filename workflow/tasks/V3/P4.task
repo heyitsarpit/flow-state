@@ -532,6 +532,13 @@ tasks
             `applied` moves, which are the reports one for one (compare's matches), so they compare report order with 
             the model; `idle-guard` takes lane idleness from the model, the only source. Open (N1): a report that fits 
             no item is still dropped in five places in `dsl/compare.ts`. Gates unchanged.
+        comment     2026-11-11T18:32:18Z
+            Step 3 done (N1, T38): a report that fits no item (a delivery, park, unpark or record of an ending no one 
+            owes; a decline no actor owes) is refused WriteLanes I15 at the step's end; `dsl/compare.test.ts` shows the 
+            three planted runtimes refused at their step with the cell's Invariant (an omitted mint I15, a stray 
+            delivery I15, a mint outside a turn I1). Still open: an unmatched `Sent` stays unjudged (its request may be 
+            noted later in the step), and a kill with turns no capture holds still takes the leaf, keys and re-owned 
+            calls from the report (B4, next). Gates unchanged; liar round-14 9 greens.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open
