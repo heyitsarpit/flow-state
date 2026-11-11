@@ -668,6 +668,24 @@ tasks
             round-14). Liar round-14 122/131: life.* moved to the report-truth list (no write, request or read changes 
             at CARD); the 9 older greens remain (T41). Boundary and data-flow tests cover T37/T40. T14's planted slow 
             child and old-search kills are not done.
+        comment     2026-11-11T22:07:15Z
+            Item 1 (5353f0e7): an actor's end is seen in the store. An owed end owes its record's write in its step 
+            (Actors R8, I12), and a clock-only step that writes while every live actor is used is an early end (I10); 
+            both runtimes write at the end in ACT-01. life.never-ends and life.ends-while-used are off the report-truth 
+            list and red under the liar gate; liar round-14 124/133 (the 9 older greens).
+        comment     2026-11-11T22:07:22Z
+            Item 2 (8eba365d): the schedules oracle computes a memory-read delay from the fixture's delay fold over the 
+            After memory; an early or missing firing is Turn I12. pay16.schedule-reads-pre-transition-memory moved to 
+            the schedules oracle; generated runs kill 39 of 39 area mutants (acceptance 1 met). Suite fixes found on 
+            the way: answered requests carry their answer in the anchor, a keyed retry may re-own a key-less call, no 
+            firing is owed during disposal.
+        comment     2026-11-11T22:07:27Z
+            Item 3 (062c4783): GEN-serialize-seeded-2010 was a model bug, fixed (a kill rolls back a queued commit the 
+            landed batch holds, which restores as queued, Restore R3). GEN-serialize-seeded-2004 is a round-14 bug: its 
+            disposal ends without NotSent { Disposed } for a commit queued behind a cancelled Held head (Actors I38), 
+            now a limits.ts row (3/3 hold). Finding: GEN-pay-seeded-281 shows production also reports no incarnation at 
+            the end-of-case ensure after a dispose that reported Finished (Actors I14 red on both runtimes), not yet 
+            triaged.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open
