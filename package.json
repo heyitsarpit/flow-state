@@ -16,6 +16,7 @@
     "check:toolchain": "node ./scripts/check-toolchain.mjs",
     "conformance:coverage": "bun packages/flow-state-v3/conformance/runner/main.ts coverage",
     "conformance:gates": "bun packages/flow-state-v3/conformance/runner/main.ts gates",
+    "conformance:mutate": "bun packages/flow-state-v3/conformance/runner/main.ts mutate --limit 40 --parallel 6",
     "conformance:crash": "bun packages/flow-state-v3/conformance/runner/main.ts crash --runtime production",
     "docs:build": "nub run --filter @flow-state/docs build",
     "docs:dev": "nub run --filter @flow-state/docs dev",

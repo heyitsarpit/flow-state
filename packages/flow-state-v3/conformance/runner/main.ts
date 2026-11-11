@@ -32,7 +32,8 @@ import {
   suiteIn,
 } from "./falsify.ts";
 import { falsifyOnProduction } from "./falsify-production.ts";
-import { writeGates } from "./gates.ts";
+import { productionCases, writeGates } from "./gates.ts";
+import { runCoreMutants } from "./mutate.ts";
 import { writeMatrix } from "./matrix.ts";
 import { crashCase, runCases, runStatics } from "./run.ts";
 import { coreInvariants, openTasks } from "./specs.ts";
@@ -461,6 +462,15 @@ const main = (args: ReadonlyArray<string>) => {
   if (mode === "coverage") return coverage();
 
   if (mode === "crash") return crash(rest);
+
+  if (mode === "mutate")
+    return runCoreMutants({
+      packageDir: PACKAGE,
+      scratch: resolve(Option.getOrElse(flag(rest, "--scratch"), () => tmpdir())),
+      cases: productionCases,
+      limit: Number(Option.getOrElse(flag(rest, "--limit"), () => "40")) || 40,
+      parallel: parallelOf(rest),
+    });
 
   if (mode === "gates")
     return writeGates(
