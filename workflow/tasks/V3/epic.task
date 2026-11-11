@@ -301,13 +301,18 @@ instructions
       section or review file; sidecar logs and findings tables live only there; STATUS.md keeps one short section per
       Task, cut to a summary when done; no commit lists or gate counts beyond the one revision verified. Briefs and
       handoffs follow the user's Writing order.
+    - Compaction (the user, 2026-11-11): records are compacted with skill:compact-records at each slice's close,
+      after its last review and before the next slice starts, and at the next clean point when one passes its
+      limit: `log.task` 300 lines, one Task's comments 100 lines, one STATUS.md section 150 lines. Never mid-slice,
+      and never the active Task's own section; the builder holds its record writes while it runs.
     - Usage: the run stops at the reserve in Limits and at nothing else; no budget of iterations, time or usage.
     - Commands: under 5 minutes each, with `perl -e 'alarm N; exec @ARGV' --` or `watch.ts --seconds N`; stdin never
       read (`</dev/null`); files only with the Write and Edit tools (memory, 2026-11-04).
     - R43: no worktrees; the builder works in the main checkout on `flow-rewrite` (the user, 2026-11-08).
 cadence
     Reviews start on events (Reviews, in instructions), not on a clock; machine gates run on every checkpoint. A
-    fallback wake every 3 hours checks only for a stalled lead and the usage reserve.
+    fallback wake every 3 hours checks only for a stalled lead, the usage reserve and the records' size limits
+    (a line count, no model).
 
     Session cron `23 */3 * * *` (the stall check).
 
