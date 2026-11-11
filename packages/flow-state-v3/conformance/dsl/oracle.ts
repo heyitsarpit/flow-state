@@ -1,5 +1,6 @@
 import { Data, type Option } from "effect";
 import type { Machines } from "../fixtures/handlers.ts";
+import type { Labels } from "../fixtures/folds.ts";
 import type { Reference } from "../fixtures/reference.ts";
 import type { LifeStep } from "./lifecycle-step.ts";
 import {
@@ -22,14 +23,16 @@ import type { Purpose } from "../world/storage.ts";
  * - `Stepped`: the suite began a step; facts after it, up to the next, belong to that step.
  * - `Requested`: the suite's server received this request, noted when the step that made it
  *   settles, after that step's reports.
- * - `Answered`: the suite's server answered this request.
+ * - `Answered`: the suite's server answered this request; `labels` are the fixture's labels of
+ *   the answer (`fixtures/folds.ts`).
  * - `Reloaded`: the suite killed the page and booted a new one.
  * - `Disposed`: the suite disposed this actor.
  * - `Forgot`: the suite forgot this identity (its record removed; a live actor disposed first).
  * - `Ensured`: the suite attached a use of this actor, creating it if needed.
  * - `Released`: the suite ended one use of this actor.
  * - `DisposingRuntime`: the suite started the Runtime's disposal; it holds until the next reload.
- * - `Drove`: the suite sent this event to this actor, at its root or at one of its parts.
+ * - `Drove`: the suite sent this event to this actor, at its root or at one of its parts; `labels`
+ *   are the fixture's labels of its payload.
  * - `Unstoppable`: from now on, calls of this operation cannot be interrupted.
  * - `Landed`: the suite landed every held batch (perhaps none).
  * - `Wrote`: the store received a batch, noted when the step that wrote it settles, after that
@@ -41,14 +44,14 @@ import type { Purpose } from "../world/storage.ts";
 export type SuiteFact = Data.TaggedEnum<{
   Stepped: { step: number; what: string };
   Requested: { request: Request };
-  Answered: { request: Request; answer: Answer };
+  Answered: { request: Request; answer: Answer; labels: Labels };
   Reloaded: {};
   Disposed: { actor: ActorRef };
   Forgot: { actor: ActorRef };
   Ensured: { actor: ActorRef; use: Use };
   Released: { actor: ActorRef; use: Use };
   DisposingRuntime: {};
-  Drove: { actor: ActorRef; event: string; to: Address };
+  Drove: { actor: ActorRef; event: string; to: Address; labels: Labels };
   Unstoppable: { operation: string };
   Landed: {};
   Wrote: {};

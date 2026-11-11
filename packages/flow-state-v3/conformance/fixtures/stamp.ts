@@ -1,3 +1,4 @@
+import { noFolds } from "./folds.ts";
 import { Schema } from "effect";
 import { Empty, type Fixture, writeOf } from "./fixture.ts";
 import { guarded, to, updating } from "./handlers.ts";
@@ -66,4 +67,5 @@ export const Stamp = {
     schedules: {},
     parts: {},
   },
+  folds: noFolds,
 } satisfies Fixture;

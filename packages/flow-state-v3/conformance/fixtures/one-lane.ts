@@ -1,3 +1,4 @@
+import { noFolds } from "./folds.ts";
 import { Schema } from "effect";
 import { Empty, type Fixture, writeOf } from "./fixture.ts";
 import { guarded, to, updating } from "./handlers.ts";
@@ -48,6 +49,7 @@ export const Serialize = {
     schedules: {},
     parts: {},
   },
+  folds: noFolds,
 } satisfies Fixture;
 
 /**
@@ -70,6 +72,7 @@ export const Latest = {
     schedules: {},
     parts: {},
   },
+  folds: noFolds,
 } satisfies Fixture;
 
 /**
@@ -101,6 +104,7 @@ export const Cancel = {
     schedules: {},
     parts: {},
   },
+  folds: noFolds,
 } satisfies Fixture;
 
 const LEAVES = [
@@ -151,6 +155,7 @@ export const Release = {
       },
     },
   },
+  folds: noFolds,
 } satisfies Fixture;
 
 /**
@@ -184,4 +189,5 @@ export const LateQueue = {
     schedules: {},
     parts: {},
   },
+  folds: noFolds,
 } satisfies Fixture;

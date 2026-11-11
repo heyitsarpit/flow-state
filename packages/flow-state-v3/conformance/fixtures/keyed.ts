@@ -1,3 +1,4 @@
+import { noFolds } from "./folds.ts";
 import { Schema } from "effect";
 import { Empty, type Fixture, writeOf } from "./fixture.ts";
 import { to } from "./handlers.ts";
@@ -45,6 +46,7 @@ export const Keyed = {
     row("Ok", "any", "same", [{ operation: "keyed", kind: "cancel", keyed: false }]),
   ],
   handlers,
+  folds: noFolds,
 } satisfies Fixture;
 
 /**
@@ -75,4 +77,5 @@ export const Held = {
       Unsure: [to("W")],
     },
   },
+  folds: noFolds,
 } satisfies Fixture;

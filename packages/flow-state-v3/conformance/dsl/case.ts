@@ -1,5 +1,5 @@
 import { Data, Equal, Option, Result, Schema } from "effect";
-import { type Fixture, handlersFor, referenceFor, rowsFor } from "../fixtures/fixture.ts";
+import { answerLabels, drivenLabels, type Fixture } from "../fixtures/fixture.ts";
 import {
   Address,
   disposalBoundMs,
@@ -10,9 +10,7 @@ import {
   type Oracle,
   reported,
   type RuntimeFact,
-  steps,
   usesHeld,
-  Violated,
 } from "./oracle.ts";
 import {
   type ActorRef,
@@ -25,17 +23,13 @@ import {
   sameJson,
   type Snapshot,
   type Use,
-  Unreadable,
 } from "../port.ts";
 import { type Answer, NoHeldRequest, type Request, RequestPhase } from "../world/network.ts";
 import type { StorageAnswer } from "../world/storage.ts";
-import { makeWorld, type World } from "../world/world.ts";
-import { decodeReports } from "./reports.ts";
+import { makeWorld } from "../world/world.ts";
 import { type Actor, actorView } from "./actor.ts";
+import { stepEngine } from "./engine.ts";
 import { runtimeLife } from "./life.ts";
-import { empty } from "./lifecycle-model.ts";
-import { step as lifeStep } from "./lifecycle-step.ts";
-import { anchorOf, judgedStep } from "../turn/selection.ts";
 
 /**
  * One event the suite sends to one actor, its payload encoded, addressed to the actor's root
@@ -155,111 +149,6 @@ export type CaseOptions = {
  */
 export class Crashed extends Data.TaggedError("Crashed")<{ readonly after: number }> {}
 
-const stepEngine = (
-  options: CaseOptions,
-  world: World,
-  facts: ReadonlyArray<Fact>,
-  record: (fact: Fact) => void,
-  pending: () => boolean,
-  unread: () => Option.Option<Unreadable>,
-  replaceReports: (from: number, noted: number, replayed: ReadonlyArray<RuntimeFact>) => void,
-) => {
-  const { network, storage } = world.hosts;
-  const reference = referenceFor(options.fixtures);
-  const machines = handlersFor(options.fixtures);
-  const known = { reference, rows: rowsFor(options.fixtures) };
-  let anchor = anchorOf(machines);
-
-  const judges = options.oracles.map((o) => ({
-    name: o.name,
-    next: o.open(reference, options.graphs, machines),
-  }));
-
-  let stepped = 0;
-  let crashing = true;
-  let noted = 0;
-  let wrote = 0;
-  let judged = 0;
-  let model = empty;
-
-  const noteWorld = () => {
-    for (const request of network.requests().slice(noted)) record(Fact.Requested({ request }));
-
-    for (const purpose of storage.written().slice(wrote)) {
-      record(Fact.Wrote());
-      record(Fact.Purposed({ purpose }));
-    }
-
-    noted = network.requests().length;
-    wrote = storage.written().length;
-  };
-
-  const stopIfUnread = (what: string) =>
-    Option.match(unread(), {
-      onNone: () => undefined,
-      onSome: (failure) => {
-        throw new Unreadable({ report: failure.report, issue: `${failure.issue} (at ${what})` });
-      },
-    });
-
-  const judge = (what: string) => {
-    stopIfUnread(what);
-    decodeReports(reference, facts.slice(judged));
-    const fresh = steps(facts.slice(judged));
-    const requests = network.requests();
-    judged = facts.length;
-
-    const cuts = fresh.map((cut) => {
-      const judgedCut = judgedStep(anchor, cut);
-      anchor = judgedCut.state;
-      const life = lifeStep(model, known, judgedCut.facts, requests);
-      model = life.after;
-
-      return { cut, life };
-    });
-
-    const found = judges.flatMap(({ name, next }) =>
-      cuts.flatMap(({ cut, life }) => next(cut, requests, life)).map((v) => ({ name, v })),
-    );
-
-    if (found.length > 0)
-      throw new Violated({
-        oracles: [...new Set(found.map((f) => f.name))],
-        violation: found.map((f) => `${f.name}: ${f.v.invariant}: ${f.v.text}`).join(" | "),
-        step: what,
-      });
-  };
-
-  const act = (what: string, run: () => void, crash: () => void = () => undefined) => {
-    stepped += 1;
-    record(Fact.Stepped({ step: stepped, what }));
-    const from = facts.length;
-    run();
-    // FLOW_STATE_ALLOW_UNKNOWN: settling throws a world failure (Unsettled, Overdue); it is rethrown unread.
-    const settled = Result.try({ try: () => world.settle(pending), catch: (e: unknown) => e });
-    stopIfUnread(what);
-
-    if (Result.isFailure(settled)) throw settled.failure;
-
-    const noted = facts.length;
-    noteWorld();
-    // The liar gate (advisor Q1): the runtime under test acts, and a correct runtime's reports
-    // and answers for this step replace its own; what the world noted at the settle stays last.
-    Option.match(options.replay, {
-      onNone: () => undefined,
-      onSome: (steps) => replaceReports(from, noted, steps[stepped - 1] ?? []),
-    });
-    judge(what);
-
-    if (crashing && Option.contains(options.crashAt, stepped)) {
-      crash();
-      throw new Crashed({ after: stepped });
-    }
-  };
-
-  return { act, judge, stopCrashing: () => void (crashing = false) };
-};
-
 const isRecord = Schema.is(Schema.Record(Schema.String, Schema.Json));
 
 const fieldOf = (input: Json, name: string) =>
@@ -307,7 +196,13 @@ export const openCase = (options: CaseOptions) => {
   const answer = (operation: string, given: Answer) =>
     act(`answer ${operation} ${given._tag}`, () => {
       const request = held(operation, network.oldestOpen(operation));
-      record(Fact.Answered({ request, answer: given }));
+      record(
+        Fact.Answered({
+          request,
+          answer: given,
+          labels: answerLabels(options.fixtures, request.operation, given),
+        }),
+      );
       network.answer(request, given);
     });
 
@@ -329,7 +224,13 @@ export const openCase = (options: CaseOptions) => {
         ),
       );
 
-      record(Fact.Answered({ request, answer: given }));
+      record(
+        Fact.Answered({
+          request,
+          answer: given,
+          labels: answerLabels(options.fixtures, request.operation, given),
+        }),
+      );
       network.answer(request, given);
     });
 
@@ -347,7 +248,14 @@ export const openCase = (options: CaseOptions) => {
   const send = (drives: ReadonlyArray<Drive>) =>
     act(`send ${drives.map((d) => d.event).join(", ")}`, () => {
       for (const { actor, event, payload, to } of drives) {
-        record(Fact.Drove({ actor, event, to }));
+        record(
+          Fact.Drove({
+            actor,
+            event,
+            to,
+            labels: drivenLabels(options.fixtures, actor.machine, event, payload),
+          }),
+        );
         life
           .runtime()
           .send(
@@ -451,7 +359,13 @@ export const openCase = (options: CaseOptions) => {
     answerLate: (operation, given) =>
       act(`late answer ${operation} ${given._tag}`, () => {
         const request = held(operation, network.oldestUndecided(operation));
-        record(Fact.Answered({ request, answer: given }));
+        record(
+          Fact.Answered({
+            request,
+            answer: given,
+            labels: answerLabels(options.fixtures, request.operation, given),
+          }),
+        );
         network.answerLate(request, given);
       }),
     uninterruptible: (operation) =>

@@ -1,3 +1,4 @@
+import { noFolds } from "./folds.ts";
 import { Option, Schema } from "effect";
 import { Empty, type Fixture, writeOf } from "./fixture.ts";
 import {
@@ -243,6 +244,7 @@ export const Pay = {
   operations,
   rows: payRows,
   handlers: payHandlers,
+  folds: noFolds,
 } satisfies Fixture;
 
 const cellsEvents = { ...events, AbortPay: Empty };
@@ -271,4 +273,5 @@ export const Cells = {
     payRow("AbortPay", "any", "same", [{ operation: "pay", kind: "cancel", keyed: true }]),
   ],
   handlers: { ...payHandlers, root: { ...payHandlers.root, AbortPay: [stay] } },
+  folds: noFolds,
 } satisfies Fixture;

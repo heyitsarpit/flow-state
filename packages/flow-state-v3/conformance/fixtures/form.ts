@@ -1,3 +1,4 @@
+import { noFolds } from "./folds.ts";
 import { Option, Schema } from "effect";
 import { Empty, type Fixture } from "./fixture.ts";
 import { guarded, schedule, to, updating } from "./handlers.ts";
@@ -69,4 +70,5 @@ export const Form = {
       Flash: { Expired: [stay] },
     },
   },
+  folds: noFolds,
 } satisfies Fixture;

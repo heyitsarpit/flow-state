@@ -1,4 +1,7 @@
 import { Predicate, Schema } from "effect";
+import type { Json } from "../port.ts";
+import type { Answer } from "../world/network.ts";
+import type { Folds } from "./folds.ts";
 import type { Handlers, Machines } from "./handlers.ts";
 import type { Concurrency, OperationReference, Row, Rows } from "./reference.ts";
 
@@ -114,6 +117,7 @@ export const writeOf = <
  *   machine by `fixtures/rows.test.ts` (a change detector).
  * - `handlers` is the machine's whole handler table ({@link Handlers}), by hand from its source:
  *   what the `selection` oracle judges each turn against.
+ * - `folds` is the memory its guards, keys and delays read ({@link Folds}), by hand from its source.
  * - With no type arguments, `Fixture` is any fixture.
  */
 export type Fixture<
@@ -135,6 +139,7 @@ export type Fixture<
   readonly operations: { readonly [O in keyof Keys]: Operation<Keys[O]> };
   readonly rows: ReadonlyArray<Row>;
   readonly handlers: Handlers;
+  readonly folds: Folds;
 };
 
 /**
@@ -156,6 +161,42 @@ export const referenceFor = (fixtures: ReadonlyArray<Fixture>) =>
 // RETURN_TYPE: the Machines record; `Object.fromEntries` would infer a wider value type.
 export const handlersFor = (fixtures: ReadonlyArray<Fixture>): Machines =>
   Object.fromEntries(fixtures.map((fixture) => [fixture.machine, fixture.handlers]));
+
+/**
+ * The folds of a case: each fixture's {@link Folds}, by machine id.
+ */
+// RETURN_TYPE: the folds record; `Object.fromEntries` would infer a wider value type.
+export const foldsFor = (fixtures: ReadonlyArray<Fixture>): Readonly<Record<string, Folds>> =>
+  Object.fromEntries(fixtures.map((fixture) => [fixture.machine, fixture.folds]));
+
+/**
+ * The labels of an answer the suite's server gives `operation`, by the first fixture whose folds
+ * label it; none when no fixture does.
+ */
+export const answerLabels = (
+  fixtures: ReadonlyArray<Fixture>,
+  operation: string,
+  answer: Answer,
+) => {
+  const label = fixtures.map((f) => f.folds.answers[operation]).find(Predicate.isNotUndefined);
+
+  return label === undefined ? {} : label(answer);
+};
+
+/**
+ * The labels of a payload the suite sends `machine` as `event`; none when its folds do not label
+ * it.
+ */
+export const drivenLabels = (
+  fixtures: ReadonlyArray<Fixture>,
+  machine: string,
+  event: string,
+  payload: Json,
+) => {
+  const label = fixtures.find((f) => f.machine === machine)?.folds.driven[event];
+
+  return label === undefined ? {} : label(payload);
+};
 
 /**
  * The rows of a case: each fixture's {@link Row}s, by machine id.
