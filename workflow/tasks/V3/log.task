@@ -169,6 +169,14 @@ note 2026-11-11T18:53:31Z
     Weekly usage 64 percent of 95. T45's comments are at 133 lines, past 100: compact at the slice's close (it is the 
     active Task).
 note 2026-11-11T18:55:14Z
-    Amendment (the user, 2026-11-12): compaction runs once a day (cron 2e0ef6f9, 05:13), no size limits or slice-close runs; the T45 size note above is void. Review crons re-created as edb6e5bc and daad31f5 without the size check. **Reverse:** restore the slice-close and size-limit rule.
+    Amendment (the user, 2026-11-12): compaction runs once a day (cron 2e0ef6f9, 05:13), no size limits or slice-close 
+    runs; the T45 size note above is void. Review crons re-created as edb6e5bc and daad31f5 without the size check. 
+    **Reverse:** restore the slice-close and size-limit rule.
 note 2026-11-11T19:02:48Z
-    Amendment (the user, 2026-11-12), correcting the one above: compaction has no timer; a review wake runs compact-records when the last compaction (now 2026-11-11T15:30:31Z, compact-records' first run) is over 24 hours old. Cron 2e0ef6f9 deleted; review crons are ae0019e5 and c647d724. **Reverse:** restore the daily cron.
+    Amendment (the user, 2026-11-12), correcting the one above: compaction has no timer; a review wake runs 
+    compact-records when the last compaction (now 2026-11-11T15:30:31Z, compact-records' first run) is over 24 hours 
+    old. Cron 2e0ef6f9 deleted; review crons are ae0019e5 and c647d724. **Reverse:** restore the daily cron.
+note 2026-11-11T19:10:58Z
+    Review (90-minute, T45 step 3 at 4d7e0f5d): not done. K1 to K4 verified and accepted (B2 unbuilt; the anchor, a 
+    turn's from, event and keys, and NO_POLICY declines still come from reports) with the should-fix list; sent to the 
+    builder. Findings: proposals/t45-step3-review-2026-11-12.md.
