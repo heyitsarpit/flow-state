@@ -11,6 +11,11 @@
       "sourceType": "local",
       "computedHash": "60b41e52d6b6f8f1b651e3111af434017e92650f4572ee53b618c4f3fe74be12"
     },
+    "policy-testing": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "5661f9c707d11fe19b10d2ccca0200f2971fb93bc1eac91934351387c4a09323"
+    },
     "workflow": {
       "source": "../workflow/skills/suites/workflow",
       "sourceType": "local",

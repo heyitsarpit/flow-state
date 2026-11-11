@@ -54,6 +54,8 @@ description
 
     **Draws from:**
 
+    - skill:policy-testing: test first, module integration tests through the public interface (no
+      unit tests of internals), and the scenarios that enforce each Invariant written before the code;
     - skill:playbook-build (long runs);
     - skill:execute-task;
     - skill:check-task;

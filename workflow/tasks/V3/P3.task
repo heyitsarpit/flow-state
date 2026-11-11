@@ -63,7 +63,7 @@ description
     **Draws from:**
 
     - skill:policy-verification (prove a suite; the coverage record);
-    - skill:policy-testing (audit a suite);
+    - skill:policy-testing (audit a suite; scenarios that enforce each Invariant written first);
     - skill:to-spec for the suite's own Spec;
     - skill:policy-convergence at the threshold;
     - skill:review for the hourly reviews;

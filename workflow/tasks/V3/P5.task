@@ -47,7 +47,9 @@ description
     **Draws from:**
 
     - skill:playbook-specify for each area's Specs;
-    - skill:policy-verification and skill:policy-testing for each slice;
+    - skill:policy-verification for each slice;
+    - skill:policy-testing: test first, module integration tests through the public interface (no
+      unit tests of internals), and the scenarios that enforce each Invariant written before the code;
     - skill:playbook-build;
     - skill:check-runtime for the browser paths.
 tasks

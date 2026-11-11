@@ -267,6 +267,11 @@ instructions
       design, Spec and audit leads take the building lead's slot in turn. Leads report once per
       batch or stop, in at most 10 lines, with no progress messages (the user, 2026-11-11, to
       preserve usage, the orchestrator's included).
+    - Test first, at the module boundary (the user, 2026-11-11; skill:policy-testing, installed in
+      `.agents/skills/policy-testing`): before code, write module integration tests through the
+      public interface with real components (not unit tests of internals), and the scenarios and
+      cases that enforce each Invariant the work implements, with expectations from the Spec; then
+      build until they pass.
     - Every suite brief and review applies skill:policy-testing#audit-a-suite as a checklist: an
       inventory of each check's inputs (observed by the harness or reported by the runtime), excuses
       only from observed causes, a mutant for each report a check reads, and expected results never
