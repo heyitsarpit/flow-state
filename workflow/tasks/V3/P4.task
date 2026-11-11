@@ -335,11 +335,39 @@ tasks
             Pay path runs on production: 61/61 Pay cases, falsify --runtime production 13/13 at 8bd0cfb9. Public 
             exports (provisional), layout, decisions and review logs: packages/flow-state-v3/conformance/STATUS.md, T16 
             section.
+    T43
+        title       Production code uses Effect's features instead of hand-rolled ones (audit R1 to R8)
+        status      open
+        priority    high
+        blocked_by  [@T16]
+        description
+            `src/` applies the user-confirmed Effect simplification recommendations R1 to R8.
+
+            **Why now:** the audit found hand-rolled clock, scheduler and fiber bookkeeping in the host, codecs
+            built per call, and a real bug (event payloads never decoded); T17 onward would build on them.
+
+            **Read first:** code:workflow/plans/flow/references/proposals/effect-simplification-2026-11-11.md;
+            AGENTS.md "Code style (v3 production)"; @spec.Turn, @spec.Actors.
+
+            **Approach:** R2's payload decoding first, then R1 (Host to Effect services, one FiberMap in the
+            Runtime's Scope; dispose shuts the core down before closing the Scope), R3, R4, R5 to R8. Each lands
+            alone with the suite green on round-14 and the Pay cases green on production.
+
+            - **May change:** `packages/flow-state-v3/src/`, the production adapter, lint configuration.
+            - **Evidence:** STATUS.md, one T43 section.
+            - **False pass:** a refactor that changes behaviour unnoticed → caught by the suite on production and
+              the production mutants.
+            - **Stops:** a guarantee change.
+        acceptance
+            - R1 to R8 applied, or one rejected with a logged reason;
+            - suite green on round-14; Pay cases green on production; production mutants all caught;
+            - `nub run check` at zero.
+
     T17
         title       Compiled and the compiler
         status      draft
         priority    high
-        blocked_by  [@T16]
+        blocked_by  [@T16, @T43]
         description
             Build Compiled and the compiler: @spec.Compile and @spec.Diagnostics from the public API.
 
