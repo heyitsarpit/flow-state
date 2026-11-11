@@ -577,6 +577,23 @@ tasks
             unencodable (Held's `GoBad`; WriteLanes R12). `NoPersistence` and `ModuleDisabled` have no fact (no case 
             boots without persistence; modules come in phase 5), so they are refused WriteLanes I8. The traces that 
             encoded 'any time' were rewritten from the facts, with a refusing twin each. Gates unchanged.
+        comment     2026-11-11T19:59:36Z
+            K3 fixed (db8f67c7): after a kill the next turn must start from a leaf its lost turns reached, a Fresh 
+            actor starts at the fixture's initial leaf, keys come from folds wherever fields are carried (the report's 
+            keys only for an Unanchored actor, a stated limit), and a driven credit a live actor still holds at its 
+            step's end breaks Turn I2 (R2), except while disposing or after a refused turn. Reverse: revert db8f67c7.
+        comment     2026-11-11T19:59:41Z
+            K1 fixed (94273dce, a21dff9d): an Ensured owes an incarnation (Actors I14); an actor the suite opened, 
+            holds no use of, with no Attempt or open ending, at an untimed leaf, owes its end after 100 ms of Advanced 
+            (I37); an end while a use is held breaks I10. Boot-, send- and disposal-woken incarnations are allowed, 
+            never owed an end (their hydrate holds are unknown). Finding: round-14 reports no incarnation for the 
+            end-of-case re-create of a disposed actor after a disposal-reload (37 generated reds; production passes). 
+            I10/I37 have no owing hand case or mutant yet (not-yet.ts).
+        comment     2026-11-11T19:59:46Z
+            Gates at a21dff9d: suite 119/119, production 75/75, falsify 147/147 (4/4 probes), coverage 73/184 0 gaps, 
+            liar round-14 122/131 (same 9 greens), production liar 13/13, crash 870/887 (known families), unit tests 
+            50/50. Sweep vs 56ef0856: no lost catch except lie.no-incarnated, moved to disposal and now caught in 99 
+            cases. Open from the step-3 review: K2, S1, S3-S7, minors.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open
