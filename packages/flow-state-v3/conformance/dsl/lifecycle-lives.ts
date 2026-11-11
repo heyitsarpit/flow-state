@@ -241,7 +241,7 @@ const owedByTurn = (model: Model, index: number) => ({
   ...model,
   obligations: model.obligations.map((o) =>
     Obligation.$is("Await")(o) && Option.contains(o.hearing, index)
-      ? Obligation.Await({ attempt: o.attempt, report: o.report, hearing: Option.none() })
+      ? Obligation.Await({ ...o, hearing: Option.none() })
       : o,
   ),
 });

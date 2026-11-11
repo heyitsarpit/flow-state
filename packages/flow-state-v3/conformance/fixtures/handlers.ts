@@ -13,6 +13,7 @@ import { Option } from "effect";
  * - `opaque`: its guard has a part the suite does not compute (memory, the event's payload, a
  *   lane read), so it may pass or fail.
  * - `updates`: it has an `updateMemory`, so its turn may publish new memory.
+ * - `idle`: the operation whose `idle` guard it holds (WriteLanes R9), `None` when it holds none.
  */
 export type Alternative<State extends string = string> = {
   readonly index: Option.Option<number>;
@@ -20,6 +21,7 @@ export type Alternative<State extends string = string> = {
   readonly when: ReadonlyArray<State>;
   readonly opaque: boolean;
   readonly updates: boolean;
+  readonly idle: Option.Option<string>;
 };
 
 /**
@@ -66,14 +68,37 @@ export const schedule = (
  * **Gotchas**
  *
  * - Flat machines only: every state is a leaf of the root, so selection reads the leaf's level,
- *   then the root's. No fixture has a compound state yet.
+ *   then the root's. No fixture has a compound state yet. A trait's or fragment's own handlers
+ *   (`parts`, by definition) are one level each, judged only for the place a turn names.
  */
 export type Handlers<State extends string = string> = {
   readonly initial: State;
   readonly root: Level<State>;
   readonly states: Readonly<Partial<Record<State, Level<State>>>>;
   readonly schedules: Readonly<Partial<Record<State, ReadonlyArray<Schedule>>>>;
+  readonly parts: Readonly<Record<string, Level>>;
 };
+
+/**
+ * Whether every part a turn ran is a trait or fragment alternative the table names (`parts`, by
+ * the part's definition): such a turn runs no root alternative and leaves the root's leaf.
+ */
+export const partsOnly = (
+  handlers: Handlers,
+  event: string,
+  parts: ReadonlyArray<{ readonly definition: string; readonly at: string }>,
+) =>
+  parts.length > 0 &&
+  parts.every((p) => {
+    const level = handlers.parts[p.definition];
+
+    return (
+      level !== undefined &&
+      (level[event] ?? []).some(
+        (a, position) => `on.${event}[${Option.getOrElse(a.index, () => position)}]` === p.at,
+      )
+    );
+  });
 
 /**
  * The events a machine's schedules send.
@@ -93,6 +118,7 @@ export const to = <State extends string>(target: State | "stay"): Alternative<St
   when: [],
   opaque: false,
   updates: false,
+  idle: Option.none(),
 });
 
 /**
@@ -109,6 +135,19 @@ export const updating = <State extends string>(alternative: Alternative<State>) 
 export const guarded = <State extends string>(alternative: Alternative<State>) => ({
   ...alternative,
   opaque: true,
+});
+
+/**
+ * The same alternative guarded by `operation`'s `idle` (an opaque guard the `idle-guard` oracle
+ * judges from the lanes).
+ */
+export const idleOn = <State extends string>(
+  operation: string,
+  alternative: Alternative<State>,
+) => ({
+  ...alternative,
+  opaque: true,
+  idle: Option.some(operation),
 });
 
 /**
@@ -136,6 +175,7 @@ export type Possible = {
   readonly to: string;
   readonly enters: boolean;
   readonly atRoot: boolean;
+  readonly idle: Option.Option<string>;
 };
 
 const walk = (
@@ -161,6 +201,7 @@ const walk = (
       to: alternative.target === "stay" ? from : alternative.target,
       enters: alternative.target !== "stay",
       atRoot: !at.startsWith("states."),
+      idle: alternative.idle,
     })),
     handled: certain >= 0,
   };

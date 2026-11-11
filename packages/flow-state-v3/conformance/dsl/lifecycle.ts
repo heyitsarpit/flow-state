@@ -234,6 +234,7 @@ const discharge = (model: Model, attempt: string, guard: string, move: Move) => 
           attempt,
           report: "Released",
           hearing: Option.some(model.endings.length),
+          unknown: true,
         }),
       ],
     };
@@ -459,7 +460,10 @@ export const advance = (model: Model, move: Move, given: Rules = rules) => {
 export const due = (model: Model, instant: "TurnCloses" | "StepEnds", given: Rules = rules) => {
   const deadlineOf = (o: Obligation) =>
     Obligation.$match(o, {
-      Await: ({ report }) => given.deadlines.Await[report],
+      Await: ({ report, unknown }) =>
+        report === "Released" && unknown
+          ? given.deadlines.UnretainedRelease
+          : given.deadlines.Await[report],
       PendingCancel: () => given.deadlines.PendingCancel,
       AwaitRestore: ({ cause }) => given.deadlines.AwaitRestore[cause],
       AwaitLetGo: () => given.deadlines.AwaitLetGo,

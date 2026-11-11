@@ -16,6 +16,7 @@ import { MemberTarget, sameActor, sameJson } from "../port.ts";
 
 const GUARANTEE: ReadonlyArray<InvariantId> = [
   "WriteLanes I1",
+  "WriteLanes I5",
   "WriteLanes I8",
   "WriteLanes I9",
   "WriteLanes I10",

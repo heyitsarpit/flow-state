@@ -71,6 +71,20 @@ const when = (condition: string, body: string) => `${ADMIT}\n  if (a && ${condit
  */
 export const deliveredOnceMutants: ReadonlyArray<Mutant> = [
   {
+    name: "lane.releasing-delivers",
+    says: "an ending on a releasing lane is admitted as an ordinary ending, not evidence",
+    expects: "WriteLanes I15",
+    runtime: "prototype",
+    cases: ["LANE-12/release-ends-queue", "LANE-12/release-leaves-head"],
+    edits: [
+      {
+        file: "turn.ts",
+        find: "  const releasing = before?.releasing === true;",
+        replace: "  const releasing = false;",
+      },
+    ],
+  },
+  {
     name: "a2.deliv-fail-samemail",
     says: "an ending is said delivered while its actor has mail, and no turn runs it",
     expects: "WriteLanes I15",

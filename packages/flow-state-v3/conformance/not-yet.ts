@@ -14,10 +14,7 @@ export const notYet: ReadonlyArray<NotYet> = [
   {
     owner: "@task.V3.T7",
     why: "WriteLanes rows not built yet: members, members-only, write-before-ending, old-version-holds, the front-end cases; I9 is claimed by lane-queue with no mutant of its own; I24 to I28 were added by T42 (success writes, M5, the owed retry, every commit ends, a seed per boot)",
-    invariants: invariantsOf(
-      "WriteLanes",
-      [2, 4, 5, 7, 9, 13, 14, 17, 18, 19, 23, 24, 25, 26, 27, 28],
-    ),
+    invariants: invariantsOf("WriteLanes", [2, 9, 14, 17, 18, 19, 23, 24, 26, 27, 28]),
   },
   {
     owner: "@task.V3.T18",

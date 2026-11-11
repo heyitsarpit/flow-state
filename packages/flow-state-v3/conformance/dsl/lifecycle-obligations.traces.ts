@@ -52,8 +52,7 @@ const promotionTraces: ReadonlyArray<Trace> = [
   }),
   {
     name: "an unretained unknown's release is due by the close of the turn that hears it",
-    cites:
-      "WriteLanes R4, I12: an unknown not retained is released once its own ending's turn ends",
+    cites: "WriteLanes R4, I5: an unknown not retained is released once its own ending's turn ends",
     start: headed(W),
     steps: [
       unknown("s", "Interrupted", false),
@@ -62,7 +61,7 @@ const promotionTraces: ReadonlyArray<Trace> = [
       turn(),
       { due: "TurnCloses" as const },
     ],
-    refusals: [[], [], [], [], [wl(12)]],
+    refusals: [[], [], [], [], [wl(5)]],
     phases: { s: H, w: Q },
     owed: 0,
     checks: [],
@@ -81,7 +80,7 @@ const promotionTraces: ReadonlyArray<Trace> = [
   {
     name: "an unretained unknown heard by no turn owes its release by the step's end",
     cites:
-      "WriteLanes R4, I12: heard with no turn (Unhandled, Denied), its release is due by the step's end (F3)",
+      "WriteLanes R4, I5: heard with no turn (Unhandled, Denied), its release is due by the step's end (F3)",
     start: headed(W),
     steps: [
       unknown("s", "Interrupted", false),
@@ -89,7 +88,7 @@ const promotionTraces: ReadonlyArray<Trace> = [
       LifeMove.Heard({ ending: endingOfS }),
       { due: "StepEnds" as const },
     ],
-    refusals: [[], [], [], [wl(12)]],
+    refusals: [[], [], [], [wl(5)]],
     phases: { s: H, w: Q },
     owed: 0,
     checks: [],
@@ -112,10 +111,10 @@ const promotionTraces: ReadonlyArray<Trace> = [
   },
   {
     name: "an unretained unknown whose ending closes unheard owes its release at once",
-    cites: "WriteLanes R4, I12: its ending got no turn (closed at a reload), so the release is due",
+    cites: "WriteLanes R4, I5: its ending got no turn (closed at a reload), so the release is due",
     start: headed(W),
     steps: [unknown("s", "Interrupted", false), Move.Reload(), { due: "StepEnds" as const }],
-    refusals: [[], [], [wl(12)]],
+    refusals: [[], [], [wl(5)]],
     phases: { s: H, w: RF },
     owed: 0,
     checks: [],

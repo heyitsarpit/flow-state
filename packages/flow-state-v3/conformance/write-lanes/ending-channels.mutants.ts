@@ -57,7 +57,7 @@ export const endingChannelsMutants: ReadonlyArray<Mutant> = [
   {
     name: "mutant.success-without-answer",
     says: "a call still on the wire at the disposal bound ends success, with no answer from the server",
-    expects: "WriteLanes I3",
+    expects: "WriteLanes I25",
     runtime: "prototype",
     cases: ["PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed"],
     edits: [

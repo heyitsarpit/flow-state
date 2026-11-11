@@ -184,7 +184,7 @@ const judgeAnswered = (id: string, asked: Asked, ended: Ended) => {
   const said = Option.match(expected.reason, { onNone: () => "", onSome: (r) => ` ${r}` });
 
   return [
-    `WriteLanes I3: the server answered ${id} ${asked.answer._tag}, so it ends ${expected.channel}${said}; it ended ${ended.channel} ${ended.reason}`,
+    `WriteLanes I25: the server answered ${id} ${asked.answer._tag}, so it ends ${expected.channel}${said}; it ended ${ended.channel} ${ended.reason}`,
   ];
 };
 
@@ -193,7 +193,7 @@ const madeUp = (id: string, ended: Ended) =>
   (ended.channel === "failure" && FLOW_DECLINES.includes(ended.reason))
     ? []
     : [
-        `WriteLanes I3: ${id} ended ${ended.channel} ${ended.reason} in a step where the server gave it no answer; a success or the commit's own failure comes only from the server's answer`,
+        `WriteLanes I25: ${id} ended ${ended.channel} ${ended.reason} in a step where the server gave it no answer; a success or the commit's own failure comes only from the server's answer`,
       ];
 
 /**
@@ -362,7 +362,9 @@ const neverSentEnds = (
 
 /**
  * Every delivered ending is exactly one of success, failure and unknown, and an Attempt that ever
- * ended unknown never delivers a definite failure.
+ * ended unknown never delivers a definite failure (WriteLanes I3); a success or a commit's own
+ * failure matches an answer the server gave a send of it (WriteLanes I25: the first and fourth
+ * checks below).
  *
  * **Details**
  *
@@ -396,7 +398,7 @@ const neverSentEnds = (
  */
 export const endingChannels = oracle<State>({
   name: "ending-channels",
-  guarantee: ["WriteLanes I3"],
+  guarantee: ["WriteLanes I3", "WriteLanes I25"],
   start: (reference) => ({
     reference,
     live: [],

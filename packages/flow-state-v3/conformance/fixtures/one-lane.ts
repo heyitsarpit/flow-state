@@ -46,6 +46,7 @@ export const Serialize = {
     },
     states: {},
     schedules: {},
+    parts: {},
   },
 } satisfies Fixture;
 
@@ -67,6 +68,7 @@ export const Latest = {
     root: { Go: [to("stay")], Ok: [to("stay")], No: [to("stay")], Unsure: [to("stay")] },
     states: {},
     schedules: {},
+    parts: {},
   },
 } satisfies Fixture;
 
@@ -97,5 +99,56 @@ export const Cancel = {
     },
     states: {},
     schedules: {},
+    parts: {},
+  },
+} satisfies Fixture;
+
+const LEAVES = [
+  { event: "Leave", from: "HOST", to: "AWAY" },
+  { event: "LeaveOnly", from: "HOST", to: "AWAY" },
+];
+
+/**
+ * `Lab/P1Rel` (`prototypes/conformance/typed/phase1h.ts`): HOST places the trait `t` (`P1Q`), whose
+ * unkeyed `serialize` write `q` its `whenAbandoned` cancels, so leaving HOST releases the lane
+ * (WriteLanes R16). `Leave` also raises `t.Drop`, which runs `q`'s `cancelAll`; `LeaveOnly` only
+ * leaves. The trait's events (`Go`, `Drop`) are sent to the part `["t"]`.
+ */
+export const Release = {
+  name: "rel",
+  machine: "Lab/P1Rel",
+  events: { Leave: Empty, LeaveOnly: Empty },
+  memory: Schema.Struct({}),
+  input: Empty,
+  states: ["HOST", "AWAY"] as const,
+  operations: {
+    q: writeOf(Unkeyed, {
+      concurrency: "serialize",
+      releasesOnLeave: LEAVES,
+      success: "Ok",
+      failure: { NotSent: "No" },
+      unknown: { event: "Unsure" },
+      classify: classifyWith(() => false),
+    }),
+  },
+  rows: [
+    row("Go", "any", "same", [{ operation: "q", kind: "commit" }]),
+    row("Leave", "HOST", "AWAY", [{ operation: "q", kind: "cancelAll", keyed: false }]),
+    row("LeaveOnly", "HOST", "AWAY", []),
+  ],
+  handlers: {
+    initial: "HOST",
+    root: { Leave: [to("AWAY")], LeaveOnly: [to("AWAY")] },
+    states: {},
+    schedules: {},
+    parts: {
+      P1Q: {
+        Go: [to("stay")],
+        Drop: [to("stay")],
+        Ok: [to("stay")],
+        No: [to("stay")],
+        Unsure: [to("stay")],
+      },
+    },
   },
 } satisfies Fixture;

@@ -103,7 +103,7 @@ const awaiting = (
   attempt: string,
   report: "Released" | "Superseded" | "NotSentCancelled",
   hearing: Option.Option<number> = Option.none(),
-) => Obligation.Await({ attempt, report, hearing });
+) => Obligation.Await({ attempt, report, hearing, unknown: Option.isSome(hearing) });
 
 type Case = {
   readonly name: string;

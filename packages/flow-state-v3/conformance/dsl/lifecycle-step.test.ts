@@ -250,7 +250,7 @@ const examples: ReadonlyArray<Example> = [
 
       assert.deepStrictEqual(
         refused(sentSearch, [...lost, turn(searcher, "Unsure", "W", "A", [])]),
-        [wl(12)],
+        [wl(5)],
       );
       assert.deepStrictEqual(refused(sentSearch, [...lost, retried]), []);
     },

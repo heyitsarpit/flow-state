@@ -2,7 +2,8 @@ import { Option } from "effect";
 import type { Actor } from "../dsl/actor.ts";
 import type { Case, Scenario } from "../dsl/case.ts";
 import { Cells } from "../fixtures/pay.ts";
-import { Cancel, Latest, Serialize } from "../fixtures/one-lane.ts";
+import { Cancel, Latest, Release, Serialize } from "../fixtures/one-lane.ts";
+import { Address } from "../dsl/oracle.ts";
 import { Observation } from "../port.ts";
 import { Answer } from "../world/network.ts";
 
@@ -42,6 +43,18 @@ const minted = (c: Case, operation: string) =>
   c
     .reports()
     .flatMap((o) => (Observation.$is("Minted")(o) && o.operation === operation ? [o.attempt] : []));
+
+const released = (c: Case) => c.actor(Release, "a");
+
+const toTrait = (c: Case, n: number) =>
+  c.send([
+    {
+      actor: { machine: Release.machine, id: "a" },
+      event: "Go",
+      payload: { n },
+      to: Address.Part({ path: ["t"] }),
+    },
+  ]);
 
 const serialize = (id: string, cites: ReadonlyArray<string>, run: Scenario["run"]) => ({
   id,
@@ -227,6 +240,65 @@ export const lanePoliciesScenarios: ReadonlyArray<Scenario> = [
       s.send("AbortPay", {});
       c.eq("the hold is released", c.evidence("Released"), 1);
       c.eq("the lane is Idle", Option.isNone(s.row("pay", KEY)), true);
+    },
+  },
+  {
+    id: "LANE-11",
+    cites: ["WriteLanes R4", "WriteLanes I5"],
+    fixtures: [Cancel],
+    run: (c) => {
+      const a = cancel(c);
+      a.ensure();
+      search(a, "a");
+      c.ack();
+      c.answer("search", Answer.Lost());
+      a.state("A");
+      c.eq(
+        "WriteLanes I5: a not-retained unknown leaves no Held lane",
+        Option.isNone(a.row("search", {})),
+        true,
+      );
+      c.eq("released as evidence", c.evidence("Released"), 1);
+      c.eq(
+        "heard once",
+        delivered(c, "search").map(([event]) => event),
+        ["Unsure"],
+      );
+      c.eq("sent once", attemptsOf(c, "search").length, 1);
+    },
+  },
+  {
+    id: "LANE-12/release-ends-queue",
+    cites: ["WriteLanes R16", "WriteLanes I15"],
+    fixtures: [Release],
+    run: (c) => {
+      const a = released(c);
+      a.ensure();
+      toTrait(c, 1);
+      c.ack();
+      toTrait(c, 2);
+      toTrait(c, 3);
+      a.send("Leave", {});
+      a.state("AWAY");
+      c.eq("WriteLanes I15: a releasing lane delivers nothing", delivered(c, "q"), []);
+      c.eq("only the head was sent", attemptsOf(c, "q").length, 1);
+    },
+  },
+  {
+    id: "LANE-12/release-leaves-head",
+    cites: ["WriteLanes R16", "WriteLanes I15"],
+    fixtures: [Release],
+    run: (c) => {
+      const a = released(c);
+      a.ensure();
+      toTrait(c, 1);
+      c.ack();
+      toTrait(c, 2);
+      a.send("Leave", {});
+      c.answer("q", OK);
+      a.state("AWAY");
+      c.eq("WriteLanes I15: a releasing lane delivers nothing", delivered(c, "q"), []);
+      c.eq("only the head was sent", attemptsOf(c, "q").length, 1);
     },
   },
 ];

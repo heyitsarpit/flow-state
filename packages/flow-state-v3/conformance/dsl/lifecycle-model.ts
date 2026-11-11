@@ -114,6 +114,7 @@ export type Cause = "plain" | "runtimeDisposal" | "disposeActor" | "forget";
  *   its own turn (`hearing` none); an unretained unknown's release is owed by the turn that hears
  *   its ending, named by its index in `endings` (`hearing`), so it is not due until then, or until
  *   that ending closes unheard (WriteLanes R4; review H2, step-4 reviewer items 2 and 4).
+ *   `unknown` marks that release, which is due by WriteLanes I5 rather than I12.
  * - `PendingCancel`: a cancel of a never-sent Attempt owes its ending, with no deadline
  *   (WriteLanes R14).
  * - `AwaitRestore`: a boot or an incarnation owes a Held head its `unknown { Restored }` by the
@@ -125,6 +126,7 @@ export type Obligation = Data.TaggedEnum<{
     attempt: string;
     report: "Released" | "Superseded" | "NotSentCancelled";
     hearing: Option.Option<number>;
+    unknown: boolean;
   };
   PendingCancel: { attempt: string; ends: "NotSent" | "UnknownCancelled" };
   AwaitRestore: { attempt: string; cause: Cause };

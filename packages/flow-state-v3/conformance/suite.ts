@@ -49,6 +49,12 @@ import { laneAnchorScenarios } from "./write-lanes/lane-anchors.scenarios.ts";
 import { paymentHeldScenarios } from "./write-lanes/payment-held.scenarios.ts";
 import { paymentLateAnswersScenarios } from "./write-lanes/payment-late-answers.scenarios.ts";
 import { paymentLeaveAndReloadScenarios } from "./write-lanes/payment-leave-and-reload.scenarios.ts";
+import { evidenceKindsMutants } from "./write-lanes/evidence-kinds.mutants.ts";
+import { evidenceKinds } from "./write-lanes/evidence-kinds.ts";
+import { idleGuardMutants } from "./write-lanes/idle-guard.mutants.ts";
+import { idleGuard } from "./write-lanes/idle-guard.ts";
+import { retryCountMutants } from "./write-lanes/retry-count.mutants.ts";
+import { retryCount } from "./write-lanes/retry-count.ts";
 import { paymentRetryScenarios } from "./write-lanes/payment-retry.scenarios.ts";
 
 /**
@@ -64,6 +70,9 @@ export const guarantees: ReadonlyArray<Guarantee> = [
   { oracle: laneQueue, mutants: [...laneQueueMutants, ...headerLaneMutants] },
   { oracle: disposal, mutants: [...disposalMutants, ...carriedDisposalMutants] },
   { oracle: graphNames, mutants: graphNamesMutants },
+  { oracle: retryCount, mutants: retryCountMutants },
+  { oracle: evidenceKinds, mutants: evidenceKindsMutants },
+  { oracle: idleGuard, mutants: idleGuardMutants },
   { oracle: selection, mutants: selectionMutants },
   { oracle: publication, mutants: publicationMutants },
   { oracle: refusal, mutants: refusalMutants },

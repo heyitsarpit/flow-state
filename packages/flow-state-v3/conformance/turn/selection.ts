@@ -1,5 +1,5 @@
 import { Option } from "effect";
-import { Address, Fact, oracle, type Violation, violation } from "../dsl/oracle.ts";
+import { Fact, oracle, type Violation, violation } from "../dsl/oracle.ts";
 import {
   actorIn,
   attemptKey,
@@ -21,6 +21,7 @@ import {
   type Handlers,
   type Machines,
   type Possible,
+  partsOnly,
   possible,
   type Route,
   scheduledEvents,
@@ -94,6 +95,9 @@ const judgeTurn = (machines: Machines, phase: Phase, turn: Turn, route: Route): 
   const allowed = possible(handlers, from, turn.event, route);
   const ran = turn.parts.find((p) => p.part.length === 0 && p.definition === turn.actor.machine);
   const ats = allowed.alternatives.map((a) => a.at).join(", ");
+
+  if (ran === undefined && partsOnly(handlers, turn.event, turn.parts))
+    return { to: Option.some(from), found: wrongFrom, match: Option.none(), from };
 
   const misrouted = lateRanLeaf(handlers, from, turn, route, Option.fromUndefinedOr(ran));
 
@@ -402,8 +406,7 @@ const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>): Stepped =>
     Disposed: ({ actor }) => keep(moved(uncredited(state, actor), actor, Input.Disposed())),
     Forgot: ({ actor }) => keep(moved(uncredited(state, actor), actor, Input.Forgot())),
     Reloaded: () => keep(reloaded(state)),
-    Drove: ({ actor, event, to }) =>
-      keep(Address.$is("Root")(to) ? drove(state, actor, event) : state),
+    Drove: ({ actor, event }) => keep(drove(state, actor, event)),
     Reported: ({ observation }) =>
       Observation.$match(observation, {
         Turn: (turn) => onTurn(state, turn, step),
@@ -457,8 +460,8 @@ const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>): Stepped =>
  *   an owner the suite did not see (a read's, a part's), or an unanchored actor, allows either.
  * - The reported `to` is judged, never trusted: the carried leaf is the selected alternative's
  *   (only an unanchored actor's reported `from` is taken, once). A turn with no root part breaks
- *   I2: the tables are flat, so a root part is the only one a turn can run; a fixture with parts
- *   needs its table to name them first (T21).
+ *   I2 unless every part it ran is one its table's `parts` names for its event (it stays at the
+ *   leaf); part-level selection order is not judged.
  * - Driven events are credited to the actor until a turn of it runs them, an `Unhandled` or
  *   `Denied` of that event is reported while exactly one actor holds its credit, or the actor is
  *   disposed, forgotten or reloaded.

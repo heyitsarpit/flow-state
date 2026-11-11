@@ -42,6 +42,17 @@ const CANCEL_ALL =
  */
 export const laneQueueMutants: ReadonlyArray<Mutant> = [
   {
+    name: "lane.unretained-unknown-held",
+    says: "under cancel, an unknown is kept Held past its own ending's turn",
+    expects: "WriteLanes I5",
+    runtime: "prototype",
+    cases: ["LANE-11"],
+    edits: lane(
+      '  if (!l?.head || l.head.id !== attempt || l.head.phase.t !== "held" || tx.machines[l.machine]?.ops[l.op]?.concurrency !== "cancel") return;',
+      "  return;",
+    ),
+  },
+  {
     name: "lie.serialize-as-latest",
     says: "a serialize commit supersedes the queued ones, as latest does",
     expects: "WriteLanes I8",

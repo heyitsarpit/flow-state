@@ -137,6 +137,7 @@ const FIXTURES = [
   { name: "cells", file: "typed/cells.ts", exported: "cellsFixture", made: "value" },
   { name: "serialize", file: "typed/phase1h.ts", exported: "p1AllFixture", made: "call" },
   { name: "latest", file: "typed/phase1h.ts", exported: "p1LatestFixture", made: "call" },
+  { name: "rel", file: "typed/phase1h.ts", exported: "p1RelFixture", made: "call" },
   { name: "cancel", file: "typed/round15.ts", exported: "r15SwitchFixture", made: "call" },
 ] as const;
 

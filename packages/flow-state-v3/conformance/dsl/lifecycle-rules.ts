@@ -170,12 +170,14 @@ export type Deadline = {
 };
 
 /**
- * When each obligation is due: `Await` by report, `AwaitRestore` by cause, and the rest by kind.
+ * When each obligation is due: `Await` by report (an unretained unknown's release, the one with a
+ * `hearing`, is `UnretainedRelease`: WriteLanes I5), `AwaitRestore` by cause, and the rest by kind.
  * `Commit` is the open turn's commit that has had no mint or decline. Data, mutated like the
  * cells.
  */
 export type Deadlines = {
   readonly Await: Readonly<Record<"Released" | "Superseded" | "NotSentCancelled", Deadline>>;
+  readonly UnretainedRelease: Deadline;
   readonly PendingCancel: Deadline;
   readonly AwaitRestore: Readonly<Record<Cause, Deadline>>;
   readonly AwaitLetGo: Deadline;
@@ -196,6 +198,7 @@ export const deadlines: Deadlines = {
     Superseded: { by: "TurnCloses", invariant: wl(8) },
     NotSentCancelled: { by: "TurnCloses", invariant: wl(21) },
   },
+  UnretainedRelease: { by: "TurnCloses", invariant: wl(5) },
   PendingCancel: { by: "never", invariant: wl(20) },
   AwaitRestore: {
     plain: { by: "StepEnds", invariant: "Restore I6" },
