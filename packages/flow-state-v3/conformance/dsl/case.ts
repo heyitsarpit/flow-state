@@ -32,6 +32,7 @@ import { makeWorld, type World } from "../world/world.ts";
 import { type Actor, actorView } from "./actor.ts";
 import { empty } from "./lifecycle-model.ts";
 import { step as lifeStep } from "./lifecycle-step.ts";
+import { anchorOf, judgedStep } from "../turn/selection.ts";
 
 /**
  * One event the suite sends to one actor, its payload encoded, addressed to the actor's root
@@ -211,6 +212,7 @@ const stepEngine = (
   const reference = referenceFor(options.fixtures);
   const machines = handlersFor(options.fixtures);
   const known = { reference, rows: rowsFor(options.fixtures) };
+  let anchor = anchorOf(machines);
 
   const judges = options.oracles.map((o) => ({
     name: o.name,
@@ -236,7 +238,9 @@ const stepEngine = (
     judged = facts.length;
 
     const cuts = fresh.map((cut) => {
-      const life = lifeStep(model, known, cut, requests);
+      const judgedCut = judgedStep(anchor, cut);
+      anchor = judgedCut.state;
+      const life = lifeStep(model, known, judgedCut.facts, requests);
       model = life.after;
 
       return { cut, life };

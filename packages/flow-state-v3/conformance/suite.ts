@@ -16,7 +16,7 @@ import { cliMutants } from "./static-cli/cli.mutants.ts";
 import { cliCases, cliCovered, cliRemainders } from "./static-cli/cli.cases.ts";
 import { graphNames } from "./static-cli/graph-names.ts";
 import { graphNamesMutants } from "./static-cli/graph-names.mutants.ts";
-import { selectionMutants } from "./turn/selection.mutants.ts";
+import { headerLaneMutants, selectionMutants } from "./turn/selection.mutants.ts";
 import { selection } from "./turn/selection.ts";
 import { carriedDeliveredOnceMutants } from "./write-lanes/carried.mutants.ts";
 import { attemptIdentityMutants } from "./write-lanes/attempt-identity.mutants.ts";
@@ -44,7 +44,7 @@ export const guarantees: ReadonlyArray<Guarantee> = [
   { oracle: endingChannels, mutants: endingChannelsMutants },
   { oracle: attemptIdentity, mutants: attemptIdentityMutants },
   { oracle: deliveredOnce, mutants: [...deliveredOnceMutants, ...carriedDeliveredOnceMutants] },
-  { oracle: laneQueue, mutants: laneQueueMutants },
+  { oracle: laneQueue, mutants: [...laneQueueMutants, ...headerLaneMutants] },
   { oracle: disposal, mutants: disposalMutants },
   { oracle: graphNames, mutants: graphNamesMutants },
   { oracle: selection, mutants: selectionMutants },

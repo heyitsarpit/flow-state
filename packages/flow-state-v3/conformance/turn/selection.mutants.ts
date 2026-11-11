@@ -7,6 +7,28 @@ const DROP_CANCELS = {
     '    return part.alt.members.filter((mem: Member) => mem.verb !== "cancel" && mem.verb !== "cancelAll").map((mem: Member) => {',
 };
 
+const HEADER_NOWHERE = {
+  file: "turn.ts",
+  find: "    to: w.root.leaf,",
+  replace:
+    '    to: w.parts.some((p) => p.alt.members.some((m: Member) => m.verb === "cancel" || m.verb === "cancelAll")) ? "Nowhere" : w.root.leaf,',
+};
+
+/**
+ * The step 9 review's header probe as a `lane-queue` mutant: with the lifecycle reading the header
+ * as Turn I2 judges it, the dropped cancels are WriteLanes I12 again.
+ */
+export const headerLaneMutants: ReadonlyArray<Mutant> = [
+  {
+    name: "lie.cancels-dropped-header-nowhere",
+    says: "a turn drops every cancel and cancelAll member and reports ending at a state that does not exist",
+    expects: "WriteLanes I12",
+    runtime: "prototype",
+    cases: ["PAY-03", "LANE-09"],
+    edits: [DROP_CANCELS, HEADER_NOWHERE],
+  },
+];
+
 /**
  * Wrong runtimes the `selection` oracle must catch, each by a violation of Turn I2.
  *
@@ -23,15 +45,7 @@ export const selectionMutants: ReadonlyArray<Mutant> = [
     expects: "Turn I2",
     runtime: "prototype",
     cases: ["PAY-12/cancel-on-wire", "LANE-09"],
-    edits: [
-      DROP_CANCELS,
-      {
-        file: "turn.ts",
-        find: "    to: w.root.leaf,",
-        replace:
-          '    to: w.parts.some((p) => p.alt.members.some((m: Member) => m.verb === "cancel" || m.verb === "cancelAll")) ? "Nowhere" : w.root.leaf,',
-      },
-    ],
+    edits: [DROP_CANCELS, HEADER_NOWHERE],
   },
   {
     name: "turn.from-misreported",

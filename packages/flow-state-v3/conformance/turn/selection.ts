@@ -218,16 +218,23 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
     Input.Turned({ to: judged.to }),
   );
 
-  return [next, [...unadmitted, ...judged.found].map(violation)] as const;
+  const anchored = Observation.Turn({
+    ...turn,
+    from: Phase.$is("Live")(now.phase) ? now.phase.state : turn.from,
+    to: Option.getOrElse(judged.to, () => turn.to),
+  });
+
+  return [
+    next,
+    [...unadmitted, ...judged.found].map(violation),
+    Fact.Reported({ observation: anchored }),
+  ] as const;
 };
 
 const initialOf = (state: State, actor: ActorRef) =>
   Option.fromUndefinedOr(state.machines[actor.machine]?.initial);
 
-type Stepped = readonly [State, ReadonlyArray<Violation>];
-
-// RETURN_TYPE: a tuple; inference would widen it to an array.
-const keep = (state: State): Stepped => [state, []];
+type Stepped = readonly [State, ReadonlyArray<Violation>, Fact];
 
 const reloaded = (state: State) => ({
   ...state,
@@ -262,9 +269,12 @@ const refused = (state: State, event: string) => {
   };
 };
 
-// RETURN_TYPE: every branch gives the next state and its violations; inference widens the tuples.
-const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>): Stepped =>
-  Fact.$match(fact, {
+// RETURN_TYPE: every branch gives the next state, its violations and the fact as judged.
+const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>): Stepped => {
+  // RETURN_TYPE: a tuple; inference would widen it to an array.
+  const keep = (next: State): Stepped => [next, [], fact];
+
+  return Fact.$match(fact, {
     Ensured: ({ actor }) =>
       keep(
         Option.match(initialOf(state, actor), {
@@ -305,6 +315,7 @@ const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>): Stepped =>
     Advanced: () => keep(state),
     Read: () => keep(state),
   });
+};
 
 /**
  * Turn selection (Turn I2): every turn the runtime reports ran an alternative the handler table
@@ -336,13 +347,49 @@ export const selection = oracle<State>({
   name: "selection",
   guarantee: ["Turn I2"],
   start: (_reference, _graphs, machines) => ({ machines, actors: new Map() }),
-  step: (state, step) =>
-    step.reduce<Stepped>(
-      ([current, found], fact) => {
-        const [next, more] = onFact(current, fact, step);
+  step: (state, step) => {
+    const judged = judgedStep(state, step);
 
-        return [next, [...found, ...more]];
-      },
-      [state, []],
-    ),
+    return [judged.state, judged.violations];
+  },
 });
+
+/**
+ * What the `selection` oracle carries between steps: each actor's leaf and its driven events,
+ * over the case's handler tables.
+ */
+export type Anchor = State;
+
+/**
+ * The {@link Anchor} a case starts from.
+ */
+// RETURN_TYPE: the Anchor contract; inference would type the empty Map's entries as never.
+export const anchorOf = (machines: Machines): Anchor => ({ machines, actors: new Map() });
+
+/**
+ * One step judged by Turn I2: the next anchor, every violation, and the step's facts with each
+ * `Turn` header as judged (`from` the leaf the suite carried, `to` the selected alternative's leaf,
+ * the reported values only where the table could not tell).
+ *
+ * **When to use**
+ *
+ * The Case passes the judged facts to the lifecycle, so a row is chosen from a header Turn I2
+ * judged, never from the runtime's word alone; the `selection` oracle reports the violations.
+ */
+export const judgedStep = (state: Anchor, step: ReadonlyArray<Fact>) =>
+  step.reduce<{
+    readonly state: Anchor;
+    readonly violations: ReadonlyArray<Violation>;
+    readonly facts: ReadonlyArray<Fact>;
+  }>(
+    (judged, fact) => {
+      const [next, found, seen] = onFact(judged.state, fact, step);
+
+      return {
+        state: next,
+        violations: [...judged.violations, ...found],
+        facts: [...judged.facts, seen],
+      };
+    },
+    { state, violations: [], facts: [] },
+  );
