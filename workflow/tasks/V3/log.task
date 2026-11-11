@@ -563,3 +563,5 @@ note 2026-11-11T01:30:12Z
     head) and M2 go to the step 6 lead first. Decision: what a turn owes comes only from its row.
 note 2026-11-11T01:51:50Z
     Step 6 and the step 5 H1 fix landed at ee896e0d (87/87, null 0/87, sweep 83/83). Slip (orchestrator): 2bf524ac committed the builder's staged deletions and broke HEAD for one commit; the orchestrator now commits with explicit pathspecs only. Decisions: Restore I6's never-sent head (step 5 M1) gets a storage fact in the world and Port, built with step 8; Pay Leave's claimed exception is a stated limit (the suite cannot compute its guard).
+note 2026-11-11T02:00:21Z
+    Review started on 48109efd..ee896e0d (step 6 and fixes); weekly usage 25 percent.
