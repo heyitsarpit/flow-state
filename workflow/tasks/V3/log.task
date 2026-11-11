@@ -537,3 +537,5 @@ note 2026-11-10T23:44:41Z
     catch; a turn whose reported members match no row of its alternative is a violation under the Invariant that states 
     declared members, or a guarantee gap for the user if none does. **Why:** a hang and a dropped member must not pass. 
     **Reverse:** drop PAY-22 from the sweep; keep v2's no-violation rule.
+note 2026-11-11T00:00:18Z
+    Review started on convergence step 4 (3d03715c..cf825289); weekly usage 21 percent.
