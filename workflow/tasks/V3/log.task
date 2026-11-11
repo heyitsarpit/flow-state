@@ -180,3 +180,8 @@ note 2026-11-11T19:10:58Z
     Review (90-minute, T45 step 3 at 4d7e0f5d): not done. K1 to K4 verified and accepted (B2 unbuilt; the anchor, a 
     turn's from, event and keys, and NO_POLICY declines still come from reports) with the should-fix list; sent to the 
     builder. Findings: proposals/t45-step3-review-2026-11-12.md.
+note 2026-11-11T20:18:04Z
+    T45 step 3 fixes landed (K1, K3, K4, S1, S2, S4, S6, S7; K2 partly), no lost catch against 56ef0856. Builder sent 
+    on to close K2 (Requested ordering or liar-visible limits), the data-flow boundary test, S3, S5 and Actors I10/I37 
+    cases, then steps 4 to 6. Round-14's missing incarnation after disposal and reload goes to limits.ts. Weekly usage 
+    66 percent.
