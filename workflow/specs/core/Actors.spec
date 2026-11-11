@@ -30,7 +30,8 @@ requirements
 
     R3  Bootstrap order
         source  @plan.Runtime.O2.
-        must    With persistence: claim scope ownership, acquire storage, then read and validate 
+        must    With persistence: claim scope ownership (a Runtime refused it runs as WriteAhead Spec
+                R16 states), acquire storage, then read and validate 
                 persisted data before any app service starts. Then acquire the remaining services, 
                 install the restored identities owed an ending (providers before consumers), keep 
                 every other record a record, establish silent context baselines, and open the 
@@ -75,13 +76,14 @@ requirements
     R8  The end
         source  @plan.Runtime.O3.
         must    A shared actor free of uses and work in flight for the grace (100 ms on the Runtime
-                Clock) ends: a persisted actor's record is encoded in that step (the end waits while
+                Clock) ends at the grace's end: a persisted actor's record is encoded in that step (the end waits while
                 it cannot encode), its lanes move to the Runtime unbound, its schedules are
                 cancelled, its placements and unkept reads stop, and each stopped read parks failure
                 { Interrupted } for the identity.
 
                 EndedWithWork is warned once per machine and kind of work. An ensure while it ends
-                binds the next incarnation.
+                binds the next incarnation. Decision (agent, 2026-11-11): the end is owed, not only
+                allowed (audit gap G3; spec-log.md, T42).
 
     R9  The return
         source  @plan.Runtime.O3.
@@ -102,7 +104,8 @@ requirements
         must    A starting incarnation adopts only its own identity's unbound lanes, oldest first
                 for equal local identities, and receives before any external event: the parked
                 endings in saved order, then each Held head's unknown { Restored } once per
-                incarnation, then an in-flight Attempt's ending when it lands.
+                incarnation unless that head's own ending is parked (Restore Spec R3), then an
+                in-flight Attempt's ending when it lands.
 
                 A lane binds to the live incarnation with its recorded subject path; with none its
                 ending is parked for the path. No schedule, issue or send of an old incarnation
@@ -147,8 +150,9 @@ requirements
     R15  Refused deliveries are kept
         source  @plan.Runtime.O4.
         must    An ending whose turn is refused, or whose mapper throws at admission, is delivered
-                once more after the mail already queued; the second refusal is final and its issue
-                names the cause.
+                once more after the mail already queued. Each refusal reports an issue naming the
+                ending and its cause; the second ends its tries until the next boot or adoption.
+                Decision (agent, 2026-11-11): rulings CQ1 and CQ2 (spec-log.md, T42).
 
                 A sent write's twice-refused ending stays parked on its lane, blocking its key until
                 heard, cancelled, released or a local life ends; a read's answer is stranded until
@@ -188,8 +192,10 @@ requirements
         must    Provider.select reads one complete provider snapshot. A slot binds to one provider 
                 for the consumer's lifetime; a bound consumer is a use of its provider. A cycle 
                 (ContextCycle), a missing provider (MissingContextProvider) or an incompatible one 
-                rejects at admission. Baselines are silent at admission, restore, adoption and 
-                hydration.
+                rejects at admission. Baselines are silent at admission, adoption, hydration and a
+                reload restore; a return restored from the Runtime's copy gets R9's one wave when a
+                provider's selection changed meanwhile. Decision (agent, 2026-11-11): audit C13
+                (spec-log.md, T42).
 
     R19  Context waves
         source  @plan.Runtime.O5.
@@ -211,8 +217,9 @@ requirements
 
     R21  forget
         source  @plan.Runtime.O6.
-        must    forget removes the identity's record so the next ensure starts fresh; its parked 
-                and boot-queued endings become evidence. It drops no hold: a Held lane stays 
+        must    forget removes the identity's record so the next ensure starts fresh; its parked
+                and boot-queued endings become evidence, and each kept ending is let go with a
+                recorded letGo (WriteLanes Spec R6; ruling CQ3). It drops no hold: a Held lane stays 
                 unbound until its owner's cancel or an adopting ensure; a hold whose operation no 
                 longer exists is dropped with HoldForgotten (proposed name). forget of a live actor 
                 disposes it first.
@@ -224,12 +231,15 @@ requirements
                 events that have not started are dropped. Schedules cancel, placements stop and
                 sessions release within 5 s (ReleaseOverdue).
 
-                From its start nothing new is invoked and no lane is dropped: a never-sent queued
-                commit ends NotSent { Disposed }; a call settling within 5 s is parked; past the
+                From its start nothing new is invoked and no lane is dropped: a never-sent commit
+                (queued, or a head waiting for its acknowledgement or to be invoked) ends NotSent {
+                Disposed } before the disposal ends, parked and delivered to the identity's next
+                incarnation; a call settling within 5 s is parked; past the
                 bound an Attempt on the wire ends unknown { Disposed } and its late result is
                 ignored. Where a lane's endings are delivered or parked together, the ending that
                 leaves a hold comes last. An unknown keeps its head Held on disk; a definite ending
-                drops it.
+                drops it. Decision (agent, 2026-11-11): ruling CQ6 and audit gap G5 (spec-log.md,
+                T42).
 
     R23  Disposal failure and the last write
         source  @plan.Runtime.O6.
@@ -266,7 +276,9 @@ model
     Use = an attached consumer, a live snapshots subscription, a bound context consumer, or a 
         dehydrate or Hydrate hold.
 
-    WorkInFlight = an InFlight write lane, a kept read, or an ending owed at ready.
+    WorkInFlight = an InFlight write lane, a read started in a turn handling the ending of work in 
+        flight (transitively, R7), or an ending owed at ready. A kept ending (R15) is not work in
+        flight.
 
     Free = no Use and no WorkInFlight.
 
@@ -297,8 +309,6 @@ invariants
 
     I10  An actor ends only when Free has held for the whole grace on the Runtime Clock. [@R7, @R8]
 
-    I11  While an actor has WorkInFlight it is not ended. [@R7]
-
     I12  At an end, a persisted actor's record equals its last committed state, and every lane it had remains with the 
          Runtime. [@R8]
 
@@ -309,12 +319,7 @@ invariants
 
     I15  An incarnation binds only lanes of its own identity and subject path. [@R10]
 
-    I16  Each parked ending is delivered at most once per incarnation, and unknown { Restored } at most once per Held 
-         head per incarnation. [@R10]
-
     I17  No schedule firing, issue or send created by an ended incarnation reaches a later one. [@R10]
-
-    I18  A record of another identity version is never restored as the current one. [@R11]
 
     I19  Within one actor, events are admitted in mailbox order and one at a time. [@R12]
 
@@ -326,7 +331,9 @@ invariants
 
     I23  No ending, schedule firing or context update is dropped by admission bounds. [@R14]
 
-    I24  A refused ending is redelivered at most once per boot or adoption, and is never lost. [@R15]
+    I24  A refused ending is redelivered at most once per boot or adoption, and is never lost while its lane or life 
+         stands (R15's stranded read dropped at a boot and R21's forget are its only exits). Reworded 2026-11-11 (audit 
+         C15). [@R15]
 
     I25  A send never creates an actor and never counts as a use; its outcome follows R16's table. [@R16]
 
@@ -348,7 +355,8 @@ invariants
 
     I33  A failed cleanup never reports success, and the full Cause is retained. [@R23]
 
-    I34  Two Runtimes share no mutable object, and a handle is accepted only by its own Runtime. [@R24]
+    I34  Writes through Runtime A never change Runtime B's store, lanes, storage or snapshots, and B rejects A's 
+         handles. Reworded 2026-11-11 (audit). [@R24]
 
     I35  During Runtime disposal, a call on the wire at its start is never cut short within the 5 s bound: one that 
          settles less than 5 s after the start ends by its own result and the disposal does not end before it settles; 
@@ -357,6 +365,19 @@ invariants
 
     I36  A head whose call ends definitely during Runtime disposal leaves no hold: the next boot restores none for it. 
          Decision (user, 2026-11-10): "Q1 A"; an unknown keeping its head Held is I29's. [@R22]
+
+    I37  A shared actor that stays Free for the whole grace on the Runtime Clock has ended by the grace's end, unless 
+         its record cannot encode (R8). Added 2026-11-11 (audit G3). [@R8]
+
+    I38  Every commit not yet sent when Runtime disposal starts (queued, or a head waiting for its acknowledgement or 
+         to be invoked) ends NotSent { Disposed } before the disposal ends, and that ending is delivered once to the 
+         identity's next incarnation. Decision (agent, 2026-11-11): ruling CQ6, with audit gap G5 (spec-log.md, T42). 
+         [@R22]
+
+    I39  A persisted value-named machine's identity version changes exactly when an input field is added, removed or 
+         renamed, or a field's Schema changes on its type or encoded side; other annotations never change it. Added 
+         2026-11-11: R11's own rule, once the cut I18 left it to Restore Spec I12, which covers only what a boot does 
+         with another version. [@R11]
 
 composition
     flow
@@ -394,11 +415,11 @@ coverage
         open_by      [@Q1]
 
     @R7
-        enforced_by  [@I10, @I11]
+        enforced_by  [@I10]
         open_by      [@Q1]
 
     @R8
-        enforced_by  [@I10, @I12]
+        enforced_by  [@I10, @I12, @I37]
         open_by      [@Q1]
 
     @R9
@@ -406,11 +427,11 @@ coverage
         open_by      [@Q1]
 
     @R10
-        enforced_by  [@I14, @I15, @I16, @I17]
+        enforced_by  [@I14, @I15, @I17]
         open_by      [@Q1]
 
     @R11
-        enforced_by  [@I18]
+        enforced_by  [@I39]
         open_by      [@Q1]
 
     @R12
@@ -454,7 +475,7 @@ coverage
         open_by      [@Q1]
 
     @R22
-        enforced_by  [@I29, @I30, @I31, @I35, @I36]
+        enforced_by  [@I29, @I30, @I31, @I35, @I36, @I38]
         open_by      [@Q1]
 
     @R23
@@ -481,19 +502,21 @@ tests
         not restart the grace; past the grace it ends. Cases `LIFE-02`, `LIFE-04`, `LIFE-08`, `LIFE-24`; wrong runtimes 
         `life.uses-not-counted`, `life.ensure-is-a-use`, `life.no-pending-use`, `life.no-grace`, 
         `life.grace-never-ends`, `life.mail-is-work`. [@I10]
-    T6  Work in flight: an InFlight lane and a kept read keep the actor; a Held lane does not. Cases `LIFE-01`, 
-        `LIFE-06`, `LIFE-11`, `LIFE-13`; wrong runtimes `life.inflight-keeps-nothing`, `life.held-keeps`, 
-        `life.kept-read-keeps-nothing`, `life.every-read-keeps`. [@I11]
+    T6  Work in flight: an InFlight lane and a read started handling such work's ending keep the actor; a Held lane and 
+        a kept ending do not. Cases `LIFE-01`, `LIFE-06`, `LIFE-11`, `LIFE-13`; wrong runtimes 
+        `life.inflight-keeps-nothing`, `life.held-keeps`, `life.kept-read-keeps-nothing`, `life.every-read-keeps`. 
+        [@I10]
     T7  The end and the return: the record is kept at the end and dropped by dispose; an unencodable record delays the 
         end; the return delivers in R9's order and a restored head is heard once per incarnation. Cases `LIFE-12`, 
         `LIFE-17`, `LIFE-22`, `LIFE-23`; wrong runtimes `life.end-drops-record`, `life.dispose-keeps-record`, 
-        `life.end-ignores-codec`, `life.restored-once-per-runtime`, `life.undecodable-is-no-record`. [@I12, @I14, @I16]
+        `life.end-ignores-codec`, `life.restored-once-per-runtime`, `life.undecodable-is-no-record`. [@I12, @I14, 
+        @spec.WriteLanes.I15]
     T8  Lane adoption and order: parked endings in saved order; a local remount in the grace reuses the actor. Cases 
         `REV9-EDGE`, `LIFE-27`; lie `k.parked-reversed`; wrong runtimes `1b.r44-parked-reverse-order`, 
-        `d5.remount-in-grace-is-fresh`, `life.no-remount`. [@I15, @I16, @I17]
+        `d5.remount-in-grace-is-fresh`, `life.no-remount`. [@I15, @I17]
     T9  Versions: an added field, an encoded-side change and a type-side change over the same encoded side are each a 
         new version; a description change is not. Case `R14-ID-02`; wrong runtimes `id.old-version-restored`, 
-        `id.version-by-names-only`, `l1.version-by-printed-name`. [@I18]
+        `id.version-by-names-only`, `l1.version-by-printed-name`. [@I39]
     T10  Mailboxes and rotation: FIFO within an actor; a spin on one actor does not delay another's ending; 65 
          follow-ups are refused. Cases `REV9-LOOP`, `ORDER-04`; wrong runtime `d122.rota-not-rotated`. The prototype's 
          FIFO wrong runtime no longer applies to its code, so phase 3 writes one; the 64 and 1,024 bounds have no 
@@ -524,3 +547,10 @@ tests
             input leaves no actor, lane, schedule or evidence beyond the failure, and a later ensure
             succeeds. No prototype wrong runtime; phase 3 writes one that leaves a half-admitted
             actor. [@I9]
+    T19  Free actors end: on a controlled clock, an actor whose last use detaches with no work in flight has ended at 
+         exactly the grace, and one whose record cannot encode waits. Phase 3 writes the wrong runtime that never ends 
+         a Free actor (the old `life.grace-never-ends`). [@I37]
+    T20  Never-sent commits at disposal: a queued commit and a head waiting for its acknowledgement when disposal 
+         starts each end NotSent { Disposed } before it ends, and the next incarnation after a reload hears each once. 
+         Wrong runtime `mutant.disposal-skips-never-sent`; round-14 never delivers it after the reload (a stated limit 
+         of round-14, ruling CQ6). [@I38]

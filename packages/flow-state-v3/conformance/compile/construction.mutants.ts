@@ -17,7 +17,7 @@ export const constructionMutants: ReadonlyArray<Mutant> = [
   {
     name: "cmp.callback-twice",
     says: "machine runs its callback once to look and once to build",
-    expects: "Compile I2",
+    expects: "Compile I1",
     runtime: "prototype",
     cases: ["CMP-01"],
     edits: [

@@ -7,7 +7,7 @@ location      packages/flow-state-v3/src
 provides      persistence setup, actor and lane records, capture, durable Attempts
 derives_from  [
               @plan.Persistence.O1, @plan.Persistence.O2, @plan.Persistence.O3,
-              @plan.Persistence.O6, @plan.Persistence.D1, @plan.Persistence.V1,
+              @plan.Persistence.O6, @plan.Persistence.O7, @plan.Persistence.D1, @plan.Persistence.V1,
               @plan.Persistence.V2, @plan.Persistence.V3, @plan.Persistence.V5,
               @plan.Persistence.V6, @plan.Persistence.V8, @plan.Persistence.V9
               ]
@@ -150,6 +150,17 @@ requirements
                 a reload has no lane afterwards, so its ending is not seen and its hold is lost (a 
                 stated limit). There is no cross-tab exactly-once guarantee.
 
+    R16  Scope ownership
+        source  @plan.Persistence.O7.
+        must    Only one Runtime owns a scope's saved data. A Runtime the host reports at boot as not
+                owning its scope (another tab or Runtime owns it) runs without restore, capture,
+                writes or deletion for its whole life, reports SecondTabNoPersistence, and ends a
+                persisted identity's commit NotSent { NoPersistence } with its transition running
+                (WriteLanes Spec R12). How ownership is claimed and released (the Web Lock, a
+                disposing owner in the same document, browsers without locks) is the multi-tab
+                Spec's, in phase 5. Decision (agent, 2026-11-11): the core half of O7 is a core
+                rule, since two owners overwrite each other's data (audit G2; spec-log.md, T42).
+
 open
     Q1  Executable checks are not built.
         outcome  Phase 3 writes each test below as an oracle behind the Port, with its wrong 
@@ -194,8 +205,10 @@ invariants
     I11  At every landed state, a lane record's actor record is at least as new as the turn that created the lane. 
          [@R10]
 
-    I12  A dirty plain record's capture is issued within 5 s of the record becoming dirty, or at once after hide, 
-         pagehide or a lane batch; nothing bounds when storage answers. [@R10]
+    I12  A dirty plain record's capture is issued within 5 s of the record becoming dirty or once that key's previous 
+         write answers, whichever is later, and at once after hide, pagehide or a lane batch under the same 
+         one-write-per-key rule (R12); nothing bounds when storage answers. Reworded 2026-11-11 (audit C14). [@R10, 
+         @R12]
 
     I13  Records counted in a scope never exceed 4,096 nor 16 MiB after a capture lands; a record with user work is 
          never the one dropped. [@R11]
@@ -205,12 +218,13 @@ invariants
     I15  For a persisted identity, adapter invocation of an Attempt happens only after that Attempt is Acknowledged. 
          [@R13]
 
-    I16  A refused acknowledgement leaves zero adapter calls for that Attempt. [@R13]
-
     I17  After a crash, every Acknowledged Attempt without a saved ending restores as unknown { Restored } with the 
-         same id; no remote write is repeated. [@R14]
+         same id, and Flow never re-sends it on its own: only a user's retry re-sends it, with that id (WriteLanes Spec 
+         R8). Restore Spec R5's stated fresh start, which loses such Attempts, is the one exception. Reworded 
+         2026-11-11 (audit C16). [@R14]
 
-    I18  No Attempt or incarnation id minted after restore equals any id on disk. [@R12, @R14]
+    I19  A Runtime refused its scope's ownership makes no storage read, write or delete during its life, and every 
+         commit of a persisted identity in it ends NotSent { NoPersistence }. Added 2026-11-11 (audit G2). [@R16]
 
 composition
     flow
@@ -266,19 +280,23 @@ coverage
         open_by      [@Q1, @Q2]
 
     @R12
-        enforced_by  [@I10, @I14, @I18]
+        enforced_by  [@I10, @I12, @I14]
         open_by      [@Q1, @Q2]
 
     @R13
-        enforced_by  [@I15, @I16]
+        enforced_by  [@I15]
         open_by      [@Q1]
 
     @R14
-        enforced_by  [@I17, @I18]
+        enforced_by  [@I17]
         open_by      [@Q1]
 
     @R15
         enforced_by  [@I3]
+        open_by      [@Q1]
+
+    @R16
+        enforced_by  [@I19]
         open_by      [@Q1]
 
 tests
@@ -303,11 +321,11 @@ tests
         `PAY-09`, `PAY-16`, `REV8-H1`, `REV7-H1`; wrong runtimes `lane.ackout-false`, 
         `durable.head-off-disk-on-the-wire`, `durable.ticket-not-fenced`, `1b.r17-refused-resend-silent`, 
         `pay16.refused-capture-spends-budget`, and `lane.promote-skips-durable` (a promoted head sent with no 
-        acknowledgement). [@I15, @I16]
+        acknowledgement). [@I15]
     T8  Crash after acknowledgement: kill at each point between acknowledgement and the adapter's answer; every reload 
         hears unknown { Restored } with the same id and the server sees one call. Case `PAY-16`; wrong runtime 
         `pay16.restore-forgets-may-have-applied`; the global oracle (h) in the prototype harness checks it on every 
-        step. [@I17, @I18]
+        step. [@I17, @spec.WriteLanes.I6, @spec.WriteLanes.I28]
     T9  Bounds and providers: a scope at 4,096 records and one past; a non-durable provider rejects the capture and 
         keeps the previous one. No prototype case (Q2). [@I9, @I13]
     T10  Scope isolation: two apps and two scopes over one fake KeyValueStore; no Runtime reads, writes or deletes 
@@ -319,3 +337,7 @@ tests
          capture. [@I8]
     T13  Codec bounds on records: memory holding a 4,097-item array skips its capture with UnencodableValue and the 
          last good capture restores. No prototype case; phase 3 writes this test. [@I4]
+    T14  A second owner: boot a Runtime whose host reports the scope owned elsewhere, over a fake KeyValueStore holding 
+         records; it restores nothing, a storage spy sees no call, it reports SecondTabNoPersistence, and a persisted 
+         commit ends NotSent { NoPersistence } with its transition run. Phase 3 writes the wrong runtime that still 
+         captures. [@I19]

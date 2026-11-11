@@ -105,7 +105,7 @@ export const cliMutants: ReadonlyArray<Mutant> = [
   cliMutant(
     "cli.warnings-fail",
     "a check with any finding, a warning included, exits 1",
-    "StaticCli I9",
+    "StaticCli I6",
     ["CLI-07"],
     [
       {

@@ -59,8 +59,9 @@ requirements
         source  @plan.Machines.O1.
         must    Creation checks a present input by the Input Schema's type side with no 
                 transforming decode, copies the input fields, applies constant then computed 
-                initials, and reads no clock or randomness. It runs once per incarnation and never 
-                on restore, adoption or hydration.
+                initials, and reads no clock or randomness. It runs once per incarnation and never
+                on restore, adoption or hydration; there only R8's defaults run, and only for fields
+                the record lacks. Decision (agent, 2026-11-11): audit C24 (spec-log.md, T42).
 
     R7  Identity fields
         source  @plan.Machines.O1.
@@ -140,10 +141,15 @@ requirements
                 source and privacy, each operation's key fields, input fields and services, and 
                 each fragment's kind, events and ports. There is no runtime codec for Compiled.
 
+                A Schema's own functions (its filters and transformations) belong to the Schema and
+                are not Slots. The machine callback is construction: Compiled holds its output, never
+                the callback. Decision (agent, 2026-11-11): ruling Compile Q3 (spec-log.md, T42).
+
     R17  Runtime refuses a malformed Compiled
         source  @plan.Runtime.O1.
-        must    Creating a Runtime refuses a Compiled with a key field outside the input, a missing 
-                events table, or a function that is not a Slot.
+        must    Creating a Runtime refuses a Compiled with a key field outside the input, a missing
+                events table, or a function outside a Schema that is not a Slot (R16's exemption;
+                ruling Compile Q3).
 
                 Decision (agent, 2026-11-11): the refusal's code is InvalidConfiguration, whose
                 owners include @plan.Runtime.O1 (@plan.Diagnostics.O2), with details.reason naming
@@ -172,12 +178,6 @@ open
     Q2  IdentityFieldOptional has no prototype case or wrong runtime.
         outcome  Phase 3 adds one before relying on R7.
 
-    Q3  What counts as a Slot is unsettled for two kinds of function: a Schema's own functions (its filters and 
-        transformations, which R16's data view carries) and the machine callback, if a Compiled holds it. Read
-        literally, I15 fails on any Compiled with a Schema; reading it otherwise changes I15.
-        outcome  The user decides whether I15 excludes Schemas, or a Schema's functions become Slots; the static
-                 cases check the data view and Slots only under operations until then.
-
 model
     Construction = any call of definition, machine, trait, subroutine or app.
 
@@ -191,9 +191,8 @@ model
 
 invariants
     I1  For every Construction: no actor, timer, storage access, service, loader or evidence exists afterwards that did 
-        not exist before. [@R1]
-
-    I2  For every machine(definition, callback): the callback is invoked exactly once. [@R1, @R3]
+        not exist before, and each machine(definition, callback) has invoked its callback exactly once. The count was 
+        I2's, folded in 2026-11-11 (audit). [@R1]
 
     I3  A Construction that finds violations V throws one FlowError with diagnostics equal to V in declaration then 
         rule order, and returns no value. [@R2]
@@ -208,7 +207,8 @@ invariants
     I7  creation(input) is a function of input alone: equal inputs give equal memory, and it reads no clock or 
         randomness. [@R6]
 
-    I8  Restore, adoption and hydration never invoke creation. [@R6, @R8]
+    I8  Restore, adoption and hydration never invoke creation, and run no default or computed initial for a field the 
+        record has. Reworded 2026-11-11 (audit C24). [@R6, @R8]
 
     I9  On a value-named machine, every input field is required, has no default and encodes toa string. [@R7]
 
@@ -225,9 +225,11 @@ invariants
     I14  In an App, machine id to machine is a function and injective, and operation, domain and entity ids are 
          pairwise distinct. [@R15]
 
-    I15  Every function reachable in Compiled is a Slot, and the DataView contains no function. [@R16, @R17]
+    I15  Every function reachable in Compiled outside a Schema is a Slot, and the DataView holds no function outside a 
+         Schema. Reworded 2026-11-11: ruling Compile Q3 (audit C4). [@R16, @R17]
 
-    I16  For every operation in Compiled, its key fields are a subset of its input fields. [@R17]
+    I16  machine() never emits a Compiled with an operation whose key fields are not a subset of its input fields, and 
+         Runtime creation refuses such a Compiled. Reworded 2026-11-11 (audit C20). [@R17]
 
     I17  For every machine entry, resolved wiring is total over declared slots and each provider is compatible. [@R18]
 
@@ -241,7 +243,7 @@ composition
 
 coverage
     @R1
-        enforced_by  [@I1, @I2]
+        enforced_by  [@I1]
         open_by      [@Q1]
 
     @R2
@@ -249,7 +251,7 @@ coverage
         open_by      [@Q1]
 
     @R3
-        enforced_by  [@I2, @I4]
+        enforced_by  [@I4]
         open_by      [@Q1]
 
     @R4
@@ -315,7 +317,7 @@ coverage
 tests
     T1  Construct every reference definition, machine and app with spies on services, storage, clock and loaders; 
         expect zero calls and a callback count of 1 per machine. No prototype wrong runtime; phase 3 writes one that 
-        acquires a service at construction. [@I1, @I2, @I6]
+        acquires a service at construction. [@I1, @I6]
     T2  Construct a definition with three violations in different fields; expect one FlowError whose diagnostics name 
         all three, in declaration then rule order, with paths. No prototype wrong runtime; phase 3 writes one that 
         stops at the first violation. [@I3]
@@ -327,16 +329,16 @@ tests
         Case `R15-03`; wrong runtime `r15.creation-decodes-input`. [@I7]
     T5  Restore and adopt a record twice with spies on initial functions; expect zero creation calls. Restore a record 
         lacking an input field with no default; expect RestoreMissingInput (case `R12-DOORS`). [@I8]
-    T6  Type tests: undeclared or foreign members, false from a guard, unfilled ports, writes to
-            input fields and acting fragment members outside their fragment fail to compile; 
-                reference
-            literals infer without assertions. [@R14, @I12]
+    T6  Type tests: undeclared or foreign members, false from a guard, unfilled ports, writes to input fields, acting 
+        fragment members outside their fragment, and a fragment callback whose target moves the host out of the 
+        fragment's placement node (the type half of the cut Turn I8) fail to compile; reference literals infer without 
+        assertions. [@R14, @I12]
     T7  App construction with a duplicate machine id, one machine under two keys, and two contracts with one id each 
         throws one FlowError naming both entries. [@I14]
     T8  Hand a Runtime a Compiled with a bare function, a key field outside input, and no events table; each is refused 
         at creation, before any actor. [@I15, @I16]
-    T9  Equal identities compile from equal source on two hosts to equal data views (compare canonical bytes through 
-        the Codec Spec). [@I15]
+    T9  Equal identities compile from equal source on two hosts to equal data views. Compare them structurally, each 
+        Schema by its JSON Schema document, since the Codec refuses a Schema as notPlain (audit C4). [@I15]
     T10  Wire a slot to a missing provider and to an incompatible one; admitting the actor refuses with the slot named, 
          before any turn (Actors Spec T14 covers the cycle). [@I17]
     T11  The machine adds nothing: a callback naming a state, event or operation the definition lacks is a type error 

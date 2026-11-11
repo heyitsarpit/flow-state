@@ -488,6 +488,39 @@ tasks
             - C1 to C26 each resolved in the Specs or recorded with a reason;
             - the rulings and the gaps' new Invariants written; the 18 cuts and 7 rewordings applied;
             - `workflow check` valid and the coverage gate at 0 gaps.
+        comment     2026-11-11T04:20:14Z
+            Specs revised (code:workflow/specs/spec-log.md, "T42"): C1 to C26 resolved, the rulings and seven gaps 
+            written, 18 cuts and 7 rewordings applied; 183 core Invariants, coverage gate 0 gaps. Compile I2 and 
+            StaticCli I9 checks moved to I1 and I6; new Invariants added to their Tasks' not-yet rows.
+
+            **For the builder, checks whose expected results change (not edited here):**
+
+            - CQ1, CQ2 (WriteLanes I15, Actors R15): the Table C cells pending CQ1 and CQ2 follow the ruling.
+            - CQ3 (WriteLanes I8): a kept ending keeps its lane, commits on its key act as on a non-Idle lane; the 
+              AwaitLetGo cells pending CQ3; forget records each let-go.
+            - CQ5 (WriteLanes I3): ending-channels gains the never-sent rule with `mutant.unsent-ends-unknown` (T7 L9).
+            - CQ6 (new Actors I38): Table A's RuntimeDisposed cell; move `mutant.disposal-skips-never-sent` from Actors 
+              I29 to I38 and drop I38 from T9's not-yet row; a head waiting for its acknowledgement also ends NotSent { 
+              Disposed }.
+            - CQ7 (WriteLanes I11): Superseded promotes the next queued commit.
+            - CQ9 (WriteLanes R7, I15): a cancel-policy replacement's interrupted Attempt with a pending cancel 
+              delivers its unknown { Cancelled }.
+            - R9: KeyRequired for a key-less member on a keyed operation outside an ending is the expected result; 
+              round-14 is a stated limit.
+            - C5 (WriteLanes I21): cancelAll's queued endings in admission order.
+            - C6 (StaticCli R11): check reports a construction FlowError as error findings, exit 1, not 
+              ConfigLoadFailed exit 2.
+            - C8 (StaticCli I1): CLI-01's callback count excludes each machine's one configuration callback call.
+            - C18 (StaticCli R8, I6): a check missing type facts is status failed (the I7 remainder).
+            - C12 (WriteLanes I17): on a fragment operation another path's Rejected may come before OldVersion.
+            - C13, C21 (Turn): a return's one context wave counts for I28; the Boundary of "self" is H.
+            - C17 (Restore I1): an Owed identity with a quarantined or reset record is not live at ready.
+            - C22 (Actors R10): no unknown { Restored } for a head whose own ending is parked.
+            - C24 (Compile I8): its remainder row should name the new clause (no initial for a field the record has).
+
+            **Not done:** CQ8, CQ10, CQ11 (no-change or wording questions, left as the convergence v2 file says); gaps 
+            G3's propagation retry and G8 to G16, for their Tasks with to-spec; @plan.Pending D2 and D3 record G7 and 
+            G17. log.task's 04:03:53Z line was reflowed by `workflow format` and left uncommitted.
 
     T7
         title       WriteLanes area complete
@@ -506,7 +539,8 @@ tasks
             @spec.WriteLanes.I1, @spec.WriteLanes.I2, @spec.WriteLanes.I4, @spec.WriteLanes.I5,
             @spec.WriteLanes.I7, @spec.WriteLanes.I10, @spec.WriteLanes.I13, @spec.WriteLanes.I14,
             @spec.WriteLanes.I17 to @spec.WriteLanes.I19, @spec.WriteLanes.I23, and the pending mutants of
-            @spec.WriteLanes.I15, @spec.WriteLanes.I16 and @spec.WriteLanes.I22.
+            @spec.WriteLanes.I15 (which took the cut I22) and
+            @spec.WriteLanes.I16.
 
             **Approach:** oracles `members`, `members-only`, `write-before-ending`, `old-version-holds`;
             cases; the fake world behaviours they need; the area's ported cases; its verdict compare with the

@@ -201,3 +201,86 @@ Found while writing the `lane-cells` oracle and its lies (packages/flow-state-v3
   naming the rest and its owning Task, and the gate fails a row whose owner is not an open Task.
   From the T41 and T13 review (M2, M3) and the StaticCli review (M1). The V3 builder (2026-11-11).
   Reverse: return the four to T17's row and drop the remainder rows.
+
+## T42: the Invariant audit and the 2026-11-11 rulings (2026-11-11)
+
+All 26 conflicts are resolved in the Specs, the rulings and seven gaps are written, and the 18 cuts and 7
+rewordings applied: 183 core Invariants (186, less 18 cut, plus 15 added), coverage gate at 0 gaps. Source:
+code:workflow/plans/flow/references/proposals/invariant-audit-2026-11-11.md; the rulings in the V3 log
+(2026-11-11T03:30:58Z) and the audit decision (04:03:53Z). The Spec lead of @task.V3.T42, under the orchestrator's
+delegation of Spec questions. Numbers are not reused: a cut leaves a gap. Reverse: revert this commit's Spec edits.
+
+**Rulings written.**
+
+- **CQ1 (C1):** WriteLanes I15 and R10, Actors R15: a second refusal ends an ending's tries until the next boot or
+  adoption, each giving one try with no redelivery after a refusal. CQ2's wording (each refusal reports an issue)
+  went in with it, since round-14 does it and Port change 4 assumes it.
+- **CQ3 (C2):** a kept ending is a value on its lane; WriteLanes R6 and I8 ("not Idle or holds a kept ending"), and
+  Actors R21 (forget lets kept endings go, recorded). CQ4 confirmed: a kept ending is not work in flight (the
+  Actors model says so).
+- **CQ5:** WriteLanes I3 adds "an Attempt never sent ends only NotSent, or unknown { Restored } at a boot". T6 M5's
+  other half ("without an answer only unknowns and declines") is M5's Invariant, not repeated in I3.
+- **CQ6 and G5:** new Actors I38 and R22: every never-sent commit at disposal start, a head still waiting for its
+  acknowledgement included, ends NotSent { Disposed } before disposal ends, delivered once to the next incarnation.
+  Round-14 never delivers it after the reload: a stated limit of round-14.
+- **CQ7 (C3):** WriteLanes I11 and R8: a superseded head promotes the next.
+- **CQ9 (C11):** WriteLanes R7, R10 and I15: the Attempt a `cancel`-policy commit interrupts is evidence only when no
+  cancel is pending on it. Why: R14's "a pending cancel is never lost" is the author's explicit request.
+- **Compile Q3 (C4):** a Schema's own functions are not Slots (Compile R16, R17, I15); the machine callback is
+  construction and never in Compiled. Q3 is closed. T9 compares data views structurally, Schemas by their JSON
+  Schema documents, since the Codec refuses a Schema as notPlain.
+- **M5:** new WriteLanes I25 and R2: a definite ending other than NotSent matches an answer a send received.
+- **The owed retry:** new WriteLanes I26 and R8.
+- **R9:** the Spec's KeyRequired stands, unchanged; round-14 applies key-less members to every lane, a stated limit.
+- **C5:** "mint order" for queued commits is admission order (W's order) in WriteLanes R15 and I21, since a queued
+  commit has no id yet. The disposal ending order (`1b.disposal-definite-w-first`) stays deferred in revisit.md.
+
+**New conflicts, each with the reading chosen.** Why, unless said: it is what an app author can rely on, and it
+matches the other Specs.
+
+- **C6:** check reports a Construction's FlowError diagnostics as error findings, exit 1 (StaticCli R11), with a
+  stated limit: it cannot report what that failed construction kept from loading. Kept construction strict, since
+  Compile R2's one-error-lists-all is what makes the findings complete. Rejected: moving the rules out of
+  construction, which would let untyped apps run invalid machines.
+- **C7:** codes R6 lists fix their classification; every other code takes its Cause's (Diagnostics R6, R8, I6, I7).
+  A GuardDefect stays Defect; a StorageFailure cut short by interruption is Interruption, so callers don't retry it.
+- **C8:** check runs each machine's configuration callback once as construction and no runtime callback (StaticCli
+  R9, I1).
+- **C9:** WriteLanes I2 is "only if, and never after the ending's event"; the positive half with InvalidWrite and
+  stale marking is new I24.
+- **C10:** WriteLanes I12 adds forget of a gone operation's hold (HoldForgotten) and Restore R5's fresh start.
+- **C12:** WriteLanes I17: no commit is invoked; it declines OldVersion, or Rejected where R11 puts another path's
+  Rejected first.
+- **C13:** baselines are silent at a reload restore; a return gets R9's one wave (Actors R18, Turn R22, I28).
+- **C14:** WriteAhead I12: within 5 s or once that key's previous write answers, whichever is later.
+- **C15:** Actors I24: never lost while its lane or life stands.
+- **C16:** WriteAhead I17: never re-sent on Flow's own; a user retry re-sends the same id; R5's fresh start excepted.
+- **C17:** an Owed identity whose record is quarantined or reset is not live at ready; its endings stay parked for
+  the adopting ensure (Restore R1, I1). Why: R5's and R7's adopting ensure already handles such lanes, and waking a
+  fresh actor nobody asked for would be invented state.
+- **C18:** a check with errors has status completed and exits 1; missing type facts give status failed; StaticCli I6
+  maps status plus "has an error finding", taking the cut I9.
+- **C19:** StaticCli I10 "loads no config but"; I11 and R13 exempt forced termination (CommandLine O2, O3).
+- **C20:** Compile I16: machine() never emits one, and Runtime creation refuses one.
+- **C21:** the Turn model's Boundary of "self" is H; an explicit target naming H is a re-entry.
+- **C22:** Actors R10: no unknown { Restored } for a head whose own ending is parked (Restore R3).
+- **C23:** inside a turn or capture every codec failure is UnencodableValue; Codec errors are raised only where a
+  codec failure is a FlowError (Codec R4).
+- **C24:** Compile R6 and I8: restore runs only R8's defaults, for fields the record lacks.
+- **C25:** the Actors model's WorkInFlight takes R7's wording; "kept read" is gone (T6 too).
+- **C26:** StaticCli R2 names a source location only where one is carried, else the definition path; new StaticCli
+  Q3 asks where Compiled gets locations (phase 5).
+
+**Gaps.** New Invariants: WriteLanes I27 (every commit ends, G1), I28 (a seed per boot, G4, with R5); Actors I37
+(Free actors end, G3); WriteAhead R16 and I19 (a Runtime refused scope ownership saves and reads nothing, G2: the
+core half of Persistence O7; the Web Lock stays phase 5's); Turn I32 to I35 (equal deadlines, step delays,
+`restartOn`, keyed schedules, G6). Three more were needed so a Requirement keeps an Invariant after a cut: Actors
+I39 (R11's version rule), Restore I19 (R2's reset first), Reads I20 (R9's read endings, part of G10). G7 and G17
+are Plan wording: @plan.Pending D2 and D3. Not written: G3's context-propagation retry, G8 to G16 (no conflict;
+left for their Tasks with to-spec).
+
+**Cuts and rewordings.** The 18 cuts and the five clause cuts are applied as the audit lists them; each Spec's
+coverage and tests now cite what covers them. Compile I2's count folds into I1 (`cmp.callback-twice` and CMP-01 now
+expect I1); StaticCli I9 folds into I6 (`cli.warnings-fail`, CLI-07 and the remainder row). Turn I8's type clause
+moves to Compile T6; Turn I18 takes I19's old-snapshot clause. The seven rewordings are applied, plus Reads I19
+("returns the idle row"), which the audit's table also asked for.

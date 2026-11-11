@@ -278,7 +278,7 @@ export const cliCases: ReadonlyArray<StaticCase> = [
   },
   {
     id: "CLI-07",
-    cites: ["StaticCli R11", "StaticCli I9"],
+    cites: ["StaticCli R11", "StaticCli I6"],
     run: (surface, expect) => {
       for (const project of ["pay", "dup-session"]) {
         const found = check(surface, project);
@@ -289,7 +289,7 @@ export const cliCases: ReadonlyArray<StaticCase> = [
           Option.map(found.result, (r) => r.summary.errors === 0 && r.summary.warnings > 0),
           Option.some(true),
         );
-        expect("StaticCli I9", `${project}'s warnings leave the exit code 0`, found.code, 0);
+        expect("StaticCli I6", `${project}'s warnings leave the exit code 0`, found.code, 0);
       }
     },
   },
@@ -371,17 +371,12 @@ export const cliRemainders: ReadonlyArray<Remainder> = [
   {
     invariant: "StaticCli I6",
     owner: "@task.V3.T22",
-    owed: "exit codes 130 and 143 (R8, T6), and exit 2 for loading, artifact and I/O failures (R8)",
+    owed: "exit codes 130 and 143 (R8, T6), exit 2 for loading, artifact and I/O failures (R8), and info findings (only warnings are judged)",
   },
   {
     invariant: "StaticCli I7",
     owner: "@task.V3.T22",
     owed: "R9's failure in place of a complete claim; only complete false on two hand projects is judged",
-  },
-  {
-    invariant: "StaticCli I9",
-    owner: "@task.V3.T22",
-    owed: "info findings; only warnings are judged",
   },
   {
     invariant: "StaticCli I8",

@@ -39,8 +39,12 @@ requirements
                 notPlain or sparse) or CodecSchemaMismatch (path and issue summary, never data
                 values).
 
-                No raw parser error or Cause escapes. A value with no encoded form inside a turn is
-                UnencodableValue and never fails the turn.
+                No raw parser error or Cause escapes. Inside a turn or a capture, a value with no
+                encoded form, a bound or a malformation included, is reported only as
+                UnencodableValue (its details naming the bound or reason) and never fails the turn;
+                CodecBoundExceeded and CodecMalformed are raised only where a codec failure is a
+                FlowError: decoding at the boot, payloads, traces, Model bytes and direct calls.
+                Decision (agent, 2026-11-11): audit C23, one code per trace (spec-log.md, T42).
 
 open
     Q1  Executable checks are not built.
@@ -53,8 +57,7 @@ model
     Bytes = UTF-8 canonical JSON text.
 
 invariants
-    I1  For every accepted value v: decode(encode(v)) equals v, and encode(decode(b)) equals b for every accepted b. 
-        [@R2, @R3]
+    I1  For every accepted value v: decode(encode(v)) equals v. (Canonical bytes coming back equal is I4's.) [@R2, @R3]
 
     I2  Each bound accepts its exact value and rejects the next one. [@R1]
 
@@ -62,7 +65,8 @@ invariants
 
     I4  Bytes that are not the canonical encoding of their value are rejected. [@R3]
 
-    I5  Decoded values share no memory with the input bytes. [@R3]
+    I5  After encode(v) returns bytes b, mutating b changes no stored value and no later encode(v). Reworded 2026-11-11 
+        (audit). [@R3]
 
     I6  A codec failure happens before any state change and carries no data value or Cause.[@R4]
 

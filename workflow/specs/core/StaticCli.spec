@@ -23,8 +23,12 @@ requirements
 
     R2  Output for people
         source  @plan.CommandLine.O1.
-        must    Output for people names source locations (pay.machine.ts:42), never internal 
-                closure paths, and groups a graph by state. The exact outputs are accepted by the 
+        must    Output for people names a source location (pay.machine.ts:42) where the Diagnostic
+                or data view carries one, and otherwise the definition path (such as
+                operations.pay.failure.CardDeclined), never an internal closure path or an invented
+                location (Diagnostics Spec R10); it groups a graph by state. Decision (agent,
+                2026-11-11): audit C26; where Compiled gets source locations is Q3. The exact outputs are accepted by 
+                the 
                 user in phase 5.
 
     R3  Selection
@@ -72,8 +76,10 @@ requirements
 
     R8  Exit codes
         source  @plan.CommandLine.O3.
-        must    Completed commands and warning-only checks exit 0. Checks with errors exit 1 and 
-                stay stdout results. Usage, loading, artifact and I/O failures exit 2. Interruption 
+        must    Completed commands and warning-only checks exit 0. A check with an error finding has
+                status completed, exits 1 and stays a stdout result. A check missing complete type
+                facts has status failed (R9). Decision (agent, 2026-11-11): audit C18 (spec-log.md,
+                T42). Usage, loading, artifact and I/O failures exit 2. Interruption 
                 reports failure only after cleanup and exits 130 for SIGINT or 143 for SIGTERM. 
                 Cleanup failure cannot report success.
 
@@ -81,8 +87,11 @@ requirements
         source  @plan.CommandLine.O5.
         must    flow check checks the complete declared graph, lazy entries included, from each 
                 machine's compiled data view, running no application callback other than entity 
-                domain recorded positions. It loads declarations but activates no actor, service, 
-                fixture or machine callback. Deny codes come from declared types; missing complete 
+                domain recorded positions. It loads declarations, so each machine's configuration
+                callback runs its one construction call (Compile Spec R1), and activates no actor,
+                service or fixture and no runtime callback (guard, mapper, select, action, default or
+                initial). Decision (agent, 2026-11-11): audit C8 (spec-log.md, T42). Deny codes come from declared 
+                types; missing complete 
                 type facts fails instead of claiming a complete analysis. A Story is read as data.
 
     R10  check errors
@@ -98,8 +107,11 @@ requirements
     R11  Findings
         source  @plan.CommandLine.O5.
         must    Each finding carries severity, a stable rule reason, its actual path and actionable 
-                help. Warnings and info never fail the check. Failing to load a graph is an 
-                invocation failure. Findings never certify runtime callbacks or runtime 
+                help. Warnings and info never fail the check. Failing to load a graph is an
+                invocation failure, except a Construction's FlowError (Compile Spec R2): check
+                reports its diagnostics as error findings (exit 1), and cannot report what that
+                failed construction kept from loading (a stated limit). Decision (agent,
+                2026-11-11): audit C6 (spec-log.md, T42). Findings never certify runtime callbacks or runtime 
                 correctness. check --watch keeps one compiler session and re-lints changed files.
 
     R12  Configuration discovery
@@ -116,7 +128,9 @@ requirements
         source  @plan.CommandLine.O6.
         must    Config, Story and entry files must resolve inside the project root after symlinks; 
                 escaping entries reject before execution. Flow writes no caches or bundles into the 
-                project and removes its temporary files on success, failure and interruption. 
+                project and removes its temporary files on success, failure and interruption by
+                SIGINT or SIGTERM; forced termination (a second signal, SIGKILL) has no cleanup
+                guarantee (@plan.CommandLine.O2, @plan.CommandLine.O3). 
                 Loading local TypeScript trusts that code; it is not a sandbox.
 
 open
@@ -128,35 +142,42 @@ open
         outcome  R2 and R5's rendering stay open until then; the JSON shape is the contract tests 
                  read now.
 
+    Q3  Where Compiled gets source locations for R2 (the data view carries none today, and Compile R16 lists none).
+        outcome  Settled with the text outputs in phase 5; until then output names definition paths.
+
 model
     DataView = the Compile Spec's data view of Compiled: closures as names.
 
     Finding = { severity, rule, path, help }.
 
 invariants
-    I1  graph, check and static explain invoke no application callback, service, fixture or actor; recorded positions 
-        are the only callbacks check runs. [@R9]
+    I1  graph, check and static explain invoke no runtime callback (guard, mapper, select, action, default or initial), 
+        service, fixture or actor; besides each machine's one construction call of its configuration callback, recorded 
+        positions are the only callbacks check runs. Reworded 2026-11-11 (audit C8). [@R9]
 
     I2  Every edge name in graph equals the name the Runtime's turn record uses for that alternative. [@R5]
 
     I3  Every usage error is reported before any application file is loaded. [@R4]
 
-    I4  For every command, text and JSON results are built from one result value. [@R7]
+    I4  For every command, text and JSON give equal status, data and diagnostic codes. Reworded 2026-11-11 (audit). 
+        [@R7]
 
     I5  stdout carries exactly one document on success or findings, and stderr exactly one on invocation failure; 
         neither carries loader output. [@R7]
 
-    I6  The exit code is a function of the result status as R8 maps it. [@R8]
+    I6  The exit code is a function of the result status and, for check, whether it holds an error finding, as R8 maps 
+        it; no warning or info finding changes it. Reworded 2026-11-11 (audit C18), taking the cut I9. [@R8, @R11]
 
     I7  check never reports complete when type facts were missing. [@R9]
 
-    I8  Every rule R10 lists is reported as an error by a fixture that violates it, and by no reference app. [@R10]
+    I8  Each @plan.CommandLine.O5 rule id errors (exit 1) on a fixture that violates it, and no reference app errors. 
+        Reworded 2026-11-11 (audit). [@R10]
 
-    I9  No warning or info finding changes the exit code. [@R11]
+    I10  Discovery loads no config but flow.config.ts at the root, and reads nothing in a parent directory. Reworded 
+         2026-11-11 (audit C19). [@R12]
 
-    I10  Discovery reads only flow.config.ts at the root and never a parent directory. [@R12]
-
-    I11  After any run, the project tree is byte-identical to before, and no temporary file remains. [@R13]
+    I11  After any run that ends by itself or by SIGINT or SIGTERM, the project tree is byte-identical to before, and 
+         no temporary file remains. Reworded 2026-11-11 (audit C19). [@R13]
 
     I12  An unknown app or operand is never resolved to another app. [@R3]
 
@@ -173,7 +194,7 @@ coverage
 
     @R2
         enforced_by  [@I4], user acceptance
-        open_by      [@Q1, @Q2]
+        open_by      [@Q1, @Q2, @Q3]
 
     @R3
         enforced_by  [@I12]
@@ -208,7 +229,7 @@ coverage
         open_by      [@Q1]
 
     @R11
-        enforced_by  [@I9]
+        enforced_by  [@I6]
         open_by      [@Q1]
 
     @R12
@@ -232,6 +253,6 @@ tests
     T5  Results and streams: every command in text and JSON from one run; stdout and stderr each carry one document; a 
         loader that logs does not mix in; a closed pipe ends quietly. [@I4, @I5]
     T6  Exit codes: warning-only check exits 0, errors exit 1, bad usage exits 2 before loading, SIGINT exits 130 after 
-        cleanup. [@I3, @I6, @I9]
+        cleanup. [@I3, @I6]
     T7  Discovery and safety: no config, a config in a parent, a symlink escaping the root, a lookalike app value; 
         each fails before execution resources; the project tree is unchanged after every run. [@I10, @I11, @I12]

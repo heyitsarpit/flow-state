@@ -20,6 +20,11 @@ requirements
                 ending), which is restored live at ready and kept as work in flight until those
                 turns run.
 
+                An owed identity whose actor record is quarantined (R5) or reset (R7) at that boot
+                is not restored live: its lanes stay unbound with their endings parked, and the
+                incarnation an adopting ensure starts receives them. Decision (agent, 2026-11-11):
+                audit C17 (spec-log.md, T42).
+
                 A restored record is a new incarnation with new ids for the actor and every fragment
                 incarnation. Restore never runs creation again or replays input or turns.
 
@@ -151,14 +156,13 @@ model
     HoldLeaving = an ending after which its lane stays Held (unknown).
 
 invariants
-    I1  After ready, the live incarnations restored from records are exactly the Owedidentities; every other record is 
-        still only a record. [@R1]
+    I1  After ready, the live incarnations restored from records are exactly the Owed identities whose actor record 
+        restores at that boot; an Owed identity whose record is quarantined or reset has no live incarnation and its 
+        endings stay parked until an adopting ensure; every other record is still only a record. Reworded 2026-11-11 
+        (audit C17). [@R1]
 
-    I2  No restore, return or adoption invokes creation, re-runs a turn or re-sends an Attempt.[@R1, @R4]
-
-    I3  A restored incarnation's ids are fresh, never equal to any id on disk. [@R1]
-
-    I4  A restored context binding emits no onContext event. [@R2]
+    I2  No restore, return or adoption re-runs a turn. (Creation is Compile Spec I8's; re-sends are WriteLanes Spec 
+        I1's.) [@R1, @R4]
 
     I5  Per lane, deliveries at restore follow: parked endings in saved order, then queuedNotSent { Restored }, then at 
         most one HoldLeaving ending, last. [@R3]
@@ -192,6 +196,10 @@ invariants
 
     I18  dispose({ forget: true }) resolves success only after deletion is confirmed. [@R10]
 
+    I19  A writing placement whose re-taken reset value differs from its recorded one runs its reset as the first turn 
+         after restore, before any lane delivery of that incarnation. Added 2026-11-11: R2's reset rule, once the cut 
+         I4 left R2 with no Invariant (a silent context baseline is Turn Spec I28's). [@R2]
+
 composition
     flow
         Design note, proved by the prototype. Restore is per record and runs in the core at
@@ -201,11 +209,11 @@ composition
 
 coverage
     @R1
-        enforced_by  [@I1, @I2, @I3]
+        enforced_by  [@I1, @I2]
         open_by      [@Q1]
 
     @R2
-        enforced_by  [@I4]
+        enforced_by  [@I19]
         open_by      [@Q1]
 
     @R3
@@ -253,7 +261,7 @@ tests
     T4  Kill points: kill before and after a first send's batch lands; before, no lane and the
             state before the turn; after, unknown { Restored }. Case `PAY-09`. [@I8]
     T5  Stopped reads and resets after reload: a stopped read is heard after a reload; a reset a reload lost runs at 
-        the boot. Cases `LIFE-13`, `REAL-04`; wrong runtime `d1.reload-drops-stopped`. [@I2, @I4]
+        the boot. Cases `LIFE-13`, `REAL-04`; wrong runtime `d1.reload-drops-stopped`. [@I2, @I19]
     T6  Record formats: every record states its format; format 1 restores as it was; a newer, null, fractional or 
         string format is quarantined and its lane still holds. Case `P1-M`; wrong runtimes `m1.null-format-as-1`, 
         `m1.fraction-format-floors`, `m1.string-format-coerced`, `m1.newer-format-read`. [@I10, @I13]
@@ -273,7 +281,8 @@ tests
     T12  Forgetting a scope: deletion confirmed before success; a failing deletion reports StorageFailure. No prototype 
          case (Q2). [@I18]
     T13  Fresh ids after restore: after a reload, every incarnation id and Attempt id minted differs from every id in 
-         the restored records. Case `REV8-PINS`; wrong runtime `durable.mint-floor-head-only`. [@I3]
+         the restored records. Case `REV8-PINS`; wrong runtime `durable.mint-floor-head-only`. [@spec.Actors.I13, 
+         @spec.WriteLanes.I6]
     T14  Restored data is stale: a restored resource entry reads stale, a live placement refetches it with its own 
          input, and a key-only entry starts nothing. No prototype case; phase 3 writes this test and its wrong runtime. 
          [@I9]

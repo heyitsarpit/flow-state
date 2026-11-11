@@ -337,11 +337,11 @@ mutants and wrong runtimes named here are in `prototypes/conformance/falsify.ts`
 
 ### Reads (`workflow/specs/core/Reads.spec`)
 
-| Invariants           | Oracle module | Mutants                        |
-| -------------------- | ------------- | ------------------------------ |
-| I7, I8, I9, I11, I12 | `lookups`     | `drain.*` search kills         |
-| I15, I16, I17        | `optimistic`  | `lie.settled-*`                |
-| I1 to I5, I18, I19   | cases         | `lie:a3.like-row-hidden` (I18) |
+| Invariants       | Oracle module | Mutants                        |
+| ---------------- | ------------- | ------------------------------ |
+| I8, I9, I11, I20 | `lookups`     | `drain.*` search kills         |
+| I15, I16, I17    | `optimistic`  | `lie.settled-*`                |
+| I1 to I5, I19    | cases         | `lie:a3.like-row-hidden` (I19) |
 
 ### Compile, Diagnostics, Codec, StaticCli
 
@@ -350,8 +350,7 @@ Static guarantees: checked by case expectations over a static surface, not by pe
 
 | Invariant                     | Cases                               | Mutants                                                                                                                             |
 | ----------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Compile I1                    | CMP-01                              | `cmp.commit-runs-at-construction` (in part)                                                                                         |
-| Compile I2                    | CMP-01                              | `cmp.callback-twice`                                                                                                                |
+| Compile I1                    | CMP-01                              | `cmp.commit-runs-at-construction`, `cmp.callback-twice` (in part; the cut I2's count folded in)                                     |
 | Compile I4                    | CMP-02                              | `cmp.uncertain-not-listed`, `cmp.state-dropped`, `cmp.operation-dropped` (in part)                                                  |
 | Compile I5                    | CMP-03                              | `cmp.two-defaults-accepted` (in part)                                                                                               |
 | Compile I6                    | CMP-01, CMP-04                      | `cmp.computed-initial-runs`, `cmp.impure-default-accepted` (in part)                                                                |
@@ -364,7 +363,7 @@ Static guarantees: checked by case expectations over a static surface, not by pe
 | Compile I16                   | CMP-06                              | `cmp.key-outside-input-admitted`, `cmp.seal-crashes-on-key`                                                                         |
 | Compile I3, I9, I10, I12, I17 | none                                | round-14 makes no such result (`not-yet.ts` says which)                                                                             |
 | Diagnostics, Codec            | none                                | round-14 has no Diagnostic carrier and no canonical byte codec                                                                      |
-| StaticCli I1, I4 to I9, I12   | CLI-01 to CLI-08                    | `static-cli/cli.mutants.ts`; I1, I4, I6 to I9, I12 in part                                                                          |
+| StaticCli I1, I4 to I8, I12   | CLI-01 to CLI-08                    | `static-cli/cli.mutants.ts`; I1, I4, I6 to I8, I12 in part (I6 took the cut I9)                                                     |
 | StaticCli I2                  | CLI-09 and the `graph-names` oracle | `cli.graph-renames-untaken-edge`, `graph-names.mutants.ts` (in part)                                                                |
 | StaticCli I3, I10, I11        | none                                | T22 builds config discovery and the project tree                                                                                    |
 

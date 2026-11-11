@@ -155,25 +155,25 @@ invariants
 
     I5  An admitted key is independent of later mutation of the input object. [@R3]
 
-    I7  Per (Runtime, contract, key) at most one lookup is in flight. [@R5]
-
     I8  A lookup that finds a lookup in flight for its entry joins it and starts no request. [@R5, @R6]
 
     I9  Of several lookups through one one-off read lane, only the latest's ending is delivered. [@R6]
 
     I11  A request started before the stored data landed never replaces that data. [@R10]
 
-    I12  value fires only on a confirmed change under Equal.equals, never for an optimistic value. [@R9, @R10, @R13]
-
     I15  Visible equals confirmed data with exactly the live optimistic updates applied. [@R13]
 
-    I16  No optimistic value is ever confirmed data, persisted or hydrated. [@R13]
+    I16  No optimistic value is ever confirmed data or hydrated. (Not persisted is WriteAhead Spec I6's.) [@R13]
 
     I17  An unknown ending triggers at most one refetch of each displayed entry. [@R13]
 
-    I18  A row object is the same object across publications while its lane, entry or session is unchanged. [@R14]
+    I19  For every valid k, O.x.get(s, k) returns the row of k's lane, or the idle row when k has no lane. Reworded 
+         2026-11-11 (audit). [@R14]
 
-    I19  O.x.get(s, k) is defined for every valid k. [@R14]
+    I20  Every delivered read ending is a success or value carrying confirmed data, or a failure; a read's defect or 
+        interruption ends as failure Defect or Interrupted, and a mapper that throws or returns no shape ends as Defect
+        with a UserClosure issue. Added 2026-11-11: R9's own rule, once the cut I12 left it with none (audit G10).
+        [@R9]
 
 coverage
     @R1
@@ -189,7 +189,7 @@ coverage
         open_by      [@Q1]
 
     @R5
-        enforced_by  [@I7, @I8]
+        enforced_by  [@I8]
         open_by      [@Q1]
 
     @R6
@@ -201,11 +201,11 @@ coverage
         open_by      [@Q1]
 
     @R9
-        enforced_by  [@I12]
+        enforced_by  [@I20]
         open_by      [@Q1]
 
     @R10
-        enforced_by  [@I11, @I12]
+        enforced_by  [@I11]
         open_by      [@Q1]
 
     @R13
@@ -213,7 +213,7 @@ coverage
         open_by      [@Q1]
 
     @R14
-        enforced_by  [@I18, @I19]
+        enforced_by  [@I19]
         open_by      [@Q1]
 
 tests
@@ -228,11 +228,11 @@ tests
     T4  Key values: a throwing getter refuses without being run twice; a cycle refuses; a mutated
             input after admission does not change the key. Case `REV6-H4`. [@I4, @I5]
     T5  Shared lookups: two actors looking up one key share one in-flight request; a second Runtime shares nothing. No 
-        prototype case; phase 3 writes this test and its wrong runtime. [@I7, @I8]
+        prototype case; phase 3 writes this test and its wrong runtime. [@I8]
     T6  One-off reads: a newer lookup supersedes the open one and only its ending arrives. Cases `REV8-M9`, `PAY-16`; 
         wrong runtimes `reads.bad-lookup-keeps-old`, `pay16.superseded-read-keeps-older`. [@I9]
     T8  Read endings: a throwing mapper ends Defect with a UserClosure issue; an ignored ending runs no handler. Cases 
-        `PAY-16`, `R14-IGN-01`; wrong runtime `pay16.read-defect-not-an-issue`. [@I12]
+        `PAY-16`, `R14-IGN-01`; wrong runtime `pay16.read-defect-not-an-issue`. [@I20]
     T9  Older reads never overwrite: a read started before a write's data landed does not replace it; one started after 
         applies. Cases `MED-03`, `REV4-H1`; no live prototype wrong runtime targets resource reads, so phase 3 writes 
         one. [@I11]
@@ -240,4 +240,4 @@ tests
          keeps it uncertain and refetches once, and a failed refetch leaves it uncertain. Cases `STORE-01`, `STORE-02`, 
          `STORE-03`, `STORE-08`. [@I15, @I16, @I17]
     T12  Rows: pending, uncertain and waiting follow the lane; identity is kept while unchanged; O.x.get of an unknown 
-         key reads the idle row. Case `LIKE-01`; lie `lie:a3.like-row-hidden`. [@I18, @I19]
+         key reads the idle row. Case `LIKE-01`; lie `lie:a3.like-row-hidden`. [@I19, @spec.Turn.I30]

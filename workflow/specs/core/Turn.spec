@@ -175,9 +175,10 @@ requirements
 
     R22  Context reactions
         source  @plan.Machines.O7.
-        must    `onContext` select sets a silent baseline at admission, restore, adoption and
-                hydration. Only context waves re-run it; memory-only changes do not. Equal
-                selections are silent.
+        must    `onContext` select sets a silent baseline at admission, a reload restore, adoption
+                and hydration. Only context waves re-run it, the one wave a returning incarnation
+                receives included (Actors Spec R9); memory-only changes do not. Equal selections are
+                silent. Decision (agent, 2026-11-11): audit C13 (spec-log.md, T42).
 
                 A changed selection becomes the baseline even if when declines; with no when, or
                 when true, its event enqueues after the context turn, in declaration order, in the
@@ -225,8 +226,10 @@ model
 
     Activation = one entry of a state, ended by its exit; a re-entry is a new Activation.
 
-    Boundary = for a handler at H targeting T: H if T is a strict descendant of H, otherwise the 
-        nearest proper ancestor of T that also contains H.
+    Boundary = for a handler at H targeting T: H if the target is "self" or T is a strict descendant 
+        of H, otherwise the nearest proper ancestor of T that also contains H. An explicit target
+        naming H itself is a re-entry, so its Boundary is H's parent. Decision (agent, 2026-11-11):
+        audit C21, so I4 and I5 agree (spec-log.md, T42).
 
     Used = the Actors Spec's use relation for the actor.
 
@@ -246,11 +249,6 @@ invariants
     I6  Exits are ordered deepest first and entries outermost first; a parent's activity starts before and stops after 
         each child's. [@R3]
 
-    I7  No snapshot is published whose active state is not a leaf. [@R3, @R5]
-
-    I8  An ancestor's "self" never abandons a subroutine, and a callback never moves the host out of the fragment's 
-        placement node. [@R4]
-
     I9  Each turn publishes at most once, and an accepted transition with all its parts publishes exactly once. [@R5]
 
     I10  A pending reset runs as a turn of its own before the next admitted event. [@R5, @R6]
@@ -259,8 +257,6 @@ invariants
 
     I12  Every read @plan.Machines.O3 lists for PreTurn returns PreTurn values; every read it lists for After
         returns After values. [@R7]
-
-    I13  All now values passed within one turn are equal. [@R7]
 
     I14  A rejected or pre-commit-defective turn leaves state, memory, context and store equal to PreTurn and starts no 
          work; it publishes exactly one issue-only snapshot. [@R8, @R10]
@@ -272,10 +268,9 @@ invariants
 
     I17  turn(snapshot, event, clock, seed) is a function: equal arguments give equal results. [@R11]
 
-    I18  check(s, e) leaves the Runtime unchanged, and check(s, e) is Allowed exactly when handling e at s would run a 
-         transition. [@R13]
-
-    I19  For every guard g: g's result is a function of its captured inputs. [@R12, @R13]
+    I18  check(s, e) leaves the Runtime unchanged, is Allowed exactly when handling e at s would run a transition, and 
+         on an old snapshot s gives the same verdict whatever has happened since, from s's own captured values. 
+         Reworded 2026-11-11 to take the cut I19 (audit). [@R12, @R13]
 
     I20  A delivered firing carries the id of its schedule's latest arming, and its activation is alive. [@R15]
 
@@ -296,14 +291,27 @@ invariants
 
     I27  A late turn never exits an Activation that owns an InFlight head or a queued commit. [@R21]
 
-    I28  An onContext event is enqueued only after a context wave changed its selection, and the baseline then equals 
-         that selection. [@R22]
+    I28  An onContext event is enqueued only after a context wave (a returning incarnation's one wave included) changed 
+         its selection, and the baseline then equals that selection. Reworded 2026-11-11 (audit C13). [@R22]
 
     I29  A published snapshot is never mutated afterwards. [@R24]
 
     I30  A part of a snapshot whose content is unchanged is the same object in the next snapshot. [@R24]
 
     I31  An issue is cleared only by its own source; a new incarnation's first snapshot has no issue. [@R25]
+
+    I32  Firings with equal deadlines are admitted as separate turns, ordered by actor admission order, then outermost 
+         state, then declaration order. Added 2026-11-11 (audit G6). [@R15]
+
+    I33  A multi-step Schedule's next delay is counted from the previous step's actual firing, and an overdue step 
+         fires once. Added 2026-11-11 (audit G6). [@R15]
+
+    I34  A `restartOn` schedule restarts from its first step exactly after a committed turn whose selection differs 
+         from its baseline under Equal.equals, never at its activating turn or a restore, and only that schedule 
+         restarts. Added 2026-11-11 (audit G6). [@R16, @R17]
+
+    I35  A keyed schedule has exactly one live timer per key in the after memory and after lanes: armed when the key 
+         appears, cancelled when it leaves, and each firing carries its key. Added 2026-11-11 (audit G6). [@R16]
 
 composition
     flow
@@ -323,15 +331,15 @@ coverage
         open_by      [@Q1]
 
     @R3
-        enforced_by  [@I4, @I5, @I6, @I7]
+        enforced_by  [@I4, @I5, @I6]
         open_by      [@Q1, @Q2]
 
     @R4
-        enforced_by  [@I8]
+        enforced_by  [@I4, @I5]
         open_by      [@Q1]
 
     @R5
-        enforced_by  [@I3, @I7, @I9, @I10]
+        enforced_by  [@I3, @I9, @I10]
         open_by      [@Q1]
 
     @R6
@@ -339,7 +347,7 @@ coverage
         open_by      [@Q1]
 
     @R7
-        enforced_by  [@I12, @I13]
+        enforced_by  [@I12]
         open_by      [@Q1]
 
     @R8
@@ -359,11 +367,11 @@ coverage
         open_by      [@Q1]
 
     @R12
-        enforced_by  [@I19]
+        enforced_by  [@I12, @I18]
         open_by      [@Q1]
 
     @R13
-        enforced_by  [@I18, @I19]
+        enforced_by  [@I18]
         open_by      [@Q1, @Q2]
 
     @R14
@@ -371,11 +379,11 @@ coverage
         open_by      [@Q1]
 
     @R15
-        enforced_by  [@I20, @I22]
+        enforced_by  [@I20, @I22, @I32, @I33]
         open_by      [@Q1, @Q2]
 
     @R16
-        enforced_by  [@I20]
+        enforced_by  [@I20, @I34, @I35]
         open_by      [@Q1, @Q2]
 
     @R17
@@ -421,9 +429,9 @@ tests
         `a3.r14-reenters-the-parent`. [@I4, @I5]
     T2  Exit and entry order: a three-level tree with an activity per level and a transition across two branches; the 
         recorded stop and start order is deepest-first exits, then outermost-first entries. No prototype case; phase 3 
-        writes one with a wrong runtime that enters innermost first. [@I6, @I7]
+        writes one with a wrong runtime that enters innermost first. [@I6, @I1]
     T3  Subroutines and history: exit, abandonment, an ancestor's self, history re-entry. Case `FRAG-10`; wrong runtime 
-        `1b.r14-history-reentry-keeps-activation` (a history re-entry that keeps the activation). [@I8]
+        `1b.r14-history-reentry-keeps-activation` (a history re-entry that keeps the activation). [@I4, @I5]
     T4  One publication: a transition that raises into two traits and resets a third publishes exactly one snapshot; a 
         child's refusal publishes none. Case `FRAG-17`. [@I3, @I9]
     T5  Before and after memory: a schedule function and a commit select read the value the turn wrote; a guard and a 
@@ -436,17 +444,18 @@ tests
         callback path, and the same input is not retried (case `R12-DEFECT`). A throwing post-commit mapper publishes 
         one issue and no event. [@I14, @I16]
     T8  Determinism: run one reference scenario twice on a controlled clock and seed; the turn records are equal, and a 
-        host clock jump between runs changes nothing. [@I13, @I17]
+        host clock jump between runs changes nothing. [@I17]
     T9  check agreement: for every (state, event) pair of the reference machines, check's verdict equals what handling 
         does, and a Runtime spy sees no effect from check; a stored old snapshot answers from its captured values. No 
-        prototype case. [@I18, @I19]
+        prototype case. [@I18]
     T10  Schedules: armOn, disarmOn, exit, a re-armed debounce, a stale firing after re-arming. Cases `REAL-03`, 
          `FRAG-17`, `LIFE-16`; wrong runtimes `pinsa.left-state-schedule-kept`, `life.grace-unfenced`. [@I20, @I21]
     T11  Waiting while unused and overdue: cases `LIFE-14`, `FRAG-18`; wrong runtimes `life.schedule-fires-unused`, 
          `life.waiting-survives-re-arm`, `life.waiting-never-wakes`, `life.waiting-lost-at-end`, 
          `m2.q1-reset-keeps-timers`. [@I22, @I23]
     T12  restartOn and keyed schedules: a changed selection restarts only its schedule; equal values do nothing; a key 
-         leaving cancels its timer. No prototype case. [@I20]
+         leaving cancels its timer, a repeated key keeps one timer, and a restore does not restart a `restartOn` 
+         schedule. No prototype case. [@I20, @I34, @I35]
     T13  Placements: a key change releases once and opens the new key; a non-key change keeps the session; a throwing 
          select keeps it with one issue. Case `P1-S`; wrong runtimes `p1s.key-not-in-identity`, 
          `p1s.select-throw-releases`. [@I24]
@@ -474,3 +483,7 @@ tests
          `R14-F-01`; phase 3 writes the wrong runtime that drops the lane effects. [@I15]
     T22  value only on change: a placement receives equal confirmed data twice and an optimistic change; value fires 
          once. No prototype case for resources; phase 3 writes this test and its wrong runtime. [@I25]
+    T23  Equal deadlines and step delays: two actors and two nested states arm schedules due at one instant; the 
+         firings are separate turns in admission, outermost-state, then declaration order. A Schedule step fired late 
+         counts its next delay from the actual firing. No prototype case (Q2); phase 3 writes the wrong runtimes. 
+         [@I32, @I33]

@@ -13,3 +13,14 @@ decisions
         old design's `HeldThisTurn`, which is about the `cancel` concurrency policy (the R4 entry in
         code:workflow/specs/spec-log.md). **Proven by:** P4's production lane passing the suite's
         cancel-on-wire cases (PAY-12, PAY-15, LANE-04). Found in @task.V3.T7.
+    D2  @plan.Machines.O3: a denied or unhandled ending's lane-only change is published
+        Change O3's "Unhandled or denied events publish nothing" to "publish nothing of their own; an
+        ending admitted in that turn publishes its lane-only change", as @spec.Turn.R19 and the same
+        outcome's step-one rule already say. **Why:** otherwise rows stay stale after a denied ending
+        (the Invariant audit's G7, code:workflow/plans/flow/references/proposals/invariant-audit-2026-11-11.md).
+        **Proven by:** P3's Turn cases for @spec.Turn.I15 showing the row change. Found in @task.V3.T42.
+    D3  @plan.Runtime.O6: disposal invokes nothing
+        Drop "and invokes what the lane table promotes" from O6's disposal paragraph, which the same
+        outcome contradicts ("from its start nothing is invoked"); @spec.Actors.R22 and
+        @spec.Actors.I30 follow the second reading. **Why:** the audit's G17. **Proven by:** P3's
+        disposal cases (`o6.*` wrong runtimes) staying green on round 14. Found in @task.V3.T42.

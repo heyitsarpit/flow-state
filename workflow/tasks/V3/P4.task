@@ -146,7 +146,7 @@ tasks
             **Why now:** the core returns work as data; nothing runs it or writes records yet, so durability
             cannot be judged.
 
-            **Read first:** @spec.WriteAhead, @spec.WriteAhead.I15, @spec.WriteAhead.I16, @spec.WriteAhead.I17,
+            **Read first:** @spec.WriteAhead, @spec.WriteAhead.I15 (which took the cut I16), @spec.WriteAhead.I17,
             code:packages/flow-state-v3/conformance/README.md ("Planned Port changes": the disk reader).
 
             - **May change:** `src/`.

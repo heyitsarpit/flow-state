@@ -163,13 +163,13 @@ const functionsIn = (value: Json) => {
 export const constructionCases: ReadonlyArray<StaticCase> = [
   {
     id: "CMP-01",
-    cites: ["Compile R1", "Compile I1", "Compile I2", "Compile I6"],
+    cites: ["Compile R1", "Compile I1", "Compile I6"],
     run: (surface, expect) => {
       const calls = counted();
       const built = surface.construct(s1(calls));
 
       expect("Compile R1", "S1 constructs", codes(built), []);
-      expect("Compile I2", "the machine callback runs once", calls.of("cb"), 1);
+      expect("Compile I1", "the machine callback runs once", calls.of("cb"), 1);
       expect("Compile I6", "no computed initial runs at construction", calls.of("label"), 0);
       expect("Compile I1", "no commit runs at construction", calls.of("commit"), 0);
       expect("Compile R1", "no guard runs at construction", calls.of("guard"), 0);

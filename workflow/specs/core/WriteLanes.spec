@@ -28,7 +28,9 @@ requirements
         must    A commit ends success, failure (this send definitely did not do it) or unknown (it
                 may have happened), as the commit function classifies it with Outcome; a plain error
                 is a failure; a throw or die is unknown { Defect } with the Cause and an actor
-                issue.
+                issue. Flow never makes up a definite ending: a success, or a failure other than
+                Flow's NotSent, is always the classification of an answer a send of that Attempt
+                received. Decision (agent, 2026-11-11): ruling M5 (spec-log.md, T42).
 
                 The runtime classifies each send from the fiber's Exit and whole Cause, outside that
                 fiber, Flow's own knowledge first, then most cautious first. The ending delivered is
@@ -67,7 +69,10 @@ requirements
                 The id is unique across devices and scopes and never reused within a scope, because
                 a server may use it as its idempotency key; the mint draws on entropy the host
                 supplies as data at boot (a random session seed), so the core stays deterministic
-                given its inputs and replays exactly (the runner's ruling).
+                given its inputs and replays exactly (the runner's ruling). Every boot asks the host
+                for a fresh seed; a seed is never restored from disk or carried to a later boot, so
+                ids stay unique across restore without reading every id off disk. Decision (agent,
+                2026-11-11): audit gap G4 (spec-log.md, T42).
 
                 Every send of that write carries the same id and input. The commit author puts id on
                 the wire where the API expects it; Flow sends nothing itself and derives no other
@@ -78,10 +83,14 @@ requirements
     R6  The lane
         source  @plan.Operations.O3.
         must    A write lane is (identity with its version, contract id, key), owned by the Runtime,
-                created by work and removed when Idle. Its states are Idle, InFlight (one
-                addressable Attempt waiting to be invoked or on the wire) and Held (a retained
-                unknown), each with queued commits W: none under reject, at most one under latest, a
-                FIFO of at most 64 under serialize.
+                created by work and removed when Idle and holding no kept ending. Its states are
+                Idle, InFlight (one addressable Attempt waiting to be invoked or on the wire) and
+                Held (a retained unknown), each with queued commits W: none under reject, at most
+                one under latest, a FIFO of at most 64 under serialize.
+
+                A kept ending (Actors Spec R15) is a value on its lane: the lane exists while it
+                stands, and commits on its key act as on a non-Idle lane. Decision (agent,
+                2026-11-11): ruling CQ3 (spec-log.md, T42).
 
                 A turn's members apply to lanes in action order in validation.
 
@@ -95,14 +104,20 @@ requirements
                 - latest queues one commit, ending a previous queued commit or a never-invoked head
                 Superseded (evidence);
                 - serialize appends to W and past 64 ends NotSent { Overloaded };
-                - cancel interrupts the previous Attempt, whose ending is evidence.
+                - cancel interrupts the previous Attempt, whose ending is evidence unless a cancel
+                is pending on it (R14). Decision (agent, 2026-11-11): CQ9 (spec-log.md, T42).
 
     R8  Retry, holds and promotion
         source  @plan.Operations.O3.
         must    retry(k?) re-sends a Held Attempt with its id and input unchanged; on InFlight it is
-                evidence InFlight, on Idle or resolved NothingToResend. When the addressable Attempt
-                is resolved or released, W's head is promoted; an unknown, a retry and a restore
-                never promote.
+                evidence InFlight, on Idle or resolved NothingToResend. A retry accepted on a Held
+                lane is owed: it re-sends exactly once, unless a later member of its turn, a
+                release, a disposal or a refused lane-record capture (WriteAhead Spec R13) ends or
+                holds the head first.
+
+                When the addressable Attempt is resolved, released or superseded (R7's latest), W's
+                head is promoted; an unknown, a retry and a restore never promote. Decision (agent,
+                2026-11-11): rulings CQ7 and the owed retry (spec-log.md, T42).
 
                 Every Attempt minted, promoted or re-sent is invoked after its turn ends, once its
                 acknowledgement and record queues allow. An unknown holds the lane until retry
@@ -127,11 +142,18 @@ requirements
                 of its identity with the lane's subject path, or parks it for that incarnation,
                 exactly as I15 counts. A settled ending is never rewritten. A throw from the outcome
                 mapper at admission refuses the turn, and the ending is redelivered once after
-                queued mail.
+                queued mail; a second refusal ends its tries until the next boot or adoption, each
+                of which gives one try (Actors Spec R15). Decision (agent, 2026-11-11): ruling CQ1
+                (spec-log.md, T42).
+
+                Every admitted commit ends: it waits (to be invoked, on the wire, or queued) or is
+                Held until it gets exactly one ending, delivered, parked or recorded as evidence;
+                none disappears without one.
 
                 Evidence by declaration: a replaced never-sent commit, a released lookup, a declined
                 retry, a bare write's endings, an ending mapped to Flow.ignore, the interrupted
-                Attempt under concurrency cancel, a fragment's lookup whose incarnation ended, and a
+                Attempt under concurrency cancel with no cancel pending on it, a fragment's lookup whose incarnation 
+                ended, and a
                 releasing lane's endings and queued commits.
 
     R11  Old-version holds
@@ -176,8 +198,9 @@ requirements
 
     R15  cancelAll
         source  @plan.Operations.O7.
-        must    O.x.cancelAll(k?) ends every queued commit NotSent { Cancelled } in mint order, 
-                then acts on the head as cancel does, promoting nothing; a Held lane ends Idle; the 
+        must    O.x.cancelAll(k?) ends every queued commit NotSent { Cancelled } in admission order
+                (W's order; a queued commit has no Attempt id yet), then acts on the head as cancel
+                does, promoting nothing; a Held lane ends Idle; the 
                 head's ending, which leaves a hold, is delivered last.
 
     R16  Release on leave
@@ -229,16 +252,16 @@ invariants
     I1  No commit is invoked except one admitted by an accepted action's member, or promoted, or re-sent by retry. 
         [@R1, @R8]
 
-    I2  A success write is applied iff the commit succeeded, and it is applied before the ending's event is admitted. 
-        [@R1]
+    I2  No success write is applied unless its commit succeeded, and none is applied after that ending's event is 
+        admitted. Reworded 2026-11-11 from "iff" (audit C9). [@R1]
 
-    I3  Every delivered ending is exactly one of success, failure and unknown, and an Attemptthat ever ended unknown 
-        never delivers a definite failure. [@R2]
+    I3  Every delivered ending is exactly one of success, failure and unknown; an Attempt that ever ended unknown never 
+        delivers a definite failure; and an Attempt never sent ends only NotSent, or unknown { Restored } at a boot. 
+        Decision (agent, 2026-11-11): ruling CQ5 (spec-log.md, T42). [@R2]
 
     I4  No delivered ending is an evidence kind, and no author tag equals a Flow reason. [@R3]
 
-    I5  Every mapped unknown targets a Flow.uncertain event or Flow.ignore; a not-retained unknown leaves no Held lane. 
-        [@R4]
+    I5  A not-retained unknown leaves no Held lane. (Its mapped target is Compile Spec I11's.) [@R4]
 
     I6  All sends of one Attempt carry the same id and the same input. No two writes share an id: within a Runtime, 
         across restore, or across Runtimes on different devices or scopes given different session seeds. Given the same 
@@ -246,16 +269,19 @@ invariants
 
     I7  retryCount equals the number of invoked re-sends of that Attempt. [@R5]
 
-    I8  A lane exists iff it is not Idle; its W length is 0 under reject, at most 1 under latest, at most 64 under 
-        serialize. [@R6, @R7]
+    I8  A lane exists iff it is not Idle or holds a kept ending; its W length is 0 under reject, at most 1 under 
+        latest, at most 64 under serialize. Decision (agent, 2026-11-11): ruling CQ3 (spec-log.md, T42). [@R6, @R7]
 
-    I9  A lane has at most one addressable Attempt. [@R6]
+    I9  Every retry and cancel on a lane acts on one Attempt: the one the lane's last send carried, or, before any 
+        send, the head waiting to be invoked. Reworded 2026-11-11 (audit). [@R6]
 
     I10  A turn's members apply in action order, each to the lane state the previous one left. [@R6, @R9]
 
-    I11  W's head is promoted only when the addressable Attempt is resolved or released. [@R8]
+    I11  W's head is promoted only when the addressable Attempt is resolved, released or superseded. Decision (agent, 
+         2026-11-11): ruling CQ7 (spec-log.md, T42). [@R8]
 
-    I12  A Held lane leaves Held only by a retry's resolution, a cancel or cancelAll, or a release on leave. [@R8, 
+    I12  A Held lane leaves Held only by a retry's resolution, a cancel or cancelAll, a release on leave, forget of a 
+         hold whose operation is gone (HoldForgotten, Actors Spec R21), or Restore Spec R5's stated fresh start. [@R8, 
          @R14, @R15, @R16]
 
     I13  idle(k) passes iff every lane matching k is Idle and holds no kept ending. [@R9]
@@ -267,16 +293,19 @@ invariants
          out: a re-send whose lane-record capture is refused adds a second ending of the same Attempt, unknown { 
          StorageRefused }; unknown { Restored } is delivered at most once per incarnation, so once again after each 
          reload or return (Restore Spec I6); an ending whose admission refused its turn (outcome mapper throw, 
-         InvalidTurn) is delivered once more after queued mail, and a second refusal is final; a releasing lane 
-         delivers nothing; evidence-only endings (a bare operation, Flow.ignore, Superseded, the interrupted Attempt 
-         under concurrency cancel, a released lookup) are recorded, never delivered. Re-parking is not a second 
-         delivery. [@R10]
+         InvalidTurn) is delivered once more after queued mail, and a second refusal ends its tries until the next boot 
+         or adoption, each of which gives it exactly one try with no redelivery after a refusal there (Actors Spec 
+         R15); a releasing lane delivers nothing; evidence-only endings (a bare operation, Flow.ignore, Superseded, the 
+         interrupted Attempt under concurrency cancel when no cancel is pending on it, a released lookup) are recorded, 
+         never delivered. Re-parking is not a second delivery. Decision (agent, 2026-11-11): rulings CQ1 and CQ9 
+         (spec-log.md, T42). [@R10, @R16]
 
-    I16  A settled ending is never replaced by another. [@R10]
+    I16  After a success or failure of an Attempt is delivered, no other ending of it is delivered. Reworded 2026-11-11 
+         (audit). [@R10]
 
-    I17  While an old-version hold (an older key fingerprint) exists for (identity, operation), every commit of it 
-         declines OldVersion and no current member names that lane; a lane of an older identity version declines 
-         nothing. [@R11]
+    I17  While an old-version hold (an older key fingerprint) exists for (identity, operation), no commit of it is 
+         invoked: each declines NotSent { OldVersion }, or NotSent { Rejected } where R11 puts another path's Rejected 
+         first; no current member names that lane; a lane of an older identity version declines nothing. [@R11]
 
     I18  A commit that cannot encode never fails its turn. [@R12]
 
@@ -284,12 +313,28 @@ invariants
 
     I20  A cancel's result depends only on the head's history, never on timing. [@R14]
 
-    I21  cancelAll delivers queued NotSent { Cancelled } in mint order, then the head's ending; it promotes nothing. 
-         [@R15]
-
-    I22  A releasing lane delivers no ending afterwards. [@R16]
+    I21  cancelAll delivers queued NotSent { Cancelled } in admission order, then the head's ending; it promotes 
+         nothing. [@R15]
 
     I23  After cleanup no late result changes data, lanes or endings. [@R17]
+
+    I24  When a commit succeeds, its valid success write is applied, except over data that landed after the commit 
+         started, which it marks stale instead; an invalid one applies nothing and reports InvalidWrite while the 
+         commit still succeeds. Added 2026-11-11 (audit C9). [@R1]
+
+    I25  A delivered success, or a delivered failure other than Flow's NotSent, matches an answer that a send of that 
+         Attempt received from its adapter. Decision (agent, 2026-11-11): ruling M5 (spec-log.md, T42). [@R2]
+
+    I26  A retry accepted on a Held lane is followed by exactly one invocation of that Attempt, with the same id and 
+         input, unless a later member of its turn, a release, a disposal or a refused lane-record capture ends or holds 
+         the head first. Decision (agent, 2026-11-11): the owed-retry ruling (spec-log.md, T42). [@R8]
+
+    I27  Every admitted commit, at every quiescent point, is waiting (to be invoked, on the wire, or queued), Held, or 
+         has exactly one ending delivered, parked or recorded as evidence; and a call that settles gives its Attempt an 
+         ending. Added 2026-11-11 (audit G1, @plan.Operations.O3). [@R8, @R10]
+
+    I28  Every boot mints from a seed the host supplied for that boot, never from a seed restored from disk or used by 
+         an earlier boot. Added 2026-11-11 (audit G4). [@R5]
 
 composition
     flow
@@ -301,11 +346,11 @@ composition
 
 coverage
     @R1
-        enforced_by  [@I1, @I2]
+        enforced_by  [@I1, @I2, @I24]
         open_by      [@Q1]
 
     @R2
-        enforced_by  [@I3]
+        enforced_by  [@I3, @I25]
         open_by      [@Q1]
 
     @R3
@@ -317,7 +362,7 @@ coverage
         open_by      [@Q1]
 
     @R5
-        enforced_by  [@I6, @I7]
+        enforced_by  [@I6, @I7, @I28]
         open_by      [@Q1]
 
     @R6
@@ -329,7 +374,7 @@ coverage
         open_by      [@Q1]
 
     @R8
-        enforced_by  [@I1, @I11, @I12]
+        enforced_by  [@I1, @I11, @I12, @I26, @I27]
         open_by      [@Q1]
 
     @R9
@@ -337,7 +382,7 @@ coverage
         open_by      [@Q1, @Q2]
 
     @R10
-        enforced_by  [@I15, @I16]
+        enforced_by  [@I15, @I16, @I27]
         open_by      [@Q1]
 
     @R11
@@ -361,7 +406,7 @@ coverage
         open_by      [@Q1]
 
     @R16
-        enforced_by  [@I22]
+        enforced_by  [@I15]
         open_by      [@Q1, @Q2]
 
     @R17
@@ -403,7 +448,7 @@ tests
          `audit-1.cancel-all-leaves-the-head`, `p1h.cancel-all-idle-declines`, 
          `audit-1.cancel-all-release-also-cancels-head`. [@I21]
     T11  Release on leave: the wire is interrupted and nothing delivered; a reload of a releasing lane delivers 
-         nothing. Case `FRAG-06`; lies `d154.moved-save-released`, `lie.released`. [@I22]
+         nothing. Case `FRAG-06`; lies `d154.moved-save-released`, `lie.released`. [@I15]
     T12  Store effects before the ending: a domain write's store effects are visible in the cut before its ending's 
          turn, whether the ending routes current or late. No prototype wrong runtime; phase 3 writes one that queues 
          the ending first. [@I19]
@@ -414,13 +459,24 @@ tests
          runtime; phase 3 writes one that replays a commit on re-entry. [@I1]
     T15  Success writes: a success write is applied before its ending's event and never on failure or unknown; an 
          invalid write reports InvalidWrite and the commit still succeeds; a write over data that landed later marks it 
-         stale instead. No prototype case; phase 3 writes this test and its wrong runtime. [@I2]
-    T16  Reserved reasons and unknown targets: a failure tag named NotSent or Disposed is refused ReservedReason; an 
-         unknown: target that is not uncertain is refused UnknownNotUncertain; a bare operation's unknown leaves no 
-         Held lane. The prototype's front-end pins check the first two; phase 3 writes the wrong runtimes. [@I4, @I5]
+         stale instead. No prototype case; phase 3 writes this test and its wrong runtime. [@I2, @I24]
+    T16  Reserved reasons and unknown targets: a failure tag named NotSent or Disposed is refused ReservedReason; a 
+         bare operation's unknown leaves no Held lane (UnknownNotUncertain is Compile Spec T3's). The prototype's 
+         front-end pins check the first two; phase 3 writes the wrong runtimes. [@I4, @I5]
     T17  Member order: one turn listing cancel then commit on a Held lane, and one listing commit then cancel; each 
          member applies to the state the previous one left. No prototype wrong runtime; phase 3 writes one that applies 
          members to the pre-turn lane. [@I10]
     T18  Ids across devices: two Runtimes with different session seeds, each on its own storage, mint writes to one 
          fake server keyed by Attempt id; no id repeats, and replaying one Runtime with its seed gives the same ids. 
          Phase 3 writes the wrong runtime of Q4. [@I6]
+    T19  Definite endings come from answers: a fake adapter that never answers, one that answers success and one that 
+         answers a failure tag; a success or author failure is delivered only for the two that answered, and a runtime 
+         that turns a missing answer into a failure is caught. Phase 3 writes the wrong runtime. [@I25]
+    T20  An owed retry re-sends: retry on a Held lane, with and without a later cancel in the same turn and with a 
+         refused re-send capture; the adapter spy sees exactly one re-send with the same id only in the first case. 
+         Phase 3 writes the wrong runtime that drops the re-send. [@I26]
+    T21  Every commit ends: generated member sequences over every policy; at quiescence each admitted commit is 
+         waiting, Held or has exactly one ending, and each settled call has its Attempt's ending. Phase 3 writes the 
+         wrong runtime that drops a queued commit. [@I27]
+    T22  A seed per boot: two boots of one scope with a host spy; each boot asks for its own seed and no Attempt id of 
+         the second equals one on disk. Phase 3 writes the wrong runtime that saves and reuses its seed. [@I28]

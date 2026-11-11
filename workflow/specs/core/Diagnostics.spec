@@ -59,9 +59,12 @@ requirements
 
     R6  Classification
         source  @plan.Diagnostics.O2.
-        must    Classification defaults to Failure. InvariantViolation, Defect, GuardDefect, 
-                EntryMismatch, ServerOnlyImport, HydrateOutsideProvider and HydrationCrossRequest 
-                are Defect; Interruption is Interruption. A failure during lazy adoption keeps the 
+        must    InvariantViolation, Defect, GuardDefect, EntryMismatch, ServerOnlyImport,
+                HydrateOutsideProvider and HydrationCrossRequest are always Defect, and Interruption
+                is always Interruption: these codes fix their classification. Every other code is
+                classified from its Cause by R8's rule, and is Failure when it has no Cause.
+                Decision (agent, 2026-11-11): audit C7; the fixed codes name what failed, the rest
+                take the Cause's (spec-log.md, T42). A failure during lazy adoption keeps the 
                 code and classification it would have at App construction. Severity never changes 
                 classification.
 
@@ -75,8 +78,8 @@ requirements
         source  @plan.Diagnostics.O3.
         must    An in-process failure keeps its complete Effect Cause, finalizer and cancellation
                 failures included. Cleanup never replaces the execution failure or erases another.
-                Classification is Defect if any defect exists, else Failure if a typed failure
-                exists, else Interruption. Execution or cancellation stays primary; when only
+                For a code R6 does not fix, classification is Defect if any defect exists, else
+                Failure if a typed failure exists, else Interruption. Execution or cancellation stays primary; when only
                 cleanup fails, the first cleanup failure is primary; the rest keep phase order and
                 multiplicity.
 
@@ -120,14 +123,13 @@ invariants
 
     I3  SchemaValidation is reported only for a Schema rejection. [@R3]
 
-    I4  No Flow reason, evidence kind or denial code is ever a Diagnostic code. [@R4]
-
     I5  Every emitted code is in the closed list, and every Diagnostic has nonempty help. [@R5, @R7]
 
-    I6  The classification of a code is the one R6 assigns, whatever phase raised it. [@R6]
+    I6  A Diagnostic whose code R6 fixes has that classification, whatever phase raised it and whatever its Cause 
+        holds. Reworded 2026-11-11 (audit C7). [@R6]
 
-    I7  The classification of a failure is Defect iff its Cause has a defect, else Failure iff it has a typed failure, 
-        else Interruption. [@R8]
+    I7  A Diagnostic whose code R6 does not fix is Defect iff its Cause has a defect, else Failure iff the Cause has a 
+        typed failure or there is no Cause, else Interruption. Reworded 2026-11-11 (audit C7). [@R6, @R8]
 
     I8  Cleanup failures are appended after the execution failure, never ahead of it, in phase order. [@R8]
 
@@ -149,7 +151,7 @@ coverage
         open_by      [@Q1, @Q2]
 
     @R4
-        enforced_by  [@I4]
+        enforced_by  [@I5]
         open_by      [@Q1, @Q2]
 
     @R5
@@ -183,7 +185,7 @@ tests
     T2  Boundaries: a Schema rejection gives SchemaValidation with the issue path; a throwing callback gives Defect, 
         never SchemaValidation; a specific code beats a generic one. [@I3, @I5, @I6]
     T3  Endings and denials: run the reference scenarios and collect every emitted Diagnostic; none has a Flow reason, 
-        evidence kind or denial code as its code. [@I4]
+        evidence kind or denial code as its code. [@I5]
     T4  Mixed causes: a failing execution plus two failing finalizers keeps the execution primary and both cleanup 
         failures in order; only-cleanup failure makes the first cleanup failure primary; classification follows I7; a 
         Promise adapter's rejection and an AbortSignal abort keep their full Cause through evidence acceptance and 
