@@ -594,6 +594,10 @@ tasks
             liar round-14 122/131 (same 9 greens), production liar 13/13, crash 870/887 (known families), unit tests 
             50/50. Sweep vs 56ef0856: no lost catch except lie.no-incarnated, moved to disposal and now caught in 99 
             cases. Open from the step-3 review: K2, S1, S3-S7, minors.
+        comment     2026-11-11T20:03:02Z
+            K2 in part (see latest T45 commit): a call's actor and key now come from the step's predicted turn, and a 
+            mint no prediction owns records no call (route either). Still from reports: ending channel and reason, Sent 
+            and Unparked feeding routeOf and pendingOf; the boundary test still checks imports only. Gates unchanged.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open
