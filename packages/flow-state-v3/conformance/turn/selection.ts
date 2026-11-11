@@ -24,6 +24,7 @@ import {
   withoutOne,
 } from "./anchor.ts";
 import { judgeTurn, name, PENDING_RESET, selectedParts } from "./judge.ts";
+import { closed } from "./credits.ts";
 import { lateLeftWork } from "./late.ts";
 import { decideFor, foldedAfter, keysFor, labelsFor } from "./predict.ts";
 import { Input, leafOf, Phase } from "./phases.ts";
@@ -34,6 +35,7 @@ import {
   type Delivered,
   MemberTarget,
   Observation,
+  sameActor,
   sameJson,
   type Turn,
 } from "../port.ts";
@@ -333,8 +335,22 @@ const refused = (
     },
   });
 
+/**
+ * The predicted turn a mint belongs to: the step's latest, when it is the reported actor's. The
+ * call's actor and key are the prediction's (the key its folds give, none for a key-less
+ * operation); a mint no prediction owns records no call, so its ending routes `either`.
+ */
+const mintOwed = (open: Option.Option<Predicted>, actor: Option.Option<ActorRef>) =>
+  Option.filter(open, (t) => Option.exists(actor, (a) => sameActor(a, t.actor)));
+
 // RETURN_TYPE: every branch gives the next state, its violations and the fact as judged.
-const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>, least: State): Stepped => {
+const onFact = (
+  state: State,
+  fact: Fact,
+  step: ReadonlyArray<Fact>,
+  least: State,
+  open: Option.Option<Predicted>,
+): Stepped => {
   // RETURN_TYPE: a tuple; inference would widen it to an array.
   const keep = (next: State): Stepped => [next, [], fact, Option.none()];
 
@@ -364,8 +380,19 @@ const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>, least: Stat
         Turn: (turn) => onTurn(state, turn, step),
         Unhandled: ({ event }) => judgedRefusal(refused(state, event, "Unhandled", step)),
         Denied: ({ event }) => judgedRefusal(refused(state, event, "Denied", step)),
-        Minted: ({ operation, attempt, actor, key }) =>
-          keep(minted(state, operation, attempt, actor, key)),
+        Minted: ({ operation, attempt, actor }) => {
+          const owed = mintOwed(open, actor);
+
+          return keep(
+            minted(
+              state,
+              operation,
+              attempt,
+              Option.map(owed, (t) => t.actor),
+              Option.flatMap(owed, (t) => Option.fromUndefinedOr(t.keys[operation])),
+            ),
+          );
+        },
         Sent: ({ operation, attempt }) => keep(sent(state, operation, attempt)),
         Ended: ({ operation, attempt, channel, reason }) =>
           keep(ended(state, operation, attempt, channel, reason, attaching(step))),
@@ -514,43 +541,6 @@ export const anchorAt = (
 export const judgedStep = (state: Anchor, step: ReadonlyArray<Fact>) =>
   closed(walked(state, step), step);
 
-const refusedTurn = (step: ReadonlyArray<Fact>) =>
-  step.some(
-    (f) =>
-      Fact.$is("Reported")(f) &&
-      Observation.$is("Issue")(f.observation) &&
-      Option.isNone(f.observation.ending),
-  );
-
-/**
- * A step's end: each driven event a live actor still holds, which no turn, `Unhandled` or `Denied`
- * answered, breaks Turn R2, and its credit ends with the step. Kept while the Runtime is disposing;
- * not judged in a step with a refused turn (an `Issue` with no ending, Turn I3), which names no
- * actor.
- */
-const closed = (judged: ReturnType<typeof walked>, step: ReadonlyArray<Fact>) => {
-  if (judged.state.disposing) return judged;
-
-  const left = refusedTurn(step)
-    ? []
-    : [...judged.state.actors].flatMap(([key, a]) =>
-        Phase.$is("Live")(a.phase)
-          ? a.driven.map((c) =>
-              violation(`Turn I2 (R2): ${key} was sent ${c.event}, but no turn ran it in the step`),
-            )
-          : [],
-      );
-
-  return {
-    ...judged,
-    state: {
-      ...judged.state,
-      actors: new Map([...judged.state.actors].map(([key, a]) => [key, { ...a, driven: [] }])),
-    },
-    violations: [...judged.violations, ...left],
-  };
-};
-
 const walked = (state: Anchor, step: ReadonlyArray<Fact>) =>
   step.reduce<{
     readonly state: Anchor;
@@ -568,6 +558,7 @@ const walked = (state: Anchor, step: ReadonlyArray<Fact>) =>
         fact,
         step,
         Option.getOrElse(least, () => judged.state),
+        Option.fromUndefinedOr(judged.turns.at(-1)),
       );
 
       return {
