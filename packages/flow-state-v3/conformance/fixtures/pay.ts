@@ -13,7 +13,13 @@ import {
   to,
   updating,
 } from "./handlers.ts";
-import { claimed, classifyWith, type OperationReference, type Row, row } from "./reference.ts";
+import {
+  alternativeAt,
+  classifyWith,
+  type OperationReference,
+  type Row,
+  row,
+} from "./reference.ts";
 
 const Address = Schema.Struct({
   name: Schema.String,
@@ -118,8 +124,11 @@ const payRow = row<string, State, Write>;
 const payRows = [
   payRow("PayRequested", "PAYING", "same", [{ operation: "pay", kind: "commit" }]),
   payRow("PayRequested", "any", "PAYING", [{ operation: "pay", kind: "commit" }]),
-  claimed("on.Leave[0]", payRow("Leave", "any", "LEFT", [{ operation: "void", kind: "commit" }])),
-  claimed(
+  alternativeAt(
+    "on.Leave[0]",
+    payRow("Leave", "any", "LEFT", [{ operation: "void", kind: "commit" }]),
+  ),
+  alternativeAt(
     "on.Confirmed[0]",
     payRow("Confirmed", "LEFT", "same", [{ operation: "void", kind: "commit" }]),
   ),

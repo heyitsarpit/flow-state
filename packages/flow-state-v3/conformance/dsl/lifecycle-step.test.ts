@@ -310,7 +310,7 @@ const examples: ReadonlyArray<Example> = [
   },
 
   {
-    name: "a claimed row is owed only when the report names its members",
+    name: "an alternative's row is not owed when the fallthrough ran",
     run: ({ refused }) => {
       assert.deepStrictEqual(
         refused(empty, [turn(shopper, "Leave", "CARD", "LEFT", [], Option.some("on.Leave[1]"))]),
@@ -357,7 +357,7 @@ const examples: ReadonlyArray<Example> = [
   },
 
   {
-    name: "a claimed row is owed only when its own alternative ran",
+    name: "an alternative's row is owed only when its own alternative ran",
     run: ({ refused }) => {
       const fallthrough = turn(shopper, "Leave", "CARD", "LEFT", [], Option.some("on.Leave[1]"));
       const unauthorized = using(step).after(empty, []);
@@ -635,7 +635,7 @@ const examples: ReadonlyArray<Example> = [
     },
   },
   {
-    name: "a claimed row is confirmed by its members whatever else the report names (step 6 review M2)",
+    name: "an alternative's row is confirmed by its members whatever else the report names (step 6 review M2)",
     run: ({ refused }) => {
       const ghost = { operation: "ghost", kind: "commit" as const, target: MemberTarget.Only() };
 
@@ -681,15 +681,15 @@ const STEP_MUTANTS: ReadonlyArray<{
     replace: '  if (member.kind === "commit")\n    return Option.match(Option.none<Json>(), {',
   },
   {
-    name: "a claimed row is owed whichever alternative ran",
+    name: "an alternative's row is owed whichever alternative ran",
     file: "lifecycle-owed.ts",
-    find: "(!row.claimed || Option.exists(row.at, (at) => Option.contains(turn.at, at))) &&",
-    replace: "(!row.claimed || Option.isSome(turn.at)) &&",
+    find: "(Option.isNone(row.at) || Option.exists(row.at, (at) => Option.contains(turn.at, at))) &&",
+    replace: "(Option.isNone(row.at) || Option.isSome(turn.at)) &&",
   },
   {
-    name: "a claimed row is owed whatever alternative ran",
+    name: "an alternative's row is owed whatever alternative ran",
     file: "lifecycle-owed.ts",
-    find: "      (!row.claimed || Option.exists(row.at, (at) => Option.contains(turn.at, at))) &&\n",
+    find: "      (Option.isNone(row.at) || Option.exists(row.at, (at) => Option.contains(turn.at, at))) &&\n",
     replace: "",
   },
   {

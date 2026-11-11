@@ -112,6 +112,7 @@ const compiledRows = (compiled: typeof Compiled.Type, writes: ReadonlyArray<stri
         const to = alternative.target === "self" ? "same" : alternative.target;
 
         const guard = guardOf(alternatives, index);
+        const prefix = node === compiled.root ? "" : `states.${node}.`;
 
         const tied = alternatives.some((other, at) => {
           const otherState = other.tokens.find((t) => t.node !== undefined)?.node;
@@ -131,8 +132,10 @@ const compiledRows = (compiled: typeof Compiled.Type, writes: ReadonlyArray<stri
             to,
             members,
             guard,
-            claimed: tied && Option.isNone(guard),
-            at: Option.none<string>(),
+            at:
+              tied && Option.isNone(guard)
+                ? Option.some(`${prefix}on.${event}[${index}]`)
+                : Option.none(),
           },
         ];
       }),
@@ -147,7 +150,7 @@ const shown = (rows: ReadonlyArray<Row>) =>
         onSome: (g) => ` retryable(${g.operation}, ${g.times}) ${g.passes ? "passes" : "fails"}`,
       });
 
-      return `${r.event} ${r.from}->${r.to} [${spelledOf(r.members)}]${guard}${r.claimed ? " claimed" : ""}`;
+      return `${r.event} ${r.from}->${r.to} [${spelledOf(r.members)}]${guard}${Option.match(r.at, { onNone: () => "", onSome: (at) => ` at ${at}` })}`;
     })
     .toSorted();
 

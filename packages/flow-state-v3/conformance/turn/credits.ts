@@ -114,7 +114,7 @@ const keyedCall = (state: State, actor: ActorRef, operation: string, key: Json) 
 /**
  * The retries a turn runs, by its predicted header and the rows of its machine (WriteLanes R9,
  * Turn R20), never its reported members: each names which calls it re-owns. Every row whose
- * event, from, to and claimed alternative match counts, since the guards that choose among them
+ * event, from, to and alternative (`at`) match counts, since the guards that choose among them
  * are not all computed here (an allowed set: a retry no row of the turn names re-owns nothing).
  * A keyed retry names its folded key's lane (a call minted where no fold gave a key may be it only
  * when no call of the operation carries that key), or every lane of its operation without one; a
@@ -142,7 +142,7 @@ export const retriesOwed = (
         row.event === turn.event &&
         (row.from === "any" || row.from === turn.from) &&
         (row.to === "same" ? turn.to === turn.from : row.to === turn.to) &&
-        (!row.claimed || Option.exists(row.at, (at) => Option.contains(turn.at, at))),
+        (Option.isNone(row.at) || Option.exists(row.at, (at) => Option.contains(turn.at, at))),
     )
     .flatMap((row) => row.members)
     .flatMap((m) => (m.kind === "retry" ? [m] : []))

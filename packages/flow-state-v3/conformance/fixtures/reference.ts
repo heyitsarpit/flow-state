@@ -96,6 +96,8 @@ export type Retryable<Operation extends string = string> = {
  * - `to`: the leaf it ends in, or `same` for a turn that stays.
  * - `members`: its lane members in action order, releases excluded.
  * - `guard`: a guard the suite computes, so the suite, not the reported members, chooses the row.
+ * - `at`: the alternative the row is, when another alternative of the same event, from and to runs
+ *   other members ({@link alternativeAt}); none otherwise.
  *
  * **Gotchas**
  *
@@ -113,7 +115,6 @@ export type Row<
   readonly to: State | "same";
   readonly members: ReadonlyArray<RowMember<Operation>>;
   readonly guard: Option.Option<Retryable<Operation>>;
-  readonly claimed: boolean;
   readonly at: Option.Option<string>;
 };
 
@@ -131,7 +132,7 @@ export const row = <Event extends string, State extends string, Operation extend
   to: State | "same",
   members: ReadonlyArray<RowMember<Operation>>,
   guard: Option.Option<Retryable<Operation>> = Option.none(),
-) => ({ event, from, to, members, guard, claimed: false, at: Option.none<string>() });
+) => ({ event, from, to, members, guard, at: Option.none<string>() });
 
 /**
  * A {@link Row} whose (event, from, to) a sibling alternative shares with other lane members, or
@@ -141,9 +142,8 @@ export const row = <Event extends string, State extends string, Operation extend
  * the report's members.
  */
 // RETURN_TYPE: keeps the fixture's typed row (its event, state and operation names).
-export const claimed = <R extends Row>(at: string, r: R): R => ({
+export const alternativeAt = <R extends Row>(at: string, r: R): R => ({
   ...r,
-  claimed: true,
   at: Option.some(at),
 });
 

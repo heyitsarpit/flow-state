@@ -8,32 +8,34 @@ const upTo = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
  * **Details**
  *
  * The coverage gate fails on an Invariant in no row, and on a row that still lists one an oracle
- * now checks, so each row shrinks as its Task lands. T15's audit reads what is left.
+ * now checks, so each row shrinks as its Task lands. T15's audit reads what is left. A row says
+ * what its owner builds; where round-14 breaks an Invariant, that is a row of `limits.ts` once a
+ * check fails it there (Conformance R22: prose limits do not count).
  */
 export const notYet: ReadonlyArray<NotYet> = [
   {
     owner: "@task.V3.T24",
-    why: "a domain write's store effects before its ending in the mailbox (WriteLanes I19): the Port reads the store only between steps (Runtime.entity, round-14 adapter.ts record), and round-14 applies a write's confirms and admits its ending in one step's settle (entities.ts onEnded, turn.ts admitEnding); the old suite's SURV-01 (review.scenario.ts:547-558) also asserts only after both; searched round-14's entities.ts, adapter.ts and the old suite's store and review scenarios. The entity store (T24) can report store changes in order",
+    why: "a domain write's store effects before its ending in the mailbox (WriteLanes I19): the Port reads the store only between steps (Runtime.entity), so the check needs the entity store (T24) to report store changes in order",
     invariants: invariantsOf("WriteLanes", [19]),
   },
   {
     owner: "@task.V3.T17",
-    why: "showable on round-14, not built yet (the T8/T7 rows review's H1): a self transition and exit and entry order in compound states (I4, I6; turn.ts:186-196, audit1b's history fixture, R15-01), placements by key (I24; roomFixture, P1-S, mutants-p1s.ts), .each copies' per-key timers (I35 in part; FRAG-06, FRAG-20); I1 is one leaf name on the Port (publish.ts:34), so only a compound fixture's Published path could show it",
+    why: "a compound fixture's self transition and exit and entry order (I4, I6), its Published path (I1), placements by key (I24) and .each copies' per-key timers (I35 in part); T17 builds the fixtures and their checks",
     invariants: invariantsOf("Turn", [1, 4, 6, 24, 35]),
   },
   {
     owner: "@task.V3.T18",
-    why: "round-14 cannot show these (searched round-14's turn.ts, step.ts, publish.ts and the old suite's scenarios): no check() (I18), no onContext (I28), no issues in snapshots (I31; publish.ts:31-36), no multi-step Schedule (I33), no restartOn (I34); equal deadlines fire in arm order, not actor admission order (I32: a round-14 deviation, driver.ts:163-171; a case with two shoppers arming against admission order went red, @task.V3.T8), so no green round-14 case can tell them apart; post-commit defects come only from module-hook faults, which the Port refuses (I16)",
+    why: "check() (I18), onContext (I28), issues in snapshots (I31), multi-step Schedules (I33), restartOn (I34), equal deadlines in actor admission order (I32) and post-commit defects (I16); T18 builds them on production",
     invariants: invariantsOf("Turn", [16, 18, 28, 31, 32, 33, 34]),
   },
   {
     owner: "@task.V3.T21",
-    why: "a value outcome of a placement (I25): round-14 has placements but no value-outcome case (Turn Spec T22); searched turn.ts placements and the old suite's phase1s and frag scenarios",
+    why: "a value outcome of a placement (I25; Turn Spec T22)",
     invariants: invariantsOf("Turn", [25]),
   },
   {
     owner: "@task.V3.T18",
-    why: "a seed per boot (WriteLanes I28): round-14 asks its host for every id (adapter.ts host.id; README decision 8), so no round-14 mutant can break the seed; the case can run on round-14 (the adapter mints att-<sessionSeed>-n) but its wrong runtime is a production mutant",
+    why: "a seed per boot (WriteLanes I28): its wrong runtime is a production mutant that breaks the seed",
     invariants: invariantsOf("WriteLanes", [28]),
   },
   {
@@ -67,12 +69,12 @@ export const notYet: ReadonlyArray<NotYet> = [
   },
   {
     owner: "@task.V3.T17",
-    why: "round-14 cannot make these results: it throws at the first violation (I3), and has no IdentityFieldOptional or write-scope check, or context wiring (I9, I12, I17; searched round-14's compile and cli/check.ts); T17 builds the compiler that does, and its static cases land before T17 closes",
+    why: "every violation reported, not the first (I3), IdentityFieldOptional, write-scope checks and context wiring (I9, I12, I17); T17 builds the compiler and its static cases",
     invariants: invariantsOf("Compile", [3, 9, 12, 17]),
   },
   {
     owner: "@task.V3.T17",
-    why: "round-14 has no Diagnostic carrier, Diagnostic Schema, classification or renderer; T17 builds Diagnostics with the compiler (P4), and the vectors land before T17 closes",
+    why: "the Diagnostic carrier, Schema, classification and renderer; T17 builds Diagnostics with the compiler, and their vectors",
     invariants: invariantsOf(
       "Diagnostics",
       upTo(10).filter((n) => n !== 4),
@@ -80,12 +82,12 @@ export const notYet: ReadonlyArray<NotYet> = [
   },
   {
     owner: "@task.V3.T20",
-    why: "round-14 has no canonical byte codec (Codec Q2); T20 builds the codec with restore and key versions, and the vectors land before T20 closes",
+    why: "the canonical byte codec (Codec Q2); T20 builds it with restore and key versions, and its vectors",
     invariants: invariantsOf("Codec", upTo(6)),
   },
   {
     owner: "@task.V3.T22",
-    why: "round-14's CLI loads every fixture before it reads its arguments (I3), has no flow.config.ts discovery (I10) and no project tree to keep unchanged (I11); T22 builds them, and their static cases land before T22 closes",
+    why: "arguments read before any fixture loads (I3), flow.config.ts discovery (I10) and an unchanged project tree (I11); T22 builds them and their static cases",
     invariants: invariantsOf("StaticCli", [3, 10, 11]),
   },
 ];

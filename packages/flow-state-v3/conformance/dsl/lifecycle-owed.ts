@@ -201,7 +201,7 @@ const chosenRow = (
     (row) =>
       row.event === turn.event &&
       fromMatches(row, turn.from, turn.to) &&
-      (!row.claimed || Option.exists(row.at, (at) => Option.contains(turn.at, at))) &&
+      (Option.isNone(row.at) || Option.exists(row.at, (at) => Option.contains(turn.at, at))) &&
       guardHolds(model, row, turn.actor, resolved(model, known, turn, hearing, row), sends),
   );
 
@@ -238,10 +238,10 @@ const releasesOwed = (known: Known, turn: Predicted) =>
  *
  * **Details**
  *
- * - The row: event, from, to and the computed guard match; a `claimed` row also needs the turn's
- *   alternative to be the one it names (`at`). Rows that tie with other members are claimed rows:
- *   the one with the most members is taken (the first of equals). No row: no lane member is owed
- *   (releases still are).
+ * - The row: event, from, to and the computed guard match; a row with an `at` also needs the
+ *   turn's alternative to be the one it names. Rows that tie with other members name their `at`;
+ *   of the rows left, the one with the most members is taken (the first of equals). No row: no
+ *   lane member is owed (releases still are).
  * - A member's target: `Only` on an unkeyed operation. A commit's is its operation's `Key` in
  *   the predicted turn, else `Nothing` (the key-less lane). A `keyed` retry, cancel or cancelAll's
  *   is that `Key` when it names a lane the model holds for the actor and operation, else

@@ -2,7 +2,7 @@ import { noFolds } from "./folds.ts";
 import { Option, Schema } from "effect";
 import { Empty, type Fixture, writeOf } from "./fixture.ts";
 import { guarded, to, updating } from "./handlers.ts";
-import { type Concurrency, claimed, classifyWith, row } from "./reference.ts";
+import { alternativeAt, type Concurrency, classifyWith, row } from "./reference.ts";
 
 const Unkeyed = Empty;
 
@@ -173,7 +173,7 @@ export const LateQueue = {
   operations: { charge: oneLaneWrite("serialize") },
   rows: [
     row("Go", "any", "W", [{ operation: "charge", kind: "commit" }]),
-    claimed(
+    alternativeAt(
       "on.Unsure[0]",
       row("Unsure", "any", "A", [{ operation: "charge", kind: "cancel", keyed: false }]),
     ),

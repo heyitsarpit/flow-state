@@ -213,12 +213,8 @@ the case holds.
 
 ## Stated limits
 
-- Round-14 limit (Turn I32): equal deadlines fire in arm order, not actor admission order
-  (`driver.ts:163-171`); two shoppers arming against admission order go red, so the case is
-  production's (T18).
-- Round-14 limit (Actors I38): a commit queued behind a Held head is not ended `NotSent { Disposed }`
-  when the Runtime's disposal starts; no case leaves one there at the end-of-case disposal (TURN-04
-  avoids it), and the production case is T9's.
+- Round-14's limits are the rows of `limits.ts`, each a case that fails there by its Invariant, verified by
+  the `limits` gate (Conformance R22); the suite's own stated limits are its `statedLimits`, each with a mutant.
 - Fixtures are the prototype's typed fixtures (decision 4); a fixture's reference is hand-written.
 - `Ended` and `Delivered` name an operation, not its machine: an operation name two booted
   machines share is not checked by mapping.
@@ -232,8 +228,8 @@ the case holds.
   (WriteLanes I6) is claimed by no lifecycle oracle; `attempt-identity` judges it.
 - `attempt-identity`'s key check reads the reference's current key fields: a key made by a hand
   closure, or minted under an older key version, is not told apart.
-- A `claimed` row (Pay's `Leave`) is owed only when the turn reports its members; a runtime that
-  drops them from act and report is caught only by PAY-19's state expectations.
+- A row tied to its alternative (`at`, Pay's `Leave`) is owed only when selection predicts that
+  alternative from the fixture's folds, never from the reported members.
 - Round-14 does not report the failure inside `unknown StillUnknown`; the check that it keeps its
   tag runs only when a runtime reports it (`Ended.failure`). Making it strict turns PAY-05 and
   PAY-16/restore-keeps-mayHaveApplied red on round-14; the adapter will not fill the failure in
