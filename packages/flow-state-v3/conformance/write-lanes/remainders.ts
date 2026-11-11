@@ -35,4 +35,9 @@ export const writeLanesRemainders: ReadonlyArray<Remainder> = [
     owner: "@task.V3.T7",
     owed: "a success write over data that landed after the commit started is marked stale, and an invalid one applies nothing and reports InvalidWrite (round-14 has no InvalidWrite)",
   },
+  {
+    invariant: "WriteLanes I23",
+    owner: "@task.V3.T7",
+    owed: "a late result after cleanup changes no data (entity records, read through the Port's entity) and none after cleanup by forget or an interrupt; late-results judges lanes and endings after a release only (T16 review, T7-M1)",
+  },
 ];

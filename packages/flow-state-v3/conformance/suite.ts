@@ -1,4 +1,4 @@
-import { productionMutants } from "./adapters/production.mutants.ts";
+import { productionCaseMutants, productionMutants } from "./adapters/production.mutants.ts";
 import { disposalMutants } from "./actors/disposal.mutants.ts";
 import { actorsRemainders } from "./actors/remainders.ts";
 import { disposal } from "./actors/disposal.ts";
@@ -174,6 +174,7 @@ export const caseChecks: CaseChecks = {
     ...laneKeysMutants,
     ...partsMutants,
     ...replayMutants,
+    ...productionCaseMutants,
   ],
   cases: [...scenarios, ...staticCases].map((c) => ({ id: c.id, cites: c.cites })),
 };

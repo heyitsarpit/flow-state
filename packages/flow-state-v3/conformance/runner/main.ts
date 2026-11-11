@@ -258,13 +258,16 @@ const falsifyProductionRuntime = (args: ReadonlyArray<string>) =>
     const scratch = resolve(Option.getOrElse(flag(args, "--scratch"), () => tmpdir()));
     const only = list(flag(args, "--mutant"));
 
-    const chosen = guarantees.flatMap((g) =>
+    const chosen = [
+      ...guarantees.map((g) => ({ oracle: g.oracle.name, mutants: g.mutants })),
+      { oracle: CASE_EXPECTATIONS, mutants: caseChecks.mutants },
+    ].flatMap((g) =>
       g.mutants
         .filter((m) => m.runtime === PRODUCTION_RUNTIME)
         .filter((m) =>
           Option.match(only, { onNone: () => true, onSome: (names) => names.includes(m.name) }),
         )
-        .map((mutant) => ({ oracle: g.oracle.name, mutant })),
+        .map((mutant) => ({ oracle: g.oracle, mutant })),
     );
 
     const bare = guarantees

@@ -171,7 +171,7 @@ const failureKept = (asked: Asked, ended: Ended) => {
   });
 };
 
-const judgeAnswered = (id: string, asked: Asked, ended: Ended) => {
+const judgeAnswered = (id: string, asked: Asked, ended: Ended, cancelled: boolean) => {
   const { expected } = asked;
 
   const reasonRight = Option.match(expected.reason, {
@@ -181,7 +181,9 @@ const judgeAnswered = (id: string, asked: Asked, ended: Ended) => {
 
   if (expected.channel === ended.channel && reasonRight && failureKept(asked, ended)) return [];
 
-  if (ended.channel === "unknown" && ended.reason === "Cancelled") return [];
+  // WriteLanes R14: unknown Cancelled is a cancelled or released send's ending, so a cancel,
+  // cancelAll or release of its operation must have run.
+  if (ended.channel === "unknown" && ended.reason === "Cancelled" && cancelled) return [];
 
   const said = Option.match(expected.reason, { onNone: () => "", onSome: (r) => ` ${r}` });
 
@@ -268,6 +270,7 @@ const ending = (
   answers: Answers,
   reference: Reference,
   ended: Ended,
+  cancels: ReadonlySet<string>,
 ): readonly [Answers, Found] => {
   const named = refOf(ended.operation, ended.attempt);
 
@@ -282,7 +285,7 @@ const ending = (
     next,
     Option.match(answered, {
       onNone: () => madeUp(attemptText(ref), ended),
-      onSome: (a) => judgeAnswered(attemptText(ref), a, ended),
+      onSome: (a) => judgeAnswered(attemptText(ref), a, ended, cancels.has(ended.operation)),
     }),
   ];
 };
@@ -301,6 +304,7 @@ const endedAsAnswered = (
   step: ReadonlyArray<Fact>,
   reference: Reference,
   requests: ReadonlyArray<Request>,
+  cancels: ReadonlySet<string>,
 ) => {
   const ask = asking(reference, requests);
 
@@ -315,7 +319,7 @@ const endedAsAnswered = (
 
       const [judged, more] = Option.match(endedOf(fact), {
         onNone: () => [told, []] as const,
-        onSome: (ended) => ending(told, reference, ended),
+        onSome: (ended) => ending(told, reference, ended, cancels),
       });
 
       return [{ ...judged, live: learned(judged.live, fact) }, [...seen, ...more]];
@@ -326,8 +330,25 @@ const endedAsAnswered = (
   return [walked.live, [...found, ...unended(walked, requests)]] as const;
 };
 
+/**
+ * The operations a reported turn ran a cancel, cancelAll or release of, since the last boot.
+ */
+const cancelling = (cancels: ReadonlySet<string>, step: ReadonlyArray<Fact>) =>
+  step.reduce<ReadonlySet<string>>((seen, fact) => {
+    if (Fact.$is("Reloaded")(fact)) return new Set();
+
+    if (!Fact.$is("Reported")(fact) || !Observation.$is("Turn")(fact.observation)) return seen;
+    const kinds: ReadonlyArray<string> = ["cancel", "cancelAll", "release"];
+
+    return new Set([
+      ...seen,
+      ...fact.observation.members.filter((m) => kinds.includes(m.kind)).map((m) => m.operation),
+    ]);
+  }, cancels);
+
 type State = {
   readonly reference: Reference;
+  readonly cancels: ReadonlySet<string>;
   readonly live: Live;
   readonly mapped: Mapped;
   readonly unsure: Unsure;
@@ -379,7 +400,8 @@ const neverSentEnds = (
  *   answer (the fixture's reference); it is `unknown Defect` for a died call, and `unknown
  *   StillUnknown`, carrying the failure's tag when the runtime reports it, for a definite failure
  *   when an earlier send of that Attempt was never definitely answered by the server; or `unknown
- *   Cancelled`, a cancelled or released send's ending whatever came back (WriteLanes R14). Anchored
+ *   Cancelled`, a cancelled or released send's ending whatever came back, once a reported turn ran a
+ *   cancel, cancelAll or release of its operation (WriteLanes R14). Anchored
  *   to the server's log.
  * - a delivered ending runs the event the fixture's reference maps the ending's channel and reason
  *   to. The mapping is the suite's; the channel and reason are the runtime's own report, so for an
@@ -405,19 +427,21 @@ export const endingChannels = oracle<State>({
   guarantee: ["WriteLanes I3", "WriteLanes I25", "WriteLanes I27"],
   start: (reference) => ({
     reference,
+    cancels: new Set(),
     live: [],
     mapped: { endings: [], declines: new Map() },
     unsure: [],
   }),
   step: (state, step, requests) => {
-    const [live, answered] = endedAsAnswered(state.live, step, state.reference, requests);
+    const cancels = cancelling(state.cancels, step);
+    const [live, answered] = endedAsAnswered(state.live, step, state.reference, requests, cancels);
     const [mapped, delivered] = deliveredAsMapped(state.mapped, step, state.reference);
     const [unsure, failed] = failureAfterUnknown(state.unsure, step);
 
     const unsent = neverSentEnds(step, state.reference, requests);
 
     return [
-      { ...state, live, mapped, unsure },
+      { ...state, cancels, live, mapped, unsure },
       [...answered, ...delivered, ...failed, ...unsent].map(violation),
     ] as const;
   },

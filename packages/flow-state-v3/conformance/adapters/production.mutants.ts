@@ -17,6 +17,19 @@ const mutant = (m: Omit<Mutant, "runtime">) => ({ ...m, runtime: "production" })
 export const productionMutants = {
   "ending-channels": [
     mutant({
+      name: "prod.failure-as-cancelled",
+      says: "a definite failure the server answered is reported unknown Cancelled, with no cancel run",
+      expects: "WriteLanes I25",
+      cases: ["PAY-15/busy-then-new-write"],
+      edits: [
+        {
+          file: "src/core/answers.ts",
+          find: 'Failure: ({ reason, error }) => classified("failure", reason, error),',
+          replace: 'Failure: ({ error }) => classified("unknown", "Cancelled", error),',
+        },
+      ],
+    }),
+    mutant({
       name: "prod.success-as-failure",
       says: "a success the server answered ends as a failure it never sent",
       expects: "WriteLanes I25",
@@ -106,6 +119,19 @@ export const productionMutants = {
   ],
   "retry-count": [
     mutant({
+      name: "prod.record-forgets-retries",
+      says: "a lane record saves no re-sends, so a reload restores retryCount 0",
+      expects: "WriteLanes I7",
+      cases: ["PAY-16/retry-count-persists"],
+      edits: [
+        {
+          file: "src/core/record.ts",
+          find: "      retryCount: lane.head.retryCount,",
+          replace: "      retryCount: 0,",
+        },
+      ],
+    }),
+    mutant({
       name: "prod.resend-uncounted",
       says: "an invoked re-send does not count",
       expects: "WriteLanes I7",
@@ -151,6 +177,19 @@ export const productionMutants = {
     }),
   ],
   selection: [
+    mutant({
+      name: "prod.actor-never-saved",
+      says: "an actor's record is never written, so after a reload it runs from a state it never published",
+      expects: "Turn I2",
+      cases: ["DISP-01"],
+      edits: [
+        {
+          file: "src/core/persist.ts",
+          find: "    persist(actor, Option.toArray(actorWrite(incarnation)), Option.none());",
+          replace: "    persist(actor, [], Option.none());",
+        },
+      ],
+    }),
     mutant({
       name: "prod.root-first",
       says: "the root's handlers are tried before the active leaf's",
@@ -213,3 +252,24 @@ export const productionMutants = {
     }),
   ],
 } satisfies Readonly<Record<string, ReadonlyArray<Mutant>>>;
+
+/**
+ * The production runtime's mutants held by case expectations: each must turn a case red by a
+ * failed expectation that cites the Invariant it expects.
+ */
+export const productionCaseMutants: ReadonlyArray<Mutant> = [
+  mutant({
+    name: "prod.mint-not-replayable",
+    says: "ids are not a function of the boot's seed and the world's counter",
+    expects: "Turn I17",
+    cases: ["PAY-01"],
+    edits: [
+      {
+        file: "src/core/tx.ts",
+        find: "      return branded<Id>(`${prefix}-${env.seed}-${world.counter}`);",
+        replace:
+          "      return branded<Id>(`${prefix}-${env.seed}-${world.counter}-${performance.now()}`);",
+      },
+    ],
+  }),
+];
