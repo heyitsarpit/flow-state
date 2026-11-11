@@ -49,6 +49,7 @@ export const Stamp = {
   },
   rows: [row("Go", "any", "same", [{ operation: "charge", kind: "commit" }])],
   handlers: {
+    folds: noFolds,
     initial: "root",
     root: {
       Go: [stay],
@@ -67,5 +68,4 @@ export const Stamp = {
     schedules: {},
     parts: {},
   },
-  folds: noFolds,
 } satisfies Fixture;

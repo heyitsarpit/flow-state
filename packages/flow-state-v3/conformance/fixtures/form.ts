@@ -47,6 +47,7 @@ export const Form = {
   operations: {},
   rows: [],
   handlers: {
+    folds: noFolds,
     initial: "EDIT",
     root: {
       SetSubject: [updating(stay)],
@@ -70,5 +71,4 @@ export const Form = {
       Flash: { Expired: [stay] },
     },
   },
-  folds: noFolds,
 } satisfies Fixture;

@@ -37,6 +37,7 @@ export const Serialize = {
     row("All", "any", "same", [{ operation: "put", kind: "cancelAll", keyed: false }]),
   ],
   handlers: {
+    folds: noFolds,
     initial: "A",
     root: {
       Go: [to("stay")],
@@ -49,7 +50,6 @@ export const Serialize = {
     schedules: {},
     parts: {},
   },
-  folds: noFolds,
 } satisfies Fixture;
 
 /**
@@ -66,13 +66,13 @@ export const Latest = {
   operations: { search: oneLaneWrite("latest") },
   rows: [row("Go", "any", "same", [{ operation: "search", kind: "commit" }])],
   handlers: {
+    folds: noFolds,
     initial: "A",
     root: { Go: [to("stay")], Ok: [to("stay")], No: [to("stay")], Unsure: [to("stay")] },
     states: {},
     schedules: {},
     parts: {},
   },
-  folds: noFolds,
 } satisfies Fixture;
 
 /**
@@ -92,6 +92,7 @@ export const Cancel = {
     row("Unsure", "any", "same", [{ operation: "search", kind: "retry", keyed: false }]),
   ],
   handlers: {
+    folds: noFolds,
     initial: "A",
     root: {
       Go: [to("W")],
@@ -104,7 +105,6 @@ export const Cancel = {
     schedules: {},
     parts: {},
   },
-  folds: noFolds,
 } satisfies Fixture;
 
 const LEAVES = [
@@ -141,6 +141,7 @@ export const Release = {
     row("LeaveOnly", "HOST", "AWAY", []),
   ],
   handlers: {
+    folds: noFolds,
     initial: "HOST",
     root: { Leave: [to("AWAY")], LeaveOnly: [to("AWAY")] },
     states: {},
@@ -155,7 +156,6 @@ export const Release = {
       },
     },
   },
-  folds: noFolds,
 } satisfies Fixture;
 
 /**
@@ -176,6 +176,7 @@ export const LateQueue = {
     claimed(row("Unsure", "any", "A", [{ operation: "charge", kind: "cancel", keyed: false }])),
   ],
   handlers: {
+    folds: noFolds,
     initial: "A",
     root: {
       Go: [to("W")],
@@ -189,5 +190,4 @@ export const LateQueue = {
     schedules: {},
     parts: {},
   },
-  folds: noFolds,
 } satisfies Fixture;

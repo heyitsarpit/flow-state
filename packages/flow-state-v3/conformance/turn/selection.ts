@@ -12,6 +12,10 @@ import {
   wrote,
   dropped,
   FRESH,
+  answered,
+  answerOf,
+  type Actor,
+  creditLabels,
   reowned,
   ROOT,
   routeOf,
@@ -20,17 +24,11 @@ import {
   withActor,
   withoutOne,
 } from "./anchor.ts";
+import { judgeTurn, name, PENDING_RESET, selectedParts } from "./judge.ts";
 import { lateLeftWork } from "./late.ts";
 import { Input, leafOf, Phase } from "./phases.ts";
-import {
-  type Handlers,
-  type Machines,
-  type Possible,
-  partsOnly,
-  possible,
-  type Route,
-  scheduledEvents,
-} from "../fixtures/handlers.ts";
+import type { Labels } from "../fixtures/folds.ts";
+import { type Machines, possible, scheduledEvents } from "../fixtures/handlers.ts";
 import {
   type ActorRef,
   type Delivered,
@@ -38,174 +36,7 @@ import {
   Observation,
   sameJson,
   type Turn,
-  type TurnPart,
 } from "../port.ts";
-
-type Judged = {
-  readonly to: Option.Option<string>;
-  readonly found: ReadonlyArray<string>;
-  readonly match: Option.Option<Possible>;
-  readonly from: string;
-};
-
-const name = (turn: Turn) => `${turn.actor.machine} ${turn.actor.id} ran ${turn.event}`;
-
-/**
- * A late ending's turn that ran an alternative of the leaf, which only a current one may reach
- * (Turn I26). A current ending that skips a passing leaf alternative breaks I2, not I26.
- */
-const lateRanLeaf = (
-  handlers: Handlers,
-  from: string,
-  turn: Turn,
-  route: Route,
-  ran: Option.Option<TurnPart>,
-) =>
-  Option.filter(
-    ran,
-    (part) =>
-      route === "late" &&
-      !possible(handlers, from, turn.event, "late").alternatives.some((a) => a.at === part.at) &&
-      possible(handlers, from, turn.event, "current").alternatives.some((a) => a.at === part.at),
-  ).pipe(
-    Option.map(
-      (part) =>
-        `Turn I26: ${name(turn)} at ${from} by ${part.at}, routed from the active leaf, but its owner Activation has ended, so it is routed from the root, as late`,
-    ),
-  );
-
-/**
- * The turn a pending reset runs as, Flow's own (Turn R5): it selects no alternative.
- */
-const PENDING_RESET = "PendingReset";
-
-/**
- * The parts of a turn that are selected alternatives: not the callbacks a trait notified its host
- * with (`traits.<name>.callbacks...`), which run beside them.
- */
-const selectedParts = (turn: Turn) => turn.parts.filter((p) => !p.at.startsWith("traits."));
-
-/**
- * A turn that selects no root alternative and so stays at its leaf: a pending reset, or one whose
- * every selected part is a trait or fragment alternative the table names, where neither the leaf
- * nor the root handles its event.
- */
-const noRootAlternative = (
-  handlers: Handlers,
-  turn: Turn,
-  rootAlternatives: number,
-  selected: ReadonlyArray<TurnPart>,
-) =>
-  (selected.length === 0 && turn.event === PENDING_RESET) ||
-  (rootAlternatives === 0 && partsOnly(handlers, turn.event, selected));
-
-/**
- * A part-only turn leaves the root's leaf where it was; one that says otherwise breaks Turn I2.
- */
-const partLeft = (turn: Turn, from: string) =>
-  turn.to === from
-    ? []
-    : [
-        `Turn I2: ${name(turn)} at ${from} in a part alone, which leaves the leaf, but the turn says ${turn.to}`,
-      ];
-
-/**
- * Judges one turn's header against the handler table from the leaf the suite carried (or, when it
- * carried none, the leaf the turn reports): the alternative the actor's root ran is one Turn I2 and
- * I26 allow on its route, and the turn ends at that alternative's leaf.
- */
-// RETURN_TYPE: each branch builds one judgement; the branches infer different shapes.
-const judgeTurn = (machines: Machines, phase: Phase, turn: Turn, route: Route): Judged => {
-  const handlers = machines[turn.actor.machine];
-
-  if (handlers === undefined)
-    return { to: Option.none(), found: [], match: Option.none(), from: turn.from };
-
-  const anchored = leafOf(phase);
-  const from = Option.getOrElse(anchored, () => turn.from);
-
-  const wrongFrom = Option.match(anchored, {
-    onNone: () => [],
-    onSome: (state) =>
-      state === turn.from
-        ? []
-        : [`Turn I2: ${name(turn)} from ${turn.from}, but the actor was at ${state}`],
-  });
-
-  const allowed = possible(handlers, from, turn.event, route);
-  const selected = selectedParts(turn);
-  const ran = selected.find((p) => p.part.length === 0 && p.definition === turn.actor.machine);
-  const ats = allowed.alternatives.map((a) => a.at).join(", ");
-
-  if (ran === undefined && noRootAlternative(handlers, turn, allowed.alternatives.length, selected))
-    return {
-      to: Option.some(from),
-      found: [...wrongFrom, ...partLeft(turn, from)],
-      match: Option.none(),
-      from,
-    };
-
-  const misrouted = lateRanLeaf(handlers, from, turn, route, Option.fromUndefinedOr(ran));
-
-  if (Option.isSome(misrouted))
-    return {
-      to: Option.none(),
-      found: [...wrongFrom, misrouted.value],
-      match: Option.none(),
-      from,
-    };
-
-  if (allowed.alternatives.length === 0)
-    return {
-      to: Option.some(from),
-      found: [
-        ...wrongFrom,
-        `Turn I2: ${name(turn)} at ${from}, which no alternative handles (it is Unhandled or Denied)`,
-      ],
-      match: Option.none(),
-      from,
-    };
-
-  const [only] = allowed.alternatives;
-  const fallback = allowed.alternatives.length === 1 && only !== undefined ? [only.to] : [];
-
-  if (ran === undefined)
-    return {
-      to: Option.fromUndefinedOr(fallback[0]),
-      found: [
-        ...wrongFrom,
-        `Turn I2: ${name(turn)} at ${from} and reported no part of its root, so no selected alternative (${ats}) can be told`,
-      ],
-      match: Option.none(),
-      from,
-    };
-
-  const match = allowed.alternatives.find((a) => a.at === ran.at);
-
-  if (match === undefined)
-    return {
-      to: Option.fromUndefinedOr(fallback[0]),
-      found: [
-        ...wrongFrom,
-        `Turn I2: ${name(turn)} at ${from} by ${ran.at}, not one of the alternatives selection allows (${ats})`,
-      ],
-      match: Option.none(),
-      from,
-    };
-
-  if (match.to !== turn.to)
-    return {
-      to: Option.some(match.to),
-      found: [
-        ...wrongFrom,
-        `Turn I2: ${name(turn)} at ${from} by ${match.at}, which ends at ${match.to}, but the turn says ${turn.to}`,
-      ],
-      match: Option.some(match),
-      from,
-    };
-
-  return { to: Option.some(match.to), found: wrongFrom, match: Option.some(match), from };
-};
 
 /**
  * The driven credit of an event the suite sent to a part: it admits only a turn that ran no root
@@ -223,6 +54,25 @@ const heardBy = (actor: ActorRef, event: string, step: ReadonlyArray<Fact>) =>
       : [],
   );
 
+/**
+ * The labels of the fact a turn runs on: a driven event's payload, or the answer a delivered
+ * ending came from; none otherwise.
+ */
+const labelsOf = (
+  state: State,
+  now: Actor,
+  credit: string,
+  driven: boolean,
+  delivered: Option.Option<Delivered>,
+) => {
+  if (driven) return creditLabels(now.driven, credit);
+
+  return Option.match(delivered, {
+    onNone: () => ({}),
+    onSome: (d) => answerOf(state, d.operation, d.attempt),
+  });
+};
+
 const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
   const now = actorIn(state, turn.actor);
   const handlers = state.machines[turn.actor.machine];
@@ -230,10 +80,17 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
   const selected = selectedParts(turn);
   const rootRan = selected.some((p) => p.part.length === 0 && p.definition === turn.actor.machine);
   const credit = rootRan || selected.length === 0 ? turn.event : partCredit(turn.event);
-  const driven = now.driven.includes(credit);
+  const driven = now.driven.some((c) => c.event === credit);
   const [delivered] = heardBy(turn.actor, turn.event, step);
   const heard = !driven && delivered !== undefined;
   const route = !driven && delivered !== undefined ? routeOf(state, now, delivered) : "current";
+  const labels = labelsOf(state, now, credit, driven, Option.fromUndefinedOr(delivered));
+  const folds = handlers?.folds;
+
+  const decide = (at: string) =>
+    Option.flatMap(now.fields, (fields) =>
+      Option.map(Option.fromUndefinedOr(folds?.guards[at]), (guard) => guard(labels, fields)),
+    );
 
   const admitted =
     driven ||
@@ -248,7 +105,17 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
         `Turn I2: ${name(turn)}, an event the suite never sent it, no ending delivered and no schedule sends`,
       ];
 
-  const judged = judgeTurn(state.machines, now.phase, turn, route);
+  const judged = judgeTurn(state.machines, now.phase, turn, route, decide);
+
+  const fields = Option.match(judged.match, {
+    onNone: () => now.fields,
+    onSome: (m) =>
+      Option.map(now.fields, (before) => {
+        const update = folds?.updates[m.at];
+
+        return update === undefined ? before : { ...before, ...update(labels, before) };
+      }),
+  });
 
   const leftWork = lateLeftWork(
     state,
@@ -298,6 +165,7 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
       driven: withoutOne(now.driven, credit),
       entry,
       turns: now.turns + 1,
+      fields,
     }),
     turn.actor,
     Input.Turned({ to: judged.to }),
@@ -319,6 +187,18 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
 const initialOf = (state: State, actor: ActorRef) =>
   Option.fromUndefinedOr(state.machines[actor.machine]?.initial);
 
+/**
+ * A fresh actor starts with its fixture's initial folded fields; any other keeps its own.
+ */
+const folded = (state: State, actor: ActorRef) => {
+  const now = actorIn(state, actor);
+  const folds = state.machines[actor.machine]?.folds;
+
+  return Phase.$is("Fresh")(now.phase) && folds !== undefined
+    ? withActor(state, actor, { ...now, fields: Option.some(folds.initial) })
+    : state;
+};
+
 type Stepped = readonly [State, ReadonlyArray<Violation>, Fact];
 
 const purposeOf = (step: ReadonlyArray<Fact>, wrote: Extract<Fact, { readonly _tag: "Wrote" }>) => {
@@ -327,10 +207,10 @@ const purposeOf = (step: ReadonlyArray<Fact>, wrote: Extract<Fact, { readonly _t
   return step.filter(Fact.$is("Purposed"))[nth]?.purpose ?? "capture";
 };
 
-const drove = (state: State, actor: ActorRef, event: string) => {
+const drove = (state: State, actor: ActorRef, event: string, labels: Labels) => {
   const now = actorIn(state, actor);
 
-  return withActor(state, actor, { ...now, driven: [...now.driven, event] });
+  return withActor(state, actor, { ...now, driven: [...now.driven, { event, labels }] });
 };
 
 const uncredited = (state: State, actor: ActorRef) => {
@@ -367,7 +247,7 @@ const refusing = (state: State, event: string, step: ReadonlyArray<Fact>) => {
       ? Option.some({ actor: Option.getOrThrow(first.actor), heard: Option.some(first) })
       : Option.none();
 
-  const holders = [...state.actors].filter(([, a]) => a.driven.includes(event));
+  const holders = [...state.actors].filter(([, a]) => a.driven.some((c) => c.event === event));
   const [only, ...more] = holders;
 
   if (only === undefined || more.length > 0) return Option.none();
@@ -434,14 +314,14 @@ const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>): Stepped =>
       keep(
         Option.match(initialOf(state, actor), {
           onNone: () => state,
-          onSome: (initial) => moved(state, actor, Input.Ensured({ initial })),
+          onSome: (initial) => moved(folded(state, actor), actor, Input.Ensured({ initial })),
         }),
       ),
     Disposed: ({ actor }) => keep(moved(uncredited(state, actor), actor, Input.Disposed())),
     Forgot: ({ actor }) => keep(moved(uncredited(state, actor), actor, Input.Forgot())),
     Reloaded: () => keep(reloaded(state)),
-    Drove: ({ actor, event, to }) =>
-      keep(drove(state, actor, Address.$is("Root")(to) ? event : partCredit(event))),
+    Drove: ({ actor, event, to, labels }) =>
+      keep(drove(state, actor, Address.$is("Root")(to) ? event : partCredit(event), labels)),
     Reported: ({ observation }) =>
       Observation.$match(observation, {
         Turn: (turn) => onTurn(state, turn, step),
@@ -464,7 +344,8 @@ const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>): Stepped =>
       }),
     Stepped: () => keep(state),
     Requested: () => keep(state),
-    Answered: () => keep(state),
+    Answered: ({ request, labels }) =>
+      keep(answered(state, request.operation, request.key, labels)),
     Released: () => keep(state),
     DisposingRuntime: () => keep(state),
     Unstoppable: () => keep(state),
@@ -540,6 +421,7 @@ export type Anchor = State;
 // RETURN_TYPE: the Anchor contract; inference would type the empty Map's entries as never.
 export const anchorOf = (machines: Machines): Anchor => ({
   machines,
+  answers: new Map(),
   actors: new Map(),
   owning: new Map(),
   calls: new Map(),
@@ -562,7 +444,17 @@ export const anchorAt = (
   driven: ReadonlyArray<string>,
 ): Anchor => ({
   machines,
-  actors: new Map([[keyOf(actor), { ...FRESH, phase: Phase.Live({ state: leaf }), driven }]]),
+  answers: new Map(),
+  actors: new Map([
+    [
+      keyOf(actor),
+      {
+        ...FRESH,
+        phase: Phase.Live({ state: leaf }),
+        driven: driven.map((event) => ({ event, labels: {} })),
+      },
+    ],
+  ]),
   owning: new Map(),
   calls: new Map(),
 });

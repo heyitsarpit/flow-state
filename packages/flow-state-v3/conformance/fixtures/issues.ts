@@ -50,6 +50,7 @@ export const Issues = {
     row("CancelRename", "any", "same", [{ operation: "rename", kind: "cancel", keyed: true }]),
   ],
   handlers: {
+    folds: noFolds,
     initial: "READY",
     root: {
       Load: [stay],
@@ -72,5 +73,4 @@ export const Issues = {
     schedules: {},
     parts: {},
   },
-  folds: noFolds,
 } satisfies Fixture;

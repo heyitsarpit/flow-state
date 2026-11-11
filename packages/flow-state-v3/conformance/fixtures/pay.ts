@@ -164,6 +164,7 @@ const stay = to<State>("stay");
  * `updating` marks each alternative with an `updateMemory`.
  */
 const payHandlers: Handlers<State> = {
+  folds: noFolds,
   initial: "IDLE",
   root: {
     PayRequested: [inStates(["PAYING"], stay), updating(to("PAYING"))],
@@ -244,7 +245,6 @@ export const Pay = {
   operations,
   rows: payRows,
   handlers: payHandlers,
-  folds: noFolds,
 } satisfies Fixture;
 
 const cellsEvents = { ...events, AbortPay: Empty };
@@ -273,5 +273,4 @@ export const Cells = {
     payRow("AbortPay", "any", "same", [{ operation: "pay", kind: "cancel", keyed: true }]),
   ],
   handlers: { ...payHandlers, root: { ...payHandlers.root, AbortPay: [stay] } },
-  folds: noFolds,
 } satisfies Fixture;

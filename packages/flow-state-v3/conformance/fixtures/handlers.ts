@@ -1,4 +1,5 @@
 import { Option } from "effect";
+import type { Folds } from "./folds.ts";
 
 /**
  * One alternative of a handler, written by hand from the fixture's source.
@@ -63,7 +64,8 @@ export const schedule = (
 
 /**
  * A machine's handler table (Turn R2): its initial leaf, its root's handlers, each leaf's own
- * handlers, and each leaf's schedules.
+ * handlers, and each leaf's schedules, with the folds its guards, keys and delays read
+ * ({@link Folds}).
  *
  * **Gotchas**
  *
@@ -72,6 +74,7 @@ export const schedule = (
  *   (`parts`, by definition) are one level each, judged only for the place a turn names.
  */
 export type Handlers<State extends string = string> = {
+  readonly folds: Folds;
   readonly initial: State;
   readonly root: Level<State>;
   readonly states: Readonly<Partial<Record<State, Level<State>>>>;
@@ -178,19 +181,35 @@ export type Possible = {
   readonly idle: Option.Option<string>;
 };
 
+/**
+ * Whether an opaque guard passes, where the suite computes it (a fixture fold, `fixtures/folds.ts`):
+ * `None` leaves it opaque, so the alternative may or may not be selected.
+ */
+export type Decide = (at: string) => Option.Option<boolean>;
+
 const walk = (
   levels: ReadonlyArray<{ readonly prefix: string; readonly level: Level }>,
   from: string,
   event: string,
+  decide: Decide,
 ) => {
   const candidates = levels
     .flatMap(({ prefix, level }) =>
-      (level[event] ?? []).map((alternative, position) => ({
-        alternative,
-        at: `${prefix}on.${event}[${Option.getOrElse(alternative.index, () => position)}]`,
-      })),
+      (level[event] ?? []).map((alternative, position) => {
+        const at = `${prefix}on.${event}[${Option.getOrElse(alternative.index, () => position)}]`;
+        const decided = alternative.opaque ? decide(at) : Option.none<boolean>();
+
+        return {
+          alternative: Option.isSome(decided) ? { ...alternative, opaque: false } : alternative,
+          at,
+          passes: Option.getOrElse(decided, () => true),
+        };
+      }),
     )
-    .filter(({ alternative }) => alternative.when.length === 0 || alternative.when.includes(from));
+    .filter(
+      ({ alternative, passes }) =>
+        passes && (alternative.when.length === 0 || alternative.when.includes(from)),
+    );
 
   const certain = candidates.findIndex(({ alternative }) => !alternative.opaque);
   const taken = certain < 0 ? candidates : candidates.slice(0, certain + 1);
@@ -222,14 +241,22 @@ export type Route = "current" | "late" | "either";
  *
  * A current event reads the leaf's level, then the root's; a late one the root's alone. An
  * alternative whose state tokens exclude `from` is skipped; the first with no opaque guard is
- * selected for certain and ends the walk; each opaque one before it may be selected. On `either`,
+ * selected for certain and ends the walk; each opaque one before it may be selected. `decide`
+ * computes an opaque guard where it can: one that fails is skipped, one that passes is certain. On
+ * `either`,
  * both walks are allowed, and the event is handled for certain only when both are.
  */
-export const possible = (handlers: Handlers, from: string, event: string, route: Route) => {
+export const possible = (
+  handlers: Handlers,
+  from: string,
+  event: string,
+  route: Route,
+  decide: Decide = () => Option.none(),
+) => {
   const leaf = { prefix: `states.${from}.`, level: handlers.states[from] ?? {} };
   const root = { prefix: "", level: handlers.root };
-  const current = walk([leaf, root], from, event);
-  const late = walk([root], from, event);
+  const current = walk([leaf, root], from, event, decide);
+  const late = walk([root], from, event, decide);
 
   if (route === "current") return current;
 

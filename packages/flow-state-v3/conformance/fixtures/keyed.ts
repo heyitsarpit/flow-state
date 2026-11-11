@@ -16,6 +16,7 @@ const keyedWrite = writeOf(ByK, {
 });
 
 const handlers = {
+  folds: noFolds,
   initial: "A",
   root: {
     Go: [to("W")],
@@ -46,7 +47,6 @@ export const Keyed = {
     row("Ok", "any", "same", [{ operation: "keyed", kind: "cancel", keyed: false }]),
   ],
   handlers,
-  folds: noFolds,
 } satisfies Fixture;
 
 /**
@@ -77,5 +77,4 @@ export const Held = {
       Unsure: [to("W")],
     },
   },
-  folds: noFolds,
 } satisfies Fixture;

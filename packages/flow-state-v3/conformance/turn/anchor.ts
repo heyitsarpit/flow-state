@@ -1,17 +1,29 @@
 import { Data, Option } from "effect";
 import { Fact } from "../dsl/oracle.ts";
+import type { Folded, Labels } from "../fixtures/folds.ts";
 import type { Machines, Route } from "../fixtures/handlers.ts";
 import type { ActorRef, Channel, Delivered, Json } from "../port.ts";
 import type { Purpose } from "../world/storage.ts";
 import { Input, leafOf, Phase, TABLE } from "./phases.ts";
 
+/**
+ * What a batch holds of one actor: how many of its turns, and its folded fields after them.
+ */
+export type Kept = { readonly turns: number; readonly fields: Option.Option<Folded> };
+
+/**
+ * One event the suite sent an actor and no turn has run yet, with its payload's labels.
+ */
+export type Credit = { readonly event: string; readonly labels: Labels };
+
 export type Actor = {
   readonly phase: Phase;
-  readonly driven: ReadonlyArray<string>;
+  readonly driven: ReadonlyArray<Credit>;
   readonly entry: number;
   readonly turns: number;
-  readonly saved: number;
-  readonly pending: Option.Option<number>;
+  readonly fields: Option.Option<Folded>;
+  readonly saved: Kept;
+  readonly pending: Option.Option<Kept>;
 };
 
 /**
@@ -48,6 +60,7 @@ export type Call = {
 
 export type State = {
   readonly machines: Machines;
+  readonly answers: ReadonlyMap<string, Labels>;
   readonly actors: ReadonlyMap<string, Actor>;
   readonly owning: ReadonlyMap<string, Owner>;
   readonly calls: ReadonlyMap<string, Call>;
@@ -60,7 +73,8 @@ export const FRESH: Actor = {
   driven: [],
   entry: 0,
   turns: 0,
-  saved: 0,
+  fields: Option.none(),
+  saved: { turns: 0, fields: Option.none() },
   pending: Option.none(),
 };
 
@@ -80,11 +94,17 @@ export const moved = (state: State, actor: ActorRef, input: Input) => {
   });
 };
 
-export const withoutOne = (events: ReadonlyArray<string>, event: string) => {
-  const at = events.indexOf(event);
+export const withoutOne = (credits: ReadonlyArray<Credit>, event: string) => {
+  const at = credits.findIndex((c) => c.event === event);
 
-  return at < 0 ? events : [...events.slice(0, at), ...events.slice(at + 1)];
+  return at < 0 ? credits : [...credits.slice(0, at), ...credits.slice(at + 1)];
 };
+
+/**
+ * The labels of the first credit for `event`, none when the actor holds none.
+ */
+export const creditLabels = (credits: ReadonlyArray<Credit>, event: string) =>
+  credits.find((c) => c.event === event)?.labels ?? {};
 
 export const attemptKey = (operation: string, attempt: string) => `${operation} ${attempt}`;
 
@@ -249,9 +269,11 @@ const eachActor = (state: State, change: (a: Actor) => Actor) => ({
  * other once the store lands it.
  */
 export const wrote = (state: State, purpose: Purpose) =>
-  eachActor(state, (a) =>
-    purpose === "flush" ? { ...a, saved: a.turns } : { ...a, pending: Option.some(a.turns) },
-  );
+  eachActor(state, (a) => {
+    const kept = { turns: a.turns, fields: a.fields };
+
+    return purpose === "flush" ? { ...a, saved: kept } : { ...a, pending: Option.some(kept) };
+  });
 
 /**
  * The store landed the held batches: each actor's turns the latest of them holds are on disk.
@@ -259,10 +281,10 @@ export const wrote = (state: State, purpose: Purpose) =>
 export const landed = (state: State) =>
   eachActor(state, (a) => ({
     ...a,
-    saved: Math.max(
-      a.saved,
-      Option.getOrElse(a.pending, () => a.saved),
-    ),
+    saved: Option.match(a.pending, {
+      onNone: () => a.saved,
+      onSome: (kept) => (kept.turns >= a.saved.turns ? kept : a.saved),
+    }),
     pending: Option.none(),
   }));
 
@@ -277,14 +299,48 @@ export const dropped = (state: State) =>
  * leaf is unknown until its next turn (WriteAhead R10, I10); any other keeps its stored leaf.
  */
 export const reloaded = (state: State) =>
-  eachActor(state, (a) => ({
-    ...a,
-    phase:
-      a.turns > a.saved
+  eachActor(state, (a) => {
+    const lost = a.turns > a.saved.turns;
+    const fields = lost ? Option.none<Folded>() : a.saved.fields;
+
+    return {
+      ...a,
+      phase: lost
         ? Phase.Stored({ state: Option.none() })
         : TABLE[a.phase._tag].Reloaded(Input.Reloaded(), a.phase),
-    driven: [],
-    entry: a.entry + 1,
-    saved: a.turns,
-    pending: Option.none(),
-  }));
+      driven: [],
+      entry: a.entry + 1,
+      fields,
+      saved: { turns: a.turns, fields },
+      pending: Option.none(),
+    };
+  });
+
+/**
+ * The labels the suite's server gave a call's answer: `operation attempt` for a write, the
+ * operation alone for a read (its latest answer).
+ */
+export const answered = (
+  state: State,
+  operation: string,
+  key: Option.Option<string>,
+  labels: Labels,
+) => ({
+  ...state,
+  answers: new Map([
+    ...state.answers,
+    [
+      Option.match(key, { onNone: () => operation, onSome: (k) => attemptKey(operation, k) }),
+      labels,
+    ],
+  ]),
+});
+
+/**
+ * The labels of the answer a delivered ending came from; none when the suite gave none (a decline,
+ * a cancel, a restore).
+ */
+export const answerOf = (state: State, operation: string, attempt: Option.Option<string>) =>
+  state.answers.get(
+    Option.match(attempt, { onNone: () => operation, onSome: (a) => attemptKey(operation, a) }),
+  ) ?? {};
