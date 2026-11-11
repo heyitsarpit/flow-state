@@ -42,6 +42,10 @@ const when = (condition: string, body: string) => `${ADMIT}\n  if (a && ${condit
  * - `1b.r8-refused-ending-not-redelivered`: a refused ending is never delivered once more.
  * - `d6.disposed-ending-is-evidence`: an ending of a disposed persisted actor is recorded, not
  *   parked.
+ * - `mutant.parked-delivered-as-other-tag`: a parked definite ending is delivered, at adoption,
+ *   as an unknown (review F2; T6 M1).
+ * - `mutant.boot-skips-restored`: a boot restores a Held head without its `unknown { Restored }`
+ *   (Restore I6, CQ11).
  */
 export const deliveredOnceMutants: ReadonlyArray<Mutant> = [
   {
@@ -192,6 +196,40 @@ export const deliveredOnceMutants: ReadonlyArray<Mutant> = [
         file: "turn.ts",
         find: "(own(tx.w.retired, item.actor) !== undefined || tx.machines[machine]?.persisted);",
         replace: "own(tx.w.retired, item.actor) !== undefined;",
+      },
+    ],
+  },
+  {
+    name: "mutant.parked-delivered-as-other-tag",
+    says: "a parked definite ending is delivered at adoption as an unknown",
+    expects: "WriteLanes I15",
+    runtime: "prototype",
+    cases: ["DISP-06", "DISP-01", "DISP-05", "PAY-15/dispose-held"],
+    edits: [
+      {
+        file: "turn.ts",
+        find: "        ending: p.ending,\n        input: p.input,\n        subject: l.subject,",
+        replace:
+          '        ending: p.ending.ch === "unknown" ? p.ending : { ch: "unknown", reason: "Restored" },\n        input: p.input,\n        subject: l.subject,',
+      },
+    ],
+  },
+  {
+    name: "mutant.boot-skips-restored",
+    says: "a boot restores a Held head and never decides its unknown { Restored }",
+    expects: "Restore I6",
+    runtime: "prototype",
+    cases: ["DLV-01", "DLV-02", "PAY-15/reload-holds-exactly-once"],
+    edits: [
+      {
+        file: "durable.ts",
+        find: "      noteEnding(tx, { op: l.op, attempt: h.id }, ending);\n      const phase: Phase",
+        replace: "      const phase: Phase",
+      },
+      {
+        file: "durable.ts",
+        find: "        mail(tx, l, h, ending, true, !h.held);",
+        replace: "",
       },
     ],
   },

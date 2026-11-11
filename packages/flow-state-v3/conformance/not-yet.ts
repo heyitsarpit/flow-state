@@ -36,8 +36,11 @@ export const notYet: ReadonlyArray<NotYet> = [
   },
   {
     owner: "@task.V3.T11",
-    why: "the Restore area is not built",
-    invariants: invariantsOf("Restore", upTo(18)),
+    why: "the Restore area is not built; I6's lower bound is delivered-once's (CQ11)",
+    invariants: invariantsOf(
+      "Restore",
+      upTo(18).filter((n) => n !== 6),
+    ),
   },
   {
     owner: "@task.V3.T12",
