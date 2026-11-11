@@ -1,4 +1,4 @@
-import { Data, type Effect, type Option, type Schema } from "effect";
+import { Data, type Effect, type Equivalence, type Option, type Schema } from "effect";
 
 /**
  * A user closure named by its place in the definition (`operations.pay.failure.CardDeclined`), so
@@ -173,6 +173,7 @@ export type Operation = Data.TaggedEnum<{
     key: Schema.Codec<Values, string>;
     concurrency: Concurrency;
     input: Schema.Codec<Values, Values>;
+    inputJson: Schema.Codec<Values, Values>;
     call: Slot<Call>;
     success: Mapping;
     failure: ReadonlyMap<string, Mapping>;
@@ -184,6 +185,7 @@ export type Operation = Data.TaggedEnum<{
     keyFields: ReadonlyArray<string>;
     key: Schema.Codec<Values, string>;
     input: Schema.Codec<Values, Values>;
+    inputJson: Schema.Codec<Values, Values>;
     call: Slot<Call>;
     success: Mapping;
     failure: ReadonlyMap<string, Mapping>;
@@ -209,9 +211,10 @@ export type Compiled = {
   readonly initial: string;
   readonly states: ReadonlyMap<string, Node>;
   readonly root: Level;
-  readonly events: ReadonlyMap<string, Schema.Codec<Values, Values>>;
-  readonly external: ReadonlySet<string>;
+  readonly external: ReadonlyMap<string, Schema.Codec<Values, Values>>;
   readonly memory: Schema.Codec<Values, Values>;
+  readonly memoryJson: Schema.Codec<Values, Values>;
+  readonly sameMemory: Equivalence.Equivalence<Values>;
   readonly initialMemory: Values;
   readonly operations: ReadonlyMap<string, Operation>;
 };

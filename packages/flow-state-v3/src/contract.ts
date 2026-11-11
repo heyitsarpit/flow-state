@@ -1,4 +1,4 @@
-import { type Context, type Duration, type Effect, Schema } from "effect";
+import { type Context, type Duration, type Effect, Schema, Struct } from "effect";
 import { Option } from "effect";
 import type { Attempt, Call, Concurrency, Values } from "./core/compiled.ts";
 import type { OutcomeFailure, OutcomeUnknown } from "./flow.ts";
@@ -75,12 +75,41 @@ export type Bound<K extends "write" | "read" = "write" | "read"> = {
   readonly kind: K;
   readonly contract: string;
   readonly input: Schema.Codec<Values, Values>;
+  readonly inputJson: Schema.Codec<Values, Values>;
   readonly key: ReadonlyArray<string>;
+  readonly keyText: Schema.Codec<Values, string>;
   readonly concurrency: Concurrency;
   readonly call: Call;
   readonly success: Ending;
   readonly failure: Readonly<Record<string, Ending>>;
   readonly unknown: Option.Option<Ending>;
+};
+
+/**
+ * A Schema over a contract's own fields, as the record codec Compiled holds: built once, when the
+ * contract is bound.
+ */
+const recordCodec = <T, S = Schema.Top>(schema: S) =>
+  // SAFETY: a Struct of a contract's own field Schemas decodes to a record of those fields, and every Flow field Schema needs no services.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the contract's field types are erased in Compiled
+  schema as Schema.Codec<Values, T>;
+
+/**
+ * The codecs a bound contract carries: its input, its input as JSON, and its key's canonical text
+ * (its key fields in name order, as JSON).
+ */
+const codecsOf = <F extends Fields>(fields: F, key: ReadonlyArray<keyof F & string>) => {
+  const input = Schema.Struct(fields);
+
+  return {
+    input: recordCodec<Values>(input),
+    inputJson: recordCodec<Values>(Schema.toCodecJson(input)),
+    keyText: recordCodec<string>(
+      Schema.fromJsonString(
+        Schema.toCodecJson(Schema.Struct(Struct.pick(fields, [...key].toSorted()))),
+      ),
+    ),
+  };
 };
 
 /**
@@ -156,7 +185,7 @@ export const transaction = <const F extends Fields, A, E, R>(config: {
     outcomes: (endings) => ({
       kind: "write",
       contract: config.id,
-      input: contract.input,
+      ...codecsOf(config.input, config.key),
       key: config.key,
       concurrency: config.concurrency,
       call: (input, context) => config.commit(trusted<InputOf<F>>(input), context),
@@ -194,7 +223,7 @@ export const resource = <const F extends Fields, A, E, R>(config: {
     outcomes: (endings) => ({
       kind: "read",
       contract: config.id,
-      input: contract.input,
+      ...codecsOf(config.input, config.key),
       key: config.key,
       concurrency: "reject",
       call: (input) => config.lookup(trusted<InputOf<F>>(input)),

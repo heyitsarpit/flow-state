@@ -270,8 +270,12 @@ const accept = (alternative: Alternative, node: string, input: TurnInput): TurnR
     onSome: (update) =>
       Result.map(
         call(update.slot, () => update.run(read)),
-        // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- the turn's after memory: one patch, merged once
-        (patch) => ({ ...input.memory, ...patch }),
+        (patch) => {
+          // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- the turn's after memory: one patch, merged once
+          const after = { ...input.memory, ...patch };
+
+          return input.compiled.sameMemory(after, input.memory) ? input.memory : after;
+        },
       ),
   });
 

@@ -1,8 +1,9 @@
-import { Cause, Clock, Context, Duration, Effect, Exit, type Fiber, Option } from "effect";
+import { Cause, Clock, Context, Duration, Effect, Exit, type Fiber, Option, Schema } from "effect";
 import type { Values } from "../core/compiled.ts";
 import type { Evidence } from "../core/evidence.ts";
 import { CallResult, type Env, Input, type Machines, step } from "../core/step.ts";
 import { Command, emptyWorld, type World } from "../core/world.ts";
+import { FlowError } from "../error.ts";
 import { OutcomeFailure, OutcomeUnknown, reasonOf } from "../flow.ts";
 import { makeEdge } from "./edge.ts";
 import type { Host } from "./host.ts";
@@ -177,7 +178,22 @@ export const makeDriver = (options: {
       actor: { readonly machine: string; readonly name: string },
       tag: string,
       payload: Values,
-    ) => input(Input.Send({ actor, tag, payload })),
+    ) => {
+      const codec = machines.get(actor.machine)?.external.get(tag);
+
+      const decoded =
+        codec === undefined ? Option.none() : Schema.decodeUnknownOption(codec)(payload);
+
+      // Actors R14: an internal, unknown or invalid event throws InvalidEvent and starts no turn.
+      if (Option.isNone(decoded))
+        // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the public send's contract: an invalid event throws InvalidEvent before any turn (Actors R14)
+        throw new FlowError({
+          code: "InvalidEvent",
+          problems: [`${actor.machine} ${tag}: not a public event with a valid payload`],
+        });
+
+      input(Input.Send({ actor, tag, payload: decoded.value }));
+    },
     stop: () => {
       for (const stop of timers.values()) stop();
       timers.clear();

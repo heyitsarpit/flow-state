@@ -94,8 +94,8 @@ export const actorRecordKey = (key: string) => `actor/${key}`;
  */
 export const laneRecordKey = (lane: string) => `lane/${lane}`;
 
-const jsonOf = (schema: Schema.Codec<Values, Values>, value: Values) =>
-  Schema.encodeUnknownResult(Schema.toCodecJson(schema))(value);
+const jsonOf = (json: Schema.Codec<Values, Values>, value: Values) =>
+  Schema.encodeUnknownResult(json)(value);
 
 /**
  * An incarnation's record as JSON data (WriteAhead R4): its state, its memory encoded by the
@@ -103,7 +103,7 @@ const jsonOf = (schema: Schema.Codec<Values, Values>, value: Values) =>
  */
 export const encodeActor = (compiled: Compiled, incarnation: Incarnation) =>
   Result.getSuccess(
-    Result.map(jsonOf(compiled.memory, incarnation.memory), (memory) => ({
+    Result.map(jsonOf(compiled.memoryJson, incarnation.memory), (memory) => ({
       format: FORMAT,
       machine: incarnation.actor.machine,
       name: incarnation.actor.name,
@@ -127,7 +127,7 @@ export const encodeLane = (compiled: Compiled, lane: Lane) => {
   if (operation === undefined) return Option.none();
 
   return Result.getSuccess(
-    Result.map(jsonOf(operation.input, lane.head.input), (input) => ({
+    Result.map(jsonOf(operation.inputJson, lane.head.input), (input) => ({
       format: FORMAT,
       machine: lane.actor.machine,
       name: lane.actor.name,
@@ -184,7 +184,7 @@ export const decodeRecords = (
 
           if (compiled === undefined) return;
 
-          Result.match(Schema.decodeUnknownResult(Schema.toCodecJson(compiled.memory))(r.memory), {
+          Result.match(Schema.decodeUnknownResult(compiled.memoryJson)(r.memory), {
             onFailure: () => undefined,
             onSuccess: (memory) =>
               void records.push({
@@ -230,7 +230,7 @@ export const decodeRecords = (
           if (operation === undefined) return;
           const actor = { machine: r.machine, name: r.name };
 
-          Result.match(Schema.decodeUnknownResult(Schema.toCodecJson(operation.input))(r.input), {
+          Result.match(Schema.decodeUnknownResult(operation.inputJson)(r.input), {
             onFailure: () => undefined,
             onSuccess: (input) =>
               void lanes.push({

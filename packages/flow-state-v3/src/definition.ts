@@ -280,23 +280,6 @@ export const codecOf = <E, S = Schema.Top>(schema: S) =>
   schema as Schema.Codec<Values, E>;
 
 /**
- * The canonical text codec of an operation's key: its key fields in name order, as JSON.
- */
-export const keyCodecOf = (input: Schema.Codec<Values, Values>, fields: ReadonlyArray<string>) => {
-  const all = Predicate.hasProperty(input, "fields") ? input.fields : {};
-
-  const picked = Object.fromEntries(
-    [...fields]
-      .toSorted()
-      .flatMap((name) =>
-        Predicate.hasProperty(all, name) && Schema.isSchema(all[name]) ? [[name, all[name]]] : [],
-      ),
-  );
-
-  return codecOf<string>(Schema.fromJsonString(Schema.toCodecJson(Schema.Struct(picked))));
-};
-
-/**
  * Declares a machine's structure: its states, events, memory and operations (Machines O1).
  *
  * **When to use**
@@ -325,9 +308,7 @@ export const definition = <
   const handles = Object.fromEntries(
     Object.entries(operations).map(([name, bound]) => [
       name,
-      bound.kind === "write"
-        ? writeHandle(name, keyCodecOf(bound.input, bound.key))
-        : readHandle(name),
+      bound.kind === "write" ? writeHandle(name, bound.keyText) : readHandle(name),
     ]),
   );
 
