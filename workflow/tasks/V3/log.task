@@ -303,3 +303,5 @@ note 2026-11-11T11:59:30Z
     Decision (user, 2026-11-11): coding stays paused for one replanning pass (audit of built work, Spec audit, Task re-cut into vertical slices of runtime feature, Spec, fixtures and benchmark replay, rework first); an Opus planner writes replan-2026-11-11.md for the user's review.
 note 2026-11-11T12:00:41Z
     Amendment (the user, 2026-11-11): pin moves to workflow@e74b0e2, where to-task, to-epic and build-a-loop check Plan outcome coverage at Epic writing, Plan changes, phase close and Epic close. Installed build-a-loop refreshed. **Reverse:** pin workflow@131b1fc.
+note 2026-11-11T12:29:45Z
+    Decision (user, 2026-11-11): the replan's 12 recommendations are accepted (code:workflow/plans/flow/references/proposals/replan-2026-11-11.md); it is applied to the Tasks after the catalogue completeness check is folded in. The pair gate is a combination gate: pairs enforced, triples reported, composites carry many features.
