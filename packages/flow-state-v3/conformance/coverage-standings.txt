@@ -1,0 +1,184 @@
+checked Actors I24  delivered-once: mutant.kept-retried-without-boot
+checked Actors I29  disposal: id.dispose-drops-lanes, mutant.boot-after-disposal-skips-restored
+checked Actors I30  disposal: mutant.disposal-dispatches, mutant.disposal-rereads
+checked Actors I31  disposal: mutant.disposal-hold-first
+checked Actors I32  disposal: 1b.forget-marks-held-lane
+checked Actors I35  disposal: o6.dispose-interrupts-wire, o6.no-bound, mutant.bound-ending-wrong-tag, mutant.short-disposal-bound
+checked Actors I36  disposal: o6.settled-in-bound-stays-held
+checked Compile I16  cases CMP-06: cmp.key-outside-input-admitted, cmp.seal-crashes-on-key
+checked Restore I6  delivered-once: mutant.boot-skips-restored, mutant.restore-skips-unsent
+checked StaticCli I5  cases CLI-03: cli.loader-on-stdout, cli.loader-on-stderr
+checked Turn I10  cases TURN-05/a-part-writing-the-key-is-a-pending-reset: part.pending-reset-dropped
+checked Turn I11  cases TURN-05/removed-copy-ends-once: part.abandoned-skips-callbacks
+checked Turn I17  cases TURN-02: turn.memory-takes-a-random-nonce
+checked Turn I3  cases TURN-05/child-refusal: part.child-refusal-ignored
+checked WriteLanes I1  lane-queue: mutant.double-invoke, mutant.boot-replays-never-sent
+checked WriteLanes I10  lane-queue: mutant.members-reversed
+checked WriteLanes I11  lane-queue: lane.fresh-mint-on-held, lane.unknown-promotes
+checked WriteLanes I12  lane-queue: lane.cancel-held-keeps, lane.held-auto-resend, lie.held-released-unguarded, mutant.release-drops-held, mutant.boot-resends-held, lie.release-on-guarded-read, lie.release-other-lane, lie.void-retry-releases, lie.release-member-claimed, mutant.cancel-members-dropped, lie.cancels-reported-as-release, lie.cancels-reported-as-nothing, lie.cancels-dropped-header-nowhere
+checked WriteLanes I14  cases LANE-13: lane.keyless-names-latest-lane
+checked WriteLanes I15  delivered-once: lane.releasing-delivers, a2.deliv-fail-samemail, d154.moved-fail-released, lie.released, e8.wa-failure, mutant.superseded-claimed, mutant.delivered-during-disposal, mutant.replaced-delivered, 1b.r8-refused-ending-not-redelivered, d6.disposed-ending-is-evidence, mutant.parked-delivered-as-other-tag, 1b.r8-third-try, mutant.adoption-skips-parked, mutant.restored-twice, lie.boot-says-disposed, lie.boot-drops-held, pay16.decline-not-delivered, lost.decline.mail, lie.failures-unmapped, lie.no-incarnated
+checked WriteLanes I16  delivered-once: mutant.success-then-failure
+checked WriteLanes I18  cases LANE-14: lane.unencodable-refuses-turn
+checked WriteLanes I2  cases LANE-16: entity.failure-confirms
+checked WriteLanes I20  lane-queue: lane.cancel-wire-as-never-sent, 1b.cancel-all-wire-held-at-once, audit-1.cancel-all-leaves-the-head
+checked WriteLanes I21  lane-queue: 1b.cancel-all-queue-reversed, 1b.cancel-all-promotes-before-emptying, p1h.cancel-all-idle-declines
+checked WriteLanes I25  ending-channels: mutant.success-without-answer
+checked WriteLanes I26  lane-queue: lane.retry-members-dropped
+checked WriteLanes I3  ending-channels: mutant.ending-without-id, k.failure-as-success, mutant.still-unknown-dropped, mutant.unsent-ends-unknown, mutant.unsent-restored-outside-boot
+checked WriteLanes I6  attempt-identity: mutant.resend-new-id, mutant.resend-new-input, mutant.sent-under-another-operation, mutant.mint-key-differs
+checked WriteLanes I7  retry-count: lane.retry-count-frozen
+checked WriteLanes I8  lane-queue: lie.serialize-as-latest, lane.queue-unbounded, lane.latest-as-serialize, lane.reject-queues
+checked WriteLanes I9  lane-queue: lane.retry-sends-another-attempt
+not yet Actors I1  @task.V3.T9
+not yet Actors I10  @task.V3.T9
+not yet Actors I12  @task.V3.T9
+not yet Actors I13  @task.V3.T9
+not yet Actors I14  @task.V3.T9
+not yet Actors I15  @task.V3.T9
+not yet Actors I17  @task.V3.T9
+not yet Actors I19  @task.V3.T9
+not yet Actors I2  @task.V3.T9
+not yet Actors I20  @task.V3.T9
+not yet Actors I21  @task.V3.T9
+not yet Actors I22  @task.V3.T9
+not yet Actors I23  @task.V3.T9
+not yet Actors I25  @task.V3.T9
+not yet Actors I26  @task.V3.T9
+not yet Actors I27  @task.V3.T9
+not yet Actors I28  @task.V3.T9
+not yet Actors I3  @task.V3.T9
+not yet Actors I33  @task.V3.T9
+not yet Actors I34  @task.V3.T9
+not yet Actors I37  @task.V3.T9
+not yet Actors I39  @task.V3.T9
+not yet Actors I4  @task.V3.T9
+not yet Actors I5  @task.V3.T9
+not yet Actors I6  @task.V3.T9
+not yet Actors I7  @task.V3.T9
+not yet Actors I8  @task.V3.T9
+not yet Actors I9  @task.V3.T9
+not yet Codec I1  @task.V3.T20
+not yet Codec I2  @task.V3.T20
+not yet Codec I3  @task.V3.T20
+not yet Codec I4  @task.V3.T20
+not yet Codec I5  @task.V3.T20
+not yet Codec I6  @task.V3.T20
+not yet Compile I12  @task.V3.T17
+not yet Compile I17  @task.V3.T17
+not yet Compile I3  @task.V3.T17
+not yet Compile I9  @task.V3.T17
+not yet Diagnostics I1  @task.V3.T17
+not yet Diagnostics I10  @task.V3.T17
+not yet Diagnostics I2  @task.V3.T17
+not yet Diagnostics I3  @task.V3.T17
+not yet Diagnostics I5  @task.V3.T17
+not yet Diagnostics I6  @task.V3.T17
+not yet Diagnostics I7  @task.V3.T17
+not yet Diagnostics I8  @task.V3.T17
+not yet Diagnostics I9  @task.V3.T17
+not yet Reads I1  @task.V3.T21
+not yet Reads I11  @task.V3.T21
+not yet Reads I15  @task.V3.T21
+not yet Reads I16  @task.V3.T21
+not yet Reads I17  @task.V3.T21
+not yet Reads I19  @task.V3.T21
+not yet Reads I2  @task.V3.T21
+not yet Reads I20  @task.V3.T21
+not yet Reads I21  @task.V3.T21
+not yet Reads I3  @task.V3.T21
+not yet Reads I4  @task.V3.T21
+not yet Reads I5  @task.V3.T21
+not yet Reads I8  @task.V3.T21
+not yet Reads I9  @task.V3.T21
+not yet Restore I1  @task.V3.T20
+not yet Restore I10  @task.V3.T20
+not yet Restore I11  @task.V3.T20
+not yet Restore I12  @task.V3.T20
+not yet Restore I13  @task.V3.T20
+not yet Restore I14  @task.V3.T20
+not yet Restore I15  @task.V3.T20
+not yet Restore I16  @task.V3.T20
+not yet Restore I17  @task.V3.T20
+not yet Restore I18  @task.V3.T20
+not yet Restore I19  @task.V3.T20
+not yet Restore I2  @task.V3.T20
+not yet Restore I5  @task.V3.T20
+not yet Restore I7  @task.V3.T20
+not yet Restore I8  @task.V3.T20
+not yet Restore I9  @task.V3.T20
+not yet StaticCli I10  @task.V3.T22
+not yet StaticCli I11  @task.V3.T22
+not yet StaticCli I3  @task.V3.T22
+not yet Turn I1  @task.V3.T17
+not yet Turn I16  @task.V3.T18
+not yet Turn I18  @task.V3.T18
+not yet Turn I24  @task.V3.T17
+not yet Turn I25  @task.V3.T21
+not yet Turn I28  @task.V3.T18
+not yet Turn I31  @task.V3.T18
+not yet Turn I32  @task.V3.T18
+not yet Turn I33  @task.V3.T18
+not yet Turn I34  @task.V3.T18
+not yet Turn I35  @task.V3.T17
+not yet Turn I4  @task.V3.T17
+not yet Turn I6  @task.V3.T17
+not yet WriteAhead I1  @task.V3.T19
+not yet WriteAhead I10  @task.V3.T19
+not yet WriteAhead I11  @task.V3.T19
+not yet WriteAhead I12  @task.V3.T19
+not yet WriteAhead I13  @task.V3.T19
+not yet WriteAhead I14  @task.V3.T19
+not yet WriteAhead I15  @task.V3.T19
+not yet WriteAhead I17  @task.V3.T19
+not yet WriteAhead I19  @task.V3.T19
+not yet WriteAhead I2  @task.V3.T19
+not yet WriteAhead I3  @task.V3.T19
+not yet WriteAhead I4  @task.V3.T19
+not yet WriteAhead I5  @task.V3.T19
+not yet WriteAhead I6  @task.V3.T19
+not yet WriteAhead I7  @task.V3.T19
+not yet WriteAhead I8  @task.V3.T19
+not yet WriteAhead I9  @task.V3.T19
+not yet WriteLanes I19  @task.V3.T24
+not yet WriteLanes I28  @task.V3.T18
+partly  Actors I38  oracle disposal; @task.V3.T9 owes the next incarnation after a reload hearing each never-sent commit's NotSent { Disposed } once (round-14 never delivers it, ruling CQ6), and a commit queued behind a Held head ending at disposal (a round-14 limit: it is left queued)
+partly  Compile I1  cases CMP-01; @task.V3.T17 owes spies on actors, timers, storage, loaders and evidence (T1); only a commit run is caught
+partly  Compile I10  cases CLI-06; @task.V3.T17 owes the construction-time refusal (Compile R9) and a fragment placed twice: round-14 only reports it from flow check
+partly  Compile I11  cases CMP-05; @task.V3.T17 owes the Flow.ignore clause: a surface source cannot map unknown: to Flow.ignore
+partly  Compile I13  cases CMP-10; @task.V3.T17 owes is, child, root and __proto__, at construction (round-14 refuses self at Runtime creation), path depth, length, control characters and code-unit equality
+partly  Compile I14  cases CMP-11; @task.V3.T17 owes one machine under two keys and colliding operation, domain and entity ids
+partly  Compile I15  cases CMP-06, CMP-07; @task.V3.T17 owes a bare function in an operation's or a handler's Slot place at Runtime creation; only the memory's creation Slot is tampered
+partly  Compile I4  cases CMP-02; @task.V3.T17 owes fragment states, events and operations; only a root machine's tables are compared
+partly  Compile I5  cases CMP-03; @task.V3.T17 owes Flow.input beside a default, and a field with no source; only Flow.initial beside a Schema default is judged
+partly  Compile I6  cases CMP-01, CMP-04; @task.V3.T17 owes a plain Schema default's evaluation: a surface source's plain default has no counter
+partly  Compile I7  cases CMP-08; @task.V3.T17 owes no clock or randomness read at creation (needs spies on both)
+partly  Compile I8  cases CMP-09; @task.V3.T20 owes adoption and hydration never invoke creation; only restore is judged
+partly  StaticCli I1  cases CLI-01; @task.V3.T22 owes spies on the closures (T1); the cases read the CLI's own callbacksRun count
+partly  StaticCli I12  cases CLI-08; @task.V3.T22 owes the --app operand (R3)
+partly  StaticCli I2  oracle graph-names; @task.V3.T22 owes schedule-trigger edges, which no Compiled place names (graph's trigger: edges are left out); only pay is graphed
+partly  StaticCli I4  cases CLI-02; @task.V3.T22 owes explain and graph in both forms, and R7's envelope (version, status, data); only check's counts are compared
+partly  StaticCli I6  cases CLI-04, CLI-07, CLI-08; @task.V3.T22 owes exit codes 130 and 143 (R8, T6), exit 2 for loading, artifact and I/O failures (R8), a construction's FlowError reported as error findings with exit 1 (R11, C6), and info findings (only warnings are judged)
+partly  StaticCli I7  cases CLI-05; @task.V3.T22 owes R9's failure in place of a complete claim: missing type facts give status failed (C18); only complete false on two hand projects is judged
+partly  StaticCli I8  cases CLI-06; @task.V3.T22 owes R10's other rules, and reference apps chosen from the Spec rather than from fixtures with no error (desk and desk-listen report UnresolvedHold); 5 of R10's 11 rules are checked
+partly  Turn I12  cases PAY-16/schedule-reads-after-memory; @task.V3.T17 owes guards, payload mappers and updates reading PreTurn, and selects, keys and placement reads reading After; only a schedule function's After read is cased
+partly  Turn I14  oracle refusal; @task.V3.T18 owes the issue-only snapshot, context and store truth (not on the Port); a refused turn of a driven event or a firing
+partly  Turn I15  oracle refusal; @task.V3.T18 owes no revision change (no revision on the Port); an ending admitted in an Unhandled or Denied turn still applying its lane effects and counting as delivered
+partly  Turn I2  oracle selection; @task.V3.T18 owes an Unhandled or Denied that should have run and that the suite cannot attribute to one actor; part-level alternatives and compound states; the first turn after a disposal
+partly  Turn I20  oracle schedules; @task.V3.T17 owes the arming id a firing carries (not on the Port), disarmOn (no catalog fixture declares one; round-14 has it, turn.ts), firings after a reload before a turn enters a state again, and part and keyed schedules
+partly  Turn I21  oracle schedules; @task.V3.T18 owes a delay a function of memory computes; armings in a step that also advances time are timed from its start
+partly  Turn I22  cases TURN-03/unused; @task.V3.T17 owes overdue on restore and on a frozen trait's return; only a returning use is cased
+partly  Turn I23  oracle schedules; @task.V3.T18 owes at most one waiting deadline per schedule (a re-arm while unused)
+partly  Turn I26  oracle selection; @task.V3.T18 owes the converse (a current ending routed late) beyond the leaf's own alternatives; reads' endings, which name no owner on the Port; owners per part
+partly  Turn I27  oracle selection; @task.V3.T17 owes exits of compound ancestors and active subroutines; owners per part; calls minted before a reload, which the Activation bump drops from the pending set
+partly  Turn I29  oracle publication; @task.V3.T18 owes snapshot parts other than memory (context, issues, operations) and kid-bearing actors' views
+partly  Turn I30  oracle publication; @task.V3.T18 owes parts other than memory; equal-value patches (round-14 gives a new object); memory that is not an object
+partly  Turn I5  oracle selection; @task.V3.T17 owes every Activation at or above the Boundary kept (compound states; a3.r14-reenters-the-parent, 1b.r14-history-reentry-keeps-activation need the old suite's compound fixtures); only a re-entry's new Activation is judged, through its late ending
+partly  Turn I9  oracle publication; @task.V3.T18 owes at most one publication per turn (a Published names no turn), and an accepted turn that stays on its leaf (an update or self) publishing
+partly  WriteLanes I13  oracle idle-guard; @task.V3.T18 owes idle passing over a busy lane (no fixture runs an idle guard over a Held or InFlight lane), idle(k) on a keyed operation, and a lane that holds a kept ending
+partly  WriteLanes I17  cases LANE-15; @task.V3.T18 owes no current member names the old-version lane, and a lane of an older identity version declines nothing (LANE-15 judges the decline only)
+partly  WriteLanes I23  oracle late-results; @task.V3.T18 owes a late result after cleanup changes no data (entity records, read through the Port's entity) and none after cleanup by forget or an interrupt; late-results judges lanes and endings after a release only (T16 review, T7-M1)
+partly  WriteLanes I24  cases LANE-16; @task.V3.T18 owes a success write over data that landed after the commit started is marked stale, and an invalid one applies nothing and reports InvalidWrite (round-14 has no InvalidWrite)
+partly  WriteLanes I27  oracle ending-channels; @task.V3.T18 owes every admitted commit at every quiescent point waiting, Held or ended once (the lifecycle's phases hold it, but no check names I27 for a commit that is never invoked and never ends)
+partly  WriteLanes I4  oracle evidence-kinds; @task.V3.T17 owes no author tag equals a Flow reason: a construction rule on the fixtures' failure tags
+partly  WriteLanes I5  oracle lane-queue; @task.V3.T18 owes the lane leaving Held observed apart from the runtime's own Released report (only LANE-11's row read sees it)

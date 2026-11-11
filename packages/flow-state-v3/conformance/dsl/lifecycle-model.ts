@@ -209,8 +209,15 @@ export type AttemptLife = { readonly id: string; readonly lane: LaneId; readonly
  * - `unstoppable`: the operations whose calls the suite made uninterruptible, from then on.
  * - `acknowledged`: the Attempts whose acknowledging batch the store landed (that it landed is
  *   the store's fact; which Attempts a batch acknowledges is the runtime's claim).
- * - `unsaved`: the Attempts that ended since the store last landed a batch. Their endings are not
- *   on disk, so a kill rolls each back to the head its landed capture holds (WriteAhead I10, I17).
+ * - `unsaved`: the Attempts that ended, or left their lane as evidence (Released, Superseded),
+ *   since the store last landed a batch, outside the Runtime's disposal. Their endings are not
+ *   on disk, so a kill rolls each back to the head its landed capture holds (WriteAhead I10, I17). An ending in the disposal is parked and owed to the next
+ *   incarnation however its batch lands (Actors R22, I36, I38), so it is never unsaved.
+ * - `saved`: each ending's life, by index, at the last landing or boot. A kill rolls every ending
+ *   that existed then back to it (WriteAhead I10: the readable scope is the latest landed capture),
+ *   so a parked ending delivered with no landing after is parked again; an ending decided since
+ *   keeps its life, and so does an ending of a Held head (its restore is owed instead). A
+ *   `Delivering` life is never rolled back to.
  *
  * **Gotchas**
  *
@@ -232,6 +239,7 @@ export type Model = {
   readonly unstoppable: ReadonlyArray<string>;
   readonly acknowledged: ReadonlyArray<string>;
   readonly unsaved: ReadonlyArray<string>;
+  readonly saved: ReadonlyArray<Life>;
   readonly held: ReadonlyArray<readonly [ActorRef, Use]>;
 };
 
@@ -250,6 +258,7 @@ export const empty: Model = {
   unstoppable: [],
   acknowledged: [],
   unsaved: [],
+  saved: [],
   held: [],
 };
 

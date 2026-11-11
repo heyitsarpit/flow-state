@@ -33,6 +33,13 @@ export const matrixRows = (mutant: Mutant, oracle: string, verdicts: ReadonlyArr
  */
 export const CASE_EXPECTATIONS = "case expectations";
 
+/**
+ * The file a full falsify run on `runtime` writes: its catch matrix, or with `--sweep` its sweep
+ * record (every mutant on every case, the phase-out baseline later steps compare against).
+ */
+export const matrixFile = (runtime: "prototype" | "production", sweep: boolean) =>
+  `${sweep ? "catch-sweep" : "catch-matrix"}.${runtime}.tsv`;
+
 const keyOf = (row: string) => row.split("\t").slice(0, 2).join("\t");
 
 /**

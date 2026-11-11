@@ -1,5 +1,6 @@
 /// <reference types="node" />
 import { Console, Effect, Option, Schema } from "effect";
+import { writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { coverageOf, Gap, Standing } from "../coverage.ts";
@@ -40,7 +41,7 @@ import {
 } from "./falsify.ts";
 import { falsifyOnProduction } from "./falsify-production.ts";
 import { productionCases, writeGates } from "./gates.ts";
-import { writeMatrix } from "./matrix.ts";
+import { matrixFile, writeMatrix } from "./matrix.ts";
 import { crash, liar } from "./modes.ts";
 import { runCoreMutants } from "./mutate.ts";
 import { runStatics } from "./run.ts";
@@ -169,7 +170,17 @@ const covered = (verbose: boolean) =>
     const checked = standings.filter((s) => !Standing.$is("Owed")(s)).length;
     const partly = standings.filter(Standing.$is("Partial")).length;
 
-    if (verbose) for (const s of standings) yield* Console.log(standingLine(s));
+    if (verbose) {
+      for (const s of standings) yield* Console.log(standingLine(s));
+
+      // The coverage standings per Invariant: the phase-out baseline later steps compare against.
+      yield* Effect.sync(() =>
+        writeFileSync(
+          resolve(dirname(MAIN), "..", "coverage-standings.txt"),
+          `${standings.map(standingLine).toSorted().join("\n")}\n`,
+        ),
+      );
+    }
 
     for (const gap of gaps) yield* Console.log(gapLine(gap));
 
@@ -201,6 +212,7 @@ const falsifyProductionRuntime = (args: ReadonlyArray<string>) =>
     scratch: resolve(Option.getOrElse(flag(args, "--scratch"), () => tmpdir())),
     only: list(flag(args, "--mutant")),
     parallel: parallelOf(args),
+    sweep: args.includes("--sweep") ? Option.some(productionCases) : Option.none(),
   });
 
 const probeLine = (v: ProbeVerdict) =>
@@ -213,12 +225,13 @@ const probeLine = (v: ProbeVerdict) =>
   });
 
 /**
- * A full prototype falsify run rewrites its catch matrix and prints each catch it lost.
+ * A full prototype falsify run rewrites its catch matrix, or with `--sweep` its sweep record
+ * (every mutant on every case, the phase-out baseline), and prints each catch it lost.
  */
-const matrixOf = (full: boolean, rows: ReadonlyArray<string>) =>
+const matrixOf = (full: boolean, sweep: boolean, rows: ReadonlyArray<string>) =>
   full
     ? Effect.tap(
-        writeMatrix(resolve(dirname(MAIN), "..", "catch-matrix.prototype.tsv"), rows),
+        writeMatrix(resolve(dirname(MAIN), "..", matrixFile("prototype", sweep)), rows),
         (lost) =>
           Effect.forEach(lost, (row) => Console.log(`BAD  lost catch: ${row}`), { concurrency: 1 }),
       )
@@ -312,9 +325,10 @@ const falsify = (args: ReadonlyArray<string>) =>
 
     const verdicts = runs.map((r) => r.verdict);
 
-    // A full run rewrites the catch matrix (advisor Q6); a lost catch fails the run.
+    // A full run rewrites the catch matrix or the sweep (advisor Q6); a lost catch fails the run.
     const lost = yield* matrixOf(
-      Option.isNone(only) && !sweep,
+      Option.isNone(only),
+      sweep,
       runs.flatMap((r) => r.rows),
     );
 

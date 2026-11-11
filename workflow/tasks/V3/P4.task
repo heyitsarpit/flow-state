@@ -433,6 +433,29 @@ tasks
             2. Keep a parked ending saved in disposal owed, and allow only unsaved definite endings.
             3. Rerun falsify and `crash --runtime production`.
             4. Then the remaining steps in the description, in order.
+        comment     2026-11-11T16:10:03Z
+            Step 1 done: falsify round-14 147/147. An ending reported in the Runtime's disposal is never unsaved, so a 
+            kill keeps it owed (Actors I36, R22); `o6.settled-in-bound-stays-held` is caught by `disposal` again. 
+            Reverse: drop the mode check in `unsaved` (`dsl/lifecycle-step.ts`).
+        comment     2026-11-11T16:10:08Z
+            Phase-out step 0 done: `gates.json` at HEAD; `falsify --sweep` full runs write `catch-sweep.<runtime>.tsv` 
+            (prototype 147/147, production 18/18), and `coverage` writes `coverage-standings.txt`. A whole-run child 
+            with no verdict now reruns one child per case (10 s), so a hung case costs its own row 
+            (`runner/falsify.ts#casesIn`); `sched.fires-at-once` and `cmp.commit-runs-at-construction` had no rows 
+            before.
+        comment     2026-11-11T16:10:13Z
+            Step 2, part: crash production 629 -> 639 of 670. Evidence endings count as unsaved; a kill returns each 
+            ending to its life at the last landing or boot, except a Held head's; an unacknowledged head is no head 
+            after a reload; `evidence-kinds` forgets evidence a reload rolled back (WriteAhead I10, R10). Left: 26 
+            Held-head points (@task.V3.T51), and PAY-07@10-11, DLV-06@11, DISP-06@7, PAY-22@13, which need a landing to 
+            save the state at its batch's issue, not at its answer (step 4).
+        comment     2026-11-11T16:10:17Z
+            Review sidecar (Haiku) on the checkpoint diff: accepted 2 (no unsaved mark on a refused move; 
+            `evidence-kinds` reads the phase at the Reload move) and 1 style fix; noted 3 (spawn error reads as 
+            Timeout; nested fallback concurrency; controls have no per-case fallback); rejected 1 (10 s per-case bound: 
+            the lost-catch check reports any catch it costs). Open, for the search's Spec-conflict count: a kill inside 
+            the disposal before its batch lands pits WriteAhead I17 (restore) against Actors I36 (none); the model 
+            follows I36.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open

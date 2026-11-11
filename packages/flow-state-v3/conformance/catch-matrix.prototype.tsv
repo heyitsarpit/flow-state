@@ -158,7 +158,7 @@ mutant.unsent-restored-outside-boot	PAY-10/refuse	caught ending-channels WriteLa
 o6.dispose-interrupts-wire	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	caught disposal Actors I35
 o6.dispose-interrupts-wire	PAY-16/settled-during-disposal-parked	caught disposal Actors I35
 o6.no-bound	PAY-16/disposal-ends-with-the-last-fiber	caught disposal Actors I35
-o6.settled-in-bound-stays-held	PAY-16/settled-during-disposal-parked	red case
+o6.settled-in-bound-stays-held	PAY-16/settled-during-disposal-parked	caught disposal Actors I36
 p1h.cancel-all-idle-declines	LANE-05	caught lane-queue WriteLanes I21
 part.abandoned-skips-callbacks	TURN-05/removed-copy-ends-once	caught case expectations Turn I11
 part.child-refusal-ignored	TURN-05/child-refusal	caught case expectations Turn I3

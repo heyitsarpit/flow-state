@@ -3,13 +3,14 @@ import { Console, Effect, Option } from "effect";
 import { join } from "node:path";
 import { caseChecks, guarantees } from "../suite.ts";
 import { CASE_EXPECTATIONS, falsifyProduction, MutantVerdict, suiteIn } from "./falsify.ts";
-import { writeMatrix } from "./matrix.ts";
+import { matrixFile, writeMatrix } from "./matrix.ts";
 
 const PRODUCTION = "production";
 
 /**
  * Falsify on the production runtime (T16): each production mutant on its own copy of the package,
- * after the control run of their cases on the unedited runtime.
+ * after the control run of their cases on the unedited runtime. With `sweep`, each mutant runs on
+ * every case given and a full run rewrites `catch-sweep.production.tsv` instead of the catch matrix.
  */
 export const falsifyOnProduction = (options: {
   readonly main: string;
@@ -17,6 +18,7 @@ export const falsifyOnProduction = (options: {
   readonly scratch: string;
   readonly only: Option.Option<ReadonlyArray<string>>;
   readonly parallel: number;
+  readonly sweep: Option.Option<ReadonlyArray<string>>;
 }) =>
   Effect.gen(function* () {
     const { only, scratch } = options;
@@ -30,7 +32,13 @@ export const falsifyOnProduction = (options: {
         .filter((m) =>
           Option.match(only, { onNone: () => true, onSome: (names) => names.includes(m.name) }),
         )
-        .map((mutant) => ({ oracle: g.oracle, mutant })),
+        .map((mutant) => ({
+          oracle: g.oracle,
+          mutant: Option.match(options.sweep, {
+            onNone: () => mutant,
+            onSome: (cases) => ({ ...mutant, cases }),
+          }),
+        })),
     );
 
     const bare = guarantees
@@ -61,10 +69,14 @@ export const falsifyOnProduction = (options: {
 
     const verdicts = runs.map((r) => r.verdict);
 
-    // A full run rewrites the catch matrix (advisor Q6); a lost catch fails the run.
+    // A full run rewrites the catch matrix or the sweep (advisor Q6); a lost catch fails the run.
     const lost = Option.isNone(only)
       ? yield* writeMatrix(
-          join(options.packageDir, "conformance", "catch-matrix.production.tsv"),
+          join(
+            options.packageDir,
+            "conformance",
+            matrixFile("production", Option.isSome(options.sweep)),
+          ),
           runs.flatMap((r) => r.rows),
         )
       : [];

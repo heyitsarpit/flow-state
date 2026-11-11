@@ -1,5 +1,5 @@
 import { Option, Schema } from "effect";
-import { Move } from "../dsl/lifecycle-model.ts";
+import { Move, Phase } from "../dsl/lifecycle-model.ts";
 import type { LifeStep } from "../dsl/lifecycle-step.ts";
 import { Fact, oracle, violation } from "../dsl/oracle.ts";
 import { EvidenceKind, Observation } from "../port.ts";
@@ -22,6 +22,8 @@ const isEvidence = Schema.is(EvidenceKind);
  *   released: the order matters.
  * - An `Ended` whose reason is an evidence kind, then a `Delivered` of it, breaks I4 too (report
  *   consistency).
+ * - A reload forgets an evidence ending the lifecycle rolled back: no landing saved it, so the
+ *   boot may restore the head it left (WriteAhead R10, I10).
  *
  * **Gotchas**
  *
@@ -33,13 +35,24 @@ const evidenceEnded = (lives: LifeStep) =>
     Move.$is("Evidence")(move) && refusals.length === 0 ? [move.attempt] : [],
   );
 
-const evidenceOnly = (
-  earlier: ReadonlySet<string>,
-  accepted: ReadonlyArray<string>,
-  step: ReadonlyArray<Fact>,
-) =>
-  step.reduce<{ readonly ended: ReadonlySet<string>; readonly found: ReadonlyArray<string> }>(
+const goneAtReload = (lives: LifeStep, id: string) =>
+  lives.applied.some(
+    ({ move, on }) =>
+      Move.$is("Reload")(move) &&
+      on.attempts.some((a) => a.id === id && Phase.$is("Gone")(a.phase)),
+  );
+
+const evidenceOnly = (earlier: ReadonlySet<string>, lives: LifeStep, step: ReadonlyArray<Fact>) => {
+  const accepted = evidenceEnded(lives);
+
+  return step.reduce<{
+    readonly ended: ReadonlySet<string>;
+    readonly found: ReadonlyArray<string>;
+  }>(
     (acc, fact) => {
+      if (Fact.$is("Reloaded")(fact))
+        return { ...acc, ended: new Set([...acc.ended].filter((id) => goneAtReload(lives, id))) };
+
       if (!Fact.$is("Reported")(fact)) return acc;
 
       const o = fact.observation;
@@ -60,6 +73,7 @@ const evidenceOnly = (
     },
     { ended: earlier, found: [] },
   );
+};
 
 type State = { readonly held: ReadonlyArray<Ending>; readonly ended: ReadonlySet<string> };
 
@@ -99,7 +113,7 @@ export const evidenceKinds = oracle<State>({
       { held: state.held, found: [] },
     );
 
-    const judged = evidenceOnly(state.ended, evidenceEnded(lives), step);
+    const judged = evidenceOnly(state.ended, lives, step);
 
     return [
       { held: walked.held, ended: judged.ended },

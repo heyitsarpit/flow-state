@@ -10,6 +10,7 @@ import {
   type EndingName,
   type Input,
   LaneMove,
+  Life,
   LifeMove,
   type Model,
   Move,
@@ -56,6 +57,11 @@ const pushed = (walk: Walk, move: Input, given: Rules) => {
 
   return { ...walk, model, applied: [...walk.applied, { move, on: walk.model, refusals }] };
 };
+
+const unsaved = (walk: Walk, attempt: string) =>
+  walk.model.mode === "disposing" || (walk.applied.at(-1)?.refusals.length ?? 0) > 0
+    ? walk
+    : { ...walk, model: { ...walk.model, unsaved: [...walk.model.unsaved, attempt] } };
 
 const closedTurn = (walk: Walk, given: Rules) =>
   Option.isSome(walk.model.turn) ? pushed(walk, LaneMove.TurnCloses(), given) : walk;
@@ -183,9 +189,7 @@ const reported = (
               onSome: (o) => retains(o, reason),
             });
 
-          const after = push(walk, Move.End({ attempt: id, channel, reason, retained }));
-
-          return { ...after, model: { ...after.model, unsaved: [...after.model.unsaved, id] } };
+          return unsaved(push(walk, Move.End({ attempt: id, channel, reason, retained })), id);
         },
         onNone: () =>
           Option.match(
@@ -224,7 +228,7 @@ const reported = (
     Denied: ({ event }) => heardOf(closedTurn(walk, given), known, Option.none(), event, given),
     Evidence: ({ kind, attempt }) =>
       (kind === "Released" || kind === "Superseded") && Option.isSome(attempt)
-        ? push(walk, Move.Evidence({ attempt: attempt.value, kind }))
+        ? unsaved(push(walk, Move.Evidence({ attempt: attempt.value, kind })), attempt.value)
         : walk,
     Issue: ({ code, ending }) => {
       const issue = { InvalidTurn: "InvalidTurn", UnmappedEnding: "Unmapped" } as const;
@@ -274,7 +278,10 @@ const mapped = (walk: Walk, known: Known, ref: EndingRef) =>
  * The lanes a kill may leave: an acknowledged Attempt whose ending no landing answer followed may
  * be on disk as its ending or, if the batch holding it died, as its acknowledged head
  * (WriteAhead R10, I10, I17). It restores as a never-sent head does, allowed and not owed: the
- * boot may restore it unknown { Restored } once, or not at all.
+ * boot may restore it unknown { Restored } once, or not at all. Each ending takes back its life
+ * at the last landing or boot (the model's `saved`), unless its Attempt is a Held head, whose
+ * restore the boot owes instead (Restore I6). A head whose acknowledgement never landed was never
+ * on disk as a head (WriteAhead R10): after the reload it does not hold its lane (`unlanded`).
  */
 const rolledBack = (model: Model) => ({
   ...model,
@@ -283,7 +290,27 @@ const rolledBack = (model: Model) => ({
       ? { ...a, phase: Phase.Restoring({ head: true }) }
       : a,
   ),
+  endings: model.endings.map((e, i) => {
+    const life = model.saved[i];
+
+    const held = Option.exists(e.attempt, (id) =>
+      model.attempts.some((a) => a.id === id && Phase.$is("Held")(a.phase)),
+    );
+
+    return life === undefined || held || Life.$is("Delivering")(life) ? e : { ...e, life };
+  }),
 });
+
+const unlanded = (model: Model) => ({
+  ...model,
+  attempts: model.attempts.map((a) =>
+    Phase.$is("Restoring")(a.phase) && a.phase.head && !model.acknowledged.includes(a.id)
+      ? { ...a, phase: Phase.Restoring({ head: false }) }
+      : a,
+  ),
+});
+
+const savedNow = (model: Model) => ({ ...model, saved: model.endings.map((e) => e.life) });
 
 const ADOPTABLE: ReadonlyArray<string> = ["grace", "disposeActor", "forget"];
 
@@ -319,7 +346,7 @@ const onFact = (
 
       return {
         ...reloaded,
-        model: { ...reloaded.model, held: [], unsaved: [] },
+        model: savedNow({ ...unlanded(reloaded.model), held: [], unsaved: [] }),
         reloaded: true,
       };
     },
@@ -337,11 +364,11 @@ const onFact = (
           },
     Acknowledged: ({ attempts }) => ({
       ...walk,
-      model: {
+      model: savedNow({
         ...walk.model,
         acknowledged: [...walk.model.acknowledged, ...attempts],
         unsaved: [],
-      },
+      }),
     }),
     Stepped: () => walk,
     Requested: () => walk,

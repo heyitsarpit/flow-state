@@ -1,0 +1,1350 @@
+prod.actor-never-saved	DISP-01	caught selection Turn I2
+prod.actor-never-saved	DISP-02	green
+prod.actor-never-saved	DISP-04	caught selection Turn I2
+prod.actor-never-saved	DISP-05	green
+prod.actor-never-saved	DISP-06	green
+prod.actor-never-saved	DISP-07	red case
+prod.actor-never-saved	DLV-01	caught selection Turn I2
+prod.actor-never-saved	DLV-02	caught selection Turn I2
+prod.actor-never-saved	DLV-03	green
+prod.actor-never-saved	DLV-04	green
+prod.actor-never-saved	DLV-05	green
+prod.actor-never-saved	DLV-06	caught selection Turn I2
+prod.actor-never-saved	LANE-08	green
+prod.actor-never-saved	LANE-09	green
+prod.actor-never-saved	PAY-01	green
+prod.actor-never-saved	PAY-02	green
+prod.actor-never-saved	PAY-03	green
+prod.actor-never-saved	PAY-04	green
+prod.actor-never-saved	PAY-05	caught selection Turn I2
+prod.actor-never-saved	PAY-06/interruptible	caught selection Turn I2
+prod.actor-never-saved	PAY-06/uninterruptible	caught selection Turn I2
+prod.actor-never-saved	PAY-07/late-in-a-new-PAYING	green
+prod.actor-never-saved	PAY-07/late-may-not-leave	green
+prod.actor-never-saved	PAY-07/leaveMidCharge	green
+prod.actor-never-saved	PAY-08/reload-while-reconciling	red case
+prod.actor-never-saved	PAY-08/reloadDuringCharge	green
+prod.actor-never-saved	PAY-09/ack-not-stored	red case
+prod.actor-never-saved	PAY-09/ack-stored-confirmation-lost	caught selection Turn I2
+prod.actor-never-saved	PAY-10/hang	green
+prod.actor-never-saved	PAY-10/refuse	green
+prod.actor-never-saved	PAY-12/cancel-on-wire	caught selection Turn I2
+prod.actor-never-saved	PAY-12/defect	caught selection Turn I2
+prod.actor-never-saved	PAY-12/sync	green
+prod.actor-never-saved	PAY-13/hung-commit	caught selection Turn I2
+prod.actor-never-saved	PAY-13/waiting-flush-lost	red case
+prod.actor-never-saved	PAY-13/waiting-flushed	green
+prod.actor-never-saved	PAY-14	green
+prod.actor-never-saved	PAY-15/busy-then-new-write	green
+prod.actor-never-saved	PAY-15/cancel-idle	green
+prod.actor-never-saved	PAY-15/cancel-on-wire	caught selection Turn I2
+prod.actor-never-saved	PAY-15/dead-activation-timer	caught selection Turn I2
+prod.actor-never-saved	PAY-15/dispose-held	caught selection Turn I2
+prod.actor-never-saved	PAY-15/dispose-held-moved	caught selection Turn I2
+prod.actor-never-saved	PAY-15/press-pay-while-held	green
+prod.actor-never-saved	PAY-15/reload-holds-exactly-once	caught selection Turn I2
+prod.actor-never-saved	PAY-15/retry-budget	caught selection Turn I2
+prod.actor-never-saved	PAY-16/answered-inside-the-bound	green
+prod.actor-never-saved	PAY-16/disposal-ends-with-the-last-fiber	green
+prod.actor-never-saved	PAY-16/dispose-waiting-resend	green
+prod.actor-never-saved	PAY-16/never-answered-waits-for-the-bound	caught selection Turn I2
+prod.actor-never-saved	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	caught selection Turn I2
+prod.actor-never-saved	PAY-16/read-defect-issue	caught selection Turn I2
+prod.actor-never-saved	PAY-16/resend-refused-capture	green
+prod.actor-never-saved	PAY-16/restore-keeps-mayHaveApplied	caught selection Turn I2
+prod.actor-never-saved	PAY-16/retry-count-persists	caught selection Turn I2
+prod.actor-never-saved	PAY-16/schedule-reads-after-memory	green
+prod.actor-never-saved	PAY-16/settled-during-disposal-parked	green
+prod.actor-never-saved	PAY-16/stale-send-fenced	green
+prod.actor-never-saved	PAY-16/superseded-read	caught selection Turn I2
+prod.actor-never-saved	PAY-16/timeout-per-send	caught selection Turn I2
+prod.actor-never-saved	PAY-18	caught selection Turn I2
+prod.actor-never-saved	PAY-19/place-answers-first	green
+prod.actor-never-saved	PAY-19/void-answers-first	green
+prod.actor-never-saved	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	green
+prod.actor-never-saved	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	green
+prod.actor-never-saved	PAY-21	caught selection Turn I2
+prod.actor-never-saved	PAY-22	green
+prod.actor-never-saved	PAY-23	caught selection Turn I2
+prod.actor-never-saved	TURN-01/mapper-refused	green
+prod.actor-never-saved	TURN-01/schedule-refused	green
+prod.actor-never-saved	TURN-02	green
+prod.actor-never-saved	TURN-03/exited	green
+prod.actor-never-saved	TURN-03/on-time	green
+prod.actor-never-saved	TURN-03/re-entered	green
+prod.actor-never-saved	TURN-03/unused	green
+prod.adapter-ended-success	DISP-01	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	DISP-02	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	DISP-04	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	DISP-05	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	DISP-06	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	DISP-07	green
+prod.adapter-ended-success	DLV-01	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	DLV-02	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	DLV-03	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	DLV-04	green
+prod.adapter-ended-success	DLV-05	green
+prod.adapter-ended-success	DLV-06	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	LANE-08	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	LANE-09	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-01	green
+prod.adapter-ended-success	PAY-02	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-03	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-04	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-05	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-06/interruptible	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-06/uninterruptible	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-07/late-in-a-new-PAYING	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-07/late-may-not-leave	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-07/leaveMidCharge	green
+prod.adapter-ended-success	PAY-08/reload-while-reconciling	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-08/reloadDuringCharge	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-09/ack-not-stored	green
+prod.adapter-ended-success	PAY-09/ack-stored-confirmation-lost	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-10/hang	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-10/refuse	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-12/cancel-on-wire	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-12/defect	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-12/sync	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-13/hung-commit	red ending-channels,disposal
+prod.adapter-ended-success	PAY-13/waiting-flush-lost	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-13/waiting-flushed	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-14	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-15/busy-then-new-write	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-15/cancel-idle	green
+prod.adapter-ended-success	PAY-15/cancel-on-wire	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-15/dead-activation-timer	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-15/dispose-held	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-15/dispose-held-moved	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-15/press-pay-while-held	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-15/reload-holds-exactly-once	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-15/retry-budget	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-16/answered-inside-the-bound	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-16/disposal-ends-with-the-last-fiber	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-16/dispose-waiting-resend	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-16/never-answered-waits-for-the-bound	red ending-channels,disposal
+prod.adapter-ended-success	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	red ending-channels,disposal
+prod.adapter-ended-success	PAY-16/read-defect-issue	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-16/resend-refused-capture	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-16/restore-keeps-mayHaveApplied	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-16/retry-count-persists	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-16/schedule-reads-after-memory	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-16/settled-during-disposal-parked	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-16/stale-send-fenced	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-16/superseded-read	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-16/timeout-per-send	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-18	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-19/place-answers-first	green
+prod.adapter-ended-success	PAY-19/void-answers-first	green
+prod.adapter-ended-success	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-21	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-22	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	PAY-23	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	TURN-01/mapper-refused	green
+prod.adapter-ended-success	TURN-01/schedule-refused	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	TURN-02	green
+prod.adapter-ended-success	TURN-03/exited	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	TURN-03/on-time	red ending-channels,disposal
+prod.adapter-ended-success	TURN-03/re-entered	caught ending-channels WriteLanes I3
+prod.adapter-ended-success	TURN-03/unused	red ending-channels,disposal
+prod.bound-forgets-the-wire	DISP-01	green
+prod.bound-forgets-the-wire	DISP-02	green
+prod.bound-forgets-the-wire	DISP-04	green
+prod.bound-forgets-the-wire	DISP-05	green
+prod.bound-forgets-the-wire	DISP-06	green
+prod.bound-forgets-the-wire	DISP-07	green
+prod.bound-forgets-the-wire	DLV-01	green
+prod.bound-forgets-the-wire	DLV-02	green
+prod.bound-forgets-the-wire	DLV-03	green
+prod.bound-forgets-the-wire	DLV-04	green
+prod.bound-forgets-the-wire	DLV-05	green
+prod.bound-forgets-the-wire	DLV-06	caught disposal Actors I35
+prod.bound-forgets-the-wire	LANE-08	green
+prod.bound-forgets-the-wire	LANE-09	green
+prod.bound-forgets-the-wire	PAY-01	green
+prod.bound-forgets-the-wire	PAY-02	green
+prod.bound-forgets-the-wire	PAY-03	green
+prod.bound-forgets-the-wire	PAY-04	green
+prod.bound-forgets-the-wire	PAY-05	green
+prod.bound-forgets-the-wire	PAY-06/interruptible	green
+prod.bound-forgets-the-wire	PAY-06/uninterruptible	green
+prod.bound-forgets-the-wire	PAY-07/late-in-a-new-PAYING	green
+prod.bound-forgets-the-wire	PAY-07/late-may-not-leave	caught disposal Actors I35
+prod.bound-forgets-the-wire	PAY-07/leaveMidCharge	green
+prod.bound-forgets-the-wire	PAY-08/reload-while-reconciling	green
+prod.bound-forgets-the-wire	PAY-08/reloadDuringCharge	green
+prod.bound-forgets-the-wire	PAY-09/ack-not-stored	green
+prod.bound-forgets-the-wire	PAY-09/ack-stored-confirmation-lost	green
+prod.bound-forgets-the-wire	PAY-10/hang	green
+prod.bound-forgets-the-wire	PAY-10/refuse	green
+prod.bound-forgets-the-wire	PAY-12/cancel-on-wire	green
+prod.bound-forgets-the-wire	PAY-12/defect	green
+prod.bound-forgets-the-wire	PAY-12/sync	green
+prod.bound-forgets-the-wire	PAY-13/hung-commit	caught disposal Actors I35
+prod.bound-forgets-the-wire	PAY-13/waiting-flush-lost	green
+prod.bound-forgets-the-wire	PAY-13/waiting-flushed	green
+prod.bound-forgets-the-wire	PAY-14	green
+prod.bound-forgets-the-wire	PAY-15/busy-then-new-write	caught disposal Actors I35
+prod.bound-forgets-the-wire	PAY-15/cancel-idle	green
+prod.bound-forgets-the-wire	PAY-15/cancel-on-wire	green
+prod.bound-forgets-the-wire	PAY-15/dead-activation-timer	green
+prod.bound-forgets-the-wire	PAY-15/dispose-held	green
+prod.bound-forgets-the-wire	PAY-15/dispose-held-moved	green
+prod.bound-forgets-the-wire	PAY-15/press-pay-while-held	green
+prod.bound-forgets-the-wire	PAY-15/reload-holds-exactly-once	green
+prod.bound-forgets-the-wire	PAY-15/retry-budget	green
+prod.bound-forgets-the-wire	PAY-16/answered-inside-the-bound	green
+prod.bound-forgets-the-wire	PAY-16/disposal-ends-with-the-last-fiber	green
+prod.bound-forgets-the-wire	PAY-16/dispose-waiting-resend	green
+prod.bound-forgets-the-wire	PAY-16/never-answered-waits-for-the-bound	caught disposal Actors I35
+prod.bound-forgets-the-wire	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	caught disposal Actors I35
+prod.bound-forgets-the-wire	PAY-16/read-defect-issue	green
+prod.bound-forgets-the-wire	PAY-16/resend-refused-capture	green
+prod.bound-forgets-the-wire	PAY-16/restore-keeps-mayHaveApplied	green
+prod.bound-forgets-the-wire	PAY-16/retry-count-persists	green
+prod.bound-forgets-the-wire	PAY-16/schedule-reads-after-memory	green
+prod.bound-forgets-the-wire	PAY-16/settled-during-disposal-parked	green
+prod.bound-forgets-the-wire	PAY-16/stale-send-fenced	caught disposal Actors I35
+prod.bound-forgets-the-wire	PAY-16/superseded-read	green
+prod.bound-forgets-the-wire	PAY-16/timeout-per-send	green
+prod.bound-forgets-the-wire	PAY-18	green
+prod.bound-forgets-the-wire	PAY-19/place-answers-first	green
+prod.bound-forgets-the-wire	PAY-19/void-answers-first	green
+prod.bound-forgets-the-wire	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	green
+prod.bound-forgets-the-wire	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	green
+prod.bound-forgets-the-wire	PAY-21	green
+prod.bound-forgets-the-wire	PAY-22	green
+prod.bound-forgets-the-wire	PAY-23	green
+prod.bound-forgets-the-wire	TURN-01/mapper-refused	green
+prod.bound-forgets-the-wire	TURN-01/schedule-refused	green
+prod.bound-forgets-the-wire	TURN-02	green
+prod.bound-forgets-the-wire	TURN-03/exited	green
+prod.bound-forgets-the-wire	TURN-03/on-time	caught disposal Actors I35
+prod.bound-forgets-the-wire	TURN-03/re-entered	caught disposal Actors I35
+prod.bound-forgets-the-wire	TURN-03/unused	caught disposal Actors I35
+prod.failure-as-cancelled	DISP-01	green
+prod.failure-as-cancelled	DISP-02	green
+prod.failure-as-cancelled	DISP-04	green
+prod.failure-as-cancelled	DISP-05	green
+prod.failure-as-cancelled	DISP-06	green
+prod.failure-as-cancelled	DISP-07	green
+prod.failure-as-cancelled	DLV-01	green
+prod.failure-as-cancelled	DLV-02	green
+prod.failure-as-cancelled	DLV-03	caught ending-channels WriteLanes I25
+prod.failure-as-cancelled	DLV-04	green
+prod.failure-as-cancelled	DLV-05	green
+prod.failure-as-cancelled	DLV-06	green
+prod.failure-as-cancelled	LANE-08	green
+prod.failure-as-cancelled	LANE-09	green
+prod.failure-as-cancelled	PAY-01	green
+prod.failure-as-cancelled	PAY-02	caught ending-channels WriteLanes I25
+prod.failure-as-cancelled	PAY-03	green
+prod.failure-as-cancelled	PAY-04	green
+prod.failure-as-cancelled	PAY-05	caught ending-channels WriteLanes I25
+prod.failure-as-cancelled	PAY-06/interruptible	green
+prod.failure-as-cancelled	PAY-06/uninterruptible	green
+prod.failure-as-cancelled	PAY-07/late-in-a-new-PAYING	green
+prod.failure-as-cancelled	PAY-07/late-may-not-leave	green
+prod.failure-as-cancelled	PAY-07/leaveMidCharge	green
+prod.failure-as-cancelled	PAY-08/reload-while-reconciling	green
+prod.failure-as-cancelled	PAY-08/reloadDuringCharge	green
+prod.failure-as-cancelled	PAY-09/ack-not-stored	green
+prod.failure-as-cancelled	PAY-09/ack-stored-confirmation-lost	green
+prod.failure-as-cancelled	PAY-10/hang	green
+prod.failure-as-cancelled	PAY-10/refuse	green
+prod.failure-as-cancelled	PAY-12/cancel-on-wire	green
+prod.failure-as-cancelled	PAY-12/defect	green
+prod.failure-as-cancelled	PAY-12/sync	green
+prod.failure-as-cancelled	PAY-13/hung-commit	green
+prod.failure-as-cancelled	PAY-13/waiting-flush-lost	green
+prod.failure-as-cancelled	PAY-13/waiting-flushed	green
+prod.failure-as-cancelled	PAY-14	green
+prod.failure-as-cancelled	PAY-15/busy-then-new-write	caught ending-channels WriteLanes I25
+prod.failure-as-cancelled	PAY-15/cancel-idle	green
+prod.failure-as-cancelled	PAY-15/cancel-on-wire	green
+prod.failure-as-cancelled	PAY-15/dead-activation-timer	green
+prod.failure-as-cancelled	PAY-15/dispose-held	green
+prod.failure-as-cancelled	PAY-15/dispose-held-moved	green
+prod.failure-as-cancelled	PAY-15/press-pay-while-held	green
+prod.failure-as-cancelled	PAY-15/reload-holds-exactly-once	green
+prod.failure-as-cancelled	PAY-15/retry-budget	green
+prod.failure-as-cancelled	PAY-16/answered-inside-the-bound	green
+prod.failure-as-cancelled	PAY-16/disposal-ends-with-the-last-fiber	green
+prod.failure-as-cancelled	PAY-16/dispose-waiting-resend	green
+prod.failure-as-cancelled	PAY-16/never-answered-waits-for-the-bound	green
+prod.failure-as-cancelled	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	green
+prod.failure-as-cancelled	PAY-16/read-defect-issue	green
+prod.failure-as-cancelled	PAY-16/resend-refused-capture	green
+prod.failure-as-cancelled	PAY-16/restore-keeps-mayHaveApplied	caught ending-channels WriteLanes I25
+prod.failure-as-cancelled	PAY-16/retry-count-persists	green
+prod.failure-as-cancelled	PAY-16/schedule-reads-after-memory	caught ending-channels WriteLanes I25
+prod.failure-as-cancelled	PAY-16/settled-during-disposal-parked	green
+prod.failure-as-cancelled	PAY-16/stale-send-fenced	green
+prod.failure-as-cancelled	PAY-16/superseded-read	green
+prod.failure-as-cancelled	PAY-16/timeout-per-send	green
+prod.failure-as-cancelled	PAY-18	green
+prod.failure-as-cancelled	PAY-19/place-answers-first	green
+prod.failure-as-cancelled	PAY-19/void-answers-first	green
+prod.failure-as-cancelled	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	green
+prod.failure-as-cancelled	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	green
+prod.failure-as-cancelled	PAY-21	green
+prod.failure-as-cancelled	PAY-22	green
+prod.failure-as-cancelled	PAY-23	green
+prod.failure-as-cancelled	TURN-01/mapper-refused	green
+prod.failure-as-cancelled	TURN-01/schedule-refused	caught ending-channels WriteLanes I25
+prod.failure-as-cancelled	TURN-02	green
+prod.failure-as-cancelled	TURN-03/exited	green
+prod.failure-as-cancelled	TURN-03/on-time	green
+prod.failure-as-cancelled	TURN-03/re-entered	caught ending-channels WriteLanes I25
+prod.failure-as-cancelled	TURN-03/unused	green
+prod.fires-unused	DISP-01	green
+prod.fires-unused	DISP-02	green
+prod.fires-unused	DISP-04	green
+prod.fires-unused	DISP-05	green
+prod.fires-unused	DISP-06	green
+prod.fires-unused	DISP-07	green
+prod.fires-unused	DLV-01	green
+prod.fires-unused	DLV-02	green
+prod.fires-unused	DLV-03	green
+prod.fires-unused	DLV-04	green
+prod.fires-unused	DLV-05	green
+prod.fires-unused	DLV-06	green
+prod.fires-unused	LANE-08	green
+prod.fires-unused	LANE-09	green
+prod.fires-unused	PAY-01	green
+prod.fires-unused	PAY-02	green
+prod.fires-unused	PAY-03	green
+prod.fires-unused	PAY-04	green
+prod.fires-unused	PAY-05	green
+prod.fires-unused	PAY-06/interruptible	green
+prod.fires-unused	PAY-06/uninterruptible	green
+prod.fires-unused	PAY-07/late-in-a-new-PAYING	green
+prod.fires-unused	PAY-07/late-may-not-leave	green
+prod.fires-unused	PAY-07/leaveMidCharge	green
+prod.fires-unused	PAY-08/reload-while-reconciling	green
+prod.fires-unused	PAY-08/reloadDuringCharge	green
+prod.fires-unused	PAY-09/ack-not-stored	green
+prod.fires-unused	PAY-09/ack-stored-confirmation-lost	green
+prod.fires-unused	PAY-10/hang	green
+prod.fires-unused	PAY-10/refuse	green
+prod.fires-unused	PAY-12/cancel-on-wire	green
+prod.fires-unused	PAY-12/defect	green
+prod.fires-unused	PAY-12/sync	green
+prod.fires-unused	PAY-13/hung-commit	green
+prod.fires-unused	PAY-13/waiting-flush-lost	green
+prod.fires-unused	PAY-13/waiting-flushed	green
+prod.fires-unused	PAY-14	green
+prod.fires-unused	PAY-15/busy-then-new-write	green
+prod.fires-unused	PAY-15/cancel-idle	green
+prod.fires-unused	PAY-15/cancel-on-wire	green
+prod.fires-unused	PAY-15/dead-activation-timer	green
+prod.fires-unused	PAY-15/dispose-held	green
+prod.fires-unused	PAY-15/dispose-held-moved	green
+prod.fires-unused	PAY-15/press-pay-while-held	green
+prod.fires-unused	PAY-15/reload-holds-exactly-once	green
+prod.fires-unused	PAY-15/retry-budget	green
+prod.fires-unused	PAY-16/answered-inside-the-bound	green
+prod.fires-unused	PAY-16/disposal-ends-with-the-last-fiber	green
+prod.fires-unused	PAY-16/dispose-waiting-resend	green
+prod.fires-unused	PAY-16/never-answered-waits-for-the-bound	green
+prod.fires-unused	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	green
+prod.fires-unused	PAY-16/read-defect-issue	green
+prod.fires-unused	PAY-16/resend-refused-capture	green
+prod.fires-unused	PAY-16/restore-keeps-mayHaveApplied	green
+prod.fires-unused	PAY-16/retry-count-persists	green
+prod.fires-unused	PAY-16/schedule-reads-after-memory	green
+prod.fires-unused	PAY-16/settled-during-disposal-parked	green
+prod.fires-unused	PAY-16/stale-send-fenced	green
+prod.fires-unused	PAY-16/superseded-read	green
+prod.fires-unused	PAY-16/timeout-per-send	green
+prod.fires-unused	PAY-18	green
+prod.fires-unused	PAY-19/place-answers-first	green
+prod.fires-unused	PAY-19/void-answers-first	green
+prod.fires-unused	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	green
+prod.fires-unused	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	green
+prod.fires-unused	PAY-21	green
+prod.fires-unused	PAY-22	green
+prod.fires-unused	PAY-23	green
+prod.fires-unused	TURN-01/mapper-refused	green
+prod.fires-unused	TURN-01/schedule-refused	green
+prod.fires-unused	TURN-02	green
+prod.fires-unused	TURN-03/exited	green
+prod.fires-unused	TURN-03/on-time	green
+prod.fires-unused	TURN-03/re-entered	green
+prod.fires-unused	TURN-03/unused	caught schedules Turn I23
+prod.idle-fails-idle	DISP-01	green
+prod.idle-fails-idle	DISP-02	green
+prod.idle-fails-idle	DISP-04	green
+prod.idle-fails-idle	DISP-05	green
+prod.idle-fails-idle	DISP-06	green
+prod.idle-fails-idle	DISP-07	green
+prod.idle-fails-idle	DLV-01	green
+prod.idle-fails-idle	DLV-02	green
+prod.idle-fails-idle	DLV-03	green
+prod.idle-fails-idle	DLV-04	green
+prod.idle-fails-idle	DLV-05	green
+prod.idle-fails-idle	DLV-06	green
+prod.idle-fails-idle	LANE-08	green
+prod.idle-fails-idle	LANE-09	green
+prod.idle-fails-idle	PAY-01	green
+prod.idle-fails-idle	PAY-02	green
+prod.idle-fails-idle	PAY-03	green
+prod.idle-fails-idle	PAY-04	green
+prod.idle-fails-idle	PAY-05	green
+prod.idle-fails-idle	PAY-06/interruptible	green
+prod.idle-fails-idle	PAY-06/uninterruptible	green
+prod.idle-fails-idle	PAY-07/late-in-a-new-PAYING	green
+prod.idle-fails-idle	PAY-07/late-may-not-leave	green
+prod.idle-fails-idle	PAY-07/leaveMidCharge	green
+prod.idle-fails-idle	PAY-08/reload-while-reconciling	green
+prod.idle-fails-idle	PAY-08/reloadDuringCharge	green
+prod.idle-fails-idle	PAY-09/ack-not-stored	green
+prod.idle-fails-idle	PAY-09/ack-stored-confirmation-lost	green
+prod.idle-fails-idle	PAY-10/hang	green
+prod.idle-fails-idle	PAY-10/refuse	green
+prod.idle-fails-idle	PAY-12/cancel-on-wire	green
+prod.idle-fails-idle	PAY-12/defect	green
+prod.idle-fails-idle	PAY-12/sync	green
+prod.idle-fails-idle	PAY-13/hung-commit	green
+prod.idle-fails-idle	PAY-13/waiting-flush-lost	green
+prod.idle-fails-idle	PAY-13/waiting-flushed	green
+prod.idle-fails-idle	PAY-14	green
+prod.idle-fails-idle	PAY-15/busy-then-new-write	caught idle-guard WriteLanes I13
+prod.idle-fails-idle	PAY-15/cancel-idle	green
+prod.idle-fails-idle	PAY-15/cancel-on-wire	green
+prod.idle-fails-idle	PAY-15/dead-activation-timer	green
+prod.idle-fails-idle	PAY-15/dispose-held	green
+prod.idle-fails-idle	PAY-15/dispose-held-moved	green
+prod.idle-fails-idle	PAY-15/press-pay-while-held	green
+prod.idle-fails-idle	PAY-15/reload-holds-exactly-once	green
+prod.idle-fails-idle	PAY-15/retry-budget	green
+prod.idle-fails-idle	PAY-16/answered-inside-the-bound	green
+prod.idle-fails-idle	PAY-16/disposal-ends-with-the-last-fiber	green
+prod.idle-fails-idle	PAY-16/dispose-waiting-resend	green
+prod.idle-fails-idle	PAY-16/never-answered-waits-for-the-bound	green
+prod.idle-fails-idle	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	green
+prod.idle-fails-idle	PAY-16/read-defect-issue	green
+prod.idle-fails-idle	PAY-16/resend-refused-capture	green
+prod.idle-fails-idle	PAY-16/restore-keeps-mayHaveApplied	green
+prod.idle-fails-idle	PAY-16/retry-count-persists	green
+prod.idle-fails-idle	PAY-16/schedule-reads-after-memory	caught idle-guard WriteLanes I13
+prod.idle-fails-idle	PAY-16/settled-during-disposal-parked	green
+prod.idle-fails-idle	PAY-16/stale-send-fenced	green
+prod.idle-fails-idle	PAY-16/superseded-read	green
+prod.idle-fails-idle	PAY-16/timeout-per-send	green
+prod.idle-fails-idle	PAY-18	green
+prod.idle-fails-idle	PAY-19/place-answers-first	green
+prod.idle-fails-idle	PAY-19/void-answers-first	green
+prod.idle-fails-idle	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	green
+prod.idle-fails-idle	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	green
+prod.idle-fails-idle	PAY-21	green
+prod.idle-fails-idle	PAY-22	green
+prod.idle-fails-idle	PAY-23	green
+prod.idle-fails-idle	TURN-01/mapper-refused	green
+prod.idle-fails-idle	TURN-01/schedule-refused	green
+prod.idle-fails-idle	TURN-02	green
+prod.idle-fails-idle	TURN-03/exited	green
+prod.idle-fails-idle	TURN-03/on-time	green
+prod.idle-fails-idle	TURN-03/re-entered	green
+prod.idle-fails-idle	TURN-03/unused	green
+prod.kept-ignored	DISP-01	green
+prod.kept-ignored	DISP-02	green
+prod.kept-ignored	DISP-04	green
+prod.kept-ignored	DISP-05	green
+prod.kept-ignored	DISP-06	green
+prod.kept-ignored	DISP-07	green
+prod.kept-ignored	DLV-01	green
+prod.kept-ignored	DLV-02	green
+prod.kept-ignored	DLV-03	green
+prod.kept-ignored	DLV-04	green
+prod.kept-ignored	DLV-05	green
+prod.kept-ignored	DLV-06	caught lane-queue WriteLanes I8
+prod.kept-ignored	LANE-08	green
+prod.kept-ignored	LANE-09	green
+prod.kept-ignored	PAY-01	green
+prod.kept-ignored	PAY-02	green
+prod.kept-ignored	PAY-03	green
+prod.kept-ignored	PAY-04	green
+prod.kept-ignored	PAY-05	green
+prod.kept-ignored	PAY-06/interruptible	green
+prod.kept-ignored	PAY-06/uninterruptible	green
+prod.kept-ignored	PAY-07/late-in-a-new-PAYING	green
+prod.kept-ignored	PAY-07/late-may-not-leave	green
+prod.kept-ignored	PAY-07/leaveMidCharge	green
+prod.kept-ignored	PAY-08/reload-while-reconciling	green
+prod.kept-ignored	PAY-08/reloadDuringCharge	green
+prod.kept-ignored	PAY-09/ack-not-stored	green
+prod.kept-ignored	PAY-09/ack-stored-confirmation-lost	green
+prod.kept-ignored	PAY-10/hang	green
+prod.kept-ignored	PAY-10/refuse	green
+prod.kept-ignored	PAY-12/cancel-on-wire	green
+prod.kept-ignored	PAY-12/defect	green
+prod.kept-ignored	PAY-12/sync	green
+prod.kept-ignored	PAY-13/hung-commit	green
+prod.kept-ignored	PAY-13/waiting-flush-lost	green
+prod.kept-ignored	PAY-13/waiting-flushed	green
+prod.kept-ignored	PAY-14	green
+prod.kept-ignored	PAY-15/busy-then-new-write	green
+prod.kept-ignored	PAY-15/cancel-idle	green
+prod.kept-ignored	PAY-15/cancel-on-wire	green
+prod.kept-ignored	PAY-15/dead-activation-timer	green
+prod.kept-ignored	PAY-15/dispose-held	green
+prod.kept-ignored	PAY-15/dispose-held-moved	green
+prod.kept-ignored	PAY-15/press-pay-while-held	green
+prod.kept-ignored	PAY-15/reload-holds-exactly-once	green
+prod.kept-ignored	PAY-15/retry-budget	green
+prod.kept-ignored	PAY-16/answered-inside-the-bound	green
+prod.kept-ignored	PAY-16/disposal-ends-with-the-last-fiber	green
+prod.kept-ignored	PAY-16/dispose-waiting-resend	green
+prod.kept-ignored	PAY-16/never-answered-waits-for-the-bound	green
+prod.kept-ignored	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	green
+prod.kept-ignored	PAY-16/read-defect-issue	green
+prod.kept-ignored	PAY-16/resend-refused-capture	green
+prod.kept-ignored	PAY-16/restore-keeps-mayHaveApplied	green
+prod.kept-ignored	PAY-16/retry-count-persists	green
+prod.kept-ignored	PAY-16/schedule-reads-after-memory	green
+prod.kept-ignored	PAY-16/settled-during-disposal-parked	green
+prod.kept-ignored	PAY-16/stale-send-fenced	green
+prod.kept-ignored	PAY-16/superseded-read	green
+prod.kept-ignored	PAY-16/timeout-per-send	green
+prod.kept-ignored	PAY-18	green
+prod.kept-ignored	PAY-19/place-answers-first	green
+prod.kept-ignored	PAY-19/void-answers-first	green
+prod.kept-ignored	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	green
+prod.kept-ignored	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	green
+prod.kept-ignored	PAY-21	green
+prod.kept-ignored	PAY-22	green
+prod.kept-ignored	PAY-23	green
+prod.kept-ignored	TURN-01/mapper-refused	green
+prod.kept-ignored	TURN-01/schedule-refused	green
+prod.kept-ignored	TURN-02	green
+prod.kept-ignored	TURN-03/exited	green
+prod.kept-ignored	TURN-03/on-time	green
+prod.kept-ignored	TURN-03/re-entered	green
+prod.kept-ignored	TURN-03/unused	green
+prod.kept-redelivered	DISP-01	green
+prod.kept-redelivered	DISP-02	green
+prod.kept-redelivered	DISP-04	green
+prod.kept-redelivered	DISP-05	green
+prod.kept-redelivered	DISP-06	green
+prod.kept-redelivered	DISP-07	green
+prod.kept-redelivered	DLV-01	green
+prod.kept-redelivered	DLV-02	green
+prod.kept-redelivered	DLV-03	green
+prod.kept-redelivered	DLV-04	caught delivered-once Actors I24
+prod.kept-redelivered	DLV-05	caught delivered-once Actors I24
+prod.kept-redelivered	DLV-06	caught delivered-once Actors I24
+prod.kept-redelivered	LANE-08	green
+prod.kept-redelivered	LANE-09	green
+prod.kept-redelivered	PAY-01	green
+prod.kept-redelivered	PAY-02	green
+prod.kept-redelivered	PAY-03	green
+prod.kept-redelivered	PAY-04	green
+prod.kept-redelivered	PAY-05	green
+prod.kept-redelivered	PAY-06/interruptible	green
+prod.kept-redelivered	PAY-06/uninterruptible	green
+prod.kept-redelivered	PAY-07/late-in-a-new-PAYING	green
+prod.kept-redelivered	PAY-07/late-may-not-leave	green
+prod.kept-redelivered	PAY-07/leaveMidCharge	green
+prod.kept-redelivered	PAY-08/reload-while-reconciling	green
+prod.kept-redelivered	PAY-08/reloadDuringCharge	green
+prod.kept-redelivered	PAY-09/ack-not-stored	green
+prod.kept-redelivered	PAY-09/ack-stored-confirmation-lost	green
+prod.kept-redelivered	PAY-10/hang	green
+prod.kept-redelivered	PAY-10/refuse	green
+prod.kept-redelivered	PAY-12/cancel-on-wire	green
+prod.kept-redelivered	PAY-12/defect	green
+prod.kept-redelivered	PAY-12/sync	green
+prod.kept-redelivered	PAY-13/hung-commit	green
+prod.kept-redelivered	PAY-13/waiting-flush-lost	green
+prod.kept-redelivered	PAY-13/waiting-flushed	green
+prod.kept-redelivered	PAY-14	green
+prod.kept-redelivered	PAY-15/busy-then-new-write	green
+prod.kept-redelivered	PAY-15/cancel-idle	green
+prod.kept-redelivered	PAY-15/cancel-on-wire	green
+prod.kept-redelivered	PAY-15/dead-activation-timer	green
+prod.kept-redelivered	PAY-15/dispose-held	green
+prod.kept-redelivered	PAY-15/dispose-held-moved	green
+prod.kept-redelivered	PAY-15/press-pay-while-held	green
+prod.kept-redelivered	PAY-15/reload-holds-exactly-once	green
+prod.kept-redelivered	PAY-15/retry-budget	green
+prod.kept-redelivered	PAY-16/answered-inside-the-bound	green
+prod.kept-redelivered	PAY-16/disposal-ends-with-the-last-fiber	green
+prod.kept-redelivered	PAY-16/dispose-waiting-resend	green
+prod.kept-redelivered	PAY-16/never-answered-waits-for-the-bound	green
+prod.kept-redelivered	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	green
+prod.kept-redelivered	PAY-16/read-defect-issue	green
+prod.kept-redelivered	PAY-16/resend-refused-capture	green
+prod.kept-redelivered	PAY-16/restore-keeps-mayHaveApplied	green
+prod.kept-redelivered	PAY-16/retry-count-persists	green
+prod.kept-redelivered	PAY-16/schedule-reads-after-memory	green
+prod.kept-redelivered	PAY-16/settled-during-disposal-parked	green
+prod.kept-redelivered	PAY-16/stale-send-fenced	green
+prod.kept-redelivered	PAY-16/superseded-read	green
+prod.kept-redelivered	PAY-16/timeout-per-send	green
+prod.kept-redelivered	PAY-18	green
+prod.kept-redelivered	PAY-19/place-answers-first	green
+prod.kept-redelivered	PAY-19/void-answers-first	green
+prod.kept-redelivered	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	green
+prod.kept-redelivered	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	green
+prod.kept-redelivered	PAY-21	green
+prod.kept-redelivered	PAY-22	green
+prod.kept-redelivered	PAY-23	green
+prod.kept-redelivered	TURN-01/mapper-refused	caught delivered-once Actors I24
+prod.kept-redelivered	TURN-01/schedule-refused	caught delivered-once Actors I24
+prod.kept-redelivered	TURN-02	green
+prod.kept-redelivered	TURN-03/exited	green
+prod.kept-redelivered	TURN-03/on-time	green
+prod.kept-redelivered	TURN-03/re-entered	green
+prod.kept-redelivered	TURN-03/unused	green
+prod.mint-not-replayable	DISP-01	caught case expectations Turn I17
+prod.mint-not-replayable	DISP-02	caught case expectations Turn I17
+prod.mint-not-replayable	DISP-04	caught case expectations Turn I17
+prod.mint-not-replayable	DISP-05	caught case expectations Turn I17
+prod.mint-not-replayable	DISP-06	caught case expectations Turn I17
+prod.mint-not-replayable	DISP-07	green
+prod.mint-not-replayable	DLV-01	caught case expectations Turn I17
+prod.mint-not-replayable	DLV-02	caught case expectations Turn I17
+prod.mint-not-replayable	DLV-03	caught case expectations Turn I17
+prod.mint-not-replayable	DLV-04	caught case expectations Turn I17
+prod.mint-not-replayable	DLV-05	caught case expectations Turn I17
+prod.mint-not-replayable	DLV-06	caught case expectations Turn I17
+prod.mint-not-replayable	LANE-08	caught case expectations Turn I17
+prod.mint-not-replayable	LANE-09	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-01	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-02	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-03	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-04	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-05	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-06/interruptible	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-06/uninterruptible	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-07/late-in-a-new-PAYING	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-07/late-may-not-leave	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-07/leaveMidCharge	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-08/reload-while-reconciling	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-08/reloadDuringCharge	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-09/ack-not-stored	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-09/ack-stored-confirmation-lost	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-10/hang	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-10/refuse	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-12/cancel-on-wire	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-12/defect	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-12/sync	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-13/hung-commit	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-13/waiting-flush-lost	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-13/waiting-flushed	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-14	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-15/busy-then-new-write	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-15/cancel-idle	green
+prod.mint-not-replayable	PAY-15/cancel-on-wire	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-15/dead-activation-timer	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-15/dispose-held	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-15/dispose-held-moved	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-15/press-pay-while-held	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-15/reload-holds-exactly-once	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-15/retry-budget	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-16/answered-inside-the-bound	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-16/disposal-ends-with-the-last-fiber	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-16/dispose-waiting-resend	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-16/never-answered-waits-for-the-bound	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-16/read-defect-issue	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-16/resend-refused-capture	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-16/restore-keeps-mayHaveApplied	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-16/retry-count-persists	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-16/schedule-reads-after-memory	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-16/settled-during-disposal-parked	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-16/stale-send-fenced	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-16/superseded-read	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-16/timeout-per-send	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-18	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-19/place-answers-first	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-19/void-answers-first	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-21	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-22	caught case expectations Turn I17
+prod.mint-not-replayable	PAY-23	caught case expectations Turn I17
+prod.mint-not-replayable	TURN-01/mapper-refused	caught case expectations Turn I17
+prod.mint-not-replayable	TURN-01/schedule-refused	caught case expectations Turn I17
+prod.mint-not-replayable	TURN-02	green
+prod.mint-not-replayable	TURN-03/exited	caught case expectations Turn I17
+prod.mint-not-replayable	TURN-03/on-time	caught case expectations Turn I17
+prod.mint-not-replayable	TURN-03/re-entered	caught case expectations Turn I17
+prod.mint-not-replayable	TURN-03/unused	caught case expectations Turn I17
+prod.record-forgets-retries	DISP-01	green
+prod.record-forgets-retries	DISP-02	green
+prod.record-forgets-retries	DISP-04	green
+prod.record-forgets-retries	DISP-05	green
+prod.record-forgets-retries	DISP-06	green
+prod.record-forgets-retries	DISP-07	green
+prod.record-forgets-retries	DLV-01	green
+prod.record-forgets-retries	DLV-02	green
+prod.record-forgets-retries	DLV-03	green
+prod.record-forgets-retries	DLV-04	green
+prod.record-forgets-retries	DLV-05	green
+prod.record-forgets-retries	DLV-06	green
+prod.record-forgets-retries	LANE-08	green
+prod.record-forgets-retries	LANE-09	green
+prod.record-forgets-retries	PAY-01	green
+prod.record-forgets-retries	PAY-02	green
+prod.record-forgets-retries	PAY-03	green
+prod.record-forgets-retries	PAY-04	green
+prod.record-forgets-retries	PAY-05	green
+prod.record-forgets-retries	PAY-06/interruptible	green
+prod.record-forgets-retries	PAY-06/uninterruptible	green
+prod.record-forgets-retries	PAY-07/late-in-a-new-PAYING	green
+prod.record-forgets-retries	PAY-07/late-may-not-leave	green
+prod.record-forgets-retries	PAY-07/leaveMidCharge	green
+prod.record-forgets-retries	PAY-08/reload-while-reconciling	green
+prod.record-forgets-retries	PAY-08/reloadDuringCharge	green
+prod.record-forgets-retries	PAY-09/ack-not-stored	green
+prod.record-forgets-retries	PAY-09/ack-stored-confirmation-lost	green
+prod.record-forgets-retries	PAY-10/hang	green
+prod.record-forgets-retries	PAY-10/refuse	green
+prod.record-forgets-retries	PAY-12/cancel-on-wire	green
+prod.record-forgets-retries	PAY-12/defect	green
+prod.record-forgets-retries	PAY-12/sync	green
+prod.record-forgets-retries	PAY-13/hung-commit	green
+prod.record-forgets-retries	PAY-13/waiting-flush-lost	green
+prod.record-forgets-retries	PAY-13/waiting-flushed	green
+prod.record-forgets-retries	PAY-14	green
+prod.record-forgets-retries	PAY-15/busy-then-new-write	green
+prod.record-forgets-retries	PAY-15/cancel-idle	green
+prod.record-forgets-retries	PAY-15/cancel-on-wire	green
+prod.record-forgets-retries	PAY-15/dead-activation-timer	green
+prod.record-forgets-retries	PAY-15/dispose-held	green
+prod.record-forgets-retries	PAY-15/dispose-held-moved	green
+prod.record-forgets-retries	PAY-15/press-pay-while-held	green
+prod.record-forgets-retries	PAY-15/reload-holds-exactly-once	green
+prod.record-forgets-retries	PAY-15/retry-budget	green
+prod.record-forgets-retries	PAY-16/answered-inside-the-bound	green
+prod.record-forgets-retries	PAY-16/disposal-ends-with-the-last-fiber	green
+prod.record-forgets-retries	PAY-16/dispose-waiting-resend	green
+prod.record-forgets-retries	PAY-16/never-answered-waits-for-the-bound	green
+prod.record-forgets-retries	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	green
+prod.record-forgets-retries	PAY-16/read-defect-issue	green
+prod.record-forgets-retries	PAY-16/resend-refused-capture	green
+prod.record-forgets-retries	PAY-16/restore-keeps-mayHaveApplied	green
+prod.record-forgets-retries	PAY-16/retry-count-persists	caught retry-count WriteLanes I7
+prod.record-forgets-retries	PAY-16/schedule-reads-after-memory	green
+prod.record-forgets-retries	PAY-16/settled-during-disposal-parked	green
+prod.record-forgets-retries	PAY-16/stale-send-fenced	green
+prod.record-forgets-retries	PAY-16/superseded-read	green
+prod.record-forgets-retries	PAY-16/timeout-per-send	green
+prod.record-forgets-retries	PAY-18	green
+prod.record-forgets-retries	PAY-19/place-answers-first	green
+prod.record-forgets-retries	PAY-19/void-answers-first	green
+prod.record-forgets-retries	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	green
+prod.record-forgets-retries	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	green
+prod.record-forgets-retries	PAY-21	green
+prod.record-forgets-retries	PAY-22	green
+prod.record-forgets-retries	PAY-23	green
+prod.record-forgets-retries	TURN-01/mapper-refused	green
+prod.record-forgets-retries	TURN-01/schedule-refused	green
+prod.record-forgets-retries	TURN-02	green
+prod.record-forgets-retries	TURN-03/exited	green
+prod.record-forgets-retries	TURN-03/on-time	green
+prod.record-forgets-retries	TURN-03/re-entered	green
+prod.record-forgets-retries	TURN-03/unused	green
+prod.refused-turn-reported	DISP-01	green
+prod.refused-turn-reported	DISP-02	green
+prod.refused-turn-reported	DISP-04	green
+prod.refused-turn-reported	DISP-05	green
+prod.refused-turn-reported	DISP-06	green
+prod.refused-turn-reported	DISP-07	green
+prod.refused-turn-reported	DLV-01	green
+prod.refused-turn-reported	DLV-02	green
+prod.refused-turn-reported	DLV-03	green
+prod.refused-turn-reported	DLV-04	green
+prod.refused-turn-reported	DLV-05	green
+prod.refused-turn-reported	DLV-06	green
+prod.refused-turn-reported	LANE-08	green
+prod.refused-turn-reported	LANE-09	green
+prod.refused-turn-reported	PAY-01	green
+prod.refused-turn-reported	PAY-02	green
+prod.refused-turn-reported	PAY-03	green
+prod.refused-turn-reported	PAY-04	green
+prod.refused-turn-reported	PAY-05	green
+prod.refused-turn-reported	PAY-06/interruptible	green
+prod.refused-turn-reported	PAY-06/uninterruptible	green
+prod.refused-turn-reported	PAY-07/late-in-a-new-PAYING	green
+prod.refused-turn-reported	PAY-07/late-may-not-leave	green
+prod.refused-turn-reported	PAY-07/leaveMidCharge	green
+prod.refused-turn-reported	PAY-08/reload-while-reconciling	green
+prod.refused-turn-reported	PAY-08/reloadDuringCharge	green
+prod.refused-turn-reported	PAY-09/ack-not-stored	green
+prod.refused-turn-reported	PAY-09/ack-stored-confirmation-lost	green
+prod.refused-turn-reported	PAY-10/hang	green
+prod.refused-turn-reported	PAY-10/refuse	green
+prod.refused-turn-reported	PAY-12/cancel-on-wire	green
+prod.refused-turn-reported	PAY-12/defect	green
+prod.refused-turn-reported	PAY-12/sync	green
+prod.refused-turn-reported	PAY-13/hung-commit	green
+prod.refused-turn-reported	PAY-13/waiting-flush-lost	green
+prod.refused-turn-reported	PAY-13/waiting-flushed	green
+prod.refused-turn-reported	PAY-14	green
+prod.refused-turn-reported	PAY-15/busy-then-new-write	green
+prod.refused-turn-reported	PAY-15/cancel-idle	green
+prod.refused-turn-reported	PAY-15/cancel-on-wire	green
+prod.refused-turn-reported	PAY-15/dead-activation-timer	green
+prod.refused-turn-reported	PAY-15/dispose-held	green
+prod.refused-turn-reported	PAY-15/dispose-held-moved	green
+prod.refused-turn-reported	PAY-15/press-pay-while-held	green
+prod.refused-turn-reported	PAY-15/reload-holds-exactly-once	green
+prod.refused-turn-reported	PAY-15/retry-budget	green
+prod.refused-turn-reported	PAY-16/answered-inside-the-bound	green
+prod.refused-turn-reported	PAY-16/disposal-ends-with-the-last-fiber	green
+prod.refused-turn-reported	PAY-16/dispose-waiting-resend	green
+prod.refused-turn-reported	PAY-16/never-answered-waits-for-the-bound	green
+prod.refused-turn-reported	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	green
+prod.refused-turn-reported	PAY-16/read-defect-issue	green
+prod.refused-turn-reported	PAY-16/resend-refused-capture	green
+prod.refused-turn-reported	PAY-16/restore-keeps-mayHaveApplied	green
+prod.refused-turn-reported	PAY-16/retry-count-persists	green
+prod.refused-turn-reported	PAY-16/schedule-reads-after-memory	green
+prod.refused-turn-reported	PAY-16/settled-during-disposal-parked	green
+prod.refused-turn-reported	PAY-16/stale-send-fenced	green
+prod.refused-turn-reported	PAY-16/superseded-read	green
+prod.refused-turn-reported	PAY-16/timeout-per-send	green
+prod.refused-turn-reported	PAY-18	green
+prod.refused-turn-reported	PAY-19/place-answers-first	green
+prod.refused-turn-reported	PAY-19/void-answers-first	green
+prod.refused-turn-reported	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	green
+prod.refused-turn-reported	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	green
+prod.refused-turn-reported	PAY-21	green
+prod.refused-turn-reported	PAY-22	green
+prod.refused-turn-reported	PAY-23	green
+prod.refused-turn-reported	TURN-01/mapper-refused	green
+prod.refused-turn-reported	TURN-01/schedule-refused	caught refusal Turn I14
+prod.refused-turn-reported	TURN-02	green
+prod.refused-turn-reported	TURN-03/exited	green
+prod.refused-turn-reported	TURN-03/on-time	green
+prod.refused-turn-reported	TURN-03/re-entered	green
+prod.refused-turn-reported	TURN-03/unused	green
+prod.released-delivered	DISP-01	green
+prod.released-delivered	DISP-02	green
+prod.released-delivered	DISP-04	green
+prod.released-delivered	DISP-05	green
+prod.released-delivered	DISP-06	green
+prod.released-delivered	DISP-07	green
+prod.released-delivered	DLV-01	green
+prod.released-delivered	DLV-02	green
+prod.released-delivered	DLV-03	green
+prod.released-delivered	DLV-04	green
+prod.released-delivered	DLV-05	green
+prod.released-delivered	DLV-06	green
+prod.released-delivered	LANE-08	green
+prod.released-delivered	LANE-09	caught evidence-kinds WriteLanes I4
+prod.released-delivered	PAY-01	green
+prod.released-delivered	PAY-02	green
+prod.released-delivered	PAY-03	caught evidence-kinds WriteLanes I4
+prod.released-delivered	PAY-04	green
+prod.released-delivered	PAY-05	green
+prod.released-delivered	PAY-06/interruptible	green
+prod.released-delivered	PAY-06/uninterruptible	green
+prod.released-delivered	PAY-07/late-in-a-new-PAYING	green
+prod.released-delivered	PAY-07/late-may-not-leave	green
+prod.released-delivered	PAY-07/leaveMidCharge	green
+prod.released-delivered	PAY-08/reload-while-reconciling	green
+prod.released-delivered	PAY-08/reloadDuringCharge	caught evidence-kinds WriteLanes I4
+prod.released-delivered	PAY-09/ack-not-stored	green
+prod.released-delivered	PAY-09/ack-stored-confirmation-lost	green
+prod.released-delivered	PAY-10/hang	green
+prod.released-delivered	PAY-10/refuse	green
+prod.released-delivered	PAY-12/cancel-on-wire	green
+prod.released-delivered	PAY-12/defect	green
+prod.released-delivered	PAY-12/sync	green
+prod.released-delivered	PAY-13/hung-commit	green
+prod.released-delivered	PAY-13/waiting-flush-lost	green
+prod.released-delivered	PAY-13/waiting-flushed	green
+prod.released-delivered	PAY-14	caught evidence-kinds WriteLanes I4
+prod.released-delivered	PAY-15/busy-then-new-write	green
+prod.released-delivered	PAY-15/cancel-idle	green
+prod.released-delivered	PAY-15/cancel-on-wire	green
+prod.released-delivered	PAY-15/dead-activation-timer	green
+prod.released-delivered	PAY-15/dispose-held	green
+prod.released-delivered	PAY-15/dispose-held-moved	green
+prod.released-delivered	PAY-15/press-pay-while-held	green
+prod.released-delivered	PAY-15/reload-holds-exactly-once	green
+prod.released-delivered	PAY-15/retry-budget	green
+prod.released-delivered	PAY-16/answered-inside-the-bound	green
+prod.released-delivered	PAY-16/disposal-ends-with-the-last-fiber	green
+prod.released-delivered	PAY-16/dispose-waiting-resend	green
+prod.released-delivered	PAY-16/never-answered-waits-for-the-bound	green
+prod.released-delivered	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	green
+prod.released-delivered	PAY-16/read-defect-issue	green
+prod.released-delivered	PAY-16/resend-refused-capture	green
+prod.released-delivered	PAY-16/restore-keeps-mayHaveApplied	green
+prod.released-delivered	PAY-16/retry-count-persists	green
+prod.released-delivered	PAY-16/schedule-reads-after-memory	green
+prod.released-delivered	PAY-16/settled-during-disposal-parked	green
+prod.released-delivered	PAY-16/stale-send-fenced	green
+prod.released-delivered	PAY-16/superseded-read	green
+prod.released-delivered	PAY-16/timeout-per-send	green
+prod.released-delivered	PAY-18	green
+prod.released-delivered	PAY-19/place-answers-first	green
+prod.released-delivered	PAY-19/void-answers-first	green
+prod.released-delivered	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	caught evidence-kinds WriteLanes I4
+prod.released-delivered	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	caught evidence-kinds WriteLanes I4
+prod.released-delivered	PAY-21	caught evidence-kinds WriteLanes I4
+prod.released-delivered	PAY-22	caught evidence-kinds WriteLanes I4
+prod.released-delivered	PAY-23	green
+prod.released-delivered	TURN-01/mapper-refused	green
+prod.released-delivered	TURN-01/schedule-refused	green
+prod.released-delivered	TURN-02	green
+prod.released-delivered	TURN-03/exited	green
+prod.released-delivered	TURN-03/on-time	green
+prod.released-delivered	TURN-03/re-entered	green
+prod.released-delivered	TURN-03/unused	green
+prod.resend-new-id	DISP-01	green
+prod.resend-new-id	DISP-02	green
+prod.resend-new-id	DISP-04	green
+prod.resend-new-id	DISP-05	green
+prod.resend-new-id	DISP-06	green
+prod.resend-new-id	DISP-07	green
+prod.resend-new-id	DLV-01	green
+prod.resend-new-id	DLV-02	green
+prod.resend-new-id	DLV-03	green
+prod.resend-new-id	DLV-04	green
+prod.resend-new-id	DLV-05	green
+prod.resend-new-id	DLV-06	green
+prod.resend-new-id	LANE-08	green
+prod.resend-new-id	LANE-09	green
+prod.resend-new-id	PAY-01	green
+prod.resend-new-id	PAY-02	green
+prod.resend-new-id	PAY-03	green
+prod.resend-new-id	PAY-04	caught attempt-identity WriteLanes I6
+prod.resend-new-id	PAY-05	caught attempt-identity WriteLanes I6
+prod.resend-new-id	PAY-06/interruptible	green
+prod.resend-new-id	PAY-06/uninterruptible	green
+prod.resend-new-id	PAY-07/late-in-a-new-PAYING	green
+prod.resend-new-id	PAY-07/late-may-not-leave	green
+prod.resend-new-id	PAY-07/leaveMidCharge	green
+prod.resend-new-id	PAY-08/reload-while-reconciling	green
+prod.resend-new-id	PAY-08/reloadDuringCharge	green
+prod.resend-new-id	PAY-09/ack-not-stored	green
+prod.resend-new-id	PAY-09/ack-stored-confirmation-lost	green
+prod.resend-new-id	PAY-10/hang	green
+prod.resend-new-id	PAY-10/refuse	green
+prod.resend-new-id	PAY-12/cancel-on-wire	green
+prod.resend-new-id	PAY-12/defect	green
+prod.resend-new-id	PAY-12/sync	green
+prod.resend-new-id	PAY-13/hung-commit	green
+prod.resend-new-id	PAY-13/waiting-flush-lost	green
+prod.resend-new-id	PAY-13/waiting-flushed	green
+prod.resend-new-id	PAY-14	green
+prod.resend-new-id	PAY-15/busy-then-new-write	green
+prod.resend-new-id	PAY-15/cancel-idle	green
+prod.resend-new-id	PAY-15/cancel-on-wire	green
+prod.resend-new-id	PAY-15/dead-activation-timer	green
+prod.resend-new-id	PAY-15/dispose-held	green
+prod.resend-new-id	PAY-15/dispose-held-moved	green
+prod.resend-new-id	PAY-15/press-pay-while-held	green
+prod.resend-new-id	PAY-15/reload-holds-exactly-once	green
+prod.resend-new-id	PAY-15/retry-budget	caught attempt-identity WriteLanes I6
+prod.resend-new-id	PAY-16/answered-inside-the-bound	green
+prod.resend-new-id	PAY-16/disposal-ends-with-the-last-fiber	green
+prod.resend-new-id	PAY-16/dispose-waiting-resend	green
+prod.resend-new-id	PAY-16/never-answered-waits-for-the-bound	green
+prod.resend-new-id	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	green
+prod.resend-new-id	PAY-16/read-defect-issue	green
+prod.resend-new-id	PAY-16/resend-refused-capture	caught attempt-identity WriteLanes I6
+prod.resend-new-id	PAY-16/restore-keeps-mayHaveApplied	green
+prod.resend-new-id	PAY-16/retry-count-persists	caught attempt-identity WriteLanes I6
+prod.resend-new-id	PAY-16/schedule-reads-after-memory	green
+prod.resend-new-id	PAY-16/settled-during-disposal-parked	green
+prod.resend-new-id	PAY-16/stale-send-fenced	caught attempt-identity WriteLanes I6
+prod.resend-new-id	PAY-16/superseded-read	green
+prod.resend-new-id	PAY-16/timeout-per-send	caught attempt-identity WriteLanes I6
+prod.resend-new-id	PAY-18	green
+prod.resend-new-id	PAY-19/place-answers-first	green
+prod.resend-new-id	PAY-19/void-answers-first	green
+prod.resend-new-id	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	green
+prod.resend-new-id	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	green
+prod.resend-new-id	PAY-21	green
+prod.resend-new-id	PAY-22	caught attempt-identity WriteLanes I6
+prod.resend-new-id	PAY-23	green
+prod.resend-new-id	TURN-01/mapper-refused	green
+prod.resend-new-id	TURN-01/schedule-refused	green
+prod.resend-new-id	TURN-02	green
+prod.resend-new-id	TURN-03/exited	green
+prod.resend-new-id	TURN-03/on-time	green
+prod.resend-new-id	TURN-03/re-entered	green
+prod.resend-new-id	TURN-03/unused	green
+prod.resend-uncounted	DISP-01	green
+prod.resend-uncounted	DISP-02	green
+prod.resend-uncounted	DISP-04	green
+prod.resend-uncounted	DISP-05	green
+prod.resend-uncounted	DISP-06	green
+prod.resend-uncounted	DISP-07	green
+prod.resend-uncounted	DLV-01	green
+prod.resend-uncounted	DLV-02	green
+prod.resend-uncounted	DLV-03	green
+prod.resend-uncounted	DLV-04	green
+prod.resend-uncounted	DLV-05	green
+prod.resend-uncounted	DLV-06	green
+prod.resend-uncounted	LANE-08	green
+prod.resend-uncounted	LANE-09	green
+prod.resend-uncounted	PAY-01	green
+prod.resend-uncounted	PAY-02	green
+prod.resend-uncounted	PAY-03	green
+prod.resend-uncounted	PAY-04	caught retry-count WriteLanes I7
+prod.resend-uncounted	PAY-05	caught retry-count WriteLanes I7
+prod.resend-uncounted	PAY-06/interruptible	green
+prod.resend-uncounted	PAY-06/uninterruptible	green
+prod.resend-uncounted	PAY-07/late-in-a-new-PAYING	green
+prod.resend-uncounted	PAY-07/late-may-not-leave	green
+prod.resend-uncounted	PAY-07/leaveMidCharge	green
+prod.resend-uncounted	PAY-08/reload-while-reconciling	green
+prod.resend-uncounted	PAY-08/reloadDuringCharge	green
+prod.resend-uncounted	PAY-09/ack-not-stored	green
+prod.resend-uncounted	PAY-09/ack-stored-confirmation-lost	green
+prod.resend-uncounted	PAY-10/hang	green
+prod.resend-uncounted	PAY-10/refuse	green
+prod.resend-uncounted	PAY-12/cancel-on-wire	green
+prod.resend-uncounted	PAY-12/defect	green
+prod.resend-uncounted	PAY-12/sync	green
+prod.resend-uncounted	PAY-13/hung-commit	green
+prod.resend-uncounted	PAY-13/waiting-flush-lost	green
+prod.resend-uncounted	PAY-13/waiting-flushed	green
+prod.resend-uncounted	PAY-14	green
+prod.resend-uncounted	PAY-15/busy-then-new-write	green
+prod.resend-uncounted	PAY-15/cancel-idle	green
+prod.resend-uncounted	PAY-15/cancel-on-wire	green
+prod.resend-uncounted	PAY-15/dead-activation-timer	green
+prod.resend-uncounted	PAY-15/dispose-held	green
+prod.resend-uncounted	PAY-15/dispose-held-moved	green
+prod.resend-uncounted	PAY-15/press-pay-while-held	green
+prod.resend-uncounted	PAY-15/reload-holds-exactly-once	green
+prod.resend-uncounted	PAY-15/retry-budget	caught retry-count WriteLanes I7
+prod.resend-uncounted	PAY-16/answered-inside-the-bound	green
+prod.resend-uncounted	PAY-16/disposal-ends-with-the-last-fiber	green
+prod.resend-uncounted	PAY-16/dispose-waiting-resend	green
+prod.resend-uncounted	PAY-16/never-answered-waits-for-the-bound	green
+prod.resend-uncounted	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	green
+prod.resend-uncounted	PAY-16/read-defect-issue	green
+prod.resend-uncounted	PAY-16/resend-refused-capture	green
+prod.resend-uncounted	PAY-16/restore-keeps-mayHaveApplied	green
+prod.resend-uncounted	PAY-16/retry-count-persists	caught retry-count WriteLanes I7
+prod.resend-uncounted	PAY-16/schedule-reads-after-memory	green
+prod.resend-uncounted	PAY-16/settled-during-disposal-parked	green
+prod.resend-uncounted	PAY-16/stale-send-fenced	caught retry-count WriteLanes I7
+prod.resend-uncounted	PAY-16/superseded-read	green
+prod.resend-uncounted	PAY-16/timeout-per-send	green
+prod.resend-uncounted	PAY-18	green
+prod.resend-uncounted	PAY-19/place-answers-first	green
+prod.resend-uncounted	PAY-19/void-answers-first	green
+prod.resend-uncounted	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	green
+prod.resend-uncounted	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	green
+prod.resend-uncounted	PAY-21	green
+prod.resend-uncounted	PAY-22	caught retry-count WriteLanes I7
+prod.resend-uncounted	PAY-23	green
+prod.resend-uncounted	TURN-01/mapper-refused	green
+prod.resend-uncounted	TURN-01/schedule-refused	green
+prod.resend-uncounted	TURN-02	green
+prod.resend-uncounted	TURN-03/exited	green
+prod.resend-uncounted	TURN-03/on-time	green
+prod.resend-uncounted	TURN-03/re-entered	green
+prod.resend-uncounted	TURN-03/unused	green
+prod.retry-not-owed	DISP-01	green
+prod.retry-not-owed	DISP-02	green
+prod.retry-not-owed	DISP-04	green
+prod.retry-not-owed	DISP-05	green
+prod.retry-not-owed	DISP-06	green
+prod.retry-not-owed	DISP-07	green
+prod.retry-not-owed	DLV-01	green
+prod.retry-not-owed	DLV-02	green
+prod.retry-not-owed	DLV-03	green
+prod.retry-not-owed	DLV-04	green
+prod.retry-not-owed	DLV-05	green
+prod.retry-not-owed	DLV-06	green
+prod.retry-not-owed	LANE-08	green
+prod.retry-not-owed	LANE-09	green
+prod.retry-not-owed	PAY-01	green
+prod.retry-not-owed	PAY-02	green
+prod.retry-not-owed	PAY-03	green
+prod.retry-not-owed	PAY-04	caught lane-queue WriteLanes I26
+prod.retry-not-owed	PAY-05	caught lane-queue WriteLanes I26
+prod.retry-not-owed	PAY-06/interruptible	green
+prod.retry-not-owed	PAY-06/uninterruptible	green
+prod.retry-not-owed	PAY-07/late-in-a-new-PAYING	green
+prod.retry-not-owed	PAY-07/late-may-not-leave	green
+prod.retry-not-owed	PAY-07/leaveMidCharge	green
+prod.retry-not-owed	PAY-08/reload-while-reconciling	green
+prod.retry-not-owed	PAY-08/reloadDuringCharge	green
+prod.retry-not-owed	PAY-09/ack-not-stored	green
+prod.retry-not-owed	PAY-09/ack-stored-confirmation-lost	green
+prod.retry-not-owed	PAY-10/hang	green
+prod.retry-not-owed	PAY-10/refuse	green
+prod.retry-not-owed	PAY-12/cancel-on-wire	green
+prod.retry-not-owed	PAY-12/defect	green
+prod.retry-not-owed	PAY-12/sync	green
+prod.retry-not-owed	PAY-13/hung-commit	green
+prod.retry-not-owed	PAY-13/waiting-flush-lost	green
+prod.retry-not-owed	PAY-13/waiting-flushed	green
+prod.retry-not-owed	PAY-14	green
+prod.retry-not-owed	PAY-15/busy-then-new-write	green
+prod.retry-not-owed	PAY-15/cancel-idle	green
+prod.retry-not-owed	PAY-15/cancel-on-wire	green
+prod.retry-not-owed	PAY-15/dead-activation-timer	green
+prod.retry-not-owed	PAY-15/dispose-held	green
+prod.retry-not-owed	PAY-15/dispose-held-moved	green
+prod.retry-not-owed	PAY-15/press-pay-while-held	green
+prod.retry-not-owed	PAY-15/reload-holds-exactly-once	green
+prod.retry-not-owed	PAY-15/retry-budget	caught lane-queue WriteLanes I26
+prod.retry-not-owed	PAY-16/answered-inside-the-bound	green
+prod.retry-not-owed	PAY-16/disposal-ends-with-the-last-fiber	green
+prod.retry-not-owed	PAY-16/dispose-waiting-resend	green
+prod.retry-not-owed	PAY-16/never-answered-waits-for-the-bound	green
+prod.retry-not-owed	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	green
+prod.retry-not-owed	PAY-16/read-defect-issue	green
+prod.retry-not-owed	PAY-16/resend-refused-capture	red case
+prod.retry-not-owed	PAY-16/restore-keeps-mayHaveApplied	caught lane-queue WriteLanes I26
+prod.retry-not-owed	PAY-16/retry-count-persists	caught lane-queue WriteLanes I26
+prod.retry-not-owed	PAY-16/schedule-reads-after-memory	green
+prod.retry-not-owed	PAY-16/settled-during-disposal-parked	green
+prod.retry-not-owed	PAY-16/stale-send-fenced	caught lane-queue WriteLanes I26
+prod.retry-not-owed	PAY-16/superseded-read	green
+prod.retry-not-owed	PAY-16/timeout-per-send	caught lane-queue WriteLanes I26
+prod.retry-not-owed	PAY-18	green
+prod.retry-not-owed	PAY-19/place-answers-first	green
+prod.retry-not-owed	PAY-19/void-answers-first	green
+prod.retry-not-owed	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	green
+prod.retry-not-owed	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	green
+prod.retry-not-owed	PAY-21	green
+prod.retry-not-owed	PAY-22	caught lane-queue WriteLanes I26
+prod.retry-not-owed	PAY-23	green
+prod.retry-not-owed	TURN-01/mapper-refused	green
+prod.retry-not-owed	TURN-01/schedule-refused	green
+prod.retry-not-owed	TURN-02	green
+prod.retry-not-owed	TURN-03/exited	green
+prod.retry-not-owed	TURN-03/on-time	green
+prod.retry-not-owed	TURN-03/re-entered	green
+prod.retry-not-owed	TURN-03/unused	green
+prod.root-first	DISP-01	caught selection Turn I2
+prod.root-first	DISP-02	caught selection Turn I2
+prod.root-first	DISP-04	caught selection Turn I2
+prod.root-first	DISP-05	caught selection Turn I2
+prod.root-first	DISP-06	green
+prod.root-first	DISP-07	green
+prod.root-first	DLV-01	caught selection Turn I2
+prod.root-first	DLV-02	caught selection Turn I2
+prod.root-first	DLV-03	caught selection Turn I2
+prod.root-first	DLV-04	caught selection Turn I2
+prod.root-first	DLV-05	caught selection Turn I2
+prod.root-first	DLV-06	caught selection Turn I2
+prod.root-first	LANE-08	caught selection Turn I2
+prod.root-first	LANE-09	caught selection Turn I2
+prod.root-first	PAY-01	caught selection Turn I2
+prod.root-first	PAY-02	caught selection Turn I2
+prod.root-first	PAY-03	caught selection Turn I2
+prod.root-first	PAY-04	caught selection Turn I2
+prod.root-first	PAY-05	caught selection Turn I2
+prod.root-first	PAY-06/interruptible	caught selection Turn I2
+prod.root-first	PAY-06/uninterruptible	caught selection Turn I2
+prod.root-first	PAY-07/late-in-a-new-PAYING	green
+prod.root-first	PAY-07/late-may-not-leave	caught selection Turn I2
+prod.root-first	PAY-07/leaveMidCharge	green
+prod.root-first	PAY-08/reload-while-reconciling	caught selection Turn I2
+prod.root-first	PAY-08/reloadDuringCharge	caught selection Turn I2
+prod.root-first	PAY-09/ack-not-stored	green
+prod.root-first	PAY-09/ack-stored-confirmation-lost	caught selection Turn I2
+prod.root-first	PAY-10/hang	caught selection Turn I2
+prod.root-first	PAY-10/refuse	caught selection Turn I2
+prod.root-first	PAY-12/cancel-on-wire	caught selection Turn I2
+prod.root-first	PAY-12/defect	caught selection Turn I2
+prod.root-first	PAY-12/sync	caught selection Turn I2
+prod.root-first	PAY-13/hung-commit	caught selection Turn I2
+prod.root-first	PAY-13/waiting-flush-lost	green
+prod.root-first	PAY-13/waiting-flushed	caught selection Turn I2
+prod.root-first	PAY-14	caught selection Turn I2
+prod.root-first	PAY-15/busy-then-new-write	caught selection Turn I2
+prod.root-first	PAY-15/cancel-idle	green
+prod.root-first	PAY-15/cancel-on-wire	caught selection Turn I2
+prod.root-first	PAY-15/dead-activation-timer	caught selection Turn I2
+prod.root-first	PAY-15/dispose-held	caught selection Turn I2
+prod.root-first	PAY-15/dispose-held-moved	caught selection Turn I2
+prod.root-first	PAY-15/press-pay-while-held	caught selection Turn I2
+prod.root-first	PAY-15/reload-holds-exactly-once	caught selection Turn I2
+prod.root-first	PAY-15/retry-budget	caught selection Turn I2
+prod.root-first	PAY-16/answered-inside-the-bound	caught selection Turn I2
+prod.root-first	PAY-16/disposal-ends-with-the-last-fiber	caught selection Turn I2
+prod.root-first	PAY-16/dispose-waiting-resend	caught selection Turn I2
+prod.root-first	PAY-16/never-answered-waits-for-the-bound	caught selection Turn I2
+prod.root-first	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	caught selection Turn I2
+prod.root-first	PAY-16/read-defect-issue	caught selection Turn I2
+prod.root-first	PAY-16/resend-refused-capture	caught selection Turn I2
+prod.root-first	PAY-16/restore-keeps-mayHaveApplied	caught selection Turn I2
+prod.root-first	PAY-16/retry-count-persists	caught selection Turn I2
+prod.root-first	PAY-16/schedule-reads-after-memory	caught selection Turn I2
+prod.root-first	PAY-16/settled-during-disposal-parked	caught selection Turn I2
+prod.root-first	PAY-16/stale-send-fenced	caught selection Turn I2
+prod.root-first	PAY-16/superseded-read	caught selection Turn I2
+prod.root-first	PAY-16/timeout-per-send	caught selection Turn I2
+prod.root-first	PAY-18	caught selection Turn I2
+prod.root-first	PAY-19/place-answers-first	caught selection Turn I2
+prod.root-first	PAY-19/void-answers-first	caught selection Turn I2
+prod.root-first	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	caught selection Turn I2
+prod.root-first	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	caught selection Turn I2
+prod.root-first	PAY-21	caught selection Turn I2
+prod.root-first	PAY-22	green
+prod.root-first	PAY-23	caught selection Turn I2
+prod.root-first	TURN-01/mapper-refused	caught selection Turn I2
+prod.root-first	TURN-01/schedule-refused	caught selection Turn I2
+prod.root-first	TURN-02	green
+prod.root-first	TURN-03/exited	caught selection Turn I2
+prod.root-first	TURN-03/on-time	caught selection Turn I2
+prod.root-first	TURN-03/re-entered	caught selection Turn I2
+prod.root-first	TURN-03/unused	caught selection Turn I2
+prod.state-move-copies-memory	DISP-01	caught publication Turn I30
+prod.state-move-copies-memory	DISP-02	caught publication Turn I30
+prod.state-move-copies-memory	DISP-04	caught publication Turn I30
+prod.state-move-copies-memory	DISP-05	caught publication Turn I30
+prod.state-move-copies-memory	DISP-06	green
+prod.state-move-copies-memory	DISP-07	green
+prod.state-move-copies-memory	DLV-01	caught publication Turn I30
+prod.state-move-copies-memory	DLV-02	caught publication Turn I30
+prod.state-move-copies-memory	DLV-03	green
+prod.state-move-copies-memory	DLV-04	green
+prod.state-move-copies-memory	DLV-05	green
+prod.state-move-copies-memory	DLV-06	caught publication Turn I30
+prod.state-move-copies-memory	LANE-08	green
+prod.state-move-copies-memory	LANE-09	caught publication Turn I30
+prod.state-move-copies-memory	PAY-01	green
+prod.state-move-copies-memory	PAY-02	caught publication Turn I30
+prod.state-move-copies-memory	PAY-03	caught publication Turn I30
+prod.state-move-copies-memory	PAY-04	caught publication Turn I30
+prod.state-move-copies-memory	PAY-05	caught publication Turn I30
+prod.state-move-copies-memory	PAY-06/interruptible	caught publication Turn I30
+prod.state-move-copies-memory	PAY-06/uninterruptible	caught publication Turn I30
+prod.state-move-copies-memory	PAY-07/late-in-a-new-PAYING	caught publication Turn I30
+prod.state-move-copies-memory	PAY-07/late-may-not-leave	caught publication Turn I30
+prod.state-move-copies-memory	PAY-07/leaveMidCharge	caught publication Turn I30
+prod.state-move-copies-memory	PAY-08/reload-while-reconciling	caught publication Turn I30
+prod.state-move-copies-memory	PAY-08/reloadDuringCharge	caught publication Turn I30
+prod.state-move-copies-memory	PAY-09/ack-not-stored	green
+prod.state-move-copies-memory	PAY-09/ack-stored-confirmation-lost	caught publication Turn I30
+prod.state-move-copies-memory	PAY-10/hang	green
+prod.state-move-copies-memory	PAY-10/refuse	green
+prod.state-move-copies-memory	PAY-12/cancel-on-wire	caught publication Turn I30
+prod.state-move-copies-memory	PAY-12/defect	caught publication Turn I30
+prod.state-move-copies-memory	PAY-12/sync	green
+prod.state-move-copies-memory	PAY-13/hung-commit	caught publication Turn I30
+prod.state-move-copies-memory	PAY-13/waiting-flush-lost	green
+prod.state-move-copies-memory	PAY-13/waiting-flushed	green
+prod.state-move-copies-memory	PAY-14	caught publication Turn I30
+prod.state-move-copies-memory	PAY-15/busy-then-new-write	caught publication Turn I30
+prod.state-move-copies-memory	PAY-15/cancel-idle	caught publication Turn I30
+prod.state-move-copies-memory	PAY-15/cancel-on-wire	caught publication Turn I30
+prod.state-move-copies-memory	PAY-15/dead-activation-timer	caught publication Turn I30
+prod.state-move-copies-memory	PAY-15/dispose-held	caught publication Turn I30
+prod.state-move-copies-memory	PAY-15/dispose-held-moved	caught publication Turn I30
+prod.state-move-copies-memory	PAY-15/press-pay-while-held	green
+prod.state-move-copies-memory	PAY-15/reload-holds-exactly-once	caught publication Turn I30
+prod.state-move-copies-memory	PAY-15/retry-budget	caught publication Turn I30
+prod.state-move-copies-memory	PAY-16/answered-inside-the-bound	green
+prod.state-move-copies-memory	PAY-16/disposal-ends-with-the-last-fiber	green
+prod.state-move-copies-memory	PAY-16/dispose-waiting-resend	caught publication Turn I30
+prod.state-move-copies-memory	PAY-16/never-answered-waits-for-the-bound	caught publication Turn I30
+prod.state-move-copies-memory	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	caught publication Turn I30
+prod.state-move-copies-memory	PAY-16/read-defect-issue	caught publication Turn I30
+prod.state-move-copies-memory	PAY-16/resend-refused-capture	caught publication Turn I30
+prod.state-move-copies-memory	PAY-16/restore-keeps-mayHaveApplied	caught publication Turn I30
+prod.state-move-copies-memory	PAY-16/retry-count-persists	caught publication Turn I30
+prod.state-move-copies-memory	PAY-16/schedule-reads-after-memory	caught publication Turn I30
+prod.state-move-copies-memory	PAY-16/settled-during-disposal-parked	green
+prod.state-move-copies-memory	PAY-16/stale-send-fenced	caught publication Turn I30
+prod.state-move-copies-memory	PAY-16/superseded-read	caught publication Turn I30
+prod.state-move-copies-memory	PAY-16/timeout-per-send	caught publication Turn I30
+prod.state-move-copies-memory	PAY-18	caught publication Turn I30
+prod.state-move-copies-memory	PAY-19/place-answers-first	caught publication Turn I30
+prod.state-move-copies-memory	PAY-19/void-answers-first	caught publication Turn I30
+prod.state-move-copies-memory	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	caught publication Turn I30
+prod.state-move-copies-memory	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	caught publication Turn I30
+prod.state-move-copies-memory	PAY-21	caught publication Turn I30
+prod.state-move-copies-memory	PAY-22	caught publication Turn I30
+prod.state-move-copies-memory	PAY-23	caught publication Turn I30
+prod.state-move-copies-memory	TURN-01/mapper-refused	green
+prod.state-move-copies-memory	TURN-01/schedule-refused	green
+prod.state-move-copies-memory	TURN-02	green
+prod.state-move-copies-memory	TURN-03/exited	green
+prod.state-move-copies-memory	TURN-03/on-time	green
+prod.state-move-copies-memory	TURN-03/re-entered	green
+prod.state-move-copies-memory	TURN-03/unused	green
+prod.success-as-failure	DISP-01	green
+prod.success-as-failure	DISP-02	green
+prod.success-as-failure	DISP-04	green
+prod.success-as-failure	DISP-05	green
+prod.success-as-failure	DISP-06	caught ending-channels WriteLanes I25
+prod.success-as-failure	DISP-07	green
+prod.success-as-failure	DLV-01	green
+prod.success-as-failure	DLV-02	green
+prod.success-as-failure	DLV-03	green
+prod.success-as-failure	DLV-04	caught ending-channels WriteLanes I25
+prod.success-as-failure	DLV-05	caught ending-channels WriteLanes I25
+prod.success-as-failure	DLV-06	caught ending-channels WriteLanes I25
+prod.success-as-failure	LANE-08	green
+prod.success-as-failure	LANE-09	green
+prod.success-as-failure	PAY-01	caught ending-channels WriteLanes I25
+prod.success-as-failure	PAY-02	green
+prod.success-as-failure	PAY-03	red case
+prod.success-as-failure	PAY-04	red case
+prod.success-as-failure	PAY-05	red case
+prod.success-as-failure	PAY-06/interruptible	green
+prod.success-as-failure	PAY-06/uninterruptible	green
+prod.success-as-failure	PAY-07/late-in-a-new-PAYING	caught ending-channels WriteLanes I25
+prod.success-as-failure	PAY-07/late-may-not-leave	caught ending-channels WriteLanes I25
+prod.success-as-failure	PAY-07/leaveMidCharge	caught ending-channels WriteLanes I25
+prod.success-as-failure	PAY-08/reload-while-reconciling	green
+prod.success-as-failure	PAY-08/reloadDuringCharge	red case
+prod.success-as-failure	PAY-09/ack-not-stored	green
+prod.success-as-failure	PAY-09/ack-stored-confirmation-lost	green
+prod.success-as-failure	PAY-10/hang	green
+prod.success-as-failure	PAY-10/refuse	green
+prod.success-as-failure	PAY-12/cancel-on-wire	green
+prod.success-as-failure	PAY-12/defect	green
+prod.success-as-failure	PAY-12/sync	caught ending-channels WriteLanes I25
+prod.success-as-failure	PAY-13/hung-commit	green
+prod.success-as-failure	PAY-13/waiting-flush-lost	green
+prod.success-as-failure	PAY-13/waiting-flushed	green
+prod.success-as-failure	PAY-14	red case
+prod.success-as-failure	PAY-15/busy-then-new-write	green
+prod.success-as-failure	PAY-15/cancel-idle	green
+prod.success-as-failure	PAY-15/cancel-on-wire	green
+prod.success-as-failure	PAY-15/dead-activation-timer	green
+prod.success-as-failure	PAY-15/dispose-held	green
+prod.success-as-failure	PAY-15/dispose-held-moved	green
+prod.success-as-failure	PAY-15/press-pay-while-held	green
+prod.success-as-failure	PAY-15/reload-holds-exactly-once	green
+prod.success-as-failure	PAY-15/retry-budget	red case
+prod.success-as-failure	PAY-16/answered-inside-the-bound	caught ending-channels WriteLanes I25
+prod.success-as-failure	PAY-16/disposal-ends-with-the-last-fiber	caught ending-channels WriteLanes I25
+prod.success-as-failure	PAY-16/dispose-waiting-resend	green
+prod.success-as-failure	PAY-16/never-answered-waits-for-the-bound	green
+prod.success-as-failure	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	green
+prod.success-as-failure	PAY-16/read-defect-issue	green
+prod.success-as-failure	PAY-16/resend-refused-capture	red case
+prod.success-as-failure	PAY-16/restore-keeps-mayHaveApplied	red case
+prod.success-as-failure	PAY-16/retry-count-persists	red case
+prod.success-as-failure	PAY-16/schedule-reads-after-memory	green
+prod.success-as-failure	PAY-16/settled-during-disposal-parked	caught ending-channels WriteLanes I25
+prod.success-as-failure	PAY-16/stale-send-fenced	red case
+prod.success-as-failure	PAY-16/superseded-read	green
+prod.success-as-failure	PAY-16/timeout-per-send	red case
+prod.success-as-failure	PAY-18	green
+prod.success-as-failure	PAY-19/place-answers-first	caught ending-channels WriteLanes I25
+prod.success-as-failure	PAY-19/void-answers-first	caught ending-channels WriteLanes I25
+prod.success-as-failure	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	red case
+prod.success-as-failure	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	red case
+prod.success-as-failure	PAY-21	red case
+prod.success-as-failure	PAY-22	caught ending-channels WriteLanes I25
+prod.success-as-failure	PAY-23	green
+prod.success-as-failure	TURN-01/mapper-refused	caught ending-channels WriteLanes I25
+prod.success-as-failure	TURN-01/schedule-refused	green
+prod.success-as-failure	TURN-02	green
+prod.success-as-failure	TURN-03/exited	caught ending-channels WriteLanes I25
+prod.success-as-failure	TURN-03/on-time	green
+prod.success-as-failure	TURN-03/re-entered	green
+prod.success-as-failure	TURN-03/unused	green

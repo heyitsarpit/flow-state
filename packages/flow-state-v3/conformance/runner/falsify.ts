@@ -214,6 +214,48 @@ export const suiteIn = (
     Effect.flatMap((out) => verdictsOf(out.stdout, out.stderr, out.code)),
   );
 
+const CASE_BOUND_SECONDS = 10;
+
+const oneCase = (main: string, runtime: string, id: string) =>
+  runChild(
+    "bun",
+    [main, "suite", "--runtime", runtime, "--only", id, "--json"],
+    CASE_BOUND_SECONDS,
+  ).pipe(
+    Effect.flatMap((out) => verdictsOf(out.stdout, out.stderr, out.code)),
+    Effect.catchTags({
+      ChildFailed: () =>
+        Effect.succeed<ReadonlyArray<CaseVerdict>>([
+          { _tag: "Timeout", id, seed: 0, seconds: CASE_BOUND_SECONDS },
+        ]),
+      NoVerdicts: (e) =>
+        Effect.succeed<ReadonlyArray<CaseVerdict>>([{ _tag: "Fail", id, oracles: [], why: e.why }]),
+    }),
+  );
+
+/**
+ * {@link suiteIn}, falling back to one child per case when the whole run states no verdict: a case
+ * whose child is killed reads as `Timeout` (seed 0: no seed is known), and one whose child fails
+ * to state a verdict reads as a failed case with no oracle. So one hung case costs its own row,
+ * not every row of the run.
+ */
+export const casesIn = (
+  main: string,
+  runtime: string,
+  cases: ReadonlyArray<string>,
+  seconds: number,
+) =>
+  suiteIn(main, runtime, cases, seconds).pipe(
+    Effect.catchTag("NoVerdicts", (e) =>
+      cases.length > 1
+        ? Effect.map(
+            Effect.forEach(cases, (id) => oneCase(main, runtime, id), { concurrency: 4 }),
+            (rows) => rows.flat(),
+          )
+        : Effect.fail(e),
+    ),
+  );
+
 /**
  * Applies one mutant to a fresh copy of the runtime, runs its cases there and judges the result:
  * caught only when `oracle`, the oracle of the guarantee that holds the mutant, failed a case with a
@@ -238,7 +280,7 @@ export const falsifyOne = (
       const copy = yield* copyRuntime(runtimeDir, scratch);
       yield* applyEdits(copy.runtime, mutant);
 
-      const verdicts = yield* suiteIn(main, copy.runtime, mutant.cases, 120);
+      const verdicts = yield* casesIn(main, copy.runtime, mutant.cases, 120);
 
       return {
         verdict: judge(mutant, oracle, verdicts),
@@ -276,7 +318,7 @@ export const falsifyProduction = (
       yield* applyEdits(copy, mutant);
       const main = join(copy, "conformance", "runner", "main.ts");
 
-      const verdicts = yield* suiteIn(main, "production", mutant.cases, 120);
+      const verdicts = yield* casesIn(main, "production", mutant.cases, 120);
 
       return {
         verdict: judge(mutant, oracle, verdicts),

@@ -1,5 +1,5 @@
 {
-  "revision": "294f63a3",
+  "revision": "0ddedbf8",
   "gates": [
     {
       "gate": "suite round-14",
@@ -19,7 +19,7 @@
     },
     {
       "gate": "coverage",
-      "verdict": "ok   coverage: 72 of 183 core Invariants checked (40 in part), 111 owed by a Task, 0 gap(s)"
+      "verdict": "ok   coverage: 72 of 184 core Invariants checked (40 in part), 112 owed by a Task, 0 gap(s)"
     },
     {
       "gate": "liar round-14",
@@ -31,7 +31,7 @@
     },
     {
       "gate": "crash production",
-      "verdict": "VERDICT fail 600/670 crash points"
+      "verdict": "VERDICT fail 639/670 crash points"
     },
     {
       "gate": "core mutants",
