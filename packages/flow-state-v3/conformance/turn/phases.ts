@@ -3,8 +3,9 @@ import { Data, Option } from "effect";
 /**
  * Where one actor's leaf stands for the suite: never created or forgotten (`Fresh`), disposed with
  * its record kept (`Stored`), live at a leaf the suite carried from facts it owns (`Live`), or
- * live at a leaf the suite cannot know until its next turn (`Unanchored`: restored after a reload
- * or a use of a disposed actor, or after a turn the table could not judge).
+ * live at a leaf the suite cannot know until its next turn (`Unanchored`: a use of a disposed or
+ * reloaded actor, whose leaf comes back from a record, or a turn the table could not judge). A
+ * reload makes every known actor `Stored`.
  */
 export type Phase = Data.TaggedEnum<{
   Fresh: {};

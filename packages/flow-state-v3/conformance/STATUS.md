@@ -1257,6 +1257,15 @@ caught by I26. A current ending's `Denied` is judged; a late one's stays R21's (
 `turn.root-first` is now caught on endings too (I2). Suite 92/92, falsify 111/111, coverage 41,
 0 gaps. Phases and the transition table moved to `turn/phases.ts`.
 
+Reviewer (Haiku) of the I26 diff, 10 findings. Accepted: a retry re-owns its lane's head, the
+oldest open call of its operation and key (not the latest mint; an unknown keeps a call open); an
+unknown { Restored } and an adopted ending (`Unparked`) count as current only in a step with a
+reload or an attach (not on the runtime's word alone); docs (the Restored route, the `Unanchored`
+phase, `judgeTurn`'s doc). The anchor's state moved to `turn/anchor.ts`. Carried: owners per part
+(the Port's `Minted` names no part; no fixture has fragments), reads' endings (no owner in the
+Port), and the fallback match that leaves the entry count stale (it can hide an I26, never fake
+one).
+
 ### Selection (first, from the step 9 review's H1)
 
 Bottom line: `turn/selection.ts` judges every reported turn header (Turn I2) against a hand-written

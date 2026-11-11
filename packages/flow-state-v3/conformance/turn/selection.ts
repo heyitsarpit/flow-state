@@ -1,5 +1,19 @@
 import { Option } from "effect";
 import { Address, Fact, oracle, type Violation, violation } from "../dsl/oracle.ts";
+import {
+  actorIn,
+  attemptKey,
+  current,
+  ended,
+  keyOf,
+  minted,
+  moved,
+  ROOT,
+  routeOf,
+  type State,
+  withActor,
+  withoutOne,
+} from "./anchor.ts";
 import { Input, Phase, TABLE } from "./phases.ts";
 import {
   type Handlers,
@@ -8,56 +22,15 @@ import {
   possible,
   type Route,
 } from "../fixtures/handlers.ts";
-import { type ActorRef, type Delivered, Observation, type Turn, type TurnPart } from "../port.ts";
-
-type Actor = {
-  readonly phase: Phase;
-  readonly driven: ReadonlyArray<string>;
-  readonly entry: number;
-};
-
-/**
- * The Activation that owns a call (Turn R20): the state its transition names and which entry of
- * that state it was; the root's never ends.
- */
-type Owner = { readonly state: string; readonly entry: number };
-
-const ROOT: Owner = { state: "(root)", entry: 0 };
-
-type State = {
-  readonly machines: Machines;
-  readonly actors: ReadonlyMap<string, Actor>;
-  readonly owning: ReadonlyMap<string, Owner>;
-  readonly owners: ReadonlyMap<string, Owner>;
-  readonly restored: ReadonlySet<string>;
-  readonly latest: ReadonlyMap<string, string>;
-};
-
-const keyOf = (actor: ActorRef) => `${actor.machine} ${actor.id}`;
-
-const FRESH: Actor = { phase: Phase.Fresh(), driven: [], entry: 0 };
-
-const actorIn = (state: State, actor: ActorRef) => state.actors.get(keyOf(actor)) ?? FRESH;
-
-const withActor = (state: State, actor: ActorRef, next: Actor) => ({
-  ...state,
-  actors: new Map([...state.actors, [keyOf(actor), next]]),
-});
-
-const moved = (state: State, actor: ActorRef, input: Input) => {
-  const now = actorIn(state, actor);
-
-  return withActor(state, actor, {
-    ...now,
-    phase: TABLE[now.phase._tag][input._tag](input, now.phase),
-  });
-};
-
-const withoutOne = (events: ReadonlyArray<string>, event: string) => {
-  const at = events.indexOf(event);
-
-  return at < 0 ? events : [...events.slice(0, at), ...events.slice(at + 1)];
-};
+import {
+  type ActorRef,
+  type Delivered,
+  MemberTarget,
+  Observation,
+  sameJson,
+  type Turn,
+  type TurnPart,
+} from "../port.ts";
 
 type Judged = {
   readonly to: Option.Option<string>;
@@ -68,12 +41,6 @@ type Judged = {
 
 const name = (turn: Turn) => `${turn.actor.machine} ${turn.actor.id} ran ${turn.event}`;
 
-/**
- * Judges one turn's header against the handler table from the leaf the suite carried (or, when
- * it carried none, the leaf the turn reports): the alternative the actor's root ran is one Turn I2
- * allows,
- * and the turn ends at that alternative's leaf.
- */
 /**
  * A late ending's turn that ran an alternative of the leaf, which only a current one may reach
  * (Turn I26). A current ending that skips a passing leaf alternative breaks I2, not I26.
@@ -98,6 +65,11 @@ const lateRanLeaf = (
     ),
   );
 
+/**
+ * Judges one turn's header against the handler table from the leaf the suite carried (or, when it
+ * carried none, the leaf the turn reports): the alternative the actor's root ran is one Turn I2 and
+ * I26 allow on its route, and the turn ends at that alternative's leaf.
+ */
 // RETURN_TYPE: each branch builds one judgement; the branches infer different shapes.
 const judgeTurn = (machines: Machines, phase: Phase, turn: Turn, route: Route): Judged => {
   const handlers = machines[turn.actor.machine];
@@ -187,31 +159,6 @@ const heardBy = (actor: ActorRef, event: string, step: ReadonlyArray<Fact>) =>
       : [],
   );
 
-const attemptKey = (operation: string, attempt: string) => `${operation} ${attempt}`;
-
-/**
- * How a delivered ending is routed (Turn R20), from the owner the suite recorded at its mint: an
- * unknown { Restored }, an owner the suite did not see, or an actor whose leaf it does not know
- * gives `either`.
- */
-// RETURN_TYPE: the Route union; the branches infer three literals.
-const routeOf = (state: State, actor: Actor, delivered: Delivered): Route => {
-  if (Option.isNone(delivered.attempt) || !Phase.$is("Live")(actor.phase)) return "either";
-
-  const key = attemptKey(delivered.operation, delivered.attempt.value);
-  const owner = state.owners.get(key);
-
-  if (state.restored.has(key)) return "current";
-
-  if (owner === undefined) return "either";
-
-  const alive =
-    owner.state === ROOT.state ||
-    (actor.phase.state === owner.state && actor.entry === owner.entry);
-
-  return alive ? "current" : "late";
-};
-
 const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
   const now = actorIn(state, turn.actor);
   const handlers = state.machines[turn.actor.machine];
@@ -247,10 +194,20 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
     owners: new Map([
       ...state.owners,
       ...turn.members.flatMap((m) => {
-        const attempt = state.latest.get(`${keyOf(turn.actor)} ${m.operation}`);
+        const head = state.open.find(
+          (c) =>
+            c.actor === keyOf(turn.actor) &&
+            c.operation === m.operation &&
+            MemberTarget.$match(m.target, {
+              Key: ({ key }) => Option.exists(c.key, (k) => sameJson(k, key)),
+              Only: () => true,
+              Every: () => true,
+              Nothing: () => false,
+            }),
+        );
 
-        return m.kind === "retry" && attempt !== undefined
-          ? [[attemptKey(m.operation, attempt), owner] as const]
+        return m.kind === "retry" && head !== undefined
+          ? [[attemptKey(m.operation, head.attempt), owner] as const]
           : [];
       }),
     ]),
@@ -278,22 +235,6 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
     Fact.Reported({ observation: anchored }),
   ] as const;
 };
-
-const minted = (state: State, operation: string, attempt: string, actor: Option.Option<ActorRef>) =>
-  Option.match(
-    Option.flatMap(actor, (a) => Option.fromUndefinedOr(state.owning.get(keyOf(a)))),
-    {
-      onNone: () => state,
-      onSome: (owner) => ({
-        ...state,
-        owners: new Map([...state.owners, [attemptKey(operation, attempt), owner]]),
-        latest: new Map([
-          ...state.latest,
-          ...Option.toArray(actor).map((a) => [`${keyOf(a)} ${operation}`, attempt] as const),
-        ]),
-      }),
-    },
-  );
 
 const initialOf = (state: State, actor: ActorRef) =>
   Option.fromUndefinedOr(state.machines[actor.machine]?.initial);
@@ -425,21 +366,14 @@ const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>): Stepped =>
         Turn: (turn) => onTurn(state, turn, step),
         Unhandled: ({ event }) => judgedRefusal(refused(state, event, "Unhandled", step)),
         Denied: ({ event }) => judgedRefusal(refused(state, event, "Denied", step)),
-        Minted: ({ operation, attempt, actor }) => keep(minted(state, operation, attempt, actor)),
+        Minted: ({ operation, attempt, actor, key }) =>
+          keep(minted(state, operation, attempt, actor, key)),
         Sent: () => keep(state),
         Ended: ({ operation, attempt, channel, reason }) =>
-          keep(
-            Option.match(attempt, {
-              onNone: () => state,
-              onSome: (id) =>
-                channel === "unknown" && reason === "Restored"
-                  ? { ...state, restored: new Set([...state.restored, attemptKey(operation, id)]) }
-                  : state,
-            }),
-          ),
+          keep(ended(state, operation, attempt, channel, reason, step)),
         Delivered: () => keep(state),
         Parked: () => keep(state),
-        Unparked: () => keep(state),
+        Unparked: ({ operation, attempt }) => keep(current(state, operation, attempt, step)),
         Recorded: () => keep(state),
         Evidence: () => keep(state),
         Issue: () => keep(state),
@@ -475,7 +409,8 @@ const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>): Stepped =>
  * - A delivered ending's route (Turn R20, I26) comes from its owner, recorded at its mint or at a
  *   retry from the alternative that ran (the state it enters, a new Activation per entry, else the
  *   node holding it): current while that Activation lives, else late, walking the root alone. An
- *   unknown { Restored }, an owner the suite did not see, or an unanchored actor allows either.
+ *   unknown { Restored } or an adopted ending is current (in a step with a reload or an attach);
+ *   an owner the suite did not see (a read's, a part's), or an unanchored actor, allows either.
  * - The reported `to` is judged, never trusted: the carried leaf is the selected alternative's
  *   (only an unanchored actor's reported `from` is taken, once).
  * - Driven events are credited to the actor until a turn of it runs them, an `Unhandled` or
@@ -519,7 +454,7 @@ export const anchorOf = (machines: Machines): Anchor => ({
   owning: new Map(),
   owners: new Map(),
   restored: new Set(),
-  latest: new Map(),
+  open: [],
 });
 
 /**
@@ -543,7 +478,7 @@ export const anchorAt = (
   owning: new Map(),
   owners: new Map(),
   restored: new Set(),
-  latest: new Map(),
+  open: [],
 });
 
 /**
