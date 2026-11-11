@@ -1,5 +1,5 @@
 {
-  "revision": "0d1c5e87",
+  "revision": "df2b9cfb",
   "gates": [
     {
       "gate": "suite round-14",
@@ -7,7 +7,7 @@
     },
     {
       "gate": "suite production",
-      "verdict": "VERDICT fail 76/78"
+      "verdict": "VERDICT pass 76/76"
     },
     {
       "gate": "falsify round-14",
@@ -35,11 +35,11 @@
     },
     {
       "gate": "crash production",
-      "verdict": "VERDICT fail 698/1523 crash points"
+      "verdict": "VERDICT fail 690/723 crash points"
     },
     {
       "gate": "core mutants",
-      "verdict": "VERDICT core mutants: 85/85 killed (85 candidates)"
+      "verdict": "VERDICT core mutants: 62/85 killed (85 candidates)"
     }
   ]
 }
