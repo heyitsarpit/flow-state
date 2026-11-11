@@ -2,12 +2,13 @@ import { Data, Option } from "effect";
 import { Fact } from "../dsl/oracle.ts";
 import type { Machines, Route } from "../fixtures/handlers.ts";
 import type { ActorRef, Channel, Delivered, Json } from "../port.ts";
-import { type Input, leafOf, Phase, TABLE } from "./phases.ts";
+import { Input, leafOf, Phase, TABLE } from "./phases.ts";
 
 export type Actor = {
   readonly phase: Phase;
   readonly driven: ReadonlyArray<string>;
   readonly entry: number;
+  readonly unsaved: boolean;
 };
 
 /**
@@ -51,7 +52,7 @@ export type State = {
 
 export const keyOf = (actor: ActorRef) => `${actor.machine} ${actor.id}`;
 
-export const FRESH: Actor = { phase: Phase.Fresh(), driven: [], entry: 0 };
+export const FRESH: Actor = { phase: Phase.Fresh(), driven: [], entry: 0, unsaved: false };
 
 export const actorIn = (state: State, actor: ActorRef) => state.actors.get(keyOf(actor)) ?? FRESH;
 
@@ -227,3 +228,33 @@ export const ended = (
 
   return moveCall(state, operation, attempt.value, CallPhase.Ended());
 };
+
+/**
+ * Every actor's latest turn is on disk: the store landed a batch.
+ */
+export const saved = (state: State) => ({
+  ...state,
+  actors: new Map([...state.actors].map(([key, a]) => [key, { ...a, unsaved: false }])),
+});
+
+/**
+ * A kill and reload: an actor whose last turns no landed batch holds may resume at any of them, so
+ * its leaf is unknown until its next turn (WriteAhead R10, I10); any other keeps its stored leaf.
+ */
+export const reloaded = (state: State) => ({
+  ...state,
+  actors: new Map(
+    [...state.actors].map(([key, a]) => [
+      key,
+      {
+        ...a,
+        phase: a.unsaved
+          ? Phase.Stored({ state: Option.none() })
+          : TABLE[a.phase._tag].Reloaded(Input.Reloaded(), a.phase),
+        driven: [],
+        entry: a.entry + 1,
+        unsaved: false,
+      },
+    ]),
+  ),
+});

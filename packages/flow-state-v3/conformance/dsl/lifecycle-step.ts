@@ -13,6 +13,7 @@ import {
   LifeMove,
   type Model,
   Move,
+  Phase,
   type Refusal,
 } from "./lifecycle-model.ts";
 import { type Known, operationOf, owedMembers } from "./lifecycle-owed.ts";
@@ -182,7 +183,9 @@ const reported = (
               onSome: (o) => retains(o, reason),
             });
 
-          return push(walk, Move.End({ attempt: id, channel, reason, retained }));
+          const after = push(walk, Move.End({ attempt: id, channel, reason, retained }));
+
+          return { ...after, model: { ...after.model, unsaved: [...after.model.unsaved, id] } };
         },
         onNone: () =>
           Option.match(
@@ -267,6 +270,21 @@ const mapped = (walk: Walk, known: Known, ref: EndingRef) =>
       ),
   );
 
+/**
+ * The lanes a kill may leave: an acknowledged Attempt whose ending no landing answer followed may
+ * be on disk as its ending or, if the batch holding it died, as its acknowledged head
+ * (WriteAhead R10, I10, I17). It restores as a never-sent head does, allowed and not owed: the
+ * boot may restore it unknown { Restored } once, or not at all.
+ */
+const rolledBack = (model: Model) => ({
+  ...model,
+  attempts: model.attempts.map((a) =>
+    a.phase._tag === "Gone" && model.unsaved.includes(a.id) && model.acknowledged.includes(a.id)
+      ? { ...a, phase: Phase.Restoring({ head: true }) }
+      : a,
+  ),
+});
+
 const ADOPTABLE: ReadonlyArray<string> = ["grace", "disposeActor", "forget"];
 
 const ensured = (walk: Walk, actor: ActorRef, given: Rules) => {
@@ -296,9 +314,14 @@ const onFact = (
   Fact.$match(fact, {
     Reported: ({ observation }) => reported(walk, known, observation, earlier, given),
     Reloaded: () => {
-      const reloaded = pushed(closedTurn(walk, given), Move.Reload(), given);
+      const closed = closedTurn(walk, given);
+      const reloaded = pushed({ ...closed, model: rolledBack(closed.model) }, Move.Reload(), given);
 
-      return { ...reloaded, model: { ...reloaded.model, held: [] }, reloaded: true };
+      return {
+        ...reloaded,
+        model: { ...reloaded.model, held: [], unsaved: [] },
+        reloaded: true,
+      };
     },
     DisposingRuntime: () => pushed(walk, Move.DisposalStarts(), given),
     Disposed: ({ actor }) => pushed(holding(walk, fact), ActorMove.Disposed({ actor }), given),
@@ -314,7 +337,11 @@ const onFact = (
           },
     Acknowledged: ({ attempts }) => ({
       ...walk,
-      model: { ...walk.model, acknowledged: [...walk.model.acknowledged, ...attempts] },
+      model: {
+        ...walk.model,
+        acknowledged: [...walk.model.acknowledged, ...attempts],
+        unsaved: [],
+      },
     }),
     Stepped: () => walk,
     Requested: () => walk,

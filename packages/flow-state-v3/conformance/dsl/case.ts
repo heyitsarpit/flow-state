@@ -358,7 +358,7 @@ export const openCase = (options: CaseOptions) => {
     act(what, () => {
       const attempts = storage.answer(how);
 
-      if (how === "ack" || attempts.length > 0) record(Fact.Acknowledged({ attempts }));
+      if (how === "ack" || how === "landNoAck") record(Fact.Acknowledged({ attempts }));
     });
 
   const send = (drives: ReadonlyArray<Drive>) =>

@@ -7,16 +7,18 @@ import {
   keyOf,
   minted,
   moved,
+  reloaded,
   reowned,
   ROOT,
   routeOf,
+  saved,
   sent,
   type State,
   withActor,
   withoutOne,
 } from "./anchor.ts";
 import { lateLeftWork } from "./late.ts";
-import { Input, leafOf, Phase, TABLE } from "./phases.ts";
+import { Input, leafOf, Phase } from "./phases.ts";
 import {
   type Handlers,
   type Machines,
@@ -292,6 +294,7 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
       ...now,
       driven: withoutOne(now.driven, credit),
       entry,
+      unsaved: true,
     }),
     turn.actor,
     Input.Turned({ to: judged.to }),
@@ -314,21 +317,6 @@ const initialOf = (state: State, actor: ActorRef) =>
   Option.fromUndefinedOr(state.machines[actor.machine]?.initial);
 
 type Stepped = readonly [State, ReadonlyArray<Violation>, Fact];
-
-const reloaded = (state: State) => ({
-  ...state,
-  actors: new Map(
-    [...state.actors].map(([key, a]) => [
-      key,
-      {
-        ...a,
-        phase: TABLE[a.phase._tag].Reloaded(Input.Reloaded(), a.phase),
-        driven: [],
-        entry: a.entry + 1,
-      },
-    ]),
-  ),
-});
 
 const drove = (state: State, actor: ActorRef, event: string) => {
   const now = actorIn(state, actor);
@@ -472,7 +460,7 @@ const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>): Stepped =>
     Released: () => keep(state),
     DisposingRuntime: () => keep(state),
     Unstoppable: () => keep(state),
-    Acknowledged: () => keep(state),
+    Acknowledged: () => keep(saved(state)),
     Advanced: () => keep(state),
     Read: () => keep(state),
   });
@@ -560,7 +548,9 @@ export const anchorAt = (
   driven: ReadonlyArray<string>,
 ): Anchor => ({
   machines,
-  actors: new Map([[keyOf(actor), { phase: Phase.Live({ state: leaf }), driven, entry: 0 }]]),
+  actors: new Map([
+    [keyOf(actor), { phase: Phase.Live({ state: leaf }), driven, entry: 0, unsaved: false }],
+  ]),
   owning: new Map(),
   calls: new Map(),
 });
