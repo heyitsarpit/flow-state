@@ -5,7 +5,7 @@ import {
   type Channel,
   type Json,
   type MemberKind,
-  type MemberTarget,
+  MemberTarget,
   sameActor,
   sameJson,
   type Use,
@@ -177,7 +177,6 @@ export type Ending = {
   readonly actor: ActorRef;
   readonly channel: Channel;
   readonly reason: string;
-  readonly incarnation: number;
   readonly inDisposal: boolean;
   readonly life: Life;
 };
@@ -221,7 +220,6 @@ export type Model = {
   readonly actors: ReadonlyArray<{
     readonly actor: ActorRef;
     readonly record: ActorRecord;
-    readonly incarnation: number;
   }>;
   readonly attempts: ReadonlyArray<AttemptLife>;
   readonly endings: ReadonlyArray<Ending>;
@@ -301,6 +299,31 @@ export type LaneMember = {
   readonly kind: MemberKind;
   readonly target: MemberTarget;
   readonly concurrency: Concurrency;
+};
+
+/**
+ * The lanes a member names for `actor`: its operation's one lane (`Only`), the lane of a key
+ * (`Key`), every lane of the operation the model holds (`Every`, else the key-less lane), or
+ * none (`Nothing`), except a commit's, which mints on the key-less lane.
+ */
+// RETURN_TYPE: one list type; the branches infer a union of tuples that callers cannot reduce.
+export const lanesOf = (
+  model: Model,
+  actor: ActorRef,
+  member: Pick<LaneMember, "operation" | "kind" | "target">,
+): ReadonlyArray<LaneId> => {
+  const keyless: LaneId = { actor, operation: member.operation, key: Option.none() };
+
+  return MemberTarget.$match(member.target, {
+    Only: () => [keyless],
+    Key: ({ key }) => [{ actor, operation: member.operation, key: Option.some(key) }],
+    Every: () => {
+      const lanes = lanesOfOperation(model, actor, member.operation);
+
+      return lanes.length > 0 ? lanes : [keyless];
+    },
+    Nothing: () => (member.kind === "commit" ? [keyless] : []),
+  });
 };
 
 /**

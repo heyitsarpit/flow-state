@@ -251,7 +251,6 @@ const decided = (model: Model, life: AttemptLife, move: Move) => {
     actor: life.lane.actor,
     channel: move.channel,
     reason: move.reason,
-    incarnation: actorOf(model, life.lane.actor)?.incarnation ?? 0,
     inDisposal: model.mode === "disposing",
     life: evidenceOnly(model, life) ? Life.Evidence() : Life.Owed(),
   };
@@ -506,7 +505,6 @@ export const due = (model: Model, instant: "TurnCloses" | "StepEnds", given: Rul
  */
 export const incarnate = (model: Model, actor: ActorRef) => {
   const known = actorOf(model, actor);
-  const incarnation = (known?.incarnation ?? 0) + 1;
   const cause = causeOf(model, known?.record ?? "bound");
 
   const returning = known !== undefined && known.record !== "bound";
@@ -524,7 +522,7 @@ export const incarnate = (model: Model, actor: ActorRef) => {
     ...model,
     actors: [
       ...model.actors.filter((a) => !sameActor(a.actor, actor)),
-      { actor, record: "bound" as const, incarnation },
+      { actor, record: "bound" as const },
     ],
     obligations: [
       ...model.obligations,

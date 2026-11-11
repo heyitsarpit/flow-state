@@ -73,7 +73,7 @@ const model = (
   more: Partial<Omit<Model, "attempts">> = {},
 ) => ({
   ...empty,
-  actors: [{ actor: shopper, record: "bound" as const, incarnation: 1 }],
+  actors: [{ actor: shopper, record: "bound" as const }],
   ...more,
   attempts,
 });

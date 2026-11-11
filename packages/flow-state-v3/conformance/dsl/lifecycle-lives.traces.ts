@@ -23,7 +23,6 @@ const ending = (life: Life, more: Partial<Ending> = {}) => ({
   actor: shopper,
   channel: "unknown" as const,
   reason: "Interrupted",
-  incarnation: 1,
   inDisposal: false,
   life,
   ...more,
@@ -249,8 +248,7 @@ const tableTraces: ReadonlyArray<Trace> = [
       "Actors R21: forget's parked and boot-queued endings become evidence",
       life,
       CL,
-      (e) =>
-        model([], { endings: [e], actors: [{ actor: shopper, record: "forget", incarnation: 1 }] }),
+      (e) => model([], { endings: [e], actors: [{ actor: shopper, record: "forget" }] }),
       {},
       " of a forgotten identity",
     ),

@@ -1,17 +1,10 @@
 import { Option } from "effect";
 import type { Reference, Row, RowMember, Rows } from "../fixtures/reference.ts";
-import {
-  type ActorRef,
-  type Json,
-  type Member,
-  MemberTarget,
-  sameJson,
-  type Turn,
-} from "../port.ts";
+import { type ActorRef, type Member, MemberTarget, sameJson, type Turn } from "../port.ts";
 import {
   addressable,
   type EndingName,
-  type LaneId,
+  lanesOf,
   lanesOfOperation,
   type LaneMember,
   type Model,
@@ -28,14 +21,6 @@ export type Known = { readonly reference: Reference; readonly rows: Rows };
  */
 export const operationOf = (known: Known, actor: ActorRef, operation: string) =>
   Option.fromUndefinedOr(known.reference[actor.machine]?.[operation]);
-
-const lanesNamed = (model: Model, actor: ActorRef, operation: string, target: MemberTarget) =>
-  MemberTarget.$match(target, {
-    Only: () => [{ actor, operation, key: Option.none<Json>() }],
-    Key: ({ key }) => [{ actor, operation, key: Option.some(key) }],
-    Every: () => lanesOfOperation(model, actor, operation),
-    Nothing: () => Array.of<LaneId>(),
-  });
 
 const confirmed = (turn: Turn, member: RowMember) =>
   turn.members.find((r) => r.operation === member.operation && r.kind === member.kind);
@@ -133,7 +118,7 @@ const guardHolds = (
     onSome: (guard) => {
       const named = owed
         .filter((m) => m.operation === guard.operation)
-        .flatMap((m) => lanesNamed(model, actor, m.operation, m.target));
+        .flatMap((m) => lanesOf(model, actor, m));
 
       const passes = named.some((lane) =>
         Option.exists(

@@ -54,7 +54,6 @@ const keptEnding: Ending = {
   actor: shopper,
   channel: "unknown",
   reason: "Interrupted",
-  incarnation: 1,
   inDisposal: false,
   life: Life.Kept(),
 };

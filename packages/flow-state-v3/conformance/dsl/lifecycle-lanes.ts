@@ -8,7 +8,7 @@ import {
   type LaneId,
   type LaneMember,
   LaneMove,
-  lanesOfOperation,
+  lanesOf,
   Life,
   type Model,
   Obligation,
@@ -109,21 +109,6 @@ export class MissingMemberCell extends Data.TaggedError("MissingMemberCell")<{
   readonly guard: string;
 }> {}
 
-const lanesOf = (model: Model, actor: ActorRef, member: LaneMember) => {
-  const keyless = { actor, operation: member.operation, key: Option.none() };
-
-  return MemberTarget.$match(member.target, {
-    Only: () => [keyless],
-    Key: ({ key }) => [{ actor, operation: member.operation, key: Option.some(key) }],
-    Every: () => {
-      const lanes = lanesOfOperation(model, actor, member.operation);
-
-      return lanes.length > 0 ? lanes : [keyless];
-    },
-    Nothing: () => (member.kind === "commit" ? [keyless] : []),
-  });
-};
-
 const setPhase = (model: Model, attempt: string, phase: Phase) => ({
   ...model,
   attempts: model.attempts.map((a) => (a.id === attempt ? { ...a, phase } : a)),
@@ -204,7 +189,7 @@ const acted = (model: Model, lane: LaneId, a: Act) =>
   });
 
 const applyMember = (model: Model, actor: ActorRef, member: LaneMember, given: Rules) =>
-  lanesOf(model, actor, member).reduce((m, lane) => {
+  lanesOf(model, actor, member).reduce<Model>((m, lane) => {
     const { row, column, guard } = memberCell(m, lane, member);
     const cell = given.tableB[row][column][guard];
 
@@ -358,7 +343,6 @@ const decline = (model: Model, operation: string, actor: ActorRef, reason: strin
       actor,
       channel: "failure" as const,
       reason,
-      incarnation: model.actors.find((a) => sameActor(a.actor, actor))?.incarnation ?? 0,
       inDisposal: model.mode === "disposing",
       life: Life.Owed(),
     },

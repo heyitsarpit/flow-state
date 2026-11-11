@@ -27,14 +27,9 @@ const appliedOf = (model: Model, refusals: ReadonlyArray<Refusal> = []): Folded 
 ];
 
 const recorded = (model: Model, actor: ActorRef, record: ActorRecord) => {
-  const known = model.actors.find((a) => sameActor(a.actor, actor));
-
   return {
     ...model,
-    actors: [
-      ...model.actors.filter((a) => !sameActor(a.actor, actor)),
-      { actor, record, incarnation: known?.incarnation ?? 0 },
-    ],
+    actors: [...model.actors.filter((a) => !sameActor(a.actor, actor)), { actor, record }],
   };
 };
 

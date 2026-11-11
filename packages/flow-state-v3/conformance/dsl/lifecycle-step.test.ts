@@ -276,11 +276,7 @@ const examples: ReadonlyArray<Example> = [
       const ensured = Fact.Ensured({ actor: shopper, use: "host" });
 
       assert.equal(after(empty, [incarnated]).actors.length, 0);
-      assert.equal(after(empty, [ensured, incarnated]).actors[0]?.incarnation, 1);
-      assert.equal(
-        after(empty, [Fact.Reloaded(), incarnated, incarnated]).actors[0]?.incarnation,
-        1,
-      );
+      assert.equal(after(empty, [ensured, incarnated]).actors[0]?.record, "bound");
     },
   },
 
@@ -298,7 +294,7 @@ const examples: ReadonlyArray<Example> = [
         said(Observation.Incarnated({ actor: shopper })),
       ]);
 
-      assert.deepStrictEqual(adopted.actors, [{ actor: shopper, record: "bound", incarnation: 2 }]);
+      assert.deepStrictEqual(adopted.actors, [{ actor: shopper, record: "bound" }]);
     },
   },
   {

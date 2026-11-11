@@ -28,7 +28,6 @@ const ownEnding = {
   ...endingOfS,
   channel: "unknown" as const,
   reason: "Interrupted",
-  incarnation: 1,
   inDisposal: false,
 };
 
