@@ -1,3 +1,4 @@
+import { productionMutants } from "./adapters/production.mutants.ts";
 import { disposalMutants } from "./actors/disposal.mutants.ts";
 import { actorsRemainders } from "./actors/remainders.ts";
 import { disposal } from "./actors/disposal.ts";
@@ -12,7 +13,7 @@ import {
 import { type CaseChecks, coveredBy, type Remainder } from "./coverage.ts";
 import type { Scenario } from "./dsl/case.ts";
 import type { StaticCase } from "./dsl/static-case.ts";
-import type { Guarantee, Probe } from "./dsl/oracle.ts";
+import type { Guarantee, Mutant, Probe } from "./dsl/oracle.ts";
 import { cliMutants } from "./static-cli/cli.mutants.ts";
 import {
   cliCases,
@@ -77,7 +78,7 @@ import {
 /**
  * Every guarantee the suite runs: each oracle with the mutants it must catch.
  */
-export const guarantees: ReadonlyArray<Guarantee> = [
+const pinned: ReadonlyArray<Guarantee> = [
   { oracle: endingChannels, mutants: endingChannelsMutants },
   { oracle: attemptIdentity, mutants: attemptIdentityMutants },
   {
@@ -96,6 +97,19 @@ export const guarantees: ReadonlyArray<Guarantee> = [
   { oracle: refusal, mutants: refusalMutants },
   { oracle: schedules, mutants: schedulesMutants },
 ];
+
+/**
+ * Every guarantee the suite runs: each oracle with the mutants it must catch, the production
+ * runtime's among them (`adapters/production.mutants.ts`).
+ */
+const production: ReadonlyMap<string, ReadonlyArray<Mutant>> = new Map(
+  Object.entries(productionMutants),
+);
+
+export const guarantees: ReadonlyArray<Guarantee> = pinned.map((g) => ({
+  oracle: g.oracle,
+  mutants: [...g.mutants, ...(production.get(g.oracle.name) ?? [])],
+}));
 
 /**
  * Every probe falsify runs beside the mutants ({@link Probe}).

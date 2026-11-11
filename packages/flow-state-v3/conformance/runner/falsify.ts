@@ -65,6 +65,32 @@ const copyRuntime = (runtimeDir: string, scratch: string) =>
     ({ root }) => Effect.sync(() => rmSync(root, { recursive: true, force: true })),
   );
 
+/**
+ * A copy of the whole package (`src/` and `conformance/`, source files only) in `scratch`, for a
+ * production mutant: the copied runner boots the copied adapter over the copied runtime.
+ */
+const copyPackage = (packageDir: string, scratch: string) =>
+  Effect.acquireRelease(
+    Effect.try({
+      try: () => {
+        const root = mkdtempSync(join(scratch, "flow-mutant-"));
+        const copy = join(root, "package");
+
+        for (const part of ["src", "conformance"])
+          cpSync(join(packageDir, part), join(copy, part), {
+            recursive: true,
+            filter: (f) => basename(f) !== "node_modules" && !NOT_CODE.test(f),
+          });
+
+        symlinkSync(resolve(packageDir, "..", "..", "node_modules"), join(root, "node_modules"));
+
+        return { root, copy };
+      },
+      catch: (cause) => new NoVerdicts({ why: `could not copy the package: ${String(cause)}` }),
+    }),
+    ({ root }) => Effect.sync(() => rmSync(root, { recursive: true, force: true })),
+  );
+
 const applyEdit = (runtime: string, edit: Mutant["edits"][number]) =>
   Effect.try({
     try: () => {
@@ -215,6 +241,33 @@ export const falsifyOne = (
       yield* applyEdits(copy.runtime, mutant);
 
       return judge(mutant, oracle, yield* suiteIn(main, copy.runtime, mutant.cases, 120));
+    }),
+  ).pipe(
+    Effect.catchTags({
+      Unapplied: (e: Unapplied) =>
+        Effect.succeed(MutantVerdict.NotApplied({ mutant: mutant.name, why: e.why })),
+      NoVerdicts: (e: NoVerdicts) =>
+        Effect.succeed(MutantVerdict.NoVerdict({ mutant: mutant.name, why: e.why })),
+    }),
+  );
+
+/**
+ * Applies one production mutant to a fresh copy of the package and runs its cases there on the
+ * copy's own runner, adapter and runtime; judged as {@link falsifyOne} judges.
+ */
+export const falsifyProduction = (
+  packageDir: string,
+  scratch: string,
+  oracle: string,
+  mutant: Mutant,
+) =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const { copy } = yield* copyPackage(packageDir, scratch);
+      yield* applyEdits(copy, mutant);
+      const main = join(copy, "conformance", "runner", "main.ts");
+
+      return judge(mutant, oracle, yield* suiteIn(main, "production", mutant.cases, 120));
     }),
   ).pipe(
     Effect.catchTags({

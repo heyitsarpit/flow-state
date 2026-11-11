@@ -26,6 +26,7 @@ import {
 import {
   CASE_EXPECTATIONS,
   falsifyOne,
+  falsifyProduction,
   MutantVerdict,
   probeOne,
   ProbeVerdict,
@@ -246,6 +247,73 @@ const coverage = () =>
     if (!ok) process.exitCode = 1;
   });
 
+const PACKAGE = resolve(dirname(MAIN), "..", "..");
+
+/**
+ * Falsify on the production runtime (T16): each production mutant on its own copy of the package,
+ * after the control run of their cases on the unedited runtime.
+ */
+const falsifyProductionRuntime = (args: ReadonlyArray<string>) =>
+  Effect.gen(function* () {
+    const scratch = resolve(Option.getOrElse(flag(args, "--scratch"), () => tmpdir()));
+    const only = list(flag(args, "--mutant"));
+
+    const chosen = guarantees.flatMap((g) =>
+      g.mutants
+        .filter((m) => m.runtime === PRODUCTION_RUNTIME)
+        .filter((m) =>
+          Option.match(only, { onNone: () => true, onSome: (names) => names.includes(m.name) }),
+        )
+        .map((mutant) => ({ oracle: g.oracle.name, mutant })),
+    );
+
+    const bare = guarantees
+      .filter((g) => !g.mutants.some((m) => m.runtime === PRODUCTION_RUNTIME))
+      .map((g) => g.oracle.name);
+
+    yield* Console.log(`note no production mutant yet for: ${bare.join(" ")}`);
+
+    const control = yield* suiteIn(
+      MAIN,
+      PRODUCTION_RUNTIME,
+      [...new Set(chosen.flatMap((c) => c.mutant.cases))],
+      120,
+    ).pipe(
+      Effect.map((v) => v.length > 0 && v.every((x) => x._tag === "Pass")),
+      Effect.catchTag("NoVerdicts", () => Effect.succeed(false)),
+    );
+
+    yield* Console.log(
+      `${control ? "ok  " : "BAD "} control: the mutants' cases pass on the unedited runtime`,
+    );
+
+    const verdicts = yield* Effect.forEach(
+      chosen,
+      ({ oracle, mutant }) => falsifyProduction(PACKAGE, scratch, oracle, mutant),
+      { concurrency: parallelOf(args) },
+    );
+
+    for (const v of verdicts)
+      yield* Console.log(
+        MutantVerdict.$match(v, {
+          Caught: ({ mutant, why }) => `ok   ${mutant}  caught: ${why}`,
+          WrongReason: ({ mutant, why }) => `BAD  ${mutant}  red by another check: ${why}`,
+          Survived: ({ mutant }) => `BAD  ${mutant}  survived`,
+          NotApplied: ({ mutant, why }) => `BAD  ${mutant}  does not apply: ${why}`,
+          NoVerdict: ({ mutant, why }) => `BAD  ${mutant}  no verdict: ${why}`,
+        }),
+      );
+
+    const caught = verdicts.filter(MutantVerdict.$is("Caught")).length;
+    const ok = control && caught === verdicts.length && verdicts.length > 0;
+
+    yield* Console.log(
+      `VERDICT ${ok ? "pass" : "fail"} ${caught}/${verdicts.length} mutants caught`,
+    );
+
+    if (!ok) process.exitCode = 1;
+  });
+
 const falsify = (args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
     const runtime = resolve(Option.getOrElse(flag(args, "--runtime"), () => DEFAULT_RUNTIME));
@@ -385,7 +453,10 @@ const main = (args: ReadonlyArray<string>) => {
 
   if (mode === "suite") return suite(rest);
 
-  if (mode === "falsify") return falsify(rest);
+  if (mode === "falsify")
+    return Option.getOrUndefined(flag(rest, "--runtime")) === PRODUCTION_RUNTIME
+      ? falsifyProductionRuntime(rest)
+      : falsify(rest);
 
   if (mode === "coverage") return coverage();
 
