@@ -481,6 +481,13 @@ tasks
             landed. The model now logs disposal endings as unsaved, and a kill closes every ending no landed capture 
             holds (review sidecar's ghost-ending finding, accepted). Counts toward acceptance 2; the I36 wording is the 
             user's read. Gates unchanged (147/147, crash 640/670). Reverse: restore the disposal check in `unsaved`.
+        comment     2026-11-11T16:55:42Z
+            Step 3 design drafted, for review before any code: 
+            code:workflow/plans/flow/references/proposals/t45-expect-half-2026-11-11.md. Four Haiku sidecars attacked 
+            v1 (Spec, feasibility, second runtime, completeness). Accepted: restores owed, not 'or nothing' (I17, 
+            Restore R3, I6); no timeout reason; labels at the suite's driver and server instead of model codecs or 
+            payload reads; per-lane compare; report kinds outside the lifecycle stay with their oracles. Five items 
+            flagged for others to decide (memory guards, RuntimeDisposed, Finished, acknowledged set, capture position).
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open
