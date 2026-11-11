@@ -149,7 +149,7 @@ description
     No budget of iterations, time or usage, for the Epic, a phase or a Task (the user, 2026-11-10):
     the reviews and each phase's exit criteria judge progress. Failure limit (the default for each
     phase): 2 failures with the same root cause after convergence. Usage reserve: the run stops at
-    50 percent weekly usage, all models (the user, 2026-11-10; was none). Usage limits and reserves
+    75 percent weekly usage, all models (the user, 2026-11-11; was 50). Usage limits and reserves
     always mean the weekly window, never the 5-hour one. The user changes the reserve as planned
     work changes: a new value is an edit here and a note, with no confirmation round.
 
@@ -280,6 +280,11 @@ instructions
       adversarially audited (its own auditor, its own mutants) before its production module starts,
       so the suite never learns from production; when production and a case disagree, the Spec
       decides and the fix cites its rule; a case is never edited just to pass.
+    - Effect prior art (the user, 2026-11-11): each production module's Spec skeleton (skill:to-design)
+      lists the Effect features that cover its needs and why each is used or skipped; a reviewer checks
+      it. One of every review's two code-quality sidecars asks what the change re-creates of Effect.
+      Lint bans `setTimeout`, `clearTimeout`, `Date.now`, `performance.now` and `Math.random` in `src/`
+      outside the real host's adapter.
     - A coverage row leaves P3 for a later phase only with evidence: the round-14 and old-suite code
       searched, and why it cannot show the Invariant; the next review checks each claim (the
       orchestrator, 2026-11-11, after three wrong moves).

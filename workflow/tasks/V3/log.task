@@ -704,3 +704,5 @@ note 2026-11-11T09:55:30Z
     Decisions (user, 2026-11-11, "all accepted"): T16's provisional public names are accepted; the Effect recommendations R1 to R8 are applied in new @task.V3.T43 before T17; Restore R1 stands and DISP-05 changes to keep a Held lane's identity a record until reached. **Reverse:** rename, skip T43, or reword Restore R1.
 note 2026-11-11T09:56:34Z
     Review started on T16's production code and T7 rows round 2; weekly usage 44 percent, reserve 50.
+note 2026-11-11T09:57:26Z
+    Amendment (the user, 2026-11-11): usage reserve raised to 75 percent weekly; AGENTS.md gains the idiomatic-Effect rule; the Epic adds Effect prior art in each module's design, a standing Effect review angle and lint bans on host time and randomness in src/ (built in T43). **Reverse:** reserve 50; drop the lines.
