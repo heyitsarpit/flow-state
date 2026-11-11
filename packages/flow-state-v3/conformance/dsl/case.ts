@@ -143,6 +143,7 @@ export type CaseOptions = {
   readonly graphs: ReadonlyArray<Graphed>;
   readonly overdue: () => boolean;
   readonly crashAt: Option.Option<number>;
+  readonly replay: Option.Option<ReadonlyArray<ReadonlyArray<Observation>>>;
 };
 
 /**
@@ -193,6 +194,7 @@ const stepEngine = (
   record: (fact: Fact) => void,
   pending: () => boolean,
   unread: () => Option.Option<Unreadable>,
+  replaceReports: (from: number, reports: ReadonlyArray<Observation>) => void,
 ) => {
   const { network } = world.hosts;
   const reference = referenceFor(options.fixtures);
@@ -257,12 +259,20 @@ const stepEngine = (
   const act = (what: string, run: () => void, crash: () => void = () => undefined) => {
     stepped += 1;
     record(Fact.Stepped({ step: stepped, what }));
+    const from = facts.length;
     run();
     // FLOW_STATE_ALLOW_UNKNOWN: settling throws a world failure (Unsettled, Overdue); it is rethrown unread.
     const settled = Result.try({ try: () => world.settle(pending), catch: (e: unknown) => e });
     stopIfUnread(what);
 
     if (Result.isFailure(settled)) throw settled.failure;
+
+    // The liar gate (advisor Q1): the runtime under test acts, and a correct runtime's reports
+    // for this step replace its own.
+    Option.match(options.replay, {
+      onNone: () => undefined,
+      onSome: (steps) => replaceReports(from, steps[stepped - 1] ?? []),
+    });
     noteRequests();
     judge(what);
 
@@ -280,13 +290,32 @@ const isRecord = Schema.is(Schema.Record(Schema.String, Schema.Json));
 const fieldOf = (input: Json, name: string) =>
   isRecord(input) ? Option.fromUndefinedOr(input[name]) : Option.none();
 
-const openCase = (options: CaseOptions) => {
+/**
+ * Opens one case over a fresh world: its driven `Case`, its end and its timeline (for the players
+ * in `play.ts`).
+ */
+export const openCase = (options: CaseOptions) => {
   const world = makeWorld(options.seed, options.overdue);
   const { network, storage, page } = world.hosts;
   const facts: Array<Fact> = [];
   const record = (fact: Fact) => void facts.push(fact);
   const life = runtimeLife(options, world, record);
-  const engine = stepEngine(options, world, facts, record, life.pending, life.unread);
+
+  const replaceReports = (from: number, reports: ReadonlyArray<Observation>) => {
+    const kept = facts.splice(from).filter((f) => !Fact.$is("Reported")(f));
+    facts.push(...kept, ...reports.map((observation) => Fact.Reported({ observation })));
+  };
+
+  const engine = stepEngine(
+    options,
+    world,
+    facts,
+    record,
+    life.pending,
+    life.unread,
+    replaceReports,
+  );
+
   const { judge } = engine;
 
   // The crash generator's kill: a reload after the step, settled and judged as a step of its own.
@@ -500,7 +529,7 @@ const openCase = (options: CaseOptions) => {
     reload("end of case: reload", writers);
   };
 
-  return { driven, end, stopCrashing: engine.stopCrashing };
+  return { driven, end, stopCrashing: engine.stopCrashing, facts: () => facts };
 };
 
 /**
@@ -562,26 +591,4 @@ export const playCase = (options: CaseOptions, run: Scenario["run"]) => {
   opened.end();
 
   return opened.driven.reports();
-};
-
-/**
- * Plays a case under the crash generator (Conformance's crash search): the page is killed and
- * reloaded after step `options.crashAt`, then the case ends with its judged disposal. Returns
- * whether the crash point was reached; a case shorter than it plays whole and returns false.
- *
- * **Gotchas**
- *
- * - Throws as `playCase` does; after the crash only the oracles and the end of case judge.
- */
-export const playCrash = (options: CaseOptions, run: Scenario["run"]) => {
-  const opened = openCase(options);
-  // FLOW_STATE_ALLOW_UNKNOWN: a case throws its verdicts; only the crash generator's stop is caught here.
-  const played = Result.try({ try: () => run(opened.driven), catch: (e: unknown) => e });
-  const crashed = Result.isFailure(played) && played.failure instanceof Crashed;
-
-  if (Result.isFailure(played) && !crashed) throw played.failure;
-  opened.stopCrashing();
-  opened.end();
-
-  return crashed;
 };

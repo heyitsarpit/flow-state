@@ -1,5 +1,6 @@
 import { Clock, Effect, Option, Result } from "effect";
-import { playCase, playCrash, type Scenario } from "../dsl/case.ts";
+import { playCase, type Scenario } from "../dsl/case.ts";
+import { playCrash, playRecorded } from "../dsl/play.ts";
 import { citedBy, type Graphed, Mismatch, type Oracle, Violated } from "../dsl/oracle.ts";
 import { playStatic, type StaticCase } from "../dsl/static-case.ts";
 import { type Observation, type Port, Unreadable } from "../port.ts";
@@ -78,6 +79,7 @@ const runSeed = (
           graphs,
           overdue,
           crashAt: Option.none(),
+          replay: Option.none(),
         },
         scenario.run,
       ),
@@ -238,6 +240,7 @@ export const crashCase = (
               graphs,
               overdue,
               crashAt: Option.some(at),
+              replay: Option.none(),
             },
             scenario.run,
           ),
@@ -252,3 +255,55 @@ export const crashCase = (
 
     return { id: scenario.id, points, red };
   });
+
+/**
+ * One case under the liar gate (advisor Q1): per seed, the reference runtime plays it and its
+ * reports are recorded by step; the runtime under test then plays it with those reports in place
+ * of its own. A mutant still red here was caught by what the suite saw, not by what it said.
+ */
+export const runCaseLiar = (
+  reference: Port,
+  port: Port,
+  scenario: Scenario,
+  oracles: ReadonlyArray<Oracle>,
+  graphs: ReadonlyArray<Graphed>,
+) =>
+  Effect.flatMap(deadline, (overdue) =>
+    Effect.forEach(
+      SEEDS,
+      (seed) => {
+        const options = {
+          fixtures: scenario.fixtures,
+          oracles,
+          seed,
+          graphs,
+          overdue,
+          crashAt: Option.none(),
+        };
+
+        return Effect.try({
+          try: () => {
+            const steps = playRecorded(
+              { ...options, port: reference, replay: Option.none() },
+              scenario.run,
+            );
+
+            return playCase({ ...options, port, replay: Option.some(steps) }, scenario.run);
+          },
+          catch: (failure) => verdictOf(scenario.id, seed, failure),
+        }).pipe(
+          Effect.match({
+            onSuccess: () => Option.none<CaseVerdict>(),
+            onFailure: (verdict) => Option.some<CaseVerdict>(verdict),
+          }),
+        );
+      },
+      { concurrency: 1 },
+    ),
+  ).pipe(
+    Effect.map(
+      (runs) =>
+        Option.getOrUndefined(Option.firstSomeOf(runs)) ??
+        ({ _tag: "Pass", id: scenario.id } satisfies CaseVerdict),
+    ),
+  );

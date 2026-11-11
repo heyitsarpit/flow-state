@@ -112,6 +112,22 @@ export const guarantees: ReadonlyArray<Guarantee> = pinned.map((g) => ({
 }));
 
 /**
+ * Mutants that lie about reports only, with the runtime acting correctly: the liar gate leaves
+ * them out, since a correct runtime's reports make them correct.
+ */
+export const reportOnly: ReadonlySet<string> = new Set([
+  ...reportLieMutants.map((m) => m.name),
+  ...Object.values(productionMutants)
+    .flat()
+    .filter((m) => m.edits.every((e) => e.file.startsWith("conformance/adapters/")))
+    .map((m) => m.name),
+  // These two change only what the runtime reports: a published memory's identity, an extra
+  // turn report. Report truth is a separate property the liar gate does not judge.
+  "prod.state-move-copies-memory",
+  "prod.refused-turn-reported",
+]);
+
+/**
  * Every probe falsify runs beside the mutants ({@link Probe}).
  */
 export const probes: ReadonlyArray<Probe> = [...laneQueueProbes, ...carriedRecordProbes];

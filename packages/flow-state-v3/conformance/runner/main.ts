@@ -2,27 +2,34 @@
 import { Console, Effect, Option, Schema } from "effect";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { nullPort } from "../adapters/null.ts";
-import { nullSurface } from "../adapters/null-static.ts";
-import { loadPrototypeSurface } from "../adapters/prototype-static.ts";
-import { productionPort } from "../adapters/production.ts";
-import { loadPrototype, prototypePort } from "../adapters/prototype.ts";
 import { coverageOf, Gap, Standing } from "../coverage.ts";
-import type { Scenario } from "../dsl/case.ts";
 import { notYet } from "../not-yet.ts";
-import { graphedOf } from "../static-cli/graph.ts";
-import type { Surface } from "../surface.ts";
 import {
   caseChecks,
   caseIds,
   guarantees,
-  oracles,
   probes,
   remainders,
   scenarios,
   staticCases,
 } from "../suite.ts";
+import {
+  DEFAULT_RUNTIME,
+  failed,
+  flag,
+  graphsFor,
+  lineOf,
+  list,
+  MAIN,
+  NULL_RUNTIME,
+  PACKAGE,
+  parallelOf,
+  playChosen,
+  PRODUCTION_RUNTIME,
+  REPOSITORY,
+  runtimeOf,
+  runtimeSurface,
+} from "./args.ts";
 import {
   CASE_EXPECTATIONS,
   falsifyOne,
@@ -33,75 +40,12 @@ import {
 } from "./falsify.ts";
 import { falsifyOnProduction } from "./falsify-production.ts";
 import { productionCases, writeGates } from "./gates.ts";
-import { runCoreMutants } from "./mutate.ts";
 import { writeMatrix } from "./matrix.ts";
-import { crashCase, runCases, runStatics } from "./run.ts";
+import { crash, liar } from "./modes.ts";
+import { runCoreMutants } from "./mutate.ts";
+import { runStatics } from "./run.ts";
 import { coreInvariants, openTasks } from "./specs.ts";
 import { type CaseVerdict, VERDICTS_LINE, VerdictsJson } from "./verdict.ts";
-
-const MAIN = fileURLToPath(import.meta.url);
-const NULL_RUNTIME = "null";
-const PRODUCTION_RUNTIME = "production";
-const DEFAULT_RUNTIME = resolve(dirname(MAIN), "..", "..", "prototypes", "round-14");
-const REPOSITORY = resolve(dirname(MAIN), "..", "..", "..", "..");
-
-const flag = (args: ReadonlyArray<string>, name: string) => {
-  const at = args.indexOf(name);
-
-  return at < 0 ? Option.none<string>() : Option.fromUndefinedOr(args[at + 1]);
-};
-
-const runtimeOf = (args: ReadonlyArray<string>) => {
-  const given = Option.getOrElse(flag(args, "--runtime"), () => DEFAULT_RUNTIME);
-
-  return given === NULL_RUNTIME || given === PRODUCTION_RUNTIME ? given : resolve(given);
-};
-
-const runtimePort = (runtime: string) => {
-  if (runtime === NULL_RUNTIME) return Effect.succeed(nullPort);
-
-  if (runtime === PRODUCTION_RUNTIME) return Effect.succeed(productionPort);
-
-  return Effect.map(loadPrototype(runtime), prototypePort);
-};
-
-// The production runtime has no static surface yet (T17 builds the compiler's and the CLI's): its
-// cases run with no `flow graph`, so the graph gate does not judge its turns.
-const runtimeSurface = (runtime: string) =>
-  runtime === NULL_RUNTIME || runtime === PRODUCTION_RUNTIME
-    ? Effect.succeed(nullSurface)
-    : loadPrototypeSurface(runtime);
-
-const graphsFor = (surface: Surface, chosen: ReadonlyArray<Scenario>) => {
-  const names = new Set(chosen.flatMap((s) => s.fixtures.map((f) => f.name)));
-  const graphs = new Map([...names].map((name) => [name, graphedOf(surface, name)]));
-
-  return (scenario: Scenario) =>
-    scenario.fixtures.flatMap((f) => Option.toArray(graphs.get(f.name) ?? Option.none()));
-};
-
-const list = (value: Option.Option<string>) =>
-  Option.match(value, {
-    onNone: () => Option.none<ReadonlyArray<string>>(),
-    onSome: (v) => Option.some(v.split(",").filter((x) => x !== "")),
-  });
-
-const parallelOf = (args: ReadonlyArray<string>) =>
-  Math.min(8, Math.max(1, Number(Option.getOrElse(flag(args, "--parallel"), () => "1")) || 1));
-
-const caughtBy = (oracles: ReadonlyArray<string>) =>
-  oracles.length > 0 ? oracles.join(",") : "case";
-
-const lineOf = (v: CaseVerdict) => {
-  if (v._tag === "Pass") return `pass ${v.id}`;
-
-  if (v._tag === "Timeout") return `TIME ${v.id}  seed ${v.seed}: past its ${v.seconds} s bound`;
-
-  return `FAIL ${v.id}  ${caughtBy(v.oracles)}: ${v.why}`;
-};
-
-const failed = (id: string, why: string) =>
-  ({ _tag: "Fail", id, oracles: [], why }) satisfies CaseVerdict;
 
 const report = (verdicts: ReadonlyArray<CaseVerdict>, json: boolean) =>
   Effect.gen(function* () {
@@ -167,7 +111,7 @@ const suite = (args: ReadonlyArray<string>) =>
     const runtimeVerdicts =
       chosen.length === 0
         ? []
-        : yield* runCases(yield* runtimePort(runtime), chosen, oracles, graphsFor(surface, chosen));
+        : yield* playChosen(args, runtime, chosen, graphsFor(surface, chosen));
 
     const staticVerdicts =
       chosenStatic.length === 0 ? [] : yield* runStatics(surface, chosenStatic);
@@ -248,40 +192,6 @@ const coverage = () =>
     const ok = yield* covered(true);
 
     if (!ok) process.exitCode = 1;
-  });
-
-const PACKAGE = resolve(dirname(MAIN), "..", "..");
-
-/**
- * The crash generator (advisor Q5): every case, killed and reloaded after each of its steps, judged
- * by the oracles and the end of case. Red points are listed; `--json` is not supported.
- */
-const crash = (args: ReadonlyArray<string>) =>
-  Effect.gen(function* () {
-    const runtime = runtimeOf(args);
-    const only = list(flag(args, "--only"));
-
-    const chosen = scenarios.filter((s) =>
-      Option.match(only, { onNone: () => true, onSome: (ids) => ids.includes(s.id) }),
-    );
-
-    const port = yield* runtimePort(runtime);
-    const surface = yield* runtimeSurface(runtime);
-    const graphs = graphsFor(surface, chosen);
-
-    const runs = yield* Effect.forEach(chosen, (s) => crashCase(port, s, oracles, graphs(s)), {
-      concurrency: 1,
-    });
-
-    const points = runs.reduce((n, r) => n + r.points, 0);
-    const red = runs.flatMap((r) => r.red);
-
-    for (const v of red) yield* Console.log(lineOf(v));
-    yield* Console.log(
-      `VERDICT ${red.length === 0 ? "pass" : "fail"} ${points - red.length}/${points} crash points`,
-    );
-
-    if (red.length > 0) process.exitCode = 1;
   });
 
 const falsifyProductionRuntime = (args: ReadonlyArray<string>) =>
@@ -462,6 +372,8 @@ const main = (args: ReadonlyArray<string>) => {
   if (mode === "coverage") return coverage();
 
   if (mode === "crash") return crash(rest);
+
+  if (mode === "liar") return liar(rest);
 
   if (mode === "mutate")
     return runCoreMutants({

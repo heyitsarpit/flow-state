@@ -203,10 +203,11 @@ export const suiteIn = (
   runtime: string,
   cases: ReadonlyArray<string>,
   seconds: number,
+  extra: ReadonlyArray<string> = [],
 ) =>
   runChild(
     "bun",
-    [main, "suite", "--runtime", runtime, "--only", cases.join(","), "--json"],
+    [main, "suite", "--runtime", runtime, "--only", cases.join(","), "--json", ...extra],
     seconds,
   ).pipe(
     Effect.mapError((e: ChildFailed) => new NoVerdicts({ why: e.why })),
@@ -349,5 +350,63 @@ export const probeOne = (main: string, runtimeDir: string, scratch: string, prob
         Effect.succeed(ProbeVerdict.Broken({ probe: probe.name, why: `does not apply: ${e.why}` })),
       NoVerdicts: (e: NoVerdicts) =>
         Effect.succeed(ProbeVerdict.Broken({ probe: probe.name, why: `no verdict: ${e.why}` })),
+    }),
+  );
+
+const redLine = (v: CaseVerdict) => {
+  if (v._tag === "Fail") return [`${v.id}: ${v.why}`];
+
+  return v._tag === "Timeout" ? [`${v.id}: timed out`] : [];
+};
+
+/**
+ * One mutant under the liar gate (advisor Q1): applied to a fresh copy (of the prototype runtime,
+ * or of the whole package for `production`), its cases run there with the unedited runtime's
+ * reports in place of the mutant's. `red` says whether any case still failed.
+ */
+export const liarOne = (options: {
+  readonly main: string;
+  readonly runtimeDir: string;
+  readonly packageDir: string;
+  readonly production: boolean;
+  readonly scratch: string;
+  readonly mutant: Mutant;
+}) =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const { mutant } = options;
+
+      if (options.production) {
+        const { copy } = yield* copyPackage(options.packageDir, options.scratch);
+        yield* applyEdits(copy, mutant);
+
+        return yield* suiteIn(
+          join(copy, "conformance", "runner", "main.ts"),
+          "production",
+          mutant.cases,
+          120,
+          ["--liar-reference", `production:${options.packageDir}`],
+        );
+      }
+
+      const copy = yield* copyRuntime(options.runtimeDir, options.scratch);
+      yield* applyEdits(copy.runtime, mutant);
+
+      return yield* suiteIn(options.main, copy.runtime, mutant.cases, 120, [
+        "--liar-reference",
+        options.runtimeDir,
+      ]);
+    }),
+  ).pipe(
+    Effect.map((verdicts) => {
+      const red = verdicts.flatMap(redLine);
+
+      return { mutant: options.mutant.name, red: red.length > 0, why: red[0] ?? "" };
+    }),
+    Effect.catchTags({
+      Unapplied: (e: Unapplied) =>
+        Effect.succeed({ mutant: options.mutant.name, red: false, why: `not applied: ${e.why}` }),
+      NoVerdicts: (e: NoVerdicts) =>
+        Effect.succeed({ mutant: options.mutant.name, red: false, why: `no verdict: ${e.why}` }),
     }),
   );
