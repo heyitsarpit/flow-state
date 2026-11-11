@@ -1,4 +1,4 @@
-checked Actors I10  disposal: life.ends-while-used
+checked Actors I10  disposal: life.grace-short, life.ends-while-used
 checked Actors I14  disposal: lie.no-incarnated
 checked Actors I24  delivered-once: mutant.kept-retried-without-boot
 checked Actors I29  disposal: id.dispose-drops-lanes, mutant.boot-after-disposal-skips-restored

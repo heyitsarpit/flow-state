@@ -701,6 +701,33 @@ tasks
             acceptance item 4 (T10/T19 persistence rows versus generated runs); GEN-pay-seeded-281 (production also 
             reports no incarnation at an end-of-case ensure). Sweeps must pass --runtime prototypes/round-14 now that 
             the default is production.
+        comment     2026-11-11T23:24:37Z
+            Coordinator 36e55d53 done: the 9 older liar greens are report truth, each with why, owned by T47's fixtures 
+            on production (7ddc09c7); liar round-14 126/126 now. Stated limits are limits.ts rows with mutants run by 
+            the limits gate (7/7: 3 round-14 rows, 4 stated). The report-keys limit is reached after a kill loses an 
+            actor's only write (GEN-pay-seeded-3074); limit.from-lies was dropped, no case reaches an unknown leaf with 
+            nothing to check.
+        comment     2026-11-11T23:24:44Z
+            Review 6e0d1fcc folded in. B1 (e8830819): an end owes a write only for a record surely dirty (a changing 
+            turn, no write since); a clock-only write is an early end only when no capture was due and no live actor 
+            could end; ACT-02 and seeds 3001 on use a 5 s capture, so life.never-ends is killed from facts. B2 
+            (51fe5cee): the data-flow test compares the whole expect state up to a refusal, with a planted leak; it 
+            found and closed two leaks (answered success reason, cancel-lane replacement channel). Should-fixes in 
+            4602671c (ACT-03 and life.grace-short, schedules from one point, narrower key-less re-owning).
+        comment     2026-11-11T23:24:50Z
+            Production finding, needs a decision: production does not write a dirty record at an actor's end; it waits 
+            for the capture (ACT-02 and ACT-03 red on production; round-14 writes at the end). Under the decision on B1 
+            that is a production bug (T51?) or the decision needs revising; I did not loosen the model.
+        comment     2026-11-11T23:25:01Z
+            Acceptance check. 1 met: generated runs kill 40 of 41 area mutants, hand 40 (kills, 4602671c). 2 met: 
+            round-14 limits rows (I14, I15, I38) found by the search. 3 met (56ef0856). 4 met: T10's persistence-row 
+            mutants (still-unknown-dropped, boot-skips-restored, restore-skips-unsent) killed by generated runs. 5 met: 
+            boundary.test.ts and dataflow.test.ts (whole state). 6 met: limits gate 7/7 with planted rows in 
+            limits.test.ts. 7 partly: one runner with --parallel, planted slow child (child.test.ts), s13 reproduced in 
+            LANE-06; the other 8 old search kills belong to the Reads and Sessions areas (like, fragstore, session, 
+            repairing), which have no fixtures or oracles here. 8 partly: sweeps, gates.json and limits.ts exist and 
+            the perturbations are gone; Table A's refusing cells and the claimed rows remain, and not-yet.ts still has 
+            prose round-14 reasons. 9: no lost catch (0d1c5e87); the other three checks not rerun.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open
