@@ -475,6 +475,12 @@ tasks
             rows, NO_POLICY declines, `Finished`, `RuntimeDisposed`). Next: one from-scratch design of `expect` 
             (anchored leaf, keys from `Requested`, outcomes from `Answered` via `classify`, Pay's guards as suite 
             folds, allowed sets where a Spec leaves a choice), reviewed, then built behind the sweep baseline.
+        comment     2026-11-11T16:44:33Z
+            Spec conflict found and settled (the orchestrator, b51930e5, `log.task`): a kill in the Runtime's disposal 
+            before the ending's batch lands restores `unknown { Restored }` (WriteAhead I17); Actors I36 holds once it 
+            landed. The model now logs disposal endings as unsaved, and a kill closes every ending no landed capture 
+            holds (review sidecar's ghost-ending finding, accepted). Counts toward acceptance 2; the I36 wording is the 
+            user's read. Gates unchanged (147/147, crash 640/670). Reverse: restore the disposal check in `unsaved`.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open

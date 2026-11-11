@@ -216,8 +216,8 @@ export type Capture = { readonly lives: ReadonlyArray<Life>; readonly ended: num
  * - `acknowledged`: the Attempts whose acknowledging batch the store landed (that it landed is
  *   the store's fact; which Attempts a batch acknowledges is the runtime's claim).
  * - `ended`: every Attempt that ended, or left its lane as evidence (Released, Superseded),
- *   outside the Runtime's disposal, in order. An ending in the disposal is parked and owed to the
- *   next incarnation however its batch lands (Actors R22, I36, I38), so it is never listed.
+ *   in order, the Runtime's disposal included: a kill before an ending's batch lands restores its
+ *   head (WriteAhead I17); Actors I36 holds once the ending has landed (orchestrator, b51930e5).
  * - `saved`: the {@link Capture} the store holds: the latest landed batch's, or the boot's. A kill
  *   rolls the model back to it (WriteAhead I10: the readable scope is the latest landed capture).
  *   `pending`: the capture of the latest batch the store holds unanswered, which an `ack` lands.

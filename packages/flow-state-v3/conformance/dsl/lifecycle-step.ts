@@ -63,7 +63,7 @@ const pushed = (walk: Walk, move: Input, given: Rules) => {
 };
 
 const unsaved = (walk: Walk, attempt: string) =>
-  walk.model.mode === "disposing" || (walk.applied.at(-1)?.refusals.length ?? 0) > 0
+  (walk.applied.at(-1)?.refusals.length ?? 0) > 0
     ? walk
     : { ...walk, model: { ...walk.model, ended: [...walk.model.ended, attempt] } };
 
@@ -284,7 +284,8 @@ const mapped = (walk: Walk, known: Known, ref: EndingRef) =>
  * (WriteAhead R10, I10, I17). It restores as a never-sent head does, allowed and not owed: the
  * boot may restore it unknown { Restored } once, or not at all. Each ending takes back its life
  * at the last landing or boot (the model's `saved`), unless its Attempt is a Held head, whose
- * restore the boot owes instead (Restore I6). A head whose acknowledgement never landed was never
+ * restore the boot owes instead (Restore I6); an ending decided since is not on disk, so it
+ * closes, and the restore alone may follow. A head whose acknowledgement never landed was never
  * on disk as a head (WriteAhead R10): after the reload it does not hold its lane (`unlanded`).
  */
 const rolledBack = (model: Model) => {
@@ -307,7 +308,7 @@ const rolledEnding = (model: Model, e: Ending, index: number) => {
   );
 
   return Option.match(Option.fromUndefinedOr(model.saved.lives[index]), {
-    onNone: () => e,
+    onNone: () => ({ ...e, life: Life.Closed() }),
     onSome: (life) => (held || Life.$is("Delivering")(life) ? e : { ...e, life }),
   });
 };
