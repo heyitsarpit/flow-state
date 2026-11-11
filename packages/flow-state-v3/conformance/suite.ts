@@ -23,6 +23,8 @@ import {
 import { graphNames } from "./static-cli/graph-names.ts";
 import { graphNamesMutants } from "./static-cli/graph-names.mutants.ts";
 import { activationsScenarios } from "./turn/activations.scenarios.ts";
+import { partsMutants } from "./turn/parts.mutants.ts";
+import { partsCovered, partsScenarios } from "./turn/parts.scenarios.ts";
 import { refusalMutants } from "./turn/refusal.mutants.ts";
 import { refusalScenarios } from "./turn/refusal.scenarios.ts";
 import { refusal } from "./turn/refusal.ts";
@@ -124,6 +126,7 @@ export const scenarios: ReadonlyArray<Scenario> = [
   ...refusalScenarios,
   ...schedulesScenarios,
   ...activationsScenarios,
+  ...partsScenarios,
 ];
 
 /**
@@ -147,8 +150,15 @@ export const caseChecks: CaseChecks = {
     ...coveredBy(schedulesScenarios).filter((row) => row.invariant === "Turn I22"),
     ...laneKeysCovered,
     ...paymentRetryCovered,
+    ...partsCovered,
   ],
-  mutants: [...constructionMutants, ...cliMutants, ...schedulesCaseMutants, ...laneKeysMutants],
+  mutants: [
+    ...constructionMutants,
+    ...cliMutants,
+    ...schedulesCaseMutants,
+    ...laneKeysMutants,
+    ...partsMutants,
+  ],
   cases: [...scenarios, ...staticCases].map((c) => ({ id: c.id, cites: c.cites })),
 };
 
