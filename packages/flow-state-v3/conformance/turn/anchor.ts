@@ -27,6 +27,7 @@ export type Actor = {
   readonly pending: Option.Option<Kept>;
   readonly trail: ReadonlyArray<string>;
   readonly allowed: ReadonlyArray<string>;
+  readonly removed: boolean;
 };
 
 /**
@@ -99,6 +100,7 @@ export const FRESH: Actor = {
   pending: Option.none(),
   trail: [],
   allowed: [],
+  removed: false,
 };
 
 export const actorIn = (state: State, actor: ActorRef) => state.actors.get(keyOf(actor)) ?? FRESH;
@@ -384,10 +386,14 @@ export const dropped = (state: State) =>
  */
 /**
  * The suite disposed or forgot `actor`: an unanswered ending of one of its calls in the step that
- * adopts it is that call's restore.
+ * adopts it is that call's restore, and after a kill it may start fresh at its initial leaf (the
+ * removal may have landed).
  */
 export const unbound = (state: State, actor: ActorRef) => ({
   ...state,
+  actors: new Map(
+    [...state.actors].map(([key, a]) => [key, key === keyOf(actor) ? { ...a, removed: true } : a]),
+  ),
   calls: new Map(
     [...state.calls].map(([key, c]) => [
       key,
@@ -406,7 +412,9 @@ export const reloaded = (state: State) => ({
       const initial = state.machines[key.split(" ")[0] ?? ""]?.initial;
       const at = a.saved.turns === 0 ? initial : a.trail[a.saved.turns - 1];
 
-      const reached = [at, ...a.trail.slice(a.saved.turns)].flatMap((l) =>
+      const fresh = a.removed ? initial : undefined;
+
+      const reached = [at, ...a.trail.slice(a.saved.turns), fresh].flatMap((l) =>
         l === undefined ? [] : [l],
       );
 
@@ -422,7 +430,8 @@ export const reloaded = (state: State) => ({
           fields: a.saved.fields,
           saved: { turns: a.turns, fields: a.saved.fields },
           pending: Option.none(),
-          allowed: lost ? [...new Set(reached)] : [],
+          allowed: lost || a.removed ? [...new Set(reached)] : [],
+          removed: false,
         },
       ] as const;
     }),

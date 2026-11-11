@@ -3,6 +3,7 @@ import { disposalMutants } from "./actors/disposal.mutants.ts";
 import { actorsRemainders } from "./actors/remainders.ts";
 import { disposal } from "./actors/disposal.ts";
 import { laneKeepingScenarios } from "./actors/lane-keeping.scenarios.ts";
+import { lifetimeScenarios } from "./actors/lifetime.scenarios.ts";
 import { runtimeDisposalScenarios } from "./actors/runtime-disposal.scenarios.ts";
 import { constructionMutants } from "./compile/construction.mutants.ts";
 import {
@@ -194,6 +195,7 @@ export const scenarios: ReadonlyArray<Scenario> = [
   ...laneAnchorScenarios,
   ...runtimeDisposalScenarios,
   ...laneKeepingScenarios,
+  ...lifetimeScenarios,
   ...lanePoliciesScenarios,
   ...laneKeysScenarios,
   ...endingDeliveryScenarios,

@@ -38,10 +38,10 @@ export const notYet: ReadonlyArray<NotYet> = [
   },
   {
     owner: "@task.V3.T9",
-    why: "the Actors area is not built beyond Runtime disposal and owed incarnations (I14); I10 and I37 are judged from facts (T45) but have no case that owes an end yet; I24 is delivered-once's; T42 cut I11, I16 and I18 and added I37 (Free actors end), I38 (never-sent commits at disposal, CQ6) and I39 (identity versions)",
+    why: "the Actors area is not built beyond Runtime disposal and an actor's incarnation and end (I10, I14, I37); I24 is delivered-once's; T42 cut I11, I16 and I18 and added I37 (Free actors end), I38 (never-sent commits at disposal, CQ6) and I39 (identity versions)",
     invariants: invariantsOf(
       "Actors",
-      upTo(39).filter((n) => ![11, 14, 16, 18, 24, 29, 30, 31, 32, 35, 36, 38].includes(n)),
+      upTo(39).filter((n) => ![10, 11, 14, 16, 18, 24, 29, 30, 31, 32, 35, 36, 37, 38].includes(n)),
     ),
   },
   {

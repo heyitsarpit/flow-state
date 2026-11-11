@@ -5,6 +5,8 @@ import type { Mutant } from "../dsl/oracle.ts";
  *
  * **Details**
  *
+ * - `life.never-ends` never ends a free actor (Actors I37); `life.ends-while-used` ends one its
+ *   story still uses (I10).
  * - `mutant.disposal-skips-never-sent` leaves a never-sent commit unended by the disposal.
  * - `mutant.disposal-dispatches` also sends such a commit once its write lands.
  * - The `o6.*` ones edit the disposal: `o6.dispose-interrupts-wire` interrupts the call on
@@ -21,6 +23,33 @@ import type { Mutant } from "../dsl/oracle.ts";
  *   { runtimeDisposal }` falls due (Actors I29; step 6 review M3).
  */
 export const disposalMutants: ReadonlyArray<Mutant> = [
+  {
+    name: "life.never-ends",
+    says: "a free actor's grace never runs out, so it never ends",
+    expects: "Actors I37",
+    runtime: "prototype",
+    cases: ["ACT-01/free-actor-ends"],
+    edits: [{ file: "world.ts", find: "  graceMs: 100,", replace: "  graceMs: 1e12," }],
+  },
+  {
+    name: "life.ends-while-used",
+    says: "an actor ends after the grace whether or not it is used",
+    expects: "Actors I10",
+    runtime: "prototype",
+    cases: ["ACT-01/free-actor-ends"],
+    edits: [
+      {
+        file: "step.ts",
+        find: "    const free = usesOf(tx.w, key) === 0 && !busy(tx.w, key);",
+        replace: "    const free = !busy(tx.w, key);",
+      },
+      {
+        file: "step.ts",
+        find: "  if (usesOf(tx.w, key) !== 0 || !getActor(tx.w.actors, key) || busy(tx.w, key)) return;",
+        replace: "  if (!getActor(tx.w.actors, key) || busy(tx.w, key)) return;",
+      },
+    ],
+  },
   {
     name: "mutant.disposal-skips-never-sent",
     says: "the Runtime's disposal leaves a never-sent commit as it was, with no ending",
