@@ -92,8 +92,13 @@ const request = (seq: number, operation: string, attempt: string) => ({
 type Step = typeof step;
 
 const using = (run: Step) => ({
-  refused: (model: Model, facts: ReadonlyArray<Fact>, requests: ReadonlyArray<Request> = []) =>
-    run(model, known, facts, requests).applied.flatMap((a) => a.refusals.map((r) => r.invariant)),
+  refused: (
+    model: Model,
+    facts: ReadonlyArray<Fact>,
+    requests: ReadonlyArray<Request> = [],
+    under: Known = known,
+  ) =>
+    run(model, under, facts, requests).applied.flatMap((a) => a.refusals.map((r) => r.invariant)),
   after: (model: Model, facts: ReadonlyArray<Fact>, requests: ReadonlyArray<Request> = []) =>
     run(model, known, facts, requests).after,
 });
@@ -299,7 +304,7 @@ const examples: ReadonlyArray<Example> = [
   },
   {
     name: "a release member anchors in a turn that leaves a releasing state, and only there",
-    run: () => {
+    run: ({ refused }) => {
       const releasing = (t: { event: string; from: string; to: string }) => ({
         ...known,
         reference: {
@@ -319,18 +324,19 @@ const examples: ReadonlyArray<Example> = [
 
       const facts = [...voidUnsure("release"), released];
 
-      const refusedWith = (k: Known) =>
-        step(voidSent, k, facts, sends(1)).applied.flatMap((a) =>
-          a.refusals.map((r) => r.invariant),
-        );
+      const refusedWith = (k: Known) => refused(voidSent, facts, sends(1), k);
 
       assert.deepStrictEqual(
         refusedWith(releasing({ event: "VoidUnsure", from: "LEFT", to: "LEFT" })),
         [],
       );
-      assert.ok(
-        refusedWith(releasing({ event: "VoidUnsure", from: "LEFT", to: "CARD" })).includes(wl(12)),
-      );
+
+      for (const other of [
+        { event: "VoidUnsure", from: "LEFT", to: "CARD" },
+        { event: "VoidUnsure", from: "CARD", to: "LEFT" },
+        { event: "IntentRead", from: "LEFT", to: "LEFT" },
+      ])
+        assert.ok(refusedWith(releasing(other)).includes(wl(12)), JSON.stringify(other));
     },
   },
   {
@@ -365,6 +371,21 @@ const STEP_MUTANTS: ReadonlyArray<{
     replace: "true || o.releasesOnLeave.some(",
   },
   {
+    name: "a release member anchors on a leaving transition of another event",
+    find: "(t) => t.event === turn.event && t.from === turn.from && t.to === turn.to,",
+    replace: "(t) => t.from === turn.from && t.to === turn.to,",
+  },
+  {
+    name: "a release member anchors on a leaving transition from another state",
+    find: "(t) => t.event === turn.event && t.from === turn.from && t.to === turn.to,",
+    replace: "(t) => t.event === turn.event && t.to === turn.to,",
+  },
+  {
+    name: "a release member anchors on a leaving transition to another state",
+    find: "(t) => t.event === turn.event && t.from === turn.from && t.to === turn.to,",
+    replace: "(t) => t.event === turn.event && t.from === turn.from,",
+  },
+  {
     name: "a turn hears no ending",
     find: "onSome: (ending) => pushed(walk, LifeMove.Heard({ ending }), given),",
     replace: "onSome: () => walk,",
@@ -397,8 +418,9 @@ const killed = (run: Step) =>
       example.run(using(run));
 
       return false;
-    } catch {
-      return true;
+    } catch (failure) {
+      if (failure instanceof assert.AssertionError) return true;
+      throw failure;
     }
   });
 

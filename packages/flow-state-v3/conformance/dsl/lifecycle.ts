@@ -390,7 +390,8 @@ export const advance = (model: Model, move: Move, given: Rules = rules) => {
  *
  * **Details**
  *
- * - An `Await` is due only once the turn that owes it is open (`heard`), at that turn's close.
+ * - An `Await` is due only once the turn that hears its own ending is open (`hearing`), at that
+ *   turn's close, or as soon as that ending closes unheard (a reload, a releasing lane).
  *   One heard with no turn after it (`Unhandled`, `Denied`) is due at the step's end (WriteLanes
  *   R4, I12; review F3 and H2). One not yet heard (parked, or not yet delivered) is not due.
  */

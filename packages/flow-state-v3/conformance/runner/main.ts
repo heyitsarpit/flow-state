@@ -250,7 +250,7 @@ const falsify = (args: ReadonlyArray<string>) =>
 
     const nullRed = Option.match(onNull, {
       onNone: () => false,
-      onSome: (v) => v.length === caseIds.length && v.every((x) => x._tag !== "Pass"),
+      onSome: (v) => v.length === caseIds.length && v.every((x) => x._tag === "Fail"),
     });
 
     yield* Console.log(

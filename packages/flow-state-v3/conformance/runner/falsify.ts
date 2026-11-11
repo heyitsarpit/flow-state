@@ -113,8 +113,20 @@ const verdictsOf = (stdout: string, stderr: string, code: number) =>
  */
 export const CASE_EXPECTATIONS = "case expectations";
 
+/**
+ * A mutant's verdict from the cases it ran: caught only by a failed case that names its judge
+ * and the Invariant it expects.
+ *
+ * **When to use**
+ *
+ * - Falsify calls it once per mutant; it is exported for its own tests.
+ *
+ * **Gotchas**
+ *
+ * - A `Timeout` is red but never a catch: alone it is `WrongReason` (Conformance Q11).
+ */
 // RETURN_TYPE: each branch builds one variant; the union keeps them one MutantVerdict.
-const judge = (
+export const judge = (
   mutant: Mutant,
   oracle: string,
   verdicts: ReadonlyArray<CaseVerdict>,
