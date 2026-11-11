@@ -684,3 +684,5 @@ note 2026-11-11T08:23:44Z
     P3 and P4 restructured into area phases (P3 foundations, P4 Pay path, P11 Persistence, P12 Restore, P13 Actors and 
     Reads, P14 CLI, P15 close-out); Task ids and history kept, old cards quoted on P3. T41 and T13 done (their review 
     findings fixed and re-reviewed).
+note 2026-11-11T08:34:47Z
+    Advisor questions queued (code:workflow/plans/flow/references/proposals/advisor-questions-2026-11-11.md) for a Fable 5.2 high-effort advisor after the 5-hour window resets; the user will bring back TLA+ or another prover if it helps (Q4). T16's builder stopped when the session ended; its uncommitted src/ work resumes after the reset.
