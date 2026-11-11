@@ -315,3 +315,5 @@ note 2026-11-11T12:29:45Z
     (code:workflow/plans/flow/references/proposals/replan-2026-11-11.md); it is applied to the Tasks after the 
     catalogue completeness check is folded in. The combination gate is a combination gate: pairs enforced, triples 
     reported, composites carry many features.
+note 2026-11-11T12:42:50Z
+    Stop (the user, 2026-11-11): once the replanned Tasks and the Spec passes are applied and reviewed, the run stops; no builder restarts. The orchestrator then reports what the next agent would work on.
