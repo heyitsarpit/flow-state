@@ -1,5 +1,5 @@
-import { Clock, Effect, Option } from "effect";
-import { playCase, type Scenario } from "../dsl/case.ts";
+import { Clock, Effect, Option, Result } from "effect";
+import { playCase, playCrash, type Scenario } from "../dsl/case.ts";
 import { citedBy, type Graphed, Mismatch, type Oracle, Violated } from "../dsl/oracle.ts";
 import { playStatic, type StaticCase } from "../dsl/static-case.ts";
 import { type Observation, type Port, Unreadable } from "../port.ts";
@@ -69,7 +69,18 @@ const runSeed = (
 ) =>
   Effect.try({
     try: () =>
-      playCase({ port, fixtures: scenario.fixtures, oracles, seed, graphs, overdue }, scenario.run),
+      playCase(
+        {
+          port,
+          fixtures: scenario.fixtures,
+          oracles,
+          seed,
+          graphs,
+          overdue,
+          crashAt: Option.none(),
+        },
+        scenario.run,
+      ),
     catch: (failure) => verdictOf(scenario.id, seed, failure),
   }).pipe(
     Effect.match({
@@ -195,3 +206,49 @@ export const runStatic = (surface: Surface, staticCase: StaticCase) =>
  */
 export const runStatics = (surface: Surface, cases: ReadonlyArray<StaticCase>) =>
   Effect.forEach(cases, (c) => runStatic(surface, c), { concurrency: 1 });
+
+/**
+ * The crash generator on one case (seed 1): for each step i, play to i, kill and reload the page,
+ * and judge with the oracles and the end of case only, until i passes the case's last step.
+ * Returns each red crash point as a `Fail` whose id names the step (`PAY-01@3`), and how many
+ * points ran.
+ */
+export const crashCase = (
+  port: Port,
+  scenario: Scenario,
+  oracles: ReadonlyArray<Oracle>,
+  graphs: ReadonlyArray<Graphed>,
+) =>
+  Effect.gen(function* () {
+    const red: Array<CaseVerdict> = [];
+    let points = 0;
+
+    for (let at = 1; at <= 400; at += 1) {
+      const overdue = yield* deadline;
+      const id = `${scenario.id}@${at}`;
+
+      const played = yield* Effect.try({
+        try: () =>
+          playCrash(
+            {
+              port,
+              fixtures: scenario.fixtures,
+              oracles,
+              seed: 1,
+              graphs,
+              overdue,
+              crashAt: Option.some(at),
+            },
+            scenario.run,
+          ),
+        catch: (failure) => verdictOf(id, 1, failure),
+      }).pipe(Effect.result);
+
+      points += 1;
+
+      if (Result.isFailure(played)) red.push(played.failure);
+      else if (!played.success) break;
+    }
+
+    return { id: scenario.id, points, red };
+  });

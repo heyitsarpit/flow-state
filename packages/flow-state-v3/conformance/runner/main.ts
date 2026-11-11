@@ -26,13 +26,13 @@ import {
 import {
   CASE_EXPECTATIONS,
   falsifyOne,
-  falsifyProduction,
   MutantVerdict,
   probeOne,
   ProbeVerdict,
   suiteIn,
 } from "./falsify.ts";
-import { runCases, runStatics } from "./run.ts";
+import { falsifyOnProduction } from "./falsify-production.ts";
+import { crashCase, runCases, runStatics } from "./run.ts";
 import { coreInvariants, openTasks } from "./specs.ts";
 import { type CaseVerdict, VERDICTS_LINE, VerdictsJson } from "./verdict.ts";
 
@@ -250,71 +250,44 @@ const coverage = () =>
 const PACKAGE = resolve(dirname(MAIN), "..", "..");
 
 /**
- * Falsify on the production runtime (T16): each production mutant on its own copy of the package,
- * after the control run of their cases on the unedited runtime.
+ * The crash generator (advisor Q5): every case, killed and reloaded after each of its steps, judged
+ * by the oracles and the end of case. Red points are listed; `--json` is not supported.
  */
-const falsifyProductionRuntime = (args: ReadonlyArray<string>) =>
+const crash = (args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
-    const scratch = resolve(Option.getOrElse(flag(args, "--scratch"), () => tmpdir()));
-    const only = list(flag(args, "--mutant"));
+    const runtime = runtimeOf(args);
+    const only = list(flag(args, "--only"));
 
-    const chosen = [
-      ...guarantees.map((g) => ({ oracle: g.oracle.name, mutants: g.mutants })),
-      { oracle: CASE_EXPECTATIONS, mutants: caseChecks.mutants },
-    ].flatMap((g) =>
-      g.mutants
-        .filter((m) => m.runtime === PRODUCTION_RUNTIME)
-        .filter((m) =>
-          Option.match(only, { onNone: () => true, onSome: (names) => names.includes(m.name) }),
-        )
-        .map((mutant) => ({ oracle: g.oracle, mutant })),
+    const chosen = scenarios.filter((s) =>
+      Option.match(only, { onNone: () => true, onSome: (ids) => ids.includes(s.id) }),
     );
 
-    const bare = guarantees
-      .filter((g) => !g.mutants.some((m) => m.runtime === PRODUCTION_RUNTIME))
-      .map((g) => g.oracle.name);
+    const port = yield* runtimePort(runtime);
+    const surface = yield* runtimeSurface(runtime);
+    const graphs = graphsFor(surface, chosen);
 
-    yield* Console.log(`note no production mutant yet for: ${bare.join(" ")}`);
+    const runs = yield* Effect.forEach(chosen, (s) => crashCase(port, s, oracles, graphs(s)), {
+      concurrency: 1,
+    });
 
-    const control = yield* suiteIn(
-      MAIN,
-      PRODUCTION_RUNTIME,
-      [...new Set(chosen.flatMap((c) => c.mutant.cases))],
-      120,
-    ).pipe(
-      Effect.map((v) => v.length > 0 && v.every((x) => x._tag === "Pass")),
-      Effect.catchTag("NoVerdicts", () => Effect.succeed(false)),
-    );
+    const points = runs.reduce((n, r) => n + r.points, 0);
+    const red = runs.flatMap((r) => r.red);
 
+    for (const v of red) yield* Console.log(lineOf(v));
     yield* Console.log(
-      `${control ? "ok  " : "BAD "} control: the mutants' cases pass on the unedited runtime`,
+      `VERDICT ${red.length === 0 ? "pass" : "fail"} ${points - red.length}/${points} crash points`,
     );
 
-    const verdicts = yield* Effect.forEach(
-      chosen,
-      ({ oracle, mutant }) => falsifyProduction(PACKAGE, scratch, oracle, mutant),
-      { concurrency: parallelOf(args) },
-    );
+    if (red.length > 0) process.exitCode = 1;
+  });
 
-    for (const v of verdicts)
-      yield* Console.log(
-        MutantVerdict.$match(v, {
-          Caught: ({ mutant, why }) => `ok   ${mutant}  caught: ${why}`,
-          WrongReason: ({ mutant, why }) => `BAD  ${mutant}  red by another check: ${why}`,
-          Survived: ({ mutant }) => `BAD  ${mutant}  survived`,
-          NotApplied: ({ mutant, why }) => `BAD  ${mutant}  does not apply: ${why}`,
-          NoVerdict: ({ mutant, why }) => `BAD  ${mutant}  no verdict: ${why}`,
-        }),
-      );
-
-    const caught = verdicts.filter(MutantVerdict.$is("Caught")).length;
-    const ok = control && caught === verdicts.length && verdicts.length > 0;
-
-    yield* Console.log(
-      `VERDICT ${ok ? "pass" : "fail"} ${caught}/${verdicts.length} mutants caught`,
-    );
-
-    if (!ok) process.exitCode = 1;
+const falsifyProductionRuntime = (args: ReadonlyArray<string>) =>
+  falsifyOnProduction({
+    main: MAIN,
+    packageDir: PACKAGE,
+    scratch: resolve(Option.getOrElse(flag(args, "--scratch"), () => tmpdir())),
+    only: list(flag(args, "--mutant")),
+    parallel: parallelOf(args),
   });
 
 const falsify = (args: ReadonlyArray<string>) =>
@@ -462,6 +435,8 @@ const main = (args: ReadonlyArray<string>) => {
       : falsify(rest);
 
   if (mode === "coverage") return coverage();
+
+  if (mode === "crash") return crash(rest);
 
   return Console.error(
     "usage: bun conformance/runner/main.ts suite|falsify|coverage [--runtime DIR] [--only IDS] [--mutant NAMES] [--parallel N]",

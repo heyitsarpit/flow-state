@@ -1,6 +1,5 @@
-import { Equal, Option, Result, Schema } from "effect";
+import { Data, Equal, Option, Result, Schema } from "effect";
 import { type Fixture, handlersFor, referenceFor, rowsFor } from "../fixtures/fixture.ts";
-import { operationNamed, type Reference } from "../fixtures/reference.ts";
 import {
   Address,
   disposalBoundMs,
@@ -18,7 +17,6 @@ import {
   type Ended,
   type EvidenceKind,
   type Json,
-  type Minted,
   Observation,
   type Port,
   sameActor,
@@ -30,6 +28,7 @@ import {
 import { type Answer, NoHeldRequest, type Request, RequestPhase } from "../world/network.ts";
 import type { StorageAnswer } from "../world/storage.ts";
 import { makeWorld, type World } from "../world/world.ts";
+import { decodeReports } from "./reports.ts";
 import { type Actor, actorView } from "./actor.ts";
 import { empty } from "./lifecycle-model.ts";
 import { step as lifeStep } from "./lifecycle-step.ts";
@@ -48,29 +47,6 @@ export type Drive = {
 };
 
 const shown = <A>(value: A) => String(JSON.stringify(value));
-
-const missingField = (reference: Reference, minted: Minted) => {
-  if (Option.isNone(minted.actor)) return Option.some("actor");
-
-  const keyed = Option.exists(
-    operationNamed(reference, minted.operation),
-    (o) => o.keyFields.length > 0,
-  );
-
-  return keyed && Option.isNone(minted.key) ? Option.some("key") : Option.none();
-};
-
-const decodeReports = (reference: Reference, fresh: ReadonlyArray<Fact>) => {
-  for (const minted of reported(fresh).filter(Observation.$is("Minted"))) {
-    const field = missingField(reference, minted);
-
-    if (Option.isSome(field))
-      throw new Unreadable({
-        report: `Minted ${minted.operation} ${minted.attempt}`,
-        issue: `it has no ${field.value}`,
-      });
-  }
-};
 
 /**
  * The scenario DSL one case runs through, fixture-agnostic: steps that settle the world and run
@@ -166,7 +142,14 @@ export type CaseOptions = {
   readonly seed: number;
   readonly graphs: ReadonlyArray<Graphed>;
   readonly overdue: () => boolean;
+  readonly crashAt: Option.Option<number>;
 };
+
+/**
+ * The crash generator stopped the case: it killed the page after the step it names and reloaded.
+ * The case's own expectations no longer apply; its oracles and the end-of-case disposal still do.
+ */
+export class Crashed extends Data.TaggedError("Crashed")<{ readonly after: number }> {}
 
 const runtimeLife = (options: CaseOptions, world: World, record: (fact: Fact) => void) => {
   const fixtures = options.fixtures.map((f) => f.name);
@@ -223,6 +206,7 @@ const stepEngine = (
   }));
 
   let stepped = 0;
+  let crashing = true;
   let noted = 0;
   let judged = 0;
   let model = empty;
@@ -270,7 +254,7 @@ const stepEngine = (
       });
   };
 
-  const act = (what: string, run: () => void) => {
+  const act = (what: string, run: () => void, crash: () => void = () => undefined) => {
     stepped += 1;
     record(Fact.Stepped({ step: stepped, what }));
     run();
@@ -281,9 +265,14 @@ const stepEngine = (
     if (Result.isFailure(settled)) throw settled.failure;
     noteRequests();
     judge(what);
+
+    if (crashing && Option.contains(options.crashAt, stepped)) {
+      crash();
+      throw new Crashed({ after: stepped });
+    }
   };
 
-  return { act, judge };
+  return { act, judge, stopCrashing: () => void (crashing = false) };
 };
 
 const isRecord = Schema.is(Schema.Record(Schema.String, Schema.Json));
@@ -297,7 +286,12 @@ const openCase = (options: CaseOptions) => {
   const facts: Array<Fact> = [];
   const record = (fact: Fact) => void facts.push(fact);
   const life = runtimeLife(options, world, record);
-  const { act, judge } = stepEngine(options, world, facts, record, life.pending, life.unread);
+  const engine = stepEngine(options, world, facts, record, life.pending, life.unread);
+  const { judge } = engine;
+
+  // The crash generator's kill: a reload after the step, settled and judged as a step of its own.
+  const crash = () => reload("crash: kill the page and reload", () => []);
+  const act = (what: string, run: () => void) => engine.act(what, run, crash);
 
   const held = (operation: string, request: Option.Option<Request>) =>
     Option.getOrThrowWith(request, () => new NoHeldRequest({ operation }));
@@ -506,7 +500,7 @@ const openCase = (options: CaseOptions) => {
     reload("end of case: reload", writers);
   };
 
-  return { driven, end };
+  return { driven, end, stopCrashing: engine.stopCrashing };
 };
 
 /**
@@ -561,8 +555,33 @@ export const variants = (
  */
 export const playCase = (options: CaseOptions, run: Scenario["run"]) => {
   const opened = openCase(options);
-  run(opened.driven);
+  // FLOW_STATE_ALLOW_UNKNOWN: a case throws its verdicts; only the crash generator's stop is caught here.
+  const played = Result.try({ try: () => run(opened.driven), catch: (e: unknown) => e });
+
+  if (Result.isFailure(played) && !(played.failure instanceof Crashed)) throw played.failure;
   opened.end();
 
   return opened.driven.reports();
+};
+
+/**
+ * Plays a case under the crash generator (Conformance's crash search): the page is killed and
+ * reloaded after step `options.crashAt`, then the case ends with its judged disposal. Returns
+ * whether the crash point was reached; a case shorter than it plays whole and returns false.
+ *
+ * **Gotchas**
+ *
+ * - Throws as `playCase` does; after the crash only the oracles and the end of case judge.
+ */
+export const playCrash = (options: CaseOptions, run: Scenario["run"]) => {
+  const opened = openCase(options);
+  // FLOW_STATE_ALLOW_UNKNOWN: a case throws its verdicts; only the crash generator's stop is caught here.
+  const played = Result.try({ try: () => run(opened.driven), catch: (e: unknown) => e });
+  const crashed = Result.isFailure(played) && played.failure instanceof Crashed;
+
+  if (Result.isFailure(played) && !crashed) throw played.failure;
+  opened.stopCrashing();
+  opened.end();
+
+  return crashed;
 };
