@@ -261,8 +261,8 @@ const holding = (walk: Walk, fact: SuiteFact) => ({
 });
 
 /**
- * Applies one suite fact: what the suite drove, what its world saw, and the runtime answers a
- * `limits.ts` row admits (a batch's purpose, the Attempts it acknowledges).
+ * Applies one suite fact: what the suite drove and what its world saw, with a batch's purpose, a
+ * runtime answer taken as a stated limit.
  */
 export const onSuiteFact = (walk: Walk, fact: SuiteFact, known: Known, given: Rules) => {
   if (SuiteFact.$is("Advanced")(fact)) return aged(walk, known, fact.ms, given);
@@ -334,8 +334,8 @@ const unheard = (walk: Walk) => [
 ];
 
 /**
- * Applies the Attempts a landed batch acknowledges: a runtime answer `limits.ts` admits, since the
- * store cannot read Attempt ids without a codec.
+ * Applies the Attempts a landed batch acknowledges: a runtime answer taken as a stated limit, since
+ * the store cannot read Attempt ids without a codec.
  */
 export const acknowledged = (walk: Walk, attempts: ReadonlyArray<string>) => ({
   ...walk,

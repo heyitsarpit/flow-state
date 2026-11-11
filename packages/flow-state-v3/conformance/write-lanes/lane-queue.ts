@@ -47,6 +47,10 @@ const lanesOf = (model: Model) =>
     [],
   );
 
+/**
+ * A model assertion, not a runtime check: a refused move leaves the model unchanged, so a lane past
+ * its bound (I8) or with two heads (I9) here means a model bug.
+ */
 const bounds = (model: Model, reference: Reference) =>
   lanesOf(model).flatMap((lane) => {
     const on = model.attempts.filter((a) => sameLane(a.lane, lane));

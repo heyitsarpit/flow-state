@@ -41,8 +41,8 @@ export const operationOf = (known: Known, actor: ActorRef, operation: string) =>
  *
  * **Gotchas**
  *
- * - Where a fixture folds no key, or the actor's folded fields are unknown (after a kill with turns
- *   no capture holds), `keys` takes the turn's reported key: a stated limit (`limits.ts`).
+ * - Where the suite carries no folded fields for the actor (it never saw it ensured), `keys`
+ *   takes the turn's reported key: a stated limit.
  */
 export type Predicted = {
   readonly actor: ActorRef;

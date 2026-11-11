@@ -58,8 +58,9 @@ const onFact = (
  * - The uses the suite holds (`held`) follow its `Ensured`, `Released`, `Disposed` and `Forgot`
  *   facts, and a reload drops them until the boot re-attaches them: an actor with a held use is
  *   live by the suite's own facts, whatever the runtime reports.
- * - The runtime answers a `limits.ts` row admits are applied: a batch's purpose (with its `Wrote`)
- *   and the Attempts a landing acknowledges; the disposal's exit ends the disposal.
+ * - Two runtime answers are applied as stated limits: a batch's purpose (with its `Wrote`) and
+ *   the Attempts a landing acknowledges. The disposal's exit ends the disposal; its value
+ *   (`CleanupFailed`) is not read yet.
  */
 export const step = (
   model: Model,

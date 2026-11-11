@@ -1,4 +1,4 @@
-import { Option } from "effect";
+import { Data, Option } from "effect";
 import { mappedEvent, retains } from "../fixtures/reference.ts";
 import {
   type ActorRef,
@@ -30,23 +30,18 @@ import {
   type Model,
   Move,
 } from "./lifecycle-model.ts";
-import { type Known, operationOf, owedMembers, type Predicted } from "./lifecycle-owed.ts";
+import { type Known, operationOf, owedMembers } from "./lifecycle-owed.ts";
 import type { Rules } from "./lifecycle-rules.ts";
 
 /**
- * A turn the step was given no prediction for (a test driving the step alone): its header, with
- * no alternative and no keys.
+ * A reported turn the step was given no prediction for: selection predicts every turn it judges,
+ * so this is a suite defect, never a self-prediction from the report.
  */
-// RETURN_TYPE: the Predicted contract; `at` would infer as None of never.
-const predictedOf = (turn: Turn): Predicted => ({
-  actor: turn.actor,
-  event: turn.event,
-  from: turn.from,
-  to: turn.to,
-  at: Option.none(),
-  keys: {},
-  encodable: true,
-});
+export class Unpredicted extends Data.TaggedError("Unpredicted")<{ readonly turn: string }> {}
+
+const predictedOf = (turn: Turn) => {
+  throw new Unpredicted({ turn: `${turn.actor.machine} ${turn.actor.id} ran ${turn.event}` });
+};
 
 const deliveringOf = (
   model: Model,
@@ -228,7 +223,7 @@ export const reported = (
 
   return Observation.$match(observation, {
     Turn: (turn) => {
-      const [next = predictedOf(turn)] = walk.turns;
+      const next = walk.turns[0] ?? predictedOf(turn);
       const hearing = deliveringOf(walk.model, known, Option.some(turn.actor), turn.event);
 
       const heard = heardOf(

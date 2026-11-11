@@ -19,7 +19,8 @@ export const Address = Data.taggedEnum<Address>();
 
 /**
  * What the suite did and what its world saw: the facts the model's expect half reads (Conformance
- * R20). It also reads the two runtime answers `limits.ts` names, `Purposed` and `Acknowledges`.
+ * R20). It also reads two runtime answers, stated limits until T45 step 6 lists them: `Purposed` and
+ * `Acknowledges`.
  *
  * **Details**
  *

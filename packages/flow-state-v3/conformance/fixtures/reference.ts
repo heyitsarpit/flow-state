@@ -100,7 +100,8 @@ export type Retryable<Operation extends string = string> = {
  * **Gotchas**
  *
  * - Its other guards (memory, the event's payload) are not computed: a tie between two rows of the
- *   same event, from and to is broken by the reported members, a runtime claim.
+ *   same event, from and to is broken by member count (the row with the most members, the first
+ *   of equals), never by the report.
  */
 export type Row<
   Event extends string = string,
