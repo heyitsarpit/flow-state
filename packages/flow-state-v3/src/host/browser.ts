@@ -19,7 +19,6 @@ export const browserPlatform = () =>
   Context.make(
     Host,
     Host.of({
-      later: (task) => void setTimeout(task, 0),
       hidden: () => false,
       onHidden: () => undefined,
       store: Option.none(),

@@ -36,8 +36,8 @@ export type Store = {
 };
 
 /**
- * The platform facts Effect has no service for: the host's task queue, page visibility, the
- * durable store and the boot's entropy.
+ * The platform facts Effect has no service for: page visibility, the durable store and the boot's
+ * entropy.
  *
  * **Details**
  *
@@ -49,7 +49,6 @@ export type Store = {
 export class Host extends Context.Service<
   Host,
   {
-    readonly later: (task: () => void) => void;
     readonly hidden: () => boolean;
     readonly onHidden: (listener: () => void) => void;
     readonly store: Option.Option<Store>;

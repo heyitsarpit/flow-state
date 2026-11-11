@@ -290,7 +290,6 @@ export const productionPort: Port = {
       Context.make(
         Host,
         Host.of({
-          later: page.later,
           hidden: page.hidden,
           onHidden: page.onHidden,
           sessionSeed: boot.sessionSeed,

@@ -134,6 +134,11 @@ on internal modules and `off` on public entrypoint modules.
     stories, replays and searches reproduce a run (round 13's H1).
   - `JSON.stringify` is banned: equality goes through `Schema.toEquivalence`, keys through their
     Schema codec (round 10's text-order equality, the prototype's `canon`).
+- Everywhere in `src` except `src/host/browser.ts` (the real host's adapter) and tests (the
+  user, 2026-11-11, T43): `setTimeout`, `clearTimeout`, `Date.now`, `performance.now` and
+  `Math.random` are banned; time, timers and randomness come from Effect's Clock and Scheduler
+  and the host's entropy. Proved with planted files in `src/host/` and `src/core/`, since
+  deleted. This override sits before the core's, which replaces it for the core.
 - Everywhere in `src`:
   - `switch-exhaustiveness-check` with `considerDefaultExhaustiveForUnions: false`: a `default:`
     no longer hides a variant (it hid lane phases).

@@ -200,6 +200,34 @@ export default defineConfig({
         },
       },
       {
+        // Time, timers and randomness come from Effect's Clock, Scheduler and the host's entropy,
+        // in all of src: only the real host's adapter touches the platform's own (the user,
+        // 2026-11-11, T43). It comes before the core's wider ban, which replaces it for the core.
+        files: [`${productionSource}/**/*.{ts,tsx}`],
+        excludeFiles: [...productionTests, `${productionSource}/host/browser.ts`],
+        rules: {
+          "no-restricted-globals": [
+            "error",
+            ...["setTimeout", "clearTimeout"].map((name) => ({
+              name,
+              message: "Use Effect's Clock and Effect.sleep; only src/host/browser.ts touches the platform.",
+            })),
+          ],
+          "no-restricted-properties": [
+            "error",
+            ...[
+              ["Date", "now"],
+              ["performance", "now"],
+              ["Math", "random"],
+            ].map(([object, property]) => ({
+              object,
+              property,
+              message: "Use Effect's Clock or the host's entropy; only src/host/browser.ts touches the platform.",
+            })),
+          ],
+        },
+      },
+      {
         // The core is pure, deterministic and host-free. Only src/host/ touches the platform.
         files: [`${productionSource}/**/*.{ts,tsx}`],
         excludeFiles: [...productionTests, productionHost],
@@ -216,7 +244,7 @@ export default defineConfig({
                 ...["window", "document", "navigator", "indexedDB", "localStorage", "sessionStorage"].map(
                   (name) => ({ name, message: "Host APIs belong in src/host/, not the core." }),
                 ),
-                ...["setTimeout", "setInterval", "queueMicrotask", "Promise"].map((name) => ({
+                ...["setTimeout", "clearTimeout", "setInterval", "queueMicrotask", "Promise"].map((name) => ({
                   name,
                   message: "The core schedules nothing itself: return the work as data for the driver.",
                 })),

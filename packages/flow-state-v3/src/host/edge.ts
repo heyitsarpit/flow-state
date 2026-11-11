@@ -141,7 +141,9 @@ export const makeEdge = (
 
       if (Option.isSome(ticket) || options.captureMs <= 0 || host.hidden()) {
         scopes.set(name, { ...scopeOf(name), due: Number.NEGATIVE_INFINITY });
-        host.later(() => pump(name));
+        fibers.fork(`wake/${name}`, Effect.yieldNow, (exit) => {
+          if (Exit.isSuccess(exit)) pump(name);
+        });
       } else wakeAt(name, clock.currentTimeMillisUnsafe() + options.captureMs);
     },
   };
