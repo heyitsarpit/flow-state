@@ -29,8 +29,8 @@ type FormContext = Readonly<{
 type FormState = "editing" | "submitted";
 type TimerState = "waiting" | "done";
 
-const formEventArbitrary = Schema.toArbitrary(FormEventSchema);
-const advanceMillisArbitrary = Schema.toArbitrary(AdvanceMillisSchema);
+const formEventArbitrary = Schema.toArbitrary(FormEventSchema)(FastCheck);
+const advanceMillisArbitrary = Schema.toArbitrary(AdvanceMillisSchema)(FastCheck);
 
 const formMachine = flow.machine<FormContext, FormEvent, FormState>({
   id: "flow-test.property.schema-events",

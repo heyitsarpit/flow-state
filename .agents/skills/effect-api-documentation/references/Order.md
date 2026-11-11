@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Order` API](https://www.effect.website/docs/v4/api/effect/Order). Examples assume `import { Order } from "effect"`.
 
+`Order` defines reusable ordering relations for comparing and sorting values according to domain-specific rules.
+
 ## API index
 
 1. [Order.Order](#orderorder)

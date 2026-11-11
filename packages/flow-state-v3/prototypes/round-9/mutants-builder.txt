@@ -1,0 +1,53 @@
+control: the unmutated code passes every gate (14 s)
+KILLED   d122.slice-per-pump                  suite: 13: REV9-LOOP/a-spin-over-a-resolved-promise-never-freezes REV9-LOOP/a-failing-promise-spin-never-freezes REV9-LOOP/listeners-hear-a-spin-while-it-runs REV9-LOOP/a-batch-lands-during-a-spin ...
+KILLED   d122.no-yield-in-loop                watchdog rss at 1454 MB
+KILLED   d122.spent-never-refills             suite: 2: REV8-STORM/a-press-beside-a-spin-goes REV9-LOOP/a-spin-answered-inside-the-pump-yields-too
+KILLED   d122.no-notify-at-yield              suite: 1: REV9-LOOP/listeners-hear-a-spin-that-never-leaves-the-pump
+KILLED   d122.cut-waits-for-the-drain         suite: 1: REV9-LOOP/a-batch-lands-during-a-spin
+KILLED   d122.cut-splits-a-turn               suite: 1: REV8-PINS/D84-batches-go-after-the-drain
+KILLED   d122.mail-fifo                       suite: 1: REV9-LOOP/a-bulk-does-not-stand-in-front-of-another-actors-press
+KILLED   d122.rota-not-rotated                suite: 2: ORDER-01 REV9-LOOP/a-bulk-does-not-stand-in-front-of-another-actors-press
+KILLED   d122.rota-forgets                    suite: 2: ORDER-01 REV9-LOOP/a-bulk-does-not-stand-in-front-of-another-actors-press
+KILLED   d122.named-each                      suite: 3: REV8-STORM/a-lookup-that-fails-at-once-and-asks-again-yields REV8-STORM/a-commit-that-throws-at-once-and-asks-again-yields REV9-LOOP/the-same-input-failing-in-a-row-is-named-once
+KILLED   d122.not-named                       suite: 3: REV8-STORM/a-lookup-that-fails-at-once-and-asks-again-yields REV8-STORM/a-commit-that-throws-at-once-and-asks-again-yields REV9-LOOP/the-same-input-failing-in-a-row-is-named-once
+KILLED   d122.any-input-counts                suite: 3: REV9-LOOP/200-failing-rows-are-not-a-spin REV9-LOOP/200-failing-writes-are-not-a-spin REV9-LOOP/a-new-input-each-time-is-not-the-same-failure
+KILLED   d122.success-counts                  suite: 2: REV9-BURST/a-queue-over-a-local-source-finishes REV9-LOOP/a-success-spin-is-not-named
+SURVIVED d122.redelivery-counts               nothing: 0: 
+KILLED   d122.lint-silent                     cli: 1: asks-forever: expected true, got false
+KILLED   d122.lint-any                        cli: 1: a queue with a way out says nothing: expected false, got true
+KILLED   rule52.freeze-leaves-mail            suite: 1: REV9-LOOP/a-freeze-ends-a-spin
+KILLED   d123.decline-blocks                  suite: 1: REV9-EDGE/a-kept-decline-blocks-nothing
+KILLED   d123.parked-is-kept                  suite: 1: REV9-EDGE/an-ordinary-parked-ending-blocks-nothing
+KILLED   d123.keyless-idle-heads-only         suite: 1: REV9-EDGE/a-key-less-idle-denies-a-kept-ending
+KILLED   d123.keyless-cancel-nothing          suite: 3: REV9-EDGE/a-key-less-cancel-lets-a-kept-ending-go REV9-EDGE/a-key-less-cancel-stays-in-its-own-life REV9-EDGE/cancel-leaves-an-ordinary-parked-ending-where-it-is
+KILLED   d123.keyless-cancel-all-subjects     suite: 1: REV9-EDGE/a-key-less-cancel-stays-in-its-own-life
+SURVIVED d123.letgo-takes-all                 nothing: 0: 
+KILLED   d123.named-cancel-skips-kept         suite: 3: REV9-KEPT/cancel-lets-a-kept-ending-go REV9-EDGE/a-cancel-with-a-head-beside-it-lets-go-too REV9-EDGE/cancel-of-its-own-key-lets-a-decline-go
+KILLED   d123.decline-piles-up                suite: 2: REV9-EDGE/kept-declines-do-not-pile-up REV9-EDGE/a-kept-success-and-its-rejections-stay-two
+KILLED   d123.decline-replaces-sent           suite: 2: REV9-EDGE/a-kept-success-and-its-rejections-stay-two REV9-EDGE/two-parked-on-a-lane-at-boot-are-both-heard
+KILLED   d123.decline-key-null                suite: 5: REV9-M1/a-kept-decline-whose-input-cannot-be-carried-still-lands REV9-EDGE/a-decline-names-its-own-key REV9-EDGE/cancel-of-its-own-key-lets-a-decline-go REV9-EDGE/kept-declines-do-not-pile-up ...
+KILLED   d123.local-keeps                     suite: 1: REV9-EDGE/a-new-local-life-hears-nothing-of-the-old
+KILLED   d123.persisted-drops-too             suite: 16: FRAG-08/persisted-disposed-ending-parked-delivered-once FRAG-08/rebind-delivers-a-hold-once FRAG-12/unbound-hold-with-a-waiter-yields FRAG-12/unbound-hold-with-no-waiter-stays ...
+KILLED   d123.strand-by-op                    suite: 2: REV9-EDGE/another-rows-ask-leaves-a-stranded-wait REV9-EDGE/two-rows-stranded-are-two-waits
+KILLED   d123.strand-outlives-life            suite: 1: REV9-EDGE/a-stranded-wait-ends-with-its-life
+KILLED   d123.strand-outlives-actor           suite: 1: REV9-EDGE/a-stranded-wait-ends-with-its-actor
+KILLED   d123.boot-tries-twice                suite: 2: REV9-KEPT/still-broken-at-boot-is-kept-again REV9-EDGE/a-boot-tries-a-kept-ending-once
+KILLED   d123.adoption-tries-twice            suite: 1: REV9-EDGE/a-new-life-tries-a-kept-ending-once
+KILLED   d123.rekeep-forgets                  suite: 1: REV9-EDGE/a-sleeping-actors-kept-ending-stays-kept-through-a-boot
+KILLED   d123.no-cause                        suite: 1: REV9-EDGE/a-refusal-says-what-was-thrown
+KILLED   d123.delivered-silent-at-boot        suite: 10: REV8-KEPT/a-refused-ending-is-kept-named-and-delivered-at-the-next-boot REV9-M1/a-refused-not-sent-is-parked-and-the-wait-says-so REV9-M1/a-kept-decline-whose-input-cannot-be-carried-still-lands REV9-KEPT/a-kept-ending-delivered-at-boot-frees-its-key ...
+KILLED   d114.read-input-lost                 suite: 1: REV9-EDGE/a-reads-decline-carries-its-input
+KILLED   d114.read-key-lost                   suite: 1: REV9-EDGE/a-reads-decline-carries-its-input
+KILLED   d124.front-none                      cli: 8: form-amount-bigint: amount: expected ["amount"], got [] form-key-bigint: orderId: expected ["orderId"], got [] form-struct-bigint: line.total: expected ["line.total"], got [] form-array-bigint: totals[]: expected ["totals[]"], got [] ...
+KILLED   d124.keys-only                       cli: 7: form-amount-bigint: amount: expected ["amount"], got [] form-struct-bigint: line.total: expected ["line.total"], got [] form-array-bigint: totals[]: expected ["totals[]"], got [] form-record-bigint: byLine[]: expected ["byLine[]"], got [] ...
+KILLED   d124.no-objects                      cli: 2: form-struct-bigint: line.total: expected ["line.total"], got [] form-record-bigint: byLine[]: expected ["byLine[]"], got []
+KILLED   d124.no-records                      cli: 1: form-record-bigint: byLine[]: expected ["byLine[]"], got []
+KILLED   d124.no-arrays                       cli: 1: form-array-bigint: totals[]: expected ["totals[]"], got []
+KILLED   d124.no-unions                       cli: 1: form-nullable-bigint: tip: expected ["tip"], got []
+KILLED   d124.no-sets                         cli: 2: form-set: tags: expected ["tags"], got [] form-map: tags: expected ["tags"], got []
+KILLED   d124.date-warns                      cli: 1: form-date-key: nothing to say: expected [], got ["day"]
+
+not applied (0):
+
+
+45/47 killed (builder); by the watchdog: d122.no-yield-in-loop; invalid: none

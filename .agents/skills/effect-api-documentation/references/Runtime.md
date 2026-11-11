@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Runtime` API](https://www.effect.website/docs/v4/api/effect/Runtime). Examples assume `import { Effect, Exit, Runtime } from "effect"`.
 
+`Runtime` supplies the environment and execution services needed to run Effects from host code and expose their completion as an `Exit`.
+
 ## API index
 
 1. [Runtime.makeRunMain](#runtimemakerunmain)

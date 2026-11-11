@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `ConfigProvider` API](https://www.effect.website/docs/v4/api/effect/ConfigProvider). Examples assume `import { ConfigProvider } from "effect"`.
 
+`ConfigProvider` resolves configuration paths for `Config` descriptions, allowing the same typed configuration code to read from different backing sources.
+
 ## API index
 
 1. [ConfigProvider.fromEnv](#configproviderfromenv)

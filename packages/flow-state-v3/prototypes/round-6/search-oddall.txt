@@ -1,0 +1,3 @@
+{"search":"oddall","verdict":"completed","combinations":432}
+
+WATCH peak 250 MB, 46.5 s, exit 0, killed no

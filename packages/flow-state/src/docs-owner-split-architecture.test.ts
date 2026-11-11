@@ -37,7 +37,7 @@ describe("docs owner split architecture", () => {
   it("keeps the behavior reference focused on declared facts", () => {
     const behaviorSource = requireDoc("../../../apps/docs/src/pages/reference/behavior.mdx");
 
-    expect(behaviorSource).toContain("shared application behavior brief");
+    expect(behaviorSource).toContain("application behavior contract commands");
     expect(behaviorSource).toContain("flow-state behavior build");
     expect(behaviorSource).toContain("flow-state behavior render");
     expect(behaviorSource).toContain("flow-state behavior diff");

@@ -1,0 +1,103 @@
+{
+ "search": "pay",
+ "verdict": "completed",
+ "perDepth": [
+  1,
+  2,
+  12,
+  48,
+  202,
+  791,
+  3025,
+  11466
+ ],
+ "states": 15547,
+ "edges": 38345,
+ "steps": 809425,
+ "depthCompleted": 7,
+ "classes": {
+  "charged-unaccounted:PAYING": {
+   "count": 1092,
+   "witness": "PayRequested Leave PayRequested"
+  },
+  "charged-unaccounted:CARD": {
+   "count": 553,
+   "witness": "PayRequested Leave Start"
+  },
+  "charged-unaccounted:PAID": {
+   "count": 682,
+   "witness": "PayRequested ack pay.ok PayRequested"
+  },
+  "charged-unaccounted:LEFT": {
+   "count": 270,
+   "witness": "PayRequested Leave Start2 Leave"
+  },
+  "held-no-owner:PAYING": {
+   "count": 1392,
+   "witness": "PayRequested ack reload PayRequested"
+  },
+  "two-keys-one-intent:PAID": {
+   "count": 709,
+   "witness": "PayRequested ack pay.ok PayRequested"
+  },
+  "placed-and-voided:LEFT": {
+   "count": 225,
+   "witness": "PayRequested ack pay.ok Leave"
+  },
+  "order-no-receipt:LEFT": {
+   "count": 243,
+   "witness": "PayRequested ack pay.ok Leave"
+  },
+  "charged-unaccounted:UNSURE": {
+   "count": 67,
+   "witness": "PayRequested Leave Start2 ack advance60000"
+  },
+  "held-no-owner:CARD": {
+   "count": 161,
+   "witness": "PayRequested Leave ack reload Start"
+  },
+  "placed-and-voided:PAID": {
+   "count": 570,
+   "witness": "PayRequested ack pay.ok Leave Leave"
+  },
+  "two-keys-one-intent:LEFT": {
+   "count": 131,
+   "witness": "PayRequested ack pay.ok PayRequested Leave"
+  },
+  "told-not-charged:PAID": {
+   "count": 10,
+   "witness": "PayRequested ack pay.ok PayRequested ack refuse"
+  },
+  "order-no-receipt:PAYING": {
+   "count": 23,
+   "witness": "PayRequested ack pay.ok PayRequested ack hang"
+  },
+  "told-not-charged:CARD": {
+   "count": 15,
+   "witness": "PayRequested ack pay.ok PayRequested refuse refuse"
+  },
+  "two-keys-one-intent:PAYING": {
+   "count": 5,
+   "witness": "PayRequested Leave ack pay.ok PayRequested Leave PayRequested"
+  },
+  "two-keys-one-intent:CARD": {
+   "count": 10,
+   "witness": "PayRequested Leave ack pay.ok PayRequested Leave Start"
+  },
+  "held-no-owner:PAID": {
+   "count": 5,
+   "witness": "PayRequested ack pay.ok PayRequested ack ack reload"
+  },
+  "order-no-receipt:CARD": {
+   "count": 3,
+   "witness": "PayRequested ack pay.ok Leave ack place.ok Start"
+  },
+  "placed-and-voided:CARD": {
+   "count": 2,
+   "witness": "PayRequested ack pay.ok Leave ack place.ok Start"
+  }
+ },
+ "ms": 31400,
+ "peakRssMb": 220,
+ "unpinned": []
+}

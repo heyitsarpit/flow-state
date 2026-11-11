@@ -1,0 +1,21 @@
+{
+ "search": "session",
+ "verdict": "inconclusive",
+ "perDepth": [
+  1,
+  15,
+  124,
+  752,
+  3815,
+  17250
+ ],
+ "states": 41330,
+ "edges": 143689,
+ "steps": 1469764,
+ "depthCompleted": 5,
+ "classes": {},
+ "ms": 40001,
+ "peakRssMb": 253
+}
+
+WATCH peak 241 MB, 40.1 s, exit 0, killed no

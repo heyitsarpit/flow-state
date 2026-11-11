@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `SubscriptionRef` API](https://www.effect.website/docs/v4/api/effect/SubscriptionRef). Examples assume `import { Effect, SubscriptionRef } from "effect"` and an enclosing scoped `Effect` program.
 
+`SubscriptionRef` combines a current value with a stream of changes so consumers can read a snapshot and subscribe without a racy gap.
+
 ## API index
 
 1. [SubscriptionRef.SubscriptionRef](#subscriptionrefsubscriptionref)

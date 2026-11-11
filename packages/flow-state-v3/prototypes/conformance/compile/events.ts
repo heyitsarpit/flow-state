@@ -1,0 +1,34 @@
+// Round 12, compile prototypes: event tokens, shared by the operations' `outcomes` and the bodies. A payload is a fields record (Machines O1, 2.2.1).
+// `Flow.uncertain(fields)` marks the only kind of event an operation's `unknown:` may target (rule 13); the operations compiler refuses any other.
+import type { Fields, TypeOf } from "./core.ts";
+
+export type Token<Tag extends string, P> = { readonly tag: Tag; readonly _p?: (p: P) => void };
+export type EndCtx = { readonly key: unknown; readonly input: unknown; readonly reason?: string };
+export type From<V, Tag extends string = string> = { readonly tag: Tag; readonly fromFn: (v: V, c: EndCtx) => unknown };
+export type EventToken<Tag extends string, P> = Token<Tag, P> & {
+  readonly from: <V>(f: (v: V, c: EndCtx) => P) => From<V, Tag>;
+};
+export type EventsOf<Ev extends Readonly<Record<string, Fields>>> = { readonly [K in keyof Ev & string]: EventToken<K, TypeOf<Ev[K]>> };
+export type EventPayloads<Ev extends Readonly<Record<string, Fields>>> = { readonly [K in keyof Ev]: TypeOf<Ev[K]> };
+
+// Round 14 (OD28, 2.7.18): `Flow.ignore`, an ending that needs no reaction. It stands wherever an operation's mapping takes one event; it has no `tag`,
+// so a stream key or a `listen` entry, which take an event token or a function, cannot be given it (both forbidden, 2.11.6, rules 25, 71).
+export type Ignore = { readonly "~flowIgnore": true };
+export const ignore: Ignore = Object.freeze({ "~flowIgnore": true as const });
+export const isIgnore = (t: unknown): t is Ignore => typeof t === "object" && t !== null && (t as { "~flowIgnore"?: unknown })["~flowIgnore"] === true;
+
+const uncertainSet = new WeakSet<object>();
+export const uncertain = <F extends Fields>(fields: F): F => {
+  uncertainSet.add(fields);
+  return fields;
+};
+export const isUncertain = (fields: unknown) => typeof fields === "object" && fields !== null && uncertainSet.has(fields);
+
+// Round 13 (round 12 review M3): each event's payload fields, as `Compiled.events.payloads` holds them (copied, so `Compiled` shares no object with the
+// author's records). The admission door and a Story's sends have data to check against.
+export const payloadsOf = (ev: Readonly<Record<string, Fields>>): Readonly<Record<string, Readonly<Record<string, unknown>>>> =>
+  Object.fromEntries(Object.entries(ev).map(([tag, f]) => [tag, { ...f }]));
+// Round 13 (mid review L4): which events `Flow.uncertain` marks, as data; `payloadsOf`'s copies lose the mark, which is by identity.
+export const uncertainOf = (ev: Readonly<Record<string, Fields>>): readonly string[] => Object.keys(ev).filter((k) => isUncertain(ev[k]));
+export const tokens = <Ev extends Readonly<Record<string, Fields>>>(ev: Ev): EventsOf<Ev> =>
+  Object.fromEntries(Object.keys(ev).map((tag) => [tag, { tag, from: (fromFn: unknown) => ({ tag, fromFn }) }])) as EventsOf<Ev>;

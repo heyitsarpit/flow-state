@@ -1,0 +1,764 @@
+phase P4
+title Pay path, slice R and lane policies
+description
+    **Class:** not readily verifiable.
+
+    **Kind:** verification-suite.
+
+    **Goal:** slice R, the rework before any feature (T45 the Spec model with generators and limits, T51 production's 
+    lanes as one table function, T47 the fixture infrastructure and three pilot parts, in that order), then slice 1, 
+    lane policies (T18); the Pay path (T16), T43 and T44 are done.
+
+    **Verified by:**
+
+    - the slice's suite half: parts and the Spec model's section green, killing table-cell mutants of the model,
+      reviewed and audited by its own adversarial auditor (skill:policy-testing#audit-a-suite);
+    - then the production half through the production adapter: model-predicted runs pass, with its coverage rows in
+      @plan.Runtime's verification;
+    - skill:check-task per Task; `nub run check` at zero.
+
+    **One iteration:** a slice's suite half first (Spec change, model section, parts, model mutation, audit), then its
+    production half built test-first against model-predicted runs, then the benchmark replay and the gates. When
+    production and a case disagree, the Spec decides and the fix cites its rule.
+
+    **Exit criteria:**
+
+    - the slice's suite half is green on the model, mutant-proven by model mutation, reviewed and audited before its
+      production half starts;
+    - the slice's new codes are declared, enabled and covered by the combination gate before it closes.
+
+    **False pass:** the production adapter doing work the runtime should; a case edited to pass.
+
+    **Caught by:** mutants run against the production adapter, a review section on the adapter's role, and the audit.
+
+    **Gates:**
+
+    - falsify on both adapters (`packages/flow-state-v3/conformance/`, each oracle's mutants file);
+    - `nub run check`, which rejects a planted lint violation (`tools/lint-bomb/`).
+
+    **Failure limit:** 2.
+
+    **Stops:**
+
+    - a guarantee change or one that can't be met;
+    - public entry-point names or a large public API change.
+
+    **User's read:** each Spec revision, each changed expected result with its reason, the internal module layout, small
+    public API calls.
+
+    **Draws from:**
+
+    - skill:policy-verification (prove a suite; the coverage record);
+    - skill:policy-testing (audit a suite; test first: module integration tests through the public interface, no unit
+      tests of internals, and the scenarios that enforce each Invariant written before the code);
+    - skill:to-spec for the area's Spec and skill:to-design per module;
+    - skill:policy-convergence at the threshold; skill:review at the cadence;
+    - skill:playbook-build (long runs), skill:execute-task, skill:check-task; skill:diagnose when a case fails
+      unexplained.
+tasks
+    T7
+        title       WriteLanes area complete
+        status      done
+        priority    high
+        blocked_by  [@task.V3.T5, @task.V3.T40]
+        description
+            Cover the guarantee map's remaining WriteLanes rows with oracles and cases.
+
+            **Why now:** P3 can't judge a production runtime on WriteLanes until every WriteLanes Invariant
+            has a check, and these rows have none.
+
+            **Read first:** code:packages/flow-state-v3/conformance/README.md (the WriteLanes rows of the
+            guarantee map, and its round-14 carry list), @spec.WriteLanes, @spec.Conformance.R11 (the verdict
+            compare), code:packages/flow-state-v3/conformance/write-lanes/lane-queue.ts#laneQueue. The rows:
+            @spec.WriteLanes.I1, @spec.WriteLanes.I2, @spec.WriteLanes.I4, @spec.WriteLanes.I5,
+            @spec.WriteLanes.I7, @spec.WriteLanes.I10, @spec.WriteLanes.I13, @spec.WriteLanes.I14,
+            @spec.WriteLanes.I17 to @spec.WriteLanes.I19, @spec.WriteLanes.I23, and the pending mutants of
+            @spec.WriteLanes.I15 (which took the cut I22) and
+            @spec.WriteLanes.I16.
+
+            **Approach:** oracles `members`, `members-only`, `write-before-ending`, `old-version-holds`;
+            cases; the fake world behaviours they need; the area's ported cases; its verdict compare with the
+            old suite; its round-14 carry rows.
+
+            - **May change:** the suite's write-lanes area.
+            - **Evidence:** this Task's comments.
+            - **False pass:** an oracle too lenient to fail → caught by its mutants and the audit.
+            - **Gates:** falsify; `nub run check`.
+            - **Stops:** a guarantee change.
+            - **User's read:** Spec revisions, changed expected results.
+        acceptance
+            - Every WriteLanes Invariant has its oracle or case;
+            - each oracle kills its listed mutants;
+            - the area's verdicts match the old suite's or each difference is logged with its cited
+              rule.
+        comment     2026-11-11T15:10:00Z
+            Verdict: done as merged into T18 (replan, 2026-11-11); open rows (I2, I24, I27, I28; I19 went to T24) go 
+            with T18.
+            Reviews are under `workflow/plans/flow/references/proposals/` (t6-completion, t40-s2, t7-fixes, lifecycle, 
+            step4,
+            step5, step6, t8-t7-rows). Counts: `gates.json`.
+            Decision (orchestrator, R35): one lifecycle fold (`dsl/lifecycle*.ts`) is read by `lane-queue`, 
+            `delivered-once` and
+            `disposal`; `ending-channels` and `attempt-identity` stay off it as independent judges. What a turn owes 
+            comes only
+            from the reference and suite facts, never the report (`dsl/lifecycle-owed.ts#owedMembers`); a claimed row 
+            (Pay's
+            `Leave`, `Confirmed` from LEFT) is owed only when its members are reported, a stated limit.
+            Landing rule (Conformance R11): list every changed verdict with its rule, and diff each red case's
+            `oracle: Invariant` set per mutant, not only the red sets.
+            Rulings that replaced old pending items: CQ1, CQ3, CQ6, R9 and an owed retry's re-send (WriteLanes I26,
+            `lane.retry-members-dropped`), in log.task 2026-11-11T03:30:58Z.
+            Traps: a sweep on a scratch copy has no `workflow/`, so its coverage line reads BAD; the lifecycle reads 
+            each turn
+            header as `selection` judged it, never as reported; `Finished`, a delivered ending's `Denied` and an 
+            unattributable
+            `Unhandled` are still excused by a report (T9, T17).
+            Open for T18 and T15's audit: no oracle catches a key-less cancel landing on the other key's lane (LANE-13's
+            expectation alone does); a commit on a lane holding a kept ending needs a Table B row (CQ3); I23, I17, I2, 
+            I19, I24
+            need an oracle on late answers, a fixture release at `Boot`, and a domain-write fixture with a Port read of 
+            entity data.
+    T8
+        title       Turn area complete
+        status      done
+        priority    high
+        blocked_by  [@task.V3.T5, @task.V3.T40]
+        description
+            Cover @spec.Turn's guarantee map with oracles and cases.
+
+            **Why now:** the suite has no Turn area, so the suite can't judge a runtime's turns.
+
+            **Read first:** code:packages/flow-state-v3/conformance/README.md (the Turn rows of the guarantee
+            map), @spec.Turn, code:packages/flow-state-v3/prototypes/conformance/reference/model.ts,
+            @spec.Conformance.R5.
+
+            **Approach:** oracles `publication`, `selection` (with the reference model ported from the
+            prototype's), `activations`, `turn-purity`, `refusal`, `schedules`, `placements`, `late-routing`,
+            `context`, `issues`; cases, fake world behaviours, ported cases, verdict compare and carry rows.
+
+            **Scope added** (the user, 2026-11-11, from
+            code:workflow/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md): add Invariants and cases
+            for Turn R4 (history: target the last active child, history.child, data back only through placement or
+            resumable) and Turn R23 (snapshot fields, keyed lists, private fields omitted), and for token.child (M44).
+            **Owed checks:** M10 and M71, M72 (Turn R23), M45 and M49 (Turn R4), M66 (Turn R18).
+
+            **Read first (added):** @plan.Machines.O2, @plan.Machines.O8.
+
+            - **May change:** the suite's turn area.
+            - **Evidence:** this Task's comments.
+            - **False pass:** a reference model copied from the runtime → caught by the audit (it
+              imports nothing from the code under test).
+            - **Gates:** falsify; `nub run check`.
+            - **Stops:** a guarantee change.
+            - **User's read:** Spec revisions, changed expected results.
+        acceptance
+            - Every Turn Invariant has its oracle or case;
+            - each oracle kills its listed mutants;
+            - verdicts match the old suite's or each difference is logged with its cited rule.
+            - Turn R4 and R23 each have an Invariant with an oracle or case, and token.child a case; the owed checks
+              above exist.
+        comment     2026-11-11T15:10:00Z
+            Verdict: merged into T17 (Turn rows) and T9 (actor rows) by the replan; rows and evidence are in
+            `conformance/not-yet.ts` and `turn/remainders.ts`.
+            Trap: `not-yet.ts` still names T7, T8, T10, T11 and T12 as owners, so `nub run conformance:coverage` fails 
+            (64 gaps).
+            Decisions (agent): `selection` judges every turn header (Turn I2) from hand-written handler tables, and the 
+            carried
+            leaf is the table's, never the report's; a disposal drops the leaf because the record may lag (DISP-02, 
+            DISP-06 go red
+            otherwise: round-14 restores IDLE). An unreadable report is a typed `Unreadable` (`port.ts`), not a thrown 
+            defect
+            that round-14's sink swallows and drops the batch. TURN-01 asserts two issues (Actors R15, CQ2 in 
+            spec-log.md).
+            Round-14 deviations (README): Turn I32 (arm order) goes to T18, Actors I38 to T9.
+            Unresolved: rows owed to T18 and T21 (Turn I16, I18, I28, I31 to I34; I25) were proposed for the user's 
+            read; check
+            that those Tasks now allow suite cases. Open for T17: Turn I1, I4, I6, I24, I35 (evidence in `not-yet.ts`).
+    T13
+        title       Static cases for Compile, Diagnostics, Codec and StaticCli
+        status      done
+        priority    medium
+        blocked_by  [@task.V3.T5, @task.V3.T40]
+        description
+            Write one static case module each for Compile, Diagnostics, Codec and StaticCli, over `Compiled`
+            and the CLI.
+
+            **Why now:** no static case module exists, and the guarantee map has prose only for these four
+            Specs (@spec.Conformance.Q14), so their Invariants have no check.
+
+            **Read first:** @spec.Conformance.R14 (the two case kinds),
+            code:packages/flow-state-v3/conformance/README.md ("Compile, Diagnostics, Codec, StaticCli" and
+            its round-14 carry list), @spec.Compile, @spec.Diagnostics, @spec.Codec, @spec.StaticCli. Expected
+            values come from the Specs: @spec.Conformance.R5.
+
+            **Approach:** port the prototype's front-check
+            (code:packages/flow-state-v3/prototypes/round-14/checks/front-check.ts), the CLI pins and the
+            graph gate (@spec.StaticCli.I2), plus their carry rows (`SharedContract`, the widened `key: []`
+            warning, rule 13's `byReason` keys, C184's message check).
+
+            - **May change:** the suite's static areas.
+            - **Evidence:** this Task's comments.
+            - **False pass:** pins copied from current output → caught by expectations cited from
+              the Specs and the audit.
+            - **Gates:** falsify; `nub run check`.
+            - **Stops:** a guarantee change.
+            - **User's read:** Spec revisions.
+        acceptance
+            - Every Compile, Diagnostics, Codec and StaticCli Invariant has a case;
+            - each case fails on its planted wrong compiler or CLI output.
+        comment     2026-11-11T15:10:00Z
+            Verdict: done; every static Invariant round-14 can make is checked; the rest are owed in `not-yet.ts` 
+            (Compile and
+            Diagnostics to T17, Codec to T20, StaticCli I3, I10, I11 to T22). Reviews: t41-t13-review and
+            staticcli-port-review under `workflow/plans/flow/references/proposals/`.
+            Decisions (agent): a crash is never a refusal (only a throw with a leading `Code:` counts); every 
+            `not-yet.ts` owner
+            must be an open Task; CMP-10 accepts a refusal at construction or at Runtime creation (round-14 refuses at 
+            creation).
+            Limits: the graph gate judges only `pay`; `desk` and `desk-listen` report UnresolvedHold errors (T22); CLI 
+            I1 reads
+            the CLI's own `callbacksRun`, not spies (T22).
+    T16
+        title       The Pay path end to end on production
+        status      done
+        priority    high
+        blocked_by  [@task.V3.T6, @T7, @T8, @T13]
+        satisfies   [@plan.Operations.O1, @plan.Operations.O3, @plan.Operations.O7]
+        description
+            Build the thinnest production runtime that runs checkout's Pay machine through the public API and the
+            production adapter: the walking skeleton.
+
+            **Why now:** the suite is proven for the Pay path but production has no code yet, and every later module 
+            needs one path that runs end to
+            end to build on.
+
+            **Read first:** @spec.Compile, @spec.Turn, @spec.WriteLanes,
+            code:packages/flow-state-v3/conformance/port.ts#Port,
+            code:packages/flow-state-v3/conformance/fixtures/pay.ts#Pay. Blocked by the suite areas the Pay
+            path uses (@task.V3.T6, @task.V3.T7, @task.V3.T8, @task.V3.T13), not by T15; if T15's audit
+            weakens a Pay oracle, T16 is repaired against it.
+
+            - **May change:** `packages/flow-state-v3/src/`, the production adapter.
+            - **Evidence:** this Task's comments.
+            - **False pass:** the adapter doing runtime work → caught by mutants on the adapter.
+            - **Gates:** P3's suite, Pay cases; `nub run check`.
+            - **Stops:** public entry-point names.
+            - **User's read:** module layout.
+        acceptance
+            The Pay cases pass on production through the Port; their mutants are killed.
+        comment     2026-11-11T15:10:00Z
+            Verdict: the Pay and Cells cases pass on production; review fixes (t16-review) landed with failing-first 
+            tests.
+            Proposed, for the user's read: the layout, `src/core/` pure and `src/host/` the Effect edge.
+            Decision (agent): Pay keeps the 3-D Secure alternatives as guarded stays so places match; its deadline is 
+            the
+            commit's `Effect.timeoutOrElse` over a detached request fiber. **Reverse:** drop both.
+            Traps: non-reject concurrency is refused at compile time; production has no `flow graph`, so the graph gate 
+            does not
+            judge its turns; the real host's visibility and storage are T19's.
+    T43
+        title       Production code uses Effect's features instead of hand-rolled ones (audit R1 to R8)
+        status      done
+        priority    high
+        blocked_by  [@T16]
+        description
+            `src/` applies the user-confirmed Effect simplification recommendations R1 to R8.
+
+            **Why now:** the audit found hand-rolled clock, scheduler and fiber bookkeeping in the host, codecs
+            built per call, and a real bug (event payloads never decoded); T17 onward would build on them.
+
+            **Read first:** code:workflow/plans/flow/references/proposals/effect-simplification-2026-11-11.md;
+            AGENTS.md "Code style (v3 production)"; @spec.Turn, @spec.Actors.
+
+            **Approach:** R2's payload decoding first, then R1 (Host to Effect services, one FiberMap in the
+            Runtime's Scope; dispose shuts the core down before closing the Scope), R3, R4, R5 to R8. Each lands
+            alone with the suite green on round-14 and the Pay cases green on production.
+
+            - **May change:** `packages/flow-state-v3/src/`, the production adapter, lint configuration.
+            - **Evidence:** this Task's comments.
+            - **False pass:** a refactor that changes behaviour unnoticed → caught by the suite on production and
+              the production mutants.
+            - **Stops:** a guarantee change.
+        acceptance
+            - R1 to R8 applied, or one rejected with a logged reason;
+            - suite green on round-14; Pay cases green on production; production mutants all caught;
+            - `nub run check` at zero.
+        comment     2026-11-11T15:10:00Z
+            Verdict: R1 to R8 applied at 90c9f3bd, each alone, none rejected.
+            Trap (the advisor's bug, confirmed by a failing test first): a throwing inspector left the driver's loop
+            marked running, so later inputs stayed queued. A throwing sink now detaches itself, and the loop is released
+            before a step defect is rethrown. No production mutant reaches it (no Port path throws in a sink); the test
+            was falsified by hand.
+            R2 fixed a real bug: payloads were never decoded; the public send now decodes and throws InvalidEvent.
+
+    T44
+        title       The suite judges from its own facts only, gated by machines
+        status      done
+        priority    high
+        blocked_by  [@T43]
+        description
+            No path leads from a runtime report to an obligation, enforced by type and lint, and machine gates run
+            on every checkpoint.
+
+            **Why now:** six reviews found the same class, a report deciding an obligation; the advisor's Q1, Q6,
+            Q7 and Q9 replace instance fixes with a structural rule and gates.
+
+            **Read first:** code:workflow/plans/flow/references/proposals/advisor-answers-2026-11-11.md (Q0, Q1, Q6, 
+            Q7, Q9); code:packages/flow-state-v3/conformance/dsl/oracle.ts.
+
+            **Approach:** split `Fact` so obligation code cannot see a report, with a lint ban; a liar gate (a
+            mutant's acts with a correct runtime's recorded reports must stay red); a diffed catch matrix; generic
+            mutants of `src/core` (a two-hour StrykerJS trial, else a small operator mutator); a crash generator; a
+            generated gate file that notes and reports cite instead of hand-copied numbers.
+
+            - **May change:** `packages/flow-state-v3/conformance/`, lint configuration, `package.json` scripts.
+            - **Evidence:** this Task's comments; the generated gate file.
+            - **False pass:** a report path left open → caught by the liar gate.
+        acceptance
+            - obligation code takes no runtime report (type and lint enforced);
+            - under the liar gate no behavioural mutant turns green;
+            - catch matrix, core mutants, crash generator and gate file run on every checkpoint.
+        comment     2026-11-11T15:10:00Z
+            Verdict: done, remainders moved to T45, T47 and T18; counts are in `gates.json`.
+            The round-14 liar greens need fixtures whose handler hears the act or the order, such as a serialize or
+            latest machine counting `No` and `Unsure`, or a same-lane member pair (T47).
+            18 mutants are recorded as report truth only, each with its reason (`suite.ts` `reportTruth`).
+            Trap: lint bars `Observation` and `Fact` from the lifecycle's six table modules only. `lifecycle-step.ts`,
+            `lifecycle-owed.ts` and `turn/selection.ts` still read reports (owed members read the reported header and
+            keys) until T45's expect/compare split.
+            Decision (orchestrator): a kept ending holds its lane (WriteLanes R6, CQ3; DLV-06, `prod.kept-ignored`).
+            Open for T18: other concurrencies beside a kept ending, and a kept-only lane's production row (Plan
+            Operations O6 is silent; I8 says the lane exists).
+            The production crash gate is red because the model does not roll a lane back to its last landed capture at
+            a kill (Restore R3, WriteAhead R10): T45. `k.drop-row` and `q1a.unchanged-resets` stay pending probes until
+            WriteAhead I4 has an oracle (T45, T10).
+
+    T45
+        title       An executable Spec model computes expected results and generates cases (pilot: persistence)
+        status      in_progress
+        priority    high
+        blocked_by  [@T44]
+        description
+            One executable model written from the Specs computes each case's expected result and generates runs,
+            piloted on the persistence area, replacing hand-written cases there.
+
+            **Why now:** 111 Invariants are still owed; the advisor's Q2, Q3 and Q5 find generated runs from one
+            model cheaper and stronger than hand cases, with round-14 kept as a mutant host.
+
+            **Read first:** code:workflow/plans/flow/references/proposals/advisor-answers-2026-11-11.md (Q2, Q3, Q5); 
+            @spec.WriteAhead; code:packages/flow-state-v3/conformance/dsl/case.ts; @spec.Conformance.R19 to R22
+            (the model's limits, the generic compare, facts only, the limits list; tests T32, T37, T38, T40 to T43 are
+            this Task's).
+
+            **Approach:** the model is the existing `dsl/lifecycle*.ts` modules (rules, step, owed), adapted, and
+            imports nothing from a runtime; generated runs are a reload after every step of
+            the existing cases, the old suite's search, and seeded sequences with shrinking; hand cases become the
+            model's tests; round-14 becomes a mutant host with a limits list a run verifies.
+
+            **Owns (records review, 2026-11-11):** the script Schema, the script player and the shrinker, over hand
+            fixtures; @task.V3.T47 reuses them for parts and builds none of its own (@spec.Conformance.R15, R22). The
+            generators run on round-14, still with no composite.
+
+            **Narrowed (replan, accepted 2026-11-11), slice R:** first restore the disposal catch of
+            `o6.settled-in-bound-stays-held`, so falsify round-14 is 147/147 and nothing else in the Epic starts red.
+            Then the expect/compare split (obligation code takes no observation; lint covers `lifecycle-step.ts`,
+            `lifecycle-owed.ts` and `turn/selection.ts`; claim cells collapse into a generic compare), the model's
+            rollback to the last landed capture at a kill, and three generators (a crash at every step, the small
+            exhaustive search, and seeded `fc.commands` runs with shrinking to regression files). Adds `limits.ts` with
+            its gate. Absorbs @task.V3.T14 (searches and mutants as runner modes; the machine verdict form). Effort 3
+            (estimate). Read code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part 3, "R Rework").
+
+            **Remaining steps, in order** (rebuilt 2026-11-11; the lead's scratchpad plan is gone):
+
+            1. Restore the disposal catch of `o6.settled-in-bound-stays-held` (falsify round-14 147/147). Keep a parked
+               ending saved in disposal owed; allow only unsaved definite endings.
+            2. Evidence endings (Released, Superseded) and parked endings saved by no landing, in the lifecycle and in
+               evidence-kinds (PAY-03@7, DISP-0x); the PAY-07 and DLV-06 leaves.
+            3. Expect/compare split: report-free owed members; lint on `lifecycle-step.ts`, `lifecycle-owed.ts` and
+               `turn/selection.ts`; claim cells into one generic compare (Conformance R19, R20, T38, T40).
+            4. The model's rollback to the last landed capture at a kill (production crash 70 red; Restore R3,
+               WriteAhead R10); rerun `crash --runtime production` (the Held-head bug stays for @task.V3.T51).
+            5. Script Schema, player and shrinker; the generators (crash at every step, small exhaustive search, seeded
+               `fc.commands` runs) with regressions kept (T32); round-14 kill counts (acceptance 1).
+            6. `limits.ts` with its gate (T42), the liar greens on round-14 (T41), the runner's default runtime
+               production (T43), model purity lint (T37), the runner modes of @task.V3.T14.
+
+            **Phase-out, steps 0 to 2 (the user accepted 2026-11-11,
+            code:workflow/plans/flow/references/proposals/conformance-phase-out-2026-11-11.md):**
+
+            - Step 0, with step 1 above: refresh `gates.json` at HEAD and add `falsify --sweep` records per runtime
+              (`catch-sweep.<runtime>.tsv`, mutant by case) and the coverage standings per Invariant; every later
+              phase-out step compares against them.
+            - Step 1, with step 3: delete `lifecycle-perturbations.ts`, Table A's refuse-only cells and the `claimed`
+              handling in `lifecycle-owed.ts`; liar round-14 greens no more than 9.
+            - Step 2, with step 6: `limits.ts` rows replace the round-14 reasons in `not-yet.ts` and the README.
+            - **Gap:** five scenario files hold checks only case expectations make (schedules, lane-keys,
+              payment-retry, parts, refusal; `suite.ts` `caseChecks`); they wait for an oracle or the model, here or
+              in @task.V3.T52.
+
+            - **May change:** `packages/flow-state-v3/conformance/`.
+            - **Evidence:** this Task's comments.
+            - **False pass:** the model shares a runtime's misreading → caught by a different model family reading
+              a sample of expectations, and by the mutants.
+        acceptance
+            - on round-14 with the suite's mutants, generated runs alone kill at least as many as the hand cases in
+              the area;
+            - the search finds at least one Spec conflict or runtime difference no case had, or reports none;
+            - falsify round-14 is 147/147 before any other step of this Task.
+            - the persistence rows of @task.V3.T10 (now the suite half of @task.V3.T19) are covered by generated runs.
+            - obligation code takes no observation, enforced by lint on every expect module: `dsl/expect.ts`,
+              `turn/predict.ts` and what they import (`dsl/lifecycle*.ts`, `turn/anchor.ts`, the fixtures' folds).
+            - `limits.ts` rows each fail on round-14 by their named Invariant, and a gate verifies it.
+            - searches and mutants run from the one runner with `--parallel`, a planted slow child reads as unknown, and
+              the old suite's search kills are reproduced (from @task.V3.T14).
+            - Phase-out steps 0 to 2 are done: the baseline sweeps and `gates.json` at HEAD exist, the perturbations and
+              claim cells are gone, and `limits.ts` replaces the prose reasons.
+            - Phase-out checks (the four validations): no lost catch in the catch matrix; the same coverage and
+              feature-matrix rows; the derived reference equal to the hand rows wherever both exist;
+              Compile static cases green on each fixture's `Compiled`.
+        comment     2026-11-11T15:10:00Z
+            Paused (the user, 2026-11-11) at c2f6983b (WIP at 1f1a1676). Red: falsify round-14 146 of 147, because
+            `o6.settled-in-bound-stays-held` is caught only by its case since the allowed-restore change.
+            Done: every storage landing is a fact. An ending with no landing after it may restore `unknown { Restored }`
+            at the boot (allowed, not owed). An actor with turns no landing holds resumes at an unknown leaf.
+            Production crash points went from 600 to 629 of 670 (`gates.json` still holds the earlier 600).
+            Found: after a boot restores a Held head, production's disposal ends it `NotSent { Disposed }` (26
+            production-only crash points, e.g. PAY-01@6). That fix is production work outside `conformance/`:
+            @task.V3.T51.
+            Open: evidence endings (Released, Superseded) and parked endings saved by no landing, in the lifecycle and
+            in `evidence-kinds` (PAY-03@7, DISP-0x); the PAY-07 and DLV-06 leaves; the generators (exhaustive search,
+            seeded runs with shrinking); report-free owed members; the kill counts.
+            Resume:
+            1. Restore `o6.settled-in-bound-stays-held`'s disposal catch first.
+            2. Keep a parked ending saved in disposal owed, and allow only unsaved definite endings.
+            3. Rerun falsify and `crash --runtime production`.
+            4. Then the remaining steps in the description, in order.
+        comment     2026-11-11T16:10:03Z
+            Step 1 done: falsify round-14 147/147. An ending reported in the Runtime's disposal is never unsaved, so a 
+            kill keeps it owed (Actors I36, R22); `o6.settled-in-bound-stays-held` is caught by `disposal` again. 
+            Reverse: drop the mode check in `unsaved` (`dsl/lifecycle-step.ts`).
+        comment     2026-11-11T16:10:08Z
+            Phase-out step 0 done: `gates.json` at HEAD; `falsify --sweep` full runs write `catch-sweep.<runtime>.tsv` 
+            (prototype 147/147, production 18/18), and `coverage` writes `coverage-standings.txt`. A whole-run child 
+            with no verdict now reruns one child per case (10 s), so a hung case costs its own row 
+            (`runner/falsify.ts#casesIn`); `sched.fires-at-once` and `cmp.commit-runs-at-construction` had no rows 
+            before.
+        comment     2026-11-11T16:10:13Z
+            Step 2, part: crash production 629 -> 639 of 670. Evidence endings count as unsaved; a kill returns each 
+            ending to its life at the last landing or boot, except a Held head's; an unacknowledged head is no head 
+            after a reload; `evidence-kinds` forgets evidence a reload rolled back (WriteAhead I10, R10). Left: 26 
+            Held-head points (@task.V3.T51), and PAY-07@10-11, DLV-06@11, DISP-06@7, PAY-22@13, which need a landing to 
+            save the state at its batch's issue, not at its answer (step 4).
+        comment     2026-11-11T16:10:17Z
+            Review sidecar (Haiku) on the checkpoint diff: accepted 2 (no unsaved mark on a refused move; 
+            `evidence-kinds` reads the phase at the Reload move) and 1 style fix; noted 3 (spawn error reads as 
+            Timeout; nested fallback concurrency; controls have no per-case fallback); rejected 1 (10 s per-case bound: 
+            the lost-catch check reports any catch it costs). Open, for the search's Spec-conflict count: a kill inside 
+            the disposal before its batch lands pits WriteAhead I17 (restore) against Actors I36 (none); the model 
+            follows I36.
+        comment     2026-11-11T16:25:03Z
+            Step 2 done, step 4's rollback built: a landing saves the capture of the batch it lands, taken when the 
+            step that wrote it settles (`Wrote` and `Dropped` facts; WriteAhead I10, R10). Crash production 639 -> 640; 
+            PAY-07 and DLV-06 leaves and DISP-06@7 green. `refusal` no longer judges a leaf across a reload. Left: 28 
+            Held-head points (@task.V3.T51); PAY-22@13 (owed release after a crash, read from the turn's observed row) 
+            goes with step 3.
+        comment     2026-11-11T16:25:08Z
+            Review sidecar (Haiku) on the capture diff: noted 3 as stated limits in `Model`'s Gotchas, not changed: a 
+            capture credited with its whole step (recording at the write would credit too little, since round-14 
+            reports a turn's evidence after its writes); a flush landing ahead of held batches in the fake store (the 
+            world's order, R12); landing decided by the runtime's purpose label. Rejected 1 (`Acknowledged` with 
+            nothing held is kept: `lane-queue`'s resend check needs it, 2 catches lost without it).
+        comment     2026-11-11T16:34:35Z
+            Paused before step 3 (the lead, 2026-11-11) at c12bbfdd: the expect/compare split is a rewrite of the 
+            model's expect half, not an edit. A locator sidecar counts about 15 report uses that create obligations and 
+            55 that choose among them across `dsl/lifecycle*.ts` and `turn/`; four have no suite fact yet (claimed 
+            rows, NO_POLICY declines, `Finished`, `RuntimeDisposed`). Next: one from-scratch design of `expect` 
+            (anchored leaf, keys from `Requested`, outcomes from `Answered` via `classify`, Pay's guards as suite 
+            folds, allowed sets where a Spec leaves a choice), reviewed, then built behind the sweep baseline.
+        comment     2026-11-11T16:44:33Z
+            Spec conflict found and settled (the orchestrator, b51930e5, `log.task`): a kill in the Runtime's disposal 
+            before the ending's batch lands restores `unknown { Restored }` (WriteAhead I17); Actors I36 holds once it 
+            landed. The model now logs disposal endings as unsaved, and a kill closes every ending no landed capture 
+            holds (review sidecar's ghost-ending finding, accepted). Counts toward acceptance 2; the I36 wording is the 
+            user's read. Gates unchanged (147/147, crash 640/670). Reverse: restore the disposal check in `unsaved`.
+        comment     2026-11-11T16:55:42Z
+            Step 3 design drafted, for review before any code: 
+            code:workflow/plans/flow/references/proposals/t45-expect-half-2026-11-11.md. Four Haiku sidecars attacked 
+            v1 (Spec, feasibility, second runtime, completeness). Accepted: restores owed, not 'or nothing' (I17, 
+            Restore R3, I6); no timeout reason; labels at the suite's driver and server instead of model codecs or 
+            payload reads; per-lane compare; report kinds outside the lifecycle stay with their oracles. Five items 
+            flagged for others to decide (memory guards, RuntimeDisposed, Finished, acknowledged set, capture position).
+        comment     2026-11-11T17:05:29Z
+            Step 3 design accepted with the review's changes (orchestrator, 74911f8d); design updated in place and 
+            marked accepted. Acceptance 5's file list now names the expect modules (`dsl/expect.ts`, `turn/predict.ts` 
+            and their imports) instead of the three files the split empties (N5); intent unchanged. Decision 4 checked: 
+            WriteAhead R5 fixes a lane record's identity, not its store key spelling, so the acknowledged set stays a 
+            limits row. R19 wording note proposed in spec-log for the user's read.
+        comment     2026-11-11T17:28:06Z
+            Fact split built (B1, decision 2): suite facts, runtime answers (`Acknowledges`, `Purposed`, `RowRead`, 
+            `Disposal`) and reports; the disposal's end is `Boot.disposed`, not an observation. Review sidecar: 
+            accepted 4 (a batch's purpose pairs with the store's `Wrote`; the mutant's own answers are replaced; a read 
+            is a step; docs), noted 2 (`CleanupFailed` has no producer yet: a limits row in step 6; `heard` routes by 
+            tag). Its self-replay check found the replay moved world facts before replayed reports (22 cases red): 
+            fixed, and the liar gate now runs that control first. Crash production 685/716 (a read is now a step).
+        comment     2026-11-11T17:50:37Z
+            Step 3, turns and members done: the lifecycle opens each turn from selection's prediction (`Predicted`: 
+            anchored from and to, the alternative that ran, keys from folds), never from the report; claimed rows name 
+            their alternative; `lifecycle-perturbations.ts` and the report-reading step mutants are deleted (the expect 
+            half cannot see a report). Pay, LateQueue, Keyed and Held fold their keys and guards; inverting Pay's folds 
+            turns 20 cases red. A removed record (disposeActor, forget) restarts the fields at initial (Actors R20, 
+            R21). Stated limit: a turn's reported key stands in where a fixture folds none or the fields are unknown 
+            after a kill. Gates unchanged; liar round-14 still 9 greens (endings next).
+    T47
+        title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
+        status      open
+        priority    high
+        blocked_by  [@T51]
+        description
+            Build the fixture infrastructure and pilot it on three composite parts: `shape()` modules as data, scripts
+            as JSON, a script player, runtime capability lists, the reach recorder, the feature matrix with the
+            combination gate, and the `bench` runner (slice R).
+
+            **Why now:** about 70 of 112 hand cases use one application (checkout Pay); the user wants a wide net of
+            flows, state transitions and network faults, written once and read by the generator, the Spec model and the
+            benchmark replay (2026-11-11). Composites run on production and the model only; round-14 stays a mutant host
+            for the 99 hand cases, which freeze.
+
+            **Read first:** @task.V3.T45, code:workflow/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md
+            (sections 2, 4, 5A, 5B and 7), code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part 3,
+            "R Rework"), code:packages/flow-state-v3/conformance/world/network.ts,
+            @spec.Conformance.R15 to R23 (tests T30, T31, T33 to T36, T39, T44 are this Task's),
+            code:workflow/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md (the 265 features).
+
+            **Builds on T45:** the script Schema, player and shrinker are @task.V3.T45's; this Task adds parts and the
+            scripts generated from them, and writes no second set.
+
+            **Risk:** the interacting-pair count is an estimate (671 by the replan's reading, 777 by the catalogue's).
+            The reach recorder measures it, and the user approves the non-interacting rules once, as one list (replan
+            question 12).
+
+            **Approach, progressive fixtures:** fixtures grow with the slices, so no part waits on a missing runtime
+            feature. Each part declares the feature codes it needs. Each runtime (production, the Spec model, round-14)
+            declares the codes it implements. The generator enables only operations whose codes the runtime has. The
+            feature-matrix gate reads a feature with no runtime as "owed by slice N" and fails one that a runtime
+            implements but no fixture covers. The combination gate counts only pairs among implemented codes. A part
+            lands in the slice that builds its first feature and gains operations as later slices land theirs.
+
+            **Approach, build:** one `shape()` module per part, with its reference derived from production's `Compiled`,
+            a user model and a server model; usual and stress profiles; the app mix; the matrix maps all 265 Plan
+            features, each row naming its fixture kind (composite part, hand case, static case, example-app check or 
+            package
+            check). Pilot parts: S16 into C, S21 flattened into H, S10 into I (39 interacting pairs, an estimate).
+            Composites A to K are placed by slice in the replan's part tables; J and K (catalogue 5B) are built in slice
+            3 with the subset available. S27 and the Plan-check shapes arrive with their slices. Effort 4 (estimate).
+
+            **Catalogue correction:** the catalogue's section 1 claims (production writes under four policies and has
+            `cancelAll`) and its P tiers (section 7: 11 shapes run on production now) are wrong for production today
+            (replan part 1). The catalogue file is not edited; this Task's matrix and the slice tables supersede them.
+
+            **Declares today's codes:** the 15 codes production implements now (the replan's R row), listed from
+            `adapters/production.ts` and recorded in this Task's comments.
+
+            **Bench:** turn cost per part (median and p99) is recorded as a measurement, not a gate; only the work
+            fingerprint check gates (the user declined up-front optimisation, 2026-11-11).
+
+            **Order:** one lead at a time: T45, then T51, then T47; in every slice the suite half finishes before the
+            production half, by the same builder or the next.
+
+            **Phase-out, step 3 (the user accepted 2026-11-11,
+            code:workflow/plans/flow/references/proposals/conformance-phase-out-2026-11-11.md):** this Task builds
+            `referenceOf(compiled)` (events, states, handlers, schedules, rows, each operation's concurrency, key fields
+            and ending map); the hand descriptors still exist, so it retires nothing and records the V4 baseline. It
+            also builds the production static surface (`construct` and the data view), moved from @task.V3.T17, so the
+            Compile static cases run on production's `Compiled` (`runner/args.ts:46-51` binds the null surface today).
+
+            **Layout (accepted):** `packages/flow-state-v3/fixtures/` holds real machines and imports only
+            `src/index.ts`; `packages/flow-state-v3/bench/` sits beside it and imports the world and player from
+            `conformance/`; `conformance/` is the input/output validator and a lint stops it importing `bench/`.
+            Expected results come only from the Spec model or a written ruling, and every bug found becomes a shrunk
+            regression script. The model search replaces the hand traces, apart from those that record a ruling.
+
+            **Gap (blocking):** production has no static surface yet; built here.
+
+            **Gap (blocking):** `classify` (a commit's answer to a channel) is not in `Compiled`, so each fixture
+            declares it beside its server model.
+
+            - **May change:** `packages/flow-state-v3/conformance/`, `packages/flow-state-v3/fixtures/`,
+              `packages/flow-state-v3/bench/` (fixtures, world, generator, runner).
+            - **Evidence:** this Task's comments; the generated gate file.
+            - **False pass:** parts that differ in name but reach the same cells → caught by table-cell reach and model
+              mutation across parts.
+            - **Gates:** matrix, combination, falsify, liar and core-mutant gates; `nub run check`.
+            - **Stops:** the user's approval of the non-interacting pair list.
+        acceptance
+            - the combination gate: every unreached interacting pair has a dated owner (Conformance R18);
+            - `shape()` modules, JSON scripts and the script player exist: a script generated from a part replays under
+              the oracles on production, and the Spec model computes its expected reports.
+            - each fixture part declares the feature codes it needs, and each runtime (production, the Spec model,
+              round-14) declares the codes it implements.
+            - the generator enables only operations whose codes the runtime has.
+            - the feature-matrix gate treats a feature with no runtime as "owed by slice N", fails a feature a runtime
+              implements that is in no fixture, and maps all 265 Plan features with the fixture kind per row.
+            - the combination gate counts only pairs among implemented codes, takes the interacting-pair list from the
+              channel table, fails an unexercised pair with no dated waiver, and reports triples and cell-pair reach.
+            - the pilot parts S16 [C], S21 flattened [H] and S10 [I] each have usual and stress profiles, kill
+              table-cell mutants of the model, and run on production, alone and in the app mix.
+            - the `bench` runner replays the same scripts without oracles and reproduces the work fingerprint; turn cost
+              per part is recorded (median and p99) as a measurement, not a gate; the fingerprint check is a gate.
+            - every failure found shrinks to a kept regression case or is logged as a runtime limit.
+            - Declared: the capability lists exist and today's implemented codes are declared in each.
+            - Enabled: S16, S21 and S10 declare their needs and the generator draws only declared operations.
+            - Covered: the combination gate passes over the pairs among today's implemented codes.
+            - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
+              the model's expectations is read by a different model family (Fable).
+            - the non-interacting pair list is generated from the channel table, and the user approves its rules once,
+              as one list.
+            - the Compile static cases run on every composite's `Compiled`.
+            - Phase-out step 3: `referenceOf(compiled)` exists; the production static surface (`construct`, data view)
+              exists; each fixture declares `classify` beside its server model; `fixtures/` imports only
+              `src/index.ts`, `bench/` sits beside it, and a lint bars `conformance/` from importing `bench/`.
+            - Phase-out checks (the four validations): no lost catch in the catch matrix; the same coverage and
+              feature-matrix rows; the derived reference equal to the hand rows wherever both exist; Compile static
+              cases green on each fixture's `Compiled`.
+    T52
+        title       Suite phase-out, first cut: Pay and Cells generated, hand traces thinned
+        status      draft
+        priority    high
+        blocked_by  [@T47]
+        description
+            Pay and Cells become generated parts in the top-level `fixtures/`; Pay's hand rows stay as one frozen
+            golden; the hand traces give way to the model search (phase-out step 4).
+
+            **Why now:** the user accepted the phase-out (2026-11-11), including Pay as a generated part, which reverses
+            replan decision 5 ("Pay is not converted") for Pay. Without this cut the suite keeps two descriptions of
+            Pay and two judges of every run.
+
+            **Read first:** code:workflow/plans/flow/references/proposals/conformance-phase-out-2026-11-11.md (step 4,
+            validations V1 to V4), @task.V3.T47, @task.V3.T45, @spec.Conformance.R15.
+
+            **Approach:** `machines/pay.ts` and `pay.contracts.ts` move to `fixtures/pay/`; Pay gains a user model and a
+            server model (about 30 lines) and declares its `classify`; `referenceOf` replaces `fixtures/pay.ts` for
+            every runtime, round-14 included; Pay's hand rows and handler table stay as one frozen golden static case
+            (about 300 lines); `fixture.ts` becomes the real-fixture registry and `dsl/actor.ts` types the view from the
+            definition's Schemas; traces whose cells the search reaches are deleted, and a kept trace names its ruling;
+            the step-mutant list gives way to cell mutation; `not-yet.ts`'s remaining rows become matrix rows and the
+            file is deleted; Pay's hand cases thin where a generated run or kept case catches the same mutants. Effort
+            about 1.5 (estimate).
+
+            **Gap:** the five scenario files that hold checks only case expectations make wait for an oracle or the
+            model (here or @task.V3.T45); their cases stay until then.
+
+            - **May change:** `packages/flow-state-v3/conformance/`, `packages/flow-state-v3/fixtures/`.
+            - **Evidence:** this Task's comments.
+            - **False pass:** a derived reference that copies a compiler bug → caught by the frozen golden and the
+              Compile static cases.
+            - **Gates:** falsify on round-14 and production; matrix and coverage; `nub run check`.
+        acceptance
+            - Pay and Cells run as generated parts from `fixtures/pay/`; Pay's hand rows remain as one frozen golden.
+            - `referenceOf` equals the hand rows for Pay and Cells (rows, handlers, schedules, every operation field,
+              `classify`) before any deletion.
+            - `not-yet.ts` and the deleted traces are gone; every hand-listed step mutant is still killed, by the search
+              or by a kept trace.
+            - Phase-out checks (the four validations): no lost catch in the catch matrix; the same coverage and
+              feature-matrix rows; the derived reference equal to the hand rows wherever both exist;
+              Compile static cases green on each fixture's `Compiled`.
+    T18
+        title       Lane policies: latest, serialize, cancel and cancelAll (slice 1)
+        status      draft
+        priority    high
+        blocked_by  [@T52]
+        satisfies   [@plan.Operations.O3, @plan.Runtime.O2]
+        description
+            Build the write-lane policies `latest`, `serialize` (up to 64, Overloaded), `cancel` and `cancelAll` on
+            production, plus the `waiting` row, as rows of the lane table @task.V3.T51 builds (slice 1).
+
+            **Why now:** production refuses every policy but `reject`. The WriteLanes oracles are converged, so this is
+            the safest first slice on the new infrastructure, and it unlocks composites A, B and C. It absorbs
+            @task.V3.T7 (the WriteLanes area suite; I19 is @task.V3.T24's and I28 moves here). Actor scope moved to
+            @task.V3.T9 and turn features to @task.V3.T17.
+
+            **Read first:** @spec.WriteLanes, code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part
+            3, "1 Lane policies"), @epic.V3 (instructions: the slice template),
+            code:packages/flow-state-v3/conformance/README.md (the WriteLanes rows).
+
+            **Approach:** Spec check first: rule WriteLanes Q5 (a cancel commit on a Kept lane; a kept unknown on a
+            Held head), which @task.V3.T51's table refuses until then; then the slice template.
+            Codes: lt se ca cA ad. Parts built: S01 and S24 [A]; S08, S03 and S22 flat [B]; S12 and S23 [C]; S09 flat
+            [G]. Reaches the pairs `lt`+`cA`, `ca`+`cA`, `cA`+`gr` and the deep stacks "reload + cancel + retry +
+            storage refusal" and "disposal + serialize + write-ahead + refusal". Bench: capture bytes and batches per
+            minute (S01, S08, S24); disposal with calls on the wire (S03, S12). Effort 4 (estimate).
+
+            **Phase-out, step 5 (the user accepted 2026-11-11):** each lab machine gets a real twin in `fixtures/`:
+            Serialize, Latest, Cancel, LateQueue, Keyed and Held; run the hand cases on each fixture on production;
+            write production mutants per oracle the slice judges, mapped by Invariant from the round-14 mutants; delete
+            the descriptor once the derived reference equals it (`one-lane.ts` but Release, and `keyed.ts`, go). Read
+            code:workflow/plans/flow/references/proposals/conformance-phase-out-2026-11-11.md.
+
+            - **May change:** `src/`, the conformance fixtures, model and generator.
+            - **Evidence:** this Task's comments.
+            - **False pass:** a lenient oracle → caught by the proven mutants and model mutation.
+            - **Gates:** the suite; falsify; the matrix and combination gates.
+            - **Stops:** a guarantee change.
+        acceptance
+            - The WriteLanes area passes on production under `reject`, `latest`, `serialize`, `cancel` and `cancelAll`:
+              every WriteLanes Invariant has its oracle or case and each oracle kills its mutants (from @task.V3.T7).
+            - The slice's generated runs pass on production, and its benchmark replay matches the work fingerprint.
+            - Declared: lt se ca cA ad are in the production and Spec-model capability lists, and the feature-matrix
+              gate shows none of them as owed.
+            - Enabled: S01, S24, S08, S03, S22, S12, S23 and S09 declare those codes among their needs, the generator
+              draws their operations, and the app mix runs them.
+            - Covered: the combination gate counts the pairs among implemented codes, fails an unexercised interacting
+              pair with no dated waiver, and passes before this Task closes.
+            - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
+              the model's expectations is read by a different model family (Fable).
+            - Phase-out step 5: the Serialize, Latest, Cancel, LateQueue, Keyed and Held twins exist in `fixtures/`;
+              the same verdict per case on round-14 and production.
+            - Phase-out checks (the four validations): no lost catch in the catch matrix; the same coverage and
+              feature-matrix rows; the derived reference equal to the hand rows wherever both exist;
+              Compile static cases green on each fixture's `Compiled`.
+    T51
+        title       Production lanes reworked: one table function, reports derived from acts
+        status      open
+        priority    high
+        blocked_by  [@T45]
+        description
+            Rework production's lane under the unchanged suite: one total function from WriteLanes' table, reports
+            derived from acts, no implicit states (slice R).
+
+            **Why now:** `latest`, `serialize`, `cancel` and `cancelAll` added to today's chain of `if`s would build the
+            implicit state machine AGENTS.md forbids, and a refactor mixed into slice 1 hides its reds among four new
+            policies. T45 also found a production bug to fix here: a restored Held head is ended `NotSent { Disposed }`.
+
+            **Read first:** code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part 1, "What drives the
+            rework"), @spec.WriteLanes, code:packages/flow-state-v3/src/core/lanes.ts, @task.V3.T45.
+
+            **Approach:** the lane as one exhaustive match over (phase, member or ending); `evidenceOf(before, input,
+            after, commands)` derives Sent, Minted and endings; tagged states replace the ending, `cancelled` and `sent`
+            booleans; production's `dispose` runs the core's disposal (Actors R22) before it closes the Scope (the
+            Actors R15 note, now marked Required; it skips it today); drop derived fields (`tickets`, a lane's `key`, 
+            `keyText` and `id`); the restored Held head fixed
+            with a failing case first; reads get a context with no Attempt; the seam lint list; Spec ids out of `src/`
+            comments, with a lint pattern. Effort 2.5 (estimate).
+
+            - **May change:** `packages/flow-state-v3/src/`, the production adapter, lint configuration.
+            - **Evidence:** this Task's comments.
+            - **False pass:** a rewrite that changes behaviour unnoticed → caught by the unchanged suite on production
+              and the core mutants.
+            - **Gates:** production, falsify production, liar and core mutants no worse than at T51's start, as recorded
+              in `gates.json`; the crash generator; `nub run check`.
+            - **Stops:** a guarantee change.
+        acceptance
+            - The lane is one total function from WriteLanes' table: no `if` chain, and no `cancelled`, `sent` or
+              `redelivered` boolean carries an ending.
+            - Reports an act determines come from `evidenceOf`; report-only production mutants fall and core-mutant
+              survivors do not rise.
+            - The restored Held head bug has a failing case first, then passes.
+            - Production gates are no worse than at T51's start, as recorded in `gates.json`; `nub run check` at zero.
+            - No new crash-generator reds; the Held-head points (26 production-only at T45) go green.
+            - `dispose` runs the core's disposal (Actors R22) before it closes the Scope, with a failing case first.
+            - Reads I21 holds (no Attempt in a lookup's context), and the seam lint (Conformance T29) and the Spec-id
+              lint in `src/` exist.
+            - WriteLanes Q5's two open cells (a cancel commit on a Kept lane; a kept unknown on a Held head) are
+              refused as a defect by the total function; @task.V3.T18 rules them.
+        comment     2026-11-11T12:42:12Z
+            New (replan, accepted 2026-11-11): production rework before slice 1.

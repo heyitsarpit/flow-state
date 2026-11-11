@@ -1,0 +1,83 @@
+phase P8
+title Benchmark and real-browser suites
+description
+    **Class:** not readily verifiable.
+
+    **Kind:** verification-suite.
+
+    **Goal:**
+
+    - a proven benchmark suite (performance and bundle size on named devices) and a real-browser
+      suite running the system inside the P6 apps in Chrome, Safari and an iOS simulator;
+    - checked baselines from which the user sets the budget targets.
+
+    **Starts when:** P6's apps run (P7 may run alongside only if it does not overlap).
+
+    **Verified by:**
+
+    - each suite run end to end, a deliberately slowed build caught per budget, tamper checks, and
+      an audit by a lead that did not build it;
+    - skill:check-benchmark on the baselines.
+
+    **One iteration:** one suite part: build, prove with its slowed build or tamper, review.
+
+    **Exit criteria:**
+
+    - both suites proven, with coverage records;
+    - baselines checked;
+    - the user has set the budget targets.
+
+    **False pass:** a benchmark that measures less work than the real path.
+
+    **Caught by:** skill:check-benchmark comparing the work done.
+
+    **Gates:** one slowed build per budget; tamper checks on the browser runs.
+
+    **Failure limit:** 2.
+
+    **Stops:** the budget targets, set by the user after the baselines.
+
+    **User's read:** the proposed targets. Decisions: budget targets (the user), proposed by the
+    orchestrator from the baselines.
+
+    **Draws from:**
+
+    - skill:policy-verification;
+    - skill:check-benchmark;
+    - skill:check-runtime;
+    - skill:principle-explain-measurements.
+tasks
+    T35
+        title       Benchmark and real-browser suites proven; baselines; targets
+        status      draft
+        priority    medium
+        description
+            Build the benchmark and real-browser suites, prove them, take baselines on named devices, and propose budget
+            targets for the user.
+
+            **Why now:** the P9 budgets need proven suites and checked baselines, and the user sets the targets only
+            after
+            the baselines exist.
+
+            **Read first:** skill:check-benchmark, skill:check-runtime, skill:policy-verification,
+            skill:principle-explain-measurements, @task.V3.T32.
+
+            **Approach:** benchmarks and browser runs run alone; drafted in full when P8 starts. Narrowed (records 
+            review):
+            prove the `bench` runner the slices built (@task.V3.T47), not rebuild it.
+
+            **Scope added** (the user, 2026-11-11, from
+            code:workflow/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md): run every real-browser
+            suite in Chromium, Gecko (Firefox) and WebKit, as @plan.Package.O4 states, including the T27 and T30 browser
+            runs (K11); or amend that outcome with the user.
+
+            **Read first (added):** @plan.Package.O4.
+
+            - **Evidence:** this Task's comments.
+            - **False pass:** skipped work in a benchmark → caught by skill:check-benchmark.
+            - **Gates:** slowed builds; tamper checks.
+            - **Stops:** the budget targets.
+            - **User's read:** the proposed targets.
+        acceptance
+            - Both suites killed their slowed builds and tampers; the user set the targets.
+            - Every real-browser run includes Firefox, or the user amended @plan.Package.O4.

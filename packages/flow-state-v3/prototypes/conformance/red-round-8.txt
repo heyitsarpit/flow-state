@@ -1,0 +1,30 @@
+# Round 8's new cases on round 7's code, copied unchanged to round-8/ (only the harness additions: batch log, wipe, slowAfterAck, kill at a yield, onLogged). Tue Nov  3 00:31:26 IST 2026.
+# Cases that pass here pin something already true, a survivor of the reviews; they are for mutants, not for a fix.
+FAIL REV8-H1/a-plain-write-behind-a-ticket-cannot-unsay-a-send a hold: expected true, got undefined
+FAIL REV8-H1/the-same-with-a-store-that-goes-slow-after-the-ack a hold: expected true, got undefined
+FAIL REV8-H1/checkout-refunds-does-not-send-a-second-key held: expected true, got false
+FAIL REV8-H1/a-head-on-disk-has-no-acknowledged-bit no bit: expected false, got true
+FAIL REV8-FATAL/a-fatal-with-mail-left-does-not-spin threw: Error: settle: did not quiesce at settle (/Users/arpit/Developer/flow-state/packages/flow-state-v3/prototypes/conformance/drive.ts:101:15) at do (/Users/arpit/Develop
+FAIL REV8-M3/a-boot-lost-apart-from-its-records-reaches-no-other-copy copy z got its own read: expected "z", got "p"
+FAIL REV8-M3/frame-numbers-do-not-repeat-across-a-lost-meta no repeat: expected 6, got 4
+FAIL REV8-M3/an-unreadable-meta-repeats-no-boot no repeat: expected 6, got 4
+FAIL REV8-M9/a-guard-key-that-cannot-encode-denies-that-alternative state: expected "C", got "W"
+FAIL REV8-M9/a-guard-key-with-no-other-alternative-stays no refused turn: expected 0, got 1
+FAIL REV8-M9/a-lookup-whose-input-cannot-encode-ends-as-a-failure the turn ran: expected true, got false
+FAIL REV8-M9/a-lookup-whose-key-cannot-encode-ends-as-a-failure through its outcomes: expected "failed", got null
+FAIL REV8-M9/a-bad-lookup-replaces-an-open-one no answer pending: expected 0, got 1
+FAIL REV8-M9/a-module-value-that-cannot-encode-is-dropped-and-named no refused turn: expected 0, got 1
+FAIL REV8-M9/a-members-key-that-cannot-encode-does-nothing-and-the-turn-runs cancel: the turn ran: expected 1, got 0
+SUMMARY 592/607 scenario cases pass; unlogged expectation changes: file:scenarios/ctx.ts file:fake-world.ts file:drive.ts; catalog disagreements: none
+WATCH peak 260 MB, 9.4 s, exit 1, killed no
+# Added after the first red run: REV8-M2/an-answer-to-a-hidden-page-issues-at-once as first written passed on round 7's code, so it did not reproduce M2. A survivor showed it. Rewritten, then seen failing on round 7:
+FAIL REV8-M2/an-answer-to-a-hidden-page-issues-at-once no timer waited: expected "newest", got "out"
+# Second pass, after the mid-session review: new cases on the code before D107-D111. REV8-STORM ran alone, as it reaches the watchdog.
+FAIL REV8-H1/a-restored-hold-is-the-last-route state: expected "U", got "A"
+FAIL REV8-M3/a-hold-does-not-rewrite-per-boot two more boots, no write of the lane: expected 3, got 5
+FAIL REV8-M9/a-commit-that-cannot-encode-says-so the reason: expected "Unencodable", got "StorageRefused"
+FAIL REV8-M9/a-reset-value-that-cannot-encode-resets-nothing no refused turn: expected 0, got 1
+FAIL REV8-KEPT/a-refused-ending-is-kept-named-and-delivered-at-the-next-boot a wait says so: expected true, got false
+FAIL REV8-KEPT/a-reads-refused-ending-is-a-stranded-wait a wait says so: expected true, got false
+SUMMARY 46/52 scenario cases pass; unlogged expectation changes: REV8-H1 REV8-M3 REV8-M9 REV8-PINS file:scenarios/round8.scenario.ts file:fixtures/round8.compiled.ts; re
+REV8-STORM: WATCH killed by RSS at 1,573 MB in 1.6 s, no result

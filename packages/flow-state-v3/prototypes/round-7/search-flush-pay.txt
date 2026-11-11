@@ -1,0 +1,80 @@
+{
+ "search": "flush.pay",
+ "verdict": "inconclusive",
+ "perDepth": [
+  1,
+  7,
+  36,
+  196,
+  977,
+  4472
+ ],
+ "states": 19308,
+ "edges": 62871,
+ "steps": 819110,
+ "depthCompleted": 5,
+ "classes": {
+  "waits-for-nothing:PAYING": {
+   "count": 849,
+   "witness": "Pay Leave Pay"
+  },
+  "charged-unaccounted:PAYING": {
+   "count": 783,
+   "witness": "Pay Leave Pay"
+  },
+  "charged-unaccounted:PAID": {
+   "count": 295,
+   "witness": "Pay ack pay.ok Pay"
+  },
+  "two-keys-one-intent:PAID": {
+   "count": 358,
+   "witness": "Pay ack pay.ok Pay"
+  },
+  "placed-and-voided:LEFT": {
+   "count": 275,
+   "witness": "Pay ack pay.ok Leave"
+  },
+  "order-no-receipt:LEFT": {
+   "count": 277,
+   "witness": "Pay ack pay.ok Leave"
+  },
+  "waits-for-nothing:PLACING": {
+   "count": 137,
+   "witness": "Pay ack pay.ok refuse"
+  },
+  "held-no-owner:PAYING": {
+   "count": 835,
+   "witness": "Pay ack KILL Pay"
+  },
+  "placed-and-voided:PAID": {
+   "count": 87,
+   "witness": "Pay Leave ack pay.ok Pay"
+  },
+  "charged-unaccounted:LEFT": {
+   "count": 21,
+   "witness": "Pay Leave ack pay.ok refuse"
+  },
+  "two-keys-one-intent:LEFT": {
+   "count": 32,
+   "witness": "Pay ack pay.ok Pay Leave"
+  },
+  "told-not-charged:PAID": {
+   "count": 1,
+   "witness": "Pay ack pay.ok Pay ack refuse"
+  },
+  "order-no-receipt:PAYING": {
+   "count": 2,
+   "witness": "Pay ack pay.ok Pay ack hang"
+  },
+  "told-not-charged:CARD": {
+   "count": 1,
+   "witness": "Pay ack pay.ok Pay refuse refuse"
+  }
+ },
+ "ms": 70002,
+ "peakRssMb": 217,
+ "unpinned": [],
+ "lanesAhead": 0
+}
+
+WATCH peak 207 MB, 70.1 s, exit 0, killed no

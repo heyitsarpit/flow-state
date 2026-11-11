@@ -3,6 +3,8 @@
 **Unstable API.** Import this module from `effect/unstable/persistence/PersistedQueue`.
 The [official v4 API reference](https://www.effect.website/docs/v4/api/effect/unstable/persistence/PersistedQueue) is useful for orientation, but the local pinned source is authoritative when it differs. The local checkout currently identifies the package as `effect@4.0.0-beta.98`.
 
+`PersistedQueue` stores schema-encoded work items in a durable queue so they can survive process restarts and be retried after failure.
+
 ## API index
 
 1. [make](#make)

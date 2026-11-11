@@ -1,0 +1,46 @@
+Red: round 6's suite on round 5's code (round-6/ is still a byte copy). 2026-11-02.
+FAIL  STREAM5-LOSE/overflow-with-no-reconnect-ends-it      not seen while nothing pulls: a finding: expected "", got "Failed"
+FAIL  REV6-H1/a-frame-before-the-first-row-is-kept         the newer frame shows: expected "newer", got "title t1"
+FAIL  REV6-H1/no-version-it-is-marked-and-asked            marked: expected true, got false
+FAIL  REV6-H1/a-success-before-the-first-row-is-a-claim    unmarked archived is the server's: expected true, got false
+FAIL  REV6-H2/a-partial-frame-is-no-echo                   the write stands: expected true, got false
+FAIL  REV6-H2/a-repair-obeys-the-judge                     kept, or still asked: expected true, got false
+FAIL  REV6-H2/a-success-with-a-version-settles-an-older-claim-L7 a newer version applies: expected false, got true
+FAIL  REV6-H2/other-fields-of-a-newer-frame-merge-under-a-claim the title moved: expected "other", got "title t1"
+FAIL  REV6-H3/string-versions-have-no-order-unless-declared a different string applies: expected "ten", got "title t1"
+FAIL  REV6-H3/electric-offsets-are-strings                 applies: expected "ten", got "title t1"
+FAIL  REV6-H4/a-throwing-backoff-does-not-stop-streaming   no module disabled: expected [], got [{"code":"ModuleDefect","origin":"sessions.input","input":"Error: backoff"}]
+FAIL  REV6-H4/a-backoff-of-no-shape-is-not-an-hour-L5      reconnected: expected 2, got 1
+FAIL  REV6-H4/a-throwing-reconnect-while-means-not-retried no module disabled: expected [], got [{"code":"ModuleDefect","origin":"sessions.input","input":"Error: reconnectWhile"}]
+FAIL  REV6-H4/a-throwing-page-retry-means-not-retried      no module disabled: expected [], got [{"code":"ModuleDefect","origin":"sessions.input","input":"Error: pageRetryWhile"}]
+FAIL  REV6-H4/a-throwing-key-places-no-session             no module disabled: expected [], got [{"code":"ModuleDefect","origin":"sessions.told","input":"Error: key"}]
+FAIL  REV6-H4/other-machines-keep-streaming                no module disabled: expected [], got [{"code":"ModuleDefect","origin":"sessions.input","input":"Error: reconnectWhile"}]
+FAIL  REV6-H4/a-throwing-subscribe-is-a-defect-M4          T1: end(Defect): expected "Defect", got ""
+FAIL  REV6-H4/a-dying-stream-is-a-defect-M4                T1: end(Defect): expected "Defect", got ""
+FAIL  REV6-H4/a-throwing-getter-refuses-at-the-gate-M11    not stopped: expected false, got true
+FAIL  REV6-H5/a-release-that-changes-a-key-does-not-mint-beside-a-hold said: expected 1, got 0
+FAIL  REV6-H5/the-rekeyed-lane-is-what-a-guard-reads       still held on disk under the new id: expected true, got false
+FAIL  REV6-H7/a-read-that-never-answers-does-not-wedge     no longer waiting on that read: expected false, got true
+FAIL  REV6-H7/three-silent-reads-make-one-lost             said three times: expected true, got false
+FAIL  REV6-H7/overflow-reaches-a-stopped-pull-out-of-band  catching up: expected true, got false
+FAIL  REV6-H7/overflow-with-a-running-pull-drains-then-fails what fitted arrived, in order: expected true, got false
+FAIL  REV6-STREAMS/M2-end-mid-flush-discards-with-evidence what was queued is named: expected 2, got 0
+FAIL  REV6-STREAMS/M3-a-member-stops-the-in-mail-value-with-catchUp T3: the member wins over a frozen value: expected 40, got 7
+FAIL  REV6-STREAMS/L2-down-disarms-healthy-and-idle        no timer left for this session: expected 0, got 1
+FAIL  REV6-STREAMS/L4-a-value-with-a-field-named-feed-is-a-value delivered: expected ["odd"], got []
+FAIL  REV6-M7/a-failed-plain-write-is-not-believed         said: expected 1, got 0
+FAIL  REV6-M8/a-declared-decode-gives-the-new-field-its-default the restored ending ran: expected 100, got 0
+FAIL  REV6-L3/a-stored-frag-of-no-shape-quarantines        not stopped: expected false, got true
+FAIL  REV6-L3/a-stored-key-of-proto-quarantines            named: expected true, got false
+SUMMARY  477/510 scenario cases pass; unlogged expectation changes: file:fake-world.ts file:drive.ts file:fixtures/compiled.ts file:fixtures/desk.compiled.ts file:fixtures/chat.compiled.ts; catalog disagreements: none
+WATCH peak 233 MB, 9.3 s, exit 1, killed no
+--- SEARCH listen.version.noload
+ "verdict": "failed",
+ "depthCompleted": 3,
+ "failure": "silently wrong: shows {\"id\":\"t1\",\"title\":\"title t1\",\"slug\":\"title t1\",\"archived\":false,\"readAt\":null,\"revision\":1}, server {\"id\":\"t1\",\"title\":\"title t1\",\"slug\":\"title t1\",\"archived\":true,\"readAt\":null,\"revision\"
+WATCH peak 103 MB, 0.2 s, exit 1, killed no
+--- SEARCH listen.none.noload
+ "verdict": "failed",
+ "depthCompleted": 3,
+ "failure": "silently wrong: shows {\"id\":\"t1\",\"title\":\"title t1\",\"slug\":\"title t1\",\"archived\":false,\"readAt\":null,\"revision\":1}, server {\"id\":\"t1\",\"title\":\"title t1\",\"slug\":\"title t1\",\"archived\":true,\"readAt\":null,\"revision\"
+WATCH peak 107 MB, 0.3 s, exit 1, killed no

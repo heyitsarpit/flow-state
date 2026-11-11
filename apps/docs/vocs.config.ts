@@ -1,16 +1,10 @@
 import { defineConfig, type Config } from "vocs/config";
+import { chalk, paper } from "./code-themes";
 
 const config: Config = defineConfig({
   title: "Flow State",
   description: "Effect-native state machines for frontend applications.",
-  accentColor: "light-dark(#3155ff, #9fb2ff)",
-  logoUrl: { light: "/logo-light.svg", dark: "/logo-dark.svg" },
-  topNav: [
-    { text: "Start", link: "/" },
-    { text: "Guides", link: "/guide/ownership-and-runtime-facts" },
-    { text: "Reference", link: "/reference/api" },
-    { text: "Status", link: "/reference/status" },
-  ],
+  codeHighlight: { themes: { light: paper, dark: chalk } },
   sidebar: [
     {
       text: "Start",
@@ -19,7 +13,6 @@ const config: Config = defineConfig({
         { text: "Supported Today", link: "/reference/status" },
         { text: "Getting Started", link: "/getting-started" },
         { text: "Concepts", link: "/concepts" },
-        { text: "Examples", link: "/examples" },
       ],
     },
     {

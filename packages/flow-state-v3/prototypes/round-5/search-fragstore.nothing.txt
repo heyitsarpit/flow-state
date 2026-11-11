@@ -1,0 +1,21 @@
+{
+ "search": "fragstore.nothing",
+ "verdict": "inconclusive",
+ "perDepth": [
+  1,
+  5,
+  21,
+  87,
+  389,
+  1737
+ ],
+ "states": 7159,
+ "edges": 18904,
+ "steps": 248414,
+ "depthCompleted": 5,
+ "classes": {},
+ "ms": 30002,
+ "peakRssMb": 198
+}
+
+WATCH peak 190 MB, 30.4 s, exit 0, killed no

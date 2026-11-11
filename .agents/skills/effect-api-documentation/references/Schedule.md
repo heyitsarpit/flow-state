@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Schedule` API](https://www.effect.website/docs/v4/api/effect/Schedule). Examples assume `import { Effect, Schedule } from "effect"`.
 
+`Schedule` describes reusable timing policies for retries, repetitions, polling, delays, bounds, backoff, and jitter.
+
 ## API index
 
 1. [Schedule.Schedule](#scheduleschedule)

@@ -1,0 +1,11 @@
+workflow/specs/conformance/Conformance.spec
+workflow/specs/core/Actors.spec
+workflow/specs/core/Codec.spec
+workflow/specs/core/Compile.spec
+workflow/specs/core/Diagnostics.spec
+workflow/specs/core/Reads.spec
+workflow/specs/core/Restore.spec
+workflow/specs/core/StaticCli.spec
+workflow/specs/core/Turn.spec
+workflow/specs/core/WriteAhead.spec
+workflow/specs/core/WriteLanes.spec

@@ -1,0 +1,75 @@
+phase P0
+title Reconcile the design and the prototype
+description
+    **Class:** not readily verifiable.
+
+    **Kind:** verification-suite.
+
+    **Goal:** one source of truth before any Plan is written: the prototype and its suite brought up
+    to the design's newest decisions (OD28 to OD31), and the design brought up to the prototype's
+    newer decisions (convergence D1 to D222, round 13's API changes, FOR-ARPIT's accepted calls),
+    recorded as OD46 to OD51.
+
+    **Verified by:**
+
+    - prototype suite cases derived from the design's text, each seen failing first;
+    - the old suite's gates (lock, falsify, lies, mutants, searches, graph gate, type tests,
+      front-check, CLI pins, Story checks);
+    - the stage A close-out review, area by area.
+
+    **One iteration:** one area: implement it in the prototype or record it in the design, run the
+    suite, review.
+
+    **Exit criteria:**
+
+    - every design decision has passing prototype cases;
+    - every prototype decision is in the design or listed as a conflict for the user;
+    - no disagreement left;
+    - gates pass.
+
+    **False pass:** cases bent to fit the code.
+
+    **Caught by:** expected results derived from the design.
+
+    **Gates:** the old suite's falsify parts, which reject null, broken, tampered and lying runtimes
+    (`packages/flow-state-v3/prototypes/conformance/falsify.ts`).
+
+    **Budget:** the Epic's Budget section, row P0 to P2 (spent: 8 rounds allowed).
+
+    **Failure limit:** 2.
+
+    **Stops:** a guarantee change; a conflict only the user can decide.
+
+    **User's read:** each area's reconciliation (now notes). Prototype: yes.
+
+    **Draws from:**
+
+    - skill:policy-convergence when reviews repeat a root cause;
+    - skill:policy-testing for the suite;
+    - skill:review at each checkpoint.
+comment 2026-11-09T13:30:00Z
+    Done before the move to this Epic: rounds 14, 15 and 15b (OD49 to OD51), with stage A's one
+    close-out as its completion audit (roadmap amendment 3): FAIL at `4d6d1cf2` on 5 blocking
+    items, fixed at `d3d89576`, PASS on re-check (B1 to B3, B5 closed; B4, the user's-read list,
+    completed). Record: `packages/flow-state-v3/prototypes/round-14/STATUS.md`; full history in
+    git at `20986677`.
+tasks
+    T1
+        title       Prototype and design reconciled (rounds 14, 15, 15b)
+        status      done
+        priority    high
+        labels      [not-readily-verifiable, verification-suite]
+        description
+            Rounds 14, 15 and 15b brought the prototype to OD28 to OD31 and the label round's
+            rulings, and recorded the prototype's newer decisions as OD46 to OD51. Migrated from
+            `workflow/roadmaps/v3-production/` (git `b30be69d`).
+
+            - **Evidence:** this Task's comments.
+            - **False pass:** cases fitted to the code → caught by design-derived expectations and
+              the stage A close-out.
+            - **Gates:** the old suite's falsify parts, each red on its wrong runtime.
+            - **Budget:** 8 rounds (spent).
+            - **Stops:** none.
+            - **User's read:** the calls in the Epic's pending Decision notes.
+        acceptance
+            Stage A close-out PASS on re-check, after the fixes at `d3d89576`.

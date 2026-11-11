@@ -1,0 +1,9 @@
+bun 1.4.2
+plain turn: send and admit, one actor's memory       actors      1  median 0.90 us/turn  (N=5000 x5)
+plain turn: send and admit, one actor's memory       actors    100  median 0.91 us/turn  (N=5000 x5)
+plain turn: send and admit, one actor's memory       actors   1000  median 19.18 us/turn  (N=5000 x5)
+plain turn: send and admit, one actor's memory       actors  10000  median 215.78 us/turn  (N=500 x5)
+object spread, replace one of 1,000 keys             median 17.547 us
+Effect HashMap.set, one of 1,000 keys                median 0.527 us
+
+WATCH peak 229 MB, 2.7 s, exit 0, killed no

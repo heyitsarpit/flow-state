@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Fiber` API](https://www.effect.website/docs/v4/api/effect/Fiber). Examples assume `import { Effect, Exit, Fiber } from "effect"`.
 
+`Fiber` represents a lightweight running Effect that can be awaited, interrupted, supervised, or inspected as an independent unit of work.
+
 ## API index
 
 1. [Fiber.join](#fiberjoin)

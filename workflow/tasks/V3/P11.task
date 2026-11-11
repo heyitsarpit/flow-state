@@ -1,0 +1,164 @@
+phase P11
+title Persistence
+description
+    **Class:** not readily verifiable.
+
+    **Kind:** verification-suite.
+
+    **Goal:** slice 2, durability, first half: WriteAhead and the persistence edge (T19, absorbing T10), model first.
+
+    **Verified by:**
+
+    - the slice's suite half: parts and the Spec model's section green, killing table-cell mutants of the model,
+      reviewed and audited by its own adversarial auditor (skill:policy-testing#audit-a-suite);
+    - then the production half through the production adapter: model-predicted runs pass, with its coverage rows in
+      @plan.Runtime's verification;
+    - skill:check-task per Task; `nub run check` at zero.
+
+    **One iteration:** a slice's suite half first (Spec change, model section, parts, model mutation, audit), then its
+    production half built test-first against model-predicted runs, then the benchmark replay and the gates. When
+    production and a case disagree, the Spec decides and the fix cites its rule.
+
+    **Exit criteria:**
+
+    - the slice's suite half is green on the model, mutant-proven by model mutation, reviewed and audited before its
+      production half starts;
+    - the slice's new codes are declared, enabled and covered by the combination gate before it closes.
+
+    **False pass:** the production adapter doing work the runtime should; a case edited to pass.
+
+    **Caught by:** mutants run against the production adapter, a review section on the adapter's role, and the audit.
+
+    **Gates:**
+
+    - falsify on both adapters (`packages/flow-state-v3/conformance/`, each oracle's mutants file);
+    - `nub run check`, which rejects a planted lint violation (`tools/lint-bomb/`).
+
+    **Failure limit:** 2.
+
+    **Stops:**
+
+    - a guarantee change or one that can't be met;
+    - public entry-point names or a large public API change.
+
+    **User's read:** each Spec revision, each changed expected result with its reason, the internal module layout, small
+    public API calls.
+
+    **Draws from:**
+
+    - skill:policy-verification (prove a suite; the coverage record);
+    - skill:policy-testing (audit a suite; test first: module integration tests through the public interface, no unit
+      tests of internals, and the scenarios that enforce each Invariant written before the code);
+    - skill:to-spec for the area's Spec and skill:to-design per module;
+    - skill:policy-convergence at the threshold; skill:review at the cadence;
+    - skill:playbook-build (long runs), skill:execute-task, skill:check-task; skill:diagnose when a case fails
+      unexplained.
+tasks
+
+    T46
+        title       Backtest: does a search over the Spec model find the audit's protocol conflicts?
+        status      open
+        priority    medium
+        blocked_by  [@task.V3.T45]
+        description
+            Run the model's search against the Specs as of `bcc2bbbb` (before the Invariant audit) and count which
+            of the audit's 10 to 12 protocol conflicts it finds.
+
+            **Why now:** the user will bring back TLA+ or another prover only if it helps; the advisor's Q4 says
+            try TLC only if the search misses three or more.
+
+            **Read first:** code:workflow/plans/flow/references/proposals/advisor-answers-2026-11-11.md (Q4); 
+            code:workflow/plans/flow/references/proposals/invariant-audit-2026-11-11.md.
+
+            - **Evidence:** this Task's comment, with the found and missed conflicts.
+        acceptance
+            - each protocol conflict from the audit marked found or missed by the search;
+            - a recommendation on TLC, per the three-miss rule.
+
+    T10
+        title       WriteAhead area complete
+        status      done
+        priority    high
+        blocked_by  [@task.V3.T5, @task.V3.T40, @task.V3.T45]
+        description
+            Cover @spec.WriteAhead's guarantee map, with a disk reader on the Port or the adapter.
+
+            **Why now:** the Port has no disk reader yet (README, "Planned Port changes"), so no WriteAhead
+            Invariant can be judged; @task.V3.T11 reads the same disk reader.
+
+            **Read first:** code:packages/flow-state-v3/conformance/README.md (the WriteAhead rows of the
+            guarantee map, and "Planned Port changes"), @spec.WriteAhead,
+            code:packages/flow-state-v3/conformance/port.ts#Port,
+            code:packages/flow-state-v3/conformance/world/storage.ts#makeStorage. A disk reader must not show
+            internals: @spec.Conformance.R1.
+
+            **Approach:** oracles `write-ahead` (the old oracle (h) against the storage host), `capture`,
+            `persistence`; cases; the storage faults (failLate, plain-write failures, slow and failing loads,
+            wipe, tear, corrupt); ported cases, verdict compare and carry rows.
+
+            - **May change:** the Port, the suite's write-ahead area and storage host.
+            - **Evidence:** this Task's comments.
+            - **False pass:** a disk reader that shows internals → caught by T4's Spec and the
+              audit.
+            - **Gates:** falsify; `nub run check`.
+            - **Stops:** a guarantee change.
+            - **User's read:** the Port change, Spec revisions.
+        acceptance
+            - Every WriteAhead Invariant has its oracle or case;
+            - each oracle kills its listed mutants;
+            - verdicts match the old suite's or each difference is logged.
+        comment     2026-11-11T12:41:49Z
+            Merged into T19 (replan, accepted 2026-11-11). Done as merged; T45's generated runs cover its persistence 
+            rows.
+    T19
+        title       Durability: persistence edge, write-ahead and the driver (slice 2)
+        status      draft
+        priority    high
+        blocked_by  [@task.V3.T18]
+        satisfies   [@plan.Persistence.O1, @plan.Persistence.O2, @plan.Persistence.O3, @plan.Persistence.O6]
+        description
+            Build the persistence edge, write-ahead and the Effect driver in `src/host/` from @spec.WriteAhead.
+
+            **Why now:** the core returns work as data; nothing runs it or writes records yet, so durability
+            cannot be judged.
+
+            **Read first:** @spec.WriteAhead, @spec.WriteAhead.I15 (which took the cut I16), @spec.WriteAhead.I17,
+            code:packages/flow-state-v3/conformance/README.md ("Planned Port changes": the disk reader).
+
+            **Scope added** (the user, 2026-11-11, from
+            code:workflow/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md): add an Invariant for
+            WriteAhead R2: the KeyValueStore type rule and untyped missing storage (row Q02, an owed check;
+            @plan.Persistence.O1).
+
+            **Read first (added):** @plan.Persistence.O1, @spec.WriteAhead.Q4 (Effect's KeyValueStore has no batch,
+            R12 needs one; this slice settles the store service with R2's Invariant, with @task.V3.T20).
+
+            **Slice 2, durability (replan, accepted 2026-11-11), with @task.V3.T20:** model first, continuing T45's
+            pilot. Absorbs @task.V3.T10 (the WriteAhead area suite): oracles `write-ahead`, `capture` and `persistence`,
+            a disk reader on the Port that shows no internals, the storage faults, and the carry rows; its Read first is
+            code:packages/flow-state-v3/conformance/README.md (the WriteAhead rows, "Planned Port changes"). Adds the
+            WriteAhead oracles, which re-judge every composite already built, and an in-memory host store so production
+            persists on a real host (IndexedDB is slice 9). Codes: wa. Part built: S13 [E]. Bench: `ready()` with 64
+            queued (S08) and 500 keyed lanes (S16). Effort 7 with T20 (estimate). Read first:
+            code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part 3, "2 Durability").
+
+            - **May change:** `src/`.
+            - **Evidence:** this Task's comments.
+            - **False pass:** durability judged from the runtime's report → caught by the disk
+              reader.
+            - **Gates:** the suite; falsify.
+            - **Stops:** a guarantee change.
+        acceptance
+            - The WriteAhead area passes on production.
+            - WriteAhead R2 has an Invariant with an oracle or case.
+            - Every WriteAhead Invariant has its oracle or case, each oracle kills its mutants, and the disk reader
+              shows no internals (from @task.V3.T10).
+            - The slice's generated runs pass on production, and its benchmark replay matches the work fingerprint.
+            - Declared: wa are in the production and Spec-model capability lists, and the feature-matrix gate shows none
+              of them as owed.
+            - Enabled: S13 [E] and the parts built earlier declare those codes among their needs, the generator draws
+              their operations, and the app mix runs them.
+            - Covered: the combination gate counts the pairs among implemented codes, fails an unexercised interacting
+              pair with no dated waiver, and passes before this Task closes.
+            - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
+              the model's expectations is read by a different model family (Fable).

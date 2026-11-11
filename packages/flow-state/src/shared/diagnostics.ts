@@ -237,7 +237,7 @@ export function formatFlowDiagnosticPretty(
   return printFlowDiagnostic(diagnostic, prettyFlowDiagnosticPrinter);
 }
 
-export class FlowDiagnostic extends Schema.TaggedErrorClass<FlowDiagnostic>(
+export class FlowDiagnostic extends Schema.TaggedError<FlowDiagnostic>(
   "flow-state/FlowDiagnostic",
 )("FlowDiagnostic", {
   code: FlowDiagnosticCodeSchema,
@@ -253,7 +253,7 @@ export class FlowDiagnostic extends Schema.TaggedErrorClass<FlowDiagnostic>(
   }
 }
 
-export class FlowBug extends Schema.TaggedErrorClass<FlowBug>("flow-state/FlowBug")("FlowBug", {
+export class FlowBug extends Schema.TaggedError<FlowBug>("flow-state/FlowBug")("FlowBug", {
   code: FlowBugCodeSchema,
   ...flowDiagnosticDetailFields,
 }) {

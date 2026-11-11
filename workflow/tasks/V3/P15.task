@@ -1,0 +1,196 @@
+phase P15
+title Close-out
+description
+    **Class:** not readily verifiable.
+
+    **Kind:** verification-suite.
+
+    **Goal:** slice 6, second half: the cross-slice audit (T15) and the retirement of the round-14 adapter from the 
+    gates (T23); T14 merged into T45.
+
+    **Verified by:**
+
+    - the slice's suite half: the audit and the adapter retirement (no parts, no model section) green, reviewed and 
+      audited by its own
+      adversarial auditor (skill:policy-testing#audit-a-suite);
+    - then the production half through the production adapter: model-predicted runs pass, with its coverage rows in
+      @plan.Runtime's verification;
+    - skill:check-task per Task; `nub run check` at zero.
+
+    **One iteration:** a slice's suite half first (Spec change, model section, parts, model mutation, audit), then its
+    production half built test-first against model-predicted runs, then the benchmark replay and the gates. When
+    production and a case disagree, the Spec decides and the fix cites its rule.
+
+    **Exit criteria:**
+
+    - the slice's suite half is green and audited before its production half starts (no model mutation: this slice
+      has no parts);
+    - the slice's new codes are declared, enabled and covered by the combination gate before it closes.
+
+    **False pass:** the production adapter doing work the runtime should; a case edited to pass.
+
+    **Caught by:** mutants run against the production adapter, a review section on the adapter's role, and the audit.
+
+    **Gates:**
+
+    - falsify on both adapters (`packages/flow-state-v3/conformance/`, each oracle's mutants file);
+    - `nub run check`, which rejects a planted lint violation (`tools/lint-bomb/`).
+
+    **Failure limit:** 2.
+
+    **Stops:**
+
+    - a guarantee change or one that can't be met;
+    - public entry-point names or a large public API change.
+
+    **User's read:** each Spec revision, each changed expected result with its reason, the internal module layout, small
+    public API calls.
+
+    **Draws from:**
+
+    - skill:policy-verification (prove a suite; the coverage record);
+    - skill:policy-testing (audit a suite; test first: module integration tests through the public interface, no unit
+      tests of internals, and the scenarios that enforce each Invariant written before the code);
+    - skill:to-spec for the area's Spec and skill:to-design per module;
+    - skill:check-benchmark on the speed numbers;
+    - skill:policy-convergence at the threshold; skill:review at the cadence;
+    - skill:playbook-build (long runs), skill:execute-task, skill:check-task; skill:diagnose when a case fails
+      unexplained.
+tasks
+    T14
+        title       Searches and mutants as runner modes
+        status      done
+        priority    medium
+        blocked_by  [@task.V3.T5, @task.V3.T40]
+        description
+            Run the old suite's searches as a runner mode and its `mutants-*.ts` as mutants, both with
+            `--parallel`.
+
+            **Why now:** the new runner has neither, and the phase exit needs the suite to kill every mutant
+            the old suite kills, its search kills included.
+
+            **Read first:** code:packages/flow-state-v3/conformance/README.md (item 3 of "The rest of the
+            rewrite", and its round-14 carry list), @spec.Conformance.R8 (the time bound),
+            code:packages/flow-state-v3/conformance/runner/falsify.ts#falsifyOne. The searches are in
+            `packages/flow-state-v3/prototypes/conformance/search/`, the mutants in
+            `packages/flow-state-v3/prototypes/round-14/` (`mutants-*.ts`).
+
+            **Risk:** the acceptance has a planted slow child read as unknown, but @spec.Conformance.R9 makes
+            a case over its time bound a defect; which one holds is open.
+
+            **Approach:** with the modes, the carry rows owned by the runner: search budgets, search oracles
+            reading only the state hash, process-group kill and watchdog, partial evidence notes.
+
+            - **May change:** the suite's runner.
+            - **Evidence:** this Task's comments.
+            - **False pass:** a time kill read as a verdict → caught by a planted slow child that
+              must read as unknown.
+            - **Gates:** falsify; `nub run check`.
+        acceptance
+            - Searches and mutants run from the one runner with `--parallel`;
+            - a planted slow child reads as unknown;
+            - the old suite's search kills are reproduced.
+        comment     2026-11-10T19:10:00Z
+            Carried here (orchestrator, 2026-11-11): R9's machine verdict form (typed violations, numbered steps, every 
+            failing seed, a thrown defect as its own verdict kind), Conformance Q2 and R9; it changes every verdict 
+            line.
+        comment     2026-11-11T12:42:03Z
+            Merged into T45 (replan, accepted 2026-11-11). Done as merged; its acceptance is in T45's.
+    T15
+        title       Suite audited, fast gates in verify, coverage record, speed targets
+        status      open
+        priority    high
+        blocked_by  [@task.V3.T22, @task.V3.T41]
+        description
+            Close the suite out:
+
+            - an audit and re-audit by a lead that did not build the suite, writing its own mutants from the
+              Specs;
+            - the fast gates in `nub run verify`;
+            - the coverage record (Covers, Suite, Rerun, Mutants, Audit, Matched at, Scope) drafted for
+              @plan.Runtime's verification and listed for the user's yes before it is written;
+            - the speed targets measured.
+
+            **Why now:** the areas are proven one by one; this is the final cross-area audit, the close-out
+            phase's last gate before T23.
+
+            **Read first:** code:packages/flow-state-v3/conformance/README.md (item 5 of "The rest of the
+            rewrite"), skill:policy-testing#audit-a-suite, skill:policy-verification (the coverage record),
+            skill:check-benchmark.
+
+            **Slice 6 (replan, accepted 2026-11-11):** runs after @task.V3.T22 as the cross-slice audit over everything
+            built, in place of the per-area close-outs; @task.V3.T7 to T12 and T14 were merged into slices. The audit
+            also covers the combination gate and the model-mutation record.
+
+            - **May change:** `package.json`, the suite.
+            - **Evidence:** this Task's comments.
+            - **False pass:** a speedup that skips work → caught by skill:check-benchmark comparing
+              the work done; an audit that reads the tests instead of the record → caught by its
+              brief.
+            - **Gates:** falsify; `nub run verify`.
+            - **Stops:** the Plan edit for the coverage record (list and wait).
+            - **User's read:** the audit's findings.
+        acceptance
+            - no interacting pair of implemented codes is unreached; any left gets a pair-sweep case (R18);
+            - Audit and re-audit pass;
+            - `nub run verify` runs the fast gates;
+            - the coverage record is in the Plan;
+            - suite at most 15 s, peak RSS at most 600 MB, fast loop at most 30 s, final-commit
+              gates at most 10 min at up to 8 in parallel, or each gap reported with its limiter.
+            - Declared: the audit checks each runtime's capability list against its code and finds no code declared
+              without a fixture or implemented without a declaration.
+            - Enabled: the audit finds every part's declared needs enabled by the generator, and no operation drawn for
+              a code the runtime lacks.
+            - Covered: the audit re-runs the combination gate with its own seeds and finds no pair reported covered that
+              it cannot reach.
+            - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
+              the model's expectations is read by a different model family (Fable).
+    T23
+        title       Prototype adapter retired; verify builds v3
+        status      draft
+        priority    medium
+        blocked_by  [@task.V3.T22, @T15]
+        satisfies   [@plan.FlowState.O1]
+        description
+            Retire the prototype adapter, point `nub run build` at `packages/flow-state-v3` (it still builds the
+            frozen library), and pass `nub run verify`.
+
+            **Why now:** the Epic's core exit needs the suite to pass on the production runtime alone, with `verify`
+            green.
+
+            **Read first:** code:packages/flow-state-v3/conformance/adapters/prototype.ts,
+            code:packages/flow-state-v3/conformance/suite.ts, @spec.Conformance.R3, @spec.Conformance.R11.
+
+            **Slice 6 (replan, accepted 2026-11-11):** the round-14 adapter leaves the gates after @task.V3.T15. It
+            stays as a mutant host for the 99 hand cases, behind `limits.ts` (@task.V3.T45), until
+            @task.V3.T53 retires it.
+
+            **Phase-out, step 6 (the user accepted 2026-11-11):** before round-14 leaves the gates, thin the hand cases.
+            A case goes when every mutant it turns red (from the step-0 sweeps) is also turned red by a generated run
+            or a kept case, and it holds no case-only Invariant row; a case-only row moves to an oracle or a model
+            check first, or its case stays. A case with a unique catch becomes a shrunk regression script in
+            `conformance/regressions/` citing what it caught. `pay-steps.ts` and `dsl/actor.ts` go with their last
+            user. Read first:
+            code:workflow/plans/flow/references/proposals/conformance-phase-out-2026-11-11.md.
+
+            - **May change:** `package.json`, the suite's adapters.
+            - **Evidence:** this Task's comments.
+            - **False pass:** verify green because the suite was skipped → caught by a planted
+              failing case that must turn verify red.
+            - **Gates:** `nub run verify`.
+        acceptance
+            The suite passes on production alone; `nub run verify` passes and fails on the
+            planted case.
+            - Declared: round-14's capability list is kept only for the limits list, each limit failing by its named
+              Invariant.
+            - Enabled: generated composites run on production and the Spec model only; round-14 runs the hand cases as
+              mutant host.
+            - Covered: the combination gate counts pairs on production alone and passes.
+            - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
+              the model's expectations is read by a different model family (Fable).
+            - Phase-out step 6: every deleted hand case lost no catch, and each unique catch is a regression script;
+              no case-only Invariant row is lost; matrix rows change fixture kind from "hand case" to "part" or
+              "regression".
+            - Phase-out checks (the four validations): no lost catch in the catch matrix; the same coverage and
+              feature-matrix rows; the derived reference equal to the hand rows wherever both exist;
+              Compile static cases green on each fixture's `Compiled`.

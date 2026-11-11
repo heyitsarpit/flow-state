@@ -1,24 +1,27 @@
 # Stories and testing contract
 
-Status: normative vNext contract
+Status: historical reference only; not active authority.
 
-This contract defines Story construction, recipes, immutable plans, commands, Implementations, seeds,
+Current requirements live in [Workflow plans](../../../../workflow/plans/);
+current task status lives in [Rewrite tasks](../../../../workflow/tasks/Rewrite/).
+
+This contract defined Story construction, recipes, plans, commands, Implementations, seeds,
 TestClock processing, checkpoints, failure/cleanup evidence, pure model discovery, and the shared
-production-runtime boundary. It is semantic authority; archived revisions and provenance citations add
-no behavior. Deleted Story/scenario surfaces remain governed by DEL-009/DEL-010; child-machine surfaces
-remain deleted by DEL-002.
+production-runtime boundary. It served as semantic authority within the historical contract pack; archived
+revisions and provenance citations added no behavior. Deleted Story/scenario surfaces were governed by
+DEL-009/DEL-010; child-machine surfaces were deleted by DEL-002.
 
 ## Deletion disposition
 
 The old Story constructors, commands, result fields, replay helpers, and mutable harness surfaces
 are replaced by `DEL-009` in `COMPATIBILITY_AND_DELETIONS.md`. Conflicting server, persistence, artifact,
 inspect, and CLI surfaces are governed by `DEL-010`; child-machine Story and model surfaces are deleted by
-`DEL-002`. That contract owns the complete old-clause inventory and no-residue requirements. This file
-records the accepted replacement and the retained host-runner and inspection boundaries.
+`DEL-002`. That contract carried the complete old-clause inventory and no-residue requirements. This file
+recorded the accepted replacement and the retained host-runner and inspection boundaries.
 
 ## Construction and fixtures
 
-~~~ts
+```ts
 const storyRun = story
   .app(runtimeSetup, {
     fixtures: [documentsFixture],
@@ -40,7 +43,7 @@ const local = story.actor(editorMachine, {
   input: { documentId: "document-1" },
   contextBindings: { sessionState: sessionRecipe },
 });
-~~~
+```
 
 ### Rule card — REV-TEST-001
 
@@ -50,7 +53,7 @@ const local = story.actor(editorMachine, {
   description, and tags; machine plans also carry exact input and selected context; actor recipes carry
   exact input and contextBindings. maxTurns defaults to 100. Metadata is descriptive and not identity.
 - Accepts: RuntimeSetup<App> for app Stories; required machine input; exact selected context; fixture
-  definitions from fixture({ id, implementation, seeds? }); readonly fixture tuples closing every
+  definitions from fixture({ id, implementation, seeds? }); fixture tuples closing every
   external requirement; an Implementation graph whose combined outputs satisfy the owner and whose
   acquisition may fail with its typed error; seeds as preloaded Runtime-owned resource state.
 - Rejects: bare apps, already-created runtimes, void-machine input, context on context-free machines,
@@ -70,16 +73,16 @@ const local = story.actor(editorMachine, {
 
 ### Rule card — REV-TEST-002
 
-- Surface: Plan materialization and immutability.
-- Rule: Builder calls return new deeply immutable inert plans. A plan has no assertions, branches,
+- Surface: Plan materialization.
+- Rule: Builder calls return new inert plans. A plan has no assertions, branches,
   loops, predicates, arbitrary execution callbacks, live handles, or Runtime. run() is the only
   execution boundary. At materialization, AppPlan, RuntimeSetup, Implementation, Persistence, Clock,
-  fixtures, seeds, and runner options are frozen as one construction snapshot.
+  fixtures, seeds, and runner options are captured as one construction snapshot.
 - Accepts: Configuration fixed before materialization and a deterministic TestClock-backed host.
 - Rejects: receiver mutation, late configuration mutation observed by a run, embedded test expectations,
   or execution hidden in a builder.
-- Observable guarantee: A Story run observes exactly the materialized snapshot and returns immutable
-  checkpoints plus automatic end evidence.
+- Observable guarantee: A Story run observes exactly the materialized snapshot and returns checkpoints plus
+  automatic end evidence.
 - Proof: Receiver/configuration mutation and inertness tests through the production runner.
 - Trace: REV-TEST-002.
 
@@ -88,7 +91,7 @@ const local = story.actor(editorMachine, {
 ### Rule card — REV-TEST-003, REV-TEST-004
 
 - Surface: Story-local actor recipes and app Story targets.
-- Rule: story.actor returns a deeply frozen recipe containing only exact machine, input, and exact
+- Rule: story.actor returns a recipe containing only exact machine, input, and exact
   contextBindings. Recipe identity, not machine/input equality, identifies a local target: reused recipe
   means one actor per run; distinct recipes mean independent actors. App send targets one exact recipe or
   app-owned ActorRef and resolves refs through runtime.getActor.
@@ -127,7 +130,7 @@ const local = story.actor(editorMachine, {
   focused-vs-app boundary tests.
 - Trace: REV-TEST-005; DEL-002.
 
-~~~ts
+```ts
 const signedOutStory = story
   .machine(editorMachine, {
     input: { documentId: "document-1" },
@@ -145,7 +148,7 @@ const signedOutStory = story
   })
   .process()
   .checkpoint("signed-out");
-~~~
+```
 
 ## Commands, execution, and evidence
 
@@ -168,8 +171,9 @@ const signedOutStory = story
   without another command or future time. It does not advance time or invent results. Clock commands move
   the injected TestClock only and never call process implicitly. checkpoint captures immediately. run
   creates a fresh Runtime, executes the plan, and owns cancellation/finalization. Every committed turn
-  obtains the global commit permit and reserves its sequence before StoreState mutation; the DehydrateBarrier
-  captures only after publication and before the acknowledgement/release boundary required by WIRE-017.
+  publishes one atomic actor/store cut with its accepted evidence before acknowledgement. The
+  DehydrateBarrier captures only committed published state and its accepted evidence prefix, as required
+  by WIRE-017; its private locking and sequencing choreography is not a proof surface.
 - Accepts: Continuing streams, pending external calls, future TestClock deadlines, and unknown finite
   work visible to process; maxTurns as the bound for repeated unknown finite work.
 - Rejects: implicit time movement, invented external results, silent maxTurns exhaustion, commands after
@@ -181,7 +185,7 @@ const signedOutStory = story
   disposes actors, stores, operations, context, lifecycle evidence, sinks, and queues. Fixture/host
   scopes finalize after Flow-owned dependents. Every cleanup phase runs; failures are deterministic and
   ordered. Existing execution/cancellation failure remains primary, otherwise the first cleanup failure
-  is primary, and either case rejects. FlowStoryExecutionError carries one deeply frozen package-owned
+  is primary, and either case rejects. FlowStoryExecutionError carries one package-owned
   envelope containing completed checkpoints, optional end, failure boundary, primary diagnostic, ordered
   cleanup diagnostics, cancellation evidence, accepted/drained evidence-sequence facts, and the complete
   public Effect Cause.Cause<unknown>.
@@ -202,7 +206,7 @@ exhaustion; `process()` MUST NOT advance time or invent an external result.
 `advance(duration)`, `advanceTo(epochMilliseconds)`, and `advanceToNextTimer()` MUST move the injected
 TestClock, and clock movement MUST NOT call `process()` implicitly. `checkpoint(name)` MUST capture evidence
 immediately without progressing work, moving time, or creating restoration input. `run({ signal? })` MUST
-acquire a fresh production runtime, execute the immutable plan, and guarantee cancellation and scoped cleanup
+acquire a fresh production runtime, execute the plan, and guarantee cancellation and scoped cleanup
 through production disposal.
 
 ### Rule card — REV-TEST-007
@@ -224,7 +228,7 @@ through production disposal.
 - Surface: Checkpoint/end shape and atomic capture.
 - Rule: App evidence exposes actor(storyActor | actorRef); machine evidence exposes snapshot for its
   one actor. Both expose runtime.now and runtime.pendingWork. Every checkpoint and successful run.end is
-  deeply frozen and captured by one production DehydrateBarrier cut; end is captured after commands and
+  captured by one production DehydrateBarrier cut; end is captured after commands and
   before cleanup.
 - Accepts: Exact static Story closure: the machine actor, every recipe, and every exact ActorRef in
   bindings, command targets, and transitive providers. Captured actor issues remain in snapshots.
@@ -233,13 +237,13 @@ through production disposal.
 - Observable guarantee: Capture includes one StoreState revision, published actor snapshots, pending work,
   TestClock time, and accepted evidence prefix. A failed run retains completed checkpoints and truthful
   failure/cleanup evidence; no successful end is manufactured.
-- Proof: Atomic read-cut, exact-target lookup, freeze, closure membership, failed-boundary, and end
+- Proof: Atomic read-cut, exact-target lookup, capture, closure membership, failed-boundary, and end
   timing tests.
 - Trace: REV-TEST-008; WIRE-009/017/021/022/023.
 
-The result vocabulary is run.end, never final. A machine example is:
+The result vocabulary is run.end, never final. A machine form is:
 
-~~~ts
+```ts
 appRun.checkpoints["signed-out"].actor(editor).snapshot;
 appRun.checkpoints["signed-out"].actor(PrimarySessionRef).snapshot;
 appRun.checkpoints["signed-out"].runtime.now;
@@ -252,7 +256,7 @@ machineRun.checkpoints["saved"].snapshot;
 machineRun.checkpoints["saved"].runtime.now;
 machineRun.end.snapshot;
 machineRun.end.runtime.pendingWork;
-~~~
+```
 
 ## Runtime boundary, models, and host runners
 
@@ -263,7 +267,7 @@ machineRun.end.runtime.pendingWork;
   real cross-actor orchestration. Stories may create a fresh Runtime for isolation, but live hosts,
   Stories, and tests share one production Runtime implementation, including actor creation/lookup,
   mailboxes, operation kernels, context propagation, scheduler, inspection, read barrier, and disposal.
-- Accepts: Immutable plan construction, deterministic host capabilities, command interpretation,
+- Accepts: Plan construction, deterministic host capabilities, command interpretation,
   acknowledgement waiting, and evidence collection.
 - Rejects: a separate Story/testing transition engine, actor engine, mailbox, scheduler, store,
   operation, cache, snapshot, cleanup, or evidence implementation.
@@ -289,7 +293,7 @@ machineRun.end.runtime.pendingWork;
   synthesized success routes, and any fallback to object identity or a state token alone.
 - Observable guarantee: Shortest paths are breadth-first in candidate order, simple paths depth-first,
   first path per unseen key, zero-step path included, no repeated key in one simple path, and both stop
-  at maxDepth/limit. Results are frozen { paths, truncated, explored }; defects fail synchronously
+  at maxDepth/limit. Results are { paths, truncated, explored }; defects fail synchronously
   before partial results.
 - Proof: Pure import, candidate ownership, bounds, canonical keys, order, truncation, and state-key
   defect tests.
@@ -300,7 +304,7 @@ non-negative safe integer, while `limit` defaults to 100 and is a positive safe 
 always one. `getShortestPaths` performs breadth-first search in candidate-array order and retains the first
 path to each unseen state key, including the zero-step initial path. `getSimplePaths` performs depth-first
 search in candidate-array order and never repeats a state key within one path. Both stop before expanding
-beyond `maxDepth` or returning more than `limit`, and return a frozen `{ paths, truncated, explored }`
+beyond `maxDepth` or returning more than `limit`, and return a `{ paths, truncated, explored }`
 result; `truncated` is true when either bound hid an otherwise reachable candidate. State-key defects or
 noncanonical results throw synchronously before returning a partial collection.
 
@@ -328,10 +332,10 @@ the model never synthesizes them or invents checkpoint names or a second evidenc
 
 Host runners own assertions, pass/fail, retries, and naming. Flow evidence contains evidence, not
 expectations; ordinary matchers run after run() returns or inspect FlowStoryExecutionError after
-rejection. One immutable TurnRecord follows each atomic machine-turn snapshot. Lifecycle records use
+rejection. One TurnRecord follows each atomic machine-turn snapshot. Lifecycle records use
 the same sequenced hub and publication barrier but never create a machine turn or second mutable history.
 createInspectionBufferSink({ capacity? }) defaults to 256, validates a non-negative capacity, and
-exposes frozen records plus truncatedBeforeSequence. Hosts install history explicitly; Persistence does
+exposes records plus truncatedBeforeSequence. Hosts install history explicitly; Persistence does
 not persist buffers and there is no actor-owned setRetention or mutable TraceLog.
 
 ## Historical closure note

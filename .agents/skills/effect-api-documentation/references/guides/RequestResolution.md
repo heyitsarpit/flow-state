@@ -32,7 +32,7 @@ interface GetUser extends Request.Request<string, "not-found"> {
 }
 const GetUser = Request.tagged<GetUser>("GetUser")
 
-class GetAuditEntry extends Request.Class<{ readonly id: string }, string, "not-found"> {
+class GetAuditEntry extends Request.Class<{ id: string }, string, "not-found"> {
   constructor(readonly id: string) {
     super({ id })
   }

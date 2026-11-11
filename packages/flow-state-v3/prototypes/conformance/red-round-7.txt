@@ -1,0 +1,23 @@
+FAIL  HIGH-02/persisted-memory-that-cannot-encode          named: expected "UnencodableValue", got "InvalidTurn"
+FAIL  REV4-H4/memory-initial-of-a-bigint-on-a-persisted-machine an actor: expected true, got false
+FAIL  REV7-H1/a-late-failure-does-not-unsay-an-acknowledgement still acknowledged on disk: expected true, got false
+FAIL  REV7-H1/a-batch-that-fails-after-a-newer-one-landed-stays-dead the failed older write did not come back: expected "new", got "old"
+FAIL  REV7-H1/a-failed-batch-re-enters-only-keys-it-was-newest-of the lane did not: expected true, got false
+FAIL  REV7-H1/backoff-grows-on-a-late-failure              still waiting at 6 s: expected "", got "x"
+FAIL  REV7-M1/a-success-does-not-come-back-as-a-hold       state: expected "B", got "U"
+FAIL  REV7-D80/many-values-one-write                       the newest: expected "c", got ""
+FAIL  REV7-D80/hidden-flushes-at-once                      on disk: expected "t", got ""
+FAIL  REV7-D80/a-kill-before-any-flush-loses-only-plain-memory threw: TypeError: undefined is not an object (evaluating 'c.mem().note')     at a-kill-before-any-flush-loses-only-plain-memory (/Users/a
+FAIL  REV7-D80/dispose-runtime-flushes                     L3: disposal flushes: expected "t", got ""
+FAIL  REV7-M2/a-slow-read-queues-a-click-in-order          threw: TypeError: Spread syntax requires ...iterable[Symbol.iterator] to be a function     at boot (/Users/arpit/Developer/flow-state/package
+FAIL  REV7-M2/a-read-that-never-answers-gets-an-issue-and-the-queue-runs threw: TypeError: Spread syntax requires ...iterable[Symbol.iterator] to be a function     at boot (/Users/arpit/Developer/flow
+FAIL  REV7-M2/a-failed-read-runs-empty-and-writes-nothing  threw: TypeError: Spread syntax requires ...iterable[Symbol.iterator] to be a function     at boot (/Users/arpit/Developer/flow-state/package
+FAIL  REV7-M2/the-queue-has-a-bound                        threw: TypeError: Spread syntax requires ...iterable[Symbol.iterator] to be a function     at boot (/Users/arpit/Developer/flow-state/package
+FAIL  REV7-M8/a-quarantined-lane-refuses-a-second-attempt  a commit declines: expected "Rejected", got "NoResponse"
+FAIL  REV7-M8/commit-declines-while-it-stands-and-the-record-stays it declined as NotSent: expected "Rejected", got "NoResponse"
+FAIL  REV7-M9/an-ending-with-a-bad-value-is-not-lost       state: expected "B", got "W"
+FAIL  REV7-M9/memory-that-cannot-encode-does-not-refuse-the-turn the turn committed: expected "1", got "good"
+SUMMARY  520/539 scenario cases pass; unlogged expectation changes: HIGH-02 REV4-H4 SPIKE-05 file:scenarios/review.scenario.ts file:scenarios/round4.scenario.ts file:fake-world.ts file:drive.ts file:s
+ "verdict": "failed",
+ "depthCompleted": 7,
+ "failure": "a second Attempt att-1-2 beside undecided att-1-1 on failNext Go Note ack reload failNext Go ack",

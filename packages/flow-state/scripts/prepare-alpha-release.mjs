@@ -61,7 +61,6 @@ for (const required of [
 for (const entry of entries) {
   if (
     entry.includes("/src/") ||
-    entry.includes("/examples/") ||
     entry.includes("/apps/") ||
     entry.startsWith("/")
   ) {

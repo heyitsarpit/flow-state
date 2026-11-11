@@ -1,0 +1,145 @@
+phase P12
+title Restore
+description
+    **Class:** not readily verifiable.
+
+    **Kind:** verification-suite.
+
+    **Goal:** slice 2, durability, second half: restore, key versions and record migration (T20, absorbing T11 and T26).
+
+    **Verified by:**
+
+    - the slice's suite half: parts and the Spec model's section green, killing table-cell mutants of the model,
+      reviewed and audited by its own adversarial auditor (skill:policy-testing#audit-a-suite);
+    - then the production half through the production adapter: model-predicted runs pass, with its coverage rows in
+      @plan.Runtime's verification;
+    - skill:check-task per Task; `nub run check` at zero.
+
+    **One iteration:** a slice's suite half first (Spec change, model section, parts, model mutation, audit), then its
+    production half built test-first against model-predicted runs, then the benchmark replay and the gates. When
+    production and a case disagree, the Spec decides and the fix cites its rule.
+
+    **Exit criteria:**
+
+    - the slice's suite half is green on the model, mutant-proven by model mutation, reviewed and audited before its
+      production half starts;
+    - the slice's new codes are declared, enabled and covered by the combination gate before it closes.
+
+    **False pass:** the production adapter doing work the runtime should; a case edited to pass.
+
+    **Caught by:** mutants run against the production adapter, a review section on the adapter's role, and the audit.
+
+    **Gates:**
+
+    - falsify on both adapters (`packages/flow-state-v3/conformance/`, each oracle's mutants file);
+    - `nub run check`, which rejects a planted lint violation (`tools/lint-bomb/`).
+
+    **Failure limit:** 2.
+
+    **Stops:**
+
+    - a guarantee change or one that can't be met;
+    - public entry-point names or a large public API change.
+
+    **User's read:** each Spec revision, each changed expected result with its reason, the internal module layout, small
+    public API calls.
+
+    **Draws from:**
+
+    - skill:policy-verification (prove a suite; the coverage record);
+    - skill:policy-testing (audit a suite; test first: module integration tests through the public interface, no unit
+      tests of internals, and the scenarios that enforce each Invariant written before the code);
+    - skill:to-spec for the area's Spec and skill:to-design per module;
+    - skill:policy-convergence at the threshold; skill:review at the cadence;
+    - skill:playbook-build (long runs), skill:execute-task, skill:check-task; skill:diagnose when a case fails
+      unexplained.
+tasks
+    T11
+        title       Restore area complete
+        status      done
+        priority    high
+        blocked_by  [@task.V3.T10]
+        description
+            Cover @spec.Restore's guarantee map with oracles and cases.
+
+            **Why now:** the suite has no Restore area, so the suite can't judge what a runtime restores.
+
+            **Read first:** code:packages/flow-state-v3/conformance/README.md (the Restore rows of the
+            guarantee map, and C168 in its round-14 carry list), @spec.Restore, @spec.Conformance.R4. Blocked
+            by @task.V3.T10, whose disk reader it reads.
+
+            **Approach:** oracles `restore` (anchored to bytes the suite owns) and `quarantine`; cases, the
+            migration wrong runtimes, ported cases, verdict compare and carry rows (C168, a crash between
+            moving a lane and deleting the old name, record formats).
+
+            - **May change:** the suite's restore area.
+            - **Evidence:** this Task's comments.
+            - **False pass:** restore judged from the runtime's own report → caught by anchoring to
+              suite-owned bytes, and the audit.
+            - **Gates:** falsify; `nub run check`.
+            - **Stops:** a guarantee change.
+            - **User's read:** Spec revisions, changed expected results.
+        acceptance
+            - Every Restore Invariant has its oracle or case;
+            - each oracle kills its listed mutants;
+            - verdicts match the old suite's or each difference is logged.
+        comment     2026-11-11T12:41:54Z
+            Merged into T20 (replan, accepted 2026-11-11). Done as merged.
+    T20
+        title       Durability: restore, key versions and record migration (slice 2)
+        status      draft
+        priority    high
+        blocked_by  [@task.V3.T19]
+        satisfies   [@plan.Inspection.O2, @plan.Persistence.O4, @plan.Persistence.O5, @plan.Runtime.O3]
+        description
+            Build restore and key versions from @spec.Restore and @spec.Codec, with record formats tagged from
+            the first release.
+
+            **Why now:** write-ahead records exist but nothing reads them back, so a reload cannot restore
+            actors or deliver what was owed.
+
+            **Read first:** @spec.Restore, @spec.Codec, @spec.WriteAhead,
+            code:packages/flow-state-v3/conformance/README.md (the `restore` row and the carry list).
+
+            **Slice 2, durability (replan, accepted 2026-11-11), after @task.V3.T19:** absorbs @task.V3.T11 (the Restore
+            area suite: oracles `restore` and `quarantine`, the migration wrong runtimes, C168 and the record-format
+            carry rows) and @task.V3.T26 (record migration, @plan.Persistence.O5; real storage shapes are localStorage
+            text now and IndexedDB structured clone in slice 9). Adds the Restore oracles, which re-judge every
+            composite already built, record format tags, versions and resets, `forget` on the public route, and
+            `previous` holds checked against Restore R6; the Restore and WriteAhead Specs gain the R2 KeyValueStore
+            Invariant and a host store section. Codes: sr rl up fg pg. Part built: S25 [A]. Bench: the S25 upgrade boot.
+            Read first: code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part 3, "2 Durability").
+
+            **Phase-out, step 5 (the user accepted 2026-11-11):** the Stamp twin (release 1 and 2 keys; `up`) is written
+            in `fixtures/`; run the hand cases on each fixture on production; write production mutants per oracle the
+            slice judges, mapped by Invariant from the round-14 mutants; delete the descriptor once the derived
+            reference equals it (`stamp.ts` goes). Read
+            code:workflow/plans/flow/references/proposals/conformance-phase-out-2026-11-11.md.
+
+            - **May change:** `src/`.
+            - **Evidence:** this Task's comments.
+            - **False pass:** restore read from memory, not bytes → caught by the restore oracle.
+            - **Gates:** the suite; falsify.
+            - **Stops:** a guarantee change.
+        acceptance
+            The Restore and Codec areas pass on production.
+            - Every Restore Invariant has its oracle or case and each oracle kills its mutants (from @task.V3.T11).
+            - Record migration passes cases on production: a changed saved shape resets its definition's records with
+              the writes in flight kept (from @task.V3.T26, @plan.Persistence.O5).
+            - The slice's generated runs pass on production, and its benchmark replay matches the work fingerprint.
+            - Declared: sr rl up fg pg are in the production and Spec-model capability lists, and the feature-matrix
+              gate shows none of them as owed.
+            - Enabled: S25 [A] and the parts built earlier declare those codes among their needs, the generator draws
+              their operations, and the app mix runs them.
+            - Covered: the combination gate counts the pairs among implemented codes, fails an unexercised interacting
+              pair with no dated waiver, and passes before this Task closes.
+            - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
+              the model's expectations is read by a different model family (Fable).
+            - Phase-out step 5: the Stamp twin exists in `fixtures/` and `stamp.ts` is deleted; the same verdict per
+              case on round-14 and production.
+            - Phase-out checks (the four validations): no lost catch in the catch matrix; the same coverage and
+              feature-matrix rows; the derived reference equal to the hand rows wherever both exist;
+              Compile static cases green on each fixture's `Compiled`.
+        comment     2026-11-10T20:59:41Z
+            Owns, in conformance/not-yet.ts, Codec I1 to I6 (round-14 has no canonical byte codec, Codec Q2). Their 
+            static cases land before this Task closes (orchestrator decision, log 2026-11-10T20:57:29Z).

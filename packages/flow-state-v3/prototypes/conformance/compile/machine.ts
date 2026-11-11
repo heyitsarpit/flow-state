@@ -1,0 +1,207 @@
+// Round 12, compile prototype: machines (machine-design 2.3, 2.7.3). Two calls, as the design has them: `definition` holds structure (states as an ordered
+// list, events, memory, placement of traits and subroutines, operations), so `S`, `E` and `O` are known before the body; `machine(Definition, body)` fills
+// every placement at its node and writes the handlers. Compiles to `CompiledOutput`, with every placed fragment and its operations hoisted (rules 49, 51).
+import type { CompiledOutput, DomainSpec, Mapped, StreamSpec } from "../fixtures/compiled.ts";
+import { slotOf, type Fields } from "./core.ts";
+import { isIgnore, payloadsOf, tokens, uncertainOf, type EventPayloads, type EventsOf } from "./events.ts";
+import { compileMemory, type MemoryFields, type MemoryOf } from "./memory.ts";
+import { identityFieldsOf, identityVersionByFormatOf, identityVersionOf, versioned } from "./ref.ts";
+import type { ReqsOf } from "./fragment.ts";
+import { compileOp, FLOW_REASONS, handles, WRITE_ONLY_REASONS, type AnyBound, type HandleOf, type RequirementsOf, type Typed } from "./operations.ts";
+import {
+  collect,
+  compileNodes,
+  parseStates,
+  placeToksOf,
+  statesOf,
+  type Activities,
+  type Filling,
+  type FragmentValue,
+  type On,
+  type PlaceToksOf,
+  type SchedSpec,
+  type StateBody,
+  type StateList,
+  type StateTok,
+  type StatesOf,
+  type Traits,
+  type TraitsOf,
+} from "./body.ts";
+
+// ── SEAM (D209): the entity and session modules' data, in `Compiled`'s own shape, with plain closures made Slots under their own paths. NOT the design's
+// entity API (2.8) or stream contract (2.11): those compile prototypes are the entity round's (HANDOFF plan cut, step 4).
+type Fn = (...a: never[]) => unknown;
+export type DomainIn = {
+  readonly writes: Readonly<Record<string, { readonly predicts: Fn; readonly confirms?: Fn; readonly targets?: Fn }>>;
+  readonly reads?: Readonly<Record<string, Fn>>;
+  readonly gone?: Readonly<Record<string, { readonly tag: string; readonly ref: Fn }>>;
+  readonly listens?: Readonly<Record<string, Fn>>;
+  readonly covers?: DomainSpec["covers"];
+  readonly repair: Fn;
+  readonly version?: Fn;
+  readonly versionOrder?: "lexical" | Fn;
+  readonly fields?: DomainSpec["fields"]; // the entity's field Schemas, for the judge's equality
+  readonly primaryKey?: DomainSpec["primaryKey"]; // by entity, from `entity({ primaryKey })`
+};
+const compileDomain = (id: string, d: DomainIn): DomainSpec =>
+  ({
+    writes: Object.fromEntries(
+      Object.entries(d.writes).map(([op, w]) => [op, { predicts: slotOf(id, `domain.writes.${op}.predicts`, w.predicts), ...(w.confirms ? { confirms: slotOf(id, `domain.writes.${op}.confirms`, w.confirms) } : {}), ...(w.targets ? { targets: slotOf(id, `domain.writes.${op}.targets`, w.targets) } : {}) }]),
+    ),
+    reads: Object.fromEntries(Object.entries(d.reads ?? {}).map(([op, f]) => [op, slotOf(id, `domain.reads.${op}`, f)])),
+    ...(d.gone ? { gone: Object.fromEntries(Object.entries(d.gone).map(([op, g]) => [op, { tag: g.tag, ref: slotOf(id, `domain.gone.${op}`, g.ref) }])) } : {}),
+    ...(d.covers ? { covers: d.covers } : {}),
+    ...(d.listens
+      ? {
+          listens: Object.fromEntries(
+            Object.entries(d.listens).map(([op, f]) => {
+              if (isIgnore(f)) throw new Error(`IgnoreForbidden: ${id} domain.listens.${op} may not be Flow.ignore (2.7.18)`); // OD28
+              return [op, slotOf(id, `domain.listens.${op}`, f)];
+            }),
+          ),
+        }
+      : {}),
+    repair: slotOf(id, "domain.repair", d.repair),
+    ...(d.version ? { version: slotOf(id, "domain.version", d.version) } : {}),
+    ...(d.versionOrder === undefined ? {} : { versionOrder: d.versionOrder === "lexical" ? "lexical" : slotOf(id, "domain.versionOrder", d.versionOrder) }),
+    ...(d.fields ? { fields: d.fields } : {}),
+    ...(d.primaryKey ? { primaryKey: d.primaryKey } : {}),
+  }) as unknown as DomainSpec;
+type MappedIn = { readonly tag: string; readonly fromFn?: unknown };
+export type StreamIn = Omit<StreamSpec, "key" | "backoff" | "subscribe" | "reconnectWhile" | "pageRetryWhile" | "catchUp" | "value" | "missed" | "failure" | "failureBy" | "pages"> & {
+  readonly key: Fn;
+  readonly backoff?: Fn;
+  readonly subscribe: Fn;
+  readonly reconnectWhile?: Fn;
+  readonly pageRetryWhile?: Fn;
+  readonly catchUp?: Fn;
+  readonly value: MappedIn;
+  readonly missed: MappedIn;
+  readonly failure: MappedIn;
+  readonly failureBy?: Readonly<Record<string, MappedIn>>;
+  readonly pages?: MappedIn;
+};
+const streamMapped = (id: string, op: string, name: string, t: MappedIn): Mapped => {
+  // OD28 (2.7.18): forbidden on every stream key. A gap must reach the consumer, pages move the bookmark, a dead session must be seen.
+  if (isIgnore(t)) throw new Error(`IgnoreForbidden: ${id} streams.${op}.${name} may not be Flow.ignore (2.7.18)`);
+  return { event: t.tag, ...(t.fromFn ? { from: slotOf(id, `streams.${op}.${name}`, t.fromFn) } : {}) };
+};
+// Feed's reasons and `Feed`, the stream's own failure key: an adapter tag in `failureBy` may be none of them.
+const FEED_TAGS = new Set(["Closed", "Overflow", "Silent", "Flapping", "Feed"]);
+const compileStreams = (id: string, s: Readonly<Record<string, StreamIn>>): Readonly<Record<string, StreamSpec>> =>
+  Object.fromEntries(
+    Object.entries(s).map(([op, x]) => {
+      const sl = (n: string, f: Fn | undefined) => (f ? { [n]: slotOf(id, `streams.${op}.${n === "reconnectWhile" ? "reconnect.while" : n === "pageRetryWhile" ? "page.while" : n}`, f) } : {});
+      const { key, backoff, subscribe, reconnectWhile, pageRetryWhile, catchUp, value, missed, failure, failureBy, pages, ...data } = x;
+      for (const tag of Object.keys(failureBy ?? {}))
+        if (FLOW_REASONS.has(tag) || WRITE_ONLY_REASONS.has(tag) || FEED_TAGS.has(tag)) throw new Error(`ReservedReason: ${id} streams.${op}.failureBy declares tag ${tag}, which is one of Flow's or Feed's reasons (rule 13)`);
+      return [
+        op,
+        {
+          ...data,
+          ...sl("key", key),
+          ...sl("backoff", backoff),
+          ...sl("subscribe", subscribe),
+          ...sl("reconnectWhile", reconnectWhile),
+          ...sl("pageRetryWhile", pageRetryWhile),
+          ...sl("catchUp", catchUp),
+          value: streamMapped(id, op, "value", value),
+          missed: streamMapped(id, op, "missed", missed),
+          failure: streamMapped(id, op, "failure", failure),
+          ...(failureBy ? { failureBy: Object.fromEntries(Object.entries(failureBy).map(([k, t]) => [k, streamMapped(id, op, `failureBy.${k}`, t)])) } : {}),
+          ...(pages ? { pages: streamMapped(id, op, "pages", pages) } : {}),
+        } as unknown as StreamSpec,
+      ];
+    }),
+  );
+
+type DefIn<T extends StateList, Ev, In_, M extends MemoryFields, O, Tr extends Traits> = {
+  readonly id: string;
+  readonly states: T;
+  readonly events: Ev;
+  readonly internalEvents: In_;
+  readonly memory: M;
+  readonly traits?: Tr; // the root node's traits (2.3); a node's are on `Flow.state(..., { traits })`
+  readonly persist?: boolean; // U15 B, U19 A (OD48): persistence is the machine's, spelled on its definition; refs carry none
+  readonly local?: true; // a local identity (D21), whose lanes are never adopted
+  readonly uses?: readonly string[]; // the modules its operations import, by name (D44)
+  readonly operations: (t: { readonly E: EventsOf<In_ & {}> }) => O;
+  readonly domain?: DomainIn; // SEAM (D209)
+  readonly streams?: (t: { readonly E: EventsOf<In_ & {}> }) => Readonly<Record<string, StreamIn>>; // SEAM (D209)
+};
+export const definition = <
+  const T extends StateList,
+  Ev extends Readonly<Record<string, Fields>>,
+  In_ extends Readonly<Record<string, Fields>>,
+  M extends MemoryFields,
+  O extends Readonly<Record<string, AnyBound>>,
+  const Tr extends Traits = {},
+>(
+  d: DefIn<T, Ev, In_, M, O, Tr>,
+) => ({ ...d, ops: d.operations({ E: tokens(d.internalEvents) as never }), tree: parseStates(d.states, d.traits ?? {}) });
+type Def<T extends StateList, Ev, In_, M extends MemoryFields, O, Tr extends Traits> = DefIn<T, Ev, In_, M, O, Tr> & {
+  readonly ops: O;
+  readonly tree: ReturnType<typeof parseStates>;
+};
+type All<Ev, In_> = EventPayloads<Ev & In_ & {}>;
+export const machine = <
+  const T extends StateList,
+  Ev extends Readonly<Record<string, Fields>>,
+  In_ extends Readonly<Record<string, Fields>>,
+  M extends MemoryFields,
+  O extends Readonly<Record<string, AnyBound>>,
+  const Tr extends Traits = {},
+>(
+  d: Def<T, Ev, In_, M, O, Tr>,
+  body: (t: {
+    readonly S: StatesOf<T>;
+    readonly E: EventsOf<Ev & In_ & {}> & PlaceToksOf<Tr & TraitsOf<T>>;
+    readonly O: { readonly [K in keyof O]: HandleOf<O[K], MemoryOf<M>> };
+  }) => {
+    readonly default: StateTok;
+    readonly on?: On<MemoryOf<M>, All<Ev, In_>>;
+    readonly traits?: { readonly [K in keyof Tr]?: Filling<MemoryOf<M>> };
+    readonly schedules?: Readonly<Record<string, SchedSpec<string>>>;
+    readonly activities?: Activities<MemoryOf<M>>;
+    readonly states?: { readonly [K in keyof StatesOf<T> & string]?: StateBody<MemoryOf<M>, All<Ev, In_>> };
+  },
+): Typed<RequirementsOf<O> | ReqsOf<Tr & TraitsOf<T>>> & { readonly _M?: (m: M) => M } => {
+  const tree = d.tree;
+  const b = body({ S: statesOf<T>(tree), E: { ...tokens({ ...d.events, ...d.internalEvents }), ...placeToksOf(tree) } as never, O: handles<O, MemoryOf<M>>(d.ops) });
+  const placed: FragmentValue[] = [];
+  const nodes = compileNodes(d.id, tree, b as never, placed);
+  const frags = collect(placed);
+  const fragOps = Object.fromEntries(frags.flatMap((f) => Object.entries(f.ops)));
+  for (const k of Object.keys(fragOps))
+    if (k in d.ops || frags.filter((f) => k in f.ops).length > 1) throw new Error(`DuplicateOperation: ${d.id} has two operations named ${k} (rule 51)`);
+  const events = { ...d.events, ...d.internalEvents } as Readonly<Record<string, Fields>>;
+  const streams = d.streams ? compileStreams(d.id, d.streams({ E: tokens(d.internalEvents) as never })) : {};
+  // The user's decision (migration, Q1 A): a definition's saved shape, as Flow's structural versions (rule 74, U17 B): every state id, and every memory
+  // field with its Schema's version, the fragments' under their id. A release whose shape differs incompatibly resets the definition's saved state.
+  const memoryOf = (fields: Readonly<Record<string, { readonly schema: unknown }>> | undefined, at: string) =>
+    Object.entries(fields ?? {}).map(([k, f]) => versioned(`${at}${k}`, f.schema));
+  const shapeVersion = {
+    states: [...Object.keys(nodes), ...frags.flatMap((f) => Object.keys(f.compiled.nodes).map((n) => `${f.id}/${n}`))].sort(),
+    fields: [...memoryOf(compileMemory(d.id, d.memory).fields, ""), ...frags.flatMap((f) => memoryOf(f.compiled.memory.fields, `${f.id}.`))].sort(),
+  };
+  const compiled: CompiledOutput = {
+    shapeVersion,
+    id: d.id,
+    nodes,
+    root: "root",
+    default: b.default.node,
+    memory: compileMemory(d.id, d.memory),
+    ...(identityFieldsOf(d.memory).length ? { identityFields: identityFieldsOf(d.memory) } : {}), // round 14, rule 74
+    ...(identityFieldsOf(d.memory).length ? { identityVersion: identityVersionOf(compileMemory(d.id, d.memory).fields!, identityFieldsOf(d.memory)) } : {}), // OD30 Q3
+    ...(identityFieldsOf(d.memory).length ? { identityVersionByFormat: identityVersionByFormatOf(compileMemory(d.id, d.memory).fields!, identityFieldsOf(d.memory)) } : {}), // R7
+    ops: { ...Object.fromEntries(Object.entries(d.ops).map(([k, x]) => [k, compileOp(d.id, k, x, events)])), ...fragOps },
+    ...(frags.length ? { fragments: Object.fromEntries(frags.map((f) => [f.id, f.compiled])) } : {}),
+    persisted: d.persist ?? false,
+    ...(d.local ? { local: true as const } : {}),
+    uses: d.uses ?? [],
+    ...(d.domain ? { domain: compileDomain(d.id, d.domain) } : {}),
+    ...(Object.keys(streams).length ? { streams } : {}),
+    events: { external: Object.keys(d.events), internal: Object.keys(d.internalEvents), payloads: payloadsOf(events), uncertain: uncertainOf(d.internalEvents) }, // round 13 (M3): with payload Schemas
+  };
+  return { compiled };
+};

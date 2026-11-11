@@ -1,0 +1,159 @@
+log V3
+note 2026-11-09T13:40:00Z
+    Migrated from `workflow/roadmaps/v3-production/` (last commit `b30be69d`); old phases 0 to 9 are P0 to P10. The
+    user confirmed the summary ("all accepted", 2026-11-09): P3 and P5 are verification-suite phases; old phase 8
+    split into P8 suites and P9 performance; skills root `/Users/arpit/Developer/workflow/skills/suites/workflow`.
+    The roadmap's amendments (serial work, converge on the third review in a row, sidecars read-only, small public
+    API calls are the orchestrator's, the prototype is the main truth, Specs only just in time) live in the Epic's
+    instructions.
+note 2026-11-09T13:50:00Z
+    **Decision (agent, 2026-11-09):** the phase 2 design rulings (migration and restore OD54, entities OD52, streams
+    OD53, rounds 15, 15b and area H OD50, OD51, stage A close-out, the merge audit's PC1, PC2, EC2, OC1, OC3, TC1,
+    PKC1, IC2, FSC1) are in the Specs and Plans they govern (@spec.Restore, @spec.WriteLanes, @spec.Codec,
+    @spec.StaticCli, @spec.Actors, @spec.Reads, @plan.Operations, @plan.EntityDomains, @plan.Runtime). They are the
+    agent's, not the user's; the 28 error and reason names they add (`RecordShapeChanged`, `RepairOverdue`,
+    `SharedContract` and the rest) are proposed. **Reverse:** one edit each. Open as built (OD54): after a revert one
+    unsure lane remains, not two; latent: shape stamps compared raw across a format change, a re-key persisted only on
+    the lane's next write, a crash between moving a lane and deleting the old one. Not built: a boot forgets a
+    stranded read (rule 8) and evidence for kept and stranded deliveries (@plan.Runtime.O4); the user accepts or drops
+    them. `trace diff` and `diff --base` stay cut (the user's CLI scope, OD55).
+note 2026-11-09T14:10:00Z
+    Deferred: the items in code:workflow/plans/flow/references/proposals/revisit.md and
+    code:workflow/plans/flow/references/proposals/open-items.md stay there, linked, not copied.
+note 2026-11-09T16:13:13Z
+    The user approved the Epic and its loop ("yes i approve", 2026-11-09); status active.
+note 2026-11-10T08:41:29Z
+    Amendment (2026-11-10, the user): no budgets of iterations, time or usage ("giving a round budget is pointless
+    imo"); Limits keeps the failure limit and the usage reserve. Agent decisions carry no "User's read" field and block
+    no work; Tasks in P3 to P10 carry no class or kind label and no empty lines. Reverse: restore from `7b485e2b`.
+note 2026-11-10T14:00:39Z
+    Decision (user, 2026-11-10): dangling links in log.task are warnings; no copy-detection check; leads are briefed
+    with `workflow brief`.
+note 2026-11-10T16:28:22Z
+    Amendment (the user, 2026-11-10, Q1 A): the reviewing lead reports to the orchestrator, who verifies findings and
+    sends the accepted ones to the building lead; the builder logs each as accepted, changed or rejected.
+note 2026-11-10T17:09:20Z
+    Amendment (the user, 2026-11-10, Q2 A): Haiku never writes committed code; building leads write every committed
+    line. Sidecars are runners, one-rule reviewers, locators and scratch mutant writers. **Why:** the patterns Haiku
+    code picks. **Reverse:** restore coders on disjoint files.
+note 2026-11-10T17:09:25Z
+    Decision (user, 2026-11-10, Q1 A): guarantee change approved: Actors I35 and I36 for R22's bound, with
+    o6.dispose-interrupts-wire, o6.no-bound and o6.settled-in-bound-stays-held registered. Governs: @spec.Actors.
+note 2026-11-10T18:09:25Z
+    Decision (user, 2026-11-10): convergence applies only when two or more rounds keep surfacing many issues; fix known
+    bugs and go on. Orchestrator: mint order (1b.disposal-definite-w-first) stays unported (revisit.md).
+note 2026-11-10T19:07:58Z
+    Decision (user, 2026-11-11): one builder carries related Tasks; a fresh one starts only when context runs long or
+    work moves from suite to production. Leads work through up to three context compactions before handing off.
+note 2026-11-10T19:09:55Z
+    Decision (orchestrator): a disposed actor's ending is not evidence; WriteLanes I15 stays, and the prototype's
+    rule 44 is a round-14 deviation. **Why:** the Spec outranks the prototype. **Reverse:** add disposal to I15's
+    exceptions.
+note 2026-11-10T19:13:13Z
+    Decision (user, 2026-11-11): the coverage gate (@task.V3.T41): every core Invariant is checked or owned by a named
+    open Task, and T15 reads it. Trap: `conformance/not-yet.ts` still names T7, T8, T10, T11 and T12 as owners, so
+    the gate fails (2026-11-11).
+note 2026-11-10T19:41:21Z
+    Decision (orchestrator): the Port requires Minted.key on keyed operations; production must report it.
+note 2026-11-10T19:44:55Z
+    Amendment (the user, 2026-11-11): Plan changes found while building are decisions in @plan.Pending, merged only
+    once proven and approved.
+note 2026-11-10T21:09:15Z
+    Decision (orchestrator, R35): lane-oracle convergence v2
+    (code:workflow/plans/flow/references/proposals/lane-oracle-convergence-v2-2026-11-11.md) is built (@task.V3.T7).
+    **Reverse:** patch the v1 oracles.
+note 2026-11-10T23:44:41Z
+    Decision (orchestrator): a case past its time bound fails as Timeout, never a catch. **Reverse:** drop the bound.
+note 2026-11-11T03:30:58Z
+    Decision (user, 2026-11-11): open Spec questions are the orchestrator's ("you decide what's correct"). Rulings: a
+    definite ending matches an answer the server gave; CQ1 a second refusal is final until the next boot or adoption;
+    CQ3 a kept ending keeps its lane; CQ6 a never-sent commit's NotSent { Disposed } is delivered to the next
+    incarnation (round-14 stated limit); CQ7 a superseded head promotes the next; Compile Q3 a Schema's own functions
+    are not Slots; R9's KeyRequired stands (round-14 stated limit); an owed retry re-sends. **Reverse:** revert each
+    Spec entry.
+note 2026-11-11T03:46:45Z
+    Decision (orchestrator): what a turn owes comes only from its row and suite facts, never a report; the Pay Leave
+    claimed exception is a stated limit. **Reverse:** patch each report-driven probe.
+note 2026-11-11T03:48:39Z
+    Amendment (the user, 2026-11-11): all leads are Opus at medium effort; Haiku at high. One lead at a time, sidecars
+    kept, leads report once per batch in at most 10 lines. **Why:** weekly usage burned about 2.4 points an hour.
+note 2026-11-11T04:21:25Z
+    Decision (orchestrator): the invariant audit's cuts are accepted
+    (code:workflow/plans/flow/references/proposals/invariant-audit-2026-11-11.md); @task.V3.T42 revised the core Specs
+    (WriteLanes I22 folded into I15, Compile I2 into I1).
+note 2026-11-11T04:41:35Z
+    Amendment (the user, 2026-11-11): suite work and reviews apply policy-testing's audit section as a checklist;
+    adapters get typed failures; work is test-first, with module integration tests through the public interface.
+note 2026-11-11T07:31:08Z
+    Decision (orchestrator): rows leave P3 for P4 only with cited evidence, checked by the next review.
+note 2026-11-11T08:11:31Z
+    Decision (orchestrator, under the user's delegation): any refused turn's ending is redelivered once, a second
+    refusal final until the next boot or adoption (Actors R15, I24); WriteLanes R10 and I15 widened, @plan.Pending D4
+    rewritten. **Reverse:** limit redelivery to a mapper throw.
+note 2026-11-11T08:19:21Z
+    Decision (user, 2026-11-11, "update the order to interleave"): P3 and P4 interleave by area (P3 foundations, P4
+    Pay path, P11 Persistence, P12 Restore, P13 Actors and Reads, P14 CLI, P15 close-out); Task ids kept.
+note 2026-11-11T09:55:30Z
+    Decisions (user, 2026-11-11, "all accepted"): T16's provisional public names; Effect recommendations R1 to R8 in
+    @task.V3.T43; Restore R1 stands and DISP-05 keeps a Held lane's identity a record until reached.
+note 2026-11-11T09:57:26Z
+    Amendment (the user, 2026-11-11): usage reserve 75 percent weekly; AGENTS.md gains the idiomatic-Effect rule; the
+    Epic adds Effect prior art per module, a standing Effect review angle and lint bans on host time and randomness
+    in src/.
+note 2026-11-11T10:20:45Z
+    Amendment (the user, 2026-11-11, "all the recommendations are accepted"): the advisor's answers are adopted: T44,
+    T45 (executable Spec model) and T46 (prover backtest); reviews start on events with a 3-hour stall check; zero to
+    two sidecars by need.
+note 2026-11-11T10:36:02Z
+    Decision (user, 2026-11-11): a wide net of small, very different fixtures (about 15 to 20 app shapes) under
+    generated flows and fault schedules (@task.V3.T47); T45 and T47 come before T17.
+note 2026-11-11T11:32:30Z
+    Decision (user, 2026-11-11, all accepted): the coverage report's scope additions are applied, with new Tasks T48,
+    T49 (P5) and T50 (P10); Firefox joins the browser runs. Every public Plan feature is represented in fixtures
+    shared by the conformance and benchmark suites, gated by a feature matrix (in T47).
+note 2026-11-11T12:29:45Z
+    Decision (user, 2026-11-11): the replan's 12 recommendations are accepted
+    (code:workflow/plans/flow/references/proposals/replan-2026-11-11.md) and applied (slices R and 1 to 10, T51 new;
+    reverse: revert commit 07b0a7d3). The combination gate: pairs enforced, triples reported, composites carry many
+    features. Pin workflow@7043010 (earlier e74b0e2).
+note 2026-11-11T12:42:50Z
+    Stop (the user, 2026-11-11): once the replanned Tasks and the Spec passes are applied and reviewed, the run stops;
+    no builder restarts. The orchestrator then reports what the next agent would work on.
+note 2026-11-11T12:58:40Z
+    Decision (orchestrator, under the user's delegation): Compile I15 widens so functions Flow derives from a declared
+    Schema may sit on Compiled and are not Slots; Reads gains an Invariant that no lookup context carries an Attempt.
+    **Reverse:** move derived functions off Compiled; drop the Reads Invariant.
+note 2026-11-11T13:09:43Z
+    Decision (user, 2026-11-11): turn cost is a measurement, not a gate; only the work fingerprint gates. T45 owns the
+    script Schema, player and shrinker; T47 reuses them. Open for the user: the status of T9, T15 and T46.
+note 2026-11-11T14:00:00Z
+    Decision (user, 2026-11-11): the conformance phase-out is accepted, including Pay as a generated part (reverses
+    replan decision 5 for Pay); folded into T45, T47, T17, T18, T20, T23, T24 and new T52, T53. **Reverse:** revert
+    commit 960339ca. Unreached interacting pairs pass during the slices only with a dated owner, and none may remain
+    at T15's audit or T53.
+note 2026-11-11T14:58:41Z
+    Amendment (the user, 2026-11-11): compact-records installed (.agents/skills, linked in .claude/skills); records
+    are compacted at each slice's close and when one passes its limit.
+note 2026-11-11T15:20:00Z
+    Decision (user, via the orchestrator, 2026-11-11): conformance/STATUS.md is retired; its live content moved to
+    Task comments, numbers are in gates.json, findings in the reviews under proposals/. **Reverse:** restore the file
+    from git.
+note 2026-11-11T15:30:31Z
+    compact-records' first run: STATUS.md retired into Task comments, log.task cut from 350 to 140 lines, coverage rows 
+    re-owned from merged Tasks; the skill gained five fixes from the run and the pin moved. **Reverse:** restore 
+    STATUS.md from git.
+note 2026-11-11T15:32:15Z
+    Run started (the user's go, 2026-11-11, which lifts the 12:42 stop) at 0ddedbf8, pin workflow@55c7ab7, weekly usage 
+    58 percent of a 75 reserve. Current Task T45, resuming at its step 1 (o6 disposal catch). No live agents; first 
+    action: one Opus building lead on T45.
+note 2026-11-11T16:35:27Z
+    Decision (orchestrator, Spec delegation): a kill during disposal before the ending's batch lands falls under 
+    WriteAhead I17 (restore unknown { Restored }); Actors I36 holds only once the ending landed, since a boot cannot 
+    know an unsaved ending. T45's model follows I17 there and counts it as the search's Spec conflict; the I36 wording 
+    goes to the user's read. **Reverse:** model follows I36 and I17 gains the exception. Also: the T45 lead designs the 
+    expect half itself, as a proposal file reviewed by one Opus reviewing lead before code.
+note 2026-11-11T17:02:44Z
+    Review (T45 expect-half design, 77c7342d): ready with changes; B1 to B4 and the minor findings accepted after 
+    spot-checks (Wrote.purpose and Acknowledged.attempts typed as facts, Finished folds the grace record, Pay keys from 
+    intentId in memory). Decisions 1 to 5 taken as the reviewer recommends; Conformance R19 gains a wording note for 
+    the user's read. Findings: proposals/t45-expect-half-review-2026-11-11.md. **Reverse:** reopen the design.

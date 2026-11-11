@@ -1,0 +1,210 @@
+import { Result, Schema } from "effect";
+import type { Stream } from "effect";
+
+import { canonicalizeKey } from "./key.js";
+import { CallableSchema, firstConfigurationField } from "./configuration.js";
+import { AuthoredName } from "../internal/authored-name.js";
+
+import {
+  RequirementsTypeId,
+  operationPlanForDescriptor,
+  publishOperation,
+  requirements,
+} from "./operation.js";
+import type {
+  OperationDefect,
+  OperationDescriptor,
+  OperationOptions,
+  OperationPlan,
+  PlanOptions,
+} from "./operation.js";
+import type { OperationKey, CanonicalKeyValue } from "./key.js";
+
+/*
+ * Streams:
+ *
+ * Public contracts
+ *   StreamValue, StreamState, StreamOutcomes, StreamSubscriptionOptions,
+ *   StreamSubscriptionPlan, StreamSubscribeAdapter, StreamConfig, FlowStream
+ *
+ * Shared configuration Schema and error projection
+ *   StreamConfigurationSchema, decodeStreamConfiguration, streamConfigurationError
+ *
+ * Configuration admission
+ *   StreamAuthoringConfig, admitStreamConfiguration
+ *
+ * Bound methods:
+ *   key, getState, subscribe
+ *
+ * Descriptor publication
+ *   streamValue, publishOperation
+ *
+ * Assembly:
+ *   stream, constructStream
+ */
+
+export type StreamValue<V> =
+  // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- API-006 and TYPE-007 require latest?: never so hasValue:false narrows without a cast.
+  | { hasValue: false; latest?: never; emissionCount: 0 }
+  | { hasValue: true; latest: V; emissionCount: number };
+
+export type StreamState<V, E, K extends OperationKey> =
+  | ({
+      status: "idle";
+      key: K;
+      // oxlint-disable-next-line anti-slop/no-optional-domain-properties -- The public idle state uses null to distinguish no stream generation from an active numeric generation.
+      generation: null;
+    } & StreamValue<V>)
+  | ({ status: "running"; key: K; generation: number } & StreamValue<V>)
+  | ({ status: "complete"; key: K; generation: number } & StreamValue<V>)
+  | ({
+      status: "failure";
+      key: K;
+      generation: number;
+      error: E;
+    } & StreamValue<V>)
+  | ({
+      status: "defect";
+      key: K;
+      generation: number;
+      defect: OperationDefect;
+    } & StreamValue<V>)
+  | ({
+      status: "interrupted";
+      key: K;
+      generation: number;
+    } & StreamValue<V>);
+
+export type StreamOutcomes<V, E, O = unknown> = Partial<{
+  value: (value: V) => O;
+  complete: () => O;
+  failure: [E] extends [never] ? never : (error: E) => O;
+  defect: (defect: OperationDefect) => O;
+  interrupt: () => O;
+}>;
+
+export type StreamSubscriptionOptions<V, E, O = unknown> = Partial<{
+  outcomes: StreamOutcomes<V, E, O>;
+}>;
+
+export type StreamSubscriptionPlan<
+  Id extends string,
+  P,
+  K extends OperationKey,
+  Options = never,
+> = OperationPlan<"stream-subscribe", Id, P, K, Options>;
+
+export type StreamSubscribeAdapter<P, V, E, R> = (
+  params: P,
+  options: OperationOptions,
+) => Stream.Stream<V, E, R>;
+
+type StreamSubscribe<Id extends string, P, K extends OperationKey, V, E> = <
+  const O extends StreamSubscriptionOptions<V, E> | undefined = undefined,
+>(
+  params: P,
+  options?: O,
+) => StreamSubscriptionPlan<Id, P, K, PlanOptions<O>>;
+
+export type FlowStream<
+  Id extends string = string,
+  P = never,
+  K extends OperationKey = OperationKey,
+  V = never,
+  E = never,
+  R = never,
+> = OperationDescriptor<"stream", Id, P, K, R> & {
+  persist: boolean;
+  getState: (key: K) => StreamState<V, E, K>;
+  subscribe: StreamSubscribe<Id, P, K, V, E>;
+};
+
+export type StreamConfig<Id extends string, P, K extends OperationKey, V, E, R> = {
+  id: Id;
+  key: (params: P) => K;
+  subscribe: StreamSubscribeAdapter<P, V, E, R>;
+} & Partial<{ persist: boolean }>;
+
+type StreamAuthoringConfig<Id extends string, P, K extends OperationKey, V, E, R> = {
+  id: Id;
+  key: (params: P) => K;
+  subscribe: (params: NoInfer<P>, options: OperationOptions) => Stream.Stream<V, E, R>;
+} & Partial<{ persist: boolean }>;
+
+const StreamConfigurationSchema = Schema.Struct({
+  id: AuthoredName,
+  key: CallableSchema,
+  subscribe: CallableSchema,
+  persist: Schema.optional(Schema.Boolean),
+});
+
+const decodeStreamConfiguration = Schema.decodeUnknownResult(StreamConfigurationSchema, {
+  onExcessProperty: "error",
+});
+
+const streamConfigurationError = (failure: Schema.SchemaError) => {
+  const field = firstConfigurationField(failure.issue);
+
+  if (field === "id") return new TypeError("Operation id must be a valid authored name");
+
+  if (field === "key") return new TypeError("Stream key must be callable");
+
+  if (field === "subscribe") return new TypeError("Stream subscribe adapter must be callable");
+
+  return new TypeError("Invalid Stream configuration");
+};
+
+type StreamConfigurationInput = Parameters<typeof decodeStreamConfiguration>[0];
+
+function admitStreamConfiguration<Id extends string, P, K extends OperationKey, V, E, R>(
+  config: StreamAuthoringConfig<Id, P, K, V, E, R>,
+): StreamAuthoringConfig<Id, P, K, V, E, R>;
+
+function admitStreamConfiguration(input: StreamConfigurationInput) {
+  return decodeStreamConfiguration(input).pipe(Result.getOrThrowWith(streamConfigurationError));
+}
+
+const constructStream = <const Id extends string, const P, const K extends OperationKey, V, E, R>(
+  admitted: StreamAuthoringConfig<Id, P, K, V, E, R>,
+) => {
+  type CanonicalK = CanonicalKeyValue<K>;
+
+  const { id, key: projectKey, subscribe: subscribeAdapter, persist } = admitted;
+
+  const key = (params: P) => canonicalizeKey(projectKey(params));
+
+  const getState = (keyValue: CanonicalK) =>
+    ({
+      status: "idle",
+      key: canonicalizeKey<K>(keyValue),
+      generation: null,
+      hasValue: false,
+      emissionCount: 0,
+    }) satisfies StreamState<V, E, CanonicalK>;
+
+  const subscribe = <const O extends StreamSubscriptionOptions<V, E> | undefined = undefined>(
+    params: P,
+    options?: O,
+  ) => operationPlanForDescriptor(streamValue, "stream-subscribe", id, projectKey, params, options);
+
+  const streamValue: FlowStream<Id, P, CanonicalK, V, E, R> = {
+    kind: "stream",
+    id,
+    key,
+    getState,
+    subscribe,
+    [RequirementsTypeId]: requirements<R>,
+    persist: persist ?? false,
+  };
+
+  return publishOperation(streamValue, subscribeAdapter);
+};
+
+// RETURN_TYPE: Prevents the public declaration from exposing key.ts's private CanonicalKeyRecord through inferred construction.
+export const stream = <const Id extends string, const P, const K extends OperationKey, V, E, R>(
+  config: StreamAuthoringConfig<Id, P, K, V, E, R>,
+): FlowStream<Id, P, CanonicalKeyValue<K>, V, E, R> => {
+  const admitted = admitStreamConfiguration<Id, P, K, V, E, R>(config);
+
+  return constructStream<Id, P, K, V, E, R>(admitted);
+};

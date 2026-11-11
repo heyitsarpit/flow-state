@@ -1,0 +1,423 @@
+plan Runtime
+title   Applications, readiness, actors and context
+status  proposed
+goal
+    Flow has one Runtime, and every host runs on it: a browser's React tree, a server request, a
+    Story and a CLI command.
+
+    It gives each of them the same guarantees: a closed set of machines, one store, one ordered
+    decision path per actor, causally complete context and truthful cleanup.
+
+    **Why now:** every host runs the same machines, so ordering, storage, context and cleanup must behave the same in
+    each. This Plan fixes the one Runtime they share; other Plans own the parts it runs: turns (@plan.Machines.O3),
+    operations (@plan.Operations.O1), storage (@plan.Persistence.O1), React (@plan.React.O1), hydration
+    (@plan.ServerRendering.O1) and lazy entries (@plan.LazyFeatures.O1).
+
+    **Read first:** @spec.Actors and @spec.Compile, the Specs built from this Plan; the reference
+    app code:workflow/plans/flow/references/dispatch-desk/app/app.ts.
+outcomes
+    O1  Apps
+        app({ id, machines }) is inert and lists every machine the Runtime may run. An entry is a
+        Machine, { machine, context? }, or a lazy { id, load, context? } (@plan.LazyFeatures.O1).
+        The list is closed for the Runtime's lifetime: no runtime registration or child actors.
+
+        Construction throws FlowError on unknown fields, duplicate machine ids, one machine under
+        two keys, and colliding operation, domain or entity identities; lazy entries are checked the
+        same way when adopted, before any work. Constructing an app, setup or ref runs no callback,
+        loader, service, storage access, actor, timer or evidence.
+
+        machine() is the compile: its output, Compiled, is plain data plus Slots, each closure named
+        by its place in the definition (operations.pay.failure.CardDeclined), and the Runtime boots
+        it in the same process; there is no runtime codec for Compiled. Tools read its data view,
+        whose closures are names.
+
+        Compiled carries every event with its payload Schemas, the Flow.uncertain events, each
+        memory field (its Schema, its one source, private), each operation's key fields, input
+        fields and services, and each fragment's kind, events and ports, so flow check, flow graph,
+        the Story stand-in host and the admission door read data, never bodies.
+
+        An operation's key is made from its key fields alone; a key field outside the input, a
+        missing events table, or a function in Compiled that is not a Slot is refused when the
+        Runtime is created. The details are agent-judged internal representation.
+
+        A machine entry's context is the default wiring for every actor of that machine; a shared
+        ref may override declared slots. The resolved wiring must cover every declared slot with a
+        compatible provider. Call sites (ensure, create, hooks) never supply wiring. Durable
+        identity is app id, machine id and the actor's identity (@O3), never an app property key.
+        Reference: references/dispatch-desk/app/app.ts.
+    O2  Setup and readiness
+        A Runtime is built without side effects and becomes ready through one shared bootstrap that
+        reads storage before any app service starts.
+
+        runtimeSetup({ app, services?, scope?, persistence?, repairSlots?, audit? }).construct() is
+        synchronous and inert. scope is an optional nonempty string naming whose data the Runtime
+        holds, such as a user, workspace or tenant id. It partitions saved data
+        (@plan.Persistence.O1) and stamps and checks hydration payloads (@plan.ServerRendering.O6);
+        machines, operations and conditions never read it. `repairSlots` (default 6) and audit
+        (default false, for development and tests only) are @plan.EntityDomains.O5 and
+        @plan.EntityDomains.O4. services is an Effect Layer typed by the machines' R: it must
+        provide every service the app's contracts list in their services, lazy entries included; a
+        missing service is a type error, and the boot refuses, by machine, operation and service, an
+        operation whose service it lacks, so no write is marked unknown for a missing service.
+
+        Each service is acquired once per Runtime.
+
+        ready() is the one readiness Effect; FlowProvider calls it in browsers (@plan.React.O1).
+        The first call starts the bootstrap; concurrent and later callers share its result,
+        including a failure (no implicit retry). Interrupting one waiter interrupts only that wait.
+        Bootstrap order:
+
+        1. With persistence, claim scope ownership (@plan.Persistence.O7).
+        2. Acquire storage, then read and validate persisted data before any app service starts
+           (@plan.Persistence.O5), upgrading Flow's record formats and resetting records whose saved
+           shape changed incompatibly.
+        3. Merge restored data with any hydrated items (@plan.ServerRendering.O5).
+        4. Acquire the remaining services, install hydrated actors and the restored identities owed
+           an ending (a lane InFlight at capture, or a parked ending), restored live as work in
+           flight (providers before consumers), keep every other restored record a record until an
+           ensure, a subscription or a send reaches it (@plan.Persistence.O4), establish silent
+           context baselines, then open the Runtime to callers. Transferred lazy entries load after
+           ready resolves (@plan.LazyFeatures.O4).
+
+        A service acquisition failure fails ready() with FlowError and its Cause, releases what was
+        acquired in reverse order, and leaves no partial actor or evidence. Before ready succeeds,
+        `ensureActor` and `createActor` reject with RuntimeNotReady; React's pre-attach handles
+        (@plan.React.O2) are the only exception.
+
+        A send to a persisted actor before boot queues until boot, within Persistence O5's bound;
+        past the bound, or on a failed read, it reports StorageFailure, the Runtime runs without
+        persistence and the queue is flushed; a late answer is ignored.
+
+        Disposing during bootstrap cancels it and closes admission; a service acquired late is
+        released and no handle is ever exposed. runtime.runPromise runs an Effect with the installed
+        services; there is no `runPromiseExit`. Reference: references/dispatch-desk/app/setup.ts,
+        app/host.ts, app/persistence.ts.
+    O3  Actor identity and lifetime
+        An actor is its machine plus its input. actorRef(machine, nameOrValue, { context? }) is
+        inert and names a shared actor in one of two forms. From a value: the value carries the
+        machine's Flow.input fields, which are its identity; Flow keeps only those fields, and
+        ensuring it takes no input (ensureActor(ref)). A singleton: a literal string name (a runtime
+        string is a type error).
+
+        The form is fixed per machine in the types: a machine with input fields is named only by a
+        value, a machine with no input only by a literal name, so a singleton takes no input. The
+        identity encodes the input fields with their Schemas, in field-name order, as strings, so a
+        reorder changes nothing. persist is the machine's, declared on its definition
+        (@plan.Persistence.O2); refs carry no persist.
+
+        Two refs of one identity with different context reject with ConflictingActorRef and change
+        nothing. A local actor (runtime.createActor, useActor, Story.machine) is (machine, input by
+        Equal.equals). Inspection, flow trace and Story records name an actor by machine and fields,
+        Editor{workspaceId: "north", ticketId: "T-42"}, or a singleton's name.
+
+        runtime.ensureActor(ref) returns the one shared actor for that identity, creating it from
+        its input, or restoring it from the Runtime's copy of its record.
+
+        A failed admission leaves nothing behind, so a later ensure may retry.
+        runtime.createActor(machine, { input }) always creates a new local actor that cannot persist
+        or be a send target and lives until disposed.
+
+        Handles expose send, `getSnapshot` and snapshots; a handle follows the identity, not the
+        incarnation. `getSnapshot` reads the live incarnation; with none, a persisted identity's
+        record (lifecycle active; a record that does not decode reads quarantined with its issue);
+        with neither, the pre-attach snapshot if the identity never had an incarnation in this
+        Runtime, otherwise the last incarnation's terminal snapshot.
+
+        A shared actor lives while it is used, and until its finite work in flight has returned. A
+        use is an attached consumer (from its passive commit effect, never from render), a live
+        snapshots subscription, a bound context consumer, or Flow's hold for dehydrate and Hydrate;
+        uses count per identity. `ensureActor` alone, `getSnapshot`, lookups, views and sends are
+        not uses.
+
+        Work in flight is an InFlight write lane, a read started in a turn that handles the ending
+        of work in flight (transitively), and an ending owed at ready; it keeps the actor until its
+        ending's turn has run, so a chained step is committed by the incarnation that started it.
+
+        Nothing else keeps an actor: not schedules, other reads, placements, stream sessions, Held
+        lanes, parked endings or context; queued mail is processed before the end. While nothing
+        uses it, its schedules wait (@plan.Machines.O5).
+
+        Free of both for the grace (100 ms on the Runtime Clock, internal, the same for local
+        actors), it ends: a persisted actor's record is encoded in that step (the end waits while it
+        cannot be encoded), its lanes move to the Runtime unbound, its schedules are cancelled, its
+        placements, sessions and unkept reads stop, and each read it stops parks failure {
+        Interrupted } for the identity; when that stops live work, the development warning
+        EndedWithWork names it once per machine and kind of work.
+
+        An ensure while it is ending waits and binds the next incarnation; disposing and then
+        ensuring the same ref creates a new incarnation. Host `createActor` actors live until
+        disposed. retain does not exist: an actor that must outlive a screen is used from where it
+        should live.
+
+        A persisted identity returns, when an ensure, a subscription or a send reaches it, as a new
+        incarnation with a newly minted id, restored from the Runtime's copy; it receives its
+        starting turn, its lanes' deliveries, the Interrupted endings of reads its end stopped, one
+        `onContext` wave if a provider's selection changed, then the event that restored it.
+
+        An ending owned by the previous incarnation is delivered as adopted, current from the active
+        leaf. A non-persisted identity starts fresh. An ensure over a record that no longer decodes
+        starts fresh, reports RecordUndecodable (evidence, proposed name) and adopts the identity's
+        lanes.
+
+        A local actor remounted within its grace reuses that actor; a new incarnation of an equal
+        local identity starting while an older one is kept only by work in flight disposes the older
+        one and adopts its lanes.
+
+        A write lane is (actor identity with its version, contract id, key), owned by the Runtime.
+
+        A starting incarnation adopts only its own identity's unbound lanes, the oldest first for
+        equal local identities, and receives, as follow-up turns before any external event, the
+        parked endings in saved order, then each held head's unknown { Restored } once per
+        incarnation, then an in-flight Attempt's ending when it lands.
+
+        A lane records the creating incarnation's subject path, and its binding incarnation is the
+        live incarnation with that path (the actor for a definition's operation); a member from
+        another path is declined; with no binding incarnation in a live actor its ending is parked
+        for the path. No schedule, issue or send from an old incarnation reaches a new one.
+
+        Versions.
+
+        For a persisted value-named machine, adding, removing or renaming an input field, or
+        changing a field's Schema on its type side or encoded side, is a new version; a check
+        compares by its representation { id, payload } and other annotations are ignored (a brand or
+        a description is not a version; a custom filter with no representation, and a transformation
+        with unchanged sides, are not seen: stated limits).
+
+        - Flow's own version encodings carry a format tag;
+        - Flow keeps each older format's hash function and reads an older-format version by
+          recomputing the current Schema in that format;
+        - format 0 (names only) compares names, a stated limit;
+        - a newer format reads as an old version;
+        - production tags versions from its first release (the runner's rulings).
+
+        A saved record of another version is an old-version record, listed at ready
+        (OldVersionActor, proposed name), never renamed or matched by shared fields, removed by
+        forget; its non-Idle lanes stay unbound and listed (@plan.Persistence.O5). Reference:
+        references/dispatch-desk/features/Tickets/editor/editor.ref.ts, app/host.ts.
+    O4  Mailboxes and send
+        Each actor processes events one at a time; its mailbox is FIFO in admission order, and user
+        sends, call endings, stream deliveries, timer firings and `onContext` events queue together.
+        A call's ending is queued at settlement and mapped and routed when its turn is admitted.
+        Equal deadlines are separate turns.
+
+        Across actors, follow-ups run first, up to 64 for each admitted event, past which the turn
+        that would add one is refused InvalidTurn naming the chain; otherwise one event from the
+        next actor in rotation, oldest first within that actor. Nothing orders two actors' turns
+        unless a turn links them, so bulk work on one actor never starves another.
+
+        A send to an idle Runtime runs its turn before send returns; during a turn, or a yield
+        between slices, it queues. Work runs in slices: the driver serves mail for a slice of time,
+        then yields a real task to the page; the slice decides when, never what.
+
+        A spin, a handler that asks again on its own ending, is never stopped, slowed or cut;
+        TurnStorm (evidence) names one operation failing with the same input many times in a row,
+        and flow check's AsksForever a handler whose every path asks again; neither decides
+        anything.
+
+        Each actor queues at most 1,024 pending events: an external send beyond that throws
+        AdmissionOverloaded and changes nothing. send validates the event's tag and payload; an
+        internal, unknown or invalid event throws InvalidEvent and starts no turn.
+
+        Endings, schedule firings and context updates are never dropped: they are bounded by work
+        already admitted, not by the mailbox limit. Stream deliveries are bounded by what Flow has
+        pulled, outside the mailbox cap (@plan.Operations.O4); a released session's undelivered
+        items are discarded with evidence, and a timer of an ended activation is discarded
+        (@plan.Machines.O5).
+
+        A refused delivery is kept, never lost. An ending whose turn is refused (InvalidTurn), or
+        whose outcome mapper throws at admission, is delivered once more after the mail already
+        queued; the second refusal is final and its issue names the cause.
+
+        What was refused twice stays with what owes it:
+
+        - a sent write's ending is parked on its lane and kept, blocking its key, until heard,
+          cancelled, released or a local life ends;
+        - a read's answer or a stream's failure is stranded, named, until that life asks again, ends
+          or a boot;
+        - a decline is kept on the lane of the key it asked for and blocks nothing, a newer decline
+          replacing it.
+
+        A kept ending gets one try per boot or adoption; the machine stays in the state that was
+        waiting for it, with no fallback alternative and no API for it. A boot forgets a stranded
+        read: a machine with a recurring schedule asks again, and one without stays where it was.
+        Stated gap: a kept ending's one try and a stranded read let go leave no evidence today.
+
+        React's pre-attach handles and their send buffer are @plan.React.O2 and @plan.React.O3.
+
+        An action send(ref, event) and a handle's send(event) deliver a public event as a later turn
+        of the target, after the sender's turn commits. A send never creates an actor or adopts a
+        lazy entry, and may restore one from its record.
+
+        By target:
+
+        - live (used, kept by work in flight, or in the grace) is delivered, and a send is not a
+          use;
+        - ending and persisted is queued for the next incarnation;
+        - ending and not persisted is dropped as SendTargetAbsent { reason: "NoRecord" };
+        - ended, persisted, with a record that decodes is restored and delivered last, ending after
+          the grace unless the event starts work in flight;
+        - a record that does not decode is dropped with RecordUndecodable;
+        - no record (not persisted, never created, disposed, forgotten) is dropped with NoRecord;
+        - a lazy entry not adopted is dropped with NotAdopted;
+        - a persisted actor while the Runtime boots is queued (@O2);
+        - an actor being disposed by `disposeActor` is dropped with NoRecord.
+
+        A full target is AdmissionOverloaded. Reasons are reported on the sender and never roll back
+        its turn. Several sends keep their order.
+
+        Every publication is one complete cut: a reader never sees an actor's new snapshot with old
+        store data or the reverse. A new snapshots subscriber gets current truth first; slow
+        subscribers may skip intermediate snapshots. Snapshots expose no revision numbers or raw
+        Cause; each belongs to one store revision, which passive reads of it use.
+
+        A snapshots subscription completes when its subscriber stops, or after the terminal snapshot
+        of `disposeActor`, forget or Runtime disposal; on an identity with no actor it emits that
+        identity's current snapshot and waits as a use. Reference:
+        references/dispatch-desk/features/Tickets/editor/editor.machine.ts.
+    O5  Context propagation
+        A consumer always reads one complete, consistent snapshot of the context it depends on, and
+        a bad context graph is refused before any work runs.
+
+        Provider.select(selector) reads one complete provider snapshot. A context slot binds to one
+        provider for the consumer's lifetime. Context reads form an acyclic upward graph; a cycle
+        (ContextCycle), a missing provider (MissingContextProvider) or an incompatible one rejects
+        at admission.
+
+        Baselines are silent: `onContext` fires for none established at admission, restore, lazy
+        adoption or hydration; an actor returning after an end gets one wave if a provider's
+        selection differs from the one it ended with in this Runtime.
+
+        A context change enqueues the consumer's declared event; it never runs a transition, memory
+        patch or action directly, and never resets memory. Memory that belongs to one user,
+        workspace or account is keyed into the actor's identity (its input fields), or lives in a
+        Runtime per scope (@O7). A bound context consumer is a use of its provider.
+
+        When a provider changes, each affected consumer receives at most one context update per
+        wave, computed from the latest complete provider snapshots, and never a mix of new and stale
+        values from the same cause (diamonds included).
+
+        Slots compare with Equal.equals; an equal value causes no update, and consumers waiting on
+        that branch continue. A context update keeps its place in the FIFO queue; later events never
+        overtake it.
+
+        A consumer selector that throws keeps that consumer's last valid context, publishes one
+        issue, and retries only on a newer provider snapshot; the provider and other consumers are
+        unaffected. Persistence capture never observes a half-propagated wave; it waits for the
+        wave to settle (@plan.Persistence.O3).
+        Reference: references/dispatch-desk/features/Tickets/queue/queue.machine.ts.
+    O6  Lifecycle and disposal
+        Disposing an actor or a Runtime cleans up truthfully: unfinished writes are kept and
+        reported, never silently dropped.
+
+        Public lifecycle is active, disposing or disposed. runtime.disposeActor(actor) disposes the
+        actor for every user: it removes the actor's record, keeps its non-Idle lanes as unbound
+        lane records, and flushes the removal at once; an unbound lane record it leaves ends at an
+        adopting ensure (or with its owner's cancel), listed as unbound under the identity and
+        reported at each boot until then. `disposeActor` and forget stop a send's restore only once
+        their removal is acknowledged; after a crash before that, the identity behaves as persisted:
+        a plain send restores it, and with no use it ends after the grace.
+
+        Disposing a provider while consumers are bound rejects with BlockedByDependents naming them.
+        Actor and Runtime disposal are idempotent: repeated calls share one result.
+
+        Once Runtime disposal starts, ready, `ensureActor`, `createActor` and `runPromise` reject
+        with RuntimeDisposed. Runtime disposal closes admission first, then disposes consumers
+        before providers; once a provider starts closing, no consumer can bind to it.
+
+        forget removes the identity's record (retired, old-version or undecodable), so the next
+        ensure starts fresh from its input; its parked and boot-queued endings become evidence, and
+        the record's other boot mail goes silently, as after `disposeActor`. forget drops no hold: a
+        Held lane stays an unbound lane, listed and reported at each boot, and a later ending stays
+        on it, until its owner's cancel or an adopting ensure; a hold whose operation no longer
+        exists is dropped, with evidence HoldForgotten (proposed name, the runner's ruling). forget
+        of a live actor disposes it first.
+
+        A lane is unbound while its identity has no decoded actor record and no incarnation.
+
+        On disposal, queued events that have not started are dropped without running. Schedules
+        cancel, placements stop, and stream sessions release within the bound (5 s, ReleaseOverdue);
+        a new session waits for its releasing predecessor.
+
+        Disposal invokes no new commit and drops no lane: the Runtime keeps the lanes, applies their
+        endings and invokes what the lane table promotes (@plan.Operations.O3);
+        runtime.unsettledWrites() lists non-Idle lanes by identity, for a host's beforeunload.
+
+        Runtime disposal is bounded:
+
+        - from its start nothing is invoked;
+        - a queued commit that was never sent ends NotSent { Disposed }, delivered after reload for
+          a persisted identity;
+        - a call that settles within 5 seconds is parked;
+        - past the bound an Attempt still on the wire ends unknown { Disposed } and its late result
+          is ignored.
+
+        Wherever endings of one lane are delivered or parked together, an ending that leaves a hold
+        comes last: each queued NotSent { Disposed } before the head's unknown. An unknown keeps its
+        head Held on disk and a definite ending drops it; a kill before the final capture restores
+        unknown { Restored }, after it unknown { Disposed } is parked; the store hears the parked
+        reason at the restore.
+
+        No module starts work once disposal starts. A cleanup failure rejects dispose with
+        CleanupFailed, quarantines the ref (later ensures report the same failure) and keeps the
+        full Cause; it is never reported as success.
+
+        Runtime disposal waits for the final persistence write within the same 5-second budget; a
+        write still pending then reports StorageFailure (@plan.Persistence.O3). The terminal
+        snapshot keeps the last committed state and memory; disposal runs no machine event.
+
+        runtime.dispose({ forget: true }) also deletes the scope's stored records
+        (@plan.Persistence.O5); plain dispose keeps them.
+        Reference: references/dispatch-desk/app/host.ts.
+    O7  Isolation
+        Runtimes share no mutable state: actors, store, services, storage, clock or evidence.
+        Handles from one Runtime are rejected by another; nested React providers use the nearest
+        Runtime. A different user or account is a new Runtime with a different scope
+        (@plan.React.O1).
+
+        Every server request and Story run constructs its own Runtime; a module-level server Runtime
+        is never used. Story storage is always fresh memory storage (@plan.Testing.O3). Reference:
+        references/dispatch-desk/next/providers.tsx.
+decisions
+    D1  The app is a closed list of machines
+        Lazy entries name machines the app already declares; nothing registers at runtime, so the
+        structural representation stays complete for tools.
+    D2  Wiring lives on refs and app defaults, never at call sites
+        One place declares where an actor's context comes from, so tools can draw the graph.
+constraints
+    C1  One execution path
+        Hosts, requests, React, Stories and the CLI use the same Runtime; fixtures replace
+        services, never the kernel.
+    C2  Identities are never reused
+        Actor incarnations, request generations and Attempt ids never wrap or repeat within a
+        Runtime or across restore; exhausting a counter refuses new work with IdentityExhausted
+        before any change.
+verification
+    V1  Construction: closed-list errors, an unambiguous identity encoding (fields in name order,
+        strings), inert constructors, Compiled refusals.
+    V2  Services: a missing adapter service is a type error and a boot refusal by name; each
+        service is acquired once.
+    V3  Readiness: storage before validation, shared failure, interrupted waiter, second-tab
+        refusal, no partial handles after failure, the boot send queue.
+    V4  Identity and lifetime: a value-named ref given input is a type error and a mismatched ref
+        - and input cannot be written;
+        - conflicting refs reject;
+        - a new incarnation adopts its identity's write lanes and receives no other late fact of the
+          old one;
+        - the end after the grace on the TestClock;
+        - Strict Mode inside it;
+        - a chain of two or more writes and reads in one incarnation;
+        - schedules waiting without a use.
+    V5  Mailboxes: the 1,024 and 64 bounds, invalid events, FIFO and rotation, send results
+        owned by the sender, refused deliveries kept.
+    V6  Context: diamond and chain waves give one update from latest values; a throwing selector
+        is isolated.
+    V7  Disposal and isolation: provider-with-consumers rejection, idempotent dispose, the
+        5-second bound with unknown { Disposed } and the parking order, forget keeping holds,
+        quarantine on cleanup failure, no sharing between Runtimes.
+questions
+    Q1  Can one services Layer be acquired storage-first?
+        Recommended: prove it against Effect 4.0.5 in S1; if not, acquire the whole Layer before
+        restore validation.
+    Q2  Deferred to build time
+        Id byte encoding; counter headroom sizes; evidence ordering details; lifecycle evidence
+        causes; the private shutdown budget split.

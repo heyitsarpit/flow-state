@@ -1,0 +1,56 @@
+{
+ "runtime": "/Users/arpit/Developer/flow-state/packages/flow-state-v3/prototypes/round-6/adapter.ts",
+ "bun": "1.4.2",
+ "date": "2026-11-02T08:36:47.410Z",
+ "turnUs": {
+  "1": 2.52,
+  "1000": 22.82,
+  "10000": 251.63
+ },
+ "sealUs": {
+  "pay": 11.1,
+  "desk": 9.1,
+  "note": "building the fixture is included; make() alone is below",
+  "makePay": 0.4,
+  "makeDesk": 3.9
+ },
+ "valueMs": {
+  "note": "one value appended, a whole turn. The machine's own array copy is included in all columns.",
+  "notPersisted": {
+   "100": 0.006,
+   "1000": 0.006,
+   "10000": 0.022,
+   "50000": 0.062
+  },
+  "persistedAtOnce": {
+   "100": 0.497,
+   "1000": 0.916,
+   "10000": 4.723,
+   "50000": 23.47
+  },
+  "persistedCoalesced": {
+   "100": 0.013,
+   "1000": 0.019,
+   "10000": 0.082,
+   "50000": 0.633
+  }
+ },
+ "bundle": {
+  "coreWithDriver": {
+   "rawKB": 64.7,
+   "gzipKB": 21.4
+  },
+  "entities": {
+   "rawKB": 13.9,
+   "gzipKB": 5
+  },
+  "sessions": {
+   "rawKB": 18.7,
+   "gzipKB": 6.8
+  },
+  "coreAndEntities": {
+   "rawKB": 85.4,
+   "gzipKB": 28.8
+  }
+ }
+}

@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Console` API](https://www.effect.website/docs/v4/api/effect/Console). Examples use `Console` from `effect`.
 
+`Console` is Effect's injectable abstraction for standard output, errors, warnings, and related console operations.
+
 ## API index
 
 1. [Console.log](#consolelog)

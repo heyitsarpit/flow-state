@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Tracer` API](https://www.effect.website/docs/v4/api/effect/Tracer). Examples assume `import { Effect, Tracer } from "effect"`.
 
+`Tracer` provides tracing context and span instrumentation for following work and causal relationships across Effect boundaries.
+
 ## API index
 
 1. [Tracer.Tracer](#tracertracer)

@@ -1,0 +1,62 @@
+{
+ "search": "flush.pay.tight",
+ "verdict": "inconclusive",
+ "perDepth": [
+  1,
+  2,
+  4,
+  10,
+  22,
+  44,
+  78,
+  124,
+  174,
+  245,
+  374,
+  564,
+  880,
+  1425,
+  2259,
+  3619
+ ],
+ "states": 10319,
+ "edges": 32621,
+ "steps": 1075388,
+ "depthCompleted": 15,
+ "classes": {
+  "charged-unaccounted:PAID": {
+   "count": 4436,
+   "witness": "Pay ack pay.ok Pay"
+  },
+  "two-keys-one-intent:PAID": {
+   "count": 4436,
+   "witness": "Pay ack pay.ok Pay"
+  },
+  "held-no-owner:PAYING": {
+   "count": 715,
+   "witness": "Pay ack KILL Pay"
+  },
+  "charged-unaccounted:PAYING": {
+   "count": 151,
+   "witness": "Pay ack pay.ok KILL Pay"
+  },
+  "held-no-owner:PAID": {
+   "count": 5733,
+   "witness": "Pay ack pay.ok Pay ack ack KILL"
+  },
+  "two-keys-one-intent:PLACING": {
+   "count": 56,
+   "witness": "Pay ack pay.ok ack KILL ack KILL ack KILL ack KILL Pay"
+  },
+  "two-keys-one-intent:STUCK": {
+   "count": 17,
+   "witness": "Pay ack pay.ok Pay ack ack pay.ok KILL ack KILL ack KILL ack KILL"
+  }
+ },
+ "ms": 90002,
+ "peakRssMb": 211,
+ "unpinned": [],
+ "lanesAhead": 0
+}
+
+WATCH peak 201 MB, 90.1 s, exit 0, killed no

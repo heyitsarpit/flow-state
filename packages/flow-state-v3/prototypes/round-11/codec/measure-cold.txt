@@ -1,0 +1,4 @@
+cold hand        median 1.59 ms (min 1.43, max 1.66): import + build + seal of Pay, after the runtime's own modules
+cold in-process  median 2.56 ms (min 2.43, max 3.09): import + build + seal of Pay, after the runtime's own modules
+cold data        median 3.75 ms (min 3.57, max 4.52): import + build + seal of Pay, after the runtime's own modules
+cold module      median 3.76 ms (min 3.70, max 4.13): import + build + seal of Pay, after the runtime's own modules

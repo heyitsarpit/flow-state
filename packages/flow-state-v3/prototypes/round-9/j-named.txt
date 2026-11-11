@@ -1,0 +1,33 @@
+lost.ask.commit                  failing  392  named by (j)  389    (j) 1 ask(s) of pay in a committed turn became nothing
+lost.ask.lookup                  failing  196  named by (j)  195    (j) 1 ask(s) of intent in a committed turn became nothing
+lost.ask.lookup-unencodable      failing    7  named by (j)    7    (j) 1 ask(s) of read in a committed turn became nothing
+lost.keep.whole                  failing   39  named by (j)   39    (j) refused twice, and kept nowhere: Confirmed
+lost.keep.quiet                  failing   31  named by (j)   31    (j) kept, and no wait names it: pay att-1-1
+lost.keep.read-strand            failing    6  named by (j)    6    (j) kept, and no wait names it: readBoom read/Lab/Doors/a/g1.3/readBoo
+lost.keep.firing                 failing    5  named by (j)    5    (j) kept, and no wait names it: GiveUp 
+lost.keep.stream                 failing    1  named by (j)    1    (j) kept, and no wait names it: Ended 
+lost.keep.re-keep                failing    3  named by (j)    3    (j) refused twice, and kept nowhere: Saved
+lost.keep.beside-another-wait    failing    2  named by (j)    2    (j) kept, and no wait names it: save 
+lost.try.ending                  failing   41  named by (j)   41    (j) refused once, and not tried again: Confirmed
+lost.try.firing                  failing    6  named by (j)    6    (j) refused once, and not tried again: GiveUp
+lost.try.stream                  failing    2  named by (j)    2    (j) refused once, and not tried again: FeedEnded
+lost.settled                     failing  275  named by (j)  271    (j) an ending reached nobody: pay att-1-1
+lost.read-answer                 failing  175  named by (j)  175    (j) an ending reached nobody: intent read/Checkout/Pay/shopper-1/g1.3/
+lost.boot.head                   failing   64  named by (j)   47    (j) an ending reached nobody: pay att-1-1
+lost.boot.parked                 failing   18  named by (j)   13    (j) parked on disk, and not heard at the boot: save att-1-1
+lost.boot.second-parked          failing    1  named by (j)    1    (j) parked on disk, and not heard at the boot: save 
+lost.boot.w                      failing   10  named by (j)   10    (j) an ending reached nobody: refund att-1-2
+lost.adopt.parked                failing   33  named by (j)   20    (j) an ending reached nobody: save att-1-1
+lost.adopt.hold                  failing    5  named by (j)    5    (j) an ending reached nobody: save att-1-1
+lost.thaw.parked                 failing    6  named by (j)    6    (j) an ending reached nobody: catchUp read/Feed/a/g1.5/catchUp
+lost.freeze.parked               failing    9  named by (j)    9    (j) parked, and no wait says so: catchUp read/Feed/a/g1.5/catchUp
+lost.freeze.queued-read          failing    1  named by (j)    1    (j) parked, and no wait says so: spinRead 
+lost.decline.mail                failing   41  named by (j)   41    (j) an ending reached nobody: pay 
+lost.decline.admission           failing    1  named by (j)    1    (j) an ending reached nobody: job 
+lost.dead-actor                  failing   23  named by (j)   10    (j) an ending reached nobody: pay att-1-1
+lost.unplaced                    failing   16  named by (j)   16    (j) an ending reached nobody: save att-1-1
+lost.letgo-silent                failing    7  named by (j)    7    (j) parked, and no wait says so: w att-1-1
+
+29/29 named by (j)
+
+WATCH peak 36 MB, 108.8 s, exit 0, killed no

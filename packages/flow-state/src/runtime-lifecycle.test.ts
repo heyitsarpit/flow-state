@@ -1108,7 +1108,7 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     expect(completedDispose).toBeUndefined();
   });
 
-  it("preserves acquired layer cleanup during partial acquisition even though Effect masks the original acquire cause", async () => {
+  it("preserves acquisition and rollback cleanup failures during partial layer acquisition", async () => {
     let acquired = 0;
     let cleaned = 0;
     const cleanupError = new Error("layer cleanup failed during rollback");
@@ -1140,9 +1140,10 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     expect(Exit.isFailure(runExit)).toBe(true);
     if (Exit.isFailure(runExit)) {
       expect(Cause.squash(runExit.cause)).toMatchObject({
-        message: cleanupError.message,
+        message: acquireError.message,
       });
-      expect(Cause.pretty(runExit.cause)).not.toContain(acquireError.message);
+      expect(Cause.pretty(runExit.cause)).toContain(acquireError.message);
+      expect(Cause.pretty(runExit.cause)).toContain(cleanupError.message);
     }
     expect(acquired).toBe(1);
     expect(cleaned).toBe(1);
@@ -1151,8 +1152,9 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     expect(Exit.isFailure(disposeExit)).toBe(true);
     if (Exit.isFailure(disposeExit)) {
       expect(Cause.squash(disposeExit.cause)).toMatchObject({
-        message: cleanupError.message,
+        message: acquireError.message,
       });
+      expect(Cause.pretty(disposeExit.cause)).toContain(acquireError.message);
     }
     expect(cleaned).toBe(1);
   });

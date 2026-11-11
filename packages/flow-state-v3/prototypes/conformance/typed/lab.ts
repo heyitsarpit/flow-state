@@ -1,0 +1,39 @@
+// Round 11: what every typed fixture shares. The fake world is an Effect service, as a real API client is (Pay's `ShopApi`): a commit asks for it,
+// and the fixture's `make(api)` provides it, so the Runtime gets `Compiled` with every requirement closed (D205). Where the data comes from: the fake's
+// `Api`, which stands for `fetch` or an SDK; Flow is not a network library.
+import { Context, Effect } from "effect";
+import type { Api, ServerModel } from "../fake-world.ts";
+import { Outcome, OutcomeUnknown, type Compiled } from "../fixtures/compiled.ts";
+import type { Fixture } from "../harness.ts";
+import { servicesFor, type Typed } from "../compile/index.ts";
+
+export class FakeApi extends Context.Service<FakeApi, Api>()("Flow/Fixture/Api") {}
+type Tag<T extends string> = { readonly _tag: T };
+// A call to the fake, with the tags it can fail with named, so a contract's `outcomes` is checked against them.
+export const call =
+  <A = unknown, T extends string = never>(op: string) =>
+  (input: unknown, idempotencyKey?: string): Effect.Effect<A, Tag<T>, FakeApi> =>
+    Effect.flatMap(Effect.service(FakeApi), (api) =>
+      (idempotencyKey === undefined ? api.call(op, input) : api.call(op, input, { idempotencyKey })) as Effect.Effect<A, Tag<T>>,
+    );
+// The common write: a lost answer or a server error is an unknown (rule 13). The hand fixtures' `unknownWhenLost`, typed.
+// Round 14 (OD28 G): with Effect's own `catchTag` over the two lost tags, as an app writes it; no Flow word.
+export const unknownWhenLost = <A, T extends string, R>(
+  write: Effect.Effect<A, Tag<T>, R>,
+): Effect.Effect<A, Tag<Exclude<T, "NoResponse" | "ServerError">> | OutcomeUnknown<Tag<"NoResponse" | "ServerError">>, R> =>
+  Effect.catchTag(write as Effect.Effect<A, Tag<"NoResponse"> | Tag<"ServerError"> | Tag<string>, R>, ["NoResponse", "ServerError"], (e) => Outcome.unknown(e)) as never; // `T` is generic here, so its tags are widened to call catchTag
+
+// A write by its op name, keyed by the Attempt (D106: the idempotency key is the Attempt's id).
+export const write =
+  <A = unknown, T extends string = never>(op: string) =>
+  (input: unknown, c: { readonly attempt: { readonly id: string } }) =>
+    unknownWhenLost(call<A, T | "NoResponse" | "ServerError">(op)(input, c.attempt.id));
+// A fixture from a typed machine. Every Compiled the suite boots from here went through `machine()`, the compile, and nothing else touched it: the fake is
+// given to the Runtime at boot as the service the commits ask for (D211), not wrapped around each commit (`provide`, finding F10).
+// Round 12 (D213, review H1): typed by what the machine needs. The boot gives the fake as `FakeApi`, so a machine whose commits need anything else is a type error
+// here (`R extends FakeApi`), and the seal refuses it by name at run time.
+export const fixture = <R extends FakeApi>(typed: Typed<R> | ((api: Api) => Typed<R>), server?: ServerModel): Fixture & { readonly typed: true } => {
+  const make = (api: Api): Compiled => (typeof typed === "function" ? typed(api) : typed).compiled;
+  const probe = typeof typed === "function" ? typed(new Proxy({}, { get: () => () => undefined }) as Api) : typed;
+  return { id: probe.compiled.id, make, services: (api) => servicesFor(probe, Context.make(FakeApi, api)), typed: true, ...(server ? { server } : {}) };
+};

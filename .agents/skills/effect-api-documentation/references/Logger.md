@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Logger` API](https://www.effect.website/docs/v4/api/effect/Logger). Examples assume `import { Logger } from "effect"`.
 
+`Logger` provides structured logging services, levels, annotations, and formatting that can be replaced and scoped through Layers.
+
 ## API index
 
 1. [Logger.layer](#loggerlayer)

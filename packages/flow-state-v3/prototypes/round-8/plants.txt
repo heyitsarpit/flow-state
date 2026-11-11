@@ -1,0 +1,14 @@
+twoOut | suite: PAY-03 PAY-07/late-may-not-leave PAY-10/hang  | bare.tight: 144 |       if (out.has(w.key)) throw new Error(`(g) a second write out for ${w.key}`);error: (g) a second write out for actor/Lab/Bare/a
+oldWins | suite: REV7-H1/a-batch-that-fails-after-a-newer-one-landed-stays-dead REV7-H1/E1-what-the-failed-batch-owed-goes-in-the-ack REV7-H1/a-newer-value-is-not-replaced-by-a-retry-of-an-older-one  | bare.tight:  "verdict": "failed", "failure": "(h) request att-1-2 is not the head of a lane on disk on Go Forget failHeld ack Go sayFailed ack",
+noMerge | suite: REV6-M7/a-failed-plain-write-is-not-believed REV7-H1/L2-a-landing-resets-backoff-and-says-once REV7-H1/backoff-grows-on-a-late-failure  | bare.tight:  "verdict": "inconclusive",
+partial | suite: PAY-13/waiting-flushed PAY-15/reload-holds-exactly-once PAY-16/retry-count-persists  | bare.tight:  "verdict": "failed", "failure": "L3: ack claim for charge with no write outside on NoteBad Go",
+poisonDeletes | suite: REV7-M9/an-ending-with-a-bad-value-is-not-lost REV7-M9/a-skipped-batch-waits-for-an-encodable-state REV7-EDGE/poison-a-hold-is-kept-not-lost  | bare.tight:  "verdict": "failed", "failure": "(e) memory ahead of its lane: {\"m\":{\"last\":null,\"note\":\"\",\"noteCopy\":\"\",\"peeks\":0,\"who\":\"a\"},\"s\":\"W\"} on Go NoteBad Forget ack",
+poisonAll | suite: REV7-M9/memory-that-cannot-encode-does-not-refuse-the-turn REV7-EDGE/H1-one-actors-bad-record-stops-nobody-else  | two.tight:  "verdict": "failed", "failure": "L3: ack claim for charge with no write outside on NoteBad Go Go.b",
+debounce | suite: REV7-EDGE/a-steady-stream-still-lands-within-the-window  | bare.tight:  "verdict": "inconclusive",
+ignoresNow | suite: REV7-M1/a-success-does-not-come-back-as-a-hold REV7-D80/D93-a-dispose-is-not-lost-to-a-kill  | bare.tight:  "verdict": "inconclusive",
+noSilent | suite: REV7-EDGE/k-a-plain-batch-that-never-answers-is-loud  | bare.tight:  "verdict": "inconclusive",
+storedEarly | suite: PAY-01 PAY-04 PAY-05  | bare.tight:  "verdict": "failed", "failure": "(h) request att-1-1 is not the head of a lane on disk on Go",
+noTicket | suite: PAY-01 PAY-02 PAY-03  | bare.tight:  "verdict": "failed", "failure": "L3: ack claim for charge with no write outside on Go",
+encodeOnTurn | suite: REV7-EDGE/encoding-happens-off-the-turn  | bare.tight:  "verdict": "inconclusive",
+hiddenWaits | suite: REV7-EDGE/a-hidden-page-does-not-wait REV7-EDGE/a-hidden-page-in-a-frozen-tab-still-does-not-need-a-timer REV8-M2/a-hidden-page-keeps-its-backoff  | bare.tight:  "verdict": "inconclusive",
+finished

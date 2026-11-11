@@ -1,0 +1,55 @@
+KILLED   s-before-reads-working-copy          1 cases: FRAG-03
+KILLED   s-select-reads-before                3 cases: CART-01 CART-02/five-taps CART-02/repriced-under-pending
+KILLED   s-no-reset-before-walk               15 cases: FRAG-02/a-raise-in-the-resetting-turn-reaches-the-fresh-one FRAG-03 FRAG-09/reloadWhileConfirming FRAG-09/webhookWins ...
+SURVIVED s-pending-reset-after-adoption       0 cases: 
+KILLED   s-each-ignores-max                   1 cases: FRAG-01/repair-never-refuses
+SURVIVED s-abandoned-reads-final-memory       0 cases: 
+SURVIVED s-adopted-ending-routes-late         0 cases: 
+SURVIVED s-late-leaves-subroutine             0 cases: 
+SURVIVED s-late-filling-may-leave             0 cases: 
+SURVIVED s-commit-from-other-path-joins       0 cases: 
+SURVIVED s-queued-firing-not-retracted        0 cases: 
+SURVIVED s-release-every-subject              0 cases: 
+SURVIVED s-release-before-members             0 cases: 
+KILLED   s-rebind-keeps-releasing             1 cases: FRAG-06/readd-before-idle-clears-the-mark-and-adopts
+KILLED   s-releasing-ending-delivered         1 cases: FRAG-06/wire-is-interrupted-and-nothing-delivered
+KILLED   s-adoption-holds-before-parked       1 cases: FRAG-05
+KILLED   s-unplaced-ending-is-evidence        4 cases: FRAG-04/parked-then-adopted-keeps-the-text FRAG-05 FRAG-11/a-b-a-adopts-as-the-story-says FRAG-19/unplaced-parked-survives-a-reload
+KILLED   s-unbound-ending-never-parks         1 cases: FRAG-08/persisted-disposed-ending-parked-delivered-once
+KILLED   s-restore-forgets-history            5 cases: PAY-16/restore-keeps-mayHaveApplied HIGH-01/pay-told-not-charged HIGH-01/retry-then-cancel-releases HIGH-01/retry-then-commit-queues-behind ...
+KILLED   s-outside-closure-is-fatal           2 cases: HIGH-03/confirms-throws-on-a-shape HIGH-03/a-read-mapper-throws
+KILLED   s-disabled-store-admits              1 cases: DRV-03/disabled-survives-a-refused-turn
+KILLED   s-disabled-store-sends               1 cases: DRV-03/a-disabled-store-holds-its-queue
+SURVIVED s-defect-keeps-effects               0 cases: 
+SURVIVED s-bad-record-reaches-boot            0 cases: 
+KILLED   s-answers-have-no-position           3 cases: CART-02/repriced-under-pending HIGH-04 MED-03/stale-read-does-not-overwrite-a-confirmed-write
+KILLED   s-stale-ignores-differs              1 cases: HIGH-04b
+KILLED   s-cancel-does-not-wait-for-ack       4 cases: MED-01/cancel-waits-for-its-ack MED-01/cancel-refused-by-storage MED-01/landed-without-ack-then-reload MED-01/other-actor-behind-a-hung-ack
+KILLED   s-ack-forgets-then                   3 cases: MED-01/cancel-waits-for-its-ack MED-01/latest-replace-waits-for-its-ack FRAG-06/waiting-never-sent-waits-for-its-ack
+KILLED   s-row-hides-stalled                  3 cases: DRV-03/a-disabled-store-holds-its-queue MED-02/record-held-names-holder-and-waiter MED-04
+KILLED   s-silence-is-refusal                 3 cases: PAY-10/hang PAY-18 MED-04
+SURVIVED s-redelivery-jumps-mail              0 cases: 
+KILLED   s-redelivery-second-cell             1 cases: PAY-11/unknown-handler-throws-once
+SURVIVED s-bound-hold-yields                  0 cases: 
+SURVIVED s-local-sent-not-evidence            0 cases: 
+KILLED   s-given-clear-no-repair              1 cases: LIKE-06
+KILLED   s-dispose-leaves-repair-fiber        1 cases: MED-07/disposal-stops-module-fibers
+KILLED   s-no-still-unknown                   5 cases: PAY-05 PAY-16/restore-keeps-mayHaveApplied STORE-05/failed-retry-does-not STORE-11/stillunknown-keeps-its-place ...
+KILLED   s-settle-forgets-unknown             12 cases: PAY-04 PAY-05 PAY-15/retry-budget PAY-16/resend-refused-capture ...
+KILLED   s-retry-count-at-retry               1 cases: PAY-16/resend-refused-capture
+KILLED   s-superseded-store-not-told          3 cases: STORE-04/Superseded-head CART-02/five-taps MED-01/latest-replace-waits-for-its-ack
+KILLED   s-failure-forces-repair              2 cases: STORE-02 FRAG-11/deleteRefused
+KILLED   s-released-mark-not-given            1 cases: LIKE-06
+KILLED   s-new-write-heads-queue              29 cases: DRV-03/a-disabled-store-holds-its-queue LIKE-01 LIKE-02 LIKE-03 ...
+SURVIVED s-restore-unsorted                   0 cases: 
+KILLED   s-acked-restores-notsent             17 cases: PAY-08/reloadDuringCharge PAY-09/ack-stored-confirmation-lost PAY-13/hung-commit PAY-14 ...
+KILLED   s-cancel-reads-interrupted           3 cases: PAY-12/cancel-on-wire SURV-06 FRAG-06/readd-before-idle-clears-the-mark-and-adopts
+KILLED   s-cancel-resend-says-notsent         2 cases: STORE-11/cancel-a-waiting-resend HIGH-01/retry-then-cancel-releases
+KILLED   s-commit-replaces-hold               2 cases: LIKE-01 LIKE-03
+KILLED   s-refused-capture-says-notsent       3 cases: PAY-16/resend-refused-capture HIGH-01/pay-told-not-charged HIGH-01/retry-then-refuse-holds
+KILLED   s-overflow-checks-first-record       1 cases: STORE-06
+
+not applied (0):
+
+
+35/50 killed (second)

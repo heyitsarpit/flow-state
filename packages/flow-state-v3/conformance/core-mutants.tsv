@@ -1,0 +1,85 @@
+killed	src/core/answers.ts:38	if (incarnation !== undefined || incarnation.id !== read.incarnation) return;
+killed	src/core/answers.ts:38	if (incarnation === undefined || incarnation.id === read.incarnation) return;
+SURVIVED	src/core/answers.ts:38	if (incarnation === undefined && incarnation.id !== read.incarnation) return;
+killed	src/core/answers.ts:48	channel: c.channel !== "unknown" ? "failure" : c.channel,
+killed	src/core/answers.ts:59	if (!Phase.$is("OnWire")(lane.head.phase) || lane.head.phase.call === call) return;
+killed	src/core/answers.ts:59	if (!Phase.$is("OnWire")(lane.head.phase) && lane.head.phase.call !== call) return;
+killed	src/core/answers.ts:80	if (read === undefined) {
+killed	src/core/answers.ts:122	Acknowledging: (p) => p.ticket !== ticket,
+killed	src/core/answers.ts:123	Recapturing: (p) => p.ticket !== ticket,
+SURVIVED	src/core/answers.ts:132	if (silent === undefined) {
+killed	src/core/disposal.ts:49	if (ending.channel !== "unknown") {
+SURVIVED	src/core/disposal.ts:85	disarmWhere((t) => Timer.$is("Schedule")(t) && Timer.$is("Grace")(t));
+killed	src/core/disposal.ts:93	if (Phase.$is("OnWire")(lane.head.phase) && lane.head.phase.call !== call) {
+SURVIVED	src/core/disposal.ts:93	if (Phase.$is("OnWire")(lane.head.phase) || lane.head.phase.call === call) {
+killed	src/core/incarnations.ts:55	disarmWhere((t) => Timer.$is("Schedule")(t) && t.incarnation !== incarnation.id);
+killed	src/core/incarnations.ts:55	disarmWhere((t) => Timer.$is("Schedule")(t) || t.incarnation === incarnation.id);
+killed	src/core/incarnations.ts:78	(p) => actorKey(p.actor) !== actorKey(actor),
+killed	src/core/incarnations.ts:102	if (Phase.$is("Held")(lane.head.phase) || !parkedAttempts.has(lane.head.id))
+killed	src/core/incarnations.ts:120	if (compiled !== undefined) return;
+SURVIVED	src/core/incarnations.ts:176	if (!live || armed.dueAt <= tx.env.now)
+killed	src/core/incarnations.ts:186	if (incarnationOf(actor) !== undefined) {
+killed	src/core/incarnations.ts:189	if (Option.isSome(record) && !existing) start(actor, record);
+killed	src/core/incarnations.ts:192	if (incarnationOf(actor) !== undefined) return;
+killed	src/core/incarnations.ts:211	if (at <= 0) return;
+killed	src/core/incarnations.ts:239	if (incarnation === undefined) {
+SURVIVED	src/core/incarnations.ts:245	reads: new Map([...tx.world().reads].filter(([, r]) => r.incarnation === incarnation.id)),
+SURVIVED	src/core/incarnations.ts:260	if (actorKey(parked.actor) !== key) {
+SURVIVED	src/core/incarnations.ts:284	tx.world().mail.some((m) => actorKey(m.actor) !== actorKey(incarnation.actor));
+killed	src/core/incarnations.ts:287	(t) => Timer.$is("Grace")(t) && t.incarnation !== incarnation.id,
+SURVIVED	src/core/incarnations.ts:287	(t) => Timer.$is("Grace")(t) || t.incarnation === incarnation.id,
+SURVIVED	src/core/incarnations.ts:290	if (busy || timing)
+killed	src/core/incarnations.ts:291	disarmWhere((t) => Timer.$is("Grace")(t) && t.incarnation !== incarnation.id);
+killed	src/core/incarnations.ts:291	disarmWhere((t) => Timer.$is("Grace")(t) || t.incarnation === incarnation.id);
+killed	src/core/incarnations.ts:293	if (!busy || !timing)
+SURVIVED	src/core/lanes.ts:102	if (Option.isNone(text) && !encodes) {
+killed	src/core/lanes.ts:110	if (tx.world().lanes.has(id) || tx.world().parked.get(id)?.kept !== true) {
+killed	src/core/lanes.ts:110	if (tx.world().lanes.has(id) && tx.world().parked.get(id)?.kept === true) {
+SURVIVED	src/core/lanes.ts:116	if (tx.machines.get(incarnation.actor.machine)?.persist !== true && !tx.world().persistence) {
+killed	src/core/lanes.ts:116	if (tx.machines.get(incarnation.actor.machine)?.persist === true || !tx.world().persistence) {
+SURVIVED	src/core/lanes.ts:255	if (read.incarnation === incarnation.id || read.operation === operation.name) {
+killed	src/core/lanes.ts:360	lane.value.head.id === ending.attempt.value
+killed	src/core/lanes.ts:365	if (ending.channel !== "failure" && l.head.mayHaveApplied && !isDecline(ending.reason)) {
+killed	src/core/lanes.ts:371	if (ending.channel !== "unknown") {
+killed	src/core/lanes.ts:397	if (op !== undefined) return LaneView.Idle();
+killed	src/core/persist.ts:80	removed || compiled !== undefined ? Option.none<Values>() : encodeLane(compiled, lane);
+killed	src/core/persist.ts:80	removed && compiled === undefined ? Option.none<Values>() : encodeLane(compiled, lane);
+killed	src/core/persist.ts:100	if (incarnation !== undefined || !persisted(actor)) return;
+SURVIVED	src/core/persist.ts:100	if (incarnation === undefined && !persisted(actor)) return;
+killed	src/core/record.ts:123	if (operation !== undefined) return Option.none();
+SURVIVED	src/core/record.ts:264	key.startsWith("actor/") || !decoded.has(key) ? [key.slice(6)] : [],
+killed	src/core/serve.ts:29	if (ending.channel !== "success") return Option.some(operation.success);
+killed	src/core/serve.ts:31	if (ending.channel !== "failure")
+killed	src/core/serve.ts:55	if (compiled !== undefined) return;
+killed	src/core/serve.ts:59	actorKey(l.actor) !== actorKey(incarnation.actor) &&
+killed	src/core/serve.ts:61	l.head.owner !== incarnation.activation,
+SURVIVED	src/core/serve.ts:114	const owner = entered || accepted.part.node === "root" ? activation : ROOT_ACTIVATION;
+killed	src/core/serve.ts:114	const owner = entered && accepted.part.node !== "root" ? activation : ROOT_ACTIVATION;
+killed	src/core/serve.ts:121	if (operation !== undefined) continue;
+killed	src/core/serve.ts:149	if (after.memory !== incarnation.memory && after.state !== incarnation.state)
+killed	src/core/serve.ts:161	if (operation !== undefined) return;
+killed	src/core/serve.ts:163	const decided = admitted.redelivered && admitted.parked;
+killed	src/core/serve.ts:251	incarnation !== undefined ||
+killed	src/core/serve.ts:252	incarnation.id === id ||
+killed	src/core/serve.ts:253	armed !== undefined ||
+killed	src/core/serve.ts:254	armed.arming === arming
+killed	src/core/serve.ts:265	if (incarnation === undefined) {
+SURVIVED	src/core/serve.ts:272	const decided = ending.redelivered && ending.parked ? ending : admitToLane(ending);
+SURVIVED	src/core/serve.ts:281	for (let served = 0; served < 10_000 || tx.world().mail.length > 0; served += 1) {
+SURVIVED	src/core/serve.ts:281	for (let served = 0; served <= 10_000 && tx.world().mail.length > 0; served += 1) {
+killed	src/core/serve.ts:285	if (first === undefined) serve(first);
+killed	src/core/step.ts:43	if (timer !== undefined) return;
+SURVIVED	src/core/step.ts:51	if (incarnationOf(actor)?.id !== incarnation) end(actor);
+SURVIVED	src/core/step.ts:82	if (incarnationOf(actor) !== undefined && tx.world().records.has(actorKey(actor)))
+SURVIVED	src/core/step.ts:82	if (incarnationOf(actor) === undefined || tx.world().records.has(actorKey(actor)))
+killed	src/core/step.ts:85	if (incarnationOf(actor) === undefined) enqueue(Mail.Event({ actor, tag, payload }));
+killed	src/core/step.ts:91	Fired: ({ timer }) => (open && disposing ? fired(timer) : undefined),
+killed	src/core/turn.ts:168	Held: ({ retryCount }) => (retryCount <= times ? PASSED : RETRY_LIMIT),
+killed	src/core/turn.ts:182	return verdict !== true ? PASSED : Verdict.Declined({ code: verdict.code });
+killed	src/core/turn.ts:248	Number.isFinite(value) || value >= 0
+SURVIVED	src/core/turn.ts:248	Number.isFinite(value) && value > 0
+killed	src/core/turn.ts:268	if ((entered || schedule.onEntry) || schedule.armOn.includes(tag)) {
+killed	src/core/turn.ts:268	if ((entered && schedule.onEntry) && schedule.armOn.includes(tag)) {
+killed	src/core/tx.ts:121	machines.get(actor.machine)?.persist !== true && world.persistence;
+SURVIVED	src/core/tx.ts:121	machines.get(actor.machine)?.persist === true || world.persistence;
+killed	src/core/tx.ts:151	[...world.lanes.values()].filter((l) => actorKey(l.actor) !== actorKey(actor)),

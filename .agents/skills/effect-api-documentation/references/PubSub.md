@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `PubSub` API](https://www.effect.website/docs/v4/api/effect/PubSub). Examples assume `import { Effect, PubSub } from "effect"` and an enclosing scoped `Effect` program.
 
+`PubSub` broadcasts published values to multiple subscribers, with explicit buffering, backpressure, and scoped subscription lifetimes.
+
 ## API index
 
 1. [PubSub.PubSub](#pubsubpubsub)

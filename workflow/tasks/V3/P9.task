@@ -1,0 +1,103 @@
+phase P9
+title Hardening and budgets
+description
+    **Class:** verifiable.
+
+    **Kind:** performance.
+
+    **Goal:** the budgets met on their named devices, and every finding from every round given a
+    disposition.
+
+    **Starts when:** P8's completion audit passes and the user has set the targets.
+
+    **Verified by:**
+
+    - P8's benchmark and real-browser suites;
+    - skill:check-benchmark on baseline and final numbers;
+    - a test-harness-only review by an agent with no prior reading;
+    - the final review.
+
+    **One iteration:** one finding group or one budget: one isolated change, measured against the
+    accepted baseline, kept only if the checked comparison shows a gain with the tests green.
+
+    **Exit criteria:**
+
+    - budgets met on their devices;
+    - every finding has a disposition;
+    - quota and disk durability measured on a real phone by the user;
+    - `nub run verify` and the final-commit gates pass.
+
+    **False pass:** closing findings as dropped to finish.
+
+    **Caught by:** the completion audit checking each drop's reason against the Specs.
+
+    **Gates:** P8's slowed builds; falsify.
+
+    **Failure limit:** 2.
+
+    **Stops:** the real-phone run, which holds only that item; a guarantee change.
+
+    **User's read:** each finding's disposition.
+
+    **Draws from:**
+
+    - skill:playbook-performance;
+    - skill:hillclimb;
+    - skill:check-benchmark.
+tasks
+    T36
+        title       Budgets met on named devices
+        status      draft
+        priority    medium
+        description
+            Meet each budget on its named device, one budget at a time against P8's baseline.
+
+            **Why now:** the budgets are the P9 goal; P8's baselines and the user's targets are what they are measured
+            against.
+
+            **Read first:** @task.V3.T35, skill:playbook-performance, skill:hillclimb, skill:check-benchmark.
+
+            - **Evidence:** this Task's comments.
+            - **False pass:** a speedup that skips work → caught by skill:check-benchmark.
+            - **Gates:** P8's slowed builds.
+        acceptance
+            Every budget met on its device in a checked comparison.
+    T37
+        title       Every finding given a disposition
+        status      draft
+        priority    medium
+        description
+            Sweep every finding from every round, Epic note and revisit.md into fixed, deferred with a reason, or
+            dropped
+            with a reason checked against the Specs.
+
+            **Why now:** the P9 exit needs every finding to have a disposition before the final-commit gates.
+
+            **Read first:** code:workflow/plans/flow/references/proposals/revisit.md,
+            code:workflow/plans/flow/references/proposals/open-items.md, code:workflow/tasks/V3/epic.task.
+
+            - **Evidence:** this Task's comments.
+            - **False pass:** drops to finish → caught by the completion audit.
+            - **Gates:** `nub run verify`.
+            - **User's read:** each disposition.
+        acceptance
+            Every finding has a disposition; the final-commit gates pass.
+    T38
+        title       Quota and disk durability on a real phone
+        status      draft
+        priority    low
+        description
+            Prepare the real-phone script for quota and disk durability, and read the results the user runs.
+
+            **Why now:** an agent here reaches only browsers and a simulator, and a WebDriver session keeps no website
+            data, so quota and durability were never measured on a real store.
+
+            **Read first:** code:packages/flow-state-v3/prototypes/safari/RESULTS.md (item 0 and the open quota and
+            durability items), @task.V3.T36.
+
+            - **Evidence:** this Task's comments.
+            - **False pass:** a simulator standing in for the phone → caught by the user's own run.
+            - **Stops:** the user's run.
+            - **User's read:** the results.
+        acceptance
+            The user's real-phone results are recorded and meet the budgets.

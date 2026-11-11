@@ -1,0 +1,252 @@
+plan CommandLine
+title   Discover, run and inspect apps through flow
+status  proposed
+goal
+    App authors discover and run Stories, inspect declarations and explain retained evidence
+    through the installed flow binary without changing the application being inspected.
+
+    **Read first:** @spec.StaticCli, the Spec built from this Plan.
+outcomes
+    O1  Commands and selection
+        flow offers a small fixed set of commands, all with text and JSON output.
+
+        flow exposes only story list, story describe <story-id>, story run <story-id>, trace
+        <story-id> [--at <checkpoint>], graph [<app-id/machine-id>], check and explain (the user's
+        CLI scope, OD55); there is no diff, trace diff or search command. All support text and JSON
+        output; graph also supports Mermaid.
+
+        Text is the default. Help and version are conventional text. Output for people names source
+        locations (pay.machine.ts:42), never internal closure paths, prints a trace that reads like
+        the Story rather than evidence sequence numbers, and groups a graph by state; the exact
+        outputs are to be accepted by the user in phase 5.
+
+        Source commands accept --project-root and --app. --app selects an exact app id. Without
+        it, list lists all Stories and graph/check inspect all apps; commands selecting a Story or
+        machine require a unique exact match. Ambiguous machine-id prefixes require --app; an
+        explicit app must agree with the operand. Unknown apps or operands fail rather than
+        inspecting another app.
+
+        story list returns declared identities; story list --coverage (OD55) lists the transitions,
+        exits, callbacks and ending handlers (current and late), write-lane cells, stream cells and
+        Flow reasons no Story reaches, stated as reached, never as checked. story describe prints,
+        from the plan alone, the subject and its kind, options, every step with its index in its
+        data form, checkpoints and every fake server the plan names with its endpoints, controls and
+        their Schemas; it has no expectation or property lines. graph prints one edge per
+        alternative, named by its place in the source so an edge and the Runtime's turn record share
+        one name; each edge says what decides it (a state token, an idle or retryable lane fact, a
+        port, a closure) and is marked late, shadowed, unreached or unsourced when the data says it
+        cannot be taken; fillings, schedule triggers and `whenAbandoned` callbacks are edges; what
+        data cannot say is listed as unseen (@plan.Inspection.O6 renders it). explain accepts a
+        machine, state path and public event, or a domain with an optional --read.
+
+        Static explanations show possible transitions, denials and fallthrough without evaluating
+        guards, each commit's operation, contract, verb, policy and lane key with its cardinality
+        (and subject for a fragment operation), each stream placement (kind, session per key, fills,
+        idle time, reconnect, catch-up), each schedule's path to a write, a listen entry's covers
+        terms, and for a commit to a domain write its predicted entity, key and field names, the
+        reads they can repair, their carriers and the placements that subscribe them; or domain
+        reads and their impact. explain --trace <artifact|-> --at <checkpoint> uses recorded
+        evidence only and says "evidence unavailable" for what fell outside the window. explain
+        <release> --since <release> (proposed spelling) compares two compiled releases and says per
+        definition: its saved state resets, records saved in a removed state reset, it restores, or
+        its identity fields changed (old-version records, kept, never reset); writes in flight are
+        always kept. It compares two releases, not the chain a record went through.
+
+        Invalid, missing, repeated or conflicting arguments fail with InvalidUsage before
+        application loading.
+        Selectors are data and never execute expressions. Artifact-only commands accept no source
+        selection options and load no application or config. At most one input may be stdin (-).
+    O2  Execution and safe trace output
+        Only story run and trace start application work. Discovery, graph, check and static explain
+        may load declarations, including lazy entries, but activate no actors, services, fixtures or
+        machine callbacks; they read each machine's compiled data view.
+
+        Running a Story through flow produces the same checkpoints, endings and failure evidence as
+        running it directly under @plan.Testing.O1. story run reports what ran, with no pass or fail
+        on correctness: steps, checkpoints with their state and sequence, endings reached, requests
+        per endpoint, issue records and UnusedWireRule diagnostics, with the earliest error as
+        primary; it exits 2 when the run rejected, printing the FlowError's boundary and evidence.
+        trace runs the Story once and prints its timeline: each step in its data form, then the
+        Runtime's evidence in that step (turns with the alternative each part took, endings, mints,
+        lane cells), the wire's phase changes, and checkpoints with their sequence; --at stops
+        there.
+
+        Cancellation and cleanup evidence follow @plan.Testing.O8.
+
+        Artifact inputs are validated under @plan.Inspection.O4, including bounds while reading
+        stdin. Invalid or incompatible artifacts fail before a query reports an answer. story run
+        --trace-output <path> checks destination usability before starting the Story.
+
+        Existing entries reject unless --overwrite is supplied; --overwrite without a destination
+        rejects. Replacement of a symlink changes the link entry, never its target. Publication is
+        atomic: readers see a complete artifact; pre-publication failure leaves an existing
+        destination unchanged.
+
+        A racing creator is never overwritten without consent. A published artifact is never rolled
+        back. Temporary files are readable only by the invoking user and cleaned on every exit, and
+        cleanup failures are reported. Unsupported safe publication fails without truncation. Output
+        and publication failures report OutputFailed.
+
+        Requested trace output is attempted even after execution failure; the execution failure
+        remains primary and drain, encoding, write and cleanup failures remain visible. A Story run
+        never yields to the host between its first step and its cleanup, so no handler can run
+        mid-run and none is installed; an interruption is handled before the run starts or after it
+        ends, waits for bounded disposal under @plan.Runtime.O6, and attempts requested partial
+        trace output before reporting interruption.
+
+        Partial traces retain accepted evidence and cleanup truth and never fabricate an end.
+        Cleanup or trace-output failure cannot replace interruption as the primary result. Forced
+        process termination provides no cleanup guarantee.
+    O3  Results for people and automation
+        Text and JSON describe the same result. JSON supplies version: 1, the command leaf,
+        status, data and ordered diagnostics; absent data is null. Status is completed, equal,
+        different, incomplete or failed. Diagnostic values follow @plan.Diagnostics.O2; execution
+        failures use FlowError under @plan.Diagnostics.O1.
+
+        Successful invocations and comparison/check findings emit one newline-terminated document on
+        stdout. Invocation failures emit one document on stderr. Results never mix with loader
+        console output or include ANSI in JSON/non-interactive text.
+
+        Exported sensitive values follow @plan.Inspection.O5; raw causes, stacks and private adapter
+        authority never appear. A broken output pipe fails without recursively attempting to print
+        another error.
+
+        Completed commands, warning-only checks, equal comparisons and explanations/summaries with
+        insufficient evidence exit 0. Differences, incomplete trace comparisons and checks with
+        errors exit 1 and remain stdout results.
+
+        Usage, loading, artifact, Story execution, cleanup and I/O failures exit 2. Interruption
+        reports failure only after cleanup and exits 130 for SIGINT or 143 for SIGTERM; a second
+        signal may end the process at once, without cleanup. Product failures recorded as Story
+        issues do not alone fail the invocation; a completed Story has an end and no execution
+        failure. Cleanup failure cannot report success.
+    O4  Trace queries
+        Queries over an exported trace artifact come with that export (@plan.Inspection.O4). A
+        summary reports counts and an ordered timeline over the retained evidence. --actor selects
+        an exact actor and --attempt an attempt id; --view issues selects issues rather than the
+        timeline. --read <domain.entry> reports repairs and their causes; --entity <Entity:key>
+        reports field sources, candidates, predictions, uncertainty and queued work.
+
+        Entity keys split at the first colon, preserving later colons. --sequence selects a
+        nonnegative safe-integer cut for entity queries only. No selector means the whole retained
+        timeline.
+
+        Evidence explain uses the selected checkpoint to report recorded eligibility, lane, ending,
+        store, session or domain repair evidence without executing current code or inventing reasons
+        for unconsidered candidates. An absent selector/checkpoint in a truncated window is
+        insufficient evidence, not proof of absence.
+
+        Unknown selectors in complete evidence fail with InvalidArtifactOperand (reason
+        UnknownSelector). Answers include the selection and completeness marker. Projection and
+        comparison semantics follow @plan.Inspection.O6. Comparing two traces is the library's
+        projection (@plan.Inspection.O6); the CLI has no command for it.
+    O5  Static checks
+        flow check checks the complete declared graph, including lazy entries, from each machine's
+        compiled data view, without running application callbacks other than entity domain recorded
+        positions, which App construction calls once with recording proxies. It reports invalid
+        declarations, wiring, ownership and recorded domain rules as errors, including violations
+        that untyped input would otherwise bypass.
+
+        Domain validity follows @plan.EntityDomains.O1. A Story hydrate naming a label its source
+        never dehydrates is an error. Deny codes come from declared types; missing complete type
+        facts fails instead of claiming a complete analysis. A Story is data: check and graph read
+        its steps without running a Runtime.
+
+        Errors: unfilled required ports; a raise into a fragment the turn's state change exits;
+        two state changers or overlapping keys that state-token pruning cannot separate; an acting
+        fragment member outside its fragment; a mapped write or resetOn outside the fragment write
+        scope; ReservedStateName; UnknownNotUncertain; a late event with no handler at a strict
+        ancestor of its owner, naming the event and the state whose exit makes it late (a fragment
+        checked inside its body, plus the host's placement); a late handler with no alternative
+        that stays put, at the owner state or its ancestors, strict: a late alternative that
+        leaves while later commits of the left state may be queued under serialize or latest is an
+        error (it reads only the ending's own operation's lane, a stated limit); failure.NotSent
+        unmapped where it can occur (under reject, a key that can hold a kept ending, a lane that
+        can be quarantined, serialize, a cancelled operation, a persisted identity, a domain write,
+        an input or key that admits a value with no form, or a placement whose subject path is not
+        empty, checked at the placement); an adopted ending unhandled in a leaf of its operation's
+        arrival set; SharedContract (proposed name) per actor tree, counting fragment placements;
+        DuplicatePlacement; VerbMismatch; KeyRequired; UnresolvedHold, with the host's checks for a
+        holding placement that does not release on leave; a mapped event used as a schedule's send,
+        a raise or a view's send; a contract without key, or a key field that is not a top-level
+        input field; KeyFieldOptional; concurrency cancel on a predicting write; Defect or
+        Interrupted unmapped in a read operation's tag record; FeedUnhandled, ListenNeedsEvery,
+        DuplicateListen, SharedFills, FillsNotPerKey and, not built, UnboundedBridge; ReservedReason
+        (proposed), refused at compile wherever a failure tag is declared, and byReason keys that
+        are not the commit's own unknown tags or Flow's unknown reasons; GoneWithoutKey,
+        GuardedUnbound, GuardedWithoutVersion and GuardedWithoutTarget (proposed names);
+        PreviousIsCurrent (proposed); each function passed to an entity domain recorded position
+        (inline or by a same-file name) must be one expression of library operators, reads on its
+        own parameters, literal constants and a factory's primitive parameters (the allowlist
+        grammar), checked with type facts, anything else an error with a fix-it that type-checks or
+        an instruction.
+
+        Warnings: likely stuck/unreachable states, unhandled events, unensured send targets, send
+        cycles, ambiguous composite ids, duplicated services, untracked entity/list data, sensitive
+        SSR fields, entities depending on a lazy `byKey` loader, and eager or opaque lazy loading;
+        send(ref, E.X) when it can reach a state of the target where X is Unhandled (no silencing
+        keyword); an overlap only closures separate; a history target over non-resumable fragments
+        or a state that owns a call; an exit no reachable transition takes; a `hostEvent` no host
+        raises; a public fragment event unhandled everywhere; a subroutine whose exits are
+        unreachable from its default; a state-changing transition listing a reject commit without
+        its idle guard; one transition reading, in both memory views, a key it writes;
+        KeyOmitsInput; UnusedOperation; UnresolvedHold when the owner exists but is unreachable; a
+        one-record domain write whose key fields are not those its predicted record's key reads;
+        SharedContract for key [] on a placement whose subject path is not empty; a money-shaped
+        write keyed by the Attempt; InputFieldForm; DuplicateSession; ScheduleLeadsToWrite (or info,
+        when the schedule is not armed by a write's ending); AsksForever; PredictionNotRetained; the
+        Story-derived warnings, read from Story records: a mapper reading a key its own turn writes,
+        list repairs and dropped raises, another path's declines, denial codes, and rule-20 coverage
+        at a stand-in after a subject change.
+
+        Info:
+
+        - unfilled optional guards;
+        - bare writes;
+        - each `serverMatches` field list and each non-literal argument to a domain factory;
+        - a guard code its port's denials does not name.
+
+        Each finding includes severity, a stable rule reason, its actual path and actionable help;
+        warnings never fail the check. Owner plans add findings of their own (entity, lazy,
+        persistence and SSR rules), all reported the same way.
+
+        Failure to load a graph is an invocation failure; findings cannot certify arbitrary runtime
+        callbacks or runtime correctness. check --watch keeps one compiler session and re-lints
+        changed files. A lint rule with an autofix orders the category keys of definitions,
+        fragments, machine bodies, fillings, transitions, commit options and operation options, and
+        never reorders entries inside a record.
+    O6  Configuration discovery
+        At --project-root (default cwd), flow loads only flow.config.ts, whose default export is
+        defineConfig({ apps: [{ app, stories }], stories?, tsconfig? }). stories is a root-relative
+        glob discovering exported branded Stories with their own ids; top-level stories are Stories
+        with no app (appId null). tsconfig names the program the domain lint reads (default
+        tsconfig.json at the project root).
+
+        The root must contain package.json; discovery never searches ancestors or silently chooses
+        another config.
+
+        Missing or unloadable config fails with ConfigLoadFailed. Empty config, missing
+        apps/Stories, duplicate app ids or Story ids within the configuration, foreign
+        setups/machines and structural lookalikes reject before acquiring execution resources. Flow
+        and Effect values must come from the exact package instances used by the CLI. Focused
+        Stories must belong to their configured app.
+
+        Selected config, Story and project entry files must resolve inside the project root after
+        symlinks; escaping entries reject before execution. Flow writes no caches or generated
+        bundles into the project and removes its external temporary files on success, failure and
+        interruption. Loading local TypeScript trusts that code with host authority; it is not a
+        sandbox.
+verification
+    V1  Installed CLI tests prove command selection, invalid-input rejection and inert discovery.
+    V2  Tests prove direct/CLI Story parity, interruption cleanup and truthful partial traces.
+    V3  Tests prove atomic output, no-clobber races, symlink safety and destination preservation.
+    V4  Tests prove JSON/text agreement, exclusive result streams, redaction and exit mapping.
+    V5  Trace tests prove complete, different, truncated and incompatible query results.
+    V6  Check fixtures prove full-graph errors, actionable warnings and absent type-fact failure.
+    V7  Tests prove config identity, root containment, ancestor refusal and no project writes.
+questions
+    Q1  Deferred to build time
+        Exact flag grammar. Atomic publication primitives and flush protocol. Loader, bundler and
+        revision-isolation strategy. Console capture bounds and output buffering strategy. Exact
+        warning slugs. Static analysis for domains is decided: one source-and-type-facts adapter,
+        shared with @plan.Inspection.D2.

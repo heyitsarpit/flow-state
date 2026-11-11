@@ -1,0 +1,61 @@
+--- /private/tmp/claude-501/-Users-arpit--claude-spares-spare-Sy75Xy/b97bafc6-720f-455d-b91c-5aa81d337285/scratchpad/driver-before-d86.ts	2026-11-02 16:30:02
++++ round-7/driver.ts	2026-11-02 16:30:02
+@@ -123,6 +123,7 @@
+   let retryN = 0;
+   let reportedFailure = false;
+   let reportedEncoding = false;
++  let flushDue = false;
+   // D89: all or nothing. A bad record keeps the whole batch back, in `dirty`, so a lane's removal can't land without what it goes with: O5's last good capture.
+   const encodeAll = (writes: readonly Write[]) => {
+     const out: Array<{ key: string; value: string | undefined }> = [];
+@@ -179,8 +180,10 @@
+   const capture = (writes: readonly Write[], purpose: typeof dirtyPurpose) => {
+     for (const w of writes) dirty.set(w.key, w);
+     dirtyPurpose = purpose;
+-    if (bounds.captureMs <= 0 || writes.some((w) => w.key.startsWith("lane/")))
+-      return flushCapture();
++    if (bounds.captureMs <= 0 || writes.some((w) => w.key.startsWith("lane/"))) {
++      flushDue = true; // after this step's commands: an awaited write among them takes it along (D86)
++      return;
++    }
+     if (!captureOff) armCapture(bounds.captureMs);
+   };
+   host.onHidden?.(() => flushCapture());
+@@ -219,13 +222,19 @@
+       case "persist": {
+         const t = c.ticket;
+         if (!t) return capture(c.writes, c.purpose);
+-        // O3, O6: an awaited write is never coalesced, and what waits goes first, so a lane cannot outrun its actor.
+-        flushCapture();
+-        for (const w of c.writes) dirty.delete(w.key); // D83: a retry waiting here is older than this
+-        stamp(c.writes);
+-        return host.storage.write(encodeAll(c.writes) ?? [], c.purpose, (ok) =>
+-          input({ k: "stored", attempt: t.attempt, ticket: t.ticket, ok }),
+-        );
++        // O3, O6: an awaited write is never coalesced. D86: what waits goes in its transaction, so a lane cannot outrun its actor and there is no window between them.
++        captureOff?.();
++        captureOff = undefined;
++        flushDue = false;
++        for (const w of c.writes) dirty.delete(w.key);
++        const plain = [...dirty.values()];
++        const carried = encodeAll(plain);
++        if (carried) dirty.clear();
++        const n = stamp([...(carried ? plain : []), ...c.writes]);
++        return host.storage.write([...(carried ?? []), ...(encodeAll(c.writes) ?? [])], c.purpose, (ok) => {
++          if (!ok && carried?.length) failedBatch(plain, n, "an awaited write refused");
++          input({ k: "stored", attempt: t.attempt, ticket: t.ticket, ok });
++        });
+       }
+       case "module": {
+         const m = modules.find((x) => x.id === c.m);
+@@ -313,6 +322,10 @@
+             guarded(() => cfg.onIssue([{ code: "CommandFailed", origin: c.k, input: String(e) }]));
+           }
+         }
++        if (flushDue) {
++          flushDue = false;
++          flushCapture();
++        }
+         guarded(() => cfg.onStep?.({ input: i, now: env.now, ids, out }));
+         guarded(() => cfg.onEvidence(out.evidence));
+         if (out.issues.length) guarded(() => cfg.onIssue(out.issues));

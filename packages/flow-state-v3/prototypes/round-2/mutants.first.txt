@@ -1,0 +1,100 @@
+SURVIVED drop-fence                           0 cases: 
+SURVIVED drop-timer-fence                     0 cases: 
+KILLED   retry-mints-new-id                   18 cases: PAY-04 PAY-05 PAY-15/retry-budget PAY-16/restore-keeps-mayHaveApplied ...
+KILLED   invoke-before-ack                    18 cases: PAY-01 PAY-08/reloadDuringCharge PAY-09/ack-not-stored PAY-09/ack-stored-confirmation-lost ...
+KILLED   restore-notsent-when-acked           9 cases: PAY-08/reloadDuringCharge PAY-09/ack-stored-confirmation-lost PAY-13/hung-commit PAY-14 ...
+KILLED   restore-forgets-mayHaveApplied       1 cases: PAY-16/restore-keeps-mayHaveApplied
+KILLED   rule18-off                           3 cases: PAY-05 PAY-16/restore-keeps-mayHaveApplied STORE-05/failed-retry-does-not
+KILLED   timeout-no-interrupt                 1 cases: PAY-06/interruptible
+KILLED   timeout-never-armed                  4 cases: PAY-06/interruptible PAY-06/uninterruptible PAY-16/timeout-per-send DRV-01
+KILLED   timeout-first-send-only              1 cases: PAY-16/timeout-per-send
+KILLED   timers-not-restored                  1 cases: PAY-08/reload-while-reconciling
+KILLED   late-treated-as-current              3 cases: PAY-07/late-in-a-new-PAYING PAY-07/late-may-not-leave PAY-19/place-answers-first
+KILLED   rule15-off                           2 cases: PAY-07/late-may-not-leave PAY-19/place-answers-first
+SURVIVED ending-cell-lost-on-refusal          0 cases: 
+SURVIVED invalid-turn-keeps-members           0 cases: 
+KILLED   storage-silence-refuses              2 cases: PAY-10/hang PAY-18
+KILLED   dispose-unbounded                    2 cases: PAY-13/hung-commit DRV-01
+KILLED   resend-skips-capture                 5 cases: PAY-04 PAY-05 PAY-16/timeout-per-send PAY-16/resend-refused-capture ...
+KILLED   id-not-from-env                      97 cases: PAY-01 PAY-02 PAY-03 PAY-04 ...
+KILLED   observer-loses-interrupts            8 cases: PAY-06/interruptible PAY-06/uninterruptible PAY-12/cancel-on-wire PAY-12/shuffle ...
+KILLED   cancelled-reads-interrupted          1 cases: PAY-12/cancel-on-wire
+KILLED   cancelled-sticks                     1 cases: PAY-16/cancelled-does-not-stick
+KILLED   release-keeps-lane                   1 cases: PAY-03
+KILLED   unknown-resolves-lane                26 cases: PAY-03 PAY-04 PAY-05 PAY-06/interruptible ...
+KILLED   interrupt-resolves-lane              2 cases: PAY-12/cancel-on-wire PAY-16/cancelled-does-not-stick
+KILLED   double-commit-mints                  5 cases: PAY-02 PAY-07/late-in-a-new-PAYING PAY-15/press-pay-while-held PAY-16/rejected-is-delivered ...
+KILLED   held-commit-not-declined             3 cases: PAY-15/press-pay-while-held LIKE-01 LIKE-03
+KILLED   rejected-not-delivered               8 cases: PAY-02 PAY-07/late-in-a-new-PAYING PAY-15/press-pay-while-held PAY-16/rejected-is-delivered ...
+KILLED   idle-always-passes                   6 cases: PAY-15/busy-then-new-write PAY-16/schedule-reads-after-memory STORE-04/Rejected CART-02/page-and-header ...
+KILLED   retry-budget-off                     1 cases: PAY-15/retry-budget
+KILLED   retry-count-at-retry                 6 cases: PAY-04 PAY-15/retry-budget PAY-16/resend-refused-capture PAY-16/retry-count-persists ...
+KILLED   dead-timer-fires                     68 cases: PAY-01 PAY-02 PAY-03 PAY-04 ...
+KILLED   after-memory-reads-before            4 cases: PAY-16/schedule-reads-after-memory CART-01 CART-02/five-taps CART-02/repriced-under-pending
+KILLED   commit-reads-before                  3 cases: CART-01 CART-02/five-taps CART-02/repriced-under-pending
+KILLED   read-no-fence                        3 cases: PAY-15/dead-activation-timer PAY-16/superseded-read PAY-17/hook-throws-on-timer
+KILLED   read-no-supersede-interrupt          1 cases: PAY-16/superseded-read
+KILLED   read-defect-no-issue                 1 cases: PAY-16/read-defect-issue
+KILLED   mail-lifo                            1 cases: ORDER-01
+KILLED   follow-not-head                      watchdog rss at 1996 MB
+KILLED   follow-unbounded                     1 cases: ORDER-04/follow-up-chain
+KILLED   notify-chain-off                     1 cases: ORDER-04/subscriber-ping-pong
+KILLED   send-reenters-during-notify          2 cases: ORDER-03 ORDER-04/subscriber-ping-pong
+KILLED   send-queues-when-idle                10 cases: PAY-12/shuffle ORDER-02 ORDER-03 ORDER-04/a-legitimate-hour-of-polling ...
+KILLED   disarm-not-before-sinks              83 cases: PAY-01 PAY-02 PAY-03 PAY-04 ...
+KILLED   start-throw-loses-completion         1 cases: DRV-02
+KILLED   hook-throw-aborts                    6 cases: PAY-11/module PAY-17/hook-throws-on-sent PAY-17/hook-throws-on-timer PAY-17/hook-throws-on-acked ...
+KILLED   core-throw-survives                  1 cases: PAY-17/core-throw-is-fatal
+SURVIVED disabled-store-still-blocks          0 cases: 
+KILLED   settled-not-parked-on-disposal       1 cases: PAY-16/settled-during-disposal-parked
+KILLED   disposal-ignores-fibers-ending       2 cases: PAY-16/settled-during-disposal-parked PAY-16/disposal-ends-with-the-last-fiber
+KILLED   mutates-mint-queue-order             16 cases: LIKE-01 LIKE-02 LIKE-03 LIKE-04 ...
+KILLED   queue-off                            9 cases: LIKE-02 LIKE-04 LIKE-05 STORE-03 ...
+KILLED   unknown-leaves-queue                 8 cases: LIKE-01 LIKE-02 LIKE-04 LIKE-06 ...
+KILLED   retry-rejoins-tail                   10 cases: LIKE-01 LIKE-02 LIKE-03 STORE-05/retry-success-clears ...
+SURVIVED resend-ignores-repair                0 cases: 
+KILLED   repair-unbounded                     3 cases: STORE-07/released-entry-leaves-at-the-bound STORE-07/a-live-hold-outranks-the-bound STORE-07/a-late-repair-is-fenced
+KILLED   repair-bound-clears-mark             1 cases: STORE-07/released-entry-leaves-at-the-bound
+KILLED   late-repair-accepted                 1 cases: STORE-07/a-late-repair-is-fenced
+KILLED   bound-evicts-live-hold               9 cases: LIKE-01 LIKE-02 LIKE-04 LIKE-06 ...
+KILLED   failure-forces-repair                1 cases: STORE-02
+KILLED   failure-keeps-prediction             5 cases: STORE-02 STORE-04/Cancelled STORE-04/StorageRefused STORE-04/Disposed ...
+KILLED   unknown-drops-prediction             1 cases: STORE-03
+KILLED   omitted-not-unconfirmed              1 cases: STORE-01
+KILLED   success-ignores-carrier              6 cases: STORE-01 STORE-05/an-unresolved-mark-outlives-another-success CART-02/remove-asked CART-02/repriced-under-pending ...
+KILLED   read-clears-mark                     1 cases: STORE-05/a-read-does-not
+SURVIVED success-clears-unresolved-marks      0 cases: 
+KILLED   later-success-keeps-given-mark       1 cases: LIKE-06
+KILLED   release-clears-mark                  3 cases: LIKE-06 STORE-05/a-later-failure-does-not STORE-07/released-entry-leaves-at-the-bound
+KILLED   overload-off                         3 cases: STORE-04/Overloaded STORE-06 REFUND-01/sixty-five
+KILLED   partial-join                         1 cases: STORE-06
+KILLED   supersede-keeps-entry                1 cases: CART-02/five-taps
+KILLED   latest-keeps-both                    1 cases: CART-02/five-taps
+KILLED   serialize-lifo                       1 cases: REFUND-01/three-refunds
+KILLED   no-promotion                         8 cases: LIKE-01 LIKE-03 LIKE-05 STORE-10 ...
+KILLED   predicted-keys-not-captured          2 cases: STORE-09 REFUND-01/reload-mid-refund
+KILLED   predictions-persisted                2 cases: STORE-09 REFUND-01/reload-mid-refund
+KILLED   restored-no-repair                   2 cases: STORE-09 REFUND-01/reload-mid-refund
+KILLED   restored-no-mark                     2 cases: STORE-09 REFUND-01/reload-mid-refund
+KILLED   prediction-publishes-late            14 cases: LIKE-01 STORE-01 STORE-03 STORE-04/Rejected ...
+KILLED   store-waits-for-admission            29 cases: ORDER-05 DRV-03/throw-at-settlement LIKE-01 LIKE-02 ...
+SURVIVED double-frame-on-commit               0 cases: 
+KILLED   field-fn-uses-stale-base             3 cases: CART-02/five-taps CART-02/repriced-under-pending REFUND-01/three-refunds
+KILLED   storage-refused-firstsend-resolves-silent 2 cases: PAY-10/refuse STORE-04/StorageRefused
+KILLED   refused-resend-ends                  1 cases: PAY-16/resend-refused-capture
+KILLED   disposed-keeps-prediction            1 cases: STORE-04/Disposed
+KILLED   cancel-never-sent-keeps-prediction   1 cases: STORE-04/Cancelled
+SURVIVED restored-w-dropped                   0 cases: 
+KILLED   restored-held-redelivers-twice       4 cases: PAY-08/reload-while-reconciling PAY-15/reload-holds-exactly-once PAY-15/dispose-held PAY-16/retry-count-persists
+KILLED   disposal-held-released               1 cases: PAY-15/dispose-held
+KILLED   held-cancel-ignored                  5 cases: PAY-03 LIKE-04 LIKE-06 STORE-05/a-later-failure-does-not ...
+SURVIVED cancel-idle-issues                   0 cases: 
+KILLED   resolve-success-holds                17 cases: PAY-01 PAY-07/late-in-a-new-PAYING PAY-07/late-may-not-leave PAY-11/guard ...
+KILLED   resolve-failure-holds                2 cases: PAY-15/busy-then-new-write PAY-16/schedule-reads-after-memory
+KILLED   commit-idle-not-mint                 102 cases: PAY-01 PAY-02 PAY-03 PAY-04 ...
+KILLED   dispatch-only-after-turns            52 cases: PAY-01 PAY-02 PAY-03 PAY-04 ...
+
+not applied (0):
+
+
+85/95 killed (builder)

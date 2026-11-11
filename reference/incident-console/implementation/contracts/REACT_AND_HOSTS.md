@@ -1,18 +1,23 @@
 # React and host contract
 
-Status: normative vNext contract
+Status: historical reference only; not active authority.
 
-This file owns runtime/host boundaries: exact actor ownership, synchronous commands, React
+Current requirements live in [Workflow plans](../../../../workflow/plans/);
+current task status lives in [Rewrite tasks](../../../../workflow/tasks/Rewrite/).
+
+This file recorded runtime/host boundaries: exact actor ownership, synchronous commands, React
 attachment and selectors, SSR/request behavior, persistence hosts, trusted host writes, and disposal.
-`ARCHITECTURE.md` owns the runtime owners; `SEMANTICS.md` owns turn/lifecycle behavior;
-`SNAPSHOTS.md` owns immutable read shapes.
-The active clauses in this contract pack are authoritative. The revision specification, accepted
-decisions, archived records, and the `provenance/` copies preserve provenance only; unresolved
-`BEH-*` entries do not authorize an implementation choice.
+`ARCHITECTURE.md` recorded runtime owners; `SEMANTICS.md` recorded turn/lifecycle behavior;
+`SNAPSHOTS.md` recorded read shapes.
+The clauses were authoritative within the historical contract pack. The revision specification, accepted
+decisions, archived records, and the `provenance/` copies preserved provenance only; unresolved
+`BEH-*` entries did not authorize an implementation choice.
 
-## Host-first examples
+## Host-first forms
 
 ```ts
+import { Effect } from "effect";
+
 const setup = runtimeSetup({
   app: TodoApp,
   implementation: TodoLive,
@@ -22,7 +27,7 @@ const setup = runtimeSetup({
   }),
 });
 const runtime = setup.construct();
-await runtime.ready();
+await Effect.runPromise(runtime.ready());
 
 const shared = runtime.ensureActor(PrimarySessionRef, {
   input,
@@ -155,8 +160,11 @@ useActorByRef(ref);
 
 - Surface: `useActor(machine, options?)`.
 - Rule: Create one fresh local actor per component incarnation, including void-input machines; options supply exact fresh input and declared bindings, never a stable ID. Render preparation creates final opaque ref, pure initial snapshot, stable handle, bounded real command mailbox, and optional passive provisional context cut, but no runtime registration/edge/ownership/scope/subscription/work/evidence.
-- Accepts: Commit-time provider identity/revision recheck, current provider truth replacing stale provisional cut, atomic baseline install/activation, exactly-once command drain, 64 buffered commands.
-- Rejects: >64 commands, changed construction tuple without keyed-remount diagnostic, prepared actor replacement/reused memory, abandoned registration/work/evidence/disposal obligation, or `useActorByRef` construction.
+- Accepts: Commit-time provider identity/revision recheck, current provider truth replacing stale provisional cut,
+  atomic baseline install/activation, exactly-once command drain, and a finite buffer supporting at least 64 commands.
+- Rejects: overflow beyond the implementation's documented finite bound, changed construction tuple without a
+  keyed-remount diagnostic, prepared actor replacement/reused memory, abandoned
+  registration/work/evidence/disposal obligation, or `useActorByRef` construction.
 - Observable guarantee: Abandoned preparation closes once and remains inert; imperative `runtime.createActor` remains the immediately attached non-React path.
 - Proof: `HOST-P02`, `HOST-P04`.
 - Trace: `ARCH-018`, `SEM-001A`, `HOST-009`, `REV-HOST-002`.
@@ -181,7 +189,7 @@ observer fanout, context subscriptions, continuing-activity scopes, and installe
 through an escaped suspended handle fail with a stable actionable diagnostic and are never buffered;
 buffering is permitted only while initially prepared.
 
-Suspension preserves the exact ref, public handle, state, immutable memory, last committed inherited
+Suspension preserves the exact ref, public handle, state, memory, last committed inherited
 context, mailbox cursors, operation-occurrence records, and absolute timer deadlines. Resume reattaches
 the same actor, reacquires continuing activities and subscriptions through production kernels,
 reinstalls timers against existing absolute deadlines, and reconciles context bindings against current
@@ -201,14 +209,15 @@ needed for truthful settlement and never claims reversal of an irreversible effe
 finalizers, then reconciles continuing declarations and due timers without replaying finite work. A
 cleanup defect leaves the actor suspended and blocks resume until owner or runtime disposal.
 
-| Lifecycle | Commands | Subscriptions |
-| --- | --- | --- |
-| `prepared` | Buffer up to 64 | Replay and become live on activation |
-| `active` | Admit | Remain live |
-| `suspended` | Reject without buffering | Replay once and complete |
-| `disposed` | Reject without buffering | Replay terminal snapshot and complete |
+| Lifecycle   | Commands                                                           | Subscriptions                         |
+| ----------- | ------------------------------------------------------------------ | ------------------------------------- |
+| `prepared`  | Buffer at least 64; exact internal bound is implementation-defined | Replay and become live on activation  |
+| `active`    | Admit                                                              | Remain live                           |
+| `suspended` | Reject without buffering                                           | Replay once and complete              |
+| `disposed`  | Reject without buffering                                           | Replay terminal snapshot and complete |
 
 `can(event)` remains pure transition legality, separate from command admission.
+
 - Accepts: Strict Effects and Activity hide/reveal; commands admitted before close retaining FIFO; current provider changes through ordinary context wave; elapsed timer due on resume; suspended snapshots remaining readable.
 - Rejects: Buffering suspended commands, rerunning input/initializer/events/finite actions/baseline `onContext`, replaying finite work/emissions, automatic retry/remote rollback, new operation attempt, machine turn, or TurnRecord from suspend/resume alone.
 - Observable guarantee: Cleanup is an actual suspended lifecycle; cleanup defect leaves suspended and blocks resume until owner/runtime disposal. Prepared/active/suspended/disposed command and subscription matrix follows `SEM-007`.
@@ -228,7 +237,7 @@ cleanup defect leaves the actor suspended and blocks resume until owner or runti
 ### HOST-011 — `useView` is the sole ordinary React read path
 
 - Surface: `useView(actor, selector)`.
-- Rule: Accept one exact actor handle; selector receives atomic state, immutable memory, readonly context, lifecycle, issues, bound `can(event)`, and passive `O`. `O` may expose only `key`, `getData`, `getState`. Track exact descriptor/`K` reads, replace dependency set after evaluation, and rerun on matching actor/StoreFanout publication against one tear-free cut.
+- Rule: Accept one exact actor handle; selector receives atomic state, memory, context, lifecycle, issues, bound `can(event)`, and passive `O`. `O` may expose only `key`, `getData`, `getState`. Track exact descriptor/`K` reads, replace dependency set after evaluation, and rerun on matching actor/StoreFanout publication against one tear-free cut.
 - Accepts: Scalar/non-record `Object.is`; named-record fixed-key fieldwise `Object.is`; explicit React-only `useShallow`; selector identity changes without replacing actor subscription.
 - Rejects: Machine family/ref/view ID, comparator argument, actor creation/disposal, ownership/cache policy changes, registered views, broad subscriptions, binding components, view-bound `can`, operation acquisition, refresh/subscribe/commit/write/invalidate/clear, or selector retry loops.
 - Observable guarantee: Passive selectors cannot mutate runtime; selector exceptions are memoized by exact publication/store cut and retry only after later matching publication. Initial attachment/hydration selector defects abort admission without partial actor.
@@ -263,10 +272,11 @@ cleanup defect leaves the actor suspended and blocks resume until owner or runti
 - Rule: Runtime owns persistence; no mutable hydration API, public boot payload/decoder, or assertion-cast persisted input. Restore declared persistable memory/refs without input/initializer replay. Capture only non-disposed stable actors opted in by declaration plus transitive stable provider closure; capture between completed context waves as one context-closed cut with exact bindings/provider revisions.
 - Accepts: Bounded JSON-safe default codec or provider-supplied custom codec; dependency-ordered provider-before-consumer hydration; derived context installed silently before continuing work/handle escape; retryable `ConcurrentDehydrate`.
 - Rejects: Serialized selected context overriding provider truth, opaque local provider serialization/promotion/recreation/substitution/rebinding, local/disposed/tombstoned actors, or `NonDurableContextProvider` treated as retryable.
-- Observable guarantee: Opaque provider failure carries a `FlowPersistenceError` with kind
+- Observable guarantee: Opaque provider failure carries the canonical `Diagnostic` with code
   `NonDurableContextProvider`, the durable consumer ID, opaque provider diagnostic ID, provider machine ID,
   and every failing `contextBindings.<key>` path. Its remediation names `actorRef(providerMachine, id)`
-  plus `runtime.ensureActor(ref, ...)`; it never suggests ID-bearing `runtime.createActor`. Hydration emits
+  plus `runtime.ensureActor(ref, ...)`; it never suggests ID-bearing `runtime.createActor`. A final host may
+  wrap that diagnostic in the compatibility-only `FlowPersistenceError` envelope. Hydration emits
   no `onContext` event and never invents selected context truth. A restored stable actor remains Runtime-
   owned even when the current Runtime did not repeat `ensureActor`.
 - Proof: `HOST-P04`, `SNAP-P01`.
@@ -275,7 +285,8 @@ cleanup defect leaves the actor suspended and blocks resume until owner or runti
 ### HOST-015 — Effect bridges retain runtime service and error truth
 
 - Surface: runtime Effect bridges, `runPromiseExit`.
-- Rule: Bridges execute Effects against the installed runtime Context and reuse the production runtime. `runPromiseExit` resolves an Exit retaining Effect and Implementation/runtime failure truth without a second execution Scope.
+- Rule: Bridges execute Effects against the installed runtime Context and reuse the production runtime. `runPromiseExit` resolves an Exit retaining Effect and Implementation/runtime failure truth without a second execution Scope. Runtime bridges and final host adapters are the only runner edges; reusable services and workflows return their Effect with exact `A`, canonical `Diagnostic` `E`, and `R` instead of running it.
+- Foreign Promise APIs are adapted once in a named adapter with `Effect.tryPromise({ try, catch })`, mapping rejection to an owned `Diagnostic` and forwarding the supplied `AbortSignal` when supported. `Effect.promise` is forbidden in reusable Flow code.
 - Accepts: Requirements satisfied by installed Context.
 - Rejects: Hidden acquisition failure in a second Scope or an unowned execution Scope.
 - Observable guarantee: Host bridge error truth matches runtime readiness/Effect truth.
@@ -347,7 +358,7 @@ cleanup defect leaves the actor suspended and blocks resume until owner or runti
 ### HOST-P05 — Disposal and evidence-drain proof
 
 - Surface: owner/runtime cleanup, evidence hub, errors.
-- Rule: Prove owner-lease cleanup, runtime shutdown, ordered lifecycle evidence with immutable asynchronous payloads, admission closure, accepted-record drain, no synthetic terminal TurnRecord, frozen `FlowStoryExecutionError`, deterministic cleanup diagnostics, and retained Effect error truth.
+- Rule: Prove owner-lease cleanup, runtime shutdown, ordered lifecycle evidence with asynchronous payloads, admission closure, accepted-record drain, no synthetic terminal TurnRecord, `FlowStoryExecutionError`, deterministic cleanup diagnostics, and retained Effect error truth.
 - Accepts: Sink-local truncation/detach without runtime rollback; cleanup failure retaining captured end evidence while rejecting Story success.
 - Rejects: Declaring disposal complete with pending accepted evidence/finalizers or using sink processing as runtime truth.
 - Observable guarantee: Cleanup and evidence are complete and inspectable without a second history.

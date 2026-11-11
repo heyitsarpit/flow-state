@@ -1,33 +1,37 @@
 # vNext runtime semantics
 
-Status: normative vNext contract
+Status: historical reference only; not active authority.
 
-These rules define observable behavior. Ownership is assigned in `ARCHITECTURE.md`; public read
-shapes are fixed in `SNAPSHOTS.md`; React, SSR, persistence-host, and host-write boundaries are
+Current requirements live in [Workflow plans](../../../../workflow/plans/);
+current task status lives in [Rewrite tasks](../../../../workflow/tasks/Rewrite/).
+
+These rules recorded observable behavior. Ownership was assigned in `ARCHITECTURE.md`; public read
+shapes were fixed in `SNAPSHOTS.md`; React, SSR, persistence-host, and host-write boundaries were
 fixed in `REACT_AND_HOSTS.md`.
 
 ## Actor turns and publication
 
 ### SEM-001 — One mailbox orders every actor fact
 
-- Surface: active actor Queue/consumer and prepared React command mailbox.
+- Surface: active actor mailbox/consumer and prepared React command mailbox.
 - Rule: Every accepted event, async completion, store revision, timer, stream emission, context wave, hydration fact, and lifecycle control fact enters the actor mailbox. Lifecycle control is one serialized lane ordered with it, never a second queue. Recursive substates share the actor mailbox, memory, context, operations, and lifetime.
-- Accepts: FIFO reentrant sends; prepared buffering up to 64 commands.
-- Rejects: The 65th prepared command, abandoned handles, suspended/disposed commands, child facts, and any bypass of the publication barrier.
+- Accepts: FIFO reentrant sends; finite prepared buffering supporting at least 64 commands.
+- Rejects: Overflow beyond the documented implementation bound, abandoned handles, suspended/disposed commands, child facts, and any bypass of the publication barrier.
 - Observable guarantee: Accepted facts are processed in mailbox order; abandonment closes the prepared mailbox once, drops buffered commands, and rejects later commands without side effects.
 - Proof: `HOST-P02`, `SEM-007`, `HOST-004`.
 - Trace: `ARCH-009`, `ARCH-012`, `SEM-024`.
 
-An active actor owns one unbounded Effect Queue and one consumer. The prepared React mailbox is the
-real command-buffering mailbox required by `REV-HOST-002`; its 65th command rejects synchronously
-without mutation. Abandonment closes it at one internal linearization point, never delivers buffered
+An active actor owns one FIFO mailbox and one logical consumer. The concrete Effect primitive and
+internal capacity are implementation details. The prepared React mailbox is the real command-buffering
+mailbox required by `REV-HOST-002`; overflow beyond its documented implementation bound rejects
+synchronously without mutation. Abandonment closes it at one internal linearization point, never delivers buffered
 commands, and leaves the handle inert. Recursive substates share the actor mailbox under
 `REV-MACH-001` and `DEL-002`; lifecycle control is one serialized lane, never a second queue.
 
 ### SEM-001A — Fresh initialization precedes actor activation
 
 - Surface: fresh/restored actor construction and active leaf selection.
-- Rule: A fresh actor invokes its pure memory factory exactly once with supplied input, or materializes canonical empty readonly memory. Root and entered compound defaults resolve to one exact leaf; redirects stabilize outermost-to-innermost without intermediate publication/work. Restoration installs materialized state/memory without factory/input replay.
+- Rule: A fresh actor invokes its pure memory factory exactly once with supplied input, or materializes canonical empty memory. Root and entered compound defaults resolve to one exact leaf; redirects stabilize outermost-to-innermost without intermediate publication/work. Restoration installs materialized state/memory without factory/input replay.
 - Accepts: Pure initial snapshot for a prepared React actor and a passive provisional context cut; machine behavior over state, memory, context, and events after initialization.
 - Rejects: Partial active publication/work after an initial defect, rerun input/initializer on restore/resume, or original input in machine behavior.
 - Observable guarantee: Fresh construction is deterministic; selector/redirect/initializer defects abort admission without partial actor escape.
@@ -46,7 +50,7 @@ selector defects during attachment or hydration abort admission without a partia
 
 | Stage | Reads | May publish/acquire |
 | --- | --- | --- |
-| plan | one frozen pre-turn snapshot + causal event | nothing |
+| plan | one pre-turn snapshot + causal event | nothing |
 | candidate | target, updated memory, redirects | nothing until valid |
 | validate | complete finite-action batch | nothing on failure |
 | commit | staged actor/store facts | one atomic publication |
@@ -73,7 +77,7 @@ actions directly.
 Timer-owned finite `actions` are not inferred: `REV-OPS-006` accepts actions only on event handlers,
 and `REV-OPS-015` accepts timer event-targeting with explicit-refresh polling.
 
-### SEM-002A — Context is readonly, bound, and propagated atomically
+### SEM-002A — Context is bound and propagated atomically
 
 - Surface: definition context selectors, `contextBindings`, provider revisions, `onContext.select`.
 - Rule: Selectors are synchronous/pure and read one atomic provider snapshot. Each declared slot binds to one exact `ActorRef`; bindings are fixed for the consumer lifetime. Bootstrap installs provider baselines after providers and before activation/first observable snapshot. A changed provider starts one bounded dependency-ordered propagation wave; each dirty consumer receives at most one combined context turn from latest provider snapshots.
@@ -93,7 +97,7 @@ order.
 ### SEM-003 — Reconciliation produces one CommitPlan
 
 - Surface: package-private `TurnPlan`/`CommitPlan`.
-- Rule: Translate a valid plan into one immutable CommitPlan containing store changes, desired state-activity ownership, primitive facts, mapped-operation intentions, and issues. User Effects never run during pure planning or before the actor snapshot. Async completions, timers, streams, context, and StoreFanout facts are later mailbox turns.
+- Rule: Translate a valid plan into one CommitPlan containing store changes, desired state-activity ownership, primitive facts, mapped-operation intentions, and issues. User Effects never run during pure planning or before the actor snapshot. Async completions, timers, streams, context, and StoreFanout facts are later mailbox turns.
 - Accepts: Projection-only facts that reread authoritative state and publish one complete snapshot without transition evaluation; mapped outcome events as later ordinary turns.
 - Rejects: User Effects in planning, hidden transitions from a projection-only fact, or a second mutable plan owner.
 - Observable guarantee: Planned work has one commit boundary and one post-publication reconciliation boundary.
@@ -103,9 +107,14 @@ order.
 ### SEM-004 — Store commit precedes one actor publication
 
 - Surface: actor publication, StoreKernel commit, TurnRecord hub, acknowledgment, StoreFanout.
-- Rule: Acquire the global TurnRecord commit permit and reserve/preflight evidence sequence; submit one atomic store command; materialize issues/TurnRecord; publish one immutable actor snapshot; accept the TurnRecord; enqueue post-commit reconciliation; complete acknowledgment; open sink gate; release StoreFanout. The critical section is non-suspending and uninterruptible across store commit, actor publication, and hub acceptance.
+- Rule: A successful turn exposes one atomic committed actor/store cut. No observer sees an initiating store
+  revision without its corresponding committed actor snapshot. Accepted evidence corresponds only to the
+  committed cut and is globally ordered. Acknowledgement completes after actor/store publication and evidence
+  acceptance without waiting for user Effects. StoreFanout preserves causal order with the initiating
+  publication. Permit, reservation, queue, gate, and reconciliation choreography is implementation-defined.
 - Accepts: Issue-only publication without StoreState mutation; staged work suppressed by disposal after the boundary; autonomous StoreKernel commits without an initiating actor barrier.
-- Rejects: Sequence overflow after mutation, inline sinks, acknowledgment after async work, disposal interrupting a half-published turn, or StoreFanout before acknowledgment.
+- Rejects: Sequence overflow after mutation, inline sinks, acknowledgment after user Effect settlement,
+  disposal interrupting a half-published turn, or StoreFanout exposing stale/half-published truth.
 - Observable guarantee: Normal machine publication advances actor publication and machine-turn revisions; issue-only publication advances only publication revision. `.send()` never waits for user Effects to start/settle.
 - Proof: `SEM-005`, `SEM-006`, `HOST-P05`.
 - Trace: `ARCH-022`, `ARCH-013B`, `SEM-028`.
@@ -113,18 +122,18 @@ order.
 ### SEM-005 — Actor snapshots are complete turn boundaries
 
 - Surface: public `ActorSnapshot`, private actor state.
-- Rule: A machine-turn snapshot contains exact leaf state, readonly memory, inherited context, resource/transaction/stream projections, timers, issues, lifecycle, publication revision, and observed store revision from one turn. Projection-only/lifecycle/issue-only publications are complete immutable snapshots with their defined revision effects; private machine-turn revision never becomes a second public field.
+- Rule: A machine-turn snapshot contains exact leaf state, memory, inherited context, resource/transaction/stream projections, timers, issues, lifecycle, publication revision, and observed store revision from one turn. Projection-only/lifecycle/issue-only publications are complete snapshots with their defined revision effects; private machine-turn revision never becomes a second public field.
 - Accepts: Public issue summary and passive readers; full TurnRecord/diagnostic facts only through installed inspect sinks.
 - Rejects: Receipts, pending outcomes, `handled`, raw Effect Cause, child projections, or independently mutable snapshot/cursor sources.
-- Observable guarantee: `getSnapshot()` and snapshot streams expose one immutable value whose fields cannot later change.
+- Observable guarantee: `getSnapshot()` and snapshot streams expose one value for each publication.
 - Proof: `SNAP-P01`, `SNAP-001`, `SNAP-010`.
 - Trace: `SEM-004`, `SEM-007`, `ARCH-012`.
 
 ### SEM-006 — Public send is synchronous; Story acknowledgment is private
 
 - Surface: `actor.send(event): void`; package-private acknowledged dispatch.
-- Rule: Public send admits synchronously and returns `void`; it does not await Implementation, a turn, or async work. Internal/Story dispatch allocates and admits a Deferred synchronously, then resolves after actor publication and TurnRecord acceptance but before sink processing or later work.
-- Accepts: Story `.send` waiting only for that Deferred; contained-defect acknowledgment after issue-only publication/TurnRecord.
+- Rule: Public send admits synchronously and returns `void`; it does not await Implementation, a turn, or async work. Internal/Story dispatch creates one private acknowledgement synchronously, then resolves it after actor publication and TurnRecord acceptance but before sink processing or later work. Its concrete Effect primitive is private.
+- Accepts: Story `.send` waiting only for that acknowledgement; contained-defect acknowledgment after issue-only publication/TurnRecord.
 - Rejects: Promise/Effect/Fiber/snapshot/actor/ack handles from public send, direct transition invocation, unrelated ready-work draining, or acknowledgment of discarded candidate work.
 - Observable guarantee: Command admission is synchronous while Story checkpoints can observe the production publication boundary.
 - Proof: `HOST-P02`, `HOST-P03`, `HOST-004`.
@@ -153,10 +162,11 @@ type OperationExamples = {
 ### SEM-007 — Snapshot streams replay the current truth
 
 - Surface: `actor.snapshots`, `getSnapshot()`, lifecycle command admission.
-- Rule: Snapshot streams emit atomic immutable snapshots, replay the latest value to late subscribers, emit through disposed, then complete. Prepared subscriptions replay prepared and become live on activation; suspended subscriptions replay suspended once and complete; disposed subscriptions replay terminal and complete.
-- Accepts: Prepared buffer up to 64; active command admission; pure `can(event)` independent of command admission.
+- Rule: Snapshot streams emit atomic snapshots, replay the latest value to late subscribers, emit through disposed, then complete. Prepared subscriptions replay prepared and become live on activation; suspended subscriptions replay suspended once and complete; disposed subscriptions replay terminal and complete.
+- Accepts: A finite prepared buffer supporting at least 64 commands; active command admission; pure
+  `can(event)` independent of command admission.
 - Rejects: Commands in suspended/disposed lifecycles, buffering after preparation, or a terminal-looking machine state completing the stream.
-- Observable guarantee: `getSnapshot()` is the same latest immutable truth and `snapshot.revision` identifies every distinct publication.
+- Observable guarantee: `getSnapshot()` is the same latest truth and `snapshot.revision` identifies every distinct publication.
 - Proof: `SNAP-001`, `SNAP-010`, `HOST-P02`.
 - Trace: `SEM-005`, `SEM-024`.
 
@@ -185,8 +195,8 @@ type OperationExamples = {
 ### SEM-010 — Canonical keys identify parameterized operations
 
 - Surface: `key(P): K`, resource/transaction/stream identity.
-- Rule: `K` is an ordered readonly tuple; identity is descriptor namespace plus `K`; complete immutable executable `P` stays on each live binding/generation. Equal-key owners do not replace a running generation's pinned `P`; explicit `refetch(P)` creates a replacement generation with its own `P`.
-- Accepts: Dense arrays/plain records copied into Flow-owned frozen containers; sorted record keys; `-0` normalized to `0`; bounded JSON-safe canonical values under `PUBLIC_API.md` `API-005` limits.
+- Rule: `K` is an ordered tuple; identity is descriptor namespace plus `K`; complete executable `P` stays on each live binding/generation. Equal-key owners do not replace a running generation's pinned `P`; explicit `refetch(P)` creates a replacement generation with its own `P`.
+- Accepts: Dense arrays/plain records copied into Flow-owned containers; sorted record keys; `-0` normalized to `0`; bounded JSON-safe canonical values under `PUBLIC_API.md` `API-005` limits.
 - Rejects: Hostile reflection/unsupported values, unbranded secret strings, mutation before canonicalization completes, or failures that leave a partial batch.
 - Observable guarantee: Key failure names exact tuple/nested-record path; projection/validation/canonicalization finish before ownership/store/external work. Stable runtime acquisition order selects eligible owners; hydration retains it.
 - Proof: `SNAP-P01`, `PUBLIC_API.md` `API-005` references.
@@ -396,7 +406,9 @@ child-equivalent internal owner may be smuggled back into the contract.
 
 - Surface: operation completion, cleanup, public error boundaries.
 - Rule: Retain Exit/full Cause through classification; precedence is defect, typed failure, then interruption-only; empty/unclassifiable failure is invariant defect. Only `FlowDisposeError` and `FlowStoryExecutionError` preserve complete `Cause.Cause<unknown>`; snapshots expose neither raw Cause nor failure lifecycle.
-- Accepts: Ordered private `CauseProjection` in TurnRecords/artifacts; squashing only at JS throw/rejection boundary.
+- Accepts: Ordered stable Flow diagnostic projections in TurnRecords/artifacts; squashing only at the JS
+  throw/rejection boundary. Serialized diagnostics do not mirror Effect Cause tree shape, traversal order,
+  or fiber ordinals.
 - Rejects: `Effect.result` as complete truth, `Cause.squash` internally, or raw Cause in actor types.
 - Observable guarantee: Failure class and cleanup truth remain recoverable at the declared boundaries.
 - Proof: `HOST-015`, `HOST-P05`, `SNAP-006`.
@@ -429,7 +441,11 @@ excluding local, disposed, tombstoned, and non-persist-enabled actors. Opaque pr
 ### SEM-024A — Callback defects retain committed truth
 
 - Surface: user callback defect before/after StoreState commit.
-- Rule: Before commit, discard candidate and retain prior state/memory/bindings/store revision; publish one issue-only active snapshot with minimal issue summary and private ordered CauseProjection. It admits no occurrence/work/store change and does not retry. An invariant defect closes admission, fails current/buffered acknowledgments, finalizes work, and publishes disposed fatal/cleanup truth. After commit, publication uses non-failing primitives; abandoning it is invariant failure.
+- Rule: Before commit, discard candidate and retain prior state/memory/bindings/store revision; publish one
+  issue-only active snapshot with minimal issue summary and private ordered stable diagnostics. It admits no
+  occurrence/work/store change and does not retry. An invariant defect closes admission, fails current/buffered
+  acknowledgments, finalizes work, and publishes disposed fatal/cleanup truth. After commit, publication uses
+  non-failing primitives; abandoning it is invariant failure.
 - Accepts: Guard, redirect, timer, memory, binding, key, target, and selector failures before commit under the same prior-truth rule; passive view selector memoization is governed by `SEM-026`.
 - Rejects: Partial candidate publication, issue-only retry loops, or claiming a committed StoreState write was rolled back because snapshot publication failed.
 - Observable guarantee: A contained defect is visible as one issue-only publication; invariant failure preserves terminal cleanup truth.
@@ -440,7 +456,8 @@ excluding local, disposed, tombstoned, and non-persist-enabled actors. Opaque pr
 
 - Surface: operational issue identity and clearing-owner key.
 - Rule: Identity includes source, actor incarnation, exact binding identity when present, generation when present, and issue kind. Clearing owner omits attempt generation but retains actor incarnation/source/binding. Later actor lifetimes cannot clear/inherit/republish older occurrences; later generation success/release by the same owner clears older operational occurrences.
-- Accepts: Invariant/cleanup issues surviving disposed snapshot; private CauseProjection surviving operational-summary clearing.
+- Accepts: Invariant/cleanup issues surviving disposed snapshot; private stable diagnostics surviving
+  operational-summary clearing.
 - Rejects: Unrelated success clearing issues, later lifetime clearing old identity, raw Effect Cause in snapshots.
 - Observable guarantee: Issue clearing is deterministic and ownership-scoped.
 - Proof: `SEM-023`, `SEM-024A`, `SNAP-P01`.
@@ -449,7 +466,7 @@ excluding local, disposed, tombstoned, and non-persist-enabled actors. Opaque pr
 ### SEM-025 — Views are exact passive actor projections
 
 - Surface: `useView(actor, selector)` and snapshot-bound passive `O`.
-- Rule: One exact actor handle supplies one atomic selector context: leaf `state`, immutable `memory`, inherited readonly `context`, lifecycle, issues, bound `can(event)`, and passive `key`/`getData`/`getState` reads. `useActor`/`useActorByRef` are command-only/non-reactive.
+- Rule: One exact actor handle supplies one atomic selector context: leaf `state`, memory, inherited context, lifecycle, issues, bound `can(event)`, and passive `key`/`getData`/`getState` reads. `useActor`/`useActorByRef` are command-only/non-reactive.
 - Accepts: Passive exact descriptor/`K` reads; no-operation selected values.
 - Rejects: Actor/ref/family/view IDs, actor creation/disposal, operation ownership/cache changes, acquire/refresh/subscribe/commit/write/invalidate/clear, registered views, per-actor React Context, and view-bound `can` APIs.
 - Observable guarantee: A selector cannot mutate runtime state or acquire work.
@@ -494,7 +511,7 @@ Selector exceptions use the revision-scoped memoization and retry rules in `REV-
 ### SEM-028 — Lifecycle evidence is ordered and asynchronously payloaded
 
 - Surface: lifecycle snapshot, `LifecycleRecord`, global sequence/hub/sinks.
-- Rule: Lifecycle and machine publications have separate actor ordering fields but one runtime-global sequence. Hold the publication barrier while allocating sequence, publishing immutable snapshot, and accepting immutable record; release to sinks asynchronously behind the same gate. Record carries snapshot, exact actor/app/plan/incarnation provenance, `from`, `to`, cause, timestamp, publication revision, machine-turn revision, and evidence sequence.
+- Rule: Lifecycle and machine publications have separate actor ordering fields but one runtime-global sequence. Publish the snapshot and accept its record as one observable cut; release accepted evidence to sinks asynchronously. Record carries snapshot, exact actor/app/plan/incarnation provenance, `from`, `to`, cause, timestamp, publication revision, machine-turn revision, and evidence sequence. Allocation, locking, and release choreography is private.
 - Accepts: `actor:start`, `actor:restore`, `actor:suspend`, `actor:resume`, `actor:dispose`; sink-local retained-prefix truncation and sink detachment on failure.
 - Rejects: `actor:prepare`, lifecycle as machine turn/TurnRecord, live-state reread as payload, sink overflow blocking/rollback, or synthetic terminal TurnRecord.
 - Observable guarantee: Snapshot precedes evidence; runtime disposal drains accepted evidence after terminal lifecycle publication.
