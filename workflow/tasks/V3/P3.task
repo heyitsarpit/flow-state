@@ -466,6 +466,29 @@ tasks
             Evidence (builder, 2026-11-11): coverage gate built and run before falsify; planted gaps fail it; 16 of 186 
             checked, 170 owed, 0 gaps. Detail: code:packages/flow-state-v3/conformance/STATUS.md (T41 section).
 
+    T42
+        title       Core Specs revised from the Invariant audit and the open rulings
+        status      in_progress
+        priority    high
+        description
+            The core Specs hold no conflicting Invariants or rules, carry the orchestrator's rulings, and drop or
+            reword the audit's cut and untestable Invariants.
+
+            **Why now:** the audit found 26 conflicts (21 new) that T7 to T12 and T17 would otherwise build against,
+            and rulings M5, CQ1 to CQ7, Compile Q3, R9 and the retry Invariant are not yet in the Specs.
+
+            **Read first:** code:workflow/plans/flow/references/proposals/invariant-audit-2026-11-11.md; the rulings
+            in code:workflow/tasks/V3/log.task (2026-11-11); skill:to-spec.
+
+            - **May change:** `workflow/specs/`, `packages/flow-state-v3/conformance/not-yet.ts` and coverage rows
+              for cut or renumbered Invariants.
+            - **Evidence:** spec-log.md entries; this Task's comment.
+            - **Stops:** a ruling that would change a Plan's outcome goes to @plan.Pending.
+        acceptance
+            - C1 to C26 each resolved in the Specs or recorded with a reason;
+            - the rulings and the gaps' new Invariants written; the 18 cuts and 7 rewordings applied;
+            - `workflow check` valid and the coverage gate at 0 gaps.
+
     T7
         title       WriteLanes area complete
         status      in_progress
@@ -635,8 +658,10 @@ tasks
             - Every Turn Invariant has its oracle or case;
             - each oracle kills its listed mutants;
             - verdicts match the old suite's or each difference is logged with its cited rule.
-        comment 2026-11-11T04:02:34Z
-            Selection oracle built (Turn I2): every turn header judged against hand-written handler tables and suite facts; the step 9 review's header probe is its first mutant, caught. Suite 92/92, null 0/92, falsify 103/103, coverage 41/186, 0 gaps. Detail: packages/flow-state-v3/conformance/STATUS.md, T8.
+        comment     2026-11-11T04:02:34Z
+            Selection oracle built (Turn I2): every turn header judged against hand-written handler tables and suite 
+            facts; the step 9 review's header probe is its first mutant, caught. Suite 92/92, null 0/92, falsify 
+            103/103, coverage 41/186, 0 gaps. Detail: packages/flow-state-v3/conformance/STATUS.md, T8.
     T9
         title       Actors area complete
         status      open

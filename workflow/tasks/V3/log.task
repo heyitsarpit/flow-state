@@ -593,8 +593,18 @@ note 2026-11-11T03:39:46Z
     Amendment (the user, 2026-11-11): leads work through up to three context compactions before handing off. **Why:** 
     short builder runs cost a re-read at every handover. **Reverse:** drop the instructions line.
 note 2026-11-11T03:42:23Z
-    Decision (user, 2026-11-11, "check them now"): one Opus audit of all core Invariants for value, redundancy, testability, conflicts and gaps runs now as a third agent, beside the builder and the step 9 review. It only recommends; cuts are guarantee changes.
+    Decision (user, 2026-11-11, "check them now"): one Opus audit of all core Invariants for value, redundancy, 
+    testability, conflicts and gaps runs now as a third agent, beside the builder and the step 9 review. It only 
+    recommends; cuts are guarantee changes.
 note 2026-11-11T03:46:45Z
-    Step 9 review (code:workflow/plans/flow/references/proposals/convergence-step9-review-2026-11-11.md): not yet for T16. Members hold, but a report still decides obligations: the reported turn header picks the row (H1), and a missing Incarnated drops a parked ending's delivery (H2, 18 cases lost). Decision (orchestrator): the one allowed revision anchors every obligation trigger to a suite fact or a claim another oracle judges, written first as a trigger table; T8's turn-selection oracle lands first so headers are judged. **Reverse:** patch H1 and H2.
+    Step 9 review (code:workflow/plans/flow/references/proposals/convergence-step9-review-2026-11-11.md): not yet for 
+    T16. Members hold, but a report still decides obligations: the reported turn header picks the row (H1), and a 
+    missing Incarnated drops a parked ending's delivery (H2, 18 cases lost). Decision (orchestrator): the one allowed 
+    revision anchors every obligation trigger to a suite fact or a claim another oracle judges, written first as a 
+    trigger table; T8's turn-selection oracle lands first so headers are judged. **Reverse:** patch H1 and H2.
 note 2026-11-11T03:48:39Z
-    Amendment (the user, 2026-11-11): all leads are Opus at medium effort; reviews stay hourly while they surface mid-build issues and move to 90 minutes after two quiet reviews in a row. Reviews per Task were declined (a long Task would go unreviewed). **Reverse:** restore the old effort line and a fixed 60-minute cadence.
+    Amendment (the user, 2026-11-11): all leads are Opus at medium effort; reviews stay hourly while they surface 
+    mid-build issues and move to 90 minutes after two quiet reviews in a row. Reviews per Task were declined (a long 
+    Task would go unreviewed). **Reverse:** restore the old effort line and a fixed 60-minute cadence.
+note 2026-11-11T04:03:53Z
+    Invariant audit done (code:workflow/plans/flow/references/proposals/invariant-audit-2026-11-11.md): 161 essential, 9 implied, 5 redundant, 8 untestable, 3 low value; 26 conflicts, 21 new. Decision (orchestrator, under the user's delegation of Spec questions): the 18 cuts are accepted; @task.V3.T42 revises the core Specs for C1 to C26, the rulings and the gaps, in parallel with the builder. The builder does the step 9 trigger-anchoring revision next, now that T8's selection oracle judges turn headers (784826f2). **Reverse:** keep the cut Invariants.
