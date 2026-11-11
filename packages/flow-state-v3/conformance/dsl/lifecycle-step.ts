@@ -264,33 +264,27 @@ const anchoredMembers = (
   hearing: Option.Option<EndingName>,
   earlier: ReadonlyArray<Request>,
 ) => {
-  const lane = turn.members.filter((m) => m.kind !== "release");
-  const releases = turn.members.filter((m) => m.kind === "release");
-  const row = chosenRow(walk, known, turn, hearing, earlier);
-
-  const owed = Option.match(row, {
-    onNone: () => (lane.length === 0 ? Option.some(turn.members) : Option.none()),
-    onSome: (r) =>
-      Option.some(
-        sameMembers(r, lane)
-          ? turn.members
-          : [...owedMembers(walk, known, turn, hearing, r), ...releases],
-      ),
-  });
-
-  const leaving = releases.every((m) =>
+  const leaves = (m: Member) =>
+    m.kind !== "release" ||
     Option.exists(operationOf(known, turn.actor, m.operation), (o) =>
       o.releasesOnLeave.some(
         (t) => t.event === turn.event && t.from === turn.from && t.to === turn.to,
       ),
-    ),
-  );
+    );
 
-  const members = Option.getOrElse(owed, () => []).map(laneMemberOf(known, turn.actor));
+  const lane = turn.members.filter((m) => m.kind !== "release");
+  const releases = turn.members.filter((m) => m.kind === "release" && leaves(m));
+  const row = chosenRow(walk, known, turn, hearing, earlier);
 
-  return Option.isSome(owed) && leaving && members.every(Option.isSome)
-    ? members.flatMap(Option.toArray)
-    : [];
+  const owed = Option.match(row, {
+    onNone: () => releases,
+    onSome: (r) =>
+      sameMembers(r, lane)
+        ? turn.members.filter(leaves)
+        : [...owedMembers(walk, known, turn, hearing, r), ...releases],
+  });
+
+  return owed.flatMap((m) => Option.toArray(laneMemberOf(known, turn.actor)(m)));
 };
 
 const recordOf = (model: Model, actor: ActorRef) =>
@@ -486,13 +480,14 @@ const ended = (walk: Walk, given: Rules) => {
  * **Details**
  *
  * - A `Turn` is first the delivering ending's `Heard` (its actor's ending of that event), then a
- *   turn with its members, anchored when a row of its machine matches its event, from and to, its
- *   computed guard holds, and its members (releases aside) equal the reported ones in order. A
- *   turn no row matches opens with no members, so its effects are refused under their own
- *   Invariants (a `Minted` with no commit member is WriteLanes I1). A turn with no lane member
- *   anchors its releases, and a `release` member anchors only on an operation whose reference
- *   lists the turn's transition among those that release it on leaving (WriteLanes R16; review
- *   H1); otherwise the turn anchors nothing, so its `Released` is WriteLanes I12.
+ *   turn with its members. Its lane members are owed only by its row, chosen by event, from, to
+ *   and computed guard; the report confirms the row and gives a member's key. A turn no row matches
+ *   opens with no lane members, so its effects are refused under their own Invariants (a
+ *   `Minted` with no commit member is WriteLanes I1). A reported `release` member anchors only
+ *   on an operation whose reference lists the turn's transition among those that release it on
+ *   leaving (WriteLanes R16); any other drops only itself, so its `Released` is WriteLanes I12.
+ *   A member of an operation the reference does not know drops only itself. Neither ever
+ *   cancels what the row owes (step 5 review H1).
  * - A row's `retryable` guard reads the head of the lane its reported member names: it passes
  *   when the head is Held and was sent fewer than `times` + 1 times (the server's log before
  *   this step, and the step's accepted `Send`s so far).

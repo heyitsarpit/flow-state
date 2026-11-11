@@ -324,7 +324,7 @@ const tableTraces: ReadonlyArray<Trace> = [
   }),
 ];
 
-const restoring = Obligation.AwaitRestore({ attempt: "s", incarnation: 2, cause: "plain" });
+const restoring = Obligation.AwaitRestore({ attempt: "s", cause: "plain" });
 
 const actorTraces: ReadonlyArray<Trace> = [
   {
@@ -380,9 +380,7 @@ const actorTraces: ReadonlyArray<Trace> = [
     owed: 1,
     checks: [
       Check.Owing({
-        obligations: [
-          Obligation.AwaitRestore({ attempt: "s", incarnation: 2, cause: "disposeActor" }),
-        ],
+        obligations: [Obligation.AwaitRestore({ attempt: "s", cause: "disposeActor" })],
       }),
     ],
   },

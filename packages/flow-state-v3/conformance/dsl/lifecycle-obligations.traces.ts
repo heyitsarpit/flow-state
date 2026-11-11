@@ -208,7 +208,7 @@ const dueTrace = (
 });
 
 const restore = (cause: "plain" | "runtimeDisposal" | "disposeActor" | "forget") =>
-  Obligation.AwaitRestore({ attempt: "s", incarnation: 1, cause });
+  Obligation.AwaitRestore({ attempt: "s", cause });
 
 const deadlineTraces: ReadonlyArray<Trace> = [
   dueTrace("a release not reported", "WriteLanes I12", awaiting("s", "Released"), [wl(12)], [], 0),

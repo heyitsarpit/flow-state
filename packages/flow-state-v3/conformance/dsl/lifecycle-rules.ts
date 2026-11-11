@@ -418,7 +418,9 @@ const admitted = (retry: boolean) => ({
  *   refusal. `ParkedOpen` is owed by the step's end, as the design's `Owed` was (T6 L11).
  * - A never-sent commit's ending decided in the Runtime's disposal (`NotSent { Disposed }`, Actors
  *   R22) stays `Parked` at `Opens`, unjudged, pending CQ6: round-14 does not deliver it after the
- *   reload (`PAY-10/hang`, `PAY-13/waiting-flush-lost`), and no Invariant says it must.
+ *   reload (`PAY-10/hang`, `PAY-13/waiting-flush-lost`), though WriteLanes I15 and R10 say it
+ *   must be delivered or be evidence. The conflict is with Actors R22 (a definite ending drops
+ *   the head, so nothing is on disk to deliver).
  */
 export const tableC: TableC = {
   Delivered: {

@@ -106,7 +106,8 @@ export type Cause = "plain" | "runtimeDisposal" | "disposeActor" | "forget";
  *   that ending closes unheard (WriteLanes R4; review H2, step-4 reviewer items 2 and 4).
  * - `PendingCancel`: a cancel of a never-sent Attempt owes its ending, with no deadline
  *   (WriteLanes R14).
- * - `AwaitRestore`: an incarnation owes a Held head its `unknown { Restored }` by the step's end.
+ * - `AwaitRestore`: a boot or an incarnation owes a Held head its `unknown { Restored }` by the
+ *   step's end.
  * - `AwaitLetGo`: a kept ending owes its let-go record by the step's end.
  */
 export type Obligation = Data.TaggedEnum<{
@@ -116,7 +117,7 @@ export type Obligation = Data.TaggedEnum<{
     hearing: Option.Option<number>;
   };
   PendingCancel: { attempt: string; ends: "NotSent" | "UnknownCancelled" };
-  AwaitRestore: { attempt: string; incarnation: number; cause: Cause };
+  AwaitRestore: { attempt: string; cause: Cause };
   AwaitLetGo: { ending: number };
 }>;
 

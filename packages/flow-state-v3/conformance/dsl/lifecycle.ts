@@ -116,11 +116,8 @@ const actorOf = (model: Model, actor: ActorRef) =>
 
 const heldRestore = (model: Model, life: AttemptLife, reason: string) => {
   if (reason !== "Restored") return "other";
-  const incarnation = actorOf(model, life.lane.actor)?.incarnation ?? 0;
 
-  return owed(model, life.id, "AwaitRestore").some((o) => o.incarnation >= incarnation)
-    ? "owedRestore"
-    : "unowedRestore";
+  return owed(model, life.id, "AwaitRestore").length > 0 ? "owedRestore" : "unowedRestore";
 };
 
 const onWireUnknown = (model: Model, reason: string, retained: boolean) => {
@@ -344,8 +341,7 @@ const owedText = (o: Obligation) =>
   Obligation.$match(o, {
     Await: ({ attempt, report }) => `Await ${report} of ${attempt}`,
     PendingCancel: ({ attempt, ends }) => `PendingCancel ${ends} of ${attempt}`,
-    AwaitRestore: ({ attempt, incarnation }) =>
-      `AwaitRestore unknown Restored of ${attempt} for incarnation ${incarnation}`,
+    AwaitRestore: ({ attempt }) => `AwaitRestore unknown Restored of ${attempt}`,
     AwaitLetGo: ({ ending }) => `AwaitLetGo of ending ${ending}`,
   });
 
@@ -371,13 +367,7 @@ const bootOwes = (model: Model) => {
 
   return [
     ...model.obligations,
-    ...owing.map((a) =>
-      Obligation.AwaitRestore({
-        attempt: a.id,
-        incarnation: (actorOf(model, a.lane.actor)?.incarnation ?? 0) + 1,
-        cause,
-      }),
-    ),
+    ...owing.map((a) => Obligation.AwaitRestore({ attempt: a.id, cause })),
   ];
 };
 
@@ -487,7 +477,9 @@ export const due = (model: Model, instant: "TurnCloses" | "StepEnds", given: Rul
  *
  * **Gotchas**
  *
- * - Only Held heads owe a restore: a never-sent or on-wire Attempt cannot show one.
+ * - Only Held heads owe a restore. A never-sent head acknowledged before its page died also owes
+ *   one (Restore R3), but the suite has no storage fact to tell it from one whose batch never
+ *   landed (`PAY-09/ack-not-stored`), so it owes nothing here: step 5 review M1, open.
  * - A boot's restore endings are owed from the `Reload` itself, to each actor's next incarnation:
  *   the boot decides them before it opens any incarnation (round-14 `step.ts` `onBoot`: `restore`,
  *   then the `incarnation` notes), and a record not woken at ready hears them, parked, at its
@@ -515,7 +507,7 @@ export const incarnate = (model: Model, actor: ActorRef) => {
     ],
     obligations: [
       ...model.obligations,
-      ...owing.map((a) => Obligation.AwaitRestore({ attempt: a.id, incarnation, cause })),
+      ...owing.map((a) => Obligation.AwaitRestore({ attempt: a.id, cause })),
     ],
   };
 };

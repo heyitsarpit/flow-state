@@ -24,7 +24,9 @@ const CANCEL_ALL =
  * anchoring, `lie.release-other-lane` and `lie.void-retry-releases` (I12), `lane.reject-queues`
  * (I8), `mutant.boot-replays-never-sent` (I1), `mutant.members-reversed` (I10, order) and
  * `lie.release-member-claimed` (I12, review H1); `mutant.cancel-members-dropped` (I12; step 4
- * review H1: a runtime that drops every cancel and cancelAll member from its act and its report).
+ * review H1: a runtime that drops every cancel and cancelAll member from its act and its report);
+ * `lie.cancels-reported-as-release` (I12; step 5 review H1: the same, reporting a release in
+ * their place, which must not cancel what the row owes).
  */
 export const laneQueueMutants: ReadonlyArray<Mutant> = [
   {
@@ -403,6 +405,27 @@ export const laneQueueMutants: ReadonlyArray<Mutant> = [
         find: "    return part.alt.members.map((mem: Member) => {",
         replace:
           '    return part.alt.members.filter((mem: Member) => mem.verb !== "cancel" && mem.verb !== "cancelAll").map((mem: Member) => {',
+      },
+    ],
+  },
+  {
+    name: "lie.cancels-reported-as-release",
+    says: "a turn drops every cancel and cancelAll member from its act and reports a release of that operation instead",
+    expects: "WriteLanes I12",
+    runtime: "prototype",
+    cases: ["LANE-09", "PAY-03"],
+    edits: [
+      {
+        file: "turn.ts",
+        find: "    return part.alt.members.map((mem: Member) => {",
+        replace:
+          '    for (const m0 of part.alt.members) if (m0.verb === "cancel" || m0.verb === "cancelAll") (w as any).said = [...((w as any).said ?? []), m0.op];\n    return part.alt.members.filter((mem: Member) => mem.verb !== "cancel" && mem.verb !== "cancelAll").map((mem: Member) => {',
+      },
+      {
+        file: "turn.ts",
+        find: '    ...w.releases.map(({ op }) => ({ op, kind: "release"',
+        replace:
+          '    ...((w as any).said ?? []).map((op: string) => ({ op, kind: "release", target: w.m.ops[op]?.keyFields?.length === 0 ? { t: "only" as const } : { t: "every" as const } })),\n    ...w.releases.map(({ op }) => ({ op, kind: "release"',
       },
     ],
   },

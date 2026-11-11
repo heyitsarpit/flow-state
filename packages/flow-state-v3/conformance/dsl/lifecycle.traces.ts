@@ -124,7 +124,7 @@ const unknownTraces: ReadonlyArray<Trace> = [
       name: "a Held head's restore ending, owed to this incarnation",
       cites: "Restore I6, WriteLanes I15: unknown Restored once per incarnation",
       start: model(lane("A", ["s", H], ["w", Q]), {
-        obligations: [Obligation.AwaitRestore({ attempt: "s", incarnation: 1, cause: "plain" })],
+        obligations: [Obligation.AwaitRestore({ attempt: "s", cause: "plain" })],
       }),
       move: unknown("s", "Restored"),
       refused: [],
@@ -358,7 +358,7 @@ const laneWide = (
 });
 
 const bootRestore = (attempt: string, cause: "plain" | "runtimeDisposal" = "plain") =>
-  Obligation.AwaitRestore({ attempt, incarnation: 2, cause });
+  Obligation.AwaitRestore({ attempt, cause });
 
 const laneWideTraces: ReadonlyArray<Trace> = [
   laneWide(
