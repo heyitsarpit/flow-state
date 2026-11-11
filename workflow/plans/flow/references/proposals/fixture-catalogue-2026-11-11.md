@@ -919,26 +919,26 @@ planned columns above.
 
 **Feature codes added** (`Machines.O1` is @plan.Machines.O1; the row ids are the coverage report's):
 
-| Code | Feature | Plan | Rows |
-| --- | --- | --- | --- |
-| in | `Flow.input`; shared actor named by value; ConflictingActorRef | Machines.O1, Runtime.O3 | M08, M15, R13-R16 |
-| ci | computed `Flow.initial`; creation pure and once per incarnation | Machines.O1 | M09, M14 |
-| pv | `Flow.private`: kept in records, omitted from outside snapshots | Machines.O1, Machines.O8 | M10 |
-| lc | `createActor`: local identity by Equal.equals, lanes adopted on remount | Runtime.O3 | R17 |
-| ck | `check(snapshot, event)`: Allowed, Denied with reasons, Unhandled | Machines.O4 | M58 |
-| hs | `S.X.history` targets and `history.child` (Turn R4 has no Invariant) | Machines.O2 | M45 |
-| rn | `raise` and `notify` parts inside one turn | Machines.O2, Machines.O3 | M46, M50 |
-| sd | action `send(ref, event)` and the send table (SendTargetAbsent, restore) | Runtime.O4 | R29 |
-| sn | `snapshots` subscription; `getSnapshot` from a record or terminal snapshot | Runtime.O3, Runtime.O4 | R19, R30 |
-| dm | `disarmOn`; schedule metadata (`E.X.from`, `dueAt` in the snapshot) | Machines.O5 | M59 |
-| fz | staleTime, gcTime, trailing refetch, focus and reconnect | Operations.O1, Operations.O2 | P12, P20-P23, P28 |
-| sw | `setData`, `invalidate`, `clear`, write batches (256 bound) | Operations.O5 | P16, P44, P45 |
-| ph | `placeholder({ previous, input })` and `contract.get` | Operations.O6 | P50 |
-| kb | key bounds and InvalidKey; canonical key text (bigint `"$1n"`) | Operations.O1 | P14, P15 |
-| os | optimistic stacking; uncertain look after a failed refetch | Operations.O5 | P47 |
-| pg | transaction `progress`; `previous: [{ key }]` holds | Operations.O1, Operations.O3 | P03, P06 |
-| fg | `forget` and `dispose({ forget: true })` | Runtime.O6, Persistence.O5 | R32, Q20 |
-| is | issues by source: set, cleared only by their own source, none inherited | Machines.O8 | M74 |
+| Code | Feature                                                                    | Plan                         | Rows              |
+| ---- | -------------------------------------------------------------------------- | ---------------------------- | ----------------- |
+| in   | `Flow.input`; shared actor named by value; ConflictingActorRef             | Machines.O1, Runtime.O3      | M08, M15, R13-R16 |
+| ci   | computed `Flow.initial`; creation pure and once per incarnation            | Machines.O1                  | M09, M14          |
+| pv   | `Flow.private`: kept in records, omitted from outside snapshots            | Machines.O1, Machines.O8     | M10               |
+| lc   | `createActor`: local identity by Equal.equals, lanes adopted on remount    | Runtime.O3                   | R17               |
+| ck   | `check(snapshot, event)`: Allowed, Denied with reasons, Unhandled          | Machines.O4                  | M58               |
+| hs   | `S.X.history` targets and `history.child` (Turn R4 has no Invariant)       | Machines.O2                  | M45               |
+| rn   | `raise` and `notify` parts inside one turn                                 | Machines.O2, Machines.O3     | M46, M50          |
+| sd   | action `send(ref, event)` and the send table (SendTargetAbsent, restore)   | Runtime.O4                   | R29               |
+| sn   | `snapshots` subscription; `getSnapshot` from a record or terminal snapshot | Runtime.O3, Runtime.O4       | R19, R30          |
+| dm   | `disarmOn`; schedule metadata (`E.X.from`, `dueAt` in the snapshot)        | Machines.O5                  | M59               |
+| fz   | staleTime, gcTime, trailing refetch, focus and reconnect                   | Operations.O1, Operations.O2 | P12, P20-P23, P28 |
+| sw   | `setData`, `invalidate`, `clear`, write batches (256 bound)                | Operations.O5                | P16, P44, P45     |
+| ph   | `placeholder({ previous, input })` and `contract.get`                      | Operations.O6                | P50               |
+| kb   | key bounds and InvalidKey; canonical key text (bigint `"$1n"`)             | Operations.O1                | P14, P15          |
+| os   | optimistic stacking; uncertain look after a failed refetch                 | Operations.O5                | P47               |
+| pg   | transaction `progress`; `previous: [{ key }]` holds                        | Operations.O1, Operations.O3 | P03, P06          |
+| fg   | `forget` and `dispose({ forget: true })`                                   | Runtime.O6, Persistence.O5   | R32, Q20          |
+| is   | issues by source: set, cleared only by their own source, none inherited    | Machines.O8                  | M74               |
 
 **Matrix extension.** This block extends the matrix above with the new columns. The original block stays as it
 was, and its script check (no shape contained in another) still holds, since adding columns only adds differences.
@@ -1140,6 +1140,162 @@ it reached, and which mutants it killed (round-14's 147 and production's). A sha
 of earlier shapes' cells, and which kills no new mutant, is cut from the gate (T47's false-pass guard). It stays
 available for benchmarks.
 
+## 5A. Combinations (proposed, 2026-11-11)
+
+**Bottom line (proposed):** test features together, not one shape at a time, and measure it. Merge the 27 sketches
+into 9 denser composite shapes, add an "app mix" profile that runs several composites in one runtime, and judge
+combinations by three measures: feature-pair coverage (the gate), 3-way coverage (reported) and cell-pair reach.
+The sketches in section 3 stay as the parts the composites are built from. All counts below come from a script over
+the matrix in section 4 and are estimates until the reach recorder measures them.
+
+### Why combinations matter
+
+Most bugs found so far were interactions: a cancel during a send, a reload while a lane is held, disposal with a
+queued commit. A shape that exercises one feature at a time cannot find them, and a pile of such shapes finds only
+what each one finds. Pairwise combinatorial testing makes the same point with data: in the NIST failure studies
+most faults needed two or three interacting factors, and nearly all needed six or fewer (Kuhn, Kacker and Lei,
+"Practical Combinatorial Testing", NIST SP 800-142, 2010). So two-way coverage is the floor, three-way is the
+measure to watch, and the few known deep stacks are named and tracked by hand.
+
+### Feature pairs: which interact
+
+There are 53 feature codes (the 35 of section 2 and the 18 found by the Plan check), so 1,378 pairs. A pair
+**interacts** when both features touch one of these channels, and a script reads the channel list, so a new feature
+only needs its channels:
+
+| Channel | Meaning                                                   | Features that touch it                    |
+| ------- | --------------------------------------------------------- | ----------------------------------------- |
+| W       | write lanes and their endings                             | rj lt se ca ky cm cA rt un op en wa sr dp |
+| R       | reads, entries, streams                                   | ky lk sb op en st fz sw ph kb os pg gr    |
+| T       | timers                                                    | du ms rs ks dm fz of                      |
+| I       | actor identity and sharing                                | ks fr ea ma cx in ci pv lc sd sn dp gr    |
+| P       | persistence (records, write-ahead, restore, shapes)       | un wa rl up sr cs hs fr ea pv sd mt lz fg |
+| L       | lifecycle: reload, disposal, release, grace, forget, tabs | owners rl up dp gr fg mt lz wa sr ma of   |
+
+A lifecycle owner interacts with every feature that keeps state past one event (everything but the pure-turn
+features). Everything else interacts only through a shared channel. Result: **777 interacting pairs and 601
+non-interacting**. The 601 are listed by rule, each with its reason, and the gate may not waive a pair that is
+interacting:
+
+| Rule                                                                                | Pairs |
+| ----------------------------------------------------------------------------------- | ----- |
+| Alternative policies of one operation (rj, lt, se, ca); other lanes are independent | 6     |
+| Pure-turn features (gd, ck, rn) read memory and the event only                      | 153   |
+| Timers (du ms rs ks dm) enter as ordinary turns, so they add nothing to lanes etc.  | 146   |
+| Reads and streams against write-lane members: separate operation kinds              | 48    |
+| Identity-only features against lanes and reads: they name actors, not lanes         | 130   |
+| Structure (cs fr ea hs) and issues (is) against lanes, reads and each other         | 118   |
+
+Pairs that need a feature no runtime has yet (cx, rs, ms, mt, lz and most of the 18) are interacting, and wait on
+the runtime before they can be reached. They are waived with a reason and a date until then.
+
+### The technique
+
+- **Pairwise (all 2-way)** is the gate: every interacting pair appears together in some generated run's
+  executed steps, not only in the shape's feature list. The recorder marks a feature as exercised when its code
+  path is reached, as the reach recorder does for table cells.
+- **3-way** is reported. A triple counts when all three of its pairs interact: 6,728 triples. Report the share
+  reached, per composite and in total. It is not a gate, since many triples cannot be reached together.
+- **Higher orders** matter where the runtime keeps several things in flight at once. Name them and track them by
+  hand, as a short list of stacks the generator must reach, each in an ordinary shrinkable case: reload + cancel +
+  retry + storage refusal; disposal + `serialize` queue + write-ahead batch + storage refusal; late answer +
+  `cancel` + reload; upgrade + Held lane + reload + retry. Today only composite C (below) holds the first stack
+  and A the second.
+
+### Cell-pair reach
+
+Section 5 measures cells one at a time. Add **cell pairs**: an ordered pair of lifecycle table cells (A, B, C and
+the Q9 grid G) that one run reaches in sequence, such as `A[Reload·OnWire]` then `B[Held·retry]`. The recorder
+derives the denominator from the lifecycle model: the pairs the model says can follow each other on one lane or one
+actor. It is not hand-listed. Report pairs reached, per composite.
+
+### The app-mix profile
+
+A third profile beside usual and stress. It boots one runtime and runs several composites at once, sharing storage,
+the network and the clock, with one seed. A composite is a different application, so they do not share lanes by
+accident: they share what a real page shares.
+
+- **Run together:** B (outbox), C (control and money), A (editor), D (cart and workspaces) and F (reads) at
+  minimum, since they span all four lane policies, write-ahead, restore, actors and reads. E, G, H and I join as
+  runtimes build their features.
+- **Shared:** one fake storage (so one write-ahead batch can hold records of several machines), one network (a
+  server fault hits several shapes' requests), one virtual clock, one reload and one disposal.
+- **Targets (cross-feature interactions no single shape reaches):**
+  - write-ahead batching across actors: two machines' commits land in one batch, and the batch is refused;
+  - a storage refusal mid-commit of another machine's capture, which must not leave that machine's lane unsent;
+  - disposal while others run: some lanes on the wire, some queued, one actor in grace;
+  - two composites contending for a lane through a shared actor identity (`actorRef` by value, S27);
+  - a reload while one lane is Held and another is Queued;
+  - an offline span that hits polling in one shape and a retry in another.
+- **How pairs count:** a pair of features from two different composites counts only if one of them is a shared
+  resource feature (wa, sr, rl, up, dp, fg, of, ad, ma, mt). Timers or lanes of unrelated shapes do not interact.
+- **Cost:** about 80 lines on top of the generator: a mix picks composites, merges their user models and fault
+  draws, and a failing run shrinks by dropping whole composites first, then steps.
+
+### Consolidation: fewer, denser shapes
+
+Complex fixtures reach more combinations per file and need fewer files. Proposed: merge by affinity, keeping each
+source sketch as a named part of its composite (its events, memory and user model stay readable on their own).
+
+| Composite    | Parts           | Features | What it combines                                                        |
+| ------------ | --------------- | -------- | ----------------------------------------------------------------------- |
+| A Editor     | S01 S05 S24 S25 | 20       | drafts, deadlines, tabs, upgrade; `latest` and `serialize`, restore     |
+| B Outbox     | S08 S03 S22     | 20       | `reject` and `serialize` with cancel, cancelAll, retry; offline; boards |
+| C Control    | S12 S23 S20 S16 | 27       | `cancel`, money transfers, polling, history; storage refusal, retry     |
+| D Cart       | S14 S27         | 21       | shared actors by value, traits, context, forget, issues                 |
+| E Chat       | S04 S13 S17     | 19       | thread actors, token context, bursts, streams, optimism                 |
+| F Reads      | S02 S26 S18 S11 | 23       | lookups, subscribe, streams, staleness, entities, fan-out               |
+| G Optimistic | S09 S15         | 13       | optimistic toggles, per-row copies, keyed `latest`, cancel              |
+| H Forms      | S06 S21 S19     | 19       | wizard, sign-in, lazy panel; guards, history, compound states           |
+| I Dashboard  | S10 S07         | 16       | rate limits, multi-step schedules, per-panel timers, offline            |
+
+**Before and after (estimates from the script):**
+
+| Measure                            | 27 sketches | 9 composites | 9 composites + app mix | 13 sketches in a mix |
+| ---------------------------------- | ----------- | ------------ | ---------------------- | -------------------- |
+| Interacting pairs reached (of 777) | 445         | 595          | 693                    | 611                  |
+| Interacting pairs unreached        | 332         | 182          | 84                     | 166                  |
+| 3-way triples reached (of 6,728)   | 1,327       | 3,252        | not computed           | not computed         |
+
+Nothing is lost: a composite's feature set is the union of its parts, so every pair a part reached is still
+reached, and 150 more become reachable in one run. What the merge changes: six features keep one composite host
+(ca in C; cA in B; sb and ph in F; lz and rn in H). The "at least 2 shapes" rule stays on the parts, and the
+composite list flags those six. The fix is to move one part when the shape is built, decided then.
+
+**What limits a composite's size:** a failure must shrink to a case a person can read, so a composite has at most
+5 operations, about 80 lines, and its parts keep separate user models. If shrinking often stops at its 1,000
+candidates, or a shrunk case needs more than about 15 steps, split the composite back into its parts. C is the
+largest at 27 features and the first to split.
+
+### Feeding unreached pairs back
+
+1. The reach recorder lists interacting pairs with no run. 2. For each: if a composite already has both features,
+raise the weight of the command that puts them together (for example, a `cancel` command while a batch is held, to
+reach ca with wa). 3. If no composite has both, add an operation or part to the nearest composite, or a pair-sweep
+cell (section 5, layer 2). 4. If a runtime lacks a feature, waive the pair with a reason and a date, and list it
+in `revisit.md`.
+The pair **gate fails on an interacting pair that no run exercised and no waiver covers**. 3-way and cell-pair
+numbers are recorded, never gating.
+
+### What covers the riskiest pairs now, and what nothing reaches
+
+Covered by shapes (sketch level; composites in brackets):
+- cancel + unknown ending: S12, S23 [C]. Reload + unknown: S01, S04, S08, S13, S16, S23, S25 [A, B, C, E, H, I].
+- Reload + retry: S04, S08, S16, S25. Disposal + write-ahead: S05, S14, S16, S19, S24, S25, S27.
+- Disposal + `serialize`: S14, S24 only [A, B, C, D]. Reload + `cancel`: S23 only [C].
+- `serialize` + storage refusal: S08, S24. Several actors + `latest`: covered; `cancel` + disposal: S12.
+
+Covered by **no sketch** and by composite C or A only: cancel + write-ahead (`cm`, `wa`), cancel + storage refusal
+(`ca`, `sr`, `cm`, `sr`), storage refusal + several actors (`sr`, `ma`) and the four-way reload + cancel + retry +
+storage refusal. In the sketches nothing combines them, which is the argument for C.
+
+Unreached after 9 composites and the app mix: **84 interacting pairs**. Grouped:
+- **Need a feature a runtime lacks, or round-14 only (80):** lz with nearly every feature, pg, os, kb, ph, sw and fz
+  with reads and optimism, ks with context and identity, ms with rs and dm, and en and op with lanes. Waived with a
+  reason and a date until a runtime builds the feature.
+- **Buildable now (4):** `lt` with `cA`, `ca` with `cA`, `cA` with `gr`, and `cs` with `ea`. Add a cancelAll to a
+  `latest` lane and to a `cancel` lane in B and C, and a cancelAll held through grace.
+
 ## 6. Benchmark reuse (P8)
 
 **Verdict (proposed):** yes, the same module serves both suites, with one rule. A benchmark replays a script that
@@ -1229,6 +1385,22 @@ columns of earlier shapes: rs in S01, S02 and S20; ms in S07, S08 and S10; ks in
 
 **Stop rule (T47):** add shapes while each one raises cell reach or mutation score. 15 is a floor, and 26 is a
 catalogue to draw from, not a quota.
+
+**Added by the Plan check and the combinations work (proposed, 2026-11-11):**
+
+- **S27 workspaces and the 19 shapes changed by the Plan check** (S02, S03, S04, S06, S07, S09 to S16, S18, S20 to
+  S22, S24 to S26: the matrix extension in section 4) are built with their parts. S27 is wave 3, N: it needs
+  `Flow.input` with `actorRef` by value, `createActor`, `check()`, `snapshots`, `Flow.private` and
+  `dispose({ forget: true })`. Each Plan-check addition lands in its shape as the runtime feature lands, wave by
+  wave: P additions in wave 1, round-14 ones in wave 2.
+- **Composites (section 5A).** Build each part in the wave order above, then compose: A and B after their wave-1
+  parts (S01, S24, S08, S03, S22), C after S12, S23 and S16 and S20 (wave 1 and 2), then D to I with wave 2 and 3.
+  A composite is a new module that imports its parts and adds no machine of its own beyond the glue.
+- **App-mix profile:** built after the generator and before wave 2, with the 80-line mix runner. It first mixes the
+  wave-1 composites (A, B, C), and gains D, E, F and the rest as they land. Pair coverage, 3-way and cell-pair
+  reach come from the reach recorder, whose scope grows by about 60 lines.
+- **Order:** infrastructure, wave 1 parts, A, B, C, app mix over them, wave 2 parts and D to I, wave 3. The pair
+  gate starts as a report and becomes a gate once the interacting-pair list is generated from the matrix.
 
 ## 8. Open points for the user (proposed answers)
 

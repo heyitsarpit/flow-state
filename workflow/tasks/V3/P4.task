@@ -474,6 +474,17 @@ tasks
             as set out under "Features found by the Plan check" in
             code:workflow/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md.
 
+            **Combinations (proposed, 2026-11-11):** test features together, not one at a time. Merge the sketches into
+            about 9 denser composite shapes (each keeps its parts readable, at most 5 operations, and must shrink to a 
+            small
+            case; split one that does not). Add an app-mix profile: one runtime runs several composites at once, sharing
+            storage, network and clock, to reach write-ahead batching across actors, a storage refusal mid-commit of 
+            another
+            machine, disposal while others run, and shapes contending for a lane through a shared actor. S27 and the 19 
+            shapes
+            changed by the Plan check are in the build order. Measures and consolidation are in "Combinations" in
+            code:workflow/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md.
+
             - **May change:** `packages/flow-state-v3/conformance/` (fixtures, world, generator).
             - **Evidence:** STATUS.md, one T47 section; the generated gate file.
             - **False pass:** shapes that differ in name but exercise the same paths → caught by table-cell reach
@@ -486,6 +497,21 @@ tasks
             - table-cell reach and mutation score rise over the hand cases alone, and are recorded;
             - every failure found shrinks to a kept regression case, or is logged as a runtime limit.
             - The catalogue's 18 added feature codes and S27 are covered by at least two shapes each.
+            - feature-pair coverage is the gate: every interacting pair of features appears together in some run, the
+              non-interacting pairs are listed with a reason, and the gate fails on an unexercised interacting pair 
+              that has no
+              dated waiver (proposed);
+            - 3-way coverage (triples of interacting features in one run) and cell-pair reach (pairs of lifecycle table
+              cells reached in sequence in one run) are reported, not gating, and the named deep stacks (reload, 
+              cancel, retry,
+              storage refusal) have a kept case each (proposed);
+            - an app-mix profile runs several composites in one runtime over shared storage, network and clock, with a 
+              pass
+              that mixes the wave-1 composites first (proposed);
+            - the gated shape list is the consolidated composite list (about 9, each a union of named parts), and the 
+              build
+              order includes S27 and the 19 shapes changed by the Plan check; the 15-shape floor counts parts 
+              (proposed).
 
     T17
         title       Compiled and the compiler
