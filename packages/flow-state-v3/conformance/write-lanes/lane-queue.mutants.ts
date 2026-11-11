@@ -42,6 +42,20 @@ const CANCEL_ALL =
  */
 export const laneQueueMutants: ReadonlyArray<Mutant> = [
   {
+    name: "s13.older-sent-after-newer",
+    says: "under latest, a new commit keeps the queued older ones instead of superseding them, so the older are sent after the newer (the old suite's search kill, T14)",
+    expects: "WriteLanes I8",
+    runtime: "prototype",
+    cases: ["LANE-06"],
+    edits: [
+      {
+        file: "lane.ts",
+        find: "    for (const x of l.w) supersede(tx, a.op, x);\n    setLane(tx, { ...tx.w.lanes[l.id]!, w: [made.attempt] });",
+        replace: "    setLane(tx, { ...tx.w.lanes[l.id]!, w: [made.attempt, ...l.w] });",
+      },
+    ],
+  },
+  {
     name: "lane.unretained-unknown-held",
     says: "under cancel, an unknown is kept Held past its own ending's turn",
     expects: "WriteLanes I5",
