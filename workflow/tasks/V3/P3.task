@@ -524,7 +524,7 @@ tasks
 
     T7
         title       WriteLanes area complete
-        status      in_progress
+        status      done
         priority    high
         blocked_by  [@T5, @T40]
         description
