@@ -1593,6 +1593,9 @@ booted yet (`UnknownProductionFixture`).
 - **Pay's UNSURE stand-in** takes the real guard and cancel; PAY-23 reaches it (L2).
 - **Mutants** (`7419dadb`): persist, record and tx, and one the Cancelled exemption hid; 17 caught.
 - **T7:** I23 is partial (data and forget owed by T7); unknown Cancelled now needs a cancel.
+- **After the fixes** (`484cbfb8`, `0c4d27f7`): the 8 Cells cases pass on production (70 Pay
+  and Cells cases in all); 9 public-API module tests (`src/host/runtime.test.ts`,
+  `src/machine.test.ts`).
 - **Owed:** the reviewer's `kept-ignored` probe needs a case, and the case (drafted: a commit on a
   kept ending's key declines Rejected) fails on both runtimes because the suite's lifecycle does not
   model a kept ending holding its lane (WriteLanes R6, CQ3): owed to T44.
