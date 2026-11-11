@@ -1425,9 +1425,11 @@ placement cases) and M6 (the implicit state machines) are next. T8 stays open.
   since they judge the same delivery from other sides.
 - M2: CLI-06 checks Compile I10's SharedContract report (`cli.shared-contract-unchecked`); the
   construction refusal stays T17's as a remainder.
-- M3: WriteLanes I15's redelivery clause now names a mapper throw (spec-log, for the user's read).
-  TURN-01/schedule-refused still asserts no issue count: R10 makes it one, round-14 gives two (a
-  round-14 limit, @plan.Pending D4); asserting it would turn round-14 red.
+- M3: reworded, then reverted after an independent check (Haiku): the conflict is three-way and
+  needs the user. Actors R15 and I24 redeliver an ending "whose turn is refused, or whose mapper
+  throws" (round-14 does, for firings too, turn.ts:1324); WriteLanes R10 names the mapper throw
+  only; @plan.Pending D4 (proposed) calls any other redelivery a deviation. TURN-01/schedule-refused
+  asserts no issue count until it is ruled (Actors R15 makes it two, R10 and D4 one).
 - M4: `refusal` excuses a changed publication only by a turn of an event the suite drove, or an
   incarnation in a step that reloaded or attached.
 - M5: remainders for I9 (a turn that stays), I20 (arming ids, disarmOn), I27 (calls before a
@@ -1438,6 +1440,30 @@ placement cases) and M6 (the implicit state machines) are next. T8 stays open.
   one `Call` per Attempt (owner, `CallPhase` Open, Held or Ended, and whether its ending is current),
   in mint order, replacing four parallel collections. The per-actor reset copied across four
   oracles is not merged yet (carried). Falsify 143/143 after both.
+
+### H1 so far (Turn rows back on T8)
+
+Bottom line: Turn I3, I10, I11, I17 and I5 (in part) are checked; I1, I4, I6, I24 and I35 stay
+T8's; I32 moved to T18 as a round-14 deviation.
+
+- I5: fixture `LateQueue`; TURN-04 (the first call's ending is late once W was re-entered, and may
+  not leave the new W's queued commit); `selection` names I5 when a late route comes from a
+  re-entered state, with Spec T1's `a3.r14-explicit-reentry-keeps-activation` and
+  `audit-1.r14-reentry-keeps-activation`. `a3.r14-reenters-the-parent` and
+  `1b.r14-history-reentry-keeps-activation` need compound fixtures (I5 remainder).
+- I3, I10, I11: fixture `Form`; TURN-05 (child refusal from FRAG-17, a pending reset as its own
+  `PendingReset` turn from FRAG-02, a removed copy's `whenAbandoned` from FRAG-01), each with a
+  round-14 edit as its mutant. `selection` now reads a trait's callback parts as notifications, not
+  selected alternatives, and admits Flow's `PendingReset` turn.
+- I17: the runner replays seed 1 of every case and compares the reports in order
+  (`turn.memory-takes-a-random-nonce`); round-14 replays equal in all 111 cases. Cost: about a
+  third more per case; the suite still runs in about 2 s wall.
+- Findings for the coordinator: (1) Turn I32: round-14 fires equal deadlines in arm order, not
+  actor admission order (two shoppers arming against admission order went red), so the row is
+  T18's with that evidence; (2) Actors I38: a commit queued behind a Held head is not ended
+  `NotSent { Disposed }` at Runtime disposal on round-14 (the first TURN-04 draft went red at the
+  end-of-case disposal; the case now avoids a Held head); (3) LANE-13's key-less cancel on the
+  other key's lane is caught only by the case, not by the fold (above).
 
 ### Next steps
 

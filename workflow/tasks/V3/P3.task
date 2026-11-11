@@ -667,6 +667,9 @@ tasks
             Rows round: I4, I5, I7, I13 (in part), I25 and I15's releasing clause checked; I28 to T18; I2, I9, I14, I17 
             to I19, I23, I24, I26, I27 still T7's; R11 compare finds no gap. Falsify 132/132. Detail: 
             conformance/STATUS.md, T7 Rows round.
+        comment     2026-11-11T08:10:24Z
+            Rows round 2: I9, I14, I17, I18, I23, I26 checked; I2, I24, I27 in part; Port gained a release per boot and 
+            entity reads; only I19 is still T7's. Detail: conformance/STATUS.md, T7.
     T8
         title       Turn area complete
         status      in_progress
@@ -707,6 +710,10 @@ tasks
         comment     2026-11-11T06:26:56Z
             Typed adapter failures done: an unreadable report, issue, snapshot or row is Unreadable (port.ts), named 
             apart from defects; falsify 126/126 at 1e11786c. Detail: conformance/STATUS.md, T8.
+        comment     2026-11-11T08:10:20Z
+            Review fixes H2, M1, M2, M4 to M6, R11 done; H1 in part: Turn I3, I10, I11, I17 checked, I5 in part; I1, 
+            I4, I6, I24, I35 still T8's; I32 to T18 as a round-14 deviation. M3 needs the user: Actors R15 vs 
+            WriteLanes R10 and D4 on redelivering refused turns. Falsify 149/149. Detail: conformance/STATUS.md, T8.
     T9
         title       Actors area complete
         status      open

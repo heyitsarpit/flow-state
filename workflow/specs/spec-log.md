@@ -284,10 +284,3 @@ coverage and tests now cite what covers them. Compile I2's count folds into I1 (
 expect I1); StaticCli I9 folds into I6 (`cli.warnings-fail`, CLI-07 and the remainder row). Turn I8's type clause
 moves to Compile T6; Turn I18 takes I19's old-snapshot clause. The seven rewordings are applied, plus Reads I19
 ("returns the idle row"), which the audit's table also asked for.
-
-## 2026-11-11, T8 (the T8/T7 rows review's M3)
-
-- **WriteLanes I15:** the redelivery clause names an outcome mapper's throw at admission, as R10 does; any other
-  refused turn is not retried (@plan.Machines O3). Why: I15 read as any `InvalidTurn`, against R10 and
-  @plan.Pending D4. Reverse: restore "an ending whose admission refused its turn". For the user's read.
-

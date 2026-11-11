@@ -18,13 +18,13 @@ export const notYet: ReadonlyArray<NotYet> = [
   },
   {
     owner: "@task.V3.T8",
-    why: "showable on round-14, not built yet (the T8/T7 rows review's H1): compound states and re-entry (I4 to I6; turn.ts exit and entry sets, fixpass and R14-FIX cases), child refusal (I3; turn.ts:321, FRAG-17), pending resets and whenAbandoned (I10, I11; turn.ts:633-652, FRAG-02), determinism by replay (I17), placements by key (I24; P1-S), equal deadlines by arm order (I32; timers.ts, world/clock.ts) and .each copies' per-key timers (I35 in part); I1 is one leaf name on the Port",
-    invariants: invariantsOf("Turn", [1, 4, 6, 24, 32, 35]),
+    why: "showable on round-14, not built yet (the T8/T7 rows review's H1): a self transition and exit and entry order in compound states (I4, I6; turn.ts:186-196, audit1b's history fixture, R15-01), placements by key (I24; roomFixture, P1-S, mutants-p1s.ts), .each copies' per-key timers (I35 in part; FRAG-06, FRAG-20); I1 is one leaf name on the Port (publish.ts:34), so only a compound fixture's Published path could show it",
+    invariants: invariantsOf("Turn", [1, 4, 6, 24, 35]),
   },
   {
     owner: "@task.V3.T18",
-    why: "round-14 cannot show these (searched round-14's turn.ts, step.ts, publish.ts and the old suite's scenarios): no check() (I18), no onContext (I28), no issues in snapshots (I31; publish.ts:31-36), no multi-step Schedule (I33), no restartOn (I34); post-commit defects come only from module-hook faults, which the Port refuses (I16)",
-    invariants: invariantsOf("Turn", [16, 18, 28, 31, 33, 34]),
+    why: "round-14 cannot show these (searched round-14's turn.ts, step.ts, publish.ts and the old suite's scenarios): no check() (I18), no onContext (I28), no issues in snapshots (I31; publish.ts:31-36), no multi-step Schedule (I33), no restartOn (I34); equal deadlines fire in arm order, not actor admission order (I32: a round-14 deviation, driver.ts:163-171; a case with two shoppers arming against admission order went red, STATUS T8), so no green round-14 case can tell them apart; post-commit defects come only from module-hook faults, which the Port refuses (I16)",
+    invariants: invariantsOf("Turn", [16, 18, 28, 31, 32, 33, 34]),
   },
   {
     owner: "@task.V3.T21",

@@ -292,13 +292,13 @@ invariants
          and delivered once) or recorded as evidence only, never both and never twice, with these exceptions written 
          out: a re-send whose lane-record capture is refused adds a second ending of the same Attempt, unknown { 
          StorageRefused }; unknown { Restored } is delivered at most once per incarnation, so once again after each 
-         reload or return (Restore Spec I6); an ending whose outcome mapper threw at admission, refusing its turn 
-         (InvalidTurn), is delivered once more after queued mail (R10; any other refused turn is not retried), and a 
-         second refusal ends its tries until the next boot or adoption, each of which gives it exactly one try with no 
-         redelivery after a refusal there (Actors Spec R15); a releasing lane delivers nothing; evidence-only endings 
-         (a bare operation, Flow.ignore, Superseded, the interrupted Attempt under concurrency cancel when no cancel is 
-         pending on it, a released lookup) are recorded, never delivered. Re-parking is not a second delivery. Decision 
-         (agent, 2026-11-11): rulings CQ1 and CQ9 (spec-log.md, T42). [@R10, @R16]
+         reload or return (Restore Spec I6); an ending whose admission refused its turn (outcome mapper throw, 
+         InvalidTurn) is delivered once more after queued mail, and a second refusal ends its tries until the next boot 
+         or adoption, each of which gives it exactly one try with no redelivery after a refusal there (Actors Spec 
+         R15); a releasing lane delivers nothing; evidence-only endings (a bare operation, Flow.ignore, Superseded, the 
+         interrupted Attempt under concurrency cancel when no cancel is pending on it, a released lookup) are recorded, 
+         never delivered. Re-parking is not a second delivery. Decision (agent, 2026-11-11): rulings CQ1 and CQ9 
+         (spec-log.md, T42). [@R10, @R16]
 
     I16  After a success or failure of an Attempt is delivered, no other ending of it is delivered. Reworded 2026-11-11 
          (audit). [@R10]
