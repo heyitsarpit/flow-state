@@ -59,7 +59,10 @@ export const disposalMutants: ReadonlyArray<Mutant> = [
     says: "the Runtime's disposal interrupts the call on the wire at its start",
     expects: "Actors I35",
     runtime: "prototype",
-    cases: ["PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed"],
+    cases: [
+      "PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed",
+      "PAY-16/settled-during-disposal-parked",
+    ],
     edits: [
       {
         file: "lane.ts",
@@ -176,7 +179,7 @@ export const disposalMutants: ReadonlyArray<Mutant> = [
     says: "the Runtime's disposal bound is 1 s, so a call that never answers ends unknown Disposed early",
     expects: "Actors I35",
     runtime: "prototype",
-    cases: ["PAY-16/never-answered-waits-for-the-bound"],
+    cases: ["PAY-16/never-answered-waits-for-the-bound", "PAY-16/answered-inside-the-bound"],
     edits: [
       {
         file: "step.ts",
@@ -190,7 +193,7 @@ export const disposalMutants: ReadonlyArray<Mutant> = [
     says: "a boot after the Runtime's disposal revives a Held head and never decides its unknown { Restored }",
     expects: "Actors I29",
     runtime: "prototype",
-    cases: ["PAY-15/dispose-held"],
+    cases: ["PAY-15/dispose-held", "PAY-15/dispose-held-moved"],
     edits: [
       {
         file: "durable.ts",

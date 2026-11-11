@@ -114,21 +114,36 @@ const unknownOf = (fixture: Fixture, operation: string) =>
     unknownEvent(o.reference),
   );
 
+const SENT_SEQ = 1000;
+
+const sentFacts = (operation: string, attempt: string) => [
+  said(Observation.Sent({ operation, attempt })),
+  Fact.Requested({
+    request: {
+      seq: SENT_SEQ,
+      operation,
+      input: KEY,
+      key: Option.some(attempt),
+      phase: RequestPhase.Open(),
+    },
+  }),
+];
+
 const effectOf = (fixture: Fixture, actor: ActorRef, member: RowMember) => {
   const head = Option.some(headOf(member.operation));
 
   switch (member.kind) {
     case "commit":
-      return minted(fixture, actor, member.operation, `${member.operation}-new`);
+      return [minted(fixture, actor, member.operation, `${member.operation}-new`)];
     case "retry":
-      return said(
-        Observation.Sent({ operation: member.operation, attempt: headOf(member.operation) }),
-      );
+      return sentFacts(member.operation, headOf(member.operation));
     case "cancel":
     case "cancelAll":
-      return said(
-        Observation.Evidence({ kind: "Released", operation: member.operation, attempt: head }),
-      );
+      return [
+        said(
+          Observation.Evidence({ kind: "Released", operation: member.operation, attempt: head }),
+        ),
+      ];
   }
 };
 
@@ -151,7 +166,7 @@ const heldHead = (fixture: Fixture, actor: ActorRef, row: Row, operation: string
       ]),
     ),
     minted(fixture, actor, operation, headOf(operation)),
-    said(Observation.Sent({ operation, attempt: headOf(operation) })),
+    ...sentFacts(operation, headOf(operation)),
   ];
 
   if (event.value === row.event) return head;
@@ -190,7 +205,7 @@ const referenceTurn = (fixture: Fixture, row: Row) => {
     .filter((operation) => Option.contains(unknownOf(fixture, operation), row.event))
     .flatMap((operation) => [ended(operation), delivered(actor, operation, row.event)]);
 
-  const effects = row.members.map((m) => effectOf(fixture, actor, m));
+  const effects = row.members.flatMap((m) => effectOf(fixture, actor, m));
 
   return {
     setup: held.flatMap((operation) => heldHead(fixture, actor, row, operation)),

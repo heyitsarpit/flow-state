@@ -40,6 +40,7 @@ const uncertain = (s: Shopper) => Option.getOrUndefined(s.row("pay", KEY))?.unce
  *   write.
  * - `DISP-06` disposes the actor with `pay` on the wire; the answer lands, parks on the lane for
  *   the identity, and the next ensure hears it.
+ * - `DISP-07` moves an actor with no write, lands its record and reloads: it resumes that state.
  * - `DISP-05` forgets the identity, reloads and ensures it again: forget drops no hold, so the
  *   lane, unbound across the boot, binds to the fresh actor, which hears its unknown.
  */
@@ -53,6 +54,7 @@ export const laneKeepingScenarios: ReadonlyArray<Scenario> = [
       s.state("UNSURE");
       s.release("story");
       c.advance(1000);
+      c.eq("WriteLanes I12: the hold outlives its grace", uncertain(s), true);
     },
   },
   {
@@ -129,6 +131,21 @@ export const laneKeepingScenarios: ReadonlyArray<Scenario> = [
       c.answer("pay", Answer.Ok({ value: { status: "requires_capture", clientSecret: "" } }));
       s.ensure();
       c.eq("the parked success reached the adopting actor", s.memory().authorized, true);
+    },
+  },
+  {
+    id: "DISP-07",
+    cites: ["Restore R1", "Restore I1"],
+    fixtures: [Pay],
+    run: (c) => {
+      const s = c.actor(Pay, "shopper-1");
+      s.ensure();
+      s.send("Start", { cartId: "c1", intentId: "pi1" });
+      s.state("CARD");
+      c.ack();
+      c.reload();
+      s.ensure();
+      s.state("CARD");
     },
   },
 ];

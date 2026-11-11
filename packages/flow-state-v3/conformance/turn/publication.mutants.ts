@@ -25,7 +25,7 @@ export const publicationMutants: ReadonlyArray<Mutant> = [
     says: "a turn's memory patch is written into the published memory object instead of a copy",
     expects: "Turn I29",
     runtime: "prototype",
-    cases: ["PAY-01"],
+    cases: ["PAY-01", "TURN-01/schedule-refused"],
     edits: [
       ...NO_FREEZE,
       {

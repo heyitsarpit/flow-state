@@ -1,9 +1,11 @@
 prod.actor-never-saved	DISP-01	caught selection Turn I2
+prod.actor-never-saved	DISP-07	red case
 prod.adapter-ended-success	PAY-05	caught ending-channels WriteLanes I3
 prod.bound-forgets-the-wire	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	caught disposal Actors I35
 prod.failure-as-cancelled	PAY-15/busy-then-new-write	caught ending-channels WriteLanes I25
 prod.fires-unused	TURN-03/unused	caught schedules Turn I23
 prod.idle-fails-idle	PAY-15/busy-then-new-write	caught idle-guard WriteLanes I13
+prod.kept-ignored	DLV-06	caught lane-queue WriteLanes I8
 prod.kept-redelivered	DLV-05	caught delivered-once Actors I24
 prod.mint-not-replayable	PAY-01	caught case expectations Turn I17
 prod.record-forgets-retries	PAY-16/retry-count-persists	caught retry-count WriteLanes I7

@@ -9,7 +9,7 @@ export const lateResultsMutants: ReadonlyArray<Mutant> = [
     says: "a released lane's late result is admitted as an ordinary ending (the edit of `lane.releasing-delivers`)",
     expects: "WriteLanes I23",
     runtime: "prototype",
-    cases: ["LANE-12/release-uninterruptible"],
+    cases: ["LANE-12/release-uninterruptible", "LANE-12/release-uninterruptible-lost"],
     edits: [
       {
         file: "turn.ts",

@@ -105,6 +105,11 @@ export const lanePoliciesScenarios: ReadonlyArray<Scenario> = [
     c.eq("64 queued behind the head", minted(c, "put").length, 65);
     c.eq("the 65th declines", endedAs(c, "put"), [["failure", "Overloaded"]]);
     c.eq("one send", attemptsOf(c, "put").length, 1);
+    c.eq(
+      "WriteLanes I8: 64 wait behind the head",
+      Option.getOrUndefined(a.row("put", {}))?.outstanding,
+      64,
+    );
   }),
   serialize("LANE-03", ["WriteLanes R8", "WriteLanes R15"], (c) => {
     const a = serial(c);
@@ -318,6 +323,26 @@ export const lanePoliciesScenarios: ReadonlyArray<Scenario> = [
         "WriteLanes I23: the late result after the release is heard by no one",
         delivered(c, "q"),
         [],
+      );
+    },
+  },
+  {
+    id: "LANE-12/release-uninterruptible-lost",
+    cites: ["WriteLanes R16", "WriteLanes R17", "WriteLanes I23"],
+    fixtures: [Release],
+    run: (c) => {
+      const a = released(c);
+      a.ensure();
+      c.uninterruptible("q");
+      toTrait(c, 1);
+      c.ack();
+      a.send("Leave", {});
+      c.answer("q", Answer.Lost());
+      a.state("AWAY");
+      c.eq(
+        "WriteLanes I23: a late unknown after the release holds no lane",
+        a.row("q", {}),
+        Option.none(),
       );
     },
   },

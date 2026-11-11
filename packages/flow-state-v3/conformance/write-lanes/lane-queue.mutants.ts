@@ -114,7 +114,7 @@ export const laneQueueMutants: ReadonlyArray<Mutant> = [
     says: "a cancel on the wire ends the head NotSent Cancelled at once, as if never sent",
     expects: "WriteLanes I20",
     runtime: "prototype",
-    cases: ["LANE-04"],
+    cases: ["LANE-04", "PAY-12/cancel-on-wire"],
     edits: lane(
       '  interruptWire(tx, l) {\n    const h = l!.head!;\n    if (h.phase.t !== "wire") return;',
       '  interruptWire(tx, l) {\n    const h = l!.head!;\n    if (h.phase.t !== "wire") return;\n    return endNeverSent(tx, l!);',
@@ -166,7 +166,7 @@ export const laneQueueMutants: ReadonlyArray<Mutant> = [
     says: "cancelAll ends the queue and leaves the head alone",
     expects: "WriteLanes I20",
     runtime: "prototype",
-    cases: ["LANE-04"],
+    cases: ["LANE-04", "LANE-03"],
     edits: lane(CANCEL_ALL, "  setLane(tx, cleared);\n  for (const x of queued) {"),
   },
   {
@@ -252,7 +252,7 @@ export const laneQueueMutants: ReadonlyArray<Mutant> = [
     says: "a turn of IntentRead releases a Held pay head though the alternative it took has no cancel",
     expects: "WriteLanes I12",
     runtime: "prototype",
-    cases: ["PAY-15/retry-budget"],
+    cases: ["PAY-15/retry-budget", "PAY-23"],
     edits: [
       {
         file: "lane.ts",

@@ -75,7 +75,11 @@ export const deliveredOnceMutants: ReadonlyArray<Mutant> = [
     says: "an ending on a releasing lane is admitted as an ordinary ending, not evidence",
     expects: "WriteLanes I15",
     runtime: "prototype",
-    cases: ["LANE-12/release-ends-queue", "LANE-12/release-leaves-head"],
+    cases: [
+      "LANE-12/release-ends-queue",
+      "LANE-12/release-leaves-head",
+      "LANE-12/release-uninterruptible-lost",
+    ],
     edits: [
       {
         file: "turn.ts",
@@ -212,7 +216,7 @@ export const deliveredOnceMutants: ReadonlyArray<Mutant> = [
     says: "an ending whose turn is refused at admission is never delivered once more",
     expects: "WriteLanes I15",
     runtime: "prototype",
-    cases: ["DLV-04"],
+    cases: ["DLV-04", "DLV-06"],
     edits: [
       {
         file: "turn.ts",
@@ -336,7 +340,7 @@ export const deliveredOnceMutants: ReadonlyArray<Mutant> = [
     says: "a boot decides and mails a restored head's unknown Restored twice",
     expects: "WriteLanes I15",
     runtime: "prototype",
-    cases: ["PAY-09/ack-stored-confirmation-lost"],
+    cases: ["PAY-09/ack-stored-confirmation-lost", "DLV-07"],
     edits: [
       {
         file: "durable.ts",
@@ -351,7 +355,7 @@ export const deliveredOnceMutants: ReadonlyArray<Mutant> = [
     says: "a boot drops a Held head's restored ending and notes a disposal start instead",
     expects: "WriteLanes I15",
     runtime: "prototype",
-    cases: ["PAY-15/dispose-held"],
+    cases: ["PAY-15/dispose-held", "PAY-15/dispose-held-moved"],
     edits: [
       {
         file: "durable.ts",
@@ -365,7 +369,7 @@ export const deliveredOnceMutants: ReadonlyArray<Mutant> = [
     says: "a boot drops a Held head's restored ending and says nothing",
     expects: "WriteLanes I15",
     runtime: "prototype",
-    cases: ["PAY-15/dispose-held"],
+    cases: ["PAY-15/dispose-held", "PAY-15/dispose-held-moved"],
     edits: [{ file: "durable.ts", find: RESTORED_MAIL, replace: `if (!h.held) ${RESTORED_MAIL}` }],
   },
 ];

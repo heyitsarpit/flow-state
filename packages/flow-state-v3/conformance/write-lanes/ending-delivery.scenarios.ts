@@ -2,6 +2,7 @@ import type { Actor } from "../dsl/actor.ts";
 import { Observation } from "../port.ts";
 import type { Case, Scenario } from "../dsl/case.ts";
 import { Pay } from "../fixtures/pay.ts";
+import { Stamp } from "../fixtures/stamp.ts";
 import { Answer } from "../world/network.ts";
 
 const shoppers = (c: Case) => ({ a: c.actor(Pay, "shopper-1"), b: c.actor(Pay, "shopper-2") });
@@ -24,6 +25,8 @@ const restored = (c: Case) => c.endings("pay").filter((e) => e.reason === "Resto
  * once, to its own actor); the states and notice come from the Pay fixture's mapping. `DLV-05`:
  * a twice-refused place success is kept and gets one try per boot (Actors R15, I24). `DLV-06`: that
  * kept ending holds its lane, so the next place commit declines `Rejected` (WriteLanes R6, I8).
+ * `DLV-07`: two Held heads of one actor each hear their unknown { Restored } once at the boot, so
+ * the actor's count of unknowns says so without reading a report (Restore I6).
  */
 export const endingDeliveryScenarios: ReadonlyArray<Scenario> = [
   {
@@ -145,6 +148,25 @@ export const endingDeliveryScenarios: ReadonlyArray<Scenario> = [
         c.endings("place").at(-1)?.reason,
         "Rejected",
       );
+    },
+  },
+  {
+    id: "DLV-07",
+    cites: ["Restore I6", "WriteLanes R10", "WriteLanes I15"],
+    fixtures: [Stamp],
+    run: (c) => {
+      const a = c.actor(Stamp, "a");
+      a.ensure();
+      a.send("Go", { k: "a" });
+      c.ack();
+      a.send("Go", { k: "b" });
+      c.ack();
+      c.answerTo("charge", { k: "a" }, Answer.Lost());
+      c.answerTo("charge", { k: "b" }, Answer.Lost());
+      c.eq("both heard unknown", a.memory().unsure, 2);
+      c.reload();
+      a.ensure();
+      c.eq("Restore I6: each Held head's unknown { Restored } is heard once", a.memory().unsure, 4);
     },
   },
 ];

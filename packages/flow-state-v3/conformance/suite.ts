@@ -112,6 +112,32 @@ export const guarantees: ReadonlyArray<Guarantee> = pinned.map((g) => ({
 }));
 
 /**
+ * Behavioural mutants whose wrong act no world read can see, each with why: what they change
+ * reaches only the runtime's reports (advisor Q1, "report truth only"). The liar gate leaves them
+ * out; the reports' own oracles still catch them.
+ */
+const reportTruth = {
+  "prod.state-move-copies-memory": "a published memory's identity",
+  "prod.refused-turn-reported": "an extra turn report",
+  "prod.kept-redelivered": "a refused try rolls back; only the Delivered count differs",
+  "prod.bound-forgets-the-wire": "the unknown's reason; the lane is Held either way",
+  "mutant.ending-without-id": "an evidence record's Attempt id",
+  "mutant.sent-under-another-operation": "the invoked note's operation",
+  "mutant.replaced-delivered": "an evidence-only note renamed delivered",
+  "mutant.success-then-failure": "an extra evidence note, with no mail",
+  "1b.cancel-all-queue-reversed": "the Attempt ids on equal NotSent endings",
+  "turn.record-renames-alternative": "the turn note's alternative name",
+  "turn.from-misreported": "the turn note's from",
+  "turn.part-turn-moves-header": "the turn note's to",
+  "refusal.reports-kept": "a refused turn's evidence",
+  "pub.move-copies-memory": "a published memory's identity",
+  "pub.turn-not-published": "the published note; reads see the committed world",
+  "1b.r8-third-try": "a refused try rolls back; only the Delivered count differs",
+  "mutant.kept-retried-without-boot": "a refused try rolls back; only the Delivered count differs",
+  "turn.memory-takes-a-random-nonce": "an undeclared memory key; every read decodes by the schema",
+} satisfies Readonly<Record<string, string>>;
+
+/**
  * Mutants that lie about reports only, with the runtime acting correctly: the liar gate leaves
  * them out, since a correct runtime's reports make them correct.
  */
@@ -121,10 +147,7 @@ export const reportOnly: ReadonlySet<string> = new Set([
     .flat()
     .filter((m) => m.edits.every((e) => e.file.startsWith("conformance/adapters/")))
     .map((m) => m.name),
-  // These two change only what the runtime reports: a published memory's identity, an extra
-  // turn report. Report truth is a separate property the liar gate does not judge.
-  "prod.state-move-copies-memory",
-  "prod.refused-turn-reported",
+  ...Object.keys(reportTruth),
 ]);
 
 /**

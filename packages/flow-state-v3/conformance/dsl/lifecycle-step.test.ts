@@ -54,7 +54,8 @@ const only = (operation: string, kind: Member["kind"]) => ({
 const minted = (actor: ActorRef, operation: string, attempt: string, key = Option.some(KEY)) =>
   said(Observation.Minted({ operation, attempt, actor: Option.some(actor), key }));
 
-const sent = (operation: string, attempt: string) => said(Observation.Sent({ operation, attempt }));
+const reportedSent = (operation: string, attempt: string) =>
+  said(Observation.Sent({ operation, attempt }));
 
 const ended = (
   operation: string,
@@ -91,6 +92,11 @@ const request = (seq: number, operation: string, attempt: string) => ({
   phase: RequestPhase.Open(),
 });
 
+const sent = (operation: string, attempt: string) => [
+  reportedSent(operation, attempt),
+  Fact.Requested({ request: request(100, operation, attempt) }),
+];
+
 type Step = typeof step;
 
 const using = (run: Step) => ({
@@ -114,7 +120,7 @@ const wl = (n: number) => `WriteLanes I${n}` as const;
 const leave = [
   turn(shopper, "Leave", "CARD", "LEFT", [keyed("void", "commit")]),
   minted(shopper, "void", "v1"),
-  sent("void", "v1"),
+  ...sent("void", "v1"),
 ];
 
 const voidSent = using(step).after(empty, leave);
@@ -214,13 +220,13 @@ const examples: ReadonlyArray<Example> = [
   },
 
   {
-    name: "a step's own accepted sends are counted from its Sent reports, not its server log",
+    name: "a step's own sends are its server log's requests, matched to its Sent reports and counted once",
     run: ({ refused, after }) => {
       const resending = after(voidSent, voidUnsure("retry"), sends(1));
       const fresh = request(9, "void", "v1");
 
       const facts = [
-        sent("void", "v1"),
+        reportedSent("void", "v1"),
         ...voidUnsure("retry"),
         Fact.Requested({ request: fresh }),
       ];
@@ -238,7 +244,7 @@ const examples: ReadonlyArray<Example> = [
       const sentSearch = after(empty, [
         turn(searcher, "Go", "A", "W", [only("search", "commit")]),
         minted(searcher, "search", "s1", Option.none()),
-        sent("search", "s1"),
+        ...sent("search", "s1"),
       ]);
 
       const lost = [
@@ -419,7 +425,7 @@ const examples: ReadonlyArray<Example> = [
       const pay = [
         turn(shopper, "PayRequested", "CARD", "PAYING", [keyed("pay", "commit")]),
         minted(shopper, "pay", "p1"),
-        sent("pay", "p1"),
+        ...sent("pay", "p1"),
         ended("pay", "p1", "unknown", "Lost"),
         delivered(shopper, "pay", "p1", "PayUnsure"),
         turn(shopper, "PayUnsure", "PAYING", "UNSURE", []),
@@ -453,12 +459,12 @@ const examples: ReadonlyArray<Example> = [
       const held = using(step).after(empty, [
         turn(shopper, "PayRequested", "CARD", "PAYING", [keyed("pay", "commit")]),
         minted(shopper, "pay", "p1"),
-        sent("pay", "p1"),
+        ...sent("pay", "p1"),
         turn(shopper, "PayRequested", "PAYING", "PAYING", [
           { operation: "pay", kind: "commit", target: MemberTarget.Key({ key: two }) },
         ]),
         minted(shopper, "pay", "p2", Option.some(two)),
-        sent("pay", "p2"),
+        ...sent("pay", "p2"),
         ...unsure("p1"),
         ...unsure("p2"),
       ]);

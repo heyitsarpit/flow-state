@@ -33,7 +33,7 @@ export const schedulesMutants: ReadonlyArray<Mutant> = [
     says: "an exit leaves its schedules armed and a firing of an ended Activation is delivered",
     expects: "Turn I20",
     runtime: "prototype",
-    cases: ["TURN-03/exited"],
+    cases: ["TURN-03/exited", "TURN-03/re-entered"],
     edits: [
       { file: "turn.ts", find: "  reapTimers(w);\n", replace: "" },
       {

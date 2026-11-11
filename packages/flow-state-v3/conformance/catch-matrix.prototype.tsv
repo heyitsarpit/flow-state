@@ -3,10 +3,12 @@
 1b.cancel-all-wire-held-at-once	LANE-04	caught lane-queue WriteLanes I20
 1b.forget-marks-held-lane	DISP-05	caught disposal Actors I32
 1b.r8-refused-ending-not-redelivered	DLV-04	caught delivered-once WriteLanes I15
+1b.r8-refused-ending-not-redelivered	DLV-06	caught delivered-once WriteLanes I15
 1b.r8-third-try	DLV-04	caught delivered-once WriteLanes I15
 1b.r8-third-try	DLV-05	caught delivered-once WriteLanes I15
 a2.deliv-fail-samemail	DLV-01	caught delivered-once WriteLanes I15
 a3.r14-explicit-reentry-keeps-activation	TURN-04/re-entry-makes-the-first-ending-late	caught selection Turn I5
+audit-1.cancel-all-leaves-the-head	LANE-03	red lane-queue
 audit-1.cancel-all-leaves-the-head	LANE-04	caught lane-queue WriteLanes I20
 audit-1.r14-reentry-keeps-activation	TURN-04/re-entry-makes-the-first-ending-late	caught selection Turn I5
 cli.check-runs-callbacks	CLI-01	caught case expectations StaticCli I1
@@ -50,6 +52,7 @@ k.failure-as-success	PAY-02	caught ending-channels WriteLanes I3
 lane.cancel-held-keeps	LANE-03	caught lane-queue WriteLanes I12
 lane.cancel-held-keeps	PAY-03	caught lane-queue WriteLanes I12
 lane.cancel-wire-as-never-sent	LANE-04	caught lane-queue WriteLanes I20
+lane.cancel-wire-as-never-sent	PAY-12/cancel-on-wire	caught lane-queue WriteLanes I20
 lane.fresh-mint-on-held	LANE-03	caught lane-queue WriteLanes I11
 lane.held-auto-resend	LANE-03	caught lane-queue WriteLanes I12
 lane.held-auto-resend	PAY-15/press-pay-while-held	caught lane-queue WriteLanes I12
@@ -57,12 +60,14 @@ lane.idle-never-passes	PAY-15/busy-then-new-write	caught idle-guard WriteLanes I
 lane.idle-never-passes	PAY-16/schedule-reads-after-memory	caught idle-guard WriteLanes I13
 lane.keyless-names-latest-lane	LANE-13	caught case expectations WriteLanes I14
 lane.late-result-after-release	LANE-12/release-uninterruptible	caught late-results WriteLanes I23
+lane.late-result-after-release	LANE-12/release-uninterruptible-lost	caught late-results WriteLanes I23
 lane.latest-as-serialize	LANE-06	caught lane-queue WriteLanes I8
 lane.old-version-sends	LANE-15	caught case expectations WriteLanes I17
 lane.queue-unbounded	LANE-02	caught lane-queue WriteLanes I8
 lane.reject-queues	PAY-02	caught lane-queue WriteLanes I8
 lane.releasing-delivers	LANE-12/release-ends-queue	caught delivered-once WriteLanes I15
 lane.releasing-delivers	LANE-12/release-leaves-head	caught delivered-once WriteLanes I15
+lane.releasing-delivers	LANE-12/release-uninterruptible-lost	caught delivered-once WriteLanes I15
 lane.retry-count-frozen	PAY-15/retry-budget	caught retry-count WriteLanes I7
 lane.retry-count-frozen	PAY-16/retry-count-persists	caught retry-count WriteLanes I7
 lane.retry-members-dropped	PAY-04	caught lane-queue WriteLanes I26
@@ -76,7 +81,9 @@ lane.unknown-promotes	LANE-03	caught lane-queue WriteLanes I11
 lane.unretained-unknown-held	LANE-11	caught lane-queue WriteLanes I5
 late.routed-from-leaf	PAY-07/late-in-a-new-PAYING	caught selection Turn I26
 lie.boot-drops-held	PAY-15/dispose-held	caught delivered-once WriteLanes I15
+lie.boot-drops-held	PAY-15/dispose-held-moved	caught delivered-once WriteLanes I15
 lie.boot-says-disposed	PAY-15/dispose-held	caught delivered-once WriteLanes I15
+lie.boot-says-disposed	PAY-15/dispose-held-moved	caught delivered-once WriteLanes I15
 lie.cancels-dropped-header-nowhere	LANE-09	caught lane-queue WriteLanes I12
 lie.cancels-dropped-header-nowhere	PAY-03	caught lane-queue WriteLanes I12
 lie.cancels-reported-as-nothing	PAY-03	caught lane-queue WriteLanes I12
@@ -89,6 +96,7 @@ lie.held-released-unguarded	PAY-15/press-pay-while-held	caught lane-queue WriteL
 lie.no-incarnated	DLV-04	caught delivered-once WriteLanes I15
 lie.release-member-claimed	PAY-15/retry-budget	caught lane-queue WriteLanes I12
 lie.release-on-guarded-read	PAY-15/retry-budget	caught lane-queue WriteLanes I12
+lie.release-on-guarded-read	PAY-23	caught lane-queue WriteLanes I12
 lie.release-other-lane	PAY-21	caught lane-queue WriteLanes I12
 lie.released	DLV-02	caught delivered-once WriteLanes I15
 lie.serialize-as-latest	LANE-01	caught lane-queue WriteLanes I8
@@ -96,9 +104,11 @@ lie.void-retry-releases	PAY-22	caught lane-queue WriteLanes I12
 life.schedule-fires-unused	TURN-03/unused	caught schedules Turn I23
 life.waiting-never-wakes	TURN-03/unused	caught case expectations Turn I22
 lost.decline.mail	LANE-02	caught delivered-once WriteLanes I15
+lost.decline.mail	LANE-15	caught delivered-once WriteLanes I15
 lost.decline.mail	PAY-02	caught delivered-once WriteLanes I15
 mutant.adoption-skips-parked	DISP-06	caught delivered-once WriteLanes I15
 mutant.boot-after-disposal-skips-restored	PAY-15/dispose-held	caught disposal Actors I29
+mutant.boot-after-disposal-skips-restored	PAY-15/dispose-held-moved	caught disposal Actors I29
 mutant.boot-replays-never-sent	PAY-09/ack-stored-confirmation-lost	caught lane-queue WriteLanes I1
 mutant.boot-resends-held	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	caught lane-queue WriteLanes I12
 mutant.boot-skips-restored	DLV-01	caught delivered-once Restore I6
@@ -134,8 +144,10 @@ mutant.resend-new-id	PAY-04	caught attempt-identity WriteLanes I6
 mutant.resend-new-input	PAY-04	caught attempt-identity WriteLanes I6
 mutant.restore-skips-unsent	PAY-09/ack-stored-confirmation-lost	caught delivered-once Restore I6
 mutant.restore-skips-unsent	PAY-18	caught delivered-once Restore I6
+mutant.restored-twice	DLV-07	caught delivered-once WriteLanes I15
 mutant.restored-twice	PAY-09/ack-stored-confirmation-lost	caught delivered-once WriteLanes I15
 mutant.sent-under-another-operation	PAY-01	caught attempt-identity WriteLanes I6
+mutant.short-disposal-bound	PAY-16/answered-inside-the-bound	caught disposal Actors I35
 mutant.short-disposal-bound	PAY-16/never-answered-waits-for-the-bound	caught disposal Actors I35
 mutant.still-unknown-dropped	PAY-05	caught ending-channels WriteLanes I3
 mutant.success-then-failure	PAY-01	caught delivered-once WriteLanes I16
@@ -144,6 +156,7 @@ mutant.superseded-claimed	DLV-03	caught delivered-once WriteLanes I15
 mutant.unsent-ends-unknown	DISP-03	caught ending-channels WriteLanes I3
 mutant.unsent-restored-outside-boot	PAY-10/refuse	caught ending-channels WriteLanes I3
 o6.dispose-interrupts-wire	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	caught disposal Actors I35
+o6.dispose-interrupts-wire	PAY-16/settled-during-disposal-parked	caught disposal Actors I35
 o6.no-bound	PAY-16/disposal-ends-with-the-last-fiber	caught disposal Actors I35
 o6.settled-in-bound-stays-held	PAY-16/settled-during-disposal-parked	caught disposal Actors I36
 p1h.cancel-all-idle-declines	LANE-05	caught lane-queue WriteLanes I21
@@ -151,6 +164,7 @@ part.abandoned-skips-callbacks	TURN-05/removed-copy-ends-once	caught case expect
 part.child-refusal-ignored	TURN-05/child-refusal	caught case expectations Turn I3
 part.pending-reset-dropped	TURN-05/a-part-writing-the-key-is-a-pending-reset	caught case expectations Turn I10
 pay16.decline-not-delivered	LANE-02	caught delivered-once WriteLanes I15
+pay16.decline-not-delivered	LANE-15	caught delivered-once WriteLanes I15
 pay16.decline-not-delivered	PAY-02	caught delivered-once WriteLanes I15
 pay16.schedule-reads-pre-transition-memory	PAY-16/schedule-reads-after-memory	caught case expectations Turn I12
 pub.move-copies-memory	PAY-04	caught publication Turn I30
@@ -162,6 +176,7 @@ refusal.state-kept	TURN-01/schedule-refused	caught refusal Turn I14
 refusal.unhandled-patches	TURN-02	caught refusal Turn I15
 sched.fires-at-once	TURN-03/on-time	caught schedules Turn I21
 sched.outlives-activation	TURN-03/exited	caught schedules Turn I20
+sched.outlives-activation	TURN-03/re-entered	red schedules
 turn.cancel-turns-unhandled	PAY-03	caught selection Turn I2
 turn.cancels-dropped-no-part	LANE-09	caught selection Turn I2
 turn.cancels-dropped-no-part	PAY-03	caught selection Turn I2
@@ -182,3 +197,4 @@ turn.root-first-on-restored	DLV-01	caught selection Turn I2
 turn.root-first-on-restored	PAY-05	caught selection Turn I2
 turn.root-first-on-restored	PAY-08/reload-while-reconciling	caught selection Turn I2
 w.patch-in-place	PAY-01	caught publication Turn I29
+w.patch-in-place	TURN-01/schedule-refused	caught publication Turn I29

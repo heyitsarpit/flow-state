@@ -71,6 +71,7 @@ export const partsScenarios: ReadonlyArray<Scenario> = [
           .slice(-2),
         ["Changed", "PendingReset"],
       );
+      c.eq("Turn I10: the reset ended the old copy once", a.memory().gone, ["subject:s9"]);
     },
   },
 ];

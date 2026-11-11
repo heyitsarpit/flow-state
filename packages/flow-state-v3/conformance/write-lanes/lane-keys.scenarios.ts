@@ -55,6 +55,7 @@ export const laneKeysScenarios: ReadonlyArray<Scenario> = [
         ["success success", "success success"],
       );
       c.eq("no re-send", c.requests("keyed").length, 2);
+      c.eq("WriteLanes I14: b's lane is gone", a.row("keyed", { k: "b" }), Option.none());
     },
   },
   {

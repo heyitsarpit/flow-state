@@ -96,6 +96,29 @@ export const runtimeDisposalScenarios: ReadonlyArray<Scenario> = [
       c.eq("uncertain", row(s)?.uncertain, true);
     },
   },
+  {
+    id: "PAY-15/dispose-held-moved",
+    cites: ["Actors R22", "Actors I29", "Restore I6"],
+    fixtures: [Cells],
+    run: (c) => {
+      const s = cells(c);
+      s.ensure();
+      start(s);
+      pay(s);
+      c.ack();
+      c.answer("pay", Answer.Lost());
+      pay(s);
+      s.state("PAYING");
+      c.disposeRuntime();
+      c.reload();
+      c.eq(
+        "Restore I6: the boot delivers the Held head's unknown { Restored }",
+        row(s)?.uncertain,
+        true,
+      );
+      s.state("UNSURE");
+    },
+  },
   ...variants(
     {
       id: "PAY-16",
@@ -189,6 +212,17 @@ export const runtimeDisposalScenarios: ReadonlyArray<Scenario> = [
         c.eq("not yet", c.runtimeDisposals(), 0);
         c.answerLate("pay", CAPTURABLE);
         c.eq("finished when it ended", c.runtimeDisposals(), 1);
+        c.reload();
+        s.state("PLACING");
+      },
+      "answered-inside-the-bound": (c) => {
+        const s = shopper(c);
+        onWire(c);
+        c.disposeRuntime();
+        c.advance(disposalBoundMs / 2);
+        c.answer("pay", CAPTURABLE);
+        c.reload();
+        s.state("PLACING");
       },
     },
   ),

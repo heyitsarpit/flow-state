@@ -194,7 +194,7 @@ export const productionMutants = {
       name: "prod.actor-never-saved",
       says: "an actor's record is never written, so after a reload it runs from a state it never published",
       expects: "Turn I2",
-      cases: ["DISP-01"],
+      cases: ["DISP-01", "DISP-07"],
       edits: [
         {
           file: "src/core/persist.ts",

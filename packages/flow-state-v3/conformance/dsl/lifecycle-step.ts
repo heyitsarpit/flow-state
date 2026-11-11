@@ -44,6 +44,7 @@ type Walk = {
   readonly reloaded: boolean;
   readonly used: ReadonlyArray<ActorRef>;
   readonly incarnated: ReadonlyArray<ActorRef>;
+  readonly unsent: ReadonlyArray<string>;
 };
 
 const isWrite = (known: Known, operation: string) =>
@@ -162,7 +163,13 @@ const reported = (
             }),
           ),
       }),
-    Sent: ({ attempt }) => push(walk, Move.Send({ attempt })),
+    Sent: ({ attempt }) => {
+      const at = walk.unsent.indexOf(attempt);
+
+      return at < 0
+        ? walk
+        : push({ ...walk, unsent: walk.unsent.toSpliced(at, 1) }, Move.Send({ attempt }));
+    },
     Ended: ({ operation, attempt, channel, reason, actor }) =>
       Option.match(attempt, {
         onSome: (id) => {
@@ -373,12 +380,22 @@ export const step = (
 ) => {
   const fresh = facts.flatMap((f) => (Fact.$is("Requested")(f) ? [f.request.seq] : []));
   const earlier = requests.filter((r) => !fresh.includes(r.seq));
-  const start: Walk = { model, applied: [], reloaded: false, used: [], incarnated: [] };
 
-  const walked = ended(
-    facts.reduce((walk, fact) => onFact(walk, fact, known, earlier, given), start),
-    given,
+  const unsent = facts.flatMap((f) =>
+    Fact.$is("Requested")(f) && isWrite(known, f.request.operation)
+      ? Option.toArray(f.request.key)
+      : [],
   );
+
+  const start: Walk = { model, applied: [], reloaded: false, used: [], incarnated: [], unsent };
+  const walk = facts.reduce((w, fact) => onFact(w, fact, known, earlier, given), start);
+
+  const sent = walk.unsent.reduce<Walk>((w, attempt) => pushed(w, Move.Send({ attempt }), given), {
+    ...walk,
+    unsent: [],
+  });
+
+  const walked = ended(sent, given);
 
   const result: LifeStep = { before: model, after: walked.model, applied: walked.applied };
 

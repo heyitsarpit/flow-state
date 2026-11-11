@@ -18,7 +18,7 @@ export const carriedDeliveredOnceMutants: ReadonlyArray<Mutant> = [
     says: "a declined send's ending is noted but never queued for delivery",
     expects: "WriteLanes I15",
     runtime: "prototype",
-    cases: ["PAY-02", "LANE-02"],
+    cases: ["PAY-02", "LANE-02", "LANE-15"],
     edits: [
       {
         file: "lane.ts",
@@ -32,7 +32,7 @@ export const carriedDeliveredOnceMutants: ReadonlyArray<Mutant> = [
     says: "a declined send's ending is lost before delivery (the same fault as pay16's, by its own edit)",
     expects: "WriteLanes I15",
     runtime: "prototype",
-    cases: ["PAY-02", "LANE-02"],
+    cases: ["PAY-02", "LANE-02", "LANE-15"],
     edits: [
       {
         file: "lane.ts",

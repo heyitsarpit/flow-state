@@ -64,6 +64,9 @@ export const paymentEndingsScenarios: ReadonlyArray<Scenario> = [
       c.eq("requests", sent(c, "pay"), 1);
       c.eq("notice", s.memory().notice, "");
       c.eq("decline ending", lastReason(c, "pay"), "Rejected");
+      c.answer("pay", Answer.Fail({ tag: "CardDeclined", fields: { code: "card_declined" } }));
+      s.state("CARD");
+      c.eq("WriteLanes I8: nothing waited behind the head", row(s), undefined);
     },
   },
   {
