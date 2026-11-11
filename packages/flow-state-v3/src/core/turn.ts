@@ -1,4 +1,4 @@
-import { Data, Option, Result } from "effect";
+import { Data, Option, Predicate, Result } from "effect";
 import {
   Action,
   type Alternative,
@@ -127,6 +127,23 @@ const NO_KEY = Result.succeed(Option.none<Values>());
 const call = <A>(slot: string, run: () => A): Result.Result<A, Failed> =>
   Result.try({ try: run, catch: () => ({ slot }) });
 
+/**
+ * A select or key callback's record; anything else is a defect of that callback (the types forbid
+ * it, so only untyped code reaches this).
+ */
+const recordFrom = <I>(
+  slot: { readonly slot: string; readonly run: (input: I) => Values },
+  read: I,
+) =>
+  Result.flatMap(
+    call(slot.slot, () => slot.run(read)),
+    (value) =>
+      Predicate.isReadonlyObject(value)
+        ? Result.succeed<Values>(value)
+        : // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- a defective callback refuses the turn; the loop ends here
+          Result.fail({ slot: slot.slot }),
+  );
+
 const keyOf = <I>(
   key: Option.Option<{ readonly slot: string; readonly run: (input: I) => Values }>,
   read: I,
@@ -155,15 +172,13 @@ const guardCheck = (guard: Guard, input: TurnInput, read: GuardRead): Check =>
   Guard.$match(guard, {
     InState: ({ states }) => (states.includes(input.state) ? PASSED : NOT_IN_STATE),
     Check: ({ check }) =>
-      Result.map(
-        call(check.slot, () => check.run(read)),
-        (verdict) => (verdict === true ? OPEN : Option.some(verdict.code)),
-      ),
+      call(check.slot, () => {
+        const verdict = check.run(read);
+
+        return verdict === true ? OPEN : Option.some(verdict.code);
+      }),
     Idle: ({ operation, key }) =>
-      Result.map(
-        call(key.slot, () => key.run(read)),
-        (k) => idleVerdict(input.lane(operation, Option.some(k))),
-      ),
+      Result.map(recordFrom(key, read), (k) => idleVerdict(input.lane(operation, Option.some(k)))),
     Retryable: ({ operation, key, times }) =>
       Result.map(keyOf(key, read), (k) => retryableVerdict(input.lane(operation, k), times)),
   });
@@ -188,13 +203,13 @@ const resolve = (action: Action, read: { readonly memory: Values; readonly event
   Action.$match(action, {
     Commit: ({ operation, select }) =>
       Result.map(
-        call(select.slot, () => select.run(read)),
+        recordFrom(select, read),
         // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- one resolved member per action: the turn's result
         (input) => Resolved.Commit({ operation, input }),
       ),
     Lookup: ({ operation, select }) =>
       Result.map(
-        call(select.slot, () => select.run(read)),
+        recordFrom(select, read),
         // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- one resolved member per action: the turn's result
         (input) => Resolved.Lookup({ operation, input }),
       ),
