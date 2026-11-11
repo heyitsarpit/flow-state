@@ -1,4 +1,5 @@
 import type { Actor } from "../dsl/actor.ts";
+import { Observation } from "../port.ts";
 import type { Case, Scenario } from "../dsl/case.ts";
 import { Pay } from "../fixtures/pay.ts";
 import { Answer } from "../world/network.ts";
@@ -11,13 +12,17 @@ const onWire = (c: Case, s: Actor<typeof Pay>, intentId: string) => {
   c.ack();
 };
 
+const tries = (c: Case, operation: string) =>
+  c.reports().filter((o) => Observation.$is("Delivered")(o) && o.operation === operation).length;
+
 const restored = (c: Case) => c.endings("pay").filter((e) => e.reason === "Restored").length;
 
 /**
  * Cases built for the ending ledger: two endings owed to one actor, or to two actors, at once,
  * and a failure ending while another actor of the same machine lives. The endings' counts and
  * owners follow from the Specs (an Attempt on the wire at a kill restores as `unknown Restored`,
- * once, to its own actor); the states and notice come from the Pay fixture's mapping.
+ * once, to its own actor); the states and notice come from the Pay fixture's mapping. `DLV-05`:
+ * a twice-refused place success is kept and gets one try per boot (Actors R15, I24).
  */
 export const endingDeliveryScenarios: ReadonlyArray<Scenario> = [
   {
@@ -89,6 +94,25 @@ export const endingDeliveryScenarios: ReadonlyArray<Scenario> = [
       a.state("PLACING");
       c.eq("still no receipt", a.memory().receipt, null);
       c.eq("place not sent at the boot", c.requests("place").length, 1);
+    },
+  },
+  {
+    id: "DLV-05",
+    cites: ["Actors R15", "Actors I24", "WriteLanes R10", "WriteLanes I15"],
+    fixtures: [Pay],
+    run: (c) => {
+      const { a } = shoppers(c);
+      a.ensure();
+      onWire(c, a, "pi1");
+      c.answer("pay", Answer.Ok({ value: { status: "requires_capture", clientSecret: "" } }));
+      c.ack();
+      c.answer("place", Answer.Ok({ value: null }));
+      c.eq("delivered, then once more after a refusal", tries(c, "place"), 2);
+      c.reload();
+      c.eq("one try at the boot", tries(c, "place"), 3);
+      c.reload();
+      c.eq("one try at the next boot", tries(c, "place"), 4);
+      c.eq("still no receipt", a.memory().receipt, null);
     },
   },
 ];

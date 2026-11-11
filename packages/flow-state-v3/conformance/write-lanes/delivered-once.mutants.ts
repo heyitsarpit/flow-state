@@ -20,6 +20,9 @@ const DELIVERED_NOT_RUN =
 const OTHER_ACTOR =
   'const a0 = getActor(tx.w.actors, item.actor);\n  const other = a0 && item.attempt && item.ending.ch === "failure" ? (tx.w.actors as any).flat().filter(Boolean).flatMap((b: any) => Object.values(b)).find((x: any) => x.machine === a0.machine && x.key !== a0.key) : undefined;\n  const a = other ?? a0;\n  const lane = tx.w.lanes[laneId];';
 
+const REDELIVER =
+  '    if (item.k === "ending" && !again) {\n      const { onLane: _o, ...rest } = item;\n      enqueue(tx, { ...rest, redelivered: true });\n    }';
+
 const when = (condition: string, body: string) => `${ADMIT}\n  if (a && ${condition}) { ${body} }`;
 
 /**
@@ -46,6 +49,15 @@ const when = (condition: string, body: string) => `${ADMIT}\n  if (a && ${condit
  *   as an unknown (review F2; T6 M1).
  * - `mutant.boot-skips-restored`: a boot restores a Held head without its `unknown { Restored }`
  *   (Restore I6, CQ11).
+ * - `1b.r8-third-try`: a twice-refused ending is delivered a third time in the same life
+ *   (WriteLanes I15: the second refusal is final; the fold reports the delivery to a kept ending
+ *   as Actors I24 and its refusal as I15).
+ * - `mutant.adoption-skips-parked`: an adopting incarnation drops its lane's parked endings
+ *   instead of hearing them (T6 L11: a parked ending is owed to the incarnation that opens).
+ * - `mutant.restored-twice`: a boot decides and mails a restored head's `unknown { Restored }` twice
+ *   (S2 L5).
+ * - `mutant.kept-retried-without-boot`: a kept ending's boot try, refused, is tried once more in
+ *   the same boot (Actors R15, I24: one try per boot or adoption).
  */
 export const deliveredOnceMutants: ReadonlyArray<Mutant> = [
   {
@@ -230,6 +242,63 @@ export const deliveredOnceMutants: ReadonlyArray<Mutant> = [
         file: "durable.ts",
         find: "        mail(tx, l, h, ending, true, !h.held);",
         replace: "",
+      },
+    ],
+  },
+  {
+    name: "1b.r8-third-try",
+    says: "a twice-refused ending is delivered a third time before it is kept",
+    expects: "WriteLanes I15",
+    runtime: "prototype",
+    cases: ["DLV-04", "DLV-05"],
+    edits: [
+      {
+        file: "turn.ts",
+        find: REDELIVER,
+        replace: `${REDELIVER}\n    if (item.k === "ending" && again && !item.kept) enqueue(tx, { ...item, kept: true });`,
+      },
+    ],
+  },
+  {
+    name: "mutant.kept-retried-without-boot",
+    says: "a kept ending's refused boot try is tried once more in the same boot",
+    expects: "Actors I24",
+    runtime: "prototype",
+    cases: ["DLV-04", "DLV-05"],
+    edits: [
+      {
+        file: "turn.ts",
+        find: REDELIVER,
+        replace: `${REDELIVER}\n    if (item.k === "ending" && again && item.kept) { const { kept: _k, ...r } = item; enqueue(tx, r); }`,
+      },
+    ],
+  },
+  {
+    name: "mutant.adoption-skips-parked",
+    says: "an adopting incarnation drops its lane's parked endings unheard",
+    expects: "WriteLanes I15",
+    runtime: "prototype",
+    cases: ["DISP-06"],
+    edits: [
+      {
+        file: "turn.ts",
+        find: '    for (const p of l.parked) {\n      note(tx, "unparked"',
+        replace: '    for (const p of thawing ? l.parked : []) {\n      note(tx, "unparked"',
+      },
+    ],
+  },
+  {
+    name: "mutant.restored-twice",
+    says: "a boot decides and mails a restored head's unknown Restored twice",
+    expects: "WriteLanes I15",
+    runtime: "prototype",
+    cases: ["PAY-09/ack-stored-confirmation-lost"],
+    edits: [
+      {
+        file: "durable.ts",
+        find: "        mail(tx, l, h, ending, true, !h.held);",
+        replace:
+          "        mail(tx, l, h, ending, true, !h.held);\n        noteEnding(tx, { op: l.op, attempt: h.id }, ending);\n        mail(tx, l, h, ending, true, !h.held);",
       },
     ],
   },

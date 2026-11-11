@@ -23,10 +23,10 @@ export const notYet: ReadonlyArray<NotYet> = [
   },
   {
     owner: "@task.V3.T9",
-    why: "the Actors area is not built beyond Runtime disposal",
+    why: "the Actors area is not built beyond Runtime disposal; I24 is delivered-once's",
     invariants: invariantsOf(
       "Actors",
-      upTo(36).filter((n) => ![29, 30, 31, 32, 35, 36].includes(n)),
+      upTo(36).filter((n) => ![24, 29, 30, 31, 32, 35, 36].includes(n)),
     ),
   },
   {
