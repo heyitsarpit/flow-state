@@ -550,3 +550,5 @@ note 2026-11-11T00:36:49Z
     'dropped member' guarantee gap is withdrawn, since existing Invariants cover it. Sent to the lead with M1 to M4.
 note 2026-11-11T00:46:18Z
     Convergence step 5 and the step 4 H1 fix landed at 48109efd (86/86, null 0/86, sweep 77/77; dropped cancels caught again in 8 cases). For the user with CQ6: a never-sent commit's NotSent { Disposed } is never delivered after the reload on round-14; deliver it to the next incarnation, or declare it evidence.
+note 2026-11-11T01:00:31Z
+    Review started on 1186683d..48109efd (step 5 and the H1 fix); weekly usage 23 percent.
