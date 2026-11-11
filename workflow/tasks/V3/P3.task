@@ -568,6 +568,16 @@ tasks
             example (b09b983b). Member mismatch stopped as a guarantee gap: no Invariant states a turn's declared 
             members (user's call). No case verdict changed; suite 86/86, null 0/86, coverage 0 gaps, check at zero. 
             Next: step 5. Detail: code:packages/flow-state-v3/conformance/STATUS.md (Convergence v2 build, Next run).
+        comment     2026-11-11T00:45:27Z
+            Progress (builder, 2026-11-11): reviewer of 2dec83cb..1186683d folded in (81127d25: null gate needs Fail, 
+            Timeout judging tested, the releasesOnLeave example now runs the mutated step). Step 5 landed (1f922556, 
+            31933a7b): delivered-once reads the fold; Port change 5; F2; three lead's calls from round-14 (a Reload 
+            owes each Held head's restore; Opens on a parked ending is ParkedOpen; a never-sent commit's disposal 
+            ending stays Parked, pending CQ6). Step 4 review H1 fixed (7f8c331b): a turn owes its chosen row's members; 
+            mutant.cancel-members-dropped caught again in the reviewer's 8 cases; retires the member-mismatch item. No 
+            case verdict changed (sweeps 74/74 and 77/77); suite 86/86, null 0/86, coverage 0 gaps (35), lifecycle 
+            tests 30/30, check at zero. Next: review M1, M3, M4, Lows, then steps 6 to 9. Detail: 
+            code:packages/flow-state-v3/conformance/STATUS.md (Convergence v2 build, Run 3).
     T8
         title       Turn area complete
         status      open
