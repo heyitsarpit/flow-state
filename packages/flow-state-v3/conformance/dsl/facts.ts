@@ -28,7 +28,7 @@ export const Address = Data.taggedEnum<Address>();
  *   settles, after that step's reports.
  * - `Answered`: the suite's server answered this request; `labels` are the fixture's labels of
  *   the answer (`fixtures/folds.ts`).
- * - `Reloaded`: the suite killed the page and booted a new one.
+ * - `Reloaded`: the suite killed the page and booted a new one, at this release of the app's code.
  * - `Disposed`: the suite disposed this actor.
  * - `Forgot`: the suite forgot this identity (its record removed; a live actor disposed first).
  * - `Ensured`: the suite attached a use of this actor, creating it if needed.
@@ -48,7 +48,7 @@ export type SuiteFact = Data.TaggedEnum<{
   Stepped: { step: number; what: string };
   Requested: { request: Request };
   Answered: { request: Request; answer: Answer; labels: Labels };
-  Reloaded: {};
+  Reloaded: { release: number };
   Disposed: { actor: ActorRef };
   Forgot: { actor: ActorRef };
   Ensured: { actor: ActorRef; use: Use };

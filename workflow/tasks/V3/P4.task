@@ -570,6 +570,13 @@ tasks
             question on R20 and R22; they await the orchestrator. Fixed: a record removal resets saved fields only once 
             it lands. Kill counts are not met yet: 11 of 37 against the hand cases' 37, measured before the weighted 
             moves. The end of a case now adopts a removed actor with a creating ensure. Gates unchanged.
+        comment     2026-11-11T19:18:01Z
+            K4 fixed: NO_POLICY declines come from suite facts. `Reloaded` carries the boot's release, the model 
+            records the release of each mint, and `OldVersion` is accepted only beside a lane minted at an older 
+            release (WriteLanes R11). `Unencodable` is accepted only when the fixture labels the event's input 
+            unencodable (Held's `GoBad`; WriteLanes R12). `NoPersistence` and `ModuleDisabled` have no fact (no case 
+            boots without persistence; modules come in phase 5), so they are refused WriteLanes I8. The traces that 
+            encoded 'any time' were rewritten from the facts, with a refusing twin each. Gates unchanged.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open

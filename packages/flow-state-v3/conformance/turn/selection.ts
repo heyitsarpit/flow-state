@@ -165,6 +165,7 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
     to: anchored.to,
     at: Option.map(judged.match, (m) => m.at),
     keys: { ...reportedKeys(turn), ...keysFor(folds, fields, labels) },
+    encodable: labels["encodable"] !== false,
   };
 
   return [

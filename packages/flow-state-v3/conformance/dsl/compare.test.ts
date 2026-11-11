@@ -40,6 +40,7 @@ const predicted: Predicted = {
   to: "LEFT",
   at: Option.some("on.Leave[0]"),
   keys: { void: KEY },
+  encodable: true,
 };
 
 const refusals = (facts: ReadonlyArray<Fact>, turns: ReadonlyArray<Predicted>) =>

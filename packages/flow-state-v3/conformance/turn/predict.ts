@@ -17,8 +17,10 @@ export const labelsFor = (
 ) => {
   if (driven) return creditLabels(now.driven, credit);
 
+  const none: Labels = {};
+
   return Option.match(delivered, {
-    onNone: () => ({}),
+    onNone: () => none,
     onSome: (d) => answerOf(state, d.operation, d.attempt),
   });
 };

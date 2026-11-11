@@ -138,8 +138,8 @@ const holding = (walk: Walk, fact: SuiteFact) => ({
  */
 export const onSuiteFact = (walk: Walk, fact: SuiteFact, given: Rules) =>
   SuiteFact.$match(fact, {
-    Reloaded: () => {
-      const closed = closedTurn(walk, given);
+    Reloaded: ({ release }) => {
+      const closed = closedTurn({ ...walk, model: { ...walk.model, release } }, given);
       const reloaded = pushed({ ...closed, model: rolledBack(closed.model) }, Move.Reload(), given);
 
       return {

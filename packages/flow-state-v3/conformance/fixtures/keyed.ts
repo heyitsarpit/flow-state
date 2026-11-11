@@ -1,3 +1,4 @@
+import type { Json } from "../port.ts";
 import { labelledKey, noFolds, payloadLabels } from "./folds.ts";
 import { Schema } from "effect";
 import { Empty, type Fixture, writeOf } from "./fixture.ts";
@@ -75,7 +76,11 @@ export const Held = {
   ],
   handlers: {
     ...handlers,
-    folds: { ...noFolds, driven: { Go: kOf, GoBad: kOf }, keys: { holding: byK } },
+    folds: {
+      ...noFolds,
+      driven: { Go: kOf, GoBad: (payload: Json) => ({ ...kOf(payload), encodable: false }) },
+      keys: { holding: byK },
+    },
     root: {
       Go: [to("W")],
       GoBad: [to("stay")],

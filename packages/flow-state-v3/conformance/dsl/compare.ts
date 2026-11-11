@@ -36,6 +36,7 @@ const predictedOf = (turn: Turn): Predicted => ({
   to: turn.to,
   at: Option.none(),
   keys: {},
+  encodable: true,
 });
 
 const deliveringOf = (
@@ -177,7 +178,7 @@ export const reported = (
       );
 
       return push(
-        heard,
+        { ...heard, model: { ...heard.model, unencodable: !next.encodable } },
         LaneMove.Turn({
           actor: next.actor,
           members: owedMembers(heard.model, known, next, hearing, (attempt) =>

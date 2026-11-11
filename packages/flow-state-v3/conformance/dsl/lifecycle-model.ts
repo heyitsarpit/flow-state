@@ -229,6 +229,10 @@ export type Capture = {
  * - `ended`: every Attempt that ended, or left its lane as evidence (Released, Superseded),
  *   in order, the Runtime's disposal included: a kill before an ending's batch lands restores its
  *   head (WriteAhead I17); Actors I36 holds once the ending has landed (orchestrator, b51930e5).
+ * - `release`: the release of the app's code this boot runs (`Reloaded`), and `mintedIn` the
+ *   release each Attempt was minted at: a lane minted at an older release is an old-version hold
+ *   (WriteLanes R11). `unencodable`: the open turn's commit input cannot encode, by the fixture's
+ *   label of the event that caused it (WriteLanes R12).
  * - `saved`: the {@link Capture} the store holds: the latest landed batch's, or the boot's. A kill
  *   rolls the model back to it (WriteAhead I10: the readable scope is the latest landed capture).
  *   `pending`: the capture of the latest batch the store holds unanswered, which an `ack` lands.
@@ -260,6 +264,9 @@ export type Model = {
   readonly unstoppable: ReadonlyArray<string>;
   readonly acknowledged: ReadonlyArray<string>;
   readonly ended: ReadonlyArray<string>;
+  readonly release: number;
+  readonly mintedIn: ReadonlyArray<readonly [string, number]>;
+  readonly unencodable: boolean;
   readonly saved: Capture;
   readonly pending: Option.Option<Capture>;
   readonly held: ReadonlyArray<readonly [ActorRef, Use]>;
@@ -296,6 +303,9 @@ export const empty: Model = {
   unstoppable: [],
   acknowledged: [],
   ended: [],
+  release: 1,
+  mintedIn: [],
+  unencodable: false,
   saved: { lives: [], ended: 0, least: { lives: [], ended: 0 } },
   pending: Option.none(),
   held: [],

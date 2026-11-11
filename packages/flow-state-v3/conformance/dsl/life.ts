@@ -42,7 +42,7 @@ export const runtimeLife = (options: CaseOptions, world: World, record: (fact: F
     },
     reboot: () => {
       world.kill();
-      record(Fact.Reloaded());
+      record(Fact.Reloaded({ release }));
       runtime = boot();
 
       return runtime;

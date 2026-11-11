@@ -237,7 +237,17 @@ const proceed = (model: Model, given: Rules): Model =>
 const appended = (model: Model, attempt: string, lane: LaneId, phase: Phase) => ({
   ...model,
   attempts: [...model.attempts, { id: attempt, lane, phase }],
+  mintedIn: [...model.mintedIn, [attempt, model.release] as const],
 });
+
+const oldVersionHold = (model: Model, lane: LaneId) =>
+  model.attempts.some(
+    (a) =>
+      sameActor(a.lane.actor, lane.actor) &&
+      a.lane.operation === lane.operation &&
+      addressable(a.phase) &&
+      (model.mintedIn.find(([id]) => id === a.id)?.[1] ?? model.release) < model.release,
+  );
 
 const supersede = (model: Model, attempt: Option.Option<AttemptLife>) =>
   Option.match(attempt, {
@@ -338,8 +348,6 @@ const admittedWith = (model: Model, given: Rules) =>
     given,
   );
 
-const NO_POLICY = ["Unencodable", "NoPersistence", "OldVersion", "ModuleDisabled"];
-
 const declineAllowed = (model: Model, lane: LaneId, admit: Admit, reason: string) => {
   if (reason === "Rejected") return admit === "Decline";
 
@@ -348,7 +356,9 @@ const declineAllowed = (model: Model, lane: LaneId, admit: Admit, reason: string
 
   if (reason === "Disposed") return model.mode === "disposing";
 
-  return NO_POLICY.includes(reason);
+  if (reason === "OldVersion") return oldVersionHold(model, lane);
+
+  return reason === "Unencodable" && model.unencodable;
 };
 
 const decline = (model: Model, operation: string, actor: ActorRef, reason: string) => ({

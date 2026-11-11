@@ -25,7 +25,8 @@ export const operationOf = (known: Known, actor: ActorRef, operation: string) =>
 /**
  * One turn as the suite predicts it (Conformance R20): its actor and event, the leaf it runs from
  * and the leaf it ends at, the alternative that ran when the table names it, and each operation's
- * key from the fixture's folds (`fixtures/folds.ts`).
+ * key from the fixture's folds (`fixtures/folds.ts`), and whether its commit input can encode (the
+ * fixture's `encodable` label of the event that caused it, WriteLanes R12).
  *
  * **Gotchas**
  *
@@ -39,6 +40,7 @@ export type Predicted = {
   readonly to: string;
   readonly at: Option.Option<string>;
   readonly keys: Readonly<Record<string, Json>>;
+  readonly encodable: boolean;
 };
 
 const heardLane = (model: Model, hearing: EndingName) =>

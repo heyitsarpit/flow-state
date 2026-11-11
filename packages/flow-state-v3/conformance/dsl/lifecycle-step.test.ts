@@ -129,6 +129,7 @@ const predictedFrom = (under: Known, facts: ReadonlyArray<Fact>): ReadonlyArray<
         from: t.from,
         to: t.to,
         at: at ?? Option.none(),
+        encodable: true,
         keys: Object.fromEntries(
           t.members.flatMap((m) => {
             const named = t.members.flatMap((o) =>
