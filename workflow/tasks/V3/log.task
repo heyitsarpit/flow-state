@@ -653,3 +653,5 @@ note 2026-11-11T06:28:07Z
     to @plan.Pending D4. T8 stays in_progress until that review; the builder takes the rest of T7.
 note 2026-11-11T07:06:56Z
     T7 rows round at 22af6e2e (101/101, null 0/101, falsify 132/132; old-suite comparison 24 of 25 lies killed by an oracle, one accepted as Port-invisible). Ten T7 rows remain; the fixtures and the I17 Port change they need are approved as suite design calls; PF becomes the owed-retry mutant.
+note 2026-11-11T07:07:35Z
+    Review started on 62bb4002..22af6e2e (T8 round 2, typed adapters, T7 rows); weekly usage 38 percent, about 2 points an hour.
