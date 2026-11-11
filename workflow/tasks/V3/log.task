@@ -647,4 +647,9 @@ note 2026-11-11T05:51:00Z
     WriteLanes and disposal ready for T16; Turn selection not (two Highs: the reported to picks the alternative with no 
     root part; a restored ending's leaf is dropped). Sent to the T8 builder with 7 Mediums.
 note 2026-11-11T06:28:07Z
-    T8 built (1e11786c: 98/98, null 0/98, falsify 126/126) with typed adapter failures. Decisions (orchestrator): Turn rows round-14 cannot show move to T18 and T21 as owed suite cases, to be checked by the next review (the T13 rows were wrongly moved once); WriteLanes R10 governs the retry of a refused ending, round-14 differs, Plan O3 wording to @plan.Pending D4. T8 stays in_progress until that review; the builder takes the rest of T7.
+    T8 built (1e11786c: 98/98, null 0/98, falsify 126/126) with typed adapter failures. Decisions (orchestrator): Turn 
+    rows round-14 cannot show move to T18 and T21 as owed suite cases, to be checked by the next review (the T13 rows 
+    were wrongly moved once); WriteLanes R10 governs the retry of a refused ending, round-14 differs, Plan O3 wording 
+    to @plan.Pending D4. T8 stays in_progress until that review; the builder takes the rest of T7.
+note 2026-11-11T07:06:56Z
+    T7 rows round at 22af6e2e (101/101, null 0/101, falsify 132/132; old-suite comparison 24 of 25 lies killed by an oracle, one accepted as Port-invisible). Ten T7 rows remain; the fixtures and the I17 Port change they need are approved as suite design calls; PF becomes the owed-retry mutant.
