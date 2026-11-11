@@ -1,7 +1,15 @@
 import { Option } from "effect";
 import type { Values } from "./compiled.ts";
-import { actorRecordKey, encodeActor, encodeLane, laneRecordKey } from "./record.ts";
-import { SILENT_MS, type Tx, without, withEntry } from "./tx.ts";
+import {
+  actorRecordKey,
+  encodeActor,
+  encodeLane,
+  encodeParked,
+  laneRecordKey,
+  parkedRecordKey,
+} from "./record.ts";
+import { Evidence } from "./evidence.ts";
+import { SILENT_MS, type Tx, who, without, withEntry } from "./tx.ts";
 import {
   type ActorId,
   actorKey,
@@ -10,6 +18,8 @@ import {
   type Incarnation,
   type Lane,
   Timer,
+  type Parked,
+  type Ending,
 } from "./world.ts";
 
 /**
@@ -106,7 +116,64 @@ export const makePersistence = (tx: Tx) => {
     persist(lane.actor, [laneWrite(lane, true)], Option.none());
   };
 
-  return { persist, actorWrite, laneWrite, recordOf, saveActor, setLane, dropLane };
+  /**
+   * Keeps a twice-refused ending on its lane (Actors R15, WriteLanes R6): it blocks its key and
+   * gets one try at the next boot or adoption.
+   */
+  const keep = (actor: ActorId, ending: Ending) =>
+    Option.match(ending.lane, {
+      onNone: () => undefined,
+      onSome: (lane) => {
+        const kept: Parked = {
+          lane,
+          actor,
+          operation: ending.operation,
+          endings: [{ ...ending, redelivered: true }],
+          kept: true,
+        };
+
+        tx.set({ ...tx.world(), parked: withEntry(tx.world().parked, lane, kept) });
+        persist(
+          actor,
+          [{ key: parkedRecordKey(lane), record: Option.some(encodeParked(kept)) }],
+          Option.none(),
+        );
+      },
+    });
+
+  /**
+   * Parks an ending on its lane for the identity's next incarnation (Actors R10, R22).
+   */
+  const park = (actor: ActorId, lane: string, operation: string, ending: Ending) => {
+    const before = tx.world().parked.get(lane);
+
+    const parked: Parked = {
+      lane,
+      actor,
+      operation,
+      endings: [...(before?.endings ?? []), ending],
+      kept: false,
+    };
+
+    tx.set({ ...tx.world(), parked: withEntry(tx.world().parked, lane, parked) });
+    tx.emit(
+      Evidence.Ended({
+        operation,
+        attempt: ending.attempt,
+        channel: ending.channel,
+        reason: ending.reason,
+        actor: who(actor),
+      }),
+    );
+    tx.emit(Evidence.Parked({ operation, attempt: ending.attempt }));
+    persist(
+      actor,
+      [{ key: parkedRecordKey(lane), record: Option.some(encodeParked(parked)) }],
+      Option.none(),
+    );
+  };
+
+  return { persist, actorWrite, laneWrite, recordOf, saveActor, setLane, dropLane, keep, park };
 };
 
 /**

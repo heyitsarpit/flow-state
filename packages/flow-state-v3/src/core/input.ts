@@ -34,6 +34,8 @@ export type Input = Data.TaggedEnum<{
   Fired: { timer: string };
   Stored: { ticket: string; ok: boolean };
   DisposeRuntime: {};
+  DisposeActor: { actor: ActorId };
+  Forget: { actor: ActorId };
 }>;
 
 /**

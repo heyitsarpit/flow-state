@@ -103,7 +103,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence) => {
 
     const id = `${actorKey(incarnation.actor)}|${operation.name}|${text.value}`;
 
-    if (tx.world().lanes.has(id)) {
+    if (tx.world().lanes.has(id) || tx.world().parked.get(id)?.kept === true) {
       decline(incarnation.actor, operation.name, "Rejected", owner, Option.some(id));
 
       return member;
@@ -276,6 +276,15 @@ export const makeLanes = (tx: Tx, persistence: Persistence) => {
     });
 
   const lookup = (incarnation: Incarnation, operation: Operation, input: Values, owner: number) => {
+    for (const [call, read] of tx.world().reads)
+      if (read.incarnation === incarnation.id && read.operation === operation.name) {
+        tx.set({ ...tx.world(), reads: without(tx.world().reads, call) });
+        tx.command(Command.Interrupt({ call }));
+        tx.emit(
+          Evidence.Lane({ kind: "Superseded", operation: operation.name, attempt: Option.none() }),
+        );
+      }
+
     const call = tx.mint("call");
     tx.set({
       ...tx.world(),

@@ -49,6 +49,7 @@ const ParkedJson = Schema.Struct({
   name: Schema.String,
   operation: Schema.String,
   lane: Schema.String,
+  kept: Schema.Boolean,
   endings: Schema.Array(
     Schema.Struct({
       attempt: Schema.NullOr(Schema.String),
@@ -74,6 +75,7 @@ export const encodeParked = (parked: Parked): Values => ({
   name: parked.actor.name,
   operation: parked.operation,
   lane: parked.lane,
+  kept: parked.kept,
   endings: parked.endings.map((e) => ({
     attempt: Option.getOrNull(e.attempt),
     channel: e.channel,
@@ -203,6 +205,7 @@ export const decodeRecords = (
             lane: r.lane,
             actor: { machine: r.machine, name: r.name },
             operation: r.operation,
+            kept: r.kept,
             endings: r.endings.map((e) => ({
               operation: r.operation,
               attempt: Option.fromNullOr(e.attempt),

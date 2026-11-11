@@ -1,4 +1,4 @@
-import { Context, Effect, Schema } from "effect";
+import { Context, Effect, Fiber, Schema } from "effect";
 import { Outcome, resource, transaction } from "../../src/index.ts";
 /**
  * Checkout's Pay contracts and the shop API they call (the real app's `pay.contracts.ts`).
@@ -62,6 +62,13 @@ export const capturableStatus = (status: string) =>
  */
 const PAY_DEADLINE = "60 seconds";
 
+/**
+ * A request that stays on the wire when its caller stops waiting: the deadline below ends the
+ * wait, not the request, so a request the network will not interrupt still times out.
+ */
+const onTheWire = <A, E>(request: Effect.Effect<A, E>) =>
+  Effect.flatMap(Effect.forkDetach(request), Fiber.join);
+
 const confirmed = (status: string, clientSecret: string, afterUnsure: boolean) => ({
   status,
   clientSecret,
@@ -82,7 +89,7 @@ export const pay = transaction({
   services: [ShopApi],
   commit: (input, { attempt }) =>
     Effect.flatMap(Effect.service(ShopApi), (api) =>
-      api.confirm(input, { idempotencyKey: attempt.id }),
+      onTheWire(api.confirm(input, { idempotencyKey: attempt.id })),
     ).pipe(
       Effect.map((v) => confirmed(v.status, v.clientSecret ?? "", attempt.mayHaveApplied)),
       Effect.catchTag("IntentBusy", (e) =>

@@ -7,7 +7,7 @@ import { makeIncarnations } from "./incarnations.ts";
 import { makeLanes } from "./lanes.ts";
 import { makePersistence } from "./persist.ts";
 import { makeServe } from "./serve.ts";
-import { type Env, isInFlight, type Machines, makeTx, without } from "./tx.ts";
+import { type Env, type Machines, makeTx, without } from "./tx.ts";
 import { actorKey, Disposal, Mail, Timer, type World } from "./world.ts";
 
 export { CallResult, Input } from "./input.ts";
@@ -32,7 +32,7 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
   const incarnations = makeIncarnations(tx, persistence);
   const serve = makeServe(tx, persistence, lanes, incarnations);
   const disposal = makeDisposal(tx, persistence, answers);
-  const { incarnationOf, used, lanesOf, enqueue } = tx;
+  const { incarnationOf, used, enqueue } = tx;
   const { end } = incarnations;
   const { awaits } = answers;
   const { boundPassed } = disposal;
@@ -45,8 +45,7 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
 
     Timer.$match(timer, {
       Schedule: ({ actor, incarnation, schedule, arming }) => {
-        if (used(actor) || lanesOf(actor).some(isInFlight))
-          enqueue(Mail.Firing({ actor, incarnation, schedule, arming }));
+        if (used(actor)) enqueue(Mail.Firing({ actor, incarnation, schedule, arming }));
       },
       Grace: ({ actor, incarnation }) => {
         if (incarnationOf(actor)?.id === incarnation) end(actor);
@@ -92,6 +91,8 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
     Fired: ({ timer }) => (open || disposing ? fired(timer) : undefined),
     Stored: ({ ticket, ok }) => (open ? answers.stored(ticket, ok) : undefined),
     DisposeRuntime: () => (open ? disposal.disposeRuntime() : undefined),
+    DisposeActor: ({ actor }) => (open ? incarnations.dispose(actor, false) : undefined),
+    Forget: ({ actor }) => (open ? incarnations.dispose(actor, true) : undefined),
   });
 
   if (Disposal.$is("Open")(tx.world().disposal)) {

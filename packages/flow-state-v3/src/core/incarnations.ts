@@ -1,6 +1,6 @@
 import { Option } from "effect";
 import { Evidence } from "./evidence.ts";
-import { decodeRecords, parkedRecordKey } from "./record.ts";
+import { actorRecordKey, decodeRecords, parkedRecordKey } from "./record.ts";
 import { GRACE_MS, isInFlight, ROOT_ACTIVATION, type Tx, who, without, withEntry } from "./tx.ts";
 import {
   type ActorId,
@@ -20,7 +20,7 @@ import type { Persistence } from "./persist.ts";
  */
 export const makeIncarnations = (tx: Tx, persistence: Persistence) => {
   const { armTimer, disarmWhere, incarnationOf, used, lanesOf, enqueue, endingMail } = tx;
-  const { persist, saveActor } = persistence;
+  const { persist, saveActor, park } = persistence;
 
   // ── incarnations.
   const armSchedules = (
@@ -83,8 +83,14 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence) => {
 
     for (const p of parked) {
       for (const ending of p.endings) {
-        tx.emit(Evidence.Unparked({ operation: p.operation, attempt: ending.attempt }));
-        endingMail(actor, { ...ending, current: true, owner: ROOT_ACTIVATION });
+        if (!p.kept)
+          tx.emit(Evidence.Unparked({ operation: p.operation, attempt: ending.attempt }));
+        endingMail(actor, {
+          ...ending,
+          current: true,
+          owner: ROOT_ACTIVATION,
+          redelivered: p.kept,
+        });
       }
 
       tx.set({ ...tx.world(), parked: without(tx.world().parked, p.lane) });
@@ -223,6 +229,54 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence) => {
     tx.emit(Evidence.Finished({ actor: who(actor) }));
   };
 
+  /**
+   * Disposes an identity (Actors R20) or forgets it (R21): its incarnation ends without a
+   * record, its record is removed, and its lanes stay, unbound until an adopting ensure. Forget
+   * also lets go of its parked and kept endings, as evidence.
+   */
+  const dispose = (actor: ActorId, forgetting: boolean) => {
+    const incarnation = incarnationOf(actor);
+    const key = actorKey(actor);
+
+    if (incarnation !== undefined) {
+      stopSchedules(incarnation);
+      disarmWhere((t) => Timer.$is("Grace")(t) && t.incarnation === incarnation.id);
+      tx.set({
+        ...tx.world(),
+        incarnations: without(tx.world().incarnations, key),
+        reads: new Map([...tx.world().reads].filter(([, r]) => r.incarnation !== incarnation.id)),
+      });
+      tx.emit(Evidence.Finished({ actor: who(actor) }));
+    }
+
+    tx.set({
+      ...tx.world(),
+      records: without(tx.world().records, key),
+      uses: without(tx.world().uses, key),
+    });
+    persist(actor, [{ key: actorRecordKey(key), record: Option.none() }], Option.none());
+
+    if (!forgetting) return;
+
+    for (const parked of tx.world().parked.values())
+      if (actorKey(parked.actor) === key) {
+        for (const e of parked.endings)
+          tx.emit(
+            Evidence.Recorded({
+              operation: parked.operation,
+              attempt: e.attempt,
+              why: parked.kept ? "letGo" : "evidence",
+            }),
+          );
+        tx.set({ ...tx.world(), parked: without(tx.world().parked, parked.lane) });
+        persist(
+          actor,
+          [{ key: parkedRecordKey(parked.lane), record: Option.none() }],
+          Option.none(),
+        );
+      }
+  };
+
   // ── after every step: free incarnations start their grace; used ones stop it (Actors R7, R8).
   const graces = () => {
     for (const incarnation of tx.world().incarnations.values()) {
@@ -253,21 +307,45 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence) => {
     tx.set({
       ...tx.world(),
       records: new Map(restored.records.map((r) => [actorKey(r.actor), r])),
-      lanes: new Map(restored.lanes.map(({ lane }) => [lane.id, lane])),
+      lanes: new Map(
+        restored.lanes.map(({ lane }) => [
+          lane.id,
+          { ...lane, head: { ...lane.head, mayHaveApplied: true } },
+        ]),
+      ),
       parked: new Map(restored.parked.map((p) => [p.lane, p])),
     });
 
-    const owed = new Map([
-      ...restored.lanes
-        .filter((l) => l.inFlight)
-        .map(({ lane }) => [actorKey(lane.actor), lane.actor] as const),
-      ...restored.parked.map((p) => [actorKey(p.actor), p.actor] as const),
-    ]);
+    // Each held head's unknown Restored is decided at the boot and parked for its identity, unless
+    // its own ending is already parked (Restore R3); an identity owed an ending is live at ready (R1).
+    const parkedAttempts = new Set(
+      restored.parked.flatMap((p) => p.endings.flatMap((e) => Option.toArray(e.attempt))),
+    );
+
+    for (const { lane } of restored.lanes)
+      if (!parkedAttempts.has(lane.head.id))
+        park(lane.actor, lane.id, lane.operation, {
+          operation: lane.operation,
+          attempt: Option.some(lane.head.id),
+          lane: Option.some(lane.id),
+          channel: "unknown",
+          reason: "Restored",
+          value: undefined,
+          owner: ROOT_ACTIVATION,
+          current: true,
+          redelivered: false,
+          parked: true,
+        });
+
+    const owed = new Map(
+      [...tx.world().parked.values()].map((p) => [actorKey(p.actor), p.actor] as const),
+    );
 
     for (const actor of owed.values()) ensure(actor, Option.none(), false);
   };
 
   return {
+    dispose,
     armSchedules,
     stopSchedules,
     setIncarnation,

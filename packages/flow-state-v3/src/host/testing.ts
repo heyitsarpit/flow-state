@@ -23,6 +23,8 @@ export const testing = {
   attach: (runtime: Runtime, actor: ActorId, use: Use, existing: boolean) =>
     attachUse(runtime, actor, use, existing),
   detach: (runtime: Runtime, actor: ActorId, use: Use) => detachUse(runtime, actor, use),
+  forget: (runtime: Runtime, actor: ActorId) =>
+    internalsOf(runtime).driver.input(Input.Forget({ actor })),
   disposeRuntime: (runtime: Runtime) => internalsOf(runtime).driver.input(Input.DisposeRuntime()),
   pending: (runtime: Runtime) => internalsOf(runtime).driver.pending(),
   send: (runtime: Runtime, actor: ActorId, tag: string, payload: Values) =>

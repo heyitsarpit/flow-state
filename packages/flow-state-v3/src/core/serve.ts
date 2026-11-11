@@ -18,7 +18,7 @@ export const makeServe = (
   incarnations: IncarnationSteps,
 ) => {
   const { incarnationOf, endingMail } = tx;
-  const { saveActor } = persistence;
+  const { saveActor, keep, park } = persistence;
   const { commit, retry, cancel, lookup, flushLanes, admitToLane, viewOf } = lanes;
   const { armSchedules, stopSchedules, setIncarnation, publish } = incarnations;
 
@@ -91,7 +91,8 @@ export const makeServe = (
         Option.match(route.ending, {
           onNone: () => undefined,
           onSome: (e) => {
-            if (!e.redelivered) endingMail(incarnation.actor, { ...e, redelivered: true });
+            if (e.redelivered) keep(incarnation.actor, e);
+            else endingMail(incarnation.actor, { ...e, redelivered: true });
           },
         });
       },
@@ -213,7 +214,8 @@ export const makeServe = (
         }),
       );
 
-      if (!ending.redelivered) endingMail(incarnation.actor, { ...ending, redelivered: true });
+      if (ending.redelivered) keep(incarnation.actor, ending);
+      else endingMail(incarnation.actor, { ...ending, redelivered: true });
 
       return;
     }
@@ -259,9 +261,18 @@ export const makeServe = (
       Ending: ({ actor, ending }) => {
         const incarnation = incarnationOf(actor);
 
-        if (incarnation === undefined) return;
+        if (incarnation !== undefined) {
+          serveEnding(incarnation, ending);
 
-        serveEnding(incarnation, ending);
+          return;
+        }
+
+        // No incarnation to hear it: the ending waits on its lane for the next one (Actors R10).
+        const decided = ending.redelivered || ending.parked ? ending : admitToLane(ending);
+        Option.match(decided.lane, {
+          onNone: () => undefined,
+          onSome: (lane) => park(actor, lane, decided.operation, { ...decided, parked: true }),
+        });
       },
     });
 

@@ -195,6 +195,7 @@ export type Parked = {
   readonly actor: ActorId;
   readonly operation: string;
   readonly endings: ReadonlyArray<Ending>;
+  readonly kept: boolean;
 };
 
 /**

@@ -1,19 +1,8 @@
 import { Option } from "effect";
 import { type Channel, Evidence } from "./evidence.ts";
 import type { CallResult } from "./input.ts";
-import { encodeParked, parkedRecordKey } from "./record.ts";
-import { DECLINES, DISPOSAL_BOUND_MS, ROOT_ACTIVATION, type Tx, who, withEntry } from "./tx.ts";
-import {
-  type ActorId,
-  Command,
-  Disposal,
-  type Ending,
-  type Lane,
-  Mail,
-  type Parked,
-  Phase,
-  Timer,
-} from "./world.ts";
+import { DECLINES, DISPOSAL_BOUND_MS, ROOT_ACTIVATION, type Tx } from "./tx.ts";
+import { Command, Disposal, type Ending, type Lane, Mail, Phase, Timer } from "./world.ts";
 import type { Persistence } from "./persist.ts";
 import type { AnswerSteps } from "./answers.ts";
 
@@ -22,38 +11,10 @@ import type { AnswerSteps } from "./answers.ts";
  */
 export const makeDisposal = (tx: Tx, persistence: Persistence, answers: AnswerSteps) => {
   const { armTimer, disarmWhere } = tx;
-  const { persist, laneWrite, saveActor, setLane, dropLane } = persistence;
+  const { persist, laneWrite, saveActor, setLane, dropLane, park } = persistence;
   const { classify } = answers;
 
   // ── Runtime disposal (Actors R22, R23): admission closes, nothing new is invoked, no lane drops.
-  const park = (actor: ActorId, lane: string, operation: string, ending: Ending) => {
-    const before = tx.world().parked.get(lane);
-
-    const parked: Parked = {
-      lane,
-      actor,
-      operation,
-      endings: [...(before?.endings ?? []), ending],
-    };
-
-    tx.set({ ...tx.world(), parked: withEntry(tx.world().parked, lane, parked) });
-    tx.emit(
-      Evidence.Ended({
-        operation,
-        attempt: ending.attempt,
-        channel: ending.channel,
-        reason: ending.reason,
-        actor: who(actor),
-      }),
-    );
-    tx.emit(Evidence.Parked({ operation, attempt: ending.attempt }));
-    persist(
-      actor,
-      [{ key: parkedRecordKey(lane), record: Option.some(encodeParked(parked)) }],
-      Option.none(),
-    );
-  };
-
   // FLOW_STATE_ALLOW_UNKNOWN: a parked ending's value is the call's own.
   const parkOnLane = (lane: Lane, channel: Channel, reason: string, value: unknown) => {
     const ending: Ending = {

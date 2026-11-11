@@ -2,7 +2,7 @@ import { Data, Effect, Layer, Option, Result, Schema } from "effect";
 import { Evidence as EvidenceRecord, type Evidence } from "../../src/core/evidence.ts";
 import type { Machine } from "../../src/definition.ts";
 import { testing } from "../../src/host/testing.ts";
-import { app } from "../../src/index.ts";
+import { actorRef, app } from "../../src/index.ts";
 import { attachInspector } from "../../src/inspect.ts";
 import { PayMachine, ShopApi } from "../machines/pay.ts";
 import {
@@ -17,6 +17,13 @@ import {
 } from "../port.ts";
 import type { Network } from "../world/network.ts";
 import { Write } from "../world/storage.ts";
+
+/**
+ * A case booted a fixture name the production adapter has no machine for: not built yet.
+ */
+export class UnbuiltInProduction extends Data.TaggedError("UnbuiltInProduction")<{
+  readonly what: string;
+}> {}
 
 /**
  * A case booted a fixture name the production adapter has no machine for: not built yet.
@@ -289,13 +296,22 @@ export const productionPort: Port = {
       ensure: (actor, _input, use) => testing.attach(runtime, actorOf(actor), use, false),
       ensureExisting: (actor, use) => testing.attach(runtime, actorOf(actor), use, true),
       release: (actor, use) => testing.detach(runtime, actorOf(actor), use),
-      send: (actor, event, payload) =>
-        Result.match(decodeJson(payload), {
-          onFailure: () => undefined,
-          onSuccess: (json) => testing.send(runtime, actorOf(actor), event, recordOf(json)),
+      send: (actor, event, payload, part) => {
+        if (part.length > 0)
+          throw new UnbuiltInProduction({ what: `a send to the part ${part.join(".")}` });
+
+        if (isRecord(payload)) testing.send(runtime, actorOf(actor), event, payload);
+        else
+          boot.unreadable(
+            new Unreadable({ report: `send ${event}`, issue: "the payload is not a JSON object" }),
+          );
+      },
+      dispose: (actor) =>
+        Option.match(machineOf(actor), {
+          onNone: () => undefined,
+          onSome: (m) => runtime.disposeActor(actorRef(m, actor.id)),
         }),
-      dispose: () => undefined,
-      forget: () => undefined,
+      forget: (actor) => testing.forget(runtime, actorOf(actor)),
       disposeRuntime: () => testing.disposeRuntime(runtime),
       snapshot: (actor) =>
         Option.match(testing.snapshot(runtime, actorOf(actor)), {

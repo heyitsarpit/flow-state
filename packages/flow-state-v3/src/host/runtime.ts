@@ -95,6 +95,7 @@ type Internals = {
 export type Runtime = {
   readonly ready: () => Effect.Effect<void, FlowError>;
   readonly ensureActor: <D extends AnyDefinition>(ref: ActorRef<D>) => Actor<D>;
+  readonly disposeActor: <D extends AnyDefinition>(actor: Actor<D> | ActorRef<D>) => void;
   readonly dispose: () => Effect.Effect<void>;
   readonly [Internal]: Internals;
 };
@@ -235,6 +236,12 @@ export const constructOn = (
         },
         getSnapshot: () => snapshotOf(driver, actor),
       };
+    },
+    disposeActor: (actor) => {
+      const ref = "ref" in actor ? actor.ref : actor;
+      driver.input(
+        Input.DisposeActor({ actor: { machine: ref.machine.compiled.id, name: ref.name } }),
+      );
     },
     dispose: () =>
       Effect.suspend(() => {
