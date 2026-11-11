@@ -382,7 +382,7 @@ const examples: ReadonlyArray<Example> = [
     },
   },
   {
-    name: "every perturbation of a reference row's report leaves what the turn owes",
+    name: "every perturbation of a reference row's report, header and actor facts leaves what the turn owes",
     run: ({ run }) => {
       const { failures, limits, caught } = perturbationsOf(run);
 
@@ -392,6 +392,9 @@ const examples: ReadonlyArray<Example> = [
         "dropped",
         "duplicated",
         "extra",
+        "header-from",
+        "header-to",
+        "parked-while-held",
         "release",
         "reordered",
         "retargeted",

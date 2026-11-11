@@ -427,6 +427,26 @@ export type Anchor = State;
 export const anchorOf = (machines: Machines): Anchor => ({ machines, actors: new Map() });
 
 /**
+ * An {@link Anchor} with one actor live at `leaf` and holding a driven credit for each of
+ * `driven`, as the suite would carry it.
+ *
+ * **When to use**
+ *
+ * The lifecycle's perturbation test starts a reference turn from it, so a perturbed header is
+ * judged against the leaf the suite owns.
+ */
+// RETURN_TYPE: the Anchor contract; the phase union is narrowed to Live without it.
+export const anchorAt = (
+  machines: Machines,
+  actor: ActorRef,
+  leaf: string,
+  driven: ReadonlyArray<string>,
+): Anchor => ({
+  machines,
+  actors: new Map([[keyOf(actor), { phase: Phase.Live({ state: leaf }), driven }]]),
+});
+
+/**
  * One step judged by Turn I2: the next anchor, every violation, and the step's facts with each
  * `Turn` header as judged (`from` the leaf the suite carried, `to` the selected alternative's leaf,
  * the reported values only where the table could not tell).

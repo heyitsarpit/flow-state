@@ -1,10 +1,11 @@
 import { isDeepStrictEqual } from "node:util";
 import { Option } from "effect";
-import { type Fixture, referenceFor, rowsFor } from "../fixtures/fixture.ts";
+import { type Fixture, handlersFor, referenceFor, rowsFor } from "../fixtures/fixture.ts";
 import { Cancel, Latest, Serialize } from "../fixtures/one-lane.ts";
 import { Cells, Pay } from "../fixtures/pay.ts";
 import { type Row, type RowMember, unknownEvent } from "../fixtures/reference.ts";
-import { type ActorRef, type Member, MemberTarget, Observation } from "../port.ts";
+import { type ActorRef, type Member, MemberTarget, Observation, type Turn } from "../port.ts";
+import { anchorAt, judgedStep } from "../turn/selection.ts";
 import { RequestPhase } from "../world/network.ts";
 import { empty, type Model } from "./lifecycle-model.ts";
 import type { Known } from "./lifecycle-owed.ts";
@@ -43,14 +44,14 @@ const keyedOf = (fixture: Fixture, operation: string) =>
 
 const headOf = (operation: string) => `${operation}-1`;
 
-const leafOf = (row: Row) => {
-  const from = row.from === "any" ? "S0" : row.from;
+const leafOf = (fixture: Fixture, row: Row) => {
+  const from = row.from === "any" ? fixture.handlers.initial : row.from;
 
   return { from, to: row.to === "same" ? from : row.to };
 };
 
-const turnOf = (actor: ActorRef, row: Row, members: ReadonlyArray<Member>) =>
-  said(Observation.Turn({ actor, event: row.event, ...leafOf(row), parts: [], members }));
+const turnOf = (fixture: Fixture, actor: ActorRef, row: Row, members: ReadonlyArray<Member>) =>
+  Observation.Turn({ actor, event: row.event, ...leafOf(fixture, row), parts: [], members });
 
 const correctTarget = (fixture: Fixture, operation: string) =>
   keyedOf(fixture, operation) ? MemberTarget.Key({ key: KEY }) : MemberTarget.Only();
@@ -123,9 +124,11 @@ const heldHead = (fixture: Fixture, actor: ActorRef, row: Row, operation: string
   if (commit === undefined || Option.isNone(event)) return [];
 
   const head = [
-    turnOf(actor, commit, [
-      { operation, kind: "commit", target: correctTarget(fixture, operation) },
-    ]),
+    said(
+      turnOf(fixture, actor, commit, [
+        { operation, kind: "commit", target: correctTarget(fixture, operation) },
+      ]),
+    ),
     minted(fixture, actor, operation, headOf(operation)),
     said(Observation.Sent({ operation, attempt: headOf(operation) })),
   ];
@@ -176,11 +179,105 @@ const referenceTurn = (fixture: Fixture, row: Row) => {
       kind: m.kind,
       target: correctTarget(fixture, m.operation),
     })),
-    facts: (members: ReadonlyArray<Member>, acted: boolean) => [
+    facts: (members: ReadonlyArray<Member>, acted: boolean, header: Header = same) => [
       ...hearing,
-      turnOf(actor, row, members),
+      said(header(turnOf(fixture, actor, row, members))),
       ...effects.filter(() => acted),
     ],
+    hearing,
+    actor,
+  };
+};
+
+type Header = (turn: Turn) => Turn;
+
+const same: Header = (turn) => turn;
+
+const HEADERS: ReadonlyArray<{ readonly kind: string; readonly header: Header }> = [
+  { kind: "header-to", header: (t) => Observation.Turn({ ...t, to: "Nowhere" }) },
+  { kind: "header-from", header: (t) => Observation.Turn({ ...t, from: "Nowhere" }) },
+];
+
+/**
+ * The row's reference turn with its header perturbed: each lie must leave what the turn owes, or
+ * be a Turn I2 violation (the lifecycle reads the header as `selection` judges it).
+ */
+const judgeHeaders = (
+  run: Step,
+  known: Known,
+  fixture: Fixture,
+  row: Row,
+  before: Model,
+  label: string,
+) => {
+  const reference = referenceTurn(fixture, row);
+  const machines = handlersFor(FIXTURES.filter((f) => f === fixture));
+  const anchor = anchorAt(machines, reference.actor, leafOf(fixture, row).from, [row.event]);
+
+  const judgedRun = (header: Header) => {
+    const judged = judgedStep(anchor, reference.facts(reference.report, false, header));
+
+    return {
+      stepped: run(before, known, judged.facts, reference.requests),
+      violations: judged.violations,
+    };
+  };
+
+  const correct = judgedRun(same);
+
+  const results = HEADERS.map(({ kind, header }) => {
+    const lied = judgedRun(header);
+
+    const kept =
+      isDeepStrictEqual(lied.stepped.after, correct.stepped.after) &&
+      isDeepStrictEqual(refusalsOf(lied.stepped), refusalsOf(correct.stepped));
+
+    return {
+      failures: [`${label} ${kind}: the obligation moved and Turn I2 said nothing`].filter(
+        () => !kept && lied.violations.length === 0,
+      ),
+      caught: [kind].filter(() => kept || lied.violations.length > 0),
+    };
+  });
+
+  return {
+    failures: [
+      ...correct.violations.map((v) => `${label}: the correct header is ${v.invariant}: ${v.text}`),
+      ...results.flatMap((r) => r.failures),
+    ],
+    caught: results.flatMap((r) => r.caught),
+  };
+};
+
+/**
+ * The row's heard ending reported `Parked` instead of delivered while the suite holds a use of
+ * its actor: a live actor's ending may not stay parked (WriteLanes I15).
+ */
+const judgeParked = (run: Step, known: Known, fixture: Fixture, row: Row, label: string) => {
+  const reference = referenceTurn(fixture, row);
+
+  if (reference.hearing.length === 0) return { failures: [], caught: [] };
+
+  const held = Fact.Ensured({ actor: reference.actor, use: "story" });
+  const setup = run(empty, known, [held, ...reference.setup], []);
+
+  const parkedInstead = reference.hearing.map((fact) =>
+    Fact.$is("Reported")(fact) && Observation.$is("Delivered")(fact.observation)
+      ? said(
+          Observation.Parked({
+            operation: fact.observation.operation,
+            attempt: fact.observation.attempt,
+          }),
+        )
+      : fact,
+  );
+
+  const parked = run(setup.after, known, parkedInstead, reference.requests);
+  const refused = refusalsOf(parked).some((r) => r.startsWith("WriteLanes I15:"));
+
+  return {
+    failures: [`${label} parked-while-held: no WriteLanes I15`].filter(() => !refused),
+    caught: ["parked-while-held"].filter(() => refused),
   };
 };
 
@@ -339,6 +436,8 @@ const judgeRow = (run: Step, known: Known, fixture: Fixture, row: Row) => {
 
   const acted = refusalsOf(turn.run(reference.report, true));
   const members = row.members.map((m, i) => judgeMember(label, row, m, i, turn));
+  const headers = judgeHeaders(run, known, fixture, row, before, label);
+  const parked = judgeParked(run, known, fixture, row, label);
 
   return {
     failures: [
@@ -346,9 +445,11 @@ const judgeRow = (run: Step, known: Known, fixture: Fixture, row: Row) => {
       ...heads,
       ...acted.map((r) => `${label}: the correct report, acted, is refused: ${r}`),
       ...members.flatMap((m) => m.failures),
+      ...headers.failures,
+      ...parked.failures,
     ],
     limits: members.flatMap((m) => m.limits),
-    caught: members.flatMap((m) => m.caught),
+    caught: [...members.flatMap((m) => m.caught), ...headers.caught, ...parked.caught],
   };
 };
 
@@ -366,7 +467,10 @@ const judgeRow = (run: Step, known: Known, fixture: Fixture, row: Row) => {
  * lane holding a Held head, the guard's log set so the row is chosen) runs with its correct
  * report and with each perturbation of it: the member dropped, retargeted to each other target,
  * an unknown operation's member added, an extra member of another kind added, a release on a
- * transition that releases nothing added, and the members reordered. `failures` lists:
+ * transition that releases nothing added, and the members reordered. It also runs the turn's
+ * header through `selection` with `to` or `from` naming no state (each lie leaves the obligation
+ * or is a Turn I2 violation), and a heard ending reported `Parked` while the suite holds its
+ * actor (WriteLanes I15). `failures` lists:
  *
  * - a perturbation that, with nothing acted on, leaves another model or other refusals than the
  *   correct report (the obligation moved);
