@@ -113,6 +113,7 @@ export type Row<
   readonly members: ReadonlyArray<RowMember<Operation>>;
   readonly guard: Option.Option<Retryable<Operation>>;
   readonly claimed: boolean;
+  readonly at: Option.Option<string>;
 };
 
 /**
@@ -129,22 +130,21 @@ export const row = <Event extends string, State extends string, Operation extend
   to: State | "same",
   members: ReadonlyArray<RowMember<Operation>>,
   guard: Option.Option<Retryable<Operation>> = Option.none(),
-) => ({ event, from, to, members, guard, claimed: false });
+) => ({ event, from, to, members, guard, claimed: false, at: Option.none<string>() });
 
 /**
- * A {@link Row} the suite cannot choose: its own guard is one the suite does not compute, and a
- * sibling alternative of the same event and target, from the same state or from any, has other
- * lane members, or none (Pay's `Leave` runs `void.commit` only when its compiled guard holds,
- * beside a member-less fallthrough; so does `Confirmed` from `LEFT`, whose fallthrough stays).
- * It is owed only when the turn's report confirms its members (a runtime claim, v2 Risk 2).
- *
- * **Gotchas**
- *
- * - A stated limit: a runtime that drops a claimed row's members from both its act and its
- *   report is caught only by its cases' state expectations (PAY-19 for Pay's `Leave`).
+ * A {@link Row} whose (event, from, to) a sibling alternative shares with other lane members, or
+ * none (Pay's `Leave` runs `void.commit` only when its guard holds, beside a member-less
+ * fallthrough; so does `Confirmed` from `LEFT`). It is owed only when the turn ran the alternative
+ * at `at`, which selection decides from the fixture's folds (`fixtures/folds.ts`), never from
+ * the report's members.
  */
 // RETURN_TYPE: keeps the fixture's typed row (its event, state and operation names).
-export const claimed = <R extends Row>(r: R): R => ({ ...r, claimed: true });
+export const claimed = <R extends Row>(at: string, r: R): R => ({
+  ...r,
+  claimed: true,
+  at: Option.some(at),
+});
 
 /**
  * One transition of a machine: an event's turn from one state to another.

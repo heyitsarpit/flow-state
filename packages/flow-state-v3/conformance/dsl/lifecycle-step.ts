@@ -1,6 +1,13 @@
 import { Option } from "effect";
 import { mappedEvent, retains } from "../fixtures/reference.ts";
-import { type ActorRef, type EndingRef, type Json, Observation, sameActor } from "../port.ts";
+import {
+  type ActorRef,
+  type EndingRef,
+  type Json,
+  Observation,
+  sameActor,
+  type Turn,
+} from "../port.ts";
 import type { Request } from "../world/network.ts";
 import type { Purpose } from "../world/storage.ts";
 import { due } from "./lifecycle.ts";
@@ -21,7 +28,7 @@ import {
   type Refusal,
   unsavedOf,
 } from "./lifecycle-model.ts";
-import { type Known, operationOf, owedMembers } from "./lifecycle-owed.ts";
+import { type Known, operationOf, owedMembers, type Predicted } from "./lifecycle-owed.ts";
 import { type Rules, rules } from "./lifecycle-rules.ts";
 import { Fact, holdUse } from "./oracle.ts";
 
@@ -52,6 +59,7 @@ type Walk = {
   readonly incarnated: ReadonlyArray<ActorRef>;
   readonly unsent: ReadonlyArray<string>;
   readonly purposes: ReadonlyArray<Purpose>;
+  readonly turns: ReadonlyArray<Predicted>;
 };
 
 const isWrite = (known: Known, operation: string) =>
@@ -67,6 +75,20 @@ const unsaved = (walk: Walk, attempt: string) =>
   (walk.applied.at(-1)?.refusals.length ?? 0) > 0
     ? walk
     : { ...walk, model: { ...walk.model, ended: [...walk.model.ended, attempt] } };
+
+/**
+ * A turn the step was given no prediction for (a test driving the step alone): its header, with
+ * no alternative and no keys.
+ */
+// RETURN_TYPE: the Predicted contract; `at` would infer as None of never.
+const predictedOf = (turn: Turn): Predicted => ({
+  actor: turn.actor,
+  event: turn.event,
+  from: turn.from,
+  to: turn.to,
+  at: Option.none(),
+  keys: {},
+});
 
 const closedTurn = (walk: Walk, given: Rules) =>
   Option.isSome(walk.model.turn) ? pushed(walk, LaneMove.TurnCloses(), given) : walk;
@@ -150,14 +172,22 @@ const reported = (
 
   return Observation.$match(observation, {
     Turn: (turn) => {
+      const [next = predictedOf(turn)] = walk.turns;
       const hearing = deliveringOf(walk.model, known, Option.some(turn.actor), turn.event);
-      const heard = heardOf(walk, known, Option.some(turn.actor), turn.event, given);
+
+      const heard = heardOf(
+        { ...walk, turns: walk.turns.slice(1) },
+        known,
+        Option.some(turn.actor),
+        turn.event,
+        given,
+      );
 
       return push(
         heard,
         LaneMove.Turn({
-          actor: turn.actor,
-          members: owedMembers(heard.model, known, turn, hearing, (attempt) =>
+          actor: next.actor,
+          members: owedMembers(heard.model, known, next, hearing, (attempt) =>
             sendsOf(heard, attempt, earlier),
           ),
         }),
@@ -464,6 +494,7 @@ export const step = (
   facts: ReadonlyArray<Fact>,
   requests: ReadonlyArray<Request>,
   given: Rules = rules,
+  turns: ReadonlyArray<Predicted> = [],
 ) => {
   const fresh = facts.flatMap((f) => (Fact.$is("Requested")(f) ? [f.request.seq] : []));
   const earlier = requests.filter((r) => !fresh.includes(r.seq));
@@ -484,6 +515,7 @@ export const step = (
     incarnated: [],
     unsent,
     purposes,
+    turns,
   };
 
   const walk = facts.reduce((w, fact) => onFact(w, fact, known, earlier, given), start);

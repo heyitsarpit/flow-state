@@ -118,8 +118,11 @@ const payRow = row<string, State, Write>;
 const payRows = [
   payRow("PayRequested", "PAYING", "same", [{ operation: "pay", kind: "commit" }]),
   payRow("PayRequested", "any", "PAYING", [{ operation: "pay", kind: "commit" }]),
-  claimed(payRow("Leave", "any", "LEFT", [{ operation: "void", kind: "commit" }])),
-  claimed(payRow("Confirmed", "LEFT", "same", [{ operation: "void", kind: "commit" }])),
+  claimed("on.Leave[0]", payRow("Leave", "any", "LEFT", [{ operation: "void", kind: "commit" }])),
+  claimed(
+    "on.Confirmed[0]",
+    payRow("Confirmed", "LEFT", "same", [{ operation: "void", kind: "commit" }]),
+  ),
   payRow("Confirmed", "IDLE", "PLACING", [{ operation: "place", kind: "commit" }]),
   payRow(
     "PlaceUnsure",

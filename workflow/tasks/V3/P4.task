@@ -501,6 +501,14 @@ tasks
             is a step; docs), noted 2 (`CleanupFailed` has no producer yet: a limits row in step 6; `heard` routes by 
             tag). Its self-replay check found the replay moved world facts before replayed reports (22 cases red): 
             fixed, and the liar gate now runs that control first. Crash production 685/716 (a read is now a step).
+        comment     2026-11-11T17:50:37Z
+            Step 3, turns and members done: the lifecycle opens each turn from selection's prediction (`Predicted`: 
+            anchored from and to, the alternative that ran, keys from folds), never from the report; claimed rows name 
+            their alternative; `lifecycle-perturbations.ts` and the report-reading step mutants are deleted (the expect 
+            half cannot see a report). Pay, LateQueue, Keyed and Held fold their keys and guards; inverting Pay's folds 
+            turns 20 cases red. A removed record (disposeActor, forget) restarts the fields at initial (Actors R20, 
+            R21). Stated limit: a turn's reported key stands in where a fixture folds none or the fields are unknown 
+            after a kill. Gates unchanged; liar round-14 still 9 greens (endings next).
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open

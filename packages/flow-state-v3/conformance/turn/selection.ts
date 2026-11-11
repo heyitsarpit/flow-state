@@ -1,4 +1,5 @@
 import { Option } from "effect";
+import type { Predicted } from "../dsl/lifecycle-owed.ts";
 import { Address, Fact, oracle, type Violation, violation } from "../dsl/oracle.ts";
 import {
   actorIn,
@@ -184,12 +185,45 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
     to: Option.getOrElse(judged.to, () => turn.to),
   });
 
+  const predicted: Predicted = {
+    actor: turn.actor,
+    event: turn.event,
+    from: anchored.from,
+    to: anchored.to,
+    at: Option.map(judged.match, (m) => m.at),
+    keys: {
+      ...reportedKeys(turn),
+      ...Option.match(fields, {
+        onNone: () => ({}),
+        onSome: (f) =>
+          Object.fromEntries(
+            Object.entries(folds?.keys ?? {}).map(([operation, key]) => [
+              operation,
+              key(labels, f),
+            ]),
+          ),
+      }),
+    },
+  };
+
   return [
     next,
     [...unadmitted, ...judged.found, ...leftWork].map(violation),
     Fact.Reported({ observation: anchored }),
+    Option.some(predicted),
   ] as const;
 };
+
+/**
+ * The keys a turn's report gives its members, by operation: a stated limit where a fixture folds no
+ * key, or after a kill with turns no capture holds (`Predicted`).
+ */
+const reportedKeys = (turn: Turn) =>
+  Object.fromEntries(
+    turn.members.flatMap((m) =>
+      MemberTarget.$is("Key")(m.target) ? [[m.operation, m.target.key] as const] : [],
+    ),
+  );
 
 const initialOf = (state: State, actor: ActorRef) =>
   Option.fromUndefinedOr(state.machines[actor.machine]?.initial);
@@ -206,7 +240,7 @@ const folded = (state: State, actor: ActorRef) => {
     : state;
 };
 
-type Stepped = readonly [State, ReadonlyArray<Violation>, Fact];
+type Stepped = readonly [State, ReadonlyArray<Violation>, Fact, Option.Option<Predicted>];
 
 const purposeOf = (step: ReadonlyArray<Fact>, wrote: Extract<Fact, { readonly _tag: "Wrote" }>) => {
   const nth = step.filter(Fact.$is("Wrote")).indexOf(wrote);
@@ -220,10 +254,19 @@ const drove = (state: State, actor: ActorRef, event: string, labels: Labels) => 
   return withActor(state, actor, { ...now, driven: [...now.driven, { event, labels }] });
 };
 
+/**
+ * An actor whose record the suite removed (disposeActor or forget, Actors R20, R21): its credits
+ * go, and its next ensure starts from the fixture's initial fields.
+ */
 const uncredited = (state: State, actor: ActorRef) => {
   const now = actorIn(state, actor);
 
-  return withActor(state, actor, { ...now, driven: [], entry: now.entry + 1 });
+  const initial = Option.map(
+    Option.fromUndefinedOr(state.machines[actor.machine]),
+    (h) => h.folds.initial,
+  );
+
+  return withActor(state, actor, { ...now, driven: [], entry: now.entry + 1, fields: initial });
 };
 
 const deliveredTo = (step: ReadonlyArray<Fact>, event: string) =>
@@ -307,13 +350,14 @@ const refused = (
 // RETURN_TYPE: every branch gives the next state, its violations and the fact as judged.
 const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>): Stepped => {
   // RETURN_TYPE: a tuple; inference would widen it to an array.
-  const keep = (next: State): Stepped => [next, [], fact];
+  const keep = (next: State): Stepped => [next, [], fact, Option.none()];
 
   // RETURN_TYPE: a tuple; inference would widen it to an array.
   const judgedRefusal = ([next, found]: readonly [State, ReadonlyArray<string>]): Stepped => [
     next,
     found.map(violation),
     fact,
+    Option.none(),
   ];
 
   return Fact.$match(fact, {
@@ -481,15 +525,17 @@ export const judgedStep = (state: Anchor, step: ReadonlyArray<Fact>) =>
     readonly state: Anchor;
     readonly violations: ReadonlyArray<Violation>;
     readonly facts: ReadonlyArray<Fact>;
+    readonly turns: ReadonlyArray<Predicted>;
   }>(
     (judged, fact) => {
-      const [next, found, seen] = onFact(judged.state, fact, step);
+      const [next, found, seen, predicted] = onFact(judged.state, fact, step);
 
       return {
         state: next,
         violations: [...judged.violations, ...found],
         facts: [...judged.facts, seen],
+        turns: [...judged.turns, ...Option.toArray(predicted)],
       };
     },
-    { state, violations: [], facts: [] },
+    { state, violations: [], facts: [], turns: [] },
   );

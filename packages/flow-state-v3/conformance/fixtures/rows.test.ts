@@ -124,7 +124,17 @@ const compiledRows = (compiled: typeof Compiled.Type, writes: ReadonlyArray<stri
           );
         });
 
-        return [{ event, from, to, members, guard, claimed: tied && Option.isNone(guard) }];
+        return [
+          {
+            event,
+            from,
+            to,
+            members,
+            guard,
+            claimed: tied && Option.isNone(guard),
+            at: Option.none<string>(),
+          },
+        ];
       }),
     ),
   );

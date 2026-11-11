@@ -1,6 +1,6 @@
 import { Option } from "effect";
 import type { Reference, Row, RowMember, Rows } from "../fixtures/reference.ts";
-import { type ActorRef, type Member, MemberTarget, sameJson, type Turn } from "../port.ts";
+import { type ActorRef, type Json, type Member, MemberTarget, sameJson } from "../port.ts";
 import {
   addressable,
   type EndingName,
@@ -22,21 +22,23 @@ export type Known = { readonly reference: Reference; readonly rows: Rows };
 export const operationOf = (known: Known, actor: ActorRef, operation: string) =>
   Option.fromUndefinedOr(known.reference[actor.machine]?.[operation]);
 
-const confirmed = (turn: Turn, member: RowMember) =>
-  turn.members.find((r) => r.operation === member.operation && r.kind === member.kind);
-
-const reportedKey = (turn: Turn, member: RowMember) => {
-  const keys = turn.members.flatMap((r) =>
-    r.operation === member.operation && r.kind === member.kind && MemberTarget.$is("Key")(r.target)
-      ? [r.target.key]
-      : [],
-  );
-
-  const [key] = keys;
-
-  return Option.filter(Option.fromUndefinedOr(key), (k) =>
-    keys.every((other) => sameJson(other, k)),
-  );
+/**
+ * One turn as the suite predicts it (Conformance R20): its actor and event, the leaf it runs from
+ * and the leaf it ends at, the alternative that ran when the table names it, and each operation's
+ * key from the fixture's folds (`fixtures/folds.ts`).
+ *
+ * **Gotchas**
+ *
+ * - Where a fixture folds no key, or the actor's folded fields are unknown (after a kill with turns
+ *   no capture holds), `keys` takes the turn's reported key: a stated limit (`limits.ts`).
+ */
+export type Predicted = {
+  readonly actor: ActorRef;
+  readonly event: string;
+  readonly from: string;
+  readonly to: string;
+  readonly at: Option.Option<string>;
+  readonly keys: Readonly<Record<string, Json>>;
 };
 
 const heardLane = (model: Model, hearing: EndingName) =>
@@ -60,7 +62,7 @@ const keylessTarget = (model: Model, hearing: Option.Option<EndingName>, member:
 const targetOf = (
   model: Model,
   known: Known,
-  turn: Turn,
+  turn: Predicted,
   hearing: Option.Option<EndingName>,
   member: RowMember,
 ) => {
@@ -71,7 +73,7 @@ const targetOf = (
 
   if (!keyed) return MemberTarget.Only();
 
-  const said = reportedKey(turn, member);
+  const said = Option.fromUndefinedOr(turn.keys[member.operation]);
 
   if (member.kind === "commit")
     return Option.match(said, {
@@ -96,7 +98,7 @@ const targetOf = (
 const resolved = (
   model: Model,
   known: Known,
-  turn: Turn,
+  turn: Predicted,
   hearing: Option.Option<EndingName>,
   row: Row,
 ) =>
@@ -139,7 +141,7 @@ const fromMatches = (row: Row, from: string, to: string) =>
 const chosenRow = (
   model: Model,
   known: Known,
-  turn: Turn,
+  turn: Predicted,
   hearing: Option.Option<EndingName>,
   sends: (attempt: string) => number,
 ) => {
@@ -147,7 +149,7 @@ const chosenRow = (
     (row) =>
       row.event === turn.event &&
       fromMatches(row, turn.from, turn.to) &&
-      (!row.claimed || row.members.every((m) => confirmed(turn, m) !== undefined)) &&
+      (!row.claimed || Option.exists(row.at, (at) => Option.contains(turn.at, at))) &&
       guardHolds(model, row, turn.actor, resolved(model, known, turn, hearing, row), sends),
   );
 
@@ -159,7 +161,7 @@ const chosenRow = (
   );
 };
 
-const releasesOwed = (known: Known, turn: Turn) =>
+const releasesOwed = (known: Known, turn: Predicted) =>
   Object.entries(known.reference[turn.actor.machine] ?? {})
     .filter(([, o]) =>
       o.releasesOnLeave.some(
@@ -174,25 +176,23 @@ const releasesOwed = (known: Known, turn: Turn) =>
 
 /**
  * The lane members a turn owes, in order: its row's members, then its releases on leave. They come
- * only from the reference and the turn's facts; the report can confirm a member and give a key,
- * never retarget, remove or unclaim one (@task.V3.T7's comments).
+ * only from the reference and the predicted turn ({@link Predicted}): no report is read here
+ * (Conformance R20).
  *
  * **When to use**
  *
- * The step calls it once per reported `Turn`, after the turn has heard its ending, and opens the
+ * The step calls it once per predicted turn, after the turn has heard its ending, and opens the
  * turn with what it returns.
  *
  * **Details**
  *
- * - The row: event, from, to and the computed guard match; a `claimed` row also needs the report
- *   to name each of its members (by operation and kind; order and other members are not read).
- *   Rows that tie with other members are claimed rows: the one with the most members is taken
- *   (the first of equals), so a report's other members never choose. No row: no lane member is
- *   owed (releases still are).
- * - A reported `Key` counts only when every reported copy of that member names the same key.
- * - A member's target: `Only` on an unkeyed operation. A commit's is its reported `Key` (its
- *   input's key), else `Nothing` (the key-less lane). A `keyed` retry, cancel or cancelAll's is its
- *   reported `Key` when that names a lane the model holds for the actor and operation, else
+ * - The row: event, from, to and the computed guard match; a `claimed` row also needs the turn's
+ *   alternative to be the one it names (`at`). Rows that tie with other members are claimed rows:
+ *   the one with the most members is taken (the first of equals). No row: no lane member is owed
+ *   (releases still are).
+ * - A member's target: `Only` on an unkeyed operation. A commit's is its operation's `Key` in
+ *   the predicted turn, else `Nothing` (the key-less lane). A `keyed` retry, cancel or cancelAll's
+ *   is that `Key` when it names a lane the model holds for the actor and operation, else
  *   `Every`. A key-less one's comes from the heard ending alone (WriteLanes R9, I14): its
  *   Attempt's lane in an ending of its operation, `Nothing` in a decline's or another
  *   operation's ending, and outside an ending `Every` for a cancel or cancelAll and `Nothing`
@@ -206,10 +206,7 @@ const releasesOwed = (known: Known, turn: Turn) =>
  *
  * **Gotchas**
  *
- * - Stated limits: a claimed row is owed only when its members are reported (v2 Risk 2); a
- *   commit's key, and a keyed member's key between two lanes the actor holds, are the runtime's
- *   claim (a mint elsewhere is WriteLanes I1, and its send's input is checked against the mint
- *   by `attempt-identity`); a turn hearing a read's ending is seen as hearing none.
+ * - A turn hearing a read's ending is seen as hearing none.
  * - A key-less member on a keyed operation outside its own ending is KeyRequired by WriteLanes
  *   R9; the targets above follow round-14 until the user answers that question.
  */
@@ -217,7 +214,7 @@ const releasesOwed = (known: Known, turn: Turn) =>
 export const owedMembers = (
   model: Model,
   known: Known,
-  turn: Turn,
+  turn: Predicted,
   hearing: Option.Option<EndingName>,
   sends: (attempt: string) => number,
 ): ReadonlyArray<LaneMember> => {

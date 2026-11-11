@@ -11,8 +11,8 @@ import { Pay } from "../fixtures/pay.ts";
 import { type ActorRef, type Member, MemberTarget, Observation } from "../port.ts";
 import { type Request, RequestPhase } from "../world/network.ts";
 import { empty, type Model } from "./lifecycle-model.ts";
-import type { Known } from "./lifecycle-owed.ts";
-import { perturbationsOf } from "./lifecycle-perturbations.ts";
+import type { Known, Predicted } from "./lifecycle-owed.ts";
+import { rules } from "./lifecycle-rules.ts";
 import { step } from "./lifecycle-step.ts";
 import { Fact } from "./oracle.ts";
 
@@ -99,17 +99,68 @@ const sent = (operation: string, attempt: string) => [
 
 type Step = typeof step;
 
+/**
+ * The prediction selection would hand the step for each reported turn: its header, the claimed
+ * alternative a row names when the turn reports that row's members (standing in for a fold), and
+ * the keys its members name.
+ */
+// RETURN_TYPE: the step's Predicted contract; `at` and `keys` would infer narrower shapes.
+const predictedFrom = (under: Known, facts: ReadonlyArray<Fact>): ReadonlyArray<Predicted> =>
+  facts.flatMap((f) => {
+    if (!Fact.$is("Reported")(f) || !Observation.$is("Turn")(f.observation)) return [];
+    const t = f.observation;
+
+    const claims = (under.rows[t.actor.machine] ?? []).filter(
+      (r) => r.claimed && r.event === t.event,
+    );
+
+    const ran = claims.find((r) =>
+      r.members.every((m) =>
+        t.members.some((s) => s.operation === m.operation && s.kind === m.kind),
+      ),
+    )?.at;
+
+    const at = ran ?? (claims.length > 0 ? Option.some("another alternative") : undefined);
+
+    return [
+      {
+        actor: t.actor,
+        event: t.event,
+        from: t.from,
+        to: t.to,
+        at: at ?? Option.none(),
+        keys: Object.fromEntries(
+          t.members.flatMap((m) => {
+            const named = t.members.flatMap((o) =>
+              o.operation === m.operation && MemberTarget.$is("Key")(o.target)
+                ? [o.target.key]
+                : [],
+            );
+
+            return MemberTarget.$is("Key")(m.target) &&
+              named.every((k) => JSON.stringify(k) === JSON.stringify(named[0]))
+              ? [[m.operation, m.target.key] as const]
+              : [];
+          }),
+        ),
+      },
+    ];
+  });
+
 const using = (run: Step) => ({
-  run,
+  run: (model: Model, under: Known, facts: ReadonlyArray<Fact>, requests: ReadonlyArray<Request>) =>
+    run(model, under, facts, requests, rules, predictedFrom(under, facts)),
   refused: (
     model: Model,
     facts: ReadonlyArray<Fact>,
     requests: ReadonlyArray<Request> = [],
     under: Known = known,
   ) =>
-    run(model, under, facts, requests).applied.flatMap((a) => a.refusals.map((r) => r.invariant)),
+    run(model, under, facts, requests, rules, predictedFrom(under, facts)).applied.flatMap((a) =>
+      a.refusals.map((r) => r.invariant),
+    ),
   after: (model: Model, facts: ReadonlyArray<Fact>, requests: ReadonlyArray<Request> = []) =>
-    run(model, known, facts, requests).after,
+    run(model, known, facts, requests, rules, predictedFrom(known, facts)).after,
 });
 
 const phaseOf = (model: Model, attempt: string) =>
@@ -208,6 +259,30 @@ const examples: ReadonlyArray<Example> = [
       assert.equal(phaseOf(after(voidSent, voidUnsure("retry"), sends(3)), "v1"), "Resending");
       assert.deepStrictEqual(refused(voidSent, voidUnsure("cancel"), sends(3)), []);
       assert.equal(phaseOf(after(voidSent, voidUnsure("cancel"), sends(3)), "v1"), "Resending");
+    },
+  },
+
+  {
+    name: "a key-less member names the heard ending's lane, whatever key the turn predicts (WriteLanes R9)",
+    run: ({ after }) => {
+      const elsewhere = turn(shopper, "VoidUnsure", "LEFT", "LEFT", [
+        {
+          operation: "void",
+          kind: "retry",
+          target: MemberTarget.Key({ key: { intentId: "elsewhere" } }),
+        },
+      ]);
+
+      assert.equal(phaseOf(after(voidSent, [...unsure, elsewhere], sends(1)), "v1"), "Resending");
+    },
+  },
+
+  {
+    name: "a claimed row is owed only when its own alternative ran",
+    run: ({ refused }) => {
+      const fallthrough = turn(shopper, "Leave", "CARD", "LEFT", []);
+
+      assert.deepStrictEqual(refused(empty, [fallthrough]), []);
     },
   },
 
@@ -399,27 +474,6 @@ const examples: ReadonlyArray<Example> = [
     },
   },
   {
-    name: "every perturbation of a reference row's report, header and actor facts leaves what the turn owes",
-    run: ({ run }) => {
-      const { failures, limits, caught } = perturbationsOf(run);
-
-      assert.deepStrictEqual(failures, []);
-      assert.equal(limits.length, 4, limits.join("; "));
-      assert.deepStrictEqual(caught, [
-        "dropped",
-        "duplicated",
-        "extra",
-        "header-from",
-        "header-to",
-        "parked-while-held",
-        "release",
-        "reordered",
-        "retargeted",
-        "unknown",
-      ]);
-    },
-  },
-  {
     name: "a keyed cancel reported with target Nothing is owed on the actor's lanes (step 6 review PD)",
     run: ({ refused }) => {
       const pay = [
@@ -508,7 +562,7 @@ const STEP_MUTANTS: ReadonlyArray<{
   readonly replace: string;
 }> = [
   {
-    name: "a reported key retargets a key-less member",
+    name: "a predicted key retargets a key-less member",
     file: "lifecycle-owed.ts",
     find: "  if (!member.keyed) return keylessTarget(model, hearing, member);",
     replace:
@@ -527,42 +581,22 @@ const STEP_MUTANTS: ReadonlyArray<{
     replace: "  return Option.match(held, {\n    onNone: () => MemberTarget.Nothing(),",
   },
   {
-    name: "an unkeyed member takes the reported target",
-    file: "lifecycle-owed.ts",
-    find: "  if (!keyed) return MemberTarget.Only();",
-    replace: "  if (!keyed) return confirmed(turn, member)?.target ?? MemberTarget.Only();",
-  },
-  {
     name: "a commit ignores its reported key",
     file: "lifecycle-owed.ts",
     find: '  if (member.kind === "commit")\n    return Option.match(said, {',
     replace: '  if (member.kind === "commit")\n    return Option.match(Option.none<Json>(), {',
   },
   {
-    name: "a guard reads the reported members (step 6 review H1)",
+    name: "a claimed row is owed whichever alternative ran",
     file: "lifecycle-owed.ts",
-    find: "guardHolds(model, row, turn.actor, resolved(model, known, turn, hearing, row), sends),",
-    replace: "guardHolds(model, row, turn.actor, turn.members, sends),",
+    find: "(!row.claimed || Option.exists(row.at, (at) => Option.contains(turn.at, at))) &&",
+    replace: "(!row.claimed || Option.isSome(turn.at)) &&",
   },
   {
-    name: "a claimed row needs the report to name exactly its members (step 6 review M2)",
+    name: "a claimed row is owed whatever alternative ran",
     file: "lifecycle-owed.ts",
-    find: "(!row.claimed || row.members.every((m) => confirmed(turn, m) !== undefined)) &&",
-    replace:
-      "(!row.claimed || (turn.members.length === row.members.length && row.members.every((m) => confirmed(turn, m) !== undefined))) &&",
-  },
-  {
-    name: "a claimed row is owed whatever was reported",
-    file: "lifecycle-owed.ts",
-    find: "      (!row.claimed || row.members.every((m) => confirmed(turn, m) !== undefined)) &&\n",
+    find: "      (!row.claimed || Option.exists(row.at, (at) => Option.contains(turn.at, at))) &&\n",
     replace: "",
-  },
-  {
-    name: "releases come from the report (step 6 review L6)",
-    file: "lifecycle-owed.ts",
-    find: "  return [...lane, ...releasesOwed(known, turn)].flatMap((m) =>",
-    replace:
-      '  return [...lane, ...turn.members.filter((m) => m.kind === "release")].flatMap((m) =>',
   },
   {
     name: "a release is owed on any operation",
@@ -593,12 +627,6 @@ const STEP_MUTANTS: ReadonlyArray<{
     file: "lifecycle-owed.ts",
     find: "sends(h.id) - 1 < guard.times",
     replace: "sends(h.id) - 1 <= guard.times",
-  },
-  {
-    name: "a reported key counts from its first copy",
-    file: "lifecycle-owed.ts",
-    find: "keys.every((other) => sameJson(other, k))",
-    replace: "true",
   },
   {
     name: "a keyed member always names every lane",

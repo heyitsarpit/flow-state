@@ -173,7 +173,10 @@ export const LateQueue = {
   operations: { charge: oneLaneWrite("serialize") },
   rows: [
     row("Go", "any", "W", [{ operation: "charge", kind: "commit" }]),
-    claimed(row("Unsure", "any", "A", [{ operation: "charge", kind: "cancel", keyed: false }])),
+    claimed(
+      "on.Unsure[0]",
+      row("Unsure", "any", "A", [{ operation: "charge", kind: "cancel", keyed: false }]),
+    ),
   ],
   handlers: {
     folds: {
