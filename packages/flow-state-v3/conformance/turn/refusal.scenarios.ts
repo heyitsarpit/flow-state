@@ -17,6 +17,8 @@ import { CAPTURABLE, CART, onWire, sent, shopper, start } from "../fixtures/pay-
  * - `TURN-02`: an event no state handles is Unhandled and changes nothing (Turn R9).
  *
  * Expected results were drafted from the Specs before the cases ran (STATUS.md, T8 refusal).
+ * `schedule-refused` does not assert an issue count: round-14 redelivers any refused ending once,
+ * where WriteLanes R10 asks that only for a mapper throw (a round-14 limit; @plan.Pending D4).
  */
 export const refusalScenarios: ReadonlyArray<Scenario> = [
   ...variants(

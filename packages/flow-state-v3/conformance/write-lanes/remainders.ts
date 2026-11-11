@@ -1,0 +1,23 @@
+import type { Remainder } from "../coverage.ts";
+
+/**
+ * The clauses of the WriteLanes Invariants the T7 checks claim that no check judges yet, by the
+ * Task that owes them.
+ */
+export const writeLanesRemainders: ReadonlyArray<Remainder> = [
+  {
+    invariant: "WriteLanes I4",
+    owner: "@task.V3.T17",
+    owed: "no author tag equals a Flow reason: a construction rule on the fixtures' failure tags",
+  },
+  {
+    invariant: "WriteLanes I13",
+    owner: "@task.V3.T7",
+    owed: "idle passing over a busy lane (no fixture runs an idle guard over a Held or InFlight lane), idle(k) on a keyed operation, and a lane that holds a kept ending",
+  },
+  {
+    invariant: "WriteLanes I5",
+    owner: "@task.V3.T7",
+    owed: "the lane leaving Held observed apart from the runtime's own Released report (only LANE-11's row read sees it)",
+  },
+];

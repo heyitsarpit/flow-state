@@ -391,6 +391,44 @@ Open: the rest of v2's migration; I22; T7's own rows.
   each per lane); (6) a second ending, first answer wins, order only: noted. Its lint note (a shadowed `endingOf`)
   fixed.
 
+### Rows round (2026-11-11, after T8; the coordinator's T7 list)
+
+Bottom line: I4, I5, I7, I13 (in part), I25 and I15's releasing-lane clause are checked; I28 is T18's
+(decision 8); I2, I9, I14, I17 to I19, I23, I24, I26 and I27 stay T7's, each with its reason in
+`not-yet.ts`. The old-suite comparison (Conformance R11) of every old lie red on a ported case
+finds no new-suite gap.
+
+- New checks: `retry-count` (I7: a read row's `retryCount` equals the server's re-sends of the
+  lane's head); `evidence-kinds` (I4: an ending with an evidence-kind reason is never delivered);
+  `idle-guard` (I13: an `idle`-guarded alternative is taken iff the lanes are Idle, from the
+  lifecycle); `lane-queue` claims I5 (an unretained unknown's release is its own deadline,
+  `UnretainedRelease`, marked on its `Await`); `ending-channels` claims I25 (its answer checks).
+- Fixture `Release` (`Lab/P1Rel`, a trait whose `whenAbandoned` releases `q`) with part tables in
+  the handler table (`parts`; a part-only turn stays at the leaf and must say so), and the cases
+  LANE-11 (unretained unknown) and LANE-12 (a releasing lane delivers nothing). Changed expected
+  results: three lifecycle traces and one step test now cite I5 where they cited I12 for an
+  unretained unknown's release (I5 is the Invariant that states it).
+- Mutants: `lane.retry-count-frozen`, `lane.superseded-delivered`, `lane.idle-never-passes`,
+  `lane.unretained-unknown-held`, `lane.releasing-delivers`, `turn.part-turn-moves-header`.
+- Drafter (Haiku) of LANE-11 and LANE-12: accepted, with its open points (R17 against R14 and R16
+  on a release's interrupt ending) left unasserted.
+- R11 comparison (scratch script, one run of each lie on an edited round-14, whitespace-insensitive
+  edits as the old suite applied them): 25 old lies are red on a ported PAY case; the new suite
+  kills 24 by an oracle, `w.patch-in-place` in its old form only by a case (round-14 freezes
+  published memory; the registered form drops the freeze and is caught by I29). Differences:
+  `e8.wa-failure` is red on DLV-03, not PAY-12 (the variant that caught it needs a module fault,
+  not ported); `k.no-boot-ev+boot-order` survives: it removes the prototype's internal `boot`
+  evidence and reorders boot inputs, which no case observes through the Port (an old-suite check of
+  internals, decision 2).
+- Reviewer (Haiku) of this round, 10 findings. Fixed: a part-only turn's reported `to` is judged,
+  and a part-only turn is allowed only when the root and leaf have no alternative for its event
+  (1, 3; mutant `turn.part-turn-moves-header`). Owed as remainders: idle over a busy lane, no
+  fixture reaches it (2, 6); I5 seen apart from the runtime's `Released` (5). Stated: the
+  answer-to-ending check needs the ending in its answer's step (4, an older stated limit); the
+  unended check names I3 though it is I27's clause (7, kept with I27 owed); re-sends counted at the
+  server (8); a decline matched by operation (9). Rejected: `unknown` on `Await` is not derivable
+  (10): `hearing` is cleared once the ending is heard, before the deadline reads it.
+
 ### Handover (2026-11-11, end of this lead's run)
 
 - Convergence on the WriteLanes oracles' phase state started (orchestrator): `lane-queue.ts`, `lane-model.ts`,

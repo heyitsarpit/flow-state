@@ -663,6 +663,10 @@ tasks
             Member resolution converged (R35, step 4-6 reviews' H1): one rule, owedMembers in dsl/lifecycle-owed.ts; PD 
             caught, PG/PH green probes, PF pending the user (owed retry re-send unchecked); Lows dispositioned. See 
             packages/flow-state-v3/conformance/STATUS.md, Run 7.
+        comment     2026-11-11T07:05:52Z
+            Rows round: I4, I5, I7, I13 (in part), I25 and I15's releasing clause checked; I28 to T18; I2, I9, I14, I17 
+            to I19, I23, I24, I26, I27 still T7's; R11 compare finds no gap. Falsify 132/132. Detail: 
+            conformance/STATUS.md, T7 Rows round.
     T8
         title       Turn area complete
         status      in_progress

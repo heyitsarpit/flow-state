@@ -40,6 +40,21 @@ export const headerLaneMutants: ReadonlyArray<Mutant> = [
  */
 export const selectionMutants: ReadonlyArray<Mutant> = [
   {
+    name: "turn.part-turn-moves-header",
+    says: "a turn that ran only a trait's alternative reports leaving the root's leaf",
+    expects: "Turn I2",
+    runtime: "prototype",
+    cases: ["LANE-12/release-ends-queue"],
+    edits: [
+      {
+        file: "turn.ts",
+        find: "    to: w.root.leaf,",
+        replace:
+          '    to: w.parts.length > 0 && w.parts.every((p) => p.path.length > 0) ? "AWAY" : w.root.leaf,',
+      },
+    ],
+  },
+  {
     name: "turn.root-first-no-part",
     says: "selection reads the root before the leaf on CheckTick and those turns report no root part",
     expects: "Turn I2",

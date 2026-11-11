@@ -70,6 +70,16 @@ const lateRanLeaf = (
   );
 
 /**
+ * A part-only turn leaves the root's leaf where it was; one that says otherwise breaks Turn I2.
+ */
+const partLeft = (turn: Turn, from: string) =>
+  turn.to === from
+    ? []
+    : [
+        `Turn I2: ${name(turn)} at ${from} in a part alone, which leaves the leaf, but the turn says ${turn.to}`,
+      ];
+
+/**
  * Judges one turn's header against the handler table from the leaf the suite carried (or, when it
  * carried none, the leaf the turn reports): the alternative the actor's root ran is one Turn I2 and
  * I26 allow on its route, and the turn ends at that alternative's leaf.
@@ -96,8 +106,17 @@ const judgeTurn = (machines: Machines, phase: Phase, turn: Turn, route: Route): 
   const ran = turn.parts.find((p) => p.part.length === 0 && p.definition === turn.actor.machine);
   const ats = allowed.alternatives.map((a) => a.at).join(", ");
 
-  if (ran === undefined && partsOnly(handlers, turn.event, turn.parts))
-    return { to: Option.some(from), found: wrongFrom, match: Option.none(), from };
+  if (
+    ran === undefined &&
+    allowed.alternatives.length === 0 &&
+    partsOnly(handlers, turn.event, turn.parts)
+  )
+    return {
+      to: Option.some(from),
+      found: [...wrongFrom, ...partLeft(turn, from)],
+      match: Option.none(),
+      from,
+    };
 
   const misrouted = lateRanLeaf(handlers, from, turn, route, Option.fromUndefinedOr(ran));
 
@@ -460,8 +479,9 @@ const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>): Stepped =>
  *   an owner the suite did not see (a read's, a part's), or an unanchored actor, allows either.
  * - The reported `to` is judged, never trusted: the carried leaf is the selected alternative's
  *   (only an unanchored actor's reported `from` is taken, once). A turn with no root part breaks
- *   I2 unless every part it ran is one its table's `parts` names for its event (it stays at the
- *   leaf); part-level selection order is not judged.
+ *   I2 unless the root and leaf have no alternative for its event and every part it ran is one its
+ *   table's `parts` names for it (it stays at the leaf, and must say so); part-level selection
+ *   order is not judged, and a part-addressed `Unhandled` is judged against the root's table.
  * - Driven events are credited to the actor until a turn of it runs them, an `Unhandled` or
  *   `Denied` of that event is reported while exactly one actor holds its credit, or the actor is
  *   disposed, forgotten or reloaded.

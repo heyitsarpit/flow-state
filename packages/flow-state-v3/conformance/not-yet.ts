@@ -13,13 +13,18 @@ const upTo = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
 export const notYet: ReadonlyArray<NotYet> = [
   {
     owner: "@task.V3.T7",
-    why: "WriteLanes rows not built yet: members, members-only, write-before-ending, old-version-holds, the front-end cases; I9 is claimed by lane-queue with no mutant of its own; I24 to I28 were added by T42 (success writes, M5, the owed retry, every commit ends, a seed per boot)",
-    invariants: invariantsOf("WriteLanes", [2, 9, 14, 17, 18, 19, 23, 24, 26, 27, 28]),
+    why: "not built yet (round-14 can show each): success writes and store order need a domain-write fixture (I2, I19, I24), old-version holds a Port change to boot another release (I17), an unencodable commit a fixture (I18), late results after cleanup (I23), key-less members (I14), the owed retry (I26, pending the user's call on probe PF), every commit ends (I27); I9's view check is unreachable while the lifecycle refuses a second addressable Attempt first (I1, I11), so its mutant needs a retry or cancel that names another Attempt",
+    invariants: invariantsOf("WriteLanes", [2, 9, 14, 17, 18, 19, 23, 24, 26, 27]),
   },
   {
     owner: "@task.V3.T18",
     why: "round-14 and the catalog's flat fixtures cannot show these (T8, proposed for the user's read): no compound state (I1, I4 to I6), no Port view of a callback's reads (I12), post-commit defects only from module-hook faults (I16), no pure turn or check() to call (I17, I18), no onContext (I28), no issues in snapshots (I31), timer order left to the host (I32), no multi-step, restartOn or keyed schedules (I33 to I35); production's turn builds them with their cases",
     invariants: invariantsOf("Turn", [1, 4, 5, 6, 12, 16, 17, 18, 28, 31, 32, 33, 34, 35]),
+  },
+  {
+    owner: "@task.V3.T18",
+    why: "a seed per boot (WriteLanes I28): round-14 cannot take a seed and asks its host for every id (README decision 8); the seed cases and their wrong runtime are production builds",
+    invariants: invariantsOf("WriteLanes", [28]),
   },
   {
     owner: "@task.V3.T21",

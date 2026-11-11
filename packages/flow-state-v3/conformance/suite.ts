@@ -21,6 +21,7 @@ import { refusalMutants } from "./turn/refusal.mutants.ts";
 import { refusalScenarios } from "./turn/refusal.scenarios.ts";
 import { refusal } from "./turn/refusal.ts";
 import { turnRemainders } from "./turn/remainders.ts";
+import { writeLanesRemainders } from "./write-lanes/remainders.ts";
 import { schedulesCaseMutants, schedulesMutants } from "./turn/schedules.mutants.ts";
 import { schedulesScenarios } from "./turn/schedules.scenarios.ts";
 import { schedules } from "./turn/schedules.ts";
@@ -140,4 +141,5 @@ export const remainders: ReadonlyArray<Remainder> = [
   ...cliRemainders,
   ...turnRemainders,
   ...actorsRemainders,
+  ...writeLanesRemainders,
 ];
