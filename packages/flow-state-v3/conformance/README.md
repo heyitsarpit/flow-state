@@ -290,19 +290,20 @@ mutants and wrong runtimes named here are in `prototypes/conformance/falsify.ts`
 
 ### Turn (`workflow/specs/core/Turn.spec`)
 
-| Invariants           | Oracle module                                                                                           | Mutants                                                          |
-| -------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| I1, I7, I9, I29, I30 | `publication` (one leaf, one publish per turn, snapshots never mutated: the prototype's in-place guard) | `w.patch-in-place`, `w.row-in-place`                             |
-| I2, I3, I5, I6, I8   | `selection` (needs the reference model `prototypes/conformance/reference/model.ts`, ported)             | `g.late-unhandled`, rule-14 routing mutants                      |
-| I4, I10, I11         | `activations`                                                                                           | write from Turn tests                                            |
-| I12, I13, I17, I19   | `turn-purity` (replay: the prototype's S11)                                                             | `lyingReplay`, `constantHash` broken adapters                    |
-| I14, I15, I16        | `refusal`                                                                                               | `a4.refused-*`, `a4p.refused-turn`                               |
-| I18                  | case                                                                                                    |                                                                  |
-| I20 to I23           | `schedules`                                                                                             | timer mutants in `mutants-r15*.ts`                               |
-| I24, I25             | `placements`                                                                                            |                                                                  |
-| I26, I27             | `late-routing` (rule 14/15)                                                                             | `k.late-as-current`, `1b.r15-lateness-transitive` (re-expressed) |
-| I28                  | `context`                                                                                               |                                                                  |
-| I31                  | `issues`                                                                                                | `bogusIssue` broken adapter                                      |
+| Invariants           | Oracle module                                                                                           | Mutants                                                              |
+| -------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| I1, I7, I9, I29, I30 | `publication` (one leaf, one publish per turn, snapshots never mutated: the prototype's in-place guard) | `w.patch-in-place`, `w.row-in-place`                                 |
+| I2                   | `selection` **built** (handler tables in `fixtures/handlers.ts`)                                        | `turn.header-to-nowhere`, `turn.from-misreported`, `turn.root-first` |
+| I3, I5, I6, I8       | `selection` (the activations model)                                                                     | `g.late-unhandled`, rule-14 routing mutants                          |
+| I4, I10, I11         | `activations`                                                                                           | write from Turn tests                                                |
+| I12, I13, I17, I19   | `turn-purity` (replay: the prototype's S11)                                                             | `lyingReplay`, `constantHash` broken adapters                        |
+| I14, I15, I16        | `refusal`                                                                                               | `a4.refused-*`, `a4p.refused-turn`                                   |
+| I18                  | case                                                                                                    |                                                                      |
+| I20 to I23           | `schedules`                                                                                             | timer mutants in `mutants-r15*.ts`                                   |
+| I24, I25             | `placements`                                                                                            |                                                                      |
+| I26, I27             | `late-routing` (rule 14/15)                                                                             | `k.late-as-current`, `1b.r15-lateness-transitive` (re-expressed)     |
+| I28                  | `context`                                                                                               |                                                                      |
+| I31                  | `issues`                                                                                                | `bogusIssue` broken adapter                                          |
 
 ### Actors (`workflow/specs/core/Actors.spec`)
 

@@ -1,5 +1,6 @@
 import { Schema } from "effect";
 import { Empty, type Fixture, writeOf } from "./fixture.ts";
+import { guarded, to } from "./handlers.ts";
 import { type Concurrency, classifyWith, row } from "./reference.ts";
 
 const Unkeyed = Empty;
@@ -34,6 +35,18 @@ export const Serialize = {
     row("Go", "any", "same", [{ operation: "put", kind: "commit" }]),
     row("All", "any", "same", [{ operation: "put", kind: "cancelAll", keyed: false }]),
   ],
+  handlers: {
+    initial: "A",
+    root: {
+      Go: [to("stay")],
+      All: [to("stay")],
+      Ok: [to("stay")],
+      No: [to("stay")],
+      Unsure: [to("stay")],
+    },
+    states: {},
+    scheduled: [],
+  },
 } satisfies Fixture;
 
 /**
@@ -49,6 +62,12 @@ export const Latest = {
   states: ["A"] as const,
   operations: { search: oneLaneWrite("latest") },
   rows: [row("Go", "any", "same", [{ operation: "search", kind: "commit" }])],
+  handlers: {
+    initial: "A",
+    root: { Go: [to("stay")], Ok: [to("stay")], No: [to("stay")], Unsure: [to("stay")] },
+    states: {},
+    scheduled: [],
+  },
 } satisfies Fixture;
 
 /**
@@ -67,4 +86,16 @@ export const Cancel = {
     row("Go", "any", "W", [{ operation: "search", kind: "commit" }]),
     row("Unsure", "any", "same", [{ operation: "search", kind: "retry", keyed: false }]),
   ],
+  handlers: {
+    initial: "A",
+    root: {
+      Go: [to("W")],
+      Retrying: [to("stay")],
+      Ok: [to("A")],
+      No: [to("A")],
+      Unsure: [guarded(to("stay")), to("A")],
+    },
+    states: {},
+    scheduled: [],
+  },
 } satisfies Fixture;

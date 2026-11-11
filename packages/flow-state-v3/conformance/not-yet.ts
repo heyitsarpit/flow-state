@@ -18,8 +18,11 @@ export const notYet: ReadonlyArray<NotYet> = [
   },
   {
     owner: "@task.V3.T8",
-    why: "the Turn area is not built",
-    invariants: invariantsOf("Turn", upTo(31)),
+    why: "the Turn area is being built: selection (I2) is checked; publication, activations, purity, refusal, schedules, placements, late routing, context and issues are not",
+    invariants: invariantsOf(
+      "Turn",
+      upTo(31).filter((n) => n !== 2),
+    ),
   },
   {
     owner: "@task.V3.T9",

@@ -1,4 +1,5 @@
 import { Predicate, Schema } from "effect";
+import type { Handlers, Machines } from "./handlers.ts";
 import type { Concurrency, OperationReference, Row, Rows } from "./reference.ts";
 
 /**
@@ -111,6 +112,8 @@ export const writeOf = <
  * - `operations` names the writes, each with its key's Schema, its row's Schema and its reference.
  * - `rows` lists the alternatives that run lane members ({@link Row}), compared with the compiled
  *   machine by `fixtures/rows.test.ts` (a change detector).
+ * - `handlers` is the machine's whole handler table ({@link Handlers}), by hand from its source:
+ *   what the `selection` oracle judges each turn against.
  * - With no type arguments, `Fixture` is any fixture.
  */
 export type Fixture<
@@ -131,6 +134,7 @@ export type Fixture<
   readonly states: ReadonlyArray<string>;
   readonly operations: { readonly [O in keyof Keys]: Operation<Keys[O]> };
   readonly rows: ReadonlyArray<Row>;
+  readonly handlers: Handlers;
 };
 
 /**
@@ -145,6 +149,13 @@ export const referenceFor = (fixtures: ReadonlyArray<Fixture>) =>
       ),
     ]),
   );
+
+/**
+ * The handler tables of a case: each fixture's {@link Handlers}, by machine id.
+ */
+// RETURN_TYPE: the Machines record; `Object.fromEntries` would infer a wider value type.
+export const handlersFor = (fixtures: ReadonlyArray<Fixture>): Machines =>
+  Object.fromEntries(fixtures.map((fixture) => [fixture.machine, fixture.handlers]));
 
 /**
  * The rows of a case: each fixture's {@link Row}s, by machine id.

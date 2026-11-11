@@ -1,5 +1,6 @@
 import { Option, Schema } from "effect";
 import { Empty, type Fixture, writeOf } from "./fixture.ts";
+import { guarded, type Handlers, indexed, inStates, to } from "./handlers.ts";
 import { claimed, classifyWith, type OperationReference, type Row, row } from "./reference.ts";
 
 const Address = Schema.Struct({
@@ -145,6 +146,65 @@ const payRows = [
   payRow("OrderSeen", "UNSURE", "PAID", [{ operation: "pay", kind: "cancel", keyed: true }]),
 ] satisfies ReadonlyArray<Row<string, State, Write>>;
 
+const stay = to<State>("stay");
+
+/**
+ * Pay's handler table (`prototypes/conformance/typed/pay.ts`), by hand from its source:
+ * `capturable`, the busy count, `retryable`, `idle` and the payload checks are opaque guards.
+ */
+const payHandlers: Handlers<State> = {
+  initial: "IDLE",
+  root: {
+    PayRequested: [inStates(["PAYING"], stay), to("PAYING")],
+    CartLoaded: [stay],
+    CardChosen: [stay],
+    Leave: [guarded(to("LEFT")), to("LEFT")],
+    Confirmed: [
+      inStates(["LEFT"], guarded(stay)),
+      inStates(["IDLE"], guarded(to("PLACING"))),
+      stay,
+    ],
+    PayUnsure: [inStates(["LEFT"], stay), to("UNSURE")],
+    Declined: [stay],
+    Busy: [stay],
+    PayRefused: [stay],
+    PayNotSent: [stay],
+    IntentRead: [stay],
+    IntentReadFailed: [stay],
+    OrderSeen: [stay],
+    CheckTick: [stay],
+    Placed: [to("PAID")],
+    PlaceRefused: [stay],
+    PlaceUnsure: [guarded(stay), to("STUCK")],
+    Voided: [stay],
+    VoidRefused: [stay],
+    VoidUnsure: [guarded(stay), stay],
+  },
+  states: {
+    IDLE: { Start: [to("CARD")] },
+    PAYING: {
+      CheckTick: [stay],
+      Confirmed: [indexed(1, guarded(to("PLACING"))), indexed(2, to("CARD"))],
+      Declined: [to("CARD")],
+      Busy: [guarded(to("WAITING")), to("CARD")],
+      PayRefused: [to("CARD")],
+      PayNotSent: [guarded(stay), to("CARD")],
+      PayUnsure: [to("UNSURE")],
+    },
+    WAITING: { RetryNow: [guarded(to("PAYING")), stay] },
+    UNSURE: {
+      CheckTick: [stay],
+      IntentRead: [guarded(to("PLACING")), indexed(2, guarded(to("PAYING"))), indexed(3, stay)],
+      OrderSeen: [guarded(to("PAID")), stay],
+      PayUnsure: [stay],
+    },
+    PAID: { Start: [to("CARD")], Done: [to("IDLE")] },
+    STUCK: { CheckAgain: [to("UNSURE")] },
+    LEFT: { Start: [to("CARD")] },
+  },
+  scheduled: ["CheckTick", "RetryNow"],
+};
+
 /**
  * The typed Pay machine, `Checkout/Pay` (`prototypes/conformance/typed/pay.ts`).
  *
@@ -162,6 +222,7 @@ export const Pay = {
   states,
   operations,
   rows: payRows,
+  handlers: payHandlers,
 } satisfies Fixture;
 
 const cellsEvents = { ...events, AbortPay: Empty };
@@ -189,4 +250,5 @@ export const Cells = {
     ...payRows,
     payRow("AbortPay", "any", "same", [{ operation: "pay", kind: "cancel", keyed: true }]),
   ],
+  handlers: { ...payHandlers, root: { ...payHandlers.root, AbortPay: [stay] } },
 } satisfies Fixture;

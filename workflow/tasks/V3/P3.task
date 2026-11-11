@@ -608,7 +608,7 @@ tasks
             packages/flow-state-v3/conformance/STATUS.md, Run 7.
     T8
         title       Turn area complete
-        status      open
+        status      in_progress
         priority    high
         blocked_by  [@T5, @T40]
         description
@@ -635,6 +635,8 @@ tasks
             - Every Turn Invariant has its oracle or case;
             - each oracle kills its listed mutants;
             - verdicts match the old suite's or each difference is logged with its cited rule.
+        comment 2026-11-11T04:02:34Z
+            Selection oracle built (Turn I2): every turn header judged against hand-written handler tables and suite facts; the step 9 review's header probe is its first mutant, caught. Suite 92/92, null 0/92, falsify 103/103, coverage 41/186, 0 gaps. Detail: packages/flow-state-v3/conformance/STATUS.md, T8.
     T9
         title       Actors area complete
         status      open

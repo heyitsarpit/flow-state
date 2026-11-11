@@ -1102,6 +1102,38 @@ coverage 40 of 186 (18 in part), 0 gaps, `nub run check` zero.
   unknown code, which still fails any expected code; (3) CLI-04 reads exit 1 alone (CLI-02, CLI-03
   read `broken`'s documents); (5) adapter defects in `handleOf` stay uncited throws.
 
+## T8 (2026-11-11): Turn area (in progress)
+
+### Selection (first, from the step 9 review's H1)
+
+Bottom line: `turn/selection.ts` judges every reported turn header (Turn I2) against a hand-written
+handler table and facts the suite owns, so a lane oracle may trust a header that passed it. Suite
+92/92, null 0/92, falsify 103/103, coverage 41 of 186 (18 in part), 0 gaps, `nub run check` zero.
+
+- Built: `fixtures/handlers.ts` (`Handlers`, `possible`: the leaf's level, then the root's; state
+  tokens computed, other guards opaque, each possible up to the first unguarded one); a `handlers`
+  table on every fixture (Pay, Cells, Serialize, Latest, Cancel), by hand from the typed sources;
+  `Judge.start` and `Oracle.open` take the case's tables (`handlersFor`); the oracle's phases
+  (`Fresh`, `Stored`, `Live`, `Unanchored`) move by one table on suite facts and judged turns.
+- Checks per turn: `from` equals the carried leaf; the event was driven to that actor, delivered to
+  it, or is one its schedules send; the root part's place is an allowed alternative and `to` is its
+  leaf. The carried leaf is the table's, never the report's.
+- Mutants: `turn.header-to-nowhere` (the review's probe: cancels dropped, `to: "Nowhere"`; caught on
+  PAY-12/cancel-on-wire), `turn.from-misreported` (PAY-01), `turn.root-first` (PAY-04, selection
+  reading the root before the leaf). `turn.record-renames-alternative` is now also caught by I2.
+- Stated limits: a delivered ending may be late (R19, R20), so the root's alternatives are allowed
+  beside the leaf's for it; `root-first` is caught only on driven and scheduled events, and
+  lateness is `late-routing`'s (I26, owed). `Unhandled` and `Denied` name no actor, so a turn that
+  should have run and is reported unhandled is not judged. A `Delivered` report admits its event
+  (delivered-once judges deliveries). Part-level alternatives and compound states are not judged
+  (no fixture has them). After a reload or a disposed actor's re-use, the next `from` is taken once.
+- Reviewer (Haiku), 6 groups: tables match their sources (no mismatch). Accepted: a live actor's
+  second use kept unanchored (fixed: it keeps its leaf), stale driven credit (cleared on dispose,
+  forget, reload, and on an `Unhandled` or `Denied` of the event held by one actor), the unused
+  `none` field (dropped), docs. Rejected: keep a disposed persisted actor's leaf (its record may lag
+  its last turn, WriteAhead's capture interval); "the walk doc is inverted" (it matched the code).
+  Carried: the late allowance and the `Delivered` admission above.
+
 ## T41 (2026-11-11): coverage gate
 
 Bottom line: `coverage` (and the first line of `falsify`) fails unless every Invariant of the ten core Specs is checked

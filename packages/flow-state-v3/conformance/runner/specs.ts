@@ -52,9 +52,11 @@ const decodeTask = Schema.decodeUnknownEffect(Schema.fromJsonString(ShownTask));
 
 const isOpen = (root: string, owner: TaskRef) =>
   runChild("workflow", ["show", owner, "--json", "--root", root], 30).pipe(
-    Effect.flatMap((out) =>
-      out.code === 0 ? decodeTask(out.stdout) : Effect.fail(new Error(out.stderr)),
+    Effect.filterOrFail(
+      (out) => out.code === 0,
+      (out) => new SpecUnreadable({ spec: owner, why: out.stderr }),
     ),
+    Effect.flatMap((out) => decodeTask(out.stdout)),
     Effect.map((shown) => shown.task.status !== "done"),
     Effect.orElseSucceed(() => false),
   );

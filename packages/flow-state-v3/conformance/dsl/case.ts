@@ -1,5 +1,5 @@
 import { Data, Equal, Option, Schema } from "effect";
-import { type Fixture, referenceFor, rowsFor } from "../fixtures/fixture.ts";
+import { type Fixture, handlersFor, referenceFor, rowsFor } from "../fixtures/fixture.ts";
 import { operationNamed, type Reference } from "../fixtures/reference.ts";
 import {
   disposalBoundMs,
@@ -208,11 +208,12 @@ const stepEngine = (
 ) => {
   const { network } = world.hosts;
   const reference = referenceFor(options.fixtures);
+  const machines = handlersFor(options.fixtures);
   const known = { reference, rows: rowsFor(options.fixtures) };
 
   const judges = options.oracles.map((o) => ({
     name: o.name,
-    next: o.open(reference, options.graphs),
+    next: o.open(reference, options.graphs, machines),
   }));
 
   let stepped = 0;
