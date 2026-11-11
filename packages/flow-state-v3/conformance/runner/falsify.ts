@@ -4,6 +4,7 @@ import { cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync }
 import { basename, join, resolve } from "node:path";
 import type { Mutant, Probe } from "../dsl/oracle.ts";
 import { type ChildFailed, runChild } from "./child.ts";
+import { CASE_EXPECTATIONS, matrixRows } from "./matrix.ts";
 import { type CaseVerdict, VERDICTS_LINE, VerdictsJson } from "./verdict.ts";
 
 /**
@@ -133,11 +134,7 @@ const verdictsOf = (stdout: string, stderr: string, code: number) =>
     },
   );
 
-/**
- * The judge named for a mutant held by case expectations rather than an oracle: it is caught
- * only by a failed expectation that cites the Invariant it expects (Conformance R6).
- */
-export const CASE_EXPECTATIONS = "case expectations";
+export { CASE_EXPECTATIONS };
 
 /**
  * A mutant's verdict from the cases it ran: caught only by a failed case that names its judge
@@ -240,14 +237,25 @@ export const falsifyOne = (
       const copy = yield* copyRuntime(runtimeDir, scratch);
       yield* applyEdits(copy.runtime, mutant);
 
-      return judge(mutant, oracle, yield* suiteIn(main, copy.runtime, mutant.cases, 120));
+      const verdicts = yield* suiteIn(main, copy.runtime, mutant.cases, 120);
+
+      return {
+        verdict: judge(mutant, oracle, verdicts),
+        rows: matrixRows(mutant, oracle, verdicts),
+      };
     }),
   ).pipe(
     Effect.catchTags({
       Unapplied: (e: Unapplied) =>
-        Effect.succeed(MutantVerdict.NotApplied({ mutant: mutant.name, why: e.why })),
+        Effect.succeed({
+          verdict: MutantVerdict.NotApplied({ mutant: mutant.name, why: e.why }),
+          rows: [`${mutant.name}\t-\tnot applied`],
+        }),
       NoVerdicts: (e: NoVerdicts) =>
-        Effect.succeed(MutantVerdict.NoVerdict({ mutant: mutant.name, why: e.why })),
+        Effect.succeed({
+          verdict: MutantVerdict.NoVerdict({ mutant: mutant.name, why: e.why }),
+          rows: [`${mutant.name}\t-\tno verdict`],
+        }),
     }),
   );
 
@@ -267,14 +275,25 @@ export const falsifyProduction = (
       yield* applyEdits(copy, mutant);
       const main = join(copy, "conformance", "runner", "main.ts");
 
-      return judge(mutant, oracle, yield* suiteIn(main, "production", mutant.cases, 120));
+      const verdicts = yield* suiteIn(main, "production", mutant.cases, 120);
+
+      return {
+        verdict: judge(mutant, oracle, verdicts),
+        rows: matrixRows(mutant, oracle, verdicts),
+      };
     }),
   ).pipe(
     Effect.catchTags({
       Unapplied: (e: Unapplied) =>
-        Effect.succeed(MutantVerdict.NotApplied({ mutant: mutant.name, why: e.why })),
+        Effect.succeed({
+          verdict: MutantVerdict.NotApplied({ mutant: mutant.name, why: e.why }),
+          rows: [`${mutant.name}\t-\tnot applied`],
+        }),
       NoVerdicts: (e: NoVerdicts) =>
-        Effect.succeed(MutantVerdict.NoVerdict({ mutant: mutant.name, why: e.why })),
+        Effect.succeed({
+          verdict: MutantVerdict.NoVerdict({ mutant: mutant.name, why: e.why }),
+          rows: [`${mutant.name}\t-\tno verdict`],
+        }),
     }),
   );
 

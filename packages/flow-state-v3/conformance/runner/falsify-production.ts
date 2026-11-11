@@ -1,6 +1,9 @@
+/// <reference types="node" />
 import { Console, Effect, Option } from "effect";
+import { join } from "node:path";
 import { caseChecks, guarantees } from "../suite.ts";
 import { CASE_EXPECTATIONS, falsifyProduction, MutantVerdict, suiteIn } from "./falsify.ts";
+import { writeMatrix } from "./matrix.ts";
 
 const PRODUCTION = "production";
 
@@ -50,11 +53,23 @@ export const falsifyOnProduction = (options: {
       `${control ? "ok  " : "BAD "} control: the mutants' cases pass on the unedited runtime`,
     );
 
-    const verdicts = yield* Effect.forEach(
+    const runs = yield* Effect.forEach(
       chosen,
       ({ oracle, mutant }) => falsifyProduction(options.packageDir, scratch, oracle, mutant),
       { concurrency: options.parallel },
     );
+
+    const verdicts = runs.map((r) => r.verdict);
+
+    // A full run rewrites the catch matrix (advisor Q6); a lost catch fails the run.
+    const lost = Option.isNone(only)
+      ? yield* writeMatrix(
+          join(options.packageDir, "conformance", "catch-matrix.production.tsv"),
+          runs.flatMap((r) => r.rows),
+        )
+      : [];
+
+    for (const row of lost) yield* Console.log(`BAD  lost catch: ${row}`);
 
     for (const v of verdicts)
       yield* Console.log(
@@ -68,7 +83,8 @@ export const falsifyOnProduction = (options: {
       );
 
     const caught = verdicts.filter(MutantVerdict.$is("Caught")).length;
-    const ok = control && caught === verdicts.length && verdicts.length > 0;
+    const matrixOk = lost.length === 0;
+    const ok = matrixOk && control && caught === verdicts.length && verdicts.length > 0;
 
     yield* Console.log(
       `VERDICT ${ok ? "pass" : "fail"} ${caught}/${verdicts.length} mutants caught`,

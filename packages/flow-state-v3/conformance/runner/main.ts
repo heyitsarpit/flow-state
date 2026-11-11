@@ -32,6 +32,8 @@ import {
   suiteIn,
 } from "./falsify.ts";
 import { falsifyOnProduction } from "./falsify-production.ts";
+import { writeGates } from "./gates.ts";
+import { writeMatrix } from "./matrix.ts";
 import { crashCase, runCases, runStatics } from "./run.ts";
 import { coreInvariants, openTasks } from "./specs.ts";
 import { type CaseVerdict, VERDICTS_LINE, VerdictsJson } from "./verdict.ts";
@@ -290,6 +292,27 @@ const falsifyProductionRuntime = (args: ReadonlyArray<string>) =>
     parallel: parallelOf(args),
   });
 
+const probeLine = (v: ProbeVerdict) =>
+  ProbeVerdict.$match(v, {
+    Holds: ({ probe, holds, red }) =>
+      holds === "green"
+        ? `ok   ${probe}  stays green`
+        : `PEND ${probe}  pending the user's call; red in ${red.length}: ${red.join(" ")}`,
+    Broken: ({ probe, why }) => `BAD  ${probe}  ${why}`,
+  });
+
+/**
+ * A full prototype falsify run rewrites its catch matrix and prints each catch it lost.
+ */
+const matrixOf = (full: boolean, rows: ReadonlyArray<string>) =>
+  full
+    ? Effect.tap(
+        writeMatrix(resolve(dirname(MAIN), "..", "catch-matrix.prototype.tsv"), rows),
+        (lost) =>
+          Effect.forEach(lost, (row) => Console.log(`BAD  lost catch: ${row}`), { concurrency: 1 }),
+      )
+    : Effect.succeed<ReadonlyArray<string>>([]);
+
 const falsify = (args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
     const runtime = resolve(Option.getOrElse(flag(args, "--runtime"), () => DEFAULT_RUNTIME));
@@ -370,10 +393,18 @@ const falsify = (args: ReadonlyArray<string>) =>
       `${controlGreen ? "ok  " : "BAD "} control: the mutants' cases pass on the unedited runtime`,
     );
 
-    const verdicts = yield* Effect.forEach(
+    const runs = yield* Effect.forEach(
       chosen,
       ({ oracle, mutant }) => falsifyOne(MAIN, runtime, scratch, oracle, mutant),
       { concurrency: parallelOf(args) },
+    );
+
+    const verdicts = runs.map((r) => r.verdict);
+
+    // A full run rewrites the catch matrix (advisor Q6); a lost catch fails the run.
+    const lost = yield* matrixOf(
+      Option.isNone(only) && !sweep,
+      runs.flatMap((r) => r.rows),
     );
 
     for (const v of verdicts)
@@ -396,26 +427,19 @@ const falsify = (args: ReadonlyArray<string>) =>
       { concurrency: parallelOf(args) },
     );
 
-    for (const v of probed)
-      yield* Console.log(
-        ProbeVerdict.$match(v, {
-          Holds: ({ probe, holds, red }) =>
-            holds === "green"
-              ? `ok   ${probe}  stays green`
-              : `PEND ${probe}  pending the user's call; red in ${red.length}: ${red.join(" ")}`,
-          Broken: ({ probe, why }) => `BAD  ${probe}  ${why}`,
-        }),
-      );
+    for (const v of probed) yield* Console.log(probeLine(v));
     const held = probed.filter(ProbeVerdict.$is("Holds")).length;
 
-    const ok =
-      coverageOk &&
-      unfalsified.length === 0 &&
-      nullRed &&
-      controlGreen &&
-      caught === verdicts.length &&
-      held === probed.length &&
-      verdicts.length + probed.length > 0;
+    const ok = [
+      coverageOk,
+      lost.length === 0,
+      unfalsified.length === 0,
+      nullRed,
+      controlGreen,
+      caught === verdicts.length,
+      held === probed.length,
+      verdicts.length + probed.length > 0,
+    ].every(Boolean);
 
     yield* Console.log(
       `VERDICT ${ok ? "pass" : "fail"} ${caught}/${verdicts.length} mutants caught, ${held}/${probed.length} probes hold`,
@@ -437,6 +461,13 @@ const main = (args: ReadonlyArray<string>) => {
   if (mode === "coverage") return coverage();
 
   if (mode === "crash") return crash(rest);
+
+  if (mode === "gates")
+    return writeGates(
+      MAIN,
+      resolve(dirname(MAIN), "..", "gates.json"),
+      resolve(Option.getOrElse(flag(rest, "--scratch"), () => tmpdir())),
+    );
 
   return Console.error(
     "usage: bun conformance/runner/main.ts suite|falsify|coverage [--runtime DIR] [--only IDS] [--mutant NAMES] [--parallel N]",

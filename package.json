@@ -15,6 +15,8 @@
     "check:fix": "vp check --fix packages/flow-state-v3",
     "check:toolchain": "node ./scripts/check-toolchain.mjs",
     "conformance:coverage": "bun packages/flow-state-v3/conformance/runner/main.ts coverage",
+    "conformance:gates": "bun packages/flow-state-v3/conformance/runner/main.ts gates",
+    "conformance:crash": "bun packages/flow-state-v3/conformance/runner/main.ts crash --runtime production",
     "docs:build": "nub run --filter @flow-state/docs build",
     "docs:dev": "nub run --filter @flow-state/docs dev",
     "docs:preview": "nub run --filter @flow-state/docs preview",

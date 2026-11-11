@@ -1,0 +1,17 @@
+prod.actor-never-saved	DISP-01	caught selection Turn I2
+prod.adapter-ended-success	PAY-05	caught ending-channels WriteLanes I3
+prod.bound-forgets-the-wire	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	caught disposal Actors I35
+prod.failure-as-cancelled	PAY-15/busy-then-new-write	caught ending-channels WriteLanes I25
+prod.fires-unused	TURN-03/unused	caught schedules Turn I23
+prod.idle-fails-idle	PAY-15/busy-then-new-write	caught idle-guard WriteLanes I13
+prod.kept-redelivered	DLV-05	caught delivered-once Actors I24
+prod.mint-not-replayable	PAY-01	caught case expectations Turn I17
+prod.record-forgets-retries	PAY-16/retry-count-persists	caught retry-count WriteLanes I7
+prod.refused-turn-reported	TURN-01/schedule-refused	caught refusal Turn I14
+prod.released-delivered	PAY-03	caught evidence-kinds WriteLanes I4
+prod.resend-new-id	PAY-04	caught attempt-identity WriteLanes I6
+prod.resend-uncounted	PAY-15/retry-budget	caught retry-count WriteLanes I7
+prod.retry-not-owed	PAY-04	caught lane-queue WriteLanes I26
+prod.root-first	PAY-01	caught selection Turn I2
+prod.state-move-copies-memory	PAY-04	caught publication Turn I30
+prod.success-as-failure	PAY-01	caught ending-channels WriteLanes I25

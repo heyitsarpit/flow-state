@@ -47,6 +47,12 @@ export class UnknownProductionFixture extends Data.TaggedError("UnknownProductio
 /**
  * The machines the production adapter boots, by the suite's catalog name.
  */
+/**
+ * The fixtures the production adapter boots: a case runs on production when all of its fixtures
+ * are here.
+ */
+export const productionFixtures: ReadonlySet<string> = new Set(["pay", "cells"]);
+
 const MACHINES: ReadonlyMap<string, Machine> = new Map<string, Machine>([
   ["pay", PayMachine],
   ["cells", CellsMachine],
