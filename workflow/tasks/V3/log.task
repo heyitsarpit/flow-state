@@ -706,3 +706,5 @@ note 2026-11-11T09:56:34Z
     Review started on T16's production code and T7 rows round 2; weekly usage 44 percent, reserve 50.
 note 2026-11-11T09:57:26Z
     Amendment (the user, 2026-11-11): usage reserve raised to 75 percent weekly; AGENTS.md gains the idiomatic-Effect rule; the Epic adds Effect prior art in each module's design, a standing Effect review angle and lint bans on host time and randomness in src/ (built in T43). **Reverse:** reserve 50; drop the lines.
+note 2026-11-11T10:00:04Z
+    Advisor round started (the user, 2026-11-11): one Fable 5.2 agent at high effort on code:workflow/plans/flow/references/proposals/advisor-questions-2026-11-11.md, answers to advisor-answers-2026-11-11.md; read-only.
