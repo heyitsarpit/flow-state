@@ -155,6 +155,24 @@ const reportTruth = {
   "1b.r8-third-try": "a refused try rolls back; only the Delivered count differs",
   "mutant.kept-retried-without-boot": "a refused try rolls back; only the Delivered count differs",
   "turn.memory-takes-a-random-nonce": "an undeclared memory key; every read decodes by the schema",
+  "mutant.unsent-ends-unknown":
+    "no fixture's No, Unsure or NotSent handler moves state or memory, so a queued commit's unknown instead of NotSent at the disposal reaches no world read; @task.V3.T47's fixtures on production own catching it (coordinator 36e55d53)",
+  "a2.deliv-fail-samemail":
+    "no fixture's No, Unsure or NotSent handler moves state or memory, so an ending consumed with no turn changes no request, row or snapshot; @task.V3.T47's fixtures on production own catching it (coordinator 36e55d53)",
+  "d154.moved-fail-released":
+    "no fixture's No, Unsure or NotSent handler moves state or memory, so an ending released as evidence with no turn changes no request, row or snapshot; @task.V3.T47's fixtures on production own catching it (coordinator 36e55d53)",
+  "1b.cancel-all-wire-held-at-once":
+    "no fixture's No, Unsure or NotSent handler moves state or memory, so a cancelled wire head's lost Unsure changes no request or snapshot; @task.V3.T47's fixtures on production own catching it (coordinator 36e55d53)",
+  "p1h.cancel-all-idle-declines":
+    "no fixture's No, Unsure or NotSent handler moves state or memory, so an extra NotSent Cancelled on an idle lane changes no request or snapshot; @task.V3.T47's fixtures on production own catching it (coordinator 36e55d53)",
+  "mutant.disposal-hold-first":
+    "no fixture's No, Unsure or NotSent handler moves state or memory, so the order of a disposal's parked endings reaches no world read; @task.V3.T47's fixtures on production own catching it (coordinator 36e55d53)",
+  "lane.superseded-delivered":
+    "no fixture's No, Unsure or NotSent handler moves state or memory, so a superseded commit's extra NotSent Overloaded changes no request or snapshot; @task.V3.T47's fixtures on production own catching it (coordinator 36e55d53)",
+  "lane.unencodable-refuses-turn":
+    "no fixture's No, Unsure or NotSent handler moves state or memory, so a refused turn instead of a decline changes no request or snapshot; @task.V3.T47's fixtures on production own catching it (coordinator 36e55d53)",
+  "mutant.members-reversed":
+    "no fixture declares the order of a turn's requests, so reversed members reach the server in an order no check compares; @task.V3.T47's fixtures on production own catching it (coordinator 36e55d53)",
 } satisfies Readonly<Record<string, string>>;
 
 /**
