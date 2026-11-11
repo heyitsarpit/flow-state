@@ -20,6 +20,12 @@ import { CAPTURABLE, CART, onWire, sent, shopper, start } from "../fixtures/pay-
  * `schedule-refused` does not assert an issue count: round-14 redelivers any refused ending once,
  * where WriteLanes R10 asks that only for a mapper throw (a round-14 limit; @plan.Pending D4).
  */
+/**
+ * Turn I17's case: the runner replays seed 1 of every case and compares the reports; TURN-02
+ * carries the citation and the mutant.
+ */
+export const refusalCovered = [{ invariant: "Turn I17" as const, cases: ["TURN-02"] }];
+
 export const refusalScenarios: ReadonlyArray<Scenario> = [
   ...variants(
     { id: "TURN-01", cites: ["Turn R8", "Turn R10", "WriteLanes R10"], fixtures: [Pay] },
@@ -54,7 +60,7 @@ export const refusalScenarios: ReadonlyArray<Scenario> = [
   ),
   {
     id: "TURN-02",
-    cites: ["Turn R2", "Turn R9"],
+    cites: ["Turn R2", "Turn R9", "Turn I17"],
     fixtures: [Pay],
     run: (c) => {
       const s = shopper(c);

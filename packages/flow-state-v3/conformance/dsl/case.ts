@@ -563,4 +563,6 @@ export const playCase = (options: CaseOptions, run: Scenario["run"]) => {
   const opened = openCase(options);
   run(opened.driven);
   opened.end();
+
+  return opened.driven.reports();
 };

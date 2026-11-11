@@ -10,6 +10,27 @@ import type { Mutant } from "../dsl/oracle.ts";
  *   turn's world is not rolled back.
  * - `refusal.unhandled-patches`: an Unhandled or Denied event still writes into memory.
  */
+/**
+ * A wrong runtime the runner's replay of seed 1 must catch (Turn I17).
+ */
+export const replayMutants: ReadonlyArray<Mutant> = [
+  {
+    name: "turn.memory-takes-a-random-nonce",
+    says: "a committed turn writes a random nonce into memory, so equal arguments give unequal results",
+    expects: "Turn I17",
+    runtime: "prototype",
+    cases: ["TURN-02"],
+    edits: [
+      {
+        file: "turn.ts",
+        find: "  const actor: ActorRec = { ...w.a, root: w.root };",
+        replace:
+          "  const actor: ActorRec = { ...w.a, root: { ...w.root, memory: { ...(w.root.memory as object), nonce: Math.random() } } };",
+      },
+    ],
+  },
+];
+
 export const refusalMutants: ReadonlyArray<Mutant> = [
   {
     name: "refusal.reports-kept",

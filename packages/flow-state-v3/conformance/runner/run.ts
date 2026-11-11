@@ -1,8 +1,8 @@
-import { Clock, Effect } from "effect";
+import { Clock, Effect, Option } from "effect";
 import { playCase, type Scenario } from "../dsl/case.ts";
 import { citedBy, type Graphed, Mismatch, type Oracle, Violated } from "../dsl/oracle.ts";
 import { playStatic, type StaticCase } from "../dsl/static-case.ts";
-import { type Port, Unreadable } from "../port.ts";
+import { type Observation, type Port, Unreadable } from "../port.ts";
 import type { Surface } from "../surface.ts";
 import { Overdue } from "../world/world.ts";
 import type { CaseVerdict } from "./verdict.ts";
@@ -73,10 +73,37 @@ const runSeed = (
     catch: (failure) => verdictOf(scenario.id, seed, failure),
   }).pipe(
     Effect.match({
-      onSuccess: () => ({ _tag: "Pass", id: scenario.id }) satisfies CaseVerdict,
-      onFailure: (verdict) => verdict,
+      onSuccess: (reports) => ({ verdict: Option.none<CaseVerdict>(), reports }),
+      onFailure: (verdict) => ({ verdict: Option.some(verdict), reports: [] }),
     }),
   );
+
+/**
+ * Turn I17 by replay: seed 1 played again gives the same reports, in order (the world, the clock
+ * and the session seed are the case's; nothing else may vary).
+ */
+// RETURN_TYPE: an Option of the CaseVerdict union; the Fail literal would infer narrower.
+const replayed = (
+  id: string,
+  first: ReadonlyArray<Observation>,
+  again: ReadonlyArray<Observation>,
+): Option.Option<CaseVerdict> => {
+  const at = Math.max(first.length, again.length);
+
+  const differs = Array.from({ length: at }, (_, i) => i).find(
+    (i) => JSON.stringify(first[i]) !== JSON.stringify(again[i]),
+  );
+
+  return differs === undefined
+    ? Option.none()
+    : Option.some({
+        _tag: "Fail",
+        id,
+        oracles: [],
+        why: `seed 1 replayed: Turn I17: report ${differs} differs (${JSON.stringify(first[differs]).slice(0, 120)} then ${JSON.stringify(again[differs]).slice(0, 120)}): equal arguments gave unequal results`,
+        cites: ["Turn I17"],
+      });
+};
 
 const deadline = Clock.clockWith((clock) =>
   Effect.sync(() => {
@@ -96,7 +123,8 @@ const deadline = Clock.clockWith((clock) =>
  * the runtime's fault) and a thrown defect (a scenario bug, an unsettled world, a runtime that
  * throws) are each a `Fail`, each named apart; nothing a case does escapes as a
  * failure of this Effect. Every case runs under seeds 1 and 2, which change the store's load
- * order and the session seeds. `graphs` are what `flow graph` printed for the fixtures.
+ * order and the session seeds; seed 1 then runs again and must give the same reports (Turn
+ * I17). `graphs` are what `flow graph` printed for the fixtures.
  *
  * The case's seeds share one time bound, {@link CASE_SECONDS}; past it the world stops the run at
  * its next host call or settled task and the verdict is `Timeout`, whatever came before.
@@ -108,14 +136,20 @@ export const runCase = (
   graphs: ReadonlyArray<Graphed>,
 ) =>
   Effect.flatMap(deadline, (overdue) =>
-    Effect.forEach(SEEDS, (seed) => runSeed(port, scenario, oracles, graphs, { seed, overdue }), {
-      concurrency: 1,
-    }),
+    Effect.forEach(
+      [...SEEDS, SEEDS[0] ?? 1],
+      (seed) => runSeed(port, scenario, oracles, graphs, { seed, overdue }),
+      { concurrency: 1 },
+    ),
   ).pipe(
     Effect.map(
-      (verdicts) =>
-        verdicts.find((v) => v._tag !== "Pass") ??
-        ({ _tag: "Pass", id: scenario.id } satisfies CaseVerdict),
+      (runs) =>
+        Option.getOrUndefined(
+          Option.firstSomeOf([
+            ...runs.map((r) => r.verdict),
+            replayed(scenario.id, runs[0]?.reports ?? [], runs.at(-1)?.reports ?? []),
+          ]),
+        ) ?? ({ _tag: "Pass", id: scenario.id } satisfies CaseVerdict),
     ),
   );
 

@@ -19,7 +19,7 @@ export const notYet: ReadonlyArray<NotYet> = [
   {
     owner: "@task.V3.T8",
     why: "showable on round-14, not built yet (the T8/T7 rows review's H1): compound states and re-entry (I4 to I6; turn.ts exit and entry sets, fixpass and R14-FIX cases), child refusal (I3; turn.ts:321, FRAG-17), pending resets and whenAbandoned (I10, I11; turn.ts:633-652, FRAG-02), determinism by replay (I17), placements by key (I24; P1-S), equal deadlines by arm order (I32; timers.ts, world/clock.ts) and .each copies' per-key timers (I35 in part); I1 is one leaf name on the Port",
-    invariants: invariantsOf("Turn", [1, 4, 6, 17, 24, 32, 35]),
+    invariants: invariantsOf("Turn", [1, 4, 6, 24, 32, 35]),
   },
   {
     owner: "@task.V3.T18",

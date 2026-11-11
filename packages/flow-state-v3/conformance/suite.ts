@@ -25,8 +25,8 @@ import { graphNamesMutants } from "./static-cli/graph-names.mutants.ts";
 import { activationsScenarios } from "./turn/activations.scenarios.ts";
 import { partsMutants } from "./turn/parts.mutants.ts";
 import { partsCovered, partsScenarios } from "./turn/parts.scenarios.ts";
-import { refusalMutants } from "./turn/refusal.mutants.ts";
-import { refusalScenarios } from "./turn/refusal.scenarios.ts";
+import { refusalMutants, replayMutants } from "./turn/refusal.mutants.ts";
+import { refusalCovered, refusalScenarios } from "./turn/refusal.scenarios.ts";
 import { refusal } from "./turn/refusal.ts";
 import { turnRemainders } from "./turn/remainders.ts";
 import { writeLanesRemainders } from "./write-lanes/remainders.ts";
@@ -151,6 +151,7 @@ export const caseChecks: CaseChecks = {
     ...laneKeysCovered,
     ...paymentRetryCovered,
     ...partsCovered,
+    ...refusalCovered,
   ],
   mutants: [
     ...constructionMutants,
@@ -158,6 +159,7 @@ export const caseChecks: CaseChecks = {
     ...schedulesCaseMutants,
     ...laneKeysMutants,
     ...partsMutants,
+    ...replayMutants,
   ],
   cases: [...scenarios, ...staticCases].map((c) => ({ id: c.id, cites: c.cites })),
 };
