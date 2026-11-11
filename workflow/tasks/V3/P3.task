@@ -468,7 +468,7 @@ tasks
 
     T42
         title       Core Specs revised from the Invariant audit and the open rulings
-        status      in_progress
+        status      done
         priority    high
         description
             The core Specs hold no conflicting Invariants or rules, carry the orchestrator's rulings, and drop or
