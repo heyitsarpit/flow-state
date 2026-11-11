@@ -289,7 +289,7 @@ const unended = ({ live, asked }: Answers, requests: ReadonlyArray<Request>) =>
   asked.flatMap((a) =>
     newestRequest(requests, a.ref) === a.seq && live.some((x) => sameAttempt(x, a.ref))
       ? [
-          `WriteLanes I3: the server answered ${attemptText(a.ref)} ${a.answer._tag} on a live send, and no ending names it`,
+          `WriteLanes I27: the server answered ${attemptText(a.ref)} ${a.answer._tag} on a live send, and no ending names it`,
         ]
       : [],
   );
@@ -364,7 +364,8 @@ const neverSentEnds = (
  * Every delivered ending is exactly one of success, failure and unknown, and an Attempt that ever
  * ended unknown never delivers a definite failure (WriteLanes I3); a success or a commit's own
  * failure matches an answer the server gave a send of it (WriteLanes I25: the first and fourth
- * checks below).
+ * checks below); a call that settles gives its Attempt an ending (WriteLanes I27: the first
+ * check's "ends that Attempt in the same step").
  *
  * **Details**
  *
@@ -398,7 +399,7 @@ const neverSentEnds = (
  */
 export const endingChannels = oracle<State>({
   name: "ending-channels",
-  guarantee: ["WriteLanes I3", "WriteLanes I25"],
+  guarantee: ["WriteLanes I3", "WriteLanes I25", "WriteLanes I27"],
   start: (reference) => ({
     reference,
     live: [],

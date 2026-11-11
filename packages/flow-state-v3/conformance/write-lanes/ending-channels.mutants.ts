@@ -98,4 +98,19 @@ export const endingChannelsMutants: ReadonlyArray<Mutant> = [
       },
     ],
   },
+  {
+    name: "lane.settled-without-ending",
+    says: "a call that settles leaves its Attempt with no ending: none is decided, reported or delivered",
+    expects: "WriteLanes I27",
+    runtime: "prototype",
+    cases: ["PAY-01"],
+    edits: [
+      {
+        file: "lane.ts",
+        find: "  noteEnding(tx, { op: lane.op, attempt: h.id, send }, final);",
+        replace: "",
+      },
+      { file: "lane.ts", find: "  settleHead(tx, next, final);", replace: "  setLane(tx, next);" },
+    ],
+  },
 ];
