@@ -363,11 +363,39 @@ tasks
             - suite green on round-14; Pay cases green on production; production mutants all caught;
             - `nub run check` at zero.
 
+    T44
+        title       The suite judges from its own facts only, gated by machines
+        status      open
+        priority    high
+        blocked_by  [@T43]
+        description
+            No path leads from a runtime report to an obligation, enforced by type and lint, and machine gates run
+            on every checkpoint.
+
+            **Why now:** six reviews found the same class, a report deciding an obligation; the advisor's Q1, Q6,
+            Q7 and Q9 replace instance fixes with a structural rule and gates.
+
+            **Read first:** code:workflow/plans/flow/references/proposals/advisor-answers-2026-11-11.md (Q0, Q1, Q6, 
+            Q7, Q9); code:packages/flow-state-v3/conformance/dsl/oracle.ts.
+
+            **Approach:** split `Fact` so obligation code cannot see a report, with a lint ban; a liar gate (a
+            mutant's acts with a correct runtime's recorded reports must stay red); a diffed catch matrix; generic
+            mutants of `src/core` (a two-hour StrykerJS trial, else a small operator mutator); a crash generator; a
+            generated gate file that notes and reports cite instead of hand-copied numbers.
+
+            - **May change:** `packages/flow-state-v3/conformance/`, lint configuration, `package.json` scripts.
+            - **Evidence:** STATUS.md, one T44 section; the generated gate file.
+            - **False pass:** a report path left open → caught by the liar gate.
+        acceptance
+            - obligation code takes no runtime report (type and lint enforced);
+            - under the liar gate no behavioural mutant turns green;
+            - catch matrix, core mutants, crash generator and gate file run on every checkpoint.
+
     T17
         title       Compiled and the compiler
         status      draft
         priority    high
-        blocked_by  [@T16, @T43]
+        blocked_by  [@T16, @T43, @T44]
         description
             Build Compiled and the compiler: @spec.Compile and @spec.Diagnostics from the public API.
 

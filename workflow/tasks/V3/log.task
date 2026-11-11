@@ -715,4 +715,9 @@ note 2026-11-11T10:00:04Z
     code:workflow/plans/flow/references/proposals/advisor-questions-2026-11-11.md, answers to 
     advisor-answers-2026-11-11.md; read-only.
 note 2026-11-11T10:17:07Z
-    T16 review (code:workflow/plans/flow/references/proposals/t16-review-2026-11-11.md): the Pay path holds, but four public paths no case reaches are wrong (dispose, ready, an unencodable commit, unsupported concurrency policies acting as reject), and the internal driver leaks through a public symbol. Sent to the builder as T16 fixes, each with a public-API case that fails first.
+    T16 review (code:workflow/plans/flow/references/proposals/t16-review-2026-11-11.md): the Pay path holds, but four 
+    public paths no case reaches are wrong (dispose, ready, an unencodable commit, unsupported concurrency policies 
+    acting as reject), and the internal driver leaks through a public symbol. Sent to the builder as T16 fixes, each 
+    with a public-API case that fails first.
+note 2026-11-11T10:20:45Z
+    Amendment (the user, 2026-11-11, "all the recommendations are accepted"): the advisor's answers are adopted as one batch: T44 (suite facts only, liar gate, machine gates) before T17; T45 (executable Spec model and generated cases, pilot on persistence) before T10; T46 (prover backtest) after T45; reviews start on events with a 3-hour stall check; Result.gen is set aside. **Reverse:** drop T44 to T46 and restore the 90-minute review.

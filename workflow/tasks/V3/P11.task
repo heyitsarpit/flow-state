@@ -56,11 +56,60 @@ description
     - skill:playbook-build (long runs), skill:execute-task, skill:check-task; skill:diagnose when a case fails
       unexplained.
 tasks
+
+    T45
+        title       An executable Spec model computes expected results and generates cases (pilot: persistence)
+        status      open
+        priority    high
+        blocked_by  [@task.V3.T44]
+        description
+            One executable model written from the Specs computes each case's expected result and generates runs,
+            piloted on the persistence area, replacing hand-written cases there.
+
+            **Why now:** 111 Invariants are still owed; the advisor's Q2, Q3 and Q5 find generated runs from one
+            model cheaper and stronger than hand cases, with round-14 kept as a mutant host.
+
+            **Read first:** code:workflow/plans/flow/references/proposals/advisor-answers-2026-11-11.md (Q2, Q3, Q5); 
+            @spec.WriteAhead; code:packages/flow-state-v3/conformance/dsl/case.ts.
+
+            **Approach:** the model imports nothing from a runtime; generated runs are a reload after every step of
+            the existing cases, the old suite's search, and seeded sequences with shrinking; hand cases become the
+            model's tests; round-14 becomes a mutant host with a limits list a run verifies.
+
+            - **May change:** `packages/flow-state-v3/conformance/`.
+            - **Evidence:** STATUS.md, one T45 section.
+            - **False pass:** the model shares a runtime's misreading → caught by a different model family reading
+              a sample of expectations, and by the mutants.
+        acceptance
+            - on round-14 with the suite's mutants, generated runs alone kill at least as many as the hand cases in
+              the area;
+            - the search finds at least one Spec conflict or runtime difference no case had, or reports none;
+            - T10's rows are covered by generated runs.
+    T46
+        title       Backtest: does a search over the Spec model find the audit's protocol conflicts?
+        status      open
+        priority    medium
+        blocked_by  [@T45]
+        description
+            Run the model's search against the Specs as of `bcc2bbbb` (before the Invariant audit) and count which
+            of the audit's 10 to 12 protocol conflicts it finds.
+
+            **Why now:** the user will bring back TLA+ or another prover only if it helps; the advisor's Q4 says
+            try TLC only if the search misses three or more.
+
+            **Read first:** code:workflow/plans/flow/references/proposals/advisor-answers-2026-11-11.md (Q4); 
+            code:workflow/plans/flow/references/proposals/invariant-audit-2026-11-11.md.
+
+            - **Evidence:** this Task's comment, with the found and missed conflicts.
+        acceptance
+            - each protocol conflict from the audit marked found or missed by the search;
+            - a recommendation on TLC, per the three-miss rule.
+
     T10
         title       WriteAhead area complete
         status      open
         priority    high
-        blocked_by  [@task.V3.T5, @task.V3.T40]
+        blocked_by  [@task.V3.T5, @task.V3.T40, @T45]
         description
             Cover @spec.WriteAhead's guarantee map, with a disk reader on the Port or the adapter.
 
