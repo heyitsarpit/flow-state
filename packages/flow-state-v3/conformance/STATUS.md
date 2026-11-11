@@ -1159,6 +1159,23 @@ must be a suite fact or a judged claim.
 - Two traces changed with the rule: a decided restore stays owed (owed 1); a new trace for a
   forgotten identity's and one for a held actor's parked ending (the cell-mutation gate).
 
+### T42's suite updates (folded into the revision)
+
+- Done: CQ1 (a second refusal keeps the ending, sent or not; `f9cf89ee`); CQ6 (Table A's
+  RuntimeDisposed cell and `mutant.disposal-skips-never-sent` move to Actors I38, claimed by
+  `disposal`; I38 leaves T9's row); CQ7 (docs: the promotion rule already promotes); CQ9 (already
+  held: a pending cancel makes the replacement `ReplaceCancelled`, which owes unknown { Cancelled });
+  C22 (a boot owes no restore to a head whose ending is parked, with a trace); CQ5 (`ending-channels`'
+  fifth check, an Attempt that never reached the server ends only NotSent or unknown { Restored };
+  `mutant.unsent-ends-unknown`, DISP-03 and LANE-02); C6 and C18 named in the StaticCli I6 and I7
+  remainders; C8 in CLI-01's labels (a configuration callback's one run is construction).
+- Carried, with why: CQ3's commit half (a commit on a lane holding a kept ending acts as on a
+  non-Idle lane) needs a Table B row of its own with no head to act on; it is designed with the
+  lifecycle cuts (step 6). C5 (admission order) is how `lane-queue` already orders queued
+  endings. R9's KeyRequired is a round-14 limit for T7's front-end cases. C12 (T7), C13 and C21
+  (T8's `context` and `activations`), C17 (T11, no Port fact for a quarantined record) and C24
+  (CMP-09 already checks that a field the record has takes no initial) go to their areas.
+
 ## T8 (2026-11-11): Turn area (in progress)
 
 ### Selection (first, from the step 9 review's H1)
