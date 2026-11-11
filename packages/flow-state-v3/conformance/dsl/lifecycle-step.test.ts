@@ -644,8 +644,8 @@ const STEP_MUTANTS: ReadonlyArray<{
   {
     name: "retention inverted",
     file: "lifecycle-step.ts",
-    find: "onSome: (o) => retains(o, reason),",
-    replace: "onSome: (o) => !retains(o, reason),",
+    find: "onSome: (o) => retains(o, said.reason),",
+    replace: "onSome: (o) => !retains(o, said.reason),",
   },
   {
     name: "a turn hears another actor's ending",

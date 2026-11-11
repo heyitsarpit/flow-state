@@ -8,25 +8,24 @@ import {
   sameActor,
   type Turn,
 } from "../port.ts";
-import type { Request } from "../world/network.ts";
+import type { Answer, Request } from "../world/network.ts";
+import { endingOf } from "./domain.ts";
 import type { Purpose } from "../world/storage.ts";
 import { due } from "./lifecycle.ts";
 import { apply } from "./lifecycle-fold.ts";
+import { booted, landed, rolledBack, unlanded, wrote } from "./lifecycle-capture.ts";
 import { lifeNamed, misdelivered } from "./lifecycle-lives.ts";
 import {
   ActorMove,
-  captureOf,
-  type Ending,
   type EndingName,
   type Input,
+  type LaneId,
   LaneMove,
-  Life,
   LifeMove,
   type Model,
   Move,
   Phase,
   type Refusal,
-  unsavedOf,
 } from "./lifecycle-model.ts";
 import { type Known, operationOf, owedMembers, type Predicted } from "./lifecycle-owed.ts";
 import { type Rules, rules } from "./lifecycle-rules.ts";
@@ -60,6 +59,8 @@ type Walk = {
   readonly unsent: ReadonlyArray<string>;
   readonly purposes: ReadonlyArray<Purpose>;
   readonly turns: ReadonlyArray<Predicted>;
+  readonly requests: ReadonlyArray<Request>;
+  readonly answers: ReadonlyArray<{ readonly request: Request; readonly answer: Answer }>;
 };
 
 const isWrite = (known: Known, operation: string) =>
@@ -89,6 +90,21 @@ const predictedOf = (turn: Turn): Predicted => ({
   at: Option.none(),
   keys: {},
 });
+
+/**
+ * The ending the suite's own answer gives an Attempt (WriteLanes R2, R3): its channel, and its
+ * reason where the answer fixes one, when the server answered the Attempt's request in this step
+ * while its call was on the wire. None otherwise (a decline, a cancel or an interrupted call, a
+ * bound, a restore, an answer of an earlier step): the report is matched against the table there.
+ */
+const answeredEnding = (known: Known, lane: LaneId, walk: Walk, attempt: string) =>
+  Option.flatMap(
+    Option.fromUndefinedOr(walk.answers.findLast((a) => Option.contains(a.request.key, attempt))),
+    (a) =>
+      Option.flatMap(operationOf(known, lane.actor, lane.operation), (o) =>
+        endingOf(o, walk.requests, a.request, a.answer),
+      ),
+  );
 
 const closedTurn = (walk: Walk, given: Rules) =>
   Option.isSome(walk.model.turn) ? pushed(walk, LaneMove.TurnCloses(), given) : walk;
@@ -217,14 +233,31 @@ const reported = (
         onSome: (id) => {
           const lane = walk.model.attempts.find((a) => a.id === id)?.lane;
 
+          const onWire = walk.model.attempts.some(
+            (a) => a.id === id && Phase.$is("OnWire")(a.phase),
+          );
+
+          const answered = Option.flatMap(
+            Option.filter(Option.fromUndefinedOr(lane), () => onWire),
+            (l) => answeredEnding(known, l, walk, id),
+          );
+
+          const said = Option.match(answered, {
+            onNone: () => ({ channel, reason }),
+            onSome: (e) => ({
+              channel: e.channel,
+              reason: Option.getOrElse(e.reason, () => reason),
+            }),
+          });
+
           const retained =
             lane === undefined ||
             Option.match(operationOf(known, lane.actor, lane.operation), {
               onNone: () => true,
-              onSome: (o) => retains(o, reason),
+              onSome: (o) => retains(o, said.reason),
             });
 
-          return unsaved(push(walk, Move.End({ attempt: id, channel, reason, retained })), id);
+          return unsaved(push(walk, Move.End({ attempt: id, ...said, retained })), id);
         },
         onNone: () =>
           Option.match(
@@ -307,67 +340,6 @@ const mapped = (walk: Walk, known: Known, ref: EndingRef) =>
         ),
       ),
   );
-
-/**
- * The lanes a kill may leave: an acknowledged Attempt whose ending no landing answer followed may
- * be on disk as its ending or, if the batch holding it died, as its acknowledged head
- * (WriteAhead R10, I10, I17). It restores as a never-sent head does, allowed and not owed: the
- * boot may restore it unknown { Restored } once, or not at all. Each ending takes back its life
- * at the last landing or boot (the model's `saved`), unless its Attempt is a Held head, whose
- * restore the boot owes instead (Restore I6); an ending decided since is not on disk, so it
- * closes, and the restore alone may follow. A head whose acknowledgement never landed was never
- * on disk as a head (WriteAhead R10): after the reload it does not hold its lane (`unlanded`).
- */
-const rolledBack = (model: Model) => {
-  const unsaved = unsavedOf(model);
-
-  return {
-    ...model,
-    attempts: model.attempts.map((a) =>
-      a.phase._tag === "Gone" && unsaved.includes(a.id) && model.acknowledged.includes(a.id)
-        ? { ...a, phase: Phase.Restoring({ head: true }) }
-        : a,
-    ),
-    endings: model.endings.map((e, i) => rolledEnding(model, e, i)),
-  };
-};
-
-const rolledEnding = (model: Model, e: Ending, index: number) => {
-  const held = Option.exists(e.attempt, (id) =>
-    model.attempts.some((a) => a.id === id && Phase.$is("Held")(a.phase)),
-  );
-
-  return Option.match(Option.fromUndefinedOr(model.saved.lives[index]), {
-    onNone: () => ({ ...e, life: Life.Closed() }),
-    onSome: (life) => (held || Life.$is("Delivering")(life) ? e : { ...e, life }),
-  });
-};
-
-const unlanded = (model: Model) => ({
-  ...model,
-  attempts: model.attempts.map((a) =>
-    Phase.$is("Restoring")(a.phase) && a.phase.head && !model.acknowledged.includes(a.id)
-      ? { ...a, phase: Phase.Restoring({ head: false }) }
-      : a,
-  ),
-});
-
-const booted = (model: Model) => ({ ...model, saved: captureOf(model), pending: Option.none() });
-
-const wrote = (model: Model, purpose: Purpose) =>
-  purpose === "flush"
-    ? { ...model, saved: captureOf(model) }
-    : { ...model, pending: Option.some(captureOf(model)) };
-
-const landed = (model: Model) =>
-  Option.match(model.pending, {
-    onNone: () => model,
-    onSome: (capture) => ({
-      ...model,
-      saved: capture.ended >= model.saved.ended ? capture : model.saved,
-      pending: Option.none(),
-    }),
-  });
 
 const ADOPTABLE: ReadonlyArray<string> = ["grace", "disposeActor", "forget"];
 
@@ -516,6 +488,10 @@ export const step = (
     unsent,
     purposes,
     turns,
+    requests,
+    answers: facts.flatMap((f) =>
+      Fact.$is("Answered")(f) ? [{ request: f.request, answer: f.answer }] : [],
+    ),
   };
 
   const walk = facts.reduce((w, fact) => onFact(w, fact, known, earlier, given), start);
