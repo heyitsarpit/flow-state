@@ -85,3 +85,45 @@ export const carriedDisposalMutants: ReadonlyArray<Mutant> = [
     ],
   },
 ];
+
+/**
+ * Runtime reports the lifecycle reads, each lied about so a named check must kill it (policy:
+ * a mutant for each report the checks read).
+ *
+ * **Details**
+ *
+ * - `lie.failures-unmapped`: every failure ending is called unmapped and dropped, though the
+ *   fixture maps it; its `UnmappedEnding` excuses nothing (WriteLanes I15).
+ * - `lie.no-incarnated`: no incarnation is reported, so no parked or kept ending would be owed if
+ *   the lifecycle took liveness from the report (WriteLanes I15, `delivered-once`).
+ */
+export const reportLieMutants: ReadonlyArray<Mutant> = [
+  {
+    name: "lie.failures-unmapped",
+    says: "a delivered failure ending is reported UnmappedEnding and dropped, though its machine maps it",
+    expects: "WriteLanes I15",
+    runtime: "prototype",
+    cases: ["PAY-02"],
+    edits: [
+      {
+        file: "turn.ts",
+        find: "  const mapped = mappedFor(m, item);",
+        replace: '  const mapped = item.ending.ch === "failure" ? undefined : mappedFor(m, item);',
+      },
+    ],
+  },
+  {
+    name: "lie.no-incarnated",
+    says: "the runtime never reports an incarnation beginning",
+    expects: "WriteLanes I15",
+    runtime: "prototype",
+    cases: ["DLV-04"],
+    edits: [
+      {
+        file: "world.ts",
+        find: "  void tx.evidence.push({ kind, ...fields });",
+        replace: '  void (kind === "incarnation" || tx.evidence.push({ kind, ...fields }));',
+      },
+    ],
+  },
+];

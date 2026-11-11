@@ -21,6 +21,7 @@ import { selection } from "./turn/selection.ts";
 import {
   carriedDeliveredOnceMutants,
   carriedDisposalMutants,
+  reportLieMutants,
 } from "./write-lanes/carried.mutants.ts";
 import { attemptIdentityMutants } from "./write-lanes/attempt-identity.mutants.ts";
 import { attemptIdentity } from "./write-lanes/attempt-identity.ts";
@@ -46,7 +47,10 @@ import { paymentRetryScenarios } from "./write-lanes/payment-retry.scenarios.ts"
 export const guarantees: ReadonlyArray<Guarantee> = [
   { oracle: endingChannels, mutants: endingChannelsMutants },
   { oracle: attemptIdentity, mutants: attemptIdentityMutants },
-  { oracle: deliveredOnce, mutants: [...deliveredOnceMutants, ...carriedDeliveredOnceMutants] },
+  {
+    oracle: deliveredOnce,
+    mutants: [...deliveredOnceMutants, ...carriedDeliveredOnceMutants, ...reportLieMutants],
+  },
   { oracle: laneQueue, mutants: [...laneQueueMutants, ...headerLaneMutants] },
   { oracle: disposal, mutants: [...disposalMutants, ...carriedDisposalMutants] },
   { oracle: graphNames, mutants: graphNamesMutants },

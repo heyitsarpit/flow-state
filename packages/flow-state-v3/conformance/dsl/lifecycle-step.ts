@@ -1,6 +1,6 @@
 import { Option } from "effect";
 import { mappedEvent, retains } from "../fixtures/reference.ts";
-import { type ActorRef, type Json, Observation, sameActor } from "../port.ts";
+import { type ActorRef, type EndingRef, type Json, Observation, sameActor } from "../port.ts";
 import type { Request } from "../world/network.ts";
 import { due } from "./lifecycle.ts";
 import { apply } from "./lifecycle-fold.ts";
@@ -209,8 +209,9 @@ const reported = (
     Issue: ({ code, ending }) => {
       const issue = { InvalidTurn: "InvalidTurn", UnmappedEnding: "Unmapped" } as const;
       const named = code === "InvalidTurn" || code === "UnmappedEnding" ? issue[code] : undefined;
+      const excused = named !== "Unmapped" || !Option.exists(ending, (e) => mapped(walk, known, e));
 
-      return Option.isSome(ending) && named !== undefined
+      return Option.isSome(ending) && named !== undefined && excused
         ? push(walk, LifeMove.Refused({ ending: ending.value, issue: named }))
         : walk;
     },
@@ -229,6 +230,22 @@ const reported = (
     RuntimeDisposed: () => push(walk, Move.RuntimeDisposed()),
   });
 };
+
+/**
+ * Whether the reference maps an ending the runtime called unmapped: then its `UnmappedEnding`
+ * excuses nothing, and the ending stays owed (only a cause the suite sees may excuse one).
+ */
+const mapped = (walk: Walk, known: Known, ref: EndingRef) =>
+  walk.model.endings.some(
+    (e) =>
+      e.operation === ref.operation &&
+      Option.getOrNull(e.attempt) === Option.getOrNull(ref.attempt) &&
+      Option.isSome(
+        Option.flatMap(operationOf(known, e.actor, e.operation), (o) =>
+          mappedEvent(o, e.channel, e.reason),
+        ),
+      ),
+  );
 
 const ADOPTABLE: ReadonlyArray<string> = ["grace", "disposeActor", "forget"];
 
