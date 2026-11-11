@@ -140,6 +140,7 @@ const FIXTURES = [
   { name: "rel", file: "typed/phase1h.ts", exported: "p1RelFixture", made: "call" },
   { name: "keyed", file: "typed/round15b.ts", exported: "r15KeyedFixture", made: "call" },
   { name: "held", file: "typed/round15b.ts", exported: "r15HeldFixture", made: "call" },
+  { name: "stamp", file: "typed/round13.ts", exported: "keyStampFixture", made: "release" },
   { name: "cancel", file: "typed/round15.ts", exported: "r15SwitchFixture", made: "call" },
 ] as const;
 
@@ -191,6 +192,7 @@ type PrototypeApi = ReturnType<typeof apiOf>;
 type PrototypeFixture = {
   readonly make: (api: PrototypeApi) => Compiled;
   readonly services: Option.Option<(api: PrototypeApi) => Context.Context<never>>;
+  readonly release: Option.Option<{ v: number }>;
 };
 
 const decodeState = Schema.decodeUnknownResult(Schema.String);
@@ -283,8 +285,9 @@ type FixtureExport = { readonly make: PrototypeFixture["make"] };
 
 type Services = (api: PrototypeApi) => Context.Context<never>;
 
-const fixtureOf = (raw: FixtureExport) => ({
+const fixtureOf = (raw: FixtureExport, release: Option.Option<{ v: number }>) => ({
   make: raw.make,
+  release,
   services:
     Predicate.hasProperty(raw, "services") && Predicate.isFunction(raw.services)
       ? // SAFETY: trusted prototype code; a typed fixture's `services` takes the API (prototypes/conformance/harness.ts).
@@ -293,11 +296,20 @@ const fixtureOf = (raw: FixtureExport) => ({
       : Option.none<Services>(),
 });
 
-const made = (module: Namespace, name: string, path: string) => {
+const made = (
+  module: Namespace,
+  name: string,
+  path: string,
+  release: Option.Option<{ v: number }>,
+) => {
   const factory = module[name];
 
   return Predicate.isFunction(factory)
-    ? exported<FixtureExport>({ [name]: factory() }, name, path)
+    ? exported<FixtureExport>(
+        { [name]: Option.match(release, { onNone: () => factory(), onSome: (r) => factory(r) }) },
+        name,
+        path,
+      )
     : Effect.fail(new PrototypeLoadFailed({ path, why: `no fixture factory ${name}` }));
 };
 
@@ -312,7 +324,8 @@ const made = (module: Namespace, name: string, path: string) => {
  * **Details**
  *
  * The runtime is `<runtimeDir>/adapter.ts`; the fixtures are the prototype's typed fixtures in
- * `<runtimeDir>/../conformance/typed/`, loaded by path so an edited copy runs its own.
+ * `<runtimeDir>/../conformance/typed/`, loaded by path so an edited copy runs its own. A fixture
+ * made for several releases (`made: "release"`) is made over a release object the boot sets.
  */
 export const loadPrototype = Effect.fn("loadPrototype")(function* (runtimeDir: string) {
   const adapterPath = join(runtimeDir, "adapter.ts");
@@ -322,14 +335,15 @@ export const loadPrototype = Effect.fn("loadPrototype")(function* (runtimeDir: s
     FIXTURES,
     (where) => {
       const path = join(runtimeDir, "..", "conformance", where.file);
+      const release = where.made === "release" ? Option.some({ v: 1 }) : Option.none();
 
       return load(path).pipe(
         Effect.flatMap((module) =>
-          where.made === "call"
-            ? made(module, where.exported, path)
-            : exported<FixtureExport>(module, where.exported, path),
+          where.made === "value"
+            ? exported<FixtureExport>(module, where.exported, path)
+            : made(module, where.exported, path, release),
         ),
-        Effect.map((fixture) => [where.name, fixtureOf(fixture)] as const),
+        Effect.map((fixture) => [where.name, fixtureOf(fixture, release)] as const),
       );
     },
     { concurrency: 1 },
@@ -432,7 +446,13 @@ export const prototypePort = (loaded: LoadedPrototype): Port => ({
     return runtimeOf(
       loaded.port.boot({
         host,
-        compiled: chosen.map((f) => f.make(api)),
+        compiled: chosen.map((f) => {
+          if (Option.isSome(f.release))
+            // oxlint-disable-next-line eslint/no-param-reassign -- a prototype fixture reads its release from this shared object when it is made; setting it is that fixture's contract
+            f.release.value.v = boot.release;
+
+          return f.make(api);
+        }),
         bounds: { captureMs: boot.captureMs },
         faults: { moduleThrows: new Map(), moduleThrowsAfter: new Map(), coreThrows: 0 },
         services,

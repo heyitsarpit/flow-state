@@ -34,4 +34,18 @@ export const laneKeysMutants: ReadonlyArray<Mutant> = [
       },
     ],
   },
+  {
+    name: "lane.old-version-sends",
+    says: "a commit beside an old-version hold is sent instead of declining OldVersion",
+    expects: "WriteLanes I17",
+    runtime: "prototype",
+    cases: ["LANE-15"],
+    edits: [
+      {
+        file: "lane.ts",
+        find: '      return decline(tx, a, "OldVersion");',
+        replace: '      note(tx, "BesideOldVersionIgnored", {});',
+      },
+    ],
+  },
 ];

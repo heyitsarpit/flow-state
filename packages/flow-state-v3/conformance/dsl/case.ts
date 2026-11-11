@@ -88,6 +88,8 @@ const decodeReports = (reference: Reference, fresh: ReadonlyArray<Fact>) => {
  *   any violation throws `Violated`, naming every oracle that found one in that step.
  * - `eq` throws `Mismatch` unless the two values are equal by Effect's structural equality.
  * - `row` records the read on the timeline and runs every oracle on it, as a step does.
+ * - `upgrade(release)` reloads with the app's code at another release (Boot's `release`), as a
+ *   deploy between two page loads does.
  * - A reload kills the page and boots the port again over the same world (the dead page's
  *   Runtime is dropped: a dead page runs nothing), then re-attaches every use the case holds:
  *   those its `Ensured`, `Released` and `Disposed` facts leave.
@@ -129,6 +131,7 @@ export type Case = {
   readonly hide: () => void;
   readonly advance: (ms: number) => void;
   readonly reload: () => void;
+  readonly upgrade: (release: number) => void;
   readonly eq: <A>(label: string, actual: A, expected: NoInfer<A>) => void;
   readonly snapshot: (actor: ActorRef) => Snapshot;
   readonly row: (actor: ActorRef, operation: string, key: Json) => Option.Option<Json>;
@@ -167,12 +170,14 @@ export type CaseOptions = {
 const runtimeLife = (options: CaseOptions, world: World, record: (fact: Fact) => void) => {
   const fixtures = options.fixtures.map((f) => f.name);
   const unread: Array<Unreadable> = [];
+  let release = 1;
 
   const boot = () =>
     options.port.boot({
       fixtures,
       captureMs: 0,
       sessionSeed: world.hosts.page.sessionSeed(),
+      release,
       hosts: world.hosts,
       observe: (observation) => record(Fact.Reported({ observation })),
       unreadable: (failure) => void unread.push(failure),
@@ -184,6 +189,9 @@ const runtimeLife = (options: CaseOptions, world: World, record: (fact: Fact) =>
     runtime: () => runtime,
     pending: () => runtime.pending(),
     unread: () => Option.fromUndefinedOr(unread[0]),
+    upgrade: (to: number) => {
+      release = to;
+    },
     reboot: () => {
       world.kill();
       record(Fact.Reloaded());
@@ -451,6 +459,10 @@ const openCase = (options: CaseOptions) => {
       }),
     advance: (ms) => advance(`advance ${ms}`, ms),
     reload: () => reload("reload", () => []),
+    upgrade: (to) => {
+      life.upgrade(to);
+      reload(`reload at release ${to}`, () => []);
+    },
     eq,
     snapshot: (actor) => Result.getOrThrowWith(life.runtime().snapshot(actor), (f) => f),
     row,

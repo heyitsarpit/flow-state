@@ -321,6 +321,8 @@ export class Unreadable extends Data.TaggedError("Unreadable")<{
  * - `sessionSeed`: the host's entropy for this boot, distinct per page; the runtime mints its
  *   Attempt ids from it.
  * - `hosts`: the fake world's hosts: clock, page, store and server.
+ * - `release`: the release of the app's code this page runs (1 unless a case upgrades it at a
+ *   reload); a fixture written for several releases boots the one named.
  * - `observe`: called with each public report as it happens.
  * - `unreadable`: called with each report the adapter could not read ({@link Unreadable}).
  */
@@ -328,6 +330,7 @@ export type Boot = {
   readonly fixtures: ReadonlyArray<string>;
   readonly captureMs: number;
   readonly sessionSeed: number;
+  readonly release: number;
   readonly hosts: Hosts;
   readonly observe: (observation: Observation) => void;
   readonly unreadable: (failure: Unreadable) => void;

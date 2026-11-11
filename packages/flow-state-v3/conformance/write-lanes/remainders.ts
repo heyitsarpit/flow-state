@@ -25,4 +25,9 @@ export const writeLanesRemainders: ReadonlyArray<Remainder> = [
     owner: "@task.V3.T7",
     owed: "every admitted commit at every quiescent point waiting, Held or ended once (the lifecycle's phases hold it, but no check names I27 for a commit that is never invoked and never ends)",
   },
+  {
+    invariant: "WriteLanes I17",
+    owner: "@task.V3.T7",
+    owed: "no current member names the old-version lane, and a lane of an older identity version declines nothing (LANE-15 judges the decline only)",
+  },
 ];

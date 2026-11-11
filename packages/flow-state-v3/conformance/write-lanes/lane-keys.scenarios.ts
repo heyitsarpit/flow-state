@@ -1,6 +1,7 @@
 import type { Case, Scenario } from "../dsl/case.ts";
 import { coveredBy } from "../coverage.ts";
 import { Held, Keyed } from "../fixtures/keyed.ts";
+import { Stamp } from "../fixtures/stamp.ts";
 import { Observation } from "../port.ts";
 import { Answer } from "../world/network.ts";
 
@@ -56,11 +57,36 @@ export const laneKeysScenarios: ReadonlyArray<Scenario> = [
       a.state("A");
     },
   },
+  {
+    id: "LANE-15",
+    cites: ["WriteLanes R11", "WriteLanes I17"],
+    fixtures: [Stamp],
+    run: (c) => {
+      const a = c.actor(Stamp, "a");
+      a.ensure();
+      a.send("Go", { k: "a" });
+      c.ack();
+      c.answer("charge", Answer.Lost());
+      c.eq("held unsure", a.memory().unsure, 1);
+      c.upgrade(2);
+      a.send("Go", { k: "b", region: "eu" });
+      c.ack();
+      c.eq(
+        "WriteLanes I17: beside an old-version hold a commit declines OldVersion",
+        a.memory().why,
+        "OldVersion",
+      );
+      c.eq("WriteLanes I17: no commit of it is invoked", c.requests("charge").length, 1);
+    },
+  },
 ];
 
 /**
  * The Invariants these cases check by their own expectations (the coverage gate's second kind).
  */
 export const laneKeysCovered = coveredBy(laneKeysScenarios).filter(
-  (row) => row.invariant === "WriteLanes I14" || row.invariant === "WriteLanes I18",
+  (row) =>
+    row.invariant === "WriteLanes I14" ||
+    row.invariant === "WriteLanes I17" ||
+    row.invariant === "WriteLanes I18",
 );
