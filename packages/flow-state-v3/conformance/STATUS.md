@@ -1600,6 +1600,25 @@ booted yet (`UnknownProductionFixture`).
   kept ending's key declines Rejected) fails on both runtimes because the suite's lifecycle does not
   model a kept ending holding its lane (WriteLanes R6, CQ3): owed to T44.
 
+## T45 (2026-11-11): executable Spec model, piloted on persistence (paused)
+
+Paused by the user at `1f1a1676`. Red there: falsify round-14 146/147, because
+`o6.settled-in-bound-stays-held` is now caught only by its case after the allowed-restore change.
+
+- **Done:** every storage landing is a fact. An ending with no landing after it may restore
+  unknown { Restored } at the boot (allowed, not owed). An actor with turns no landing holds resumes
+  at an unknown leaf. Production crash points went from 600 to 629 of 670.
+- **Found:** a runtime difference. After a boot restores a Held head, production's disposal ends
+  that head NotSent { Disposed } (26 production-only crash points, e.g. PAY-01@6). That fix is
+  production work, outside conformance/.
+- **Left:** evidence endings (Released, Superseded) and parked endings saved by no landing, both in
+  the lifecycle and in evidence-kinds (PAY-03@7, DISP-0x); PAY-07 and DLV-06 leaves; the generators
+  (exhaustive search, seeded runs with shrinking); report-free owed members; the kill counts.
+  Working notes: the T45 plan in the lead's scratchpad.
+- **Resume:** restore `o6.settled-in-bound-stays-held`'s disposal catch first. Keep a parked
+  ending saved in disposal owed, and allow only unsaved definite endings. Then rerun falsify and
+  `crash --runtime production`.
+
 ## T44 (2026-11-11): the suite judges from its own facts, gated by machines (in progress)
 
 Production passes the liar gate (13 of 13); round-14 has 9 greens, all behind fixtures that cannot
