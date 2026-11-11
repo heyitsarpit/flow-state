@@ -610,6 +610,41 @@ tasks
             unknown). Still report-fed, as stated limits: a failure's, cancel's, decline's or restore's channel, the 
             re-send (Sent) and Unparked; the world's Requested facts follow the step's reports, so a mid-step re-send 
             cannot come from them yet. Boundary minor done (5cea12c1); the data-flow boundary test, S3 and S5 remain.
+        comment     2026-11-11T21:17:35Z
+            Correction: K3 was logged fixed at db8f67c7 but was partial (fix-round review a42f0bff); its remainder is 
+            in 2d9fddef. K1 was partial until 2d9fddef: an unowed Finished below the grace (an upper bound the suite's 
+            clock gives) is now Actors I10.
+        comment     2026-11-11T21:17:39Z
+            K2 done (4774b000, reviewer sidecar ab8e6d5b: accepted 6 — settledBy used the report's operation, a parked 
+            success lost its adoption, stale request phases, earlier-step answers, retries re-owned by reported 
+            members, docs; noted 3 weaker-not-refusing cases as allowed). The anchor takes endings from the server log 
+            via endingOf, Sent only with its Requested, Unparked only for a call that ended, retries from the turn's 
+            rows. Recording Requested at receipt was not needed: consumers read the step's facts whole, and the liar 
+            replay puts replayed reports in one block, so positions inside a step stay the report's (named limits for 
+            step 6).
+        comment     2026-11-11T21:17:44Z
+            Step-3 remainder done: dataflow.test.ts (seven cases replayed with lying turn from, members, mint keys and 
+            ending channels give the same expect state; it replaces the deleted perturbation test, with 
+            boundary.test.ts and compare.test.ts); S5 (0239e68b) tests use selection's predictions with the anchor 
+            threaded; S3: Turn reports are now 1:1 with predictions (an unpredicted turn is a defect), so least at the 
+            second predicted turn; the boot-step bound stays the stated limit in lifecycle-model.ts. S6 (2d9fddef) owes 
+            a re-send only for a head still Resending.
+        comment     2026-11-11T21:17:48Z
+            Crash reds named (production, 2c636348 640/670 vs now 690/723): new DISP-02@6 and DISP-06@5 (a restore of a 
+            disposed actor's Held head after a kill, WriteLanes I15) and PAY-22@9 (void ended unknown then NotSent 
+            Disposed, WriteLanes I3/I16); DISP-06@7 was a suite false red from K3's allowed set, fixed (a removed actor 
+            may start at its initial leaf). The rest are renumbered steps of the old reds. Round-14's missing 
+            incarnation after a disposal and reload (37 generated reds) is kept for limits.ts in step 6.
+        comment     2026-11-11T21:17:53Z
+            I10/I37: ACT-01/free-actor-ends with life.never-ends and life.ends-while-used, caught (59e4febd); both are 
+            liar-green, since a free actor's end has no world effect in round-14 (no write, no schedule at CARD); liar 
+            greens are 11, above the phase-out's 9: needs a decision (exempt as report-observable, or a case where the 
+            end stops a schedule or read).
+        comment     2026-11-11T21:17:57Z
+            Step 3 against acceptance: item 5 met (boundary.test.ts import walk plus dataflow.test.ts data flow over 
+            the expect modules); item 3 met (falsify 152/152); phase-out check 1 met (sweep 4064de75: 0 lost, gains 
+            only). Not met here: phase-out step 1's liar greens at most 9 (11, see above). kills re-measured with red 
+            verdicts only: 27 of 37 (2a35981c), so acceptance 1 is open for step 5.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open
