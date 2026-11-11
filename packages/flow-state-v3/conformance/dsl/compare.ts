@@ -29,7 +29,6 @@ import {
   LifeMove,
   type Model,
   Move,
-  Phase,
 } from "./lifecycle-model.ts";
 import { type Known, operationOf, owedMembers, type Predicted } from "./lifecycle-owed.ts";
 import type { Rules } from "./lifecycle-rules.ts";
@@ -186,6 +185,12 @@ const endHeard = (walk: Walk, actor: ActorRef, given: Rules) => {
 };
 
 /**
+ * The phases in which the suite's answer fixes an Attempt's ending (WriteLanes R2, R3): sent by
+ * the server log whether or not its `Sent` was reported, and not interrupted or ended first.
+ */
+const ANSWERABLE: ReadonlyArray<string> = ["Unsent", "OnWire", "Resending"];
+
+/**
  * Matches one report to the move the expect half allows for it, and applies that move (the compare
  * half, Conformance R19): a turn opens with its predicted members, an answered Attempt ends as the
  * suite's answer says, and every other report is a move its table cell accepts or refuses.
@@ -268,12 +273,12 @@ export const reported = (
         onSome: (id) => {
           const lane = walk.model.attempts.find((a) => a.id === id)?.lane;
 
-          const onWire = walk.model.attempts.some(
-            (a) => a.id === id && Phase.$is("OnWire")(a.phase),
+          const live = walk.model.attempts.some(
+            (a) => a.id === id && ANSWERABLE.includes(a.phase._tag),
           );
 
           const answered = Option.flatMap(
-            Option.filter(Option.fromUndefinedOr(lane), () => onWire),
+            Option.filter(Option.fromUndefinedOr(lane), () => live),
             (l) => answeredEnding(known, l, walk, id),
           );
 
