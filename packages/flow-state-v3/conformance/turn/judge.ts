@@ -9,7 +9,7 @@ import {
   type Route,
 } from "../fixtures/handlers.ts";
 import type { Turn, TurnPart } from "../port.ts";
-import { leafOf, type Phase } from "./phases.ts";
+import { leafOf, Phase } from "./phases.ts";
 
 type Judged = {
   readonly to: Option.Option<string>;
@@ -99,17 +99,26 @@ export const judgeTurn = (
   turn: Turn,
   route: Route,
   decide: Decide,
+  reachable: ReadonlyArray<string>,
 ): Judged => {
   const handlers = machines[turn.actor.machine];
 
   if (handlers === undefined)
     return { to: Option.none(), found: [], match: Option.none(), from: turn.from };
 
-  const anchored = leafOf(phase);
+  const anchored = Option.orElse(leafOf(phase), () =>
+    Phase.$is("Fresh")(phase) ? Option.some(handlers.initial) : Option.none(),
+  );
+
   const from = Option.getOrElse(anchored, () => turn.from);
 
   const wrongFrom = Option.match(anchored, {
-    onNone: () => [],
+    onNone: () =>
+      reachable.length === 0 || reachable.includes(turn.from)
+        ? []
+        : [
+            `Turn I2: ${name(turn)} from ${turn.from}, but after the kill the actor could only be at ${reachable.join(" or ")}`,
+          ],
     onSome: (state) =>
       state === turn.from
         ? []

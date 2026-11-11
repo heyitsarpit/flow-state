@@ -27,7 +27,7 @@ import { judgeTurn, name, PENDING_RESET, selectedParts } from "./judge.ts";
 import { lateLeftWork } from "./late.ts";
 import { decideFor, foldedAfter, keysFor, labelsFor } from "./predict.ts";
 import { Input, leafOf, Phase } from "./phases.ts";
-import { type Labels, noFolds } from "../fixtures/folds.ts";
+import { type Folded, type Labels, noFolds } from "../fixtures/folds.ts";
 import { type Machines, possible, scheduledEvents } from "../fixtures/handlers.ts";
 import {
   type ActorRef,
@@ -89,7 +89,7 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
         `Turn I2: ${name(turn)}, an event the suite never sent it, no ending delivered and no schedule sends`,
       ];
 
-  const judged = judgeTurn(state.machines, now.phase, turn, route, decide);
+  const judged = judgeTurn(state.machines, now.phase, turn, route, decide, now.allowed);
 
   const fields = foldedAfter(
     folds,
@@ -147,6 +147,8 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
       entry,
       turns: now.turns + 1,
       fields,
+      trail: [...now.trail, Option.getOrElse(judged.to, () => turn.to)],
+      allowed: [],
     }),
     turn.actor,
     Input.Turned({ to: judged.to }),
@@ -154,7 +156,7 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
 
   const anchored = Observation.Turn({
     ...turn,
-    from: Option.getOrElse(leafOf(now.phase), () => turn.from),
+    from: judged.from,
     to: Option.getOrElse(judged.to, () => turn.to),
   });
 
@@ -164,7 +166,7 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
     from: anchored.from,
     to: anchored.to,
     at: Option.map(judged.match, (m) => m.at),
-    keys: { ...reportedKeys(turn), ...keysFor(folds, fields, labels) },
+    keys: keysOf(turn, now.fields, keysFor(folds, fields, labels)),
     encodable: labels["encodable"] !== false,
   };
 
@@ -177,9 +179,13 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
 };
 
 /**
- * The keys a turn's report gives its members, by operation: a stated limit where a fixture folds no
- * key, or after a kill with turns no capture holds (`Predicted`).
+ * The keys a turn's members are owed, by operation: the fixture's folds over the fields the suite
+ * carries. Where it carries none (an actor it never saw ensured, Turn's Unanchored phase), the
+ * report's own keys stand in: a stated limit, the one place a key is taken from the runtime.
  */
+const keysOf = (turn: Turn, carried: Option.Option<Folded>, folded: ReturnType<typeof keysFor>) =>
+  Option.isNone(carried) ? { ...reportedKeys(turn), ...folded } : folded;
+
 const reportedKeys = (turn: Turn) =>
   Object.fromEntries(
     turn.members.flatMap((m) => {
@@ -379,7 +385,7 @@ const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>, least: Stat
     Answered: ({ request, labels }) =>
       keep(answered(state, request.operation, request.key, labels)),
     Released: () => keep(state),
-    DisposingRuntime: () => keep(state),
+    DisposingRuntime: () => keep({ ...state, disposing: true }),
     Unstoppable: () => keep(state),
     Landed: () => keep(landed(state)),
     Acknowledges: () => keep(state),
@@ -400,8 +406,9 @@ const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>, least: Stat
  * **Details**
  *
  * - The leaf is the suite's own: the fixture's initial leaf on a fresh actor's first use, then
- *   each judged turn's leaf. After a reload, or a use of a disposed actor, the leaf is restored
- *   from a record the suite does not read, so the next turn's reported `from` is taken once.
+ *   each judged turn's leaf. After a kill that may lose turns, the next turn's reported `from`
+ *   must be one of the leaves those turns reached (`allowed`); after a use of a disposed actor it
+ *   is taken once.
  * - A turn's event must be one the suite sent that actor, an ending delivered to it in that step,
  *   or one its schedules send.
  * - Guards the suite does not compute (memory, payload, lane reads) make each guarded alternative
@@ -418,7 +425,8 @@ const onFact = (state: State, fact: Fact, step: ReadonlyArray<Fact>, least: Stat
  *   order is not judged, and a part-addressed `Unhandled` is judged against the root's table.
  * - Driven events are credited to the actor until a turn of it runs them, an `Unhandled` or
  *   `Denied` of that event is reported while exactly one actor holds its credit, or the actor is
- *   disposed, forgotten or reloaded.
+ *   disposed, forgotten or reloaded; a credit a live actor still holds at the step's end breaks
+ *   R2 (`closed`).
  *
  * - An `Unhandled` or `Denied` names no actor: it is judged for the actor an ending of its event
  *   was delivered to in that step, else the one actor holding a driven credit for it, and it
@@ -457,6 +465,7 @@ export const anchorOf = (machines: Machines): Anchor => ({
   actors: new Map(),
   owning: new Map(),
   calls: new Map(),
+  disposing: false,
 });
 
 /**
@@ -489,6 +498,7 @@ export const anchorAt = (
   ]),
   owning: new Map(),
   calls: new Map(),
+  disposing: false,
 });
 
 /**
@@ -502,6 +512,46 @@ export const anchorAt = (
  * judged, never from the runtime's word alone; the `selection` oracle reports the violations.
  */
 export const judgedStep = (state: Anchor, step: ReadonlyArray<Fact>) =>
+  closed(walked(state, step), step);
+
+const refusedTurn = (step: ReadonlyArray<Fact>) =>
+  step.some(
+    (f) =>
+      Fact.$is("Reported")(f) &&
+      Observation.$is("Issue")(f.observation) &&
+      Option.isNone(f.observation.ending),
+  );
+
+/**
+ * A step's end: each driven event a live actor still holds, which no turn, `Unhandled` or `Denied`
+ * answered, breaks Turn R2, and its credit ends with the step. Kept while the Runtime is disposing;
+ * not judged in a step with a refused turn (an `Issue` with no ending, Turn I3), which names no
+ * actor.
+ */
+const closed = (judged: ReturnType<typeof walked>, step: ReadonlyArray<Fact>) => {
+  if (judged.state.disposing) return judged;
+
+  const left = refusedTurn(step)
+    ? []
+    : [...judged.state.actors].flatMap(([key, a]) =>
+        Phase.$is("Live")(a.phase)
+          ? a.driven.map((c) =>
+              violation(`Turn I2 (R2): ${key} was sent ${c.event}, but no turn ran it in the step`),
+            )
+          : [],
+      );
+
+  return {
+    ...judged,
+    state: {
+      ...judged.state,
+      actors: new Map([...judged.state.actors].map(([key, a]) => [key, { ...a, driven: [] }])),
+    },
+    violations: [...judged.violations, ...left],
+  };
+};
+
+const walked = (state: Anchor, step: ReadonlyArray<Fact>) =>
   step.reduce<{
     readonly state: Anchor;
     readonly violations: ReadonlyArray<Violation>;

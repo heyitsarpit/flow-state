@@ -23,6 +23,8 @@ export type Actor = {
   readonly fields: Option.Option<Folded>;
   readonly saved: Kept;
   readonly pending: Option.Option<Kept>;
+  readonly trail: ReadonlyArray<string>;
+  readonly allowed: ReadonlyArray<string>;
 };
 
 /**
@@ -63,6 +65,7 @@ export type State = {
   readonly actors: ReadonlyMap<string, Actor>;
   readonly owning: ReadonlyMap<string, Owner>;
   readonly calls: ReadonlyMap<string, Call>;
+  readonly disposing: boolean;
 };
 
 export const keyOf = (actor: ActorRef) => `${actor.machine} ${actor.id}`;
@@ -75,6 +78,8 @@ export const FRESH: Actor = {
   fields: Option.none(),
   saved: { turns: 0, fields: Option.none() },
   pending: Option.none(),
+  trail: [],
+  allowed: [],
 };
 
 export const actorIn = (state: State, actor: ActorRef) => state.actors.get(keyOf(actor)) ?? FRESH;
@@ -307,26 +312,41 @@ export const dropped = (state: State) =>
   eachActor(state, (a) => ({ ...a, pending: Option.none() }));
 
 /**
- * A kill and reload: an actor with turns no landed batch holds may resume at any of them, so its
- * leaf is unknown until its next turn (WriteAhead R10, I10); any other keeps its stored leaf.
+ * A kill and reload: an actor with turns the landed batch may not hold resumes at one of the leaves
+ * those turns reached, from the one the batch surely holds (`allowed`, design section 3; WriteAhead
+ * R10, I10), with the fields that batch holds; any other keeps its stored leaf.
  */
-export const reloaded = (state: State) =>
-  eachActor(state, (a) => {
-    const lost = a.turns > a.saved.turns;
-    const fields = lost ? Option.none<Folded>() : a.saved.fields;
+export const reloaded = (state: State) => ({
+  ...state,
+  disposing: false,
+  actors: new Map(
+    [...state.actors].map(([key, a]) => {
+      const lost = a.turns > a.saved.turns;
+      const initial = state.machines[key.split(" ")[0] ?? ""]?.initial;
+      const at = a.saved.turns === 0 ? initial : a.trail[a.saved.turns - 1];
 
-    return {
-      ...a,
-      phase: lost
-        ? Phase.Stored({ state: Option.none() })
-        : TABLE[a.phase._tag].Reloaded(Input.Reloaded(), a.phase),
-      driven: [],
-      entry: a.entry + 1,
-      fields,
-      saved: { turns: a.turns, fields },
-      pending: Option.none(),
-    };
-  });
+      const reached = [at, ...a.trail.slice(a.saved.turns)].flatMap((l) =>
+        l === undefined ? [] : [l],
+      );
+
+      return [
+        key,
+        {
+          ...a,
+          phase: lost
+            ? Phase.Stored({ state: Option.none() })
+            : TABLE[a.phase._tag].Reloaded(Input.Reloaded(), a.phase),
+          driven: [],
+          entry: a.entry + 1,
+          fields: a.saved.fields,
+          saved: { turns: a.turns, fields: a.saved.fields },
+          pending: Option.none(),
+          allowed: lost ? [...new Set(reached)] : [],
+        },
+      ] as const;
+    }),
+  ),
+});
 
 /**
  * The labels the suite's server gave a call's answer, under `operation attempt` when the request

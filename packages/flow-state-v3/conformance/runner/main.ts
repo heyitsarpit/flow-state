@@ -334,6 +334,15 @@ const falsify = (args: ReadonlyArray<string>) =>
 
     const verdicts = runs.map((r) => r.verdict);
 
+    // A slice (`--mutant`) writes its rows to `--rows`, so slices of a sweep merge into one.
+    yield* Option.match(flag(args, "--rows"), {
+      onNone: () => Effect.void,
+      onSome: (path) =>
+        Effect.sync(() => {
+          writeFileSync(resolve(path), `${runs.flatMap((r) => r.rows).join("\n")}\n`);
+        }),
+    });
+
     // A full run rewrites the catch matrix or the sweep (advisor Q6); a lost catch fails the run.
     const lost = yield* matrixOf(
       Option.isNone(only),
