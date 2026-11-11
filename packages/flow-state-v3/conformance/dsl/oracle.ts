@@ -4,6 +4,7 @@ import type { Reference } from "../fixtures/reference.ts";
 import type { LifeStep } from "./lifecycle-step.ts";
 import { type ActorRef, type Json, type Observation, sameActor, type Use } from "../port.ts";
 import type { Answer, Request } from "../world/network.ts";
+import type { Purpose } from "../world/storage.ts";
 
 /**
  * One entry of a case's timeline: what the suite did, what its world saw, and what the runtime
@@ -24,8 +25,11 @@ import type { Answer, Request } from "../world/network.ts";
  * - `DisposingRuntime`: the suite started the Runtime's disposal; it holds until the next reload.
  * - `Drove`: the suite sent this event to this actor, at its root or at one of its parts.
  * - `Unstoppable`: from now on, calls of this operation cannot be interrupted.
- * - `Acknowledged`: the store landed the batches that acknowledge these Attempts (the store's
- *   fact; which Attempts a batch acknowledges is the runtime's claim).
+ * - `Acknowledged`: the suite landed every held batch (perhaps none), which acknowledge these
+ *   Attempts (the store's fact; which Attempts a batch acknowledges is the runtime's claim).
+ * - `Wrote`: the runtime wrote a batch to the store, noted when the step that wrote it settles,
+ *   after that step's reports: a flush lands at once, any other is held until an answer.
+ * - `Dropped`: the suite answered the held batches `refuse` or `hang`: none of them lands.
  * - `Advanced`: the suite moved the world's clock forward by `ms`, firing the timers due.
  * - `Read`: the suite read this write's row (`O.x.get`) and the runtime returned `row`.
  */
@@ -43,6 +47,8 @@ export type Fact = Data.TaggedEnum<{
   Drove: { actor: ActorRef; event: string; to: Address };
   Unstoppable: { operation: string };
   Acknowledged: { attempts: ReadonlyArray<string> };
+  Wrote: { purpose: Purpose };
+  Dropped: {};
   Advanced: { ms: number };
   Read: { actor: ActorRef; operation: string; key: Json; row: Option.Option<Json> };
 }>;

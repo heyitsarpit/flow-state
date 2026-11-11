@@ -1,5 +1,5 @@
 {
-  "revision": "0ddedbf8",
+  "revision": "56ef0856",
   "gates": [
     {
       "gate": "suite round-14",
@@ -31,7 +31,7 @@
     },
     {
       "gate": "crash production",
-      "verdict": "VERDICT fail 639/670 crash points"
+      "verdict": "VERDICT fail 640/670 crash points"
     },
     {
       "gate": "core mutants",

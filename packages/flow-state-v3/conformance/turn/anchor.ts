@@ -2,13 +2,16 @@ import { Data, Option } from "effect";
 import { Fact } from "../dsl/oracle.ts";
 import type { Machines, Route } from "../fixtures/handlers.ts";
 import type { ActorRef, Channel, Delivered, Json } from "../port.ts";
+import type { Purpose } from "../world/storage.ts";
 import { Input, leafOf, Phase, TABLE } from "./phases.ts";
 
 export type Actor = {
   readonly phase: Phase;
   readonly driven: ReadonlyArray<string>;
   readonly entry: number;
-  readonly unsaved: boolean;
+  readonly turns: number;
+  readonly saved: number;
+  readonly pending: Option.Option<number>;
 };
 
 /**
@@ -52,7 +55,14 @@ export type State = {
 
 export const keyOf = (actor: ActorRef) => `${actor.machine} ${actor.id}`;
 
-export const FRESH: Actor = { phase: Phase.Fresh(), driven: [], entry: 0, unsaved: false };
+export const FRESH: Actor = {
+  phase: Phase.Fresh(),
+  driven: [],
+  entry: 0,
+  turns: 0,
+  saved: 0,
+  pending: Option.none(),
+};
 
 export const actorIn = (state: State, actor: ActorRef) => state.actors.get(keyOf(actor)) ?? FRESH;
 
@@ -229,32 +239,52 @@ export const ended = (
   return moveCall(state, operation, attempt.value, CallPhase.Ended());
 };
 
-/**
- * Every actor's latest turn is on disk: the store landed a batch.
- */
-export const saved = (state: State) => ({
+const eachActor = (state: State, change: (a: Actor) => Actor) => ({
   ...state,
-  actors: new Map([...state.actors].map(([key, a]) => [key, { ...a, unsaved: false }])),
+  actors: new Map([...state.actors].map(([key, a]) => [key, change(a)])),
 });
 
 /**
- * A kill and reload: an actor whose last turns no landed batch holds may resume at any of them, so
- * its leaf is unknown until its next turn (WriteAhead R10, I10); any other keeps its stored leaf.
+ * The runtime wrote a batch, which holds every actor's turns so far: a flush lands at once, any
+ * other once the store lands it.
  */
-export const reloaded = (state: State) => ({
-  ...state,
-  actors: new Map(
-    [...state.actors].map(([key, a]) => [
-      key,
-      {
-        ...a,
-        phase: a.unsaved
-          ? Phase.Stored({ state: Option.none() })
-          : TABLE[a.phase._tag].Reloaded(Input.Reloaded(), a.phase),
-        driven: [],
-        entry: a.entry + 1,
-        unsaved: false,
-      },
-    ]),
-  ),
-});
+export const wrote = (state: State, purpose: Purpose) =>
+  eachActor(state, (a) =>
+    purpose === "flush" ? { ...a, saved: a.turns } : { ...a, pending: Option.some(a.turns) },
+  );
+
+/**
+ * The store landed the held batches: each actor's turns the latest of them holds are on disk.
+ */
+export const landed = (state: State) =>
+  eachActor(state, (a) => ({
+    ...a,
+    saved: Math.max(
+      a.saved,
+      Option.getOrElse(a.pending, () => a.saved),
+    ),
+    pending: Option.none(),
+  }));
+
+/**
+ * The held batches will never land.
+ */
+export const dropped = (state: State) =>
+  eachActor(state, (a) => ({ ...a, pending: Option.none() }));
+
+/**
+ * A kill and reload: an actor with turns no landed batch holds may resume at any of them, so its
+ * leaf is unknown until its next turn (WriteAhead R10, I10); any other keeps its stored leaf.
+ */
+export const reloaded = (state: State) =>
+  eachActor(state, (a) => ({
+    ...a,
+    phase:
+      a.turns > a.saved
+        ? Phase.Stored({ state: Option.none() })
+        : TABLE[a.phase._tag].Reloaded(Input.Reloaded(), a.phase),
+    driven: [],
+    entry: a.entry + 1,
+    saved: a.turns,
+    pending: Option.none(),
+  }));

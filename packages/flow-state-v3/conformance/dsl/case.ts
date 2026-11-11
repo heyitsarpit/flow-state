@@ -196,7 +196,7 @@ const stepEngine = (
   unread: () => Option.Option<Unreadable>,
   replaceReports: (from: number, reports: ReadonlyArray<Observation>) => void,
 ) => {
-  const { network } = world.hosts;
+  const { network, storage } = world.hosts;
   const reference = referenceFor(options.fixtures);
   const machines = handlersFor(options.fixtures);
   const known = { reference, rows: rowsFor(options.fixtures) };
@@ -210,14 +210,16 @@ const stepEngine = (
   let stepped = 0;
   let crashing = true;
   let noted = 0;
+  let wrote = 0;
   let judged = 0;
   let model = empty;
 
-  const noteRequests = () => {
-    const made = network.requests();
+  const noteWorld = () => {
+    for (const request of network.requests().slice(noted)) record(Fact.Requested({ request }));
 
-    for (const request of made.slice(noted)) record(Fact.Requested({ request }));
-    noted = made.length;
+    for (const purpose of storage.written().slice(wrote)) record(Fact.Wrote({ purpose }));
+    noted = network.requests().length;
+    wrote = storage.written().length;
   };
 
   const stopIfUnread = (what: string) =>
@@ -273,7 +275,7 @@ const stepEngine = (
       onNone: () => undefined,
       onSome: (steps) => replaceReports(from, steps[stepped - 1] ?? []),
     });
-    noteRequests();
+    noteWorld();
     judge(what);
 
     if (crashing && Option.contains(options.crashAt, stepped)) {
@@ -356,9 +358,11 @@ export const openCase = (options: CaseOptions) => {
 
   const answerStorage = (what: string, how: StorageAnswer) =>
     act(what, () => {
+      const held = storage.holding();
       const attempts = storage.answer(how);
 
       if (how === "ack" || how === "landNoAck") record(Fact.Acknowledged({ attempts }));
+      else if (held > 0) record(Fact.Dropped());
     });
 
   const send = (drives: ReadonlyArray<Drive>) =>

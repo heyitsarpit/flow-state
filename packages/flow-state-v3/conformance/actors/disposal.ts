@@ -191,6 +191,8 @@ const whileDisposing = (context: Context, window: Window, fact: Fact) => {
     Drove: () => none,
     Unstoppable: () => none,
     Acknowledged: () => none,
+    Wrote: () => none,
+    Dropped: () => none,
     Advanced: ({ ms }) => kept([{ ...window, elapsed: window.elapsed + ms }, []]),
     Read: () => none,
   });

@@ -196,6 +196,12 @@ export type ActorRecord = "bound" | "grace" | "disposeActor" | "forget";
 export type AttemptLife = { readonly id: string; readonly lane: LaneId; readonly phase: Phase };
 
 /**
+ * What one batch saves, taken when the step that wrote it settles: each ending's life by index,
+ * and how many of the model's `ended` Attempts it holds.
+ */
+export type Capture = { readonly lives: ReadonlyArray<Life>; readonly ended: number };
+
+/**
  * The one lifecycle a Case folds: every Attempt's phase, every ending's life, what is still owed,
  * and each actor's incarnation.
  *
@@ -209,20 +215,22 @@ export type AttemptLife = { readonly id: string; readonly lane: LaneId; readonly
  * - `unstoppable`: the operations whose calls the suite made uninterruptible, from then on.
  * - `acknowledged`: the Attempts whose acknowledging batch the store landed (that it landed is
  *   the store's fact; which Attempts a batch acknowledges is the runtime's claim).
- * - `unsaved`: the Attempts that ended, or left their lane as evidence (Released, Superseded),
- *   since the store last landed a batch, outside the Runtime's disposal. Their endings are not
- *   on disk, so a kill rolls each back to the head its landed capture holds (WriteAhead I10, I17). An ending in the disposal is parked and owed to the next
- *   incarnation however its batch lands (Actors R22, I36, I38), so it is never unsaved.
- * - `saved`: each ending's life, by index, at the last landing or boot. A kill rolls every ending
- *   that existed then back to it (WriteAhead I10: the readable scope is the latest landed capture),
- *   so a parked ending delivered with no landing after is parked again; an ending decided since
- *   keeps its life, and so does an ending of a Held head (its restore is owed instead). A
- *   `Delivering` life is never rolled back to.
+ * - `ended`: every Attempt that ended, or left its lane as evidence (Released, Superseded),
+ *   outside the Runtime's disposal, in order. An ending in the disposal is parked and owed to the
+ *   next incarnation however its batch lands (Actors R22, I36, I38), so it is never listed.
+ * - `saved`: the {@link Capture} the store holds: the latest landed batch's, or the boot's. A kill
+ *   rolls the model back to it (WriteAhead I10: the readable scope is the latest landed capture).
+ *   `pending`: the capture of the latest batch the store holds unanswered, which an `ack` lands.
  *
  * **Gotchas**
  *
  * - The lane is derived from `attempts`, never stored: its head is its first addressable Attempt
  *   in mint order, and its waiting list the `Queued` ones.
+ * - A capture is taken where its `Wrote` is noted, at the end of the step that wrote it: a runtime
+ *   may report a turn after its batch is written, so the batch is credited with the whole step. A
+ *   later change of that step is credited too, which can owe more than the disk holds (a stated
+ *   limit). A flush lands at once in the fake store even while older batches are held; a landing
+ *   keeps the capture that holds more endings.
  */
 export type Model = {
   readonly mode: "running" | "disposing";
@@ -238,10 +246,25 @@ export type Model = {
   readonly releasing: ReadonlyArray<LaneId>;
   readonly unstoppable: ReadonlyArray<string>;
   readonly acknowledged: ReadonlyArray<string>;
-  readonly unsaved: ReadonlyArray<string>;
-  readonly saved: ReadonlyArray<Life>;
+  readonly ended: ReadonlyArray<string>;
+  readonly saved: Capture;
+  readonly pending: Option.Option<Capture>;
   readonly held: ReadonlyArray<readonly [ActorRef, Use]>;
 };
+
+/**
+ * The Attempts whose ending or evidence no landed batch holds: a kill rolls each back to the head
+ * its landed capture holds (WriteAhead I10, I17).
+ */
+export const unsavedOf = (model: Model) => model.ended.slice(model.saved.ended);
+
+/**
+ * The capture a batch written now holds.
+ */
+export const captureOf = (model: Model) => ({
+  lives: model.endings.map((e) => e.life),
+  ended: model.ended.length,
+});
 
 /**
  * The lifecycle before a case's first boot.
@@ -257,8 +280,9 @@ export const empty: Model = {
   releasing: [],
   unstoppable: [],
   acknowledged: [],
-  unsaved: [],
-  saved: [],
+  ended: [],
+  saved: { lives: [], ended: 0 },
+  pending: Option.none(),
   held: [],
 };
 

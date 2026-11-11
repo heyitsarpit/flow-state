@@ -15,6 +15,7 @@ import {
   Phase,
   type Refusal,
   sameLane,
+  unsavedOf,
 } from "./lifecycle-model.ts";
 import { Outcome, type Promotion, type Row, type Rules, rules } from "./lifecycle-rules.ts";
 
@@ -370,7 +371,7 @@ const bootOwes = (model: Model) => {
     (Phase.$is("Restoring")(a.phase) &&
       a.phase.head &&
       model.acknowledged.includes(a.id) &&
-      !model.unsaved.includes(a.id));
+      !unsavedOf(model).includes(a.id));
 
   const unbound = (a: AttemptLife) =>
     model.actors.some((x) => sameActor(x.actor, a.lane.actor) && x.record === "forget");

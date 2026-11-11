@@ -456,6 +456,18 @@ tasks
             the lost-catch check reports any catch it costs). Open, for the search's Spec-conflict count: a kill inside 
             the disposal before its batch lands pits WriteAhead I17 (restore) against Actors I36 (none); the model 
             follows I36.
+        comment     2026-11-11T16:25:03Z
+            Step 2 done, step 4's rollback built: a landing saves the capture of the batch it lands, taken when the 
+            step that wrote it settles (`Wrote` and `Dropped` facts; WriteAhead I10, R10). Crash production 639 -> 640; 
+            PAY-07 and DLV-06 leaves and DISP-06@7 green. `refusal` no longer judges a leaf across a reload. Left: 28 
+            Held-head points (@task.V3.T51); PAY-22@13 (owed release after a crash, read from the turn's observed row) 
+            goes with step 3.
+        comment     2026-11-11T16:25:08Z
+            Review sidecar (Haiku) on the capture diff: noted 3 as stated limits in `Model`'s Gotchas, not changed: a 
+            capture credited with its whole step (recording at the write would credit too little, since round-14 
+            reports a turn's evidence after its writes); a flush landing ahead of held batches in the fake store (the 
+            world's order, R12); landing decided by the runtime's purpose label. Rejected 1 (`Acknowledged` with 
+            nothing held is kept: `lane-queue`'s resend check needs it, 2 catches lost without it).
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open

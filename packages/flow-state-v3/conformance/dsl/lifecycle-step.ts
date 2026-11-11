@@ -2,11 +2,14 @@ import { Option } from "effect";
 import { mappedEvent, retains } from "../fixtures/reference.ts";
 import { type ActorRef, type EndingRef, type Json, Observation, sameActor } from "../port.ts";
 import type { Request } from "../world/network.ts";
+import type { Purpose } from "../world/storage.ts";
 import { due } from "./lifecycle.ts";
 import { apply } from "./lifecycle-fold.ts";
 import { lifeNamed, misdelivered } from "./lifecycle-lives.ts";
 import {
   ActorMove,
+  captureOf,
+  type Ending,
   type EndingName,
   type Input,
   LaneMove,
@@ -16,6 +19,7 @@ import {
   Move,
   Phase,
   type Refusal,
+  unsavedOf,
 } from "./lifecycle-model.ts";
 import { type Known, operationOf, owedMembers } from "./lifecycle-owed.ts";
 import { type Rules, rules } from "./lifecycle-rules.ts";
@@ -61,7 +65,7 @@ const pushed = (walk: Walk, move: Input, given: Rules) => {
 const unsaved = (walk: Walk, attempt: string) =>
   walk.model.mode === "disposing" || (walk.applied.at(-1)?.refusals.length ?? 0) > 0
     ? walk
-    : { ...walk, model: { ...walk.model, unsaved: [...walk.model.unsaved, attempt] } };
+    : { ...walk, model: { ...walk.model, ended: [...walk.model.ended, attempt] } };
 
 const closedTurn = (walk: Walk, given: Rules) =>
   Option.isSome(walk.model.turn) ? pushed(walk, LaneMove.TurnCloses(), given) : walk;
@@ -283,23 +287,30 @@ const mapped = (walk: Walk, known: Known, ref: EndingRef) =>
  * restore the boot owes instead (Restore I6). A head whose acknowledgement never landed was never
  * on disk as a head (WriteAhead R10): after the reload it does not hold its lane (`unlanded`).
  */
-const rolledBack = (model: Model) => ({
-  ...model,
-  attempts: model.attempts.map((a) =>
-    a.phase._tag === "Gone" && model.unsaved.includes(a.id) && model.acknowledged.includes(a.id)
-      ? { ...a, phase: Phase.Restoring({ head: true }) }
-      : a,
-  ),
-  endings: model.endings.map((e, i) => {
-    const life = model.saved[i];
+const rolledBack = (model: Model) => {
+  const unsaved = unsavedOf(model);
 
-    const held = Option.exists(e.attempt, (id) =>
-      model.attempts.some((a) => a.id === id && Phase.$is("Held")(a.phase)),
-    );
+  return {
+    ...model,
+    attempts: model.attempts.map((a) =>
+      a.phase._tag === "Gone" && unsaved.includes(a.id) && model.acknowledged.includes(a.id)
+        ? { ...a, phase: Phase.Restoring({ head: true }) }
+        : a,
+    ),
+    endings: model.endings.map((e, i) => rolledEnding(model, e, i)),
+  };
+};
 
-    return life === undefined || held || Life.$is("Delivering")(life) ? e : { ...e, life };
-  }),
-});
+const rolledEnding = (model: Model, e: Ending, index: number) => {
+  const held = Option.exists(e.attempt, (id) =>
+    model.attempts.some((a) => a.id === id && Phase.$is("Held")(a.phase)),
+  );
+
+  return Option.match(Option.fromUndefinedOr(model.saved.lives[index]), {
+    onNone: () => e,
+    onSome: (life) => (held || Life.$is("Delivering")(life) ? e : { ...e, life }),
+  });
+};
 
 const unlanded = (model: Model) => ({
   ...model,
@@ -310,7 +321,22 @@ const unlanded = (model: Model) => ({
   ),
 });
 
-const savedNow = (model: Model) => ({ ...model, saved: model.endings.map((e) => e.life) });
+const booted = (model: Model) => ({ ...model, saved: captureOf(model), pending: Option.none() });
+
+const wrote = (model: Model, purpose: Purpose) =>
+  purpose === "flush"
+    ? { ...model, saved: captureOf(model) }
+    : { ...model, pending: Option.some(captureOf(model)) };
+
+const landed = (model: Model) =>
+  Option.match(model.pending, {
+    onNone: () => model,
+    onSome: (capture) => ({
+      ...model,
+      saved: capture.ended >= model.saved.ended ? capture : model.saved,
+      pending: Option.none(),
+    }),
+  });
 
 const ADOPTABLE: ReadonlyArray<string> = ["grace", "disposeActor", "forget"];
 
@@ -346,7 +372,7 @@ const onFact = (
 
       return {
         ...reloaded,
-        model: savedNow({ ...unlanded(reloaded.model), held: [], unsaved: [] }),
+        model: booted({ ...unlanded(reloaded.model), held: [] }),
         reloaded: true,
       };
     },
@@ -364,12 +390,10 @@ const onFact = (
           },
     Acknowledged: ({ attempts }) => ({
       ...walk,
-      model: savedNow({
-        ...walk.model,
-        acknowledged: [...walk.model.acknowledged, ...attempts],
-        unsaved: [],
-      }),
+      model: landed({ ...walk.model, acknowledged: [...walk.model.acknowledged, ...attempts] }),
     }),
+    Wrote: ({ purpose }) => ({ ...walk, model: wrote(walk.model, purpose) }),
+    Dropped: () => ({ ...walk, model: { ...walk.model, pending: Option.none() } }),
     Stepped: () => walk,
     Requested: () => walk,
     Answered: () => walk,

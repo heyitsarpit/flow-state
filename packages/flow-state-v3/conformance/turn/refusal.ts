@@ -120,7 +120,10 @@ const leafBefore = (state: State, step: ReadonlyArray<Fact>, r: Refusal) => {
 const movedAfter = (state: State, step: ReadonlyArray<Fact>, r: Refusal) => {
   const name = keyOf(r.actor);
 
-  const next = reportsIn(step.slice(r.at + 1)).find(
+  const after = step.slice(r.at + 1);
+  const reload = after.findIndex((f) => Fact.$is("Reloaded")(f));
+
+  const next = reportsIn(reload < 0 ? after : after.slice(0, reload)).find(
     (o) => Observation.$is("Turn")(o) && keyOf(o.actor) === name,
   );
 
@@ -211,8 +214,9 @@ const published = (state: State, step: ReadonlyArray<Fact>): State =>
  *   span runs from that ending's `Delivered` to the issue. An Unhandled or Denied event's span
  *   runs from the suite's `Drove` of that event, or the ending delivered as it, to the report.
  * - In its span no `Turn` or `Minted` of that actor is reported.
- * - The actor's next turn in the step runs from the leaf it had before the span (its last turn's
- *   `to`, else its last published state).
+ * - The actor's next turn in the step, before any reload, runs from the leaf it had before the
+ *   span (its last turn's `to`, else its last published state). After a kill it resumes from its
+ *   landed capture, which may hold an older leaf (WriteAhead I10).
  * - In a step where that actor ran no turn and began no incarnation, its `Published` state and
  *   memory equal the last ones it published.
  *
