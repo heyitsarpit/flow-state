@@ -590,4 +590,7 @@ note 2026-11-11T03:30:58Z
     stands (round-14 stated limit); a new WriteLanes Invariant says an owed retry re-sends. Applied with to-spec after 
     step 9. **Reverse:** revert each Spec entry.
 note 2026-11-11T03:39:46Z
-    Amendment (the user, 2026-11-11): leads work through up to three context compactions before handing off. **Why:** short builder runs cost a re-read at every handover. **Reverse:** drop the instructions line.
+    Amendment (the user, 2026-11-11): leads work through up to three context compactions before handing off. **Why:** 
+    short builder runs cost a re-read at every handover. **Reverse:** drop the instructions line.
+note 2026-11-11T03:42:23Z
+    Decision (user, 2026-11-11, "check them now"): one Opus audit of all core Invariants for value, redundancy, testability, conflicts and gaps runs now as a third agent, beside the builder and the step 9 review. It only recommends; cuts are guarantee changes.
