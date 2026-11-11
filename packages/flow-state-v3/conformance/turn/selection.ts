@@ -270,9 +270,13 @@ const deliveredTo = (step: ReadonlyArray<Fact>, event: string) =>
  * suite cannot tell.
  */
 const refusing = (state: State, event: string, step: ReadonlyArray<Fact>) => {
-  const [delivered] = deliveredTo(step, event);
+  const delivered = deliveredTo(step, event);
+  const [first] = delivered;
 
-  if (delivered !== undefined) return Option.some({ actor: delivered, heard: true });
+  if (first !== undefined)
+    return delivered.every((a) => keyOf(a) === keyOf(first))
+      ? Option.some({ actor: first, heard: true })
+      : Option.none();
 
   const holders = [...state.actors].filter(([, a]) => a.driven.includes(event));
   const [only, ...more] = holders;

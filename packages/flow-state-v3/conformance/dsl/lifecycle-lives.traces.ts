@@ -387,6 +387,17 @@ const actorTraces: ReadonlyArray<Trace> = [
     checks: [],
   },
   {
+    name: "a boot owes no restore to a head whose ending was decided in the disposal",
+    cites:
+      "Actors R10, R22: that ending parks at the reload and is what the next incarnation hears",
+    start: model(lane("A", ["s", H]), { endings: [ending(OW, { inDisposal: true })] }),
+    steps: [Move.Reload()],
+    refusals: [[]],
+    phases: { s: H },
+    owed: 0,
+    checks: [],
+  },
+  {
     name: "a bound actor's incarnation with no reload owes no restore",
     cites: "Restore I6: no boot and no return, so no restore ending",
     start: model(lane("A", ["s", H])),

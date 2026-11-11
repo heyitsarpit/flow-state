@@ -1192,6 +1192,43 @@ must be a suite fact or a judged claim.
   disposal, and an ending after `RuntimeDisposed` no longer excuses; forget's evidence was refused
   (fixed in `d9c04e0a`, Actors R21); and H2's 18 cases (16 back since `b39461d0`).
 
+### Steps 3 to 6, the audit checklist and the review
+
+- Step 3 (`05fb2553`): the perturbation test also runs each reference turn's header through
+  `selection` with `to` or `from` naming no state (the obligation stays, or Turn I2 fires), and a
+  heard ending reported `Parked` while the suite holds its actor (WriteLanes I15). Caught kinds:
+  `header-from`, `header-to`, `parked-while-held` beside the seven member kinds.
+- Step 4, M1 (`d9c04e0a`): a forgotten identity's owed or parked ending recorded as evidence closes
+  (Actors R21); cites moved to the Spec (Actors R22 for disposal parking, WriteLanes R14 read at
+  quiescence for the interrupted call, R9 for a member that names no lane); the "boot settles" trace
+  says it is carried to T11 (Restore R3). Rejected: I1 for a queued Attempt's send (I11 holds too:
+  sending a queued Attempt is an early promotion). Kept as stated readings: unknown { Disposed }
+  outside a disposal under Actors I35, I16 and I15 where WriteLanes I27 ("every commit ends", T7's
+  row) would now fit.
+- Step 5, M2: Run 7's account corrected (above).
+- Step 6, cuts (`a31e186e`): the `incarnation` field (written, read only by tests) is gone; one
+  `lanesOf` in `lifecycle-model.ts` replaces `lanesNamed`. Not cut: `lane-queue`'s member predicate
+  (it has no model), `Adopt` beside `Incarnated` (suite fact against claim), the shared deadline
+  causes (CQ11 may split them).
+- Audit checklist (policy-testing "Audit a suite"): inputs inventoried (the trigger table);
+  excuses limited to observed causes: `UnmappedEnding` excuses only an ending the fixture leaves
+  unmapped (`cc6c7d43`), a delivery discharges a boot's restore only when it is unknown { Restored },
+  a non-held actor's park is excused by the suite's own facts. A lie per report read: header and
+  members (selection, lane-queue), `Unhandled` (`turn.cancel-turns-unhandled`), `Parked`
+  (`k.drop-row`), `UnmappedEnding` (`lie.failures-unmapped`, 24 cases), `Incarnated`
+  (`lie.no-incarnated`, DLV-04 and DLV-05), plus the existing `Minted`, `Sent`, `Ended`,
+  `Delivered`, `Evidence` and `RuntimeDisposed` mutants. Still excused by a report, owed to T8's
+  rest: `InvalidTurn` (refusal, Turn I14), a delivered ending's `Denied` (late-routing, R21),
+  `Finished` (T9), an unattributable `Unhandled`.
+- Reviewer (Haiku) of the revision: accepted (b) a boot's restore owed to a head whose ending was
+  decided in the disposal (fixed, with a trace), (c) `mapped` read any ending of the attempt
+  (now the open one of the same actor), (e) an `Unhandled` attributed when two actors got the event
+  (now unjudged), (f4) any delivery discharged a restore (now only unknown { Restored }). Rejected:
+  Resending at `RuntimeDisposed` under I38 (it was sent before, so not never-sent). Carried: a
+  path-level park while the actor is live (Actors R10; no fixture has fragments), an old version's
+  ending judged against the current reference (no fixture has versions), the CQ6 cell left
+  unjudged as round-14's stated limit, and (f1, f2, f6) in the line above.
+
 ## T8 (2026-11-11): Turn area (in progress)
 
 ### Selection (first, from the step 9 review's H1)

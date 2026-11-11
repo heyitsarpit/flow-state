@@ -238,6 +238,8 @@ const reported = (
 const mapped = (walk: Walk, known: Known, ref: EndingRef) =>
   walk.model.endings.some(
     (e) =>
+      e.life._tag !== "Closed" &&
+      sameActor(e.actor, ref.actor) &&
       e.operation === ref.operation &&
       Option.getOrNull(e.attempt) === Option.getOrNull(ref.attempt) &&
       Option.isSome(

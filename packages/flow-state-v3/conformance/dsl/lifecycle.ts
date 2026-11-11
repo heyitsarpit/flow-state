@@ -372,7 +372,9 @@ const bootOwes = (model: Model) => {
     model.endings.some(
       (e) =>
         Option.contains(e.attempt, a.id) &&
-        (e.life._tag === "Parked" || e.life._tag === "ParkedOpen"),
+        (e.life._tag === "Parked" ||
+          e.life._tag === "ParkedOpen" ||
+          (e.life._tag === "Owed" && e.inDisposal)),
     );
 
   const owing = model.attempts.filter(

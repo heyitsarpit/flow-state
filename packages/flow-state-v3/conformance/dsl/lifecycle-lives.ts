@@ -202,7 +202,7 @@ const discharged = (model: Model, row: LifeRow, index: number, guard: string, en
       ),
     };
 
-  if (row === "Delivered")
+  if (row === "Delivered" && ending.channel === "unknown" && ending.reason === "Restored")
     return {
       ...model,
       obligations: model.obligations.filter(
