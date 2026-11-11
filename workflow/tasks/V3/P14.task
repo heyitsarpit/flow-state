@@ -70,6 +70,13 @@ tasks
             **Read first:** @spec.StaticCli, @spec.StaticCli.I2 (graph edge names equal the turn record's),
             @spec.Compile, @spec.Diagnostics.
 
+            **Scope added** (the user, 2026-11-11, from
+            code:workflow/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md): add cases for StaticCli R6:
+            static explain and `explain <release> --since <release>` (rows C02, C03, owed checks), and own lint autofix,
+            which orders category keys (C13; @plan.CommandLine.O1, @plan.CommandLine.O5).
+
+            **Read first (added):** @plan.CommandLine.O1, @plan.CommandLine.O5.
+
             - **May change:** `src/`.
             - **Evidence:** this Task's comments.
             - **False pass:** graph edges named differently from the turn record → caught by the
@@ -77,7 +84,8 @@ tasks
             - **Gates:** StaticCli cases; graph gate.
             - **Stops:** public entry-point names.
         acceptance
-            StaticCli cases and the graph gate pass on production.
+            - StaticCli cases and the graph gate pass on production.
+            - StaticCli R6 has cases for static explain and `--since`; lint autofix orders category keys.
         comment     2026-11-10T21:23:15Z
             Owns, in conformance/not-yet.ts, StaticCli I3, I10 and I11 (round-14's CLI loads every fixture before 
             reading its arguments and has no config discovery or project tree); their static cases land before this 

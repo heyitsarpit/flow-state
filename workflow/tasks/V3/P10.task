@@ -36,10 +36,43 @@ description
 
     **Draws from:** skill:playbook-ship; skill:review.
 tasks
+    T50
+        title       Package routes and installed form
+        status      draft
+        priority    medium
+        blocked_by  [@task.V3.T23]
+        description
+            Build the six package routes, peers, `sideEffects`, removed surfaces and InvalidConfiguration help, and
+            run the packed-consumer check from T23 onward.
+
+            **Why now:** no Task builds @plan.Package.O1 to O3, and @plan.FlowState.O2 wants the packed-consumer
+            check at every stage gate, but only T39 runs it, at release.
+
+            **Read first:** @plan.Package.O1, @plan.Package.O2, @plan.Package.O3, @plan.Package.D1,
+            @plan.FlowState.O2.
+
+            **Approach:** six closed routes via `exports`, ESM only, no deep import (K01); the root export list and
+            a root that imports no React, server, Node, testing or inspect code (K02, K04); server route conditions
+            and the ServerOnlyImport stub (K03); Effect peer exactly 4.0.5, React optional peer 18 and 19 (K05);
+            `sideEffects: false` (K06); packed declarations keep inference (K07); removed surfaces without aliases
+            (K08); InvalidConfiguration with replacement help (K09).
+
+            - **May change:** `packages/flow-state-v3/package.json`, its build config and the packed-consumer check.
+            - **Evidence:** this Task's comments.
+            - **False pass:** routes that resolve in the workspace but not from a tarball → caught by the
+              packed-consumer check.
+            - **Gates:** the packed-consumer check, which rejects a tarball packed with one route removed.
+            - **Stops:** public entry-point names.
+        acceptance
+            - The six routes resolve from an installed tarball and nothing else does (@plan.Package.O1).
+            - Peers, `sideEffects`, removed surfaces and InvalidConfiguration help are checked on the tarball
+              (@plan.Package.O2, @plan.Package.O3).
+            - The packed-consumer check runs at each stage gate from T23 onward.
     T39
         title       Release as far as the user asks
         status      draft
         priority    medium
+        blocked_by  [@T50]
         description
             Release the package as far as the user asks: pack, run the packed-consumer check, and stop before each ship
             stage.

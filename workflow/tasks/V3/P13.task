@@ -76,6 +76,14 @@ tasks
             cases, fake world behaviours, ported cases, verdict compare and carry rows (the boot-queue bound,
             U8).
 
+            **Scope added** (the user, 2026-11-11, from
+            code:workflow/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md): add a value-named machine
+            fixture, so that Actors I7 and Compile I9 run through ensureActor(actorRef(machine, value)), with
+            ConflictingActorRef and createActor's Equal.equals identity. **Owed checks:** R14 (Actors R5) and R19
+            (Actors R7, R17).
+
+            **Read first (added):** @plan.Runtime.O3.
+
             - **May change:** the suite's actors area.
             - **Evidence:** this Task's comments.
             - **False pass:** a lenient oracle → caught by its mutants and the audit.
@@ -86,6 +94,8 @@ tasks
             - Every Actors Invariant has its oracle or case;
             - each oracle kills its listed mutants;
             - verdicts match the old suite's or each difference is logged with its cited rule.
+            - A value-named fixture runs Actors I7 and Compile I9, ConflictingActorRef and createActor identity; the
+              owed checks above exist.
     T12
         title       Reads area complete
         status      open
@@ -130,6 +140,17 @@ tasks
             code:packages/flow-state-v3/conformance/README.md (the round-14 carry list: the "design items not
             built" row).
 
+            **Scope added** (the user, 2026-11-11, from
+            code:workflow/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md): name the Reads features
+            that spec-split.md sets for "when the operations module reaches them", and write their Spec section first:
+            staleTime and gcTime, trailing refetch, focus and connection triggers, holds, invalidate and clear, setData,
+            write batches (256), optimistic stacking, placeholders and contract.get, key bounds and InvalidKey (rows
+            P12, P15, P16, P20, P21, P23, P28, P44, P45, P47, P50; @plan.Operations.O1, O2, O5, O6). Add an Invariant
+            for Reads R8 (P22, P24, both owed checks). The user may split this into its own Task; if so, record it in a
+            note.
+
+            **Read first (added):** @plan.Operations.O1, @plan.Operations.O2, @plan.Operations.O5, @plan.Operations.O6.
+
             - **May change:** `src/`.
             - **Evidence:** this Task's comments.
             - **False pass:** a carry item marked built with no case → caught by the completion
@@ -138,4 +159,6 @@ tasks
             - **Stops:** a large public API change.
             - **User's read:** small API calls.
         acceptance
-            The Reads area and every carry item's case pass on production.
+            - The Reads area and every carry item's case pass on production.
+            - The Reads features above pass cases on production, and Reads has a Spec section for them.
+            - Reads R8 has an Invariant (subscribe starts a request only when missing; no automatic retry).

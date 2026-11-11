@@ -281,4 +281,15 @@ note 2026-11-11T10:36:02Z
     Decision (user, 2026-11-11): a wide net of small, very different fixtures (about 15 to 20 app shapes) run under 
     generated flows and network fault schedules: @task.V3.T47, after T45's generator pilot.
 note 2026-11-11T10:43:45Z
-    Decision (user, 2026-11-11): T45 (Spec model and generator) and T47 (wide fixture net) move into P4 before T17, so production's compiler and turn are judged by the wide net from the start; T46 stays in P11. Order: T44, T45, T47, T17, T18, then P11.
+    Decision (user, 2026-11-11): T45 (Spec model and generator) and T47 (wide fixture net) move into P4 before T17, so 
+    production's compiler and turn are judged by the wide net from the start; T46 stays in P11. Order: T44, T45, T47, 
+    T17, T18, then P11.
+note 2026-11-11T11:32:30Z
+    Decision (user, 2026-11-11, all accepted): the coverage report's scope additions are applied to T8, T9, T17, T18, 
+    T19, T21, T22, T24, T29, T30, T32, T35 and T47, with new Tasks T48 (lazy features), T49 (inspection) in P5 and T50 
+    (package routes) in P10; Firefox joins the browser runs. Read first: @plan.FlowState. Reverse: remove the added 
+    Scope paragraphs and T48 to T50.
+note 2026-11-11T11:33:36Z
+    Decision (user, 2026-11-11): every public Plan feature is represented in fixtures shared by the conformance and 
+    benchmark suites, enforced by a checked feature matrix and gate (in T47). **Why:** 123 of 265 Plan features had no 
+    Task, because Tasks were cut by module and the suite followed only the core Specs. **Reverse:** drop the gate.

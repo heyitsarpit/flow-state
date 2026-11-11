@@ -61,10 +61,18 @@ tasks
 
             **Read first:** skill:interview, skill:to-task.
 
+            **Scope added** (the user, 2026-11-11, from
+            code:workflow/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md): the criteria include a run
+            in real Firefox (@plan.Package.O4), and the round decides whether Dispatch Desk and the seven entity
+            examples (K10) are P6 apps or are cut from the Plan.
+
+            **Read first (added):** @plan.Package.O4.
+
             - **Evidence:** this Task's comments.
             - **False pass:** criteria that a UI meets without showing a guarantee → caught by the
               criterion "shows one guarantee happening".
             - **Stops:** the pick itself.
         acceptance
-            The user's pick and approved criteria are recorded in an Epic note; one Task per app
+            - The user's pick and approved criteria are recorded in an Epic note; one Task per app
             exists.
+            - The Firefox criterion and the Dispatch Desk decision are recorded in the Epic note.

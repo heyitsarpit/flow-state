@@ -223,6 +223,14 @@ tasks
             prototype's), `activations`, `turn-purity`, `refusal`, `schedules`, `placements`, `late-routing`,
             `context`, `issues`; cases, fake world behaviours, ported cases, verdict compare and carry rows.
 
+            **Scope added** (the user, 2026-11-11, from
+            code:workflow/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md): add Invariants and cases
+            for Turn R4 (history: target the last active child, history.child, data back only through placement or
+            resumable) and Turn R23 (snapshot fields, keyed lists, private fields omitted), and for token.child (M44).
+            **Owed checks:** M10 and M71, M72 (Turn R23), M45 and M49 (Turn R4), M66 (Turn R18).
+
+            **Read first (added):** @plan.Machines.O2, @plan.Machines.O8.
+
             - **May change:** the suite's turn area.
             - **Evidence:** this Task's comments.
             - **False pass:** a reference model copied from the runtime → caught by the audit (it
@@ -234,6 +242,8 @@ tasks
             - Every Turn Invariant has its oracle or case;
             - each oracle kills its listed mutants;
             - verdicts match the old suite's or each difference is logged with its cited rule.
+            - Turn R4 and R23 each have an Invariant with an oracle or case, and token.child a case; the owed checks
+              above exist.
         comment     2026-11-11T04:02:34Z
             Selection oracle built (Turn I2): every turn header judged against hand-written handler tables and suite 
             facts; the step 9 review's header probe is its first mutant, caught. Suite 92/92, null 0/92, falsify 
@@ -372,7 +382,7 @@ tasks
 
     T44
         title       The suite judges from its own facts only, gated by machines
-        status      open
+        status      in_progress
         priority    high
         blocked_by  [@T43]
         description
@@ -452,15 +462,24 @@ tasks
             while each raises table-cell reach or mutation score; 15 is a floor, not a target. Every run is
             judged by the same oracles; failures shrink to small reviewable cases kept as regressions.
 
+            **Scope added** (the user, 2026-11-11, from
+            code:workflow/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md): add the
+            conformance-reachable rows from the Plan check to the catalogue: 18 feature codes and one new shape (S27),
+            as set out under "Features found by the Plan check" in
+            code:workflow/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md.
+
             - **May change:** `packages/flow-state-v3/conformance/` (fixtures, world, generator).
             - **Evidence:** STATUS.md, one T47 section; the generated gate file.
             - **False pass:** shapes that differ in name but exercise the same paths → caught by table-cell reach
               and per-Invariant mutation score across shapes.
         acceptance
+            - a checked feature matrix maps every Plan feature id to its fixtures, and a gate fails on a
+              feature with no fixture or a fixture that does not exist;
             - at least 15 shapes, each with a usual and a stress profile, run on round-14 and production, and
               shapes added until reach and mutation score plateau;
             - table-cell reach and mutation score rise over the hand cases alone, and are recorded;
             - every failure found shrinks to a kept regression case, or is logged as a runtime limit.
+            - The catalogue's 18 added feature codes and S27 are covered by at least two shapes each.
 
     T17
         title       Compiled and the compiler
@@ -476,6 +495,18 @@ tasks
             **Read first:** @spec.Compile, @spec.Diagnostics, @task.V3.T13 (the static cases that judge it),
             code:packages/flow-state-v3/conformance/README.md (the round-14 carry list).
 
+            **Scope added** (the user, 2026-11-11, from
+            code:workflow/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md): name the author-facing
+            features, each passing a case on production: Flow.input, computed Flow.initial, Flow.private, one source per
+            field, ImpureDefault, creation purity, identity and fragment inputs, compound states and Flow.state traits,
+            context slots, the Definition Schemas, E.X with InvalidEvent, payload checks and app entries (rows M03 to
+            M16, M19 to M21, M35 to M37, M39 to M41, R01 to R03; @plan.Machines.O1, @plan.Runtime.O1). Also own
+            handler(), guard(), Flow.state and the "Flow outermost" type rule (M05, M13, M22), which no Spec states, and
+            Invariants for Compile R10, R13 and R14 (a Spec revision). **Owed checks** (no Invariant or case today):
+            M06, M19, M39, M40, M41 (Compile R14), M23, M24, M27, M28 (Compile R10) and M33 (Compile R11).
+
+            **Read first (added):** @plan.Machines.O1, @plan.Runtime.O1, @plan.Diagnostics.O1.
+
             - **May change:** `src/`.
             - **Evidence:** this Task's comments.
             - **False pass:** pins matching output rather than the Spec → caught by T13's cited
@@ -484,7 +515,12 @@ tasks
             - **Stops:** public entry-point names.
             - **User's read:** small API calls.
         acceptance
-            The Compile and Diagnostics cases pass on production.
+            - The Compile and Diagnostics cases pass on production.
+            - Flow.input, computed Flow.initial, Flow.private, the Definition Schemas, E.X with InvalidEvent, payload
+              checks, compounds, Flow.state traits, context slots and app entries each pass a case on production
+              (@plan.Machines.O1, @plan.Runtime.O1).
+            - Compile R10, R13 and R14 each have an Invariant, and handler(), guard(), Flow.state and the "Flow
+              outermost" rule a case; the owed checks above exist.
         comment     2026-11-10T20:59:36Z
             Owns, in conformance/not-yet.ts, the static Invariants round-14 cannot make: Compile I3, I7 to I10, I12 to 
             I14, I17 and Diagnostics I1 to I10. Their static cases land before this Task closes (orchestrator decision, 
@@ -503,10 +539,24 @@ tasks
             **Read first:** @spec.Turn, @spec.WriteLanes, @spec.Actors,
             code:packages/flow-state-v3/conformance/README.md (the guarantee map and the round-14 carry list).
 
+            **Scope added** (the user, 2026-11-11, from
+            code:workflow/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md): name actor identity and
+            lifetime: actorRef's value form and identity encoding, createActor, the `snapshots` subscription,
+            getSnapshot's fallbacks, runPromise, ConflictingActorRef, context waves, the send table, admission bounds,
+            disposal APIs and IdentityExhausted (rows R06 to R34; @plan.Runtime.O2 to O7). Also name the turn features:
+            compounds, history, raise and notify, disarmOn, schedule keys and metadata, and the snapshot shape (M42 to
+            M63, M68, M69, M71 to M73; @plan.Machines.O2 to O8).
+
+            **Read first (added):** @plan.Runtime.O3, @plan.Machines.O2, @plan.Machines.O8.
+
             - **May change:** `src/`.
             - **Evidence:** this Task's comments.
             - **False pass:** a lenient oracle → caught by P3's proven mutants.
             - **Gates:** the suite; falsify.
             - **Stops:** a guarantee change.
         acceptance
-            The Turn, WriteLanes and Actors areas pass on production.
+            - The Turn, WriteLanes and Actors areas pass on production.
+            - actorRef by value, createActor, `snapshots`, getSnapshot's fallbacks, runPromise and ConflictingActorRef
+              pass cases on production (@plan.Runtime.O3).
+            - Compounds, history, raise and notify, disarmOn, schedule keys and metadata, and the snapshot shape pass
+              cases on production (@plan.Machines.O2 to O8).

@@ -7,7 +7,7 @@ description
 
     **Goal:** production code for the features outside the core, built from the Plans, one area at a
     time, each area's Specs written when it starts: entities, streams, record migration, multi-tab
-    and sessions, host adapters, Stories, React and Next.js bindings, CLI outputs.
+    and sessions, host adapters, Stories, React and Next.js bindings, CLI outputs, lazy features, inspection.
 
     **Starts when:** P15's completion audit passes (the core is done).
 
@@ -67,13 +67,23 @@ tasks
             code:packages/flow-state-v3/conformance/README.md
             (the carry rows `a3b.*` and `audit-2.*`).
 
+            **Scope added** (the user, 2026-11-11, from
+            code:workflow/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md): own audit mode,
+            HiddenFilter and UndeclaredEffect (E12), and runtimeSetup's repairSlots and audit options (R12), with the O2
+            to O5 outcomes cited below.
+
+            **Read first (added):** @plan.EntityDomains.O2, @plan.EntityDomains.O3, @plan.EntityDomains.O4,
+            @plan.EntityDomains.O5.
+
             - **Evidence:** this Task's comments.
             - **False pass:** a lenient slice → caught by the area audit's mutants.
             - **Gates:** the area's falsify entries.
             - **Stops:** a guarantee change.
             - **User's read:** small API calls.
         acceptance
-            The entities slice is proven and passes on production.
+            - The entities slice is proven and passes on production.
+            - Audit mode, HiddenFilter, UndeclaredEffect, and runtimeSetup's repairSlots and audit options pass cases on
+              production.
     T25
         title       Streams
         status      draft
@@ -154,6 +164,7 @@ tasks
         title       Stories with flow story and flow trace
         status      draft
         priority    medium
+        blocked_by  [@T49]
         description
             Build @plan.Testing's Stories, `flow story list/describe/run` and `flow trace` on production.
 
@@ -163,12 +174,22 @@ tasks
 
             **Read first:** @plan.Testing.O1, @plan.Testing.O9, @plan.CommandLine.O2, @plan.CommandLine.O4.
 
+            **Scope added** (the user, 2026-11-11, from
+            code:workflow/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md): add propertyTest and
+            domainPropertyOptions (T06, E11; Testing O6 belongs here by spec-split.md), `story list --coverage` (C06),
+            `explain --trace <artifact> --at <checkpoint>` (C04), and the CLI side of trace.export and trace.import
+            (I06), which build on the inspect route of @task.V3.T49.
+
+            **Read first (added):** @plan.Testing.O6, @plan.CommandLine.O1, @plan.Inspection.O4.
+
             - **Evidence:** this Task's comments.
             - **False pass:** a Story that re-executes on scrub → caught by the player tests (V9).
             - **Gates:** the area's falsify entries.
             - **Stops:** public entry-point names.
         acceptance
-            The slice is proven and passes on production.
+            - The slice is proven and passes on production.
+            - propertyTest with fault steps and shrinking, `story list --coverage`, `explain --trace` and trace export
+              and import pass on production.
     T30
         title       React and Next.js bindings
         status      draft
@@ -180,13 +201,24 @@ tasks
 
             **Read first:** @plan.React.O1, @plan.React.O2, @plan.ServerRendering.O1, @plan.ServerRendering.O4.
 
+            **Scope added** (the user, 2026-11-11, from
+            code:workflow/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md): add the React 18 and 19
+            installs (F06), the server route's conditions and the ServerOnlyImport stub (K03), and the three open
+            server-rendering points of spec-split.md: dehydrate and deadlines, HydrationRejected against an error
+            boundary, and who owns Hydrate.
+
+            **Read first (added):** @plan.Package.O1, @plan.Package.O4.
+
             - **Evidence:** this Task's comments.
             - **False pass:** tests in jsdom standing in for Next.js → caught by a real Next.js run.
             - **Gates:** the area's falsify entries.
             - **Stops:** public entry-point names; a large API change.
             - **User's read:** small API calls.
         acceptance
-            The slice is proven and passes in a real Next.js app in Chrome and Safari.
+            - The slice is proven and passes in a real Next.js app in Chrome and Safari.
+            - The bindings install and pass under React 18 and 19, and the server route stubs ServerOnlyImport on the
+              client condition.
+            - The three open server-rendering points are decided and recorded.
     T31
         title       CLI outputs designed for people
         status      draft
@@ -206,3 +238,62 @@ tasks
             - **User's read:** the mocks.
         acceptance
             The user accepts the outputs; the pins match them.
+    T48
+        title       Lazy features
+        status      draft
+        priority    medium
+        blocked_by  [@task.V3.T20, @task.V3.T21]
+        description
+            Prove the lazy-features slice, then build lazy app entries on production from @plan.LazyFeatures.O1 to
+            O5, with their Spec written first.
+
+            **Why now:** no Task builds @plan.LazyFeatures, and Compile R15 defers it to a lazy-features Spec that
+            nobody has been asked to write; the Port needs a lazy loader (about 60 lines in the fixture catalogue).
+
+            **Read first:** @plan.LazyFeatures.O1, @plan.LazyFeatures.O2, @plan.LazyFeatures.O3,
+            @plan.LazyFeatures.O4, @spec.Compile.R15.
+
+            **Approach:** lazy entry `{ id, load, context? }` with a retryable failed load (L01); adoption by ensure
+            or create, EntryMismatch (L02); dormant records, orphans, RecordUndecodable on adoption (L04); load after
+            ready, 10 s bound, EntryLoadFailed, hydration (L05); `inspect(app)` loading every entry, and the
+            check's lazy warnings (L07, shared with @task.V3.T49). Blocked by T20 (restore of dormant records) and
+            T21 (app entries and fragments).
+
+            - **Evidence:** this Task's comments.
+            - **False pass:** a slice that loads every entry eagerly → caught by the area audit's mutants.
+            - **Gates:** the area's falsify entries.
+            - **Stops:** a guarantee change.
+            - **User's read:** small API calls.
+        acceptance
+            - The lazy-features slice is proven and passes on production.
+            - A lazy entry loads only on adoption, a failed load can be retried, and a dormant record is kept until
+              its entry is adopted (@plan.LazyFeatures.O1 to O5).
+    T49
+        title       Inspection and the flow-state/inspect route
+        status      draft
+        priority    medium
+        blocked_by  [@task.V3.T20, @task.V3.T21]
+        description
+            Prove the inspection slice, then build the `flow-state/inspect` route on production from
+            @plan.Inspection, with its Spec written first.
+
+            **Why now:** no Task builds @plan.Inspection; only `flow trace` and `flow graph` touch it, and Stories
+            and the CLI's trace commands need its sinks and trace format.
+
+            **Read first:** @plan.Inspection.O1, @plan.Inspection.O3, @plan.Inspection.O4, @plan.Inspection.O5,
+            @spec.Codec.
+
+            **Approach:** inspect(app) with Model and appFingerprint, inspect(runtime) as a passive cut (I01, I02);
+            attachInspector sinks with capacity, drain, snapshot and clear (I04); evidence kinds and sequence (I05);
+            trace.export and trace.import with the 4,096 cap (I06); redaction (I07); render(model, format) (I08);
+            stream-session flags (I09). @task.V3.T29 wires the CLI over this route and is blocked by this Task.
+
+            - **Evidence:** this Task's comments.
+            - **False pass:** an inspector that changes what it observes → caught by the area audit's mutants.
+            - **Gates:** the area's falsify entries.
+            - **Stops:** a guarantee change.
+            - **User's read:** small API calls.
+        acceptance
+            - The inspection slice is proven and passes on production.
+            - inspect(app), inspect(runtime), sinks, trace export and import, redaction and renderers pass cases, and
+              a sensitive value never appears raw in a trace (@plan.Inspection.O1 to O6).

@@ -123,6 +123,13 @@ tasks
             **Read first:** @spec.WriteAhead, @spec.WriteAhead.I15 (which took the cut I16), @spec.WriteAhead.I17,
             code:packages/flow-state-v3/conformance/README.md ("Planned Port changes": the disk reader).
 
+            **Scope added** (the user, 2026-11-11, from
+            code:workflow/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md): add an Invariant for
+            WriteAhead R2: the KeyValueStore type rule and untyped missing storage (row Q02, an owed check;
+            @plan.Persistence.O1).
+
+            **Read first (added):** @plan.Persistence.O1.
+
             - **May change:** `src/`.
             - **Evidence:** this Task's comments.
             - **False pass:** durability judged from the runtime's report → caught by the disk
@@ -130,4 +137,5 @@ tasks
             - **Gates:** the suite; falsify.
             - **Stops:** a guarantee change.
         acceptance
-            The WriteAhead area passes on production.
+            - The WriteAhead area passes on production.
+            - WriteAhead R2 has an Invariant with an oracle or case.

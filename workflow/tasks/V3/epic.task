@@ -213,6 +213,10 @@ run
 instructions
     **Who runs the loop**
 
+    - Every public feature in the Plans is represented in fixtures, and the same fixtures feed both the
+      conformance suite (judged by oracles) and the benchmark suite (replayed without oracles); a checked
+      feature matrix maps each Plan feature id to its fixtures, and a gate fails on a feature with no fixture
+      (the user, 2026-11-11).
     - An agent orchestrator (Claude) until a stop (roadmap, 2026-11-07). It never builds: it starts and tracks leads,
       verifies their findings, and sends the accepted ones to the building lead in the same wake.
     - One lead at a time: the building lead, and at review time one reviewing or checking agent (a reviewing lead, or

@@ -64,10 +64,18 @@ tasks
 
             **Approach:** benchmarks and browser runs run alone; drafted in full when P8 starts.
 
+            **Scope added** (the user, 2026-11-11, from
+            code:workflow/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md): run every real-browser
+            suite in Chromium, Gecko (Firefox) and WebKit, as @plan.Package.O4 states, including the T27 and T30 browser
+            runs (K11); or amend that outcome with the user.
+
+            **Read first (added):** @plan.Package.O4.
+
             - **Evidence:** this Task's comments.
             - **False pass:** skipped work in a benchmark → caught by skill:check-benchmark.
             - **Gates:** slowed builds; tamper checks.
             - **Stops:** the budget targets.
             - **User's read:** the proposed targets.
         acceptance
-            Both suites killed their slowed builds and tampers; the user set the targets.
+            - Both suites killed their slowed builds and tampers; the user set the targets.
+            - Every real-browser run includes Firefox, or the user amended @plan.Package.O4.
