@@ -203,7 +203,11 @@ const anchoredMembers = (walk: Walk, known: Known, turn: Turn, earlier: Readonly
   const leaving = turn.members
     .filter((m) => m.kind === "release")
     .every((m) =>
-      Option.exists(operationOf(known, turn.actor, m.operation), (o) => o.releasesOnLeave),
+      Option.exists(operationOf(known, turn.actor, m.operation), (o) =>
+        o.releasesOnLeave.some(
+          (t) => t.event === turn.event && t.from === turn.from && t.to === turn.to,
+        ),
+      ),
     );
 
   const members = turn.members.map(laneMemberOf(known, turn.actor));
@@ -404,8 +408,8 @@ const ended = (walk: Walk, given: Rules) => {
  *   turn no row matches opens with no members, so its effects are refused under their own
  *   Invariants (a `Minted` with no commit member is WriteLanes I1). A turn with no lane member
  *   anchors its releases, and a `release` member anchors only on an operation whose reference
- *   says leaving releases it (WriteLanes R16; review H1); otherwise the turn anchors nothing, so
- *   its `Released` is WriteLanes I12.
+ *   lists the turn's transition among those that release it on leaving (WriteLanes R16; review
+ *   H1); otherwise the turn anchors nothing, so its `Released` is WriteLanes I12.
  * - A row's `retryable` guard reads the head of the lane its reported member names: it passes
  *   when the head is Held and was sent fewer than `times` + 1 times (the server's log before
  *   this step, and the step's accepted `Send`s so far).

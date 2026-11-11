@@ -8,8 +8,9 @@ import { Answer } from "../world/network.ts";
  * **Details**
  *
  * - `concurrency`: the operation's declared policy.
- * - `releasesOnLeave`: the machine's `whenAbandoned` holds a key-less cancel of this operation, so
- *   leaving releases its lanes (WriteLanes R16); a `release` member is anchored only then.
+ * - `releasesOnLeave`: the transitions (event, from state, to state) that leave a state whose
+ *   `whenAbandoned` holds a key-less cancel of this operation, so taking one releases its lanes
+ *   (WriteLanes R16); a `release` member is anchored only in a turn that took one.
  * - `success` and `failure` (by tag, `NotSent` for Flow's declines): the event each ending maps
  *   to. `unknown`: the event an unknown ending maps to, or `ignore` (`Flow.ignore`) or `bare` (the
  *   operation maps nothing); with `concurrency` it says whether an unknown is retained
@@ -33,7 +34,7 @@ export type OperationReference<Event extends string = string> = {
   readonly unknown: Unknown;
   readonly classify: (answer: Answer, mayHaveApplied: boolean) => Channel;
   readonly keyFields: ReadonlyArray<string>;
-  readonly releasesOnLeave: boolean;
+  readonly releasesOnLeave: ReadonlyArray<Transition>;
   readonly cancels: CancelsOf<Event>;
   readonly mayCancel: ReadonlyArray<Transition>;
 };

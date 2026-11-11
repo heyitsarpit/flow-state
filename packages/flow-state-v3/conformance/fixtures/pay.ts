@@ -59,7 +59,7 @@ const states = [
 
 const pay = {
   concurrency: "reject",
-  releasesOnLeave: false,
+  releasesOnLeave: [],
   success: "Confirmed",
   failure: {
     CardDeclined: "Declined",
@@ -82,7 +82,7 @@ const operations = {
   pay: writeOf(ByIntent, pay),
   place: writeOf(Schema.Struct({ cartId: Schema.String }), {
     concurrency: "reject",
-    releasesOnLeave: false,
+    releasesOnLeave: [],
     success: "Placed",
     failure: { NotSent: "PlaceRefused" },
     unknown: { event: "PlaceUnsure" },
@@ -92,7 +92,7 @@ const operations = {
   }),
   void: writeOf(ByIntent, {
     concurrency: "reject",
-    releasesOnLeave: false,
+    releasesOnLeave: [],
     success: "Voided",
     failure: { AlreadyCaptured: "VoidRefused", NotSent: "Voided" },
     unknown: { event: "VoidUnsure" },

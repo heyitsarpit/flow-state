@@ -298,6 +298,42 @@ const examples: ReadonlyArray<Example> = [
     },
   },
   {
+    name: "a release member anchors in a turn that leaves a releasing state, and only there",
+    run: () => {
+      const releasing = (t: { event: string; from: string; to: string }) => ({
+        ...known,
+        reference: {
+          ...known.reference,
+          [shopper.machine]: Object.fromEntries(
+            Object.entries(known.reference[shopper.machine] ?? {}).map(([name, o]) => [
+              name,
+              name === "void" ? { ...o, releasesOnLeave: [t] } : o,
+            ]),
+          ),
+        },
+      });
+
+      const released = said(
+        Observation.Evidence({ kind: "Released", operation: "void", attempt: Option.some("v1") }),
+      );
+
+      const facts = [...voidUnsure("release"), released];
+
+      const refusedWith = (k: Known) =>
+        step(voidSent, k, facts, sends(1)).applied.flatMap((a) =>
+          a.refusals.map((r) => r.invariant),
+        );
+
+      assert.deepStrictEqual(
+        refusedWith(releasing({ event: "VoidUnsure", from: "LEFT", to: "LEFT" })),
+        [],
+      );
+      assert.ok(
+        refusedWith(releasing({ event: "VoidUnsure", from: "LEFT", to: "CARD" })).includes(wl(12)),
+      );
+    },
+  },
+  {
     name: "another actor's turn of the same event does not hear the ending",
     run: ({ after }) => {
       const other: ActorRef = { machine: "Checkout/Pay", id: "s2" };
@@ -325,8 +361,8 @@ const STEP_MUTANTS: ReadonlyArray<{
 }> = [
   {
     name: "a release member anchors on any operation",
-    find: "(o) => o.releasesOnLeave",
-    replace: "() => true",
+    find: "o.releasesOnLeave.some(",
+    replace: "true || o.releasesOnLeave.some(",
   },
   {
     name: "a turn hears no ending",
