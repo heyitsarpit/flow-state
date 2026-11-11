@@ -174,6 +174,7 @@ const withCard = ({
   paymentMethodId: event.paymentMethodId,
 });
 
+// RETURN_TYPE: the machine body's contract types every handler's event and memory.
 const payBody = ({
   S,
   E,
@@ -182,7 +183,6 @@ const payBody = ({
   readonly S: typeof Pay.S;
   readonly E: typeof Pay.E;
   readonly O: typeof Pay.O;
-  // RETURN_TYPE: the machine body's contract types every handler's event and memory.
 }): MachineBody<typeof Pay> => {
   const start = {
     target: S.CARD,
