@@ -272,6 +272,9 @@ instructions
       public interface with real components (not unit tests of internals), and the scenarios and
       cases that enforce each Invariant the work implements, with expectations from the Spec; then
       build until they pass.
+    - A coverage row leaves P3 for a later phase only with evidence: the round-14 and old-suite code
+      searched, and why it cannot show the Invariant; the next review checks each claim (the
+      orchestrator, 2026-11-11, after three wrong moves).
     - Every suite brief and review applies skill:policy-testing#audit-a-suite as a checklist: an
       inventory of each check's inputs (observed by the harness or reported by the runtime), excuses
       only from observed causes, a mutant for each report a check reads, and expected results never
