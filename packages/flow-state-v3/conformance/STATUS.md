@@ -405,9 +405,10 @@ Open: the rest of v2's migration; I22; T7's own rows.
 
 ### Convergence v2 build (2026-11-11; `references/proposals/lane-oracle-convergence-v2-2026-11-11.md`)
 
-Bottom line: steps 2, 1, 3 and 4 landed; `lane-queue` reads the Case's one fold. Step 5 (`delivered-once` onto
-`lives`) is next, after the lifecycle review's M1 to M4 and Lows. At step 4's commit: suite 86/86, null 0/86, coverage
-0 gaps (34 checked), the lifecycle tests 19/19, `nub run check` at zero; sweep in "Step 4" below.
+Bottom line: steps 2, 1, 3 and 4 landed; `lane-queue` reads the Case's one fold. A case time bound, the lifecycle
+review's Mediums (M1 pending CQ1, CQ2) and the step-4 reviewers' items are in ("Next run" below). Step 5
+(`delivered-once` onto `lives`, Port change 5, F2) is next. Now: suite 86/86, null 0/86, coverage 0 gaps (34 checked),
+the lifecycle tests 23/23, sweep 74/74, `nub run check` at zero.
 
 - **Order:** step 2 before step 1, so the lifecycle's facts-to-moves step reads the real Port. Step 1 is split: part 1
   (Table A, deadlines, promotion) is in; part 2 (Table B, Table C, the actor moves, `step(model, reference, facts)`)
@@ -588,6 +589,45 @@ Bottom line: steps 2, 1, 3 and 4 landed; `lane-queue` reads the Case's one fold.
       verdict: the 120 s child bound); `PAY-22` is `Timeout` under it and red, not caught; its catch is by WriteLanes
       I12 in 38 other cases (LANE-03, PAY-15/press-pay-while-held among them). Every other mutant byte-identical
       (step texts aside). Suite 86/86, null 0/86.
+  - **Item 2, the lifecycle review's Mediums and Lows:**
+    - M2 (`88188934`): `EndDefinite` × `Gone{evidence}` admits the first ending (`evidenceFirst` stays), as the other
+      two End rows do (WriteLanes R7, R10, I15); trace "a replaced Attempt's late answer is evidence".
+    - M4 (`a9f78ab1`): a commit's decline is allowed only for `Rejected` where the lane declines, `Overloaded` past 64
+      waiting, `Disposed` while disposing, or a reason no policy gives (`Unencodable`, `NoPersistence`,
+      `OldVersion`, `ModuleDisabled`); any other is WriteLanes I8. Lead's call: `Disposed` at a decline is allowed
+      only while the Runtime disposes (Actors R22), `StorageRefused`, `Cancelled` and `Restored` never (they end a
+      minted Attempt). Seven traces; seen failing with the old `true`.
+    - M3 (`5cf960b9`): `lifecycle-step.test.ts` runs its examples against six source mutants of `lifecycle-step.ts`
+      (written beside it, imported, removed): release check dropped, no `Heard`, `retryable` off by one, retention
+      inverted, another actor's ending heard, `Delivered` closes no turn. Each killed; two new examples for the last
+      two. Carried: obligation identity in Table A traces (they still compare counts; ~150 traces to restate by
+      hand, and deriving them from the code would be common mode).
+    - M1 (`13a493d6`), **pending CQ1 and CQ2**: a twice-refused decline or never-sent ending is `Closed`, as Actors
+      R15 is written; a sent write's stays `Kept`. Round-14 keeps declines (D123); no oracle reads Table C's
+      refusals yet, so no verdict changed. It becomes visible at step 5.
+    - Lows (`b0280fb8`): L3 CQ7 in Table A's Gotcha; L4 a `Send` of a `Resending` head that owes its release is
+      WriteLanes I12 (trace); L6 the unreachable `last === undefined` gone; L9 `unstoppable` deduped. Carried: L1
+      (the open turn's `waiting`/`silent` as obligations), L2 (I5 not I12 for an unretained unknown's unmet release:
+      a label change with a verdict reach, best with step 5), L5 (needs `actor` on `Parked`/`Unparked`/`Recorded`,
+      a Port change), L7 (lie path only), L8, the rest of L9.
+    - Sweep against item 1: identical. Suite 86/86, lifecycle tests 22/22.
+  - **Item 3, the step-4 reviewers' open items:**
+    - (2) and (4) (`dcc13b4c`): an unretained unknown's `Await Released` names its ending (`hearing: Option<index>`,
+      replacing `heard`), so only that ending's turn makes it owed; and it falls due as soon as that ending closes
+      unheard (`Closed` or `Evidence`: a reload, a releasing lane). Two traces. A never-returning actor's parked
+      ending never closes, so its release stays undue (stated).
+    - (5) and (6) (`b09b983b`): `releasesOnLeave` is now the leaving transitions (event, from, to), and a `release`
+      member anchors only in a turn that took one; a positive step example with a releasing reference, and its
+      negative.
+    - The member mismatch: **a guarantee gap, stopped.** No Invariant states that a turn runs its selected
+      alternative's declared members. Turn I2 is selection only; WriteLanes I1 is about invokes and I10 about order;
+      a runtime that drops a cancel member from its report and its act breaks R14's effect but no Invariant. For the
+      user: add an Invariant (WriteLanes or Turn: "a turn's members are exactly its selected alternative's") or
+      keep v2's no-violation rule.
+    - Sweep against item 2: identical, 74/74 caught. (The sweeps ran on scratch copies without `workflow/`, so
+      their coverage line reads BAD; coverage in the checkout is 0 gaps.)
+  - Next: step 5 (`delivered-once` onto `lives`, Port change 5, F2, DLV-05), then 6 to 9; L2 with step 5; the member
+    mismatch waits on the user.
 - **Queued after the convergence steps, before T8 (coordinator, 2026-11-11):** the T41/T13 review
   (`references/proposals/t41-t13-review-2026-11-11.md`): H1, M1 to M4 and the Lows in the files touched. Its M4
   (whether `ending-channels` and `attempt-identity` move onto the lifecycle) is decided at step 7.

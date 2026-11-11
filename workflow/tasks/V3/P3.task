@@ -560,6 +560,14 @@ tasks
             p1h.cancel-all-idle-declines now I21. Open: lane.held-auto-resend gets no verdict on PAY-22 in the sweep 
             (120 s bound); the review's M1 to M4 and Lows before step 5. Detail: 
             code:packages/flow-state-v3/conformance/STATUS.md (Convergence v2 build, Step 4).
+        comment     2026-11-11T00:06:37Z
+            Progress (builder, 2026-11-11): a time bound per case (2dec83cb; overrun is a Timeout verdict, never a 
+            catch; lane.held-auto-resend now caught, sweep 74/74); lifecycle review M2, M4, M3, M1 (pending CQ1, CQ2) 
+            and Lows L3, L4, L6, L9 (88188934..b0280fb8); step-4 reviewer items: unheard release keyed by ending and 
+            due when its ending closes unheard (dcc13b4c), releasesOnLeave per leaving transition with a positive 
+            example (b09b983b). Member mismatch stopped as a guarantee gap: no Invariant states a turn's declared 
+            members (user's call). No case verdict changed; suite 86/86, null 0/86, coverage 0 gaps, check at zero. 
+            Next: step 5. Detail: code:packages/flow-state-v3/conformance/STATUS.md (Convergence v2 build, Next run).
     T8
         title       Turn area complete
         status      open
