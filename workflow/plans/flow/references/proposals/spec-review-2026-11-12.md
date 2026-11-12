@@ -155,22 +155,22 @@ only pending). Owner: T55 and T19.
 
 ## Contradictions with the static and conformance Specs
 
-| Where                                                       | What                                                         | For |
-| ----------------------------------------------------------- | ------------------------------------------------------------ | --- |
-| Compile R11:104                                             | lists `cancelAll` as a typed member; WriteLanes R15 retired  | T17 |
-| StaticCli R10:104                                           | requires ReservedReason; WriteLanes R3 and I4 retired it     | T17 |
-| StaticCli R10:102                                           | "NotSent unmapped": now the `notSent:` key, and Rejected can | T17 |
-|                                                             | occur under every policy (the Kept decision above)           |     |
-| Conformance Q14:557                                         | counts Codec 6 Invariants; Codec I7 makes 7                  | T52 |
-| Conformance Q13:552                                         | cites Reads I18, which does not exist (dangling before this  | T52 |
-|                                                             | rewrite too)                                                 |     |
-| `conformance/write-lanes/lane-queue.ts`:27, 273, and        | judge retired WriteLanes I21                                 | T52 |
-| `lane-queue.mutants.ts`:151, 159, 189                       |                                                              |     |
-| `conformance/write-lanes/lane-policies.scenarios.ts`:115,   | cite retired WriteLanes R15                                  | T52 |
-| 134, 150, 161; `conformance/dsl/lifecycle-members.traces.ts`|                                                              |     |
-| :160                                                        |                                                              |     |
-| `conformance/write-lanes/ending-delivery.scenarios.ts`:145  | "WriteLanes I8: the kept ending holds its lane", the reverse | T52 |
-|                                                             | of the new I8                                                |     |
+| Where                                                        | What                                                         | For |
+| ------------------------------------------------------------ | ------------------------------------------------------------ | --- |
+| Compile R11:104                                              | lists `cancelAll` as a typed member; WriteLanes R15 retired  | T17 |
+| StaticCli R10:104                                            | requires ReservedReason; WriteLanes R3 and I4 retired it     | T17 |
+| StaticCli R10:102                                            | "NotSent unmapped": now the `notSent:` key, and Rejected can | T17 |
+|                                                              | occur under every policy (the Kept decision above)           |     |
+| Conformance Q14:557                                          | counts Codec 6 Invariants; Codec I7 makes 7                  | T52 |
+| Conformance Q13:552                                          | cites Reads I18, which does not exist (dangling before this  | T52 |
+|                                                              | rewrite too)                                                 |     |
+| `conformance/write-lanes/lane-queue.ts`:27, 273, and         | judge retired WriteLanes I21                                 | T52 |
+| `lane-queue.mutants.ts`:151, 159, 189                        |                                                              |     |
+| `conformance/write-lanes/lane-policies.scenarios.ts`:115,    | cite retired WriteLanes R15                                  | T52 |
+| 134, 150, 161; `conformance/dsl/lifecycle-members.traces.ts` |                                                              |     |
+| :160                                                         |                                                              |     |
+| `conformance/write-lanes/ending-delivery.scenarios.ts`:145   | "WriteLanes I8: the kept ending holds its lane", the reverse | T52 |
+|                                                              | of the new I8                                                |     |
 
 Diagnostics has no contradiction. Compile R9 and I11 ("each unknown target is a Flow.uncertain event") still match
 the plan and option B: the record form's targets are still events. Some citations are probably still apt but
@@ -345,88 +345,88 @@ is refused.**
 
 ## Sidecar log
 
-| #   | Finding (sidecar)                                                      | Ruling   | Why                                                   |
-| --- | ---------------------------------------------------------------------- | -------- | ----------------------------------------------------- |
-| S1  | R16/R17 release applies later endings vs I23 (blind 1)                 | changed  | R17 is a planned placement release; folded into B2    |
-| S2  | Release cell "other phases stay" invokes never-sent heads (blind 2,    | accepted | B2                                                    |
-|     | adversary 4, 5)                                                        |          |                                                       |
-| S3  | I24 "never lost" vs stranded read (blind 3, contra F8)                 | changed  | minor wording: a Life row closing is not loss         |
-| S4  | R4 vs R8 cancel-policy hold (blind 4, contra F1)                       | accepted | B8                                                    |
-| S5  | check Denied vs Refused (blind 5, contra b)                            | accepted | B6; also Allowed vs Accepted, found by me             |
-| S6  | 65th follow-up vs "spin never stopped" (blind 6, contra F7)            | changed  | minor: a spin means rotation, not follow-ups; reword  |
-| S7  | R14 throws vs R16 reason (blind 7)                                     | rejected | R16 names a reason to the sender; R14 the throw; both |
-|     |                                                                        |          | external, the same code                               |
-| S8  | Replaced Acknowledging head vs Operations.plan:495 (blind 8)           | rejected | plan text predates; the cell covers it (refused ends  |
-|     |                                                                        |          | StorageRefused)                                       |
-| S9  | Success during Cancelling and I2 (blind 9)                             | rejected | Cancelling owes unknown, so I2 applies no write;      |
-|     |                                                                        |          | consistent                                            |
-| S10 | Kept row's try blocks nothing (blind 10, adversary 6)                  | changed  | stated deliberately; finding 12                       |
-| S11 | "in flight" undefined; Owing (blind 11, adversary 13)                  | accepted | B7                                                    |
-| S12 | Releasing Held at Start only in WriteLanes (blind 12)                  | accepted | finding 5                                             |
-| S13 | Lane fields; boot-name field (blind 13, contra F12)                    | accepted | findings 3, 4; "inFlight is a flag" rejected (a       |
-|     |                                                                        |          | record field, as spec-log says)                       |
-| S14 | Plan says every commit has an Attempt (blind 14)                       | accepted | finding 11                                            |
-| S15 | Format "(1 to 4)" with no current number (blind 15, contra F14)        | changed  | minor; T20 names it                                   |
-| S16 | Lane-only changes publish, PreTurn (blind 16)                          | rejected | I15 covers it; PreTurn includes the admitted ending   |
-| S17 | Mixed Cause classification table (blind 17)                            | rejected | pre-existing, unchanged by the rewrite; out of scope  |
-| S18 | Interrupted has no producer (blind 18, contra F13, adversary 18)       | accepted | finding 7                                             |
-| S19 | No Schemas for cause, failure, error (blind 19, adversary 23)          | changed  | deferred to T20 in writing; phase 2 decided "encoded  |
-|     |                                                                        |          | by the commit's Schema or dropped"; not blocking      |
-| S20 | Unencodable key vs InvalidKey (blind 20, contra F9)                    | rejected | key rules are reads' admission; commit key encoding   |
-|     |                                                                        |          | is R12; different layers, both stated                 |
-| S21 | Record queues, domain writes undefined (blind 21)                      | rejected | Q3 defers them to phase 5 in writing                  |
-| S22 | Partial-key idle edge cases (blind 22, adversary 9)                    | rejected | I13 states the Kept input; pre-existing               |
-| S23 | Key-less cancel rules only in plan (blind 23)                          | rejected | R9 states it; the plan adds detail                    |
-| S24 | Ensure has no "triggering event" (blind 24)                            | rejected | wording; an ensure has none, the list ends earlier    |
-| S25 | Turn says "as the source states" (blind 25)                            | rejected | by design: the Machines plan is the source; not       |
-|     |                                                                        |          | rewritten here                                        |
-| S26 | Boot bound value, flush destination (blind 26)                         | changed  | folded into conflict 3 (T9)                           |
-| S27 | "its owner" undefined (blind 27)                                       | accepted | finding 9                                             |
-| S28 | identityTag, "taken" (blind 28)                                        | rejected | T56/T20 own Restore R6; pre-existing                  |
-| S29 | Shape stamp, structural (blind 29)                                     | rejected | pre-existing, unchanged                               |
-| S30 | Scope bound drop order (blind 30)                                      | rejected | pre-existing, Q2                                      |
-| S31 | Old-version hold ending (blind 31)                                     | rejected | pre-existing                                          |
-| S32 | Freshness written when built (blind 32)                                | rejected | stated deferral                                       |
-| C1  | Evidence counted as ending (contra F2)                                 | changed  | wording only; R10 counts evidence as the one ending   |
-| C2  | forget closes as evidence vs "none disappears" (contra F3)             | rejected | evidence closes count per R10 and I27                 |
-| C3  | Unbound definition (contra F4)                                         | accepted | finding 6                                             |
-| C4  | Shared words with two meanings (contra F5)                             | changed  | Refused/rejected folded into B6; Life overload is     |
-|     |                                                                        |          | named in WriteLanes Audience already                  |
-| C5  | Turn T15 vs R21 queued behind Held (contra F6)                         | rejected | T15 says beside a Held head with no queued commit;    |
-|     |                                                                        |          | R21 covers the queue; consistent                      |
-| C6  | Mapper throw outcomes (contra F10)                                     | rejected | admission throw (refusal) and read mapper throw are   |
-|     |                                                                        |          | stated separately                                     |
-| C7  | Owed row `current` not saved (contra F11)                              | changed  | true; T17 owns `current`; noted, not blocking         |
-| C8  | Compile Flow.uncertain vs option B (contra S1)                         | rejected | targets are still events; the plan keeps the rule     |
-| C9  | cancelAll, ReservedReason in static Specs (contra S2, S3; cite 5)      | accepted | table above                                           |
-| C10 | Conformance counts and Reads I18 (contra S4)                           | accepted | table above; I18 pre-existing                         |
-| C11 | Restore T2 creation order (contra S5, cite 3, adversary 24)            | accepted | finding 10                                            |
-| C12 | Owed vs Owing leftovers (contra S6)                                    | accepted | B7                                                    |
-| C13 | Restore cites Turn I28 for silent baseline (contra gaps)               | changed  | Restore I19's note names I28 for onContext baselines, |
-|     |                                                                        |          | which I28 is; fine                                    |
-| X1  | Retired I21/R15 cited in conformance code (cite 1)                     | accepted | table above                                           |
-| X2  | DLV-06 I8 label (cite 2)                                               | accepted | table above                                           |
-| X3  | Stored mayHaveApplied in prototype mutants (cite 4)                    | changed  | prototype side; noted for owners                      |
-| X4  | "re-check" citation lists (cite 6)                                     | accepted | noted for owners                                      |
-| A1  | Forget/DisposeActor dropped outside Open (adversary 3)                 | accepted | B3                                                    |
-| A2  | Boot reject leaves ready's Exit unnamed (adversary 2)                  | accepted | the `admit` ruling                                    |
-| A3  | T26 names no policy (adversary 8)                                      | changed  | Q5 already open; T26 should list reject, latest,      |
-|     |                                                                        |          | serialize                                             |
-| A4  | Seed entropy (adversary 10)                                            | accepted | finding 13                                            |
-| A5  | mayHaveApplied for ack-only Attempt (adversary 11)                     | rejected | R5 defines it by phase; an acknowledged head restored |
-|     |                                                                        |          | Held may have been sent; consistent                   |
-| A6  | Success writes apply once (adversary 12)                               | rejected | R1 and I32 apply at settlement, once; a refused turn  |
-|     |                                                                        |          | does not re-apply                                     |
-| A7  | Restored "stored nowhere" vs I20 (adversary 14)                        | accepted | B5                                                    |
-| A8  | A reset removes stopped reads (adversary 15)                           | accepted | minor: Restore R7:107 should keep owed rows; the      |
-|     |                                                                        |          | stopped read's Interrupted is a row now               |
-| A9  | `stopped:` required? throw in stopped (adversary 16)                   | accepted | the stopped: ruling                                   |
-| A10 | User cancel on a one-off read has no ending (adversary 17)             | changed  | minor, T21                                            |
-| A11 | Kill inside a write (adversary 19)                                     | changed  | T17 should also inject a torn write; the Store        |
-|     |                                                                        |          | contract states atomicity                             |
-| A12 | Refused-but-landed write (adversary 20)                                | rejected | R12 makes it a Store contract breach, not a Flow case |
-| A13 | retryCount after crash (adversary 21)                                  | accepted | finding 2                                             |
-| A14 | -0 key (adversary 22)                                                  | changed  | minor: the plan says -0 equals 0; Reads R2 should     |
-|     |                                                                        |          | say canonical text normalises it                      |
-| A15 | Later-owed row heard before an earlier retried one (adversary 7)       | rejected | stated: a retry goes behind queued mail; order is per |
-|     |                                                                        |          | try, not per owe                                      |
+| #   | Finding (sidecar)                                                   | Ruling   | Why                                                   |
+| --- | ------------------------------------------------------------------- | -------- | ----------------------------------------------------- |
+| S1  | R16/R17 release applies later endings vs I23 (blind 1)              | changed  | R17 is a planned placement release; folded into B2    |
+| S2  | Release cell "other phases stay" invokes never-sent heads (blind 2, | accepted | B2                                                    |
+|     | adversary 4, 5)                                                     |          |                                                       |
+| S3  | I24 "never lost" vs stranded read (blind 3, contra F8)              | changed  | minor wording: a Life row closing is not loss         |
+| S4  | R4 vs R8 cancel-policy hold (blind 4, contra F1)                    | accepted | B8                                                    |
+| S5  | check Denied vs Refused (blind 5, contra b)                         | accepted | B6; also Allowed vs Accepted, found by me             |
+| S6  | 65th follow-up vs "spin never stopped" (blind 6, contra F7)         | changed  | minor: a spin means rotation, not follow-ups; reword  |
+| S7  | R14 throws vs R16 reason (blind 7)                                  | rejected | R16 names a reason to the sender; R14 the throw; both |
+|     |                                                                     |          | external, the same code                               |
+| S8  | Replaced Acknowledging head vs Operations.plan:495 (blind 8)        | rejected | plan text predates; the cell covers it (refused ends  |
+|     |                                                                     |          | StorageRefused)                                       |
+| S9  | Success during Cancelling and I2 (blind 9)                          | rejected | Cancelling owes unknown, so I2 applies no write;      |
+|     |                                                                     |          | consistent                                            |
+| S10 | Kept row's try blocks nothing (blind 10, adversary 6)               | changed  | stated deliberately; finding 12                       |
+| S11 | "in flight" undefined; Owing (blind 11, adversary 13)               | accepted | B7                                                    |
+| S12 | Releasing Held at Start only in WriteLanes (blind 12)               | accepted | finding 5                                             |
+| S13 | Lane fields; boot-name field (blind 13, contra F12)                 | accepted | findings 3, 4; "inFlight is a flag" rejected (a       |
+|     |                                                                     |          | record field, as spec-log says)                       |
+| S14 | Plan says every commit has an Attempt (blind 14)                    | accepted | finding 11                                            |
+| S15 | Format "(1 to 4)" with no current number (blind 15, contra F14)     | changed  | minor; T20 names it                                   |
+| S16 | Lane-only changes publish, PreTurn (blind 16)                       | rejected | I15 covers it; PreTurn includes the admitted ending   |
+| S17 | Mixed Cause classification table (blind 17)                         | rejected | pre-existing, unchanged by the rewrite; out of scope  |
+| S18 | Interrupted has no producer (blind 18, contra F13, adversary 18)    | accepted | finding 7                                             |
+| S19 | No Schemas for cause, failure, error (blind 19, adversary 23)       | changed  | deferred to T20 in writing; phase 2 decided "encoded  |
+|     |                                                                     |          | by the commit's Schema or dropped"; not blocking      |
+| S20 | Unencodable key vs InvalidKey (blind 20, contra F9)                 | rejected | key rules are reads' admission; commit key encoding   |
+|     |                                                                     |          | is R12; different layers, both stated                 |
+| S21 | Record queues, domain writes undefined (blind 21)                   | rejected | Q3 defers them to phase 5 in writing                  |
+| S22 | Partial-key idle edge cases (blind 22, adversary 9)                 | rejected | I13 states the Kept input; pre-existing               |
+| S23 | Key-less cancel rules only in plan (blind 23)                       | rejected | R9 states it; the plan adds detail                    |
+| S24 | Ensure has no "triggering event" (blind 24)                         | rejected | wording; an ensure has none, the list ends earlier    |
+| S25 | Turn says "as the source states" (blind 25)                         | rejected | by design: the Machines plan is the source; not       |
+|     |                                                                     |          | rewritten here                                        |
+| S26 | Boot bound value, flush destination (blind 26)                      | changed  | folded into conflict 3 (T9)                           |
+| S27 | "its owner" undefined (blind 27)                                    | accepted | finding 9                                             |
+| S28 | identityTag, "taken" (blind 28)                                     | rejected | T56/T20 own Restore R6; pre-existing                  |
+| S29 | Shape stamp, structural (blind 29)                                  | rejected | pre-existing, unchanged                               |
+| S30 | Scope bound drop order (blind 30)                                   | rejected | pre-existing, Q2                                      |
+| S31 | Old-version hold ending (blind 31)                                  | rejected | pre-existing                                          |
+| S32 | Freshness written when built (blind 32)                             | rejected | stated deferral                                       |
+| C1  | Evidence counted as ending (contra F2)                              | changed  | wording only; R10 counts evidence as the one ending   |
+| C2  | forget closes as evidence vs "none disappears" (contra F3)          | rejected | evidence closes count per R10 and I27                 |
+| C3  | Unbound definition (contra F4)                                      | accepted | finding 6                                             |
+| C4  | Shared words with two meanings (contra F5)                          | changed  | Refused/rejected folded into B6; Life overload is     |
+|     |                                                                     |          | named in WriteLanes Audience already                  |
+| C5  | Turn T15 vs R21 queued behind Held (contra F6)                      | rejected | T15 says beside a Held head with no queued commit;    |
+|     |                                                                     |          | R21 covers the queue; consistent                      |
+| C6  | Mapper throw outcomes (contra F10)                                  | rejected | admission throw (refusal) and read mapper throw are   |
+|     |                                                                     |          | stated separately                                     |
+| C7  | Owed row `current` not saved (contra F11)                           | changed  | true; T17 owns `current`; noted, not blocking         |
+| C8  | Compile Flow.uncertain vs option B (contra S1)                      | rejected | targets are still events; the plan keeps the rule     |
+| C9  | cancelAll, ReservedReason in static Specs (contra S2, S3; cite 5)   | accepted | table above                                           |
+| C10 | Conformance counts and Reads I18 (contra S4)                        | accepted | table above; I18 pre-existing                         |
+| C11 | Restore T2 creation order (contra S5, cite 3, adversary 24)         | accepted | finding 10                                            |
+| C12 | Owed vs Owing leftovers (contra S6)                                 | accepted | B7                                                    |
+| C13 | Restore cites Turn I28 for silent baseline (contra gaps)            | changed  | Restore I19's note names I28 for onContext baselines, |
+|     |                                                                     |          | which I28 is; fine                                    |
+| X1  | Retired I21/R15 cited in conformance code (cite 1)                  | accepted | table above                                           |
+| X2  | DLV-06 I8 label (cite 2)                                            | accepted | table above                                           |
+| X3  | Stored mayHaveApplied in prototype mutants (cite 4)                 | changed  | prototype side; noted for owners                      |
+| X4  | "re-check" citation lists (cite 6)                                  | accepted | noted for owners                                      |
+| A1  | Forget/DisposeActor dropped outside Open (adversary 3)              | accepted | B3                                                    |
+| A2  | Boot reject leaves ready's Exit unnamed (adversary 2)               | accepted | the `admit` ruling                                    |
+| A3  | T26 names no policy (adversary 8)                                   | changed  | Q5 already open; T26 should list reject, latest,      |
+|     |                                                                     |          | serialize                                             |
+| A4  | Seed entropy (adversary 10)                                         | accepted | finding 13                                            |
+| A5  | mayHaveApplied for ack-only Attempt (adversary 11)                  | rejected | R5 defines it by phase; an acknowledged head restored |
+|     |                                                                     |          | Held may have been sent; consistent                   |
+| A6  | Success writes apply once (adversary 12)                            | rejected | R1 and I32 apply at settlement, once; a refused turn  |
+|     |                                                                     |          | does not re-apply                                     |
+| A7  | Restored "stored nowhere" vs I20 (adversary 14)                     | accepted | B5                                                    |
+| A8  | A reset removes stopped reads (adversary 15)                        | accepted | minor: Restore R7:107 should keep owed rows; the      |
+|     |                                                                     |          | stopped read's Interrupted is a row now               |
+| A9  | `stopped:` required? throw in stopped (adversary 16)                | accepted | the stopped: ruling                                   |
+| A10 | User cancel on a one-off read has no ending (adversary 17)          | changed  | minor, T21                                            |
+| A11 | Kill inside a write (adversary 19)                                  | changed  | T17 should also inject a torn write; the Store        |
+|     |                                                                     |          | contract states atomicity                             |
+| A12 | Refused-but-landed write (adversary 20)                             | rejected | R12 makes it a Store contract breach, not a Flow case |
+| A13 | retryCount after crash (adversary 21)                               | accepted | finding 2                                             |
+| A14 | -0 key (adversary 22)                                               | changed  | minor: the plan says -0 equals 0; Reads R2 should     |
+|     |                                                                     |          | say canonical text normalises it                      |
+| A15 | Later-owed row heard before an earlier retried one (adversary 7)    | rejected | stated: a retry goes behind queued mail; order is per |
+|     |                                                                     |          | try, not per owe                                      |
