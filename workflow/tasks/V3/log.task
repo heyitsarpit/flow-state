@@ -405,3 +405,7 @@ note 2026-11-12T10:03:55Z
     Fable phase 1 committed at 476c1519 (seven runtime Specs as one set, Operations.plan to option B, T54 skeleton 
     compiling with its opacity test); second Fable reviews it with up to 10 sidecars before phase 2 starts. Three 
     questions for the user: option B for read endings, dropping Abandoned, cancelAll out of Operations.plan.
+note 2026-11-12T10:05:36Z
+    Decisions (the user): option B extends to read endings; Abandoned stays dropped (T24 settles EntityDomains' use); 
+    Operations.plan drops cancelAll. The Spec review is stopped; Fable 1 does phase 2, the core-runtime briefs, as its 
+    own adversary with blind-reader sidecars.
