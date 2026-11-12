@@ -258,3 +258,8 @@ note 2026-11-12T01:23:18Z
     T45 done: completion check PASS at a39c2f52; the crash total 1523 was two red cases each running all 400 points, no 
     runs lost. F1 to F3 (S2 limit reach, mint-key-lies target, opaque alternatives against Conformance R20) go to T47 
     as requirements.
+note 2026-11-12T01:26:30Z
+    T51 step 1 (be086a6d): ten requirements written as checks red at T51's start; step-done review started (one Opus 
+    lead, two Haiku sidecars). Decision (orchestrator, small amendment): T51 may re-point the edits of the six 
+    production mutants the rework removes, keeping name, claim, expectation and cases. **Reverse:** keep 
+    production.mutants.ts out of T51's scope.
