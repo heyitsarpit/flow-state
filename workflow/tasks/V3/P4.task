@@ -1046,6 +1046,14 @@ tasks
             sync and sign-in as alike (pairs and kills distinguish them). Q30: R18 cites 5A cell pairs and 5B; I57 
             names R18's slice owners; I58 reports cell pairs (spec-log, agent). Next: step 5-6 gates, static surface, 
             bench.
+        comment     2026-11-12T07:07:34Z
+            Step 5 and most of 6 done at b1312f98: gates.ts runs parts (38/38), matrix (265/265), pairs (74/74: 67 
+            reached, 7 with dated owners T19/T9, proposed in 
+            code:packages/flow-state-v3/conformance/parts/pair-owners.ts), bench (3/3 fingerprints equal; 
+            bench/gate.ts, judging off) and kept regressions on production (6/6). New owed red: GEN-pay-search-25 on 
+            production (Held Attempt restored as unknown), owed to T19 for triage. F2: the mint-key row admits it shows 
+            only the mint check. Each gate seen red without its owed rows or owners. Left: production static surface 
+            (Q22).
     T52
         title       Suite phase-out, first cut: Pay and Cells generated, hand traces thinned
         status      draft
