@@ -258,7 +258,8 @@ instructions
     **Building**
 
     - Every build and review brief carries the Constraints' code-style list, the Spec it implements, the
-      test-the-spec rule and the requirements-first rule (Testing, below), and tells the lead to run `workflow brief @task.V3.Tn` and read its phase's skills first
+      test-the-spec rule and the requirements-first rule (Testing, below), and tells the lead to run `workflow brief 
+      @task.V3.Tn` and read its phase's skills first
       (the user, 2026-11-09 and 2026-11-10). Name a skill once, on the phase.
     - Plan changes found while building go to @plan.Pending as decisions, never into the Plans; one merges only once
       building proves it right and the user says yes (the user, 2026-11-11).
