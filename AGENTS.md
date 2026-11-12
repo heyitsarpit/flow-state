@@ -25,6 +25,10 @@ or change code, and keep it current as you work.
 How to use it:
 - Start with `workflow status` and `workflow next`. `workflow show @id` reads any record.
 - Treat the records as the source of truth over chat history: when they disagree, follow the record and say so.
+- Plans, Specs and Task descriptions are best-guess guidance on what to build, not contracts to fulfil, Specs
+  least of all. What is true and correct is found by building: when the work shows a rule is wrong, unclear or
+  missing, fix the record (decide, delete the losing text, log why) instead of bending the code to fit it.
+  The user's own decisions still stand until the user changes them.
 - Write down what you decide as you go: a decision or result goes in a note or comment on its record
   (`workflow edit @id --now --text "comment=…"`), with why and how to reverse it.
 - Keep every note, comment, log and status entry short, with the bottom line first: the decision or result in
