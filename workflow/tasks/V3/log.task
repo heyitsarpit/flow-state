@@ -311,3 +311,8 @@ note 2026-11-12T03:29:53Z
 note 2026-11-12T03:35:55Z
     Subagents get the 400k cap: the T51 lead compacted at 367k pre-tokens (92 percent of 400k) and stopped with a 
     resume note (77df3dc9); a fresh lead takes the step-2 review fixes from it.
+note 2026-11-12T03:54:39Z
+    T51 fixes done at 6bb02721 (production 78/78, falsify 18/18, liar 13/13, limits 6/6, core mutants 75/98, crash 
+    732/735, check clean); T51 in review at 8a20a030; completion check started with blind and adversary sidecars, also 
+    ruling on the Keep-on-Held reason (lost to Error) and ready() after dispose. Weekly usage 77 percent. Still open 
+    for the user: the compaction evaluation and a 300k rotation rule (cap confirmed at 400k, compaction at 367k).
