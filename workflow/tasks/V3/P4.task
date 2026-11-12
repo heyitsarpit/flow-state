@@ -1035,6 +1035,11 @@ tasks
             Gap (orchestrator, from T51's step-2 review blind sidecar, present before T51): idle(k) passes while a kept 
             ending stands (WriteLanes I13); an Unencodable decline gives its mapper { why } instead of the value asked 
             (R12). Land as a failing check first.
+        comment     2026-11-12T03:54:12Z
+            Gap (orchestrator, from T51's fix-round sidecar, cells unchanged by T51, Held newly reachable): cancelling 
+            a Held head with a kept ending releases the head but leaves the ending, so the key needs a second cancel; a 
+            kept unknown survives a later successful re-send and is delivered at the next boot. Land as failing checks 
+            first.
     T51
         title       Production lanes reworked: one table function, reports derived from acts
         status      review
