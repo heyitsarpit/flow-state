@@ -47,3 +47,5 @@ Deferred items.
 - **A Recapturing head held at disposal keeps `inFlight: true` on disk** (2026-11-12, T51 completion check, item 10;
   proposed). `lane-moves.ts:219` does not re-persist it, so the next boot wakes the identity eagerly where Actors R22
   says Held on disk. Delivery is unchanged; low severity.
+- **Actors I29 and R22 disagree on a never-sent head's lane at disposal** (2026-11-12, T51 re-check; proposed).
+  Reconcile in @spec.Actors before T9 builds disposal further.

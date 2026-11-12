@@ -221,6 +221,12 @@ tasks
         comment     2026-11-12T03:29:44Z
             Gap (orchestrator, from T51's step-2 review blind sidecar, present before T51): the end proceeds when the 
             record cannot encode (Actors R8, I37). Land as a failing check first.
+        comment     2026-11-12T04:39:52Z
+            Gaps from T51's re-check (blind sidecar, present before T51), each a failing check first: records validated 
+            after services are acquired (Actors I4); disposeActor waits for the capture window instead of saving at 
+            once (R20); a non-persisted actor's kept endings survive disposeActor (R15); lane-less endings still queued 
+            at disposal are dropped (low); a dispose during storage load is seen only after Layer.buildWithScope 
+            (runtime.ts:194, R4); T51 cases b, c, e need stronger asserts.
     T12
         title       Reads area complete
         status      done

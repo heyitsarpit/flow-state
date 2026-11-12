@@ -1045,9 +1045,12 @@ tasks
             author tag named like a Flow decline counts as definite (cells.ts:131, WriteLanes R3); a mapper throw drops 
             its cause and the mapper context is {} (machine.ts:173, WriteLanes R4); CleanupFailed and ReleaseOverdue 
             absent and dispose is Effect<void> (Actors R22, R23).
+        comment     2026-11-12T04:39:47Z
+            Gap from T51's re-check: a second kept ending on a lane overwrites the first (persist.ts:134, keep replaces 
+            endings; Actors I24); reachable on Held heads since T51's Held row. Failing check first.
     T51
         title       Production lanes reworked: one table function, reports derived from acts
-        status      review
+        status      done
         priority    high
         blocked_by  [@T45]
         description
@@ -1391,3 +1394,14 @@ tasks
             kept (red case, then fixed). Rejected: 2, a lane-less ending with no incarnation (no refusal; lane and life
             both gone, I24); 3, T18 has it; 4, kept-record restore is shared code; 5, R4 allows a late service
             released; 6, key text is a JSON object (`src/contract.ts` codecsOf); 7, HoldRefused predates T51.
+        comment     2026-11-12T04:39:34Z
+            Re-check PASS (t51-recheck-2026-11-12.md): the four completion findings are fixed at 31279004; the minted 
+            keep id is deterministic and a lane-less kept ending blocks no key and is delivered once. Done. Carried to 
+            T9: a dispose during storage load is seen only after the Layer build (runtime.ts:194), and weak asserts in 
+            cases b, c, e.
+        comment     2026-11-12T04:39:38Z
+            Retrospective (process watch, proposed): four review rounds; the builder's lists kept missing pre-existing 
+            Spec gaps the blind sidecar found (every round) and cases a wrong build passes (the adversary, every 
+            round). Causes: the list was gathered from T51's planned scope, not from the Specs the code touches, and 
+            checks were not planted against. Proposed: the requirements lead also runs a blind pass over each touched 
+            Spec; each case names its planted wrong runtime in the evidence.
