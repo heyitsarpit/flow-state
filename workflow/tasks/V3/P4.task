@@ -778,6 +778,41 @@ tasks
             Item 8 met (coordinator, 44831f22, log.task): Table A's refusing cells stay as the compare's named 
             refusals, since deleting them loses 8 named catches (V1) and they read no reports. Phase-out step 1 is met 
             by removing the claimed flag (df2b9cfb). Set to review.
+        comment     2026-11-12T00:29:16Z
+            Close-review fix round (t45-close-review-2026-11-12.md) in 86f184b7, 965a9b4b, a39c2f52. K1 met: the README 
+            holds no prose round-14 limit. The StillUnknown tag is a WriteLanes I25 remainder owned by T51 (I25 now 
+            checked in part, the one standings change). A lane gone is `laneGone` (dsl/domain.ts), what both runtimes 
+            read until T21's idle row (Reads R14), so no case states None as Spec truth. The seed check is T18's 
+            not-yet row. Item 8 is met with the Table A decision (44831f22).
+        comment     2026-11-12T00:29:22Z
+            S1 to S10. S1: a turn is surely dirty only when it moves the leaf or changes a folded field (predict.ts 
+            changeOf, predict.test.ts). S2: a stated limit in Model's Gotchas (Wrote names no record; no case ends two 
+            dirty actors in one step). S3: the limits gate plays production's owed reds and fails once one passes 
+            (9/9). S4: core mutants run a control first, void when red. S5: gates.json keeps a revision per gate. S6: 
+            either routing only for an actor removed or free for the whole grace (anchor used/idled). S7: the data-flow 
+            test lies per report kind, compares the whole anchor, and a planted Ended.channel read in lifecycle-step.ts 
+            is seen.
+        comment     2026-11-12T00:29:28Z
+            S8: Caught stated limits now need their mutant's Invariant; three rows named the wrong one, now WriteLanes 
+            I1, I6 and I3 as their checks report; verdictOfLimit matches check and Invariant exactly (Actors I1 no 
+            longer matches I14, planted in limits.test.ts); the keys row's admits names keyed retries. Not changed: the 
+            turn's `to` fallback is the design's runtime-choice rule (dataflow.test.ts doc), and mint-key-lies stays 
+            Caught, since no case reaches the fallback without its lane check. S9: computed and fixed delays count from 
+            the step's start. S10: fixtureGaps apart from reportTruth; the liar gate fails above 9 (9 now).
+        comment     2026-11-12T00:29:34Z
+            Minor: 'twice' stays deleted, since a turn's members come from prediction since 4602671c and reported 
+            members anchor nothing (R20); compare's NoResponse is LOST_ANSWER. Not explained: 0d1c5e87's crash 698/1523 
+            against 690/723 since 43cc6cc2. Review sidecar (Haiku) on the diff: accepted 4 (Disposed and Forgot end 
+            uses; the copy moves inside try; Object.hasOwn; the stated limit leaves a non-exported doc for Model's 
+            Gotchas), noted 1 as a stated limit (a turn undoing an unlanded change still owes a write), rejected 1 
+            (anchorView might go red: the run is green). mayHaveEnded kept past a reload: an ending decided before it 
+            may reach the new incarnation.
+        comment     2026-11-12T00:29:40Z
+            Item 9 again at 86f184b7: the round-14 sweep equals 0d1c5e87 row for row (0 lost, 0 changed); the generated 
+            suite's reds equal the pre-fix set (101). Gates at a39c2f52 (gates.json): suite 122/122 and 76/76, falsify 
+            154/154 (4/4) and 18/18, coverage 75/184 (41 in part) 0 gaps, liar 126/126 (9 fixture gaps, cap 9) and 
+            13/13, limits 9/9, crash production 690/723, core mutants 62/85 with a green control. Item 7's eight search 
+            kills and Table A's text wait for the user's amendment. Set to review.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open
