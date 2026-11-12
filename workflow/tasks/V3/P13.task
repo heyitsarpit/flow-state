@@ -197,6 +197,12 @@ tasks
             actor-naming operations. Bench: restore with 1,000 carts (S14); retained heap after disposal (S27). Effort 6
             (estimate).
 
+            **Lifecycle moved (the user, 2026-11-12, Q2 A):** `Life` is done by @task.V3.T55, so the Approach's move
+            of `host/runtime.ts`'s flags into the core goes. From the core consolidation design (round 3,
+            code:workflow/plans/flow/references/proposals/fable-architecture-consult-3-2026-11-12.md, C1 and its
+            handoff table): `Identity` is this Task's, with the finding of three maps on one key; a per-actor mailbox
+            must keep the ledger's mail reference; "an ending owed at ready" is a non-empty row list.
+
             - **May change:** `src/`, the suite's actors area, the conformance fixtures, model and generator.
             - **Evidence:** this Task's comments.
             - **False pass:** a lenient oracle → caught by its mutants and the audit.
@@ -333,3 +339,7 @@ tasks
         comment     2026-11-12T03:29:49Z
             Gap (orchestrator, from T51's step-2 review blind sidecar, present before T51): the end stops reads without 
             parking failure Interrupted. Land as a failing check first.
+        comment     2026-11-12T07:04:41Z
+            From the core consolidation design (round 3 handoff table, via @task.V3.T54): read endings are ledger rows 
+            whose audience the creator chooses (Actors R8 parks `Interrupted` for the identity); `reads` is untouched 
+            and no slot type exists, since a shared lookup has many waiters (C1).

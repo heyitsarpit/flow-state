@@ -143,3 +143,9 @@ tasks
         comment     2026-11-10T20:59:41Z
             Owns, in conformance/not-yet.ts, Codec I1 to I6 (round-14 has no canonical byte codec, Codec Q2). Their 
             static cases land before this Task closes (orchestrator decision, log 2026-11-10T20:57:29Z).
+        comment     2026-11-12T07:04:37Z
+            From the core consolidation design (round 3 handoff table, via @task.V3.T54): three record kinds (`actor/`, 
+            `lane/`, `owed/`), each with `format`; a boot that sorts by key and derives `Restored`. Left open for this 
+            Task: the codec, how an ending's value is encoded, creation-order keys, version and key-fingerprint tags, 
+            rows whose operation is gone; owed endings sit outside lane and actor records (C9), which this Task may 
+            revisit.

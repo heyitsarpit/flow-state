@@ -5,7 +5,8 @@ description
 
     **Kind:** verification-suite.
 
-    **Goal:** slice 2, durability, first half: WriteAhead and the persistence edge (T19, absorbing T10), model first.
+    **Goal:** T55's Runtime life, then slice 2, durability, first half: WriteAhead and the persistence edge (T19,
+    absorbing T10), model first.
 
     **Verified by:**
 
@@ -110,11 +111,59 @@ tasks
         comment     2026-11-11T12:41:49Z
             Merged into T19 (replan, accepted 2026-11-11). Done as merged; T45's generated runs cover its persistence 
             rows.
+    T55
+        title       Runtime life: Life and admit replace Disposal; the final write and its 5 s bound move into the core
+        status      draft
+        priority    high
+        blocked_by  [@task.V3.T18]
+        description
+            Replace the core's `Disposal` and the host's lifecycle flags with one `Life` and `admit`, and move the
+            final write and its 5 s bound from the host into the core (steps B1 and B2).
+
+            **Why now:** the Runtime's lifecycle is split between `Disposal` and flags in `host/runtime.ts`
+            (`started`, `open`, `closed()`, `admitting`), with the final write's flush, bound and `Issue` in the
+            driver: an implicit state machine across two layers. @task.V3.T19 rebuilds that host, so it should
+            inherit one `Life`. This takes over @task.V3.T9's overlapping lifecycle part. The user accepted it as its
+            own Task on 2026-11-12 (Q2 A).
+
+            **Read first:** code:workflow/plans/flow/references/proposals/fable-architecture-consult-3-2026-11-12.md
+            (Part 2: State, What the host does; C2, Task B), @spec.Actors.R22, @spec.Actors.R23, @task.V3.T54,
+            code:packages/flow-state-v3/src/host/runtime.ts.
+            Blocked by @task.V3.T18 so that T18 is not held behind host work (round 3, C2); nothing in T18 needs it.
+
+            **Approach:** round 3's C2 table for Task B.
+
+            - B1: `Life` replaces `Disposal`; `admit(life, input)` returns `Run`, `Drop` or `Reject`, and the host's
+              guards call it and throw the `FlowError` a `Reject` names. Reports stay equal.
+            - B2: the final write is a ticket held in `Disposing { final }` and its bound runs in the core; `dispose`
+              sends `DisposeRuntime`, waits for `Out.life` to read `Disposed`, then closes the Scope. The host reads
+              no World field (C7).
+
+            Each step ends with @task.V3.T54's gates no worse and `nub run check` at zero. Handoffs follow round 3's
+            "Task split and handoffs" table: the final write goes to @task.V3.T19 as a ticket.
+
+            - **May change:** `packages/flow-state-v3/src/core/`, `packages/flow-state-v3/src/host/`,
+              `packages/flow-state-v3/conformance/`.
+            - **Evidence:** this Task's comments.
+
+            False pass: a `(Life, Input)` cell no case reaches passing untested → caught by the table test over every
+            cell. The bound measured from the wrong start → caught by the 3 s answer, 5 s `StorageFailure` case.
+            Gates: suite, falsify, liar, crash and core mutants no worse than at this Task's start; `nub run check`.
+            Stops: a guarantee change.
+        acceptance
+            - A table test covers every `(Life, Input)` cell of `admit`, each with its expected verdict.
+            - `Disposal`, the host's `started`, `open`, `closed()` and `admitting`, and the driver's flush, bound and
+              `Issue` are gone; the host no longer reads `driver.world()`.
+            - The lifecycle cases in code:packages/flow-state-v3/src/host/lanes.test.ts pass.
+            - A new case answers a call at 3 s and expects `StorageFailure` at 5 s from the call to `dispose`
+              (@spec.Actors.R22, @spec.Actors.R23); it is red before B2 and green after.
+            - The suite's judged disposal passes at the end of every case.
+            - Gates are no worse than at this Task's start, and `nub run check` is at zero.
     T19
         title       Durability: persistence edge, write-ahead and the driver (slice 2)
         status      draft
         priority    high
-        blocked_by  [@task.V3.T18]
+        blocked_by  [@T55]
         satisfies   [@plan.Persistence.O1, @plan.Persistence.O2, @plan.Persistence.O3, @plan.Persistence.O6]
         description
             Build the persistence edge, write-ahead and the Effect driver in `src/host/` from @spec.WriteAhead.
@@ -167,3 +216,9 @@ tasks
             code:packages/flow-state-v3/conformance/parts/play.ts): `invoke` raises a re-send's retryCount without 
             re-capturing the lane, so a boot restores the old count and a spent `retryable({ times })` passes again 
             (WriteAhead R5, R7; WriteLanes I7). Its check flips when fixed.
+        comment     2026-11-12T07:04:32Z
+            From the core consolidation design (round 3 handoff table, via @task.V3.T54 and @task.V3.T55): writes 
+            arrive as a flat per-step list with `Due` derived; the final write is a ticket held in `Life`; the 
+            batch-scope question is open (C6: @spec.WriteAhead.R7 and R9 read as one capture per scope, the code 
+            batches per actor); a Recapturing head is written with the retryCount its re-send will carry (the rule this 
+            Task's retryCount red takes); the capture window is still in the edge.

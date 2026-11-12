@@ -6,8 +6,9 @@ description
     **Kind:** verification-suite.
 
     **Goal:** slice R, the rework before any feature (T45 the Spec model with generators and limits, T51 production's 
-    lanes as one table function, T47 the fixture infrastructure and three pilot parts, in that order), then slice 1, 
-    lane policies (T18); the Pay path (T16), T43 and T44 are done.
+    lanes as one table function, T47 the fixture infrastructure and three pilot parts, in that order), then T52's
+    suite cut and T54's core consolidation, then slice 1, lane policies (T18); the Pay path (T16), T43 and T44 are
+    done.
 
     **Verified by:**
 
@@ -1087,11 +1088,93 @@ tasks
             - Phase-out checks (the four validations): no lost catch in the catch matrix; the same coverage and
               feature-matrix rows; the derived reference equal to the hand rows wherever both exist;
               Compile static cases green on each fixture's `Compiled`.
+    T54
+        title       Core consolidation: owed-endings ledger, one start, diff-written records, acts into evidenceOf
+        status      draft
+        priority    high
+        blocked_by  [@T52]
+        description
+            Consolidate production's core in steps A0 to A4: one ledger of owed endings, one `start`, records written
+            from what each step touched, and every report built by `evidenceOf` from acts.
+
+            **Why now:** an ending is held in four places (`World.parked`, `World.kept`, the lane's Kept state,
+            `Tries`), and moves issue their own writes and reports through `persist`, `park`, `keep` and `tx.emit`;
+            known bugs come from that (a second kept ending overwrites the first, @spec.Actors.I24; lane-less endings
+            dropped at disposal). @task.V3.T18 builds four policies on this core, so it goes first. The user accepted
+            this Task and its place on 2026-11-12 (Q1 A).
+
+            **Read first:** code:workflow/plans/flow/references/proposals/fable-architecture-consult-3-2026-11-12.md
+            (the design of record: Part 2, C2 for steps, C3 for checks), @task.V3.T51, @spec.WriteLanes, @spec.Actors.
+            Prior art: rounds 1 and 2,
+            code:workflow/plans/flow/references/proposals/fable-architecture-consult-2026-11-12.md and
+            code:workflow/plans/flow/references/proposals/fable-architecture-consult-2-2026-11-12.md.
+            Blocked by @T52, which settles the suite this Task baselines against.
+
+            **Decisions (orchestrator, 2026-11-12):**
+
+            1. An ending is applied to its lane when its call settles (`Cue.Answered`), with a failing check first
+               (a cancel between settlement and admission keeps the known success). Fallback, if backlog shows a
+               real problem: keep `Settled` as a fourth `Delivery` state and the `Ended` cue.
+            2. Only Kept rows block a key (`keptOn`).
+            3. `Identity` is deferred to @task.V3.T9.
+            4. The capture window stays in the host; moving it into the core is deferred.
+
+            **Approach:** each step of round 3's C2 table, with its "must stay true" as the step's check.
+
+            - A0: every C3 check written and red where it should be, baselines recorded, no core change; plus
+              failing-first checks that `unpark` is safe only because one step drains, and that dropping the stored
+              `mayHaveApplied` for `sentBefore` changes nothing.
+            - A1: the ledger in memory, old record keys still written; `Settled` and `Ended` merge into `Answered`;
+              `Keep`, the Kept row, `Tries` and `Settled.route` go; Attempts get their own counter.
+            - A2: one `start` for reload, return and adoption; `boot` parks nothing.
+            - A3: diff-written records and the three record kinds of C9.
+            - A4: acts into `evidenceOf`; `tx.emit` and `insertEvidence` go; the report stream byte-equal to A3's.
+
+            Each step ends with the suite, falsify, liar, crash and core-mutant gates no worse, `nub run check` at
+            zero, and the differential baseline equal except for named entries. Handoffs follow round 3's "Task split
+            and handoffs" table; the T18 to T21 items are comments on those Tasks.
+
+            **Risk:** if A1 cannot keep the old record keys without an adapter larger than the step, merge A1 and A3
+            and rely on the crash-point check alone (C2). Out of scope, owned elsewhere: `Life` (@task.V3.T55), the
+            tagged result and one `Commit` cue (@task.V3.T18), read slots (@task.V3.T21), `owner`, `current` and the
+            lateness field (@task.V3.T17), the record codec (@task.V3.T20).
+
+            - **May change:** `packages/flow-state-v3/src/core/`, the host only where a removed API is called,
+              `packages/flow-state-v3/conformance/` (pending cases, baselines, mutants), 
+              `packages/flow-state-v3/bench/`.
+            - **Evidence:** this Task's comments, which name where the baselines live.
+
+            False pass: a refactor that changes behaviour unnoticed → caught by the differential baseline (each
+            difference named and citing the pending case it flips) and reload equivalence at every crash point.
+            Gates: suite, falsify, liar, crash and core mutants no worse than at A0; C3's design mutants, written
+            before the code, each killed; `nub run check`.
+            Stops: an allowed difference that cites no pending case (the refactor is changing behaviour); a guarantee
+            change.
+            User's read: the named allowed differences; whether the `Settled` fallback was taken.
+        acceptance
+            - A0 lands before any core change: C3's five pending cases red; the differential baseline (reports,
+              commands, store contents; every production case and generated part; both world seeds); reload
+              equivalence at every crash point; conservation including declines (@spec.WriteLanes.I27's remainder,
+              brought forward from @task.V3.T18); the torn-batch check, with a batch-splitting mutant red; C3's
+              design mutants plus one per table cell; the cost baseline (turn cost, `ready()` with 64 queued, 500
+              keyed lanes on S08 and S16).
+            - The settlement check is red before `Cue.Answered` lands and green after, or the fallback is taken and
+              noted.
+            - `World.owed` is the only holder of endings: `World.parked`, `World.kept`, `Tries`, `LaneState.Kept`,
+              `Cue.Settled`, `Cue.Ended`, `Cue.Keep`, `persist`, `park`, `keep`, `tx.emit` and `insertEvidence` are
+              gone; only `ledger.ts` builds, moves or removes a row, and only `evidence-of.ts` builds an Evidence.
+            - Only Kept rows block a key: `commit` declines `Rejected` when `keptOn` holds.
+            - One `start` delivers on reload, return and adoption; `boot` parks nothing.
+            - Records are `actor/<identity>`, `lane/<lane>` and `owed/<identity>`, each with `format`.
+            - The five pending cases are green; the differential baseline is equal except for named entries, each
+              citing the pending case it flips; A4's report stream is byte-equal to A3's.
+            - Every step's gates are no worse than at A0, and `nub run check` is at zero.
+            - The cost baseline is re-run after A4 and both results are in this Task's comments.
     T18
         title       Lane policies: latest, serialize, cancel and cancelAll (slice 1)
         status      draft
         priority    high
-        blocked_by  [@T52]
+        blocked_by  [@T54]
         satisfies   [@plan.Operations.O3, @plan.Runtime.O2]
         description
             Build the write-lane policies `latest`, `serialize` (up to 64, Overloaded), `cancel` and `cancelAll` on
@@ -1161,6 +1244,13 @@ tasks
         comment     2026-11-12T06:20:41Z
             Owns WriteLanes I25's remainder (the failure tag inside unknown StillUnknown), moved from the closed T51 by 
             the orchestrator, 2026-11-12: code:packages/flow-state-v3/conformance/write-lanes/remainders.ts.
+        comment     2026-11-12T07:04:28Z
+            From the core consolidation design (round 3 handoff table, built by @task.V3.T54): this Task starts on a 
+            lane table over `Idle` and head phases only, one `Answered` cue, `owe` and `keptOn`, and no persist or emit 
+            API; rule WriteLanes Q5 as "close the lane's kept rows, then mint"; the pending cases (second kept ending, 
+            Held-head cancel) are already in the suite; @spec.WriteLanes.I27's remainder (conservation with declines) 
+            moved to T54. Still this Task's: the tagged result with one `Commit` cue, and whether a row shows that a 
+            kept ending blocks its key (C7).
     T51
         title       Production lanes reworked: one table function, reports derived from acts
         status      done
