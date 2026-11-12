@@ -263,3 +263,7 @@ note 2026-11-12T01:26:30Z
     lead, two Haiku sidecars). Decision (orchestrator, small amendment): T51 may re-point the edits of the six 
     production mutants the rework removes, keeping name, claim, expectation and cases. **Reverse:** keep 
     production.mutants.ts out of T51's scope.
+note 2026-11-12T01:28:30Z
+    Amendment (the user, 2026-11-12): requirements are gathered by one lead with up to four read-only Haiku sidecars on 
+    named angles (Specs and Plans, the code replaced, open findings, an adversary); the lead verifies each item. In the 
+    Epic's Testing rule and both policy-testing copies (uncommitted). **Reverse:** git revert this commit.

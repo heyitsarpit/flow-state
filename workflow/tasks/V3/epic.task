@@ -277,7 +277,10 @@ instructions
       workflow@55c7ab7, section "Write the requirements as failing checks first"). Each Task's first commit, before
       any code:
       - the requirements list, once, in the Task's comments: each rule with its source (Spec rule or decision),
-        and the cases reality cannot show;
+        and the cases reality cannot show. One lead gathers it with up to four read-only Haiku sidecars (effort
+        high), each on a named angle: the Specs and Plans; the code and prior art it replaces; the open findings,
+        gaps and log notes that name the Task; and an adversary listing how a wrong build could still pass. The
+        lead merges, verifies and logs each sidecar item as accepted, changed or rejected (the user, 2026-11-12);
       - each requirement written as a check that fails today: an invariant as a property, a type that makes the
         wrong flow fail to compile, or a data-flow check, each with a planted violation it catches; for a suite,
         the input inventory and a mutant for each report a check reads.
