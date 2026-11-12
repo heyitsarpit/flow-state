@@ -312,8 +312,12 @@ instructions
       were declined. A lead hands off to a fresh one with a resume note at each large step once its context runs
       long. Loop
       amendments are batched at an area's close-out unless one fixes a wrong result (the user, 2026-11-11).
-    - Every review goes to one Opus lead with two read-only Haiku sidecars on named angles (the user, 2026-11-11);
-      every audit or research task to one Opus lead with zero to two by need;
+    - Every review goes to one Opus lead with two read-only Haiku sidecars on named angles (the user, 2026-11-11).
+      One of them is blind (the user, 2026-11-12): it gets only the Specs, the Plans and the code under review,
+      never the Task's requirements list, its comments or earlier reviews, and answers "what must be true here for
+      this to be fully correct?". The lead compares its answer with the requirements list; anything only the blind
+      sidecar found is a missed requirement and lands as a failing check. Every audit or research task goes to one
+      Opus lead with zero to two by need;
       code quality is left to lint. A close-out review ends each phase or area.
 
     **Records, usage, commands**
@@ -341,7 +345,8 @@ cadence
     section sets a usage reserve, read the weekly usage from the harness's usage view, and if the reserve is reached,
     stop the run by R21 and note it. If there is a checkpoint newer than the last noted review or audit, or a review
     event with none covering it, start one Opus reviewing lead at medium effort with two read-only Haiku sidecars at
-    effort high, each on a named angle; verify its findings, send the accepted ones to the building lead in the same
+    effort high, each on a named angle, one of them blind to the requirements list (Reviews, in instructions);
+    verify its findings, send the accepted ones to the building lead in the same
     wake, and note the review. If the building lead has shown no activity for 100 minutes, resume it by message or
     replace it (R7) and note it. If the last compaction note in log.task is over 24 hours old and no review is
     running, start one Opus lead at medium effort, no sidecars, to run skill:compact-records over workflow/tasks/V3

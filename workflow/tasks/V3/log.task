@@ -267,3 +267,7 @@ note 2026-11-12T01:28:30Z
     Amendment (the user, 2026-11-12): requirements are gathered by one lead with up to four read-only Haiku sidecars on 
     named angles (Specs and Plans, the code replaced, open findings, an adversary); the lead verifies each item. In the 
     Epic's Testing rule and both policy-testing copies (uncommitted). **Reverse:** git revert this commit.
+note 2026-11-12T01:36:16Z
+    Amendment (the user, 2026-11-12): every review has one blind sidecar that sees only the Specs, Plans and code, 
+    never the requirements list or earlier reviews; what only it finds is a missed requirement. Review crons re-created 
+    as f68dc6c2 and 685d58aa. **Reverse:** git revert this commit and re-create the crons.
