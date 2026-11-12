@@ -335,7 +335,7 @@ tasks
 
     T45
         title       An executable Spec model computes expected results and generates cases (pilot: persistence)
-        status      review
+        status      done
         priority    high
         blocked_by  [@T44]
         description
@@ -815,6 +815,9 @@ tasks
             154/154 (4/4) and 18/18, coverage 75/184 (41 in part) 0 gaps, liar 126/126 (9 fixture gaps, cap 9) and 
             13/13, limits 9/9, crash production 690/723, core mutants 62/85 with a green control. Item 7's eight search 
             kills and Table A's text wait for the user's amendment. Set to review.
+        comment     2026-11-12T01:23:09Z
+            Done (orchestrator, 2026-11-12): completion check PASS, items 1 to 9 met as amended; 
+            proposals/t45-completion-check-2026-11-12.md. Follow-ups F1 to F3 owned by T47.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
         status      open
@@ -926,6 +929,12 @@ tasks
             - Phase-out checks (the four validations): no lost catch in the catch matrix; the same coverage and
               feature-matrix rows; the derived reference equal to the hand rows wherever both exist; Compile static
               cases green on each fixture's `Compiled`.
+        comment     2026-11-12T01:23:13Z
+            Requirements from T45's completion check (orchestrator, 2026-11-12), to land as failing checks first: F1 
+            multi-actor alphabets that reach the S2 dirty-mark limit, then retire it, and a test for credits.ts's 
+            two-keys-name-no-lane rule; F2 retarget limit.mint-key-lies at the keysOf and reportedKeys path; F3 where a 
+            guard cannot be computed, the runtime's opaque alternative is accepted, against Conformance R20: fold or 
+            label it.
     T52
         title       Suite phase-out, first cut: Pay and Cells generated, hand traces thinned
         status      draft

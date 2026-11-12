@@ -254,3 +254,7 @@ note 2026-11-12T01:21:29Z
     report), and review findings land as failing checks. Reviews also on each step marked done; convergence threshold 
     2; fresh lead per large step. The library's policy-testing and policy-verification carry it, uncommitted after 
     workflow@55c7ab7. **Reverse:** git revert this commit.
+note 2026-11-12T01:23:18Z
+    T45 done: completion check PASS at a39c2f52; the crash total 1523 was two red cases each running all 400 points, no 
+    runs lost. F1 to F3 (S2 limit reach, mint-key-lies target, opaque alternatives against Conformance R20) go to T47 
+    as requirements.
