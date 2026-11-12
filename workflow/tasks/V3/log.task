@@ -232,3 +232,8 @@ note 2026-11-11T23:53:36Z
     moves 8 catches to other checks (falsify 146/154), which the phase-out's own no-lost-catch validation forbids, and 
     no report reads remain in them. Phase-out step 1 counts as met by the claimed flag's removal. For the user's read. 
     **Reverse:** delete the cells and accept the moved Invariants (a gate relaxation, the user's call).
+note 2026-11-12T00:02:40Z
+    Review (T45 completion, to d8cf11e3): items 1 to 6 and 9 met, 7 partly, 8 not met (README keeps three prose 
+    round-14 limits, verified); should-fixes S1 to S10 accepted; sent to the lead. Stop after the fixes, for the user: 
+    amend T45's acceptance 7 (eight old search kills owned by T21 and T25) and phase-out step 1 (Table A's cells kept), 
+    both proposed; T51 waits on T45.
