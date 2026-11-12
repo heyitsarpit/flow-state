@@ -997,6 +997,30 @@ tasks
             is `partsOwed` (T19). Seven first-contact reds were the suite's (Pay row, idle key, local actors, Maybe 
             decline, woken end's write, I26 capture order); each fix cites its rule in code. Step 3 stays open for the 
             steps 1-2 review fixes.
+        comment     2026-11-12T06:17:02Z
+            Steps 1-2 review fixes (b98a7b58, this commit): each landed as a red check first. Done: non-empty guards, 
+            Q4 and Q11 checks with planted mutants red, the slice rule and triples per composite, Q19 without a kept 
+            regression, round-14 `ea` `hs`, R15's 99 frozen with ACT-01 to 03 citing rulings, and 50 matrix owners 
+            moved to the replan's slices (the review counted 47; R11, R14, R19 and P11 also moved). Open: findings 2 
+            and 4 and the missed hand and static mapping (see the resume note).
+        comment     2026-11-12T06:17:18Z
+            Resume (lead, at 886c671b): step 3 is built, but it stays open until the rest of the steps 1-2 review fixes 
+            land (code:workflow/plans/flow/references/proposals/t47-steps1-2-review-2026-11-12.md). Next, in order, 
+            each as a red check first:
+            1. Finding 2: give owed rows the codes they will need, then run `matrixGate` over the real `FEATURES` 
+               (production's declarations, task records, the pilots' reach, `productionCases`). No record maps Plan 
+               features to codes: derive them from the coverage report's Spec column and the catalogue's sections 4 and 
+               5B, and mark the mapping proposed.
+            2. Missed requirement: map hand and static cases into the matrix where they reach (`built()` and `owed()` 
+               hard-code `cases: []`, code:packages/flow-state-v3/conformance/parts/features.ts).
+            3. F1 (Q25): a run with two dirty actors, a mutant that drops a record write, and a test of the two-keys 
+               rule in `turn/credits.ts` with a take-the-first-key mutant.
+            4. Acceptance 6: cell-pair reach (wanted by step 5's model mutation). Then map the brief's False-pass line 
+               and the replan's 'revises Conformance.spec' to requirements: R18 cites 5B, and I57 and the cell pairs 
+               each need a spec-log note.
+            5. Then steps 5 and 6 as planned. Q16, Q26 and Q27 test the real gates there. The round-14 falsify coverage 
+               line goes red on WriteLanes I25, which is owed to the closed T51: re-point it in README's guarantee map. 
+               Run gates with `--runtime packages/flow-state-v3/prototypes/round-14` (a path).
     T52
         title       Suite phase-out, first cut: Pay and Cells generated, hand traces thinned
         status      draft
