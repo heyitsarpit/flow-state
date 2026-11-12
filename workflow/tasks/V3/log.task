@@ -316,3 +316,9 @@ note 2026-11-12T03:54:39Z
     732/735, check clean); T51 in review at 8a20a030; completion check started with blind and adversary sidecars, also 
     ruling on the Keep-on-Held reason (lost to Error) and ready() after dispose. Weekly usage 77 percent. Still open 
     for the user: the compaction evaluation and a 300k rotation rule (cap confirmed at 400k, compaction at 367k).
+note 2026-11-12T04:08:53Z
+    Completion check (T51): FAIL. Blocking: ready() after dispose (Actors R22) and the Keep-on-Held case doesn't assert 
+    Held (R15). Error for an untagged failure accepted. Amendment (orchestrator): two same-surface gaps join T51 (an 
+    ending without a lane lost on its second refusal, I24; dispose during bootstrap, R4); three gaps go to T18; two 
+    items to revisit.md. A fresh T51 lead is fixing. Process watch: the blind sidecar again found requirements no list 
+    had, all present before T51; the adversary found a case a wrong build passes (no Held assert).
