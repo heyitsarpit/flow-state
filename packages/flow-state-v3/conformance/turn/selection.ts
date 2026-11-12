@@ -1,4 +1,5 @@
 import { Option } from "effect";
+import { GRACE_MS } from "../dsl/expect.ts";
 import type { Predicted } from "../dsl/lifecycle-owed.ts";
 import { Fact, oracle, type Violation, violation } from "../dsl/oracle.ts";
 import { Address } from "../dsl/facts.ts";
@@ -14,6 +15,8 @@ import {
   wrote,
   dropped,
   FRESH,
+  idled,
+  used,
   answered,
   reowned,
   requested,
@@ -38,7 +41,7 @@ import {
   settledBy,
 } from "./credits.ts";
 import { lateLeftWork } from "./late.ts";
-import { decideFor, foldedAfter, keysFor, labelsFor } from "./predict.ts";
+import { changeOf, decideFor, foldedAfter, keysFor, labelsFor } from "./predict.ts";
 import { Input, leafOf, Phase } from "./phases.ts";
 import { type Labels, noFolds } from "../fixtures/folds.ts";
 import { type Machines, possible, scheduledEvents } from "../fixtures/handlers.ts";
@@ -171,7 +174,9 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
     at: Option.map(judged.match, (m) => m.at),
     keys,
     encodable: labels["encodable"] !== false,
-    changes: Option.map(judged.match, (m) => m.updates || m.to !== judged.from),
+    changes: Option.flatMap(judged.match, (m) =>
+      changeOf(m.to !== judged.from, m.updates, now.fields, fields),
+    ),
   };
 
   return [
@@ -336,8 +341,9 @@ const onFact = (
     Ensured: ({ actor }) =>
       keep(
         Option.match(initialOf(state, actor), {
-          onNone: () => state,
-          onSome: (initial) => moved(folded(state, actor), actor, Input.Ensured({ initial })),
+          onNone: () => used(state, actor, 1),
+          onSome: (initial) =>
+            moved(used(folded(state, actor), actor, 1), actor, Input.Ensured({ initial })),
         }),
       ),
     Disposed: ({ actor }) =>
@@ -407,7 +413,7 @@ const onFact = (
           answeredRequest(request, answer),
         ),
       ),
-    Released: () => keep(state),
+    Released: ({ actor }) => keep(used(state, actor, -1)),
     DisposingRuntime: () => keep({ ...state, disposing: true }),
     Unstoppable: () => keep(state),
     Landed: () => keep(landed(state)),
@@ -415,7 +421,7 @@ const onFact = (
     Wrote: (w) => keep(wrote(state, least, purposeOf(step, w))),
     Purposed: () => keep(state),
     Dropped: () => keep(dropped(state)),
-    Advanced: () => keep(state),
+    Advanced: ({ ms }) => keep(idled(state, ms, GRACE_MS)),
     Read: () => keep(state),
     RowRead: () => keep(state),
     Disposal: () => keep(state),

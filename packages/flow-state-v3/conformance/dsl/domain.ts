@@ -105,3 +105,14 @@ export const mayHaveApplied = (
       Option.contains(request.key, r.key.value) &&
       !heard(r, operation),
   );
+
+/**
+ * What a row read gives for a key with no lane on today's runtimes: nothing.
+ *
+ * **Details**
+ *
+ * Reads R14 makes the read total: a key with no lane reads the idle row. Neither runtime has it
+ * yet, so a case that expects a lane gone compares with this one value, never with `None` itself;
+ * @task.V3.T21 builds the idle row and changes this value (2026-11-12).
+ */
+export const laneGone = Option.none();

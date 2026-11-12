@@ -64,7 +64,7 @@ export const notYet: ReadonlyArray<NotYet> = [
   },
   {
     owner: "@task.V3.T21",
-    why: "the Reads area is not built; T42 cut I7, I12 and I18 and added I20 (read endings)",
+    why: "the Reads area is not built, the idle row (R14; cases compare with `laneGone`) included; T42 cut I7, I12 and I18 and added I20 (read endings)",
     invariants: invariantsOf("Reads", [1, 2, 3, 4, 5, 8, 9, 11, 15, 16, 17, 19, 20, 21]),
   },
   {

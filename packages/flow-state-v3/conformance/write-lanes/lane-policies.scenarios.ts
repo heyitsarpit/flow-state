@@ -1,6 +1,7 @@
 import { Option } from "effect";
 import type { Actor } from "../dsl/actor.ts";
 import type { Case, Scenario } from "../dsl/case.ts";
+import { laneGone } from "../dsl/domain.ts";
 import { Cells } from "../fixtures/pay.ts";
 import { Cancel, Latest, Release, Serialize } from "../fixtures/one-lane.ts";
 import { Address } from "../dsl/facts.ts";
@@ -246,7 +247,7 @@ export const lanePoliciesScenarios: ReadonlyArray<Scenario> = [
       s.state("UNSURE");
       s.send("AbortPay", {});
       c.eq("the hold is released", c.evidence("Released"), 1);
-      c.eq("the lane is Idle", Option.isNone(s.row("pay", KEY)), true);
+      c.eq("the lane is Idle", s.row("pay", KEY), laneGone);
     },
   },
   {
@@ -262,8 +263,8 @@ export const lanePoliciesScenarios: ReadonlyArray<Scenario> = [
       a.state("A");
       c.eq(
         "WriteLanes I5: a not-retained unknown leaves no Held lane",
-        Option.isNone(a.row("search", {})),
-        true,
+        a.row("search", {}),
+        laneGone,
       );
       c.eq("released as evidence", c.evidence("Released"), 1);
       c.eq(
@@ -344,7 +345,7 @@ export const lanePoliciesScenarios: ReadonlyArray<Scenario> = [
       c.eq(
         "WriteLanes I23: a late unknown after the release holds no lane",
         a.row("q", {}),
-        Option.none(),
+        laneGone,
       );
     },
   },

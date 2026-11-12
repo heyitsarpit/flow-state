@@ -25,6 +25,17 @@ describe("the limits gate (Conformance T42, I64)", () => {
     assert.equal(verdictOfLimit(row, { _tag: "Pass", id: "GEN-x" }).held, false);
   });
 
+  it("fails a planted row whose Invariant is a prefix of the one that failed it", () => {
+    const longer = {
+      _tag: "Fail" as const,
+      id: "GEN-x",
+      oracles: ["disposal"],
+      why: "seed 1: disposal: Actors I14: no incarnation",
+    };
+
+    assert.equal(verdictOfLimit({ ...row, invariant: "Actors I1" }, longer).held, false);
+  });
+
   it("fails a planted row whose case fails by another Invariant", () => {
     const other = {
       _tag: "Fail" as const,

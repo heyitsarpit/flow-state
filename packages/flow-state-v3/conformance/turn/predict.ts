@@ -1,4 +1,5 @@
 import { Option } from "effect";
+import { sameJson } from "../port.ts";
 import type { Folded, Folds, Labels } from "../fixtures/folds.ts";
 import type { Decide } from "../fixtures/handlers.ts";
 import { type Actor, answerOf, creditLabels, type State } from "./anchor.ts";
@@ -55,6 +56,31 @@ export const foldedAfter = (
         return update === undefined ? before : { ...before, ...update(labels, before) };
       }),
   });
+
+/**
+ * Whether a turn surely changes its actor's record from its value before the turn (toward
+ * WriteAhead's Dirty; `Model`'s Gotchas say where the two part): it moves the leaf, or its update
+ * changes a folded field. An
+ * update that changes no folded field, or runs while the fields are unknown, may change nothing
+ * (none); a turn with neither changes nothing.
+ */
+export const changeOf = (
+  moves: boolean,
+  updates: boolean,
+  before: Option.Option<Folded>,
+  after: Option.Option<Folded>,
+) => {
+  if (moves) return Option.some(true);
+
+  if (!updates) return Option.some(false);
+
+  const differs = Option.exists(Option.zipWith(before, after, sameFolded), (same) => !same);
+
+  return differs ? Option.some(true) : Option.none<boolean>();
+};
+
+const sameFolded = (a: Folded, b: Folded) =>
+  Object.keys({ ...a, ...b }).every((k) => sameJson(a[k] ?? null, b[k] ?? null));
 
 /**
  * Each operation's key the fixture's folds compute for this turn, from its labels and the fields

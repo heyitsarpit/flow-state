@@ -40,4 +40,9 @@ export const writeLanesRemainders: ReadonlyArray<Remainder> = [
     owner: "@task.V3.T18",
     owed: "a late result after cleanup changes no data (entity records, read through the Port's entity) and none after cleanup by forget or an interrupt; late-results judges lanes and endings after a release only (T16 review, T7-M1)",
   },
+  {
+    invariant: "WriteLanes I25",
+    owner: "@task.V3.T51",
+    owed: "an unknown StillUnknown keeps the failure's tag: neither runtime reports `Ended.failure` yet, so ending-channels judges the tag only when a runtime reports it (2026-11-12)",
+  },
 ];

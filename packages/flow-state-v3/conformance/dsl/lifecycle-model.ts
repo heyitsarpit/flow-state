@@ -256,6 +256,12 @@ export type Capture = {
  *   three catches and turns eight production crash points red, so it waits for the write
  *   position to be a fact. A flush lands at once in the fake store even while older batches are
  *   held; a landing keeps the capture that holds more endings.
+ * - A live actor's `dirty` mark (stated limit, T45 close review S2): `Wrote` names no record,
+ *   since the store's keys are the runtime's encoding, so any batch clears every actor's mark and
+ *   any write in a step discharges every dirty end; an end that writes only another actor's
+ *   record passes, and no case ends two dirty actors in one step yet. A mark is set by a turn that
+ *   changes the record from its value before the turn and is never unset by a later turn that
+ *   undoes an unlanded change, so such a pair still owes a write.
  */
 export type Model = {
   readonly mode: "running" | "disposing";

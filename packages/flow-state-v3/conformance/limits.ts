@@ -46,7 +46,7 @@ export const limits: ReadonlyArray<Limit> = [
 export const verdictOfLimit = (limit: Limit, verdict: CaseVerdict) => {
   if (verdict._tag !== "Fail") return { held: false, why: `${limit.case} ${verdict._tag}` };
 
-  const named = verdict.oracles.includes(limit.check) && verdict.why.includes(limit.invariant);
+  const named = verdict.why.includes(`${limit.check}: ${limit.invariant}:`);
 
   return named
     ? { held: true, why: `${limit.case} fails by ${limit.invariant}` }
@@ -85,7 +85,7 @@ export const statedLimits: ReadonlyArray<StatedLimit> = [
     limit: "the keys of an actor whose fields the suite does not carry",
     where: "turn/credits.ts keysOf",
     admits:
-      "after a kill that lost every write of an actor's record (a capture not yet due), or for an actor never ensured, its turn's member keys are the report's",
+      "after a kill that lost every write of an actor's record (a capture not yet due), or for an actor never ensured, its turn's member keys are the report's, a keyed retry's included (turn/credits.ts retriesOwed)",
     mutant: {
       name: "limit.mint-key-lies",
       says: "every mint reports a key no fold gives",

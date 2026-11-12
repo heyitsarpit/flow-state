@@ -1,5 +1,6 @@
 import type { Case, Scenario } from "../dsl/case.ts";
 import { coveredBy } from "../coverage.ts";
+import { laneGone } from "../dsl/domain.ts";
 import { Held, Keyed } from "../fixtures/keyed.ts";
 import { Stamp } from "../fixtures/stamp.ts";
 import { Issues } from "../fixtures/issues.ts";
@@ -55,7 +56,7 @@ export const laneKeysScenarios: ReadonlyArray<Scenario> = [
         ["success success", "success success"],
       );
       c.eq("no re-send", c.requests("keyed").length, 2);
-      c.eq("WriteLanes I14: b's lane is gone", a.row("keyed", { k: "b" }), Option.none());
+      c.eq("WriteLanes I14: b's lane is gone", a.row("keyed", { k: "b" }), laneGone);
     },
   },
   {

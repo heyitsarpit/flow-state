@@ -3,7 +3,15 @@ import { Console, Effect, Option } from "effect";
 import { readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
-import { caseChecks, guarantees, oracles, reportOnly, scenarios } from "../suite.ts";
+import {
+  caseChecks,
+  FIXTURE_GAP_CAP,
+  fixtureGaps,
+  guarantees,
+  oracles,
+  reportOnly,
+  scenarios,
+} from "../suite.ts";
 import {
   flag,
   graphsFor,
@@ -20,9 +28,16 @@ import {
   runtimeSurface,
 } from "./args.ts";
 import { falsifyOne, liarOne, MutantVerdict, suiteIn } from "./falsify.ts";
-import { productionCases } from "./gates.ts";
+import { productionCases, productionOwed } from "./gates.ts";
 import { generatedScenarios, generatedScripts, regressionFiles } from "../generated.ts";
-import { limits, Outcome, type StatedLimit, statedLimits, verdictOfLimit } from "../limits.ts";
+import {
+  type Limit,
+  limits,
+  Outcome,
+  type StatedLimit,
+  statedLimits,
+  verdictOfLimit,
+} from "../limits.ts";
 import { type Script, scenarioOf, type Step } from "../dsl/script.ts";
 import type { Scenario } from "../dsl/case.ts";
 import { Serialize } from "../fixtures/one-lane.ts";
@@ -97,11 +112,24 @@ export const liar = (args: ReadonlyArray<string>) =>
       yield* Console.log(
         `GREEN ${r.mutant}  caught only by its own reports${r.why === "" ? "" : `: ${r.why}`}`,
       );
-    yield* Console.log(
-      `VERDICT ${green.length === 0 && control ? "pass" : "fail"} ${runs.length - green.length}/${runs.length} behavioural mutants red under the liar gate`,
+
+    const gaps = [...guarantees.flatMap((g) => g.mutants), ...caseChecks.mutants].filter(
+      (m) => m.runtime === target && Object.hasOwn(fixtureGaps, m.name),
     );
 
-    if (green.length > 0 || !control) process.exitCode = 1;
+    const capped = gaps.length <= FIXTURE_GAP_CAP;
+
+    yield* Console.log(
+      `${capped ? "ok  " : "BAD "} ${gaps.length} fixture gaps left out, at most ${FIXTURE_GAP_CAP}`,
+    );
+
+    const pass = green.length === 0 && control && capped;
+
+    yield* Console.log(
+      `VERDICT ${pass ? "pass" : "fail"} ${runs.length - green.length}/${runs.length} behavioural mutants red under the liar gate, ${gaps.length} fixture gaps (cap ${FIXTURE_GAP_CAP})`,
+    );
+
+    if (!pass) process.exitCode = 1;
   });
 
 /**
@@ -417,10 +445,8 @@ const statedVerdict = (row: StatedLimit, verdict: MutantVerdict) => {
       why: `${what}: ${verdict._tag === "Survived" ? "survives, as stated" : `expected to survive, got ${verdict._tag}`}`,
     }),
     Caught: ({ check }) => ({
-      held:
-        MutantVerdict.$is("Caught")(verdict) ||
-        (MutantVerdict.$is("WrongReason")(verdict) && verdict.why.includes(`${check}:`)),
-      why: `${what}: ${verdict._tag === "Survived" ? `expected ${check} to catch it, it survived` : `${verdict._tag} (${check} expected)`}`,
+      held: MutantVerdict.$is("Caught")(verdict),
+      why: `${what}: ${verdict._tag === "Survived" ? `expected ${check} to catch it, it survived` : `${verdict._tag} (${check} ${row.mutant.expects} expected)`}`,
     }),
   });
 };
@@ -439,12 +465,25 @@ export const limitsGate = (args: ReadonlyArray<string>) =>
       args.includes("--parallel") ? ["--parallel", String(parallelOf(args))] : [],
     ).pipe(Effect.catchTag("NoVerdicts", () => Effect.succeed<ReadonlyArray<CaseVerdict>>([])));
 
-    const found = limits.map((l) =>
-      Option.match(Option.fromUndefinedOr(verdicts.find((v) => v.id === l.case)), {
-        onNone: () => ({ held: false, why: `${l.case} gave no verdict` }),
-        onSome: (v) => verdictOfLimit(l, v),
-      }),
-    );
+    const owedVerdicts = yield* suiteIn(
+      MAIN,
+      PRODUCTION_RUNTIME,
+      productionOwed.map((o) => o.case),
+      240,
+    ).pipe(Effect.catchTag("NoVerdicts", () => Effect.succeed<ReadonlyArray<CaseVerdict>>([])));
+
+    const holding = (rows: ReadonlyArray<Limit>, from: ReadonlyArray<CaseVerdict>, on: string) =>
+      rows.map((l) =>
+        Option.match(Option.fromUndefinedOr(from.find((v) => v.id === l.case)), {
+          onNone: () => ({ held: false, why: `${l.case} gave no verdict on ${on}` }),
+          onSome: (v) => verdictOfLimit(l, v),
+        }),
+      );
+
+    const found = [
+      ...holding(limits, verdicts, "round-14"),
+      ...holding(productionOwed, owedVerdicts, "production"),
+    ];
 
     const stated = yield* Effect.forEach(
       statedLimits,
@@ -465,7 +504,7 @@ export const limitsGate = (args: ReadonlyArray<string>) =>
     const total = found.length + stated.length;
 
     yield* Console.log(
-      `VERDICT ${held === total ? "pass" : "fail"} ${held}/${total} limits rows hold on round-14`,
+      `VERDICT ${held === total ? "pass" : "fail"} ${held}/${total} limits rows hold (round-14 limits, stated limits, production's owed reds)`,
     );
 
     if (held < total) process.exitCode = 1;

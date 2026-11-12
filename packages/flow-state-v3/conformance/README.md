@@ -121,8 +121,9 @@ Round 1's, the runner's (recorded as such; the user may overrule):
    prototype adapter retires.
 8. **Determinism and ids** (round 2): the suite gives each boot a session seed as data
    (`Boot.sessionSeed`, distinct per page and world seed); the runtime mints its Attempt ids from
-   it (WriteLanes R5). Prototype limit: round-14 cannot take a seed; it asks its host for every id,
-   so the prototype adapter answers `att-<sessionSeed>-<n>` from the suite's seed. The adapter mints
+   it (WriteLanes R5). The prototype adapter answers round-14's id requests with
+   `att-<sessionSeed>-<n>` from the suite's seed; the seed check (WriteLanes I28) is owed by T18 in
+   `not-yet.ts`. The adapter mints
    nothing else. The seed cases (WriteLanes T18: two Runtimes with different seeds never share an
    id; one seed replays the same ids) and their wrong runtime (a mint that ignores the seed, so two
    devices collide) are phase 4 builds: the wrong runtime is a production mutant, written with the
@@ -230,20 +231,16 @@ the case holds.
   closure, or minted under an older key version, is not told apart.
 - A row tied to its alternative (`at`, Pay's `Leave`) is owed only when selection predicts that
   alternative from the fixture's folds, never from the reported members.
-- Round-14 does not report the failure inside `unknown StillUnknown`; the check that it keeps its
-  tag runs only when a runtime reports it (`Ended.failure`). Making it strict turns PAY-05 and
-  PAY-16/restore-keeps-mayHaveApplied red on round-14; the adapter will not fill the failure in
-  from the suite's own `Answered` fact, since that would report for the runtime what it did not.
-  Production must report it, and the check becomes strict with the production adapter.
+- The failure tag inside `unknown StillUnknown` is a WriteLanes I25 remainder owned by T51
+  (`write-lanes/remainders.ts`): no runtime reports `Ended.failure` yet.
 - `Minted` requires `actor`, and `key` on a keyed operation: the Case stops with `UnreadableReport`
   naming the field (convergence v2's Port change 6).
 - `delivered-once` counts an ending decided after the Runtime's disposal began as parked at the next
   reload; whether the runtime parked it is the `restore` oracle's (the Port shows no parked
   records). An `InvalidTurn` or `UnmappedEnding` issue names the ending it refuses
   (`Issue.ending`, convergence v2's Port change 4).
-- Round-14 has no idle row: a key with no lane reads `None`, where Reads R14 makes `O.x.get`
-  total (the idle row). Cases expect `None` for "lane gone"; production must return the idle row,
-  and those expectations change with the production adapter.
+- A lane gone reads `laneGone` (`dsl/domain.ts`), what both runtimes return today; Reads R14's
+  idle row is T21's, which changes that one value.
 - The end-of-case disposal answers every held store write before and after the bound, so it
   judges disposal with a store that answers; a store that hangs through a disposal is judged only by
   cases that drive it.
@@ -364,8 +361,8 @@ Static guarantees: checked by case expectations over a static surface, not by pe
 | Compile I14                   | CMP-11                              | `r15c.duplicate-machine-allowed` (in part)                                                                                          |
 | Compile I15                   | CMP-06, CMP-07                      | `cmp.bare-function-admitted`, `cmp.compiler-emits-bare-guard`, `cmp.seal-crashes-on-bare`, `cmp.data-view-keeps-closures` (in part) |
 | Compile I16                   | CMP-06                              | `cmp.key-outside-input-admitted`, `cmp.seal-crashes-on-key`                                                                         |
-| Compile I3, I9, I10, I12, I17 | none                                | round-14 makes no such result (`not-yet.ts` says which)                                                                             |
-| Diagnostics, Codec            | none                                | round-14 has no Diagnostic carrier and no canonical byte codec                                                                      |
+| Compile I3, I9, I10, I12, I17 | none                                | T17 builds the compiler that makes these results (`not-yet.ts`)                                                                     |
+| Diagnostics, Codec            | none                                | T17 builds Diagnostics and T20 the canonical byte codec (`not-yet.ts`)                                                              |
 | StaticCli I1, I4 to I8, I12   | CLI-01 to CLI-08                    | `static-cli/cli.mutants.ts`; I1, I4, I6 to I8, I12 in part (I6 took the cut I9)                                                     |
 | StaticCli I2                  | CLI-09 and the `graph-names` oracle | `cli.graph-renames-untaken-edge`, `graph-names.mutants.ts` (in part)                                                                |
 | StaticCli I3, I10, I11        | none                                | T22 builds config discovery and the project tree                                                                                    |

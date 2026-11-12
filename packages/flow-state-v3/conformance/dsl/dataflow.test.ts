@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import assert from "node:assert/strict";
-import { dirname, resolve } from "node:path";
+import { cpSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
 import { describe, it } from "vite-plus/test";
@@ -11,7 +12,6 @@ import { timedOf } from "../fixtures/handlers.ts";
 import { MemberTarget, Observation } from "../port.ts";
 import { scenarios } from "../suite.ts";
 import { leavesOf } from "../turn/anchor.ts";
-import { leafOf } from "../turn/phases.ts";
 import { type Anchor, anchorOf, judgedStep } from "../turn/selection.ts";
 import { captureMsOf } from "../actors/lifetime.scenarios.ts";
 import { openCase } from "./case.ts";
@@ -19,6 +19,8 @@ import { empty, type Model } from "./lifecycle-model.ts";
 import { rules } from "./lifecycle-rules.ts";
 import { step } from "./lifecycle-step.ts";
 import { Fact } from "./oracle.ts";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
 
 const RUNTIME = resolve(
   dirname(fileURLToPath(import.meta.url)),
@@ -75,20 +77,11 @@ const lied = (fact: Fact, header = false): Fact => {
   return Fact.Reported({ observation });
 };
 
-const anchorView = (anchor: Anchor) => ({
-  actors: [...anchor.actors].map(([key, a]) => ({
-    key,
-    leaf: leafOf(a.phase),
-    turns: a.turns,
-    entry: a.entry,
-    fields: a.fields,
-    trail: a.trail,
-    allowed: a.allowed,
-  })),
-  calls: [...anchor.calls.values()].map((c) => ({
-    ...c,
-  })),
-});
+/**
+ * The anchor as expect state: every field but the fixture's inputs (`machines`, `reference`,
+ * `rows`), which a run never changes.
+ */
+const anchorView = ({ machines: _m, reference: _r, rows: _w, ...rest }: Anchor) => rest;
 
 /**
  * Where a lying run first differs from the truthful one before anything refused it: `None` when
@@ -110,7 +103,11 @@ const leakAt = (
  * The expect state after each step of a fact list: selection's predictions, the anchor, and the
  * lifecycle's own facts-derived fields.
  */
-const expectStates = (fixtures: Parameters<typeof handlersFor>[0], facts: ReadonlyArray<Fact>) => {
+const expectStates = (
+  fixtures: Parameters<typeof handlersFor>[0],
+  facts: ReadonlyArray<Fact>,
+  run: typeof step = step,
+) => {
   const machines = handlersFor(fixtures);
   const reference = referenceFor(fixtures);
   const known = { reference, rows: rowsFor(fixtures), timed: timedOf(machines), captureMs: 0 };
@@ -129,7 +126,7 @@ const expectStates = (fixtures: Parameters<typeof handlersFor>[0], facts: Readon
     (acc, cut) => {
       const leaves = leavesOf(acc.anchor);
       const judged = judgedStep(acc.anchor, cut);
-      const life = step(acc.model, known, judged.facts, [], rules, judged.turns, leaves);
+      const life = run(acc.model, known, judged.facts, [], rules, judged.turns, leaves);
 
       return {
         anchor: judged.state,
@@ -152,79 +149,115 @@ const expectStates = (fixtures: Parameters<typeof handlersFor>[0], facts: Readon
   ).views;
 };
 
+const factsOf = (port: ReturnType<typeof prototypePort>, id: string) => {
+  const scenario = scenarios.find((s) => s.id === id);
+  assert.ok(scenario !== undefined, id);
+
+  const opened = openCase({
+    port,
+    fixtures: scenario.fixtures,
+    captureMs: captureMsOf(scenario.id),
+    oracles: [],
+    seed: 1,
+    graphs: [],
+    overdue: () => false,
+    crashAt: Option.none(),
+    replay: Option.none(),
+  });
+
+  scenario.run(opened.driven);
+  opened.end();
+
+  return { fixtures: scenario.fixtures, facts: opened.facts() };
+};
+
+/**
+ * The report kinds lied about one at a time as well as all at once, since the first refused lie
+ * ends the comparison: a kind whose lie is never refused is still compared to the end.
+ */
+const KINDS: ReadonlyArray<string> = ["all", "Turn", "Minted", "Ended"];
+
+const ofKind = (fact: Fact, kind: string) =>
+  kind === "all" || (Fact.$is("Reported")(fact) && fact.observation._tag === kind);
+
+const leakIn = (
+  { fixtures, facts }: ReturnType<typeof factsOf>,
+  header: boolean,
+  kind: string,
+  run: typeof step = step,
+) =>
+  leakAt(
+    expectStates(fixtures, facts, run),
+    expectStates(
+      fixtures,
+      facts.map((f) => (ofKind(f, kind) ? lied(f, header) : f)),
+      run,
+    ),
+  );
+
+/**
+ * A leak planted in the expect code itself: the step dispatch moves the model's clock by a
+ * reported ending's channel, as an obligation that read `Ended.channel` would. That lie alone is
+ * not refused before the leak, so the check must see it.
+ */
+const PLANTED = {
+  find: "    return reported(marked, known, fact.observation, earlier, given);",
+  replace:
+    '    return reported(fact.observation._tag === "Ended" && fact.observation.channel === "success" ? { ...marked, model: { ...marked.model, clock: marked.model.clock + 1 } } : marked, known, fact.observation, earlier, given);',
+};
+
 describe("no report value reaches expect state (Conformance R20, T45 K2)", () => {
   it("the expect state of each case is unchanged when every report value lies", async () => {
     const port = prototypePort(await Effect.runPromise(loadPrototype(RUNTIME)));
 
     for (const id of CASES) {
-      const scenario = scenarios.find((s) => s.id === id);
-      assert.ok(scenario !== undefined, id);
-
-      const opened = openCase({
-        port,
-        fixtures: scenario.fixtures,
-        captureMs: captureMsOf(scenario.id),
-        oracles: [],
-        seed: 1,
-        graphs: [],
-        overdue: () => false,
-        crashAt: Option.none(),
-        replay: Option.none(),
-      });
-
-      scenario.run(opened.driven);
-      opened.end();
-      const facts = opened.facts();
-
-      const truth = expectStates(scenario.fixtures, facts);
+      const run = factsOf(port, id);
 
       for (const header of [false, true])
-        assert.deepStrictEqual(
-          leakAt(
-            truth,
-            expectStates(
-              scenario.fixtures,
-              facts.map((f) => lied(f, header)),
-            ),
-          ),
-          Option.none(),
-          `${id}: a ${header ? "turn's from" : "member, key or ending"} lie reaches expect state before any check refuses it`,
-        );
+        for (const kind of KINDS)
+          assert.deepStrictEqual(
+            leakIn(run, header, kind),
+            Option.none(),
+            `${id}: a ${header ? "turn's from" : "member, key or ending"} lie (${kind}) reaches expect state before any check refuses it`,
+          );
     }
   });
 
-  it("the check sees a lied value that reaches any part of the expect state", () => {
-    const fact = Fact.Reported({
-      observation: Observation.Ended({
-        operation: "pay",
-        attempt: Option.some("a1"),
-        channel: "unknown",
-        reason: "NoResponse",
-        actor: Option.none(),
-        failure: Option.none(),
-      }),
-    });
+  it("the check sees a leak planted in the expect code", async () => {
+    const port = prototypePort(await Effect.runPromise(loadPrototype(RUNTIME)));
+    const source = readFileSync(join(HERE, "lifecycle-step.ts"), "utf8");
+    assert.equal(source.split(PLANTED.find).length - 1, 1, "the plant applies once");
 
-    const told = lied(fact);
-    assert.ok(Fact.$is("Reported")(told) && Observation.$is("Ended")(told.observation));
+    const copy = join(HERE, "..", `dsl-leak-${process.pid}`);
 
-    const leaking = (channel: string, reason: string, refused: boolean) => [
-      { view: { endings: [], obligations: [], attempts: [] }, refused: false },
-      {
-        view: { endings: [{ channel, reason }], obligations: [reason], attempts: [channel] },
-        refused,
-      },
-    ];
+    try {
+      cpSync(HERE, copy, { recursive: true });
+      writeFileSync(
+        join(copy, "lifecycle-step.ts"),
+        source.replace(PLANTED.find, () => PLANTED.replace),
+      );
 
-    const truth = leaking("unknown", "NoResponse", false);
+      const planted: { readonly step: typeof step } = await import(join(copy, "lifecycle-step.ts"));
 
-    assert.deepStrictEqual(
-      leakAt(truth, leaking(told.observation.channel, told.observation.reason, false)),
-      Option.some(1),
-    );
-    assert.deepStrictEqual(
-      leakAt(truth, leaking(told.observation.channel, told.observation.reason, true)),
-      Option.none(),
-    );
+      const { fixtures, facts } = factsOf(port, "PAY-01");
+      const endingLied = facts.map((f) => (ofKind(f, "Ended") ? lied(f) : f));
+
+      assert.deepStrictEqual(
+        leakAt(expectStates(fixtures, facts), expectStates(fixtures, endingLied)),
+        Option.none(),
+        "the unplanted code ignores an ending's lie",
+      );
+      assert.ok(
+        Option.isSome(
+          leakAt(
+            expectStates(fixtures, facts, planted.step),
+            expectStates(fixtures, endingLied, planted.step),
+          ),
+        ),
+        "the planted read of an ending's channel reaches expect state",
+      );
+    } finally {
+      rmSync(copy, { recursive: true, force: true });
+    }
   });
 });

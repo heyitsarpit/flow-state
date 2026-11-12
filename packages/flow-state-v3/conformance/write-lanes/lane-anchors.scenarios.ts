@@ -1,5 +1,6 @@
 import { Option } from "effect";
 import type { Scenario } from "../dsl/case.ts";
+import { laneGone } from "../dsl/domain.ts";
 import { Pay } from "../fixtures/pay.ts";
 import {
   CAPTURABLE,
@@ -91,7 +92,7 @@ export const laneAnchorScenarios: ReadonlyArray<Scenario> = [
       c.eq("void sent 4", sent(c, "void"), 4);
       c.answer("void", Answer.Lost());
       s.state("LEFT");
-      c.eq("released", s.row("void", KEY), Option.none());
+      c.eq("released", s.row("void", KEY), laneGone);
       c.eq("one release", c.evidence("Released"), 1);
       c.eq("notice", s.memory().notice, VOID_GAVE_UP);
       c.eq("no fifth send", sent(c, "void"), 4);

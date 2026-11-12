@@ -42,6 +42,8 @@ import type { Rules } from "./lifecycle-rules.ts";
  */
 export class Unpredicted extends Data.TaggedError("Unpredicted")<{ readonly turn: string }> {}
 
+const LOST_ANSWER = "NoResponse";
+
 const predictedOf = (turn: Turn) => {
   throw new Unpredicted({ turn: `${turn.actor.machine} ${turn.actor.id} ran ${turn.event}` });
 };
@@ -320,7 +322,7 @@ export const reported = (
               onSome: (e) => ({
                 channel: e.channel,
                 reason: Option.getOrElse(e.reason, () =>
-                  e.channel === "success" ? "success" : "NoResponse",
+                  e.channel === "success" ? "success" : LOST_ANSWER,
                 ),
               }),
             },

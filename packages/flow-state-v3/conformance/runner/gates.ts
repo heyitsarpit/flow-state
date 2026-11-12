@@ -2,26 +2,29 @@
 import { Console, Effect, Option, Schema } from "effect";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { productionFixtures } from "../adapters/production.ts";
+import type { Limit } from "../limits.ts";
 import { scenarios } from "../suite.ts";
 import { ROUND_14 } from "./args.ts";
 import { runChild } from "./child.ts";
 
 /**
  * Production's owed reds: a case it fails by a production bug a Task owns, left out of its gates
- * until that Task fixes it (the case still runs on round-14 and in `suite --only`).
+ * until that Task fixes it (the case still runs on round-14 and in `suite --only`). The `limits`
+ * gate plays each on production and fails once it no longer fails by its check and Invariant, so
+ * a fix shows.
  */
-export const productionOwed: ReadonlyArray<{
-  readonly case: string;
-  readonly owner: string;
-  readonly why: string;
-}> = [
+export const productionOwed: ReadonlyArray<Limit & { readonly owner: string }> = [
   {
     case: "ACT-02/dirty-record-written-at-end",
+    check: "disposal",
+    invariant: "Actors I37",
     owner: "@task.V3.T51",
     why: "production writes a dirty record at its capture, not in the end's step (Actors R8; coordinator 7b15241b)",
   },
   {
     case: "ACT-03/no-end-before-the-grace",
+    check: "disposal",
+    invariant: "Actors I37",
     owner: "@task.V3.T51",
     why: "production writes a dirty record at its capture, not in the end's step (Actors R8; coordinator 7b15241b)",
   },
@@ -52,15 +55,22 @@ const verdictLine = (stdout: string) =>
   );
 
 const GatesFile = Schema.Struct({
-  revision: Schema.String,
-  gates: Schema.Array(Schema.Struct({ gate: Schema.String, verdict: Schema.String })),
+  revision: Schema.optionalKey(Schema.String),
+  gates: Schema.Array(
+    Schema.Struct({
+      gate: Schema.String,
+      revision: Schema.optionalKey(Schema.String),
+      verdict: Schema.String,
+    }),
+  ),
 });
 
 /**
  * The gate file (advisor Q6): runs every machine gate in a child process at the current revision
  * and writes their verdict lines to `gates.json`, which notes and reports cite instead of
  * hand-copied numbers. `--gate NAME` runs one gate and keeps the others' last verdicts, so each
- * run stays under a command's time bound. A gate's verdict is recorded as it is, red included: the liar gate's
+ * run stays under a command's time bound. Each verdict carries the revision it ran at, so a kept
+ * one never reads as fresher than it is. A gate's verdict is recorded as it is, red included: the liar gate's
  * greens and the crash generator's red points are open work, not a stop.
  */
 export const writeGates = (
@@ -117,24 +127,30 @@ export const writeGates = (
       picked,
       ({ gate, args }) =>
         runChild("bun", [main, ...args], 280).pipe(
-          Effect.map((out) => ({ gate, verdict: verdictLine(out.stdout) })),
+          Effect.map((out) => ({ gate, revision, verdict: verdictLine(out.stdout) })),
           Effect.catchTag("ChildFailed", (e) =>
-            Effect.succeed({ gate, verdict: `failed: ${e.why}` }),
+            Effect.succeed({ gate, revision, verdict: `failed: ${e.why}` }),
           ),
         ),
       { concurrency: 1 },
     );
 
-    const kept: ReadonlyArray<{ readonly gate: string; readonly verdict: string }> =
+    const before =
       Option.isSome(chosen) && existsSync(path)
-        ? Schema.decodeUnknownSync(GatesFile)(JSON.parse(readFileSync(path, "utf8"))).gates
-        : [];
+        ? Schema.decodeUnknownSync(GatesFile)(JSON.parse(readFileSync(path, "utf8")))
+        : { gates: [] };
+
+    const kept = before.gates.map((k) => ({
+      gate: k.gate,
+      revision: k.revision ?? before.revision ?? "unknown",
+      verdict: k.verdict,
+    }));
 
     const results = gates.flatMap(
       (g) => fresh.find((f) => f.gate === g.gate) ?? kept.find((k) => k.gate === g.gate) ?? [],
     );
 
-    writeFileSync(path, `${JSON.stringify({ revision, gates: results }, null, 2)}\n`);
+    writeFileSync(path, `${JSON.stringify({ gates: results }, null, 2)}\n`);
 
-    for (const r of results) yield* Console.log(`${r.gate}: ${r.verdict}`);
+    for (const r of results) yield* Console.log(`${r.gate} (${r.revision}): ${r.verdict}`);
   });

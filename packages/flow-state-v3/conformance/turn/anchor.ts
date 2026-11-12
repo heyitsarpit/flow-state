@@ -28,6 +28,9 @@ export type Actor = {
   readonly trail: ReadonlyArray<string>;
   readonly allowed: ReadonlyArray<string>;
   readonly removed: boolean;
+  readonly uses: number;
+  readonly freeFor: number;
+  readonly mayHaveEnded: boolean;
 };
 
 /**
@@ -101,7 +104,36 @@ export const FRESH: Actor = {
   trail: [],
   allowed: [],
   removed: false,
+  uses: 0,
+  freeFor: 0,
+  mayHaveEnded: false,
 };
+
+/**
+ * A use of `actor` attached (`+1`) or released (`-1`): while it holds one it is not free.
+ */
+export const used = (state: State, actor: ActorRef, by: 1 | -1) => {
+  const now = actorIn(state, actor);
+
+  return withActor(state, actor, { ...now, uses: Math.max(0, now.uses + by), freeFor: 0 });
+};
+
+/**
+ * The clock moved `ms`: every live actor holding no use was free that much longer, and one free
+ * for the whole `grace` may have ended (Actors R8, I37), so an ending it hears in a later
+ * attaching or sending step may reach a new incarnation (Actors R9).
+ */
+export const idled = (state: State, ms: number, grace: number) => ({
+  ...state,
+  actors: new Map(
+    [...state.actors].map(([key, a]) => {
+      if (a.uses > 0 || !Phase.$is("Live")(a.phase)) return [key, a] as const;
+      const freeFor = a.freeFor + ms;
+
+      return [key, { ...a, freeFor, mayHaveEnded: a.mayHaveEnded || freeFor >= grace }] as const;
+    }),
+  ),
+});
 
 export const actorIn = (state: State, actor: ActorRef) => state.actors.get(keyOf(actor)) ?? FRESH;
 
@@ -181,8 +213,8 @@ export const reowned = (
  * How a delivered ending is routed (Turn R20), from the owner the suite recorded at its mint or
  * retry: an unknown { Restored } or an adopted ending is current; an owner the suite did not see,
  * an actor whose leaf it does not know, or an ending decided earlier and delivered in a step that
- * attaches a use or sends an event (`adopting`: an actor that ended may return and hear it,
- * Actors R9), gives `either`.
+ * attaches a use or sends an event (`adopting`) to an actor the suite removed or that may have
+ * ended (free for the whole grace: it may return and hear it, Actors R9), gives `either`.
  */
 // RETURN_TYPE: the Route union; the branches infer three literals.
 export const routeOf = (
@@ -197,7 +229,13 @@ export const routeOf = (
 
   if (call === undefined) return "either";
 
-  if (call.either || (adopting && !call.current && !CallPhase.$is("Open")(call.phase)))
+  if (
+    call.either ||
+    (adopting &&
+      (actor.removed || actor.mayHaveEnded) &&
+      !call.current &&
+      !CallPhase.$is("Open")(call.phase))
+  )
     return "either";
 
   return call.current ? "current" : ownerRoute(call, actor);
@@ -432,7 +470,9 @@ export const unbound = (state: State, actor: ActorRef) => ({
   actors: new Map(
     [...state.actors].map(([key, a]) => [
       key,
-      key === keyOf(actor) ? { ...a, removed: true, allowed: reachedOf(state, key, a, true) } : a,
+      key === keyOf(actor)
+        ? { ...a, removed: true, uses: 0, freeFor: 0, allowed: reachedOf(state, key, a, true) }
+        : a,
     ]),
   ),
   calls: new Map(
@@ -467,6 +507,8 @@ export const reloaded = (state: State) => ({
           pending: Option.none(),
           allowed: lost || a.removed ? reached : [],
           removed: false,
+          uses: 0,
+          freeFor: 0,
         },
       ] as const;
     }),

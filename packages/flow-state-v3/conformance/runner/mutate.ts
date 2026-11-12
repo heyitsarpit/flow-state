@@ -2,7 +2,7 @@
 import { Console, Effect } from "effect";
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { falsifyProduction } from "./falsify.ts";
+import { falsifyProduction, suiteIn } from "./falsify.ts";
 
 const OPERATORS: ReadonlyArray<readonly [string, string]> = [
   [" === ", " !== "],
@@ -57,7 +57,8 @@ const pick = <A>(all: ReadonlyArray<A>, limit: number) => {
 
 /**
  * Runs up to `limit` core mutants, spread over the core, each on its own copy of the package
- * against the production cases. A mutant is killed when any case goes red. Writes every result to
+ * against the production cases, once the unedited cases all pass (a red control voids the
+ * count). A mutant is killed when any case goes red. Writes every result to
  * `core-mutants.tsv` and lists the survivors: the review's work list.
  */
 export const runCoreMutants = (options: {
@@ -70,6 +71,26 @@ export const runCoreMutants = (options: {
   Effect.gen(function* () {
     const all = coreMutants(options.packageDir);
     const chosen = pick(all, options.limit);
+
+    const control = yield* suiteIn(
+      join(options.packageDir, "conformance", "runner", "main.ts"),
+      "production",
+      options.cases,
+      240,
+      ["--parallel", String(options.parallel)],
+    ).pipe(Effect.catchTag("NoVerdicts", () => Effect.succeed([])));
+
+    const red = options.cases.filter(
+      (id) => !control.some((v) => v.id === id && v._tag === "Pass"),
+    );
+
+    if (red.length > 0) {
+      yield* Console.log(`BAD  control: red on unedited production: ${red.join(" ")}`);
+      yield* Console.log("VERDICT core mutants: void, the control is red");
+      process.exitCode = 1;
+
+      return;
+    }
 
     const results = yield* Effect.forEach(
       chosen,
