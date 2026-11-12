@@ -1021,6 +1021,16 @@ tasks
             5. Then steps 5 and 6 as planned. Q16, Q26 and Q27 test the real gates there. The round-14 falsify coverage 
                line goes red on WriteLanes I25, which is owed to the closed T51: re-point it in README's guarantee map. 
                Run gates with `--runtime packages/flow-state-v3/prototypes/round-14` (a path).
+        comment     2026-11-12T06:41:09Z
+            Resume items 1-2 done at bcfcd80a: matrixGate passes over all 265 rows with production's 15 codes, the 
+            pilots' reach and the hand cases, which now map by cites widened through each Invariant's [@R] (121 of 122 
+            cases; LANE-11 cites no feature's rule). Red first: lr lk sr reached by no pilot (fixed: S10 lookup, a 
+            refuse step, late-answer reach), P33 built yet owed (now built in part), mutants on the real rows. Proposed 
+            (agent): the row-to-code mapping in code:packages/flow-state-v3/conformance/parts/feature-rows.ts, 29 rows 
+            built in part, owners of M53 M58 M60 M61 to T17 and M70 M74 to T9 per the replan's slices 3 and 4; 
+            lateCodes lists 10 rows whose owner precedes a code's slice (M71 P38 P49 Q04 Q05 Q07 Q13 Q15 E10 L03) for 
+            the user's read. First-contact reds: attempt-identity was the suite's (WriteAhead I17); forget then refusal 
+            never ends the Attempt, owed to T19 with the retry-count red. Falsify 18/18 production, 154/154 round-14.
     T52
         title       Suite phase-out, first cut: Pay and Cells generated, hand traces thinned
         status      draft
