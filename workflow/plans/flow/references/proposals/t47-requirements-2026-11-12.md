@@ -3,8 +3,8 @@
 **Bottom line:** 30 requirements (Q1 to Q30), each a check that is red at 632a8469 against the empty skeletons
 committed with them (Q29 and Q30 added at resume item 4, red first in their own step), each naming the wrong build that must keep it red. Every acceptance item, Approach item and gap
 comment of @task.V3.T47 maps to one of them (table below). Four sidecars gathered them (Specs blind, code, open
-findings, adversary); their items are logged at the end as accepted, changed or rejected. Proposed until the user
-accepts: the non-interacting rules (Q13, Q21) and the scope rulings marked "ruling".
+findings, adversary); their items are logged at the end as accepted, changed or rejected. The non-interacting
+rules (Q13, Q21) are decided (the user, 2026-11-12); the scope rulings marked "ruling" stay proposed.
 
 **Read first:** @task.V3.T47, @spec.Conformance R15 to R23, code:workflow/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md
 (2, 5A, 5B "Pair and triple estimates"), code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part 2
@@ -188,7 +188,9 @@ Each: rule; source; check (red today); the wrong build or mutant that must turn 
 
 ## Reality cannot show
 
-- The user's approval of the non-interacting rules (Q21); the gate runs on the proposed rules meanwhile.
+- The user's approval of the non-interacting rules (Q21): given, the user, 2026-11-12.
+- Q22 on production: its Compiled cannot pass the Compile construction cases or the places check; all 11 and
+  places are owed to @task.V3.T17 (the orchestrator's ruling, 2026-11-12, widened from four by the evidence).
 - Q25 may need a Port change (a write naming its record); if so S2 stays a limit with its owner, not retired here.
 - Turn cost is machine-dependent: recorded, never compared.
 

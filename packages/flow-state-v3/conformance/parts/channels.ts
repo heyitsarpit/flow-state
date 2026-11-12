@@ -38,7 +38,7 @@ const owns = (owner: string, other: string) => OWNERS.has(owner) && !PURE_TURN.h
 
 /**
  * Why two codes do not interact, or none when they do (Conformance R18; the catalogue's 5B rule,
- * proposed until the user approves it).
+ * decided: the user approved the list, 2026-11-12, replan question 12).
  *
  * **Details**
  *

@@ -166,6 +166,10 @@ tasks
         comment     2026-11-12T07:05:44Z
             From the core consolidation design (T54): Owed keeps owner and current untouched for T17 to replace with 
             the subject path; the Turn act carries parts and members.
+        comment     2026-11-12T07:13:56Z
+            Owed from T47 (orchestrator ruling, 2026-11-12): production's Compiled fails all 11 Compile construction 
+            cases and the places check (no data view, Slots, places, tamper check, Flow.input or computed initial); see 
+            code:packages/flow-state-v3/conformance/adapters/production-static.ts#staticOwed.
     T9
         title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
         status      open

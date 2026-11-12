@@ -52,8 +52,8 @@ const realInput = () => {
 
 describe("feature matrix (Q12: Conformance R17, I53 to I55, T35)", () => {
   it("has one row per Plan feature, each with a fixture kind", () => {
-    assert.equal(planIds.length, 265);
-    assert.deepEqual(FEATURES.map((f) => f.id).toSorted(), planIds.toSorted());
+    assert.equal(planIds().length, 265);
+    assert.deepEqual(FEATURES.map((f) => f.id).toSorted(), planIds().toSorted());
     assert.ok(FEATURES.every((f) => KINDS.has(f.kind)));
   });
 
@@ -144,7 +144,7 @@ describe("feature matrix over the real rows (Q12: Conformance R17, I53 to I55)",
   });
 
   it("reads the Checks column into Spec rules, ranges expanded", () => {
-    const checks = checksOf(tableText);
+    const checks = checksOf(tableText());
 
     assert.deepEqual(checks["M01"], ["Compile R1", "Compile I1"]);
     assert.deepEqual(checks["M48"], ["Turn I4", "Turn I5", "Turn I6"]);

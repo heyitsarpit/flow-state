@@ -17,13 +17,17 @@ const TABLE = resolve(
 );
 
 /**
+ * The coverage report's text, read when asked: a mutant's package copy has no workflow folder.
+ */
+export const tableText = () => readFileSync(TABLE, "utf8");
+
+/**
  * The Plan features' ids, from the coverage report's tables: the matrix's source of record.
  */
-export const tableText = readFileSync(TABLE, "utf8");
-
-export const planIds = tableText
-  .split("\n")
-  .flatMap((line) => /^\| ([A-Z]\d{2}) \|/.exec(line)?.slice(1, 2) ?? []);
+export const planIds = () =>
+  tableText()
+    .split("\n")
+    .flatMap((line) => /^\| ([A-Z]\d{2}) \|/.exec(line)?.slice(1, 2) ?? []);
 
 const PROPOSALS = resolve(dirname(fileURLToPath(import.meta.url)), "../../../../workflow");
 
@@ -154,7 +158,7 @@ const SPECS = resolve(PROPOSALS, "specs/core");
  */
 export const featureRules = () =>
   widened(
-    checksOf(tableText),
+    checksOf(tableText()),
     new Map(
       readdirSync(SPECS)
         .filter((f) => f.endsWith(".spec"))
@@ -188,7 +192,7 @@ export const matrixInputOf = (reached: ReadonlySet<string>) => {
 
   return {
     features: FEATURES,
-    ids: planIds,
+    ids: planIds(),
     declared: production,
     reached,
     claimed: [

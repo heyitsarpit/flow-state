@@ -6,6 +6,7 @@ import { nullPort } from "../adapters/null.ts";
 import { nullSurface } from "../adapters/null-static.ts";
 import { loadPrototypeSurface } from "../adapters/prototype-static.ts";
 import { productionPort } from "../adapters/production.ts";
+import { productionSurface } from "../adapters/production-static.ts";
 import { load, loadPrototype, PrototypeLoadFailed, prototypePort } from "../adapters/prototype.ts";
 import type { Scenario } from "../dsl/case.ts";
 import type { Graphed } from "../dsl/oracle.ts";
@@ -54,10 +55,11 @@ export const runtimePort = (runtime: string) => {
 
 // The production runtime has no static surface yet (T17 builds the compiler's and the CLI's): its
 // cases run with no `flow graph`, so the graph gate does not judge its turns.
-export const runtimeSurface = (runtime: string) =>
-  runtime === NULL_RUNTIME || runtime === PRODUCTION_RUNTIME
-    ? Effect.succeed(nullSurface)
-    : loadPrototypeSurface(runtime);
+export const runtimeSurface = (runtime: string) => {
+  if (runtime === PRODUCTION_RUNTIME) return Effect.succeed(productionSurface);
+
+  return runtime === NULL_RUNTIME ? Effect.succeed(nullSurface) : loadPrototypeSurface(runtime);
+};
 
 export const graphsFor = (surface: Surface, chosen: ReadonlyArray<Scenario>) => {
   const names = new Set(chosen.flatMap((s) => s.fixtures.map((f) => f.name)));

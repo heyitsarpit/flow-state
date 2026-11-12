@@ -821,7 +821,7 @@ tasks
             proposals/t45-completion-check-2026-11-12.md. Follow-ups F1 to F3 owned by T47.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T51]
         description
@@ -1062,6 +1062,12 @@ tasks
             code:packages/flow-state-v3/conformance/runner/args.ts#runtimeSurface for what production has (construct, 
             admit, create, restore; places from referenceOf), and owe the data-view cases to the Task that builds 
             Compile R16 in production. Then set T47 to review.
+        comment     2026-11-12T07:18:25Z
+            Ready for review. Gates (code:packages/flow-state-v3/conformance/gates.json): parts 38/38, matrix 265/265, 
+            pairs 74/74, bench 3/3, regressions 6/6, falsify 154/154 and 18/18, liar 126/126 and 13/13, mutants 98/98; 
+            crash 732/735 as before. Rulings applied: Q22 (11 CMP cases and places owed to T17, widened from four: S1 
+            needs Flow.input), pair owners decided, GEN-pay-search-25 to T54, non-interacting rules decided (the user, 
+            2026-11-12).
     T52
         title       Suite phase-out, first cut: Pay and Cells generated, hand traces thinned
         status      draft
@@ -1186,6 +1192,11 @@ tasks
               citing the pending case it flips; A4's report stream is byte-equal to A3's.
             - Every step's gates are no worse than at A0, and `nub run check` is at zero.
             - The cost baseline is re-run after A4 and both results are in this Task's comments.
+        comment     2026-11-12T07:14:01Z
+            Owed from T47: GEN-pay-search-25-shrunk fails on production (Held att-1000-7 reported Ended unknown 
+            Restored at a reload). The model is suspected: one step both owes that restore (Actors I29) and refuses it 
+            at Held (WriteLanes I15), so the report likely meets the head before the reload's move. Step A2's one start 
+            rewrites this path; see code:packages/flow-state-v3/conformance/runner/parts-gates.ts#regressionsOwed.
     T18
         title       Lane policies: latest, serialize, cancel and cancelAll (slice 1)
         status      draft

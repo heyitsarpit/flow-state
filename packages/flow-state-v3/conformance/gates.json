@@ -2,78 +2,78 @@
   "gates": [
     {
       "gate": "suite round-14",
-      "revision": "a39c2f52",
+      "revision": "7d11f03b",
       "verdict": "VERDICT pass 122/122"
     },
     {
       "gate": "suite production",
-      "revision": "6bb02721",
+      "revision": "7d11f03b",
       "verdict": "VERDICT pass 78/78"
     },
     {
       "gate": "falsify round-14",
-      "revision": "a39c2f52",
+      "revision": "7d11f03b",
       "verdict": "VERDICT pass 154/154 mutants caught, 4/4 probes hold"
     },
     {
       "gate": "falsify production",
-      "revision": "6bb02721",
+      "revision": "adbb7ec5",
       "verdict": "VERDICT pass 18/18 mutants caught"
     },
     {
       "gate": "coverage",
-      "revision": "a39c2f52",
-      "verdict": "ok   coverage: 75 of 184 core Invariants checked (41 in part), 109 owed by a Task, 0 gap(s)"
+      "revision": "7d11f03b",
+      "verdict": "ok   coverage: 75 of 184 core Invariants checked (42 in part), 109 owed by a Task, 0 gap(s)"
     },
     {
       "gate": "parts production",
-      "revision": "af34316a",
+      "revision": "7d11f03b",
       "verdict": "VERDICT pass 38/38 part scripts on production"
     },
     {
       "gate": "matrix",
-      "revision": "af34316a",
+      "revision": "7d11f03b",
       "verdict": "VERDICT pass 265/265 matrix rows"
     },
     {
       "gate": "pairs production",
-      "revision": "af34316a",
+      "revision": "7d11f03b",
       "verdict": "VERDICT pass 74/74 interacting pairs"
     },
     {
       "gate": "bench production",
-      "revision": "af34316a",
+      "revision": "7d11f03b",
       "verdict": "VERDICT pass 3/3 bench fingerprints equal"
     },
     {
       "gate": "regressions production",
-      "revision": "af34316a",
+      "revision": "7d11f03b",
       "verdict": "VERDICT pass 6/6 kept regressions on production"
     },
     {
       "gate": "liar round-14",
-      "revision": "a39c2f52",
+      "revision": "7d11f03b",
       "verdict": "VERDICT pass 126/126 behavioural mutants red under the liar gate, 9 fixture gaps (cap 9)"
     },
     {
       "gate": "limits round-14",
-      "revision": "6bb02721",
+      "revision": "7d11f03b",
       "verdict": "VERDICT pass 6/6 limits rows hold (round-14 limits, stated limits, production's owed reds)"
     },
     {
       "gate": "liar production",
-      "revision": "6bb02721",
+      "revision": "adbb7ec5",
       "verdict": "VERDICT pass 13/13 behavioural mutants red under the liar gate, 0 fixture gaps (cap 9)"
     },
     {
       "gate": "crash production",
-      "revision": "6bb02721",
+      "revision": "adbb7ec5",
       "verdict": "VERDICT fail 732/735 crash points"
     },
     {
       "gate": "core mutants",
-      "revision": "6bb02721",
-      "verdict": "VERDICT core mutants: 75/98 killed (98 candidates)"
+      "revision": "7d11f03b",
+      "verdict": "VERDICT core mutants: 98/98 killed (98 candidates)"
     }
   ]
 }

@@ -114,8 +114,8 @@ export const regressionsOwed: ReadonlyArray<Limit & { readonly owner: string }> 
     case: "GEN-pay-search-25-shrunk",
     check: "delivered-once",
     invariant: "WriteLanes I15",
-    why: "a Held Attempt is reported Ended unknown Restored at a reload, then Parked, Unparked and Delivered with no ending the model holds (WriteAhead I17, Table A EndUnknown at Held); whose rule is wrong, production's restore or the model's guard, is the owner's to settle",
-    owner: "@task.V3.T19",
+    why: "a Held Attempt is reported Ended unknown Restored at a reload, then Parked, Unparked and Delivered with no ending the model holds (WriteAhead I17, Table A EndUnknown at Held); the model is suspected: one step both owes this restore (Actors I29 AwaitRestore) and refuses it at Held (WriteLanes I15), so the report likely meets the head before the reload's move; T54's one `start` (step A2) rewrites how `unknown Restored` is derived for Held heads",
+    owner: "@task.V3.T54",
   },
 ];
 

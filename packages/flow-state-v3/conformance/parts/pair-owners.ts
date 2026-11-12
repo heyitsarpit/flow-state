@@ -11,8 +11,8 @@ const durability = (by: string) =>
 /**
  * The dated owners of interacting pairs no gate script reaches yet (Conformance R18): an open
  * Task of a slice not yet past and the part, operation or pair sweep that will reach the pair.
- * Proposed (agent, T47): the storage pairs go to slice 2, which builds `wa`, `sr` and `rl` in
- * full; the disposal with several actors to slice 4's actor identity.
+ * Decided (the orchestrator's ruling, 2026-11-12): the storage pairs go to slice 2, which builds
+ * `wa`, `sr` and `rl` in full; the disposal with several actors to slice 4's actor identity.
  */
 export const PAIR_OWNERS = {
   "rt+sr": durability("transfers: a refused batch holding a retried write's record"),
