@@ -138,13 +138,14 @@ export class UnknownFixture extends Data.TaggedError("UnknownFixture")<{ readonl
 /**
  * The feature codes round-14 builds (Conformance R16), from its catalog and its source: the four
  * policies and every member (`lane.ts`), schedules, keyed schedules and compound states (`turn.ts`,
- * `inc.ts`), traits (`inc.ts`), reads and subscriptions (`adapter.ts`), entities (`entities.ts`),
+ * `inc.ts`), traits and `.each` lists (`inc.ts`), history (`durable.ts`, `turn.ts`), reads and subscriptions (`adapter.ts`), entities (`entities.ts`),
  * streams (`sessions.ts`), persistence (`durable.ts`), actors (`actors.ts`) and admission bounds
  * (`lane.ts` `Overloaded`).
  */
 export const implemented: ReadonlyArray<Code> = [
   ...(["rj", "lt", "se", "ca", "ky", "cm", "cA", "rt", "un", "du", "ks", "gd", "cs"] as const),
   ...(["fr", "lk", "sb", "en", "st", "wa", "rl", "sr", "dp", "ma", "gr", "lr", "ad"] as const),
+  ...(["ea", "hs"] as const),
 ];
 
 const FIXTURES = [

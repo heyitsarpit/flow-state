@@ -105,6 +105,8 @@ const triplesOf = (codes: ReadonlyArray<string>) =>
  *
  * **Details**
  *
+ * - A code declared ahead of the slice that builds it, or that no slice builds, fails it.
+ * - Triples are reported in total and per composite (Conformance I58).
  * - Together means one composite's steps in one run, or, in an app mix, two composites when one
  *   code of the pair is a shared resource.
  * - An owner is an open Task of a slice not yet past, the part, operation or pair sweep that will
@@ -113,9 +115,13 @@ const triplesOf = (codes: ReadonlyArray<string>) =>
 export const combinationGate = (input: PairInput) => {
   const unknown = unknownCodes(input.declared).map((c) => `${c}: not in the closed list`);
 
-  const ahead = input.declared
-    .filter((c) => (input.sliceOf[c] ?? 0) > input.current)
-    .map((c) => `${c}: declared before slice ${input.sliceOf[c]} builds it`);
+  const ahead = input.declared.flatMap((c) => {
+    const slice = input.sliceOf[c];
+
+    if (slice === undefined) return [`${c}: declared, but no slice builds it`];
+
+    return slice > input.current ? [`${c}: declared before slice ${slice} builds it`] : [];
+  });
 
   const pairs = interactingPairs(input.declared);
 
@@ -129,6 +135,17 @@ export const combinationGate = (input: PairInput) => {
 
   const triples = triplesOf(input.declared.filter((c) => unknownCodes([c]).length === 0));
 
+  const composites = [...new Set(input.runs.flatMap((r) => Object.keys(r.byComposite)))];
+
+  const byComposite = Object.fromEntries(
+    composites.map((c) => [
+      c,
+      triples.filter((t) =>
+        input.runs.some((r) => t.every((code) => r.byComposite[c]?.has(code) === true)),
+      ).length,
+    ]),
+  );
+
   return {
     failures: [...unknown, ...ahead, ...unowned],
     reached: pairs.length - unreached.length,
@@ -136,6 +153,7 @@ export const combinationGate = (input: PairInput) => {
     triples: {
       total: triples.length,
       reached: triples.filter((t) => input.runs.some((run) => together(run, t))).length,
+      byComposite,
     },
   };
 };

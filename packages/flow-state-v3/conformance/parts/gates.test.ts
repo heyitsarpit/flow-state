@@ -8,6 +8,7 @@ import { Schema } from "effect";
 import { parts } from "../../fixtures/index.ts";
 import { Script } from "../dsl/script.ts";
 import { statedLimits } from "../limits.ts";
+import { partsOwed } from "./play.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -25,7 +26,7 @@ describe("gates (Q19, Q27)", () => {
       assert.ok(source.includes(`gate: "${gate}"`), gate);
   });
 
-  it("every kept regression decodes, and a part's names a part", () => {
+  it("every kept regression decodes; a production red a part found is kept or owed, by a part", () => {
     const dir = resolve(HERE, "../regressions");
     const names = new Set(parts.map((p) => p.name));
 
@@ -33,10 +34,18 @@ describe("gates (Q19, Q27)", () => {
       Schema.decodeUnknownSync(Script)(JSON.parse(readFileSync(join(dir, f), "utf8"))),
     );
 
-    assert.ok(
-      kept.some((s) => names.has(s.fixture)),
-      "no part regression is kept",
-    );
+    const partIds = [
+      ...kept.filter((s) => s.id.startsWith("PART-")),
+      ...partsOwed.map((o) => ({ id: o.case })),
+    ];
+
+    for (const { id } of partIds)
+      assert.ok(
+        [...names].some((n) => id.startsWith(`PART-${n}-`)),
+        `${id} names no part`,
+      );
+
+    assert.ok(partsOwed.every((o) => o.owner.startsWith("@task.V3.")));
   });
 });
 

@@ -162,3 +162,8 @@ tasks
               pair with no dated waiver, and passes before this Task closes.
             - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
               the model's expectations is read by a different model family (Fable).
+        comment     2026-11-12T06:09:45Z
+            Production red from T47's pilots (PART-transfers-stress-12, `partsOwed` in 
+            code:packages/flow-state-v3/conformance/parts/play.ts): `invoke` raises a re-send's retryCount without 
+            re-capturing the lane, so a boot restores the old count and a spent `retryable({ times })` passes again 
+            (WriteAhead R5, R7; WriteLanes I7). Its check flips when fixed.

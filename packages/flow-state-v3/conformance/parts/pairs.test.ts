@@ -116,6 +116,34 @@ describe("combination gate (Q14: Conformance R18, I57, I58, T36)", () => {
     assert.ok(!failures.some((f) => f.includes("ky+rl")));
   });
 
+  it("fails on a code declared before the slice that builds it, or with no slice", () => {
+    const ahead = { ...base, sliceOf: { ...base.sliceOf, rl: 2 } };
+    const { rl: _, ...without } = base.sliceOf;
+
+    assert.ok(combinationGate(ahead).failures.some((f) => f.startsWith("rl:")));
+    assert.ok(
+      combinationGate({ ...base, sliceOf: without }).failures.some((f) => f.startsWith("rl:")),
+    );
+    assert.deepEqual(combinationGate({ ...ahead, current: 2 }).failures, []);
+  });
+
+  it("an unreached triple changes no verdict, and triples are reported per composite (I58)", () => {
+    const pairwise = {
+      ...base,
+      runs: [
+        run("r1", { C: ["rj", "ky"] }),
+        run("r2", { H: ["ky", "rl"] }),
+        run("r3", { C: ["rj", "rl"] }),
+      ],
+    };
+
+    const verdict = combinationGate(pairwise);
+
+    assert.deepEqual(verdict.failures, []);
+    assert.deepEqual(verdict.triples, { total: 1, reached: 0, byComposite: { C: 0, H: 0 } });
+    assert.deepEqual(combinationGate(base).triples.byComposite, { C: 1 });
+  });
+
   it("counts only implemented codes, and an unreached triple changes no verdict", () => {
     const wider = { ...base, declared: [...base.declared, "zz"] };
 

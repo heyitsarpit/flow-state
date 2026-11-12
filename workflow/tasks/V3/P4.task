@@ -992,6 +992,11 @@ tasks
             Coordinator rule: fix `src/core/persist.ts:134` (second kept ending overwrites the first) in T47 if the 
             fixtures
             hit it, failing check first, noted on T18.
+        comment     2026-11-12T06:09:41Z
+            Step 3 green at c27dd707: three pilots on production, 167 of 168 build and held-out scripts pass; the red 
+            is `partsOwed` (T19). Seven first-contact reds were the suite's (Pay row, idle key, local actors, Maybe 
+            decline, woken end's write, I26 capture order); each fix cites its rule in code. Step 3 stays open for the 
+            steps 1-2 review fixes.
     T52
         title       Suite phase-out, first cut: Pay and Cells generated, hand traces thinned
         status      draft

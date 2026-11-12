@@ -41,6 +41,10 @@ describe("declarations (Q6: Conformance R16, I51, T34)", () => {
     assert.deepEqual(unknownCodes([...roundFourteen, ...MODEL_CODES]), []);
   });
 
+  it("round-14 declares what it builds: `.each` lists (ea, inc.ts) and history (hs, durable.ts)", () => {
+    for (const code of ["ea", "hs"] as const) assert.ok(roundFourteen.includes(code), code);
+  });
+
   it("the three pilots are built, and every action of every part claims listed codes", () => {
     assert.deepEqual(sorted(parts.map((p) => p.sketch)), ["S10", "S16", "S21"]);
 

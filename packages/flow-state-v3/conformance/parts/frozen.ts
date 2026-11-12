@@ -1,8 +1,8 @@
 import type { Scenario } from "../dsl/case.ts";
 
 /**
- * The hand cases as they froze (2026-11-11, at 632a8469): named examples and the Spec model's
- * tests (Conformance R15).
+ * The hand cases as they froze with R15's text (2026-11-11, at a21e9086): the 99 named examples and
+ * the Spec model's tests (Conformance R15). The three ACT cases came after and cite rulings.
  */
 const FROZEN: ReadonlySet<string> = new Set([
   "PAY-01",
@@ -66,9 +66,6 @@ const FROZEN: ReadonlySet<string> = new Set([
   "DISP-05",
   "DISP-06",
   "DISP-07",
-  "ACT-01/free-actor-ends",
-  "ACT-02/dirty-record-written-at-end",
-  "ACT-03/no-end-before-the-grace",
   "LANE-01",
   "LANE-02",
   "LANE-03",
@@ -113,10 +110,21 @@ const FROZEN: ReadonlySet<string> = new Set([
  * The ruling each hand case added after the freeze documents, by case id: a log note, a Spec
  * decision or a Task comment, cited by its record link.
  */
-export const RULINGS: Readonly<Record<string, string>> = {};
+export const RULINGS = {
+  "ACT-01/free-actor-ends": "code:workflow/tasks/V3/P4.task (T45, comment 2026-11-11T21:17:53Z)",
+  "ACT-02/dirty-record-written-at-end":
+    "code:workflow/tasks/V3/log.task (note 2026-11-11T22:32:05Z, the decision on review B1)",
+  "ACT-03/no-end-before-the-grace":
+    "code:workflow/tasks/V3/log.task (note 2026-11-11T22:32:05Z, the decision on review B1)",
+} satisfies Readonly<Record<string, string>>;
+
+/**
+ * How many hand cases froze: R15 says 99.
+ */
+export const frozenCount = FROZEN.size;
 
 /**
  * The scenarios added after the hand cases froze that cite no ruling (Conformance R15, I50).
  */
 export const uncitedNew = (scenarios: ReadonlyArray<Scenario>) =>
-  scenarios.filter((s) => !FROZEN.has(s.id) && RULINGS[s.id] === undefined).map((s) => s.id);
+  scenarios.filter((s) => !FROZEN.has(s.id) && !Object.hasOwn(RULINGS, s.id)).map((s) => s.id);
