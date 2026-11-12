@@ -252,20 +252,30 @@ export const makeLanes = (tx: Tx, persistence: Persistence) => {
   };
 
   /**
-   * Keeps a twice-refused ending on its lane.
+   * Keeps a twice-refused ending on its lane; a write's ending with no lane is kept under a minted
+   * id, so it still gets its one try at the next boot or adoption. A read's answer is stranded.
    */
-  const keepEnding = (actor: ActorId, ending: Ending) =>
-    Option.match(ending.lane, {
+  const keepEnding = (actor: ActorId, ending: Ending) => {
+    const id = Option.orElse(ending.lane, () =>
+      Option.map(Option.filter(operationOf(actor, ending.operation), Operation.$is("Write")), () =>
+        laneId(actor, ending.operation, tx.mint("kept")),
+      ),
+    );
+
+    Option.match(id, {
       onNone: () => undefined,
-      onSome: (id) => {
-        const lane = tx.world().lanes.get(id);
+      onSome: (at) => {
+        const lane = tx.world().lanes.get(at);
 
         apply(
-          lane === undefined ? { id, actor, operation: ending.operation, key: {} } : atOf(id, lane),
+          lane === undefined
+            ? { id: at, actor, operation: ending.operation, key: {} }
+            : atOf(at, lane),
           Cue.Keep({ ending }),
         );
       },
     });
+  };
 
   /**
    * Applies a call's classified result to the lane whose head it is on the wire for: queued, or

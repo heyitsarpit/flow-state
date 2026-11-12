@@ -185,6 +185,11 @@ export const buildRuntime = (config: RuntimeConfig, platform: Platform) => {
     },
   });
 
+  const closed = () => !Disposal.$is("Open")(driver.world().disposal);
+
+  const disposedError = (what: string) =>
+    new FlowError({ code: "RuntimeDisposed", problems: [`${what} after dispose()`] });
+
   // Storage is read and validated before any app service is acquired.
   const boot = Effect.fn("Runtime.boot")(function* () {
     const loaded = yield* Option.match(persistence ? host.store : Option.none(), {
@@ -205,6 +210,8 @@ export const buildRuntime = (config: RuntimeConfig, platform: Platform) => {
         ),
       );
 
+    if (closed()) return yield* Effect.fail(disposedError("ready()"));
+
     driver.input(Input.Boot({ stored }));
     open = true;
   });
@@ -214,6 +221,8 @@ export const buildRuntime = (config: RuntimeConfig, platform: Platform) => {
   // bootstrap ends (a stated limit: only that wait should be interrupted).
   const ready = () =>
     Effect.suspend(() => {
+      if (closed()) return Effect.fail(disposedError("ready()"));
+
       if (started) return Deferred.await(booted);
       started = true;
 
@@ -230,9 +239,9 @@ export const buildRuntime = (config: RuntimeConfig, platform: Platform) => {
   });
 
   const admitting = (what: string) => {
-    if (!Disposal.$is("Open")(driver.world().disposal))
+    if (closed())
       // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the public ensureActor's and send's contract: after dispose() they reject RuntimeDisposed
-      throw new FlowError({ code: "RuntimeDisposed", problems: [`${what} after dispose()`] });
+      throw disposedError(what);
   };
 
   const runtime: Runtime = {

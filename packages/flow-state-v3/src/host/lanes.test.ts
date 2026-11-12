@@ -21,6 +21,7 @@ import {
   FlowError,
   machine,
   Outcome,
+  resource,
   transaction,
 } from "../index.ts";
 import { CallResult, Input } from "../core/step.ts";
@@ -184,6 +185,94 @@ const latchOver = (heard: Array<unknown>) => {
 };
 
 const latched = { machine: "Test/Latch", name: "latch" };
+
+// A persisted write whose failure mapper throws while `jam.on`: a decline's turn is refused at
+// every try.
+const stuckOver = (jam: { on: boolean }) => {
+  const Stuck = definition({
+    id: "Test/Stuck",
+    persist: true,
+    states: ["OPEN"],
+    events: { Ring: {} },
+    internalEvents: { Rang: {}, NotRung: { why: Schema.String }, Unsure: Flow.uncertain({}) },
+    memory: {},
+    operations: ({ E }) => ({
+      ring: ring.outcomes({
+        success: E.Rang,
+        failure: {
+          NotSent: E.NotRung.from((e: { readonly why: string }) => {
+            if (jam.on)
+              // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the case is an author mapper that throws
+              throw new Error("the mapper throws");
+
+            return { why: e.why };
+          }),
+        },
+        unknown: E.Unsure,
+      }),
+    }),
+  });
+
+  const StuckMachine = machine(Stuck, ({ S, O }) => ({
+    default: S.OPEN,
+    on: {
+      Ring: { actions: [O.ring.commit(() => ({ tone: "stuck" }))] },
+      Rang: {},
+      NotRung: {},
+      Unsure: {},
+    },
+  }));
+
+  return { served: app({ id: "test", machines: { stuck: StuckMachine } }), StuckMachine };
+};
+
+const stuck = { machine: "Test/Stuck", name: "stuck" };
+
+// A read whose success mapper throws while `jam.on`: its answer's turn is refused at every try.
+const peekOver = (jam: { on: boolean }) => {
+  const peek = resource({
+    id: "Test/peek",
+    input: { tone: Schema.String },
+    key: ["tone"],
+    services: [],
+    staleTime: 0,
+    gcTime: 0,
+    lookup: () => Effect.succeed("seen"),
+  });
+
+  const Peek = definition({
+    id: "Test/Peek",
+    states: ["OPEN"],
+    events: { Look: {} },
+    internalEvents: { Seen: {}, Unseen: {} },
+    memory: {},
+    operations: ({ E }) => ({
+      peek: peek.outcomes({
+        success: E.Seen.from(() => {
+          if (jam.on)
+            // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the case is an author mapper that throws
+            throw new Error("the mapper throws");
+
+          return {};
+        }),
+        failure: { Defect: E.Unseen },
+      }),
+    }),
+  });
+
+  const PeekMachine = machine(Peek, ({ S, O }) => ({
+    default: S.OPEN,
+    on: {
+      Look: { actions: [O.peek.lookup(() => ({ tone: "peek" }))] },
+      Seen: {},
+      Unseen: {},
+    },
+  }));
+
+  return { served: app({ id: "test", machines: { peek: PeekMachine } }), PeekMachine };
+};
+
+const peeking = { machine: "Test/Peek", name: "peek" };
 
 // Two persisted writes: an unknown of `first` retries `second`.
 const firstRing = transaction({
@@ -533,6 +622,92 @@ describe("write lanes on the production runtime", () => {
       ["InvalidTurn", "InvalidTurn"],
     );
     assert.deepStrictEqual([...first.built.driver.world().kept.keys()].length, 1);
+
+    // The head stays Held on its lane, blocking its key: a second commit declines Rejected.
+    assert.deepStrictEqual(
+      [...first.built.driver.world().lanes.values()].map((l) => [l.head.id, l.head.phase._tag]),
+      [[attempt, "Held"]],
+    );
+
+    testing.send(first.built, jammed, "Ring", {});
+    first.page.settle();
+
+    assert.deepStrictEqual(first.bell.rings, [attempt], "nothing new is sent");
+    assert.deepStrictEqual(
+      first.seen.flatMap((e) =>
+        e._tag === "Ended" && Option.isNone(e.attempt) ? [`${e.channel} ${e.reason}`] : [],
+      ),
+      ["failure Rejected"],
+    );
+  });
+
+  it("an ending with no lane whose turn is refused twice is kept for its one try at the next adoption, not lost (Actors R15, I24)", () => {
+    const jam = { on: true };
+    const { served, StuckMachine } = stuckOver(jam);
+    const page = pageOver(new Map(), 1);
+    const seen: Array<Evidence> = [];
+    const built = testing.build({ app: served, services: bellOf().layer }, page.platform);
+    attachInspector(built.runtime, (e) => void seen.push(e));
+    Effect.runSync(built.runtime.ready());
+
+    // A persisted identity in a Runtime without persistence: its commit declines NoPersistence
+    // before any lane.
+    testing.attach(built, stuck, "host", false);
+    testing.send(built, stuck, "Ring", {});
+    assert.doesNotThrow(() => page.settle());
+
+    // Nothing here has a lane or an Attempt: every delivery and issue is the decline's.
+    const declined = (all: ReadonlyArray<Evidence>) =>
+      all.flatMap((e) => {
+        if (e._tag === "Issue") return [e.code];
+
+        return e._tag === "Delivered" ? [e.event] : [];
+      });
+
+    assert.deepStrictEqual(
+      seen.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : [])),
+      ["failure NoPersistence"],
+    );
+    assert.deepStrictEqual(declined(seen), ["NotRung", "InvalidTurn", "NotRung", "InvalidTurn"]);
+
+    // The identity is adopted again: the kept decline gets its one more try, and is heard.
+    jam.on = false;
+    built.runtime.disposeActor(actorRef(StuckMachine, "stuck"));
+    testing.attach(built, stuck, "host", false);
+    page.settle();
+
+    assert.deepStrictEqual(declined(seen).slice(4), ["NotRung"]);
+    assert.ok(
+      seen.some((e) => e._tag === "Turn" && e.event === "NotRung"),
+      "the kept decline's turn runs",
+    );
+  });
+
+  it("a read's answer whose turn is refused twice is stranded, not kept for the next adoption (Actors R15)", () => {
+    const jam = { on: true };
+    const { served, PeekMachine } = peekOver(jam);
+    const first = boot(new Map(), 1, true, served);
+
+    testing.attach(first.built, peeking, "host", false);
+    testing.send(first.built, peeking, "Look", {});
+    assert.doesNotThrow(() => first.page.settle());
+
+    const heard = () =>
+      first.seen.flatMap((e) => {
+        if (e._tag === "Issue") return [e.code];
+
+        return e._tag === "Delivered" ? [e.event] : [];
+      });
+
+    assert.deepStrictEqual(heard(), ["Seen", "InvalidTurn", "Seen", "InvalidTurn"]);
+
+    // The life that asked has ended: its answer is not delivered to the next one.
+    jam.on = false;
+    first.built.runtime.disposeActor(actorRef(PeekMachine, "peek"));
+    testing.attach(first.built, peeking, "host", false);
+    first.page.settle();
+
+    assert.deepStrictEqual(heard().slice(4), []);
   });
 
   it("a call a cancel interrupted ends unknown Cancelled with no value, even when it succeeds (WriteLanes R14, I20)", () => {
@@ -639,7 +814,7 @@ describe("write lanes on the production runtime", () => {
     assert.ok(first.seen.some((e) => e._tag === "Issue" && e.code === "StorageFailure"));
   });
 
-  it("ensureActor and send after dispose reject RuntimeDisposed (Actors R22)", async () => {
+  it("ready, ensureActor and send after dispose reject RuntimeDisposed (Actors R22)", async () => {
     const first = boot(new Map(), 1);
     const door = first.built.runtime.ensureActor(actorRef(DoorMachine, "front"));
 
@@ -650,5 +825,52 @@ describe("write lanes on the production runtime", () => {
 
     disposed(() => first.built.runtime.ensureActor(actorRef(DoorMachine, "back")));
     disposed(() => door.send({ _tag: "Ring" }));
+    disposed(() => Effect.runSync(first.built.runtime.ready()));
+  });
+
+  it("dispose() during the bootstrap cancels it: ready rejects RuntimeDisposed, a service acquired late is released, and no actor starts (Actors R4, R22)", async () => {
+    const page = pageOver(new Map(), 1);
+    const seen: Array<Evidence> = [];
+    const released: Array<string> = [];
+    const acquiring: Array<(answer: Effect.Effect<void>) => void> = [];
+
+    const layer = Layer.effect(
+      Bell,
+      Effect.acquireRelease(
+        Effect.callback<void>((resume) => void acquiring.push(resume)).pipe(
+          Effect.as(Bell.of({ ring: () => Effect.never })),
+        ),
+        () => Effect.sync(() => void released.push("bell")),
+      ),
+    );
+
+    const built = testing.build(
+      { app: doors, services: layer, scope: "test", persistence: { captureMs: 0 } },
+      page.platform,
+    );
+
+    attachInspector(built.runtime, (e) => void seen.push(e));
+    const booting = Effect.runFork(built.runtime.ready());
+    page.settle();
+    assert.strictEqual(acquiring.length, 1, "the bootstrap is acquiring its service");
+
+    await Effect.runPromise(built.runtime.dispose());
+
+    for (const resume of acquiring) resume(Effect.void);
+    page.settle();
+
+    const booted = await Effect.runPromise(
+      Fiber.join(booting).pipe(
+        Effect.match({ onSuccess: () => "booted", onFailure: (e) => e.code }),
+      ),
+    );
+
+    assert.strictEqual(booted, "RuntimeDisposed");
+    assert.deepStrictEqual(released, ["bell"]);
+    assert.throws(
+      () => built.runtime.ensureActor(actorRef(DoorMachine, "front")),
+      (e) => e instanceof FlowError && e.code === "RuntimeDisposed",
+    );
+    assert.ok(!seen.some((e) => e._tag === "Incarnated"), "no actor starts");
   });
 });
