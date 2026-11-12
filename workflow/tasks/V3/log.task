@@ -242,3 +242,9 @@ note 2026-11-12T00:30:26Z
     user's yes to two proposed amendments (acceptance 7's eight search kills owned by T21 and T25; phase-out step 1 
     keeps Table A's cells). T51 waits on T45; no builder runs. Review wakes continue; open: 0d1c5e87's crash total 1523 
     against 723 since, unexplained.
+note 2026-11-12T01:07:00Z
+    Decision (user, 2026-11-12): Q1 A and Q2 A accepted (T45 acceptance 7: Reads and Sessions search kills owned by T21 
+    and T25; phase-out step 1 keeps Table A's cells); amended in P4.task and the phase-out proposal. Small amendments 
+    that keep work correct and moving are now the orchestrator's (Authority). Run resumed: a completion check of T45's 
+    fixes (86f184b7..3a2db980) and a fresh building lead on T51, which starts while T45 is in review since the check 
+    touches only conformance/. **Reverse:** git revert this commit.

@@ -389,8 +389,9 @@ tasks
             - Step 0, with step 1 above: refresh `gates.json` at HEAD and add `falsify --sweep` records per runtime
               (`catch-sweep.<runtime>.tsv`, mutant by case) and the coverage standings per Invariant; every later
               phase-out step compares against them.
-            - Step 1, with step 3: delete `lifecycle-perturbations.ts`, Table A's refuse-only cells and the `claimed`
-              handling in `lifecycle-owed.ts`; liar round-14 greens no more than 9.
+            - Step 1, with step 3: delete `lifecycle-perturbations.ts` and the `claimed` handling in
+              `lifecycle-owed.ts`; Table A's refusing cells stay as the compare's named refusals (amended, the user,
+              2026-11-12); liar round-14 greens no more than 9.
             - Step 2, with step 6: `limits.ts` rows replace the round-14 reasons in `not-yet.ts` and the README.
             - **Gap:** five scenario files hold checks only case expectations make (schedules, lane-keys,
               payment-retry, parts, refusal; `suite.ts` `caseChecks`); they wait for an oracle or the model, here or
@@ -410,7 +411,8 @@ tasks
               `turn/predict.ts` and what they import (`dsl/lifecycle*.ts`, `turn/anchor.ts`, the fixtures' folds).
             - `limits.ts` rows each fail on round-14 by their named Invariant, and a gate verifies it.
             - searches and mutants run from the one runner with `--parallel`, a planted slow child reads as unknown, and
-              the old suite's search kills are reproduced (from @task.V3.T14).
+              the old suite's search kills in this suite's areas are reproduced, those of Reads and Sessions owned
+              by @task.V3.T21 and @task.V3.T25 (from @task.V3.T14; amended, the user, 2026-11-12).
             - Phase-out steps 0 to 2 are done: the baseline sweeps and `gates.json` at HEAD exist, the perturbations and
               claim cells are gone, and `limits.ts` replaces the prose reasons.
             - Phase-out checks (the four validations): no lost catch in the catch matrix; the same coverage and

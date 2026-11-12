@@ -205,6 +205,9 @@ Once obligations read suite facts only and one compare judges the reports, the c
 names the perturbation file deletable at this point. V1 runs on both runtimes, with liar round-14 greens no more
 than 9.
 
+Amendment (the user, 2026-11-12): Table A's refusing cells stay as the compare's named refusals; deleting them
+moved 8 catches to other checks, which V1 forbids.
+
 ### Step 2: limits list (fold into T45 step 6)
 
 `limits.ts` rows replace the round-14 reasons in `not-yet.ts` and the README's round-14 limits. V2 holds: no

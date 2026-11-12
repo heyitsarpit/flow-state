@@ -135,7 +135,9 @@ description
       user's yes (AGENTS.md). Orchestrator decides: design calls in P3 to P5 and P9, the suite's
       layout and the internal module layout, design calls inside one app's slice (P6) or one docs
       section (P7), judged by a reviewing agent, and small public API changes (a flag, a default, a
-      field or member name, where an option sits); each noted for the user's read (amendment 9).
+      field or member name, where an option sits); small amendments to a Task's acceptance or an accepted
+      proposal that keep it correct and keep the work going (the user, 2026-11-12); each noted for the user's
+      read (amendment 9).
       User decides: public entry-point names; new concepts; large public API changes (a change to
       how app code is structured, removing a feature, anything touching many call sites); a
       guarantee change; relaxing a gate; changes to the Plans' decisions or outcomes; scope;
