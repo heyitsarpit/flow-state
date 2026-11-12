@@ -227,6 +227,9 @@ the case holds.
 - `ending-channels` and `attempt-identity` read the server log and the reports, never the Case's
   lifecycle fold: they are the fold's independent judges. The fold's own second-mint refusal
   (WriteLanes I6) is claimed by no lifecycle oracle; `attempt-identity` judges it.
+- A dirty end is discharged by any write in its step, since a write names no record (T45 close
+  review S2, `dsl/lifecycle-model.ts`): with two actors ending at once, a dropped record write of
+  one is caught only by `delivered-once`, not by Actors I37. Owed to T19.
 - `attempt-identity` forgives a re-send after a definite ending once a boot restores that Attempt
   unknown { Restored } (WriteAhead I17); whether the ending had been saved (R14) is owed to T19's
   WriteAhead judges.

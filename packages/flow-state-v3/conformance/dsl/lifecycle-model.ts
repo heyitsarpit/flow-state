@@ -259,7 +259,10 @@ export type Capture = {
  * - A live actor's `dirty` mark (stated limit, T45 close review S2): `Wrote` names no record,
  *   since the store's keys are the runtime's encoding, so any batch clears every actor's mark and
  *   any write in a step discharges every dirty end; an end that writes only another actor's
- *   record passes, and no case ends two dirty actors in one step yet. A mark is set by a turn that
+ *   record passes. Reached by `F1-two-ends` (`parts/f1.test.ts`) under a production edit that
+ *   drops acct-2's writes: the same edit with acct-2 alone fails Actors I37 here, with acct-1
+ *   beside it only `delivered-once` catches it. It retires when a write names its record, owed
+ *   to @task.V3.T19 with WriteAhead's judges. A mark is set by a turn that
  *   changes the record from its value before the turn and is never unset by a later turn that
  *   undoes an unlanded change, so such a pair still owes a write.
  */

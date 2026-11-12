@@ -7,7 +7,6 @@ checked Actors I31  disposal: mutant.disposal-hold-first
 checked Actors I32  disposal: 1b.forget-marks-held-lane
 checked Actors I35  disposal: o6.dispose-interrupts-wire, o6.no-bound, mutant.bound-ending-wrong-tag, mutant.short-disposal-bound
 checked Actors I36  disposal: o6.settled-in-bound-stays-held
-checked Actors I37  disposal: life.never-ends
 checked Compile I16  cases CMP-06: cmp.key-outside-input-admitted, cmp.seal-crashes-on-key
 checked Restore I6  delivered-once: mutant.boot-skips-restored, mutant.restore-skips-unsent
 checked StaticCli I5  cases CLI-03: cli.loader-on-stdout, cli.loader-on-stderr
@@ -141,6 +140,7 @@ not yet WriteAhead I8  @task.V3.T19
 not yet WriteAhead I9  @task.V3.T19
 not yet WriteLanes I19  @task.V3.T24
 not yet WriteLanes I28  @task.V3.T18
+partly  Actors I37  oracle disposal; @task.V3.T19 owes a dirty end whose own record is not written while another actor's is, in the same step: a write names no record, so any write discharges every dirty end (T45 close review S2; reached by F1-two-ends in parts/f1.test.ts under a dropped-write edit)
 partly  Actors I38  oracle disposal; @task.V3.T9 owes the next incarnation after a reload hearing each never-sent commit's NotSent { Disposed } once (round-14 never delivers it, ruling CQ6), and a commit queued behind a Held head ending at disposal (a round-14 limit: it is left queued)
 partly  Compile I1  cases CMP-01; @task.V3.T17 owes spies on actors, timers, storage, loaders and evidence (T1); only a commit run is caught
 partly  Compile I10  cases CLI-06; @task.V3.T17 owes the construction-time refusal (Compile R9) and a fragment placed twice: round-14 only reports it from flow check
