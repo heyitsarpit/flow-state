@@ -415,18 +415,20 @@ tasks
               per case on round-14 and production; the four phase-out validations hold.
 
     T58
-        title       Browser slice: checkout Pay in real browsers with minimal React and IndexedDB (preview)
+        title       Browser slice: the fixtures (including Pay and checkout) in real browsers with minimal React and 
+                    IndexedDB (preview)
         status      draft
         priority    high
         blocked_by  [@T9]
         description
-            Run checkout's Pay feature in real Chrome and Safari on production, through a minimal React binding and 
+            Run the fixtures (including Pay and checkout) in real Chrome and Safari on production, through a minimal 
+            React binding and
             IndexedDB persistence (`layerIndexedDb`): the browser half of the preview cut.
 
             **Why now:** the user named a preview cut first (2026-11-12, wide consult Q1 A): the core, a minimal React 
-            binding, IndexedDB, `flow check` and checkout's Pay in a real browser. Before this Task no component could 
-            render an actor and no real browser store existed until after streams and entities. It is @task.V3.T16's 
-            twin for the outside of the library (wide consult W3, item 5).
+            binding, IndexedDB, `flow check` and the fixtures (including Pay and checkout) in a real browser. Before 
+            this Task no component could render an actor and no real browser store existed until after streams and 
+            entities. It is @task.V3.T16's twin for the outside of the library (wide consult W3, item 5).
 
             **Read first:** code:workflow/plans/flow/references/checkout/features/Pay/Pay.tsx, 
             code:workflow/plans/flow/references/proposals/fable-wide-consult-2026-11-12.md (Q1, question 4, W3), 
@@ -441,20 +443,21 @@ tasks
             **Risk:** the slice may need reads beyond the lookup production already has (W3's "would prove it wrong"); 
             if so, record the gap and carry it to @task.V3.T21 rather than building reads here.
 
-            - **May change:** `packages/flow-state-v3/src/` (a React route and the IndexedDB layer), a browser fixture 
-              app for Pay, its runs.
+            - **May change:** `packages/flow-state-v3/src/` (a React route and the IndexedDB layer), a browser
+              app for the fixtures (including Pay and checkout), its runs.
             - **Evidence:** this Task's comments, with the browser run's record.
 
             False pass: jsdom or a fake IndexedDB standing in for a browser → caught by skill:check-runtime in real 
-            Chrome and Safari. A Pay that renders but writes nothing → caught by a reload that restores the Attempt 
-            from IndexedDB.
+            Chrome and Safari. Fixtures (including Pay and checkout) that render but write nothing → caught by a reload 
+            that restores the Attempt from IndexedDB.
             Gates: the suite; the browser runs; `nub run check`.
             Stops: public entry-point names (the React route and `layerIndexedDb`).
             User's read: the preview's public names, small API calls.
         acceptance
-            - Checkout's Pay runs in real Chrome and Safari on production under `FlowProvider`, `useActorByRef` and 
-              `useView`: a payment is committed, the page reloads mid-flight, and the Attempt and its ending are 
-              restored from IndexedDB with no second send (skill:check-runtime records each run).
+            - The fixtures (including Pay and checkout) run in real Chrome and Safari on production under 
+              `FlowProvider`, `useActorByRef` and `useView`: a payment is committed, the page reloads mid-flight, and 
+              the Attempt and its ending are restored from IndexedDB with no second send (skill:check-runtime records 
+              each run).
             - `layerIndexedDb` writes each batch in one IndexedDB transaction, and a refused transaction leaves no 
               partial batch (a case on production in a real browser).
             - Safari's four requirements hold in real Safari for this layer.
