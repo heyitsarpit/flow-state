@@ -1084,3 +1084,48 @@ tasks
             Gap (orchestrator, from T45 at 0d1c5e87): production ends an actor with a dirty record without writing it 
             in the end step, waiting for the capture instead (Actors R8: encoded in that step); ACT-02 and ACT-03 are 
             red on production until fixed here.
+        comment     2026-11-12T01:24:52Z
+            Requirements (lead, 2026-11-12), each a check red at T51's start (909f4bee, src unchanged); done = all 
+            green.
+            Q1 restored Held head retried then disposed stays Held, never NotSent (gap 1; model: disposal; WriteLanes 
+            I3, Actors
+            R22): `code:packages/flow-state-v3/src/host/lanes.test.ts` "a restored Held head…" red (`failure 
+            Disposed`); crash
+            gate 690/723. Q2 dispose runs the core's disposal before `Scope.close` (Actors R22 note, Required): 
+            lanes.test.ts
+            "dispose() waits…" red (no Parked, no RuntimeDisposed). Q3 incarnation at the end-of-case ensure (gap 2, 
+            Actors
+            I14): GEN-pay-seeded-281 red. Q4 end writes a dirty record in its step (gap 3, Actors R8, I37): ACT-02, 
+            ACT-03 red;
+            leave `productionOwed` when green. Q5 one total function, no `sent`/`cancelled`/`redelivered`/`parked` flag
+            (acceptance 1, WriteLanes' cell rows): type check `noEndingFlags` in lanes.test.ts fails to compile; 
+            totality is
+            `$match` exhaustiveness. Q6 reports an act determines come from evidenceOf (acceptance 2): lint 
+            `Evidence.Minted`,
+            `.Sent`, `.Lane` outside `src/core/cells.ts`, 8 hits today. Q7 Reads I21: type check `lookupTakesInputOnly` 
+            fails
+            (the driver builds a fake Attempt). Q8 seam (Conformance T29, I45): `no-restricted-imports` on the adapter, 
+            2 hits
+            (core/evidence.ts, definition.ts); allowed index, testing, inspect pass. Q9 no Spec ids in `src/` comments: 
+            rule
+            `flow-state/no-spec-ids` (`tools/flow-state-lint/`), 82 hits. Q10 gates no worse than start (suite 76/76, 
+            falsify
+            18/18, liar 13/13, core mutants 62/85, crash 690/723 at 909f4bee) and the 26 Held-head crash points green.
+            Reality cannot show: Q5's open cells (cancel commit on Kept, kept unknown on a Held head) are unreachable 
+            until T18
+            builds the cancel policy; they are `Impossible` in the table by inspection only.
+        comment     2026-11-12T01:24:56Z
+            Needs a decision (lead): the rework removes source text that 6 production mutants anchor on 
+            (prod.resend-new-id, retry-not-owed, kept-ignored, resend-uncounted, released-delivered, kept-redelivered 
+            in conformance/adapters/production.mutants.ts, out of T51's scope), so falsify production goes NotApplied 
+            unless their edits are re-anchored with name, says, expects and cases unchanged. Recommended: allow that 
+            re-anchoring in T51. Also found: a key-less retry on an unkeyed operation outside an ending's handler gives 
+            NothingToResend (WriteLanes R9 says it names the one lane), and at GEN-pay-seeded-281's end reload 
+            production received only ensureExisting after a forget, so whether the model's owed incarnation is right is 
+            open (traced with a scratch port wrapper).
+        comment     2026-11-12T01:25:38Z
+            Resume (lead): step 1 done, requirements Q1 to Q10 red as checks; next is the core rework 
+            (src/core/cells.ts table plus evidenceOf, tagged phases and tries, lane id, key and keyText derived, World 
+            tickets dropped), then host dispose and the reads' Command, then the lint fixes, after the review confirms 
+            step 1 and the mutant re-anchoring is decided. Baseline gate output is in the lead's scratch base/ folder; 
+            scratch tracer for suite runs: trace.ts there.

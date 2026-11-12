@@ -443,3 +443,9 @@ Both written by the replan records review, under the orchestrator's ruling (V3 l
   `WAITING`'s delay and several guards read memory, and R20 counts a fixture's reference as a suite fact. Not yet
   written into the Spec; the user decides. Reverse: drop the note and the folds; the guards fall back to allowed
   sets.
+
+## 2026-11-12, WriteLanes composition: production realization (T51)
+
+- WriteLanes `composition.flow` gains the production realization (table module, production phases, settle and
+  admit split, tries as a tag, Effect features used and skipped). Design only, no rule changed. Why: skill:to-design
+  skeleton before T51's code. Reverse: drop the paragraph.

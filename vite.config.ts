@@ -31,6 +31,38 @@ const productionTests = [
   `${productionSource}/**/testing/**/*.{ts,tsx}`,
 ];
 
+// The core's banned calls: no randomness, no JSON keys, no Effect runtime.
+const coreProperties = [
+  {
+    object: "Math",
+    property: "random",
+    message: "The core is deterministic: stories, replays and searches must reproduce a run.",
+  },
+  {
+    object: "JSON",
+    property: "stringify",
+    message: "Not for equality or keys: use Schema.toEquivalence, or the key's Schema codec.",
+  },
+  ...["gen", "runSync", "runPromise", "runFork", "try", "tryPromise"].map((property) => ({
+    object: "Effect",
+    property,
+    message: "No Effect runtime in the core: it returns work as data, the host runs it.",
+  })),
+];
+
+// Reports an act determines are derived from the act in one place, the lane table's evidenceOf
+// (WriteLanes' production realization), never written beside the act.
+const derivedReports = ["Minted", "Sent", "Lane"].map((property) => ({
+  object: "Evidence",
+  property,
+  message:
+    "A report an act determines comes from evidenceOf in src/core/cells.ts, not beside the act.",
+}));
+
+// The production adapter imports from its runtime only the public entry and the listed seam
+// (Conformance I45).
+const seam = ["src/index.ts", "src/host/testing.ts", "src/host/inspect.ts"];
+
 export default defineConfig({
   pack: {
     dts: {
@@ -40,7 +72,8 @@ export default defineConfig({
     tsconfig: "tsconfig.pack.json",
   },
   staged: {
-    [`${production}/{src,conformance}/**/*.{js,jsx,ts,tsx,json,jsonc,md,css,html,yaml,yml}`]: "vp check --fix",
+    [`${production}/{src,conformance}/**/*.{js,jsx,ts,tsx,json,jsonc,md,css,html,yaml,yml}`]:
+      "vp check --fix",
   },
   lint: {
     options: { typeAware: true, typeCheck: true },
@@ -48,6 +81,7 @@ export default defineConfig({
     jsPlugins: [
       { name: "vite-plus", specifier: "vite-plus/oxlint-plugin" },
       { name: "lint-bomb", specifier: "./tools/lint-bomb/src/index.ts" },
+      { name: "flow-state", specifier: "./tools/flow-state-lint/index.ts" },
     ],
     rules: {
       // Built-in rules, as in lint-bomb's own configuration.
@@ -97,7 +131,10 @@ export default defineConfig({
       ],
       // A review signal for hot paths: the turn's own module (T16 layout, 2026-11-11). The step and the
       // host build new values per change by design (plain immutable data), so they are not narrowed in.
-      "lint-bomb/no-allocation-in-loop": ["warn", { sourceRoots: [`${productionSource}/core/turn.ts`] }],
+      "lint-bomb/no-allocation-in-loop": [
+        "warn",
+        { sourceRoots: [`${productionSource}/core/turn.ts`] },
+      ],
       // The host boundary that runs fibers gets allowedDirectories once the layout exists.
       "lint-bomb/no-effect-runner-in-domain": "error",
       "lint-bomb/no-empty-context-make-unsafe": "error",
@@ -210,7 +247,8 @@ export default defineConfig({
             "error",
             ...["setTimeout", "clearTimeout"].map((name) => ({
               name,
-              message: "Use Effect's Clock and Effect.sleep; only src/host/browser.ts touches the platform.",
+              message:
+                "Use Effect's Clock and Effect.sleep; only src/host/browser.ts touches the platform.",
             })),
           ],
           "no-restricted-properties": [
@@ -222,7 +260,8 @@ export default defineConfig({
             ].map(([object, property]) => ({
               object,
               property,
-              message: "Use Effect's Clock or the host's entropy; only src/host/browser.ts touches the platform.",
+              message:
+                "Use Effect's Clock or the host's entropy; only src/host/browser.ts touches the platform.",
             })),
           ],
         },
@@ -241,13 +280,24 @@ export default defineConfig({
                   name: "performance",
                   message: "Use the supplied Effect Clock at the host boundary.",
                 },
-                ...["window", "document", "navigator", "indexedDB", "localStorage", "sessionStorage"].map(
-                  (name) => ({ name, message: "Host APIs belong in src/host/, not the core." }),
-                ),
-                ...["setTimeout", "clearTimeout", "setInterval", "queueMicrotask", "Promise"].map((name) => ({
+                ...[
+                  "window",
+                  "document",
+                  "navigator",
+                  "indexedDB",
+                  "localStorage",
+                  "sessionStorage",
+                ].map((name) => ({
                   name,
-                  message: "The core schedules nothing itself: return the work as data for the driver.",
+                  message: "Host APIs belong in src/host/, not the core.",
                 })),
+                ...["setTimeout", "clearTimeout", "setInterval", "queueMicrotask", "Promise"].map(
+                  (name) => ({
+                    name,
+                    message:
+                      "The core schedules nothing itself: return the work as data for the driver.",
+                  }),
+                ),
                 {
                   name: "crypto",
                   message: "The core is deterministic: ids come from the runtime's own mint.",
@@ -257,24 +307,32 @@ export default defineConfig({
               globalObjects: ["global", "globalThis", "window"],
             },
           ],
-          "no-restricted-properties": [
+          "no-restricted-properties": ["error", ...coreProperties, ...derivedReports],
+        },
+      },
+      {
+        // The lane table is where acts' reports are derived.
+        files: [`${productionSource}/core/cells.ts`],
+        rules: { "no-restricted-properties": ["error", ...coreProperties] },
+      },
+      {
+        files: [`${productionSource}/**/*.{ts,tsx}`],
+        excludeFiles: productionTests,
+        rules: { "flow-state/no-spec-ids": "error" },
+      },
+      {
+        files: [`${productionSuite}/adapters/production.ts`],
+        rules: {
+          "no-restricted-imports": [
             "error",
             {
-              object: "Math",
-              property: "random",
-              message: "The core is deterministic: stories, replays and searches must reproduce a run.",
+              patterns: [
+                {
+                  group: ["**/src/**", ...seam.map((path) => `!../../${path}`)],
+                  message: "The production adapter imports only src/index.ts and the listed seam.",
+                },
+              ],
             },
-            {
-              object: "JSON",
-              property: "stringify",
-              message:
-                "Not for equality or keys: use Schema.toEquivalence, or the key's Schema codec.",
-            },
-            ...["gen", "runSync", "runPromise", "runFork", "try", "tryPromise"].map((property) => ({
-              object: "Effect",
-              property,
-              message: "No Effect runtime in the core: it returns work as data, the host runs it.",
-            })),
           ],
         },
       },
@@ -365,7 +423,15 @@ export default defineConfig({
               paths: [
                 {
                   name: "../port.ts",
-                  importNames: ["Observation", "Turn", "Minted", "Sent", "Ended", "Delivered", "Recorded"],
+                  importNames: [
+                    "Observation",
+                    "Turn",
+                    "Minted",
+                    "Sent",
+                    "Ended",
+                    "Delivered",
+                    "Recorded",
+                  ],
                   message: "Obligation tables take no runtime report (advisor Q1, T44).",
                 },
                 {

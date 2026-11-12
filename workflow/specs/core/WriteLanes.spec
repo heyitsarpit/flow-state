@@ -420,6 +420,29 @@ composition
         determines, stay written. Parked and kept endings live in the world's parked map by lane
         id, kept ones with one try per boot or adoption. Only reject concurrency is built.
 
+        Production realization (@task.V3.T51). `src/core/cells.ts` holds the table: `cell(state, cue)` is one
+        exhaustive match over the cue and then the lane state (Idle, Kept, or a head's Phase),
+        returning a `Move` as data; a pair the table marks impossible returns `Impossible`, which
+        the applier raises as a defect. Q5's two open cells are `Impossible` until @task.V3.T18
+        rules them. `src/core/lanes.ts` applies a move through the step's working state and
+        emits `evidenceOf(before, cue, after, commands)`.
+
+        Production phases: Acknowledging, Unsent, Withdrawing, Recapturing, Resending, OnWire,
+        Cancelling and Held, as in `model`; Kept is a kept ending in the parked map, not a stored
+        lane. Production's Unsent and Resending wait for their turn's end (cue TurnEnded), which
+        takes them to Acknowledging or Recapturing when the identity persists, else to the wire;
+        a landed batch invokes at once, so the model's acknowledged Unsent and captured
+        Resending pass in that one cue. A settled call is classified at settlement by the phase
+        it found (Cancelling gives unknown Cancelled) and applied to the lane when its turn is
+        admitted (cue Ended). An ending's tries are a tag (First, Parked, Last), not booleans.
+
+        Effect features: `Data.taggedEnum` for Phase, Cue, Move and Tries (exhaustive `$match`
+        is the table's totality check); `Option` for an absent lane or kept ending. Skipped:
+        `Match` (taggedEnum's `$match` already gives exhaustiveness at no cost), `HashMap` and
+        `Data` structs per lane (a turn's hot path; plain maps cost less), `Effect` itself (the
+        core is pure). In the host: `Deferred` for dispose waiting on the core's disposal before
+        `Scope.close`; `FiberMap`, `Clock` and `Scheduler` as before.
+
 coverage
     @R1
         enforced_by  [@I1, @I2, @I24]
