@@ -385,23 +385,23 @@ const bootOwes = (model: Model) => {
   const recordIs = (a: AttemptLife, record: string) =>
     model.actors.some((x) => sameActor(x.actor, a.lane.actor) && x.record === record);
 
-  const owing = model.attempts
-    .filter(
-      (a) => restorable(a) && isHead(model, a) && !owesRelease(model, a.id) && !parked(model, a),
-    )
-    .filter(
-      (a) =>
-        !(
-          recordIs(a, "disposeActor") &&
-          model.saved.least.removed.some((r) => sameActor(r, a.lane.actor))
-        ),
-    );
+  const unbound = (a: AttemptLife) =>
+    recordIs(a, "disposeActor") &&
+    model.saved.least.removed.some((r) => sameActor(r, a.lane.actor));
+
+  const causeOf = (a: AttemptLife) => {
+    if (unbound(a)) return "unbound" as const;
+
+    return recordIs(a, "forget") ? ("forget" as const) : cause;
+  };
+
+  const owing = model.attempts.filter(
+    (a) => restorable(a) && isHead(model, a) && !owesRelease(model, a.id) && !parked(model, a),
+  );
 
   return [
     ...model.obligations,
-    ...owing.map((a) =>
-      Obligation.AwaitRestore({ attempt: a.id, cause: recordIs(a, "forget") ? "forget" : cause }),
-    ),
+    ...owing.map((a) => Obligation.AwaitRestore({ attempt: a.id, cause: causeOf(a) })),
   ];
 };
 

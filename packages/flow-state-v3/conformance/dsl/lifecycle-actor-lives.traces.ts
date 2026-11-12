@@ -7,6 +7,11 @@ const { shopper, lane, model, wl, unknown } = build;
 
 const restoring = Obligation.AwaitRestore({ attempt: "s", cause: "plain" });
 
+const unboundAfterDisposal = model(lane("A", ["s", H]), {
+  actors: [{ actor: shopper, record: "disposeActor" }],
+  saved: { lives: [], ended: 0, least: { lives: [], ended: 0, removed: [shopper], minted: 0 } },
+});
+
 /**
  * The traces of the actor moves on endings: incarnations, disposals, forgets and restores.
  */
@@ -81,6 +86,35 @@ export const actorTraces: ReadonlyArray<Trace> = [
     cites: "Actors R20, I29: a disposed actor's holds are restored at adoption",
     start: model(lane("A", ["s", H])),
     steps: [ActorMove.Disposed({ actor: shopper }), ActorMove.Adopt({ actor: shopper })],
+    refusals: [[], []],
+    phases: { s: H },
+    owed: 1,
+    checks: [
+      Check.Owing({
+        obligations: [Obligation.AwaitRestore({ attempt: "s", cause: "disposeActor" })],
+      }),
+    ],
+  },
+  {
+    name: "a disposed identity's unbound Held head may take its restore at the boot, parked for its adoption",
+    cites:
+      "Actors R20 (unbound lanes reported at each boot until an adopting ensure), Restore R1 (an unbound lane's endings are parked for the adopting incarnation); owed until delivered, never due",
+    start: unboundAfterDisposal,
+    steps: [Move.Reload(), unknown("s", "Restored")],
+    refusals: [[], []],
+    phases: { s: H },
+    owed: 1,
+    checks: [
+      Check.Owing({
+        obligations: [Obligation.AwaitRestore({ attempt: "s", cause: "unbound" })],
+      }),
+    ],
+  },
+  {
+    name: "a disposed identity's unbound Held head not restored at the boot is owed its restore at adoption",
+    cites: "Actors R20, I29: a disposed actor's holds are restored at adoption",
+    start: unboundAfterDisposal,
+    steps: [Move.Reload(), ActorMove.Adopt({ actor: shopper })],
     refusals: [[], []],
     phases: { s: H },
     owed: 1,

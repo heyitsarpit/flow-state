@@ -205,6 +205,7 @@ export const deadlines: Deadlines = {
     runtimeDisposal: { by: "StepEnds", invariant: actors(29) },
     disposeActor: { by: "StepEnds", invariant: actors(29) },
     forget: { by: "StepEnds", invariant: actors(32) },
+    unbound: { by: "never", invariant: actors(29) },
   },
   AwaitLetGo: { by: "StepEnds", invariant: wl(15) },
   Commit: { by: "TurnCloses", invariant: wl(15) },

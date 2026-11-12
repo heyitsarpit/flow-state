@@ -22,6 +22,7 @@ describe("gates (Q19, Q27)", () => {
       "pairs production",
       "bench production",
       "regressions production",
+      "regressions round-14",
     ])
       assert.ok(source.includes(`gate: "${gate}"`), gate);
   });

@@ -23,6 +23,8 @@ const actorOf = (model: Model, actor: ActorRef) =>
  *   so it owes no restore.
  * - A Held head with a parked ending (one decided in the Runtime's disposal, say) owes no restore
  *   either: that saved outcome is what the incarnation is delivered (Restore I6), as at a boot.
+ * - A boot's `unbound` restore, one the boot may decide for a disposed identity's lane, becomes
+ *   this incarnation's owed restore when the boot left it undecided (Actors R20).
  */
 export const incarnate = (model: Model, actor: ActorRef) => {
   const known = actorOf(model, actor);
@@ -40,6 +42,8 @@ export const incarnate = (model: Model, actor: ActorRef) => {
       !parked(model, a),
   );
 
+  const mine: ReadonlySet<string> = new Set(owing.map((a) => a.id));
+
   return {
     ...model,
     actors: [
@@ -47,7 +51,9 @@ export const incarnate = (model: Model, actor: ActorRef) => {
       { actor, record: "bound" as const },
     ],
     obligations: [
-      ...model.obligations,
+      ...model.obligations.filter(
+        (o) => !(o._tag === "AwaitRestore" && o.cause === "unbound" && mine.has(o.attempt)),
+      ),
       ...owing.map((a) => Obligation.AwaitRestore({ attempt: a.id, cause })),
     ],
   };

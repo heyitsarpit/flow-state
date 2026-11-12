@@ -99,9 +99,11 @@ export const addressable = (phase: Phase) =>
 
 /**
  * Why an actor's incarnation owes its Held heads their restore ending: a plain reload or return,
- * the Runtime's disposal, the actor's disposal, or a forget.
+ * the Runtime's disposal, the actor's disposal, or a forget. `unbound` is a boot's restore of a
+ * disposed identity's unbound lane (its removal landed): the boot may decide it and park it for
+ * the adopting incarnation, or leave it to that incarnation (Actors R20; Restore R1).
  */
-export type Cause = "plain" | "runtimeDisposal" | "disposeActor" | "forget";
+export type Cause = "plain" | "runtimeDisposal" | "disposeActor" | "forget" | "unbound";
 
 /**
  * What a turn, a boot or a cancel still owes, kept beside the phases. Each is discharged by one

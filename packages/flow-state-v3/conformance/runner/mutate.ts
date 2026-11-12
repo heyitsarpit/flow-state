@@ -3,6 +3,7 @@ import { Console, Effect } from "effect";
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { falsifyProduction, suiteIn } from "./falsify.ts";
+import type { CaseVerdict } from "./verdict.ts";
 
 const OPERATORS: ReadonlyArray<readonly [string, string]> = [
   [" === ", " !== "],
@@ -56,10 +57,43 @@ const pick = <A>(all: ReadonlyArray<A>, limit: number) => {
 };
 
 /**
+ * What one core mutant's run came to, with the reason: `killed` only by a failed case that names
+ * an oracle or cites an Invariant, as `judge` reads a catch. A red with neither (a thrown defect,
+ * or a case whose child stated no verdict because the copy failed to load) is `NO-ORACLE`, a run
+ * past its bound is `TIME`, and a run with no verdict at all is `ERROR`: none of them is a kill.
+ */
+export const coreOutcome = (result: {
+  readonly rows: ReadonlyArray<string>;
+  readonly verdicts: ReadonlyArray<CaseVerdict>;
+}) => {
+  const ran = result.rows.every((r) => !r.endsWith("\tno verdict") && !r.endsWith("\tnot applied"));
+
+  if (!ran) return { status: "ERROR", why: result.rows.join(" ") };
+  const fails = result.verdicts.flatMap((v) => (v._tag === "Fail" ? [v] : []));
+
+  const killer = fails.find((v) => v.oracles.length > 0 || (v.cites ?? []).length > 0);
+
+  if (killer !== undefined)
+    return {
+      status: "killed",
+      why: `${killer.id}: ${[...killer.oracles, ...(killer.cites ?? [])].join(",")}`,
+    };
+  const [defect] = fails;
+
+  if (defect !== undefined)
+    return { status: "NO-ORACLE", why: `${defect.id}: ${defect.why.slice(0, 160)}` };
+  const late = result.verdicts.find((v) => v._tag === "Timeout");
+
+  if (late !== undefined) return { status: "TIME", why: `${late.id}: timed out` };
+
+  return { status: "SURVIVED", why: "" };
+};
+
+/**
  * Runs up to `limit` core mutants, spread over the core, each on its own copy of the package
  * against the production cases, once the unedited cases all pass (a red control voids the
- * count). A mutant is killed when any case goes red. Writes every result to
- * `core-mutants.tsv` and lists the survivors: the review's work list.
+ * count). A mutant is killed only as {@link coreOutcome} reads a kill. Writes every result with
+ * its reason to `core-mutants.tsv` and lists the rest: the review's work list.
  */
 export const runCoreMutants = (options: {
   readonly packageDir: string;
@@ -103,21 +137,10 @@ export const runCoreMutants = (options: {
           cases: options.cases,
           edits: [{ file: m.file, find: m.find, replace: m.replace }],
         }).pipe(
-          Effect.map(({ rows }) => {
-            const ran = rows.every(
-              (r) => !r.endsWith("\tno verdict") && !r.endsWith("\tnot applied"),
-            );
+          Effect.map((result) => {
+            const { status, why } = coreOutcome(result);
 
-            const killed = rows.some(
-              (r) =>
-                / (?:caught|red) |\ttime$/u.test(r) ||
-                r.includes("\tcaught ") ||
-                r.includes("\tred "),
-            );
-
-            if (!ran) return `ERROR\t${m.file}:${m.line}\t${rows.join(" ")}`;
-
-            return `${killed ? "killed" : "SURVIVED"}\t${m.file}:${m.line}\t${m.replace.trim()}`;
+            return `${status}\t${m.file}:${m.line}\t${m.replace.trim()}\t${why}`;
           }),
         ),
       { concurrency: options.parallel },

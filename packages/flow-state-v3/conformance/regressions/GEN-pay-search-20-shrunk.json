@@ -28,5 +28,5 @@
       "_tag": "dispose"
     }
   ],
-  "by": "delivered-once,disposal WriteLanes I15,Actors I29,Actors I14"
+  "by": "pass"
 }

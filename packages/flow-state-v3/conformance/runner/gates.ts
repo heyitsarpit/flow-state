@@ -95,6 +95,7 @@ export const writeGates = (
       { gate: "pairs production", args: ["pairs"] },
       { gate: "bench production", args: ["bench"], entry: BENCH },
       { gate: "regressions production", args: ["regressions-production"] },
+      { gate: "regressions round-14", args: ["regressions", "--runtime", ROUND_14] },
       {
         gate: "liar round-14",
         args: ["liar", "--runtime", ROUND_14, "--parallel", "6", "--scratch", scratch],

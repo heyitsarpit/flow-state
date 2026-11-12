@@ -323,6 +323,7 @@ export const falsifyProduction = (
       return {
         verdict: judge(mutant, oracle, verdicts),
         rows: matrixRows(mutant, oracle, verdicts),
+        verdicts,
       };
     }),
   ).pipe(
@@ -331,11 +332,13 @@ export const falsifyProduction = (
         Effect.succeed({
           verdict: MutantVerdict.NotApplied({ mutant: mutant.name, why: e.why }),
           rows: [`${mutant.name}\t-\tnot applied`],
+          verdicts: [],
         }),
       NoVerdicts: (e: NoVerdicts) =>
         Effect.succeed({
           verdict: MutantVerdict.NoVerdict({ mutant: mutant.name, why: e.why }),
           rows: [`${mutant.name}\t-\tno verdict`],
+          verdicts: [],
         }),
     }),
   );
