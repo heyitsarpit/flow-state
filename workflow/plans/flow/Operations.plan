@@ -113,14 +113,17 @@ outcomes
         Invalidation and clear follow @O5; domain repair follows @plan.EntityDomains.O1. Flow never
         automatically retries a failed lookup.
 
-        A read has two channels, success and failure. Its success: and value: see confirmed data
-        only; success carries current data even when ordering rejects its request's result, and
-        equal data still settles the lookup. A read's defect or interruption ends on failure as
-        Flow's Defect or Interrupted, which a tag record must map; a defect is also an actor issue.
+        A read ends in success, in failure, or stopped by Flow. Its success: and value: see
+        confirmed data only; success carries current data even when ordering rejects its request's
+        result, and equal data still settles the lookup. failure: holds only the read's own error
+        tags (exhaustive, or one event for an untagged error). A read's defect or interruption ends
+        as Flow's own value, tagged by `_tag` (Defect, Interrupted), mapped under its own key with
+        a required `otherwise` in a record (the key and value names are proposed in the Reads
+        Spec's R9); a defect is also an actor issue. Decision (the user, 2026-11-12): option B
+        extends to reads.
 
-        A read whose mapper throws, or returns something with no shape, ends on failure as Defect,
-        with the store's UserClosure issue. The failure mapping is exhaustive over error tags, or
-        one event for an untagged error. A mapping value may be Flow.ignore: no event and no
+        A read whose mapper throws, or returns something with no shape, ends as that Defect, with
+        the store's UserClosure issue. A mapping value may be Flow.ignore: no event and no
         handler; never on a stream key or a listen entry.
 
         Mappers receive (value, { input, key }), key being the contract's key record of the call
@@ -240,7 +243,7 @@ outcomes
         one contract in one actor tree are a SharedContract (proposed name) error, so a lane per
         contract and a lane per operation name the same lane within a release.
 
-        Members: commit, retry(k?), cancel(k?) and cancelAll(k?) in actions; idle(k?) (InFlight:
+        Members: commit, retry(k?), and cancel(k?) in actions; idle(k?) (InFlight:
         denies InFlight; Held: denies Uncertain; a partial key passes only when every lane it
         matches is Idle) and retryable(k?, { times }) (passes in Held while retryCount < times, else
         RetryLimit { retryCount }; denies InFlight or NothingToResend) in guards; get.
@@ -494,10 +497,8 @@ outcomes
         and sent; a pending cancel is never lost to a later replacement. That wait is unbounded, a
         stated limit.
 
-        O.x.cancelAll(k?) ends every queued commit NotSent { Cancelled } in mint order, then acts on
-        the head as cancel does, promoting nothing; a Held lane ends Idle; the head's ending, which
-        leaves a hold, is delivered last. cancel on a one-off read releases the operation's wait,
-        not the shared request; resources keep no cancel of the entry.
+        cancel on a one-off read releases the operation's wait, not the shared request; resources
+        keep no cancel of the entry.
 
         cancel never drops a queued commit silently, with one exception: a fragment's release on
         leave (a key-less O.x.cancel in whenAbandoned) marks every lane of that operation for the
@@ -505,7 +506,7 @@ outcomes
         commits as evidence, and applies later endings to the lane and store without delivering
         them.
 
-        A release wins over `cancelAll` in the same transition. One write operation per contract per
+        One write operation per contract per
         actor holds across placements. Actor disposal invokes nothing new and drops nothing: lanes
         stay with the Runtime (@plan.Runtime.O6).
 
@@ -525,8 +526,8 @@ verification
     V6  Stories prove each concurrency policy's lane cells, queue limits and declines, and cache
         writes before ending handlers.
     V7  Stories prove optimistic stacking, independent removal and confirmation after success.
-    V8  Stories prove unknown holds, retry preserving the Attempt, cancel by history, cancelAll
-        order, no restore replay and old-version holds.
+    V8  Stories prove unknown holds, retry preserving the Attempt, cancel by history, no restore replay and old-version 
+         holds.
     V9  Stories prove the Streams tables (session, registration, bookmark, delivery, latest,
         Feed.callback's queue, listen coverage, write progress, lifecycle) and their oracles.
     V10  Stories prove rows, retained data, placeholder isolation and historical reads.

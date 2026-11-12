@@ -510,3 +510,12 @@ Left as found, for their owners: Reads R9 still maps Flow's Defect and Interrupt
 user); Compile, Diagnostics and StaticCli still name `cancelAll` and ReservedReason (@task.V3.T17); Restore R6's
 gone operation is both quarantined and moved, and Restore's LaneRekeyed against OldVersionLane (@task.V3.T56);
 Turn T4 against I14 on a child's refusal; Actors I25 "a send never creates" against R16's boot queue (@task.V3.T9).
+
+## 2026-11-12, read endings follow option B (the user, Q1 A)
+
+- **Reads R9, I20, T14, Q3 (settled); Actors R8:** a read's `failure:` holds only its own tags; Flow's Defect and
+  Interrupted are tags of `Flow.ReadStopped` under the key `stopped:`, with a required `otherwise` in a record.
+  Both names are the agent's and proposed; @task.V3.T21 confirms them. @plan.Operations.O2 says the same without
+  the names. Why: the user's answer Q1 A, as for writes. Reverse: restore R9 from commit `476c1519`.
+- **@plan.Operations.O3, O7, V8:** the `cancelAll` lines are dropped (the user, Q3 A); revisit.md holds the
+  design. `Abandoned` stays dropped (Q2 A); `EntityDomains.plan:233` is @task.V3.T24's to settle.

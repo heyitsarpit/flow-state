@@ -87,8 +87,8 @@ requirements
         must    A shared actor free of uses and work in flight for the grace (100 ms on the Runtime's
                 Effect Clock) ends at the grace's end: a persisted actor's record is encoded in that
                 step (the end waits while it cannot encode), its lanes move to the Runtime unbound, its schedules are
-                cancelled, its placements and unkept reads stop, and each stopped read parks failure
-                { Interrupted } for the identity. Its owed rows are suspended (WriteLanes Spec
+                cancelled, its placements and unkept reads stop, and each stopped read owes its
+                Interrupted ending (Reads Spec R9) to the identity. Its owed rows are suspended (WriteLanes Spec
                 `model`): those in its mailbox wait for the identity's next start, and those owed to
                 that incarnation alone close as evidence.
 

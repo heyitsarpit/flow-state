@@ -91,10 +91,17 @@ requirements
         must    success and value see confirmed data only; success carries current data even when
                 ordering rejects its request's result, and equal data still settles the lookup.
 
-                A read's defect or interruption ends on failure as Defect or Interrupted, which a
-                tag record must map; a mapper that throws or returns no shape ends as Defect with a
-                UserClosure issue. The failure mapping is exhaustive. Flow.ignore means no event and
-                no handler. Unmapped failure leaves its slot's tag and an issue.
+                A read maps three keys. `success:` is one event. `failure:` is a record
+                exhaustive over the read's own failure tags and nothing else. `stopped:` (proposed
+                name) is one event, or a record over the tags of `Flow.ReadStopped` (proposed name)
+                with a required `otherwise`. `Flow.ReadStopped` is Flow's own value, a
+                `Data.TaggedEnum` on `_tag` and a Schema like the write values (WriteLanes Spec
+                R3), with tags Defect { cause } and Interrupted: a read's defect or interruption
+                ends as one of them, never under `failure`, and a mapper that throws or returns no
+                shape ends as Defect with a UserClosure issue. Flow.ignore means no event and no
+                handler. An unmapped ending leaves its slot's tag and an issue. Decision (the
+                user, 2026-11-12, Q1 A): option B extends to reads; the key and value names are
+                the agent's and proposed (spec-log.md).
 
     R10  value, holds and collection
         source  @plan.Operations.O2.
@@ -142,8 +149,9 @@ open
                  runtime; until then every Requirement's evidence is open.
 
     Q3  Do read endings follow the write endings' new shape (WriteLanes Spec R3, R4: `failure` holds only the author's 
-        tags)? R9 still maps Flow's Defect and Interrupted under `failure`.
-        outcome  The user decides before @task.V3.T21 builds read endings; until then R9 stands as written.
+        tags)?
+        outcome  Settled 2026-11-12 (the user, Q1 A): yes. R9 moves Flow's Defect and Interrupted to their own value
+                 under their own key; @task.V3.T21 builds it and confirms the two proposed names.
 
     Q2  Built later, not specified here: staleTime freshness, gcTime collection, trailing refetch, setData, invalidate 
         and clear with partial keys, write batches and their 256 bound, placeholders, contract.get, key size bounds and 
@@ -194,8 +202,9 @@ invariants
     I19  For every valid k, O.x.get(s, k) returns the row of k's lane, or the idle row when k has no lane. Reworded 
          2026-11-11 (audit). [@R14]
 
-    I20  Every delivered read ending is a success or value carrying confirmed data, or a failure; a read's defect or 
-        interruption ends as failure Defect or Interrupted, and a mapper that throws or returns no shape ends as Defect
+    I20  Every delivered read ending is a success or value carrying confirmed data, a failure with one of the read's
+        own tags, or a Flow.ReadStopped; a read's defect or interruption ends as its Defect or Interrupted, and a 
+            mapper that throws or returns no shape ends as Defect
         with a UserClosure issue. Added 2026-11-11: R9's own rule, once the cut I12 left it with none (audit G10).
         [@R9]
 
@@ -280,7 +289,8 @@ tests
              a made-up Attempt (`id: ""`, `key: {}`), as code:packages/flow-state-v3/src/host/driver.ts had before
              @task.V3.T51. [@I21]
     T14  Read endings as rows: a lookup's answer lands after its incarnation ended and is recorded, never heard by the 
-         next incarnation, and no store record ever holds it; a read stopped by an end is heard as failure {
-             Interrupted } once by the next incarnation, after a reload too; a twice-refused lookup ending blocks no
+         next incarnation, and no store record ever holds it; a read stopped by an end is heard as
+             Flow.ReadStopped's Interrupted once by the next incarnation, after a reload too; a twice-refused lookup 
+                 ending blocks no
              commit. Wrong runtimes: a lookup's row saved in the owed record; a stopped read's Interrupted dropped at
              the end. Written by @task.V3.T21 (@task.V3.T54 only routes read endings through the ledger). [@I22]
