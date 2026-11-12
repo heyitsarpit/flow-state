@@ -232,7 +232,9 @@ instructions
       review file, and the report names where (the user, 2026-11-11). Sidecars report only to their lead.
     - Source of truth: the core Specs for the core; the Plans for the rest; where a Plan and the prototype disagree,
       the prototype, until a Spec records it (amendment 11; holds until P5's feature Specs exist).
-    - Slices interleave (the user, 2026-11-11, replan accepted): R (T45, then T51, then T47), 1 T18, 2 T19 and T20,
+    - Slices interleave (the user, 2026-11-11, replan accepted): R (T45, then T51, then T47, then T52), T54 (core 
+      consolidation, the user 2026-11-12), 1 T18, T55 (runtime life), 2 T19
+      and T20,
       3 T17, 4 T9, 5 T21, 6 T22 then T15 then T23, 7 T25, 8 T24, 9 T27, T48, T28, 10 T49, T29, T31. A slice's suite half
       (Spec change, model section, parts, model mutation, audit) is green on the model, mutant-proven by model mutation,
       reviewed and audited before its production half starts; its production half is built test-first, then the

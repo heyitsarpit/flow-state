@@ -163,6 +163,9 @@ tasks
             Owns, in conformance/not-yet.ts, the static Invariants round-14 cannot make: Compile I3, I7 to I10, I12 to 
             I14, I17 and Diagnostics I1 to I10. Their static cases land before this Task closes (orchestrator decision, 
             log 2026-11-10T20:57:29Z).
+        comment     2026-11-12T07:05:44Z
+            From the core consolidation design (T54): Owed keeps owner and current untouched for T17 to replace with 
+            the subject path; the Turn act carries parts and members.
     T9
         title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
         status      open

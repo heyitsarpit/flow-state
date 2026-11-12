@@ -47,13 +47,13 @@ owed endings inside lane records for migration, which would move the list, not t
 
 **Task A, "Core consolidation: owed endings and records"** (between T52 and T18).
 
-| Step | Change                                                      | Must stay true                                  |
-| ---- | ----------------------------------------------------------- | ----------------------------------------------- |
-| A0   | The checks of C3; baselines recorded                        | every gate at its start count                   |
-| A1   | Ledger in memory; old record keys still written             | reports and disk equal to baseline, bar fixes   |
-| A2   | One `start`; `boot` parks nothing                           | post-boot reports equal per identity            |
-| A3   | Diff-written records; the new record set                    | reload behaviour equal at every crash point     |
-| A4   | Acts into `evidenceOf`; `tx.emit` removed                   | report stream byte-equal to A3's                |
+| Step | Change                                          | Must stay true                                |
+| ---- | ----------------------------------------------- | --------------------------------------------- |
+| A0   | The checks of C3; baselines recorded            | every gate at its start count                 |
+| A1   | Ledger in memory; old record keys still written | reports and disk equal to baseline, bar fixes |
+| A2   | One `start`; `boot` parks nothing               | post-boot reports equal per identity          |
+| A3   | Diff-written records; the new record set        | reload behaviour equal at every crash point   |
+| A4   | Acts into `evidenceOf`; `tx.emit` removed       | report stream byte-equal to A3's              |
 
 A1 also merges `Settled` and `Ended` into one cue, removes `Keep`, the Kept row, `Tries` and `Settled.route`, and
 gives Attempts their own counter. A4 is last because a byte-equal stream is the strongest check of a refactor.
@@ -454,12 +454,12 @@ entries.
 lifecycle cases in `src/host/lanes.test.ts`; a new case answering a call at 3 s and expecting `StorageFailure`
 at 5 s (the completion check's open gap); the suite's judged disposal at the end of every case.
 
-| To  | Handed over                                                                                              |
-| --- | -------------------------------------------------------------------------------------------------------- |
+| To  | Handed over                                                                                               |
+| --- | --------------------------------------------------------------------------------------------------------- |
 | T18 | a table over `Idle` and head phases only; one `Answered` cue; `owe` and `keptOn`; no persist or emit API; |
 |     | Q5 as "close the lane's kept rows, then mint"; pending cases already in the suite                         |
 | T19 | writes as a flat per-step list with `Due` derived; the final write as a ticket; the batch-scope question  |
-|     | (C6); the Recapturing projection rule; the capture window still in the edge                              |
+|     | (C6); the Recapturing projection rule; the capture window still in the edge                               |
 | T20 | three record kinds with `format`; a boot that sorts and derives `Restored`; open: codec, value encoding,  |
 |     | creation-order keys, version tags, rows whose operation is gone                                           |
 | T9  | `Life` done (strike it from the brief); the `Identity` finding; the ledger's mail reference, which a      |
