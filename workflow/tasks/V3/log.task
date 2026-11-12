@@ -282,3 +282,8 @@ note 2026-11-12T01:42:37Z
     one to one, checked first by step 1's review; before a red becomes a requirement or a fix, the lead names the wrong 
     side (runtime or suite) with evidence. Both policy-testing copies carry the mapping (uncommitted). **Reverse:** git 
     revert this commit.
+note 2026-11-12T01:44:52Z
+    Amendment (the user, 2026-11-12): process watch; after each review the orchestrator notes what the builder missed 
+    and why, and each Task closes with a short retrospective of proposed process changes. So far: T45 (checks written 
+    last, types not split, edits of old code, unchecked done claims, long context) and T51 step 1 (lone gathering, no 
+    adversary, wrong side) led to today's rules. **Reverse:** git revert this commit.

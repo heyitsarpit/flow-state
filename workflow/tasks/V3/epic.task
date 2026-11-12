@@ -324,6 +324,11 @@ instructions
       sidecar found is a missed requirement and lands as a failing check. Every audit or research task goes to one
       Opus lead with zero to two by need;
       code quality is left to lint. A close-out review ends each phase or area.
+    - Process watch (the user, 2026-11-12): the orchestrator observes each builder and reviewer phase. After every
+      review it notes in one line what the review found that the builder's own checks missed, and the likely
+      cause (gathering, weak check, wrong side, context, rule gap). At each Task's close it writes a short
+      retrospective in the Task's comments: what was missed, why, and the process change it proposes, marked
+      proposed until the user accepts it; small fixes that keep work correct and moving it applies and notes.
 
     **Records, usage, commands**
 
