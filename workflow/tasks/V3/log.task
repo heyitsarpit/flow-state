@@ -415,3 +415,7 @@ note 2026-11-12T10:30:10Z
     after T20; final write one try; no creation-order keys; queue field 'queue'; reads' stopped:/Flow.ReadStopped 
     proposed for T21. A Sonnet writes the briefs into the records, then replaces Pay/checkout-as-the-test with 'the 
     fixtures (including Pay and checkout)'.
+note 2026-11-12T10:48:23Z
+    Decision (the user): the Spec decisions stand, none reversed; after the Opus Spec review, a light reformatting pass 
+    only (to-design/to-spec format, design marked agreed, history to the spec log), plus fixes for verified 
+    contradictions.
