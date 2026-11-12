@@ -446,7 +446,7 @@ const statedVerdict = (row: StatedLimit, verdict: MutantVerdict) => {
     }),
     Caught: ({ check }) => ({
       held: MutantVerdict.$is("Caught")(verdict),
-      why: `${what}: ${verdict._tag === "Survived" ? `expected ${check} to catch it, it survived` : `${verdict._tag} (${check} ${row.mutant.expects} expected)`}`,
+      why: `${what}: ${verdict._tag === "Survived" ? `expected ${check} to catch it, it survived` : `${verdict._tag} (${check} ${row.mutant.expects} expected)${MutantVerdict.$is("WrongReason")(verdict) ? `: ${verdict.why.slice(0, 300)}` : ""}`}`,
     }),
   });
 };

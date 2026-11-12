@@ -89,7 +89,7 @@ export const statedLimits: ReadonlyArray<StatedLimit> = [
     mutant: {
       name: "limit.mint-key-lies",
       says: "every mint reports a key no fold gives",
-      expects: "WriteLanes I15",
+      expects: "WriteLanes I1",
       runtime: "prototype",
       cases: ["GEN-pay-seeded-3074"],
       edits: [
@@ -134,7 +134,7 @@ export const statedLimits: ReadonlyArray<StatedLimit> = [
     mutant: {
       name: "limit.invoked-dropped",
       says: "the runtime never reports a send",
-      expects: "WriteLanes I15",
+      expects: "WriteLanes I6",
       runtime: "prototype",
       cases: ["PAY-04"],
       edits: [
@@ -155,7 +155,7 @@ export const statedLimits: ReadonlyArray<StatedLimit> = [
     mutant: {
       name: "limit.cancelled-as-failure",
       says: "an unknown { Cancelled } ending is reported as a failure",
-      expects: "WriteLanes I15",
+      expects: "WriteLanes I3",
       runtime: "prototype",
       cases: ["PAY-12/cancel-on-wire"],
       edits: [
