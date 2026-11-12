@@ -398,3 +398,6 @@ note 2026-11-12T08:10:36Z
     Decision (the user): Plans may be edited to match the accepted decisions (Operations.plan's outcomes text, in 
     Fable's phase 1). A second Fable with a 10-sidecar budget reviews the first Fable's work when it is done: the Spec 
     cluster, Plans and T54 skeleton after phase 1, the core briefs after phase 2.
+note 2026-11-12T08:12:15Z
+    Decision (the user): all final fixtures are central, not Pay or any one scenario; T58 and the preview replay every 
+    available part in real browsers; Fable told for Specs and briefs.

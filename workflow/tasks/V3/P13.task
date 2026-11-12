@@ -460,3 +460,8 @@ tasks
             - Safari's four requirements hold in real Safari for this layer.
             - The Pay component compiles against `src/index.ts` and the React route in place of the reference stand-in.
             - The suite's gates are no worse than at this Task's start, and `nub run check` is at zero.
+        comment     2026-11-12T08:12:10Z
+            Decision (the user, 2026-11-12): all final fixtures are central, not one scenario. The browser slice 
+            replays every generated part available by then (T47's pilots, composites A-K by slice, Pay and Cells as 
+            parts) under usual and stress profiles in Chrome and Safari with IndexedDB; the preview is done when they 
+            all pass. Checkout stays only as the type-error count.
