@@ -65,9 +65,9 @@ export const productionMutants = {
       cases: ["PAY-04"],
       edits: [
         {
-          file: "src/core/lanes.ts",
-          find: "          id: head.id,\n          key: lane.key,",
-          replace: '          id: resend ? tx.mint("att") : head.id,\n          key: lane.key,',
+          file: "src/core/lane-moves.ts",
+          find: "          id: head.id,\n          key: at.key,",
+          replace: '          id: resend ? tx.mint("att") : head.id,\n          key: at.key,',
         },
       ],
     }),
@@ -81,8 +81,8 @@ export const productionMutants = {
       edits: [
         {
           file: "src/core/incarnations.ts",
-          find: "redelivered: p.kept,",
-          replace: "redelivered: false,",
+          find: "          owner: ROOT_ACTIVATION,\n          tries: Tries.Last(),",
+          replace: "          owner: ROOT_ACTIVATION,\n          tries: Tries.Parked(),",
         },
       ],
     }),
@@ -95,9 +95,9 @@ export const productionMutants = {
       cases: ["PAY-04"],
       edits: [
         {
-          file: "src/core/lanes.ts",
-          find: "setLane({ ...l, head: { ...l.head, owner, phase: Phase.Ready() } });",
-          replace: "setLane({ ...l, head: { ...l.head, owner } });",
+          file: "src/core/cells.ts",
+          find: "    Held: (_head, cue) => Move.Owe({ owner: cue.owner }),",
+          replace: "    Held: stay,",
         },
       ],
     }),
@@ -108,9 +108,9 @@ export const productionMutants = {
       cases: ["DLV-06"],
       edits: [
         {
-          file: "src/core/lanes.ts",
-          find: "if (tx.world().lanes.has(id) || tx.world().parked.get(id)?.kept === true) {",
-          replace: "if (tx.world().lanes.has(id)) {",
+          file: "src/core/cells.ts",
+          find: "    Kept: decline,",
+          replace: "    Kept: (cue) => Move.Mint({ input: cue.input, owner: cue.owner }),",
         },
       ],
     }),
@@ -123,9 +123,9 @@ export const productionMutants = {
       cases: ["PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed"],
       edits: [
         {
-          file: "src/core/disposal.ts",
-          find: '        parkOnLane(lane, "unknown", "Disposed", undefined);',
-          replace: "        setLane(lane);",
+          file: "src/core/cells.ts",
+          find: "    OnWire: disposedOnWire,",
+          replace: "    OnWire: stay,",
         },
       ],
     }),
@@ -151,7 +151,7 @@ export const productionMutants = {
       cases: ["PAY-15/retry-budget"],
       edits: [
         {
-          file: "src/core/lanes.ts",
+          file: "src/core/lane-moves.ts",
           find: "retryCount: lane.head.retryCount + (resend ? 1 : 0),",
           replace: "retryCount: lane.head.retryCount,",
         },
@@ -166,10 +166,10 @@ export const productionMutants = {
       cases: ["PAY-03"],
       edits: [
         {
-          file: "src/core/lanes.ts",
-          find: "    dropLane(lane);\n  };",
+          file: "src/core/lane-moves.ts",
+          find: "      Release: () => dropLane(at.id, laneAt(at)),",
           replace:
-            '    dropLane(lane);\n    endingMail(lane.actor, { operation: lane.operation, attempt: Option.some(lane.head.id), lane: Option.none(), channel: "unknown", reason: "Released", value: undefined, owner: 0, current: true, redelivered: false, parked: false });\n  };',
+            '      Release: () => {\n        const lane = laneAt(at);\n        dropLane(at.id, lane);\n        endingMail(at.actor, { operation: at.operation, attempt: Option.some(lane.head.id), lane: Option.none(), channel: "unknown", reason: "Released", value: undefined, owner: 0, current: true, tries: Tries.First() });\n      },',
         },
       ],
     }),
@@ -198,8 +198,8 @@ export const productionMutants = {
       edits: [
         {
           file: "src/core/persist.ts",
-          find: "    persist(actor, Option.toArray(actorWrite(incarnation)), Option.none());",
-          replace: "    persist(actor, [], Option.none());",
+          find: "    persist(actor, Option.toArray(actorWrite(incarnation)), due);",
+          replace: "    persist(actor, [], due);",
         },
       ],
     }),
