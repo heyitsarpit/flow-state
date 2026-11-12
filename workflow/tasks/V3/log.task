@@ -360,3 +360,6 @@ note 2026-11-12T07:17:14Z
     Wake: weekly usage 86 percent (up 7 points in 2 hours, about 3.5 an hour, with Fable consults and two leads), so 
     the 95 reserve is about 2.5 hours away. T47's steps 3-6 (776c2d76 to f1751ebb) are covered by its close review, 
     which starts when the lead sets review after its running gates; no separate checkpoint review, to save usage.
+note 2026-11-12T07:19:21Z
+    T47 in review at 0c46a414 (all gates green, crash 732/735 unchanged; all 11 CMP cases owed to T17). Close review 
+    started, covering steps 3-6 and the step 1-2 fixes, with blind and adversary sidecars.
