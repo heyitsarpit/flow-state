@@ -76,7 +76,7 @@ export class OutcomeFailure<E> extends Data.TaggedError("Flow/Failure")<{ readon
 export class OutcomeUnknown<E> extends Data.TaggedError("Flow/Unknown")<{ readonly error: E }> {}
 
 /**
- * How a commit classifies its ending (WriteLanes R2).
+ * How a commit classifies its ending.
  *
  * **When to use**
  *
