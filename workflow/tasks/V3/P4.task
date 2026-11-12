@@ -1037,6 +1037,14 @@ tasks
             acct-2's writes fails Actors I37 alone but, beside acct-1, only delivered-once: S2 stays, now an Actors I37 
             remainder owed to T19 (retires when a write names its record). keysOf's two-keys rule has three checks; the 
             take-the-first-key edit of credits.ts turns one red.
+        comment     2026-11-12T06:56:34Z
+            Resume item 4 and Q16 done at 776c2d76: cell pairs (denominator = successor pairs from Tables A-C, 
+            code:packages/flow-state-v3/conformance/parts/cells.ts) reported per composite in combinationGate; model 
+            mutation over the real tables against 7 pilot runs notices 36 of 315 cells, kills only as oracle refusals. 
+            Red first: all-pairs denominator, silent recorder, throws as kills, identity mutant. Q29: cells alone flag 
+            sync and sign-in as alike (pairs and kills distinguish them). Q30: R18 cites 5A cell pairs and 5B; I57 
+            names R18's slice owners; I58 reports cell pairs (spec-log, agent). Next: step 5-6 gates, static surface, 
+            bench.
     T52
         title       Suite phase-out, first cut: Pay and Cells generated, hand traces thinned
         status      draft
