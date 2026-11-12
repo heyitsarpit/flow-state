@@ -257,8 +257,8 @@ instructions
 
     **Building**
 
-    - Every build and review brief carries the Constraints' code-style list, the Spec it implements and the
-      test-the-spec rule, and tells the lead to run `workflow brief @task.V3.Tn` and read its phase's skills first
+    - Every build and review brief carries the Constraints' code-style list, the Spec it implements, the
+      test-the-spec rule and the requirements-first rule (Testing, below), and tells the lead to run `workflow brief @task.V3.Tn` and read its phase's skills first
       (the user, 2026-11-09 and 2026-11-10). Name a skill once, on the phase.
     - Plan changes found while building go to @plan.Pending as decisions, never into the Plans; one merges only once
       building proves it right and the user says yes (the user, 2026-11-11).
@@ -272,6 +272,16 @@ instructions
 
     **Testing and the suite**
 
+    - Requirements first, as failing checks (the user, 2026-11-12; the library's policy-testing, uncommitted after
+      workflow@55c7ab7, section "Write the requirements as failing checks first"). Each Task's first commit, before
+      any code:
+      - the requirements list, once, in the Task's comments: each rule with its source (Spec rule or decision),
+        and the cases reality cannot show;
+      - each requirement written as a check that fails today: an invariant as a property, a type that makes the
+        wrong flow fail to compile, or a data-flow check, each with a planted violation it catches; for a suite,
+        the input inventory and a mutant for each report a check reads.
+      Then build until they pass; "done" means those checks are green. A review finding is a missed requirement:
+      it lands as a failing check before its fix.
     - Test first, at the module boundary (the user, 2026-11-11; skill:policy-testing in `.agents/skills`): before
       code, write module integration tests through the public interface with real components, not unit tests of
       internals, and the cases that enforce each Invariant the work implements; then build until they pass.
@@ -284,15 +294,19 @@ instructions
       for each report a check reads, expected results never copied from round-14 (the user, 2026-11-11).
     - A coverage row leaves P3 only with evidence: the round-14 and old-suite code searched, and why it cannot show
       the Invariant; the next review checks each claim (the orchestrator, 2026-11-11).
-    - Convergence threshold 3: the third review in a row finding one root cause in one part (amendment 4, the user,
-      2026-11-08); only when rounds keep surfacing many issues, otherwise fix the known bugs and go on (the user,
-      2026-11-10). No per-step reviews inside a convergence: its acceptance is the class gate.
+    - Convergence threshold 2: the second review in a row finding one root cause in one part stops case-by-case
+      fixes; the lead gathers every requirement and finding and redesigns that part at once (the user, 2026-11-12,
+      replacing amendment 4's 3). Otherwise fix the known bugs and go on (the user, 2026-11-10). No per-step reviews
+      inside a convergence: its acceptance is the class gate.
 
     **Reviews**
 
     - Reviews run every 90 minutes on a new checkpoint (cadence; the user, 2026-11-11), and also on events: a lost
-      catch in the catch matrix, a Port change, a new oracle, a Spec change, or an area's gate. Machine gates run
-      on every checkpoint. Reviews per Task were declined. Loop
+      catch in the catch matrix, a Port change, a new oracle, a Spec change, an area's gate, or a lead marking a
+      step done (the user, 2026-11-12): the lead writes each requirement the step claims with its evidence, and
+      the review confirms it before the next step starts. Machine gates run on every checkpoint. Reviews per Task
+      were declined. A lead hands off to a fresh one with a resume note at each large step once its context runs
+      long. Loop
       amendments are batched at an area's close-out unless one fixes a wrong result (the user, 2026-11-11).
     - Every review goes to one Opus lead with two read-only Haiku sidecars on named angles (the user, 2026-11-11);
       every audit or research task to one Opus lead with zero to two by need;

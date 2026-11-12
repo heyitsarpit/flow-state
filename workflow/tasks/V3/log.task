@@ -248,3 +248,5 @@ note 2026-11-12T01:07:00Z
     that keep work correct and moving are now the orchestrator's (Authority). Run resumed: a completion check of T45's 
     fixes (86f184b7..3a2db980) and a fresh building lead on T51, which starts while T45 is in review since the check 
     touches only conformance/. **Reverse:** git revert this commit.
+note 2026-11-12T01:21:29Z
+    Amendment (the user, 2026-11-12): requirements first, as failing checks; each Task's first commit lists its requirements once and writes each as a check that fails today (properties, types, data-flow checks, a mutant per report), and review findings land as failing checks. Reviews also on each step marked done; convergence threshold 2; fresh lead per large step. The library's policy-testing and policy-verification carry it, uncommitted after workflow@55c7ab7. **Reverse:** git revert this commit.
