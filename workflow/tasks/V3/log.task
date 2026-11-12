@@ -338,3 +338,9 @@ note 2026-11-12T06:01:24Z
     checks vacuous on empty parts. Also: loose F1/Q11/acceptance-6 mapping and three missed requirements. Process 
     watch: the step-1 list mapped items but never planted wrong runtimes against them; red-first was claimed rather 
     than shown.
+note 2026-11-12T06:18:11Z
+    T47 lead handed off near its third compaction at 5ac7f9d6: pilots run on production (167/168, the red is 
+    production's retry count after reload, owned by T19), most step 1-2 review fixes landed, gates unchanged. Decision 
+    (orchestrator): WriteLanes I25's StillUnknown failure-tag remainder moves from the closed T51 to T18. A fresh T47 
+    lead continues from the resume note. Process watch: T51's requirements list never read write-lanes/remainders.ts, 
+    so a remainder it owned outlived it; the requirements lead should list the remainders and not-yet rows a Task owns.
