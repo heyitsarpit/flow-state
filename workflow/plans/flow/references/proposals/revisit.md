@@ -42,3 +42,8 @@ Deferred items.
 - **KeyRequired for a key-less member on a keyed operation** (2026-11-12, T51 step-1 review ruling 4;
   proposed). WriteLanes R9 refuses a key-less retry, retryable or cancel on a keyed operation outside its own
   ending's handler; `src/` builds no such check. Not T51's; revisit when a fixture has a keyed operation.
+- **The reason an untagged error gets** (2026-11-12, T51 completion check; proposed). `reasonOf` gives `Error` for
+  any untagged value (`flow.ts:97`); no Spec rule names it. State it in the Turn or WriteLanes Spec.
+- **A Recapturing head held at disposal keeps `inFlight: true` on disk** (2026-11-12, T51 completion check, item 10;
+  proposed). `lane-moves.ts:219` does not re-persist it, so the next boot wakes the identity eagerly where Actors R22
+  says Held on disk. Delivery is unchanged; low severity.

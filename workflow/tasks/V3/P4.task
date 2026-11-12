@@ -1040,9 +1040,14 @@ tasks
             a Held head with a kept ending releases the head but leaves the ending, so the key needs a second cancel; a 
             kept unknown survives a later successful re-send and is delivered at the next boot. Land as failing checks 
             first.
+        comment     2026-11-12T04:08:02Z
+            Gaps from T51's completion check (blind sidecar), each needs a failing check first: no ReservedReason, an 
+            author tag named like a Flow decline counts as definite (cells.ts:131, WriteLanes R3); a mapper throw drops 
+            its cause and the mapper context is {} (machine.ts:173, WriteLanes R4); CleanupFailed and ReleaseOverdue 
+            absent and dispose is Effect<void> (Actors R22, R23).
     T51
         title       Production lanes reworked: one table function, reports derived from acts
-        status      review
+        status      in_progress
         priority    high
         blocked_by  [@T45]
         description
@@ -1365,3 +1370,10 @@ tasks
                 closes next; a zero budget when calls run to the bound, which is R23's "same 5 s"; Spec ids in test 
                 comments
                 (tests cite the Spec); the last case hanging (it passes, 84/84).
+        comment     2026-11-12T04:07:58Z
+            Completion check FAIL (t51-completion-check-2026-11-12.md): A1-A8 met; blocking: ready() after dispose 
+            succeeds (runtime.ts:215, Actors R22) and the Keep-on-Held case never asserts the lane stays Held 
+            (lanes.test.ts:517, R15). Amendment (orchestrator, small): also owned here, as same-surface correctness 
+            gaps: a lane-less ending lost on its second refusal (lanes.ts:257, Actors R15, WriteLanes I24) and dispose 
+            during bootstrap not cancelling it (runtime.ts:220, Actors R4). Error for an untagged failure accepted 
+            (flow.ts:97); Spec gap to revisit.md.
