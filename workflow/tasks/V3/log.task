@@ -344,3 +344,8 @@ note 2026-11-12T06:18:11Z
     (orchestrator): WriteLanes I25's StillUnknown failure-tag remainder moves from the closed T51 to T18. A fresh T47 
     lead continues from the resume note. Process watch: T51's requirements list never read write-lanes/remainders.ts, 
     so a remainder it owned outlived it; the requirements lead should list the remainders and not-yet rows a Task owns.
+note 2026-11-12T07:01:07Z
+    Decision (the user, Q1 A, Q2 A): add Task A, Core consolidation (ledger, one start, diff-written records, acts into 
+    evidenceOf), between T52 and T18; and Task B, Runtime life (Life, admit, the final write into the core), after T18 
+    and before T19. Design: fable-architecture-consult-3-2026-11-12.md. Orchestrator: apply at settlement with Settled 
+    as fallback; Kept-only blocking; Identity to T9; capture window stays in the host. Tasks being written with to-task.
