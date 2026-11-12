@@ -340,9 +340,10 @@ export const openCase = (options: CaseOptions) => {
       for (const [actor, use] of usesHeld(facts)) runtime.ensureExisting(actor, use);
 
       for (const actor of attach()) {
+        const fresh = removed(actor);
         record(Fact.Ensured({ actor, use: "story" }));
 
-        if (removed(actor)) runtime.ensure(actor, Option.none(), "story");
+        if (fresh) runtime.ensure(actor, Option.none(), "story");
         else runtime.ensureExisting(actor, "story");
       }
     });

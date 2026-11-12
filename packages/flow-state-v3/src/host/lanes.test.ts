@@ -1,8 +1,18 @@
 import assert from "node:assert/strict";
-import { Clock, Context, Duration, Effect, Exit, Layer, Option, Scheduler, Schema } from "effect";
+import {
+  Clock,
+  Context,
+  Duration,
+  Effect,
+  Exit,
+  Fiber,
+  Layer,
+  Option,
+  Predicate,
+  Scheduler,
+  Schema,
+} from "effect";
 import { describe, it } from "vite-plus/test";
-import type { Operation, Values } from "../core/compiled.ts";
-import type { Ending, Head, Phase } from "../core/world.ts";
 import { app, definition, Flow, machine, Outcome, transaction } from "../index.ts";
 import { attachInspector, type Evidence } from "./inspect.ts";
 import { Host, testing, type TestRuntime } from "./testing.ts";
@@ -51,6 +61,38 @@ const DoorMachine = machine(Door, ({ S, O }) => ({
 }));
 
 const doors = app({ id: "test", machines: { door: DoorMachine } });
+
+// An unkeyed write whose key-less members run from external events, outside any ending's handler.
+const Gate = definition({
+  id: "Test/Gate",
+  states: ["OPEN"],
+  events: { Ring: {}, Again: {}, Stop: {} },
+  internalEvents: { Rang: {}, NotRung: { why: Schema.String }, Unsure: Flow.uncertain({}) },
+  memory: {},
+  operations: ({ E }) => ({
+    ring: ring.outcomes({
+      success: E.Rang,
+      failure: { NotSent: E.NotRung.from((e: { readonly why: string }) => ({ why: e.why })) },
+      unknown: E.Unsure,
+    }),
+  }),
+});
+
+const GateMachine = machine(Gate, ({ S, O }) => ({
+  default: S.OPEN,
+  on: {
+    Ring: { actions: [O.ring.commit(() => ({ tone: "high" }))] },
+    Again: { guard: [O.ring.retryable({ times: 3 })], actions: [O.ring.retry] },
+    Stop: { actions: [O.ring.cancel] },
+    Rang: {},
+    NotRung: {},
+    Unsure: {},
+  },
+}));
+
+const gates = app({ id: "test", machines: { gate: GateMachine } });
+
+const side = { machine: "Test/Gate", name: "side" };
 
 const front = { machine: "Test/Door", name: "front" };
 
@@ -136,27 +178,29 @@ const pageOver = (store: Map<string, string>, seed: number) => {
  */
 const bellOf = () => {
   const waiting = new Map<string, (answer: Effect.Effect<string, string>) => void>();
+  const rings: Array<string> = [];
 
   const layer = Layer.succeed(
     Bell,
     Bell.of({
       ring: (attempt) =>
         Effect.callback<string, string>((resume) => {
+          rings.push(attempt);
           waiting.set(attempt, resume);
         }),
     }),
   );
 
-  return { layer, waiting };
+  return { layer, waiting, rings };
 };
 
-const boot = (store: Map<string, string>, seed: number, settled = true) => {
+const boot = (store: Map<string, string>, seed: number, settled = true, served = doors) => {
   const page = pageOver(store, seed);
   const bell = bellOf();
   const seen: Array<Evidence> = [];
 
   const built: TestRuntime = testing.build(
-    { app: doors, services: bell.layer, scope: "test", persistence: { captureMs: 0 } },
+    { app: served, services: bell.layer, scope: "test", persistence: { captureMs: 0 } },
     page.platform,
   );
 
@@ -167,6 +211,17 @@ const boot = (store: Map<string, string>, seed: number, settled = true) => {
 
   return { built, page, bell, seen };
 };
+
+const tagsOf = (seen: ReadonlyArray<Evidence>, attempt: string, tags: ReadonlyArray<string>) =>
+  seen.flatMap((e) =>
+    tags.includes(e._tag) && (!("attempt" in e) || attempt === "" || sameAttempt(e, attempt))
+      ? [e._tag]
+      : [],
+  );
+
+const sameAttempt = (e: Evidence, attempt: string) =>
+  "attempt" in e &&
+  (Predicate.isString(e.attempt) ? e.attempt === attempt : Option.contains(e.attempt, attempt));
 
 const endingsOf = (seen: ReadonlyArray<Evidence>, attempt: string) =>
   seen.flatMap((e) =>
@@ -192,9 +247,49 @@ describe("write lanes on the production runtime", () => {
     second.page.settle();
 
     assert.deepStrictEqual(endingsOf(second.seen, attempt), ["unknown Restored"]);
+    assert.deepStrictEqual(second.bell.rings, [], "nothing is invoked once disposal starts");
+    assert.deepStrictEqual(tagsOf(second.seen, attempt, ["Sent"]), []);
   });
 
-  it("dispose() waits for the core's disposal: a call settling inside the bound is parked before the Scope closes (Actors R22)", async () => {
+  it("dispose() waits for the core's disposal: a call settling inside the bound is parked, then heard by the next incarnation (Actors R22)", async () => {
+    const store = new Map<string, string>();
+    const first = boot(store, 1);
+
+    testing.attach(first.built, front, "host", false);
+    testing.send(first.built, front, "Ring", {});
+    first.page.settle();
+
+    const [attempt] = [...first.bell.waiting.keys()];
+    assert.ok(attempt !== undefined, "the ring is on the wire");
+
+    const disposing = Effect.runFork(first.built.runtime.dispose());
+    first.page.settle();
+    assert.strictEqual(disposing.pollUnsafe(), undefined, "dispose() waits for the call");
+
+    first.bell.waiting.get(attempt)?.(Effect.succeed("ding"));
+    first.page.settle();
+
+    assert.ok(Exit.isSuccess(await Effect.runPromise(Effect.exit(Fiber.join(disposing)))));
+    assert.deepStrictEqual(endingsOf(first.seen, attempt), ["success success"]);
+    assert.deepStrictEqual(tagsOf(first.seen, attempt, ["Ended", "Parked", "RuntimeDisposed"]), [
+      "Ended",
+      "Parked",
+      "RuntimeDisposed",
+    ]);
+
+    const second = boot(store, 2);
+    testing.attach(second.built, front, "host", true);
+    second.page.settle();
+
+    assert.deepStrictEqual(
+      second.seen.flatMap((e) =>
+        e._tag === "Delivered" && Option.contains(e.attempt, attempt) ? [e.event] : [],
+      ),
+      ["Rang"],
+    );
+  });
+
+  it("dispose() past the bound: a call that never answers ends unknown Disposed after 5 s, then the disposal ends (Actors R22)", async () => {
     const first = boot(new Map(), 1);
 
     testing.attach(first.built, front, "host", false);
@@ -204,38 +299,58 @@ describe("write lanes on the production runtime", () => {
     const [attempt] = [...first.bell.waiting.keys()];
     assert.ok(attempt !== undefined, "the ring is on the wire");
 
-    const disposed = Effect.runPromiseExit(first.built.runtime.dispose());
-    first.page.settle();
-    first.bell.waiting.get(attempt)?.(Effect.succeed("ding"));
-    first.page.settle();
+    const disposing = Effect.runFork(first.built.runtime.dispose());
+    first.page.advance(4999);
+    assert.strictEqual(disposing.pollUnsafe(), undefined, "dispose() waits out the bound");
 
-    assert.ok(Exit.isSuccess(await disposed));
-    assert.deepStrictEqual(
-      first.seen.flatMap((e) =>
-        (e._tag === "Parked" && Option.contains(e.attempt, attempt)) || e._tag === "RuntimeDisposed"
-          ? [e._tag]
-          : [],
-      ),
-      ["Parked", "RuntimeDisposed"],
-    );
+    first.page.advance(1);
+
+    assert.ok(Exit.isSuccess(await Effect.runPromise(Effect.exit(Fiber.join(disposing)))));
+    assert.deepStrictEqual(endingsOf(first.seen, attempt), ["unknown Disposed"]);
+    assert.deepStrictEqual(tagsOf(first.seen, attempt, ["Parked", "RuntimeDisposed"]), [
+      "Parked",
+      "RuntimeDisposed",
+    ]);
   });
-});
 
-type Flag = "sent" | "cancelled" | "redelivered" | "parked";
+  it("a key-less retry and retryable on an unkeyed operation, outside an ending's handler, name its one lane (WriteLanes R9)", () => {
+    const first = boot(new Map(), 1, true, gates);
 
-type KeysOf<T> = T extends unknown ? keyof T : never;
+    testing.attach(first.built, side, "host", false);
+    testing.send(first.built, side, "Ring", {});
+    first.page.settle();
 
-// A head's history and an ending's tries are tags, never booleans beside them (T51 acceptance).
-const noEndingFlags: [Extract<KeysOf<Head | Phase | Ending>, Flag>] extends [never] ? true : false =
-  true;
+    const [attempt] = first.bell.rings;
+    assert.ok(attempt !== undefined, "the ring is on the wire");
+    first.bell.waiting.get(attempt)?.(Effect.fail("lost"));
+    first.page.settle();
 
-type LookupArguments = Parameters<Extract<Operation, { readonly _tag: "Read" }>["call"]["run"]>;
+    testing.send(first.built, side, "Again", {});
+    first.page.settle();
 
-// A lookup is called with its input alone: no Attempt, and nothing standing in for one (Reads I21).
-const lookupTakesInputOnly: LookupArguments extends readonly [Values] ? true : false = true;
+    assert.deepStrictEqual(first.bell.rings, [attempt, attempt], "the Held Attempt is re-sent");
+  });
 
-describe("lane shapes", () => {
-  it("phases and tries are tags, and a lookup gets no Attempt (T51 acceptance, Reads I21)", () => {
-    assert.deepStrictEqual([noEndingFlags, lookupTakesInputOnly], [true, true]);
+  it("a key-less cancel on an unkeyed operation, outside an ending's handler, releases its one lane (WriteLanes R9, R14)", () => {
+    const first = boot(new Map(), 1, true, gates);
+
+    testing.attach(first.built, side, "host", false);
+    testing.send(first.built, side, "Ring", {});
+    first.page.settle();
+
+    const [attempt] = first.bell.rings;
+    assert.ok(attempt !== undefined, "the ring is on the wire");
+    first.bell.waiting.get(attempt)?.(Effect.fail("lost"));
+    first.page.settle();
+
+    testing.send(first.built, side, "Stop", {});
+    testing.send(first.built, side, "Ring", {});
+    first.page.settle();
+
+    assert.deepStrictEqual(
+      first.seen.flatMap((e) => (e._tag === "Lane" ? [e.kind] : [])),
+      ["Released"],
+    );
+    assert.strictEqual(first.bell.rings.length, 2, "the released lane takes a new commit");
   });
 });

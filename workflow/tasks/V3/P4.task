@@ -1129,3 +1129,63 @@ tasks
             tickets dropped), then host dispose and the reads' Command, then the lint fixes, after the review confirms 
             step 1 and the mutant re-anchoring is decided. Baseline gate output is in the lead's scratch base/ folder; 
             scratch tracer for suite runs: trace.ts there.
+        comment     2026-11-12T02:22:09Z
+            Mapping (lead, 2026-11-12), one to one; every requirement's check is red at 909f4bee's `src` and its wrong 
+            side named.
+            Acceptance: A1 total function, no flag -> Q5 (`exactRecords` in `src/host/lane-shapes.test.ts`) and Q12 
+            (`totality`,
+            a mapped table over cue x lane state); A2 reports from evidenceOf -> Q6 (rule `flow-state/derived-reports`: 
+            Minted,
+            Sent, Lane, Ended outside `src/core/evidence-of.ts`, aliases and `_tag` literals, 10 hits), mutants fall -> 
+            Q13, core
+            survivors -> Q10; A3 Held head -> Q1; A4 gates, check -> Q10; A5 crash -> Q10 (26 Held-head points); A6 
+            dispose -> Q2
+            (inside the bound: pending before the answer, Ended success then Parked, next life hears Rang) and Q2b 
+            (past 5 s:
+            unknown Disposed then RuntimeDisposed); A7 -> Q7 (`lookupInputOnly`, non-vacuous), Q8 (seam), Q9 (Spec, 
+            Plan and
+            Task ids in comments, split comments and strings, 85 hits); A8 Q5's open cells -> Q12 (`CommitCancel.Kept` 
+            and
+            `Keep.Held` typed `Impossible`).
+            Approach: exhaustive match -> Q12; evidenceOf -> Q6; tags replace booleans -> Q5; dispose -> Q2, Q2b; drop
+            `tickets`, `Lane.id`, `key`, `keyText` -> Q5 (exact `Lane` and `World` keys); Held head -> Q1; reads 
+            without an
+            Attempt -> Q7; seam lint -> Q8; Spec ids lint -> Q9. Gaps: Held head -> Q1; GEN-pay-seeded-281 -> dropped, 
+            the
+            suite driver was wrong (`conformance/dsl/case.ts` read `removed` after recording Ensured), fixed here and 
+            green on
+            production; dirty record at the end -> Q4 (ACT-02, ACT-03). Review additions: Q11 key-less retry, retryable 
+            and
+            cancel on an unkeyed operation name its lane (two tests in `src/host/lanes.test.ts`).
+            Wrong side, replayed: Q1 production (restored head has `sent: false`, so a retry re-acknowledges and 
+            disposal ends
+            it NotSent; breaks the model's disposal row and WriteLanes I3); Q2, Q2b production (`dispose()` closes the 
+            driver
+            and the Scope at once; Actors R22 note); Q4 production (the end's record write waits for the capture; 
+            Actors R8);
+            Q11 production (`laneFor` resolves a key-less member only through the ending's own lane; WriteLanes R9); Q5 
+            to Q9,
+            Q12 production's shapes and text.
+            Out of scope: KeyRequired (revisit.md, proposed); latest, serialize and cancel cells (T18); release on 
+            leave and a
+            not-retained unknown's release (not built in production; T18 rules the policies); `Ending.current` (routes 
+            current
+            or late, not a try); crash reds that are not Held-head points (DISP-02@6, DISP-06@5, DLV-06@11, PAY-22@16; 
+            T51 owes
+            none new).
+        comment     2026-11-12T02:22:15Z
+            Driver fix verified (lead): `case.ts` reads `removed` before recording Ensured; GEN-pay-seeded-281 passes on
+            production. Reviewer sidecar: accepted (order fixed, facts unchanged, only `end`'s writers change). 
+            Production sweep:
+            5 lost catches of prod.actor-never-saved, accepted as stale rows, since the mutant gives the same verdicts 
+            on those 6
+            cases with the old and new driver. Round-14 runner sidecar (641 dispose or forget cases, 154 mutants, both 
+            drivers):
+            353 lost pairs, accepted as no real loss after re-check: all 24 lost cases are red on the unedited round-14 
+            under
+            the old driver, so those catches were void; no mutant's overall verdict changed. Data: lead's scratch 
+            r14cmp/.
+            Q13, a re-pointed mutant counts only under the review's five conditions (one decision, applies and compiles,
+            `expects` kills it first, same first divergent fact as at 909f4bee with both traces logged, else retired 
+            with a
+            reason).

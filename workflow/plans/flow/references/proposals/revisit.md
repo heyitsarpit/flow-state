@@ -39,3 +39,6 @@ Deferred items.
   dispatch-desk panels comment says so.
 - **A raise into a `.each` copy the same turn removes** (2026-11-11, catalogue 5B, gap 5). Not covered by the rule on
   raises into exited fragments.
+- **KeyRequired for a key-less member on a keyed operation** (2026-11-12, T51 step-1 review ruling 4;
+  proposed). WriteLanes R9 refuses a key-less retry, retryable or cancel on a keyed operation outside its own
+  ending's handler; `src/` builds no such check. Not T51's; revisit when a fixture has a keyed operation.

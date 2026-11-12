@@ -50,15 +50,6 @@ const coreProperties = [
   })),
 ];
 
-// Reports an act determines are derived from the act in one place, the lane table's evidenceOf
-// (WriteLanes' production realization), never written beside the act.
-const derivedReports = ["Minted", "Sent", "Lane"].map((property) => ({
-  object: "Evidence",
-  property,
-  message:
-    "A report an act determines comes from evidenceOf in src/core/cells.ts, not beside the act.",
-}));
-
 // The production adapter imports from its runtime only the public entry and the listed seam
 // (Conformance I45).
 const seam = ["src/index.ts", "src/host/testing.ts", "src/host/inspect.ts"];
@@ -307,13 +298,15 @@ export default defineConfig({
               globalObjects: ["global", "globalThis", "window"],
             },
           ],
-          "no-restricted-properties": ["error", ...coreProperties, ...derivedReports],
+          "no-restricted-properties": ["error", ...coreProperties],
         },
       },
       {
-        // The lane table is where acts' reports are derived.
-        files: [`${productionSource}/core/cells.ts`],
-        rules: { "no-restricted-properties": ["error", ...coreProperties] },
+        // Reports an act determines are derived from the act in one function, evidenceOf, alone in
+        // its file (WriteLanes' production realization), never written beside the act.
+        files: [`${productionSource}/core/**/*.ts`],
+        excludeFiles: [...productionTests, `${productionSource}/core/evidence-of.ts`],
+        rules: { "flow-state/derived-reports": "error" },
       },
       {
         files: [`${productionSource}/**/*.{ts,tsx}`],
