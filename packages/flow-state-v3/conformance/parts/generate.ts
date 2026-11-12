@@ -11,6 +11,7 @@ import {
   armed,
   type Believed,
   heard,
+  refused,
   reloaded,
   reset,
   type World,
@@ -19,7 +20,7 @@ import { partFixture } from "./reference.ts";
 
 /**
  * A suite-wide profile: the usual healthy run, or the stress run with faults (lost answers,
- * unacknowledged writes, reloads).
+ * unacknowledged and refused writes, reloads).
  */
 export type Profile = "usual" | "stress";
 
@@ -188,11 +189,16 @@ const worldMoves = (
         ]
       : [];
 
+  const refuse =
+    world.unacked.length > 0 && allowed(["sr"])
+      ? [{ steps: [{ _tag: "refuse" as const }], weight: 1, apply: () => refused(world) }]
+      : [];
+
   const reload = allowed(["rl"])
     ? [{ steps: [{ _tag: "reload" as const }], weight: 1, apply: () => reloaded(world) }]
     : [];
 
-  return [...timer, ...ack, ...reload];
+  return [...timer, ...ack, ...refuse, ...reload];
 };
 
 const pick = (moves: ReadonlyArray<Move>, at: number) => {
@@ -286,7 +292,8 @@ const generated = (
  *
  * - Each of the part's actors is ensured first; each move then draws, by weight, a user action at
  *   the leaf the generator believes the actor is in, an answer to a request it believes open, or
- *   (under stress) a lost answer, an unacknowledged write, an acknowledgement or a reload.
+ *   (under stress) a lost answer, an unacknowledged write, an acknowledgement, a refusal or a
+ *   reload.
  * - The belief comes from the part's own `Compiled` and folds; it only steers the draw, so a wrong
  *   belief makes a less useful script, never a wrong verdict.
  */

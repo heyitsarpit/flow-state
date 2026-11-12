@@ -119,7 +119,8 @@ const acted = (world: World, a: Believed, action: LaneAction, key: string, acked
 
 /**
  * Applies one event to the generator's belief of an actor: the first alternative whose guards
- * pass moves its leaf, folds its update, and opens, resends or drops its lane members' requests.
+ * pass moves its leaf, folds its update, opens its lookups' requests, and opens, resends or drops
+ * its lane members' requests.
  */
 export const heard = (world: World, a: Believed, event: string, labels: Labels, acked: boolean) => {
   const chosen = alternativesFor(a.part.machine.compiled, a.leaf.current, event).find((alt) =>
@@ -133,15 +134,12 @@ export const heard = (world: World, a: Believed, event: string, labels: Labels, 
   if (update !== undefined)
     MutableRef.set(a.fields, { ...a.fields.current, ...update(labels, a.fields.current) });
 
-  for (const action of chosen.actions)
-    if (action._tag !== "Lookup")
-      acted(
-        world,
-        a,
-        action,
-        keyText(a.fixture, action.operation, labels, a.fields.current),
-        acked,
-      );
+  for (const action of chosen.actions) {
+    const key = keyText(a.fixture, action.operation, labels, a.fields.current);
+
+    if (action._tag === "Lookup") opened(world, action.operation, { actor: a.by, key });
+    else acted(world, a, action, key, acked);
+  }
 
   Option.map(chosen.target, (target) => {
     MutableRef.set(a.leaf, target);
@@ -227,6 +225,17 @@ export const advanced = (world: World, ms: number) => {
     );
 
     for (const t of due) if (a.attached.current) heard(world, a, t.send, {}, true);
+  }
+};
+
+/**
+ * The store refused the held batch: its writes are never sent, so their lanes are free again.
+ */
+export const refused = (world: World) => {
+  for (const { request } of world.unacked.splice(0)) {
+    const a = world.actors[request.actor];
+
+    if (a !== undefined) MutableRef.set(a.busy, without(a.busy.current, request.key));
   }
 };
 

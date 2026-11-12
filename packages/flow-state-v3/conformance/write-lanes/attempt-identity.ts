@@ -149,6 +149,24 @@ const definiteIn = (step: ReadonlyArray<Fact>) =>
       : [],
   );
 
+const restoredIn = (step: ReadonlyArray<Fact>) =>
+  step.some(Fact.$is("Reloaded"))
+    ? reported(step).flatMap((observed) =>
+        Observation.$is("Ended")(observed) &&
+        observed.channel === "unknown" &&
+        observed.reason === "Restored" &&
+        Option.isSome(observed.attempt)
+          ? [{ operation: observed.operation, attempt: observed.attempt.value }]
+          : [],
+      )
+    : [];
+
+const stillDefinite = (definite: ReadonlyArray<AttemptRef>, step: ReadonlyArray<Fact>) => {
+  const restored = restoredIn(step);
+
+  return [...definite, ...definiteIn(step)].filter((d) => !restored.some((r) => sameAttempt(r, d)));
+};
+
 const keysMintedAndOpen = (
   mints: ReadonlyArray<Mint>,
   definiteBefore: ReadonlyArray<AttemptRef>,
@@ -188,7 +206,8 @@ type State = {
  * - an Attempt is its operation and id: every invoke the runtime reports, and every send the
  *   server receives, names the operation its id was minted under, and the id was reported minted
  *   by the end of its step; a send of it in a step after its reported definite ending is a
- *   violation;
+ *   violation, until a boot restores it unknown { Restored } (WriteAhead I17: a crash lost the
+ *   ending, and a user's retry re-sends it with that id);
  * - an Attempt is sent on the key it was minted on: the key fields of each send's input equal
  *   those of the key `Minted` reported (WriteLanes R5: an Attempt has one key and every send
  *   carries its one input; the check is convergence v2's, proposed). The lifecycle places the
@@ -203,6 +222,9 @@ type State = {
  *
  * - A runtime that mints a fresh Attempt for a re-send and reports it honestly passes here: that
  *   is a lane rule ("a Held lane leaves Held only by a retry's resolution"), not this one.
+ * - Whether a definite ending restored as unknown { Restored } had been saved (WriteAhead R14:
+ *   saved outcomes are delivered, not replaced) is not judged here: T19's WriteAhead judges, which read
+ *   the store, owe it.
  * - retryCount is checked by cases, not here: the Port's row does not name its Attempt.
  * - The key check reads the reference's current key fields from both sides. A key made by a hand
  *   closure, or minted under an older key version (WriteLanes R11), is not told apart: no fixture
@@ -220,7 +242,7 @@ export const attemptIdentity = oracle<State>({
       {
         ...state,
         mints,
-        definite: [...state.definite, ...definiteIn(step)],
+        definite: stillDefinite(state.definite, step),
         checked: requests.length,
       },
       [

@@ -24,8 +24,8 @@ export const ScriptAnswer = Schema.Union([
  * **Details**
  *
  * - `ensure` attaches the script's actor; `send` sends it an event with a payload.
- * - `ack` lands every held store batch; `answer` answers the oldest open request of an operation,
- *   and is skipped when none is open.
+ * - `ack` lands every held store batch, `refuse` refuses them (WriteAhead R13's refusal);
+ *   `answer` answers the oldest open request of an operation, and is skipped when none is open.
  * - `advance` moves the clock; `reload` kills the page and boots again.
  * - `release` ends the actor's story use; `dispose` and `forget` remove its record (Actors R20,
  *   R21); `disposeRuntime` starts the Runtime's disposal (Actors R22).
@@ -43,6 +43,7 @@ export const Step = Schema.Union([
   Schema.TaggedStruct("ensure", { by }),
   Schema.TaggedStruct("send", { event: Schema.String, payload: Schema.Json, by }),
   Schema.TaggedStruct("ack", {}),
+  Schema.TaggedStruct("refuse", {}),
   Schema.TaggedStruct("answer", { operation: Schema.String, answer: ScriptAnswer }),
   Schema.TaggedStruct("advance", { ms: Schema.Number }),
   Schema.TaggedStruct("reload", {}),
@@ -94,6 +95,7 @@ const played = (c: Case, actorOf: (by: Option.Option<number>) => ActorRef, step:
     ensure: () => c.ensure(actor, Option.none()),
     send: ({ event, payload }) => c.send([{ actor: actor, event, payload, to: Address.Root() }]),
     ack: () => c.ack(),
+    refuse: () => c.answerStorage("refuse"),
     answer: ({ operation, answer }) => {
       if (open(c, operation)) c.answer(operation, answerOf(answer));
     },

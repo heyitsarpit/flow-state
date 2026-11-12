@@ -40,10 +40,17 @@ const fixtures = parts.map(partFixture);
  */
 export const partsOwed: ReadonlyArray<Limit & { readonly owner: string }> = [
   {
-    case: "PART-transfers-stress-12",
+    case: "MIX-sync+transfers+sign-in-stress-109",
     check: "lane-queue",
     invariant: "WriteLanes I12",
     why: "a re-send's retryCount is never re-captured (`invoke` sets the lane, `persist` is not called), so a boot restores the count from before the re-send and a spent `retryable({ times: 1 })` passes again (WriteAhead R5, R7; WriteLanes I7)",
+    owner: "@task.V3.T19",
+  },
+  {
+    case: "MIX-sync+transfers+sign-in-stress-2",
+    check: "lane-queue",
+    invariant: "WriteLanes I8",
+    why: "a forgotten actor's unacknowledged Attempt whose batch the store then refuses is never ended (only StorageFailure evidence), so the adopting incarnation mints a second Attempt on its lane (WriteAhead R13, Actors R20, R21, WriteLanes I27)",
     owner: "@task.V3.T19",
   },
 ];
@@ -125,6 +132,7 @@ type Seen = {
   readonly keys: Map<string, Set<string>>;
   readonly sentKeys: Set<string>;
   readonly ensured: Map<string, Set<string>>;
+  readonly ended: Set<string>;
   readonly now: Set<"landed" | "reloaded" | "advanced">;
 };
 
@@ -191,6 +199,8 @@ const turnCodes = (seen: Seen, turn: Turn) => {
 };
 
 const reportCodes = (seen: Seen, o: Observation) => {
+  if (Observation.$is("Ended")(o)) Option.map(o.attempt, (a) => seen.ended.add(a));
+
   if (Observation.$is("Denied")(o))
     return parts.filter((p) => handles(p, o.event)).flatMap((p) => one(Option.some(p), "gd"));
 
@@ -212,6 +222,14 @@ const lostWrite = (fact: Fact) =>
       writeOf(p, fact.request.operation),
     ),
   );
+
+const lateAnswer = (seen: Seen, fact: Fact) =>
+  Fact.$is("Answered")(fact) && Option.exists(fact.request.key, (k) => seen.ended.has(k));
+
+const refusedCodes = (seen: Seen) =>
+  parts
+    .filter((p) => p.machine.compiled.persist && seen.ensured.has(p.machine.compiled.id))
+    .flatMap((p) => one(Option.some(p), "sr"));
 
 const actorCodes = (seen: Seen, fact: Fact) => {
   if (Fact.$is("Disposed")(fact) || Fact.$is("Forgot")(fact))
@@ -249,8 +267,13 @@ const factCodes = (seen: Seen, fact: Fact) => {
 
   if (Fact.$is("Reported")(fact)) return reportCodes(seen, fact.observation);
 
+  if (lateAnswer(seen, fact) && Fact.$is("Answered")(fact))
+    return one(partOfOperation(fact.request.operation), "lr");
+
   if (lostWrite(fact) && Fact.$is("Answered")(fact))
     return one(partOfOperation(fact.request.operation), "un");
+
+  if (Fact.$is("Dropped")(fact)) return refusedCodes(seen);
 
   return actorCodes(seen, fact);
 };
@@ -270,7 +293,14 @@ const factCodes = (seen: Seen, fact: Fact) => {
  *   machine.
  */
 export const reachOf = (played: Played) => {
-  const seen: Seen = { keys: new Map(), sentKeys: new Set(), ensured: new Map(), now: new Set() };
+  const seen: Seen = {
+    keys: new Map(),
+    sentKeys: new Set(),
+    ensured: new Map(),
+    ended: new Set(),
+    now: new Set(),
+  };
+
   const reached = new Map<string, Set<Code>>();
 
   for (const fact of played.facts)

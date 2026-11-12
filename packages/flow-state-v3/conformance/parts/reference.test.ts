@@ -97,18 +97,20 @@ describe("parts' fixtures (Q2, Q4, Q5: Conformance R15, R20; F3)", () => {
     }
   });
 
-  it("every operation has a server model and a classify, carried into the fixture", () => {
+  it("every operation has a server model, and every write a classify carried into the fixture", () => {
     assert.equal(parts.length, 3);
 
     for (const part of parts) {
       const fixture = partFixture(part);
 
-      for (const name of part.machine.compiled.operations.keys()) {
+      for (const [name, operation] of part.machine.compiled.operations) {
         assert.ok(
           (part.server[name]?.answers.length ?? 0) > 0,
           `${part.name}.${name} has no answer`,
         );
-        assert.ok(Predicate.isFunction(fixture.operations[name]?.reference.classify));
+
+        if (operation._tag === "Write")
+          assert.ok(Predicate.isFunction(fixture.operations[name]?.reference.classify));
       }
     }
 

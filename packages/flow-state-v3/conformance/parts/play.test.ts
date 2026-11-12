@@ -46,14 +46,29 @@ describe("part scripts on production (Q9, Q10, Q15, Q17: Conformance R15, R19, R
     assert.ok(partsOwed.length > 0);
 
     for (const owed of partsOwed) {
-      const [, name, profile, seed] = /^PART-(.+)-(usual|stress)-(\d+)$/u.exec(owed.case) ?? [];
-      const part = parts.find((p) => p.name === name);
+      const [, kind, name, profile, seed] =
+        /^(PART|MIX)-(.+)-(usual|stress)-(\d+)$/u.exec(owed.case) ?? [];
 
-      assert.ok(part !== undefined && (profile === "usual" || profile === "stress"), owed.case);
-      const played = playPart(scriptOf(part, profile, Number(seed), production), "production");
+      const part = parts.find((p) => p.name === name);
+      assert.ok(profile === "usual" || profile === "stress", owed.case);
+      assert.ok(kind === "MIX" || part !== undefined, owed.case);
+
+      const script =
+        part === undefined
+          ? mixOf(parts, profile, Number(seed), production)
+          : scriptOf(part, profile, Number(seed), production);
+
+      assert.equal(script.id, owed.case);
+      const played = playPart(script, "production");
 
       assert.ok(verdictOfLimit(owed, played.verdict).held, JSON.stringify(played.verdict));
     }
+  });
+
+  it("the suite's own first-contact reds stay fixed: a re-send after a crash lost the ending", () => {
+    const played = playPart(mixOf(parts, "stress", 7, production), "production");
+
+    assert.equal(played.verdict._tag, "Pass", JSON.stringify(played.verdict));
   });
 
   it("refuses a part on round-14", () => {
@@ -100,7 +115,8 @@ describe("reach from executed facts (Q11: Conformance R17)", () => {
       );
       assert.ok(
         reached.every(
-          (c) => claimed.has(c) || ["dp", "rl", "wa", "rt", "un", "du", "ma"].includes(c),
+          (c) =>
+            claimed.has(c) || ["dp", "rl", "wa", "rt", "un", "du", "ma", "lr", "sr"].includes(c),
         ),
         part.name,
       );
@@ -136,6 +152,39 @@ describe("reach from executed facts (Q11: Conformance R17)", () => {
     assert.ok(reached.has("rj") && reached.has("gr"));
     assert.equal(played.skipped, 0);
     assert.ok(!reached.has("cm") && !reached.has("un"));
+  });
+
+  it("a late answer reaches lr only after its Attempt ended; a refused batch reaches sr", () => {
+    const send = { transferId: "t1", iban: "DE89370400440532013000", cents: 500 };
+
+    const ok = {
+      _tag: "answer",
+      operation: "transfer",
+      answer: { _tag: "ok", value: {} },
+    } as const;
+
+    // RETURN_TYPE: a Script, so its steps keep the Step union rather than each literal.
+    const steps = (after: ReadonlyArray<Script["steps"][number]>): Script => ({
+      id: "reach-late",
+      fixture: "transfers",
+      actor: "acct-1",
+      steps: [{ _tag: "ensure" }, { _tag: "send", event: "Send", payload: send }, ...after],
+    });
+
+    const reached = (script: Script) => {
+      const played = playPart(script, "production");
+
+      assert.equal(played.verdict._tag, "Pass", JSON.stringify(played.verdict));
+
+      return reachOf(played)["C"] ?? new Set();
+    };
+
+    const abandon = { _tag: "send", event: "Abandon", payload: { transferId: "t1" } } as const;
+
+    assert.ok(reached(steps([{ _tag: "ack" }, abandon, ok])).has("lr"));
+    assert.ok(!reached(steps([{ _tag: "ack" }, ok, abandon])).has("lr"));
+    assert.ok(reached(steps([{ _tag: "refuse" }])).has("sr"));
+    assert.ok(!reached(steps([{ _tag: "ack" }, ok])).has("sr"));
   });
 
   it("steps after a stop reach nothing", () => {

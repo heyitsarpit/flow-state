@@ -26,7 +26,7 @@ describe("gates (Q19, Q27)", () => {
       assert.ok(source.includes(`gate: "${gate}"`), gate);
   });
 
-  it("every kept regression decodes; a production red a part found is kept or owed, by a part", () => {
+  it("every kept regression decodes; a production red a part found is kept or owed, by its parts", () => {
     const dir = resolve(HERE, "../regressions");
     const names = new Set(parts.map((p) => p.name));
 
@@ -39,11 +39,15 @@ describe("gates (Q19, Q27)", () => {
       ...partsOwed.map((o) => ({ id: o.case })),
     ];
 
-    for (const { id } of partIds)
-      assert.ok(
-        [...names].some((n) => id.startsWith(`PART-${n}-`)),
-        `${id} names no part`,
-      );
+    const namesParts = (id: string) => {
+      const [, kind, cast] = /^(PART|MIX)-(.+)-(?:usual|stress)-\d+$/u.exec(id) ?? [];
+
+      if (kind === "MIX") return (cast ?? "").split("+").every((n) => names.has(n));
+
+      return kind === "PART" && names.has(cast ?? "");
+    };
+
+    for (const { id } of partIds) assert.ok(namesParts(id), `${id} names no part`);
 
     assert.ok(partsOwed.every((o) => o.owner.startsWith("@task.V3.")));
   });

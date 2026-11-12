@@ -84,3 +84,69 @@ export const isCode = (code: string): code is Code => known.has(code);
  * The codes of `codes` that are not in the closed list.
  */
 export const unknownCodes = (codes: ReadonlyArray<string>) => codes.filter((code) => !isCode(code));
+
+/**
+ * The slice that builds each code (the replan's "53 feature codes, by owning Spec"; 0 is slice R,
+ * already built).
+ *
+ * **Details**
+ *
+ * - `wa`, `sr` and `rl` are 0: production builds them in part today (its declaration says so) and
+ *   slice 2 completes them.
+ * - `in` is 3, the slice of its compile half; its naming half lands in slice 4.
+ */
+export const SLICE_OF: Readonly<Record<Code, number>> = {
+  rj: 0,
+  ky: 0,
+  cm: 0,
+  rt: 0,
+  un: 0,
+  lr: 0,
+  du: 0,
+  gd: 0,
+  dp: 0,
+  ma: 0,
+  gr: 0,
+  lk: 0,
+  wa: 0,
+  sr: 0,
+  rl: 0,
+  lt: 1,
+  se: 1,
+  ca: 1,
+  cA: 1,
+  ad: 1,
+  up: 2,
+  fg: 2,
+  pg: 2,
+  cs: 3,
+  hs: 3,
+  fr: 3,
+  ea: 3,
+  rn: 3,
+  ci: 3,
+  pv: 3,
+  ck: 3,
+  ms: 3,
+  rs: 3,
+  ks: 3,
+  dm: 3,
+  in: 3,
+  lc: 4,
+  sd: 4,
+  sn: 4,
+  is: 4,
+  cx: 4,
+  sb: 5,
+  op: 5,
+  kb: 5,
+  fz: 5,
+  sw: 5,
+  ph: 5,
+  os: 5,
+  of: 5,
+  st: 7,
+  en: 8,
+  mt: 9,
+  lz: 9,
+};
