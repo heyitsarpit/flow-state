@@ -349,3 +349,8 @@ note 2026-11-12T07:01:07Z
     evidenceOf), between T52 and T18; and Task B, Runtime life (Life, admit, the final write into the core), after T18 
     and before T19. Design: fable-architecture-consult-3-2026-11-12.md. Orchestrator: apply at settlement with Settled 
     as fallback; Kept-only blocking; Identity to T9; capture window stays in the host. Tasks being written with to-task.
+note 2026-11-12T07:09:18Z
+    T47 second lead: all review fixes and items 1-5 done (parts 38/38, matrix 265/265, pairs 74/74, bench 3/3, 
+    production regressions 6/6, each seen red). Rulings (orchestrator): Q22 builds what production's Compiled has and 
+    owes CMP-02/06/07 and places to T17; the 7 unreached pairs' owners decided (6 to T19, du+ma to T9); 
+    GEN-pay-search-25-shrunk owed to T54's start rewrite. Lead finishing, then review.
