@@ -117,6 +117,89 @@ tasks
             `Store` Invariant and a host store section (@plan.Persistence.O1). Codes: sr rl fg. Read first: 
             code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part 3, "2 Durability").
 
+            **Brief** (proposed; source
+            code:workflow/plans/flow/references/proposals/core-task-briefs-2026-11-12.md): the sections below
+            and the comments "Rules for every brief" and "Requirements (from core-task-briefs-2026-11-12.md)"
+            are this Task's brief. The older comments are known gaps. Where this brief and the record disagree,
+            the brief is newer.
+
+            **Read first (added):** @spec.Restore (all); @spec.Codec (all); @spec.WriteAhead (R4, R5, R9);
+            @spec.Actors (R10, R20, R21); code:packages/flow-state-v3/conformance/README.md (the `restore` row
+            and the carry list); `conformance/not-yet.ts` (the Restore and Codec rows).
+
+            **Record differences:**
+
+            - "Delivers owed endings at boot" in the record means at the first Start after a boot: a boot itself
+              delivers and parks nothing (@spec.Restore.R1; @spec.Actors.R10).
+            - `conformance/not-yet.ts` gives T20 Restore I12 and I14; they are @task.V3.T56's since the split
+              (key versions, saved-shape resets). The builder moves those rows to T56; Restore I13 and I15 (lane
+              quarantine) stay here.
+            - Code `fg` is missing from `MODEL_CODES` (`conformance/parts/codes.ts`); step 1 adds it.
+
+            **Decisions already made:**
+
+            - T20 is restore only; key fingerprints, identity versions, saved-shape resets, migration steps and
+              `previous` holds are T56's (orchestrator, 2026-11-12).
+            - A boot sorts by record key and delivers and parks nothing; Start delivers (T54 built `start`).
+              Record-key order is the order (@spec.Restore.R3).
+            - Decided (orchestrator, 2026-11-12): no creation-order record keys are built.
+            - Decided (orchestrator, 2026-11-12): an ending's `value` is encoded by the commit's declared Schema;
+              with none, the value is dropped and the row keeps its tag only.
+            - unknown { Restored } is derived at Start and stored nowhere.
+            - One `format` number, 1, for all kinds. No older format exists, so no migration step is written; a
+              newer, null or non-integer `format` is quarantined (@spec.Restore.R5).
+            - "forget" is two routes: an identity's forget (@spec.Actors.R21: removes the actor and owed records,
+              closes the rows, keeps a Held lane's record unbound) and `runtime.dispose({ forget: true })`
+              (@spec.Restore.R10: deletes the scope).
+            - Codes: sr rl fg.
+
+            **Parts:** every part built by then, each script cut at every crash point and reloaded; S13 and S08
+            under stress.
+
+            **Requirements:** R-1 to R-14, in the comment "Requirements (from core-task-briefs-2026-11-12.md)";
+            each is red first.
+
+            **Steps:**
+
+            1. **Suite half.** The Restore and Codec model sections; oracles `restore` and `quarantine`; code
+               `fg` in `MODEL_CODES`; the parts' reload operations on the model. **Check:** `parts` and
+               `model-mutation` green.
+            2. **Open item first:** how a row's `value` is encoded; answered above (decided, orchestrator,
+               2026-11-12).
+            3. **Codec** (R-9, R-10): the canonical byte codec and its vectors; the three record Schemas.
+            4. **Boot** (R-1, R-2, R-7, R-8, R-13): decode, sort by key, quarantine, install; wake the Owing
+               identities.
+            5. **Start from bytes** (R-3 to R-6): `start` already delivers; restore supplies the rows and lanes.
+            6. **forget** (R-11, R-12), both routes.
+            7. **Template items:** codes sr rl fg declared; the Restore oracles re-judge every composite; R-14;
+               the combination gate; held-out seeds; the Fable sample; the benchmark replay.
+
+            **Traps:**
+
+            - **Restore read from memory** passes without a codec. R-1's fresh Runtime shares nothing with the
+              writer but bytes.
+            - **Boot must not deliver.** Delivery is Start's. `GEN-pay-search-25`'s red was the model's fault,
+              fixed in `974ad3a1`: the model allows that restore at the boot or at the adoption. Production does
+              it at Start only.
+            - **Order across lanes:** all owed rows first, then each lane's derived endings.
+            - **Restore's LaneRekeyed and OldVersionLane** name one thing twice, and both are T56's; if R-8
+              reaches a re-keyed or old-version lane, stop and ask.
+            - **`Owing` (Restore `model`) is not `Owed`** (one ledger row, WriteLanes `model`).
+            - **Invariants left to cover from their Spec text** (rule above): Restore I9 and I19 have no Spec case
+              yet; write one each.
+
+            **Must not decide alone:** how a row's `value` is encoded when JSON cannot carry it (decided, above);
+            creation-order keys (decided: none, above); what happens to a saved row whose operation is gone (ask;
+            the lane rule is R-8, the row rule is unstated); any version or key-fingerprint tag (T56); the name
+            RecordUndecodable; whether an identity's forget is allowed while its Attempt is on the wire.
+
+            **Handoffs:**
+
+            - **T56:** the record Schemas and where a version tag would sit; the quarantine path; Restore I12 and
+              I14.
+            - **T58:** the reload scripts the browser slice replays on IndexedDB in Chrome and Safari.
+            - **T9:** boot's wake list by identity; the boot queue for a send to a persisted actor.
+
             - **May change:** `src/`.
             - **Evidence:** this Task's comments.
             - **False pass:** restore read from memory, not bytes → caught by the restore oracle.
@@ -147,6 +230,170 @@ tasks
             Task: the codec, how an ending's value is encoded, creation-order keys, version and key-fingerprint tags, 
             rows whose operation is gone; owed endings sit outside lane and actor records (C9), which this Task may 
             revisit.
+        comment     2026-11-12T10:34:58Z
+            Rules for every brief (from core-task-briefs-2026-11-12.md, proposed)
+
+            - **Spec first.** The seven runtime Specs in `workflow/specs/core/` (WriteLanes, Actors, WriteAhead, 
+              Restore,
+              Reads, Turn, Codec) are the build's source. Where a Spec and the code disagree, the Spec wins; where a 
+              Spec is
+              silent, stop and ask. Shared terms: ending, Attempt, lane and owed row are WriteLanes'; Start and Life are
+              Actors'; record kinds are WriteAhead R4 and R5.
+            - **Every requirement is a failing check first.** Write the check and its wrong runtime, see the check red 
+              on
+              today's code (or, where today's code is already right, the wrong runtime red and the check green), commit
+              that, then build. Say in the Task comment which of the two it was. Expected results come from the Spec 
+              rule
+              cited, never from running the code.
+            - **Every Invariant the Task owns gets an oracle or case.** `conformance/not-yet.ts` lists the Invariants 
+              each
+              Task owns. The requirement lines are the ones with design content; every other owned Invariant still needs
+              its oracle or case and a wrong runtime, written from its Spec text and its Spec test (T-numbered).
+            - **Slice template** (T18, T19, T20; @epic.V3 instructions): the suite half (Spec change, model section, 
+              parts,
+              model mutation, audit) is green on the Spec model and reviewed before the production half starts; then
+              production test-first; then the benchmark replay and the gates. "Declared, Enabled, Covered, Guards" in 
+              each
+              record's acceptance are that template's items and are kept verbatim.
+            - **All fixtures are central** (the user, 2026-11-12). No check is "one app passes". Each requirement runs 
+              over
+              the generated parts available at its slice, under their usual and stress profiles, both world seeds:
+              - "the base parts": the pilots S16 transfers, S21 sign-in and S10 sync 
+                (`packages/flow-state-v3/fixtures/`),
+                their app mixes (`MIX-*`), and the generated parts T52 makes of the hand fixtures (including Pay and
+                checkout) and Cells;
+              - built by T18, from
+                code:workflow/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md: S01, S24 (composite A
+                Editor); S08, S03, S22 flat (B Outbox); S12, S23 (C Control); S09 flat (G Optimistic);
+              - built by T19: S13 (E Chat). S25 is @task.V3.T56's.
+
+              A requirement line names the parts that reach it most directly; it still runs over all parts available. 
+              The
+              fixtures (including Pay and checkout) keep one more role: the type-error count against `src/index.ts`, 
+              which
+              checks the API, not behaviour.
+            - **Store contents before the disk reader exists.** Until T19 builds the Port's disk reader, a check that 
+              reads
+              "store contents" reads the fake world's store from the harness side (`conformance/world/storage.ts`), 
+              never
+              through the runtime.
+            - **Gates.** `nub run conformance:gates` runs them all and writes `conformance/gates.json`. Singly:
+              `bun packages/flow-state-v3/conformance/runner/main.ts <mode>` with modes `suite`, `falsify`, `liar`, 
+              `crash`
+              (each `--runtime production`), `parts`, `pairs`, `matrix-gate`, `model-mutation`, `mutate` (core mutants),
+              `coverage`, `regressions`. Then `nub run check:fix` and `nub run check` at zero errors and zero warnings.
+              "No worse" means every gate's count at the Task's start, recorded in the Task's first comment.
+            - **Benchmarks.** `packages/flow-state-v3/bench/bench.ts` replays a part and returns its work fingerprint 
+              and
+              turn costs; no runner mode calls it yet. A Task that needs a cost number adds the scenario there and runs 
+              it
+              alone (no other process), recording the command in its comment.
+            - **Type tests** are `*.type-test.ts` files beside the code, using `@ts-expect-error`, checked by
+              `nub run check:effect`; each is planted wrong once to see it fail for the expected reason.
+            - **Shell.** Every command is bounded: `perl -e 'alarm N; exec @ARGV' -- <cmd> </dev/null`, under 3 
+              minutes, no
+              stdin reads; files are written with Write and Edit; kill your own stale shells. Suite slices and mutants 
+              may
+              run up to 8 in parallel; browsers and benchmarks run alone.
+            - **Code style.** Read `tools/lint-bomb/STYLE.md`, `tools/lint-bomb/examples/style.ts` and
+              `tools/lint-bomb/FLOW-STATE.md` before writing. The core (outside `src/host/`) is plain, pure, synchronous
+              TypeScript returning `{ state, effects }`; the host uses Effect fully. No implicit state machine: a set of
+              flags that together mean a state becomes one tagged value and one total table.
+            - **Sidecars.** Haiku only, effort high, read-only unless given one disjoint file with an acceptance check; 
+              the
+              lead reads every line and re-runs every check. A reviewer sidecar checks each oracle, harness or runtime
+              change.
+            - **Traps that apply to every Task:**
+              1. **A suite that cannot load once counted as killing mutants.** Fixed in `974ad3a1`: a kill counts only 
+                 when
+                 a failure names an oracle or a cited Invariant. Keep it guarded: for each new wrong runtime, read the
+                 failure and confirm it names the oracle or Invariant its requirement lists. A load failure, defect,
+                 timeout or missing verdict is a broken mutant, not a kill.
+              2. **Which side is wrong.** A red on production may be the model's or the oracle's fault (T47 found four 
+                 such:
+                 GEN-pay-search-20, 21, 55 and seeded-173). Before changing production to turn a check green, derive the
+                 expected result from the Spec rule by hand. If the model is wrong, fix the model and say so in the 
+                 comment.
+              3. **A lenient oracle passes everything.** Each oracle change needs its wrong runtime red before and 
+                 after.
+              4. **A differential baseline that silently re-records.** A baseline is re-recorded only with a named entry
+                 that cites the pending case it flips.
+            - **Never decide alone, in any Task:** a guarantee change (any Spec `must` or Invariant), a public name or 
+              shape
+              in `src/index.ts`, a new report kind, a new record kind or field, dropping or weakening a check, taking a
+              documented fallback. Ask the orchestrator. Small names inside the core are the builder's.
+            - **Close-out.** Each Task ends with a comment listing: gates at start and end, each allowed baseline 
+              difference
+              with its pending case, each Spec line changed (also in `workflow/specs/spec-log.md`), and the handoff 
+              items
+              written as comments on the receiving Task.
+            - **Names.** A name after "Wrong:" is the name to give a new wrong runtime or mutant; none exists yet. An 
+              oracle
+              or case marked (new) is written by the Task; one marked (exists) is in 
+              `packages/flow-state-v3/conformance/`
+              today. File names for new code inside `src/core/` and `src/host/` are the builder's unless given. Bare 
+              rule
+              ids carry their Spec's name on every line (WriteLanes I31, Actors T21); never drop it. If two lines 
+              disagree,
+              or a fact is missing, stop and ask the orchestrator; do not choose.
+        comment     2026-11-12T10:35:03Z
+            Requirements (from core-task-briefs-2026-11-12.md), each red first
+
+            - **R-1.** Restore reads bytes, never memory (Restore R1). **Check:** oracle `restore` (new): boot a fresh
+              Runtime that shares only the disk reader's bytes with the writer, and compare what it hears with the 
+              model.
+              **Wrong:** `restore.reads-memory`.
+            - **R-2.** After ready, the live incarnations restored from records are exactly the Owing identities whose
+              actor record restores at that boot; every other record is still only a record; a boot reports no delivery
+              (Restore I1; Restore T1; Actors T21). **Check:** new case. **Wrong:** `boot.delivers`,
+              `boot.wakes-plain-record`.
+            - **R-3.** At Start: the identity's owed rows in owed order; then, lane by lane in record-key order, each 
+              queued
+              commit's NotSent { Restored }, then the Held head's unknown { Restored } once, unless a row for its 
+              Attempt is
+              owed; all before any external event (Restore R3, I5, I6, I7). **Check:** reload cases on S08, S03. 
+              **Wrong:**
+              `start.lanes-before-rows`, `start.restored-twice`, `start.event-before-restore`.
+            - **R-4.** An Attempt acknowledged once restores Held and ends unknown { Restored } with the same id; one 
+              never
+              acknowledged restores as never sent; no restore re-runs a turn or re-sends (Restore R3, I2, I8; WriteAhead
+              I17). **Check:** new cases cutting before and after the acknowledgement lands (the `crash` gate). 
+              **Wrong:**
+              `restore.unacked-as-held`, `restore.resends`.
+            - **R-5.** unknown { Restored } is in no record (Restore R3). **Check:** the disk reader over every part.
+              **Wrong:** `record.stores-restored`.
+            - **R-6.** A disposed identity's rows and unbound lanes wait for an adopting ensure and are owed at that 
+              Start
+              (Actors R20; Restore R1). **Check:** the regression `GEN-pay-search-25` (exists) stays green, plus a new
+              production case. **Wrong:** `restore.drops-unbound-held`.
+            - **R-7.** One record failing to decode, or a key of no kind, is quarantined with its bytes unchanged, 
+              reported
+              RecordUndecodable (proposed name), and never stops another record restoring or ready succeeding (Restore 
+              R5,
+              I10, I11; Codec R5). **Check:** oracle `quarantine` (new). **Wrong:** `restore.coerces-bad-record`,
+              `restore.one-bad-record-fails-ready`.
+            - **R-8.** A lane whose key no longer decodes or whose operation is gone is quarantined: it keeps its hold, 
+              a
+              commit on its key declines NotSent { Rejected }, and a cancel clears it (Restore R8, I13, I15). 
+              **Check:** new
+              case. **Wrong:** `restore.quarantined-lane-admits`.
+            - **R-9.** The codec: bounds, canonical bytes, strict decoding, failures (Codec I1 to I6; Codec T1 to T5).
+              **Check:** vectors written from the Spec. **Wrong:** one wrong codec per test, named `codec.t1` to
+              `codec.t5`.
+            - **R-10.** Every record has `format`, and each kind round-trips its Schema (Codec I7; Codec T6). **Check:**
+              over every part. **Wrong:** `record.no-format`.
+            - **R-11.** An identity's forget removes its actor and owed records and closes its rows, and keeps a Held
+              lane's record (Actors R21). **Check:** new case with the disk reader. **Wrong:** `forget.leaves-owed`,
+              `forget.drops-held-lane`.
+            - **R-12.** `dispose({ forget: true })` resolves success only after deletion is confirmed; a failed deletion
+              reports StorageFailure (Restore R10, I18). **Check:** new case on a store that refuses the deletion.
+              **Wrong:** `forget.claims-success`.
+            - **R-13.** After a read failure no write to that scope happens in that Runtime, and a storage failure never
+              changes committed live state (Restore R9, I16, I17). **Check:** new cases with a storage spy. **Wrong:**
+              `restore.writes-after-read-failure`.
+            - **R-14.** Reload equivalence: at every crash point, the reports and snapshots after the boot equal the
+              uncrashed run's (WriteAhead I21). **Check:** the `crash` gate over every part. **Wrong:**
+              `restore.skips-owed-record`.
 
     T56
         title       Durability: release versions, key fingerprints and record migration (slice 2b)
