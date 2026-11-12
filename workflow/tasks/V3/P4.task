@@ -1202,6 +1202,11 @@ tasks
             Restored at a reload). The model is suspected: one step both owes that restore (Actors I29) and refuses it 
             at Held (WriteLanes I15), so the report likely meets the head before the reload's move. Step A2's one start 
             rewrites this path; see code:packages/flow-state-v3/conformance/runner/parts-gates.ts#regressionsOwed.
+        comment     2026-11-12T07:28:19Z
+            From the wide consult (decided by the orchestrator, correctness): Attempt ids are a 32-bit per-boot seed 
+            plus a counter restarting at 0 (src/core/tx.ts:112, src/host/browser.ts:8), so ids collide across boots 
+            (about 1 percent at 10k boots); widen the seed to 128 bits, with a failing check first, as they become 
+            idempotency keys.
     T18
         title       Lane policies: latest, serialize, cancel and cancelAll (slice 1)
         status      draft
