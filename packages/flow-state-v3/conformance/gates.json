@@ -7,7 +7,7 @@
     },
     {
       "gate": "suite production",
-      "revision": "87693e02",
+      "revision": "6bb02721",
       "verdict": "VERDICT pass 78/78"
     },
     {
@@ -17,7 +17,7 @@
     },
     {
       "gate": "falsify production",
-      "revision": "87693e02",
+      "revision": "6bb02721",
       "verdict": "VERDICT pass 18/18 mutants caught"
     },
     {
@@ -32,22 +32,22 @@
     },
     {
       "gate": "limits round-14",
-      "revision": "87693e02",
-      "verdict": "VERDICT fail 6/7 limits rows hold (round-14 limits, stated limits, production's owed reds)"
+      "revision": "6bb02721",
+      "verdict": "VERDICT pass 6/6 limits rows hold (round-14 limits, stated limits, production's owed reds)"
     },
     {
       "gate": "liar production",
-      "revision": "87693e02",
+      "revision": "6bb02721",
       "verdict": "VERDICT pass 13/13 behavioural mutants red under the liar gate, 0 fixture gaps (cap 9)"
     },
     {
       "gate": "crash production",
-      "revision": "87693e02",
+      "revision": "6bb02721",
       "verdict": "VERDICT fail 732/735 crash points"
     },
     {
       "gate": "core mutants",
-      "revision": "87693e02",
+      "revision": "6bb02721",
       "verdict": "VERDICT core mutants: 75/98 killed (98 candidates)"
     }
   ]

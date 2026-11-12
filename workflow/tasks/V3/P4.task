@@ -1037,7 +1037,7 @@ tasks
             (R12). Land as a failing check first.
     T51
         title       Production lanes reworked: one table function, reports derived from acts
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T45]
         description
@@ -1286,3 +1286,77 @@ tasks
             resend-new-id trace, and log the inspect.ts `Evidence` value export. Then check, gates, comments, and set 
             status
             to review. See `workflow/plans/flow/references/proposals/t51-step2-review-2026-11-12.md`.
+        comment     2026-11-12T03:53:20Z
+            Step-2 review fixes done (lead, 2026-11-12) at 6bb02721; gates there (`conformance/gates.json`): suite 
+            production
+              78/78, falsify production 18/18, liar production 13/13, limits round-14 6/6, crash 732/735 (DISP-02@6, 
+              DISP-06@5,
+              PAY-22@16, out of scope as before), core mutants 75/98; `nub run check` zero; v3 tests 84/84.
+              - Keep on Held (Actors R15, WriteLanes R10): `code:packages/flow-state-v3/src/core/cells.ts#table` 
+                Keep.Held is
+                `keepBeside`. Case "an unknown whose turn is refused twice is kept…" in `src/host/lanes.test.ts`: red 
+                at 77df3dc9
+                on `Defect: the lane's table rules out Keep on Head`, green now. Its expected reason changed from 
+                `lost` to
+                `Error` before it went green: the bell's error is untagged, so 
+                `code:packages/flow-state-v3/src/flow.ts#reasonOf`
+                gives Error; the requirement it checks (kept, not lost) is unchanged. `lane-shapes.test.ts` now asserts 
+                Keep.Held
+                is not `Impossible`.
+              - Bounded final write (Actors R23): `code:packages/flow-state-v3/src/host/driver.ts#makeDriver` `dispose` 
+                gives
+                `edge.flush` the rest of `DISPOSAL_BOUND_MS` from its start via `Effect.timeout` on the platform Clock, 
+                and reports
+                `Issue { StorageFailure }`. Case "dispose() bounds its final write…" red (timed out) at 77df3dc9, green 
+                now; it
+                goes red with the flush dropped or the bound moved 1 s late.
+              - RuntimeDisposed (Actors R22): `code:packages/flow-state-v3/src/host/runtime.ts#buildRuntime` rejects 
+                `ensureActor`
+                and a handle's `send` once the world's disposal is not Open. Case red at 77df3dc9 (no throw), green now.
+              - Cancelled unknown has no value (b1): no rework needed. The case reaches a Cancelling head (asserted) 
+                and goes red
+                only on `heard` (`'ding'` for undefined) with `const value = cue.value` planted, and with the whole old 
+                classifier
+                (call's own channel, reason and value) planted; the ending reads unknown Cancelled either way, from 
+                Ended.Cancelling.
+              - Restored unknown after a retry (b2): case red with Ended.Recapturing and Ended.Resending set to 
+                `impossible`.
+              - GEN-pay-search-55-shrunk retired from `conformance/limits.ts` (small amendment, ruling (a)); limits 6/6.
+              - WriteLanes composition: kept endings live in the kept map with `kept/<lane>`; Keep beside Held per R15;
+                `Effect.timeout` noted.
+              - resend-new-id trace (ruling (d)): old first divergence at PAY-04 line 22, Ended success of att-1000-7 
+                vs a reboot;
+                new at line 21, Sent att-1000-7 vs Sent att-1000-24; both fail attempt-identity and lane-queue 
+                (WriteLanes I6, I1).
+                Full output: lead's scratch `mt/cmp-resend-new-id.txt`.
+              - `inspect.ts` exports `Evidence` as a value: kept and logged as a small public API change (agent): the 
+                production
+                adapter needs `Evidence.$match` through the seam. Reverse: `export type`, and the adapter matches on 
+                `_tag`.
+              - `IssueCode` gains `StorageFailure` and `FlowError` gains `RuntimeDisposed`, both named by Actors R22, 
+                R23 (small
+                public API additions, agent).
+        comment     2026-11-12T03:53:24Z
+            Reviewer sidecar log (lead; Haiku, effort high, read-only, on the fix diff before 6bb02721):
+              - Accepted: an added non-doc comment in `runtime.ts` (removed); lint and formatting in the new cases 
+                (fixed, no
+                assertion changed).
+              - Accepted as gaps for @task.V3.T18, which rules cancel and release (present in every keepBeside cell 
+                before T51,
+                now reachable on Held too): a Cancel on a Held head with a kept ending releases the head but leaves the 
+                kept
+                ending, so the key needs a second cancel (Actors R15 says cancelled or released lifts it); a kept 
+                unknown outlives
+                a re-send that later succeeds and is delivered at the next boot; a second kept ending on one lane 
+                replaces the
+                first (`persist.ts` `keep`).
+              - Accepted as gaps, not in this step's list: `ready()` after dispose resolves (Actors R22 says it 
+                rejects); a send
+                inside an inspector callback after a dispose started in the same step passes `admitting` and is dropped.
+              - Rejected: wrapping the whole wait in `Effect.timeout(DISPOSAL_BOUND_MS)`, since at the bound it races 
+                the core's
+                own Bound timer and can cut the disposal short; the edge's stale `flushes` after a timeout, harmless as 
+                the Scope
+                closes next; a zero budget when calls run to the bound, which is R23's "same 5 s"; Spec ids in test 
+                comments
+                (tests cite the Spec); the last case hanging (it passes, 84/84).
