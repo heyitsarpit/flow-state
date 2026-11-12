@@ -55,7 +55,7 @@ const defect = (what: string) => {
 export const makeMoves = (tx: Tx, persistence: Persistence) => {
   const { persisted, incarnationOf, endingMail } = tx;
 
-  const { persist, persistAwaited, actorWrite, laneWrite, setLane, dropLane, keep, unpark, park } =
+  const { persist, persistAwaited, actorWrite, laneWrite, setLane, dropLane, keep, unkeep, park } =
     persistence;
 
   const operationOf = (actor: ActorId, name: string) =>
@@ -237,7 +237,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence) => {
       LetGo: () => {
         for (const e of tx.world().kept.get(at.id)?.endings ?? [])
           tx.emit(Evidence.Recorded({ operation: at.operation, attempt: e.attempt, why: "letGo" }));
-        unpark(at.actor, at.id);
+        unkeep(at.actor, at.id);
       },
       Interrupt: ({ call }) => {
         const lane = laneAt(at);

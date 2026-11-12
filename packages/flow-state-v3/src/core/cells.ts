@@ -142,16 +142,18 @@ const admitted = (head: Head, cue: CueOf<"Ended">) => {
 };
 
 // A call's result, classified by the phase it found: a call a cancel interrupted ends unknown
-// Cancelled whatever it returned. During disposal it is parked as its Attempt delivers it.
+// Cancelled, with no value, whatever it returned. During disposal it is parked as its Attempt
+// delivers it.
 const settled = (head: Head, cue: CueOf<"Settled">, cancelled: boolean) => {
   const channel: Channel = cancelled ? "unknown" : cue.channel;
   const reason = cancelled ? "Cancelled" : cue.reason;
+  const value = cancelled ? undefined : cue.value;
 
   return cue.route === "queue"
-    ? Move.Queue({ channel, reason, value: cue.value })
+    ? Move.Queue({ channel, reason, value })
     : Move.Park({
         ...delivered(head, channel, reason),
-        value: cue.value,
+        value,
         interrupt: Option.none(),
       });
 };
@@ -171,6 +173,8 @@ const keepBeside = (_head: Head, cue: CueOf<"Keep">) => keep(cue);
 /**
  * Every cell of the write lane, by cue and lane state. Only reject concurrency is built; a
  * cancel-policy commit, and a kept ending on a Held head, are `Impossible` until their rulings.
+ * An ending of the head's earlier send (a restored unknown) admitted after a retry owes its
+ * re-send leaves that re-send standing.
  */
 export const table = {
   CommitReject: {
@@ -275,8 +279,8 @@ export const table = {
     Acknowledging: impossible,
     Unsent: impossible,
     Withdrawing: impossible,
-    Recapturing: impossible,
-    Resending: impossible,
+    Recapturing: stay,
+    Resending: stay,
     OnWire: admitted,
     Cancelling: () => Move.Hold({ reason: "Cancelled" }),
     Held: admitted,

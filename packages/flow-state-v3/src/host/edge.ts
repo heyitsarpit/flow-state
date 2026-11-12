@@ -105,7 +105,9 @@ export const makeEdge = (
         scopes.set(name, { ...now, dirty, out: false });
 
         for (const t of tickets) options.answered(t.id, landed);
-        pump(name);
+
+        // A flush issues each batch once: a refused one waits for the next capture.
+        if (landed || flushes.length === 0) pump(name);
         quiet();
       },
     );

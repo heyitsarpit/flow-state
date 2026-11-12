@@ -61,6 +61,11 @@ const ParkedJson = Schema.Struct({
 export const parkedRecordKey = (lane: string) => `parked/${lane}`;
 
 /**
+ * The key a lane's kept ending is stored under.
+ */
+export const keptRecordKey = (lane: string) => `kept/${lane}`;
+
+/**
  * A lane's parked or kept endings as JSON data; an ending whose value JSON cannot carry keeps
  * `null`.
  */
@@ -255,7 +260,7 @@ export const decodeRecords = (
     );
 
   const records = of("actor/", actorRecord);
-  const parkedRecords = of("parked/", parkedRecord);
+  const parkedRecords = [...of("parked/", parkedRecord), ...of("kept/", parkedRecord)];
   const decoded = new Set(records.map((r) => actorRecordKey(actorKey(r.actor))));
 
   return {

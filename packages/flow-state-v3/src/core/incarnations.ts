@@ -24,7 +24,7 @@ import type { Persistence } from "./persist.ts";
  */
 export const makeIncarnations = (tx: Tx, persistence: Persistence) => {
   const { armTimer, disarmWhere, incarnationOf, used, lanesOf, enqueue, endingMail } = tx;
-  const { persist, saveActor, park, unpark } = persistence;
+  const { persist, saveActor, park, unpark, unkeep } = persistence;
 
   // ── incarnations.
   const armSchedules = (
@@ -112,7 +112,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence) => {
           tries: Tries.Last(),
         });
 
-      unpark(actor, p.lane);
+      unkeep(actor, p.lane);
     }
 
     for (const [id, lane] of lanesOf(actor))
@@ -273,16 +273,20 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence) => {
 
     if (!forgetting) return;
 
-    const letGo = (waiting: ReadonlyMap<string, Parked>, why: "evidence" | "letGo") => {
+    const letGo = (
+      waiting: ReadonlyMap<string, Parked>,
+      why: "evidence" | "letGo",
+      drop: (actor: ActorId, lane: string) => void,
+    ) => {
       for (const p of ownedBy(actor, waiting)) {
         for (const e of p.endings)
           tx.emit(Evidence.Recorded({ operation: p.operation, attempt: e.attempt, why }));
-        unpark(actor, p.lane);
+        drop(actor, p.lane);
       }
     };
 
-    letGo(tx.world().parked, "evidence");
-    letGo(tx.world().kept, "letGo");
+    letGo(tx.world().parked, "evidence", unpark);
+    letGo(tx.world().kept, "letGo", unkeep);
   };
 
   // ── after every step: free incarnations start their grace; used ones stop it.

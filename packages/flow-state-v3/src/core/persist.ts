@@ -7,6 +7,7 @@ import {
   encodeActor,
   encodeLane,
   encodeParked,
+  keptRecordKey,
   laneRecordKey,
   parkedRecordKey,
 } from "./record.ts";
@@ -123,7 +124,7 @@ export const makePersistence = (tx: Tx) => {
   };
 
   const parkedWrite = (parked: Parked, kept: boolean) => ({
-    key: parkedRecordKey(parked.lane),
+    key: kept ? keptRecordKey(parked.lane) : parkedRecordKey(parked.lane),
     record: Option.some(encodeParked(parked, kept)),
   });
 
@@ -144,15 +145,19 @@ export const makePersistence = (tx: Tx) => {
   };
 
   /**
-   * Lets a lane's parked or kept endings go, with their record.
+   * Lets a lane's parked endings go, with their record.
    */
   const unpark = (actor: ActorId, lane: string) => {
-    tx.set({
-      ...tx.world(),
-      parked: without(tx.world().parked, lane),
-      kept: without(tx.world().kept, lane),
-    });
+    tx.set({ ...tx.world(), parked: without(tx.world().parked, lane) });
     persist(actor, [{ key: parkedRecordKey(lane), record: Option.none() }], Due.Later());
+  };
+
+  /**
+   * Lets a lane's kept ending go, with its record.
+   */
+  const unkeep = (actor: ActorId, lane: string) => {
+    tx.set({ ...tx.world(), kept: without(tx.world().kept, lane) });
+    persist(actor, [{ key: keptRecordKey(lane), record: Option.none() }], Due.Later());
   };
 
   /**
@@ -186,6 +191,7 @@ export const makePersistence = (tx: Tx) => {
     dropLane,
     keep,
     unpark,
+    unkeep,
     park,
   };
 };
