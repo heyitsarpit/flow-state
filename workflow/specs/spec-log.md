@@ -449,3 +449,14 @@ Both written by the replan records review, under the orchestrator's ruling (V3 l
 - WriteLanes `composition.flow` gains the production realization (table module, production phases, settle and
   admit split, tries as a tag, Effect features used and skipped). Design only, no rule changed. Why: skill:to-design
   skeleton before T51's code. Reverse: drop the paragraph.
+
+## 2026-11-12, Conformance R18, I57, I58: 5B and cell pairs (T47, agent)
+
+- **Conformance R18 source** cites catalogue 5A's "Cell-pair reach" and 5B, whose pair rule gives the 671 pairs over
+  the 53 codes. Why: the replan's T47 line says T47 revises Conformance.spec. Reverse: drop the two names.
+- **Conformance I57** names the dated owner R18 allows during the slices (an open Task and the part, operation or
+  pair sweep), not only a later slice's waiver. Why: it lagged R18's 2026-11-11 entry above; `combinationGate`
+  already follows R18. Reverse: restore the waiver-only wording.
+- **Conformance R18, I58: cell pairs** are reported per composite and in total, never gating; the denominator is
+  the successor pairs Tables A, B and C give (code:packages/flow-state-v3/conformance/parts/cells.ts). Why: the
+  catalogue's 5A line "3-way and cell-pair numbers are recorded, never gating". Reverse: drop "and cell pairs".

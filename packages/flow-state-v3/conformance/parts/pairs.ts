@@ -1,15 +1,17 @@
 import { Option } from "effect";
+import { pairsIn, successorPairs } from "./cells.ts";
 import { interactingPairs, interacts, SHARED } from "./channels.ts";
 import { unknownCodes } from "./codes.ts";
 
 /**
- * One generated run's reach: the codes each composite's steps exercised, and whether it was an
- * app mix (several composites in one runtime).
+ * One generated run's reach: the codes each composite's steps exercised, whether it was an app
+ * mix (several composites in one runtime), and the lifecycle table cells its model read, in order.
  */
 export type RunReach = {
   readonly id: string;
   readonly mix: boolean;
   readonly byComposite: Readonly<Record<string, ReadonlySet<string>>>;
+  readonly cells: ReadonlyArray<string>;
 };
 
 /**
@@ -106,7 +108,8 @@ const triplesOf = (codes: ReadonlyArray<string>) =>
  * **Details**
  *
  * - A code declared ahead of the slice that builds it, or that no slice builds, fails it.
- * - Triples are reported in total and per composite (Conformance I58).
+ * - Triples and cell pairs are reported in total and per composite (Conformance I58; catalogue
+ *   5A, "Cell-pair reach"). A run's cell pairs count for its one composite, or for `app mix`.
  * - Together means one composite's steps in one run, or, in an app mix, two composites when one
  *   code of the pair is a shared resource.
  * - An owner is an open Task of a slice not yet past, the part, operation or pair sweep that will
@@ -146,6 +149,15 @@ export const combinationGate = (input: PairInput) => {
     ]),
   );
 
+  const successors = successorPairs();
+
+  const cellPairs = input.runs.map((run) => ({
+    composites: run.mix ? ["app mix"] : Object.keys(run.byComposite),
+    reached: pairsIn(run.cells, successors),
+  }));
+
+  const pairsOf = (runs: typeof cellPairs) => new Set(runs.flatMap((r) => [...r.reached])).size;
+
   return {
     failures: [...unknown, ...ahead, ...unowned],
     reached: pairs.length - unreached.length,
@@ -154,6 +166,16 @@ export const combinationGate = (input: PairInput) => {
       total: triples.length,
       reached: triples.filter((t) => input.runs.some((run) => together(run, t))).length,
       byComposite,
+    },
+    cellPairs: {
+      total: successors.size,
+      reached: pairsOf(cellPairs),
+      byComposite: Object.fromEntries(
+        [...new Set(cellPairs.flatMap((r) => r.composites))].map((c) => [
+          c,
+          pairsOf(cellPairs.filter((r) => r.composites.includes(c))),
+        ]),
+      ),
     },
   };
 };

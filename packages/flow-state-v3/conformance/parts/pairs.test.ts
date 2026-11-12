@@ -14,10 +14,16 @@ const LIST = resolve(
   "../../../../workflow/plans/flow/references/proposals/t47-non-interacting-2026-11-12.md",
 );
 
-const run = (id: string, byComposite: Record<string, ReadonlyArray<string>>, mix = false) =>
+const run = (
+  id: string,
+  byComposite: Record<string, ReadonlyArray<string>>,
+  mix = false,
+  cells: ReadonlyArray<string> = [],
+) =>
   ({
     id,
     mix,
+    cells,
     byComposite: Object.fromEntries(
       Object.entries(byComposite).map(([c, codes]) => [c, new Set(codes)]),
     ),

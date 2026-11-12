@@ -378,7 +378,8 @@ requirements
     R18  The combination gate
         source  The user's decision (V3 log, 2026-11-11: "pairs enforced, triples reported"); the replan's
                 question 12; the fixture catalogue's sections "Feature pairs: which interact", "The
-                technique" and "The app-mix profile".
+                technique", "The app-mix profile" and "Cell-pair reach" (5A), and 5B, whose pair rule gives
+                the pairs over the closed list.
         must    The interacting pairs are generated from the catalogue's channel table: two codes interact
                 when both touch one channel, less the non-interacting rules the user approves once, as one
                 list. No pair is hand-listed.
@@ -391,8 +392,9 @@ requirements
                 pair-sweep case that will reach it, with a date; an unreached pair with no owner fails. At
                 the cross-area audit (@task.V3.T15) and at round-14's retirement (@task.V3.T53) no interacting
                 pair of implemented codes may be unreached; any left gets a pair-sweep case there. Triples
-                whose three pairs all interact are reported, per composite and in total, and never fail the
-                gate.
+                whose three pairs all interact, and the ordered pairs of lifecycle table cells one run reaches
+                in sequence (the cell pairs, whose denominator the tables give), are reported, per composite
+                and in total, and never fail the gate.
 
     R19  The Spec model computes expected results
         source  Advisor Q1, Q2 and Q3 (code:workflow/plans/flow/references/proposals/advisor-answers-2026-11-11.md);
@@ -824,10 +826,11 @@ invariants
         [@R18]
 
     I57  Every interacting pair of codes the runtime under test declares is reached together in the executed steps
-        of some generated run, or carries a dated waiver naming the later slice that owns one of its codes. [@R18]
+        of some generated run, or carries a dated owner: the later slice that owns one of its codes, or, during
+        the slices, the open Task and the part, operation or pair sweep that will reach it. [@R18]
 
-    I58  The combination gate's verdict depends on pairs only; triples are reported per composite and in total.
-        [@R18]
+    I58  The combination gate's verdict depends on pairs only; triples and cell pairs are reported per composite
+        and in total. [@R18]
 
     I59  The Spec model imports nothing from any runtime, adapter or implementation's source. [@R19]
 

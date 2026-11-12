@@ -2,6 +2,7 @@ import { Clock, Effect, Option, Result } from "effect";
 import { playCase, type Scenario } from "../dsl/case.ts";
 import { captureMsOf } from "../actors/lifetime.scenarios.ts";
 import { playCrash, playRecorded } from "../dsl/play.ts";
+import { rules } from "../dsl/lifecycle-rules.ts";
 import { citedBy, type Graphed, Mismatch, type Oracle, Violated } from "../dsl/oracle.ts";
 import { playStatic, type StaticCase } from "../dsl/static-case.ts";
 import { type Observation, type Port, Unreadable } from "../port.ts";
@@ -85,6 +86,7 @@ const runSeed = (
           graphs,
           overdue,
           crashAt: Option.none(),
+          rules,
           replay: Option.none(),
         },
         scenario.run,
@@ -247,6 +249,7 @@ export const crashCase = (
               graphs,
               overdue,
               crashAt: Option.some(at),
+              rules,
               replay: Option.none(),
             },
             scenario.run,
@@ -287,6 +290,7 @@ export const runCaseLiar = (
           graphs,
           overdue,
           crashAt: Option.none(),
+          rules,
         };
 
         return Effect.try({

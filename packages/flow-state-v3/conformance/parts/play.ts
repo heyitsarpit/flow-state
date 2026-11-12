@@ -6,6 +6,7 @@ import { captureMsOf } from "../actors/lifetime.scenarios.ts";
 import { nullPort } from "../adapters/null.ts";
 import { productionPort } from "../adapters/production.ts";
 import { openCase } from "../dsl/case.ts";
+import { type Rules, rules } from "../dsl/lifecycle-rules.ts";
 import { Fact } from "../dsl/oracle.ts";
 import { type Script, scenarioOf } from "../dsl/script.ts";
 import { Observation, type Turn } from "../port.ts";
@@ -62,9 +63,10 @@ export const partsOwed: ReadonlyArray<Limit & { readonly owner: string }> = [
  * **Details**
  *
  * One seed, in the suite's world; the gate's runs add the second seed and the replay (Turn I17).
+ * `given` are the lifecycle tables the model applies: the design's, or a model mutant (R19).
  */
 // RETURN_TYPE: both branches build the named Played, the refusal with an empty fact list.
-export const playPart = (script: Script, runtime: PartRuntime): Played => {
+export const playPart = (script: Script, runtime: PartRuntime, given: Rules = rules): Played => {
   if (runtime === "round-14")
     return {
       verdict: {
@@ -93,6 +95,7 @@ export const playPart = (script: Script, runtime: PartRuntime): Played => {
     crashAt: Option.none(),
     replay: Option.none(),
     captureMs: captureMsOf(scenario.id),
+    rules: given,
   });
 
   const ran = Result.try({

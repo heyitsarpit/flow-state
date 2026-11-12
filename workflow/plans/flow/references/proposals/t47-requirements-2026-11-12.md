@@ -1,7 +1,7 @@
 # T47 requirements: fixture infrastructure and pilot parts (2026-11-12)
 
-**Bottom line:** 28 requirements (Q1 to Q28), each a check that is red at 632a8469 against the empty skeletons
-committed with them, each naming the wrong build that must keep it red. Every acceptance item, Approach item and gap
+**Bottom line:** 30 requirements (Q1 to Q30), each a check that is red at 632a8469 against the empty skeletons
+committed with them (Q29 and Q30 added at resume item 4, red first in their own step), each naming the wrong build that must keep it red. Every acceptance item, Approach item and gap
 comment of @task.V3.T47 maps to one of them (table below). Four sidecars gathered them (Specs blind, code, open
 findings, adversary); their items are logged at the end as accepted, changed or rejected. Proposed until the user
 accepts: the non-interacting rules (Q13, Q21) and the scope rulings marked "ruling".
@@ -140,6 +140,14 @@ Each: rule; source; check (red today); the wrong build or mutant that must turn 
   falsify, liar and core mutants no worse than at 632a8469. Source: Gates line, acceptance (gates). Check:
   `gates --gate`.
 - **Q28 `nub run check` at zero.** Source: Gates, AGENTS.md. Check: `nub run check`.
+- **Q29 False pass: parts alike.** Each pilot part reaches a table cell, a cell pair or a noticed model mutant that
+  no other part does. Source: the brief's False-pass line ("parts that differ in name but reach the same cells").
+  Check: `parts/model-mutation.test.ts` with `undistinguished` (code:packages/flow-state-v3/conformance/parts/cells.ts),
+  and a renamed copy of a part flagged. Wrong build: cells alone (sync and sign-in reach no cell transfers does not).
+- **Q30 Conformance.spec revision.** R18 cites catalogue 5A's cell-pair reach and 5B; I57 names the dated owner R18
+  allows during the slices; R18 and I58 report cell pairs, never gating; each change has a spec-log note. Source:
+  the replan's T47 line ("Revises Conformance.spec"), resume item 4. Check: `workflow check`; cell pairs in
+  `parts/cells.test.ts` (denominator from the tables, per composite in `combinationGate`, verdict unchanged).
 
 ## Mapping, one to one
 
@@ -174,6 +182,8 @@ Each: rule; source; check (red today); the wrong build or mutant that must turn 
 | Gap: `classify` not in `Compiled`                                                    | Q4            |
 | Comment F1, F2, F3                                                                   | Q25, Q26, Q5  |
 | Gates line; `nub run check`                                                          | Q27, Q28      |
+| False pass (parts that differ in name but reach the same cells)                      | Q29           |
+| Replan: revises Conformance.spec (R18 cites 5B; I57 and cell-pair notes)             | Q30, Q14      |
 | Stops (the user's approval of the pair list)                                         | Q21           |
 
 ## Reality cannot show

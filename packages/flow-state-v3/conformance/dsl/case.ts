@@ -29,6 +29,7 @@ import type { StorageAnswer } from "../world/storage.ts";
 import { makeWorld } from "../world/world.ts";
 import { type Actor, actorView } from "./actor.ts";
 import { stepEngine } from "./engine.ts";
+import type { Rules } from "./lifecycle-rules.ts";
 import { runtimeLife } from "./life.ts";
 
 /**
@@ -130,7 +131,8 @@ export type Case = {
  * `seed` fixes the world: the store's load order and the session seeds the runtime mints from.
  * The runner runs every case under more than one seed. `graphs` are what `flow graph` printed for
  * the fixtures before the first boot; each oracle opens with them. `overdue` says whether the
- * case is past its time bound; the world asks it as it runs (see `makeWorld`).
+ * case is past its time bound; the world asks it as it runs (see `makeWorld`). `rules` are the
+ * lifecycle tables the Spec model applies: the design's, or a model mutant (Conformance R19).
  */
 export type CaseOptions = {
   readonly port: Port;
@@ -142,6 +144,7 @@ export type CaseOptions = {
   readonly crashAt: Option.Option<number>;
   readonly replay: Option.Option<ReadonlyArray<ReadonlyArray<RuntimeFact>>>;
   readonly captureMs: number;
+  readonly rules: Rules;
 };
 
 /**

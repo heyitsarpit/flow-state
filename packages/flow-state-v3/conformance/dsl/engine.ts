@@ -8,7 +8,6 @@ import { RequestPhase } from "../world/network.ts";
 import type { World } from "../world/world.ts";
 import { type CaseOptions, Crashed } from "./case.ts";
 import { empty } from "./lifecycle-model.ts";
-import { rules } from "./lifecycle-rules.ts";
 import { step as lifeStep } from "./lifecycle-step.ts";
 import { Fact, type RuntimeFact, steps, Violated } from "./oracle.ts";
 import { decodeReports } from "./reports.ts";
@@ -108,7 +107,7 @@ export const stepEngine = (
         known,
         judgedCut.facts,
         requests,
-        rules,
+        options.rules,
         judgedCut.turns,
         leaves,
       );

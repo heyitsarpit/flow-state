@@ -170,6 +170,7 @@ const factsOf = (port: ReturnType<typeof prototypePort>, id: string) => {
     overdue: () => false,
     crashAt: Option.none(),
     replay: Option.none(),
+    rules,
   });
 
   scenario.run(opened.driven);
