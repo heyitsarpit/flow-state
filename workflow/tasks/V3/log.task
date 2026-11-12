@@ -363,3 +363,7 @@ note 2026-11-12T07:17:14Z
 note 2026-11-12T07:19:21Z
     T47 in review at 0c46a414 (all gates green, crash 732/735 unchanged; all 11 CMP cases owed to T17). Close review 
     started, covering steps 3-6 and the step 1-2 fixes, with blind and adversary sidecars.
+note 2026-11-12T07:23:48Z
+    Decision (the user): consult A4 (review stopping rule, Fable read of expected results), A5 (routed gaps are owed 
+    checks) and A6 (Spec contradictions resolved by the lead, losing text deleted) join the Epic's Testing and Reviews 
+    rules. Orchestrator: A3 and B9 to T52; the capture window move to revisit.md.

@@ -49,3 +49,6 @@ Deferred items.
   says Held on disk. Delivery is unchanged; low severity.
 - **Actors I29 and R22 disagree on a never-sent head's lane at disposal** (2026-11-12, T51 re-check; proposed).
   Reconcile in @spec.Actors before T9 builds disposal further.
+- **The capture window in the core** (2026-11-12, consult round 2 B2, round 3; deferred by the orchestrator). A core
+  timer and `Input.Hidden` would make batch boundaries deterministic, but add a dirty set per scope to the World
+  and change the crash gate's points. Revisit after T55, when the final write is already in the core.

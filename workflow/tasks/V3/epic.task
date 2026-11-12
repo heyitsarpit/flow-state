@@ -293,6 +293,13 @@ instructions
     - Which side is wrong (the user, 2026-11-12; skill:policy-verification#scope): before a red becomes a
       requirement or a fix, the lead replays it and names the wrong side with evidence: the runtime breaks a cited
       rule, or the suite's driver, model or case does.
+    - Routed gaps are owed checks (the user, 2026-11-12; consult A5): a gap a review routes to a later Task lands in
+      the same fix round as a pending case that fails the gate if it goes green, or as an owed row when no fixture
+      can express it yet; a comment alone is not enough. A gap with no rule to cite goes through the next rule first.
+    - Spec contradictions (the user, 2026-11-12; consult A6; Specs are hints): the building lead writes one concrete
+      case with both results and decides a small or internal one itself, keeping the reading that loses no ending;
+      a guarantee change goes to the user while work continues on that side. The Spec is edited so the losing text
+      is gone, with one line in its spec log.
     - Test first, at the module boundary (the user, 2026-11-11; skill:policy-testing in `.agents/skills`): before
       code, write module integration tests through the public interface with real components, not unit tests of
       internals, and the cases that enforce each Invariant the work implements; then build until they pass.
@@ -326,6 +333,12 @@ instructions
       sidecar found is a missed requirement and lands as a failing check. Every audit or research task goes to one
       Opus lead with zero to two by need;
       code quality is left to lint. A close-out review ends each phase or area.
+    - Stopping rule (the user, 2026-11-12; consult A4): a finding blocks only when it is in the Task's range, has a
+      check red on current code, and is a lost, doubled, made-up or wrong ending, a hang, or a broken acceptance
+      item; others are routed or noted. One blind review per step, then re-checks of the fix range only; a Task
+      closes on the first round with zero blocking findings. A different model family (Fable) reads the expected
+      results once per Task at step 1 (every agent-ruled expectation and at least 10 percent of the rest) and once
+      at an area's close-out.
     - Process watch (the user, 2026-11-12): the orchestrator observes each builder and reviewer phase. After every
       review it notes in one line what the review found that the builder's own checks missed, and the likely
       cause (gathering, weak check, wrong side, context, rule gap). At each Task's close it writes a short
