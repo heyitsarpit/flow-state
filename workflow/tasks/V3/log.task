@@ -409,3 +409,9 @@ note 2026-11-12T10:05:36Z
     Decisions (the user): option B extends to read endings; Abandoned stays dropped (T24 settles EntityDomains' use); 
     Operations.plan drops cancelAll. The Spec review is stopped; Fable 1 does phase 2, the core-runtime briefs, as its 
     own adversary with blind-reader sidecars.
+note 2026-11-12T10:30:10Z
+    Fable phase 2 committed at 673d0378: brief instructions for T54, T18, T55, T19, T20 (19, 19, 9, 12, 14 
+    requirements). Decided (orchestrator, internal): value encoded by the commit's Schema or dropped; tagged result 
+    after T20; final write one try; no creation-order keys; queue field 'queue'; reads' stopped:/Flow.ReadStopped 
+    proposed for T21. A Sonnet writes the briefs into the records, then replaces Pay/checkout-as-the-test with 'the 
+    fixtures (including Pay and checkout)'.
