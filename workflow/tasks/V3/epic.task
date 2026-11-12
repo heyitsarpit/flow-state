@@ -225,7 +225,8 @@ instructions
       an independent skill:check-spec or skill:check-task agent) in the review slot. Design, Spec and audit leads
       take the building lead's slot in turn (amendment 3; the user, 2026-11-11, to preserve usage).
     - One builder carries related Tasks; a fresh one starts only when context runs long or work moves from suite to
-      production. Leads work through up to three context compactions before handing off (the user, 2026-11-11).
+      production. Leads work through two context compactions and are rotated out when a third is close: finish the step,
+      commit, leave a resume note (the user, 2026-11-12; replaces "up to three", 2026-11-11).
     - Leads report once per batch or stop, in at most 10 lines, no progress messages: verdict, commits, gate counts,
       and the items needing a decision. Full findings and sidecar logs go in the Task's comments or a
       review file, and the report names where (the user, 2026-11-11). Sidecars report only to their lead.
