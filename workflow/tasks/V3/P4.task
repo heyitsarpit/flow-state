@@ -1033,7 +1033,7 @@ tasks
               Compile static cases green on each fixture's `Compiled`.
     T51
         title       Production lanes reworked: one table function, reports derived from acts
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T45]
         description
@@ -1199,3 +1199,65 @@ tasks
             incarnations (the end writes with Due Now), step, record, rows; host driver (Invoke and Lookup), edge 
             (Due), runtime dispose awaiting the core's Disposed before Scope.close; adapter seam imports; Spec ids out 
             of src; re-point mutants under Q13; gates against the start counts.
+        comment     2026-11-12T03:08:21Z
+            Step 2 done (lead, 2026-11-12): every T51 requirement is green at 87693e02; stop for review. Gates there 
+            (`conformance/gates.json`): suite production 78/78, falsify production 18/18, liar production 13/13, crash 
+            732/735, core mutants 75/98 (23 survivors, as at start), `nub run check` zero.
+              Q1 Held head: `src/host/lanes.test.ts` "a restored Held head…" green; the 26 Held-head crash points 
+              green, and the crash reds left are DISP-02@6, DISP-06@5 and PAY-22@16, all named out of scope (DLV-06@11 
+              also went green). Q2, Q2b dispose: the two "dispose()…" tests green. `dispose()` waits for the core's 
+              Disposed, flushes the edge once, then closes the Scope 
+              (`code:packages/flow-state-v3/src/host/runtime.ts#buildRuntime`). Q4: ACT-02 and ACT-03 green on 
+              production; `productionOwed` is empty. Q5, Q7, Q12: `src/host/lane-shapes.test.ts` compiles under `nub 
+              run check:effect`. The table is `code:packages/flow-state-v3/src/core/cells.ts#table`, and `cell` is one 
+              `$match` over the cue, then the state, then the Phase. Q6: rule `flow-state/derived-reports` is clean; 
+              Minted, Sent, Lane and Ended are built only in `src/core/evidence-of.ts`. Q8, Q9: seam and Spec-id lint 
+              clean. Q11: the two key-less member tests green. Q13: see the mutant note.
+              Decisions:
+              - Cancelling ends unknown Cancelled, with no value, whatever the call returned (model, I20). Production 
+                used to deliver the call's own channel.
+              - Ended on Recapturing or Resending is Stay (R8: an owed re-send stands), not Impossible. This came from 
+                the reviewer's D2 and has no failing check, because no fixture has two keyed lanes on the adoption path.
+              - Every commit meets the table as `CommitReject`, as before (only reject is built).
+              - The grace end writes with `Due.Now` (Q4).
+              - Kept endings get their own record, `kept/<lane>`.
+        comment     2026-11-12T03:08:26Z
+            Mutants re-pointed (lead, Q13): 8 production mutants have new edits, all caught by their `expects`, with 
+            name, says, expects and cases unchanged. Traces are in the lead's scratch `mt/cmp1.txt` and `mt/cmp2.txt`.
+              - First divergence identical to the original's at 3cb2b373 (src as at 909f4bee): kept-redelivered (a kept 
+                ending's tries tag set to Parked, not Last), retry-not-owed (cell Retry.Held set to Stay), kept-ignored 
+                (cell CommitReject.Kept set to Mint), released-delivered (the Release move also mails Released), 
+                actor-never-saved.
+              - resend-uncounted: same text, moved to `src/core/lane-moves.ts` by the split.
+              - Accepted with a changed fact kind, same step and Attempt:
+                - resend-new-id: the new mutant reports Sent with the fresh id, since Sent is now derived from the 
+                  Invoke. The old one hid it.
+                - bound-forgets-the-wire: the new mutant gives no ending, as its `says` states. The old one ended 
+                  Interrupted, because its interrupt and its park were separate steps.
+              - None retired.
+        comment     2026-11-12T03:08:32Z
+            Reviewer sidecar log (lead; Haiku, effort high, read-only, on the runtime diff 3cb2b373..698160dc), fixed 
+            in 7587c697:
+              - Accepted:
+                - C1: parked and kept endings shared one store key. Kept now has `kept/<lane>`, and `unkeep` is 
+                  separate.
+                - C2: a cancelled success kept its value. The value is now none.
+                - C3: an edge flush re-issued a refused batch in a loop. A flush now issues each batch once.
+                - D2: Ended on Recapturing or Resending threw. It is now Stay.
+              - Accepted as stated limits for the read:
+                - C3: an unanswered store holds `dispose()`; a storage bound is not built.
+                - C7: a restored never-sent record re-sends counting +1, because restore makes every lane Held.
+              - Rejected:
+                - D1: Keep on a Held head throws, as acceptance A8 asks (Q5's open cell; T18 rules it). It is reachable 
+                  in principle through a twice-refused turn of an unknown or Rejected ending on a Held lane; no fixture 
+                  reaches it.
+                - C4: the end's `Due.Now` is Q4 itself.
+                - C5: delivery order (parked, then kept, then Restored) holds within each map, and no case reads order 
+                  across lanes.
+                - C6, C8: the Spec asks for these.
+        comment     2026-11-12T03:08:37Z
+            Needs the orchestrator (lead): `limits round-14` is red at 87693e02, 6/7. Its row GEN-pay-search-55-shrunk 
+            now passes on round-14. The wrong side is the stale row, not T51. The row's cause was the suite driver's 
+            `ensureExisting` after a dispose, and 3cb2b373 fixed that driver. T51 changed no prototype or limits code 
+            (`git diff 3cb2b373 HEAD -- packages/flow-state-v3/conformance` touches only the adapter, its mutants and 
+            `productionOwed`). Proposed fix: retire the row in `conformance/limits.ts`, which is outside T51's scope.
