@@ -277,3 +277,8 @@ note 2026-11-12T01:36:51Z
     (orchestrator, small amendment): T51 fixes that ordering under a reviewer sidecar and a no-lost-catch sweep, and 
     drops Q3. Q11 (key-less members on an unkeyed operation, WriteLanes R9) and Q2b added; weak checks tightened; 
     re-pointed mutants meet the review's five conditions. **Reverse:** move the driver fix to T47.
+note 2026-11-12T01:42:37Z
+    Amendment (the user, 2026-11-12): the requirements list maps every acceptance item, Approach item and gap comment 
+    one to one, checked first by step 1's review; before a red becomes a requirement or a fix, the lead names the wrong 
+    side (runtime or suite) with evidence. Both policy-testing copies carry the mapping (uncommitted). **Reverse:** git 
+    revert this commit.
