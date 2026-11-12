@@ -401,3 +401,7 @@ note 2026-11-12T08:10:36Z
 note 2026-11-12T08:12:15Z
     Decision (the user): all final fixtures are central, not Pay or any one scenario; T58 and the preview replay every 
     available part in real browsers; Fable told for Specs and briefs.
+note 2026-11-12T10:03:55Z
+    Fable phase 1 committed at 476c1519 (seven runtime Specs as one set, Operations.plan to option B, T54 skeleton 
+    compiling with its opacity test); second Fable reviews it with up to 10 sidecars before phase 2 starts. Three 
+    questions for the user: option B for read endings, dropping Abandoned, cancelAll out of Operations.plan.
