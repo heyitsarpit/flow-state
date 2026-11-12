@@ -287,3 +287,9 @@ note 2026-11-12T01:44:52Z
     and why, and each Task closes with a short retrospective of proposed process changes. So far: T45 (checks written 
     last, types not split, edits of old code, unchecked done claims, long context) and T51 step 1 (lone gathering, no 
     adversary, wrong side) led to today's rules. **Reverse:** git revert this commit.
+note 2026-11-12T02:27:20Z
+    Run paused (the user, 2026-11-12) for a session restart with a 400k auto-compact window. T51 is in progress at 
+    e25bb637: step 1 checks and the driver fix committed red (3cb2b373); step 2's core rework is half done and 
+    uncommitted in src/ (core/cells.ts, core/evidence-of.ts, core/world.ts, core/compiled.ts, core/tx.ts, contract.ts, 
+    machine.ts), resume note last on T51. No agents live; crons and caffeinate stopped. Weekly usage about 75 percent 
+    of 95.
