@@ -329,3 +329,6 @@ note 2026-11-12T04:40:30Z
 note 2026-11-12T05:08:17Z
     Decision (the user): leads work through two compactions and rotate when a third is close; no 300k stop. The 
     compaction evaluation is dropped. The T47 lead was told.
+note 2026-11-12T05:47:22Z
+    Review started (T47 steps 1-2, 87106adb and 4eae37fc): mapping first, then the red checks and the matrix and 
+    combination gates; one Opus lead, blind and adversary Haiku sidecars. The lead continues step 3.
