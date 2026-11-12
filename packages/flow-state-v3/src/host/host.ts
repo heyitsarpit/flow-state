@@ -17,7 +17,7 @@ export type Bytes = { readonly key: string; readonly value: Option.Option<string
 export class StoreRefused extends Data.TaggedError("StoreRefused")<Record<string, never>> {}
 
 /**
- * A scope's durable store as the runtime uses it (WriteAhead R12): it loads every record at boot
+ * A scope's durable store as the runtime uses it: it loads every record at boot
  * and writes atomic batches.
  *
  * **Details**
@@ -44,7 +44,7 @@ export type Store = {
  * Time and fiber scheduling are Effect's own `Clock` and `Scheduler`, in the same Context: absent,
  * Effect's defaults apply; a test host provides its own. Every operation is the host's synchronous
  * primitive, as a page's IndexedDB callbacks are. `sessionSeed` is fresh per boot; Attempt ids are
- * minted from it (WriteLanes R5).
+ * minted from it.
  */
 export class Host extends Context.Service<
   Host,

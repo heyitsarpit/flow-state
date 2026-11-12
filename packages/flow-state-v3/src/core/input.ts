@@ -3,7 +3,7 @@ import type { Values } from "./compiled.ts";
 import type { ActorId, CallId, TicketId, TimerId, Use } from "./world.ts";
 
 /**
- * How a call ended, as the host classifies its fiber's Exit (WriteLanes R2).
+ * How a call ended, as the host classifies its fiber's Exit.
  */
 export type CallResult = Data.TaggedEnum<{
   // FLOW_STATE_ALLOW_UNKNOWN: a call's value and error are the contract's own, mapped at admission.

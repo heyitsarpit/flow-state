@@ -1,9 +1,10 @@
 import { Option } from "effect";
-import { Evidence } from "./evidence.ts";
+import { Act, evidenceOf } from "./evidence-of.ts";
 import { Input } from "./input.ts";
 import { makeAnswers } from "./answers.ts";
 import { makeDisposal } from "./disposal.ts";
 import { makeIncarnations } from "./incarnations.ts";
+import { awaits } from "./lane-moves.ts";
 import { makeLanes } from "./lanes.ts";
 import { makePersistence } from "./persist.ts";
 import { makeServe } from "./serve.ts";
@@ -15,7 +16,7 @@ export { CallResult, Input } from "./input.ts";
 export type { Env, Machines } from "./tx.ts";
 
 /**
- * One step of the Runtime (Turn's composition note): applies one input, then serves every
+ * One step of the Runtime: applies one input, then serves every
  * admitted mail item as a turn, and returns the next world with its commands and evidence.
  *
  * **Details**
@@ -28,13 +29,12 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
   const tx = makeTx(machines, world0, env);
   const persistence = makePersistence(tx);
   const lanes = makeLanes(tx, persistence);
-  const answers = makeAnswers(tx, persistence, lanes);
+  const answers = makeAnswers(tx, lanes);
   const incarnations = makeIncarnations(tx, persistence);
   const serve = makeServe(tx, persistence, lanes, incarnations);
-  const disposal = makeDisposal(tx, persistence, answers);
+  const disposal = makeDisposal(tx, persistence, lanes);
   const { incarnationOf, used, enqueue } = tx;
   const { end } = incarnations;
-  const { awaits } = answers;
   const { boundPassed } = disposal;
 
   const fired = (id: TimerId) => {
@@ -52,18 +52,12 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
       },
       Bound: () => boundPassed(),
       Silent: ({ ticket }) => {
-        tx.set({ ...tx.world(), tickets: without(tx.world().tickets, ticket) });
-
-        for (const lane of tx.world().lanes.values()) {
+        for (const lane of tx.world().lanes.values())
           if (awaits(lane, ticket))
-            tx.emit(
-              Evidence.Lane({
-                kind: "StorageSilent",
-                operation: lane.operation,
-                attempt: Option.some(lane.head.id),
-              }),
-            );
-        }
+            for (const e of evidenceOf(
+              Act.Silent({ operation: lane.operation, attempt: lane.head.id }),
+            ))
+              tx.emit(e);
       },
     });
   };
@@ -85,8 +79,8 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
       if (incarnationOf(actor) !== undefined) enqueue(Mail.Event({ actor, tag, payload }));
     },
     Settled: ({ call, result }) => {
-      if (open) answers.settled(call, result);
-      else if (disposing) disposal.settledWhileDisposing(call, result);
+      if (open) answers.settled(call, result, "queue");
+      else if (disposing) answers.settled(call, result, "park");
     },
     Fired: ({ timer }) => (open || disposing ? fired(timer) : undefined),
     Stored: ({ ticket }) => (open ? answers.stored(ticket) : undefined),

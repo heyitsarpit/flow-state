@@ -132,12 +132,12 @@ export type Mapping = {
 };
 
 /**
- * What a commit or lookup function receives beside its input.
+ * What a commit receives beside its input: the Attempt it runs as.
  */
-export type CallContext = { readonly attempt: Attempt };
+export type CommitContext = { readonly attempt: Attempt };
 
 /**
- * The Attempt a commit runs as (WriteLanes R5).
+ * The Attempt a commit runs as.
  */
 export type Attempt = {
   readonly id: string;
@@ -149,13 +149,19 @@ export type Attempt = {
 };
 
 /**
- * A call's function: the commit or lookup the contract declares, run by the host.
+ * A commit's function, run by the host with its Attempt.
  */
 // FLOW_STATE_ALLOW_UNKNOWN: a contract's value, error and services are typed at the contract; the runtime only runs it.
-export type Call = (
+export type Commit = (
   input: Values,
-  context: CallContext,
+  context: CommitContext,
 ) => Effect.Effect<unknown, unknown, unknown>;
+
+/**
+ * A lookup's function, run by the host with its input alone: a read has no Attempt.
+ */
+// FLOW_STATE_ALLOW_UNKNOWN: a contract's value, error and services are typed at the contract; the runtime only runs it.
+export type Lookup = (input: Values) => Effect.Effect<unknown, unknown, unknown>;
 
 /**
  * A write lane's concurrency policy.
@@ -174,7 +180,7 @@ export type Operation = Data.TaggedEnum<{
     concurrency: Concurrency;
     input: Schema.Codec<Values, Values>;
     inputJson: Schema.Codec<Values, Values>;
-    call: Slot<Call>;
+    call: Slot<Commit>;
     success: Mapping;
     failure: ReadonlyMap<string, Mapping>;
     unknown: Mapping;
@@ -186,7 +192,7 @@ export type Operation = Data.TaggedEnum<{
     key: Schema.Codec<Values, string>;
     input: Schema.Codec<Values, Values>;
     inputJson: Schema.Codec<Values, Values>;
-    call: Slot<Call>;
+    call: Slot<Lookup>;
     success: Mapping;
     failure: ReadonlyMap<string, Mapping>;
   };

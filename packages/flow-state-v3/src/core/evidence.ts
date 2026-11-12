@@ -6,7 +6,7 @@ import type { Values } from "./compiled.ts";
 export type { Channel } from "./vocabulary.ts";
 
 /**
- * A lane fact that is not an ending's disposition (WriteLanes R3, WriteAhead R12, R13).
+ * A lane fact that is not an ending's disposition.
  */
 export type LaneFact =
   | "Superseded"
@@ -57,7 +57,7 @@ export type Part = { readonly at: string; readonly node: string; readonly target
 export type Who = ActorId;
 
 /**
- * One Runtime decision, in the order it happened (Inspection O4).
+ * One Runtime decision, in the order it happened.
  *
  * **Details**
  *

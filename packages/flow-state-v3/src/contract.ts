@@ -1,6 +1,5 @@
-import { type Context, type Duration, type Effect, Schema, Struct } from "effect";
-import { Option } from "effect";
-import type { Attempt, Call, Concurrency, Values } from "./core/compiled.ts";
+import { type Context, type Duration, type Effect, type Option, Schema, Struct } from "effect";
+import type { Attempt, Commit, Concurrency, Lookup, Values } from "./core/compiled.ts";
 import type { OutcomeFailure, OutcomeUnknown } from "./flow.ts";
 
 /**
@@ -49,7 +48,7 @@ export type Ending = {
 };
 
 /**
- * A write's endings mapped onto the declarer's events (WriteLanes R4): `failure` is exhaustive over
+ * A write's endings mapped onto the declarer's events: `failure` is exhaustive over
  * the commit's failure tags, with Flow's `NotSent` optional.
  */
 export type WriteEndings<E> = {
@@ -71,18 +70,26 @@ export type ReadEndings = {
  * A contract bound to a definition's events: what `operations` declares under one name, in the
  * shape the compiler reads.
  */
-export type Bound<K extends "write" | "read" = "write" | "read"> = {
-  readonly kind: K;
+export type Bound<K extends "write" | "read" = "write" | "read"> = K extends "write"
+  ? BoundFields & {
+      readonly kind: "write";
+      readonly call: Commit;
+      readonly unknown: Ending;
+    }
+  : BoundFields & { readonly kind: "read"; readonly call: Lookup };
+
+/**
+ * What every bound contract carries, whichever its kind.
+ */
+type BoundFields = {
   readonly contract: string;
   readonly input: Schema.Codec<Values, Values>;
   readonly inputJson: Schema.Codec<Values, Values>;
   readonly key: ReadonlyArray<string>;
   readonly keyText: Schema.Codec<Values, string>;
   readonly concurrency: Concurrency;
-  readonly call: Call;
   readonly success: Ending;
   readonly failure: Readonly<Record<string, Ending>>;
-  readonly unknown: Option.Option<Ending>;
 };
 
 /**
@@ -122,7 +129,7 @@ const trusted = <A>(input: Values) =>
   input as A;
 
 /**
- * A server write, declared once (Operations O1, O3): inert until a machine commits it.
+ * A server write, declared once: inert until a machine commits it.
  */
 export type Transaction<F extends Fields = Fields, A = never, E = never, R = never> = {
   readonly kind: "transaction";
@@ -139,7 +146,7 @@ export type Transaction<F extends Fields = Fields, A = never, E = never, R = nev
 };
 
 /**
- * A server read, declared once (Operations O1, O2): inert until a machine looks it up.
+ * A server read, declared once: inert until a machine looks it up.
  */
 export type Resource<F extends Fields = Fields, A = never, E = never, R = never> = {
   readonly kind: "resource";
@@ -191,7 +198,7 @@ export const transaction = <const F extends Fields, A, E, R>(config: {
       call: (input, context) => config.commit(trusted<InputOf<F>>(input), context),
       success: endings.success,
       failure: endings.failure,
-      unknown: Option.some(endings.unknown),
+      unknown: endings.unknown,
     }),
   };
 
@@ -229,7 +236,6 @@ export const resource = <const F extends Fields, A, E, R>(config: {
       call: (input) => config.lookup(trusted<InputOf<F>>(input)),
       success: endings.success,
       failure: endings.failure,
-      unknown: Option.none(),
     }),
   };
 

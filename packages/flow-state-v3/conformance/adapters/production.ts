@@ -10,11 +10,13 @@ import {
   Scheduler,
   Schema,
 } from "effect";
-import { Evidence as EvidenceRecord, type Evidence } from "../../src/core/evidence.ts";
-import type { Machine } from "../../src/definition.ts";
 import { Host, StoreRefused, testing } from "../../src/host/testing.ts";
-import { actorRef, app } from "../../src/index.ts";
-import { attachInspector } from "../../src/host/inspect.ts";
+import { actorRef, app, type Machine } from "../../src/index.ts";
+import {
+  attachInspector,
+  Evidence as EvidenceRecord,
+  type Evidence,
+} from "../../src/host/inspect.ts";
 import { CellsMachine, PayMachine, ShopApi } from "../machines/pay.ts";
 import {
   type ActorRef,

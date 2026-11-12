@@ -9,10 +9,11 @@ import {
   laneId,
   type Parked,
   Phase,
+  Tries,
 } from "./world.ts";
 
 /**
- * Flow's record format, stamped on every actor and lane record (WriteAhead R9).
+ * Flow's record format, stamped on every actor and lane record.
  */
 export const FORMAT = 1;
 
@@ -30,12 +31,10 @@ const LaneRecordJson = Schema.Struct({
   machine: Schema.String,
   name: Schema.String,
   operation: Schema.String,
-  keyText: Schema.String,
   attempt: Schema.String,
   input: Schema.Json,
   retryCount: Schema.Number,
   mayHaveApplied: Schema.Boolean,
-  sent: Schema.Boolean,
   inFlight: Schema.Boolean,
 });
 
@@ -62,16 +61,17 @@ const ParkedJson = Schema.Struct({
 export const parkedRecordKey = (lane: string) => `parked/${lane}`;
 
 /**
- * A lane's parked endings as JSON data; an ending whose value JSON cannot carry keeps `null`.
+ * A lane's parked or kept endings as JSON data; an ending whose value JSON cannot carry keeps
+ * `null`.
  */
 // RETURN_TYPE: a parked record is JSON data for the store.
-export const encodeParked = (parked: Parked): Values => ({
+export const encodeParked = (parked: Parked, kept: boolean): Values => ({
   format: FORMAT,
   machine: parked.actor.machine,
   name: parked.actor.name,
   operation: parked.operation,
   lane: parked.lane,
-  kept: parked.kept,
+  kept,
   endings: parked.endings.map((e) => ({
     attempt: Option.getOrNull(e.attempt),
     channel: e.channel,
@@ -94,7 +94,7 @@ const jsonOf = (json: Schema.Codec<Values, Values>, value: Values) =>
   Schema.encodeUnknownResult(json)(value);
 
 /**
- * An incarnation's record as JSON data (WriteAhead R4): its state, its memory encoded by the
+ * An incarnation's record as JSON data: its state, its memory encoded by the
  * machine's memory Schema, and its schedules' deadlines. A memory that cannot encode is `None`.
  */
 export const encodeActor = (compiled: Compiled, incarnation: Incarnation) =>
@@ -114,8 +114,8 @@ export const encodeActor = (compiled: Compiled, incarnation: Incarnation) =>
   );
 
 /**
- * A lane's record as JSON data (WriteAhead R5): its Attempt with its encoded input, and whether
- * it was InFlight at capture.
+ * A lane's record as JSON data: its Attempt with its encoded input, and whether it was InFlight
+ * at capture.
  */
 export const encodeLane = (compiled: Compiled, lane: Lane) => {
   const operation = compiled.operations.get(lane.operation);
@@ -128,12 +128,10 @@ export const encodeLane = (compiled: Compiled, lane: Lane) => {
       machine: lane.actor.machine,
       name: lane.actor.name,
       operation: lane.operation,
-      keyText: lane.keyText,
       attempt: lane.head.id,
       input,
       retryCount: lane.head.retryCount,
       mayHaveApplied: lane.head.mayHaveApplied,
-      sent: lane.head.sent,
       inFlight: !Phase.$is("Held")(lane.head.phase),
     })),
   );
@@ -144,22 +142,27 @@ const decodeActorJson = Schema.decodeUnknownResult(ActorRecordJson);
 const decodeLaneJson = Schema.decodeUnknownResult(LaneRecordJson);
 
 /**
- * What a boot reads back: actor records and lanes, each decoded by its machine's Schemas; a
- * record that does not decode is dropped (quarantine is the Restore Spec's R5, not built here).
+ * What a boot reads back: actor records, lanes by id, parked and kept endings, each decoded by
+ * its machine's Schemas; a record that does not decode is dropped (quarantine is not built here).
  */
 export type Restored = {
   readonly records: ReadonlyArray<ActorRecord>;
-  readonly lanes: ReadonlyArray<{ readonly lane: Lane; readonly inFlight: boolean }>;
+  readonly lanes: ReadonlyArray<{
+    readonly id: string;
+    readonly lane: Lane;
+    readonly inFlight: boolean;
+  }>;
   readonly parked: ReadonlyArray<Parked>;
+  readonly kept: ReadonlyArray<Parked>;
   readonly undecodable: ReadonlySet<string>;
 };
 
 /**
- * Decodes the store's records with the machines they name (Restore R1, R3).
+ * Decodes the store's records with the machines they name.
  *
  * **Details**
  *
- * Restored lanes are Held: an Attempt acknowledged once ends unknown `Restored` (Restore R3).
+ * Restored lanes are Held: an Attempt acknowledged once ends unknown `Restored`.
  */
 // FLOW_STATE_ALLOW_UNKNOWN: the store's values are parsed JSON, decoded here once by their Schemas.
 // RETURN_TYPE: the Restored contract the step boots from.
@@ -188,28 +191,25 @@ export const decodeRecords = (
 
   // FLOW_STATE_ALLOW_UNKNOWN: one stored value, decoded by the Schema its key names.
   const parkedRecord = (value: unknown) =>
-    Option.map(
-      Result.getSuccess(Schema.decodeUnknownResult(ParkedJson)(value)),
-      (r) =>
-        ({
-          lane: r.lane,
-          actor: { machine: r.machine, name: r.name },
+    Option.map(Result.getSuccess(Schema.decodeUnknownResult(ParkedJson)(value)), (r) => ({
+      kept: r.kept,
+      parked: {
+        lane: r.lane,
+        actor: { machine: r.machine, name: r.name },
+        operation: r.operation,
+        endings: r.endings.map((e) => ({
           operation: r.operation,
-          kept: r.kept,
-          endings: r.endings.map((e) => ({
-            operation: r.operation,
-            attempt: Option.fromNullOr(e.attempt),
-            lane: Option.some(r.lane),
-            channel: e.channel,
-            reason: e.reason,
-            value: e.value,
-            owner: 0,
-            current: true,
-            redelivered: false,
-            parked: true,
-          })),
-        }) satisfies Parked,
-    );
+          attempt: Option.fromNullOr(e.attempt),
+          lane: Option.some(r.lane),
+          channel: e.channel,
+          reason: e.reason,
+          value: e.value,
+          owner: 0,
+          current: true,
+          tries: Tries.Parked(),
+        })),
+      } satisfies Parked,
+    }));
 
   // FLOW_STATE_ALLOW_UNKNOWN: one stored value, decoded by the Schema its key names.
   const laneRecord = (value: unknown) =>
@@ -226,24 +226,24 @@ export const decodeRecords = (
 
       const actor = { machine: r.machine, name: r.name };
 
+      const keyText = yield* Result.getSuccess(
+        Schema.encodeUnknownResult(operation.key)(Struct.pick(input, operation.keyFields)),
+      );
+
       const lane: Lane = {
-        id: laneId(actor, r.operation, r.keyText),
         actor,
         operation: r.operation,
-        key: Struct.pick(input, operation.keyFields),
-        keyText: r.keyText,
         head: {
           id: r.attempt,
           input,
           retryCount: r.retryCount,
           mayHaveApplied: r.mayHaveApplied,
-          sent: r.sent,
           owner: 0,
           phase: Phase.Held(),
         },
       };
 
-      return { inFlight: r.inFlight, lane };
+      return { id: laneId(actor, r.operation, keyText), inFlight: r.inFlight, lane };
     });
 
   const entries = [...stored];
@@ -255,6 +255,7 @@ export const decodeRecords = (
     );
 
   const records = of("actor/", actorRecord);
+  const parkedRecords = of("parked/", parkedRecord);
   const decoded = new Set(records.map((r) => actorRecordKey(actorKey(r.actor))));
 
   return {
@@ -265,6 +266,7 @@ export const decodeRecords = (
       ),
     ),
     lanes: of("lane/", laneRecord),
-    parked: of("parked/", parkedRecord),
+    parked: parkedRecords.flatMap((p) => (p.kept ? [] : [p.parked])),
+    kept: parkedRecords.flatMap((p) => (p.kept ? [p.parked] : [])),
   };
 };

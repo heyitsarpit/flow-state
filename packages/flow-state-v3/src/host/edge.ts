@@ -1,5 +1,5 @@
-import { Cause, Clock, Context, Duration, Effect, Exit, Option } from "effect";
-import type { Ticket, TicketId, Write } from "../core/world.ts";
+import { Cause, Clock, Context, Deferred, Duration, Effect, Exit, Option } from "effect";
+import { Due, type Ticket, type TicketId, type Write } from "../core/world.ts";
 import type { Fibers } from "./fibers.ts";
 import { encodeJsonText } from "./json.ts";
 import { Host, type Platform, type Purpose } from "./host.ts";
@@ -33,13 +33,13 @@ const purposeOf = (tickets: ReadonlyArray<Ticket>) => {
 };
 
 /**
- * The persistence edge (WriteAhead R10, R12, R13): per scope, one batch out at a time, carrying
+ * The persistence edge: per scope, one batch out at a time, carrying
  * everything not known to have landed.
  *
  * **Details**
  *
- * - A batch with a ticket, or any batch with `captureMs` at 0 or on a hidden page, is issued in
- *   the next host task; a plain one waits at most `captureMs`.
+ * - A batch due now or with a ticket, or any batch with `captureMs` at 0 or on a hidden page, is
+ *   issued in the next host task; a later one waits at most `captureMs`.
  * - A refused batch is put back unless something newer was accepted for the same key.
  * - Each ticket's answer is passed to `answered`, which runs a step of the core.
  */
@@ -55,6 +55,15 @@ export const makeEdge = (
   const clock = Context.get(platform, Clock.Clock);
   const scopes = new Map<string, Scope>();
   const scopeOf = (name: string) => scopes.get(name) ?? fresh;
+  let flushes: ReadonlyArray<Deferred.Deferred<void>> = [];
+  const busy = () => [...scopes.values()].some((scope) => scope.out);
+
+  const quiet = () => {
+    if (busy()) return;
+
+    for (const flushed of flushes) Deferred.doneUnsafe(flushed, Exit.void);
+    flushes = [];
+  };
 
   const issue = (name: string) => {
     const scope = scopeOf(name);
@@ -85,7 +94,7 @@ export const makeEdge = (
         tickets.filter((t) => t.purpose === "acknowledge").map((t) => t.attempt),
       ),
       (exit) => {
-        // An interrupted write is unanswered, as a hung store is (WriteAhead R12).
+        // An interrupted write is unanswered, as a hung store is.
         if (Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause)) return;
         const landed = Exit.isSuccess(exit);
         const now = scopeOf(name);
@@ -97,6 +106,7 @@ export const makeEdge = (
 
         for (const t of tickets) options.answered(t.id, landed);
         pump(name);
+        quiet();
       },
     );
   };
@@ -106,7 +116,12 @@ export const makeEdge = (
 
     if (scope.out || scope.dirty.size === 0) return;
 
-    if (scope.tickets.length > 0 || clock.currentTimeMillisUnsafe() >= scope.due || host.hidden())
+    if (
+      scope.tickets.length > 0 ||
+      clock.currentTimeMillisUnsafe() >= scope.due ||
+      host.hidden() ||
+      flushes.length > 0
+    )
       issue(name);
   };
 
@@ -132,14 +147,29 @@ export const makeEdge = (
   });
 
   return {
-    accept: (name: string, writes: ReadonlyArray<Write>, ticket: Option.Option<Ticket>) => {
+    /**
+     * Issues every scope's dirty writes at once and waits until no batch is out; a refused batch
+     * is not retried. A store that never answers holds it (stated limit).
+     */
+    flush: Effect.suspend(() => {
+      for (const [name, scope] of scopes) if (!scope.out) issue(name);
+
+      if (!busy()) return Effect.void;
+
+      const flushed = Deferred.makeUnsafe<void>();
+      flushes = [...flushes, flushed];
+
+      return Deferred.await(flushed);
+    }),
+    accept: (name: string, writes: ReadonlyArray<Write>, due: Due) => {
       const scope = scopeOf(name);
       const dirty = new Map(scope.dirty);
+      const ticket = Due.$is("Awaited")(due) ? [due.ticket] : [];
 
       for (const w of writes) dirty.set(w.key, w);
-      scopes.set(name, { ...scope, dirty, tickets: [...scope.tickets, ...Option.toArray(ticket)] });
+      scopes.set(name, { ...scope, dirty, tickets: [...scope.tickets, ...ticket] });
 
-      if (Option.isSome(ticket) || options.captureMs <= 0 || host.hidden()) {
+      if (!Due.$is("Later")(due) || options.captureMs <= 0 || host.hidden()) {
         scopes.set(name, { ...scopeOf(name), due: Number.NEGATIVE_INFINITY });
         fibers.fork(`wake/${name}`, Effect.yieldNow, (exit) => {
           if (Exit.isSuccess(exit)) pump(name);

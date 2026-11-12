@@ -73,7 +73,7 @@ type GuardArg<M, P> = { readonly state: string; readonly memory: M; readonly eve
 export type Operations = ReadonlyMap<string, ReadonlyMap<string, Row>>;
 
 /**
- * A write operation's members, guards and row read (WriteLanes R7 to R9, O.x.get).
+ * A write operation's members, guards and row read (`O.x.get`).
  */
 export type WriteHandle<M, I> = {
   readonly commit: (select: (input: SelectArg<M>) => I) => ActionToken;
@@ -107,7 +107,7 @@ export type GuardElement<M, P> =
   | ((input: GuardArg<M, P>) => true | Denial);
 
 /**
- * One alternative of a handler (Machines O2): its target, guards, memory patch and actions.
+ * One alternative of a handler: its target, guards, memory patch and actions.
  */
 export type AlternativeConfig<M, P, S extends string> = {
   readonly target?: StateToken<S> | "self";
@@ -158,7 +158,7 @@ type DefinitionConfig<
 };
 
 /**
- * A definition: a machine's structure, before its handlers (Machines O1).
+ * A definition: a machine's structure, before its handlers.
  */
 export type Definition<
   States extends ReadonlyArray<string> = ReadonlyArray<string>,
@@ -280,7 +280,7 @@ export const codecOf = <E, S = Schema.Top>(schema: S) =>
   schema as Schema.Codec<Values, E>;
 
 /**
- * Declares a machine's structure: its states, events, memory and operations (Machines O1).
+ * Declares a machine's structure: its states, events, memory and operations.
  *
  * **When to use**
  *
@@ -348,7 +348,7 @@ export type AnyDefinition = {
 };
 
 /**
- * A compiled machine: its definition and its Compiled data (Runtime O1).
+ * A compiled machine: its definition and its Compiled data.
  */
 export type Machine<D extends AnyDefinition = AnyDefinition> = {
   readonly definition: D;

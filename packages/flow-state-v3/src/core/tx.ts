@@ -26,17 +26,17 @@ export type Machines = ReadonlyMap<string, Compiled>;
 export type Env = { readonly now: number; readonly seed: number };
 
 /**
- * How long a free shared actor lives before it ends (Actors R8).
+ * How long a free shared actor lives before it ends.
  */
 export const GRACE_MS = 100;
 
 /**
- * How long an awaited store write may stay unanswered before StorageSilent (WriteAhead R12).
+ * How long an awaited store write may stay unanswered before StorageSilent.
  */
 export const SILENT_MS = 10_000;
 
 /**
- * How long the Runtime's disposal waits for calls on the wire (Actors R22).
+ * How long the Runtime's disposal waits for calls on the wire.
  */
 export const DISPOSAL_BOUND_MS = 5000;
 
@@ -104,6 +104,8 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     evidenceCount: () => evidence.length,
     insertEvidence: (at: number, e: Evidence) => void evidence.splice(at, 0, e),
     command: (c: Command) => void commands.push(c),
+    commandsSince: (at: number) => commands.slice(at),
+    commandCount: () => commands.length,
     mint: <Id extends string = string>(prefix: string) => {
       world = { ...world, counter: world.counter + 1 };
 
@@ -148,7 +150,7 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     incarnationOf: (actor: ActorId) => world.incarnations.get(actorKey(actor)),
     used: (actor: ActorId) => (world.uses.get(actorKey(actor)) ?? []).length > 0,
     lanesOf: (actor: ActorId) =>
-      [...world.lanes.values()].filter((l) => actorKey(l.actor) === actorKey(actor)),
+      [...world.lanes].filter(([, l]) => actorKey(l.actor) === actorKey(actor)),
     enqueue,
     endingMail: (actor: ActorId, ending: Ending) => enqueue(Mail.Ending({ actor, ending })),
   };

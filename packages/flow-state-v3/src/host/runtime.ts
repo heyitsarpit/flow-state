@@ -1,6 +1,7 @@
 import { Context, Deferred, Effect, Exit, Layer, Option, Result, Scope } from "effect";
 import type { Values } from "../core/compiled.ts";
 import type { Evidence } from "../core/evidence.ts";
+import { laneKeyText } from "../core/lane-moves.ts";
 import { rowOf, type Row } from "../core/rows.ts";
 import { Input } from "../core/step.ts";
 import { type ActorId, actorKey } from "../core/world.ts";
@@ -13,12 +14,12 @@ import { makeFibers } from "./fibers.ts";
 import { Host, type Platform } from "./host.ts";
 
 /**
- * An app: every machine a Runtime may run, by key (Runtime O1).
+ * An app: every machine a Runtime may run, by key.
  */
 export type App = { readonly id: string; readonly machines: Readonly<Record<string, Machine>> };
 
 /**
- * Declares an app: the closed list of machines a Runtime may run (Runtime O1).
+ * Declares an app: the closed list of machines a Runtime may run.
  *
  * **When to use**
  *
@@ -34,7 +35,7 @@ export const app = (config: App): App => {
   const doubled = ids.filter((id, i) => ids.indexOf(id) !== i);
 
   if (doubled.length > 0)
-    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- construction errors throw one FlowError before any work (Compile R2, R15)
+    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- construction errors throw one FlowError before any work
     throw new FlowError({
       code: "DuplicateMachine",
       problems: doubled.map((id) => `machines: ${id} twice`),
@@ -44,7 +45,7 @@ export const app = (config: App): App => {
 };
 
 /**
- * A shared actor's name: its machine and, for a machine with no input, a literal name (Runtime O3).
+ * A shared actor's name: its machine and, for a machine with no input, a literal name.
  */
 export type ActorRef<D extends AnyDefinition = AnyDefinition> = {
   readonly machine: Machine<D>;
@@ -52,7 +53,7 @@ export type ActorRef<D extends AnyDefinition = AnyDefinition> = {
 };
 
 /**
- * Names a shared actor (Runtime O3). Inert.
+ * Names a shared actor. Inert.
  */
 // RETURN_TYPE: the ActorRef keeps its machine's definition type.
 export const actorRef = <D extends AnyDefinition>(
@@ -61,7 +62,7 @@ export const actorRef = <D extends AnyDefinition>(
 ): ActorRef<D> => ({ machine, name });
 
 /**
- * What a handle shows of an identity (Turn R23): its leaf state, its memory and its write lanes'
+ * What a handle shows of an identity: its leaf state, its memory and its write lanes'
  * rows.
  */
 export type Snapshot = {
@@ -71,7 +72,7 @@ export type Snapshot = {
 };
 
 /**
- * A handle to a shared actor: it follows the identity, not the incarnation (Runtime O3).
+ * A handle to a shared actor: it follows the identity, not the incarnation.
  */
 export type Actor<D extends AnyDefinition = AnyDefinition> = {
   readonly ref: ActorRef<D>;
@@ -80,13 +81,13 @@ export type Actor<D extends AnyDefinition = AnyDefinition> = {
 };
 
 /**
- * The key of a Runtime's one hook for `attachInspector` (Inspection O3): it attaches a sink and
+ * The key of a Runtime's one hook for `attachInspector`: it attaches a sink and
  * nothing else.
  */
 export const InspectorId = "~flow-state/Inspector";
 
 /**
- * A constructed Runtime (Runtime O2).
+ * A constructed Runtime.
  *
  * **Details**
  *
@@ -102,7 +103,7 @@ export type Runtime = {
 };
 
 /**
- * What a Runtime is set up with (Runtime O2).
+ * What a Runtime is set up with.
  */
 export type RuntimeSetup = {
   readonly construct: () => Runtime;
@@ -113,11 +114,15 @@ const operationsOf = (driver: Driver, actor: ActorId): Operations => {
   const rows = new Map<string, Map<string, Row>>();
 
   for (const lane of driver.world().lanes.values())
-    if (actorKey(lane.actor) === actorKey(actor)) {
-      const byKey = rows.get(lane.operation) ?? new Map<string, Row>();
-      byKey.set(lane.keyText, rowOf(lane));
-      rows.set(lane.operation, byKey);
-    }
+    if (actorKey(lane.actor) === actorKey(actor))
+      Option.match(laneKeyText(driver.machines, lane), {
+        onNone: () => undefined,
+        onSome: (keyText) => {
+          const byKey = rows.get(lane.operation) ?? new Map<string, Row>();
+          byKey.set(keyText, rowOf(lane));
+          rows.set(lane.operation, byKey);
+        },
+      });
 
   return rows;
 };
@@ -136,7 +141,7 @@ export const snapshotOf = (driver: Driver, actor: ActorId): Option.Option<Snapsh
 };
 
 /**
- * The Runtime's construction options (Runtime O2).
+ * The Runtime's construction options.
  */
 export type RuntimeConfig = {
   readonly app: App;
@@ -171,7 +176,7 @@ export const buildRuntime = (config: RuntimeConfig, platform: Platform) => {
     fibers,
     persistence,
     captureMs: config.persistence?.captureMs ?? 5000,
-    // Inspection O3: a callback that throws detaches only itself; sinks never change a step.
+    // A callback that throws detaches only itself; sinks never change a step.
     sink: (batch) => {
       for (const e of batch)
         for (const sink of sinks)
@@ -180,7 +185,7 @@ export const buildRuntime = (config: RuntimeConfig, platform: Platform) => {
     },
   });
 
-  // Actors R3, I4: storage is read and validated before any app service is acquired.
+  // Storage is read and validated before any app service is acquired.
   const boot = Effect.fn("Runtime.boot")(function* () {
     const loaded = yield* Option.match(persistence ? host.store : Option.none(), {
       onNone: () => Effect.succeed(new Map<string, string>()),
@@ -204,9 +209,9 @@ export const buildRuntime = (config: RuntimeConfig, platform: Platform) => {
     open = true;
   });
 
-  // Actors R2, I3: the first call runs the bootstrap once; every caller shares its Exit. The
-  // bootstrap is uninterruptible, so interrupting the first caller delays its own interrupt
-  // until the bootstrap ends (a stated limit: R2 asks that only that wait be interrupted).
+  // The first call runs the bootstrap once; every caller shares its Exit. The bootstrap is
+  // uninterruptible, so interrupting the first caller delays its own interrupt until the
+  // bootstrap ends (a stated limit: only that wait should be interrupted).
   const ready = () =>
     Effect.suspend(() => {
       if (started) return Deferred.await(booted);
@@ -227,9 +232,9 @@ export const buildRuntime = (config: RuntimeConfig, platform: Platform) => {
   const runtime: Runtime = {
     ready,
     ensureActor: (ref) => {
-      // Actors R4, I5: before ready succeeds, no handle exists.
+      // Before ready succeeds, no handle exists.
       if (!open)
-        // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the public ensureActor's contract: before ready it rejects RuntimeNotReady (Actors R4)
+        // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the public ensureActor's contract: before ready it rejects RuntimeNotReady
         throw new FlowError({
           code: "RuntimeNotReady",
           problems: [`ensureActor ${ref.name} before ready()`],
@@ -251,12 +256,14 @@ export const buildRuntime = (config: RuntimeConfig, platform: Platform) => {
       const ref = "ref" in actor ? actor.ref : actor;
       driver.input(Input.DisposeActor({ actor: actorOf(ref) }));
     },
+    // The core's disposal ends first: calls settling within its bound are parked, then the
+    // Scope closes every fiber.
     dispose: () =>
       Effect.suspend(() => {
         driver.close();
 
-        return Scope.close(scope, Exit.void);
-      }),
+        return driver.disposed;
+      }).pipe(Effect.andThen(Scope.close(scope, Exit.void))),
     [InspectorId]: (sink) => {
       sinks.add(sink);
 
@@ -268,7 +275,7 @@ export const buildRuntime = (config: RuntimeConfig, platform: Platform) => {
 };
 
 /**
- * Sets up a Runtime over an app (Runtime O2): `construct()` is synchronous and inert.
+ * Sets up a Runtime over an app: `construct()` is synchronous and inert.
  *
  * **When to use**
  *

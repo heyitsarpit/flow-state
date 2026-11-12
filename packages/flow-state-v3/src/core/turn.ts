@@ -46,7 +46,7 @@ export const Resolved = Data.taggedEnum<Resolved>();
 export type Arming = { readonly name: string; readonly send: string; readonly ms: number };
 
 /**
- * What a turn decided (Turn R2, R5, R8, R9).
+ * What a turn decided.
  *
  * **Details**
  *
@@ -75,15 +75,15 @@ export type TurnResult = Data.TaggedEnum<{
 export const TurnResult = Data.taggedEnum<TurnResult>();
 
 /**
- * Everything a turn reads (Turn R7): the pre-turn state and memory, the event, the route, the
+ * Everything a turn reads: the pre-turn state and memory, the event, the route, the
  * turn's time and the lanes with its own ending admitted.
  *
  * **Details**
  *
- * - `late`: the event is a late ending, routed from the root (Turn R20).
+ * - `late`: the event is a late ending, routed from the root.
  * - `lane(operation, key)`: a lane's view; a `None` key names the ending's own lane.
  * - `leavingStrandsWork`: leaving the leaf would exit an activation that owns an InFlight head
- *   (Turn R21).
+ *.
  * - `armed`: the names of the leaf's armed schedules.
  */
 export type TurnInput = {
@@ -343,7 +343,7 @@ const implicit = (input: TurnInput): Option.Option<Alternative> => {
 };
 
 /**
- * Runs one admitted event against a machine's handlers (Turn R2, R5, R7 to R9, R12, R14, R21).
+ * Runs one admitted event against a machine's handlers.
  *
  * **Details**
  *

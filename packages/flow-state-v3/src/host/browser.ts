@@ -3,7 +3,7 @@ import { Host } from "./host.ts";
 
 /**
  * A fresh 32-bit seed per boot from the platform's entropy, so two tabs never share one
- * (WriteLanes R5, I28).
+ *.
  */
 const entropy = () => crypto.getRandomValues(new Uint32Array(1))[0] ?? 0;
 
@@ -13,7 +13,7 @@ const entropy = () => crypto.getRandomValues(new Uint32Array(1))[0] ?? 0;
  * **Details**
  *
  * `Clock` and `Scheduler` are absent, so Effect's defaults apply (Date.now, a clamped timer,
- * MixedScheduler). Visibility and storage are stubs for the walking skeleton, owed by T19.
+ * MixedScheduler). Visibility and storage are stubs for the walking skeleton, owed by a later Task.
  */
 export const browserPlatform = () =>
   Context.make(

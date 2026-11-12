@@ -1,90 +1,108 @@
 import { Option, Result, Schema } from "effect";
+import { Cue, LaneState, Move } from "./cells.ts";
 import { Operation, type Values } from "./compiled.ts";
-import { Evidence, type Member, MemberTarget } from "./evidence.ts";
+import { Act, evidenceOf } from "./evidence-of.ts";
+import { type Member, MemberTarget } from "./evidence.ts";
+import { type At, keyTextOf, makeMoves, onWireAs, awaits } from "./lane-moves.ts";
 import { LaneView } from "./turn.ts";
 import { isInFlight, pick, type Tx, without, withEntry } from "./tx.ts";
-import { isDecline } from "./vocabulary.ts";
 import {
   type ActorId,
+  type CallId,
   Command,
   type Ending,
   type Incarnation,
-  type Lane,
-  Phase,
-  type CallId,
   laneId,
+  Tries,
 } from "./world.ts";
 import type { Persistence } from "./persist.ts";
 
 /**
- * Lane members and their lanes (WriteLanes R5 to R9, R14): commit, retry, cancel, lookup, and the invocations a turn owes.
+ * Write lanes as one table: each member, turn end, answer, admitted or kept ending and disposal
+ * is a cue; the table's move is applied here and its reports derived by `evidenceOf`. Lookups
+ * and the guards' lane view live here too.
  */
 export const makeLanes = (tx: Tx, persistence: Persistence) => {
-  const { persisted, incarnationOf, lanesOf, endingMail } = tx;
-  const { persist, actorWrite, laneWrite, setLane, dropLane } = persistence;
+  const { lanesOf, endingMail } = tx;
+  const { operationOf, atOf, report, apply } = makeMoves(tx, persistence);
 
-  const invoke = (lane: Lane) => {
-    const call = tx.mint<CallId>("call");
-    const resend = lane.head.sent;
+  const idFor = (
+    incarnation: Incarnation,
+    operation: Operation,
+    key: Option.Option<Values>,
+    own: Option.Option<string>,
+  ) => {
+    // An unkeyed operation has one lane, which a key-less member names wherever it runs.
+    const named = Option.isSome(key) || operation.keyFields.length === 0;
 
-    const head = {
-      ...lane.head,
-      sent: true,
-      retryCount: lane.head.retryCount + (resend ? 1 : 0),
-      phase: Phase.OnWire({ call, cancelled: false }),
-    };
+    return named
+      ? Option.map(
+          keyTextOf(
+            operation,
+            Option.getOrElse(key, () => ({})),
+          ),
+          (text) => laneId(incarnation.actor, operation.name, text),
+        )
+      : Option.filter(own, (id) => tx.world().lanes.get(id)?.operation === operation.name);
+  };
 
-    setLane({ ...lane, head });
-    tx.emit(Evidence.Sent({ operation: lane.operation, attempt: head.id }));
-    tx.command(
-      Command.Invoke({
-        call,
-        machine: lane.actor.machine,
-        operation: lane.operation,
-        input: head.input,
-        attempt: Option.some({
-          id: head.id,
-          key: lane.key,
-          retryCount: head.retryCount,
-          mayHaveApplied: head.mayHaveApplied,
-        }),
-      }),
+  const atFor = (
+    incarnation: Incarnation,
+    operation: Operation,
+    key: Option.Option<Values>,
+    own: Option.Option<string>,
+  ) =>
+    Option.map(idFor(incarnation, operation, key, own), (id) => {
+      const lane = tx.world().lanes.get(id);
+
+      return lane === undefined
+        ? {
+            id,
+            actor: incarnation.actor,
+            operation: operation.name,
+            key: Option.getOrElse(key, () => ({})),
+          }
+        : atOf(id, lane);
+    });
+
+  // RETURN_TYPE: both branches build one MemberTarget variant each; the union is the contract.
+  const targetOf = (key: Option.Option<Values>, at: Option.Option<At>): MemberTarget => {
+    if (Option.isSome(key)) return MemberTarget.Key({ key: key.value });
+
+    return Option.match(
+      Option.filter(at, (a) => tx.world().lanes.has(a.id)),
+      {
+        onNone: () => MemberTarget.Nothing(),
+        onSome: (a) => MemberTarget.Key({ key: a.key }),
+      },
     );
   };
 
-  const decline = (
-    actor: ActorId,
-    operation: string,
-    why: string,
-    owner: number,
-    lane: Option.Option<string>,
-  ) =>
+  // A member whose lane cannot be named acts on no lane: Idle's cell, with its reports.
+  const applyNamed = (operation: Operation, actor: ActorId, at: Option.Option<At>, cue: Cue) =>
+    Option.match(at, {
+      onNone: () =>
+        report(
+          { id: "", actor, operation: operation.name, key: {} },
+          LaneState.Idle(),
+          cue,
+          tx.commandCount(),
+        ),
+      onSome: (a) => void apply(a, cue),
+    });
+
+  const decline = (actor: ActorId, operation: string, why: string, owner: number) =>
     endingMail(actor, {
       operation,
       attempt: Option.none(),
-      lane,
+      lane: Option.none(),
       channel: "failure",
       reason: why,
       value: { why },
       owner,
       current: true,
-      redelivered: false,
-      parked: false,
+      tries: Tries.First(),
     });
-
-  // ── members.
-  // RETURN_TYPE: both branches build one MemberTarget variant each; the union is the contract.
-  const memberTarget = (key: Option.Option<Values>): MemberTarget =>
-    Option.match(key, {
-      onNone: () => MemberTarget.Nothing(),
-      onSome: (k) => MemberTarget.Key({ key: k }),
-    });
-
-  const laneAt = (actor: ActorId, operation: string, keyText: string) =>
-    tx.world().lanes.get(laneId(actor, operation, keyText));
-
-  const keyTextOf = (operation: Operation, key: Values) =>
-    Result.getSuccess(Schema.encodeUnknownResult(operation.key)(pick(key, operation.keyFields)));
 
   const commit = (incarnation: Incarnation, operation: Operation, input: Values, owner: number) => {
     const key = pick(input, operation.keyFields);
@@ -98,65 +116,33 @@ export const makeLanes = (tx: Tx, persistence: Persistence) => {
     const text = keyTextOf(operation, key);
     const encodes = Result.isSuccess(Schema.encodeUnknownResult(operation.inputJson)(input));
 
-    // WriteLanes R12: an input or key with no encoded form declines; nothing is sent or saved.
+    // An input or key with no encoded form, or a persisted identity in a Runtime without
+    // persistence, declines before the lane's table: nothing is sent or saved.
     if (Option.isNone(text) || !encodes) {
-      decline(incarnation.actor, operation.name, "Unencodable", owner, Option.none());
-
-      return member;
-    }
-
-    const id = laneId(incarnation.actor, operation.name, text.value);
-
-    if (tx.world().lanes.has(id) || tx.world().parked.get(id)?.kept === true) {
-      decline(incarnation.actor, operation.name, "Rejected", owner, Option.some(id));
+      decline(incarnation.actor, operation.name, "Unencodable", owner);
 
       return member;
     }
 
     if (tx.machines.get(incarnation.actor.machine)?.persist === true && !tx.world().persistence) {
-      decline(incarnation.actor, operation.name, "NoPersistence", owner, Option.none());
+      decline(incarnation.actor, operation.name, "NoPersistence", owner);
 
       return member;
     }
 
-    const attempt = tx.mint("att");
-    tx.emit(Evidence.Minted({ operation: operation.name, attempt, actor: incarnation.actor, key }));
-
-    const lane: Lane = {
-      id,
-      actor: incarnation.actor,
-      operation: operation.name,
-      key,
-      keyText: text.value,
-      head: {
-        id: attempt,
-        input,
-        retryCount: 0,
-        mayHaveApplied: false,
-        sent: false,
-        owner,
-        phase: Phase.Ready(),
+    // Only reject concurrency is built: every commit meets the table as a reject commit.
+    apply(
+      {
+        id: laneId(incarnation.actor, operation.name, text.value),
+        actor: incarnation.actor,
+        operation: operation.name,
+        key,
       },
-    };
-
-    setLane(lane);
+      Cue.CommitReject({ input, owner }),
+    );
 
     return member;
   };
-
-  const laneFor = (
-    incarnation: Incarnation,
-    operation: Operation,
-    key: Option.Option<Values>,
-    own: Option.Option<string>,
-  ) =>
-    Option.match(key, {
-      onNone: () => Option.flatMap(own, (id) => Option.fromUndefinedOr(tx.world().lanes.get(id))),
-      onSome: (k) =>
-        Option.flatMap(keyTextOf(operation, k), (text) =>
-          Option.fromUndefinedOr(laneAt(incarnation.actor, operation.name, text)),
-        ),
-    });
 
   const retry = (
     incarnation: Incarnation,
@@ -165,82 +151,11 @@ export const makeLanes = (tx: Tx, persistence: Persistence) => {
     own: Option.Option<string>,
     owner: number,
   ) => {
-    const lane = laneFor(incarnation, operation, key, own);
-
-    const target = Option.isSome(key)
-      ? memberTarget(key)
-      : memberTarget(Option.map(lane, (l) => l.key));
-
-    Option.match(lane, {
-      onNone: () =>
-        tx.emit(
-          Evidence.Lane({
-            kind: "NothingToResend",
-            operation: operation.name,
-            attempt: Option.none(),
-          }),
-        ),
-      onSome: (l) => {
-        if (isInFlight(l)) {
-          tx.emit(
-            Evidence.Lane({
-              kind: "InFlight",
-              operation: operation.name,
-              attempt: Option.some(l.head.id),
-            }),
-          );
-
-          return;
-        }
-
-        setLane({ ...l, head: { ...l.head, owner, phase: Phase.Ready() } });
-      },
-    });
+    const at = atFor(incarnation, operation, key, own);
+    const target = targetOf(key, at);
+    applyNamed(operation, incarnation.actor, at, Cue.Retry({ owner }));
 
     return { operation: operation.name, kind: "retry", target } satisfies Member;
-  };
-
-  const releaseLane = (lane: Lane) => {
-    tx.emit(
-      Evidence.Lane({
-        kind: "Released",
-        operation: lane.operation,
-        attempt: Option.some(lane.head.id),
-      }),
-    );
-    dropLane(lane);
-  };
-
-  const cancelWrite = (lane: Lane) =>
-    Phase.$match(lane.head.phase, {
-      OnWire: ({ call }) => {
-        tx.command(Command.Interrupt({ call }));
-        setLane({
-          ...lane,
-          head: { ...lane.head, phase: Phase.OnWire({ call, cancelled: true }) },
-        });
-      },
-      Held: () => releaseLane(lane),
-      Ready: () => (lane.head.sent ? releaseLane(lane) : neverSent(lane)),
-      Recapturing: () => releaseLane(lane),
-      Acknowledging: () => neverSent(lane),
-    });
-
-  const neverSent = (lane: Lane) => {
-    tx.set({ ...tx.world(), lanes: without(tx.world().lanes, lane.id) });
-    persist(lane.actor, [laneWrite(lane, true)], Option.none());
-    endingMail(lane.actor, {
-      operation: lane.operation,
-      attempt: Option.some(lane.head.id),
-      lane: Option.none(),
-      channel: "failure",
-      reason: "Cancelled",
-      value: { why: "Cancelled" },
-      owner: lane.head.owner,
-      current: true,
-      redelivered: false,
-      parked: false,
-    });
   };
 
   const cancel = (
@@ -264,16 +179,11 @@ export const makeLanes = (tx: Tx, persistence: Persistence) => {
         } satisfies Member;
       },
       Write: () => {
-        const lane = laneFor(incarnation, operation, key, own);
-        Option.match(lane, { onNone: () => undefined, onSome: cancelWrite });
+        const at = atFor(incarnation, operation, key, own);
+        const target = targetOf(key, at);
+        applyNamed(operation, incarnation.actor, at, Cue.Cancel());
 
-        return {
-          operation: operation.name,
-          kind: "cancel",
-          target: Option.isSome(key)
-            ? memberTarget(key)
-            : memberTarget(Option.map(lane, (l) => l.key)),
-        } satisfies Member;
+        return { operation: operation.name, kind: "cancel", target } satisfies Member;
       },
     });
 
@@ -282,9 +192,8 @@ export const makeLanes = (tx: Tx, persistence: Persistence) => {
       if (read.incarnation === incarnation.id && read.operation === operation.name) {
         tx.set({ ...tx.world(), reads: without(tx.world().reads, call) });
         tx.command(Command.Interrupt({ call }));
-        tx.emit(
-          Evidence.Lane({ kind: "Superseded", operation: operation.name, attempt: Option.none() }),
-        );
+
+        for (const e of evidenceOf(Act.ReadReplaced({ operation: operation.name }))) tx.emit(e);
       }
 
     const call = tx.mint<CallId>("call");
@@ -299,131 +208,130 @@ export const makeLanes = (tx: Tx, persistence: Persistence) => {
       }),
     });
     tx.command(
-      Command.Invoke({
+      Command.Lookup({
         call,
         machine: incarnation.actor.machine,
         operation: operation.name,
         input,
-        attempt: Option.none(),
       }),
     );
   };
 
-  // ── after a turn: lanes minted or owed a re-send become acknowledgements, captures or invocations.
+  /**
+   * After a turn: each of the identity's lanes hears that its turn ended.
+   */
   const flushLanes = (actor: ActorId) => {
-    const incarnation = incarnationOf(actor);
-    const writes = Option.toArray(Option.flatMap(Option.fromUndefinedOr(incarnation), actorWrite));
-
-    for (const lane of lanesOf(actor)) {
-      if (!Phase.$is("Ready")(lane.head.phase)) continue;
-
-      if (!persisted(actor)) {
-        invoke(lane);
-        continue;
-      }
-
-      const ticket = persist(
-        actor,
-        [...writes, laneWrite(lane, false)],
-        Option.some({ attempt: lane.head.id, purpose: lane.head.sent ? "capture" : "acknowledge" }),
-      );
-
-      Option.match(ticket, {
-        onNone: () => invoke(lane),
-        onSome: (t) =>
-          setLane({
-            ...lane,
-            head: {
-              ...lane.head,
-              phase: lane.head.sent
-                ? Phase.Recapturing({ ticket: t })
-                : Phase.Acknowledging({ ticket: t }),
-            },
-          }),
-      });
-    }
+    for (const [id, lane] of lanesOf(actor)) apply(atOf(id, lane), Cue.TurnEnded());
   };
 
   /**
-   * Applies an admitted ending to its lane (WriteLanes R2, R4, R8) and returns it as the Attempt
-   * delivers it: a definite failure after an unknown send is unknown `StillUnknown`.
+   * Applies an admitted ending to its lane, when it is the lane's head's own, and returns it as
+   * the Attempt delivers it.
    */
-  // RETURN_TYPE: the ending as the Attempt delivers it, possibly rewritten to StillUnknown.
-  const admitToLane = (ending: Ending): Ending => {
-    const lane = Option.flatMap(ending.lane, (id) =>
-      Option.fromUndefinedOr(tx.world().lanes.get(id)),
+  // RETURN_TYPE: the ending as the Attempt delivers it, possibly rewritten to an unknown.
+  const admit = (ending: Ending): Ending => {
+    const found = Option.flatMap(ending.lane, (id) =>
+      Option.map(
+        Option.filter(Option.fromUndefinedOr(tx.world().lanes.get(id)), (lane) =>
+          Option.contains(ending.attempt, lane.head.id),
+        ),
+        (lane) => atOf(id, lane),
+      ),
     );
 
-    if (
-      Option.isNone(lane) ||
-      Option.isNone(ending.attempt) ||
-      lane.value.head.id !== ending.attempt.value
-    )
-      return ending;
-    const l = lane.value;
+    return Option.match(found, {
+      onNone: () => ending,
+      onSome: (at) => {
+        const move = apply(at, Cue.Ended({ channel: ending.channel, reason: ending.reason }));
 
-    if (ending.channel === "failure" && l.head.mayHaveApplied && !isDecline(ending.reason)) {
-      setLane({ ...l, head: { ...l.head, phase: Phase.Held() } });
+        return Move.$is("Hold")(move)
+          ? { ...ending, channel: "unknown", reason: move.reason }
+          : ending;
+      },
+    });
+  };
 
-      return { ...ending, channel: "unknown", reason: "StillUnknown" };
-    }
+  /**
+   * Keeps a twice-refused ending on its lane.
+   */
+  const keepEnding = (actor: ActorId, ending: Ending) =>
+    Option.match(ending.lane, {
+      onNone: () => undefined,
+      onSome: (id) => {
+        const lane = tx.world().lanes.get(id);
 
-    if (ending.channel === "unknown") {
-      setLane({ ...l, head: { ...l.head, mayHaveApplied: true, phase: Phase.Held() } });
-      persist(
-        l.actor,
-        [
-          laneWrite(
-            { ...l, head: { ...l.head, mayHaveApplied: true, phase: Phase.Held() } },
-            false,
-          ),
-        ],
-        Option.none(),
-      );
+        apply(
+          lane === undefined ? { id, actor, operation: ending.operation, key: {} } : atOf(id, lane),
+          Cue.Keep({ ending }),
+        );
+      },
+    });
 
-      return ending;
-    }
+  /**
+   * Applies a call's classified result to the lane whose head it is on the wire for: queued, or
+   * parked during disposal.
+   */
+  const settle = (
+    call: CallId,
+    settled: {
+      readonly channel: Ending["channel"];
+      readonly reason: string;
+      // FLOW_STATE_ALLOW_UNKNOWN: a call's value is the contract's own, mapped at admission.
+      readonly value: unknown;
+    },
+    route: "queue" | "park",
+  ) => {
+    for (const [id, lane] of tx.world().lanes)
+      if (onWireAs(lane, call)) apply(atOf(id, lane), Cue.Settled({ ...settled, route }));
+  };
 
-    dropLane(l);
+  /**
+   * Applies a store's answer to every lane whose head awaits its ticket.
+   */
+  const answer = (ticket: string, landed: boolean) => {
+    for (const [id, lane] of tx.world().lanes)
+      if (awaits(lane, ticket)) apply(atOf(id, lane), landed ? Cue.Stored() : Cue.Refused());
+  };
 
-    return ending;
+  /**
+   * Applies a disposal cue to every lane.
+   */
+  const everyLane = (cue: Cue) => {
+    for (const [id, lane] of tx.world().lanes) apply(atOf(id, lane), cue);
   };
 
   const viewOf =
     (incarnation: Incarnation, own: Option.Option<string>) =>
-    (operation: string, key: Option.Option<Values>) => {
-      const op = tx.machines.get(incarnation.actor.machine)?.operations.get(operation);
-
-      if (op === undefined) return LaneView.Idle();
-
-      return Option.match(laneFor(incarnation, op, key, own), {
-        onNone: () => LaneView.Idle(),
-        onSome: (l) =>
-          isInFlight(l) ? LaneView.InFlight() : LaneView.Held({ retryCount: l.head.retryCount }),
-      });
-    };
+    (operation: string, key: Option.Option<Values>) =>
+      Option.match(
+        Option.flatMap(operationOf(incarnation.actor, operation), (op) =>
+          Option.flatMap(idFor(incarnation, op, key, own), (id) =>
+            Option.fromUndefinedOr(tx.world().lanes.get(id)),
+          ),
+        ),
+        {
+          onNone: () => LaneView.Idle(),
+          onSome: (l) =>
+            isInFlight(l) ? LaneView.InFlight() : LaneView.Held({ retryCount: l.head.retryCount }),
+        },
+      );
 
   return {
-    invoke,
-    decline,
-    memberTarget,
-    laneAt,
-    keyTextOf,
     commit,
-    laneFor,
     retry,
-    releaseLane,
-    cancelWrite,
-    neverSent,
     cancel,
     lookup,
     flushLanes,
-    admitToLane,
+    admit,
+    keepEnding,
+    settle,
+    answer,
+    everyLane,
     viewOf,
   };
 };
 
 /**
- * Lane members and their lanes.
+ * Write lanes as one table.
  */
 export type LaneSteps = ReturnType<typeof makeLanes>;

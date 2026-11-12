@@ -61,7 +61,7 @@ export type Armed = { readonly arming: number; readonly dueAt: number; readonly 
  * **Details**
  *
  * `activation` numbers the current leaf's entry: a re-entry is a new activation, so work its old
- * activation owns ends late (Turn R20).
+ * activation owns ends late.
  */
 export type Incarnation = {
   readonly id: string;
@@ -73,22 +73,27 @@ export type Incarnation = {
 };
 
 /**
- * Where an Attempt's send is (WriteLanes R6, R8, R14): its lane is InFlight in every phase but
- * `Held`.
+ * Where a lane's head stands: one tag per history and wait, never a flag (WriteLanes model).
  *
  * **Details**
  *
- * - `Acknowledging`: a persisted first send, waiting for storage to acknowledge it (WriteAhead R13).
- * - `Ready`: waiting to be invoked after its turn.
- * - `OnWire`: invoked; `call` names the live call.
- * - `Recapturing`: a persisted re-send, waiting for its lane record's capture.
- * - `Held`: a retained unknown.
+ * - `Acknowledging`: never sent; its acknowledgement batch is out.
+ * - `Unsent`: never sent; waits for its turn to end.
+ * - `Withdrawing`: never sent; a cancel came while it was acknowledging, and waits for storage.
+ * - `Recapturing`: sent before; its re-send waits for its lane record's capture.
+ * - `Resending`: sent before; a retry owes its re-send, which waits for its turn to end.
+ * - `OnWire`: invoked, with no ending yet; `call` names the live call.
+ * - `Cancelling`: on the wire, and interrupted by a cancel.
+ * - `Held`: its last ending was a retained unknown, and it is not on the wire.
  */
 export type Phase = Data.TaggedEnum<{
   Acknowledging: { ticket: TicketId };
-  Ready: {};
-  OnWire: { call: CallId; cancelled: boolean };
+  Unsent: {};
+  Withdrawing: { ticket: TicketId };
   Recapturing: { ticket: TicketId };
+  Resending: {};
+  OnWire: { call: CallId };
+  Cancelling: { call: CallId };
   Held: {};
 }>;
 
@@ -105,20 +110,17 @@ export type Head = {
   readonly input: Values;
   readonly retryCount: number;
   readonly mayHaveApplied: boolean;
-  readonly sent: boolean;
   readonly owner: number;
   readonly phase: Phase;
 };
 
 /**
- * A write lane (WriteLanes R6): an identity's operation at one key, while it is not Idle.
+ * A write lane while it is not Idle: an identity's operation at one key. Its id and key are
+ * derived from the identity, the operation and the head's input.
  */
 export type Lane = {
-  readonly id: string;
   readonly actor: ActorId;
   readonly operation: string;
-  readonly key: Values;
-  readonly keyText: string;
   readonly head: Head;
 };
 
@@ -146,12 +148,22 @@ export type Ending = {
   readonly value: unknown;
   readonly owner: number;
   readonly current: boolean;
-  readonly redelivered: boolean;
-  readonly parked: boolean;
+  readonly tries: Tries;
 };
 
 /**
- * One item of an actor's mailbox (Actors R12).
+ * How far an ending's delivery has got: its first try (not yet applied to its lane), parked
+ * (applied, waiting for an incarnation), or its last try (a refusal keeps it).
+ */
+export type Tries = Data.TaggedEnum<{ First: {}; Parked: {}; Last: {} }>;
+
+/**
+ * Constructors and matchers for {@link Tries}.
+ */
+export const Tries = Data.taggedEnum<Tries>();
+
+/**
+ * One item of an actor's mailbox.
  */
 export type Mail = Data.TaggedEnum<{
   Event: { actor: ActorId; tag: string; payload: Values };
@@ -219,15 +231,14 @@ export type Disposal = Data.TaggedEnum<{
 export const Disposal = Data.taggedEnum<Disposal>();
 
 /**
- * Endings parked on a lane for the identity's next incarnation, in the order they ended
- * (Actors R22, Restore R3).
+ * Endings waiting on a lane for the identity's next incarnation, in the order they ended: parked
+ * ones, or a kept one that blocks its key and gets one try per boot or adoption.
  */
 export type Parked = {
   readonly lane: string;
   readonly actor: ActorId;
   readonly operation: string;
   readonly endings: ReadonlyArray<Ending>;
-  readonly kept: boolean;
 };
 
 /**
@@ -238,11 +249,11 @@ export type World = {
   readonly records: ReadonlyMap<string, ActorRecord>;
   readonly lanes: ReadonlyMap<string, Lane>;
   readonly parked: ReadonlyMap<string, Parked>;
+  readonly kept: ReadonlyMap<string, Parked>;
   readonly reads: ReadonlyMap<CallId, Read>;
   readonly mail: ReadonlyArray<Mail>;
   readonly uses: ReadonlyMap<string, ReadonlyArray<Use>>;
   readonly timers: ReadonlyMap<TimerId, Timer>;
-  readonly tickets: ReadonlyMap<TicketId, TimerId>;
   readonly counter: number;
   readonly persistence: boolean;
   readonly disposal: Disposal;
@@ -257,11 +268,11 @@ export const emptyWorld = (persistence: boolean): World => ({
   records: new Map(),
   lanes: new Map(),
   parked: new Map(),
+  kept: new Map(),
   reads: new Map(),
   mail: [],
   uses: new Map(),
   timers: new Map(),
-  tickets: new Map(),
   counter: 0,
   persistence,
   disposal: Disposal.Open(),
@@ -276,22 +287,30 @@ export type Command = Data.TaggedEnum<{
     machine: string;
     operation: string;
     input: Values;
-    attempt: Option.Option<{
+    attempt: {
       readonly id: string;
       readonly key: Values;
       readonly retryCount: number;
       readonly mayHaveApplied: boolean;
-    }>;
+    };
   };
+  Lookup: { call: CallId; machine: string; operation: string; input: Values };
   Interrupt: { call: CallId };
   Arm: { timer: TimerId; at: number };
   Disarm: { timer: TimerId };
-  Persist: {
-    scope: string;
-    writes: ReadonlyArray<Write>;
-    ticket: Option.Option<Ticket>;
-  };
+  Persist: { scope: string; writes: ReadonlyArray<Write>; due: Due };
 }>;
+
+/**
+ * When a batch's writes must be issued: within the capture interval, at once, or at once with a
+ * ticket whose answer a send awaits.
+ */
+export type Due = Data.TaggedEnum<{ Later: {}; Now: {}; Awaited: { ticket: Ticket } }>;
+
+/**
+ * Constructors and matchers for {@link Due}.
+ */
+export const Due = Data.taggedEnum<Due>();
 
 /**
  * Constructors and matchers for {@link Command}.

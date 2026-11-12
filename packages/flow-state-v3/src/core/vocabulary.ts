@@ -1,7 +1,7 @@
 import { Schema } from "effect";
 
 /**
- * Flow's decline reasons: the failure NotSent { why } (WriteLanes R3).
+ * Flow's decline reasons: the failure NotSent { why }.
  */
 export const Decline = Schema.Literals([
   "Cancelled",
@@ -26,7 +26,7 @@ export type Decline = typeof Decline.Type;
 export const isDecline = Schema.is(Decline);
 
 /**
- * The channel an ending was decided on (WriteLanes R2).
+ * The channel an ending was decided on.
  */
 export const Channel = Schema.Literals(["success", "failure", "unknown"]);
 
@@ -36,7 +36,7 @@ export const Channel = Schema.Literals(["success", "failure", "unknown"]);
 export type Channel = typeof Channel.Type;
 
 /**
- * Why a turn was refused before commit (Turn R8, R10).
+ * Why a turn was refused before commit.
  */
 export type RefusedCode = "CallbackDefect" | "InvalidTurn" | "GuardDefect";
 
@@ -46,7 +46,7 @@ export type RefusedCode = "CallbackDefect" | "InvalidTurn" | "GuardDefect";
 export type IssueCode = RefusedCode | "Defect";
 
 /**
- * A schedule's saved deadline, as an actor record holds it (WriteAhead R4).
+ * A schedule's saved deadline, as an actor record holds it.
  */
 export const ScheduleDeadline = Schema.Struct({
   name: Schema.String,

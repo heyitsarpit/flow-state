@@ -1,27 +1,30 @@
 import { Option, Result } from "effect";
 import { armingsOf } from "./turn.ts";
 import { Evidence } from "./evidence.ts";
-import { actorRecordKey, decodeRecords, parkedRecordKey } from "./record.ts";
+import { actorRecordKey, decodeRecords } from "./record.ts";
 import { GRACE_MS, isInFlight, ROOT_ACTIVATION, type Tx, without, withEntry } from "./tx.ts";
 import {
   type ActorId,
   actorKey,
   type ActorRecord,
   type Armed,
+  Due,
   type Incarnation,
   Mail,
+  type Parked,
   Phase,
   Timer,
+  Tries,
   type Use,
 } from "./world.ts";
 import type { Persistence } from "./persist.ts";
 
 /**
- * Incarnations (Actors R6 to R10): creation, restore, uses, the grace and the end, with their schedules.
+ * Incarnations: creation, restore, uses, the grace and the end, with their schedules.
  */
 export const makeIncarnations = (tx: Tx, persistence: Persistence) => {
   const { armTimer, disarmWhere, incarnationOf, used, lanesOf, enqueue, endingMail } = tx;
-  const { persist, saveActor, park } = persistence;
+  const { persist, saveActor, park, unpark } = persistence;
 
   // ── incarnations.
   const armSchedules = (
@@ -73,44 +76,57 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence) => {
       }),
     );
 
-  const deliverRestored = (actor: ActorId) => {
-    const parked = [...tx.world().parked.values()].filter(
-      (p) => actorKey(p.actor) === actorKey(actor),
-    );
+  const ownedBy = (actor: ActorId, waiting: ReadonlyMap<string, Parked>) =>
+    [...waiting.values()].filter((p) => actorKey(p.actor) === actorKey(actor));
 
-    const parkedAttempts = new Set(
-      parked.flatMap((p) => p.endings.flatMap((e) => Option.toArray(e.attempt))),
+  // An incarnation starts: its parked endings are delivered, each kept one gets its one try, and
+  // each Held head with no ending waiting hears unknown Restored.
+  const deliverRestored = (actor: ActorId) => {
+    const parked = ownedBy(actor, tx.world().parked);
+    const kept = ownedBy(actor, tx.world().kept);
+
+    const waitingAttempts = new Set(
+      [...parked, ...kept].flatMap((p) => p.endings.flatMap((e) => Option.toArray(e.attempt))),
     );
 
     for (const p of parked) {
       for (const ending of p.endings) {
-        if (!p.kept)
-          tx.emit(Evidence.Unparked({ operation: p.operation, attempt: ending.attempt }));
+        tx.emit(Evidence.Unparked({ operation: p.operation, attempt: ending.attempt }));
         endingMail(actor, {
           ...ending,
           current: true,
           owner: ROOT_ACTIVATION,
-          redelivered: p.kept,
+          tries: Tries.Parked(),
         });
       }
 
-      tx.set({ ...tx.world(), parked: without(tx.world().parked, p.lane) });
-      persist(actor, [{ key: parkedRecordKey(p.lane), record: Option.none() }], Option.none());
+      unpark(actor, p.lane);
     }
 
-    for (const lane of lanesOf(actor))
-      if (Phase.$is("Held")(lane.head.phase) && !parkedAttempts.has(lane.head.id))
+    for (const p of kept) {
+      for (const ending of p.endings)
+        endingMail(actor, {
+          ...ending,
+          current: true,
+          owner: ROOT_ACTIVATION,
+          tries: Tries.Last(),
+        });
+
+      unpark(actor, p.lane);
+    }
+
+    for (const [id, lane] of lanesOf(actor))
+      if (Phase.$is("Held")(lane.head.phase) && !waitingAttempts.has(lane.head.id))
         endingMail(actor, {
           operation: lane.operation,
           attempt: Option.some(lane.head.id),
-          lane: Option.some(lane.id),
+          lane: Option.some(id),
           channel: "unknown",
           reason: "Restored",
           value: undefined,
           owner: ROOT_ACTIVATION,
           current: true,
-          redelivered: false,
-          parked: false,
+          tries: Tries.First(),
         });
   };
 
@@ -216,7 +232,8 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence) => {
     const incarnation = incarnationOf(actor);
 
     if (incarnation === undefined) return;
-    saveActor(actor);
+    // The end writes a dirty record in its own step, not at the next capture.
+    saveActor(actor, Due.Now());
     stopSchedules(incarnation);
     disarmWhere((t) => Timer.$is("Grace")(t) && t.incarnation === incarnation.id);
     tx.set({
@@ -228,9 +245,9 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence) => {
   };
 
   /**
-   * Disposes an identity (Actors R20) or forgets it (R21): its incarnation ends without a
-   * record, its record is removed, and its lanes stay, unbound until an adopting ensure. Forget
-   * also lets go of its parked and kept endings, as evidence.
+   * Disposes an identity or forgets it: its incarnation ends without a record, its record is
+   * removed, and its lanes stay, unbound until an adopting ensure. Forget also lets go of its
+   * parked and kept endings, as evidence.
    */
   const dispose = (actor: ActorId, forgetting: boolean) => {
     const incarnation = incarnationOf(actor);
@@ -252,35 +269,28 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence) => {
       records: without(tx.world().records, key),
       uses: without(tx.world().uses, key),
     });
-    persist(actor, [{ key: actorRecordKey(key), record: Option.none() }], Option.none());
+    persist(actor, [{ key: actorRecordKey(key), record: Option.none() }], Due.Later());
 
     if (!forgetting) return;
 
-    for (const parked of tx.world().parked.values())
-      if (actorKey(parked.actor) === key) {
-        for (const e of parked.endings)
-          tx.emit(
-            Evidence.Recorded({
-              operation: parked.operation,
-              attempt: e.attempt,
-              why: parked.kept ? "letGo" : "evidence",
-            }),
-          );
-        tx.set({ ...tx.world(), parked: without(tx.world().parked, parked.lane) });
-        persist(
-          actor,
-          [{ key: parkedRecordKey(parked.lane), record: Option.none() }],
-          Option.none(),
-        );
+    const letGo = (waiting: ReadonlyMap<string, Parked>, why: "evidence" | "letGo") => {
+      for (const p of ownedBy(actor, waiting)) {
+        for (const e of p.endings)
+          tx.emit(Evidence.Recorded({ operation: p.operation, attempt: e.attempt, why }));
+        unpark(actor, p.lane);
       }
+    };
+
+    letGo(tx.world().parked, "evidence");
+    letGo(tx.world().kept, "letGo");
   };
 
-  // ── after every step: free incarnations start their grace; used ones stop it (Actors R7, R8).
+  // ── after every step: free incarnations start their grace; used ones stop it.
   const graces = () => {
     for (const incarnation of tx.world().incarnations.values()) {
       const busy =
         used(incarnation.actor) ||
-        lanesOf(incarnation.actor).some(isInFlight) ||
+        lanesOf(incarnation.actor).some(([, lane]) => isInFlight(lane)) ||
         tx.world().mail.some((m) => actorKey(m.actor) === actorKey(incarnation.actor));
 
       const timing = [...tx.world().timers.values()].some(
@@ -306,46 +316,48 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence) => {
       ...tx.world(),
       records: new Map(restored.records.map((r) => [actorKey(r.actor), r])),
       lanes: new Map(
-        restored.lanes.map(({ lane }) => [
-          lane.id,
+        restored.lanes.map(({ id, lane }) => [
+          id,
           { ...lane, head: { ...lane.head, mayHaveApplied: true } },
         ]),
       ),
       parked: new Map(restored.parked.map((p) => [p.lane, p])),
+      kept: new Map(restored.kept.map((p) => [p.lane, p])),
     });
 
     // Each held head's unknown Restored is decided at the boot and parked for its identity, unless
-    // its own ending is already parked (Restore R3); an identity owed an ending is live at ready (R1).
-    const parkedAttempts = new Set(
-      restored.parked.flatMap((p) => p.endings.flatMap((e) => Option.toArray(e.attempt))),
+    // its own ending is already waiting; an identity owed an ending is live at ready.
+    const waitingAttempts = new Set(
+      [...restored.parked, ...restored.kept].flatMap((p) =>
+        p.endings.flatMap((e) => Option.toArray(e.attempt)),
+      ),
     );
 
-    for (const { lane } of restored.lanes)
-      if (!parkedAttempts.has(lane.head.id))
-        park(lane.actor, lane.id, lane.operation, {
+    for (const { id, lane } of restored.lanes)
+      if (!waitingAttempts.has(lane.head.id))
+        park(lane.actor, id, lane.operation, {
           operation: lane.operation,
           attempt: Option.some(lane.head.id),
-          lane: Option.some(lane.id),
+          lane: Option.some(id),
           channel: "unknown",
           reason: "Restored",
           value: undefined,
           owner: ROOT_ACTIVATION,
           current: true,
-          redelivered: false,
-          parked: true,
+          tries: Tries.Parked(),
         });
 
-    // Restore R1: only an identity whose captured lanes owe it an ending (a lane InFlight at
-    // capture, or an ending parked before the boot) is live at ready; a Held lane's stays a record.
+    // Only an identity whose captured lanes owe it an ending (a lane InFlight at capture, or an
+    // ending waiting before the boot) is live at ready; a Held lane's stays a record.
     const owed = new Map([
       ...restored.lanes
         .filter((l) => l.inFlight)
         .map(({ lane }) => [actorKey(lane.actor), lane.actor] as const),
-      ...restored.parked.map((p) => [actorKey(p.actor), p.actor] as const),
+      ...[...restored.parked, ...restored.kept].map((p) => [actorKey(p.actor), p.actor] as const),
     ]);
 
-    // Restore R1, R5: an owed identity whose record does not decode is not woken; its endings stay
-    // parked for the incarnation an adopting ensure starts.
+    // An owed identity whose record does not decode is not woken; its endings stay parked for
+    // the incarnation an adopting ensure starts.
     for (const [key, actor] of owed)
       if (!restored.undecodable.has(key)) ensure(actor, Option.none(), false);
   };

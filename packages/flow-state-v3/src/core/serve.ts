@@ -4,13 +4,14 @@ import { Evidence, type Member } from "./evidence.ts";
 import { Resolved, runTurn, TurnResult } from "./turn.ts";
 import { isInFlight, ROOT_ACTIVATION, type Tx, without } from "./tx.ts";
 import { isDecline } from "./vocabulary.ts";
-import { actorKey, type Ending, type Incarnation, Mail } from "./world.ts";
+import { Act, evidenceOf } from "./evidence-of.ts";
+import { actorKey, type Ending, type Incarnation, Mail, Tries } from "./world.ts";
 import type { Persistence } from "./persist.ts";
 import type { LaneSteps } from "./lanes.ts";
 import type { IncarnationSteps } from "./incarnations.ts";
 
 /**
- * Serving mail (Turn R2, R20, Actors R12, R15): each admitted event or ending runs as one turn.
+ * Serving mail: each admitted event or ending runs as one turn.
  */
 export const makeServe = (
   tx: Tx,
@@ -19,8 +20,8 @@ export const makeServe = (
   incarnations: IncarnationSteps,
 ) => {
   const { incarnationOf, endingMail } = tx;
-  const { saveActor, keep, park } = persistence;
-  const { commit, retry, cancel, lookup, flushLanes, admitToLane, viewOf } = lanes;
+  const { saveActor, park } = persistence;
+  const { commit, retry, cancel, lookup, flushLanes, admit, keepEnding, viewOf } = lanes;
   const { armSchedules, stopSchedules, setIncarnation, publish } = incarnations;
 
   // ── serving mail.
@@ -91,10 +92,7 @@ export const makeServe = (
 
         Option.match(route.ending, {
           onNone: () => undefined,
-          onSome: (e) => {
-            if (e.redelivered) keep(incarnation.actor, e);
-            else endingMail(incarnation.actor, { ...e, redelivered: true });
-          },
+          onSome: (e) => refused(incarnation, e),
         });
       },
       Accepted: (accepted) => {
@@ -154,25 +152,24 @@ export const makeServe = (
     });
   };
 
+  // A refused turn of an ending: its first refusal redelivers it once after queued mail, its
+  // last keeps it on its lane.
+  const refused = (incarnation: Incarnation, ending: Ending) => {
+    if (Tries.$is("Last")(ending.tries)) keepEnding(incarnation.actor, ending);
+    else endingMail(incarnation.actor, { ...ending, tries: Tries.Last() });
+  };
+
   const serveEnding = (incarnation: Incarnation, admitted: Ending) => {
     const compiled = tx.machines.get(incarnation.actor.machine);
     const operation = compiled?.operations.get(admitted.operation);
 
     if (operation === undefined) return;
 
-    const decided = admitted.redelivered || admitted.parked;
-    const ending = decided ? admitted : admitToLane(admitted);
+    const first = Tries.$is("First")(admitted.tries);
+    const ending = first ? admit(admitted) : admitted;
 
-    if (!decided)
-      tx.emit(
-        Evidence.Ended({
-          operation: ending.operation,
-          attempt: ending.attempt,
-          channel: ending.channel,
-          reason: ending.reason,
-          actor: incarnation.actor,
-        }),
-      );
+    if (first)
+      for (const e of evidenceOf(Act.Ended({ actor: incarnation.actor, ending }))) tx.emit(e);
 
     const mapping = endingMapping(operation, ending);
 
@@ -190,7 +187,7 @@ export const makeServe = (
 
     const payload = Option.match(mapping.value.from, {
       onNone: () => Result.succeed<Values>({}),
-      // FLOW_STATE_ALLOW_UNKNOWN: a throw from an outcome mapper refuses the turn (WriteLanes R10).
+      // FLOW_STATE_ALLOW_UNKNOWN: a throw from an outcome mapper refuses the turn.
       onSome: (from) => Result.try({ try: () => from.run(ending.value), catch: () => from.slot }),
     });
 
@@ -215,8 +212,7 @@ export const makeServe = (
         }),
       );
 
-      if (ending.redelivered) keep(incarnation.actor, ending);
-      else endingMail(incarnation.actor, { ...ending, redelivered: true });
+      refused(incarnation, ending);
 
       return;
     }
@@ -268,11 +264,11 @@ export const makeServe = (
           return;
         }
 
-        // No incarnation to hear it: the ending waits on its lane for the next one (Actors R10).
-        const decided = ending.redelivered || ending.parked ? ending : admitToLane(ending);
+        // No incarnation to hear it: the ending waits on its lane for the next one.
+        const decided = Tries.$is("First")(ending.tries) ? admit(ending) : ending;
         Option.match(decided.lane, {
           onNone: () => undefined,
-          onSome: (lane) => park(actor, lane, decided.operation, { ...decided, parked: true }),
+          onSome: (lane) => park(actor, lane, decided.operation, decided),
         });
       },
     });

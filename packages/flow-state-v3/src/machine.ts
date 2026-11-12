@@ -189,20 +189,20 @@ const operationOf = (name: string, bound: Bound) => {
     key: bound.keyText,
     input: bound.input,
     inputJson: bound.inputJson,
-    call: { slot: `operations.${name}.call`, run: bound.call },
     success: mappingOf(bound.success, `operations.${name}.success`),
     failure,
   };
 
-  return Option.match(bound.unknown, {
-    onNone: () => Operation.Read(shared),
-    onSome: (unknown) =>
-      Operation.Write({
+  const slot = `operations.${name}.call`;
+
+  return bound.kind === "write"
+    ? Operation.Write({
         ...shared,
+        call: { slot, run: bound.call },
         concurrency: bound.concurrency,
-        unknown: mappingOf(unknown, `operations.${name}.unknown`),
-      }),
-  });
+        unknown: mappingOf(bound.unknown, `operations.${name}.unknown`),
+      })
+    : Operation.Read({ ...shared, call: { slot, run: bound.call } });
 };
 
 const memoryOf = (memory: MemoryConfig) => ({
@@ -232,7 +232,7 @@ const erasedBody = <B>(body: B) =>
   body as ErasedBody;
 
 /**
- * Compiles a definition and its handlers into a Machine (Machines O1, Runtime O1).
+ * Compiles a definition and its handlers into a Machine.
  *
  * **When to use**
  *
@@ -282,12 +282,10 @@ export const machine = <D extends AnyDefinition>(
   // Stated limit: this build runs only the reject policy; another is refused, never run as reject.
   for (const [name, bound] of Object.entries(definition.operations))
     if (bound.kind === "write" && bound.concurrency !== "reject")
-      problems.push(
-        `operations.${name}.concurrency: "${bound.concurrency}" is not built yet (T18)`,
-      );
+      problems.push(`operations.${name}.concurrency: "${bound.concurrency}" is not built yet`);
 
   if (problems.length > 0)
-    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- an invalid machine throws one FlowError before any work (Compile R2)
+    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- an invalid machine throws one FlowError before any work
     throw new FlowError({ code: "InvalidMachine", problems });
 
   const memory = memoryOf(definition.memory);

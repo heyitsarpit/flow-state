@@ -1,5 +1,7 @@
 import { Option } from "effect";
 import type { Values } from "./compiled.ts";
+import { Act, evidenceOf } from "./evidence-of.ts";
+import { Evidence } from "./evidence.ts";
 import {
   actorRecordKey,
   encodeActor,
@@ -8,57 +10,61 @@ import {
   laneRecordKey,
   parkedRecordKey,
 } from "./record.ts";
-import { Evidence } from "./evidence.ts";
 import { SILENT_MS, type Tx, without, withEntry } from "./tx.ts";
 import {
   type ActorId,
   actorKey,
   type ActorRecord,
   Command,
+  Due,
+  type Ending,
   type Incarnation,
   type Lane,
-  Timer,
   type Parked,
-  type Ending,
   type Ticket,
   type TicketId,
+  Timer,
+  Tries,
   type Write,
 } from "./world.ts";
 
 /**
- * Persistence of a step: each change to a persisted identity becomes a write of its scope (WriteAhead R5, R10), and lanes are set and dropped with their records.
+ * Persistence of a step: each change to a persisted identity becomes a write of its scope, and
+ * lanes, parked and kept endings are set and dropped with their records.
  */
 export const makePersistence = (tx: Tx) => {
   const { persisted, armTimer, incarnationOf } = tx;
 
-  // ── persistence: each change to a persisted identity becomes a write of its scope.
-  const persist = (
+  /**
+   * Writes a persisted identity's records: within the capture interval, or at once.
+   */
+  const persist = (actor: ActorId, writes: ReadonlyArray<Write>, due: Due) => {
+    if (persisted(actor)) tx.command(Command.Persist({ scope: actorKey(actor), writes, due }));
+  };
+
+  /**
+   * Writes a persisted identity's records at once with a ticket a send awaits, and arms its
+   * silence timer; `None` when the identity does not persist.
+   */
+  const persistAwaited = (
     actor: ActorId,
     writes: ReadonlyArray<Write>,
-    ticket: Option.Option<Omit<Ticket, "id">>,
+    awaited: Omit<Ticket, "id">,
   ) => {
     if (!persisted(actor)) return Option.none<TicketId>();
 
-    const id = Option.map(ticket, () => tx.mint<TicketId>("ticket"));
-    const scope = actorKey(actor);
+    const id = tx.mint<TicketId>("ticket");
 
     tx.command(
       Command.Persist({
-        scope,
+        scope: actorKey(actor),
         writes,
-        ticket: Option.flatMap(id, (t) => Option.map(ticket, (x) => ({ id: t, ...x }))),
+        due: Due.Awaited({ ticket: { id, ...awaited } }),
       }),
     );
+    armTimer(Timer.Silent({ ticket: id }), tx.env.now + SILENT_MS);
 
-    Option.match(id, {
-      onNone: () => undefined,
-      onSome: (t) => {
-        const silent = armTimer(Timer.Silent({ ticket: t }), tx.env.now + SILENT_MS);
-        tx.set({ ...tx.world(), tickets: withEntry(tx.world().tickets, t, silent) });
-      },
-    });
-
-    return id;
+    return Option.some(id);
   };
 
   const actorWrite = (incarnation: Incarnation) => {
@@ -73,13 +79,13 @@ export const makePersistence = (tx: Tx) => {
     );
   };
 
-  const laneWrite = (lane: Lane, removed: boolean) => {
+  const laneWrite = (id: string, lane: Lane, removed: boolean) => {
     const compiled = tx.machines.get(lane.actor.machine);
 
     const record =
       removed || compiled === undefined ? Option.none<Values>() : encodeLane(compiled, lane);
 
-    return { key: laneRecordKey(lane.id), record };
+    return { key: laneRecordKey(id), record };
   };
 
   // RETURN_TYPE: the Runtime's copy of a record, whose schedule list stays the record's shape.
@@ -94,7 +100,7 @@ export const makePersistence = (tx: Tx) => {
     })),
   });
 
-  const saveActor = (actor: ActorId) => {
+  const saveActor = (actor: ActorId, due: Due = Due.Later()) => {
     const incarnation = incarnationOf(actor);
 
     if (incarnation === undefined || !persisted(actor)) return;
@@ -103,46 +109,54 @@ export const makePersistence = (tx: Tx) => {
       ...tx.world(),
       records: withEntry(tx.world().records, actorKey(actor), recordOf(incarnation)),
     });
-    persist(actor, Option.toArray(actorWrite(incarnation)), Option.none());
+    persist(actor, Option.toArray(actorWrite(incarnation)), due);
   };
 
   // ── lanes.
-  const setLane = (lane: Lane) => {
-    tx.set({ ...tx.world(), lanes: withEntry(tx.world().lanes, lane.id, lane) });
+  const setLane = (id: string, lane: Lane) => {
+    tx.set({ ...tx.world(), lanes: withEntry(tx.world().lanes, id, lane) });
   };
 
-  const dropLane = (lane: Lane) => {
-    tx.set({ ...tx.world(), lanes: without(tx.world().lanes, lane.id) });
-    persist(lane.actor, [laneWrite(lane, true)], Option.none());
+  const dropLane = (id: string, lane: Lane) => {
+    tx.set({ ...tx.world(), lanes: without(tx.world().lanes, id) });
+    persist(lane.actor, [laneWrite(id, lane, true)], Due.Later());
   };
+
+  const parkedWrite = (parked: Parked, kept: boolean) => ({
+    key: parkedRecordKey(parked.lane),
+    record: Option.some(encodeParked(parked, kept)),
+  });
 
   /**
-   * Keeps a twice-refused ending on its lane (Actors R15, WriteLanes R6): it blocks its key and
-   * gets one try at the next boot or adoption.
+   * Keeps a twice-refused ending on its lane: it blocks its key and gets one try at the next
+   * boot or adoption.
    */
-  const keep = (actor: ActorId, ending: Ending) =>
-    Option.match(ending.lane, {
-      onNone: () => undefined,
-      onSome: (lane) => {
-        const kept: Parked = {
-          lane,
-          actor,
-          operation: ending.operation,
-          endings: [{ ...ending, redelivered: true }],
-          kept: true,
-        };
+  const keep = (lane: string, actor: ActorId, ending: Ending) => {
+    const kept: Parked = {
+      lane,
+      actor,
+      operation: ending.operation,
+      endings: [{ ...ending, tries: Tries.Last() }],
+    };
 
-        tx.set({ ...tx.world(), parked: withEntry(tx.world().parked, lane, kept) });
-        persist(
-          actor,
-          [{ key: parkedRecordKey(lane), record: Option.some(encodeParked(kept)) }],
-          Option.none(),
-        );
-      },
-    });
+    tx.set({ ...tx.world(), kept: withEntry(tx.world().kept, lane, kept) });
+    persist(actor, [parkedWrite(kept, true)], Due.Later());
+  };
 
   /**
-   * Parks an ending on its lane for the identity's next incarnation (Actors R10, R22).
+   * Lets a lane's parked or kept endings go, with their record.
+   */
+  const unpark = (actor: ActorId, lane: string) => {
+    tx.set({
+      ...tx.world(),
+      parked: without(tx.world().parked, lane),
+      kept: without(tx.world().kept, lane),
+    });
+    persist(actor, [{ key: parkedRecordKey(lane), record: Option.none() }], Due.Later());
+  };
+
+  /**
+   * Parks an ending on its lane for the identity's next incarnation.
    */
   const park = (actor: ActorId, lane: string, operation: string, ending: Ending) => {
     const before = tx.world().parked.get(lane);
@@ -151,29 +165,29 @@ export const makePersistence = (tx: Tx) => {
       lane,
       actor,
       operation,
-      endings: [...(before?.endings ?? []), ending],
-      kept: false,
+      endings: [...(before?.endings ?? []), { ...ending, tries: Tries.Parked() }],
     };
 
     tx.set({ ...tx.world(), parked: withEntry(tx.world().parked, lane, parked) });
-    tx.emit(
-      Evidence.Ended({
-        operation,
-        attempt: ending.attempt,
-        channel: ending.channel,
-        reason: ending.reason,
-        actor: actor,
-      }),
-    );
+
+    for (const e of evidenceOf(Act.Ended({ actor, ending }))) tx.emit(e);
     tx.emit(Evidence.Parked({ operation, attempt: ending.attempt }));
-    persist(
-      actor,
-      [{ key: parkedRecordKey(lane), record: Option.some(encodeParked(parked)) }],
-      Option.none(),
-    );
+    persist(actor, [parkedWrite(parked, false)], Due.Later());
   };
 
-  return { persist, actorWrite, laneWrite, recordOf, saveActor, setLane, dropLane, keep, park };
+  return {
+    persist,
+    persistAwaited,
+    actorWrite,
+    laneWrite,
+    recordOf,
+    saveActor,
+    setLane,
+    dropLane,
+    keep,
+    unpark,
+    park,
+  };
 };
 
 /**

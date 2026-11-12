@@ -1,8 +1,8 @@
-import type { Evidence } from "../core/evidence.ts";
+import { Evidence } from "../core/evidence.ts";
 import { InspectorId, type Runtime } from "./runtime.ts";
 
 /**
- * Attaches a callback to a Runtime's evidence (Inspection O3).
+ * Attaches a callback to a Runtime's evidence.
  *
  * **When to use**
  *
@@ -21,4 +21,4 @@ export const attachInspector = (runtime: Runtime, callback: (evidence: Evidence)
   dispose: runtime[InspectorId](callback),
 });
 
-export type { Evidence };
+export { Evidence };

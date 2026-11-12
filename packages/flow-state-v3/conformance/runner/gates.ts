@@ -13,22 +13,7 @@ import { runChild } from "./child.ts";
  * gate plays each on production and fails once it no longer fails by its check and Invariant, so
  * a fix shows.
  */
-export const productionOwed: ReadonlyArray<Limit & { readonly owner: string }> = [
-  {
-    case: "ACT-02/dirty-record-written-at-end",
-    check: "disposal",
-    invariant: "Actors I37",
-    owner: "@task.V3.T51",
-    why: "production writes a dirty record at its capture, not in the end's step (Actors R8; coordinator 7b15241b)",
-  },
-  {
-    case: "ACT-03/no-end-before-the-grace",
-    check: "disposal",
-    invariant: "Actors I37",
-    owner: "@task.V3.T51",
-    why: "production writes a dirty record at its capture, not in the end's step (Actors R8; coordinator 7b15241b)",
-  },
-];
+export const productionOwed: ReadonlyArray<Limit & { readonly owner: string }> = [];
 
 /**
  * The cases the production runtime boots: every fixture of each is in the production adapter,
