@@ -413,7 +413,7 @@ tasks
             WriteAhead R2: the `Store` type rule and untyped missing storage (row Q02, an owed check;
             @plan.Persistence.O1).
 
-            **Read first (added):** @plan.Persistence.O1, @spec.WriteAhead.Q4 (settled by the user 2026-11-12, wide
+            **Read first (added):** @plan.Persistence.O1, @spec.WriteAhead.R2 (settled by the user 2026-11-12, wide
             consult Q4 A: Flow's own `Store` with one atomic `write(batch)` and one batch stream per Runtime),
             code:workflow/plans/flow/references/proposals/fable-wide-consult-2026-11-12.md (question 4, W2).
 

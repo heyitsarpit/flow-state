@@ -64,17 +64,18 @@ requirements
                 A read keeps a slot, never a lane: at most one current call per incarnation and
                 operation. It has no Attempt, no acknowledgement, no hold, no retry and no record,
                 and no write-lane rule (kept, blocked, promoted) applies to it. Its ending is a row
-                of the owed ledger (WriteLanes Spec `model`) whose audience the code that owes it
+                of the owed ledger (@spec.WriteLanes `model`) whose audience the code that owes it
                 chooses. A lookup's ending is owed to the incarnation that asked (Life): it is never
                 saved, and it closes as evidence when that incarnation ends or a newer lookup
                 supersedes it. The Interrupted ending of a read that a freeze or an end stops is
-                owed to the identity (Actors Spec R8), so it is saved with a persisted identity's
+                owed to the identity (@spec.Actors.R8), so it is saved with a persisted identity's
                 owed record and heard at the next Start. Each actor waiting on one shared lookup
-                (R5) gets its own row. Decision (the user, 2026-11-12): consult round 3 (C1, C10)
-                and round 2, B7 (spec-log.md).
+                (R5) gets its own row. Decision (user, 2026-11-12): consult round 3 (C1, C10) and
+                round 2, B7. Why: the audience is the creator's choice, not a property of reads.
+                Reverse: restore R6 from commit `9405af2f`.
 
                 A lookup runs as lookup(input, ctx) (@plan.Operations.O1): its context carries no
-                Attempt, since only an admitted commit has one (WriteLanes Spec R5).
+                Attempt, since only an admitted commit has one (@spec.WriteLanes.R5).
 
     R8  subscribe and triggers
         source  @plan.Operations.O2.
@@ -95,13 +96,18 @@ requirements
                 exhaustive over the read's own failure tags and nothing else. `stopped:` (proposed
                 name) is one event, or a record over the tags of `Flow.ReadStopped` (proposed name)
                 with a required `otherwise`. `Flow.ReadStopped` is Flow's own value, a
-                `Data.TaggedEnum` on `_tag` and a Schema like the write values (WriteLanes Spec
-                R3), with tags Defect { cause } and Interrupted: a read's defect or interruption
-                ends as one of them, never under `failure`, and a mapper that throws or returns no
-                shape ends as Defect with a UserClosure issue. Flow.ignore means no event and no
-                handler. An unmapped ending leaves its slot's tag and an issue. Decision (the
-                user, 2026-11-12, Q1 A): option B extends to reads; the key and value names are
-                the agent's and proposed (spec-log.md).
+                `Data.TaggedEnum` on `_tag` and a Schema like the write values
+                (@spec.WriteLanes.R3), with tags Defect { cause } and Interrupted: a read's defect
+                or interruption ends as one of them, never under `failure`, and a `success:` or
+                `failure:` mapper that throws or returns no shape ends as Defect with a UserClosure
+                issue. A `stopped:` mapper that throws or returns no shape reports a UserClosure
+                issue and its row closes Recorded; it never ends as Defect again. Flow.ignore means
+                no event and no handler. `stopped:` is optional: unmapped, like any unmapped
+                ending, it leaves its slot's tag and an issue. Decision (user, 2026-11-12): "Q1 A",
+                option B extends to reads. Why: the user's answer. Reverse: restore R9 from commit
+                `476c1519`. Decision (agent, 2026-11-12): the key and value names (proposed), and
+                the two rules for `stopped:` the review asked for. Why: a throwing `stopped:`
+                mapper would otherwise loop through Defect. Reverse: delete those two sentences.
 
     R10  value, holds and collection
         source  @plan.Operations.O2.
@@ -134,9 +140,12 @@ requirements
         source  @plan.Operations.O6.
         must    s.operations.<name> reflects its snapshot and keeps identity until its lane, entry
                 or session changes. A write row is { pending, uncertain, waiting, retryCount,
-                progress? } (plus outstanding under serialize; { pending, retryCount, progress? }
-                under cancel). A keyed write's rows are a keyed list of existing lanes; O.x.get(s,
-                k) is total and a key with no lane reads the idle row.
+                attempt?, progress? } (plus outstanding under serialize; { pending, retryCount,
+                attempt?, progress? } under cancel). `attempt` is the head's opaque handle
+                (@spec.WriteLanes.R5), absent with no head; O.x.cancel(k, { attempt }) cancels only
+                that request (@spec.WriteLanes.R14). Decision (user, 2026-11-12): "Q1 B". A keyed
+                write's rows are a keyed list of existing lanes; O.x.get(s, k) is total and a key
+                with no lane reads the idle row.
 
                 A one-off read's row is undefined before its first lookup and after cancel. Resource
                 tags are Pending, Ready, Refreshing, Failure, Defect and Interrupted; Failure,
@@ -147,11 +156,6 @@ open
     Q1  Executable checks are not built.
         outcome  Phase 3 writes each test below as an oracle behind the Port, with its wrong 
                  runtime; until then every Requirement's evidence is open.
-
-    Q3  Do read endings follow the write endings' new shape (WriteLanes Spec R3, R4: `failure` holds only the author's 
-        tags)?
-        outcome  Settled 2026-11-12 (the user, Q1 A): yes. R9 moves Flow's Defect and Interrupted to their own value
-                 under their own key; @task.V3.T21 builds it and confirms the two proposed names.
 
     Q2  Built later, not specified here: staleTime freshness, gcTime collection, trailing refetch, setData, invalidate 
         and clear with partial keys, write batches and their 256 bound, placeholders, contract.get, key size bounds and 
@@ -165,10 +169,10 @@ model
     Hold = a live placement, a request, an optimistic layer, or a one-off read's latest lookup.
 
     Slot = (incarnation, operation) -> the one current lookup call, or none. A newer lookup replaces it. It is not
-        a lane (WriteLanes Spec R6): no Attempt, no phase, no queue, no record.
+        a lane (@spec.WriteLanes.R6): no Attempt, no phase, no queue, no record.
 
-    Terms = ending, Attempt, lane and owed row are the WriteLanes Spec's (R2, R5, R6, `model`); Start and Life are
-        the Actors Spec's (`model`).
+    Terms = ending, Attempt, lane and owed row are @spec.WriteLanes's (@spec.WriteLanes.R2, @spec.WriteLanes.R5,
+        @spec.WriteLanes.R6, `model`); Start and Life are @spec.Actors's (`model`).
 
     Fresh = confirmed data present, not invalidated, age below staleTime.
 
@@ -188,35 +192,32 @@ invariants
 
     I8  A lookup that finds a lookup in flight for its entry joins it and starts no request. [@R5, @R6]
 
-    I9  Of several lookups through one read slot, only the latest's ending is delivered. Reworded 2026-11-12 (a slot, 
-        not a lane). [@R6]
+    I9  Of several lookups through one read slot, only the latest's ending is delivered. [@R6]
 
     I11  A request started before the stored data landed never replaces that data. [@R10]
 
     I15  Visible equals confirmed data with exactly the live optimistic updates applied. [@R13]
 
-    I16  No optimistic value is ever confirmed data or hydrated. (Not persisted is WriteAhead Spec I6's.) [@R13]
+    I16  No optimistic value is ever confirmed data or hydrated. (Not persisted is @spec.WriteAhead.I6's.) [@R13]
 
     I17  An unknown ending triggers at most one refetch of each displayed entry. [@R13]
 
-    I19  For every valid k, O.x.get(s, k) returns the row of k's lane, or the idle row when k has no lane. Reworded 
-         2026-11-11 (audit). [@R14]
+    I19  For every valid k, O.x.get(s, k) returns the row of k's lane, or the idle row when k has no lane. [@R14]
 
-    I20  Every delivered read ending is a success or value carrying confirmed data, a failure with one of the read's
-        own tags, or a Flow.ReadStopped; a read's defect or interruption ends as its Defect or Interrupted, and a 
-            mapper that throws or returns no shape ends as Defect
-        with a UserClosure issue. Added 2026-11-11: R9's own rule, once the cut I12 left it with none (audit G10).
-        [@R9]
+    I20  Every delivered read ending is a success or value carrying confirmed data, a failure with one of the read's 
+         own tags, or a Flow.ReadStopped; a read's defect or interruption ends as its Defect or Interrupted, a
+        `success:` or `failure:` mapper that throws or returns no shape ends as Defect with a UserClosure issue, and a
+        `stopped:` mapper that does so closes its row Recorded with a UserClosure issue. [@R9]
 
     I21  No lookup's context carries an Attempt: the ctx of every lookup(input, ctx) call, whether started by lookup, 
-         refetch or subscribe, has no Attempt and no Attempt-shaped field (id, key) standing in for one. Added
-        2026-11-11: ruling of the replan's Spec pass (V3 log, 2026-11-11T12:58:40Z); R6 stated it with no
-        Invariant. [@R6]
+         refetch or subscribe, has no Attempt and no Attempt-shaped field (id, key) standing in for one. Decision
+        (agent, 2026-11-11): ruling of the replan's Spec pass. Why: only an admitted commit has an Attempt. Reverse:
+        drop I21 (V3 log, 2026-11-11T12:58:40Z). [@R6]
 
     I22  A read's ending is an owed row and nothing else holds it: a lookup's row is owed to the incarnation that 
-         asked, is in no record, and closes as evidence when that incarnation ends or a newer lookup supersedes
-        it; a stopped read's Interrupted is owed to the identity and is heard once at its next Start. No read has
-        a lane, a lane record or a Kept row that blocks a key. Added 2026-11-12 (consult round 3). [@R6]
+         asked, is in no record, and closes as evidence when that incarnation ends or a newer lookup supersedes it; a
+        stopped read's Interrupted is owed to the identity and is heard once at its next Start. No read has a lane, a
+        lane record or a Kept row that blocks a key. [@R6]
 
 coverage
     @R1
@@ -261,8 +262,8 @@ coverage
 
 tests
     T1  Inert contracts: construct every reference contract with service spies; zero calls. A missing services 
-        list fails construction; a money-shaped write keyed by the Attempt draws flow check's warning (StaticCli Spec). 
-        [@I1]
+        list fails construction; a money-shaped write keyed by the Attempt draws flow check's warning (@spec.StaticCli).
+            [@I1]
     T2  Key equality and canonical text: one lane whatever order a key is written; a bigint key names a lane and 
         survives a reload. Cases `REV4-H5`, `REV9-NAMES`; wrong runtimes `d119.bigint-no-name`, `d119.bigint-carried`. 
         [@I2, @I3]
@@ -274,8 +275,10 @@ tests
         prototype case; phase 3 writes this test and its wrong runtime. [@I8]
     T6  One-off reads: a newer lookup supersedes the open one and only its ending arrives. Cases `REV8-M9`, `PAY-16`; 
         wrong runtimes `reads.bad-lookup-keeps-old`, `pay16.superseded-read-keeps-older`. [@I9]
-    T8  Read endings: a throwing mapper ends Defect with a UserClosure issue; an ignored ending runs no handler. Cases 
-        `PAY-16`, `R14-IGN-01`; wrong runtime `pay16.read-defect-not-an-issue`. [@I20]
+    T8  Read endings: a throwing success mapper ends Defect with a UserClosure issue, and a throwing stopped mapper 
+        closes its row Recorded with one; an unmapped stopped ending leaves its slot's tag and an issue; an ignored
+            ending runs no handler. Cases
+            `PAY-16`, `R14-IGN-01`; wrong runtime `pay16.read-defect-not-an-issue`. [@I20]
     T9  Older reads never overwrite: a read started before a write's data landed does not replace it; one started after 
         applies. Cases `MED-03`, `REV4-H1`; no live prototype wrong runtime targets resource reads, so phase 3 writes 
         one. [@I11]
@@ -289,8 +292,8 @@ tests
              a made-up Attempt (`id: ""`, `key: {}`), as code:packages/flow-state-v3/src/host/driver.ts had before
              @task.V3.T51. [@I21]
     T14  Read endings as rows: a lookup's answer lands after its incarnation ended and is recorded, never heard by the 
-         next incarnation, and no store record ever holds it; a read stopped by an end is heard as
-             Flow.ReadStopped's Interrupted once by the next incarnation, after a reload too; a twice-refused lookup 
-                 ending blocks no
-             commit. Wrong runtimes: a lookup's row saved in the owed record; a stopped read's Interrupted dropped at
-             the end. Written by @task.V3.T21 (@task.V3.T54 only routes read endings through the ledger). [@I22]
+         next incarnation, and no store record ever holds it; a read stopped by an end is heard as Flow.ReadStopped's
+             Interrupted once by the next incarnation, after a reload too; a twice-refused lookup ending blocks no 
+                 commit.
+             Wrong runtimes: a lookup's row saved in the owed record; a stopped read's Interrupted dropped at the end.
+             [@I22]

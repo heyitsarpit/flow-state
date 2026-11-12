@@ -441,11 +441,13 @@ outcomes
         s.operations.<name> reflects that snapshot's publication and keeps object identity until its
         lane, entry or session changes; inside a fragment it is the fragment's own rows.
 
-        A write row is { pending, uncertain, waiting, retryCount, progress? }, plus outstanding
-        under serialize, and { pending, retryCount, progress? } under cancel: pending is InFlight,
-        uncertain is Held, waiting is W not empty, outstanding counts unresolved commits other than
-        the addressable Attempt, `retryCount` counts the addressable Attempt's invoked re-sends, and
-        progress is set by the commit's progress(p) with no turn.
+        A write row is { pending, uncertain, waiting, retryCount, attempt?, progress? }, plus
+        outstanding under serialize, and { pending, retryCount, attempt?, progress? } under cancel:
+        pending is InFlight, uncertain is Held, waiting is W not empty, outstanding counts
+        unresolved commits other than the addressable Attempt, `retryCount` counts the addressable
+        Attempt's invoked re-sends, `attempt` is the addressable Attempt's opaque handle (typed by
+        its operation, unreadable, unforgeable; absent with no head; the user, 2026-11-12, Q1 B),
+        and progress is set by the commit's progress(p) with no turn.
 
         An unkeyed write's row is plain; a keyed write's s.operations.<name> is a keyed list of the
         lanes that exist, each { key, ...row }, read by key with O.x.get(s, k), which is total: a
@@ -483,9 +485,16 @@ outcomes
         adapter-reported interruption of a read ends Interrupted. Releasing a placement stops shared
         work only at its last owner.
 
-        O.x.cancel(k?) acts on the lane's addressable Attempt, the one retry names: on the wire it
-        interrupts the fiber, and the ending unknown { Cancelled } is queued when the fiber exits
-        and retained (Held), so nothing newer is sent while the request may land; waiting to be
+        O.x.cancel(k?, { attempt? }) acts on the lane's addressable Attempt, the one retry names.
+        Without `attempt` it acts on the key's current request. With `attempt`, a handle from the
+        row view or an Attempt, it acts only when that handle names the addressable head of a lane
+        the key names; otherwise it changes nothing and records CancelMissed (evidence), so a
+        cancel aimed at a request that already ended never hits the newer one (the user,
+        2026-11-12, Q1 B). A queued commit has no Attempt and so no handle. On the wire it
+        interrupts the fiber; a success or failure the call answers first is delivered as it is,
+        with the cancel recorded as CancelMissed, and only an interruption that wins ends unknown {
+        Cancelled }, queued when the fiber exits and retained (Held), so nothing newer is sent
+        while the request may land (the user, 2026-11-12, Q2 B); waiting to be
         invoked it acts by history (never sent: NotSent { Cancelled }, and the next queued commit is
         promoted; a re-send returns to Held and is released); in Held it releases (Released,
         evidence) and promotes; in Idle it does nothing, with evidence.

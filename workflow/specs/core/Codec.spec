@@ -44,31 +44,36 @@ requirements
                 UnencodableValue (its details naming the bound or reason) and never fails the turn;
                 CodecBoundExceeded and CodecMalformed are raised only where a codec failure is a
                 FlowError: decoding at the boot, payloads, traces, Model bytes and direct calls.
-                Decision (agent, 2026-11-11): audit C23, one code per trace (spec-log.md, T42).
+                Decision (agent, 2026-11-11): audit C23, one code per trace. Why: a turn never fails
+                on a value it cannot save. Reverse: raise Codec errors inside turns too (spec-log.md,
+                T42).
 
     R5  Record kinds
-        source  @plan.Inspection.O2; the record set is the WriteAhead Spec's R4 and R5.
+        source  @plan.Inspection.O2; the record set is @spec.WriteAhead.R4 and @spec.WriteAhead.R5.
         must    A persisted record is one of three kinds, named by its key: `actor/<identity>`,
                 `lane/<lane>` and `owed/<identity>`. Each kind has one Schema, and every record
-                carries the one `format` number all kinds share (WriteAhead Spec R9); no migration
-                step is written before a release exists (Restore Spec R5 owns the steps).
+                carries the one `format` number all kinds share, today 1 (@spec.WriteAhead.R9); no
+                migration step is written before a release exists (@spec.Restore.R5 owns the
+                steps). A lane's id is the text after `lane/` (@spec.WriteLanes `model`, Lane).
 
-                Each Schema has exactly the fields the WriteAhead Spec's R4 and R5 list for its
-                kind, so the lane Schema has no `mayHaveApplied`. A row's Flow-made ending is
-                encoded by the Schemas of Flow.NotSent and Flow.Unknown (WriteLanes Spec R3). There
-                is no
-                `parked/` or `kept/` kind. A key of no kind, or a record its kind's Schema refuses,
-                is undecodable and handled by the Restore Spec's R5; it is never coerced. Decision
-                (the user, 2026-11-12): consult round 3, C9 (spec-log.md). Still @task.V3.T20's:
-                the canonical codec for records, how a row's `value` is encoded when JSON cannot
-                carry it, and creation-order keys.
+                Each Schema has exactly the fields @spec.WriteAhead.R4 and @spec.WriteAhead.R5 list
+                for its kind, so the lane Schema has no `mayHaveApplied`. A row's `channel` is one of
+                `success`, `failure`, `notSent` and `unknown` and names its ending's origin, so a
+                decoded author failure and a decoded Flow.NotSent with the same tag stay distinct
+                (@spec.WriteLanes.I39). A row's Flow-made ending is encoded by the Schemas of
+                Flow.NotSent and Flow.Unknown (@spec.WriteLanes.R3). There is no `parked/` or
+                `kept/` kind. A key of no kind, or a record its kind's Schema refuses, is
+                undecodable and handled by @spec.Restore.R5; it is never coerced. Decision (user,
+                2026-11-12): consult round 3, C9. Why: an ending outlives both its lane and its
+                actor record. Reverse: restore R5 from commit `9405af2f`. Open: the canonical codec
+                for records and how a row's `value` is encoded when JSON cannot carry it.
 
 open
     Q1  Executable checks are not built.
         outcome  Phase 3 writes each test below as vectors, with a wrong codec for each check.
 
-    Q2  The prototype codec (round-14/codec/codec.ts) has no case pinning these bounds or error codes. outcome The 
-        vectors are written from this Spec, not from the prototype.
+    Q2  The prototype codec (round-14/codec/codec.ts) has no case pinning these bounds or error codes.
+        outcome  The vectors are written from this Spec, not from the prototype.
 
 model
     Bytes = UTF-8 canonical JSON text.
@@ -82,14 +87,13 @@ invariants
 
     I4  Bytes that are not the canonical encoding of their value are rejected. [@R3]
 
-    I5  After encode(v) returns bytes b, mutating b changes no stored value and no later encode(v). Reworded 2026-11-11 
-        (audit). [@R3]
+    I5  After encode(v) returns bytes b, mutating b changes no stored value and no later encode(v). [@R3]
 
     I6  A codec failure happens before any state change and carries no data value or Cause.[@R4]
 
     I7  Every key the Runtime writes is `actor/<identity>`, `lane/<lane>` or `owed/<identity>`, and its record decodes 
-        with that kind's Schema and has `format`; no lane record has a `mayHaveApplied` field, and each
-        kind round-trips: decode(encode(record)) equals the record. Added 2026-11-12 (consult round 3, C9). [@R5]
+        with that kind's Schema and has `format`; no lane record has a `mayHaveApplied` field, every owed row has a
+        `channel`, and each kind round-trips: decode(encode(record)) equals the record. [@R5]
 
 coverage
     @R1
@@ -122,6 +126,7 @@ tests
     T5  Schema mismatch: a valid JSON value that fails the owning Schema gives CodecSchemaMismatch with a path and no 
         data value; a turn with an unencodable value commits and reports UnencodableValue. [@I6]
     T6  Record kinds: over every production case, every key in the store has one of the three prefixes and its record 
-        decodes with that kind's Schema and re-encodes to the same value; no lane record has
-            `mayHaveApplied`. Wrong runtimes: a `kept/<lane>` record; a lane record with `mayHaveApplied`. Written with
-            @task.V3.T54's step A3. [@I7]
+        decodes with that kind's Schema and re-encodes to the same value; no lane record has mayHaveApplied, and an
+            author failure tagged Cancelled and a NotSent { Cancelled } decode with different channels. Wrong runtimes: 
+                a
+            record keyed kept/<lane>; a lane record with mayHaveApplied; an owed row with no channel. [@I7]

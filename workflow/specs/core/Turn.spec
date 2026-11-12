@@ -46,9 +46,9 @@ requirements
         must    Every callback reads the memory, lanes and time the source's two memory views assign
                 it.
 
-    R8  Rejected turn
+    R8  Refused turn
         source  @plan.Machines.O3.
-        must    A turn the source names invalid is rejected whole, as the source states.
+        must    A turn the source names invalid is refused whole, as the source states.
 
     R9  After publication
         source  @plan.Machines.O3; @plan.Machines.O6.
@@ -69,14 +69,14 @@ requirements
                 pre-turn snapshot and returns true or deny(code, context?). false is a type error; 
                 any other invalid return is a guard defect. A guard array passes only when all 
                 pass; a state token in it passes when the pre-turn state is at or below it. An 
-                operation's idle and retryable are guards over its lanes, under the WriteLanes Spec.
+                operation's idle and retryable are guards over its lanes, under @spec.WriteLanes.
 
     R13  check
         source  @plan.Machines.O4.
         must    check(snapshot, event) runs selection, parts and validation with no effect: no
                 memory update, admission, publication, evidence, mint, queue join, prediction,
                 release or work. It returns Allowed when a transition would run; Denied with reasons
-                when handlers exist and all decline or the turn would be rejected (InvalidTurn);
+                when handlers exist and all decline or the turn would be refused (InvalidTurn);
                 Unhandled when none exists.
 
                 Reasons list each declined alternative, deepest level then authored order; a
@@ -124,7 +124,7 @@ requirements
 
     R17  Schedules and use
         source  @plan.Machines.O5.
-        must    Schedules fire only while their actor is used (Actors Spec). A deadline due while
+        must    Schedules fire only while their actor is used (@spec.Actors). A deadline due while
                 unused waits; only the latest arming waits, and re-arming, disarming or exiting
                 removes a waiting deadline.
 
@@ -168,7 +168,7 @@ requirements
                 too, whatever the transition cancels.
 
                 A Held head is not pending work. flow check errors on a late handler with no
-                alternative that stays put at the owner state or its ancestors (StaticCli Spec); a
+                alternative that stays put at the owner state or its ancestors (@spec.StaticCli); a
                 late ending landing while the owner is not re-entered, at an ancestor whose
                 alternatives all leave, is denied at run time, an accepted risk (the runner's
                 ruling).
@@ -177,8 +177,10 @@ requirements
         source  @plan.Machines.O7.
         must    `onContext` select sets a silent baseline at admission, a reload restore, adoption
                 and hydration. Only context waves re-run it, the one wave a returning incarnation
-                receives included (Actors Spec R9); memory-only changes do not. Equal selections are
-                silent. Decision (agent, 2026-11-11): audit C13 (spec-log.md, T42).
+                receives included (@spec.Actors.R9); memory-only changes do not. Equal selections are
+                silent. Decision (agent, 2026-11-11): audit C13. Why: a reload restores a consistent
+                saved world, while a return may have missed provider changes. Reverse: make the
+                return silent too (spec-log.md, T42).
 
                 A changed selection becomes the baseline even if when declines; with no when, or
                 when true, its event enqueues after the context turn, in declaration order, in the
@@ -211,16 +213,22 @@ requirements
         must    The turn returns its verdict as a value and reports nothing itself. The verdict is
                 one of Accepted (from, to, parts, members), Unhandled, Denied (reasons) and
                 Refused (a code). The step records it as one Turn act with the actor, the event
-                and, for an ending's turn, the owed row it delivers (WriteLanes Spec `model`).
+                and, for an ending's turn, the owed row it delivers (@spec.WriteLanes `model`).
 
                 The Turn, Unhandled and Denied reports and a refusal's Issue are derived from that
-                act, in act order, by the one function that builds a report (WriteLanes Spec
+                act, in act order, by the one function that builds a report (@spec.WriteLanes
                 composition); no module writes a report, and none is placed among earlier ones
                 after the fact. An ending's turn that is Accepted, Unhandled or Denied closes its
-                row as delivered (R9); a Refused one leaves the row to its retry (Actors Spec R15).
-                `check` returns the same verdict type and yields no act (R13). Decision (the user, 2026-11-12): consult 
-                round 3, C1 and C2 step A4
-                (spec-log.md).
+                row as delivered (R9); a Refused one leaves the row to its retry
+                (@spec.Actors.R15). Decision (user, 2026-11-12): consult round 3, C1 and C2 step
+                A4. Why: reports derived from acts cannot disagree with what ran. Reverse: restore
+                R26 from commit `9405af2f`.
+
+                `check` is computed by the same evaluation and yields no act. It keeps its public
+                answer (R13): Accepted maps to Allowed, Refused to Denied with InvalidTurn, and
+                Denied and Unhandled stay as they are. Decision (agent, 2026-11-12): check's public
+                Allowed, Denied and Unhandled stay (a small public API). Why: it is check's
+                published contract. Reverse: make check return the turn's verdict type.
 
 open
     Q1  Executable checks are not built.
@@ -228,10 +236,11 @@ open
                  runtime; until then every Requirement's evidence is open.
 
     Q2  The prototype has no case for check(), onContext, restartOn, keyed schedules, exit and entry order, or 
-        equal-deadline order. outcome Phase 3 writes those cases and their wrong runtimes first.
+        equal-deadline order.
+        outcome  Phase 3 writes those cases and their wrong runtimes first.
 
-    Q3  Which Diagnostic code a rejected turn's issue carries is not stated by the plans; InvalidTurn is check()'s 
-        denial code, not a Diagnostic code (Diagnostics Spec R4).
+    Q3  Which Diagnostic code a refused turn's issue carries is not stated by the plans; InvalidTurn is check()'s 
+        denial code, not a Diagnostic code (@spec.Diagnostics.R4).
         outcome  Phase 4 names it, and this Spec records it as a change.
 
 model
@@ -245,9 +254,10 @@ model
     Boundary = for a handler at H targeting T: H if the target is "self" or T is a strict descendant 
         of H, otherwise the nearest proper ancestor of T that also contains H. An explicit target
         naming H itself is a re-entry, so its Boundary is H's parent. Decision (agent, 2026-11-11):
-        audit C21, so I4 and I5 agree (spec-log.md, T42).
+        audit C21. Why: so I4 and I5 agree. Reverse: give "self" the parent's Boundary and reword I4
+        (spec-log.md, T42).
 
-    Used = the Actors Spec's use relation for the actor.
+    Used = the use relation of @spec.Actors for the actor.
 
 invariants
     I1  At every publication exactly one leaf is active. [@R1]
@@ -255,7 +265,8 @@ invariants
     I2  The selected alternative is the first passing one at the deepest level that has one; no level below it has a 
         passing alternative. [@R2]
 
-    I3  A turn whose child part refuses publishes nothing of its own. [@R2, @R5]
+    I3  A turn whose child part refuses publishes no transition of its own: it publishes only I14's one issue-only 
+        snapshot. [@R2, @R5]
 
     I4  A "self" transition leaves the set of live Activations unchanged. [@R3]
 
@@ -274,20 +285,20 @@ invariants
     I12  Every read @plan.Machines.O3 lists for PreTurn returns PreTurn values; every read it lists for After
         returns After values. [@R7]
 
-    I14  A rejected or pre-commit-defective turn leaves state, memory, context and store equal to PreTurn and starts no 
+    I14  A refused or pre-commit-defective turn leaves state, memory, context and store equal to PreTurn and starts no 
          work; it publishes exactly one issue-only snapshot. [@R8, @R10]
 
     I15  An Unhandled or Denied event changes no state, memory or revision of its own and starts no work; an ending 
-         admitted in that turn has already applied its lane effects at settlement (WriteLanes Spec R10) and its owed
-        row closes as delivered. Reworded 2026-11-12 (consult round 3). [@R9]
+         admitted in that turn has already applied its lane effects at settlement (@spec.WriteLanes.R10) and its owed
+        row closes as delivered. [@R9]
 
     I16  A post-commit defect never undoes the committed state and never applies part of a write batch. [@R10]
 
     I17  turn(snapshot, event, clock, seed) is a function: equal arguments give equal results. [@R11]
 
     I18  check(s, e) leaves the Runtime unchanged, is Allowed exactly when handling e at s would run a transition, and 
-         on an old snapshot s gives the same verdict whatever has happened since, from s's own captured values. 
-         Reworded 2026-11-11 to take the cut I19 (audit). [@R12, @R13]
+         on an old snapshot s gives the same verdict whatever has happened since, from s's own captured values.
+        [@R12, @R13]
 
     I20  A delivered firing carries the id of its schedule's latest arming, and its activation is alive. [@R15]
 
@@ -309,7 +320,7 @@ invariants
     I27  A late turn never exits an Activation that owns an InFlight head or a queued commit. [@R21]
 
     I28  An onContext event is enqueued only after a context wave (a returning incarnation's one wave included) changed 
-         its selection, and the baseline then equals that selection. Reworded 2026-11-11 (audit C13). [@R22]
+         its selection, and the baseline then equals that selection. [@R22]
 
     I29  A published snapshot is never mutated afterwards. [@R24]
 
@@ -318,21 +329,27 @@ invariants
     I31  An issue is cleared only by its own source; a new incarnation's first snapshot has no issue. [@R25]
 
     I32  Firings with equal deadlines are admitted as separate turns, ordered by actor admission order, then outermost 
-         state, then declaration order. Added 2026-11-11 (audit G6). [@R15]
+         state, then declaration order. [@R15]
 
     I33  A multi-step Schedule's next delay is counted from the previous step's actual firing, and an overdue step 
-         fires once. Added 2026-11-11 (audit G6). [@R15]
+         fires once. [@R15]
 
     I34  A `restartOn` schedule restarts from its first step exactly after a committed turn whose selection differs 
-         from its baseline under Equal.equals, never at its activating turn or a restore, and only that schedule 
-         restarts. Added 2026-11-11 (audit G6). [@R16, @R17]
+         from its baseline under Equal.equals, never at its activating turn or a restore, and only that schedule
+        restarts. [@R16, @R17]
 
     I35  A keyed schedule has exactly one live timer per key in the after memory and after lanes: armed when the key 
-         appears, cancelled when it leaves, and each firing carries its key. Added 2026-11-11 (audit G6). [@R16]
+         appears, cancelled when it leaves, and each firing carries its key. [@R16]
 
-    I36  Every admitted event's turn yields exactly one Turn act carrying its verdict, and the turn's Turn, Unhandled, 
-         Denied and Issue reports are exactly what that act derives, in the order of the step's acts.
-        Added 2026-11-12 (consult round 3). [@R26]
+owner Acts
+    lifetime  one step. Design, agreed by the user, 2026-11-12 (consult round 3, C1 and C2); I36 moved here from
+              `invariants`, id kept.
+    state     the step's acts, in act order
+
+    invariants
+        I36  Every admitted event's turn yields exactly one Turn act carrying its verdict, and the turn's Turn, 
+             Unhandled, Denied and Issue reports are exactly what that act derives, in the order of the step's acts.
+            [@R26]
 
 composition
     flow
@@ -342,20 +359,26 @@ composition
         takes time and ids from its environment and returns the next world, at most one
         publication and commands (round-14/step.ts); only the driver performs effects.
 
-        Production layout (T16, proposed, for the user's read). `runTurn` (src/core/turn.ts) is
-        the pure turn: selection, guards, the memory patch, selects and armings, returning a
-        TurnResult; it never touches the world. `step` (src/core/step.ts) composes one step from
-        modules over one working state (src/core/tx.ts): the owed ledger, lanes, answers,
-        incarnations, serve and the Runtime's life, each `make*(tx, ...)`. No module persists
-        or reports: the step derives its writes from the records it touched (WriteAhead Spec
-        composition) and its reports from its acts (R26; WriteLanes Spec composition,
-        @task.V3.T54). The world is replaced whole; ids come from its counter and the boot's
-        seed. Ending, Attempt, lane and owed row are the WriteLanes Spec's terms; Start and
-        Life are the Actors Spec's. The driver (src/host/driver.ts) runs
-        commands with Effect: every call, timer and persistence wake is a keyed fiber in one
-        FiberMap owned by the Runtime's Scope, sleeping on Effect's Clock and run on its
-        Scheduler, which a test or the suite's world provides; Disarm interrupts the key's fiber.
-        Arm, Disarm and Fired stay data, so a replay needs no host.
+        Shared terms. Ending, Attempt, lane and owed row are @spec.WriteLanes's terms; Start and
+        Life are @spec.Actors's.
+
+realization typescript
+    Design, agreed by the user, 2026-11-12 (the production layout of @task.V3.T16, consult round 3); moved here from
+        `composition`.
+
+    `runTurn` (src/core/turn.ts) is the pure turn: selection, guards, the memory patch, selects and armings,
+        returning a TurnResult; it never touches the world.
+
+    `step` (src/core/step.ts) composes one step from modules over one working state (src/core/tx.ts): the owed
+        ledger, lanes, answers, incarnations, serve and the Runtime's life, each `make*(tx, ...)`. No module persists
+        or reports: the step derives its writes from the records it touched (@spec.WriteAhead realization) and its
+        reports from its acts (R26; @spec.WriteLanes realization). The world is replaced whole; ids come from its
+        counter and the boot's seed.
+
+    The driver (src/host/driver.ts) runs commands with Effect: every call, timer and persistence wake is a keyed fiber
+        in one FiberMap owned by the Runtime's Scope, sleeping on Effect's Clock and run on its Scheduler, which a
+        test or the suite's world provides; Disarm interrupts the key's fiber. Arm, Disarm and Fired stay data, so a
+        replay needs no host.
 
 coverage
     @R1
@@ -473,13 +496,14 @@ tests
     T3  Subroutines and history: exit, abandonment, an ancestor's self, history re-entry. Case `FRAG-10`; wrong runtime 
         `1b.r14-history-reentry-keeps-activation` (a history re-entry that keeps the activation). [@I4, @I5]
     T4  One publication: a transition that raises into two traits and resets a third publishes exactly one snapshot; a 
-        child's refusal publishes none. Case `FRAG-17`. [@I3, @I9]
+        child's refusal publishes only the issue-only snapshot, with none of the parent's patch. Case `FRAG-17`.
+            [@I3, @I9]
     T5  Before and after memory: a schedule function and a commit select read the value the turn wrote; a guard and a 
         mapper read the old one. Case `PAY-16`; wrong runtime `pay16.schedule-reads-pre-transition-memory`. [@I12]
-    T6  Rejected turns: a zero-length schedule and overlapping keys reject the turn: state unchanged, one issue-only 
-        snapshot, and check() answers Denied with InvalidTurn (Q3 names the issue's code). Case `REV4-H4`; wrong 
-        runtimes `pinsb.schedule-unbounded`, `pinsa.overlapping-keys-allowed`. An unencodable value does not reject; 
-        wrong runtime `pinsb.nan-carried-as-null`. [@I14]
+    T6  Refused turns: a zero-length schedule and overlapping keys refuse the turn: state unchanged, one issue-only 
+        snapshot, and check() answers Denied with InvalidTurn (Q3 names the issue's code). Case `REV4-H4`; wrong
+            runtimes `pinsb.schedule-unbounded`, `pinsa.overlapping-keys-allowed`. An unencodable value does not refuse;
+            wrong runtime `pinsb.nan-carried-as-null`. [@I14]
     T7  Callback defects: a throwing guard, select and key each keep the prior snapshot with one issue naming the 
         callback path, and the same input is not retried (case `R12-DEFECT`). A throwing post-commit mapper publishes 
         one issue and no event. [@I14, @I16]
@@ -494,8 +518,8 @@ tests
          `life.waiting-survives-re-arm`, `life.waiting-never-wakes`, `life.waiting-lost-at-end`, 
          `m2.q1-reset-keeps-timers`. [@I22, @I23]
     T12  restartOn and keyed schedules: a changed selection restarts only its schedule; equal values do nothing; a key 
-         leaving cancels its timer, a repeated key keeps one timer, and a restore does not restart a `restartOn` 
-         schedule. No prototype case. [@I20, @I34, @I35]
+         leaving cancels its timer, a repeated key keeps one timer, and a restore does not restart a restartOn
+             schedule. No prototype case. [@I20, @I34, @I35]
     T13  Placements: a key change releases once and opens the new key; a non-key change keeps the session; a throwing 
          select keeps it with one issue. Case `P1-S`; wrong runtimes `p1s.key-not-in-identity`, 
          `p1s.select-throw-releases`. [@I24]
@@ -528,6 +552,7 @@ tests
          counts its next delay from the actual firing. No prototype case (Q2); phase 3 writes the wrong runtimes. 
          [@I32, @I33]
     T24  Verdicts as acts: an accepted, an unhandled, a denied and a refused turn each give one Turn act, and the 
-         report stream derived from the acts equals the stream before the change, byte for byte, over the whole
-             suite. Wrong runtimes: an Unhandled turn that yields no act; a refusal's Issue reported before its Turn.
-             Written with @task.V3.T54's step A4. [@I36]
+         report stream derived from the acts equals the stream before the change, byte for byte, over the whole suite;
+             check() on each answers Allowed, Unhandled, Denied, and Denied with InvalidTurn. Wrong runtimes: an 
+                 Unhandled
+             turn that yields no act; a refusal's Issue reported before its Turn. [@I36, @I18]

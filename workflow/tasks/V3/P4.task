@@ -1137,6 +1137,18 @@ tasks
             list replaces NotYet, Remainder and Feature.owed, with slice, the README guarantee map and per-Task lists 
             derived (round 1 A3); keep one source per suite role and make liar a mode of the mutation gate; round-14 
             stays until T53 (round 2 B9). Detail: fable-architecture-consult-2026-11-12.md and -2-.
+        comment     2026-11-12T11:19:47Z
+            Conformance contradictions from the Spec review 
+            (code:workflow/plans/flow/references/proposals/spec-review-2026-11-12.md), left for this Task since 
+            Conformance.spec is not edited there. (1) workflow/specs/conformance/Conformance.spec:557 (Q14) counts 
+            Codec 6 Invariants; Codec I7 makes 7. (2) workflow/specs/conformance/Conformance.spec:552 (Q13) cites Reads 
+            I18, which does not exist. (3) packages/flow-state-v3/conformance/write-lanes/lane-queue.ts:27 and :273, 
+            and lane-queue.mutants.ts:151, :159, :189 judge retired WriteLanes I21. (4) 
+            packages/flow-state-v3/conformance/write-lanes/lane-policies.scenarios.ts:115, :134, :150, :161 and 
+            dsl/lifecycle-members.traces.ts:160 cite retired WriteLanes R15. (5) 
+            packages/flow-state-v3/conformance/write-lanes/ending-delivery.scenarios.ts:145 says 'WriteLanes I8: the 
+            kept ending holds its lane', the reverse of the new I8. Re-check too: about 26 citations of WriteLanes R10 
+            (delivery is now from the ledger) and 20 of R4 (notSent:).
     T54
         title       Core consolidation: owed-endings ledger, one start, diff-written records, acts into evidenceOf
         status      draft
@@ -1896,6 +1908,19 @@ tasks
               the rest it lists) is closed by a case or oracle, and the file is empty or deleted. **Check:** the 
               `coverage`
               gate. **Wrong:** one per entry, named from its Invariant.
+        comment     2026-11-12T11:19:52Z
+            New cancel requirements (the user, 2026-11-12, Q1 B and Q2 B), for this Task, which builds cancel. Q1 B: 
+            every Attempt carries an opaque, operation-typed handle and the row view carries the head's; cancel(k, { 
+            attempt }) acts only when the handle names the head of a lane k names, else changes nothing and records 
+            CancelMissed (proposed name); key cancel stays the default; a queued commit has no handle; a handle 
+            survives a reload (@spec.WriteLanes.R5, @spec.WriteLanes.R14, @spec.WriteLanes.I40, @spec.Reads.R14). Q2 B: 
+            in Cancelling, a success or failure is delivered as it is with CancelMissed and promotes; unknown { 
+            Cancelled } only when the Exit is the interruption; the call's own unknown is delivered as itself 
+            (@spec.WriteLanes.I20, @spec.WriteLanes.I41). Failing checks to write first: WriteLanes T30 (wrong 
+            runtimes: a handle cancel that falls back to the key's current head; a handle stale after a reload) and T31 
+            (wrong runtime: Cancelling turns every answer into unknown { Cancelled }). Also yours from the same pass: 
+            the owed row's four-valued channel (WriteLanes I39, T16) and release on leave finishing every phase (R16, 
+            T11).
     T51
         title       Production lanes reworked: one table function, reports derived from acts
         status      done

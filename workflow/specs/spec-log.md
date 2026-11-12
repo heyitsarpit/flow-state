@@ -519,3 +519,89 @@ Turn T4 against I14 on a child's refusal; Actors I25 "a send never creates" agai
   the names. Why: the user's answer Q1 A, as for writes. Reverse: restore R9 from commit `476c1519`.
 - **@plan.Operations.O3, O7, V8:** the `cancelAll` lines are dropped (the user, Q3 A); revisit.md holds the
   design. `Abandoned` stays dropped (Q2 A); `EntityDomains.plan:233` is @task.V3.T24's to settle.
+
+## 2026-11-12, review fixes, two cancel decisions and a light reformat (runtime Specs)
+
+The seven runtime Specs take the Spec review's verified fixes, the user's Q1 B and Q2 B, and the format check's
+light reformat; no decision is reversed (the user, 2026-11-12). Source:
+code:workflow/plans/flow/references/proposals/spec-review-2026-11-12.md,
+code:workflow/plans/flow/references/proposals/spec-format-check-2026-11-12.md and
+code:workflow/plans/flow/references/proposals/briefs-review-2026-11-12.md ("Spec problems"). Reverse any line by
+restoring the Spec text of the commit before this one.
+
+Fixes (the review's B1 to B9 and conflicts, as it recommends):
+
+- **B1:** an owed row's `channel` is `success`, `failure`, `notSent` or `unknown` and keeps the origin across a
+  reload (WriteLanes R3, `model` Owed, I39, T16; WriteAhead R5, I20, T15; Codec R5, I7, T6).
+- **B2:** release on leave finishes every phase, and `start` releases a Releasing lane's Held head (WriteLanes R16,
+  the release cell, `start`, T11).
+- **B3:** `admit` rejects Forget and DisposeActor outside Open; DisposeActor drops while Disposing (Actors).
+- **B4, conflict 3:** the boot send queue is @task.V3.T9's, rejected RuntimeNotReady until then (Actors R4, R16, T3).
+- **B5:** a derived unknown { Restored } is a saved row once owed (Restore R3, WriteLanes `start`, WriteAhead R5).
+- **B6:** check keeps Allowed, Denied and Unhandled, mapped from the turn's verdict; "refused" replaces "rejected"
+  for turns (Turn R8, R13, R26, I14, Q3, T6, T24).
+- **B7:** `inFlight` is false for a Held head; Owing is an owed record or an `inFlight` lane record (WriteAhead R5,
+  I24, T18; Restore R1, `model`, T1; Actors R3). The rename to Owing is finished.
+- **B8:** R8's hold rule is qualified "under reject, latest and serialize"; I12 adds the not-retained unknown.
+- **B9:** the final write is issued once disposal's start cells ran, holds what is dirty then, is tried once, and
+  a refusal reports StorageFailure (Actors R23, I43, new I44, T25, T26; WriteAhead R12).
+- **Conflict 1:** a gone operation is renamed when the contract has a write operation, else quarantined (Restore R8,
+  new I20, T15). **Conflict 2:** Turn I3 and T4 say a child's refusal publishes only I14's issue-only snapshot;
+  `TURN-05/child-refusal` (code:packages/flow-state-v3/conformance/turn/parts.scenarios.ts) agrees: it checks the
+  InvalidTurn issue and no parent patch, and counts no snapshots.
+- **Author's decisions accepted with the review's notes:** Reads R9, I20, T8 (`stopped:` optional; a throwing
+  `stopped:` mapper closes its row Recorded); Rejected possible under every policy goes to @task.V3.T17's comment.
+- **Briefs review:** WriteAhead R9 says one format, today 1; WriteLanes I36 names sentBefore(head); lane-id order is
+  record-key order (WriteLanes `model` Lane, Restore R3, Codec R5); Restore Q3 notes I19 is @task.V3.T56's.
+- **Also from the review:** WriteAhead R10 defines a step (finding 1); Restore R7 keeps owed rows at a reset (A8);
+  a quarantined Held head is heard at a start (scenario 8); a failure after an unknown send takes the unknown cell
+  (the blind reader's scenario 10). Creation-order keys are no longer deferred: phase 2 decided there are none.
+
+The user's decisions (2026-11-12), applied after checking them against the cases the coordinator listed:
+
+- **Q1 B, an exact cancel target:** Attempts carry an opaque, typed `handle`; the row view carries the head's;
+  `cancel(k, { attempt })` acts only when the handle names the head of a lane k names, else records CancelMissed
+  (proposed name) and changes nothing (WriteLanes R5, R14, the cancel cells, I20, I40, T30; Reads R14;
+  @plan.Operations.O6 and O7). A handle names its Attempt across incarnations and restore (Attempt ids never repeat),
+  so it does not go stale; a queued commit has no Attempt and so no handle.
+- **Q2 B, a definite answer beats the cancel:** in Cancelling a success or failure is delivered as it is, with
+  CancelMissed, and promotes; unknown { Cancelled } only when the Exit is the interruption. Agent reading: the
+  call's own unknown or defect is also delivered as it is (WriteLanes R14, cells, Displaced, I20 reworded, I41, T31).
+
+Reformat (moved, meaning unchanged; ids kept):
+
+- To `algorithm`: WriteLanes `cell` and the ledger's five functions; Actors `admit`. To `owner` sections:
+  WriteLanes I29, I30 (Ledger), I35, I36 (Attempts); Actors I42 (Life); WriteAhead I21 (Records); Turn I36 (Acts).
+  To `realization typescript`: file, function and Effect choices from WriteLanes, Actors, WriteAhead and Turn
+  `composition`. Each is marked "Design, agreed by the user, 2026-11-12" (the user's note of 10:48:23Z).
+- Decisions carry `Why:` and `Reverse:`; the orchestrator's read `Decision (agent: the orchestrator, ...)`.
+- WriteLanes R15's retirement moved to its `reason`; I21 and T10 shortened. Settled WriteAhead Q4 and Reads Q3
+  closed. Prose cross-Spec citations became `@spec.X.ID` links. The refcheck's 12 misses are fixed.
+- Inline "Added" and "Reworded" notes removed; this log's earlier sections and git hold them.
+
+Moved out of Spec text (Task assignments and test status, for their Tasks):
+
+- @task.V3.T54: Unsent and Resending wait for TurnEnded; the way back if backlog shows a real problem is a fourth
+  `Delivery` state `Settled` with an `Ended` cue, rewriting R10 and I32 and telling the user; until @task.V3.T19
+  builds the Runtime-wide stream, it may keep one Persist per actor key. Tests WriteLanes T22 (32-bit seed),
+  T23, T24, T25, T27, Actors T21, T22, T23, Turn T24, WriteAhead T15, T16, Codec T6 were written with or pending
+  until T54's steps (A0 to A4).
+- @task.V3.T55: Actors T24 (step B1), T25 (red before step B2); until T55, the host's `Effect.timeout` holds the
+  final write's share of the 5 s.
+- @task.V3.T18 writes WriteLanes T16 and T29 and builds T30, T31; @task.V3.T19 writes WriteAhead T17; @task.V3.T21
+  writes Reads T14 and confirms the names `stopped:` and `Flow.ReadStopped`; @task.V3.T20 owns the codec and how a
+  row's `value` is encoded when JSON cannot carry it.
+- @plan.Persistence.O1 still says KeyValueStore; it is the user's to change (was WriteAhead Q4).
+- Retired WriteLanes T10's prototype ids: `P1-H`, `1b.cancel-all-queue-reversed`,
+  `1b.cancel-all-promotes-before-emptying`, `audit-1.cancel-all-leaves-the-head`, `p1h.cancel-all-idle-declines`,
+  `audit-1.cancel-all-release-also-cancels-head`.
+
+Sidecars (two Haiku, effort high). Blind reader, scenarios 4, 6 and 10: all three decided. Accepted: the
+StillUnknown lane effect (fixed in the cell) and R10's undefined "drain cap" (reworded). Rejected: "a queued send
+is not durable" (WriteAhead R6 says queued events never survive); "Restore I2 forbids A's re-heard turn" (a new
+turn on a restored row is not a replay); Q5, "Uncertain" and the new id after a release (open or pre-existing).
+Diff checker: accepted the dropped "queued when the fiber exits" (restored), Actors R3's Owing (fixed), the Turn
+T16 collision (now @task.V3.T16) and the dropped Task notes (listed above). Rejected: "agreed by the user" (the
+user's note), the late-answer, quarantined-head and persisted-target lines (from B2, scenario 8 and conflict 3),
+"A step returns" (in the old text), sentBefore undefined (I36 defines it), "or another move" (a rename cannot
+collide). Changed: the Cancelling call's own unknown is delivered as itself (agent reading of Q2 B, above).
