@@ -424,3 +424,8 @@ note 2026-11-12T10:56:23Z
     handle on the row view; Q2 B, a definite success or failure arriving while Cancelling is delivered, with unknown 
     Cancelled only when the interruption wins. The Opus Spec fix agent confirms both against the Specs and cases, then 
     applies them to WriteLanes, Operations.plan and T18.
+note 2026-11-12T11:22:24Z
+    Spec fixes at b4e2c8a6: B1-B9 and three conflicts fixed, Q1 B and Q2 B applied (CancelMissed evidence proposed; an 
+    unknown returned while Cancelling also delivered as is, beyond the user's words, under check), light reformat 
+    (algorithm, owner, realization sections agreed by the user; Why/Reverse; history to spec-log). The Spec reviewer 
+    now answers whether T54 is ready to code.
