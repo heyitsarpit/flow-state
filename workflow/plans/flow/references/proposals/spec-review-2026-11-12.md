@@ -430,3 +430,178 @@ is refused.**
 |     |                                                                     |          | say canonical text normalises it                      |
 | A15 | Later-owed row heard before an earlier retried one (adversary 7)    | rejected | stated: a retry goes behind queued mail; order is per |
 |     |                                                                     |          | try, not per owe                                      |
+
+## Readiness, after b4e2c8a6
+
+Verdict: **not ready, but close.** Everything T54 builds is now in the Specs, consistent with itself, and the
+fixes are faithful. Two gaps in T54's brief would still make an Opus lead stop and ask. Both are a line or two in
+`workflow/tasks/V3/P4.task`, and no Spec change is needed for T54.
+
+Applied 2026-11-12 (the orchestrator): both brief gaps, the stale pointers, the T55 contradictions (by R23 and I43:
+a refused final write ends the disposal), the `algorithm` authority line and R14's attribution (spec-log.md).
+
+1. **A-19** (P4.task:1535) tests "every lane-table cell as WriteLanes `model` Cell says". But the cell table now
+   includes behaviour assigned to T18 (comment at P4.task:1912):
+   - Q2 B's Cancelling cells (WriteLanes.spec:574-580);
+   - a cancel with a handle (:565);
+   - B2's release cells (:583-587).
+
+   T54 is a refactor whose differential baseline must stay equal, so the lead cannot tell which behaviour A-19
+   expects. Fix: limit A-19 to today's behaviour and list those cells as T18's.
+2. **The owed record's `channel`.** T54 writes `owed/<identity>` (A-13, P4.task:1510; step A3). WriteAhead.spec
+   R5 (:71-75) and WriteLanes I39 now require four channel values, with `notSent` for Flow's NotSent. The T18
+   comment gives I39 to T18. Fix: say which Task writes `notSent`. I recommend T54 writes it from A3: the core
+   already knows the origin when a cell declines, so it costs one value.
+
+T55 needs the following before it starts (not T54):
+
+- Actors I35 (:429), the admit model (:479) and I38 (:440) contradict R23 (:285-293) and I43 (:454). R23 and I43
+  end the disposal on a refused final write while a call is still on the wire. I38 promises NotSent { Disposed }
+  unconditionally, though a refused final write loses it.
+- Actors I36 (:434, "no hold") contradicts R23's stated limit: a call that settles after the final write is
+  issued restores as unknown { Restored }.
+
+These come from my B9 fix, which said only how a refusal is reported. The fixer added "and the disposal ends".
+Fix: a refused final write reports StorageFailure; Disposing ends when no call is on the wire, or at the bound;
+I36 and I38 hold "when the final write lands".
+
+### 1. B1 to B9 and the three conflicts
+
+| Item                      | Status       | Evidence                                                                  |
+| ------------------------- | ------------ | ------------------------------------------------------------------------- |
+| B1 origin in a saved row  | fixed        | WriteLanes R3:48-52, `model` Owed:367-370, I39:506; WriteAhead R5:71-75   |
+| B2 release on leave       | fixed        | WriteLanes R16:293-300, cell:583-587, start:606-607                       |
+| B3 `admit` drops `forget` | fixed        | Actors `algorithm`:490-493. The header (:472) lists the agent's cells but |
+|                           |              | not these two                                                             |
+| B4 boot send              | fixed        | Actors R4:48-50, R16:203-204, admit:487-489                               |
+| B5 Restored saved         | fixed        | WriteLanes start:605-606; WriteAhead R5:77                                |
+| B6 check verdict          | fixed        | Turn R13:78-79, R26:215-230, T24:554-556                                  |
+| B7 who wakes              | fixed        | Restore R1:18-19, Owing:179-180; WriteAhead R5:64-66. Wording: "while the |
+|                           |              | head is acknowledged" also covers Acknowledging, which is meant           |
+| B8 cancel-policy hold     | fixed        | WriteLanes R8:177-179, I12:426                                            |
+| B9 final write            | partly fixed | R23 and I44 define it; the new contradictions with I35, I36 and I38 are   |
+|                           |              | listed above (T55)                                                        |
+| Conflict 1 (Restore R8)   | fixed        | Restore R8:133-140. R6 (:98) does not yet state the LaneRekeyCollision    |
+|                           |              | rule that R8 places there (T56)                                           |
+| Conflict 2 (Turn)         | fixed        | Turn I3:268, T4:498-499                                                   |
+| Conflict 3 (Actors)       | fixed        | the same as B4                                                            |
+
+Non-blocking findings from the first review that are still open:
+
+- 4: the as-built list at WriteAhead.spec:70 still omits the releasing mark;
+- 8: the local Kept row (Actors R15:181 against `suspend`, WriteLanes:601);
+- 9: who "its owner" is (Actors R20, R21);
+- 2: retryCount across a crash.
+
+Fixed: 1 (a step is defined at WriteAhead R10:132-134), 5, 6 (not re-checked in full), 10, 11.
+
+### 2. The comprehension steps that were undecided
+
+Re-answered from the fixed Specs. A fresh blind reader answered all ten scenarios on its own.
+
+| Step                           | Now                                                                           |
+| ------------------------------ | ----------------------------------------------------------------------------- |
+| B1 (sc. 10)                    | decided: channel `failure` or `notSent`, I39                                  |
+| B4 (sc. 9)                     | decided: RuntimeNotReady until T9                                             |
+| B5 (sc. 1)                     | decided: saved once owed, on a Later batch                                    |
+| B7 (sc. 1)                     | decided: an OnWire record wakes its identity; a Held one does not             |
+| B8 (sc. 6)                     | decided: under cancel the head is released when its own turn ends             |
+| Step vs drain (sc. 4)          | decided: one input plus the drain. Whether B's turn falls in A's step depends |
+|                                | on the backlog, and both outcomes are allowed; "B without A" never happens    |
+| Quarantined Held head (sc. 8)  | decided: heard at a start like any other (Restore R8:130)                     |
+| "Unkept reads" (sc. 7)         | decided by inference: a read that is work in flight keeps the actor alive, so |
+|                                | every read in flight at an end stops. One defining line would help (T9)       |
+| B9 (sc. 5)                     | still undecided: the contradictions above (T55)                               |
+| Local actor's Kept row (sc. 2) | still undecided (T9)                                                          |
+| "Its owner" (sc. 2)            | still undecided: with no incarnation, no member runs, so only forget or an    |
+|                                | adopting ensure applies (T9)                                                  |
+| Read stop, last owner (sc. 7)  | still undecided (T21)                                                         |
+
+Four steps are still undecided, and none is in T54's scope.
+
+The blind reader agrees with me on scenarios 1, 2, 5, 7, 8, 9 and 10, and on how Q2 B races in scenario 3.
+
+- In scenario 6 it ignored the release after the unknown's own turn under the cancel policy. R8:179 now states it,
+  so that is its misread.
+- Its new findings, verified:
+  - P2-1 and P2-4 are the T55 contradictions above.
+  - P2-14: an owed row keeps the old operation name after an OpRenamed rewrite, so it closes Recorded. That is
+    T20's, open at WriteAhead R5:86-88.
+  - P2-21: WriteAhead I22 (:290) says "the batch that carries the actor record", but an Unhandled turn changes no
+    actor record. Reword it to "the batch carrying that turn's step". This is minor, and T54's A-15 cites it.
+- Rejected:
+  - P2-5: a non-urgent Withdrawing end restores as unknown { Restored }, which I3 allows.
+  - P2-8, P2-10 and P2-12 existed before this commit.
+
+### 3. Is the reformat faithful?
+
+Yes. No rule id was renumbered or dropped, and every `@spec` link resolves (sidecar, checked by sampling). Three
+points:
+
+- **Authority of `algorithm`.** Its header (WriteLanes:540-541, Actors:472) says "the Requirements and the
+  Invariants are the contract". Yet the cell table, the ledger functions and `admit` hold rules that no
+  Requirement restates: latest's supersede of an Acknowledging head, `owe` closing a Life row at once, the Forget
+  and DisposeActor verdicts. Actors R4 even delegates to the `admit` table. Fix: one line in each header saying a
+  line a Requirement cites is binding, and a clash between the two is a Spec bug. Without it, the brief's "where a
+  Spec is silent, ask" invites questions.
+- `cell`'s "or after a release ended its head" (WriteLanes:548) follows from B2. That is faithful.
+- Restore R8 assigns LaneRekeyCollision to R6, which does not state it (above).
+
+### 4. Are Q1 B and Q2 B sound as applied?
+
+Both are sound.
+
+**Q1 B.** The handle is operation-typed, unreadable, decodable only by Flow's Schema, and absent for a queued
+commit. A mismatch changes nothing (I40). Two notes:
+
+- CancelMissed now means two things: the handle did not match, and the answer beat the cancel. Give it a detail
+  field, such as `{ why: NoMatch | Answered }` (T18).
+- The handle sits on a snapshot row, so it must compare by Equal (Turn R24).
+
+**The extension to unknowns.** I accept the fixer's reading: the call's own unknown or defect, given while
+Cancelling, is delivered as itself. Reasons:
+
+- It is I20's principle ("whichever the fiber's Exit shows").
+- The lane is unchanged either way, since both hold it.
+- It keeps the truer value (Outcome { error } or the Defect's Cause).
+
+Two fixes:
+
+- R14:269-270 attributes the extension to the user. spec-log.md:607 correctly calls it the agent's reading, so
+  R14 should say "agent's reading of Q2 B, for the user's read".
+- "When the fiber's Exit is the interruption" (cell:579) leaves a mixed Cause undecided, such as an interrupt
+  whose finalizer dies or fails. By R2 ("Flow's own knowledge first"), a Cause that holds Flow's interrupt gives
+  unknown { Cancelled }, unless the Exit is a success or a lone answer. Say so (T18).
+
+### 5. Does T54's brief agree with the fixed Specs?
+
+Every rule id it cites exists and says what the brief says. Lane-id order, the delivery order, the record kinds,
+Kept and Retrying, and "Refused leaves the row" all agree with WriteLanes, Restore and Turn. Gaps:
+
+- A-19 and the channel: the two blocking gaps above.
+- Stale section names:
+  - "`model` LedgerFunctions start" at P4.task:1478 and :1897; it is now `algorithm`, ledger;
+  - "`model` Cell" at :1535 and :1846;
+  - "@spec.WriteLanes (... `model` ...)" at :1183.
+- P4.task:1199 says the Settled fallback "is allowed by @spec.WriteLanes composition". No Spec text says that any
+  more; only spec-log.md does. The lead must ask anyway, so this is minor; point it at spec-log.
+- A-15 (:1520) cites WriteAhead I10 for "a batch lands whole". R12 and I23 say that.
+
+### Sidecar log (readiness pass)
+
+| Finding                                                     | Ruling   | Why                                              |
+| ----------------------------------------------------------- | -------- | ------------------------------------------------ |
+| Blind reader P2-1, P2-3, P2-4 (disposal contradictions)     | accepted | verified at Actors :429-460; T55                 |
+| Blind reader P2-9 (local Kept row)                          | accepted | still open from finding 8                        |
+| Blind reader P2-14 (owed row after OpRenamed)               | accepted | T20, open                                        |
+| Blind reader P2-21 (I22 wording)                            | accepted | minor reword                                     |
+| Blind reader P2-5 (Withdrawing end not urgent)              | rejected | the reload gives unknown { Restored }; I3 allows |
+| Blind reader P2-6 (latest and serialize queues not durable) | changed  | stated as T18's ("once a queue is saved")        |
+| Blind reader P2-7, P2-8, P2-10, P2-12, P2-25                | rejected | existed before this commit; out of this pass     |
+| Blind reader P2-18 (`admit` needs the target)               | changed  | for T9 when the boot queue is built              |
+| Reformat 1 (LaneRekeyCollision missing from R6)             | accepted | T56                                              |
+| Reformat 2 (the cell's release clause)                      | rejected | follows from B2                                  |
+| Reformat 3 (normative text in `algorithm`)                  | accepted | the authority line                               |
+| Reformat 5 (`inFlight` wording, releasing mark)             | accepted | minor; T20                                       |
+| Brief: stale section names, Settled pointer, I10            | accepted | listed above                                     |
+| Brief: A-12 wording differs from Actors I40                 | rejected | same substance                                   |

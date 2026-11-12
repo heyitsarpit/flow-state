@@ -1180,7 +1180,7 @@ tasks
             **Read first (added):** 
             code:workflow/plans/flow/references/proposals/fable-architecture-consult-3-2026-11-12.md
             (Part 2, C2, C3, C9); `packages/flow-state-v3/prototypes/t54-skeleton` (the target types; it
-            compiles); @spec.WriteLanes (R5, R6, R10, `model`, I27 to I37); @spec.Actors (R8, R10, R15, R20 to
+            compiles); @spec.WriteLanes (R5, R6, R10, `algorithm`, I27 to I37); @spec.Actors (R8, R10, R15, R20 to
             R22, I40, I41); @spec.WriteAhead (R4, R5, R10, I20 to I22); @spec.Restore (R1, R3); @spec.Turn.R26;
             @spec.Codec.R5.
 
@@ -1196,7 +1196,8 @@ tasks
             **Decisions already made:**
 
             - Endings apply at settlement (`Cue.Answered`). The fallback (keep `Settled` as a fourth `Delivery`
-              state) is allowed by @spec.WriteLanes composition, but the builder asks the orchestrator before
+              state) is allowed by workflow/specs/spec-log.md, not by a Spec, but the builder asks the orchestrator 
+              before
               taking it.
             - Only Kept rows block a key (`keptOn`). `Identity` is T9's. The capture window stays in the host.
             - Attempt ids: a seed of at least 128 bits per boot, never restored, plus the Attempts' own counter.
@@ -1475,7 +1476,7 @@ tasks
               a reload (Actors R22, I29; Actors T23). **Check:** new case, red today. **Wrong:**
               `disposal.drops-unsent-ending`.
             - **A-5.** A Kept row gets one try per Start and is Kept again if refused, across a Start with the refusing
-              guard left on (Actors I24; WriteLanes `model` LedgerFunctions start). **Check:** new case. **Wrong:**
+              guard left on (Actors I24; WriteLanes `algorithm` ledger start). **Check:** new case. **Wrong:**
               `ledger.start-skips-kept`.
             - **A-6.** An ending applies to its lane at settlement: a call succeeds, a cancel is admitted before the
               success's turn, and the machine hears success with the lane Idle (WriteLanes I32; WriteLanes T25). 
@@ -1509,9 +1510,10 @@ tasks
               all three. **Wrong:** `start.boot-delivers`, `start.adoption-own-path`.
             - **A-13.** Every key written is `actor/<identity>`, `lane/<lane>` or `owed/<identity>`, each with 
               `format`; no
-              lane record has `mayHaveApplied`; the owed record lists exactly the identity's rows in owed order (Codec 
-              I7;
-              WriteAhead I20; Codec T6; WriteAhead T15). **Check:** store contents after each step of every part.
+              lane record has `mayHaveApplied`; the owed record lists exactly the identity's rows in owed order, each
+              with its four-valued `channel`, `notSent` included, written from A3, since the core knows the origin
+              when a cell declines (decided by the orchestrator, 2026-11-12) (Codec I7; WriteAhead I20, R5;
+              WriteLanes I39; Codec T6; WriteAhead T15). **Check:** store contents after each step of every part.
               **Wrong:** `record.kept-kind`, `record.lane-may-have-applied`.
             - **A-14.** Every lane and identity a step changed is in that step's write list, and no move writes a record
               (WriteAhead I21). **Check:** reload equivalence: at every crash point of every part, boot and compare the
@@ -1519,8 +1521,8 @@ tasks
               `persist.skips-touched-owed`.
             - **A-15.** A row leaves the owed record only in the batch that carries the actor record of the turn that 
               heard
-              it, and a batch lands whole or not at all (WriteAhead I22, I10; WriteAhead T16). **Check:** drop each 
-              batch
+              it, and a batch lands whole or not at all (WriteAhead I22, R12, I23; WriteAhead T16). **Check:** drop 
+              each batch
               whole, boot, check A-9's conservation. **Wrong:** `store.splits-batch`.
             - **A-16.** Each turn yields one Turn act, and reports derive from acts in act order (Turn I36; Turn T24).
               **Check:** the report stream recorded at the end of A3, over every part and both seeds, is byte-equal 
@@ -1532,9 +1534,11 @@ tasks
               test
               in `src/host/` on the seed's width, and a case that two boots mint no equal Attempt id. **Wrong:**
               `seed.thirty-two-bits`. This Invariant's row in `conformance/not-yet.ts` is closed here, not in T18.
-            - **A-19.** Every lane-table cell behaves as WriteLanes `model` Cell says, for the cells that exist under
-              `reject` and the cancel policy today. **Check:** a table test, one row per cell. **Wrong:** one per cell,
-              named `cell.<phase>-<cue>`.
+            - **A-19.** Every lane-table cell behaves as WriteLanes `algorithm` `cell` says, for the cells that exist
+              under `reject` and the cancel policy today, with today's behaviour (the differential baseline stays
+              equal). T18's, not T54's: Q2 B's Cancelling cells (answered with success, failure or unknown), cancel
+              with a handle (`attempt`), and the release-on-leave cells (R16). **Check:** a table test, one row per
+              cell. **Wrong:** one per cell, named `cell.<phase>-<cue>`.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      draft
@@ -1579,7 +1583,7 @@ tasks
             are this Task's brief. The older comments are known gaps. Where this brief and the record disagree,
             the brief is newer.
 
-            **Read first (added):** @spec.WriteLanes (R2 to R4, R6 to R14, R17, Q5, `model` Cell, Promote,
+            **Read first (added):** @spec.WriteLanes (R2 to R4, R6 to R14, R17, Q5, `algorithm` `cell`, Promote,
             Displaced; I4 to I20, I27, I33, I38; T3 to T9, T26, T29); @spec.Actors.R15; @spec.Restore.R3; the wide
             consult's W1, option B (code:workflow/plans/flow/references/proposals/fable-wide-consult-2026-11-12.md);
             the fixture catalogue; `conformance/write-lanes/remainders.ts`; @task.V3.T18's comments.
@@ -1843,15 +1847,15 @@ tasks
             - **L-1.** latest: Idle mints; a never-sent head (Acknowledging, Unsent) is superseded as evidence and the 
               newer
               commit promotes; every other phase queues the newer commit, ending a queued one Superseded; a head with a
-              pending cancel (Withdrawing) is never superseded (WriteLanes `model` Cell; WriteLanes R7, R14). 
+              pending cancel (Withdrawing) is never superseded (WriteLanes `algorithm` `cell`; WriteLanes R7, R14). 
               **Check:** cell
               table; S01, S24. **Wrong:** `lane.latest-supersedes-on-wire`, `lane.latest-supersedes-withdrawing`.
             - **L-2.** serialize: Idle mints; otherwise appends to W up to 64; the 65th declines NotSent { Overloaded }
               (WriteLanes R7, I8). **Check:** cell table; S08, S03. **Wrong:** `lane.serialize-65th-queues`.
             - **L-3.** cancel policy: a new commit interrupts the wire; the displaced Attempt's ending is evidence 
               unless a
-              cancel was pending on it (WriteLanes `model` Displaced; WriteLanes R7, R10). **Check:** cell table; S12, 
-              S23.
+              cancel was pending on it (WriteLanes `algorithm` `cell`, commit under cancel; WriteLanes R7, R10). 
+              **Check:** cell table; S12, S23.
               **Wrong:** `lane.cancel-delivers-displaced`.
             - **L-4.** A queued commit gets its Attempt at promotion, and every minted, promoted or re-sent Attempt is
               invoked after its turn ends (WriteLanes R5, R8). **Check:** oracle `attempt-identity` (exists); S08.
@@ -1894,8 +1898,7 @@ tasks
               `conformance/write-lanes/remainders.ts`
               is removed. **Wrong:** `lane.still-unknown-drops-tag`.
             - **L-17.** Under latest and serialize the lane record holds its queue; at Start each queued commit is owed
-              NotSent { Restored } before its head's row (Restore R3; WriteLanes `model` LedgerFunctions start). 
-              **Check:**
+              NotSent { Restored } before its head's row (Restore R3; WriteLanes `algorithm` ledger start). **Check:**
               store contents and a reload case on S08, S03. **Wrong:** `record.queue-not-saved`,
               `start.head-before-queued`.
             - **L-18.** Type tests (@plan.Operations.V1): a missing failure tag and a wrong mapper annotation are 
@@ -1918,9 +1921,13 @@ tasks
             Cancelled } only when the Exit is the interruption; the call's own unknown is delivered as itself 
             (@spec.WriteLanes.I20, @spec.WriteLanes.I41). Failing checks to write first: WriteLanes T30 (wrong 
             runtimes: a handle cancel that falls back to the key's current head; a handle stale after a reload) and T31 
-            (wrong runtime: Cancelling turns every answer into unknown { Cancelled }). Also yours from the same pass: 
-            the owed row's four-valued channel (WriteLanes I39, T16) and release on leave finishing every phase (R16, 
-            T11).
+            (wrong runtime: Cancelling turns every answer into unknown { Cancelled }). Also yours from the same pass:
+            release on leave finishing every phase (R16, T11). The owed row's four-valued channel (WriteLanes I39,
+            T16), `notSent` included, is T54's (A-13; the orchestrator, 2026-11-12). T54's A-19 leaves these
+            `algorithm` `cell` lines to you: Q2 B's Cancelling cells, cancel with a handle, and release on leave.
+            Rule to settle: an Exit whose Cause holds both Flow's interruption and a failure (an interrupt whose
+            finalizer fails or dies); the readiness check proposes unknown { Cancelled } by R2 unless the Exit is a
+            success or a lone answer (spec-review-2026-11-12.md, Readiness, section 4).
     T51
         title       Production lanes reworked: one table function, reports derived from acts
         status      done

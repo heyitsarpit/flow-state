@@ -427,19 +427,22 @@ invariants
          handles. [@R24]
 
     I35  During Runtime disposal, a call on the wire at its start is never cut short within the 5 s bound: one that 
-         settles less than 5 s after the start ends by its own result and the disposal does not end before it settles;
-        one still unsettled 5 s after the start ends unknown { Disposed }. Decision (user, 2026-11-10): "Q1 A", the
-        bound gets its own Invariant. [@R22]
+         settles less than 5 s after the start ends by its own result and the disposal does not end before it settles,
+        unless a refused final write ends the disposal first (R23, I43); one still unsettled 5 s after the start ends
+        unknown { Disposed }. Decision (user, 2026-11-10): "Q1 A", the bound gets its own Invariant. [@R22, @R23]
 
-    I36  A head whose call ends definitely during Runtime disposal leaves no hold: the next boot restores none for it. 
-         Decision (user, 2026-11-10): "Q1 A"; an unknown keeping its head Held is I29's. [@R22]
+    I36  A head whose call ends definitely during Runtime disposal, before the final write is issued, leaves no hold 
+         when that write lands: the next boot restores none for it. A call that settles after the final write is
+        issued restores as unknown { Restored } (R23's stated limit). Decision (user, 2026-11-10): "Q1 A"; an unknown
+        keeping its head Held is I29's. [@R22, @R23]
 
     I37  A shared actor that stays Free for the whole grace on the Runtime Clock has ended by the grace's end, unless 
          its record cannot encode (R8). [@R8]
 
     I38  Every commit not yet sent when Runtime disposal starts (queued, or a head waiting for its acknowledgement or 
-         to be invoked) ends NotSent { Disposed } before the disposal ends, and that ending is delivered once to the
-        identity's next incarnation. Decision (agent, 2026-11-11): ruling CQ6 with audit gap G5, as in R22. [@R22]
+         to be invoked) ends NotSent { Disposed } before the disposal ends; when the final write lands, that ending is
+        delivered once to the identity's next incarnation, and a refused final write reports StorageFailure (R23).
+        Decision (agent, 2026-11-11): ruling CQ6 with audit gap G5, as in R22. [@R22, @R23]
 
     I39  A persisted value-named machine's identity version changes exactly when an input field is added, removed or 
          renamed, or a field's Schema changes on its type or encoded side; other annotations never change it. [@R11]
@@ -472,12 +475,14 @@ algorithm
     Design, agreed by the user, 2026-11-12 (@task.V3.T55, consult round 3, Part 2); moved here from `model`. The
         cells round 3 left unstated are the agent's: Decision (agent: the orchestrator, 2026-11-12): BootFailed,
         Stored and Refused while Disposing, Send while Booting. Why: the table must be total. Reverse: drop those
-        cells and leave the pairs impossible.
+        cells and leave the pairs impossible. A line here that a Requirement cites is binding, and a clash between
+        the two is a Spec bug.
 
     admit(life, input) -> Verdict: one total table, every (Life, input) pair has exactly one verdict. Life moves only
         on a Run: Start takes Inert to Booting, Boot takes Booting to Open, BootFailed takes Booting to Failed,
         DisposeRuntime takes Open to Disposing and Inert, Booting or Failed straight to Disposed, and Disposing
-        goes Disposed when no call is on the wire and the final write's ticket is answered, or at the bound. By
+        goes Disposed when no call is on the wire and the final write has landed, when the final write is refused
+        (StorageFailure, R23), or at the bound. By
         input:
         - Start (the first ready): Inert runs; Booting, Open and Failed drop (the caller shares the bootstrap's
             Exit); Disposing and Disposed reject RuntimeDisposed.

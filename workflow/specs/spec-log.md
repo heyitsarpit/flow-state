@@ -605,3 +605,12 @@ T16 collision (now @task.V3.T16) and the dropped Task notes (listed above). Reje
 user's note), the late-answer, quarantined-head and persisted-target lines (from B2, scenario 8 and conflict 3),
 "A step returns" (in the old text), sentBefore undefined (I36 defines it), "or another move" (a rename cannot
 collide). Changed: the Cancelling call's own unknown is delivered as itself (agent reading of Q2 B, above).
+
+## 2026-11-12, readiness fixes (Actors, WriteLanes)
+
+Actors I35, I36, I38 and `admit`'s Disposing exit now agree with R23 and I43: the final write is tried once, a
+refusal reports StorageFailure and ends the disposal, and a call settling after the write is issued restores as
+unknown { Restored }. Both `algorithm` headers say a line a Requirement cites is binding. WriteLanes R14 names the
+Cancelling call's own unknown as the agent's reading of Q2 B. Why: the readiness check
+(workflow/plans/flow/references/proposals/spec-review-2026-11-12.md, "Readiness, after b4e2c8a6"). Reverse:
+revert this commit.

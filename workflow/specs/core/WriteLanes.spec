@@ -267,7 +267,9 @@ requirements
                 promotes; the interruption gives unknown { Cancelled }, queued when the fiber exits and
                 retained (Held); an
                 unknown or defect the call itself gave is delivered as it is and holds the lane.
-                Decision (user, 2026-11-12): "Q2 B", a definite answer beats the cancel. Waiting to
+                Decision (user, 2026-11-12): "Q2 B", a definite answer beats the cancel. The call's
+                own unknown or defect is the agent's reading of Q2 B, for the user's read
+                (spec-log.md, 2026-11-12 review fixes). Waiting to
                 be invoked: never sent, NotSent { Cancelled } and the next queued commit is
                 promoted; a re-send returns to Held and is released.
 
@@ -538,7 +540,8 @@ owner Attempts
 
 algorithm
     Design, agreed by the user, 2026-11-12 (consult round 3, Part 2; T54's decisions); moved here from `model`.
-        It shows how the Requirements are met; the Requirements and the Invariants are the contract.
+        It shows how the Requirements are met; the Requirements and the Invariants are the contract. A line here
+        that a Requirement cites is binding, and a clash between the two is a Spec bug.
 
     cell(phase, input) -> phase, endings, evidence: one total function. Every (phase, input) pair below has exactly
         one cell; a pair marked impossible is a defect in Flow. The declines R11 and R12 give under every policy
