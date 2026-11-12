@@ -271,3 +271,9 @@ note 2026-11-12T01:36:16Z
     Amendment (the user, 2026-11-12): every review has one blind sidecar that sees only the Specs, Plans and code, 
     never the requirements list or earlier reviews; what only it finds is a missed requirement. Review crons re-created 
     as f68dc6c2 and 685d58aa. **Reverse:** git revert this commit and re-create the crons.
+note 2026-11-12T01:36:51Z
+    Review (T51 step 1, be086a6d): confirmed with additions, all accepted. GEN-pay-seeded-281 is a suite driver bug 
+    (case.ts records Ensured before checking removed, so a forgotten actor gets ensureExisting); decision 
+    (orchestrator, small amendment): T51 fixes that ordering under a reviewer sidecar and a no-lost-catch sweep, and 
+    drops Q3. Q11 (key-less members on an unkeyed operation, WriteLanes R9) and Q2b added; weak checks tightened; 
+    re-pointed mutants meet the review's five conditions. **Reverse:** move the driver fix to T47.
