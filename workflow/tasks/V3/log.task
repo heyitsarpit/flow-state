@@ -308,3 +308,6 @@ note 2026-11-12T03:29:53Z
     checks owned by T51. Decision (orchestrator): ensureActor and send after dispose rejecting RuntimeDisposed joins 
     T51; the other blind-sidecar gaps go to T18, T9, T21. Process watch: the blind sidecar found five Spec gaps no 
     requirement list had; the adversary found two checks a flip would pass.
+note 2026-11-12T03:35:55Z
+    Subagents get the 400k cap: the T51 lead compacted at 367k pre-tokens (92 percent of 400k) and stopped with a 
+    resume note (77df3dc9); a fresh lead takes the step-2 review fixes from it.
