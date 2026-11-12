@@ -394,3 +394,7 @@ note 2026-11-12T07:58:50Z
     Decision (the user): T47's fix lead is paused (commit and resume note) so usage goes to Fable: finish the runtime 
     Spec cluster and T54 skeleton, then proposed briefs for the core-runtime Tasks (T54, T18, T55, T19, T20 restore), 
     then outlines for later Tasks; its stated job is to set up the smaller builder agents for success.
+note 2026-11-12T08:10:36Z
+    Decision (the user): Plans may be edited to match the accepted decisions (Operations.plan's outcomes text, in 
+    Fable's phase 1). A second Fable with a 10-sidecar budget reviews the first Fable's work when it is done: the Spec 
+    cluster, Plans and T54 skeleton after phase 1, the core briefs after phase 2.
