@@ -1189,3 +1189,13 @@ tasks
             `expects` kills it first, same first divergent fact as at 909f4bee with both traces logged, else retired 
             with a
             reason).
+        comment     2026-11-12T02:26:51Z
+            Resume (lead, session ended): step 2, the core rework, is half done and uncommitted (it does not compile 
+            yet). Done: the red checks and the driver fix at 3cb2b373. Uncommitted: src/core/cells.ts (the table and 
+            cell), src/core/evidence-of.ts (evidenceOf over acts), world.ts (tagged phases, Tries, kept map, no 
+            tickets, Lane without id or key, Command Lookup and Due), compiled.ts, contract.ts and machine.ts (Commit 
+            and Lookup split), tx.ts (commandsSince, keyOf). Next, in order: rewrite lanes.ts as the applier of cell 
+            moves (key-less member on an unkeyed operation names its lane), then persist, answers, disposal, serve, 
+            incarnations (the end writes with Due Now), step, record, rows; host driver (Invoke and Lookup), edge 
+            (Due), runtime dispose awaiting the core's Disposed before Scope.close; adapter seam imports; Spec ids out 
+            of src; re-point mutants under Q13; gates against the start counts.
