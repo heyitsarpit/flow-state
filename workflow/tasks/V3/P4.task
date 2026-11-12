@@ -1072,6 +1072,24 @@ tasks
             Close review FAIL (t47-close-review-2026-11-12.md): core mutants 98/98 not real (copies fail to load, a 
             load failure counts as a kill); three kept regressions unrecorded; no T39 field gate; Guards unmet. 
             Orchestrator: GEN-pay-search-25 returns to T47 as a suite-model fix; fresh lead fixing.
+        comment     2026-11-12T08:01:20Z
+            Resume (lead, paused at 9405af2f by the coordinator): close-review findings 1-3 done, 4 and the 
+            non-blocking items open; nothing of T47's uncommitted (the Spec and policy-testing edits in the tree are 
+            not T47's).
+              Done: F1 (974ad3a1) a core-mutant kill needs a named oracle or cited Invariant, copies load, planted load 
+              failure red; core mutants NOT re-run, gates.json still stale. F2 (974ad3a1) GEN-pay-search-20, 21, 55 and 
+              seeded-173 were suite bugs, all runtimes right: the I15/I14 part by 3cb2b373's driver fix (ensureExisting 
+              after a dispose), the I29/I32 part by c27dd707's model fix (incarnate owes no restore to a parked ending, 
+              Restore I6); signatures re-saved as pass; new gate 'regressions round-14' (8/8). GEN-pay-search-25 
+              (974ad3a1) fixed in the model: a boot may restore a disposed identity's unbound Held head and park it, or 
+              leave it to the adoption (new AwaitRestore cause 'unbound', never due; Actors R20, Restore R1); passes on 
+              both runtimes, suites 78/78 and 122/122, parts 38/38; limits.ts row and the T54 owed row removed 
+              (decision agent; reverse: drop the unbound cause). F3 (9405af2f) model fields walked from the rules, gate 
+              'model mutation production' 328/328 fields, 36 noticed; kills by oracle.
+              Open, in order: F4 (held-out seeds in a gate; t47-expectations-sample.md), T54 withdrawal comment, Q22 
+              (S1 without Computed/Input; owed check by expected error; T17 comment), reach credit (parts/play.ts), 
+              stress breadth, world seed, T36 text, current: 0; then every gate once in the background (core mutants 
+              first), gates.json, set to review.
     T52
         title       Suite phase-out, first cut: Pay and Cells generated, hand traces thinned
         status      draft
