@@ -390,3 +390,7 @@ note 2026-11-12T07:53:42Z
     Decision (the user): no banked reset today; go slow and plan usage a week ahead through the end of the month. When 
     weekly usage reaches 100 percent the run pauses until the scheduled reset (2026-11-14 00:30 IST); the two-line 
     window plan is cancelled (T46 not started). Usage now 89 percent weekly, 81 percent of the 5-hour window.
+note 2026-11-12T07:58:50Z
+    Decision (the user): T47's fix lead is paused (commit and resume note) so usage goes to Fable: finish the runtime 
+    Spec cluster and T54 skeleton, then proposed briefs for the core-runtime Tasks (T54, T18, T55, T19, T20 restore), 
+    then outlines for later Tasks; its stated job is to set up the smaller builder agents for success.
