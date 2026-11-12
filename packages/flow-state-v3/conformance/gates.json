@@ -26,6 +26,31 @@
       "verdict": "ok   coverage: 75 of 184 core Invariants checked (41 in part), 109 owed by a Task, 0 gap(s)"
     },
     {
+      "gate": "parts production",
+      "revision": "af34316a",
+      "verdict": "VERDICT pass 38/38 part scripts on production"
+    },
+    {
+      "gate": "matrix",
+      "revision": "af34316a",
+      "verdict": "VERDICT pass 265/265 matrix rows"
+    },
+    {
+      "gate": "pairs production",
+      "revision": "af34316a",
+      "verdict": "VERDICT pass 74/74 interacting pairs"
+    },
+    {
+      "gate": "bench production",
+      "revision": "af34316a",
+      "verdict": "VERDICT pass 3/3 bench fingerprints equal"
+    },
+    {
+      "gate": "regressions production",
+      "revision": "af34316a",
+      "verdict": "VERDICT pass 6/6 kept regressions on production"
+    },
+    {
       "gate": "liar round-14",
       "revision": "a39c2f52",
       "verdict": "VERDICT pass 126/126 behavioural mutants red under the liar gate, 9 fixture gaps (cap 9)"
