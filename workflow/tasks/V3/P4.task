@@ -969,6 +969,29 @@ tasks
             slice 11 is
             work after slice 10 (T30, T50); P34, P35, P51 (T16, done) are owed by T18. 26 checks still red (steps 3 to 
             6).
+        comment     2026-11-12T05:14:04Z
+            Resume (lead, at 4eae37fc): steps 1 and 2 done; 26 checks red, all owed by steps 3 to 6. Next, in order:
+            1. Step 3, parts and reference: write `fixtures/transfers.ts` (S16, two actors for F1), 
+               `fixtures/sign-in.ts` (S21
+               flat) and `fixtures/sync.ts` (S10, with an `ad` storm action), each `part({...})` calling `Server` from
+               `fixtures/part.ts`, `reject` only; `parts/reference.ts` `referenceOf(compiled)` from 
+               `Machine["compiled"]` and
+               `partFixture` with folds derived by calling the Slots' `run` on labels (no opaque alternative, F3); Q3 
+               compares
+               with hand Pay and Cells.
+            2. Step 4, scripts and play: `parts/generate.ts` (seeded draw from user models filtered by declared codes 
+               before the
+               draw; stress adds lost answers, reloads, refusals; mix via `Script.actors` and a step-level actor index, 
+               player
+               in `dsl/script.ts`), `parts/play.ts` (production adapter boots parts by name with `Server` over the 
+               network;
+               round-14 refused; reach from facts and the model's prediction).
+            3. Step 5: model mutation over `dsl/lifecycle-rules.ts` tables, F1 two dirty actors, F2 row, gates in 
+               `gates.ts`.
+            4. Step 6: bench and fingerprint, production static surface in `runner/args.ts`, regressions on production.
+            Coordinator rule: fix `src/core/persist.ts:134` (second kept ending overwrites the first) in T47 if the 
+            fixtures
+            hit it, failing check first, noted on T18.
     T52
         title       Suite phase-out, first cut: Pay and Cells generated, hand traces thinned
         status      draft
