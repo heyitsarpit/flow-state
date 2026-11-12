@@ -322,3 +322,7 @@ note 2026-11-12T04:08:53Z
     ending without a lane lost on its second refusal, I24; dispose during bootstrap, R4); three gaps go to T18; two 
     items to revisit.md. A fresh T51 lead is fixing. Process watch: the blind sidecar again found requirements no list 
     had, all present before T51; the adversary found a case a wrong build passes (no Held assert).
+note 2026-11-12T04:40:30Z
+    T51 done: re-check PASS at 31279004; gaps to T18 (second kept ending overwrites), T9 (five Actors gaps), revisit.md 
+    (I29 vs R22). Retrospective on T51 proposes a blind Spec pass in requirements gathering and a named wrong runtime 
+    per case; the first is applied to T47's brief as a small amendment. T47 lead started, requirements first.
