@@ -61,6 +61,9 @@ export const Script = Schema.Struct({
   id: Schema.String,
   fixture: Schema.String,
   actor: Schema.String,
+  actors: Schema.optionalKey(
+    Schema.Array(Schema.Struct({ fixture: Schema.String, actor: Schema.String })),
+  ),
   steps: Schema.Array(Step),
 });
 

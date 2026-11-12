@@ -820,7 +820,7 @@ tasks
             proposals/t45-completion-check-2026-11-12.md. Follow-ups F1 to F3 owned by T47.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
-        status      open
+        status      in_progress
         priority    high
         blocked_by  [@T51]
         description
@@ -935,6 +935,25 @@ tasks
             two-keys-name-no-lane rule; F2 retarget limit.mint-key-lies at the keysOf and reportedKeys path; F3 where a 
             guard cannot be computed, the runtime's opaque alternative is accepted, against Conformance R20: fold or 
             label it.
+        comment     2026-11-12T05:04:52Z
+            Requirements (lead, 2026-11-12): Q1 to Q28, each with its source, check and the wrong build that must keep 
+            it
+            red, in code:workflow/plans/flow/references/proposals/t47-requirements-2026-11-12.md with the one-to-one 
+            mapping and
+            the sidecar log. Checks: `conformance/parts/*.test.ts` and `bench/bench.test.ts`, 46 red at step 1 against 
+            empty
+            skeletons of the planned modules (`nub run check` clean; 5 other reds are the frozen `packages/flow-state` 
+            tests).
+            Settled: today's 15 codes are `rj ky cm rt un lr du gd dp ma gr lk wa sr rl` (replan part 2); catalogue 
+            5B's pair
+            rule gives 671 pairs over 53 codes and 74 over the 15; `Compiled`'s Slots carry their closures, so a part's 
+            guards
+            are computed from its own source (F3). Proposed until the user's yes: the non-interacting rules (Q21). 
+            Ruling
+            asked: the nine liar greens "owned by T47's fixtures" are round-14 mutants outside acceptance; proposed 
+            owner T52.
+            Small API call (agent): `shape()` is `part()` and `Shape` is `Part`, since lint bans "shape" in symbol 
+            names.
     T52
         title       Suite phase-out, first cut: Pay and Cells generated, hand traces thinned
         status      draft

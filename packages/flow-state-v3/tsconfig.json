@@ -4,5 +4,11 @@
     "noEmit": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "conformance/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "conformance/**/*.ts",
+    "fixtures/**/*.ts",
+    "bench/**/*.ts"
+  ]
 }

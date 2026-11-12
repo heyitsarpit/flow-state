@@ -57,6 +57,11 @@ export class UnknownProductionFixture extends Data.TaggedError("UnknownProductio
  */
 export const productionFixtures: ReadonlySet<string> = new Set(["pay", "cells"]);
 
+/**
+ * The feature codes production builds (Conformance R16): a claim, declared only once built.
+ */
+export const implemented: ReadonlyArray<string> = [];
+
 const MACHINES: ReadonlyMap<string, Machine> = new Map<string, Machine>([
   ["pay", PayMachine],
   ["cells", CellsMachine],

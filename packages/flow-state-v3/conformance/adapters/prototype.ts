@@ -134,6 +134,11 @@ export class PrototypeLoadFailed extends Data.TaggedError("PrototypeLoadFailed")
  */
 export class UnknownFixture extends Data.TaggedError("UnknownFixture")<{ readonly name: string }> {}
 
+/**
+ * The feature codes round-14 builds (Conformance R16), from its catalog and its source.
+ */
+export const implemented: ReadonlyArray<string> = [];
+
 const FIXTURES = [
   { name: "pay", file: "typed/pay.ts", exported: "payFixture", made: "value" },
   { name: "cells", file: "typed/cells.ts", exported: "cellsFixture", made: "value" },
