@@ -1,44 +1,53 @@
 {
-  "revision": "df2b9cfb",
   "gates": [
     {
       "gate": "suite round-14",
+      "revision": "a39c2f52",
       "verdict": "VERDICT pass 122/122"
     },
     {
       "gate": "suite production",
+      "revision": "a39c2f52",
       "verdict": "VERDICT pass 76/76"
     },
     {
       "gate": "falsify round-14",
+      "revision": "a39c2f52",
       "verdict": "VERDICT pass 154/154 mutants caught, 4/4 probes hold"
     },
     {
       "gate": "falsify production",
+      "revision": "a39c2f52",
       "verdict": "VERDICT pass 18/18 mutants caught"
     },
     {
       "gate": "coverage",
-      "verdict": "ok   coverage: 75 of 184 core Invariants checked (40 in part), 109 owed by a Task, 0 gap(s)"
+      "revision": "a39c2f52",
+      "verdict": "ok   coverage: 75 of 184 core Invariants checked (41 in part), 109 owed by a Task, 0 gap(s)"
     },
     {
       "gate": "liar round-14",
-      "verdict": "VERDICT pass 126/126 behavioural mutants red under the liar gate"
+      "revision": "a39c2f52",
+      "verdict": "VERDICT pass 126/126 behavioural mutants red under the liar gate, 9 fixture gaps (cap 9)"
     },
     {
       "gate": "limits round-14",
-      "verdict": "VERDICT pass 7/7 limits rows hold on round-14"
+      "revision": "a39c2f52",
+      "verdict": "VERDICT pass 9/9 limits rows hold (round-14 limits, stated limits, production's owed reds)"
     },
     {
       "gate": "liar production",
-      "verdict": "VERDICT pass 13/13 behavioural mutants red under the liar gate"
+      "revision": "a39c2f52",
+      "verdict": "VERDICT pass 13/13 behavioural mutants red under the liar gate, 0 fixture gaps (cap 9)"
     },
     {
       "gate": "crash production",
+      "revision": "a39c2f52",
       "verdict": "VERDICT fail 690/723 crash points"
     },
     {
       "gate": "core mutants",
+      "revision": "a39c2f52",
       "verdict": "VERDICT core mutants: 62/85 killed (85 candidates)"
     }
   ]
