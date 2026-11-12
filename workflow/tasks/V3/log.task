@@ -237,3 +237,8 @@ note 2026-11-12T00:02:40Z
     round-14 limits, verified); should-fixes S1 to S10 accepted; sent to the lead. Stop after the fixes, for the user: 
     amend T45's acceptance 7 (eight old search kills owned by T21 and T25) and phase-out step 1 (Table A's cells kept), 
     both proposed; T51 waits on T45.
+note 2026-11-12T00:30:26Z
+    Stop (R21, for the user): T45 is in review at 3a2db980 with K1 and S1 to S10 fixed or stated; it closes only on the 
+    user's yes to two proposed amendments (acceptance 7's eight search kills owned by T21 and T25; phase-out step 1 
+    keeps Table A's cells). T51 waits on T45; no builder runs. Review wakes continue; open: 0d1c5e87's crash total 1523 
+    against 723 since, unexplained.
