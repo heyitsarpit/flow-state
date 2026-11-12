@@ -332,3 +332,9 @@ note 2026-11-12T05:08:17Z
 note 2026-11-12T05:47:22Z
     Review started (T47 steps 1-2, 87106adb and 4eae37fc): mapping first, then the red checks and the matrix and 
     combination gates; one Opus lead, blind and adversary Haiku sidecars. The lead continues step 3.
+note 2026-11-12T06:01:24Z
+    Review (T47 steps 1-2): PASS with fixes, all sent to the lead. Blocking: matrix owners copied from the pre-replan 
+    column (60 rows owed to T18; T9 owns none), owed rows with no codes so the matrix gate can't fire, and six step-1 
+    checks vacuous on empty parts. Also: loose F1/Q11/acceptance-6 mapping and three missed requirements. Process 
+    watch: the step-1 list mapped items but never planted wrong runtimes against them; red-first was claimed rather 
+    than shown.
