@@ -1134,6 +1134,9 @@ tasks
         comment     2026-11-12T04:39:47Z
             Gap from T51's re-check: a second kept ending on a lane overwrites the first (persist.ts:134, keep replaces 
             endings; Actors I24); reachable on Held heads since T51's Held row. Failing check first.
+        comment     2026-11-12T06:20:41Z
+            Owns WriteLanes I25's remainder (the failure tag inside unknown StillUnknown), moved from the closed T51 by 
+            the orchestrator, 2026-11-12: code:packages/flow-state-v3/conformance/write-lanes/remainders.ts.
     T51
         title       Production lanes reworked: one table function, reports derived from acts
         status      done

@@ -42,7 +42,7 @@ export const writeLanesRemainders: ReadonlyArray<Remainder> = [
   },
   {
     invariant: "WriteLanes I25",
-    owner: "@task.V3.T51",
+    owner: "@task.V3.T18",
     owed: "an unknown StillUnknown keeps the failure's tag: neither runtime reports `Ended.failure` yet, so ending-channels judges the tag only when a runtime reports it (2026-11-12)",
   },
 ];

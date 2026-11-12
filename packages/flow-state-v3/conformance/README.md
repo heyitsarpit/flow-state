@@ -231,7 +231,7 @@ the case holds.
   closure, or minted under an older key version, is not told apart.
 - A row tied to its alternative (`at`, Pay's `Leave`) is owed only when selection predicts that
   alternative from the fixture's folds, never from the reported members.
-- The failure tag inside `unknown StillUnknown` is a WriteLanes I25 remainder owned by T51
+- The failure tag inside `unknown StillUnknown` is a WriteLanes I25 remainder owned by T18
   (`write-lanes/remainders.ts`): no runtime reports `Ended.failure` yet.
 - `Minted` requires `actor`, and `key` on a keyed operation: the Case stops with `UnreadableReport`
   naming the field (convergence v2's Port change 6).
