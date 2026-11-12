@@ -1037,7 +1037,7 @@ tasks
             (R12). Land as a failing check first.
     T51
         title       Production lanes reworked: one table function, reports derived from acts
-        status      review
+        status      in_progress
         priority    high
         blocked_by  [@T45]
         description
@@ -1265,3 +1265,24 @@ tasks
             `ensureExisting` after a dispose, and 3cb2b373 fixed that driver. T51 changed no prototype or limits code 
             (`git diff 3cb2b373 HEAD -- packages/flow-state-v3/conformance` touches only the adapter, its mutants and 
             `productionOwed`). Proposed fix: retire the row in `conformance/limits.ts`, which is outside T51's scope.
+        comment     2026-11-12T03:35:10Z
+            Resume note (2026-11-12, after a compaction): the step-2 review fixes have failing checks but no source 
+            fixes yet.
+            The six new cases are uncommitted in `code:packages/flow-state-v3/src/host/lanes.test.ts`. Status: Keep on 
+            Held,
+            the bounded flush and RuntimeDisposed are red as intended. The restored-unknown re-send case and the
+            flush-with-capture case are green, and each turns red against a planted wrong runtime. The 
+            cancelled-no-value case
+            is still broken, even with an uninterruptible commit (the `stubborn` fixture): its value assertion fails 
+            before
+            the fix, so re-check that it reaches a Cancelling head and goes red only on `const value = cue.value`. 
+            Next, in
+            order: Keep.Held to keepBeside in `code:packages/flow-state-v3/src/core/cells.ts` plus the totality 
+            assertion in
+            lane-shapes.test.ts. Then bound `edge.flush` with `Effect.timeout` by the rest of the 5 s and report
+            StorageFailure. Then RuntimeDisposed in `code:packages/flow-state-v3/src/error.ts`, from ensureActor and 
+            send.
+            Then retire GEN-pay-search-55-shrunk from limits.ts, fix the kept-endings text in WriteLanes, save the
+            resend-new-id trace, and log the inspect.ts `Evidence` value export. Then check, gates, comments, and set 
+            status
+            to review. See `workflow/plans/flow/references/proposals/t51-step2-review-2026-11-12.md`.
