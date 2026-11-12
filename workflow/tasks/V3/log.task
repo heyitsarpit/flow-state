@@ -438,3 +438,8 @@ note 2026-11-12T11:41:33Z
     Readiness fixes at 3ca52d27: T54's brief is ready (A-19 today's cells, A-13 notSent by T54), Actors disposal rules 
     agree with R23, algorithm headers state cited lines bind. T54 is ready to start; the run waits for the weekly reset 
     (2026-11-14 00:30 IST), then T47's remaining fixes and T54.
+note 2026-11-12T12:39:18Z
+    Run stopped (the user, 2026-11-12, at 96 percent weekly). No agents live; crons and caffeinate stopped. Resume: 
+    T47's open fixes from its resume note (finding 4, Q22 source, missed requirements, full gates, re-check), then T52, 
+    then T54 (brief ready at 3ca52d27). Open for the user: the user-page file (user-page-2026-11-12.md); library skill 
+    edits (policy-testing, policy-verification) still uncommitted.
