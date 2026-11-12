@@ -370,3 +370,8 @@ note 2026-11-12T07:23:48Z
 note 2026-11-12T07:27:46Z
     Usage reserve raised to 100 percent weekly (the user, 2026-11-12; banked resets pending on both accounts). Reverse: 
     set it back to 95.
+note 2026-11-12T07:34:38Z
+    Decision (the user): when this account reaches 100 percent, a banked reset is used, and until the Saturday reset 
+    (2026-11-14 00:30 IST) two independent lines run: T47 close then T52, and T46 (backtest); then back to one builder. 
+    Orchestrator: wide consult W2 (host shell to T55, rest to T19) and W3 (split T20 and T17, browser slice after T9) 
+    to be placed; Q1, Q2, Q4, Q5 and W1 await the user.
