@@ -297,3 +297,8 @@ note 2026-11-12T02:32:23Z
     Run resumed in the same session, now with a 400k context window. Crons c2229c29 and bb8133d4, caffeinate on; a 
     fresh T51 lead continues from e25bb637's resume note and the uncommitted step-2 files. Weekly usage 75 percent 
     of 95.
+note 2026-11-12T03:11:25Z
+    T51 step 2 done at 87693e02 (lane as one table, dispose awaits the core, the three production bugs fixed; 
+    production 78/78, crash 732/735, core mutants 75/98); T51 in review. Step-done review started with a blind and an 
+    adversary sidecar, ruling on the lead's decisions a to d. Process watch: the lead peaked at 336k with no 
+    compaction, so the subagent cap is still unconfirmed.
