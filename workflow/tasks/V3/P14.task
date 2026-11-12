@@ -60,7 +60,7 @@ tasks
         title       CLI check, explain and graph
         status      draft
         priority    medium
-        blocked_by  [@task.V3.T21]
+        blocked_by  [@task.V3.T56]
         satisfies   [
                     @plan.CommandLine.O1,
                     @plan.CommandLine.O3,

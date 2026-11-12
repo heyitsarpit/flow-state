@@ -68,7 +68,8 @@ decisions
         Likely authoring mistakes become type errors, check findings or actionable diagnostics;
         failures preserve valid application state.
     D4  Effect 4.0.5 is the authority; services are Layers
-        Use its Schema, Layer, Duration, Schedule, Stream and KeyValueStore where applicable.
+        Use its Schema, Layer, Duration, Schedule and Stream where applicable; storage is Flow's own
+        `Store` service, since Effect's KeyValueStore has no atomic batch (@plan.Persistence.O1).
         Runtime services and Story fixtures are Effect Layers.
     D5  Authoring returns values and throws one FlowError
         Authoring calls return their values directly; invalid construction throws FlowError as

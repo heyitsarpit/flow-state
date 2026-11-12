@@ -158,7 +158,15 @@ tasks
             - A new case answers a call at 3 s and expects `StorageFailure` at 5 s from the call to `dispose`
               (@spec.Actors.R22, @spec.Actors.R23); it is red before B2 and green after.
             - The suite's judged disposal passes at the end of every case.
+            - Host shell (wide consult W2): `host/runtime.ts` is a `ManagedRuntime` plus the driver (`ready` shares
+              the build's Exit, `dispose` ends in `managed.disposeEffect`) and `host/fibers.ts` a `FiberMap`; the
+              hand-built Scope, services context and `booted` Deferred are gone, and a host test written red before
+              the swap passes after it.
             - Gates are no worse than at this Task's start, and `nub run check` is at zero.
+        comment     2026-11-12T07:59:15Z
+            Scope added (orchestrator, 2026-11-12, wide consult W2): the host shell, `ManagedRuntime` and `FiberMap` in 
+            place of the hand-built Scope, services and `booted` Deferred, with a failing-first host test before the 
+            swap. `Store`, `Page`, the seed and the edge step stay with @task.V3.T19. See the acceptance.
     T19
         title       Durability: persistence edge, write-ahead and the driver (slice 2)
         status      draft
@@ -176,19 +184,20 @@ tasks
 
             **Scope added** (the user, 2026-11-11, from
             code:workflow/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md): add an Invariant for
-            WriteAhead R2: the KeyValueStore type rule and untyped missing storage (row Q02, an owed check;
+            WriteAhead R2: the `Store` type rule and untyped missing storage (row Q02, an owed check;
             @plan.Persistence.O1).
 
-            **Read first (added):** @plan.Persistence.O1, @spec.WriteAhead.Q4 (Effect's KeyValueStore has no batch,
-            R12 needs one; this slice settles the store service with R2's Invariant, with @task.V3.T20).
+            **Read first (added):** @plan.Persistence.O1, @spec.WriteAhead.Q4 (settled by the user 2026-11-12, wide
+            consult Q4 A: Flow's own `Store` with one atomic `write(batch)` and one batch stream per Runtime),
+            code:workflow/plans/flow/references/proposals/fable-wide-consult-2026-11-12.md (question 4, W2).
 
             **Slice 2, durability (replan, accepted 2026-11-11), with @task.V3.T20:** model first, continuing T45's
             pilot. Absorbs @task.V3.T10 (the WriteAhead area suite): oracles `write-ahead`, `capture` and `persistence`,
             a disk reader on the Port that shows no internals, the storage faults, and the carry rows; its Read first is
             code:packages/flow-state-v3/conformance/README.md (the WriteAhead rows, "Planned Port changes"). Adds the
             WriteAhead oracles, which re-judge every composite already built, and an in-memory host store so production
-            persists on a real host (IndexedDB is slice 9). Codes: wa. Part built: S13 [E]. Bench: `ready()` with 64
-            queued (S08) and 500 keyed lanes (S16). Effort 7 with T20 (estimate). Read first:
+            persists on a real host (IndexedDB is @task.V3.T58's). Codes: wa. Part built: S13 [E]. Bench: `ready()`
+            with 64 queued (S08) and 500 keyed lanes (S16). Effort 7 with T20 (estimate). Read first:
             code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part 3, "2 Durability").
 
             - **May change:** `src/`.
@@ -211,6 +220,14 @@ tasks
               pair with no dated waiver, and passes before this Task closes.
             - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
               the model's expectations is read by a different model family (Fable).
+            - Store (wide consult Q4 A): `Store` is its own service with `load` (a typed failure) and one atomic
+              `write(batch)` with no `purpose` or `acknowledges`, shipped as `layerMemory`; one batch stream per
+              Runtime, so an awaited acknowledgement carries everything dirty (WriteAhead R10); the disk reader
+              derives purpose and acknowledgement from bytes.
+            - Host (wide consult W2): `Page` replaces `Host`'s visibility, the seed comes from `effect/Crypto`, and
+              storage is read and validated in a layer built before any app service (Actors I4, a case red first).
+            - Edge (W2): a pure `edgeStep(state, input)` with a tagged state (`Clean`, `Waiting`, `Out`) replaces
+              `edge.ts`'s flags; its runner only writes and sleeps, and the crash gate enumerates its states.
         comment     2026-11-12T06:09:45Z
             Production red from T47's pilots (PART-transfers-stress-12, `partsOwed` in 
             code:packages/flow-state-v3/conformance/parts/play.ts): `invoke` raises a re-send's retryCount without 
@@ -222,3 +239,13 @@ tasks
             batch-scope question is open (C6: @spec.WriteAhead.R7 and R9 read as one capture per scope, the code 
             batches per actor); a Recapturing head is written with the retryCount its re-send will carry (the rule this 
             Task's retryCount red takes); the capture window is still in the edge.
+        comment     2026-11-12T07:59:20Z
+            Decision (the user, 2026-11-12, wide consult Q4 A): Flow's own `Store` with `load` and one atomic 
+            `write(batch)`, one batch stream per Runtime, no `KeyValueStore` adapter. Plan change with this note: 
+            @plan.Persistence.O1, @plan.FlowState.D4 and @plan.Package.O2 drop `KeyValueStore` for `Store`; reverse 
+            from this commit's parent.
+        comment     2026-11-12T07:59:25Z
+            Scope added (orchestrator, 2026-11-12, wide consult W2; the `ManagedRuntime` shell is @task.V3.T55's): 
+            `Store` and `Page` services, the seed through `effect/Crypto`, a `Loaded` layer before app services (Actors 
+            I4, from @task.V3.T9), a pure `edgeStep`; `purpose` and `acknowledges` leave `Store.write`. See the 
+            acceptance.

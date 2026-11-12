@@ -53,6 +53,9 @@ description
       unit tests of internals), and the scenarios that enforce each Invariant written before the code;
     - skill:playbook-build;
     - skill:check-runtime for the browser paths.
+comment 2026-11-12T08:00:20Z
+    The preview's halves of T28 (`layerIndexedDb`) and T30 (`FlowProvider`, `useActorByRef`, `useView`) moved to
+    @task.V3.T58, which runs before this phase (the user, 2026-11-12, wide consult Q1 A); the rest stays here, after it.
 tasks
     T24
         title       Entity store
@@ -226,7 +229,7 @@ tasks
         title       Host adapters: IndexedDB and in-memory
         status      draft
         priority    high
-        blocked_by  [@T48]
+        blocked_by  [@T48, @task.V3.T58]
         satisfies   [@plan.Persistence.O1, @plan.Persistence.O3]
         description
             Build the IndexedDB host adapter, meeting Safari's four requirements, and an in-memory adapter.
@@ -252,6 +255,10 @@ tasks
             - Covered: the combination gate passes unchanged on the new host.
             - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
               the model's expectations is read by a different model family (Fable).
+        comment     2026-11-12T07:59:34Z
+            The IndexedDB `Store` layer (`layerIndexedDb`) moved to @task.V3.T58 for the preview cut (the user, 
+            2026-11-12, wide consult Q1 A), and `layerMemory` is @task.V3.T19's; this Task keeps Safari's requirements 
+            in full, the bench and the same-fingerprint replay on both hosts.
     T29
         title       Stories with flow story and flow trace
         status      draft
@@ -307,7 +314,7 @@ tasks
         title       React and Next.js bindings
         status      draft
         priority    high
-        blocked_by  [@T31]
+        blocked_by  [@T31, @task.V3.T58]
         satisfies   [
                     @plan.React.O1,
                     @plan.React.O2,
@@ -347,6 +354,10 @@ tasks
             - The bindings install and pass under React 18 and 19, and the server route stubs ServerOnlyImport on the
               client condition.
             - The three open server-rendering points are decided and recorded.
+        comment     2026-11-12T07:59:39Z
+            `FlowProvider`, `useActorByRef` and `useView` moved to @task.V3.T58 for the preview cut (the user, 
+            2026-11-12, wide consult Q1 A); this Task keeps the rest of @plan.React and all of @plan.ServerRendering, 
+            after the preview.
     T31
         title       CLI outputs designed for people
         status      draft

@@ -53,6 +53,9 @@ description
     - skill:policy-convergence at the threshold; skill:review at the cadence;
     - skill:playbook-build (long runs), skill:execute-task, skill:check-task; skill:diagnose when a case fails
       unexplained.
+comment 2026-11-12T08:01:33Z
+    Split (orchestrator, 2026-11-12, wide consult W3): @task.V3.T20 is restore, right after @task.V3.T19;
+    @task.V3.T56 is release versions and record migration, after @task.V3.T21.
 tasks
     T11
         title       Restore area complete
@@ -86,35 +89,33 @@ tasks
         comment     2026-11-11T12:41:54Z
             Merged into T20 (replan, accepted 2026-11-11). Done as merged.
     T20
-        title       Durability: restore, key versions and record migration (slice 2)
+        title       Durability: restore, owed endings at boot, quarantine and forget (slice 2a)
         status      draft
         priority    high
         blocked_by  [@task.V3.T19]
-        satisfies   [@plan.Inspection.O2, @plan.Persistence.O4, @plan.Persistence.O5, @plan.Runtime.O3]
+        satisfies   [@plan.Inspection.O2, @plan.Persistence.O4, @plan.Persistence.O5]
         description
-            Build restore and key versions from @spec.Restore and @spec.Codec, with record formats tagged from
-            the first release.
+            Build restore from @spec.Restore and @spec.Codec: reload, owed endings delivered at boot, record format 
+            tags, unreadable-record quarantine and `forget` (slice 2a).
 
-            **Why now:** write-ahead records exist but nothing reads them back, so a reload cannot restore
-            actors or deliver what was owed.
+            **Why now:** write-ahead records exist but nothing reads them back, so a reload cannot restore actors or 
+            deliver what was owed.
 
-            **Read first:** @spec.Restore, @spec.Codec, @spec.WriteAhead,
+            **Read first:** @spec.Restore, @spec.Codec, @spec.WriteAhead, 
             code:packages/flow-state-v3/conformance/README.md (the `restore` row and the carry list).
 
-            **Slice 2, durability (replan, accepted 2026-11-11), after @task.V3.T19:** absorbs @task.V3.T11 (the Restore
-            area suite: oracles `restore` and `quarantine`, the migration wrong runtimes, C168 and the record-format
-            carry rows) and @task.V3.T26 (record migration, @plan.Persistence.O5; real storage shapes are localStorage
-            text now and IndexedDB structured clone in slice 9). Adds the Restore oracles, which re-judge every
-            composite already built, record format tags, versions and resets, `forget` on the public route, and
-            `previous` holds checked against Restore R6; the Restore and WriteAhead Specs gain the R2 KeyValueStore
-            Invariant and a host store section. Codes: sr rl up fg pg. Part built: S25 [A]. Bench: the S25 upgrade boot.
-            Read first: code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part 3, "2 Durability").
+            **Split (orchestrator, 2026-11-12, wide consult W3):** key fingerprints, identity versions, saved-shape 
+            resets, record migration and `previous` holds moved to @task.V3.T56, after @task.V3.T9: a saved shape is 
+            defined only once @task.V3.T17 and @task.V3.T57 fix fields and fragments, and identity versions need T9's 
+            value-named actors. Read code:workflow/plans/flow/references/proposals/fable-wide-consult-2026-11-12.md 
+            (W3, item 2).
 
-            **Phase-out, step 5 (the user accepted 2026-11-11):** the Stamp twin (release 1 and 2 keys; `up`) is written
-            in `fixtures/`; run the hand cases on each fixture on production; write production mutants per oracle the
-            slice judges, mapped by Invariant from the round-14 mutants; delete the descriptor once the derived
-            reference equals it (`stamp.ts` goes). Read
-            code:workflow/plans/flow/references/proposals/conformance-phase-out-2026-11-11.md.
+            **Slice 2, durability (replan, accepted 2026-11-11), after @task.V3.T19:** absorbs @task.V3.T11's restore 
+            half (the Restore area suite: oracles `restore` and `quarantine`, C168 and the record-format carry rows; 
+            the migration wrong runtimes go to T56). Adds the Restore oracles, which re-judge every composite already 
+            built, record format tags, and `forget` on the public route; the Restore and WriteAhead Specs gain the R2 
+            `Store` Invariant and a host store section (@plan.Persistence.O1). Codes: sr rl fg. Read first: 
+            code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part 3, "2 Durability").
 
             - **May change:** `src/`.
             - **Evidence:** this Task's comments.
@@ -122,24 +123,21 @@ tasks
             - **Gates:** the suite; falsify.
             - **Stops:** a guarantee change.
         acceptance
-            The Restore and Codec areas pass on production.
-            - Every Restore Invariant has its oracle or case and each oracle kills its mutants (from @task.V3.T11).
-            - Record migration passes cases on production: a changed saved shape resets its definition's records with
-              the writes in flight kept (from @task.V3.T26, @plan.Persistence.O5).
+            The Codec area passes on production, and the Restore area does except the Invariants @task.V3.T56 owns (key 
+            versions, saved-shape resets, `previous` holds).
+            - Every Restore Invariant this Task owns has its oracle or case and each oracle kills its mutants (from 
+              @task.V3.T11).
+            - A reload restores actors from bytes, delivers owed endings at boot, quarantines an unreadable record, and 
+              `forget` removes an identity's records, each passing cases on production.
             - The slice's generated runs pass on production, and its benchmark replay matches the work fingerprint.
-            - Declared: sr rl up fg pg are in the production and Spec-model capability lists, and the feature-matrix
-              gate shows none of them as owed.
-            - Enabled: S25 [A] and the parts built earlier declare those codes among their needs, the generator draws
-              their operations, and the app mix runs them.
-            - Covered: the combination gate counts the pairs among implemented codes, fails an unexercised interacting
+            - Declared: sr rl fg are in the production and Spec-model capability lists, and the feature-matrix gate 
+              shows none of them as owed.
+            - Enabled: the parts built earlier declare those codes among their needs, the generator draws their 
+              operations, and the app mix runs them.
+            - Covered: the combination gate counts the pairs among implemented codes, fails an unexercised interacting 
               pair with no dated waiver, and passes before this Task closes.
-            - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
+            - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of 
               the model's expectations is read by a different model family (Fable).
-            - Phase-out step 5: the Stamp twin exists in `fixtures/` and `stamp.ts` is deleted; the same verdict per
-              case on round-14 and production.
-            - Phase-out checks (the four validations): no lost catch in the catch matrix; the same coverage and
-              feature-matrix rows; the derived reference equal to the hand rows wherever both exist;
-              Compile static cases green on each fixture's `Compiled`.
         comment     2026-11-10T20:59:41Z
             Owns, in conformance/not-yet.ts, Codec I1 to I6 (round-14 has no canonical byte codec, Codec Q2). Their 
             static cases land before this Task closes (orchestrator decision, log 2026-11-10T20:57:29Z).
@@ -149,3 +147,58 @@ tasks
             Task: the codec, how an ending's value is encoded, creation-order keys, version and key-fingerprint tags, 
             rows whose operation is gone; owed endings sit outside lane and actor records (C9), which this Task may 
             revisit.
+
+    T56
+        title       Durability: release versions, key fingerprints and record migration (slice 2b)
+        status      draft
+        priority    high
+        blocked_by  [@task.V3.T21]
+        satisfies   [@plan.Persistence.O5, @plan.Runtime.O3]
+        description
+            Build release versions on production: key fingerprints, identity versions, saved-shape resets with record 
+            migration, and `previous` holds checked against Restore R6 (slice 2b).
+
+            **Why now:** an upgraded release must reset or keep each saved record correctly. Split from @task.V3.T20 
+            (orchestrator, 2026-11-12, wide consult W3) because a saved shape is defined only once @task.V3.T17 and 
+            @task.V3.T57 fix private and computed fields and fragments, and identity versions need @task.V3.T9's 
+            value-named actors; built before them it would be built on Pay-shaped machines and rebuilt.
+
+            **Read first:** @spec.Restore, @spec.Codec, @task.V3.T20 (the restore it extends), 
+            code:workflow/plans/flow/references/proposals/fable-wide-consult-2026-11-12.md (W3, item 2).
+
+            Absorbs @task.V3.T26 (record migration, @plan.Persistence.O5; real storage shapes are IndexedDB structured 
+            clone from @task.V3.T58) and @task.V3.T11's migration wrong runtimes. Codes: up pg. Part built: S25 [A]. 
+            Bench: the S25 upgrade boot. Blocked by @task.V3.T21 for the slice order (W3, item 4).
+
+            **Phase-out, step 5 (the user accepted 2026-11-11):** the Stamp twin (release 1 and 2 keys; `up`) is 
+            written in `fixtures/`; run the hand cases on it on production; write production mutants per oracle the 
+            slice judges, mapped by Invariant from the round-14 mutants; delete `stamp.ts` once the derived reference 
+            equals it. Read code:workflow/plans/flow/references/proposals/conformance-phase-out-2026-11-11.md.
+
+            - **May change:** `src/`, the conformance fixtures, model and generator.
+            - **Evidence:** this Task's comments.
+
+            False pass: a reset judged from the runtime's report, not the bytes → caught by the restore oracle and the 
+            Stamp twin's round-14 verdicts.
+            Gates: the suite; falsify; the matrix and combination gates; `nub run check`.
+            Stops: a guarantee change.
+        acceptance
+            The Restore area passes on production in full, with every Restore Invariant's oracle or case killing its 
+            mutants.
+            - Record migration passes cases on production: a changed saved shape resets its definition's records with 
+              the writes in flight kept (from @task.V3.T26, @plan.Persistence.O5).
+            - Key fingerprints, identity versions and `previous: [{ key }]` holds pass cases on production (Restore R6).
+            - The slice's generated runs pass on production, and its benchmark replay matches the work fingerprint.
+            - Declared: up pg are in the production and Spec-model capability lists, and the feature-matrix gate shows 
+              none of them as owed.
+            - Enabled: S25 [A] and the parts built earlier declare those codes among their needs, the generator draws 
+              their operations, and the app mix runs them.
+            - Covered: the combination gate counts the pairs among implemented codes, fails an unexercised interacting 
+              pair with no dated waiver, and passes before this Task closes.
+            - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of 
+              the model's expectations is read by a different model family (Fable).
+            - Phase-out step 5: the Stamp twin exists in `fixtures/` and `stamp.ts` is deleted; the same verdict per 
+              case on round-14 and production.
+            - Phase-out checks (the four validations): no lost catch in the catch matrix; the same coverage and 
+              feature-matrix rows; the derived reference equal to the hand rows wherever both exist; Compile static 
+              cases green on each fixture's `Compiled`.

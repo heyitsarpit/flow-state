@@ -1212,14 +1212,14 @@ tasks
             (about 1 percent at 10k boots); widen the seed to 128 bits, with a failing check first, as they become 
             idempotency keys.
     T18
-        title       Lane policies: latest, serialize, cancel and cancelAll (slice 1)
+        title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      draft
         priority    high
         blocked_by  [@T54]
         satisfies   [@plan.Operations.O3, @plan.Runtime.O2]
         description
-            Build the write-lane policies `latest`, `serialize` (up to 64, Overloaded), `cancel` and `cancelAll` on
-            production, plus the `waiting` row, as rows of the lane table @task.V3.T51 builds (slice 1).
+            Build the write-lane policies `latest`, `serialize` (up to 64, Overloaded) and `cancel` on production, plus
+            the `waiting` row, as rows of the lane table @task.V3.T51 builds, and endings split by origin (slice 1).
 
             **Why now:** production refuses every policy but `reject`. The WriteLanes oracles are converged, so this is
             the safest first slice on the new infrastructure, and it unlocks composites A, B and C. It absorbs
@@ -1232,10 +1232,15 @@ tasks
 
             **Approach:** Spec check first: rule WriteLanes Q5 (a cancel commit on a Kept lane; a kept unknown on a
             Held head), which @task.V3.T51's table refuses until then; then the slice template.
-            Codes: lt se ca cA ad. Parts built: S01 and S24 [A]; S08, S03 and S22 flat [B]; S12 and S23 [C]; S09 flat
-            [G]. Reaches the pairs `lt`+`cA`, `ca`+`cA`, `cA`+`gr` and the deep stacks "reload + cancel + retry +
+            Codes: lt se ca ad (`cA` deferred with `cancelAll`, the user 2026-11-12). Parts built: S01 and S24 [A]; S08,
+            S03 and S22 flat [B]; S12 and S23 [C]; S09 flat [G]. Reaches the deep stacks "reload + cancel + retry +
             storage refusal" and "disposal + serialize + write-ahead + refusal". Bench: capture bytes and batches per
             minute (S01, S08, S24); disposal with calls on the wire (S03, S12). Effort 4 (estimate).
+
+            **Endings (the user, 2026-11-12, wide consult W1 Q2 B, amended):** `failure` holds the author's tags only,
+            Flow's decline is its own `notSent` key, and `unknown` is one event or a record over Flow's reasons with a
+            required `otherwise`; Flow's values are `Data.TaggedEnum`s on `_tag`. Read
+            code:workflow/plans/flow/references/proposals/fable-wide-consult-2026-11-12.md (W1, option B).
 
             **Phase-out, step 5 (the user accepted 2026-11-11):** each lab machine gets a real twin in `fixtures/`:
             Serialize, Latest, Cancel, LateQueue, Keyed and Held; run the hand cases on each fixture on production;
@@ -1249,10 +1254,15 @@ tasks
             - **Gates:** the suite; falsify; the matrix and combination gates.
             - **Stops:** a guarantee change.
         acceptance
-            - The WriteLanes area passes on production under `reject`, `latest`, `serialize`, `cancel` and `cancelAll`:
-              every WriteLanes Invariant has its oracle or case and each oracle kills its mutants (from @task.V3.T7).
+            - The WriteLanes area passes on production under `reject`, `latest`, `serialize` and `cancel`: every
+              WriteLanes Invariant has its oracle or case and each oracle kills its mutants (from @task.V3.T7).
+            - Endings by origin (Q2 B): `failure`, `notSent` and `unknown` with `otherwise` pass cases on production,
+              and Effect's `Match` narrows `Flow.NotSent` and `Flow.Unknown` on `_tag`.
+            - Type tests (@plan.Operations.V1): a missing failure tag and a wrong mapper annotation are errors, an
+              author tag named `Cancelled` compiles, `otherwise` is typed without the listed reasons, and the
+              single-event fallback compiles; each fails for the expected reason when planted wrong.
             - The slice's generated runs pass on production, and its benchmark replay matches the work fingerprint.
-            - Declared: lt se ca cA ad are in the production and Spec-model capability lists, and the feature-matrix
+            - Declared: lt se ca ad are in the production and Spec-model capability lists, and the feature-matrix
               gate shows none of them as owed.
             - Enabled: S01, S24, S08, S03, S22, S12, S23 and S09 declare those codes among their needs, the generator
               draws their operations, and the app mix runs them.
@@ -1292,6 +1302,16 @@ tasks
             Held-head cancel) are already in the suite; @spec.WriteLanes.I27's remainder (conservation with declines) 
             moved to T54. Still this Task's: the tagged result with one `Commit` cue, and whether a row shows that a 
             kept ending blocks its key (C7).
+        comment     2026-11-12T07:58:55Z
+            Decisions (the user, 2026-11-12, wide consult W1): Q2 B, endings split by origin, with Flow's values as 
+            `Data.TaggedEnum`s on `_tag` so Effect's `Match` works; Q3 A, `cancelAll` deferred, so its rules and code 
+            `cA` leave this Task and its cases (WriteLanes R15, I21, T10) are owed to revisit.md. Title and acceptance 
+            updated to match.
+        comment     2026-11-12T07:59:10Z
+            Proposed (orchestrator, wide consult W1's small calls): the row gains `waiting` and `outstanding`; one 
+            boolean shows that a kept ending blocks its key, name open; `Attempt.mayHaveApplied` stays public, derived 
+            inside. Not yet in @plan.Operations.O3, whose reserved-reason and `failure.NotSent` wording Q2 B also 
+            leaves stale.
     T51
         title       Production lanes reworked: one table function, reports derived from acts
         status      done

@@ -62,8 +62,8 @@ outcomes
     O2  Dependencies and inert imports
         Effect is a peer dependency, never bundled, so Runtime, Schema, Context tags and Layers
         resolve to the consumer's single Effect instance. The published peer range is exactly 4.0.5
-        until packed-consumer proofs cover a wider range. KeyValueStore comes from
-        effect/persistence. React is an optional peer, majors 18 and 19; a host without React fails
+        until packed-consumer proofs cover a wider range. React is an optional peer, majors 18 and 19; a host without 
+        React fails
         only where it uses the React route, StoryFrame or StoryPlayer.
 
         package.json declares sideEffects: false. Importing any route constructs no Runtime,

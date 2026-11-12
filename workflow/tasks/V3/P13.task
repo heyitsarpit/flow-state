@@ -54,9 +54,12 @@ description
     - skill:policy-convergence at the threshold; skill:review at the cadence;
     - skill:playbook-build (long runs), skill:execute-task, skill:check-task; skill:diagnose when a case fails
       unexplained.
+comment 2026-11-12T08:01:27Z
+    Split and reordered (orchestrator, 2026-11-12, wide consult W3): @task.V3.T17 (compiler) → @task.V3.T9 →
+    @task.V3.T58 (the preview's browser slice) → @task.V3.T57 (fragments) → @task.V3.T21.
 tasks
     T17
-        title       Machine structure: Compiled, turn features, fragments and schedules (slice 3)
+        title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      draft
         priority    high
         blocked_by  [@task.V3.T20]
@@ -69,7 +72,6 @@ tasks
                     @plan.Machines.O2,
                     @plan.Machines.O3,
                     @plan.Machines.O4,
-                    @plan.Machines.O5,
                     @plan.Machines.O6,
                     @plan.Machines.O7,
                     @plan.Machines.O8,
@@ -77,88 +79,87 @@ tasks
                     @plan.Runtime.O1
                     ]
         description
-            Build Compiled and the compiler: @spec.Compile and @spec.Diagnostics from the public API.
+            Build Compiled and the compiler from @spec.Compile and @spec.Diagnostics, with compound states, history, 
+            `Flow.input`, private and computed fields and the snapshot shape (slice 3a).
 
-            **Why now:** the skeleton compiles only the Pay machine; the full construction rules and the
-            diagnostics are unbuilt, and every module after this reads Compiled.
+            **Why now:** the skeleton compiles only the Pay machine; the full construction rules and the diagnostics 
+            are unbuilt, and every module after this reads Compiled.
 
-            **Read first:** @spec.Compile, @spec.Diagnostics, @task.V3.T13 (the static cases that judge it),
+            **Read first:** @spec.Compile, @spec.Diagnostics, @task.V3.T13 (the static cases that judge it), 
             code:packages/flow-state-v3/conformance/README.md (the round-14 carry list).
 
-            **Scope added** (the user, 2026-11-11, from
-            code:workflow/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md): name the author-facing
-            features, each passing a case on production: Flow.input, computed Flow.initial, Flow.private, one source per
-            field, ImpureDefault, creation purity, identity and fragment inputs, compound states and Flow.state traits,
-            context slots, the Definition Schemas, E.X with InvalidEvent, payload checks and app entries (rows M03 to
-            M16, M19 to M21, M35 to M37, M39 to M41, R01 to R03; @plan.Machines.O1, @plan.Runtime.O1). Also own
-            handler(), guard(), Flow.state and the "Flow outermost" type rule (M05, M13, M22), which no Spec states, and
-            Invariants for Compile R10, R13 and R14 (a Spec revision). **Owed checks** (no Invariant or case today):
-            M06, M19, M39, M40, M41 (Compile R14), M23, M24, M27, M28 (Compile R10) and M33 (Compile R11).
+            **Split (orchestrator, 2026-11-12, wide consult W3, item 3):** fragments, `.each`, subject paths (replacing 
+            `owner` and `current`) and multi-step schedules moved to @task.V3.T57, which waits for the wide consult's 
+            question 11 rulings. Codes split as proposed below; the lead may move a code between the two with a note. 
+            Read code:workflow/plans/flow/references/proposals/fable-wide-consult-2026-11-12.md (W3).
+
+            **Scope added** (the user, 2026-11-11, from 
+            code:workflow/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md): name the author-facing 
+            features, each passing a case on production: Flow.input, computed Flow.initial, Flow.private, one source 
+            per field, ImpureDefault, creation purity, identity inputs, compound states and Flow.state traits, context 
+            slots, the Definition Schemas, E.X with InvalidEvent, payload checks and app entries (rows M03 to M16, M19 
+            to M21, M35 to M37, M39 to M41, R01 to R03; @plan.Machines.O1, @plan.Runtime.O1). Also own handler(), 
+            guard(), Flow.state and the "Flow outermost" type rule (M05, M13, M22), which no Spec states, and 
+            Invariants for Compile R10, R13 and R14 (a Spec revision). **Owed checks** (no Invariant or case today): 
+            M06, M19, M39, M40, M41 (Compile R14), M23, M24, M27, M28 (Compile R10) and M33 (Compile R11). Fragment 
+            inputs go to T57.
 
             **Read first (added):** @plan.Machines.O1, @plan.Runtime.O1, @plan.Diagnostics.O1.
 
-            **Slice 3, machine structure (replan, accepted 2026-11-11):** the compiler and turn for compound states,
-            history, traits and fragments, `.each`, raise and notify, `Flow.input` (compile half; the naming half is
-            slice 4), computed initial, private fields and `check()`; Diagnostics with multi-violation errors; schedules
-            (multi-step, `restartOn`, keyed, `disarmOn`, metadata). Absorbs the Turn rows of @task.V3.T8 (I1, I4, I6,
-            I24, I35, I16, I18, I32 to I34, each with its evidence; T8 is closed as moved), the turn features
-            @task.V3.T18 held (M42 to M63, M68, M69, M71 to M73), the fragments of @task.V3.T21 and the owed check M66 
-            (Turn
-            R18, freeze releases placements; it left with T8's scope and T21's fragments). Codes: cs hs fr ea
-            rn ci pv ck ms rs ks dm, and the catalogue 5B codes su nf rz ro po. Parts built: S20 [C]; S06 [H]; S15 [G];
-            S07 [I]; S14 [D]; and, with the subset available, S28 [J] and S29 [K], which gain operations in slices 4, 5,
-            7 and 9 as their codes land. Turn R4 (history) and R23 (snapshot) each get an Invariant. Bench: turn cost on
-            compound parts (S06, S20); memory per `.each` copy (S15). Effort 8 (estimate); split at schedules if
-            first-contact reds pile up. Read first: code:workflow/plans/flow/references/proposals/replan-2026-11-11.md
-            (part 3, "3 Machine structure") and
-            code:workflow/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md (5B, "Composites and the
+            **Slice 3a, machine structure (replan, accepted 2026-11-11; split 2026-11-12):** the compiler and turn for 
+            compound states, history and subroutines, raise and notify, `Flow.input` (compile half; the naming half is 
+            slice 4), computed initial, private fields, `check()` and guard ports; Diagnostics with multi-violation 
+            errors. Absorbs the Turn rows of @task.V3.T8 (I1, I4, I6, I24, I35, I16, I18, I32 to I34, each with its 
+            evidence; T8 is closed as moved) and the turn features @task.V3.T18 held (M42 to M63, M68, M69, M71 to M73) 
+            except those of fragments and schedules, which T57 takes. Codes: cs hs su rn ci pv ck po. Parts built: S20 
+            [C] and S06 [H]; S28 [J] and S29 [K] with the subset available. Turn R4 (history) and R23 (snapshot) each 
+            get an Invariant. Bench: turn cost on compound parts (S06, S20). Read first: 
+            code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part 3, "3 Machine structure") and 
+            code:workflow/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md (5B, "Composites and the 
             matrix").
 
-            **Phase-out, step 5 (the user accepted 2026-11-11):** the Release (trait, `whenAbandoned`) and Form twins
-            are written in `fixtures/`, and the model's Turn section replaces the Turn helper tables (`turn/selection`,
-            `anchor`, `phases`, `late`) once it catches every mutant they caught (V1); run the hand cases on each
-            fixture on production; write production mutants per oracle the slice judges, mapped by Invariant from the
-            round-14 mutants; delete the descriptor once the derived reference equals it (rest of `one-lane.ts` and
-            `form.ts` go). Read code:workflow/plans/flow/references/proposals/conformance-phase-out-2026-11-11.md.
+            **Phase-out, step 5 (the user accepted 2026-11-11):** the Form twin is written in `fixtures/`, and the 
+            model's Turn section replaces the Turn helper tables (`turn/selection`, `anchor`, `phases`, `late`) once it 
+            catches every mutant they caught (V1); run the hand cases on each fixture on production; write production 
+            mutants per oracle the slice judges, mapped by Invariant from the round-14 mutants; delete `form.ts` once 
+            the derived reference equals it. The Release twin goes to T57. Read 
+            code:workflow/plans/flow/references/proposals/conformance-phase-out-2026-11-11.md.
 
-            **Moved to @task.V3.T47:** the production static surface (`construct`, data view); this Task builds the
+            **Moved to @task.V3.T47:** the production static surface (`construct`, data view); this Task builds the 
             rest of it (CLI part and diagnostics).
 
             - **May change:** `src/`.
             - **Evidence:** this Task's comments.
-            - **False pass:** pins matching output rather than the Spec → caught by T13's cited
-              cases.
+            - **False pass:** pins matching output rather than the Spec → caught by T13's cited cases.
             - **Gates:** static cases; `nub run check`.
             - **Stops:** public entry-point names.
             - **User's read:** small API calls.
         acceptance
-            - The Compile and Diagnostics cases pass on production.
-            - Flow.input, computed Flow.initial, Flow.private, the Definition Schemas, E.X with InvalidEvent, payload
-              checks, compounds, Flow.state traits, context slots and app entries each pass a case on production
+            - The Compile and Diagnostics cases pass on production, except those of fragments, which @task.V3.T57 owns.
+            - Flow.input, computed Flow.initial, Flow.private, the Definition Schemas, E.X with InvalidEvent, payload 
+              checks, compounds, Flow.state traits, context slots and app entries each pass a case on production 
               (@plan.Machines.O1, @plan.Runtime.O1).
-            - Compile R10, R13 and R14 each have an Invariant, and handler(), guard(), Flow.state and the "Flow
+            - Compile R10, R13 and R14 each have an Invariant, and handler(), guard(), Flow.state and the "Flow 
               outermost" rule a case; the owed checks above exist.
-            - The Turn rows moved from @task.V3.T8 (I1, I4, I6, I24, I35, I16, I18, I32 to I34) pass on production, each
-              with its evidence.
-            - Compounds, history, raise and notify, disarmOn, schedule keys and metadata, and the snapshot shape pass
-              cases on production (@plan.Machines.O2 to O8).
-            - Fragments (traits, subroutines, `.each`, nested) pass cases on production.
-            - M66 has a check: freeze releases placements (Turn R18).
+            - The Turn rows moved from @task.V3.T8 (I1, I4, I6, I24, I35, I16, I18, I32 to I34) pass on production, 
+              each with its evidence.
+            - Compounds, history, subroutines, raise and notify, `check()` and the snapshot shape pass cases on 
+              production (@plan.Machines.O2, O3, O4, O8).
             - The slice's generated runs pass on production, and its benchmark replay matches the work fingerprint.
-            - Declared: cs hs fr ea rn ci pv ck ms rs ks dm su nf rz ro po are in the production and Spec-model
-              capability lists, and the feature-matrix gate shows none of them as owed.
-            - Enabled: S20, S06, S15, S07, S14, and J and K with their available subsets declare those codes among their
-              needs, the generator draws their operations, and the app mix runs them.
-            - Covered: the combination gate counts the pairs among implemented codes, fails an unexercised interacting
+            - Declared: cs hs su rn ci pv ck po are in the production and Spec-model capability lists, and the 
+              feature-matrix gate shows none of them as owed.
+            - Enabled: S20, S06, and J and K with their available subsets declare those codes among their needs, the 
+              generator draws their operations, and the app mix runs them.
+            - Covered: the combination gate counts the pairs among implemented codes, fails an unexercised interacting 
               pair with no dated waiver, and passes before this Task closes.
-            - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
+            - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of 
               the model's expectations is read by a different model family (Fable).
-            - Phase-out step 5: the Release and Form twins exist in `fixtures/`; the model's Turn section catches every
-              mutant the Turn helper tables caught, and those tables are deleted; the same verdict per case on round-14
-              and production.
-            - Phase-out checks (the four validations): no lost catch in the catch matrix; the same coverage and
-              feature-matrix rows; the derived reference equal to the hand rows wherever both exist;
-              Compile static cases green on each fixture's `Compiled`.
+            - Phase-out step 5: the Form twin exists in `fixtures/`; the model's Turn section catches every mutant the 
+              Turn helper tables caught, and those tables are deleted; the same verdict per case on round-14 and 
+              production.
+            - Phase-out checks (the four validations): no lost catch in the catch matrix; the same coverage and 
+              feature-matrix rows; the derived reference equal to the hand rows wherever both exist; Compile static 
+              cases green on each fixture's `Compiled`.
         comment     2026-11-10T20:59:36Z
             Owns, in conformance/not-yet.ts, the static Invariants round-14 cannot make: Compile I3, I7 to I10, I12 to 
             I14, I17 and Diagnostics I1 to I10. Their static cases land before this Task closes (orchestrator decision, 
@@ -240,6 +241,10 @@ tasks
             once (R20); a non-persisted actor's kept endings survive disposeActor (R15); lane-less endings still queued 
             at disposal are dropped (low); a dispose during storage load is seen only after Layer.buildWithScope 
             (runtime.ts:194, R4); T51 cases b, c, e need stronger asserts.
+        comment     2026-11-12T07:59:29Z
+            Actors I4's gap (records validated after services are acquired) moved to @task.V3.T19's `Loaded` layer 
+            (orchestrator, 2026-11-12, wide consult W2). Next in the slice order: @task.V3.T58, the preview's browser 
+            slice (W3).
     T12
         title       Reads area complete
         status      done
@@ -274,7 +279,7 @@ tasks
         title       Reads and operations (slice 5)
         status      draft
         priority    high
-        blocked_by  [@T9]
+        blocked_by  [@T57]
         satisfies   [
                     @plan.Machines.O1,
                     @plan.Machines.O2,
@@ -350,3 +355,108 @@ tasks
             From the core consolidation design (round 3 handoff table, via @task.V3.T54): read endings are ledger rows 
             whose audience the creator chooses (Actors R8 parks `Interrupted` for the identity); `reads` is untouched 
             and no slot type exists, since a shared lookup has many waiters (C1).
+
+    T57
+        title       Machine structure: fragments, .each, subject paths and schedules (slice 3b)
+        status      draft
+        priority    high
+        blocked_by  [@T58]
+        satisfies   [@plan.Machines.O1, @plan.Machines.O5]
+        description
+            Build fragments on production: traits, `.each` copies, nested fragments, `.resumable()`, subject paths 
+            replacing `owner` and `current`, and schedules (multi-step, `restartOn`, keyed, `disarmOn`, metadata, 
+            `resetOn`) (slice 3b).
+
+            **Why now:** split from @task.V3.T17 (orchestrator, 2026-11-12, wide consult W3, item 3) so the compiler 
+            and the preview's browser slice (@task.V3.T58) do not wait on fragment design. Waits for the wide consult's 
+            question 11 rulings, the open Plan gaps that would stop fragments.
+
+            **Read first:** @spec.Compile, @task.V3.T17 (the compiler it extends), 
+            code:workflow/plans/flow/references/proposals/fable-wide-consult-2026-11-12.md (question 11 and W3), 
+            code:workflow/plans/flow/references/proposals/replan-2026-11-11.md (part 3, "3 Machine structure"). Blocked 
+            by @task.V3.T58 for the slice order (W3, item 4).
+
+            Takes from T17: the fragments of @task.V3.T21, fragment inputs, the fragment and schedule rows among the 
+            turn features @task.V3.T18 held (M42 to M73), the owed check M66 (Turn R18, freeze releases placements), 
+            and T54's note that `Owed` keeps `owner` and `current` for this Task to replace with the subject path. 
+            Codes: fr ea nf rz ro ms rs ks dm (proposed split; the lead may move a code with a note). Parts built: S15 
+            [G], S07 [I] and S14 [D]; J and K gain their fragment operations. Bench: memory per `.each` copy (S15).
+
+            **Phase-out, step 5 (the user accepted 2026-11-11):** the Release twin (trait, `whenAbandoned`) is written 
+            in `fixtures/`; run the hand cases on it on production; write production mutants per oracle the slice 
+            judges; delete the rest of `one-lane.ts` once the derived reference equals it. Read 
+            code:workflow/plans/flow/references/proposals/conformance-phase-out-2026-11-11.md.
+
+            - **May change:** `src/`, the conformance fixtures, model and generator.
+            - **Evidence:** this Task's comments.
+
+            False pass: pins matching output rather than the Spec → caught by T13's cited cases and the proven mutants.
+            Gates: static cases; the suite; falsify; the matrix and combination gates; `nub run check`.
+            Stops: public entry-point names; a question 11 ruling only the user can make.
+            User's read: small API calls.
+        acceptance
+            - Fragments (traits, subroutines inside fragments, `.each`, nested, `.resumable()`) pass cases on 
+              production, with the Compile cases of fragments green (@plan.Machines.O1).
+            - Subject paths replace `owner` and `current` in `Owed`, and the pending endings of fragments restore by 
+              them.
+            - disarmOn, schedule keys, multi-step schedules, `restartOn`, `resetOn` and schedule metadata pass cases on 
+              production (@plan.Machines.O5).
+            - M66 has a check: freeze releases placements (Turn R18).
+            - The slice's generated runs pass on production, and its benchmark replay matches the work fingerprint.
+            - Declared: fr ea nf rz ro ms rs ks dm are in the production and Spec-model capability lists, and the 
+              feature-matrix gate shows none of them as owed.
+            - Enabled: S15, S07, S14, and J and K's fragment operations declare those codes among their needs, the 
+              generator draws their operations, and the app mix runs them.
+            - Covered: the combination gate counts the pairs among implemented codes, fails an unexercised interacting 
+              pair with no dated waiver, and passes before this Task closes.
+            - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of 
+              the model's expectations is read by a different model family (Fable).
+            - Phase-out step 5: the Release twin exists in `fixtures/` and `one-lane.ts` is deleted; the same verdict 
+              per case on round-14 and production; the four phase-out validations hold.
+
+    T58
+        title       Browser slice: checkout Pay in real browsers with minimal React and IndexedDB (preview)
+        status      draft
+        priority    high
+        blocked_by  [@T9]
+        description
+            Run checkout's Pay feature in real Chrome and Safari on production, through a minimal React binding and 
+            IndexedDB persistence (`layerIndexedDb`): the browser half of the preview cut.
+
+            **Why now:** the user named a preview cut first (2026-11-12, wide consult Q1 A): the core, a minimal React 
+            binding, IndexedDB, `flow check` and checkout's Pay in a real browser. Before this Task no component could 
+            render an actor and no real browser store existed until after streams and entities. It is @task.V3.T16's 
+            twin for the outside of the library (wide consult W3, item 5).
+
+            **Read first:** code:workflow/plans/flow/references/checkout/features/Pay/Pay.tsx, 
+            code:workflow/plans/flow/references/proposals/fable-wide-consult-2026-11-12.md (Q1, question 4, W3), 
+            @plan.React.O1, @plan.React.O2. Then @plan.Persistence.O1 and 
+            code:packages/flow-state-v3/prototypes/safari/RESULTS.md (Safari's four requirements).
+
+            Takes the small halves of two later Tasks: from @task.V3.T28, the IndexedDB `Store` layer over the `Store` 
+            service @task.V3.T19 builds (one atomic `write(batch)`, one transaction per batch); from @task.V3.T30, 
+            `FlowProvider`, `useActorByRef` and `useView`. Those Tasks keep the rest. Blocked by @task.V3.T9, whose 
+            value-named actors `useActorByRef` ensures.
+
+            **Risk:** the slice may need reads beyond the lookup production already has (W3's "would prove it wrong"); 
+            if so, record the gap and carry it to @task.V3.T21 rather than building reads here.
+
+            - **May change:** `packages/flow-state-v3/src/` (a React route and the IndexedDB layer), a browser fixture 
+              app for Pay, its runs.
+            - **Evidence:** this Task's comments, with the browser run's record.
+
+            False pass: jsdom or a fake IndexedDB standing in for a browser → caught by skill:check-runtime in real 
+            Chrome and Safari. A Pay that renders but writes nothing → caught by a reload that restores the Attempt 
+            from IndexedDB.
+            Gates: the suite; the browser runs; `nub run check`.
+            Stops: public entry-point names (the React route and `layerIndexedDb`).
+            User's read: the preview's public names, small API calls.
+        acceptance
+            - Checkout's Pay runs in real Chrome and Safari on production under `FlowProvider`, `useActorByRef` and 
+              `useView`: a payment is committed, the page reloads mid-flight, and the Attempt and its ending are 
+              restored from IndexedDB with no second send (skill:check-runtime records each run).
+            - `layerIndexedDb` writes each batch in one IndexedDB transaction, and a refused transaction leaves no 
+              partial batch (a case on production in a real browser).
+            - Safari's four requirements hold in real Safari for this layer.
+            - The Pay component compiles against `src/index.ts` and the React route in place of the reference stand-in.
+            - The suite's gates are no worse than at this Task's start, and `nub run check` is at zero.

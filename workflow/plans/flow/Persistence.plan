@@ -11,7 +11,7 @@ goal
 outcomes
     O1  Configuration and storage
         Persistence is opt-in: an app turns it on in `runtimeSetup`, with a scoped
-        `KeyValueStore`, and without it Flow does no storage work at all.
+        `Store`, and without it Flow does no storage work at all.
 
         `runtimeSetup({ app, scope, services?, persistence? })` enables persistence. Without it,
         Flow acquires no storage and performs no restore, capture or storage I/O.
@@ -23,18 +23,22 @@ outcomes
         shape, checked per record and per definition at the boot (@O5). Different apps and scopes
         never read, overwrite or delete each other's data.
 
-        Enabled persistence requires an Effect `KeyValueStore` service from `effect/persistence`;
-        missing provision is a type error. Untyped missing provision fails `ready` with
+        Enabled persistence requires Flow's `Store` service: `load` and one atomic `write(batch)`,
+        so a batch lands whole or not at all; missing provision is a type error. Untyped missing provision fails 
+        `ready` with
         `StorageFailure`. `construct()` performs no I/O. Storage is available before restore; saved
         data is validated before actors start. Failed bootstrap exposes no partially restored live
         app and releases acquired resources under @plan.Runtime.O2.
 
-        Flow supplies `layerIndexedDb({ database? })` as a `KeyValueStore` Layer; `database`
+        Flow supplies `layerIndexedDb({ database? })` and `layerMemory` as `Store` Layers; `database`
         defaults to a name derived from the app id, so apps sharing an origin never collide. It
-        preserves saved values, releases its connection on disposal and reports storage failures.
+        preserves saved values, writes each batch in one transaction, releases its connection on
+        disposal and reports storage failures.
 
-        Authors can supply another `KeyValueStore` without changing persistence selection. Records
-        are stored as JSON strings. Public routes follow @plan.Package.O1; isolated Story storage
+        Authors can supply another `Store` Layer without changing persistence selection; it must
+        write each batch atomically. Flow offers no `KeyValueStore` adapter, since Effect's
+        `KeyValueStore` has no atomic multi-key write (the user, 2026-11-12, wide consult Q4 A).
+        Records are stored as JSON strings. Public routes follow @plan.Package.O1; isolated Story storage
         follows @plan.Testing.O3.
     O2  What survives reload
         Only what the app selects survives a reload, and only confirmed data, never optimistic
