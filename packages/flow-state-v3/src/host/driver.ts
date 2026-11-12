@@ -12,8 +12,9 @@ import {
 } from "effect";
 import { Operation } from "../core/compiled.ts";
 import type { Values } from "../core/compiled.ts";
-import type { Evidence } from "../core/evidence.ts";
+import { Evidence } from "../core/evidence.ts";
 import { CallResult, type Env, Input, type Machines, step } from "../core/step.ts";
+import { DISPOSAL_BOUND_MS } from "../core/tx.ts";
 import { type CallId, Command, Disposal, emptyWorld, type World } from "../core/world.ts";
 import { FlowError } from "../error.ts";
 import { OutcomeFailure, OutcomeUnknown, reasonOf } from "../flow.ts";
@@ -63,8 +64,10 @@ export const resultOf = (exit: Exit.Exit<unknown, unknown>) => {
  * **Details**
  *
  * Inputs that arrive while a step's commands run are queued and run in order after it. Once the
- * core's disposal has ended, inputs are dropped, and `disposed` completes when the edge has
- * written what that disposal left: the Runtime's Scope is about to interrupt every fiber.
+ * core's disposal has ended, inputs are dropped. `dispose` starts that disposal and completes
+ * when the edge has written what it left, within what remains of the disposal's bound; a write
+ * still pending then reports StorageFailure. The Runtime's Scope is about to interrupt every
+ * fiber.
  */
 export const makeDriver = (options: {
   readonly machines: Machines;
@@ -189,8 +192,26 @@ export const makeDriver = (options: {
 
       input(Input.Send({ actor, tag, payload: decoded.value }));
     },
-    disposed: Deferred.await(disposed).pipe(Effect.andThen(edge.flush)),
-    close: () => input(Input.DisposeRuntime()),
+    dispose: Effect.suspend(() => {
+      const bound = clock.currentTimeMillisUnsafe() + DISPOSAL_BOUND_MS;
+      input(Input.DisposeRuntime());
+
+      return Deferred.await(disposed).pipe(
+        Effect.andThen(
+          Effect.suspend(() =>
+            edge.flush.pipe(
+              Effect.timeout(Duration.millis(Math.max(0, bound - clock.currentTimeMillisUnsafe()))),
+            ),
+          ),
+        ),
+        Effect.catchTag("TimeoutError", () =>
+          Effect.sync(() =>
+            options.sink([Evidence.Issue({ code: "StorageFailure", ending: Option.none() })]),
+          ),
+        ),
+        Effect.provideService(Clock.Clock, clock),
+      );
+    }),
   };
 };
 

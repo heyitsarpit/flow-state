@@ -20,12 +20,6 @@ export type Limit = {
  */
 export const limits: ReadonlyArray<Limit> = [
   {
-    case: "GEN-pay-search-55-shrunk",
-    check: "disposal",
-    invariant: "Actors I14",
-    why: "round-14 reports no incarnation when an ensure re-creates an actor disposed while its call was on the wire; production reports it (orchestrator, T45 fix round)",
-  },
-  {
     case: "GEN-pay-search-25-shrunk",
     check: "delivered-once",
     invariant: "WriteLanes I15",

@@ -172,7 +172,8 @@ const keepBeside = (_head: Head, cue: CueOf<"Keep">) => keep(cue);
 
 /**
  * Every cell of the write lane, by cue and lane state. Only reject concurrency is built; a
- * cancel-policy commit, and a kept ending on a Held head, are `Impossible` until their rulings.
+ * cancel-policy commit is `Impossible` until its ruling. A twice-refused ending is kept beside
+ * any head, a Held one included.
  * An ending of the head's earlier send (a restored unknown) admitted after a retry owes its
  * re-send leaves that re-send standing.
  */
@@ -295,7 +296,7 @@ export const table = {
     Resending: keepBeside,
     OnWire: keepBeside,
     Cancelling: keepBeside,
-    Held: impossible,
+    Held: keepBeside,
   },
   DisposalStarts: {
     Idle: stay,

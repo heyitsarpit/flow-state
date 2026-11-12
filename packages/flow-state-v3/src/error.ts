@@ -13,7 +13,8 @@ export class FlowError extends Data.TaggedError("FlowError")<{
     | "DuplicateMachine"
     | "ServiceFailed"
     | "InvalidEvent"
-    | "RuntimeNotReady";
+    | "RuntimeNotReady"
+    | "RuntimeDisposed";
   readonly problems: ReadonlyArray<string>;
   // FLOW_STATE_ALLOW_UNKNOWN: the failure Flow wraps, kept whole (an Effect error's standard field).
   readonly cause?: unknown;

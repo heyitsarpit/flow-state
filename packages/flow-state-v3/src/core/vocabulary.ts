@@ -41,9 +41,10 @@ export type Channel = typeof Channel.Type;
 export type RefusedCode = "CallbackDefect" | "InvalidTurn" | "GuardDefect";
 
 /**
- * The codes of the issues the core reports: a turn's refusal, or a call's defect.
+ * The codes of the issues reported: a turn's refusal, a call's defect, or a final write still
+ * pending when the Runtime's disposal bound passes.
  */
-export type IssueCode = RefusedCode | "Defect";
+export type IssueCode = RefusedCode | "Defect" | "StorageFailure";
 
 /**
  * A schedule's saved deadline, as an actor record holds it.

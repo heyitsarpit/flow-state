@@ -89,14 +89,14 @@ type Rows =
 
 type RowsTotal = { readonly [R in Rows]: Equal<keyof Table[R], StateTag> };
 
-// The lane is one table: every cue has a cell for every lane state, and the two cells the table
-// leaves open (a cancel-policy commit on a Kept lane, a kept unknown on a Held head) are
-// Impossible until slice 1 rules them (WriteLanes Q5).
+// The lane is one table: every cue has a cell for every lane state. A cancel-policy commit on a
+// Kept lane is Impossible until slice 1 rules it (WriteLanes Q5); a twice-refused ending on a Held
+// head is kept beside it, never a defect (Actors R15).
 const totality = [
   true satisfies Equal<keyof Table, Rows>,
   true satisfies Equal<RowsTotal[Rows], true>,
   true satisfies Equal<ReturnType<Table["CommitCancel"]["Kept"]>, Impossible>,
-  true satisfies Equal<ReturnType<Table["Keep"]["Held"]>, Impossible>,
+  true satisfies Equal<Equal<ReturnType<Table["Keep"]["Held"]>, Impossible>, false>,
 ];
 
 type ReadCall = Extract<Operation, { readonly _tag: "Read" }>["call"]["run"];

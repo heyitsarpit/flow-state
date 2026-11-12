@@ -417,18 +417,21 @@ composition
         stored. Reports an act already determines are derived from it once per step, not written
         beside it: evidenceOf(before, input, after, commands) gives Minted for a new Attempt,
         Sent for an Invoke and each ending from the mail. Turn parts and members, which no act
-        determines, stay written. Parked and kept endings live in the world's parked map by lane
-        id, kept ones with one try per boot or adoption. Only reject concurrency is built.
+        determines, stay written. Parked endings live in the world's parked map and kept endings
+        in its kept map, each by lane id with its own record (`parked/<lane>`, `kept/<lane>`);
+        kept ones get one try per boot or adoption. Only reject concurrency is built.
 
         Production realization (@task.V3.T51). `src/core/cells.ts` holds the table: `cell(state, cue)` is one
         exhaustive match over the cue and then the lane state (Idle, Kept, or a head's Phase),
         returning a `Move` as data; a pair the table marks impossible returns `Impossible`, which
-        the applier raises as a defect. Q5's two open cells are `Impossible` until @task.V3.T18
-        rules them. `src/core/lanes.ts` applies a move through the step's working state and
+        the applier raises as a defect. Q5's cancel-policy commit on a Kept lane is `Impossible`
+        until @task.V3.T18 rules it; a twice-refused ending beside a Held head is kept there, as
+        Actors Spec R15 rules for reject (T51 step-2 review, 2026-11-12). `src/core/lanes.ts`
+        applies a move through the step's working state and
         emits `evidenceOf(before, cue, after, commands)`.
 
         Production phases: Acknowledging, Unsent, Withdrawing, Recapturing, Resending, OnWire,
-        Cancelling and Held, as in `model`; Kept is a kept ending in the parked map, not a stored
+        Cancelling and Held, as in `model`; Kept is a kept ending in the kept map, not a stored
         lane. Production's Unsent and Resending wait for their turn's end (cue TurnEnded), which
         takes them to Acknowledging or Recapturing when the identity persists, else to the wire;
         a landed batch invokes at once, so the model's acknowledged Unsent and captured
@@ -441,7 +444,8 @@ composition
         `Match` (taggedEnum's `$match` already gives exhaustiveness at no cost), `HashMap` and
         `Data` structs per lane (a turn's hot path; plain maps cost less), `Effect` itself (the
         core is pure). In the host: `Deferred` for dispose waiting on the core's disposal before
-        `Scope.close`; `FiberMap`, `Clock` and `Scheduler` as before.
+        `Scope.close`; `Effect.timeout` for the final write's share of the disposal's 5 s (Actors
+        Spec R23); `FiberMap`, `Clock` and `Scheduler` as before.
 
 coverage
     @R1

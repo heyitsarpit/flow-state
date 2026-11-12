@@ -4,7 +4,7 @@ import type { Evidence } from "../core/evidence.ts";
 import { laneKeyText } from "../core/lane-moves.ts";
 import { rowOf, type Row } from "../core/rows.ts";
 import { Input } from "../core/step.ts";
-import { type ActorId, actorKey } from "../core/world.ts";
+import { type ActorId, actorKey, Disposal } from "../core/world.ts";
 import type { AnyDefinition, Envelope, Machine, Operations } from "../definition.ts";
 import { FlowError } from "../error.ts";
 import { makeDriver, type Driver } from "./driver.ts";
@@ -229,9 +229,17 @@ export const buildRuntime = (config: RuntimeConfig, platform: Platform) => {
     name: ref.name,
   });
 
+  const admitting = (what: string) => {
+    if (!Disposal.$is("Open")(driver.world().disposal))
+      // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the public ensureActor's and send's contract: after dispose() they reject RuntimeDisposed
+      throw new FlowError({ code: "RuntimeDisposed", problems: [`${what} after dispose()`] });
+  };
+
   const runtime: Runtime = {
     ready,
     ensureActor: (ref) => {
+      admitting(`ensureActor ${ref.name}`);
+
       // Before ready succeeds, no handle exists.
       if (!open)
         // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the public ensureActor's contract: before ready it rejects RuntimeNotReady
@@ -246,6 +254,7 @@ export const buildRuntime = (config: RuntimeConfig, platform: Platform) => {
       return {
         ref,
         send: (event) => {
+          admitting(`send ${event._tag} to ${ref.name}`);
           const { _tag: tag, ...payload } = event;
           driver.send(actor, tag, payload);
         },
@@ -258,12 +267,7 @@ export const buildRuntime = (config: RuntimeConfig, platform: Platform) => {
     },
     // The core's disposal ends first: calls settling within its bound are parked, then the
     // Scope closes every fiber.
-    dispose: () =>
-      Effect.suspend(() => {
-        driver.close();
-
-        return driver.disposed;
-      }).pipe(Effect.andThen(Scope.close(scope, Exit.void))),
+    dispose: () => driver.dispose.pipe(Effect.andThen(Scope.close(scope, Exit.void))),
     [InspectorId]: (sink) => {
       sinks.add(sink);
 

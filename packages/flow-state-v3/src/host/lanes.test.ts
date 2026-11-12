@@ -13,7 +13,17 @@ import {
   Schema,
 } from "effect";
 import { describe, it } from "vite-plus/test";
-import { app, definition, Flow, machine, Outcome, transaction } from "../index.ts";
+import {
+  actorRef,
+  app,
+  definition,
+  Flow,
+  FlowError,
+  machine,
+  Outcome,
+  transaction,
+} from "../index.ts";
+import { CallResult, Input } from "../core/step.ts";
 import { attachInspector, type Evidence } from "./inspect.ts";
 import { Host, testing, type TestRuntime } from "./testing.ts";
 
@@ -96,11 +106,149 @@ const side = { machine: "Test/Gate", name: "side" };
 
 const front = { machine: "Test/Door", name: "front" };
 
+// A write whose unknown mapper throws: its ending's turn is refused at every try.
+const Jam = definition({
+  id: "Test/Jam",
+  states: ["OPEN"],
+  events: { Ring: {} },
+  internalEvents: { Rang: {}, NotRung: { why: Schema.String }, Unsure: Flow.uncertain({}) },
+  memory: {},
+  operations: ({ E }) => ({
+    ring: ring.outcomes({
+      success: E.Rang,
+      failure: { NotSent: E.NotRung.from((e: { readonly why: string }) => ({ why: e.why })) },
+      unknown: E.Unsure.from(() => {
+        // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the case is an author mapper that throws
+        throw new Error("the mapper throws");
+      }),
+    }),
+  }),
+});
+
+const JamMachine = machine(Jam, ({ S, O }) => ({
+  default: S.OPEN,
+  on: {
+    Ring: { actions: [O.ring.commit(() => ({ tone: "jam" }))] },
+    Rang: {},
+    NotRung: {},
+    Unsure: {},
+  },
+}));
+
+const jammed = { machine: "Test/Jam", name: "jam" };
+
+// A commit that holds off its interrupt until it answers, and an unknown mapper that records the
+// value it is given in `heard`.
+const stubborn = transaction({
+  id: "Test/stubborn",
+  input: { tone: Schema.String },
+  key: [],
+  concurrency: "reject",
+  services: [Bell],
+  commit: (_input, { attempt }) =>
+    Effect.uninterruptible(Effect.flatMap(Effect.service(Bell), (bell) => bell.ring(attempt.id))),
+});
+
+const latchOver = (heard: Array<unknown>) => {
+  const Latch = definition({
+    id: "Test/Latch",
+    states: ["OPEN"],
+    events: { Ring: {}, Stop: {} },
+    internalEvents: { Rang: {}, NotRung: { why: Schema.String }, Unsure: Flow.uncertain({}) },
+    memory: {},
+    operations: ({ E }) => ({
+      ring: stubborn.outcomes({
+        success: E.Rang,
+        failure: { NotSent: E.NotRung.from((e: { readonly why: string }) => ({ why: e.why })) },
+        unknown: E.Unsure.from((value: unknown) => {
+          heard.push(value);
+
+          return {};
+        }),
+      }),
+    }),
+  });
+
+  const LatchMachine = machine(Latch, ({ S, O }) => ({
+    default: S.OPEN,
+    on: {
+      Ring: { actions: [O.ring.commit(() => ({ tone: "latch" }))] },
+      Stop: { actions: [O.ring.cancel] },
+      Rang: {},
+      NotRung: {},
+      Unsure: {},
+    },
+  }));
+
+  return app({ id: "test", machines: { latch: LatchMachine } });
+};
+
+const latched = { machine: "Test/Latch", name: "latch" };
+
+// Two persisted writes: an unknown of `first` retries `second`.
+const firstRing = transaction({
+  id: "Test/first",
+  input: { tone: Schema.String },
+  key: [],
+  concurrency: "reject",
+  services: [Bell],
+  commit: (_input, { attempt }) =>
+    Effect.flatMap(Effect.service(Bell), (bell) => bell.ring(attempt.id)).pipe(
+      Effect.catch((e) => Outcome.unknown(e)),
+    ),
+});
+
+const Pair = definition({
+  id: "Test/Pair",
+  persist: true,
+  states: ["OPEN"],
+  events: { Ring: {} },
+  internalEvents: {
+    Done: {},
+    NotDone: { why: Schema.String },
+    FirstUnsure: Flow.uncertain({}),
+    SecondUnsure: Flow.uncertain({}),
+  },
+  memory: {},
+  operations: ({ E }) => ({
+    first: firstRing.outcomes({
+      success: E.Done,
+      failure: { NotSent: E.NotDone.from((e: { readonly why: string }) => ({ why: e.why })) },
+      unknown: E.FirstUnsure,
+    }),
+    second: ring.outcomes({
+      success: E.Done,
+      failure: { NotSent: E.NotDone.from((e: { readonly why: string }) => ({ why: e.why })) },
+      unknown: E.SecondUnsure,
+    }),
+  }),
+});
+
+const PairMachine = machine(Pair, ({ S, O }) => ({
+  default: S.OPEN,
+  on: {
+    Ring: {
+      actions: [O.first.commit(() => ({ tone: "one" })), O.second.commit(() => ({ tone: "two" }))],
+    },
+    Done: {},
+    NotDone: {},
+    FirstUnsure: { actions: [O.second.retry] },
+    SecondUnsure: {},
+  },
+}));
+
+const paired = { machine: "Test/Pair", name: "pair" };
+
+const more = app({
+  id: "test",
+  machines: { jam: JamMachine, pair: PairMachine },
+});
+
 /**
  * A page for one boot: fibers queue until `settle`, time moves only on `advance`, and every store
  * write lands at once in `store`.
  */
-const pageOver = (store: Map<string, string>, seed: number) => {
+const pageOver = (store: Map<string, string>, seed: number, hung = false) => {
   let tasks: ReadonlyArray<() => void> = [];
   let now = 0;
   let timers: ReadonlyArray<{ readonly at: number; readonly fire: () => void }> = [];
@@ -159,13 +307,15 @@ const pageOver = (store: Map<string, string>, seed: number) => {
       store: Option.some({
         load: Effect.sync(() => new Map(store)),
         write: (writes) =>
-          Effect.sync(() => {
-            for (const w of writes)
-              Option.match(w.value, {
-                onNone: () => store.delete(w.key),
-                onSome: (value) => store.set(w.key, value),
-              });
-          }),
+          hung
+            ? Effect.never
+            : Effect.sync(() => {
+                for (const w of writes)
+                  Option.match(w.value, {
+                    onNone: () => store.delete(w.key),
+                    onSome: (value) => store.set(w.key, value),
+                  });
+              }),
       }),
     }),
   ).pipe(Context.add(Clock.Clock, clock), Context.add(Scheduler.Scheduler, scheduler));
@@ -194,13 +344,24 @@ const bellOf = () => {
   return { layer, waiting, rings };
 };
 
-const boot = (store: Map<string, string>, seed: number, settled = true, served = doors) => {
-  const page = pageOver(store, seed);
+const boot = (
+  store: Map<string, string>,
+  seed: number,
+  settled = true,
+  served = doors,
+  options: { readonly captureMs: number; readonly hung: boolean } = { captureMs: 0, hung: false },
+) => {
+  const page = pageOver(store, seed, options.hung);
   const bell = bellOf();
   const seen: Array<Evidence> = [];
 
   const built: TestRuntime = testing.build(
-    { app: served, services: bell.layer, scope: "test", persistence: { captureMs: 0 } },
+    {
+      app: served,
+      services: bell.layer,
+      scope: "test",
+      persistence: { captureMs: options.captureMs },
+    },
     page.platform,
   );
 
@@ -352,5 +513,142 @@ describe("write lanes on the production runtime", () => {
       ["Released"],
     );
     assert.strictEqual(first.bell.rings.length, 2, "the released lane takes a new commit");
+  });
+  it("an unknown whose turn is refused twice is kept on its Held lane, not lost (Actors R15, WriteLanes R10)", () => {
+    const first = boot(new Map(), 1, true, more);
+
+    testing.attach(first.built, jammed, "host", false);
+    testing.send(first.built, jammed, "Ring", {});
+    first.page.settle();
+
+    const [attempt] = first.bell.rings;
+    assert.ok(attempt !== undefined, "the ring is on the wire");
+    first.bell.waiting.get(attempt)?.(Effect.fail("lost"));
+    assert.doesNotThrow(() => first.page.settle());
+
+    // The bell's error is untagged, so its reason is Error.
+    assert.deepStrictEqual(endingsOf(first.seen, attempt), ["unknown Error"]);
+    assert.deepStrictEqual(
+      first.seen.flatMap((e) => (e._tag === "Issue" ? [e.code] : [])),
+      ["InvalidTurn", "InvalidTurn"],
+    );
+    assert.deepStrictEqual([...first.built.driver.world().kept.keys()].length, 1);
+  });
+
+  it("a call a cancel interrupted ends unknown Cancelled with no value, even when it succeeds (WriteLanes R14, I20)", () => {
+    const heard: Array<unknown> = [];
+    const first = boot(new Map(), 1, true, latchOver(heard));
+
+    testing.attach(first.built, latched, "host", false);
+    testing.send(first.built, latched, "Ring", {});
+    first.page.settle();
+
+    const [attempt] = first.bell.rings;
+    assert.ok(attempt !== undefined, "the ring is on the wire");
+    // The call's success settles after the cancel's interrupt was issued: the host classifies the
+    // fiber's exit, and the core hears a success for a Cancelling head.
+    testing.send(first.built, latched, "Stop", {});
+
+    const cancelling = [...first.built.driver.world().lanes.values()].flatMap((l) =>
+      l.head.phase._tag === "Cancelling" ? [l.head.phase.call] : [],
+    );
+
+    assert.strictEqual(cancelling.length, 1, "the cancel interrupted the call");
+
+    for (const call of cancelling)
+      first.built.driver.input(
+        Input.Settled({ call, result: CallResult.Success({ value: "ding" }) }),
+      );
+    first.page.settle();
+
+    assert.deepStrictEqual(endingsOf(first.seen, attempt), ["unknown Cancelled"]);
+    assert.deepStrictEqual(heard, [undefined]);
+  });
+
+  it("a restored unknown admitted after a retry owes its re-send leaves that re-send standing (WriteLanes R8, I26)", () => {
+    const store = new Map<string, string>();
+    const first = boot(store, 1, true, more);
+
+    testing.attach(first.built, paired, "host", false);
+    testing.send(first.built, paired, "Ring", {});
+    first.page.settle();
+
+    const [one, two] = first.bell.rings;
+    assert.ok(one !== undefined && two !== undefined, "both rings are on the wire");
+    first.bell.waiting.get(one)?.(Effect.fail("lost"));
+    first.page.settle();
+    first.bell.waiting.get(two)?.(Effect.fail("lost"));
+    first.page.settle();
+
+    // The identity is disposed and adopted again: both Held heads hear unknown Restored, and the
+    // first one's handler retries the second before the second's own Restored is admitted.
+    first.built.runtime.disposeActor(actorRef(PairMachine, "pair"));
+    testing.attach(first.built, paired, "host", false);
+    assert.doesNotThrow(() => first.page.settle());
+
+    assert.deepStrictEqual(
+      first.bell.rings.filter((r) => r === two),
+      [two, two],
+      "the owed re-send is invoked once its capture lands",
+    );
+  });
+
+  it("dispose() writes what the disposal parked before it closes, with a capture interval pending (Actors R22, R23)", async () => {
+    const store = new Map<string, string>();
+    const first = boot(store, 1, true, doors, { captureMs: 5000, hung: false });
+
+    testing.attach(first.built, front, "host", false);
+    testing.send(first.built, front, "Ring", {});
+    first.page.settle();
+
+    const [attempt] = [...first.bell.waiting.keys()];
+    assert.ok(attempt !== undefined, "the ring is on the wire");
+
+    const disposing = Effect.runFork(first.built.runtime.dispose());
+    first.page.settle();
+    first.bell.waiting.get(attempt)?.(Effect.succeed("ding"));
+    first.page.settle();
+
+    assert.ok(Exit.isSuccess(await Effect.runPromise(Effect.exit(Fiber.join(disposing)))));
+
+    const second = boot(store, 2);
+    testing.attach(second.built, front, "host", true);
+    second.page.settle();
+
+    assert.deepStrictEqual(
+      second.seen.flatMap((e) =>
+        e._tag === "Delivered" && Option.contains(e.attempt, attempt) ? [e.event] : [],
+      ),
+      ["Rang"],
+    );
+  });
+
+  it("dispose() bounds its final write by the disposal's 5 s: a silent store reports StorageFailure (Actors R23)", async () => {
+    const first = boot(new Map(), 1, true, doors, { captureMs: 0, hung: true });
+
+    testing.attach(first.built, front, "host", false);
+    first.page.settle();
+
+    const disposing = Effect.runFork(first.built.runtime.dispose());
+    first.page.advance(4999);
+    assert.strictEqual(disposing.pollUnsafe(), undefined, "dispose() waits for the write");
+
+    first.page.advance(1);
+
+    assert.ok(Exit.isSuccess(await Effect.runPromise(Effect.exit(Fiber.join(disposing)))));
+    assert.ok(first.seen.some((e) => e._tag === "Issue" && e.code === "StorageFailure"));
+  });
+
+  it("ensureActor and send after dispose reject RuntimeDisposed (Actors R22)", async () => {
+    const first = boot(new Map(), 1);
+    const door = first.built.runtime.ensureActor(actorRef(DoorMachine, "front"));
+
+    await Effect.runPromise(first.built.runtime.dispose());
+
+    const disposed = (f: () => unknown) =>
+      assert.throws(f, (e) => e instanceof FlowError && e.code === "RuntimeDisposed");
+
+    disposed(() => first.built.runtime.ensureActor(actorRef(DoorMachine, "back")));
+    disposed(() => door.send({ _tag: "Ring" }));
   });
 });
