@@ -438,6 +438,7 @@ export const regressions = (args: ReadonlyArray<string>) =>
  */
 const statedVerdict = (row: StatedLimit, verdict: MutantVerdict) => {
   const what = `${row.limit} (${row.mutant.name})`;
+  const reason = MutantVerdict.$is("WrongReason")(verdict) ? `: ${verdict.why.slice(0, 300)}` : "";
 
   return Outcome.$match(row.outcome, {
     Survives: () => ({
@@ -446,7 +447,7 @@ const statedVerdict = (row: StatedLimit, verdict: MutantVerdict) => {
     }),
     Caught: ({ check }) => ({
       held: MutantVerdict.$is("Caught")(verdict),
-      why: `${what}: ${verdict._tag === "Survived" ? `expected ${check} to catch it, it survived` : `${verdict._tag} (${check} ${row.mutant.expects} expected)${MutantVerdict.$is("WrongReason")(verdict) ? `: ${verdict.why.slice(0, 300)}` : ""}`}`,
+      why: `${what}: ${verdict._tag === "Survived" ? `expected ${check} to catch it, it survived` : `${verdict._tag} (${check} ${row.mutant.expects} expected)${reason}`}`,
     }),
   });
 };
