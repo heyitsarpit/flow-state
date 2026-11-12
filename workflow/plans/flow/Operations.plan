@@ -80,9 +80,7 @@ outcomes
 
         invalidate and clear match a contract plus a partial key: every named property must equal
         the entry's whole property value; {} matches the family. Keys are exposed in persistence,
-        payloads and traces; they neither authorize work nor reconstruct input. An author error
-        whose tag is one of Flow's reasons (@O3) is a type error, refused at compile as
-        ReservedReason (proposed name) wherever a failure tag is declared.
+        payloads and traces; they neither authorize work nor reconstruct input.
     O2  Resources and reads
         Equal contract and key share data and one in-flight lookup across actors in a Runtime. An
         entry is fresh only while it has confirmed data, is not invalidated and its age is less than
@@ -169,27 +167,32 @@ outcomes
         most cautious first. The ending delivered is the Attempt's: a definite failure after an
         unknown send of the same Attempt is unknown, StillUnknown { failure }.
 
-        Flow's reasons are reserved: the failure NotSent { why } (Cancelled, Restored, Rejected,
-        Overloaded, StorageRefused, Disposed, NoPersistence, OldVersion, Unencodable,
-        ModuleDisabled), and the unknowns Cancelled, Restored, Interrupted, Defect, StillUnknown {
-        failure }, StorageRefused, Disposed and Abandoned.
+        Flow's own endings are two values, each a Data.TaggedEnum discriminated by `_tag`, so
+        Match.tag works on them, and each also a Schema tagged union. Flow.NotSent is the ending of
+        a commit Flow never sent, with tags Cancelled, Restored, Rejected, Overloaded,
+        StorageRefused, Disposed, NoPersistence, OldVersion, Unencodable and ModuleDisabled
+        (proposed name). Flow.Unknown is every unknown ending, with tags Outcome { error } (the
+        commit's own Outcome.unknown), StillUnknown { failure }, Defect { cause }, Cancelled,
+        Restored, Interrupted, StorageRefused and Disposed.
 
-        ModuleDisabled and Abandoned are proposed names. Superseded, NothingToResend, InFlight and
-        Released are evidence, never endings. Flow has no timeout reason: a call's deadline is its
-        commit's Effect (Effect.timeoutOrElse).
+        An author's failure tag may spell any name, a Flow tag's included: an ending's origin is
+        its key and type, never its name. Superseded, NothingToResend, InFlight and Released are
+        evidence, never endings. Flow has no timeout reason: a call's deadline is its commit's
+        Effect (Effect.timeoutOrElse). Decision (the user, 2026-11-12): wide consult W1, option B.
 
-        Mapping. The operation maps each ending onto a declarer event (@plan.Machines.O1): success:,
-        failure: (an exhaustive record over the commit's failure tags, NotSent optional in the type,
-        or one event for an untagged failure) and unknown: (one event, or a record by tag, whose
-        byReason keys must be the commit's own unknown tags or Flow's unknown reasons).
+        Mapping. The operation maps each ending onto a declarer event (@plan.Machines.O1) under
+        four keys: success:, failure: (an exhaustive record over the commit's own failure tags and
+        nothing else, or one event for an untagged failure), notSent: (optional, one event whose
+        mapper receives a Flow.NotSent) and unknown: (one event, or a record over any of
+        Flow.Unknown's tags with a required `otherwise`; either mapper receives a Flow.Unknown).
 
-        Mappers receive (value, { input, attempt, progress, key }); a NotSent mapper's attempt is
-        optional (a declined commit has none). Every unknown: target is a Flow.uncertain event or
-        Flow.ignore. A bare operation maps nothing: its endings are evidence and its unknown is not
-        retained.
+        Mappers receive (value, { input, attempt, progress, key }); a notSent: mapper's attempt is
+        absent for a declined commit, which has none. Every unknown: target is a Flow.uncertain
+        event or Flow.ignore. A bare operation maps nothing: its endings are evidence and its
+        unknown is not retained.
 
         An unknown that is not retained (bare, ignored, or a cancel's own turn end) is released, and
-        the store hears Released (@O5). flow check requires NotSent mapped only where it can occur
+        the store hears Released (@O5). flow check requires notSent: mapped only where it can occur
         (@plan.CommandLine.O5).
 
         The Attempt. Every admitted commit has an exported Attempt { id, operation, key, input,
@@ -418,7 +421,7 @@ outcomes
         The Attempt's ending decides:
 
         - success confirms the optimistic look;
-        - failure (NotSent included) removes that commit's updates without a refetch and without
+        - failure, and a Flow.NotSent ending, removes that commit's updates without a refetch and without
           overwriting newer data;
         - unknown keeps them, marked uncertain, and refetches the displayed entries once.
 
@@ -510,8 +513,9 @@ outcomes
         follows @plan.Runtime.O6; Cause handling follows @plan.Diagnostics.O3. After cleanup, late
         results cannot change data, lanes, endings or replacement work.
 verification
-    V1  Type proofs preserve adapter types and reject invalid options, outcome mappings, reserved
-        reasons, missing services and key-less members of keyed operations.
+    V1  Type proofs preserve adapter types and reject invalid options, outcome mappings (a
+        failure: key that is not one of the commit's own tags, an unknown: record without `otherwise`), missing 
+        services and key-less members of keyed operations.
     V2  Key tests prove equality, matching, canonical text, bounds and rejection before any side
         effect.
     V3  Stories prove shared reads, one-off read delivery, Runtime isolation and passive snapshot

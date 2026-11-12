@@ -57,11 +57,21 @@ requirements
     R6  lookup
         source  @plan.Operations.O2.
         must    O.x.lookup(select) returns current data without a request when the entry may serve 
-                it, joins an in-flight lookup, or starts one, and points the operation's one lane 
-                at that entry. A newer lookup releases the previous one, whose settlement is 
-                evidence (Superseded), so only the latest lookup's ending is delivered. One-off 
-                read lanes are not persisted, except the Interrupted ending a freeze or an end 
-                parks.
+                it, joins an in-flight lookup, or starts one, and points the operation's slot
+                at that entry. A newer lookup releases the previous one, whose settlement is
+                evidence (Superseded), so only the latest lookup's ending is delivered.
+
+                A read keeps a slot, never a lane: at most one current call per incarnation and
+                operation. It has no Attempt, no acknowledgement, no hold, no retry and no record,
+                and no write-lane rule (kept, blocked, promoted) applies to it. Its ending is a row
+                of the owed ledger (WriteLanes Spec `model`) whose audience the code that owes it
+                chooses. A lookup's ending is owed to the incarnation that asked (Life): it is never
+                saved, and it closes as evidence when that incarnation ends or a newer lookup
+                supersedes it. The Interrupted ending of a read that a freeze or an end stops is
+                owed to the identity (Actors Spec R8), so it is saved with a persisted identity's
+                owed record and heard at the next Start. Each actor waiting on one shared lookup
+                (R5) gets its own row. Decision (the user, 2026-11-12): consult round 3 (C1, C10)
+                and round 2, B7 (spec-log.md).
 
                 A lookup runs as lookup(input, ctx) (@plan.Operations.O1): its context carries no
                 Attempt, since only an admitted commit has one (WriteLanes Spec R5).
@@ -84,7 +94,7 @@ requirements
                 A read's defect or interruption ends on failure as Defect or Interrupted, which a
                 tag record must map; a mapper that throws or returns no shape ends as Defect with a
                 UserClosure issue. The failure mapping is exhaustive. Flow.ignore means no event and
-                no handler. Unmapped failure leaves its lane tag and an issue.
+                no handler. Unmapped failure leaves its slot's tag and an issue.
 
     R10  value, holds and collection
         source  @plan.Operations.O2.
@@ -131,6 +141,10 @@ open
         outcome  Phase 3 writes each test below as an oracle behind the Port, with its wrong 
                  runtime; until then every Requirement's evidence is open.
 
+    Q3  Do read endings follow the write endings' new shape (WriteLanes Spec R3, R4: `failure` holds only the author's 
+        tags)? R9 still maps Flow's Defect and Interrupted under `failure`.
+        outcome  The user decides before @task.V3.T21 builds read endings; until then R9 stands as written.
+
     Q2  Built later, not specified here: staleTime freshness, gcTime collection, trailing refetch, setData, invalidate 
         and clear with partial keys, write batches and their 256 bound, placeholders, contract.get, key size bounds and 
         InvalidKey, focus and connection triggers, optimistic stacking. The prototype built none of them.
@@ -141,6 +155,12 @@ model
     Entry = (contract id, key) -> { confirmed data, landedAt, stale, request?, trailing? }.
 
     Hold = a live placement, a request, an optimistic layer, or a one-off read's latest lookup.
+
+    Slot = (incarnation, operation) -> the one current lookup call, or none. A newer lookup replaces it. It is not
+        a lane (WriteLanes Spec R6): no Attempt, no phase, no queue, no record.
+
+    Terms = ending, Attempt, lane and owed row are the WriteLanes Spec's (R2, R5, R6, `model`); Start and Life are
+        the Actors Spec's (`model`).
 
     Fresh = confirmed data present, not invalidated, age below staleTime.
 
@@ -160,7 +180,8 @@ invariants
 
     I8  A lookup that finds a lookup in flight for its entry joins it and starts no request. [@R5, @R6]
 
-    I9  Of several lookups through one one-off read lane, only the latest's ending is delivered. [@R6]
+    I9  Of several lookups through one read slot, only the latest's ending is delivered. Reworded 2026-11-12 (a slot, 
+        not a lane). [@R6]
 
     I11  A request started before the stored data landed never replaces that data. [@R10]
 
@@ -183,6 +204,11 @@ invariants
         2026-11-11: ruling of the replan's Spec pass (V3 log, 2026-11-11T12:58:40Z); R6 stated it with no
         Invariant. [@R6]
 
+    I22  A read's ending is an owed row and nothing else holds it: a lookup's row is owed to the incarnation that 
+         asked, is in no record, and closes as evidence when that incarnation ends or a newer lookup supersedes
+        it; a stopped read's Interrupted is owed to the identity and is heard once at its next Start. No read has
+        a lane, a lane record or a Kept row that blocks a key. Added 2026-11-12 (consult round 3). [@R6]
+
 coverage
     @R1
         enforced_by  [@I1]
@@ -201,7 +227,7 @@ coverage
         open_by      [@Q1]
 
     @R6
-        enforced_by  [@I8, @I9, @I21]
+        enforced_by  [@I8, @I9, @I21, @I22]
         open_by      [@Q1]
 
     @R8
@@ -253,3 +279,8 @@ tests
          request; none has an Attempt or an id or key field standing in for one. Wrong runtime: the read context with
              a made-up Attempt (`id: ""`, `key: {}`), as code:packages/flow-state-v3/src/host/driver.ts had before
              @task.V3.T51. [@I21]
+    T14  Read endings as rows: a lookup's answer lands after its incarnation ended and is recorded, never heard by the 
+         next incarnation, and no store record ever holds it; a read stopped by an end is heard as failure {
+             Interrupted } once by the next incarnation, after a reload too; a twice-refused lookup ending blocks no
+             commit. Wrong runtimes: a lookup's row saved in the owed record; a stopped read's Interrupted dropped at
+             the end. Written by @task.V3.T21 (@task.V3.T54 only routes read endings through the ledger). [@I22]

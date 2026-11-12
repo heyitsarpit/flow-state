@@ -4,7 +4,7 @@ basis         A guide, revisable whenever building shows it wrong; each change a
               reason is recorded in workflow/specs/spec-log.md.
               Written from the merged flow plans (proposed); split per spec-split.md there.
 location      packages/flow-state-v3/src
-provides      Outcome, Attempt, O.x.commit, O.x.retry, O.x.cancel, O.x.cancelAll,
+provides      Outcome, Attempt, Flow.NotSent, Flow.Unknown, O.x.commit, O.x.retry, O.x.cancel,
               O.x.idle, O.x.retryable, O.x.get
 derives_from  [
               @plan.Operations.O3, @plan.Operations.O7, @plan.Operations.V6,
@@ -37,24 +37,42 @@ requirements
                 the Attempt's: a definite failure after an unknown send of the same Attempt is
                 unknown StillUnknown { failure }.
 
-    R3  Flow's reserved reasons
+    R3  Flow's own endings
         source  @plan.Operations.O3.
-        must    Flow's endings are the failure NotSent { why } (Cancelled, Restored, Rejected,
-                Overloaded, StorageRefused, Disposed, NoPersistence, OldVersion, Unencodable,
-                ModuleDisabled (proposed name)) and the unknowns Cancelled, Restored, Interrupted,
-                Defect, StillUnknown { failure }, StorageRefused, Disposed and Abandoned (proposed
-                name).
+        must    Flow's endings are two values, each a `Data.TaggedEnum` discriminated by `_tag`
+                (never by a `why` field), so Effect's `Match.tag` works on them, and each also a
+                `Schema` tagged union, which is how an owed row's ending is encoded:
 
-                Superseded, NothingToResend, InFlight and Released are evidence, never endings.
-                There is no timeout reason. An author tag equal to a Flow reason is refused
-                (ReservedReason, proposed name).
+                - `Flow.NotSent`, a failure-channel ending Flow makes when a commit was never sent,
+                with tags Cancelled, Restored, Rejected, Overloaded, StorageRefused, Disposed,
+                NoPersistence, OldVersion, Unencodable and ModuleDisabled (proposed name);
+                - `Flow.Unknown`, every unknown-channel ending, with tags Outcome { error } (the
+                commit said `Outcome.unknown(error)`), StillUnknown { failure }, Defect { cause },
+                Cancelled, Restored, Interrupted, StorageRefused and Disposed.
+
+                These Specs write `NotSent { Rejected }` for the first's Rejected tag and
+                `unknown { Restored }` for the second's Restored tag. Superseded, NothingToResend,
+                InFlight and Released are evidence, never endings. There is no timeout reason. An
+                author's failure tag is the author's alone and may spell any name, a Flow tag's
+                included: the origin of an ending is its key and type, never its name. Decision
+                (the user, 2026-11-12): wide consult W1, option B; ReservedReason is retired and
+                the proposed unknown Abandoned is dropped (spec-log.md).
 
     R4  Mapping endings
         source  @plan.Operations.O3.
-        must    The operation maps success:, failure: (exhaustive over the commit's failure tags,
-                NotSent optional) and unknown: (one event, or a record by tag over the commit's own
-                unknown tags and Flow's) onto declarer events; mappers receive (value, { input,
-                attempt, progress, key }).
+        must    The operation maps four keys onto declarer events:
+
+                - `success:`, one event;
+                - `failure:`, a record exhaustive over the commit's own failure tags and nothing
+                else;
+                - `notSent:`, optional, one event whose mapper receives a `Flow.NotSent`;
+                - `unknown:`, one event, or a record over any of `Flow.Unknown`'s tags with a
+                required `otherwise`; either mapper receives a `Flow.Unknown`, in which the
+                commit's own unknown error arrives as Outcome { error }.
+
+                Mappers receive (value, { input, attempt, progress, key }); `attempt` is absent for
+                a declined commit, which has none. An unmapped `notSent` is evidence (R10).
+                Decision (the user, 2026-11-12): wide consult W1, option B (spec-log.md).
 
                 A bare operation maps nothing: its endings are evidence. An unknown that is not
                 retained (bare, ignored, or under the cancel concurrency policy once its own
@@ -63,34 +81,46 @@ requirements
 
     R5  The Attempt
         source  @plan.Operations.O3.
-        must    Every admitted commit has an Attempt { id, operation, key, input, retryCount,
-                mayHaveApplied }. Flow mints id when the write starts.
+        must    Every admitted commit that is not declined has an Attempt { id, operation, key,
+                input, retryCount } from the moment it becomes a head (a queued commit gets its
+                Attempt when promoted); a declined commit (NotSent before its cell, or
+                by its cell) has none. Flow mints id when the write starts.
 
                 The id is unique across devices and scopes and never reused within a scope, because
                 a server may use it as its idempotency key; the mint draws on entropy the host
-                supplies as data at boot (a random session seed), so the core stays deterministic
+                supplies as data at boot (a random session seed of at least 128 bits), so the core stays deterministic
                 given its inputs and replays exactly (the runner's ruling). Every boot asks the host
                 for a fresh seed; a seed is never restored from disk or carried to a later boot, so
                 ids stay unique across restore without reading every id off disk. Decision (agent,
-                2026-11-11): audit gap G4 (spec-log.md, T42).
+                2026-11-11): audit gap G4 (spec-log.md, T42). Attempts have their own counter, so
+                minting any other id never changes an Attempt id.
 
                 Every send of that write carries the same id and input. The commit author puts id on
                 the wire where the API expects it; Flow sends nothing itself and derives no other
-                key. `retryCount` counts invoked re-sends; `mayHaveApplied` says an earlier send
-                ended unknown. A definite failure resolves the Attempt; trying again is a new write
-                with a new id.
+                key. `retryCount` counts invoked re-sends; `mayHaveApplied` says the Attempt was
+                sent before, and is derived, never stored on the head or in a record: `retryCount`
+                is above 0, or the head is Held or waiting to re-send (Recapturing, Resending). A
+                definite failure resolves the Attempt; trying again is a new write with a new id.
 
     R6  The lane
         source  @plan.Operations.O3.
         must    A write lane is (identity with its version, contract id, key), owned by the Runtime,
-                created by work and removed when Idle and holding no kept ending. Its states are
+                created by work and removed when Idle. Its states are
                 Idle, InFlight (one addressable Attempt waiting to be invoked or on the wire) and
                 Held (a retained unknown), each with queued commits W: none under reject, at most
                 one under latest, a FIFO of at most 64 under serialize.
 
-                A kept ending (Actors Spec R15) is a value on its lane: the lane exists while it
-                stands, and commits on its key act as on a non-Idle lane. Decision (agent,
-                2026-11-11): ruling CQ3 (spec-log.md, T42).
+                A lane holds its Attempt's state and nothing else. An ending is never lane state: it
+                is applied to its lane in the step its call settles, and from then on it is a row of
+                the owed ledger (R10). A row names its lane by (identity, contract id, key) whether
+                or not that lane has a head. A Kept row (Actors Spec R15) does not make a lane
+                exist, but blocks the key it names: while a row is Kept, a commit on that key
+                declines NotSent { Rejected } before its cell under reject, latest and serialize
+                (cancel is Q5). No other row blocks a key; a Kept row taking its one try at a start
+                is Retrying and blocks nothing until it is refused again, the same exposure as the
+                first refusal (nothing is lost, since the try is served in that step's drain). Decision (orchestrator, 
+                2026-11-12): consult round 3 and T54's
+                decisions 1 and 2, replacing ruling CQ3 (spec-log.md).
 
                 A turn's members apply to lanes in action order in validation.
 
@@ -121,8 +151,8 @@ requirements
 
                 Every Attempt minted, promoted or re-sent is invoked after its turn ends, once its
                 acknowledgement and record queues allow. An unknown holds the lane until retry
-                resolves it or cancel releases it: no quiet release, no automatic retry. A kept
-                ending blocks its key until heard or let go.
+                resolves it or cancel releases it: no quiet release, no automatic retry. A Kept
+                row blocks its key until the row closes (R6; Actors Spec R15).
 
     R9  Members and keys
         source  @plan.Operations.O3.
@@ -138,17 +168,27 @@ requirements
 
     R10  Exactly one delivery
         source  @plan.Operations.O3.
-        must    Every commit, and every retry that sends, delivers its ending to a live incarnation
-                of its identity with the lane's subject path, or parks it for that incarnation,
-                exactly as I15 counts. A settled ending is never rewritten. An ending whose turn
-                is refused, a throw from its outcome mapper at admission included, is redelivered
-                once after queued mail; a second refusal ends its tries until the next boot or adoption, each
-                of which gives one try (Actors Spec R15). Decision (agent, 2026-11-11): ruling CQ1
-                (spec-log.md, T42).
+        must    Every commit, and every retry that sends, owes its identity one ending, exactly as
+                I15 counts. The ending is applied to its lane in the step its call settles and is
+                from then on one row of the owed ledger (`model`), the only place an ending is held:
+                a row is never rewritten, and only its close removes it. A row is delivered to a
+                live incarnation of its identity with the lane's subject path, or waits (reported
+                Parked) for that identity's next start (Actors Spec R10). The mailbox holds a
+                reference to the row, and a reference whose row is closed delivers nothing. A row's
+                reports come from the row alone (I34), and no report, snapshot or public value names
+                a row's id, a lane id or a row's Delivery (I37). Decision (orchestrator,
+                2026-11-12): consult round 3, Part 2 (spec-log.md).
+
+                An ending whose turn is refused, a throw from its outcome mapper at admission
+                included, is tried once more after queued mail; a second refusal keeps it (Kept)
+                until the next start, each of which gives it one try (Actors Spec R15). Every kept
+                ending is its own row: a second one on the same lane replaces nothing. Decision
+                (agent, 2026-11-11): ruling CQ1 (spec-log.md, T42).
 
                 Every admitted commit ends: it waits (to be invoked, on the wire, or queued) or is
                 Held until it gets exactly one ending, delivered, parked or recorded as evidence;
-                none disappears without one.
+                none disappears without one. A declined commit has no Attempt and no lane; its
+                ending is a row like any other.
 
                 Evidence by declaration: a replaced never-sent commit, a released lookup, a declined
                 retry, a bare write's endings, an ending mapped to Flow.ignore, the interrupted
@@ -174,7 +214,7 @@ requirements
         must    A commit whose input or key cannot encode declines NotSent { Unencodable }; its 
                 transition runs and its mapper receives the value the turn asked to send. A 
                 persisted identity's commit in a Runtime without persistence ends NotSent { 
-                NoPersistence }. A reset of the actor's record keeps its lanes, holds and parked 
+                NoPersistence }. A reset of the actor's record keeps its lanes, holds and owed 
                 endings unbound until an adopting ensure.
 
     R13  Domain writes at the lane
@@ -196,19 +236,23 @@ requirements
                 stored ends NotSent { Cancelled }, refused NotSent { StorageRefused }; that wait is
                 unbounded (stated limit). A pending cancel is never lost to a later replacement.
 
-    R15  cancelAll
+                A cancel that comes after the call settled finds the lane as that ending left it and
+                never changes the ending: a known success stays a success (I32). Beside its cell, a
+                cancel closes every Kept row that names its lane, recorded letGo.
+
+    R15  cancelAll (retired)
         source  @plan.Operations.O7.
-        must    O.x.cancelAll(k?) ends every queued commit NotSent { Cancelled } in admission order
-                (W's order; a queued commit has no Attempt id yet), then acts on the head as cancel
-                does, promoting nothing; a Held lane ends Idle; the 
-                head's ending, which leaves a hold, is delivered last.
+        must    Retired 2026-11-12 (the user; wide consult W1, K0): `cancelAll` is deferred, since
+                neither reference app uses it. Nothing builds or tests it. Its rule and prior art
+                are in workflow/plans/flow/references/proposals/revisit.md (`cancelAll`); the old
+                text is at commit ae48afa4.
 
     R16  Release on leave
         source  @plan.Operations.O7.
         must    A key-less O.x.cancel in whenAbandoned marks every lane of that operation for the 
                 ending incarnation's subject path releasing, interrupts an Attempt on the wire, 
                 ends queued commits as evidence, and applies later endings to the lane and store 
-                without delivering them. A release wins over cancelAll in the same transition. This 
+                without delivering them. This
                 is the only case where cancel drops a queued commit without an ending.
 
     R17  Cleanup
@@ -217,15 +261,15 @@ requirements
                 endings. cancel on a one-off read releases the operation's wait, not the shared 
                 request. Cleanup failure reports an issue without undoing a published transition. 
                 After cleanup, late results cannot change data, lanes, endings or replacement work. 
-                Actor disposal invokes nothing new and drops no lane (Actors Spec).
+                disposeActor invokes nothing new and drops no lane; Runtime disposal invokes nothing
+                new and drops only a head whose ending is definite (Actors Spec R20, R22).
 
 open
     Q1  Executable checks are not built.
         outcome  Phase 3 writes each test below as an oracle behind the Port, with its wrong 
                  runtime; until then every Requirement's evidence is open.
 
-    Q2  RetryLimit, a release winning over cancelAll, and Superseded as evidence have no prototype wrong 
-        runtime. outcome Phase 3 writes them.
+    Q2  RetryLimit and Superseded as evidence have no prototype wrong runtime. outcome Phase 3 writes them.
 
     Q3  R13's store-side rules (record queues, their bounds, ModuleDisabled) moved to the entity store area.
         outcome  They are written with the entity store's Spec in phase 5.
@@ -235,23 +279,22 @@ open
         outcome  Phase 4 builds the seeded mint; phase 3 writes the wrong runtime, a counter that 
                  collides across two devices.
 
-    Q5  The cell table (model) has no ruling for a cancel-policy commit on a Kept lane (no head, a kept ending 
-        standing), nor for a kept unknown whose head is still Held.
-        outcome  Slice 1 (@task.V3.T18) rules both before it builds the cancel policy; until then those cells are
-                 open and no fixture drives them.
+    Q5  The model has no ruling for a cancel-policy commit on a key whose lane has a Kept row, with the lane Idle or 
+        its head still Held.
+        outcome  Slice 1 (@task.V3.T18) rules both before it builds the cancel policy; consult round 3 hands it
+                 over as "close the lane's Kept rows, then mint" (proposed). Until then no fixture drives them.
 
 model
     Lane = (identity with version, contract id, key) -> { phase, W, displaced, mode }. mode is Delivering, or
         Releasing after R16's release. A lane in phase Idle is not stored.
 
-    State = Idle | InFlight | Held (R6). InFlight is every Phase from Acknowledging to Cancelling; Kept is a
-        non-Idle lane with no head.
+    State = Idle | InFlight | Held (R6). InFlight is every Phase from Acknowledging to Cancelling. A lane
+        has a head or is Idle; an ending, kept or not, is never a lane state.
 
     Head = the addressable Attempt: the one retry and cancel name.
 
     Phase = where the head stands, one tag per history and wait, never a flag:
-        - Idle: no head, W empty, no kept ending;
-        - Kept: no head; a kept ending (Actors Spec R15) blocks the key, and W waits;
+        - Idle: no head, W empty;
         - Acknowledging: never sent; its acknowledgement batch is out (WriteAhead Spec R13);
         - Unsent: never sent; acknowledged or not persisted; waits for its turn's end and record queues;
         - Withdrawing: never sent; a cancel came while it was Acknowledging and waits for storage (R14);
@@ -265,31 +308,32 @@ model
         delivered when a cancel was pending on it (Withdrawing, Cancelling), and is evidence otherwise (R7, R10).
 
     Promote = W's head becomes the head, minted as Acknowledging when its identity persists, else Unsent; with W
-        empty the lane goes Idle. While a kept ending stands, promote goes Kept instead (R8). An unknown, a retry
-        and a restore never promote.
+        empty the lane goes Idle. A Kept row never stops a promotion: the head resolved at settlement, before any
+        refusal. An unknown, a retry and a restore never promote.
 
     Cell = lane(phase, input) -> phase, endings, evidence: one total function. Every (phase, input) pair below has
         exactly one cell; a pair marked impossible is a defect in Flow. The declines R11 and R12 give under every
-        policy (OldVersion, Unencodable, NoPersistence) come before the cell. A boot rebuilds lanes from records
-        (Restore Spec R3), not through cells. By input:
+        policy (OldVersion, Unencodable, NoPersistence), and R6's Rejected on a key with a Kept row, come before the
+        cell. A cell reads and changes lane state only; none reads the ledger. A boot rebuilds lanes from records
+        (Restore Spec R3), not through cells. A store's answer for a ticket no head awaits (a late answer after a
+        disposal) reaches no cell and is not a defect. By input:
         - commit under reject: Idle mints; every other phase declines NotSent { Rejected } (R7).
         - commit under latest: Idle mints; Acknowledging and Unsent queue it, end the head Superseded (evidence)
             and promote; every other phase queues it, ending a queued commit Superseded. Withdrawing's head is not
             superseded, since a pending cancel is never lost (R7, R8, R14).
         - commit under serialize: Idle mints; every other phase appends it to W, and past 64 it declines NotSent {
             Overloaded } (R7).
-        - commit under cancel: Idle mints; Kept is open (Q5). Acknowledging and Unsent end the head Superseded
+        - commit under cancel: Idle mints (a key with a Kept row is Q5). Acknowledging and Unsent end the head 
+            Superseded
             (evidence); Recapturing, Resending and Held release it (evidence Released); OnWire interrupts it and
             displaces it, its ending evidence; Withdrawing and Cancelling displace it with its ending owed. In each,
             the commit then mints (R7, R14).
         - retry: Held goes Recapturing when its identity persists, else Resending, and the re-send is owed (I26);
-            Idle and Kept give evidence NothingToResend; every other phase gives evidence InFlight (R8).
-        - cancel: Idle does nothing and gives no ending; Kept lets the kept ending go (a recorded letGo) and
-            promotes; Acknowledging goes Withdrawing; Unsent ends NotSent { Cancelled } and promotes; Recapturing,
+            Idle gives evidence NothingToResend; every other phase gives evidence InFlight (R8).
+        - cancel: Idle does nothing and gives no ending (its lane's Kept rows are closed by R14, outside the cell);
+            Acknowledging goes Withdrawing; Unsent ends NotSent { Cancelled } and promotes; Recapturing,
             Resending and Held are released (evidence Released) and promote; OnWire is interrupted and goes
             Cancelling; Withdrawing and Cancelling stay (R14).
-        - cancelAll: W's commits end NotSent { Cancelled } in admission order; then the head acts as under cancel,
-            except that nothing is promoted (R15).
         - invoked, after the turn with every wait met: Unsent and Resending go OnWire, and a re-send adds one to
             retryCount; impossible elsewhere (R5, R8).
         - stored, its batch landed: Acknowledging goes Unsent; Recapturing goes Resending; Withdrawing ends NotSent
@@ -297,23 +341,62 @@ model
         - refused, its batch refused: Acknowledging and Withdrawing end NotSent { StorageRefused } and promote;
             Recapturing goes Held and delivers unknown { StorageRefused }; impossible elsewhere (WriteAhead Spec
             R13).
-        - success or failure: OnWire delivers it and promotes; Cancelling ends unknown { Cancelled } instead and
-            goes Held (I20); impossible elsewhere (R2).
-        - unknown, an interruption included: OnWire delivers it and goes Held; Cancelling ends unknown { Cancelled
-            } and goes Held; impossible elsewhere (R2, R14).
+        - answered with success or failure, one input in the step the call settles: OnWire owes it and promotes;
+            Cancelling owes unknown { Cancelled } instead and goes Held (I20); impossible elsewhere (R2). No later
+            input applies the ending again when its turn is admitted.
+        - answered with unknown, an interruption included: OnWire owes it and goes Held; Cancelling owes unknown {
+            Cancelled } and goes Held; impossible elsewhere (R2, R14).
         - the turn of a not-retained unknown ends (R4): Held is released (evidence Released) and promotes; nothing
             elsewhere.
-        - a kept ending is heard or let go: Kept promotes; nothing elsewhere.
         - release on leave (R16): mode goes Releasing; W's commits end as evidence; OnWire goes Cancelling; other
             phases stay; later endings apply to the lane and store as evidence.
         - Runtime disposal starts (Actors Spec R22): Acknowledging, Unsent and Withdrawing end NotSent { Disposed
-            }; Recapturing and Resending go Held; W's commits end NotSent { Disposed }; OnWire, Cancelling, Held, Kept
+            }; Recapturing and Resending go Held; W's commits end NotSent { Disposed }; OnWire, Cancelling, Held
             and Idle stay.
         - the disposal bound passes: OnWire and Cancelling end unknown { Disposed } and go Held; nothing elsewhere. 
-            Where a lane's endings are parked together, the one that leaves a hold comes last (Actors Spec R22).
+            Where a lane's endings are owed together, the one that leaves a hold comes last (Actors Spec R22).
 
-    Delivered = for an Attempt a, the endings of a delivered to an incarnation, parked endings 
+    Delivered = for an Attempt a, the endings of a delivered to an incarnation, parked endings
         counted once.
+
+    Owed = one row of the owed ledger: an ending, from the step its call settles (or its commit declines) until its
+        close. A row names its identity, its audience, its operation, its Attempt and lane when it has them (a
+        decline has neither) and the ending (channel, reason, value); it also carries the owning activation and
+        whether it is current (Turn Spec R20), unchanged until @task.V3.T17. The ledger keeps each identity's rows
+        in the order they were owed, and is the only place an ending is held.
+
+    Audience = who a row is owed to, chosen by the code that owes it: Identity (any incarnation of the identity;
+        saved when the identity persists) or Life (one incarnation's life, not the Runtime's Life of the Actors Spec; 
+            never saved; closed as evidence when that
+        incarnation ends). A write's ending, a decline included, and a stopped read's Interrupted are owed to the
+        Identity; a lookup's ending is owed to the Life that asked (Reads Spec R6). An audience is live when the
+        identity has a live incarnation (Identity) or that incarnation is alive (Life).
+
+    Parked = the report word for a row that is Waiting; Unparked for one that leaves Waiting. Where these Specs say
+        an ending is parked, they mean its row is Waiting.
+
+    Delivery = where a row stands, one tag: Queued (a try is in the mailbox); Retrying (refused once; its second
+        try is in the mailbox, behind the mail queued at the refusal); Waiting (nothing can hear it now; reported
+        Parked); Kept (refused twice; one try at the next start; blocks its lane's key).
+
+    LedgerFunctions = the only five that build, move or remove a row:
+        - owe: the row is born already applied to its lane; Queued with a mail reference when the Runtime's Life
+            is Open (Actors Spec `model`) and its audience is live, else Waiting; a Life row whose incarnation is gone 
+                closes Recorded at once.
+        - tryOne: a mail reference to a missing row does nothing. With no mapping the row closes Recorded; an
+            accepted turn closes it Delivered; a refusal moves Queued to Retrying, with a new reference behind queued
+            mail, and Retrying to Kept.
+        - suspend, at an incarnation's end, disposeActor and for each identity at Runtime disposal: Queued and
+            Retrying rows go Waiting, rows with no lane included; Life rows close Recorded.
+        - start, the one delivery point of every Start (Actors Spec `model`, R10): Waiting goes Queued and Kept
+            goes Retrying, in the order the rows were owed; then, lane by lane in lane-id order (the record-key
+            order), each Held head with no row for its Attempt is owed unknown { Restored }, unless its lane is
+            Releasing (I15). A boot rebuilds every acknowledged head as Held (Restore Spec R3). Once a queue is
+            saved (@task.V3.T18), a lane's queued commits are owed NotSent { Restored } before its head's row.
+        - close: the only removal, Delivered or Recorded (as evidence, or letGo for a Kept row).
+
+    Blocked = keptOn(identity, lane): some row of that identity that names that lane is Kept. It is the only read of
+        the ledger a commit makes (R6).
 
 invariants
     I1  No commit is invoked except one admitted by an accepted action's member, or promoted, or re-sent by retry. 
@@ -326,7 +409,10 @@ invariants
         delivers a definite failure; and an Attempt never sent ends only NotSent, or unknown { Restored } at a boot. 
         Decision (agent, 2026-11-11): ruling CQ5 (spec-log.md, T42). [@R2]
 
-    I4  No delivered ending is an evidence kind, and no author tag equals a Flow reason. [@R3]
+    I4  No delivered ending is an evidence kind. A failure mapper receives only the commit's own failure, a notSent 
+        mapper only a Flow.NotSent and an unknown mapper only a Flow.Unknown, whatever the author's tags are named.
+        Reworded 2026-11-12 (the user, wide consult W1 option B): "no author tag equals a Flow reason" is retired
+        with ReservedReason. [@R3, @R4]
 
     I5  A not-retained unknown leaves no Held lane. (Its mapped target is Compile Spec I11's.) [@R4]
 
@@ -336,8 +422,9 @@ invariants
 
     I7  retryCount equals the number of invoked re-sends of that Attempt. [@R5]
 
-    I8  A lane exists iff it is not Idle or holds a kept ending; its W length is 0 under reject, at most 1 under 
-        latest, at most 64 under serialize. Decision (agent, 2026-11-11): ruling CQ3 (spec-log.md, T42). [@R6, @R7]
+    I8  A lane exists iff it has a head, and a Kept row makes none exist; its W length is 0 under reject, at most 1 
+        under latest, at most 64 under serialize. Reworded 2026-11-12 (consult round 3, replacing ruling CQ3). [@R6, 
+        @R7]
 
     I9  Every retry and cancel on a lane acts on one Attempt: the one the lane's last send carried, or, before any 
         send, the head waiting to be invoked. Reworded 2026-11-11 (audit). [@R6]
@@ -347,11 +434,12 @@ invariants
     I11  W's head is promoted only when the addressable Attempt is resolved, released or superseded. Decision (agent, 
          2026-11-11): ruling CQ7 (spec-log.md, T42). [@R8]
 
-    I12  A Held lane leaves Held only by a retry's resolution, a cancel or cancelAll, a release on leave, forget of a 
-         hold whose operation is gone (HoldForgotten, Actors Spec R21), or Restore Spec R5's stated fresh start. [@R8, 
-         @R14, @R15, @R16]
+    I12  A Held lane leaves Held only by a retry's resolution, a cancel, a release on leave, forget of a hold whose 
+         operation is gone (HoldForgotten, Actors Spec R21), or Restore Spec R5's stated fresh start. [@R8, @R14, @R15, 
+         @R16]
 
-    I13  idle(k) passes iff every lane matching k is Idle and holds no kept ending. [@R9]
+    I13  idle(k) passes iff every lane matching k is Idle and no Kept row names a lane matching k. Reworded 2026-11-12 
+         (consult round 3). [@R6, @R9]
 
     I14  A key-less member on a keyed operation names only the ending's own Attempt. [@R9]
 
@@ -360,12 +448,13 @@ invariants
          out: a re-send whose lane-record capture is refused adds a second ending of the same Attempt, unknown { 
          StorageRefused }; unknown { Restored } is delivered at most once per incarnation, so once again after each 
          reload or return (Restore Spec I6); an ending whose turn is refused (InvalidTurn, an outcome mapper throw at 
-         admission included) is delivered once more after queued mail, and a second refusal ends its tries until the 
-         next boot or adoption, each of which gives it exactly one try with no redelivery after a refusal there (Actors 
-         Spec R15); a releasing lane delivers nothing; evidence-only endings (a bare operation, Flow.ignore, 
-         Superseded, the interrupted Attempt under concurrency cancel when no cancel is pending on it, a released 
-         lookup) are recorded, never delivered. Re-parking is not a second delivery. Decision (agent, 2026-11-11): 
-         rulings CQ1 and CQ9 (spec-log.md, T42). [@R10, @R16]
+         admission included) is delivered once more after queued mail, and a second refusal ends its tries until the
+        next start (a reload, a return or an adoption), each of which gives it exactly one try with no redelivery after 
+            a refusal there (Actors
+        Spec R15); a releasing lane delivers nothing; evidence-only endings (a bare operation, Flow.ignore,
+        Superseded, the interrupted Attempt under concurrency cancel when no cancel is pending on it, a released
+        lookup) are recorded, never delivered. Re-parking is not a second delivery. Decision (agent, 2026-11-11):
+        rulings CQ1 and CQ9 (spec-log.md, T42). [@R10, @R16]
 
     I16  After a success or failure of an Attempt is delivered, no other ending of it is delivered. Reworded 2026-11-11 
          (audit). [@R10]
@@ -380,8 +469,8 @@ invariants
 
     I20  A cancel's result depends only on the head's history, never on timing. [@R14]
 
-    I21  cancelAll delivers queued NotSent { Cancelled } in admission order, then the head's ending; it promotes 
-         nothing. [@R15]
+    I21  Retired 2026-11-12 with R15: `cancelAll` is deferred (revisit.md, `cancelAll`). It ordered cancelAll's 
+         endings, queue first and the head's last. [@R15]
 
     I23  After cleanup no late result changes data, lanes or endings. [@R17]
 
@@ -398,10 +487,50 @@ invariants
 
     I27  Every admitted commit, at every quiescent point, is waiting (to be invoked, on the wire, or queued), Held, or 
          has exactly one ending delivered, parked or recorded as evidence; and a call that settles gives its Attempt an 
-         ending. Added 2026-11-11 (audit G1, @plan.Operations.O3). [@R8, @R10]
+         ending. Declines count: commits admitted equal Attempts minted, plus declines, plus commits queued or ended 
+         while
+        queued, and each decline has exactly
+        one ending. Added 2026-11-11 (audit G1, @plan.Operations.O3); declines 2026-11-12. [@R8, @R10]
 
     I28  Every boot mints from a seed the host supplied for that boot, never from a seed restored from disk or used by 
-         an earlier boot. Added 2026-11-11 (audit G4). [@R5]
+         an earlier boot; the seed has at least 128 random bits. Added 2026-11-11 (audit G4); the width added
+        2026-11-12 (wide consult, question 3). [@R5]
+
+    I29  Only a close removes a row, and a row is closed at most once. Every open row has a waker: a mail reference for 
+         Queued and Retrying, the next start of its identity for Waiting and Kept; at every step's end the
+        mail's ending references are exactly the Queued and Retrying rows. Added 2026-11-12 (consult round 3). [@R10]
+
+    I30  A mail reference whose row is closed delivers nothing. Added 2026-11-12 (consult round 3). [@R10]
+
+    I31  Kept rows never replace one another: every twice-refused ending is its own row, two on one lane included, and 
+         each gets one try at every start until it is heard or let go. Added 2026-11-12 (consult round 3). [@R6,
+        @R10]
+
+    I32  An ending is applied to its lane in the step its call settles, before any turn hears it, and nothing after 
+         settlement changes it: a cancel admitted between a success's settlement and its turn leaves it a success.
+        Added 2026-11-12 (T54's decision 1). [@R10, @R14]
+
+    I33  A commit under reject, latest or serialize declines NotSent { Rejected } before its cell exactly when a row 
+         naming its key's lane is Kept at that moment; a Queued, Retrying or Waiting row blocks no key, a Kept row
+        on its try at a start included, and no cell reads the ledger.
+        Added 2026-11-12 (T54's decision 2). [@R6]
+
+    I34  A row's life is reported from the row and nowhere else: Ended once at its birth, Parked each time it goes 
+         Waiting, Unparked each time it leaves Waiting, and exactly one of Delivered or Recorded at its close. The
+        ledger adds no report kind. Added 2026-11-12 (consult round 3, C7). [@R10]
+
+    I35  Attempt ids come from their own counter: minting any other id never changes an Attempt id. Added 2026-11-12 
+         (consult round 2, B8). [@R5]
+
+    I36  An Attempt's `mayHaveApplied` equals "its retryCount is above 0, or its head is Held, Recapturing or 
+         Resending"; no head and no record stores it. Added 2026-11-12 (consult round 3). [@R5]
+
+    I37  No report, snapshot, row of `O.x.get` or value handed to user code carries a row's id, a lane id, a ticket, a 
+         timer, a record key or a Delivery. A report names an ending by its Attempt id, or by actor, operation and
+        order when it has none. Added 2026-11-12 (consult round 3, C7). [@R10]
+
+    I38  Flow.NotSent and Flow.Unknown are discriminated by `_tag`, and each value round-trips through its Schema: 
+         decode(encode(v)) has the same tag and fields. Added 2026-11-12 (the user, wide consult W1). [@R3]
 
 composition
     flow
@@ -414,38 +543,52 @@ composition
         from the cell table in `model`, an exhaustive match over Phase and the input, so a new
         policy adds cells, not branches. Phase variants replace the head's `sent` and
         `cancelled` flags and the ending booleans; a lane's id and key text are derived, never
-        stored. Reports an act already determines are derived from it once per step, not written
-        beside it: evidenceOf(before, input, after, commands) gives Minted for a new Attempt,
-        Sent for an Invoke and each ending from the mail. Turn parts and members, which no act
-        determines, stay written. Parked endings live in the world's parked map and kept endings
-        in its kept map, each by lane id with its own record (`parked/<lane>`, `kept/<lane>`);
-        kept ones get one try per boot or adoption. Only reject concurrency is built.
+        stored. Only reject concurrency is built.
 
-        Production realization (@task.V3.T51). `src/core/cells.ts` holds the table: `cell(state, cue)` is one
-        exhaustive match over the cue and then the lane state (Idle, Kept, or a head's Phase),
-        returning a `Move` as data; a pair the table marks impossible returns `Impossible`, which
-        the applier raises as a defect. Q5's cancel-policy commit on a Kept lane is `Impossible`
-        until @task.V3.T18 rules it; a twice-refused ending beside a Held head is kept there, as
-        Actors Spec R15 rules for reject (T51 step-2 review, 2026-11-12). `src/core/lanes.ts`
-        applies a move through the step's working state and
-        emits `evidenceOf(before, cue, after, commands)`.
+        Production realization (@task.V3.T51, consolidated by @task.V3.T54 from consult round 3, Part 2).
+        `src/core/cells.ts` holds the table: `cell(state, cue)` is one exhaustive match over the
+        cue and then the lane state (Idle, or a head's Phase), returning a `Move` as data; a pair
+        the table marks impossible returns `Impossible`, which the applier raises as a defect.
+        `LaneState` is `Idle | Head`: there is no Kept row, no `Keep` cue and no cell for a kept
+        ending, so @task.V3.T18 adds cells over Idle and head phases only.
 
         Production phases: Acknowledging, Unsent, Withdrawing, Recapturing, Resending, OnWire,
-        Cancelling and Held, as in `model`; Kept is a kept ending in the kept map, not a stored
-        lane. Production's Unsent and Resending wait for their turn's end (cue TurnEnded), which
-        takes them to Acknowledging or Recapturing when the identity persists, else to the wire;
-        a landed batch invokes at once, so the model's acknowledged Unsent and captured
-        Resending pass in that one cue. A settled call is classified at settlement by the phase
-        it found (Cancelling gives unknown Cancelled) and applied to the lane when its turn is
-        admitted (cue Ended). An ending's tries are a tag (First, Parked, Last), not booleans.
+        Cancelling and Held, as in `model`. Production's Unsent and Resending wait for their
+        turn's end (cue TurnEnded), which takes them to Acknowledging or Recapturing when the
+        identity persists, else to the wire; a landed batch invokes at once, so the model's
+        acknowledged Unsent and captured Resending pass in that one cue. A settled call is one
+        cue, `Answered`: it is classified by the phase it found (Cancelling gives unknown
+        Cancelled), applied to the lane in that step, and owed. Not the rule, only the way
+        back: if backlog shows a real problem with a lane moving before its machine hears,
+        @task.V3.T54 may keep a fourth `Delivery` state, `Settled`, and an `Ended` cue, and
+        must then rewrite R10 and I32 and say so to the user.
 
-        Effect features: `Data.taggedEnum` for Phase, Cue, Move and Tries (exhaustive `$match`
-        is the table's totality check); `Option` for an absent lane or kept ending. Skipped:
+        Shared terms. This Spec owns ending (R2, R3), Attempt (R5), lane (R6) and owed row
+        (`model`); the Actors Spec owns Start, Adoption and Life (its `model`); the WriteAhead
+        Spec owns the records (R4, R5); the Reads Spec owns the read slot. Other Specs cite
+        these and do not restate them.
+
+        The owed ledger (`src/core/ledger.ts`) is the World's only holder of endings. It is
+        opaque outside that module: `owe`, `tryOne`, `suspend`, `start` and `close` are the only
+        code that builds, moves or removes a row, and `keptOn` is the only blocking read. Mail
+        carries a reference to a row (its id), never the ending. A move issues no write and no
+        report: there is no `persist`, `park`, `keep` or `emit` to call. Records are projected
+        from what the step touched (WriteAhead Spec R5, R10), and every report is built by
+        `evidenceOf(act)` in `src/core/evidence-of.ts`, the only builder of an Evidence, from
+        the step's acts in act order: a lane's cue with its states before and after, a row's
+        change, a turn's verdict with its parts and members, a call, an incarnation, the
+        Runtime's life. A step returns `{ world, life, commands, acts }`.
+
+        Effect features: `Data.taggedEnum` for Phase, Cue, Move, Delivery, Audience and Act
+        (exhaustive `$match` is the table's totality check); `Brand` for `OwedId`, `AttemptId`
+        and `LaneId`; `Option` for an absent lane, Attempt or row. Skipped:
         `Match` (taggedEnum's `$match` already gives exhaustiveness at no cost), `HashMap` and
         `Data` structs per lane (a turn's hot path; plain maps cost less), `Effect` itself (the
-        core is pure). In the host: `Deferred` for dispose waiting on the core's disposal before
-        `Scope.close`; `Effect.timeout` for the final write's share of the disposal's 5 s (Actors
-        Spec R23); `FiberMap`, `Clock` and `Scheduler` as before.
+        core is pure), a linear `OwedId` and typestate on the World (a missing row is a no-op
+        by rule). In the host: `Deferred` for dispose waiting on the core's disposal before
+        `Scope.close`; `FiberMap`, `Clock` and `Scheduler` as before. The final write's share of
+        the disposal's 5 s moves into the core with @task.V3.T55 (Actors Spec R23); until then
+        the host's `Effect.timeout` holds it.
 
 coverage
     @R1
@@ -457,19 +600,19 @@ coverage
         open_by      [@Q1]
 
     @R3
-        enforced_by  [@I4]
+        enforced_by  [@I4, @I38]
         open_by      [@Q1, @Q2]
 
     @R4
-        enforced_by  [@I5]
+        enforced_by  [@I4, @I5]
         open_by      [@Q1]
 
     @R5
-        enforced_by  [@I6, @I7, @I28]
+        enforced_by  [@I6, @I7, @I28, @I35, @I36]
         open_by      [@Q1]
 
     @R6
-        enforced_by  [@I8, @I9, @I10]
+        enforced_by  [@I8, @I9, @I10, @I31, @I33]
         open_by      [@Q1]
 
     @R7
@@ -485,7 +628,7 @@ coverage
         open_by      [@Q1, @Q2]
 
     @R10
-        enforced_by  [@I15, @I16, @I27]
+        enforced_by  [@I15, @I16, @I27, @I29, @I30, @I31, @I32, @I34, @I37]
         open_by      [@Q1]
 
     @R11
@@ -501,7 +644,7 @@ coverage
         open_by      [@Q1, @Q3]
 
     @R14
-        enforced_by  [@I12, @I20]
+        enforced_by  [@I12, @I20, @I32]
         open_by      [@Q1]
 
     @R15
@@ -520,8 +663,9 @@ tests
     T1  Three channels and the Attempt's ending: success, failure and unknown each map to their event; a definite 
         failure after an unknown send is StillUnknown. Cases `STORE-01`, `STORE-02`, `STORE-03`, `PAY-05`; lies 
         `k.failure-as-success`, `e8.wa-failure`. [@I3]
-    T2  The Attempt: every send has one id; a definite failure then a new write mints a new id; restored lanes floor 
-        the mints. Cases `PAY-04`, `PAY-15`; wrong runtime `durable.mint-floor-head-only`. [@I6, @I7]
+    T2  The Attempt: every send has one id; a definite failure then a new write mints a new id; after a restore, new 
+        ids never equal a restored one (a fresh seed each boot, R5). Cases `PAY-04`, `PAY-15`; wrong runtime 
+        `durable.mint-floor-head-only`. [@I6, @I7]
     T3  Concurrency cells, one per policy: reject declines beside a Held head; latest supersedes a never-sent head; 
         serialize declines the 65th; cancel interrupts the wire. Cases `PAY-15`, `MED-01`, `REV8-PINS`, `R15-01`; lie 
         `lie.serialize-as-latest`; wrong runtimes `lane.queue-unbounded`, `d118.commit-beside-kept`. [@I8, @I9]
@@ -546,10 +690,11 @@ tests
         asked. Cases `REV9-M1`, `REV7-M9`; wrong runtime `d114.input-not-replaced`. [@I18]
     T9  cancel by history: on the wire, waiting never sent, a waiting re-send, Held, Idle. Cases `PAY-03`, `PAY-12`, 
         `PAY-15`, `STORE-05`; wrong runtime written in phase 3 (`lane.cancel-wire-as-never-sent`). [@I12, @I20]
-    T10  cancelAll: queue first in mint order, head last; idle does nothing; beside a release the release wins. Case 
-         `P1-H`; wrong runtimes `1b.cancel-all-queue-reversed`, `1b.cancel-all-promotes-before-emptying`, 
-         `audit-1.cancel-all-leaves-the-head`, `p1h.cancel-all-idle-declines`, 
-         `audit-1.cancel-all-release-also-cancels-head`. [@I21]
+    T10  Retired 2026-11-12 with R15 and I21 (`cancelAll` is deferred; revisit.md). Not written for production; the ids 
+         below are the prototype's. It read: queue first in mint order, head last; idle does nothing. Case
+             `P1-H`; wrong runtimes `1b.cancel-all-queue-reversed`, `1b.cancel-all-promotes-before-emptying`,
+             `audit-1.cancel-all-leaves-the-head`, `p1h.cancel-all-idle-declines`,
+             `audit-1.cancel-all-release-also-cancels-head`. [@I21]
     T11  Release on leave: the wire is interrupted and nothing delivered; a reload of a releasing lane delivers 
          nothing. Case `FRAG-06`; lies `d154.moved-save-released`, `lie.released`. [@I15]
     T12  Store effects before the ending: a domain write's store effects are visible in the cut before its ending's 
@@ -563,9 +708,12 @@ tests
     T15  Success writes: a success write is applied before its ending's event and never on failure or unknown; an 
          invalid write reports InvalidWrite and the commit still succeeds; a write over data that landed later marks it 
          stale instead. No prototype case; phase 3 writes this test and its wrong runtime. [@I2, @I24]
-    T16  Reserved reasons and unknown targets: a failure tag named NotSent or Disposed is refused ReservedReason; a 
-         bare operation's unknown leaves no Held lane (UnknownNotUncertain is Compile Spec T3's). The prototype's 
-         front-end pins check the first two; phase 3 writes the wrong runtimes. [@I4, @I5]
+    T16  Origins and unknown targets: an operation whose author failure tag is named Cancelled, with `notSent` and an 
+         `unknown` record mapping Cancelled and `otherwise`; the author's failure reaches only the failure mapper, a
+             declined commit only `notSent`, a cancelled send only `unknown.Cancelled`, and the commit's own unknown
+             error reaches `otherwise` as Outcome { error }. A type test: a missing failure tag and a `failure.NotSent`
+             key are errors. A bare operation's unknown leaves no Held lane (UnknownNotUncertain is Compile Spec T3's).
+             Written by @task.V3.T18; wrong runtime: Flow's Cancelled routed to the author's Cancelled tag. [@I4, @I5]
     T17  Member order: one turn listing cancel then commit on a Held lane, and one listing commit then cancel; each 
          member applies to the state the previous one left. No prototype wrong runtime; phase 3 writes one that applies 
          members to the pre-turn lane. [@I10]
@@ -583,4 +731,27 @@ tests
          waiting, Held or has exactly one ending, and each settled call has its Attempt's ending. Phase 3 writes the 
          wrong runtime that drops a queued commit. [@I27]
     T22  A seed per boot: two boots of one scope with a host spy; each boot asks for its own seed and no Attempt id of 
-         the second equals one on disk. Phase 3 writes the wrong runtime that saves and reuses its seed. [@I28]
+         the second equals one on disk. Phase 3 writes the wrong runtime that saves and reuses its seed. The real
+             host's seed is checked for its width, failing first on the 32-bit seed (@task.V3.T54). [@I28]
+    T23  The ledger's rows: generated member sequences with refused turns; at every step's end the mail's ending 
+         references are exactly the Queued and Retrying rows, every row closes at most once, and each row's reports
+             are one Ended, then Parked and Unparked in pairs, then one Delivered or Recorded. Design mutants, written
+             before the code (@task.V3.T54): a close with no report; a stale mail reference that delivers again. [@I29,
+             @I30, @I34]
+    T24  Two kept endings on one lane: two endings of one lane are each refused twice, and the jam stays on across the 
+         next start; each gets exactly one try there, and both are heard once the jam clears at a later start.
+             Pending in the suite until @task.V3.T54; design mutants: a keep that replaces, a start that skips Kept
+             rows. [@I31]
+    T25  Applied at settlement: a call succeeds and a cancel is admitted before the success's turn; the machine hears 
+         the success and the lane is as the success left it. Red until one `Answered` cue lands (@task.V3.T54). [@I32]
+    T26  Only Kept blocks: a commit on a key whose lane has a Kept row declines Rejected; the same commit beside a 
+         Queued, a Retrying and a Waiting row mints. [@I33]
+    T27  Attempt ids keep their numbers: one script run with and without other ids minted between its commits gives the 
+         same Attempt ids; each invoked Attempt's `mayHaveApplied` equals its derivation, and no lane record
+             holds the field. Failing first (@task.V3.T54, step A0). [@I35, @I36]
+    T28  Nothing internal crosses: over every production case, no report, snapshot or `O.x.get` row has a field holding 
+         a row id, a lane id, a ticket, a timer, a record key or a Delivery tag; an ending with no Attempt
+             is matched by actor, operation and order. Wrong runtime: a Delivered report carrying its row's id. [@I37]
+    T29  Flow's values: every Flow.NotSent and Flow.Unknown tag is built, matched with `Match.tag`, encoded and decoded 
+         by its Schema, and comes back with the same tag and fields; an owed row saved with each survives a
+             reload as that value. Wrong runtime: a value discriminated by `why`. Written by @task.V3.T18. [@I38]

@@ -16,13 +16,18 @@ requirements
         source  @plan.Persistence.O4.
         must    ready() restores a compatible scope before actor work starts. Restored records stay
                 records until an ensure, a subscription or a send reaches them, except an identity
-                whose captured lanes owe it an ending (a lane InFlight at capture, or a parked
-                ending), which is restored live at ready and kept as work in flight until those
-                turns run.
+                owed an ending (a lane record in flight at capture, or an owed record), which is
+                restored live at ready and kept as work in flight until those turns run.
 
-                An owed identity whose actor record is quarantined (R5) or reset (R7) at that boot
-                is not restored live: its lanes stay unbound with their endings parked, and the
-                incarnation an adopting ensure starts receives them. Decision (agent, 2026-11-11):
+                The boot decodes the records, sorts them by record key so that the store's load
+                order decides nothing, and picks whom to wake. It delivers nothing and parks nothing
+                itself: each woken identity's start delivers (R3; Actors Spec R10). Decision
+                (orchestrator, 2026-11-12): consult round 3, Part 2 (spec-log.md).
+
+                An owed identity whose actor record is quarantined (R5) or reset (R7) at that boot,
+                or absent because disposeActor removed it, is not restored live: its lanes stay
+                unbound and its owed rows stay Waiting, and the incarnation an adopting ensure
+                starts receives them. Decision (agent, 2026-11-11):
                 audit C17 (spec-log.md, T42).
 
                 A restored record is a new incarnation with new ids for the actor and every fragment
@@ -37,14 +42,20 @@ requirements
 
     R3  Delivery order at restore
         source  @plan.Persistence.O4.
-        must    Per lane in creation order, the incarnation receives the parked endings in saved
-                order; on a reload, each queued commit's NotSent { Restored } first, then a Held
-                head's unknown { Restored } once (unless its outcome was saved), so the ending that
-                leaves a hold comes last.
+        must    The incarnation's Start delivers (Actors Spec `model`), the same way whatever began
+                it. First come the identity's owed rows, in the order they were owed across all its
+                lanes. Then, lane by lane in record-key order, come each queued commit's NotSent {
+                Restored }, when the lane record holds a queue, and last the Held head's unknown {
+                Restored }, once, unless a row for its Attempt is owed. So on every lane the ending
+                that leaves a hold comes last. unknown { Restored } is derived at the Start and
+                stored nowhere. A lane record holds no queue under reject, the only policy built;
+                @task.V3.T18 saves the queue with latest and serialize, and until then no queued
+                commit is restored. Reworded 2026-11-12 from "per lane in creation order" (consult
+                round 3: one list per identity; creation-order keys are @task.V3.T20's).
 
                 An Attempt acknowledged once ends unknown { Restored } even if its re-send was
-                waiting or it was never invoked; a head whose own ending is parked restores as that
-                ending, once. These come after readiness, before new external events and before
+                waiting or it was never invoked; a head with an owed row for its own Attempt hears
+                that row, once. These come after readiness, before new external events and before
                 continuing placements reconcile. A kill before a first send's batch lands restores
                 the state before that turn, with no lane and no ending.
 
@@ -151,24 +162,27 @@ model
     Boot = one ready() of a persistent Runtime: read, upgrade formats, check versions and shapes, 
         quarantine, then install.
 
-    Owed = an identity with a lane InFlight at capture or a parked ending.
+    Owing = an identity with an owed record, or a lane record in flight at capture. Renamed 2026-11-12 from Owed,
+        which is now one ledger row (WriteLanes Spec `model`).
 
     HoldLeaving = an ending after which its lane stays Held (unknown).
 
 invariants
-    I1  After ready, the live incarnations restored from records are exactly the Owed identities whose actor record 
-        restores at that boot; an Owed identity whose record is quarantined or reset has no live incarnation and its 
+    I1  After ready, the live incarnations restored from records are exactly the Owing identities whose actor record 
+        restores at that boot; an Owing identity whose record is quarantined or reset has no live incarnation and its 
         endings stay parked until an adopting ensure; every other record is still only a record. Reworded 2026-11-11 
         (audit C17). [@R1]
 
     I2  No restore, return or adoption re-runs a turn. (Creation is Compile Spec I8's; re-sends are WriteLanes Spec 
         I1's.) [@R1, @R4]
 
-    I5  Per lane, deliveries at restore follow: parked endings in saved order, then queuedNotSent { Restored }, then at 
-        most one HoldLeaving ending, last. [@R3]
+    I5  Per lane, deliveries at restore follow: that lane's owed rows in the order they were owed, then queued NotSent 
+        { Restored }, then at most one HoldLeaving ending, last; across lanes, every owed row comes before
+        any ending derived at the Start. Reworded 2026-11-12 (consult round 3). [@R3]
 
-    I6  An Acknowledged Attempt with no saved outcome is delivered unknown { Restored } exactly once per incarnation; 
-        one with a parked outcome is delivered that outcome, never also unknown { Restored }. [@R3]
+    I6  An Acknowledged Attempt with no owed row is delivered unknown { Restored } exactly once per incarnation; one 
+        with an owed row for its Attempt is delivered that row's ending, never also unknown { Restored }. Reworded
+        2026-11-12 (consult round 3). [@R3]
 
     I7  Restore deliveries precede every external event admitted after ready. [@R3]
 
@@ -206,6 +220,11 @@ composition
         the boot: format steps, version and shape checks, quarantine, then installation of the
         Owed identities (packages/flow-state-v3/prototypes/round-14/durable.ts); the step
         decides which records wake (round-14/step.ts).
+
+        Boot and start (@task.V3.T54; consult round 3, Part 2). `boot` decodes, sorts by record
+        key and wakes each identity with an owed record or a lane record in flight; it parks
+        nothing. The ledger's `start` (WriteLanes Spec `model`) is the one delivery point for
+        reload, return and adoption, and derives unknown { Restored } there.
 
 coverage
     @R1

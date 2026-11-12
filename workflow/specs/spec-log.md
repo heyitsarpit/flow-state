@@ -460,3 +460,53 @@ Both written by the replan records review, under the orchestrator's ruling (V3 l
 - **Conformance R18, I58: cell pairs** are reported per composite and in total, never gating; the denominator is
   the successor pairs Tables A, B and C give (code:packages/flow-state-v3/conformance/parts/cells.ts). Why: the
   catalogue's 5A line "3-way and cell-pair numbers are recorded, never gating". Reverse: drop "and cell pairs".
+
+## 2026-11-12, runtime cluster rewritten as one set: core consolidation (T54, T55)
+
+The seven runtime Specs now describe the accepted consolidation. Source:
+code:workflow/plans/flow/references/proposals/fable-architecture-consult-3-2026-11-12.md Part 2, and wide consult
+W1 option B, question 3 (seed) and question 4 (Store). Reverse any line by restoring the Spec text of commit
+`9405af2f`. Type skeleton: code:packages/flow-state-v3/prototypes/t54-skeleton. New tests run over every generated
+part available at their slice, never one app (the user, 2026-11-12).
+
+Decided by the user or the orchestrator:
+
+- **WriteLanes R3, R4, I4, I38, T29:** Flow's endings are `Flow.NotSent` and `Flow.Unknown`, tagged by `_tag`, each
+  a Schema; four mapping keys (`success`, `failure`, `notSent`, `unknown` with `otherwise`). ReservedReason retired.
+- **WriteLanes R15, I21, T10 retired:** `cancelAll` is deferred (revisit.md). R16 and the cells drop it.
+- **WriteLanes R5, I28, I35, I36:** 128-bit seed; Attempts have their own counter; `mayHaveApplied` is derived.
+- **WriteLanes R6, R8, R10, I29 to I34, I37, T23 to T28, model:** a lane holds Attempt state only; an ending is
+  applied at settlement and is then one row of the owed ledger with five functions; only a Kept row blocks a key.
+- **Actors R8 to R10, R12, R15, R20, R21, I14, I24, I40, I41, T21, T22:** suspend at an end, `start` the one
+  delivery point, mail carries a row reference, kept endings are rows.
+- **Actors R22, I29, T23:** R22's reading wins: after disposal no Held head and no owed ending is dropped.
+- **Actors R2, R4, R23, I3, I42, I43, T24, T25, model:** `Life` and the `admit` table; the 5 s runs from the call
+  to dispose and covers the final write (@task.V3.T55).
+- **WriteAhead R2, R12, I12, I23, T17, Q4:** Flow's own `Store` (`load`, one atomic `write(batch)`); one batch
+  stream per Runtime, one batch out at a time. No KeyValueStore adapter.
+- **WriteAhead R4, R5, R9, R10, R13, R14, I20 to I22, T15, T16; Codec R5, I7, T6:** three record kinds (`actor/`,
+  `lane/` with no `mayHaveApplied`, `owed/<identity>`), written from what a step touched; `Due` is derived.
+- **Restore R1, R3, I5, I6, model:** a boot sorts by record key and delivers nothing; Start delivers rows, then
+  derives each Held head's Restored. Model term Owed renamed Owing.
+- **Reads R6, I9, I22, T14, model:** a read keeps a slot, never a lane; its ending is a row with a chosen audience.
+- **Turn R26, I15, I36, T24, composition:** the turn's verdict is an act; reports derive from acts.
+
+Decided by the agent while writing (each is one sentence in its rule; reverse by deleting it):
+
+- Actors `model`: the `admit` cells round 3 left unstated (BootFailed, Stored and Refused while Disposing, Send
+  while Booting until @task.V3.T9).
+- WriteLanes `model`: `start` skips Releasing lanes and walks lanes in lane-id order; promotion never waits on a
+  Kept row; a commit beside a Kept row declines Rejected under latest and serialize too (cancel is Q5).
+- WriteLanes R3: the proposed unknown Abandoned is dropped. R4: a decline's mapper gets no `attempt`.
+- Turn R26: a Refused ending's turn leaves its row to the retry; Unhandled and Denied close it delivered.
+- Restore R3: across lanes, all owed rows come first, then each lane's derived endings.
+- WriteLanes I27: a commit queued, or ended while queued, counts beside Attempts and declines.
+
+Sidecar findings (six read-only Haiku readers): accepted and applied are the lines above marked by their rules;
+rejected were "inFlight is a flag" (it is a record field), a Commit cue and RowAt (T18's and T17's), "an
+acknowledged head has no Restored" (a boot rebuilds it Held), and Verdict against TurnVerdict (two named types).
+
+Left as found, for their owners: Reads R9 still maps Flow's Defect and Interrupted under `failure` (Reads Q3, the
+user); Compile, Diagnostics and StaticCli still name `cancelAll` and ReservedReason (@task.V3.T17); Restore R6's
+gone operation is both quarantined and moved, and Restore's LaneRekeyed against OldVersionLane (@task.V3.T56);
+Turn T4 against I14 on a child's refusal; Actors I25 "a send never creates" against R16's boot queue (@task.V3.T9).

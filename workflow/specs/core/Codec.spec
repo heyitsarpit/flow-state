@@ -46,6 +46,23 @@ requirements
                 FlowError: decoding at the boot, payloads, traces, Model bytes and direct calls.
                 Decision (agent, 2026-11-11): audit C23, one code per trace (spec-log.md, T42).
 
+    R5  Record kinds
+        source  @plan.Inspection.O2; the record set is the WriteAhead Spec's R4 and R5.
+        must    A persisted record is one of three kinds, named by its key: `actor/<identity>`,
+                `lane/<lane>` and `owed/<identity>`. Each kind has one Schema, and every record
+                carries the one `format` number all kinds share (WriteAhead Spec R9); no migration
+                step is written before a release exists (Restore Spec R5 owns the steps).
+
+                Each Schema has exactly the fields the WriteAhead Spec's R4 and R5 list for its
+                kind, so the lane Schema has no `mayHaveApplied`. A row's Flow-made ending is
+                encoded by the Schemas of Flow.NotSent and Flow.Unknown (WriteLanes Spec R3). There
+                is no
+                `parked/` or `kept/` kind. A key of no kind, or a record its kind's Schema refuses,
+                is undecodable and handled by the Restore Spec's R5; it is never coerced. Decision
+                (the user, 2026-11-12): consult round 3, C9 (spec-log.md). Still @task.V3.T20's:
+                the canonical codec for records, how a row's `value` is encoded when JSON cannot
+                carry it, and creation-order keys.
+
 open
     Q1  Executable checks are not built.
         outcome  Phase 3 writes each test below as vectors, with a wrong codec for each check.
@@ -70,6 +87,10 @@ invariants
 
     I6  A codec failure happens before any state change and carries no data value or Cause.[@R4]
 
+    I7  Every key the Runtime writes is `actor/<identity>`, `lane/<lane>` or `owed/<identity>`, and its record decodes 
+        with that kind's Schema and has `format`; no lane record has a `mayHaveApplied` field, and each
+        kind round-trips: decode(encode(record)) equals the record. Added 2026-11-12 (consult round 3, C9). [@R5]
+
 coverage
     @R1
         enforced_by  [@I2]
@@ -87,6 +108,10 @@ coverage
         enforced_by  [@I6]
         open_by      [@Q1, @Q2]
 
+    @R5
+        enforced_by  [@I7]
+        open_by      [@Q1]
+
 tests
     T1  Bounds: each of the five bounds at its value and one past it; the error names the bound, value and path. [@I2]
     T2  Malformed vectors: a BOM, invalid UTF-8, a lone surrogate, duplicate keys, unsorted keys, -0, 1.0 and 1e0 
@@ -96,3 +121,7 @@ tests
     T4  Mutation: mutate the input and output byte arrays after a call; stored and decoded values are unchanged. [@I5]
     T5  Schema mismatch: a valid JSON value that fails the owning Schema gives CodecSchemaMismatch with a path and no 
         data value; a turn with an unencodable value commits and reports UnencodableValue. [@I6]
+    T6  Record kinds: over every production case, every key in the store has one of the three prefixes and its record 
+        decodes with that kind's Schema and re-encodes to the same value; no lane record has
+            `mayHaveApplied`. Wrong runtimes: a `kept/<lane>` record; a lane record with `mayHaveApplied`. Written with
+            @task.V3.T54's step A3. [@I7]

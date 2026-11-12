@@ -206,6 +206,22 @@ requirements
         must    A later success or release clears its own source's issue, never another source's. A 
                 new incarnation inherits no issue.
 
+    R26  A turn's verdict is an act
+        source  @plan.Machines.O3; @plan.Inspection.O2.
+        must    The turn returns its verdict as a value and reports nothing itself. The verdict is
+                one of Accepted (from, to, parts, members), Unhandled, Denied (reasons) and
+                Refused (a code). The step records it as one Turn act with the actor, the event
+                and, for an ending's turn, the owed row it delivers (WriteLanes Spec `model`).
+
+                The Turn, Unhandled and Denied reports and a refusal's Issue are derived from that
+                act, in act order, by the one function that builds a report (WriteLanes Spec
+                composition); no module writes a report, and none is placed among earlier ones
+                after the fact. An ending's turn that is Accepted, Unhandled or Denied closes its
+                row as delivered (R9); a Refused one leaves the row to its retry (Actors Spec R15).
+                `check` returns the same verdict type and yields no act (R13). Decision (the user, 2026-11-12): consult 
+                round 3, C1 and C2 step A4
+                (spec-log.md).
+
 open
     Q1  Executable checks are not built.
         outcome  Phase 3 writes each test below as an oracle behind the Port, with its wrong 
@@ -262,7 +278,8 @@ invariants
          work; it publishes exactly one issue-only snapshot. [@R8, @R10]
 
     I15  An Unhandled or Denied event changes no state, memory or revision of its own and starts no work; an ending 
-         admitted in that turn still applies its lane effects and counts as delivered. [@R9]
+         admitted in that turn has already applied its lane effects at settlement (WriteLanes Spec R10) and its owed
+        row closes as delivered. Reworded 2026-11-12 (consult round 3). [@R9]
 
     I16  A post-commit defect never undoes the committed state and never applies part of a write batch. [@R10]
 
@@ -313,6 +330,10 @@ invariants
     I35  A keyed schedule has exactly one live timer per key in the after memory and after lanes: armed when the key 
          appears, cancelled when it leaves, and each firing carries its key. Added 2026-11-11 (audit G6). [@R16]
 
+    I36  Every admitted event's turn yields exactly one Turn act carrying its verdict, and the turn's Turn, Unhandled, 
+         Denied and Issue reports are exactly what that act derives, in the order of the step's acts.
+        Added 2026-11-12 (consult round 3). [@R26]
+
 composition
     flow
         Design note, proved by the prototype. The turn is pure and runs on a working copy, so a
@@ -324,10 +345,13 @@ composition
         Production layout (T16, proposed, for the user's read). `runTurn` (src/core/turn.ts) is
         the pure turn: selection, guards, the memory patch, selects and armings, returning a
         TurnResult; it never touches the world. `step` (src/core/step.ts) composes one step from
-        modules over one working state (src/core/tx.ts): persist, lanes, answers, incarnations,
-        serve and disposal, each `make*(tx, ...)`. The world is replaced whole; ids come from its
-        counter and the boot's seed. Reports an act determines are derived from the step's acts
-        (WriteLanes Spec composition, @task.V3.T51). The driver (src/host/driver.ts) runs
+        modules over one working state (src/core/tx.ts): the owed ledger, lanes, answers,
+        incarnations, serve and the Runtime's life, each `make*(tx, ...)`. No module persists
+        or reports: the step derives its writes from the records it touched (WriteAhead Spec
+        composition) and its reports from its acts (R26; WriteLanes Spec composition,
+        @task.V3.T54). The world is replaced whole; ids come from its counter and the boot's
+        seed. Ending, Attempt, lane and owed row are the WriteLanes Spec's terms; Start and
+        Life are the Actors Spec's. The driver (src/host/driver.ts) runs
         commands with Effect: every call, timer and persistence wake is a keyed fiber in one
         FiberMap owned by the Runtime's Scope, sleeping on Effect's Clock and run on its
         Scheduler, which a test or the suite's world provides; Disarm interrupts the key's fiber.
@@ -434,6 +458,10 @@ coverage
         enforced_by  [@I31]
         open_by      [@Q1]
 
+    @R26
+        enforced_by  [@I36]
+        open_by      [@Q1]
+
 tests
     T1  Self and re-entry: a call started in a state, then "self", then an explicit re-entry of that state; after self 
         the call ends current, after re-entry it ends late. Cases `PAY-07`, `R14-FIX-01`; wrong runtimes 
@@ -491,11 +519,15 @@ tests
          before the next event; a leave that ends a trait runs whenAbandoned in the leaving turn. Case `FRAG-02`; phase 
          3 writes the wrong runtimes. [@I10, @I11]
     T21  Denied and Unhandled: a lane ending admitted where every alternative declines applies its lane effects, counts 
-         as delivered, and changes no state or revision; an unhandled public event publishes nothing. Cases `STORE-04`, 
-         `R14-F-01`; phase 3 writes the wrong runtime that drops the lane effects. [@I15]
+         as delivered (its owed row closes), and changes no state or revision; an unhandled public event publishes 
+         nothing. Cases `STORE-04`, `R14-F-01`; phase 3 writes the wrong runtime that drops the lane effects. [@I15]
     T22  value only on change: a placement receives equal confirmed data twice and an optimistic change; value fires 
          once. No prototype case for resources; phase 3 writes this test and its wrong runtime. [@I25]
     T23  Equal deadlines and step delays: two actors and two nested states arm schedules due at one instant; the 
          firings are separate turns in admission, outermost-state, then declaration order. A Schedule step fired late 
          counts its next delay from the actual firing. No prototype case (Q2); phase 3 writes the wrong runtimes. 
          [@I32, @I33]
+    T24  Verdicts as acts: an accepted, an unhandled, a denied and a refused turn each give one Turn act, and the 
+         report stream derived from the acts equals the stream before the change, byte for byte, over the whole
+             suite. Wrong runtimes: an Unhandled turn that yields no act; a refusal's Issue reported before its Turn.
+             Written with @task.V3.T54's step A4. [@I36]

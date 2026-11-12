@@ -26,7 +26,8 @@ requirements
         source  @plan.Runtime.O2.
         must    ready() is the one readiness Effect. The first call starts the bootstrap; 
                 concurrent and later callers share its result, a failure included, with no implicit 
-                retry. Interrupting one waiter interrupts only that wait.
+                retry. Interrupting one waiter interrupts only that wait. Once disposal has started,
+                ready rejects RuntimeDisposed (R22).
 
     R3  Bootstrap order
         source  @plan.Runtime.O2.
@@ -48,6 +49,13 @@ requirements
                 past it, or on a failed read, it reports StorageFailure, the Runtime runs without
                 persistence and the queue is flushed. Disposing during bootstrap cancels it and
                 closes admission; a service acquired late is released and no handle is exposed.
+
+                The Runtime's life is one value in the core, Life (`model`). `admit(life, input)` is
+                the one table that says whether an input runs, is dropped (a late host answer or
+                timer) or is rejected with RuntimeNotReady or RuntimeDisposed; the host's guards call
+                it and keep no flag of their own. A dispose while Inert or Booting goes straight to
+                Disposed, and the Boot that follows is rejected, so ready fails. Decision (the user,
+                2026-11-12): @task.V3.T55, from consult round 3 (spec-log.md).
 
     R5  Identity
         source  @plan.Runtime.O3.
@@ -80,7 +88,9 @@ requirements
                 Effect Clock) ends at the grace's end: a persisted actor's record is encoded in that
                 step (the end waits while it cannot encode), its lanes move to the Runtime unbound, its schedules are
                 cancelled, its placements and unkept reads stop, and each stopped read parks failure
-                { Interrupted } for the identity.
+                { Interrupted } for the identity. Its owed rows are suspended (WriteLanes Spec
+                `model`): those in its mailbox wait for the identity's next start, and those owed to
+                that incarnation alone close as evidence.
 
                 EndedWithWork is warned once per machine and kind of work. An ensure while it ends
                 binds the next incarnation. Decision (agent, 2026-11-11): the end is owed, not only
@@ -90,8 +100,9 @@ requirements
         source  @plan.Runtime.O3.
         must    A persisted identity reached by an ensure, a subscription or a send returns as a new
                 incarnation with a newly minted id, restored from the Runtime's copy. It receives
-                its starting turn, its lanes' deliveries, the Interrupted endings its end parked,
-                one `onContext` wave if a provider's selection changed, then the event that restored
+                its starting turn, R10's deliveries (the Interrupted endings its end parked are among
+                its owed rows, in the order they were owed), one `onContext` wave if a provider's selection changed, 
+                then the event that restored
                 it.
 
                 A non-persisted identity starts fresh. An ensure over an undecodable record starts
@@ -103,13 +114,17 @@ requirements
     R10  Lanes follow identities
         source  @plan.Runtime.O3.
         must    A starting incarnation adopts only its own identity's unbound lanes, oldest first
-                for equal local identities, and receives before any external event: the parked
-                endings in saved order, then each Held head's unknown { Restored } once per
-                incarnation unless that head's own ending is parked (Restore Spec R3), then an
-                in-flight Attempt's ending when it lands.
+                for equal local identities. Its start is the one point where a reload, a return and
+                an adoption deliver. Before any external event it receives its owed rows in the
+                order they were owed (each Waiting row, and each Kept row for its one try), then
+                each Held head's unknown { Restored } once per incarnation unless a row for that
+                head's Attempt is owed (Restore Spec R3), then an in-flight Attempt's ending when
+                it lands. A boot delivers nothing and parks nothing itself. Decision (orchestrator,
+                2026-11-12): consult round 3, Part 2 (spec-log.md).
 
                 A lane binds to the live incarnation with its recorded subject path; with none its
-                ending is parked for the path. No schedule, issue or send of an old incarnation
+                ending waits as an owed row, which carries that path, for the identity's next start. No schedule, issue 
+                or send of an old incarnation
                 reaches a new one.
 
     R11  Identity versions
@@ -128,7 +143,9 @@ requirements
         source  @plan.Runtime.O4.
         must    Each actor processes one event at a time from one FIFO mailbox in admission order; 
                 sends, call endings, stream deliveries, timer firings and onContext events queue 
-                together. A call's ending is queued at settlement and mapped at admission.
+                together. A call's ending is owed and queued at settlement and mapped at admission.
+                The mailbox holds a reference to the ending's owed row, never the ending; a reference
+                whose row is closed does nothing.
 
     R13  Order across actors
         source  @plan.Runtime.O4.
@@ -152,13 +169,16 @@ requirements
         source  @plan.Runtime.O4.
         must    An ending whose turn is refused, or whose mapper throws at admission, is delivered
                 once more after the mail already queued. Each refusal reports an issue naming the
-                ending and its cause; the second ends its tries until the next boot or adoption.
+                ending and its cause; the second keeps it (a Kept row) until the next start.
                 Decision (agent, 2026-11-11): rulings CQ1 and CQ2 (spec-log.md, T42).
 
-                A sent write's twice-refused ending stays parked on its lane, blocking its key until
-                heard, cancelled, released or a local life ends; a read's answer is stranded until
-                that life asks again, ends or a boot. A kept ending gets one try per boot or
-                adoption.
+                A kept ending is a row of the owed ledger, never lane state (WriteLanes Spec R6,
+                R10). A sent write's Kept row blocks its lane's key until heard, cancelled, released
+                or a local life ends; a second kept ending on the same lane is a second row and
+                replaces nothing; a kept ending with no lane (a declined commit's) blocks nothing. A
+                read's answer is stranded until that life asks again, ends or a boot. A Kept row gets
+                one try at each start: a reload, a return or an adoption. Decision (orchestrator,
+                2026-11-12): consult round 3 (spec-log.md).
 
     R16  The send table
         source  @plan.Runtime.O4.
@@ -215,12 +235,14 @@ requirements
                 its owner's cancel, and flushes the removal at once. It stops a send's restore only 
                 once the removal is acknowledged. Disposing a provider with bound consumers rejects 
                 with BlockedByDependents naming them. Actor and Runtime disposal are idempotent.
+                The identity's owed rows are suspended and stay owed: its owed record is not removed
+                with its actor record (WriteAhead Spec R5).
 
     R21  forget
         source  @plan.Runtime.O6.
-        must    forget removes the identity's record so the next ensure starts fresh; its parked
-                and boot-queued endings become evidence, and each kept ending is let go with a
-                recorded letGo (WriteLanes Spec R6; ruling CQ3). It drops no hold: a Held lane stays 
+        must    forget removes the identity's record so the next ensure starts fresh; every owed row
+                of the identity is closed, recorded as evidence, or as letGo for a Kept row
+                (WriteLanes Spec `model`, close). It drops no hold: a Held lane stays 
                 unbound until its owner's cancel or an adopting ensure; a hold whose operation no 
                 longer exists is dropped with HoldForgotten (proposed name). forget of a live actor 
                 disposes it first.
@@ -228,27 +250,34 @@ requirements
     R22  Runtime disposal
         source  @plan.Runtime.O6.
         must    Runtime disposal closes admission first (later ready, ensureActor, createActor and
-                runPromise reject RuntimeDisposed), then disposes consumers before providers. Queued
-                events that have not started are dropped. Schedules cancel, placements stop and
-                sessions release within 5 s (ReleaseOverdue).
+                runPromise reject RuntimeDisposed, by R4's `admit`), then disposes consumers before
+                providers. Queued events that have not started are dropped. Schedules cancel,
+                placements stop and sessions release within 5 s (ReleaseOverdue).
 
-                From its start nothing new is invoked and no lane is dropped: a never-sent commit
-                (queued, or a head waiting for its acknowledgement or to be invoked) ends NotSent {
-                Disposed } before the disposal ends, parked and delivered to the identity's next
-                incarnation; a call settling within 5 s is parked; past the
-                bound an Attempt on the wire ends unknown { Disposed } and its late result is
-                ignored. Where a lane's endings are delivered or parked together, the ending that
-                leaves a hold comes last. An unknown keeps its head Held on disk; a definite ending
-                drops it. Decision (agent, 2026-11-11): ruling CQ6 and audit gap G5 (spec-log.md,
-                T42).
+                From its start nothing new is invoked, and no Held head and no owed ending is
+                dropped. A never-sent commit (queued, or a head waiting for its acknowledgement or
+                to be invoked) ends NotSent { Disposed } before the disposal ends: its head goes,
+                and its ending is parked and delivered to the identity's next incarnation. A head
+                waiting to re-send goes Held, and its record says so. A call settling within 5 s is
+                applied to its lane and its ending parked; past the bound an Attempt on the wire
+                ends unknown { Disposed } and its late result is ignored. Each identity's owed rows
+                are suspended in the disposal's order, an ending with no lane included. Where a
+                lane's endings are delivered or parked together, the ending that leaves a hold comes
+                last. An unknown keeps its head Held on disk; a definite ending drops its head and
+                stays owed. Decision (agent, 2026-11-11): ruling CQ6 and audit gap G5 (spec-log.md,
+                T42). Reworded 2026-11-12 from "no lane is dropped", which a definite ending
+                contradicted (consult round 1, A2; spec-log.md).
 
     R23  Disposal failure and the last write
         source  @plan.Runtime.O6.
         must    A cleanup failure rejects dispose with CleanupFailed, quarantines the ref (later
                 ensures report the same failure) and keeps the full Cause; it is never success.
 
-                Runtime disposal waits for the final persistence write within the same 5 s; a write
-                still pending reports StorageFailure. The terminal snapshot keeps the last committed
+                Runtime disposal waits for the final persistence write within the same 5 s, measured
+                from the call to dispose; a write still pending then reports StorageFailure and the
+                disposal ends. The write is a ticket the core holds while Disposing and the bound is
+                the core's: the host sends the disposal, waits for the life to read Disposed, then
+                closes its Scope (@task.V3.T55). The terminal snapshot keeps the last committed
                 state and memory; disposal runs no machine event. dispose({ forget: true }) is the
                 Restore Spec's R10.
 
@@ -278,8 +307,8 @@ model
         dehydrate or Hydrate hold.
 
     WorkInFlight = an InFlight write lane, a read started in a turn handling the ending of work in 
-        flight (transitively, R7), or an ending owed at ready. A kept ending (R15) is not work in
-        flight.
+        flight (transitively, R7), or an ending owed at ready (the identity's row list is not empty at
+        the boot). A Kept row (R15) that has had its try is not work in flight.
 
     Free = no Use and no WorkInFlight.
 
@@ -287,12 +316,46 @@ model
 
     Unbound = a lane whose identity has no decoded actor record and no incarnation.
 
+    Start = the step in which an incarnation begins, whatever began it: a fresh creation, a reload (the boot woke
+        the identity), a return (R9) or an ensure. It is the one point where owed rows are delivered (R10): every
+        Start runs the ledger's start (WriteLanes Spec `model`) once, and with no row and no Held head it delivers
+        nothing.
+
+    Adoption = a Start that finds lanes or owed rows of its identity that no incarnation held (an ensure after
+        disposeActor, a reset or a quarantine; an equal local identity). It is a Start like any other.
+
+    Life = the Runtime's life, one value in the core: Inert (constructed, nothing started), Booting, Open, Failed
+        (the bootstrap failed), Disposing (nothing new is invoked; calls on the wire and the final write, held as
+        a ticket, wait for the bound) or Disposed.
+
+    Verdict = admit(life, input): Run, Drop (the input changes nothing) or Reject with RuntimeNotReady or
+        RuntimeDisposed. One total table: every (Life, input) pair has exactly one verdict. Life moves only on a
+        Run: Start takes Inert to Booting, Boot takes Booting to Open, BootFailed takes Booting to Failed,
+        DisposeRuntime takes Open to Disposing and Inert, Booting or Failed straight to Disposed, and Disposing
+        goes Disposed when no call is on the wire and the final write's ticket is answered, or at the bound. Start
+        (the first ready) and BootFailed are inputs @task.V3.T55 adds. By input (agent, 2026-11-12; today's
+        guards in `src/host/runtime.ts` and `src/core/step.ts`, made total):
+        - Start: Inert runs; Booting, Open and Failed drop (the caller shares the bootstrap's Exit); Disposing
+            and Disposed reject RuntimeDisposed.
+        - Boot: Booting runs; Disposing and Disposed reject RuntimeDisposed, so ready fails; elsewhere drops.
+        - BootFailed: Booting runs; elsewhere drops.
+        - Ensure and Send: Open runs; Inert, Booting and Failed reject RuntimeNotReady (R4's boot queue for a
+            send, when @task.V3.T9 builds it, makes Send run while Booting); Disposing and Disposed reject
+            RuntimeDisposed.
+        - Release, DisposeActor and Forget: Open runs; elsewhere drops.
+        - DisposeRuntime: Inert, Booting, Open and Failed run; Disposing and Disposed drop (idempotent).
+        - Settled and Fired: Open and Disposing run; elsewhere drops (a late result is ignored).
+        - Stored and Refused: Open and Disposing run (while Disposing they answer the final write; an answer for
+            a ticket nothing awaits changes nothing); elsewhere drops.
+
 invariants
     I1  construct() performs no I/O, acquires no service and creates no actor. [@R1]
 
     I2  Each service is acquired at most once per Runtime. [@R1]
 
-    I3  Every caller of ready() observes the same Exit; the bootstrap runs at most once.[@R2]
+    I3  Every caller of ready() before disposal starts observes the same Exit, and the bootstrap runs at most once; a 
+        ready() called after disposal starts rejects RuntimeDisposed. Reworded 2026-11-12 (consult round 2, B1: R22
+        is explicit). [@R2]
 
     I4  No app service is acquired before persisted data is read and validated. [@R3]
 
@@ -315,8 +378,9 @@ invariants
 
     I13  Each incarnation id is fresh: never equal to an earlier incarnation's id, across restore too. [@R9, @R24]
 
-    I14  A returning incarnation receives, in order: its starting turn, lane deliveries, parked Interrupted endings, at 
-         most one onContext wave, then the triggering event. [@R9, @R10]
+    I14  A returning incarnation receives, in order: its starting turn, its owed rows in the order they were owed (the 
+         Interrupted endings its end parked among them), each Held head's unknown { Restored }, at most one onContext
+        wave, then the triggering event. Reworded 2026-11-12 (consult round 3: one list per identity). [@R9, @R10]
 
     I15  An incarnation binds only lanes of its own identity and subject path. [@R10]
 
@@ -332,9 +396,10 @@ invariants
 
     I23  No ending, schedule firing or context update is dropped by admission bounds. [@R14]
 
-    I24  A refused ending is redelivered at most once per boot or adoption, and is never lost while its lane or life 
-         stands (R15's stranded read dropped at a boot and R21's forget are its only exits). Reworded 2026-11-11 (audit 
-         C15). [@R15]
+    I24  A refused ending is redelivered once after its first refusal and then at most once per start, and is never 
+         lost: its row stands until it is heard, let go by a cancel, released, closed by R21's forget, or closed
+        with the one life it was owed to (R15's stranded read, also dropped at a boot). A second kept ending never
+        replaces a first. Reworded 2026-11-12 (consult round 3). [@R15]
 
     I25  A send never creates an actor and never counts as a use; its outcome follows R16's table. [@R16]
 
@@ -346,7 +411,9 @@ invariants
     I28  A consumer's slot is bound to one provider for the consumer's lifetime, and the provider graph is acyclic. 
          [@R18]
 
-    I29  After disposeActor or Runtime disposal, every non-Idle lane still exists. [@R20, @R22]
+    I29  After disposeActor, every non-Idle lane still exists. After Runtime disposal, every Held head and every owed 
+         ending still exists: a never-sent head and a head whose call ended definitely are gone, and their endings
+        are owed. Reworded 2026-11-12 by R22's reading (consult round 1, A2). [@R20, @R22]
 
     I30  After disposal starts, no commit or read is invoked. [@R22]
 
@@ -377,8 +444,24 @@ invariants
 
     I39  A persisted value-named machine's identity version changes exactly when an input field is added, removed or 
          renamed, or a field's Schema changes on its type or encoded side; other annotations never change it. Added 
-         2026-11-11: R11's own rule, once the cut I18 left it to Restore Spec I12, which covers only what a boot does 
-         with another version. [@R11]
+         2026-11-11: R11's own rule, once the cut I18 left it to Restore Spec I12, which covers only what a boot does
+        with another version. [@R11]
+
+    I40  An owed row is delivered only from the mailbox of its identity's live incarnation, and it leaves Waiting or 
+         Kept only by a start of its identity or a close: a boot queues nothing and parks nothing. Added 2026-11-12
+        (consult round 3). [@R10]
+
+    I41  When an incarnation ends, at disposeActor, and for every identity at Runtime disposal, each of the identity's 
+         Queued and Retrying rows goes Waiting, a row with no lane included, and each row owed to that
+        incarnation alone closes as evidence; none is dropped. Added 2026-11-12 (consult round 3). [@R8, @R20, @R22]
+
+    I42  `admit` gives every (Life, input) pair exactly one verdict, and admission follows it alone: no host flag 
+         decides whether an input runs. Added 2026-11-12 (@task.V3.T55). [@R4, @R22]
+
+    I43  The disposal's 5 s runs from the first call to dispose (the start I35 counts from) and covers the final write: 
+         a final write still pending 5 s after that call reports StorageFailure and the disposal ends then,
+        however late within the bound a call on the wire settled; a later call to dispose restarts nothing. Added
+        2026-11-12 (@task.V3.T55). [@R23]
 
 composition
     flow
@@ -390,10 +473,26 @@ composition
         (round-14/driver.ts). In production (src/host/) the inbox stays one synchronous loop,
         since Inspection O3 delivers at the end of each step; the fibers are a FiberMap owned by
         the Runtime's one Scope, which also holds the services Layer, so closing it interrupts
-        every call and releases every service. Required (R22; production gap, @task.V3.T51): dispose
-        runs the core's disposal (its bound included) before it closes the Scope, so an interrupt
-        there settles into a closed core; today dispose closes the driver and then the Scope,
-        skipping the core's disposal.
+        every call and releases every service. Dispose runs the core's disposal (its bound
+        included) before it closes the Scope, so an interrupt there settles into a closed core
+        (R22; @task.V3.T51).
+
+        Runtime life (@task.V3.T55; consult round 3, Part 2). `Life` replaces the core's
+        `Disposal` and the host's `started`, `open`, `closed()` and `admitting`, and `admit` is
+        one total table, as `cells.ts` is for lanes. `Life` is opaque outside `src/core/life.ts`.
+        The host keeps what needs Effect: the Scope, the services Layer and one Deferred that
+        shares the bootstrap's Exit. It runs commands, turns a fiber's Exit into a call result,
+        decodes a sent event at the boundary, calls `admit` and throws the FlowError a Reject
+        names. `dispose` sends DisposeRuntime, waits for the step's `life` to read Disposed, then
+        closes the Scope. The World is opaque outside the core, so the host reads no World
+        field and builds no report: the Runtime's
+        life reports through its act (RuntimeDisposed, and the final write's StorageFailure).
+        The capture window stays in the host (@task.V3.T54, decision 4).
+
+        Owed rows (@task.V3.T54). An incarnation's end, `disposeActor` and Runtime disposal call
+        the ledger's `suspend`; reload, return and adoption call its `start`; forget closes the
+        identity's rows (WriteLanes Spec `model`). `boot` only decodes, sorts and picks whom to
+        wake.
         Lifetime, the grace and the send table are decided in the step, so the
         conformance suite's lifetime wrong runtimes all edit step.ts.
 
@@ -411,7 +510,7 @@ coverage
         open_by      [@Q1, @Q3]
 
     @R4
-        enforced_by  [@I5, @I6]
+        enforced_by  [@I5, @I6, @I42]
         open_by      [@Q1, @Q2]
 
     @R5
@@ -427,7 +526,7 @@ coverage
         open_by      [@Q1]
 
     @R8
-        enforced_by  [@I10, @I12, @I37]
+        enforced_by  [@I10, @I12, @I37, @I41]
         open_by      [@Q1]
 
     @R9
@@ -435,7 +534,7 @@ coverage
         open_by      [@Q1]
 
     @R10
-        enforced_by  [@I14, @I15, @I17]
+        enforced_by  [@I14, @I15, @I17, @I40]
         open_by      [@Q1]
 
     @R11
@@ -475,7 +574,7 @@ coverage
         open_by      [@Q1, @Q2]
 
     @R20
-        enforced_by  [@I29]
+        enforced_by  [@I29, @I41]
         open_by      [@Q1, @Q2]
 
     @R21
@@ -483,11 +582,11 @@ coverage
         open_by      [@Q1]
 
     @R22
-        enforced_by  [@I29, @I30, @I31, @I35, @I36, @I38]
+        enforced_by  [@I29, @I30, @I31, @I35, @I36, @I38, @I41, @I42]
         open_by      [@Q1]
 
     @R23
-        enforced_by  [@I33]
+        enforced_by  [@I33, @I43]
         open_by      [@Q1, @Q2]
 
     @R24
@@ -529,8 +628,8 @@ tests
          follow-ups are refused. Cases `REV9-LOOP`, `ORDER-04`; wrong runtime `d122.rota-not-rotated`. The prototype's 
          FIFO wrong runtime no longer applies to its code, so phase 3 writes one; the 64 and 1,024 bounds have no 
          prototype wrong runtime (Q2). [@I19, @I20, @I21, @I22]
-    T11  Refused deliveries: a refused ending is kept, redelivered once, and heard at the next boot. Cases `REV8-KEPT`, 
-         `REV9-KEPT`; lie `a4.refused-denied`; wrong runtimes `turn.refusal-keeps-asks`, 
+    T11  Refused deliveries: a refused ending is kept, redelivered once, and heard at the next Start. Cases 
+         `REV8-KEPT`, `REV9-KEPT`; lie `a4.refused-denied`; wrong runtimes `turn.refusal-keeps-asks`, 
          `1b.r8-refused-ending-not-redelivered`. [@I23, @I24]
     T12  The send table, one row per target state. Cases `LIFE-03`, `LIFE-09`, `LIFE-21`, `ORDER-01`; wrong runtimes 
          `life.send-no-restore`, `life.send-absent-silent`, `life.handle-not-identity`, 
@@ -562,3 +661,17 @@ tests
          starts each end NotSent { Disposed } before it ends, and the next incarnation after a reload hears each once. 
          Wrong runtime `mutant.disposal-skips-never-sent`; round-14 never delivers it after the reload (a stated limit 
          of round-14, ruling CQ6). [@I38]
+    T21  One delivery point: a reload, a return and an adoption of one identity with the same owed rows and Held heads 
+         each deliver the same endings in the same order; after a boot and before any start no ending is in
+             a mailbox. Written with @task.V3.T54's step A2. [@I14, @I40]
+    T22  Suspended rows: endings in the mailbox, a declined commit's with no lane among them, when an incarnation ends, 
+         at disposeActor and at Runtime disposal are each heard once by the identity's next incarnation.
+             Pending in the suite until @task.V3.T54 (a lane-less ending queued at disposal); design mutant: a suspend
+             that skips rows with no lane. [@I41]
+    T23  Disposal by R22's reading: after Runtime disposal a never-sent head has no lane and its NotSent { Disposed } 
+         is heard once after a reload; a head held from Recapturing at disposal is saved Held, so the boot does not
+             wake its identity. Both pending in the suite until @task.V3.T54. [@I29, @I38]
+    T24  The admit table: every (Life, input) cell with its expected verdict; ready after dispose rejects 
+         RuntimeDisposed; a dispose while Booting makes ready fail. Written with @task.V3.T55's step B1. [@I3, @I42]
+    T25  The bound from the call: a call on the wire answers 3 s after the call to dispose and the final write never 
+         answers; StorageFailure is reported at 5 s from that call. Red before @task.V3.T55's step B2. [@I43]

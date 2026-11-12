@@ -23,10 +23,14 @@ requirements
 
     R2  The storage service
         source  @plan.Persistence.O1.
-        must    Enabled persistence requires an Effect KeyValueStore service; missing provision is 
-                a type error, and untyped missing provision fails ready with StorageFailure. 
-                construct() performs no I/O. Records are stored as JSON strings. The IndexedDB 
-                Layer (layerIndexedDb) is specified with the host adapters, when that phase starts.
+        must    Enabled persistence requires Flow's own `Store` service, which has two members:
+                `load`, giving every record of the scope, and `write(batch)`, one atomic batch of
+                record writes and removals. Missing provision is a type error, and untyped missing
+                provision fails ready with StorageFailure. construct() performs no I/O. Records are
+                stored as JSON strings. Flow ships `layerIndexedDb` and `layerMemory`; it offers no
+                adapter over Effect's KeyValueStore, whose per-key writes cannot be one atomic
+                batch. The IndexedDB Layer is specified with the host adapters, when that phase
+                starts. Decision (the user, 2026-11-12): wide consult, question 4 (spec-log.md).
 
     R3  Selection
         source  @plan.Persistence.O2.
@@ -38,11 +42,13 @@ requirements
     R4  What an actor record holds
         source  @plan.Persistence.O2.
         must    A persisted actor's record holds its state, memory, exact context bindings, issues,
-                pending mapped outcomes, schedule deadlines (keyed timers by key with dueAt),
+                schedule deadlines (keyed timers by key with dueAt),
                 `restartOn` baselines, revisions, each history target's last child, resumable slices
-                (frozen ones with their schedules and parked Interrupted endings), .each copies by
+                (frozen ones with their schedules), .each copies by
                 key with their counters, a writing placement's reset value, each placement's last
-                mapped value, and stream bookmarks with their slice.
+                mapped value, and stream bookmarks with their slice. It holds no ending: an ending
+                not yet heard, a stopped read's Interrupted included, is a row of the identity's owed
+                record (R5).
 
                 Persisted Schemas encode and decode synchronously without services; unsupported
                 values fail encoding instead of being coerced, omitted or stringified.
@@ -55,11 +61,28 @@ requirements
         source  @plan.Persistence.O2.
         must    Write lanes are records of the identity, never inside the actor record: every
                 non-Idle lane of a persisted identity, bound or unbound, under (identity with its
-                version, contract id, key), with its Attempts (retryCount, acknowledged), the
-                creating subject path, the releasing mark and parked endings stored raw and mapped
-                through the current definition at delivery.
+                version, contract id, key), with its Attempt (`retryCount`, and `inFlight` once acknowledged), the
+                creating subject path and the releasing mark. A lane record holds no ending and no
+                `mayHaveApplied`. As built for reject (@task.V3.T54) it holds `format`, `machine`,
+                `name`, `operation`, `attempt`, `input`, `retryCount` and `inFlight`.
 
-                A local identity's lanes and one-off read lanes never persist.
+                An identity's unheard endings are one record of their own, `owed/<identity>`:
+                `format`, `machine`, `name` and its rows in the order they were owed, each with its
+                `operation`, `attempt`, `lane`, `channel`, `reason`, `value` (stored raw and mapped
+                through the current definition at delivery) and `kept`. Every row of a persisted
+                identity that is owed to the identity and alive at a step's end is in it; a row owed
+                to one incarnation is never saved; with no row the record is removed. It is not
+                inside the actor record, which `disposeActor` removes while the endings stay, nor
+                inside a lane record, since an ending can outlive its lane or never have one.
+
+                So the record kinds are `actor/<identity>`, `lane/<lane>` and `owed/<identity>`.
+                Decision (orchestrator, 2026-11-12): consult round 3, C9 (spec-log.md); the codec,
+                the value's encoding, creation-order keys and what a reset or quarantine does to a
+                row whose operation is gone are @task.V3.T20's. The encoded shapes are the Codec
+                Spec's R5.
+
+                A local identity's lanes never persist, and a read has no lane and no record (Reads
+                Spec R6).
 
     R6  What never survives
         source  @plan.Persistence.O2.
@@ -86,16 +109,30 @@ requirements
         source  @plan.Persistence.O3.
         must    A scope is saved atomically: after interruption or a torn write, reload sees one 
                 complete capture, falling back to the last good one. Older writes never replace 
-                newer committed state. Every actor and lane record carries Flow's record format (1 
+                newer committed state. Every actor, lane and owed record carries Flow's record format (1 
                 to 4).
 
     R10  When records are written
         source  @plan.Persistence.O3.
-        must    A dirty plain record's capture is issued within 5 s, and at once on visibilitychange
-                to hidden and on pagehide. A batch that touches a lane or a send, or a
-                `disposeActor` removal, is issued at once with everything dirty, so a lane never
-                outruns its actor. A first send's capture and acknowledgement are one batch with the
+        must    A dirty plain record's capture is issued within 5 s, or once the batch still out
+                answers if that is later (R12), and at once on visibilitychange
+                to hidden and on pagehide. A step whose head starts to wait for storage (a first
+                send's acknowledgement, a re-send's capture), that removes an actor record or that
+                ends an incarnation is issued at once with everything dirty, so a lane never outruns
+                its actor; any other lane or owed change may wait for the interval, since no send
+                depends on it. Reworded 2026-11-12 from "a batch that touches a lane or a send"
+                (consult round 3: `Due` is derived; spec-log.md). A first send's capture and acknowledgement are one 
+                batch with the
                 turn that committed it.
+
+                Records are written from what a step touched, never by a move: the step notes the
+                lanes and identities it changed, and at its end each one whose entry changed is
+                projected into its record (or its removal); those writes are that step's one list,
+                for the whole Runtime. The list says how soon it must go (at once and awaited, at
+                once, or within the interval); when a batch is issued it carries that list and
+                everything else still dirty (R12). A row leaves the owed record in the batch that
+                carries the turn that heard it.
+                Decision (orchestrator, 2026-11-12): consult round 3, Part 2 (spec-log.md).
 
                 The durability of R13 cannot be coalesced away. Nothing bounds the wait for storage
                 to answer; a frozen page runs no task, deadline or capture until a thaw; browser
@@ -115,10 +152,14 @@ requirements
         must    The store's contract (agent-judged):
 
                 - batches are atomic and commit in issue order;
-                - per key a later write wins whatever order answers arrive;
-                - one plain write per key is out at a time;
-                - an awaited write waits for any plain batch of its actor still out;
+                - there is one batch stream per Runtime, never one per actor: one batch is out at a
+                time, the next waits for its answer, and each batch holds every record dirty in the
+                Runtime when it is issued;
+                - so an awaited write waits for the batch still out, and per key a later write wins;
                 - a batch answers landed only if every request in it succeeded.
+
+                Decision (the user, 2026-11-12): one stream per Runtime (wide consult, question 4);
+                "one out at a time" is the agent's reading of it, for @task.V3.T19 to build.
 
                 The store is an Effect: a batch's write succeeds when the whole batch landed and fails
                 with a typed refusal when none of it did; an interrupted write is unanswered, as a hung
@@ -134,7 +175,8 @@ requirements
                 acknowledges its Attempt (id and encoded input), once per Attempt per lane record;
                 the acknowledgement is one batch with the capture of the turn that committed it.
 
-                A persisted re-send waits for its lane record's capture. If acknowledgement fails
+                A persisted re-send waits for its lane record's capture, which carries the
+                `retryCount` that re-send will carry. If acknowledgement fails
                 the adapter is not called and the commit ends NotSent { StorageRefused } with
                 StorageFailure evidence; a re-send whose capture fails returns to Held and delivers
                 unknown { StorageRefused }. A transient failure never downgrades a write to an
@@ -143,8 +185,8 @@ requirements
     R14  Honest uncertainty after a crash
         source  @plan.Persistence.O6.
         must    A crash after acknowledgement restores unknown { Restored } with the same Attempt; 
-                a head whose own ending is parked restores as that ending. Flow never repeats a 
-                remote write automatically. Saved mapped outcomes are delivered, not replaced by 
+                a head with an owed row for its own Attempt hears that row instead. Flow never repeats a 
+                remote write automatically. Saved endings are delivered, mapped at delivery, not replaced by 
                 unknown. A later Runtime never reuses an Attempt identity.
 
     R15  Non-persisted writes
@@ -175,12 +217,12 @@ open
     Q3  The 5 s interval runs only in the prototype's runtime-default pass.
         outcome  The new suite runs R10's cases at the default interval in its normal run.
 
-    Q4  R2 names Effect's KeyValueStore, which has per-key get, set and remove but no batch, while R12 needs atomic 
-        batches; production's Host store is its own batch service.
-        outcome  Slice 2 (@task.V3.T19, @task.V3.T20) settles the store service with R2's Invariant.
+    Q4  Settled 2026-11-12 (the user): R2 names Flow's own `Store`, not Effect's KeyValueStore, which has no batch.
+        outcome  @task.V3.T19 builds `Store` and R2's Invariant (I23); @plan.Persistence.O1 still says
+                 KeyValueStore and is the user's to change.
 
 model
-    Capture = one batch of actor records, lane records and resource records written as a whole.
+    Capture = one batch of actor records, lane records, owed records and resource records written as a whole.
 
     Acknowledged = storage answered landed for the batch holding the Attempt's record.
 
@@ -212,10 +254,10 @@ invariants
     I11  At every landed state, a lane record's actor record is at least as new as the turn that created the lane. 
          [@R10]
 
-    I12  A dirty plain record's capture is issued within 5 s of the record becoming dirty or once that key's previous 
-         write answers, whichever is later, and at once after hide, pagehide or a lane batch under the same 
-         one-write-per-key rule (R12); nothing bounds when storage answers. Reworded 2026-11-11 (audit C14). [@R10, 
-         @R12]
+    I12  A dirty plain record's capture is issued within 5 s of the record becoming dirty or once the batch still out 
+         answers, whichever is later, and at once after hide, pagehide or a step R10 issues at once, under the same
+        one-batch-out rule (R12); nothing bounds when storage answers. Reworded 2026-11-11 (audit C14) and
+        2026-11-12 (one stream per Runtime). [@R10, @R12]
 
     I13  Records counted in a scope never exceed 4,096 nor 16 MiB after a capture lands; a record with user work is 
          never the one dropped. [@R11]
@@ -233,6 +275,23 @@ invariants
     I19  A Runtime refused its scope's ownership makes no storage read, write or delete during its life, and every 
          commit of a persisted identity in it ends NotSent { NoPersistence }. Added 2026-11-11 (audit G2). [@R16]
 
+    I20  At every step's end, a persisted identity's owed record lists exactly its rows owed to the identity, in the 
+         order they were owed, kept ones marked, and is absent when it has none; a row owed to one incarnation is in
+        no record, and no ending is in an actor or lane record. Added 2026-11-12 (consult round 3, C9). [@R4, @R5]
+
+    I21  Every lane and identity whose entry a step changed has its record written or removed in that step's write list 
+         (issued when R10 says), and no move writes a record: a boot from any landed state behaves as the world of the 
+         last landed step.
+        Added 2026-11-12 (consult round 3). [@R5, @R10]
+
+    I22  A row leaves the owed record only in the batch that carries the actor record of the turn that heard it: a 
+         crash before that batch lands restores the row together with the state that had not heard it. Added
+        2026-11-12 (consult round 2, B4). [@R9, @R10]
+
+    I23  Every batch is one `Store.write`, and it holds every record dirty in the Runtime when it is issued: no 
+         identity's record lands without the records the same step changed, another identity's included, and at
+        most one batch is out at a time. Added 2026-11-12 (the user, wide consult question 4). [@R2, @R12]
+
 composition
     flow
         Design note, proved by the prototype. Write-ahead lives in the core: an Attempt reaches
@@ -244,6 +303,22 @@ composition
         Production (src/host/edge.ts): a capture's wait is a keyed fiber sleeping on Effect's
         Clock in the Runtime's FiberMap, and an urgent batch is a Scheduler yield, not a second
         task queue; the store's load and write are Effects (@task.V3.T43 R1, R4, R8).
+
+        Diff-written records (@task.V3.T54; consult round 3, Part 2). The core has no `persist`
+        call: the step's setters note touched lanes and identities, and at the step's end each
+        is projected (`encodeActor`, `encodeLane`, `encodeOwed`) if its entry changed by
+        identity, never by comparing maps or bytes. `encodeLane` matches every Phase, so a new
+        phase forces a decision on what is saved. The writes leave as that step's one Persist
+        command, a flat list for the whole Runtime, with `Due` derived: Awaited when a touched
+        head entered Acknowledging or Recapturing, Now when an actor record is removed or an
+        incarnation ended, else Later (R10). Until @task.V3.T19 builds the Runtime-wide
+        stream, @task.V3.T54 may keep today's one Persist per actor key, and says so in its
+        comments. The capture window (when a Later list is issued, and the flush on hide) stays
+        in the host (T54's decision 4).
+
+        The store (@task.V3.T19; wide consult, question 4 and W2). `Store` is its own service
+        with `load` and `write(batch)`; the edge keeps one stream state for the Runtime, not one
+        per actor.
 
 coverage
     @R1
@@ -259,11 +334,11 @@ coverage
         open_by      [@Q1]
 
     @R4
-        enforced_by  [@I4]
+        enforced_by  [@I4, @I20]
         open_by      [@Q1]
 
     @R5
-        enforced_by  [@I3, @I5]
+        enforced_by  [@I3, @I5, @I20, @I21]
         open_by      [@Q1]
 
     @R6
@@ -279,11 +354,11 @@ coverage
         open_by      [@Q1, @Q2]
 
     @R9
-        enforced_by  [@I10]
+        enforced_by  [@I10, @I22]
         open_by      [@Q1]
 
     @R10
-        enforced_by  [@I11, @I12]
+        enforced_by  [@I11, @I12, @I21, @I22]
         open_by      [@Q1, @Q3]
 
     @R11
@@ -291,7 +366,7 @@ coverage
         open_by      [@Q1, @Q2]
 
     @R12
-        enforced_by  [@I10, @I12, @I14]
+        enforced_by  [@I10, @I12, @I14, @I23]
         open_by      [@Q1, @Q2, @Q4]
 
     @R13
@@ -339,8 +414,8 @@ tests
         step. [@I17, @spec.WriteLanes.I6, @spec.WriteLanes.I28]
     T9  Bounds and providers: a scope at 4,096 records and one past; a non-durable provider rejects the capture and 
         keeps the previous one. No prototype case (Q2). [@I9, @I13]
-    T10  Scope isolation: two apps and two scopes over one fake KeyValueStore; no Runtime reads, writes or deletes 
-         another's keys, forget included. No prototype case; phase 3 writes this test and its wrong runtime. [@I2]
+    T10  Scope isolation: two apps and two scopes over one fake Store; no Runtime reads, writes or deletes another's 
+         keys, forget included. No prototype case; phase 3 writes this test and its wrong runtime. [@I2]
     T11  Every non-Idle lane is captured: lanes bound, unbound after disposeActor, and Held after an end each appear in 
          the next landed capture. Case `R15-01`; phase 3 writes the wrong runtime that skips unbound lanes. [@I5]
     T12  Capture is passive: with spies on operations, mailboxes and the clock, a capture starts no operation, enqueues 
@@ -348,7 +423,18 @@ tests
          capture. [@I8]
     T13  Codec bounds on records: memory holding a 4,097-item array skips its capture with UnencodableValue and the 
          last good capture restores. No prototype case; phase 3 writes this test. [@I4]
-    T14  A second owner: boot a Runtime whose host reports the scope owned elsewhere, over a fake KeyValueStore holding 
+    T14  A second owner: boot a Runtime whose host reports the scope owned elsewhere, over a fake Store holding 
          records; it restores nothing, a storage spy sees no call, it reports SecondTabNoPersistence, and a persisted 
          commit ends NotSent { NoPersistence } with its transition run. Phase 3 writes the wrong runtime that still 
          captures. [@I19]
+    T15  Owed records: after each step of a run with refused, parked and kept endings, the store's `owed/<identity>` 
+         record lists the identity's rows in owed order with kept ones marked, is absent when none is owed, and
+             holds no row owed to one incarnation; no actor or lane record holds an ending. Written with @task.V3.T54's
+             step A3. [@I20]
+    T16  Reload equivalence and torn batches: at every crash point, boot and compare the reports and snapshots after 
+         the boot with the baseline's; drop each batch whole, boot, and check that every admitted commit still ends
+             once. Design mutants (@task.V3.T54): a batch split in two; a lane changed with no record written (a
+             Recapturing head held at disposal). [@I21, @I22]
+    T17  One stream: actor A hears an ending and sends to actor B in one step, and the Runtime is killed after each 
+         `Store.write`; no reload shows B's record without A's, and a spy sees one write at a time, each a single
+             call. Wrong runtime: one batch per actor. Written by @task.V3.T19. [@I23]
