@@ -133,6 +133,7 @@ export type Case = {
  * the fixtures before the first boot; each oracle opens with them. `overdue` says whether the
  * case is past its time bound; the world asks it as it runs (see `makeWorld`). `rules` are the
  * lifecycle tables the Spec model applies: the design's, or a model mutant (Conformance R19).
+ * `judge` off skips the reports' decoding, the model and the oracles: the bench's replay (R23).
  */
 export type CaseOptions = {
   readonly port: Port;
@@ -145,6 +146,7 @@ export type CaseOptions = {
   readonly replay: Option.Option<ReadonlyArray<ReadonlyArray<RuntimeFact>>>;
   readonly captureMs: number;
   readonly rules: Rules;
+  readonly judge: boolean;
 };
 
 /**

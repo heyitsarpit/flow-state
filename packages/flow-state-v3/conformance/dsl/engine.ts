@@ -73,8 +73,8 @@ export const stepEngine = (
         );
     }
 
-    for (const purpose of storage.written().slice(wrote)) {
-      record(Fact.Wrote());
+    for (const { purpose, bytes } of storage.written().slice(wrote)) {
+      record(Fact.Wrote({ bytes }));
       record(Fact.Purposed({ purpose }));
     }
 
@@ -92,6 +92,9 @@ export const stepEngine = (
 
   const judge = (what: string) => {
     stopIfUnread(what);
+
+    if (!options.judge) return;
+
     decodeReports(reference, facts.slice(judged));
     const fresh = steps(facts.slice(judged));
     const requests = network.requests();

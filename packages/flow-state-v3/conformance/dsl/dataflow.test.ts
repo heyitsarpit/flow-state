@@ -171,6 +171,7 @@ const factsOf = (port: ReturnType<typeof prototypePort>, id: string) => {
     crashAt: Option.none(),
     replay: Option.none(),
     rules,
+    judge: true,
   });
 
   scenario.run(opened.driven);

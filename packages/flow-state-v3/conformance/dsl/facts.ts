@@ -39,8 +39,8 @@ export const Address = Data.taggedEnum<Address>();
  *   are the fixture's labels of its payload.
  * - `Unstoppable`: from now on, calls of this operation cannot be interrupted.
  * - `Landed`: the suite landed every held batch (perhaps none).
- * - `Wrote`: the store received a batch, noted when the step that wrote it settles, after that
- *   step's reports.
+ * - `Wrote`: the store received a batch of `bytes` characters of keys and values, noted when the
+ *   step that wrote it settles, after that step's reports.
  * - `Dropped`: the suite answered the held batches `refuse` or `hang`: none of them lands.
  * - `Advanced`: the suite moved the world's clock forward by `ms`, firing the timers due.
  * - `Read`: the suite read this write's row (`O.x.get`).
@@ -58,7 +58,7 @@ export type SuiteFact = Data.TaggedEnum<{
   Drove: { actor: ActorRef; event: string; to: Address; labels: Labels };
   Unstoppable: { operation: string };
   Landed: {};
-  Wrote: {};
+  Wrote: { bytes: number };
   Dropped: {};
   Advanced: { ms: number };
   Read: { actor: ActorRef; operation: string; key: Json };

@@ -71,8 +71,9 @@ const shuffled = <A>(items: ReadonlyArray<A>, seed: number) => {
  * - `write`'s `acknowledges` names the Attempts the batch acknowledges (the runtime's claim);
  *   `answer` returns those of the batches that landed (`ack`, `landNoAck`), the suite's fact of
  *   which acknowledgements are on disk (Restore R3, I8). A flush acknowledges nothing.
- * - `holding` counts the batches held now; `written` is every batch's purpose in the order the
- *   runtime wrote them, which the suite notes as facts.
+ * - `holding` counts the batches held now; `written` is every batch's purpose and size (the
+ *   characters of its keys and values) in the order the runtime wrote them, which the suite notes
+ *   as facts.
  * - The ids are not checked against the bytes, whose encoding is the runtime's: a runtime that
  *   leaves a landed acknowledgement unnamed is owed no restore for it (a stated limit).
  *
@@ -91,7 +92,7 @@ export type Storage = {
   readonly answer: (how: StorageAnswer) => ReadonlyArray<string>;
   readonly kill: () => void;
   readonly holding: () => number;
-  readonly written: () => ReadonlyArray<Purpose>;
+  readonly written: () => ReadonlyArray<{ readonly purpose: Purpose; readonly bytes: number }>;
 };
 
 /**
@@ -102,7 +103,7 @@ export type Storage = {
 export const makeStorage = (seed: number, page: Page): Storage => {
   let kv: ReadonlyMap<string, string> = new Map();
   let held: ReadonlyArray<Held> = [];
-  let written: ReadonlyArray<Purpose> = [];
+  let written: ReadonlyArray<{ readonly purpose: Purpose; readonly bytes: number }> = [];
 
   const land = (writes: ReadonlyArray<Write>) => {
     const next = new Map(kv);
@@ -119,7 +120,17 @@ export const makeStorage = (seed: number, page: Page): Storage => {
   return {
     load: () => new Map(shuffled([...kv], seed * 40_503 + page.page())),
     write: (writes, purpose, answer, acknowledges) => {
-      written = [...written, purpose];
+      const bytes = writes.reduce(
+        (sum, w) =>
+          sum +
+          Write.$match(w, {
+            Put: (p) => p.key.length + p.value.length,
+            Remove: (r) => r.key.length,
+          }),
+        0,
+      );
+
+      written = [...written, { purpose, bytes }];
 
       if (purpose === "flush") {
         land(writes);

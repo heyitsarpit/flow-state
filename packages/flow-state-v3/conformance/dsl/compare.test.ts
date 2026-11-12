@@ -153,13 +153,13 @@ describe("an actor's incarnation and end, owed from the suite's facts (Actors R6
       "Actors I37",
     ]);
     assert.deepStrictEqual(
-      walked([...dirty, [Fact.Advanced({ ms: 200 }), finished, Fact.Wrote()]], turns),
+      walked([...dirty, [Fact.Advanced({ ms: 200 }), finished, Fact.Wrote({ bytes: 1 })]], turns),
       [],
     );
     assert.deepStrictEqual(
       walked([
-        [Fact.Ensured(story), incarnated, Fact.Wrote()],
-        [Fact.Advanced({ ms: 200 }), Fact.Wrote()],
+        [Fact.Ensured(story), incarnated, Fact.Wrote({ bytes: 1 })],
+        [Fact.Advanced({ ms: 200 }), Fact.Wrote({ bytes: 1 })],
       ]),
       ["Actors I10"],
     );

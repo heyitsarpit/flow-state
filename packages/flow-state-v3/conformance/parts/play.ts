@@ -96,6 +96,7 @@ export const playPart = (script: Script, runtime: PartRuntime, given: Rules = ru
     replay: Option.none(),
     captureMs: captureMsOf(scenario.id),
     rules: given,
+    judge: true,
   });
 
   const ran = Result.try({

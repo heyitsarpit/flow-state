@@ -79,7 +79,7 @@ export const statedLimits: ReadonlyArray<StatedLimit> = [
     limit: "the keys of an actor whose fields the suite does not carry",
     where: "turn/credits.ts keysOf",
     admits:
-      "after a kill that lost every write of an actor's record (a capture not yet due), or for an actor never ensured, its turn's member keys are the report's, a keyed retry's included (turn/credits.ts retriesOwed)",
+      "after a kill that lost every write of an actor's record (a capture not yet due), or for an actor never ensured, its turn's member keys are the report's, a keyed retry's included (turn/credits.ts retriesOwed). Its mutant lies about a mint's key and shows only the mint check: a lie in the turn's member keys for such an actor is what this limit lets pass, and no mutant here shows it",
     mutant: {
       name: "limit.mint-key-lies",
       says: "every mint reports a key no fold gives",

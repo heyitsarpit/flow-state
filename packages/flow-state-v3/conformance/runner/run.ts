@@ -87,6 +87,7 @@ const runSeed = (
           overdue,
           crashAt: Option.none(),
           rules,
+          judge: true,
           replay: Option.none(),
         },
         scenario.run,
@@ -250,6 +251,7 @@ export const crashCase = (
               overdue,
               crashAt: Option.some(at),
               rules,
+              judge: true,
               replay: Option.none(),
             },
             scenario.run,
@@ -291,6 +293,7 @@ export const runCaseLiar = (
           overdue,
           crashAt: Option.none(),
           rules,
+          judge: true,
         };
 
         return Effect.try({
