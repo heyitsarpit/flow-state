@@ -49,6 +49,7 @@ export const Form = {
   handlers: {
     folds: noFolds,
     initial: "EDIT",
+    persist: true,
     root: {
       SetSubject: [updating(stay)],
       SetAndRaise: [updating(stay)],

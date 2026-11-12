@@ -483,34 +483,50 @@ export const unbound = (state: State, actor: ActorRef) => ({
   ),
 });
 
+const local = (state: State, actor: string) =>
+  state.machines[actor.split(" ")[0] ?? ""]?.persist === false;
+
+/**
+ * A kill and reload (see {@link reachedOf}). A local actor (its machine not persisted) is gone with
+ * the page: its next ensure starts it fresh, and its calls go with it (WriteAhead R5: a local
+ * identity's lanes never persist).
+ */
 export const reloaded = (state: State) => ({
   ...state,
   disposing: false,
-  calls: new Map([...state.calls].map(([key, c]) => [key, { ...c, booted: true }])),
+  calls: new Map(
+    [...state.calls].flatMap(([key, c]) =>
+      local(state, c.actor) ? [] : [[key, { ...c, booted: true }] as const],
+    ),
+  ),
   actors: new Map(
-    [...state.actors].map(([key, a]) => {
+    [...state.actors].flatMap(([key, a]) => {
+      if (local(state, key)) return [];
+
       const lost = a.turns > a.saved.turns;
       const reached = reachedOf(state, key, a, a.removed);
 
       return [
-        key,
-        {
-          ...a,
-          phase:
-            lost || (a.removed && Phase.$is("Fresh")(a.phase))
-              ? Phase.Stored({ state: Option.none() })
-              : TABLE[a.phase._tag].Reloaded(Input.Reloaded(), a.phase),
-          driven: [],
-          entry: a.entry + 1,
-          fields: a.saved.fields,
-          saved: { turns: a.turns, fields: a.saved.fields },
-          pending: Option.none(),
-          allowed: lost || a.removed ? reached : [],
-          removed: false,
-          uses: 0,
-          freeFor: 0,
-        },
-      ] as const;
+        [
+          key,
+          {
+            ...a,
+            phase:
+              lost || (a.removed && Phase.$is("Fresh")(a.phase))
+                ? Phase.Stored({ state: Option.none() })
+                : TABLE[a.phase._tag].Reloaded(Input.Reloaded(), a.phase),
+            driven: [],
+            entry: a.entry + 1,
+            fields: a.saved.fields,
+            saved: { turns: a.turns, fields: a.saved.fields },
+            pending: Option.none(),
+            allowed: lost || a.removed ? reached : [],
+            removed: false,
+            uses: 0,
+            freeFor: 0,
+          },
+        ] as const,
+      ];
     }),
   ),
 });

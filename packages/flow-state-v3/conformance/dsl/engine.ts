@@ -40,6 +40,7 @@ export const stepEngine = (
 
   const known = {
     reference,
+    local: options.fixtures.filter((f) => !f.handlers.persist).map((f) => f.machine),
     rows: rowsFor(options.fixtures),
     timed: timedOf(machines),
     captureMs: options.captureMs,

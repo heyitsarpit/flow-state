@@ -3,26 +3,34 @@ import { describe, it } from "vite-plus/test";
 import { Option, Predicate } from "effect";
 import { parts } from "../../fixtures/index.ts";
 import { part } from "../../fixtures/part.ts";
-import type { Fixture } from "../fixtures/fixture.ts";
 import { Cells, Pay } from "../fixtures/pay.ts";
 import { CellsMachine, PayMachine } from "../machines/pay.ts";
-import { partFixture, referenceOf } from "./reference.ts";
+import { Answer } from "../world/network.ts";
+import { type Derived, NoClassify, partFixture, referenceOf } from "./reference.ts";
 
 /**
  * What the derived and the hand fixture must agree on, rendered so a difference names its place:
  * every operation of either side (never filtered by one side's names), the states, the rows and
  * the handler table's targets, state guards and idle guards.
  */
-const comparable = (f: Partial<Omit<Fixture, "name">>) => ({
+const comparable = (f: Partial<Derived>) => ({
   machine: f.machine,
   states: (f.states ?? []).toSorted(),
   operations: Object.fromEntries(
     Object.entries(f.operations ?? {})
-      .map(([name, o]) => {
-        const { classify: _, releasesOnLeave: __, ...rest } = o.reference;
-
-        return [name, rest] as const;
-      })
+      .map(
+        ([name, { reference: r }]) =>
+          [
+            name,
+            {
+              concurrency: r.concurrency,
+              success: r.success,
+              failure: r.failure,
+              unknown: r.unknown,
+              keyFields: r.keyFields,
+            },
+          ] as const,
+      )
       .toSorted(([a], [b]) => a.localeCompare(b)),
   ),
   rows: (f.rows ?? [])
@@ -62,6 +70,8 @@ describe("referenceOf(compiled) (Q3: phase-out step 3, Conformance R15, I46, T30
   });
 
   it("a part holds no hand-written rows or handler table", () => {
+    assert.equal(parts.length, 3);
+
     // @ts-expect-error -- a part's reference comes from its Compiled; a hand row does not type-check.
     part({ ...parts[0]!, rows: [] });
 
@@ -88,6 +98,8 @@ describe("parts' fixtures (Q2, Q4, Q5: Conformance R15, R20; F3)", () => {
   });
 
   it("every operation has a server model and a classify, carried into the fixture", () => {
+    assert.equal(parts.length, 3);
+
     for (const part of parts) {
       const fixture = partFixture(part);
 
@@ -96,24 +108,49 @@ describe("parts' fixtures (Q2, Q4, Q5: Conformance R15, R20; F3)", () => {
           (part.server[name]?.answers.length ?? 0) > 0,
           `${part.name}.${name} has no answer`,
         );
-        assert.ok(Predicate.isFunction(fixture.operations?.[name]?.reference.classify));
+        assert.ok(Predicate.isFunction(fixture.operations[name]?.reference.classify));
       }
     }
+
+    const transfers = parts.find((p) => p.name === "transfers");
+    assert.ok(transfers !== undefined);
+
+    const classify = partFixture(transfers).operations["transfer"]?.reference.classify;
+    const done = Answer.Fail({ tag: "AlreadyDone", fields: {} });
+
+    assert.equal(classify?.(done, true), "success");
+    assert.notEqual(classify(done, false), "success");
+    assert.throws(
+      () => partFixture({ ...transfers, server: {} }),
+      (e) => e instanceof NoClassify,
+    );
   });
 
-  it("no alternative of a part is opaque: every guard is computed from the part's own source", () => {
+  it("every guard of a part is computed from its own source: each guarded place has a fold", () => {
+    assert.equal(parts.length, 3);
+
     for (const part of parts) {
-      const handlers = partFixture(part).handlers;
+      const { handlers } = partFixture(part);
 
-      assert.ok(handlers !== undefined);
+      const levels = [
+        { prefix: "", level: handlers.root },
+        ...Object.entries(handlers.states).map(([leaf, level]) => ({
+          prefix: `states.${leaf}.`,
+          level: level ?? {},
+        })),
+      ];
 
-      const alternatives = [handlers.root, ...Object.values(handlers.states)].flatMap((level) =>
-        Object.values(level ?? {}).flat(),
+      const guarded = levels.flatMap(({ prefix, level }) =>
+        Object.entries(level).flatMap(([event, alternatives]) =>
+          alternatives.flatMap((a, position) =>
+            a.opaque ? [`${prefix}on.${event}[${Option.getOrElse(a.index, () => position)}]`] : [],
+          ),
+        ),
       );
 
-      assert.ok(alternatives.length > 0);
+      assert.ok(guarded.length > 0, part.name);
       assert.deepEqual(
-        alternatives.filter((a) => a.opaque),
+        guarded.filter((at) => handlers.folds.guards[at] === undefined),
         [],
         part.name,
       );

@@ -4,7 +4,7 @@ import type { Script, Step } from "./script.ts";
  * A deterministic generator of numbers in [0, 1) from a seed (mulberry32), so a seeded run replays
  * exactly (Conformance R11).
  */
-const random = (seed: number) => {
+export const random = (seed: number) => {
   let state = seed >>> 0;
 
   return () => {

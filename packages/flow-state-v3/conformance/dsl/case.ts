@@ -422,13 +422,18 @@ export const openCase = (options: CaseOptions) => {
     return last !== undefined && !Fact.$is("Ensured")(last);
   };
 
+  // A local actor (its machine not persisted, WriteAhead R3) has no lanes after a reload: its
+  // writes died with the page, so the end-of-case reload owes it no attach to drain them.
+  const persisted = (actor: ActorRef) =>
+    options.fixtures.some((f) => f.machine === actor.machine && f.handlers.persist);
+
   const writers = () => {
     const attached = usesHeld(facts).map(([actor]) => actor);
 
     return reportsOf("Minted")
       .flatMap((o) => Option.toArray(o.actor))
       .filter((actor, at, all) => all.findIndex((a) => sameActor(a, actor)) === at)
-      .filter((actor) => !attached.some((h) => sameActor(h, actor)));
+      .filter((actor) => persisted(actor) && !attached.some((h) => sameActor(h, actor)));
   };
 
   const end = () => {

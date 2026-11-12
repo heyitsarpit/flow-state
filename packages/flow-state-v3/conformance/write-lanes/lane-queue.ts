@@ -79,14 +79,19 @@ const bounds = (model: Model, reference: Reference) =>
   });
 
 /**
- * Each head that was re-sending at the step's start (the model's expectation, `lives.before`), in a
- * step where the store answered every held write, that the server did not receive again in that
- * step (WriteLanes I26: an accepted retry is followed by one invocation once its capture lands),
+ * Each head that was re-sending at the step's start (the model's expectation, `lives.before`) with a
+ * batch written since its retry (`captured`), in a step where the store answered every held write,
+ * that the server did not receive again in that step (WriteLanes I26: an accepted retry is followed
+ * by one invocation once its capture lands),
  * unless a later move of that step took it out of `Resending` (a release, a disposal, a refused
  * capture or an ending: WriteLanes R8's exceptions).
  * A request of its operation that carried an Attempt the model never saw is WriteLanes I9.
  */
-const owedResends = (lives: LifeStep, step: ReadonlyArray<Fact>) => {
+const owedResends = (
+  lives: LifeStep,
+  step: ReadonlyArray<Fact>,
+  captured: ReadonlyArray<string>,
+) => {
   if (!step.some((f) => Fact.$is("Landed")(f))) return [];
 
   const received = step.flatMap((f) => (Fact.$is("Requested")(f) ? [f.request] : []));
@@ -95,7 +100,7 @@ const owedResends = (lives: LifeStep, step: ReadonlyArray<Fact>) => {
   const still = lives.after.attempts.filter((a) => a.phase._tag === "Resending").map((a) => a.id);
 
   return lives.before.attempts
-    .filter((a) => a.phase._tag === "Resending" && still.includes(a.id))
+    .filter((a) => a.phase._tag === "Resending" && still.includes(a.id) && captured.includes(a.id))
     .filter((a) => !received.some((r) => Option.contains(r.key, a.id)))
     .map((a) => {
       const other = received.find(
@@ -275,7 +280,17 @@ const headLast = (lives: LifeStep) =>
     });
   });
 
-type State = { readonly reference: Reference };
+type State = { readonly reference: Reference; readonly captured: ReadonlyArray<string> };
+
+/**
+ * The heads re-sending at the step's end whose retry a batch was written after: one written in
+ * this step (a `Wrote` is noted at its step's settle, after the turns) or in an earlier one.
+ */
+const capturedAfter = (lives: LifeStep, step: ReadonlyArray<Fact>, before: ReadonlyArray<string>) =>
+  lives.after.attempts
+    .filter((a) => a.phase._tag === "Resending")
+    .map((a) => a.id)
+    .filter((id) => before.includes(id) || step.some((f) => Fact.$is("Wrote")(f)));
 
 /**
  * Each write lane keeps its cells, read from the Case's one lifecycle fold: every refusal of
@@ -289,8 +304,9 @@ type State = { readonly reference: Reference };
  *   I12); a mint or decline only where its anchored commit member admits one (I1, I8); promotion
  *   only past a head that left (I11); `Released` only where a cancel or a release owes it, and owed ones by the turn's close (I12); a cancel's ending by the head's
  *   history (I20); cancelAll's queue ended `NotSent { Cancelled }` in mint order (I21).
- * - Views of its own: a head re-sending since the step began is sent by the end of a step in which
- *   the store answered every held write (I26), and a re-send that carries an Attempt the lane
+ * - Views of its own: a head re-sending since the step began, with a batch written after its retry,
+ *   is sent by the end of a step in which the store answered every held write (I26), and a re-send
+ *   that carries an Attempt the lane
  *   never sent instead breaks I9; at the step's end each lane's waiting list is within its policy's bound (0
  *   under reject and cancel, 1 under latest, 64 under serialize; I8) and holds at most one
  *   addressable Attempt (I9); within a turn, each report a member causes (a mint or decline of a
@@ -314,20 +330,20 @@ type State = { readonly reference: Reference };
 export const laneQueue = oracle<State>({
   name: "lane-queue",
   guarantee: GUARANTEE,
-  start: (reference) => ({ reference }),
+  start: (reference) => ({ reference, captured: [] }),
   step: (state, facts, _requests, lives) => {
     const refused = lives.applied
       .flatMap((a) => a.refusals)
       .filter((r) => GUARANTEE.includes(r.invariant));
 
     return [
-      state,
+      { ...state, captured: capturedAfter(lives, facts, state.captured) },
       [
         ...refused,
         ...bounds(lives.after, state.reference),
         ...memberOrder(lives),
         ...headLast(lives),
-        ...owedResends(lives, facts),
+        ...owedResends(lives, facts, state.captured),
       ],
     ] as const;
   },

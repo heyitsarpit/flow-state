@@ -32,21 +32,25 @@ const named = (ending: Ending, name: EndingName) =>
   sameActor(ending.actor, name.actor) &&
   sameAttempt(ending.attempt, name.attempt);
 
+const owing = (ending: Ending) => ending.life._tag !== "Closed" && ending.life._tag !== "Maybe";
+
 /**
  * The index of the ending a report names: the oldest of its Attempt (or, for a decline, of its
- * actor and operation) that is not `Closed`, else the newest, so its cell refuses.
+ * actor and operation) still owed, else the oldest `Maybe` one, else the newest, so its cell
+ * refuses. A `Maybe` ending is owed nothing, so it never takes a report from one owed.
  */
 export const endingNamed = (model: Model, name: EndingName) => {
-  const mine = model.endings.flatMap((e, i) => (named(e, name) ? [i] : []));
-  const open = mine.find((i) => model.endings[i]?.life._tag !== "Closed");
+  const mine = model.endings.flatMap((e, i) => (named(e, name) ? [[i, e] as const] : []));
+  const owed = mine.find(([, e]) => owing(e))?.[0];
+  const maybe = mine.find(([, e]) => e.life._tag === "Maybe")?.[0];
 
-  return Option.fromUndefinedOr(open ?? mine.at(-1));
+  return Option.fromUndefinedOr(owed ?? maybe ?? mine.at(-1)?.[0]);
 };
 
 /**
  * The ending a report names: the actor the report says, else its Attempt's actor, and for a
- * decline the actor of its operation's oldest decline not yet `Closed`, else its newest. None
- * when no actor can be named.
+ * decline the actor of its operation's oldest decline still owed, else its oldest `Maybe` one,
+ * else its newest. None when no actor can be named.
  */
 export const lifeNamed = (
   model: Model,
@@ -63,7 +67,8 @@ export const lifeNamed = (
   );
 
   const ofDecline = Option.fromUndefinedOr(
-    (declines.find((e) => e.life._tag !== "Closed") ?? declines.at(-1))?.actor,
+    (declines.find(owing) ?? declines.find((e) => e.life._tag === "Maybe") ?? declines.at(-1))
+      ?.actor,
   );
 
   return Option.map(

@@ -114,6 +114,13 @@ const operations = {
 
 type State = (typeof states)[number];
 
+/**
+ * The places of the real Pay's 3-D Secure alternatives that run lane members, which round-14's
+ * Pay lacks: their rows are production's (`machines/pay.ts`, derived by `parts/reference.ts`),
+ * and their guards are computed, so a round-14 run never selects them.
+ */
+export const PRODUCTION_ONLY: ReadonlyArray<string> = ["states.UNSURE.on.IntentRead[1]"];
+
 type Write = keyof typeof operations;
 
 const retryable = (operation: Write, passes: boolean) =>
@@ -160,6 +167,10 @@ const payRows = [
     { operation: "pay", kind: "cancel", keyed: true },
     { operation: "place", kind: "commit" },
   ]),
+  alternativeAt(
+    "states.UNSURE.on.IntentRead[1]",
+    payRow("IntentRead", "UNSURE", "same", [{ operation: "pay", kind: "cancel", keyed: true }]),
+  ),
   payRow(
     "IntentRead",
     "UNSURE",
@@ -309,6 +320,7 @@ const payFolds: Folds = {
 const payHandlers: Handlers<State> = {
   folds: payFolds,
   initial: "IDLE",
+  persist: true,
   root: {
     PayRequested: [inStates(["PAYING"], stay), updating(to("PAYING"))],
     CartLoaded: [updating(stay)],

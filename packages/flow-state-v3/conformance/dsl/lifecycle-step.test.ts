@@ -25,6 +25,7 @@ const FIXTURES = [Pay, Serialize, Cancel];
 
 const known: Known = {
   reference: referenceFor(FIXTURES),
+  local: [],
   rows: rowsFor(FIXTURES),
   timed: {},
   captureMs: 0,
@@ -588,8 +589,8 @@ const examples: ReadonlyArray<Example> = [
 
       assert.deepStrictEqual(
         refused(moved, [turn(shopper, "OrderSeen", "UNSURE", "PAID", [])]),
-        [wl(12)],
-        "a folded key naming no lane the actor holds owes the cancel on every lane",
+        [],
+        "a folded key naming no lane the actor holds owes nothing: cancel(k) acts on lane k alone",
       );
     },
   },
@@ -663,18 +664,6 @@ const STEP_MUTANTS: ReadonlyArray<{
       "  if (!member.keyed)\n    return Option.match(said, { onNone: () => keylessTarget(model, known, turn, hearing, member), onSome: (key) => MemberTarget.Key({ key }) });",
   },
   {
-    name: "a keyed member takes any reported key",
-    file: "lifecycle-owed.ts",
-    find: "    lanesOfOperation(model, turn.actor, member.operation).some((l) =>",
-    replace: "    true || lanesOfOperation(model, turn.actor, member.operation).some((l) =>",
-  },
-  {
-    name: "a keyed member whose key is not reported names nothing",
-    file: "lifecycle-owed.ts",
-    find: "  return Option.match(held, {\n    onNone: () => MemberTarget.Every(),",
-    replace: "  return Option.match(held, {\n    onNone: () => MemberTarget.Nothing(),",
-  },
-  {
     name: "a commit ignores its reported key",
     file: "lifecycle-owed.ts",
     find: '  if (member.kind === "commit")\n    return Option.match(said, {',
@@ -725,9 +714,9 @@ const STEP_MUTANTS: ReadonlyArray<{
   {
     name: "a keyed member always names every lane",
     file: "lifecycle-owed.ts",
-    find: "  return Option.match(held, {\n    onNone: () => MemberTarget.Every(),\n    onSome: (key) => MemberTarget.Key({ key }),",
+    find: "  return Option.match(said, {\n    onNone: () => MemberTarget.Every(),\n    onSome: (key) => MemberTarget.Key({ key }),",
     replace:
-      "  return Option.match(held, {\n    onNone: () => MemberTarget.Every(),\n    onSome: () => MemberTarget.Every(),",
+      "  return Option.match(said, {\n    onNone: () => MemberTarget.Every(),\n    onSome: () => MemberTarget.Every(),",
   },
   {
     name: "a turn hears no ending",

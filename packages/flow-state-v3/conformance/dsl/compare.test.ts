@@ -12,6 +12,7 @@ import { Fact } from "./oracle.ts";
 
 const known: Known = {
   reference: referenceFor([Pay]),
+  local: [],
   rows: rowsFor([Pay]),
   timed: {},
   captureMs: 0,

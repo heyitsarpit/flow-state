@@ -71,6 +71,7 @@ export const Stamp = {
       },
     },
     initial: "root",
+    persist: true,
     root: {
       Go: [stay],
       Ok: [updating(stay)],

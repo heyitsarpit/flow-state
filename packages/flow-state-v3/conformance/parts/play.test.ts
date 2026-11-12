@@ -5,7 +5,8 @@ import { implemented as production } from "../adapters/production.ts";
 import { Fact } from "../dsl/oracle.ts";
 import type { Script } from "../dsl/script.ts";
 import { BUILD_SEEDS, mixOf, scriptOf } from "./generate.ts";
-import { playPart, reachOf } from "./play.ts";
+import { verdictOfLimit } from "../limits.ts";
+import { partsOwed, playPart, reachOf } from "./play.ts";
 
 const SEEDS = BUILD_SEEDS.slice(0, 4);
 
@@ -31,11 +32,27 @@ describe("part scripts on production (Q9, Q10, Q15, Q17: Conformance R15, R19, R
   });
 
   it("the null runtime fails every pilot script by a stated failure", () => {
+    assert.equal(parts.length, 3);
+
     for (const part of parts) {
       const played = playPart(scriptOf(part, "usual", SEEDS[0] ?? 1, production), "null");
 
       assert.equal(played.verdict._tag, "Fail");
       assert.ok(!played.verdict.why.includes("defect"));
+    }
+  });
+
+  it("each owed red still fails on production by its check and Invariant", () => {
+    assert.ok(partsOwed.length > 0);
+
+    for (const owed of partsOwed) {
+      const [, name, profile, seed] = /^PART-(.+)-(usual|stress)-(\d+)$/u.exec(owed.case) ?? [];
+      const part = parts.find((p) => p.name === name);
+
+      assert.ok(part !== undefined && (profile === "usual" || profile === "stress"), owed.case);
+      const played = playPart(scriptOf(part, profile, Number(seed), production), "production");
+
+      assert.ok(verdictOfLimit(owed, played.verdict).held, JSON.stringify(played.verdict));
     }
   });
 
@@ -52,7 +69,11 @@ describe("part scripts on production (Q9, Q10, Q15, Q17: Conformance R15, R19, R
     const played = playPart(mix, "production");
 
     assert.equal(played.verdict._tag, "Pass", JSON.stringify(played.verdict));
-    assert.equal(played.facts.filter(Fact.$is("Stepped")).length, mix.steps.length);
+    assert.equal(
+      played.facts.filter((f) => Fact.$is("Stepped")(f) && !f.what.startsWith("end of case"))
+        .length,
+      mix.steps.length,
+    );
     assert.ok(mix.steps.some((s) => s._tag === "reload"));
     assert.equal(Object.keys(reachOf(played)).length, 3);
   });
@@ -77,8 +98,59 @@ describe("reach from executed facts (Q11: Conformance R17)", () => {
         reached.every((c) => production.includes(c)),
         part.name,
       );
-      assert.ok(reached.length < claimed.size + 6, part.name);
+      assert.ok(
+        reached.every(
+          (c) => claimed.has(c) || ["dp", "rl", "wa", "rt", "un", "du", "ma"].includes(c),
+        ),
+        part.name,
+      );
     }
+  });
+
+  it("a claimed code the run never exercised is not reached: no Abandon, no cm; an answer, no un", () => {
+    const script: Script = {
+      id: "reach-no-cancel",
+      fixture: "transfers",
+      actor: "acct-1",
+      steps: [
+        { _tag: "ensure" },
+        {
+          _tag: "send",
+          event: "Send",
+          payload: { transferId: "t1", iban: "DE89370400440532013000", cents: 500 },
+        },
+        { _tag: "ack" },
+        { _tag: "answer", operation: "transfer", answer: { _tag: "ok", value: {} } },
+        { _tag: "release" },
+      ],
+    };
+
+    const transfers = parts.find((p) => p.name === "transfers");
+    assert.ok(transfers !== undefined);
+    assert.ok(transfers.user["READY"]?.some((a) => a.codes.includes("cm")));
+
+    const played = playPart(script, "production");
+    const reached = reachOf(played)[transfers.composite] ?? new Set();
+
+    assert.equal(played.verdict._tag, "Pass", JSON.stringify(played.verdict));
+    assert.ok(reached.has("rj") && reached.has("gr"));
+    assert.equal(played.skipped, 0);
+    assert.ok(!reached.has("cm") && !reached.has("un"));
+  });
+
+  it("steps after a stop reach nothing", () => {
+    const script: Script = {
+      id: "reach-after-stop",
+      fixture: "transfers",
+      actor: "acct-1",
+      steps: [{ _tag: "ensure" }, { _tag: "release" }],
+    };
+
+    const played = playPart(script, "null");
+
+    assert.equal(played.verdict._tag, "Fail");
+    assert.ok(!played.facts.some(Fact.$is("Released")));
+    assert.ok(!Object.values(reachOf(played)).some((codes) => codes.has("gr")));
   });
 
   it("an answer with no open request reaches no unknown ending", () => {
@@ -94,6 +166,7 @@ describe("reach from executed facts (Q11: Conformance R17)", () => {
       steps: [
         { _tag: "ensure" },
         { _tag: "answer", operation: operation ?? "", answer: { _tag: "lost" } },
+        { _tag: "release" },
       ],
     };
 

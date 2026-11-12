@@ -63,9 +63,14 @@ export const schedule = (
 ): Schedule => ({ id, send, delayMs, armOn, entry: true });
 
 /**
- * A machine's handler table (Turn R2): its initial leaf, its root's handlers, each leaf's own
- * handlers, and each leaf's schedules, with the folds its guards, keys and delays read
- * ({@link Folds}).
+ * A machine's handler table (Turn R2): its initial leaf, whether it is persisted, its root's
+ * handlers, each leaf's own handlers, and each leaf's schedules, with the folds its guards, keys
+ * and delays read ({@link Folds}).
+ *
+ * **Details**
+ *
+ * - `persist`: whether the machine is persisted (WriteAhead R3). A local actor's Attempts, endings
+ *   and leaf end with its page at a reload; its next ensure starts it fresh.
  *
  * **Gotchas**
  *
@@ -76,6 +81,7 @@ export const schedule = (
 export type Handlers<State extends string = string> = {
   readonly folds: Folds;
   readonly initial: State;
+  readonly persist: boolean;
   readonly root: Level<State>;
   readonly states: Readonly<Partial<Record<State, Level<State>>>>;
   readonly schedules: Readonly<Partial<Record<State, ReadonlyArray<Schedule>>>>;

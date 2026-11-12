@@ -60,6 +60,7 @@ export const Issues = {
       keys: { rename: labelledKey("id"), like: labelledKey("id") },
     },
     initial: "READY",
+    persist: false,
     root: {
       Load: [stay],
       Listed: [stay],

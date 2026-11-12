@@ -111,7 +111,7 @@ export const step = (
 
   const walk = facts.reduce<Walk>(
     (w, fact) => onFact(w, fact, known, earlier, given),
-    changed(start, turns),
+    changed(start, turns, known.local),
   );
 
   const sent = walk.unsent.reduce<Walk>((w, attempt) => pushed(w, Move.Send({ attempt }), given), {

@@ -67,7 +67,7 @@ const copyRuntime = (runtimeDir: string, scratch: string) =>
   );
 
 /**
- * A copy of the whole package (`src/` and `conformance/`, source files only) in `scratch`, for a
+ * A copy of the whole package (`src/`, `fixtures/` and `conformance/`, source files only) in `scratch`, for a
  * production mutant: the copied runner boots the copied adapter over the copied runtime.
  */
 const copyPackage = (packageDir: string, scratch: string) =>
@@ -77,7 +77,7 @@ const copyPackage = (packageDir: string, scratch: string) =>
         const root = mkdtempSync(join(scratch, "flow-mutant-"));
         const copy = join(root, "package");
 
-        for (const part of ["src", "conformance"])
+        for (const part of ["src", "fixtures", "conformance"])
           cpSync(join(packageDir, part), join(copy, part), {
             recursive: true,
             filter: (f) => basename(f) !== "node_modules" && !NOT_CODE.test(f),

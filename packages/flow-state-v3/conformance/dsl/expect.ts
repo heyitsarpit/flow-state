@@ -4,7 +4,7 @@ import type { Answer, Request } from "../world/network.ts";
 import type { Purpose } from "../world/storage.ts";
 import { endingOf } from "./domain.ts";
 import { due } from "./lifecycle.ts";
-import { booted, landed, rolledBack, unlanded, wrote } from "./lifecycle-capture.ts";
+import { booted, landed, localGone, rolledBack, unlanded, wrote } from "./lifecycle-capture.ts";
 import { apply } from "./lifecycle-fold.ts";
 import {
   ActorMove,
@@ -273,14 +273,21 @@ const restarted = (walk: Walk) => ({
 /**
  * The step's predicted turns changed records: a turn surely changing one (its alternative updates
  * memory or moves the leaf) leaves it `dirty`, and any turn but one surely changing nothing leaves
- * it `unwritten`, from now.
+ * it `unwritten`, from now. A local actor (its machine in `local`) has no record (WriteAhead R3).
  */
-export const changed = (walk: Walk, turns: ReadonlyArray<Predicted>) => ({
+export const changed = (
+  walk: Walk,
+  turns: ReadonlyArray<Predicted>,
+  local: ReadonlyArray<string>,
+) => ({
   ...walk,
   model: {
     ...walk.model,
     live: walk.model.live.map((l) => {
-      const mine = turns.filter((t) => sameActor(t.actor, l.actor));
+      const mine = local.includes(l.actor.machine)
+        ? []
+        : turns.filter((t) => sameActor(t.actor, l.actor));
+
       const now = Option.some(walk.model.clock);
       const sure = mine.some((t) => Option.contains(t.changes, true));
       const maybe = mine.some((t) => !Option.contains(t.changes, false));
@@ -349,7 +356,12 @@ export const onSuiteFact = (walk: Walk, fact: SuiteFact, known: Known, given: Ru
     stirred: walk.stirred || !CLOCK_ONLY.includes(fact._tag),
   };
 
-  return suiteMoved(QUIET_FACTS.includes(fact._tag) ? counted : restarted(counted), fact, given);
+  return suiteMoved(
+    QUIET_FACTS.includes(fact._tag) ? counted : restarted(counted),
+    fact,
+    known,
+    given,
+  );
 };
 
 const QUIET_FACTS: ReadonlyArray<string> = ["Stepped", "Read"];
@@ -360,7 +372,7 @@ const QUIET_FACTS: ReadonlyArray<string> = ["Stepped", "Read"];
  */
 const CLOCK_ONLY: ReadonlyArray<string> = ["Stepped", "Advanced", "Wrote", "Read"];
 
-const suiteMoved = (walk: Walk, fact: SuiteFact, given: Rules) =>
+const suiteMoved = (walk: Walk, fact: SuiteFact, known: Known, given: Rules) =>
   SuiteFact.$match(fact, {
     Reloaded: ({ release }) => {
       const closed = closedTurn({ ...walk, model: { ...walk.model, release } }, given);
@@ -368,7 +380,11 @@ const suiteMoved = (walk: Walk, fact: SuiteFact, given: Rules) =>
 
       return {
         ...reloaded,
-        model: booted({ ...unlanded(reloaded.model), held: [], live: [] }),
+        model: booted({
+          ...localGone(unlanded(reloaded.model), known.local),
+          held: [],
+          live: [],
+        }),
         reloaded: true,
       };
     },
@@ -436,15 +452,19 @@ const unheard = (walk: Walk) => [
 ];
 
 /**
- * A record written in a step that only moved the clock, with no turn, no end owed, every live
- * actor used or free for less than the grace, and no capture due for a record that may be dirty
- * (WriteAhead R10): only an end could write it, and no actor may end (Actors R8, I10).
+ * A record written in a step that only moved the clock, with no turn, no end owed or heard, every
+ * live actor used or free for less than the grace, and no capture due for a record that may be
+ * dirty (WriteAhead R10): only an end could write it, and no actor may end (Actors R8, I10).
  */
-const usedWrite = (walk: Walk) =>
+const clockOnly = (walk: Walk) =>
   walk.writes > 0 &&
   !walk.stirred &&
   walk.planned === 0 &&
   walk.ends.length === 0 &&
+  walk.endsHeard.length === 0;
+
+const usedWrite = (walk: Walk) =>
+  clockOnly(walk) &&
   walk.model.mode === "running" &&
   walk.model.live.length > 0 &&
   !walk.captured &&

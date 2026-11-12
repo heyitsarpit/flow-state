@@ -2,7 +2,7 @@ import { Option } from "effect";
 import type { LifeStep } from "../dsl/expect.ts";
 import { Fact, oracle, violation } from "../dsl/oracle.ts";
 import { type Machines, possible } from "../fixtures/handlers.ts";
-import { Observation, sameActor, type Turn } from "../port.ts";
+import { type Json, MemberTarget, Observation, sameActor, sameJson, type Turn } from "../port.ts";
 
 type State = { readonly machines: Machines };
 
@@ -18,12 +18,29 @@ const touched = (step: ReadonlyArray<Fact>, before: number, operation: string) =
         fact.observation.operation === operation,
     );
 
-const idleIn = (lives: LifeStep, turn: Turn, operation: string) =>
+/**
+ * The key of the lane the guarded alternative's own commit named, when it ran one: the lane its
+ * `idle(k)` reads (WriteLanes I13 is per lane).
+ */
+const committedKey = (turn: Turn, operation: string) =>
+  Option.fromUndefinedOr(
+    turn.members.flatMap((m) =>
+      m.operation === operation && m.kind === "commit" && MemberTarget.$is("Key")(m.target)
+        ? [m.target.key]
+        : [],
+    )[0],
+  );
+
+const idleIn = (lives: LifeStep, turn: Turn, operation: string, key: Option.Option<Json>) =>
   !lives.before.attempts.some(
     (a) =>
       sameActor(a.lane.actor, turn.actor) &&
       a.lane.operation === operation &&
-      a.phase._tag !== "Gone",
+      a.phase._tag !== "Gone" &&
+      Option.match(key, {
+        onNone: () => true,
+        onSome: (k) => Option.exists(a.lane.key, (l) => sameJson(l, k)),
+      }),
   );
 
 const judged = (
@@ -49,15 +66,14 @@ const judged = (
 
   if (touched(step, at, operation)) return [];
 
-  const idle = idleIn(lives, turn, operation);
   const name = `${turn.actor.machine} ${turn.actor.id} ran ${turn.event}`;
 
-  if (ranAt === guardedAt && !idle)
+  if (ranAt === guardedAt && !idleIn(lives, turn, operation, committedKey(turn, operation)))
     return [
       `WriteLanes I13: ${name} by ${guarded.at}, whose idle(${operation}) passed over a lane that is not Idle`,
     ];
 
-  if (ranAt > guardedAt && idle)
+  if (ranAt > guardedAt && idleIn(lives, turn, operation, Option.none()))
     return [
       `WriteLanes I13: ${name} by ${ran.at}, past ${guarded.at}, whose idle(${operation}) holds: every lane is Idle`,
     ];
@@ -80,8 +96,11 @@ const judged = (
  * **Gotchas**
  *
  * - A turn after a mint, send or ending of that operation earlier in its step is not judged (the
- *   lanes moved within the step). Kept endings and keys are not read: the lane is the actor's
- *   whole operation, as Pay's one intent is.
+ *   lanes moved within the step). Kept endings are not read.
+ * - The guard's key is read from the guarded alternative's own commit, when it ran one (S10's
+ *   `idle(repo)` then `commit(repo)`); otherwise the lane is the actor's whole operation, as Pay's
+ *   one intent is. Passing the guard over is judged only when every lane of the operation is
+ *   Idle, since its key is then idle whatever it is.
  */
 export const idleGuard = oracle<State>({
   name: "idle-guard",

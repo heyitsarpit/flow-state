@@ -7,12 +7,11 @@ import {
   type Rows,
   unknownEvent,
 } from "../fixtures/reference.ts";
-import { type ActorRef, type Json, type Member, MemberTarget, sameJson } from "../port.ts";
+import { type ActorRef, type Json, type Member, MemberTarget } from "../port.ts";
 import {
   addressable,
   type EndingName,
   lanesOf,
-  lanesOfOperation,
   type LaneMember,
   type Model,
   sameLane,
@@ -23,6 +22,7 @@ import {
  */
 export type Known = {
   readonly reference: Reference;
+  readonly local: ReadonlyArray<string>;
   readonly rows: Rows;
   readonly timed: Readonly<Record<string, ReadonlyArray<string>>>;
   readonly captureMs: number;
@@ -135,13 +135,7 @@ const targetOf = (
 
   if (!member.keyed) return keylessTarget(model, known, turn, hearing, member);
 
-  const held = Option.filter(said, (key) =>
-    lanesOfOperation(model, turn.actor, member.operation).some((l) =>
-      Option.exists(l.key, (k) => sameJson(k, key)),
-    ),
-  );
-
-  return Option.match(held, {
+  return Option.match(said, {
     onNone: () => MemberTarget.Every(),
     onSome: (key) => MemberTarget.Key({ key }),
   });
@@ -244,8 +238,8 @@ const releasesOwed = (known: Known, turn: Predicted) =>
  *   lane member is owed (releases still are).
  * - A member's target: `Only` on an unkeyed operation. A commit's is its operation's `Key` in
  *   the predicted turn, else `Nothing` (the key-less lane). A `keyed` retry, cancel or cancelAll's
- *   is that `Key` when it names a lane the model holds for the actor and operation, else
- *   `Every`. A key-less retry or cancel names its own ending's Attempt (WriteLanes R9, I14): its
+ *   is that `Key`, whether or not the model holds its lane (one it does not hold is acted on by
+ *   none), and `Every` when the turn's key is not computed. A key-less retry or cancel names its own ending's Attempt (WriteLanes R9, I14): its
  *   lane, or `Nothing` for a decline's; elsewhere it is KeyRequired, a fixture defect. A
  *   key-less cancelAll outside its own ending is `Every`.
  * - A `retryable` guard reads the heads of its member's owed lanes: it passes when one is Held and

@@ -19,6 +19,8 @@ import {
   type Evidence,
 } from "../../src/host/inspect.ts";
 import { CellsMachine, PayMachine, ShopApi } from "../machines/pay.ts";
+import { parts } from "../../fixtures/index.ts";
+import { Server } from "../../fixtures/part.ts";
 import {
   type ActorRef,
   DisposeExit,
@@ -56,7 +58,11 @@ export class UnknownProductionFixture extends Data.TaggedError("UnknownProductio
  * The fixtures the production adapter boots: a case runs on production when all of its fixtures
  * are here.
  */
-export const productionFixtures: ReadonlySet<string> = new Set(["pay", "cells"]);
+export const productionFixtures: ReadonlySet<string> = new Set([
+  "pay",
+  "cells",
+  ...parts.map((p) => p.name),
+]);
 
 /**
  * The feature codes production builds (Conformance R16): a claim, declared only once built.
@@ -76,6 +82,7 @@ export const implemented: ReadonlyArray<Code> = [
 const MACHINES: ReadonlyMap<string, Machine> = new Map<string, Machine>([
   ["pay", PayMachine],
   ["cells", CellsMachine],
+  ...parts.map((p) => [p.name, p.machine] as const),
 ]);
 
 const decodeJson = Schema.decodeUnknownResult(Schema.Json);
@@ -120,6 +127,27 @@ const shopFrom = (network: Network) =>
       fromServer(Effect.flatMap(body(input), (b) => network.request("intent", b, Option.none()))),
     orderFor: (input) =>
       fromServer(Effect.flatMap(body(input), (b) => network.request("order", b, Option.none()))),
+  });
+
+/**
+ * The parts' server over the suite's network: a write's idempotency key goes on the wire, a read
+ * sends none, and a failure reaches the contract as its tagged error.
+ */
+const serverFrom = (network: Network) =>
+  Server.of({
+    call: (operation, input, idempotencyKey) =>
+      network
+        .request(
+          operation,
+          input,
+          Option.liftPredicate(idempotencyKey, (k) => k !== ""),
+        )
+        .pipe(
+          Effect.mapError((failure) => ({
+            ...Object.fromEntries(Object.entries(failure).filter(([k]) => k !== "_tag")),
+            _tag: Schema.is(Schema.String)(failure["_tag"]) ? failure["_tag"] : "Error",
+          })),
+        ),
   });
 
 // RETURN_TYPE: the Port's ActorRef.
@@ -312,7 +340,10 @@ export const productionPort: Port = {
           id: "conformance",
           machines: Object.fromEntries(machines.map((m) => [m.compiled.id, m])),
         }),
-        services: Layer.succeed(ShopApi, shopFrom(network)),
+        services: Layer.mergeAll(
+          Layer.succeed(ShopApi, shopFrom(network)),
+          Layer.succeed(Server, serverFrom(network)),
+        ),
         scope: "conformance",
         persistence: { captureMs: boot.captureMs },
       },

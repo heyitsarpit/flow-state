@@ -57,6 +57,36 @@ export const rolledBack = (model: Model) => {
 };
 
 /**
+ * After a reload, a local actor (its machine not persisted, WriteAhead R3) is gone with its page:
+ * no record restores it, so its Attempts are Gone, its endings closed, and nothing stays owed to
+ * them (Restore I6 owes a restore only to an Acknowledged Attempt, and a local one is never
+ * acknowledged).
+ */
+export const localGone = (model: Model, local: ReadonlyArray<string>) => {
+  const isLocal = (actor: { readonly machine: string }) => local.includes(actor.machine);
+
+  const gone: ReadonlySet<string> = new Set(
+    model.attempts.filter((a) => isLocal(a.lane.actor)).map((a) => a.id),
+  );
+
+  const owedToGone = (o: Model["obligations"][number]) =>
+    o._tag === "AwaitLetGo"
+      ? Option.exists(Option.fromUndefinedOr(model.endings[o.ending]), (e) => isLocal(e.actor))
+      : gone.has(o.attempt);
+
+  return {
+    ...model,
+    attempts: model.attempts.map((a) =>
+      gone.has(a.id) ? { ...a, phase: Phase.Gone({ why: "closed" }) } : a,
+    ),
+    endings: model.endings.map((e) => (isLocal(e.actor) ? { ...e, life: Life.Closed() } : e)),
+    obligations: model.obligations.filter((o) => !owedToGone(o)),
+    actors: model.actors.filter((a) => !isLocal(a.actor)),
+    releasing: model.releasing.filter((l) => !isLocal(l.actor)),
+  };
+};
+
+/**
  * After a reload, a head whose acknowledgement never landed was never on disk as a head
  * (WriteAhead R10): it does not hold its lane.
  */

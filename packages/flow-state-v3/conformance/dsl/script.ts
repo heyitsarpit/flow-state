@@ -29,22 +29,26 @@ export const ScriptAnswer = Schema.Union([
  * - `advance` moves the clock; `reload` kills the page and boots again.
  * - `release` ends the actor's story use; `dispose` and `forget` remove its record (Actors R20,
  *   R21); `disposeRuntime` starts the Runtime's disposal (Actors R22).
+ * - `by` on a step that drives an actor names it by its place in the script's `actors`; with none
+ *   the step drives the script's own actor.
  *
  * **Gotchas**
  *
  * - Labels are computed when the step plays, by the fixture's own functions, never stored here,
  *   so a shrunk or replayed script carries none that could go stale.
  */
+const by = Schema.optionalKey(Schema.Number);
+
 export const Step = Schema.Union([
-  Schema.TaggedStruct("ensure", {}),
-  Schema.TaggedStruct("send", { event: Schema.String, payload: Schema.Json }),
+  Schema.TaggedStruct("ensure", { by }),
+  Schema.TaggedStruct("send", { event: Schema.String, payload: Schema.Json, by }),
   Schema.TaggedStruct("ack", {}),
   Schema.TaggedStruct("answer", { operation: Schema.String, answer: ScriptAnswer }),
   Schema.TaggedStruct("advance", { ms: Schema.Number }),
   Schema.TaggedStruct("reload", {}),
-  Schema.TaggedStruct("release", {}),
-  Schema.TaggedStruct("dispose", {}),
-  Schema.TaggedStruct("forget", {}),
+  Schema.TaggedStruct("release", { by }),
+  Schema.TaggedStruct("dispose", { by }),
+  Schema.TaggedStruct("forget", { by }),
   Schema.TaggedStruct("disposeRuntime", {}),
 ]);
 
@@ -55,7 +59,8 @@ export type Step = typeof Step.Type;
 
 /**
  * A script: one actor of one fixture, driven by its steps, named by where it came from (a seeded
- * run, the exhaustive search, or a shrunk regression).
+ * run, the exhaustive search, or a shrunk regression). `actors` lists the actors its steps name by
+ * `by`, of one fixture or several (the app mix, Conformance R15).
  */
 export const Script = Schema.Struct({
   id: Schema.String,
@@ -82,10 +87,12 @@ const answerOf = (answer: typeof ScriptAnswer.Type) =>
 const open = (c: Case, operation: string) =>
   c.requests(operation).some((r) => RequestPhase.$is("Open")(r.phase));
 
-const played = (c: Case, actor: ActorRef, step: Step) =>
-  Match.valueTags(step, {
+const played = (c: Case, actorOf: (by: Option.Option<number>) => ActorRef, step: Step) => {
+  const actor = actorOf(Option.fromUndefinedOr("by" in step ? step.by : undefined));
+
+  return Match.valueTags(step, {
     ensure: () => c.ensure(actor, Option.none()),
-    send: ({ event, payload }) => c.send([{ actor, event, payload, to: Address.Root() }]),
+    send: ({ event, payload }) => c.send([{ actor: actor, event, payload, to: Address.Root() }]),
     ack: () => c.ack(),
     answer: ({ operation, answer }) => {
       if (open(c, operation)) c.answer(operation, answerOf(answer));
@@ -97,20 +104,49 @@ const played = (c: Case, actor: ActorRef, step: Step) =>
     forget: () => c.forget(actor),
     disposeRuntime: () => c.disposeRuntime(),
   });
+};
+
+/**
+ * Whether a script's `answer` step finds an open request of its operation when it plays: one that
+ * does not is skipped.
+ */
+export const answers = (c: Case, step: Step) => step._tag !== "answer" || open(c, step.operation);
 
 /**
  * The player: a script as a {@link Scenario} the suite's runner plays like a hand case, judged by
- * the oracles alone (a generated run carries no case expectations, advisor Q5).
+ * the oracles alone (a generated run carries no case expectations, advisor Q5). `skipped` hears
+ * each `answer` step that found no open request.
  */
 // RETURN_TYPE: the runner's Scenario contract.
-export const scenarioOf = (script: Script, fixtures: ReadonlyArray<Fixture>): Scenario => ({
-  id: script.id,
-  cites: [],
-  fixtures: fixtures.filter((f) => f.name === script.fixture),
-  run: (c) => {
-    const machine = fixtures.find((f) => f.name === script.fixture)?.machine ?? script.fixture;
-    const actor = { machine, id: script.actor };
+export const scenarioOf = (
+  script: Script,
+  fixtures: ReadonlyArray<Fixture>,
+  skipped: () => void = () => undefined,
+): Scenario => {
+  const named = [{ fixture: script.fixture, actor: script.actor }, ...(script.actors ?? [])];
 
-    for (const step of script.steps) played(c, actor, step);
-  },
-});
+  const machineOf = (fixture: string) =>
+    fixtures.find((f) => f.name === fixture)?.machine ?? fixture;
+
+  const own = { machine: machineOf(script.fixture), id: script.actor };
+
+  const listed = (script.actors ?? []).map((a) => ({ machine: machineOf(a.fixture), id: a.actor }));
+
+  return {
+    id: script.id,
+    cites: [],
+    fixtures: fixtures.filter((f) => named.some((n) => n.fixture === f.name)),
+    run: (c) => {
+      const actorAt = (at: Option.Option<number>) =>
+        Option.getOrElse(
+          Option.flatMap(at, (i) => Option.fromUndefinedOr(listed[i])),
+          () => own,
+        );
+
+      for (const step of script.steps) {
+        if (!answers(c, step)) skipped();
+        played(c, actorAt, step);
+      }
+    },
+  };
+};

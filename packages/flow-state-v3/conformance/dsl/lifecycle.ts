@@ -359,6 +359,19 @@ export const owesRelease = (model: Model, attempt: string) =>
     (o) => Obligation.$is("Await")(o) && o.attempt === attempt && o.report === "Released",
   );
 
+/**
+ * Whether an Attempt's ending is parked, or owed in the Runtime's disposal: a saved outcome its
+ * actor's next incarnation is delivered, so it owes no restore ending (Restore I6).
+ */
+export const parked = (model: Model, a: AttemptLife) =>
+  model.endings.some(
+    (e) =>
+      Option.contains(e.attempt, a.id) &&
+      (e.life._tag === "Parked" ||
+        e.life._tag === "ParkedOpen" ||
+        (e.life._tag === "Owed" && e.inDisposal)),
+  );
+
 const bootOwes = (model: Model) => {
   const cause = model.mode === "disposing" ? ("runtimeDisposal" as const) : ("plain" as const);
 
@@ -372,17 +385,10 @@ const bootOwes = (model: Model) => {
   const recordIs = (a: AttemptLife, record: string) =>
     model.actors.some((x) => sameActor(x.actor, a.lane.actor) && x.record === record);
 
-  const parked = (a: AttemptLife) =>
-    model.endings.some(
-      (e) =>
-        Option.contains(e.attempt, a.id) &&
-        (e.life._tag === "Parked" ||
-          e.life._tag === "ParkedOpen" ||
-          (e.life._tag === "Owed" && e.inDisposal)),
-    );
-
   const owing = model.attempts
-    .filter((a) => restorable(a) && isHead(model, a) && !owesRelease(model, a.id) && !parked(a))
+    .filter(
+      (a) => restorable(a) && isHead(model, a) && !owesRelease(model, a.id) && !parked(model, a),
+    )
     .filter(
       (a) =>
         !(

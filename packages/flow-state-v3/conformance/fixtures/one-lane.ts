@@ -39,6 +39,7 @@ export const Serialize = {
   handlers: {
     folds: noFolds,
     initial: "A",
+    persist: true,
     root: {
       Go: [to("stay")],
       All: [to("stay")],
@@ -68,6 +69,7 @@ export const Latest = {
   handlers: {
     folds: noFolds,
     initial: "A",
+    persist: true,
     root: { Go: [to("stay")], Ok: [to("stay")], No: [to("stay")], Unsure: [to("stay")] },
     states: {},
     schedules: {},
@@ -94,6 +96,7 @@ export const Cancel = {
   handlers: {
     folds: noFolds,
     initial: "A",
+    persist: true,
     root: {
       Go: [to("W")],
       Retrying: [updating(to("stay"))],
@@ -143,6 +146,7 @@ export const Release = {
   handlers: {
     folds: noFolds,
     initial: "HOST",
+    persist: true,
     root: { Leave: [to("AWAY")], LeaveOnly: [to("AWAY")] },
     states: {},
     schedules: {},
@@ -186,6 +190,7 @@ export const LateQueue = {
       guards: { "on.Unsure[0]": (_labels, fields) => Option.some(fields["cancelling"] === true) },
     },
     initial: "A",
+    persist: true,
     root: {
       Go: [to("W")],
       Away: [to("B")],

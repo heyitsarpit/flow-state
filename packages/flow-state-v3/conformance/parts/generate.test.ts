@@ -28,6 +28,8 @@ const sentEvents = (script: Script) =>
 
 describe("scripts from parts (Q7, Q8, Q20: Conformance R15, R16, I47, I52, T30, T34)", () => {
   it("a script encodes to JSON and decodes unchanged, the same for the same seed", () => {
+    assert.equal(parts.length, 3);
+
     for (const part of parts) {
       const script = scriptOf(part, "usual", 7, production);
       const json = Schema.encodeSync(ScriptJson)(script);
@@ -76,6 +78,8 @@ describe("scripts from parts (Q7, Q8, Q20: Conformance R15, R16, I47, I52, T30, 
   });
 
   it("stress scripts draw faults usual ones do not", () => {
+    assert.equal(parts.length, 3);
+
     for (const part of parts) {
       const tags = (profile: "usual" | "stress") =>
         new Set(

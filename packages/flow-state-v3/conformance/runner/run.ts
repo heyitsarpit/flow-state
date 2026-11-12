@@ -46,8 +46,12 @@ const citing = (cites: ReadonlyArray<string>) => (cites.length === 0 ? {} : { ci
 
 type Bounded = { readonly seed: number; readonly overdue: () => boolean };
 
+/**
+ * The verdict of a case that threw on `seed`: a timeout, an oracle's violation, a case's mismatch,
+ * an unreadable report or a defect, each named apart.
+ */
 // FLOW_STATE_ALLOW_UNKNOWN: whatever a case throws reaches the runner untyped; it is narrowed here, once.
-const verdictOf = (id: string, seed: number, failure: unknown) => {
+export const verdictOf = (id: string, seed: number, failure: unknown) => {
   if (failure instanceof Overdue)
     return { _tag: "Timeout", id, seed, seconds: CASE_SECONDS } satisfies CaseVerdict;
 

@@ -1,6 +1,6 @@
 import { type ActorRef, sameActor } from "../port.ts";
 import { type ActorRecord, isHead, type Model, Obligation } from "./lifecycle-model.ts";
-import { owesRelease } from "./lifecycle.ts";
+import { owesRelease, parked } from "./lifecycle.ts";
 
 const actorOf = (model: Model, actor: ActorRef) =>
   model.actors.find((a) => sameActor(a.actor, actor));
@@ -21,6 +21,8 @@ const actorOf = (model: Model, actor: ActorRef) =>
  *   return. So the incarnation a boot opens owes no second restore ending (Restore I6, WriteLanes
  *   I15: once per incarnation). A Held head that owes its release is not kept (WriteLanes R4),
  *   so it owes no restore.
+ * - A Held head with a parked ending (one decided in the Runtime's disposal, say) owes no restore
+ *   either: that saved outcome is what the incarnation is delivered (Restore I6), as at a boot.
  */
 export const incarnate = (model: Model, actor: ActorRef) => {
   const known = actorOf(model, actor);
@@ -34,7 +36,8 @@ export const incarnate = (model: Model, actor: ActorRef) => {
       sameActor(a.lane.actor, actor) &&
       a.phase._tag === "Held" &&
       isHead(model, a) &&
-      !owesRelease(model, a.id),
+      !owesRelease(model, a.id) &&
+      !parked(model, a),
   );
 
   return {

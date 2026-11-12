@@ -110,7 +110,14 @@ const expectStates = (
 ) => {
   const machines = handlersFor(fixtures);
   const reference = referenceFor(fixtures);
-  const known = { reference, rows: rowsFor(fixtures), timed: timedOf(machines), captureMs: 0 };
+
+  const known = {
+    reference,
+    local: [],
+    rows: rowsFor(fixtures),
+    timed: timedOf(machines),
+    captureMs: 0,
+  };
 
   const cuts = facts.reduce<ReadonlyArray<ReadonlyArray<Fact>>>(
     (all, f) =>

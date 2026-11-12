@@ -25,6 +25,7 @@ const keyedFolds = { ...noFolds, driven: { Go: kOf }, keys: { keyed: byK } };
 const handlers = {
   folds: keyedFolds,
   initial: "A",
+  persist: true,
   root: {
     Go: [to("W")],
     Ok: [to("stay")],
