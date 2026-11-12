@@ -1054,6 +1054,14 @@ tasks
             production (Held Attempt restored as unknown), owed to T19 for triage. F2: the mint-key row admits it shows 
             only the mint check. Each gate seen red without its owed rows or owners. Left: production static surface 
             (Q22).
+        comment     2026-11-12T07:08:45Z
+            Resume (at 361d8b6c): only Q22 is left, and it needs a ruling. Production's Compiled has no data view, 
+            Slots or places (Compile R16, R17; code:packages/flow-state-v3/src/core/compiled.ts#Compiled), so a 
+            production static surface cannot pass CMP-02, CMP-06, CMP-07 and the places check; that is production work 
+            outside T47's May-change list. Proposed (agent): build the adapter in 
+            code:packages/flow-state-v3/conformance/runner/args.ts#runtimeSurface for what production has (construct, 
+            admit, create, restore; places from referenceOf), and owe the data-view cases to the Task that builds 
+            Compile R16 in production. Then set T47 to review.
     T52
         title       Suite phase-out, first cut: Pay and Cells generated, hand traces thinned
         status      draft
