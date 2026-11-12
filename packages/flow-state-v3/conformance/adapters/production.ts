@@ -12,6 +12,7 @@ import {
 } from "effect";
 import { Host, StoreRefused, testing } from "../../src/host/testing.ts";
 import { actorRef, app, type Machine } from "../../src/index.ts";
+import type { Code } from "../parts/codes.ts";
 import {
   attachInspector,
   Evidence as EvidenceRecord,
@@ -59,8 +60,18 @@ export const productionFixtures: ReadonlySet<string> = new Set(["pay", "cells"])
 
 /**
  * The feature codes production builds (Conformance R16): a claim, declared only once built.
+ *
+ * **Details**
+ *
+ * Today's 15 (the replan's slice R): `reject` lanes, keys, `cancel` and `retry` members and unknown
+ * endings (`src/core/cells.ts`); late results, schedules and guards (`src/core/turn.ts`); disposal,
+ * several actors and uses (`src/host/runtime.ts`); lookups (`src/contract.ts` `resource`); and
+ * write-ahead, refusal and restore in part (`src/core/persist.ts`), built in full by slice 2.
  */
-export const implemented: ReadonlyArray<string> = [];
+export const implemented: ReadonlyArray<Code> = [
+  ...(["rj", "ky", "cm", "rt", "un", "lr", "du", "gd", "dp", "ma", "gr", "lk"] as const),
+  ...(["wa", "sr", "rl"] as const),
+];
 
 const MACHINES: ReadonlyMap<string, Machine> = new Map<string, Machine>([
   ["pay", PayMachine],

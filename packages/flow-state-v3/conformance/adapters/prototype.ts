@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import { Context, Data, Effect, Option, Predicate, Result, type Scheduler, Schema } from "effect";
 import { join } from "node:path";
+import type { Code } from "../parts/codes.ts";
 import {
   type ActorRef,
   heard,
@@ -135,9 +136,16 @@ export class PrototypeLoadFailed extends Data.TaggedError("PrototypeLoadFailed")
 export class UnknownFixture extends Data.TaggedError("UnknownFixture")<{ readonly name: string }> {}
 
 /**
- * The feature codes round-14 builds (Conformance R16), from its catalog and its source.
+ * The feature codes round-14 builds (Conformance R16), from its catalog and its source: the four
+ * policies and every member (`lane.ts`), schedules, keyed schedules and compound states (`turn.ts`,
+ * `inc.ts`), traits (`inc.ts`), reads and subscriptions (`adapter.ts`), entities (`entities.ts`),
+ * streams (`sessions.ts`), persistence (`durable.ts`), actors (`actors.ts`) and admission bounds
+ * (`lane.ts` `Overloaded`).
  */
-export const implemented: ReadonlyArray<string> = [];
+export const implemented: ReadonlyArray<Code> = [
+  ...(["rj", "lt", "se", "ca", "ky", "cm", "cA", "rt", "un", "du", "ks", "gd", "cs"] as const),
+  ...(["fr", "lk", "sb", "en", "st", "wa", "rl", "sr", "dp", "ma", "gr", "lr", "ad"] as const),
+];
 
 const FIXTURES = [
   { name: "pay", file: "typed/pay.ts", exported: "payFixture", made: "value" },

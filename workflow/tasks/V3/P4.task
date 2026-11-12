@@ -954,6 +954,21 @@ tasks
             owner T52.
             Small API call (agent): `shape()` is `part()` and `Shape` is `Part`, since lint bans "shape" in symbol 
             names.
+        comment     2026-11-12T05:13:32Z
+            Step 2 (declarations and gates' logic) green: Q13, Q14 (gate logic), Q21, Q24 and the matrix rows of Q12; 
+            Q6 waits
+            only on the pilots. 671 and 74 pairs regenerate from `parts/channels.ts`; the 707 quiet pairs fall under 
+            three
+            rules in code:workflow/plans/flow/references/proposals/t47-non-interacting-2026-11-12.md (proposed, the 
+            user's
+            one approval). Planted mutants, each red: owner rule dropped, mix counting any pair, a done owner, pairs 
+            across
+            composites, frozen list ignored, a short code list, unknown codes ignored, an unopened owner, 
+            owed-but-built, a
+            deleted row, unchecked cases. Decisions (agent): "open" means not done, as the coverage gate reads it; 
+            slice 11 is
+            work after slice 10 (T30, T50); P34, P35, P51 (T16, done) are owed by T18. 26 checks still red (steps 3 to 
+            6).
     T52
         title       Suite phase-out, first cut: Pay and Cells generated, hand traces thinned
         status      draft

@@ -59,11 +59,11 @@ describe("pairs from the channel table (Q13, Q21: Conformance R18, I56, T36)", (
   it("the list for the user's approval is the generator's output", () => {
     const written = readFileSync(LIST, "utf8")
       .split("\n")
-      .flatMap((line) => /^- `(\w+)` `(\w+)`: /.exec(line)?.slice(1, 3) ?? [])
-      .reduce<Array<string>>(
-        (all, c, i) => (i % 2 === 1 ? [...all, `${all.pop()}+${c}`] : [...all, c]),
-        [],
-      );
+      .flatMap((line) => {
+        const [, a, b] = /^- `(\w+)` `(\w+)`: /.exec(line) ?? [];
+
+        return a === undefined || b === undefined ? [] : [pairKey(a, b)];
+      });
 
     assert.deepEqual(
       written,
@@ -97,7 +97,7 @@ describe("combination gate (Q14: Conformance R18, I57, I58, T36)", () => {
     );
 
     for (const bad of [
-      { ...owner, task: "@task.V3.T16" },
+      { ...owner, task: "@task.V3.T16", slice: 0 },
       { ...owner, task: "@task.V3.T99" },
       { ...owner, by: "" },
     ])
