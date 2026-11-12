@@ -171,6 +171,9 @@ tasks
             Owed from T47 (orchestrator ruling, 2026-11-12): production's Compiled fails all 11 Compile construction 
             cases and the places check (no data view, Slots, places, tamper check, Flow.input or computed initial); see 
             code:packages/flow-state-v3/conformance/adapters/production-static.ts#staticOwed.
+        comment     2026-11-12T10:46:05Z
+            From core-task-briefs-2026-11-12.md: `Compile.spec:104` still lists `cancelAll` and `StaticCli.spec:104` 
+            ReservedReason.
     T9
         title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
         status      open
@@ -355,6 +358,11 @@ tasks
             From the core consolidation design (round 3 handoff table, via @task.V3.T54): read endings are ledger rows 
             whose audience the creator chooses (Actors R8 parks `Interrupted` for the identity); `reads` is untouched 
             and no slot type exists, since a shared lookup has many waiters (C1).
+        comment     2026-11-12T10:45:44Z
+            From core-task-briefs-2026-11-12.md: read endings follow option B (the user, 2026-11-12, Q1 A). 
+            @spec.Reads.R9 proposes the value `Flow.ReadStopped` (Defect, Interrupted) under the key `stopped:`; both 
+            names are proposed and T21 confirms them. @spec.Reads.I22 and Reads T14 are T21's to build; T54 only routes 
+            read endings through `owe`.
 
     T57
         title       Machine structure: fragments, .each, subject paths and schedules (slice 3b)
@@ -421,9 +429,8 @@ tasks
         priority    high
         blocked_by  [@T9]
         description
-            Run the fixtures (including Pay and checkout) in real Chrome and Safari on production, through a minimal 
-            React binding and
-            IndexedDB persistence (`layerIndexedDb`): the browser half of the preview cut.
+            Run the fixtures (including Pay and checkout) in real Chrome and Safari on production, through a minimal
+            React binding and IndexedDB persistence (`layerIndexedDb`): the browser half of the preview cut.
 
             **Why now:** the user named a preview cut first (2026-11-12, wide consult Q1 A): the core, a minimal React 
             binding, IndexedDB, `flow check` and the fixtures (including Pay and checkout) in a real browser. Before 
@@ -455,7 +462,8 @@ tasks
             User's read: the preview's public names, small API calls.
         acceptance
             - The fixtures (including Pay and checkout) run in real Chrome and Safari on production under 
-              `FlowProvider`, `useActorByRef` and `useView`: a payment is committed, the page reloads mid-flight, and 
+              `FlowProvider`, `useActorByRef` and `useView`: a write is committed (Pay's a payment), the page reloads 
+              mid-flight, and
               the Attempt and its ending are restored from IndexedDB with no second send (skill:check-runtime records 
               each run).
             - `layerIndexedDb` writes each batch in one IndexedDB transaction, and a refused transaction leaves no 

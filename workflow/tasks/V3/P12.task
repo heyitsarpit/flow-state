@@ -185,8 +185,8 @@ tasks
             - **Restore's LaneRekeyed and OldVersionLane** name one thing twice, and both are T56's; if R-8
               reaches a re-keyed or old-version lane, stop and ask.
             - **`Owing` (Restore `model`) is not `Owed`** (one ledger row, WriteLanes `model`).
-            - **Invariants left to cover from their Spec text** (rule above): Restore I9 and I19 have no Spec case
-              yet; write one each.
+            - **Invariants left to cover from their Spec text** (rule above): Restore I9 and I19 have Spec tests (T14,
+              T5) but no oracle or case yet; write one each.
 
             **Must not decide alone:** how a row's `value` is encoded when JSON cannot carry it (decided, above);
             creation-order keys (decided: none, above); what happens to a saved row whose operation is gone (ask;
