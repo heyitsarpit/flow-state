@@ -45,6 +45,7 @@ import { productionCases, writeGates } from "./gates.ts";
 import { matrixFile, writeMatrix } from "./matrix.ts";
 import { crash, kills, liar, limitsGate, regressions, shrink } from "./modes.ts";
 import { runCoreMutants } from "./mutate.ts";
+import { matrixGateMode, pairsGate, partsGate, productionRegressions } from "./parts-gates.ts";
 import { runStatics } from "./run.ts";
 import { coreInvariants, openTasks } from "./specs.ts";
 import { type CaseVerdict, VERDICTS_LINE, VerdictsJson } from "./verdict.ts";
@@ -416,12 +417,25 @@ const runtimeNameOf = (mode: string, rest: ReadonlyArray<string>) => {
 };
 
 /**
+ * The part gates (T47): the parts suite, matrix, pairs, bench and kept regressions on production.
+ */
+const PARTS_MODES = new Map([
+  ["parts", partsGate],
+  ["matrix-gate", matrixGateMode],
+  ["pairs", pairsGate],
+  ["regressions-production", productionRegressions],
+]);
+
+/**
  * The runner: its first line names the runtime the mode plays (T43), unless a parent reads its
  * verdicts as JSON.
  */
 const main = (args: ReadonlyArray<string>) => {
   const [mode = "", ...rest] = args;
   const named = [...RUNTIME_MODES, ...ROUND_14_MODES].includes(mode) && !rest.includes("--json");
+  const partsMode = PARTS_MODES.get(mode);
+
+  if (partsMode !== undefined) return partsMode;
 
   return named
     ? Console.log(`runtime: ${runtimeNameOf(mode, rest)}`).pipe(Effect.andThen(dispatch(args)))

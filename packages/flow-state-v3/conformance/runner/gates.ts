@@ -1,10 +1,11 @@
 /// <reference types="node" />
 import { Console, Effect, Option, Schema } from "effect";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { productionFixtures } from "../adapters/production.ts";
 import type { Limit } from "../limits.ts";
 import { scenarios } from "../suite.ts";
-import { ROUND_14 } from "./args.ts";
+import { PACKAGE, ROUND_14 } from "./args.ts";
 import { runChild } from "./child.ts";
 
 /**
@@ -23,6 +24,8 @@ export const productionCases = scenarios
   .filter((s) => s.fixtures.every((f) => productionFixtures.has(f.name)))
   .map((s) => s.id)
   .filter((id) => !productionOwed.some((o) => o.case === id));
+
+const BENCH = resolve(PACKAGE, "bench", "gate.ts");
 
 const verdictLine = (stdout: string) =>
   Option.getOrElse(
@@ -87,6 +90,11 @@ export const writeGates = (
         args: ["falsify", "--runtime", "production", "--parallel", "6", "--scratch", scratch],
       },
       { gate: "coverage", args: ["coverage"] },
+      { gate: "parts production", args: ["parts"] },
+      { gate: "matrix", args: ["matrix-gate"] },
+      { gate: "pairs production", args: ["pairs"] },
+      { gate: "bench production", args: ["bench"], entry: BENCH },
+      { gate: "regressions production", args: ["regressions-production"] },
       {
         gate: "liar round-14",
         args: ["liar", "--runtime", ROUND_14, "--parallel", "6", "--scratch", scratch],
@@ -110,8 +118,8 @@ export const writeGates = (
 
     const fresh = yield* Effect.forEach(
       picked,
-      ({ gate, args }) =>
-        runChild("bun", [main, ...args], 280).pipe(
+      ({ gate, args, entry = main }) =>
+        runChild("bun", [entry, ...args], 280).pipe(
           Effect.map((out) => ({ gate, revision, verdict: verdictLine(out.stdout) })),
           Effect.catchTag("ChildFailed", (e) =>
             Effect.succeed({ gate, revision, verdict: `failed: ${e.why}` }),
