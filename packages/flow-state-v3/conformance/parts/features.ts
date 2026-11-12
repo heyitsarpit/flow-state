@@ -139,7 +139,9 @@ export const lateCodes = (
 
         return late.length === 0
           ? []
-          : [`${f.id}: owed by ${task} in slice ${slice}, but its codes ${late.join(", ")} land in a later slice`];
+          : [
+              `${f.id}: owed by ${task} in slice ${slice}, but its codes ${late.join(", ")} land in a later slice`,
+            ];
       },
     }),
   );

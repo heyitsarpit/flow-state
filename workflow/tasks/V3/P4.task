@@ -1031,6 +1031,12 @@ tasks
             lateCodes lists 10 rows whose owner precedes a code's slice (M71 P38 P49 Q04 Q05 Q07 Q13 Q15 E10 L03) for 
             the user's read. First-contact reds: attempt-identity was the suite's (WriteAhead I17); forget then refusal 
             never ends the Attempt, owed to T19 with the retry-count red. Falsify 18/18 production, 154/154 round-14.
+        comment     2026-11-12T06:44:50Z
+            Resume item 3 (F1, Q25) done at 2bf7ab39: F1-two-ends ends two actors in one step on production and passes; 
+            production flushes each turn, so no end is dirty unless a write is dropped. A production edit dropping 
+            acct-2's writes fails Actors I37 alone but, beside acct-1, only delivered-once: S2 stays, now an Actors I37 
+            remainder owed to T19 (retires when a write names its record). keysOf's two-keys rule has three checks; the 
+            take-the-first-key edit of credits.ts turns one red.
     T52
         title       Suite phase-out, first cut: Pay and Cells generated, hand traces thinned
         status      draft
