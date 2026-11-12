@@ -253,11 +253,11 @@ describe("The lane lifecycle (Table A, deadlines, promotion)", () => {
         rules.deadlines.PendingCancel,
         (d: Deadline) => ({ ...rules.deadlines, PendingCancel: d }),
       ],
-      ...(["plain", "runtimeDisposal", "disposeActor", "forget"] as const).map(
-        (cause) =>
+      ...Object.entries(rules.deadlines.AwaitRestore).map(
+        ([cause, deadline]) =>
           [
             `AwaitRestore ${cause}`,
-            rules.deadlines.AwaitRestore[cause],
+            deadline,
             (d: Deadline) => ({
               ...rules.deadlines,
               AwaitRestore: { ...rules.deadlines.AwaitRestore, [cause]: d },

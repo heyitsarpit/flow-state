@@ -3,9 +3,11 @@ import { Option } from "effect";
 import { describe, it } from "vite-plus/test";
 import { rules } from "../dsl/lifecycle-rules.ts";
 import type { Script } from "../dsl/script.ts";
-import { pairsIn, recording, successorPairs, undistinguished } from "./cells.ts";
-import { cellMutants, killedBy, pilots, tableCells } from "./model-mutation.ts";
+import { cellName, cellsOf, pairsIn, recording, successorPairs, undistinguished } from "./cells.ts";
+import { fieldGate, killedBy, modelFields, modelMutants, pilots } from "./model-mutation.ts";
 import { playPart } from "./play.ts";
+
+const mutants = modelMutants();
 
 const reachOfPart = (scripts: ReadonlyArray<Script>) => {
   const reads = scripts.map((script) => {
@@ -18,48 +20,71 @@ const reachOfPart = (scripts: ReadonlyArray<Script>) => {
   return new Set([
     ...reads.flatMap((log) => log.map((c) => `cell ${c}`)),
     ...reads.flatMap((log) => [...pairsIn(log, successorPairs())].map((p) => `pair ${p}`)),
-    ...cellMutants(scripts)
+    ...modelMutants(scripts)
       .filter((m) => m.noticed)
-      .map((m) => `kill ${m.cell}`),
+      .map((m) => `kill ${m.field}`),
   ]);
 };
 
 describe("model mutation (Q16: Conformance R19, I61, T39)", () => {
-  it("mutates every cell of the model's tables once", () => {
-    const cells = tableCells();
+  it("the model's fields are walked from the rules: every cell, every deadline, the promotion rule", () => {
+    const fields = modelFields();
+    const cells = cellsOf().map((c) => `${c.table}.${c.row}.${c.column}.${c.guard}`);
 
-    assert.ok(cells.length > 0);
-    assert.deepEqual(
-      cellMutants().map((m) => m.cell),
-      cells,
+    assert.ok(cells.every((c) => fields.includes(c)));
+    assert.ok(fields.includes("deadlines.AwaitRestore.unbound"));
+    assert.ok(fields.includes("deadlines.Commit"));
+    assert.ok(fields.includes("promotion"));
+    assert.equal(fields.length, cells.length + 12 + 1);
+  });
+
+  it("the field gate passes: a mutation reaches every model field", () => {
+    assert.deepEqual(fieldGate(mutants), []);
+  });
+
+  it("the field gate fails a field no mutation reaches", () => {
+    const left = mutants.filter((m) => m.field !== "deadlines.PendingCancel");
+
+    assert.deepEqual(fieldGate(left), [
+      "BAD  model field deadlines.PendingCancel: no mutation reaches it",
+    ]);
+  });
+
+  it("the pilots notice some fields, each by the oracle that refused", () => {
+    const noticed = mutants.filter((m) => m.noticed);
+    const oracles = new Set(noticed.flatMap((m) => m.oracle.split(",")));
+
+    assert.ok(noticed.length > 0);
+    assert.ok(noticed.every((m) => m.oracle !== "none"));
+    assert.ok(
+      [...oracles].every((o) => /^[a-z-]+$/u.test(o)),
+      [...oracles].join(" "),
     );
   });
 
-  it("the pilots notice some cells, each by a refusal naming an Invariant", () => {
-    const noticed = cellMutants().filter((m) => m.noticed);
-
-    assert.ok(noticed.length > 0);
-    assert.ok(noticed.every((m) => /^[A-Za-z]+ I\d+$/.test(m.invariant)));
-  });
-
-  it("a throw, a case's own expectation or a timeout is never a kill; an oracle's refusal is", () => {
+  it("a throw, a case's own expectation or a timeout is never a kill; an oracle's refusal is, by name", () => {
     const why = "seed 1: lane-queue: WriteLanes I15: t1 (Gone) got Send";
 
     assert.ok(Option.isNone(killedBy({ _tag: "Fail", id: "x", oracles: [], why })));
     assert.ok(Option.isNone(killedBy({ _tag: "Timeout", id: "x", seed: 1, seconds: 5 })));
     assert.deepEqual(
-      killedBy({ _tag: "Fail", id: "x", oracles: ["lane-queue"], why }),
-      Option.some("WriteLanes I15"),
+      killedBy({ _tag: "Fail", id: "x", oracles: ["lane-queue"], why: "no Invariant here" }),
+      Option.some("lane-queue"),
     );
   });
 
-  it("a cell no pilot reads is listed unnoticed, naming no Invariant", () => {
+  it("a cell no pilot reads is listed unnoticed, naming no oracle", () => {
     const [first] = pilots();
     assert.ok(first !== undefined);
 
-    const queued = cellMutants([first]).find((m) => m.cell === "A Send·Queued·always");
+    const queued = modelMutants([first]).find((m) => m.field === "tableA.Send.Queued.always");
 
-    assert.deepEqual(queued, { cell: "A Send·Queued·always", invariant: "none", noticed: false });
+    assert.deepEqual(queued, {
+      field: "tableA.Send.Queued.always",
+      oracle: "none",
+      noticed: false,
+    });
+    assert.ok(cellsOf().some((c) => cellName(c) === "A Send·Queued·always"));
   });
 
   it("each pilot part reaches a cell, a cell pair or a noticed mutant no other part does (False pass)", () => {

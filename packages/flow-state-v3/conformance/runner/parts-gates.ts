@@ -12,6 +12,7 @@ import { verdictOfLimit } from "../limits.ts";
 import { recording } from "../parts/cells.ts";
 import { SLICE_OF } from "../parts/codes.ts";
 import { matrixGate } from "../parts/features.ts";
+import { fieldGate, modelFields, modelMutants } from "../parts/model-mutation.ts";
 import { PAIR_OWNERS } from "../parts/pair-owners.ts";
 import { combinationGate } from "../parts/pairs.ts";
 import { partsOwed, playPart, reachOf } from "../parts/play.ts";
@@ -102,6 +103,26 @@ export const pairsGate = Effect.suspend(() => {
     `pairs reached ${result.reached}, owed ${result.owed}; triples ${result.triples.reached}/${result.triples.total}; cell pairs ${result.cellPairs.reached}/${result.cellPairs.total} ${JSON.stringify(result.cellPairs.byComposite)}`,
   ).pipe(
     Effect.andThen(verdict(result.failures, result.reached + result.owed, "interacting pairs")),
+  );
+});
+
+/**
+ * The model-mutation gate (Conformance T39): every model field is mutated and judged on the
+ * pilots; a field no mutation reaches fails, and each field no pilot notices is listed.
+ */
+export const modelMutationGate = Effect.suspend(() => {
+  const mutants = modelMutants();
+  const unnoticed = mutants.filter((m) => !m.noticed);
+
+  return Effect.forEach(unnoticed, (m) => Console.log(`unnoticed ${m.field}`), {
+    concurrency: 1,
+  }).pipe(
+    Effect.andThen(
+      Console.log(
+        `model mutants noticed ${mutants.length - unnoticed.length}/${mutants.length}, by ${[...new Set(mutants.flatMap((m) => (m.noticed ? m.oracle.split(",") : [])))].join(" ")}`,
+      ),
+    ),
+    Effect.andThen(verdict(fieldGate(mutants), modelFields().length, "model fields mutated")),
   );
 });
 

@@ -93,6 +93,7 @@ export const writeGates = (
       { gate: "parts production", args: ["parts"] },
       { gate: "matrix", args: ["matrix-gate"] },
       { gate: "pairs production", args: ["pairs"] },
+      { gate: "model mutation production", args: ["model-mutation"] },
       { gate: "bench production", args: ["bench"], entry: BENCH },
       { gate: "regressions production", args: ["regressions-production"] },
       { gate: "regressions round-14", args: ["regressions", "--runtime", ROUND_14] },

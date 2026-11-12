@@ -45,7 +45,13 @@ import { productionCases, writeGates } from "./gates.ts";
 import { matrixFile, writeMatrix } from "./matrix.ts";
 import { crash, kills, liar, limitsGate, regressions, shrink } from "./modes.ts";
 import { runCoreMutants } from "./mutate.ts";
-import { matrixGateMode, pairsGate, partsGate, productionRegressions } from "./parts-gates.ts";
+import {
+  matrixGateMode,
+  modelMutationGate,
+  pairsGate,
+  partsGate,
+  productionRegressions,
+} from "./parts-gates.ts";
 import { runStatics } from "./run.ts";
 import { coreInvariants, openTasks } from "./specs.ts";
 import { type CaseVerdict, VERDICTS_LINE, VerdictsJson } from "./verdict.ts";
@@ -417,12 +423,14 @@ const runtimeNameOf = (mode: string, rest: ReadonlyArray<string>) => {
 };
 
 /**
- * The part gates (T47): the parts suite, matrix, pairs, bench and kept regressions on production.
+ * The part gates (T47): the parts suite, matrix, pairs, model mutation, bench and kept
+ * regressions on production.
  */
 const PARTS_MODES = new Map([
   ["parts", partsGate],
   ["matrix-gate", matrixGateMode],
   ["pairs", pairsGate],
+  ["model-mutation", modelMutationGate],
   ["regressions-production", productionRegressions],
 ]);
 

@@ -20,6 +20,7 @@ describe("gates (Q19, Q27)", () => {
       "parts production",
       "matrix",
       "pairs production",
+      "model mutation production",
       "bench production",
       "regressions production",
       "regressions round-14",

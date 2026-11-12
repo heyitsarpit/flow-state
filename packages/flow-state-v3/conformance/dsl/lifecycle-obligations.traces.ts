@@ -1,5 +1,5 @@
 import { Option } from "effect";
-import { Life, LifeMove, Move, Obligation } from "./lifecycle-model.ts";
+import { type Cause, Life, LifeMove, Move, Obligation } from "./lifecycle-model.ts";
 import { member, turn } from "./lifecycle-members.traces.ts";
 import { at, build, type Trace } from "./lifecycle-trace.ts";
 import type { InvariantId } from "./facts.ts";
@@ -205,8 +205,7 @@ const dueTrace = (
   checks: [],
 });
 
-const restore = (cause: "plain" | "runtimeDisposal" | "disposeActor" | "forget") =>
-  Obligation.AwaitRestore({ attempt: "s", cause });
+const restore = (cause: Cause) => Obligation.AwaitRestore({ attempt: "s", cause });
 
 const deadlineTraces: ReadonlyArray<Trace> = [
   dueTrace("a release not reported", "WriteLanes I12", awaiting("s", "Released"), [wl(12)], [], 0),
@@ -251,6 +250,14 @@ const deadlineTraces: ReadonlyArray<Trace> = [
     [],
     [actors(32)],
     0,
+  ),
+  dueTrace(
+    "a boot's restore of an unbound lane waits for the adoption",
+    "Actors R20: listed at each boot until an adopting ensure",
+    restore("unbound"),
+    [],
+    [],
+    1,
   ),
   dueTrace(
     "a kept ending not let go",
