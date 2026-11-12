@@ -293,3 +293,7 @@ note 2026-11-12T02:27:20Z
     uncommitted in src/ (core/cells.ts, core/evidence-of.ts, core/world.ts, core/compiled.ts, core/tx.ts, contract.ts, 
     machine.ts), resume note last on T51. No agents live; crons and caffeinate stopped. Weekly usage about 75 percent 
     of 95.
+note 2026-11-12T02:32:23Z
+    Run resumed in the same session, now with a 400k context window. Crons c2229c29 and bb8133d4, caffeinate on; a 
+    fresh T51 lead continues from e25bb637's resume note and the uncommitted step-2 files. Weekly usage 75 percent 
+    of 95.
