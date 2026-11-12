@@ -1047,7 +1047,7 @@ tasks
             absent and dispose is Effect<void> (Actors R22, R23).
     T51
         title       Production lanes reworked: one table function, reports derived from acts
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T45]
         description
@@ -1377,3 +1377,17 @@ tasks
             gaps: a lane-less ending lost on its second refusal (lanes.ts:257, Actors R15, WriteLanes I24) and dispose 
             during bootstrap not cancelling it (runtime.ts:220, Actors R4). Error for an untagged failure accepted 
             (flow.ts:97); Spec gap to revisit.md.
+        comment     2026-11-12T04:25:37Z
+            Completion-check fixes done (lead) at 31279004, each red first in `src/host/lanes.test.ts`. Gates equal
+            6bb02721's: suite production 78/78, falsify 18/18, liar 13/13, crash 732/735 (same three reds), v3 tests
+            87/87 (+3 cases), `nub run check` zero. Finding 3's rule is Actors I24 (WriteLanes I24 is success writes).
+        comment     2026-11-12T04:25:42Z
+            **Decision (agent):** a dispose during the bootstrap cancels it at its commit point: the uninterruptible
+            boot ends its step, then fails RuntimeDisposed before `Boot`, and the closed Scope releases a late service
+            (Actors R4 allows it). Twice-refused lane-less write endings are kept under a minted id; a read's answer
+            stays dropped (R15's stranded read is not built). **Reverse:** one edit each.
+        comment     2026-11-12T04:25:46Z
+            Reviewer sidecar log (lead; Haiku, effort high, read-only, fix diff): accepted 1, a read's answer was newly
+            kept (red case, then fixed). Rejected: 2, a lane-less ending with no incarnation (no refusal; lane and life
+            both gone, I24); 3, T18 has it; 4, kept-record restore is shared code; 5, R4 allows a late service
+            released; 6, key text is a JSON object (`src/contract.ts` codecsOf); 7, HoldRefused predates T51.
