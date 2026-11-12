@@ -375,3 +375,7 @@ note 2026-11-12T07:34:38Z
     (2026-11-14 00:30 IST) two independent lines run: T47 close then T52, and T46 (backtest); then back to one builder. 
     Orchestrator: wide consult W2 (host shell to T55, rest to T19) and W3 (split T20 and T17, browser slice after T9) 
     to be placed; Q1, Q2, Q4, Q5 and W1 await the user.
+note 2026-11-12T07:38:44Z
+    Review (T47 close): FAIL, four blocking, all accepted and sent to a fresh lead. Process watch: the harness counted 
+    a suite that could not load as killing every mutant, so a gate improvement (75 to 98) was taken at face value by 
+    the builder; a jump in a mutation score now needs a planted no-load run before it is believed.

@@ -821,7 +821,7 @@ tasks
             proposals/t45-completion-check-2026-11-12.md. Follow-ups F1 to F3 owned by T47.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
-        status      review
+        status      in_progress
         priority    high
         blocked_by  [@T51]
         description
@@ -1068,6 +1068,10 @@ tasks
             crash 732/735 as before. Rulings applied: Q22 (11 CMP cases and places owed to T17, widened from four: S1 
             needs Flow.input), pair owners decided, GEN-pay-search-25 to T54, non-interacting rules decided (the user, 
             2026-11-12).
+        comment     2026-11-12T07:38:35Z
+            Close review FAIL (t47-close-review-2026-11-12.md): core mutants 98/98 not real (copies fail to load, a 
+            load failure counts as a kill); three kept regressions unrecorded; no T39 field gate; Guards unmet. 
+            Orchestrator: GEN-pay-search-25 returns to T47 as a suite-model fix; fresh lead fixing.
     T52
         title       Suite phase-out, first cut: Pay and Cells generated, hand traces thinned
         status      draft
