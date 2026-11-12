@@ -89,12 +89,12 @@ must still carry the turn that committed it, WriteAhead R13).
 **Recommendation (proposed).** A step returns `{ world, commands, acts }`, and `evidenceOf` is the only code that
 builds an `Evidence`. A world diff alone is not enough: some reports describe a decision that changes nothing.
 
-| Kind of report                                                                | Determined by                   |
-| ----------------------------------------------------------------------------- | ------------------------------- |
-| Minted, Sent, Lane kinds, Incarnated, Finished, Published, RuntimeDisposed    | before, after, commands         |
-| Owed, Parked, Unparked, Delivered, Recorded (round 1's row transitions)       | the ledger row before and after |
-| Turn, Unhandled, Denied, the Issue of a refused turn, a call's Defect         | the turn's verdict (an act)     |
-| NothingToResend, InFlight, StorageSilent                                      | the cue and the state before    |
+| Kind of report                                                             | Determined by                   |
+| -------------------------------------------------------------------------- | ------------------------------- |
+| Minted, Sent, Lane kinds, Incarnated, Finished, Published, RuntimeDisposed | before, after, commands         |
+| Owed, Parked, Unparked, Delivered, Recorded (round 1's row transitions)    | the ledger row before and after |
+| Turn, Unhandled, Denied, the Issue of a refused turn, a call's Defect      | the turn's verdict (an act)     |
+| NothingToResend, InFlight, StorageSilent                                   | the cue and the state before    |
 
 **Still emitted by hand** (all under `src/`): `core/disposal.ts:49`; `core/answers.ts:40`, `:71`;
 `core/serve.ts:78`, `:80`, `:82`, `:177`, `:194`, `:204`; `core/lane-moves.ts:239`; `core/incarnations.ts:71`,
@@ -155,12 +155,12 @@ incarnation of a frequently mounted actor.
 
 The twelve names belong to four channels that should never share a type:
 
-| Audience                   | Names                                                                    |
-| -------------------------- | ------------------------------------------------------------------------ |
-| A handler (an ending)      | NotSent { why }, StillUnknown, unknown Restored, Cancelled, Disposed      |
-| A caller (a thrown error)  | RuntimeDisposed, RuntimeNotReady, InvalidEvent                            |
-| `flow check` (compile)     | ReservedReason, KeyRequired                                               |
-| Reports                    | StorageFailure, StorageSilent, Superseded, Released, NothingToResend      |
+| Audience                  | Names                                                                |
+| ------------------------- | -------------------------------------------------------------------- |
+| A handler (an ending)     | NotSent { why }, StillUnknown, unknown Restored, Cancelled, Disposed |
+| A caller (a thrown error) | RuntimeDisposed, RuntimeNotReady, InvalidEvent                       |
+| `flow check` (compile)    | ReservedReason, KeyRequired                                          |
+| Reports                   | StorageFailure, StorageSilent, Superseded, Released, NothingToResend |
 
 **Recommendation (proposed).**
 
@@ -195,12 +195,12 @@ branch on the payload's `why`.
 - **Admission policy** (one per operation) is a point in a small space: how many commits wait behind a sent
   head, what a full queue does, and whether the sent head is preempted.
 
-| Policy    | Waiting | When full        | Preempts the sent head |
-| --------- | ------- | ---------------- | ---------------------- |
-| reject    | 0       | decline          | no                     |
-| latest    | 1       | replace          | no                     |
-| serialize | 64      | decline          | no                     |
-| cancel    | 0       | not applicable   | yes                    |
+| Policy    | Waiting | When full      | Preempts the sent head |
+| --------- | ------- | -------------- | ---------------------- |
+| reject    | 0       | decline        | no                     |
+| latest    | 1       | replace        | no                     |
+| serialize | 64      | decline        | no                     |
+| cancel    | 0       | not applicable | yes                    |
 
   A never-sent head is the front of the queue, which is why `latest` supersedes it. Keep the four names (the
   standard contract: RxJS `exhaustMap`, `switchMap`, `concatMap`; `allow` was `mergeMap`). Internally: one
@@ -264,20 +264,20 @@ most Invariants it is the only proof the judge is awake.
 
 ## Part 2: simplifications, ranked by what they remove against their risk
 
-| #  | What goes                                             | Removes | Risk       |
-| -- | ----------------------------------------------------- | ------- | ---------- |
-| 1  | Parked, kept, Tries, Keep, the Kept row (ledger)      | most    | medium     |
-| 2  | Hand persist calls and their flags (diff-written)     | large   | medium     |
-| 3  | Host lifecycle flags and nine `open ?` guards         | large   | low-medium |
-| 4  | records + incarnations + uses + the grace scan        | large   | medium     |
-| 5  | Hand-emitted reports and `insertEvidence`             | medium  | low-medium |
-| 6  | The host's flush, bound and Issue                     | medium  | medium     |
-| 7  | `mayHaveApplied` as a stored field                    | small   | low        |
-| 8  | String reasons and `isDecline` inference              | medium  | medium     |
-| 9  | `current` + `owner` + `ROOT_ACTIVATION`               | small   | low        |
-| 10 | `end` and `dispose` twins; `Ensure`'s flags           | small   | low        |
-| 11 | The edge's `out`, `due` sentinels and `flushes`       | small   | low        |
-| 12 | Checked-in derived baselines; three owed lists        | medium  | low        |
+| #   | What goes                                         | Removes | Risk       |
+| --- | ------------------------------------------------- | ------- | ---------- |
+| 1   | Parked, kept, Tries, Keep, the Kept row (ledger)  | most    | medium     |
+| 2   | Hand persist calls and their flags (diff-written) | large   | medium     |
+| 3   | Host lifecycle flags and nine `open ?` guards     | large   | low-medium |
+| 4   | records + incarnations + uses + the grace scan    | large   | medium     |
+| 5   | Hand-emitted reports and `insertEvidence`         | medium  | low-medium |
+| 6   | The host's flush, bound and Issue                 | medium  | medium     |
+| 7   | `mayHaveApplied` as a stored field                | small   | low        |
+| 8   | String reasons and `isDecline` inference          | medium  | medium     |
+| 9   | `current` + `owner` + `ROOT_ACTIVATION`           | small   | low        |
+| 10  | `end` and `dispose` twins; `Ensure`'s flags       | small   | low        |
+| 11  | The edge's `out`, `due` sentinels and `flushes`   | small   | low        |
+| 12  | Checked-in derived baselines; three owed lists    | medium  | low        |
 
 Detail, with what must stay true:
 

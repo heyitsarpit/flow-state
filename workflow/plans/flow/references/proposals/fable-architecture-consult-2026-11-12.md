@@ -10,13 +10,13 @@ or record changed, no gates run. Evidence is from `packages/flow-state-v3/src/co
 Two lifecycles share one set of cells. An **Attempt** is sent, waits, is held, is re-sent. An **ending** is known,
 queued, refused, kept, heard. Today the second is stored as a side effect of the first, in five places:
 
-| Fact about an ending       | Where it lives now                                         | Keyed by |
-| -------------------------- | ---------------------------------------------------------- | -------- |
-| queued, and how many tries | `Mail.Ending` with `Tries` (`world.ts`)                    | position |
-| waiting for an incarnation | `World.parked` (`persist.ts` `park`)                       | lane     |
-| twice refused              | `World.kept`, one entry per lane (`persist.ts:134`)        | lane     |
-| owed `unknown Restored`    | derived from a Held head, at boot and again at each start  | lane     |
-| "wake this identity"       | the lane record's `inFlight` (`record.ts` `encodeLane`)    | lane     |
+| Fact about an ending       | Where it lives now                                        | Keyed by |
+| -------------------------- | --------------------------------------------------------- | -------- |
+| queued, and how many tries | `Mail.Ending` with `Tries` (`world.ts`)                   | position |
+| waiting for an incarnation | `World.parked` (`persist.ts` `park`)                      | lane     |
+| twice refused              | `World.kept`, one entry per lane (`persist.ts:134`)       | lane     |
+| owed `unknown Restored`    | derived from a Held head, at boot and again at each start | lane     |
+| "wake this identity"       | the lane record's `inFlight` (`record.ts` `encodeLane`)   | lane     |
 
 Every listed bug is an ending whose fate needed a lane to hold it, or a copy that was not updated:
 
