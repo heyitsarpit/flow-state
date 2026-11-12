@@ -344,6 +344,11 @@ instructions
       cause (gathering, weak check, wrong side, context, rule gap). At each Task's close it writes a short
       retrospective in the Task's comments: what was missed, why, and the process change it proposes, marked
       proposed until the user accepts it; small fixes that keep work correct and moving it applies and notes.
+    - The user's page (the user, 2026-11-12; wide consult Q5): at each slice's close the orchestrator writes one
+      page, "what an app author will notice": only user-visible behaviour and names decided since the last page,
+      ordered by cost to reverse. The run does not wait for it, but a second slice may not close on an unread page.
+    - Each slice's close reports the type-error count of `workflow/plans/flow/references/checkout` compiled against
+      `src/index.ts` instead of the stand-in; it gates nothing and must fall (wide consult Q2, orchestrator).
 
     **Records, usage, commands**
 

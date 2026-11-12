@@ -379,3 +379,10 @@ note 2026-11-12T07:38:44Z
     Review (T47 close): FAIL, four blocking, all accepted and sent to a fresh lead. Process watch: the harness counted 
     a suite that could not load as killing every mutant, so a gate improvement (75 to 98) was taken at face value by 
     the builder; a jump in a mutation score now needs a planted no-load run before it is believed.
+note 2026-11-12T07:50:25Z
+    Decisions (the user, wide consult): Q1 A, a preview cut first (core slices 1-5, minimal React, IndexedDB, flow 
+    check, checkout Pay in a real browser; the rest reordered, not cut); Q2 B, endings split by origin (failure 
+    author-only, notSent, unknown with otherwise), Flow's values as Data.TaggedEnum on _tag for Effect Match; Q3 A, 
+    cancelAll deferred; Q4 A, Flow's own Store with one atomic write(batch), one batch stream per Runtime; Q5 A, the 
+    user's page per slice. Runtime Spec cluster rewritten as one set (Fable). Records agent places W2, W3 and the 
+    preview order.

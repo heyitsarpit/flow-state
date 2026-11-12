@@ -52,3 +52,5 @@ Deferred items.
 - **The capture window in the core** (2026-11-12, consult round 2 B2, round 3; deferred by the orchestrator). A core
   timer and `Input.Hidden` would make batch boundaries deterministic, but add a dirty set per scope to the World
   and change the crash gate's points. Revisit after T55, when the final write is already in the core.
+- **`cancelAll`** (2026-11-12, the user, wide consult W1 K0; deferred). Neither reference app uses it. If it returns,
+  K1 (its own member, typed only on queuing policies) over K2 (`cancel(key, { queued: true })`).
