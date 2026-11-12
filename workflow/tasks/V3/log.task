@@ -386,3 +386,7 @@ note 2026-11-12T07:50:25Z
     cancelAll deferred; Q4 A, Flow's own Store with one atomic write(batch), one batch stream per Runtime; Q5 A, the 
     user's page per slice. Runtime Spec cluster rewritten as one set (Fable). Records agent places W2, W3 and the 
     preview order.
+note 2026-11-12T07:53:42Z
+    Decision (the user): no banked reset today; go slow and plan usage a week ahead through the end of the month. When 
+    weekly usage reaches 100 percent the run pauses until the scheduled reset (2026-11-14 00:30 IST); the two-line 
+    window plan is cancelled (T46 not started). Usage now 89 percent weekly, 81 percent of the 5-hour window.
