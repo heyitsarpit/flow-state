@@ -1,0 +1,445 @@
+log V3
+note 2026-11-09T13:40:00Z
+    Migrated from `wiki/roadmaps/v3-production/` (last commit `b30be69d`); old phases 0 to 9 are P0 to P10. The
+    user confirmed the summary ("all accepted", 2026-11-09): P3 and P5 are verification-suite phases; old phase 8
+    split into P8 suites and P9 performance; skills root `/Users/arpit/Developer/workflow/skills/suites/workflow`.
+    The roadmap's amendments (serial work, converge on the third review in a row, sidecars read-only, small public
+    API calls are the orchestrator's, the prototype is the main truth, Specs only just in time) live in the Epic's
+    instructions.
+note 2026-11-09T13:50:00Z
+    **Decision (agent, 2026-11-09):** the phase 2 design rulings (migration and restore OD54, entities OD52, streams
+    OD53, rounds 15, 15b and area H OD50, OD51, stage A close-out, the merge audit's PC1, PC2, EC2, OC1, OC3, TC1,
+    PKC1, IC2, FSC1) are in the Specs and Plans they govern (@spec.Restore, @spec.WriteLanes, @spec.Codec,
+    @spec.StaticCli, @spec.Actors, @spec.Reads, @plan.Operations, @plan.EntityDomains, @plan.Runtime). They are the
+    agent's, not the user's; the 28 error and reason names they add (`RecordShapeChanged`, `RepairOverdue`,
+    `SharedContract` and the rest) are proposed. **Reverse:** one edit each. Open as built (OD54): after a revert one
+    unsure lane remains, not two; latent: shape stamps compared raw across a format change, a re-key persisted only on
+    the lane's next write, a crash between moving a lane and deleting the old one. Not built: a boot forgets a
+    stranded read (rule 8) and evidence for kept and stranded deliveries (@plan.Runtime.O4); the user accepts or drops
+    them. `trace diff` and `diff --base` stay cut (the user's CLI scope, OD55).
+note 2026-11-09T14:10:00Z
+    Deferred: the items in code:wiki/plans/flow/references/proposals/revisit.md and
+    code:wiki/plans/flow/references/proposals/open-items.md stay there, linked, not copied.
+note 2026-11-09T16:13:13Z
+    The user approved the Epic and its loop ("yes i approve", 2026-11-09); status active.
+note 2026-11-10T08:41:29Z
+    Amendment (2026-11-10, the user): no budgets of iterations, time or usage ("giving a round budget is pointless
+    imo"); Limits keeps the failure limit and the usage reserve. Agent decisions carry no "User's read" field and block
+    no work; Tasks in P3 to P10 carry no class or kind label and no empty lines. Reverse: restore from `7b485e2b`.
+note 2026-11-10T14:00:39Z
+    Decision (user, 2026-11-10): dangling links in log.task are warnings; no copy-detection check; leads are briefed
+    with `workflow brief`.
+note 2026-11-10T16:28:22Z
+    Amendment (the user, 2026-11-10, Q1 A): the reviewing lead reports to the orchestrator, who verifies findings and
+    sends the accepted ones to the building lead; the builder logs each as accepted, changed or rejected.
+note 2026-11-10T17:09:20Z
+    Amendment (the user, 2026-11-10, Q2 A): Haiku never writes committed code; building leads write every committed
+    line. Sidecars are runners, one-rule reviewers, locators and scratch mutant writers. **Why:** the patterns Haiku
+    code picks. **Reverse:** restore coders on disjoint files.
+note 2026-11-10T17:09:25Z
+    Decision (user, 2026-11-10, Q1 A): guarantee change approved: Actors I35 and I36 for R22's bound, with
+    o6.dispose-interrupts-wire, o6.no-bound and o6.settled-in-bound-stays-held registered. Governs: @spec.Actors.
+note 2026-11-10T18:09:25Z
+    Decision (user, 2026-11-10): convergence applies only when two or more rounds keep surfacing many issues; fix known
+    bugs and go on. Orchestrator: mint order (1b.disposal-definite-w-first) stays unported (revisit.md).
+note 2026-11-10T19:07:58Z
+    Decision (user, 2026-11-11): one builder carries related Tasks; a fresh one starts only when context runs long or
+    work moves from suite to production. Leads work through up to three context compactions before handing off.
+note 2026-11-10T19:09:55Z
+    Decision (orchestrator): a disposed actor's ending is not evidence; WriteLanes I15 stays, and the prototype's
+    rule 44 is a round-14 deviation. **Why:** the Spec outranks the prototype. **Reverse:** add disposal to I15's
+    exceptions.
+note 2026-11-10T19:13:13Z
+    Decision (user, 2026-11-11): the coverage gate (@task.V3.T41): every core Invariant is checked or owned by a named
+    open Task, and T15 reads it. Trap: `conformance/not-yet.ts` still names T7, T8, T10, T11 and T12 as owners, so
+    the gate fails (2026-11-11).
+note 2026-11-10T19:41:21Z
+    Decision (orchestrator): the Port requires Minted.key on keyed operations; production must report it.
+note 2026-11-10T19:44:55Z
+    Amendment (the user, 2026-11-11): Plan changes found while building are decisions in @plan.Pending, merged only
+    once proven and approved.
+note 2026-11-10T21:09:15Z
+    Decision (orchestrator, R35): lane-oracle convergence v2
+    (code:wiki/plans/flow/references/proposals/lane-oracle-convergence-v2-2026-11-11.md) is built (@task.V3.T7).
+    **Reverse:** patch the v1 oracles.
+note 2026-11-10T23:44:41Z
+    Decision (orchestrator): a case past its time bound fails as Timeout, never a catch. **Reverse:** drop the bound.
+note 2026-11-11T03:30:58Z
+    Decision (user, 2026-11-11): open Spec questions are the orchestrator's ("you decide what's correct"). Rulings: a
+    definite ending matches an answer the server gave; CQ1 a second refusal is final until the next boot or adoption;
+    CQ3 a kept ending keeps its lane; CQ6 a never-sent commit's NotSent { Disposed } is delivered to the next
+    incarnation (round-14 stated limit); CQ7 a superseded head promotes the next; Compile Q3 a Schema's own functions
+    are not Slots; R9's KeyRequired stands (round-14 stated limit); an owed retry re-sends. **Reverse:** revert each
+    Spec entry.
+note 2026-11-11T03:46:45Z
+    Decision (orchestrator): what a turn owes comes only from its row and suite facts, never a report; the Pay Leave
+    claimed exception is a stated limit. **Reverse:** patch each report-driven probe.
+note 2026-11-11T03:48:39Z
+    Amendment (the user, 2026-11-11): all leads are Opus at medium effort; Haiku at high. One lead at a time, sidecars
+    kept, leads report once per batch in at most 10 lines. **Why:** weekly usage burned about 2.4 points an hour.
+note 2026-11-11T04:21:25Z
+    Decision (orchestrator): the invariant audit's cuts are accepted
+    (code:wiki/plans/flow/references/proposals/invariant-audit-2026-11-11.md); @task.V3.T42 revised the core Specs
+    (WriteLanes I22 folded into I15, Compile I2 into I1).
+note 2026-11-11T04:41:35Z
+    Amendment (the user, 2026-11-11): suite work and reviews apply policy-testing's audit section as a checklist;
+    adapters get typed failures; work is test-first, with module integration tests through the public interface.
+note 2026-11-11T07:31:08Z
+    Decision (orchestrator): rows leave P3 for P4 only with cited evidence, checked by the next review.
+note 2026-11-11T08:11:31Z
+    Decision (orchestrator, under the user's delegation): any refused turn's ending is redelivered once, a second
+    refusal final until the next boot or adoption (Actors R15, I24); WriteLanes R10 and I15 widened, @plan.Pending D4
+    rewritten. **Reverse:** limit redelivery to a mapper throw.
+note 2026-11-11T08:19:21Z
+    Decision (user, 2026-11-11, "update the order to interleave"): P3 and P4 interleave by area (P3 foundations, P4
+    Pay path, P11 Persistence, P12 Restore, P13 Actors and Reads, P14 CLI, P15 close-out); Task ids kept.
+note 2026-11-11T09:55:30Z
+    Decisions (user, 2026-11-11, "all accepted"): T16's provisional public names; Effect recommendations R1 to R8 in
+    @task.V3.T43; Restore R1 stands and DISP-05 keeps a Held lane's identity a record until reached.
+note 2026-11-11T09:57:26Z
+    Amendment (the user, 2026-11-11): usage reserve 75 percent weekly; AGENTS.md gains the idiomatic-Effect rule; the
+    Epic adds Effect prior art per module, a standing Effect review angle and lint bans on host time and randomness
+    in src/.
+note 2026-11-11T10:20:45Z
+    Amendment (the user, 2026-11-11, "all the recommendations are accepted"): the advisor's answers are adopted: T44,
+    T45 (executable Spec model) and T46 (prover backtest); reviews start on events with a 3-hour stall check; zero to
+    two sidecars by need.
+note 2026-11-11T10:36:02Z
+    Decision (user, 2026-11-11): a wide net of small, very different fixtures (about 15 to 20 app shapes) under
+    generated flows and fault schedules (@task.V3.T47); T45 and T47 come before T17.
+note 2026-11-11T11:32:30Z
+    Decision (user, 2026-11-11, all accepted): the coverage report's scope additions are applied, with new Tasks T48,
+    T49 (P5) and T50 (P10); Firefox joins the browser runs. Every public Plan feature is represented in fixtures
+    shared by the conformance and benchmark suites, gated by a feature matrix (in T47).
+note 2026-11-11T12:29:45Z
+    Decision (user, 2026-11-11): the replan's 12 recommendations are accepted
+    (code:wiki/plans/flow/references/proposals/replan-2026-11-11.md) and applied (slices R and 1 to 10, T51 new;
+    reverse: revert commit 07b0a7d3). The combination gate: pairs enforced, triples reported, composites carry many
+    features. Pin workflow@7043010 (earlier e74b0e2).
+note 2026-11-11T12:42:50Z
+    Stop (the user, 2026-11-11): once the replanned Tasks and the Spec passes are applied and reviewed, the run stops;
+    no builder restarts. The orchestrator then reports what the next agent would work on.
+note 2026-11-11T12:58:40Z
+    Decision (orchestrator, under the user's delegation): Compile I15 widens so functions Flow derives from a declared
+    Schema may sit on Compiled and are not Slots; Reads gains an Invariant that no lookup context carries an Attempt.
+    **Reverse:** move derived functions off Compiled; drop the Reads Invariant.
+note 2026-11-11T13:09:43Z
+    Decision (user, 2026-11-11): turn cost is a measurement, not a gate; only the work fingerprint gates. T45 owns the
+    script Schema, player and shrinker; T47 reuses them. Open for the user: the status of T9, T15 and T46.
+note 2026-11-11T14:00:00Z
+    Decision (user, 2026-11-11): the conformance phase-out is accepted, including Pay as a generated part (reverses
+    replan decision 5 for Pay); folded into T45, T47, T17, T18, T20, T23, T24 and new T52, T53. **Reverse:** revert
+    commit 960339ca. Unreached interacting pairs pass during the slices only with a dated owner, and none may remain
+    at T15's audit or T53.
+note 2026-11-11T14:58:41Z
+    Amendment (the user, 2026-11-11): compact-records installed (.agents/skills, linked in .claude/skills); records
+    are compacted at each slice's close and when one passes its limit.
+note 2026-11-11T15:20:00Z
+    Decision (user, via the orchestrator, 2026-11-11): conformance/STATUS.md is retired; its live content moved to
+    Task comments, numbers are in gates.json, findings in the reviews under proposals/. **Reverse:** restore the file
+    from git.
+note 2026-11-11T15:30:31Z
+    compact-records' first run: STATUS.md retired into Task comments, log.task cut from 350 to 140 lines, coverage rows 
+    re-owned from merged Tasks; the skill gained five fixes from the run and the pin moved. **Reverse:** restore 
+    STATUS.md from git.
+note 2026-11-11T15:32:15Z
+    Run started (the user's go, 2026-11-11, which lifts the 12:42 stop) at 0ddedbf8, pin workflow@55c7ab7, weekly usage 
+    58 percent of a 75 reserve. Current Task T45, resuming at its step 1 (o6 disposal catch). No live agents; first 
+    action: one Opus building lead on T45.
+note 2026-11-11T16:35:27Z
+    Decision (orchestrator, Spec delegation): a kill during disposal before the ending's batch lands falls under 
+    WriteAhead I17 (restore unknown { Restored }); Actors I36 holds only once the ending landed, since a boot cannot 
+    know an unsaved ending. T45's model follows I17 there and counts it as the search's Spec conflict; the I36 wording 
+    goes to the user's read. **Reverse:** model follows I36 and I17 gains the exception. Also: the T45 lead designs the 
+    expect half itself, as a proposal file reviewed by one Opus reviewing lead before code.
+note 2026-11-11T17:02:44Z
+    Review (T45 expect-half design, 77c7342d): ready with changes; B1 to B4 and the minor findings accepted after 
+    spot-checks (Wrote.purpose and Acknowledged.attempts typed as facts, Finished folds the grace record, Pay keys from 
+    intentId in memory). Decisions 1 to 5 taken as the reviewer recommends; Conformance R19 gains a wording note for 
+    the user's read. Findings: proposals/t45-expect-half-review-2026-11-11.md. **Reverse:** reopen the design.
+note 2026-11-11T18:22:31Z
+    Amendment (the user, 2026-11-11): reviews every 90 minutes on a new checkpoint, one Opus lead with two Haiku 
+    sidecars, besides the event reviews; stall threshold 100 minutes. Crons 1123ecbe and 15f3947a replace 3c84955c. 
+    **Reverse:** restore the 3-hour stall cron and event-only reviews.
+note 2026-11-11T18:30:08Z
+    Usage reserve moved from 75 to 95 percent weekly, all models (the user, 2026-11-12). **Reverse:** set it back to 75 
+    in Limits.
+note 2026-11-11T18:53:31Z
+    Review started (90-minute wake): one Opus lead with two Haiku sidecars on T45's checkpoints 74911f8d to 4d7e0f5d. 
+    Weekly usage 64 percent of 95. T45's comments are at 133 lines, past 100: compact at the slice's close (it is the 
+    active Task).
+note 2026-11-11T18:55:14Z
+    Amendment (the user, 2026-11-12): compaction runs once a day (cron 2e0ef6f9, 05:13), no size limits or slice-close 
+    runs; the T45 size note above is void. Review crons re-created as edb6e5bc and daad31f5 without the size check. 
+    **Reverse:** restore the slice-close and size-limit rule.
+note 2026-11-11T19:02:48Z
+    Amendment (the user, 2026-11-12), correcting the one above: compaction has no timer; a review wake runs 
+    compact-records when the last compaction (now 2026-11-11T15:30:31Z, compact-records' first run) is over 24 hours 
+    old. Cron 2e0ef6f9 deleted; review crons are ae0019e5 and c647d724. **Reverse:** restore the daily cron.
+note 2026-11-11T19:10:58Z
+    Review (90-minute, T45 step 3 at 4d7e0f5d): not done. K1 to K4 verified and accepted (B2 unbuilt; the anchor, a 
+    turn's from, event and keys, and NO_POLICY declines still come from reports) with the should-fix list; sent to the 
+    builder. Findings: proposals/t45-step3-review-2026-11-12.md.
+note 2026-11-11T20:18:04Z
+    T45 step 3 fixes landed (K1, K3, K4, S1, S2, S4, S6, S7; K2 partly), no lost catch against 56ef0856. Builder sent 
+    on to close K2 (Requested ordering or liar-visible limits), the data-flow boundary test, S3, S5 and Actors I10/I37 
+    cases, then steps 4 to 6. Round-14's missing incarnation after disposal and reload goes to limits.ts. Weekly usage 
+    66 percent.
+note 2026-11-11T20:47:23Z
+    Review started (90-minute wake): T45's fix round 4d7e0f5d..823f118f and the step-5 checkpoint d50d54ea, one Opus 
+    lead with two Haiku sidecars. Weekly usage 67 percent of 95.
+note 2026-11-11T20:59:36Z
+    Review (T45 fix round to 823f118f): not done. Accepted after checks: K1 (an unowed Finished on a free live actor is 
+    applied, not refused by I10), the K3 remainder, S6, the unowed Incarnated limit, the kill count counting no-verdict 
+    rows, regressions without their Invariant. Decision (orchestrator): disposeActor stops a restore once its removal 
+    lands (Actors R20) and forget drops no hold (R21), so the model's split stands; the reviewer's same-rule reading is 
+    rejected. **Reverse:** owe restores for disposeActor records too.
+note 2026-11-11T21:50:17Z
+    Decision (orchestrator): life.never-ends and life.ends-while-used stay off the report-truth list; an end is 
+    observable through Actors R8 (record written at the grace, schedules cancelled, the next ensure starts a fresh 
+    life), so T45 adds fixtures where it shows. Raising the liar cap above 9 would relax a gate, the user's call, asked 
+    only if no fixture can show it. Turn I12's case-only catch gets an oracle in T45, so acceptance 1 is met by 
+    generated runs. **Reverse:** report-truth both, and ask the user for the cap.
+note 2026-11-11T22:17:25Z
+    Review started (90-minute wake): T45's 823f118f..2f77e7ab (steps 3 to 6 and the 429f6eac calls), one Opus lead with 
+    two Haiku sidecars. Weekly usage 69 percent of 95.
+note 2026-11-11T22:21:09Z
+    Decision (orchestrator): T45 keeps its scope; round-14 gets no new machines (no new prototyping). The 9 older liar 
+    greens are listed as report truth with the sidecar's reason (no fixture's No, Unsure or NotSent handler moves state 
+    or memory, and none declares request order), owned by T47's fixtures on production, within the phase-out cap of 9. 
+    Production's missing incarnation after a dispose (GEN-pay-seeded-281) goes to T51. **Reverse:** widen T45 to add 
+    round-14 fixture machines.
+note 2026-11-11T22:32:05Z
+    Review (T45 823f118f..2f77e7ab): not done; B1 (an owed end refused in any step with no write, per step not per 
+    actor) and B2 (the data-flow test compares only live and held; its planted test is a tautology) verified and 
+    accepted with the should-fix list. Decision (orchestrator), no Spec change: an owed end owes its own record's write 
+    only when that record is dirty at the end (Actors R8 with WriteAhead R10), and the early-end check fires only when 
+    no capture is due; the reviewer's R8 amendment is not needed. **Reverse:** ask the user to amend R8 to written.
+note 2026-11-11T23:26:14Z
+    Decision (orchestrator): production's deferred write at an end is a production bug under Actors R8 (the record is 
+    encoded in the end step), owned by T51; the B1 rule stands and ACT-02, ACT-03 stay red on production until T51. T45 
+    finishes acceptance items 8 and 9; item 7's eight Reads and Sessions search kills move to their slices with dated 
+    owners. **Reverse:** revise R8 so an end may defer to the capture.
+note 2026-11-11T23:30:19Z
+    T45 lead stopped at 71 percent weekly, reading the old 75 reserve (it is 95); items 8 and 9 left in its resume 
+    note. A fresh building lead takes T45 to review, since the first one's context is long. Item 7 met for persistence; 
+    Reads kills owned by T21, session kills by T25.
+note 2026-11-11T23:47:29Z
+    Review started (90-minute wake): T45's 2f77e7ab..178df54c (B1, B2, limits rows, report truth, production's owed 
+    reds), one Opus lead with two Haiku sidecars. Weekly usage 71 percent of 95.
+note 2026-11-11T23:53:36Z
+    Decision (orchestrator, suite layout): Table A's refusing cells stay as the compare's named refusals; deleting them 
+    moves 8 catches to other checks (falsify 146/154), which the phase-out's own no-lost-catch validation forbids, and 
+    no report reads remain in them. Phase-out step 1 counts as met by the claimed flag's removal. For the user's read. 
+    **Reverse:** delete the cells and accept the moved Invariants (a gate relaxation, the user's call).
+note 2026-11-12T00:02:40Z
+    Review (T45 completion, to d8cf11e3): items 1 to 6 and 9 met, 7 partly, 8 not met (README keeps three prose 
+    round-14 limits, verified); should-fixes S1 to S10 accepted; sent to the lead. Stop after the fixes, for the user: 
+    amend T45's acceptance 7 (eight old search kills owned by T21 and T25) and phase-out step 1 (Table A's cells kept), 
+    both proposed; T51 waits on T45.
+note 2026-11-12T00:30:26Z
+    Stop (R21, for the user): T45 is in review at 3a2db980 with K1 and S1 to S10 fixed or stated; it closes only on the 
+    user's yes to two proposed amendments (acceptance 7's eight search kills owned by T21 and T25; phase-out step 1 
+    keeps Table A's cells). T51 waits on T45; no builder runs. Review wakes continue; open: 0d1c5e87's crash total 1523 
+    against 723 since, unexplained.
+note 2026-11-12T01:07:00Z
+    Decision (user, 2026-11-12): Q1 A and Q2 A accepted (T45 acceptance 7: Reads and Sessions search kills owned by T21 
+    and T25; phase-out step 1 keeps Table A's cells); amended in P4.task and the phase-out proposal. Small amendments 
+    that keep work correct and moving are now the orchestrator's (Authority). Run resumed: a completion check of T45's 
+    fixes (86f184b7..3a2db980) and a fresh building lead on T51, which starts while T45 is in review since the check 
+    touches only conformance/. **Reverse:** git revert this commit.
+note 2026-11-12T01:21:29Z
+    Amendment (the user, 2026-11-12): requirements first, as failing checks; each Task's first commit lists its 
+    requirements once and writes each as a check that fails today (properties, types, data-flow checks, a mutant per 
+    report), and review findings land as failing checks. Reviews also on each step marked done; convergence threshold 
+    2; fresh lead per large step. The library's policy-testing and policy-verification carry it, uncommitted after 
+    workflow@55c7ab7. **Reverse:** git revert this commit.
+note 2026-11-12T01:23:18Z
+    T45 done: completion check PASS at a39c2f52; the crash total 1523 was two red cases each running all 400 points, no 
+    runs lost. F1 to F3 (S2 limit reach, mint-key-lies target, opaque alternatives against Conformance R20) go to T47 
+    as requirements.
+note 2026-11-12T01:26:30Z
+    T51 step 1 (be086a6d): ten requirements written as checks red at T51's start; step-done review started (one Opus 
+    lead, two Haiku sidecars). Decision (orchestrator, small amendment): T51 may re-point the edits of the six 
+    production mutants the rework removes, keeping name, claim, expectation and cases. **Reverse:** keep 
+    production.mutants.ts out of T51's scope.
+note 2026-11-12T01:28:30Z
+    Amendment (the user, 2026-11-12): requirements are gathered by one lead with up to four read-only Haiku sidecars on 
+    named angles (Specs and Plans, the code replaced, open findings, an adversary); the lead verifies each item. In the 
+    Epic's Testing rule and both policy-testing copies (uncommitted). **Reverse:** git revert this commit.
+note 2026-11-12T01:36:16Z
+    Amendment (the user, 2026-11-12): every review has one blind sidecar that sees only the Specs, Plans and code, 
+    never the requirements list or earlier reviews; what only it finds is a missed requirement. Review crons re-created 
+    as f68dc6c2 and 685d58aa. **Reverse:** git revert this commit and re-create the crons.
+note 2026-11-12T01:36:51Z
+    Review (T51 step 1, be086a6d): confirmed with additions, all accepted. GEN-pay-seeded-281 is a suite driver bug 
+    (case.ts records Ensured before checking removed, so a forgotten actor gets ensureExisting); decision 
+    (orchestrator, small amendment): T51 fixes that ordering under a reviewer sidecar and a no-lost-catch sweep, and 
+    drops Q3. Q11 (key-less members on an unkeyed operation, WriteLanes R9) and Q2b added; weak checks tightened; 
+    re-pointed mutants meet the review's five conditions. **Reverse:** move the driver fix to T47.
+note 2026-11-12T01:42:37Z
+    Amendment (the user, 2026-11-12): the requirements list maps every acceptance item, Approach item and gap comment 
+    one to one, checked first by step 1's review; before a red becomes a requirement or a fix, the lead names the wrong 
+    side (runtime or suite) with evidence. Both policy-testing copies carry the mapping (uncommitted). **Reverse:** git 
+    revert this commit.
+note 2026-11-12T01:44:52Z
+    Amendment (the user, 2026-11-12): process watch; after each review the orchestrator notes what the builder missed 
+    and why, and each Task closes with a short retrospective of proposed process changes. So far: T45 (checks written 
+    last, types not split, edits of old code, unchecked done claims, long context) and T51 step 1 (lone gathering, no 
+    adversary, wrong side) led to today's rules. **Reverse:** git revert this commit.
+note 2026-11-12T02:27:20Z
+    Run paused (the user, 2026-11-12) for a session restart with a 400k auto-compact window. T51 is in progress at 
+    e25bb637: step 1 checks and the driver fix committed red (3cb2b373); step 2's core rework is half done and 
+    uncommitted in src/ (core/cells.ts, core/evidence-of.ts, core/world.ts, core/compiled.ts, core/tx.ts, contract.ts, 
+    machine.ts), resume note last on T51. No agents live; crons and caffeinate stopped. Weekly usage about 75 percent 
+    of 95.
+note 2026-11-12T02:32:23Z
+    Run resumed in the same session, now with a 400k context window. Crons c2229c29 and bb8133d4, caffeinate on; a 
+    fresh T51 lead continues from e25bb637's resume note and the uncommitted step-2 files. Weekly usage 75 percent 
+    of 95.
+note 2026-11-12T03:11:25Z
+    T51 step 2 done at 87693e02 (lane as one table, dispose awaits the core, the three production bugs fixed; 
+    production 78/78, crash 732/735, core mutants 75/98); T51 in review. Step-done review started with a blind and an 
+    adversary sidecar, ruling on the lead's decisions a to d. Process watch: the lead peaked at 336k with no 
+    compaction, so the subagent cap is still unconfirmed.
+note 2026-11-12T03:29:53Z
+    Review (T51 step 2): PASS with fixes; blocking Keep-on-Held cell (cells.ts:298, Actors R15, WriteLanes R10) and the 
+    unbounded final flush (Actors R23); rulings a, b, d accepted, c rejected; Evidence's value export to log; missing 
+    checks owned by T51. Decision (orchestrator): ensureActor and send after dispose rejecting RuntimeDisposed joins 
+    T51; the other blind-sidecar gaps go to T18, T9, T21. Process watch: the blind sidecar found five Spec gaps no 
+    requirement list had; the adversary found two checks a flip would pass.
+note 2026-11-12T03:35:55Z
+    Subagents get the 400k cap: the T51 lead compacted at 367k pre-tokens (92 percent of 400k) and stopped with a 
+    resume note (77df3dc9); a fresh lead takes the step-2 review fixes from it.
+note 2026-11-12T03:54:39Z
+    T51 fixes done at 6bb02721 (production 78/78, falsify 18/18, liar 13/13, limits 6/6, core mutants 75/98, crash 
+    732/735, check clean); T51 in review at 8a20a030; completion check started with blind and adversary sidecars, also 
+    ruling on the Keep-on-Held reason (lost to Error) and ready() after dispose. Weekly usage 77 percent. Still open 
+    for the user: the compaction evaluation and a 300k rotation rule (cap confirmed at 400k, compaction at 367k).
+note 2026-11-12T04:08:53Z
+    Completion check (T51): FAIL. Blocking: ready() after dispose (Actors R22) and the Keep-on-Held case doesn't assert 
+    Held (R15). Error for an untagged failure accepted. Amendment (orchestrator): two same-surface gaps join T51 (an 
+    ending without a lane lost on its second refusal, I24; dispose during bootstrap, R4); three gaps go to T18; two 
+    items to revisit.md. A fresh T51 lead is fixing. Process watch: the blind sidecar again found requirements no list 
+    had, all present before T51; the adversary found a case a wrong build passes (no Held assert).
+note 2026-11-12T04:40:30Z
+    T51 done: re-check PASS at 31279004; gaps to T18 (second kept ending overwrites), T9 (five Actors gaps), revisit.md 
+    (I29 vs R22). Retrospective on T51 proposes a blind Spec pass in requirements gathering and a named wrong runtime 
+    per case; the first is applied to T47's brief as a small amendment. T47 lead started, requirements first.
+note 2026-11-12T05:08:17Z
+    Decision (the user): leads work through two compactions and rotate when a third is close; no 300k stop. The 
+    compaction evaluation is dropped. The T47 lead was told.
+note 2026-11-12T05:47:22Z
+    Review started (T47 steps 1-2, 87106adb and 4eae37fc): mapping first, then the red checks and the matrix and 
+    combination gates; one Opus lead, blind and adversary Haiku sidecars. The lead continues step 3.
+note 2026-11-12T06:01:24Z
+    Review (T47 steps 1-2): PASS with fixes, all sent to the lead. Blocking: matrix owners copied from the pre-replan 
+    column (60 rows owed to T18; T9 owns none), owed rows with no codes so the matrix gate can't fire, and six step-1 
+    checks vacuous on empty parts. Also: loose F1/Q11/acceptance-6 mapping and three missed requirements. Process 
+    watch: the step-1 list mapped items but never planted wrong runtimes against them; red-first was claimed rather 
+    than shown.
+note 2026-11-12T06:18:11Z
+    T47 lead handed off near its third compaction at 5ac7f9d6: pilots run on production (167/168, the red is 
+    production's retry count after reload, owned by T19), most step 1-2 review fixes landed, gates unchanged. Decision 
+    (orchestrator): WriteLanes I25's StillUnknown failure-tag remainder moves from the closed T51 to T18. A fresh T47 
+    lead continues from the resume note. Process watch: T51's requirements list never read write-lanes/remainders.ts, 
+    so a remainder it owned outlived it; the requirements lead should list the remainders and not-yet rows a Task owns.
+note 2026-11-12T07:01:07Z
+    Decision (the user, Q1 A, Q2 A): add Task A, Core consolidation (ledger, one start, diff-written records, acts into 
+    evidenceOf), between T52 and T18; and Task B, Runtime life (Life, admit, the final write into the core), after T18 
+    and before T19. Design: fable-architecture-consult-3-2026-11-12.md. Orchestrator: apply at settlement with Settled 
+    as fallback; Kept-only blocking; Identity to T9; capture window stays in the host. Tasks being written with to-task.
+note 2026-11-12T07:09:18Z
+    T47 second lead: all review fixes and items 1-5 done (parts 38/38, matrix 265/265, pairs 74/74, bench 3/3, 
+    production regressions 6/6, each seen red). Rulings (orchestrator): Q22 builds what production's Compiled has and 
+    owes CMP-02/06/07 and places to T17; the 7 unreached pairs' owners decided (6 to T19, du+ma to T9); 
+    GEN-pay-search-25-shrunk owed to T54's start rewrite. Lead finishing, then review.
+note 2026-11-12T07:10:57Z
+    Decision (the user): the non-interacting rules list (replan Q12) is approved; the T47 lead marks it decided.
+note 2026-11-12T07:17:14Z
+    Wake: weekly usage 86 percent (up 7 points in 2 hours, about 3.5 an hour, with Fable consults and two leads), so 
+    the 95 reserve is about 2.5 hours away. T47's steps 3-6 (776c2d76 to f1751ebb) are covered by its close review, 
+    which starts when the lead sets review after its running gates; no separate checkpoint review, to save usage.
+note 2026-11-12T07:19:21Z
+    T47 in review at 0c46a414 (all gates green, crash 732/735 unchanged; all 11 CMP cases owed to T17). Close review 
+    started, covering steps 3-6 and the step 1-2 fixes, with blind and adversary sidecars.
+note 2026-11-12T07:23:48Z
+    Decision (the user): consult A4 (review stopping rule, Fable read of expected results), A5 (routed gaps are owed 
+    checks) and A6 (Spec contradictions resolved by the lead, losing text deleted) join the Epic's Testing and Reviews 
+    rules. Orchestrator: A3 and B9 to T52; the capture window move to revisit.md.
+note 2026-11-12T07:27:46Z
+    Usage reserve raised to 100 percent weekly (the user, 2026-11-12; banked resets pending on both accounts). Reverse: 
+    set it back to 95.
+note 2026-11-12T07:34:38Z
+    Decision (the user): when this account reaches 100 percent, a banked reset is used, and until the Saturday reset 
+    (2026-11-14 00:30 IST) two independent lines run: T47 close then T52, and T46 (backtest); then back to one builder. 
+    Orchestrator: wide consult W2 (host shell to T55, rest to T19) and W3 (split T20 and T17, browser slice after T9) 
+    to be placed; Q1, Q2, Q4, Q5 and W1 await the user.
+note 2026-11-12T07:38:44Z
+    Review (T47 close): FAIL, four blocking, all accepted and sent to a fresh lead. Process watch: the harness counted 
+    a suite that could not load as killing every mutant, so a gate improvement (75 to 98) was taken at face value by 
+    the builder; a jump in a mutation score now needs a planted no-load run before it is believed.
+note 2026-11-12T07:50:25Z
+    Decisions (the user, wide consult): Q1 A, a preview cut first (core slices 1-5, minimal React, IndexedDB, flow 
+    check, checkout Pay in a real browser; the rest reordered, not cut); Q2 B, endings split by origin (failure 
+    author-only, notSent, unknown with otherwise), Flow's values as Data.TaggedEnum on _tag for Effect Match; Q3 A, 
+    cancelAll deferred; Q4 A, Flow's own Store with one atomic write(batch), one batch stream per Runtime; Q5 A, the 
+    user's page per slice. Runtime Spec cluster rewritten as one set (Fable). Records agent places W2, W3 and the 
+    preview order.
+note 2026-11-12T07:53:42Z
+    Decision (the user): no banked reset today; go slow and plan usage a week ahead through the end of the month. When 
+    weekly usage reaches 100 percent the run pauses until the scheduled reset (2026-11-14 00:30 IST); the two-line 
+    window plan is cancelled (T46 not started). Usage now 89 percent weekly, 81 percent of the 5-hour window.
+note 2026-11-12T07:58:50Z
+    Decision (the user): T47's fix lead is paused (commit and resume note) so usage goes to Fable: finish the runtime 
+    Spec cluster and T54 skeleton, then proposed briefs for the core-runtime Tasks (T54, T18, T55, T19, T20 restore), 
+    then outlines for later Tasks; its stated job is to set up the smaller builder agents for success.
+note 2026-11-12T08:10:36Z
+    Decision (the user): Plans may be edited to match the accepted decisions (Operations.plan's outcomes text, in 
+    Fable's phase 1). A second Fable with a 10-sidecar budget reviews the first Fable's work when it is done: the Spec 
+    cluster, Plans and T54 skeleton after phase 1, the core briefs after phase 2.
+note 2026-11-12T08:12:15Z
+    Decision (the user): all final fixtures are central, not Pay or any one scenario; T58 and the preview replay every 
+    available part in real browsers; Fable told for Specs and briefs.
+note 2026-11-12T10:03:55Z
+    Fable phase 1 committed at 476c1519 (seven runtime Specs as one set, Operations.plan to option B, T54 skeleton 
+    compiling with its opacity test); second Fable reviews it with up to 10 sidecars before phase 2 starts. Three 
+    questions for the user: option B for read endings, dropping Abandoned, cancelAll out of Operations.plan.
+note 2026-11-12T10:05:36Z
+    Decisions (the user): option B extends to read endings; Abandoned stays dropped (T24 settles EntityDomains' use); 
+    Operations.plan drops cancelAll. The Spec review is stopped; Fable 1 does phase 2, the core-runtime briefs, as its 
+    own adversary with blind-reader sidecars.
+note 2026-11-12T10:30:10Z
+    Fable phase 2 committed at 673d0378: brief instructions for T54, T18, T55, T19, T20 (19, 19, 9, 12, 14 
+    requirements). Decided (orchestrator, internal): value encoded by the commit's Schema or dropped; tagged result 
+    after T20; final write one try; no creation-order keys; queue field 'queue'; reads' stopped:/Flow.ReadStopped 
+    proposed for T21. A Sonnet writes the briefs into the records, then replaces Pay/checkout-as-the-test with 'the 
+    fixtures (including Pay and checkout)'.
+note 2026-11-12T10:48:23Z
+    Decision (the user): the Spec decisions stand, none reversed; after the Opus Spec review, a light reformatting pass 
+    only (to-design/to-spec format, design marked agreed, history to the spec log), plus fixes for verified 
+    contradictions.
+note 2026-11-12T10:56:23Z
+    Decisions (the user): Q1 B, key cancel stays the default plus an optional exact target through an opaque attempt 
+    handle on the row view; Q2 B, a definite success or failure arriving while Cancelling is delivered, with unknown 
+    Cancelled only when the interruption wins. The Opus Spec fix agent confirms both against the Specs and cases, then 
+    applies them to WriteLanes, Operations.plan and T18.
+note 2026-11-12T11:22:24Z
+    Spec fixes at b4e2c8a6: B1-B9 and three conflicts fixed, Q1 B and Q2 B applied (CancelMissed evidence proposed; an 
+    unknown returned while Cancelling also delivered as is, beyond the user's words, under check), light reformat 
+    (algorithm, owner, realization sections agreed by the user; Why/Reverse; history to spec-log). The Spec reviewer 
+    now answers whether T54 is ready to code.
+note 2026-11-12T11:38:51Z
+    Readiness check: not ready only on two T54 brief lines (A-19 limited to today's cells, the rest T18's; A-13 T54 
+    writes notSent, decided by the orchestrator); B9 leftover in Actors I35/I36/I38 to fix before T55; small pointer 
+    and header fixes; 4 undecided steps remain, none in T54's scope (T55, T9, T21). An Opus applies them. Weekly usage 
+    96 percent.
+note 2026-11-12T11:41:33Z
+    Readiness fixes at 3ca52d27: T54's brief is ready (A-19 today's cells, A-13 notSent by T54), Actors disposal rules 
+    agree with R23, algorithm headers state cited lines bind. T54 is ready to start; the run waits for the weekly reset 
+    (2026-11-14 00:30 IST), then T47's remaining fixes and T54.
+note 2026-11-12T12:39:18Z
+    Run stopped (the user, 2026-11-12, at 96 percent weekly). No agents live; crons and caffeinate stopped. Resume: 
+    T47's open fixes from its resume note (finding 4, Q22 source, missed requirements, full gates, re-check), then T52, 
+    then T54 (brief ready at 3ca52d27). Open for the user: the user-page file (user-page-2026-11-12.md); library skill 
+    edits (policy-testing, policy-verification) still uncommitted.
