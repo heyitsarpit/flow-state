@@ -15,7 +15,7 @@ const run = (...args: ReadonlyArray<string>): any => {
   return JSON.parse(out.stdout)
 }
 
-const plansDir = "workflow/plans/flow"
+const plansDir = "wiki/plans/flow"
 const plans = readdirSync(plansDir)
   .filter((f) => f.endsWith(".plan"))
   .map((f) => f.slice(0, -".plan".length))

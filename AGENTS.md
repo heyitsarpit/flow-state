@@ -1,9 +1,9 @@
 # Flow State
 
 ## Where things live
-- `workflow/plans/flow/` — current plans; `workflow/specs/core/` — the core's Specs (revisable guides). The old design
+- `wiki/plans/flow/` — current plans; `wiki/specs/core/` — the core's Specs (revisable guides). The old design
   (`machine-design.md`) was absorbed into them and deleted; history is at commit `20986677` (see
-  `workflow/plans/flow/references/README.md`);
+  `wiki/plans/flow/references/README.md`);
   deferred and open items are in `references/proposals/` (revisit.md, open-items.md).
 - `reference/` — historical. Read-only. Archived plans, tasks and Beads were deleted (commit `20986677` has them).
 - `packages/flow-state-v3/` — the current build; runtime first. Prototypes are in its `prototypes/` and never become production code.
@@ -13,24 +13,24 @@
 
 ## Workflow
 
-`workflow/` is this project's local wiki: the record of what we're building, why, and how. Read it before you plan
+`wiki/` is this project's local wiki: the record of what we're building, why, and how. Read it before you plan
 or change code, and keep it current as you work.
 
-- **Plans** (`workflow/plans/`): what we're building and why. Goals, outcomes, and decisions with their reasons.
-- **Tasks** (`workflow/tasks/`): how we execute. Epics split into phases and Tasks, each with acceptance, gates and
+- **Plans** (`wiki/plans/`): what we're building and why. Goals, outcomes, and decisions with their reasons.
+- **Tasks** (`wiki/tasks/`): how we execute. Epics split into phases and Tasks, each with acceptance, gates and
   evidence. An Epic carries its own loop: how to run it, how often to review, when to stop.
-- **Specs** (`workflow/specs/`): the code's skeleton. Requirements, Invariants and tests that code is built from and
+- **Specs** (`wiki/specs/`): the code's skeleton. Requirements, Invariants and tests that code is built from and
   checked against.
 
 How to use it:
-- Start with `workflow status` and `workflow next`. `workflow show @id` reads any record.
+- Start with `wk status` and `wk next`. `wk show @id` reads any record.
 - Treat the records as the source of truth over chat history: when they disagree, follow the record and say so.
 - Plans, Specs and Task descriptions are best-guess guidance on what to build, not contracts to fulfil, Specs
   least of all. What is true and correct is found by building: when the work shows a rule is wrong, unclear or
   missing, fix the record (decide, delete the losing text, log why) instead of bending the code to fit it.
   The user's own decisions still stand until the user changes them.
 - Write down what you decide as you go: a decision or result goes in a note or comment on its record
-  (`workflow edit @id --now --text "comment=…"`), with why and how to reverse it.
+  (`wk edit @id --now --text "comment=…"`), with why and how to reverse it.
 - Keep every note, comment, log and status entry short, with the bottom line first: the decision or result in
   the first sentence, then only what the reader can't find elsewhere, in the order goal, Why now, Read first,
   Risk, Approach. A note is 1 to 3 lines. Say each fact once and link to where it lives; no commit lists, gate
@@ -38,7 +38,7 @@ How to use it:
 - Change a record's scope only with the user's approval. Mark everything not yet approved as proposed.
 - Cite records rather than restating them: `@id`, `code:path#symbol`, `skill:name#heading`.
 - Every prose section is valid Markdown plus those links; lines are at most 120 characters. Run
-  `workflow format --write`, then `workflow check`, before you finish.
+  `wk format --write`, then `wk check`, before you finish.
 
 ## Commands
 Use the pinned `nub` toolchain. See `package.json` for scripts.
@@ -48,7 +48,7 @@ nub run check:fix    # lint + format fixes
 nub run test
 nub run docs:build   # public API or docs changes
 nub run verify       # full gate; don't claim full verification without it
-workflow check       # see .agents/skills/workflow-cli/SKILL.md before editing Workflow records
+wk check             # see .agents/skills/wk/SKILL.md before editing Workflow records
 ```
 
 ## Code style (v3 production)
