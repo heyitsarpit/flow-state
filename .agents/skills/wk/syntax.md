@@ -2,8 +2,8 @@
 
 These examples demonstrate syntax, not project decisions or completed verification.
 Use spaces for indentation. Preserve existing IDs when editing.
-Plans live at `workflow/plans/ID.plan`. Tasks live inside `workflow/tasks/EPIC/PHASE.task`.
-The canonical Spec index is `workflow/spec.index`; its entries are project-root-relative.
+Plans live at `wiki/plans/ID.plan`. Tasks live inside `wiki/tasks/EPIC/PHASE.task`.
+Specs are found by scanning for `*.spec` files; there is no index file.
 An ID mentioned in another file can be a citation. Read the owning record before editing.
 Task references use `@task.Epic.Task`; omit the phase ID even when the file lives in a phase folder.
 
@@ -41,7 +41,7 @@ title Example work
 status active
 skill workflow@abc1234
 run
-    Take `workflow next --epic Example`; build it.
+    Take `wk next --epic Example`; build it.
 stops
     A guarantee change.
 ```
@@ -79,7 +79,7 @@ tasks
 Links in any prose: `@task.Example.T1`, `code:src/example.ts#admit`, `code:src/example.ts:42`,
 `skill:policy-testing`, `skill:policy-testing#audit-a-suite` (every anchor is checked against the
 heading slugs).
-Code spans and fences are not links. Prefer `workflow edit` for notes and comments
+Code spans and fences are not links. Prefer `wk edit` for notes and comments
 (`--now --text note="..."`).
 
 `skill LIBRARY@REVISION` pins the loop: LIBRARY is the folder name of a `skills` root below
@@ -88,7 +88,7 @@ Code spans and fences are not links. Prefer `workflow edit` for notes and commen
 List fields are written `[a, b]` in a file (`labels [backend, recovery]`); on the command line any
 of `--set labels=a --set labels=b`, `--set labels=[a, b]` or `--set labels=a,b`.
 
-`skill:NAME` resolves through `workflow/config.json`, an ordered array of skill-library roots
+`skill:NAME` resolves through `wiki/config.json`, an ordered array of skill-library roots
 (absolute or relative to the repository root); the first root holding `NAME/SKILL.md` wins:
 
 ```json
@@ -127,8 +127,8 @@ Use `spec-trace` from `@spec.Example` to an existing Plan or Task reference.
 To trace this module Spec to two existing Tasks, run:
 
 ```sh
-workflow link @spec.Example @task.Example.T1 --type spec-trace
-workflow link @spec.Example @task.Example.T2 --type spec-trace
+wk link @spec.Example @task.Example.T1 --type spec-trace
+wk link @spec.Example @task.Example.T2 --type spec-trace
 ```
 
 Top-level and owner invariants are both legal in one Spec; Invariant IDs are unique across both

@@ -2,7 +2,7 @@
 
 Every package in the skill library, once, with when to use it. Each one is at
 `<library>/NAME/SKILL.md`.
-In records a package is a link, `skill:NAME`; `workflow refs skill:NAME` lists what links to it.
+In records a package is a link, `skill:NAME`; `wk refs skill:NAME` lists what links to it.
 Here packages are named in backticks.
 Keep this list by hand: when a package is added, renamed, or deleted, change its line here.
 
@@ -76,7 +76,7 @@ Keep this list by hand: when a package is added, renamed, or deleted, change its
 
 ## Records
 
-- `workflow-cli`: find work (list, next, status), read and write Plans, Epics, Tasks, Specs and
+- `wk`: find work (list, next, status), read and write Plans, Epics, Tasks, Specs and
   Epic notes, link records (`@`, `code:`, `skill:`), check them (check, refs).
 - `compact-records`: shrink grown records (notes, logs, Task comments, status files, instructions)
   by replaying them against their sources; run at a close-out or when a record passes its limit.

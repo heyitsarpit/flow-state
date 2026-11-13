@@ -2,19 +2,19 @@
 
 Write the loop into the `draft` Epic file after its contract fields and `skill` (the pin
 skill:to-epic wrote), in this order: `run`, `instructions`, `cadence`, `stops`; notes go in `log.task`. Replace
-every `<...>` and keep every other line. Text lines sit at one indentation, because `workflow
-format` does not keep hanging indents. In `instructions`, "agents at once" is how many agents may
+every `<...>` and keep every other line. Text lines sit at one indentation, because
+`wk format` does not keep hanging indents. In `instructions`, "agents at once" is how many agents may
 run at the same time, and "always alone" is work that runs with no other agent or process beside
 it, such as a benchmark. Decisions in notes follow skill:policy-records's decision convention.
 
 ```text
 run
-    To start: "run the loop in workflow/tasks/<EPIC>/epic.task". You are the orchestrator: you
+    To start: "run the loop in wiki/tasks/<EPIC>/epic.task". You are the orchestrator: you
     start, track and route agents; you never build.
-    1. Read this file, `workflow show @epic.<EPIC> --tree`, and the records the current Task
+    1. Read this file, `wk show @epic.<EPIC> --tree`, and the records the current Task
     links; on a resume, run skill:catch-up first. If status is not active or the loop fields are
     missing, stop and tell the user.
-    2. Current Task: the in_progress one, otherwise `workflow next --epic <EPIC>`.
+    2. Current Task: the in_progress one, otherwise `wk next --epic <EPIC>`.
     3. Create the session cron from cadence; without one, run its prompt at each wake (R25).
     4. Keep the machine awake for the run (R26).
     5. Recover the real agent state: agents and processes alive, branch, last checkpoint, and
@@ -41,7 +41,7 @@ stops
     <Decisions the user kept.>
 ```
 
-Then a note in `log.task` (`workflow edit @epic.<EPIC> --now --text note="..."`):
+Then a note in `log.task` (`wk edit @epic.<EPIC> --now --text note="..."`):
 
 ```text
 note <UTC timestamp>

@@ -23,7 +23,7 @@ wasn't.
 ## 1. Understand the request
 
 Read the conversation and project context: existing Plans, Tasks, Specs, and any Epic whose file
-carries a loop (`workflow/tasks/<EPIC>/epic.task`). Investigate facts you can discover (the
+carries a loop (`wiki/tasks/<EPIC>/epic.task`). Investigate facts you can discover (the
 codebase, the environment, the current state) instead of asking the user. Keep three things
 distinct: what the user asked for, defaults you propose, and decisions already agreed. Ask only
 what changes the recommendation, as numbered questions with your recommendation stated
@@ -37,7 +37,7 @@ separately.
 | Settle what the user wants, when intent is unclear | skill:interview |
 | Plan the work, when there is no adequate Plan | `playbook-plan` |
 | Write the Epic (phases and Tasks) from the Plan | skill:to-epic |
-| Run an approved (`active`) Epic that has a loop | "run the loop in `workflow/tasks/<EPIC>/epic.task`" |
+| Run an approved (`active`) Epic that has a loop | "run the loop in `wiki/tasks/<EPIC>/epic.task`" |
 | Find a much better approach before committing | `playbook-reimagine` |
 | Settle a design whose correctness can't be checked right away | `playbook-prototype` |
 | Plan a feature, project, or idea | `playbook-plan` |
@@ -63,8 +63,8 @@ outcome; never ask them to choose a playbook.
 
 ## 3. What's next
 
-Read the work's Epic: its loop, its latest notes, `workflow show @epic.<EPIC> --tree` and
-`workflow next --epic <EPIC>`, and the records they link. Say where the work stands, what waits on
+Read the work's Epic: its loop, its latest notes, `wk show @epic.<EPIC> --tree` and
+`wk next --epic <EPIC>`, and the records they link. Say where the work stands, what waits on
 the user (the Epic's `stops`), and the next step with a ready-to-paste instruction. The queue and
 each phase's Tasks are derived from the Tasks, so there is nothing to bring up to date; if a note
 is missing for something the records show, append one. Without an Epic, answer from the Plans and

@@ -4,7 +4,7 @@
     "build-a-loop": {
       "source": "../workflow/skills/suites/workflow",
       "sourceType": "local",
-      "computedHash": "4aa951a850e2f787548dfea57283b75011af702cb7a4d4f4485bb0db4f866a89"
+      "computedHash": "a1598ec5614a736441d972862a66e6ea513df465f079ba8a9403170fec8400ee"
     },
     "compact-records": {
       "source": "../workflow/skills/suites/workflow",
@@ -21,15 +21,15 @@
       "sourceType": "local",
       "computedHash": "5661f9c707d11fe19b10d2ccca0200f2971fb93bc1eac91934351387c4a09323"
     },
+    "wk": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "a01ba1866d5d2ba1922b165def5b6db0b09c4639e44a87fdbb558cdacb0684b6"
+    },
     "workflow": {
       "source": "../workflow/skills/suites/workflow",
       "sourceType": "local",
-      "computedHash": "c835ddaa73f92de4d4b85545c66ce51a57bfdb394f0deb5657fd51283650cc28"
-    },
-    "workflow-cli": {
-      "source": "../workflow/skills/suites/workflow",
-      "sourceType": "local",
-      "computedHash": "e0e51809268739124797ff2bddb725563e83c663955ad0b510ff661f1bd4d069"
+      "computedHash": "67816236086cbdf39d2a422ce9d04972915398ca37084b67afa5976dcc093523"
     }
   }
 }

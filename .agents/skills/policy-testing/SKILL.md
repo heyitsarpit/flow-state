@@ -50,6 +50,30 @@ behavior. If an external dependency is replaced by a test double, name it.
 Limit the claim to the real boundary exercised.
 That check does not prove the substituted adapter or full E2E integration.
 
+## Write the requirements as failing checks first
+
+Gather a piece of work's requirements once, before code, and write each as a check that fails
+today; then build until they pass. "Done" means those checks are green, not that the builder says
+so. Review findings are requirements that were missed: add each as a failing check before its fix.
+
+- **List them once:** every rule the work must keep, each with its source (a Spec rule, an accepted
+  decision), and the known cases where reality cannot show the answer. One lead gathers the list with
+  read-only sidecars, each on a named angle (the specs, the code it replaces, the open findings, an
+  adversary for how a wrong build passes), and verifies each item it keeps (skill:policy-delegation).
+  The list maps every acceptance item and planned step of the work to a requirement, one to one; the
+  first review checks that mapping before anything else.
+- **Properties, not just examples:** when the goal is an invariant ("no report decides an
+  obligation", "no write escapes its lane"), a few examples cannot show it. Write the invariant as a
+  property check, a type that makes the wrong flow fail to compile, or a data-flow check, and plant
+  a violation that it must catch.
+- **Inventory and mutants up front:** for a suite, the input inventory and the mutant for each
+  report a check reads (below, in Audit a suite) are written at the start, as failing checks, not
+  found by the audit afterwards.
+- **Check each step:** a step counts as done when each requirement it claims has evidence a
+  second reader confirms, before the next step starts.
+- **Converge early:** when a second review in a row finds the same root cause, stop patching cases;
+  gather every requirement and finding, and redesign that part at once.
+
 ## Choose inputs and expected results
 
 Fuzz and golden tests describe inputs and expectations; they complement the chosen test scope.
@@ -80,7 +104,9 @@ must stay compatible. An expected value copied from the implementation is not a 
 ## Audit a suite
 
 A suite can pass a wrong implementation. Before building on a suite's verdicts, such as a
-conformance or benchmark suite that gates later work, audit it:
+conformance or benchmark suite that gates later work, audit it. The builder writes the inventory and
+the mutants below first (Write the requirements as failing checks first); the audit confirms them
+and finds what the builder missed:
 
 - **Audit from four angles,** each by a reviewer who has not read earlier reviews: bugs in the
   test harness; false assumptions about reality in test doubles and cases; assumptions so narrow

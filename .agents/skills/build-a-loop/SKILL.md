@@ -22,7 +22,7 @@ An Epic (written by skill:to-epic) says what work to do, in which phases, and ho
 verified or decided. Its **loop** says how that work is run: who builds, who reviews and how often,
 what the user has said about this project, and when to stop. This skill writes the loop into the
 `draft` Epic file and runs nothing; the user approves the Epic and its loop together. Starting a
-run is then one line: "run the loop in `workflow/tasks/<EPIC>/epic.task`". The agent given that
+run is then one line: "run the loop in `wiki/tasks/<EPIC>/epic.task`". The agent given that
 line is the orchestrator; it follows the loop's `run` and opens only the packages the loop names.
 
 ## Start here: what must exist first
@@ -41,7 +41,7 @@ Read this skill with skill:to-epic#terms, where every term is defined once. The 
 the ones this skill uses most, copied from there word for word; the library's validator checks
 that they match.
 
-- **Epic:** one large piece of work as a record, `workflow/tasks/<EPIC>/epic.task`: its goal,
+- **Epic:** one large piece of work as a record, `wiki/tasks/<EPIC>/epic.task`: its goal,
   stages, scope, authority and limits, then its loop. Its notes are in `log.task` and its phases
   are files beside it.
 - **Orchestrator:** the agent that runs the loop. It starts and tracks the other agents, routes
@@ -80,7 +80,7 @@ that they match.
 
 ## Where the loop lives
 
-The loop is a set of fields in the Epic file, after its contract fields, which `workflow check`
+The loop is a set of fields in the Epic file, after its contract fields, which `wk check`
 validates and whose links it resolves:
 
 | Field              | Holds                                                                                              |
@@ -104,7 +104,7 @@ links them, never copies them.
 
 Write the loop into the `draft` Epic, after the user confirmed its summary.
 
-1. **Read** the Epic file, `workflow show @epic.<EPIC> --tree`, and the Plans and Specs it links.
+1. **Read** the Epic file, `wk show @epic.<EPIC> --tree`, and the Plans and Specs it links.
    Take the user's constraints from the Epic's Constraints section rather than asking again; check
    project instruction files (for example AGENTS.md, CLAUDE.md), memory and handoff files only for
    constraints newer than the Epic.
@@ -123,8 +123,8 @@ Write the loop into the `draft` Epic, after the user confirmed its summary.
    and the quiet rule (R23), so a fresh orchestrator re-creates the same cron.
 7. **Write `stops`:** the stops this Epic adds to the stop list (R20), such as decisions the user
    kept, each as a short sentence.
-8. **Validate.** Edit the Epic with the Edit tool or `workflow edit @epic.<EPIC> --file run=PATH`,
-   then `workflow format workflow/tasks/<EPIC>/epic.task --write` and `workflow check`. Fix every
+8. **Validate.** Edit the Epic with the Edit tool or `wk edit @epic.<EPIC> --file run=PATH`,
+   then `wk format wiki/tasks/<EPIC>/epic.task --write` and `wk check`. Fix every
    diagnostic, including dangling links.
 9. **Check it cold.** Give a fresh agent only the Epic file and the packages its `run` links. It
    must say what it does first, how it judges a result, when it stops, what it may not do, and
@@ -135,8 +135,8 @@ Write the loop into the `draft` Epic, after the user confirmed its summary.
     stays `draft` until the user approves both.
 
 To add a note during a run, write it to a file with the agent harness's file tool, then run
-`workflow edit @epic.<EPIC> --set note=<UTC timestamp> --file note=<path>`, then `workflow
-check`. Notes are append-only: a correction is a new note linking the old one. Per-Task results
+`wk edit @epic.<EPIC> --set note=<UTC timestamp> --file note=<path>`, then
+`wk check`. Notes are append-only: a correction is a new note linking the old one. Per-Task results
 stay in Task comments.
 
 ## Rules
@@ -148,12 +148,12 @@ short name.
 
 ### Start or resume a run
 
-- **R1 Read.** Read the Epic file, then `workflow show @epic.<EPIC> --tree`, then the records the
+- **R1 Read.** Read the Epic file, then `wk show @epic.<EPIC> --tree`, then the records the
   current Task links. On a resume, rebuild where work stands with skill:catch-up first. Trust the
   files, not memory. If the Epic's status is not `active`, or its loop fields are missing, stop and
   tell the user.
-- **R2 Current Task.** It is the Epic's `in_progress` Task if there is one (`workflow list task
-  --epic <EPIC> --status in_progress`), otherwise `workflow next --epic <EPIC>`. The orchestrator
+- **R2 Current Task.** It is the Epic's `in_progress` Task if there is one (`wk list task
+  --epic <EPIC> --status in_progress`), otherwise `wk next --epic <EPIC>`. The orchestrator
   sets a Task `in_progress` when it starts a building lead on it.
 - **R3 Review cron.** Where the harness has a session cron, list the session's crons first and
   create one from `cadence`'s expression and exact prompt only if it is missing, so a resume never
@@ -167,7 +167,7 @@ short name.
 - **R6 One building lead.** Start one on the current Task with a standalone brief
   (skill:policy-delegation), or resume a stopped one by message: its transcript is kept, so it
   continues where it was. The orchestrator never builds; it starts, tracks and routes. Every build
-  and review brief tells the lead to run `workflow brief @task.<EPIC>.<T>` first: it prints the
+  and review brief tells the lead to run `wk brief @task.<EPIC>.<T>` first: it prints the
   Task, its phase card, the Spec and Plan items it links, the constraints in its phase's scope and
   the decisions that govern those items. The brief adds the skills the phase links and what this
   run needs that the records don't say. Name a skill once, on the phase whose work uses it, not on every Task.
