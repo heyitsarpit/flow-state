@@ -511,3 +511,5 @@ note 2026-11-14T16:23:58Z
     checklist lines. Measures and reverses in the process notebook.
 note 2026-11-14T16:26:37Z
     T61 near review (b00ae90f): N2, N6, step-2f O2, close O2-O4 done; fold-mutant runner judges held traces (14 keep, 50 redundant). Ruled (orchestrator, small amendment): the 16 refusal cells T61 cannot reach are re-owned by area (8 Send cells to T18; step-end to T19, boot to T20, idle-lane to T21). The builder asked to hand off without a compaction; told to continue under the rotation rule.
+note 2026-11-14T17:11:47Z
+    T61 in review at cc8b39d3 (all gates green; 62 redundant held traces deleted under the new fold-plus-table gate; 16 cells re-owned; the 73-to-71 drop traced to T52). Close review started under the review-speed rules, beside the first process study at a Task close (Haiku Explore at medium, using tools/process).
