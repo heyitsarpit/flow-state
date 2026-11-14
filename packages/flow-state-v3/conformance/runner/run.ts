@@ -8,6 +8,8 @@ import { playStatic, type StaticCase } from "../dsl/static-case.ts";
 import { type Observation, type Port, Unreadable } from "../port.ts";
 import type { Surface } from "../surface.ts";
 import { Overdue } from "../world/world.ts";
+import type { PartOwed } from "../parts/owed.ts";
+import { type CrashHit, crashExcuse, type CrashRun } from "./crash-owed.ts";
 import type { CaseVerdict } from "./verdict.ts";
 
 const SEEDS = [1, 2];
@@ -250,9 +252,11 @@ export const crashCase = (
   scenario: Scenario,
   oracles: ReadonlyArray<Oracle>,
   graphs: ReadonlyArray<Graphed>,
+  owed: ReadonlyArray<PartOwed>,
 ) =>
   Effect.gen(function* () {
     const red: Array<CaseVerdict> = [];
+    const hits: Array<CrashHit> = [];
     let points = 0;
 
     for (let at = 1; at <= 400; at += 1) {
@@ -273,7 +277,7 @@ export const crashCase = (
               crashAt: Option.some(at),
               rules,
               judge: true,
-              excuse: () => false,
+              excuse: crashExcuse(id, owed, (h) => void hits.push(h)),
               replay: Option.none(),
             },
             scenario.run,
@@ -287,7 +291,7 @@ export const crashCase = (
       else if (!played.success) break;
     }
 
-    return { id: scenario.id, points, red };
+    return { id: scenario.id, points, red, hits } satisfies CrashRun;
   });
 
 /**

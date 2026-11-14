@@ -15,7 +15,6 @@ import {
 import {
   flag,
   graphsFor,
-  lineOf,
   list,
   MAIN,
   PACKAGE,
@@ -50,6 +49,8 @@ import { Serialize } from "../fixtures/one-lane.ts";
 import { Cells, Pay } from "../fixtures/pay.ts";
 import type { CaseVerdict } from "./verdict.ts";
 import { crashCase } from "./run.ts";
+import { crashFaults, crashOwed } from "./crash-owed.ts";
+import { taskStatuses } from "../parts/records.ts";
 
 /**
  * The liar gate (advisor Q1): every behavioural mutant of the runtime (`--runtime production`
@@ -140,7 +141,9 @@ export const liar = (args: ReadonlyArray<string>) =>
 
 /**
  * The crash generator (advisor Q5): every case, killed and reloaded after each of its steps, judged
- * by the oracles and the end of case. Red points are listed; `--json` is not supported.
+ * by the oracles and the end of case. Each red point is listed; one production owes (`crashOwed`,
+ * by exact Attempt) is listed with its owner and fails nothing while every item still breaks and
+ * its owner is open. `--json` is not supported.
  */
 export const crash = (args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
@@ -158,19 +161,40 @@ export const crash = (args: ReadonlyArray<string>) =>
     const surface = yield* runtimeSurface(runtime);
     const graphs = graphsFor(surface, chosen);
 
-    const runs = yield* Effect.forEach(chosen, (s) => crashCase(port, s, oracles, graphs(s)), {
-      concurrency: 1,
-    });
+    const owed = runtime === PRODUCTION_RUNTIME ? crashOwed : [];
 
-    const points = runs.reduce((n, r) => n + r.points, 0);
-    const red = runs.flatMap((r) => r.red);
-
-    for (const v of red) yield* Console.log(lineOf(v));
-    yield* Console.log(
-      `VERDICT ${red.length === 0 ? "pass" : "fail"} ${points - red.length}/${points} crash points`,
+    const runs = yield* Effect.forEach(
+      chosen,
+      (s) => crashCase(port, s, oracles, graphs(s), owed),
+      { concurrency: 1 },
     );
 
-    if (red.length > 0) process.exitCode = 1;
+    const points = runs.reduce((n, r) => n + r.points, 0);
+
+    const faults = crashFaults(
+      runs,
+      owed,
+      new Set([...taskStatuses()].flatMap(([t, o]) => (o ? [t] : []))),
+    );
+
+    const owedPoints = [...new Set(runs.flatMap((r) => r.hits.map((h) => h.point)))];
+
+    const named = owedPoints.map(
+      (p) =>
+        `${p} (${[...new Set(owed.filter((o) => o.case === p).map((o) => o.owner))].join(", ")})`,
+    );
+
+    for (const o of owed)
+      yield* Console.log(`OWED ${o.case} ${o.check} ${o.invariant} to ${o.owner}: ${o.why}`);
+
+    for (const f of faults) yield* Console.log(f);
+    const red = runs.flatMap((r) => r.red).length;
+
+    yield* Console.log(
+      `VERDICT ${faults.length === 0 ? "pass" : "fail"} ${points - red - owedPoints.length}/${points} crash points pass, ${red} red, ${owedPoints.length} owed${named.length === 0 ? "" : `: ${named.join(", ")}`}`,
+    );
+
+    if (faults.length > 0) process.exitCode = 1;
   });
 
 /**

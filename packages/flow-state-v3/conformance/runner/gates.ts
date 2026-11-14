@@ -42,7 +42,10 @@ export const productionCases = scenarios
 
 const BENCH = resolve(PACKAGE, "bench", "gate.ts");
 
-const verdictLine = (stdout: string) =>
+/**
+ * A gate's verdict line: the last `VERDICT` line it printed, or the coverage gate's own line.
+ */
+export const verdictLine = (stdout: string) =>
   Option.getOrElse(
     Option.fromUndefinedOr(
       stdout

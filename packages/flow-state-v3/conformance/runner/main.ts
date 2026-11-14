@@ -55,6 +55,7 @@ import {
   classGate,
 } from "./parts-gates.ts";
 import { runStatics } from "./run.ts";
+import { TOOL_MODES } from "./tools.ts";
 import { coreInvariants, openTasks } from "./specs.ts";
 import { type CaseVerdict, VERDICTS_LINE, VerdictsJson } from "./verdict.ts";
 
@@ -445,7 +446,7 @@ const PARTS_MODES = new Map([
 const main = (args: ReadonlyArray<string>) => {
   const [mode = "", ...rest] = args;
   const named = [...RUNTIME_MODES, ...ROUND_14_MODES].includes(mode) && !rest.includes("--json");
-  const partsMode = PARTS_MODES.get(mode);
+  const partsMode = PARTS_MODES.get(mode) ?? TOOL_MODES.get(mode)?.(rest);
 
   if (partsMode !== undefined) return partsMode;
 

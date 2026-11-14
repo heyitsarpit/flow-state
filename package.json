@@ -15,6 +15,7 @@
     "check:plans": "bun tools/plan-coverage/check.ts",
     "check:fix": "vp check --fix packages/flow-state-v3",
     "check:toolchain": "node ./scripts/check-toolchain.mjs",
+    "conformance:checkpoint": "bun packages/flow-state-v3/conformance/runner/main.ts checkpoint",
     "conformance:coverage": "bun packages/flow-state-v3/conformance/runner/main.ts coverage",
     "conformance:gates": "bun packages/flow-state-v3/conformance/runner/main.ts gates",
     "conformance:mutate": "bun packages/flow-state-v3/conformance/runner/main.ts mutate --limit 40 --parallel 6",
@@ -28,7 +29,7 @@
     "lint:fix": "vp lint packages/flow-state-v3 --fix",
     "lint:rules": "node --experimental-strip-types tools/lint-bomb/test/rules.test.ts && node --experimental-strip-types tools/flow-state-lint/rules.test.ts",
     "test": "vp test",
-    "verify": "nub run check:toolchain && nub run lint:rules && nub run check && nub run test && nub run docs:build",
+    "verify": "nub run check:toolchain && nub run lint:rules && nub run check && nub run test && nub run conformance:checkpoint && nub run docs:build",
     "test:coverage": "vp test run packages/flow-state-rewrite --coverage",
     "report:unused": "knip --workspace packages/flow-state-rewrite --no-exit-code"
   },
