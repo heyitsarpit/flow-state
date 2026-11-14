@@ -647,8 +647,18 @@ note 2026-11-14T22:52:28Z
     (Actors R20), not owed to T17. T17 owner/current is the subject-path redesign (T57). Why: A2 made the path 
     reachable and the oracle contradicts a cited rule. Reverse: owe stress-3 and varied-8 to T57.
 note 2026-11-14T23:07:27Z
-    Review (T54 A2) passes with no blockers (t54-a2-review-2026-11-15.md); A3 started. Accepted (orchestrator): the localeCompare lane sort is fixed first in A3; thin scripts re-owed (stress-101 to T19, varied-112 to T15); the dropped adversary assertion is owed to T15 (lost suite reach); belief gaps and the pinned-owner check go to T15; T19 checks by persisting the count at capture.
+    Review (T54 A2) passes with no blockers (t54-a2-review-2026-11-15.md); A3 started. Accepted (orchestrator): the 
+    localeCompare lane sort is fixed first in A3; thin scripts re-owed (stress-101 to T19, varied-112 to T15); the 
+    dropped adversary assertion is owed to T15 (lost suite reach); belief gaps and the pinned-owner check go to T15; 
+    T19 checks by persisting the count at capture.
 note 2026-11-14T23:13:43Z
-    T54 A3: the first commit (6289dc76) applies the A2 review routings (lane order by code units, thin pins re-owned, ids out of code). The builder asked to hand off before the core refactor; told (orchestrator) to continue under the rotation rule unless at 90 percent after a third compaction.
+    T54 A3: the first commit (6289dc76) applies the A2 review routings (lane order by code units, thin pins re-owned, 
+    ids out of code). The builder asked to hand off before the core refactor; told (orchestrator) to continue under the 
+    rotation rule unless at 90 percent after a third compaction.
 note 2026-11-14T23:50:57Z
-    Run paused (the user, 2026-11-15 05:30 IST): the T54 builder stops at a safe point with a resume note; review wakes start nothing while paused. An Opus lead proposes how to iterate faster (the user: things should speed up, not slow down).
+    Run paused (the user, 2026-11-15 05:30 IST): the T54 builder stops at a safe point with a resume note; review wakes 
+    start nothing while paused. An Opus lead proposes how to iterate faster (the user: things should speed up, not slow 
+    down).
+note 2026-11-14T23:59:16Z
+    Transcript studies stopped completely (the user, 2026-11-15): removed from the Task-close rule and the review wake 
+    (instructions, cadence, crons); the notebook keeps past studies. Reverse: restore the cadence clause from c1918006.

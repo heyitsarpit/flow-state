@@ -5,6 +5,8 @@ agents are briefed, reviewed or paced. Add one entry per study; keep each entry 
 
 ## Running a study
 
+**Stopped (the user, 2026-11-15):** no transcript studies run. What follows is kept as the record of how they ran.
+
 - **When:** at each Task's close, beside its retrospective.
 - **Who:** about five read-only Haiku Explore agents. Transcripts:
   `~/.claude/projects/-Users-arpit-Developer-flow-state/<session>/subagents/agent-*.jsonl`.

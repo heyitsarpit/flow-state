@@ -262,7 +262,9 @@ instructions
       designing) runs at medium effort. Haiku review sidecars run at high; read-only sweeps (locators, surveys,
       runners) run at medium as a timed trial, compared against the speed study's sidecar times; a lead tells its own
       sidecars which (the user, 2026-11-14; was high for all).
-    - Process studies (the user, 2026-11-14): at each Task's close the orchestrator runs a transcript study and
+    - Transcript studies are stopped (the user, 2026-11-15): no agent reads agent transcripts, at a Task's close
+      or on a wake; the notebook stays as the record of past studies. Formerly (kept for reverse):
+      Process studies (the user, 2026-11-14): at each Task's close the orchestrator runs a transcript study and
       records it in code:wiki/plans/flow/references/process/process-notebook.md, the cross-session record of
       process experiments. Read it before changing how agents are briefed, reviewed or paced. Each study records
       what it learned about the run and proposes improvements; the orchestrator applies the ones worth trying (the
@@ -467,12 +469,9 @@ cadence
     replace it (R7) and note it. If the last compaction note in log.task is over 24 hours old and no review is
     running, start one Opus lead at medium effort, no sidecars, to run skill:compact-records over wiki/tasks/V3
     and the review files it cites, skipping the active Task's own comments while its builder runs; it commits only
-    the records it changed and reports in at most 5 lines; note the result in one line. If no process study ran in
-    the last 3 hours and an agent did 30 minutes or more of work since the last one, run a process study by the
-    process notebook's 'Running a study' (whole-transcript reading split across Haiku Explore agents, plus the
-    tools/process numbers), record it in the notebook, and apply the improvements worth trying. Skip the study
-    while the 5-hour projection is over 100. Otherwise write nothing."
-    Process studies on the wake: the user, 2026-11-15.
+    the records it changed and reports in at most 5 lines; note the result in one line. Otherwise write nothing."
+    Process studies on the wake: added by the user 2026-11-15, then removed with all transcript work (the user,
+    2026-11-15).
     Quiet rule: a wake that finds nothing writes no note and sends no message; a review already covering the newest
     checkpoint counts as that period's review (R24).
 
