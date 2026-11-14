@@ -1,11 +1,21 @@
 /// <reference types="node" />
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "vite-plus/test";
 import { Formatter, Option, Schema } from "effect";
+import { sourceFiles, sourceOf } from "../source-files.ts";
 import { parts } from "../../fixtures/index.ts";
 import { LOST, type Part } from "../../fixtures/part.ts";
 import type { Fixture } from "../fixtures/fixture.ts";
@@ -49,14 +59,16 @@ const STATUSES: ReadonlyArray<Schema.JsonObject> = [
 ];
 
 // RETURN_TYPE: a recursive function names its type.
-const filesIn = (dir: string): ReadonlyArray<string> =>
-  existsSync(dir)
-    ? readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
-        if (e.isDirectory()) return filesIn(join(dir, e.name));
-
-        return e.name.endsWith(".ts") ? [join(dir, e.name)] : [];
-      })
-    : [];
+const readersOf = (root: string, target: string) =>
+  sourceFiles(root, /\.ts$/u)
+    .filter((file) => !file.includes("node_modules") && !file.includes("prototypes"))
+    .filter((file) =>
+      specifiers(sourceOf(file)).some(
+        (s) => s.startsWith(".") && relative(root, resolve(dirname(file), s)) === target,
+      ),
+    )
+    .map((file) => relative(root, file))
+    .toSorted();
 
 const alternatives = (f: Fixture) =>
   [["(root)", f.handlers.root] as const, ...Object.entries(f.handlers.states)]
@@ -274,18 +286,28 @@ describe("the derived reference equals Pay's frozen hand rows (phase-out V3; Con
     );
   });
 
+  it("the reader walk skips other tests' scratch copies and a file that vanished mid-walk", () => {
+    const root = mkdtempSync(join(tmpdir(), "golden-walk-"));
+
+    try {
+      mkdirSync(join(root, "conformance", "dsl-mutant-1"), { recursive: true });
+      writeFileSync(join(root, "g.ts"), "export const g = 1;\n");
+      writeFileSync(join(root, "a.ts"), 'import { g } from "./g.ts";\n');
+      writeFileSync(
+        join(root, "conformance", "dsl-mutant-1", "b.ts"),
+        'import { g } from "../../g.ts";\n',
+      );
+      symlinkSync(join(root, "gone.ts"), join(root, "c.ts"));
+
+      assert.deepStrictEqual(readersOf(root, "g.ts"), ["a.ts"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("the golden is one module, read only by this comparison", () => {
     assert.ok(existsSync(join(PACKAGE, GOLDEN)), `${GOLDEN} is missing`);
 
-    const readers = filesIn(PACKAGE)
-      .filter((file) => !file.includes("node_modules") && !file.includes("prototypes"))
-      .filter((file) =>
-        specifiers(readFileSync(file, "utf8")).some(
-          (s) => s.startsWith(".") && relative(PACKAGE, resolve(dirname(file), s)) === GOLDEN,
-        ),
-      )
-      .map((file) => relative(PACKAGE, file));
-
-    assert.deepStrictEqual(readers.toSorted(), READERS);
+    assert.deepStrictEqual(readersOf(PACKAGE, GOLDEN), READERS);
   });
 });

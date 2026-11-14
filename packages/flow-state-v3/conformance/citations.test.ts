@@ -1,12 +1,12 @@
 /// <reference types="node" />
 import assert from "node:assert/strict";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "vite-plus/test";
 import { traces } from "./dsl/lifecycle.traces.ts";
 import { rules } from "./dsl/lifecycle-rules.ts";
 import { cellsOf, valueAt } from "./parts/cells.ts";
+import { sourceFiles, sourceOf } from "./source-files.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -25,15 +25,7 @@ const bare = (text: string) =>
     return new RegExp(`(?<!Retired )${id}(?!\\d)|${listed}`, "u").test(text);
   });
 
-// RETURN_TYPE: a recursive function names its type.
-const filesIn = (dir: string): ReadonlyArray<string> =>
-  existsSync(dir)
-    ? readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
-        if (e.isDirectory()) return filesIn(join(dir, e.name));
-
-        return /\.(ts|tsv|txt|json)$/u.test(e.name) ? [join(dir, e.name)] : [];
-      })
-    : [];
+const filesIn = (dir: string) => sourceFiles(dir, /\.(ts|tsv|txt|json)$/u);
 
 const runtimeCites = () => [
   ...cellsOf().flatMap((cell) => {
@@ -50,7 +42,7 @@ describe("citations name live rules, or a retired one as retired (Conformance R5
     assert.ok(files.length > 100, "the walk found no files");
 
     const citing = files.flatMap((file) =>
-      bare(readFileSync(file, "utf8")).map((id) => `${relative(HERE, file)}: ${id}`),
+      bare(sourceOf(file)).map((id) => `${relative(HERE, file)}: ${id}`),
     );
 
     assert.deepStrictEqual(citing, []);
