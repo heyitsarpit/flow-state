@@ -547,4 +547,10 @@ note 2026-11-14T18:31:58Z
     pinned failure messages, allowed entries checked against requirements, plants as mutants, a host case for X-5. 
     Missed by the builder's checks: plants kept only in the log (weak check).
 note 2026-11-14T19:11:23Z
-    Ruled (orchestrator, T54 A1 stop): 8 runs where an ending born without an incarnation is now heard at the next start are named under A-2 (its fix); the restored-head order and Waiting-before-Kept stay for A2; the StorageRefused capture ending's lane (WriteLanes R9), which turns give-ups into retries, is held out of T54 as a pending case owed to T19. Process watch: the gates broke silently because the full gates were not run after the Attempt-id commit.
+    Ruled (orchestrator, T54 A1 stop): 8 runs where an ending born without an incarnation is now heard at the next 
+    start are named under A-2 (its fix); the restored-head order and Waiting-before-Kept stay for A2; the 
+    StorageRefused capture ending's lane (WriteLanes R9), which turns give-ups into retries, is held out of T54 as a 
+    pending case owed to T19. Process watch: the gates broke silently because the full gates were not run after the 
+    Attempt-id commit.
+note 2026-11-14T19:48:32Z
+    T54 A1 near done at 22af36b9: 18 of 19 gates green; core mutants 78/111 killed (66/98 at start); the ledger unit test found a stale-mail bug, fixed. Ruled (orchestrator): the pair BootSettles Restoring then Gone, reached only through the bug A-2 fixed, becomes an owed pair for T20 rather than being dropped (dropping would relax a gate); the core-mutant limit rises to 120 so no candidate is skipped.
