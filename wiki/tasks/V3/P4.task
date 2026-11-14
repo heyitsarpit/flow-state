@@ -1254,6 +1254,13 @@ tasks
             code:wiki/plans/flow/references/proposals/t52-build-log-2026-11-14.md.
               Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment. Why: step-done rule. Reverse: 
               revert this commit.
+        comment     2026-11-14T05:46:37Z
+            Build review (f748d2f2..0552b546): go on, nothing blocks; B1 and B4 hold, gates match. Re-triage: 
+            cells-stress-1, -9 and -8 are production's RETRY_COUNT (T19); pay-stress-12 and cells-stress-11 are 
+            selection-oracle false reds. Q3, Q33 and Q34 lack reds; D13 needs an owed row. Detail: 
+            code:wiki/plans/flow/references/proposals/t52-build-review-2026-11-14.md.
+            Edit (agent: T52 build reviewing lead, @task.V3.T52, 2026-11-14): this comment. Why: review rule. Reverse: 
+            revert this commit.
     T59
         title       The suite reads and imports nothing outside the package
         status      draft
