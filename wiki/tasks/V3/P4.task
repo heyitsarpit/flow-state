@@ -1501,6 +1501,11 @@ tasks
             code:wiki/plans/flow/references/proposals/t54-requirements-2026-11-14.md; three owned Invariants proposed 
             for re-owning (WriteLanes I40, I41 to T18; Reads I22 to T21; Restore I20 to T20). Edit (agent: T54 building 
             lead, @task.V3.T54, 2026-11-14): this comment. Why: requirements first. Reverse: the commit that adds it.
+        comment     2026-11-14T13:30:32Z
+            Expected-results read done (fresh Opus, high): X-4 and X-6 were wrong, four lines overreached or clashed, 
+            eight were lenient; all 16 findings accepted into 
+            code:wiki/plans/flow/references/proposals/t54-requirements-2026-11-14.md. Edit (agent: T54 building lead, 
+            @task.V3.T54, 2026-11-14): this comment. Why: the Epic's step-1 read. Reverse: the commit that adds it.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      draft
