@@ -1,0 +1,11 @@
+log V3
+note 2026-11-10T09:00:00Z
+    Review (orchestrator): the first fix round went out. Missed by the builder's checks: the fake store never
+    refused a write (weak check), the rename was not swept (gathering).
+note 2026-11-11T09:00:00Z
+    Missed by the builders' checks: a shrink step was skipped (weak checks). Ruled (orchestrator): no change.
+note 2026-11-12T09:00:00Z
+    Missed by the builder's checks: one rule had no test (weak check); the parser had no failing case (rule gap).
+    Reviewed (orchestrator) later.
+note 2026-11-13T09:00:00Z
+    Decision (user, 2026-11-13): no misses in this note.

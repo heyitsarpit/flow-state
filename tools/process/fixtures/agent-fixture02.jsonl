@@ -1,0 +1,18 @@
+{"type":"user","timestamp":"2026-11-14T10:00:00.000Z","message":{"role":"user","content":"Fixture prompt."}}
+{"type":"assistant","timestamp":"2026-11-14T10:00:10.000Z","message":{"id":"msg_a1","role":"assistant","model":"claude-opus-5-5","content":[{"type":"tool_use","id":"toolu_s1","name":"Agent","input":{"description":"one","prompt":"Review A."}}]}}
+{"type":"assistant","timestamp":"2026-11-14T10:00:11.000Z","message":{"id":"msg_a1","role":"assistant","model":"claude-opus-5-5","content":[{"type":"tool_use","id":"toolu_s2","name":"Agent","input":{"description":"two","prompt":"Review B."}}]}}
+{"type":"user","timestamp":"2026-11-14T10:05:00.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_s1","content":"A done."}]}}
+{"type":"user","timestamp":"2026-11-14T10:06:00.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_s2","content":"B done."}]}}
+{"type":"assistant","timestamp":"2026-11-14T10:06:10.000Z","message":{"id":"msg_a2","role":"assistant","model":"claude-opus-5-5","content":[{"type":"text","text":"Waiting for the coordinator."}]}}
+{"type":"user","isMeta":true,"timestamp":"2026-11-14T10:26:10.000Z","message":{"role":"user","content":"The coordinator sent a message while you were working:\nGo on."}}
+{"type":"assistant","timestamp":"2026-11-14T10:26:20.000Z","message":{"id":"msg_a3","role":"assistant","model":"claude-opus-5-5","content":[{"type":"tool_use","id":"toolu_t1","name":"Bash","input":{"command":"bun test x"}}]}}
+{"type":"assistant","timestamp":"2026-11-14T10:26:21.000Z","message":{"id":"msg_a3","role":"assistant","model":"claude-opus-5-5","content":[{"type":"tool_use","id":"toolu_t2","name":"Bash","input":{"command":"nub run check"}}]}}
+{"type":"user","timestamp":"2026-11-14T10:28:21.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_t1","content":"pass"}]}}
+{"type":"user","timestamp":"2026-11-14T10:28:30.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_t2","content":"ok"}]}}
+{"type":"system","subtype":"compact_boundary","timestamp":"2026-11-14T10:28:40.000Z","content":"Conversation compacted"}
+{"type":"user","isCompactSummary":true,"timestamp":"2026-11-14T10:29:30.000Z","message":{"role":"user","content":"This session is being continued from a previous conversation."}}
+{"type":"assistant","timestamp":"2026-11-14T10:29:35.000Z","message":{"id":"msg_a4","role":"assistant","model":"claude-opus-5-5","content":[{"type":"tool_use","id":"toolu_l1","name":"Bash","input":{"command":"ls"}}]}}
+{"type":"user","timestamp":"2026-11-14T10:29:36.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_l1","content":"a"}]}}
+{"type":"assistant","timestamp":"2026-11-14T10:29:36.000Z","message":{"id":"6f0e2c1a-0000-4000-8000-000000000000","role":"assistant","model":"<synthetic>","content":[{"type":"text","text":"You've hit your limit."}]}}
+{"type":"user","isMeta":true,"timestamp":"2026-11-14T10:32:36.000Z","message":{"role":"user","content":"The coordinator sent a message while you were working:\nResume."}}
+{"type":"assistant","timestamp":"2026-11-14T10:32:46.000Z","message":{"id":"msg_a5","role":"assistant","model":"claude-opus-5-5","content":[{"type":"text","text":"Done."}]}}

@@ -1,0 +1,18 @@
+{"type":"user","timestamp":"2026-11-14T10:00:00.000Z","message":{"role":"user","content":"Fixture prompt."}}
+{"type":"api-request-blob","timestamp":"2026-11-14T10:00:00.500Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_decoy","name":"Bash","input":{"command":"sed -i '' 's/x/y/' decoy.txt"}}]}}
+{"type":"assistant","timestamp":"2026-11-14T10:00:30.000Z","thinkingDurationMs":20000,"message":{"id":"msg_m1","role":"assistant","model":"claude-opus-5-5","content":[{"type":"thinking","thinking":"Plan the read."}]}}
+{"type":"assistant","timestamp":"2026-11-14T10:00:31.000Z","message":{"id":"msg_m1","role":"assistant","model":"claude-opus-5-5","content":[{"type":"tool_use","id":"toolu_read","name":"Read","input":{"file_path":"/fixture/notes.md"}}]}}
+{"type":"user","timestamp":"2026-11-14T10:00:33.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_read","content":[{"type":"text","text":"0123456789012345678901234567890123456789"}]}]}}
+{"type":"assistant","timestamp":"2026-11-14T10:00:40.000Z","thinkingDurationMs":5000,"message":{"id":"msg_m2","role":"assistant","model":"claude-opus-5-5","content":[{"type":"thinking","thinking":"Clear the notes."}]}}
+{"type":"assistant","timestamp":"2026-11-14T10:00:42.000Z","message":{"id":"msg_m2","role":"assistant","model":"claude-opus-5-5","content":[{"type":"tool_use","id":"toolu_sed","name":"Bash","input":{"command":"sed -i '' 's/a=>b/c/' notes.txt","description":"edit notes"}}]}}
+{"type":"user","timestamp":"2026-11-14T10:00:50.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_sed","content":"done"}]}}
+{"type":"system","subtype":"compact_boundary","timestamp":"2026-11-14T10:00:55.000Z","content":"Conversation compacted"}
+{"type":"assistant","timestamp":"2026-11-14T10:01:20.000Z","message":{"id":"msg_m3","role":"assistant","model":"claude-opus-5-5","content":[{"type":"tool_use","id":"toolu_edit","name":"Edit","input":{"file_path":"/fixture/notes.md","old_string":"a","new_string":"b"}}]}}
+{"type":"user","timestamp":"2026-11-14T10:01:22.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_edit","content":"The file has been updated."}]}}
+{"type":"assistant","timestamp":"2026-11-14T10:04:22.000Z","thinkingDurationMs":20000,"message":{"id":"msg_m4","role":"assistant","model":"claude-opus-5-5","content":[{"type":"thinking","thinking":"Ask a sidecar."}]}}
+{"type":"assistant","timestamp":"2026-11-14T10:04:23.000Z","message":{"id":"msg_m4","role":"assistant","model":"claude-opus-5-5","content":[{"type":"tool_use","id":"toolu_agent","name":"Agent","input":{"description":"review","prompt":"Review the notes."}}]}}
+{"type":"user","timestamp":"2026-11-14T10:06:23.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_agent","content":"Review done."}]}}
+{"type":"assistant","timestamp":"2026-11-14T10:06:30.000Z","message":{"id":"msg_m5","role":"assistant","model":"claude-opus-5-5","content":[{"type":"thinking","thinking":"Run the test."}]}}
+{"type":"assistant","timestamp":"2026-11-14T10:06:31.000Z","message":{"id":"msg_m5","role":"assistant","model":"claude-opus-5-5","content":[{"type":"tool_use","id":"toolu_test","name":"Bash","input":{"command":"bun test tools/process/agent-metrics.test.ts 2>&1 | tail -5 > /dev/null"}}]}}
+{"type":"user","timestamp":"2026-11-14T10:09:31.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_test","content":"3 pass"}]}}
+{"type":"assistant","timestamp":"2026-11-14T10:09:40.000Z","message":{"id":"msg_m6","role":"assistant","model":"claude-opus-5-5","content":[{"type":"text","text":"Done."}]}}
