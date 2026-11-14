@@ -57,6 +57,21 @@ describe("the generator varies its inputs (T61; Conformance R15, R16)", () => {
     assert.deepEqual(timerAdvances(Option.some(5000), 3000, "stress"), [2000]);
     assert.deepEqual(timerAdvances(Option.none(), 3000, "varied"), []);
     assert.deepEqual(TIMER_OFFSETS.usual, [0]);
+
+    const advances = (profile: "stress" | "varied") =>
+      new Set(
+        BUILD_SEEDS.flatMap((seed) =>
+          scriptOf(named("pay"), profile, seed, production).steps.flatMap((s) =>
+            s._tag === "advance" ? [s.ms] : [],
+          ),
+        ),
+      );
+
+    const varied = advances("varied");
+    const stress = advances("stress");
+
+    assert.ok(stress.has(8000) && !stress.has(7999) && !stress.has(8001));
+    assert.ok(varied.has(7999) && varied.has(8001), [...varied].join(" "));
   });
 
   it("payloads vary by seed: some varied Pay script starts a second intent", () => {
@@ -93,22 +108,32 @@ describe("the generator varies its inputs (T61; Conformance R15, R16)", () => {
       const script = Option.getOrThrow(scriptById(id));
       const others = owedRows.filter((o) => o.case !== id);
 
-      const signature = Option.getOrThrow(
-        signatureOf(playPart(script, "production", undefined, others)),
-      );
-
+      const run = playPart(script, "production", undefined, others);
+      const signature = Option.getOrThrow(signatureOf(run));
       const root = traced.get(signature);
 
       assert.ok(root !== undefined, `${id}: untraced signature ${signature}`);
 
-      const first = VARIED_OWED.filter(
-        (r) => r.id === id && signature.includes(`${r.check} ${r.invariant}`),
-      );
+      const step = Math.min(...run.violations.map((v) => v.step));
 
-      assert.ok(
-        first.some((r) => r.root === root),
-        `${id}: no row of its first signature ${signature} is owed to ${root}`,
-      );
+      for (const v of run.violations.filter((x) => x.step === step)) {
+        const subject = Option.getOrThrow(v.subject);
+
+        const rows = VARIED_OWED.filter(
+          (r) =>
+            r.id === id &&
+            r.check === v.oracle &&
+            r.invariant === v.invariant &&
+            r.items.some((i) => i._tag === "Attempt" && i.id === subject),
+        );
+
+        assert.equal(rows.length, 1, `${id} ${v.oracle} ${v.invariant} ${subject}`);
+        assert.equal(
+          rows[0]?.root,
+          root,
+          `${id} ${v.oracle} ${v.invariant}: owed to ${rows[0]?.root}`,
+        );
+      }
     }
   }, 60_000);
 

@@ -165,7 +165,8 @@ const recordedPairs = () =>
 export const pairsGate = Effect.suspend(() => combination(false));
 
 /**
- * The pairs gate, recording every cell pair reached now in `cell-pairs.production.txt` first.
+ * The pairs gate, recording every cell pair reached now in `cell-pairs.production.txt`; it refuses
+ * to record, and fails, while a recorded pair is lost, so a loss is never written away.
  */
 export const pairsRecord = Effect.suspend(() => combination(true));
 
@@ -194,16 +195,25 @@ const combination = (record: boolean) =>
       `pairs reached ${result.reached}, owed ${result.owed}; triples ${result.triples.reached}/${result.triples.total}; cell pairs ${result.cellPairs.reached}/${result.cellPairs.total} ${Formatter.format(result.cellPairs.byComposite)}`,
     ).pipe(
       Effect.andThen(
-        Effect.sync(() => {
-          if (record) writeFileSync(CELL_PAIRS, `${result.cellPairs.keys.join("\n")}\n`);
+        Effect.suspend(() => {
+          const lost = lostCellPairs(recordedPairs(), result.cellPairs.keys);
+
+          if (record && lost.length === 0)
+            writeFileSync(CELL_PAIRS, `${result.cellPairs.keys.join("\n")}\n`);
+
+          const refused =
+            record && lost.length > 0
+              ? [
+                  "BAD  pairs-record: refused, a recorded cell pair is lost; the record is unchanged",
+                ]
+              : [];
+
+          return verdict(
+            [...result.failures, ...lost, ...refused],
+            result.reached + result.owed,
+            "interacting pairs",
+          );
         }),
-      ),
-      Effect.andThen(
-        verdict(
-          [...result.failures, ...lostCellPairs(recordedPairs(), result.cellPairs.keys)],
-          result.reached + result.owed,
-          "interacting pairs",
-        ),
       ),
     );
   });

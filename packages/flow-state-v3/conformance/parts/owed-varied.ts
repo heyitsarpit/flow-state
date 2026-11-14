@@ -10,14 +10,24 @@ const Root = Schema.Literals(["retry", "unbound"]);
 export type VariedRoot = "retry" | "unbound";
 
 /**
- * Each first-break signature of the varied reds, with the root its traced representative showed
- * (T61, by signature): the soak run reports these as known and fails on any other.
+ * Each first-break signature of the varied reds (checks, Invariants and the move), with the root
+ * its traced representative showed (T61, review M1): the soak run reports these as known and
+ * fails on any other. Representatives, in order: PART-transfers-varied-4 (a spent retry re-sent at
+ * the ack); PART-cells-varied-110 and MIX-sync+transfers+sign-in+pay-stress-101 (a restored
+ * head's handler retries where the model gives up); PART-pay-varied-6, PART-cells-varied-3 and
+ * MIX-sync+transfers+sign-in+pay-stress-7 (a dispose, then a reload); PART-pay-varied-103 (an
+ * adoption after a spent-budget retry); PART-transfers-varied-2001 (`flush`: an adoption's flush
+ * holds only its own record, @task.V3.T54, kept as a regression).
  */
-export const TRIAGED_SIGNATURES: ReadonlyMap<string, VariedRoot> = new Map([
-  ["lane-queue WriteLanes I12", "retry"],
-  ["delivered-once WriteLanes I15", "unbound"],
-  ["delivered-once WriteLanes I15,disposal Actors I29", "unbound"],
-  ["disposal Actors I29", "retry"],
+export const TRIAGED_SIGNATURES: ReadonlyMap<string, VariedRoot | "flush"> = new Map([
+  ["lane-queue WriteLanes I12 at ack", "retry"],
+  ["lane-queue WriteLanes I12 at reload", "retry"],
+  ["lane-queue WriteLanes I12 at end of case reload", "retry"],
+  ["delivered-once WriteLanes I15 at reload", "unbound"],
+  ["delivered-once WriteLanes I15,disposal Actors I29 at reload", "unbound"],
+  ["delivered-once WriteLanes I15,disposal Actors I29 at end of case reload", "unbound"],
+  ["disposal Actors I29 at ensure", "retry"],
+  ["delivered-once WriteLanes I15,delivered-once WriteLanes I16 at reload", "flush"],
 ]);
 
 /**

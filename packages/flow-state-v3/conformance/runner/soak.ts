@@ -29,7 +29,7 @@ const candidatesAt = (seeds: ReadonlyArray<number>) => [
  * Failures group by signature; each signature not yet triaged (`TRIAGED_SIGNATURES`) gets one
  * shrunk case, written to `--scratch` (or with `--keep` to `regressions/`), and fails the run; a
  * triaged one is listed with its root. The seeds that add cells or cell pairs the gate scripts
- * never reach are listed, chosen by reach.
+ * never reach are listed, chosen by reach, and written to `reach-chosen.txt` beside the cases.
  */
 export const soak = (args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
@@ -61,6 +61,11 @@ export const soak = (args: ReadonlyArray<string>) =>
           resolve(out, `${script.id}.json`),
           `${Schema.encodeSync(RegressionJson)({ ...script, by: signature })}\n`,
         );
+
+      writeFileSync(
+        resolve(out, "reach-chosen.txt"),
+        `${chosen.map((c) => c.script.id).join("\n")}\n`,
+      );
     });
 
     for (const c of chosen)

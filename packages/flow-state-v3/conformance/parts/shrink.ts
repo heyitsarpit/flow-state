@@ -1,14 +1,29 @@
 import { Option } from "effect";
-import type { Oracle } from "../dsl/oracle.ts";
+import { Fact, type Oracle } from "../dsl/oracle.ts";
 import type { Script } from "../dsl/script.ts";
 import { oracles } from "../suite.ts";
 import { owedRows, type PartOwed } from "./owed.ts";
 import { type Played, playPart } from "./play.ts";
 
 /**
- * A part run's failure signature (T60's one rule, structured): the checks and Invariants of the
- * violations that stopped it, sorted; a failed case expectation by its label, a defect or a time
- * out by its kind. A run nothing stopped (it passed, or only owed rows broke) has none.
+ * The kind of move a step was: `send <event>`, `answer <operation>`, or its first word (`ack`,
+ * `reload`, `ensure`, ...); an end-of-case step by its last word.
+ */
+const moveOf = (what: string) => {
+  const words = what.split(" ");
+  const [first = "", second = ""] = words;
+
+  if (what.startsWith("end of case")) return `end of case ${words.at(-1) ?? ""}`;
+
+  return first === "send" || first === "answer" ? `${first} ${second}` : first;
+};
+
+/**
+ * A part run's failure signature (T60's one rule, structured; review M1): the checks and
+ * Invariants of the unexcused violations at the first step that broke, sorted, and the kind of
+ * move that step was, so one rule reached by different moves (a re-send at an ack, a restore at a
+ * reload) signs differently; a failed case expectation by its label, a defect or a time out by its
+ * kind. A run nothing stopped (it passed, or only owed rows broke) has none.
  */
 export const signatureOf = (run: Played) =>
   Option.map(run.threw, (v) => {
@@ -16,11 +31,18 @@ export const signatureOf = (run: Played) =>
 
     if (v._tag === "Pass") return "pass";
 
-    const found = [...new Set((v.violations ?? []).map((x) => `${x.check} ${x.invariant}`))];
+    const fresh = run.violations.filter((x) => !x.excused);
+    const step = Math.min(...fresh.map((x) => x.step));
+    const at = fresh.filter((x) => x.step === step);
 
-    if (found.length > 0) return found.toSorted().join(",");
+    if (at.length === 0)
+      return v.expectation === undefined ? "defect" : `case ${v.expectation.label}`;
 
-    return v.expectation === undefined ? "defect" : `case ${v.expectation.label}`;
+    const what = run.facts.find((f) => Fact.$is("Stepped")(f) && f.step === step);
+    const move = what !== undefined && Fact.$is("Stepped")(what) ? moveOf(what.what) : "?";
+    const found = [...new Set(at.map((x) => `${x.oracle} ${x.invariant}`))].toSorted();
+
+    return `${found.join(",")} at ${move}`;
   });
 
 /**
@@ -38,16 +60,11 @@ export const bySignature = (
   return groups;
 };
 
-const prefixOf = (script: Script) => {
-  const at = script.steps.findIndex((s) => s._tag !== "ensure");
-
-  return at < 0 ? script.steps.length : at;
-};
-
 /**
- * A failing part script shrunk on production: chunks of steps after its ensures removed, halves
- * first and then smaller, each removal kept while the run still fails by the same signature, until
- * no single step can go (T61; survey item 4). The result is named `<id>-shrunk`.
+ * A failing part script shrunk on production: chunks of steps removed, halves first and then
+ * smaller, each removal kept while the run still fails by the same signature, and passes repeated
+ * until one makes no removal, so no single step can go (1-minimal; T61, review M2). The result is
+ * named `<id>-shrunk`.
  */
 export const shrunkPart = (
   script: Script,
@@ -63,17 +80,18 @@ export const shrunkPart = (
 
   if (Option.isNone(target)) return { ...script, id: `${script.id}-shrunk` };
 
-  const prefix = prefixOf(script);
+  const same = (steps: Script["steps"]) =>
+    Option.getOrUndefined(play(steps)) === Option.getOrUndefined(target);
+
   let steps = script.steps;
 
-  for (let size = Math.ceil((steps.length - prefix) / 2); size >= 1; size = Math.floor(size / 2)) {
-    for (let at = prefix; at + size <= steps.length;) {
-      const candidate = steps.toSpliced(at, size);
+  for (let before = steps.length + 1; steps.length < before;) {
+    before = steps.length;
 
-      if (Option.getOrUndefined(play(candidate)) === Option.getOrUndefined(target))
-        steps = candidate;
-      else at += size;
-    }
+    for (let size = Math.ceil(steps.length / 2); size >= 1; size = Math.floor(size / 2))
+      for (let at = 0; at + size <= steps.length;)
+        if (same(steps.toSpliced(at, size))) steps = steps.toSpliced(at, size);
+        else at += size;
   }
 
   return { ...script, id: `${script.id}-shrunk`, steps };
