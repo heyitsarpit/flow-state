@@ -137,6 +137,20 @@ describe("the generator varies its inputs (T61; Conformance R15, R16)", () => {
     }
   }, 60_000);
 
+  it("a kept regression of a disposed actor's refused head is triaged by its signature (soak 5000)", () => {
+    const id = "PART-cells-stress-105-shrunk";
+    const script = Option.getOrThrow(scriptById(id));
+
+    const run = playPart(
+      script,
+      "production",
+      undefined,
+      owedRows.filter((o) => o.case !== id),
+    );
+
+    assert.equal(TRIAGED_SIGNATURES.get(Option.getOrThrow(signatureOf(run))), "refused");
+  });
+
   it("late-results names the late Attempt as its subject, once (review N5)", () => {
     const id = "PART-cells-varied-110";
     const script = Option.getOrThrow(scriptById(id));

@@ -59,7 +59,7 @@ SURVIVED	src/core/lanes.ts:170	if (read.incarnation === incarnation.id || read.o
 NO-ORACLE	src/core/lanes.ts:271	lane !== undefined	DLV-04: seed 1: defect: TypeError: undefined is not an object (evaluating 'lane.actor')
 killed	src/core/persist.ts:87	removed || compiled !== undefined ? Option.none<Values>() : encodeLane(compiled, lane);	PAY-05: disposal
 killed	src/core/persist.ts:87	removed && compiled === undefined ? Option.none<Values>() : encodeLane(compiled, lane);	PAY-01: delivered-once
-killed	src/core/persist.ts:107	if (incarnation !== undefined || !persisted(actor)) return;	PAY-23: selection
+killed	src/core/persist.ts:107	if (incarnation !== undefined || !persisted(actor)) return;	PAY-05: selection
 SURVIVED	src/core/persist.ts:107	if (incarnation === undefined && !persisted(actor)) return;	
 killed	src/core/record.ts:128	if (operation !== undefined) return Option.none();	PAY-05: disposal
 SURVIVED	src/core/record.ts:270	key.startsWith("actor/") || !decoded.has(key) ? [key.slice(6)] : [],	

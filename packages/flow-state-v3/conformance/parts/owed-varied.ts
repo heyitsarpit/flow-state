@@ -17,9 +17,11 @@ export type VariedRoot = "retry" | "unbound";
  * head's handler retries where the model gives up); PART-pay-varied-6, PART-cells-varied-3 and
  * MIX-sync+transfers+sign-in+pay-stress-7 (a dispose, then a reload); PART-pay-varied-103 (an
  * adoption after a spent-budget retry); PART-transfers-varied-2001 (`flush`: an adoption's flush
- * holds only its own record, @task.V3.T54, kept as a regression).
+ * holds only its own record, @task.V3.T54, kept as a regression); PART-cells-stress-105-shrunk
+ * and the soak's PART-pay-stress-5000 (`refused`: a disposed actor's refused Unsent head is never
+ * ended, so its adoption mints on a busy lane, @task.V3.T19, kept as a regression).
  */
-export const TRIAGED_SIGNATURES: ReadonlyMap<string, VariedRoot | "flush"> = new Map([
+export const TRIAGED_SIGNATURES: ReadonlyMap<string, VariedRoot | "flush" | "refused"> = new Map([
   ["lane-queue WriteLanes I12 at ack", "retry"],
   ["lane-queue WriteLanes I12 at reload", "retry"],
   ["lane-queue WriteLanes I12 at end of case reload", "retry"],
@@ -28,6 +30,7 @@ export const TRIAGED_SIGNATURES: ReadonlyMap<string, VariedRoot | "flush"> = new
   ["delivered-once WriteLanes I15,disposal Actors I29 at end of case reload", "unbound"],
   ["disposal Actors I29 at ensure", "retry"],
   ["delivered-once WriteLanes I15,delivered-once WriteLanes I16 at reload", "flush"],
+  ["delivered-once WriteLanes I15,lane-queue WriteLanes I8 at send PayRequested", "refused"],
 ]);
 
 /**
