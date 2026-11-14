@@ -185,7 +185,7 @@ description
       convergence records.
     - Amendment N: a numbered change to the old roadmap (git `b30be69d`); each one that still
       applies has an Amendment note in log.task, which names its number and says what it changed.
-skill        workflow@55c7ab7
+skill        workflow@6b7288e
 run
     To start: "run the loop in wiki/tasks/V3/epic.task". You are the orchestrator: you start,
     track and route agents; you never build.
