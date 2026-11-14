@@ -23,6 +23,7 @@ import {
   replaced,
   valueAt,
 } from "./cells.ts";
+import { forgeries, type Forgery } from "./adversary.ts";
 import { mixOf, scriptOf } from "./generate.ts";
 import { playPart } from "./play.ts";
 
@@ -226,10 +227,36 @@ const recorded = (scripts: ReadonlyArray<Script>, given: Rules) =>
  * - A cell no passing pilot reads cannot change a verdict, so it is listed unnoticed unrun; the
  *   rest, and every field that is not a cell, are replayed on the pilots until one refuses.
  * - A kill is an oracle's refusal ({@link killedBy}), never a throw; the oracle is recorded.
+ * - A refusal cell no correct run reads is judged on the adversary's forgery that reaches it
+ *   (`forgeries`): noticed when the forgery, replayed under the mutant, no longer refuses by the
+ *   cell's Invariant at its step.
  * - A field with no mutant is left out here; {@link fieldGate} fails it.
  */
+/**
+ * A mutant noticed by the adversary: the forgery that reaches the cell it reads, replayed under
+ * the mutant, no longer refuses by the cell's Invariant at the forged step; the kill names the
+ * oracles that refused under the design.
+ */
+const forgedKill = (
+  forged: ReadonlyMap<string, Forgery>,
+  mutant: { readonly reads: Option.Option<string>; readonly rules: Rules },
+) =>
+  Option.flatMap(
+    Option.flatMap(mutant.reads, (cell) => Option.fromUndefinedOr(forged.get(cell))),
+    (f) => {
+      const under = playPart(f.script, "production", mutant.rules, [], Option.some(f.replay));
+
+      const refused = under.violations.some(
+        (v) => v.invariant === f.invariant && v.step === f.step,
+      );
+
+      return refused ? Option.none<string>() : killedBy(f.design);
+    },
+  );
+
 export const modelMutants = (scripts: ReadonlyArray<Script> = pilots(), given: Rules = rules) => {
   const runs = recorded(scripts, given).filter((r) => r.passed);
+  const forged = forgeries(scripts);
 
   return modelFields(given).flatMap((field) =>
     Option.match(fieldMutant(given, field), {
@@ -245,7 +272,8 @@ export const modelMutants = (scripts: ReadonlyArray<Script> = pilots(), given: R
                 ? found
                 : killedBy(playPart(r.script, "production", mutant.rules, []).verdict),
             Option.none(),
-          );
+          )
+          .pipe(Option.orElse(() => forgedKill(forged, mutant)));
 
         return [
           {

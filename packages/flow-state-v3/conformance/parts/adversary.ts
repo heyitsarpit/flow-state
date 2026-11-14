@@ -8,7 +8,8 @@ import { type Rules, rules } from "../dsl/lifecycle-rules.ts";
 import { Fact, type RuntimeFact } from "../dsl/oracle.ts";
 import { runtimeStepsOf } from "../dsl/play.ts";
 import { type Script, scenarioOf } from "../dsl/script.ts";
-import { FLOW_DECLINES } from "../fixtures/reference.ts";
+import { referenceFor } from "../fixtures/fixture.ts";
+import { FLOW_DECLINES, mappedEvent, type Reference } from "../fixtures/reference.ts";
 import { DisposeExit, Observation } from "../port.ts";
 import type { Judged } from "../dsl/engine.ts";
 import type { CaseVerdict } from "../runner/verdict.ts";
@@ -19,10 +20,11 @@ import { partFixture } from "./reference.ts";
 
 /**
  * The lifecycle rows a runtime's own report makes, so one forged report reaches their cells:
- * Table A's endings, evidence and disposal answer, and Table C's issue, park and record moves.
- * Sends come from the server log, the instants (`StepEnds`, `Reload`) from the suite, and Table
- * B's idle cancels from moves the suite drives. A forged delivery is left out until it names the
- * event the ending maps to: any other event is refused as a misdelivery by the same Invariant.
+ * Table A's endings, evidence and disposal answer, and Table C's delivery, issue, park and record
+ * moves. Sends come from the server log, the instants (`StepEnds`, `Reload`) from the suite, and
+ * Table B's idle cancels from moves the suite drives. A forged delivery names the event its
+ * ending maps to, so it is never refused as a misdelivery; an ending with no mapped event is not
+ * forged.
  */
 export const FORGED_ROWS: ReadonlySet<string> = new Set([
   "tableA.EndDefinite",
@@ -31,6 +33,7 @@ export const FORGED_ROWS: ReadonlySet<string> = new Set([
   "tableA.Released",
   "tableA.Superseded",
   "tableA.RuntimeDisposed",
+  "tableC.Delivered",
   "tableC.InvalidTurn",
   "tableC.Unmapped",
   "tableC.Parked",
@@ -95,13 +98,20 @@ const ATTEMPT_ROWS = {
 
 const ref = (e: Ending) => ({ operation: e.operation, attempt: e.attempt, actor: e.actor });
 
+const fixtures = parts.map(partFixture);
+
+const mappedEventOf = (e: Ending, reference: Reference) =>
+  Option.flatMap(Option.fromUndefinedOr(reference[e.actor.machine]?.[e.operation]), (o) =>
+    mappedEvent(o, e.channel, e.reason),
+  );
+
 const ENDING_ROWS = {
-  Delivered: (e) =>
+  Delivered: (e, reference) =>
     reported(
       Observation.Delivered({
         operation: e.operation,
         attempt: e.attempt,
-        event: "Forged",
+        event: Option.getOrElse(mappedEventOf(e, reference), () => ""),
         actor: Option.some(e.actor),
       }),
     ),
@@ -115,19 +125,21 @@ const ENDING_ROWS = {
     reported(Observation.Recorded({ operation: e.operation, attempt: e.attempt, why: "letGo" })),
   RecordedOther: (e) =>
     reported(Observation.Recorded({ operation: e.operation, attempt: e.attempt, why: "ignored" })),
-} satisfies Readonly<Record<string, (e: Ending) => RuntimeFact>>;
+} satisfies Readonly<Record<string, (e: Ending, reference: Reference) => RuntimeFact>>;
 
 const forAttempts = new Map(Object.entries(ATTEMPT_ROWS));
 
 const forEndings = new Map(Object.entries(ENDING_ROWS));
 
 /**
- * One step as an adversary sees it: its runtime facts and the models it started and ended from.
+ * One step as an adversary sees it: its runtime facts, the models it started and ended from, and
+ * the reference of the script's fixtures.
  */
 export type Seen = {
   readonly facts: ReadonlyArray<RuntimeFact>;
   readonly before: Model;
   readonly after: Model;
+  readonly reference: Reference;
 };
 
 /**
@@ -186,8 +198,9 @@ export const forgeAll: Forge = (table, row, step, columns) => {
     return table === "tableC" && forEnding !== undefined
       ? lives
           .filter((e) => Option.contains(e.attempt, id))
+          .filter((e) => row !== "Delivered" || Option.isSome(mappedEventOf(e, step.reference)))
           .slice(0, 1)
-          .map((e) => ({ at, fact: forEnding(e) }))
+          .map((e) => ({ at, fact: forEnding(e, step.reference) }))
       : [];
   });
 
@@ -208,8 +221,6 @@ export type Forgery = {
   readonly design: CaseVerdict;
   readonly reads: ReadonlyArray<string>;
 };
-
-const fixtures = parts.map(partFixture);
 
 const recorded = (script: Script) => {
   const scenario = scenarioOf(script, fixtures, () => undefined);
@@ -232,7 +243,11 @@ const recorded = (script: Script) => {
   scenario.run(opened.driven);
   opened.end();
 
-  return { steps: runtimeStepsOf(opened.facts()), before: opened.modelsBefore() };
+  return {
+    steps: runtimeStepsOf(opened.facts()),
+    before: opened.modelsBefore(),
+    reference: referenceFor(scenario.fixtures),
+  };
 };
 
 const MAX_TRIES = 40;
@@ -336,7 +351,9 @@ const triesOf = (run: ReturnType<typeof recorded>, cells: ReadonlyArray<CellAt>,
 
     const columns = new Set(cells.map((c) => c.column));
 
-    return forge(first.table, first.row, { facts, before, after }, columns).map(({ at, fact }) => ({
+    const seen = { facts, before, after, reference: run.reference };
+
+    return forge(first.table, first.row, seen, columns).map(({ at, fact }) => ({
       step: index + 1,
       replay: run.steps.with(index, facts.toSpliced(at, 0, fact)),
     }));

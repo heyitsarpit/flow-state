@@ -834,6 +834,18 @@ tasks
             code:wiki/plans/flow/references/proposals/t52-build-log-2026-11-14.md.
               Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment. Why: step-done rule. Reverse: 
               revert this commit.
+        comment     2026-11-14T10:30:45Z
+            Step-2f review (03501759..a810d974, 75a29363): go on, nothing blocks; MIX triage confirmed; O1-O6 owed to 
+            T61, R1 and R2 record fixes made. Detail: 
+            code:wiki/plans/flow/references/proposals/t52-step2f-review-2026-11-14.md.
+              Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment, for the reviewer. Why: 
+              coordinator's relay. Reverse: revert this commit.
+        comment     2026-11-14T10:30:46Z
+            Item 2 done, for review: the adversary is wired into model mutation (forged deliveries included, judged by 
+            structured violations at the forged step); noticed 43 to 73 of 327, red first. Detail: 
+            code:wiki/plans/flow/references/proposals/t52-build-log-2026-11-14.md.
+              Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment. Why: step-done rule. Reverse: 
+              revert this commit.
     T60
         title       The suite proves its own gates and excuses
         status      done
@@ -982,6 +994,15 @@ tasks
             - the generator draws out-of-order answers and timing offsets, and some run reaches a cell no run reached
               before;
             - a soak run shrinks each new failure and keeps one case per signature.
+        comment     2026-11-14T10:30:07Z
+            Owed from T52's step-2f review (code:wiki/plans/flow/references/proposals/t52-step2f-review-2026-11-14.md): 
+            O1 a red check for the sweep's unplanted guard; O2 a red check for lane-queue's later-capture clause; O3 
+            lane-queue's use of `Purposed` listed among runtime-answer limits; O4 the class gate's count line counts 
+            plants, not scripts; O5 `plantedSweep` reuses `judgedWith`, OWED_SUBJECTS stops repeating the owing triple, 
+            lk+sr rests on MIX-2 alone; O6 a subject on the too-soon Turn I12 path, and Turn R17 states a local actor's 
+            use ends with the page.
+              Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment. Why: the user's routing rule 
+              (suite-machinery findings to the later suite Task). Reverse: revert this commit.
     T54
         title       Core consolidation: owed-endings ledger, one start, diff-written records, acts into evidenceOf
         status      draft

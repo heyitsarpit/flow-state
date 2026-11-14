@@ -12,7 +12,7 @@ describe("an adversarial actor forges the reports a refusal cell refuses (Confor
     const cells = refusalCells(rules);
 
     assert.equal(cells.length, 118);
-    assert.equal(cells.filter((c) => FORGED_ROWS.has(`${c.table}.${c.row}`)).length, 88);
+    assert.equal(cells.filter((c) => FORGED_ROWS.has(`${c.table}.${c.row}`)).length, 99);
   });
 
   it("the Spec model refuses each forgery at its step, by the cell's Invariant, reading the cell", () => {

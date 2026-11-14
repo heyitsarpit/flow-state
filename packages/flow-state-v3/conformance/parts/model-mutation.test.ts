@@ -5,6 +5,7 @@ import type { TaskRef } from "../coverage.ts";
 import { rules } from "../dsl/lifecycle-rules.ts";
 import type { Script } from "../dsl/script.ts";
 import { cellName, cellsOf, pairsIn, recording, successorPairs, undistinguished } from "./cells.ts";
+import { forgeries } from "./adversary.ts";
 import { fieldGate, killedBy, modelFields, modelMutants, pilots } from "./model-mutation.ts";
 import { playPart } from "./play.ts";
 
@@ -113,6 +114,21 @@ describe("model mutation (Q16: Conformance R19, I61, T39)", () => {
     );
   });
 
+  it("a refusal cell a forged report reaches is noticed by its mutant, by the refusing oracle", () => {
+    const forged = forgeries(pilots());
+
+    const fieldOf = new Map(
+      cellsOf().map((c) => [cellName(c), `${c.table}.${c.row}.${c.column}.${c.guard}`]),
+    );
+
+    assert.ok(forged.size >= 28);
+
+    for (const cell of forged.keys()) {
+      const mutant = mutants.find((m) => m.field === fieldOf.get(cell));
+      assert.ok(mutant?.noticed === true && mutant.oracle !== "none", cell);
+    }
+  }, 120_000);
+
   it("a cell no pilot reads is listed unnoticed, naming no oracle", () => {
     const [first] = pilots();
     assert.ok(first !== undefined);
@@ -141,5 +157,5 @@ describe("model mutation (Q16: Conformance R19, I61, T39)", () => {
       "transfers",
       "renamed",
     ]);
-  });
+  }, 240_000);
 });
