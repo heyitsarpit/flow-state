@@ -86,6 +86,30 @@ export const notYet: ReadonlyArray<NotYet> = [
     invariants: invariantsOf("Codec", upTo(6)),
   },
   {
+    owner: "@task.V3.T54",
+    why: "the owed ledger and one delivery point: a lane holds Attempt state only, an ending is one ledger row (WriteLanes I29 to I41), Start delivers rows and a boot parks nothing (Actors I40, I41), three record kinds written from what a step touched (WriteAhead I20 to I24, Codec I7), Restore I20, a read's ending as a row (Reads I22) and reports derived from acts (Turn I36); T54 builds them with their checks",
+    invariants: [
+      ...invariantsOf(
+        "WriteLanes",
+        upTo(41).filter((n) => n >= 29),
+      ),
+      ...invariantsOf("Actors", [40, 41]),
+      ...invariantsOf(
+        "WriteAhead",
+        upTo(24).filter((n) => n >= 20),
+      ),
+      ...invariantsOf("Restore", [20]),
+      ...invariantsOf("Reads", [22]),
+      ...invariantsOf("Codec", [7]),
+      ...invariantsOf("Turn", [36]),
+    ],
+  },
+  {
+    owner: "@task.V3.T55",
+    why: "the Runtime's life: the admit table (Actors I42, I43) and disposal's final write holding every dirty record (Actors I44); T55 builds them with their checks",
+    invariants: invariantsOf("Actors", [42, 43, 44]),
+  },
+  {
     owner: "@task.V3.T22",
     why: "arguments read before any fixture loads (I3), flow.config.ts discovery (I10) and an unchanged project tree (I11); T22 builds them and their static cases",
     invariants: invariantsOf("StaticCli", [3, 10, 11]),
