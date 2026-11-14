@@ -1,0 +1,609 @@
+import assert from "node:assert/strict";
+import { Effect, Option, Schema } from "effect";
+import { describe, it } from "vite-plus/test";
+import { actorRef, app, definition, deny, Flow, machine, Outcome, transaction } from "../index.ts";
+import type { Evidence } from "./inspect.ts";
+import { testing } from "./testing.ts";
+import { Bell, bootWith, endingsOf } from "./testing/page.ts";
+
+// A switch the suite turns: while `on`, every outcome mapper of the write throws, so each try of
+// its ending is a refused turn (WriteLanes R10). `tries` holds one entry per mapper call.
+type Jam = { on: boolean; readonly tries: Array<number> };
+
+const tried = (jam: Jam) => {
+  jam.tries.push(jam.tries.length);
+
+  if (jam.on)
+    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the case is an author mapper that throws
+    throw new Error("the mapper throws");
+};
+
+// A persisted keyed write: each ring is answered by the test through `Bell`, and `counts` keeps
+// the retryCount each send carried.
+const tollOver = (jam: Jam, counts: Array<number>) => {
+  const toll = transaction({
+    id: "Test/toll",
+    input: { tone: Schema.String.check(Schema.isNonEmpty()) },
+    key: ["tone"],
+    concurrency: "reject",
+    services: [Bell],
+    commit: (_input, { attempt }) => {
+      counts.push(attempt.retryCount);
+
+      return Effect.flatMap(Effect.service(Bell), (bell) => bell.ring(attempt.id)).pipe(
+        Effect.catch((e) => Outcome.unknown(e)),
+      );
+    },
+  });
+
+  const Toll = definition({
+    id: "Test/Toll",
+    persist: true,
+    states: ["OPEN"],
+    events: {
+      Ring: { tone: Schema.String },
+      Again: { tone: Schema.String },
+      Stop: { tone: Schema.String },
+    },
+    internalEvents: { Rang: {}, NotRung: { why: Schema.String }, Unsure: Flow.uncertain({}) },
+    memory: {},
+    operations: ({ E }) => ({
+      toll: toll.outcomes({
+        success: E.Rang.from(() => {
+          tried(jam);
+
+          return {};
+        }),
+        failure: {
+          NotSent: E.NotRung.from((e: { readonly why: string }) => {
+            tried(jam);
+
+            return { why: e.why };
+          }),
+        },
+        unknown: E.Unsure.from(() => {
+          tried(jam);
+
+          return {};
+        }),
+      }),
+    }),
+  });
+
+  const byTone = ({ event }: { readonly event: { readonly tone: string } }) => ({
+    tone: event.tone,
+  });
+
+  const TollMachine = machine(Toll, ({ S, O }) => ({
+    default: S.OPEN,
+    on: {
+      Ring: { actions: [O.toll.commit(byTone)] },
+      Again: { actions: [O.toll.retry(byTone)] },
+      Stop: { actions: [O.toll.cancel(byTone)] },
+      Rang: {},
+      NotRung: {},
+      Unsure: {},
+    },
+  }));
+
+  return { served: app({ id: "test", machines: { toll: TollMachine } }), TollMachine };
+};
+
+const tolls = { machine: "Test/Toll", name: "t1" };
+
+const otherToll = { machine: "Test/Toll", name: "t2" };
+
+// One actor that declines its own commit over and over: each `knock` cannot encode, so it
+// declines Unencodable with no lane, and its handler knocks again while `n` is below `limit`.
+// A step serves at most 10,000 mail items (`serve.ts` drain), so a chain longer than that leaves
+// an ending in the mailbox between steps: the backlog WriteAhead R10 allows. At `n === cancelAt`
+// the handler also cancels the `toll` lane of tone "a".
+const chainOver = (persist: boolean, limit: number, cancelAt: number) => {
+  const knock = transaction({
+    id: "Test/knock",
+    input: { tone: Schema.String.check(Schema.isNonEmpty()) },
+    key: [],
+    concurrency: "reject",
+    services: [],
+    commit: () => Effect.succeed("knocked"),
+  });
+
+  const toll = transaction({
+    id: "Test/chain-toll",
+    input: { tone: Schema.String },
+    key: ["tone"],
+    concurrency: "reject",
+    services: [Bell],
+    commit: (_input, { attempt }) =>
+      Effect.flatMap(Effect.service(Bell), (bell) => bell.ring(attempt.id)).pipe(
+        Effect.catch((e) => Outcome.unknown(e)),
+      ),
+  });
+
+  const Chain = definition({
+    id: "Test/Chain",
+    persist,
+    states: ["OPEN"],
+    events: { Go: {}, Poke: {}, Ring: { tone: Schema.String } },
+    internalEvents: {
+      Knocked: {},
+      NotKnocked: { why: Schema.String },
+      KnockUnsure: Flow.uncertain({}),
+      Rang: {},
+      NotRung: { why: Schema.String },
+      Unsure: Flow.uncertain({}),
+    },
+    memory: { n: Flow.initial(Schema.Number, 0) },
+    operations: ({ E }) => ({
+      knock: knock.outcomes({
+        success: E.Knocked,
+        failure: {
+          NotSent: E.NotKnocked.from((e: { readonly why: string }) => ({ why: e.why })),
+        },
+        unknown: E.KnockUnsure,
+      }),
+      toll: toll.outcomes({
+        success: E.Rang,
+        failure: { NotSent: E.NotRung.from((e: { readonly why: string }) => ({ why: e.why })) },
+        unknown: E.Unsure,
+      }),
+    }),
+  });
+
+  const ChainMachine = machine(Chain, ({ S, O }) => ({
+    default: S.OPEN,
+    on: {
+      Go: { updateMemory: () => ({ n: 0 }), actions: [O.knock.commit(() => ({ tone: "" }))] },
+      Poke: {},
+      Ring: {
+        actions: [
+          O.toll.commit(({ event }: { readonly event: { readonly tone: string } }) => ({
+            tone: event.tone,
+          })),
+        ],
+      },
+      NotKnocked: [
+        {
+          guard: [({ memory }) => memory.n === cancelAt || deny("NotYet")],
+          updateMemory: ({ memory }) => ({ n: memory.n + 1 }),
+          actions: [O.toll.cancel(() => ({ tone: "a" })), O.knock.commit(() => ({ tone: "" }))],
+        },
+        {
+          guard: [({ memory }) => memory.n < limit || deny("Done")],
+          updateMemory: ({ memory }) => ({ n: memory.n + 1 }),
+          actions: [O.knock.commit(() => ({ tone: "" }))],
+        },
+        { updateMemory: ({ memory }) => ({ n: memory.n + 1 }) },
+      ],
+      Knocked: {},
+      KnockUnsure: {},
+      Rang: {},
+      NotRung: {},
+      Unsure: {},
+    },
+  }));
+
+  return { served: app({ id: "test", machines: { chain: ChainMachine } }), ChainMachine };
+};
+
+const chained = { machine: "Test/Chain", name: "c1" };
+
+// Past the drain's 10,000 items per step, so one step leaves the chain's next ending in the mail.
+const PAST_DRAIN = 10_050;
+
+const knocksCommitted = (seen: ReadonlyArray<Evidence>) =>
+  seen.reduce(
+    (n, e) =>
+      e._tag === "Turn"
+        ? n + e.members.filter((m) => m.operation === "knock" && m.kind === "commit").length
+        : n,
+    0,
+  );
+
+const knocksHeard = (seen: ReadonlyArray<Evidence>) =>
+  seen.filter((e) => e._tag === "Turn" && e.event === "NotKnocked").length;
+
+const turnsOf = (seen: ReadonlyArray<Evidence>, events: ReadonlyArray<string>) =>
+  seen.flatMap((e) => (e._tag === "Turn" && events.includes(e.event) ? [e.event] : []));
+
+const deliveredOf = (seen: ReadonlyArray<Evidence>) =>
+  seen.flatMap((e) =>
+    e._tag === "Delivered" ? [`${Option.getOrElse(e.attempt, () => "-")} ${e.event}`] : [],
+  );
+
+const lost = (b: ReturnType<typeof bootWith>, attempt: string) => {
+  b.bell.waiting.get(attempt)?.(Effect.fail("lost"));
+  b.page.settle();
+};
+
+const rung = (b: ReturnType<typeof bootWith>, attempt: string) => {
+  b.bell.waiting.get(attempt)?.(Effect.succeed("ding"));
+  b.page.settle();
+};
+
+const ring = (b: ReturnType<typeof bootWith>, tone: string, actor = tolls) => {
+  testing.send(b.built, actor, "Ring", { tone });
+  b.page.settle();
+};
+
+const lastRing = (b: ReturnType<typeof bootWith>) => {
+  const attempt = b.bell.rings.at(-1);
+  assert.ok(attempt !== undefined, "a ring is on the wire");
+
+  return attempt;
+};
+
+// A pending case red on today's core, owed to a step of T54: it passes while its body fails an
+// assertion and fails once the body passes, so the step that turns it green makes it an `it`.
+const owed = (step: string, name: string, body: () => void) =>
+  it(`${name} [owed to ${step}]`, () => {
+    assert.throws(
+      body,
+      (e) => e instanceof assert.AssertionError,
+      `the owed case is green: make it an it (${step})`,
+    );
+  });
+
+/**
+ * T54's pending cases (code:wiki/plans/flow/references/proposals/t54-requirements-2026-11-14.md):
+ * each expected result is derived from the cited rule, not from running the code.
+ */
+describe("the owed ledger on the production runtime (T54 pending cases)", () => {
+  // A-1, owed to A1. Two endings of lane "a", an unknown and then its re-send's success, are each
+  // refused twice: two Kept rows (WriteLanes R10 "every kept ending is its own row"). Each gets
+  // exactly one try at every start until heard (WriteLanes I31): two mapper calls at the next
+  // boot with the jam on, then both heard, in the order owed, once the jam clears.
+  owed(
+    "A1",
+    "two endings refused twice on one lane are two Kept rows, each tried once per start, both heard (WriteLanes I31, R10; WriteLanes T24)",
+    () => {
+      const store = new Map<string, string>();
+      const jam: Jam = { on: true, tries: [] };
+      const { served } = tollOver(jam, []);
+      const first = bootWith(served, store, 1);
+
+      testing.attach(first.built, tolls, "host", false);
+      ring(first, "a");
+      const attempt = lastRing(first);
+      lost(first, attempt);
+      testing.send(first.built, tolls, "Again", { tone: "a" });
+      first.page.settle();
+      assert.deepStrictEqual(first.bell.rings, [attempt, attempt], "the Held Attempt is re-sent");
+      rung(first, attempt);
+      assert.strictEqual(jam.tries.length, 4, "each ending was tried twice");
+
+      const before = jam.tries.length;
+      bootWith(served, store, 2);
+      assert.strictEqual(jam.tries.length - before, 2, "one try for each Kept row at the start");
+
+      jam.on = false;
+      const third = bootWith(served, store, 3);
+      assert.deepStrictEqual(turnsOf(third.seen, ["Unsure", "Rang"]), ["Unsure", "Rang"]);
+
+      const fourth = bootWith(served, store, 4);
+      assert.deepStrictEqual(turnsOf(fourth.seen, ["Unsure", "Rang"]), [], "each heard once");
+    },
+  );
+
+  // A-5. A Kept row (a success refused twice; its lane is Idle, so no Restored joins it) gets one
+  // try at each start and is Kept again when refused (Actors R15, I24); once the jam clears it is
+  // heard once and never again (WriteLanes I29).
+  it("a Kept row gets one try per start across starts with the jam left on, then is heard once (Actors I24, R15; WriteLanes algorithm start)", () => {
+    const jam: Jam = { on: true, tries: [] };
+    const { served, TollMachine } = tollOver(jam, []);
+    const b = bootWith(served, new Map(), 1);
+
+    const adopt = () => {
+      b.built.runtime.disposeActor(actorRef(TollMachine, "t1"));
+      testing.attach(b.built, tolls, "host", false);
+      b.page.settle();
+    };
+
+    testing.attach(b.built, tolls, "host", false);
+    ring(b, "a");
+    rung(b, lastRing(b));
+    assert.strictEqual(jam.tries.length, 2, "refused, then refused on its one redelivery");
+
+    adopt();
+    assert.strictEqual(jam.tries.length, 3, "one try at the first adoption");
+    adopt();
+    assert.strictEqual(jam.tries.length, 4, "one try at the second adoption, the jam left on");
+
+    jam.on = false;
+    adopt();
+    assert.strictEqual(jam.tries.length, 5);
+    assert.deepStrictEqual(turnsOf(b.seen, ["Rang"]), ["Rang"]);
+    adopt();
+    assert.strictEqual(jam.tries.length, 5, "a heard row is closed");
+  });
+
+  // A-2 (step-1 review F1) and X-4, owed to A1. The chain leaves its next decline in the mail
+  // between steps. disposeActor suspends the identity: the laneless row goes Waiting (WriteLanes
+  // `algorithm` suspend: "rows with no lane included") and the adopting incarnation hears it
+  // (Actors I41). Every knock committed is heard exactly once (WriteLanes I27, I29).
+  owed(
+    "A1",
+    "a laneless ending in the mail at disposeActor waits and is heard once by the next incarnation (Actors I41, R8; WriteLanes I27, I29; Actors T22)",
+    () => {
+      const { served, ChainMachine } = chainOver(false, PAST_DRAIN, -1);
+      const b = bootWith(served, new Map(), 1);
+
+      testing.attach(b.built, chained, "host", false);
+      testing.send(b.built, chained, "Go", {});
+      b.page.settle();
+      b.built.runtime.disposeActor(actorRef(ChainMachine, "c1"));
+      b.page.settle();
+      testing.attach(b.built, chained, "host", false);
+      b.page.settle();
+
+      for (const _ of [1, 2, 3]) testing.send(b.built, chained, "Poke", {});
+      b.page.settle();
+
+      assert.strictEqual(knocksHeard(b.seen), knocksCommitted(b.seen));
+    },
+  );
+
+  // A-2 at Runtime disposal, owed to A1: the backlog's laneless row goes Waiting, is saved with
+  // the identity, and the next boot's start delivers it (Actors I41, R22; WriteAhead R5).
+  owed(
+    "A1",
+    "a laneless ending in the mail at Runtime disposal is saved and heard once after the reload (Actors I41, R22; WriteLanes I27)",
+    () => {
+      const store = new Map<string, string>();
+      const { served } = chainOver(true, PAST_DRAIN, -1);
+      const first = bootWith(served, store, 1);
+
+      testing.attach(first.built, chained, "host", false);
+      testing.send(first.built, chained, "Go", {});
+      first.page.settle();
+      testing.disposeRuntime(first.built);
+      first.page.settle();
+
+      const second = bootWith(served, store, 2);
+      testing.attach(second.built, chained, "host", true);
+      second.page.settle();
+
+      for (const _ of [1, 2, 3]) testing.send(second.built, chained, "Poke", {});
+      second.page.settle();
+
+      assert.strictEqual(
+        knocksHeard(first.seen) + knocksHeard(second.seen),
+        knocksCommitted(first.seen) + knocksCommitted(second.seen),
+      );
+    },
+  );
+
+  // A-3, owed to A2. A re-send waiting for its capture when the Runtime is disposed goes Held
+  // (WriteLanes `algorithm`, disposal starts) and is saved Held, so the next boot wakes nothing
+  // (Restore R1, I1; Actors T23). An ensure then hears unknown { Restored } (Actors R10), and a
+  // retry invokes the Attempt once more, sent before (WriteLanes I26).
+  owed(
+    "A2",
+    "a head held from Recapturing at Runtime disposal is saved Held: the boot wakes nothing (Actors T23, R22; Restore I1, R1)",
+    () => {
+      const store = new Map<string, string>();
+      const counts: Array<number> = [];
+      const { served } = tollOver({ on: false, tries: [] }, counts);
+      const first = bootWith(served, store, 1);
+
+      testing.attach(first.built, tolls, "host", false);
+      ring(first, "a");
+      const attempt = lastRing(first);
+      lost(first, attempt);
+
+      // The retry's capture is issued; the Runtime is disposed before its answer is heard.
+      testing.send(first.built, tolls, "Again", { tone: "a" });
+      testing.disposeRuntime(first.built);
+      first.page.settle();
+
+      const second = bootWith(served, store, 2);
+      assert.strictEqual(
+        second.seen.filter((e) => e._tag === "Incarnated").length,
+        0,
+        "a Held head wakes no identity at boot",
+      );
+
+      testing.attach(second.built, tolls, "host", true);
+      second.page.settle();
+      assert.deepStrictEqual(endingsOf(second.seen, attempt), ["unknown Restored"]);
+
+      testing.send(second.built, tolls, "Again", { tone: "a" });
+      second.page.settle();
+      assert.deepStrictEqual(second.bell.rings, [attempt], "the retry invokes the Attempt once");
+      assert.ok((counts.at(-1) ?? 0) > 0, "the re-send carries a retryCount above 0");
+    },
+  );
+
+  // A-4. A never-sent head at Runtime disposal ends NotSent { Disposed } and its lane drops
+  // (WriteLanes `algorithm`, disposal starts; Actors R22, I29): after a reload no lane record is
+  // left, the NotSent is heard once, and no unknown { Restored } is invented.
+  it("a never-sent head at Runtime disposal leaves no lane, and its NotSent { Disposed } is heard once after a reload (Actors R22, I29; Actors T23)", () => {
+    const store = new Map<string, string>();
+    const { served } = tollOver({ on: false, tries: [] }, []);
+    const first = bootWith(served, store, 1);
+
+    testing.attach(first.built, tolls, "host", false);
+    testing.send(first.built, tolls, "Ring", { tone: "a" });
+    testing.disposeRuntime(first.built);
+    first.page.settle();
+    assert.deepStrictEqual(first.bell.rings, [], "never sent");
+
+    const second = bootWith(served, store, 2);
+    testing.attach(second.built, tolls, "host", true);
+    second.page.settle();
+
+    assert.deepStrictEqual(
+      [...store.keys()].filter((k) => k.startsWith("lane/")),
+      [],
+      "no lane record",
+    );
+    assert.deepStrictEqual(turnsOf(second.seen, ["NotRung", "Unsure"]), ["NotRung"]);
+
+    const third = bootWith(served, store, 3);
+    testing.attach(third.built, tolls, "host", true);
+    third.page.settle();
+    assert.deepStrictEqual(turnsOf(third.seen, ["NotRung", "Unsure"]), [], "heard once");
+  });
+
+  // A-6, owed to A1. The success is applied to lane "a" when its call settles (WriteLanes I32),
+  // so a cancel admitted before the success's turn finds the lane Idle and does nothing
+  // (`algorithm`, cancel on Idle): the machine hears the success, never unknown { Cancelled }.
+  // The chain's first turn after the settlement runs the cancel, before the success's turn.
+  owed(
+    "A1",
+    "a cancel admitted between a success's settlement and its turn leaves it a success (WriteLanes I32, R10; WriteLanes T25)",
+    () => {
+      const { served } = chainOver(false, PAST_DRAIN, 9_999);
+      const b = bootWith(served, new Map(), 1);
+
+      testing.attach(b.built, chained, "host", false);
+      ring(b, "a", chained);
+      const attempt = lastRing(b);
+      testing.send(b.built, chained, "Go", {});
+      b.page.settle();
+      rung(b, attempt);
+
+      assert.deepStrictEqual(endingsOf(b.seen, attempt), ["success success"]);
+      assert.deepStrictEqual(turnsOf(b.seen, ["Rang", "Unsure"]), ["Rang"]);
+    },
+  );
+
+  // A-10, owed to A1. Attempts have their own counter (WriteLanes R5, I35): the same commits give
+  // the same Attempt ids whatever else is minted between them (an incarnation, a decline).
+  owed(
+    "A1",
+    "Attempt ids keep their numbers when other ids are minted between commits (WriteLanes I35, R5; WriteLanes T27)",
+    () => {
+      const run = (between: boolean) => {
+        const { served } = tollOver({ on: false, tries: [] }, []);
+        const b = bootWith(served, new Map(), 7);
+        testing.attach(b.built, tolls, "host", false);
+        ring(b, "a");
+        rung(b, lastRing(b));
+
+        if (between) {
+          testing.attach(b.built, otherToll, "host", false);
+          ring(b, "z", otherToll);
+          ring(b, "");
+        }
+
+        ring(b, "b");
+
+        return b.bell.rings.filter((_, i) => i === 0 || i === b.bell.rings.length - 1);
+      };
+
+      assert.deepStrictEqual(run(true), run(false));
+    },
+  );
+
+  // A-12, owed to A2. Two Held heads with no row, created in reverse lane-id order ("c" then
+  // "b"): every start (return, adoption, reload) owes each its unknown { Restored } lane by lane
+  // in lane-id order (WriteLanes `algorithm` start; Restore R3), so "b" is heard before "c", and
+  // the three starts deliver the same sequence (Actors I40, T21). A boot parks nothing.
+  owed(
+    "A2",
+    "one start delivers on return, adoption and reload, Held heads in lane-id order, and a boot parks nothing (Actors I40, R10; Restore R1, R3; Actors T21)",
+    () => {
+      const setup = (store: Map<string, string>) => {
+        const { served, TollMachine } = tollOver({ on: false, tries: [] }, []);
+        const b = bootWith(served, store, 1);
+        testing.attach(b.built, tolls, "host", false);
+        ring(b, "c");
+        const c = lastRing(b);
+        lost(b, c);
+        ring(b, "b");
+        const bb = lastRing(b);
+        lost(b, bb);
+
+        return { b, served, TollMachine, order: [`${bb} Unsure`, `${c} Unsure`] };
+      };
+
+      const heardAfter = (seen: ReadonlyArray<Evidence>, from: number) =>
+        deliveredOf(seen.slice(from));
+
+      // Return: the free incarnation ends past its grace and is ensured again from its record.
+      const returned = setup(new Map());
+      testing.detach(returned.b.built, tolls, "host");
+      returned.b.page.advance(1000);
+      const returnAt = returned.b.seen.length;
+      testing.attach(returned.b.built, tolls, "host", true);
+      returned.b.page.settle();
+
+      // Adoption: disposeActor, then an ensure binds the unbound lanes.
+      const adopted = setup(new Map());
+      adopted.b.built.runtime.disposeActor(actorRef(adopted.TollMachine, "t1"));
+      const adoptAt = adopted.b.seen.length;
+      testing.attach(adopted.b.built, tolls, "host", false);
+      adopted.b.page.settle();
+
+      // Reload: a boot rebuilds the lanes Held and wakes nothing (Restore R1).
+      const store = new Map<string, string>();
+      const reloaded = setup(store);
+      const second = bootWith(reloaded.served, store, 2);
+      assert.deepStrictEqual(
+        second.seen.filter((e) => e._tag === "Parked" || e._tag === "Ended").map((e) => e._tag),
+        [],
+        "a boot owes, parks and delivers nothing",
+      );
+      testing.attach(second.built, tolls, "host", true);
+      second.page.settle();
+
+      assert.deepStrictEqual(heardAfter(returned.b.seen, returnAt), returned.order);
+      assert.deepStrictEqual(heardAfter(adopted.b.seen, adoptAt), adopted.order);
+      assert.deepStrictEqual(heardAfter(second.seen, 0), reloaded.order);
+    },
+  );
+
+  // A-7 (step-1 review F2), owed to A1. A Rejected decline from the lane table has no lane
+  // (WriteLanes R10: "a declined commit has no Attempt and no lane"), so its Kept row blocks no
+  // key (WriteLanes R6, I33): once the head resolves, a commit on the key mints.
+  owed(
+    "A1",
+    "a table decline refused twice is a laneless Kept row that blocks no key (WriteLanes I33, R6, R10; WriteLanes T26)",
+    () => {
+      const jam: Jam = { on: true, tries: [] };
+      const { served } = tollOver(jam, []);
+      const b = bootWith(served, new Map(), 1);
+
+      testing.attach(b.built, tolls, "host", false);
+      ring(b, "a");
+      const attempt = lastRing(b);
+      ring(b, "a");
+      assert.strictEqual(jam.tries.length, 2, "the decline's turn is refused twice");
+
+      jam.on = false;
+      rung(b, attempt);
+      ring(b, "a");
+      assert.strictEqual(b.bell.rings.length, 2, "the next commit on the key mints and is sent");
+    },
+  );
+
+  // A-7's opposite case (step-1 review F2), owed to A1. A never-sent Attempt's NotSent row keeps
+  // its lane, so when Kept it blocks the key (WriteLanes R6, I33): the next commit declines
+  // Rejected and nothing is sent.
+  owed(
+    "A1",
+    "a never-sent Attempt's NotSent, refused twice, is a Kept row on its lane that blocks its key (WriteLanes I33, R6)",
+    () => {
+      const jam: Jam = { on: true, tries: [] };
+      const { served } = tollOver(jam, []);
+      const b = bootWith(served, new Map(), 1);
+
+      testing.attach(b.built, tolls, "host", false);
+      testing.send(b.built, tolls, "Ring", { tone: "a" });
+      testing.send(b.built, tolls, "Stop", { tone: "a" });
+      b.page.settle();
+      assert.strictEqual(jam.tries.length, 2, "the NotSent { Cancelled } turn is refused twice");
+
+      jam.on = false;
+      ring(b, "a");
+      assert.deepStrictEqual(b.bell.rings, [], "the Kept row blocks its key");
+      assert.deepStrictEqual(
+        b.seen.flatMap((e) =>
+          e._tag === "Ended" && Option.isNone(e.attempt) ? [`${e.channel} ${e.reason}`] : [],
+        ),
+        ["failure Rejected"],
+      );
+    },
+  );
+});
