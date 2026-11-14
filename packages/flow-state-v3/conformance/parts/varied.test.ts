@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { Formatter } from "effect";
+import { Formatter, Option } from "effect";
 import { describe, it } from "vite-plus/test";
 import { parts } from "../../fixtures/index.ts";
 import { implemented as production } from "../adapters/production.ts";
@@ -8,7 +8,10 @@ import type { Script } from "../dsl/script.ts";
 import { recording } from "./cells.ts";
 import { BUILD_SEEDS, scriptOf, TIMER_OFFSETS } from "./generate.ts";
 import { playPart } from "./play.ts";
-import { gateScripts, heldOutScripts } from "./records.ts";
+import { owedRows } from "./owed.ts";
+import { VARIED_OWED } from "./owed-varied.ts";
+import { gateScripts, heldOutScripts, scriptById } from "./records.ts";
+import { signatureOf } from "./shrink.ts";
 
 const named = (name: string) => {
   const part = parts.find((p) => p.name === name);
@@ -69,6 +72,35 @@ describe("the generator varies its inputs (T61; Conformance R15, R16)", () => {
       ids.join(" "),
     );
   });
+
+  it("every varied red is triaged by its first signature, each signature's root traced once", () => {
+    const traced = new Map([
+      ["lane-queue WriteLanes I12", "retry"],
+      ["delivered-once WriteLanes I15", "unbound"],
+      ["delivered-once WriteLanes I15,disposal Actors I29", "unbound"],
+      ["disposal Actors I29", "retry"],
+    ]);
+
+    const ids = [...new Set(VARIED_OWED.map((r) => r.id))];
+
+    for (const id of ids) {
+      const script = Option.getOrThrow(scriptById(id));
+      const others = owedRows.filter((o) => o.case !== id);
+
+      const signature = Option.getOrThrow(
+        signatureOf(playPart(script, "production", undefined, others)),
+      );
+
+      const root = traced.get(signature);
+
+      assert.ok(root !== undefined, `${id}: untraced signature ${signature}`);
+
+      for (const row of VARIED_OWED.filter(
+        (r) => r.id === id && signature.includes(`${r.check} ${r.invariant}`),
+      ))
+        assert.equal(row.root, root, `${id} ${row.check} ${row.invariant}`);
+    }
+  }, 60_000);
 
   it("some varied or new-mix run reaches a lifecycle cell no earlier run reaches", () => {
     const earlier = /^PART-.+-(?:usual|stress)-\d+$|^MIX-sync\+transfers\+sign-in-stress-\d+$/u;
