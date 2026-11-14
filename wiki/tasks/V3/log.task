@@ -594,3 +594,5 @@ note 2026-11-14T20:12:43Z
     cadence edited; crons recreated.
 note 2026-11-14T20:45:26Z
     T54 A2 in progress: the boot now owes and parks nothing (Actors I40); crash 0 red (DISP-02, DISP-06 pass), baseline 0 bad with 598 runs filed under cited rules, host mutants 17/17. Three oracles assumed the old boot and were changed; ruled (orchestrator): commit them as a reviewed checkpoint, review them now (Opus, Haiku sidecars), and triage the four new part reds meanwhile, the Held-head Send first.
+note 2026-11-14T20:59:31Z
+    T54 A2 triage: two reds are T19's retry-count bug, unmasked when A2 removed A1's lane rewrite (shrunk to 9 and 14 steps, owed to T19); two are oracle gaps (a lost record before ensureExisting; BootSettles closing a saved Restoring head), now being fixed in a separate commit for the running oracle review. Stale rows: all 354 T54 rows go stale through A2's fix, not the oracle change.
