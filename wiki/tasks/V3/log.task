@@ -390,4 +390,12 @@ note 2026-11-14T09:55:03Z
     the class gate's own catches, hours per step. T60 helped if machinery findings fall and the class gate catches what 
     reviews used to.
 note 2026-11-14T10:03:47Z
-    T52 step 2f done at 81953e22: the class gate judges plants by parts-gate faults, pairs 74/74; the new check found MIX stress-10 untriaged (the builder was sent to triage it before item 2). Step 2f review started (also covers T60's fix round). Benefit watch: the class gate's first own catch.
+    T52 step 2f done at 81953e22: the class gate judges plants by parts-gate faults, pairs 74/74; the new check found 
+    MIX stress-10 untriaged (the builder was sent to triage it before item 2). Step 2f review started (also covers 
+    T60's fix round). Benefit watch: the class gate's first own catch.
+note 2026-11-14T10:20:24Z
+    Decision (user, 2026-11-14): "all accepted but some of these cheap ones can be done in parallel with T52". New 
+    @task.V3.T61 (the suite runs itself and draws varied inputs); T54 gains production's self-proof and waits on T61; 
+    bounded enumeration to revisit.md. A second builder takes T61's file-disjoint parts (gates in verify, crash reds 
+    named, pass-only regressions, the trace command) beside T52; the user's words are the authority for two builders at 
+    once. Usage pace roughly doubles while both run.

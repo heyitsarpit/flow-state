@@ -73,5 +73,7 @@ Deferred items.
   labels, open owners, outside reads, temporary strings, throws in `src/`), and a requirements-map check. Build the
   matching one only if reviews after T60 keep finding suite-machinery holes; the records lint first if review time
   stays high.
+- **Bounded enumeration of move sequences** (2026-11-14, the user; suite-leverage-survey-2026-11-14.md item 6).
+  Every move sequence to depth 3 or 4 per pilot, through a chooser in place of the generator's random draw.
 - **`cancelAll`** (2026-11-12, the user, wide consult W1 K0; deferred). Neither reference app uses it. If it returns,
   K1 (its own member, typed only on queuing policies) over K2 (`cancel(key, { queued: true })`).
