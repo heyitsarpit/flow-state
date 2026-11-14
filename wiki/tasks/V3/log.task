@@ -606,3 +606,5 @@ note 2026-11-14T21:59:53Z
     T54 A2: liar round-14 limited mutants done (100/100, cap unchanged). The first belief fix left 15 of 18 scripts thin; told (orchestrator) to checkpoint the finished work, model how a start and a reload close requests (Restore R3), regenerate, and re-record owed rows once at the end. The builder asked to hand off; told to continue under the rotation rule.
 note 2026-11-14T22:07:10Z
     T54 A2: the belief now models how a start, a reload and an ack close requests, and thin scripts fell from 18 to 2. Regenerating left 160 stale owed items and 31 unowed reds. Told (orchestrator) to commit the fixes, triage reds with the retry-count plant, and re-record once.
+note 2026-11-14T22:12:48Z
+    T54 A2 rulings (orchestrator): varied-4 is owed under PARTIAL_FLUSH to T54 (a second path, cleared before close). stress-3 is fixed in A2 (the start re-owns adopted heads, Actors R20), else owed to A3. The 2 thin scripts keep their seeds and are pinned as owed: generator batching is a suite owed item. Why: fix what the step reached, never hide a gap. Reverse: re-rule at the A2 review.
