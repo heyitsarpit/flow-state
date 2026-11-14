@@ -64,7 +64,6 @@ const OWED_SUBJECTS = {
   "GEN-pay-search-25-shrunk|delivered-once|WriteLanes I15": ["att-25000-7"],
   "GEN-pay-search-25-shrunk|disposal|Actors I29": ["att-25000-7"],
   "MIX-sync+transfers+sign-in-stress-101|lane-queue|WriteLanes I12": ["att-101000-35"],
-  "MIX-sync+transfers+sign-in-stress-10|lane-queue|WriteLanes I26": ["att-10000-10"],
   "MIX-sync+transfers+sign-in-stress-10|lane-queue|WriteLanes I12": [
     "att-10001-12",
     "att-10000-10",
@@ -79,12 +78,6 @@ const OWED_SUBJECTS = {
     "att-10005-17",
     item("Bank/Transfers acct-2 transfer", 131),
     item("Bank/Transfers acct-2 transfer", 177),
-  ],
-  "MIX-sync+transfers+sign-in-stress-10|schedules|Turn I12": [
-    item("Git/Sync client", 115),
-    item("Git/Sync client", 116),
-    item("Git/Sync client", 117),
-    item("Git/Sync client", 118),
   ],
   "MIX-sync+transfers+sign-in-stress-10|lane-queue|WriteLanes I8": ["att-10003-41", "att-10005-17"],
   "MIX-sync+transfers+sign-in-stress-10|lane-queue|WriteLanes I1": ["att-10005-17"],
@@ -362,12 +355,6 @@ export const partsOwed: ReadonlyArray<PartOwed> = [
   ...owing(["PART-cells-stress-9"], [I29], RETRY_COUNT, "@task.V3.T19"),
   ...owing(
     ["MIX-sync+transfers+sign-in-stress-10"],
-    [["lane-queue", "WriteLanes I26"]],
-    "first seen when the class gate began judging by the gate: a retried transfer whose capture landed is never sent again (WriteLanes I26); which side is wrong is owed to this Task's triage",
-    "@task.V3.T19",
-  ),
-  ...owing(
-    ["MIX-sync+transfers+sign-in-stress-10"],
     [
       I12,
       I16,
@@ -379,12 +366,6 @@ export const partsOwed: ReadonlyArray<PartOwed> = [
       ["delivered-once", "Restore I6"],
     ],
     RETRY_COUNT,
-    "@task.V3.T19",
-  ),
-  ...owing(
-    ["MIX-sync+transfers+sign-in-stress-10"],
-    [["schedules", "Turn I12"]],
-    "first seen in the same run: the sync client's schedule was due by step 115 and had not fired (Turn I12); which side is wrong is owed to this Task's triage",
     "@task.V3.T19",
   ),
   ...owing(["PART-pay-stress-112"], [I12], RETRY_COUNT, "@task.V3.T19"),

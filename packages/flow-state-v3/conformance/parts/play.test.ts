@@ -106,6 +106,81 @@ describe("part scripts on production (Q9, Q10, Q15, Q17: Conformance R15, R19, R
     assert.equal(played.verdict._tag, "Pass", Formatter.format(played.verdict));
   });
 
+  it("another actor's acknowledging batch does not capture a retry, so no re-send is owed yet (WriteLanes I26)", () => {
+    const send = (transferId: string, cents: number, by: number) => ({
+      _tag: "send" as const,
+      event: "Send",
+      payload: { transferId, iban: "DE89370400440532013000", cents },
+      by,
+    });
+
+    const resend = (transferId: string) => ({
+      _tag: "send" as const,
+      event: "Resend",
+      payload: { transferId },
+      by: 2,
+    });
+
+    const ack = { _tag: "ack" } as const;
+
+    const script: Script = {
+      id: "MIX-sync+transfers+sign-in-stress-10-shrunk",
+      fixture: "sync",
+      actor: "client",
+      actors: [
+        { fixture: "sync", actor: "client" },
+        { fixture: "transfers", actor: "acct-1" },
+        { fixture: "transfers", actor: "acct-2" },
+        { fixture: "sign-in", actor: "screen" },
+      ],
+      steps: [
+        { _tag: "ensure", by: 0 },
+        { _tag: "ensure", by: 1 },
+        { _tag: "ensure", by: 2 },
+        send("t2", 1200, 2),
+        ack,
+        send("t1", 500, 2),
+        ack,
+        { _tag: "reload" },
+        resend("t1"),
+        resend("t2"),
+        send("t1", 500, 1),
+        ack,
+      ],
+    };
+
+    const played = playPart(script, "production", undefined, []);
+
+    assert.equal(played.verdict._tag, "Pass", Formatter.format(played.verdict));
+  });
+
+  it("a local actor's use ends with the page, so its schedule owes no firing once released (Turn I12, I23)", () => {
+    const script: Script = {
+      id: "MIX-sync+transfers+sign-in-stress-10-shrunk",
+      fixture: "sync",
+      actor: "client",
+      actors: [{ fixture: "sync", actor: "client" }],
+      steps: [
+        { _tag: "ensure", by: 0 },
+        { _tag: "reload" },
+        { _tag: "ensure", by: 0 },
+        { _tag: "send", event: "SyncRepo", payload: { repo: "site" }, by: 0 },
+        { _tag: "send", event: "SyncRepo", payload: { repo: "effect" }, by: 0 },
+        { _tag: "release", by: 0 },
+        {
+          _tag: "answer",
+          operation: "sync",
+          answer: { _tag: "failButLanded", tag: "RateLimited", fields: { retryAfterMs: 2000 } },
+        },
+        { _tag: "advance", ms: 3000 },
+      ],
+    };
+
+    const played = playPart(script, "production", undefined, []);
+
+    assert.equal(played.verdict._tag, "Pass", Formatter.format(played.verdict));
+  });
+
   it("a boot whose capture never landed leaves the record where the last landed batch put it", () => {
     const pay = { _tag: "send", event: "PayRequested", payload: { paymentMethodId: "visa" } };
     const reload = { _tag: "reload" } as const;

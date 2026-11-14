@@ -292,14 +292,29 @@ const headLast = (lives: LifeStep) =>
 type State = { readonly reference: Reference; readonly captured: ReadonlyArray<string> };
 
 /**
- * The heads re-sending at the step's end whose retry a batch was written after: one written in
- * this step (a `Wrote` is noted at its step's settle, after the turns) or in an earlier one.
+ * The heads re-sending at the step's end whose retry a batch was written after: any batch of the
+ * retry's own step (a batch is noted at its step's settle, after the turns, and a step that starts
+ * a re-send's wait is issued with everything dirty, WriteAhead R10), or a `capture` of a later
+ * step. A later step's `acknowledge` or `flush` may hold another actor's record only (the retry's
+ * own capture waits for the batch still out, R12), so it captures no retry.
  */
-const capturedAfter = (lives: LifeStep, step: ReadonlyArray<Fact>, before: ReadonlyArray<string>) =>
-  lives.after.attempts
+const capturedAfter = (
+  lives: LifeStep,
+  step: ReadonlyArray<Fact>,
+  before: ReadonlyArray<string>,
+) => {
+  const wasResending = lives.before.attempts
+    .filter((a) => a.phase._tag === "Resending")
+    .map((a) => a.id);
+
+  const wrote = step.some((f) => Fact.$is("Wrote")(f));
+  const captured = step.some((f) => Fact.$is("Purposed")(f) && f.purpose === "capture");
+
+  return lives.after.attempts
     .filter((a) => a.phase._tag === "Resending")
     .map((a) => a.id)
-    .filter((id) => before.includes(id) || step.some((f) => Fact.$is("Wrote")(f)));
+    .filter((id) => before.includes(id) || captured || (wrote && !wasResending.includes(id)));
+};
 
 /**
  * Each write lane keeps its cells, read from the Case's one lifecycle fold: every refusal of

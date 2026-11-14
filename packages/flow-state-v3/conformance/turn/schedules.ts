@@ -212,7 +212,14 @@ const onFact = (walk: Walk, fact: Fact, step: ReadonlyArray<Fact>, clockAfter: n
   const kept = { ...walk, state };
 
   if (Fact.$is("Reloaded")(fact))
-    return { ...walk, state: { ...reloaded(state), disposing: false } };
+    return {
+      ...walk,
+      state: {
+        ...reloaded(state),
+        disposing: false,
+        uses: state.uses.filter(([a]) => state.anchor.machines[a.machine]?.persist !== false),
+      },
+    };
 
   if (Fact.$is("DisposingRuntime")(fact)) return { ...walk, state: { ...state, disposing: true } };
 

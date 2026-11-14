@@ -827,6 +827,13 @@ tasks
             Detail: code:wiki/plans/flow/references/proposals/t52-build-log-2026-11-14.md.
               Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment. Why: step-done rule. Reverse: 
               revert this commit.
+        comment     2026-11-14T10:20:50Z
+            MIX stress-10 triaged by shrinking: its I26 and Turn I12 reds were the suite's (a later batch of another 
+            actor taken as a retry's capture; a local actor's uses kept across a reload), fixed red first; the rest is 
+            production's retry count (T19). Falsify and liar unchanged. Detail: 
+            code:wiki/plans/flow/references/proposals/t52-build-log-2026-11-14.md.
+              Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment. Why: step-done rule. Reverse: 
+              revert this commit.
     T60
         title       The suite proves its own gates and excuses
         status      done
