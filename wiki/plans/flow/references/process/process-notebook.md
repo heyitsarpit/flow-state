@@ -31,6 +31,10 @@ agents are briefed, reviewed or paced. Add one entry per study; keep each entry 
 | 2026-11-14 | Reviews: background gates, capped sidecars, a rule pack for the blind one, a finding table | Review minutes (was 17–25) | Drop the review speed line |
 | 2026-11-14 | Haiku sweeps at effort medium (reviews stay high) | Sweep minutes and findings against the high baseline | Back to high (AGENTS.md, memory) |
 | 2026-11-14 | Hand off only at 90 percent context after a third compaction | Handoffs with no compaction (were 3 of 3) | The rotation rule in the Epic |
+| 2026-11-14 | `tools/process/agent-metrics.ts`: fixed per-agent numbers | Studies compare like with like | Delete the tool |
+| 2026-11-14 | `tools/process/review-yield.ts`: findings by angle, miss tally | Low-yield angles dropped; repeat causes become checklist lines | Delete the tool |
+| 2026-11-14 | Shell-write hook (`block-shell-writes.ts`, project settings) | Slips per session (were 5 in every builder); false blocks (were 0 of 6902 real commands) | Remove the hook from `.claude/settings.json` |
+| 2026-11-14 | Builder checklist: weak check (8 misses), gathering (5 misses) | Those causes in the next reviews' miss notes | Drop the two lines in instructions |
 
 ## Candidate experiments
 

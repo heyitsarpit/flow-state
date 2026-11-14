@@ -501,4 +501,11 @@ note 2026-11-14T15:43:37Z
     each study into instructions or AGENTS.md, with a measure and a reverse in the process notebook; authority, stops, 
     the reserve, gates and Task scope stay the user's. Authority section edited.
 note 2026-11-14T15:46:04Z
-    T61 owed lists, part 2 at e228fcec (step-2f O1, O3-O6, close O4 doc and O6, PAY-05 routed to T20). Gates at 31ccd040: parts 129, held-out 216, class 437, production suite 78. Its owed-list fixes go to T61's close review rather than a separate step review (fix rounds are checked by the next review).
+    T61 owed lists, part 2 at e228fcec (step-2f O1, O3-O6, close O4 doc and O6, PAY-05 routed to T20). Gates at 
+    31ccd040: parts 129, held-out 216, class 437, production suite 78. Its owed-list fixes go to T61's close review 
+    rather than a separate step review (fix rounds are checked by the next review).
+note 2026-11-14T16:23:58Z
+    Process experiments (orchestrator, 2026-11-14): agent-metrics, review-yield and the shell-write hook built by 
+    Haiku, reviewed and fixed by Opus (7cb122b0); the hook is live in .claude/settings.json (blocks 14 of 6902 real 
+    past commands, all genuine writes; 6 ms per call). The miss tally (weak check 8, gathering 5) adds two builder 
+    checklist lines. Measures and reverses in the process notebook.
