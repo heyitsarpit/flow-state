@@ -560,3 +560,5 @@ note 2026-11-14T19:48:32Z
 note 2026-11-14T19:49:04Z
     Decision (user, 2026-11-15): "limits raised to 75%, i'm going to sleep, take care of it the whole thing". Limits 
     edited; the run continues unattended under the Epic's rules.
+note 2026-11-14T19:53:55Z
+    T54 A1 done at d3adf8e0: all 19 gates green; seven pending cases now pass; pairs 73 reached plus 1 owed to T20; core mutants 78/111 killed. A1 review started (review-speed rules); the builder prepares A2.
