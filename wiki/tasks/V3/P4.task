@@ -1114,6 +1114,14 @@ tasks
             to T54 and T55; JSON.stringify gone from T47's files (lane keys by HashSet). Why: the coverage gate was 
             unrunnable since the move to wiki/, and the lint ban. Reverse: 1881595c, d7cbb056. Open: parts/records.ts 
             still reads wiki/ (the self-contained audit's); Fable's routed items on T52 have no owed checks.
+        comment     2026-11-14T02:59:37Z
+            Rulings applied at 1a597ea0: the core-mutant gate now fails on an untriaged or stale mutant and passes with 
+            60/98 killed, 34 owed (T9, T18, T54, T55, each by Spec rule) and 4 equivalent; Fable's T52 items are a 
+            pending trace, a WriteLanes I10 remainder and a WriteAhead I21-I22 row. Edit (agent: T47 building lead, 
+            @task.V3.T47, 2026-11-14): these owed rows. Why: orchestrator rulings 2 and 3. Reverse: 1a597ea0. Two need 
+            a decision: turn.ts:248 (Turn T6 refuses a zero delay, production arms it) and lane-moves.ts:303 
+            (production keeps inFlight true after StillUnknown, WriteAhead T18). Table: 
+            code:wiki/plans/flow/references/proposals/t47-close-fixes-2026-11-14.md.
     T52
         title       Suite phase-out, first cut: Pay and Cells generated, hand traces thinned
         status      draft
@@ -1180,6 +1188,11 @@ tasks
             decline; `Resend` drops a same-turn cancel's release); `Maybe` cells need WriteAhead I21, I22 as their 
             cite. No pilot reaches these. Edit (agent: T47 building lead, @task.V3.T47, 2026-11-14): this comment. Why: 
             Fable's read. Reverse: drop it.
+        comment     2026-11-14T02:59:37Z
+            Owed checks from T47 (1a597ea0) replace the routed comment: a pending trace for parked missing a Kept row, 
+            a WriteLanes I10 remainder for member order in one turn, and WriteAhead I21-I22 rows for the Maybe life. 
+            Edit (agent: T47 building lead, @task.V3.T47, 2026-11-14): this comment. Why: orchestrator ruling 2. 
+            Reverse: 1a597ea0.
     T59
         title       The suite reads and imports nothing outside the package
         status      draft

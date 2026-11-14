@@ -15,7 +15,6 @@ checked Turn I11  cases TURN-05/removed-copy-ends-once: part.abandoned-skips-cal
 checked Turn I17  cases TURN-02: turn.memory-takes-a-random-nonce
 checked Turn I3  cases TURN-05/child-refusal: part.child-refusal-ignored
 checked WriteLanes I1  lane-queue: mutant.double-invoke, mutant.boot-replays-never-sent
-checked WriteLanes I10  lane-queue: mutant.members-reversed
 checked WriteLanes I11  lane-queue: lane.fresh-mint-on-held, lane.unknown-promotes
 checked WriteLanes I12  lane-queue: lane.cancel-held-keeps, lane.held-auto-resend, lie.held-released-unguarded, mutant.release-drops-held, mutant.boot-resends-held, lie.release-on-guarded-read, lie.release-other-lane, lie.void-retry-releases, lie.release-member-claimed, mutant.cancel-members-dropped, lie.cancels-reported-as-release, lie.cancels-reported-as-nothing, lie.cancels-dropped-header-nowhere
 checked WriteLanes I14  cases LANE-13: lane.keyless-names-latest-lane
@@ -51,6 +50,11 @@ not yet Actors I33  @task.V3.T9
 not yet Actors I34  @task.V3.T9
 not yet Actors I39  @task.V3.T9
 not yet Actors I4  @task.V3.T9
+not yet Actors I40  @task.V3.T54
+not yet Actors I41  @task.V3.T54
+not yet Actors I42  @task.V3.T55
+not yet Actors I43  @task.V3.T55
+not yet Actors I44  @task.V3.T55
 not yet Actors I5  @task.V3.T9
 not yet Actors I6  @task.V3.T9
 not yet Actors I7  @task.V3.T9
@@ -62,6 +66,7 @@ not yet Codec I3  @task.V3.T20
 not yet Codec I4  @task.V3.T20
 not yet Codec I5  @task.V3.T20
 not yet Codec I6  @task.V3.T20
+not yet Codec I7  @task.V3.T54
 not yet Compile I12  @task.V3.T17
 not yet Compile I17  @task.V3.T17
 not yet Compile I3  @task.V3.T17
@@ -84,6 +89,7 @@ not yet Reads I19  @task.V3.T21
 not yet Reads I2  @task.V3.T21
 not yet Reads I20  @task.V3.T21
 not yet Reads I21  @task.V3.T21
+not yet Reads I22  @task.V3.T54
 not yet Reads I3  @task.V3.T21
 not yet Reads I4  @task.V3.T21
 not yet Reads I5  @task.V3.T21
@@ -101,6 +107,7 @@ not yet Restore I17  @task.V3.T20
 not yet Restore I18  @task.V3.T20
 not yet Restore I19  @task.V3.T20
 not yet Restore I2  @task.V3.T20
+not yet Restore I20  @task.V3.T54
 not yet Restore I5  @task.V3.T20
 not yet Restore I7  @task.V3.T20
 not yet Restore I8  @task.V3.T20
@@ -119,6 +126,7 @@ not yet Turn I32  @task.V3.T18
 not yet Turn I33  @task.V3.T18
 not yet Turn I34  @task.V3.T18
 not yet Turn I35  @task.V3.T17
+not yet Turn I36  @task.V3.T54
 not yet Turn I4  @task.V3.T17
 not yet Turn I6  @task.V3.T17
 not yet WriteAhead I1  @task.V3.T19
@@ -131,6 +139,11 @@ not yet WriteAhead I15  @task.V3.T19
 not yet WriteAhead I17  @task.V3.T19
 not yet WriteAhead I19  @task.V3.T19
 not yet WriteAhead I2  @task.V3.T19
+not yet WriteAhead I20  @task.V3.T54
+not yet WriteAhead I21  @task.V3.T52
+not yet WriteAhead I22  @task.V3.T52
+not yet WriteAhead I23  @task.V3.T54
+not yet WriteAhead I24  @task.V3.T54
 not yet WriteAhead I3  @task.V3.T19
 not yet WriteAhead I4  @task.V3.T19
 not yet WriteAhead I5  @task.V3.T19
@@ -140,6 +153,19 @@ not yet WriteAhead I8  @task.V3.T19
 not yet WriteAhead I9  @task.V3.T19
 not yet WriteLanes I19  @task.V3.T24
 not yet WriteLanes I28  @task.V3.T18
+not yet WriteLanes I29  @task.V3.T54
+not yet WriteLanes I30  @task.V3.T54
+not yet WriteLanes I31  @task.V3.T54
+not yet WriteLanes I32  @task.V3.T54
+not yet WriteLanes I33  @task.V3.T54
+not yet WriteLanes I34  @task.V3.T54
+not yet WriteLanes I35  @task.V3.T54
+not yet WriteLanes I36  @task.V3.T54
+not yet WriteLanes I37  @task.V3.T54
+not yet WriteLanes I38  @task.V3.T54
+not yet WriteLanes I39  @task.V3.T54
+not yet WriteLanes I40  @task.V3.T54
+not yet WriteLanes I41  @task.V3.T54
 partly  Actors I37  oracle disposal; @task.V3.T19 owes a dirty end whose own record is not written while another actor's is, in the same step: a write names no record, so any write discharges every dirty end (T45 close review S2; reached by F1-two-ends in parts/f1.test.ts under a dropped-write edit)
 partly  Actors I38  oracle disposal; @task.V3.T9 owes the next incarnation after a reload hearing each never-sent commit's NotSent { Disposed } once (round-14 never delivers it, ruling CQ6), and a commit queued behind a Held head ending at disposal (a round-14 limit: it is left queued)
 partly  Compile I1  cases CMP-01; @task.V3.T17 owes spies on actors, timers, storage, loaders and evidence (T1); only a commit run is caught
@@ -174,6 +200,7 @@ partly  Turn I29  oracle publication; @task.V3.T18 owes snapshot parts other tha
 partly  Turn I30  oracle publication; @task.V3.T18 owes parts other than memory; equal-value patches (round-14 gives a new object); memory that is not an object
 partly  Turn I5  oracle selection; @task.V3.T17 owes every Activation at or above the Boundary kept (compound states; a3.r14-reenters-the-parent, 1b.r14-history-reentry-keeps-activation need the old suite's compound fixtures); only a re-entry's new Activation is judged, through its late ending
 partly  Turn I9  oracle publication; @task.V3.T18 owes at most one publication per turn (a Published names no turn), and an accepted turn that stays on its leaf (an update or self) publishing
+partly  WriteLanes I10  oracle lane-queue; @task.V3.T52 owes the Spec model's member order within one turn: cancel then commit on a Held lane, where the model keeps the head Held until its Released report and so declines the commit, and a same-turn cancel's owed release, which Resend drops (WriteLanes T17)
 partly  WriteLanes I13  oracle idle-guard; @task.V3.T18 owes idle passing over a busy lane (no fixture runs an idle guard over a Held or InFlight lane), idle(k) on a keyed operation, and a lane that holds a kept ending
 partly  WriteLanes I17  cases LANE-15; @task.V3.T18 owes no current member names the old-version lane, and a lane of an older identity version declines nothing (LANE-15 judges the decline only)
 partly  WriteLanes I23  oracle late-results; @task.V3.T18 owes a late result after cleanup changes no data (entity records, read through the Port's entity) and none after cleanup by forget or an interrupt; late-results judges lanes and endings after a release only (T16 review, T7-M1)
