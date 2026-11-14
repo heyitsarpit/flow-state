@@ -51,9 +51,9 @@ const failureOf = (surface: Surface, id: string) => {
 
     return "pass";
   } catch (failure) {
-    return failure instanceof Mismatch
-      ? `Mismatch ${failure.label} (actual ${failure.actual})`
-      : `Error ${failure instanceof Error ? failure.message : String(failure)}`;
+    if (failure instanceof Mismatch) return `Mismatch ${failure.label} (actual ${failure.actual})`;
+
+    return `Error ${String(failure)}`;
   }
 };
 
@@ -93,7 +93,7 @@ describe("production's static surface (Q22: phase-out step 3, Conformance Q17)",
       assert.equal(passes(c.id), !owed, `${c.id}${owed ? ` (owed to ${staticOwed.owner})` : ""}`);
     }
 
-    const computed = MemoryField.Computed({ compute: () => 0 });
+    const computed = MemoryField.Computed({ compute: () => "0" });
 
     for (const [field, why] of [
       [MemoryField.Input(), "production has no Flow.input"],
