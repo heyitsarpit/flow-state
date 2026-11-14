@@ -184,6 +184,24 @@ const isRecord = Schema.is(Schema.Record(Schema.String, Schema.Json));
 const fieldOf = (input: Json, name: string) =>
   isRecord(input) ? Option.fromUndefinedOr(input[name]) : Option.none();
 
+// What the store holds of one actor: its record, none, or a fresh record not landed yet.
+type Stored = "recorded" | "absent" | "unlanded";
+
+// RETURN_TYPE: the reduce's state; inference would widen the literals to string.
+const storedAfter = (was: Stored, fact: Fact, actor: ActorRef): Stored => {
+  const mine = "actor" in fact && sameActor(fact.actor, actor);
+
+  if ((Fact.$is("Disposed")(fact) || Fact.$is("Forgot")(fact)) && mine) return "absent";
+
+  if (Fact.$is("Ensured")(fact) && mine) return was === "absent" ? "unlanded" : was;
+
+  if (was !== "unlanded") return was;
+
+  if (Fact.$is("Landed")(fact)) return "recorded";
+
+  return Fact.$is("Reloaded")(fact) ? "absent" : was;
+};
+
 /**
  * Opens one case over a fresh world: its driven `Case`, its end and its timeline (for the players
  * in `play.ts`). `modelStep` is the model's step function: the design's, or a step mutant's copy.
@@ -470,15 +488,10 @@ export const openCase = (options: CaseOptions, modelStep: StepFunction = designS
 
   // An actor whose record the suite removed (disposeActor, forget) and never ensured again: only a
   // creating ensure adopts its unbound lanes (Actors R20, R21).
-  const removed = (actor: ActorRef) => {
-    const last = facts.findLast(
-      (f) =>
-        (Fact.$is("Disposed")(f) || Fact.$is("Forgot")(f) || Fact.$is("Ensured")(f)) &&
-        sameActor(f.actor, actor),
-    );
-
-    return last !== undefined && !Fact.$is("Ensured")(last);
-  };
+  // Whether the store holds no record of the actor: disposed or forgotten, or created by an
+  // ensure whose record a reload lost before it landed, so a re-attach must create it again.
+  const removed = (actor: ActorRef) =>
+    facts.reduce<Stored>((was, f) => storedAfter(was, f, actor), "recorded") === "absent";
 
   // A local actor (its machine not persisted, WriteAhead R3) has no lanes after a reload: its
   // writes died with the page, so the end-of-case reload owes it no attach to drain them.

@@ -555,4 +555,59 @@ describe("F1 (Q25): two actors end dirty in one step", () => {
     assert.equal(run.skipped, 1);
     assert.deepEqual(partFaults([{ script, run }], [], new Set([script.id])), []);
   });
+
+  // A fresh incarnation's record lost at a reload leaves no record: the re-attach must create the
+  // actor again, as an app's ensure does (Restore I1: only a record that restores is live).
+  it("a re-attach after a reload lost a fresh incarnation's record creates it again (Restore I1)", () => {
+    const script: Script = {
+      id: "PART-cells-stress-102-shrunk",
+      fixture: "cells",
+      actor: "shopper-1",
+      steps: [
+        { _tag: "ensure" },
+        { _tag: "send", event: "PayRequested", payload: { paymentMethodId: "visa" } },
+        { _tag: "ack" },
+        {
+          _tag: "answer",
+          operation: "pay",
+          answer: { _tag: "ok", value: { status: "requires_capture", clientSecret: "cs" } },
+        },
+        { _tag: "ack" },
+        { _tag: "dispose" },
+        { _tag: "reload" },
+        { _tag: "ensure" },
+        { _tag: "reload" },
+        { _tag: "release" },
+      ],
+    };
+
+    assert.equal(playPart(script, "production", undefined, []).verdict._tag, "Pass");
+  });
+
+  // A release a reload lost leaves its head Held in the store: the boot keeps it Held, and the
+  // next start delivers its unknown { Restored } (Actors I40; Restore R3; WriteAhead I10).
+  it("a head whose release a reload lost is restored at the next start, not closed at the boot (Actors I40, Restore R3)", () => {
+    const script: Script = {
+      id: "PART-cells-stress-109-shrunk",
+      fixture: "cells",
+      actor: "shopper-1",
+      steps: [
+        { _tag: "ensure" },
+        { _tag: "send", event: "PayRequested", payload: { paymentMethodId: "visa" } },
+        { _tag: "ack" },
+        { _tag: "answer", operation: "pay", answer: { _tag: "lost" } },
+        { _tag: "advance", ms: 4000 },
+        { _tag: "release" },
+        {
+          _tag: "answer",
+          operation: "intent",
+          answer: { _tag: "ok", value: { status: "requires_capture" } },
+        },
+        { _tag: "reload" },
+        { _tag: "ensure" },
+      ],
+    };
+
+    assert.equal(playPart(script, "production", undefined, []).verdict._tag, "Pass");
+  });
 });

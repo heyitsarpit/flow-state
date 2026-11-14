@@ -150,17 +150,12 @@ const unsentAtReload = (acknowledged: ReadonlyArray<string>) =>
 
 const restoreTraces: ReadonlyArray<Trace> = [
   {
-    name: "an acknowledged head never sent meets its restore once it is delivered",
-    cites: "Restore R3, I6: delivered unknown { Restored } exactly once in the boot",
+    name: "a restored head's restore holds it at once, so a second restore is refused",
+    cites:
+      "Restore I6: unknown { Restored } exactly once; WriteLanes I15: an ending no commit owes is refused",
     start: unsentAtReload(["s"]),
-    steps: [
-      Move.Reload(),
-      unknown("s", "Restored"),
-      LifeMove.Delivered({ ending: endingOfS }),
-      Move.BootSettles(),
-      { due: "StepEnds" as const },
-    ],
-    refusals: [[], [], [], [], []],
+    steps: [Move.Reload(), unknown("s", "Restored"), unknown("s", "Restored")],
+    refusals: [[], [], [wl(15)]],
     phases: { s: H },
     owed: 0,
     checks: [],

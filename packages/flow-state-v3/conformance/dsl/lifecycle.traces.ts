@@ -133,14 +133,6 @@ const unknownTraces: ReadonlyArray<Trace> = [
     0,
   ),
   one({
-    name: "a Held head's restore ending, not owed",
-    cites: "WriteLanes I15, Restore I6: at most once per incarnation",
-    start: headed(H),
-    move: unknown("s", "Restored"),
-    refused: [wl(15)],
-    phases: { s: H, w: Q },
-  }),
-  one({
     name: "a Held head ends unknown again",
     cites: "WriteLanes I16",
     start: headed(H),
@@ -348,10 +340,10 @@ const laneWideTraces: ReadonlyArray<Trace> = [
   ),
   laneWide(
     "the boot settles",
-    "carried to T11 (step 6 L2): Restore R3 says each queued commit ends NotSent { Restored } first; Pay cannot reach it",
+    "Restore R1, Actors I40: a restored head stays Held, a record, until its identity's start; carried to T11 (step 6 L2): Restore R3 says each queued commit ends NotSent { Restored } first; Pay cannot reach it",
     Move.BootSettles(),
     [],
-    { t: GC, f: GC },
+    { t: H, f: GC },
   ),
   laneWide(
     "the Runtime's disposal starts",

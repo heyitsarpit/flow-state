@@ -157,7 +157,7 @@ export const tableA: TableA = {
     OnWire: always(to(Phase.Held())),
     Interrupted: always(to(Phase.Held())),
   },
-  BootSettles: { ...each(stay), Restoring: always(gone("closed")) },
+  BootSettles: { ...each(stay), Restoring: { head: to(Phase.Held()), queued: gone("closed") } },
   DisposalStarts: { ...each(stay), Resending: always(to(Phase.Held())) },
   RuntimeDisposed: {
     ...each(stay),

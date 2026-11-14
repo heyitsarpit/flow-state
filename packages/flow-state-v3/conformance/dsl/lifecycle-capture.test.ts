@@ -40,16 +40,17 @@ describe("a row's fate in the step whose batch landed is exact (WriteAhead I21, 
     assert.deepEqual(lives(start), ["Owed"]);
   });
 
-  it("a reload keeps a Held head's Maybe row, so the head owes no restore beside it (close O3)", () => {
+  it("a reload keeps a Held head's Maybe row, so its start owes no restore beside it (close O3)", () => {
     const start = build.model(build.lane("A", ["s", Phase.Held()]), {
       endings: [ending(Life.Maybe())],
     });
 
     const [reloaded] = apply(start, Move.Reload());
+    const [started] = apply(reloaded, ActorMove.Incarnated({ actor: build.shopper }));
 
     assert.ok(
-      !reloaded.obligations.some(Obligation.$is("AwaitRestore")),
-      reloaded.obligations.map((o) => o._tag).join(" "),
+      !started.obligations.some(Obligation.$is("AwaitRestore")),
+      started.obligations.map((o) => o._tag).join(" "),
     );
   });
 

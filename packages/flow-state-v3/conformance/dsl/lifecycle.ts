@@ -193,7 +193,12 @@ const guardOf = (model: Model, life: AttemptLife, move: Move) =>
         ? unstoppableGuard(unstoppable, life.lane.operation)
         : "always",
     Reload: () => "always",
-    BootSettles: () => "always",
+    // A restored head the boot did not deliver stays Held for its identity's start (Actors I40).
+    BootSettles: () => {
+      if (life.phase._tag !== "Restoring") return "always";
+
+      return life.phase.head ? "head" : "queued";
+    },
     DisposalStarts: () => "always",
     RuntimeDisposed: () => "always",
   });
@@ -378,18 +383,19 @@ const OWED_ROWS: ReadonlyArray<string> = [
   "Refused",
   "Kept",
   "KeptOpen",
+  "Maybe",
 ];
 
 /**
- * Whether an Attempt's ending is an owed row (owed, parked, delivering, refused or kept): a saved
+ * Whether an Attempt's ending is an owed row (owed, parked, delivering, refused, kept or maybe): a saved
  * outcome its actor's next incarnation is delivered, so it owes no restore ending as well
  * (Restore I6, R3).
  *
  * **Gotchas**
  *
- * - At a boot only the rows the reload keeps count (Table C's Reload row: kept, parked, Owed in
- *   the disposal, and Delivering, whose reload is refused); a live Owed, a Refused or an Evidence row closes there, so its Held head is
- *   owed its restore, and no ending is lost.
+ * - After a reload only the rows it kept count (Table C's Reload row: kept, parked, Owed in the
+ *   disposal, Delivering, whose reload is refused, and Maybe); a live Owed, a Refused or an
+ *   Evidence row closes there, so its Held head is owed its restore at the start.
  */
 export const ownsRow = (model: Model, a: AttemptLife) =>
   model.endings.some((e) => Option.contains(e.attempt, a.id) && OWED_ROWS.includes(e.life._tag));

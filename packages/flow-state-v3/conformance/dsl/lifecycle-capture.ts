@@ -28,8 +28,8 @@ const rolledEnding = (model: Model, e: Ending, index: number) => {
  * **Details**
  *
  * Each ending takes back its life at the last landing or boot (the model's `saved`), unless its
- * Attempt is a Held head, whose restore the boot owes instead (Restore I6); an ending decided since
- * is not on disk, so it closes, and the restore alone may follow. The landed batch holds the end of
+ * Attempt is a Held head, whose restore its identity's next start owes instead (Restore I6); an
+ * ending decided since is not on disk, so it closes, and the restore alone may follow. The landed batch holds the end of
  * the step that wrote it (WriteAhead R10), so every other ending takes back that exact life; one
  * saved mid-delivery may or may not have been heard, and becomes `Maybe`.
  */

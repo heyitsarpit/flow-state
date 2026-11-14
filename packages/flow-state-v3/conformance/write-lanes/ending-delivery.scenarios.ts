@@ -26,7 +26,7 @@ const restored = (c: Case) => c.endings("pay").filter((e) => e.reason === "Resto
  * a twice-refused place success is kept and gets one try per boot (Actors R15, I24). `DLV-06`: that
  * kept ending leaves no lane to queue on, so the next place commit declines `Rejected` (WriteLanes R6,
  * I8).
- * `DLV-07`: two Held heads of one actor each hear their unknown { Restored } once at the boot, so
+ * `DLV-07`: two Held heads of one actor each hear their unknown { Restored } once at its start, so
  * the actor's count of unknowns says so without reading a report (Restore I6).
  */
 export const endingDeliveryScenarios: ReadonlyArray<Scenario> = [

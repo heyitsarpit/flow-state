@@ -202,14 +202,12 @@ export type AttemptLife = { readonly id: string; readonly lane: LaneId; readonly
 /**
  * What one batch saves: the end of the step that wrote it, since a step's writes are one list
  * projected at its end and a batch carries it (WriteAhead R10, I21, I22). `lives` is each ending's
- * life by index; `ended` how many of the model's `ended` Attempts; `removed` the actors whose
- * `disposeActor` record it holds, so a boot owes their Held heads no restore once that removal has
- * landed (Actors R20, orchestrator a42f0bff); `minted` the Attempts it holds, queued or sent.
+ * life by index; `ended` how many of the model's `ended` Attempts; `minted` the Attempts it holds,
+ * queued or sent.
  */
 export type Capture = {
   readonly lives: ReadonlyArray<Life>;
   readonly ended: number;
-  readonly removed: ReadonlyArray<ActorRef>;
   readonly minted: number;
 };
 
@@ -313,7 +311,6 @@ export const unsavedOf = (model: Model) => model.ended.slice(model.saved.ended);
 export const captureOf = (model: Model) => ({
   lives: model.endings.map((e) => e.life),
   ended: model.ended.length,
-  removed: model.actors.filter((a) => a.record === "disposeActor").map((a) => a.actor),
   minted: model.attempts.length,
 });
 
@@ -336,7 +333,7 @@ export const empty: Model = {
   clock: 0,
   mintedIn: [],
   unencodable: false,
-  saved: { lives: [], ended: 0, removed: [], minted: 0 },
+  saved: { lives: [], ended: 0, minted: 0 },
   pending: Option.none(),
   held: [],
   live: [],
