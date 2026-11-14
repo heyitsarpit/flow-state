@@ -356,3 +356,7 @@ note 2026-11-14T08:33:33Z
     Decision (user, 2026-11-14): "why not pause T52 now and do this first". New @task.V3.T60 (the suite proves its own 
     gates and excuses, from suite-convergence-2026-11-14.md) is in progress; T52 is open, blocked by T60; the slice 
     order puts T60 before T52. The same builder carries T60.
+note 2026-11-14T08:45:10Z
+    Decision (user, 2026-11-14): "yes reduce scope, we'll see much things improve and decide later". T60 keeps excuses 
+    by exact subject, must-still-fail, the planted-fault sweep, every owed script at every seed, and one caught rule; 
+    suite mutation, gate ledgers, the excuse registry, the unknowns ledger and the Spec excuse rule go to revisit.md.

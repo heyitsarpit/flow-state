@@ -58,5 +58,10 @@ Deferred items.
   (liar, pilot, replan, lab, carried, frozen) and the README's stale paths. The prototype adapters are not touched;
   T53 deletes them. Groups A, E and F (outside reads and imports) are @task.V3.T59, held the same way: much later,
   once the project is built out, or when the user says so.
+- **The suite's second-order checks** (2026-11-14, the user; cut from @task.V3.T60). From
+  [suite-convergence-2026-11-14.md](suite-convergence-2026-11-14.md): mutation of the suite's own judging code,
+  per-gate universe ledgers, one excuse registry, a counted ledger of unknowns, and the Conformance.spec rule for
+  excusing production's known reds. Revisit if holes keep appearing after T60's planted-fault sweep, or once T54
+  removes most owed rows.
 - **`cancelAll`** (2026-11-12, the user, wide consult W1 K0; deferred). Neither reference app uses it. If it returns,
   K1 (its own member, typed only on queuing policies) over K2 (`cancel(key, { queued: true })`).

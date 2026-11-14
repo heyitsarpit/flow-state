@@ -826,9 +826,8 @@ tasks
         status      in_progress
         priority    high
         description
-            The suite's gates and excuse lists are proven the way its oracles already are: every excuse names its exact
-            subject and must still fail, every gate declares what it judges and what it drops, one rule says what
-            "caught" means, and the suite's own judging code is mutated.
+            The suite's excuse lists are proven: every excuse names its exact subject and must still fail, a planted
+            fault anywhere else in any owed script fails a gate, and one rule says what "caught" means.
 
             **Why now:** 128 holes found by reviews in T47 and T52 trace to one gap: the suite proves its oracles but
             never its own gates or excuse lists, and only one hole was ever found by a machine. The user, 2026-11-14:
@@ -838,28 +837,22 @@ tasks
             of record, its recommendation and its "missing rules"), @spec.Conformance,
             code:packages/flow-state-v3/conformance/parts/owed.ts.
 
-            **Approach:** the convergence's one design, built at once:
-            - excuses by exact subject (Attempt, or step and fact), never text, kind or count; one excuse registry;
+            **Approach:** the reduced design (the user, 2026-11-14), built at once:
+            - excuses by exact subject (Attempt, or step and fact), never text, kind or count;
             - every listed item still fails, and an item whose owner Task is done fails;
             - a planted-fault sweep over every owed script and seed as the class gate, run at every checkpoint;
             - the parts gate plays every owed script at every seed;
-            - structured verdicts and one "caught" rule replacing the five;
-            - a universe ledger per gate, printing what it dropped;
-            - baselines no gate rewrites, and a counted ledger of unknowns;
-            - mutation of the suite's own judging code, run when it changes and at a Task's close;
-            - the Conformance.spec rule for excusing production's known reds, with a spec-log line.
-            The paused T52 redesign items become this Task's first step.
+            - structured verdicts and one "caught" rule replacing the five.
+            The paused T52 redesign items are this Task's first step. Cut to revisit.md until holes show they are
+            needed: mutation of the suite's own code, per-gate universe ledgers, one excuse registry, the unknowns
+            ledger.
 
-            False pass: a gate that drops its own failures, or an excuse that matches more than it names → caught by
-            the planted-fault sweep and the suite-mutation run.
-            Gates: falsify, the class gate, the suite-mutation run, `nub run check`.
+            False pass: an excuse that matches more than it names → caught by the planted-fault sweep.
+            Gates: falsify, the class gate, `nub run check`.
         acceptance
             - a planted lost ending on any fresh subject, in any owed script at any seed, fails a gate;
             - an excuse whose item stops failing, or whose owner Task is done, fails a gate;
-            - every gate prints the set it judged and what it dropped, and fails on an undeclared drop;
             - one function decides "caught" from structured verdicts, and the liar gate and probes use it;
-            - a mutation of the suite's judging code that no check notices is listed and fails its gate;
-            - unknown values are counted, never filled in with a definite value;
             - falsify, liar and catch matrices keep their counts or each change is explained.
     T59
         title       The suite reads and imports nothing outside the package
