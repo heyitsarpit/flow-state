@@ -641,7 +641,7 @@ tasks
             Why: the Epic's compaction rule. Reverse: `81cf934f`.
     T52
         title       Suite phase-out, first cut: Pay and Cells generated, hand traces thinned
-        status      review
+        status      done
         priority    high
         blocked_by  [@T60]
         description
@@ -910,6 +910,13 @@ tasks
             f349968f and Q24 to Q26 hold by the Specs. The five lost prod.actor-never-saved catches predate T52 (green 
             at 1c4168da), owed to T61 before T53 thins Pay; O1-O6 proposed for T61. Detail: 
             code:wiki/plans/flow/references/proposals/t52-close-review-2026-11-14.md.
+        comment     2026-11-14T13:19:21Z
+            Done (orchestrator): close review PASS at f349968f, first round, 0 blocking. Retrospective: after T60, 
+            reviews found 0 blocking machinery holes in three rounds against about 25 in five rounds before; the class 
+            gate caught one hole on its own (MIX stress-10), and two oracle errors surfaced through its triage. Still 
+            missed by the builder's checks: reds shown only through a signature change (Q26), and a sed edit in a 
+            scratch script. Q18's thinning is in T53; owed rows O1 to O6 go to T61, O1 (a stale-leaf oracle gap) before 
+            T53 thins Pay by production catches.
     T60
         title       The suite proves its own gates and excuses
         status      done
@@ -1488,6 +1495,12 @@ tasks
             lead, @task.V3.T47, 2026-11-14): this comment. Why: Fable's read. Reverse: fb982276.
             Edit (agent: compaction lead, @task.V3.T54, 2026-11-14): the superseded 2026-11-12 comment removed. Why: the
             Epic's compaction rule. Reverse: `81cf934f`.
+        comment     2026-11-14T13:17:21Z
+            Step 1 done for review: 33 requirements (A-1 to A-19, S-1 to S-3, O-1 to O-3, X-1 to X-8) with the 
+            one-to-one map of acceptance, Approach and gap comments in 
+            code:wiki/plans/flow/references/proposals/t54-requirements-2026-11-14.md; three owned Invariants proposed 
+            for re-owning (WriteLanes I40, I41 to T18; Reads I22 to T21; Restore I20 to T20). Edit (agent: T54 building 
+            lead, @task.V3.T54, 2026-11-14): this comment. Why: requirements first. Reverse: the commit that adds it.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      draft
