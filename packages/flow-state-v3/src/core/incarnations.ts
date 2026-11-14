@@ -1,6 +1,7 @@
 import { Option, Result } from "effect";
 import { armingsOf } from "./turn.ts";
 import { Evidence } from "./evidence.ts";
+import { Audience, type LedgerSteps, rowsOf } from "./ledger.ts";
 import { actorRecordKey, decodeRecords } from "./record.ts";
 import { GRACE_MS, isInFlight, ROOT_ACTIVATION, type Tx, without, withEntry } from "./tx.ts";
 import {
@@ -11,10 +12,8 @@ import {
   Due,
   type Incarnation,
   Mail,
-  type Parked,
   Phase,
   Timer,
-  Tries,
   type Use,
 } from "./world.ts";
 import type { Persistence } from "./persist.ts";
@@ -22,9 +21,9 @@ import type { Persistence } from "./persist.ts";
 /**
  * Incarnations: creation, restore, uses, the grace and the end, with their schedules.
  */
-export const makeIncarnations = (tx: Tx, persistence: Persistence) => {
-  const { armTimer, disarmWhere, incarnationOf, used, lanesOf, enqueue, endingMail } = tx;
-  const { persist, saveActor, park, unpark, unkeep } = persistence;
+export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: LedgerSteps) => {
+  const { armTimer, disarmWhere, incarnationOf, used, lanesOf, enqueue } = tx;
+  const { persist, saveActor, laneWrite } = persistence;
 
   // ── incarnations.
   const armSchedules = (
@@ -76,48 +75,22 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence) => {
       }),
     );
 
-  const ownedBy = (actor: ActorId, waiting: ReadonlyMap<string, Parked>) =>
-    [...waiting.values()].filter((p) => actorKey(p.actor) === actorKey(actor));
-
-  // An incarnation starts: its parked endings are delivered, each kept one gets its one try, and
-  // each Held head with no ending waiting hears unknown Restored.
+  // An incarnation starts: its Waiting and Kept rows are tried in owed order, then each Held head
+  // with no row for its Attempt is owed unknown Restored, lane by lane. The Held
+  // lane's record is written again with it, as the old admission of that ending did, until
+  // records are written from what a step touched.
   const deliverRestored = (actor: ActorId) => {
-    const parked = ownedBy(actor, tx.world().parked);
-    const kept = ownedBy(actor, tx.world().kept);
-
-    const waitingAttempts = new Set(
-      [...parked, ...kept].flatMap((p) => p.endings.flatMap((e) => Option.toArray(e.attempt))),
+    const owedAttempts = new Set(
+      rowsOf(tx.world().owed, actor).flatMap((r) => Option.toArray(r.attempt)),
     );
 
-    for (const p of parked) {
-      for (const ending of p.endings) {
-        tx.emit(Evidence.Unparked({ operation: p.operation, attempt: ending.attempt }));
-        endingMail(actor, {
-          ...ending,
-          current: true,
-          owner: ROOT_ACTIVATION,
-          tries: Tries.Parked(),
-        });
-      }
-
-      unpark(actor, p.lane);
-    }
-
-    for (const p of kept) {
-      for (const ending of p.endings)
-        endingMail(actor, {
-          ...ending,
-          current: true,
-          owner: ROOT_ACTIVATION,
-          tries: Tries.Last(),
-        });
-
-      unkeep(actor, p.lane);
-    }
+    ledger.start(actor);
 
     for (const [id, lane] of lanesOf(actor))
-      if (Phase.$is("Held")(lane.head.phase) && !waitingAttempts.has(lane.head.id))
-        endingMail(actor, {
+      if (Phase.$is("Held")(lane.head.phase) && !owedAttempts.has(lane.head.id)) {
+        ledger.owe({
+          actor,
+          to: Audience.Identity(),
           operation: lane.operation,
           attempt: Option.some(lane.head.id),
           lane: Option.some(id),
@@ -126,8 +99,9 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence) => {
           value: undefined,
           owner: ROOT_ACTIVATION,
           current: true,
-          tries: Tries.First(),
         });
+        persist(actor, [laneWrite(id, lane, false)], Due.Later());
+      }
   };
 
   const start = (actor: ActorId, from: Option.Option<ActorRecord>) => {
@@ -242,6 +216,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence) => {
       reads: new Map([...tx.world().reads].filter(([, r]) => r.incarnation !== incarnation.id)),
     });
     tx.emit(Evidence.Finished({ actor: actor }));
+    ledger.suspend(actor, false);
   };
 
   /**
@@ -270,23 +245,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence) => {
       uses: without(tx.world().uses, key),
     });
     persist(actor, [{ key: actorRecordKey(key), record: Option.none() }], Due.Later());
-
-    if (!forgetting) return;
-
-    const letGo = (
-      waiting: ReadonlyMap<string, Parked>,
-      why: "evidence" | "letGo",
-      drop: (actor: ActorId, lane: string) => void,
-    ) => {
-      for (const p of ownedBy(actor, waiting)) {
-        for (const e of p.endings)
-          tx.emit(Evidence.Recorded({ operation: p.operation, attempt: e.attempt, why }));
-        drop(actor, p.lane);
-      }
-    };
-
-    letGo(tx.world().parked, "evidence", unpark);
-    letGo(tx.world().kept, "letGo", unkeep);
+    ledger.suspend(actor, forgetting);
   };
 
   // ── after every step: free incarnations start their grace; used ones stop it.
@@ -319,27 +278,19 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence) => {
     tx.set({
       ...tx.world(),
       records: new Map(restored.records.map((r) => [actorKey(r.actor), r])),
-      lanes: new Map(
-        restored.lanes.map(({ id, lane }) => [
-          id,
-          { ...lane, head: { ...lane.head, mayHaveApplied: true } },
-        ]),
-      ),
-      parked: new Map(restored.parked.map((p) => [p.lane, p])),
-      kept: new Map(restored.kept.map((p) => [p.lane, p])),
+      lanes: new Map(restored.lanes.map(({ id, lane }) => [id, lane])),
     });
+    ledger.restore(restored.rows);
 
-    // Each held head's unknown Restored is decided at the boot and parked for its identity, unless
-    // its own ending is already waiting; an identity owed an ending is live at ready.
-    const waitingAttempts = new Set(
-      [...restored.parked, ...restored.kept].flatMap((p) =>
-        p.endings.flatMap((e) => Option.toArray(e.attempt)),
-      ),
-    );
+    // Each held head's unknown Restored is decided at the boot and waits for its identity, unless
+    // its own ending is already owed; an identity owed an ending is live at ready.
+    const waitingAttempts = new Set(restored.rows.flatMap((r) => Option.toArray(r.attempt)));
 
     for (const { id, lane } of restored.lanes)
       if (!waitingAttempts.has(lane.head.id))
-        park(lane.actor, id, lane.operation, {
+        ledger.owe({
+          actor: lane.actor,
+          to: Audience.Identity(),
           operation: lane.operation,
           attempt: Option.some(lane.head.id),
           lane: Option.some(id),
@@ -348,7 +299,6 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence) => {
           value: undefined,
           owner: ROOT_ACTIVATION,
           current: true,
-          tries: Tries.Parked(),
         });
 
     // Only an identity whose captured lanes owe it an ending (a lane InFlight at capture, or an
@@ -357,7 +307,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence) => {
       ...restored.lanes
         .filter((l) => l.inFlight)
         .map(({ lane }) => [actorKey(lane.actor), lane.actor] as const),
-      ...[...restored.parked, ...restored.kept].map((p) => [actorKey(p.actor), p.actor] as const),
+      ...restored.rows.map((r) => [actorKey(r.actor), r.actor] as const),
     ]);
 
     // An owed identity whose record does not decode is not woken; its endings stay parked for

@@ -1,6 +1,7 @@
 import { type Brand, Data, type Option } from "effect";
 import type { Evidence } from "./evidence.ts";
-import type { Channel, ScheduleDeadline } from "./vocabulary.ts";
+import { emptyLedger, type Ledger, type OwedId } from "./ledger.ts";
+import type { ScheduleDeadline } from "./vocabulary.ts";
 import type { Values } from "./compiled.ts";
 
 /**
@@ -109,10 +110,19 @@ export type Head = {
   readonly id: string;
   readonly input: Values;
   readonly retryCount: number;
-  readonly mayHaveApplied: boolean;
   readonly owner: number;
   readonly phase: Phase;
 };
+
+/**
+ * Whether a head's Attempt was sent before: it was re-sent, or it is Held, Recapturing or
+ * Resending. Derived, never stored.
+ */
+export const sentBefore = (head: Head) =>
+  head.retryCount > 0 ||
+  Phase.$is("Held")(head.phase) ||
+  Phase.$is("Recapturing")(head.phase) ||
+  Phase.$is("Resending")(head.phase);
 
 /**
  * A write lane while it is not Idle: an identity's operation at one key. Its id and key are
@@ -136,38 +146,11 @@ export type Read = {
 };
 
 /**
- * An ending as it waits in a mailbox: mapped and routed when its turn is admitted.
- */
-export type Ending = {
-  readonly operation: string;
-  readonly attempt: Option.Option<string>;
-  readonly lane: Option.Option<string>;
-  readonly channel: Channel;
-  readonly reason: string;
-  // FLOW_STATE_ALLOW_UNKNOWN: the ending's value is the commit's or lookup's own, mapped at admission.
-  readonly value: unknown;
-  readonly owner: number;
-  readonly current: boolean;
-  readonly tries: Tries;
-};
-
-/**
- * How far an ending's delivery has got: its first try (not yet applied to its lane), parked
- * (applied, waiting for an incarnation), or its last try (a refusal keeps it).
- */
-export type Tries = Data.TaggedEnum<{ First: {}; Parked: {}; Last: {} }>;
-
-/**
- * Constructors and matchers for {@link Tries}.
- */
-export const Tries = Data.taggedEnum<Tries>();
-
-/**
- * One item of an actor's mailbox.
+ * One item of an actor's mailbox; an ending is a reference to its owed row, never the ending.
  */
 export type Mail = Data.TaggedEnum<{
   Event: { actor: ActorId; tag: string; payload: Values };
-  Ending: { actor: ActorId; ending: Ending };
+  Ending: { actor: ActorId; id: OwedId };
   Firing: {
     actor: ActorId;
     incarnation: string;
@@ -231,25 +214,13 @@ export type Disposal = Data.TaggedEnum<{
 export const Disposal = Data.taggedEnum<Disposal>();
 
 /**
- * Endings waiting on a lane for the identity's next incarnation, in the order they ended: parked
- * ones, or a kept one that blocks its key and gets one try per boot or adoption.
- */
-export type Parked = {
-  readonly lane: string;
-  readonly actor: ActorId;
-  readonly operation: string;
-  readonly endings: ReadonlyArray<Ending>;
-};
-
-/**
  * Everything the Runtime decides from: plain data, replaced whole by each step.
  */
 export type World = {
   readonly incarnations: ReadonlyMap<string, Incarnation>;
   readonly records: ReadonlyMap<string, ActorRecord>;
   readonly lanes: ReadonlyMap<string, Lane>;
-  readonly parked: ReadonlyMap<string, Parked>;
-  readonly kept: ReadonlyMap<string, Parked>;
+  readonly owed: Ledger;
   readonly reads: ReadonlyMap<CallId, Read>;
   readonly mail: ReadonlyArray<Mail>;
   readonly uses: ReadonlyMap<string, ReadonlyArray<Use>>;
@@ -268,8 +239,7 @@ export const emptyWorld = (persistence: boolean): World => ({
   incarnations: new Map(),
   records: new Map(),
   lanes: new Map(),
-  parked: new Map(),
-  kept: new Map(),
+  owed: emptyLedger,
   reads: new Map(),
   mail: [],
   uses: new Map(),

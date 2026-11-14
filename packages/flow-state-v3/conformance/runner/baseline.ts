@@ -315,7 +315,37 @@ export const internals = (facts: ReadonlyArray<Fact>) =>
 const digestOf = (lines: ReadonlyArray<string>) =>
   createHash("sha256").update(lines.join("\n")).digest("hex");
 
-type Row = { readonly id: string; readonly whole: string; readonly behaviour: string };
+type Row = {
+  readonly id: string;
+  readonly whole: string;
+  readonly behaviour: string;
+  readonly wholeLessEnded: string;
+  readonly behaviourLessEnded: string;
+  readonly ended: string;
+};
+
+const ENDED = '"_tag":"Ended"},"_tag":"Reported"}';
+
+const lessEnded = (lines: ReadonlyArray<string>) => lines.filter((l) => !l.endsWith(ENDED));
+
+// A run's Ended reports as a multiset, so where they fall in the run does not count.
+const endedOf = (lines: ReadonlyArray<string>) => lines.filter((l) => l.endsWith(ENDED)).toSorted();
+
+const rowOf = (run: Played) => {
+  const whole = timelineOf(run);
+  const behaviour = behaviourOf(run);
+
+  return {
+    id: run.id,
+    whole: digestOf(whole),
+    behaviour: digestOf(behaviour),
+    wholeLessEnded: digestOf(lessEnded(whole)),
+    behaviourLessEnded: digestOf(lessEnded(behaviour)),
+    ended: digestOf(endedOf(whole)),
+  } satisfies Row;
+};
+
+const FIELDS = ["whole", "behaviour", "wholeLessEnded", "behaviourLessEnded", "ended"] as const;
 
 const recorded = () =>
   new Map(
@@ -323,11 +353,64 @@ const recorded = () =>
       .split("\n")
       .filter((l) => l !== "")
       .map((l) => {
-        const [id = "", whole = "", behaviour = ""] = l.split("\t");
+        const [
+          id = "",
+          whole = "",
+          behaviour = "",
+          wholeLessEnded = "",
+          behaviourLessEnded = "",
+          ended = "",
+        ] = l.split("\t");
 
-        return [id, { id, whole, behaviour } satisfies Row] as const;
+        return [
+          id,
+          { id, whole, behaviour, wholeLessEnded, behaviourLessEnded, ended } satisfies Row,
+        ] as const;
       }),
   );
+
+/**
+ * The ruled classes of difference a step may bring without a per-run entry, each checked by code
+ * from the digests (orchestrator, 2026-11-14): A-8, a row's Ended reported once at its birth, may
+ * move Ended reports within a run and change nothing else, the Ended reports included.
+ */
+export const ruled: ReadonlyArray<{ readonly pending: Pending; readonly why: string }> = [
+  { pending: "A-8", why: "only Ended reports moved: a row's Ended at its birth (WriteLanes I34)" },
+];
+
+const dumped = (dir: string, runs: ReadonlyArray<Played>) => {
+  mkdirSync(dir, { recursive: true });
+
+  for (const run of runs)
+    writeFileSync(
+      resolve(dir, `${run.id.replaceAll("/", "~")}.txt`),
+      `${timelineOf(run).join("\n")}\n`,
+    );
+};
+
+// One run against its baseline row: equal, a ruled class, a named entry, or bad.
+const compare = (before: Row, row: Row, onBehaviour: boolean) => {
+  const differs = onBehaviour ? before.behaviour !== row.behaviour : before.whole !== row.whole;
+  const entry = allowed.find((a) => a.run === row.id);
+
+  if (!differs)
+    return entry === undefined
+      ? "equal"
+      : `BAD  ${row.id}: its entry (${entry.pending}) is stale, the run is equal`;
+
+  if (entry !== undefined) return "named";
+
+  return onlyEndedMoved(before, row, onBehaviour)
+    ? `ok   ${row.id}: A-8 (${ruled[0]?.why ?? ""})`
+    : `BAD  ${row.id}: differs, with no named entry`;
+};
+
+const onlyEndedMoved = (before: Row, row: Row, onBehaviour: boolean) =>
+  ruled.some((r) => r.pending === "A-8") &&
+  before.ended === row.ended &&
+  (onBehaviour
+    ? before.behaviourLessEnded === row.behaviourLessEnded
+    : before.wholeLessEnded === row.wholeLessEnded);
 
 /**
  * The differential baseline (T54, X-1, A-14): `baseline --record` writes, per run, the digests of
@@ -344,35 +427,21 @@ export const baseline = (args: ReadonlyArray<string>) =>
     const port = yield* runtimePort(PRODUCTION_RUNTIME);
     const surface = yield* runtimeSurface(PRODUCTION_RUNTIME);
     const runs = allRuns(port, surface);
-    const dump = flag(args, "--dump");
 
-    if (Option.isSome(dump)) {
-      mkdirSync(dump.value, { recursive: true });
+    for (const dir of Option.toArray(flag(args, "--dump"))) dumped(dir, runs);
 
-      for (const run of runs)
-        writeFileSync(
-          resolve(dump.value, `${run.id.replaceAll("/", "~")}.txt`),
-          `${timelineOf(run).join("\n")}\n`,
-        );
-    }
-
-    const rows = runs.map((run) => ({
-      run,
-      row: {
-        id: run.id,
-        whole: digestOf(timelineOf(run)),
-        behaviour: digestOf(behaviourOf(run)),
-      } satisfies Row,
-    }));
+    const rows = runs.map((run) => ({ run, row: rowOf(run) }));
 
     const scanned = runs.flatMap((run) =>
       [...conservation(run.facts), ...internals(run.facts)].map((v) => `BAD  ${run.id}: ${v}`),
     );
 
+    const out = Option.getOrElse(flag(args, "--out"), () => BASELINE);
+
     if (args.includes("--record")) {
       writeFileSync(
-        BASELINE,
-        `${rows.map(({ row }) => `${row.id}\t${row.whole}\t${row.behaviour}`).join("\n")}\n`,
+        out,
+        `${rows.map(({ row }) => [row.id, ...FIELDS.map((f) => row[f])].join("\t")).join("\n")}\n`,
       );
 
       for (const line of scanned) yield* Console.log(line);
@@ -380,7 +449,7 @@ export const baseline = (args: ReadonlyArray<string>) =>
       if (scanned.length > 0) process.exitCode = 1;
 
       return yield* Console.log(
-        `VERDICT ${scanned.length === 0 ? "pass" : "fail"} ${rows.length} runs recorded in ${BASELINE}`,
+        `VERDICT ${scanned.length === 0 ? "pass" : "fail"} ${rows.length} runs recorded in ${out}`,
       );
     }
 
@@ -394,20 +463,15 @@ export const baseline = (args: ReadonlyArray<string>) =>
     const ids = new Set(rows.map(({ row }) => row.id));
     const behaviourOnly = args.includes("--behaviour");
 
-    const compared = rows.flatMap(({ run, row }) => {
-      const before = was.get(row.id);
+    const judged = rows.map(({ run, row }) =>
+      Option.match(Option.fromUndefinedOr(was.get(row.id)), {
+        onNone: () => `BAD  ${row.id}: not in the baseline`,
+        onSome: (before) => compare(before, row, behaviourOnly || run.crash),
+      }),
+    );
 
-      if (before === undefined) return [`BAD  ${row.id}: not in the baseline`];
-      const onBehaviour = behaviourOnly || run.crash;
-      const differs = onBehaviour ? before.behaviour !== row.behaviour : before.whole !== row.whole;
-      const entry = allowed.find((a) => a.run === row.id);
-
-      if (differs && entry === undefined) return [`BAD  ${row.id}: differs, with no named entry`];
-
-      return !differs && entry !== undefined
-        ? [`BAD  ${row.id}: its entry (${entry.pending}) is stale, the run is equal`]
-        : [];
-    });
+    const endedMoved = judged.filter((j) => j.startsWith("ok "));
+    const compared = judged.filter((j) => j.startsWith("BAD"));
 
     const unknownRuns = allowed
       .filter((a) => !ids.has(a.run))
@@ -424,6 +488,8 @@ export const baseline = (args: ReadonlyArray<string>) =>
 
     for (const entry of allowed)
       yield* Console.log(`ok   ${entry.run}: allowed by ${entry.pending} (${entry.why})`);
+
+    for (const line of endedMoved) yield* Console.log(line);
 
     if (bad.length > 0) process.exitCode = 1;
 

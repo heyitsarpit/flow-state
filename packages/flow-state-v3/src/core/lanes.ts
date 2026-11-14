@@ -1,20 +1,14 @@
 import { Option, Result, Schema } from "effect";
-import { Cue, LaneState, Move } from "./cells.ts";
+import { Cue, LaneState } from "./cells.ts";
 import { Operation, type Values } from "./compiled.ts";
 import { Act, evidenceOf } from "./evidence-of.ts";
 import { type Member, MemberTarget } from "./evidence.ts";
 import { type At, keyTextOf, makeMoves, onWireAs, awaits } from "./lane-moves.ts";
+import { Audience, keptOn, type LedgerSteps } from "./ledger.ts";
 import { LaneView } from "./turn.ts";
 import { isInFlight, pick, type Tx, without, withEntry } from "./tx.ts";
-import {
-  type ActorId,
-  type CallId,
-  Command,
-  type Ending,
-  type Incarnation,
-  laneId,
-  Tries,
-} from "./world.ts";
+import type { Channel } from "./vocabulary.ts";
+import { type ActorId, type CallId, Command, type Incarnation, laneId } from "./world.ts";
 import type { Persistence } from "./persist.ts";
 
 /**
@@ -22,9 +16,9 @@ import type { Persistence } from "./persist.ts";
  * is a cue; the table's move is applied here and its reports derived by `evidenceOf`. Lookups
  * and the guards' lane view live here too.
  */
-export const makeLanes = (tx: Tx, persistence: Persistence) => {
-  const { lanesOf, endingMail } = tx;
-  const { operationOf, atOf, report, apply } = makeMoves(tx, persistence);
+export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps) => {
+  const { lanesOf } = tx;
+  const { operationOf, atOf, report, apply } = makeMoves(tx, persistence, ledger);
 
   const idFor = (
     incarnation: Incarnation,
@@ -91,8 +85,11 @@ export const makeLanes = (tx: Tx, persistence: Persistence) => {
       onSome: (a) => void apply(a, cue),
     });
 
+  // A commit declined before its lane's table: no Attempt, no lane, one owed row.
   const decline = (actor: ActorId, operation: string, why: string, owner: number) =>
-    endingMail(actor, {
+    void ledger.owe({
+      actor,
+      to: Audience.Identity(),
       operation,
       attempt: Option.none(),
       lane: Option.none(),
@@ -101,7 +98,6 @@ export const makeLanes = (tx: Tx, persistence: Persistence) => {
       value: { why },
       owner,
       current: true,
-      tries: Tries.First(),
     });
 
   const commit = (incarnation: Incarnation, operation: Operation, input: Values, owner: number) => {
@@ -130,14 +126,18 @@ export const makeLanes = (tx: Tx, persistence: Persistence) => {
       return member;
     }
 
+    const id = laneId(incarnation.actor, operation.name, text.value);
+
+    // A Kept row on the key declines the commit before the table, which reads no row.
+    if (keptOn(tx.world().owed, incarnation.actor, id)) {
+      decline(incarnation.actor, operation.name, "Rejected", owner);
+
+      return member;
+    }
+
     // Only reject concurrency is built: every commit meets the table as a reject commit.
     apply(
-      {
-        id: laneId(incarnation.actor, operation.name, text.value),
-        actor: incarnation.actor,
-        operation: operation.name,
-        key,
-      },
+      { id, actor: incarnation.actor, operation: operation.name, key },
       Cue.CommitReject({ input, owner }),
     );
 
@@ -181,6 +181,11 @@ export const makeLanes = (tx: Tx, persistence: Persistence) => {
       Write: () => {
         const at = atFor(incarnation, operation, key, own);
         const target = targetOf(key, at);
+
+        // A cancel on an Idle lane lets its Kept rows go.
+        for (const a of Option.toArray(at))
+          if (!tx.world().lanes.has(a.id)) ledger.letGoKept(incarnation.actor, a.id);
+
         applyNamed(operation, incarnation.actor, at, Cue.Cancel());
 
         return { operation: operation.name, kind: "cancel", target } satisfies Member;
@@ -225,74 +230,20 @@ export const makeLanes = (tx: Tx, persistence: Persistence) => {
   };
 
   /**
-   * Applies an admitted ending to its lane, when it is the lane's head's own, and returns it as
-   * the Attempt delivers it.
-   */
-  // RETURN_TYPE: the ending as the Attempt delivers it, possibly rewritten to an unknown.
-  const admit = (ending: Ending): Ending => {
-    const found = Option.flatMap(ending.lane, (id) =>
-      Option.map(
-        Option.filter(Option.fromUndefinedOr(tx.world().lanes.get(id)), (lane) =>
-          Option.contains(ending.attempt, lane.head.id),
-        ),
-        (lane) => atOf(id, lane),
-      ),
-    );
-
-    return Option.match(found, {
-      onNone: () => ending,
-      onSome: (at) => {
-        const move = apply(at, Cue.Ended({ channel: ending.channel, reason: ending.reason }));
-
-        return Move.$is("Hold")(move)
-          ? { ...ending, channel: "unknown", reason: move.reason }
-          : ending;
-      },
-    });
-  };
-
-  /**
-   * Keeps a twice-refused ending on its lane; a write's ending with no lane is kept under a minted
-   * id, so it still gets its one try at the next boot or adoption. A read's answer is stranded.
-   */
-  const keepEnding = (actor: ActorId, ending: Ending) => {
-    const id = Option.orElse(ending.lane, () =>
-      Option.map(Option.filter(operationOf(actor, ending.operation), Operation.$is("Write")), () =>
-        laneId(actor, ending.operation, tx.mint("kept")),
-      ),
-    );
-
-    Option.match(id, {
-      onNone: () => undefined,
-      onSome: (at) => {
-        const lane = tx.world().lanes.get(at);
-
-        apply(
-          lane === undefined
-            ? { id: at, actor, operation: ending.operation, key: {} }
-            : atOf(at, lane),
-          Cue.Keep({ ending }),
-        );
-      },
-    });
-  };
-
-  /**
-   * Applies a call's classified result to the lane whose head it is on the wire for: queued, or
-   * parked during disposal.
+   * Applies a call's classified result to the lane whose head it is on the wire for, in the step
+   * it settles: from then on the ending is an owed row.
    */
   const settle = (
     call: CallId,
     settled: {
-      readonly channel: Ending["channel"];
+      readonly channel: Channel;
       readonly reason: string;
-      // FLOW_STATE_ALLOW_UNKNOWN: a call's value is the contract's own, mapped at admission.
+      // FLOW_STATE_ALLOW_UNKNOWN: a call's value is the contract's own, mapped when its row is heard.
       readonly value: unknown;
     },
-    route: "queue" | "park",
   ) => {
     for (const [id, lane] of tx.world().lanes)
-      if (onWireAs(lane, call)) apply(atOf(id, lane), Cue.Settled({ ...settled, route }));
+      if (onWireAs(lane, call)) apply(atOf(id, lane), Cue.Answered(settled));
   };
 
   /**
@@ -332,8 +283,6 @@ export const makeLanes = (tx: Tx, persistence: Persistence) => {
     cancel,
     lookup,
     flushLanes,
-    admit,
-    keepEnding,
     settle,
     answer,
     everyLane,

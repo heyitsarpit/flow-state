@@ -1,8 +1,8 @@
 import { Option, Result, Schema } from "effect";
-import { Cue, cell, LaneState, Move } from "./cells.ts";
+import { type Cue, cell, LaneState, Move } from "./cells.ts";
 import type { Operation, Values } from "./compiled.ts";
 import { Act, evidenceOf } from "./evidence-of.ts";
-import { Evidence } from "./evidence.ts";
+import { Audience, type LedgerSteps } from "./ledger.ts";
 import { type Machines, pick, ROOT_ACTIVATION, type Tx } from "./tx.ts";
 import {
   type ActorId,
@@ -10,10 +10,9 @@ import {
   Command,
   Disposal,
   Due,
-  type Ending,
   type Lane,
   Phase,
-  Tries,
+  sentBefore,
 } from "./world.ts";
 import type { Persistence } from "./persist.ts";
 
@@ -52,11 +51,24 @@ const defect = (what: string) => {
  * The write lane's table applied: a cue meets a lane state, the table's move changes the world
  * through the step's working state, and `evidenceOf` derives the reports it determines.
  */
-export const makeMoves = (tx: Tx, persistence: Persistence) => {
-  const { persisted, incarnationOf, endingMail } = tx;
+export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps) => {
+  const { persisted, incarnationOf } = tx;
+  const { persist, persistAwaited, actorWrite, laneWrite, setLane, dropLane } = persistence;
 
-  const { persist, persistAwaited, actorWrite, laneWrite, setLane, dropLane, keep, unkeep, park } =
-    persistence;
+  const open = () => Disposal.$is("Open")(tx.world().disposal);
+
+  // An ending of this lane's Attempt, owed to its identity: routed from the head's owner while the
+  // Runtime is open, current from the root once it is disposing.
+  const oweOf = (at: At, attempt: Option.Option<string>, owner: number) =>
+    open()
+      ? { actor: at.actor, to: Audience.Identity(), operation: at.operation, attempt, owner }
+      : {
+          actor: at.actor,
+          to: Audience.Identity(),
+          operation: at.operation,
+          attempt,
+          owner: ROOT_ACTIVATION,
+        };
 
   const operationOf = (actor: ActorId, name: string) =>
     Option.fromUndefinedOr(tx.machines.get(actor.machine)?.operations.get(name));
@@ -74,9 +86,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence) => {
   const stateAt = (id: string) => {
     const lane = tx.world().lanes.get(id);
 
-    if (lane !== undefined) return LaneState.Head({ head: lane.head });
-
-    return tx.world().kept.has(id) ? LaneState.Kept() : LaneState.Idle();
+    return lane === undefined ? LaneState.Idle() : LaneState.Head({ head: lane.head });
   };
 
   const laneAt = (at: At) => {
@@ -100,28 +110,16 @@ export const makeMoves = (tx: Tx, persistence: Persistence) => {
       tx.emit(e);
   };
 
-  const notSent = (at: At, why: string, attempt: Option.Option<string>, owner: number) => {
-    const ending: Ending = {
-      operation: at.operation,
-      attempt,
-      lane: Option.none(),
+  // A never-sent Attempt's NotSent keeps its lane: when Kept, it blocks that key.
+  const notSent = (at: At, why: string, attempt: string, owner: number) =>
+    void ledger.owe({
+      ...oweOf(at, Option.some(attempt), owner),
+      lane: Option.some(at.id),
       channel: "failure",
       reason: why,
       value: { why },
-      owner,
       current: true,
-      tries: Tries.First(),
-    };
-
-    // During the Runtime's disposal the ending is parked on its lane, not queued.
-    if (Disposal.$is("Open")(tx.world().disposal)) endingMail(at.actor, ending);
-    else
-      park(at.actor, at.id, at.operation, {
-        ...ending,
-        lane: Option.some(at.id),
-        owner: ROOT_ACTIVATION,
-      });
-  };
+    });
 
   const invoke = (at: At, lane: Lane, resend: boolean) => {
     const call = tx.mint<CallId>("call");
@@ -143,7 +141,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence) => {
           id: head.id,
           key: at.key,
           retryCount: head.retryCount,
-          mayHaveApplied: head.mayHaveApplied,
+          mayHaveApplied: sentBefore(head),
         },
       }),
     );
@@ -182,7 +180,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence) => {
   };
 
   const hold = (at: At, lane: Lane, write: boolean) => {
-    const held = { ...lane, head: { ...lane.head, mayHaveApplied: true, phase: Phase.Held() } };
+    const held = { ...lane, head: { ...lane.head, phase: Phase.Held() } };
     setLane(at.id, held);
 
     if (write) persist(at.actor, [laneWrite(at.id, held, false)], Due.Later());
@@ -199,22 +197,19 @@ export const makeMoves = (tx: Tx, persistence: Persistence) => {
             id: tx.mintAttempt(),
             input,
             retryCount: 0,
-            mayHaveApplied: false,
             owner,
             phase: Phase.Unsent(),
           },
         }),
+      // A declined commit has no Attempt and no lane; its ending is a row like any other.
       Decline: ({ why, owner }) =>
-        endingMail(at.actor, {
-          operation: at.operation,
-          attempt: Option.none(),
-          lane: Option.some(at.id),
+        void ledger.owe({
+          ...oweOf(at, Option.none(), owner),
+          lane: Option.none(),
           channel: "failure",
           reason: why,
           value: { why },
-          owner,
           current: true,
-          tries: Tries.First(),
         }),
       Become: ({ phase }) => {
         const lane = laneAt(at);
@@ -231,14 +226,9 @@ export const makeMoves = (tx: Tx, persistence: Persistence) => {
       EndUnsent: ({ why }) => {
         const lane = laneAt(at);
         dropLane(at.id, lane);
-        notSent(at, why, Option.some(lane.head.id), lane.head.owner);
+        notSent(at, why, lane.head.id, lane.head.owner);
       },
       Release: () => dropLane(at.id, laneAt(at)),
-      LetGo: () => {
-        for (const e of tx.world().kept.get(at.id)?.endings ?? [])
-          tx.emit(Evidence.Recorded({ operation: at.operation, attempt: e.attempt, why: "letGo" }));
-        unkeep(at.actor, at.id);
-      },
       Interrupt: ({ call }) => {
         const lane = laneAt(at);
         tx.command(Command.Interrupt({ call }));
@@ -250,58 +240,40 @@ export const makeMoves = (tx: Tx, persistence: Persistence) => {
       HoldRefused: () => {
         const lane = laneAt(at);
         setLane(at.id, { ...lane, head: { ...lane.head, phase: Phase.Held() } });
-        endingMail(at.actor, {
-          operation: at.operation,
-          attempt: Option.some(lane.head.id),
+        // Owed with no lane as before; giving it its lane changes which lane a key-less retry in
+        // its handler names (found in A1, reported for a ruling).
+        ledger.owe({
+          ...oweOf(at, Option.some(lane.head.id), lane.head.owner),
           lane: Option.none(),
           channel: "unknown",
           reason: "StorageRefused",
           value: { why: "StorageRefused" },
-          owner: lane.head.owner,
           current: true,
-          tries: Tries.First(),
         });
       },
-      Queue: ({ channel, reason, value }) => {
+      // While open, a definite failure delivered as StillUnknown leaves the lane record as it was
+      // (an owed fix: a Held head's record should read not in flight); during disposal every hold
+      // is written.
+      Answer: ({ channel, asked, reason, value, interrupt }) => {
         const lane = laneAt(at);
-        endingMail(at.actor, {
-          operation: at.operation,
-          attempt: Option.some(lane.head.id),
-          lane: Option.some(at.id),
-          channel,
-          reason,
-          value,
-          owner: lane.head.owner,
-          current: false,
-          tries: Tries.First(),
-        });
-      },
-      Park: ({ channel, reason, value, interrupt }) => {
-        const lane = laneAt(at);
+        const live = open();
         Option.match(interrupt, {
           onNone: () => undefined,
           onSome: (call) => tx.command(Command.Interrupt({ call })),
         });
 
-        if (channel === "unknown") hold(at, lane, true);
+        if (channel === "unknown") hold(at, lane, asked === "unknown" || !live);
         else dropLane(at.id, lane);
 
-        park(at.actor, at.id, at.operation, {
-          operation: at.operation,
-          attempt: Option.some(lane.head.id),
+        ledger.owe({
+          ...oweOf(at, Option.some(lane.head.id), lane.head.owner),
           lane: Option.some(at.id),
           channel,
           reason,
           value,
-          owner: ROOT_ACTIVATION,
-          current: true,
-          tries: Tries.Parked(),
+          current: !live,
         });
       },
-      Resolve: () => dropLane(at.id, laneAt(at)),
-      // A definite failure delivered as StillUnknown leaves the lane record as it was.
-      Hold: () => hold(at, laneAt(at), Cue.$is("Ended")(cue) && cue.channel === "unknown"),
-      Keep: ({ ending }) => keep(at.id, at.actor, ending),
       Impossible: () => defect(`the lane's table rules out ${cue._tag} on ${stateAt(at.id)._tag}`),
     });
 

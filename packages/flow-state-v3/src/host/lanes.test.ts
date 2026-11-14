@@ -468,7 +468,6 @@ describe("write lanes on the production runtime", () => {
       first.seen.flatMap((e) => (e._tag === "Issue" ? [e.code] : [])),
       ["InvalidTurn", "InvalidTurn"],
     );
-    assert.deepStrictEqual([...first.built.driver.world().kept.keys()].length, 1);
 
     // The head stays Held on its lane, blocking its key: a second commit declines Rejected.
     assert.deepStrictEqual(

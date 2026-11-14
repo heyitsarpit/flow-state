@@ -6,6 +6,7 @@ import { makeDisposal } from "./disposal.ts";
 import { makeIncarnations } from "./incarnations.ts";
 import { awaits } from "./lane-moves.ts";
 import { makeLanes } from "./lanes.ts";
+import { makeLedger } from "./ledger.ts";
 import { makePersistence } from "./persist.ts";
 import { makeServe } from "./serve.ts";
 import { type Env, type Machines, makeTx, without } from "./tx.ts";
@@ -28,11 +29,12 @@ export type { Env, Machines } from "./tx.ts";
 export const step = (machines: Machines, world0: World, input: Input, env: Env) => {
   const tx = makeTx(machines, world0, env);
   const persistence = makePersistence(tx);
-  const lanes = makeLanes(tx, persistence);
-  const answers = makeAnswers(tx, lanes);
-  const incarnations = makeIncarnations(tx, persistence);
-  const serve = makeServe(tx, persistence, lanes, incarnations);
-  const disposal = makeDisposal(tx, persistence, lanes);
+  const ledger = makeLedger(tx, persistence);
+  const lanes = makeLanes(tx, persistence, ledger);
+  const answers = makeAnswers(tx, lanes, ledger);
+  const incarnations = makeIncarnations(tx, persistence, ledger);
+  const serve = makeServe(tx, persistence, lanes, incarnations, ledger);
+  const disposal = makeDisposal(tx, persistence, lanes, ledger);
   const { incarnationOf, used, enqueue } = tx;
   const { end } = incarnations;
   const { boundPassed } = disposal;
@@ -79,8 +81,7 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
       if (incarnationOf(actor) !== undefined) enqueue(Mail.Event({ actor, tag, payload }));
     },
     Settled: ({ call, result }) => {
-      if (open) answers.settled(call, result, "queue");
-      else if (disposing) answers.settled(call, result, "park");
+      if (open || disposing) answers.settled(call, result, open);
     },
     Fired: ({ timer }) => (open || disposing ? fired(timer) : undefined),
     Stored: ({ ticket }) => (open ? answers.stored(ticket) : undefined),

@@ -14,7 +14,7 @@ export const crashOwed: ReadonlyArray<PartOwed> = [
     invariant: "WriteLanes I12",
     why: `after the third re-send the boot restores retryCount 2, so the restored unknown's handler retries a spent retryable({ times: 3 }) where the model gives up: ${RETRY_COUNT}`,
     owner: "@task.V3.T19",
-    items: [OwedItem.Attempt({ id: "att-1000-12" })],
+    items: [OwedItem.Attempt({ id: "att-000000000000000000000000000003e8-2" })],
   },
   ...(["WriteLanes I16", "WriteLanes I15"] as const).map((invariant) => ({
     case: "PAY-22@16",
@@ -22,7 +22,7 @@ export const crashOwed: ReadonlyArray<PartOwed> = [
     invariant,
     why: `the head the model released when the spent retryable({ times: 3 }) cancelled is restored at the reload, and its ending delivered: ${RETRY_COUNT}`,
     owner: "@task.V3.T19",
-    items: [OwedItem.Attempt({ id: "att-1000-12" })],
+    items: [OwedItem.Attempt({ id: "att-000000000000000000000000000003e8-2" })],
   })),
   {
     case: "DISP-02@6",
@@ -30,7 +30,7 @@ export const crashOwed: ReadonlyArray<PartOwed> = [
     invariant: "WriteLanes I15",
     why: `a reload after disposeActor of a Held head: ${UNBOUND_RESTORE}`,
     owner: "@task.V3.T54",
-    items: [OwedItem.Attempt({ id: "att-1000-7" })],
+    items: [OwedItem.Attempt({ id: "att-000000000000000000000000000003e8-1" })],
   },
   {
     case: "DISP-02@6",
@@ -38,7 +38,7 @@ export const crashOwed: ReadonlyArray<PartOwed> = [
     invariant: "Actors I29",
     why: `the restore the adopting incarnation is owed was parked at the boot instead, so it is still unmet at the end of case: ${UNBOUND_RESTORE}`,
     owner: "@task.V3.T54",
-    items: [OwedItem.Attempt({ id: "att-1000-7" })],
+    items: [OwedItem.Attempt({ id: "att-000000000000000000000000000003e8-1" })],
   },
   {
     case: "PAY-16/dispose-waiting-resend@9",
@@ -54,7 +54,7 @@ export const crashOwed: ReadonlyArray<PartOwed> = [
     invariant: "WriteLanes I15",
     why: `a reload after disposeActor with pay on the wire: ${UNBOUND_RESTORE}`,
     owner: "@task.V3.T54",
-    items: [OwedItem.Attempt({ id: "att-1000-7" })],
+    items: [OwedItem.Attempt({ id: "att-000000000000000000000000000003e8-1" })],
   },
   {
     case: "DISP-06@5",
@@ -62,7 +62,7 @@ export const crashOwed: ReadonlyArray<PartOwed> = [
     invariant: "Actors I29",
     why: `the restore the adopting incarnation is owed was parked at the boot instead: ${UNBOUND_RESTORE}`,
     owner: "@task.V3.T54",
-    items: [OwedItem.Attempt({ id: "att-1000-7" })],
+    items: [OwedItem.Attempt({ id: "att-000000000000000000000000000003e8-1" })],
   },
 ];
 

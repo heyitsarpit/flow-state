@@ -1,8 +1,8 @@
 import { Data, Option } from "effect";
 import { type Cue, LaneState } from "./cells.ts";
 import type { Values } from "./compiled.ts";
-import { Evidence } from "./evidence.ts";
-import { type ActorId, Command, type Ending } from "./world.ts";
+import { type Channel, Evidence } from "./evidence.ts";
+import { type ActorId, Command } from "./world.ts";
 
 /**
  * An act whose reports it determines: a lane's cue with its states before and after and the
@@ -20,7 +20,15 @@ export type Act = Data.TaggedEnum<{
   };
   ReadReplaced: { operation: string };
   Silent: { operation: string; attempt: string };
-  Ended: { actor: ActorId; ending: Ending };
+  Ended: {
+    actor: ActorId;
+    ending: {
+      readonly operation: string;
+      readonly attempt: Option.Option<string>;
+      readonly channel: Channel;
+      readonly reason: string;
+    };
+  };
 }>;
 
 /**
@@ -31,7 +39,6 @@ export const Act = Data.taggedEnum<Act>();
 const headOf = (state: LaneState) =>
   LaneState.$match(state, {
     Idle: () => Option.none(),
-    Kept: () => Option.none(),
     Head: ({ head }) => Option.some(head),
   });
 

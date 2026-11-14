@@ -1,17 +1,17 @@
 import { Data, Option } from "effect";
 import type { Values } from "./compiled.ts";
 import { type Channel, isDecline } from "./vocabulary.ts";
-import { type CallId, type Ending, type Head, Phase, type TicketId } from "./world.ts";
+import { type CallId, type Head, Phase, sentBefore, type TicketId } from "./world.ts";
 
 /**
- * What happens to a lane: a member, a turn's end, a store's or a call's answer, an admitted or
- * kept ending, or the Runtime's disposal.
+ * What happens to a lane: a member, a turn's end, a store's or a call's answer, or the Runtime's
+ * disposal.
  *
  * **Details**
  *
  * `CommitReject` and `CommitCancel` are a commit under each concurrency policy; this build runs
- * reject only. `Settled` is a call's classified result, queued as mail or, during disposal,
- * parked. `Ended` is that ending admitted to its lane in its turn.
+ * reject only. `Answered` is a call's classified result, applied to its lane in the step the call
+ * settles; from then on the ending is an owed row.
  */
 export type Cue = Data.TaggedEnum<{
   CommitReject: { input: Values; owner: number };
@@ -21,10 +21,8 @@ export type Cue = Data.TaggedEnum<{
   TurnEnded: {};
   Stored: {};
   Refused: {};
-  // FLOW_STATE_ALLOW_UNKNOWN: a call's value is the contract's own, mapped at admission.
-  Settled: { channel: Channel; reason: string; value: unknown; route: "queue" | "park" };
-  Ended: { channel: Channel; reason: string };
-  Keep: { ending: Ending };
+  // FLOW_STATE_ALLOW_UNKNOWN: a call's value is the contract's own, mapped when its row is heard.
+  Answered: { channel: Channel; reason: string; value: unknown };
   DisposalStarts: {};
   BoundPassed: {};
 }>;
@@ -51,15 +49,13 @@ export type NotSentWhy = "Rejected" | "Cancelled" | "StorageRefused" | "Disposed
  * - `Withdraw`: a cancel waits for the acknowledgement's storage.
  * - `EndUnsent`: the never-sent head ends `NotSent` and the lane drops.
  * - `Release`: the head is let go, as evidence, and the lane drops.
- * - `LetGo`: the kept ending is let go.
  * - `Interrupt`: the call is interrupted; the head is `Cancelling`.
  * - `Flush`: the turn ended; the head is acknowledged or captured, or invoked when nothing persists.
  * - `Send`, `Resend`: the head is invoked, a re-send counting one more.
  * - `HoldRefused`: a refused capture holds the head and ends it unknown `StorageRefused`.
- * - `Queue`, `Park`: a call's ending goes to the mailbox, or is parked during disposal as its
- *   Attempt delivers it.
- * - `Resolve`, `Hold`: an admitted ending drops the lane, or holds it, as `reason`.
- * - `Keep`: a twice-refused ending is kept on its lane.
+ * - `Answer`: the call's ending, as its Attempt delivers it, is owed; an unknown holds the head,
+ *   any other ending drops the lane. `asked` is the channel before a definite failure after an
+ *   earlier send became unknown; `interrupt` names a call the disposal bound interrupts.
  * - `Impossible`: a pair the table rules out, or leaves open; a defect in Flow.
  */
 export type Move = Data.TaggedEnum<{
@@ -71,19 +67,19 @@ export type Move = Data.TaggedEnum<{
   Withdraw: { ticket: TicketId };
   EndUnsent: { why: NotSentWhy };
   Release: {};
-  LetGo: {};
   Interrupt: { call: CallId };
   Flush: { purpose: "acknowledge" | "capture" };
   Send: {};
   Resend: {};
   HoldRefused: {};
-  // FLOW_STATE_ALLOW_UNKNOWN: a call's value is the contract's own, mapped at admission.
-  Queue: { channel: Channel; reason: string; value: unknown };
-  // FLOW_STATE_ALLOW_UNKNOWN: a call's value is the contract's own, mapped at admission.
-  Park: { channel: Channel; reason: string; value: unknown; interrupt: Option.Option<CallId> };
-  Resolve: {};
-  Hold: { reason: string };
-  Keep: { ending: Ending };
+  Answer: {
+    channel: Channel;
+    asked: Channel;
+    reason: string;
+    // FLOW_STATE_ALLOW_UNKNOWN: a call's value is the contract's own, mapped when its row is heard.
+    value: unknown;
+    interrupt: Option.Option<CallId>;
+  };
   Impossible: {};
 }>;
 
@@ -108,7 +104,6 @@ export type HeadAt<P extends Phase["_tag"]> = Head & {
 
 type Row<C extends Cue["_tag"]> = {
   readonly Idle: (cue: CueOf<C>) => Move;
-  readonly Kept: (cue: CueOf<C>) => Move;
 } & { readonly [P in Phase["_tag"]]: (head: HeadAt<P>, cue: CueOf<C>) => Move };
 
 /**
@@ -128,59 +123,43 @@ const declineBeside = (_head: Head, cue: CueOf<"CommitReject">) => decline(cue);
 const delivered = (head: Head, channel: Channel, reason: string) => {
   const still: Channel = "unknown";
 
-  return channel === "failure" && head.mayHaveApplied && !isDecline(reason)
+  return channel === "failure" && sentBefore(head) && !isDecline(reason)
     ? { channel: still, reason: "StillUnknown" }
     : { channel, reason };
 };
 
-// An admitted ending of the head: an unknown, or a definite failure it delivers as unknown, holds
-// the lane; any other ending resolves it.
-const admitted = (head: Head, cue: CueOf<"Ended">) => {
-  const ending = delivered(head, cue.channel, cue.reason);
-
-  return ending.channel === "unknown" ? Move.Hold({ reason: ending.reason }) : Move.Resolve();
-};
-
 // A call's result, classified by the phase it found: a call a cancel interrupted ends unknown
-// Cancelled, with no value, whatever it returned. During disposal it is parked as its Attempt
-// delivers it.
-const settled = (head: Head, cue: CueOf<"Settled">, cancelled: boolean) => {
-  const channel: Channel = cancelled ? "unknown" : cue.channel;
+// Cancelled, with no value, whatever it returned; a definite failure after an earlier send is
+// unknown StillUnknown.
+const answered = (head: Head, cue: CueOf<"Answered">, cancelled: boolean) => {
+  const asked: Channel = cancelled ? "unknown" : cue.channel;
   const reason = cancelled ? "Cancelled" : cue.reason;
-  const value = cancelled ? undefined : cue.value;
 
-  return cue.route === "queue"
-    ? Move.Queue({ channel, reason, value })
-    : Move.Park({
-        ...delivered(head, channel, reason),
-        value,
-        interrupt: Option.none(),
-      });
+  return Move.Answer({
+    ...delivered(head, asked, reason),
+    asked,
+    value: cancelled ? undefined : cue.value,
+    interrupt: Option.none(),
+  });
 };
 
 const disposedOnWire = (head: HeadAt<"OnWire" | "Cancelling">) =>
-  Move.Park({
+  Move.Answer({
     channel: "unknown",
+    asked: "unknown",
     reason: "Disposed",
     value: undefined,
     interrupt: Option.some(head.phase.call),
   });
 
-const keep = (cue: CueOf<"Keep">) => Move.Keep({ ending: cue.ending });
-
-const keepBeside = (_head: Head, cue: CueOf<"Keep">) => keep(cue);
-
 /**
  * Every cell of the write lane, by cue and lane state. Only reject concurrency is built; a
- * cancel-policy commit is `Impossible` until its ruling. A twice-refused ending is kept beside
- * any head, a Held one included.
- * An ending of the head's earlier send (a restored unknown) admitted after a retry owes its
- * re-send leaves that re-send standing.
+ * cancel-policy commit is `Impossible` until its ruling. A Kept row's decline of a commit comes
+ * before the table, which reads no row.
  */
 export const table = {
   CommitReject: {
     Idle: (cue) => Move.Mint({ input: cue.input, owner: cue.owner }),
-    Kept: decline,
     Acknowledging: declineBeside,
     Unsent: declineBeside,
     Withdrawing: declineBeside,
@@ -192,7 +171,6 @@ export const table = {
   },
   CommitCancel: {
     Idle: impossible,
-    Kept: impossible,
     Acknowledging: impossible,
     Unsent: impossible,
     Withdrawing: impossible,
@@ -204,7 +182,6 @@ export const table = {
   },
   Retry: {
     Idle: stay,
-    Kept: stay,
     Acknowledging: stay,
     Unsent: stay,
     Withdrawing: stay,
@@ -216,7 +193,6 @@ export const table = {
   },
   Cancel: {
     Idle: stay,
-    Kept: () => Move.LetGo(),
     Acknowledging: (head) => Move.Withdraw({ ticket: head.phase.ticket }),
     Unsent: () => Move.EndUnsent({ why: "Cancelled" }),
     Withdrawing: stay,
@@ -228,7 +204,6 @@ export const table = {
   },
   TurnEnded: {
     Idle: stay,
-    Kept: stay,
     Acknowledging: stay,
     Unsent: () => Move.Flush({ purpose: "acknowledge" }),
     Withdrawing: stay,
@@ -240,7 +215,6 @@ export const table = {
   },
   Stored: {
     Idle: impossible,
-    Kept: impossible,
     Acknowledging: () => Move.Send(),
     Unsent: impossible,
     Withdrawing: () => Move.EndUnsent({ why: "Cancelled" }),
@@ -252,7 +226,6 @@ export const table = {
   },
   Refused: {
     Idle: impossible,
-    Kept: impossible,
     Acknowledging: () => Move.EndUnsent({ why: "StorageRefused" }),
     Unsent: impossible,
     Withdrawing: () => Move.EndUnsent({ why: "StorageRefused" }),
@@ -262,45 +235,19 @@ export const table = {
     Cancelling: impossible,
     Held: impossible,
   },
-  Settled: {
+  Answered: {
     Idle: impossible,
-    Kept: impossible,
     Acknowledging: impossible,
     Unsent: impossible,
     Withdrawing: impossible,
     Recapturing: impossible,
     Resending: impossible,
-    OnWire: (head, cue) => settled(head, cue, false),
-    Cancelling: (head, cue) => settled(head, cue, true),
+    OnWire: (head, cue) => answered(head, cue, false),
+    Cancelling: (head, cue) => answered(head, cue, true),
     Held: impossible,
-  },
-  Ended: {
-    Idle: stay,
-    Kept: stay,
-    Acknowledging: impossible,
-    Unsent: impossible,
-    Withdrawing: impossible,
-    Recapturing: stay,
-    Resending: stay,
-    OnWire: admitted,
-    Cancelling: () => Move.Hold({ reason: "Cancelled" }),
-    Held: admitted,
-  },
-  Keep: {
-    Idle: keep,
-    Kept: keep,
-    Acknowledging: keepBeside,
-    Unsent: keepBeside,
-    Withdrawing: keepBeside,
-    Recapturing: keepBeside,
-    Resending: keepBeside,
-    OnWire: keepBeside,
-    Cancelling: keepBeside,
-    Held: keepBeside,
   },
   DisposalStarts: {
     Idle: stay,
-    Kept: stay,
     Acknowledging: () => Move.EndUnsent({ why: "Disposed" }),
     Unsent: () => Move.EndUnsent({ why: "Disposed" }),
     Withdrawing: () => Move.EndUnsent({ why: "Disposed" }),
@@ -312,7 +259,6 @@ export const table = {
   },
   BoundPassed: {
     Idle: stay,
-    Kept: stay,
     Acknowledging: stay,
     Unsent: stay,
     Withdrawing: stay,
@@ -325,9 +271,9 @@ export const table = {
 } as const satisfies Table;
 
 /**
- * Where a lane stands: Idle, Kept (a kept ending and no head), or its head.
+ * Where a lane stands: Idle, or its head. A lane holds its Attempt and nothing else.
  */
-export type LaneState = Data.TaggedEnum<{ Idle: {}; Kept: {}; Head: { head: Head } }>;
+export type LaneState = Data.TaggedEnum<{ Idle: {}; Head: { head: Head } }>;
 
 /**
  * Constructors and matchers for {@link LaneState}.
@@ -337,7 +283,6 @@ export const LaneState = Data.taggedEnum<LaneState>();
 const at = <C extends Cue["_tag"]>(row: Row<C>, state: LaneState, cue: CueOf<C>) =>
   LaneState.$match(state, {
     Idle: () => row.Idle(cue),
-    Kept: () => row.Kept(cue),
     Head: ({ head }) =>
       Phase.$match(head.phase, {
         Acknowledging: (phase) => row.Acknowledging({ ...head, phase }, cue),
@@ -363,9 +308,7 @@ export const cell = (state: LaneState, cue: Cue) =>
     TurnEnded: (c) => at(table.TurnEnded, state, c),
     Stored: (c) => at(table.Stored, state, c),
     Refused: (c) => at(table.Refused, state, c),
-    Settled: (c) => at(table.Settled, state, c),
-    Ended: (c) => at(table.Ended, state, c),
-    Keep: (c) => at(table.Keep, state, c),
+    Answered: (c) => at(table.Answered, state, c),
     DisposalStarts: (c) => at(table.DisposalStarts, state, c),
     BoundPassed: (c) => at(table.BoundPassed, state, c),
   });

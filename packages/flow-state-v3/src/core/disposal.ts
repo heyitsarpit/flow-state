@@ -1,31 +1,31 @@
-import { Option } from "effect";
 import { Cue } from "./cells.ts";
 import { Evidence } from "./evidence.ts";
+import type { LedgerSteps } from "./ledger.ts";
 import { DISPOSAL_BOUND_MS, type Tx } from "./tx.ts";
-import { Command, Disposal, Mail, Timer } from "./world.ts";
+import { Command, Disposal, Timer } from "./world.ts";
 import type { Persistence } from "./persist.ts";
 import { onWire } from "./lane-moves.ts";
 import type { LaneSteps } from "./lanes.ts";
 
 /**
- * Runtime disposal: admission closes, queued endings are parked, nothing new is invoked, no lane
+ * Runtime disposal: admission closes, queued endings wait, nothing new is invoked, no lane
  * drops, and calls on the wire are waited for up to the bound.
  */
-export const makeDisposal = (tx: Tx, persistence: Persistence, lanes: LaneSteps) => {
+export const makeDisposal = (
+  tx: Tx,
+  persistence: Persistence,
+  lanes: LaneSteps,
+  ledger: LedgerSteps,
+) => {
   const { armTimer, disarmWhere } = tx;
-  const { saveActor, park } = persistence;
+  const { saveActor } = persistence;
 
   const disposeRuntime = () => {
-    tx.set({ ...tx.world(), disposal: Disposal.Disposing() });
-    const queued = tx.world().mail;
-    tx.set({ ...tx.world(), mail: [] });
+    tx.set({ ...tx.world(), disposal: Disposal.Disposing(), mail: [] });
 
-    for (const mail of queued)
-      if (Mail.$is("Ending")(mail))
-        Option.match(mail.ending.lane, {
-          onNone: () => undefined,
-          onSome: (lane) => park(mail.actor, lane, mail.ending.operation, mail.ending),
-        });
+    // Each identity can no longer hear: its queued rows wait for its next start.
+    for (const [first] of tx.world().owed.values())
+      if (first !== undefined) ledger.suspend(first.actor, false);
 
     lanes.everyLane(Cue.DisposalStarts());
 

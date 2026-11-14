@@ -268,41 +268,37 @@ const owed = (
  * each expected result is derived from the cited rule, not from running the code.
  */
 describe("the owed ledger on the production runtime (T54 pending cases)", () => {
-  // A-1, owed to A1. Two endings of lane "a", an unknown and then its re-send's success, are each
+  // A-1. Two endings of lane "a", an unknown and then its re-send's success, are each
   // refused twice: two Kept rows (WriteLanes R10 "every kept ending is its own row"). Each gets
   // exactly one try at every start until heard (WriteLanes I31): two mapper calls at the next
   // boot with the jam on, then both heard, in the order owed, once the jam clears.
-  owed(
-    { step: "A1", red: "one try for each Kept row at the start" },
-    "two endings refused twice on one lane are two Kept rows, each tried once per start, both heard (WriteLanes I31, R10; WriteLanes T24)",
-    () => {
-      const store = new Map<string, string>();
-      const jam: Jam = { on: true, tries: [] };
-      const { served } = tollOver(jam, []);
-      const first = bootWith(served, store, 1);
+  it("two endings refused twice on one lane are two Kept rows, each tried once per start, both heard (WriteLanes I31, R10; WriteLanes T24)", () => {
+    const store = new Map<string, string>();
+    const jam: Jam = { on: true, tries: [] };
+    const { served } = tollOver(jam, []);
+    const first = bootWith(served, store, 1);
 
-      testing.attach(first.built, tolls, "host", false);
-      ring(first, "a");
-      const attempt = lastRing(first);
-      lost(first, attempt);
-      testing.send(first.built, tolls, "Again", { tone: "a" });
-      first.page.settle();
-      assert.deepStrictEqual(first.bell.rings, [attempt, attempt], "the Held Attempt is re-sent");
-      rung(first, attempt);
-      assert.strictEqual(jam.tries.length, 4, "each ending was tried twice");
+    testing.attach(first.built, tolls, "host", false);
+    ring(first, "a");
+    const attempt = lastRing(first);
+    lost(first, attempt);
+    testing.send(first.built, tolls, "Again", { tone: "a" });
+    first.page.settle();
+    assert.deepStrictEqual(first.bell.rings, [attempt, attempt], "the Held Attempt is re-sent");
+    rung(first, attempt);
+    assert.strictEqual(jam.tries.length, 4, "each ending was tried twice");
 
-      const before = jam.tries.length;
-      bootWith(served, store, 2);
-      assert.strictEqual(jam.tries.length - before, 2, "one try for each Kept row at the start");
+    const before = jam.tries.length;
+    bootWith(served, store, 2);
+    assert.strictEqual(jam.tries.length - before, 2, "one try for each Kept row at the start");
 
-      jam.on = false;
-      const third = bootWith(served, store, 3);
-      assert.deepStrictEqual(turnsOf(third.seen, ["Unsure", "Rang"]), ["Unsure", "Rang"]);
+    jam.on = false;
+    const third = bootWith(served, store, 3);
+    assert.deepStrictEqual(turnsOf(third.seen, ["Unsure", "Rang"]), ["Unsure", "Rang"]);
 
-      const fourth = bootWith(served, store, 4);
-      assert.deepStrictEqual(turnsOf(fourth.seen, ["Unsure", "Rang"]), [], "each heard once");
-    },
-  );
+    const fourth = bootWith(served, store, 4);
+    assert.deepStrictEqual(turnsOf(fourth.seen, ["Unsure", "Rang"]), [], "each heard once");
+  });
 
   // A-5. A Kept row (a success refused twice; its lane is Idle, so no Restored joins it) gets one
   // try at each start and is Kept again when refused (Actors R15, I24); once the jam clears it is
@@ -336,66 +332,58 @@ describe("the owed ledger on the production runtime (T54 pending cases)", () => 
     assert.strictEqual(jam.tries.length, 5, "a heard row is closed");
   });
 
-  // A-2 (step-1 review F1) and X-4, owed to A1. The chain leaves its next decline in the mail
+  // A-2 (step-1 review F1) and X-4. The chain leaves its next decline in the mail
   // between steps. disposeActor suspends the identity: the laneless row goes Waiting (WriteLanes
   // `algorithm` suspend: "rows with no lane included") and the adopting incarnation hears it
   // (Actors I41). Every knock committed is heard exactly once (WriteLanes I27, I29).
-  owed(
-    { step: "A1", red: "every knock committed is heard once" },
-    "a laneless ending in the mail at disposeActor waits and is heard once by the next incarnation (Actors I41, R8; WriteLanes I27, I29; Actors T22)",
-    () => {
-      const { served, ChainMachine } = chainOver(false, PAST_DRAIN, -1);
-      const b = bootWith(served, new Map(), 1);
+  it("a laneless ending in the mail at disposeActor waits and is heard once by the next incarnation (Actors I41, R8; WriteLanes I27, I29; Actors T22)", () => {
+    const { served, ChainMachine } = chainOver(false, PAST_DRAIN, -1);
+    const b = bootWith(served, new Map(), 1);
 
-      testing.attach(b.built, chained, "host", false);
-      testing.send(b.built, chained, "Go", {});
-      b.page.settle();
-      b.built.runtime.disposeActor(actorRef(ChainMachine, "c1"));
-      b.page.settle();
-      testing.attach(b.built, chained, "host", false);
-      b.page.settle();
+    testing.attach(b.built, chained, "host", false);
+    testing.send(b.built, chained, "Go", {});
+    b.page.settle();
+    b.built.runtime.disposeActor(actorRef(ChainMachine, "c1"));
+    b.page.settle();
+    testing.attach(b.built, chained, "host", false);
+    b.page.settle();
 
-      for (const _ of [1, 2, 3]) testing.send(b.built, chained, "Poke", {});
-      b.page.settle();
+    for (const _ of [1, 2, 3]) testing.send(b.built, chained, "Poke", {});
+    b.page.settle();
 
-      assert.strictEqual(
-        knocksHeard(b.seen),
-        knocksCommitted(b.seen),
-        "every knock committed is heard once",
-      );
-    },
-  );
+    assert.strictEqual(
+      knocksHeard(b.seen),
+      knocksCommitted(b.seen),
+      "every knock committed is heard once",
+    );
+  });
 
-  // A-2 at Runtime disposal, owed to A1: the backlog's laneless row goes Waiting, is saved with
+  // A-2 at Runtime disposal: the backlog's laneless row goes Waiting, is saved with
   // the identity, and the next boot's start delivers it (Actors I41, R22; WriteAhead R5).
-  owed(
-    { step: "A1", red: "every knock committed is heard once" },
-    "a laneless ending in the mail at Runtime disposal is saved and heard once after the reload (Actors I41, R22; WriteLanes I27)",
-    () => {
-      const store = new Map<string, string>();
-      const { served } = chainOver(true, PAST_DRAIN, -1);
-      const first = bootWith(served, store, 1);
+  it("a laneless ending in the mail at Runtime disposal is saved and heard once after the reload (Actors I41, R22; WriteLanes I27)", () => {
+    const store = new Map<string, string>();
+    const { served } = chainOver(true, PAST_DRAIN, -1);
+    const first = bootWith(served, store, 1);
 
-      testing.attach(first.built, chained, "host", false);
-      testing.send(first.built, chained, "Go", {});
-      first.page.settle();
-      testing.disposeRuntime(first.built);
-      first.page.settle();
+    testing.attach(first.built, chained, "host", false);
+    testing.send(first.built, chained, "Go", {});
+    first.page.settle();
+    testing.disposeRuntime(first.built);
+    first.page.settle();
 
-      const second = bootWith(served, store, 2);
-      testing.attach(second.built, chained, "host", true);
-      second.page.settle();
+    const second = bootWith(served, store, 2);
+    testing.attach(second.built, chained, "host", true);
+    second.page.settle();
 
-      for (const _ of [1, 2, 3]) testing.send(second.built, chained, "Poke", {});
-      second.page.settle();
+    for (const _ of [1, 2, 3]) testing.send(second.built, chained, "Poke", {});
+    second.page.settle();
 
-      assert.strictEqual(
-        knocksHeard(first.seen) + knocksHeard(second.seen),
-        knocksCommitted(first.seen) + knocksCommitted(second.seen),
-        "every knock committed is heard once",
-      );
-    },
-  );
+    assert.strictEqual(
+      knocksHeard(first.seen) + knocksHeard(second.seen),
+      knocksCommitted(first.seen) + knocksCommitted(second.seen),
+      "every knock committed is heard once",
+    );
+  });
 
   // A-3, owed to A2. A re-send waiting for its capture when the Runtime is disposed goes Held
   // (WriteLanes `algorithm`, disposal starts) and is saved Held, so the next boot wakes nothing
@@ -473,36 +461,32 @@ describe("the owed ledger on the production runtime (T54 pending cases)", () => 
     assert.deepStrictEqual(turnsOf(third.seen, ["NotRung", "Unsure"]), [], "heard once");
   });
 
-  // A-6, owed to A1. The success is applied to lane "a" when its call settles (WriteLanes I32),
+  // A-6. The success is applied to lane "a" when its call settles (WriteLanes I32),
   // so a cancel admitted before the success's turn finds the lane Idle and does nothing
   // (`algorithm`, cancel on Idle): the machine hears the success, never unknown { Cancelled }.
   // The chain's first turn after the settlement runs the cancel, before the success's turn.
-  owed(
-    { step: "A1", red: "the machine hears the success" },
-    "a cancel admitted between a success's settlement and its turn leaves it a success (WriteLanes I32, R10; WriteLanes T25)",
-    () => {
-      const { served } = chainOver(false, PAST_DRAIN, 9_999);
-      const b = bootWith(served, new Map(), 1);
+  it("a cancel admitted between a success's settlement and its turn leaves it a success (WriteLanes I32, R10; WriteLanes T25)", () => {
+    const { served } = chainOver(false, PAST_DRAIN, 9_999);
+    const b = bootWith(served, new Map(), 1);
 
-      testing.attach(b.built, chained, "host", false);
-      ring(b, "a", chained);
-      const attempt = lastRing(b);
-      testing.send(b.built, chained, "Go", {});
-      b.page.settle();
-      rung(b, attempt);
+    testing.attach(b.built, chained, "host", false);
+    ring(b, "a", chained);
+    const attempt = lastRing(b);
+    testing.send(b.built, chained, "Go", {});
+    b.page.settle();
+    rung(b, attempt);
 
-      assert.deepStrictEqual(
-        endingsOf(b.seen, attempt),
-        ["success success"],
-        "the machine hears the success",
-      );
-      assert.deepStrictEqual(
-        turnsOf(b.seen, ["Rang", "Unsure"]),
-        ["Rang"],
-        "the machine hears the success",
-      );
-    },
-  );
+    assert.deepStrictEqual(
+      endingsOf(b.seen, attempt),
+      ["success success"],
+      "the machine hears the success",
+    );
+    assert.deepStrictEqual(
+      turnsOf(b.seen, ["Rang", "Unsure"]),
+      ["Rang"],
+      "the machine hears the success",
+    );
+  });
 
   // A-10. Attempts have their own counter (WriteLanes R5, I35): the same commits give the same
   // Attempt ids whatever else is minted between them (an incarnation and its timers, a decline).
@@ -586,58 +570,50 @@ describe("the owed ledger on the production runtime (T54 pending cases)", () => 
     },
   );
 
-  // A-7 (step-1 review F2), owed to A1. A Rejected decline from the lane table has no lane
+  // A-7 (step-1 review F2). A Rejected decline from the lane table has no lane
   // (WriteLanes R10: "a declined commit has no Attempt and no lane"), so its Kept row blocks no
   // key (WriteLanes R6, I33): once the head resolves, a commit on the key mints.
-  owed(
-    { step: "A1", red: "the next commit on the key mints and is sent" },
-    "a table decline refused twice is a laneless Kept row that blocks no key (WriteLanes I33, R6, R10; WriteLanes T26)",
-    () => {
-      const jam: Jam = { on: true, tries: [] };
-      const { served } = tollOver(jam, []);
-      const b = bootWith(served, new Map(), 1);
+  it("a table decline refused twice is a laneless Kept row that blocks no key (WriteLanes I33, R6, R10; WriteLanes T26)", () => {
+    const jam: Jam = { on: true, tries: [] };
+    const { served } = tollOver(jam, []);
+    const b = bootWith(served, new Map(), 1);
 
-      testing.attach(b.built, tolls, "host", false);
-      ring(b, "a");
-      const attempt = lastRing(b);
-      ring(b, "a");
-      assert.strictEqual(jam.tries.length, 2, "the decline's turn is refused twice");
+    testing.attach(b.built, tolls, "host", false);
+    ring(b, "a");
+    const attempt = lastRing(b);
+    ring(b, "a");
+    assert.strictEqual(jam.tries.length, 2, "the decline's turn is refused twice");
 
-      jam.on = false;
-      rung(b, attempt);
-      ring(b, "a");
-      assert.strictEqual(b.bell.rings.length, 2, "the next commit on the key mints and is sent");
-    },
-  );
+    jam.on = false;
+    rung(b, attempt);
+    ring(b, "a");
+    assert.strictEqual(b.bell.rings.length, 2, "the next commit on the key mints and is sent");
+  });
 
-  // A-7's opposite case (step-1 review F2), owed to A1. A never-sent Attempt's NotSent row keeps
+  // A-7's opposite case (step-1 review F2). A never-sent Attempt's NotSent row keeps
   // its lane, so when Kept it blocks the key (WriteLanes R6, I33): the next commit declines
   // Rejected and nothing is sent.
-  owed(
-    { step: "A1", red: "the Kept row blocks its key" },
-    "a never-sent Attempt's NotSent, refused twice, is a Kept row on its lane that blocks its key (WriteLanes I33, R6)",
-    () => {
-      const jam: Jam = { on: true, tries: [] };
-      const { served } = tollOver(jam, []);
-      const b = bootWith(served, new Map(), 1);
+  it("a never-sent Attempt's NotSent, refused twice, is a Kept row on its lane that blocks its key (WriteLanes I33, R6)", () => {
+    const jam: Jam = { on: true, tries: [] };
+    const { served } = tollOver(jam, []);
+    const b = bootWith(served, new Map(), 1);
 
-      testing.attach(b.built, tolls, "host", false);
-      testing.send(b.built, tolls, "Ring", { tone: "a" });
-      testing.send(b.built, tolls, "Stop", { tone: "a" });
-      b.page.settle();
-      assert.strictEqual(jam.tries.length, 2, "the NotSent { Cancelled } turn is refused twice");
+    testing.attach(b.built, tolls, "host", false);
+    testing.send(b.built, tolls, "Ring", { tone: "a" });
+    testing.send(b.built, tolls, "Stop", { tone: "a" });
+    b.page.settle();
+    assert.strictEqual(jam.tries.length, 2, "the NotSent { Cancelled } turn is refused twice");
 
-      jam.on = false;
-      ring(b, "a");
-      assert.deepStrictEqual(b.bell.rings, [], "the Kept row blocks its key");
-      assert.deepStrictEqual(
-        b.seen.flatMap((e) =>
-          e._tag === "Ended" && Option.isNone(e.attempt) ? [`${e.channel} ${e.reason}`] : [],
-        ),
-        ["failure Rejected"],
-      );
-    },
-  );
+    jam.on = false;
+    ring(b, "a");
+    assert.deepStrictEqual(b.bell.rings, [], "the Kept row blocks its key");
+    assert.deepStrictEqual(
+      b.seen.flatMap((e) =>
+        e._tag === "Ended" && Option.isNone(e.attempt) ? [`${e.channel} ${e.reason}`] : [],
+      ),
+      ["failure Rejected"],
+    );
+  });
 
   // X-5 (A0 review item 5). A head restored Held after a reload was sent before (WriteLanes I36),
   // so when its retry's re-send is answered with a definite failure, that ending is delivered as

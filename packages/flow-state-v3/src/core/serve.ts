@@ -4,11 +4,17 @@ import { Evidence, type Member } from "./evidence.ts";
 import { Resolved, runTurn, TurnResult } from "./turn.ts";
 import { isInFlight, ROOT_ACTIVATION, type Tx, without } from "./tx.ts";
 import { isDecline } from "./vocabulary.ts";
-import { Act, evidenceOf } from "./evidence-of.ts";
-import { actorKey, type Ending, type Incarnation, Mail, Tries } from "./world.ts";
+import type { Heard, LedgerSteps, Owed } from "./ledger.ts";
+import { actorKey, type Incarnation, Mail } from "./world.ts";
 import type { Persistence } from "./persist.ts";
 import type { LaneSteps } from "./lanes.ts";
 import type { IncarnationSteps } from "./incarnations.ts";
+
+const HEARD: Heard = "Heard";
+
+const REFUSED: Heard = "Refused";
+
+const UNMAPPED: Heard = "Unmapped";
 
 /**
  * Serving mail: each admitted event or ending runs as one turn.
@@ -18,15 +24,19 @@ export const makeServe = (
   persistence: Persistence,
   lanes: LaneSteps,
   incarnations: IncarnationSteps,
+  ledger: LedgerSteps,
 ) => {
-  const { incarnationOf, endingMail } = tx;
-  const { saveActor, park } = persistence;
-  const { commit, retry, cancel, lookup, flushLanes, admit, keepEnding, viewOf } = lanes;
+  const { incarnationOf } = tx;
+  const { saveActor } = persistence;
+  const { commit, retry, cancel, lookup, flushLanes, viewOf } = lanes;
   const { armSchedules, stopSchedules, setIncarnation, publish } = incarnations;
 
   // ── serving mail.
   // RETURN_TYPE: an Option of the operation's mapping, whichever channel selects it.
-  const endingMapping = (operation: Operation, ending: Ending): Option.Option<Mapping> => {
+  const endingMapping = (
+    operation: Operation,
+    ending: Pick<Owed, "channel" | "reason">,
+  ): Option.Option<Mapping> => {
     if (ending.channel === "success") return Option.some(operation.success);
 
     if (ending.channel === "failure")
@@ -48,12 +58,12 @@ export const makeServe = (
     route: {
       readonly late: boolean;
       readonly own: Option.Option<string>;
-      readonly ending: Option.Option<Ending>;
+      readonly ending: Option.Option<Owed>;
     },
   ) => {
     const compiled = tx.machines.get(incarnation.actor.machine);
 
-    if (compiled === undefined) return;
+    if (compiled === undefined) return HEARD;
 
     const strands = [...tx.world().lanes.values()].some(
       (l) =>
@@ -74,10 +84,17 @@ export const makeServe = (
       leavingStrandsWork: strands,
     });
 
-    TurnResult.$match(result, {
-      Unhandled: () => tx.emit(Evidence.Unhandled({ actor: incarnation.actor, event: tag })),
-      Denied: ({ reasons }) =>
-        tx.emit(Evidence.Denied({ actor: incarnation.actor, event: tag, reasons })),
+    return TurnResult.$match(result, {
+      Unhandled: () => {
+        tx.emit(Evidence.Unhandled({ actor: incarnation.actor, event: tag }));
+
+        return HEARD;
+      },
+      Denied: ({ reasons }) => {
+        tx.emit(Evidence.Denied({ actor: incarnation.actor, event: tag, reasons }));
+
+        return HEARD;
+      },
       Refused: ({ code }) => {
         tx.emit(
           Evidence.Issue({
@@ -90,10 +107,7 @@ export const makeServe = (
           }),
         );
 
-        Option.match(route.ending, {
-          onNone: () => undefined,
-          onSome: (e) => refused(incarnation, e),
-        });
+        return REFUSED;
       },
       Accepted: (accepted) => {
         const entered = Option.isSome(accepted.target);
@@ -148,42 +162,23 @@ export const makeServe = (
           publish(after);
         saveActor(after.actor);
         flushLanes(after.actor);
+
+        return HEARD;
       },
     });
   };
 
-  // A refused turn of an ending: its first refusal redelivers it once after queued mail, its
-  // last keeps it on its lane.
-  const refused = (incarnation: Incarnation, ending: Ending) => {
-    if (Tries.$is("Last")(ending.tries)) keepEnding(incarnation.actor, ending);
-    else endingMail(incarnation.actor, { ...ending, tries: Tries.Last() });
-  };
-
-  const serveEnding = (incarnation: Incarnation, admitted: Ending) => {
+  // One try of an owed row: its mapped event's turn. An unmapped row is recorded as evidence by
+  // its close; a mapper that throws refuses the turn.
+  const serveEnding = (incarnation: Incarnation, ending: Owed) => {
     const compiled = tx.machines.get(incarnation.actor.machine);
-    const operation = compiled?.operations.get(admitted.operation);
+    const operation = compiled?.operations.get(ending.operation);
 
-    if (operation === undefined) return;
-
-    const first = Tries.$is("First")(admitted.tries);
-    const ending = first ? admit(admitted) : admitted;
-
-    if (first)
-      for (const e of evidenceOf(Act.Ended({ actor: incarnation.actor, ending }))) tx.emit(e);
+    if (operation === undefined) return UNMAPPED;
 
     const mapping = endingMapping(operation, ending);
 
-    if (Option.isNone(mapping)) {
-      tx.emit(
-        Evidence.Recorded({
-          operation: ending.operation,
-          attempt: ending.attempt,
-          why: "evidence",
-        }),
-      );
-
-      return;
-    }
+    if (Option.isNone(mapping)) return UNMAPPED;
 
     const payload = Option.match(mapping.value.from, {
       onNone: () => Result.succeed<Values>({}),
@@ -212,15 +207,13 @@ export const makeServe = (
         }),
       );
 
-      refused(incarnation, ending);
-
-      return;
+      return REFUSED;
     }
 
     const alive =
       ending.current || ending.owner === ROOT_ACTIVATION || ending.owner === incarnation.activation;
 
-    turn(incarnation, mapping.value.event, payload.success, {
+    return turn(incarnation, mapping.value.event, payload.success, {
       late: !alive,
       own: ending.lane,
       ending: Option.some(ending),
@@ -255,21 +248,11 @@ export const makeServe = (
         setIncarnation(left);
         turn(left, armed.send, {}, { late: false, own: Option.none(), ending: Option.none() });
       },
-      Ending: ({ actor, ending }) => {
+      Ending: ({ actor, id }) => {
         const incarnation = incarnationOf(actor);
 
-        if (incarnation !== undefined) {
-          serveEnding(incarnation, ending);
-
-          return;
-        }
-
-        // No incarnation to hear it: the ending waits on its lane for the next one.
-        const decided = Tries.$is("First")(ending.tries) ? admit(ending) : ending;
-        Option.match(decided.lane, {
-          onNone: () => undefined,
-          onSome: (lane) => park(actor, lane, decided.operation, decided),
-        });
+        // A row is in the mailbox only while its identity can hear it; every end suspends it.
+        if (incarnation !== undefined) ledger.tryOne(id, (row) => serveEnding(incarnation, row));
       },
     });
 

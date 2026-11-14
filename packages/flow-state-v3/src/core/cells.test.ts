@@ -28,11 +28,10 @@ const phases = {
   Held: Phase.Held(),
 };
 
-type StateName = "Idle" | "Kept" | keyof typeof phases;
+type StateName = "Idle" | keyof typeof phases;
 
 const states: ReadonlyArray<StateName> = [
   "Idle",
-  "Kept",
   "Acknowledging",
   "Unsent",
   "Withdrawing",
@@ -43,25 +42,10 @@ const states: ReadonlyArray<StateName> = [
   "Held",
 ];
 
-const stateOf = (name: StateName, sent = false) => {
-  if (name === "Idle") return LaneState.Idle();
-
-  return name === "Kept"
-    ? LaneState.Kept()
+const stateOf = (name: StateName, sent = false) =>
+  name === "Idle"
+    ? LaneState.Idle()
     : LaneState.Head({ head: head(phases[name], sent || name === "Held") });
-};
-
-const ending = {
-  operation: "ring",
-  attempt: Option.none<string>(),
-  lane: Option.none<string>(),
-  channel: "failure" as const,
-  reason: "Rejected",
-  value: undefined,
-  owner: 0,
-  current: true,
-  tries: { _tag: "Last" as const },
-};
 
 // A move as the row states it: its tag and the fields the Spec rule fixes.
 const shown = (move: Move) => {
@@ -73,22 +57,17 @@ const shown = (move: Move) => {
 
   if (move._tag === "Become") return `Become ${move.phase._tag}`;
 
-  if (move._tag === "Hold") return `Hold ${move.reason}`;
-
-  if (move._tag === "Queue") return `Queue ${move.channel} ${move.reason}`;
-
-  if (move._tag !== "Park") return move._tag;
+  if (move._tag !== "Answer") return move._tag;
   const interrupts = Option.isSome(move.interrupt) ? " interrupt" : "";
 
-  return `Park ${move.channel} ${move.reason}${interrupts}`;
+  return `Answer ${move.channel} ${move.reason}${interrupts}`;
 };
 
 const allOf = (move: string) => Object.fromEntries(states.map((s) => [s, move]));
 
 // Each row is written from WriteLanes `algorithm` `cell` (the Spec's input on the left, in
-// today's cue and move names), for the cells that exist under reject and the cancel policy
-// today. The Kept row, `Settled` and `Ended`, `Keep` and the cancel policy's commit go in A1 (one
-// `Answered` cue, the ledger) or are T18's; their rows state today's behaviour.
+// today's cue and move names), for the cells that exist under reject and the cancel policy.
+// A Kept row's decline and its let-go on cancel come before the table (WriteLanes R6, R14).
 const rows: ReadonlyArray<{
   readonly cue: string;
   readonly of: Cue;
@@ -120,14 +99,13 @@ const rows: ReadonlyArray<{
   },
   // cancel: Idle nothing; Acknowledging goes Withdrawing; Unsent ends NotSent { Cancelled };
   // Recapturing, Resending and Held are released; OnWire is interrupted; Withdrawing and
-  // Cancelling stay (R14). A Kept row is let go (R14, outside the cell after A1).
+  // Cancelling stay (R14). An Idle lane's Kept rows are let go outside the cell (R14).
   {
     cue: "cancel",
     sent: false,
     of: Cue.Cancel(),
     expected: {
       Idle: "Stay",
-      Kept: "LetGo",
       Acknowledging: "Withdraw",
       Unsent: "EndUnsent Cancelled",
       Withdrawing: "Stay",
@@ -172,62 +150,41 @@ const rows: ReadonlyArray<{
       Recapturing: "HoldRefused",
     },
   },
-  // answered, while open: OnWire owes the call's own ending; Cancelling owes unknown
-  // { Cancelled } (today's; I41's as-is delivery is T18's); impossible elsewhere.
+  // answered, in the step the call settles: OnWire owes the call's own ending (a success drops
+  // the lane, an unknown holds it); Cancelling owes unknown { Cancelled } (today's; I41's as-is
+  // delivery is T18's); impossible elsewhere (R2, R10).
   {
     cue: "answered-success",
     sent: false,
-    of: Cue.Settled({ channel: "success", reason: "success", value: 1, route: "queue" }),
+    of: Cue.Answered({ channel: "success", reason: "success", value: 1 }),
     expected: {
       ...allOf("Impossible"),
-      OnWire: "Queue success success",
-      Cancelling: "Queue unknown Cancelled",
+      OnWire: "Answer success success",
+      Cancelling: "Answer unknown Cancelled",
     },
   },
-  // answered while disposing: owed to the identity as the Attempt delivers it.
+  // a definite failure after an earlier send of the Attempt is unknown StillUnknown (R2, I36).
   {
-    cue: "answered-disposing",
-    of: Cue.Settled({ channel: "failure", reason: "CardDeclined", value: 1, route: "park" }),
+    cue: "answered-failure-after-send",
+    of: Cue.Answered({ channel: "failure", reason: "CardDeclined", value: 1 }),
     sent: true,
     expected: {
       ...allOf("Impossible"),
-      OnWire: "Park unknown StillUnknown",
-      Cancelling: "Park unknown Cancelled",
+      OnWire: "Answer unknown StillUnknown",
+      Cancelling: "Answer unknown Cancelled",
     },
   },
-  // the ending applied to its lane: a success resolves OnWire; a definite failure after an
-  // earlier send is unknown StillUnknown and holds (R2); Cancelling holds as Cancelled. Lanes
-  // the ending no longer heads stay.
+  // a definite failure of a first send is owed as it is.
   {
-    cue: "applied-success",
+    cue: "answered-failure",
+    of: Cue.Answered({ channel: "failure", reason: "CardDeclined", value: 1 }),
     sent: false,
-    of: Cue.Ended({ channel: "success", reason: "success" }),
     expected: {
-      ...allOf("Stay"),
-      Acknowledging: "Impossible",
-      Unsent: "Impossible",
-      Withdrawing: "Impossible",
-      OnWire: "Resolve",
-      Cancelling: "Hold Cancelled",
-      Held: "Resolve",
+      ...allOf("Impossible"),
+      OnWire: "Answer failure CardDeclined",
+      Cancelling: "Answer unknown Cancelled",
     },
   },
-  {
-    cue: "applied-failure-after-send",
-    of: Cue.Ended({ channel: "failure", reason: "CardDeclined" }),
-    sent: true,
-    expected: {
-      ...allOf("Stay"),
-      Acknowledging: "Impossible",
-      Unsent: "Impossible",
-      Withdrawing: "Impossible",
-      OnWire: "Hold StillUnknown",
-      Cancelling: "Hold Cancelled",
-      Held: "Hold StillUnknown",
-    },
-  },
-  // a twice-refused ending is kept, beside any head (R10; a ledger row after A1).
-  { cue: "keep", sent: false, of: Cue.Keep({ ending }), expected: allOf("Keep") },
   // disposal starts: Acknowledging, Unsent and Withdrawing end NotSent { Disposed };
   // Recapturing and Resending go Held; OnWire, Cancelling, Held and Idle stay (Actors R22).
   {
@@ -251,8 +208,8 @@ const rows: ReadonlyArray<{
     of: Cue.BoundPassed(),
     expected: {
       ...allOf("Stay"),
-      OnWire: "Park unknown Disposed interrupt",
-      Cancelling: "Park unknown Disposed interrupt",
+      OnWire: "Answer unknown Disposed interrupt",
+      Cancelling: "Answer unknown Disposed interrupt",
     },
   },
 ];

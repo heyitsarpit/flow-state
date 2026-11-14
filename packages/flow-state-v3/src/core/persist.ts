@@ -1,14 +1,14 @@
 import { Option } from "effect";
 import type { Values } from "./compiled.ts";
-import { Act, evidenceOf } from "./evidence-of.ts";
-import { Evidence } from "./evidence.ts";
+import { Delivery, rowsOf } from "./ledger.ts";
 import {
   actorRecordKey,
   encodeActor,
   encodeLane,
-  encodeParked,
+  encodeRows,
   keptRecordKey,
   laneRecordKey,
+  lanelessKey,
   parkedRecordKey,
 } from "./record.ts";
 import { SILENT_MS, type Tx, without, withEntry } from "./tx.ts";
@@ -18,14 +18,11 @@ import {
   type ActorRecord,
   Command,
   Due,
-  type Ending,
   type Incarnation,
   type Lane,
-  type Parked,
   type Ticket,
   type TicketId,
   Timer,
-  Tries,
   type Write,
 } from "./world.ts";
 
@@ -123,61 +120,38 @@ export const makePersistence = (tx: Tx) => {
     persist(lane.actor, [laneWrite(id, lane, true)], Due.Later());
   };
 
-  const parkedWrite = (parked: Parked, kept: boolean) => ({
-    key: kept ? keptRecordKey(parked.lane) : parkedRecordKey(parked.lane),
-    record: Option.some(encodeParked(parked, kept)),
-  });
-
   /**
-   * Keeps a twice-refused ending on its lane: it blocks its key and gets one try at the next
-   * boot or adoption.
+   * Writes the Waiting rows, or the Kept rows, an identity owes on one lane (a decline's, with no
+   * lane, under its operation's laneless key), or removes the record when there are none.
    */
-  const keep = (lane: string, actor: ActorId, ending: Ending) => {
-    const kept: Parked = {
-      lane,
+  const saveRows = (
+    actor: ActorId,
+    operation: string,
+    lane: Option.Option<string>,
+    kept: boolean,
+  ) => {
+    const at = Option.getOrElse(lane, () => lanelessKey(actor, operation));
+
+    const rows = rowsOf(tx.world().owed, actor).filter(
+      (r) =>
+        r.operation === operation &&
+        Option.getOrElse(r.lane, () => lanelessKey(actor, operation)) === at &&
+        (kept ? Delivery.$is("Kept")(r.delivery) : Delivery.$is("Waiting")(r.delivery)),
+    );
+
+    persist(
       actor,
-      operation: ending.operation,
-      endings: [{ ...ending, tries: Tries.Last() }],
-    };
-
-    tx.set({ ...tx.world(), kept: withEntry(tx.world().kept, lane, kept) });
-    persist(actor, [parkedWrite(kept, true)], Due.Later());
-  };
-
-  /**
-   * Lets a lane's parked endings go, with their record.
-   */
-  const unpark = (actor: ActorId, lane: string) => {
-    tx.set({ ...tx.world(), parked: without(tx.world().parked, lane) });
-    persist(actor, [{ key: parkedRecordKey(lane), record: Option.none() }], Due.Later());
-  };
-
-  /**
-   * Lets a lane's kept ending go, with its record.
-   */
-  const unkeep = (actor: ActorId, lane: string) => {
-    tx.set({ ...tx.world(), kept: without(tx.world().kept, lane) });
-    persist(actor, [{ key: keptRecordKey(lane), record: Option.none() }], Due.Later());
-  };
-
-  /**
-   * Parks an ending on its lane for the identity's next incarnation.
-   */
-  const park = (actor: ActorId, lane: string, operation: string, ending: Ending) => {
-    const before = tx.world().parked.get(lane);
-
-    const parked: Parked = {
-      lane,
-      actor,
-      operation,
-      endings: [...(before?.endings ?? []), { ...ending, tries: Tries.Parked() }],
-    };
-
-    tx.set({ ...tx.world(), parked: withEntry(tx.world().parked, lane, parked) });
-
-    for (const e of evidenceOf(Act.Ended({ actor, ending }))) tx.emit(e);
-    tx.emit(Evidence.Parked({ operation, attempt: ending.attempt }));
-    persist(actor, [parkedWrite(parked, false)], Due.Later());
+      [
+        {
+          key: kept ? keptRecordKey(at) : parkedRecordKey(at),
+          record:
+            rows.length === 0
+              ? Option.none()
+              : Option.some(encodeRows(actor, operation, at, rows, kept)),
+        },
+      ],
+      Due.Later(),
+    );
   };
 
   return {
@@ -189,10 +163,7 @@ export const makePersistence = (tx: Tx) => {
     saveActor,
     setLane,
     dropLane,
-    keep,
-    unpark,
-    unkeep,
-    park,
+    saveRows,
   };
 };
 

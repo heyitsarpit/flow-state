@@ -1,15 +1,16 @@
 import { Option, Result, Schema, Struct } from "effect";
 import type { Compiled, Values } from "./compiled.ts";
 import { Channel, ScheduleDeadline } from "./vocabulary.ts";
+import type { Owed } from "./ledger.ts";
 import {
+  type ActorId,
   type ActorRecord,
   actorKey,
   type Incarnation,
   type Lane,
   laneId,
-  type Parked,
   Phase,
-  Tries,
+  sentBefore,
 } from "./world.ts";
 
 /**
@@ -66,18 +67,32 @@ export const parkedRecordKey = (lane: string) => `parked/${lane}`;
 export const keptRecordKey = (lane: string) => `kept/${lane}`;
 
 /**
- * A lane's parked or kept endings as JSON data; an ending whose value JSON cannot carry keeps
- * `null`.
+ * The lane key a decline's rows are saved under: they have no lane.
+ */
+export const lanelessKey = (actor: ActorId, operation: string) =>
+  laneId(actor, operation, LANELESS);
+
+const LANELESS = "~";
+
+/**
+ * An identity's Waiting or Kept rows on one lane as JSON data; an ending whose value JSON cannot
+ * carry keeps `null`.
  */
 // RETURN_TYPE: a parked record is JSON data for the store.
-export const encodeParked = (parked: Parked, kept: boolean): Values => ({
+export const encodeRows = (
+  actor: ActorId,
+  operation: string,
+  lane: string,
+  rows: ReadonlyArray<Pick<Owed, "attempt" | "channel" | "reason" | "value">>,
+  kept: boolean,
+): Values => ({
   format: FORMAT,
-  machine: parked.actor.machine,
-  name: parked.actor.name,
-  operation: parked.operation,
-  lane: parked.lane,
+  machine: actor.machine,
+  name: actor.name,
+  operation,
+  lane,
   kept,
-  endings: parked.endings.map((e) => ({
+  endings: rows.map((e) => ({
     attempt: Option.getOrNull(e.attempt),
     channel: e.channel,
     reason: e.reason,
@@ -136,7 +151,7 @@ export const encodeLane = (compiled: Compiled, lane: Lane) => {
       attempt: lane.head.id,
       input,
       retryCount: lane.head.retryCount,
-      mayHaveApplied: lane.head.mayHaveApplied,
+      mayHaveApplied: sentBefore(lane.head),
       inFlight: !Phase.$is("Held")(lane.head.phase),
     })),
   );
@@ -157,10 +172,15 @@ export type Restored = {
     readonly lane: Lane;
     readonly inFlight: boolean;
   }>;
-  readonly parked: ReadonlyArray<Parked>;
-  readonly kept: ReadonlyArray<Parked>;
+  readonly rows: ReadonlyArray<RestoredRow>;
   readonly undecodable: ReadonlySet<string>;
 };
+
+/**
+ * A saved Waiting or Kept row as a boot reads it back: owed to its identity, delivered current
+ * from the active leaf.
+ */
+export type RestoredRow = Omit<Owed, "id" | "delivery" | "to"> & { readonly kept: boolean };
 
 /**
  * Decodes the store's records with the machines they name.
@@ -195,26 +215,23 @@ export const decodeRecords = (
     });
 
   // FLOW_STATE_ALLOW_UNKNOWN: one stored value, decoded by the Schema its key names.
-  const parkedRecord = (value: unknown) =>
-    Option.map(Result.getSuccess(Schema.decodeUnknownResult(ParkedJson)(value)), (r) => ({
-      kept: r.kept,
-      parked: {
-        lane: r.lane,
-        actor: { machine: r.machine, name: r.name },
+  const rowsRecord = (value: unknown) =>
+    Option.map(Result.getSuccess(Schema.decodeUnknownResult(ParkedJson)(value)), (r) => {
+      const actor = { machine: r.machine, name: r.name };
+
+      return r.endings.map((e) => ({
+        kept: r.kept,
+        actor,
         operation: r.operation,
-        endings: r.endings.map((e) => ({
-          operation: r.operation,
-          attempt: Option.fromNullOr(e.attempt),
-          lane: Option.some(r.lane),
-          channel: e.channel,
-          reason: e.reason,
-          value: e.value,
-          owner: 0,
-          current: true,
-          tries: Tries.Parked(),
-        })),
-      } satisfies Parked,
-    }));
+        attempt: Option.fromNullOr(e.attempt),
+        lane: r.lane === lanelessKey(actor, r.operation) ? Option.none() : Option.some(r.lane),
+        channel: e.channel,
+        reason: e.reason,
+        value: e.value,
+        owner: 0,
+        current: true,
+      })) satisfies ReadonlyArray<RestoredRow>;
+    });
 
   // FLOW_STATE_ALLOW_UNKNOWN: one stored value, decoded by the Schema its key names.
   const laneRecord = (value: unknown) =>
@@ -242,7 +259,6 @@ export const decodeRecords = (
           id: r.attempt,
           input,
           retryCount: r.retryCount,
-          mayHaveApplied: r.mayHaveApplied,
           owner: 0,
           phase: Phase.Held(),
         },
@@ -260,7 +276,7 @@ export const decodeRecords = (
     );
 
   const records = of("actor/", actorRecord);
-  const parkedRecords = [...of("parked/", parkedRecord), ...of("kept/", parkedRecord)];
+  const rows = [...of("parked/", rowsRecord), ...of("kept/", rowsRecord)].flat();
   const decoded = new Set(records.map((r) => actorRecordKey(actorKey(r.actor))));
 
   return {
@@ -271,7 +287,6 @@ export const decodeRecords = (
       ),
     ),
     lanes: of("lane/", laneRecord),
-    parked: parkedRecords.flatMap((p) => (p.kept ? [] : [p.parked])),
-    kept: parkedRecords.flatMap((p) => (p.kept ? [p.parked] : [])),
+    rows,
   };
 };

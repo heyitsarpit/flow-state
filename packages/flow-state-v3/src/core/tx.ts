@@ -5,9 +5,8 @@ import {
   type ActorId,
   actorKey,
   Command,
-  type Ending,
   type Lane,
-  Mail,
+  type Mail,
   type Out,
   Phase,
   type Timer,
@@ -157,7 +156,6 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     lanesOf: (actor: ActorId) =>
       [...world.lanes].filter(([, l]) => actorKey(l.actor) === actorKey(actor)),
     enqueue,
-    endingMail: (actor: ActorId, ending: Ending) => enqueue(Mail.Ending({ actor, ending })),
   };
 };
 
