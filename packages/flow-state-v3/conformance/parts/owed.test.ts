@@ -96,6 +96,79 @@ describe("an owed row excuses only the Attempts it names (Conformance R22)", () 
       faults.join("\n"),
     );
   });
+
+  it("each kept violation cancels one failure line, so an unowed one with the same text fails", () => {
+    const text = "delivered-once: WriteLanes I15: lost (at send Send)";
+
+    const row = {
+      case: "PART-x-usual-1",
+      check: "delivered-once",
+      invariant: "WriteLanes I15",
+      why: "a planted bug",
+      owner: "@task.V3.T19",
+      subjects: ["att-1"],
+    };
+
+    const kept = {
+      oracle: row.check,
+      invariant: row.invariant,
+      subject: Option.some("att-1"),
+      text,
+    };
+
+    const run = {
+      verdict: {
+        _tag: "Fail" as const,
+        id: row.case,
+        oracles: [row.check],
+        why: `seed 1: ${text} | ${text}`,
+      },
+      facts: [],
+      skipped: 0,
+      undecided: [],
+      kept: [kept],
+    };
+
+    const faults = partFaults([{ ...passed(row.case), run }], [row], new Set([row.case]));
+
+    assert.equal(faults.filter((f) => f.includes("which no owed row names")).length, 1);
+  });
+
+  it("a subject a row lists once excuses one violation, so a further break on that lane fails", () => {
+    const transfers = parts.find((p) => p.name === "transfers");
+    assert.ok(transfers !== undefined);
+    const script = scriptOf(transfers, "stress", 104, production);
+    const lane = "Bank/Transfers acct-2 transfer";
+    const rows = partsOwed.filter((o) => o.case === script.id);
+
+    const judged = (subjects: (s: ReadonlyArray<string>) => ReadonlyArray<string>) => {
+      const given = rows.map((o) =>
+        o.invariant === "WriteLanes I15" ? { ...o, subjects: subjects(o.subjects) } : o,
+      );
+
+      return partFaults(
+        [{ script, run: playPart(script, "production", undefined, given) }],
+        given,
+        new Set([script.id]),
+      );
+    };
+
+    const once = (s: ReadonlyArray<string>) => [...s.filter((x) => x !== lane), lane];
+
+    const thrice = (s: ReadonlyArray<string>) => [...s, lane];
+
+    assert.deepEqual(
+      judged((s) => s),
+      [],
+    );
+    assert.ok(judged(thrice).some((f) => f.includes(`lists ${lane} 3 times, but it broke 2`)));
+    assert.ok(
+      judged(once).some(
+        (f) => f.includes("WriteLanes I15") && f.includes("which no owed row names"),
+      ),
+      judged(once).join("\n"),
+    );
+  });
 });
 
 describe("an owed run that times out is a fault, whatever it kept (Conformance R8, R22)", () => {

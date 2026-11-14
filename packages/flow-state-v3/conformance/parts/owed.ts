@@ -3,7 +3,8 @@ import type { Limit } from "../limits.ts";
 /**
  * One owed row of a part script (Conformance R22): a {@link Limit} with the Task that owns it and
  * the subjects (Attempts, actors or lanes) whose violations it excuses, so a new break of the same
- * check and Invariant on another subject still fails the run.
+ * check and Invariant on another subject still fails the run. An actor or lane is listed once per
+ * violation seen, since it names no one Attempt; each listing excuses one.
  */
 export type PartOwed = Limit & {
   readonly owner: string;
@@ -185,6 +186,7 @@ const OWED_SUBJECTS = {
   "PART-transfers-stress-101|lane-queue|WriteLanes I12": ["att-101004-3"],
   "PART-transfers-stress-104|delivered-once|Restore I6": ["att-104001-18"],
   "PART-transfers-stress-104|delivered-once|WriteLanes I15": [
+    "Bank/Transfers acct-2 transfer",
     "Bank/Transfers acct-2 transfer",
     "att-104001-18",
     "att-104004-34",

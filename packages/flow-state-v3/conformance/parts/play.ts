@@ -5,6 +5,7 @@ import { captureMsOf } from "../actors/lifetime.scenarios.ts";
 import { nullPort } from "../adapters/null.ts";
 import { productionPort } from "../adapters/production.ts";
 import { openCase } from "../dsl/case.ts";
+import { namesNoAttempt } from "../dsl/lifecycle-model.ts";
 import { type Rules, rules } from "../dsl/lifecycle-rules.ts";
 import { Fact } from "../dsl/oracle.ts";
 import { type Script, scenarioOf } from "../dsl/script.ts";
@@ -57,8 +58,9 @@ export const worldSeedOf = (id: string) => Number(/-(\d+)(?:-shrunk)?$/u.exec(id
  *
  * The world runs at the script's own seed ({@link worldSeedOf}), so one script seed fixes the
  * run (R8). `given` are the lifecycle tables the model applies: the design's, or a model mutant
- * (R19). A violation one of the script's `owed` rows names (its check, Invariant and subject)
- * does not stop the run: it is kept, the run is judged to its end, and the verdict fails by every
+ * (R19). A violation one of the script's `owed` rows names (its check, Invariant and subject;
+ * a subject that names no Attempt, a lane or an actor, excuses one violation per listing) does
+ * not stop the run: it is kept, the run is judged to its end, and the verdict fails by every
  * kept one beside whatever else failed, so a row holds only over the run's sole failures.
  */
 // RETURN_TYPE: both branches build the named Played, the refusal with an empty fact list.
@@ -84,6 +86,26 @@ export const playPart = (
 
   let skipped = 0;
   const seed = worldSeedOf(script.id);
+  const spent: Array<readonly [PartOwed, string]> = [];
+
+  const excuse = (oracle: string, invariant: string, subject: Option.Option<string>) =>
+    runtime === "production" &&
+    Option.exists(subject, (s) => {
+      const row = owed.find(
+        (o) =>
+          o.case === script.id &&
+          o.check === oracle &&
+          o.invariant === invariant &&
+          (namesNoAttempt(s)
+            ? o.subjects.filter((x) => x === s).length >
+              spent.filter(([r, x]) => r === o && x === s).length
+            : o.subjects.includes(s)),
+      );
+
+      if (row !== undefined) spent.push([row, s]);
+
+      return row !== undefined;
+    });
 
   const scenario = scenarioOf(script, fixtures, () => {
     skipped += 1;
@@ -101,15 +123,7 @@ export const playPart = (
     captureMs: captureMsOf(scenario.id),
     rules: given,
     judge: true,
-    excuse: (oracle, invariant, subject) =>
-      runtime === "production" &&
-      owed.some(
-        (o) =>
-          o.case === script.id &&
-          o.check === oracle &&
-          o.invariant === invariant &&
-          Option.exists(subject, (s) => o.subjects.includes(s)),
-      ),
+    excuse,
   });
 
   const ran = Result.try({
@@ -193,17 +207,39 @@ const owes = (row: PartOwed, kept: Played["kept"][number]) =>
   kept.invariant === row.invariant &&
   Option.exists(kept.subject, (s) => row.subjects.includes(s));
 
-const unowedFailures = (run: Played, rows: ReadonlyArray<PartOwed>) =>
-  run.verdict._tag === "Fail"
-    ? run.verdict.why
-        .replace(/^seed \d+: /u, "")
-        .split(" | ")
-        .filter(
-          (failure) => !run.kept.some((k) => k.text === failure && rows.some((r) => owes(r, k))),
-        )
-    : [];
+const unowedFailures = (run: Played, rows: ReadonlyArray<PartOwed>) => {
+  if (run.verdict._tag !== "Fail") return [];
+
+  const owed = run.kept.filter((k) => rows.some((r) => owes(r, k))).map((k) => k.text);
+
+  return run.verdict.why
+    .replace(/^seed \d+: /u, "")
+    .split(" | ")
+    .filter((failure) => {
+      const at = owed.indexOf(failure);
+
+      if (at >= 0) owed.splice(at, 1);
+
+      return at < 0;
+    });
+};
 
 const heldBy = (row: PartOwed, run: Played) => run.kept.some((k) => owes(row, k));
+
+const spareListings = (row: PartOwed, run: Played) =>
+  [...new Set(row.subjects.filter(namesNoAttempt))].flatMap((subject) => {
+    const listed = row.subjects.filter((s) => s === subject).length;
+
+    const broke = run.kept.filter(
+      (k) => owes(row, k) && Option.contains(k.subject, subject),
+    ).length;
+
+    return broke < listed
+      ? [
+          `BAD  ${row.case}: ${row.check} ${row.invariant} lists ${subject} ${listed} times, but it broke ${broke}`,
+        ]
+      : [];
+  });
 
 const judged = (
   runs: ReadonlyArray<{ readonly script: Script; readonly run: Played }>,
@@ -224,6 +260,7 @@ const judged = (
                 `BAD  ${script.id}: owed to ${row.owner}, but no kept failure is ${row.check} ${row.invariant} on ${row.subjects.join(", ") || "no subject"}`,
               ],
         ),
+        ...rows.flatMap((row) => spareListings(row, run)),
         ...unowedFailures(run, rows).map(
           (failure) => `BAD  ${script.id}: fails by ${failure}, which no owed row names`,
         ),

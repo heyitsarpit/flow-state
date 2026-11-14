@@ -809,6 +809,13 @@ tasks
             code:wiki/plans/flow/references/proposals/t52-build-log-2026-11-14.md.
               Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment. Why: step-done rule. Reverse: 
               revert this commit.
+        comment     2026-11-14T07:54:32Z
+            Re-check 2 fixes done: the owed-red test judges every owed script by subject; a lane or actor subject 
+            excuses one break per listing (an unspent one is a fault); a kept violation cancels one verdict line. Reds 
+            first; parts 62/62, held-out 132/132, kept regressions 9/9. Detail: 
+            code:wiki/plans/flow/references/proposals/t52-build-log-2026-11-14.md.
+              Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment. Why: step-done rule. Reverse: 
+              revert this commit.
     T59
         title       The suite reads and imports nothing outside the package
         status      draft

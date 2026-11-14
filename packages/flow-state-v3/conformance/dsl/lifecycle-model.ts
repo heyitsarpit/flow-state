@@ -376,6 +376,12 @@ export const laneSubject = (actor: ActorRef, operation: string) =>
   `${actorSubject(actor)} ${operation}`;
 
 /**
+ * Whether a refusal's subject names a lane or an actor rather than an Attempt: those subjects
+ * hold the machine, id and operation apart by spaces, and a minted Attempt id holds none.
+ */
+export const namesNoAttempt = (subject: string) => subject.includes(" ");
+
+/**
  * An ending as a refusal's subject: its Attempt, else its actor and operation.
  */
 export const endingSubject = (name: {
