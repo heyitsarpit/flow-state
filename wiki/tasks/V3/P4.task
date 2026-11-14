@@ -1586,6 +1586,13 @@ tasks
             plants as mutants): code:wiki/plans/flow/references/proposals/t54-a0-review-2026-11-14.md. Edit (agent: T54 
             A0 reviewing lead, @task.V3.T54, 2026-11-14): this comment. Why: step A0's review. Reverse: the commit that 
             adds it.
+        comment     2026-11-14T19:10:31Z
+            A1 held at a stop (ab6c0cf3, WIP): the ledger is in memory and A-1, A-2, A-6, A-10, A-18 and both F2 cases 
+            are green; 282 baseline runs differ only by Ended at birth (A-8, code-checked). Stop: 8 part runs differ by 
+            A-2's own fix (an ending born with no incarnation used to be dropped, now waits and is heard), outside the 
+            A-8/A-6 ruling; the run ids are in the build log's A1 progress. Gate upkeep for the id format and moved 
+            code is still owed. Edit (agent: T54 building lead, @task.V3.T54, 2026-11-15): this comment. Why: the 
+            ruling's stop. Reverse: the commit that adds it.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      draft
