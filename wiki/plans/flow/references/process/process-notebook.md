@@ -32,6 +32,28 @@ agents are briefed, reviewed or paced. Add one entry per study; keep each entry 
 | 2026-11-14 | Haiku sweeps at effort medium (reviews stay high) | Sweep minutes and findings against the high baseline | Back to high (AGENTS.md, memory) |
 | 2026-11-14 | Hand off only at 90 percent context after a third compaction | Handoffs with no compaction (were 3 of 3) | The rotation rule in the Epic |
 
+## Candidate experiments
+
+Run them as studies make them useful; move each to Open experiments when started.
+
+1. **A metrics script:** `jq` turned into a committed tool that prints each agent's numbers (calls per turn,
+   verification and sidecar minutes, idle, characters read before the first edit, rule slips). Studies then compare
+   like with like, and Haiku only interprets.
+2. **Mechanical rule enforcement:** a PreToolUse hook that blocks file writes from Bash (`sed -i`, redirects into
+   project files, heredocs). Measure: slips per session (5 today, in every builder).
+3. **A miss tally:** each review's "missed by the builder, because…" line, counted by cause (gathering, weak check,
+   rule gap, context). A cause seen three times becomes a checklist line in the builder brief.
+4. **Review yield by angle:** accepted and blocking findings per sidecar angle and per review minute. Low-yield
+   angles are dropped; angles are added where misses cluster.
+5. **Brief templates under version:** builder and reviewer briefs kept here as templates; try a variant on
+   alternate Tasks. Measure ramp-up and turns.
+6. **Effort trials for builders:** medium against high on alternate steps. Measure review findings (rework) against
+   minutes.
+7. **Cost per correct close:** hours and weekly-usage percent per Task, against its requirement count. Trend it.
+8. **Gate timing history:** time every gate per checkpoint; speed up the slowest and flag flaky ones.
+9. **Rule retirement:** at each study, remove an instruction the numbers show doesn't matter. Measure instruction
+   length; shorter briefs cost fewer tokens and less attention.
+
 ## Studies
 
 ### 2026-11-14: first study (T52, T60, T61)
