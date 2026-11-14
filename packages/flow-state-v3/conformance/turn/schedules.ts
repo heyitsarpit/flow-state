@@ -301,7 +301,9 @@ export const schedules = oracle<State>({
 
     return [
       { ...walked.state, anchor: judged.state, clock: clockAfter },
-      [...new Set([...walked.found, ...overdue(walked.state, clockAfter)])].map(violation),
+      [...new Set([...walked.found, ...overdue(walked.state, clockAfter)])].map((s) =>
+        violation(s),
+      ),
     ];
   },
 });

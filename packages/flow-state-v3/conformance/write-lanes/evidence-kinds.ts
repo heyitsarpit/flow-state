@@ -117,7 +117,7 @@ export const evidenceKinds = oracle<State>({
 
     return [
       { held: walked.held, ended: judged.ended },
-      [...new Set([...walked.found, ...judged.found])].map(violation),
+      [...new Set([...walked.found, ...judged.found])].map((s) => violation(s)),
     ];
   },
 });

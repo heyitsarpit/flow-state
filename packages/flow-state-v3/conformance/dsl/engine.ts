@@ -59,7 +59,13 @@ export const stepEngine = (
   let wrote = 0;
   let judged = 0;
   let model = empty;
-  const excused: Array<{ readonly oracle: string; readonly text: string }> = [];
+
+  const excused: Array<{
+    readonly oracle: string;
+    readonly invariant: string;
+    readonly subject: Option.Option<string>;
+    readonly text: string;
+  }> = [];
 
   const noteWorld = () => {
     for (const request of network.requests().slice(noted)) {
@@ -126,12 +132,15 @@ export const stepEngine = (
       cuts.flatMap(({ cut, life }) => next(cut, requests, life)).map((v) => ({ name, v })),
     );
 
-    const owed = all.filter((f) => options.excuse(f.name, f.v.invariant));
+    const owed = all.filter((f) => options.excuse(f.name, f.v.invariant, f.v.subject));
+
     const found = all.filter((f) => !owed.includes(f));
 
     excused.push(
       ...owed.map((f) => ({
         oracle: f.name,
+        invariant: f.v.invariant,
+        subject: f.v.subject,
         text: `${f.name}: ${f.v.invariant}: ${f.v.text} (at ${what})`,
       })),
     );

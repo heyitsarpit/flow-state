@@ -355,9 +355,34 @@ export const empty: Model = {
 };
 
 /**
- * A move a cell refused: the Invariant it breaks and what happened, in one sentence.
+ * A move a cell refused: the Invariant it breaks, what happened in one sentence, and its subject:
+ * the Attempt it is about, else the actor and operation (`Checkout/Pay a pay`), else the actor.
  */
-export type Refusal = { readonly invariant: InvariantId; readonly text: string };
+export type Refusal = {
+  readonly invariant: InvariantId;
+  readonly text: string;
+  readonly subject: string;
+};
+
+/**
+ * An actor as a refusal's subject.
+ */
+export const actorSubject = (actor: ActorRef) => `${actor.machine} ${actor.id}`;
+
+/**
+ * A lane or a decline (no Attempt) as a refusal's subject: its actor and operation.
+ */
+export const laneSubject = (actor: ActorRef, operation: string) =>
+  `${actorSubject(actor)} ${operation}`;
+
+/**
+ * An ending as a refusal's subject: its Attempt, else its actor and operation.
+ */
+export const endingSubject = (name: {
+  readonly attempt: Option.Option<string>;
+  readonly actor: ActorRef;
+  readonly operation: string;
+}) => Option.getOrElse(name.attempt, () => laneSubject(name.actor, name.operation));
 
 /**
  * One move of an Attempt's progress, anchored before it reaches the lifecycle.

@@ -1,21 +1,14 @@
 /// <reference types="node" />
 import assert from "node:assert/strict";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { sourceFiles, sourceOf } from "../source-files.ts";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "vite-plus/test";
 
 const PACKAGE = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
-// RETURN_TYPE: a recursive function names its type.
-const filesIn = (dir: string): ReadonlyArray<string> =>
-  existsSync(dir)
-    ? readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
-        if (e.isDirectory()) return filesIn(join(dir, e.name));
-
-        return e.name.endsWith(".ts") ? [join(dir, e.name)] : [];
-      })
-    : [];
+const filesIn = (dir: string) => sourceFiles(dir, /\.ts$/u);
 
 /**
  * Every module specifier a file names: static imports of any form (named, aliased, default,
@@ -53,7 +46,7 @@ describe("layout (Q1: Conformance R15; phase-out step 3)", () => {
 
   it("conformance never imports bench", () => {
     for (const file of filesIn(join(PACKAGE, "conformance")))
-      for (const s of specifiers(readFileSync(file, "utf8")))
+      for (const s of specifiers(sourceOf(file)))
         assert.ok(
           !resolved(file, s).startsWith("bench/"),
           `${relative(PACKAGE, file)} imports ${s}`,

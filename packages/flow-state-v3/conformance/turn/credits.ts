@@ -45,7 +45,10 @@ export const closed = <
     : [...judged.state.actors].flatMap(([key, a]) =>
         Phase.$is("Live")(a.phase)
           ? a.driven.map((c) =>
-              violation(`Turn I2 (R2): ${key} was sent ${c.event}, but no turn ran it in the step`),
+              violation(
+                `Turn I2 (R2): ${key} was sent ${c.event}, but no turn ran it in the step`,
+                Option.some(key),
+              ),
             )
           : [],
       );

@@ -1,4 +1,4 @@
-import { oracle } from "../dsl/oracle.ts";
+import { oracle, refused } from "../dsl/oracle.ts";
 import type { InvariantId } from "../dsl/facts.ts";
 
 const GUARANTEE: ReadonlyArray<InvariantId> = [
@@ -46,6 +46,9 @@ export const deliveredOnce = oracle({
   step: (state, _facts, _requests, lives) =>
     [
       state,
-      lives.applied.flatMap((a) => a.refusals).filter((r) => GUARANTEE.includes(r.invariant)),
+      lives.applied
+        .flatMap((a) => a.refusals)
+        .filter((r) => GUARANTEE.includes(r.invariant))
+        .map(refused),
     ] as const,
 });

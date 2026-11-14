@@ -250,7 +250,7 @@ export const attemptIdentity = oracle<State>({
         ...keysMintedAndOpen(mints, state.definite, step, state.reference),
         ...oneInputPerKey(requests, state.checked, state.reference),
         ...mintedOnce(state.mints, minted),
-      ].map(violation),
+      ].map((s) => violation(s)),
     ] as const;
   },
 });

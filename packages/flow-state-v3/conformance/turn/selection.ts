@@ -180,7 +180,7 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
 
   return [
     next,
-    [...unadmitted, ...judged.found, ...leftWork].map(violation),
+    [...unadmitted, ...judged.found, ...leftWork].map((s) => violation(s)),
     Fact.Reported({ observation: anchored }),
     Option.some(predicted),
   ] as const;
@@ -331,7 +331,7 @@ const onFact = (
   // RETURN_TYPE: a tuple; inference would widen it to an array.
   const judgedRefusal = ([next, found]: readonly [State, ReadonlyArray<string>]): Stepped => [
     next,
-    found.map(violation),
+    found.map((s) => violation(s)),
     fact,
     Option.none(),
   ];

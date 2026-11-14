@@ -442,7 +442,7 @@ export const endingChannels = oracle<State>({
 
     return [
       { ...state, cancels, live, mapped, unsure },
-      [...answered, ...delivered, ...failed, ...unsent].map(violation),
+      [...answered, ...delivered, ...failed, ...unsent].map((s) => violation(s)),
     ] as const;
   },
 });

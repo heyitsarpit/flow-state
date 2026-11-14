@@ -138,8 +138,8 @@ export type Case = {
  * case is past its time bound; the world asks it as it runs (see `makeWorld`). `rules` are the
  * lifecycle tables the Spec model applies: the design's, or a model mutant (Conformance R19).
  * `judge` off skips the reports' decoding, the model and the oracles: the bench's replay (R23).
- * `excuse` names the violations an owed row holds (by oracle and Invariant): each is kept and the
- * case goes on, so whatever else the run breaks is still judged.
+ * `excuse` names the violations an owed row holds (by oracle, Invariant and subject): each is kept
+ * and the case goes on, so whatever else the run breaks is still judged.
  */
 export type CaseOptions = {
   readonly port: Port;
@@ -153,7 +153,7 @@ export type CaseOptions = {
   readonly captureMs: number;
   readonly rules: Rules;
   readonly judge: boolean;
-  readonly excuse: (oracle: string, invariant: string) => boolean;
+  readonly excuse: (oracle: string, invariant: string, subject: Option.Option<string>) => boolean;
 };
 
 /**

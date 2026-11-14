@@ -6,7 +6,6 @@ import { scenarioOf } from "../dsl/script.ts";
 import { Cells, Pay } from "../fixtures/pay.ts";
 import { Serialize } from "../fixtures/one-lane.ts";
 import { isPartScript, regressionFiles } from "../generated.ts";
-import type { Limit } from "../limits.ts";
 import { playChosen, PRODUCTION_RUNTIME } from "./args.ts";
 import { verdictOfLimit } from "../limits.ts";
 import { recording } from "../parts/cells.ts";
@@ -15,14 +14,8 @@ import { matrixGate } from "../parts/features.ts";
 import { fieldGate, modelFields, modelMutants } from "../parts/model-mutation.ts";
 import { PAIR_OWNERS } from "../parts/pair-owners.ts";
 import { combinationGate } from "../parts/pairs.ts";
-import {
-  partFaults,
-  playPart,
-  reachedBy,
-  reachOf,
-  RETRY_COUNT,
-  UNBOUND_RESTORE,
-} from "../parts/play.ts";
+import { owedSubjects, type PartOwed, RETRY_COUNT, UNBOUND_RESTORE } from "../parts/owed.ts";
+import { partFaults, playPart, reachedBy, reachOf } from "../parts/play.ts";
 import {
   currentSlice,
   gateScripts,
@@ -158,15 +151,18 @@ const REFUSED_UNENDED =
 
 /**
  * Production's owed reds among the kept regression scripts: one a production run fails by a bug
- * a Task owns, checked to still fail by its check and Invariant, so a fix shows.
+ * a Task owns, checked to still fail by its check and Invariant (a part script's on its subjects),
+ * so a fix shows. A hand script's row is held by its check and Invariant alone: its run stops at its
+ * first failure.
  */
-export const regressionsOwed: ReadonlyArray<Limit & { readonly owner: string }> = [
+export const regressionsOwed: ReadonlyArray<PartOwed> = [
   {
     case: "GEN-pay-search-25-shrunk",
     check: "delivered-once",
     invariant: "WriteLanes I15",
     why: UNBOUND_RESTORE,
     owner: "@task.V3.T54",
+    subjects: [],
   },
   ...[
     ["lane-queue", "WriteLanes I12"],
@@ -179,6 +175,7 @@ export const regressionsOwed: ReadonlyArray<Limit & { readonly owner: string }> 
     invariant,
     why: RETRY_COUNT,
     owner: "@task.V3.T19",
+    subjects: owedSubjects("PART-transfers-stress-111-shrunk", check, invariant),
   })),
   {
     case: "PART-transfers-stress-5-shrunk",
@@ -186,6 +183,7 @@ export const regressionsOwed: ReadonlyArray<Limit & { readonly owner: string }> 
     invariant: "Actors I38",
     why: REFUSED_UNENDED,
     owner: "@task.V3.T19",
+    subjects: owedSubjects("PART-transfers-stress-5-shrunk", "disposal", "Actors I38"),
   },
   ...[
     ["lane-queue", "WriteLanes I8"],
@@ -197,6 +195,7 @@ export const regressionsOwed: ReadonlyArray<Limit & { readonly owner: string }> 
     invariant,
     why: `${REFUSED_UNENDED}; a disposed actor's adoption then mints on the lane its unended head still holds`,
     owner: "@task.V3.T19",
+    subjects: owedSubjects("PART-cells-stress-105-shrunk", check, invariant),
   })),
 ];
 

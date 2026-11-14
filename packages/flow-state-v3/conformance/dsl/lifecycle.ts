@@ -4,6 +4,7 @@ import { sameActor } from "../port.ts";
 import {
   addressable,
   type AttemptLife,
+  endingSubject,
   type GoneWhy,
   isHead,
   type LaneId,
@@ -304,7 +305,8 @@ const applyOne = (model: Model, life: AttemptLife, move: Move, given: Rules) => 
   if (outcome === undefined) throw new MissingCell({ row, phase: at, guard });
 
   return Outcome.$match(outcome, {
-    Refuse: ({ invariant }) => stepOf(model, [{ invariant, text: describe(life, move) }]),
+    Refuse: ({ invariant }) =>
+      stepOf(model, [{ invariant, text: describe(life, move), subject: life.id }]),
     Stay: () => stepOf(decided(discharge(model, life.id, guard, move), life, move)),
     Move: ({ to: phase }) => {
       const moved = setPhase(
@@ -347,6 +349,14 @@ const owedText = (o: Obligation) =>
     AwaitRestore: ({ attempt }) => `AwaitRestore unknown Restored of ${attempt}`,
     AwaitLetGo: ({ ending }) => `AwaitLetGo of ending ${ending}`,
   });
+
+const owedSubject = (model: Model, o: Obligation) =>
+  Obligation.$is("AwaitLetGo")(o)
+    ? Option.match(Option.fromUndefinedOr(model.endings[o.ending]), {
+        onNone: () => `ending ${o.ending}`,
+        onSome: endingSubject,
+      })
+    : o.attempt;
 
 const unminted = (move: Move) => {
   if (Move.$is("Send")(move)) return wl(1);
@@ -441,7 +451,11 @@ export const advance = (model: Model, move: Move, given: Rules = rules) => {
 
     if (life === undefined)
       return stepOf(model, [
-        { invariant: unminted(move), text: `${move._tag} of ${named.value}, never minted` },
+        {
+          invariant: unminted(move),
+          text: `${move._tag} of ${named.value}, never minted`,
+          subject: named.value,
+        },
       ]);
 
     return applyOne(model, life, move, given);
@@ -506,6 +520,7 @@ export const due = (model: Model, instant: "TurnCloses" | "StepEnds", given: Rul
     late.map((o) => ({
       invariant: deadlineOf(o).invariant,
       text: `${owedText(o)} was not met by ${instant}`,
+      subject: owedSubject(model, o),
     })),
   );
 };

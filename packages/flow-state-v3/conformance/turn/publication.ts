@@ -162,6 +162,6 @@ export const publication = oracle<State>({
       { state, found: [] },
     );
 
-    return [folded.state, [...folded.found, ...unpublished(step)].map(violation)];
+    return [folded.state, [...folded.found, ...unpublished(step)].map((s) => violation(s))];
   },
 });

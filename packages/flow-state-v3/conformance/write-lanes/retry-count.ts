@@ -62,6 +62,7 @@ export const retryCount = oracle<Record<string, never>>({
             : [
                 violation(
                   `WriteLanes I7: ${fact.operation} ${head.id}'s row says retryCount ${count}, but the server received ${resends} re-sends of it`,
+                  Option.some(head.id),
                 ),
               ];
         },

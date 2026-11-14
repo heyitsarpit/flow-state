@@ -6,11 +6,12 @@ import {
   LaneMove,
   LifeMove,
   type Model,
+  laneSubject,
   Move,
   sameLane,
   addressable,
 } from "../dsl/lifecycle-model.ts";
-import { Fact, oracle, type Violation } from "../dsl/oracle.ts";
+import { Fact, oracle, refused, type Violation } from "../dsl/oracle.ts";
 import type { InvariantId } from "../dsl/facts.ts";
 import type { Concurrency, Reference } from "../fixtures/reference.ts";
 import { MemberTarget, sameActor, sameJson } from "../port.ts";
@@ -64,6 +65,7 @@ const bounds = (model: Model, reference: Reference) =>
         {
           invariant: "WriteLanes I8",
           text: `${named(lane)} holds ${queued} waiting commits under ${policy} at the step's end, past its bound of ${BOUND[policy]}`,
+          subject: Option.some(laneSubject(lane.actor, lane.operation)),
         },
       ],
       [
@@ -71,6 +73,7 @@ const bounds = (model: Model, reference: Reference) =>
         {
           invariant: "WriteLanes I9",
           text: `${named(lane)} has ${heads} addressable Attempts at the step's end`,
+          subject: Option.some(laneSubject(lane.actor, lane.operation)),
         },
       ],
     ];
@@ -111,10 +114,12 @@ const owedResends = (
         ? {
             invariant: "WriteLanes I26" as const,
             text: `${a.lane.operation} ${a.id} was retried and its capture landed, but the server did not receive it again`,
+            subject: Option.some(a.id),
           }
         : {
             invariant: "WriteLanes I9" as const,
             text: `${a.lane.operation} ${a.id} was retried, and the re-send carried ${Option.getOrElse(other.key, () => "")}, not the Attempt its lane last sent`,
+            subject: Option.some(a.id),
           };
     });
 };
@@ -206,6 +211,9 @@ const memberOrder = (lives: LifeStep) =>
                     {
                       invariant: "WriteLanes I10",
                       text: `${move._tag} of ${order.members[at]?.operation ?? ""}'s ${order.members[at]?.kind ?? ""} (member ${at + 1}) came after a report of member ${order.at + 1}; a turn's members apply in action order`,
+                      subject: Option.some(
+                        laneSubject(order.actor, order.members[at]?.operation ?? ""),
+                      ),
                     },
                   ],
                 }
@@ -272,6 +280,7 @@ const headLast = (lives: LifeStep) =>
                   {
                     invariant: "WriteLanes I21" as const,
                     text: `cancelAll delivered the head ${h.id}'s ending before the queued ${later.map((q) => q.id).join(", ")}; the head's comes last`,
+                    subject: Option.some(h.id),
                   },
                 ];
           },
@@ -332,14 +341,15 @@ export const laneQueue = oracle<State>({
   guarantee: GUARANTEE,
   start: (reference) => ({ reference, captured: [] }),
   step: (state, facts, _requests, lives) => {
-    const refused = lives.applied
+    const cells = lives.applied
       .flatMap((a) => a.refusals)
-      .filter((r) => GUARANTEE.includes(r.invariant));
+      .filter((r) => GUARANTEE.includes(r.invariant))
+      .map(refused);
 
     return [
       { ...state, captured: capturedAfter(lives, facts, state.captured) },
       [
-        ...refused,
+        ...cells,
         ...bounds(lives.after, state.reference),
         ...memberOrder(lives),
         ...headLast(lives),

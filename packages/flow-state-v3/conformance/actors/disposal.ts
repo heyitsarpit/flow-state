@@ -10,7 +10,7 @@ import {
   sameLane,
 } from "../dsl/lifecycle-model.ts";
 import type { LifeStep } from "../dsl/expect.ts";
-import { disposalBoundMs, Fact, oracle, violation } from "../dsl/oracle.ts";
+import { disposalBoundMs, Fact, oracle, refused, violation } from "../dsl/oracle.ts";
 import type { InvariantId } from "../dsl/facts.ts";
 import { operationNamed, type Reference } from "../fixtures/reference.ts";
 import { type Channel, type Ended, type Json, Observation, sameActor, sameJson } from "../port.ts";
@@ -278,7 +278,10 @@ const releasedUnbound = (lives: LifeStep) =>
     if (record.record !== "disposeActor" && record.record !== "forget") return [];
 
     return [
-      `${UNBOUND[record.record]}: ${named(life)} was Held or on the wire when the suite called ${record.record} on its actor, and the runtime released it before any ensure adopted the lane; ${record.record} keeps every lane that is not Idle`,
+      violation(
+        `${UNBOUND[record.record]}: ${named(life)} was Held or on the wire when the suite called ${record.record} on its actor, and the runtime released it before any ensure adopted the lane; ${record.record} keeps every lane that is not Idle`,
+        Option.some(id),
+      ),
     ];
   });
 
@@ -365,18 +368,16 @@ export const disposal = oracle({
     const [window, found] = step.reduce((acc, fact) => judgeFact(context, acc, fact), initial);
     const late = Option.match(window, { onNone: () => [], onSome: pastBound });
 
-    const refused = lives.applied
+    const cells = lives.applied
       .flatMap((a) => a.refusals)
-      .filter((r) => GUARANTEE.includes(r.invariant));
+      .filter((r) => GUARANTEE.includes(r.invariant))
+      .map(refused);
 
-    const views = [
-      ...found,
-      ...late,
-      ...holdLast(lives),
-      ...releasedUnbound(lives),
-      ...readHeld(context),
-    ];
+    const views = [...found, ...late, ...holdLast(lives), ...readHeld(context)];
 
-    return [{ ...state, window }, [...refused, ...views.map(violation)]] as const;
+    return [
+      { ...state, window },
+      [...cells, ...releasedUnbound(lives), ...views.map((s) => violation(s))],
+    ] as const;
   },
 });

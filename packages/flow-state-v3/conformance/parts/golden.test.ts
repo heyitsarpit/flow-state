@@ -305,6 +305,20 @@ describe("the derived reference equals Pay's frozen hand rows (phase-out V3; Con
     }
   });
 
+  it("the walk leaves out only what vanished; any other read error is thrown", () => {
+    const root = mkdtempSync(join(tmpdir(), "golden-walk-"));
+
+    try {
+      writeFileSync(join(root, "a.ts"), "export const a = 1;\n");
+      assert.equal(sourceOf(join(root, "gone.ts")), "");
+      assert.deepStrictEqual(sourceFiles(join(root, "gone"), /\.ts$/u), []);
+      assert.throws(() => sourceOf(root), /EISDIR/u);
+      assert.throws(() => sourceFiles(join(root, "a.ts"), /\.ts$/u), /ENOTDIR/u);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("the golden is one module, read only by this comparison", () => {
     assert.ok(existsSync(join(PACKAGE, GOLDEN)), `${GOLDEN} is missing`);
 

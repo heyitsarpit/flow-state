@@ -13,6 +13,7 @@ import {
   type Model,
   Obligation,
   type OpenTurn,
+  laneSubject,
   Phase,
   type Refusal,
   sameLane,
@@ -295,7 +296,7 @@ const placed: Readonly<
 };
 
 const mintAs = (model: Model, attempt: string, lane: LaneId, admit: Admit) => {
-  const refuse = (text: string) => stepOf(model, [{ invariant: wl(8), text }]);
+  const refuse = (text: string) => stepOf(model, [{ invariant: wl(8), text, subject: attempt }]);
 
   if (admit === "Decline")
     return refuse(`${lane.operation} minted ${attempt} on a busy reject lane`);
@@ -324,7 +325,9 @@ const laterCommitOn = (turn: OpenTurn, lane: LaneId) =>
 
 const minted = (model: Model, attempt: string, lane: LaneId, given: Rules) => {
   const refuse = (invariant: Refusal["invariant"], why: string) =>
-    stepOf(model, [{ invariant, text: `${lane.operation} minted ${attempt} ${why}` }]);
+    stepOf(model, [
+      { invariant, text: `${lane.operation} minted ${attempt} ${why}`, subject: attempt },
+    ]);
 
   if (model.attempts.some((a) => a.id === attempt)) return refuse(wl(6), "a second time");
 
@@ -385,7 +388,13 @@ const declined = (
   given: Rules,
 ) => {
   const refuse = (invariant: Refusal["invariant"], why: string) =>
-    stepOf(model, [{ invariant, text: `${operation} declined ${reason} ${why}` }]);
+    stepOf(model, [
+      {
+        invariant,
+        text: `${operation} declined ${reason} ${why}`,
+        subject: laneSubject(actor, operation),
+      },
+    ]);
 
   if (Option.isNone(model.turn))
     return refuse(wl(15), "outside a turn, an ending no commit owes (R7, R10)");
@@ -408,14 +417,15 @@ const declined = (
 };
 
 const closed = (model: Model, given: Rules) => {
-  const late =
-    Option.isSome(model.turn) &&
-    Option.isSome(model.turn.value.waiting) &&
-    given.deadlines.Commit.by === "TurnCloses"
+  const waiting = Option.flatMap(model.turn, (turn) => turn.waiting);
+
+  const late: ReadonlyArray<Refusal> =
+    Option.isSome(waiting) && given.deadlines.Commit.by === "TurnCloses"
       ? [
           {
             invariant: given.deadlines.Commit.invariant,
             text: "a commit had no mint or decline by its turn's close",
+            subject: laneSubject(waiting.value.lane.actor, waiting.value.lane.operation),
           },
         ]
       : [];

@@ -14,7 +14,8 @@ import { Observation } from "../port.ts";
 import type { CaseVerdict } from "../runner/verdict.ts";
 import { BUILD_SEEDS, mixOf, scriptOf } from "./generate.ts";
 import { verdictOfLimit } from "../limits.ts";
-import { partFaults, partsOwed, playPart, reachedBy, reachOf, worldSeedOf } from "./play.ts";
+import { partsOwed } from "./owed.ts";
+import { partFaults, playPart, reachedBy, reachOf, worldSeedOf } from "./play.ts";
 
 const SEEDS = BUILD_SEEDS.slice(0, 4);
 
@@ -383,7 +384,7 @@ describe("reach credits only the part that ran (close review finding 8: Conforma
   const pass = { _tag: "Pass", id: "synthetic" } as const;
 
   const credited = (facts: ReadonlyArray<Fact>, verdict: CaseVerdict = pass) =>
-    reachOf({ verdict, facts, skipped: 0 })["C"] ?? new Set();
+    reachOf({ verdict, facts, skipped: 0, kept: [] })["C"] ?? new Set();
 
   const step = Fact.Stepped({ step: 1, what: "synthetic" });
   const ensured = Fact.Ensured({ actor: acct, use: "story" });
@@ -432,8 +433,8 @@ describe("reach credits only the part that ran (close review finding 8: Conforma
 
     const facts = [step, ensured, Fact.Released({ actor: acct, use: "story" })];
 
-    assert.ok(reachedBy([{ run: { verdict: pass, facts, skipped: 0 } }]).has("gr"));
-    assert.equal(reachedBy([{ run: { verdict: fail, facts, skipped: 0 } }]).size, 0);
+    assert.ok(reachedBy([{ run: { verdict: pass, facts, skipped: 0, kept: [] } }]).has("gr"));
+    assert.equal(reachedBy([{ run: { verdict: fail, facts, skipped: 0, kept: [] } }]).size, 0);
   });
 });
 

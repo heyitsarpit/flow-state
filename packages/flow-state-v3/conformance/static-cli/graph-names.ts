@@ -1,3 +1,4 @@
+import { Option } from "effect";
 import { Fact, type Graphed, oracle, violation } from "../dsl/oracle.ts";
 import { Observation } from "../port.ts";
 
@@ -20,6 +21,7 @@ const unnamedIn = (names: Names, fact: Fact) => {
     .map((p) =>
       violation(
         `StaticCli I2: ${turn.actor.machine} ran ${nameOf(p.definition, p.at)} on ${turn.event}, an alternative flow graph names no edge for`,
+        Option.some(turn.actor.machine),
       ),
     );
 };

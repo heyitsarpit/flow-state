@@ -8,6 +8,7 @@ import { booted, landed, localGone, rolledBack, unlanded, wrote } from "./lifecy
 import { apply } from "./lifecycle-fold.ts";
 import {
   ActorMove,
+  actorSubject,
   type Input,
   type LaneId,
   LaneMove,
@@ -437,16 +438,19 @@ const unheard = (walk: Walk) => [
     .map((a) => ({
       invariant: "Actors I14" as const,
       text: `${a.machine} ${a.id} was used with no live incarnation, but none was reported`,
+      subject: actorSubject(a),
     })),
   ...walk.ends
     .filter((a) => !walk.endsHeard.some((h) => sameActor(h, a)))
     .map((a) => ({
       invariant: "Actors I37" as const,
       text: `${a.machine} ${a.id} was free for the whole grace, but its end was not reported`,
+      subject: actorSubject(a),
     })),
   ...walk.dirtyEnds.slice(0, walk.writes === 0 ? walk.dirtyEnds.length : 0).map((a) => ({
     invariant: "Actors I37" as const,
     text: `${a.machine} ${a.id} ended with its record dirty, but no record was written at its end (R8, orchestrator's decision on review B1)`,
+    subject: actorSubject(a),
   })),
   ...usedWrite(walk),
 ];
@@ -473,6 +477,7 @@ const usedWrite = (walk: Walk) =>
         {
           invariant: "Actors I10" as const,
           text: "a record was written in a step that only moved the clock while no live actor could end: an end before its time",
+          subject: "the record",
         },
       ]
     : [];

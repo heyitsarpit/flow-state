@@ -771,6 +771,18 @@ tasks
             code:wiki/plans/flow/references/proposals/t52-build-log-2026-11-14.md.
               Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment. Why: step-done rule. Reverse: 
               revert this commit.
+        comment     2026-11-14T06:49:14Z
+            Re-check of the review fixes: go on, nothing blocks; D17's pair key needs an owed check. Detail: 
+            code:wiki/plans/flow/references/proposals/t52-recheck-2026-11-14.md.
+              Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment, for the re-check reviewer. Why: 
+              coordinator's relay. Reverse: revert this commit.
+        comment     2026-11-14T07:12:59Z
+            Re-check fixes 1 and 2 done: owed rows excuse by subject (the Attempt, actor or lane) as well as check and 
+            Invariant, judged from kept violations; the walk throws all but ENOENT. Reds first; parts 62/62, 
+            regressions 9/9, falsify 154/154 and 18/18. Items 3 and 4 next. Detail: 
+            code:wiki/plans/flow/references/proposals/t52-build-log-2026-11-14.md.
+              Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment. Why: step-done rule. Reverse: 
+              revert this commit.
     T59
         title       The suite reads and imports nothing outside the package
         status      draft

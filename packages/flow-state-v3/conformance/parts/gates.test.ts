@@ -10,7 +10,8 @@ import { Script } from "../dsl/script.ts";
 import { statedLimits } from "../limits.ts";
 import { machineGates } from "../runner/gates.ts";
 import { HELD_OUT_SEEDS } from "./generate.ts";
-import { partFaults, partsOwed, playPart } from "./play.ts";
+import { partsOwed } from "./owed.ts";
+import { partFaults, playPart } from "./play.ts";
 import { heldOutScripts } from "./records.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vite-plus/test";
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import { coreTriage, triageFaults } from "../core-mutants-triage.ts";
 import { verdictOfLimit } from "../limits.ts";
 import { type Cited, Mismatch } from "../dsl/oracle.ts";
@@ -9,11 +9,15 @@ import { verdict } from "../runner/parts-gates.ts";
 import { verdictOf } from "../runner/run.ts";
 import { scenarios } from "../suite.ts";
 import { combinationGate } from "./pairs.ts";
-import { partFaults } from "./play.ts";
+import { parts } from "../../fixtures/index.ts";
+import { implemented as production } from "../adapters/production.ts";
+import { scriptOf } from "./generate.ts";
+import { partsOwed } from "./owed.ts";
+import { partFaults, playPart } from "./play.ts";
 
 const passed = (id: string) => ({
   script: { id, fixture: "x", actor: "a", steps: [] },
-  run: { verdict: { _tag: "Pass" as const, id }, facts: [], skipped: 0 },
+  run: { verdict: { _tag: "Pass" as const, id }, facts: [], skipped: 0, kept: [] },
 });
 
 const owner = { task: "@task.V3.T19", slice: 2, by: "a sweep", date: "2026-11-12" } as const;
@@ -29,7 +33,14 @@ const pairInput = {
 
 describe("owed rows match something that still runs (Conformance R15, R18, R22)", () => {
   it("an owed part row that names no played script is a fault", () => {
-    const ghost = { case: "PART-gone-usual-9", check: "c", invariant: "I", why: "w", owner: "o" };
+    const ghost = {
+      case: "PART-gone-usual-9",
+      check: "c",
+      invariant: "I",
+      why: "w",
+      owner: "o",
+      subjects: [],
+    };
 
     const scope = new Set(["PART-x-usual-1"]);
 
@@ -60,6 +71,61 @@ describe("owed rows match something that still runs (Conformance R15, R18, R22)"
     assert.ok(
       combinationGate({ ...pairInput, runs: [], owners: { "rj+ky": owner } }).failures.length > 0,
     );
+  });
+});
+
+describe("an owed row excuses only the Attempts it names (Conformance R22)", () => {
+  it("a lost ending on an Attempt no row names fails its owed run", () => {
+    const pay = parts.find((p) => p.name === "pay");
+    assert.ok(pay !== undefined);
+    const script = scriptOf(pay, "stress", 1, production);
+
+    const rows = partsOwed
+      .filter((o) => o.case === script.id)
+      .map((o) => ({ ...o, subjects: ["att-none"] }));
+
+    assert.ok(rows.some((o) => o.invariant === "WriteLanes I15"));
+
+    const faults = partFaults(
+      [{ script, run: playPart(script, "production", undefined, rows) }],
+      rows,
+    );
+
+    assert.ok(
+      faults.some((f) => f.includes("WriteLanes I15") && f.includes("which no owed row names")),
+      faults.join("\n"),
+    );
+  });
+});
+
+describe("an owed run that times out is a fault, whatever it kept (Conformance R8, R22)", () => {
+  it("a Timeout after a kept violation fails the gate", () => {
+    const row = {
+      case: "PART-x-stress-1",
+      check: "delivered-once",
+      invariant: "WriteLanes I15",
+      why: "w",
+      owner: "@task.V3.T19",
+      subjects: ["att-1"],
+    };
+
+    const kept = {
+      oracle: "delivered-once",
+      invariant: "WriteLanes I15",
+      subject: Option.some("att-1"),
+      text: "delivered-once: WriteLanes I15: lost (at s)",
+    };
+
+    const run = {
+      verdict: { _tag: "Timeout" as const, id: row.case, seed: 1, seconds: 10 },
+      facts: [],
+      skipped: 0,
+      kept: [kept],
+    };
+
+    const script = { id: row.case, fixture: "x", actor: "a", steps: [] };
+
+    assert.equal(partFaults([{ script, run }], [row]).length, 1);
   });
 });
 

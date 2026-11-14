@@ -24,6 +24,7 @@ import {
 } from "./expect.ts";
 import { lifeNamed, misdelivered } from "./lifecycle-lives.ts";
 import {
+  actorSubject,
   type EndingName,
   type Input,
   LaneMove,
@@ -115,10 +116,13 @@ const mintedLane = (known: Known, actor: ActorRef, operation: string, key: Optio
  * A report that fits no item the model holds: refused under its kind's Invariant (design N1),
  * at the step's end.
  */
-const unmatched = (walk: Walk, text: string) => ({
+const unmatched = (walk: Walk, text: string, subject: string) => ({
   ...walk,
-  unmatched: [...walk.unmatched, { invariant: "WriteLanes I15" as const, text }],
+  unmatched: [...walk.unmatched, { invariant: "WriteLanes I15" as const, text, subject }],
 });
+
+const named = (operation: string, attempt: Option.Option<string>) =>
+  Option.getOrElse(attempt, () => operation);
 
 /**
  * Whether the reference maps an ending the runtime called unmapped: then its `UnmappedEnding`
@@ -172,7 +176,10 @@ const endHeard = (walk: Walk, actor: ActorRef, given: Rules) => {
 
   const early = (text: string) => ({
     ...walk,
-    unmatched: [...walk.unmatched, { invariant: "Actors I10" as const, text }],
+    unmatched: [
+      ...walk.unmatched,
+      { invariant: "Actors I10" as const, text, subject: actorSubject(actor) },
+    ],
   });
 
   if (holds(walk.model, actor))
@@ -342,7 +349,11 @@ export const reported = (
             Option.orElse(actor, () => Option.map(walk.model.turn, (t) => t.actor)),
             {
               onNone: () =>
-                unmatched(walk, `${operation} ended (${reason}) a decline no actor owes`),
+                unmatched(
+                  walk,
+                  `${operation} ended (${reason}) a decline no actor owes`,
+                  operation,
+                ),
               onSome: (who) => push(walk, LaneMove.Declined({ operation, actor: who, reason })),
             },
           ),
@@ -355,6 +366,7 @@ export const reported = (
           unmatched(
             open,
             `${operation} ${Option.getOrElse(attempt, () => "decline")} was delivered as ${event}, an ending no one owes`,
+            named(operation, attempt),
           ),
         onSome: (ending) =>
           asMapped(push(open, LifeMove.Delivered({ ending })), open.model, known, ending, event),
@@ -366,6 +378,7 @@ export const reported = (
           unmatched(
             walk,
             `${operation} ${Option.getOrElse(attempt, () => "decline")} was parked, an ending no one owes`,
+            named(operation, attempt),
           ),
         onSome: (ending) => push(walk, LifeMove.Parked({ ending })),
       }),
@@ -375,6 +388,7 @@ export const reported = (
           unmatched(
             walk,
             `${operation} ${Option.getOrElse(attempt, () => "decline")} was unparked, an ending no one owes`,
+            named(operation, attempt),
           ),
         onSome: (ending) => push(walk, LifeMove.Unparked({ ending })),
       }),
@@ -384,6 +398,7 @@ export const reported = (
           unmatched(
             walk,
             `${operation} ${Option.getOrElse(attempt, () => "decline")} was recorded (${why}), an ending no one owes`,
+            named(operation, attempt),
           ),
         onSome: (ending) => push(walk, LifeMove.Recorded({ ending, letGo: why === "letGo" })),
       }),

@@ -1,8 +1,9 @@
-import { Data, type Option } from "effect";
+import { Data, Option } from "effect";
 import type { Machines } from "../fixtures/handlers.ts";
 import { holdUse, type InvariantId, type SuiteFact } from "./facts.ts";
 import type { Reference, Rows } from "../fixtures/reference.ts";
 import type { LifeStep } from "./expect.ts";
+import type { Refusal } from "./lifecycle-model.ts";
 import type { ActorRef, DisposeExit, Json, Observation, Use } from "../port.ts";
 import type { Request } from "../world/network.ts";
 import type { Purpose } from "../world/storage.ts";
@@ -74,21 +75,43 @@ export const isRuntimeFact = (fact: Fact): fact is RuntimeFact =>
 export const disposalBoundMs = 5000;
 
 /**
- * One violation an oracle found: the Invariant broken and the evidence, in one sentence.
+ * One violation an oracle found: the Invariant broken, the evidence in one sentence, and its
+ * subject when the oracle names one (the Attempt, actor or lane it is about).
+ *
+ * **Gotchas**
+ *
+ * - An owed row excuses a violation only by its subject, so one with no subject is never excused.
  */
-export type Violation = { readonly invariant: InvariantId; readonly text: string };
+export type Violation = {
+  readonly invariant: InvariantId;
+  readonly text: string;
+  readonly subject: Option.Option<string>;
+};
+
+/**
+ * A lifecycle refusal as an oracle's violation, with its subject.
+ */
+export const refused = (refusal: Refusal) => ({
+  invariant: refusal.invariant,
+  text: refusal.text,
+  subject: Option.some(refusal.subject),
+});
 
 const NAMED = /^(\S+ I\d+)(?: \([^)]*\))?: /u;
 
 /**
- * A violation from a sentence that starts with its Invariant (`WriteLanes I8: ...`).
+ * A violation about `subject` (none by default) from a sentence that starts with its Invariant
+ * (`WriteLanes I8: ...`).
  *
  * **Gotchas**
  *
  * - A sentence that names no Invariant is a suite defect: it throws.
  */
 // RETURN_TYPE: the Violation record; its Invariant is narrowed from the matched text.
-export const violation = (sentence: string): Violation => {
+export const violation = (
+  sentence: string,
+  subject: Option.Option<string> = Option.none(),
+): Violation => {
   const found = NAMED.exec(sentence);
   const invariant = found?.[1];
 
@@ -96,7 +119,7 @@ export const violation = (sentence: string): Violation => {
 
   // SAFETY: the pattern matched `<Spec> I<number>`, the InvariantId shape.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a template literal type has no runtime guard to narrow with
-  return { invariant: invariant as InvariantId, text: sentence.slice(found[0].length) };
+  return { invariant: invariant as InvariantId, text: sentence.slice(found[0].length), subject };
 };
 
 /**

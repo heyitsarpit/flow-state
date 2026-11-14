@@ -114,6 +114,6 @@ export const idleGuard = oracle<State>({
           ? judged(state, lives, step, at, fact.observation)
           : [],
       )
-      .map(violation),
+      .map((s) => violation(s)),
   ],
 });

@@ -1,7 +1,6 @@
 import { Formatter, HashSet, Option, Result, Schema } from "effect";
 import { parts } from "../../fixtures/index.ts";
 import type { Part } from "../../fixtures/part.ts";
-import { type Limit, verdictOfLimit } from "../limits.ts";
 import { captureMsOf } from "../actors/lifetime.scenarios.ts";
 import { nullPort } from "../adapters/null.ts";
 import { productionPort } from "../adapters/production.ts";
@@ -15,6 +14,7 @@ import type { CaseVerdict } from "../runner/verdict.ts";
 import { oracles } from "../suite.ts";
 import { Answer, type Request } from "../world/network.ts";
 import type { Code } from "./codes.ts";
+import { type PartOwed, partsOwed } from "./owed.ts";
 import { partFixture } from "./reference.ts";
 
 /**
@@ -23,120 +23,22 @@ import { partFixture } from "./reference.ts";
 export type PartRuntime = "production" | "null" | "round-14";
 
 /**
- * One played part script: its verdict, the facts its run recorded, and how many `answer` steps
- * found no open request.
+ * One played part script: its verdict, the facts its run recorded, how many `answer` steps found
+ * no open request, and the violations an owed row excused (`kept`), each with its subject.
  */
 export type Played = {
   readonly verdict: CaseVerdict;
   readonly facts: ReadonlyArray<Fact>;
   readonly skipped: number;
+  readonly kept: ReadonlyArray<{
+    readonly oracle: string;
+    readonly invariant: string;
+    readonly subject: Option.Option<string>;
+    readonly text: string;
+  }>;
 };
 
 const fixtures = parts.map(partFixture);
-
-/**
- * Why production re-sends past its budget across a reload: a re-send's retryCount is never
- * re-captured, so a boot restores the count from before it and a spent `retryable({ times })`
- * passes again (WriteAhead R13, WriteLanes I7).
- */
-export const RETRY_COUNT =
-  "a re-send's retryCount is never re-captured (`invoke` sets the lane, `persist` is not called), so a boot restores the count from before the re-send and a spent `retryable({ times })` passes again (WriteAhead R13, WriteLanes I7)";
-
-/**
- * Production's bug behind a disposed identity's Held head at a boot: the boot restores and parks
- * its unbound head, so the adopting incarnation's start gets nothing (Restore R1, Actors I40: a
- * boot delivers and parks nothing).
- */
-export const UNBOUND_RESTORE =
-  "the boot restores and parks a disposed identity's unbound Held head, so the adopting incarnation's start gets nothing (Restore R1, Actors I40: a boot delivers and parks nothing)";
-
-const I12 = ["lane-queue", "WriteLanes I12"] as const;
-const I15 = ["delivered-once", "WriteLanes I15"] as const;
-const I16 = ["delivered-once", "WriteLanes I16"] as const;
-const I29 = ["disposal", "Actors I29"] as const;
-
-const owing = (
-  cases: ReadonlyArray<string>,
-  checks: ReadonlyArray<readonly [string, string]>,
-  why: string,
-  owner: string,
-) =>
-  cases.flatMap((id) =>
-    checks.map(([check, invariant]) => ({ case: id, check, invariant, why, owner })),
-  );
-
-/**
- * Production's owed reds among the part scripts (Conformance R22): a generated script it fails by
- * a production bug a Task owns, as `productionOwed` lists hand cases. Each is checked to still fail
- * by its check and Invariant, so a fix shows; every other script passes. A script owes one row per
- * check and Invariant it fails by, each failure on an Attempt its bug reached: a re-send past its
- * budget is refused (lane-queue I12), so its later endings meet a Held head (delivered-once I16,
- * I15); a disposed identity's restored head is parked (delivered-once I15), so its adoption never
- * hears its restore (disposal, Actors I29).
- */
-export const partsOwed: ReadonlyArray<Limit & { readonly owner: string }> = [
-  ...owing(
-    ["PART-transfers-stress-7", "MIX-sync+transfers+sign-in-stress-101", "PART-cells-stress-9"],
-    [I12],
-    RETRY_COUNT,
-    "@task.V3.T19",
-  ),
-  ...owing(["PART-transfers-stress-10"], [I12, I16, I15], RETRY_COUNT, "@task.V3.T19"),
-  ...owing(
-    [3, 9, 101, 111].map((s) => `PART-transfers-stress-${s}`),
-    [I12, I16, I15, I29],
-    RETRY_COUNT,
-    "@task.V3.T19",
-  ),
-  ...owing(
-    ["PART-transfers-stress-104"],
-    [
-      I12,
-      I16,
-      I15,
-      ["delivered-once", "Restore I6"],
-      ["lane-queue", "WriteLanes I8"],
-      ["disposal", "Actors I32"],
-    ],
-    RETRY_COUNT,
-    "@task.V3.T19",
-  ),
-  ...owing(["PART-cells-stress-9"], [I29], RETRY_COUNT, "@task.V3.T19"),
-  ...owing(["PART-pay-stress-112"], [I12], RETRY_COUNT, "@task.V3.T19"),
-  ...owing(
-    [
-      "PART-pay-stress-3",
-      "PART-pay-stress-12",
-      "PART-pay-stress-109",
-      "PART-cells-stress-1",
-      "PART-cells-stress-4",
-      "PART-cells-stress-8",
-    ],
-    [I12, I16],
-    RETRY_COUNT,
-    "@task.V3.T19",
-  ),
-  ...owing(
-    ["PART-pay-stress-106", "PART-pay-stress-110"],
-    [I12, I16, ["delivered-once", "Restore I6"]],
-    RETRY_COUNT,
-    "@task.V3.T19",
-  ),
-  ...owing(
-    [
-      ...[
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 101, 102, 104, 105, 106, 107, 108, 109, 110, 111,
-        112,
-      ].map((s) => `PART-pay-stress-${s}`),
-      ...[1, 2, 3, 4, 6, 7, 8, 10, 11, 12, 101, 102, 104, 105, 106, 107, 108, 109, 110, 111].map(
-        (s) => `PART-cells-stress-${s}`,
-      ),
-    ],
-    [I15, I29],
-    UNBOUND_RESTORE,
-    "@task.V3.T54",
-  ),
-];
 
 /**
  * The world seed a part script runs at: the seed its id ends with (`PART-transfers-stress-7`,
@@ -152,16 +54,16 @@ export const worldSeedOf = (id: string) => Number(/-(\d+)(?:-shrunk)?$/u.exec(id
  *
  * The world runs at the script's own seed ({@link worldSeedOf}), so one script seed fixes the
  * run (R8). `given` are the lifecycle tables the model applies: the design's, or a model mutant
- * (R19). A violation one of the script's `owed` rows names (its check and Invariant) does not
- * stop the run: it is kept, the run is judged to its end, and the verdict fails by every kept one
- * when nothing else failed, so a row holds only over the run's sole failures.
+ * (R19). A violation one of the script's `owed` rows names (its check, Invariant and subject)
+ * does not stop the run: it is kept, the run is judged to its end, and the verdict fails by every
+ * kept one beside whatever else failed, so a row holds only over the run's sole failures.
  */
 // RETURN_TYPE: both branches build the named Played, the refusal with an empty fact list.
 export const playPart = (
   script: Script,
   runtime: PartRuntime,
   given: Rules = rules,
-  owed: ReadonlyArray<Limit> = partsOwed,
+  owed: ReadonlyArray<PartOwed> = partsOwed,
 ): Played => {
   if (runtime === "round-14")
     return {
@@ -173,6 +75,7 @@ export const playPart = (
       },
       facts: [],
       skipped: 0,
+      kept: [],
     };
 
   let skipped = 0;
@@ -194,9 +97,15 @@ export const playPart = (
     captureMs: captureMsOf(scenario.id),
     rules: given,
     judge: true,
-    excuse: (oracle, invariant) =>
+    excuse: (oracle, invariant, subject) =>
       runtime === "production" &&
-      owed.some((o) => o.case === script.id && o.check === oracle && o.invariant === invariant),
+      owed.some(
+        (o) =>
+          o.case === script.id &&
+          o.check === oracle &&
+          o.invariant === invariant &&
+          Option.exists(subject, (s) => o.subjects.includes(s)),
+      ),
   });
 
   const ran = Result.try({
@@ -235,19 +144,20 @@ export const playPart = (
     verdict,
     facts: opened.facts(),
     skipped,
+    kept: excused,
   };
 };
 
 /**
  * The faults of played part scripts on production (Conformance R15, R22): a run that does not
- * pass, unless an owed row names it and it still fails by that row's check and Invariant, and a
- * passing run whose answers mostly found no open request (a script that tested little). An owed
- * row naming no script in `scope` (the gates pass every script the suite plays) is a fault, and so
- * is no run.
+ * pass, unless it failed (not timed out) only by violations its owed rows kept and each row kept
+ * one (by its check and Invariant on one of its subjects); a passing run whose answers mostly found
+ * no open request (a script that tested little); an owed row naming no script in `scope` (the
+ * gates pass every script the suite plays); and no run.
  */
 export const partFaults = (
   runs: ReadonlyArray<{ readonly script: Script; readonly run: Played }>,
-  owed: ReadonlyArray<Limit & { readonly owner: string }> = partsOwed,
+  owed: ReadonlyArray<PartOwed> = partsOwed,
   scope: ReadonlySet<string> = new Set(owed.map((o) => o.case)),
 ) => {
   const empty = runs.length === 0 ? ["BAD  no part script ran: the gate judged nothing"] : [];
@@ -259,29 +169,43 @@ export const partFaults = (
   return [...empty, ...ghosts, ...judged(runs, owed)];
 };
 
-const unowedFailures = (verdict: CaseVerdict, rows: ReadonlyArray<Limit>) =>
-  verdict._tag === "Fail"
-    ? verdict.why
+const owes = (row: PartOwed, kept: Played["kept"][number]) =>
+  kept.oracle === row.check &&
+  kept.invariant === row.invariant &&
+  Option.exists(kept.subject, (s) => row.subjects.includes(s));
+
+const unowedFailures = (run: Played, rows: ReadonlyArray<PartOwed>) =>
+  run.verdict._tag === "Fail"
+    ? run.verdict.why
         .replace(/^seed \d+: /u, "")
         .split(" | ")
-        .filter((failure) => !rows.some((r) => failure.startsWith(`${r.check}: ${r.invariant}:`)))
+        .filter(
+          (failure) => !run.kept.some((k) => k.text === failure && rows.some((r) => owes(r, k))),
+        )
     : [];
+
+const heldBy = (row: PartOwed, run: Played) => run.kept.some((k) => owes(row, k));
 
 const judged = (
   runs: ReadonlyArray<{ readonly script: Script; readonly run: Played }>,
-  owed: ReadonlyArray<Limit & { readonly owner: string }>,
+  owed: ReadonlyArray<PartOwed>,
 ) =>
   runs.flatMap(({ script, run }) => {
     const rows = owed.filter((o) => o.case === script.id);
 
+    if (rows.length > 0 && run.verdict._tag === "Timeout")
+      return [`BAD  ${script.id}: ${Formatter.format(run.verdict)}, which no owed row excuses`];
+
     if (rows.length > 0)
       return [
-        ...rows.flatMap((row) => {
-          const held = verdictOfLimit(row, run.verdict);
-
-          return held.held ? [] : [`BAD  ${script.id}: owed to ${row.owner}, but ${held.why}`];
-        }),
-        ...unowedFailures(run.verdict, rows).map(
+        ...rows.flatMap((row) =>
+          heldBy(row, run)
+            ? []
+            : [
+                `BAD  ${script.id}: owed to ${row.owner}, but no kept failure is ${row.check} ${row.invariant} on ${row.subjects.join(", ") || "no subject"}`,
+              ],
+        ),
+        ...unowedFailures(run, rows).map(
           (failure) => `BAD  ${script.id}: fails by ${failure}, which no owed row names`,
         ),
       ];

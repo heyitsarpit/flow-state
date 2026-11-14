@@ -65,6 +65,6 @@ export const lateResults = oracle<Record<string, never>>({
       return [...heard, ...revived];
     });
 
-    return [state, [...new Set(found)].map(violation)];
+    return [state, [...new Set(found)].map((s) => violation(s))];
   },
 });

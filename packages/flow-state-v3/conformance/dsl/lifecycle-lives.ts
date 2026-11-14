@@ -4,6 +4,7 @@ import { type ActorRef, sameActor } from "../port.ts";
 import {
   type Ending,
   type EndingName,
+  endingSubject,
   Life,
   LifeMove,
   type Model,
@@ -104,6 +105,7 @@ export const misdelivered = (
       : Option.some<Refusal>({
           invariant: wl(15),
           text: `${name.operation} ${Option.getOrElse(name.attempt, () => "decline")} was delivered as ${event}, not its ending's ${wanted}`,
+          subject: endingSubject(name),
         }),
   );
 };
@@ -246,7 +248,8 @@ const applyAt = (model: Model, row: LifeRow, index: number, given: Rules) => {
   if (fate === undefined) throw new MissingLifeCell({ row, life, guard });
 
   return Fate.$match(fate, {
-    Refuse: ({ invariant }) => stepOf(model, [{ invariant, text: describe(row, ending) }]),
+    Refuse: ({ invariant }) =>
+      stepOf(model, [{ invariant, text: describe(row, ending), subject: endingSubject(ending) }]),
     Stay: () => stepOf(discharged(model, row, index, guard, ending)),
     Live: ({ to }) => stepOf(lived(discharged(model, row, index, guard, ending), index, to)),
   });
@@ -271,7 +274,10 @@ const heard = (model: Model, index: number, given: Rules) => {
     throw new MissingLifeCell({ row: "Heard", life: "Delivering", guard: "always" });
 
   return Fate.$match(fate, {
-    Refuse: ({ invariant }) => stepOf(model, [{ invariant, text: describe("Heard", ending) }]),
+    Refuse: ({ invariant }) =>
+      stepOf(model, [
+        { invariant, text: describe("Heard", ending), subject: endingSubject(ending) },
+      ]),
     Stay: () => stepOf(model),
     Live: ({ to }) => stepOf(owedByTurn(lived(model, index, to), index)),
   });
@@ -306,6 +312,7 @@ export const applyLife = (model: Model, move: LifeMove, given: Rules = rules) =>
           {
             invariant: wl(15),
             text: `${move.ending.operation} ${Option.getOrElse(move.ending.attempt, () => "decline")} got ${row} with no ending`,
+            subject: endingSubject(move.ending),
           },
         ]);
 

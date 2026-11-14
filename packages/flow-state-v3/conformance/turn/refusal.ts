@@ -257,6 +257,6 @@ export const refusal = oracle<State>({
       ...changed(state, step, r),
     ]);
 
-    return [published(state, step), [...new Set(found)].map(violation)];
+    return [published(state, step), [...new Set(found)].map((s) => violation(s))];
   },
 });
