@@ -256,8 +256,18 @@ instructions
     **Agents and effort**
 
     - Opus leads and Haiku sidecars, Claude Code (detected 2026-11-09). Every lead (building, reviewing, auditing,
-      designing) runs at medium effort; every Haiku agent at high, and a lead tells its own sidecars so (the user,
-      2026-11-11).
+      designing) runs at medium effort. Haiku review sidecars run at high; read-only sweeps (locators, surveys,
+      runners) run at medium as a timed trial, compared against the speed study's sidecar times; a lead tells its own
+      sidecars which (the user, 2026-11-14; was high for all).
+    - Speed rules (the user, 2026-11-14, code:wiki/plans/flow/references/proposals/agent-speed-study-2026-11-14.md):
+      - batch tool calls: independent Reads, Edits and searches go in one message, never one call per turn;
+      - launch all of a round's sidecars in one message, so they run in parallel; a sidecar's call returns only
+        when it finishes;
+      - verify once per batch of edits: `nub run check:fix` alone (never a plain `check` after it), only the touched
+        test files while iterating, the whole package before each checkpoint commit;
+      - resume from a resume card of at most about 5,000 characters, and read files by line range, once;
+      - read-only sidecars are Explore agents, and their brief carries the rules they must follow (bounded commands,
+        no writes).
     - Building leads plan the round up front and write every committed line; Haiku never writes committed code (the
       user, 2026-11-10). Up to eight Haiku sidecars, as many as the lead judges the work needs (the user, 2026-11-14), 
       as runners (gates, falsify, sweeps, traces), one-rule diff
@@ -348,7 +358,10 @@ instructions
       long. Loop
       amendments are batched at an area's close-out unless one fixes a wrong result (the user, 2026-11-11).
     - Every review goes to one Opus lead with up to eight read-only Haiku sidecars on named angles, as many as the lead
-      judges it needs (the user, 2026-11-14; was two).
+      judges it needs (the user, 2026-11-14; was two). Review speed (the user, 2026-11-14): start gate re-runs in the
+      background before the sidecar batch; cap each sidecar at about 25 tool calls or 5 minutes; give the blind
+      sidecar a pack of the cited Spec rules instead of whole Specs; sidecars return a fixed table (claim, file:line,
+      repro command) so the lead writes the review in one pass.
       One of them is blind (the user, 2026-11-12): it gets only the Specs, the Plans and the code under review,
       never the Task's requirements list, its comments or earlier reviews, and answers "what must be true here for
       this to be fully correct?". The lead compares its answer with the requirements list; anything only the blind

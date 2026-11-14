@@ -135,8 +135,9 @@ wk check             # see .agents/skills/wk/SKILL.md before editing Workflow re
 - The owner exercises its own judgement on every Haiku result and never accepts one on the sidecar's word: it reads
   every line of a sidecar's code, re-runs the check itself, confirms a wrong runtime fails for the expected reason,
   verifies each finding before using it, and logs each result as accepted, changed or rejected, with why.
-- Haiku agents always run at effort high (sidecars, research fan-out, review sidecars); set `effort: "high"`
-  whenever starting one, and tell any lead that starts its own to do the same.
+- Haiku review sidecars run at effort high; read-only sweeps (locators, surveys, runners, research fan-out) run at
+  effort medium as a timed trial (the user, 2026-11-14). Set `effort` whenever starting one, and tell any lead that
+  starts its own which to use.
 - In prototype work the Opus builder is a lead (adopted 2026-11-08; runners get the oracle code, a reviewer
   sidecar checks every oracle, harness or runtime change): it plans the round's tasks up front and delegates bounded ones to up
   to 4 Haiku sidecars at once (coders on disjoint files with an acceptance check, runners for gates and traces,

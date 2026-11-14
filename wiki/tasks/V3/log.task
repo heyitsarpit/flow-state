@@ -477,4 +477,13 @@ note 2026-11-14T14:38:01Z
     to instructions (T61's approved Approach). The builder asked to hand off; told to continue under the 
     90-percent-after-three-compactions rule. Review started.
 note 2026-11-14T14:55:47Z
-    Review (T61 items 2-5) PASS, 0 blocking (t61-items2-5-review-2026-11-14.md): both soak findings confirmed (adoption flush is production's, StillUnknown misread is the model's). Fix in T61 before review, since they touch its acceptance: signatures cannot separate the retry and unbound roots, the shrinker is not 1-minimal, the owner test matches substrings. Missed by the builder's checks: signatures tested on distinct roots only (weak check).
+    Review (T61 items 2-5) PASS, 0 blocking (t61-items2-5-review-2026-11-14.md): both soak findings confirmed (adoption 
+    flush is production's, StillUnknown misread is the model's). Fix in T61 before review, since they touch its 
+    acceptance: signatures cannot separate the retry and unbound roots, the shrinker is not 1-minimal, the owner test 
+    matches substrings. Missed by the builder's checks: signatures tested on distinct roots only (weak check).
+note 2026-11-14T15:24:36Z
+    Decision (user, 2026-11-14): "okay make all of these changes" to the agent speed study 
+    (agent-speed-study-2026-11-14.md): batched tool calls, sidecars launched in one message, one verification per edit 
+    batch, resume cards and ranged reads, leaner reviews (background gates, capped sidecars, a rule pack for the blind 
+    one, a fixed finding table), Haiku sweeps at medium as a timed trial (review sidecars stay high), Explore agents 
+    for read-only sidecars. instructions, AGENTS.md and memory edited.
