@@ -146,6 +146,14 @@ describe("one owed rule for every owed script, by exact break (the class gate; C
     assert.ok(plantedSweep([id], loose).length > 0);
   }, 60_000);
 
+  it("the sweep is judged by the gate itself: a gate that faults nothing lets every plant pass", () => {
+    const id = "PART-sync-usual-1";
+    const missed = plantedSweep([id], owedRows, () => []);
+
+    assert.ok(missed.length > 0);
+    assert.ok(missed.every((f) => f.includes("passed the gate")));
+  }, 60_000);
+
   it("an owed item that stops breaking, or a row of a Task not open, fails the gate", () => {
     const id = "PART-transfers-stress-104";
     const rows = ownedBy(id);

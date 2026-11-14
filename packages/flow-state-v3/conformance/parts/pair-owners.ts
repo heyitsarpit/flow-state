@@ -15,12 +15,7 @@ const durability = (by: string) =>
  * `wa`, `sr` and `rl` in full; the disposal with several actors to slice 4's actor identity.
  */
 export const PAIR_OWNERS = {
-  "rt+sr": durability("transfers: a refused batch holding a retried write's record"),
-  "un+sr": durability("transfers: a refused batch while a write's ending is unknown"),
-  "lk+sr": durability("sync: a refused batch while a remote-head lookup is open"),
   "du+sr": durability("sign-in: a refused batch in the disposal of an unstoppable write"),
-  "du+wa": durability("sign-in: an unstoppable write's record held by write-ahead"),
-  "du+rl": durability("sign-in: a reload during the disposal of an unstoppable write"),
   "du+ma": {
     task: "@task.V3.T9",
     slice: 4,

@@ -821,6 +821,12 @@ tasks
             build on; the owed-row redesign in flight moves to T60 as its first step. Resume list unchanged in 
             t52-build-log-2026-11-14.md. Edit (agent: orchestrator, @task.V3.T52, 2026-11-14): status, blocker and this 
             comment. Why: the user's pause. Reverse: drop the blocker, set in_progress.
+        comment     2026-11-14T10:03:18Z
+            Step 2f done, for review: the class gate is judged by the parts gate itself (red first); a first-contact 
+            red at MIX stress-10 is owed to T19 with triage owed; five reached pair owners dropped (pairs 74/74). 
+            Detail: code:wiki/plans/flow/references/proposals/t52-build-log-2026-11-14.md.
+              Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment. Why: step-done rule. Reverse: 
+              revert this commit.
     T60
         title       The suite proves its own gates and excuses
         status      done
@@ -882,8 +888,13 @@ tasks
             code:wiki/plans/flow/references/proposals/t60-requirements-2026-11-14.md.
               Edit (agent: T60 building lead, @task.V3.T60, 2026-11-14): this comment. Why: close review fixes. 
               Reverse: revert this commit.
-        comment 2026-11-14T09:51:20Z
-            Done (orchestrator): close review ISSUES at 196edbff (B1, B2), fix round at 75a29363 verified against gates.json there (liar round-14 126/126 within cap 9, core mutants 66/98 with 0 stale, class gate 268/268, falsify 154/154 with 4/4 probes); no separate re-check, per the user's rule. Retrospective: the builder's own checks missed moved gate counts it never explained, and probes left off the new rule. Applied (small, orchestrator): before setting a Task to review, the builder diffs gates.json against the Task's first revision and explains every changed count.
+        comment     2026-11-14T09:51:20Z
+            Done (orchestrator): close review ISSUES at 196edbff (B1, B2), fix round at 75a29363 verified against 
+            gates.json there (liar round-14 126/126 within cap 9, core mutants 66/98 with 0 stale, class gate 268/268, 
+            falsify 154/154 with 4/4 probes); no separate re-check, per the user's rule. Retrospective: the builder's 
+            own checks missed moved gate counts it never explained, and probes left off the new rule. Applied (small, 
+            orchestrator): before setting a Task to review, the builder diffs gates.json against the Task's first 
+            revision and explains every changed count.
     T59
         title       The suite reads and imports nothing outside the package
         status      draft

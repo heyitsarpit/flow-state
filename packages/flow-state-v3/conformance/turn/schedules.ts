@@ -175,10 +175,10 @@ const overdue = (state: State, clock: number) =>
           .filter(
             (a) => Option.isNone(a.schedule.delayMs) && Option.exists(a.due, (due) => due <= clock),
           )
-          .map(
-            (a) =>
-              `Turn I12: ${key}'s ${a.schedule.id} at ${a.state}, armed at ${a.at} ms with the delay its After memory gives, was due by ${Option.getOrElse(a.due, () => 0)} ms but had not fired at ${clock} ms`,
-          )
+          .map((a) => ({
+            key,
+            text: `Turn I12: ${key}'s ${a.schedule.id} at ${a.state}, armed at ${a.at} ms with the delay its After memory gives, was due by ${Option.getOrElse(a.due, () => 0)} ms but had not fired at ${clock} ms`,
+          }))
       : [],
   );
 
@@ -287,9 +287,12 @@ export const schedules = oracle<State>({
 
     return [
       { ...walked.state, anchor: judged.state, clock: clockAfter },
-      [...new Set([...walked.found, ...overdue(walked.state, clockAfter)])].map((s) =>
-        violation(s),
-      ),
+      [
+        ...[...new Set(walked.found)].map((s) => violation(s)),
+        ...overdue(walked.state, clockAfter).map(({ key, text }) =>
+          violation(text, Option.some(key)),
+        ),
+      ],
     ];
   },
 });

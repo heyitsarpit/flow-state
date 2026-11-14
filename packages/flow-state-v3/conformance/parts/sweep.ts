@@ -85,35 +85,37 @@ const plantsFor = (id: string, rows: ReadonlyArray<PartOwed>, salt: number) => {
  * The planted-fault sweep (the class gate; Conformance R22): every script in `ids` is played with
  * one planted break at a time, early and late in the run: a fresh Attempt and a fresh lane under
  * each of its owed rows' check and Invariant (or a default one), each owed Attempt under another
- * check, and each owed subject at another step. Each plant must fail the gate judged under
- * `rows`; a fault line names every plant that never fired or that the gate let pass. The plants
- * always come from the owed list.
+ * check, and each owed subject at another step. Each script must pass `gate` (the parts gate's
+ * judgement) unplanted under `rows`, and each plant must fire and make it fault; a fault line
+ * names every plant that never fired or that the gate let pass. The plants always come from the
+ * owed list.
  */
 export const plantedSweep = (
   ids: ReadonlyArray<string>,
   rows: ReadonlyArray<PartOwed> = owedRows,
+  gate: typeof partFaults = partFaults,
 ) =>
-  ids.flatMap((id, index) =>
-    plantsFor(
+  ids.flatMap((id, index) => {
+    const script = Option.getOrThrow(scriptById(id));
+    const mine = rows.filter((o) => o.case === id);
+    const open = new Set(rows.map((o) => o.owner));
+
+    const faultsWith = (extra: ReadonlyArray<Oracle>) =>
+      gate([{ script, run: playedWith(id, extra, rows) }], mine, new Set([id]), open);
+
+    if (faultsWith([]).length > 0) return [`BAD  ${id}: fails the gate with nothing planted`];
+
+    return plantsFor(
       id,
       owedRows.filter((o) => o.case === id),
       index,
     ).flatMap((plant, n) => {
-      const run = playedWith(id, [plant.judge], rows);
+      const faults = faultsWith([plant.judge]);
 
-      return Option.match(plant.firedAt(), {
-        onNone: () => [`BAD  ${id}: planted break ${n} never fired`],
-        onSome: (step) =>
-          run.violations.some(
-            (v) =>
-              !v.excused &&
-              v.oracle === plant.check &&
-              v.invariant === plant.invariant &&
-              v.step === step &&
-              Option.contains(v.subject, plant.subject),
-          )
-            ? []
-            : [`BAD  ${id}: planted break ${n} (${plant.check}) passed the gate`],
-      });
-    }),
-  );
+      if (Option.isNone(plant.firedAt())) return [`BAD  ${id}: planted break ${n} never fired`];
+
+      return faults.length > 0
+        ? []
+        : [`BAD  ${id}: planted break ${n} (${plant.check}) passed the gate`];
+    });
+  });
