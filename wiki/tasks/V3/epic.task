@@ -349,7 +349,9 @@ instructions
       - before the first edit, read AGENTS.md "Code style" and `tools/lint-bomb/FLOW-STATE.md`; no Spec, Task or
         step ids in production code;
       - run the full conformance gates after any commit that changes ids, keys, record shapes or report text;
-      - a pending case is an owed row or `it.todo` naming the step that turns it green; no custom helper.
+      - a pending case runs its body every time and must fail with its pinned reason, naming the step that turns it
+        green (an owed row, or a helper such as T54's `owed`); `it.todo` hides a case that stops failing, so it is
+        not used.
     - Pre-step check (orchestrator, process experiment, 2026-11-15): before a Task's step 1, the orchestrator checks
       its brief: every Invariant owned by or routed to the Task appears in it; every cited Spec section exists where
       cited; known contradictions between the brief and the Specs are listed on the Task for the builder.

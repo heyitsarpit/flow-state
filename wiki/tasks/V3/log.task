@@ -577,3 +577,7 @@ note 2026-11-14T20:06:08Z
     failing. Applied (orchestrator, process experiments): a builder checklist for six recurring wrong beliefs, a 
     pre-step check of each brief, a glossary in the suite README, pre-step findings on T18, T55, T19, T20, and 
     whole-transcript reading for studies (the user). Open for the user: T60's uncited-catch rule against Conformance R6.
+note 2026-11-14T20:07:42Z
+    Ruled (orchestrator, 2026-11-15): pending cases run their body and fail with a pinned reason (T54's owed helper or 
+    an owed row); the checklist line suggesting it.todo is corrected, since it.todo hides a case that stops failing. 
+    The builder was right.
