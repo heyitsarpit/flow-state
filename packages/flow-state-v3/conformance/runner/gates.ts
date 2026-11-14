@@ -123,7 +123,7 @@ export const machineGates = (scratch: string) => {
     { gate: "crash production", args: ["crash", "--runtime", "production", "--only", only] },
     {
       gate: "core mutants",
-      args: ["mutate", "--limit", "100", "--parallel", "4", "--scratch", scratch],
+      args: ["mutate", "--limit", "120", "--parallel", "4", "--scratch", scratch],
     },
   ];
 };

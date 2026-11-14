@@ -80,9 +80,9 @@ export const productionMutants = {
       cases: ["DLV-05"],
       edits: [
         {
-          file: "src/core/incarnations.ts",
-          find: "          owner: ROOT_ACTIVATION,\n          tries: Tries.Last(),",
-          replace: "          owner: ROOT_ACTIVATION,\n          tries: Tries.Parked(),",
+          file: "src/core/ledger.ts",
+          find: "        adopt(row, Delivery.Retrying());",
+          replace: "        adopt(row, Delivery.Queued());",
         },
       ],
     }),
@@ -108,9 +108,9 @@ export const productionMutants = {
       cases: ["DLV-06"],
       edits: [
         {
-          file: "src/core/cells.ts",
-          find: "    Kept: decline,",
-          replace: "    Kept: (cue) => Move.Mint({ input: cue.input, owner: cue.owner }),",
+          file: "src/core/lanes.ts",
+          find: "    if (keptOn(tx.world().owed, incarnation.actor, id)) {",
+          replace: '    if (keptOn(tx.world().owed, incarnation.actor, id) && id === "") {',
         },
       ],
     }),
@@ -169,7 +169,7 @@ export const productionMutants = {
           file: "src/core/lane-moves.ts",
           find: "      Release: () => dropLane(at.id, laneAt(at)),",
           replace:
-            '      Release: () => {\n        const lane = laneAt(at);\n        dropLane(at.id, lane);\n        endingMail(at.actor, { operation: at.operation, attempt: Option.some(lane.head.id), lane: Option.none(), channel: "unknown", reason: "Released", value: undefined, owner: 0, current: true, tries: Tries.First() });\n      },',
+            '      Release: () => {\n        const lane = laneAt(at);\n        dropLane(at.id, lane);\n        ledger.owe({ actor: at.actor, to: Audience.Identity(), operation: at.operation, attempt: Option.some(lane.head.id), lane: Option.none(), channel: "unknown", reason: "Released", value: undefined, owner: 0, current: true });\n      },',
         },
       ],
     }),
@@ -273,15 +273,14 @@ export const productionMutants = {
 export const productionCaseMutants: ReadonlyArray<Mutant> = [
   mutant({
     name: "prod.mint-not-replayable",
-    says: "ids are not a function of the boot's seed and the world's counter",
+    says: "Attempt ids are not a function of the boot's seed and the Attempts' counter",
     expects: "Turn I17",
     cases: ["PAY-01"],
     edits: [
       {
         file: "src/core/tx.ts",
-        find: "      return branded<Id>(`${prefix}-${env.seed}-${world.counter}`);",
-        replace:
-          "      return branded<Id>(`${prefix}-${env.seed}-${world.counter}-${performance.now()}`);",
+        find: "      return `att-${env.seed}-${world.attempts}`;",
+        replace: "      return `att-${env.seed}-${world.attempts}-${performance.now()}`;",
       },
     ],
   }),

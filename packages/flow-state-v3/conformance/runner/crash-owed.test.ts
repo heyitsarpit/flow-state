@@ -62,7 +62,7 @@ describe("crash's reds named and owned (T61; survey item 3)", () => {
       point: "PAY-22@16",
       check: "lane-queue",
       invariant: "WriteLanes I12",
-      subject: "att-1000-12",
+      subject: "att-000000000000000000000000000003e8-2",
     };
 
     const done = faultsOf([run({ hits: [hit] })], crashOwed.slice(0, 1), new Set());
@@ -84,7 +84,7 @@ describe("crash's reds named and owned (T61; survey item 3)", () => {
       point: "PAY-22@16",
       check: "lane-queue",
       invariant: "WriteLanes I12",
-      subject: "att-1000-12",
+      subject: "att-000000000000000000000000000003e8-2",
     };
 
     const red = { _tag: "Fail", id: "PAY-22@16", oracles: ["disposal"], why: "planted" } as const;
@@ -103,9 +103,9 @@ describe("crash's reds named and owned (T61; survey item 3)", () => {
     assert.deepEqual(
       [...new Set(owed.hits.map((h) => `${h.point} ${h.check} ${h.invariant} ${h.subject}`))],
       [
-        "PAY-22@16 lane-queue WriteLanes I12 att-1000-12",
-        "PAY-22@16 delivered-once WriteLanes I16 att-1000-12",
-        "PAY-22@16 delivered-once WriteLanes I15 att-1000-12",
+        "PAY-22@16 lane-queue WriteLanes I12 att-000000000000000000000000000003e8-2",
+        "PAY-22@16 delivered-once WriteLanes I16 att-000000000000000000000000000003e8-2",
+        "PAY-22@16 delivered-once WriteLanes I15 att-000000000000000000000000000003e8-2",
       ],
     );
 

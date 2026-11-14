@@ -137,7 +137,7 @@ describe("the generator varies its inputs (T61; Conformance R15, R16)", () => {
     }
   }, 60_000);
 
-  it("a kept regression of a disposed actor's refused head is triaged by its signature (soak 5000)", () => {
+  it("a kept regression of a disposed actor's refused head passes with no owed row (soak 5000; fixed by T54's A-2)", () => {
     const id = "PART-cells-stress-105-shrunk";
     const script = Option.getOrThrow(scriptById(id));
 
@@ -148,7 +148,8 @@ describe("the generator varies its inputs (T61; Conformance R15, R16)", () => {
       owedRows.filter((o) => o.case !== id),
     );
 
-    assert.equal(TRIAGED_SIGNATURES.get(Option.getOrThrow(signatureOf(run))), "refused");
+    assert.equal(run.verdict._tag, "Pass");
+    assert.ok(Option.isNone(signatureOf(run)));
   });
 
   it("late-results names the late Attempt as its subject, once (review N5)", () => {
@@ -162,7 +163,9 @@ describe("the generator varies its inputs (T61; Conformance R15, R16)", () => {
     );
 
     assert.ok(late.length > 0);
-    assert.ok(late.every((v) => Option.contains(v.subject, "att-110000-25")));
+    assert.ok(
+      late.every((v) => Option.contains(v.subject, "att-0000000000000000000000000001adb0-4")),
+    );
     assert.equal(new Set(late.map((v) => `${v.step} ${v.text}`)).size, late.length);
   }, 60_000);
 
