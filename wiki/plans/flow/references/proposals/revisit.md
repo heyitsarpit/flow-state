@@ -86,5 +86,8 @@ Deferred items.
 - **Unreached refusal cells default to T18** (2026-11-14, T61 builder; t61-close-review-2026-11-14.md O5).
   `code:packages/flow-state-v3/conformance/parts/model-owes.ts#suiteOwner`'s last branch sends any other unforgeable
   cell to T18 instead of failing. Today all 16 cells match an area; a new cell should fail until it is owned.
+- **Core-mutant triage keyed by line number** (2026-11-15, assumption study). `core-mutants-triage.ts` matches a
+  row by file, line and replacement text, so every core edit re-keys it by hand. Key it on the mutated text plus
+  its enclosing function, and make `mutate` report candidates beyond `--limit`.
 - **`cancelAll`** (2026-11-12, the user, wide consult W1 K0; deferred). Neither reference app uses it. If it returns,
   K1 (its own member, typed only on queuing policies) over K2 (`cancel(key, { queued: true })`).

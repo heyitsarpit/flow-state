@@ -1993,6 +1993,13 @@ tasks
             Rule to settle: an Exit whose Cause holds both Flow's interruption and a failure (an interrupt whose
             finalizer fails or dies); the readiness check proposes unknown { Cancelled } by R2 unless the Exit is a
             success or a lone answer (spec-review-2026-11-12.md, Readiness, section 4).
+        comment     2026-11-14T20:05:41Z
+            Pre-step check (orchestrator, 2026-11-15, assumption study): add WriteLanes I40 and I41 to the brief 
+            (owes.ts routes them here); A-6's promotion line needs latest or serialize, since reject declines every 
+            head phase (cells.ts:180-191); the queue field needs WriteAhead R5 and Codec R5 edited first; WriteLanes Q5 
+            is still proposed; the eight new parts need distinct machine ids (Compile I14). Also owed here: the 8 
+            forged Send refusal cells. Edit (agent: orchestrator, @task.V3.T18, 2026-11-15): this comment. Why: 
+            pre-step check. Reverse: drop it.
     T51
         title       Production lanes reworked: one table function, reports derived from acts
         status      done

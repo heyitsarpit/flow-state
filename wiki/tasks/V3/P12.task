@@ -395,6 +395,14 @@ tasks
             Edit (agent: T61 parallel builder, @task.V3.T61, 2026-11-14): the Task text names conformance/owes.ts in 
             place of the old not-yet.ts (commit 4444e57d), a rename only. Reverse: revert that commit's hunk in this 
             file.
+        comment     2026-11-14T20:05:42Z
+            Pre-step check (orchestrator, 2026-11-15): R-5 and its stored-nowhere decision contradict Restore R3 and 
+            WriteAhead R5, which save the derived unknown Restored with the owed record; R-8 quarantines a lane whose 
+            operation is gone, but Restore I20 and R8 rewrite it to the contract's write operation when one exists; 
+            Restore I20 is routed here but missing from the R-list; define 'owed at the boot' in Restore R3 (does a row 
+            closed by a reload count). Also owed here: the BootSettles Restoring-then-Gone pair and the PAY-05 boot 
+            wake. Edit (agent: orchestrator, @task.V3.T20, 2026-11-15): this comment. Why: pre-step check. Reverse: 
+            drop it.
 
     T56
         title       Durability: release versions, key fingerprints and record migration (slice 2b)

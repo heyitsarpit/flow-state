@@ -6,8 +6,15 @@ agents are briefed, reviewed or paced. Add one entry per study; keep each entry 
 ## Running a study
 
 - **When:** at each Task's close, beside its retrospective.
-- **Who:** about five read-only Haiku Explore agents at effort medium. Each takes one angle and reads transcripts with
-  `jq`, never whole. Transcripts: `~/.claude/projects/-Users-arpit-Developer-flow-state/<session>/subagents/agent-*.jsonl`.
+- **Who:** about five read-only Haiku Explore agents. Transcripts:
+  `~/.claude/projects/-Users-arpit-Developer-flow-state/<session>/subagents/agent-*.jsonl`.
+- **Read transcripts in whole (the user, 2026-11-15):** numbers from `tools/process` say where the time went;
+  reading says why. Each agent reads its share of a transcript in full and in order, through `jq` and never the raw
+  file: every visible text block, every tool input (commands, edits) and every tool result. Split a long
+  transcript by time range across agents so each reads its slice whole. Look for stuck episodes, wrong
+  assumptions and their true source, rulings that the brief or Spec could have answered, and repeated edits.
+- **Thinking is not stored:** the transcript keeps only each thinking block's duration. `showThinkingSummaries` is
+  on in project settings as a trial; check whether new transcripts carry summaries.
 - **Angles:** the builder, the reviewers, the sidecars and startup, ramp-up and handoffs, and coordination between
   agents.
 - **Measure:**
@@ -60,6 +67,44 @@ Run them as studies make them useful; move each to Open experiments when started
    length; shorter briefs cost fewer tokens and less attention.
 
 ## Studies
+
+### 2026-11-15: assumption study (T52, T54, T61)
+
+Three Haiku agents read visible text, edits, failures, build logs and reviews. Lesson: builders are slow mostly
+because they discover wrong assumptions by failing, and the truth was often unwritten or not where they looked.
+
+- **Six beliefs recur across the T52 and T61 builders** (counts are approximate):
+  - a failing check proves its rule (about 13);
+  - one check plus Invariant, or one failure text, names one fault (about 11);
+  - an unknown may take a default (about 9);
+  - the suite's model is right where the Spec is silent (about 8);
+  - the first failing line names the root (about 7);
+  - an owner follows from the area (about 7).
+- **The T54 builder's stuck points:**
+  - 45 min and 69 edits on keeping a test red as pending, which the repo already handles with owed rows or
+    `it.todo`;
+  - it never opened the code-style files its brief names, and hit those lint rules 8 times;
+  - id changes committed without the full gates;
+  - triage keyed to line numbers.
+
+  Most of the rulings it stopped for were answerable from the Spec or the brief.
+- **About 46 requirement corrections after step 1:**
+  - scoped too narrowly or a routed item left out: 16;
+  - a code fact the brief lacked: 9;
+  - a Spec rule ambiguous: 8;
+  - a clear Spec cell misread: 7.
+
+  The worst Spec areas: Conformance R15, I61 and T39; the WriteLanes cancel cell; Restore I6 and R3; WriteAhead R5
+  and I24.
+- **Applied:**
+  - a builder checklist covering all six beliefs;
+  - a pre-step check of each brief by the orchestrator;
+  - a glossary in the suite README (subject, signature, root, unknown, owner, red);
+  - pre-step findings written onto T18, T55, T19 and T20;
+  - whole-transcript reading for every study.
+- **Open:**
+  - the core-mutant triage keyed by line number (revisit.md);
+  - T60's rule counting uncited failed expectations as catches contradicts Conformance R6. That's for the user.
 
 ### 2026-11-15: T54 builder, mid-task (A0 and A1)
 

@@ -333,12 +333,26 @@ instructions
       it lands as a failing check before its fix.
     - Before setting a Task to review, the builder diffs `conformance/gates.json` against the Task's first revision
       and explains every changed count (the orchestrator, 2026-11-14, T60 retrospective; reverse: drop this line).
-    - Builder checklist from the miss tally (process experiment, 2026-11-14; reverse: drop these two lines):
-      - weak check, 8 misses: every new check is shown red against a planted violation of the exact rule it claims,
-        with the plant written down so a reviewer can re-run it; a red that only came from a changed signature or
-        import does not count;
-      - gathering, 5 misses: gathering traces every existing reader of a new or changed structure (who reads parts,
-        owed rows, verdicts) and every input variant (ids with a slash, several Attempts, refusable writes).
+    - Builder checklist, from the miss tally and the 2026-11-15 assumption study
+      (code:wiki/plans/flow/references/process/process-notebook.md; process experiment; reverse: drop this list):
+      - a red counts only if it fails on the parent code with its planted wrong side, for the Invariant it names; a
+        red from an import, a signature or a constant does not count; plants go in a scratch copy, never the live tree;
+      - each check covers every case its rule lists (all suspend moments, all lane phases), and each expected result
+        or model cell quotes the Spec sentence it follows;
+      - gathering traces every existing reader of a new or changed structure and every input variant (ids with a
+        slash, several Attempts, refusable writes, a fake store that refuses);
+      - an unknown is never given a default (no `null`, `0`, default owner or default root): it stays unknown or is
+        refused;
+      - shrink and replay a red to its minimal run before triage; a root comes from each Attempt's first break, never
+        a failure's text or first line;
+      - an owner is the open Task whose moves can discharge the item, taken from the run that reaches it, not the area;
+      - before the first edit, read AGENTS.md "Code style" and `tools/lint-bomb/FLOW-STATE.md`; no Spec, Task or
+        step ids in production code;
+      - run the full conformance gates after any commit that changes ids, keys, record shapes or report text;
+      - a pending case is an owed row or `it.todo` naming the step that turns it green; no custom helper.
+    - Pre-step check (orchestrator, process experiment, 2026-11-15): before a Task's step 1, the orchestrator checks
+      its brief: every Invariant owned by or routed to the Task appears in it; every cited Spec section exists where
+      cited; known contradictions between the brief and the Specs are listed on the Task for the builder.
     - Shell file writes are blocked by a hook (`tools/process/block-shell-writes.ts`, in `.claude/settings.json`);
       write files with the Write or Edit tool (process experiment, 2026-11-14).
     - At each Task's close the builder runs the `soak` mode over fresh seeds; every new signature is triaged and

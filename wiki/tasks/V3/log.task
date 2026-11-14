@@ -568,4 +568,12 @@ note 2026-11-14T19:54:59Z
     turns against 64-75); 8.2 min idle on a ruling and 8.7 min polling background gates. Experiment (orchestrator): a 
     builder needing a ruling keeps doing independent work, and gates run in the background unpolled. Notebook updated.
 note 2026-11-14T19:58:35Z
-    Process experiment (orchestrator, 2026-11-15): thinking text is not stored in agent transcripts (278 empty thinking blocks in the T54 builder), so studies cannot read reasoning directly. Turned on showThinkingSummaries in project settings to try to record it; three Haiku agents study stuck points and wrong assumptions from visible text, failures, build logs and reviews.
+    Process experiment (orchestrator, 2026-11-15): thinking text is not stored in agent transcripts (278 empty thinking 
+    blocks in the T54 builder), so studies cannot read reasoning directly. Turned on showThinkingSummaries in project 
+    settings to try to record it; three Haiku agents study stuck points and wrong assumptions from visible text, 
+    failures, build logs and reviews.
+note 2026-11-14T20:06:08Z
+    Assumption study (2026-11-15; process notebook): builders are slow mostly because they find wrong assumptions by 
+    failing. Applied (orchestrator, process experiments): a builder checklist for six recurring wrong beliefs, a 
+    pre-step check of each brief, a glossary in the suite README, pre-step findings on T18, T55, T19, T20, and 
+    whole-transcript reading for studies (the user). Open for the user: T60's uncited-catch rule against Conformance R6.

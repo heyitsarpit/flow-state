@@ -7,6 +7,25 @@ harness in `prototypes/conformance/`, which stays as prior art.
 
 Round and Task history: the Tasks' comments (workflow/tasks/V3), `gates.json` for numbers, git for the rest.
 
+## Glossary
+
+Terms the suite's checks depend on. Each one replaced a wrong belief that recurred across builders.
+
+- **Subject:** what a failure or an excuse is about: an Attempt id, or a lane at one step. An excuse names its exact
+  subject; it never covers a kind, a count or a text match.
+- **Signature:** a failure's identity for grouping: its check, Invariant and the kind of move that first broke.
+  Never its text.
+- **Root:** the cause behind a signature, named from each Attempt's first break on a shrunk run (for example retry,
+  unbound restore, selection, model). A failure's first line does not name its root.
+- **Unknown:** a value the suite cannot decide. It stays unknown (`Option.none()`) or is refused; it never becomes
+  `null`, `0`, a default owner or a default root.
+- **Owner:** the open Task whose moves can discharge an owed item, taken from the run that reaches it. Never the
+  item's area.
+- **Red:** a check failing on the parent code with its planted wrong side, for the Invariant it names. A failure
+  from an import, a signature or a constant is not a red.
+- **The model is not the Spec:** where a Spec is silent, the Spec model and the fake world are guesses. A fake
+  store that never refuses a write hides every refusal path.
+
 ## How to run
 
 From `packages/flow-state-v3/`, every command bounded and with no stdin:

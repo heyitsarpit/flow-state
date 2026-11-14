@@ -399,6 +399,12 @@ tasks
             Edit (agent: T61 parallel builder, @task.V3.T61, 2026-11-14): the Task text names conformance/owes.ts in 
             place of the old not-yet.ts (commit 4444e57d), a rename only. Reverse: revert that commit's hunk in this 
             file.
+        comment     2026-11-14T20:05:41Z
+            Pre-step check (orchestrator, 2026-11-15): the admit table is in Actors algorithm, not model as the brief 
+            cites (its 13 inputs and 6 lives match); record B-4's result on today's code before writing its wrong 
+            runtime. Owed here: production reports a disposal Done before its final write and drops a refusal (PAY-15, 
+            PAY-16@9; Actors R23, I43). Edit (agent: orchestrator, @task.V3.T55, 2026-11-15): this comment. Why: 
+            pre-step check. Reverse: drop it.
     T19
         title       Durability: persistence edge, write-ahead and the driver (slice 2)
         status      draft
@@ -739,3 +745,8 @@ tasks
             PART-transfers-stress-5-shrunk and PART-cells-stress-105-shrunk (REFUSED_UNENDED) pass since T54's A-2, and 
             their T19 owed rows are removed. Edit (agent: T54 building lead, @task.V3.T54, 2026-11-15): this comment. 
             Why: the ruling's handoff. Reverse: the commit that adds it.
+        comment     2026-11-14T20:05:42Z
+            Pre-step check (orchestrator, 2026-11-15): W-2 adds a WriteAhead I24 that already exists, so renumber it; 
+            WriteAhead I23 has one owner, T19 (moved back from T54); step 5's seed from effect/Crypto must keep T54's 
+            A-18 width test; the StorageRefused capture lane (WriteLanes R9) pending case is owed here. Edit (agent: 
+            orchestrator, @task.V3.T19, 2026-11-15): this comment. Why: pre-step check. Reverse: drop it.
