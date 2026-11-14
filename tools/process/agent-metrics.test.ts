@@ -62,8 +62,78 @@ describe("analyzeFile on waits, overlaps, compaction and a synthetic line", () =
   });
 });
 
+/** Local minute of day of an ISO time, so the window tests hold in any time zone. */
+const localMinute = (iso: string): number => {
+  const date = new Date(iso);
+  return date.getHours() * 60 + date.getMinutes();
+};
+
+describe("--from and --to window", () => {
+  test("only lines inside the window count, in every column", async () => {
+    const row = await analyzeFile(FIXTURE, {
+      from: localMinute("2026-11-14T10:04:00.000Z"),
+      to: localMinute("2026-11-14T10:10:00.000Z"),
+    });
+    expect(row.start).toBe("2026-11-14T10:04:22.000Z");
+    expect(row.end).toBe("2026-11-14T10:09:40.000Z");
+    expect(row.wall_min).toBe(5.3);
+    expect(row.turns).toBe(3);
+    expect(row.calls).toBe(2); // Agent and bun test; the Read, sed and Edit calls are before 10:04
+    expect(row.calls_per_turn).toBe(0.67);
+    expect(row.model_min).toBe(0.3); // 18 s: lead-ins 7 and 9 s plus 1 s and 1 s spans
+    expect(row.think_min).toBe(0.33); // the 10:04:22 thinking, 20 s
+    expect(row.verify_min).toBe(3);
+    expect(row.sidecar_min).toBe(2);
+    expect(row.idle_min).toBe(0); // the 3 min gap starts at the 10:01:22 result, outside the window
+    expect(row.pre_edit_chars).toBe(18); // "Review done." and "3 pass"
+    expect(row.slips).toBe(0);
+    expect(row.compactions).toBe(0);
+  });
+
+  test("a window before a cut and one after it add up to the whole session", async () => {
+    const cut = localMinute("2026-11-14T10:04:00.000Z");
+    const before = await analyzeFile(FIXTURE, { to: cut });
+    const after = await analyzeFile(FIXTURE, { from: cut });
+    expect(before.calls).toBe(3);
+    expect(after.calls).toBe(2);
+    expect(before.slips).toBe(1);
+    expect(after.slips).toBe(0);
+    expect(before.compactions).toBe(1);
+    expect(after.compactions).toBe(0);
+  });
+
+  test("the command takes --from and --to, and rejects a backwards window", async () => {
+    const script = join(import.meta.dir, "agent-metrics.ts");
+    // The child runs in UTC, and its window is written in UTC, so no local time zone is assumed.
+    const run = async (args: string[]) => {
+      const proc = Bun.spawn([process.execPath, script, ...args], {
+        env: { ...process.env, TZ: "UTC" },
+        stdin: "ignore",
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      const stdout = await new Response(proc.stdout).text();
+      return { code: await proc.exited, stdout };
+    };
+    const inside = await run([
+      "--json",
+      "--from",
+      "10:04",
+      "--to",
+      "10:10",
+      FIXTURE,
+    ]);
+    expect(inside.code).toBe(0);
+    expect(JSON.parse(inside.stdout)[0].calls).toBe(2);
+    expect((await run(["--from", "10:10", "--to", "10:04", FIXTURE])).code).toBe(2);
+  });
+});
+
 describe("writesFile", () => {
   const cases: [string, boolean][] = [
+    ["cd /private/tmp/claude-501/s && echo hi > out.txt", false],
+    ["cd /tmp && echo hi > out.txt", false],
+    ["cd /Users/arpit/Developer/flow-state && echo hi > out.txt", true],
     ["sed -i '' 's/a/b/' notes.txt", true],
     ["perl -pi -e 's/a/b/' file.ts", true],
     ["cat > out.txt <<'EOF'\nhello > world\nEOF", true],
@@ -80,8 +150,8 @@ describe("writesFile", () => {
     ['git commit -q -m "fix: a > b\n\nbody"', false],
     ["wk edit @t --text $'comment=don\\'t > stop'", false],
     ["S=/private/tmp/claude-501/x; mkdir -p $S/soak && cat > $S/soak/out.txt", false],
-    ["S=/private/tmp/x; echo hi > $TMPDIR/z", true],
-    ["sed -i '' -e 's/^a$/b/' /dev/null", true],
+    ["S=/private/tmp/x; echo hi > $TMPDIR/z", false], // unresolved targets are allowed by the hook too
+    ["sed -i '' -e 's/^a$/b/' /dev/null", false],
   ];
   for (const [command, expected] of cases) {
     test(`${JSON.stringify(command)} -> ${expected}`, () => {

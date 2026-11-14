@@ -5,14 +5,18 @@
  * Usage:
  *   bun tools/process/agent-metrics.ts [--json] <file.jsonl>...
  *   bun tools/process/agent-metrics.ts [--json] --dir <subagents-dir> [--since HH:MM]
+ *       [--from HH:MM] [--to HH:MM]
  *
  * One row per transcript, sorted by start time. Durations are minutes. `--since HH:MM` keeps agents
- * whose start, in local time of day, is at or after HH:MM.
+ * whose start, in local time of day, is at or after HH:MM. `--from` and `--to` (local time, `to`
+ * exclusive) restrict every column to the transcript lines inside that window, so a session can be
+ * split before and after a change.
  */
 import { createReadStream } from "node:fs";
 import { readFile, readdir } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { createInterface } from "node:readline";
+import { REPO_ROOT, findViolation } from "./block-shell-writes.ts";
 
 const MINUTE_MS = 60_000;
 const IDLE_GAP_MS = 2 * MINUTE_MS;
@@ -71,8 +75,14 @@ interface PendingCall {
   command?: string;
 }
 
-/** Streams one subagent transcript and returns its metrics row. */
-export async function analyzeFile(file: string): Promise<AgentRow> {
+/** Local time-of-day bounds in minutes: a line counts when its minute is in [from, to). */
+export interface Window {
+  from?: number;
+  to?: number;
+}
+
+/** Streams one subagent transcript into its metrics row; lines outside the window are skipped. */
+export async function analyzeFile(file: string, window: Window = {}): Promise<AgentRow> {
   const meta = await readMeta(file);
   const pending = new Map<string, PendingCall>();
   const turnIds = new Set<string>();
@@ -100,13 +110,13 @@ export async function analyzeFile(file: string): Promise<AgentRow> {
   for await (const raw of lines) {
     const line = parseLine(raw);
     if (line === undefined) continue;
+    const ts = Date.parse(line.timestamp ?? "");
+    if (Number.isNaN(ts) || !inWindow(ts, window)) continue;
     if (line.type === "system") {
       if (line.subtype === "compact_boundary") totals.compactions += 1;
       continue;
     }
     if (line.type !== "user" && line.type !== "assistant") continue;
-    const ts = Date.parse(line.timestamp ?? "");
-    if (Number.isNaN(ts)) continue;
     first ??= ts;
     last = ts;
 
@@ -190,18 +200,12 @@ export async function analyzeFile(file: string): Promise<AgentRow> {
 }
 
 /**
- * True when a Bash command writes a file: `sed -i`, `perl -i`, `tee`, or a `>`/`>>` redirect to a path
- * other than /dev/null or the scratch dirs. A heredoc into a file has its redirect on the opening line,
- * so it is caught there. Quoted text and heredoc bodies are blanked first, so `=>` in a string never counts.
+ * True when a Bash command is a slip: a shell write to a project file, the same definition the
+ * write hook enforces (`findViolation` in block-shell-writes.ts). Relative targets resolve from the
+ * repo root, moved by any `cd` earlier in the same command.
  */
 export function writesFile(command: string): boolean {
-  const text = blankQuotes(blankHeredocBodies(command));
-  return (
-    inPlaceEdit(text, "sed") ||
-    inPlaceEdit(text, "perl") ||
-    TEE.test(text) ||
-    redirectsToFile(command, text)
-  );
+  return findViolation(command, REPO_ROOT) !== null;
 }
 
 /** Formats rows as an aligned text table, numbers right-aligned. */
@@ -238,73 +242,11 @@ const COLUMNS: { head: string; numeric: boolean; cell: (r: AgentRow) => string }
   { head: "compactions", numeric: true, cell: (r) => String(r.compactions) },
 ];
 
-const SCRATCH_TARGET = /^\/(dev|private\/tmp|tmp)(\/|$)/;
-const REDIRECT = /(?<![=\-])&?>>?(?![&(])/g;
-const REDIRECT_TARGET = /^\s*(?:"([^"]*)"|'([^']*)'|([^\s;&|()<>]+))/;
-const TEE = /(?:^|[|;&(])\s*tee(?=\s|$)/m;
-const HEREDOC_OPEN = /(?<!<)<<-?\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1/;
-const QUOTED = /\$'(?:[^'\\]|\\[\s\S])*'|"(?:[^"\\]|\\[\s\S])*"|'[^']*'/g;
-const ASSIGNMENT = /(?:^|[;&(\n])[ \t]*([A-Za-z_]\w*)=([^\s;&|()]*)/gm;
-
-function inPlaceEdit(text: string, tool: "sed" | "perl"): boolean {
-  const options = new RegExp(`\\b${tool}((?:[ \\t]+-[^\\s|;&()<>]*)+)`, "g");
-  // sed flags never take a value that could contain i; perl's -I and -M do, so perl needs the stricter test.
-  const inPlace = tool === "sed" ? /^-[a-zA-Z]*i|^--in-place/ : /^-[a-zA-Z0-9]*i(\.\S*)?$/;
-  for (const match of text.matchAll(options)) {
-    if (
-      match[1]
-        .trim()
-        .split(/\s+/)
-        .some((flag) => inPlace.test(flag))
-    )
-      return true;
-  }
-  return false;
-}
-
-function redirectsToFile(command: string, text: string): boolean {
-  const variables = assignments(command, text);
-  for (const match of text.matchAll(REDIRECT)) {
-    // text and command have equal length, so the target is read from the original command.
-    const target = REDIRECT_TARGET.exec(command.slice((match.index ?? 0) + match[0].length));
-    if (target === null) continue;
-    const path = (target[1] ?? target[2] ?? target[3]).replace(
-      /\$\{?(\w+)\}?/g,
-      (ref, name: string) => variables.get(name) ?? ref,
-    );
-    if (!SCRATCH_TARGET.test(path)) return true;
-  }
-  return false;
-}
-
-function blankHeredocBodies(command: string): string {
-  const out: string[] = [];
-  let terminator: string | undefined;
-  for (const line of command.split("\n")) {
-    if (terminator !== undefined) {
-      out.push("_".repeat(line.length));
-      if (line.trim() === terminator) terminator = undefined;
-      continue;
-    }
-    out.push(line);
-    terminator = HEREDOC_OPEN.exec(line)?.[2];
-  }
-  return out.join("\n");
-}
-
-function blankQuotes(text: string): string {
-  return text.replace(QUOTED, (quoted) => "_".repeat(quoted.length));
-}
-
-/** Shell variables assigned in the command (`S=/private/tmp/x`), so `> $S/out` can be resolved. */
-function assignments(command: string, text: string): Map<string, string> {
-  const variables = new Map<string, string>();
-  for (const match of text.matchAll(ASSIGNMENT)) {
-    const start = (match.index ?? 0) + match[0].length - match[2].length;
-    const value = command.slice(start, start + match[2].length);
-    variables.set(match[1], value.replace(/^(["'])(.*)\1$/s, "$2"));
-  }
-  return variables;
+function inWindow(ts: number, window: Window): boolean {
+  const minute = minutesOfDay(ts);
+  const afterFrom = window.from === undefined || minute >= window.from;
+  const beforeTo = window.to === undefined || minute < window.to;
+  return afterFrom && beforeTo;
 }
 
 function contentBlocks(line: Line): Block[] {
@@ -367,8 +309,8 @@ function clock(iso: string): string {
   return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-function minutesOfDay(iso: string): number {
-  const date = new Date(iso);
+function minutesOfDay(ms: number): number {
+  const date = new Date(ms);
   return date.getHours() * 60 + date.getMinutes();
 }
 
@@ -376,12 +318,14 @@ function pad(n: number): string {
   return String(n).padStart(2, "0");
 }
 
-interface Options {
+interface Options extends Window {
   files: string[];
   dir?: string;
   since?: number;
   json: boolean;
 }
+
+const TIME_OPTIONS = new Set(["--since", "--from", "--to"]);
 
 function parseArgs(argv: string[]): Options {
   const options: Options = { files: [], json: false };
@@ -389,11 +333,13 @@ function parseArgs(argv: string[]): Options {
     const arg = argv[i];
     if (arg === "--json") {
       options.json = true;
-    } else if (arg === "--dir" || arg === "--since") {
+    } else if (arg === "--dir" || TIME_OPTIONS.has(arg)) {
       const value = argv[++i];
       if (value === undefined) throw new Error(`${arg} needs a value`);
       if (arg === "--dir") options.dir = value;
-      else options.since = parseSince(value);
+      else if (arg === "--since") options.since = parseClock(arg, value);
+      else if (arg === "--from") options.from = parseClock(arg, value);
+      else options.to = parseClock(arg, value);
     } else if (arg.startsWith("--")) {
       throw new Error(`unknown option ${arg}`);
     } else {
@@ -402,16 +348,20 @@ function parseArgs(argv: string[]): Options {
   }
   if (options.dir === undefined && options.files.length === 0) {
     throw new Error(
-      "usage: agent-metrics.ts [--json] <file.jsonl>... | --dir <subagents-dir> [--since HH:MM]",
+      "usage: agent-metrics.ts [--json] <file.jsonl>... | --dir <subagents-dir> [--since HH:MM] [--from HH:MM] [--to HH:MM]",
     );
+  }
+  if (options.from !== undefined && options.to !== undefined && options.from >= options.to) {
+    throw new Error("--from must be earlier than --to");
   }
   return options;
 }
 
-function parseSince(value: string): number {
+/** Minutes of day for an HH:MM option value. */
+function parseClock(flag: string, value: string): number {
   const match = /^(\d{1,2}):(\d{2})$/.exec(value);
   if (match === null || Number(match[1]) > 23 || Number(match[2]) > 59) {
-    throw new Error(`--since wants HH:MM, got ${value}`);
+    throw new Error(`${flag} wants HH:MM, got ${value}`);
   }
   return Number(match[1]) * 60 + Number(match[2]);
 }
@@ -427,13 +377,14 @@ async function main(argv: string[]): Promise<void> {
     ...options.files,
     ...(options.dir === undefined ? [] : await transcriptsIn(options.dir)),
   ];
+  const window: Window = { from: options.from, to: options.to };
   const rows: AgentRow[] = [];
-  for (const file of files) rows.push(await analyzeFile(file));
+  for (const file of files) rows.push(await analyzeFile(file, window));
   const since = options.since;
   const kept =
     since === undefined
       ? rows
-      : rows.filter((r) => r.start !== "" && minutesOfDay(r.start) >= since);
+      : rows.filter((r) => r.start !== "" && minutesOfDay(Date.parse(r.start)) >= since);
   kept.sort((a, b) => a.start.localeCompare(b.start));
   console.log(options.json ? JSON.stringify(kept, null, 2) : formatTable(kept));
 }

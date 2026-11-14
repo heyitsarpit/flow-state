@@ -15,7 +15,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
-export type Verdict = "accepted" | "changed" | "rejected";
+export type Verdict = "accepted" | "changed" | "rejected" | "noted" | "held" | "confirmed";
 
 export interface Row {
   readonly angle: string;
@@ -34,6 +34,9 @@ export interface Counts {
   readonly accepted: number;
   readonly changed: number;
   readonly rejected: number;
+  readonly noted: number;
+  readonly held: number;
+  readonly confirmed: number;
   readonly other: number;
 }
 
@@ -125,7 +128,8 @@ const isSeparator = (line: string | undefined): boolean =>
   line !== undefined && /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/.test(line);
 
 const verdictOf = (result: string): Verdict | undefined => {
-  const m = /^(accepted|changed|rejected)\b/.exec(plain(result).toLowerCase());
+  const verdict = /^(accepted|changed|rejected|noted|held|confirmed)\b/;
+  const m = verdict.exec(plain(result).toLowerCase());
   return m ? (m[1] as Verdict) : undefined;
 };
 
@@ -179,7 +183,16 @@ export function parseReview(name: string, text: string): ReviewFile {
   return { name, tables, rows };
 }
 
-const emptyCounts = (): Counts => ({ items: 0, accepted: 0, changed: 0, rejected: 0, other: 0 });
+const emptyCounts = (): Counts => ({
+  items: 0,
+  accepted: 0,
+  changed: 0,
+  rejected: 0,
+  noted: 0,
+  held: 0,
+  confirmed: 0,
+  other: 0,
+});
 
 function bump(counts: Counts, row: Row): Counts {
   const next = { ...counts, items: counts.items + 1 };
@@ -338,13 +351,26 @@ const countCells = (c: Counts): string[] => [
   String(c.accepted),
   String(c.changed),
   String(c.rejected),
+  String(c.noted),
+  String(c.held),
+  String(c.confirmed),
   String(c.other),
 ];
 
 export function renderText(report: Report): string {
   const out: string[] = [];
-  const countHeaders = ["Items", "Accepted", "Changed", "Rejected", "Other", "Used"];
-  const countAlign: ("l" | "r")[] = ["r", "r", "r", "r", "r", "r"];
+  const countHeaders = [
+    "Items",
+    "Accepted",
+    "Changed",
+    "Rejected",
+    "Noted",
+    "Held",
+    "Confirmed",
+    "Other",
+    "Used",
+  ];
+  const countAlign: ("l" | "r")[] = ["r", "r", "r", "r", "r", "r", "r", "r", "r"];
 
   out.push("Table 1: review yield by sidecar angle (summed across review files)");
   out.push(

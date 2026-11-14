@@ -21,10 +21,41 @@ test("table A (Sidecar | Item | Result) sums per angle", () => {
     accepted: 1,
     changed: 1,
     rejected: 1,
+    noted: 0,
+    held: 0,
+    confirmed: 0,
     other: 0,
   });
   expect(angle("blind")?.used).toBeCloseTo(2 / 3);
-  expect(angle("standing")?.counts.other).toBe(1);
+  expect(angle("standing")?.counts.noted).toBe(1);
+  expect(angle("standing")?.counts.other).toBe(0);
+});
+
+test("noted, held and confirmed are their own columns, outside the Used share", () => {
+  const text = [
+    "## Sidecar log",
+    "",
+    "| Sidecar | Finding | Result |",
+    "| --- | --- | --- |",
+    "| A blind | 1 x | noted: later |",
+    "| A blind | 2 y | held |",
+    "| A blind | 3 z | confirmed (read x.ts:3) |",
+    "| A blind | 4 w | accepted |",
+    "| A blind | 5 v | rejected: no |",
+  ].join("\n");
+  const kinds = buildReport([parseReview("kinds.md", text)], "");
+  expect(kinds.angles[0]?.counts).toEqual({
+    items: 5,
+    accepted: 1,
+    changed: 0,
+    rejected: 1,
+    noted: 1,
+    held: 1,
+    confirmed: 1,
+    other: 0,
+  });
+  expect(kinds.angles[0]?.used).toBe(0.5);
+  expect(kinds.unparsed.unknownResults).toEqual([]);
 });
 
 test("table B (Angle | Finding | Outcome) and a table with no angle column", () => {
@@ -34,6 +65,9 @@ test("table B (Angle | Finding | Outcome) and a table with no angle column", () 
     accepted: 1,
     changed: 0,
     rejected: 1,
+    noted: 0,
+    held: 0,
+    confirmed: 0,
     other: 0,
   });
   expect(angle("standing")?.counts).toEqual({
@@ -41,21 +75,25 @@ test("table B (Angle | Finding | Outcome) and a table with no angle column", () 
     accepted: 1,
     changed: 1,
     rejected: 1,
-    other: 1,
+    noted: 1,
+    held: 0,
+    confirmed: 0,
+    other: 0,
   });
   expect(angle("(no angle column)")?.counts).toEqual({
     items: 1,
     accepted: 1,
     changed: 0,
     rejected: 0,
+    noted: 0,
+    held: 0,
+    confirmed: 0,
     other: 0,
   });
 });
 
 test("unparsed results and angle-less files are reported", () => {
-  expect(report.unparsed.unknownResults).toEqual([
-    { angle: "standing", result: "noted", count: 1 },
-  ]);
+  expect(report.unparsed.unknownResults).toEqual([]);
   expect(report.unparsed.noAngleFiles).toEqual(["review-table-b.md"]);
   const prose = parseReview("prose.md", "## Sidecar log\n\n- accepted: 1, 2\n");
   expect(prose.tables).toBe(0);
