@@ -509,3 +509,5 @@ note 2026-11-14T16:23:58Z
     Haiku, reviewed and fixed by Opus (7cb122b0); the hook is live in .claude/settings.json (blocks 14 of 6902 real 
     past commands, all genuine writes; 6 ms per call). The miss tally (weak check 8, gathering 5) adds two builder 
     checklist lines. Measures and reverses in the process notebook.
+note 2026-11-14T16:26:37Z
+    T61 near review (b00ae90f): N2, N6, step-2f O2, close O2-O4 done; fold-mutant runner judges held traces (14 keep, 50 redundant). Ruled (orchestrator, small amendment): the 16 refusal cells T61 cannot reach are re-owned by area (8 Send cells to T18; step-end to T19, boot to T20, idle-lane to T21). The builder asked to hand off without a compaction; told to continue under the rotation rule.
