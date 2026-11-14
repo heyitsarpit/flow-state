@@ -1,3 +1,4 @@
+import { baseline } from "./baseline.ts";
 import { checkpointMode } from "./checkpoint.ts";
 import { foldMutantsMode } from "./fold-mutants.ts";
 import { soak } from "./soak.ts";
@@ -10,6 +11,7 @@ import { trace } from "./trace.ts";
 export const TOOL_MODES = new Map([
   ["checkpoint", (_args: ReadonlyArray<string>) => checkpointMode],
   ["trace", trace],
+  ["baseline", baseline],
   ["soak", soak],
   ["fold-mutants", foldMutantsMode],
 ]);
