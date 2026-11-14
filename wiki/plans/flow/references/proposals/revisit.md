@@ -52,5 +52,10 @@ Deferred items.
 - **The capture window in the core** (2026-11-12, consult round 2 B2, round 3; deferred by the orchestrator). A core
   timer and `Input.Hidden` would make batch boundaries deterministic, but add a dirty set per scope to the World
   and change the crash gate's points. Revisit after T55, when the final write is already in the core.
+- **Concept clean of the suite** (2026-11-14, the user; deferred). Groups B, C, D and G of
+  [self-contained-audit-2026-11-14.md](self-contained-audit-2026-11-14.md): Task owners and slices in the suite
+  (and the Epic's "routed gaps are owed checks" rule they serve), comment citations of records, process names
+  (liar, pilot, replan, lab, carried, frozen) and the README's stale paths. The prototype adapters are not touched;
+  T53 deletes them.
 - **`cancelAll`** (2026-11-12, the user, wide consult W1 K0; deferred). Neither reference app uses it. If it returns,
   K1 (its own member, typed only on queuing policies) over K2 (`cancel(key, { queued: true })`).
