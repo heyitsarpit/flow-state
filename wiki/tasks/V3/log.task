@@ -332,4 +332,12 @@ note 2026-11-14T07:32:17Z
     Decision (user, 2026-11-14): "let's define close to mean 90%": a lead hands off when its context is 90 percent full 
     after its third compaction. instructions edited; the T52 builder told.
 note 2026-11-14T07:32:58Z
-    Review (T52 re-check 2) go on, 0 blocking (t52-recheck2-2026-11-14.md): cites lost nothing (coverage byte-equal); owed scripts at seeds 7-12 lack a subject check and two lane-keyed rows over-excuse, sent to the builder. Missed by the builder's checks: the gate covers seeds 1-6 only and the owed-red test matched by text (weak check).
+    Review (T52 re-check 2) go on, 0 blocking (t52-recheck2-2026-11-14.md): cites lost nothing (coverage byte-equal); 
+    owed scripts at seeds 7-12 lack a subject check and two lane-keyed rows over-excuse, sent to the builder. Missed by 
+    the builder's checks: the gate covers seeds 1-6 only and the owed-red test matched by text (weak check).
+note 2026-11-14T07:58:50Z
+    Decision (user, 2026-11-14): "that seems fine" to one review per step with no separate re-checks, and non-blocking 
+    suite-machinery findings routed as owed rows to a later suite Task. Scope: the whole run. Falsify stays per commit. 
+    Orchestrator: the owed-row machinery has had findings in four reviews in a row (T47 R6, R7, R11; T52 build item 5; 
+    re-check 1, the pair key; re-check 2, seeds and text matching), past the convergence threshold of 2, so the T52 
+    builder converges that part once.
