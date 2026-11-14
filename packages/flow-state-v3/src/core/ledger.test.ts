@@ -60,7 +60,7 @@ const ledgerFaults = (world: World) => {
 
 const hearAs = (heard: Heard) => () => heard;
 
-describe("the owed ledger's five functions (WriteLanes algorithm ledger; T54 A1)", () => {
+describe("the owed ledger's five functions (WriteLanes algorithm ledger)", () => {
   it("owe: Queued with one mail reference while its audience can hear, Ended once at its birth", () => {
     const s = stepOver(live(emptyWorld(true)));
     s.ledger.owe(ending(Option.some("L")));
@@ -146,18 +146,49 @@ describe("the owed ledger's five functions (WriteLanes algorithm ledger; T54 A1)
     assert.ok(!keptOn(s.tx.world().owed, actor, "M"));
   });
 
-  it("suspend: Queued and Retrying rows wait, a laneless one included; a Life row closes; forget closes every row", () => {
+  // WriteLanes `algorithm` ledger: "suspend ...: Queued and Retrying rows go Waiting, rows with no
+  // lane included; Life rows close Recorded"; a Kept row is left for its start.
+  it("suspend: Queued and Retrying rows wait, a laneless one included; Kept stays; a Life row closes; forget closes every row", () => {
     const s = stepOver(live(emptyWorld(true)));
     s.ledger.owe(ending(Option.none()));
-    s.ledger.owe(ending(Option.some("L"), Audience.Life({ incarnation: "inc-1" })));
-    s.tx.set({ ...s.tx.world(), incarnations: new Map() });
+    const retrying = s.ledger.owe(ending(Option.some("L")));
+    const kept = s.ledger.owe(ending(Option.some("M")));
+    s.ledger.owe(ending(Option.some("N"), Audience.Life({ incarnation: "inc-1" })));
+    s.tx.set({ ...s.tx.world(), mail: [] });
+    s.ledger.tryOne(retrying, hearAs("Refused"));
+    s.tx.set({ ...s.tx.world(), mail: s.tx.world().mail.filter((m) => m._tag === "Event") });
+    s.ledger.tryOne(kept, hearAs("Refused"));
+    s.ledger.tryOne(kept, hearAs("Refused"));
+    // The drain serves each reference once; these direct tries leave the refusal's reference behind.
+    s.tx.set({ ...s.tx.world(), mail: [], incarnations: new Map() });
+    assert.deepStrictEqual(deliveries(s.rows()), ["Queued", "Retrying", "Kept", "Queued"]);
 
     s.ledger.suspend(actor, false);
-    assert.deepStrictEqual(deliveries(s.rows()), ["Waiting"], "the laneless row waits");
+    assert.deepStrictEqual(
+      deliveries(s.rows()),
+      ["Waiting", "Waiting", "Kept"],
+      "the laneless and the Retrying row wait, the Kept row stays",
+    );
     assert.deepStrictEqual(ledgerFaults(s.tx.world()), [], "no reference outlives its row's wait");
 
     s.ledger.suspend(actor, true);
     assert.deepStrictEqual(s.rows(), []);
+  });
+
+  // A refusal moves only a row still in the mailbox: a row its own turn sent to wait stays Waiting.
+  it("tryOne: a refusal leaves a row its turn suspended Waiting, never Kept", () => {
+    const s = stepOver(live(emptyWorld(true)));
+    const id = s.ledger.owe(ending(Option.some("L")));
+    s.ledger.tryOne(id, hearAs("Refused"));
+
+    s.ledger.tryOne(id, () => {
+      s.tx.set({ ...s.tx.world(), incarnations: new Map() });
+      s.ledger.suspend(actor, false);
+
+      return "Refused";
+    });
+
+    assert.deepStrictEqual(deliveries(s.rows()), ["Waiting"], "the suspended row stays Waiting");
   });
 
   it("start: Waiting rows queue and Kept rows take their one try, adopted current from the root (Turn R20)", () => {

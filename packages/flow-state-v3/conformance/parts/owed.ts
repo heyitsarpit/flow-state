@@ -674,7 +674,7 @@ export const partsOwed: ReadonlyArray<PartOwed> = [
 /**
  * Production's owed reds among the kept regression scripts (Conformance I49), each a script it
  * fails by a bug a Task owns. PART-transfers-stress-5-shrunk and PART-cells-stress-105-shrunk
- * pass with none since T54's A-2: a disposed actor's refused Unsent head now ends NotSent and
+ * pass with none: a disposed actor's refused Unsent head now ends NotSent and
  * waits for its next start.
  */
 export const regressionsOwed: ReadonlyArray<PartOwed> = [

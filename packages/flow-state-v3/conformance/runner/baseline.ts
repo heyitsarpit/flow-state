@@ -33,8 +33,8 @@ import { CASE_SECONDS } from "./run.ts";
 export const BASELINE = resolve(PACKAGE, "conformance", "baseline.tsv");
 
 /**
- * A run whose timeline may differ from the baseline: a named entry citing the pending case whose
- * fix changes it (T54, C3 item 2). An entry whose run no longer differs fails the compare.
+ * A run whose timeline may differ from the baseline: a named entry citing the rule whose fix
+ * changes it. An entry whose run no longer differs fails the compare.
  */
 export type Allowed = {
   readonly run: string;
@@ -43,21 +43,21 @@ export type Allowed = {
 };
 
 /**
- * The T54 requirements a baseline difference may cite: the pending cases and the rulings that
- * name them (A-8 for a row's single Ended at its birth, A-6 for an ending applied at settlement;
- * orchestrator, 2026-11-14). Anything else cannot be written.
+ * The rules a baseline difference may cite: each a rule the core broke and a pending case now
+ * holds it to, such as WriteLanes I34 for a row's single Ended at its birth or WriteLanes I32 for
+ * an ending applied at settlement. Anything else cannot be written.
  */
 export const PENDING = [
-  "A-1",
-  "A-2",
-  "A-3",
-  "A-6",
-  "A-7",
-  "A-8",
-  "A-10",
-  "A-12",
-  "O-1",
-  "O-2",
+  "WriteLanes I31",
+  "Actors I41",
+  "Restore I1",
+  "WriteLanes I32",
+  "WriteLanes I33",
+  "WriteLanes I34",
+  "WriteLanes I35",
+  "Restore R3",
+  "Restore R1",
+  "WriteAhead I24",
 ] as const;
 
 /**
@@ -79,15 +79,15 @@ export const allowed: ReadonlyArray<Allowed> = [
   "PART-cells-varied-112",
 ].map((run) => ({
   run,
-  pending: "A-2",
-  why: "an ending born while its identity has no incarnation waits and is heard at the next start, not dropped (orchestrator, 2026-11-15)",
+  pending: "Actors I41",
+  why: "an ending born while its identity has no incarnation waits and is heard at the next start, not dropped",
 }));
 
 const SEEDS = [1, 2];
 
 // The store's own facts: a record's bytes, its landing, the batch's purpose and the Attempts it
-// acknowledges. Behaviour leaves them out, so a step that writes other bytes or batches (T54's
-// A3) is compared on what a user and a reload see.
+// acknowledges. Behaviour leaves them out, so a change that writes other bytes or batches is
+// compared on what a user and a reload see.
 const STORAGE = new Set(["Wrote", "Landed", "Purposed", "Acknowledges"]);
 
 // Minted ids are numbered by their first appearance in a run, so a change to how ids are minted
@@ -246,7 +246,7 @@ const who = (actor: Option.Option<{ readonly machine: string; readonly id: strin
   Option.match(actor, { onNone: () => "?", onSome: (a) => `${a.machine}/${a.id}` });
 
 /**
- * Conservation with declines (WriteLanes I27; T54 A-9), from a run's reports: per actor and
+ * Conservation with declines (WriteLanes I27), from a run's reports: per actor and
  * write, the commits its turns admitted equal the Attempts minted plus the declines, an ending
  * with no Attempt (no queue is built under reject). A write is an operation some turn commits.
  */
@@ -314,7 +314,7 @@ const internalIn = (
 };
 
 /**
- * Nothing internal crosses (WriteLanes I37; T54 A-17): no report, snapshot or row read in a run
+ * Nothing internal crosses (WriteLanes I37): no report, snapshot or row read in a run
  * carries a row's id, a lane id, a ticket, a timer, a record key or a Delivery.
  */
 export const internals = (facts: ReadonlyArray<Fact>) =>
@@ -384,11 +384,11 @@ const recorded = () =>
 
 /**
  * The ruled classes of difference a step may bring without a per-run entry, each checked by code
- * from the digests (orchestrator, 2026-11-14): A-8, a row's Ended reported once at its birth, may
- * move Ended reports within a run and change nothing else, the Ended reports included.
+ * from the digests: WriteLanes I34, a row's Ended reported once at its birth, may move Ended
+ * reports within a run and change nothing else, the Ended reports included.
  */
 export const ruled: ReadonlyArray<{ readonly pending: Pending; readonly why: string }> = [
-  { pending: "A-8", why: "only Ended reports moved: a row's Ended at its birth (WriteLanes I34)" },
+  { pending: "WriteLanes I34", why: "only Ended reports moved: a row's Ended at its birth" },
 ];
 
 const dumped = (dir: string, runs: ReadonlyArray<Played>) => {
@@ -414,24 +414,24 @@ const compare = (before: Row, row: Row, onBehaviour: boolean) => {
   if (entry !== undefined) return "named";
 
   return onlyEndedMoved(before, row, onBehaviour)
-    ? `ok   ${row.id}: A-8 (${ruled[0]?.why ?? ""})`
+    ? `ok   ${row.id}: ${ruled[0]?.pending ?? ""} (${ruled[0]?.why ?? ""})`
     : `BAD  ${row.id}: differs, with no named entry`;
 };
 
 const onlyEndedMoved = (before: Row, row: Row, onBehaviour: boolean) =>
-  ruled.some((r) => r.pending === "A-8") &&
+  ruled.some((r) => r.pending === "WriteLanes I34") &&
   before.ended === row.ended &&
   (onBehaviour
     ? before.behaviourLessEnded === row.behaviourLessEnded
     : before.wholeLessEnded === row.wholeLessEnded);
 
 /**
- * The differential baseline (T54, X-1, A-14): `baseline --record` writes, per run, the digests of
+ * The differential baseline: `baseline --record` writes, per run, the digests of
  * its timeline and of its behaviour, over every production case at seeds 1 and 2, every gate and
  * held-out part script, and every crash point of each production case. `baseline` replays them
  * and fails on a run that differs with no {@link allowed} entry, on an entry whose run is equal,
- * and on a run added or lost; crash points, and every run under `--behaviour` (from T54's A3,
- * where bytes may differ), compare behaviour only. Every run is also scanned for conservation
+ * and on a run added or lost; crash points, and every run under `--behaviour` (once records
+ * are rewritten and bytes may differ), compare behaviour only. Every run is also scanned for conservation
  * with declines ({@link conservation}) and for internals ({@link internals}). `--dump DIR`
  * writes each timeline to `DIR/<id>.txt`.
  */

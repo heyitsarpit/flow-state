@@ -29,7 +29,7 @@ const playOne = (scratch: string, mutant: HostMutant) =>
   ).pipe(Effect.catch((e) => Effect.succeed(`BAD  ${mutant.name}: ${e._tag}: ${e.why}`)));
 
 /**
- * The host-mutant mode (T54 A0 review N3): plays every {@link hostMutants} entry on its own copy of
+ * The host-mutant mode: plays every {@link hostMutants} entry on its own copy of
  * the package and fails unless each is killed by its named host test with its message.
  */
 export const hostMutantsMode = (args: ReadonlyArray<string>) =>

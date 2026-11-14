@@ -213,7 +213,7 @@ const rows: ReadonlyArray<{
   },
 ];
 
-describe("the write lane's table (WriteLanes algorithm cell; T54 A-19)", () => {
+describe("the write lane's table (WriteLanes algorithm cell)", () => {
   for (const row of rows)
     for (const state of states)
       it(`cell.${state}-${row.cue}`, () => {
@@ -244,7 +244,7 @@ const sentBeforeRows: ReadonlyArray<readonly [keyof typeof phases, number, boole
   ["Cancelling", 2, true],
 ];
 
-describe("sentBefore (WriteLanes I36; T54 A-11)", () => {
+describe("sentBefore (WriteLanes I36)", () => {
   for (const [phase, retryCount, expected] of sentBeforeRows)
     it(`sentBefore.${phase}-retryCount-${retryCount}`, () => {
       assert.strictEqual(

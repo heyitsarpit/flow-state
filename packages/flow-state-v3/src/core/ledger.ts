@@ -233,7 +233,7 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
         if (heard === "Unmapped") close(now.value, Closed.Recorded({ why: "evidence" }));
         else if (heard === "Heard") close(now.value, Closed.Delivered());
         else if (Delivery.$is("Queued")(now.value.delivery)) queue(now.value, Delivery.Retrying());
-        else {
+        else if (Delivery.$is("Retrying")(now.value.delivery)) {
           replace(now.value, Option.some({ ...now.value, delivery: Delivery.Kept() }));
           saved(now.value, Delivery.Kept());
         }

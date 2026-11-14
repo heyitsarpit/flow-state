@@ -2,7 +2,7 @@ import type { Mutant } from "./dsl/oracle.ts";
 
 /**
  * A wrong runtime a host test must catch: source edits of `src/`, the test file and the test's
- * name, and the assertion message its failure must carry (T54 A0 review N3).
+ * name, and the assertion message its failure must carry.
  */
 export type HostMutant = {
   readonly name: string;
@@ -19,6 +19,34 @@ export type HostMutant = {
  * longer applies fails the mode, so the step that rewrites its code rewrites the mutant.
  */
 export const hostMutants: ReadonlyArray<HostMutant> = [
+  {
+    name: "ledger.suspend-waits-queued-only",
+    says: "a suspend leaves a Retrying row in the mailbox of an incarnation that is gone",
+    test: "src/core/ledger.test.ts",
+    named: "suspend: Queued and Retrying rows wait",
+    red: "the laneless and the Retrying row wait, the Kept row stays",
+    edits: [
+      {
+        file: "src/core/ledger.ts",
+        find: '    else if (Delivery.$is("Queued")(row.delivery) || Delivery.$is("Retrying")(row.delivery))',
+        replace: '    else if (Delivery.$is("Queued")(row.delivery))',
+      },
+    ],
+  },
+  {
+    name: "ledger.refusal-keeps-a-waiting-row",
+    says: "a refusal writes Kept over a row its own turn sent to wait",
+    test: "src/core/ledger.test.ts",
+    named: "tryOne: a refusal leaves a row its turn suspended Waiting",
+    red: "the suspended row stays Waiting",
+    edits: [
+      {
+        file: "src/core/ledger.ts",
+        find: '        else if (Delivery.$is("Retrying")(now.value.delivery)) {',
+        replace: "        else {",
+      },
+    ],
+  },
   {
     name: "lanes.sent-before-ignores-held",
     says: "a Held head counts as never sent",
@@ -52,7 +80,7 @@ export const hostMutants: ReadonlyArray<HostMutant> = [
     says: "a suspend leaves a queued row with no lane queued",
     test: "src/core/ledger.test.ts",
     named: "suspend: Queued and Retrying rows wait",
-    red: "the laneless row waits",
+    red: "the laneless and the Retrying row wait, the Kept row stays",
     edits: [
       {
         file: "src/core/ledger.ts",

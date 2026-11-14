@@ -15,8 +15,8 @@ const durability = (by: string) =>
  * `wa`, `sr` and `rl` in full; the disposal with several actors to slice 4's actor identity.
  */
 /**
- * Recorded cell pairs no run reaches now, each owed to an open Task that will reach it again
- * (orchestrator ruling, 2026-11-15): owed, never dropped from the record. A pair here that a run
+ * Recorded cell pairs no run reaches now, each owed to an open Task that will reach it again:
+ * owed, never dropped from the record. A pair here that a run
  * reaches again fails the gate, so the row is removed when its Task reaches it.
  */
 export const CELL_PAIR_OWNERS = {
@@ -25,7 +25,7 @@ export const CELL_PAIR_OWNERS = {
     slice: 3,
     by: "a boot that restores a head and then finds nothing to keep, from T20's restore parts",
     date: "2026-11-15",
-    why: "unreached since T54's A-2: only PART-transfers-varied-3 reached it, through an ending dropped with no incarnation, which A-2 now owes and delivers (orchestrator ruling, 2026-11-15)",
+    why: "only PART-transfers-varied-3 reached it, through an ending born with no incarnation that was dropped; that ending is now owed and heard at the next start",
   },
 } satisfies Readonly<Record<string, Owner & { readonly why: string }>>;
 

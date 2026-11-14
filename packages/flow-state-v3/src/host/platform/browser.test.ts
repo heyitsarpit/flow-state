@@ -14,7 +14,7 @@ const bitsOf = (seed: unknown) => {
 
 const seedOf = () => Context.get(browserPlatform(), Host).sessionSeed;
 
-describe("the boot seed (WriteLanes I28, R5; WriteLanes T22; T54 A-18)", () => {
+describe("the boot seed (WriteLanes I28, R5; WriteLanes T22)", () => {
   it("each boot's seed reaching Env.seed has at least 128 random bits, and two boots get their own", () => {
     const [one, two] = [seedOf(), seedOf()];
     assert.ok(bitsOf(one) >= 128, `a seed of ${bitsOf(one)} bits`);

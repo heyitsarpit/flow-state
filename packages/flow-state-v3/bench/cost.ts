@@ -93,8 +93,7 @@ const manyLanes = () => {
 };
 
 // 64 Held heads saved for one identity, then a boot and an ensure that owes each its unknown
-// { Restored }: today's nearest form of `ready()` with 64 owed rows (64 queued declines cannot
-// wait across a disposal on today's core; T54 A-2).
+// { Restored }: a `ready()` with 64 owed rows.
 const owedAtReady = () => {
   const run = fresh();
   drive(run, Input.Ensure({ actor, use: Option.some("host"), existing: false }));
@@ -131,7 +130,7 @@ const owedAtReady = () => {
   return `${line("ensure after a boot with 64 owed unknown { Restored } (S16)", boots)}; ${restored} Restored`;
 };
 
-// oxlint-disable-next-line lint-bomb/no-effect-runner-in-domain -- the cost bench's process entry, run alone by hand (T54 X-2)
+// oxlint-disable-next-line lint-bomb/no-effect-runner-in-domain -- the cost bench's process entry, run alone by hand
 Effect.runFork(
   Effect.forEach([turnCost, manyLanes, owedAtReady], (f) => Console.log(f()), { concurrency: 1 }),
 );

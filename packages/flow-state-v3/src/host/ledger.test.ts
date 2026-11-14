@@ -296,7 +296,7 @@ const lastRing = (b: ReturnType<typeof bootWith>) => {
   return attempt;
 };
 
-// A pending case red on today's core, owed to a step of T54: it passes while its body fails the
+// A pending case red on today's core, owed to the step that turns it green: it passes while its body fails the
 // assertion whose message holds `red`, the reason it is red today. It fails once the body passes,
 // so the step that turns it green makes it an `it`, and it fails when the body fails another way.
 const owed = (
@@ -317,11 +317,11 @@ const owed = (
   });
 
 /**
- * T54's pending cases (code:wiki/plans/flow/references/proposals/t54-requirements-2026-11-14.md):
- * each expected result is derived from the cited rule, not from running the code.
+ * The owed ledger's cases: each expected result is derived from the cited rule, not from running
+ * the code.
  */
-describe("the owed ledger on the production runtime (T54 pending cases)", () => {
-  // A-1. Two endings of lane "a", an unknown and then its re-send's success, are each
+describe("the owed ledger on the production runtime", () => {
+  // Two endings of lane "a", an unknown and then its re-send's success, are each
   // refused twice: two Kept rows (WriteLanes R10 "every kept ending is its own row"). Each gets
   // exactly one try at every start until heard (WriteLanes I31): two mapper calls at the next
   // boot with the jam on, then both heard, in the order owed, once the jam clears.
@@ -353,7 +353,37 @@ describe("the owed ledger on the production runtime (T54 pending cases)", () => 
     assert.deepStrictEqual(turnsOf(fourth.seen, ["Unsure", "Rang"]), [], "each heard once");
   });
 
-  // A-5. A Kept row (a success refused twice; its lane is Idle, so no Restored joins it) gets one
+  // WriteLanes I34: "A row's life is reported from the row and nowhere else: Ended once at its
+  // birth, ... and exactly one of Delivered or Recorded at its close." A row refused twice, then
+  // heard at the next start, is reported Delivered once, when it is heard; today every try reports
+  // Delivered before its turn's outcome is known.
+  owed(
+    { step: "A4", red: "Delivered once, at the row's close" },
+    "a row refused twice and heard at its next start is reported Delivered once (WriteLanes I34)",
+    () => {
+      const jam: Jam = { on: true, tries: [] };
+      const { served, TollMachine } = tollOver(jam, []);
+      const b = bootWith(served, new Map(), 1);
+
+      testing.attach(b.built, tolls, "host", false);
+      ring(b, "a");
+      const attempt = lastRing(b);
+      rung(b, attempt);
+      jam.on = false;
+      b.built.runtime.disposeActor(actorRef(TollMachine, "t1"));
+      testing.attach(b.built, tolls, "host", false);
+      b.page.settle();
+
+      assert.deepStrictEqual(turnsOf(b.seen, ["Rang"]), ["Rang"], "the row is heard at the start");
+      assert.strictEqual(
+        b.seen.filter((e) => e._tag === "Delivered" && Option.contains(e.attempt, attempt)).length,
+        1,
+        "Delivered once, at the row's close",
+      );
+    },
+  );
+
+  // A Kept row (a success refused twice; its lane is Idle, so no Restored joins it) gets one
   // try at each start and is Kept again when refused (Actors R15, I24); once the jam clears it is
   // heard once and never again (WriteLanes I29).
   it("a Kept row gets one try per start across starts with the jam left on, then is heard once (Actors I24, R15; WriteLanes algorithm start)", () => {
@@ -385,7 +415,7 @@ describe("the owed ledger on the production runtime (T54 pending cases)", () => 
     assert.strictEqual(jam.tries.length, 5, "a heard row is closed");
   });
 
-  // A-2 (step-1 review F1) and X-4. The chain leaves its next decline in the mail
+  // The chain leaves its next decline in the mail
   // between steps. disposeActor suspends the identity: the laneless row goes Waiting (WriteLanes
   // `algorithm` suspend: "rows with no lane included") and the adopting incarnation hears it
   // (Actors I41). Every knock committed is heard exactly once (WriteLanes I27, I29).
@@ -411,7 +441,7 @@ describe("the owed ledger on the production runtime (T54 pending cases)", () => 
     );
   });
 
-  // A-2 at Runtime disposal: the backlog's laneless row goes Waiting, is saved with
+  // At Runtime disposal the backlog's laneless row goes Waiting, is saved with
   // the identity, and the next boot's start delivers it (Actors I41, R22; WriteAhead R5).
   it("a laneless ending in the mail at Runtime disposal is saved and heard once after the reload (Actors I41, R22; WriteLanes I27)", () => {
     const store = new Map<string, string>();
@@ -438,7 +468,7 @@ describe("the owed ledger on the production runtime (T54 pending cases)", () => 
     );
   });
 
-  // A-3, owed to A2. A re-send waiting for its capture when the Runtime is disposed goes Held
+  // A re-send waiting for its capture when the Runtime is disposed goes Held
   // (WriteLanes `algorithm`, disposal starts) and is saved Held, so the next boot wakes nothing
   // (Restore R1, I1; Actors T23). An ensure then hears unknown { Restored } (Actors R10), and a
   // retry invokes the Attempt once more, sent before (WriteLanes I26).
@@ -479,7 +509,7 @@ describe("the owed ledger on the production runtime (T54 pending cases)", () => 
     },
   );
 
-  // A-4. A never-sent head at Runtime disposal ends NotSent { Disposed } and its lane drops
+  // A never-sent head at Runtime disposal ends NotSent { Disposed } and its lane drops
   // (WriteLanes `algorithm`, disposal starts; Actors R22, I29): after a reload no lane record is
   // left, the NotSent is heard once, and no unknown { Restored } is invented.
   it("a never-sent head at Runtime disposal leaves no lane, and its NotSent { Disposed } is heard once after a reload (Actors R22, I29; Actors T23)", () => {
@@ -514,7 +544,7 @@ describe("the owed ledger on the production runtime (T54 pending cases)", () => 
     assert.deepStrictEqual(turnsOf(third.seen, ["NotRung", "Unsure"]), [], "heard once");
   });
 
-  // A-6. The success is applied to lane "a" when its call settles (WriteLanes I32),
+  // The success is applied to lane "a" when its call settles (WriteLanes I32),
   // so a cancel admitted before the success's turn finds the lane Idle and does nothing
   // (`algorithm`, cancel on Idle): the machine hears the success, never unknown { Cancelled }.
   // The chain's first turn after the settlement runs the cancel, before the success's turn.
@@ -541,7 +571,7 @@ describe("the owed ledger on the production runtime (T54 pending cases)", () => 
     );
   });
 
-  // A-10. Attempts have their own counter (WriteLanes R5, I35): the same commits give the same
+  // Attempts have their own counter (WriteLanes R5, I35): the same commits give the same
   // Attempt ids whatever else is minted between them (an incarnation and its timers, a decline).
   // Another Attempt is not "another id", so nothing between the commits mints one.
   it("Attempt ids keep their numbers when other ids are minted between commits (WriteLanes I35, R5; WriteLanes T27)", () => {
@@ -565,7 +595,7 @@ describe("the owed ledger on the production runtime (T54 pending cases)", () => 
     assert.deepStrictEqual(run(true), run(false), "the Attempt ids are equal");
   });
 
-  // A-12, owed to A2. Two Held heads with no row, created in reverse lane-id order ("c" then
+  // Two Held heads with no row, created in reverse lane-id order ("c" then
   // "b"): every start (return, adoption, reload) owes each its unknown { Restored } lane by lane
   // in lane-id order (WriteLanes `algorithm` start; Restore R3), so "b" is heard before "c", and
   // the three starts deliver the same sequence (Actors I40, T21). A boot parks nothing.
@@ -623,7 +653,7 @@ describe("the owed ledger on the production runtime (T54 pending cases)", () => 
     },
   );
 
-  // A-7 (step-1 review F2). A Rejected decline from the lane table has no lane
+  // A Rejected decline from the lane table has no lane
   // (WriteLanes R10: "a declined commit has no Attempt and no lane"), so its Kept row blocks no
   // key (WriteLanes R6, I33): once the head resolves, a commit on the key mints.
   it("a table decline refused twice is a laneless Kept row that blocks no key (WriteLanes I33, R6, R10; WriteLanes T26)", () => {
@@ -643,7 +673,7 @@ describe("the owed ledger on the production runtime (T54 pending cases)", () => 
     assert.strictEqual(b.bell.rings.length, 2, "the next commit on the key mints and is sent");
   });
 
-  // A-7's opposite case (step-1 review F2). A never-sent Attempt's NotSent row keeps
+  // The opposite case: a never-sent Attempt's NotSent row keeps
   // its lane, so when Kept it blocks the key (WriteLanes R6, I33): the next commit declines
   // Rejected and nothing is sent.
   it("a never-sent Attempt's NotSent, refused twice, is a Kept row on its lane that blocks its key (WriteLanes I33, R6)", () => {
@@ -668,7 +698,7 @@ describe("the owed ledger on the production runtime (T54 pending cases)", () => 
     );
   });
 
-  // X-5 (A0 review item 5). A head restored Held after a reload was sent before (WriteLanes I36),
+  // A head restored Held after a reload was sent before (WriteLanes I36),
   // so when its retry's re-send is answered with a definite failure, that ending is delivered as
   // unknown { StillUnknown } and the lane stays Held (WriteLanes R2, R5).
   it("a restored Held head retried and declined is delivered unknown StillUnknown (WriteLanes I36, R2, R5)", () => {
@@ -696,7 +726,7 @@ describe("the owed ledger on the production runtime (T54 pending cases)", () => 
     );
   });
 
-  // Owed to T19 (orchestrator ruling, 2026-11-15). A refused capture holds the head and owes
+  // A refused capture holds the head and owes
   // unknown { StorageRefused } (WriteAhead R13); its handler's key-less retryable and retry name
   // that ending's own Attempt (WriteLanes R9), so the Held head, still under its retry limit, is
   // re-sent once its next capture lands. Today the row has no lane, so the key-less members name

@@ -137,7 +137,7 @@ describe("the generator varies its inputs (T61; Conformance R15, R16)", () => {
     }
   }, 60_000);
 
-  it("a kept regression of a disposed actor's refused head passes with no owed row (soak 5000; fixed by T54's A-2)", () => {
+  it("a kept regression of a disposed actor's refused head passes with no owed row (soak 5000; its refused head now ends NotSent)", () => {
     const id = "PART-cells-stress-105-shrunk";
     const script = Option.getOrThrow(scriptById(id));
 
