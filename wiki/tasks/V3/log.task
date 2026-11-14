@@ -383,3 +383,5 @@ note 2026-11-14T09:51:38Z
     T60 done at 75a29363 (03501759); T52 resumes with the same builder. Applied from T60's retrospective (orchestrator, 
     small): a builder diffs gates.json against its Task's first revision and explains every changed count before 
     review. Reverse: drop the instructions line.
+note 2026-11-14T09:55:03Z
+    T60 benefit watch (orchestrator, for the user): T52 before T60 (08:50-14:00): 5 reviews; about 25 findings in the suite's excuse and judging machinery, about 5 in production; 7 of 9 first-contact reds the suite's; 3 builder rotations. Compared at T52's close: reviews per step, machinery findings per review, suite against production reds, the class gate's own catches, hours per step. T60 helped if machinery findings fall and the class gate catches what reviews used to.
