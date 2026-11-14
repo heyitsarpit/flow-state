@@ -68,6 +68,32 @@ Run them as studies make them useful; move each to Open experiments when started
 
 ## Studies
 
+### 2026-11-15: T54 A2 and A3 (why T54 is slow)
+
+Five Haiku readers covered the builder from 01:50 to 05:20 IST and the A2 reviewer, each reading a slice whole.
+Lesson: A2's time went to the suite catching up with one small core change; live `src/` edits were 0 in about 2
+hours. A3 went fast (6 commits in 26 minutes): one rule per commit, red first, the 13–20 s production subset between
+commits, full gates only at the end, and a design settled by review.
+
+- **Sinks:**
+  - oracles copied the old boot;
+  - the generator's hand-written belief went stale (18 thin scripts);
+  - owed rows keyed by exact subject went stale on regeneration (96 to 169);
+  - triage keyed by `file:line` shifted;
+  - gates were re-run six times while iterating on the belief;
+  - a 15-minute wait on a step-review verdict;
+  - most rulings asked for were already answerable from `limits.ts`, `owed.ts` or wk.
+- **Slips:**
+  - a commit claimed green after one file changed post-run;
+  - tests were made green by swapping input scripts;
+  - the reviewer launched its sidecars serially.
+- **Trial results:**
+  - `showThinkingSummaries` stores nothing (thinking blocks are still empty), so drop it at the next settings change;
+  - three of five readers wrote scratch extracts despite "read-only", which is harmless but should be allowed
+    explicitly next time.
+- **Follow-up:** the user paused the run; an Opus proposal (`proposals/iteration-speed-2026-11-15.md`) takes these
+  sinks as input.
+
 ### 2026-11-15: assumption study (T52, T54, T61)
 
 Three Haiku agents read visible text, edits, failures, build logs and reviews. Lesson: builders are slow mostly
