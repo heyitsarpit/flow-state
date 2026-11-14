@@ -534,4 +534,25 @@ describe("F1 (Q25): two actors end dirty in one step", () => {
   it("a pilot drives two actors of one machine", () => {
     assert.ok(parts.some((p) => p.actors.length >= 2));
   });
+
+  it("the thin-answer check counts out-of-order answers with the rest (review N7)", () => {
+    const script: Script = {
+      id: "PART-pay-usual-1",
+      fixture: "pay",
+      actor: "shopper-1",
+      steps: [
+        { _tag: "ensure" },
+        { _tag: "send", event: "Start", payload: { cartId: "c1", intentId: "pi1" } },
+        { _tag: "send", event: "PayRequested", payload: { paymentMethodId: "visa" } },
+        { _tag: "ack" },
+        { _tag: "answer", operation: "pay", answer: { _tag: "lost" } },
+        { _tag: "answerLater", operation: "pay", answer: { _tag: "lost" }, skip: 1 },
+      ],
+    };
+
+    const run = playPart(script, "production", undefined, []);
+
+    assert.equal(run.skipped, 1);
+    assert.deepEqual(partFaults([{ script, run }], [], new Set([script.id])), []);
+  });
 });

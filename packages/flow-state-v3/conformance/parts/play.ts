@@ -27,7 +27,7 @@ export type PartRuntime = "production" | "null" | "round-14";
 
 /**
  * One played part script: its verdict, what stopped the run (`threw`: a failure no owed row
- * excused), the facts its run recorded, how many `answer` steps found no open request, what its
+ * excused), the facts its run recorded, how many `answer` or `answerLater` steps found no open request, what its
  * judging left to the runtime's word (`undecided`), and every violation its oracles found
  * (`violations`), each marked excused or not.
  */
@@ -248,7 +248,10 @@ const judged = (
 ) =>
   runs.flatMap(({ script, run }) => {
     const rows = owed.filter((o) => o.case === script.id);
-    const answers = script.steps.filter((s) => s._tag === "answer").length;
+
+    const answers = script.steps.filter(
+      (s) => s._tag === "answer" || s._tag === "answerLater",
+    ).length;
 
     const stopped = Option.toArray(run.threw).map(
       (failure) => `BAD  ${script.id}: ${Formatter.format(failure)}, which no owed row excuses`,

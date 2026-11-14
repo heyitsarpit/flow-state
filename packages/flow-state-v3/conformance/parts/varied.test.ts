@@ -137,6 +137,21 @@ describe("the generator varies its inputs (T61; Conformance R15, R16)", () => {
     }
   }, 60_000);
 
+  it("late-results names the late Attempt as its subject, once (review N5)", () => {
+    const id = "PART-cells-varied-110";
+    const script = Option.getOrThrow(scriptById(id));
+
+    const others = owedRows.filter((o) => !(o.case === id && o.check === "late-results"));
+
+    const late = playPart(script, "production", undefined, others).violations.filter(
+      (v) => v.oracle === "late-results",
+    );
+
+    assert.ok(late.length > 0);
+    assert.ok(late.every((v) => Option.contains(v.subject, "att-110000-25")));
+    assert.equal(new Set(late.map((v) => `${v.step} ${v.text}`)).size, late.length);
+  }, 60_000);
+
   it("some varied or new-mix run reaches a lifecycle cell no earlier run reaches", () => {
     const earlier = /^PART-.+-(?:usual|stress)-\d+$|^MIX-sync\+transfers\+sign-in-stress-\d+$/u;
     const played = [...gateScripts(), ...heldOutScripts()];
