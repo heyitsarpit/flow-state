@@ -298,7 +298,7 @@ type State = { readonly reference: Reference; readonly captured: ReadonlyArray<s
  * step. A later step's `acknowledge` or `flush` may hold another actor's record only (the retry's
  * own capture waits for the batch still out, R12), so it captures no retry.
  */
-const capturedAfter = (
+export const capturedAfter = (
   lives: LifeStep,
   step: ReadonlyArray<Fact>,
   before: ReadonlyArray<string>,
