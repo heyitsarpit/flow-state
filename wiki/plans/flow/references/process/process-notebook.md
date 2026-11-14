@@ -60,6 +60,25 @@ Run them as studies make them useful; move each to Open experiments when started
 
 ## Studies
 
+### 2026-11-14: T61 close study
+
+Measured with `tools/process` by a Haiku sweep at medium effort.
+
+- **Speed rules not taken up:** the T61 builder got them by message mid-session (21:00). Its one-call turns rose from
+  65 to 75 percent, and its verification share rose from 20 to 47 percent. A long-running builder keeps its habits.
+  Judge the rules on a fresh builder that gets them in its first brief (T54 next).
+- **Idle:** 161 of 410 builder minutes, parked on T52 by design. That's not waste.
+- **Haiku medium trial not run:** 22 of 23 Haiku agents were launched at high. Sweeps must be launched at medium
+  explicitly.
+- **Hook:** no project-file slip after it went live; two scratch-path false positives in the metrics tool (relative
+  paths).
+- **Reviews:** 15.8 to 20.2 minutes, no clear change yet. Blind sidecar findings were used 80 percent of the time
+  (n=99).
+- **Changes:**
+  - T54's builder brief carries the speed rules up front;
+  - sweeps are launched at effort medium explicitly;
+  - the tools get a time window, verdict kinds (noted, held, confirmed) and relative-path handling.
+
 ### 2026-11-14: first study (T52, T60, T61)
 
 Report: [agent-speed-study-2026-11-14.md](../proposals/agent-speed-study-2026-11-14.md).
