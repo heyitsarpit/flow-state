@@ -343,3 +343,5 @@ note 2026-11-14T07:58:50Z
     builder converges that part once.
 note 2026-11-14T08:06:29Z
     Decision (user, 2026-11-14): converge once over every hole found in T47 and T52 against the current suite architecture, and make hole finding more mechanical. One Opus analysis lead (read-only, up to eight Haiku, one blind) writes suite-convergence-2026-11-14.md (proposed); the T52 builder holds its owed-row redesign until then and does 2b.
+note 2026-11-14T08:29:21Z
+    Suite convergence analysis done (suite-convergence-2026-11-14.md, proposed): 128 holes, 10 root causes; the suite proves its oracles but never its own gates and excuse lists; only 1 hole was ever found by a machine. T52 builds now: owed rows by exact subject, every listed item must still fail, a planted-fault sweep as the class gate, every owed script at every seed. The rest goes to a later suite Task (placement asked of the user). Orchestrator verified adversary.ts:317 text matching.
