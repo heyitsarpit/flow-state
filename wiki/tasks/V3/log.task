@@ -542,4 +542,9 @@ note 2026-11-14T18:23:37Z
     admission plus a repeat for parked endings, which is the doubled report the Spec forbids; baseline differences are 
     named by run under A-8 or A-6, and any other difference is a stop. Reverse: keep admission-time reporting.
 note 2026-11-14T18:31:58Z
-    Review (T54 A0) proceed, 0 blocking (t54-a0-review-2026-11-14.md), about 10 min (review-speed rules): the baseline catches a changed reload outcome (591 runs) and a dropped saved ending (250); host-test location accepted. Into A1: pinned failure messages, allowed entries checked against requirements, plants as mutants, a host case for X-5. Missed by the builder's checks: plants kept only in the log (weak check).
+    Review (T54 A0) proceed, 0 blocking (t54-a0-review-2026-11-14.md), about 10 min (review-speed rules): the baseline 
+    catches a changed reload outcome (591 runs) and a dropped saved ending (250); host-test location accepted. Into A1: 
+    pinned failure messages, allowed entries checked against requirements, plants as mutants, a host case for X-5. 
+    Missed by the builder's checks: plants kept only in the log (weak check).
+note 2026-11-14T19:11:23Z
+    Ruled (orchestrator, T54 A1 stop): 8 runs where an ending born without an incarnation is now heard at the next start are named under A-2 (its fix); the restored-head order and Waiting-before-Kept stay for A2; the StorageRefused capture ending's lane (WriteLanes R9), which turns give-ups into retries, is held out of T54 as a pending case owed to T19. Process watch: the gates broke silently because the full gates were not run after the Attempt-id commit.
