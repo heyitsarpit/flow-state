@@ -1,7 +1,7 @@
 import { Clock, Context, Duration, Effect, Layer, Option, Predicate, Scheduler } from "effect";
 import type { App } from "../../index.ts";
 import { attachInspector, type Evidence } from "../inspect.ts";
-import { Host, testing, type TestRuntime } from "../testing.ts";
+import { Host, StoreRefused, testing, type TestRuntime } from "../testing.ts";
 
 /**
  * The service the suite's commits call: a ring by Attempt id that answers when the test says.
@@ -13,9 +13,15 @@ export class Bell extends Context.Service<
 
 /**
  * A page for one boot: fibers queue until `settle`, time moves only on `advance`, and every store
- * write lands at once in `store`, unless `hung`, when no write ever answers.
+ * write lands at once in `store`, unless `hung`, when no write ever answers. Each entry in
+ * `refusals.left` refuses one write, `StoreRefused`, in turn.
  */
-export const pageOver = (store: Map<string, string>, seed: number, hung = false) => {
+export const pageOver = (
+  store: Map<string, string>,
+  seed: number,
+  hung = false,
+  refusals: { readonly left: Array<true> } = { left: [] },
+) => {
   let tasks: ReadonlyArray<() => void> = [];
   let now = 0;
   let timers: ReadonlyArray<{ readonly at: number; readonly fire: () => void }> = [];
@@ -74,16 +80,19 @@ export const pageOver = (store: Map<string, string>, seed: number, hung = false)
       sessionSeed: seed.toString(16).padStart(32, "0"),
       store: Option.some({
         load: Effect.sync(() => new Map(store)),
-        write: (writes) =>
-          hung
-            ? Effect.never
-            : Effect.sync(() => {
-                for (const w of writes)
-                  Option.match(w.value, {
-                    onNone: () => store.delete(w.key),
-                    onSome: (value) => store.set(w.key, value),
-                  });
-              }),
+        write: (writes) => {
+          if (hung) return Effect.never;
+
+          if (refusals.left.pop() === true) return Effect.fail(new StoreRefused({}));
+
+          return Effect.sync(() => {
+            for (const w of writes)
+              Option.match(w.value, {
+                onNone: () => store.delete(w.key),
+                onSome: (value) => store.set(w.key, value),
+              });
+          });
+        },
       }),
     }),
   ).pipe(Context.add(Clock.Clock, clock), Context.add(Scheduler.Scheduler, scheduler));
@@ -122,8 +131,9 @@ export const bootWith = (
   seed: number,
   settled = true,
   options: { readonly captureMs: number; readonly hung: boolean } = { captureMs: 0, hung: false },
+  refusals: { readonly left: Array<true> } = { left: [] },
 ) => {
-  const page = pageOver(store, seed, options.hung);
+  const page = pageOver(store, seed, options.hung, refusals);
   const bell = bellOf();
   const seen: Array<Evidence> = [];
 

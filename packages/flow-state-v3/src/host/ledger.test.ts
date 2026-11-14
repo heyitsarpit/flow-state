@@ -101,6 +101,59 @@ const tollOver = (jam: Jam, counts: Array<number>) => {
 
 const tolls = { machine: "Test/Toll", name: "t1" };
 
+// A persisted keyed write whose unknown's handler retries key-less while it may (WriteLanes R9:
+// a key-less member in a handler of an event its operation alone maps names that ending's own
+// Attempt).
+const retrier = (() => {
+  const chime = transaction({
+    id: "Test/chime",
+    input: { tone: Schema.String },
+    key: ["tone"],
+    concurrency: "reject",
+    services: [Bell],
+    commit: (_input, { attempt }) =>
+      Effect.flatMap(Effect.service(Bell), (bell) => bell.ring(attempt.id)).pipe(
+        Effect.catch((e) => Outcome.unknown(e)),
+      ),
+  });
+
+  const Retrier = definition({
+    id: "Test/Retrier",
+    persist: true,
+    states: ["OPEN"],
+    events: { Ring: { tone: Schema.String } },
+    internalEvents: { Rang: {}, NotRung: { why: Schema.String }, Unsure: Flow.uncertain({}) },
+    memory: {},
+    operations: ({ E }) => ({
+      chime: chime.outcomes({
+        success: E.Rang,
+        failure: { NotSent: E.NotRung.from((e: { readonly why: string }) => ({ why: e.why })) },
+        unknown: E.Unsure,
+      }),
+    }),
+  });
+
+  const RetrierMachine = machine(Retrier, ({ S, O }) => ({
+    default: S.OPEN,
+    on: {
+      Ring: {
+        actions: [
+          O.chime.commit(({ event }: { readonly event: { readonly tone: string } }) => ({
+            tone: event.tone,
+          })),
+        ],
+      },
+      Rang: {},
+      NotRung: {},
+      Unsure: [{ guard: [O.chime.retryable({ times: 3 })], actions: [O.chime.retry] }, {}],
+    },
+  }));
+
+  return app({ id: "test", machines: { retrier: RetrierMachine } });
+})();
+
+const retrying = { machine: "Test/Retrier", name: "r1" };
+
 const otherToll = { machine: "Test/Toll", name: "t2" };
 
 // One actor that declines its own commit over and over: each `knock` cannot encode, so it
@@ -642,4 +695,36 @@ describe("the owed ledger on the production runtime (T54 pending cases)", () => 
       "a definite failure after an earlier send is delivered unknown StillUnknown",
     );
   });
+
+  // Owed to T19 (orchestrator ruling, 2026-11-15). A refused capture holds the head and owes
+  // unknown { StorageRefused } (WriteAhead R13); its handler's key-less retryable and retry name
+  // that ending's own Attempt (WriteLanes R9), so the Held head, still under its retry limit, is
+  // re-sent once its next capture lands. Today the row has no lane, so the key-less members name
+  // nothing and the head stays Held: PART-pay-stress-3, PART-pay-stress-8 and PART-cells-stress-9
+  // go STUCK where R9 retries.
+  owed(
+    { step: "T19", red: "the refused capture's unknown is retried" },
+    "a key-less retry in a refused capture's unknown handler names its own Attempt (WriteLanes R9; WriteAhead R13)",
+    () => {
+      const refusals = { left: new Array<true>() };
+      const b = bootWith(retrier, new Map(), 1, true, { captureMs: 0, hung: false }, refusals);
+
+      testing.attach(b.built, retrying, "host", false);
+      ring(b, "a", retrying);
+      const attempt = lastRing(b);
+      refusals.left.push(true);
+      lost(b, attempt);
+
+      assert.deepStrictEqual(
+        endingsOf(b.seen, attempt),
+        ["unknown Error", "unknown StorageRefused"],
+        "the capture of the first retry was refused",
+      );
+      assert.deepStrictEqual(
+        b.bell.rings,
+        [attempt, attempt],
+        "the refused capture's unknown is retried",
+      );
+    },
+  );
 });

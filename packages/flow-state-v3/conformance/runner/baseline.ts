@@ -68,7 +68,20 @@ export type Pending = (typeof PENDING)[number];
 /**
  * The named differences the steps since the baseline brought, each with its pending case.
  */
-export const allowed: ReadonlyArray<Allowed> = [];
+export const allowed: ReadonlyArray<Allowed> = [
+  "PART-transfers-varied-3",
+  "PART-pay-varied-1",
+  "PART-pay-varied-107",
+  "PART-pay-stress-110",
+  "PART-cells-stress-107",
+  "PART-cells-stress-108",
+  "PART-cells-varied-106",
+  "PART-cells-varied-112",
+].map((run) => ({
+  run,
+  pending: "A-2",
+  why: "an ending born while its identity has no incarnation waits and is heard at the next start, not dropped (orchestrator, 2026-11-15)",
+}));
 
 const SEEDS = [1, 2];
 

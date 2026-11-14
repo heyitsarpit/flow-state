@@ -240,8 +240,8 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
       HoldRefused: () => {
         const lane = laneAt(at);
         setLane(at.id, { ...lane, head: { ...lane.head, phase: Phase.Held() } });
-        // Owed with no lane as before; giving it its lane changes which lane a key-less retry in
-        // its handler names (found in A1, reported for a ruling).
+        // Owed with no lane as before: giving it its lane lets a key-less retry in its handler name
+        // it, which changes retry behaviour, owed elsewhere.
         ledger.owe({
           ...oweOf(at, Option.some(lane.head.id), lane.head.owner),
           lane: Option.none(),
