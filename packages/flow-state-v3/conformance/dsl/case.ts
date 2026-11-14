@@ -78,7 +78,8 @@ const shown = <A>(value: A) => Formatter.format(value);
  *   applied request, repeats included.
  * - World faults: `answerLate` (the server's answer arrives after all), `uninterruptible` and
  *   `answerAtOnce` (from now on, for an operation).
- * - `answer` takes the oldest open request of the operation; `answerTo` the oldest open one whose
+ * - `answer` takes the oldest open request of the operation; `answerOpen` the open one `skip`
+ *   places after the oldest, so answers arrive out of order; `answerTo` the oldest open one whose
  *   input has every field of `fields` (any fields, not only the key's), so a case with two
  *   callers names which it answers.
  *
@@ -98,6 +99,7 @@ export type Case = {
   readonly ack: () => void;
   readonly answerStorage: (how: StorageAnswer) => void;
   readonly answer: (operation: string, answer: Answer) => void;
+  readonly answerOpen: (operation: string, skip: number, answer: Answer) => void;
   readonly answerTo: (
     operation: string,
     fields: Readonly<Record<string, Json>>,
@@ -219,6 +221,27 @@ export const openCase = (options: CaseOptions, modelStep: StepFunction = designS
 
   const held = (operation: string, request: Option.Option<Request>) =>
     Option.getOrThrowWith(request, () => new NoHeldRequest({ operation }));
+
+  const answerOpen = (operation: string, skip: number, given: Answer) =>
+    act(`answer ${operation}${skip === 0 ? "" : ` (open #${skip + 1})`} ${given._tag}`, () => {
+      const request = held(
+        operation,
+        Option.fromUndefinedOr(
+          network
+            .requests()
+            .filter((r) => r.operation === operation && RequestPhase.$is("Open")(r.phase))[skip],
+        ),
+      );
+
+      record(
+        Fact.Answered({
+          request,
+          answer: given,
+          labels: answerLabels(options.fixtures, request.operation, given),
+        }),
+      );
+      network.answer(request, given);
+    });
 
   const answer = (operation: string, given: Answer) =>
     act(`answer ${operation} ${given._tag}`, () => {
@@ -389,6 +412,7 @@ export const openCase = (options: CaseOptions, modelStep: StepFunction = designS
     ack: () => answerStorage("ack", "ack"),
     answerStorage: (how) => answerStorage(how, how),
     answer,
+    answerOpen,
     answerTo,
     answerLate: (operation, given) =>
       act(`late answer ${operation} ${given._tag}`, () => {

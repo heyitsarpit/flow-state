@@ -1,5 +1,6 @@
 import { Data, Predicate } from "effect";
 import type { Limit } from "../limits.ts";
+import { VARIED_OWED } from "./owed-varied.ts";
 
 /**
  * One exact break an owed row excuses: an Attempt (every violation of the row's check and
@@ -415,6 +416,16 @@ export const partsOwed: ReadonlyArray<PartOwed> = [
     "@task.V3.T54",
   ),
   ...owing(["PART-pay-stress-12"], [I15], UNBOUND_RESTORE, "@task.V3.T54"),
+  ...VARIED_OWED.map(({ id, check, invariant, root, items }) => ({
+    case: id,
+    check,
+    invariant,
+    why: root === "retry" ? RETRY_COUNT : UNBOUND_RESTORE,
+    owner: root === "retry" ? "@task.V3.T19" : "@task.V3.T54",
+    items: items.map((i) =>
+      i._tag === "Attempt" ? OwedItem.Attempt({ id: i.id }) : item(i.subject, i.step),
+    ),
+  })),
 ];
 
 const REFUSED_UNENDED =

@@ -15,3 +15,5 @@ export const parts: ReadonlyArray<Part> = [syncClient, transfers, signIn, payPar
  * shares Pay's machine id.
  */
 export const mixed: ReadonlyArray<Part> = [syncClient, transfers, signIn];
+
+export const mixedWithPay: ReadonlyArray<Part> = [...mixed, payPart];

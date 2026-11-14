@@ -34,6 +34,9 @@ export type Believed = {
   >;
   readonly busy: MutableRef.MutableRef<Keys>;
   readonly unsure: MutableRef.MutableRef<Keys>;
+  readonly parked: MutableRef.MutableRef<
+    ReadonlyArray<{ readonly event: string; readonly labels: Labels }>
+  >;
 };
 
 /**
@@ -167,12 +170,17 @@ export const heard = (world: World, a: Believed, event: string, labels: Labels, 
 };
 
 /**
- * Forgets an actor's belief: back to its initial leaf and fields, nothing busy, unsure or timed.
+ * Forgets an actor's belief: back to its initial leaf and fields, nothing timed. Its lanes, busy
+ * and unsure, go too unless `keepLanes`: a disposed or forgotten actor's lanes outlive it (Actors
+ * R20, R21), which only the varied profile believes, so the usual and stress scripts stay as their
+ * owed rows name them.
  */
-export const reset = (a: Believed) => {
+export const reset = (a: Believed, keepLanes = false) => {
   MutableRef.set(a.leaf, a.part.machine.compiled.initial);
   MutableRef.set(a.fields, a.fixture.handlers.folds.initial);
   MutableRef.set(a.timers, []);
+
+  if (keepLanes) return;
   MutableRef.set(a.busy, HashSet.empty());
   MutableRef.set(a.unsure, HashSet.empty());
 };
@@ -205,13 +213,22 @@ const eventOfAnswer = (a: Believed, operation: string, answer: Answer) => {
 };
 
 /**
- * The oldest open request of `operation` answered: its actor hears the mapped event.
+ * The open request of `operation` `skip` places after the oldest answered (the oldest by
+ * default): its actor hears the mapped event, or with `parks`, the varied profile's belief, keeps
+ * it until the actor is attached again when it has no live incarnation (Actors R20).
  */
-export const answered = (world: World, operation: string, answer: Answer) => {
-  const [head, ...rest] = world.open.get(operation) ?? [];
+export const answered = (
+  world: World,
+  operation: string,
+  answer: Answer,
+  skip = 0,
+  parks = false,
+) => {
+  const open = world.open.get(operation) ?? [];
+  const head = open[skip];
 
   if (head === undefined) return;
-  world.open.set(operation, rest);
+  world.open.set(operation, open.toSpliced(skip, 1));
 
   const a = world.actors[head.actor];
 
@@ -226,8 +243,22 @@ export const answered = (world: World, operation: string, answer: Answer) => {
 
   Option.match(eventOfAnswer(a, operation, answer), {
     onNone: () => undefined,
-    onSome: (event) => heard(world, a, event, labels, true),
+    onSome: (event) => {
+      if (parks && !a.attached.current)
+        MutableRef.set(a.parked, [...a.parked.current, { event, labels }]);
+      else heard(world, a, event, labels, true);
+    },
   });
+};
+
+/**
+ * An actor attached again hears the endings parked for it while it had no live incarnation.
+ */
+export const unparked = (world: World, a: Believed) => {
+  const waiting = a.parked.current;
+  MutableRef.set(a.parked, []);
+
+  for (const { event, labels } of waiting) heard(world, a, event, labels, true);
 };
 
 /**

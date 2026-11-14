@@ -47,7 +47,8 @@ describe("gates (Q19, Q27)", () => {
     ];
 
     const namesParts = (id: string) => {
-      const [, kind, cast] = /^(PART|MIX)-(.+)-(?:usual|stress)-\d+(?:-shrunk)?$/u.exec(id) ?? [];
+      const [, kind, cast] =
+        /^(PART|MIX)-(.+)-(?:usual|stress|varied)-\d+(?:-shrunk)?$/u.exec(id) ?? [];
 
       if (kind === "MIX") return (cast ?? "").split("+").every((n) => names.has(n));
 

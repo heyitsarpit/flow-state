@@ -2,8 +2,8 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { mixed, parts } from "../../fixtures/index.ts";
-import { Option } from "effect";
+import { mixed, mixedWithPay, parts } from "../../fixtures/index.ts";
+import { Option, Predicate } from "effect";
 import { implemented as production } from "../adapters/production.ts";
 import { regressionFiles } from "../generated.ts";
 import { staticOwed } from "../adapters/production-static.ts";
@@ -181,18 +181,27 @@ export const featureRules = () =>
     ),
   );
 
+const PROFILES: ReadonlyArray<Profile> = ["usual", "stress", "varied"];
+
+const MIXES = [
+  { cast: mixed, profile: "stress" },
+  { cast: mixed, profile: "usual" },
+  { cast: mixedWithPay, profile: "stress" },
+] as const;
+
 const scriptsAt = (seeds: ReadonlyArray<number>, mixSeeds: ReadonlyArray<number>) => [
   ...parts.flatMap((part) =>
-    (["usual", "stress"] as const).flatMap((profile) =>
-      seeds.map((seed) => scriptOf(part, profile, seed, production)),
-    ),
+    PROFILES.flatMap((profile) => seeds.map((seed) => scriptOf(part, profile, seed, production))),
   ),
-  ...mixSeeds.map((seed) => mixOf(mixed, "stress", seed, production)),
+  ...MIXES.flatMap(({ cast, profile }) =>
+    mixSeeds.map((seed) => mixOf(cast, profile, seed, production)),
+  ),
 ];
 
 /**
- * The scripts the parts gate plays on production: each pilot's usual and stress scripts at six
- * build seeds, and the stress app mix at the first two.
+ * The scripts the parts gate plays on production: each pilot's usual, stress and varied scripts
+ * at six build seeds, and at the first two the stress and usual app mix and the stress mix with
+ * Pay.
  */
 export const gateScripts = () => scriptsAt(BUILD_SEEDS.slice(0, 6), BUILD_SEEDS.slice(0, 2));
 
@@ -210,20 +219,26 @@ export const playedScope = () =>
   new Set([...scriptsAt(BUILD_SEEDS, BUILD_SEEDS), ...heldOutScripts()].map((script) => script.id));
 
 // RETURN_TYPE: a type predicate, so the filtered profile narrows.
-const isProfile = (p: string): p is Profile => p === "usual" || p === "stress";
+const isProfile = (p: string): p is Profile => PROFILES.some((known) => known === p);
 
 /**
  * The script the suite plays under an id: a part's or the app mix's generated script, by its
  * profile and seed, or a kept regression; none for an id no generator or file gives.
  */
 export const scriptById = (id: string) => {
-  const [, kind, name, profile, seed] = /^(PART|MIX)-(.+)-(usual|stress)-(\d+)$/u.exec(id) ?? [];
+  const [, kind, name = "", profile, seed] =
+    /^(PART|MIX)-(.+)-(usual|stress|varied)-(\d+)$/u.exec(id) ?? [];
+
   const part = parts.find((p) => p.name === name);
   const drawn = Option.filter(Option.fromUndefinedOr(profile), isProfile);
+  const cast = name.split("+").map((n) => parts.find((p) => p.name === n));
 
   const generated = Option.flatMap(drawn, (p) =>
     kind === "MIX"
-      ? Option.some(mixOf(mixed, p, Number(seed), production))
+      ? Option.map(
+          Option.liftPredicate(cast, (c) => c.every(Predicate.isNotUndefined)),
+          (c) => mixOf(c.filter(Predicate.isNotUndefined), p, Number(seed), production),
+        )
       : Option.map(Option.fromUndefinedOr(part), (it) => scriptOf(it, p, Number(seed), production)),
   );
 

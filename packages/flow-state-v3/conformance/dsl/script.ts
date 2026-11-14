@@ -32,7 +32,9 @@ export const ScriptAnswer = Schema.Union([
  *
  * - `ensure` attaches the script's actor; `send` sends it an event with a payload.
  * - `ack` lands every held store batch, `refuse` refuses them (WriteAhead R13's refusal);
- *   `answer` answers the oldest open request of an operation, and is skipped when none is open.
+ *   `answer` answers the oldest open request of an operation, and is skipped when none is open;
+ *   `answerLater` answers the open one `skip` places after the oldest (out of order), and is
+ *   skipped when fewer are open.
  * - `advance` moves the clock; `reload` kills the page and boots again.
  * - `release` ends the actor's story use; `dispose` and `forget` remove its record (Actors R20,
  *   R21); `disposeRuntime` starts the Runtime's disposal (Actors R22).
@@ -52,6 +54,11 @@ export const Step = Schema.Union([
   Schema.TaggedStruct("ack", {}),
   Schema.TaggedStruct("refuse", {}),
   Schema.TaggedStruct("answer", { operation: Schema.String, answer: ScriptAnswer }),
+  Schema.TaggedStruct("answerLater", {
+    operation: Schema.String,
+    answer: ScriptAnswer,
+    skip: Schema.Number,
+  }),
   Schema.TaggedStruct("advance", { ms: Schema.Number }),
   Schema.TaggedStruct("reload", {}),
   Schema.TaggedStruct("release", { by }),
@@ -103,8 +110,10 @@ export const answerOf = (answer: ScriptAnswer) =>
     never: () => Answer.Never(),
   });
 
-const open = (c: Case, operation: string) =>
-  c.requests(operation).some((r) => RequestPhase.$is("Open")(r.phase));
+const openCount = (c: Case, operation: string) =>
+  c.requests(operation).filter((r) => RequestPhase.$is("Open")(r.phase)).length;
+
+const open = (c: Case, operation: string) => openCount(c, operation) > 0;
 
 const played = (c: Case, actorOf: (by: Option.Option<number>) => ActorRef, step: Step) => {
   const actor = actorOf(Option.fromUndefinedOr("by" in step ? step.by : undefined));
@@ -116,6 +125,9 @@ const played = (c: Case, actorOf: (by: Option.Option<number>) => ActorRef, step:
     refuse: () => c.answerStorage("refuse"),
     answer: ({ operation, answer }) => {
       if (open(c, operation)) c.answer(operation, answerOf(answer));
+    },
+    answerLater: ({ operation, answer, skip }) => {
+      if (openCount(c, operation) > skip) c.answerOpen(operation, skip, answerOf(answer));
     },
     advance: ({ ms }) => c.advance(ms),
     reload: () => c.reload(),
@@ -130,7 +142,11 @@ const played = (c: Case, actorOf: (by: Option.Option<number>) => ActorRef, step:
  * Whether a script's `answer` step finds an open request of its operation when it plays: one that
  * does not is skipped.
  */
-export const answers = (c: Case, step: Step) => step._tag !== "answer" || open(c, step.operation);
+export const answers = (c: Case, step: Step) => {
+  if (step._tag === "answer") return open(c, step.operation);
+
+  return step._tag !== "answerLater" || openCount(c, step.operation) > step.skip;
+};
 
 /**
  * The player: a script as a {@link Scenario} the suite's runner plays like a hand case, judged by

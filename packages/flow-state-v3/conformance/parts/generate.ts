@@ -1,4 +1,4 @@
-import { HashSet, MutableRef } from "effect";
+import { Formatter, HashSet, MutableRef, Predicate, Schema } from "effect";
 import type { Part, ServerAnswer, UserAction } from "../../fixtures/part.ts";
 import { random } from "../dsl/generate.ts";
 import { oneMachineEach } from "../fixtures/fixture.ts";
@@ -15,15 +15,55 @@ import {
   refused,
   reloaded,
   reset,
+  unparked,
   type World,
 } from "./belief.ts";
+import type { Labels } from "../fixtures/folds.ts";
 import { partFixture } from "./reference.ts";
 
 /**
- * A suite-wide profile: the usual healthy run, or the stress run with faults (lost answers,
- * unacknowledged and refused writes, reloads).
+ * A suite-wide profile: the usual healthy run; the stress run with faults (lost answers,
+ * unacknowledged and refused writes, reloads); or the varied run, stress plus answers out of
+ * order within an operation, timers advanced a ms either side of their deadline, and each id-like
+ * payload value also drawn as its neighbour (`c1` as `c2`), so a run holds more than one key.
  */
-export type Profile = "usual" | "stress";
+export type Profile = "usual" | "stress" | "varied";
+
+/**
+ * How far from its deadline each profile's timer move lands, in ms.
+ */
+export const TIMER_OFFSETS: Readonly<Record<Profile, ReadonlyArray<number>>> = {
+  usual: [0],
+  stress: [0],
+  varied: [-1, 0, 1],
+};
+
+const ID_LIKE = /^([a-z]+)(\d+)$/u;
+
+/**
+ * A payload with each id-like string value (letters then digits) moved to its neighbour.
+ */
+// RETURN_TYPE: recursive; inference cannot type a function that calls itself.
+const neighbour = (payload: Schema.Json): Schema.Json => {
+  if (Predicate.isString(payload))
+    return payload.replace(ID_LIKE, (_, word: string, n: string) => `${word}${Number(n) + 1}`);
+
+  if (Array.isArray(payload)) return payload.map(neighbour);
+
+  if (Schema.is(Schema.JsonObject)(payload))
+    return Object.fromEntries(Object.entries(payload).map(([k, v]) => [k, neighbour(v)]));
+
+  return payload;
+};
+
+const payloadsOf = (payloads: ReadonlyArray<Schema.Json>, profile: Profile) =>
+  profile === "varied"
+    ? payloads.flatMap((p) => {
+        const next = neighbour(p);
+
+        return Formatter.format(next) === Formatter.format(p) ? [p] : [p, next];
+      })
+    : payloads;
 
 /**
  * The seeds builders run; the held-out seeds are run only by the guard (advisor Q8).
@@ -37,7 +77,7 @@ export const HELD_OUT_SEEDS: ReadonlyArray<number> = [
   101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112,
 ];
 
-const MOVES: Readonly<Record<Profile, number>> = { usual: 40, stress: 100 };
+const MOVES: Readonly<Record<Profile, number>> = { usual: 40, stress: 100, varied: 100 };
 
 const hashOf = (text: string) =>
   Array.from({ length: text.length }, (_, i) => text.charCodeAt(i)).reduce(
@@ -81,7 +121,7 @@ const userMoves = (
           advanced(world, action.thinkMs);
           MutableRef.set(a.attached, false);
 
-          if (action.kind !== "release") reset(a);
+          if (action.kind !== "release") reset(a, profile === "varied");
         },
       },
     ];
@@ -90,7 +130,9 @@ const userMoves = (
   const persisted = a.part.machine.compiled.persist;
   const landing: ReadonlyArray<Step> = persisted ? [{ _tag: "ack" }] : [];
 
-  return action.payloads.flatMap((payload) => {
+  const payloads = payloadsOf(action.payloads, profile);
+
+  return payloads.flatMap((payload) => {
     const sends: ReadonlyArray<Step> = Array.from({ length: action.burst }, () => ({
       _tag: "send" as const,
       event: action.event,
@@ -99,7 +141,7 @@ const userMoves = (
     }));
 
     const labels = a.fixture.handlers.folds.driven[action.event]?.(payload) ?? {};
-    const weight = action.weight / action.payloads.length;
+    const weight = action.weight / payloads.length;
 
     const sent = (acked: boolean) => () => {
       advanced(world, action.thinkMs);
@@ -109,7 +151,7 @@ const userMoves = (
 
     const acked: Move = {
       steps: [...think, ...sends, ...landing],
-      weight: profile === "stress" && persisted ? weight * 0.6 : weight,
+      weight: profile !== "usual" && persisted ? weight * 0.6 : weight,
       apply: sent(true),
     };
 
@@ -146,11 +188,42 @@ const faultsOf = (answers: ReadonlyArray<{ readonly answer: ServerAnswer }>) => 
 };
 
 // RETURN_TYPE: a Move, so its steps keep the Step union rather than each literal.
-const faultMove = (world: World, operation: string, { answer, weight }: Fault): Move => ({
+const faultMove = (
+  world: World,
+  operation: string,
+  { answer, weight }: Fault,
+  parks: boolean,
+): Move => ({
   steps: [{ _tag: "answer", operation, answer }],
   weight,
-  apply: () => answered(world, operation, answerOf(answer)),
+  apply: () => answered(world, operation, answerOf(answer), 0, parks),
 });
+
+/**
+ * The varied profile's out-of-order answers: each open request of an operation behind its oldest
+ * answered first, healthy or lost.
+ */
+// RETURN_TYPE: the draw takes one Move list from every source; inference would keep each literal.
+const laterMoves = (
+  world: World,
+  operation: string,
+  requests: ReadonlyArray<{ readonly actor: number }>,
+): ReadonlyArray<Move> =>
+  requests.slice(1).flatMap((request, i) => {
+    const skip = i + 1;
+    const answers = world.actors[request.actor]?.part.server[operation]?.answers ?? [];
+
+    const choices: ReadonlyArray<{ readonly answer: ScriptAnswer; readonly weight: number }> = [
+      ...answers.map(({ answer, weight }) => ({ answer, weight: weight / 2 })),
+      { answer: { _tag: "lost" }, weight: 0.5 },
+    ];
+
+    return choices.map(({ answer, weight }) => ({
+      steps: [{ _tag: "answerLater" as const, operation, answer, skip }],
+      weight,
+      apply: () => answered(world, operation, answerOf(answer), skip, true),
+    }));
+  });
 
 // RETURN_TYPE: the draw takes one Move list from every source; inference would keep each literal.
 const answerMoves = (
@@ -169,14 +242,17 @@ const answerMoves = (
     const healthy = (model?.answers ?? []).map(({ weight, answer }) => ({
       steps: [{ _tag: "answer" as const, operation, answer }],
       weight: weight / 2,
-      apply: () => answered(world, operation, answerFor(answer)),
+      apply: () => answered(world, operation, answerFor(answer), 0, profile === "varied"),
     }));
 
     if (profile === "usual" || !allowed(["un"])) return healthy;
 
     return [
       ...healthy,
-      ...faultsOf(model?.answers ?? []).map((fault) => faultMove(world, operation, fault)),
+      ...(profile === "varied" ? laterMoves(world, operation, requests) : []),
+      ...faultsOf(model?.answers ?? []).map((fault) =>
+        faultMove(world, operation, fault, profile === "varied"),
+      ),
     ];
   });
 
@@ -190,16 +266,24 @@ const worldMoves = (
     .flatMap((a) => (a.attached.current ? a.timers.current.map((t) => t.due) : []))
     .toSorted((x, y) => x - y)[0];
 
+  const offsets = TIMER_OFFSETS[profile];
+
   const timer =
     next === undefined
       ? []
-      : [
-          {
-            steps: [{ _tag: "advance" as const, ms: next - world.now.current }],
-            weight: 2,
-            apply: () => advanced(world, next - world.now.current),
-          },
-        ];
+      : offsets.flatMap((offset) => {
+          const ms = next - world.now.current + offset;
+
+          return ms < 0
+            ? []
+            : [
+                {
+                  steps: [{ _tag: "advance" as const, ms }],
+                  weight: 2 / offsets.length,
+                  apply: () => advanced(world, ms),
+                },
+              ];
+        });
 
   if (profile === "usual") return timer;
 
@@ -267,6 +351,9 @@ const generated = (
       timers: MutableRef.make<ReadonlyArray<{ readonly send: string; readonly due: number }>>([]),
       busy: MutableRef.make<Keys>(HashSet.empty()),
       unsure: MutableRef.make<Keys>(HashSet.empty()),
+      parked: MutableRef.make<ReadonlyArray<{ readonly event: string; readonly labels: Labels }>>(
+        [],
+      ),
     };
   });
 
@@ -290,6 +377,7 @@ const generated = (
               apply: () => {
                 MutableRef.set(a.attached, true);
                 MutableRef.set(a.timers, armed(a, world.now.current));
+                unparked(world, a);
               },
             },
           ];
