@@ -592,3 +592,5 @@ note 2026-11-14T20:12:43Z
     experimentation ... maybe with the regular wakeup timer". The review wake now runs a whole-transcript process study 
     when none ran in 3 hours and an agent did 30 minutes of work, skipped while the 5-hour projection is over 100. 
     cadence edited; crons recreated.
+note 2026-11-14T20:45:26Z
+    T54 A2 in progress: the boot now owes and parks nothing (Actors I40); crash 0 red (DISP-02, DISP-06 pass), baseline 0 bad with 598 runs filed under cited rules, host mutants 17/17. Three oracles assumed the old boot and were changed; ruled (orchestrator): commit them as a reviewed checkpoint, review them now (Opus, Haiku sidecars), and triage the four new part reds meanwhile, the Held-head Send first.
