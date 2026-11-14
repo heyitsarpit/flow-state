@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vite-plus/test";
-import { Option, Predicate } from "effect";
-import { jsonKey } from "./json-key.ts";
+import { Equal, HashSet, Option, Predicate } from "effect";
 import { parts } from "../../fixtures/index.ts";
 import { part } from "../../fixtures/part.ts";
 import { Cells, Pay } from "../fixtures/pay.ts";
@@ -34,9 +33,6 @@ const comparable = (f: Partial<Derived>) => ({
       )
       .toSorted(([a], [b]) => a.localeCompare(b)),
   ),
-  rows: (f.rows ?? [])
-    .map((r) => jsonKey({ ...r, guard: Option.getOrNull(r.guard), at: Option.getOrNull(r.at) }))
-    .toSorted(),
   handlers:
     f.handlers === undefined
       ? undefined
@@ -59,13 +55,27 @@ const comparable = (f: Partial<Derived>) => ({
         },
 });
 
+/**
+ * The rows as a set: equal by value whatever their order or their fields' order.
+ */
+const rowsOf = (f: Partial<Derived>) =>
+  HashSet.fromIterable(
+    (f.rows ?? []).map((r) => ({
+      ...r,
+      guard: Option.getOrNull(r.guard),
+      at: Option.getOrNull(r.at),
+    })),
+  );
+
 describe("referenceOf(compiled) (Q3: phase-out step 3, Conformance R15, I46, T30)", () => {
   it("derives Pay's reference equal to its hand rows wherever both exist", () => {
     assert.deepEqual(comparable(referenceOf(PayMachine.compiled)), comparable(Pay));
+    assert.ok(Equal.equals(rowsOf(referenceOf(PayMachine.compiled)), rowsOf(Pay)));
   });
 
   it("derives Cells' reference equal to its hand rows", () => {
     assert.deepEqual(comparable(referenceOf(CellsMachine.compiled)), comparable(Cells));
+    assert.ok(Equal.equals(rowsOf(referenceOf(CellsMachine.compiled)), rowsOf(Cells)));
   });
 
   it("a part holds no hand-written rows or handler table", () => {

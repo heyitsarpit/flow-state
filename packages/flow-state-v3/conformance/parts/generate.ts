@@ -1,4 +1,4 @@
-import { MutableRef } from "effect";
+import { HashSet, MutableRef } from "effect";
 import type { Part, ServerAnswer, UserAction } from "../../fixtures/part.ts";
 import { random } from "../dsl/generate.ts";
 import { answerOf, type Script, type ScriptAnswer, type Step } from "../dsl/script.ts";
@@ -10,6 +10,7 @@ import {
   armed,
   type Believed,
   heard,
+  type Keys,
   refused,
   reloaded,
   reset,
@@ -263,8 +264,8 @@ const generated = (
       leaf: MutableRef.make(part.machine.compiled.initial),
       fields: MutableRef.make(fixture.handlers.folds.initial),
       timers: MutableRef.make<ReadonlyArray<{ readonly send: string; readonly due: number }>>([]),
-      busy: MutableRef.make<ReadonlySet<string>>(new Set()),
-      unsure: MutableRef.make<ReadonlySet<string>>(new Set()),
+      busy: MutableRef.make<Keys>(HashSet.empty()),
+      unsure: MutableRef.make<Keys>(HashSet.empty()),
     };
   });
 

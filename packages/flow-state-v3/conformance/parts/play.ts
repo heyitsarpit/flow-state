@@ -1,4 +1,4 @@
-import { Formatter, Option, Result, Schema } from "effect";
+import { Formatter, HashSet, Option, Result, Schema } from "effect";
 import { parts } from "../../fixtures/index.ts";
 import type { Part } from "../../fixtures/part.ts";
 import { type Limit, verdictOfLimit } from "../limits.ts";
@@ -15,7 +15,6 @@ import type { CaseVerdict } from "../runner/verdict.ts";
 import { oracles } from "../suite.ts";
 import { Answer, type Request } from "../world/network.ts";
 import type { Code } from "./codes.ts";
-import { jsonKey } from "./json-key.ts";
 import { partFixture } from "./reference.ts";
 
 /**
@@ -174,7 +173,7 @@ const writeOf = (part: Part, operation: string) => {
 type Reached = readonly [Option.Option<Part>, Code];
 
 type Seen = {
-  readonly keys: Map<string, Set<string>>;
+  readonly keys: Map<string, HashSet.HashSet<Schema.Json>>;
   readonly sentKeys: Set<string>;
   readonly ensured: Map<string, Set<string>>;
   readonly ended: Set<string>;
@@ -185,7 +184,7 @@ type Seen = {
 };
 
 const actorKey = (actor: { readonly machine: string; readonly id: string }) =>
-  jsonKey([actor.machine, actor.id]);
+  `${actor.machine} ${actor.id}`;
 
 // RETURN_TYPE: every helper returns this one list type, so their branches join without widening.
 const one = (part: Option.Option<Part>, code: Code): ReadonlyArray<Reached> => [[part, code]];
@@ -206,8 +205,10 @@ const writeCodes = (
 ) => {
   const { operation, input, key } = request;
   const persisted = Option.exists(part, (p) => p.machine.compiled.persist);
-  const text = jsonKey(keyFields.map((f) => (isRecord(input) ? (input[f] ?? null) : null)));
-  const distinct = grown(seen.keys, operation, text);
+  const values = keyFields.map((f) => (isRecord(input) ? (input[f] ?? null) : null));
+  const keys = HashSet.add(seen.keys.get(operation) ?? HashSet.empty<Schema.Json>(), values);
+  seen.keys.set(operation, keys);
+  const distinct = HashSet.size(keys);
   const resent = Option.exists(key, (k) => seen.sentKeys.has(k));
 
   Option.map(key, (k) => seen.sentKeys.add(k));

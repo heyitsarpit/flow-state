@@ -1,9 +1,8 @@
-import { MutableRef, Option } from "effect";
+import { Equal, HashSet, MutableRef, Option, type Schema } from "effect";
 import type { Part, ServerAnswer } from "../../fixtures/part.ts";
 import type { Fixture } from "../fixtures/fixture.ts";
 import type { Folded, Labels } from "../fixtures/folds.ts";
 import { Answer } from "../world/network.ts";
-import { jsonKey } from "./json-key.ts";
 
 type Compiled = Part["machine"]["compiled"];
 
@@ -12,7 +11,12 @@ type CompiledAlternative = NonNullable<ReturnType<Compiled["root"]["get"]>>[numb
 /**
  * A request the generator expects open: whose actor it answers, and its lane's key.
  */
-export type Open = { readonly actor: number; readonly key: string };
+export type Open = { readonly actor: number; readonly key: Schema.Json };
+
+/**
+ * Lane keys by value: two equal keys are one, whatever their fields' order (Effect's Equal).
+ */
+export type Keys = HashSet.HashSet<Schema.Json>;
 
 /**
  * What the generator believes of one actor, to steer its user model (never a verdict: the oracles
@@ -28,8 +32,8 @@ export type Believed = {
   readonly timers: MutableRef.MutableRef<
     ReadonlyArray<{ readonly send: string; readonly due: number }>
   >;
-  readonly busy: MutableRef.MutableRef<ReadonlySet<string>>;
-  readonly unsure: MutableRef.MutableRef<ReadonlySet<string>>;
+  readonly busy: MutableRef.MutableRef<Keys>;
+  readonly unsure: MutableRef.MutableRef<Keys>;
 };
 
 /**
@@ -43,8 +47,8 @@ export type World = {
   readonly now: MutableRef.MutableRef<number>;
 };
 
-const keyText = (fixture: Fixture, operation: string, labels: Labels, fields: Folded) =>
-  jsonKey(fixture.handlers.folds.keys[operation]?.(labels, fields) ?? null);
+const keyOf = (fixture: Fixture, operation: string, labels: Labels, fields: Folded) =>
+  fixture.handlers.folds.keys[operation]?.(labels, fields) ?? null;
 
 const alternativesFor = (compiled: Compiled, leaf: string, event: string) => [
   ...(compiled.states.get(leaf)?.on.get(event) ?? []),
@@ -61,10 +65,10 @@ const passes = (a: Believed, alternative: CompiledAlternative, labels: Labels) =
     if (g._tag === "InState") return g.states.includes(a.leaf.current);
 
     if (g._tag === "Idle")
-      return !a.busy.current.has(keyText(a.fixture, g.operation, labels, a.fields.current));
+      return !HashSet.has(a.busy.current, keyOf(a.fixture, g.operation, labels, a.fields.current));
 
     if (g._tag === "Retryable")
-      return a.unsure.current.has(keyText(a.fixture, g.operation, labels, a.fields.current));
+      return HashSet.has(a.unsure.current, keyOf(a.fixture, g.operation, labels, a.fields.current));
 
     return true;
   });
@@ -88,32 +92,31 @@ export const armed = (a: Believed, now: number) =>
 const opened = (world: World, operation: string, request: Open) =>
   world.open.set(operation, [...(world.open.get(operation) ?? []), request]);
 
-const without = (set: ReadonlySet<string>, key: string) =>
-  new Set([...set].filter((k) => k !== key));
-
 type LaneAction = Exclude<CompiledAlternative["actions"][number], { readonly _tag: "Lookup" }>;
 
-const acted = (world: World, a: Believed, action: LaneAction, key: string, acked: boolean) => {
+const acted = (world: World, a: Believed, action: LaneAction, key: Schema.Json, acked: boolean) => {
   const request = { actor: a.by, key };
 
-  if (action._tag === "Commit" && !a.busy.current.has(key)) {
-    MutableRef.set(a.busy, new Set([...a.busy.current, key]));
+  if (action._tag === "Commit" && !HashSet.has(a.busy.current, key)) {
+    MutableRef.set(a.busy, HashSet.add(a.busy.current, key));
 
     if (acked || !a.part.machine.compiled.persist) opened(world, action.operation, request);
     else world.unacked.push({ operation: action.operation, request });
   }
 
-  if (action._tag === "Retry" && a.unsure.current.has(key)) {
-    MutableRef.set(a.unsure, without(a.unsure.current, key));
+  if (action._tag === "Retry" && HashSet.has(a.unsure.current, key)) {
+    MutableRef.set(a.unsure, HashSet.remove(a.unsure.current, key));
     opened(world, action.operation, request);
   }
 
   if (action._tag === "Cancel") {
-    MutableRef.set(a.busy, without(a.busy.current, key));
-    MutableRef.set(a.unsure, without(a.unsure.current, key));
+    MutableRef.set(a.busy, HashSet.remove(a.busy.current, key));
+    MutableRef.set(a.unsure, HashSet.remove(a.unsure.current, key));
     world.open.set(
       action.operation,
-      (world.open.get(action.operation) ?? []).filter((r) => r.actor !== a.by || r.key !== key),
+      (world.open.get(action.operation) ?? []).filter(
+        (r) => r.actor !== a.by || !Equal.equals(r.key, key),
+      ),
     );
   }
 };
@@ -136,7 +139,7 @@ export const heard = (world: World, a: Believed, event: string, labels: Labels, 
     MutableRef.set(a.fields, { ...a.fields.current, ...update(labels, a.fields.current) });
 
   for (const action of chosen.actions) {
-    const key = keyText(a.fixture, action.operation, labels, a.fields.current);
+    const key = keyOf(a.fixture, action.operation, labels, a.fields.current);
 
     if (action._tag === "Lookup") opened(world, action.operation, { actor: a.by, key });
     else acted(world, a, action, key, acked);
@@ -155,8 +158,8 @@ export const reset = (a: Believed) => {
   MutableRef.set(a.leaf, a.part.machine.compiled.initial);
   MutableRef.set(a.fields, a.fixture.handlers.folds.initial);
   MutableRef.set(a.timers, []);
-  MutableRef.set(a.busy, new Set());
-  MutableRef.set(a.unsure, new Set());
+  MutableRef.set(a.busy, HashSet.empty());
+  MutableRef.set(a.unsure, HashSet.empty());
 };
 
 /**
@@ -201,8 +204,8 @@ export const answered = (world: World, operation: string, answer: Answer) => {
 
   const lost = !Answer.$is("Ok")(answer) && !Answer.$is("Fail")(answer);
 
-  if (lost) MutableRef.set(a.unsure, new Set([...a.unsure.current, head.key]));
-  else MutableRef.set(a.busy, new Set([...a.busy.current].filter((k) => k !== head.key)));
+  if (lost) MutableRef.set(a.unsure, HashSet.add(a.unsure.current, head.key));
+  else MutableRef.set(a.busy, HashSet.remove(a.busy.current, head.key));
 
   const labels = a.fixture.handlers.folds.answers[operation]?.(answer) ?? {};
 
@@ -236,7 +239,7 @@ export const refused = (world: World) => {
   for (const { request } of world.unacked.splice(0)) {
     const a = world.actors[request.actor];
 
-    if (a !== undefined) MutableRef.set(a.busy, without(a.busy.current, request.key));
+    if (a !== undefined) MutableRef.set(a.busy, HashSet.remove(a.busy.current, request.key));
   }
 };
 
@@ -250,7 +253,7 @@ export const reloaded = (world: World) => {
     for (const r of requests) {
       const a = world.actors[r.actor];
 
-      if (a !== undefined) MutableRef.set(a.unsure, new Set([...a.unsure.current, r.key]));
+      if (a !== undefined) MutableRef.set(a.unsure, HashSet.add(a.unsure.current, r.key));
     }
 
     world.open.set(operation, []);
