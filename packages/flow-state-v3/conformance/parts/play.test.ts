@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vite-plus/test";
+import { Formatter } from "effect";
 import { parts } from "../../fixtures/index.ts";
 import { implemented as production } from "../adapters/production.ts";
 import { GRACE_MS } from "../dsl/expect.ts";
@@ -68,14 +69,14 @@ describe("part scripts on production (Q9, Q10, Q15, Q17: Conformance R15, R19, R
       assert.equal(script.id, owed.case);
       const played = playPart(script, "production");
 
-      assert.ok(verdictOfLimit(owed, played.verdict).held, JSON.stringify(played.verdict));
+      assert.ok(verdictOfLimit(owed, played.verdict).held, Formatter.format(played.verdict));
     }
   });
 
   it("the suite's own first-contact reds stay fixed: a re-send after a crash lost the ending", () => {
     const played = playPart(mixOf(parts, "stress", 7, production), "production");
 
-    assert.equal(played.verdict._tag, "Pass", JSON.stringify(played.verdict));
+    assert.equal(played.verdict._tag, "Pass", Formatter.format(played.verdict));
   });
 
   it("refuses a part on round-14", () => {
@@ -90,7 +91,7 @@ describe("part scripts on production (Q9, Q10, Q15, Q17: Conformance R15, R19, R
     const mix = mixOf(parts, "stress", SEEDS[0] ?? 1, production);
     const played = playPart(mix, "production");
 
-    assert.equal(played.verdict._tag, "Pass", JSON.stringify(played.verdict));
+    assert.equal(played.verdict._tag, "Pass", Formatter.format(played.verdict));
     assert.equal(
       played.facts.filter((f) => Fact.$is("Stepped")(f) && !f.what.startsWith("end of case"))
         .length,
@@ -155,7 +156,7 @@ describe("reach from executed facts (Q11: Conformance R17)", () => {
     const played = playPart(script, "production");
     const reached = reachOf(played)[transfers.composite] ?? new Set();
 
-    assert.equal(played.verdict._tag, "Pass", JSON.stringify(played.verdict));
+    assert.equal(played.verdict._tag, "Pass", Formatter.format(played.verdict));
     assert.ok(reached.has("rj") && reached.has("gr"));
     assert.equal(played.skipped, 0);
     assert.ok(!reached.has("cm") && !reached.has("un"));
@@ -181,7 +182,7 @@ describe("reach from executed facts (Q11: Conformance R17)", () => {
     const reached = (script: Script) => {
       const played = playPart(script, "production");
 
-      assert.equal(played.verdict._tag, "Pass", JSON.stringify(played.verdict));
+      assert.equal(played.verdict._tag, "Pass", Formatter.format(played.verdict));
 
       return reachOf(played)["C"] ?? new Set();
     };
@@ -258,7 +259,7 @@ describe("first-contact reds of the wider stress profile that were the suite's",
 
     const played = playPart(script, "production");
 
-    assert.equal(played.verdict._tag, "Pass", JSON.stringify(played.verdict));
+    assert.equal(played.verdict._tag, "Pass", Formatter.format(played.verdict));
   });
 
   it("only a local actor free for its whole grace returns with an unknown leaf; within it, it keeps its leaf", () => {

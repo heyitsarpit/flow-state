@@ -1,11 +1,11 @@
-import { Option } from "effect";
+import { Formatter, Option } from "effect";
 import { parts } from "../fixtures/index.ts";
 import { captureMsOf } from "../conformance/actors/lifetime.scenarios.ts";
 import { productionPort } from "../conformance/adapters/production.ts";
 import { openCase } from "../conformance/dsl/case.ts";
 import { rules } from "../conformance/dsl/lifecycle-rules.ts";
 import { type Script, scenarioOf } from "../conformance/dsl/script.ts";
-import { type Fingerprint, fingerprintOf } from "../conformance/parts/fingerprint.ts";
+import { type Fingerprint, fingerprintOf, sameWork } from "../conformance/parts/fingerprint.ts";
 import { worldSeedOf } from "../conformance/parts/play.ts";
 import { partFixture } from "../conformance/parts/reference.ts";
 import type { Port, Runtime } from "../conformance/port.ts";
@@ -129,7 +129,7 @@ export const benchReplay = (script: Script, options: BenchOptions = { persistenc
 export const benchFaults = (name: string, benched: Fingerprint, judged: Fingerprint) => {
   if (judged.turns === 0) return [`BAD  ${name}: the judged run did no turn`];
 
-  return JSON.stringify(benched) === JSON.stringify(judged)
+  return sameWork(benched, judged)
     ? []
-    : [`BAD  ${name}: bench ${JSON.stringify(benched)}, judged ${JSON.stringify(judged)}`];
+    : [`BAD  ${name}: bench ${Formatter.format(benched)}, judged ${Formatter.format(judged)}`];
 };

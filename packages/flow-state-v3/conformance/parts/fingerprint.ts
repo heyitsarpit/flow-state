@@ -1,3 +1,4 @@
+import { Schema } from "effect";
 import { Fact } from "../dsl/oracle.ts";
 import { Observation } from "../port.ts";
 
@@ -5,14 +6,24 @@ import { Observation } from "../port.ts";
  * The work a replay did (Conformance R23): turns, publications, Attempts minted and requests by
  * operation, batches the store received and the characters of their keys and values.
  */
-export type Fingerprint = {
-  readonly turns: number;
-  readonly publications: number;
-  readonly commits: Readonly<Record<string, number>>;
-  readonly requests: Readonly<Record<string, number>>;
-  readonly batches: number;
-  readonly bytes: number;
-};
+export const Fingerprint = Schema.Struct({
+  turns: Schema.Number,
+  publications: Schema.Number,
+  commits: Schema.Record(Schema.String, Schema.Number),
+  requests: Schema.Record(Schema.String, Schema.Number),
+  batches: Schema.Number,
+  bytes: Schema.Number,
+});
+
+/**
+ * The decoded {@link Fingerprint}.
+ */
+export type Fingerprint = typeof Fingerprint.Type;
+
+/**
+ * Whether two replays did the same work.
+ */
+export const sameWork = Schema.toEquivalence(Fingerprint);
 
 const counted = (names: ReadonlyArray<string>) =>
   Object.fromEntries(

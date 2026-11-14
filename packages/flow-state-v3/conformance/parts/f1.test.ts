@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vite-plus/test";
-import { Option } from "effect";
+import { Formatter, Option } from "effect";
 import { Fact } from "../dsl/oracle.ts";
 import type { Script } from "../dsl/script.ts";
 import { MemberTarget, Observation } from "../port.ts";
@@ -63,7 +63,7 @@ describe("F1 (Q25): several actors, and the keys a report names", () => {
   it("a pilot run ends two actors of one machine in one step, under the oracles", () => {
     const played = playPart(twoAccounts, "production");
 
-    assert.equal(played.verdict._tag, "Pass", JSON.stringify(played.verdict));
+    assert.equal(played.verdict._tag, "Pass", Formatter.format(played.verdict));
 
     const steps = played.facts.reduce<Array<Array<Fact>>>((acc, fact) => {
       if (Fact.$is("Stepped")(fact)) acc.push([]);
@@ -78,7 +78,7 @@ describe("F1 (Q25): several actors, and the keys a report names", () => {
           .length,
     );
 
-    assert.ok(ends.includes(2), JSON.stringify(ends));
+    assert.ok(ends.includes(2), Formatter.format(ends));
   });
 
   it("a turn whose members name one key stands in that key for an actor the suite does not carry", () => {

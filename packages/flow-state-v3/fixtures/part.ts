@@ -148,7 +148,7 @@ export const served = <const M extends ServerModel>(operation: string, model: M)
     return Effect.die(`${operation}: the server failed with ${tag}, which its model never answers`);
   };
 
-  return (input: object, { attempt }: { readonly attempt: Attempt }) =>
+  return (input: Readonly<Record<string, Schema.Json>>, { attempt }: { readonly attempt: Attempt }) =>
     Effect.flatMap(Effect.orDie(bodyOf(input)), (body) =>
       Effect.flatMap(Effect.service(Server), (server) => server.call(operation, body, attempt.id)),
     ).pipe(Effect.catch((failure) => ended(failure, attempt)));
@@ -157,7 +157,7 @@ export const served = <const M extends ServerModel>(operation: string, model: M)
 /**
  * A read's lookup over {@link Server}, with no idempotency key.
  */
-export const lookedUp = (operation: string) => (input: object) =>
+export const lookedUp = (operation: string) => (input: Readonly<Record<string, Schema.Json>>) =>
   Effect.flatMap(Effect.orDie(bodyOf(input)), (body) =>
     Effect.flatMap(Effect.service(Server), (server) => server.call(operation, body, "")),
   );

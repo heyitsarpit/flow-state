@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "vite-plus/test";
+import { Formatter } from "effect";
 import { implemented as production } from "../adapters/production.ts";
 import { interacts, interactingPairs, quietPairs } from "./channels.ts";
 import { CODES } from "./codes.ts";
@@ -110,7 +111,7 @@ describe("combination gate (Q14: Conformance R18, I57, I58, T36)", () => {
       assert.ok(
         combinationGate({ ...unreached, owners: { "rj+ky": bad, "ky+rl": owner } }).failures
           .length > 0,
-        JSON.stringify(bad),
+        Formatter.format(bad),
       );
   });
 

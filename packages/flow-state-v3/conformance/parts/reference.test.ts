@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vite-plus/test";
 import { Option, Predicate } from "effect";
+import { jsonKey } from "./json-key.ts";
 import { parts } from "../../fixtures/index.ts";
 import { part } from "../../fixtures/part.ts";
 import { Cells, Pay } from "../fixtures/pay.ts";
@@ -35,7 +36,7 @@ const comparable = (f: Partial<Derived>) => ({
   ),
   rows: (f.rows ?? [])
     .map((r) =>
-      JSON.stringify({ ...r, guard: Option.getOrNull(r.guard), at: Option.getOrNull(r.at) }),
+      jsonKey({ ...r, guard: Option.getOrNull(r.guard), at: Option.getOrNull(r.at) }),
     )
     .toSorted(),
   handlers:

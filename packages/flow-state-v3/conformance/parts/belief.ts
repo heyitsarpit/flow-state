@@ -3,6 +3,7 @@ import type { Part, ServerAnswer } from "../../fixtures/part.ts";
 import type { Fixture } from "../fixtures/fixture.ts";
 import type { Folded, Labels } from "../fixtures/folds.ts";
 import { Answer } from "../world/network.ts";
+import { jsonKey } from "./json-key.ts";
 
 type Compiled = Part["machine"]["compiled"];
 
@@ -43,7 +44,7 @@ export type World = {
 };
 
 const keyText = (fixture: Fixture, operation: string, labels: Labels, fields: Folded) =>
-  JSON.stringify(fixture.handlers.folds.keys[operation]?.(labels, fields) ?? null);
+  jsonKey(fixture.handlers.folds.keys[operation]?.(labels, fields) ?? null);
 
 const alternativesFor = (compiled: Compiled, leaf: string, event: string) => [
   ...(compiled.states.get(leaf)?.on.get(event) ?? []),

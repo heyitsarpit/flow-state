@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { Console, Effect } from "effect";
+import { Console, Effect, Formatter } from "effect";
 import { implemented as production, productionFixtures } from "../adapters/production.ts";
 import { rules } from "../dsl/lifecycle-rules.ts";
 import { scenarioOf } from "../dsl/script.ts";
@@ -106,7 +106,7 @@ export const pairsGate = Effect.suspend(() => {
   });
 
   return Console.log(
-    `pairs reached ${result.reached}, owed ${result.owed}; triples ${result.triples.reached}/${result.triples.total}; cell pairs ${result.cellPairs.reached}/${result.cellPairs.total} ${JSON.stringify(result.cellPairs.byComposite)}`,
+    `pairs reached ${result.reached}, owed ${result.owed}; triples ${result.triples.reached}/${result.triples.total}; cell pairs ${result.cellPairs.reached}/${result.cellPairs.total} ${Formatter.format(result.cellPairs.byComposite)}`,
   ).pipe(
     Effect.andThen(verdict(result.failures, result.reached + result.owed, "interacting pairs")),
   );
@@ -200,7 +200,7 @@ export const productionRegressions = Effect.gen(function* () {
             return held.held ? [] : [`BAD  ${script.id}: owed to ${owed.owner}, but ${held.why}`];
           }
 
-          return first._tag === "Pass" ? [] : [`BAD  ${script.id}: ${JSON.stringify(first)}`];
+          return first._tag === "Pass" ? [] : [`BAD  ${script.id}: ${Formatter.format(first)}`];
         },
       ),
     { concurrency: 1 },
