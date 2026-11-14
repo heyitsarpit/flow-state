@@ -366,3 +366,5 @@ note 2026-11-14T08:51:29Z
     requirements list; one close review after the caught rule. Step 0 at 3cfbfc08 holds most of the reduced design.
 note 2026-11-14T09:24:08Z
     T60 in review at 196edbff (excuses by exact break, one caught rule, class gate 268/268; liar round-14 125/126). Ruled (orchestrator): 125 is honest, since turn.root-first was caught only by a defect; it lands as an owed item for T17, and the fixture-gap cap is not raised. Close review started (Opus, up to eight Haiku, one blind; 5-hour projection 95).
+note 2026-11-14T09:36:41Z
+    Decision (user, 2026-11-14): no hole-finding scripts now ("once T60 closes we go back to the task list"); the list is in revisit.md, built only if post-T60 reviews keep finding suite-machinery holes. After T60: T52 resumes, then T54.

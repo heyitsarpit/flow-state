@@ -63,5 +63,10 @@ Deferred items.
   per-gate universe ledgers, one excuse registry, a counted ledger of unknowns, and the Conformance.spec rule for
   excusing production's known reds. Revisit if holes keep appearing after T60's planted-fault sweep, or once T54
   removes most owed rows.
+- **Hole-finding scripts** (2026-11-14, the user; not built). A planted-fault sweep over all cases, a metamorphic
+  sweep (renamed ids, reordered fields, changed seeds), a per-gate inventory diff, a records and code lint (Edit
+  labels, open owners, outside reads, temporary strings, throws in `src/`), and a requirements-map check. Build the
+  matching one only if reviews after T60 keep finding suite-machinery holes; the records lint first if review time
+  stays high.
 - **`cancelAll`** (2026-11-12, the user, wide consult W1 K0; deferred). Neither reference app uses it. If it returns,
   K1 (its own member, typed only on queuing policies) over K2 (`cancel(key, { queued: true })`).
