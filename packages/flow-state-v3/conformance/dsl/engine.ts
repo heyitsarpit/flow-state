@@ -19,7 +19,8 @@ import { decodeReports } from "./reports.ts";
  * **Details**
  *
  * - `judge` folds the turn anchor and the lifecycle once over each new step, then runs every
- *   oracle with that fold; any violation throws `Violated`, naming every oracle that found one.
+ *   oracle with that fold; any violation throws `Violated`, naming every oracle that found one,
+ *   but a violation the case's `excuse` owes, which is kept (`excused`) and judging goes on.
  * - The world's notes (requests, an answer given at once, batches written) follow the step's
  *   reports, as they were seen at the settle.
  * - Under the crash generator, the step it names ends with a kill and reload, and `Crashed`.
@@ -58,6 +59,7 @@ export const stepEngine = (
   let wrote = 0;
   let judged = 0;
   let model = empty;
+  const excused: Array<{ readonly oracle: string; readonly text: string }> = [];
 
   const noteWorld = () => {
     for (const request of network.requests().slice(noted)) {
@@ -120,8 +122,18 @@ export const stepEngine = (
       return { cut, life };
     });
 
-    const found = judges.flatMap(({ name, next }) =>
+    const all = judges.flatMap(({ name, next }) =>
       cuts.flatMap(({ cut, life }) => next(cut, requests, life)).map((v) => ({ name, v })),
+    );
+
+    const owed = all.filter((f) => options.excuse(f.name, f.v.invariant));
+    const found = all.filter((f) => !owed.includes(f));
+
+    excused.push(
+      ...owed.map((f) => ({
+        oracle: f.name,
+        text: `${f.name}: ${f.v.invariant}: ${f.v.text} (at ${what})`,
+      })),
     );
 
     if (found.length > 0)
@@ -159,5 +171,10 @@ export const stepEngine = (
     }
   };
 
-  return { act, judge, stopCrashing: () => void (crashing = false) };
+  return {
+    act,
+    judge,
+    stopCrashing: () => void (crashing = false),
+    excused: () => [...excused],
+  };
 };

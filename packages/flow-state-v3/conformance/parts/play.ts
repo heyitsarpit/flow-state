@@ -50,46 +50,92 @@ export const RETRY_COUNT =
 export const UNBOUND_RESTORE =
   "the boot restores and parks a disposed identity's unbound Held head, so the adopting incarnation's start gets nothing (Restore R1, Actors I40: a boot delivers and parks nothing)";
 
+const I12 = ["lane-queue", "WriteLanes I12"] as const;
+const I15 = ["delivered-once", "WriteLanes I15"] as const;
+const I16 = ["delivered-once", "WriteLanes I16"] as const;
+const I29 = ["disposal", "Actors I29"] as const;
+
+const owing = (
+  cases: ReadonlyArray<string>,
+  checks: ReadonlyArray<readonly [string, string]>,
+  why: string,
+  owner: string,
+) =>
+  cases.flatMap((id) =>
+    checks.map(([check, invariant]) => ({ case: id, check, invariant, why, owner })),
+  );
+
 /**
  * Production's owed reds among the part scripts (Conformance R22): a generated script it fails by
  * a production bug a Task owns, as `productionOwed` lists hand cases. Each is checked to still fail
- * by its check and Invariant, so a fix shows; every other script passes.
+ * by its check and Invariant, so a fix shows; every other script passes. A script owes one row per
+ * check and Invariant it fails by, each failure on an Attempt its bug reached: a re-send past its
+ * budget is refused (lane-queue I12), so its later endings meet a Held head (delivered-once I16,
+ * I15); a disposed identity's restored head is parked (delivered-once I15), so its adoption never
+ * hears its restore (disposal, Actors I29).
  */
 export const partsOwed: ReadonlyArray<Limit & { readonly owner: string }> = [
-  ...[
-    "PART-transfers-stress-3",
-    "PART-transfers-stress-7",
-    "PART-transfers-stress-9",
-    "PART-transfers-stress-10",
-    "PART-transfers-stress-101",
-    "PART-transfers-stress-104",
-    "PART-transfers-stress-111",
-    "MIX-sync+transfers+sign-in-stress-101",
-    "PART-pay-stress-12",
-    "PART-cells-stress-1",
-    "PART-cells-stress-8",
-    "PART-cells-stress-9",
-  ].map((id) => ({
-    case: id,
-    check: "lane-queue",
-    invariant: "WriteLanes I12",
-    why: RETRY_COUNT,
-    owner: "@task.V3.T19",
-  })),
-  ...[
-    ...[
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 101, 102, 104, 105, 106, 107, 108, 109, 110, 111, 112,
-    ].map((s) => `PART-pay-stress-${s}`),
-    ...[2, 3, 4, 6, 7, 10, 11, 12, 101, 102, 104, 105, 106, 107, 108, 109, 110, 111].map(
-      (s) => `PART-cells-stress-${s}`,
-    ),
-  ].map((id) => ({
-    case: id,
-    check: "delivered-once",
-    invariant: "WriteLanes I15",
-    why: UNBOUND_RESTORE,
-    owner: "@task.V3.T54",
-  })),
+  ...owing(
+    ["PART-transfers-stress-7", "MIX-sync+transfers+sign-in-stress-101", "PART-cells-stress-9"],
+    [I12],
+    RETRY_COUNT,
+    "@task.V3.T19",
+  ),
+  ...owing(["PART-transfers-stress-10"], [I12, I16, I15], RETRY_COUNT, "@task.V3.T19"),
+  ...owing(
+    [3, 9, 101, 111].map((s) => `PART-transfers-stress-${s}`),
+    [I12, I16, I15, I29],
+    RETRY_COUNT,
+    "@task.V3.T19",
+  ),
+  ...owing(
+    ["PART-transfers-stress-104"],
+    [
+      I12,
+      I16,
+      I15,
+      ["delivered-once", "Restore I6"],
+      ["lane-queue", "WriteLanes I8"],
+      ["disposal", "Actors I32"],
+    ],
+    RETRY_COUNT,
+    "@task.V3.T19",
+  ),
+  ...owing(["PART-cells-stress-9"], [I29], RETRY_COUNT, "@task.V3.T19"),
+  ...owing(["PART-pay-stress-112"], [I12], RETRY_COUNT, "@task.V3.T19"),
+  ...owing(
+    [
+      "PART-pay-stress-3",
+      "PART-pay-stress-12",
+      "PART-pay-stress-109",
+      "PART-cells-stress-1",
+      "PART-cells-stress-4",
+      "PART-cells-stress-8",
+    ],
+    [I12, I16],
+    RETRY_COUNT,
+    "@task.V3.T19",
+  ),
+  ...owing(
+    ["PART-pay-stress-106", "PART-pay-stress-110"],
+    [I12, I16, ["delivered-once", "Restore I6"]],
+    RETRY_COUNT,
+    "@task.V3.T19",
+  ),
+  ...owing(
+    [
+      ...[
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 101, 102, 104, 105, 106, 107, 108, 109, 110, 111,
+        112,
+      ].map((s) => `PART-pay-stress-${s}`),
+      ...[1, 2, 3, 4, 6, 7, 8, 10, 11, 12, 101, 102, 104, 105, 106, 107, 108, 109, 110, 111].map(
+        (s) => `PART-cells-stress-${s}`,
+      ),
+    ],
+    [I15, I29],
+    UNBOUND_RESTORE,
+    "@task.V3.T54",
+  ),
 ];
 
 /**
@@ -106,10 +152,17 @@ export const worldSeedOf = (id: string) => Number(/-(\d+)(?:-shrunk)?$/u.exec(id
  *
  * The world runs at the script's own seed ({@link worldSeedOf}), so one script seed fixes the
  * run (R8). `given` are the lifecycle tables the model applies: the design's, or a model mutant
- * (R19).
+ * (R19). A violation one of the script's `owed` rows names (its check and Invariant) does not
+ * stop the run: it is kept, the run is judged to its end, and the verdict fails by every kept one
+ * when nothing else failed, so a row holds only over the run's sole failures.
  */
 // RETURN_TYPE: both branches build the named Played, the refusal with an empty fact list.
-export const playPart = (script: Script, runtime: PartRuntime, given: Rules = rules): Played => {
+export const playPart = (
+  script: Script,
+  runtime: PartRuntime,
+  given: Rules = rules,
+  owed: ReadonlyArray<Limit> = partsOwed,
+): Played => {
   if (runtime === "round-14")
     return {
       verdict: {
@@ -141,6 +194,9 @@ export const playPart = (script: Script, runtime: PartRuntime, given: Rules = ru
     captureMs: captureMsOf(scenario.id),
     rules: given,
     judge: true,
+    excuse: (oracle, invariant) =>
+      runtime === "production" &&
+      owed.some((o) => o.case === script.id && o.check === oracle && o.invariant === invariant),
   });
 
   const ran = Result.try({
@@ -151,10 +207,32 @@ export const playPart = (script: Script, runtime: PartRuntime, given: Rules = ru
     catch: (failure) => verdictOf(script.id, seed, failure),
   });
 
-  const pass: CaseVerdict = { _tag: "Pass", id: script.id };
+  const excused = opened.excused();
+  const kept = excused.map((e) => e.text);
+  const failed = Result.isFailure(ran) ? Option.some(ran.failure) : Option.none<CaseVerdict>();
+
+  const verdict: CaseVerdict = Option.match(failed, {
+    onNone: () =>
+      excused.length === 0
+        ? { _tag: "Pass", id: script.id }
+        : {
+            _tag: "Fail",
+            id: script.id,
+            oracles: [...new Set(excused.map((e) => e.oracle))],
+            why: `seed ${seed}: ${kept.join(" | ")}`,
+          },
+    onSome: (failure) =>
+      failure._tag !== "Fail" || excused.length === 0
+        ? failure
+        : {
+            ...failure,
+            oracles: [...new Set([...excused.map((e) => e.oracle), ...failure.oracles])],
+            why: `seed ${seed}: ${[...kept, failure.why.replace(/^seed \d+: /u, "")].join(" | ")}`,
+          },
+  });
 
   return {
-    verdict: Result.isSuccess(ran) ? pass : ran.failure,
+    verdict,
     facts: opened.facts(),
     skipped,
   };
@@ -181,18 +259,32 @@ export const partFaults = (
   return [...empty, ...ghosts, ...judged(runs, owed)];
 };
 
+const unowedFailures = (verdict: CaseVerdict, rows: ReadonlyArray<Limit>) =>
+  verdict._tag === "Fail"
+    ? verdict.why
+        .replace(/^seed \d+: /u, "")
+        .split(" | ")
+        .filter((failure) => !rows.some((r) => failure.startsWith(`${r.check}: ${r.invariant}:`)))
+    : [];
+
 const judged = (
   runs: ReadonlyArray<{ readonly script: Script; readonly run: Played }>,
   owed: ReadonlyArray<Limit & { readonly owner: string }>,
 ) =>
   runs.flatMap(({ script, run }) => {
-    const row = owed.find((o) => o.case === script.id);
+    const rows = owed.filter((o) => o.case === script.id);
 
-    if (row !== undefined) {
-      const held = verdictOfLimit(row, run.verdict);
+    if (rows.length > 0)
+      return [
+        ...rows.flatMap((row) => {
+          const held = verdictOfLimit(row, run.verdict);
 
-      return held.held ? [] : [`BAD  ${script.id}: owed to ${row.owner}, but ${held.why}`];
-    }
+          return held.held ? [] : [`BAD  ${script.id}: owed to ${row.owner}, but ${held.why}`];
+        }),
+        ...unowedFailures(run.verdict, rows).map(
+          (failure) => `BAD  ${script.id}: fails by ${failure}, which no owed row names`,
+        ),
+      ];
 
     if (run.verdict._tag !== "Pass") return [`BAD  ${script.id}: ${Formatter.format(run.verdict)}`];
 

@@ -50,28 +50,48 @@ describe("part scripts on production (Q9, Q10, Q15, Q17: Conformance R15, R19, R
     }
   });
 
+  it("an owed row holds only when its failures are the run's only ones, judged to the run's end", () => {
+    const cells = parts.find((p) => p.name === "cells");
+    assert.ok(cells !== undefined);
+
+    const script = scriptOf(cells, "stress", 11, production);
+    const rows = partsOwed.filter((o) => o.case === script.id);
+    const [first] = rows;
+    assert.ok(first !== undefined && rows.length > 1, script.id);
+
+    const runs = [{ script, run: playPart(script, "production") }];
+
+    assert.deepEqual(partFaults(runs, rows, new Set([script.id])), []);
+    assert.equal(partFaults(runs, [first], new Set([script.id])).length, 1);
+    assert.ok(
+      partFaults([{ script, run: playPart(script, "production", undefined, [first]) }], [first])
+        .length > 0,
+    );
+  });
+
   it("each owed red still fails on production by its check and Invariant", () => {
     assert.ok(partsOwed.length > 0);
 
-    for (const owed of partsOwed) {
+    for (const id of new Set(partsOwed.map((o) => o.case))) {
       const [, kind, name, profile, seed] =
-        /^(PART|MIX)-(.+)-(usual|stress)-(\d+)$/u.exec(owed.case) ?? [];
+        /^(PART|MIX)-(.+)-(usual|stress)-(\d+)$/u.exec(id) ?? [];
 
       const part = parts.find((p) => p.name === name);
-      assert.ok(profile === "usual" || profile === "stress", owed.case);
-      assert.ok(kind === "MIX" || part !== undefined, owed.case);
+      assert.ok(profile === "usual" || profile === "stress", id);
+      assert.ok(kind === "MIX" || part !== undefined, id);
 
       const script =
         part === undefined
           ? mixOf(mixed, profile, Number(seed), production)
           : scriptOf(part, profile, Number(seed), production);
 
-      assert.equal(script.id, owed.case);
+      assert.equal(script.id, id);
       const played = playPart(script, "production");
 
-      assert.ok(verdictOfLimit(owed, played.verdict).held, Formatter.format(played.verdict));
+      for (const owed of partsOwed.filter((o) => o.case === id))
+        assert.ok(verdictOfLimit(owed, played.verdict).held, Formatter.format(played.verdict));
     }
-  });
+  }, 60_000);
 
   it("the suite's own first-contact reds stay fixed: a re-send after a crash lost the ending", () => {
     const played = playPart(mixOf(mixed, "stress", 7, production), "production");

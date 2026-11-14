@@ -88,6 +88,7 @@ const runSeed = (
           crashAt: Option.none(),
           rules,
           judge: true,
+          excuse: () => false,
           replay: Option.none(),
         },
         scenario.run,
@@ -252,6 +253,7 @@ export const crashCase = (
               crashAt: Option.some(at),
               rules,
               judge: true,
+              excuse: () => false,
               replay: Option.none(),
             },
             scenario.run,
@@ -294,6 +296,7 @@ export const runCaseLiar = (
           crashAt: Option.none(),
           rules,
           judge: true,
+          excuse: () => false,
         };
 
         return Effect.try({

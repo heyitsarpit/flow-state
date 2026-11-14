@@ -172,6 +172,7 @@ const factsOf = (port: ReturnType<typeof prototypePort>, id: string) => {
     replay: Option.none(),
     rules,
     judge: true,
+    excuse: () => false,
   });
 
   scenario.run(opened.driven);

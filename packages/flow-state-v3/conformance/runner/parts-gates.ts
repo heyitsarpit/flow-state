@@ -165,13 +165,18 @@ export const regressionsOwed: ReadonlyArray<Limit & { readonly owner: string }> 
     why: UNBOUND_RESTORE,
     owner: "@task.V3.T54",
   },
-  {
+  ...[
+    ["lane-queue", "WriteLanes I12"],
+    ["delivered-once", "WriteLanes I16"],
+    ["delivered-once", "WriteLanes I15"],
+    ["disposal", "Actors I29"],
+  ].map(([check = "", invariant = ""]) => ({
     case: "PART-transfers-stress-111-shrunk",
-    check: "lane-queue",
-    invariant: "WriteLanes I12",
+    check,
+    invariant,
     why: RETRY_COUNT,
     owner: "@task.V3.T19",
-  },
+  })),
   {
     case: "PART-transfers-stress-5-shrunk",
     check: "disposal",
@@ -200,30 +205,37 @@ export const productionRegressions = Effect.gen(function* () {
   const lines = yield* Effect.forEach(
     kept,
     ({ script }) =>
-      Effect.map(
-        isPartScript(script.id)
-          ? Effect.succeed([playPart(script, "production").verdict])
-          : playChosen(
+      isPartScript(script.id)
+        ? Effect.succeed(
+            partFaults(
+              [{ script, run: playPart(script, "production", rules, regressionsOwed) }],
+              regressionsOwed.filter((o) => o.case === script.id),
+            ),
+          )
+        : Effect.map(
+            playChosen(
               [],
               PRODUCTION_RUNTIME,
               [scenarioOf(script, [Pay, Cells, Serialize])],
               () => [],
             ),
-        (verdicts) => {
-          const owed = regressionsOwed.find((o) => o.case === script.id);
-          const [first] = verdicts;
+            (verdicts) => {
+              const owed = regressionsOwed.find((o) => o.case === script.id);
+              const [first] = verdicts;
 
-          if (first === undefined) return [`BAD  ${script.id}: no verdict`];
+              if (first === undefined) return [`BAD  ${script.id}: no verdict`];
 
-          if (owed !== undefined) {
-            const held = verdictOfLimit(owed, first);
+              if (owed !== undefined) {
+                const held = verdictOfLimit(owed, first);
 
-            return held.held ? [] : [`BAD  ${script.id}: owed to ${owed.owner}, but ${held.why}`];
-          }
+                return held.held
+                  ? []
+                  : [`BAD  ${script.id}: owed to ${owed.owner}, but ${held.why}`];
+              }
 
-          return first._tag === "Pass" ? [] : [`BAD  ${script.id}: ${Formatter.format(first)}`];
-        },
-      ),
+              return first._tag === "Pass" ? [] : [`BAD  ${script.id}: ${Formatter.format(first)}`];
+            },
+          ),
     { concurrency: 1 },
   );
 

@@ -211,7 +211,7 @@ export const pilots = () => [
 const recorded = (scripts: ReadonlyArray<Script>, given: Rules) =>
   scripts.map((script) => {
     const log: Array<string> = [];
-    const played = playPart(script, "production", recording(given, log));
+    const played = playPart(script, "production", recording(given, log), []);
 
     return { script, passed: played.verdict._tag === "Pass", reads: new Set(log) };
   });
@@ -243,7 +243,7 @@ export const modelMutants = (scripts: ReadonlyArray<Script> = pilots(), given: R
             (found, r) =>
               Option.isSome(found)
                 ? found
-                : killedBy(playPart(r.script, "production", mutant.rules).verdict),
+                : killedBy(playPart(r.script, "production", mutant.rules, []).verdict),
             Option.none(),
           );
 

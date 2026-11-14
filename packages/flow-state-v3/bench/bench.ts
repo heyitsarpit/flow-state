@@ -114,6 +114,7 @@ export const benchReplay = (script: Script, options: BenchOptions = { persistenc
     captureMs: captureMsOf(scenario.id),
     rules,
     judge: false,
+    excuse: () => false,
   });
 
   scenario.run(opened.driven);
