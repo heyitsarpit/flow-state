@@ -517,3 +517,9 @@ note 2026-11-14T04:13:46Z
     (t52-step1-review-2026-11-14.md); all sent to the builder. Ruled (orchestrator): the four cancelAll frozen cases 
     stay on round-14 only, citing the retired WriteLanes R15, until T53; no scope stop. Missed by the builder's checks: 
     each red tested its own new surface; nothing traced new parts through existing readers of parts (gathering).
+note 2026-11-14T05:23:04Z
+    T52 lead rotated out on context at 0552b546 (step 2 partly built; V1 holds; one red class owed to T54, five 
+    untriaged). Started a fresh Opus builder on its resume list and a review of 8f3aa448..0552b546 (Opus, up to eight 
+    Haiku, one blind). The old lead slipped once more with sed -i; the new brief makes a shell edit a finding.
+note 2026-11-14T05:47:24Z
+    Review (T52 build range 8f3aa448..0552b546) go on, 0 blocking (t52-build-review-2026-11-14.md): three of five reds are T19's retry-count bug, two the selection oracle's; 8 routed items sent to the builder (orchestrator verified the coreOutcome one). Missed by the builder's checks: reds triaged from their first failing line without shrinking (weak check); three findings became requirements without reds (rule gap in practice).
