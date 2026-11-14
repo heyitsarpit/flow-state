@@ -3,7 +3,9 @@ import { describe, it } from "vite-plus/test";
 import { Equal, Formatter, Predicate } from "effect";
 import { cellOf, due } from "./lifecycle.ts";
 import { apply } from "./lifecycle-fold.ts";
-import { type Input, Life, type Model, type Move, Phase } from "./lifecycle-model.ts";
+import { type Input, Life, type Model, Move, Phase } from "./lifecycle-model.ts";
+import { ending } from "./lifecycle-lives.traces.ts";
+import { build } from "./lifecycle-trace.ts";
 import {
   Act,
   type Cell,
@@ -22,7 +24,7 @@ import type { Trace } from "./lifecycle-trace.ts";
 import { pendingTraces } from "./lifecycle-actor-lives.traces.ts";
 import { traces } from "./lifecycle.traces.ts";
 import { holds } from "./trace-judge.ts";
-import { HELD } from "./held-traces.ts";
+import { foldKills, redundancyFaults } from "./held-traces.ts";
 import type { InvariantId } from "./facts.ts";
 import { disposal } from "../actors/disposal.ts";
 import { attemptIdentity } from "../write-lanes/attempt-identity.ts";
@@ -358,24 +360,29 @@ const promotionMutants = () =>
 
 const rulingOf = (trace: Trace) => /\(ruling [^)]+\)/u.exec(trace.cites)?.[0];
 
+const restoreStart = (life: Life) =>
+  build.model(build.lane("A", ["s", Phase.Held()]), { endings: [ending(life)] });
+
 describe("The lane lifecycle (Table A, deadlines, promotion)", () => {
   it("every trace holds on the design's rules", () => {
     for (const trace of traces) assert.ok(holds(trace, rules), `${trace.name} (${trace.cites})`);
   });
 
   it("a boot owes no restore to a Held head whose row the reload keeps (Restore I6, R3)", () => {
-    const names = new Set(traces.map((t) => t.name));
-
-    for (const row of ["Kept", "Delivering", "Parked"])
+    for (const life of [Life.Kept(), Life.Delivering({ retry: false }), Life.Parked()])
       assert.ok(
-        names.has(`a boot owes no restore to a Held head whose ending is a ${row} row`),
-        row,
+        !apply(restoreStart(life), Move.Reload())[0].obligations.some(
+          (o) => o._tag === "AwaitRestore",
+        ),
+        life._tag,
       );
 
-    for (const row of ["Refused", "live Owed"])
+    for (const life of [Life.Refused(), Life.Owed()])
       assert.ok(
-        names.has(`a boot owes a restore to a Held head whose ${row} row the reload closes`),
-        row,
+        apply(restoreStart(life), Move.Reload())[0].obligations.some(
+          (o) => o._tag === "AwaitRestore",
+        ),
+        life._tag,
       );
   });
 
@@ -418,11 +425,7 @@ describe("The lane lifecycle (Table A, deadlines, promotion)", () => {
     assert.deepEqual(survivors(promotionMutants()), []);
   });
 
-  // A trace that kills no listed mutant checks the fold outside the tables, which no mutant here
-  // measures; it stays. A trace whose table kills other traces make is held, not deleted, until a
-  // fold mutant shows its fold check is made elsewhere too: the 65th-commit traces alone pin the
-  // fold's 64-waiting bound, which no table mutant changes.
-  it("every trace kills a mutant no other trace kills, names its ruling, or is held", () => {
+  it("every trace kills a table or fold mutant no kept trace kills, names its ruling, or alone refuses an Invariant", () => {
     const mutants = [
       ...tableAMutants(reached()),
       ...deadlineMutants(),
@@ -431,28 +434,46 @@ describe("The lane lifecycle (Table A, deadlines, promotion)", () => {
       ...promotionMutants(),
     ];
 
-    const kills = traces.map(
-      (trace) => new Set(mutants.flatMap((m, i) => (holds(trace, m.rules) ? [] : [i]))),
-    );
+    const judged = traces.map((trace) => ({
+      name: trace.name,
+      tableKills: new Set(mutants.flatMap((m, i) => (holds(trace, m.rules) ? [] : [i]))),
+      refuses: trace.refusals.flat(),
+      ruled: rulingOf(trace) !== undefined,
+    }));
 
-    const kept = new Set(traces.keys());
-
-    for (const i of [...traces.keys()].toReversed()) {
-      const own = [...(kills[i] ?? [])];
-
-      const others = [...kept].filter((j) => j !== i);
-
-      const covered =
-        own.length > 0 && own.every((k) => others.some((j) => kills[j]?.has(k) === true));
-
-      if (covered && rulingOf(traces[i]!) === undefined) kept.delete(i);
-    }
-
-    assert.deepEqual(
-      traces.filter((_, i) => !kept.has(i)).map((trace) => trace.name),
-      HELD,
-    );
+    assert.deepEqual(redundancyFaults(judged, foldKills()), []);
   }, 240_000);
+
+  it("a planted copy of a trace fails the gate once, and a trace with no fold record is stale (close review O5)", () => {
+    const one = {
+      name: "kept",
+      tableKills: new Set([1]),
+      refuses: ["WriteLanes I1"],
+      ruled: false,
+    };
+
+    const plant = { ...one, name: "planted copy" };
+
+    const shared = {
+      name: "shares a fold kill",
+      tableKills: new Set<number>(),
+      refuses: [],
+      ruled: false,
+    };
+
+    const fold = new Map([
+      ["kept", ["m1"]],
+      ["planted copy", ["m1"]],
+      ["shares a fold kill", ["m2"]],
+    ]);
+
+    assert.deepEqual(redundancyFaults([one, plant, shared], fold), [
+      "redundant: planted copy (every table and fold kill is another trace's; delete it)",
+    ]);
+    assert.deepEqual(redundancyFaults([one], new Map()), [
+      "stale: kept has no fold verdict; rerun the fold-mutants mode",
+    ]);
+  });
 
   it("every Invariant the lifecycle refuses under is claimed by exactly one lifecycle oracle", () => {
     // RETURN_TYPE: a recursive walk needs its own type.

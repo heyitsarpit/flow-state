@@ -338,7 +338,10 @@ requirements
                 it and imports the world and player from `conformance/`, which a lint bars from importing
                 `bench/`; `conformance/` is the input and output validator. Expected results come only from
                 the Spec model or a written ruling, and every bug found becomes a shrunk regression script. The
-                model search replaces the hand traces, apart from those that record a ruling. Pay is a
+                model search replaces the hand traces, apart from those that record a ruling. A lifecycle trace
+                stays only while it kills a table or fold-code mutant no kept trace kills, names its ruling, or
+                alone refuses an Invariant: the fold-mutant mode writes each trace's fold kills to
+                `conformance/held-traces.tsv`, and the redundancy gate reads them (@task.V3.T61). Pay is a
                 generated part too (reversing replan decision 5 for Pay): its hand rows stay as one frozen
                 golden static case, and the derived reference must equal them while both exist. A fixture
                 declares `classify` beside its server model, since `Compiled` does not carry it. The retiring

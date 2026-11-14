@@ -5,23 +5,9 @@ import { RETIRED_I21 } from "./lifecycle-rules.ts";
 import { at, build, type Trace } from "./lifecycle-trace.ts";
 import type { InvariantId } from "./facts.ts";
 
-const { Q, U, RS, W, H, RF, GC, GE } = at;
+const { Q, U, RS, W, H, RF, GC } = at;
 
-const {
-  lane,
-  model,
-  wl,
-  actors,
-  pending,
-  awaiting,
-  one,
-  headed,
-  goneBeside,
-  definite,
-  notSent,
-  unknown,
-  released,
-} = build;
+const { lane, model, wl, actors, pending, awaiting, one, headed, definite, unknown } = build;
 
 const endingOfS = { operation: "pay", attempt: Option.some("s"), actor: build.shopper };
 
@@ -43,57 +29,6 @@ const promotionTraces: ReadonlyArray<Trace> = [
     refused: [],
     phases: { s: GC, q: Q, w: U },
   }),
-  one({
-    name: "promotion takes the first waiting commit in mint order",
-    cites: "WriteLanes R8, I11: W's head is promoted",
-    start: model(lane("A", ["s", W], ["q", Q], ["w", Q])),
-    move: definite("s"),
-    refused: [],
-    phases: { s: GC, q: U, w: Q },
-  }),
-  {
-    name: "an unretained unknown's release is due by the close of the turn that hears it",
-    cites: "WriteLanes R4, I5: an unknown not retained is released once its own ending's turn ends",
-    start: headed(W),
-    steps: [
-      unknown("s", "Interrupted", false),
-      LifeMove.Delivered({ ending: endingOfS }),
-      LifeMove.Heard({ ending: endingOfS }),
-      turn(),
-      { due: "TurnCloses" as const },
-    ],
-    refusals: [[], [], [], [], [wl(5)]],
-    phases: { s: H, w: Q },
-    owed: 0,
-    checks: [],
-  },
-  {
-    name: "an unretained unknown's release is not due at a turn that does not hear it",
-    cites:
-      "WriteLanes R4: released once its own ending's turn ends, not an earlier one's (review H2)",
-    start: headed(W),
-    steps: [unknown("s", "Interrupted", false), { due: "TurnCloses" as const }],
-    refusals: [[], []],
-    phases: { s: H, w: Q },
-    owed: 1,
-    checks: [],
-  },
-  {
-    name: "an unretained unknown heard by no turn owes its release by the step's end",
-    cites:
-      "WriteLanes R4, I5: heard with no turn (Unhandled, Denied), its release is due by the step's end (F3)",
-    start: headed(W),
-    steps: [
-      unknown("s", "Interrupted", false),
-      LifeMove.Delivered({ ending: endingOfS }),
-      LifeMove.Heard({ ending: endingOfS }),
-      { due: "StepEnds" as const },
-    ],
-    refusals: [[], [], [], [wl(5)]],
-    phases: { s: H, w: Q },
-    owed: 0,
-    checks: [],
-  },
   {
     name: "an unretained unknown's release is owed by its own ending's turn, not the Attempt's other ending",
     cites: "WriteLanes R4: released once its own ending's turn ends (step-4 reviewer, item 2)",
@@ -121,16 +56,6 @@ const promotionTraces: ReadonlyArray<Trace> = [
     checks: [],
   },
   {
-    name: "an unretained unknown not yet heard owes nothing at the step's end",
-    cites: "WriteLanes R4: a parked ending's release waits for its own turn (review H2)",
-    start: headed(W),
-    steps: [unknown("s", "Interrupted", false), { due: "StepEnds" as const }],
-    refusals: [[], []],
-    phases: { s: H, w: Q },
-    owed: 1,
-    checks: [],
-  },
-  {
     name: "an unretained unknown re-sent in its own turn owes no release",
     cites: "WriteLanes R4: under cancel an unknown is released once its own ending's turn ends",
     start: headed(W),
@@ -144,48 +69,6 @@ const promotionTraces: ReadonlyArray<Trace> = [
     owed: 0,
     checks: [],
   },
-  {
-    name: "an unretained unknown released in its turn",
-    cites: "WriteLanes R4",
-    start: headed(W),
-    steps: [unknown("s", "Interrupted", false), released("s"), { due: "TurnCloses" as const }],
-    refusals: [[], [], []],
-    phases: { s: GC, w: U },
-    owed: 0,
-    checks: [],
-  },
-  {
-    name: "a replaced Attempt's second ending",
-    cites: "WriteLanes I15, I16: evidence once, a settled ending never replaced",
-    start: goneBeside(GE),
-    steps: [notSent("s", "Cancelled"), unknown("s", "Cancelled")],
-    refusals: [[], [wl(16)]],
-    phases: { s: GE, n: U },
-    owed: 0,
-    checks: [],
-  },
-  one(
-    {
-      name: "a pending cancel's ending of the other kind",
-      cites: "WriteLanes R14: a cancel on the wire ends unknown Cancelled, never NotSent",
-      start: goneBeside(GC, { obligations: [pending("s", "UnknownCancelled")] }),
-      move: notSent("s", "Cancelled"),
-      refused: [wl(16)],
-      phases: { s: GC, n: U },
-    },
-    1,
-  ),
-  one(
-    {
-      name: "an unretained unknown Disposed during disposal holds its lane",
-      cites: "WriteLanes R17, Actors R22: disposal drops no lane; the call ends unknown Disposed",
-      start: model(lane("A", ["s", W], ["w", Q]), { mode: "disposing" }),
-      move: unknown("s", "Disposed", false),
-      refused: [],
-      phases: { s: H, w: Q },
-    },
-    0,
-  ),
 ];
 
 const dueTrace = (
@@ -267,26 +150,6 @@ const unsentAtReload = (acknowledged: ReadonlyArray<string>) =>
 
 const restoreTraces: ReadonlyArray<Trace> = [
   {
-    name: "an acknowledged head never sent owes its restore from the reload",
-    cites: "Restore R3, I6: acknowledged once, it ends unknown { Restored } even if never invoked",
-    start: unsentAtReload(["s"]),
-    steps: [Move.Reload(), Move.BootSettles(), { due: "StepEnds" as const }],
-    refusals: [[], [], ["Restore I6"]],
-    phases: { s: GC },
-    owed: 0,
-    checks: [],
-  },
-  {
-    name: "an acknowledged head never sent is restored to Held and still owes its delivery",
-    cites: "Restore R3, I6: the restore ending is owed until it is delivered",
-    start: unsentAtReload(["s"]),
-    steps: [Move.Reload(), unknown("s", "Restored"), Move.BootSettles()],
-    refusals: [[], [], []],
-    phases: { s: H },
-    owed: 1,
-    checks: [],
-  },
-  {
     name: "an acknowledged head never sent meets its restore once it is delivered",
     cites: "Restore R3, I6: delivered unknown { Restored } exactly once in the boot",
     start: unsentAtReload(["s"]),
@@ -299,16 +162,6 @@ const restoreTraces: ReadonlyArray<Trace> = [
     ],
     refusals: [[], [], [], [], []],
     phases: { s: H },
-    owed: 0,
-    checks: [],
-  },
-  {
-    name: "a head whose acknowledgement never landed owes no restore",
-    cites: "Restore I8: killed before its batch landed, it restores with no lane",
-    start: unsentAtReload([]),
-    steps: [Move.Reload(), Move.BootSettles(), { due: "StepEnds" as const }],
-    refusals: [[], [], []],
-    phases: { s: GC },
     owed: 0,
     checks: [],
   },

@@ -3,24 +3,10 @@ import { Life } from "./lifecycle-model.ts";
 import { closes, commit, decline, member, mint, turn } from "./lifecycle-members.traces.ts";
 import { at, build, Check, type Trace } from "./lifecycle-trace.ts";
 
-const { Q, W, I, U, H, GE } = at;
-const { lane, model, wl, pending, awaiting } = build;
-
-const released = awaiting("h", "Released");
-
-const twoLanes = model([...lane("A", ["a", W]), ...lane("B", ["b", W])]);
+const { Q, W } = at;
+const { lane, model, wl } = build;
 
 const orderTraces: ReadonlyArray<Trace> = [
-  {
-    name: "a commit whose key did not encode declines Unencodable",
-    cites: "WriteLanes R12, I18: it declines NotSent Unencodable and never fails its turn",
-    start: model([], { unencodable: true }),
-    steps: [turn(member("commit", "serialize", MemberTarget.Nothing())), decline("Unencodable")],
-    refusals: [[], []],
-    phases: {},
-    owed: 0,
-    checks: [Check.Lives({ lives: [Life.Owed()] })],
-  },
   {
     name: "an Unencodable decline of an input the fixture says encodes is refused",
     cites: "WriteLanes R12: only a value that cannot encode declines Unencodable (a suite fact)",
@@ -32,114 +18,12 @@ const orderTraces: ReadonlyArray<Trace> = [
     checks: [],
   },
   {
-    name: "a key-less cancel of an operation with no lane declines nothing",
-    cites: "WriteLanes R14: cancel on an Idle lane is nothing, and no ending",
-    start: model([]),
-    steps: [turn(member("cancel", "serialize", MemberTarget.Every())), decline("Cancelled")],
-    refusals: [[], [wl(20)]],
-    phases: {},
-    owed: 0,
-    checks: [],
-  },
-  {
-    name: "a second cancel of a never-sent head",
-    cites: "WriteLanes R14: one cancel's ending per never-sent Attempt",
-    start: model(lane("A", ["h", U])),
-    steps: [turn(member("cancel"), member("cancel"))],
-    refusals: [[]],
-    phases: { h: U },
-    owed: 1,
-    checks: [Check.Owing({ obligations: [pending("h")] })],
-  },
-  {
-    name: "a key-less cancel acts on every lane of its operation",
-    cites: "the design's Port change 1 (round-14 turn.ts:752-757); WriteLanes R9 says KeyRequired",
-    start: twoLanes,
-    steps: [turn(member("cancel", "serialize", MemberTarget.Every()))],
-    refusals: [[]],
-    phases: { a: I, b: I },
-    owed: 0,
-    checks: [],
-  },
-  {
-    name: "a member that names no lane does nothing",
-    cites: "WriteLanes R9: a member whose key does not encode names no lane (the Port's Nothing)",
-    start: twoLanes,
-    steps: [turn(member("cancel", "serialize", MemberTarget.Nothing()))],
-    refusals: [[]],
-    phases: { a: W, b: W },
-    owed: 0,
-    checks: [],
-  },
-  {
-    name: "a commit then a cancel apply in action order",
-    cites: "WriteLanes I10: each member to the lane state the previous one left",
-    start: model([]),
-    steps: [turn(commit("serialize"), member("cancel")), mint("n")],
-    refusals: [[], []],
-    phases: { n: U },
-    owed: 1,
-    checks: [Check.Owing({ obligations: [pending("n")] })],
-  },
-  {
-    name: "a cancel then a commit on a Held lane: the cancel releases the head, so the commit mints",
-    cites:
-      "WriteLanes I10, T17: the cancel releases the held head at once and owes its Released evidence",
-    start: model(lane("A", ["h", H])),
-    steps: [turn(member("cancel", "reject"), commit("reject")), mint("n")],
-    refusals: [[], []],
-    phases: { h: GE, n: U },
-    owed: 1,
-    checks: [Check.Owing({ obligations: [released] })],
-  },
-  {
-    name: "a cancel of a Held head promotes the next waiting commit in its turn",
-    cites: "WriteLanes I10, I11: the head released at once, the lane promotes",
-    start: model(lane("A", ["h", H], ["q", Q])),
-    steps: [turn(member("cancel"))],
-    refusals: [[]],
-    phases: { h: GE, q: U },
-    owed: 1,
-    checks: [Check.Owing({ obligations: [released] })],
-  },
-  {
-    name: "a retry then a cancel in one turn releases the re-send",
-    cites:
-      "WriteLanes I10, T17, T20: the cancel meets the Resending head the retry left and releases it",
-    start: model(lane("A", ["h", H])),
-    steps: [turn(member("retry", "reject"), member("cancel", "reject"))],
-    refusals: [[]],
-    phases: { h: GE },
-    owed: 1,
-    checks: [Check.Owing({ obligations: [released] })],
-  },
-  {
-    name: "a mint outside a turn",
-    cites: "WriteLanes I1",
-    start: model([]),
-    steps: [mint("n")],
-    refusals: [[wl(1)]],
-    phases: {},
-    owed: 0,
-    checks: [],
-  },
-  {
     name: "an id minted twice",
     cites: "WriteLanes I6: no two writes share an id",
     start: model(lane("A", ["n", W])),
     steps: [turn(commit("serialize")), mint("n")],
     refusals: [[], [wl(6)]],
     phases: { n: W },
-    owed: 0,
-    checks: [],
-  },
-  {
-    name: "a mint on another lane than the turn's commit",
-    cites: "WriteLanes I1: a mint needs its lane's commit member",
-    start: model([]),
-    steps: [turn(commit("serialize")), mint("n", "B")],
-    refusals: [[], [wl(1)]],
-    phases: {},
     owed: 0,
     checks: [],
   },
@@ -167,36 +51,6 @@ const orderTraces: ReadonlyArray<Trace> = [
     checks: [],
   },
   {
-    name: "a reject commit behind a head declines Rejected",
-    cites: "WriteLanes R7: reject declines NotSent Rejected",
-    start: model(lane("A", ["h", W])),
-    steps: [turn(commit("reject")), decline("Rejected")],
-    refusals: [[], []],
-    phases: { h: W },
-    owed: 0,
-    checks: [Check.Lives({ lives: [Life.Owed()] })],
-  },
-  {
-    name: "a serialize commit declines Rejected",
-    cites: "WriteLanes R7: only reject declines Rejected",
-    start: model(lane("A", ["h", W])),
-    steps: [turn(commit("serialize")), decline("Rejected")],
-    refusals: [[], [wl(8)]],
-    phases: { h: W },
-    owed: 0,
-    checks: [Check.Lives({ lives: [] })],
-  },
-  {
-    name: "a commit on an Idle lane declines Overloaded",
-    cites: "WriteLanes R7, I8: Overloaded only past 64 waiting",
-    start: model([]),
-    steps: [turn(commit("serialize")), decline("Overloaded")],
-    refusals: [[], [wl(8)]],
-    phases: {},
-    owed: 0,
-    checks: [],
-  },
-  {
     name: "a commit that cannot encode declines",
     cites: "WriteLanes R12, I18: a commit that cannot encode declines Unencodable",
     start: model([], { unencodable: true }),
@@ -206,27 +60,6 @@ const orderTraces: ReadonlyArray<Trace> = [
     owed: 0,
     checks: [Check.Lives({ lives: [Life.Owed()] })],
   },
-  ...(["Cancelled", "Restored", "StorageRefused", "Disposed"] as const).map((reason) => ({
-    name: `a commit on an Idle lane declines ${reason}`,
-    cites: "WriteLanes R7, I8: a minting lane declines only for a reason no policy gives (M4)",
-    start: model([]),
-    steps: [turn(commit("serialize")), decline(reason)],
-    refusals: [[], [wl(8)]],
-    phases: {},
-    owed: 0,
-    checks: [Check.Lives({ lives: [] })],
-  })),
-  ...(["NoPersistence", "OldVersion", "ModuleDisabled"] as const).map((reason) => ({
-    name: `a commit no suite fact lets decline ${reason} is refused`,
-    cites:
-      "WriteLanes R11, R12: OldVersion needs an older release's hold, NoPersistence a boot without persistence",
-    start: model([]),
-    steps: [turn(commit("serialize")), decline(reason)],
-    refusals: [[], [wl(8)]],
-    phases: {},
-    owed: 0,
-    checks: [],
-  })),
   {
     name: "a commit beside a lane minted at an older release declines OldVersion",
     cites: "WriteLanes R11, I17: an old-version hold declines every commit of its operation",
@@ -234,16 +67,6 @@ const orderTraces: ReadonlyArray<Trace> = [
     steps: [turn(commit("serialize")), decline("OldVersion")],
     refusals: [[], []],
     phases: { h: W },
-    owed: 0,
-    checks: [Check.Lives({ lives: [Life.Owed()] })],
-  },
-  {
-    name: "a commit declines Disposed while the Runtime disposes",
-    cites: "Actors R22: from the disposal's start nothing new is invoked",
-    start: model([], { mode: "disposing" }),
-    steps: [turn(commit("serialize")), decline("Disposed")],
-    refusals: [[], []],
-    phases: {},
     owed: 0,
     checks: [Check.Lives({ lives: [Life.Owed()] })],
   },
@@ -282,6 +105,8 @@ const queueTraces: ReadonlyArray<Trace> = [
 ];
 
 /**
- * The traces of a turn's members: member order, targets, mints and declines.
+ * The traces of a turn's members: member order, targets, mints and declines. Traces whose every
+ * table and fold kill another trace makes were deleted (T61, the fold-mutant verdicts in
+ * `held-traces.tsv`).
  */
 export const turnTraces: ReadonlyArray<Trace> = [...orderTraces, ...queueTraces];

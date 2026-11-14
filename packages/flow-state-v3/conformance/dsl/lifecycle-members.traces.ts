@@ -198,7 +198,7 @@ const releasable: ReadonlyArray<readonly [string, Phase]> = [
   ["Held", H],
 ];
 
-const commitsOn = ([name, head]: readonly [string, Phase]) => [
+const rejectsOn = ([name, head]: readonly [string, Phase]) =>
   cell({
     name: `a reject commit behind a ${name} head declines`,
     cites: "WriteLanes R7, I8: reject keeps W empty",
@@ -208,7 +208,9 @@ const commitsOn = ([name, head]: readonly [string, Phase]) => [
     refused: [wl(8)],
     phases: { k: GC, h: head, q: Q },
     owing: [],
-  }),
+  });
+
+const waitsOn = ([name, head]: readonly [string, Phase]) =>
   cell({
     name: `a serialize commit behind a ${name} head waits`,
     cites: "WriteLanes R7: serialize queues",
@@ -218,8 +220,7 @@ const commitsOn = ([name, head]: readonly [string, Phase]) => [
     refused: [],
     phases: { k: GC, h: head, q: Q, n: Q },
     owing: [],
-  }),
-];
+  });
 
 const latestSupersedesQueued = (name: string, head: Phase) =>
   cell({
@@ -246,7 +247,8 @@ const replaces = (name: string, head: Phase) =>
   });
 
 const busyTraces: ReadonlyArray<Trace> = [
-  ...heads.flatMap(commitsOn),
+  ...heads.map(rejectsOn),
+  ...heads.filter(([name]) => name !== "OnWire").map(waitsOn),
   cell({
     name: "a latest commit supersedes a never-sent head",
     cites: "WriteLanes R7: latest supersedes a never-invoked head (CQ7 pending)",
@@ -331,10 +333,6 @@ const otherTraces: ReadonlyArray<Trace> = [
         stays(head),
       ),
     ),
-  otherMember("a retry re-sends a Held head", "WriteLanes R8", H, "retry", {
-    phases: { k: GC, h: RS, q: Q },
-    owing: [],
-  }),
   ...neverSent.flatMap(([name, head]) => [
     otherMember(
       `a cancel of a never-sent ${name} head is pending`,

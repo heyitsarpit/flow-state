@@ -14,8 +14,6 @@ import type { InvariantId } from "./facts.ts";
 
 const { shopper, model, wl, actors } = build;
 
-export const other = { machine: "Checkout/Pay", id: "shopper-2" };
-
 export const ending = (life: Life, more: Partial<Ending> = {}) => ({
   attempt: Option.some("s"),
   operation: "pay",
@@ -123,7 +121,6 @@ const tableTraces: ReadonlyArray<Trace> = [
     "Delivered",
     "WriteLanes R10, I15; Actors R15, I24: delivered once, a kept try per boot",
     {
-      Owed: DF,
       Parked: DF,
       ParkedOpen: DF,
       Delivering: wl(15),
@@ -267,7 +264,6 @@ const tableTraces: ReadonlyArray<Trace> = [
     "Actors R10, R15: an incarnation is owed its parked endings and one kept try",
     {
       Owed: OW,
-      Parked: PO,
       ParkedOpen: PO,
       Delivering: DF,
       Refused: RF,

@@ -3,14 +3,14 @@ import { Console, Effect, Option, Schema } from "effect";
 import { readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { HELD } from "../dsl/held-traces.ts";
+import { traces } from "../dsl/lifecycle.traces.ts";
 import { flag, MAIN, PACKAGE, parallelOf } from "./args.ts";
 import { runChild } from "./child.ts";
 import { applyEdits, copyPackage } from "./falsify.ts";
 import { OPERATORS } from "./mutate.ts";
 
 /**
- * The lifecycle model's fold files the held traces are judged against (T61; the 57 held traces).
+ * The lifecycle model's fold files the traces are judged against (T61; the held traces).
  */
 const FOLD_FILES: ReadonlyArray<string> = [
   "conformance/dsl/lifecycle.ts",
@@ -59,20 +59,26 @@ const killsUnder = (scratch: string, mutant: FoldMutant) =>
   ).pipe(Effect.catch(() => Effect.succeed(Option.none<ReadonlyArray<string>>())));
 
 /**
- * Each held trace's fold kills no other trace makes: the held traces that pin fold code.
+ * Each trace's fold kills, keyed by the mutant's place in the run, and how many no other trace
+ * makes.
  */
-export const heldVerdicts = (runs: ReadonlyArray<ReadonlyArray<string>>) =>
-  HELD.map((name) => {
-    const unique = runs.filter((killed) => killed.includes(name) && killed.length === 1).length;
+export const heldVerdicts = (runs: ReadonlyArray<Option.Option<ReadonlyArray<string>>>) =>
+  traces.map(({ name }) => {
+    const killed = runs.flatMap((r, i) => (Option.exists(r, (k) => k.includes(name)) ? [i] : []));
 
-    return { name, unique };
+    const unique = killed.filter((i) =>
+      Option.exists(runs[i] ?? Option.none(), (k) => k.length === 1),
+    );
+
+    return { name, keys: killed.map((i) => `m${i}`), unique: unique.length };
   });
 
 /**
  * The fold-mutant mode (T61): every operator flip in the lifecycle fold files (`--limit`, default
- * all), each on its own copy of the package, judged by which lifecycle traces stop holding. A held
- * trace that alone kills some mutant pins fold code and stays; one that kills none alone is
- * redundant. Writes `held-traces.tsv` (trace, mutants it alone kills) beside the suite.
+ * all), each on its own copy of the package, judged by which lifecycle traces stop holding. Writes
+ * `held-traces.tsv` (each trace and the fold mutants it kills) beside the suite, which the
+ * lifecycle test's redundancy gate reads: a trace goes when every table and fold kill it makes a
+ * kept trace makes too.
  */
 export const foldMutantsMode = (args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
@@ -86,20 +92,24 @@ export const foldMutantsMode = (args: ReadonlyArray<string>) =>
     });
 
     const judged = runs.flatMap((r) => Option.toArray(r));
-    const verdicts = heldVerdicts(judged);
+    const verdicts = heldVerdicts(runs);
     const survived = judged.filter((k) => k.length === 0).length;
 
     yield* Effect.sync(() =>
       writeFileSync(
         resolve(dirname(MAIN), "..", "held-traces.tsv"),
-        `${verdicts.map((v) => `${v.name}\t${v.unique}`).join("\n")}\n`,
+        `${verdicts.map((v) => `${v.name}\t${v.keys.join(" ")}`).join("\n")}\n`,
       ),
     );
 
-    for (const v of verdicts)
-      yield* Console.log(`${v.unique > 0 ? "pins" : "REDUNDANT"} ${v.name}  (${v.unique} alone)`);
+    for (const v of verdicts.filter((x) => x.unique > 0))
+      yield* Console.log(`pins ${v.name}  (${v.unique} alone)`);
+
+    for (const [i, r] of runs.entries())
+      if (Option.exists(r, (k) => k.length === 0))
+        yield* Console.log(`SURVIVED ${chosen[i]?.file}: ${chosen[i]?.replace.trim()}`);
 
     yield* Console.log(
-      `VERDICT ${verdicts.filter((v) => v.unique > 0).length}/${verdicts.length} held traces pin fold code; ${judged.length}/${chosen.length} mutants judged, ${survived} survived every trace`,
+      `VERDICT ${verdicts.filter((v) => v.unique > 0).length}/${verdicts.length} traces pin fold code; ${judged.length}/${chosen.length} mutants judged, ${survived} survived every trace`,
     );
   });

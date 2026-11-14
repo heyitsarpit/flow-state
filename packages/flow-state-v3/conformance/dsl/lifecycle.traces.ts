@@ -69,17 +69,6 @@ const unknownTraces: ReadonlyArray<Trace> = [
     refused: [],
     phases: { s: H, w: Q },
   }),
-  one(
-    {
-      name: "an unknown that is not retained owes its release",
-      cites: "WriteLanes R4: an unknown not retained is released",
-      start: headed(W),
-      move: unknown("s", "Interrupted", false),
-      refused: [],
-      phases: { s: H, w: Q },
-    },
-    1,
-  ),
   one({
     name: "a call on the wire past the disposal's bound",
     cites: "Actors R22: unknown Disposed past the bound",
@@ -160,14 +149,6 @@ const unknownTraces: ReadonlyArray<Trace> = [
     phases: { s: H, w: Q },
   }),
   one({
-    name: "an acknowledged never-sent head comes back unknown Restored",
-    cites: "Restore R3",
-    start: headed(RT),
-    move: unknown("s", "Restored"),
-    refused: [],
-    phases: { s: H, w: Q },
-  }),
-  one({
     name: "a restored queued commit ends unknown Restored",
     cites: "Restore R3: a queued commit ends NotSent Restored",
     start: model(lane("A", ["h", H], ["s", RF])),
@@ -237,17 +218,6 @@ const evidenceTraces: ReadonlyArray<Trace> = [
       name: "a cancel's release of a re-send",
       cites: "WriteLanes R14: a cancel releases a re-send",
       start: model(lane("A", ["s", RS], ["w", Q]), { obligations: [awaiting("s", "Released")] }),
-      move: released("s"),
-      refused: [],
-      phases: { s: GC, w: U },
-    },
-    0,
-  ),
-  one(
-    {
-      name: "a cancel's release of a Held head",
-      cites: "WriteLanes R14, I12",
-      start: model(lane("A", ["s", H], ["w", Q]), { obligations: [awaiting("s", "Released")] }),
       move: released("s"),
       refused: [],
       phases: { s: GC, w: U },
@@ -380,15 +350,6 @@ const laneWideTraces: ReadonlyArray<Trace> = [
     { q: RF, u: RT, uw: RF, r: H, o: H, i: H },
     {},
     ["hq", "r", "o", "i"].map((a) => bootRestore(a)),
-  ),
-  laneWide(
-    "a reload after the Runtime's disposal",
-    "Actors I29, Restore I6: each Held head owes its restore ending to the boot's incarnation",
-    Move.Reload(),
-    [],
-    { q: RF, u: RT, uw: RF, r: H, o: H, i: H },
-    { mode: "disposing" },
-    ["hq", "r", "o", "i"].map((a) => bootRestore(a, "runtimeDisposal")),
   ),
   laneWide(
     "the boot settles",

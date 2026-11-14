@@ -18,7 +18,6 @@ const {
   notSent,
   phased,
   released,
-  superseded,
 } = build;
 
 const sendTraces: ReadonlyArray<Trace> = [
@@ -84,36 +83,14 @@ const sendTraces: ReadonlyArray<Trace> = [
     refused: [wl(12)],
     phases: { s: H, w: Q },
   }),
-  ...(
-    [
-      [
-        "a send of an Attempt never minted",
-        Move.Send({ attempt: "x" }),
-        wl(1),
-        "WriteLanes I1: no invoke but an admitted commit",
-      ],
-      [
-        "an ending of an Attempt never minted",
-        definite("x"),
-        wl(15),
-        "WriteLanes I15, R10: an ending is a commit's",
-      ],
-      [
-        "a Released of an Attempt never minted",
-        released("x"),
-        wl(12),
-        "WriteLanes I12, R8, R14: Released only where owed",
-      ],
-      [
-        "a Superseded of an Attempt never minted",
-        superseded("x"),
-        wl(8),
-        "WriteLanes I8, R7: Superseded only where owed",
-      ],
-    ] as const
-  ).map(([name, move, refused, cites]) =>
-    one({ name, cites, start: headed(W), move, refused: [refused], phases: { s: W, w: Q } }),
-  ),
+  one({
+    name: "a Released of an Attempt never minted",
+    cites: "WriteLanes I12, R8, R14: Released only where owed",
+    start: headed(W),
+    move: released("x"),
+    refused: [wl(12)],
+    phases: { s: W, w: Q },
+  }),
   one({
     name: "a send of an Attempt that left its lane",
     cites: "WriteLanes I1",
@@ -148,14 +125,6 @@ const definiteTraces: ReadonlyArray<Trace> = [
     move: definite("s"),
     refused: [wl(16)],
     phases: { s: RS, w: Q },
-  }),
-  one({
-    name: "the call on the wire succeeds and the next commit is promoted",
-    cites: "WriteLanes R8, I11: a resolved head promotes W's first",
-    start: headed(W),
-    move: definite("s"),
-    refused: [],
-    phases: { s: GC, w: U },
   }),
   one({
     name: "a call settled during the Runtime's disposal",

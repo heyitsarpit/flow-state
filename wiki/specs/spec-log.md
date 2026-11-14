@@ -663,3 +663,8 @@ that no run reaches any more fail the combination gate; triples stay reported on
 Edit (agent: T61 parallel builder, @task.V3.T61, 2026-11-14): Turn R17 states that a local actor's use ends with
 the page. Why: the step-2f review's O6; the schedules oracle already judged it so (T52 2g). Reverse: revert the
 commit.
+
+Edit (agent: T61 parallel builder, @task.V3.T61, 2026-11-14): Conformance R15 keeps a lifecycle trace only while it
+kills a table or fold-code mutant no kept trace kills, names its ruling, or alone refuses an Invariant. Why: close
+review O5; the gate reads fold kills from `held-traces.tsv`, not a name list, and 62 traces went. Reverse: revert
+the commit.
