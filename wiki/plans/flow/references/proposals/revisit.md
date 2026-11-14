@@ -73,6 +73,11 @@ Deferred items.
   labels, open owners, outside reads, temporary strings, throws in `src/`), and a requirements-map check. Build the
   matching one only if reviews after T60 keep finding suite-machinery holes; the records lint first if review time
   stays high.
+- **The varied belief's gaps** (2026-11-14, T61 builder; t61-second-half-review-2026-11-14.md N6). The varied
+  belief parks lookup endings after a dispose (Actors I41 closes them). It replays parked endings after a forget
+  (R21 closes them), and it gives a released actor no grace (R8). They change only which steps are drawn, never a
+  verdict. Fixing them regenerates every varied script and its owed rows, so it waits for the next re-triage
+  (T19 or T54 turning rows green).
 - **Bounded enumeration of move sequences** (2026-11-14, the user; suite-leverage-survey-2026-11-14.md item 6).
   Every move sequence to depth 3 or 4 per pilot, through a chooser in place of the generator's random draw.
 - **`cancelAll`** (2026-11-12, the user, wide consult W1 K0; deferred). Neither reference app uses it. If it returns,
