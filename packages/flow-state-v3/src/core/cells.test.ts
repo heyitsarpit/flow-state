@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { Brand, Option } from "effect";
 import { describe, it } from "vite-plus/test";
 import { Cue, cell, LaneState, type Move, table } from "./cells.ts";
-import { type CallId, Phase, type TicketId } from "./world.ts";
+import { type CallId, Phase, sentBefore, type TicketId } from "./world.ts";
 
 const ticket = Brand.nominal<TicketId>()("ticket-1");
 
@@ -12,7 +12,6 @@ const head = (phase: Phase, sent = false) => ({
   id: "att-1",
   input: { tone: "a" },
   retryCount: sent ? 1 : 0,
-  mayHaveApplied: sent,
   owner: 0,
   phase,
 });
@@ -227,4 +226,31 @@ describe("the write lane's table (WriteLanes algorithm cell; T54 A-19)", () => {
       Object.keys(table).toSorted(),
     );
   });
+});
+
+// WriteLanes I36's table, written from its text: an Attempt was sent before when its retryCount
+// is above 0, or its head is Held, Recapturing or Resending. Nothing else counts.
+const sentBeforeRows: ReadonlyArray<readonly [keyof typeof phases, number, boolean]> = [
+  ["Acknowledging", 0, false],
+  ["Unsent", 0, false],
+  ["Withdrawing", 0, false],
+  ["Recapturing", 0, true],
+  ["Resending", 0, true],
+  ["OnWire", 0, false],
+  ["Cancelling", 0, false],
+  ["Held", 0, true],
+  ["Acknowledging", 1, true],
+  ["OnWire", 1, true],
+  ["Cancelling", 2, true],
+];
+
+describe("sentBefore (WriteLanes I36; T54 A-11)", () => {
+  for (const [phase, retryCount, expected] of sentBeforeRows)
+    it(`sentBefore.${phase}-retryCount-${retryCount}`, () => {
+      assert.strictEqual(
+        sentBefore({ ...head(phases[phase]), retryCount }),
+        expected,
+        `a ${phase} head with retryCount ${retryCount} was sent before: ${expected}`,
+      );
+    });
 });

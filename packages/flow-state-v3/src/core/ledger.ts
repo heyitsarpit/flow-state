@@ -155,6 +155,14 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
     );
   };
 
+  // A row that leaves the mailbox takes its references with it: the mail refers to exactly the
+  // Queued and Retrying rows.
+  const unreferenced = (row: Owed) =>
+    tx.set({
+      ...tx.world(),
+      mail: tx.world().mail.filter((m) => !(Mail.$is("Ending")(m) && m.id === row.id)),
+    });
+
   const recorded = (row: Owed, why: "evidence" | "letGo") =>
     tx.emit(Evidence.Recorded({ operation: row.operation, attempt: row.attempt, why }));
 
@@ -170,12 +178,14 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
    */
   const close = (row: Owed, how: Closed) => {
     replace(row, Option.none());
+    unreferenced(row);
     Closed.$match(how, { Delivered: () => undefined, Recorded: ({ why }) => recorded(row, why) });
     saved(row, row.delivery);
   };
 
   const wait = (row: Owed) => {
     replace(row, Option.some({ ...row, delivery: Delivery.Waiting() }));
+    unreferenced(row);
     tx.emit(Evidence.Parked({ operation: row.operation, attempt: row.attempt }));
     saved(row, Delivery.Waiting());
   };

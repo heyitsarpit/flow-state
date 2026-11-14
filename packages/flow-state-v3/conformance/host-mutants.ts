@@ -20,6 +20,91 @@ export type HostMutant = {
  */
 export const hostMutants: ReadonlyArray<HostMutant> = [
   {
+    name: "lanes.sent-before-ignores-held",
+    says: "a Held head counts as never sent",
+    test: "src/core/cells.test.ts",
+    named: "sentBefore.Held-retryCount-0",
+    red: "a Held head with retryCount 0 was sent before: true",
+    edits: [
+      {
+        file: "src/core/world.ts",
+        find: '  Phase.$is("Held")(head.phase) ||\n',
+        replace: "",
+      },
+    ],
+  },
+  {
+    name: "ledger.keep-replaces",
+    says: "a row kept on its lane replaces the identity's other rows",
+    test: "src/core/ledger.test.ts",
+    named: "two rows refused twice on one lane",
+    red: "two Kept rows on one lane",
+    edits: [
+      {
+        file: "src/core/ledger.ts",
+        find: "          replace(now.value, Option.some({ ...now.value, delivery: Delivery.Kept() }));",
+        replace: "          setRows(row.actor, [{ ...now.value, delivery: Delivery.Kept() }]);",
+      },
+    ],
+  },
+  {
+    name: "ledger.suspend-skips-laneless",
+    says: "a suspend leaves a queued row with no lane queued",
+    test: "src/core/ledger.test.ts",
+    named: "suspend: Queued and Retrying rows wait",
+    red: "the laneless row waits",
+    edits: [
+      {
+        file: "src/core/ledger.ts",
+        find: '    else if (Delivery.$is("Queued")(row.delivery) || Delivery.$is("Retrying")(row.delivery))',
+        replace:
+          '    else if ((Delivery.$is("Queued")(row.delivery) || Delivery.$is("Retrying")(row.delivery)) && Option.isSome(row.lane))',
+      },
+    ],
+  },
+  {
+    name: "ledger.start-skips-kept",
+    says: "a start gives a Kept row no try",
+    test: "src/core/ledger.test.ts",
+    named: "start: Waiting rows queue",
+    red: "the Kept row takes its one try",
+    edits: [
+      {
+        file: "src/core/ledger.ts",
+        find: '      if (Delivery.$is("Kept")(row.delivery)) {',
+        replace: '      if (Delivery.$is("Kept")(row.delivery) && row.reason === "") {',
+      },
+    ],
+  },
+  {
+    name: "ledger.close-no-report",
+    says: "a row closed as evidence reports nothing",
+    test: "src/core/ledger.test.ts",
+    named: "tryOne: heard closes Delivered",
+    red: "closing an unmapped row records evidence",
+    edits: [
+      {
+        file: "src/core/ledger.ts",
+        find: "Recorded: ({ why }) => recorded(row, why)",
+        replace: "Recorded: () => undefined",
+      },
+    ],
+  },
+  {
+    name: "ledger.stale-reference-delivers",
+    says: "a mail reference to a row not in the mailbox is tried",
+    test: "src/core/ledger.test.ts",
+    named: "tryOne: refused once is Retrying",
+    red: "its reference does nothing",
+    edits: [
+      {
+        file: "src/core/ledger.ts",
+        find: '        if (!Delivery.$is("Queued")(row.delivery) && !Delivery.$is("Retrying")(row.delivery))',
+        replace: '        if (row.id === "")',
+      },
+    ],
+  },
+  {
     name: "mint.shared-counter",
     says: "Attempt ids come from the world's shared counter, so other ids renumber them",
     test: "src/host/ledger.test.ts",
@@ -56,23 +141,22 @@ export const hostMutants: ReadonlyArray<HostMutant> = [
     edits: [
       {
         file: "src/core/lane-moves.ts",
-        find: "endingMail(at.actor, ending);\n    else\n      park(",
-        replace: "endingMail(at.actor, ending);\n    else if (at.id.length < 0)\n      park(",
+        find: "        notSent(at, why, lane.head.id, lane.head.owner);",
+        replace: "        if (open()) notSent(at, why, lane.head.id, lane.head.owner);",
       },
     ],
   },
   {
-    name: "ledger.start-skips-kept",
-    says: "a start mails no Kept ending, so a Kept row gets no try",
+    name: "ledger.start-skips-kept-on-adoption",
+    says: "a start gives a Kept row no try, so an adoption hears nothing",
     test: "src/host/ledger.test.ts",
     named: "a Kept row gets one try per start",
     red: "one try at the first adoption",
     edits: [
       {
-        file: "src/core/incarnations.ts",
-        find: "    for (const p of kept) {\n      for (const ending of p.endings)",
-        replace:
-          "    for (const p of kept) {\n      for (const ending of p.endings.filter(() => false))",
+        file: "src/core/ledger.ts",
+        find: '      if (Delivery.$is("Kept")(row.delivery)) {',
+        replace: '      if (Delivery.$is("Kept")(row.delivery) && row.reason === "") {',
       },
     ],
   },
