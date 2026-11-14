@@ -18,7 +18,7 @@ import { combinationGate, lostCellPairs } from "../parts/pairs.ts";
 import type { TaskRef } from "../coverage.ts";
 import { modelOwed } from "../parts/model-owes.ts";
 import { partsOwed, regressionsOwed } from "../parts/owed.ts";
-import { plantedSweep } from "../parts/sweep.ts";
+import { byScript, plantedSweep } from "../parts/sweep.ts";
 import { partFaults, playPart, reachedBy, reachOf, undecidedLine } from "../parts/play.ts";
 import {
   currentSlice,
@@ -81,7 +81,7 @@ export const partsGateScripts = () => {
 export const classGate = Effect.suspend(() => {
   const ids = [...new Set([...playedScope(), ...regressionsOwed.map((o) => o.case)])];
 
-  return verdict(plantedSweep(ids), ids.length, "scripts whose planted breaks all fail");
+  return verdict(byScript(plantedSweep(ids)), ids.length, "scripts whose planted breaks all fail");
 });
 
 const openTasks = () =>

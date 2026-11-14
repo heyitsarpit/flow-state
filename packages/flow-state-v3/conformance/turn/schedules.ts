@@ -36,7 +36,10 @@ type State = {
   readonly actors: ReadonlyMap<string, Arming>;
 };
 
-type Walk = { readonly state: State; readonly found: ReadonlyArray<string> };
+type Walk = {
+  readonly state: State;
+  readonly found: ReadonlyArray<{ readonly text: string; readonly subject: string }>;
+};
 
 const keyOf = (actor: ActorRef) => `${actor.machine} ${actor.id}`;
 
@@ -199,7 +202,10 @@ const onTurn = (walk: Walk, turn: Turn, step: ReadonlyArray<Fact>, clockAfter: n
   const unknown = was !== undefined && Arming.$is("Unknown")(was) && !enteredBy(handlers, turn);
   const next = withArming(walk.state, key, unknown ? Arming.Unknown() : Arming.Known({ armed }));
 
-  return { state: next, found: [...walk.found, ...judged.found] };
+  return {
+    state: next,
+    found: [...walk.found, ...judged.found.map((text) => ({ text, subject: key }))],
+  };
 };
 
 // RETURN_TYPE: the fold's Walk contract, shared by every branch.
@@ -295,7 +301,9 @@ export const schedules = oracle<State>({
     return [
       { ...walked.state, anchor: judged.state, clock: clockAfter },
       [
-        ...[...new Set(walked.found)].map((s) => violation(s)),
+        ...[...new Map(walked.found.map((f) => [f.text, f.subject]))].map(([text, subject]) =>
+          violation(text, Option.some(subject)),
+        ),
         ...overdue(walked.state, clockAfter).map(({ key, text }) =>
           violation(text, Option.some(key)),
         ),

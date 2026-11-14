@@ -659,3 +659,7 @@ into the list and derives the slice, so it cannot disagree with the Task. Revers
 Edit (agent: T61 parallel builder, @task.V3.T61, 2026-11-14): Conformance R18 and I58 make a recorded cell pair
 that no run reaches any more fail the combination gate; triples stay reported only. Why: T61's approved Approach
 ("cell-pair reach gated"); a printed count let reach drop unseen. Reverse: revert the commit.
+
+Edit (agent: T61 parallel builder, @task.V3.T61, 2026-11-14): Turn R17 states that a local actor's use ends with
+the page. Why: the step-2f review's O6; the schedules oracle already judged it so (T52 2g). Reverse: revert the
+commit.

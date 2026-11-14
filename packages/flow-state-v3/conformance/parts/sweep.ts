@@ -37,11 +37,26 @@ export const judgedWith = (
   extra: ReadonlyArray<Oracle>,
   rows: ReadonlyArray<PartOwed> = owedRows,
   open: ReadonlySet<string> = new Set(rows.map((o) => o.owner)),
+  gate: typeof partFaults = partFaults,
 ) => {
   const script = Option.getOrThrow(scriptById(id));
   const mine = rows.filter((o) => o.case === id);
 
-  return partFaults([{ script, run: playedWith(id, extra, rows) }], mine, new Set([id]), open);
+  return gate([{ script, run: playedWith(id, extra, rows) }], mine, new Set([id]), open);
+};
+
+/**
+ * The class gate's lines, one per faulty script: its faults joined, so its count is of scripts.
+ */
+export const byScript = (lines: ReadonlyArray<string>) => {
+  const scripts = new Map<string, Array<string>>();
+
+  for (const line of lines) {
+    const [, id = "", what = line] = /^BAD {2}(\S+): (.*)$/u.exec(line) ?? [];
+    scripts.set(id, [...(scripts.get(id) ?? []), what]);
+  }
+
+  return [...scripts].map(([id, whats]) => `BAD  ${id}: ${whats.join("; ")}`);
 };
 
 const playedWith = (id: string, extra: ReadonlyArray<Oracle>, rows: ReadonlyArray<PartOwed>) =>
@@ -96,12 +111,8 @@ export const plantedSweep = (
   gate: typeof partFaults = partFaults,
 ) =>
   ids.flatMap((id, index) => {
-    const script = Option.getOrThrow(scriptById(id));
-    const mine = rows.filter((o) => o.case === id);
     const open = new Set(rows.map((o) => o.owner));
-
-    const faultsWith = (extra: ReadonlyArray<Oracle>) =>
-      gate([{ script, run: playedWith(id, extra, rows) }], mine, new Set([id]), open);
+    const faultsWith = (extra: ReadonlyArray<Oracle>) => judgedWith(id, extra, rows, open, gate);
 
     if (faultsWith([]).length > 0) return [`BAD  ${id}: fails the gate with nothing planted`];
 

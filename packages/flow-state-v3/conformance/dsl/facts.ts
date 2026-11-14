@@ -20,7 +20,9 @@ export const Address = Data.taggedEnum<Address>();
 /**
  * What the suite did and what its world saw: the facts the model's expect half reads (Conformance
  * R20). It also reads two runtime answers, stated limits until T45 step 6 lists them: `Purposed` and
- * `Acknowledges`.
+ * `Acknowledges`. The `lane-queue` oracle reads `Purposed` too: a `capture` batch in a step lets an
+ * owed re-send count as captured (WriteLanes I26); what checks it is the model's own capture order
+ * (the selection and disposal oracles' reload judgements), not the runtime's word.
  *
  * **Details**
  *

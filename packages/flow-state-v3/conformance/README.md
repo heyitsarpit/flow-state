@@ -39,7 +39,10 @@ null runtime (every case must state a failure); the control (each mutant's cases
 unedited runtime); then each mutant on its own edited copy of the runtime in `--scratch` (default the
 OS temp dir; removed after). It ends `VERDICT pass` only when every mutant is caught by its own
 guarantee's oracle. `--sweep` runs each mutant on every case and lists the red ones (for verdict
-comparisons). `nub run check` lints and type-checks the suite, then runs the Effect language
+comparisons). A sweep row reads `caught`, `red <oracles>` (red by a neighbouring oracle; losing
+one fails the rewrite, as losing a catch does), `failed uncaught` (red with no named oracle and no
+cited Invariant, T60's one caught rule; 238 prototype rows moved from `red` to it at 196edbff, no
+catch lost), `green` or `time`. `nub run check` lints and type-checks the suite, then runs the Effect language
 service (`nub run check:effect`, `@effect/tsgo`), whose warnings fail it too. `--json` and every
 mode set a non-zero exit code on a failure.
 

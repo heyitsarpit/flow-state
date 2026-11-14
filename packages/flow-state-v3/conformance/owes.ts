@@ -75,7 +75,7 @@ export const owes: ReadonlyArray<Owes> = [
   ),
   ...whole(
     "@task.V3.T20",
-    "the Restore area is not built; I6's lower bound is delivered-once's (CQ11); T42 cut I3 and I4 and added I19 (a changed reset runs first after restore) and I20 (a lane record whose operation is gone)",
+    "the Restore area is not built; I6's lower bound is delivered-once's (CQ11); T42 cut I3 and I4 and added I19 (a changed reset runs first after restore) and I20 (a lane record whose operation is gone); I1's check must refuse a boot that wakes an identity whose only lane is a Held head, which the Spec model accepts today, so only PAY-05/held-head-sleeps-at-boot judges it (WriteAhead T18; T54 step-1 review, routed by T61)",
     invariantsOf(
       "Restore",
       upTo(20).filter((n) => ![3, 4, 6].includes(n)),

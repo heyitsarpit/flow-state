@@ -12,7 +12,7 @@ import { combinationGate } from "./pairs.ts";
 import { item, OwedItem, owedRows } from "./owed.ts";
 import { partFaults } from "./play.ts";
 import { playedScope } from "./records.ts";
-import { judgedWith, plantedSweep } from "./sweep.ts";
+import { byScript, judgedWith, plantedSweep } from "./sweep.ts";
 
 const passed = (id: string) => ({
   script: { id, fixture: "x", actor: "a", steps: [] },
@@ -153,6 +153,25 @@ describe("one owed rule for every owed script, by exact break (the class gate; C
     assert.ok(missed.length > 0);
     assert.ok(missed.every((f) => f.includes("passed the gate")));
   }, 60_000);
+
+  it("a gate that faults the bare script yields nothing planted (step-2f O1)", () => {
+    const faults = plantedSweep(["PART-sync-usual-1"], owedRows, () => ["BAD  planted"]);
+
+    assert.deepEqual(faults, ["BAD  PART-sync-usual-1: fails the gate with nothing planted"]);
+  });
+
+  it("the class gate counts scripts, one line per faulty script (step-2f O4)", () => {
+    const lines = [
+      "BAD  PART-a-usual-1: planted break 0 never fired",
+      "BAD  PART-a-usual-1: planted break 3 passed the gate",
+      "BAD  PART-b-usual-1: fails the gate with nothing planted",
+    ];
+
+    assert.deepEqual(byScript(lines), [
+      "BAD  PART-a-usual-1: planted break 0 never fired; planted break 3 passed the gate",
+      "BAD  PART-b-usual-1: fails the gate with nothing planted",
+    ]);
+  });
 
   it("an owed item that stops breaking, or a row of a Task not open, fails the gate", () => {
     const id = "PART-transfers-stress-104";

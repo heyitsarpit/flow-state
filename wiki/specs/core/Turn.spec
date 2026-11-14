@@ -126,7 +126,8 @@ requirements
         source  @plan.Machines.O5.
         must    Schedules fire only while their actor is used (@spec.Actors). A deadline due while
                 unused waits; only the latest arming waits, and re-arming, disarming or exiting
-                removes a waiting deadline.
+                removes a waiting deadline. A local actor's use ends with the page: after a reload
+                it is unused, and so its schedules wait, until it is ensured again.
 
                 On restore, resume or a returning use, a Duration keeps its deadline and fires once
                 if overdue, waiting deadlines in deadline order; a multi-step Schedule restarts at
