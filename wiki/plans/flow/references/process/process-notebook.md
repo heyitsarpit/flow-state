@@ -24,7 +24,8 @@ agents are briefed, reviewed or paced. Add one entry per study; keep each entry 
 
 | Since | Change | Measure to judge it | Reverse |
 | --- | --- | --- | --- |
-| 2026-11-14 | Batch independent tool calls in one message | Tool calls per turn (was 1 in 64 percent of turns) | Drop the speed rule |
+| 2026-11-14 | Batch independent tool calls in one message | Tool calls per turn (was 1 in 64 percent of turns; a fresh builder with it briefed: 63 percent, so no effect) | Drop the speed rule |
+| 2026-11-15 | A builder needing a ruling keeps doing independent work; gates run in the background, not polled | Idle minutes per ruling (was 8.2); wait-loop minutes (was 8.7 of 126) | Drop the two lines in instructions |
 | 2026-11-14 | Launch a round's sidecars in one message | Lead wait per sidecar round (was serial, 3.5–6 min each) | Drop the speed rule |
 | 2026-11-14 | `check:fix` once per edit batch; touched tests while iterating | Verification minutes per session (was 30 percent) | Drop the speed rule |
 | 2026-11-14 | Resume cards; ranged reads | Characters read before the first edit (was 90k–190k) | Drop the speed rule |
@@ -59,6 +60,23 @@ Run them as studies make them useful; move each to Open experiments when started
    length; shorter briefs cost fewer tokens and less attention.
 
 ## Studies
+
+### 2026-11-15: T54 builder, mid-task (A0 and A1)
+
+A fresh builder with the speed rules in its first brief: 126 min, 488 turns.
+
+- **Model time:** 70 percent of wall time.
+- **Batching:** one-call turns at 63 percent, no better than the 64 to 75 percent before. Briefed batching does not
+  change how the model takes turns, so judge it ineffective.
+- **Verification:** 18 percent, below the 20 to 47 percent before, but `check:fix` still ran after 0 to 2 edits in a
+  third of runs.
+- **Gate waits:** about 19 min in the 15 longest. 8.7 min went on wait loops polling background gates, and four gate
+  runs failed and were rerun.
+- **Idle:** 8.2 min stopped for an orchestrator ruling.
+- **Proposed:**
+  - a builder that needs a ruling notes it and keeps doing independent work;
+  - gates go in the background while the builder keeps working, never polled in a loop;
+  - batching stays in the brief at no cost, marked ineffective.
 
 ### 2026-11-14: T61 close study
 

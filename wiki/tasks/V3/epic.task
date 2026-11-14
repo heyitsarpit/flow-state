@@ -278,7 +278,10 @@ instructions
         test files while iterating, the whole package before each checkpoint commit;
       - resume from a resume card of at most about 5,000 characters, and read files by line range, once;
       - read-only sidecars are Explore agents, and their brief carries the rules they must follow (bounded commands,
-        no writes).
+        no writes);
+      - a builder that needs a ruling states it and keeps doing independent work until the answer comes; gates run
+        in the background while it keeps working, never polled in a wait loop (process experiment, 2026-11-15, T54
+        study: 8.2 min idle on a ruling, 8.7 min of wait loops in 126; reverse: drop this line).
     - Building leads plan the round up front and write every committed line; Haiku never writes committed code (the
       user, 2026-11-10). Up to eight Haiku sidecars, as many as the lead judges the work needs (the user, 2026-11-14), 
       as runners (gates, falsify, sweeps, traces), one-rule diff
