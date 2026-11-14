@@ -797,7 +797,7 @@ describe("the owed ledger on the production runtime", () => {
       b.seen.flatMap((e) =>
         e._tag === "Ended" && Option.isNone(e.attempt) ? [`${e.channel} ${e.reason}`] : [],
       ),
-      ["failure Rejected"],
+      ["notSent Rejected"],
     );
   });
 

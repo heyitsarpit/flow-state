@@ -483,7 +483,7 @@ describe("write lanes on the production runtime", () => {
       first.seen.flatMap((e) =>
         e._tag === "Ended" && Option.isNone(e.attempt) ? [`${e.channel} ${e.reason}`] : [],
       ),
-      ["failure Rejected"],
+      ["notSent Rejected"],
     );
   });
 
@@ -512,7 +512,7 @@ describe("write lanes on the production runtime", () => {
 
     assert.deepStrictEqual(
       seen.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : [])),
-      ["failure NoPersistence"],
+      ["notSent NoPersistence"],
     );
     assert.deepStrictEqual(declined(seen), ["NotRung", "InvalidTurn", "NotRung", "InvalidTurn"]);
 

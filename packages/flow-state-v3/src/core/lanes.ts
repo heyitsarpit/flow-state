@@ -93,7 +93,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
       operation,
       attempt: Option.none(),
       lane: Option.none(),
-      channel: "failure",
+      channel: "notSent",
       reason: why,
       value: { why },
       owner,

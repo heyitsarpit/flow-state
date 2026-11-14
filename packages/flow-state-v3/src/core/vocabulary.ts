@@ -28,7 +28,7 @@ export const isDecline = Schema.is(Decline);
 /**
  * The channel an ending was decided on.
  */
-export const Channel = Schema.Literals(["success", "failure", "unknown"]);
+export const Channel = Schema.Literals(["success", "failure", "unknown", "notSent"]);
 
 /**
  * The decoded {@link Channel}.

@@ -3,6 +3,8 @@ import { Option } from "effect";
 import { describe, it } from "vite-plus/test";
 import { Audience, Delivery, type Heard, keptOn, makeLedger, type Owed, rowsOf } from "./ledger.ts";
 import { makePersistence } from "./persist.ts";
+import { decodeRecords, encodeOwed } from "./record.ts";
+import type { Channel } from "./vocabulary.ts";
 import { makeTx, ROOT_ACTIVATION } from "./tx.ts";
 import { actorKey, byLaneId, Disposal, emptyWorld, Mail, type World } from "./world.ts";
 
@@ -59,6 +61,31 @@ const ledgerFaults = (world: World) => {
 };
 
 const hearAs = (heard: Heard) => () => heard;
+
+describe("an owed record keeps each row's channel (WriteLanes I39; Codec R5)", () => {
+  it("a NotSent row and an unknown row with the same tag come back told apart by channel", () => {
+    const actor = { machine: "Shop/Pay", name: "s1" };
+
+    const row = (channel: Channel) => ({
+      operation: "pay",
+      lane: Option.none<string>(),
+      attempt: Option.none<string>(),
+      channel,
+      reason: "Cancelled",
+      value: null,
+      kept: false,
+    });
+
+    const stored = new Map([
+      [`owed/${actorKey(actor)}`, encodeOwed(actor, [row("notSent"), row("unknown")])],
+    ]);
+
+    assert.deepEqual(
+      decodeRecords(new Map(), stored).rows.map((r) => r.channel),
+      ["notSent", "unknown"],
+    );
+  });
+});
 
 describe("lane-id order (Restore R3: Held heads in lane-id order)", () => {
   it("lane ids order by code units, as record keys do, never by the host's locale", () => {

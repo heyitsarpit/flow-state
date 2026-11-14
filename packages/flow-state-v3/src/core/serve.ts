@@ -3,7 +3,6 @@ import { type Mapping, Operation, type Values } from "./compiled.ts";
 import { Evidence, type Member } from "./evidence.ts";
 import { Resolved, runTurn, TurnResult } from "./turn.ts";
 import { isInFlight, ROOT_ACTIVATION, type Tx, without } from "./tx.ts";
-import { isDecline } from "./vocabulary.ts";
 import type { Heard, LedgerSteps, Owed } from "./ledger.ts";
 import { actorKey, type Incarnation, Mail } from "./world.ts";
 import type { Persistence } from "./persist.ts";
@@ -39,11 +38,12 @@ export const makeServe = (
   ): Option.Option<Mapping> => {
     if (ending.channel === "success") return Option.some(operation.success);
 
+    // The origin picks the mapper: a NotSent never reaches a failure tag of the same name.
+    if (ending.channel === "notSent")
+      return Option.fromUndefinedOr(operation.failure.get("NotSent"));
+
     if (ending.channel === "failure")
-      return Option.fromUndefinedOr(
-        operation.failure.get(ending.reason) ??
-          (isDecline(ending.reason) ? operation.failure.get("NotSent") : undefined),
-      );
+      return Option.fromUndefinedOr(operation.failure.get(ending.reason));
 
     return Operation.$match(operation, {
       Write: (w) => Option.some(w.unknown),

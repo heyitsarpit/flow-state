@@ -209,7 +209,8 @@ const observationOf = (evidence: Evidence, identify: (value: WeakKey) => number)
         Observation.Ended({
           operation: e.operation,
           attempt: e.attempt,
-          channel: e.channel,
+          // The suite's reports name a NotSent by its failure channel and Flow's reason.
+          channel: e.channel === "notSent" ? "failure" : e.channel,
           reason: e.reason,
           actor: Option.isNone(e.attempt) ? Option.some(ref(e.actor)) : Option.none(),
           failure: Option.none(),

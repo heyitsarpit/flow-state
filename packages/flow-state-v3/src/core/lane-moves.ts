@@ -115,7 +115,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     void ledger.owe({
       ...oweOf(at, Option.some(attempt), owner),
       lane: Option.some(at.id),
-      channel: "failure",
+      channel: "notSent",
       reason: why,
       value: { why },
       current: true,
@@ -206,7 +206,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
         void ledger.owe({
           ...oweOf(at, Option.none(), owner),
           lane: Option.none(),
-          channel: "failure",
+          channel: "notSent",
           reason: why,
           value: { why },
           current: true,
