@@ -36,11 +36,15 @@ export const lateResults = oracle<Record<string, never>>({
   guarantee: ["WriteLanes I23"],
   start: () => ({}),
   step: (state, step, _requests, lives) => {
-    const late = step.flatMap((fact) =>
-      Fact.$is("Answered")(fact)
-        ? Option.toArray(fact.request.key).filter((id) => cleaned(lives, id))
-        : [],
-    );
+    const late = [
+      ...new Set(
+        step.flatMap((fact) =>
+          Fact.$is("Answered")(fact)
+            ? Option.toArray(fact.request.key).filter((id) => cleaned(lives, id))
+            : [],
+        ),
+      ),
+    ];
 
     const found = late.flatMap((id) => {
       const heard = step.flatMap((fact) =>

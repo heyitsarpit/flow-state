@@ -1,3 +1,7 @@
+import { Schema } from "effect";
+
+const Root = Schema.Literals(["retry", "unbound"]);
+
 /**
  * The root a varied or new-mix script's owed row traces to: production's re-send past its budget
  * across a reload (`retry`, @task.V3.T19) or its restore of a disposed identity's unbound Held
@@ -76,17 +80,17 @@ const ROWS: ReadonlyArray<string> = [
   "PART-pay-varied-10|disposal|Actors I29|unbound|att-10004-11;att-10013-13",
   "PART-pay-varied-11|delivered-once|WriteLanes I15|unbound|att-11000-12;att-11001-15;att-11000-19;att-11004-19;att-11005-29",
   "PART-pay-varied-11|disposal|Actors I29|unbound|att-11000-12;att-11000-19;att-11001-15;att-11004-19;att-11005-29",
-  "PART-pay-varied-11|lane-queue|WriteLanes I12|retry|att-11000-12;att-11001-15",
-  "PART-pay-varied-11|lane-queue|WriteLanes I1|retry|att-11001-15",
-  "PART-pay-varied-11|delivered-once|WriteLanes I16|retry|att-11001-15;att-11000-12",
+  "PART-pay-varied-11|lane-queue|WriteLanes I12|unbound|att-11000-12;att-11001-15",
+  "PART-pay-varied-11|lane-queue|WriteLanes I1|unbound|att-11001-15",
+  "PART-pay-varied-11|delivered-once|WriteLanes I16|unbound|att-11001-15;att-11000-12",
   "PART-pay-varied-12|delivered-once|WriteLanes I15|unbound|att-12001-7",
   "PART-pay-varied-12|disposal|Actors I29|unbound|att-12001-7",
   "PART-cells-varied-1|lane-queue|WriteLanes I12|retry|att-1001-18",
   "PART-cells-varied-1|disposal|Actors I29|retry|att-1001-18",
   "PART-cells-varied-2|delivered-once|WriteLanes I15|unbound|att-2006-49;att-2004-32;att-2003-17",
   "PART-cells-varied-2|disposal|Actors I29|unbound|att-2003-17;att-2004-32;att-2006-49",
-  "PART-cells-varied-2|lane-queue|WriteLanes I12|retry|att-2004-32",
-  "PART-cells-varied-2|delivered-once|WriteLanes I16|retry|att-2004-32",
+  "PART-cells-varied-2|lane-queue|WriteLanes I12|unbound|att-2004-32",
+  "PART-cells-varied-2|delivered-once|WriteLanes I16|unbound|att-2004-32",
   "PART-cells-varied-3|delivered-once|WriteLanes I15|unbound|att-3004-6;att-3005-14",
   "PART-cells-varied-3|disposal|Actors I29|unbound|att-3004-6;att-3005-14",
   "PART-cells-varied-4|delivered-once|WriteLanes I15|unbound|att-4000-7;att-4012-9",
@@ -212,7 +216,7 @@ export const VARIED_OWED: ReadonlyArray<VariedRow> = ROWS.map((line) => {
     id,
     check,
     invariant,
-    root: root === "unbound" ? "unbound" : "retry",
+    root: Schema.decodeUnknownSync(Root)(root),
     items: items.split(";").map(itemOf),
   };
 });

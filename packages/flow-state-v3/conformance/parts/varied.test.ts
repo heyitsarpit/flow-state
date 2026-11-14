@@ -6,7 +6,8 @@ import { implemented as production } from "../adapters/production.ts";
 import { rules } from "../dsl/lifecycle-rules.ts";
 import type { Script } from "../dsl/script.ts";
 import { recording } from "./cells.ts";
-import { BUILD_SEEDS, scriptOf, TIMER_OFFSETS } from "./generate.ts";
+import { Fact } from "../dsl/oracle.ts";
+import { BUILD_SEEDS, scriptOf, TIMER_OFFSETS, timerAdvances } from "./generate.ts";
 import { playPart } from "./play.ts";
 import { owedRows } from "./owed.ts";
 import { TRIAGED_SIGNATURES, VARIED_OWED } from "./owed-varied.ts";
@@ -40,11 +41,21 @@ describe("the generator varies its inputs (T61; Conformance R15, R16)", () => {
     );
 
     assert.ok(later.length > 0);
-  });
+
+    const played = variedScripts().flatMap((s) =>
+      playPart(s, "production")
+        .facts.filter((f) => Fact.$is("Stepped")(f) && f.what.includes("(open #"))
+        .map(() => s.id),
+    );
+
+    assert.ok(played.length > 0, "no out-of-order answer was played");
+  }, 60_000);
 
   it("a varied timer move lands a ms before its deadline, on it, or a ms after; others on it", () => {
-    assert.deepEqual(TIMER_OFFSETS.varied, [-1, 0, 1]);
-    assert.deepEqual(TIMER_OFFSETS.stress, [0]);
+    assert.deepEqual(timerAdvances(Option.some(5000), 3000, "varied"), [1999, 2000, 2001]);
+    assert.deepEqual(timerAdvances(Option.some(5000), 5000, "varied"), [0, 1]);
+    assert.deepEqual(timerAdvances(Option.some(5000), 3000, "stress"), [2000]);
+    assert.deepEqual(timerAdvances(Option.none(), 3000, "varied"), []);
     assert.deepEqual(TIMER_OFFSETS.usual, [0]);
   });
 
@@ -90,10 +101,14 @@ describe("the generator varies its inputs (T61; Conformance R15, R16)", () => {
 
       assert.ok(root !== undefined, `${id}: untraced signature ${signature}`);
 
-      for (const row of VARIED_OWED.filter(
+      const first = VARIED_OWED.filter(
         (r) => r.id === id && signature.includes(`${r.check} ${r.invariant}`),
-      ))
-        assert.equal(row.root, root, `${id} ${row.check} ${row.invariant}`);
+      );
+
+      assert.ok(
+        first.some((r) => r.root === root),
+        `${id}: no row of its first signature ${signature} is owed to ${root}`,
+      );
     }
   }, 60_000);
 

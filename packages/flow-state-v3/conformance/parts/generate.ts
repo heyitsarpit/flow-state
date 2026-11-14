@@ -1,4 +1,4 @@
-import { Formatter, HashSet, MutableRef, Predicate, Schema } from "effect";
+import { Formatter, HashSet, MutableRef, Option, Predicate, Schema } from "effect";
 import type { Part, ServerAnswer, UserAction } from "../../fixtures/part.ts";
 import { random } from "../dsl/generate.ts";
 import { oneMachineEach } from "../fixtures/fixture.ts";
@@ -37,6 +37,17 @@ export const TIMER_OFFSETS: Readonly<Record<Profile, ReadonlyArray<number>>> = {
   stress: [0],
   varied: [-1, 0, 1],
 };
+
+/**
+ * The clock moves a timer move may draw: from `now` to the next deadline, offset by each of the
+ * profile's offsets, never backwards; none when no timer is armed.
+ */
+export const timerAdvances = (next: Option.Option<number>, now: number, profile: Profile) =>
+  Option.match(next, {
+    onNone: () => [],
+    onSome: (due) =>
+      TIMER_OFFSETS[profile].map((offset) => due - now + offset).filter((ms) => ms >= 0),
+  });
 
 const ID_LIKE = /^([a-z]+)(\d+)$/u;
 
@@ -266,24 +277,13 @@ const worldMoves = (
     .flatMap((a) => (a.attached.current ? a.timers.current.map((t) => t.due) : []))
     .toSorted((x, y) => x - y)[0];
 
-  const offsets = TIMER_OFFSETS[profile];
+  const advances = timerAdvances(Option.fromUndefinedOr(next), world.now.current, profile);
 
-  const timer =
-    next === undefined
-      ? []
-      : offsets.flatMap((offset) => {
-          const ms = next - world.now.current + offset;
-
-          return ms < 0
-            ? []
-            : [
-                {
-                  steps: [{ _tag: "advance" as const, ms }],
-                  weight: 2 / offsets.length,
-                  apply: () => advanced(world, ms),
-                },
-              ];
-        });
+  const timer = advances.map((ms) => ({
+    steps: [{ _tag: "advance" as const, ms }],
+    weight: 2 / TIMER_OFFSETS[profile].length,
+    apply: () => advanced(world, ms),
+  }));
 
   if (profile === "usual") return timer;
 
