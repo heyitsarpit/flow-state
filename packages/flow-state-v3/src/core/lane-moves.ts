@@ -254,10 +254,8 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
           current: true,
         });
       },
-      // While open, a definite failure delivered as StillUnknown leaves the lane record as it was
-      // (an owed fix: a Held head's record should read not in flight); during disposal every hold
-      // is written.
-      Answer: ({ channel, asked, reason, value, interrupt }) => {
+      // Every hold writes the Held head's record, not in flight.
+      Answer: ({ channel, reason, value, interrupt }) => {
         const lane = laneAt(at);
         const live = open();
         Option.match(interrupt, {
@@ -265,7 +263,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
           onSome: (call) => tx.command(Command.Interrupt({ call })),
         });
 
-        if (channel === "unknown") hold(at, lane, asked === "unknown" || !live);
+        if (channel === "unknown") hold(at, lane, true);
         else dropLane(at.id, lane);
 
         ledger.owe({

@@ -134,7 +134,7 @@ describe("one owed rule for every owed script, by exact break (the class gate; C
   }, 240_000);
 
   it("a sweep under a rule that ignores an item's step lets a plant pass", () => {
-    const id = "PART-transfers-varied-101";
+    const id = "PART-transfers-varied-104";
 
     const loose = ownedBy(id).map((r) => ({
       ...r,
@@ -174,7 +174,7 @@ describe("one owed rule for every owed script, by exact break (the class gate; C
   });
 
   it("an owed item that stops breaking, or a row of a Task not open, fails the gate", () => {
-    const id = "PART-transfers-varied-101";
+    const id = "PART-transfers-varied-104";
     const rows = ownedBy(id);
     const extra = rows.map((r) => ({ ...r, items: [...r.items, item("Planted/Lane y op", 999)] }));
 

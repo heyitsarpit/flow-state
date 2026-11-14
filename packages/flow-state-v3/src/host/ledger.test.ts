@@ -827,6 +827,19 @@ describe("the owed ledger on the production runtime", () => {
       ["unknown Restored", "unknown StillUnknown"],
       "a definite failure after an earlier send is delivered unknown StillUnknown",
     );
+
+    // WriteAhead I24: the Held head's lane record is written not in flight.
+    second.page.advance(6000);
+    second.page.settle();
+
+    const saved = [...store.entries()].flatMap(([key, value]) =>
+      key.startsWith("lane/") && value.includes(attempt) ? [value] : [],
+    );
+
+    assert.ok(
+      saved.length === 1 && saved[0]?.includes('"inFlight":false'),
+      "the Held head's lane record reads not in flight",
+    );
   });
 
   // A refused capture holds the head and owes

@@ -55,6 +55,8 @@ const BECAUSE: Partial<Record<Pending, string>> = {
     "the live incarnations restored are exactly the Owing identities whose actor record restores",
   "Restore R1": "restored records stay records",
   "Codec I7": "records are actor/, lane/ and owed/, each with format",
+  "WriteAhead I24":
+    "a landed lane record's inFlight is false for a Held head, in the step that wrote it",
 };
 
 const quoted = (rule: string) =>
