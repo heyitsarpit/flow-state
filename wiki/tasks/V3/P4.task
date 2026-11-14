@@ -1128,6 +1128,12 @@ tasks
             TURN-01/schedule-out-of-range, red on production and green on round-14, is owed to T17 in productionOwed. 
             Edit (agent: T47 building lead, @task.V3.T47, 2026-11-14): Turn T6 and this case (spec-log). Why: the 
             ruling. Reverse: the next commit.
+        comment     2026-11-14T03:21:46Z
+            Close review PASS at edea68cb (check-task): zero blocking findings; every gate re-run matches gates.json 
+            and core mutants 60/98 reproduced byte for byte. 13 routed findings (R1-R2 small fixes for the T47 builder, 
+            others to T9, T17, T52, T54, T59) and the sidecar log: 
+            code:wiki/plans/flow/references/proposals/t47-close-review-2026-11-14.md. Edit (agent: T47 close reviewer, 
+            @task.V3.T47, 2026-11-14): this comment. Why: the close review. Reverse: drop this comment.
     T52
         title       Suite phase-out, first cut: Pay and Cells generated, hand traces thinned
         status      draft
