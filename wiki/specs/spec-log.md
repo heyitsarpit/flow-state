@@ -655,3 +655,7 @@ restore the old links with the files.
 Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): Conformance R17, MatrixRow and I53 name a feature's
 owner as one row of the owed list, its slice the Task's, in place of "owed by slice N". Why: D2 folds `Feature.owed`
 into the list and derives the slice, so it cannot disagree with the Task. Reverse: revert the commit.
+
+Edit (agent: T61 parallel builder, @task.V3.T61, 2026-11-14): Conformance R18 and I58 make a recorded cell pair
+that no run reaches any more fail the combination gate; triples stay reported only. Why: T61's approved Approach
+("cell-pair reach gated"); a printed count let reach drop unseen. Reverse: revert the commit.

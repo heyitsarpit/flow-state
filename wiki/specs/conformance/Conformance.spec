@@ -394,7 +394,9 @@ requirements
                 pair of implemented codes may be unreached; any left gets a pair-sweep case there. Triples
                 whose three pairs all interact, and the ordered pairs of lifecycle table cells one run reaches
                 in sequence (the cell pairs, whose denominator the tables give), are reported, per composite
-                and in total, and never fail the gate.
+                and in total. Triples never fail the gate; a cell pair the committed record of reached cell
+                pairs holds and no run reaches any more fails it, so reach never drops unseen, and a newly
+                reached cell pair is added to the record by a recording run.
 
     R19  The Spec model computes expected results
         source  Advisor Q1, Q2 and Q3 (code:wiki/plans/flow/references/proposals/advisor-answers-2026-11-11.md);
@@ -829,8 +831,8 @@ invariants
         of some generated run, or carries a dated owner: the later slice that owns one of its codes, or, during
         the slices, the open Task and the part, operation or pair sweep that will reach it. [@R18]
 
-    I58  The combination gate's verdict depends on pairs only; triples and cell pairs are reported per composite
-        and in total. [@R18]
+    I58  The combination gate's verdict depends on pairs and on no recorded cell pair going unreached; triples and
+        cell pairs are reported per composite and in total. [@R18]
 
     I59  The Spec model imports nothing from any runtime, adapter or implementation's source. [@R19]
 

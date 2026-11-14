@@ -19,9 +19,9 @@ prod.actor-never-saved	PAY-01	green
 prod.actor-never-saved	PAY-02	green
 prod.actor-never-saved	PAY-03	green
 prod.actor-never-saved	PAY-04	green
-prod.actor-never-saved	PAY-05	green
+prod.actor-never-saved	PAY-05	caught selection Turn I2
 prod.actor-never-saved	PAY-06/interruptible	caught selection Turn I2
-prod.actor-never-saved	PAY-06/uninterruptible	green
+prod.actor-never-saved	PAY-06/uninterruptible	caught selection Turn I2
 prod.actor-never-saved	PAY-07/late-in-a-new-PAYING	green
 prod.actor-never-saved	PAY-07/late-may-not-leave	green
 prod.actor-never-saved	PAY-07/leaveMidCharge	green
@@ -31,7 +31,7 @@ prod.actor-never-saved	PAY-09/ack-not-stored	red case
 prod.actor-never-saved	PAY-09/ack-stored-confirmation-lost	caught selection Turn I2
 prod.actor-never-saved	PAY-10/hang	green
 prod.actor-never-saved	PAY-10/refuse	green
-prod.actor-never-saved	PAY-12/cancel-on-wire	green
+prod.actor-never-saved	PAY-12/cancel-on-wire	caught selection Turn I2
 prod.actor-never-saved	PAY-12/defect	caught selection Turn I2
 prod.actor-never-saved	PAY-12/sync	green
 prod.actor-never-saved	PAY-13/hung-commit	caught selection Turn I2
@@ -40,7 +40,7 @@ prod.actor-never-saved	PAY-13/waiting-flushed	green
 prod.actor-never-saved	PAY-14	green
 prod.actor-never-saved	PAY-15/busy-then-new-write	green
 prod.actor-never-saved	PAY-15/cancel-idle	green
-prod.actor-never-saved	PAY-15/cancel-on-wire	green
+prod.actor-never-saved	PAY-15/cancel-on-wire	caught selection Turn I2
 prod.actor-never-saved	PAY-15/dead-activation-timer	caught selection Turn I2
 prod.actor-never-saved	PAY-15/dispose-held	caught selection Turn I2
 prod.actor-never-saved	PAY-15/dispose-held-moved	caught selection Turn I2
@@ -54,7 +54,7 @@ prod.actor-never-saved	PAY-16/never-answered-waits-for-the-bound	caught selectio
 prod.actor-never-saved	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	caught selection Turn I2
 prod.actor-never-saved	PAY-16/read-defect-issue	caught selection Turn I2
 prod.actor-never-saved	PAY-16/resend-refused-capture	green
-prod.actor-never-saved	PAY-16/restore-keeps-mayHaveApplied	green
+prod.actor-never-saved	PAY-16/restore-keeps-mayHaveApplied	caught selection Turn I2
 prod.actor-never-saved	PAY-16/retry-count-persists	caught selection Turn I2
 prod.actor-never-saved	PAY-16/schedule-reads-after-memory	green
 prod.actor-never-saved	PAY-16/settled-during-disposal-parked	green

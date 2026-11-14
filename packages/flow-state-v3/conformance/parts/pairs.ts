@@ -102,6 +102,18 @@ const triplesOf = (codes: ReadonlyArray<string>) =>
   );
 
 /**
+ * The cell pairs the committed record holds that no run reaches now (Conformance R18, I58), one
+ * fault each; a pair reached now and not recorded is no fault, and a recording run adds it.
+ */
+export const lostCellPairs = (recorded: ReadonlyArray<string>, reached: ReadonlyArray<string>) => {
+  const now = new Set(reached);
+
+  return recorded
+    .filter((pair) => !now.has(pair))
+    .map((pair) => `BAD  cell pair ${pair}: recorded as reached, reached by no run now`);
+};
+
+/**
  * The combination gate (Conformance R18): every interacting pair of the declared codes is
  * reached together in one run, or has an owner. Triples are reported and never fail it.
  *
@@ -181,6 +193,7 @@ export const combinationGate = (input: PairInput) => {
     cellPairs: {
       total: successors.size,
       reached: pairsOf(cellPairs),
+      keys: [...new Set(cellPairs.flatMap((r) => [...r.reached]))].toSorted(),
       byComposite: Object.fromEntries(
         [...new Set(cellPairs.flatMap((r) => r.composites))].map((c) => [
           c,

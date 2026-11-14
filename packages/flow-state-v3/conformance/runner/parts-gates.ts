@@ -1,5 +1,8 @@
 /// <reference types="node" />
 import { Console, Effect, Formatter, Option } from "effect";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { implemented as production, productionFixtures } from "../adapters/production.ts";
 import { rules } from "../dsl/lifecycle-rules.ts";
 import { scenarioOf } from "../dsl/script.ts";
@@ -11,7 +14,7 @@ import { SLICE_OF } from "../parts/codes.ts";
 import { matrixGate } from "../parts/features.ts";
 import { fieldGate, modelFields, modelMutants } from "../parts/model-mutation.ts";
 import { PAIR_OWNERS } from "../parts/pair-owners.ts";
-import { combinationGate } from "../parts/pairs.ts";
+import { combinationGate, lostCellPairs } from "../parts/pairs.ts";
 import type { TaskRef } from "../coverage.ts";
 import { modelOwed } from "../parts/model-owes.ts";
 import { partsOwed, regressionsOwed } from "../parts/owed.ts";
@@ -141,36 +144,69 @@ export const matrixGateMode = Effect.suspend(() => {
   return verdict(matrixGate(input), input.features.length, "matrix rows");
 });
 
+const CELL_PAIRS = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "cell-pairs.production.txt",
+);
+
+const recordedPairs = () =>
+  existsSync(CELL_PAIRS)
+    ? readFileSync(CELL_PAIRS, "utf8")
+        .split("\n")
+        .filter((l) => l !== "")
+    : [];
+
 /**
  * The combination gate over production's codes, the gate scripts' reach and the dated owners
- * (Conformance R18); triples and cell pairs are printed, never gating.
+ * (Conformance R18); triples are printed, never gating; a cell pair `cell-pairs.production.txt`
+ * records and no run reaches fails it (I58).
  */
-export const pairsGate = Effect.suspend(() => {
-  const statuses = taskStatuses();
-  const slices = taskSlices();
+export const pairsGate = Effect.suspend(() => combination(false));
 
-  const result = combinationGate({
-    declared: production,
-    runs: passing().map(({ script, run, cells }) => ({
-      id: script.id,
-      mix: script.id.startsWith("MIX-"),
-      byComposite: reachOf(run),
-      cells,
-    })),
-    owners: PAIR_OWNERS,
-    tasks: Object.fromEntries(
-      [...statuses].map(([task, open]) => [task, { open, slice: slices.get(task) ?? -1 }]),
-    ),
-    sliceOf: SLICE_OF,
-    current: currentSlice(statuses, slices),
+/**
+ * The pairs gate, recording every cell pair reached now in `cell-pairs.production.txt` first.
+ */
+export const pairsRecord = Effect.suspend(() => combination(true));
+
+const combination = (record: boolean) =>
+  Effect.suspend(() => {
+    const statuses = taskStatuses();
+    const slices = taskSlices();
+
+    const result = combinationGate({
+      declared: production,
+      runs: passing().map(({ script, run, cells }) => ({
+        id: script.id,
+        mix: script.id.startsWith("MIX-"),
+        byComposite: reachOf(run),
+        cells,
+      })),
+      owners: PAIR_OWNERS,
+      tasks: Object.fromEntries(
+        [...statuses].map(([task, open]) => [task, { open, slice: slices.get(task) ?? -1 }]),
+      ),
+      sliceOf: SLICE_OF,
+      current: currentSlice(statuses, slices),
+    });
+
+    return Console.log(
+      `pairs reached ${result.reached}, owed ${result.owed}; triples ${result.triples.reached}/${result.triples.total}; cell pairs ${result.cellPairs.reached}/${result.cellPairs.total} ${Formatter.format(result.cellPairs.byComposite)}`,
+    ).pipe(
+      Effect.andThen(
+        Effect.sync(() => {
+          if (record) writeFileSync(CELL_PAIRS, `${result.cellPairs.keys.join("\n")}\n`);
+        }),
+      ),
+      Effect.andThen(
+        verdict(
+          [...result.failures, ...lostCellPairs(recordedPairs(), result.cellPairs.keys)],
+          result.reached + result.owed,
+          "interacting pairs",
+        ),
+      ),
+    );
   });
-
-  return Console.log(
-    `pairs reached ${result.reached}, owed ${result.owed}; triples ${result.triples.reached}/${result.triples.total}; cell pairs ${result.cellPairs.reached}/${result.cellPairs.total} ${Formatter.format(result.cellPairs.byComposite)}`,
-  ).pipe(
-    Effect.andThen(verdict(result.failures, result.reached + result.owed, "interacting pairs")),
-  );
-});
 
 /**
  * The model-mutation gate (Conformance T39): every model field is mutated and judged on the

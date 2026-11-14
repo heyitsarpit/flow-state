@@ -16,10 +16,4 @@ const durability = (by: string) =>
  */
 export const PAIR_OWNERS = {
   "du+sr": durability("sign-in: a refused batch in the disposal of an unstoppable write"),
-  "du+ma": {
-    task: "@task.V3.T9",
-    slice: 4,
-    by: "sign-in with two actors, one disposed with an unstoppable write",
-    date: "2026-11-12",
-  },
 } satisfies Readonly<Record<string, Owner>>;

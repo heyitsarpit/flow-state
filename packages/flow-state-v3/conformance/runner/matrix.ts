@@ -57,8 +57,8 @@ const unretired = (row: string) => row.replaceAll("Retired ", "");
 
 /**
  * Writes the catch matrix at `path`, sorted, and returns the catches the committed file had that
- * this run lost: a (mutant, case) once `caught` and now anything else, or no longer run; a catch
- * whose Invariant only took its retired form is not lost.
+ * this run lost: a (mutant, case) once `caught`, or `red` by a neighbouring oracle (T61), and now
+ * anything else, or no longer run; a catch whose Invariant only took its retired form is not lost.
  */
 export const writeMatrix = (path: string, rows: ReadonlyArray<string>) =>
   Effect.sync(() => {
@@ -72,7 +72,7 @@ export const writeMatrix = (path: string, rows: ReadonlyArray<string>) =>
 
     const lost = before.filter(
       (r) =>
-        r.includes("\tcaught ") &&
+        (r.includes("\tcaught ") || (r.includes("\tred ") && !r.endsWith("\tred case"))) &&
         Option.map(Option.fromUndefinedOr(now.get(keyOf(r))), unretired).pipe(
           Option.getOrElse(() => ""),
         ) !== unretired(r),

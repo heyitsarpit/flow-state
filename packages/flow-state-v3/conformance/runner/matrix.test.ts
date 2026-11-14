@@ -36,4 +36,13 @@ describe("the catch matrix's lost catches (phase-out V1)", () => {
     assert.equal(lostAfter(before, "m\tLANE-03\tred delivered-once").length, 1);
     assert.equal(lostAfter(before, "m\tLANE-03\tcaught lane-queue WriteLanes I20").length, 1);
   });
+
+  it("a neighbouring oracle's red row that turns green or changes oracle is lost; a case red is not", () => {
+    const neighbour = "m\tACT-01\tred disposal";
+
+    assert.equal(lostAfter(neighbour, "m\tACT-01\tgreen").length, 1);
+    assert.equal(lostAfter(neighbour, "m\tACT-01\tred selection").length, 1);
+    assert.deepEqual(lostAfter(neighbour, "m\tACT-01\tred disposal"), []);
+    assert.deepEqual(lostAfter("m\tACT-01\tred case", "m\tACT-01\tgreen"), []);
+  });
 });
