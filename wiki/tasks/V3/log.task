@@ -360,3 +360,5 @@ note 2026-11-14T08:45:10Z
     Decision (user, 2026-11-14): "yes reduce scope, we'll see much things improve and decide later". T60 keeps excuses 
     by exact subject, must-still-fail, the planted-fault sweep, every owed script at every seed, and one caught rule; 
     suite mutation, gate ledgers, the excuse registry, the unknowns ledger and the Spec excuse rule go to revisit.md.
+note 2026-11-14T08:51:29Z
+    T60 streamlined (orchestrator): T60 is a convergence, so no per-step review and no expected-results read (its checks are the class gate and planted faults, which take no model expectation); a mapping table replaces a new requirements list; one close review after the caught rule. Step 0 at 3cfbfc08 holds most of the reduced design.
