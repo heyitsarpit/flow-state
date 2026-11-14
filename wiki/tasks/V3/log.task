@@ -466,4 +466,13 @@ note 2026-11-14T14:06:34Z
     147 owed rows over 61 scripts grouped by failure text into T19 and T54 bugs. Review started, sampling untraced 
     scripts (5-hour projection 89). Process watch: text grouping repeats the pattern T60 removed.
 note 2026-11-14T14:27:10Z
-    Review (T61 second half, 065529e6..24432df4) PASS, 0 blocking: 18 sampled breaks all root in T19 or T54, so the text grouping excused nothing new. Routed: one row's owner T19 to T54; production reports disposal Done before its final write and drops a refusal while disposing (Actors R23, I43), owed to T55, with a refusable final write in the fake world. Missed by the builder's checks: the fake store could never refuse a final write (gathering).
+    Review (T61 second half, 065529e6..24432df4) PASS, 0 blocking: 18 sampled breaks all root in T19 or T54, so the 
+    text grouping excused nothing new. Routed: one row's owner T19 to T54; production reports disposal Done before its 
+    final write and drops a refusal while disposing (Actors R23, I43), owed to T55, with a refusable final write in the 
+    fake world. Missed by the builder's checks: the fake store could never refuse a final write (gathering).
+note 2026-11-14T14:38:01Z
+    T61 items 2-5 done (d0ec5a6f, f33f874b, b64bb386, 74c86ab3): pairs and sweep guards, signatures from checks and 
+    Invariants, automatic shrinking, a soak mode. The first soak (96 scripts) found a production bug (adoption flush 
+    writes one record, WriteAhead I23, owed to T54) and a Spec model bug (owed to T61). Soak at each Task's close added 
+    to instructions (T61's approved Approach). The builder asked to hand off; told to continue under the 
+    90-percent-after-three-compactions rule. Review started.
