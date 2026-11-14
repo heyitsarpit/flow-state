@@ -20,8 +20,8 @@ plan and the code. Every gate below ran on a `git archive` copy in scratch, neve
   passes vacuously. The unit test is the guard here, and it works.
 - Red first holds. The new test fails on the old excused-flag sweep, which is the same reading as the plant above.
 - **The unplanted check has no red check (O1).** Deleting `if (faultsWith([]).length > 0) …`
-  (code:packages/flow-state-v3/conformance/parts/sweep.ts#plantedSweep) leaves every test and gate green. No script fails unplanted today, so nothing is lost now. If one ever did, the
-  sweep would count every plant on it as caught.
+  (code:packages/flow-state-v3/conformance/parts/sweep.ts#plantedSweep) leaves every test and gate green. No
+  script fails unplanted today, so nothing is lost now. If one ever did, the sweep would count every plant on it as caught.
 - The sweep calls `partFaults` with scope `{id}` and open = the owners named in its rows. The parts gate passes
   `playedScope()` and `openTasks()`. So the sweep never checks for ghost scripts or rows owed to closed Tasks, but
   the parts gate does, so the sweep's faults are a subset of the parts gate's. That gap is latent and acceptable.
@@ -58,7 +58,7 @@ Each one is right by the rules it cites. Neither loosens a catch. A wrong readin
 | Plant | Result |
 | --- | --- |
 | lane-queue: any later batch captures (the old reading) | play.test.ts I26 test red |
-| lane-queue: only a later `capture`, own step dropped | falsify misses `lane.retry-members-dropped`, `prod.retry-not-owed` |
+| lane-queue: later `capture` only | falsify misses `lane.retry-members-dropped`, `prod.retry-not-owed` |
 | lane-queue: own step only, later `capture` dropped | **all green (O2)** |
 | schedules: uses kept at a reload (the old reading) | play.test.ts Turn I12 test red |
 | schedules: every use dropped at a reload | two pilot tests in play.test.ts red |
