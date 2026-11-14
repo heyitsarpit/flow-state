@@ -293,3 +293,7 @@ note 2026-11-14T05:47:24Z
     are T19's retry-count bug, two the selection oracle's; 8 routed items sent to the builder (orchestrator verified 
     the coreOutcome one). Missed by the builder's checks: reds triaged from their first failing line without shrinking 
     (weak check); three findings became requirements without reds (rule gap in practice).
+note 2026-11-14T06:02:30Z
+    Compaction (agent, 2026-11-14): log.task 525 to 302 lines, P4 2446 to 1676 (T45, T47, T51 merged), P3 660 to 611;
+    review files kept; not-yet.ts owner trap corrected. Flagged: T51's inspector-callback send gap has no owner; the
+    instructions' "uncommitted after workflow@55c7ab7" is stale. T52 untouched; no second reader.

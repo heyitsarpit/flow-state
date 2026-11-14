@@ -216,48 +216,11 @@ tasks
             **Result:** @spec.Conformance (`wiki/specs/conformance/Conformance.spec`, status proposed) is written
             with skill:to-spec and has no contract gap left after five independent skill:check-spec rounds (Opus lead,
             4 Haiku sidecars each; commits `4420d200`, `5959f541`, `5b627068`, `a87b896e`, `0df8e2a9`) and one
-            convergence redesign. Design review: not applicable. Final size: R1 to R14, I1 to I44, T1 to T28, Q1 to
-            Q14 (first draft: 11 Requirements, 30 Invariants, 23 tests, 7 open questions). Gates: `workflow format
-            --write`, `workflow check` valid, `workflow refs --dangling` none, no line over 120 columns.
+            convergence redesign around one case model (R14) after three rounds of patches each opened gaps where
+            runtime-only wording met static cases. What it guarantees is the Spec itself; the round-by-round findings
+            are in git at `81cf934f`.
 
-            **What it guarantees** (derived from the suite's purpose and the README's decisions, not from today's
-            code):
-
-            - R1 to R3: the Port carries public behaviour only (data values are JSON or Schema-encoded JSON; one
-              settling exception, `pending`); verdicts never depend on which runtime runs; adapters translate and never
-              fill reports in from suite facts. R2's stated limits are bounded: prototype adapter only, naming cases,
-              checks and the retiring behaviour, skipping only an unmade report, never accepting a contradicting value;
-              a substitute (adapter-minted Attempt ids, actor attribution) is a failure of R2 and R3, not a limit.
-            - R4, R5: oracles anchor reports to suite facts; every case and oracle cites core Spec rules that resolve;
-              every expected value is what its cited rule gives for the fixture (I41); none comes from running a
-              runtime.
-            - R6, R7, R10, R13: every check, a pair (judge, Invariant), has a mutant caught by a violation naming that
-              Invariant; null fails every case by a stated failure; falsify's pass conditions; a mutant's edits stay
-              inside its copy.
-            - R8, R9: verdicts are a function of code, case and seed; every case runs under its own time bound in
-              every mode, an overrun is a defect; one verdict per requested case, in machine and human forms, naming
-              the failed expectation, the failing runs, the judge and the rule.
-            - R11, R12, R14: the old-suite comparison; every core Spec Invariant in scope (ten Specs, including Compile,
-              Diagnostics, Codec and StaticCli) is judged by an oracle or a case expectation, or listed uncovered with
-              why; every case is a runtime case or a static case, with a run (one per world seed, at least two, for a
-              runtime case) as the unit.
-
-            **The check rounds:**
-
-            - Round 1 (11 gaps): no Requirement judged the core Specs at all (R12), case-only kills were uncheckable,
-              the time bound contradicted R8, R2's limits were unbounded, mutant containment, seed and step naming, R1's
-              JSON clause, an unrecorded I9 violation, T15 could not fail on I18. Repaired in the Spec only.
-            - Rounds 2 and 3: R12's scope (static Specs), R3 against R2, no time bound in process, unrecorded and
-              misstated violations (Q11, Q13, Q14), R9/I32 for static cases, R5's main clause had no Invariant (I41).
-              Each patch opened gaps where runtime-only wording met static cases.
-            - Convergence redesign (2026-11-09): after three ISSUES rounds the contract was redesigned once around one
-              case model (R14), keeping the old text as prior art. No ids renumbered; new R14, I40 to I44, Q14, T28.
-              Round 1 and 2 fixes were carried over (a sidecar confirmed line by line).
-            - Round 4: unrecorded `lane-cells#permittedResend` limit (now in Q8), T13, T17 and Q12's link.
-            - Round 5 (`0df8e2a9`): the four earlier gaps closed; the rest were weak test plants (below).
-
-            **Sidecar results, summarised** (all Haiku, effort high, read-only; the lead verified each against the
-            code): most findings accepted and fixed; the rejections that matter: "policy quotes absent" and the speed
+            **Sidecar rejections that matter** (Haiku, verified by the lead): "policy quotes absent" and the speed
             targets, `nub run verify` and the coverage record as Spec gaps (they are P3 exit criteria, in the Plan
             record); Invariants resting on pending decisions marked provisional (labelled instead); R1 against Q4 (Q4
             defers by meaning); trailing spaces, continuation indents and the `VERDICTS` line format (formatter output
@@ -274,6 +237,9 @@ tasks
             should just be in the workflow repo", 2026-11-09); README work list item 7 points there. `derives_from
             [@task.V3.T4]` is allowed; @plan.Runtime's verification target is added once the user approves that Plan
             edit.
+
+            Edit (agent: compaction lead, @task.V3.T4, 2026-11-14): the guarantee summary and round log dropped (the
+            Spec and git hold them). Why: the Epic's compaction rule. Reverse: `81cf934f`.
         comment     2026-11-09T17:11:21Z
             **Open items handed on** (all in @spec.Conformance, built or checked in later P3 Tasks):
 
@@ -363,15 +329,10 @@ tasks
               `one-lane.ts` (machine names `Lab/*` unchanged: the prototype's catalog). Runner text `--lie` to
               `--mutant`.
         comment     2026-11-09T17:20:58Z
-            **Result:** done. Before and after captured at HEAD `c5161bf4` (suite and null `--parallel 4`, falsify
-            `--parallel 4`, both `--json`, falsify `--sweep --parallel 5`); with the name map applied to the before
-            outputs all six are byte-identical to the after outputs (suite, null and both JSON are identical even
-            unmapped). After: suite 61/61, null 61 fail, falsify 25/25 caught, sweep 25/25; `nub run check` zero (40
-            files); `workflow refs --dangling` none. One Haiku reviewer of the diff against "drops or changes a check"
-            found nothing; the lead re-checked (only identifiers, oracle name strings, imports, comments and formatting
-            changed). Orchestrator verification: re-ran the map over the before captures, all six match byte for byte;
-            nothing under `prototypes/` changed; @spec.Conformance's `code:` links and Q8 and Q10 use the new check
-            names, its prose said `three-channels` and `lane-cells` when this closed. Acceptance met.
+            **Result:** done; with the name map applied, suite, null and falsify outputs before and after (at
+            `c5161bf4`) are byte-identical, verified by the orchestrator; nothing under `prototypes/` changed.
+            Edit (agent: compaction lead, @task.V3.T5, 2026-11-14): counts and run details dropped. Why: the Epic's
+            compaction rule. Reverse: `81cf934f`.
         comment     2026-11-11T15:10:00Z
             Suite build, rounds 1 to 5 (2026-11-09; the round log is in git before STATUS.md's retirement). Stated
             limits are in code:packages/flow-state-v3/conformance/README.md ("Stated limits"); counts in `gates.json`.
@@ -473,16 +434,12 @@ tasks
               revert
               the commit; move them to T9 with the user's yes.
         comment     2026-11-10T17:57:32Z
-            **Result:** done. Commits `f8b92e7b` (tsgo), `03098b28` (disposal oracle, judged end of case), `62606880`
-            (review fixes, four High bugs from the hourly review), `d5347ac2`, then the I35/I36 commit, the cleanup 
-            commit
-            and the review-findings commit. Verified (orchestrator, HEAD `8be33fc5`): suite 67/67; null 0/67; `falsify
-            --parallel 6` 38/38 caught, each by the Invariant it expects; `nub run check` zero, and a planted
-            `unknownInEffectCatch` fails it. Every case ends with a judged disposal, the disposal mutants (including the
-            three `o6.*` under I35 and I36) are killed, and tsgo runs in `nub run check`. The R22-bound stop was
-            resolved by the user (Q1 A, above). Reviews:
-            code:wiki/plans/flow/references/proposals/t6-completion-review-2026-11-10.md; the catch of each mutant
-            is in `conformance/catch-matrix.prototype.tsv`.
+            **Result:** done, verified by the orchestrator at `8be33fc5`: every case ends with a judged disposal, the
+            disposal mutants (including the three `o6.*` under I35 and I36) are killed, and tsgo runs in
+            `nub run check` (a planted `unknownInEffectCatch` fails it). Review:
+            code:wiki/plans/flow/references/proposals/t6-completion-review-2026-11-10.md.
+            Edit (agent: compaction lead, @task.V3.T6, 2026-11-14): commit list and counts dropped. Why: the Epic's
+            compaction rule. Reverse: `81cf934f`.
     T40
         title       Suite simplified: one oracle contract, shared domain facts, dead surface removed
         status      done
@@ -544,16 +501,11 @@ tasks
             - Rejected in the second pass: dropping `declared`/`NotInFixture` from `actor.ts` (tsc needs it to narrow a
               generic-key table lookup under `noUncheckedIndexedAccess`).
         comment     2026-11-10T18:42:55Z
-            **Result:** done. First pass `a6063da3` to `81063ced` (S5 attemptKey, writeNamed, LaneId; S7 key fields; S6
-            dead world surface; S1 step-fold contract; S3 part; S4 `fixtures/pay-steps.ts`; S5 one `mayHaveApplied`, no
-            verdict changed); second pass `98cec2b2`, `d3fb2cfe` (S3 `openCase` split, `Driver` and `dsl/timeline.ts`
-            gone), `9f8a812f` (S8 runner items), `bd723b91` (the review's two STYLE.md lines), `1592361b` (S1 review
-            fold-ins). Every item gated from packages/flow-state-v3 with `suite --json`, `suite --runtime null --json`
-            and `falsify --sweep --parallel 6` byte-identical to the item before (S1 identical per case in verdict kind,
-            oracles and first Invariant and in the sweep's red and caught-by sets; texts now list every violation).
-            Verified (orchestrator, HEAD `ac9e0fa0`, clean tree): suite 67/67; null 0/67; falsify 38/38 caught, each by
-            its expected Invariant; `nub run check` zero. Acceptance met. Sidecars (R5/R9 reviewer of S1, 15 findings;
-            parity reviewer of S3 and S8, none): accepted fixes are in `1592361b`.
+            **Result:** done, verified by the orchestrator at `ac9e0fa0`; every item was gated byte-identical to the
+            one before (S1 identical per case in verdict kind, oracles and first Invariant; texts now list every
+            violation).
+            Edit (agent: compaction lead, @task.V3.T40, 2026-11-14): commit list and counts dropped. Why: the Epic's
+            compaction rule. Reverse: `81cf934f`.
         comment     2026-11-11T15:10:00Z
             Decisions (agent): `reportsOf` stays inside the Case behind its five readers (`endings`, `evidence`, 
             `issues`,
@@ -595,14 +547,13 @@ tasks
               owning Task, and fails on any other;
             - a planted uncovered Invariant makes it fail;
             - it runs with the suite's fast gates.
-        comment     2026-11-10T20:21:11Z
-            Evidence (builder, 2026-11-11): coverage gate built and run before falsify; planted gaps fail it; 16 of 186 
-            checked, 170 owed, 0 gaps. Numbers: `gates.json`.
         comment     2026-11-11T15:10:00Z
-            Trap: an Invariant counts as covered by declaration; falsify proves the catch. Coverage reads each owner 
-            with
-            `workflow show --json` and fails on an owner that does not resolve or is done, so a Task merged away leaves
-            its `not-yet.ts` rows red (see @task.V3.T8).
+            Done: the coverage gate runs before falsify and planted gaps fail it (numbers in `gates.json`).
+            Trap: an Invariant counts as covered by declaration; falsify proves the catch. Coverage reads each owner
+            with `wk show --json` (code:packages/flow-state-v3/conformance/runner/specs.ts) and fails on an owner that
+            does not resolve or is done, so a Task merged away leaves its `not-yet.ts` rows red.
+            Edit (agent: compaction lead, @task.V3.T41, 2026-11-14): comments merged; `workflow show` corrected to
+            `wk show`, as the code runs. Why: the Epic's compaction rule. Reverse: `81cf934f`.
     T42
         title       Core Specs revised from the Invariant audit and the open rulings
         status      done
