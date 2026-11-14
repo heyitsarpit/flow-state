@@ -436,4 +436,10 @@ note 2026-11-14T11:44:47Z
     labels, 19 unforgeable refusal cells re-owned to T61, 9 cancelAll cells to T53. Missed by the builders' checks: the 
     trace test used no variant case id (gathering); field-gate owners judged by group, not per cell (weak check).
 note 2026-11-14T12:57:25Z
-    T52 in review at f349968f, all 19 gates green at 0eba05a1, no owed row names T52; close review started. Small amendment (orchestrator): Q18's thinning of 47 Pay hand cases moves to T53 with round-14, since deleting them now means rewiring round-14 case lists T53 deletes anyway.
+    T52 in review at f349968f, all 19 gates green at 0eba05a1, no owed row names T52; close review started. Small 
+    amendment (orchestrator): Q18's thinning of 47 Pay hand cases moves to T53 with round-14, since deleting them now 
+    means rewiring round-14 case lists T53 deletes anyway.
+note 2026-11-14T13:08:04Z
+    Decision (user, 2026-11-14): "weekly raised to 60%". Limits edited. Read with the earlier recommendation as Q1 A: 
+    T54 starts now beside T52's close review, and T61's second half runs beside T54 once T52 closes (slice order 
+    edited; T54 now waits only on T52, already in review). Reverse: stop the T54 lead and restore T54's blocker to T61.

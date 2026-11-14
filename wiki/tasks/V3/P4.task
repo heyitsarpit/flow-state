@@ -1094,9 +1094,9 @@ tasks
             DISP-01 and the gate matrix is unchanged.
     T54
         title       Core consolidation: owed-endings ledger, one start, diff-written records, acts into evidenceOf
-        status      draft
+        status      in_progress
         priority    high
-        blocked_by  [@T61]
+        blocked_by  [@T52]
         description
             Consolidate production's core in steps A0 to A4: one ledger of owed endings, one `start`, records written
             from what each step touched, and every report built by `evidenceOf` from acts. Added (the user, 2026-11-14):
