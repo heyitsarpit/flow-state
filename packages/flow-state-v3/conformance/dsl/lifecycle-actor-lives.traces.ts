@@ -1,5 +1,5 @@
 import type { TaskRef } from "../coverage.ts";
-import { type Life, LifeMove, Move, Obligation } from "./lifecycle-model.ts";
+import { ActorMove, type Life, LifeMove, Move, Obligation } from "./lifecycle-model.ts";
 import { CL, DF, ending, named, OW } from "./lifecycle-lives.traces.ts";
 import { at, build, Check, type Trace } from "./lifecycle-trace.ts";
 
@@ -10,11 +10,11 @@ const restoring = Obligation.AwaitRestore({ attempt: "s", cause: "plain" });
 
 // RETURN_TYPE: a Trace, so its literal fields keep the Trace types the lists hold.
 const closedRowRestore = (row: string, life: Life): Trace => ({
-  name: `a boot owes a restore to a Held head whose ${row} row the reload closes`,
-  cites: `Restore I6, R3: a ${row} row closes at the reload (Table C), so no row is owed and the Held head is owed its restore`,
+  name: `the start after a boot owes a restore to a Held head whose ${row} row the reload closes`,
+  cites: `Restore I6, R3: a ${row} row closes at the reload (Table C), so no row is owed and the Held head is owed its restore at the identity's start`,
   start: model(lane("A", ["s", H]), { endings: [ending(life)] }),
-  steps: [Move.Reload()],
-  refusals: [[]],
+  steps: [Move.Reload(), ActorMove.Incarnated({ actor: build.shopper })],
+  refusals: [[], []],
   phases: { s: H },
   owed: 1,
   checks: [Check.Owing({ obligations: [restoring] })],
@@ -32,17 +32,6 @@ export const pendingTraces: ReadonlyArray<{ readonly owner: TaskRef; readonly tr
  */
 export const actorTraces: ReadonlyArray<Trace> = [
   closedRowRestore("live Owed", OW),
-  {
-    name: "a boot owes no restore to a head whose ending was decided in the disposal",
-    cites:
-      "Actors R10, R22: that ending parks at the reload and is what the next incarnation hears",
-    start: model(lane("A", ["s", H]), { endings: [ending(OW, { inDisposal: true })] }),
-    steps: [Move.Reload()],
-    refusals: [[]],
-    phases: { s: H },
-    owed: 0,
-    checks: [],
-  },
   {
     name: "a delivery names the oldest open ending",
     cites: "WriteLanes I15: each ending delivered once, in order",

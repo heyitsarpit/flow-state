@@ -112,9 +112,12 @@ const leafBefore = (state: State, step: ReadonlyArray<Fact>, r: Refusal) => {
     (o) => Observation.$is("Turn")(o) && keyOf(o.actor) === name,
   );
 
+  // A reload or start earlier in the step publishes the leaf the refused turn met.
+  const met = published(state, step.slice(0, r.from)).published.get(name);
+
   return turned !== undefined && Observation.$is("Turn")(turned)
     ? Option.some(turned.to)
-    : Option.map(Option.fromUndefinedOr(state.published.get(name)), (seen) => seen.state);
+    : Option.map(Option.fromUndefinedOr(met), (seen) => seen.state);
 };
 
 const movedAfter = (state: State, step: ReadonlyArray<Fact>, r: Refusal) => {

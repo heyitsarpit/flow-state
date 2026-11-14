@@ -117,8 +117,8 @@ export type Cause = "plain" | "runtimeDisposal" | "disposeActor" | "forget";
  *   `unknown` marks that release, which is due by WriteLanes I5 rather than I12.
  * - `PendingCancel`: a cancel of a never-sent Attempt owes its ending, with no deadline
  *   (WriteLanes R14).
- * - `AwaitRestore`: a boot or an incarnation owes a Held head its `unknown { Restored }` by the
- *   step's end; a boot owes one to a never-sent head whose acknowledgement the store landed.
+ * - `AwaitRestore`: an incarnation's start owes a Held head its `unknown { Restored }` by the
+ *   step's end, and a never-sent head restored with its acknowledgement landed; a boot owes none.
  * - `AwaitLetGo`: a kept ending owes its let-go record by the step's end.
  */
 export type Obligation = Data.TaggedEnum<{

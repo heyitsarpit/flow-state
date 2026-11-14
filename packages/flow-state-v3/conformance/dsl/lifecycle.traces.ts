@@ -338,18 +338,13 @@ const laneWide = (
   checks: owes.length === 0 ? [] : [Check.Owing({ obligations: [pending("u"), ...owes] })],
 });
 
-const bootRestore = (attempt: string, cause: "plain" | "runtimeDisposal" = "plain") =>
-  Obligation.AwaitRestore({ attempt, cause });
-
 const laneWideTraces: ReadonlyArray<Trace> = [
   laneWide(
     "a reload",
-    "Restore R3, WriteLanes R8: what was on the wire is Held; never-sent commits are restored",
+    "Restore R3, WriteLanes R8: what was on the wire is Held; never-sent commits are restored; Actors I40: a boot queues nothing and parks nothing",
     Move.Reload(),
     [],
     { q: RF, u: RT, uw: RF, r: H, o: H, i: H },
-    {},
-    ["hq", "r", "o", "i"].map((a) => bootRestore(a)),
   ),
   laneWide(
     "the boot settles",

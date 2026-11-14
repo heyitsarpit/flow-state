@@ -1,13 +1,11 @@
 import { Data, Option } from "effect";
 import { FLOW_DECLINES } from "../fixtures/reference.ts";
-import { sameActor } from "../port.ts";
 import {
+  type ActorRecord,
   addressable,
   type AttemptLife,
-  type Ending,
   endingSubject,
   type GoneWhy,
-  isHead,
   type LaneId,
   Life,
   type Model,
@@ -396,45 +394,21 @@ const OWED_ROWS: ReadonlyArray<string> = [
 export const ownsRow = (model: Model, a: AttemptLife) =>
   model.endings.some((e) => Option.contains(e.attempt, a.id) && OWED_ROWS.includes(e.life._tag));
 
-const keptAtReload = (e: Ending) =>
-  ["Kept", "KeptOpen", "Parked", "ParkedOpen", "Delivering", "Maybe"].includes(e.life._tag) ||
-  (e.life._tag === "Owed" && e.inDisposal);
+/**
+ * Whether a head is owed its `unknown { Restored }` when an incarnation of its identity starts:
+ * a Held head, or a never-sent head restored from a capture whose acknowledgement the store
+ * landed (Restore R3).
+ */
+export const restorable = (model: Model, a: AttemptLife) =>
+  a.phase._tag === "Held" ||
+  (Phase.$is("Restoring")(a.phase) &&
+    a.phase.head &&
+    model.acknowledged.includes(a.id) &&
+    !unsavedOf(model).includes(a.id));
 
-const keepsRow = (model: Model, a: AttemptLife) =>
-  model.endings.some((e) => Option.contains(e.attempt, a.id) && keptAtReload(e));
-
-const bootOwes = (model: Model) => {
-  const cause = model.mode === "disposing" ? ("runtimeDisposal" as const) : ("plain" as const);
-
-  const restorable = (a: AttemptLife) =>
-    a.phase._tag === "Held" ||
-    (Phase.$is("Restoring")(a.phase) &&
-      a.phase.head &&
-      model.acknowledged.includes(a.id) &&
-      !unsavedOf(model).includes(a.id));
-
-  const recordIs = (a: AttemptLife, record: string) =>
-    model.actors.some((x) => sameActor(x.actor, a.lane.actor) && x.record === record);
-
-  const unbound = (a: AttemptLife) =>
-    recordIs(a, "disposeActor") && model.saved.removed.some((r) => sameActor(r, a.lane.actor));
-
-  const owing = model.attempts.filter(
-    (a) =>
-      restorable(a) &&
-      isHead(model, a) &&
-      !owesRelease(model, a.id) &&
-      !keepsRow(model, a) &&
-      !unbound(a),
-  );
-
-  return [
-    ...model.obligations,
-    ...owing.map((a) =>
-      Obligation.AwaitRestore({ attempt: a.id, cause: recordIs(a, "forget") ? "forget" : cause }),
-    ),
-  ];
-};
+// A boot owes, parks and delivers nothing (Actors I40): every identity is a record again, and
+// the start of each incarnation, at ready or at a later ensure, owes its heads' restore endings.
+const asRecord = (record: ActorRecord) => (record === "bound" ? "grace" : record);
 
 const modeAfter = (model: Model, move: Move) => {
   if (Move.$is("DisposalStarts")(move)) return { ...model, mode: "disposing" as const };
@@ -444,7 +418,7 @@ const modeAfter = (model: Model, move: Move) => {
       ...model,
       mode: "running" as const,
       afterDisposal: model.mode === "disposing",
-      obligations: bootOwes(model),
+      actors: model.actors.map((a) => ({ ...a, record: asRecord(a.record) })),
     };
 
   return model;

@@ -403,13 +403,16 @@ const onFact = (
               ? sent(state, operation, attempt)
               : state,
           ),
-        Ended: ({ operation, attempt }) =>
+        // A restore is never the server's answer, even for a call the server answered before.
+        Ended: ({ operation, attempt, reason }) =>
           keep(
             ended(
               state,
               operation,
               attempt,
-              settledBy(state, step, machineOfCall(state, operation, attempt), attempt),
+              reason === "Restored"
+                ? Option.none()
+                : settledBy(state, step, machineOfCall(state, operation, attempt), attempt),
               attachingKind(step),
             ),
           ),

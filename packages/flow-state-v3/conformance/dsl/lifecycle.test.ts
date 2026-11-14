@@ -3,7 +3,7 @@ import { describe, it } from "vite-plus/test";
 import { Equal, Formatter, Predicate } from "effect";
 import { cellOf, due } from "./lifecycle.ts";
 import { apply } from "./lifecycle-fold.ts";
-import { type Input, Life, type Model, Move, Phase } from "./lifecycle-model.ts";
+import { ActorMove, type Input, Life, type Model, Move, Phase } from "./lifecycle-model.ts";
 import { ending } from "./lifecycle-lives.traces.ts";
 import { build } from "./lifecycle-trace.ts";
 import {
@@ -368,22 +368,20 @@ describe("The lane lifecycle (Table A, deadlines, promotion)", () => {
     for (const trace of traces) assert.ok(holds(trace, rules), `${trace.name} (${trace.cites})`);
   });
 
-  it("a boot owes no restore to a Held head whose row the reload keeps (Restore I6, R3)", () => {
+  it("a boot owes no restore; the start after it owes one to a Held head whose row the reload does not keep (Actors I40; Restore I6, R3)", () => {
+    const restoresAt = (life: Life) => {
+      const [booted] = apply(restoreStart(life), Move.Reload());
+      const [started] = apply(booted, ActorMove.Incarnated({ actor: build.shopper }));
+      const restores = (m: Model) => m.obligations.filter((o) => o._tag === "AwaitRestore").length;
+
+      return [restores(booted), restores(started)];
+    };
+
     for (const life of [Life.Kept(), Life.Delivering({ retry: false }), Life.Parked()])
-      assert.ok(
-        !apply(restoreStart(life), Move.Reload())[0].obligations.some(
-          (o) => o._tag === "AwaitRestore",
-        ),
-        life._tag,
-      );
+      assert.deepStrictEqual(restoresAt(life), [0, 0], life._tag);
 
     for (const life of [Life.Refused(), Life.Owed()])
-      assert.ok(
-        apply(restoreStart(life), Move.Reload())[0].obligations.some(
-          (o) => o._tag === "AwaitRestore",
-        ),
-        life._tag,
-      );
+      assert.deepStrictEqual(restoresAt(life), [0, 1], life._tag);
   });
 
   it("every pending trace still fails on the design's rules, owed to its Task", () => {

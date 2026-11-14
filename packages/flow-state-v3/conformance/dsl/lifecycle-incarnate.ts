@@ -1,6 +1,6 @@
 import { type ActorRef, sameActor } from "../port.ts";
 import { type ActorRecord, isHead, type Model, Obligation } from "./lifecycle-model.ts";
-import { owesRelease, ownsRow } from "./lifecycle.ts";
+import { owesRelease, ownsRow, restorable } from "./lifecycle.ts";
 
 const actorOf = (model: Model, actor: ActorRef) =>
   model.actors.find((a) => sameActor(a.actor, actor));
@@ -12,15 +12,12 @@ const actorOf = (model: Model, actor: ActorRef) =>
  *
  * **Gotchas**
  *
- * - Only Held heads owe a restore here. A never-sent head acknowledged before its page died owes
- *   one from the `Reload` (Restore R3), when the store landed its acknowledging batch; one whose
- *   batch never landed owes nothing (Restore I8).
- * - A boot's restore endings are owed from the `Reload` itself, to each actor's next incarnation:
- *   the boot decides them before it opens any incarnation (round-14 `step.ts` `onBoot`: `restore`,
- *   then the `incarnation` notes), and a record not woken at ready hears them, parked, at its
- *   return. So the incarnation a boot opens owes no second restore ending (Restore I6, WriteLanes
- *   I15: once per incarnation). A Held head that owes its release is not kept (WriteLanes R4),
- *   so it owes no restore.
+ * - Held heads owe a restore here, and a never-sent head restored from a capture when the store
+ *   landed its acknowledging batch (Restore R3); one whose batch never landed owes nothing
+ *   (Restore I8).
+ * - A boot owes nothing (Actors I40): it makes every identity a record, so the incarnation a boot
+ *   wakes at ready and one a later ensure starts owe their restore endings alike (Restore R3,
+ *   I6). A Held head that owes its release is not kept (WriteLanes R4), so it owes no restore.
  * - A Held head whose Attempt any owed row names (parked, kept, refused, or one decided in the
  *   Runtime's disposal) owes no restore either: that saved outcome is what the incarnation is
  *   delivered (Restore I6), as at a boot.
@@ -37,7 +34,7 @@ export const incarnate = (model: Model, actor: ActorRef) => {
     (a) =>
       returning &&
       sameActor(a.lane.actor, actor) &&
-      a.phase._tag === "Held" &&
+      restorable(model, a) &&
       isHead(model, a) &&
       !owesRelease(model, a.id) &&
       !ownsRow(model, a),

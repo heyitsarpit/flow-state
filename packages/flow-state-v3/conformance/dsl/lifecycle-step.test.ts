@@ -791,7 +791,7 @@ const killerOf = (scripts: ReadonlyArray<Script>, run: Step) => {
  * retarget, another actor's ending and an unclosed turn, which no pilot's run reaches.
  */
 const KILLERS: ReadonlyArray<string> = [
-  "a predicted key retargets a key-less member: example a key-less member names the heard ending's lane, whatever key the turn predicts (WriteLanes R9)",
+  "a predicted key retargets a key-less member: search PART-cells-stress-1",
   "a commit ignores its reported key: search PART-sync-usual-1",
   "an alternative's row is owed whichever alternative ran: search PART-sync-usual-1",
   "an alternative's row is owed whatever alternative ran: search PART-sync-usual-1",
