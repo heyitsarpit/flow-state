@@ -5,16 +5,8 @@ import { tmpdir } from "node:os";
 import { basename, dirname, resolve } from "node:path";
 import { coverageOf, Gap, Standing } from "../coverage.ts";
 import { generatedScenarios } from "../generated.ts";
-import { notYet } from "../not-yet.ts";
-import {
-  caseChecks,
-  caseIds,
-  guarantees,
-  probes,
-  remainders,
-  scenarios,
-  staticCases,
-} from "../suite.ts";
+import { owes } from "../owes.ts";
+import { caseChecks, caseIds, guarantees, probes, scenarios, staticCases } from "../suite.ts";
 import {
   ROUND_14,
   failed,
@@ -181,14 +173,13 @@ const covered = (verbose: boolean) =>
 
     const open = yield* openTasks(
       REPOSITORY,
-      [...notYet, ...remainders].map((r) => r.owner),
+      owes.map((r) => r.task),
     );
 
     const { standings, gaps } = coverageOf({
       invariants,
       guarantees,
-      notYet,
-      remainders,
+      owes,
       checks: caseChecks,
       open,
     });

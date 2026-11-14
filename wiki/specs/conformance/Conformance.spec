@@ -556,7 +556,7 @@ open
 
     Q14  Failure of R12 (I37, I38) for static cases: of the 46 static Invariants (Compile 17, Diagnostics 10,
         Codec 7, StaticCli 12), round-14 can make results for 21, and 25 are owed rows in
-        code:packages/flow-state-v3/conformance/not-yet.ts. The static surface (prototype and null), the case
+        code:packages/flow-state-v3/conformance/owes.ts. The static surface (prototype and null), the case
         modules for Compile and StaticCli and their mutants exist; StaticCli I2 is judged by the `graph-names`
         oracle on the runtime cases and by `CLI-09` (the graph's edges equal the Compiled's places). A check that
         judges only part of an Invariant has a remainder row naming the rest and its owning Task. Decision (agent, 

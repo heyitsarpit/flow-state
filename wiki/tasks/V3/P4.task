@@ -859,6 +859,12 @@ tasks
             code:wiki/plans/flow/references/proposals/t52-build-log-2026-11-14.md.
               Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment; Conformance.spec Q13, Q14. Why: 
               step-done rule; Spec review 2026-11-12. Reverse: revert this commit.
+        comment     2026-11-14T11:12:32Z
+            Item 5 part 1, for review: one owed list `owes.ts` replaces not-yet.ts and the remainder lists, coverage 
+            unchanged; Q33 and Q34 green, reds first. Left: Q8 registry, Feature.owed into the list. Detail: 
+            code:wiki/plans/flow/references/proposals/t52-build-log-2026-11-14.md.
+              Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment; code links in Conformance.spec, 
+              Restore.spec, P13.task and P4.task. Why: step-done rule; the files moved. Reverse: revert this commit.
     T60
         title       The suite proves its own gates and excuses
         status      done
@@ -1591,7 +1597,7 @@ tasks
             endings; Actors I24); reachable on Held heads since T51's Held row. Failing check first.
         comment     2026-11-12T06:20:41Z
             Owns WriteLanes I25's remainder (the failure tag inside unknown StillUnknown), moved from the closed T51 by 
-            the orchestrator, 2026-11-12: code:packages/flow-state-v3/conformance/write-lanes/remainders.ts.
+            the orchestrator, 2026-11-12: code:packages/flow-state-v3/conformance/owes.ts.
         comment     2026-11-12T07:04:28Z
             From the core consolidation design (round 3 handoff table, built by @task.V3.T54): this Task starts on a 
             lane table over `Idle` and head phases only, one `Answered` cue, `owe` and `keptOn`, and no persist or emit 

@@ -643,3 +643,9 @@ Reverse: restore T39's line.
 Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): Q13 no longer names Reads I18, which the Reads Spec does
 not have; Q14 counts Codec 7 (Codec has I1 to I7), so 46 static Invariants and 25 owed rows. Why: the Spec review
 of 2026-11-12 found both. Reverse: restore Q13's and Q14's counts.
+
+## 2026-11-14, owed rows point at the one owed list (T52, agent)
+
+Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): Conformance Q14 and Restore Q3 link
+`conformance/owes.ts`, which replaced `not-yet.ts` and the remainder lists. Why: one owed list (consult A3). Reverse:
+restore the old links with the files.

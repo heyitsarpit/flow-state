@@ -25,7 +25,7 @@ bun conformance/runner/main.ts coverage                   # every core Invariant
 Every case runs under world seeds 1 and 2 (store load order, session seeds); a case fails on the
 first seed that fails it. `coverage` (Conformance R12, I38) reads every Invariant of the ten core
 Specs with `workflow show @spec.<name> --json` and fails unless each is checked or listed once in
-`not-yet.ts` with the Task that owns it. Checked means an oracle's guarantee names it and one of
+`owes.ts` with the Task that owns it. Checked means an oracle's guarantee names it and one of
 that oracle's mutants expects it, or a case-covered row (`CaseCovered`, kept beside its cases)
 names it with cases that all cite it and a mutant that expects it runs one of them; falsify then
 proves that case goes red by a failed expectation citing it. A checked Invariant whose check
@@ -62,7 +62,7 @@ write, advance to the 5 s disposal bound, answer the writes again, expect the di
 | `dsl/oracle.ts`         | The timeline (`Fact`); `Judge` (an oracle as a step fold with typed `Violation`s and `InvariantId` guarantees) registered with `oracle`; `Mutant` and `Guarantee`; the failures a case throws, `Violated` and `Mismatch`. `dsl/domain.ts`: `AttemptRef`, `sameAttempt`, `attemptText`, `keyValues`, `endingOf`, `mayHaveApplied`. `dsl/lifecycle*.ts`: the one lifecycle the Case folds per step (convergence v2: Tables A to C, obligations, `step`), with its traces and mutation tests. |
 | `<area>/`               | One folder per core Spec area (`write-lanes/`, `actors/`, ...). Each check by its behaviour (`<check>.ts`, such as `ending-channels.ts`) with its mutants beside it (`<check>.mutants.ts`), and the cases by behaviour (`<behaviour>.scenarios.ts`, such as `payment-retry.scenarios.ts`); a case keeps its old-suite id (`PAY-nn`, `LANE-nn`, `DLV-nn`) in its `id` field for the old-suite comparison.                                                                                   |
 | `fixtures/`             | The suite's fixtures: `fixture.ts` (the `Fixture` type: Schemas of events, memory, input and write keys), `pay.ts`, `one-lane.ts` (one-lane machines per lane policy); `reference.ts`, the expectations of each write written by hand from the fixture's source; `pay-steps.ts`, the Pay cases' shared steps and constants (T40, S4).                                                                                                                                                      |
-| `suite.ts`              | The registry: every guarantee (oracle and its mutants) and every case. `coverage.ts`: the coverage gate's rule; `not-yet.ts`: the Invariants each owning Task still owes.                                                                                                                                                                                                                                                                                                                  |
+| `suite.ts`              | The registry: every guarantee (oracle and its mutants) and every case. `coverage.ts`: the coverage gate's rule; `owes.ts`: the Invariants each owning Task still owes.                                                                                                                                                                                                                                                                                                                     |
 | `runner/`               | `main.ts` (CLI), `run.ts` (cases in process), `falsify.ts` (mutants on copies), `child.ts` (bounded child processes), `verdict.ts` (the verdict line children print), `specs.ts` (the core Specs' Invariants, read with the workflow CLI).                                                                                                                                                                                                                                                 |
 
 ## Decisions
@@ -123,7 +123,7 @@ Round 1's, the runner's (recorded as such; the user may overrule):
    (`Boot.sessionSeed`, distinct per page and world seed); the runtime mints its Attempt ids from
    it (WriteLanes R5). The prototype adapter answers round-14's id requests with
    `att-<sessionSeed>-<n>` from the suite's seed; the seed check (WriteLanes I28) is owed by T18 in
-   `not-yet.ts`. The adapter mints
+   `owes.ts`. The adapter mints
    nothing else. The seed cases (WriteLanes T18: two Runtimes with different seeds never share an
    id; one seed replays the same ids) and their wrong runtime (a mint that ignores the seed, so two
    devices collide) are phase 4 builds: the wrong runtime is a production mutant, written with the
@@ -238,7 +238,7 @@ the case holds.
 - A row tied to its alternative (`at`, Pay's `Leave`) is owed only when selection predicts that
   alternative from the fixture's folds, never from the reported members.
 - The failure tag inside `unknown StillUnknown` is a WriteLanes I25 remainder owned by T18
-  (`write-lanes/remainders.ts`): no runtime reports `Ended.failure` yet.
+  (`owes.ts`): no runtime reports `Ended.failure` yet.
 - `Minted` requires `actor`, and `key` on a keyed operation: the Case stops with `UnreadableReport`
   naming the field (convergence v2's Port change 6).
 - `delivered-once` counts an ending decided after the Runtime's disposal began as parked at the next
@@ -291,10 +291,10 @@ mutants and wrong runtimes named here are in `prototypes/conformance/falsify.ts`
 | I13                                         | `idle-guard` **done** in part (T7)                         | `lane.idle-never-passes`                                |
 | I15, I16                                    | `delivered-once` **done**; a releasing lane by `LANE-12`   | `lane.releasing-delivers`                               |
 | I1, I5, I8, I9, I10, I11, I12, I20, I21     | `lane-queue` **done** (I5 by `LANE-11`, I9 with no mutant) | `lane.unretained-unknown-held`                          |
-| I2, I9, I14, I17 to I19, I23, I24, I26, I27 | owed by T7 (`not-yet.ts`)                                  |                                                         |
+| I2, I9, I14, I17 to I19, I23, I24, I26, I27 | owed by T7 (`owes.ts`)                                     |                                                         |
 | I28                                         | owed by T18 (decision 8)                                   |                                                         |
 
-Clauses each check leaves are in `write-lanes/remainders.ts`.
+Clauses each check leaves are in `owes.ts`.
 
 ### Turn (`workflow/specs/core/Turn.spec`)
 
@@ -305,10 +305,10 @@ Clauses each check leaves are in `write-lanes/remainders.ts`.
 | I14, I15                                       | `refusal` **built** (`TURN-01`, `TURN-02`)                       | `refusal.reports-kept`, `refusal.state-kept`, `refusal.unhandled-patches`                                                                                                                                        |
 | I20, I21, I23                                  | `schedules` **built** (`TURN-03`)                                | `sched.outlives-activation`, `sched.fires-at-once`, `life.schedule-fires-unused`                                                                                                                                 |
 | I22                                            | case (`TURN-03/unused`)                                          | `life.waiting-never-wakes`                                                                                                                                                                                       |
-| I1, I4 to I6, I12, I16 to I18, I28, I31 to I35 | owed by T18 (`not-yet.ts`; proposed, T8)                         | production mutants                                                                                                                                                                                               |
-| I3, I10, I11, I24, I25                         | owed by T21 (`not-yet.ts`; proposed, T8)                         | production mutants                                                                                                                                                                                               |
+| I1, I4 to I6, I12, I16 to I18, I28, I31 to I35 | owed by T18 (`owes.ts`; proposed, T8)                            | production mutants                                                                                                                                                                                               |
+| I3, I10, I11, I24, I25                         | owed by T21 (`owes.ts`; proposed, T8)                            | production mutants                                                                                                                                                                                               |
 
-Clauses each check leaves are in `turn/remainders.ts`. `w.row-in-place` (old suite) is not registered:
+Clauses each check leaves are in `owes.ts`. `w.row-in-place` (old suite) is not registered:
 it needs a Port read of a row object's identity (T18).
 
 ### Actors (`workflow/specs/core/Actors.spec`)
@@ -367,8 +367,8 @@ Static guarantees: checked by case expectations over a static surface, not by pe
 | Compile I14                   | CMP-11                              | `r15c.duplicate-machine-allowed` (in part)                                                                                          |
 | Compile I15                   | CMP-06, CMP-07                      | `cmp.bare-function-admitted`, `cmp.compiler-emits-bare-guard`, `cmp.seal-crashes-on-bare`, `cmp.data-view-keeps-closures` (in part) |
 | Compile I16                   | CMP-06                              | `cmp.key-outside-input-admitted`, `cmp.seal-crashes-on-key`                                                                         |
-| Compile I3, I9, I10, I12, I17 | none                                | T17 builds the compiler that makes these results (`not-yet.ts`)                                                                     |
-| Diagnostics, Codec            | none                                | T17 builds Diagnostics and T20 the canonical byte codec (`not-yet.ts`)                                                              |
+| Compile I3, I9, I10, I12, I17 | none                                | T17 builds the compiler that makes these results (`owes.ts`)                                                                        |
+| Diagnostics, Codec            | none                                | T17 builds Diagnostics and T20 the canonical byte codec (`owes.ts`)                                                                 |
 | StaticCli I1, I4 to I8, I12   | CLI-01 to CLI-08                    | `static-cli/cli.mutants.ts`; I1, I4, I6 to I8, I12 in part (I6 took the cut I9)                                                     |
 | StaticCli I2                  | CLI-09 and the `graph-names` oracle | `cli.graph-renames-untaken-edge`, `graph-names.mutants.ts` (in part)                                                                |
 | StaticCli I3, I10, I11        | none                                | T22 builds config discovery and the project tree                                                                                    |

@@ -1,4 +1,4 @@
-import { Data, type Option } from "effect";
+import { Data, Option } from "effect";
 import { citedBy, type Guarantee, type Mutant } from "./dsl/oracle.ts";
 import type { InvariantId } from "./dsl/facts.ts";
 
@@ -36,24 +36,10 @@ export type CoreSpec = (typeof CORE_SPECS)[number];
 export type TaskRef = `@task.V3.T${number}`;
 
 /**
- * Whether a Task with this status may still own an owed row: one that is done may not, so a Task
- * cannot close while a row names it.
+ * Whether a Task with this status may still own an owed row: one done or in review may not, so a
+ * Task cannot close, or ask to, while a row names it.
  */
-export const ownsRows = (status: string) => status !== "done";
-
-/**
- * Invariants that have no check yet, the Task that owns them, and why.
- *
- * **Details**
- *
- * A row expires: once an oracle claims one of its Invariants with a mutant that expects it, the
- * gate fails until the Invariant leaves the row.
- */
-export type NotYet = {
-  readonly owner: TaskRef;
-  readonly why: string;
-  readonly invariants: ReadonlyArray<InvariantId>;
-};
+export const ownsRows = (status: string) => status !== "done" && status !== "review";
 
 /**
  * What a Task owes the suite (consult A3): a `subject`, which is a core Invariant, a Plan feature
@@ -71,21 +57,6 @@ export type Owes = {
 };
 
 /**
- * The part of a checked Invariant no check judges yet, and the Task that owes it.
- *
- * **Details**
- *
- * A check may judge only some clauses of an Invariant. Its row names the rest in `owed`, so
- * "checked" never claims more than the cases and mutants test. The gate fails on a row whose
- * Invariant has no check at all (a whole Invariant is owed in a {@link NotYet} row).
- */
-export type Remainder = {
-  readonly invariant: InvariantId;
-  readonly owner: TaskRef;
-  readonly owed: string;
-};
-
-/**
  * Everything the coverage gate judges: the Specs' Invariants, the registered oracles, the rows
  * of what is owed, the case-expectation checks, and the owning Tasks still open.
  *
@@ -97,8 +68,7 @@ export type Remainder = {
 export type CoverageInput = {
   readonly invariants: ReadonlyArray<InvariantId>;
   readonly guarantees: ReadonlyArray<Guarantee>;
-  readonly notYet: ReadonlyArray<NotYet>;
-  readonly remainders: ReadonlyArray<Remainder>;
+  readonly owes: ReadonlyArray<Owes>;
   readonly checks: CaseChecks;
   readonly open: ReadonlySet<TaskRef>;
 };
@@ -232,15 +202,16 @@ const caseCheckOf = (checks: CaseChecks, invariant: InvariantId) =>
       ),
     }));
 
-const rowOf = (notYet: ReadonlyArray<NotYet>, invariant: InvariantId) =>
-  notYet.filter((row) => row.invariants.includes(invariant));
+const rowOf = (owes: ReadonlyArray<Owes>, invariant: InvariantId) =>
+  owes.filter((row) => row.subject === invariant && Option.isNone(row.clause));
 
-const owners = (input: CoverageInput) => [
-  ...input.notYet.flatMap((row) =>
-    row.invariants.map((invariant) => ({ invariant, owner: row.owner })),
-  ),
-  ...input.remainders.map((row) => ({ invariant: row.invariant, owner: row.owner })),
-];
+// RETURN_TYPE: a type predicate, so an owed subject narrows to an Invariant id.
+const isInvariant = (subject: string): subject is InvariantId => /^\S+ I\d+$/u.test(subject);
+
+const owners = (input: CoverageInput) =>
+  input.owes.flatMap((row) =>
+    isInvariant(row.subject) ? [{ invariant: row.subject, owner: row.task }] : [],
+  );
 
 const named = (input: CoverageInput) => [
   ...owners(input).map(({ invariant, owner }) => ({ invariant, where: owner })),
@@ -300,31 +271,31 @@ const checkedBy = (standing: Standing) =>
   });
 
 // RETURN_TYPE: each branch builds one variant; without it the branches infer different arrays.
-const withRemainder = (judged: Judged, remainders: ReadonlyArray<Remainder>): Judged => {
-  const [part, ...more] = remainders;
+const withRemainder = (
+  judged: Judged,
+  invariant: InvariantId,
+  clauses: ReadonlyArray<Owes>,
+): Judged => {
+  const [part, ...more] = clauses;
   const [standing] = judged.standing;
 
   if (part === undefined) return judged;
 
-  const twice = more.length > 0 ? [Gap.Twice({ invariant: part.invariant })] : [];
+  const twice = more.length > 0 ? [Gap.Twice({ invariant })] : [];
 
   if (standing === undefined || Standing.$is("Owed")(standing))
     return {
       standing: judged.standing,
-      gaps: [
-        ...judged.gaps,
-        ...twice,
-        Gap.Unchecked({ invariant: part.invariant, owner: part.owner }),
-      ],
+      gaps: [...judged.gaps, ...twice, Gap.Unchecked({ invariant, owner: part.task })],
     };
 
   return {
     standing: [
       Standing.Partial({
-        invariant: part.invariant,
+        invariant,
         checkedBy: checkedBy(standing),
-        owner: part.owner,
-        owed: part.owed,
+        owner: part.task,
+        owed: Option.getOrElse(part.clause, () => ""),
       }),
     ],
     gaps: [...judged.gaps, ...twice],
@@ -334,20 +305,21 @@ const withRemainder = (judged: Judged, remainders: ReadonlyArray<Remainder>): Ju
 const judgeOne = (input: CoverageInput, invariant: InvariantId) =>
   withRemainder(
     judgeWhole(input, invariant),
-    input.remainders.filter((row) => row.invariant === invariant),
+    invariant,
+    input.owes.filter((row) => row.subject === invariant && Option.isSome(row.clause)),
   );
 
 // RETURN_TYPE: each branch builds one variant; without it the branches infer different arrays.
 const judgeWhole = (
-  { guarantees, notYet, checks }: CoverageInput,
+  { guarantees, owes, checks }: CoverageInput,
   invariant: InvariantId,
 ): Judged => {
   const [check] = checkOf(guarantees, invariant);
   const caseRows = caseCheckOf(checks, invariant);
-  const rows = rowOf(notYet, invariant);
+  const rows = rowOf(owes, invariant);
   const twice = rows.length > 1 || caseRows.length > 1 ? [Gap.Twice({ invariant })] : [];
   const [row] = rows;
-  const stale = row === undefined ? [] : [Gap.Stale({ invariant, owner: row.owner })];
+  const stale = row === undefined ? [] : [Gap.Stale({ invariant, owner: row.task })];
 
   if (check !== undefined) {
     const standing = Standing.Checked({ invariant, ...check });
@@ -374,7 +346,7 @@ const judgeWhole = (
   if (row === undefined) return { standing: [], gaps: [Gap.Uncovered({ invariant })] };
 
   return {
-    standing: [Standing.Owed({ invariant, owner: row.owner, why: row.why })],
+    standing: [Standing.Owed({ invariant, owner: row.task, why: row.why })],
     gaps: twice,
   };
 };

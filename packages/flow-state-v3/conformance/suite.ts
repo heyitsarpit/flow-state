@@ -1,27 +1,17 @@
 import { productionCaseMutants, productionMutants } from "./adapters/production.mutants.ts";
 import { disposalMutants } from "./actors/disposal.mutants.ts";
-import { actorsRemainders } from "./actors/remainders.ts";
 import { disposal } from "./actors/disposal.ts";
 import { laneKeepingScenarios } from "./actors/lane-keeping.scenarios.ts";
 import { lifetimeScenarios } from "./actors/lifetime.scenarios.ts";
 import { runtimeDisposalScenarios } from "./actors/runtime-disposal.scenarios.ts";
 import { constructionMutants } from "./compile/construction.mutants.ts";
-import {
-  constructionCases,
-  constructionCovered,
-  constructionRemainders,
-} from "./compile/construction.cases.ts";
-import { type CaseChecks, coveredBy, type Remainder } from "./coverage.ts";
+import { constructionCases, constructionCovered } from "./compile/construction.cases.ts";
+import { type CaseChecks, coveredBy } from "./coverage.ts";
 import type { Scenario } from "./dsl/case.ts";
 import type { StaticCase } from "./dsl/static-case.ts";
 import type { Guarantee, Mutant, Probe } from "./dsl/oracle.ts";
 import { cliMutants } from "./static-cli/cli.mutants.ts";
-import {
-  cliCases,
-  cliCompileRemainders,
-  cliCovered,
-  cliRemainders,
-} from "./static-cli/cli.cases.ts";
+import { cliCases, cliCovered } from "./static-cli/cli.cases.ts";
 import { graphNames } from "./static-cli/graph-names.ts";
 import { graphNamesMutants } from "./static-cli/graph-names.mutants.ts";
 import { activationsScenarios } from "./turn/activations.scenarios.ts";
@@ -30,8 +20,6 @@ import { partsCovered, partsScenarios } from "./turn/parts.scenarios.ts";
 import { refusalMutants, replayMutants } from "./turn/refusal.mutants.ts";
 import { refusalCovered, refusalScenarios } from "./turn/refusal.scenarios.ts";
 import { refusal } from "./turn/refusal.ts";
-import { turnRemainders } from "./turn/remainders.ts";
-import { writeLanesRemainders } from "./write-lanes/remainders.ts";
 import { schedulesCaseMutants, schedulesMutants } from "./turn/schedules.mutants.ts";
 import { schedulesScenarios } from "./turn/schedules.scenarios.ts";
 import { schedules } from "./turn/schedules.ts";
@@ -272,15 +260,3 @@ export const caseChecks: CaseChecks = {
   ],
   cases: [...scenarios, ...staticCases].map((c) => ({ id: c.id, cites: c.cites })),
 };
-
-/**
- * The part of each checked Invariant its checks do not judge yet, by the Task that owes it.
- */
-export const remainders: ReadonlyArray<Remainder> = [
-  ...constructionRemainders,
-  ...cliRemainders,
-  ...cliCompileRemainders,
-  ...turnRemainders,
-  ...actorsRemainders,
-  ...writeLanesRemainders,
-];

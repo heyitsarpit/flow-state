@@ -1,5 +1,5 @@
 import { Option, Result, Schema } from "effect";
-import { coveredBy, type Remainder } from "../coverage.ts";
+import { coveredBy } from "../coverage.ts";
 import type { StaticCase } from "../dsl/static-case.ts";
 import type { CliRun, Surface } from "../surface.ts";
 import { graphIn } from "./graph.ts";
@@ -366,56 +366,3 @@ export const cliCases: ReadonlyArray<StaticCase> = [
  * falsify as a case-expectation catch beside it.
  */
 export const cliCovered = coveredBy(cliCases).filter((row) => row.invariant !== "StaticCli I2");
-
-/**
- * The part of Compile I10 CLI-06 does not judge.
- */
-export const cliCompileRemainders: ReadonlyArray<Remainder> = [
-  {
-    invariant: "Compile I10",
-    owner: "@task.V3.T17",
-    owed: "the construction-time refusal (Compile R9) and a fragment placed twice: round-14 only reports it from flow check",
-  },
-];
-
-/**
- * The part of each checked StaticCli Invariant no case or oracle judges yet, by the Task that
- * owes it.
- */
-export const cliRemainders: ReadonlyArray<Remainder> = [
-  {
-    invariant: "StaticCli I1",
-    owner: "@task.V3.T22",
-    owed: "spies on the closures (T1); the cases read the CLI's own callbacksRun count",
-  },
-  {
-    invariant: "StaticCli I2",
-    owner: "@task.V3.T22",
-    owed: "schedule-trigger edges, which no Compiled place names (graph's trigger: edges are left out); only pay is graphed",
-  },
-  {
-    invariant: "StaticCli I4",
-    owner: "@task.V3.T22",
-    owed: "explain and graph in both forms, and R7's envelope (version, status, data); only check's counts are compared",
-  },
-  {
-    invariant: "StaticCli I6",
-    owner: "@task.V3.T22",
-    owed: "exit codes 130 and 143 (R8, T6), exit 2 for loading, artifact and I/O failures (R8), a construction's FlowError reported as error findings with exit 1 (R11, C6), and info findings (only warnings are judged)",
-  },
-  {
-    invariant: "StaticCli I7",
-    owner: "@task.V3.T22",
-    owed: "R9's failure in place of a complete claim: missing type facts give status failed (C18); only complete false on two hand projects is judged",
-  },
-  {
-    invariant: "StaticCli I8",
-    owner: "@task.V3.T22",
-    owed: "R10's other rules, and reference apps chosen from the Spec rather than from fixtures with no error (desk and desk-listen report UnresolvedHold); 5 of R10's 11 rules are checked",
-  },
-  {
-    invariant: "StaticCli I12",
-    owner: "@task.V3.T22",
-    owed: "the --app operand (R3)",
-  },
-];

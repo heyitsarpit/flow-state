@@ -156,7 +156,15 @@ export const unfoldedGuards: ReadonlyArray<{
   readonly fixture: string;
   readonly place: string;
   readonly owner: `@task.V3.T${number}`;
-}> = [];
+}> = [
+  { fixture: "cancel", place: "on.Unsure[0]", owner: "@task.V3.T18" },
+  { fixture: "issues", place: "on.Delete[0]", owner: "@task.V3.T24" },
+  { fixture: "issues", place: "on.Edit[0]", owner: "@task.V3.T24" },
+  { fixture: "issues", place: "on.LikeUnsure[0]", owner: "@task.V3.T24" },
+  { fixture: "stamp", place: "on.Guarded[0]", owner: "@task.V3.T20" },
+  { fixture: "stamp", place: "on.OldRetryable[0]", owner: "@task.V3.T20" },
+  { fixture: "stamp", place: "on.Retryable[0]", owner: "@task.V3.T20" },
+];
 
 /**
  * The same alternative with a guard the suite does not compute.

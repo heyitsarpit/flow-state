@@ -168,7 +168,7 @@ open
         true }) have no prototype wrong runtime.
         outcome  Phase 3 writes them.
 
-    Q3  I19's check is owned by @task.V3.T20 in code:packages/flow-state-v3/conformance/not-yet.ts, but resets are 
+    Q3  I19's check is owned by @task.V3.T20 in code:packages/flow-state-v3/conformance/owes.ts, but resets are 
         @task.V3.T56's since the split.
         outcome  @task.V3.T56 builds I19's check (Spec test T5) and moves the row.
 

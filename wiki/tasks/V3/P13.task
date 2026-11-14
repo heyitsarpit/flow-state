@@ -214,7 +214,7 @@ tasks
             code:packages/flow-state-v3/conformance/actors/runtime-disposal.scenarios.ts#runtimeDisposalScenarios.
 
             **Rows from T8:** the actor rows moved here are in
-            code:packages/flow-state-v3/conformance/not-yet.ts and @task.V3.T8's comments; read them before the Actors
+            code:packages/flow-state-v3/conformance/owes.ts and @task.V3.T8's comments; read them before the Actors
             oracles.
 
             **Approach:** the Actors Spec change first (R11 `runPromise` with services, R14 the form fixed in types, R19

@@ -1,6 +1,6 @@
 import { Equal, Formatter, Option, Predicate } from "effect";
 import type { Json } from "../port.ts";
-import { coveredBy, type Remainder } from "../coverage.ts";
+import { coveredBy } from "../coverage.ts";
 import type { StaticCase } from "../dsl/static-case.ts";
 import {
   type Admission,
@@ -418,60 +418,3 @@ export const constructionCases: ReadonlyArray<StaticCase> = [
  * The Compile Invariants these cases judge, each with the cases whose expectations cite it.
  */
 export const constructionCovered = coveredBy(constructionCases);
-
-/**
- * The part of each case-covered Compile Invariant these cases do not judge, by the Task that owes
- * it.
- */
-export const constructionRemainders: ReadonlyArray<Remainder> = [
-  {
-    invariant: "Compile I1",
-    owner: "@task.V3.T17",
-    owed: "spies on actors, timers, storage, loaders and evidence (T1); only a commit run is caught",
-  },
-  {
-    invariant: "Compile I5",
-    owner: "@task.V3.T17",
-    owed: "Flow.input beside a default, and a field with no source; only Flow.initial beside a Schema default is judged",
-  },
-  {
-    invariant: "Compile I15",
-    owner: "@task.V3.T17",
-    owed: "a bare function in an operation's or a handler's Slot place at Runtime creation; only the memory's creation Slot is tampered",
-  },
-  {
-    invariant: "Compile I4",
-    owner: "@task.V3.T17",
-    owed: "fragment states, events and operations; only a root machine's tables are compared",
-  },
-  {
-    invariant: "Compile I6",
-    owner: "@task.V3.T17",
-    owed: "a plain Schema default's evaluation: a surface source's plain default has no counter",
-  },
-  {
-    invariant: "Compile I7",
-    owner: "@task.V3.T17",
-    owed: "no clock or randomness read at creation (needs spies on both)",
-  },
-  {
-    invariant: "Compile I8",
-    owner: "@task.V3.T20",
-    owed: "adoption and hydration never invoke creation; only restore is judged",
-  },
-  {
-    invariant: "Compile I11",
-    owner: "@task.V3.T17",
-    owed: "the Flow.ignore clause: a surface source cannot map unknown: to Flow.ignore",
-  },
-  {
-    invariant: "Compile I13",
-    owner: "@task.V3.T17",
-    owed: "is, child, root and __proto__, at construction (round-14 refuses self at Runtime creation), path depth, length, control characters and code-unit equality",
-  },
-  {
-    invariant: "Compile I14",
-    owner: "@task.V3.T17",
-    owed: "one machine under two keys and colliding operation, domain and entity ids",
-  },
-];
