@@ -467,7 +467,12 @@ cadence
     replace it (R7) and note it. If the last compaction note in log.task is over 24 hours old and no review is
     running, start one Opus lead at medium effort, no sidecars, to run skill:compact-records over wiki/tasks/V3
     and the review files it cites, skipping the active Task's own comments while its builder runs; it commits only
-    the records it changed and reports in at most 5 lines; note the result in one line. Otherwise write nothing."
+    the records it changed and reports in at most 5 lines; note the result in one line. If no process study ran in
+    the last 3 hours and an agent did 30 minutes or more of work since the last one, run a process study by the
+    process notebook's 'Running a study' (whole-transcript reading split across Haiku Explore agents, plus the
+    tools/process numbers), record it in the notebook, and apply the improvements worth trying. Skip the study
+    while the 5-hour projection is over 100. Otherwise write nothing."
+    Process studies on the wake: the user, 2026-11-15.
     Quiet rule: a wake that finds nothing writes no note and sends no message; a review already covering the newest
     checkpoint counts as that period's review (R24).
 

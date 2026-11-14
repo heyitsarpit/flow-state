@@ -587,3 +587,8 @@ note 2026-11-14T20:12:06Z
     falsify and coverage keep the per-check rule; the code already did this. Review (T54 A1) proceed, 0 blocking 
     (t54-a1-review-2026-11-15.md); into A2: the doubled Delivered report in DLV-04 as a pending case, Retrying rows in 
     the suspend test, the tryOne check.
+note 2026-11-14T20:12:43Z
+    Decision (user, 2026-11-15): "going forward you will run the proper transcript reviews in the process 
+    experimentation ... maybe with the regular wakeup timer". The review wake now runs a whole-transcript process study 
+    when none ran in 3 hours and an agent did 30 minutes of work, skipped while the 5-hour projection is over 100. 
+    cadence edited; crons recreated.
