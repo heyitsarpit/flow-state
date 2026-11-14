@@ -5,9 +5,9 @@ import { captureMsOf } from "../actors/lifetime.scenarios.ts";
 import { nullPort } from "../adapters/null.ts";
 import { productionPort } from "../adapters/production.ts";
 import { openCase } from "../dsl/case.ts";
-import { namesNoAttempt } from "../dsl/lifecycle-model.ts";
+import type { Judged } from "../dsl/engine.ts";
 import { type Rules, rules } from "../dsl/lifecycle-rules.ts";
-import { Fact } from "../dsl/oracle.ts";
+import { Fact, type Oracle, type RuntimeFact } from "../dsl/oracle.ts";
 import { type Script, scenarioOf } from "../dsl/script.ts";
 import { Observation, type Turn } from "../port.ts";
 import { Undecided } from "../turn/anchor.ts";
@@ -16,7 +16,7 @@ import type { CaseVerdict } from "../runner/verdict.ts";
 import { oracles } from "../suite.ts";
 import { Answer, type Request } from "../world/network.ts";
 import type { Code } from "./codes.ts";
-import { type PartOwed, partsOwed } from "./owed.ts";
+import { excuses, isBreak, OwedItem, owedRows, type PartOwed } from "./owed.ts";
 import { partFixture } from "./reference.ts";
 
 /**
@@ -25,21 +25,18 @@ import { partFixture } from "./reference.ts";
 export type PartRuntime = "production" | "null" | "round-14";
 
 /**
- * One played part script: its verdict, the facts its run recorded, how many `answer` steps found
- * no open request, what its judging left to the runtime's word (`undecided`), and the violations
- * an owed row excused (`kept`), each with its subject.
+ * One played part script: its verdict, what stopped the run (`threw`: a failure no owed row
+ * excused), the facts its run recorded, how many `answer` steps found no open request, what its
+ * judging left to the runtime's word (`undecided`), and every violation its oracles found
+ * (`violations`), each marked excused or not.
  */
 export type Played = {
   readonly verdict: CaseVerdict;
+  readonly threw: Option.Option<CaseVerdict>;
   readonly facts: ReadonlyArray<Fact>;
   readonly skipped: number;
   readonly undecided: ReadonlyArray<Undecided>;
-  readonly kept: ReadonlyArray<{
-    readonly oracle: string;
-    readonly invariant: string;
-    readonly subject: Option.Option<string>;
-    readonly text: string;
-  }>;
+  readonly violations: ReadonlyArray<Judged>;
 };
 
 const fixtures = parts.map(partFixture);
@@ -58,17 +55,19 @@ export const worldSeedOf = (id: string) => Number(/-(\d+)(?:-shrunk)?$/u.exec(id
  *
  * The world runs at the script's own seed ({@link worldSeedOf}), so one script seed fixes the
  * run (R8). `given` are the lifecycle tables the model applies: the design's, or a model mutant
- * (R19). A violation one of the script's `owed` rows names (its check, Invariant and subject;
- * a subject that names no Attempt, a lane or an actor, excuses one violation per listing) does
- * not stop the run: it is kept, the run is judged to its end, and the verdict fails by every
- * kept one beside whatever else failed, so a row holds only over the run's sole failures.
+ * (R19). A violation one of the script's `owed` rows excuses (the one rule, `excuses`) does not
+ * stop the run: it is kept, the run is judged to its end, and the verdict fails by every kept one
+ * beside whatever else failed; anything else stops the run (`threw`). `replay` swaps in runtime
+ * facts by step through the liar hook; `judges` are the suite's oracles unless a check plants one.
  */
 // RETURN_TYPE: both branches build the named Played, the refusal with an empty fact list.
 export const playPart = (
   script: Script,
   runtime: PartRuntime,
   given: Rules = rules,
-  owed: ReadonlyArray<PartOwed> = partsOwed,
+  owed: ReadonlyArray<PartOwed> = owedRows,
+  replay: Option.Option<ReadonlyArray<ReadonlyArray<RuntimeFact>>> = Option.none(),
+  judges: ReadonlyArray<Oracle> = oracles,
 ): Played => {
   if (runtime === "round-14")
     return {
@@ -78,34 +77,32 @@ export const playPart = (
         oracles: [],
         why: "refused: composite parts run on production only, never on round-14 (Conformance R22, I48)",
       },
+      threw: Option.none(),
       facts: [],
       skipped: 0,
       undecided: [],
-      kept: [],
+      violations: [],
     };
 
   let skipped = 0;
   const seed = worldSeedOf(script.id);
-  const spent: Array<readonly [PartOwed, string]> = [];
 
-  const excuse = (oracle: string, invariant: string, subject: Option.Option<string>) =>
+  const excuse = (
+    oracle: string,
+    invariant: string,
+    subject: Option.Option<string>,
+    step: number,
+  ) =>
     runtime === "production" &&
-    Option.exists(subject, (s) => {
-      const row = owed.find(
+    Option.exists(subject, (s) =>
+      owed.some(
         (o) =>
           o.case === script.id &&
           o.check === oracle &&
           o.invariant === invariant &&
-          (namesNoAttempt(s)
-            ? o.subjects.filter((x) => x === s).length >
-              spent.filter(([r, x]) => r === o && x === s).length
-            : o.subjects.includes(s)),
-      );
-
-      if (row !== undefined) spent.push([row, s]);
-
-      return row !== undefined;
-    });
+          excuses(o, s, step),
+      ),
+    );
 
   const scenario = scenarioOf(script, fixtures, () => {
     skipped += 1;
@@ -114,12 +111,12 @@ export const playPart = (
   const opened = openCase({
     port: runtime === "production" ? productionPort : nullPort,
     fixtures: scenario.fixtures,
-    oracles,
+    oracles: judges,
     seed,
     graphs: [],
     overdue: () => false,
     crashAt: Option.none(),
-    replay: Option.none(),
+    replay,
     captureMs: captureMsOf(scenario.id),
     rules: given,
     judge: true,
@@ -160,24 +157,25 @@ export const playPart = (
 
   return {
     verdict,
+    threw: failed,
     facts: opened.facts(),
     skipped,
     undecided: opened.undecided(),
-    kept: excused,
+    violations: opened.violations(),
   };
 };
 
 /**
- * The faults of played part scripts on production (Conformance R15, R22): a run that does not
- * pass, unless it failed (not timed out) only by violations its owed rows kept and each row kept
- * one (by its check and Invariant on one of its subjects); a passing run whose answers mostly found
- * no open request (a script that tested little); an owed row naming no script in `scope` (the
- * gates pass every script the suite plays); and no run.
+ * The faults of played part scripts on production (Conformance R15, R22): a run that something
+ * stopped (a failure no owed row excuses, by the one rule); an owed item that no longer breaks; a
+ * row that lists no break or whose owner is not in `open`; a run whose answers mostly found no
+ * open request (a script that tested little); an owed row naming no script in `scope`; and no run.
  */
 export const partFaults = (
   runs: ReadonlyArray<{ readonly script: Script; readonly run: Played }>,
-  owed: ReadonlyArray<PartOwed> = partsOwed,
+  owed: ReadonlyArray<PartOwed> = owedRows,
   scope: ReadonlySet<string> = new Set(owed.map((o) => o.case)),
+  open: ReadonlySet<string> = new Set(owed.map((o) => o.owner)),
 ) => {
   const empty = runs.length === 0 ? ["BAD  no part script ran: the gate judged nothing"] : [];
 
@@ -185,7 +183,7 @@ export const partFaults = (
     .filter((o) => !scope.has(o.case))
     .map((o) => `BAD  ${o.case}: owed to ${o.owner}, but no script the suite plays has this id`);
 
-  return [...empty, ...ghosts, ...judged(runs, owed)];
+  return [...empty, ...ghosts, ...judged(runs, owed, open)];
 };
 
 /**
@@ -202,77 +200,66 @@ export const undecidedLine = (runs: ReadonlyArray<{ readonly run: Played }>) => 
   return `NOTE undecided over ${runs.length} runs: ${guards.length} guards (${places}); ${delays.length} schedules with an unknown delay`;
 };
 
-const owes = (row: PartOwed, kept: Played["kept"][number]) =>
-  kept.oracle === row.check &&
-  kept.invariant === row.invariant &&
-  Option.exists(kept.subject, (s) => row.subjects.includes(s));
+const itemName = (i: OwedItem) =>
+  OwedItem.$match(i, { Attempt: ({ id }) => id, Item: (x) => `${x.subject} at step ${x.step}` });
 
-const unowedFailures = (run: Played, rows: ReadonlyArray<PartOwed>) => {
-  if (run.verdict._tag !== "Fail") return [];
+const unbroken = (row: PartOwed, run: Played) =>
+  row.items
+    .filter(
+      (i) =>
+        !run.violations.some(
+          (v) =>
+            v.excused &&
+            v.oracle === row.check &&
+            v.invariant === row.invariant &&
+            Option.exists(v.subject, (s) => isBreak(i, s, v.step)),
+        ),
+    )
+    .map(
+      (i) =>
+        `BAD  ${row.case}: owed to ${row.owner}, but ${row.check} ${row.invariant} no longer breaks on ${itemName(i)}`,
+    );
 
-  const owed = run.kept.filter((k) => rows.some((r) => owes(r, k))).map((k) => k.text);
-
-  return run.verdict.why
-    .replace(/^seed \d+: /u, "")
-    .split(" | ")
-    .filter((failure) => {
-      const at = owed.indexOf(failure);
-
-      if (at >= 0) owed.splice(at, 1);
-
-      return at < 0;
-    });
-};
-
-const heldBy = (row: PartOwed, run: Played) => run.kept.some((k) => owes(row, k));
-
-const spareListings = (row: PartOwed, run: Played) =>
-  [...new Set(row.subjects.filter(namesNoAttempt))].flatMap((subject) => {
-    const listed = row.subjects.filter((s) => s === subject).length;
-
-    const broke = run.kept.filter(
-      (k) => owes(row, k) && Option.contains(k.subject, subject),
-    ).length;
-
-    return broke < listed
-      ? [
-          `BAD  ${row.case}: ${row.check} ${row.invariant} lists ${subject} ${listed} times, but it broke ${broke}`,
-        ]
-      : [];
-  });
+const rowFaults = (row: PartOwed, run: Played, open: ReadonlySet<string>) => [
+  ...[`BAD  ${row.case}: ${row.check} ${row.invariant} lists no break`].filter(
+    () => row.items.length === 0,
+  ),
+  ...[`BAD  ${row.case}: owed to ${row.owner}, a Task not open`].filter(() => !open.has(row.owner)),
+  ...unbroken(row, run),
+];
 
 const judged = (
   runs: ReadonlyArray<{ readonly script: Script; readonly run: Played }>,
   owed: ReadonlyArray<PartOwed>,
+  open: ReadonlySet<string>,
 ) =>
   runs.flatMap(({ script, run }) => {
     const rows = owed.filter((o) => o.case === script.id);
-
-    if (rows.length > 0 && run.verdict._tag === "Timeout")
-      return [`BAD  ${script.id}: ${Formatter.format(run.verdict)}, which no owed row excuses`];
-
-    if (rows.length > 0)
-      return [
-        ...rows.flatMap((row) =>
-          heldBy(row, run)
-            ? []
-            : [
-                `BAD  ${script.id}: owed to ${row.owner}, but no kept failure is ${row.check} ${row.invariant} on ${row.subjects.join(", ") || "no subject"}`,
-              ],
-        ),
-        ...rows.flatMap((row) => spareListings(row, run)),
-        ...unowedFailures(run, rows).map(
-          (failure) => `BAD  ${script.id}: fails by ${failure}, which no owed row names`,
-        ),
-      ];
-
-    if (run.verdict._tag !== "Pass") return [`BAD  ${script.id}: ${Formatter.format(run.verdict)}`];
-
     const answers = script.steps.filter((s) => s._tag === "answer").length;
 
-    return run.skipped * 2 > answers
-      ? [`BAD  ${script.id}: ${run.skipped} of ${answers} answers found no open request`]
-      : [];
+    const stopped = Option.toArray(run.threw).map(
+      (failure) => `BAD  ${script.id}: ${Formatter.format(failure)}, which no owed row excuses`,
+    );
+
+    const unowned = run.violations
+      .filter(
+        (v) =>
+          v.excused &&
+          !rows.some(
+            (r) =>
+              r.check === v.oracle &&
+              r.invariant === v.invariant &&
+              Option.exists(v.subject, (s) => excuses(r, s, v.step)),
+          ),
+      )
+      .map((v) => `BAD  ${script.id}: ${v.text}, which no owed row given here excuses`);
+
+    const thin =
+      rows.length === 0 && run.skipped * 2 > answers
+        ? [`BAD  ${script.id}: ${run.skipped} of ${answers} answers found no open request`]
+        : [];
+
+    return [...stopped, ...unowned, ...rows.flatMap((row) => rowFaults(row, run, open)), ...thin];
   });
 
 const isRecord = Schema.is(Schema.Record(Schema.String, Schema.Json));

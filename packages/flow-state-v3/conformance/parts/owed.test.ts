@@ -9,15 +9,22 @@ import { verdict } from "../runner/parts-gates.ts";
 import { verdictOf } from "../runner/run.ts";
 import { scenarios } from "../suite.ts";
 import { combinationGate } from "./pairs.ts";
-import { parts } from "../../fixtures/index.ts";
-import { implemented as production } from "../adapters/production.ts";
-import { scriptOf } from "./generate.ts";
-import { partsOwed } from "./owed.ts";
+import { oracle, type Oracle, violation } from "../dsl/oracle.ts";
+import { oracles } from "../suite.ts";
+import { item, OwedItem, owedRows, type PartOwed } from "./owed.ts";
 import { partFaults, playPart } from "./play.ts";
+import { playedScope, scriptById } from "./records.ts";
 
 const passed = (id: string) => ({
   script: { id, fixture: "x", actor: "a", steps: [] },
-  run: { verdict: { _tag: "Pass" as const, id }, facts: [], skipped: 0, undecided: [], kept: [] },
+  run: {
+    verdict: { _tag: "Pass" as const, id },
+    threw: Option.none(),
+    facts: [],
+    skipped: 0,
+    undecided: [],
+    violations: [],
+  },
 });
 
 const owner = { task: "@task.V3.T19", slice: 2, by: "a sweep", date: "2026-11-12" } as const;
@@ -39,7 +46,7 @@ describe("owed rows match something that still runs (Conformance R15, R18, R22)"
       invariant: "I",
       why: "w",
       owner: "o",
-      subjects: [],
+      items: [OwedItem.Attempt({ id: "att-1" })],
     };
 
     const scope = new Set(["PART-x-usual-1"]);
@@ -74,103 +81,6 @@ describe("owed rows match something that still runs (Conformance R15, R18, R22)"
   });
 });
 
-describe("an owed row excuses only the Attempts it names (Conformance R22)", () => {
-  it("a lost ending on an Attempt no row names fails its owed run", () => {
-    const pay = parts.find((p) => p.name === "pay");
-    assert.ok(pay !== undefined);
-    const script = scriptOf(pay, "stress", 1, production);
-
-    const rows = partsOwed
-      .filter((o) => o.case === script.id)
-      .map((o) => ({ ...o, subjects: ["att-none"] }));
-
-    assert.ok(rows.some((o) => o.invariant === "WriteLanes I15"));
-
-    const faults = partFaults(
-      [{ script, run: playPart(script, "production", undefined, rows) }],
-      rows,
-    );
-
-    assert.ok(
-      faults.some((f) => f.includes("WriteLanes I15") && f.includes("which no owed row names")),
-      faults.join("\n"),
-    );
-  });
-
-  it("each kept violation cancels one failure line, so an unowed one with the same text fails", () => {
-    const text = "delivered-once: WriteLanes I15: lost (at send Send)";
-
-    const row = {
-      case: "PART-x-usual-1",
-      check: "delivered-once",
-      invariant: "WriteLanes I15",
-      why: "a planted bug",
-      owner: "@task.V3.T19",
-      subjects: ["att-1"],
-    };
-
-    const kept = {
-      oracle: row.check,
-      invariant: row.invariant,
-      subject: Option.some("att-1"),
-      text,
-    };
-
-    const run = {
-      verdict: {
-        _tag: "Fail" as const,
-        id: row.case,
-        oracles: [row.check],
-        why: `seed 1: ${text} | ${text}`,
-      },
-      facts: [],
-      skipped: 0,
-      undecided: [],
-      kept: [kept],
-    };
-
-    const faults = partFaults([{ ...passed(row.case), run }], [row], new Set([row.case]));
-
-    assert.equal(faults.filter((f) => f.includes("which no owed row names")).length, 1);
-  });
-
-  it("a subject a row lists once excuses one violation, so a further break on that lane fails", () => {
-    const transfers = parts.find((p) => p.name === "transfers");
-    assert.ok(transfers !== undefined);
-    const script = scriptOf(transfers, "stress", 104, production);
-    const lane = "Bank/Transfers acct-2 transfer";
-    const rows = partsOwed.filter((o) => o.case === script.id);
-
-    const judged = (subjects: (s: ReadonlyArray<string>) => ReadonlyArray<string>) => {
-      const given = rows.map((o) =>
-        o.invariant === "WriteLanes I15" ? { ...o, subjects: subjects(o.subjects) } : o,
-      );
-
-      return partFaults(
-        [{ script, run: playPart(script, "production", undefined, given) }],
-        given,
-        new Set([script.id]),
-      );
-    };
-
-    const once = (s: ReadonlyArray<string>) => [...s.filter((x) => x !== lane), lane];
-
-    const thrice = (s: ReadonlyArray<string>) => [...s, lane];
-
-    assert.deepEqual(
-      judged((s) => s),
-      [],
-    );
-    assert.ok(judged(thrice).some((f) => f.includes(`lists ${lane} 3 times, but it broke 2`)));
-    assert.ok(
-      judged(once).some(
-        (f) => f.includes("WriteLanes I15") && f.includes("which no owed row names"),
-      ),
-      judged(once).join("\n"),
-    );
-  });
-});
-
 describe("an owed run that times out is a fault, whatever it kept (Conformance R8, R22)", () => {
   it("a Timeout after a kept violation fails the gate", () => {
     const row = {
@@ -179,27 +89,148 @@ describe("an owed run that times out is a fault, whatever it kept (Conformance R
       invariant: "WriteLanes I15",
       why: "w",
       owner: "@task.V3.T19",
-      subjects: ["att-1"],
+      items: [OwedItem.Attempt({ id: "att-1" })],
     };
 
     const kept = {
       oracle: "delivered-once",
       invariant: "WriteLanes I15",
       subject: Option.some("att-1"),
+      step: 1,
       text: "delivered-once: WriteLanes I15: lost (at s)",
+      excused: true,
     };
 
+    const timeout = { _tag: "Timeout" as const, id: row.case, seed: 1, seconds: 10 };
+
     const run = {
-      verdict: { _tag: "Timeout" as const, id: row.case, seed: 1, seconds: 10 },
+      verdict: timeout,
+      threw: Option.some(timeout),
       facts: [],
       skipped: 0,
       undecided: [],
-      kept: [kept],
+      violations: [kept],
     };
 
     const script = { id: row.case, fixture: "x", actor: "a", steps: [] };
 
     assert.equal(partFaults([{ script, run }], [row]).length, 1);
+  });
+});
+
+const planted = (check: string, invariant: string, subject: string, at: number) => {
+  const found = violation(`${invariant}: planted lost ending`, Option.some(subject));
+
+  return oracle<number>({
+    name: check,
+    guarantee: [found.invariant],
+    start: () => 0,
+    step: (n) => [n + 1, n === at ? [found] : []],
+  });
+};
+
+const judgedWith = (id: string, extra: ReadonlyArray<Oracle>, rows: ReadonlyArray<PartOwed>) => {
+  const script = Option.getOrThrow(scriptById(id));
+  const mine = rows.filter((o) => o.case === id);
+
+  const run = playPart(script, "production", undefined, mine, Option.none(), [
+    ...oracles,
+    ...extra,
+  ]);
+
+  return partFaults([{ script, run }], mine, new Set([id]));
+};
+
+const ownedBy = (id: string) => owedRows.filter((o) => o.case === id);
+
+describe("one owed rule for every owed script, by exact break (the class gate; Conformance R22)", () => {
+  const owedIds = [...new Set(owedRows.map((o) => o.case))];
+
+  it("every owed script plays on the part player and holds its rows, at its own seed", () => {
+    assert.ok(owedIds.length > 50);
+    assert.ok(owedIds.includes("GEN-pay-search-25-shrunk"));
+
+    for (const id of owedIds) assert.deepEqual(judgedWith(id, [], owedRows), [], id);
+  }, 120_000);
+
+  it("a planted break on any fresh Attempt, any lane at a fresh step, or an owed Attempt under another Invariant fails every played script", () => {
+    const ids = [...playedScope(), ...owedIds];
+    let seed = 7;
+
+    const pick = (n: number) => {
+      seed = (seed * 48_271) % 2_147_483_647;
+
+      return seed % n;
+    };
+
+    for (const id of new Set(ids)) {
+      const rows = ownedBy(id);
+      const [row] = rows;
+      const check = row?.check ?? "delivered-once";
+      const invariant = row?.invariant ?? "WriteLanes I15";
+      const at = pick(3);
+
+      const kinds = [
+        planted(check, invariant, `att-planted-${pick(1000)}`, at),
+        planted(check, invariant, `Planted/Lane x${pick(1000)} op`, at),
+        ...rows.flatMap((r) =>
+          r.items
+            .filter(OwedItem.$is("Attempt"))
+            .slice(0, 1)
+            .map((a) => planted(r.check, "Actors I1", a.id, at)),
+        ),
+        ...rows.flatMap((r) =>
+          r.items
+            .filter(OwedItem.$is("Item"))
+            .map((i) => planted(r.check, r.invariant, i.subject, at)),
+        ),
+      ];
+
+      for (const kind of kinds)
+        assert.ok(
+          judgedWith(id, [kind], owedRows).some((f) => f.includes("planted lost ending")),
+          id,
+        );
+    }
+  }, 240_000);
+
+  it("an owed item that stops breaking, or a row of a Task not open, fails the gate", () => {
+    const id = "PART-transfers-stress-104";
+    const rows = ownedBy(id);
+    const extra = rows.map((r) => ({ ...r, items: [...r.items, item("Planted/Lane y op", 999)] }));
+
+    assert.ok(judgedWith(id, [], extra).some((f) => f.includes("no longer breaks")));
+
+    const script = Option.getOrThrow(scriptById(id));
+    const run = playPart(script, "production", undefined, rows);
+
+    assert.ok(
+      partFaults([{ script, run }], rows, new Set([id]), new Set()).some((f) =>
+        f.includes("a Task not open"),
+      ),
+    );
+  }, 60_000);
+
+  it("owed scripts meet the skipped-answers rule too (N9; red: production's owed bugs leave answers unopened)", () => {
+    const thin = owedIds.filter((id) => {
+      const script = Option.getOrThrow(scriptById(id));
+      const run = playPart(script, "production", undefined, ownedBy(id));
+      const answers = script.steps.filter((s) => s._tag === "answer").length;
+
+      return run.skipped * 2 > answers;
+    });
+
+    assert.deepEqual(thin, []);
+  }, 120_000);
+
+  it("each row names a break and is the only row of its script, check and Invariant", () => {
+    const keys = owedRows.map((o) => `${o.case}|${o.check}|${o.invariant}`);
+
+    assert.deepEqual(
+      owedRows.filter((o) => o.items.length === 0),
+      [],
+    );
+    assert.equal(new Set(keys).size, keys.length);
   });
 });
 

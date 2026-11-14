@@ -33,7 +33,15 @@ export const playRecorded = (options: CaseOptions, run: Scenario["run"]) => {
   run(opened.driven);
   opened.end();
 
-  return opened.facts().reduce<ReadonlyArray<ReadonlyArray<RuntimeFact>>>((steps, fact) => {
+  return runtimeStepsOf(opened.facts());
+};
+
+/**
+ * A timeline's runtime facts (reports and runtime answers) grouped by step, in order: entry `n`
+ * holds step `n + 1`'s, the shape the liar replay takes. Facts before the first step are dropped.
+ */
+export const runtimeStepsOf = (facts: ReadonlyArray<Fact>) =>
+  facts.reduce<ReadonlyArray<ReadonlyArray<RuntimeFact>>>((steps, fact) => {
     if (Fact.$is("Stepped")(fact)) return [...steps, []];
 
     if (!isRuntimeFact(fact)) return steps;
@@ -41,4 +49,3 @@ export const playRecorded = (options: CaseOptions, run: Scenario["run"]) => {
 
     return [...steps.slice(0, -1), [...last, fact]];
   }, []);
-};

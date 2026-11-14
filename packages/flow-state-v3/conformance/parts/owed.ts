@@ -1,15 +1,48 @@
+import { Data, Predicate } from "effect";
 import type { Limit } from "../limits.ts";
 
 /**
- * One owed row of a part script (Conformance R22): a {@link Limit} with the Task that owns it and
- * the subjects (Attempts, actors or lanes) whose violations it excuses, so a new break of the same
- * check and Invariant on another subject still fails the run. An actor or lane is listed once per
- * violation seen, since it names no one Attempt; each listing excuses one.
+ * One exact break an owed row excuses: an Attempt (every violation of the row's check and
+ * Invariant on it), or, for a break with no Attempt, the subject the refusal names (a lane or an
+ * actor) at the one step it broke at.
+ */
+export type OwedItem = Data.TaggedEnum<{
+  Attempt: { id: string };
+  Item: { subject: string; step: number };
+}>;
+
+export const OwedItem = Data.taggedEnum<OwedItem>();
+
+/**
+ * A break with no Attempt: its refusal's subject at its step.
+ */
+export const item = (subject: string, step: number) => OwedItem.Item({ subject, step });
+
+/**
+ * One owed row of a script the part player plays (Conformance R22): a {@link Limit} with the Task
+ * that owns it and the exact breaks it excuses. Every item must still break, and any other break
+ * fails the run.
  */
 export type PartOwed = Limit & {
   readonly owner: string;
-  readonly subjects: ReadonlyArray<string>;
+  readonly items: ReadonlyArray<OwedItem>;
 };
+
+/**
+ * Whether an item is the violation found on `subject` at `step`.
+ */
+export const isBreak = (owed: OwedItem, subject: string, step: number) =>
+  OwedItem.$match(owed, {
+    Attempt: ({ id }) => id === subject,
+    Item: (i) => i.subject === subject && i.step === step,
+  });
+
+/**
+ * The one owed rule (Conformance R22): whether `row` excuses a violation of its script, check and
+ * Invariant found on `subject` at `step`.
+ */
+export const excuses = (row: PartOwed, subject: string, step: number) =>
+  row.items.some((i) => isBreak(i, subject, step));
 
 /**
  * Why production re-sends past its budget across a reload: a re-send's retryCount is never
@@ -28,6 +61,8 @@ export const UNBOUND_RESTORE =
   "the boot restores and parks a disposed identity's unbound Held head, so the adopting incarnation's start gets nothing (Restore R1, Actors I40: a boot delivers and parks nothing)";
 
 const OWED_SUBJECTS = {
+  "GEN-pay-search-25-shrunk|delivered-once|WriteLanes I15": ["att-25000-7"],
+  "GEN-pay-search-25-shrunk|disposal|Actors I29": ["att-25000-7"],
   "MIX-sync+transfers+sign-in-stress-101|lane-queue|WriteLanes I12": ["att-101000-35"],
   "PART-cells-stress-101|delivered-once|WriteLanes I15": ["att-101001-6"],
   "PART-cells-stress-101|disposal|Actors I29": ["att-101001-6"],
@@ -46,7 +81,7 @@ const OWED_SUBJECTS = {
   "PART-cells-stress-104|delivered-once|WriteLanes I15": ["att-104000-7", "att-104004-51"],
   "PART-cells-stress-104|disposal|Actors I29": ["att-104000-7", "att-104004-51"],
   "PART-cells-stress-105-shrunk|delivered-once|WriteLanes I15": [
-    "Checkout/Pay shopper-1 pay",
+    item("Checkout/Pay shopper-1 pay", 8),
     "att-105000-16",
   ],
   "PART-cells-stress-105-shrunk|disposal|Actors I38": ["att-105000-7"],
@@ -186,8 +221,8 @@ const OWED_SUBJECTS = {
   "PART-transfers-stress-101|lane-queue|WriteLanes I12": ["att-101004-3"],
   "PART-transfers-stress-104|delivered-once|Restore I6": ["att-104001-18"],
   "PART-transfers-stress-104|delivered-once|WriteLanes I15": [
-    "Bank/Transfers acct-2 transfer",
-    "Bank/Transfers acct-2 transfer",
+    item("Bank/Transfers acct-2 transfer", 169),
+    item("Bank/Transfers acct-2 transfer", 190),
     "att-104001-18",
     "att-104004-34",
     "att-104004-43",
@@ -217,24 +252,27 @@ const OWED_SUBJECTS = {
   "PART-transfers-stress-9|delivered-once|WriteLanes I16": ["att-9003-8", "att-9004-29"],
   "PART-transfers-stress-9|disposal|Actors I29": ["att-9003-8", "att-9004-29"],
   "PART-transfers-stress-9|lane-queue|WriteLanes I12": ["att-9003-8", "att-9004-29"],
-} satisfies Readonly<Record<string, ReadonlyArray<string>>>;
+} satisfies Readonly<Record<string, ReadonlyArray<string | OwedItem>>>;
 
-const BY_ROW: ReadonlyMap<string, ReadonlyArray<string>> = new Map(Object.entries(OWED_SUBJECTS));
+const BY_ROW: ReadonlyMap<string, ReadonlyArray<string | OwedItem>> = new Map(
+  Object.entries(OWED_SUBJECTS),
+);
 
 /**
- * The subjects one owed row of a part script excuses: the Attempts (or, for a decline, the actor
- * and operation) its production bug was seen to break at triage; none when triage named none, so
- * the row holds nothing.
+ * The exact breaks one owed row excuses: the Attempts (or, for a break with no Attempt, its
+ * subject at its step) its production bug was seen to break at triage.
  *
  * **Gotchas**
  *
  * - The lists come from a production run: they record known failures as a change detector and
  *   are never an expected result, which comes from the Spec model alone.
- * - Ids are minted deterministically per seed, so a production change that moves them leaves a
- *   row unheld and forces a re-triage, and a new break on another subject fails the run.
+ * - Ids and steps are deterministic per seed, so a production change that moves them leaves an
+ *   item unbroken and forces a re-triage, and a new break on another item fails the run.
  */
-export const owedSubjects = (id: string, check: string, invariant: string) =>
-  BY_ROW.get(`${id}|${check}|${invariant}`) ?? [];
+export const owedItems = (id: string, check: string, invariant: string) =>
+  (BY_ROW.get(`${id}|${check}|${invariant}`) ?? []).map((s) =>
+    Predicate.isString(s) ? OwedItem.Attempt({ id: s }) : s,
+  );
 
 const I12 = ["lane-queue", "WriteLanes I12"] as const;
 const I15 = ["delivered-once", "WriteLanes I15"] as const;
@@ -254,7 +292,7 @@ const owing = (
       invariant,
       why,
       owner,
-      subjects: owedSubjects(id, check, invariant),
+      items: owedItems(id, check, invariant),
     })),
   );
 
@@ -330,3 +368,33 @@ export const partsOwed: ReadonlyArray<PartOwed> = [
     "@task.V3.T54",
   ),
 ];
+
+const REFUSED_UNENDED =
+  "a forgotten or disposed actor's unacknowledged Attempt whose batch the store then refuses is never ended (only StorageFailure evidence), so the Runtime's disposal finds it still Unsent (WriteAhead R13, Actors R21, WriteLanes I27)";
+
+/**
+ * Production's owed reds among the kept regression scripts (Conformance I49), each a script it
+ * fails by a bug a Task owns.
+ */
+export const regressionsOwed: ReadonlyArray<PartOwed> = [
+  ...owing(["GEN-pay-search-25-shrunk"], [I15, I29], UNBOUND_RESTORE, "@task.V3.T54"),
+  ...owing(["PART-transfers-stress-111-shrunk"], [I12, I16, I15, I29], RETRY_COUNT, "@task.V3.T19"),
+  ...owing(
+    ["PART-transfers-stress-5-shrunk"],
+    [["disposal", "Actors I38"]],
+    REFUSED_UNENDED,
+    "@task.V3.T19",
+  ),
+  ...owing(
+    ["PART-cells-stress-105-shrunk"],
+    [["lane-queue", "WriteLanes I8"], I15, ["disposal", "Actors I38"]],
+    `${REFUSED_UNENDED}; a disposed actor's adoption then mints on the lane its unended head still holds`,
+    "@task.V3.T19",
+  ),
+];
+
+/**
+ * Every owed row of a script the part player plays: the generated part scripts' and the kept
+ * regressions'. One rule ({@link excuses}) judges them all, by exact break, at every seed.
+ */
+export const owedRows: ReadonlyArray<PartOwed> = [...partsOwed, ...regressionsOwed];

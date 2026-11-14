@@ -3,7 +3,9 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mixed, parts } from "../../fixtures/index.ts";
+import { Option } from "effect";
 import { implemented as production } from "../adapters/production.ts";
+import { regressionFiles } from "../generated.ts";
 import { staticOwed } from "../adapters/production-static.ts";
 import { constructionCases } from "../compile/construction.cases.ts";
 import { ownsRows } from "../coverage.ts";
@@ -12,7 +14,7 @@ import { scenarios } from "../suite.ts";
 import { SLICE_OF } from "./codes.ts";
 import { FEATURES } from "./feature-rows.ts";
 import { casesReaching, checksOf, derivedFrom, widened } from "./features.ts";
-import { BUILD_SEEDS, HELD_OUT_SEEDS, mixOf, scriptOf } from "./generate.ts";
+import { BUILD_SEEDS, HELD_OUT_SEEDS, mixOf, type Profile, scriptOf } from "./generate.ts";
 
 const TABLE = resolve(
   dirname(fileURLToPath(import.meta.url)),
@@ -205,6 +207,32 @@ export const heldOutScripts = () => scriptsAt(HELD_OUT_SEEDS, HELD_OUT_SEEDS);
  */
 export const playedScope = () =>
   new Set([...scriptsAt(BUILD_SEEDS, BUILD_SEEDS), ...heldOutScripts()].map((script) => script.id));
+
+// RETURN_TYPE: a type predicate, so the filtered profile narrows.
+const isProfile = (p: string): p is Profile => p === "usual" || p === "stress";
+
+/**
+ * The script the suite plays under an id: a part's or the app mix's generated script, by its
+ * profile and seed, or a kept regression; none for an id no generator or file gives.
+ */
+export const scriptById = (id: string) => {
+  const [, kind, name, profile, seed] = /^(PART|MIX)-(.+)-(usual|stress)-(\d+)$/u.exec(id) ?? [];
+  const part = parts.find((p) => p.name === name);
+  const drawn = Option.filter(Option.fromUndefinedOr(profile), isProfile);
+
+  const generated = Option.flatMap(drawn, (p) =>
+    kind === "MIX"
+      ? Option.some(mixOf(mixed, p, Number(seed), production))
+      : Option.map(Option.fromUndefinedOr(part), (it) => scriptOf(it, p, Number(seed), production)),
+  );
+
+  return Option.filter(
+    Option.orElse(generated, () =>
+      Option.fromUndefinedOr(regressionFiles.find((r) => r.script.id === id)?.script),
+    ),
+    (script) => script.id === id,
+  );
+};
 
 /**
  * The slice being built: the lowest slice that still has an open Task.

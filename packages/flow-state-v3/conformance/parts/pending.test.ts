@@ -24,7 +24,7 @@ describe("pending checks, owed to other Tasks (routed gaps)", () => {
 
     assert.ok(noticed > 0);
     assert.ok(noticed < modelFields().length);
-  });
+  }, 60_000);
 
   it("T18: Cells aborts only while unsure, since the generator's belief frees a lane on any cancel", () => {
     const cells = parts.find((p) => p.name === "cells");

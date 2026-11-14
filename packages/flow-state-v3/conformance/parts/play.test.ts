@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vite-plus/test";
-import { Formatter } from "effect";
+import { Formatter, Option } from "effect";
 import { mixed, parts } from "../../fixtures/index.ts";
 import { implemented as production } from "../adapters/production.ts";
 import { GRACE_MS } from "../dsl/expect.ts";
@@ -13,39 +13,12 @@ import type { Script } from "../dsl/script.ts";
 import { Observation } from "../port.ts";
 import type { CaseVerdict } from "../runner/verdict.ts";
 import { BUILD_SEEDS, mixOf, scriptOf } from "./generate.ts";
-import { verdictOfLimit } from "../limits.ts";
-import { type PartOwed, partsOwed } from "./owed.ts";
+import { partsOwed } from "./owed.ts";
 import { partFaults, playPart, reachedBy, reachOf, undecidedLine, worldSeedOf } from "./play.ts";
 
 const SEEDS = BUILD_SEEDS.slice(0, 4);
 
 const answers = (script: Script) => script.steps.filter((s) => s._tag === "answer").length;
-
-const owedScript = (id: string) => {
-  const [, kind, name, profile, seed] = /^(PART|MIX)-(.+)-(usual|stress)-(\d+)$/u.exec(id) ?? [];
-  const part = parts.find((p) => p.name === name);
-  assert.ok(profile === "usual" || profile === "stress", id);
-  assert.ok(kind === "MIX" || part !== undefined, id);
-
-  const script =
-    part === undefined
-      ? mixOf(mixed, profile, Number(seed), production)
-      : scriptOf(part, profile, Number(seed), production);
-
-  assert.equal(script.id, id);
-
-  return script;
-};
-
-const owedFaults = (id: string, rows: ReadonlyArray<PartOwed>) => {
-  const script = owedScript(id);
-
-  return partFaults(
-    [{ script, run: playPart(script, "production", undefined, rows) }],
-    rows,
-    new Set([id]),
-  );
-};
 
 describe("part scripts on production (Q9, Q10, Q15, Q17: Conformance R15, R19, R22, I48, I60)", () => {
   it("each pilot's usual and stress scripts pass on production, but owed reds, most answers landing", () => {
@@ -124,39 +97,6 @@ describe("part scripts on production (Q9, Q10, Q15, Q17: Conformance R15, R19, R
     assert.ok(
       partFaults([{ script, run: playPart(script, "production", undefined, [first]) }], [first])
         .length > 0,
-    );
-  });
-
-  it("each owed red still fails on production by its check, Invariant and subjects, at every seed", () => {
-    const ids = [...new Set(partsOwed.map((o) => o.case))];
-    assert.ok(ids.some((id) => /-(?:[7-9]|1[0-2])$/u.test(id)));
-
-    for (const id of ids) {
-      const rows = partsOwed.filter((o) => o.case === id);
-      const played = playPart(owedScript(id), "production");
-
-      assert.deepEqual(owedFaults(id, rows), [], id);
-
-      for (const owed of rows)
-        assert.ok(verdictOfLimit(owed, played.verdict).held, Formatter.format(played.verdict));
-    }
-  }, 120_000);
-
-  it("an owed red at a seed past the gate's fails once a row stops naming an Attempt that breaks", () => {
-    const id = "PART-cells-stress-7";
-    const rows = partsOwed.filter((o) => o.case === id);
-    assert.ok(rows.some((o) => o.subjects.includes("att-7008-14")));
-
-    const planted = rows.map((o) => ({
-      ...o,
-      subjects: o.subjects.filter((s) => s !== "att-7008-14"),
-    }));
-
-    const faults = owedFaults(id, planted);
-
-    assert.ok(
-      faults.some((f) => f.includes("WriteLanes I15") && f.includes("which no owed row names")),
-      faults.join("\n"),
     );
   });
 
@@ -450,7 +390,9 @@ describe("reach credits only the part that ran (close review finding 8: Conforma
   const pass = { _tag: "Pass", id: "synthetic" } as const;
 
   const credited = (facts: ReadonlyArray<Fact>, verdict: CaseVerdict = pass) =>
-    reachOf({ verdict, facts, skipped: 0, undecided: [], kept: [] })["C"] ?? new Set();
+    reachOf({ verdict, threw: Option.none(), facts, skipped: 0, undecided: [], violations: [] })[
+      "C"
+    ] ?? new Set();
 
   const step = Fact.Stepped({ step: 1, what: "synthetic" });
   const ensured = Fact.Ensured({ actor: acct, use: "story" });
@@ -499,7 +441,14 @@ describe("reach credits only the part that ran (close review finding 8: Conforma
 
     const facts = [step, ensured, Fact.Released({ actor: acct, use: "story" })];
 
-    const run = (verdict: CaseVerdict) => ({ verdict, facts, skipped: 0, undecided: [], kept: [] });
+    const run = (verdict: CaseVerdict) => ({
+      verdict,
+      threw: Option.none(),
+      facts,
+      skipped: 0,
+      undecided: [],
+      violations: [],
+    });
 
     assert.ok(reachedBy([{ run: run(pass) }]).has("gr"));
     assert.equal(reachedBy([{ run: run(fail) }]).size, 0);

@@ -7,10 +7,29 @@ import { anchorOf, judgedStep } from "../turn/selection.ts";
 import { RequestPhase } from "../world/network.ts";
 import type { World } from "../world/world.ts";
 import { type CaseOptions, Crashed } from "./case.ts";
-import { empty } from "./lifecycle-model.ts";
+import { empty, type Model } from "./lifecycle-model.ts";
 import { step as lifeStep } from "./lifecycle-step.ts";
 import { Fact, type RuntimeFact, steps, Violated } from "./oracle.ts";
 import { decodeReports } from "./reports.ts";
+
+/**
+ * One violation an oracle found, as facts: its check (`oracle`), Invariant, subject, the step it
+ * was found at, whether the case's `excuse` kept it, and its text for display only.
+ */
+export type Judged = {
+  readonly oracle: string;
+  readonly invariant: string;
+  readonly subject: Option.Option<string>;
+  readonly step: number;
+  readonly text: string;
+  readonly excused: boolean;
+};
+
+const stepOf = (cut: ReadonlyArray<Fact>) => {
+  const [head] = cut;
+
+  return head !== undefined && Fact.$is("Stepped")(head) ? head.step : 0;
+};
 
 /**
  * A case's step engine: each step records itself, runs, settles the world, notes what the world
@@ -24,6 +43,8 @@ import { decodeReports } from "./reports.ts";
  * - The world's notes (requests, an answer given at once, batches written) follow the step's
  *   reports, as they were seen at the settle.
  * - Under the crash generator, the step it names ends with a kill and reload, and `Crashed`.
+ * - `modelsBefore` keeps the lifecycle model each step started from, by step number: an
+ *   adversary names a subject in the phase a refusal cell reads from it.
  */
 export const stepEngine = (
   options: CaseOptions,
@@ -59,13 +80,10 @@ export const stepEngine = (
   let wrote = 0;
   let judged = 0;
   let model = empty;
+  const before = new Map<number, Model>();
 
-  const excused: Array<{
-    readonly oracle: string;
-    readonly invariant: string;
-    readonly subject: Option.Option<string>;
-    readonly text: string;
-  }> = [];
+  const excused: Array<Judged> = [];
+  const violations: Array<Judged> = [];
 
   const noteWorld = () => {
     for (const request of network.requests().slice(noted)) {
@@ -109,6 +127,10 @@ export const stepEngine = (
     judged = facts.length;
 
     const cuts = fresh.map((cut) => {
+      const [head] = cut;
+
+      if (head !== undefined && Fact.$is("Stepped")(head)) before.set(head.step, model);
+
       const leaves = leavesOf(anchor);
       const judgedCut = judgedStep(anchor, cut);
       anchor = judgedCut.state;
@@ -129,21 +151,25 @@ export const stepEngine = (
     });
 
     const all = judges.flatMap(({ name, next }) =>
-      cuts.flatMap(({ cut, life }) => next(cut, requests, life)).map((v) => ({ name, v })),
+      cuts.flatMap(({ cut, life }) =>
+        next(cut, requests, life).map((v) => ({ name, v, step: stepOf(cut) })),
+      ),
     );
 
-    const owed = all.filter((f) => options.excuse(f.name, f.v.invariant, f.v.subject));
-
+    const owed = all.filter((f) => options.excuse(f.name, f.v.invariant, f.v.subject, f.step));
     const found = all.filter((f) => !owed.includes(f));
 
-    excused.push(
-      ...owed.map((f) => ({
-        oracle: f.name,
-        invariant: f.v.invariant,
-        subject: f.v.subject,
-        text: `${f.name}: ${f.v.invariant}: ${f.v.text} (at ${what})`,
-      })),
-    );
+    const judgedNow = all.map((f) => ({
+      oracle: f.name,
+      invariant: f.v.invariant,
+      subject: f.v.subject,
+      step: f.step,
+      text: `${f.name}: ${f.v.invariant}: ${f.v.text} (at ${what})`,
+      excused: owed.includes(f),
+    }));
+
+    violations.push(...judgedNow);
+    excused.push(...judgedNow.filter((v) => v.excused));
 
     if (found.length > 0)
       throw new Violated({
@@ -185,6 +211,9 @@ export const stepEngine = (
     judge,
     stopCrashing: () => void (crashing = false),
     excused: () => [...excused],
+    violations: () => [...violations],
     undecided: () => anchor.undecided,
+    // RETURN_TYPE: a read-only view, so a reader cannot change the engine's record.
+    modelsBefore: (): ReadonlyMap<number, Model> => before,
   };
 };

@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { Console, Effect, Formatter } from "effect";
+import { Console, Effect, Formatter, Option } from "effect";
 import { implemented as production, productionFixtures } from "../adapters/production.ts";
 import { rules } from "../dsl/lifecycle-rules.ts";
 import { scenarioOf } from "../dsl/script.ts";
@@ -7,14 +7,13 @@ import { Cells, Pay } from "../fixtures/pay.ts";
 import { Serialize } from "../fixtures/one-lane.ts";
 import { isPartScript, regressionFiles } from "../generated.ts";
 import { playChosen, PRODUCTION_RUNTIME } from "./args.ts";
-import { verdictOfLimit } from "../limits.ts";
 import { recording } from "../parts/cells.ts";
 import { SLICE_OF } from "../parts/codes.ts";
 import { matrixGate } from "../parts/features.ts";
 import { fieldGate, modelFields, modelMutants } from "../parts/model-mutation.ts";
 import { PAIR_OWNERS } from "../parts/pair-owners.ts";
 import { combinationGate } from "../parts/pairs.ts";
-import { owedSubjects, type PartOwed, RETRY_COUNT, UNBOUND_RESTORE } from "../parts/owed.ts";
+import { partsOwed, regressionsOwed } from "../parts/owed.ts";
 import { partFaults, playPart, reachedBy, reachOf, undecidedLine } from "../parts/play.ts";
 import {
   currentSlice,
@@ -22,6 +21,7 @@ import {
   heldOutScripts,
   matrixInputOf,
   playedScope,
+  scriptById,
   taskSlices,
   taskStatuses,
 } from "../parts/records.ts";
@@ -53,16 +53,31 @@ export const verdict = (lines: ReadonlyArray<string>, total: number, what: strin
     yield* Console.log(`VERDICT ${ok ? "pass" : "fail"} ${total - lines.length}/${total} ${what}`);
   });
 
+const openTasks = () =>
+  new Set([...taskStatuses()].flatMap(([task, open]) => (open ? [task] : [])));
+
 /**
- * The parts gate: every gate script passes on production, and each owed red still fails by its
- * check and Invariant (Conformance R15, R22).
+ * The parts gate: every gate script, and every owed script at its own seed, passes on production
+ * but for its owed breaks, each of which still breaks (Conformance R15, R22).
  */
 export const partsGate = Effect.suspend(() => {
-  const runs = played();
+  const gate = played();
+  const ids = new Set(gate.map(({ script }) => script.id));
+
+  const owedRuns = [...new Set(partsOwed.map((o) => o.case))]
+    .filter((id) => !ids.has(id))
+    .flatMap((id) => Option.toArray(scriptById(id)))
+    .map((script) => ({ script, run: playPart(script, "production") }));
+
+  const runs = [...gate, ...owedRuns];
 
   return Effect.andThen(
     Console.log(undecidedLine(runs)),
-    verdict(partFaults(runs, undefined, playedScope()), runs.length, "part scripts on production"),
+    verdict(
+      partFaults(runs, partsOwed, playedScope(), openTasks()),
+      runs.length,
+      "part scripts on production",
+    ),
   );
 });
 
@@ -77,7 +92,12 @@ export const heldOutGate = Effect.suspend(() => {
   }));
 
   return verdict(
-    partFaults(runs, undefined, playedScope()),
+    partFaults(
+      runs,
+      partsOwed.filter((o) => runs.some(({ script }) => script.id === o.case)),
+      playedScope(),
+      openTasks(),
+    ),
     runs.length,
     "held-out part scripts on production",
   );
@@ -145,65 +165,12 @@ export const modelMutationGate = Effect.suspend(() => {
   );
 });
 
-const REFUSED_UNENDED =
-  "a forgotten or disposed actor's unacknowledged Attempt whose batch the store then refuses is never ended (only StorageFailure evidence), so the Runtime's disposal finds it still Unsent (WriteAhead R13, Actors R21, WriteLanes I27)";
-
-/**
- * Production's owed reds among the kept regression scripts: one a production run fails by a bug
- * a Task owns, checked to still fail by its check and Invariant (a part script's on its subjects),
- * so a fix shows. A hand script's row is held by its check and Invariant alone: its run stops at its
- * first failure.
- */
-export const regressionsOwed: ReadonlyArray<PartOwed> = [
-  {
-    case: "GEN-pay-search-25-shrunk",
-    check: "delivered-once",
-    invariant: "WriteLanes I15",
-    why: UNBOUND_RESTORE,
-    owner: "@task.V3.T54",
-    subjects: [],
-  },
-  ...[
-    ["lane-queue", "WriteLanes I12"],
-    ["delivered-once", "WriteLanes I16"],
-    ["delivered-once", "WriteLanes I15"],
-    ["disposal", "Actors I29"],
-  ].map(([check = "", invariant = ""]) => ({
-    case: "PART-transfers-stress-111-shrunk",
-    check,
-    invariant,
-    why: RETRY_COUNT,
-    owner: "@task.V3.T19",
-    subjects: owedSubjects("PART-transfers-stress-111-shrunk", check, invariant),
-  })),
-  {
-    case: "PART-transfers-stress-5-shrunk",
-    check: "disposal",
-    invariant: "Actors I38",
-    why: REFUSED_UNENDED,
-    owner: "@task.V3.T19",
-    subjects: owedSubjects("PART-transfers-stress-5-shrunk", "disposal", "Actors I38"),
-  },
-  ...[
-    ["lane-queue", "WriteLanes I8"],
-    ["delivered-once", "WriteLanes I15"],
-    ["disposal", "Actors I38"],
-  ].map(([check = "", invariant = ""]) => ({
-    case: "PART-cells-stress-105-shrunk",
-    check,
-    invariant,
-    why: `${REFUSED_UNENDED}; a disposed actor's adoption then mints on the lane its unended head still holds`,
-    owner: "@task.V3.T19",
-    subjects: owedSubjects("PART-cells-stress-105-shrunk", check, invariant),
-  })),
-];
-
 /**
  * The kept regressions on production (Conformance I49): every kept script whose fixtures
- * production boots passes there, or is an owed red that still fails by its check and Invariant;
- * part scripts play through the part player. A hand script's saved signature (`by`) is
- * round-14's, where the generators found it, and the `regressions round-14` gate checks it; a part
- * script's is production's, the only runtime it runs on, and its owed row checks it.
+ * production boots passes there, or is an owed red judged by the one owed rule; part scripts and
+ * owed scripts play through the part player. A hand script's saved signature (`by`) is round-14's,
+ * where the generators found it, and the `regressions round-14` gate checks it; a part script's
+ * is production's, the only runtime it runs on, and its owed rows check it.
  */
 export const productionRegressions = Effect.gen(function* () {
   const kept = regressionFiles.filter(
@@ -217,11 +184,13 @@ export const productionRegressions = Effect.gen(function* () {
   const lines = yield* Effect.forEach(
     kept,
     ({ script }) =>
-      isPartScript(script.id)
+      isPartScript(script.id) || regressionsOwed.some((o) => o.case === script.id)
         ? Effect.succeed(
             partFaults(
               [{ script, run: playPart(script, "production", rules, regressionsOwed) }],
               regressionsOwed.filter((o) => o.case === script.id),
+              undefined,
+              openTasks(),
             ),
           )
         : Effect.map(
@@ -232,18 +201,9 @@ export const productionRegressions = Effect.gen(function* () {
               () => [],
             ),
             (verdicts) => {
-              const owed = regressionsOwed.find((o) => o.case === script.id);
               const [first] = verdicts;
 
               if (first === undefined) return [`BAD  ${script.id}: no verdict`];
-
-              if (owed !== undefined) {
-                const held = verdictOfLimit(owed, first);
-
-                return held.held
-                  ? []
-                  : [`BAD  ${script.id}: owed to ${owed.owner}, but ${held.why}`];
-              }
 
               return first._tag === "Pass" ? [] : [`BAD  ${script.id}: ${Formatter.format(first)}`];
             },

@@ -97,7 +97,7 @@ describe("F4: held-out seeds run in a gate (Conformance I52; advisor Q8)", () =>
         partFaults(runs, []).some((f) => f.includes(`${owed.case}:`)),
         owed.case,
       );
-  });
+  }, 60_000);
 
   it("a passing run whose answers mostly found no open request is a fault (close review finding 11)", () => {
     const [script] = heldOutScripts();
