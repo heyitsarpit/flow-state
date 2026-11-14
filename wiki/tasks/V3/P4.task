@@ -1572,6 +1572,13 @@ tasks
             T18 in owes.ts, coverage unchanged at 74 of 211. Edit (agent: T54 building lead, @task.V3.T54, 2026-11-14): 
             owes.ts, the requirements file, the build log and this comment. Why: the step-1 review and the 
             orchestrator's rulings. Reverse: the commit that adds this comment.
+        comment     2026-11-14T18:20:19Z
+            A0 done for review (628db140..HEAD): pending cases as host tests in src/host/ledger.test.ts (9 owed reds, 
+            A-4 and A-5 met with plants), the differential baseline over 1158 runs with crash-point behaviour, 
+            conservation and internals scans (runner mode baseline), the 140-cell table test, the seed test, the cost 
+            baseline (bench/cost.ts) and coverage counting production mutants; each check shown red on a plant. Owed 
+            items by step are in the build log's 'A0 status'. No core change. Edit (agent: T54 building lead, 
+            @task.V3.T54, 2026-11-14): this comment. Why: step A0's close. Reverse: the commit that adds it.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      draft

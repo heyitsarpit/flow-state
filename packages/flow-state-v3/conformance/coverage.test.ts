@@ -58,6 +58,36 @@ describe("one owed list judged by the coverage gate (consult A3)", () => {
       [],
     );
   });
+
+  it("an Invariant proved only by a production mutant is checked, by an oracle or by cases (T54 S-3)", () => {
+    const production = { ...mutant, runtime: "production" as const };
+
+    const byOracle = coverageOf({
+      invariants: ["WriteLanes I1"],
+      guarantees: [{ oracle: checking, mutants: [production] }],
+      owes: [],
+      checks: { rows: [], mutants: [], cases: [] },
+      open: new Set(),
+    });
+
+    const byCases = coverageOf({
+      invariants: ["WriteLanes I1"],
+      guarantees: [],
+      owes: [],
+      checks: {
+        rows: [{ invariant: "WriteLanes I1", cases: ["LANE-01"] }],
+        mutants: [production],
+        cases: [{ id: "LANE-01", cites: ["WriteLanes I1"] }],
+      },
+      open: new Set(),
+    });
+
+    assert.deepEqual([...byOracle.gaps, ...byCases.gaps], []);
+    assert.deepEqual(
+      [...byOracle.standings, ...byCases.standings].map((s) => s._tag),
+      ["Checked", "CaseChecked"],
+    );
+  });
 });
 
 describe("a retired rule is out of coverage's counts (the retired cancelAll)", () => {

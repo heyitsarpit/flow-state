@@ -79,7 +79,7 @@ export type CoverageInput = {
  *
  * **Details**
  *
- * It counts as checked only when a prototype mutant that expects it runs one of these cases;
+ * It counts as checked only when a mutant of either runtime that expects it runs one of these cases;
  * falsify then proves that case goes red by a failed expectation citing it.
  */
 export type CaseCovered = {
@@ -148,7 +148,7 @@ export const Standing = Data.taggedEnum<Standing>();
  * - `Unknown`: a row, an oracle's guarantee or a mutant names an Invariant no core Spec has.
  * - `Twice`: two "not yet" rows, two case-covered rows or two remainder rows list the same
  *   Invariant.
- * - `Unproven`: a case-covered row whose cases no prototype mutant expecting its Invariant runs.
+ * - `Unproven`: a case-covered row whose cases no mutant expecting its Invariant runs.
  * - `Uncited`: a case-covered row names a case that does not exist or does not cite its
  *   Invariant.
  * - `Unchecked`: a remainder row names an Invariant with no standing check (none, or one with
@@ -177,9 +177,7 @@ const checkOf = (guarantees: ReadonlyArray<Guarantee>, invariant: InvariantId) =
   guarantees.flatMap((g) => {
     if (!g.oracle.guarantee.includes(invariant)) return [];
 
-    const mutants = g.mutants
-      .filter((m) => m.runtime === "prototype" && m.expects === invariant)
-      .map((m) => m.name);
+    const mutants = g.mutants.filter((m) => m.expects === invariant).map((m) => m.name);
 
     return mutants.length === 0 ? [] : [{ oracle: g.oracle.name, mutants }];
   });
@@ -190,12 +188,7 @@ const caseCheckOf = (checks: CaseChecks, invariant: InvariantId) =>
     .map((row) => ({
       cases: row.cases,
       mutants: checks.mutants
-        .filter(
-          (m) =>
-            m.runtime === "prototype" &&
-            m.expects === invariant &&
-            m.cases.some((c) => row.cases.includes(c)),
-        )
+        .filter((m) => m.expects === invariant && m.cases.some((c) => row.cases.includes(c)))
         .map((m) => m.name),
       uncited: row.cases.filter(
         (id) => !checks.cases.some((c) => c.id === id && c.cites.includes(invariant)),
@@ -238,9 +231,9 @@ const named = (input: CoverageInput) => [
  *
  * **Details**
  *
- * An Invariant is checked when an oracle's guarantee names it and one of that oracle's prototype
- * mutants expects it, or when a case-covered row lists it, every case it names cites it, and a
- * prototype mutant that expects it runs one of those cases. A checked Invariant with a remainder
+ * An Invariant is checked when an oracle's guarantee names it and one of that oracle's mutants,
+ * of either runtime, expects it, or when a case-covered row lists it, every case it names cites
+ * it, and a mutant that expects it runs one of those cases (production's count since T54 S-3). A checked Invariant with a remainder
  * row is checked in part. Otherwise it must be in exactly one "not yet" row. A "not yet" row that
  * lists a checked Invariant is stale, a remainder row on an unchecked one is unchecked, a row
  * whose owner is not an open Task is unowned, and any Invariant no core Spec has is unknown.
