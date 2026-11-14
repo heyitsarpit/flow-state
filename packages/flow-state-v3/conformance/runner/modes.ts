@@ -50,6 +50,7 @@ import { Cells, Pay } from "../fixtures/pay.ts";
 import type { CaseVerdict } from "./verdict.ts";
 import { crashCase } from "./run.ts";
 import { crashFaults, crashOwed } from "./crash-owed.ts";
+import { PASSING, signatureLine } from "./signature.ts";
 import { taskStatuses } from "../parts/records.ts";
 
 /**
@@ -413,8 +414,8 @@ export const shrink = (args: ReadonlyArray<string>) =>
 
 /**
  * The regressions' check (T32): each shrunk script in `regressions/` replayed on `--runtime`
- * must still fail with the signature it was saved with (`by`). `--record` saves the signature of
- * one saved without it. Part scripts run on production only (Conformance R22), in the
+ * must still fail with the signature it was saved with (`by`); one saved as a pass fails the
+ * check. `--record` saves the red signature of one saved without it, never a pass. Part scripts run on production only (Conformance R22), in the
  * `regressions production` gate.
  */
 export const regressions = (args: ReadonlyArray<string>) =>
@@ -434,21 +435,15 @@ export const regressions = (args: ReadonlyArray<string>) =>
             graphsFor(surface, []),
           ),
           (verdicts) => {
-            const [now = "pass"] = failing(verdicts);
+            const [now = PASSING] = failing(verdicts);
 
-            if (Option.isNone(by) && record) {
+            if (Option.isNone(by) && record && now !== PASSING) {
               writeFileSync(path, `${Schema.encodeSync(RegressionJson)({ ...script, by: now })}\n`);
 
               return `ok   ${script.id}: recorded ${now}`;
             }
 
-            return Option.match(by, {
-              onNone: () => `BAD  ${script.id}: no signature saved (now ${now})`,
-              onSome: (saved) =>
-                saved === now
-                  ? `ok   ${script.id}: still ${now}`
-                  : `BAD  ${script.id}: saved ${saved}, now ${now}`,
-            });
+            return signatureLine(script.id, by, now);
           },
         ),
       { concurrency: 1 },
