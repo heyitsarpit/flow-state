@@ -1,0 +1,78 @@
+{
+  "id": "PART-transfers-varied-2001-shrunk",
+  "fixture": "transfers",
+  "actor": "acct-1",
+  "actors": [
+    {
+      "fixture": "transfers",
+      "actor": "acct-1"
+    },
+    {
+      "fixture": "transfers",
+      "actor": "acct-2"
+    }
+  ],
+  "steps": [
+    {
+      "_tag": "ensure",
+      "by": 0
+    },
+    {
+      "_tag": "ensure",
+      "by": 1
+    },
+    {
+      "_tag": "forget",
+      "by": 1
+    },
+    {
+      "_tag": "send",
+      "event": "Send",
+      "payload": {
+        "transferId": "t3",
+        "iban": "DE89370400440532013000",
+        "cents": 1200
+      },
+      "by": 0
+    },
+    {
+      "_tag": "send",
+      "event": "Send",
+      "payload": {
+        "transferId": "t2",
+        "iban": "DE89370400440532013000",
+        "cents": 500
+      },
+      "by": 0
+    },
+    {
+      "_tag": "ack"
+    },
+    {
+      "_tag": "send",
+      "event": "Send",
+      "payload": {
+        "transferId": "t1",
+        "iban": "DE89370400440532013000",
+        "cents": 500
+      },
+      "by": 0
+    },
+    {
+      "_tag": "answer",
+      "operation": "transfer",
+      "answer": {
+        "_tag": "ok",
+        "value": {}
+      }
+    },
+    {
+      "_tag": "ensure",
+      "by": 1
+    },
+    {
+      "_tag": "reload"
+    }
+  ],
+  "by": "delivered-once WriteLanes I15,delivered-once WriteLanes I16"
+}

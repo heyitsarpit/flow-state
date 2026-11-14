@@ -61,7 +61,17 @@ export const RETRY_COUNT =
 export const UNBOUND_RESTORE =
   "the boot restores and parks a disposed identity's unbound Held head, so the adopting incarnation's start gets nothing (Restore R1, Actors I40: a boot delivers and parks nothing)";
 
+/**
+ * Production's bug behind a closed head restored after an adoption's flush: the flush holds only
+ * the adopted actor's record, not every dirty one, so a success not yet captured is lost at a
+ * reload and its head comes back `unknown Restored` (WriteAhead I23; found by T61's first soak).
+ */
+export const PARTIAL_FLUSH =
+  "an adoption's flush holds only the adopted actor's record, not every record dirty when it is issued, so a success not yet captured is lost at the reload and its closed head is restored unknown Restored (WriteAhead I23)";
+
 const OWED_SUBJECTS = {
+  "PART-transfers-varied-2001-shrunk|delivered-once|WriteLanes I16": ["att-2001000-5"],
+  "PART-transfers-varied-2001-shrunk|delivered-once|WriteLanes I15": ["att-2001000-5"],
   "GEN-pay-search-25-shrunk|delivered-once|WriteLanes I15": ["att-25000-7"],
   "GEN-pay-search-25-shrunk|disposal|Actors I29": ["att-25000-7"],
   "MIX-sync+transfers+sign-in-stress-101|lane-queue|WriteLanes I12": ["att-101000-35"],
@@ -437,6 +447,7 @@ const REFUSED_UNENDED =
  */
 export const regressionsOwed: ReadonlyArray<PartOwed> = [
   ...owing(["GEN-pay-search-25-shrunk"], [I15, I29], UNBOUND_RESTORE, "@task.V3.T54"),
+  ...owing(["PART-transfers-varied-2001-shrunk"], [I16, I15], PARTIAL_FLUSH, "@task.V3.T54"),
   ...owing(["PART-transfers-stress-111-shrunk"], [I12, I16, I15, I29], RETRY_COUNT, "@task.V3.T19"),
   ...owing(
     ["PART-transfers-stress-5-shrunk"],
