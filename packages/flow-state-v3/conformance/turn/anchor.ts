@@ -5,6 +5,7 @@ import type { ActorRef, Channel, Json } from "../port.ts";
 import type { Request } from "../world/network.ts";
 import type { Purpose } from "../world/storage.ts";
 import type { Reference, Rows } from "../fixtures/reference.ts";
+import type { FinalWrite } from "./final-write.ts";
 import { Input, leafOf, Phase, TABLE } from "./phases.ts";
 
 /**
@@ -91,7 +92,7 @@ export type State = {
   readonly actors: ReadonlyMap<string, Actor>;
   readonly owning: ReadonlyMap<string, Owner>;
   readonly calls: ReadonlyMap<string, Call>;
-  readonly disposing: boolean;
+  readonly disposal: Option.Option<FinalWrite>;
   readonly reference: Reference;
   readonly rows: Rows;
   readonly requests: ReadonlyArray<Request>;
@@ -449,7 +450,10 @@ export const wrote = (state: State, least: State, purpose: Purpose) => ({
   ),
 });
 
-const savedAs = (a: Actor, kept: Kept) => ({
+/**
+ * An actor whose record a landed batch holds `kept` in.
+ */
+export const savedAs = (a: Actor, kept: Kept) => ({
   ...a,
   saved: kept,
   stored: kept.turns > a.saved.turns ? [] : a.stored,
@@ -540,7 +544,7 @@ const local = (state: State, actor: string) =>
  */
 export const reloaded = (state: State) => ({
   ...state,
-  disposing: false,
+  disposal: Option.none(),
   calls: new Map(
     [...state.calls].flatMap(([key, c]) =>
       local(state, c.actor) ? [] : [[key, { ...c, booted: true }] as const],
@@ -625,7 +629,7 @@ export const anchorOf = (
   actors: new Map(),
   owning: new Map(),
   calls: new Map(),
-  disposing: false,
+  disposal: Option.none(),
   undecided: [],
 });
 

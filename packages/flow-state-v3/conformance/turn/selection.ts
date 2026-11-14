@@ -31,6 +31,7 @@ import {
   withActor,
   withoutOne,
 } from "./anchor.ts";
+import { disposalEnded, disposing, finalRefused } from "./final-write.ts";
 import { judgeTurn, name, PENDING_RESET, selectedParts } from "./judge.ts";
 import {
   answeredRequest,
@@ -55,7 +56,7 @@ import { undecidedDelays } from "./arming.ts";
 import { Input, leafOf, Phase } from "./phases.ts";
 import { type Labels, noFolds } from "../fixtures/folds.ts";
 import { possible, scheduledEvents } from "../fixtures/handlers.ts";
-import { type ActorRef, type Delivered, Observation, type Turn } from "../port.ts";
+import { type ActorRef, type Delivered, DisposeExit, Observation, type Turn } from "../port.ts";
 
 /**
  * The driven credit of an event the suite sent to a part: it admits only a turn that ran no root
@@ -370,7 +371,7 @@ const onFact = (
         moved(
           unbound(uncredited(state, actor), actor),
           actor,
-          state.disposing ? Input.Disposed() : Input.Forgot(),
+          Option.isSome(state.disposal) ? Input.Disposed() : Input.Forgot(),
         ),
       ),
     Reloaded: () => keep(reloaded(state)),
@@ -415,7 +416,8 @@ const onFact = (
         Unparked: ({ operation, attempt }) =>
           keep(current(state, operation, attempt, attaching(step))),
         Recorded: () => keep(state),
-        Evidence: () => keep(state),
+        Evidence: ({ kind }) =>
+          keep(kind === "StorageFailure" || kind === "StorageSilent" ? finalRefused(state) : state),
         Issue: () => keep(state),
         Incarnated: () => keep(state),
         Finished: () => keep(state),
@@ -431,7 +433,7 @@ const onFact = (
         ),
       ),
     Released: ({ actor }) => keep(used(state, actor, -1)),
-    DisposingRuntime: () => keep({ ...state, disposing: true }),
+    DisposingRuntime: () => keep(disposing(state)),
     Unstoppable: () => keep(state),
     Landed: () => keep(landed(state)),
     Acknowledges: () => keep(state),
@@ -441,7 +443,7 @@ const onFact = (
     Advanced: ({ ms }) => keep(idled(state, ms, GRACE_MS)),
     Read: () => keep(state),
     RowRead: () => keep(state),
-    Disposal: () => keep(state),
+    Disposal: ({ exit }) => keep(disposalEnded(state, DisposeExit.$is("Done")(exit))),
   });
 };
 

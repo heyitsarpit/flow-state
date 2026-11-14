@@ -38,7 +38,7 @@ export const closed = <
   judged: J,
   step: ReadonlyArray<Fact>,
 ) => {
-  if (judged.state.disposing) return judged;
+  if (Option.isSome(judged.state.disposal)) return judged;
 
   const left = refusedTurn(step)
     ? []

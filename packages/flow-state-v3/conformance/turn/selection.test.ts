@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
+import { Option } from "effect";
 import { describe, it } from "vite-plus/test";
 import { parts } from "../../fixtures/index.ts";
 import { partFixture } from "../parts/reference.ts";
 import { Fact } from "../dsl/oracle.ts";
-import { Observation } from "../port.ts";
-import { actorIn, Undecided } from "./anchor.ts";
+import { DisposeExit, Observation } from "../port.ts";
+import { actorIn, keyOf, leavesOf, Undecided } from "./anchor.ts";
 import { anchorAt, judgedStep } from "./selection.ts";
 
 const pay = parts.find((p) => p.name === "pay");
@@ -97,5 +98,52 @@ describe("the leaves a kill may restore (Turn I2; WriteAhead R10, I10)", () => {
     ]);
 
     assert.deepEqual(actorIn(state, actor).allowed.toSorted(), ["CARD", "PAYING"]);
+  });
+});
+
+describe("a reload after a completed Runtime disposal (Actors I44; T52 close review O1)", () => {
+  const disposed = (exit: DisposeExit, failed: ReadonlyArray<Fact> = []) => [
+    [...turn("Leave", "IDLE", "LEFT", "on.Leave[1]"), ...flushed],
+    [...turn("Start", "LEFT", "CARD", "states.LEFT.on.Start[0]"), ...held],
+    [Fact.DisposingRuntime(), ...failed],
+    [Fact.Disposal({ exit })],
+    [Fact.Reloaded({ release: 1 })],
+  ];
+
+  it("restores exactly the state the final write held: no older leaf is allowed", () => {
+    const state = after(disposed(DisposeExit.Done()));
+
+    assert.deepEqual(actorIn(state, actor).allowed, []);
+    assert.equal(leavesOf(state).get(keyOf(actor)), "CARD");
+  });
+
+  it("an older leaf after that reload breaks Turn I2", () => {
+    const steps = disposed(DisposeExit.Done());
+
+    const judged = judgedStep(
+      after(steps),
+      turn("PayRequested", "LEFT", "PAYING", "on.PayRequested[1]"),
+    );
+
+    assert.deepEqual(
+      judged.violations.map((v) => v.invariant),
+      ["Turn I2"],
+    );
+  });
+
+  it("a refused final write or a failed cleanup leaves the leaves a kill may restore", () => {
+    const refused = Fact.Reported({
+      observation: Observation.Evidence({
+        kind: "StorageFailure",
+        operation: "",
+        attempt: Option.none(),
+      }),
+    });
+
+    for (const steps of [
+      disposed(DisposeExit.Done(), [refused]),
+      disposed(DisposeExit.CleanupFailed({ why: "planted" })),
+    ])
+      assert.deepEqual(actorIn(after(steps), actor).allowed.toSorted(), ["CARD", "LEFT"]);
   });
 });
