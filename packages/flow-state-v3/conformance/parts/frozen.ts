@@ -116,6 +116,8 @@ export const RULINGS = {
     "code:wiki/tasks/V3/log.task (note 2026-11-11T22:32:05Z, the decision on review B1)",
   "ACT-03/no-end-before-the-grace":
     "code:wiki/tasks/V3/log.task (note 2026-11-11T22:32:05Z, the decision on review B1)",
+  "TURN-01/schedule-out-of-range":
+    "code:wiki/tasks/V3/P4.task (T47, comment 2026-11-14T03:02:38Z, the ruling on Turn T6)",
 } satisfies Readonly<Record<string, string>>;
 
 /**

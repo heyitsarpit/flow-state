@@ -621,3 +621,10 @@ Edit (agent: T47 building lead, @task.V3.T47, 2026-11-14): T36's planted failure
 later slice owning one of the pair's codes nor an open Task, in place of "a waiver without a later slice". Why: I57
 took R18's owner rule on 2026-11-12 and T36 still read the older text (T47 close review, finding 12). Reverse:
 restore T36's old line.
+
+## 2026-11-14, Turn T6: an out-of-range delay refuses, 0 ms does not (T47, the orchestrator's ruling)
+
+Edit (agent: T47 building lead, @task.V3.T47, 2026-11-14): T6's "a zero-length schedule" is now an out-of-range delay,
+negative, non-finite or past 2^31 - 1 ms, with 0 ms allowed. Why: "zero-length" was a wording error; the reference's
+wrong runtime `pinsb.schedule-unbounded` refuses exactly that range, and a host timer fires a longer delay at once.
+Production's missing upper bound is `TURN-01/schedule-out-of-range`, owed to @task.V3.T17. Reverse: restore T6's line.

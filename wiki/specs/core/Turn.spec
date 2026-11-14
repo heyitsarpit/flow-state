@@ -500,8 +500,9 @@ tests
             [@I3, @I9]
     T5  Before and after memory: a schedule function and a commit select read the value the turn wrote; a guard and a 
         mapper read the old one. Case `PAY-16`; wrong runtime `pay16.schedule-reads-pre-transition-memory`. [@I12]
-    T6  Refused turns: a zero-length schedule and overlapping keys refuse the turn: state unchanged, one issue-only 
-        snapshot, and check() answers Denied with InvalidTurn (Q3 names the issue's code). Case `REV4-H4`; wrong
+    T6  Refused turns: an out-of-range schedule delay (negative, non-finite or past 2^31 - 1 ms; 0 ms is allowed) and 
+        overlapping keys refuse the turn: state unchanged, one issue-only snapshot, and check() answers Denied
+            with InvalidTurn (Q3 names the issue's code). Cases `REV4-H4`, `TURN-01/schedule-out-of-range`; wrong
             runtimes `pinsb.schedule-unbounded`, `pinsa.overlapping-keys-allowed`. An unencodable value does not refuse;
             wrong runtime `pinsb.nan-carried-as-null`. [@I14]
     T7  Callback defects: a throwing guard, select and key each keep the prior snapshot with one issue naming the 

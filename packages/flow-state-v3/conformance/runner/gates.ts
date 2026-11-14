@@ -14,7 +14,15 @@ import { runChild } from "./child.ts";
  * gate plays each on production and fails once it no longer fails by its check and Invariant, so
  * a fix shows.
  */
-export const productionOwed: ReadonlyArray<Limit & { readonly owner: string }> = [];
+export const productionOwed: ReadonlyArray<Limit & { readonly owner: string }> = [
+  {
+    case: "TURN-01/schedule-out-of-range",
+    check: "case",
+    invariant: "Turn I14",
+    why: "a computed delay past 2^31 - 1 ms is armed, where a host timer fires it at once; the turn should be refused as out of range (Turn T6)",
+    owner: "@task.V3.T17",
+  },
+];
 
 /**
  * The cases the production runtime boots: every fixture of each is in the production adapter,

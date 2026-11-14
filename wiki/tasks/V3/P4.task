@@ -1122,6 +1122,12 @@ tasks
             a decision: turn.ts:248 (Turn T6 refuses a zero delay, production arms it) and lane-moves.ts:303 
             (production keeps inFlight true after StillUnknown, WriteAhead T18). Table: 
             code:wiki/plans/flow/references/proposals/t47-close-fixes-2026-11-14.md.
+        comment     2026-11-14T03:02:38Z
+            Ruling (orchestrator, 2026-11-14): Turn T6's zero-length schedule was a wording error; an out-of-range 
+            delay (negative, non-finite, past 2^31 - 1 ms) refuses and 0 ms does not. Production lacks the upper bound: 
+            TURN-01/schedule-out-of-range, red on production and green on round-14, is owed to T17 in productionOwed. 
+            Edit (agent: T47 building lead, @task.V3.T47, 2026-11-14): Turn T6 and this case (spec-log). Why: the 
+            ruling. Reverse: the next commit.
     T52
         title       Suite phase-out, first cut: Pay and Cells generated, hand traces thinned
         status      draft

@@ -11,6 +11,8 @@ import { CAPTURABLE, CART, onWire, sent, shopper, start } from "../fixtures/pay-
  * - `TURN-01/schedule-refused`: a `Busy` answer with a negative delay makes WAITING's `retry`
  *   schedule invalid, so the turn that enters WAITING is rejected whole (Turn R8, @plan.Machines O3
  *   "an invalid duration rejects the whole turn"), and redelivered once (WriteLanes R10).
+ * - `TURN-01/schedule-out-of-range`: the same with a delay past 2^31 - 1 ms, which a host timer
+ *   cannot hold (Turn T6: out of range).
  * - `TURN-01/mapper-refused`: `place` answered with no order makes the `Placed` mapper throw at
  *   admission, which refuses the turn; the ending is redelivered once and refused again
  *   (WriteLanes R10).
@@ -41,6 +43,19 @@ export const refusalScenarios: ReadonlyArray<Scenario> = [
           "InvalidTurn",
           "InvalidTurn",
         ]);
+        c.eq("no new request", sent(c, "pay"), 1);
+      },
+      "schedule-out-of-range": (c) => {
+        const s = shopper(c);
+        onWire(c);
+        const before = s.memory();
+        c.answer("pay", Answer.Fail({ tag: "Busy", fields: { retryAfterMs: 2_147_483_648 } }));
+        c.eq("Turn I14: refused, then refused again on its one redelivery", c.issues(), [
+          "InvalidTurn",
+          "InvalidTurn",
+        ]);
+        s.state("PAYING");
+        c.eq("memory unchanged", s.memory(), before);
         c.eq("no new request", sent(c, "pay"), 1);
       },
       "mapper-refused": (c) => {

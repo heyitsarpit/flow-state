@@ -21,6 +21,21 @@ describe("the limits gate (Conformance T42, I64)", () => {
     assert.equal(verdictOfLimit(row, failed).held, true);
   });
 
+  it("holds a case-expectation row only when the case's first failure cites its Invariant", () => {
+    const expectation = { ...row, check: "case", invariant: "Turn I14" };
+
+    const failed = (why: string) => ({
+      _tag: "Fail" as const,
+      id: "GEN-x",
+      oracles: [],
+      why,
+    });
+
+    assert.equal(verdictOfLimit(expectation, failed("seed 1: Turn I14: refused: x")).held, true);
+    assert.equal(verdictOfLimit(expectation, failed("seed 1: state: expected x")).held, false);
+    assert.equal(verdictOfLimit(expectation, failed("seed 1: Turn I14x: refused")).held, false);
+  });
+
   it("fails a planted row whose case passes", () => {
     assert.equal(verdictOfLimit(row, { _tag: "Pass", id: "GEN-x" }).held, false);
   });

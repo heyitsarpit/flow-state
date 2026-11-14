@@ -2,12 +2,12 @@
   "gates": [
     {
       "gate": "suite round-14",
-      "revision": "1a597ea0",
-      "verdict": "VERDICT pass 122/122"
+      "revision": "c24218a5",
+      "verdict": "VERDICT pass 123/123"
     },
     {
       "gate": "suite production",
-      "revision": "1a597ea0",
+      "revision": "c24218a5",
       "verdict": "VERDICT pass 78/78"
     },
     {
@@ -22,7 +22,7 @@
     },
     {
       "gate": "coverage",
-      "revision": "1a597ea0",
+      "revision": "c24218a5",
       "verdict": "ok   coverage: 75 of 211 core Invariants checked (43 in part), 136 owed by a Task, 0 gap(s)"
     },
     {
@@ -72,8 +72,8 @@
     },
     {
       "gate": "limits round-14",
-      "revision": "1a597ea0",
-      "verdict": "VERDICT pass 5/5 limits rows hold (round-14 limits, stated limits, production's owed reds)"
+      "revision": "c24218a5",
+      "verdict": "VERDICT pass 6/6 limits rows hold (round-14 limits, stated limits, production's owed reds)"
     },
     {
       "gate": "liar production",

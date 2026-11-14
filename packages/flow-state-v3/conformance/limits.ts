@@ -29,12 +29,16 @@ export const limits: ReadonlyArray<Limit> = [
 
 /**
  * What one row's verifying run found: its case failed by its Invariant (`held`), passed, or
- * failed by another Invariant or check.
+ * failed by another Invariant or check. A row whose check is `case` is held when the case's
+ * first failing expectation cites its Invariant.
  */
 export const verdictOfLimit = (limit: Limit, verdict: CaseVerdict) => {
   if (verdict._tag !== "Fail") return { held: false, why: `${limit.case} ${verdict._tag}` };
 
-  const named = verdict.why.includes(`${limit.check}: ${limit.invariant}:`);
+  const named =
+    limit.check === "case"
+      ? new RegExp(`^seed \\d+: ${limit.invariant}:`, "u").test(verdict.why)
+      : verdict.why.includes(`${limit.check}: ${limit.invariant}:`);
 
   return named
     ? { held: true, why: `${limit.case} fails by ${limit.invariant}` }
