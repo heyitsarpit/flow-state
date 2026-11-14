@@ -593,20 +593,47 @@ note 2026-11-14T20:12:43Z
     when none ran in 3 hours and an agent did 30 minutes of work, skipped while the 5-hour projection is over 100. 
     cadence edited; crons recreated.
 note 2026-11-14T20:45:26Z
-    T54 A2 in progress: the boot now owes and parks nothing (Actors I40); crash 0 red (DISP-02, DISP-06 pass), baseline 0 bad with 598 runs filed under cited rules, host mutants 17/17. Three oracles assumed the old boot and were changed; ruled (orchestrator): commit them as a reviewed checkpoint, review them now (Opus, Haiku sidecars), and triage the four new part reds meanwhile, the Held-head Send first.
+    T54 A2 in progress: the boot now owes and parks nothing (Actors I40); crash 0 red (DISP-02, DISP-06 pass), baseline 
+    0 bad with 598 runs filed under cited rules, host mutants 17/17. Three oracles assumed the old boot and were 
+    changed; ruled (orchestrator): commit them as a reviewed checkpoint, review them now (Opus, Haiku sidecars), and 
+    triage the four new part reds meanwhile, the Held-head Send first.
 note 2026-11-14T20:59:31Z
-    T54 A2 triage: two reds are T19's retry-count bug, unmasked when A2 removed A1's lane rewrite (shrunk to 9 and 14 steps, owed to T19); two are oracle gaps (a lost record before ensureExisting; BootSettles closing a saved Restoring head), now being fixed in a separate commit for the running oracle review. Stale rows: all 354 T54 rows go stale through A2's fix, not the oracle change.
+    T54 A2 triage: two reds are T19's retry-count bug, unmasked when A2 removed A1's lane rewrite (shrunk to 9 and 14 
+    steps, owed to T19); two are oracle gaps (a lost record before ensureExisting; BootSettles closing a saved 
+    Restoring head), now being fixed in a separate commit for the running oracle review. Stale rows: all 354 T54 rows 
+    go stale through A2's fix, not the oracle change.
 note 2026-11-14T21:03:05Z
-    Review (T54 A2 oracle changes) all three hold (t54-a2-oracle-review-2026-11-15.md). Ruled (orchestrator): round-14, whose boot still parks restores (before Actors I40), records that as a round-14 limit through the limits gate rather than editing the prototype or rebasing counts; a model restore beside a Maybe row (Restore I6) is fixed red first; Restore I1 boot-wake stays owed to T20 as a check.
+    Review (T54 A2 oracle changes) all three hold (t54-a2-oracle-review-2026-11-15.md). Ruled (orchestrator): round-14, 
+    whose boot still parks restores (before Actors I40), records that as a round-14 limit through the limits gate 
+    rather than editing the prototype or rebasing counts; a model restore beside a Maybe row (Restore I6) is fixed red 
+    first; Restore I1 boot-wake stays owed to T20 as a check.
 note 2026-11-14T21:15:55Z
-    Ruled (orchestrator, T54 A2; the user delegated the run): round-14 mutants and probes whose cases are all limited (31, round-14 boot predates Actors I40) are reported as limited by name and each becomes an owed production mutant (T54 S-1 for ledger and start, T20 restore, T19 retry, T18 lanes); a limited mutant with no owed row fails the gate. Why: coverage moves to the shipping runtime without designing around a retiring prototype. Reverse: re-point each to another case. Oracle gaps committed at 93bde5af.
+    Ruled (orchestrator, T54 A2; the user delegated the run): round-14 mutants and probes whose cases are all limited 
+    (31, round-14 boot predates Actors I40) are reported as limited by name and each becomes an owed production mutant 
+    (T54 S-1 for ledger and start, T20 restore, T19 retry, T18 lanes); a limited mutant with no owed row fails the 
+    gate. Why: coverage moves to the shipping runtime without designing around a retiring prototype. Reverse: re-point 
+    each to another case. Oracle gaps committed at 93bde5af.
 note 2026-11-14T21:55:07Z
-    Ruled (orchestrator, T54 A2): 18 scripts went thin because the generator still believes the old boot; the thin check stays, the belief is updated to Actors I40 and the scripts regenerated. Three liar round-14 mutants whose only report-independent catch sits in a limited case are reported as limited and owed production mutants (T18, T17), same as the falsify rule; the fixture-gap cap is not raised. Item 4: all live T19 rows root in the retry count.
+    Ruled (orchestrator, T54 A2): 18 scripts went thin because the generator still believes the old boot; the thin 
+    check stays, the belief is updated to Actors I40 and the scripts regenerated. Three liar round-14 mutants whose 
+    only report-independent catch sits in a limited case are reported as limited and owed production mutants (T18, 
+    T17), same as the falsify rule; the fixture-gap cap is not raised. Item 4: all live T19 rows root in the retry 
+    count.
 note 2026-11-14T21:59:53Z
-    T54 A2: liar round-14 limited mutants done (100/100, cap unchanged). The first belief fix left 15 of 18 scripts thin; told (orchestrator) to checkpoint the finished work, model how a start and a reload close requests (Restore R3), regenerate, and re-record owed rows once at the end. The builder asked to hand off; told to continue under the rotation rule.
+    T54 A2: liar round-14 limited mutants done (100/100, cap unchanged). The first belief fix left 15 of 18 scripts 
+    thin; told (orchestrator) to checkpoint the finished work, model how a start and a reload close requests (Restore 
+    R3), regenerate, and re-record owed rows once at the end. The builder asked to hand off; told to continue under the 
+    rotation rule.
 note 2026-11-14T22:07:10Z
-    T54 A2: the belief now models how a start, a reload and an ack close requests, and thin scripts fell from 18 to 2. Regenerating left 160 stale owed items and 31 unowed reds. Told (orchestrator) to commit the fixes, triage reds with the retry-count plant, and re-record once.
+    T54 A2: the belief now models how a start, a reload and an ack close requests, and thin scripts fell from 18 to 2. 
+    Regenerating left 160 stale owed items and 31 unowed reds. Told (orchestrator) to commit the fixes, triage reds 
+    with the retry-count plant, and re-record once.
 note 2026-11-14T22:12:48Z
-    T54 A2 rulings (orchestrator): varied-4 is owed under PARTIAL_FLUSH to T54 (a second path, cleared before close). stress-3 is fixed in A2 (the start re-owns adopted heads, Actors R20), else owed to A3. The 2 thin scripts keep their seeds and are pinned as owed: generator batching is a suite owed item. Why: fix what the step reached, never hide a gap. Reverse: re-rule at the A2 review.
+    T54 A2 rulings (orchestrator): varied-4 is owed under PARTIAL_FLUSH to T54 (a second path, cleared before close). 
+    stress-3 is fixed in A2 (the start re-owns adopted heads, Actors R20), else owed to A3. The 2 thin scripts keep 
+    their seeds and are pinned as owed: generator batching is a suite owed item. Why: fix what the step reached, never 
+    hide a gap. Reverse: re-rule at the A2 review.
 note 2026-11-14T22:17:20Z
-    Review wake (orchestrator): A2 checkpoints 2247f350 and 303f44b7 are red mid-step, so A2 step review will cover them rather than a separate review now (one review per step). Usage is 51 percent weekly. No process study (the last was under 3 hours ago) and no compaction (16 hours since the last).
+    Review wake (orchestrator): A2 checkpoints 2247f350 and 303f44b7 are red mid-step, so A2 step review will cover 
+    them rather than a separate review now (one review per step). Usage is 51 percent weekly. No process study (the 
+    last was under 3 hours ago) and no compaction (16 hours since the last).

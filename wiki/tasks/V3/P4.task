@@ -1613,6 +1613,11 @@ tasks
             A2: a ruling on A-8's step (its oracle will be red on Delivered per try, DLV-04) and a Retrying row in the 
             suspend unit test. Edit (agent: T54 A1 reviewing lead, @task.V3.T54, 2026-11-15): this comment. Why: step 
             A1's review. Reverse: the commit that adds it.
+        comment     2026-11-14T22:49:01Z
+            Edit (agent: T54 building lead, @task.V3.T54, 2026-11-15): A2 done, every gate green (55b0c3b5). Boot parks
+            nothing; one start delivers rows then Held heads; owed part rows re-recorded once. Owed to T54: 
+            PARTIAL_FLUSH (both flush paths) before close, adopted-head routing for A3 (PART-cells-stress-3-shrunk). 
+            Why: A2 checks met per the rulings. Reverse: 2247f350^.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      draft
