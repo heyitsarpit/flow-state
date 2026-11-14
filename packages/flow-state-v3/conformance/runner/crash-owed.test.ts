@@ -34,11 +34,7 @@ describe("crash's reds named and owned (T61; survey item 3)", () => {
         "PAY-22@16 lane-queue WriteLanes I12 @task.V3.T19",
         "PAY-22@16 delivered-once WriteLanes I16 @task.V3.T19",
         "PAY-22@16 delivered-once WriteLanes I15 @task.V3.T19",
-        "DISP-02@6 delivered-once WriteLanes I15 @task.V3.T54",
-        "DISP-02@6 disposal Actors I29 @task.V3.T54",
         "PAY-16/dispose-waiting-resend@9 selection Turn I2 @task.V3.T55",
-        "DISP-06@5 delivered-once WriteLanes I15 @task.V3.T54",
-        "DISP-06@5 disposal Actors I29 @task.V3.T54",
       ],
     );
 

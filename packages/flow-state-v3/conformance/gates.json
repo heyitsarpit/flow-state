@@ -2,97 +2,97 @@
   "gates": [
     {
       "gate": "suite round-14",
-      "revision": "d6fb6ddd",
+      "revision": "3932f992",
       "verdict": "VERDICT pass 84/84"
     },
     {
       "gate": "suite production",
-      "revision": "d6fb6ddd",
+      "revision": "3932f992",
       "verdict": "VERDICT pass 78/78"
     },
     {
       "gate": "falsify round-14",
-      "revision": "d6fb6ddd",
+      "revision": "3932f992",
       "verdict": "VERDICT pass 124/124 mutants caught, 2/2 probes hold, 32 limited (owed as production mutants)"
     },
     {
       "gate": "falsify production",
-      "revision": "d6fb6ddd",
+      "revision": "3932f992",
       "verdict": "VERDICT pass 18/18 mutants caught"
     },
     {
       "gate": "coverage",
-      "revision": "d6fb6ddd",
+      "revision": "3932f992",
       "verdict": "ok   coverage: 74 of 211 core Invariants checked (42 in part), 136 owed by a Task, 0 gap(s)"
     },
     {
       "gate": "parts production",
-      "revision": "d6fb6ddd",
-      "verdict": "VERDICT fail 97/104 part scripts on production"
+      "revision": "3932f992",
+      "verdict": "VERDICT pass 105/105 part scripts on production"
     },
     {
       "gate": "held-out production",
-      "revision": "d6fb6ddd",
-      "verdict": "VERDICT fail 205/216 held-out part scripts on production"
+      "revision": "3932f992",
+      "verdict": "VERDICT pass 216/216 held-out part scripts on production"
     },
     {
       "gate": "matrix",
-      "revision": "d6fb6ddd",
+      "revision": "3932f992",
       "verdict": "VERDICT pass 265/265 matrix rows"
     },
     {
       "gate": "pairs production",
-      "revision": "d6fb6ddd",
+      "revision": "3932f992",
       "verdict": "VERDICT pass 74/74 interacting pairs"
     },
     {
       "gate": "model mutation production",
-      "revision": "d6fb6ddd",
-      "verdict": "VERDICT fail 322/328 model fields mutated"
+      "revision": "3932f992",
+      "verdict": "VERDICT pass 328/328 model fields mutated"
     },
     {
       "gate": "bench production",
-      "revision": "d6fb6ddd",
+      "revision": "3932f992",
       "verdict": "VERDICT pass 10/10 bench fingerprints equal"
     },
     {
       "gate": "regressions production",
-      "revision": "d6fb6ddd",
-      "verdict": "VERDICT pass 8/8 kept regressions on production"
+      "revision": "3932f992",
+      "verdict": "VERDICT pass 9/9 kept regressions on production"
     },
     {
       "gate": "class gate production",
-      "revision": "d6fb6ddd",
-      "verdict": "VERDICT fail 415/436 scripts whose planted breaks all fail"
+      "revision": "3932f992",
+      "verdict": "VERDICT pass 437/437 scripts whose planted breaks all fail"
     },
     {
       "gate": "regressions round-14",
-      "revision": "d6fb6ddd",
+      "revision": "3932f992",
       "verdict": "VERDICT pass 2/2 regressions fail as saved"
     },
     {
       "gate": "liar round-14",
-      "revision": "d6fb6ddd",
-      "verdict": "VERDICT fail 126/126 behavioural mutants red under the liar gate, 9 fixture gaps (cap 9)"
+      "revision": "3932f992",
+      "verdict": "VERDICT pass 100/100 behavioural mutants red under the liar gate, 9 fixture gaps (cap 9)"
     },
     {
       "gate": "limits round-14",
-      "revision": "d6fb6ddd",
+      "revision": "3932f992",
       "verdict": "VERDICT pass 49/49 limits rows hold (round-14 limits, stated limits, production's owed reds)"
     },
     {
       "gate": "liar production",
-      "revision": "d6fb6ddd",
+      "revision": "3932f992",
       "verdict": "VERDICT pass 13/13 behavioural mutants red under the liar gate, 0 fixture gaps (cap 9)"
     },
     {
       "gate": "crash production",
-      "revision": "d6fb6ddd",
+      "revision": "3932f992",
       "verdict": "VERDICT pass 733/735 crash points pass, 0 red, 2 owed: PAY-22@16 (@task.V3.T19), PAY-16/dispose-waiting-resend@9 (@task.V3.T55)"
     },
     {
       "gate": "core mutants",
-      "revision": "d6fb6ddd",
+      "revision": "3932f992",
       "verdict": "VERDICT pass core mutants: 78/111 killed, 30 owed, 3 equivalent, 0 untriaged or stale (111 candidates)"
     }
   ]

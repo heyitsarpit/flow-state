@@ -69,24 +69,26 @@ const UNNOTICED = {
   promotion: "",
   "tableA.BootSettles":
     "Queued.always Unsent.always OnWire.always Interrupted.always Restoring.head Restoring.queued",
-  "tableA.DisposalStarts": "Queued.always Resending.always Interrupted.always Restoring.always",
+  "tableA.DisposalStarts": "Queued.always Interrupted.always Restoring.always",
   "tableA.EndDefinite":
     "Queued.always Unsent.always Resending.always OnWire.disposing Interrupted.running Interrupted.disposing Restoring.always Gone.evidenceFirst",
   "tableA.EndNotSent":
     "Queued.cancelAll Queued.cancelAllOutOfOrder Queued.disposed Queued.other Unsent.pendingCancel Unsent.storageRefused Resending.always Interrupted.always Restoring.restored Restoring.pendingCancel Restoring.other Gone.evidenceFirst Gone.pendingCancel",
   "tableA.EndUnknown":
-    "Queued.always Unsent.always Resending.storageRefused Resending.other OnWire.released OnWire.disposed OnWire.disposedRunning Interrupted.disposed Interrupted.other Held.unowedRestore Restoring.headRestored Restoring.other Gone.evidenceFirst Gone.pendingCancel Gone.restoredAfterDisposal",
+    "Queued.always Unsent.always Resending.storageRefused Resending.other OnWire.released OnWire.disposed OnWire.disposedRunning Interrupted.cancelled Interrupted.disposed Interrupted.other Held.unowedRestore Restoring.headRestored Restoring.other Gone.evidenceFirst Gone.pendingCancel Gone.restoredAfterDisposal",
   "tableA.Released":
     "Queued.always Resending.awaited Resending.none Interrupted.always Held.awaited Restoring.always",
-  "tableA.Reload": "Queued.always OnWire.always Interrupted.always",
+  "tableA.Reload":
+    "Queued.always Resending.always OnWire.always Interrupted.always Restoring.always",
   "tableA.RuntimeDisposed":
     "Queued.always Resending.always OnWire.always Interrupted.always Restoring.always",
   "tableA.Send":
-    "Queued.always Unsent.cancelPending Resending.cancelPending OnWire.always Interrupted.always Held.always Restoring.always Gone.always",
-  "tableA.StepEnds": "Queued.always Interrupted.unstoppable Restoring.always",
+    "Queued.always Unsent.cancelPending Resending.open Resending.cancelPending OnWire.always Interrupted.always Held.always Restoring.always Gone.always",
+  "tableA.StepEnds": "Queued.always Interrupted.stoppable Interrupted.unstoppable Restoring.always",
   "tableA.Superseded":
     "Queued.awaited Queued.none Unsent.awaited Resending.always Interrupted.always Restoring.always",
-  "tableB.Held": "latest.always serialize.always cancel.always Release.always CancelAll.always",
+  "tableB.Held":
+    "latest.always serialize.always cancel.always Retry.always Release.always CancelAll.always",
   "tableB.Idle":
     "reject.kept latest.always serialize.always cancel.always Retry.always Cancel.none Cancel.kept CancelAll.always Release.always",
   "tableB.Interrupted":
@@ -94,7 +96,7 @@ const UNNOTICED = {
   "tableB.OnWire":
     "latest.always serialize.always cancel.always Retry.always Release.always Cancel.always CancelAll.always",
   "tableB.Resending":
-    "reject.always latest.always serialize.always cancel.always Retry.always Release.always Cancel.always CancelAll.always",
+    "latest.always serialize.always cancel.always Retry.always Release.always Cancel.always CancelAll.always",
   "tableB.Restoring":
     "reject.always latest.always serialize.always cancel.free cancel.pendingCancel Retry.always Release.always Cancel.always CancelAll.always",
   "tableB.Unsent":

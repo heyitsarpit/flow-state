@@ -10,7 +10,10 @@ import { Fact } from "../dsl/oracle.ts";
 import { BUILD_SEEDS, scriptOf, TIMER_OFFSETS, timerAdvances } from "./generate.ts";
 import { playPart } from "./play.ts";
 import { owedRows } from "./owed.ts";
-import { TRIAGED_SIGNATURES, VARIED_OWED } from "./owed-varied.ts";
+import { PART_ROWS, TRIAGED_SIGNATURES } from "./owed-varied.ts";
+
+const VARIED_OWED = PART_ROWS.filter((r) => /-varied-|^MIX-/u.test(r.id));
+
 import { gateScripts, heldOutScripts, scriptById } from "./records.ts";
 import { signatureOf } from "./shrink.ts";
 
@@ -124,7 +127,9 @@ describe("the generator varies its inputs (T61; Conformance R15, R16)", () => {
             r.id === id &&
             r.check === v.oracle &&
             r.invariant === v.invariant &&
-            r.items.some((i) => i._tag === "Attempt" && i.id === subject),
+            r.items.some((i) =>
+              i._tag === "Attempt" ? i.id === subject : i.subject === subject && i.step === v.step,
+            ),
         );
 
         assert.equal(rows.length, 1, `${id} ${v.oracle} ${v.invariant} ${subject}`);
@@ -153,7 +158,7 @@ describe("the generator varies its inputs (T61; Conformance R15, R16)", () => {
   });
 
   it("late-results names the late Attempt as its subject, once (review N5)", () => {
-    const id = "PART-cells-varied-110";
+    const id = "PART-pay-varied-105";
     const script = Option.getOrThrow(scriptById(id));
 
     const others = owedRows.filter((o) => !(o.case === id && o.check === "late-results"));
@@ -164,7 +169,7 @@ describe("the generator varies its inputs (T61; Conformance R15, R16)", () => {
 
     assert.ok(late.length > 0);
     assert.ok(
-      late.every((v) => Option.contains(v.subject, "att-0000000000000000000000000001adb0-4")),
+      late.every((v) => Option.contains(v.subject, "att-00000000000000000000000000019a2e-2")),
     );
     assert.equal(new Set(late.map((v) => `${v.step} ${v.text}`)).size, late.length);
   }, 60_000);

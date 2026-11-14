@@ -85,7 +85,7 @@ describe("part scripts on production (Q9, Q10, Q15, Q17: Conformance R15, R19, R
     const cells = parts.find((p) => p.name === "cells");
     assert.ok(cells !== undefined);
 
-    const script = scriptOf(cells, "stress", 11, production);
+    const script = scriptOf(cells, "varied", 6, production);
     const rows = partsOwed.filter((o) => o.case === script.id);
     const [first] = rows;
     assert.ok(first !== undefined && rows.length > 1, script.id);
@@ -255,7 +255,7 @@ describe("part scripts on production (Q9, Q10, Q15, Q17: Conformance R15, R19, R
   });
 
   it("the app mix runs every pilot's actors in one runtime and one world", () => {
-    const mix = mixOf(mixed, "stress", SEEDS[0] ?? 1, production);
+    const mix = mixOf(mixed, "stress", SEEDS[1] ?? 2, production);
     const played = playPart(mix, "production");
 
     assert.equal(played.verdict._tag, "Pass", Formatter.format(played.verdict));

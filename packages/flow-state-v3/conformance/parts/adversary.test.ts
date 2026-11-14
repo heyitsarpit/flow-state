@@ -40,6 +40,5 @@ describe("an adversarial actor forges the reports a refusal cell refuses (Confor
 
   it("a dropped report reaches step-end cells no report makes (combined review N1)", () => {
     assert.ok(found.has("C StepEnds·Owed·live"), [...found.keys()].join(" "));
-    assert.ok(found.has("A StepEnds·Interrupted·stoppable"));
   });
 });

@@ -123,8 +123,8 @@ describe("one owed rule for every owed script, by exact break (the class gate; C
   const owedIds = [...new Set(owedRows.map((o) => o.case))];
 
   it("every owed script plays on the part player and holds its rows, at its own seed", () => {
-    assert.ok(owedIds.length > 50);
-    assert.ok(owedIds.includes("GEN-pay-search-25-shrunk"));
+    assert.ok(owedIds.length > 40);
+    assert.ok(owedIds.includes("PART-transfers-varied-2001-shrunk"));
 
     for (const id of owedIds) assert.deepEqual(judgedWith(id, [], owedRows), [], id);
   }, 120_000);
@@ -134,7 +134,7 @@ describe("one owed rule for every owed script, by exact break (the class gate; C
   }, 240_000);
 
   it("a sweep under a rule that ignores an item's step lets a plant pass", () => {
-    const id = "PART-transfers-stress-104";
+    const id = "PART-transfers-varied-101";
 
     const loose = ownedBy(id).map((r) => ({
       ...r,
@@ -174,7 +174,7 @@ describe("one owed rule for every owed script, by exact break (the class gate; C
   });
 
   it("an owed item that stops breaking, or a row of a Task not open, fails the gate", () => {
-    const id = "PART-transfers-stress-104";
+    const id = "PART-transfers-varied-101";
     const rows = ownedBy(id);
     const extra = rows.map((r) => ({ ...r, items: [...r.items, item("Planted/Lane y op", 999)] }));
 

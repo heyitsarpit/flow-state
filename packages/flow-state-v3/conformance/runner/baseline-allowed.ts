@@ -83,32 +83,16 @@ export const refused = filed
 /**
  * The named differences the steps since the baseline brought, each with its pending case.
  */
-export const allowed: ReadonlyArray<Allowed> = [
-  ...filed.flatMap(({ run, quotes, cited }) => {
-    const [first] = quotes;
+export const allowed: ReadonlyArray<Allowed> = filed.flatMap(({ run, quotes, cited }) => {
+  const [first] = quotes;
 
-    return first === undefined || quotes.length < cited.length
-      ? []
-      : [
-          {
-            run,
-            pending: first.pending,
-            why: quotes.map((q) => `${q.pending}: ${q.because}`).join("; "),
-          },
-        ];
-  }),
-  ...[
-    "PART-transfers-varied-3",
-    "PART-pay-varied-1",
-    "PART-pay-varied-107",
-    "PART-pay-stress-110",
-    "PART-cells-stress-107",
-    "PART-cells-stress-108",
-    "PART-cells-varied-106",
-    "PART-cells-varied-112",
-  ].map((run) => ({
-    run,
-    pending: "Actors I41" as const,
-    why: "an ending born while its identity has no incarnation waits and is heard at the next start, not dropped",
-  })),
-];
+  return first === undefined || quotes.length < cited.length
+    ? []
+    : [
+        {
+          run,
+          pending: first.pending,
+          why: quotes.map((q) => `${q.pending}: ${q.because}`).join("; "),
+        },
+      ];
+});

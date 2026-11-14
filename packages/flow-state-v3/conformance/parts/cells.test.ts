@@ -14,7 +14,7 @@ describe("cell-pair reach (Q14: Conformance R18, I58; catalogue 5A)", () => {
   it("the denominator follows the tables: a cell's successors sit where its value leaves the subject", () => {
     const pairs = successorPairs();
 
-    assert.equal(cellsOf().length, 315);
+    assert.equal(cellsOf().length, 316);
     assert.ok(pairs.has("A Send·Unsent·open > A EndDefinite·OnWire·running"));
     assert.ok(!pairs.has("A Send·Unsent·open > A Send·Unsent·open"));
     assert.ok(pairs.has("A Send·Unsent·open > B OnWire·reject·always"));

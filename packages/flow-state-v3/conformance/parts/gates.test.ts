@@ -12,7 +12,7 @@ import { machineGates } from "../runner/gates.ts";
 import { partsGateScripts } from "../runner/parts-gates.ts";
 import { HELD_OUT_SEEDS } from "./generate.ts";
 import { partsOwed } from "./owed.ts";
-import { partFaults, playPart } from "./play.ts";
+import { partFaults, playPart, thinFaults } from "./play.ts";
 import { heldOutScripts } from "./records.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -92,7 +92,7 @@ describe("F4: held-out seeds run in a gate (Conformance I52; advisor Q8)", () =>
       partsOwed.filter((o) => !ids.has(o.case) && !heldOut.has(o.case)),
       [],
     );
-    assert.ok(ids.has("PART-cells-stress-7"));
+    assert.ok(ids.has("PART-cells-stress-9"));
   }, 30_000);
 
   it("held-out runs pass on production or fail as owed; without the owed rows they are red", () => {
@@ -122,6 +122,20 @@ describe("F4: held-out seeds run in a gate (Conformance I52; advisor Q8)", () =>
 
     assert.deepEqual(partFaults([{ script, run }]), []);
     assert.equal(partFaults([{ script, run: { ...run, skipped: answers } }]).length, 1);
+  });
+
+  it("a thin script pinned as owed passes while thin and fails once it is not", () => {
+    const [script] = heldOutScripts();
+    assert.ok(script !== undefined);
+
+    const answers = script.steps.filter((s) => s._tag === "answer").length;
+    const run = playPart(script, "production");
+    const pin = { case: script.id, why: "generator gap", owner: "@task.V3.T18" };
+
+    assert.deepEqual(thinFaults(script, { ...run, skipped: answers }, [pin]), []);
+    assert.deepEqual(thinFaults(script, run, [pin]), [
+      `BAD  ${script.id}: pinned thin, owed to @task.V3.T18, but its answers now find their requests`,
+    ]);
   });
 });
 

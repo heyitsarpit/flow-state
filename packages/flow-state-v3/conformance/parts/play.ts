@@ -18,7 +18,15 @@ import type { CaseVerdict } from "../runner/verdict.ts";
 import { oracles } from "../suite.ts";
 import { Answer, type Request } from "../world/network.ts";
 import type { Code } from "./codes.ts";
-import { excuses, isBreak, OwedItem, owedRows, type PartOwed } from "./owed.ts";
+import {
+  excuses,
+  isBreak,
+  OwedItem,
+  owedRows,
+  type PartOwed,
+  type ThinPin,
+  thinPinned,
+} from "./owed.ts";
 
 /**
  * The runtimes a part's script may be asked to run on.
@@ -251,10 +259,6 @@ const judged = (
   runs.flatMap(({ script, run }) => {
     const rows = owed.filter((o) => o.case === script.id);
 
-    const answers = script.steps.filter(
-      (s) => s._tag === "answer" || s._tag === "answerLater",
-    ).length;
-
     const stopped = Option.toArray(run.threw).map(
       (failure) => `BAD  ${script.id}: ${Formatter.format(failure)}, which no owed row excuses`,
     );
@@ -272,13 +276,37 @@ const judged = (
       )
       .map((v) => `BAD  ${script.id}: ${v.text}, which no owed row given here excuses`);
 
-    const thin =
-      rows.length === 0 && run.skipped * 2 > answers
-        ? [`BAD  ${script.id}: ${run.skipped} of ${answers} answers found no open request`]
-        : [];
+    const thin = rows.length === 0 ? thinFaults(script, run) : [];
 
     return [...stopped, ...unowned, ...rows.flatMap((row) => rowFaults(row, run, open)), ...thin];
   });
+
+/**
+ * A passing script whose answers mostly found no open request is a fault, unless it is pinned
+ * thin (`pins`), and then the fault is its losing the thinness the pin owes.
+ */
+export const thinFaults = (
+  script: Script,
+  run: Played,
+  pins: ReadonlyArray<ThinPin> = thinPinned,
+) => {
+  const answers = script.steps.filter(
+    (s) => s._tag === "answer" || s._tag === "answerLater",
+  ).length;
+
+  const thin = run.skipped * 2 > answers;
+
+  return Option.match(Option.fromUndefinedOr(pins.find((p) => p.case === script.id)), {
+    onNone: () =>
+      thin ? [`BAD  ${script.id}: ${run.skipped} of ${answers} answers found no open request`] : [],
+    onSome: (pin) =>
+      thin
+        ? []
+        : [
+            `BAD  ${script.id}: pinned thin, owed to ${pin.owner}, but its answers now find their requests`,
+          ],
+  });
+};
 
 const isRecord = Schema.is(Schema.Record(Schema.String, Schema.Json));
 

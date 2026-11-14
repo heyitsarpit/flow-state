@@ -89,5 +89,9 @@ Deferred items.
 - **Core-mutant triage keyed by line number** (2026-11-15, assumption study). `core-mutants-triage.ts` matches a
   row by file, line and replacement text, so every core edit re-keys it by hand. Key it on the mutated text plus
   its enclosing function, and make `mutate` report candidates beyond `--limit`.
+- **Generator write batching** (2026-11-15, T54 A2 ruling; owed to the later suite Task, pinned to T18 for now).
+  The belief opens a commit's request at the next ack, but a commit written while a batch is out opens one ack
+  later, so PART-cells-stress-101 and PART-cells-varied-112 stay thin (`code:packages/flow-state-v3/conformance/parts/owed.ts#thinPinned`).
+  Prior art: a one-batch-in-flight model, tried and reverted in A2 (thin 2 to 3, a usual script among them).
 - **`cancelAll`** (2026-11-12, the user, wide consult W1 K0; deferred). Neither reference app uses it. If it returns,
   K1 (its own member, typed only on queuing policies) over K2 (`cancel(key, { queued: true })`).

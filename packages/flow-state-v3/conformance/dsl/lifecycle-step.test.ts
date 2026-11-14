@@ -791,7 +791,7 @@ const killerOf = (scripts: ReadonlyArray<Script>, run: Step) => {
  * retarget, another actor's ending and an unclosed turn, which no pilot's run reaches.
  */
 const KILLERS: ReadonlyArray<string> = [
-  "a predicted key retargets a key-less member: search PART-cells-stress-1",
+  "a predicted key retargets a key-less member: example a key-less member names the heard ending's lane, whatever key the turn predicts (WriteLanes R9)",
   "a commit ignores its reported key: search PART-sync-usual-1",
   "an alternative's row is owed whichever alternative ran: search PART-sync-usual-1",
   "an alternative's row is owed whatever alternative ran: search PART-sync-usual-1",
@@ -799,8 +799,8 @@ const KILLERS: ReadonlyArray<string> = [
   "a release is owed on a leaving transition of another event: example a release member anchors in a turn that leaves a releasing state, and only there",
   "a release is owed on a leaving transition from another state: example a release member anchors in a turn that leaves a releasing state, and only there",
   "a release is owed on a leaving transition to another state: example a release member anchors in a turn that leaves a releasing state, and only there",
-  "retryable counts one retry more: search PART-transfers-stress-1",
-  "a keyed member always names every lane: search PART-transfers-stress-1",
+  "retryable counts one retry more: example a cancel the chosen row owes is owed though the report drops it (step 4 review H1)",
+  "a keyed member always names every lane: search PART-pay-stress-1",
   "a turn hears no ending: search PART-sync-usual-1",
   "retention inverted: search PART-sync-stress-1",
   "a turn hears another actor's ending: example another actor's turn of the same event does not hear the ending",
