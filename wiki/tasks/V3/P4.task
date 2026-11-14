@@ -1241,6 +1241,12 @@ tasks
             to Q34 and D7 to D11 added, Q24, Q25, Q20 and D5 widened, Q27 split; 27 checks red at this commit.
             Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): Approach's not-yet line now names the one Owes 
             list (A3, D2), and this comment. Why: step-1 review. Reverse: revert this commit.
+        comment     2026-11-14T05:21:19Z
+            Resume at fcfc330d (step 2 in progress): Pay and Cells are parts, the hand Pay is the pinned golden, every 
+            case takes them derived; V1 holds (suite 124/124 and 78/78, falsify 154/154 and 18/18). Open reds, owed 
+            rows and the resume list are in code:wiki/plans/flow/references/proposals/t52-build-log-2026-11-14.md.
+            Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment. Why: hand-off rule. Reverse: 
+            revert this commit.
     T59
         title       The suite reads and imports nothing outside the package
         status      draft
