@@ -115,9 +115,13 @@ const STOPPED = "stopped by a failed check";
  */
 const stopLine = (run: Played) => (run.stopped ? [STOPPED] : []);
 
+// A write's byte count follows the length of the ids it holds, so it is left out like the ids'
+// numbers; the store's contents at the run's end still show what was written.
+const factLine = (fact: Fact) => (Fact.$is("Wrote")(fact) ? "Wrote" : Formatter.format(fact));
+
 const timelineOf = (run: Played) =>
   normalized([
-    ...run.facts.map((fact) => Formatter.format(fact)),
+    ...run.facts.map(factLine),
     ...[...run.stored].toSorted(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${k}=${v}`),
     ...stopLine(run),
   ]);

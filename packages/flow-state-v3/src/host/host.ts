@@ -43,8 +43,8 @@ export type Store = {
  *
  * Time and fiber scheduling are Effect's own `Clock` and `Scheduler`, in the same Context: absent,
  * Effect's defaults apply; a test host provides its own. Every operation is the host's synchronous
- * primitive, as a page's IndexedDB callbacks are. `sessionSeed` is fresh per boot; Attempt ids are
- * minted from it.
+ * primitive, as a page's IndexedDB callbacks are. `sessionSeed` is fresh per boot, at least 128
+ * random bits as hex, never restored; Attempt ids are minted from it.
  */
 export class Host extends Context.Service<
   Host,
@@ -52,7 +52,7 @@ export class Host extends Context.Service<
     readonly hidden: () => boolean;
     readonly onHidden: (listener: () => void) => void;
     readonly store: Option.Option<Store>;
-    readonly sessionSeed: number;
+    readonly sessionSeed: string;
   }
 >()("flow-state/Host") {}
 

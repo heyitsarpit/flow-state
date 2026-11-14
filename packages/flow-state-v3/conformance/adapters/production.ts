@@ -346,7 +346,7 @@ export const productionPort: Port = {
         Host.of({
           hidden: page.hidden,
           onHidden: page.onHidden,
-          sessionSeed: boot.sessionSeed,
+          sessionSeed: boot.sessionSeed.toString(16).padStart(32, "0"),
           store: Option.some({
             load: Effect.sync(storage.load),
             write: (writes, purpose, acknowledges) =>

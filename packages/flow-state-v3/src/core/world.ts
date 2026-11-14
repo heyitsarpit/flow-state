@@ -255,6 +255,7 @@ export type World = {
   readonly uses: ReadonlyMap<string, ReadonlyArray<Use>>;
   readonly timers: ReadonlyMap<TimerId, Timer>;
   readonly counter: number;
+  readonly attempts: number;
   readonly persistence: boolean;
   readonly disposal: Disposal;
 };
@@ -274,6 +275,7 @@ export const emptyWorld = (persistence: boolean): World => ({
   uses: new Map(),
   timers: new Map(),
   counter: 0,
+  attempts: 0,
   persistence,
   disposal: Disposal.Open(),
 });

@@ -504,33 +504,29 @@ describe("the owed ledger on the production runtime (T54 pending cases)", () => 
     },
   );
 
-  // A-10, owed to A1. Attempts have their own counter (WriteLanes R5, I35): the same commits give
-  // the same Attempt ids whatever else is minted between them (an incarnation, a decline).
-  owed(
-    { step: "A1", red: "the Attempt ids are equal" },
-    "Attempt ids keep their numbers when other ids are minted between commits (WriteLanes I35, R5; WriteLanes T27)",
-    () => {
-      const run = (between: boolean) => {
-        const { served } = tollOver({ on: false, tries: [] }, []);
-        const b = bootWith(served, new Map(), 7);
-        testing.attach(b.built, tolls, "host", false);
-        ring(b, "a");
-        rung(b, lastRing(b));
+  // A-10. Attempts have their own counter (WriteLanes R5, I35): the same commits give the same
+  // Attempt ids whatever else is minted between them (an incarnation and its timers, a decline).
+  // Another Attempt is not "another id", so nothing between the commits mints one.
+  it("Attempt ids keep their numbers when other ids are minted between commits (WriteLanes I35, R5; WriteLanes T27)", () => {
+    const run = (between: boolean) => {
+      const { served } = tollOver({ on: false, tries: [] }, []);
+      const b = bootWith(served, new Map(), 7);
+      testing.attach(b.built, tolls, "host", false);
+      ring(b, "a");
+      rung(b, lastRing(b));
 
-        if (between) {
-          testing.attach(b.built, otherToll, "host", false);
-          ring(b, "z", otherToll);
-          ring(b, "");
-        }
+      if (between) {
+        testing.attach(b.built, otherToll, "host", false);
+        ring(b, "");
+      }
 
-        ring(b, "b");
+      ring(b, "b");
 
-        return b.bell.rings.filter((_, i) => i === 0 || i === b.bell.rings.length - 1);
-      };
+      return b.bell.rings.filter((_, i) => i === 0 || i === b.bell.rings.length - 1);
+    };
 
-      assert.deepStrictEqual(run(true), run(false), "the Attempt ids are equal");
-    },
-  );
+    assert.deepStrictEqual(run(true), run(false), "the Attempt ids are equal");
+  });
 
   // A-12, owed to A2. Two Held heads with no row, created in reverse lane-id order ("c" then
   // "b"): every start (return, adoption, reload) owes each its unknown { Restored } lane by lane

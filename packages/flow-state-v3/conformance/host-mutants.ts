@@ -20,6 +20,34 @@ export type HostMutant = {
  */
 export const hostMutants: ReadonlyArray<HostMutant> = [
   {
+    name: "mint.shared-counter",
+    says: "Attempt ids come from the world's shared counter, so other ids renumber them",
+    test: "src/host/ledger.test.ts",
+    named: "Attempt ids keep their numbers",
+    red: "the Attempt ids are equal",
+    edits: [
+      {
+        file: "src/core/lane-moves.ts",
+        find: "id: tx.mintAttempt(),",
+        replace: 'id: tx.mint("att"),',
+      },
+    ],
+  },
+  {
+    name: "seed.thirty-two-bits",
+    says: "the boot seed is one Uint32",
+    test: "src/host/platform/browser.test.ts",
+    named: "each boot's seed",
+    red: "a seed of 32 bits",
+    edits: [
+      {
+        file: "src/host/platform/browser.ts",
+        find: "new Uint32Array(4)",
+        replace: "new Uint32Array(1)",
+      },
+    ],
+  },
+  {
     name: "disposal.drops-unsent-ending",
     says: "a never-sent head's NotSent { Disposed } at Runtime disposal is dropped, not owed",
     test: "src/host/ledger.test.ts",

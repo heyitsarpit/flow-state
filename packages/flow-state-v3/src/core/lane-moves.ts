@@ -196,7 +196,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence) => {
           actor: at.actor,
           operation: at.operation,
           head: {
-            id: tx.mint("att"),
+            id: tx.mintAttempt(),
             input,
             retryCount: 0,
             mayHaveApplied: false,

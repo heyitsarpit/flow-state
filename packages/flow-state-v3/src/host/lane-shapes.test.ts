@@ -64,6 +64,7 @@ const exactRecords = [
     | "uses"
     | "timers"
     | "counter"
+    | "attempts"
     | "persistence"
     | "disposal"
   >,

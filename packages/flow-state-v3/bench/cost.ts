@@ -8,7 +8,7 @@ import { type Command, emptyWorld, type World } from "../src/core/world.ts";
 const compiled = transfers.machine.compiled;
 const machines = new Map([[compiled.id, compiled]]);
 const actor = { machine: compiled.id, name: "bench" };
-const env = { now: 0, seed: 1 };
+const env = { now: 0, seed: "1".padStart(32, "0") };
 
 type Run = { world: World; readonly store: Map<string, Values>; readonly ms: Array<number> };
 

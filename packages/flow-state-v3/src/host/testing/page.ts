@@ -71,7 +71,7 @@ export const pageOver = (store: Map<string, string>, seed: number, hung = false)
     Host.of({
       hidden: () => false,
       onHidden: () => undefined,
-      sessionSeed: seed,
+      sessionSeed: seed.toString(16).padStart(32, "0"),
       store: Option.some({
         load: Effect.sync(() => new Map(store)),
         write: (writes) =>

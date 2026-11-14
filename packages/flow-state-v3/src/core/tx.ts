@@ -23,7 +23,7 @@ export type Machines = ReadonlyMap<string, Compiled>;
 /**
  * What a step reads from its host: the Runtime Clock's time and the boot's session seed.
  */
-export type Env = { readonly now: number; readonly seed: number };
+export type Env = { readonly now: number; readonly seed: string };
 
 /**
  * How long a free shared actor lives before it ends.
@@ -110,6 +110,11 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
       world = { ...world, counter: world.counter + 1 };
 
       return branded<Id>(`${prefix}-${env.seed}-${world.counter}`);
+    },
+    mintAttempt: () => {
+      world = { ...world, attempts: world.attempts + 1 };
+
+      return `att-${env.seed}-${world.attempts}`;
     },
     next: () => {
       world = { ...world, counter: world.counter + 1 };
