@@ -423,4 +423,7 @@ note 2026-11-14T10:42:51Z
     builder today (five), and one commit swept the parallel builder's hunk; a hook that blocks file writes from Bash 
     would end the first.
 note 2026-11-14T11:23:27Z
-    Review started (orchestrator): combined T52 680c7e2a..5e6d0faf and T61 parallel half, after the 5-hour reset (now 1 percent); one Opus lead with up to eight Haiku, one blind.
+    Review started (orchestrator): combined T52 680c7e2a..5e6d0faf and T61 parallel half, after the 5-hour reset (now 1 
+    percent); one Opus lead with up to eight Haiku, one blind.
+note 2026-11-14T11:41:04Z
+    T52 item 6 at bdb9da7e: all 14 step mutants killed (8 by the search); trace thinning gated but 57 traces held, since table kills alone would lose catches on model code; owed to T61 as model-code mutants. Small amendment (orchestrator): T52's "deleted traces gone" acceptance reads "duplicated traces gated and held, owed to T61". Stray empty scratch-none removed.
