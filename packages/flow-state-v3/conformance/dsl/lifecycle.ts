@@ -397,7 +397,7 @@ export const ownsRow = (model: Model, a: AttemptLife) =>
   model.endings.some((e) => Option.contains(e.attempt, a.id) && OWED_ROWS.includes(e.life._tag));
 
 const keptAtReload = (e: Ending) =>
-  ["Kept", "KeptOpen", "Parked", "ParkedOpen", "Delivering"].includes(e.life._tag) ||
+  ["Kept", "KeptOpen", "Parked", "ParkedOpen", "Delivering", "Maybe"].includes(e.life._tag) ||
   (e.life._tag === "Owed" && e.inDisposal);
 
 const keepsRow = (model: Model, a: AttemptLife) =>

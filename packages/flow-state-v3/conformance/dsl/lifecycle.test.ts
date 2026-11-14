@@ -18,53 +18,15 @@ import {
   rules,
   type TableA,
 } from "./lifecycle-rules.ts";
-import { Check, type Trace } from "./lifecycle-trace.ts";
+import type { Trace } from "./lifecycle-trace.ts";
 import { pendingTraces } from "./lifecycle-actor-lives.traces.ts";
 import { traces } from "./lifecycle.traces.ts";
+import { holds } from "./trace-judge.ts";
 import type { InvariantId } from "./facts.ts";
 import { disposal } from "../actors/disposal.ts";
 import { attemptIdentity } from "../write-lanes/attempt-identity.ts";
 import { deliveredOnce } from "../write-lanes/delivered-once.ts";
 import { laneQueue } from "../write-lanes/lane-queue.ts";
-
-const run = (trace: Trace, given: Rules) =>
-  trace.steps.reduce<{ model: Model; refusals: ReadonlyArray<ReadonlyArray<InvariantId>> }>(
-    ({ model, refusals }, step) => {
-      const [next, found] = "due" in step ? due(model, step.due, given) : apply(model, step, given);
-
-      return { model: next, refusals: [...refusals, found.map((r) => r.invariant)] };
-    },
-    { model: trace.start, refusals: [] },
-  );
-
-const holds = (trace: Trace, given: Rules) => {
-  const { model, refusals } = run(trace, given);
-  const phases = Object.fromEntries(model.attempts.map((a) => [a.id, a.phase]));
-
-  const same = <A>(got: ReadonlyArray<A>, want: ReadonlyArray<A>) =>
-    got.length === want.length && got.every((value, i) => Equal.equals(value, want[i]));
-
-  const marked = trace.checks.find(Check.$is("Marked"))?.count ?? trace.start.releasing.length;
-
-  return (
-    Equal.equals(refusals, trace.refusals) &&
-    Object.keys(phases).length === Object.keys(trace.phases).length &&
-    Object.entries(trace.phases).every(([id, phase]) => Equal.equals(phases[id], phase)) &&
-    model.obligations.length === trace.owed &&
-    model.releasing.length === marked &&
-    trace.checks.every((check) =>
-      Check.$match(check, {
-        Owing: ({ obligations }) => same(model.obligations, obligations),
-        Lives: ({ lives }) =>
-          same(
-            model.endings.map((e) => e.life),
-            lives,
-          ),
-        Marked: () => true,
-      }),
-    )
-  );
-};
 
 const killed = (given: Rules) => traces.some((trace) => !holds(trace, given));
 
