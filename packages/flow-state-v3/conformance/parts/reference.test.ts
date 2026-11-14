@@ -88,14 +88,29 @@ describe("derived key folds (WriteLanes R7: a commit's key is its select's)", ()
 
     const fields = { ...partFixture(part).handlers.folds.initial, intentId: "pi1" };
 
-    assert.deepEqual(key({}, fields, Option.some("states.WAITING.on.RetryNow[0]")), {
-      intentId: "pi1",
-    });
-    assert.deepEqual(key({}, fields, Option.some("on.PayRequested[1]")), { intentId: "pi1" });
-    assert.deepEqual(key({}, fields, Option.none()), { intentId: "pi1" });
-    assert.equal(
+    const pi1 = Option.some({ intentId: "pi1" });
+
+    assert.deepEqual(key({}, fields, Option.some("states.WAITING.on.RetryNow[0]")), pi1);
+    assert.deepEqual(key({}, fields, Option.some("on.PayRequested[1]")), pi1);
+    assert.deepEqual(key({}, fields, Option.none()), pi1);
+    assert.deepEqual(
       key({}, { ...fields, intentId: { unknownToTheSuite: true } }, Option.none()),
-      null,
+      Option.none(),
+    );
+  });
+
+  it("a delay that reads a field the suite does not know computes nothing", () => {
+    const part = parts.find((p) => p.name === "pay");
+    assert.ok(part !== undefined, "no part pay");
+
+    const { folds } = partFixture(part).handlers;
+    const delay = folds.delays["retry"];
+    assert.ok(delay !== undefined);
+
+    assert.deepEqual(delay({ ...folds.initial, retryInMs: 1500 }), Option.some(1500));
+    assert.deepEqual(
+      delay({ ...folds.initial, retryInMs: { unknownToTheSuite: true } }),
+      Option.none(),
     );
   });
 });

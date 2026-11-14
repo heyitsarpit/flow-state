@@ -112,7 +112,7 @@ const judgeFiring = (state: State, turn: Turn, clockAfter: number) => {
   const { due } = armed;
 
   const tooSoon = Option.match(due, {
-    onNone: () => sameStep && clockAfter === armed.at,
+    onNone: () => false,
     onSome: (at) => clockAfter < at,
   });
 
@@ -152,7 +152,10 @@ const armedAfter = (state: State, handlers: Handlers, turn: Turn, fired: Option.
       Option.map(schedule.delayMs, (ms) => state.clock + ms),
       () =>
         Option.flatMap(Option.fromUndefinedOr(handlers.folds.delays[schedule.id]), (delay) =>
-          Option.map(fields, (f) => state.clock + delay(f)),
+          Option.map(
+            Option.flatMap(fields, (f) => delay(f)),
+            (ms) => state.clock + ms,
+          ),
         ),
     );
 

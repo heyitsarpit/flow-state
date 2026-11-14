@@ -260,7 +260,7 @@ const updateFoldOf =
  * one of its members names the write (a commit's input, a keyed retry's or cancel's key);
  * otherwise every such select's, when all of them compute and agree. A select computes a key
  * when its key fields keep one value across the probes of whatever else it reads that the suite
- * does not know. Unknown (`null`) in every other case.
+ * does not know. `None` in every other case.
  */
 const keyFoldOf = (compiled: CompiledOf, write: CompiledWrite) => {
   const selects = alternativesOf(compiled).flatMap(({ alternative }) =>
@@ -282,17 +282,17 @@ const keyFoldOf = (compiled: CompiledOf, write: CompiledWrite) => {
         ({ results }) => {
           const [input = {}, ...others] = results;
 
-          const known = write.keyFields.every((f) =>
-            others.every((o) => Equal.equals(o[f], input[f])),
+          const known = write.keyFields.every(
+            (f) => isJson(input[f]) && others.every((o) => Equal.equals(o[f], input[f])),
           );
 
           return known
             ? Option.some(
                 Object.fromEntries(
-                  write.keyFields.map((f) => {
+                  write.keyFields.flatMap((f) => {
                     const v = input[f];
 
-                    return [f, isJson(v) ? v : null];
+                    return isJson(v) ? [[f, v] as const] : [];
                   }),
                 ),
               )
@@ -306,8 +306,8 @@ const keyFoldOf = (compiled: CompiledOf, write: CompiledWrite) => {
     return first !== undefined &&
       Option.isSome(first) &&
       keys.every((k) => Option.isSome(k) && sameKey(k.value, first.value))
-      ? first.value
-      : null;
+      ? Option.some<Schema.Json>(first.value)
+      : Option.none<Schema.Json>();
   };
 };
 
@@ -364,11 +364,8 @@ export const foldsOf = (
                 [
                   s.name,
                   (fields: Folded) =>
-                    Option.getOrElse(
-                      computed(compiled, {}, fields, ({ memory }) =>
-                        s.delay._tag === "Computed" ? s.delay.ms.run({ memory }) : 0,
-                      ),
-                      () => 0,
+                    computed(compiled, {}, fields, ({ memory }) =>
+                      s.delay._tag === "Computed" ? s.delay.ms.run({ memory }) : 0,
                     ),
                 ],
               ]

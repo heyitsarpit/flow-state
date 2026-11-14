@@ -67,7 +67,9 @@ export const coreOutcome = (result: {
   readonly rows: ReadonlyArray<string>;
   readonly verdicts: ReadonlyArray<CaseVerdict>;
 }) => {
-  const ran = result.rows.every((r) => !r.endsWith("\tno verdict") && !r.endsWith("\tnot applied"));
+  const ran =
+    result.verdicts.length > 0 &&
+    result.rows.every((r) => !r.endsWith("\tno verdict") && !r.endsWith("\tnot applied"));
 
   if (!ran) return { status: "ERROR", why: result.rows.join(" ") };
   const fails = result.verdicts.flatMap((v) => (v._tag === "Fail" ? [v] : []));

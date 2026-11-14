@@ -1,4 +1,4 @@
-import { type Option, Schema } from "effect";
+import { Option, Schema } from "effect";
 import type { Json } from "../port.ts";
 import type { Answer } from "../world/network.ts";
 
@@ -27,8 +27,8 @@ export type Folded = Readonly<Record<string, Json>>;
  *   it reads is missing. Any other guard stays opaque (both outcomes allowed).
  * - `keys`: per operation, the key its members take, from the labels of the fact that caused the
  *   turn, the fields after its update and the place of the alternative the suite judged ran
- *   (`None` when it judged none).
- * - `delays`: per schedule id, the delay in ms its memory computes.
+ *   (`None` when it judged none); `None` when the suite cannot compute it.
+ * - `delays`: per schedule id, the delay in ms its memory computes; `None` when the suite cannot.
  *
  * **Gotchas**
  *
@@ -44,9 +44,12 @@ export type Folds = {
     Record<string, (labels: Labels, fields: Folded) => Option.Option<boolean>>
   >;
   readonly keys: Readonly<
-    Record<string, (labels: Labels, fields: Folded, at: Option.Option<string>) => Json>
+    Record<
+      string,
+      (labels: Labels, fields: Folded, at: Option.Option<string>) => Option.Option<Json>
+    >
   >;
-  readonly delays: Readonly<Record<string, (fields: Folded) => number>>;
+  readonly delays: Readonly<Record<string, (fields: Folded) => Option.Option<number>>>;
 };
 
 const isObject = Schema.is(Schema.Record(Schema.String, Schema.Json));
@@ -65,7 +68,7 @@ export const payloadLabels =
 export const labelledKey =
   (...names: ReadonlyArray<string>) =>
   (labels: Labels) =>
-    Object.fromEntries(names.map((n) => [n, labels[n] ?? null]));
+    Option.some(Object.fromEntries(names.map((n) => [n, labels[n] ?? null])));
 
 /**
  * The folds of a fixture whose guards, keys and delays read no memory.

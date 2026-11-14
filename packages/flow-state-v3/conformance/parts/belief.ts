@@ -48,7 +48,11 @@ export type World = {
 };
 
 const keyOf = (fixture: Fixture, operation: string, labels: Labels, fields: Folded, at: string) =>
-  fixture.handlers.folds.keys[operation]?.(labels, fields, Option.some(at)) ?? null;
+  Option.getOrNull(
+    Option.flatMap(Option.fromUndefinedOr(fixture.handlers.folds.keys[operation]), (key) =>
+      key(labels, fields, Option.some(at)),
+    ),
+  );
 
 const alternativesFor = (compiled: Compiled, leaf: string, event: string) => [
   ...(compiled.states.get(leaf)?.on.get(event) ?? []),
@@ -90,7 +94,12 @@ export const armed = (a: Believed, now: number) =>
     const ms =
       s.delay._tag === "Fixed"
         ? s.delay.ms
-        : (a.fixture.handlers.folds.delays[s.name]?.(a.fields.current) ?? 0);
+        : Option.getOrElse(
+            Option.flatMap(Option.fromUndefinedOr(a.fixture.handlers.folds.delays[s.name]), (d) =>
+              d(a.fields.current),
+            ),
+            () => 0,
+          );
 
     return [{ send: s.send, due: now + ms }];
   });

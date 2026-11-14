@@ -118,6 +118,32 @@ describe("part scripts on production (Q9, Q10, Q15, Q17: Conformance R15, R19, R
     );
   });
 
+  it("a record nothing ever landed is restored fresh after two kills", () => {
+    const pay = {
+      _tag: "send",
+      event: "PayRequested",
+      payload: { paymentMethodId: "visa" },
+    } as const;
+
+    const script: Script = {
+      id: "kill-nothing-landed-11",
+      fixture: "cells",
+      actor: "shopper-1",
+      steps: [
+        { _tag: "ensure" },
+        pay,
+        { _tag: "reload" },
+        pay,
+        { _tag: "reload" },
+        { _tag: "send", event: "Start", payload: { cartId: "c1", intentId: "pi1" } },
+      ],
+    };
+
+    const played = playPart(script, "production");
+
+    assert.equal(played.verdict._tag, "Pass", Formatter.format(played.verdict));
+  });
+
   it("refuses a part on round-14", () => {
     assert.ok(parts.length > 0);
     const played = playPart(scriptOf(parts[0]!, "usual", 1, production), "round-14");

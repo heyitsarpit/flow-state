@@ -39,6 +39,11 @@ describe("core mutants", () => {
     assert.equal(outcomeOf([{ _tag: "Pass", id: "A" }]), "SURVIVED");
   });
 
+  it("a run with no verdict at all is ERROR, never SURVIVED", () => {
+    assert.equal(outcomeOf([]), "ERROR");
+    assert.equal(coreOutcome({ rows: ["m\tA\tPass"], verdicts: [] }).status, "ERROR");
+  });
+
   it("a package copy loads the suite: an unedited copy passes its cases", async () => {
     const result = await Effect.runPromise(
       falsifyProduction(PACKAGE, tmpdir(), "any", planted([])),

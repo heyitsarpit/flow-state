@@ -24,7 +24,7 @@ import {
   valueAt,
 } from "./cells.ts";
 import { mixOf, scriptOf } from "./generate.ts";
-import { partsOwed, playPart } from "./play.ts";
+import { playPart } from "./play.ts";
 
 /**
  * One mutation of a Spec model field: the field's path in the rules, the oracles whose refusal
@@ -198,15 +198,15 @@ export const fieldMutant = (given: Rules, field: string) => {
 
 /**
  * The pilots' scripts the mutants are judged against: each part's usual and stress scripts and
- * the stress app mix, at the first seed, on production; production's owed reds are left out.
+ * the stress app mix, at the first seed, on production. One that fails on the design's rules
+ * (production's owed reds among them) judges no mutant ({@link modelMutants}).
  */
-export const pilots = () =>
-  [
-    ...parts.flatMap((part) =>
-      (["usual", "stress"] as const).map((profile) => scriptOf(part, profile, 1, production)),
-    ),
-    mixOf(mixed, "stress", 1, production),
-  ].filter((script) => !partsOwed.some((o) => o.case === script.id));
+export const pilots = () => [
+  ...parts.flatMap((part) =>
+    (["usual", "stress"] as const).map((profile) => scriptOf(part, profile, 1, production)),
+  ),
+  mixOf(mixed, "stress", 1, production),
+];
 
 const recorded = (scripts: ReadonlyArray<Script>, given: Rules) =>
   scripts.map((script) => {

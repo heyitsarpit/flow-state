@@ -96,6 +96,8 @@ export const keysFor = (
     onNone: () => ({}),
     onSome: (known) =>
       Object.fromEntries(
-        Object.entries(folds.keys).map(([operation, key]) => [operation, key(labels, known, at)]),
+        Object.entries(folds.keys).flatMap(([operation, key]) =>
+          Option.toArray(key(labels, known, at)).map((value) => [operation, value] as const),
+        ),
       ),
   });

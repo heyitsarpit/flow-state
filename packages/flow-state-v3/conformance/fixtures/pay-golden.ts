@@ -220,7 +220,8 @@ const started = (labels: Labels) => ({
   busyTries: 0,
 });
 
-const byIntent = (_labels: Labels, fields: Folded) => ({ intentId: fields["intentId"] ?? "" });
+const byIntent = (_labels: Labels, fields: Folded) =>
+  Option.some({ intentId: fields["intentId"] ?? "" });
 
 /**
  * Pay's folds (`prototypes/conformance/typed/pay.ts` and `machines/pay.ts`), alternative by
@@ -307,9 +308,9 @@ const payFolds: Folds = {
   keys: {
     pay: byIntent,
     void: byIntent,
-    place: (_labels, fields) => ({ cartId: fields["cartId"] ?? "" }),
+    place: (_labels, fields) => Option.some({ cartId: fields["cartId"] ?? "" }),
   },
-  delays: { retry: (fields) => Number(fields["retryInMs"] ?? 0) },
+  delays: { retry: (fields) => Option.some(Number(fields["retryInMs"] ?? 0)) },
 };
 
 /**

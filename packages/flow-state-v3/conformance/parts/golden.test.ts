@@ -35,9 +35,10 @@ const READERS: ReadonlyArray<string> = [
 
 /**
  * The SHA-256 of the hand Pay fixture as it froze (`conformance/fixtures/pay.ts` at the phase-out's
- * first cut): the golden changes only with a logged ruling, which updates this pin.
+ * first cut), its fold keys and delays since returned as `Option` (the Folds contract's own type):
+ * the golden changes only with a logged ruling, which updates this pin.
  */
-const FROZEN_AT_BASELINE = "89041be5452a25635dab6f1e51e9a078ab7d02ac73e56e300181b1628fcf0b1b";
+const FROZEN_AT_BASELINE = "17b6041f05dc932df571ee67d7108766b49711da92ccb7f096cb14e9f6b5651f";
 
 const STATUSES: ReadonlyArray<Schema.JsonObject> = [
   {},
