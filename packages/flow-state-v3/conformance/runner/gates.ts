@@ -54,6 +54,53 @@ const GatesFile = Schema.Struct({
 });
 
 /**
+ * Every machine gate the gate file records, in run order: its name, the runner's arguments, and
+ * the entry when it is not the runner.
+ */
+export const machineGates = (scratch: string) => {
+  const only = productionCases.join(",");
+
+  return [
+    { gate: "suite round-14", args: ["suite", "--runtime", ROUND_14, "--parallel", "6"] },
+    {
+      gate: "suite production",
+      args: ["suite", "--runtime", "production", "--only", only, "--parallel", "6"],
+    },
+    {
+      gate: "falsify round-14",
+      args: ["falsify", "--runtime", ROUND_14, "--parallel", "6", "--scratch", scratch],
+    },
+    {
+      gate: "falsify production",
+      args: ["falsify", "--runtime", "production", "--parallel", "6", "--scratch", scratch],
+    },
+    { gate: "coverage", args: ["coverage"] },
+    { gate: "parts production", args: ["parts"] },
+    { gate: "held-out production", args: ["held-out"] },
+    { gate: "matrix", args: ["matrix-gate"] },
+    { gate: "pairs production", args: ["pairs"] },
+    { gate: "model mutation production", args: ["model-mutation"] },
+    { gate: "bench production", args: ["bench"], entry: BENCH },
+    { gate: "regressions production", args: ["regressions-production"] },
+    { gate: "regressions round-14", args: ["regressions", "--runtime", ROUND_14] },
+    {
+      gate: "liar round-14",
+      args: ["liar", "--runtime", ROUND_14, "--parallel", "6", "--scratch", scratch],
+    },
+    { gate: "limits round-14", args: ["limits"] },
+    {
+      gate: "liar production",
+      args: ["liar", "--runtime", "production", "--parallel", "6", "--scratch", scratch],
+    },
+    { gate: "crash production", args: ["crash", "--runtime", "production", "--only", only] },
+    {
+      gate: "core mutants",
+      args: ["mutate", "--limit", "100", "--parallel", "6", "--scratch", scratch],
+    },
+  ];
+};
+
+/**
  * The gate file (advisor Q6): runs every machine gate in a child process at the current revision
  * and writes their verdict lines to `gates.json`, which notes and reports cite instead of
  * hand-copied numbers. `--gate NAME` runs one gate and keeps the others' last verdicts, so each
@@ -73,45 +120,7 @@ export const writeGates = (
       Effect.catchTag("ChildFailed", () => Effect.succeed("unknown")),
     );
 
-    const only = productionCases.join(",");
-
-    const gates = [
-      { gate: "suite round-14", args: ["suite", "--runtime", ROUND_14, "--parallel", "6"] },
-      {
-        gate: "suite production",
-        args: ["suite", "--runtime", "production", "--only", only, "--parallel", "6"],
-      },
-      {
-        gate: "falsify round-14",
-        args: ["falsify", "--runtime", ROUND_14, "--parallel", "6", "--scratch", scratch],
-      },
-      {
-        gate: "falsify production",
-        args: ["falsify", "--runtime", "production", "--parallel", "6", "--scratch", scratch],
-      },
-      { gate: "coverage", args: ["coverage"] },
-      { gate: "parts production", args: ["parts"] },
-      { gate: "matrix", args: ["matrix-gate"] },
-      { gate: "pairs production", args: ["pairs"] },
-      { gate: "model mutation production", args: ["model-mutation"] },
-      { gate: "bench production", args: ["bench"], entry: BENCH },
-      { gate: "regressions production", args: ["regressions-production"] },
-      { gate: "regressions round-14", args: ["regressions", "--runtime", ROUND_14] },
-      {
-        gate: "liar round-14",
-        args: ["liar", "--runtime", ROUND_14, "--parallel", "6", "--scratch", scratch],
-      },
-      { gate: "limits round-14", args: ["limits"] },
-      {
-        gate: "liar production",
-        args: ["liar", "--runtime", "production", "--parallel", "6", "--scratch", scratch],
-      },
-      { gate: "crash production", args: ["crash", "--runtime", "production", "--only", only] },
-      {
-        gate: "core mutants",
-        args: ["mutate", "--limit", "100", "--parallel", "6", "--scratch", scratch],
-      },
-    ];
+    const gates = machineGates(scratch);
 
     const picked = Option.match(chosen, {
       onNone: () => gates,

@@ -13,7 +13,7 @@ describe("frozen hand cases (Q24: Conformance R15, I50, T33)", () => {
 
   it("freezes R15's 99 hand cases; each later one cites a record (a prototype key is no ruling)", () => {
     assert.equal(frozenCount, 99);
-    assert.ok(Object.values(RULINGS).every((r) => r.startsWith("code:workflow/tasks/V3/")));
+    assert.ok(Object.values(RULINGS).every((r) => r.startsWith("code:wiki/tasks/V3/")));
     assert.deepEqual(uncitedNew([{ ...planted, id: "constructor" }]), ["constructor"]);
   });
 

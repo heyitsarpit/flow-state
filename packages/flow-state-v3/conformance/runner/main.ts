@@ -46,6 +46,7 @@ import { matrixFile, writeMatrix } from "./matrix.ts";
 import { crash, kills, liar, limitsGate, regressions, shrink } from "./modes.ts";
 import { runCoreMutants } from "./mutate.ts";
 import {
+  heldOutGate,
   matrixGateMode,
   modelMutationGate,
   pairsGate,
@@ -428,6 +429,7 @@ const runtimeNameOf = (mode: string, rest: ReadonlyArray<string>) => {
  */
 const PARTS_MODES = new Map([
   ["parts", partsGate],
+  ["held-out", heldOutGate],
   ["matrix-gate", matrixGateMode],
   ["pairs", pairsGate],
   ["model-mutation", modelMutationGate],

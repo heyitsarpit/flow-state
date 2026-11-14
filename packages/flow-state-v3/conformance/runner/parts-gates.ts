@@ -15,8 +15,14 @@ import { matrixGate } from "../parts/features.ts";
 import { fieldGate, modelFields, modelMutants } from "../parts/model-mutation.ts";
 import { PAIR_OWNERS } from "../parts/pair-owners.ts";
 import { combinationGate } from "../parts/pairs.ts";
-import { partsOwed, playPart, reachOf } from "../parts/play.ts";
-import { gateScripts, matrixInputOf, taskSlices, taskStatuses } from "../parts/records.ts";
+import { partFaults, playPart, reachOf } from "../parts/play.ts";
+import {
+  gateScripts,
+  heldOutScripts,
+  matrixInputOf,
+  taskSlices,
+  taskStatuses,
+} from "../parts/records.ts";
 
 const played = () =>
   gateScripts().map((script) => {
@@ -47,19 +53,20 @@ export const verdict = (lines: ReadonlyArray<string>, total: number, what: strin
 export const partsGate = Effect.suspend(() => {
   const runs = played();
 
-  const faults = runs.flatMap(({ script, run }) => {
-    const owed = partsOwed.find((o) => o.case === script.id);
+  return verdict(partFaults(runs), runs.length, "part scripts on production");
+});
 
-    if (owed !== undefined) {
-      const held = verdictOfLimit(owed, run.verdict);
+/**
+ * The held-out gate: the same judgement over the held-out seeds, which no builder tunes against
+ * (Conformance I52; advisor Q8).
+ */
+export const heldOutGate = Effect.suspend(() => {
+  const runs = heldOutScripts().map((script) => ({
+    script,
+    run: playPart(script, "production"),
+  }));
 
-      return held.held ? [] : [`BAD  ${script.id}: owed to ${owed.owner}, but ${held.why}`];
-    }
-
-    return run.verdict._tag === "Pass" ? [] : [`BAD  ${script.id}: ${JSON.stringify(run.verdict)}`];
-  });
-
-  return verdict(faults, runs.length, "part scripts on production");
+  return verdict(partFaults(runs), runs.length, "held-out part scripts on production");
 });
 
 /**
@@ -130,7 +137,15 @@ export const modelMutationGate = Effect.suspend(() => {
  * Production's owed reds among the kept regression scripts: one a production run fails by a bug
  * a Task owns, checked to still fail by its check and Invariant, so a fix shows.
  */
-export const regressionsOwed: ReadonlyArray<Limit & { readonly owner: string }> = [];
+export const regressionsOwed: ReadonlyArray<Limit & { readonly owner: string }> = [
+  {
+    case: "GEN-pay-search-25-shrunk",
+    check: "delivered-once",
+    invariant: "WriteLanes I15",
+    why: "the boot restores and parks a disposed identity's unbound Held head, so the adopting incarnation's start gets nothing (Restore R1, Actors I40: a boot delivers and parks nothing)",
+    owner: "@task.V3.T54",
+  },
+];
 
 /**
  * The kept regressions on production (Conformance I49): every kept script whose fixtures

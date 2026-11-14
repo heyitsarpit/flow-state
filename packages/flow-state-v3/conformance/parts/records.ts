@@ -9,15 +9,15 @@ import { scenarios } from "../suite.ts";
 import { SLICE_OF } from "./codes.ts";
 import { FEATURES } from "./feature-rows.ts";
 import { casesReaching, checksOf, derivedFrom, widened } from "./features.ts";
-import { BUILD_SEEDS, mixOf, scriptOf } from "./generate.ts";
+import { BUILD_SEEDS, HELD_OUT_SEEDS, mixOf, scriptOf } from "./generate.ts";
 
 const TABLE = resolve(
   dirname(fileURLToPath(import.meta.url)),
-  "../../../../workflow/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md",
+  "../../../../wiki/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md",
 );
 
 /**
- * The coverage report's text, read when asked: a mutant's package copy has no workflow folder.
+ * The coverage report's text, read when asked: a mutant's package copy has no wiki folder.
  */
 export const tableText = () => readFileSync(TABLE, "utf8");
 
@@ -29,7 +29,7 @@ export const planIds = () =>
     .split("\n")
     .flatMap((line) => /^\| ([A-Z]\d{2}) \|/.exec(line)?.slice(1, 2) ?? []);
 
-const PROPOSALS = resolve(dirname(fileURLToPath(import.meta.url)), "../../../../workflow");
+const PROPOSALS = resolve(dirname(fileURLToPath(import.meta.url)), "../../../../wiki");
 
 /**
  * The slice the replan gives each newly scoped feature (its "by owning Spec" list): the source the
@@ -168,18 +168,26 @@ export const featureRules = () =>
     ),
   );
 
+const scriptsAt = (seeds: ReadonlyArray<number>, mixSeeds: ReadonlyArray<number>) => [
+  ...parts.flatMap((part) =>
+    (["usual", "stress"] as const).flatMap((profile) =>
+      seeds.map((seed) => scriptOf(part, profile, seed, production)),
+    ),
+  ),
+  ...mixSeeds.map((seed) => mixOf(parts, "stress", seed, production)),
+];
+
 /**
  * The scripts the parts gate plays on production: each pilot's usual and stress scripts at six
  * build seeds, and the stress app mix at the first two.
  */
-export const gateScripts = () => [
-  ...parts.flatMap((part) =>
-    (["usual", "stress"] as const).flatMap((profile) =>
-      BUILD_SEEDS.slice(0, 6).map((seed) => scriptOf(part, profile, seed, production)),
-    ),
-  ),
-  ...BUILD_SEEDS.slice(0, 2).map((seed) => mixOf(parts, "stress", seed, production)),
-];
+export const gateScripts = () => scriptsAt(BUILD_SEEDS.slice(0, 6), BUILD_SEEDS.slice(0, 2));
+
+/**
+ * The scripts the held-out gate plays on production: each pilot's usual and stress scripts and
+ * the stress app mix at every held-out seed, which no builder tunes against (advisor Q8).
+ */
+export const heldOutScripts = () => scriptsAt(HELD_OUT_SEEDS, HELD_OUT_SEEDS);
 
 /**
  * The matrix gate's input over the real rows: production's declarations, the Task records, the

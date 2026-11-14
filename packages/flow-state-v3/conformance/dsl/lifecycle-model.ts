@@ -58,8 +58,8 @@ export type GoneWhy = "closed" | "evidence" | "settledInDisposal";
  * - `Unsent`: addressable once it is the head; never invoked.
  * - `Resending`: sent before; a retry admitted its re-send, not yet invoked.
  * - `OnWire`: invoked, with no ending yet.
- * - `Interrupted`: on the wire and cancelled; it ends unknown `Cancelled`, or `Disposed` past the
- *   disposal's bound.
+ * - `Interrupted`: on the wire and cancelled; it ends unknown `Cancelled`, `Disposed` past the
+ *   disposal's bound, or with the definite answer the call gave first.
  * - `Held`: its last ending was a retained unknown.
  * - `Restoring`: never sent when its page died; it awaits its restore ending. `head` says which
  *   one is allowed.
@@ -99,11 +99,9 @@ export const addressable = (phase: Phase) =>
 
 /**
  * Why an actor's incarnation owes its Held heads their restore ending: a plain reload or return,
- * the Runtime's disposal, the actor's disposal, or a forget. `unbound` is a boot's restore of a
- * disposed identity's unbound lane (its removal landed): the boot may decide it and park it for
- * the adopting incarnation, or leave it to that incarnation (Actors R20; Restore R1).
+ * the Runtime's disposal, the actor's disposal, or a forget.
  */
-export type Cause = "plain" | "runtimeDisposal" | "disposeActor" | "forget" | "unbound";
+export type Cause = "plain" | "runtimeDisposal" | "disposeActor" | "forget";
 
 /**
  * What a turn, a boot or a cancel still owes, kept beside the phases. Each is discharged by one

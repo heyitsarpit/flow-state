@@ -96,19 +96,15 @@ export const actorTraces: ReadonlyArray<Trace> = [
     ],
   },
   {
-    name: "a disposed identity's unbound Held head may take its restore at the boot, parked for its adoption",
+    name: "a boot owes a disposed identity's unbound Held head no restore, and refuses one",
     cites:
-      "Actors R20 (unbound lanes reported at each boot until an adopting ensure), Restore R1 (an unbound lane's endings are parked for the adopting incarnation); owed until delivered, never due",
+      "Restore R1 (the boot delivers nothing and parks nothing; an unbound lane's owed rows go to the incarnation an adopting ensure starts), Actors I40 (a boot parks nothing); the unowed restore is refused by Restore I6 and WriteLanes I15",
     start: unboundAfterDisposal,
     steps: [Move.Reload(), unknown("s", "Restored")],
-    refusals: [[], []],
+    refusals: [[], [wl(15)]],
     phases: { s: H },
-    owed: 1,
-    checks: [
-      Check.Owing({
-        obligations: [Obligation.AwaitRestore({ attempt: "s", cause: "unbound" })],
-      }),
-    ],
+    owed: 0,
+    checks: [Check.Owing({ obligations: [] })],
   },
   {
     name: "a disposed identity's unbound Held head not restored at the boot is owed its restore at adoption",

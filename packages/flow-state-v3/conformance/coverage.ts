@@ -24,7 +24,7 @@ export const CORE_SPECS = [
 export type CoreSpec = (typeof CORE_SPECS)[number];
 
 /**
- * A Task of the V3 Epic, as the workflow CLI names it.
+ * A Task of the V3 Epic, as the wk CLI names it.
  */
 export type TaskRef = `@task.V3.T${number}`;
 
@@ -63,7 +63,7 @@ export type Remainder = {
  *
  * **Details**
  *
- * `open` holds each Task the workflow CLI resolves with a status other than done; a row owned by
+ * `open` holds each Task the wk CLI resolves with a status other than done; a row owned by
  * any other Task is a gap.
  */
 export type CoverageInput = {

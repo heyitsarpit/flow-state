@@ -152,14 +152,14 @@ describe("feature matrix over the real rows (Q12: Conformance R17, I53 to I55)",
     assert.deepEqual(checks["M05"], []);
   });
 
-  it("maps every hand and static case to a feature it reaches, but LANE-11", () => {
+  it("maps every hand and static case to a feature it reaches", () => {
     const reaching = casesReaching(featureRules(), [...scenarios, ...staticCases]);
     const mapped = new Set(Object.values(reaching).flat());
 
     assert.ok(scenarios.length + staticCases.length > 100);
     assert.deepEqual(
       [...scenarios, ...staticCases].filter((c) => !mapped.has(c.id)).map((c) => c.id),
-      ["LANE-11"],
+      [],
     );
   });
 

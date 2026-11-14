@@ -183,7 +183,9 @@ const guardOf = (model: Model, life: AttemptLife, move: Move) =>
           ? "evidenceFirst"
           : "other";
 
-      return life.phase._tag === "OnWire" ? model.mode : "always";
+      return life.phase._tag === "OnWire" || life.phase._tag === "Interrupted"
+        ? model.mode
+        : "always";
     },
     Evidence: ({ kind }) => evidenceGuard(model, life, kind),
     StepEnds: ({ unstoppable }) =>
@@ -389,19 +391,20 @@ const bootOwes = (model: Model) => {
     recordIs(a, "disposeActor") &&
     model.saved.least.removed.some((r) => sameActor(r, a.lane.actor));
 
-  const causeOf = (a: AttemptLife) => {
-    if (unbound(a)) return "unbound" as const;
-
-    return recordIs(a, "forget") ? ("forget" as const) : cause;
-  };
-
   const owing = model.attempts.filter(
-    (a) => restorable(a) && isHead(model, a) && !owesRelease(model, a.id) && !parked(model, a),
+    (a) =>
+      restorable(a) &&
+      isHead(model, a) &&
+      !owesRelease(model, a.id) &&
+      !parked(model, a) &&
+      !unbound(a),
   );
 
   return [
     ...model.obligations,
-    ...owing.map((a) => Obligation.AwaitRestore({ attempt: a.id, cause: causeOf(a) })),
+    ...owing.map((a) =>
+      Obligation.AwaitRestore({ attempt: a.id, cause: recordIs(a, "forget") ? "forget" : cause }),
+    ),
   ];
 };
 

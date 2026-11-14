@@ -280,9 +280,9 @@ const tableTraces: ReadonlyArray<Trace> = [
   ),
   lifeTrace(
     "Opens",
-    "Actors R22 as written, pending CQ6: a never-sent commit's disposal ending is not owed",
+    "Actors I38 (ruling CQ6): a never-sent commit's disposal ending is delivered once to the next incarnation",
     PK,
-    PK,
+    PO,
     alone,
     { channel: "failure", reason: "Disposed", inDisposal: true },
     " of a never-sent commit decided in disposal",

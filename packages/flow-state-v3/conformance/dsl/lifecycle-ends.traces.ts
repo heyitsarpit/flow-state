@@ -166,11 +166,20 @@ const definiteTraces: ReadonlyArray<Trace> = [
   }),
   one({
     name: "an interrupted call ends with its answer",
-    cites: "WriteLanes R14: a cancel on the wire ends unknown Cancelled",
+    cites:
+      "WriteLanes R14 (the user's Q2 B: a definite answer beats the cancel), I41: delivered as it is, the lane closes",
     start: headed(I),
     move: definite("s"),
-    refused: [wl(20)],
-    phases: { s: I, w: Q },
+    refused: [],
+    phases: { s: GC, w: U },
+  }),
+  one({
+    name: "an interrupted call answered during the Runtime's disposal",
+    cites: "WriteLanes R14 (Q2 B), I41; Actors R22, I36: settled in disposal",
+    start: model(lane("A", ["s", I], ["w", Q]), { mode: "disposing" }),
+    move: definite("s"),
+    refused: [],
+    phases: { s: GS, w: U },
   }),
   ...phased([
     ["a Held head ends with an answer", H],

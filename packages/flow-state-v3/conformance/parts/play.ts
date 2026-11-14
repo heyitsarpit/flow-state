@@ -1,7 +1,7 @@
 import { Option, Result, Schema } from "effect";
 import { parts } from "../../fixtures/index.ts";
 import type { Part } from "../../fixtures/part.ts";
-import type { Limit } from "../limits.ts";
+import { type Limit, verdictOfLimit } from "../limits.ts";
 import { captureMsOf } from "../actors/lifetime.scenarios.ts";
 import { nullPort } from "../adapters/null.ts";
 import { productionPort } from "../adapters/production.ts";
@@ -115,6 +115,26 @@ export const playPart = (script: Script, runtime: PartRuntime, given: Rules = ru
     skipped,
   };
 };
+
+/**
+ * The faults of played part scripts on production (Conformance R15, R22): a run that does not
+ * pass, unless an owed row names it and it still fails by that row's check and Invariant.
+ */
+export const partFaults = (
+  runs: ReadonlyArray<{ readonly script: Script; readonly run: Played }>,
+  owed: ReadonlyArray<Limit & { readonly owner: string }> = partsOwed,
+) =>
+  runs.flatMap(({ script, run }) => {
+    const row = owed.find((o) => o.case === script.id);
+
+    if (row !== undefined) {
+      const held = verdictOfLimit(row, run.verdict);
+
+      return held.held ? [] : [`BAD  ${script.id}: owed to ${row.owner}, but ${held.why}`];
+    }
+
+    return run.verdict._tag === "Pass" ? [] : [`BAD  ${script.id}: ${JSON.stringify(run.verdict)}`];
+  });
 
 const isRecord = Schema.is(Schema.Record(Schema.String, Schema.Json));
 

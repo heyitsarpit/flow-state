@@ -252,14 +252,6 @@ const deadlineTraces: ReadonlyArray<Trace> = [
     0,
   ),
   dueTrace(
-    "a boot's restore of an unbound lane waits for the adoption",
-    "Actors R20: listed at each boot until an adopting ensure",
-    restore("unbound"),
-    [],
-    [],
-    1,
-  ),
-  dueTrace(
     "a kept ending not let go",
     "WriteLanes I15",
     Obligation.AwaitLetGo({ ending: 0 }),

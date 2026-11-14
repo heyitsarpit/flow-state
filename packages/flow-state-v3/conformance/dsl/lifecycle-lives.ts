@@ -150,9 +150,6 @@ const byHeld: Guard = (model, _index, ending) =>
     ? "held"
     : "free";
 
-const byDisposalNeverSent: Guard = (_model, _index, ending) =>
-  ending.inDisposal && neverSent(ending) ? "neverSentInDisposal" : "other";
-
 const guards: Partial<Record<LifeRow, Partial<Record<Life["_tag"], Guard>>>> = {
   Delivered: {
     Owed: byMode,
@@ -178,7 +175,6 @@ const guards: Partial<Record<LifeRow, Partial<Record<Life["_tag"], Guard>>>> = {
     ParkedOpen: byForgotten,
     Maybe: byForgotten,
   },
-  Opens: { Parked: byDisposalNeverSent },
   StepEnds: { Owed: byDisposal, Parked: byHeld },
   Reload: { Owed: byDisposal },
 };

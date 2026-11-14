@@ -32,10 +32,10 @@ describe("model mutation (Q16: Conformance R19, I61, T39)", () => {
     const cells = cellsOf().map((c) => `${c.table}.${c.row}.${c.column}.${c.guard}`);
 
     assert.ok(cells.every((c) => fields.includes(c)));
-    assert.ok(fields.includes("deadlines.AwaitRestore.unbound"));
+    assert.ok(fields.includes("deadlines.AwaitRestore.forget"));
     assert.ok(fields.includes("deadlines.Commit"));
     assert.ok(fields.includes("promotion"));
-    assert.equal(fields.length, cells.length + 12 + 1);
+    assert.equal(fields.length, cells.length + 11 + 1);
   });
 
   it("the field gate passes: a mutation reaches every model field", () => {

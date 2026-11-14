@@ -11,7 +11,7 @@ import { combinationGate, type PairInput, pairKey, type RunReach } from "./pairs
 
 const LIST = resolve(
   dirname(fileURLToPath(import.meta.url)),
-  "../../../../workflow/plans/flow/references/proposals/t47-non-interacting-2026-11-12.md",
+  "../../../../wiki/plans/flow/references/proposals/t47-non-interacting-2026-11-12.md",
 );
 
 const run = (

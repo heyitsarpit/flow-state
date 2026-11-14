@@ -89,7 +89,7 @@ export const tableA: TableA = {
     Queued: always(refuse(11)),
     Unsent: always(stay),
     OnWire: { running: gone("closed"), disposing: gone("settledInDisposal") },
-    Interrupted: always(refuse(20)),
+    Interrupted: { running: gone("closed"), disposing: gone("settledInDisposal") },
     Gone: { evidenceFirst: stay, other: refuse(16) },
   },
   EndNotSent: {
@@ -205,7 +205,6 @@ export const deadlines: Deadlines = {
     runtimeDisposal: { by: "StepEnds", invariant: actors(29) },
     disposeActor: { by: "StepEnds", invariant: actors(29) },
     forget: { by: "StepEnds", invariant: actors(32) },
-    unbound: { by: "never", invariant: actors(29) },
   },
   AwaitLetGo: { by: "StepEnds", invariant: wl(15) },
   Commit: { by: "TurnCloses", invariant: wl(15) },
@@ -483,7 +482,7 @@ export const tableC: TableC = {
   },
   Opens: {
     ...lives(kept),
-    Parked: { neverSentInDisposal: kept, other: live(Life.ParkedOpen()) },
+    Parked: once(live(Life.ParkedOpen())),
     Kept: once(live(Life.KeptOpen())),
   },
   StepEnds: {

@@ -3,7 +3,7 @@ import { CORE_SPECS, type CoreSpec, type TaskRef } from "../coverage.ts";
 import { runChild } from "./child.ts";
 
 /**
- * The workflow CLI could not show a core Spec, or showed it in a shape the gate cannot read.
+ * The wk CLI could not show a core Spec, or showed it in a shape the gate cannot read.
  */
 export class SpecUnreadable extends Data.TaggedError("SpecUnreadable")<{
   readonly spec: string;
@@ -19,7 +19,7 @@ const Shown = Schema.Struct({
 const decodeShown = Schema.decodeUnknownEffect(Schema.fromJsonString(Shown));
 
 const invariantsIn = (root: string, spec: CoreSpec) =>
-  runChild("workflow", ["show", `@spec.${spec}`, "--json", "--root", root], 30).pipe(
+  runChild("wk", ["show", `@spec.${spec}`, "--json", "--root", root], 30).pipe(
     Effect.mapError((e) => new SpecUnreadable({ spec, why: e.why })),
     Effect.flatMap((out) =>
       out.code === 0
@@ -37,7 +37,7 @@ const invariantsIn = (root: string, spec: CoreSpec) =>
   );
 
 /**
- * Every Invariant of the core Specs, read with `workflow show @spec.<name> --json` from the
+ * Every Invariant of the core Specs, read with `wk show @spec.<name> --json` from the
  * repository at `root`.
  */
 export const coreInvariants = (root: string) =>
@@ -51,7 +51,7 @@ const ShownTask = Schema.Struct({ task: Schema.Struct({ status: Schema.String })
 const decodeTask = Schema.decodeUnknownEffect(Schema.fromJsonString(ShownTask));
 
 const isOpen = (root: string, owner: TaskRef) =>
-  runChild("workflow", ["show", owner, "--json", "--root", root], 30).pipe(
+  runChild("wk", ["show", owner, "--json", "--root", root], 30).pipe(
     Effect.filterOrFail(
       (out) => out.code === 0,
       (out) => new SpecUnreadable({ spec: owner, why: out.stderr }),
@@ -62,7 +62,7 @@ const isOpen = (root: string, owner: TaskRef) =>
   );
 
 /**
- * The owners, of those given, that the workflow CLI resolves to a Task whose status is not done.
+ * The owners, of those given, that the wk CLI resolves to a Task whose status is not done.
  *
  * **Details**
  *

@@ -37,7 +37,7 @@ const T25 = "@task.V3.T25";
 
 /**
  * Every Plan feature's row, by the ids of the Plan coverage report
- * (`workflow/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md`).
+ * (`wiki/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md`).
  *
  * **Details**
  *

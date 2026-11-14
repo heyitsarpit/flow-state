@@ -6,12 +6,12 @@ import { readFileSync, readdirSync } from "node:fs"
 import { spawnSync } from "node:child_process"
 
 const run = (...args: ReadonlyArray<string>): any => {
-  const out = spawnSync("workflow", [...args, "--json"], {
+  const out = spawnSync("wk", [...args, "--json"], {
     encoding: "utf8",
     maxBuffer: 1 << 28,
     stdio: ["ignore", "pipe", "inherit"]
   })
-  if (out.status !== 0) throw new Error(`workflow ${args.join(" ")} failed`)
+  if (out.status !== 0) throw new Error(`wk ${args.join(" ")} failed`)
   return JSON.parse(out.stdout)
 }
 

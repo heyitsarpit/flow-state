@@ -111,11 +111,11 @@ const FROZEN: ReadonlySet<string> = new Set([
  * decision or a Task comment, cited by its record link.
  */
 export const RULINGS = {
-  "ACT-01/free-actor-ends": "code:workflow/tasks/V3/P4.task (T45, comment 2026-11-11T21:17:53Z)",
+  "ACT-01/free-actor-ends": "code:wiki/tasks/V3/P4.task (T45, comment 2026-11-11T21:17:53Z)",
   "ACT-02/dirty-record-written-at-end":
-    "code:workflow/tasks/V3/log.task (note 2026-11-11T22:32:05Z, the decision on review B1)",
+    "code:wiki/tasks/V3/log.task (note 2026-11-11T22:32:05Z, the decision on review B1)",
   "ACT-03/no-end-before-the-grace":
-    "code:workflow/tasks/V3/log.task (note 2026-11-11T22:32:05Z, the decision on review B1)",
+    "code:wiki/tasks/V3/log.task (note 2026-11-11T22:32:05Z, the decision on review B1)",
 } satisfies Readonly<Record<string, string>>;
 
 /**
