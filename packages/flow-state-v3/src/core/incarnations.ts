@@ -9,6 +9,7 @@ import {
   actorKey,
   type ActorRecord,
   type Armed,
+  byLaneId,
   Due,
   type Incarnation,
   Mail,
@@ -85,7 +86,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
 
     ledger.start(actor);
 
-    for (const [id, lane] of lanesOf(actor).toSorted(([a], [b]) => a.localeCompare(b)))
+    for (const [id, lane] of lanesOf(actor).toSorted(([a], [b]) => byLaneId(a, b)))
       if (Phase.$is("Held")(lane.head.phase) && !owedAttempts.has(lane.head.id))
         ledger.owe({
           actor,
@@ -300,7 +301,6 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     stopSchedules,
     setIncarnation,
     publish,
-    deliverRestored,
     start,
     fireWaiting,
     ensure,

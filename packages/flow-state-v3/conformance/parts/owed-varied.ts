@@ -4,15 +4,15 @@ const Root = Schema.Literals(["retry", "flush", "adopted"]);
 
 /**
  * The production bug an owed part row traces to: a re-send past its budget across a reload
- * (`retry`, @task.V3.T19); a flush that holds only its own actor's records (`flush`,
- * @task.V3.T54); or an adopted head's later ending routed late (`adopted`, @task.V3.T54).
+ * (`retry`); a flush that holds only its own actor's records (`flush`); or an adopted head's
+ * later ending routed against Actors R20 (`adopted`). Each root's owner is in `owed.ts`.
  */
 export type PartRoot = "retry" | "flush" | "adopted";
 
 /**
  * Each first-break signature the soak knows, with its root: it reports these as known and fails
- * on any other. `refused` (a disposed actor's refused Unsent head never ended, @task.V3.T19) is
- * kept by a regression.
+ * on any other. `refused` (a disposed actor's refused Unsent head never ended) is kept by a
+ * regression.
  */
 export const TRIAGED_SIGNATURES: ReadonlyMap<string, PartRoot | "refused"> = new Map([
   ["lane-queue WriteLanes I12 at ack", "retry"],
@@ -51,8 +51,8 @@ export type PartRow = {
  * **Gotchas**
  *
  * - The lists come from a production run: a change detector, never an expected result.
- * - A root is checked by its fix: every `retry` row clears when a re-send's retry count is
- *   captured, and no `flush` or `adopted` row does.
+ * - A root is checked by its fix: every `retry` row clears when a re-send's raised retry count is
+ *   written in the capture batch before it, and no `flush` or `adopted` row does.
  */
 const ROWS: ReadonlyArray<string> = [
   "PART-transfers-stress-1|lane-queue|WriteLanes I12|retry|att-000000000000000000000000000003e8-2;att-000000000000000000000000000003e9-4",

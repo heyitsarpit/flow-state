@@ -1618,6 +1618,11 @@ tasks
             nothing; one start delivers rows then Held heads; owed part rows re-recorded once. Owed to T54: 
             PARTIAL_FLUSH (both flush paths) before close, adopted-head routing for A3 (PART-cells-stress-3-shrunk). 
             Why: A2 checks met per the rulings. Reverse: 2247f350^.
+        comment     2026-11-14T22:52:33Z
+            Edit (agent: T54 building lead, @task.V3.T54, 2026-11-15): amendment, ruled by the orchestrator: A3 builds 
+            adopted-head routing (PART-cells-stress-3-shrunk, PART-cells-varied-8), one rule in turn/anchor.ts, no new 
+            fields. Why: A2's start made adopted heads reachable and the anchor rule contradicts Actors R20; T17's 
+            owner/current redesign (now T57) is wider. Reverse: owe both cases to T57.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      draft

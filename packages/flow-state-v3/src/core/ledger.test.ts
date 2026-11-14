@@ -4,7 +4,7 @@ import { describe, it } from "vite-plus/test";
 import { Audience, Delivery, type Heard, keptOn, makeLedger, type Owed, rowsOf } from "./ledger.ts";
 import { makePersistence } from "./persist.ts";
 import { makeTx, ROOT_ACTIVATION } from "./tx.ts";
-import { actorKey, Disposal, emptyWorld, Mail, type World } from "./world.ts";
+import { actorKey, byLaneId, Disposal, emptyWorld, Mail, type World } from "./world.ts";
 
 const actor = { machine: "Test/Ledger", name: "a" };
 
@@ -59,6 +59,18 @@ const ledgerFaults = (world: World) => {
 };
 
 const hearAs = (heard: Heard) => () => heard;
+
+describe("lane-id order (Restore R3: Held heads in lane-id order)", () => {
+  it("lane ids order by code units, as record keys do, never by the host's locale", () => {
+    const ids = ["Shop/Pay/s1|place|{}", "Shop/Pay/s1|Void|{}", "Shop/Pay/s1|void|{}"];
+
+    assert.deepEqual(ids.toSorted(byLaneId), [
+      "Shop/Pay/s1|Void|{}",
+      "Shop/Pay/s1|place|{}",
+      "Shop/Pay/s1|void|{}",
+    ]);
+  });
+});
 
 describe("the owed ledger's five functions (WriteLanes algorithm ledger)", () => {
   it("owe: Queued with one mail reference while its audience can hear, Ended once at its birth", () => {

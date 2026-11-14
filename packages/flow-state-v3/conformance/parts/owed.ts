@@ -51,7 +51,7 @@ export const excuses = (row: PartOwed, subject: string, step: number) =>
  * passes again (WriteAhead R13, WriteLanes I7).
  */
 export const RETRY_COUNT =
-  "a re-send's retryCount is never re-captured (`invoke` sets the lane, `persist` is not called), so a boot restores the count from before the re-send and a spent `retryable({ times })` passes again (WriteAhead R13, WriteLanes I7)";
+  "a re-send's raised retryCount is not in the capture batch that precedes it, so a boot restores the count from before the re-send and a spent `retryable({ times })` passes again; the check is the raised count written in that batch (WriteAhead R13, WriteLanes I7)";
 
 /**
  * Production's bug behind a closed head restored after a flush: a flush holds only its own
@@ -123,6 +123,6 @@ const COARSE_BATCHING =
  * The thin scripts pinned as owed, each checked to stay thin until its owner closes the gap.
  */
 export const thinPinned: ReadonlyArray<ThinPin> = [
-  "PART-cells-stress-101",
-  "PART-cells-varied-112",
-].map((id) => ({ case: id, why: COARSE_BATCHING, owner: "@task.V3.T18" }));
+  { case: "PART-cells-stress-101", why: RETRY_COUNT, owner: "@task.V3.T19" },
+  { case: "PART-cells-varied-112", why: COARSE_BATCHING, owner: "@task.V3.T15" },
+];

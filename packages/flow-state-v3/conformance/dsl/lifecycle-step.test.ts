@@ -304,7 +304,7 @@ const examples: ReadonlyArray<Example> = [
   },
 
   {
-    name: "a cancel the chosen row owes is owed though the report drops it (step 4 review H1)",
+    name: "a cancel the chosen row owes is owed though the report drops it",
     run: ({ refused, after }) => {
       const dropped = [...unsure, turn(shopper, "VoidUnsure", "LEFT", "LEFT", [])];
 
@@ -565,7 +565,7 @@ const examples: ReadonlyArray<Example> = [
     },
   },
   {
-    name: "a keyed cancel reported with target Nothing is owed on the actor's lanes (step 6 review PD)",
+    name: "a keyed cancel reported with target Nothing is owed on the actor's lanes",
     run: ({ refused, after }) => {
       const pay = [
         turn(shopper, "PayRequested", "CARD", "PAYING", [keyed("pay", "commit")]),
@@ -647,7 +647,7 @@ const examples: ReadonlyArray<Example> = [
     },
   },
   {
-    name: "an alternative's row is confirmed by its members whatever else the report names (step 6 review M2)",
+    name: "an alternative's row is confirmed by its members whatever else the report names",
     run: ({ refused }) => {
       const ghost = { operation: "ghost", kind: "commit" as const, target: MemberTarget.Only() };
 
@@ -799,7 +799,7 @@ const KILLERS: ReadonlyArray<string> = [
   "a release is owed on a leaving transition of another event: example a release member anchors in a turn that leaves a releasing state, and only there",
   "a release is owed on a leaving transition from another state: example a release member anchors in a turn that leaves a releasing state, and only there",
   "a release is owed on a leaving transition to another state: example a release member anchors in a turn that leaves a releasing state, and only there",
-  "retryable counts one retry more: example a cancel the chosen row owes is owed though the report drops it (step 4 review H1)",
+  "retryable counts one retry more: example a cancel the chosen row owes is owed though the report drops it",
   "a keyed member always names every lane: search PART-pay-stress-1",
   "a turn hears no ending: search PART-sync-usual-1",
   "retention inverted: search PART-sync-stress-1",
