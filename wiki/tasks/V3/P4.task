@@ -821,7 +821,7 @@ tasks
             proposals/t45-completion-check-2026-11-12.md. Follow-ups F1 to F3 owned by T47.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T51]
         description
@@ -1097,8 +1097,23 @@ tasks
             GEN-pay-search-25 is owed to T54 again; Opens·Parked goes ParkedOpen (Actors I38); EndDefinite·Interrupted 
             ends Gone (WriteLanes R14 Q2 B). Why: Fable's read. Reverse: fb982276. Records read wiki/ and call wk 
             (plan-coverage too); LANE-11 now maps via WriteLanes I4 [@R3, @R4].
-        comment 2026-11-14T02:25:38Z
-            Close-review items done (995794f9 to 960c1ac4), each red first: Q22 owed static rows name the check each lacks; reach credits only the part that ran and passing runs; stress widened (40/100 moves, landed-lost, failed-landed, never), which found production's retry-count red (5 ids, 2 kept part regressions, owed to T19) and a selection bug, fixed (local actor returning after its grace, Actors R9); world seed from the script seed; bench faults an empty run; current slice and static rows derived. Edit (agent: T47 building lead, @task.V3.T47, 2026-11-14): Conformance T36 follows I57 (spec-log). Why: close review finding 12. Reverse: 960c1ac4. Findings and sidecar log: code:wiki/plans/flow/references/proposals/t47-close-fixes-2026-11-14.md.
+        comment     2026-11-14T02:25:38Z
+            Close-review items done (995794f9 to 960c1ac4), each red first: Q22 owed static rows name the check each 
+            lacks; reach credits only the part that ran and passing runs; stress widened (40/100 moves, landed-lost, 
+            failed-landed, never), which found production's retry-count red (5 ids, 2 kept part regressions, owed to 
+            T19) and a selection bug, fixed (local actor returning after its grace, Actors R9); world seed from the 
+            script seed; bench faults an empty run; current slice and static rows derived. Edit (agent: T47 building 
+            lead, @task.V3.T47, 2026-11-14): Conformance T36 follows I57 (spec-log). Why: close review finding 12. 
+            Reverse: 960c1ac4. Findings and sidecar log: 
+            code:wiki/plans/flow/references/proposals/t47-close-fixes-2026-11-14.md.
+        comment     2026-11-14T02:39:21Z
+            Ready for review at 1881595c (code:packages/flow-state-v3/conformance/gates.json): every gate passes but 
+            crash (732/735, as before); core mutants are now honest at 60/98 killed, 15 caught by no named oracle, 23 
+            survive (code:packages/flow-state-v3/conformance/core-mutants.tsv). Edit (agent: T47 building lead, 
+            @task.V3.T47, 2026-11-14): coverage rows for the 27 Invariants of the 2026-11-12 runtime Spec rewrite, owed 
+            to T54 and T55; JSON.stringify gone from T47's files (lane keys by HashSet). Why: the coverage gate was 
+            unrunnable since the move to wiki/, and the lint ban. Reverse: 1881595c, d7cbb056. Open: parts/records.ts 
+            still reads wiki/ (the self-contained audit's); Fable's routed items on T52 have no owed checks.
     T52
         title       Suite phase-out, first cut: Pay and Cells generated, hand traces thinned
         status      draft
