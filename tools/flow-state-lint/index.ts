@@ -129,23 +129,29 @@ const derivedReportsRule = defineRule({
   },
 });
 
-// One rule per ban. Each covers all of packages/flow-state-v3 unless `except` names a folder (paths
-// relative to the package, never single files), and the `except` option replaces the default folders.
+// One rule per ban. Each covers all of packages/flow-state-v3 unless its options narrow it; vite.config.ts
+// lists them, so where a rule applies is read in one place. Options (folders are relative to the
+// package, never single files): `only` limits the rule to those folders, `except` exempts folders,
+// and `exceptTests` exempts test files (`*.test.ts`, `test/`), a pattern rather than a file.
 const PACKAGE = "packages/flow-state-v3/";
 
 const GLOBAL_OBJECTS = new Set(["global", "globalThis", "window"]);
+
+const EFFECT_MODULES = new Set(["effect", "effect/Effect"]);
 
 type Ban = {
   readonly description: string;
   readonly message: string;
   // Bare global names, also caught as `globalThis.name`, `global.name` and `window.name`.
   readonly globals: ReadonlyArray<string>;
-  // `object.property` calls; `object` is a global (Math, JSON) or an imported namespace (Effect).
+  // `object.property` uses; `object` is a global (Math, JSON), or `Effect`, which is resolved
+  // through the imports: any binding of the Effect module, under any name.
   readonly properties: ReadonlyArray<readonly [object: string, property: string]>;
-  readonly except: ReadonlyArray<string>;
-  // Applies only below this folder.
-  readonly only?: string;
-  // Test files (`*.test.ts`, `test/`) are exempt.
+};
+
+type Options = {
+  readonly only?: ReadonlyArray<string>;
+  readonly except?: ReadonlyArray<string>;
   readonly exceptTests?: boolean;
 };
 
@@ -155,10 +161,16 @@ const isTestFile = (path: string) =>
   /\.test\.tsx?$/u.test(path) || path.split("/").includes("test");
 
 const relativePath = (filename: string) => {
-  const at = filename.replaceAll("\\", "/").lastIndexOf(PACKAGE);
+  const path = filename.replaceAll("\\", "/");
+  const at = path.lastIndexOf(PACKAGE);
 
-  return at < 0 ? undefined : filename.replaceAll("\\", "/").slice(at + PACKAGE.length);
+  return at < 0 ? undefined : path.slice(at + PACKAGE.length);
 };
+
+const appliesTo = (rel: string, options: Options) =>
+  (options.only === undefined || options.only.some((folder) => insideFolder(rel, folder))) &&
+  !(options.except ?? []).some((folder) => insideFolder(rel, folder)) &&
+  !(options.exceptTests === true && isTestFile(rel));
 
 const propertyName = (node: ESTree.MemberExpression) =>
   node.property.type === "Identifier" && !node.computed
@@ -172,6 +184,11 @@ const inTypePosition = (node: ESTree.Node) =>
   node.parent?.type === "TSQualifiedName" ||
   node.parent?.type === "TSTypeQuery";
 
+const importedName = (specifier: ESTree.ImportSpecifier) =>
+  specifier.imported.type === "Identifier"
+    ? specifier.imported.name
+    : String(specifier.imported.value);
+
 const banRule = (ban: Ban) =>
   defineRule({
     meta: {
@@ -181,20 +198,39 @@ const banRule = (ban: Ban) =>
       schema: [
         {
           type: "object",
-          properties: { except: { type: "array", items: { type: "string" } } },
+          properties: {
+            only: { type: "array", items: { type: "string" } },
+            except: { type: "array", items: { type: "string" } },
+            exceptTests: { type: "boolean" },
+          },
           additionalProperties: false,
         },
       ],
     },
     createOnce(context) {
       const globals = new Set(ban.globals);
-      let applies = false;
+      const effectProperties = new Set(
+        ban.properties.filter(([object]) => object === "Effect").map(([, name]) => name),
+      );
+
+      // Local names bound to the Effect module (`import * as E from "effect/Effect"`, `import {
+      // Effect as Fx } from "effect"`), and to the package itself (`import * as E from "effect"`,
+      // where `E.Effect` is the module).
+      let effectModule = new Set<string>();
+      let effectPackage = new Set<string>();
 
       const report = (node: ESTree.Node, name: string) =>
         context.report({ node, messageId: "banned", data: { name, reason: ban.message } });
 
+      const isEffectModule = (object: ESTree.Expression) =>
+        (object.type === "Identifier" && (object.name === "Effect" || effectModule.has(object.name))) ||
+        (object.type === "MemberExpression" &&
+          object.object.type === "Identifier" &&
+          effectPackage.has(object.object.name) &&
+          propertyName(object) === "Effect");
+
       // `globalThis.Math.random` and `globalThis["Math"].random` read as `Math.random`.
-      const ownerName = (object: ESTree.Expression) => {
+      const globalOwner = (object: ESTree.Expression) => {
         if (object.type === "Identifier") return object.name;
 
         if (
@@ -210,16 +246,26 @@ const banRule = (ban: Ban) =>
       return {
         before() {
           const rel = relativePath(context.filename);
-          const given: unknown = context.options[0]?.except;
-          const except = Array.isArray(given) ? given.map(String) : ban.except;
+          const given: Options = context.options[0] ?? {};
 
-          applies =
-            rel !== undefined &&
-            (ban.only === undefined || insideFolder(rel, ban.only)) &&
-            !except.some((folder) => insideFolder(rel, folder)) &&
-            !(ban.exceptTests === true && isTestFile(rel));
+          effectModule = new Set();
+          effectPackage = new Set();
 
-          return applies;
+          return rel !== undefined && appliesTo(rel, given);
+        },
+        ImportDeclaration(node: ESTree.ImportDeclaration) {
+          const source = String(node.source.value);
+
+          if (!EFFECT_MODULES.has(source)) return;
+
+          for (const specifier of node.specifiers)
+            if (specifier.type === "ImportNamespaceSpecifier")
+              (source === "effect" ? effectPackage : effectModule).add(specifier.local.name);
+            else if (specifier.type === "ImportDefaultSpecifier") effectModule.add(specifier.local.name);
+            else if (importedName(specifier) === "Effect" && source === "effect")
+              effectModule.add(specifier.local.name);
+            else if (source === "effect/Effect" && effectProperties.has(importedName(specifier)))
+              report(specifier, `Effect.${importedName(specifier)}`);
         },
         // A bare global is a reference no module or function scope resolves: it falls through to
         // the global scope. A type position (`x: Date`) is not a use.
@@ -253,17 +299,17 @@ const banRule = (ban: Ban) =>
           )
             report(node, `${node.object.name}.${property}`);
 
-          const owner = ownerName(node.object);
+          const owner = globalOwner(node.object);
 
           if (ban.properties.some(([object, name]) => object === owner && name === property))
             report(node, `${owner}.${property}`);
+
+          if (effectProperties.has(property) && isEffectModule(node.object))
+            report(node, `Effect.${property}`);
         },
       };
     },
   });
-
-const platform = "src/host/platform";
-const edgeClocks = [platform, "conformance/runner", "bench"];
 
 const bans = {
   "no-json-stringify": banRule({
@@ -272,7 +318,6 @@ const bans = {
       "Not for equality or keys, files or display: use the value's Schema codec, Schema.toEquivalence, or Effect's formatter.",
     globals: [],
     properties: [["JSON", "stringify"]],
-    except: [],
   }),
   "no-entropy": banRule({
     description: "No Math.random or crypto.",
@@ -280,14 +325,12 @@ const bans = {
       "Runs are deterministic: ids come from the runtime's mint and the world's seed, so a story, replay or search reproduces.",
     globals: ["crypto"],
     properties: [["Math", "random"]],
-    except: [platform],
   }),
   "no-clock": banRule({
     description: "No Date or performance.",
     message: "Use Effect's Clock, or the fake world's clock: a run must reproduce from its seed.",
     globals: ["Date", "performance"],
     properties: [],
-    except: edgeClocks,
   }),
   "no-timers": banRule({
     description: "No setTimeout, clearTimeout, setInterval or queueMicrotask.",
@@ -295,14 +338,12 @@ const bans = {
       "Use Effect's Clock, Scheduler and Effect.sleep, or the fake world's tasks: the core returns work as data for the driver.",
     globals: ["setTimeout", "clearTimeout", "setInterval", "queueMicrotask"],
     properties: [],
-    except: edgeClocks,
   }),
   "no-host-apis": banRule({
     description: "No window, document, navigator, indexedDB, localStorage or sessionStorage.",
     message: "Host APIs belong in src/host: the freeze bug, the bfcache lock, Safari's false oncomplete.",
     globals: ["window", "document", "navigator", "indexedDB", "localStorage", "sessionStorage"],
     properties: [],
-    except: ["src/host"],
   }),
   "no-effect-runtime": banRule({
     description: "No Effect runtime or Promise in the core.",
@@ -312,9 +353,6 @@ const bans = {
     properties: ["gen", "runSync", "runPromise", "runFork", "try", "tryPromise"].map(
       (name) => ["Effect", name] as const,
     ),
-    only: "src",
-    except: ["src/host"],
-    exceptTests: true,
   }),
 };
 

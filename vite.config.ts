@@ -205,16 +205,25 @@ export default defineConfig({
         },
       },
       {
-        // One rule per ban, each over the whole package; exceptions are folders named in the rule
-        // (tools/flow-state-lint/index.ts, tools/lint-bomb/FLOW-STATE.md).
+        // One rule per ban, each over the whole package unless its options say otherwise. Folders are
+        // relative to the package, never single files (tools/lint-bomb/FLOW-STATE.md has the reasons).
         files: [`${production}/**/*.{ts,tsx}`],
         rules: {
           "flow-state/no-json-stringify": "error",
-          "flow-state/no-entropy": "error",
-          "flow-state/no-clock": "error",
-          "flow-state/no-timers": "error",
-          "flow-state/no-host-apis": "error",
-          "flow-state/no-effect-runtime": "error",
+          "flow-state/no-entropy": ["error", { except: ["src/host/platform"] }],
+          "flow-state/no-clock": [
+            "error",
+            { except: ["src/host/platform", "conformance/runner", "bench"] },
+          ],
+          "flow-state/no-timers": [
+            "error",
+            { except: ["src/host/platform", "conformance/runner", "bench"] },
+          ],
+          "flow-state/no-host-apis": ["error", { except: ["src/host"] }],
+          "flow-state/no-effect-runtime": [
+            "error",
+            { only: ["src"], except: ["src/host"], exceptTests: true },
+          ],
         },
       },
       {

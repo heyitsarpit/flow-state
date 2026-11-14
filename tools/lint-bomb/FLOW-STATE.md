@@ -120,8 +120,11 @@ on internal modules and `off` on public entrypoint modules.
 - The built-in set from lint-bomb's own config, all `error`: `complexity`, `no-else-return`,
   `typescript/no-unnecessary-condition`, `typescript/switch-exhaustiveness-check` and the rest.
 - One rule per ban in `tools/flow-state-lint`, each over the whole package (the user, 2026-11-14: "things
-  can get lost in a refactor"). An exception is a folder named in the rule, never a single file. Proved
-  with planted files (inside, in each exception folder, and through `globalThis`), since deleted:
+  can get lost in a refactor"). `vite.config.ts` lists each rule with its options `only` and `except`
+  (folders relative to the package, never single files) and `exceptTests` (a pattern); the plugin's
+  default is no exceptions. `tools/flow-state-lint/rules.test.ts` (in `lint:rules`) plants violations
+  and checks each rule fires inside, stays silent in its exception folders, catches the `globalThis`,
+  `global` and `window` forms and ignores type positions. Effect is resolved through the imports:
   - `no-json-stringify` (no exception): equality goes through `Schema.toEquivalence`, keys through their
     Schema codec, report files through a Schema JSON codec, display through `Formatter.format`.
   - `no-entropy`: `Math.random` and `crypto`. Ids come from the runtime's mint, so stories, replays and
@@ -136,7 +139,8 @@ on internal modules and `off` on public entrypoint modules.
   - `no-effect-runtime`: `Effect.gen`, `runSync`, `runPromise`, `runFork`, `try`, `tryPromise` and
     `Promise`, in `src` only. The turn's hot path is pure (0.2 ms p99; `Effect.try` costs 170 ns against
     7 ns). Except `src/host` and tests (`*.test.ts`, `test/`).
-  - Each also catches the name through `globalThis`, `global` and `window`.
+  - Each also catches the name through `globalThis`, `global` and `window`; `Effect` is any binding of
+    `effect/Effect`, or the `Effect` export of `effect`, under any name.
 - Everywhere in `src`:
   - `switch-exhaustiveness-check` with `considerDefaultExhaustiveForUnions: false`: a `default:`
     no longer hides a variant (it hid lane phases).
