@@ -497,3 +497,14 @@ note 2026-11-14T03:22:27Z
     R1-R3 and sent all to the builder as one fix round. Missed by the builder's checks: owed rows need not match 
     anything that still runs (rule gap), triage argued per file (context), the T6 rewording not swept through the 
     records (gathering).
+note 2026-11-14T03:29:44Z
+    T47 done (fd207127); fresh Opus lead started on @task.V3.T52 at 73227314, with T47's routed items (pending.test.ts 
+    R4, R6, R7, R11; Fable items) in its requirements.
+note 2026-11-14T03:56:38Z
+    Review started (orchestrator): T52 step 1 at 824311ab (requirements and 22 red checks), one Opus lead with up to 
+    eight Haiku sidecars, one blind; mapping checked first. The builder kept Conformance I61 strict (no owed-row 
+    exception), so nothing waits on the user.
+note 2026-11-14T04:07:11Z
+    Decision (user, 2026-11-14): "it costs a lot in limits and i'd rather give its task to opus". The expected-results 
+    read (once per Task at step 1, once at an area's close-out) goes to a fresh Opus agent, not Fable. Scope: the whole 
+    run. instructions edited; T52's step-1 read was already done by Fable.
