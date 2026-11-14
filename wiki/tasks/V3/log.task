@@ -320,4 +320,11 @@ note 2026-11-14T07:17:45Z
     hold line). Item 2 as designed: 116 of 118 refusal cells are runtime-made moves, so the adversarial actor forges 
     the refused report in a liar-mode step, judged by the model refusing; within Q1 B.
 note 2026-11-14T07:18:40Z
-    T52 builder 3 rotated out on context at dd36467b; fourth Opus builder started on 2b, item 2, items 4-7. Process watch: three T52 builders have rotated in one day, each spending much of its context on reading; the new brief asks for selective reading. Proposed for the retrospective: a T52-sized Task should split by step so each builder starts small.
+    T52 builder 3 rotated out on context at dd36467b; fourth Opus builder started on 2b, item 2, items 4-7. Process 
+    watch: three T52 builders have rotated in one day, each spending much of its context on reading; the new brief asks 
+    for selective reading. Proposed for the retrospective: a T52-sized Task should split by step so each builder starts 
+    small.
+note 2026-11-14T07:31:20Z
+    Decision (user, 2026-11-14): "need to let them run into 3 compactions and only rotate after the 4rth is close". 
+    Scope: every lead, the whole run. The three T52 rotations today were the leads' own judgement that context was 
+    long, not counted compactions. instructions edited; the T52 builder told.
