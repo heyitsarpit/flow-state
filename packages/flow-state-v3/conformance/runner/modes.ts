@@ -49,7 +49,7 @@ import { Serialize } from "../fixtures/one-lane.ts";
 import { Cells, Pay } from "../fixtures/pay.ts";
 import type { CaseVerdict } from "./verdict.ts";
 import { crashCase } from "./run.ts";
-import { crashFaults, crashOwed } from "./crash-owed.ts";
+import { crashCounts, crashFaults, crashOwed } from "./crash-owed.ts";
 import { PASSING, signatureLine } from "./signature.ts";
 import { taskStatuses } from "../parts/records.ts";
 
@@ -170,12 +170,13 @@ export const crash = (args: ReadonlyArray<string>) =>
       { concurrency: 1 },
     );
 
-    const points = runs.reduce((n, r) => n + r.points, 0);
+    const counts = crashCounts(runs);
 
     const faults = crashFaults(
       runs,
       owed,
       new Set([...taskStatuses()].flatMap(([t, o]) => (o ? [t] : []))),
+      new Set(scenarios.map((s) => s.id)),
     );
 
     const owedPoints = [...new Set(runs.flatMap((r) => r.hits.map((h) => h.point)))];
@@ -189,10 +190,9 @@ export const crash = (args: ReadonlyArray<string>) =>
       yield* Console.log(`OWED ${o.case} ${o.check} ${o.invariant} to ${o.owner}: ${o.why}`);
 
     for (const f of faults) yield* Console.log(f);
-    const red = runs.flatMap((r) => r.red).length;
 
     yield* Console.log(
-      `VERDICT ${faults.length === 0 ? "pass" : "fail"} ${points - red - owedPoints.length}/${points} crash points pass, ${red} red, ${owedPoints.length} owed${named.length === 0 ? "" : `: ${named.join(", ")}`}`,
+      `VERDICT ${faults.length === 0 ? "pass" : "fail"} ${counts.points - counts.red - counts.owed}/${counts.points} crash points pass, ${counts.red} red, ${counts.owed} owed${named.length === 0 ? "" : `: ${named.join(", ")}`}`,
     );
 
     if (faults.length > 0) process.exitCode = 1;

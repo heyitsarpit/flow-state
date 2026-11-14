@@ -41,6 +41,14 @@ export const crashOwed: ReadonlyArray<PartOwed> = [
     items: [OwedItem.Attempt({ id: "att-1000-7" })],
   },
   {
+    case: "PAY-16/dispose-waiting-resend@9",
+    check: "selection",
+    invariant: "Turn I2",
+    why: "the disposal reports Done with a capture still out and no final write issued, so a kill then restores the leaf before the last turn (Actors R23, I44; the same bug as PAY-15/final-write-refused)",
+    owner: "@task.V3.T55",
+    items: [OwedItem.Item({ subject: "Checkout/Pay shopper-1", step: 10 })],
+  },
+  {
     case: "DISP-06@5",
     check: "delivered-once",
     invariant: "WriteLanes I15",
@@ -101,13 +109,15 @@ const labelOf = (item: OwedItem) =>
   OwedItem.$match(item, { Attempt: ({ id }) => id, Item: ({ subject }) => subject });
 
 /**
- * The crash gate's faults: each red point no row owes, each owed item that no longer breaks, and
- * each row whose owner is not an open Task.
+ * The crash gate's faults: each red point no row owes, each owed item that no longer breaks, each
+ * row whose owner is not an open Task, and each row naming a case that no longer exists (`cases`,
+ * every case id), played or not.
  */
 export const crashFaults = (
   runs: ReadonlyArray<CrashRun>,
   owed: ReadonlyArray<PartOwed>,
   open: ReadonlySet<string>,
+  cases: ReadonlySet<string>,
 ) => {
   const hits = runs.flatMap((r) => r.hits);
   const played = new Set(runs.map((r) => r.id));
@@ -143,5 +153,20 @@ export const crashFaults = (
     .flatMap((r) => r.red)
     .map((v) => `BAD  ${v.id}: no row owes this red point: ${v._tag === "Fail" ? v.why : v._tag}`);
 
-  return [...red, ...stale, ...closed];
+  const ghosts = owed
+    .filter((o) => !cases.has(o.case.split("@")[0] ?? ""))
+    .map((o) => `BAD  ${o.case}: owed to ${o.owner}, but there is no such case`);
+
+  return [...red, ...stale, ...closed, ...ghosts];
+};
+
+/**
+ * The crash gate's counts: points played, red points, and owed points no red point shares, so a
+ * point that is both counts once, as red.
+ */
+export const crashCounts = (runs: ReadonlyArray<CrashRun>) => {
+  const red = new Set(runs.flatMap((r) => r.red.map((v) => v.id)));
+  const owed = new Set(runs.flatMap((r) => r.hits.map((h) => h.point)).filter((p) => !red.has(p)));
+
+  return { points: runs.reduce((n, r) => n + r.points, 0), red: red.size, owed: owed.size };
 };

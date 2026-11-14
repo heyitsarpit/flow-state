@@ -195,7 +195,9 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
 
   return [
     next,
-    [...unadmitted, ...judged.found, ...leftWork].map((s) => violation(s)),
+    [...unadmitted, ...judged.found, ...leftWork].map((s) =>
+      violation(s, Option.some(keyOf(turn.actor))),
+    ),
     Fact.Reported({ observation: anchored }),
     Option.some(predicted),
   ] as const;

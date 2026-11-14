@@ -16,7 +16,7 @@
     "check:fix": "vp check --fix packages/flow-state-v3",
     "check:toolchain": "node ./scripts/check-toolchain.mjs",
     "conformance:checkpoint": "bun packages/flow-state-v3/conformance/runner/main.ts checkpoint",
-    "conformance:coverage": "bun packages/flow-state-v3/conformance/runner/main.ts coverage",
+    "conformance:coverage": "bun packages/flow-state-v3/conformance/runner/main.ts coverage --write",
     "conformance:gates": "bun packages/flow-state-v3/conformance/runner/main.ts gates",
     "conformance:mutate": "bun packages/flow-state-v3/conformance/runner/main.ts mutate --limit 40 --parallel 6",
     "conformance:crash": "bun packages/flow-state-v3/conformance/runner/main.ts crash --runtime production",

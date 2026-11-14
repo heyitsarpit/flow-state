@@ -27,7 +27,7 @@ import {
   runtimePort,
   runtimeSurface,
 } from "./args.ts";
-import { verdictOf } from "./run.ts";
+import { CASE_SECONDS, verdictOf } from "./run.ts";
 import type { CaseVerdict } from "./verdict.ts";
 
 const WIDTH = 400;
@@ -213,6 +213,7 @@ export const tracedScenario = (
   runtime: string,
 ) => {
   const lives = new Map<number, LifeStep>();
+  const end = Date.now() + CASE_SECONDS * 1000;
 
   const opened = openCase({
     port,
@@ -220,7 +221,7 @@ export const tracedScenario = (
     oracles: [...oracles, recorder(lives)],
     seed,
     graphs: graphsFor(surface, [scenario])(scenario),
-    overdue: () => false,
+    overdue: () => Date.now() > end,
     crashAt,
     replay: Option.none(),
     captureMs: captureMsOf(scenario.id),
@@ -269,11 +270,11 @@ const partId = (args: ReadonlyArray<string>) =>
     Option.map(([part, profile, seed]) => `PART-${part}-${profile}-${seed}`),
   );
 
-// RETURN_TYPE: the part player's runtime union, not the three literals.
-const partRuntimeOf = (runtime: string): PartRuntime => {
-  if (runtime === PRODUCTION_RUNTIME) return "production";
+// RETURN_TYPE: the part player's runtime union, not the two literals.
+const partRuntimeOf = (runtime: string): Option.Option<PartRuntime> => {
+  if (runtime === PRODUCTION_RUNTIME) return Option.some("production");
 
-  return runtime === NULL_RUNTIME ? "null" : "round-14";
+  return runtime === NULL_RUNTIME ? Option.some("null") : Option.none();
 };
 
 const handCase = (id: string) =>
@@ -281,7 +282,8 @@ const handCase = (id: string) =>
 
 /**
  * The trace mode (T61): `--script ID|FILE.json`, `--part NAME --profile P --seed N`, or `--case ID
- * [--crash N] [--seed N]`, on `--runtime` (production by default), written to
+ * [--crash N]`, at world seed `--seed` (1 by default) and under the case time bound, on `--runtime`
+ * (production by default; part scripts on production or null only), written to
  * `<--scratch>/trace-<id>.txt`, each `/` of a variant case's id written `~`.
  */
 export const trace = (args: ReadonlyArray<string>) =>
@@ -302,18 +304,27 @@ export const trace = (args: ReadonlyArray<string>) =>
     const port = yield* runtimePort(runtime);
     const surface = yield* runtimeSurface(runtime);
     const script = Option.flatMap(spec, scriptFrom);
+    const seed = Number(Option.getOrElse(flag(args, "--seed"), () => "1"));
+
+    if (Option.exists(script, (s) => isPartScript(s.id)) && Option.isNone(partRuntimeOf(runtime))) {
+      process.exitCode = 2;
+
+      return yield* Console.error(
+        "trace: part scripts run on production or null only (Conformance R22)",
+      );
+    }
 
     const traced = Option.match(script, {
       onSome: (s) =>
         isPartScript(s.id)
-          ? Option.some({ id: s.id, text: tracedPart(s, partRuntimeOf(runtime)) })
+          ? Option.map(partRuntimeOf(runtime), (on) => ({ id: s.id, text: tracedPart(s, on) }))
           : Option.some({
               id: s.id,
               text: tracedScenario(
                 port,
                 surface,
                 scenarioOf(s, [Pay, Cells, Serialize]),
-                1,
+                seed,
                 Option.none(),
                 runtime,
               ),
@@ -324,14 +335,7 @@ export const trace = (args: ReadonlyArray<string>) =>
 
           return {
             id: Option.match(crashAt, { onNone: () => s.id, onSome: (at) => `${s.id}@${at}` }),
-            text: tracedScenario(
-              port,
-              surface,
-              s,
-              Number(Option.getOrElse(flag(args, "--seed"), () => "1")),
-              crashAt,
-              runtime,
-            ),
+            text: tracedScenario(port, surface, s, seed, crashAt, runtime),
           };
         }),
     });

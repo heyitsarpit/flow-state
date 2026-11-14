@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { Effect } from "effect";
 import { describe, it } from "vite-plus/test";
-import { CHECKPOINT_GATES, checkpoint, type CheckpointGate } from "./checkpoint.ts";
+import {
+  CHECKPOINT_GATES,
+  checkpoint,
+  type CheckpointGate,
+  checkpointGates,
+  missingGates,
+} from "./checkpoint.ts";
 import { machineGates } from "./gates.ts";
 
 const printing = (gate: string, line: string, code: number) =>
@@ -62,6 +68,17 @@ describe("the checkpoint gates in `verify` (T61; survey item 1)", () => {
     ]);
 
     assert.equal(result.ok, true);
+  });
+
+  it("a checkpoint name the gate file lacks is reported, never dropped (review N8)", () => {
+    assert.deepEqual(missingGates(["coverage", "parts productoin"]), ["parts productoin"]);
+    assert.deepEqual(missingGates(CHECKPOINT_GATES), []);
+  });
+
+  it("the coverage gate runs without rewriting its standings file (review N8)", () => {
+    const coverage = checkpointGates().find((g) => g.gate === "coverage");
+
+    assert.ok(coverage !== undefined && !coverage.args.includes("--write"));
   });
 
   it("an empty gate list judges nothing and fails", async () => {

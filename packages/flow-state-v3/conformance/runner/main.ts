@@ -169,7 +169,7 @@ const standingLine = (standing: Standing) =>
     Owed: ({ invariant, owner }) => `not yet ${invariant}  ${owner}`,
   });
 
-const covered = (verbose: boolean) =>
+const covered = (verbose: boolean, write = false) =>
   Effect.gen(function* () {
     const invariants = yield* coreInvariants(REPOSITORY);
 
@@ -189,17 +189,16 @@ const covered = (verbose: boolean) =>
     const checked = standings.filter((s) => !Standing.$is("Owed")(s)).length;
     const partly = standings.filter(Standing.$is("Partial")).length;
 
-    if (verbose) {
-      for (const s of standings) yield* Console.log(standingLine(s));
+    if (verbose) for (const s of standings) yield* Console.log(standingLine(s));
 
-      // The coverage standings per Invariant: the phase-out baseline later steps compare against.
+    // The coverage standings per Invariant: the phase-out baseline, rewritten only on request.
+    if (write)
       yield* Effect.sync(() =>
         writeFileSync(
           resolve(dirname(MAIN), "..", "coverage-standings.txt"),
           `${standings.map(standingLine).toSorted().join("\n")}\n`,
         ),
       );
-    }
 
     for (const gap of gaps) yield* Console.log(gapLine(gap));
 
@@ -217,9 +216,9 @@ const covered = (verbose: boolean) =>
     ),
   );
 
-const coverage = () =>
+const coverage = (args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
-    const ok = yield* covered(true);
+    const ok = yield* covered(true, args.includes("--write"));
 
     if (!ok) process.exitCode = 1;
   });
@@ -457,7 +456,7 @@ const dispatch = (args: ReadonlyArray<string>) => {
   if (mode === "falsify")
     return runtimeOf(rest) === PRODUCTION_RUNTIME ? falsifyProductionRuntime(rest) : falsify(rest);
 
-  if (mode === "coverage") return coverage();
+  if (mode === "coverage") return coverage(rest);
 
   if (mode === "crash") return crash(rest);
 

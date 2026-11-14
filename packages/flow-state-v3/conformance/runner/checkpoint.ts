@@ -34,6 +34,15 @@ export const checkpointGates = () =>
     .filter((g) => CHECKPOINT_GATES.includes(g.gate))
     .map(({ gate, args, entry = MAIN }) => ({ gate, entry, args }));
 
+/**
+ * The checkpoint names the gate file has no gate for: each one fails the checkpoint.
+ */
+export const missingGates = (names: ReadonlyArray<string>) => {
+  const known = new Set(machineGates("").map((g) => g.gate));
+
+  return names.filter((n) => !known.has(n));
+};
+
 const green = (code: number, verdict: string) =>
   code === 0 && (verdict.startsWith("VERDICT pass") || verdict.startsWith("ok   coverage"));
 
@@ -71,7 +80,10 @@ export const checkpoint = (gates: ReadonlyArray<CheckpointGate>, seconds: number
  * without writing the gate file; any red fails the run, so `nub run verify` fails.
  */
 export const checkpointMode = Effect.gen(function* () {
-  const { ok, lines } = yield* checkpoint(checkpointGates(), 280);
+  const result = yield* checkpoint(checkpointGates(), 280);
+  const missing = missingGates(CHECKPOINT_GATES).map((n) => `BAD  ${n}: no such gate`);
+  const lines = [...result.lines, ...missing];
+  const ok = result.ok && missing.length === 0;
 
   for (const line of lines) yield* Console.log(line);
   yield* Console.log(
