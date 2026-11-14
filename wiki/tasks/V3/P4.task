@@ -894,6 +894,10 @@ tasks
             Q25 done: a cancel releases a Held or Resending head at once and promotes in its turn (Table B 
             ReleaseHead); the WriteLanes I10 row owed to T52 is gone; production's RETRY_COUNT reds re-recorded under 
             the new rule, still T19's. Reverse: revert this commit.
+        comment     2026-11-14T12:19:33Z
+            Q26 done: a batch holds its step's end, so a kill restores each row exactly (only a row saved mid-delivery 
+            stays Maybe); WriteAhead I21 and I22 leave T52, owed to T19 until an oracle claims them. No owed row names 
+            T52. Reverse: revert this commit.
     T60
         title       The suite proves its own gates and excuses
         status      done

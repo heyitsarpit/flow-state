@@ -200,23 +200,17 @@ export type ActorRecord = "bound" | "grace" | "disposeActor" | "forget";
 export type AttemptLife = { readonly id: string; readonly lane: LaneId; readonly phase: Phase };
 
 /**
- * What one batch saves: some prefix of the step that wrote it (design B4), so it is taken at both
- * ends. `lives` and `ended` are the step's end, the most the batch can hold: each ending's life by
- * index, and how many of the model's `ended` Attempts. `least` is the model before the step's
- * second turn (its end when it ran fewer), the least it holds, since a lane batch is issued at once
- * by its turn (WriteAhead R10). `least.removed` are the actors whose `disposeActor` record it
- * surely holds: a boot owes their Held heads no restore once that removal has landed (Actors R20,
- * orchestrator a42f0bff). `least.minted` counts the Attempts it surely holds, queued or sent.
+ * What one batch saves: the end of the step that wrote it, since a step's writes are one list
+ * projected at its end and a batch carries it (WriteAhead R10, I21, I22). `lives` is each ending's
+ * life by index; `ended` how many of the model's `ended` Attempts; `removed` the actors whose
+ * `disposeActor` record it holds, so a boot owes their Held heads no restore once that removal has
+ * landed (Actors R20, orchestrator a42f0bff); `minted` the Attempts it holds, queued or sent.
  */
 export type Capture = {
   readonly lives: ReadonlyArray<Life>;
   readonly ended: number;
-  readonly least: {
-    readonly lives: ReadonlyArray<Life>;
-    readonly ended: number;
-    readonly removed: ReadonlyArray<ActorRef>;
-    readonly minted: number;
-  };
+  readonly removed: ReadonlyArray<ActorRef>;
+  readonly minted: number;
 };
 
 /**
@@ -249,13 +243,11 @@ export type Capture = {
  *
  * - The lane is derived from `attempts`, never stored: its head is its first addressable Attempt
  *   in mint order, and its waiting list the `Queued` ones.
- * - A capture is kept at both ends of the step that wrote it (design B4), since the step's facts
- *   do not say where in it the batch was issued. Stated limit (review of 4d7e0f5d): a batch issued
- *   before the step's first turn (a capture deadline in an `advance`), or one a later report of
- *   the same turn changed, can hold less than `least`; the step's start would be sound but loses
- *   three catches and turns eight production crash points red, so it waits for the write
- *   position to be a fact. A flush lands at once in the fake store even while older batches are
- *   held; a landing keeps the capture that holds more endings.
+ * - A capture is the end of the step that wrote it: a step's writes are one list projected at its
+ *   end, and its batch carries it (WriteAhead R10), so a row's fate in that step is exact. Stated
+ *   limit: the step's facts do not say where in it the batch was issued; a runtime that issued
+ *   one before the step's turns would hold less and go red. A flush lands at once in the fake
+ *   store even while older batches are held; a landing keeps the capture that holds more endings.
  * - A live actor's `dirty` mark (stated limit, T45 close review S2): `Wrote` names no record,
  *   since the store's keys are the runtime's encoding, so any batch clears every actor's mark and
  *   any write in a step discharges every dirty end; an end that writes only another actor's
@@ -309,24 +301,20 @@ export type Live = {
 };
 
 /**
- * The Attempts whose ending or evidence the landed batch may not hold (ended after the start of the
- * step that wrote it): a kill rolls each back to the head its landed capture holds, allowed and not
- * owed (WriteAhead I10, I17).
+ * The Attempts whose ending or evidence the landed batch does not hold (ended after the step that
+ * wrote it): a kill rolls each back to the head its landed capture holds, allowed and not owed
+ * (WriteAhead I10, I17).
  */
-export const unsavedOf = (model: Model) => model.ended.slice(model.saved.least.ended);
+export const unsavedOf = (model: Model) => model.ended.slice(model.saved.ended);
 
 /**
- * The capture a batch holds, at most `model` and at least `least`.
+ * The capture a batch holds: `model`, the end of the step that wrote it.
  */
-export const captureOf = (model: Model, least: Model) => ({
+export const captureOf = (model: Model) => ({
   lives: model.endings.map((e) => e.life),
   ended: model.ended.length,
-  least: {
-    lives: least.endings.map((e) => e.life),
-    ended: least.ended.length,
-    removed: least.actors.filter((a) => a.record === "disposeActor").map((a) => a.actor),
-    minted: least.attempts.length,
-  },
+  removed: model.actors.filter((a) => a.record === "disposeActor").map((a) => a.actor),
+  minted: model.attempts.length,
 });
 
 /**
@@ -348,7 +336,7 @@ export const empty: Model = {
   clock: 0,
   mintedIn: [],
   unencodable: false,
-  saved: { lives: [], ended: 0, least: { lives: [], ended: 0, removed: [], minted: 0 } },
+  saved: { lives: [], ended: 0, removed: [], minted: 0 },
   pending: Option.none(),
   held: [],
   live: [],

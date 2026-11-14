@@ -74,6 +74,11 @@ export const owes: ReadonlyArray<Owes> = [
     ),
   ),
   ...whole(
+    "@task.V3.T19",
+    "a row's fate in the step whose batch landed (I21, I22): the Spec model holds the exact fate (a batch is its step's end, WriteAhead R10), and a lost or doubled delivery after a kill is refused as WriteLanes I15 or I16; no oracle claims I21 or I22 with a mutant until the WriteAhead area is built",
+    invariantsOf("WriteAhead", [21, 22]),
+  ),
+  ...whole(
     "@task.V3.T20",
     "the Restore area is not built; I6's lower bound is delivered-once's (CQ11); T42 cut I3 and I4 and added I19 (a changed reset runs first after restore)",
     invariantsOf(
@@ -119,11 +124,6 @@ export const owes: ReadonlyArray<Owes> = [
       ...invariantsOf("Codec", [7]),
       ...invariantsOf("Turn", [36]),
     ],
-  ),
-  ...whole(
-    "@task.V3.T52",
-    "a row's fate in the step whose batch landed (WriteAhead I21, I22): the Spec model's Maybe life passes both a lost and a doubled delivery there, a bound rather than the exact fate per core step; T52 replaces it with the exact fate",
-    invariantsOf("WriteAhead", [21, 22]),
   ),
   ...whole(
     "@task.V3.T55",

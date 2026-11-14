@@ -92,11 +92,11 @@ const UNNOTICED = {
   "tableC.Delivered":
     "Owed.disposing Parked.running Parked.disposing ParkedOpen.running ParkedOpen.disposing Refused.running Refused.disposing Kept.running Kept.disposing KeptOpen.running KeptOpen.disposing Evidence.always Maybe.running Maybe.disposing",
   "tableC.DisposalStarts":
-    "Owed.always Parked.always ParkedOpen.always Delivering.always Refused.always Kept.always KeptOpen.always Evidence.always",
+    "Owed.always Parked.always ParkedOpen.always Delivering.always Refused.always Kept.always KeptOpen.always Evidence.always Maybe.always",
   "tableC.InvalidTurn":
     "ParkedOpen.always Delivering.first Delivering.retry Delivering.retryNeverSent Refused.always Kept.always KeptOpen.always Evidence.always Maybe.always",
   "tableC.Opens":
-    "Owed.always Parked.always ParkedOpen.always Delivering.always Refused.always Kept.always KeptOpen.always Evidence.always",
+    "Owed.always Parked.always ParkedOpen.always Delivering.always Refused.always Kept.always KeptOpen.always Evidence.always Maybe.always",
   "tableC.Parked":
     "Parked.always ParkedOpen.always Delivering.always Refused.always Kept.always KeptOpen.always Evidence.always Maybe.always",
   "tableC.RecordedLetGo":
@@ -104,9 +104,9 @@ const UNNOTICED = {
   "tableC.RecordedOther":
     "Owed.forgotten Parked.forgotten Parked.none ParkedOpen.forgotten ParkedOpen.none Delivering.always Refused.always Kept.always KeptOpen.always Evidence.always Maybe.forgotten Maybe.none",
   "tableC.Reload":
-    "Owed.inDisposal Owed.live ParkedOpen.always Delivering.always Refused.always Kept.always KeptOpen.always Evidence.always",
+    "Owed.inDisposal Owed.live ParkedOpen.always Delivering.always Refused.always Kept.always KeptOpen.always Evidence.always Maybe.always",
   "tableC.StepEnds":
-    "Owed.inDisposal Owed.live Parked.held ParkedOpen.always Delivering.always Refused.always Kept.always KeptOpen.always Evidence.always",
+    "Owed.inDisposal Owed.live Parked.held ParkedOpen.always Delivering.always Refused.always Kept.always KeptOpen.always Evidence.always Maybe.always",
   "tableC.Unmapped":
     "Owed.always Parked.always ParkedOpen.always Delivering.always Refused.always Kept.always KeptOpen.always Evidence.always Maybe.always",
   "tableC.Unparked":

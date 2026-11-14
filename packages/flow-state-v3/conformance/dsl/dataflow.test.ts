@@ -211,9 +211,9 @@ const leakIn = (
  * not refused before the leak, so the check must see it.
  */
 const PLANTED = {
-  find: "    return reported(marked, known, fact.observation, earlier, given);",
+  find: '  if (Fact.$is("Reported")(fact)) return reported(walk, known, fact.observation, earlier, given);',
   replace:
-    '    return reported(fact.observation._tag === "Ended" && fact.observation.channel === "success" ? { ...marked, model: { ...marked.model, clock: marked.model.clock + 1 } } : marked, known, fact.observation, earlier, given);',
+    '  if (Fact.$is("Reported")(fact)) return reported(fact.observation._tag === "Ended" && fact.observation.channel === "success" ? { ...walk, model: { ...walk.model, clock: walk.model.clock + 1 } } : walk, known, fact.observation, earlier, given);',
 };
 
 describe("no report value reaches expect state (Conformance R20, T45 K2)", () => {

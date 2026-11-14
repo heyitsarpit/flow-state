@@ -11,7 +11,7 @@ const restoring = Obligation.AwaitRestore({ attempt: "s", cause: "plain" });
 
 const unboundAfterDisposal = model(lane("A", ["s", H]), {
   actors: [{ actor: shopper, record: "disposeActor" }],
-  saved: { lives: [], ended: 0, least: { lives: [], ended: 0, removed: [shopper], minted: 0 } },
+  saved: { lives: [], ended: 0, removed: [shopper], minted: 0 },
 });
 
 // RETURN_TYPE: a Trace, so its literal fields keep the Trace types the lists hold.

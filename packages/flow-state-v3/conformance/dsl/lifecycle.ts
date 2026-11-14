@@ -417,8 +417,7 @@ const bootOwes = (model: Model) => {
     model.actors.some((x) => sameActor(x.actor, a.lane.actor) && x.record === record);
 
   const unbound = (a: AttemptLife) =>
-    recordIs(a, "disposeActor") &&
-    model.saved.least.removed.some((r) => sameActor(r, a.lane.actor));
+    recordIs(a, "disposeActor") && model.saved.removed.some((r) => sameActor(r, a.lane.actor));
 
   const owing = model.attempts.filter(
     (a) =>

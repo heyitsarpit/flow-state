@@ -7,16 +7,12 @@ const rolledEnding = (model: Model, e: Ending, index: number) => {
     model.attempts.some((a) => a.id === id && Phase.$is("Held")(a.phase)),
   );
 
-  const least = model.saved.least.lives[index];
-
   return Option.match(Option.fromUndefinedOr(model.saved.lives[index]), {
     onNone: () => ({ ...e, life: Life.Closed() }),
     onSome: (life) => {
       if (held) return e;
 
-      return least?._tag === life._tag && !Life.$is("Delivering")(life)
-        ? { ...e, life }
-        : { ...e, life: Life.Maybe() };
+      return Life.$is("Delivering")(life) ? { ...e, life: Life.Maybe() } : { ...e, life };
     },
   });
 };
@@ -33,9 +29,9 @@ const rolledEnding = (model: Model, e: Ending, index: number) => {
  *
  * Each ending takes back its life at the last landing or boot (the model's `saved`), unless its
  * Attempt is a Held head, whose restore the boot owes instead (Restore I6); an ending decided since
- * is not on disk, so it closes, and the restore alone may follow. An ending that changed in the
- * step that wrote the landed batch may or may not be held by it (design B4), and so may one saved
- * mid-delivery: it becomes `Maybe`.
+ * is not on disk, so it closes, and the restore alone may follow. The landed batch holds the end of
+ * the step that wrote it (WriteAhead R10), so every other ending takes back that exact life; one
+ * saved mid-delivery may or may not have been heard, and becomes `Maybe`.
  */
 export const rolledBack = (model: Model) => {
   const unsaved = unsavedOf(model);
@@ -48,9 +44,7 @@ export const rolledBack = (model: Model) => {
       if (model.acknowledged.includes(a.id))
         return { ...a, phase: Phase.Restoring({ head: true }) };
 
-      return index < model.saved.least.minted
-        ? { ...a, phase: Phase.Restoring({ head: false }) }
-        : a;
+      return index < model.saved.minted ? { ...a, phase: Phase.Restoring({ head: false }) } : a;
     }),
     endings: model.endings.map((e, i) => rolledEnding(model, e, i)),
   };
@@ -104,18 +98,18 @@ export const unlanded = (model: Model) => ({
  */
 export const booted = (model: Model) => ({
   ...model,
-  saved: captureOf(model, model),
+  saved: captureOf(model),
   pending: Option.none(),
 });
 
 /**
- * The store received a batch, holding at least `least` (before the step's second turn) and at most
- * `model` (design B4): a flush lands at once, any other waits for an answer.
+ * The store received a batch holding `model`, the end of the step that wrote it (WriteAhead R10):
+ * a flush lands at once, any other waits for an answer.
  */
-export const wrote = (model: Model, least: Model, purpose: Purpose) =>
+export const wrote = (model: Model, purpose: Purpose) =>
   purpose === "flush"
-    ? { ...model, saved: captureOf(model, least) }
-    : { ...model, pending: Option.some(captureOf(model, least)) };
+    ? { ...model, saved: captureOf(model) }
+    : { ...model, pending: Option.some(captureOf(model)) };
 
 /**
  * The store landed the held batches: the latest one's capture is saved.

@@ -208,6 +208,11 @@ Each: rule; source; check (red today); the wrong build that keeps it red.
 - **Q26 Maybe life exact (Fable).** A row's fate in the step whose batch landed is the exact fate, not a bound;
   WriteAhead I21 and I22 leave the owed list. Source: WriteAhead I21, I22; ruling 2. Check: traces for a lost
   and a doubled delivery refused.
+  Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): a batch holds its step's end (R10's one list), so
+  `Capture` loses `least` and a kill restores each row exactly; only a row saved mid-delivery stays `Maybe`. The
+  checks are `dsl/lifecycle-capture.test.ts` (red under the old bound). I21 and I22 leave T52 but stay owed, to
+  T19: no oracle claims them with a mutant until the WriteAhead area is built. Selection's anchor keeps its own
+  `least` bound for turn counts and fields (unchanged). Reverse: restore `least`.
 - **Q27a Conformance text.** Conformance Q13 cites no Reads I18; Q14 counts Codec 7 (and the other static
   counts); ending-delivery's I8 message reads the new I8; every citation of WriteLanes R10 (23) and R4 (16) is
   re-read against the new text and corrected where it claims the old rule. Source: T52 comment 2026-11-12.
