@@ -6,6 +6,17 @@
 export type VariedRoot = "retry" | "unbound";
 
 /**
+ * Each first-break signature of the varied reds, with the root its traced representative showed
+ * (T61, by signature): the soak run reports these as known and fails on any other.
+ */
+export const TRIAGED_SIGNATURES: ReadonlyMap<string, VariedRoot> = new Map([
+  ["lane-queue WriteLanes I12", "retry"],
+  ["delivered-once WriteLanes I15", "unbound"],
+  ["delivered-once WriteLanes I15,disposal Actors I29", "unbound"],
+  ["disposal Actors I29", "retry"],
+]);
+
+/**
  * One exact break: an Attempt id, or a subject with no Attempt and the step it broke at.
  */
 export type VariedItem =

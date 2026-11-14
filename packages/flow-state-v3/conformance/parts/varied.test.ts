@@ -9,7 +9,7 @@ import { recording } from "./cells.ts";
 import { BUILD_SEEDS, scriptOf, TIMER_OFFSETS } from "./generate.ts";
 import { playPart } from "./play.ts";
 import { owedRows } from "./owed.ts";
-import { VARIED_OWED } from "./owed-varied.ts";
+import { TRIAGED_SIGNATURES, VARIED_OWED } from "./owed-varied.ts";
 import { gateScripts, heldOutScripts, scriptById } from "./records.ts";
 import { signatureOf } from "./shrink.ts";
 
@@ -74,12 +74,7 @@ describe("the generator varies its inputs (T61; Conformance R15, R16)", () => {
   });
 
   it("every varied red is triaged by its first signature, each signature's root traced once", () => {
-    const traced = new Map([
-      ["lane-queue WriteLanes I12", "retry"],
-      ["delivered-once WriteLanes I15", "unbound"],
-      ["delivered-once WriteLanes I15,disposal Actors I29", "unbound"],
-      ["disposal Actors I29", "retry"],
-    ]);
+    const traced = TRIAGED_SIGNATURES;
 
     const ids = [...new Set(VARIED_OWED.map((r) => r.id))];
 
