@@ -668,3 +668,8 @@ Edit (agent: T61 parallel builder, @task.V3.T61, 2026-11-14): Conformance R15 ke
 kills a table or fold-code mutant no kept trace kills, names its ruling, or alone refuses an Invariant. Why: close
 review O5; the gate reads fold kills from `held-traces.tsv`, not a name list, and 62 traces went. Reverse: revert
 the commit.
+
+Edit (agent: orchestrator, @epic.V3, 2026-11-15): Conformance R6 states that the liar gate and the core mutants count
+any structured failure as caught, cited or not, while falsify and coverage keep the per-check rule. Why: the code
+already did this; the Spec contradicted it (assumption study); the user delegated the choice. Reverse: revert the
+commit.

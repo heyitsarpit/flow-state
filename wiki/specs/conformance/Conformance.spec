@@ -162,6 +162,16 @@ requirements
                 of: caught, red by another check, survived, not applied, no verdict. Every verdict but
                 caught fails falsify.
 
+                Gates that ask whether the suite notices a mutant at all, not which check holds it (the liar
+                gate R21 and the core mutants), count any structured failure as caught: an oracle's
+                violation or a failed case expectation, cited or not. A Timeout, a defect or an unreadable
+                report never catches. Falsify and coverage keep the per-check rule above. Decision (agent:
+                orchestrator, 2026-11-15, delegated by the user): one caught function, with a key for checks
+                and none for noticing (`conformance/runner/caught.ts`). Why: those two gates measure whether a
+                wrong runtime is noticed, and requiring a cite there would hide 46 real catches, while checks
+                still prove themselves per Invariant. Reverse: give those gates a key and accept the lower
+                counts.
+
     R7  The null implementation fails every case
         source  README decision 5 and `nullPort` ("a case that passes here proves nothing"); the P3 gate.
         must    Each subject kind has a null implementation that does nothing. The null runtime boots,
