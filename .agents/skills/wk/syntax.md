@@ -3,7 +3,7 @@
 These examples demonstrate syntax, not project decisions or completed verification.
 Use spaces for indentation. Preserve existing IDs when editing.
 Plans live at `wiki/plans/ID.plan`. Tasks live inside `wiki/tasks/EPIC/PHASE.task`.
-Specs are found by scanning for `*.spec` files; there is no index file.
+Specs live under `wiki/specs/` (`wiki/specs/**.spec`); only the records folder is read, and there is no index file.
 An ID mentioned in another file can be a citation. Read the owning record before editing.
 Task references use `@task.Epic.Task`; omit the phase ID even when the file lives in a phase folder.
 
