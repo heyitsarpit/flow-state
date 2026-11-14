@@ -384,4 +384,10 @@ note 2026-11-14T09:51:38Z
     small): a builder diffs gates.json against its Task's first revision and explains every changed count before 
     review. Reverse: drop the instructions line.
 note 2026-11-14T09:55:03Z
-    T60 benefit watch (orchestrator, for the user): T52 before T60 (08:50-14:00): 5 reviews; about 25 findings in the suite's excuse and judging machinery, about 5 in production; 7 of 9 first-contact reds the suite's; 3 builder rotations. Compared at T52's close: reviews per step, machinery findings per review, suite against production reds, the class gate's own catches, hours per step. T60 helped if machinery findings fall and the class gate catches what reviews used to.
+    T60 benefit watch (orchestrator, for the user): T52 before T60 (08:50-14:00): 5 reviews; about 25 findings in the 
+    suite's excuse and judging machinery, about 5 in production; 7 of 9 first-contact reds the suite's; 3 builder 
+    rotations. Compared at T52's close: reviews per step, machinery findings per review, suite against production reds, 
+    the class gate's own catches, hours per step. T60 helped if machinery findings fall and the class gate catches what 
+    reviews used to.
+note 2026-11-14T10:03:47Z
+    T52 step 2f done at 81953e22: the class gate judges plants by parts-gate faults, pairs 74/74; the new check found MIX stress-10 untriaged (the builder was sent to triage it before item 2). Step 2f review started (also covers T60's fix round). Benefit watch: the class gate's first own catch.
