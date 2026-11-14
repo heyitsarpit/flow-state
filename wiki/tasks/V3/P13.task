@@ -115,8 +115,7 @@ tasks
             [C] and S06 [H]; S28 [J] and S29 [K] with the subset available. Turn R4 (history) and R23 (snapshot) each 
             get an Invariant. Bench: turn cost on compound parts (S06, S20). Read first: 
             code:wiki/plans/flow/references/proposals/replan-2026-11-11.md (part 3, "3 Machine structure") and 
-            code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md (5B, "Composites and the 
-            matrix").
+            code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md (5B, "Composites and the matrix").
 
             **Phase-out, step 5 (the user accepted 2026-11-11):** the Form twin is written in `fixtures/`, and the 
             model's Turn section replaces the Turn helper tables (`turn/selection`, `anchor`, `phases`, `late`) once it 
@@ -176,16 +175,23 @@ tasks
             ReservedReason.
         comment     2026-11-12T11:19:42Z
             Static contradictions from the Spec review 
-            (code:wiki/plans/flow/references/proposals/spec-review-2026-11-12.md), left for this Task since Compile 
-            and StaticCli are not edited there. (1) wiki/specs/core/Compile.spec:104 lists cancelAll as a typed 
-            member; WriteLanes R15 retired it. (2) wiki/specs/core/StaticCli.spec:104 requires ReservedReason; 
-            WriteLanes R3 and I4 retired it. (3) wiki/specs/core/StaticCli.spec:102 says NotSent unmapped: it is 
-            now the notSent: key, and Rejected can occur under every policy (a commit beside a Kept row declines 
-            Rejected under reject, latest and serialize; WriteLanes R6, I33), so flow check counts it as possible 
-            everywhere. (4) New from the user's Q1 B and Q2 B (2026-11-12): cancel(k, { attempt }) takes an 
-            operation-typed handle (a handle of another operation is a type error, WriteLanes R5, T30), and 
-            CancelMissed (proposed name) is a new evidence kind (WriteLanes R3, R14); the static graph shows the cancel 
-            member as before, with the exact-target option on it.
+            (code:wiki/plans/flow/references/proposals/spec-review-2026-11-12.md), left for this Task since Compile and 
+            StaticCli are not edited there. (1) wiki/specs/core/Compile.spec:104 lists cancelAll as a typed member; 
+            WriteLanes R15 retired it. (2) wiki/specs/core/StaticCli.spec:104 requires ReservedReason; WriteLanes R3 
+            and I4 retired it. (3) wiki/specs/core/StaticCli.spec:102 says NotSent unmapped: it is now the notSent: 
+            key, and Rejected can occur under every policy (a commit beside a Kept row declines Rejected under reject, 
+            latest and serialize; WriteLanes R6, I33), so flow check counts it as possible everywhere. (4) New from the 
+            user's Q1 B and Q2 B (2026-11-12): cancel(k, { attempt }) takes an operation-typed handle (a handle of 
+            another operation is a type error, WriteLanes R5, T30), and CancelMissed (proposed name) is a new evidence 
+            kind (WriteLanes R3, R14); the static graph shows the cancel member as before, with the exact-target option 
+            on it.
+        comment     2026-11-14T02:03:45Z
+            Owed from T47 (Q22, 995794f9): all 11 Compile construction cases fail on production first on S1's 
+            Flow.input and computed initial (Compile R5). Without those, CMP-01 and CMP-11 pass; the rest lack 
+            TwoDefaults (I5), ImpureDefault (I6), UnknownNotUncertain (I11), ReservedStateName (I13), the data view's 
+            internal events (I4) and Slots (R16), a tampered Compiled's check (I15), creation (I7) and restore (I8). 
+            Rows: code:packages/flow-state-v3/conformance/adapters/production-static.ts#staticOwed. Edit (agent: T47 
+            building lead, @task.V3.T47, 2026-11-14): this comment. Why: close review finding 6. Reverse: drop it.
     T9
         title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
         status      open
@@ -393,8 +399,8 @@ tasks
 
             **Read first:** @spec.Compile, @task.V3.T17 (the compiler it extends), 
             code:wiki/plans/flow/references/proposals/fable-wide-consult-2026-11-12.md (question 11 and W3), 
-            code:wiki/plans/flow/references/proposals/replan-2026-11-11.md (part 3, "3 Machine structure"). Blocked 
-            by @task.V3.T58 for the slice order (W3, item 4).
+            code:wiki/plans/flow/references/proposals/replan-2026-11-11.md (part 3, "3 Machine structure"). Blocked by 
+            @task.V3.T58 for the slice order (W3, item 4).
 
             Takes from T17: the fragments of @task.V3.T21, fragment inputs, the fragment and schedule rows among the 
             turn features @task.V3.T18 held (M42 to M73), the owed check M66 (Turn R18, freeze releases placements), 
