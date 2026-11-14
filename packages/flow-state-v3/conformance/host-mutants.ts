@@ -212,7 +212,7 @@ export const hostMutants: ReadonlyArray<HostMutant> = [
     edits: [
       {
         file: "src/core/incarnations.ts",
-        find: "lanesOf(actor).toSorted(([a], [b]) => a.localeCompare(b))",
+        find: "lanesOf(actor).toSorted(([a], [b]) => byLaneId(a, b))",
         replace: "lanesOf(actor)",
       },
     ],
@@ -256,6 +256,21 @@ export const hostMutants: ReadonlyArray<HostMutant> = [
         file: "src/core/incarnations.ts",
         find: "ensure(actor, Option.none(), true);",
         replace: "ensure(actor, Option.none(), false);",
+      },
+    ],
+  },
+  {
+    name: "start.boot-delivers",
+    says: "a boot owes each restored head its unknown { Restored } itself, before any start",
+    test: "src/host/ledger.test.ts",
+    named: "one start delivers on return, adoption and reload",
+    red: "a boot owes, parks and delivers nothing",
+    edits: [
+      {
+        file: "src/core/incarnations.ts",
+        find: "    ledger.restore(restored.rows);\n",
+        replace:
+          '    ledger.restore(restored.rows);\n    for (const { id, lane } of restored.lanes)\n      ledger.owe({ actor: lane.actor, to: Audience.Identity(), operation: lane.operation, attempt: Option.some(lane.head.id), lane: Option.some(id), channel: "unknown", reason: "Restored", value: undefined, owner: ROOT_ACTIVATION, current: true });\n',
       },
     ],
   },
