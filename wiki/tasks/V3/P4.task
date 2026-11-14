@@ -783,6 +783,13 @@ tasks
             code:wiki/plans/flow/references/proposals/t52-build-log-2026-11-14.md.
               Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment. Why: step-done rule. Reverse: 
               revert this commit.
+        comment     2026-11-14T07:16:29Z
+            Resume at this commit: resume 3 and re-check fixes 1, 2 and 3's control and actorView items done (falsify 
+            154/154, 18/18; parts 62/62). Next: 2b (undecided-guard count, unknown-delay overdue), then item 2's 
+            adversarial actor (design notes in 2a), then 4 to 7. Detail: 
+            code:wiki/plans/flow/references/proposals/t52-build-log-2026-11-14.md.
+              Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment. Why: hand-off rule. Reverse: 
+              revert this commit.
     T59
         title       The suite reads and imports nothing outside the package
         status      draft

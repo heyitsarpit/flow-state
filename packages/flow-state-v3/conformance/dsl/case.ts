@@ -162,6 +162,13 @@ export type CaseOptions = {
  */
 export class Crashed extends Data.TaggedError("Crashed")<{ readonly after: number }> {}
 
+/**
+ * A case asked for an actor of a fixture it does not boot: a scenario bug, never a verdict.
+ */
+export class UnbootedFixture extends Data.TaggedError("UnbootedFixture")<{
+  readonly fixture: string;
+}> {}
+
 const isRecord = Schema.is(Schema.Record(Schema.String, Schema.Json));
 
 const fieldOf = (input: Json, name: string) =>
@@ -361,7 +368,11 @@ export const openCase = (options: CaseOptions) => {
     });
 
   const driven: Case = {
-    actor: (fixture, id) => actorView(driven, fixture, id),
+    actor: (fixture, id) => {
+      if (!options.fixtures.includes(fixture)) throw new UnbootedFixture({ fixture: fixture.name });
+
+      return actorView(driven, fixture, id);
+    },
     ensure,
     release,
     dispose,

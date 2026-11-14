@@ -6,7 +6,7 @@ import type { Mutant } from "../dsl/oracle.ts";
 import { PACKAGE } from "./args.ts";
 import { falsifyProduction } from "./falsify.ts";
 import { productionCases } from "./gates.ts";
-import { coreOutcome } from "./mutate.ts";
+import { controlFaults, coreOutcome } from "./mutate.ts";
 import type { CaseVerdict } from "./verdict.ts";
 
 const cases = productionCases.slice(0, 2);
@@ -37,6 +37,15 @@ describe("core mutants", () => {
     assert.equal(outcomeOf([{ _tag: "Fail", id: "A", oracles: [], why: "threw" }]), "NO-ORACLE");
     assert.equal(outcomeOf([{ _tag: "Timeout", id: "A", seed: 0, seconds: 10 }]), "TIME");
     assert.equal(outcomeOf([{ _tag: "Pass", id: "A" }]), "SURVIVED");
+  });
+
+  it("a control over zero cases is red, as is a case red on unedited production", () => {
+    assert.deepEqual(controlFaults([], []), ["BAD  control: no case to run, so it proves nothing"]);
+    assert.equal(
+      controlFaults(["A"], [{ _tag: "Fail", id: "A", oracles: [], why: "x" }]).length,
+      1,
+    );
+    assert.deepEqual(controlFaults(["A"], [{ _tag: "Pass", id: "A" }]), []);
   });
 
   it("a run with no verdict at all is ERROR, never SURVIVED", () => {

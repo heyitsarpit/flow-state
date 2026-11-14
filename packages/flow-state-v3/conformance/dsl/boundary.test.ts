@@ -4,6 +4,34 @@ import { readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "vite-plus/test";
+import { Option } from "effect";
+import { nullPort } from "../adapters/null.ts";
+import { Serialize } from "../fixtures/one-lane.ts";
+import { Pay } from "../fixtures/pay.ts";
+import { openCase, UnbootedFixture } from "./case.ts";
+import { rules } from "./lifecycle-rules.ts";
+
+describe("a case's actors come from the fixtures it boots", () => {
+  it("an actor of a fixture the case did not boot is a scenario bug", () => {
+    const opened = openCase({
+      port: nullPort,
+      fixtures: [Pay],
+      captureMs: 5000,
+      oracles: [],
+      seed: 1,
+      graphs: [],
+      overdue: () => false,
+      crashAt: Option.none(),
+      replay: Option.none(),
+      rules,
+      judge: false,
+      excuse: () => false,
+    });
+
+    assert.doesNotThrow(() => opened.driven.actor(Pay, "a"));
+    assert.throws(() => opened.driven.actor(Serialize, "a"), UnbootedFixture);
+  });
+});
 
 const SUITE = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 

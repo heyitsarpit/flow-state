@@ -93,6 +93,17 @@ export const coreOutcome = (result: {
 };
 
 /**
+ * The core mutants' control faults: no case to run (a control over nothing passes vacuously), or
+ * a case that did not pass on unedited production.
+ */
+export const controlFaults = (cases: ReadonlyArray<string>, control: ReadonlyArray<CaseVerdict>) =>
+  cases.length === 0
+    ? ["BAD  control: no case to run, so it proves nothing"]
+    : cases
+        .filter((id) => !control.some((v) => v.id === id && v._tag === "Pass"))
+        .map((id) => `BAD  control: red on unedited production: ${id}`);
+
+/**
  * Runs up to `limit` core mutants, spread over the core, each on its own copy of the package
  * against the production cases, once the unedited cases all pass (a red control voids the
  * count). A mutant is killed only as {@link coreOutcome} reads a kill. Writes every result with
@@ -118,12 +129,10 @@ export const runCoreMutants = (options: {
       ["--parallel", String(options.parallel)],
     ).pipe(Effect.catchTag("NoVerdicts", () => Effect.succeed([])));
 
-    const red = options.cases.filter(
-      (id) => !control.some((v) => v.id === id && v._tag === "Pass"),
-    );
+    const voided = controlFaults(options.cases, control);
 
-    if (red.length > 0) {
-      yield* Console.log(`BAD  control: red on unedited production: ${red.join(" ")}`);
+    if (voided.length > 0) {
+      for (const line of voided) yield* Console.log(line);
       yield* Console.log("VERDICT core mutants: void, the control is red");
       process.exitCode = 1;
 
