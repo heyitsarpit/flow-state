@@ -125,13 +125,13 @@ tasks
 
             **Read first (added):** @spec.Restore (all); @spec.Codec (all); @spec.WriteAhead (R4, R5, R9);
             @spec.Actors (R10, R20, R21); code:packages/flow-state-v3/conformance/README.md (the `restore` row
-            and the carry list); `conformance/not-yet.ts` (the Restore and Codec rows).
+            and the carry list); `conformance/owes.ts` (the Restore and Codec rows).
 
             **Record differences:**
 
             - "Delivers owed endings at boot" in the record means at the first Start after a boot: a boot itself
               delivers and parks nothing (@spec.Restore.R1; @spec.Actors.R10).
-            - `conformance/not-yet.ts` gives T20 Restore I12 and I14; they are @task.V3.T56's since the split
+            - `conformance/owes.ts` gives T20 Restore I12 and I14; they are @task.V3.T56's since the split
               (key versions, saved-shape resets). The builder moves those rows to T56; Restore I13 and I15 (lane
               quarantine) stay here.
             - Code `fg` is missing from `MODEL_CODES` (`conformance/parts/codes.ts`); step 1 adds it.
@@ -222,7 +222,7 @@ tasks
             - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of 
               the model's expectations is read by a different model family (Fable).
         comment     2026-11-10T20:59:41Z
-            Owns, in conformance/not-yet.ts, Codec I1 to I6 (round-14 has no canonical byte codec, Codec Q2). Their 
+            Owns, in conformance/owes.ts, Codec I1 to I6 (round-14 has no canonical byte codec, Codec Q2). Their 
             static cases land before this Task closes (orchestrator decision, log 2026-11-10T20:57:29Z).
         comment     2026-11-12T07:04:37Z
             From the core consolidation design (round 3 handoff table, via @task.V3.T54): three record kinds (`actor/`, 
@@ -244,7 +244,7 @@ tasks
               that, then build. Say in the Task comment which of the two it was. Expected results come from the Spec 
               rule
               cited, never from running the code.
-            - **Every Invariant the Task owns gets an oracle or case.** `conformance/not-yet.ts` lists the Invariants 
+            - **Every Invariant the Task owns gets an oracle or case.** `conformance/owes.ts` lists the Invariants 
               each
               Task owns. The requirement lines are the ones with design content; every other owned Invariant still needs
               its oracle or case and a wrong runtime, written from its Spec text and its Spec test (T-numbered).

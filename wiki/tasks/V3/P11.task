@@ -256,7 +256,7 @@ tasks
               that, then build. Say in the Task comment which of the two it was. Expected results come from the Spec 
               rule
               cited, never from running the code.
-            - **Every Invariant the Task owns gets an oracle or case.** `conformance/not-yet.ts` lists the Invariants 
+            - **Every Invariant the Task owns gets an oracle or case.** `conformance/owes.ts` lists the Invariants 
               each
               Task owns. The requirement lines are the ones with design content; every other owned Invariant still needs
               its oracle or case and a wrong runtime, written from its Spec text and its Spec test (T-numbered).
@@ -448,8 +448,8 @@ tasks
               `MIX-sync+transfers+sign-in-stress-109` and `MIX-sync+transfers+sign-in-stress-2`. Use those.
             - "Add an Invariant for WriteAhead R2": the text is W-2's below, added to the Spec as WriteAhead I24
               with a spec-log line.
-            - Actors I4 is listed under T9 in `conformance/not-yet.ts`; the record moves it here. Move the row.
-            - WriteAhead I20 to I23 have no owner in `conformance/not-yet.ts`; T54 builds I20 to I22's checks and
+            - Actors I4 is listed under T9 in `conformance/owes.ts`; the record moves it here. Move the row.
+            - WriteAhead I20 to I23 have no owner in `conformance/owes.ts`; T54 builds I20 to I22's checks and
               T19 owns I23 and re-judges all four from bytes.
 
             **Decisions already made:**
@@ -579,7 +579,7 @@ tasks
               that, then build. Say in the Task comment which of the two it was. Expected results come from the Spec 
               rule
               cited, never from running the code.
-            - **Every Invariant the Task owns gets an oracle or case.** `conformance/not-yet.ts` lists the Invariants 
+            - **Every Invariant the Task owns gets an oracle or case.** `conformance/owes.ts` lists the Invariants 
               each
               Task owns. The requirement lines are the ones with design content; every other owned Invariant still needs
               its oracle or case and a wrong runtime, written from its Spec text and its Spec test (T-numbered).

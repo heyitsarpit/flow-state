@@ -87,7 +87,7 @@ tasks
             **Read first (added):** @plan.CommandLine.O1, @plan.CommandLine.O5.
 
             **Slice 6, CLI and close-out (replan, accepted 2026-11-11):** `flow check`, `explain` and `graph` with the
-            static cases StaticCli I3, I10 and I11 from `not-yet.ts`, then @task.V3.T15 (the cross-slice audit) and
+            static cases StaticCli I3, I10 and I11 from `owes.ts`, then @task.V3.T15 (the cross-slice audit) and
             @task.V3.T23 (the round-14 adapter leaves the gates). This is the old P3 and P4 close-out, now after every
             core Spec is built. The StaticCli Spec change comes first (C13 lint autofix order; C15 one sentence on
             package instances). No parts are built. Effort 4 (estimate). Read first:
@@ -110,7 +110,7 @@ tasks
             - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
               the model's expectations is read by a different model family (Fable).
         comment     2026-11-10T21:23:15Z
-            Owns, in conformance/not-yet.ts, StaticCli I3, I10 and I11 (round-14's CLI loads every fixture before 
+            Owns, in conformance/owes.ts, StaticCli I3, I10 and I11 (round-14's CLI loads every fixture before 
             reading its arguments and has no config discovery or project tree); their static cases land before this 
             Task closes. Also owed here: spies for I1 (StaticCli T1), the R10 rules round-14 lacks (unfilled ports, 
             late handler, DuplicatePlacement, VerbMismatch, KeyFieldOptional, ReservedReason, the allowlist grammar), 

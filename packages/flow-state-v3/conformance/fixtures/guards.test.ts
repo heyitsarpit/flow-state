@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { Option } from "effect";
 import { describe, it } from "vite-plus/test";
 import { parts } from "../../fixtures/index.ts";
+import { taskStatuses } from "../parts/records.ts";
 import { scenarios } from "../suite.ts";
 import type { Fixture } from "./fixture.ts";
 import { type Level, unfoldedGuards } from "./handlers.ts";
@@ -34,6 +35,13 @@ const handFixtures = () => {
 };
 
 describe("unfolded hand guards are owed (Conformance R19; phase-out step 5)", () => {
+  it("each owner is an open Task, as the owed list's rows are (combined review N6)", () => {
+    const statuses = taskStatuses();
+
+    for (const g of unfoldedGuards)
+      assert.equal(statuses.get(g.owner), true, `${g.fixture} ${g.place}: ${g.owner} is not open`);
+  });
+
   it("every guarded place of a hand fixture with no fold is listed once, owed to a Task", () => {
     const found = handFixtures().flatMap(unfolded).toSorted();
     assert.ok(found.length > 0, "the walk found no guarded place");

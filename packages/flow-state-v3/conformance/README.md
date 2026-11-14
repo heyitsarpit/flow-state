@@ -29,8 +29,8 @@ Specs with `workflow show @spec.<name> --json` and fails unless each is checked 
 that oracle's mutants expects it, or a case-covered row (`CaseCovered`, kept beside its cases)
 names it with cases that all cite it and a mutant that expects it runs one of them; falsify then
 proves that case goes red by a failed expectation citing it. A checked Invariant whose check
-judges only some clauses has a remainder row (`Remainder`, beside its cases) naming the rest and
-its owner, and counts as checked in part. A row that still lists a checked Invariant, a remainder
+judges only some clauses has a clause row in `owes.ts` naming the rest and its owner, and counts
+as checked in part. A row that still lists a checked Invariant, a remainder
 on an unchecked one, a doubled row, a row whose owner is not an open Task (read with `workflow
 show @task.V3.Tn --json`), and an Invariant no core Spec has fail it too. Static cases (Conformance
 R14, `dsl/static-case.ts`) run once each, with no seed, on the surface of the same `--runtime`
@@ -376,7 +376,7 @@ Static guarantees: checked by case expectations over a static surface, not by pe
 | StaticCli I2                  | CLI-09 and the `graph-names` oracle | `cli.graph-renames-untaken-edge`, `graph-names.mutants.ts` (in part)                                                                |
 | StaticCli I3, I10, I11        | none                                | T22 builds config discovery and the project tree                                                                                    |
 
-The remainder of each "in part" row is in the case module's `Remainder` list.
+The remainder of each "in part" row is a clause row in `owes.ts`, beside the whole-Invariant rows.
 
 Expectations that come from a Requirement with no Invariant of its own cite it (`Compile R16`,
 `R17`); such a failure proves no case-covered row.
