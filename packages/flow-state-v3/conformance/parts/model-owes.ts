@@ -15,7 +15,17 @@ const suiteOwner = (field: string): Option.Option<TaskRef> => {
 
   if (column === "CancelAll" || guard.startsWith("cancelAll")) return Option.some("@task.V3.T53");
 
-  return UNFORGEABLE.has(field) ? Option.some("@task.V3.T61") : Option.none();
+  if (!UNFORGEABLE.has(field)) return Option.none();
+
+  const [table = "", row = ""] = field.split(".");
+
+  if (row === "Send") return Option.some("@task.V3.T18");
+
+  if (row === "StepEnds") return Option.some("@task.V3.T19");
+
+  if (row === "Reload") return Option.some("@task.V3.T20");
+
+  return table === "tableB" ? Option.some("@task.V3.T21") : Option.some("@task.V3.T18");
 };
 
 // RETURN_TYPE: a TaskRef, so a misspelled owner fails to compile.
@@ -40,8 +50,9 @@ const sliceOwner = (field: string): TaskRef => {
 /**
  * The open Task a model field's gap is owed to, by its group: a retired `cancelAll` cell to
  * @task.V3.T53, which retires round-14; a refusal cell no forged report can make (outside
- * `FORGED_ROWS`) to @task.V3.T61, since only a suite that drops a report or forges a send reaches
- * it; then lane policies, the promotion rule and the lane deadlines to @task.V3.T18; storage
+ * `FORGED_ROWS`) to the Task whose parts will reach it (T61 ruling, 2026-11-14): a send to
+ * @task.V3.T18, whose lane parts forge a server-log request; a step's end to @task.V3.T19; a boot
+ * to @task.V3.T20; an idle lane to @task.V3.T21; then lane policies, the promotion rule and the lane deadlines to @task.V3.T18; storage
  * refusals to @task.V3.T19; restore, boot and the restore deadlines to @task.V3.T20; the ledger's
  * lives to @task.V3.T54; the Runtime's disposal to @task.V3.T55.
  */

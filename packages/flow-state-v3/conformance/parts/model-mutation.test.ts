@@ -12,10 +12,10 @@ const OWNERS = new Set<TaskRef>([
   "@task.V3.T18",
   "@task.V3.T19",
   "@task.V3.T20",
+  "@task.V3.T21",
   "@task.V3.T54",
   "@task.V3.T55",
   "@task.V3.T53",
-  "@task.V3.T61",
 ]);
 
 import {
@@ -64,21 +64,20 @@ describe("model mutation (Q16: Conformance R19, I61, T39)", () => {
     assert.ok(modelOwed.every((o) => OWNERS.has(o.task)));
   });
 
-  it("a refusal cell no report makes is the suite's to reach, a retired cancelAll cell round-14's", () => {
+  it("a refusal cell no report makes is owed by area, a retired cancelAll cell round-14's (T61 ruling)", () => {
     const ownedBy = (task: TaskRef) =>
       modelOwed.filter((o) => o.task === task).map((o) => o.subject);
 
     const retired = ownedBy("@task.V3.T53");
-    const unforgeable = ownedBy("@task.V3.T61");
 
     assert.equal(retired.length, 9);
     assert.ok(retired.every((s) => s.includes(".CancelAll.") || s.includes(".cancelAll")));
-    assert.equal(unforgeable.length, 16);
-    assert.ok(!unforgeable.includes("tableC.StepEnds.Owed.live"));
-    assert.ok(!unforgeable.includes("tableA.StepEnds.Interrupted.stoppable"));
-    assert.ok(unforgeable.includes("tableA.Send.Queued.always"));
-    assert.ok(unforgeable.includes("tableC.Reload.Delivering.always"));
-    assert.ok(!unforgeable.includes("tableB.Idle.CancelAll.always"));
+    assert.deepEqual(ownedBy("@task.V3.T61"), []);
+    assert.ok(ownedBy("@task.V3.T18").includes("tableA.Send.Queued.always"));
+    assert.ok(ownedBy("@task.V3.T19").includes("tableC.StepEnds.Parked.held"));
+    assert.ok(ownedBy("@task.V3.T20").includes("tableC.Reload.Delivering.always"));
+    assert.ok(ownedBy("@task.V3.T21").includes("tableB.Idle.Cancel.none"));
+    assert.ok(!modelOwed.some((o) => o.subject === "tableC.StepEnds.Owed.live"));
   });
 
   it("the field gate fails a field no mutation reaches", () => {
