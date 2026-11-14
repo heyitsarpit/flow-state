@@ -508,3 +508,6 @@ note 2026-11-14T04:07:11Z
     Decision (user, 2026-11-14): "it costs a lot in limits and i'd rather give its task to opus". The expected-results 
     read (once per Task at step 1, once at an area's close-out) goes to a fresh Opus agent, not Fable. Scope: the whole 
     run. instructions edited; T52's step-1 read was already done by Fable.
+note 2026-11-14T04:10:11Z
+    Decision (user, 2026-11-14): "fine" to Opus at high effort for the expected-results read; every other lead stays at 
+    medium. instructions edited.

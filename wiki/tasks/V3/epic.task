@@ -349,7 +349,8 @@ instructions
     - Stopping rule (the user, 2026-11-12; consult A4): a finding blocks only when it is in the Task's range, has a
       check red on current code, and is a lost, doubled, made-up or wrong ending, a hang, or a broken acceptance
       item; others are routed or noted. One blind review per step, then re-checks of the fix range only; a Task
-      closes on the first round with zero blocking findings. A fresh Opus agent that did not gather the requirements
+      closes on the first round with zero blocking findings. A fresh Opus agent at high effort that did not gather the 
+      requirements
       reads the expected results once per Task at step 1 (every agent-ruled expectation and at least 10 percent of
       the rest) and once at an area's close-out (the user, 2026-11-14: Opus instead of Fable, to save limits).
     - Record-edit angle (the user, 2026-11-14, Q2 A): each review lists every `wiki/` file changed since the last
