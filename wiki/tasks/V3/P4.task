@@ -867,6 +867,14 @@ tasks
             code:wiki/plans/flow/references/proposals/t60-requirements-2026-11-14.md.
               Edit (agent: T60 building lead, @task.V3.T60, 2026-11-14): this comment and status review. Why: 
               convergence done. Reverse: revert this commit.
+        comment     2026-11-14T09:44:16Z
+            Close review: ISSUES at 196edbff, two blocking. B1: pending probes still hold on a defect, so they must 
+            count caught(none); PAY-08 needs no cite. B2: the keyless rule turned core mutants red (60/98 pass, now 
+            66/98 with 6 stale) with no explanation; decide the rule, then drop the 6 triage rows. Also fix the liar: 
+            add PAY-07/late-may-not-leave to turn.root-first's cases, since no owed route exists for it. 
+            code:wiki/plans/flow/references/proposals/t60-close-review-2026-11-14.md
+              Edit (agent: T60 close reviewer, @task.V3.T60, 2026-11-14): this comment. Why: the close review. Reverse: 
+              revert this commit.
     T59
         title       The suite reads and imports nothing outside the package
         status      draft
