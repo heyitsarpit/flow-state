@@ -61,6 +61,13 @@ wk check             # see .agents/skills/wk/SKILL.md before editing Workflow re
 - Store facts, derive views: never store a value other fields already determine, such as a count
   beside its list. Cache only when measured, and update it in the same transition.
 - Don't write any implicit state machines, find and refactor any implicit state machine you find.
+- `packages/flow-state-v3/` is self-contained: its code never imports or reads a file outside the
+  package, and never names a temporary record (a dated proposal, review, log note or Task comment),
+  in code or in comments. Data the code needs, such as feature rows or pair rules, is recreated in
+  the package as typed code; a rule is cited by its Spec id in tests.
+- Every review checks the code it reads for outside imports and reads, temporary strings (dated
+  file names, log timestamps, Task, round or decision ids) and temporary concepts (names from a
+  proposal, round or review that are not domain terms), in code and in comments.
 - The core (everything outside `src/host/`) is plain TypeScript:
   - pure and synchronous: no Effect runtime (`Effect.gen`, `run*`, `try`), no promises or timers.
     A turn runs in about 0.2 ms, and Effect there costs 20-25x per call;

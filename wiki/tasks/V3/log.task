@@ -465,3 +465,12 @@ note 2026-11-14T02:12:03Z
     Decision (user, 2026-11-14): three more sidecar roles (wrong-build writers, input hunters, red triage) are 
     available, "the leads will decide if any of it is needed"; Haiku still writes no committed code. Scope: every lead, 
     the whole run. instructions edited.
+note 2026-11-14T02:24:44Z
+    Decision (user, 2026-11-14): one lint rule per ban, covering all of packages/flow-state-v3, with exceptions named 
+    as folders, "because things can get lost in a refactor"; JSON.stringify banned everywhere, bench and fixtures too. 
+    A Sonnet builds it; the T47 lead converts the uses in its files. Layout (orchestrator): browser.ts moves to 
+    src/host/platform/ so the platform exception is a folder.
+note 2026-11-14T02:29:46Z
+    Decision (user, 2026-11-14): the v3 package is self-contained (Q1 A, AGENTS.md); data now read from wiki/ is 
+    recreated in code (Q2); no lint rule, reviews check it (Q3); first an audit of outside imports, temporary strings 
+    and concepts across the package, then fixes (Q4). Scope: the whole run.

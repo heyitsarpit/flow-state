@@ -355,6 +355,8 @@ instructions
     - Record-edit angle (the user, 2026-11-14, Q2 A): each review lists every `wiki/` file changed since the last
       reviewed checkpoint and flags any change with no labelled `Edit (agent: …)` line (Records, below); a missing
       line is a finding the lead fixes.
+    - Self-contained angle (the user, 2026-11-14): each review checks the code it reads for outside imports and
+      reads, temporary strings and temporary concepts (AGENTS.md, Code style); not enforced by lint.
     - Process watch (the user, 2026-11-12): the orchestrator observes each builder and reviewer phase. After every
       review it notes in one line what the review found that the builder's own checks missed, and the likely
       cause (gathering, weak check, wrong side, context, rule gap). At each Task's close it writes a short
