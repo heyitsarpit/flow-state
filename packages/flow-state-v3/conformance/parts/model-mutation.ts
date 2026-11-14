@@ -324,5 +324,8 @@ export const fieldGate = (
     ...owes
       .filter((o) => !open.has(o.task))
       .map((o) => `BAD  model field ${o.subject}: owed to ${o.task}, a Task not open`),
+    ...[...new Set(owes.map((o) => o.subject))]
+      .filter((s) => owes.filter((o) => o.subject === s).length > 1)
+      .map((s) => `BAD  model field ${s}: owed by a doubled row`),
   ];
 };

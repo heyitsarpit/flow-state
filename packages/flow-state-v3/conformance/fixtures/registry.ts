@@ -26,6 +26,14 @@ export const registered: ReadonlyArray<Fixture> = [
 ];
 
 /**
+ * The names more than one of `fixtures` carries: the registry keeps one fixture per name.
+ */
+export const doubledNames = (fixtures: ReadonlyArray<Fixture>) =>
+  [...new Set(fixtures.map((f) => f.name))].filter(
+    (name) => fixtures.filter((f) => f.name === name).length > 1,
+  );
+
+/**
  * The {@link registered} fixtures by name.
  */
 export const registry = new Map(registered.map((f) => [f.name, f] as const));

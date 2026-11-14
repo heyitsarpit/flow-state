@@ -82,4 +82,27 @@ describe("a retired rule is out of coverage's counts (the retired cancelAll)", (
     assert.deepEqual(result.standings, []);
     assert.deepEqual(result.gaps, []);
   });
+
+  it("a Retired name of a rule not retired is unknown, a typo included (review N5)", () => {
+    const mutant = {
+      name: "m",
+      says: "s",
+      expects: "Retired WriteLanes I22" as const,
+      runtime: "prototype" as const,
+      cases: ["LANE-03"],
+      edits: [],
+    };
+
+    const result = coverageOf({
+      invariants: ["WriteLanes I21", "WriteLanes I22"],
+      guarantees: [],
+      owes: [],
+      checks: { rows: [], mutants: [mutant], cases: [] },
+      open: new Set(),
+    });
+
+    assert.ok(
+      result.gaps.some((g) => g._tag === "Unknown" && g.invariant === "Retired WriteLanes I22"),
+    );
+  });
 });

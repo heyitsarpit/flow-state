@@ -90,6 +90,27 @@ describe("model mutation (Q16: Conformance R19, I61, T39)", () => {
     ]);
   });
 
+  it("the field gate fails a doubled owed row (review N3)", () => {
+    const all = modelFields().map((field) => ({ field, oracle: "lane-queue", noticed: true }));
+    const [first, ...rest] = all;
+    assert.ok(first !== undefined);
+
+    const row = {
+      subject: first.field,
+      clause: Option.none<string>(),
+      task: "@task.V3.T18" as const,
+      why: "planted",
+    };
+
+    const left = [{ ...first, oracle: "none", noticed: false }, ...rest];
+
+    assert.ok(
+      fieldGate(left, rules, [row, row], new Set<TaskRef>(["@task.V3.T18"])).some((l) =>
+        l.includes("doubled"),
+      ),
+    );
+  });
+
   it("the field gate fails an owed row on a noticed field, on no field, or of a Task not open", () => {
     const all = modelFields().map((field) => ({ field, oracle: "lane-queue", noticed: true }));
     const [first, second, ...rest] = all;

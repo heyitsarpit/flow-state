@@ -252,7 +252,9 @@ export const coverageOf = (input: CoverageInput) => {
 
   const unknown = named(input)
     .filter(
-      ({ invariant }) => !input.invariants.includes(invariant) && !invariant.startsWith("Retired "),
+      ({ invariant }) =>
+        !input.invariants.includes(invariant) &&
+        !(invariant.startsWith("Retired ") && RETIRED_RULES.includes(invariant.slice(8))),
     )
     .map(({ invariant, where }) => Gap.Unknown({ invariant, where }));
 

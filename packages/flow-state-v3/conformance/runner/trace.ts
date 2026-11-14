@@ -10,8 +10,7 @@ import { rules } from "../dsl/lifecycle-rules.ts";
 import type { AttemptLife, Model } from "../dsl/lifecycle-model.ts";
 import { Fact, isRuntimeFact, oracle } from "../dsl/oracle.ts";
 import { type Script, scenarioOf } from "../dsl/script.ts";
-import { Serialize } from "../fixtures/one-lane.ts";
-import { Cells, Pay } from "../fixtures/pay.ts";
+import { registered } from "../fixtures/registry.ts";
 import { generatedScenarios, isPartScript, RegressionJson } from "../generated.ts";
 import { type PartRuntime, playPart } from "../parts/play.ts";
 import { scriptById } from "../parts/records.ts";
@@ -323,7 +322,7 @@ export const trace = (args: ReadonlyArray<string>) =>
               text: tracedScenario(
                 port,
                 surface,
-                scenarioOf(s, [Pay, Cells, Serialize]),
+                scenarioOf(s, registered),
                 seed,
                 Option.none(),
                 runtime,
