@@ -409,4 +409,9 @@ note 2026-11-14T10:28:32Z
     silently. Missed by the builder's checks: one class-gate check has no planted test, and a lane-queue clause can be 
     dropped while staying green (weak checks).
 note 2026-11-14T10:31:42Z
-    T52 item 2 done at 680c7e2a: the adversary feeds model mutation; noticed model fields 43 to 73 of 327. Its step review is held until the 5-hour window resets at 16:50 IST (projection 96 with two builders running); both builders continue. Benefit watch: the builder could not run main.ts gates because of the parallel builder's half-wired runner; told to commit imports together.
+    T52 item 2 done at 680c7e2a: the adversary feeds model mutation; noticed model fields 43 to 73 of 327. Its step 
+    review is held until the 5-hour window resets at 16:50 IST (projection 96 with two builders running); both builders 
+    continue. Benefit watch: the builder could not run main.ts gates because of the parallel builder's half-wired 
+    runner; told to commit imports together.
+note 2026-11-14T10:39:30Z
+    T61 parallel half done (1fa04e5c, 9922d53a, fbbfd89d): verify runs the checkpoint gates in 55 s; crash's three reds named and owed (PAY-22 to T19, DISP-02 and DISP-06 to T54); six pass-only regressions deleted; trace command built. One review after the 16:50 reset covers this and T52 item 2 together. T61's second half follows T52.
