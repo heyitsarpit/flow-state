@@ -1215,6 +1215,11 @@ tasks
             pending checks in code:packages/flow-state-v3/conformance/parts/pending.test.ts.
             Edit (agent: T47 building lead, @task.V3.T47, 2026-11-14): this comment. Why: orchestrator ruling 2. 
             Reverse: 1a597ea0.
+        comment     2026-11-14T03:44:18Z
+            Requirements first: 30 checks (Q1 to Q30) with six agent decisions (D1 to D6), mapped one to one to the 
+            Task's items, in code:wiki/plans/flow/references/proposals/t52-requirements-2026-11-14.md.
+            Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment. Why: requirements-first rule. 
+            Reverse: revert this commit.
     T59
         title       The suite reads and imports nothing outside the package
         status      draft
