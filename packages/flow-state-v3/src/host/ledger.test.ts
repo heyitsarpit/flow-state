@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { Effect, Option, Schema } from "effect";
+import { Effect, Option, Predicate, Schema } from "effect";
 import { describe, it } from "vite-plus/test";
 import { actorRef, app, definition, deny, Flow, machine, Outcome, transaction } from "../index.ts";
 import type { Evidence } from "./inspect.ts";
@@ -30,8 +30,13 @@ const tollOver = (jam: Jam, counts: Array<number>) => {
     commit: (_input, { attempt }) => {
       counts.push(attempt.retryCount);
 
+      // The bell's "declined" is the server's definite answer; anything else is lost on the wire.
       return Effect.flatMap(Effect.service(Bell), (bell) => bell.ring(attempt.id)).pipe(
-        Effect.catch((e) => Outcome.unknown(e)),
+        Effect.catchIf(
+          (e) => e === "declined",
+          () => Outcome.failure({ _tag: "Declined" as const }),
+        ),
+        Effect.catchIf(Predicate.isString, (e) => Outcome.unknown(e)),
       );
     },
   });
@@ -55,6 +60,11 @@ const tollOver = (jam: Jam, counts: Array<number>) => {
           return {};
         }),
         failure: {
+          Declined: E.NotRung.from(() => {
+            tried(jam);
+
+            return { why: "Declined" };
+          }),
           NotSent: E.NotRung.from((e: { readonly why: string }) => {
             tried(jam);
 
@@ -233,14 +243,23 @@ const lastRing = (b: ReturnType<typeof bootWith>) => {
   return attempt;
 };
 
-// A pending case red on today's core, owed to a step of T54: it passes while its body fails an
-// assertion and fails once the body passes, so the step that turns it green makes it an `it`.
-const owed = (step: string, name: string, body: () => void) =>
-  it(`${name} [owed to ${step}]`, () => {
+// A pending case red on today's core, owed to a step of T54: it passes while its body fails the
+// assertion whose message holds `red`, the reason it is red today. It fails once the body passes,
+// so the step that turns it green makes it an `it`, and it fails when the body fails another way.
+const owed = (
+  owing: { readonly step: string; readonly red: string },
+  name: string,
+  body: () => void,
+) =>
+  it(`${name} [owed to ${owing.step}]`, () => {
     assert.throws(
       body,
-      (e) => e instanceof assert.AssertionError,
-      `the owed case is green: make it an it (${step})`,
+      (e) => {
+        if (e instanceof assert.AssertionError && e.message.includes(owing.red)) return true;
+        // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a test rethrows the failure that is not its owed reason, so it shows as itself
+        throw e;
+      },
+      `the owed case is green: make it an it (${owing.step})`,
     );
   });
 
@@ -254,7 +273,7 @@ describe("the owed ledger on the production runtime (T54 pending cases)", () => 
   // exactly one try at every start until heard (WriteLanes I31): two mapper calls at the next
   // boot with the jam on, then both heard, in the order owed, once the jam clears.
   owed(
-    "A1",
+    { step: "A1", red: "one try for each Kept row at the start" },
     "two endings refused twice on one lane are two Kept rows, each tried once per start, both heard (WriteLanes I31, R10; WriteLanes T24)",
     () => {
       const store = new Map<string, string>();
@@ -322,7 +341,7 @@ describe("the owed ledger on the production runtime (T54 pending cases)", () => 
   // `algorithm` suspend: "rows with no lane included") and the adopting incarnation hears it
   // (Actors I41). Every knock committed is heard exactly once (WriteLanes I27, I29).
   owed(
-    "A1",
+    { step: "A1", red: "every knock committed is heard once" },
     "a laneless ending in the mail at disposeActor waits and is heard once by the next incarnation (Actors I41, R8; WriteLanes I27, I29; Actors T22)",
     () => {
       const { served, ChainMachine } = chainOver(false, PAST_DRAIN, -1);
@@ -339,14 +358,18 @@ describe("the owed ledger on the production runtime (T54 pending cases)", () => 
       for (const _ of [1, 2, 3]) testing.send(b.built, chained, "Poke", {});
       b.page.settle();
 
-      assert.strictEqual(knocksHeard(b.seen), knocksCommitted(b.seen));
+      assert.strictEqual(
+        knocksHeard(b.seen),
+        knocksCommitted(b.seen),
+        "every knock committed is heard once",
+      );
     },
   );
 
   // A-2 at Runtime disposal, owed to A1: the backlog's laneless row goes Waiting, is saved with
   // the identity, and the next boot's start delivers it (Actors I41, R22; WriteAhead R5).
   owed(
-    "A1",
+    { step: "A1", red: "every knock committed is heard once" },
     "a laneless ending in the mail at Runtime disposal is saved and heard once after the reload (Actors I41, R22; WriteLanes I27)",
     () => {
       const store = new Map<string, string>();
@@ -369,6 +392,7 @@ describe("the owed ledger on the production runtime (T54 pending cases)", () => 
       assert.strictEqual(
         knocksHeard(first.seen) + knocksHeard(second.seen),
         knocksCommitted(first.seen) + knocksCommitted(second.seen),
+        "every knock committed is heard once",
       );
     },
   );
@@ -378,7 +402,7 @@ describe("the owed ledger on the production runtime (T54 pending cases)", () => 
   // (Restore R1, I1; Actors T23). An ensure then hears unknown { Restored } (Actors R10), and a
   // retry invokes the Attempt once more, sent before (WriteLanes I26).
   owed(
-    "A2",
+    { step: "A2", red: "a Held head wakes no identity at boot" },
     "a head held from Recapturing at Runtime disposal is saved Held: the boot wakes nothing (Actors T23, R22; Restore I1, R1)",
     () => {
       const store = new Map<string, string>();
@@ -437,7 +461,11 @@ describe("the owed ledger on the production runtime (T54 pending cases)", () => 
       [],
       "no lane record",
     );
-    assert.deepStrictEqual(turnsOf(second.seen, ["NotRung", "Unsure"]), ["NotRung"]);
+    assert.deepStrictEqual(
+      turnsOf(second.seen, ["NotRung", "Unsure"]),
+      ["NotRung"],
+      "the NotSent is heard once after the reload",
+    );
 
     const third = bootWith(served, store, 3);
     testing.attach(third.built, tolls, "host", true);
@@ -450,7 +478,7 @@ describe("the owed ledger on the production runtime (T54 pending cases)", () => 
   // (`algorithm`, cancel on Idle): the machine hears the success, never unknown { Cancelled }.
   // The chain's first turn after the settlement runs the cancel, before the success's turn.
   owed(
-    "A1",
+    { step: "A1", red: "the machine hears the success" },
     "a cancel admitted between a success's settlement and its turn leaves it a success (WriteLanes I32, R10; WriteLanes T25)",
     () => {
       const { served } = chainOver(false, PAST_DRAIN, 9_999);
@@ -463,15 +491,23 @@ describe("the owed ledger on the production runtime (T54 pending cases)", () => 
       b.page.settle();
       rung(b, attempt);
 
-      assert.deepStrictEqual(endingsOf(b.seen, attempt), ["success success"]);
-      assert.deepStrictEqual(turnsOf(b.seen, ["Rang", "Unsure"]), ["Rang"]);
+      assert.deepStrictEqual(
+        endingsOf(b.seen, attempt),
+        ["success success"],
+        "the machine hears the success",
+      );
+      assert.deepStrictEqual(
+        turnsOf(b.seen, ["Rang", "Unsure"]),
+        ["Rang"],
+        "the machine hears the success",
+      );
     },
   );
 
   // A-10, owed to A1. Attempts have their own counter (WriteLanes R5, I35): the same commits give
   // the same Attempt ids whatever else is minted between them (an incarnation, a decline).
   owed(
-    "A1",
+    { step: "A1", red: "the Attempt ids are equal" },
     "Attempt ids keep their numbers when other ids are minted between commits (WriteLanes I35, R5; WriteLanes T27)",
     () => {
       const run = (between: boolean) => {
@@ -492,7 +528,7 @@ describe("the owed ledger on the production runtime (T54 pending cases)", () => 
         return b.bell.rings.filter((_, i) => i === 0 || i === b.bell.rings.length - 1);
       };
 
-      assert.deepStrictEqual(run(true), run(false));
+      assert.deepStrictEqual(run(true), run(false), "the Attempt ids are equal");
     },
   );
 
@@ -501,7 +537,7 @@ describe("the owed ledger on the production runtime (T54 pending cases)", () => 
   // in lane-id order (WriteLanes `algorithm` start; Restore R3), so "b" is heard before "c", and
   // the three starts deliver the same sequence (Actors I40, T21). A boot parks nothing.
   owed(
-    "A2",
+    { step: "A2", red: "a boot owes, parks and delivers nothing" },
     "one start delivers on return, adoption and reload, Held heads in lane-id order, and a boot parks nothing (Actors I40, R10; Restore R1, R3; Actors T21)",
     () => {
       const setup = (store: Map<string, string>) => {
@@ -558,7 +594,7 @@ describe("the owed ledger on the production runtime (T54 pending cases)", () => 
   // (WriteLanes R10: "a declined commit has no Attempt and no lane"), so its Kept row blocks no
   // key (WriteLanes R6, I33): once the head resolves, a commit on the key mints.
   owed(
-    "A1",
+    { step: "A1", red: "the next commit on the key mints and is sent" },
     "a table decline refused twice is a laneless Kept row that blocks no key (WriteLanes I33, R6, R10; WriteLanes T26)",
     () => {
       const jam: Jam = { on: true, tries: [] };
@@ -582,7 +618,7 @@ describe("the owed ledger on the production runtime (T54 pending cases)", () => 
   // its lane, so when Kept it blocks the key (WriteLanes R6, I33): the next commit declines
   // Rejected and nothing is sent.
   owed(
-    "A1",
+    { step: "A1", red: "the Kept row blocks its key" },
     "a never-sent Attempt's NotSent, refused twice, is a Kept row on its lane that blocks its key (WriteLanes I33, R6)",
     () => {
       const jam: Jam = { on: true, tries: [] };
@@ -606,4 +642,32 @@ describe("the owed ledger on the production runtime (T54 pending cases)", () => 
       );
     },
   );
+
+  // X-5 (A0 review item 5). A head restored Held after a reload was sent before (WriteLanes I36),
+  // so when its retry's re-send is answered with a definite failure, that ending is delivered as
+  // unknown { StillUnknown } and the lane stays Held (WriteLanes R2, R5).
+  it("a restored Held head retried and declined is delivered unknown StillUnknown (WriteLanes I36, R2, R5)", () => {
+    const store = new Map<string, string>();
+    const { served } = tollOver({ on: false, tries: [] }, []);
+    const first = bootWith(served, store, 1);
+
+    testing.attach(first.built, tolls, "host", false);
+    ring(first, "a");
+    const attempt = lastRing(first);
+    lost(first, attempt);
+
+    const second = bootWith(served, store, 2);
+    testing.attach(second.built, tolls, "host", true);
+    second.page.settle();
+    testing.send(second.built, tolls, "Again", { tone: "a" });
+    second.page.settle();
+    second.bell.waiting.get(attempt)?.(Effect.fail("declined"));
+    second.page.settle();
+
+    assert.deepStrictEqual(
+      endingsOf(second.seen, attempt),
+      ["unknown Restored", "unknown StillUnknown"],
+      "a definite failure after an earlier send is delivered unknown StillUnknown",
+    );
+  });
 });

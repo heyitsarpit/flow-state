@@ -36,7 +36,34 @@ export const BASELINE = resolve(PACKAGE, "conformance", "baseline.tsv");
  * A run whose timeline may differ from the baseline: a named entry citing the pending case whose
  * fix changes it (T54, C3 item 2). An entry whose run no longer differs fails the compare.
  */
-export type Allowed = { readonly run: string; readonly pending: string; readonly why: string };
+export type Allowed = {
+  readonly run: string;
+  readonly pending: Pending;
+  readonly why: string;
+};
+
+/**
+ * The T54 requirements a baseline difference may cite: the pending cases and the rulings that
+ * name them (A-8 for a row's single Ended at its birth, A-6 for an ending applied at settlement;
+ * orchestrator, 2026-11-14). Anything else cannot be written.
+ */
+export const PENDING = [
+  "A-1",
+  "A-2",
+  "A-3",
+  "A-6",
+  "A-7",
+  "A-8",
+  "A-10",
+  "A-12",
+  "O-1",
+  "O-2",
+] as const;
+
+/**
+ * One of {@link PENDING}.
+ */
+export type Pending = (typeof PENDING)[number];
 
 /**
  * The named differences the steps since the baseline brought, each with its pending case.
@@ -378,8 +405,13 @@ export const baseline = (args: ReadonlyArray<string>) =>
         : [];
     });
 
+    const unknownRuns = allowed
+      .filter((a) => !ids.has(a.run))
+      .map((a) => `BAD  ${a.run}: an entry (${a.pending}) for a run that does not exist`);
+
     const bad = [
       ...compared,
+      ...unknownRuns,
       ...[...was.keys()].filter((id) => !ids.has(id)).map((id) => `BAD  ${id}: lost`),
       ...scanned,
     ];

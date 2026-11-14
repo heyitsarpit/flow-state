@@ -24,7 +24,12 @@ describe("the boot seed (WriteLanes I28, R5; WriteLanes T22; T54 A-18)", () => {
         assert.ok(bitsOf(one) >= 128, `a seed of ${bitsOf(one)} bits`);
         assert.notStrictEqual(one, two);
       },
-      (e) => e instanceof assert.AssertionError,
+      (e) => {
+        if (e instanceof assert.AssertionError && e.message.includes("a seed of 32 bits"))
+          return true;
+        // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a test rethrows the failure that is not its owed reason, so it shows as itself
+        throw e;
+      },
       "the owed case is green: make it an it (A1)",
     );
   });
