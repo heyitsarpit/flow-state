@@ -626,9 +626,9 @@ tasks
             - the rulings and the gaps' new Invariants written; the 18 cuts and 7 rewordings applied;
             - `workflow check` valid and the coverage gate at 0 gaps.
         comment     2026-11-11T04:20:14Z
-            Specs revised (code:wiki/specs/spec-log.md, "T42"): C1 to C26 resolved, the rulings and seven gaps 
-            written, 18 cuts and 7 rewordings applied; 183 core Invariants, coverage gate 0 gaps. Compile I2 and 
-            StaticCli I9 checks moved to I1 and I6; new Invariants added to their Tasks' not-yet rows.
+            Specs revised (code:wiki/specs/spec-log.md, "T42"): C1 to C26 resolved, the rulings and seven gaps written, 
+            18 cuts and 7 rewordings applied; 183 core Invariants, coverage gate 0 gaps. Compile I2 and StaticCli I9 
+            checks moved to I1 and I6; new Invariants added to their Tasks' not-yet rows.
 
             **For the builder, checks whose expected results change (not edited here):**
 

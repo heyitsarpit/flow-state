@@ -487,3 +487,13 @@ note 2026-11-14T02:40:03Z
 note 2026-11-14T02:41:41Z
     Decision (user, 2026-11-14): "not T59, i mean much later when the project is built out or when i say so". T59 is 
     held out of the slice order; T52 waits on T47 again. The AGENTS.md rule still applies to new code through reviews.
+note 2026-11-14T03:00:37Z
+    Review started (orchestrator): T47 close review at c24218a5, one Opus lead with up to eight Haiku sidecars, one 
+    blind; it also gives the check-task verdict. Ruled (orchestrator): Turn T6 "zero-length" is wording; out-of-range 
+    means negative, non-finite or past 2^31-1 ms, and the upper bound is owed to T17; inFlight after StillUnknown owed 
+    to T54.
+note 2026-11-14T03:22:27Z
+    Review (T47 close) PASS at edea68cb, 0 blocking, 12 routed (t47-close-review-2026-11-14.md); orchestrator verified 
+    R1-R3 and sent all to the builder as one fix round. Missed by the builder's checks: owed rows need not match 
+    anything that still runs (rule gap), triage argued per file (context), the T6 rewording not swept through the 
+    records (gathering).

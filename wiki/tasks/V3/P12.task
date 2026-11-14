@@ -107,8 +107,8 @@ tasks
             **Split (orchestrator, 2026-11-12, wide consult W3):** key fingerprints, identity versions, saved-shape 
             resets, record migration and `previous` holds moved to @task.V3.T56, after @task.V3.T9: a saved shape is 
             defined only once @task.V3.T17 and @task.V3.T57 fix fields and fragments, and identity versions need T9's 
-            value-named actors. Read code:wiki/plans/flow/references/proposals/fable-wide-consult-2026-11-12.md 
-            (W3, item 2).
+            value-named actors. Read code:wiki/plans/flow/references/proposals/fable-wide-consult-2026-11-12.md (W3, 
+            item 2).
 
             **Slice 2, durability (replan, accepted 2026-11-11), after @task.V3.T19:** absorbs @task.V3.T11's restore 
             half (the Restore area suite: oracles `restore` and `quarantine`, C168 and the record-format carry rows; 
@@ -233,8 +233,7 @@ tasks
         comment     2026-11-12T10:34:58Z
             Rules for every brief (from core-task-briefs-2026-11-12.md, proposed)
 
-            - **Spec first.** The seven runtime Specs in `wiki/specs/core/` (WriteLanes, Actors, WriteAhead, 
-              Restore,
+            - **Spec first.** The seven runtime Specs in `wiki/specs/core/` (WriteLanes, Actors, WriteAhead, Restore,
               Reads, Turn, Codec) are the build's source. Where a Spec and the code disagree, the Spec wins; where a 
               Spec is
               silent, stop and ask. Shared terms: ending, Attempt, lane and owed row are WriteLanes'; Start and Life are
@@ -324,8 +323,7 @@ tasks
               documented fallback. Ask the orchestrator. Small names inside the core are the builder's.
             - **Close-out.** Each Task ends with a comment listing: gates at start and end, each allowed baseline 
               difference
-              with its pending case, each Spec line changed (also in `wiki/specs/spec-log.md`), and the handoff 
-              items
+              with its pending case, each Spec line changed (also in `wiki/specs/spec-log.md`), and the handoff items
               written as comments on the receiving Task.
             - **Names.** A name after "Wrong:" is the name to give a new wrong runtime or mutant; none exists yet. An 
               oracle

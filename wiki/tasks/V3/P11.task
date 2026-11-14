@@ -245,8 +245,7 @@ tasks
         comment     2026-11-12T10:34:39Z
             Rules for every brief (from core-task-briefs-2026-11-12.md, proposed)
 
-            - **Spec first.** The seven runtime Specs in `wiki/specs/core/` (WriteLanes, Actors, WriteAhead, 
-              Restore,
+            - **Spec first.** The seven runtime Specs in `wiki/specs/core/` (WriteLanes, Actors, WriteAhead, Restore,
               Reads, Turn, Codec) are the build's source. Where a Spec and the code disagree, the Spec wins; where a 
               Spec is
               silent, stop and ask. Shared terms: ending, Attempt, lane and owed row are WriteLanes'; Start and Life are
@@ -336,8 +335,7 @@ tasks
               documented fallback. Ask the orchestrator. Small names inside the core are the builder's.
             - **Close-out.** Each Task ends with a comment listing: gates at start and end, each allowed baseline 
               difference
-              with its pending case, each Spec line changed (also in `wiki/specs/spec-log.md`), and the handoff 
-              items
+              with its pending case, each Spec line changed (also in `wiki/specs/spec-log.md`), and the handoff items
               written as comments on the receiving Task.
             - **Names.** A name after "Wrong:" is the name to give a new wrong runtime or mutant; none exists yet. An 
               oracle
@@ -565,8 +563,7 @@ tasks
         comment     2026-11-12T10:34:49Z
             Rules for every brief (from core-task-briefs-2026-11-12.md, proposed)
 
-            - **Spec first.** The seven runtime Specs in `wiki/specs/core/` (WriteLanes, Actors, WriteAhead, 
-              Restore,
+            - **Spec first.** The seven runtime Specs in `wiki/specs/core/` (WriteLanes, Actors, WriteAhead, Restore,
               Reads, Turn, Codec) are the build's source. Where a Spec and the code disagree, the Spec wins; where a 
               Spec is
               silent, stop and ask. Shared terms: ending, Attempt, lane and owed row are WriteLanes'; Start and Life are
@@ -656,8 +653,7 @@ tasks
               documented fallback. Ask the orchestrator. Small names inside the core are the builder's.
             - **Close-out.** Each Task ends with a comment listing: gates at start and end, each allowed baseline 
               difference
-              with its pending case, each Spec line changed (also in `wiki/specs/spec-log.md`), and the handoff 
-              items
+              with its pending case, each Spec line changed (also in `wiki/specs/spec-log.md`), and the handoff items
               written as comments on the receiving Task.
             - **Names.** A name after "Wrong:" is the name to give a new wrong runtime or mutant; none exists yet. An 
               oracle

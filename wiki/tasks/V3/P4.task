@@ -821,7 +821,7 @@ tasks
             proposals/t45-completion-check-2026-11-12.md. Follow-ups F1 to F3 owned by T47.
     T47
         title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
-        status      review
+        status      done
         priority    high
         blocked_by  [@T51]
         description
@@ -1141,9 +1141,17 @@ tasks
             (spec-log); R3 and R10 owed to T9, R5 to T17, R6, R7, R11 to T52 as pending checks in 
             parts/pending.test.ts. Edit (agent: T47 building lead, @task.V3.T47, 2026-11-14): status set to review at 
             26812bfb, and these rows. Why: the review's routed findings. Reverse: the next commit.
+        comment     2026-11-14T03:28:37Z
+            Done (orchestrator): close review PASS at edea68cb, fix round at 9f2a84ef, gates recorded at 9f2a84ef 
+            (crash 732/735 unchanged). Retrospective: the reviews found what the builder's checks missed in three ways: 
+            owed rows were never checked to match anything that still runs (rule gap); mutant triage was argued one 
+            file at a time (context); a Spec rewording was not swept through the records quoting it (gathering). 
+            Proposed process change, for the user: a gate fails an owed row, triage row or pair owner that names no 
+            case, code or mutant that still runs (R6 is owed to T52 as that check). Also noted: shell edits instead of 
+            Write/Edit, three times.
     T52
         title       Suite phase-out, first cut: Pay and Cells generated, hand traces thinned
-        status      draft
+        status      open
         priority    high
         blocked_by  [@T47]
         description
