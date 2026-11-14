@@ -198,7 +198,7 @@ export const answered = (world: World, operation: string, answer: Answer) => {
 
   if (a === undefined) return;
 
-  const lost = Answer.$is("Lost")(answer);
+  const lost = !Answer.$is("Ok")(answer) && !Answer.$is("Fail")(answer);
 
   if (lost) MutableRef.set(a.unsure, new Set([...a.unsure.current, head.key]));
   else MutableRef.set(a.busy, new Set([...a.busy.current].filter((k) => k !== head.key)));

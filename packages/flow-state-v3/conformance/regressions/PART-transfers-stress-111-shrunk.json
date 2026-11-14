@@ -1,0 +1,26 @@
+{
+  "id": "PART-transfers-stress-111-shrunk",
+  "fixture": "transfers",
+  "actor": "acct-1",
+  "actors": [
+    { "fixture": "transfers", "actor": "acct-1" },
+    { "fixture": "transfers", "actor": "acct-2" }
+  ],
+  "steps": [
+    { "_tag": "ensure", "by": 0 },
+    {
+      "_tag": "send",
+      "event": "Send",
+      "payload": { "transferId": "t1", "iban": "DE89370400440532013000", "cents": 500 },
+      "by": 0
+    },
+    { "_tag": "ack" },
+    { "_tag": "reload" },
+    { "_tag": "send", "event": "Resend", "payload": { "transferId": "t1" }, "by": 0 },
+    { "_tag": "ack" },
+    { "_tag": "reload" },
+    { "_tag": "send", "event": "Resend", "payload": { "transferId": "t1" }, "by": 0 },
+    { "_tag": "ack" }
+  ],
+  "by": "lane-queue WriteLanes I12"
+}

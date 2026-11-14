@@ -45,7 +45,7 @@ describe("gates (Q19, Q27)", () => {
     ];
 
     const namesParts = (id: string) => {
-      const [, kind, cast] = /^(PART|MIX)-(.+)-(?:usual|stress)-\d+$/u.exec(id) ?? [];
+      const [, kind, cast] = /^(PART|MIX)-(.+)-(?:usual|stress)-\d+(?:-shrunk)?$/u.exec(id) ?? [];
 
       if (kind === "MIX") return (cast ?? "").split("+").every((n) => names.has(n));
 
@@ -87,7 +87,26 @@ describe("F4: held-out seeds run in a gate (Conformance I52; advisor Q8)", () =>
     }));
 
     assert.deepEqual(partFaults(runs), []);
-    assert.ok(partFaults(runs, []).some((f) => f.includes("-stress-109")));
+
+    const heldOwed = partsOwed.filter((o) => runs.some((r) => r.script.id === o.case));
+    assert.ok(heldOwed.length > 0);
+
+    for (const owed of heldOwed)
+      assert.ok(
+        partFaults(runs, []).some((f) => f.includes(`${owed.case}:`)),
+        owed.case,
+      );
+  });
+
+  it("a passing run whose answers mostly found no open request is a fault (close review finding 11)", () => {
+    const [script] = heldOutScripts();
+    assert.ok(script !== undefined);
+
+    const answers = script.steps.filter((s) => s._tag === "answer").length;
+    const run = playPart(script, "production");
+
+    assert.deepEqual(partFaults([{ script, run }]), []);
+    assert.equal(partFaults([{ script, run: { ...run, skipped: answers } }]).length, 1);
   });
 });
 

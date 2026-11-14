@@ -142,6 +142,25 @@ export const withActor = (state: State, actor: ActorRef, next: Actor) => ({
   actors: new Map([...state.actors, [keyOf(actor), next]]),
 });
 
+/**
+ * A non-persisted actor that may have ended at its grace and is ensured again: it either
+ * restarted fresh (Actors R6, no record) or lived on, so its leaf and fields are unknown until
+ * its next turn.
+ */
+export const returned = (state: State, actor: ActorRef) => {
+  const now = actorIn(state, actor);
+  const local = state.machines[actor.machine]?.persist === false;
+
+  return local && now.mayHaveEnded && now.uses === 0 && !Phase.$is("Fresh")(now.phase)
+    ? withActor(state, actor, {
+        ...now,
+        phase: Phase.Unanchored(),
+        fields: Option.none(),
+        mayHaveEnded: false,
+      })
+    : state;
+};
+
 export const moved = (state: State, actor: ActorRef, input: Input) => {
   const now = actorIn(state, actor);
 

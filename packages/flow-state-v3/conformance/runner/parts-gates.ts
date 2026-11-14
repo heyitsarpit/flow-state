@@ -5,7 +5,7 @@ import { rules } from "../dsl/lifecycle-rules.ts";
 import { scenarioOf } from "../dsl/script.ts";
 import { Cells, Pay } from "../fixtures/pay.ts";
 import { Serialize } from "../fixtures/one-lane.ts";
-import { regressionFiles } from "../generated.ts";
+import { isPartScript, regressionFiles } from "../generated.ts";
 import type { Limit } from "../limits.ts";
 import { playChosen, PRODUCTION_RUNTIME } from "./args.ts";
 import { verdictOfLimit } from "../limits.ts";
@@ -15,7 +15,7 @@ import { matrixGate } from "../parts/features.ts";
 import { fieldGate, modelFields, modelMutants } from "../parts/model-mutation.ts";
 import { PAIR_OWNERS } from "../parts/pair-owners.ts";
 import { combinationGate } from "../parts/pairs.ts";
-import { partFaults, playPart, reachedBy, reachOf } from "../parts/play.ts";
+import { partFaults, playPart, reachedBy, reachOf, RETRY_COUNT } from "../parts/play.ts";
 import {
   gateScripts,
   heldOutScripts,
@@ -143,27 +143,43 @@ export const regressionsOwed: ReadonlyArray<Limit & { readonly owner: string }> 
     why: "the boot restores and parks a disposed identity's unbound Held head, so the adopting incarnation's start gets nothing (Restore R1, Actors I40: a boot delivers and parks nothing)",
     owner: "@task.V3.T54",
   },
+  {
+    case: "PART-transfers-stress-111-shrunk",
+    check: "lane-queue",
+    invariant: "WriteLanes I12",
+    why: RETRY_COUNT,
+    owner: "@task.V3.T19",
+  },
+  {
+    case: "PART-transfers-stress-5-shrunk",
+    check: "disposal",
+    invariant: "Actors I38",
+    why: "a forgotten actor's unacknowledged Attempt whose batch the store then refuses is never ended (only StorageFailure evidence), so the Runtime's disposal finds it still Unsent (WriteAhead R13, Actors R21, WriteLanes I27)",
+    owner: "@task.V3.T19",
+  },
 ];
 
 /**
  * The kept regressions on production (Conformance I49): every kept script whose fixtures
  * production boots passes there, or is an owed red that still fails by its check and Invariant;
- * part scripts play through the part player. A script's saved signature (`by`) is round-14's,
- * where the generators found it, and the `regressions round-14` gate checks it; production keeps
- * no signature of its own, since every kept script must pass on it or be owed.
+ * part scripts play through the part player. A hand script's saved signature (`by`) is
+ * round-14's, where the generators found it, and the `regressions round-14` gate checks it; a part
+ * script's is production's, the only runtime it runs on, and its owed row checks it.
  */
 export const productionRegressions = Effect.gen(function* () {
-  const kept = regressionFiles.filter(({ script }) =>
-    scenarioOf(script, [Pay, Cells, Serialize]).fixtures.every((f) =>
-      productionFixtures.has(f.name),
-    ),
+  const kept = regressionFiles.filter(
+    ({ script }) =>
+      isPartScript(script.id) ||
+      scenarioOf(script, [Pay, Cells, Serialize]).fixtures.every((f) =>
+        productionFixtures.has(f.name),
+      ),
   );
 
   const lines = yield* Effect.forEach(
     kept,
     ({ script }) =>
       Effect.map(
-        /^(PART|MIX)-/u.test(script.id)
+        isPartScript(script.id)
           ? Effect.succeed([playPart(script, "production").verdict])
           : playChosen(
               [],

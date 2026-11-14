@@ -6,8 +6,9 @@ import type { Case, Scenario } from "./case.ts";
 import { Address } from "./facts.ts";
 
 /**
- * A server answer a script gives, as data: `ok` with its value, `lost` (no response), or `fail`
- * with a tag and fields.
+ * A server answer a script gives, as data: `ok` with its value, `lost` (no response), `fail`
+ * with a tag and fields, `lostButLanded` and `failButLanded` (applied, the response lost), or
+ * `never` (the request hangs).
  */
 export const ScriptAnswer = Schema.Union([
   Schema.TaggedStruct("ok", { value: Schema.Json }),
@@ -16,6 +17,12 @@ export const ScriptAnswer = Schema.Union([
     tag: Schema.String,
     fields: Schema.Record(Schema.String, Schema.Json),
   }),
+  Schema.TaggedStruct("lostButLanded", { value: Schema.Json }),
+  Schema.TaggedStruct("failButLanded", {
+    tag: Schema.String,
+    fields: Schema.Record(Schema.String, Schema.Json),
+  }),
+  Schema.TaggedStruct("never", {}),
 ]);
 
 /**
@@ -78,11 +85,22 @@ export const Script = Schema.Struct({
  */
 export type Script = typeof Script.Type;
 
-const answerOf = (answer: typeof ScriptAnswer.Type) =>
+/**
+ * The decoded {@link ScriptAnswer}.
+ */
+export type ScriptAnswer = typeof ScriptAnswer.Type;
+
+/**
+ * A script's answer as the world's.
+ */
+export const answerOf = (answer: ScriptAnswer) =>
   Match.valueTags(answer, {
     ok: ({ value }) => Answer.Ok({ value }),
     lost: () => Answer.Lost(),
     fail: ({ tag, fields }) => Answer.Fail({ tag, fields }),
+    lostButLanded: ({ value }) => Answer.LostButLanded({ value }),
+    failButLanded: ({ tag, fields }) => Answer.FailButLanded({ tag, fields }),
+    never: () => Answer.Never(),
   });
 
 const open = (c: Case, operation: string) =>

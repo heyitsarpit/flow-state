@@ -1,0 +1,22 @@
+{
+  "id": "PART-transfers-stress-5-shrunk",
+  "fixture": "transfers",
+  "actor": "acct-1",
+  "actors": [
+    { "fixture": "transfers", "actor": "acct-1" },
+    { "fixture": "transfers", "actor": "acct-2" }
+  ],
+  "steps": [
+    { "_tag": "ensure", "by": 0 },
+    { "_tag": "ensure", "by": 1 },
+    {
+      "_tag": "send",
+      "event": "Send",
+      "payload": { "transferId": "t2", "iban": "DE89370400440532013000", "cents": 1200 },
+      "by": 1
+    },
+    { "_tag": "forget", "by": 1 },
+    { "_tag": "refuse" }
+  ],
+  "by": "disposal Actors I38"
+}

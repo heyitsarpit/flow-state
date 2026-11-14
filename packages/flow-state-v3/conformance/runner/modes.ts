@@ -29,7 +29,12 @@ import {
 } from "./args.ts";
 import { falsifyOne, liarOne, MutantVerdict, suiteIn } from "./falsify.ts";
 import { productionCases, productionOwed } from "./gates.ts";
-import { generatedScenarios, generatedScripts, regressionFiles } from "../generated.ts";
+import {
+  generatedScenarios,
+  generatedScripts,
+  isPartScript,
+  regressionFiles,
+} from "../generated.ts";
 import {
   type Limit,
   limits,
@@ -384,7 +389,8 @@ export const shrink = (args: ReadonlyArray<string>) =>
 /**
  * The regressions' check (T32): each shrunk script in `regressions/` replayed on `--runtime`
  * must still fail with the signature it was saved with (`by`). `--record` saves the signature of
- * one saved without it.
+ * one saved without it. Part scripts run on production only (Conformance R22), in the
+ * `regressions production` gate.
  */
 export const regressions = (args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
@@ -393,7 +399,7 @@ export const regressions = (args: ReadonlyArray<string>) =>
     const record = args.includes("--record");
 
     const lines = yield* Effect.forEach(
-      regressionFiles,
+      regressionFiles.filter(({ script }) => !isPartScript(script.id)),
       ({ path, script, by }) =>
         Effect.map(
           playChosen(

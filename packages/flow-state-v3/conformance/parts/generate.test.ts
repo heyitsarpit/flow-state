@@ -93,6 +93,37 @@ describe("scripts from parts (Q7, Q8, Q20: Conformance R15, R16, I47, I52, T30, 
     }
   });
 
+  it("profiles reach the catalogue's lengths: usual at least 40 steps, stress at least 100", () => {
+    assert.equal(parts.length, 3);
+
+    for (const part of parts)
+      for (const seed of BUILD_SEEDS.slice(0, 4)) {
+        assert.ok(scriptOf(part, "usual", seed, production).steps.length >= 40, part.name);
+        assert.ok(scriptOf(part, "stress", seed, production).steps.length >= 100, part.name);
+      }
+  });
+
+  it("stress answers with the catalogue's faults (landed but lost, failed but landed, never); usual does not", () => {
+    const answers = (profile: "usual" | "stress") =>
+      new Set(
+        parts.flatMap((part) =>
+          BUILD_SEEDS.flatMap((seed) =>
+            scriptOf(part, profile, seed, production).steps.flatMap((s) =>
+              s._tag === "answer" ? [s.answer._tag] : [],
+            ),
+          ),
+        ),
+      );
+
+    for (const fault of ["lost", "lostButLanded", "failButLanded", "never"] as const)
+      assert.ok(answers("stress").has(fault), fault);
+
+    assert.deepEqual(
+      [...answers("usual")].filter((a) => a !== "ok" && a !== "fail"),
+      [],
+    );
+  });
+
   it("the app mix holds every pilot's actors in one script", () => {
     const mix = mixOf(parts, "usual", 1, production);
 

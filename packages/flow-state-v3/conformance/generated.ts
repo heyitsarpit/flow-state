@@ -266,6 +266,12 @@ const REGRESSIONS = join(dirname(fileURLToPath(import.meta.url)), "regressions")
 const Regression = Schema.Struct({ ...Script.fields, by: Schema.optionalKey(Schema.String) });
 
 /**
+ * Whether a script is a composite part's (`PART-` or `MIX-`): it plays on production only, through
+ * the part player (Conformance R22).
+ */
+export const isPartScript = (id: string) => /^(PART|MIX)-/u.test(id);
+
+/**
  * The shrunk regression scripts the generators found (T32), one JSON file each in `regressions/`.
  */
 export const regressionFiles = readdirSync(REGRESSIONS)
@@ -280,9 +286,12 @@ export const regressionFiles = readdirSync(REGRESSIONS)
   });
 
 /**
- * The shrunk scripts alone, as the generated set plays them.
+ * The hand fixtures' shrunk scripts alone, as the generated set plays them; part scripts are not
+ * among them.
  */
-export const regressionScripts = regressionFiles.map((r) => r.script);
+export const regressionScripts = regressionFiles
+  .map((r) => r.script)
+  .filter((s) => !isPartScript(s.id));
 
 /**
  * Every generated script, in run order: the small exhaustive search, the seeded runs, and the

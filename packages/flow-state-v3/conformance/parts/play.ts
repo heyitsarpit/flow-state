@@ -35,26 +35,31 @@ export type Played = {
 const fixtures = parts.map(partFixture);
 
 /**
+ * Why production fails a second re-send across a reload: a re-send's retryCount is never
+ * re-captured, so a boot restores the count from before it and a spent `retryable({ times: 1 })`
+ * passes again (WriteAhead R13, WriteLanes I7).
+ */
+export const RETRY_COUNT =
+  "a re-send's retryCount is never re-captured (`invoke` sets the lane, `persist` is not called), so a boot restores the count from before the re-send and a spent `retryable({ times: 1 })` passes again (WriteAhead R13, WriteLanes I7)";
+
+/**
  * Production's owed reds among the part scripts (Conformance R22): a generated script it fails by
  * a production bug a Task owns, as `productionOwed` lists hand cases. Each is checked to still fail
  * by its check and Invariant, so a fix shows; every other script passes.
  */
 export const partsOwed: ReadonlyArray<Limit & { readonly owner: string }> = [
-  {
-    case: "MIX-sync+transfers+sign-in-stress-109",
-    check: "lane-queue",
-    invariant: "WriteLanes I12",
-    why: "a re-send's retryCount is never re-captured (`invoke` sets the lane, `persist` is not called), so a boot restores the count from before the re-send and a spent `retryable({ times: 1 })` passes again (WriteAhead R5, R7; WriteLanes I7)",
-    owner: "@task.V3.T19",
-  },
-  {
-    case: "MIX-sync+transfers+sign-in-stress-2",
-    check: "lane-queue",
-    invariant: "WriteLanes I8",
-    why: "a forgotten actor's unacknowledged Attempt whose batch the store then refuses is never ended (only StorageFailure evidence), so the adopting incarnation mints a second Attempt on its lane (WriteAhead R13, Actors R20, R21, WriteLanes I27)",
-    owner: "@task.V3.T19",
-  },
-];
+  "PART-transfers-stress-3",
+  "PART-transfers-stress-101",
+  "PART-transfers-stress-104",
+  "PART-transfers-stress-111",
+  "MIX-sync+transfers+sign-in-stress-101",
+].map((id) => ({
+  case: id,
+  check: "lane-queue",
+  invariant: "WriteLanes I12",
+  why: RETRY_COUNT,
+  owner: "@task.V3.T19",
+}));
 
 /**
  * Plays a part's script on a runtime through the Port, under the suite's oracles and the Spec
@@ -118,7 +123,8 @@ export const playPart = (script: Script, runtime: PartRuntime, given: Rules = ru
 
 /**
  * The faults of played part scripts on production (Conformance R15, R22): a run that does not
- * pass, unless an owed row names it and it still fails by that row's check and Invariant.
+ * pass, unless an owed row names it and it still fails by that row's check and Invariant, and a
+ * passing run whose answers mostly found no open request (a script that tested little).
  */
 export const partFaults = (
   runs: ReadonlyArray<{ readonly script: Script; readonly run: Played }>,
@@ -133,7 +139,13 @@ export const partFaults = (
       return held.held ? [] : [`BAD  ${script.id}: owed to ${row.owner}, but ${held.why}`];
     }
 
-    return run.verdict._tag === "Pass" ? [] : [`BAD  ${script.id}: ${JSON.stringify(run.verdict)}`];
+    if (run.verdict._tag !== "Pass") return [`BAD  ${script.id}: ${JSON.stringify(run.verdict)}`];
+
+    const answers = script.steps.filter((s) => s._tag === "answer").length;
+
+    return run.skipped * 2 > answers
+      ? [`BAD  ${script.id}: ${run.skipped} of ${answers} answers found no open request`]
+      : [];
   });
 
 const isRecord = Schema.is(Schema.Record(Schema.String, Schema.Json));

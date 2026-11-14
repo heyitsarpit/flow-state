@@ -9,14 +9,14 @@ import { Observation } from "../port.ts";
 import type { CaseVerdict } from "../runner/verdict.ts";
 import { BUILD_SEEDS, mixOf, scriptOf } from "./generate.ts";
 import { verdictOfLimit } from "../limits.ts";
-import { partsOwed, playPart, reachedBy, reachOf } from "./play.ts";
+import { partFaults, partsOwed, playPart, reachedBy, reachOf } from "./play.ts";
 
 const SEEDS = BUILD_SEEDS.slice(0, 4);
 
 const answers = (script: Script) => script.steps.filter((s) => s._tag === "answer").length;
 
 describe("part scripts on production (Q9, Q10, Q15, Q17: Conformance R15, R19, R22, I48, I60)", () => {
-  it("each pilot's usual and stress scripts pass on production, most answers landing", () => {
+  it("each pilot's usual and stress scripts pass on production, but owed reds, most answers landing", () => {
     assert.equal(parts.length, 3);
 
     for (const part of parts)
@@ -25,7 +25,7 @@ describe("part scripts on production (Q9, Q10, Q15, Q17: Conformance R15, R19, R
           const script = scriptOf(part, profile, seed, production);
           const played = playPart(script, "production");
 
-          assert.equal(played.verdict._tag, "Pass", JSON.stringify(played.verdict));
+          assert.deepEqual(partFaults([{ script, run: played }]), []);
           assert.ok(played.facts.some(Fact.$is("Reported")), `${script.id} reported nothing`);
           assert.ok(
             played.skipped * 2 <= answers(script),
@@ -90,7 +90,7 @@ describe("part scripts on production (Q9, Q10, Q15, Q17: Conformance R15, R19, R
     assert.equal(
       played.facts.filter((f) => Fact.$is("Stepped")(f) && !f.what.startsWith("end of case"))
         .length,
-      mix.steps.length,
+      mix.steps.length - played.skipped,
     );
     assert.ok(mix.steps.some((s) => s._tag === "reload"));
     assert.equal(Object.keys(reachOf(played)).length, 3);
@@ -227,6 +227,34 @@ describe("reach from executed facts (Q11: Conformance R17)", () => {
     assert.equal(played.skipped, 1);
     assert.ok(!Object.values(reachOf(played)).some((codes) => codes.has("un")));
     assert.ok(Object.values(reachOf(played)).some((codes) => codes.size > 0));
+  });
+});
+
+describe("first-contact reds of the wider stress profile that were the suite's", () => {
+  it("a local actor ensured after its grace starts fresh (Actors R6), whatever leaf it had", () => {
+    const script: Script = {
+      id: "PART-sync-local-returns",
+      fixture: "sync",
+      actor: "client",
+      steps: [
+        { _tag: "ensure" },
+        { _tag: "send", event: "SyncRepo", payload: { repo: "effect" } },
+        { _tag: "answer", operation: "sync", answer: { _tag: "lost" } },
+        { _tag: "send", event: "SyncRepo", payload: { repo: "docs" } },
+        { _tag: "release" },
+        {
+          _tag: "answer",
+          operation: "sync",
+          answer: { _tag: "fail", tag: "RateLimited", fields: { retryAfterMs: 9000 } },
+        },
+        { _tag: "advance", ms: 2000 },
+        { _tag: "ensure" },
+      ],
+    };
+
+    const played = playPart(script, "production");
+
+    assert.equal(played.verdict._tag, "Pass", JSON.stringify(played.verdict));
   });
 });
 

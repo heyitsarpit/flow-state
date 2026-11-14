@@ -1,8 +1,7 @@
 import { MutableRef } from "effect";
-import type { Part, UserAction } from "../../fixtures/part.ts";
+import type { Part, ServerAnswer, UserAction } from "../../fixtures/part.ts";
 import { random } from "../dsl/generate.ts";
-import type { Script, Step } from "../dsl/script.ts";
-import { Answer } from "../world/network.ts";
+import { answerOf, type Script, type ScriptAnswer, type Step } from "../dsl/script.ts";
 import type { Code } from "./codes.ts";
 import {
   advanced,
@@ -36,7 +35,7 @@ export const HELD_OUT_SEEDS: ReadonlyArray<number> = [
   101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112,
 ];
 
-const MOVES: Readonly<Record<Profile, number>> = { usual: 28, stress: 40 };
+const MOVES: Readonly<Record<Profile, number>> = { usual: 40, stress: 100 };
 
 const hashOf = (text: string) =>
   Array.from({ length: text.length }, (_, i) => text.charCodeAt(i)).reduce(
@@ -118,6 +117,39 @@ const userMoves = (
   });
 };
 
+type Fault = { readonly answer: ScriptAnswer; readonly weight: number };
+
+/**
+ * The stress profile's faulty answers to one operation (catalogue section 5): lost, applied with
+ * the response lost (from the server's first success and first failure), and never answered.
+ */
+const faultsOf = (answers: ReadonlyArray<{ readonly answer: ServerAnswer }>) => {
+  const ok = answers.find((a) => a.answer._tag === "ok")?.answer;
+  const fail = answers.find((a) => a.answer._tag === "fail")?.answer;
+
+  const landed: ReadonlyArray<Fault> =
+    ok?._tag === "ok" ? [{ answer: { _tag: "lostButLanded", value: ok.value }, weight: 0.75 }] : [];
+
+  const failed: ReadonlyArray<Fault> =
+    fail?._tag === "fail"
+      ? [{ answer: { _tag: "failButLanded", tag: fail.tag, fields: fail.fields }, weight: 0.5 }]
+      : [];
+
+  return [
+    { answer: { _tag: "lost" }, weight: 1.5 },
+    ...landed,
+    ...failed,
+    { answer: { _tag: "never" }, weight: 0.25 },
+  ] satisfies ReadonlyArray<Fault>;
+};
+
+// RETURN_TYPE: a Move, so its steps keep the Step union rather than each literal.
+const faultMove = (world: World, operation: string, { answer, weight }: Fault): Move => ({
+  steps: [{ _tag: "answer", operation, answer }],
+  weight,
+  apply: () => answered(world, operation, answerOf(answer)),
+});
+
 // RETURN_TYPE: the draw takes one Move list from every source; inference would keep each literal.
 const answerMoves = (
   world: World,
@@ -138,18 +170,12 @@ const answerMoves = (
       apply: () => answered(world, operation, answerFor(answer)),
     }));
 
-    const lost =
-      profile === "stress" && allowed(["un"])
-        ? [
-            {
-              steps: [{ _tag: "answer" as const, operation, answer: { _tag: "lost" as const } }],
-              weight: 1.5,
-              apply: () => answered(world, operation, Answer.Lost()),
-            },
-          ]
-        : [];
+    if (profile === "usual" || !allowed(["un"])) return healthy;
 
-    return [...healthy, ...lost];
+    return [
+      ...healthy,
+      ...faultsOf(model?.answers ?? []).map((fault) => faultMove(world, operation, fault)),
+    ];
   });
 
 // RETURN_TYPE: the draw takes one Move list from every source; inference would keep each literal.

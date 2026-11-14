@@ -20,6 +20,7 @@ import {
   answered,
   reowned,
   requested,
+  returned,
   ROOT,
   unbound,
   UNKNOWN_LEAF,
@@ -343,7 +344,11 @@ const onFact = (
         Option.match(initialOf(state, actor), {
           onNone: () => used(state, actor, 1),
           onSome: (initial) =>
-            moved(used(folded(state, actor), actor, 1), actor, Input.Ensured({ initial })),
+            moved(
+              used(folded(returned(state, actor), actor), actor, 1),
+              actor,
+              Input.Ensured({ initial }),
+            ),
         }),
       ),
     Disposed: ({ actor }) =>
