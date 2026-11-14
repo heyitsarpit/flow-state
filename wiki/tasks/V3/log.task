@@ -443,3 +443,5 @@ note 2026-11-14T13:08:04Z
     Decision (user, 2026-11-14): "weekly raised to 60%". Limits edited. Read with the earlier recommendation as Q1 A: 
     T54 starts now beside T52's close review, and T61's second half runs beside T54 once T52 closes (slice order 
     edited; T54 now waits only on T52, already in review). Reverse: stop the T54 lead and restore T54's blocker to T61.
+note 2026-11-14T13:19:22Z
+    T52 done (PASS at f349968f, first round). T60 benefit watch, result: machinery findings fell from about 25 in five reviews to 0 blocking in three; the class gate made one catch of its own; T52 closed on its first close round. T61's second half starts now beside T54. P4.task status edits left uncommitted for the T54 builder to include (its own comment is uncommitted there).
