@@ -6,7 +6,7 @@ import { scenarios, staticCases } from "../suite.ts";
 import { CODES, isCode, SLICE_OF } from "./codes.ts";
 import { FEATURES } from "./feature-rows.ts";
 import { casesReaching, checksOf, type Feature, type MatrixInput, matrixGate } from "./features.ts";
-import { playPart, reachOf } from "./play.ts";
+import { playPart, reachedBy } from "./play.ts";
 import {
   featureRules,
   gateScripts,
@@ -40,15 +40,10 @@ const planted: MatrixInput = {
   current: 0,
 };
 
-const realInput = () => {
-  const reached = new Set<string>();
-
-  for (const script of gateScripts())
-    for (const codes of Object.values(reachOf(playPart(script, "production"))))
-      for (const code of codes) reached.add(code);
-
-  return matrixInputOf(reached);
-};
+const realInput = () =>
+  matrixInputOf(
+    reachedBy(gateScripts().map((script) => ({ run: playPart(script, "production") }))),
+  );
 
 describe("feature matrix (Q12: Conformance R17, I53 to I55, T35)", () => {
   it("has one row per Plan feature, each with a fixture kind", () => {

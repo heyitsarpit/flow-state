@@ -157,8 +157,14 @@ type Seen = {
   readonly sentKeys: Set<string>;
   readonly ensured: Map<string, Set<string>>;
   readonly ended: Set<string>;
-  readonly now: Set<"landed" | "reloaded" | "advanced">;
+  readonly now: Set<"landed" | "advanced">;
+  readonly drove: Map<string, string>;
+  readonly unlanded: Set<string>;
+  readonly beforeReload: Set<string>;
 };
+
+const actorKey = (actor: { readonly machine: string; readonly id: string }) =>
+  JSON.stringify([actor.machine, actor.id]);
 
 // RETURN_TYPE: every helper returns this one list type, so their branches join without widening.
 const one = (part: Option.Option<Part>, code: Code): ReadonlyArray<Reached> => [[part, code]];
@@ -207,10 +213,6 @@ const requestCodes = (seen: Seen, request: Request) => {
   );
 };
 
-const handles = (part: Part, event: string) =>
-  [...part.machine.compiled.states.values()].some((n) => n.on.has(event)) ||
-  part.machine.compiled.root.has(event);
-
 const scheduledBy = (part: Part, event: string) =>
   [...part.machine.compiled.states.values()].some((n) => n.schedules.some((s) => s.send === event));
 
@@ -225,15 +227,21 @@ const turnCodes = (seen: Seen, turn: Turn) => {
 const reportCodes = (seen: Seen, o: Observation) => {
   if (Observation.$is("Ended")(o)) Option.map(o.attempt, (a) => seen.ended.add(a));
 
-  if (Observation.$is("Denied")(o))
-    return parts.filter((p) => handles(p, o.event)).flatMap((p) => one(Option.some(p), "gd"));
+  if (Observation.$is("Denied")(o)) {
+    const machine = seen.drove.get(o.event);
+
+    return machine === undefined ? [] : one(partOfMachine(machine), "gd");
+  }
 
   if (Observation.$is("Turn")(o)) return turnCodes(seen, o);
 
-  const part = Observation.$is("Incarnated")(o) ? partOfMachine(o.actor.machine) : Option.none();
+  if (!Observation.$is("Incarnated")(o)) return [];
+
+  const part = partOfMachine(o.actor.machine);
 
   const restored =
-    seen.now.has("reloaded") && Option.exists(part, (p) => p.machine.compiled.persist);
+    seen.beforeReload.has(actorKey(o.actor)) &&
+    Option.exists(part, (p) => p.machine.compiled.persist);
 
   return restored ? one(part, "rl") : [];
 };
@@ -250,10 +258,15 @@ const lostWrite = (fact: Fact) =>
 const lateAnswer = (seen: Seen, fact: Fact) =>
   Fact.$is("Answered")(fact) && Option.exists(fact.request.key, (k) => seen.ended.has(k));
 
-const refusedCodes = (seen: Seen) =>
-  parts
-    .filter((p) => p.machine.compiled.persist && seen.ensured.has(p.machine.compiled.id))
+const refusedCodes = (seen: Seen) => {
+  const refused = parts
+    .filter((p) => p.machine.compiled.persist && seen.unlanded.has(p.machine.compiled.id))
     .flatMap((p) => one(Option.some(p), "sr"));
+
+  seen.unlanded.clear();
+
+  return refused;
+};
 
 const actorCodes = (seen: Seen, fact: Fact) => {
   if (Fact.$is("Disposed")(fact) || Fact.$is("Forgot")(fact))
@@ -269,15 +282,35 @@ const actorCodes = (seen: Seen, fact: Fact) => {
   return [];
 };
 
+const writerOf = (fact: Fact) => {
+  if (Fact.$is("Answered")(fact))
+    return Option.map(partOfOperation(fact.request.operation), (p) => p.machine.compiled.id);
+
+  return "actor" in fact ? Option.some(fact.actor.machine) : Option.none();
+};
+
 const clockOf = (seen: Seen, fact: Fact) => {
   if (Fact.$is("Stepped")(fact)) {
     seen.now.delete("landed");
     seen.now.delete("advanced");
+    seen.drove.clear();
   }
+
+  if (Fact.$is("Drove")(fact)) seen.drove.set(fact.event, fact.actor.machine);
+
+  if (Fact.$is("Landed")(fact)) seen.unlanded.clear();
+
+  if (Fact.$is("Reloaded")(fact)) {
+    seen.unlanded.clear();
+
+    for (const [machine, ids] of seen.ensured)
+      for (const id of ids) seen.beforeReload.add(actorKey({ machine, id }));
+  }
+
+  if (!Fact.$is("Reported")(fact)) Option.map(writerOf(fact), (m) => seen.unlanded.add(m));
 
   const marks = [
     [Fact.$is("Landed")(fact), "landed"],
-    [Fact.$is("Reloaded")(fact), "reloaded"],
     [Fact.$is("Advanced")(fact), "advanced"],
   ] as const;
 
@@ -311,9 +344,11 @@ const factCodes = (seen: Seen, fact: Fact) => {
  * - `rj` and `ky`: a write's request reached the server; two of one operation with different
  *   keys. `rt`: a request resent under an earlier Attempt's idempotency key. `un`: a write's
  *   answer lost. `lk`: a read's request. `cm`: a turn ran a `cancel` member.
- * - `gd`: a guard denied an event. `du`: a turn ran on a scheduled event after the clock moved.
- * - `wa`: a persisted write's request after its batch landed. `rl`: an actor restored after a
- *   reload. `dp`: an actor disposed or forgotten. `gr`: a use released. `ma`: two actors of one
+ * - `gd`: a guard denied an event the step drove, credited to the driven actor's part. `du`: a
+ *   turn ran on a scheduled event after the clock moved. `sr`: a refused batch, credited to each
+ *   persisted part that wrote since the last landing.
+ * - `wa`: a persisted write's request after its batch landed. `rl`: an actor known before a
+ *   reload incarnated after it. `dp`: an actor disposed or forgotten. `gr`: a use released. `ma`: two actors of one
  *   machine.
  */
 export const reachOf = (played: Played) => {
@@ -323,6 +358,9 @@ export const reachOf = (played: Played) => {
     ensured: new Map(),
     ended: new Set(),
     now: new Set(),
+    drove: new Map(),
+    unlanded: new Set(),
+    beforeReload: new Set(),
   };
 
   const reached = new Map<string, Set<Code>>();
@@ -337,3 +375,14 @@ export const reachOf = (played: Played) => {
 
   return Object.fromEntries(reached);
 };
+
+/**
+ * Every code the passing runs reached, over all composites: the reach the matrix gate counts. A
+ * failing run reached nothing a gate may credit.
+ */
+export const reachedBy = (runs: ReadonlyArray<{ readonly run: Played }>) =>
+  new Set(
+    runs.flatMap(({ run }) =>
+      run.verdict._tag === "Pass" ? Object.values(reachOf(run)).flatMap((s) => [...s]) : [],
+    ),
+  );

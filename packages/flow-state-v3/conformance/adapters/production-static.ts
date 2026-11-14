@@ -229,25 +229,41 @@ export const productionSurface: Surface = {
  *
  * **Details**
  *
- * - CMP-02 and CMP-07: no data view (Compile R16). CMP-06: no Runtime check of a tampered
- *   `Compiled` (R17). The places check: no places (R16).
- * - The rest fail first on the shared source S1, whose `Flow.input` and computed initial
- *   production cannot declare: CMP-01, CMP-03 to CMP-05 and CMP-08 to CMP-11.
+ * - Every case fails first on the shared source S1, whose `Flow.input` and computed initial
+ *   production cannot declare (Compile R5).
+ * - `missing` is the expectation each fails by once S1 leaves those fields out: the check
+ *   production lacks besides them, or `none` when they are its only reason. The places check:
+ *   no places (R16).
  */
 export const staticOwed = {
   owner: "@task.V3.T17",
   cases: [
-    "CMP-01",
-    "CMP-02",
-    "CMP-03",
-    "CMP-04",
-    "CMP-05",
-    "CMP-06",
-    "CMP-07",
-    "CMP-08",
-    "CMP-09",
-    "CMP-10",
-    "CMP-11",
+    { case: "CMP-01", missing: "none" },
+    { case: "CMP-02", missing: "Compile I4: its events, public and internal" },
+    { case: "CMP-03", missing: "Compile I5: Flow.initial beside a Schema default is TwoDefaults" },
+    {
+      case: "CMP-04",
+      missing: "Compile I6: a default that is an Effect to run is refused as ImpureDefault",
+    },
+    {
+      case: "CMP-05",
+      missing: "Compile I11: unknown: onto an event not Flow.uncertain is UnknownNotUncertain",
+    },
+    { case: "CMP-06", missing: "Compile I15: a bare function in a Slot's place is refused" },
+    {
+      case: "CMP-07",
+      missing: "Compile R16: a closure is named by its place under operations.save",
+    },
+    {
+      case: "CMP-08",
+      missing: "Compile I7: an input given in its encoded form is refused, never decoded",
+    },
+    {
+      case: "CMP-09",
+      missing: "Compile I8: restore keeps the record's fields and runs no creation",
+    },
+    { case: "CMP-10", missing: "Compile I13: a state named self is refused as ReservedStateName" },
+    { case: "CMP-11", missing: "none" },
   ],
   places: true,
 } as const;

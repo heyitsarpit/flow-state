@@ -5,9 +5,10 @@ import { parts } from "../../fixtures/index.ts";
 import { nullSurface } from "../adapters/null-static.ts";
 import { staticOwed } from "../adapters/production-static.ts";
 import { constructionCases } from "../compile/construction.cases.ts";
+import { Mismatch } from "../dsl/oracle.ts";
 import { playStatic } from "../dsl/static-case.ts";
 import { runtimeSurface } from "../runner/args.ts";
-import { Built, MemoryField, type Source } from "../surface.ts";
+import { Built, MemoryField, type Source, type Surface } from "../surface.ts";
 
 const production = Effect.runSync(runtimeSurface("production"));
 
@@ -22,6 +23,38 @@ const plain: Source = {
   operations: [],
   on: { Go: { guard: Option.none(), target: Option.some("Busy") } },
   onMachine: () => undefined,
+};
+
+const inexpressible = new Set(["Computed", "Input", "NumberInput"]);
+
+/**
+ * Production's surface over S1 with the fields production cannot declare left out: a probe of
+ * what each owed case lacks besides them, never a gate's surface.
+ */
+const withoutInputs: Surface = {
+  ...production,
+  construct: (source) =>
+    production.construct({
+      ...source,
+      memory: Object.fromEntries(
+        Object.entries(source.memory).filter(([, f]) => !inexpressible.has(f._tag)),
+      ),
+    }),
+};
+
+const failureOf = (surface: Surface, id: string) => {
+  const found = constructionCases.find((c) => c.id === id);
+  assert.ok(found !== undefined, id);
+
+  try {
+    playStatic(surface, found);
+
+    return "pass";
+  } catch (failure) {
+    return failure instanceof Mismatch
+      ? `Mismatch ${failure.label} (actual ${failure.actual})`
+      : `Error ${failure instanceof Error ? failure.message : String(failure)}`;
+  }
 };
 
 const passes = (id: string) => {
@@ -53,11 +86,33 @@ describe("production's static surface (Q22: phase-out step 3, Conformance Q17)",
     assert.deepEqual(wrong, Built.Refused({ codes: ["InvalidMachine"] }));
   });
 
-  it("passes every Compile construction case it does not owe, and each owed case still fails", () => {
+  it("passes every Compile construction case it does not owe, and each owed case fails on S1's fields", () => {
     for (const c of constructionCases) {
-      const owed = staticOwed.cases.some((id) => id === c.id);
+      const owed = staticOwed.cases.some((row) => row.case === c.id);
 
       assert.equal(passes(c.id), !owed, `${c.id}${owed ? ` (owed to ${staticOwed.owner})` : ""}`);
+    }
+
+    const computed = MemoryField.Computed({ compute: () => 0 });
+
+    for (const [field, why] of [
+      [MemoryField.Input(), "production has no Flow.input"],
+      [computed, "production has no computed initial"],
+    ] as const) {
+      const built = production.construct({ ...plain, memory: { ...plain.memory, field } });
+
+      assert.ok(Built.$is("Crashed")(built) && built.thrown.includes(why), why);
+    }
+  });
+
+  it("without S1's Flow.input and computed fields, each owed case fails by the check its row names, or passes", () => {
+    assert.equal(staticOwed.cases.length, constructionCases.length);
+
+    for (const row of staticOwed.cases) {
+      const failed = failureOf(withoutInputs, row.case);
+
+      if (row.missing === "none") assert.equal(failed, "pass", row.case);
+      else assert.ok(failed.startsWith(`Mismatch ${row.missing}`), `${row.case}: ${failed}`);
     }
   });
 

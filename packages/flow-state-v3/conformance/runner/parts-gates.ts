@@ -15,7 +15,7 @@ import { matrixGate } from "../parts/features.ts";
 import { fieldGate, modelFields, modelMutants } from "../parts/model-mutation.ts";
 import { PAIR_OWNERS } from "../parts/pair-owners.ts";
 import { combinationGate } from "../parts/pairs.ts";
-import { partFaults, playPart, reachOf } from "../parts/play.ts";
+import { partFaults, playPart, reachedBy, reachOf } from "../parts/play.ts";
 import {
   gateScripts,
   heldOutScripts,
@@ -31,6 +31,8 @@ const played = () =>
 
     return { script, run, cells };
   });
+
+const passing = () => played().filter(({ run }) => run.verdict._tag === "Pass");
 
 /**
  * Prints a gate's faults and its VERDICT line, and sets a failing exit code on any fault.
@@ -73,11 +75,7 @@ export const heldOutGate = Effect.suspend(() => {
  * The matrix gate over the real rows, with the codes the gate scripts reached (Conformance R17).
  */
 export const matrixGateMode = Effect.suspend(() => {
-  const reached = new Set(
-    played().flatMap(({ run }) => Object.values(reachOf(run)).flatMap((s) => [...s])),
-  );
-
-  const input = matrixInputOf(reached);
+  const input = matrixInputOf(reachedBy(played()));
 
   return verdict(matrixGate(input), input.features.length, "matrix rows");
 });
@@ -92,7 +90,7 @@ export const pairsGate = Effect.suspend(() => {
 
   const result = combinationGate({
     declared: production,
-    runs: played().map(({ script, run, cells }) => ({
+    runs: passing().map(({ script, run, cells }) => ({
       id: script.id,
       mix: script.id.startsWith("MIX-"),
       byComposite: reachOf(run),
