@@ -39,3 +39,5 @@ time_ist,weekly_all_pct,weekly_fable_pct,five_hour_pct,weekly_delta_pct,pace_pct
 2026-11-15 01:21,45,3,51,1,2.0,73,T54 builder (A1 pair owed to T20); T54 transcript study (Haiku Explore, medium)
 2026-11-15 01:51,47,3,67,2,4.0,83,T54 builder (A2); A1 review and 3 Haiku assumption-study agents ran this half-hour
 2026-11-15 02:21,48,3,75,1,2.0,83,T54 builder (A2 triage) and A2 oracle review (Opus, 2-3 Haiku Explore)
+2026-11-15 02:52,49,3,1,1,1.9,,T54 builder alone (A2 finish: limited mutants owed, stale rows, gates); 5-hour window reset 02:50
+2026-11-15 03:21,50,3,5,1,2.1,,T54 builder alone (A2 final gates)
