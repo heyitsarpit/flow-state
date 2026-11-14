@@ -8,6 +8,7 @@ import {
   actorKey,
   type Incarnation,
   type Lane,
+  byCodeUnits,
   laneId,
   Phase,
   sentBefore,
@@ -254,7 +255,8 @@ export const decodeRecords = (
       return { id: laneId(actor, r.operation, keyText), inFlight: r.inFlight, lane };
     });
 
-  const entries = [...stored];
+  // A store reads back in key order, whatever order the records were written in.
+  const entries = [...stored].toSorted(([a], [b]) => byCodeUnits(a, b));
 
   // FLOW_STATE_ALLOW_UNKNOWN: a stored value is parsed JSON until its key's decoder reads it.
   const of = <A>(prefix: string, decode: (value: unknown) => Option.Option<A>) =>

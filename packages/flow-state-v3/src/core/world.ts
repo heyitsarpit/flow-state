@@ -115,9 +115,10 @@ export type Head = {
 };
 
 /**
- * Orders lane ids as their record keys order: by UTF-16 code units, whatever the host's locale.
+ * Orders keys and lane ids as a store orders its keys: by UTF-16 code units, whatever the host's
+ * locale.
  */
-export const byLaneId = (a: string, b: string) => Number(a > b) - Number(a < b);
+export const byCodeUnits = (a: string, b: string) => Number(a > b) - Number(a < b);
 
 /**
  * Whether a head's Attempt was sent before: it was re-sent, or it is Held, Recapturing or

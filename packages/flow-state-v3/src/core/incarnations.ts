@@ -2,14 +2,14 @@ import { Option, Result } from "effect";
 import { armingsOf } from "./turn.ts";
 import { Evidence } from "./evidence.ts";
 import { Audience, type LedgerSteps, rowsOf } from "./ledger.ts";
-import { actorRecordKey, decodeRecords } from "./record.ts";
+import { decodeRecords } from "./record.ts";
 import { GRACE_MS, isInFlight, ROOT_ACTIVATION, type Tx, without, withEntry } from "./tx.ts";
 import {
   type ActorId,
   actorKey,
   type ActorRecord,
   type Armed,
-  byLaneId,
+  byCodeUnits,
   Due,
   type Incarnation,
   Mail,
@@ -24,7 +24,7 @@ import type { Persistence } from "./persist.ts";
  */
 export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: LedgerSteps) => {
   const { armTimer, disarmWhere, incarnationOf, used, lanesOf, enqueue } = tx;
-  const { persist, saveActor } = persistence;
+  const { removeActor, saveActor } = persistence;
 
   // ── incarnations.
   const armSchedules = (
@@ -86,7 +86,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
 
     ledger.start(actor);
 
-    for (const [id, lane] of lanesOf(actor).toSorted(([a], [b]) => byLaneId(a, b)))
+    for (const [id, lane] of lanesOf(actor).toSorted(([a], [b]) => byCodeUnits(a, b)))
       if (Phase.$is("Held")(lane.head.phase) && !owedAttempts.has(lane.head.id))
         ledger.owe({
           actor,
@@ -242,7 +242,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
       records: without(tx.world().records, key),
       uses: without(tx.world().uses, key),
     });
-    persist(actor, [{ key: actorRecordKey(key), record: Option.none() }], Due.Later());
+    removeActor(actor);
     ledger.suspend(actor, forgetting);
   };
 

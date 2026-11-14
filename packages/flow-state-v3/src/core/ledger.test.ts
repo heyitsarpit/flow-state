@@ -6,7 +6,7 @@ import { makePersistence } from "./persist.ts";
 import { decodeRecords, encodeOwed } from "./record.ts";
 import type { Channel } from "./vocabulary.ts";
 import { makeTx, ROOT_ACTIVATION } from "./tx.ts";
-import { actorKey, byLaneId, Disposal, emptyWorld, Mail, type World } from "./world.ts";
+import { actorKey, byCodeUnits, Disposal, emptyWorld, Mail, type World } from "./world.ts";
 
 const actor = { machine: "Test/Ledger", name: "a" };
 
@@ -87,11 +87,38 @@ describe("an owed record keeps each row's channel (WriteLanes I39; Codec R5)", (
   });
 });
 
+describe("a boot reads records in key order (Restore R3: the boot sorts by record key)", () => {
+  it("records written in any order decode in record-key order", () => {
+    const record = (name: string) =>
+      [
+        `owed/Shop/Pay/${name}`,
+        encodeOwed({ machine: "Shop/Pay", name }, [
+          {
+            operation: "pay",
+            lane: Option.none(),
+            attempt: Option.none(),
+            channel: "unknown",
+            reason: "Restored",
+            value: null,
+            kept: false,
+          },
+        ]),
+      ] as const;
+
+    const stored = new Map([record("b"), record("a")]);
+
+    assert.deepEqual(
+      decodeRecords(new Map(), stored).rows.map((r) => r.actor.name),
+      ["a", "b"],
+    );
+  });
+});
+
 describe("lane-id order (Restore R3: Held heads in lane-id order)", () => {
   it("lane ids order by code units, as record keys do, never by the host's locale", () => {
     const ids = ["Shop/Pay/s1|place|{}", "Shop/Pay/s1|Void|{}", "Shop/Pay/s1|void|{}"];
 
-    assert.deepEqual(ids.toSorted(byLaneId), [
+    assert.deepEqual(ids.toSorted(byCodeUnits), [
       "Shop/Pay/s1|Void|{}",
       "Shop/Pay/s1|place|{}",
       "Shop/Pay/s1|void|{}",

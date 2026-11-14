@@ -212,7 +212,7 @@ export const hostMutants: ReadonlyArray<HostMutant> = [
     edits: [
       {
         file: "src/core/incarnations.ts",
-        find: "lanesOf(actor).toSorted(([a], [b]) => byLaneId(a, b))",
+        find: "lanesOf(actor).toSorted(([a], [b]) => byCodeUnits(a, b))",
         replace: "lanesOf(actor)",
       },
     ],

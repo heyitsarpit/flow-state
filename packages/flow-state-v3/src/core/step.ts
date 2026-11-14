@@ -91,10 +91,16 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
     Forget: ({ actor }) => (open ? incarnations.dispose(actor, true) : undefined),
   });
 
-  if (Disposal.$is("Open")(tx.world().disposal)) {
+  const stillOpen = Disposal.$is("Open")(tx.world().disposal);
+
+  if (stillOpen) {
     serve.drain();
     incarnations.graces();
-  } else disposal.disposalEnds();
+  }
+
+  persistence.project();
+
+  if (!stillOpen) disposal.disposalEnds();
 
   return tx.out();
 };

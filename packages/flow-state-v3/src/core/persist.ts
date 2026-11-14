@@ -24,43 +24,45 @@ import {
   type Write,
 } from "./world.ts";
 
+// What one persisted identity's step touched: its actor record (kept or removed), its lanes, its
+// owed record, the tickets its sends await, and whether its writes are due now.
+type Touched = {
+  readonly actor: ActorId;
+  readonly record: "none" | "kept" | "removed";
+  readonly lanes: ReadonlySet<string>;
+  readonly owed: boolean;
+  readonly tickets: ReadonlyArray<Ticket>;
+  readonly now: boolean;
+};
+
 /**
- * Persistence of a step: each change to a persisted identity becomes a write of its scope, and
- * lanes, parked and kept endings are set and dropped with their records.
+ * Persistence of a step: setters note what each persisted identity's step touched, and the step
+ * projects each touched record once, at its end, in one write list per identity.
+ *
+ * **Details**
+ *
+ * The write list is due when a send awaits it (`Awaited`), at once when an actor record was
+ * removed or an incarnation ended (`Now`), and within the capture interval otherwise (`Later`).
  */
 export const makePersistence = (tx: Tx) => {
   const { persisted, armTimer, incarnationOf } = tx;
+  let touched = new Map<string, Touched>();
 
-  /**
-   * Writes a persisted identity's records: within the capture interval, or at once.
-   */
-  const persist = (actor: ActorId, writes: ReadonlyArray<Write>, due: Due) => {
-    if (persisted(actor)) tx.command(Command.Persist({ scope: actorKey(actor), writes, due }));
-  };
+  const touch = (actor: ActorId, change: (t: Touched) => Touched) => {
+    if (!persisted(actor)) return;
 
-  /**
-   * Writes a persisted identity's records at once with a ticket a send awaits, and arms its
-   * silence timer; `None` when the identity does not persist.
-   */
-  const persistAwaited = (
-    actor: ActorId,
-    writes: ReadonlyArray<Write>,
-    awaited: Omit<Ticket, "id">,
-  ) => {
-    if (!persisted(actor)) return Option.none<TicketId>();
+    const key = actorKey(actor);
 
-    const id = tx.mint<TicketId>("ticket");
+    const was = touched.get(key) ?? {
+      actor,
+      record: "none" as const,
+      lanes: new Set<string>(),
+      owed: false,
+      tickets: [],
+      now: false,
+    };
 
-    tx.command(
-      Command.Persist({
-        scope: actorKey(actor),
-        writes,
-        due: Due.Awaited({ ticket: { id, ...awaited } }),
-      }),
-    );
-    armTimer(Timer.Silent({ ticket: id }), tx.env.now + SILENT_MS);
-
-    return Option.some(id);
+    touched = new Map([...touched, [key, change(was)]]);
   };
 
   const actorWrite = (incarnation: Incarnation) => {
@@ -75,15 +77,6 @@ export const makePersistence = (tx: Tx) => {
     );
   };
 
-  const laneWrite = (id: string, lane: Lane, removed: boolean) => {
-    const compiled = tx.machines.get(lane.actor.machine);
-
-    const record =
-      removed || compiled === undefined ? Option.none<Values>() : encodeLane(compiled, lane);
-
-    return { key: laneRecordKey(id), record };
-  };
-
   // RETURN_TYPE: the Runtime's copy of a record, whose schedule list stays the record's shape.
   const recordOf = (incarnation: Incarnation): ActorRecord => ({
     actor: incarnation.actor,
@@ -96,6 +89,9 @@ export const makePersistence = (tx: Tx) => {
     })),
   });
 
+  /**
+   * Notes an identity's actor record as changed: `now` when its incarnation ended.
+   */
   const saveActor = (actor: ActorId, due: Due = Due.Later()) => {
     const incarnation = incarnationOf(actor);
 
@@ -105,8 +101,44 @@ export const makePersistence = (tx: Tx) => {
       ...tx.world(),
       records: withEntry(tx.world().records, actorKey(actor), recordOf(incarnation)),
     });
-    persist(actor, Option.toArray(actorWrite(incarnation)), due);
+    touch(actor, (t) => ({ ...t, record: "kept", now: t.now || Due.$is("Now")(due) }));
   };
+
+  /**
+   * Notes an identity's actor record as removed: written at once.
+   */
+  const removeActor = (actor: ActorId) =>
+    touch(actor, (t) => ({ ...t, record: "removed", now: true }));
+
+  /**
+   * Notes a lane as changed: its record is written from the lane's state at the step's end, or
+   * removed if the lane is gone.
+   */
+  const saveLane = (actor: ActorId, id: string) =>
+    touch(actor, (t) => ({ ...t, lanes: new Set([...t.lanes, id]) }));
+
+  /**
+   * Notes a lane as changed and returns the ticket a send awaits for the step's writes, arming
+   * its silence timer; `None` when the identity does not persist.
+   */
+  const saveAwaited = (actor: ActorId, id: string, awaited: Omit<Ticket, "id">) => {
+    if (!persisted(actor)) return Option.none<TicketId>();
+
+    const ticket = { id: tx.mint<TicketId>("ticket"), ...awaited };
+    touch(actor, (t) => ({
+      ...t,
+      lanes: new Set([...t.lanes, id]),
+      tickets: [...t.tickets, ticket],
+    }));
+    armTimer(Timer.Silent({ ticket: ticket.id }), tx.env.now + SILENT_MS);
+
+    return Option.some(ticket.id);
+  };
+
+  /**
+   * Notes an identity's owed record as changed.
+   */
+  const saveOwed = (actor: ActorId) => touch(actor, (t) => ({ ...t, owed: true }));
 
   // ── lanes.
   const setLane = (id: string, lane: Lane) => {
@@ -115,40 +147,80 @@ export const makePersistence = (tx: Tx) => {
 
   const dropLane = (id: string, lane: Lane) => {
     tx.set({ ...tx.world(), lanes: without(tx.world().lanes, id) });
-    persist(lane.actor, [laneWrite(id, lane, true)], Due.Later());
+    saveLane(lane.actor, id);
   };
 
-  /**
-   * Writes an identity's owed record: its saved rows in the order they were owed, or removes the
-   * record when there are none.
-   */
-  const saveOwed = (actor: ActorId) => {
+  const laneWrite = (id: string) => {
+    const lane = tx.world().lanes.get(id);
+    const compiled = lane === undefined ? undefined : tx.machines.get(lane.actor.machine);
+
+    const record =
+      lane === undefined || compiled === undefined
+        ? Option.none<Values>()
+        : encodeLane(compiled, lane);
+
+    return { key: laneRecordKey(id), record };
+  };
+
+  const owedWrite = (actor: ActorId) => {
     const rows = rowsOf(tx.world().owed, actor)
       .filter(isSaved)
       .map((r) => ({ ...r, kept: Delivery.$is("Kept")(r.delivery) }));
 
-    persist(
-      actor,
-      [
-        {
-          key: owedRecordKey(actorKey(actor)),
-          record: rows.length === 0 ? Option.none() : Option.some(encodeOwed(actor, rows)),
-        },
-      ],
-      Due.Later(),
+    return {
+      key: owedRecordKey(actorKey(actor)),
+      record: rows.length === 0 ? Option.none<Values>() : Option.some(encodeOwed(actor, rows)),
+    };
+  };
+
+  // RETURN_TYPE: one Write list, whichever branch builds it.
+  const recordWrites = (t: Touched): ReadonlyArray<Write> => {
+    if (t.record === "removed")
+      return [{ key: actorRecordKey(actorKey(t.actor)), record: Option.none() }];
+
+    if (t.record === "none") return [];
+
+    return Option.toArray(
+      Option.flatMap(Option.fromUndefinedOr(incarnationOf(t.actor)), actorWrite),
     );
   };
 
+  /**
+   * Projects what the step touched: one write list per identity, each touched record once, due
+   * by the derived rule; a further ticket rides its own empty list.
+   */
+  const project = () => {
+    for (const t of touched.values()) {
+      const owed = t.owed ? [owedWrite(t.actor)] : [];
+      const writes = [...recordWrites(t), ...[...t.lanes].map(laneWrite), ...owed];
+
+      const [first, ...more] = t.tickets;
+      const scope = actorKey(t.actor);
+
+      const due = Option.match(Option.fromUndefinedOr(first), {
+        onNone: () => (t.now ? Due.Now() : Due.Later()),
+        onSome: (ticket) => Due.Awaited({ ticket }),
+      });
+
+      tx.command(Command.Persist({ scope, writes, due }));
+
+      for (const ticket of more)
+        tx.command(Command.Persist({ scope, writes: [], due: Due.Awaited({ ticket }) }));
+    }
+
+    touched = new Map();
+  };
+
   return {
-    persist,
-    persistAwaited,
-    actorWrite,
-    laneWrite,
     recordOf,
     saveActor,
+    removeActor,
+    saveLane,
+    saveAwaited,
+    saveOwed,
     setLane,
     dropLane,
-    saveOwed,
+    project,
   };
 };
 

@@ -9,7 +9,6 @@ import {
   type CallId,
   Command,
   Disposal,
-  Due,
   type Lane,
   Phase,
   sentBefore,
@@ -52,8 +51,8 @@ const defect = (what: string) => {
  * through the step's working state, and `evidenceOf` derives the reports it determines.
  */
 export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps) => {
-  const { persisted, incarnationOf } = tx;
-  const { persist, persistAwaited, actorWrite, laneWrite, setLane, dropLane } = persistence;
+  const { persisted } = tx;
+  const { saveActor, saveAwaited, saveLane, setLane, dropLane } = persistence;
 
   const open = () => Disposal.$is("Open")(tx.world().disposal);
 
@@ -156,34 +155,26 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
       return;
     }
 
-    const writes = Option.toArray(
-      Option.flatMap(Option.fromUndefinedOr(incarnationOf(at.actor)), actorWrite),
-    );
+    saveActor(at.actor);
 
-    Option.match(
-      persistAwaited(at.actor, [...writes, laneWrite(at.id, lane, false)], {
-        attempt: lane.head.id,
-        purpose,
-      }),
-      {
-        onNone: () => invoke(at, lane, resend),
-        onSome: (ticket) =>
-          setLane(at.id, {
-            ...lane,
-            head: {
-              ...lane.head,
-              phase: resend ? Phase.Recapturing({ ticket }) : Phase.Acknowledging({ ticket }),
-            },
-          }),
-      },
-    );
+    Option.match(saveAwaited(at.actor, at.id, { attempt: lane.head.id, purpose }), {
+      onNone: () => invoke(at, lane, resend),
+      onSome: (ticket) =>
+        setLane(at.id, {
+          ...lane,
+          head: {
+            ...lane.head,
+            phase: resend ? Phase.Recapturing({ ticket }) : Phase.Acknowledging({ ticket }),
+          },
+        }),
+    });
   };
 
   const hold = (at: At, lane: Lane, write: boolean) => {
     const held = { ...lane, head: { ...lane.head, phase: Phase.Held() } };
     setLane(at.id, held);
 
-    if (write) persist(at.actor, [laneWrite(at.id, held, false)], Due.Later());
+    if (write) saveLane(at.actor, at.id);
   };
 
   const perform = (at: At, move: Move, cue: Cue) =>

@@ -4,6 +4,10 @@ PAY-07/late-may-not-leave@1	Codec I7
 PAY-07/late-may-not-leave@2	Codec I7
 PAY-16/restore-keeps-mayHaveApplied@1	WriteAhead I24
 PAY-16/restore-keeps-mayHaveApplied@2	WriteAhead I24
+DISP-01@1	WriteAhead I20
+DISP-01@2	WriteAhead I20
+ACT-01/free-actor-ends@1	WriteAhead I20
+ACT-01/free-actor-ends@2	WriteAhead I20
 DLV-04@1	Codec I7
 DLV-04@2	Codec I7
 DLV-05@1	Codec I7
@@ -14,11 +18,21 @@ TURN-01/schedule-refused@1	Codec I7
 TURN-01/schedule-refused@2	Codec I7
 TURN-01/mapper-refused@1	Codec I7
 TURN-01/mapper-refused@2	Codec I7
+PART-transfers-usual-1	WriteAhead I20
+PART-transfers-usual-5	WriteAhead I20
+PART-transfers-usual-6	Restore R3+WriteAhead I20
+PART-transfers-stress-1	Restore R3+WriteAhead I20
+PART-transfers-stress-2	WriteAhead I20
 PART-transfers-stress-3	WriteAhead I24
 PART-transfers-stress-4	Restore R3+Codec I7
 PART-transfers-stress-5	WriteAhead I24
+PART-transfers-stress-6	WriteAhead I20
 PART-transfers-varied-1	WriteAhead I24
+PART-transfers-varied-2	WriteAhead I20
 PART-transfers-varied-3	WriteAhead I24
+PART-transfers-varied-4	Restore R3+WriteAhead I20
+PART-transfers-varied-5	WriteAhead I20
+PART-transfers-varied-6	Restore R3+WriteAhead I20
 PART-pay-usual-3	Restore R3+Codec I7
 PART-pay-usual-6	Codec I7
 PART-pay-stress-1	Codec I7
@@ -30,27 +44,49 @@ PART-cells-usual-5	Restore R3+Codec I7
 PART-cells-varied-3	Restore R3+Codec I7
 MIX-sync+transfers+sign-in-stress-1	WriteAhead I24
 MIX-sync+transfers+sign-in-stress-2	Restore R3+Codec I7
+MIX-sync+transfers+sign-in-usual-2	WriteAhead I20
+MIX-sync+transfers+sign-in+pay-stress-1	Restore R3+WriteAhead I20
 MIX-sync+transfers+sign-in+pay-stress-2	Restore R3+Codec I7
 PART-cells-varied-8	Codec I7
 PART-pay-stress-11	Restore R3+Codec I7
 PART-pay-varied-9	Codec I7
+PART-transfers-varied-8	WriteAhead I20
 PART-transfers-usual-101	Restore R3+Codec I7
+PART-transfers-usual-102	Restore R3+WriteAhead I20
+PART-transfers-usual-103	WriteAhead I20
 PART-transfers-usual-104	Restore R3+Codec I7
 PART-transfers-usual-105	Restore R3+Codec I7
+PART-transfers-usual-106	WriteAhead I20
+PART-transfers-usual-107	WriteAhead I20
+PART-transfers-usual-108	WriteAhead I20
 PART-transfers-usual-109	Restore R3+Codec I7
 PART-transfers-usual-110	Restore R3+Codec I7
+PART-transfers-usual-111	WriteAhead I20
 PART-transfers-usual-112	Restore R3+Codec I7
 PART-transfers-stress-101	Restore R3+Codec I7
+PART-transfers-stress-102	WriteAhead I20
+PART-transfers-stress-103	Restore R3+WriteAhead I20
 PART-transfers-stress-104	WriteAhead I24
+PART-transfers-stress-105	WriteAhead I20
+PART-transfers-stress-106	WriteAhead I20
 PART-transfers-stress-107	WriteAhead I24
+PART-transfers-stress-108	WriteAhead I20
+PART-transfers-stress-109	Restore R3+WriteAhead I20
 PART-transfers-stress-110	WriteAhead I24
+PART-transfers-stress-111	WriteAhead I20
 PART-transfers-stress-112	WriteAhead I24
 PART-transfers-varied-101	WriteAhead I24
 PART-transfers-varied-102	WriteAhead I24
+PART-transfers-varied-103	WriteAhead I20
+PART-transfers-varied-104	Restore R3+WriteAhead I20
+PART-transfers-varied-105	WriteAhead I20
 PART-transfers-varied-106	Restore R3+Codec I7
 PART-transfers-varied-107	WriteAhead I24
+PART-transfers-varied-108	Restore R3+WriteAhead I20
 PART-transfers-varied-109	WriteAhead I24
+PART-transfers-varied-110	WriteAhead I20
 PART-transfers-varied-111	Restore R3+Codec I7
+PART-transfers-varied-112	WriteAhead I20
 PART-pay-usual-103	Codec I7
 PART-pay-usual-112	Codec I7
 PART-pay-stress-110	Codec I7
@@ -66,15 +102,34 @@ PART-cells-stress-102	Restore R3+Codec I7
 PART-cells-stress-103	Restore R3+Codec I7
 PART-cells-varied-101	Codec I7
 PART-cells-varied-110	Restore R3+Codec I7
+MIX-sync+transfers+sign-in-stress-103	WriteAhead I20
+MIX-sync+transfers+sign-in-stress-104	WriteAhead I20
+MIX-sync+transfers+sign-in-stress-105	Restore R3+WriteAhead I20
+MIX-sync+transfers+sign-in-stress-106	WriteAhead I20
 MIX-sync+transfers+sign-in-stress-107	Restore R3+Codec I7
+MIX-sync+transfers+sign-in-stress-108	WriteAhead I20
 MIX-sync+transfers+sign-in-stress-109	Restore R3+Codec I7
+MIX-sync+transfers+sign-in-stress-110	Restore R3+WriteAhead I20
+MIX-sync+transfers+sign-in-stress-111	WriteAhead I20
 MIX-sync+transfers+sign-in-stress-112	Restore R3+Codec I7
 MIX-sync+transfers+sign-in-usual-103	Restore R3+Codec I7
+MIX-sync+transfers+sign-in-usual-104	WriteAhead I20
 MIX-sync+transfers+sign-in-usual-105	Restore R3+Codec I7
+MIX-sync+transfers+sign-in-usual-106	WriteAhead I20
+MIX-sync+transfers+sign-in-usual-107	WriteAhead I20
+MIX-sync+transfers+sign-in-usual-108	WriteAhead I20
+MIX-sync+transfers+sign-in-usual-109	WriteAhead I20
 MIX-sync+transfers+sign-in-usual-110	Restore R3+Codec I7
+MIX-sync+transfers+sign-in-usual-111	WriteAhead I20
 MIX-sync+transfers+sign-in-usual-112	Restore R3+Codec I7
 MIX-sync+transfers+sign-in+pay-stress-101	Restore R3+Codec I7
 MIX-sync+transfers+sign-in+pay-stress-103	Codec I7
+MIX-sync+transfers+sign-in+pay-stress-104	WriteAhead I20
+MIX-sync+transfers+sign-in+pay-stress-105	Restore R3+WriteAhead I20
 MIX-sync+transfers+sign-in+pay-stress-106	WriteAhead I24
+MIX-sync+transfers+sign-in+pay-stress-107	WriteAhead I20
 MIX-sync+transfers+sign-in+pay-stress-108	Codec I7
+MIX-sync+transfers+sign-in+pay-stress-109	WriteAhead I20
+MIX-sync+transfers+sign-in+pay-stress-110	Restore R3+WriteAhead I20
 MIX-sync+transfers+sign-in+pay-stress-111	Restore R3+Codec I7
+MIX-sync+transfers+sign-in+pay-stress-112	Restore R3+WriteAhead I20

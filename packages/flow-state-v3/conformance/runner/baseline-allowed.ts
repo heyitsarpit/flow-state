@@ -22,6 +22,7 @@ export const PENDING = [
   "WriteAhead I24",
   "Actors I40",
   "Codec I7",
+  "WriteAhead I20",
 ] as const;
 
 /**
@@ -57,6 +58,7 @@ const BECAUSE: Partial<Record<Pending, string>> = {
   "Codec I7": "records are actor/, lane/ and owed/, each with format",
   "WriteAhead I24":
     "a landed lane record's inFlight is false for a Held head, in the step that wrote it",
+  "WriteAhead I20": "at every step's end, the records a step touched are projected once",
 };
 
 const quoted = (rule: string) =>
