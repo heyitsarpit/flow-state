@@ -759,10 +759,9 @@ tasks
               Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment. Why: step-done rule. Reverse: 
               revert this commit.
         comment     2026-11-14T06:32:53Z
-            Resume at the commit after a3: review findings and the golden flake done (walk skips dsl copies and 
-            vanished files, red check first); item 2 waits on the user's ruling. Next: resume 3's expectation cites 
-            (sized in the build log), then 4 to 7. Detail: 
-            code:wiki/plans/flow/references/proposals/t52-build-log-2026-11-14.md.
+            Resume at 14576bb6: review findings and the golden flake done (walk skips dsl copies and vanished files, 
+            red check first); item 2 waits on the user's ruling. Next: resume 3's expectation cites (sized in the build 
+            log), then 4 to 7. Detail: code:wiki/plans/flow/references/proposals/t52-build-log-2026-11-14.md.
               Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment. Why: hand-off rule. Reverse: 
               revert this commit.
     T59
