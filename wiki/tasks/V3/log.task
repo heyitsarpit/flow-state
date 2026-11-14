@@ -341,3 +341,5 @@ note 2026-11-14T07:58:50Z
     Orchestrator: the owed-row machinery has had findings in four reviews in a row (T47 R6, R7, R11; T52 build item 5; 
     re-check 1, the pair key; re-check 2, seeds and text matching), past the convergence threshold of 2, so the T52 
     builder converges that part once.
+note 2026-11-14T08:06:29Z
+    Decision (user, 2026-11-14): converge once over every hole found in T47 and T52 against the current suite architecture, and make hole finding more mechanical. One Opus analysis lead (read-only, up to eight Haiku, one blind) writes suite-convergence-2026-11-14.md (proposed); the T52 builder holds its owed-row redesign until then and does 2b.
