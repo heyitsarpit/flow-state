@@ -401,3 +401,5 @@ note 2026-11-14T10:20:24Z
     once. Usage pace roughly doubles while both run.
 note 2026-11-14T10:21:42Z
     T52 MIX stress-10 triaged at a810d974: two oracle errors fixed (lane-queue capture counting, schedules across reload), the rest is T19's retry-count bug; both oracle fixes added to the running step 2f review. Second builder started on T61's parallel items. Benefit watch: suite errors now show up in oracles, not in excuse machinery.
+note 2026-11-14T10:28:32Z
+    Review (T52 step 2f and a810d974, T60 fix round) go on, 0 blocking (t52-step2f-review-2026-11-14.md): the MIX triage confirmed independently; owed rows O1-O6 to T61, a pairs note to correct, 13 core rows changed killer silently. Missed by the builder's checks: one class-gate check has no planted test, and a lane-queue clause can be dropped while staying green (weak checks).
