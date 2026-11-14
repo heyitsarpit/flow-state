@@ -1,5 +1,5 @@
 import { Match, Option, Schema } from "effect";
-import type { Fixture } from "../fixtures/fixture.ts";
+import { type Fixture, UnknownFixture } from "../fixtures/fixture.ts";
 import type { ActorRef } from "../port.ts";
 import { Answer, RequestPhase } from "../world/network.ts";
 import type { Case, Scenario } from "./case.ts";
@@ -145,8 +145,13 @@ export const scenarioOf = (
 ): Scenario => {
   const named = [{ fixture: script.fixture, actor: script.actor }, ...(script.actors ?? [])];
 
-  const machineOf = (fixture: string) =>
-    fixtures.find((f) => f.name === fixture)?.machine ?? fixture;
+  const machineOf = (fixture: string) => {
+    const found = fixtures.find((f) => f.name === fixture);
+
+    if (found === undefined) throw new UnknownFixture({ name: fixture });
+
+    return found.machine;
+  };
 
   const own = { machine: machineOf(script.fixture), id: script.actor };
 

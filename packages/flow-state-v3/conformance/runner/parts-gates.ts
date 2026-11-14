@@ -3,8 +3,7 @@ import { Console, Effect, Formatter, Option } from "effect";
 import { implemented as production, productionFixtures } from "../adapters/production.ts";
 import { rules } from "../dsl/lifecycle-rules.ts";
 import { scenarioOf } from "../dsl/script.ts";
-import { Cells, Pay } from "../fixtures/pay.ts";
-import { Serialize } from "../fixtures/one-lane.ts";
+import { registered } from "../fixtures/registry.ts";
 import { isPartScript, regressionFiles } from "../generated.ts";
 import { playChosen, PRODUCTION_RUNTIME } from "./args.ts";
 import { recording } from "../parts/cells.ts";
@@ -212,9 +211,7 @@ export const productionRegressions = Effect.gen(function* () {
   const kept = regressionFiles.filter(
     ({ script }) =>
       isPartScript(script.id) ||
-      scenarioOf(script, [Pay, Cells, Serialize]).fixtures.every((f) =>
-        productionFixtures.has(f.name),
-      ),
+      scenarioOf(script, registered).fixtures.every((f) => productionFixtures.has(f.name)),
   );
 
   const lines = yield* Effect.forEach(
@@ -230,12 +227,7 @@ export const productionRegressions = Effect.gen(function* () {
             ),
           )
         : Effect.map(
-            playChosen(
-              [],
-              PRODUCTION_RUNTIME,
-              [scenarioOf(script, [Pay, Cells, Serialize])],
-              () => [],
-            ),
+            playChosen([], PRODUCTION_RUNTIME, [scenarioOf(script, registered)], () => []),
             (verdicts) => {
               const [first] = verdicts;
 

@@ -1,6 +1,7 @@
 import { Formatter, HashSet, Option, Result, Schema } from "effect";
 import { parts } from "../../fixtures/index.ts";
 import type { Part } from "../../fixtures/part.ts";
+import { registered } from "../fixtures/registry.ts";
 import { captureMsOf } from "../actors/lifetime.scenarios.ts";
 import { nullPort } from "../adapters/null.ts";
 import { productionPort } from "../adapters/production.ts";
@@ -17,7 +18,6 @@ import { oracles } from "../suite.ts";
 import { Answer, type Request } from "../world/network.ts";
 import type { Code } from "./codes.ts";
 import { excuses, isBreak, OwedItem, owedRows, type PartOwed } from "./owed.ts";
-import { partFixture } from "./reference.ts";
 
 /**
  * The runtimes a part's script may be asked to run on.
@@ -38,8 +38,6 @@ export type Played = {
   readonly undecided: ReadonlyArray<Undecided>;
   readonly violations: ReadonlyArray<Judged>;
 };
-
-const fixtures = parts.map(partFixture);
 
 /**
  * The world seed a part script runs at: the seed its id ends with (`PART-transfers-stress-7`,
@@ -104,7 +102,7 @@ export const playPart = (
       ),
     );
 
-  const scenario = scenarioOf(script, fixtures, () => {
+  const scenario = scenarioOf(script, registered, () => {
     skipped += 1;
   });
 

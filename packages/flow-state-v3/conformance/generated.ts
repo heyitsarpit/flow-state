@@ -4,8 +4,7 @@ import { fileURLToPath } from "node:url";
 import { Option, Schema } from "effect";
 import { type Alphabet, exhaustive, seeded } from "./dsl/generate.ts";
 import { Script, scenarioOf } from "./dsl/script.ts";
-import { Serialize } from "./fixtures/one-lane.ts";
-import { Cells, Pay } from "./fixtures/pay.ts";
+import { registered } from "./fixtures/registry.ts";
 
 const ok = (value: Schema.Json) => ({ _tag: "ok" as const, value });
 
@@ -315,6 +314,4 @@ export const generatedScripts = [
  * The generated scripts as cases the runner plays (`suite --generated`), judged by the oracles
  * alone.
  */
-export const generatedScenarios = generatedScripts.map((s) =>
-  scenarioOf(s, [Pay, Cells, Serialize]),
-);
+export const generatedScenarios = generatedScripts.map((s) => scenarioOf(s, registered));

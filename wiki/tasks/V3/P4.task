@@ -865,6 +865,9 @@ tasks
             code:wiki/plans/flow/references/proposals/t52-build-log-2026-11-14.md.
               Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment; code links in Conformance.spec, 
               Restore.spec, P13.task and P4.task. Why: step-done rule; the files moved. Reverse: revert this commit.
+        comment     2026-11-14T11:19:44Z
+            Q8 done: one fixture registry (fixtures/registry.ts); scenarioOf fails on an unknown fixture name instead 
+            of falling back. Reverse: revert this commit.
     T60
         title       The suite proves its own gates and excuses
         status      done

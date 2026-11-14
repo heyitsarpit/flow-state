@@ -1,5 +1,4 @@
 import { Formatter, Option, Predicate } from "effect";
-import { parts } from "../../fixtures/index.ts";
 import { captureMsOf } from "../actors/lifetime.scenarios.ts";
 import { productionPort } from "../adapters/production.ts";
 import { openCase } from "../dsl/case.ts";
@@ -9,6 +8,7 @@ import { Fact, type RuntimeFact } from "../dsl/oracle.ts";
 import { runtimeStepsOf } from "../dsl/play.ts";
 import { type Script, scenarioOf } from "../dsl/script.ts";
 import { referenceFor } from "../fixtures/fixture.ts";
+import { registered } from "../fixtures/registry.ts";
 import { FLOW_DECLINES, mappedEvent, type Reference } from "../fixtures/reference.ts";
 import { DisposeExit, Observation } from "../port.ts";
 import type { Judged } from "../dsl/engine.ts";
@@ -16,7 +16,6 @@ import type { CaseVerdict } from "../runner/verdict.ts";
 import { oracles } from "../suite.ts";
 import { type CellAt, cellName, cellsOf, recording, valueAt } from "./cells.ts";
 import { playPart, worldSeedOf } from "./play.ts";
-import { partFixture } from "./reference.ts";
 
 /**
  * The lifecycle rows a runtime's own report makes, so one forged report reaches their cells:
@@ -97,8 +96,6 @@ const ATTEMPT_ROWS = {
 } satisfies Readonly<Record<string, (a: AttemptLife) => RuntimeFact>>;
 
 const ref = (e: Ending) => ({ operation: e.operation, attempt: e.attempt, actor: e.actor });
-
-const fixtures = parts.map(partFixture);
 
 const mappedEventOf = (e: Ending, reference: Reference) =>
   Option.flatMap(Option.fromUndefinedOr(reference[e.actor.machine]?.[e.operation]), (o) =>
@@ -223,7 +220,7 @@ export type Forgery = {
 };
 
 const recorded = (script: Script) => {
-  const scenario = scenarioOf(script, fixtures, () => undefined);
+  const scenario = scenarioOf(script, registered, () => undefined);
 
   const opened = openCase({
     port: productionPort,

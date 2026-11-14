@@ -140,6 +140,12 @@ export type Fixture<
 };
 
 /**
+ * A script or case named a fixture no list holds: a defect in the suite, never a silent fallback
+ * to the name as a machine id.
+ */
+export class UnknownFixture extends Data.TaggedError("UnknownFixture")<{ readonly name: string }> {}
+
+/**
  * Two fixtures of one App or case carry one machine id, which Compile I14 forbids: a defect in the
  * suite, since the second's table would judge the first's actors.
  */
