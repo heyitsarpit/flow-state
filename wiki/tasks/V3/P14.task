@@ -110,9 +110,9 @@ tasks
             - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
               the model's expectations is read by a different model family (Fable).
         comment     2026-11-10T21:23:15Z
-            Owns, in conformance/owes.ts, StaticCli I3, I10 and I11 (round-14's CLI loads every fixture before 
-            reading its arguments and has no config discovery or project tree); their static cases land before this 
-            Task closes. Also owed here: spies for I1 (StaticCli T1), the R10 rules round-14 lacks (unfilled ports, 
-            late handler, DuplicatePlacement, VerbMismatch, KeyFieldOptional, ReservedReason, the allowlist grammar), 
-            I4 for graph and explain, R7's envelope (version, status, data), and whether desk's UnresolvedHold errors 
-            are right. Detail: @task.V3.T13's comments.
+            Owns, in conformance/owes.ts, StaticCli I3, I10 and I11 (round-14's CLI loads every fixture before reading 
+            its arguments and has no config discovery or project tree); their static cases land before this Task 
+            closes. Also owed here: spies for I1 (StaticCli T1), the R10 rules round-14 lacks (unfilled ports, late 
+            handler, DuplicatePlacement, VerbMismatch, KeyFieldOptional, ReservedReason, the allowlist grammar), I4 for 
+            graph and explain, R7's envelope (version, status, data), and whether desk's UnresolvedHold errors are 
+            right. Detail: @task.V3.T13's comments.

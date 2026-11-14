@@ -256,8 +256,7 @@ tasks
               that, then build. Say in the Task comment which of the two it was. Expected results come from the Spec 
               rule
               cited, never from running the code.
-            - **Every Invariant the Task owns gets an oracle or case.** `conformance/owes.ts` lists the Invariants 
-              each
+            - **Every Invariant the Task owns gets an oracle or case.** `conformance/owes.ts` lists the Invariants each
               Task owns. The requirement lines are the ones with design content; every other owned Invariant still needs
               its oracle or case and a wrong runtime, written from its Spec text and its Spec test (T-numbered).
             - **Slice template** (T18, T19, T20; @epic.V3 instructions): the suite half (Spec change, model section, 
@@ -579,8 +578,7 @@ tasks
               that, then build. Say in the Task comment which of the two it was. Expected results come from the Spec 
               rule
               cited, never from running the code.
-            - **Every Invariant the Task owns gets an oracle or case.** `conformance/owes.ts` lists the Invariants 
-              each
+            - **Every Invariant the Task owns gets an oracle or case.** `conformance/owes.ts` lists the Invariants each
               Task owns. The requirement lines are the ones with design content; every other owned Invariant still needs
               its oracle or case and a wrong runtime, written from its Spec text and its Spec test (T-numbered).
             - **Slice template** (T18, T19, T20; @epic.V3 instructions): the suite half (Spec change, model section, 

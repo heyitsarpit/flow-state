@@ -222,8 +222,8 @@ tasks
             - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of 
               the model's expectations is read by a different model family (Fable).
         comment     2026-11-10T20:59:41Z
-            Owns, in conformance/owes.ts, Codec I1 to I6 (round-14 has no canonical byte codec, Codec Q2). Their 
-            static cases land before this Task closes (orchestrator decision, log 2026-11-10T20:57:29Z).
+            Owns, in conformance/owes.ts, Codec I1 to I6 (round-14 has no canonical byte codec, Codec Q2). Their static 
+            cases land before this Task closes (orchestrator decision, log 2026-11-10T20:57:29Z).
         comment     2026-11-12T07:04:37Z
             From the core consolidation design (round 3 handoff table, via @task.V3.T54): three record kinds (`actor/`, 
             `lane/`, `owed/`), each with `format`; a boot that sorts by key and derives `Restored`. Left open for this 
@@ -244,8 +244,7 @@ tasks
               that, then build. Say in the Task comment which of the two it was. Expected results come from the Spec 
               rule
               cited, never from running the code.
-            - **Every Invariant the Task owns gets an oracle or case.** `conformance/owes.ts` lists the Invariants 
-              each
+            - **Every Invariant the Task owns gets an oracle or case.** `conformance/owes.ts` lists the Invariants each
               Task owns. The requirement lines are the ones with design content; every other owned Invariant still needs
               its oracle or case and a wrong runtime, written from its Spec text and its Spec test (T-numbered).
             - **Slice template** (T18, T19, T20; @epic.V3 instructions): the suite half (Spec change, model section, 
