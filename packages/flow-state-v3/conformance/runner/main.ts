@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { basename, dirname, resolve } from "node:path";
 import { coverageOf, Gap, Standing } from "../coverage.ts";
 import { generatedScenarios } from "../generated.ts";
+import { limits } from "../limits.ts";
 import { owes } from "../owes.ts";
 import { caseChecks, caseIds, guarantees, probes, scenarios, staticCases } from "../suite.ts";
 import {
@@ -95,7 +96,7 @@ const suite = (args: ReadonlyArray<string>) =>
 
         return runtime === PRODUCTION_RUNTIME
           ? scenarios.filter((s) => productionCases.includes(s.id))
-          : scenarios;
+          : scenarios.filter((s) => !limits.some((l) => l.case === s.id));
       },
       onSome: () => [...scenarios, ...generatedScenarios],
     });

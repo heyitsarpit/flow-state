@@ -61,7 +61,8 @@ const shuffled = <A>(items: ReadonlyArray<A>, seed: number) => {
  *
  * **Details**
  *
- * - A plain flush lands at once and is answered in a later task.
+ * - A plain flush lands at once and is answered in a later task; after `holdFlushes` (a world
+ *   fault, so a final write can be refused) a flush is held like any other batch.
  * - An acknowledgement or a capture is held until the suite answers it: `ack` lands it, `refuse`
  *   drops it, `hang` leaves it unanswered for good (it still dies with its page), `landNoAck`
  *   lands it and leaves it unanswered (the confirmation was lost).
@@ -93,6 +94,7 @@ export type Storage = {
   readonly kill: () => void;
   readonly holding: () => number;
   readonly written: () => ReadonlyArray<{ readonly purpose: Purpose; readonly bytes: number }>;
+  readonly holdFlushes: () => void;
 };
 
 /**
@@ -104,6 +106,7 @@ export const makeStorage = (seed: number, page: Page): Storage => {
   let kv: ReadonlyMap<string, string> = new Map();
   let held: ReadonlyArray<Held> = [];
   let written: ReadonlyArray<{ readonly purpose: Purpose; readonly bytes: number }> = [];
+  let holdingFlushes = false;
 
   const land = (writes: ReadonlyArray<Write>) => {
     const next = new Map(kv);
@@ -132,7 +135,7 @@ export const makeStorage = (seed: number, page: Page): Storage => {
 
       written = [...written, { purpose, bytes }];
 
-      if (purpose === "flush") {
+      if (purpose === "flush" && !holdingFlushes) {
         land(writes);
         page.later(() => answer(true));
 
@@ -160,5 +163,8 @@ export const makeStorage = (seed: number, page: Page): Storage => {
     },
     holding: () => held.length,
     written: () => written,
+    holdFlushes: () => {
+      holdingFlushes = true;
+    },
   };
 };

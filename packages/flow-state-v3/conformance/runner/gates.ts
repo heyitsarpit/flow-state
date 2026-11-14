@@ -29,6 +29,13 @@ export const productionOwed: ReadonlyArray<Limit & { readonly owner: string }> =
     why: "a StillUnknown hold leaves the saved lane record's inFlight true (`lane-moves.ts` Hold), so the next boot wakes an identity whose head is Held (WriteAhead T18, Restore I1)",
     owner: "@task.V3.T54",
   },
+  {
+    case: "PAY-15/final-write-refused",
+    check: "case",
+    invariant: "Actors I43",
+    why: "the disposal reports Done in the step it starts, before its final write is answered, and a refusal while Disposing is dropped, so a refused final write never reports StorageFailure (Actors R23, I43; T61 review N2)",
+    owner: "@task.V3.T55",
+  },
 ];
 
 /**

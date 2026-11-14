@@ -120,6 +120,27 @@ export const runtimeDisposalScenarios: ReadonlyArray<Scenario> = [
       s.state("UNSURE");
     },
   },
+  {
+    id: "PAY-15/final-write-refused",
+    cites: ["Actors R23", "Actors I43"],
+    fixtures: [Cells],
+    run: (c) => {
+      const s = cells(c);
+      s.ensure();
+      start(s);
+      c.ack();
+      c.holdFlushes();
+      c.disposeRuntime();
+      c.answerStorage("refuse");
+      c.advance(disposalBoundMs);
+      c.expect(
+        "Actors I43",
+        "a refused final write reports StorageFailure before the disposal ends",
+        c.evidence("StorageFailure") > 0,
+        true,
+      );
+    },
+  },
   ...variants(
     {
       id: "PAY-16",

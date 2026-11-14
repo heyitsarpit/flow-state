@@ -13,16 +13,19 @@ export type FinalWrite = {
 
 /**
  * The Runtime's disposal began: its final write will hold each actor's turns and fields as they
- * stand now (Actors R23; a turn after it may be lost, a stated limit).
+ * stand now (Actors R23; a turn after it may be lost, a stated limit). A second dispose restarts
+ * nothing (Actors I43), so the first one's record stands.
  */
 export const disposing = (state: State) => ({
   ...state,
-  disposal: Option.some({
-    holds: new Map(
-      [...state.actors].map(([key, a]) => [key, { turns: a.turns, fields: a.fields }]),
-    ),
-    refused: false,
-  }),
+  disposal: Option.isSome(state.disposal)
+    ? state.disposal
+    : Option.some({
+        holds: new Map(
+          [...state.actors].map(([key, a]) => [key, { turns: a.turns, fields: a.fields }]),
+        ),
+        refused: false,
+      }),
 });
 
 /**

@@ -26,6 +26,12 @@ export const limits: ReadonlyArray<Limit> = [
     invariant: "Actors I38",
     why: "round-14 ends its disposal without ending a commit queued behind a Held head NotSent { Disposed }; the head was cancelled on the wire (unknown { Cancelled }). Production has no Lab machine to compare",
   },
+  {
+    case: "PAY-15/final-write-refused",
+    check: "case",
+    invariant: "Actors I43",
+    why: "round-14 predates R23's final write (2026-11-12): its disposal ends before the final write is answered, so a refusal reports no StorageFailure",
+  },
 ];
 
 /**

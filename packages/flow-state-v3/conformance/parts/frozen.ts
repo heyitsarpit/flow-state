@@ -120,6 +120,8 @@ export const RULINGS = {
     "code:wiki/tasks/V3/P4.task (T47, comment 2026-11-14T03:02:38Z, the ruling on Turn T6)",
   "PAY-05/held-head-sleeps-at-boot":
     "code:wiki/tasks/V3/P4.task (T47, comment 2026-11-14T03:24:59Z, the close review's R8)",
+  "PAY-15/final-write-refused":
+    "code:wiki/tasks/V3/P4.task (T61, comment 2026-11-14T14:36:48Z, the review's N2)",
 } satisfies Readonly<Record<string, string>>;
 
 /**

@@ -76,7 +76,8 @@ const shown = <A>(value: A) => Formatter.format(value);
  *   adapter answered that it ended (`Disposal`).
  * - `landed` counts the distinct Attempts the server applied; `landedKeys` lists the key of every
  *   applied request, repeats included.
- * - World faults: `answerLate` (the server's answer arrives after all), `uninterruptible` and
+ * - World faults: `holdFlushes` (from now on a flush waits for `answerStorage`, so a Runtime's
+ *   final write can be refused), `answerLate` (the server's answer arrives after all), `uninterruptible` and
  *   `answerAtOnce` (from now on, for an operation).
  * - `answer` takes the oldest open request of the operation; `answerOpen` the open one `skip`
  *   places after the oldest, so answers arrive out of order; `answerTo` the oldest open one whose
@@ -107,6 +108,7 @@ export type Case = {
   ) => void;
   readonly answerLate: (operation: string, answer: Answer) => void;
   readonly uninterruptible: (operation: string) => void;
+  readonly holdFlushes: () => void;
   readonly answerAtOnce: (operation: string, answer: Answer) => void;
   readonly hide: () => void;
   readonly advance: (ms: number) => void;
@@ -431,6 +433,7 @@ export const openCase = (options: CaseOptions, modelStep: StepFunction = designS
         record(Fact.Unstoppable({ operation }));
         network.uninterruptible(operation);
       }),
+    holdFlushes: () => act("hold flushes", () => storage.holdFlushes()),
     answerAtOnce: (operation, given) =>
       act(`answer at once ${operation} ${given._tag}`, () =>
         network.answerAtOnce(operation, given),

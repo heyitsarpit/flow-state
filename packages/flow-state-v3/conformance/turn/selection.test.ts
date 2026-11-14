@@ -146,4 +146,25 @@ describe("a reload after a completed Runtime disposal (Actors I44; T52 close rev
     ])
       assert.deepEqual(actorIn(after(steps), actor).allowed.toSorted(), ["CARD", "LEFT"]);
   });
+
+  it("a second dispose restarts nothing: a refusal seen after the first still counts (Actors I43)", () => {
+    const refused = Fact.Reported({
+      observation: Observation.Evidence({
+        kind: "StorageFailure",
+        operation: "",
+        attempt: Option.none(),
+      }),
+    });
+
+    const state = after([
+      [...turn("Leave", "IDLE", "LEFT", "on.Leave[1]"), ...flushed],
+      [...turn("Start", "LEFT", "CARD", "states.LEFT.on.Start[0]"), ...held],
+      [Fact.DisposingRuntime(), refused],
+      [Fact.DisposingRuntime()],
+      [Fact.Disposal({ exit: DisposeExit.Done() })],
+      [Fact.Reloaded({ release: 1 })],
+    ]);
+
+    assert.deepEqual(actorIn(state, actor).allowed.toSorted(), ["CARD", "LEFT"]);
+  });
 });
