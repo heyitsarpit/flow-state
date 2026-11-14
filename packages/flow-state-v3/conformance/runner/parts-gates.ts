@@ -114,7 +114,9 @@ export const pairsGate = Effect.suspend(() => {
 
 /**
  * The model-mutation gate (Conformance T39): every model field is mutated and judged on the
- * pilots; a field no mutation reaches fails, and each field no pilot notices is listed.
+ * pilots; a field no mutation reaches fails, and each field no pilot notices is listed. Failing
+ * those too, as I61 asks, waits on parts that reach them (a pending check in
+ * `parts/pending.test.ts`).
  */
 export const modelMutationGate = Effect.suspend(() => {
   const mutants = modelMutants();

@@ -628,3 +628,12 @@ Edit (agent: T47 building lead, @task.V3.T47, 2026-11-14): T6's "a zero-length s
 negative, non-finite or past 2^31 - 1 ms, with 0 ms allowed. Why: "zero-length" was a wording error; the reference's
 wrong runtime `pinsb.schedule-unbounded` refuses exactly that range, and a host timer fires a longer delay at once.
 Production's missing upper bound is `TURN-01/schedule-out-of-range`, owed to @task.V3.T17. Reverse: restore T6's line.
+
+## 2026-11-14, Conformance T39 follows I61: a field no part notices fails (T47, agent)
+
+Edit (agent: T47 building lead, @task.V3.T47, 2026-11-14): T39 now fails a model field none of whose mutations
+changes some part's expected trace, as I61 states; "a field no mutation reaches" is gone. Case: the cell
+`A EndUnknown·Restoring·other` no pilot reaches; under the old T39 it passes, so a wrong expectation there could pass
+a runtime that loses that ending. I61 loses none. The pilots notice 36 of 327 fields, so the gate built to I61 is owed
+to @task.V3.T52, held by a pending check in `conformance/parts/pending.test.ts`. Why: the close review's R4.
+Reverse: restore T39's line.

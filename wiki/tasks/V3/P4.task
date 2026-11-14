@@ -1134,6 +1134,13 @@ tasks
             others to T9, T17, T52, T54, T59) and the sidecar log: 
             code:wiki/plans/flow/references/proposals/t47-close-review-2026-11-14.md. Edit (agent: T47 close reviewer, 
             @task.V3.T47, 2026-11-14): this comment. Why: the close review. Reverse: drop this comment.
+        comment     2026-11-14T03:24:59Z
+            Close review PASS fix round (orchestrator's rulings, 2026-11-14; 
+            code:wiki/plans/flow/references/proposals/t47-close-review-2026-11-14.md): R8 lands as 
+            PAY-05/held-head-sleeps-at-boot, red on production, owed to T54; R4 keeps Conformance I61 and rewrites T39 
+            (spec-log); R3 and R10 owed to T9, R5 to T17, R6, R7, R11 to T52 as pending checks in 
+            parts/pending.test.ts. Edit (agent: T47 building lead, @task.V3.T47, 2026-11-14): status set to review at 
+            26812bfb, and these rows. Why: the review's routed findings. Reverse: the next commit.
     T52
         title       Suite phase-out, first cut: Pay and Cells generated, hand traces thinned
         status      draft
@@ -1193,16 +1200,11 @@ tasks
             packages/flow-state-v3/conformance/write-lanes/ending-delivery.scenarios.ts:145 says 'WriteLanes I8: the 
             kept ending holds its lane', the reverse of the new I8. Re-check too: about 26 citations of WriteLanes R10 
             (delivery is now from the ledger) and 20 of R4 (notSent:).
-        comment     2026-11-14T01:58:19Z
-            Routed from T47's Fable read (code:wiki/plans/flow/references/proposals/t47-expectations-sample.md, section 
-            3), not yet owed checks: the model's `parked` misses a Kept row, so it demands a Restored a Kept row 
-            forbids (Restore I6, Fable case 3); member order in one turn (cancel then commit on a Held lane expects a 
-            decline; `Resend` drops a same-turn cancel's release); `Maybe` cells need WriteAhead I21, I22 as their 
-            cite. No pilot reaches these. Edit (agent: T47 building lead, @task.V3.T47, 2026-11-14): this comment. Why: 
-            Fable's read. Reverse: drop it.
         comment     2026-11-14T02:59:37Z
-            Owed checks from T47 (1a597ea0) replace the routed comment: a pending trace for parked missing a Kept row, 
-            a WriteLanes I10 remainder for member order in one turn, and WriteAhead I21-I22 rows for the Maybe life. 
+            Owed from T47's Fable read (1a597ea0, code:wiki/plans/flow/references/proposals/t47-expectations-sample.md):
+            a pending trace for parked missing a Kept row (Restore I6), a WriteLanes I10 remainder for member order in
+            one turn, and WriteAhead I21-I22 rows for the Maybe life; also R4, R6, R7 and R11 of T47's close review as
+            pending checks in code:packages/flow-state-v3/conformance/parts/pending.test.ts.
             Edit (agent: T47 building lead, @task.V3.T47, 2026-11-14): this comment. Why: orchestrator ruling 2. 
             Reverse: 1a597ea0.
     T59
@@ -1246,6 +1248,11 @@ tasks
               revisions;
             - the wiki-facing checks (open owners, recreated tables against their source) run from `tools/` and fail
               on a planted mismatch.
+        comment     2026-11-14T03:26:15Z
+            From T47's close review (R9): the coverage gate's `wk show` per Spec (runner/specs.ts) fails when any code 
+            link anywhere in wiki/ does not resolve, as in a clone without codebases/effect-v4 (wiki/tasks/V3/P7.task); 
+            removing the wk call here removes that coupling. Edit (agent: T47 building lead, @task.V3.T47, 2026-11-14): 
+            this comment. Why: the review's R9, held for T59. Reverse: drop it.
     T54
         title       Core consolidation: owed-endings ledger, one start, diff-written records, acts into evidenceOf
         status      draft

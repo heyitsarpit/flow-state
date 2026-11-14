@@ -43,7 +43,7 @@ One Haiku reviewer (effort high), one rule: a change must not excuse a wrong run
 
 ## 3. Core-mutant triage (orchestrator ruling, 2026-11-14)
 
-**Result:** of the 38 core mutants no named oracle killed at 1881595c, 4 are equivalent and 34 are owed checks, each
+**Result:** of the 38 core mutants no named oracle killed at 1881595c, 3 are equivalent and 35 are owed checks, each
 owed by the Task whose Spec rule it hits. The rows live in code:packages/flow-state-v3/conformance/core-mutants-triage.ts;
 the core-mutant gate now fails on a mutant that is neither killed nor triaged, and on a row whose mutant is killed.
 "Case only" means a case fails by its state or case expectation or a defect, never by a named oracle.
@@ -64,7 +64,7 @@ the core-mutant gate now fails on a mutant that is neither killed nor triaged, a
 | incarnations.ts:58 Schedule `\|\| ===`                        | owed        | T55   | Actors R8      | PAY-21, defect       |
 | incarnations.ts:192 `\|\|` due                                | owed        | T18   | Turn I32       | none: host-driver only |
 | incarnations.ts:262 dispose keeps own reads                   | owed        | T54   | Reads R6       | none                 |
-| incarnations.ts:298 mail `!==`                                | equivalent  |       |                | graces run on an empty mailbox |
+| incarnations.ts:298 mail `!==`                                | owed        | T9    | Actors R8      | none: a backlog past the drain's slice |
 | incarnations.ts:301 Grace `&& !==`                            | owed        | T55   | Actors I10     | PAY-08, defect       |
 | incarnations.ts:301 Grace `\|\| ===`                          | owed        | T55   | Actors R8      | none                 |
 | incarnations.ts:304 `busy \|\| timing`                        | owed        | T55   | Actors R8      | none: no step in the grace |
@@ -86,12 +86,13 @@ the core-mutant gate now fails on a mutant that is neither killed nor triaged, a
 | serve.ts:277 drain `<=`                                       | equivalent  |       |                | slices decide when, never what |
 | step.ts:76 send restores `!==`                                | owed        | T9    | Actors R16     | none                 |
 | step.ts:76 `\|\|`                                             | equivalent  |       |                | ensure with no use is a no-op |
-| turn.ts:248 delay `> 0`                                       | owed        | T18   | Turn T6        | none; needs a ruling |
+| turn.ts:248 delay `> 0`                                       | owed        | T17   | Turn T6        | none: no case schedules 0 ms |
 | tx.ts:123 persisted `\|\|`                                    | owed        | T54   | WriteAhead R3  | none                 |
 
-Two rows go beyond a missing check. `lane-moves.ts:303`: the unmutated code leaves a Held head's saved `inFlight`
-true after a StillUnknown, against WriteAhead T18, so production is the wrong side there. `turn.ts:248`: Turn T6
-refuses a zero-length schedule, but production arms a computed 0 ms delay; the user rules which reading stands.
+`lane-moves.ts:303` goes beyond a missing check: the unmutated code leaves a Held head's saved `inFlight` true after
+a StillUnknown, against WriteAhead T18; `PAY-05/held-head-sleeps-at-boot` is red on production and owed to T54.
+`turn.ts:248` follows the ruling that Turn T6 allows 0 ms; the 2026-11-14 close review moved `incarnations.ts:298` to
+owed (R3).
 
 ## 4. Fable's T52 items as owed checks (orchestrator ruling, 2026-11-14)
 

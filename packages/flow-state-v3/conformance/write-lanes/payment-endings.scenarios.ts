@@ -1,5 +1,6 @@
 import type { Scenario } from "../dsl/case.ts";
 import { Pay } from "../fixtures/pay.ts";
+import { Observation } from "../port.ts";
 import { Answer } from "../world/network.ts";
 import {
   CAPTURABLE,
@@ -133,6 +134,27 @@ export const paymentEndingsScenarios: ReadonlyArray<Scenario> = [
       c.eq("uncertain", row(s)?.uncertain, true);
       c.eq("reason", lastReason(c, "pay"), "StillUnknown");
       c.eq("notice unchanged", s.memory().notice, notice);
+    },
+  },
+  {
+    id: "PAY-05/held-head-sleeps-at-boot",
+    cites: ["WriteAhead I24", "Restore I1"],
+    fixtures: [Pay],
+    run: (c) => {
+      const s = shopper(c);
+      toResend(c);
+      c.answer("pay", Answer.Fail({ tag: "CardDeclined", fields: { code: "card_declined" } }));
+      s.state("UNSURE");
+      s.release("story");
+      c.advance(10_000);
+      c.ack();
+      const before = c.reports().length;
+      c.reload();
+      c.eq(
+        "WriteAhead I24: a head saved Held has inFlight false, so the boot wakes no one",
+        c.reports().slice(before).filter(Observation.$is("Incarnated")).length,
+        0,
+      );
     },
   },
   {

@@ -139,10 +139,12 @@ export const coreTriage: ReadonlyArray<Triage> = [
     "Reads R6",
     "disposing one actor drops every other live actor's pending lookups; no case disposes an actor while another's lookup is out",
   ),
-  equivalent(
+  owed(
     "src/core/incarnations.ts:298",
     "tx.world().mail.some((m) => actorKey(m.actor) !== actorKey(incarnation.actor));",
-    "graces run only after the drain empties the mailbox, so the predicate is never called (a backlog past the drain's slice is the only exception, and no step reaches it)",
+    "@task.V3.T9",
+    "Actors R8",
+    "with a backlog past the drain's slice, another actor's queued mail keeps a free incarnation busy and delays its grace; no case runs a turn storm",
   ),
   owed(
     "src/core/incarnations.ts:301",
@@ -290,9 +292,9 @@ export const coreTriage: ReadonlyArray<Triage> = [
   owed(
     "src/core/turn.ts:248",
     "Number.isFinite(value) && value > 0",
-    "@task.V3.T18",
+    "@task.V3.T17",
     "Turn T6",
-    "Turn T6 refuses a zero-length schedule while production arms a computed 0 ms delay; which is right needs a ruling, so the mutant (refusing 0) is the Spec's reading today; TURN-01 tests only -1",
+    "the mutant refuses a 0 ms computed delay, which Turn T6 allows; no case schedules 0 ms",
   ),
   owed(
     "src/core/tx.ts:123",

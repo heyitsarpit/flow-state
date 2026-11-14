@@ -1070,9 +1070,8 @@ tests
          model
              neither owes nor allows, and one whose report breaks a named cell, each refused at its step with the
              cell's Invariant. [@I60]
-    T39  Model mutation. Slice R writes this (@task.V3.T47): each model table cell mutated in turn; a cell no part's 
-         expected
-             trace notices is listed, and a model field no mutation reaches fails the gate. [@I61]
+    T39  Model mutation. Slice R writes this (@task.V3.T47): each model field mutated in turn; a field none of whose 
+         mutations changes some part's expected trace fails the gate. [@I61]
     T40  Facts only. Slice R writes this (@task.V3.T45): a lint banning Observation imports in the expect
             modules, seen rejecting a planted import. [@I62]
     T41  Liar gate. Slice R writes this (@task.V3.T45): `falsify --liar` on production, with the count of
