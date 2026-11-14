@@ -476,3 +476,5 @@ note 2026-11-14T14:38:01Z
     writes one record, WriteAhead I23, owed to T54) and a Spec model bug (owed to T61). Soak at each Task's close added 
     to instructions (T61's approved Approach). The builder asked to hand off; told to continue under the 
     90-percent-after-three-compactions rule. Review started.
+note 2026-11-14T14:55:47Z
+    Review (T61 items 2-5) PASS, 0 blocking (t61-items2-5-review-2026-11-14.md): both soak findings confirmed (adoption flush is production's, StillUnknown misread is the model's). Fix in T61 before review, since they touch its acceptance: signatures cannot separate the retry and unbound roots, the shrinker is not 1-minimal, the owner test matches substrings. Missed by the builder's checks: signatures tested on distinct roots only (weak check).
