@@ -331,3 +331,5 @@ note 2026-11-14T07:31:20Z
 note 2026-11-14T07:32:17Z
     Decision (user, 2026-11-14): "let's define close to mean 90%": a lead hands off when its context is 90 percent full 
     after its third compaction. instructions edited; the T52 builder told.
+note 2026-11-14T07:32:58Z
+    Review (T52 re-check 2) go on, 0 blocking (t52-recheck2-2026-11-14.md): cites lost nothing (coverage byte-equal); owed scripts at seeds 7-12 lack a subject check and two lane-keyed rows over-excuse, sent to the builder. Missed by the builder's checks: the gate covers seeds 1-6 only and the owed-red test matched by text (weak check).
