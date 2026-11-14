@@ -731,3 +731,11 @@ tasks
             Edit (agent: T61 parallel builder, @task.V3.T61, 2026-11-14): the Task text names conformance/owes.ts in 
             place of the old not-yet.ts (commit 4444e57d), a rename only. Reverse: revert that commit's hunk in this 
             file.
+        comment     2026-11-14T19:47:36Z
+            Handoff from T54 A1 (2026-11-15, orchestrator ruling): a pending host case is owed to T19, 'a key-less 
+            retry in a refused capture's unknown handler names its own Attempt' 
+            (code:packages/flow-state-v3/src/host/ledger.test.ts; WriteLanes R9, WriteAhead R13). The StorageRefused 
+            row has no lane, so PART-pay-stress-3, -8 and PART-cells-stress-9 go STUCK where R9 retries. Also: 
+            PART-transfers-stress-5-shrunk and PART-cells-stress-105-shrunk (REFUSED_UNENDED) pass since T54's A-2, and 
+            their T19 owed rows are removed. Edit (agent: T54 building lead, @task.V3.T54, 2026-11-15): this comment. 
+            Why: the ruling's handoff. Reverse: the commit that adds it.

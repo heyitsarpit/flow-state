@@ -1593,6 +1593,13 @@ tasks
             A-8/A-6 ruling; the run ids are in the build log's A1 progress. Gate upkeep for the id format and moved 
             code is still owed. Edit (agent: T54 building lead, @task.V3.T54, 2026-11-15): this comment. Why: the 
             ruling's stop. Reverse: the commit that adds it.
+        comment     2026-11-14T19:47:36Z
+            A1 built, all gates green but pairs 73/74 (eb14ea32 + triage re-key): the one recorded cell pair lost, 
+            BootSettles Restoring > Gone, was reached only by PART-transfers-varied-3, an A-2 run whose ending is now 
+            owed; pairs-record refuses to write a loss away, so it waits for a ruling. Gate repair, the ledger unit 
+            test with C3's design mutants, A-11's table and the strict I29 check are in; see the build log's A1 
+            progress. Edit (agent: T54 building lead, @task.V3.T54, 2026-11-15): this comment. Why: A1's state for the 
+            ruling. Reverse: the commit that adds it.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      draft

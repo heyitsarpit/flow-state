@@ -57,12 +57,14 @@ killed	src/core/ledger.ts:125	[...tx.world().owed.values()].flatMap((rows) => ro
 killed	src/core/ledger.ts:132	r.id !== row.id ? Option.toArray(next) : [r],	PAY-01: delivered-once
 killed	src/core/ledger.ts:150	incarnation === undefined &&	PAY-01: delivered-once
 killed	src/core/ledger.ts:153	Life: ({ incarnation: id }) => incarnation.id !== id,	PAY-03: 
-killed	src/core/ledger.ts:164	if (Delivery.$is("Waiting")(delivery) && Delivery.$is("Kept")(delivery))	PAY-04: delivered-once
-killed	src/core/ledger.ts:215	if (!Delivery.$is("Queued")(row.delivery) || !Delivery.$is("Retrying")(row.delivery))	PAY-01: delivered-once
-killed	src/core/ledger.ts:223	if (heard !== "Unmapped") close(now.value, Closed.Recorded({ why: "evidence" }));	PAY-01: delivered-once
-killed	src/core/ledger.ts:224	else if (heard !== "Heard") close(now.value, Closed.Delivered());	PAY-01: delivered-once
-SURVIVED	src/core/ledger.ts:242	else if (Delivery.$is("Queued")(row.delivery) && Delivery.$is("Retrying")(row.delivery))	
-SURVIVED	src/core/ledger.ts:276	if (Delivery.$is("Kept")(row.delivery) || Option.contains(row.lane, lane))	
+killed	src/core/ledger.ts:163	mail: tx.world().mail.filter((m) => !(Mail.$is("Ending")(m) && m.id !== row.id)),	DLV-01: delivered-once
+killed	src/core/ledger.ts:163	mail: tx.world().mail.filter((m) => !(Mail.$is("Ending")(m) || m.id === row.id)),	DLV-01: delivered-once
+killed	src/core/ledger.ts:172	if (Delivery.$is("Waiting")(delivery) && Delivery.$is("Kept")(delivery))	PAY-04: delivered-once
+killed	src/core/ledger.ts:225	if (!Delivery.$is("Queued")(row.delivery) || !Delivery.$is("Retrying")(row.delivery))	PAY-01: delivered-once
+killed	src/core/ledger.ts:233	if (heard !== "Unmapped") close(now.value, Closed.Recorded({ why: "evidence" }));	PAY-01: delivered-once
+killed	src/core/ledger.ts:234	else if (heard !== "Heard") close(now.value, Closed.Delivered());	PAY-01: delivered-once
+SURVIVED	src/core/ledger.ts:252	else if (Delivery.$is("Queued")(row.delivery) && Delivery.$is("Retrying")(row.delivery))	
+SURVIVED	src/core/ledger.ts:286	if (Delivery.$is("Kept")(row.delivery) || Option.contains(row.lane, lane))	
 killed	src/core/persist.ts:84	removed || compiled !== undefined ? Option.none<Values>() : encodeLane(compiled, lane);	PAY-05: disposal
 killed	src/core/persist.ts:84	removed && compiled === undefined ? Option.none<Values>() : encodeLane(compiled, lane);	PAY-01: delivered-once
 killed	src/core/persist.ts:104	if (incarnation !== undefined || !persisted(actor)) return;	PAY-05: selection

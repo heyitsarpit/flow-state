@@ -248,14 +248,14 @@ export const coreTriage: ReadonlyArray<Triage> = [
     "Runtime disposal suspends no identity, so a queued row is lost; only a backlog leaves one queued between steps, which the host case 'a laneless ending in the mail at Runtime disposal' reaches and no suite case does (A0 review N5)",
   ),
   owed(
-    "src/core/ledger.ts:242",
+    "src/core/ledger.ts:252",
     'else if (Delivery.$is("Queued")(row.delivery) && Delivery.$is("Retrying")(row.delivery))',
     "@task.V3.T54",
     "Actors I41",
     "a suspend leaves queued rows queued; only a backlog leaves one queued at an end, which the host case 'a laneless ending in the mail at disposeActor' reaches and no suite case does (A0 review N5)",
   ),
   owed(
-    "src/core/ledger.ts:276",
+    "src/core/ledger.ts:286",
     'if (Delivery.$is("Kept")(row.delivery) || Option.contains(row.lane, lane))',
     "@task.V3.T54",
     "WriteLanes R14",
