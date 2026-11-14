@@ -1606,6 +1606,13 @@ tasks
             limit 120. A-1, A-2, A-6, A-7 (F2), A-10, A-11, A-18 are green; A-3 and A-12 stay owed to A2. Detail and 
             counts are in the build log's A1 progress. Edit (agent: T54 building lead, @task.V3.T54, 2026-11-15): this 
             comment. Why: step A1's close. Reverse: the commit that adds it.
+        comment     2026-11-14T20:09:46Z
+            Review (T54 A1): proceed to A2, 0 blocking 
+            (code:wiki/plans/flow/references/proposals/t54-a1-review-2026-11-15.md). All 19 gates green at d3adf8e0; 
+            the 285 A-8 runs move Ended only within its settle step and the 8 A-2 runs keep their trace verdicts. Into 
+            A2: a ruling on A-8's step (its oracle will be red on Delivered per try, DLV-04) and a Retrying row in the 
+            suspend unit test. Edit (agent: T54 A1 reviewing lead, @task.V3.T54, 2026-11-15): this comment. Why: step 
+            A1's review. Reverse: the commit that adds it.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      draft
