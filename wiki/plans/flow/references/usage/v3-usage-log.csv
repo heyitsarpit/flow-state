@@ -1,0 +1,30 @@
+time_ist,weekly_all_pct,weekly_fable_pct,five_hour_pct,weekly_delta_pct,pace_pct_per_hour,five_hour_projected_pct,note
+2026-11-14 06:44,0,0,1,,,,run not started
+2026-11-14 07:16,2,2,9,2,3.8,,T47 lead running
+2026-11-14 07:40,3,2,15,1,2.5,90,T47 lead running
+2026-11-14 08:10,4,2,27,1,2.0,101,T47 lead (rulings); lint Sonnet and 5 Haiku audit agents done
+2026-11-14 08:39,6,2,39,2,4.1,107,T47 close review (Opus and 7 sidecars); T47 lead idle
+2026-11-14 09:09,7,2,47,1,2.0,101,T52 lead (requirements step; 4 sidecars)
+2026-11-14 09:39,8,3,57,1,2.0,101,T52 step-1 review (Opus and sidecars); T52 lead idle
+2026-11-14 10:09,9,3,65,1,2.0,98,T52 lead (step-1 review fixes)
+2026-11-14 10:40,11,3,75,2,3.9,98,T52 lead (building; checkpoint 0b45f63d)
+2026-11-14 11:09,12,3,88,1,2.1,102,T52 fresh builder and T52 build review (5 sidecars); 5-hour window resets 11:50
+2026-11-14 11:39,14,3,99,2,4.0,103,T52 builder; compaction done; 5-hour window at 99%, resets 11:50
+2026-11-14 12:09,15,3,7,1,2.0,,T52 builder 3 and T52 fix-range re-check
+2026-11-14 12:37,16,3,14,1,2.1,89,T52 builder 3 alone (re-check done)
+2026-11-14 13:07,17,3,25,1,2.0,97,T52 builder 4; re-check 2 done (4 sidecars)
+2026-11-14 13:37,18,3,32,1,2.0,90,T52 builder 4 (2b) and suite convergence analysis (Opus)
+2026-11-14 14:07,20,3,43,2,4.0,94,builder switching T52 to T60; convergence analysis done
+2026-11-14 14:37,21,3,53,1,2.0,95,T60 builder alone (caught rule)
+2026-11-14 15:07,22,3,58,1,2.0,88,T60 close review (Opus and sidecars); no builder running
+2026-11-14 15:37,23,3,68,1,2.0,90,T52 builder (MIX stress-10 triage) and T52 step 2f review
+2026-11-14 16:07,25,3,84,2,4.0,98,T52 builder (Q20) and T61 parallel builder; T52 item 2 review held until 16:50 reset
+2026-11-14 16:37,26,3,92,1,2.0,96,T52 builder alone (item 4 then 5); combined review held until 16:53, after the 16:50 reset
+2026-11-14 17:07,27,3,7,1,2.0,,T52 builder (item 6) and T52+T61 combined review
+2026-11-14 17:37,28,3,14,1,2.0,89,T52 builder alone (item 7); T61 builder idle
+2026-11-14 18:07,29,3,21,1,2.0,82,T52 builder (full catch sweep in background slices)
+2026-11-14 18:37,30,3,28,1,2.0,79,T52 close review (Opus and sidecars); no builder running
+2026-11-14 19:07,32,3,42,2,4.0,92,T54 builder (waiting on step-1 review); T54 step-1 review; T61 builder (second half)
+2026-11-14 19:37,33,3,50,1,2.0,90,T61 builder (items 2-5) and T61 second-half review; T54 paused
+2026-11-14 20:08,34,3,59,1,1.9,90,T61 builder (N2) and T61 items 2-5 review; T54 paused
+2026-11-14 20:37,35,3,67,1,2.1,89,T61 builder alone (N2, then M1-M3); T54 paused
