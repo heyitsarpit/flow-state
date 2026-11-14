@@ -52,6 +52,7 @@ import {
   pairsGate,
   partsGate,
   productionRegressions,
+  classGate,
 } from "./parts-gates.ts";
 import { runStatics } from "./run.ts";
 import { coreInvariants, openTasks } from "./specs.ts";
@@ -434,6 +435,7 @@ const PARTS_MODES = new Map([
   ["pairs", pairsGate],
   ["model-mutation", modelMutationGate],
   ["regressions-production", productionRegressions],
+  ["class-gate", classGate],
 ]);
 
 /**

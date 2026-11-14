@@ -36,6 +36,20 @@ for the parts gates, M4). Each: rule; source; check; the wrong build it catches.
   counts, or each change is explained in the step comment. Source: acceptance 4. Check: the gates at each step;
   evidence only.
 
+## Acceptance proofs (for the close review)
+
+| Acceptance                                   | Check                                                     | Planted violation                       |
+| -------------------------------------------- | --------------------------------------------------------- | --------------------------------------- |
+| 1 a planted lost ending fails a gate         | `class-gate` (268/268) and `parts/owed.test.ts` sweep     | step-blind item rule lets a plant pass  |
+| 2 stopped or done-owner excuse fails a gate  | `parts/owed.test.ts` "an owed item that stops breaking"   | an item at step 999; an empty open set  |
+| 3 one caught function; liar and probes use it | `runner/caught.test.ts` (predicate, source walk, sites)   | `I1` against `I15`; crossed pair; defect |
+| 4 counts kept or explained                   | falsify 154/154 and 18/18, liar 125/126 and 13/13, matrix | see below                               |
+
+Changes under acceptance 4: liar round-14 drops `turn.root-first`, whose only red was a defect (`PAY-04`:
+`NoHeldRequest`), which the one rule never counts (G5); pending probes count any failed case, never a Timeout,
+since a pending probe watches a behaviour (an uncited `PAY-08` expectation), not a catch; the parts gate plays 77
+scripts (the owed ones past seed 6 added). Catch matrices unchanged.
+
 ## Cut or routed
 
 - N9 (owed scripts skip the skipped-answers rule): 26 owed scripts are thin because production's owed bugs leave

@@ -1,8 +1,9 @@
 /// <reference types="node" />
-import { Console, Effect } from "effect";
+import { Console, Effect, Option } from "effect";
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { coreTriage, triageFaults } from "../core-mutants-triage.ts";
+import { caught } from "./caught.ts";
 import { falsifyProduction, suiteIn } from "./falsify.ts";
 import type { CaseVerdict } from "./verdict.ts";
 
@@ -74,7 +75,7 @@ export const coreOutcome = (result: {
   if (!ran) return { status: "ERROR", why: result.rows.join(" ") };
   const fails = result.verdicts.flatMap((v) => (v._tag === "Fail" ? [v] : []));
 
-  const killer = fails.find((v) => v.oracles.length > 0 || (v.cites ?? []).length > 0);
+  const killer = fails.find((v) => caught(Option.none(), v));
 
   if (killer !== undefined)
     return {

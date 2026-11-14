@@ -18,6 +18,7 @@ const caught: CaseVerdict = {
   id: "A",
   oracles: ["lane-queue"],
   why: "lane-queue: WriteLanes I12: a release never came",
+  violations: [{ check: "lane-queue", invariant: "WriteLanes I12", step: 1 }],
 };
 
 const timedOut: CaseVerdict = { _tag: "Timeout", id: "B", seed: 1, seconds: 10 };

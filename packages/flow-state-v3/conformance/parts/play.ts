@@ -133,6 +133,13 @@ export const playPart = (
 
   const excused = opened.excused();
   const kept = excused.map((e) => e.text);
+
+  const keptFields = excused.map((e) => ({
+    check: e.oracle,
+    invariant: e.invariant,
+    step: e.step,
+  }));
+
   const failed = Result.isFailure(ran) ? Option.some(ran.failure) : Option.none<CaseVerdict>();
 
   const verdict: CaseVerdict = Option.match(failed, {
@@ -144,6 +151,7 @@ export const playPart = (
             id: script.id,
             oracles: [...new Set(excused.map((e) => e.oracle))],
             why: `seed ${seed}: ${kept.join(" | ")}`,
+            violations: keptFields,
           },
     onSome: (failure) =>
       failure._tag !== "Fail" || excused.length === 0
@@ -151,6 +159,7 @@ export const playPart = (
         : {
             ...failure,
             oracles: [...new Set([...excused.map((e) => e.oracle), ...failure.oracles])],
+            violations: [...keptFields, ...(failure.violations ?? [])],
             why: `seed ${seed}: ${[...kept, failure.why.replace(/^seed \d+: /u, "")].join(" | ")}`,
           },
   });

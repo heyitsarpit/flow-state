@@ -9,11 +9,10 @@ import { verdict } from "../runner/parts-gates.ts";
 import { verdictOf } from "../runner/run.ts";
 import { scenarios } from "../suite.ts";
 import { combinationGate } from "./pairs.ts";
-import { oracle, type Oracle, violation } from "../dsl/oracle.ts";
-import { oracles } from "../suite.ts";
-import { item, OwedItem, owedRows, type PartOwed } from "./owed.ts";
-import { partFaults, playPart } from "./play.ts";
-import { playedScope, scriptById } from "./records.ts";
+import { item, OwedItem, owedRows } from "./owed.ts";
+import { partFaults } from "./play.ts";
+import { playedScope } from "./records.ts";
+import { judgedWith, plantedSweep } from "./sweep.ts";
 
 const passed = (id: string) => ({
   script: { id, fixture: "x", actor: "a", steps: [] },
@@ -118,29 +117,6 @@ describe("an owed run that times out is a fault, whatever it kept (Conformance R
   });
 });
 
-const planted = (check: string, invariant: string, subject: string, at: number) => {
-  const found = violation(`${invariant}: planted lost ending`, Option.some(subject));
-
-  return oracle<number>({
-    name: check,
-    guarantee: [found.invariant],
-    start: () => 0,
-    step: (n) => [n + 1, n === at ? [found] : []],
-  });
-};
-
-const judgedWith = (id: string, extra: ReadonlyArray<Oracle>, rows: ReadonlyArray<PartOwed>) => {
-  const script = Option.getOrThrow(scriptById(id));
-  const mine = rows.filter((o) => o.case === id);
-
-  const run = playPart(script, "production", undefined, mine, Option.none(), [
-    ...oracles,
-    ...extra,
-  ]);
-
-  return partFaults([{ script, run }], mine, new Set([id]));
-};
-
 const ownedBy = (id: string) => owedRows.filter((o) => o.case === id);
 
 describe("one owed rule for every owed script, by exact break (the class gate; Conformance R22)", () => {
@@ -153,46 +129,22 @@ describe("one owed rule for every owed script, by exact break (the class gate; C
     for (const id of owedIds) assert.deepEqual(judgedWith(id, [], owedRows), [], id);
   }, 120_000);
 
-  it("a planted break on any fresh Attempt, any lane at a fresh step, or an owed Attempt under another Invariant fails every played script", () => {
-    const ids = [...playedScope(), ...owedIds];
-    let seed = 7;
-
-    const pick = (n: number) => {
-      seed = (seed * 48_271) % 2_147_483_647;
-
-      return seed % n;
-    };
-
-    for (const id of new Set(ids)) {
-      const rows = ownedBy(id);
-      const [row] = rows;
-      const check = row?.check ?? "delivered-once";
-      const invariant = row?.invariant ?? "WriteLanes I15";
-      const at = pick(3);
-
-      const kinds = [
-        planted(check, invariant, `att-planted-${pick(1000)}`, at),
-        planted(check, invariant, `Planted/Lane x${pick(1000)} op`, at),
-        ...rows.flatMap((r) =>
-          r.items
-            .filter(OwedItem.$is("Attempt"))
-            .slice(0, 1)
-            .map((a) => planted(r.check, "Actors I1", a.id, at)),
-        ),
-        ...rows.flatMap((r) =>
-          r.items
-            .filter(OwedItem.$is("Item"))
-            .map((i) => planted(r.check, r.invariant, i.subject, at)),
-        ),
-      ];
-
-      for (const kind of kinds)
-        assert.ok(
-          judgedWith(id, [kind], owedRows).some((f) => f.includes("planted lost ending")),
-          id,
-        );
-    }
+  it("a planted break on a fresh Attempt or lane, an owed Attempt under another check, or an owed subject at another step, early or late, fails every played script", () => {
+    assert.deepEqual(plantedSweep([...new Set([...playedScope(), ...owedIds])]), []);
   }, 240_000);
+
+  it("a sweep under a rule that ignores an item's step lets a plant pass", () => {
+    const id = "PART-transfers-stress-104";
+
+    const loose = ownedBy(id).map((r) => ({
+      ...r,
+      items: r.items.map((i) =>
+        OwedItem.$is("Item")(i) ? OwedItem.Attempt({ id: i.subject }) : i,
+      ),
+    }));
+
+    assert.ok(plantedSweep([id], loose).length > 0);
+  }, 60_000);
 
   it("an owed item that stops breaking, or a row of a Task not open, fails the gate", () => {
     const id = "PART-transfers-stress-104";
@@ -200,15 +152,7 @@ describe("one owed rule for every owed script, by exact break (the class gate; C
     const extra = rows.map((r) => ({ ...r, items: [...r.items, item("Planted/Lane y op", 999)] }));
 
     assert.ok(judgedWith(id, [], extra).some((f) => f.includes("no longer breaks")));
-
-    const script = Option.getOrThrow(scriptById(id));
-    const run = playPart(script, "production", undefined, rows);
-
-    assert.ok(
-      partFaults([{ script, run }], rows, new Set([id]), new Set()).some((f) =>
-        f.includes("a Task not open"),
-      ),
-    );
+    assert.ok(judgedWith(id, [], rows, new Set()).some((f) => f.includes("a Task not open")));
   }, 60_000);
 
   it("each row names a break and is the only row of its script, check and Invariant", () => {

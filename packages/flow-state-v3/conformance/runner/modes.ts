@@ -305,7 +305,7 @@ const failing = (verdicts: ReadonlyArray<CaseVerdict>) =>
       ];
 
     return [
-      `${v.oracles.join(",")} ${[...new Set(v.why.match(/[A-Z][A-Za-z]+ I\d+/gu) ?? [])].join(",")}`,
+      `${v.oracles.join(",")} ${[...new Set((v.violations ?? []).map((x) => x.invariant))].join(",")}`,
     ];
   });
 

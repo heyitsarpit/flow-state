@@ -24,6 +24,7 @@ const failed = (failure: unknown) => {
       oracles: failure.oracles,
       why: `${failure.violation} (at ${failure.step})`,
       cites: [],
+      found: failure.found,
     };
 
   if (failure instanceof Mismatch)
@@ -31,6 +32,8 @@ const failed = (failure: unknown) => {
       oracles: [],
       why: `${[...failure.cites, failure.label].join(": ")}: expected ${failure.expected}, got ${failure.actual}`,
       cites: failure.cites.flatMap(citedBy),
+      found: [],
+      expectation: Option.some({ label: failure.label }),
     };
 
   if (failure instanceof Unreadable)
@@ -38,12 +41,29 @@ const failed = (failure: unknown) => {
       oracles: [],
       why: `unreadable ${failure.report}: ${failure.issue} (the runtime broke the Port's contract)`,
       cites: [],
+      found: [],
     };
 
-  return { oracles: [], why: `defect: ${String(failure)}`, cites: [] };
+  return { oracles: [], why: `defect: ${String(failure)}`, cites: [], found: [] };
 };
 
 const citing = (cites: ReadonlyArray<string>) => (cites.length === 0 ? {} : { cites });
+
+const listing = (
+  found: ReadonlyArray<{
+    readonly check: string;
+    readonly invariant: string;
+    readonly step: number;
+  }>,
+) => (found.length === 0 ? {} : { violations: found });
+
+const fieldsOf = (f: ReturnType<typeof failed>) => ({
+  ...citing(f.cites),
+  ...listing(f.found),
+  ...("expectation" in f
+    ? Option.match(f.expectation, { onNone: () => ({}), onSome: (e) => ({ expectation: e }) })
+    : {}),
+});
 
 type Bounded = { readonly seed: number; readonly overdue: () => boolean };
 
@@ -63,7 +83,7 @@ export const verdictOf = (id: string, seed: number, failure: unknown) => {
     id,
     oracles: f.oracles,
     why: `seed ${seed}: ${f.why}`,
-    ...citing(f.cites),
+    ...fieldsOf(f),
   } satisfies CaseVerdict;
 };
 
@@ -208,7 +228,7 @@ export const runStatic = (surface: Surface, staticCase: StaticCase) =>
           id: staticCase.id,
           oracles: [],
           why: f.why,
-          ...citing(f.cites),
+          ...fieldsOf(f),
         }) satisfies CaseVerdict,
     }),
   );

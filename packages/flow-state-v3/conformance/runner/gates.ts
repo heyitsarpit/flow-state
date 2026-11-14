@@ -99,6 +99,7 @@ export const machineGates = (scratch: string) => {
     { gate: "model mutation production", args: ["model-mutation"] },
     { gate: "bench production", args: ["bench"], entry: BENCH },
     { gate: "regressions production", args: ["regressions-production"] },
+    { gate: "class gate production", args: ["class-gate"] },
     { gate: "regressions round-14", args: ["regressions", "--runtime", ROUND_14] },
     {
       gate: "liar round-14",

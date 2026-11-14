@@ -27,11 +27,32 @@ const outcomeOf = (verdicts: ReadonlyArray<CaseVerdict>) =>
 describe("core mutants", () => {
   it("only a failure naming an oracle or a cited Invariant is a kill", () => {
     assert.equal(
-      outcomeOf([{ _tag: "Fail", id: "A", oracles: ["lane-queue"], why: "x" }]),
+      outcomeOf([
+        {
+          _tag: "Fail",
+          id: "A",
+          oracles: ["lane-queue"],
+          why: "x",
+          violations: [{ check: "lane-queue", invariant: "WriteLanes I12", step: 1 }],
+        },
+      ]),
       "killed",
     );
     assert.equal(
-      outcomeOf([{ _tag: "Fail", id: "A", oracles: [], why: "x", cites: ["Turn I2"] }]),
+      outcomeOf([{ _tag: "Fail", id: "A", oracles: ["lane-queue"], why: "defect: x" }]),
+      "NO-ORACLE",
+    );
+    assert.equal(
+      outcomeOf([
+        {
+          _tag: "Fail",
+          id: "A",
+          oracles: [],
+          why: "x",
+          cites: ["Turn I2"],
+          expectation: { label: "x" },
+        },
+      ]),
       "killed",
     );
     assert.equal(outcomeOf([{ _tag: "Fail", id: "A", oracles: [], why: "threw" }]), "NO-ORACLE");

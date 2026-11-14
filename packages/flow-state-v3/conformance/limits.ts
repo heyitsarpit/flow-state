@@ -1,5 +1,6 @@
-import { Data } from "effect";
+import { Data, Option } from "effect";
 import type { Mutant } from "./dsl/oracle.ts";
+import { caught } from "./runner/caught.ts";
 import type { CaseVerdict } from "./runner/verdict.ts";
 
 /**
@@ -39,11 +40,7 @@ export const verdictOfLimit = (limit: Limit, verdict: CaseVerdict) => {
 
   if (verdict._tag !== "Fail") return { held: false, why: `${limit.case} ${verdict._tag}` };
 
-  const named =
-    limit.check === "case"
-      ? (verdict.cites ?? []).includes(limit.invariant)
-      : verdict.oracles.includes(limit.check) &&
-        verdict.why.includes(`${limit.check}: ${limit.invariant}:`);
+  const named = caught(Option.some({ check: limit.check, invariant: limit.invariant }), verdict);
 
   return named
     ? { held: true, why: `${limit.case} fails by ${limit.invariant}` }

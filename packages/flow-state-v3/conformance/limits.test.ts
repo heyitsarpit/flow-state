@@ -16,9 +16,11 @@ describe("the limits gate (Conformance T42, I64)", () => {
       id: "GEN-x",
       oracles: ["disposal"],
       why: "seed 1: disposal: Actors I14: no incarnation",
+      violations: [{ check: "disposal", invariant: "Actors I14", step: 1 }],
     };
 
     assert.equal(verdictOfLimit(row, failed).held, true);
+    assert.equal(verdictOfLimit(row, { ...failed, violations: [] }).held, false);
   });
 
   it("holds a case-expectation row only when the case's first failure cites its Invariant", () => {

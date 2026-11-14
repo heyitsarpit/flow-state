@@ -14,6 +14,7 @@ import { fieldGate, modelFields, modelMutants } from "../parts/model-mutation.ts
 import { PAIR_OWNERS } from "../parts/pair-owners.ts";
 import { combinationGate } from "../parts/pairs.ts";
 import { partsOwed, regressionsOwed } from "../parts/owed.ts";
+import { plantedSweep } from "../parts/sweep.ts";
 import { partFaults, playPart, reachedBy, reachOf, undecidedLine } from "../parts/play.ts";
 import {
   currentSlice,
@@ -68,6 +69,16 @@ export const partsGateScripts = () => {
       .flatMap((id) => Option.toArray(scriptById(id))),
   ];
 };
+
+/**
+ * The class gate (Conformance R22): the planted-fault sweep over every script the suite plays
+ * and every kept regression with owed rows; every plant must fail the gate.
+ */
+export const classGate = Effect.suspend(() => {
+  const ids = [...new Set([...playedScope(), ...regressionsOwed.map((o) => o.case)])];
+
+  return verdict(plantedSweep(ids), ids.length, "scripts whose planted breaks all fail");
+});
 
 const openTasks = () =>
   new Set([...taskStatuses()].flatMap(([task, open]) => (open ? [task] : [])));

@@ -4,7 +4,9 @@ import { Schema } from "effect";
  * One case's verdict: it passed; it failed with every oracle that caught it in the failing step
  * (none for a case's own expectation or a thrown defect) and why, where `cites` are the
  * Invariants a failed case expectation declared (never read from its label; a Requirement it
- * declared is left out); or it ran past its time bound
+ * declared is left out), `expectation` the case expectation that failed (its label), and
+ * `violations` each oracle violation as fields (check, Invariant, step), which `caught` reads and
+ * `why` only displays; or it ran past its time bound
  * (`Timeout`, a defect: it names no oracle and cites nothing, so it never catches a mutant).
  */
 export const CaseVerdict = Schema.Union([
@@ -14,6 +16,12 @@ export const CaseVerdict = Schema.Union([
     oracles: Schema.Array(Schema.String),
     why: Schema.String,
     cites: Schema.optionalKey(Schema.Array(Schema.String)),
+    expectation: Schema.optionalKey(Schema.Struct({ label: Schema.String })),
+    violations: Schema.optionalKey(
+      Schema.Array(
+        Schema.Struct({ check: Schema.String, invariant: Schema.String, step: Schema.Number }),
+      ),
+    ),
   }),
   Schema.TaggedStruct("Timeout", {
     id: Schema.String,

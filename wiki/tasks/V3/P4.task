@@ -823,7 +823,7 @@ tasks
             comment. Why: the user's pause. Reverse: drop the blocker, set in_progress.
     T60
         title       The suite proves its own gates and excuses
-        status      in_progress
+        status      review
         priority    high
         description
             The suite's excuse lists are proven: every excuse names its exact subject and must still fail, a planted
@@ -860,6 +860,13 @@ tasks
             (3cfbfc08), reds open for Q5 to Q7 (runner/caught.test.ts); N9 routed to revisit as a pending check.
               Edit (agent: T60 building lead, @task.V3.T60, 2026-11-14): this comment. Why: requirements-first rule. 
               Reverse: revert this commit.
+        comment     2026-11-14T09:22:53Z
+            Built and ready for the close review: one `caught` over structured verdicts (falsify, matrix, limits, liar, 
+            mutate, kills; pending probes by any failed case), the class gate as a machine gate (268/268), every owed 
+            script in the parts gate. Liar round-14 125/126 (a defect no longer counts); proofs in 
+            code:wiki/plans/flow/references/proposals/t60-requirements-2026-11-14.md.
+              Edit (agent: T60 building lead, @task.V3.T60, 2026-11-14): this comment and status review. Why: 
+              convergence done. Reverse: revert this commit.
     T59
         title       The suite reads and imports nothing outside the package
         status      draft

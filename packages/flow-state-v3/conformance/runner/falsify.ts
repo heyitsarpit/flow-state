@@ -4,7 +4,8 @@ import { cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync }
 import { basename, join, resolve } from "node:path";
 import type { Mutant, Probe } from "../dsl/oracle.ts";
 import { type ChildFailed, runChild } from "./child.ts";
-import { CASE_EXPECTATIONS, matrixRows } from "./matrix.ts";
+import { caught as catches } from "./caught.ts";
+import { CASE_EXPECTATIONS, catchKeyOf, matrixRows } from "./matrix.ts";
 import { type CaseVerdict, VERDICTS_LINE, VerdictsJson } from "./verdict.ts";
 
 /**
@@ -163,12 +164,8 @@ export const judge = (
   const red = verdicts.flatMap((v) => (v._tag === "Fail" ? [v] : []));
   const timedOut = verdicts.flatMap((v) => (v._tag === "Timeout" ? [v.id] : []));
   const ids = [...red.map((v) => v.id), ...timedOut];
-  const named = `${oracle}: ${mutant.expects}:`;
 
-  const holds = (v: (typeof red)[number]) =>
-    oracle === CASE_EXPECTATIONS
-      ? v.oracles.length === 0 && (v.cites ?? []).includes(mutant.expects)
-      : v.oracles.includes(oracle) && v.why.includes(named);
+  const holds = (v: (typeof red)[number]) => catches(Option.some(catchKeyOf(mutant, oracle)), v);
 
   const caughtIn = red.filter(holds);
   const [caught] = caughtIn;
@@ -365,19 +362,27 @@ export const ProbeVerdict = Data.taggedEnum<ProbeVerdict>();
 
 /**
  * A probe's verdict from the cases it ran: a green probe holds only when every case passed; a
- * pending one only while it turns at least one red (a pending probe gone green needs a look).
+ * pending one only while at least one case fails (a pending probe gone green needs a look). A
+ * pending probe watches a behaviour, not a catch: an uncited expectation's failure counts, a
+ * Timeout never does.
  */
 // RETURN_TYPE: each branch builds one variant; the union keeps them one ProbeVerdict.
 export const judgeProbe = (probe: Probe, verdicts: ReadonlyArray<CaseVerdict>): ProbeVerdict => {
-  const red = verdicts.flatMap((v) => (v._tag === "Pass" ? [] : [v.id]));
+  const unpassed = verdicts.flatMap((v) => {
+    if (v._tag === "Pass") return [];
 
-  if (probe.holds === "green" && red.length > 0)
-    return ProbeVerdict.Broken({ probe: probe.name, why: `red in ${red.join(" ")}` });
+    return v._tag === "Fail" ? [`${v.id}: ${v.why.slice(0, 200)}`] : [`${v.id}: timed out`];
+  });
+
+  const red = verdicts.flatMap((v) => (v._tag === "Fail" ? [v.id] : []));
+
+  if (probe.holds === "green" && unpassed.length > 0)
+    return ProbeVerdict.Broken({ probe: probe.name, why: `red in ${unpassed.join(" ")}` });
 
   if (probe.holds === "pending" && red.length === 0)
     return ProbeVerdict.Broken({
       probe: probe.name,
-      why: "no longer red: the pending call changed",
+      why: `no longer red: the pending call changed${unpassed.length === 0 ? "" : ` (failed uncaught: ${unpassed.join(" ")})`}`,
     });
 
   return ProbeVerdict.Holds({ probe: probe.name, holds: probe.holds, red });
@@ -404,10 +409,33 @@ export const probeOne = (main: string, runtimeDir: string, scratch: string, prob
     }),
   );
 
-const redLine = (v: CaseVerdict) => {
-  if (v._tag === "Fail") return [`${v.id}: ${v.why}`];
+/**
+ * A mutant's liar verdict from its cases' verdicts: red only when a case caught something by the
+ * one caught rule; a defect or a Timeout alone is green, never a catch.
+ */
+export const liarVerdict = (mutant: string, verdicts: ReadonlyArray<CaseVerdict>) => {
+  const red = verdicts.filter((v) => catches(Option.none(), v));
+  const [first] = red;
+  const [uncaught] = verdicts.filter((v) => v._tag !== "Pass" && !catches(Option.none(), v));
 
-  return v._tag === "Timeout" ? [`${v.id}: timed out`] : [];
+  const why = (v: Option.Option<CaseVerdict>, prefix: string) =>
+    Option.match(v, {
+      onNone: () => "",
+      onSome: (it) => {
+        if (it._tag === "Pass") return "";
+
+        return it._tag === "Fail" ? `${prefix}${it.id}: ${it.why}` : `${prefix}${it.id}: timed out`;
+      },
+    });
+
+  return {
+    mutant,
+    red: first !== undefined,
+    why:
+      first === undefined
+        ? why(Option.fromUndefinedOr(uncaught), "failed uncaught, ")
+        : why(Option.some(first), ""),
+  };
 };
 
 /**
@@ -449,11 +477,7 @@ export const liarOne = (options: {
       ]);
     }),
   ).pipe(
-    Effect.map((verdicts) => {
-      const red = verdicts.flatMap(redLine);
-
-      return { mutant: options.mutant.name, red: red.length > 0, why: red[0] ?? "" };
-    }),
+    Effect.map((verdicts) => liarVerdict(options.mutant.name, verdicts)),
     Effect.catchTags({
       Unapplied: (e: Unapplied) =>
         Effect.succeed({ mutant: options.mutant.name, red: false, why: `not applied: ${e.why}` }),

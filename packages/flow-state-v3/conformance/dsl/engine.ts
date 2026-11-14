@@ -176,6 +176,7 @@ export const stepEngine = (
         oracles: [...new Set(found.map((f) => f.name))],
         violation: found.map((f) => `${f.name}: ${f.v.invariant}: ${f.v.text}`).join(" | "),
         step: what,
+        found: found.map((f) => ({ check: f.name, invariant: f.v.invariant, step: f.step })),
       });
   };
 

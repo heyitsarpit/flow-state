@@ -165,12 +165,18 @@ export class Mismatch extends Data.TaggedError("Mismatch")<{
 }> {}
 
 /**
- * An oracle found a violation after a step.
+ * An oracle found a violation after a step: each one as fields (`found`: check, Invariant and
+ * step number), and their text for display.
  */
 export class Violated extends Data.TaggedError("Violated")<{
   readonly oracles: ReadonlyArray<string>;
   readonly violation: string;
   readonly step: string;
+  readonly found: ReadonlyArray<{
+    readonly check: string;
+    readonly invariant: string;
+    readonly step: number;
+  }>;
 }> {}
 
 /**

@@ -1,7 +1,8 @@
 /// <reference types="node" />
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import type { Mutant } from "../dsl/oracle.ts";
+import { caught } from "./caught.ts";
 import type { CaseVerdict } from "./verdict.ts";
 
 /**
@@ -14,14 +15,11 @@ export const matrixRows = (mutant: Mutant, oracle: string, verdicts: ReadonlyArr
     if (v._tag === "Pass") return `${mutant.name}\t${v.id}\tgreen`;
 
     if (v._tag === "Timeout") return `${mutant.name}\t${v.id}\ttime`;
-    const named = `${oracle}: ${mutant.expects}:`;
 
-    const caught =
-      oracle === CASE_EXPECTATIONS
-        ? v.oracles.length === 0 && (v.cites ?? []).includes(mutant.expects)
-        : v.oracles.includes(oracle) && v.why.includes(named);
+    if (caught(Option.some(catchKeyOf(mutant, oracle)), v))
+      return `${mutant.name}\t${v.id}\tcaught ${oracle} ${mutant.expects}`;
 
-    if (caught) return `${mutant.name}\t${v.id}\tcaught ${oracle} ${mutant.expects}`;
+    if (!caught(Option.none(), v)) return `${mutant.name}\t${v.id}\tfailed uncaught`;
     const by = v.oracles.length > 0 ? v.oracles.join(",") : "case";
 
     return `${mutant.name}\t${v.id}\tred ${by}`;
@@ -32,6 +30,15 @@ export const matrixRows = (mutant: Mutant, oracle: string, verdicts: ReadonlyArr
  * only by a failed expectation that cites the Invariant it expects (Conformance R6).
  */
 export const CASE_EXPECTATIONS = "case expectations";
+
+/**
+ * What a mutant held by `oracle` must be caught by: that check (`case` for case expectations)
+ * and the Invariant it expects.
+ */
+export const catchKeyOf = (mutant: Mutant, oracle: string) => ({
+  check: oracle === CASE_EXPECTATIONS ? "case" : oracle,
+  invariant: mutant.expects,
+});
 
 /**
  * The file a full falsify run on `runtime` writes: its catch matrix, or with `--sweep` its sweep
