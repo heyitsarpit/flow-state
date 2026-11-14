@@ -459,3 +459,5 @@ note 2026-11-14T13:45:37Z
     after its step-1 review lands.
 note 2026-11-14T13:47:38Z
     Review (T54 step 1) fix first: two missed endings found only by the blind sidecar (lane-less endings dropped at an incarnation's end; the table gives declines a lane), recorded on T54 for its resume with the orchestrator's rulings. Missed by the builder's gathering: requirements scoped to Runtime disposal only.
+note 2026-11-14T14:06:34Z
+    T61 second half: O1 fixed (065529e6) and varied inputs built (b177ce75), reaching 1 new cell and 45 new cell pairs; 147 owed rows over 61 scripts grouped by failure text into T19 and T54 bugs. Review started, sampling untraced scripts (5-hour projection 89). Process watch: text grouping repeats the pattern T60 removed.
