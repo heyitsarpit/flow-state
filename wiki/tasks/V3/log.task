@@ -534,3 +534,5 @@ note 2026-11-14T17:43:59Z
     rules (process experiment: rules judged on a fresh agent), the step-1 review fixes and the builder checklist.
 note 2026-11-14T18:21:36Z
     T54 A0 done (dcee66a8..5db929bd): step-1 fixes applied, nine pending cases red as host tests, a baseline mode over 1,158 runs, cost baseline (median turn 0.014 ms). A0 review started under the review-speed rules; the builder prepares A1 without core edits. Leaning (orchestrator): host-test location accepted if it tests through the public API and seam.
+note 2026-11-14T18:23:37Z
+    Ruled (orchestrator, T54 A1): Ended is reported once at its settle step (A-8), replacing today's report at admission plus a repeat for parked endings, which is the doubled report the Spec forbids; baseline differences are named by run under A-8 or A-6, and any other difference is a stop. Reverse: keep admission-time reporting.
