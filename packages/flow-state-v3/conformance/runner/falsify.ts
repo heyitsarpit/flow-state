@@ -40,6 +40,8 @@ export class NoVerdicts extends Data.TaggedError("NoVerdicts")<{ readonly why: s
 
 const NOT_CODE = /\.(?:txt|log|md|lock|baseline)$/u;
 
+const SCRATCH_COPY = /^dsl-(?:leak|mutant)-/u;
+
 const copyRuntime = (runtimeDir: string, scratch: string) =>
   Effect.acquireRelease(
     Effect.try({
@@ -68,7 +70,8 @@ const copyRuntime = (runtimeDir: string, scratch: string) =>
 
 /**
  * A copy of the whole package (`src/`, `fixtures/` and `conformance/`, source files only) in `scratch`, for a
- * production mutant: the copied runner boots the copied adapter over the copied runtime.
+ * production mutant: the copied runner boots the copied adapter over the copied runtime. The `dsl`
+ * tests' own short-lived copies inside `conformance/` are skipped: one may vanish mid-copy.
  */
 const copyPackage = (packageDir: string, scratch: string) =>
   Effect.acquireRelease(
@@ -80,7 +83,10 @@ const copyPackage = (packageDir: string, scratch: string) =>
         for (const part of ["src", "fixtures", "conformance"])
           cpSync(join(packageDir, part), join(copy, part), {
             recursive: true,
-            filter: (f) => basename(f) !== "node_modules" && !NOT_CODE.test(f),
+            filter: (f) =>
+              basename(f) !== "node_modules" &&
+              !NOT_CODE.test(f) &&
+              !SCRATCH_COPY.test(basename(f)),
           });
 
         symlinkSync(resolve(packageDir, "..", "..", "node_modules"), join(root, "node_modules"));

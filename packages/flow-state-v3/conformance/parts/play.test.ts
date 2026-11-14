@@ -13,7 +13,7 @@ import { Observation } from "../port.ts";
 import type { CaseVerdict } from "../runner/verdict.ts";
 import { BUILD_SEEDS, mixOf, scriptOf } from "./generate.ts";
 import { verdictOfLimit } from "../limits.ts";
-import { partFaults, partsOwed, playPart, reachedBy, reachOf } from "./play.ts";
+import { partFaults, partsOwed, playPart, reachedBy, reachOf, worldSeedOf } from "./play.ts";
 
 const SEEDS = BUILD_SEEDS.slice(0, 4);
 
@@ -280,6 +280,15 @@ describe("first-contact reds of the wider stress profile that were the suite's",
     assert.equal(phaseAfter("sync", GRACE_MS - 1), "Live");
     assert.equal(phaseAfter("sync", GRACE_MS), "Unanchored");
     assert.equal(phaseAfter("transfers", GRACE_MS), "Live");
+  });
+});
+
+describe("the world seed comes from the script seed (close review finding 12: Conformance R8)", () => {
+  it("a part script's world runs at its own seed; a script with none at 1", () => {
+    assert.equal(worldSeedOf("PART-transfers-stress-7"), 7);
+    assert.equal(worldSeedOf("MIX-sync+transfers+sign-in-stress-104"), 104);
+    assert.equal(worldSeedOf("PART-transfers-stress-111-shrunk"), 111);
+    assert.equal(worldSeedOf("reach-late"), 1);
   });
 });
 

@@ -5,7 +5,7 @@ import { implemented as production } from "../conformance/adapters/production.ts
 import { fingerprintOf } from "../conformance/parts/fingerprint.ts";
 import { scriptOf } from "../conformance/parts/generate.ts";
 import { playPart } from "../conformance/parts/play.ts";
-import { benchReplay } from "./bench.ts";
+import { benchFaults, benchReplay } from "./bench.ts";
 
 describe("bench replay (Q18: Conformance R23, I67, T44)", () => {
   it("each pilot's usual script does the same work in the bench as in conformance", () => {
@@ -20,6 +20,19 @@ describe("bench replay (Q18: Conformance R23, I67, T44)", () => {
       assert.deepEqual(benched.fingerprint, judged, part.name);
       assert.equal(benched.turnMs.length, judged.turns, part.name);
     }
+  });
+
+  it("a bench and a judged run that both did nothing is a fault, as is any difference (finding 12)", () => {
+    const part = parts[0];
+    assert.ok(part !== undefined);
+
+    const script = scriptOf(part, "usual", 2, production);
+    const judged = fingerprintOf(playPart(script, "production"));
+    const empty = fingerprintOf({ facts: [] });
+
+    assert.deepEqual(benchFaults(part.name, benchReplay(script).fingerprint, judged), []);
+    assert.equal(benchFaults(part.name, empty, empty).length, 1);
+    assert.equal(benchFaults(part.name, empty, judged).length, 1);
   });
 
   it("a bench that skips the persistence edge does less work than the run the suite judged", () => {

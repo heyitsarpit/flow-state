@@ -6,6 +6,7 @@ import { openCase } from "../conformance/dsl/case.ts";
 import { rules } from "../conformance/dsl/lifecycle-rules.ts";
 import { type Script, scenarioOf } from "../conformance/dsl/script.ts";
 import { type Fingerprint, fingerprintOf } from "../conformance/parts/fingerprint.ts";
+import { worldSeedOf } from "../conformance/parts/play.ts";
 import { partFixture } from "../conformance/parts/reference.ts";
 import type { Port, Runtime } from "../conformance/port.ts";
 
@@ -105,7 +106,7 @@ export const benchReplay = (script: Script, options: BenchOptions = { persistenc
     port: timed(productionPort, options.persistence, turnMs),
     fixtures: scenario.fixtures,
     oracles: [],
-    seed: 1,
+    seed: worldSeedOf(script.id),
     graphs: [],
     overdue: () => false,
     crashAt: Option.none(),
@@ -119,4 +120,16 @@ export const benchReplay = (script: Script, options: BenchOptions = { persistenc
   opened.end();
 
   return { fingerprint: fingerprintOf({ facts: opened.facts() }), turnMs } satisfies Benched;
+};
+
+/**
+ * The bench gate's faults for one part: a bench whose work differs from the judged run's, or a
+ * judged run that did no turn, which proves nothing (Conformance I67).
+ */
+export const benchFaults = (name: string, benched: Fingerprint, judged: Fingerprint) => {
+  if (judged.turns === 0) return [`BAD  ${name}: the judged run did no turn`];
+
+  return JSON.stringify(benched) === JSON.stringify(judged)
+    ? []
+    : [`BAD  ${name}: bench ${JSON.stringify(benched)}, judged ${JSON.stringify(judged)}`];
 };

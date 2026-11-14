@@ -62,13 +62,20 @@ export const partsOwed: ReadonlyArray<Limit & { readonly owner: string }> = [
 }));
 
 /**
+ * The world seed a part script runs at: the seed its id ends with (`PART-transfers-stress-7`,
+ * shrunk or not), else 1 (Conformance R8).
+ */
+export const worldSeedOf = (id: string) => Number(/-(\d+)(?:-shrunk)?$/u.exec(id)?.[1] ?? "1");
+
+/**
  * Plays a part's script on a runtime through the Port, under the suite's oracles and the Spec
  * model's compare (Conformance R15, R19); a part on round-14 is refused (R22).
  *
  * **Details**
  *
- * One seed, in the suite's world; the gate's runs add the second seed and the replay (Turn I17).
- * `given` are the lifecycle tables the model applies: the design's, or a model mutant (R19).
+ * The world runs at the script's own seed ({@link worldSeedOf}), so one script seed fixes the
+ * run (R8). `given` are the lifecycle tables the model applies: the design's, or a model mutant
+ * (R19).
  */
 // RETURN_TYPE: both branches build the named Played, the refusal with an empty fact list.
 export const playPart = (script: Script, runtime: PartRuntime, given: Rules = rules): Played => {
@@ -85,6 +92,7 @@ export const playPart = (script: Script, runtime: PartRuntime, given: Rules = ru
     };
 
   let skipped = 0;
+  const seed = worldSeedOf(script.id);
 
   const scenario = scenarioOf(script, fixtures, () => {
     skipped += 1;
@@ -94,7 +102,7 @@ export const playPart = (script: Script, runtime: PartRuntime, given: Rules = ru
     port: runtime === "production" ? productionPort : nullPort,
     fixtures: scenario.fixtures,
     oracles,
-    seed: 1,
+    seed,
     graphs: [],
     overdue: () => false,
     crashAt: Option.none(),
@@ -109,7 +117,7 @@ export const playPart = (script: Script, runtime: PartRuntime, given: Rules = ru
       scenario.run(opened.driven);
       opened.end();
     },
-    catch: (failure) => verdictOf(script.id, 1, failure),
+    catch: (failure) => verdictOf(script.id, seed, failure),
   });
 
   const pass: CaseVerdict = { _tag: "Pass", id: script.id };
