@@ -342,6 +342,17 @@ note 2026-11-14T07:58:50Z
     re-check 1, the pair key; re-check 2, seeds and text matching), past the convergence threshold of 2, so the T52 
     builder converges that part once.
 note 2026-11-14T08:06:29Z
-    Decision (user, 2026-11-14): converge once over every hole found in T47 and T52 against the current suite architecture, and make hole finding more mechanical. One Opus analysis lead (read-only, up to eight Haiku, one blind) writes suite-convergence-2026-11-14.md (proposed); the T52 builder holds its owed-row redesign until then and does 2b.
+    Decision (user, 2026-11-14): converge once over every hole found in T47 and T52 against the current suite 
+    architecture, and make hole finding more mechanical. One Opus analysis lead (read-only, up to eight Haiku, one 
+    blind) writes suite-convergence-2026-11-14.md (proposed); the T52 builder holds its owed-row redesign until then 
+    and does 2b.
 note 2026-11-14T08:29:21Z
-    Suite convergence analysis done (suite-convergence-2026-11-14.md, proposed): 128 holes, 10 root causes; the suite proves its oracles but never its own gates and excuse lists; only 1 hole was ever found by a machine. T52 builds now: owed rows by exact subject, every listed item must still fail, a planted-fault sweep as the class gate, every owed script at every seed. The rest goes to a later suite Task (placement asked of the user). Orchestrator verified adversary.ts:317 text matching.
+    Suite convergence analysis done (suite-convergence-2026-11-14.md, proposed): 128 holes, 10 root causes; the suite 
+    proves its oracles but never its own gates and excuse lists; only 1 hole was ever found by a machine. T52 builds 
+    now: owed rows by exact subject, every listed item must still fail, a planted-fault sweep as the class gate, every 
+    owed script at every seed. The rest goes to a later suite Task (placement asked of the user). Orchestrator verified 
+    adversary.ts:317 text matching.
+note 2026-11-14T08:33:33Z
+    Decision (user, 2026-11-14): "why not pause T52 now and do this first". New @task.V3.T60 (the suite proves its own 
+    gates and excuses, from suite-convergence-2026-11-14.md) is in progress; T52 is open, blocked by T60; the slice 
+    order puts T60 before T52. The same builder carries T60.
