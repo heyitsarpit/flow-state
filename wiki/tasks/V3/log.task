@@ -567,3 +567,5 @@ note 2026-11-14T19:54:59Z
     Process study (T54 builder, mid-task): model time 70 percent; briefed batching had no effect (63 percent one-call 
     turns against 64-75); 8.2 min idle on a ruling and 8.7 min polling background gates. Experiment (orchestrator): a 
     builder needing a ruling keeps doing independent work, and gates run in the background unpolled. Notebook updated.
+note 2026-11-14T19:58:35Z
+    Process experiment (orchestrator, 2026-11-15): thinking text is not stored in agent transcripts (278 empty thinking blocks in the T54 builder), so studies cannot read reasoning directly. Turned on showThinkingSummaries in project settings to try to record it; three Haiku agents study stuck points and wrong assumptions from visible text, failures, build logs and reviews.
