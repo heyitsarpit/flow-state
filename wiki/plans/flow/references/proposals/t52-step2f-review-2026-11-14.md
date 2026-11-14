@@ -21,7 +21,8 @@ plan and the code. Every gate below ran on a `git archive` copy in scratch, neve
 - Red first holds. The new test fails on the old excused-flag sweep, which is the same reading as the plant above.
 - **The unplanted check has no red check (O1).** Deleting `if (faultsWith([]).length > 0) …`
   (code:packages/flow-state-v3/conformance/parts/sweep.ts#plantedSweep) leaves every test and gate green. No
-  script fails unplanted today, so nothing is lost now. If one ever did, the sweep would count every plant on it as caught.
+  script fails unplanted today, so nothing is lost now. If one ever did, the sweep would count
+  every plant on it as caught.
 - The sweep calls `partFaults` with scope `{id}` and open = the owners named in its rows. The parts gate passes
   `playedScope()` and `openTasks()`. So the sweep never checks for ghost scripts or rows owed to closed Tasks, but
   the parts gate does, so the sweep's faults are a subset of the parts gate's. That gap is latent and acceptable.
