@@ -431,4 +431,9 @@ note 2026-11-14T11:41:04Z
     (orchestrator): T52's "deleted traces gone" acceptance reads "duplicated traces gated and held, owed to T61". Stray 
     empty scratch-none removed.
 note 2026-11-14T11:44:47Z
-    Review (combined T52 680c7e2a..5e6d0faf and T61 parallel half): T52 goes on; T61 B1 blocks (the trace mode crashes on case ids with a slash), sent to the T61 builder with a wrong regression claim to correct. T52 small fixes: Edit labels, 19 unforgeable refusal cells re-owned to T61, 9 cancelAll cells to T53. Missed by the builders' checks: the trace test used no variant case id (gathering); field-gate owners judged by group, not per cell (weak check).
+    Review (combined T52 680c7e2a..5e6d0faf and T61 parallel half): T52 goes on; T61 B1 blocks (the trace mode crashes 
+    on case ids with a slash), sent to the T61 builder with a wrong regression claim to correct. T52 small fixes: Edit 
+    labels, 19 unforgeable refusal cells re-owned to T61, 9 cancelAll cells to T53. Missed by the builders' checks: the 
+    trace test used no variant case id (gathering); field-gate owners judged by group, not per cell (weak check).
+note 2026-11-14T12:57:25Z
+    T52 in review at f349968f, all 19 gates green at 0eba05a1, no owed row names T52; close review started. Small amendment (orchestrator): Q18's thinning of 47 Pay hand cases moves to T53 with round-14, since deleting them now means rewiring round-14 case lists T53 deletes anyway.
