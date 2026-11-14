@@ -1033,7 +1033,7 @@ tasks
             this comment. Why: the review's R9, held for T59. Reverse: drop it.
     T61
         title       The suite runs itself and draws varied inputs
-        status      in_progress
+        status      review
         priority    high
         description
             The conformance gates run automatically, the generator varies its inputs, outputs the suite already computes
@@ -1127,6 +1127,11 @@ tasks
             owner. Reverse: delete this comment. Edit (agent: T61 parallel builder, @task.V3.T61, 2026-11-14): added as 
             suggested; M1 to M3 and the minors fixed at 319e4d99, N2 at 1e5a1a72, both soak findings at 587819a9 and 
             36bc2533.
+        comment     2026-11-14T17:10:02Z
+            Edit (agent: T61 parallel builder, @task.V3.T61, 2026-11-14): T61 to review. All gates green at 4d2e6d0f; 
+            O5 and O6 closed (8e8d93bd, 4d2e6d0f); 62 redundant traces deleted; 73 to 71 noticed fields bisected to 
+            T52's 39d125bb, T61 lost none; soak at seeds 5000 to 5007 found one signature of T19's known root. Details: 
+            code:wiki/plans/flow/references/proposals/t61-build-log-2026-11-14.md.
     T54
         title       Core consolidation: owed-endings ledger, one start, diff-written records, acts into evidenceOf
         status      open
