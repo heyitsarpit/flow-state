@@ -1106,9 +1106,9 @@ tasks
             DISP-01 and the gate matrix is unchanged.
     T54
         title       Core consolidation: owed-endings ledger, one start, diff-written records, acts into evidenceOf
-        status      in_progress
+        status      open
         priority    high
-        blocked_by  [@T52]
+        blocked_by  [@T61]
         description
             Consolidate production's core in steps A0 to A4: one ledger of owed endings, one `start`, records written
             from what each step touched, and every report built by `evidenceOf` from acts. Added (the user, 2026-11-14):
@@ -1512,6 +1512,11 @@ tasks
             unchanged at 74 of 211, 136 owed. Edit (agent: T54 building lead, @task.V3.T54, 2026-11-14): 
             conformance/owes.ts and this comment. Why: orchestrator ruling on step 1. Reverse: the commit that adds 
             this comment.
+        comment     2026-11-14T13:45:37Z
+            Paused before A0 (the user, 2026-11-14: run T61 and T54 linear, to stay within 5-hour limits). Step 1 
+            stands (requirements at 53941819, plan at e42be782); the step-1 review finishes and its findings wait here. 
+            Resume after T61 from the build log's resume list. Edit (agent: orchestrator, @task.V3.T54, 2026-11-14): 
+            status, blocker, this comment. Why: the user's order. Reverse: blocker to T52, status in_progress.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      draft

@@ -240,9 +240,9 @@ instructions
       close; streams, entities, SSR, lazy features, Stories and inspection follow as later releases, reordered, not
       cut.
     - Slices interleave (the user, 2026-11-11, replan accepted; reordered 2026-11-12, wide consult W3): R (T45, then
-      T51, then T47, then T60 (the suite proves its own gates, the user 2026-11-14), then T52), T54 (core 
-      consolidation, the
-      user 2026-11-12) with T61 beside it (the suite runs itself, the user 2026-11-14), 1 T18,
+      T51, then T47, then T60 (the suite proves its own gates, the user 2026-11-14), then T52, then T61 (the suite
+      runs itself, the user 2026-11-14; linear, to stay within 5-hour limits)), T54 (core consolidation, the user
+      2026-11-12), 1 T18,
       T55 (runtime life), 2a T19 then
       T20 (restore), 3a T17 (compiler), 4 T9, the browser slice T58, 3b T57 (fragments), 5 T21, 2b T56 (release
       versions), 6 T22 then T15 then T23, 7 T25, 8 T24, 9 T27, T48, T28, 10 T49, T29, T31, then T30.
