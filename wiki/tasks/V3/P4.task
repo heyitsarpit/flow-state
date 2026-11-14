@@ -854,6 +854,12 @@ tasks
             - an excuse whose item stops failing, or whose owner Task is done, fails a gate;
             - one function decides "caught" from structured verdicts, and the liar gate and probes use it;
             - falsify, liar and catch matrices keep their counts or each change is explained.
+        comment     2026-11-14T08:50:34Z
+            Step 1: requirements Q1 to Q8 mapped one to one to the reduced acceptance and Approach 
+            (code:wiki/plans/flow/references/proposals/t60-requirements-2026-11-14.md); Q1 to Q4 green from step 0 
+            (3cfbfc08), reds open for Q5 to Q7 (runner/caught.test.ts); N9 routed to revisit as a pending check.
+              Edit (agent: T60 building lead, @task.V3.T60, 2026-11-14): this comment. Why: requirements-first rule. 
+              Reverse: revert this commit.
     T59
         title       The suite reads and imports nothing outside the package
         status      draft

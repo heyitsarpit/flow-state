@@ -53,6 +53,22 @@ export const verdict = (lines: ReadonlyArray<string>, total: number, what: strin
     yield* Console.log(`VERDICT ${ok ? "pass" : "fail"} ${total - lines.length}/${total} ${what}`);
   });
 
+/**
+ * The scripts the parts gate plays: the gate scripts, and every script an owed part row names
+ * that the held-out gate does not play, each at its own seed (Conformance R22).
+ */
+export const partsGateScripts = () => {
+  const gate = gateScripts();
+  const elsewhere = new Set([...gate, ...heldOutScripts()].map((s) => s.id));
+
+  return [
+    ...gate,
+    ...[...new Set(partsOwed.map((o) => o.case))]
+      .filter((id) => !elsewhere.has(id))
+      .flatMap((id) => Option.toArray(scriptById(id))),
+  ];
+};
+
 const openTasks = () =>
   new Set([...taskStatuses()].flatMap(([task, open]) => (open ? [task] : [])));
 
@@ -61,15 +77,10 @@ const openTasks = () =>
  * but for its owed breaks, each of which still breaks (Conformance R15, R22).
  */
 export const partsGate = Effect.suspend(() => {
-  const gate = played();
-  const ids = new Set(gate.map(({ script }) => script.id));
-
-  const owedRuns = [...new Set(partsOwed.map((o) => o.case))]
-    .filter((id) => !ids.has(id))
-    .flatMap((id) => Option.toArray(scriptById(id)))
-    .map((script) => ({ script, run: playPart(script, "production") }));
-
-  const runs = [...gate, ...owedRuns];
+  const runs = partsGateScripts().map((script) => ({
+    script,
+    run: playPart(script, "production"),
+  }));
 
   return Effect.andThen(
     Console.log(undecidedLine(runs)),

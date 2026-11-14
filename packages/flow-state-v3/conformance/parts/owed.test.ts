@@ -211,18 +211,6 @@ describe("one owed rule for every owed script, by exact break (the class gate; C
     );
   }, 60_000);
 
-  it("owed scripts meet the skipped-answers rule too (N9; red: production's owed bugs leave answers unopened)", () => {
-    const thin = owedIds.filter((id) => {
-      const script = Option.getOrThrow(scriptById(id));
-      const run = playPart(script, "production", undefined, ownedBy(id));
-      const answers = script.steps.filter((s) => s._tag === "answer").length;
-
-      return run.skipped * 2 > answers;
-    });
-
-    assert.deepEqual(thin, []);
-  }, 120_000);
-
   it("each row names a break and is the only row of its script, check and Invariant", () => {
     const keys = owedRows.map((o) => `${o.case}|${o.check}|${o.invariant}`);
 

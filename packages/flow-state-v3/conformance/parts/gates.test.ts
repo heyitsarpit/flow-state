@@ -9,6 +9,7 @@ import { parts } from "../../fixtures/index.ts";
 import { Script } from "../dsl/script.ts";
 import { statedLimits } from "../limits.ts";
 import { machineGates } from "../runner/gates.ts";
+import { partsGateScripts } from "../runner/parts-gates.ts";
 import { HELD_OUT_SEEDS } from "./generate.ts";
 import { partsOwed } from "./owed.ts";
 import { partFaults, playPart } from "./play.ts";
@@ -80,6 +81,18 @@ describe("F4: held-out seeds run in a gate (Conformance I52; advisor Q8)", () =>
 
     assert.ok(ids.every((id) => HELD_OUT_SEEDS.includes(Number(id.split("-").at(-1)))));
   });
+
+  it("the parts gate plays every owed part script, at its own seed (re-check 2: seeds 7 to 12)", () => {
+    const ids = new Set(partsGateScripts().map((s) => s.id));
+    const heldOut = new Set(heldOutScripts().map((s) => s.id));
+
+    assert.ok(ids.size > 60);
+    assert.deepEqual(
+      partsOwed.filter((o) => !ids.has(o.case) && !heldOut.has(o.case)),
+      [],
+    );
+    assert.ok(ids.has("PART-cells-stress-7"));
+  }, 30_000);
 
   it("held-out runs pass on production or fail as owed; without the owed rows they are red", () => {
     const runs = heldOutScripts().map((script) => ({

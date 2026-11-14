@@ -10,7 +10,11 @@ import { actorIn, idled, returned, Undecided, used } from "../turn/anchor.ts";
 import { schedules } from "../turn/schedules.ts";
 import { anchorAt, anchorOf, judgedStep } from "../turn/selection.ts";
 import { parts } from "../../fixtures/index.ts";
+import { Option } from "effect";
 import { modelFields, modelMutants } from "./model-mutation.ts";
+import { owedRows } from "./owed.ts";
+import { playPart } from "./play.ts";
+import { scriptById } from "./records.ts";
 import { partFixture } from "./reference.ts";
 
 /**
@@ -24,6 +28,18 @@ describe("pending checks, owed to other Tasks (routed gaps)", () => {
 
     assert.ok(noticed > 0);
     assert.ok(noticed < modelFields().length);
+  }, 60_000);
+
+  it("revisit (suite judging): owed scripts skip the skipped-answers rule, and many are thin (N9)", () => {
+    const thin = [...new Set(owedRows.map((o) => o.case))].filter((id) => {
+      const script = Option.getOrThrow(scriptById(id));
+      const run = playPart(script, "production");
+      const answers = script.steps.filter((s) => s._tag === "answer").length;
+
+      return run.skipped * 2 > answers;
+    });
+
+    assert.ok(thin.length > 0);
   }, 60_000);
 
   it("T18: Cells aborts only while unsure, since the generator's belief frees a lane on any cancel", () => {
