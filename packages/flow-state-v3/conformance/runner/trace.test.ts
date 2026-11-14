@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
-import { Option } from "effect";
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { Effect, Option } from "effect";
 import { describe, it } from "vite-plus/test";
 import { nullPort } from "../adapters/null.ts";
 import { productionPort } from "../adapters/production.ts";
 import { productionSurface } from "../adapters/production-static.ts";
 import { scriptById } from "../parts/records.ts";
 import { scenarios } from "../suite.ts";
-import { tracedPart, tracedScenario } from "./trace.ts";
+import { trace, tracedPart, tracedScenario } from "./trace.ts";
 
 const script = (id: string) => Option.getOrThrow(scriptById(id));
 
@@ -62,5 +65,25 @@ describe("the trace command (T61; survey item 7)", () => {
     const text = tracedScenario(nullPort, productionSurface, pay22, 1, Option.none(), "null");
 
     assert.match(text, /\nverdict: fail/u);
+  });
+
+  it("the mode writes one file in the scratch directory for a case id holding a `/`", async () => {
+    const scratch = mkdtempSync(join(tmpdir(), "trace-test-"));
+
+    try {
+      await Effect.runPromise(
+        trace(["--case", "PAY-13/hung-commit", "--runtime", "production", "--scratch", scratch]),
+      );
+
+      const written = readdirSync(scratch);
+
+      assert.equal(written.length, 1);
+      assert.match(
+        readFileSync(join(scratch, written[0] ?? ""), "utf8"),
+        /^# trace PAY-13\/hung-commit /u,
+      );
+    } finally {
+      rmSync(scratch, { recursive: true, force: true });
+    }
   });
 });

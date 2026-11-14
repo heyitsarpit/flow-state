@@ -282,7 +282,7 @@ const handCase = (id: string) =>
 /**
  * The trace mode (T61): `--script ID|FILE.json`, `--part NAME --profile P --seed N`, or `--case ID
  * [--crash N] [--seed N]`, on `--runtime` (production by default), written to
- * `<--scratch>/trace-<id>.txt`.
+ * `<--scratch>/trace-<id>.txt`, each `/` of a variant case's id written `~`.
  */
 export const trace = (args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
@@ -342,7 +342,7 @@ export const trace = (args: ReadonlyArray<string>) =>
       return yield* Console.error("trace: no such script or case");
     }
 
-    const path = resolve(scratch, `trace-${traced.value.id}.txt`);
+    const path = resolve(scratch, `trace-${traced.value.id.replaceAll("/", "~")}.txt`);
 
     yield* Effect.sync(() => {
       mkdirSync(resolve(scratch), { recursive: true });
