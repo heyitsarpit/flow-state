@@ -1,0 +1,64 @@
+the call on the wire succeeds and the next commit is promoted	0
+an unknown that is not retained owes its release	0
+a forgotten identity's restore ending: decided at the boot, delivered at adoption	1
+a releasing lane's Held head is released	1
+a reload after the Runtime's disposal	0
+promotion takes the first waiting commit in mint order	0
+an unretained unknown's release is due by the close of the turn that hears it	0
+an unretained unknown's release is not due at a turn that does not hear it	0
+an unretained unknown heard by no turn owes its release by the step's end	0
+an unretained unknown's release is owed by its own ending's turn, not the Attempt's other ending	1
+an unretained unknown whose ending closes unheard owes its release at once	3
+an unretained unknown not yet heard owes nothing at the step's end	0
+an unretained unknown released in its turn	0
+a replaced Attempt's second ending	0
+a pending cancel's ending of the other kind	0
+an unretained unknown Disposed during disposal holds its lane	0
+an acknowledged head never sent owes its restore from the reload	0
+an acknowledged head never sent is restored to Held and still owes its delivery	0
+an acknowledged head never sent meets its restore once it is delivered	5
+a head whose acknowledgement never landed owes no restore	0
+a retry re-sends a Held head	0
+a commit whose key did not encode declines Unencodable	0
+an Unencodable decline of an input the fixture says encodes is refused	1
+a key-less cancel of an operation with no lane declines nothing	0
+a second cancel of a never-sent head	0
+a key-less cancel acts on every lane of its operation	0
+a commit then a cancel apply in action order	0
+a cancel then a commit on a Held lane: the cancel releases the head, so the commit mints	0
+a cancel of a Held head promotes the next waiting commit in its turn	0
+a retry then a cancel in one turn releases the re-send	0
+an id minted twice	0
+a mint on another lane than the turn's commit	0
+a later commit's mint before the earlier commit's	2
+a reject commit behind a head declines Rejected	0
+a serialize commit declines Rejected	0
+a commit on an Idle lane declines Overloaded	0
+a commit that cannot encode declines	0
+a commit on an Idle lane declines Cancelled	0
+a commit on an Idle lane declines Restored	0
+a commit on an Idle lane declines StorageRefused	0
+a commit on an Idle lane declines Disposed	0
+a commit no suite fact lets decline NoPersistence is refused	0
+a commit no suite fact lets decline OldVersion is refused	0
+a commit no suite fact lets decline ModuleDisabled is refused	0
+a commit beside a lane minted at an older release declines OldVersion	2
+a commit declines Disposed while the Runtime disposes	0
+a 65th waiting commit declines Overloaded	2
+a 65th waiting commit minted	1
+Opens on a Parked ending	0
+a boot owes no restore to a Held head whose ending is a Kept row	0
+a boot owes a restore to a Held head whose Refused row the reload closes	0
+a boot owes a restore to a Held head whose live Owed row the reload closes	1
+a boot owes no restore to a Held head whose ending is a Delivering row	0
+a boot owes no restore to a Held head whose ending is a Parked row	0
+a forgotten actor's kept ending is let go	0
+a reload owes its Held head one restore, and the boot's incarnation owes no second	0
+a boot's restore ending comes before its incarnation opens, owed until delivered	0
+a boot owes no restore to a head whose own ending is parked	0
+a boot owes no restore to a head whose ending was decided in the disposal	1
+a boot owes a disposed identity's unbound Held head no restore, and refuses one	0
+a disposed identity's unbound Held head not restored at the boot is owed its restore at adoption	0
+a Held head's parked ending delivered meets its restore	0
+a delivery names the oldest open ending	2
+a turn heard while an older ending is still owed	1

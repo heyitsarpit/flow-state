@@ -74,7 +74,7 @@ const copyRuntime = (runtimeDir: string, scratch: string) =>
  * production mutant: the copied runner boots the copied adapter over the copied runtime. The `dsl`
  * tests' own short-lived copies inside `conformance/` are skipped: one may vanish mid-copy.
  */
-const copyPackage = (packageDir: string, scratch: string) =>
+export const copyPackage = (packageDir: string, scratch: string) =>
   Effect.acquireRelease(
     Effect.try({
       try: () => {
@@ -122,7 +122,11 @@ const applyEdit = (runtime: string, edit: Mutant["edits"][number]) =>
     ),
   );
 
-const applyEdits = (runtime: string, edited: { readonly edits: Mutant["edits"] }) =>
+/**
+ * Applies a mutant's edits to the copy at `runtime`; an edit whose text does not occur exactly
+ * once fails it as unapplied.
+ */
+export const applyEdits = (runtime: string, edited: { readonly edits: Mutant["edits"] }) =>
   Effect.forEach(edited.edits, (edit) => applyEdit(runtime, edit), { concurrency: 1 });
 
 const verdictsOf = (stdout: string, stderr: string, code: number) =>

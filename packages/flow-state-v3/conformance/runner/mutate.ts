@@ -7,7 +7,10 @@ import { caught } from "./caught.ts";
 import { falsifyProduction, suiteIn } from "./falsify.ts";
 import type { CaseVerdict } from "./verdict.ts";
 
-const OPERATORS: ReadonlyArray<readonly [string, string]> = [
+/**
+ * The operator flips a code mutant makes, each the first occurrence on its line.
+ */
+export const OPERATORS: ReadonlyArray<readonly [string, string]> = [
   [" === ", " !== "],
   [" !== ", " === "],
   [" && ", " || "],

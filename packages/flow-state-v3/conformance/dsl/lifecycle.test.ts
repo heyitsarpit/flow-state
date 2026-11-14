@@ -22,6 +22,7 @@ import type { Trace } from "./lifecycle-trace.ts";
 import { pendingTraces } from "./lifecycle-actor-lives.traces.ts";
 import { traces } from "./lifecycle.traces.ts";
 import { holds } from "./trace-judge.ts";
+import { HELD } from "./held-traces.ts";
 import type { InvariantId } from "./facts.ts";
 import { disposal } from "../actors/disposal.ts";
 import { attemptIdentity } from "../write-lanes/attempt-identity.ts";
@@ -356,73 +357,6 @@ const promotionMutants = () =>
     .map((promotion) => ({ name: `promotion ${promotion}`, rules: { ...rules, promotion } }));
 
 const rulingOf = (trace: Trace) => /\(ruling [^)]+\)/u.exec(trace.cites)?.[0];
-
-const HELD: ReadonlyArray<string> = [
-  "the call on the wire succeeds and the next commit is promoted",
-  "an unknown that is not retained owes its release",
-  "a forgotten identity's restore ending: decided at the boot, delivered at adoption",
-  "a releasing lane's Held head is released",
-  "a reload after the Runtime's disposal",
-  "promotion takes the first waiting commit in mint order",
-  "an unretained unknown's release is due by the close of the turn that hears it",
-  "an unretained unknown's release is not due at a turn that does not hear it",
-  "an unretained unknown heard by no turn owes its release by the step's end",
-  "an unretained unknown's release is owed by its own ending's turn, not the Attempt's other ending",
-  "an unretained unknown whose ending closes unheard owes its release at once",
-  "an unretained unknown not yet heard owes nothing at the step's end",
-  "an unretained unknown released in its turn",
-  "a replaced Attempt's second ending",
-  "a pending cancel's ending of the other kind",
-  "an unretained unknown Disposed during disposal holds its lane",
-  "an acknowledged head never sent owes its restore from the reload",
-  "an acknowledged head never sent is restored to Held and still owes its delivery",
-  "an acknowledged head never sent meets its restore once it is delivered",
-  "a head whose acknowledgement never landed owes no restore",
-  "a retry re-sends a Held head",
-  "a commit whose key did not encode declines Unencodable",
-  "an Unencodable decline of an input the fixture says encodes is refused",
-  "a key-less cancel of an operation with no lane declines nothing",
-  "a second cancel of a never-sent head",
-  "a key-less cancel acts on every lane of its operation",
-  "a commit then a cancel apply in action order",
-  "a cancel then a commit on a Held lane: the cancel releases the head, so the commit mints",
-  "a cancel of a Held head promotes the next waiting commit in its turn",
-  "a retry then a cancel in one turn releases the re-send",
-  "an id minted twice",
-  "a mint on another lane than the turn's commit",
-  "a later commit's mint before the earlier commit's",
-  "a reject commit behind a head declines Rejected",
-  "a serialize commit declines Rejected",
-  "a commit on an Idle lane declines Overloaded",
-  "a commit that cannot encode declines",
-  "a commit on an Idle lane declines Cancelled",
-  "a commit on an Idle lane declines Restored",
-  "a commit on an Idle lane declines StorageRefused",
-  "a commit on an Idle lane declines Disposed",
-  "a commit no suite fact lets decline NoPersistence is refused",
-  "a commit no suite fact lets decline OldVersion is refused",
-  "a commit no suite fact lets decline ModuleDisabled is refused",
-  "a commit beside a lane minted at an older release declines OldVersion",
-  "a commit declines Disposed while the Runtime disposes",
-  "a 65th waiting commit declines Overloaded",
-  "a 65th waiting commit minted",
-  "Opens on a Parked ending",
-  "a boot owes no restore to a Held head whose ending is a Kept row",
-  "a boot owes a restore to a Held head whose Refused row the reload closes",
-  "a boot owes a restore to a Held head whose live Owed row the reload closes",
-  "a boot owes no restore to a Held head whose ending is a Delivering row",
-  "a boot owes no restore to a Held head whose ending is a Parked row",
-  "a forgotten actor's kept ending is let go",
-  "a reload owes its Held head one restore, and the boot's incarnation owes no second",
-  "a boot's restore ending comes before its incarnation opens, owed until delivered",
-  "a boot owes no restore to a head whose own ending is parked",
-  "a boot owes no restore to a head whose ending was decided in the disposal",
-  "a boot owes a disposed identity's unbound Held head no restore, and refuses one",
-  "a disposed identity's unbound Held head not restored at the boot is owed its restore at adoption",
-  "a Held head's parked ending delivered meets its restore",
-  "a delivery names the oldest open ending",
-  "a turn heard while an older ending is still owed",
-];
 
 describe("The lane lifecycle (Table A, deadlines, promotion)", () => {
   it("every trace holds on the design's rules", () => {
