@@ -875,6 +875,13 @@ tasks
             code:wiki/plans/flow/references/proposals/t60-close-review-2026-11-14.md
               Edit (agent: T60 close reviewer, @task.V3.T60, 2026-11-14): this comment. Why: the close review. Reverse: 
               revert this commit.
+        comment     2026-11-14T09:50:50Z
+            Close-review fix round: B1 pending probes count only a catch (red first); B2 keyless rule kept, six stale 
+            triage rows dropped and logged (core 66/98 pass); turn.root-first gains PAY-07/late-may-not-leave (liar 
+            round-14 126/126); fact, R1 and pairs routed. Detail: 
+            code:wiki/plans/flow/references/proposals/t60-requirements-2026-11-14.md.
+              Edit (agent: T60 building lead, @task.V3.T60, 2026-11-14): this comment. Why: close review fixes. 
+              Reverse: revert this commit.
     T59
         title       The suite reads and imports nothing outside the package
         status      draft

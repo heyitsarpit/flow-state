@@ -43,45 +43,10 @@ const equivalent = (at: string, mutated: string, why: string): Triage => ({
  * Every core mutant of the last recorded run (`core-mutants.tsv`) that no named oracle killed.
  */
 export const coreTriage: ReadonlyArray<Triage> = [
-  owed(
-    "src/core/answers.ts:36",
-    "if (incarnation !== undefined || incarnation.id !== read.incarnation) return;",
-    "@task.V3.T54",
-    "Reads I9",
-    "a live incarnation's lookup ending is never delivered; PAY-03 fails by its state expectation only",
-  ),
-  owed(
-    "src/core/answers.ts:36",
-    "if (incarnation === undefined || incarnation.id === read.incarnation) return;",
-    "@task.V3.T54",
-    "Reads I9",
-    "every lookup ending of a live incarnation is dropped; PAY-03 fails by its state expectation only",
-  ),
   equivalent(
     "src/core/answers.ts:36",
     "if (incarnation === undefined && incarnation.id !== read.incarnation) return;",
     "every read is made by its live incarnation, and every end, dispose and Runtime disposal drops that incarnation's reads, so a settled read always finds its own live incarnation",
-  ),
-  owed(
-    "src/core/answers.ts:46",
-    'channel: c.channel !== "unknown" ? "failure" : c.channel,',
-    "@task.V3.T54",
-    "Reads R9",
-    "a successful lookup is routed as a failure and its success event never runs; PAY-03 fails by its state expectation only",
-  ),
-  owed(
-    "src/core/answers.ts:62",
-    "if (read === undefined) {",
-    "@task.V3.T54",
-    "WriteLanes R10",
-    "every commit settlement throws and a lookup's settlement is never applied; PAY-01 fails by a defect only",
-  ),
-  owed(
-    "src/core/answers.ts:70",
-    'if (live && CallResult.$is("Defect")(result) && route !== "queue")',
-    "@task.V3.T54",
-    "WriteLanes R2",
-    "a commit that dies while its actor is open reports no Defect issue; PAY-12/defect fails by its issue expectation only",
   ),
   owed(
     "src/core/answers.ts:77",
@@ -201,13 +166,6 @@ export const coreTriage: ReadonlyArray<Triage> = [
     "@task.V3.T54",
     "WriteAhead T18",
     "the mutant is the Spec's side: unmutated, a StillUnknown hold leaves the saved head's inFlight true, so a boot wakes an identity whose head is Held; no case reloads after a StillUnknown",
-  ),
-  owed(
-    "src/core/lane-moves.ts:359",
-    "Withdrawing: (p) => p.ticket !== ticket,",
-    "@task.V3.T18",
-    "WriteLanes R14",
-    "a cancel waiting for its acknowledgement never ends NotSent Cancelled when the store lands it; LANE-08 fails by its case expectation only",
   ),
   owed(
     "src/core/lanes.ts:58",

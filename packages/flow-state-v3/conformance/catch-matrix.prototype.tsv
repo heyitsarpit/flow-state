@@ -198,6 +198,7 @@ turn.part-turn-moves-header	LANE-12/release-ends-queue	caught selection Turn I2
 turn.record-renames-alternative	PAY-01	caught graph-names StaticCli I2
 turn.record-renames-alternative	PAY-02	caught graph-names StaticCli I2
 turn.root-first	PAY-04	caught selection Turn I2
+turn.root-first	PAY-07/late-may-not-leave	caught selection Turn I2
 turn.root-first-no-part	PAY-08/reload-while-reconciling	caught selection Turn I2
 turn.root-first-no-part	TURN-03/on-time	caught selection Turn I2
 turn.root-first-on-restored	DLV-01	caught selection Turn I2

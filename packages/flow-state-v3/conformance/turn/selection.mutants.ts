@@ -181,7 +181,7 @@ export const selectionMutants: ReadonlyArray<Mutant> = [
     says: "selection reads the root's handlers before the active leaf's",
     expects: "Turn I2",
     runtime: "prototype",
-    cases: ["PAY-04"],
+    cases: ["PAY-04", "PAY-07/late-may-not-leave"],
     edits: [
       {
         file: "turn.ts",

@@ -122,6 +122,7 @@ describe("one caught rule over structured verdicts (Conformance I43; suite conve
     assert.equal(liarVerdict("m", [defect, late]).red, false);
     assert.equal(liarVerdict("m", [real]).red, true);
     assert.equal(judgeProbe(probe, [late])._tag, "Broken");
+    assert.equal(judgeProbe(probe, [defect])._tag, "Broken");
     assert.equal(judgeProbe(probe, [real])._tag, "Holds");
     assert.equal(coreOutcome({ rows: ["x\tred"], verdicts: [defect] }).status, "NO-ORACLE");
     assert.equal(coreOutcome({ rows: ["x\tred"], verdicts: [real] }).status, "killed");

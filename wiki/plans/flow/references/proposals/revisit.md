@@ -63,6 +63,11 @@ Deferred items.
   per-gate universe ledgers, one excuse registry, a counted ledger of unknowns, and the Conformance.spec rule for
   excusing production's known reds. Revisit if holes keep appearing after T60's planted-fault sweep, or once T54
   removes most owed rows.
+- **An owed item's `fact`** (2026-11-14, T60 building lead; decided, owed to the later suite work). An item with
+  no Attempt is `{ subject, step }`, not the design's `{ lane, step, fact }`: no owed script has two breaks on one
+  subject in one step today, so the step pins the break. Add the fact once a sweep plants a second break there.
+  Reverse: add `fact` to `OwedItem.Item` and the engine's `excuse` call. Edit (agent: T60 building lead,
+  @task.V3.T60, 2026-11-14): this entry. Why: close review R2. Reverse: revert this commit.
 - **Hole-finding scripts** (2026-11-14, the user; not built). A planted-fault sweep over all cases, a metamorphic
   sweep (renamed ids, reordered fields, changed seeds), a per-gate inventory diff, a records and code lint (Edit
   labels, open owners, outside reads, temporary strings, throws in `src/`), and a requirements-map check. Build the

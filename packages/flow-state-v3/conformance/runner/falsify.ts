@@ -362,9 +362,8 @@ export const ProbeVerdict = Data.taggedEnum<ProbeVerdict>();
 
 /**
  * A probe's verdict from the cases it ran: a green probe holds only when every case passed; a
- * pending one only while at least one case fails (a pending probe gone green needs a look). A
- * pending probe watches a behaviour, not a catch: an uncited expectation's failure counts, a
- * Timeout never does.
+ * pending one only while at least one case is caught by the one rule (a pending probe gone green
+ * needs a look): a failed expectation counts, a defect or a Timeout never does.
  */
 // RETURN_TYPE: each branch builds one variant; the union keeps them one ProbeVerdict.
 export const judgeProbe = (probe: Probe, verdicts: ReadonlyArray<CaseVerdict>): ProbeVerdict => {
@@ -374,7 +373,7 @@ export const judgeProbe = (probe: Probe, verdicts: ReadonlyArray<CaseVerdict>): 
     return v._tag === "Fail" ? [`${v.id}: ${v.why.slice(0, 200)}`] : [`${v.id}: timed out`];
   });
 
-  const red = verdicts.flatMap((v) => (v._tag === "Fail" ? [v.id] : []));
+  const red = verdicts.flatMap((v) => (catches(Option.none(), v) ? [v.id] : []));
 
   if (probe.holds === "green" && unpassed.length > 0)
     return ProbeVerdict.Broken({ probe: probe.name, why: `red in ${unpassed.join(" ")}` });

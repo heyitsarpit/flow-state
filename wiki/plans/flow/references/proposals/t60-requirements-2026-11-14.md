@@ -45,10 +45,16 @@ for the parts gates, M4). Each: rule; source; check; the wrong build it catches.
 | 3 one caught function; liar and probes use it | `runner/caught.test.ts` (predicate, source walk, sites)   | `I1` against `I15`; crossed pair; defect |
 | 4 counts kept or explained                   | falsify 154/154 and 18/18, liar 125/126 and 13/13, matrix | see below                               |
 
-Changes under acceptance 4: liar round-14 drops `turn.root-first`, whose only red was a defect (`PAY-04`:
-`NoHeldRequest`), which the one rule never counts (G5); pending probes count any failed case, never a Timeout,
-since a pending probe watches a behaviour (an uncited `PAY-08` expectation), not a catch; the parts gate plays 77
-scripts (the owed ones past seed 6 added). Catch matrices unchanged.
+Changes under acceptance 4: `turn.root-first`'s only liar red was a defect (`PAY-04`: `NoHeldRequest`), which the
+one rule never counts; `PAY-07/late-may-not-leave` joins its cases, where the liar run is caught by
+`attempt-identity` WriteLanes I6, so liar round-14 stays 126/126. Pending probes count only a catch (the fix round,
+B1). The parts gate plays 77 scripts (the owed ones past seed 6 added). Catch matrices unchanged.
+
+**Keyless rule (orchestrator ruling, 2026-11-14, close review B2).** With no key, `caught` counts any oracle
+violation or any failed case expectation, cited or not: a failed expectation derived from the Spec is a real catch.
+Effect: six core mutants that were NO-ORACLE are now killed by uncited expectations (answers.ts:36 twice, :46, :62,
+:70, lane-moves.ts:359), so their triage rows are dropped (core 66/98); counting only cited expectations would drop
+liar round-14 to 80/126. Their Invariants stay in coverage's owed list.
 
 ## Cut or routed
 
