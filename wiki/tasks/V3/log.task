@@ -414,6 +414,13 @@ note 2026-11-14T10:31:42Z
     continue. Benefit watch: the builder could not run main.ts gates because of the parallel builder's half-wired 
     runner; told to commit imports together.
 note 2026-11-14T10:39:30Z
-    T61 parallel half done (1fa04e5c, 9922d53a, fbbfd89d): verify runs the checkpoint gates in 55 s; crash's three reds named and owed (PAY-22 to T19, DISP-02 and DISP-06 to T54); six pass-only regressions deleted; trace command built. One review after the 16:50 reset covers this and T52 item 2 together. T61's second half follows T52.
+    T61 parallel half done (1fa04e5c, 9922d53a, fbbfd89d): verify runs the checkpoint gates in 55 s; crash's three reds 
+    named and owed (PAY-22 to T19, DISP-02 and DISP-06 to T54); six pass-only regressions deleted; trace command built. 
+    One review after the 16:50 reset covers this and T52 item 2 together. T61's second half follows T52.
 note 2026-11-14T10:42:51Z
-    T52 Q20 done at 48eb6cb4: strict field gate; 254 unnoticed fields each owed to an open Task (T18, T19, T20, T54, T55); gates.json at ebae5e03 all pass except crash (owed). Process watch: shell-written files are a slip in every builder today (five), and one commit swept the parallel builder's hunk; a hook that blocks file writes from Bash would end the first.
+    T52 Q20 done at 48eb6cb4: strict field gate; 254 unnoticed fields each owed to an open Task (T18, T19, T20, T54, 
+    T55); gates.json at ebae5e03 all pass except crash (owed). Process watch: shell-written files are a slip in every 
+    builder today (five), and one commit swept the parallel builder's hunk; a hook that blocks file writes from Bash 
+    would end the first.
+note 2026-11-14T11:23:27Z
+    Review started (orchestrator): combined T52 680c7e2a..5e6d0faf and T61 parallel half, after the 5-hour reset (now 1 percent); one Opus lead with up to eight Haiku, one blind.
