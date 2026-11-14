@@ -301,3 +301,18 @@ note 2026-11-14T06:03:45Z
     Compaction checked (orchestrator): no builder edits lost; T51's unowned inspector-callback gap routed to T55; the 
     stale "uncommitted after 55c7ab7" line in instructions corrected (a fact, not a rule change). No independent second 
     read of the merged comments was run.
+note 2026-11-14T06:34:41Z
+    T52 builder 2 rotated out at 6c8d4a8b after the eight review fixes and the golden flake (V1 holds; 8 intended 
+    reds). Third Opus builder started on resume item 3 (eq takes its cite, 281 sites); re-check review of the fix range 
+    started. Item 2 (refusal cells under Conformance I61) waits on the user, Q1 asked; only that item holds.
+note 2026-11-14T06:35:00Z
+    Decision (user, 2026-11-14): Q1 B. Conformance I61 stays as written; the generator gains an adversarial actor that 
+    draws refused moves, so generated parts reach the 118 refusal cells. Scope: T52 item 2.
+note 2026-11-14T06:49:02Z
+    Review (T52 fix-range re-check) go on, 0 blocking (t52-recheck-2026-11-14.md): D17's pair key excuses WriteLanes 
+    I15 across Attempts in 31 of 52 owed runs, so a new lost ending could pass; sent to the builder first, with three 
+    unlogged sub-items and an unknown-delay gap in Turn I12. Missed by the builder's checks: the owed-row key was 
+    tested on one Attempt only (weak check). Usage sampler now projects the 5-hour window and holds new reviews when it 
+    projects past 100.
+note 2026-11-14T07:17:45Z
+    T52 builder 3 at 0c4ccb3c: expectations cite through c.expect (D18), owed rows keyed by Attempt, zero-case control red; resumed on 2b, item 2, items 4-7. Re-check 2 of a725ad30..0c4ccb3c started (5-hour projection 89, under the hold line). Item 2 as designed: 116 of 118 refusal cells are runtime-made moves, so the adversarial actor forges the refused report in a liar-mode step, judged by the model refusing; within Q1 B.
