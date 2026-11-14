@@ -608,3 +608,5 @@ note 2026-11-14T22:07:10Z
     T54 A2: the belief now models how a start, a reload and an ack close requests, and thin scripts fell from 18 to 2. Regenerating left 160 stale owed items and 31 unowed reds. Told (orchestrator) to commit the fixes, triage reds with the retry-count plant, and re-record once.
 note 2026-11-14T22:12:48Z
     T54 A2 rulings (orchestrator): varied-4 is owed under PARTIAL_FLUSH to T54 (a second path, cleared before close). stress-3 is fixed in A2 (the start re-owns adopted heads, Actors R20), else owed to A3. The 2 thin scripts keep their seeds and are pinned as owed: generator batching is a suite owed item. Why: fix what the step reached, never hide a gap. Reverse: re-rule at the A2 review.
+note 2026-11-14T22:17:20Z
+    Review wake (orchestrator): A2 checkpoints 2247f350 and 303f44b7 are red mid-step, so A2 step review will cover them rather than a separate review now (one review per step). Usage is 51 percent weekly. No process study (the last was under 3 hours ago) and no compaction (16 hours since the last).
