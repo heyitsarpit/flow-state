@@ -1,4 +1,4 @@
-import { Clock, Effect, Option, Result } from "effect";
+import { Clock, Effect, Equal, Formatter, Option, Result } from "effect";
 import { playCase, type Scenario } from "../dsl/case.ts";
 import { captureMsOf } from "../actors/lifetime.scenarios.ts";
 import { playCrash, playRecorded } from "../dsl/play.ts";
@@ -105,7 +105,7 @@ const runSeed = (
  * and the session seed are the case's; nothing else may vary).
  */
 // RETURN_TYPE: an Option of the CaseVerdict union; the Fail literal would infer narrower.
-const replayed = (
+export const replayed = (
   id: string,
   first: ReadonlyArray<Observation>,
   again: ReadonlyArray<Observation>,
@@ -113,7 +113,7 @@ const replayed = (
   const at = Math.max(first.length, again.length);
 
   const differs = Array.from({ length: at }, (_, i) => i).find(
-    (i) => JSON.stringify(first[i]) !== JSON.stringify(again[i]),
+    (i) => !Equal.equals(first[i], again[i]),
   );
 
   return differs === undefined
@@ -122,7 +122,7 @@ const replayed = (
         _tag: "Fail",
         id,
         oracles: [],
-        why: `seed 1 replayed: Turn I17: report ${differs} differs (${JSON.stringify(first[differs]).slice(0, 120)} then ${JSON.stringify(again[differs]).slice(0, 120)}): equal arguments gave unequal results`,
+        why: `seed 1 replayed: Turn I17: report ${differs} differs (${Formatter.format(first[differs]).slice(0, 120)} then ${Formatter.format(again[differs]).slice(0, 120)}): equal arguments gave unequal results`,
         cites: ["Turn I17"],
       });
 };

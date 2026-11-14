@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { Console, Effect, Option } from "effect";
+import { Console, Effect, Option, Schema } from "effect";
 import { readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
@@ -33,6 +33,7 @@ import {
   generatedScenarios,
   generatedScripts,
   isPartScript,
+  RegressionJson,
   regressionFiles,
 } from "../generated.ts";
 import {
@@ -342,7 +343,7 @@ const regressed = (script: Script, steps: ReadonlyArray<Step>, by: string) =>
 
     writeFileSync(
       resolve(dirname(MAIN), "..", "regressions", `${regression.id}.json`),
-      `${JSON.stringify(regression, null, 2)}\n`,
+      `${Schema.encodeSync(RegressionJson)(regression)}\n`,
     );
 
     return regression.id;
@@ -412,7 +413,7 @@ export const regressions = (args: ReadonlyArray<string>) =>
             const [now = "pass"] = failing(verdicts);
 
             if (Option.isNone(by) && record) {
-              writeFileSync(path, `${JSON.stringify({ ...script, by: now }, null, 2)}\n`);
+              writeFileSync(path, `${Schema.encodeSync(RegressionJson)({ ...script, by: now })}\n`);
 
               return `ok   ${script.id}: recorded ${now}`;
             }

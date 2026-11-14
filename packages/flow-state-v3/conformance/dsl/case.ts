@@ -1,4 +1,4 @@
-import { Data, Equal, Option, Result, Schema } from "effect";
+import { Data, Equal, Formatter, Option, Result, Schema } from "effect";
 import { answerLabels, drivenLabels, type Fixture } from "../fixtures/fixture.ts";
 import {
   disposalBoundMs,
@@ -44,7 +44,7 @@ export type Drive = {
   readonly to: Address;
 };
 
-const shown = <A>(value: A) => String(JSON.stringify(value));
+const shown = <A>(value: A) => Formatter.format(value);
 
 /**
  * The scenario DSL one case runs through, fixture-agnostic: steps that settle the world and run
@@ -213,7 +213,7 @@ export const openCase = (options: CaseOptions) => {
     });
 
   const answerTo = (operation: string, fields: Readonly<Record<string, Json>>, given: Answer) =>
-    act(`answer ${operation} ${JSON.stringify(fields)} ${given._tag}`, () => {
+    act(`answer ${operation} ${Formatter.format(fields)} ${given._tag}`, () => {
       const request = held(
         operation,
         Option.fromUndefinedOr(

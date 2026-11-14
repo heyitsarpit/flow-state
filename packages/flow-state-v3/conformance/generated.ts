@@ -266,6 +266,11 @@ const REGRESSIONS = join(dirname(fileURLToPath(import.meta.url)), "regressions")
 const Regression = Schema.Struct({ ...Script.fields, by: Schema.optionalKey(Schema.String) });
 
 /**
+ * A regression file's JSON text, read and written through one codec (two-space indent).
+ */
+export const RegressionJson = Schema.fromJsonString(Regression, { space: 2 });
+
+/**
  * Whether a script is a composite part's (`PART-` or `MIX-`): it plays on production only, through
  * the part player (Conformance R22).
  */
@@ -279,7 +284,7 @@ export const regressionFiles = readdirSync(REGRESSIONS)
   .toSorted()
   .map((f) => {
     const path = join(REGRESSIONS, f);
-    const decoded = Schema.decodeUnknownSync(Regression)(JSON.parse(readFileSync(path, "utf8")));
+    const decoded = Schema.decodeUnknownSync(RegressionJson)(readFileSync(path, "utf8"));
     const { by, ...script } = decoded;
 
     return { path, script, by: Option.fromUndefinedOr(by) };

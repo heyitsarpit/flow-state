@@ -1,4 +1,4 @@
-import { Array as Arr, Option } from "effect";
+import { Array as Arr, Formatter, Option } from "effect";
 import type { Applied, LifeStep } from "../dsl/expect.ts";
 import {
   type LaneId,
@@ -38,7 +38,7 @@ const BOUND: Readonly<Record<Concurrency, number>> = {
 const named = (lane: LaneId) =>
   `${lane.actor.machine}/${lane.actor.id} ${lane.operation}${Option.match(lane.key, {
     onNone: () => "",
-    onSome: (key) => ` ${JSON.stringify(key)}`,
+    onSome: (key) => ` ${Formatter.format(key)}`,
   })}`;
 
 const lanesOf = (model: Model) =>

@@ -1,4 +1,4 @@
-import { Equal, Option, Predicate } from "effect";
+import { Equal, Formatter, Option, Predicate } from "effect";
 import type { Json } from "../port.ts";
 import { coveredBy, type Remainder } from "../coverage.ts";
 import type { StaticCase } from "../dsl/static-case.ts";
@@ -45,7 +45,7 @@ const s1 = (calls: Calls, change: (s: Source) => Source = (s) => s) =>
         compute: (fields) => {
           calls.tick("label");
 
-          return `n=${JSON.stringify(fields["count"])}`;
+          return `n=${Formatter.format(fields["count"])}`;
         },
       }),
       who: MemoryField.Input(),
@@ -138,16 +138,16 @@ const withNumber = (s: Source) => ({
 
 const withSelf = (s: Source) => ({ ...s, states: [...s.states, "self"] });
 
-const functionsIn = (value: Json) => {
-  const found: Array<string> = [];
+// FLOW_STATE_ALLOW_UNKNOWN: a compiled value is walked for the functions its Json type says it cannot hold.
+const functionsIn = (root: unknown) => {
+  const pending = [root];
+  let found = 0;
 
-  JSON.stringify(value, (key, v) => {
-    if (Predicate.isFunction(v)) found.push(key);
+  for (const value of pending)
+    if (Predicate.isFunction(value)) found += 1;
+    else if (Predicate.isObject(value)) pending.push(...Object.values(value));
 
-    return v;
-  });
-
-  return found.length;
+  return found;
 };
 
 /**

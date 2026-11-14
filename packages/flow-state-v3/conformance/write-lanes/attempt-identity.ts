@@ -1,4 +1,4 @@
-import { Option } from "effect";
+import { Formatter, Option } from "effect";
 import { type AttemptRef, attemptText, keyValues, sameAttempt } from "../dsl/domain.ts";
 import { Fact, oracle, reported, violation } from "../dsl/oracle.ts";
 import { operationNamed, type Reference } from "../fixtures/reference.ts";
@@ -113,7 +113,7 @@ const keyAsMinted = (
       return sameJson(minted, sent)
         ? []
         : [
-            `WriteLanes I6: ${attemptText(ref)} was minted on key ${JSON.stringify(minted)} and sent with key ${JSON.stringify(sent)}`,
+            `WriteLanes I6: ${attemptText(ref)} was minted on key ${Formatter.format(minted)} and sent with key ${Formatter.format(sent)}`,
           ];
     });
 

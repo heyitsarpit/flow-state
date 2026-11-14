@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vite-plus/test";
-import { Equal, Predicate } from "effect";
+import { Equal, Formatter, Predicate } from "effect";
 import { cellOf, due } from "./lifecycle.ts";
 import { apply } from "./lifecycle-fold.ts";
 import { type Input, Life, type Model, type Move, Phase } from "./lifecycle-model.ts";
@@ -46,7 +46,7 @@ const holds = (trace: Trace, given: Rules) => {
   const marked = trace.checks.find(Check.$is("Marked"))?.count ?? trace.start.releasing.length;
 
   return (
-    Equal.equals(JSON.stringify(refusals), JSON.stringify(trace.refusals)) &&
+    Equal.equals(refusals, trace.refusals) &&
     Object.keys(phases).length === Object.keys(trace.phases).length &&
     Object.entries(trace.phases).every(([id, phase]) => Equal.equals(phases[id], phase)) &&
     model.obligations.length === trace.owed &&
@@ -214,7 +214,7 @@ describe("The lane lifecycle (Table A, deadlines, promotion)", () => {
                 // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Object.entries widens a record's keys to string
                 !killed(withCell(row as keyof TableA, phase, guard, alternative)),
             )
-            .map((alternative) => `${key(row, phase, guard)} -> ${JSON.stringify(alternative)}`),
+            .map((alternative) => `${key(row, phase, guard)} -> ${Formatter.format(alternative)}`),
         ),
       ),
     );
@@ -345,7 +345,7 @@ describe("The lane lifecycle (Table A, deadlines, promotion)", () => {
 
               return !killed({ ...rules, tableB });
             })
-            .map((alternative) => `${row}/${column}/${guard} -> ${JSON.stringify(alternative)}`),
+            .map((alternative) => `${row}/${column}/${guard} -> ${Formatter.format(alternative)}`),
         ),
       ),
     );
@@ -401,7 +401,7 @@ describe("The lane lifecycle (Table A, deadlines, promotion)", () => {
 
               return !killed({ ...rules, tableC });
             })
-            .map((alternative) => `${row}/${life}/${guard} -> ${JSON.stringify(alternative)}`),
+            .map((alternative) => `${row}/${life}/${guard} -> ${Formatter.format(alternative)}`),
         ),
       ),
     );

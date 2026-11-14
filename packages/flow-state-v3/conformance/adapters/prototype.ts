@@ -166,16 +166,12 @@ const FIXTURES = [
 const actorKey = (actor: ActorRef) =>
   `${actor.machine}/${actor.id.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll("|", "%7C")}`;
 
-const BodyJson = Schema.fromJsonString(Schema.Json);
-
 /**
- * A fixture's request body as the JSON a fetch would send: undefined fields dropped.
+ * A fixture's request body decoded as the JSON a fetch would send; no body is `null`.
  */
-// FLOW_STATE_ALLOW_UNKNOWN: a fixture's request body is its own code's value; it is serialised and decoded here, once.
+// FLOW_STATE_ALLOW_UNKNOWN: a fixture's request body is its own code's value; it is decoded here, once.
 const asJson = (input: unknown) =>
-  Effect.orDie(
-    Schema.decodeUnknownEffect(BodyJson)(JSON.stringify(input === undefined ? null : input)),
-  );
+  Effect.orDie(Schema.decodeUnknownEffect(Schema.Json)(input === undefined ? null : input));
 
 const apiOf = (network: Network, page: Page) => {
   // FLOW_STATE_ALLOW_UNKNOWN: a fixture's request body, decoded by `asJson`.

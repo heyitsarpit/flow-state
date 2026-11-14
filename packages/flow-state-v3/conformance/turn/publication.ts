@@ -1,12 +1,12 @@
 import { Fact, oracle, violation } from "../dsl/oracle.ts";
 import { type Machines, updatesAt } from "../fixtures/handlers.ts";
-import { type ActorRef, Observation } from "../port.ts";
+import { type ActorRef, type Json, Observation, sameJson } from "../port.ts";
 
-type Seen = { readonly memoryId: number; readonly content: string };
+type Seen = { readonly memoryId: number; readonly content: Json };
 
 type State = {
   readonly machines: Machines;
-  readonly contents: ReadonlyMap<number, string>;
+  readonly contents: ReadonlyMap<number, Json>;
   readonly last: ReadonlyMap<string, Seen>;
 };
 
@@ -32,7 +32,7 @@ const judged = (state: State, actor: ActorRef, seen: Seen, updated: boolean) => 
   const last = state.last.get(keyOf(actor));
 
   const mutated =
-    before !== undefined && before !== seen.content
+    before !== undefined && !sameJson(before, seen.content)
       ? [
           `Turn I29: ${name} published memory object #${seen.memoryId} again with other content: a published snapshot was mutated`,
         ]
@@ -41,7 +41,7 @@ const judged = (state: State, actor: ActorRef, seen: Seen, updated: boolean) => 
   const copied =
     !updated &&
     last !== undefined &&
-    last.content === seen.content &&
+    sameJson(last.content, seen.content) &&
     last.memoryId !== seen.memoryId
       ? [
           `Turn I30: ${name} published unchanged memory as a new object (#${last.memoryId} became #${seen.memoryId})`,
@@ -51,7 +51,10 @@ const judged = (state: State, actor: ActorRef, seen: Seen, updated: boolean) => 
   return [...mutated, ...copied];
 };
 
-const onPublished = (state: State, fact: Fact, step: ReadonlyArray<Fact>) => {
+/**
+ * One fact's effect on the publication judge's state, and what it found.
+ */
+export const onPublished = (state: State, fact: Fact, step: ReadonlyArray<Fact>) => {
   if (Fact.$is("Reloaded")(fact))
     return { state: { ...state, contents: new Map(), last: new Map() }, found: [] };
 
@@ -75,7 +78,8 @@ const onPublished = (state: State, fact: Fact, step: ReadonlyArray<Fact>) => {
 
   if (memoryId === 0) return { state, found: [] };
 
-  const seen = { memoryId, content: JSON.stringify(memory) };
+  // A copy, so a later write into the published object shows as other content.
+  const seen = { memoryId, content: structuredClone(memory) };
 
   return {
     state: {

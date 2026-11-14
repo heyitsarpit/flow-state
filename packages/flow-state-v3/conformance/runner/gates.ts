@@ -53,6 +53,8 @@ const GatesFile = Schema.Struct({
   ),
 });
 
+const GatesJson = Schema.fromJsonString(GatesFile, { space: 2 });
+
 /**
  * Every machine gate the gate file records, in run order: its name, the runner's arguments, and
  * the entry when it is not the runner.
@@ -141,7 +143,7 @@ export const writeGates = (
 
     const before =
       Option.isSome(chosen) && existsSync(path)
-        ? Schema.decodeUnknownSync(GatesFile)(JSON.parse(readFileSync(path, "utf8")))
+        ? Schema.decodeUnknownSync(GatesJson)(readFileSync(path, "utf8"))
         : { gates: [] };
 
     const kept = before.gates.map((k) => ({
@@ -154,7 +156,7 @@ export const writeGates = (
       (g) => fresh.find((f) => f.gate === g.gate) ?? kept.find((k) => k.gate === g.gate) ?? [],
     );
 
-    writeFileSync(path, `${JSON.stringify({ gates: results }, null, 2)}\n`);
+    writeFileSync(path, `${Schema.encodeSync(GatesJson)({ gates: results })}\n`);
 
     for (const r of results) yield* Console.log(`${r.gate} (${r.revision}): ${r.verdict}`);
   });

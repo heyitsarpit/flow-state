@@ -1,8 +1,8 @@
-import { Option } from "effect";
+import { Formatter, Option } from "effect";
 import { Fact, oracle, violation } from "../dsl/oracle.ts";
-import { type ActorRef, Observation } from "../port.ts";
+import { type ActorRef, type Json, Observation, sameJson } from "../port.ts";
 
-type Seen = { readonly state: string; readonly content: string };
+type Seen = { readonly state: string; readonly memory: Json };
 
 type State = { readonly published: ReadonlyMap<string, Seen> };
 
@@ -99,7 +99,7 @@ const workBetween = (step: ReadonlyArray<Fact>, r: Refusal) =>
 // RETURN_TYPE: an Option of Seen; the branches infer Some and None apart.
 const seenOf = (o: Observation): Option.Option<Seen> =>
   Observation.$is("Published")(o)
-    ? Option.some({ state: o.state, content: `${o.state} ${JSON.stringify(o.memory)}` })
+    ? Option.some({ state: o.state, memory: structuredClone(o.memory) })
     : Option.none();
 
 const reportsIn = (step: ReadonlyArray<Fact>) =>
@@ -140,7 +140,10 @@ const movedAfter = (state: State, step: ReadonlyArray<Fact>, r: Refusal) => {
   });
 };
 
-const changed = (state: State, step: ReadonlyArray<Fact>, r: Refusal) => {
+/**
+ * What an actor published in a step where it ran nothing, when it differs from its last publication.
+ */
+export const changed = (state: State, step: ReadonlyArray<Fact>, r: Refusal) => {
   const reports = reportsIn(step);
   const name = keyOf(r.actor);
 
@@ -167,15 +170,18 @@ const changed = (state: State, step: ReadonlyArray<Fact>, r: Refusal) => {
   return reports
     .filter((o) => Observation.$is("Published")(o) && keyOf(o.actor) === name)
     .flatMap((o) => Option.toArray(seenOf(o)))
-    .filter((seen) => seen.content !== before.content)
+    .filter((seen) => seen.state !== before.state || !sameJson(seen.memory, before.memory))
     .map(
       (seen) =>
-        `${r.rule}: ${name} published another state or memory (${seen.content}) in a step whose one turn of it, a ${r.what}, was refused`,
+        `${r.rule}: ${name} published another state or memory (${seen.state} ${Formatter.format(seen.memory)}) in a step whose one turn of it, a ${r.what}, was refused`,
     );
 };
 
+/**
+ * The judge's state after a step: each actor's last publication.
+ */
 // RETURN_TYPE: the oracle's State contract; the reload branch's empty Map infers never.
-const published = (state: State, step: ReadonlyArray<Fact>): State =>
+export const published = (state: State, step: ReadonlyArray<Fact>): State =>
   step.reduce<State>((acc, fact) => {
     if (Fact.$is("Reloaded")(fact)) return { published: new Map() };
 

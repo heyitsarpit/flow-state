@@ -4,7 +4,7 @@ import { cpSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "vite-plus/test";
-import { Option } from "effect";
+import { Formatter, Option } from "effect";
 import { handlersFor, referenceFor, rowsFor } from "../fixtures/fixture.ts";
 import type { Folded } from "../fixtures/folds.ts";
 import { FRESH, keyOf } from "../turn/anchor.ts";
@@ -539,7 +539,7 @@ const examples: ReadonlyArray<Example> = [
         { event: "VoidUnsure", from: "CARD", to: "LEFT" },
         { event: "IntentRead", from: "LEFT", to: "LEFT" },
       ])
-        assert.ok(refusedWith(releasing(other)).includes(wl(12)), JSON.stringify(other));
+        assert.ok(refusedWith(releasing(other)).includes(wl(12)), Formatter.format(other));
     },
   },
   {

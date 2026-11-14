@@ -1,4 +1,4 @@
-import { Equal } from "effect";
+import { Equal, Formatter } from "effect";
 import type { Surface } from "../surface.ts";
 import { Mismatch } from "./oracle.ts";
 import type { InvariantId } from "./facts.ts";
@@ -36,7 +36,7 @@ export type StaticCase = {
   readonly run: (surface: Surface, expect: Expect) => void;
 };
 
-const shown = <A>(value: A) => String(JSON.stringify(value));
+const shown = <A>(value: A) => Formatter.format(value);
 
 /**
  * The {@link Expect} every static case runs with: a failure is a `Mismatch` whose label starts
