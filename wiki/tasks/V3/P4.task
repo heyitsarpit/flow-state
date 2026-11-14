@@ -1579,6 +1579,13 @@ tasks
             baseline (bench/cost.ts) and coverage counting production mutants; each check shown red on a plant. Owed 
             items by step are in the build log's 'A0 status'. No core change. Edit (agent: T54 building lead, 
             @task.V3.T54, 2026-11-14): this comment. Why: step A0's close. Reverse: the commit that adds it.
+        comment     2026-11-14T18:31:27Z
+            A0 review: proceed to A1. No blocking finding: F1 and F2 are real, all nine owed cases are red for their 
+            logged reason, the baseline catches two reload plants at the crash points, and the A-4 and A-5 plants turn 
+            their cases red. A1's first commit takes N1 to N3 (pin owed reasons, check allowed entries, write the 
+            plants as mutants): code:wiki/plans/flow/references/proposals/t54-a0-review-2026-11-14.md. Edit (agent: T54 
+            A0 reviewing lead, @task.V3.T54, 2026-11-14): this comment. Why: step A0's review. Reverse: the commit that 
+            adds it.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      draft
