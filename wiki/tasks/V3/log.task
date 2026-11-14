@@ -553,4 +553,10 @@ note 2026-11-14T19:11:23Z
     pending case owed to T19. Process watch: the gates broke silently because the full gates were not run after the 
     Attempt-id commit.
 note 2026-11-14T19:48:32Z
-    T54 A1 near done at 22af36b9: 18 of 19 gates green; core mutants 78/111 killed (66/98 at start); the ledger unit test found a stale-mail bug, fixed. Ruled (orchestrator): the pair BootSettles Restoring then Gone, reached only through the bug A-2 fixed, becomes an owed pair for T20 rather than being dropped (dropping would relax a gate); the core-mutant limit rises to 120 so no candidate is skipped.
+    T54 A1 near done at 22af36b9: 18 of 19 gates green; core mutants 78/111 killed (66/98 at start); the ledger unit 
+    test found a stale-mail bug, fixed. Ruled (orchestrator): the pair BootSettles Restoring then Gone, reached only 
+    through the bug A-2 fixed, becomes an owed pair for T20 rather than being dropped (dropping would relax a gate); 
+    the core-mutant limit rises to 120 so no candidate is skipped.
+note 2026-11-14T19:49:04Z
+    Decision (user, 2026-11-15): "limits raised to 75%, i'm going to sleep, take care of it the whole thing". Limits 
+    edited; the run continues unattended under the Epic's rules.

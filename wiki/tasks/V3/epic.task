@@ -153,7 +153,7 @@ description
     No budget of iterations, time or usage, for the Epic, a phase or a Task (the user, 2026-11-10):
     the reviews and each phase's exit criteria judge progress. Failure limit (the default for each
     phase): 2 failures with the same root cause after convergence. Usage reserve: the run stops at
-    60 percent weekly usage, all models (the user, 2026-11-14; was 35); at the reserve the lead finishes its step,
+    75 percent weekly usage, all models (the user, 2026-11-15; was 60); at the reserve the lead finishes its step,
     commits and leaves a resume note (the user, 2026-11-14, Q3 A). Usage limits and reserves always mean
     the weekly window, never the 5-hour one; read it from the harness's usage view (in the Claude
     desktop app, its usage tool; otherwise ask the user). The user changes the reserve as planned
