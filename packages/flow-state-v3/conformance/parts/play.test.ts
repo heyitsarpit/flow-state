@@ -79,6 +79,45 @@ describe("part scripts on production (Q9, Q10, Q15, Q17: Conformance R15, R19, R
     assert.equal(played.verdict._tag, "Pass", Formatter.format(played.verdict));
   });
 
+  it("a boot whose capture never landed leaves the record where the last landed batch put it", () => {
+    const pay = { _tag: "send", event: "PayRequested", payload: { paymentMethodId: "visa" } };
+    const reload = { _tag: "reload" } as const;
+
+    const script: Script = {
+      id: "kill-unlanded-captures-12",
+      fixture: "pay",
+      actor: "shopper-1",
+      steps: [
+        { _tag: "ensure" },
+        { ...pay, _tag: "send" },
+        { _tag: "ack" },
+        {
+          _tag: "answer",
+          operation: "pay",
+          answer: { _tag: "ok", value: { status: "requires_capture", clientSecret: "cs" } },
+        },
+        { _tag: "ack" },
+        reload,
+        { _tag: "ack" },
+        { ...pay, _tag: "send" },
+        { _tag: "ack" },
+        reload,
+        reload,
+        reload,
+        reload,
+        reload,
+      ],
+    };
+
+    const played = playPart(script, "production");
+
+    assert.equal(played.verdict._tag, "Pass", Formatter.format(played.verdict));
+    assert.equal(
+      played.facts.filter((f) => Fact.$is("Stepped")(f) && f.what === "reload").length,
+      6,
+    );
+  });
+
   it("refuses a part on round-14", () => {
     assert.ok(parts.length > 0);
     const played = playPart(scriptOf(parts[0]!, "usual", 1, production), "round-14");

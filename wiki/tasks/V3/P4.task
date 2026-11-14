@@ -1247,6 +1247,13 @@ tasks
             rows and the resume list are in code:wiki/plans/flow/references/proposals/t52-build-log-2026-11-14.md.
             Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment. Why: hand-off rule. Reverse: 
             revert this commit.
+        comment     2026-11-14T05:45:22Z
+            Resume 1 done: pay-stress-12 was the suite's (a second kill read a lost turn's leaf as stored; fixed with 
+            red checks); cells-stress-1, -8, -9, pay-stress-12 and transfers-stress-7, -9, -10 are T19's retry count, 
+            cells-stress-11 T54's unbound restore. Falsify 154/154 and 18/18, matrices unchanged. Detail: 
+            code:wiki/plans/flow/references/proposals/t52-build-log-2026-11-14.md.
+              Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment. Why: step-done rule. Reverse: 
+              revert this commit.
     T59
         title       The suite reads and imports nothing outside the package
         status      draft

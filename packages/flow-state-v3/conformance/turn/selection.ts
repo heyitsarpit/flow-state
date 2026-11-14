@@ -27,6 +27,7 @@ import {
   routeOf,
   sent,
   type State,
+  storedAfter,
   withActor,
   withoutOne,
 } from "./anchor.ts";
@@ -151,6 +152,7 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
       turns: now.turns + 1,
       fields,
       trail: [...now.trail, Option.getOrElse(judged.to, () => UNKNOWN_LEAF)],
+      stored: storedAfter(now, judged.from),
       allowed: [],
     }),
     turn.actor,

@@ -35,12 +35,12 @@ export type Played = {
 const fixtures = parts.map(partFixture);
 
 /**
- * Why production fails a second re-send across a reload: a re-send's retryCount is never
- * re-captured, so a boot restores the count from before it and a spent `retryable({ times: 1 })`
+ * Why production re-sends past its budget across a reload: a re-send's retryCount is never
+ * re-captured, so a boot restores the count from before it and a spent `retryable({ times })`
  * passes again (WriteAhead R13, WriteLanes I7).
  */
 export const RETRY_COUNT =
-  "a re-send's retryCount is never re-captured (`invoke` sets the lane, `persist` is not called), so a boot restores the count from before the re-send and a spent `retryable({ times: 1 })` passes again (WriteAhead R13, WriteLanes I7)";
+  "a re-send's retryCount is never re-captured (`invoke` sets the lane, `persist` is not called), so a boot restores the count from before the re-send and a spent `retryable({ times })` passes again (WriteAhead R13, WriteLanes I7)";
 
 /**
  * Production's bug behind a disposed identity's Held head at a boot: the boot restores and parks
@@ -58,10 +58,17 @@ export const UNBOUND_RESTORE =
 export const partsOwed: ReadonlyArray<Limit & { readonly owner: string }> = [
   ...[
     "PART-transfers-stress-3",
+    "PART-transfers-stress-7",
+    "PART-transfers-stress-9",
+    "PART-transfers-stress-10",
     "PART-transfers-stress-101",
     "PART-transfers-stress-104",
     "PART-transfers-stress-111",
     "MIX-sync+transfers+sign-in-stress-101",
+    "PART-pay-stress-12",
+    "PART-cells-stress-1",
+    "PART-cells-stress-8",
+    "PART-cells-stress-9",
   ].map((id) => ({
     case: id,
     check: "lane-queue",
@@ -73,7 +80,7 @@ export const partsOwed: ReadonlyArray<Limit & { readonly owner: string }> = [
     ...[
       1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 101, 102, 104, 105, 106, 107, 108, 109, 110, 111, 112,
     ].map((s) => `PART-pay-stress-${s}`),
-    ...[2, 3, 4, 6, 7, 10, 12, 101, 102, 104, 105, 106, 107, 108, 109, 110, 111].map(
+    ...[2, 3, 4, 6, 7, 10, 11, 12, 101, 102, 104, 105, 106, 107, 108, 109, 110, 111].map(
       (s) => `PART-cells-stress-${s}`,
     ),
   ].map((id) => ({

@@ -24,6 +24,7 @@ export type Actor = {
   readonly turns: number;
   readonly fields: Option.Option<Folded>;
   readonly saved: Kept;
+  readonly stored: ReadonlyArray<string>;
   readonly pending: Option.Option<Kept>;
   readonly trail: ReadonlyArray<string>;
   readonly allowed: ReadonlyArray<string>;
@@ -100,6 +101,7 @@ export const FRESH: Actor = {
   turns: 0,
   fields: Option.none(),
   saved: { turns: 0, fields: Option.none() },
+  stored: [],
   pending: Option.none(),
   trail: [],
   allowed: [],
@@ -423,10 +425,16 @@ export const wrote = (state: State, least: State, purpose: Purpose) => ({
 
       return [
         key,
-        purpose === "flush" ? { ...a, saved: kept } : { ...a, pending: Option.some(kept) },
+        purpose === "flush" ? savedAs(a, kept) : { ...a, pending: Option.some(kept) },
       ] as const;
     }),
   ),
+});
+
+const savedAs = (a: Actor, kept: Kept) => ({
+  ...a,
+  saved: kept,
+  stored: kept.turns > a.saved.turns ? [] : a.stored,
 });
 
 /**
@@ -434,10 +442,9 @@ export const wrote = (state: State, least: State, purpose: Purpose) => ({
  */
 export const landed = (state: State) =>
   eachActor(state, (a) => ({
-    ...a,
-    saved: Option.match(a.pending, {
-      onNone: () => a.saved,
-      onSome: (kept) => (kept.turns >= a.saved.turns ? kept : a.saved),
+    ...Option.match(a.pending, {
+      onNone: () => a,
+      onSome: (kept) => (kept.turns >= a.saved.turns ? savedAs(a, kept) : a),
     }),
     pending: Option.none(),
   }));
@@ -449,21 +456,25 @@ export const dropped = (state: State) =>
   eachActor(state, (a) => ({ ...a, pending: Option.none() }));
 
 /**
- * A kill and reload: an actor with turns the landed batch may not hold resumes at one of the leaves
- * those turns reached, from the one the batch surely holds (`allowed`, design section 3; WriteAhead
- * R10, I10), with the fields that batch holds; any other keeps its stored leaf.
+ * The leaves an actor's record may hold once a turn ran from `from`: the first turn after a kill
+ * shows the leaf the record was restored at, while no batch has landed since; a use of a disposed
+ * actor shows nothing of the record (its removal may not have landed).
  */
+export const storedAfter = (a: Actor, from: string) =>
+  a.allowed.length > 0 && !a.removed && a.saved.turns === a.turns ? [from] : a.stored;
+
 /**
- * The leaves an actor's record may hold: the one its saved turns reached, each its later turns
- * reached, and its initial leaf when its removal may have landed. A turn whose leaf the table
- * could not tell (`UNKNOWN_LEAF` in `trail`) leaves nothing to check: empty, and the next turn's
- * `from` is the report's, a stated limit.
+ * The leaves an actor's record may hold: the one its saved turns reached (or, after a kill that
+ * left it uncertain, each it may have been restored at: `stored`), each its later turns reached,
+ * and its initial leaf when its removal may have landed. A turn whose leaf the table could not
+ * tell (`UNKNOWN_LEAF` in `trail`) leaves nothing to check: empty, and the next turn's `from` is
+ * the report's, a stated limit.
  */
 const reachedOf = (state: State, key: string, a: Actor, removed: boolean) => {
   const initial = state.machines[key.split(" ")[0] ?? ""]?.initial;
-  const at = a.saved.turns === 0 ? initial : a.trail[a.saved.turns - 1];
+  const at = a.saved.turns === 0 ? [initial] : [a.trail[a.saved.turns - 1]];
   const fresh = removed ? initial : undefined;
-  const leaves = [at, ...a.trail.slice(a.saved.turns), fresh];
+  const leaves = [...(a.stored.length > 0 ? a.stored : at), ...a.trail.slice(a.saved.turns), fresh];
 
   return leaves.includes(UNKNOWN_LEAF)
     ? []
@@ -502,7 +513,10 @@ const local = (state: State, actor: string) =>
   state.machines[actor.split(" ")[0] ?? ""]?.persist === false;
 
 /**
- * A kill and reload (see {@link reachedOf}). A local actor (its machine not persisted) is gone with
+ * A kill and reload: an actor with turns the landed batch may not hold resumes at one of the leaves
+ * its record may hold ({@link reachedOf}; `allowed`, design section 3; WriteAhead R10, I10), with
+ * the fields that batch holds, and so does one whose record a kill already left uncertain and no
+ * turn has run since; any other keeps its stored leaf. A local actor (its machine not persisted) is gone with
  * the page: its next ensure starts it fresh, and its calls go with it (WriteAhead R5: a local
  * identity's lanes never persist).
  */
@@ -520,6 +534,8 @@ export const reloaded = (state: State) => ({
 
       const lost = a.turns > a.saved.turns;
       const reached = reachedOf(state, key, a, a.removed);
+      const uncertain = reached.length > 0 ? reached : [UNKNOWN_LEAF];
+      const stored = lost || a.removed ? uncertain : a.stored;
 
       return [
         [
@@ -534,8 +550,9 @@ export const reloaded = (state: State) => ({
             entry: a.entry + 1,
             fields: a.saved.fields,
             saved: { turns: a.turns, fields: a.saved.fields },
+            stored,
             pending: Option.none(),
-            allowed: lost || a.removed ? reached : [],
+            allowed: stored.includes(UNKNOWN_LEAF) ? [] : stored,
             removed: false,
             uses: 0,
             freeFor: 0,
