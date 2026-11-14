@@ -637,3 +637,5 @@ note 2026-11-14T22:17:20Z
     Review wake (orchestrator): A2 checkpoints 2247f350 and 303f44b7 are red mid-step, so A2 step review will cover 
     them rather than a separate review now (one review per step). Usage is 51 percent weekly. No process study (the 
     last was under 3 hours ago) and no compaction (16 hours since the last).
+note 2026-11-14T22:50:26Z
+    T54 A2 done (55b0c3b5), all 18 gates green; owed rows re-recorded into owed-varied.ts, baseline reset; adopted-head routing (stress-3, varied-8) owed to A3. A2 step review started (Opus medium, Haiku sidecars, one blind); A3 waits on it. Flagged to the review: thin-script owner T18 versus a suite Task, and 6 fields plus 1 adversary assertion lost.
