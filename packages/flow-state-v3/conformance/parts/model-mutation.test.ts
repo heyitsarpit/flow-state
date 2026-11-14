@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { Option } from "effect";
 import { describe, it } from "vite-plus/test";
+import type { TaskRef } from "../coverage.ts";
 import { rules } from "../dsl/lifecycle-rules.ts";
 import type { Script } from "../dsl/script.ts";
 import { cellName, cellsOf, pairsIn, recording, successorPairs, undistinguished } from "./cells.ts";
@@ -58,6 +59,31 @@ describe("model mutation (Q16: Conformance R19, I61, T39)", () => {
     assert.deepEqual(fieldGate([{ ...first, oracle: "none", noticed: false }, ...rest]), [
       `BAD  model field ${first.field}: no part's expected trace changes under its mutation`,
     ]);
+  });
+
+  it("the field gate fails an owed row on a noticed field, on no field, or of a Task not open", () => {
+    const all = modelFields().map((field) => ({ field, oracle: "lane-queue", noticed: true }));
+    const [first, second, ...rest] = all;
+    assert.ok(first !== undefined && second !== undefined);
+
+    const open = new Set<TaskRef>(["@task.V3.T18"]);
+
+    const row = (subject: string, task: TaskRef = "@task.V3.T18") => ({
+      subject,
+      clause: Option.none<string>(),
+      task,
+      why: "w",
+    });
+
+    const unnoticed = [{ ...first, oracle: "none", noticed: false }, second, ...rest];
+
+    assert.deepEqual(fieldGate(unnoticed, rules, [row(first.field)], open), []);
+    assert.equal(
+      fieldGate(unnoticed, rules, [row(first.field), row(second.field)], open).length,
+      1,
+    );
+    assert.equal(fieldGate(unnoticed, rules, [row(first.field), row("tableZ.x")], open).length, 1);
+    assert.equal(fieldGate(unnoticed, rules, [row(first.field, "@task.V3.T47")], open).length, 1);
   });
 
   it("the field gate over no part script fails every field", () => {

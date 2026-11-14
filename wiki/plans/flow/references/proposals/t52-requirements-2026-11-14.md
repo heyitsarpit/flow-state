@@ -1,6 +1,6 @@
 # T52 requirements: Pay and Cells generated, hand traces thinned (2026-11-14)
 
-**Bottom line:** 30 requirements (Q1 to Q30), each written as a check that is red at the commit that adds it,
+**Bottom line:** 34 requirements (Q1 to Q34), each written as a check that is red at the commit that adds it,
 each naming the wrong build that must keep it red. Every acceptance item, Approach item, gap and comment of
 @task.V3.T52, and every item routed to it, maps to one of them (table at the end). Four read-only Haiku sidecars
 gathered them (Specs and Plans, code and prior art, open findings, adversary); their items are logged at the end.
@@ -16,7 +16,8 @@ code:wiki/plans/flow/references/proposals/t47-close-review-2026-11-14.md (R4, R6
   folds from `Compiled`; `parts/reference.test.ts` compares only machine, states, five operation fields, handler
   targets, state and idle guards, `updates`, and rows. Schedules, `persist`, `releasesOnLeave` (hard-coded `[]`),
   `opaque`, `index`, event names and `classify` are not compared, and `referenceOf` carries no `classify`.
-- Pay and Cells share the machine id `Checkout/Pay`; a case listing both gets Cells' table for it.
+- Pay and Cells share the machine id `Checkout/Pay`; a case listing both gets Cells' table for it, and an app mix
+  over every part would hold both (Compile I14: machine ids are injective in an App).
 - `machines/pay.ts:3` imports `src/machine.ts` (`MachineBody`), which the `fixtures/` layout check refuses.
 - The 14 `STEP_MUTANTS` (`dsl/lifecycle-step.test.ts`) edit model code (`lifecycle-owed.ts`, `compare.ts`), not a
   field of `rules`; cell mutation (`parts/model-mutation.ts`) cannot reach them. Mutants 5 to 8 need a non-empty
@@ -25,7 +26,7 @@ code:wiki/plans/flow/references/proposals/t47-close-review-2026-11-14.md (R4, R6
 - `lifecycle.test.ts` requires every other outcome of every cell, deadline and promotion rule to be killed by a
   trace; a trace can go only where its kills are made elsewhere.
 - T45 is done (its search: `generated.ts`, exhaustive and seeded runs over hand fixtures); liar round-14 is
-  126/126, so no liar green is owed.
+  126/126 with 9 fixture gaps left out (`suite.ts` `fixtureGaps`, cap 9), each still naming T47 as owner.
 
 ## Decisions (agent)
 
@@ -40,18 +41,45 @@ code:wiki/plans/flow/references/proposals/t47-close-review-2026-11-14.md (R4, R6
   `not-yet.ts`, the remainders and `Feature.owed`.
 - **D3 Step mutants.** The 14 hand step mutants stay as a list until each is shown killed; each is judged by the
   search (generated scripts replayed through the mutated model) first, then by a kept example, and the killer is
-  recorded. Why: no cell of `rules` holds them, so "gives way to cell mutation" cannot mean a one-to-one cell.
+  recorded. A kept example of `lifecycle-step.test.ts` counts as a kept trace: it is a hand model trace of one
+  step. Mutants 5 to 8 need a non-empty `releasesOnLeave`, which no real machine has, so they die only by kept
+  examples. Why: no cell of `rules` holds them, so "gives way to cell mutation" cannot mean a one-to-one cell.
   Reverse: judge by examples only.
 - **D4 Trace thinning.** A trace is deleted when every model mutant it kills is killed by a kept trace or by the
   search; a kept trace either kills a mutant nothing else kills or names the ruling it documents. Why: it keeps
-  `lifecycle.test.ts`'s kills (no lost catch at the model). Reverse: restore the traces from git.
+  `lifecycle.test.ts`'s kills (no lost catch at the model). R15's "apart from those that record a ruling" loses
+  those catches, so R15 is edited, with a spec-log line, in the step that thins the traces (Spec-contradiction
+  rule: the reading that loses no ending). Reverse: restore the traces from git and R15's sentence.
 - **D5 Strict field gate.** A model field the search does not notice fails the gate unless an owed row names it
-  with an open Task (routed-gap rule); a noticed field with an owed row fails too. Why: I61 and T39 as edited
-  2026-11-14; deleting 291 fields (R19's alternative) would cut the model's tables. Reverse: `fieldGate` as at
-  73227314.
+  with an open Task (routed-gap rule); a noticed field with an owed row, an owed row naming no field and an owed
+  row whose Task is not open fail too. Each unnoticed field is owed, by group, to the open Task whose scope adds
+  the part or production feature that reaches its cell: the lane-policy rows to @task.V3.T18, write-ahead and
+  storage-refusal rows to @task.V3.T19, restore and boot rows to @task.V3.T20, the ledger's lives (Kept, Maybe,
+  Parked, Delivering) to @task.V3.T54, and Runtime disposal rows to @task.V3.T55; the step lists every group. A
+  Task cannot close while a row names it (Q34). Why: I61 and T39 as edited 2026-11-14; deleting 291 fields (R19's
+  alternative) would cut the model's tables. I61 is not edited. Reverse: `fieldGate` as at 73227314.
 - **D6 Folds.** Derived folds replace hand folds without a pointwise comparison; V1 (no lost catch on both
-  runtimes) judges them. Why: folds are functions; the derived ones run the machine's own closures (F3).
-  Reverse: compare folds over a label grid.
+  runtimes) judges them. Why: folds are functions; the derived ones run the machine's own closures (F3), and
+  the hand `clientSecret` fold is wrong (the contract maps a missing secret to `""`, `pay.contracts.ts`
+  `confirmed`). Reverse: compare folds over a label grid.
+- **D7 One machine id per App.** Cells keeps Pay's id, since round-14 boots both as `Checkout/Pay`; an app mix
+  holds at most one part per machine id (Cells stays out of the mix), and `referenceFor`, `handlersFor` and
+  `rowsFor` refuse two fixtures with one machine id as a defect. Why: Compile I14; a second id would break the
+  frozen Cells cases on round-14. Reverse: give Cells its own id and its own round-14 fixture.
+- **D8 The golden is a vitest check.** It compares two suite-owned values and runs no implementation, so it is not
+  a static case under R14 (no null, no mutant); its content is pinned by a hash (Q32). Reverse: make it a
+  static case with a null surface and a mutant.
+- **D9 The nine liar fixture gaps.** They are round-14 mutants whose fixtures' `No`, `Unsure` and `NotSent`
+  handlers change nothing a world read sees; parts run on production only (R22), so no part of T52 reaches them.
+  They move to @task.V3.T53, which retires round-14 only once each Invariant they prove is proved on production
+  (R22). Why: T47 is done, and T52's parts cannot reach a round-14 mutant. Reverse: name T52 and add a hand
+  fixture whose handlers change the leaf.
+- **D10 Liar's own baseline.** Liar as a mode of one mutation gate with no baseline of its own (consult B9) goes
+  to @task.V3.T53 with round-14's liar run; production's liar is already falsify's mode. Reverse: build it here.
+- **D11 Retired `cancelAll` (orchestrator ruling, 2026-11-14).** LANE-03, 04, 05 and 10 stay frozen, on round-14
+  only, out of production's counts, and cite WriteLanes R15 and I21 as retired, by name; the model's CancelAll
+  column and its `wl(21)` refusals cite them the same way. T53 deletes them with round-14. No catch is lost and
+  nothing claims a live rule. Reverse: delete them now (a V1 exception for the user).
 
 ## Requirements
 
@@ -79,9 +107,11 @@ Each: rule; source; check (red today); the wrong build that keeps it red.
   Source: acceptance 2. Check: commit order (evidence in the step comment).
 - **Q6 One frozen golden.** Pay's and Cells' hand rows and handler tables live in one golden module read only by
   Q4's test; no scenario, oracle, runner or adapter imports it. Source: acceptance 1, Approach 4. Check: an import
-  walk in `parts/golden.test.ts`. Wrong build: a scenario still typed by the hand `Pay`.
-- **Q7 Derived for every runtime.** Every case and generated run names Pay and Cells by their parts' fixtures,
-  on round-14 and production. Source: Approach 3, D1. Check: the import walk of Q6 plus `scenarioOf` resolving
+  walk in `parts/golden.test.ts`. Wrong build: a scenario still typed by the hand `Pay`. `PRODUCTION_ONLY` moves
+  with the golden.
+- **Q7 Derived for every runtime.** Every hand case and every hand-fixture generated run (`GEN-pay-*`,
+  `GEN-cells-*`) names Pay and Cells by their parts' fixtures, on round-14 and production; `PART-pay-*` runs on
+  production only (D1). Source: Approach 3, D1. Check: the import walk of Q6 plus `scenarioOf` resolving
   `pay` to `partFixture(pay)`. Wrong build: `generated.ts` keeping `[Pay, Cells]` from the hand module.
 - **Q8 Fixture registry.** `fixture.ts` resolves every fixture the suite boots by name from one registry (parts
   and hand labs); adapters and players read it, and an unknown name fails. Source: Approach 5. Check:
@@ -117,9 +147,12 @@ Each: rule; source; check (red today); the wrong build that keeps it red.
   Approach 10, phase-out step 6. Check: the catch sweep against the kept set. Wrong build: a case deleted whose
   catch is unique.
 - **Q19 Case-only files stay.** The five scenario files with case-only rows keep their cases. Source: gap.
-  Check: `parts/frozen.test.ts` (existing). Wrong build: a schedules case deleted.
+  Check: `parts/frozen.test.ts` lists the case ids of the five files (schedules, lane-keys, payment-retry, parts,
+  refusal) and fails when one is missing from `scenarios`. Wrong build: a schedules case deleted.
 - **Q20 Strict field gate (R4, D5).** Source: I61, T39, close review R4. Check: `fieldGate` fails an unnoticed
-  field with no owed row and a noticed field with one. Wrong build: `fieldGate(modelMutants([]))` passing.
+  field with no owed row, a noticed field with one, an owed row naming no field and an owed row whose Task is
+  not open; every group of D5 names its open Task. Wrong build: `fieldGate(modelMutants([]))` passing; 291 rows
+  owed to one vague Task.
 - **Q21 Owed rows match something (R6).** A part owed row, a production regression row, a core-mutant triage row
   or a pair owner that names no run, mutant or unreached interacting pair is a fault, and zero runs fail. Source:
   close review R6. Check: `parts/pending.test.ts` items moved to required. Wrong build: a ghost row passing.
@@ -127,31 +160,61 @@ Each: rule; source; check (red today); the wrong build that keeps it red.
   the results; a mutate run over zero mutants fails. Source: close review R7. Check: `core-triage` tests. Wrong
   build: `pass 0/0`.
 - **Q23 Owed cases by id (R11).** An owed `case` row is held only when the verdict's id is the row's case and its
-  structured cites, set from the expectation's own cites, name the row's Invariant; TURN-01 cites Turn I14.
-  Source: close review R11. Check: `limits.test.ts`. Wrong build: another case's verdict holding the row.
-- **Q24 Kept-row restore (Fable).** A boot owes no restore to a Held head whose ending is a Kept row. Source:
-  Restore I6, R3; ruling 2. Check: the pending trace moves to the traces and holds.
-- **Q25 Member order in one turn (Fable).** Cancel then commit on a Held lane, and a same-turn cancel's owed
-  release, follow WriteLanes I10 and T17. Source: ruling 2; WriteLanes I10. Check: a trace with both readings,
-  the losing one deleted by a spec-log line. Cases reality cannot show: production writes `reject` only.
+  structured cites, set from the failing expectation's own declared cites (never parsed from its label), name the
+  row's Invariant; TURN-01's case cites Turn I14 and its failing expectation declares it. Source: close review
+  R11. Check: `parts/owed.test.ts`; the expectation-cites half goes red in its own step (an expectation API
+  change). Wrong build: another case's verdict holding the row; a label prefix holding it.
+- **Q24 Owed-row restore (Fable, widened).** A boot owes no restore to a Held head whose Attempt has any owed row
+  (Kept, Refused, Owed outside disposal, Delivering, Parked): its next incarnation is delivered that row, never
+  also unknown { Restored }. Source: Restore I6, R3; ruling 2; Fable's widening. Check: pending traces for a Kept
+  and a Refused row move to the traces and hold. Wrong build: a fix that exempts Kept only.
+- **Q25 Member order in one turn (Fable, widened).** One turn listing cancel then commit on a Held, Recapturing or
+  Resending lane: the cancel releases the head at once (evidence Released) and promotes, so the commit meets Idle
+  and mints; retry then cancel releases the re-send. Source: ruling 2; WriteLanes I10, T17, T20, the cancel cell.
+  Check: traces per head phase; Table B's `Held·Cancel` and `Resending·Cancel` cells change from `AwaitRelease`.
+  If production disagrees afterwards, the red goes to production's owner. Cases reality cannot show: production
+  writes `reject` only.
 - **Q26 Maybe life exact (Fable).** A row's fate in the step whose batch landed is the exact fate, not a bound;
   WriteAhead I21 and I22 leave the owed list. Source: WriteAhead I21, I22; ruling 2. Check: traces for a lost
   and a doubled delivery refused.
-- **Q27 Conformance contradictions.** Q13 cites no Reads I18; Q14 counts Codec 7; no case or oracle judges or
-  cites retired WriteLanes I21 or R15; ending-delivery's I8 message reads the new I8. Source: T52 comment
-  2026-11-12. Check: a citation check that refuses a retired rule. Wrong build: a cite to a retired rule.
-- **Q28 Round-14 and liar.** Round-14 stays until T53; liar is falsify's mode, not its own gate. Source: B9
-  comment. Check: evidence at the step (`runner/main.ts` modes), no code change.
+- **Q27a Conformance text.** Conformance Q13 cites no Reads I18; Q14 counts Codec 7 (and the other static
+  counts); ending-delivery's I8 message reads the new I8; every citation of WriteLanes R10 (23) and R4 (16) is
+  re-read against the new text and corrected where it claims the old rule. Source: T52 comment 2026-11-12.
+  Check: Spec text and a re-check table in the review file; no code check, since the Specs are outside the
+  package.
+- **Q27b Retired `cancelAll` (D11).** A retired rule is cited only in its retired form ("WriteLanes R15
+  (retired)"), in source text and in every runtime-built cite (the `wl(21)` refusals and the CancelAll column);
+  the four frozen LANE cases run on round-14 only and are absent from production's cases. Source: orchestrator
+  ruling 2026-11-14. Check: `citations.test.ts` over files and the model's runtime cites, with a non-empty walk.
+  Wrong build: deleting the cites; a bare "WriteLanes I21" built at runtime.
+- **Q28 Round-14 and liar.** Round-14 stays until T53 (D10 routes liar's own baseline there). Source: B9
+  comment. Check: evidence at the step, no code change.
 - **Q29 Gates over nothing.** The model-mutation, parts and production-regression gates fail over zero scripts.
   Source: adversary items 11, 24. Check: planted empty inputs.
 - **Q30 Gates and lint.** `nub run check` zero; falsify on round-14 and production; matrix; coverage. Source:
   Task gates.
+- **Q31 One machine id per App (D7).** No App, mix or case holds two fixtures with one machine id: `mixOf` over
+  the parts holds distinct ids, and `referenceFor`, `handlersFor` and `rowsFor` refuse a duplicate. Source:
+  Compile I14; step-1 review B1. Check: `parts/reference.test.ts`. Wrong build: Cells in the mix judging Pay's
+  actor with its table.
+- **Q32 The golden's content is pinned (D8).** The golden module is a byte copy of the hand `fixtures/pay.ts` at
+  73227314, pinned by its SHA-256, and imports no `src/` and no `parts/reference.ts`; it changes only with a
+  logged ruling. Source: acceptance 1, the Task's false pass; step-1 review B4. Check: `parts/golden.test.ts`.
+  Wrong build: a golden rebuilt from `partFixture(pay)`; a hand edit copying a compiler bug.
+- **Q33 Unfolded guarded sites.** The hand fixtures that stay (the lab fixtures) list every `guarded(` place with
+  no fold, each owed to the slice Task that converts its lab (phase-out step 5), and the list cannot grow. Source:
+  T47 requirements Q5 and c4 (F3's hand half). Check: a test that computes the unfolded places and compares them
+  with the owed list. Wrong build: a new opaque hand guard.
+- **Q34 A Task cannot close while owed rows name it.** The coverage, field and matrix gates fail on a row whose
+  Task is not open (done or in review), and the gate prints each Task's rows and the README guarantee map from
+  the one list. Source: consult A3; step-1 review M3. Check: `coverage.test.ts` with a planted done owner.
+  Wrong build: a row kept for a closed Task.
 
 ## Mapping
 
 | Task item                                                   | Requirement   |
 | ----------------------------------------------------------- | ------------- |
-| Acceptance 1 (generated parts; one frozen golden)           | Q1, Q2, Q6    |
+| Acceptance 1 (generated parts; one frozen golden)           | Q1, Q2, Q6, Q31, Q32 |
 | Acceptance 2 (derived equals hand before deletion)          | Q4, Q5        |
 | Acceptance 3 (not-yet and traces gone; step mutants killed) | Q14-Q17       |
 | Acceptance 4 (V1 to V4)                                     | Q4, Q11-Q13   |
@@ -163,10 +226,20 @@ Each: rule; source; check (red today); the wrong build that keeps it red.
 | Approach: not-yet rows                                      | Q17           |
 | Approach: Pay's hand cases thin                             | Q18           |
 | Gap: five case-only files                                   | Q19           |
-| Comment 2026-11-12 (Owes, liar mode, round-14)              | Q17, Q28      |
-| Comment 2026-11-12 (Conformance contradictions)             | Q27           |
+| Comment 2026-11-12 (Owes, liar mode, round-14)              | Q17, Q28, Q34, D10 |
+| Comment 2026-11-12 (Conformance contradictions)             | Q27a, Q27b    |
 | Comment 2026-11-14 (Fable items; R4, R6, R7, R11)           | Q20-Q26       |
+| Routed from T47: guarded sites; liar fixture gaps           | Q33, D9       |
 | Gates                                                       | Q29, Q30      |
+
+## Step-1 review fixes (2026-11-14)
+
+code:wiki/plans/flow/references/proposals/t52-step1-review-2026-11-14.md: B1 is Q31 and D7; B2 is Q27a, Q27b and
+D11 (the orchestrator's ruling replaces the scope stop); B3 widened Q24; B4 is Q32 and D8; M1 is Q33; M2 is in
+Q27a; M3 is Q34; M4 is D9; M5 widened D5 and Q20; Q25 widened to Recapturing and Resending; D4 now edits R15;
+Q7, Q19 and Q23 reworded. Routed items are done in their steps: each `pending.test.ts` check is deleted in the
+commit that turns its `owed.test.ts` opposite green; the ten `parts.length === 3` checks change with Q1;
+`golden.test.ts` imports `LOST` from `fixtures/part.ts`.
 
 ## Sidecar log
 

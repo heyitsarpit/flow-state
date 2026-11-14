@@ -1,6 +1,7 @@
 import { Option, Predicate } from "effect";
 import { parts } from "../../fixtures/index.ts";
 import { implemented as production } from "../adapters/production.ts";
+import type { Owes, TaskRef } from "../coverage.ts";
 import type { InvariantId } from "../dsl/facts.ts";
 import {
   Act,
@@ -262,7 +263,12 @@ export const modelMutants = (scripts: ReadonlyArray<Script> = pilots(), given: R
  * The model-mutation gate's faults (Conformance T39): each model field no mutant reaches. A cell
  * no pilot notices is listed by {@link modelMutants}, never a fault.
  */
-export const fieldGate = (mutants: ReadonlyArray<ModelMutant>, given: Rules = rules) => {
+export const fieldGate = (
+  mutants: ReadonlyArray<ModelMutant>,
+  given: Rules = rules,
+  _owes: ReadonlyArray<Owes> = [],
+  _open: ReadonlySet<TaskRef> = new Set(),
+) => {
   const reached = new Set(mutants.map((m) => m.field));
 
   return modelFields(given)

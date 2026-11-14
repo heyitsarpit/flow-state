@@ -4,14 +4,21 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "vite-plus/test";
+import { traces } from "./dsl/lifecycle.traces.ts";
+import { rules } from "./dsl/lifecycle-rules.ts";
+import { cellsOf, valueAt } from "./parts/cells.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
 /**
  * Core Spec rules that were retired and whose ids are never reused: WriteLanes R15 (`cancelAll`,
- * deferred) and WriteLanes I21, which ordered its endings.
+ * deferred) and WriteLanes I21, which ordered its endings. Round-14's frozen `cancelAll` cases
+ * still judge them until round-14 retires, so they cite them as retired, by name.
  */
 const RETIRED: ReadonlyArray<string> = ["WriteLanes I21", "WriteLanes R15"];
+
+const bare = (text: string) =>
+  RETIRED.filter((id) => new RegExp(`(?<!Retired )${id}(?!\\d)`, "u").test(text));
 
 // RETURN_TYPE: a recursive function names its type.
 const filesIn = (dir: string): ReadonlyArray<string> =>
@@ -19,27 +26,41 @@ const filesIn = (dir: string): ReadonlyArray<string> =>
     ? readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
         if (e.isDirectory()) return filesIn(join(dir, e.name));
 
-        return e.name.endsWith(".ts") ? [join(dir, e.name)] : [];
+        return /\.(ts|tsv|txt|json)$/u.test(e.name) ? [join(dir, e.name)] : [];
       })
     : [];
 
-describe("citations name live rules (Conformance R5, I9, I10)", () => {
-  it("no case, oracle, mutant or trace cites a retired rule", () => {
-    const citing = filesIn(HERE)
-      .filter((file) => file !== fileURLToPath(import.meta.url))
-      .flatMap((file) => {
-        const source = readFileSync(file, "utf8");
+const runtimeCites = () => [
+  ...cellsOf().flatMap((cell) => {
+    const value = valueAt(rules, cell);
 
-        return RETIRED.filter((id) => new RegExp(`${id}(?!\\d)`, "u").test(source)).map(
-          (id) => `${relative(HERE, file)}: ${id}`,
-        );
-      });
+    return value !== undefined && "invariant" in value ? [value.invariant] : [];
+  }),
+  ...traces.flatMap((trace) => trace.refusals.flat()),
+];
+
+describe("citations name live rules, or a retired one as retired (Conformance R5, I9, I10)", () => {
+  it("no file cites a retired rule but as retired", () => {
+    const files = filesIn(HERE).filter((file) => file !== fileURLToPath(import.meta.url));
+    assert.ok(files.length > 100, "the walk found no files");
+
+    const citing = files.flatMap((file) =>
+      bare(readFileSync(file, "utf8")).map((id) => `${relative(HERE, file)}: ${id}`),
+    );
 
     assert.deepStrictEqual(citing, []);
   });
 
-  it("refuses a planted citation of a retired rule", () => {
-    assert.ok(RETIRED.some((id) => new RegExp(`${id}(?!\\d)`, "u").test("judges WriteLanes R15.")));
-    assert.ok(!RETIRED.some((id) => new RegExp(`${id}(?!\\d)`, "u").test("WriteLanes R150")));
+  it("no cite the model builds at run time names a retired rule but as retired", () => {
+    const cites = runtimeCites();
+    assert.ok(cites.length > 0, "the model built no cite");
+
+    assert.deepStrictEqual([...new Set(cites.flatMap(bare))], []);
+  });
+
+  it("refuses a planted bare citation and accepts the retired form", () => {
+    assert.deepStrictEqual(bare("judges WriteLanes R15."), ["WriteLanes R15"]);
+    assert.deepStrictEqual(bare("judges Retired WriteLanes R15."), []);
+    assert.deepStrictEqual(bare("WriteLanes R150"), []);
   });
 });

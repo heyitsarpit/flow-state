@@ -3,9 +3,12 @@ import { describe, it } from "vite-plus/test";
 import { Equal, HashSet, Option, Predicate } from "effect";
 import { parts } from "../../fixtures/index.ts";
 import { part } from "../../fixtures/part.ts";
+import { implemented as production } from "../adapters/production.ts";
+import { handlersFor, referenceFor, rowsFor } from "../fixtures/fixture.ts";
 import { Cells, Pay } from "../fixtures/pay.ts";
 import { CellsMachine, PayMachine } from "../machines/pay.ts";
 import { Answer } from "../world/network.ts";
+import { mixOf } from "./generate.ts";
 import { type Derived, NoClassify, partFixture, referenceOf } from "./reference.ts";
 
 /**
@@ -107,15 +110,31 @@ describe("Pay and Cells as parts (Conformance R15; phase-out step 4)", () => {
   });
 });
 
+describe("one machine id per App (Compile I14)", () => {
+  it("a mix of two parts with one machine id is a defect", () => {
+    const [first] = parts;
+    assert.ok(first !== undefined);
+
+    assert.throws(() => mixOf([first, { ...first, name: "twin" }], "usual", 1, production));
+  });
+
+  it("a case's reference, handler table and rows refuse two fixtures with one machine id", () => {
+    assert.throws(() => referenceFor([Pay, Cells]));
+    assert.throws(() => handlersFor([Pay, Cells]));
+    assert.throws(() => rowsFor([Pay, Cells]));
+  });
+});
+
 describe("parts' fixtures (Q2, Q4, Q5: Conformance R15, R20; F3)", () => {
-  it("each pilot's machine is its own, and every leaf has a user model", () => {
-    assert.equal(parts.length, 3);
-    assert.equal(new Set(parts.map((p) => p.machine.compiled.id)).size, 3);
+  it("each part's machine is its own but Cells', which is Pay's, and every leaf has a user model", () => {
+    const own = parts.filter((p) => p.name !== "cells");
+    assert.equal(new Set(own.map((p) => p.machine.compiled.id)).size, own.length);
 
     for (const part of parts) {
-      assert.ok(
-        ![PayMachine.compiled.id, CellsMachine.compiled.id].includes(part.machine.compiled.id),
-      );
+      if (!["pay", "cells"].includes(part.name))
+        assert.ok(
+          ![PayMachine.compiled.id, CellsMachine.compiled.id].includes(part.machine.compiled.id),
+        );
 
       for (const leaf of part.machine.compiled.states.keys())
         assert.ok(

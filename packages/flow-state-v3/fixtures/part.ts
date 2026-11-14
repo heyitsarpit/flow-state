@@ -93,7 +93,11 @@ export class Server extends Context.Service<
   }
 >()("flow-state-v3/fixtures/Server") {}
 
-const LOST: ReadonlySet<string> = new Set(["NoResponse", "ServerError"]);
+/**
+ * The failure tags a lost answer reaches a commit with: the request may or may not have landed,
+ * so its ending is unknown.
+ */
+export const LOST: ReadonlySet<string> = new Set(["NoResponse", "ServerError"]);
 
 const bodyOf = Schema.decodeUnknownEffect(Schema.Record(Schema.String, Schema.Json));
 

@@ -1,12 +1,13 @@
 /// <reference types="node" />
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "vite-plus/test";
 import { Formatter, Option, Schema } from "effect";
 import { parts } from "../../fixtures/index.ts";
-import type { Part } from "../../fixtures/part.ts";
+import { LOST, type Part } from "../../fixtures/part.ts";
 import type { Fixture } from "../fixtures/fixture.ts";
 import { Cells, Pay } from "../fixtures/pay.ts";
 import { Answer } from "../world/network.ts";
@@ -25,7 +26,11 @@ const GOLDEN = "conformance/fixtures/pay-golden.ts";
 
 const READER = "conformance/parts/golden.test.ts";
 
-const LOST: ReadonlyArray<string> = ["NoResponse", "ServerError"];
+/**
+ * The SHA-256 of the hand Pay fixture as it froze (`conformance/fixtures/pay.ts` at the phase-out's
+ * first cut): the golden changes only with a logged ruling, which updates this pin.
+ */
+const FROZEN_AT_BASELINE = "89041be5452a25635dab6f1e51e9a078ab7d02ac73e56e300181b1628fcf0b1b";
 
 const STATUSES: ReadonlyArray<Schema.JsonObject> = [
   {},
@@ -242,6 +247,23 @@ describe("the derived reference equals Pay's frozen hand rows (phase-out V3; Con
 
     for (const planted of [slower, releasing, always])
       assert.notDeepStrictEqual(comparable(planted, part, Pay), comparable(Pay, part, Pay));
+  });
+
+  it("the golden is the hand Pay as it froze, byte for byte, and reads no implementation", () => {
+    assert.ok(existsSync(join(PACKAGE, GOLDEN)), `${GOLDEN} is missing`);
+
+    const source = readFileSync(join(PACKAGE, GOLDEN), "utf8");
+
+    assert.equal(createHash("sha256").update(source).digest("hex"), FROZEN_AT_BASELINE);
+
+    const reads = specifiers(source).map((s) =>
+      s.startsWith(".") ? relative(PACKAGE, resolve(dirname(join(PACKAGE, GOLDEN)), s)) : s,
+    );
+
+    assert.deepStrictEqual(
+      reads.filter((r) => r.startsWith("src/") || r === "conformance/parts/reference.ts"),
+      [],
+    );
   });
 
   it("the golden is one module, read only by this comparison", () => {

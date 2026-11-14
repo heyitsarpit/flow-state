@@ -1,4 +1,4 @@
-import { Data } from "effect";
+import { Data, type Option } from "effect";
 import { citedBy, type Guarantee, type Mutant } from "./dsl/oracle.ts";
 import type { InvariantId } from "./dsl/facts.ts";
 
@@ -40,6 +40,21 @@ export type NotYet = {
   readonly owner: TaskRef;
   readonly why: string;
   readonly invariants: ReadonlyArray<InvariantId>;
+};
+
+/**
+ * What a Task owes the suite (consult A3): a `subject`, which is a core Invariant, a Plan feature
+ * or a Spec model field, the `clause` of it still owed (`None`: all of it), the Task and why.
+ *
+ * **Details**
+ *
+ * A row expires when its check lands, and a Task cannot close while a row names it.
+ */
+export type Owes = {
+  readonly subject: string;
+  readonly clause: Option.Option<string>;
+  readonly task: TaskRef;
+  readonly why: string;
 };
 
 /**

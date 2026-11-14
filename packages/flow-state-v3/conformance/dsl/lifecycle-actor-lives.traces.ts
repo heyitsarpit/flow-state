@@ -1,6 +1,6 @@
 import type { TaskRef } from "../coverage.ts";
 import { ActorMove, LifeMove, Move, Obligation } from "./lifecycle-model.ts";
-import { CL, DF, ending, KP, named, other, OW, PK } from "./lifecycle-lives.traces.ts";
+import { CL, DF, ending, KP, named, other, OW, PK, RF } from "./lifecycle-lives.traces.ts";
 import { at, build, Check, type Trace } from "./lifecycle-trace.ts";
 
 const { H } = at;
@@ -26,6 +26,20 @@ export const pendingTraces: ReadonlyArray<{ readonly owner: TaskRef; readonly tr
       cites:
         "Restore I6, R3: a restore is derived only for a Held head with no owed row of its own; a Kept row is owed",
       start: model(lane("A", ["s", H]), { endings: [ending(KP)] }),
+      steps: [Move.Reload()],
+      refusals: [[]],
+      phases: { s: H },
+      owed: 0,
+      checks: [Check.Owing({ obligations: [] })],
+    },
+  },
+  {
+    owner: "@task.V3.T52",
+    trace: {
+      name: "a boot owes no restore to a Held head whose ending is a Refused row",
+      cites:
+        "Restore I6, R3: a restore is derived only for a Held head with no owed row of its own; a Refused row is owed again",
+      start: model(lane("A", ["s", H]), { endings: [ending(RF)] }),
       steps: [Move.Reload()],
       refusals: [[]],
       phases: { s: H },

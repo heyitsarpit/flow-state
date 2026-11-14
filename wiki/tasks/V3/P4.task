@@ -1170,8 +1170,9 @@ tasks
             every runtime, round-14 included; Pay's hand rows and handler table stay as one frozen golden static case
             (about 300 lines); `fixture.ts` becomes the real-fixture registry and `dsl/actor.ts` types the view from the
             definition's Schemas; traces whose cells the search reaches are deleted, and a kept trace names its ruling;
-            the step-mutant list gives way to cell mutation; `not-yet.ts`'s remaining rows become matrix rows and the
-            file is deleted; Pay's hand cases thin where a generated run or kept case catches the same mutants. Effort
+            the step-mutant list gives way to cell mutation; `not-yet.ts`'s remaining rows, the remainders and the
+            matrix's owed rows become one `Owes` list (consult A3) and the file is deleted; Pay's hand cases thin where 
+            a generated run or kept case catches the same mutants. Effort
             about 1.5 (estimate).
 
             **Gap:** the five scenario files that hold checks only case expectations make wait for an oracle or the
@@ -1235,6 +1236,11 @@ tasks
             code:wiki/plans/flow/references/proposals/t52-step1-review-2026-11-14.md.
             Edit (agent: T52 step-1 reviewing lead, @task.V3.T52, 2026-11-14): this comment. Why: step-review rule. 
             Reverse: revert this commit.
+        comment     2026-11-14T04:19:33Z
+            Step-1 review fixes applied (code:wiki/plans/flow/references/proposals/t52-step1-review-2026-11-14.md): Q31 
+            to Q34 and D7 to D11 added, Q24, Q25, Q20 and D5 widened, Q27 split; 27 checks red at this commit.
+            Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): Approach's not-yet line now names the one Owes 
+            list (A3, D2), and this comment. Why: step-1 review. Reverse: revert this commit.
     T59
         title       The suite reads and imports nothing outside the package
         status      draft
