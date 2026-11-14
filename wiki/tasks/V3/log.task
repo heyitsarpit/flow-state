@@ -639,3 +639,5 @@ note 2026-11-14T22:17:20Z
     last was under 3 hours ago) and no compaction (16 hours since the last).
 note 2026-11-14T22:50:26Z
     T54 A2 done (55b0c3b5), all 18 gates green; owed rows re-recorded into owed-varied.ts, baseline reset; adopted-head routing (stress-3, varied-8) owed to A3. A2 step review started (Opus medium, Haiku sidecars, one blind); A3 waits on it. Flagged to the review: thin-script owner T18 versus a suite Task, and 6 fields plus 1 adversary assertion lost.
+note 2026-11-14T22:52:28Z
+    Ruled (orchestrator, T54 A3): adopted-head routing is built in A3, as a one-rule fix to the selection anchor (Actors R20), not owed to T17. T17 owner/current is the subject-path redesign (T57). Why: A2 made the path reachable and the oracle contradicts a cited rule. Reverse: owe stress-3 and varied-8 to T57.
