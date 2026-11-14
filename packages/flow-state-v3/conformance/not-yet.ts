@@ -87,22 +87,24 @@ export const notYet: ReadonlyArray<NotYet> = [
   },
   {
     owner: "@task.V3.T54",
-    why: "the owed ledger and one delivery point: a lane holds Attempt state only, an ending is one ledger row (WriteLanes I29 to I41), Start delivers rows and a boot parks nothing (Actors I40, I41), three record kinds written from what a step touched (WriteAhead I20 to I24, Codec I7), Restore I20, a read's ending as a row (Reads I22) and reports derived from acts (Turn I36); T54 builds them with their checks",
+    why: "the owed ledger and one delivery point: a lane holds Attempt state only, an ending is one ledger row (WriteLanes I29 to I41), Start delivers rows and a boot parks nothing (Actors I40, I41), three record kinds written from what a step touched (WriteAhead I20, I23, I24, Codec I7), Restore I20, a read's ending as a row (Reads I22) and reports derived from acts (Turn I36); T54 builds them with their checks",
     invariants: [
       ...invariantsOf(
         "WriteLanes",
         upTo(41).filter((n) => n >= 29),
       ),
       ...invariantsOf("Actors", [40, 41]),
-      ...invariantsOf(
-        "WriteAhead",
-        upTo(24).filter((n) => n >= 20),
-      ),
+      ...invariantsOf("WriteAhead", [20, 23, 24]),
       ...invariantsOf("Restore", [20]),
       ...invariantsOf("Reads", [22]),
       ...invariantsOf("Codec", [7]),
       ...invariantsOf("Turn", [36]),
     ],
+  },
+  {
+    owner: "@task.V3.T52",
+    why: "a row's fate in the step whose batch landed (WriteAhead I21, I22): the Spec model's Maybe life passes both a lost and a doubled delivery there, a bound rather than the exact fate per core step; T52 replaces it with the exact fate",
+    invariants: invariantsOf("WriteAhead", [21, 22]),
   },
   {
     owner: "@task.V3.T55",

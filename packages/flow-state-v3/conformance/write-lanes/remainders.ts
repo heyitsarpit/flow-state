@@ -6,6 +6,11 @@ import type { Remainder } from "../coverage.ts";
  */
 export const writeLanesRemainders: ReadonlyArray<Remainder> = [
   {
+    invariant: "WriteLanes I10",
+    owner: "@task.V3.T52",
+    owed: "the Spec model's member order within one turn: cancel then commit on a Held lane, where the model keeps the head Held until its Released report and so declines the commit, and a same-turn cancel's owed release, which Resend drops (WriteLanes T17)",
+  },
+  {
     invariant: "WriteLanes I4",
     owner: "@task.V3.T17",
     owed: "no author tag equals a Flow reason: a construction rule on the fixtures' failure tags",

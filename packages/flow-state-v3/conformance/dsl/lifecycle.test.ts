@@ -19,6 +19,7 @@ import {
   type TableA,
 } from "./lifecycle-rules.ts";
 import { Check, type Trace } from "./lifecycle-trace.ts";
+import { pendingTraces } from "./lifecycle-actor-lives.traces.ts";
 import { traces } from "./lifecycle.traces.ts";
 import type { InvariantId } from "./facts.ts";
 import { disposal } from "../actors/disposal.ts";
@@ -180,6 +181,13 @@ const withCell = (row: keyof TableA, phase: string, guard: string, outcome: Outc
 describe("The lane lifecycle (Table A, deadlines, promotion)", () => {
   it("every trace holds on the design's rules", () => {
     for (const trace of traces) assert.ok(holds(trace, rules), `${trace.name} (${trace.cites})`);
+  });
+
+  it("every pending trace still fails on the design's rules, owed to its Task", () => {
+    assert.ok(pendingTraces.length > 0);
+
+    for (const { owner, trace } of pendingTraces)
+      assert.ok(!holds(trace, rules), `${trace.name} now holds: move it from ${owner}'s pending`);
   });
 
   it("every cell at every guard value is reached by a trace", () => {

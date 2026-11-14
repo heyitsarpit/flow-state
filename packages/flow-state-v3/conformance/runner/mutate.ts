@@ -2,6 +2,7 @@
 import { Console, Effect } from "effect";
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { coreTriage, triageFaults } from "../core-mutants-triage.ts";
 import { falsifyProduction, suiteIn } from "./falsify.ts";
 import type { CaseVerdict } from "./verdict.ts";
 
@@ -93,7 +94,8 @@ export const coreOutcome = (result: {
  * Runs up to `limit` core mutants, spread over the core, each on its own copy of the package
  * against the production cases, once the unedited cases all pass (a red control voids the
  * count). A mutant is killed only as {@link coreOutcome} reads a kill. Writes every result with
- * its reason to `core-mutants.tsv` and lists the rest: the review's work list.
+ * its reason to `core-mutants.tsv`; fails on a mutant not killed and not triaged, and on a
+ * triage row whose mutant is now killed (`core-mutants-triage.ts`).
  */
 export const runCoreMutants = (options: {
   readonly packageDir: string;
@@ -152,8 +154,22 @@ export const runCoreMutants = (options: {
     );
     const survivors = results.filter((r) => !r.startsWith("killed"));
 
-    for (const s of survivors) yield* Console.log(s);
+    const faults = triageFaults(
+      results.map((r) => {
+        const [status = "", at = "", mutated = ""] = r.split("\t");
+
+        return { status, at, mutated };
+      }),
+      coreTriage,
+    );
+
+    for (const line of faults) yield* Console.log(line);
+
+    if (faults.length > 0) process.exitCode = 1;
+
+    const owing = coreTriage.filter((t) => t.kind === "owed").length;
+
     yield* Console.log(
-      `VERDICT core mutants: ${results.length - survivors.length}/${results.length} killed (${all.length} candidates)`,
+      `VERDICT ${faults.length === 0 ? "pass" : "fail"} core mutants: ${results.length - survivors.length}/${results.length} killed, ${owing} owed, ${coreTriage.length - owing} equivalent, ${faults.length} untriaged or stale (${all.length} candidates)`,
     );
   });

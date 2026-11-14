@@ -1,3 +1,4 @@
+import type { TaskRef } from "../coverage.ts";
 import { ActorMove, LifeMove, Move, Obligation } from "./lifecycle-model.ts";
 import { CL, DF, ending, KP, named, other, OW, PK } from "./lifecycle-lives.traces.ts";
 import { at, build, Check, type Trace } from "./lifecycle-trace.ts";
@@ -11,6 +12,28 @@ const unboundAfterDisposal = model(lane("A", ["s", H]), {
   actors: [{ actor: shopper, record: "disposeActor" }],
   saved: { lives: [], ended: 0, least: { lives: [], ended: 0, removed: [shopper], minted: 0 } },
 });
+
+/**
+ * Traces whose expected result is the Spec's and that the model fails today, each owned by the
+ * Task that fixes the model: the lifecycle test fails once one holds, so its row moves to the
+ * traces.
+ */
+export const pendingTraces: ReadonlyArray<{ readonly owner: TaskRef; readonly trace: Trace }> = [
+  {
+    owner: "@task.V3.T52",
+    trace: {
+      name: "a boot owes no restore to a Held head whose ending is a Kept row",
+      cites:
+        "Restore I6, R3: a restore is derived only for a Held head with no owed row of its own; a Kept row is owed",
+      start: model(lane("A", ["s", H]), { endings: [ending(KP)] }),
+      steps: [Move.Reload()],
+      refusals: [[]],
+      phases: { s: H },
+      owed: 0,
+      checks: [Check.Owing({ obligations: [] })],
+    },
+  },
+];
 
 /**
  * The traces of the actor moves on endings: incarnations, disposals, forgets and restores.
