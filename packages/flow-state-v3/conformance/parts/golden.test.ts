@@ -9,7 +9,7 @@ import { Formatter, Option, Schema } from "effect";
 import { parts } from "../../fixtures/index.ts";
 import { LOST, type Part } from "../../fixtures/part.ts";
 import type { Fixture } from "../fixtures/fixture.ts";
-import { Cells, Pay } from "../fixtures/pay.ts";
+import { Cells, Pay } from "../fixtures/pay-golden.ts";
 import { Answer } from "../world/network.ts";
 import { partFixture } from "./reference.ts";
 
@@ -24,7 +24,14 @@ const PACKAGE = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 const GOLDEN = "conformance/fixtures/pay-golden.ts";
 
-const READER = "conformance/parts/golden.test.ts";
+/**
+ * The golden's two readers, the two halves of phase-out V3: the hand rows equal round-14's
+ * compiled Pay, and the derived reference equals the hand rows.
+ */
+const READERS: ReadonlyArray<string> = [
+  "conformance/fixtures/rows.test.ts",
+  "conformance/parts/golden.test.ts",
+];
 
 /**
  * The SHA-256 of the hand Pay fixture as it froze (`conformance/fixtures/pay.ts` at the phase-out's
@@ -278,6 +285,6 @@ describe("the derived reference equals Pay's frozen hand rows (phase-out V3; Con
       )
       .map((file) => relative(PACKAGE, file));
 
-    assert.deepStrictEqual(readers, [READER]);
+    assert.deepStrictEqual(readers.toSorted(), READERS);
   });
 });

@@ -6,7 +6,7 @@ import { Effect, Option, Schema } from "effect";
 import { compiledOf, loadPrototype } from "../adapters/prototype.ts";
 import type { Fixture } from "./fixture.ts";
 import { Cancel, Latest, Serialize } from "./one-lane.ts";
-import { Cells, Pay, PRODUCTION_ONLY } from "./pay.ts";
+import { Cells, Pay, PRODUCTION_ONLY } from "./pay-golden.ts";
 import type { Row, RowMember } from "./reference.ts";
 
 const ROUND_14 = resolve(

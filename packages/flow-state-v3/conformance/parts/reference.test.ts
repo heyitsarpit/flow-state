@@ -1,84 +1,26 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vite-plus/test";
-import { Equal, HashSet, Option, Predicate } from "effect";
+import { Option, Predicate } from "effect";
 import { parts } from "../../fixtures/index.ts";
 import { part } from "../../fixtures/part.ts";
 import { implemented as production } from "../adapters/production.ts";
 import { handlersFor, referenceFor, rowsFor } from "../fixtures/fixture.ts";
-import { Cells, Pay } from "../fixtures/pay.ts";
+import { Cells, Pay, Pay as TypedPay } from "../fixtures/pay.ts";
 import { CellsMachine, PayMachine } from "../../fixtures/pay/machine.ts";
 import { Answer } from "../world/network.ts";
 import { mixOf } from "./generate.ts";
-import { type Derived, NoClassify, partFixture, referenceOf } from "./reference.ts";
-
-/**
- * What the derived and the hand fixture must agree on, rendered so a difference names its place:
- * every operation of either side (never filtered by one side's names), the states, the rows and
- * the handler table's targets, state guards and idle guards.
- */
-const comparable = (f: Partial<Derived>) => ({
-  machine: f.machine,
-  states: (f.states ?? []).toSorted(),
-  operations: Object.fromEntries(
-    Object.entries(f.operations ?? {})
-      .map(
-        ([name, { reference: r }]) =>
-          [
-            name,
-            {
-              concurrency: r.concurrency,
-              success: r.success,
-              failure: r.failure,
-              unknown: r.unknown,
-              keyFields: r.keyFields,
-            },
-          ] as const,
-      )
-      .toSorted(([a], [b]) => a.localeCompare(b)),
-  ),
-  handlers:
-    f.handlers === undefined
-      ? undefined
-      : {
-          initial: f.handlers.initial,
-          levels: [["(root)", f.handlers.root] as const, ...Object.entries(f.handlers.states)].map(
-            ([leaf, level]) => [
-              leaf,
-              Object.entries(level ?? {}).map(([event, alternatives]) => [
-                event,
-                alternatives.map((a) => ({
-                  target: a.target,
-                  when: a.when,
-                  idle: Option.getOrNull(a.idle),
-                  updates: a.updates,
-                })),
-              ]),
-            ],
-          ),
-        },
-});
-
-/**
- * The rows as a set: equal by value whatever their order or their fields' order.
- */
-const rowsOf = (f: Partial<Derived>) =>
-  HashSet.fromIterable(
-    (f.rows ?? []).map((r) => ({
-      ...r,
-      guard: Option.getOrNull(r.guard),
-      at: Option.getOrNull(r.at),
-    })),
-  );
+import { NoClassify, partFixture, PolicyMismatch, referenceOf, typedPart } from "./reference.ts";
 
 describe("referenceOf(compiled) (Q3: phase-out step 3, Conformance R15, I46, T30)", () => {
-  it("derives Pay's reference equal to its hand rows wherever both exist", () => {
-    assert.deepEqual(comparable(referenceOf(PayMachine.compiled)), comparable(Pay));
-    assert.ok(Equal.equals(rowsOf(referenceOf(PayMachine.compiled)), rowsOf(Pay)));
-  });
+  it("derives a part's reference whole but its classify, which only the part declares", () => {
+    const part = parts.find((p) => p.name === "pay");
+    assert.ok(part !== undefined, "no part pay");
 
-  it("derives Cells' reference equal to its hand rows", () => {
-    assert.deepEqual(comparable(referenceOf(CellsMachine.compiled)), comparable(Cells));
-    assert.ok(Equal.equals(rowsOf(referenceOf(CellsMachine.compiled)), rowsOf(Cells)));
+    const derived = referenceOf(part.machine.compiled);
+
+    assert.deepEqual(derived.rows, partFixture(part).rows);
+    assert.deepEqual(derived.states, partFixture(part).states);
+    assert.ok(Object.values(derived.operations).every((o) => !("classify" in o.reference)));
   });
 
   it("a part holds no hand-written rows or handler table", () => {
@@ -110,6 +52,32 @@ describe("Pay and Cells as parts (Conformance R15; phase-out step 4)", () => {
   });
 });
 
+describe("the actor view is typed by the definition's Schemas (phase-out step 4)", () => {
+  it("names Pay's events, payloads and memory as its definition does; a wrong one is a type error", () => {
+    type Events = keyof typeof TypedPay.events;
+
+    type Payload = (typeof TypedPay.events)["PayRequested"]["Type"];
+
+    type Memory = (typeof TypedPay.memory)["Type"];
+
+    const event: Events = "PayRequested";
+    // @ts-expect-error -- Pay has no such event.
+    const unknownEvent: Events = "Nope";
+    const payload: Payload = { paymentMethodId: "visa" };
+    // @ts-expect-error -- a payment method is a string.
+    const wrongPayload: Payload = { paymentMethodId: 1 };
+    const intent: Memory["intentId"] = "pi1";
+    // @ts-expect-error -- an intent id is a string.
+    const wrongIntent: Memory["intentId"] = 1;
+
+    assert.deepEqual([event, unknownEvent, payload, wrongPayload, intent, wrongIntent].length, 6);
+    assert.throws(
+      () => typedPart(parts[3]!, { pay: "serialize" }),
+      (e) => e instanceof PolicyMismatch,
+    );
+  });
+});
+
 describe("derived key folds (WriteLanes R7: a commit's key is its select's)", () => {
   it("a commit whose event lacks another alternative's field still computes its key", () => {
     const part = parts.find((p) => p.name === "pay");
@@ -123,8 +91,12 @@ describe("derived key folds (WriteLanes R7: a commit's key is its select's)", ()
     assert.deepEqual(key({}, fields, Option.some("states.WAITING.on.RetryNow[0]")), {
       intentId: "pi1",
     });
-    assert.equal(key({}, fields, Option.some("on.PayRequested[1]")), null);
-    assert.equal(key({}, fields, Option.none()), null);
+    assert.deepEqual(key({}, fields, Option.some("on.PayRequested[1]")), { intentId: "pi1" });
+    assert.deepEqual(key({}, fields, Option.none()), { intentId: "pi1" });
+    assert.equal(
+      key({}, { ...fields, intentId: { unknownToTheSuite: true } }, Option.none()),
+      null,
+    );
   });
 });
 

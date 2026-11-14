@@ -4,6 +4,7 @@ import { Empty, type Fixture, rowFor } from "../fixtures/fixture.ts";
 import type { Alternative, Handlers, Level, Schedule } from "../fixtures/handlers.ts";
 import {
   classifyWith,
+  type Concurrency,
   type OperationReference,
   type Row,
   type RowMember,
@@ -239,6 +240,89 @@ export class NoClassify extends Data.TaggedError("NoClassify")<{
   readonly part: string;
   readonly operation: string;
 }> {}
+
+type DefinitionOf<P extends Part> = P["machine"]["definition"];
+
+type FieldsOfEvent<X> = X extends { readonly fields: infer F extends Schema.Struct.Fields }
+  ? F
+  : X extends Schema.Struct.Fields
+    ? X
+    : never;
+
+/**
+ * A part's external events, each typed by its payload's fields in the part's definition.
+ */
+export type EventsOf<P extends Part> = {
+  readonly [E in keyof DefinitionOf<P>["events"]]: Schema.Struct<
+    FieldsOfEvent<DefinitionOf<P>["events"][E]>
+  >;
+};
+
+/**
+ * A part's memory, typed by the field Schemas of its definition.
+ */
+export type MemoryOf<P extends Part> = Schema.Struct<{
+  readonly [K in keyof DefinitionOf<P>["memory"]]: DefinitionOf<P>["memory"][K]["schema"];
+}>;
+
+/**
+ * A part's writes, each with a key of JSON fields and the row its stated policy picks.
+ */
+export type KeysOf<R extends Readonly<Record<string, Concurrency>>> = {
+  readonly [O in keyof R]: typeof JsonKey;
+};
+
+const JsonKey = Schema.Record(Schema.String, Schema.Json);
+
+// FLOW_STATE_ALLOW_UNKNOWN: the bound a Fixture's event Schemas meet; each is typed per part.
+type Codecs = Readonly<Record<string, Schema.Codec<unknown, unknown>>>;
+
+// FLOW_STATE_ALLOW_UNKNOWN: the bound a Fixture's memory Schema meets; it is typed per part.
+type MemoryCodec = Schema.Codec<unknown, unknown>;
+
+/**
+ * A part's fixture typed by its definition and its stated write policies.
+ */
+export type TypedPart<P extends Part, R extends Readonly<Record<string, Concurrency>>> = [
+  EventsOf<P>,
+  MemoryOf<P>,
+] extends [infer E extends Codecs, infer M extends MemoryCodec]
+  ? Fixture<E, M, typeof Empty, KeysOf<R>> & {
+      readonly operations: {
+        readonly [O in keyof R]: { readonly row: ReturnType<typeof rowFor<R[O]>> };
+      };
+    }
+  : never;
+
+/**
+ * A part's fixture said with a different policy than its `Compiled` gives: a defect in the case
+ * that states it.
+ */
+export class PolicyMismatch extends Data.TaggedError("PolicyMismatch")<{
+  readonly part: string;
+  readonly operation: string;
+}> {}
+
+/**
+ * The fixture of a part typed by its definition, for the cases that drive it: events, payloads and
+ * memory from the definition's Schemas, and each write's row from the policy `writes` states,
+ * which must be the one its `Compiled` gives.
+ */
+export const typedPart = <P extends Part, R extends Readonly<Record<string, Concurrency>>>(
+  part: P,
+  writes: R,
+) => {
+  const fixture = partFixture(part);
+
+  for (const [operation, concurrency] of Object.entries(writes))
+    if (fixture.operations[operation]?.reference.concurrency !== concurrency)
+      throw new PolicyMismatch({ part: part.name, operation });
+
+  // SAFETY: the fixture is derived from this part's own definition, whose event and memory
+  // Schemas these types name, and each write's policy was checked above.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Compiled erases the definition's types; the definition restores them
+  return fixture as TypedPart<P, R>;
+};
 
 /**
  * The fixture of a part: its derived reference with the part's `classify` on each operation.

@@ -258,8 +258,9 @@ const updateFoldOf =
 /**
  * A write's key from a member's select: the select of the alternative the suite judged ran when
  * one of its members names the write (a commit's input, a keyed retry's or cancel's key);
- * otherwise every such select's, when all of them compute and agree. Unknown (`null`) in every
- * other case.
+ * otherwise every such select's, when all of them compute and agree. A select computes a key
+ * when its key fields keep one value across the probes of whatever else it reads that the suite
+ * does not know. Unknown (`null`) in every other case.
  */
 const keyFoldOf = (compiled: CompiledOf, write: CompiledWrite) => {
   const selects = alternativesOf(compiled).flatMap(({ alternative }) =>
@@ -276,17 +277,28 @@ const keyFoldOf = (compiled: CompiledOf, write: CompiledWrite) => {
     const own = selects.filter((s) => Option.contains(at, s.at));
 
     const keys = (own.length > 0 ? own : selects).map(({ select }) =>
-      computed(compiled, labels, fields, ({ memory, event }) => {
-        const input = select.run({ memory, event });
+      Option.flatMap(
+        probed(compiled, labels, fields, ({ memory, event }) => select.run({ memory, event })),
+        ({ results }) => {
+          const [input = {}, ...others] = results;
 
-        return Object.fromEntries(
-          write.keyFields.map((f) => {
-            const v = input[f];
+          const known = write.keyFields.every((f) =>
+            others.every((o) => Equal.equals(o[f], input[f])),
+          );
 
-            return [f, isJson(v) ? v : null];
-          }),
-        );
-      }),
+          return known
+            ? Option.some(
+                Object.fromEntries(
+                  write.keyFields.map((f) => {
+                    const v = input[f];
+
+                    return [f, isJson(v) ? v : null];
+                  }),
+                ),
+              )
+            : Option.none();
+        },
+      ),
     );
 
     const [first] = keys;

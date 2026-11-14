@@ -76,6 +76,22 @@ code:wiki/plans/flow/references/proposals/t47-close-review-2026-11-14.md (R4, R6
   fixture whose handlers change the leaf.
 - **D10 Liar's own baseline.** Liar as a mode of one mutation gate with no baseline of its own (consult B9) goes
   to @task.V3.T53 with round-14's liar run; production's liar is already falsify's mode. Reverse: build it here.
+- **D12 The app mix stays the pilots'.** `mixed` holds sync, transfers and sign-in; Pay joins the mix later as
+  its own new mix, whose first-contact reds need triage. Why: the mix id names its parts, so adding Pay renames
+  every kept mix script and owed row. Reverse: add Pay to `mixed`.
+- **D13 Cells aborts while the charge is unsure.** The generator's belief frees a lane on any cancel, so a
+  cancel of a call on the wire (which leaves the head Held) made Cells' scripts answer requests that never
+  opened; aborting in `UNSURE` cancels a Held head, which the belief gets right (WriteLanes R14 cancel cell).
+  Why: a generator limit, not a judge's. Reverse: offer `AbortPay` in `PAYING` once the belief models a
+  cancelled call on the wire.
+- **D14 Derived folds know what they do not know.** An update that reads a value the suite does not know runs
+  once per probe; a field whose value differs between probes is set unknown, and any guard or key that reads an
+  unknown field computes nothing. A write's key comes from the select of the alternative the suite judged ran
+  (`Folds.keys` takes its place), else from every select when all agree. Why: two first-contact reds of Pay
+  (a timer's commit keyed `null`; a guard read from a field an update never set) were the suite's. Reverse:
+  revert `parts/derived-folds.ts`.
+- **D15 Two golden readers.** The golden is read by `parts/golden.test.ts` (derived equals hand) and
+  `fixtures/rows.test.ts` (hand equals round-14's compiled Pay), the two halves of V3. Reverse: merge the two.
 - **D11 Retired `cancelAll` (orchestrator ruling, 2026-11-14).** LANE-03, 04, 05 and 10 stay frozen, on round-14
   only, out of production's counts, and cite WriteLanes R15 and I21 as retired, by name; the model's CancelAll
   column and its `wl(21)` refusals cite them the same way. T53 deletes them with round-14. No catch is lost and
