@@ -88,6 +88,25 @@ describe("referenceOf(compiled) (Q3: phase-out step 3, Conformance R15, I46, T30
   });
 });
 
+describe("Pay and Cells as parts (Conformance R15; phase-out step 4)", () => {
+  it("are parts of their own machine, with a user action at every leaf and a classify per write", () => {
+    for (const name of ["pay", "cells"]) {
+      const part = parts.find((p) => p.name === name);
+      assert.ok(part !== undefined, `no part ${name}`);
+      assert.equal(part.machine.compiled.id, PayMachine.compiled.id);
+
+      for (const leaf of part.machine.compiled.states.keys())
+        assert.ok((part.user[leaf] ?? []).length > 0, `${name}: leaf ${leaf} has no user action`);
+
+      const fixture = partFixture(part);
+
+      for (const [operation, o] of part.machine.compiled.operations)
+        if (o._tag === "Write")
+          assert.ok(Predicate.isFunction(fixture.operations[operation]?.reference.classify));
+    }
+  });
+});
+
 describe("parts' fixtures (Q2, Q4, Q5: Conformance R15, R20; F3)", () => {
   it("each pilot's machine is its own, and every leaf has a user model", () => {
     assert.equal(parts.length, 3);

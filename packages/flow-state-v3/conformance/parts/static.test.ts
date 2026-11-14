@@ -118,6 +118,10 @@ describe("production's static surface (Q22: phase-out step 3, Conformance Q17)",
 
   it("names every alternative of each part's and Pay's Compiled, or owes the places check", () => {
     assert.ok(parts.length > 0);
+    assert.ok(
+      ["pay", "cells"].every((n) => parts.some((p) => p.name === n)),
+      "Pay and Cells are not parts",
+    );
 
     for (const name of ["pay", ...parts.map((p) => p.name)])
       assert.equal(production.places(name).length > 0, !staticOwed.places, name);

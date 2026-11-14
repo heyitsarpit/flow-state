@@ -35,6 +35,11 @@ describe("layout (Q1: Conformance R15; phase-out step 3)", () => {
   it("fixtures and bench sit beside conformance", () => {
     assert.ok(filesIn(join(PACKAGE, "fixtures")).length >= 4);
     assert.ok(filesIn(join(PACKAGE, "bench")).length >= 1);
+    assert.ok(filesIn(join(PACKAGE, "fixtures", "pay")).length >= 1, "fixtures/pay is missing");
+    assert.ok(
+      !existsSync(join(PACKAGE, "conformance", "machines")),
+      "conformance/machines remains",
+    );
   });
 
   it("fixtures import only src/index.ts, effect and their own modules", () => {

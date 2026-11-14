@@ -50,6 +50,20 @@ describe("model mutation (Q16: Conformance R19, I61, T39)", () => {
     ]);
   });
 
+  it("the field gate fails a field no part's trace notices (Conformance I61, T39)", () => {
+    const all = modelFields().map((field) => ({ field, oracle: "lane-queue", noticed: true }));
+    const [first, ...rest] = all;
+    assert.ok(first !== undefined);
+
+    assert.deepEqual(fieldGate([{ ...first, oracle: "none", noticed: false }, ...rest]), [
+      `BAD  model field ${first.field}: no part's expected trace changes under its mutation`,
+    ]);
+  });
+
+  it("the field gate over no part script fails every field", () => {
+    assert.equal(fieldGate(modelMutants([])).length, modelFields().length);
+  });
+
   it("the pilots notice some fields, each by the oracle that refused", () => {
     const noticed = mutants.filter((m) => m.noticed);
     const oracles = new Set(noticed.flatMap((m) => m.oracle.split(",")));
