@@ -500,3 +500,5 @@ note 2026-11-14T15:43:37Z
     Amendment (2026-11-14, the user): "yes you run the experiments". The orchestrator applies process experiments from 
     each study into instructions or AGENTS.md, with a measure and a reverse in the process notebook; authority, stops, 
     the reserve, gates and Task scope stay the user's. Authority section edited.
+note 2026-11-14T15:46:04Z
+    T61 owed lists, part 2 at e228fcec (step-2f O1, O3-O6, close O4 doc and O6, PAY-05 routed to T20). Gates at 31ccd040: parts 129, held-out 216, class 437, production suite 78. Its owed-list fixes go to T61's close review rather than a separate step review (fix rounds are checked by the next review).
