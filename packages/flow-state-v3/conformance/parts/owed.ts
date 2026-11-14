@@ -226,6 +226,8 @@ const BY_ROW: ReadonlyMap<string, ReadonlyArray<string>> = new Map(Object.entrie
  *
  * **Gotchas**
  *
+ * - The lists come from a production run: they record known failures as a change detector and
+ *   are never an expected result, which comes from the Spec model alone.
  * - Ids are minted deterministically per seed, so a production change that moves them leaves a
  *   row unheld and forces a re-triage, and a new break on another subject fails the run.
  */
