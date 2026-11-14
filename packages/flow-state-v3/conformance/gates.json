@@ -12,12 +12,12 @@
     },
     {
       "gate": "falsify round-14",
-      "revision": "5e798963",
+      "revision": "51734ea0",
       "verdict": "VERDICT pass 154/154 mutants caught, 4/4 probes hold"
     },
     {
       "gate": "falsify production",
-      "revision": "a8f89e1e",
+      "revision": "51734ea0",
       "verdict": "VERDICT pass 18/18 mutants caught"
     },
     {
@@ -27,27 +27,27 @@
     },
     {
       "gate": "parts production",
-      "revision": "a8f89e1e",
-      "verdict": "VERDICT pass 77/77 part scripts on production"
+      "revision": "51734ea0",
+      "verdict": "VERDICT pass 78/78 part scripts on production"
     },
     {
       "gate": "held-out production",
-      "revision": "a8f89e1e",
+      "revision": "51734ea0",
       "verdict": "VERDICT pass 132/132 held-out part scripts on production"
     },
     {
       "gate": "matrix",
-      "revision": "a8f89e1e",
+      "revision": "51734ea0",
       "verdict": "VERDICT pass 265/265 matrix rows"
     },
     {
       "gate": "pairs production",
-      "revision": "a8f89e1e",
-      "verdict": "VERDICT fail 69/74 interacting pairs"
+      "revision": "51734ea0",
+      "verdict": "VERDICT pass 74/74 interacting pairs"
     },
     {
       "gate": "model mutation production",
-      "revision": "a8f89e1e",
+      "revision": "51734ea0",
       "verdict": "VERDICT pass 327/327 model fields mutated"
     },
     {
@@ -57,12 +57,12 @@
     },
     {
       "gate": "regressions production",
-      "revision": "a8f89e1e",
-      "verdict": "VERDICT pass 9/9 kept regressions on production"
+      "revision": "51734ea0",
+      "verdict": "VERDICT pass 4/4 kept regressions on production"
     },
     {
       "gate": "class gate production",
-      "revision": "a8f89e1e",
+      "revision": "51734ea0",
       "verdict": "VERDICT pass 268/268 scripts whose planted breaks all fail"
     },
     {
@@ -72,7 +72,7 @@
     },
     {
       "gate": "liar round-14",
-      "revision": "5e798963",
+      "revision": "51734ea0",
       "verdict": "VERDICT pass 126/126 behavioural mutants red under the liar gate, 9 fixture gaps (cap 9)"
     },
     {
@@ -82,7 +82,7 @@
     },
     {
       "gate": "liar production",
-      "revision": "a8f89e1e",
+      "revision": "51734ea0",
       "verdict": "VERDICT pass 13/13 behavioural mutants red under the liar gate, 0 fixture gaps (cap 9)"
     },
     {
