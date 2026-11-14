@@ -21,6 +21,7 @@ export const PENDING = [
   "Restore R1",
   "WriteAhead I24",
   "Actors I40",
+  "Codec I7",
 ] as const;
 
 /**
@@ -53,6 +54,7 @@ const BECAUSE: Partial<Record<Pending, string>> = {
   "Restore I1":
     "the live incarnations restored are exactly the Owing identities whose actor record restores",
   "Restore R1": "restored records stay records",
+  "Codec I7": "records are actor/, lane/ and owed/, each with format",
 };
 
 const quoted = (rule: string) =>

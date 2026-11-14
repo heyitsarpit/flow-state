@@ -91,6 +91,15 @@ export const emptyLedger = ledgerOf(new Map());
 export const rowsOf = (ledger: Ledger, actor: ActorId) => ledger.get(actorKey(actor)) ?? [];
 
 /**
+ * Whether a row is saved in its identity's owed record: it waits, it is kept, or it is the
+ * unknown { Restored } a start owed for a Held head.
+ */
+export const isSaved = (row: Pick<Owed, "delivery" | "channel" | "reason">) =>
+  Delivery.$is("Waiting")(row.delivery) ||
+  Delivery.$is("Kept")(row.delivery) ||
+  (row.channel === "unknown" && row.reason === "Restored");
+
+/**
  * Whether a Kept row names a lane: the only read that blocks a key.
  */
 export const keptOn = (ledger: Ledger, actor: ActorId, lane: string) =>
@@ -166,11 +175,9 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
   const recorded = (row: Owed, why: "evidence" | "letGo") =>
     tx.emit(Evidence.Recorded({ operation: row.operation, attempt: row.attempt, why }));
 
-  // A row that waits or is kept is saved for the identity; a move into or out of either state
-  // writes that state's rows of its lane.
+  // A move into or out of a saved state writes the identity's owed record.
   const saved = (row: Owed, delivery: Delivery) => {
-    if (Delivery.$is("Waiting")(delivery) || Delivery.$is("Kept")(delivery))
-      persistence.saveRows(row.actor, row.operation, row.lane, Delivery.$is("Kept")(delivery));
+    if (isSaved(row) || isSaved({ ...row, delivery })) persistence.saveOwed(row.actor);
   };
 
   /**
@@ -202,6 +209,7 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
 
     if (live(row)) {
       tx.enqueue(Mail.Ending({ actor: row.actor, id: row.id }));
+      saved(row, row.delivery);
 
       return row.id;
     }

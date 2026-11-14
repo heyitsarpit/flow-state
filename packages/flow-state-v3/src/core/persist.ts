@@ -1,15 +1,13 @@
 import { Option } from "effect";
 import type { Values } from "./compiled.ts";
-import { Delivery, rowsOf } from "./ledger.ts";
+import { Delivery, isSaved, rowsOf } from "./ledger.ts";
 import {
   actorRecordKey,
   encodeActor,
   encodeLane,
-  encodeRows,
-  keptRecordKey,
+  encodeOwed,
   laneRecordKey,
-  lanelessKey,
-  parkedRecordKey,
+  owedRecordKey,
 } from "./record.ts";
 import { SILENT_MS, type Tx, without, withEntry } from "./tx.ts";
 import {
@@ -121,33 +119,20 @@ export const makePersistence = (tx: Tx) => {
   };
 
   /**
-   * Writes the Waiting rows, or the Kept rows, an identity owes on one lane (a decline's, with no
-   * lane, under its operation's laneless key), or removes the record when there are none.
+   * Writes an identity's owed record: its saved rows in the order they were owed, or removes the
+   * record when there are none.
    */
-  const saveRows = (
-    actor: ActorId,
-    operation: string,
-    lane: Option.Option<string>,
-    kept: boolean,
-  ) => {
-    const at = Option.getOrElse(lane, () => lanelessKey(actor, operation));
-
-    const rows = rowsOf(tx.world().owed, actor).filter(
-      (r) =>
-        r.operation === operation &&
-        Option.getOrElse(r.lane, () => lanelessKey(actor, operation)) === at &&
-        (kept ? Delivery.$is("Kept")(r.delivery) : Delivery.$is("Waiting")(r.delivery)),
-    );
+  const saveOwed = (actor: ActorId) => {
+    const rows = rowsOf(tx.world().owed, actor)
+      .filter(isSaved)
+      .map((r) => ({ ...r, kept: Delivery.$is("Kept")(r.delivery) }));
 
     persist(
       actor,
       [
         {
-          key: kept ? keptRecordKey(at) : parkedRecordKey(at),
-          record:
-            rows.length === 0
-              ? Option.none()
-              : Option.some(encodeRows(actor, operation, at, rows, kept)),
+          key: owedRecordKey(actorKey(actor)),
+          record: rows.length === 0 ? Option.none() : Option.some(encodeOwed(actor, rows)),
         },
       ],
       Due.Later(),
@@ -163,7 +148,7 @@ export const makePersistence = (tx: Tx) => {
     saveActor,
     setLane,
     dropLane,
-    saveRows,
+    saveOwed,
   };
 };
 

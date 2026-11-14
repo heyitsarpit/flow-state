@@ -39,64 +39,51 @@ const LaneRecordJson = Schema.Struct({
   inFlight: Schema.Boolean,
 });
 
-const ParkedJson = Schema.Struct({
+const OwedJson = Schema.Struct({
   format: Schema.Literal(FORMAT),
   machine: Schema.String,
   name: Schema.String,
-  operation: Schema.String,
-  lane: Schema.String,
-  kept: Schema.Boolean,
-  endings: Schema.Array(
+  rows: Schema.Array(
     Schema.Struct({
+      operation: Schema.String,
+      lane: Schema.NullOr(Schema.String),
       attempt: Schema.NullOr(Schema.String),
       channel: Channel,
       reason: Schema.String,
       value: Schema.Json,
+      kept: Schema.Boolean,
     }),
   ),
 });
 
 /**
- * The key a lane's parked endings are stored under.
+ * The key an identity's saved rows are stored under: one record, in the order they were owed.
  */
-export const parkedRecordKey = (lane: string) => `parked/${lane}`;
+export const owedRecordKey = (key: string) => `owed/${key}`;
 
 /**
- * The key a lane's kept ending is stored under.
+ * An identity's saved rows as JSON data, in owed order; a value JSON cannot carry keeps `null`.
  */
-export const keptRecordKey = (lane: string) => `kept/${lane}`;
-
-/**
- * The lane key a decline's rows are saved under: they have no lane.
- */
-export const lanelessKey = (actor: ActorId, operation: string) =>
-  laneId(actor, operation, LANELESS);
-
-const LANELESS = "~";
-
-/**
- * An identity's Waiting or Kept rows on one lane as JSON data; an ending whose value JSON cannot
- * carry keeps `null`.
- */
-// RETURN_TYPE: a parked record is JSON data for the store.
-export const encodeRows = (
+// RETURN_TYPE: an owed record is JSON data for the store.
+export const encodeOwed = (
   actor: ActorId,
-  operation: string,
-  lane: string,
-  rows: ReadonlyArray<Pick<Owed, "attempt" | "channel" | "reason" | "value">>,
-  kept: boolean,
+  rows: ReadonlyArray<
+    Pick<Owed, "operation" | "lane" | "attempt" | "channel" | "reason" | "value"> & {
+      readonly kept: boolean;
+    }
+  >,
 ): Values => ({
   format: FORMAT,
   machine: actor.machine,
   name: actor.name,
-  operation,
-  lane,
-  kept,
-  endings: rows.map((e) => ({
-    attempt: Option.getOrNull(e.attempt),
-    channel: e.channel,
-    reason: e.reason,
-    value: Result.getOrElse(Schema.decodeUnknownResult(Schema.Json)(e.value), () => null),
+  rows: rows.map((r) => ({
+    operation: r.operation,
+    lane: Option.getOrNull(r.lane),
+    attempt: Option.getOrNull(r.attempt),
+    channel: r.channel,
+    reason: r.reason,
+    value: Result.getOrElse(Schema.decodeUnknownResult(Schema.Json)(r.value), () => null),
+    kept: r.kept,
   })),
 });
 
@@ -216,15 +203,15 @@ export const decodeRecords = (
 
   // FLOW_STATE_ALLOW_UNKNOWN: one stored value, decoded by the Schema its key names.
   const rowsRecord = (value: unknown) =>
-    Option.map(Result.getSuccess(Schema.decodeUnknownResult(ParkedJson)(value)), (r) => {
+    Option.map(Result.getSuccess(Schema.decodeUnknownResult(OwedJson)(value)), (r) => {
       const actor = { machine: r.machine, name: r.name };
 
-      return r.endings.map((e) => ({
-        kept: r.kept,
+      return r.rows.map((e) => ({
+        kept: e.kept,
         actor,
-        operation: r.operation,
+        operation: e.operation,
         attempt: Option.fromNullOr(e.attempt),
-        lane: r.lane === lanelessKey(actor, r.operation) ? Option.none() : Option.some(r.lane),
+        lane: Option.fromNullOr(e.lane),
         channel: e.channel,
         reason: e.reason,
         value: e.value,
@@ -276,7 +263,7 @@ export const decodeRecords = (
     );
 
   const records = of("actor/", actorRecord);
-  const rows = [...of("parked/", rowsRecord), ...of("kept/", rowsRecord)].flat();
+  const rows = of("owed/", rowsRecord).flat();
   const decoded = new Set(records.map((r) => actorRecordKey(actorKey(r.actor))));
 
   return {

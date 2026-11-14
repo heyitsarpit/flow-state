@@ -1,0 +1,62 @@
+PAY-07/late-may-not-leave@1	Codec I7
+PAY-07/late-may-not-leave@2	Codec I7
+DLV-04@1	Codec I7
+DLV-04@2	Codec I7
+DLV-05@1	Codec I7
+DLV-05@2	Codec I7
+DLV-06@1	Restore R3+Codec I7
+DLV-06@2	Restore R3+Codec I7
+TURN-01/schedule-refused@1	Codec I7
+TURN-01/schedule-refused@2	Codec I7
+TURN-01/mapper-refused@1	Codec I7
+TURN-01/mapper-refused@2	Codec I7
+PART-transfers-stress-4	Restore R3+Codec I7
+PART-pay-usual-3	Restore R3+Codec I7
+PART-pay-usual-6	Codec I7
+PART-pay-stress-1	Codec I7
+PART-pay-stress-6	Restore R3+Codec I7
+PART-pay-varied-2	Restore R3+Codec I7
+PART-pay-varied-3	Restore R3+Codec I7
+PART-pay-varied-4	Restore R3+Codec I7
+PART-cells-usual-5	Restore R3+Codec I7
+PART-cells-varied-3	Restore R3+Codec I7
+MIX-sync+transfers+sign-in-stress-2	Restore R3+Codec I7
+MIX-sync+transfers+sign-in+pay-stress-2	Restore R3+Codec I7
+PART-cells-varied-8	Codec I7
+PART-pay-stress-11	Restore R3+Codec I7
+PART-pay-varied-9	Codec I7
+PART-transfers-usual-101	Restore R3+Codec I7
+PART-transfers-usual-104	Restore R3+Codec I7
+PART-transfers-usual-105	Restore R3+Codec I7
+PART-transfers-usual-109	Restore R3+Codec I7
+PART-transfers-usual-110	Restore R3+Codec I7
+PART-transfers-usual-112	Restore R3+Codec I7
+PART-transfers-stress-101	Restore R3+Codec I7
+PART-transfers-varied-106	Restore R3+Codec I7
+PART-transfers-varied-111	Restore R3+Codec I7
+PART-pay-usual-103	Codec I7
+PART-pay-usual-112	Codec I7
+PART-pay-stress-110	Codec I7
+PART-pay-varied-102	Codec I7
+PART-pay-varied-103	Restore R3+Codec I7
+PART-pay-varied-108	Restore R3+Codec I7
+PART-cells-usual-101	Restore R3+Codec I7
+PART-cells-usual-107	Codec I7
+PART-cells-usual-109	Restore R3+Codec I7
+PART-cells-usual-110	Codec I7
+PART-cells-usual-111	Codec I7
+PART-cells-stress-102	Restore R3+Codec I7
+PART-cells-stress-103	Restore R3+Codec I7
+PART-cells-varied-101	Codec I7
+PART-cells-varied-110	Restore R3+Codec I7
+MIX-sync+transfers+sign-in-stress-107	Restore R3+Codec I7
+MIX-sync+transfers+sign-in-stress-109	Restore R3+Codec I7
+MIX-sync+transfers+sign-in-stress-112	Restore R3+Codec I7
+MIX-sync+transfers+sign-in-usual-103	Restore R3+Codec I7
+MIX-sync+transfers+sign-in-usual-105	Restore R3+Codec I7
+MIX-sync+transfers+sign-in-usual-110	Restore R3+Codec I7
+MIX-sync+transfers+sign-in-usual-112	Restore R3+Codec I7
+MIX-sync+transfers+sign-in+pay-stress-101	Restore R3+Codec I7
+MIX-sync+transfers+sign-in+pay-stress-103	Codec I7
+MIX-sync+transfers+sign-in+pay-stress-108	Codec I7
+MIX-sync+transfers+sign-in+pay-stress-111	Restore R3+Codec I7

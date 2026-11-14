@@ -454,6 +454,15 @@ describe("the owed ledger on the production runtime", () => {
     testing.disposeRuntime(first.built);
     first.page.settle();
 
+    // Codec I7: three record kinds, `actor/`, `lane/` and `owed/`; no other key.
+    const kinds = new Set([...store.keys()].map((k) => k.split("/")[0]));
+    assert.ok(kinds.has("owed"), "the waiting row is saved in the identity's owed record");
+    assert.deepEqual(
+      [...kinds].filter((k) => !["actor", "lane", "owed"].includes(k ?? "")),
+      [],
+      "no record of another kind",
+    );
+
     const second = bootWith(served, store, 2);
     testing.attach(second.built, chained, "host", true);
     second.page.settle();
@@ -655,6 +664,40 @@ describe("the owed ledger on the production runtime", () => {
       deliveredOf(b.seen.slice(from)),
       [`${onB} Unsure`, `${onA} Rang`, `${onB} Rang`],
       "rows are heard in the order owed, across lanes",
+    );
+  });
+
+  // The same rows across a reload: a Kept row owed before Waiting rows comes back first, since the
+  // identity's rows are saved in one record in owed order (Restore R3; Codec I7).
+  it("after a reload, a Kept row owed before Waiting rows is still heard first (Restore R3; Codec I7)", () => {
+    const store = new Map<string, string>();
+    const jam: Jam = { on: true, tries: [] };
+    const { served, TollMachine } = tollOver(jam, []);
+    const b = bootWith(served, store, 1);
+
+    testing.attach(b.built, tolls, "host", false);
+    ring(b, "b");
+    const onB = lastRing(b);
+    lost(b, onB);
+    ring(b, "a");
+    const onA = lastRing(b);
+    testing.send(b.built, tolls, "Again", { tone: "b" });
+    b.page.settle();
+    b.built.runtime.disposeActor(actorRef(TollMachine, "t1"));
+    rung(b, onA);
+    rung(b, onB);
+    testing.disposeRuntime(b.built);
+    b.page.settle();
+
+    jam.on = false;
+    const second = bootWith(served, store, 2);
+    testing.attach(second.built, tolls, "host", false);
+    second.page.settle();
+
+    assert.deepStrictEqual(
+      deliveredOf(second.seen),
+      [`${onB} Unsure`, `${onA} Rang`, `${onB} Rang`],
+      "rows are heard in the order owed after a reload",
     );
   });
 
