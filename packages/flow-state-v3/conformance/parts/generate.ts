@@ -1,4 +1,4 @@
-import { Formatter, HashSet, MutableRef, Option, Predicate, Schema } from "effect";
+import { Formatter, HashMap, HashSet, MutableRef, Option, Predicate, Schema } from "effect";
 import type { Part, ServerAnswer, UserAction } from "../../fixtures/part.ts";
 import { random } from "../dsl/generate.ts";
 import { oneMachineEach } from "../fixtures/fixture.ts";
@@ -12,9 +12,11 @@ import {
   type Believed,
   heard,
   type Keys,
+  landed,
   refused,
   reloaded,
   reset,
+  started,
   unparked,
   type World,
 } from "./belief.ts";
@@ -132,7 +134,10 @@ const userMoves = (
           advanced(world, action.thinkMs);
           MutableRef.set(a.attached, false);
 
-          if (action.kind !== "release") reset(a, profile === "varied");
+          if (action.kind !== "release") MutableRef.set(a.recorded, false);
+
+          // A disposed or forgotten actor's lanes stay, unbound until an ensure adopts them.
+          if (action.kind !== "release") reset(a, true);
         },
       },
     ];
@@ -158,6 +163,8 @@ const userMoves = (
       advanced(world, action.thinkMs);
 
       for (let i = 0; i < action.burst; i += 1) heard(world, a, action.event, labels, acked);
+
+      if (acked && persisted) landed(world);
     };
 
     const acked: Move = {
@@ -294,8 +301,7 @@ const worldMoves = (
             steps: [{ _tag: "ack" as const }],
             weight: 2,
             apply: () => {
-              for (const { operation, request } of world.unacked.splice(0))
-                world.open.set(operation, [...(world.open.get(operation) ?? []), request]);
+              landed(world);
             },
           },
         ]
@@ -354,6 +360,8 @@ const generated = (
       parked: MutableRef.make<ReadonlyArray<{ readonly event: string; readonly labels: Labels }>>(
         [],
       ),
+      recorded: MutableRef.make(false),
+      heldBy: MutableRef.make(HashMap.empty<Schema.Json, string>()),
     };
   });
 
@@ -378,6 +386,7 @@ const generated = (
                 MutableRef.set(a.attached, true);
                 MutableRef.set(a.timers, armed(a, world.now.current));
                 unparked(world, a);
+                started(world, a);
               },
             },
           ];

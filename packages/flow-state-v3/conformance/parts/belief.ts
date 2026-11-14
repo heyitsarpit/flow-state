@@ -1,4 +1,4 @@
-import { Equal, HashSet, MutableRef, Option, type Schema } from "effect";
+import { Equal, HashMap, HashSet, MutableRef, Option, type Schema } from "effect";
 import type { Part, ServerAnswer } from "../../fixtures/part.ts";
 import type { Fixture } from "../fixtures/fixture.ts";
 import type { Folded, Labels } from "../fixtures/folds.ts";
@@ -37,6 +37,11 @@ export type Believed = {
   readonly parked: MutableRef.MutableRef<
     ReadonlyArray<{ readonly event: string; readonly labels: Labels }>
   >;
+  // Whether the store holds the actor's record: a landing after its creation sets it, and a
+  // disposal or forget clears it.
+  readonly recorded: MutableRef.MutableRef<boolean>;
+  // The operation of each Held head's key, for the restore a start delivers.
+  readonly heldBy: MutableRef.MutableRef<HashMap.HashMap<Schema.Json, string>>;
 };
 
 /**
@@ -236,7 +241,7 @@ export const answered = (
 
   const lost = !Answer.$is("Ok")(answer) && !Answer.$is("Fail")(answer);
 
-  if (lost) MutableRef.set(a.unsure, HashSet.add(a.unsure.current, head.key));
+  if (lost) held(a, operation, head.key);
   else MutableRef.set(a.busy, HashSet.remove(a.busy.current, head.key));
 
   const labels = a.fixture.handlers.folds.answers[operation]?.(answer) ?? {};
@@ -246,7 +251,7 @@ export const answered = (
     onSome: (event) => {
       if (parks && !a.attached.current)
         MutableRef.set(a.parked, [...a.parked.current, { event, labels }]);
-      else heard(world, a, event, labels, true);
+      else heard(world, a, event, labels, false);
     },
   });
 };
@@ -258,7 +263,7 @@ export const unparked = (world: World, a: Believed) => {
   const waiting = a.parked.current;
   MutableRef.set(a.parked, []);
 
-  for (const { event, labels } of waiting) heard(world, a, event, labels, true);
+  for (const { event, labels } of waiting) heard(world, a, event, labels, false);
 };
 
 /**
@@ -274,7 +279,7 @@ export const advanced = (world: World, ms: number) => {
       a.timers.current.filter((t) => t.due > world.now.current),
     );
 
-    for (const t of due) if (a.attached.current) heard(world, a, t.send, {}, true);
+    for (const t of due) if (a.attached.current) heard(world, a, t.send, {}, false);
   }
 };
 
@@ -289,25 +294,76 @@ export const refused = (world: World) => {
   }
 };
 
+// A head left Held on `key`: its lane is unsure, and each start delivers its unknown { Restored }.
+const held = (a: Believed, operation: string, key: Schema.Json) => {
+  MutableRef.set(a.unsure, HashSet.add(a.unsure.current, key));
+  MutableRef.set(a.heldBy, HashMap.set(a.heldBy.current, key, operation));
+};
+
 /**
- * A reload: unacknowledged writes are gone, open requests become unsure, local actors reset.
+ * An incarnation starts: each Held head with no row is delivered unknown { Restored } (Restore
+ * R3), which its handler hears as the operation's unknown event; the head stays Held, so every
+ * start delivers it again (Actors I40).
+ */
+export const started = (world: World, a: Believed) => {
+  for (const key of a.unsure.current)
+    Option.match(HashMap.get(a.heldBy.current, key), {
+      onNone: () => undefined,
+      onSome: (operation) => {
+        const lost = Answer.Lost();
+        const labels = a.fixture.handlers.folds.answers[operation]?.(lost) ?? {};
+
+        Option.match(eventOfAnswer(a, operation, lost), {
+          onNone: () => undefined,
+          onSome: (event) => heard(world, a, event, labels, false),
+        });
+      },
+    });
+};
+
+/**
+ * A landing: every write so far is on disk, so each acknowledged commit's request opens and every
+ * attached actor's record is stored.
+ */
+export const landed = (world: World) => {
+  for (const { operation, request } of world.unacked.splice(0))
+    world.open.set(operation, [...(world.open.get(operation) ?? []), request]);
+
+  for (const a of world.actors) if (a.attached.current) MutableRef.set(a.recorded, true);
+};
+
+/**
+ * A reload: unacknowledged writes are gone, open requests become unsure, local actors reset, and
+ * an actor whose record never landed has no incarnation until an ensure creates it again (Restore
+ * I1: only a record that restores is live; Actors I40: a boot wakes nothing else).
  */
 export const reloaded = (world: World) => {
+  for (const a of world.actors)
+    if (a.part.machine.compiled.persist && !a.recorded.current) {
+      reset(a, true);
+      MutableRef.set(a.attached, false);
+    }
+
   world.unacked.splice(0);
 
   for (const [operation, requests] of world.open) {
-    for (const r of requests) {
-      const a = world.actors[r.actor];
-
-      if (a !== undefined) MutableRef.set(a.unsure, HashSet.add(a.unsure.current, r.key));
-    }
+    for (const r of requests)
+      Option.map(Option.fromUndefinedOr(world.actors[r.actor]), (a) => held(a, operation, r.key));
 
     world.open.set(operation, []);
   }
 
-  for (const a of world.actors)
-    if (!a.part.machine.compiled.persist) {
-      reset(a);
-      MutableRef.set(a.attached, false);
-    }
+  for (const a of world.actors) afterBoot(world, a);
+};
+
+// After the boot: a local actor is gone with its page; a persisted one still attached starts again.
+const afterBoot = (world: World, a: Believed) => {
+  if (a.part.machine.compiled.persist) {
+    if (a.attached.current) started(world, a);
+
+    return;
+  }
+
+  reset(a);
+  MutableRef.set(a.attached, false);
 };
