@@ -97,6 +97,11 @@ code:wiki/plans/flow/references/proposals/t47-close-review-2026-11-14.md (R4, R6
   column and its `wl(21)` refusals cite them the same way. T53 deletes them with round-14. No catch is lost and
   nothing claims a live rule. Reverse: delete them now (a V1 exception for the user).
 
+- **D16 Unknown keys and delays are `None`.** See the build log. Reverse: revert 69bdeb98.
+- **D17 An owed row holds over the run's sole failures.** A part script owes one row per (check, Invariant) it
+  fails by; the run is judged to its end and fails only by rows it owes. Why: build review item 5 (resume 3).
+  Limit: a second break of an owed pair on another Attempt is excused. Reverse: revert the commit after 69bdeb98.
+
 ## Requirements
 
 Each: rule; source; check (red today); the wrong build that keeps it red.
@@ -198,8 +203,9 @@ Each: rule; source; check (red today); the wrong build that keeps it red.
   re-read against the new text and corrected where it claims the old rule. Source: T52 comment 2026-11-12.
   Check: Spec text and a re-check table in the review file; no code check, since the Specs are outside the
   package.
-- **Q27b Retired `cancelAll` (D11).** A retired rule is cited only in its retired form ("WriteLanes R15
-  (retired)"), in source text and in every runtime-built cite (the `wl(21)` refusals and the CancelAll column);
+- **Q27b Retired `cancelAll` (D11).** A retired rule is cited only in its retired form ("Retired WriteLanes R15",
+  alone, never inside a list of cites), in source text and in every runtime-built cite (the `wl(21)` refusals and
+  the CancelAll column);
   the four frozen LANE cases run on round-14 only and are absent from production's cases. Source: orchestrator
   ruling 2026-11-14. Check: `citations.test.ts` over files and the model's runtime cites, with a non-empty walk.
   Wrong build: deleting the cites; a bare "WriteLanes I21" built at runtime.

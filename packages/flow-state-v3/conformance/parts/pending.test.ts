@@ -21,6 +21,17 @@ describe("pending checks, owed to other Tasks (routed gaps)", () => {
     assert.ok(noticed < modelFields().length);
   });
 
+  it("T18: Cells aborts only while unsure, since the generator's belief frees a lane on any cancel", () => {
+    const cells = parts.find((p) => p.name === "cells");
+    assert.ok(cells !== undefined);
+
+    const aborts = (leaf: string) =>
+      (cells.user[leaf] ?? []).some((a) => a.kind === "send" && a.event === "AbortPay");
+
+    assert.ok(aborts("UNSURE"));
+    assert.ok(!aborts("PAYING"));
+  });
+
   it("T17: production's Compile static cases run in no machine gate, only under vitest", () => {
     assert.ok(productionCases.length > 0);
     assert.ok(!productionCases.some((id) => id.startsWith("CMP-")));

@@ -149,6 +149,16 @@ export const updating = <State extends string>(alternative: Alternative<State>) 
 });
 
 /**
+ * The hand fixtures' guarded alternatives with no fold, by fixture and place, each owed to the
+ * Task that converts its fixture to a part: the list may shrink, never grow.
+ */
+export const unfoldedGuards: ReadonlyArray<{
+  readonly fixture: string;
+  readonly place: string;
+  readonly owner: `@task.V3.T${number}`;
+}> = [];
+
+/**
  * The same alternative with a guard the suite does not compute.
  */
 export const guarded = <State extends string>(alternative: Alternative<State>) => ({

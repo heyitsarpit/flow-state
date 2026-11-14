@@ -1,0 +1,16 @@
+{
+  "id": "PART-cells-stress-105-shrunk",
+  "fixture": "cells",
+  "actor": "shopper-1",
+  "steps": [
+    { "_tag": "ensure" },
+    { "_tag": "send", "event": "Start", "payload": { "cartId": "c1", "intentId": "pi1" } },
+    { "_tag": "send", "event": "PayRequested", "payload": { "paymentMethodId": "visa" } },
+    { "_tag": "dispose" },
+    { "_tag": "refuse" },
+    { "_tag": "ensure" },
+    { "_tag": "send", "event": "Start", "payload": { "cartId": "c1", "intentId": "pi1" } },
+    { "_tag": "send", "event": "PayRequested", "payload": { "paymentMethodId": "visa" } }
+  ],
+  "by": "lane-queue WriteLanes I8"
+}

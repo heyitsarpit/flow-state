@@ -153,6 +153,9 @@ export const modelMutationGate = Effect.suspend(() => {
   );
 });
 
+const REFUSED_UNENDED =
+  "a forgotten or disposed actor's unacknowledged Attempt whose batch the store then refuses is never ended (only StorageFailure evidence), so the Runtime's disposal finds it still Unsent (WriteAhead R13, Actors R21, WriteLanes I27)";
+
 /**
  * Production's owed reds among the kept regression scripts: one a production run fails by a bug
  * a Task owns, checked to still fail by its check and Invariant, so a fix shows.
@@ -181,9 +184,20 @@ export const regressionsOwed: ReadonlyArray<Limit & { readonly owner: string }> 
     case: "PART-transfers-stress-5-shrunk",
     check: "disposal",
     invariant: "Actors I38",
-    why: "a forgotten actor's unacknowledged Attempt whose batch the store then refuses is never ended (only StorageFailure evidence), so the Runtime's disposal finds it still Unsent (WriteAhead R13, Actors R21, WriteLanes I27)",
+    why: REFUSED_UNENDED,
     owner: "@task.V3.T19",
   },
+  ...[
+    ["lane-queue", "WriteLanes I8"],
+    ["delivered-once", "WriteLanes I15"],
+    ["disposal", "Actors I38"],
+  ].map(([check = "", invariant = ""]) => ({
+    case: "PART-cells-stress-105-shrunk",
+    check,
+    invariant,
+    why: `${REFUSED_UNENDED}; a disposed actor's adoption then mints on the lane its unended head still holds`,
+    owner: "@task.V3.T19",
+  })),
 ];
 
 /**

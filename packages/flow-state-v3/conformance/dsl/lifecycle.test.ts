@@ -184,7 +184,7 @@ describe("The lane lifecycle (Table A, deadlines, promotion)", () => {
   });
 
   it("a boot owes no restore to a Held head whose Attempt has an owed row (Restore I6, R3)", () => {
-    for (const row of ["Kept", "Refused"])
+    for (const row of ["Kept", "Refused", "Owed", "Delivering", "Parked"])
       assert.ok(
         traces.some(
           (t) => t.name === `a boot owes no restore to a Held head whose ending is a ${row} row`,

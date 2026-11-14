@@ -6,6 +6,7 @@ import { mixed, parts } from "../../fixtures/index.ts";
 import { implemented as production } from "../adapters/production.ts";
 import { staticOwed } from "../adapters/production-static.ts";
 import { constructionCases } from "../compile/construction.cases.ts";
+import { ownsRows } from "../coverage.ts";
 import { productionCases } from "../runner/gates.ts";
 import { scenarios } from "../suite.ts";
 import { SLICE_OF } from "./codes.ts";
@@ -103,7 +104,7 @@ export const taskStatuses = () =>
 
             return id === undefined || status === undefined
               ? []
-              : [[`@task.V3.${id}`, status !== "done"] as const];
+              : [[`@task.V3.${id}`, ownsRows(status)] as const];
           }),
       ),
   );

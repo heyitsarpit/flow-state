@@ -751,6 +751,13 @@ tasks
             code:wiki/plans/flow/references/proposals/t52-build-review-2026-11-14.md.
             Edit (agent: T52 build reviewing lead, @task.V3.T52, 2026-11-14): this comment. Why: review rule. Reverse: 
             revert this commit.
+        comment     2026-11-14T06:27:09Z
+            Build review fixed (all 8 items), each with a red check or owed row: sole-failure owed rows (D17), unknown 
+            keys and delays None (D16), core ERROR on no verdict, cells-105's I8 kept for T19, D13 owed to T18; reds 
+            now open for Q20, Q24, Q27b, Q33, Q34. Falsify 154/154 and 18/18. Detail: 
+            code:wiki/plans/flow/references/proposals/t52-build-log-2026-11-14.md.
+              Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment. Why: step-done rule. Reverse: 
+              revert this commit.
     T59
         title       The suite reads and imports nothing outside the package
         status      draft

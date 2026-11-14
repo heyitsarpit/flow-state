@@ -18,7 +18,12 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const RETIRED: ReadonlyArray<string> = ["WriteLanes I21", "WriteLanes R15"];
 
 const bare = (text: string) =>
-  RETIRED.filter((id) => new RegExp(`(?<!Retired )${id}(?!\\d)`, "u").test(text));
+  RETIRED.filter((id) => {
+    const [spec, rule] = id.split(" ");
+    const listed = `${spec} (?:[RI]\\d+(?:, | and ))+${rule}(?!\\d)`;
+
+    return new RegExp(`(?<!Retired )${id}(?!\\d)|${listed}`, "u").test(text);
+  });
 
 // RETURN_TYPE: a recursive function names its type.
 const filesIn = (dir: string): ReadonlyArray<string> =>
@@ -62,5 +67,12 @@ describe("citations name live rules, or a retired one as retired (Conformance R5
     assert.deepStrictEqual(bare("judges WriteLanes R15."), ["WriteLanes R15"]);
     assert.deepStrictEqual(bare("judges Retired WriteLanes R15."), []);
     assert.deepStrictEqual(bare("WriteLanes R150"), []);
+  });
+
+  it("refuses a retired id inside a list of cites, even after the retired form", () => {
+    assert.deepStrictEqual(bare("WriteLanes R14, R15: one lane"), ["WriteLanes R15"]);
+    assert.deepStrictEqual(bare("WriteLanes I8 and I21"), ["WriteLanes I21"]);
+    assert.deepStrictEqual(bare("Retired WriteLanes R14, R15"), ["WriteLanes R15"]);
+    assert.deepStrictEqual(bare("WriteLanes R14, R150"), []);
   });
 });

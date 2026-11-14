@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vite-plus/test";
-import { Option, Predicate } from "effect";
+import { Formatter, Option, Predicate } from "effect";
 import { parts } from "../../fixtures/index.ts";
+import { payServer } from "../../fixtures/pay/contracts.ts";
+import type { Script } from "../dsl/script.ts";
+import { playPart } from "./play.ts";
 import { part } from "../../fixtures/part.ts";
 import { implemented as production } from "../adapters/production.ts";
 import { handlersFor, referenceFor, rowsFor } from "../fixtures/fixture.ts";
@@ -112,6 +115,45 @@ describe("derived key folds (WriteLanes R7: a commit's key is its select's)", ()
       delay({ ...folds.initial, retryInMs: { unknownToTheSuite: true } }),
       Option.none(),
     );
+  });
+});
+
+describe("one classify: the commit runs the part's server model (R15)", () => {
+  it("a planted change to the server model's classify changes production's ending at once", () => {
+    const busy: Script = {
+      id: "classify-planted-1",
+      fixture: "pay",
+      actor: "shopper-1",
+      steps: [
+        { _tag: "ensure" },
+        { _tag: "send", event: "PayRequested", payload: { paymentMethodId: "visa" } },
+        { _tag: "ack" },
+        {
+          _tag: "answer",
+          operation: "pay",
+          answer: { _tag: "fail", tag: "IntentBusy", fields: { status: "requires_capture" } },
+        },
+      ],
+    };
+
+    const original = payServer.classify;
+    const before = playPart(busy, "production");
+
+    assert.equal(before.verdict._tag, "Pass", Formatter.format(before.verdict));
+
+    try {
+      Object.assign(payServer, { classify: () => true });
+      const after = playPart(busy, "production").verdict;
+
+      assert.ok(
+        after._tag === "Fail" &&
+          after.why.includes("ending-channels: WriteLanes I25") &&
+          after.why.includes("ended success"),
+        Formatter.format(after),
+      );
+    } finally {
+      Object.assign(payServer, { classify: original });
+    }
   });
 });
 

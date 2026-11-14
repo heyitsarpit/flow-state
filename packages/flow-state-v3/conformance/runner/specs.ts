@@ -1,5 +1,5 @@
 import { Data, Effect, Schema } from "effect";
-import { CORE_SPECS, type CoreSpec, type TaskRef } from "../coverage.ts";
+import { CORE_SPECS, type CoreSpec, ownsRows, type TaskRef } from "../coverage.ts";
 import { runChild } from "./child.ts";
 
 /**
@@ -57,7 +57,7 @@ const isOpen = (root: string, owner: TaskRef) =>
       (out) => new SpecUnreadable({ spec: owner, why: out.stderr }),
     ),
     Effect.flatMap((out) => decodeTask(out.stdout)),
-    Effect.map((shown) => shown.task.status !== "done"),
+    Effect.map((shown) => ownsRows(shown.task.status)),
     Effect.orElseSucceed(() => false),
   );
 

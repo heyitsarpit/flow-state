@@ -29,6 +29,12 @@ export type CoreSpec = (typeof CORE_SPECS)[number];
 export type TaskRef = `@task.V3.T${number}`;
 
 /**
+ * Whether a Task with this status may still own an owed row: one that is done may not, so a Task
+ * cannot close while a row names it.
+ */
+export const ownsRows = (status: string) => status !== "done";
+
+/**
  * Invariants that have no check yet, the Task that owns them, and why.
  *
  * **Details**
