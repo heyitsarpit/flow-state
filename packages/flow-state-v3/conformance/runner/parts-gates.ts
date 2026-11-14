@@ -13,7 +13,7 @@ import { recording } from "../parts/cells.ts";
 import { SLICE_OF } from "../parts/codes.ts";
 import { matrixGate } from "../parts/features.ts";
 import { fieldGate, modelFields, modelMutants } from "../parts/model-mutation.ts";
-import { PAIR_OWNERS } from "../parts/pair-owners.ts";
+import { CELL_PAIR_OWNERS, PAIR_OWNERS } from "../parts/pair-owners.ts";
 import { combinationGate, lostCellPairs } from "../parts/pairs.ts";
 import type { TaskRef } from "../coverage.ts";
 import { modelOwed } from "../parts/model-owes.ts";
@@ -196,7 +196,22 @@ const combination = (record: boolean) =>
     ).pipe(
       Effect.andThen(
         Effect.suspend(() => {
-          const lost = lostCellPairs(recordedPairs(), result.cellPairs.keys);
+          const reachedNow = new Set(result.cellPairs.keys);
+          const owed = Object.entries(CELL_PAIR_OWNERS);
+
+          const lost = [
+            ...lostCellPairs(recordedPairs(), result.cellPairs.keys).filter(
+              (line) => !owed.some(([pair]) => line.includes(pair)),
+            ),
+            ...owed.flatMap(([pair, owner]) => {
+              if (reachedNow.has(pair))
+                return [`BAD  cell pair ${pair}: owed to ${owner.task}, but reached again`];
+
+              return statuses.get(owner.task) === true
+                ? []
+                : [`BAD  cell pair ${pair}: owed to ${owner.task}, which is not open`];
+            }),
+          ];
 
           if (record && lost.length === 0)
             writeFileSync(CELL_PAIRS, `${result.cellPairs.keys.join("\n")}\n`);

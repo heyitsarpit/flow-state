@@ -42,8 +42,8 @@
     },
     {
       "gate": "pairs production",
-      "revision": "eb14ea32",
-      "verdict": "VERDICT fail 73/74 interacting pairs"
+      "revision": "37088cb3",
+      "verdict": "VERDICT pass 74/74 interacting pairs"
     },
     {
       "gate": "model mutation production",

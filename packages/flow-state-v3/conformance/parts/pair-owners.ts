@@ -14,6 +14,21 @@ const durability = (by: string) =>
  * Decided (the orchestrator's ruling, 2026-11-12): the storage pairs go to slice 2, which builds
  * `wa`, `sr` and `rl` in full; the disposal with several actors to slice 4's actor identity.
  */
+/**
+ * Recorded cell pairs no run reaches now, each owed to an open Task that will reach it again
+ * (orchestrator ruling, 2026-11-15): owed, never dropped from the record. A pair here that a run
+ * reaches again fails the gate, so the row is removed when its Task reaches it.
+ */
+export const CELL_PAIR_OWNERS = {
+  "A BootSettles·Restoring·always > A BootSettles·Gone·always": {
+    task: "@task.V3.T20",
+    slice: 3,
+    by: "a boot that restores a head and then finds nothing to keep, from T20's restore parts",
+    date: "2026-11-15",
+    why: "unreached since T54's A-2: only PART-transfers-varied-3 reached it, through an ending dropped with no incarnation, which A-2 now owes and delivers (orchestrator ruling, 2026-11-15)",
+  },
+} satisfies Readonly<Record<string, Owner & { readonly why: string }>>;
+
 export const PAIR_OWNERS = {
   "du+sr": durability("sign-in: a refused batch in the disposal of an unstoppable write"),
 } satisfies Readonly<Record<string, Owner>>;

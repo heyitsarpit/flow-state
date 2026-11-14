@@ -1600,6 +1600,12 @@ tasks
             test with C3's design mutants, A-11's table and the strict I29 check are in; see the build log's A1 
             progress. Edit (agent: T54 building lead, @task.V3.T54, 2026-11-15): this comment. Why: A1's state for the 
             ruling. Reverse: the commit that adds it.
+        comment     2026-11-14T19:53:17Z
+            A1 done for review: all 19 gates green (gates.json); the lost cell pair is owed to T20 per the ruling, the 
+            class gate is 435/435 (two regressions fixed by A-2 no longer owed), core mutants 78/111 with 30 owed at 
+            limit 120. A-1, A-2, A-6, A-7 (F2), A-10, A-11, A-18 are green; A-3 and A-12 stay owed to A2. Detail and 
+            counts are in the build log's A1 progress. Edit (agent: T54 building lead, @task.V3.T54, 2026-11-15): this 
+            comment. Why: step A1's close. Reverse: the commit that adds it.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      draft
