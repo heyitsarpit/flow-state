@@ -475,4 +475,9 @@ note 2026-11-14T02:29:46Z
     recreated in code (Q2); no lint rule, reviews check it (Q3); first an audit of outside imports, temporary strings 
     and concepts across the package, then fixes (Q4). Scope: the whole run.
 note 2026-11-14T02:34:47Z
-    Review (orchestrator) of the per-ban lint rules at 1b5bf46b and 50cacbc0: exceptions hidden in the plugin, the proof not repeatable, Effect aliases missed; fixed at da9261c4 (folders in vite.config.ts, tools/flow-state-lint/rules.test.ts in lint:rules, red first). T47's jsonKey re-creates Effect's structural Hash and Equal, sent to its lead. Missed by own checks: the builder proved with throwaway files (weak check).
+    Review (orchestrator) of the per-ban lint rules at 1b5bf46b and 50cacbc0: exceptions hidden in the plugin, the 
+    proof not repeatable, Effect aliases missed; fixed at da9261c4 (folders in vite.config.ts, 
+    tools/flow-state-lint/rules.test.ts in lint:rules, red first). T47's jsonKey re-creates Effect's structural Hash 
+    and Equal, sent to its lead. Missed by own checks: the builder proved with throwaway files (weak check).
+note 2026-11-14T02:40:03Z
+    Decision (user, 2026-11-14): "we don't need to fix prototype, for conformance let's ban imports and all for now, the concept clean will happen some time later". New @task.V3.T59 (audit groups A, E, F) after T47, before T52; groups B, C, D, G deferred to revisit.md. Orchestrator: open-owner checks move to tools/plan-coverage, since Task status is the wiki's own fact.

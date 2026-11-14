@@ -1118,7 +1118,7 @@ tasks
         title       Suite phase-out, first cut: Pay and Cells generated, hand traces thinned
         status      draft
         priority    high
-        blocked_by  [@T47]
+        blocked_by  [@T59]
         description
             Pay and Cells become generated parts in the top-level `fixtures/`; Pay's hand rows stay as one frozen
             golden; the hand traces give way to the model search (phase-out step 4).
@@ -1180,6 +1180,44 @@ tasks
             decline; `Resend` drops a same-turn cancel's release); `Maybe` cells need WriteAhead I21, I22 as their 
             cite. No pilot reaches these. Edit (agent: T47 building lead, @task.V3.T47, 2026-11-14): this comment. Why: 
             Fable's read. Reverse: drop it.
+    T59
+        title       The suite reads and imports nothing outside the package
+        status      draft
+        priority    high
+        blocked_by  [@T47]
+        description
+            The conformance suite and the runner read no file, CLI or folder outside `packages/flow-state-v3/` and
+            import nothing from `src/` beyond the seam; the data they read from the wiki today is recreated in the
+            package as typed code.
+
+            **Why now:** the user, 2026-11-14: the package is self-contained (AGENTS.md, Code style). The suite's
+            gates parse dated proposals by matching their prose, so a reworded proposal silently feeds them wrong text.
+            Blocked by @T47, whose open files hold most of these reads.
+
+            **Read first:** code:wiki/plans/flow/references/proposals/self-contained-audit-2026-11-14.md
+            (groups A, E, F), code:packages/flow-state-v3/conformance/parts/records.ts,
+            code:packages/flow-state-v3/conformance/runner/specs.ts.
+
+            **Approach:** the feature rows, pair rules, slices and Spec Invariant lists become typed modules in the
+            package. The check that a Task owner is still open is a fact about the wiki: it moves to
+            `tools/plan-coverage`, beside `check:plans` (orchestrator, 2026-11-14). The gates file takes its revision
+            from a runner argument, or records it as missing, visibly. Mutant copies resolve dependencies through the
+            package's own declared ones. Concepts and comment citations (audit groups B, C, D, G) are not in scope:
+            they are deferred to revisit.md (the user, 2026-11-14); round-14's prototype adapters stay as they are.
+
+            False pass: a recreated table that drifts from the wiki → caught by the `tools/` check comparing them.
+            Gates: every suite gate as before, green at the same counts; a planted outside read (a `wiki/` path, a
+            `wk` call, `../../..` past the root) fails the new check.
+            User's read: where each moved check now lives.
+        acceptance
+            - no `node:fs` read, child process or symlink in `conformance/` or `bench/` reaches outside the package,
+              shown by a test that walks the source and plants one of each;
+            - `conformance/` imports from `src/` only `src/index.ts` and the listed seam (audit group E);
+            - `packages/flow-state-v3/package.json` declares the dependencies the package imports (audit group F);
+            - every gate in `conformance/gates.json` keeps its verdict and counts at the Task's first and last
+              revisions;
+            - the wiki-facing checks (open owners, recreated tables against their source) run from `tools/` and fail
+              on a planted mismatch.
     T54
         title       Core consolidation: owed-endings ledger, one start, diff-written records, acts into evidenceOf
         status      draft
