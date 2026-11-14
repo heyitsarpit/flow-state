@@ -1228,6 +1228,13 @@ tasks
             wrong).
             Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment. Why: step-done rule. Reverse: 
             revert this commit.
+        comment     2026-11-14T04:11:39Z
+            Step 1 review: fix first. Four list changes before step 2: Pay and Cells share one machine id in the app 
+            mix (no Q); Q27 must retire, not relabel, the frozen cancelAll cases (a scope stop for the user); Q24 is 
+            not yet widened; the golden's content needs a pin. Plus five missed routed items. Detail: 
+            code:wiki/plans/flow/references/proposals/t52-step1-review-2026-11-14.md.
+            Edit (agent: T52 step-1 reviewing lead, @task.V3.T52, 2026-11-14): this comment. Why: step-review rule. 
+            Reverse: revert this commit.
     T59
         title       The suite reads and imports nothing outside the package
         status      draft
