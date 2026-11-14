@@ -17,6 +17,8 @@ agents are briefed, reviewed or paced. Add one entry per study; keep each entry 
   - rule slips;
   - context growth and compactions.
 - **Output:** the measured sinks, then changes tied to them. Each change gets a measure and a reverse.
+- **Who decides:** the orchestrator applies process experiments itself and the next study keeps or drops them.
+  Authority, stops, the reserve, gates and Task scope stay the user's (the user, 2026-11-14).
 
 ## Open experiments
 

@@ -496,3 +496,7 @@ note 2026-11-14T15:42:37Z
     wiki/plans/flow/references/process/process-notebook.md; a transcript study at each Task's close goes in it; linked 
     from instructions. My authority to apply process changes as experiments without asking is still to be confirmed by 
     the user.
+note 2026-11-14T15:43:37Z
+    Amendment (2026-11-14, the user): "yes you run the experiments". The orchestrator applies process experiments from 
+    each study into instructions or AGENTS.md, with a measure and a reverse in the process notebook; authority, stops, 
+    the reserve, gates and Task scope stay the user's. Authority section edited.
