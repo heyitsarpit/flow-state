@@ -361,4 +361,8 @@ note 2026-11-14T08:45:10Z
     by exact subject, must-still-fail, the planted-fault sweep, every owed script at every seed, and one caught rule; 
     suite mutation, gate ledgers, the excuse registry, the unknowns ledger and the Spec excuse rule go to revisit.md.
 note 2026-11-14T08:51:29Z
-    T60 streamlined (orchestrator): T60 is a convergence, so no per-step review and no expected-results read (its checks are the class gate and planted faults, which take no model expectation); a mapping table replaces a new requirements list; one close review after the caught rule. Step 0 at 3cfbfc08 holds most of the reduced design.
+    T60 streamlined (orchestrator): T60 is a convergence, so no per-step review and no expected-results read (its 
+    checks are the class gate and planted faults, which take no model expectation); a mapping table replaces a new 
+    requirements list; one close review after the caught rule. Step 0 at 3cfbfc08 holds most of the reduced design.
+note 2026-11-14T09:24:08Z
+    T60 in review at 196edbff (excuses by exact break, one caught rule, class gate 268/268; liar round-14 125/126). Ruled (orchestrator): 125 is honest, since turn.root-first was caught only by a defect; it lands as an owed item for T17, and the fixture-gap cap is not raised. Close review started (Opus, up to eight Haiku, one blind; 5-hour projection 95).
