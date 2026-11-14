@@ -638,6 +638,13 @@ note 2026-11-14T22:17:20Z
     them rather than a separate review now (one review per step). Usage is 51 percent weekly. No process study (the 
     last was under 3 hours ago) and no compaction (16 hours since the last).
 note 2026-11-14T22:50:26Z
-    T54 A2 done (55b0c3b5), all 18 gates green; owed rows re-recorded into owed-varied.ts, baseline reset; adopted-head routing (stress-3, varied-8) owed to A3. A2 step review started (Opus medium, Haiku sidecars, one blind); A3 waits on it. Flagged to the review: thin-script owner T18 versus a suite Task, and 6 fields plus 1 adversary assertion lost.
+    T54 A2 done (55b0c3b5), all 18 gates green; owed rows re-recorded into owed-varied.ts, baseline reset; adopted-head 
+    routing (stress-3, varied-8) owed to A3. A2 step review started (Opus medium, Haiku sidecars, one blind); A3 waits 
+    on it. Flagged to the review: thin-script owner T18 versus a suite Task, and 6 fields plus 1 adversary assertion 
+    lost.
 note 2026-11-14T22:52:28Z
-    Ruled (orchestrator, T54 A3): adopted-head routing is built in A3, as a one-rule fix to the selection anchor (Actors R20), not owed to T17. T17 owner/current is the subject-path redesign (T57). Why: A2 made the path reachable and the oracle contradicts a cited rule. Reverse: owe stress-3 and varied-8 to T57.
+    Ruled (orchestrator, T54 A3): adopted-head routing is built in A3, as a one-rule fix to the selection anchor 
+    (Actors R20), not owed to T17. T17 owner/current is the subject-path redesign (T57). Why: A2 made the path 
+    reachable and the oracle contradicts a cited rule. Reverse: owe stress-3 and varied-8 to T57.
+note 2026-11-14T23:07:27Z
+    Review (T54 A2) passes with no blockers (t54-a2-review-2026-11-15.md); A3 started. Accepted (orchestrator): the localeCompare lane sort is fixed first in A3; thin scripts re-owed (stress-101 to T19, varied-112 to T15); the dropped adversary assertion is owed to T15 (lost suite reach); belief gaps and the pinned-owner check go to T15; T19 checks by persisting the count at capture.
