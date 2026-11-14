@@ -443,3 +443,17 @@ note 2026-11-12T12:39:18Z
     T47's open fixes from its resume note (finding 4, Q22 source, missed requirements, full gates, re-check), then T52, 
     then T54 (brief ready at 3ca52d27). Open for the user: the user-page file (user-page-2026-11-12.md); library skill 
     edits (policy-testing, policy-verification) still uncommitted.
+note 2026-11-14T01:31:48Z
+    Decision (user, 2026-11-14): "the weekly limit for this run is 35% right now, i will raise later"; at the reserve 
+    the lead finishes its step, commits and leaves a resume note (Q3 A). Scope: the whole run. Limits edited.
+note 2026-11-14T01:31:49Z
+    Decision (user, 2026-11-14): "depending on the task let's do upto 8 sidecars"; reviews too, "leads decide how much 
+    they need" (Q1). Scope: every lead, the whole run; reviews keep at least one blind sidecar. instructions and 
+    cadence edited.
+note 2026-11-14T01:31:49Z
+    Decision (user, 2026-11-14): the user page user-page-2026-11-12.md is read, "seems fine"; slice closes are not held 
+    by it. Run commands renamed to wk with the pin.
+note 2026-11-14T01:32:12Z
+    Run resumed at 91560f44, pin workflow@6b7288e, weekly usage 0 percent (reserve 35). Current Task @task.V3.T47; no 
+    agents live; crons 5216201b, 73dcd064 and caffeinate (pid 53764) started. First action: one Opus lead on T47's open 
+    items from its last resume note, then full gates and review.

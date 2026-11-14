@@ -150,7 +150,8 @@ description
     No budget of iterations, time or usage, for the Epic, a phase or a Task (the user, 2026-11-10):
     the reviews and each phase's exit criteria judge progress. Failure limit (the default for each
     phase): 2 failures with the same root cause after convergence. Usage reserve: the run stops at
-    100 percent weekly usage, all models (the user, 2026-11-12; was 95). Usage limits and reserves always mean
+    35 percent weekly usage, all models (the user, 2026-11-14; was 100); at the reserve the lead finishes its step,
+    commits and leaves a resume note (the user, 2026-11-14, Q3 A). Usage limits and reserves always mean
     the weekly window, never the 5-hour one; read it from the harness's usage view (in the Claude
     desktop app, its usage tool; otherwise ask the user). The user changes the reserve as planned
     work changes: a new value is an edit here and a note, with no confirmation round. R20 (b) and
@@ -190,10 +191,10 @@ run
     To start: "run the loop in wiki/tasks/V3/epic.task". You are the orchestrator: you start,
     track and route agents; you never build.
 
-    1. Read this file, `workflow show @epic.V3 --tree`, and the records the current Task links; on a
+    1. Read this file, `wk show @epic.V3 --tree`, and the records the current Task links; on a
        resume, run skill:catch-up first. If status is not active or the loop fields are missing,
        stop and tell the user.
-    2. Current Task: the in_progress one, otherwise `workflow next --epic V3`. It returns "No ready
+    2. Current Task: the in_progress one, otherwise `wk next --epic V3`. It returns "No ready
        tasks." while the Epic is draft (readiness needs an active Epic) and while P4 to P15's Tasks
        are draft: set a phase's Tasks open when the phase starts.
     3. Create the session cron from cadence; without one, run its prompt at each wake (R25).
@@ -253,7 +254,8 @@ instructions
       designing) runs at medium effort; every Haiku agent at high, and a lead tells its own sidecars so (the user,
       2026-11-11).
     - Building leads plan the round up front and write every committed line; Haiku never writes committed code (the
-      user, 2026-11-10). Up to four Haiku sidecars as runners (gates, falsify, sweeps, traces), one-rule diff
+      user, 2026-11-10). Up to eight Haiku sidecars, as many as the lead judges the work needs (the user, 2026-11-14), 
+      as runners (gates, falsify, sweeps, traces), one-rule diff
       reviewers, locators (prototype code, old case and old mutant per Invariant as file:line lists), and writers of
       adversarial mutants from the Spec in scratch (the lead rewrites any it keeps). A reviewer sidecar checks every
       oracle, test harness or runtime change (amendment 8).
@@ -265,7 +267,7 @@ instructions
     **Building**
 
     - Every build and review brief carries the Constraints' code-style list, the Spec it implements, the
-      test-the-spec rule and the requirements-first rule (Testing, below), and tells the lead to run `workflow brief 
+      test-the-spec rule and the requirements-first rule (Testing, below), and tells the lead to run `wk brief 
       @task.V3.Tn` and read its phase's skills first
       (the user, 2026-11-09 and 2026-11-10). Name a skill once, on the phase.
     - Plan changes found while building go to @plan.Pending as decisions, never into the Plans; one merges only once
@@ -284,8 +286,9 @@ instructions
       workflow@55c7ab7, section "Write the requirements as failing checks first"). Each Task's first commit, before
       any code:
       - the requirements list, once, in the Task's comments: each rule with its source (Spec rule or decision),
-        and the cases reality cannot show. One lead gathers it with up to four read-only Haiku sidecars (effort
-        high), each on a named angle: the Specs and Plans; the code and prior art it replaces; the open findings,
+        and the cases reality cannot show. One lead gathers it with up to eight read-only Haiku sidecars (effort
+        high; the user, 2026-11-14), each on a named angle: the Specs and Plans; the code and prior art it replaces; 
+        the open findings,
         gaps and log notes that name the Task; and an adversary listing how a wrong build could still pass. The
         lead merges, verifies and logs each sidecar item as accepted, changed or rejected (the user, 2026-11-12).
         The list maps every acceptance item, Approach item and gap comment of the Task to a requirement, one to
@@ -331,12 +334,13 @@ instructions
       were declined. A lead hands off to a fresh one with a resume note at each large step once its context runs
       long. Loop
       amendments are batched at an area's close-out unless one fixes a wrong result (the user, 2026-11-11).
-    - Every review goes to one Opus lead with two read-only Haiku sidecars on named angles (the user, 2026-11-11).
+    - Every review goes to one Opus lead with up to eight read-only Haiku sidecars on named angles, as many as the lead
+      judges it needs (the user, 2026-11-14; was two).
       One of them is blind (the user, 2026-11-12): it gets only the Specs, the Plans and the code under review,
       never the Task's requirements list, its comments or earlier reviews, and answers "what must be true here for
       this to be fully correct?". The lead compares its answer with the requirements list; anything only the blind
       sidecar found is a missed requirement and lands as a failing check. Every audit or research task goes to one
-      Opus lead with zero to two by need;
+      Opus lead with up to eight by need (the user, 2026-11-14);
       code quality is left to lint. A close-out review ends each phase or area.
     - Stopping rule (the user, 2026-11-12; consult A4): a finding blocks only when it is in the Task's range, has a
       check red on current code, and is a lost, doubled, made-up or wrong ending, a hang, or a broken acceptance
@@ -379,8 +383,10 @@ cadence
     Prompt: "V3 review wake. Read wiki/tasks/V3/epic.task and the last notes in its log.task. If its Limits
     section sets a usage reserve, read the weekly usage from the harness's usage view, and if the reserve is reached,
     stop the run by R21 and note it. If there is a checkpoint newer than the last noted review or audit, or a review
-    event with none covering it, start one Opus reviewing lead at medium effort with two read-only Haiku sidecars at
-    effort high, each on a named angle, one of them blind to the requirements list (Reviews, in instructions);
+    event with none covering it, start one Opus reviewing lead at medium effort with up to eight read-only Haiku 
+    sidecars at
+    effort high (the lead decides how many), each on a named angle, at least one of them blind to the requirements list 
+    (Reviews, in instructions);
     verify its findings, send the accepted ones to the building lead in the same
     wake, and note the review. If the building lead has shown no activity for 100 minutes, resume it by message or
     replace it (R7) and note it. If the last compaction note in log.task is over 24 hours old and no review is
