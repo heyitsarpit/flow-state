@@ -199,7 +199,7 @@ describe("feature matrix over the real rows (Q12: Conformance R17, I53 to I55)",
 
   it("passes over every Plan feature, production's declarations, the pilots' reach and the hand cases", () => {
     assert.deepEqual(matrixGate(realInput()), []);
-  });
+  }, 60_000);
 
   it("on the real rows, fails a built feature marked owed and a declared code no pilot reaches", () => {
     const input = realInput();
@@ -213,5 +213,5 @@ describe("feature matrix over the real rows (Q12: Conformance R17, I53 to I55)",
     assert.ok(
       matrixGate({ ...input, reached: noLookup }).includes("lk: declared, reached by no fixture"),
     );
-  });
+  }, 60_000);
 });

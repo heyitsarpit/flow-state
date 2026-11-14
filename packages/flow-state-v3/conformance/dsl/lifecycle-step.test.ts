@@ -308,9 +308,9 @@ const examples: ReadonlyArray<Example> = [
     run: ({ refused, after }) => {
       const dropped = [...unsure, turn(shopper, "VoidUnsure", "LEFT", "LEFT", [])];
 
-      assert.deepStrictEqual(refused(voidSent, voidUnsure("cancel"), sends(4)), []);
+      assert.deepStrictEqual(refused(voidSent, voidUnsure("cancel"), sends(4)), [wl(12)]);
       assert.equal(phaseOf(after(voidSent, voidUnsure("cancel"), sends(4)), "v1"), "Gone");
-      assert.deepStrictEqual(refused(voidSent, dropped, sends(4)), []);
+      assert.deepStrictEqual(refused(voidSent, dropped, sends(4)), [wl(12)]);
       assert.equal(phaseOf(after(voidSent, dropped, sends(4)), "v1"), "Gone");
     },
   },
@@ -377,7 +377,7 @@ const examples: ReadonlyArray<Example> = [
     name: "retryable picks the cancel row once the retries are spent",
     run: ({ refused, after }) => {
       assert.equal(phaseOf(after(voidSent, voidUnsure("retry"), sends(4)), "v1"), "Gone");
-      assert.deepStrictEqual(refused(voidSent, voidUnsure("cancel"), sends(4)), []);
+      assert.deepStrictEqual(refused(voidSent, voidUnsure("cancel"), sends(4)), [wl(12)]);
     },
   },
 
@@ -394,7 +394,7 @@ const examples: ReadonlyArray<Example> = [
       ];
 
       assert.equal(phaseOf(resending, "v1"), "Resending");
-      assert.deepStrictEqual(refused(resending, facts, [...sends(3), fresh]), []);
+      assert.deepStrictEqual(refused(resending, facts, [...sends(3), fresh]), [wl(12)]);
       assert.equal(phaseOf(after(resending, facts, [...sends(3), fresh]), "v1"), "Gone");
       assert.equal(phaseOf(after(resending, facts, [...sends(2), fresh]), "v1"), "Resending");
     },
@@ -641,7 +641,7 @@ const examples: ReadonlyArray<Example> = [
       );
 
       assert.deepStrictEqual(refused(held, [seen, released]), []);
-      assert.deepStrictEqual(refused(held, [seen]), []);
+      assert.deepStrictEqual(refused(held, [seen]), [wl(12)]);
       assert.equal(phaseOf(after(held, [seen]), "p1"), "Gone");
       assert.equal(phaseOf(after(held, [seen]), "p2"), "Held");
     },

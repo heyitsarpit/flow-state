@@ -54,7 +54,7 @@ describe("the trace command (T61; survey item 7)", () => {
     );
 
     assert.match(text, /crash/u);
-    assert.match(text, /\n {2}MISMATCH delivered-once WriteLanes I16: /u);
+    assert.match(text, /\n {2}MISMATCH lane-queue WriteLanes I12: /u);
   });
 
   it("a hand case on the null runtime fails at its first step", () => {

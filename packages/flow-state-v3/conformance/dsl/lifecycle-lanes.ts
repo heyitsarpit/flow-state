@@ -181,7 +181,11 @@ const acted = (model: Model, lane: LaneId, a: Act, given: Rules) =>
     AwaitRelease: () => headAct(model, lane, "AwaitRelease"),
     ReleaseHead: () =>
       onHead(model, lane, (head) =>
-        promote(setPhase(model, head.id, Phase.Gone({ why: "evidence" })), lane, given.promotion),
+        promote(
+          setPhase(headAct(model, lane, "AwaitRelease"), head.id, Phase.Gone({ why: "evidence" })),
+          lane,
+          given.promotion,
+        ),
       ),
     Interrupt: () => headAct(model, lane, "Interrupt"),
     CancelAll: ({ head }) =>

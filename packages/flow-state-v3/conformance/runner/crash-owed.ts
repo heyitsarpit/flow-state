@@ -8,11 +8,19 @@ import type { CaseVerdict } from "./verdict.ts";
  * R22). Each item must still break there, and its owner must be open.
  */
 export const crashOwed: ReadonlyArray<PartOwed> = [
+  {
+    case: "PAY-22@16",
+    check: "lane-queue",
+    invariant: "WriteLanes I12",
+    why: `after the third re-send the boot restores retryCount 2, so the restored unknown's handler retries a spent retryable({ times: 3 }) where the model gives up: ${RETRY_COUNT}`,
+    owner: "@task.V3.T19",
+    items: [OwedItem.Attempt({ id: "att-1000-12" })],
+  },
   ...(["WriteLanes I16", "WriteLanes I15"] as const).map((invariant) => ({
     case: "PAY-22@16",
     check: "delivered-once",
     invariant,
-    why: `after the third re-send the boot restores retryCount 2, so the head the model released when the spent retryable({ times: 3 }) cancelled is restored, and its ending delivered: ${RETRY_COUNT}`,
+    why: `the head the model released when the spent retryable({ times: 3 }) cancelled is restored at the reload, and its ending delivered: ${RETRY_COUNT}`,
     owner: "@task.V3.T19",
     items: [OwedItem.Attempt({ id: "att-1000-12" })],
   })),

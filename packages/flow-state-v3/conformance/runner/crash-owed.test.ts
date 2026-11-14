@@ -25,6 +25,7 @@ describe("crash's reds named and owned (T61; survey item 3)", () => {
     assert.deepEqual(
       crashOwed.map((o) => `${o.case} ${o.check} ${o.invariant} ${o.owner}`),
       [
+        "PAY-22@16 lane-queue WriteLanes I12 @task.V3.T19",
         "PAY-22@16 delivered-once WriteLanes I16 @task.V3.T19",
         "PAY-22@16 delivered-once WriteLanes I15 @task.V3.T19",
         "DISP-02@6 delivered-once WriteLanes I15 @task.V3.T54",
@@ -52,8 +53,8 @@ describe("crash's reds named and owned (T61; survey item 3)", () => {
 
     const hit = {
       point: "PAY-22@16",
-      check: "delivered-once",
-      invariant: "WriteLanes I16",
+      check: "lane-queue",
+      invariant: "WriteLanes I12",
       subject: "att-1000-12",
     };
 
@@ -70,6 +71,7 @@ describe("crash's reds named and owned (T61; survey item 3)", () => {
     assert.deepEqual(
       [...new Set(owed.hits.map((h) => `${h.point} ${h.check} ${h.invariant} ${h.subject}`))],
       [
+        "PAY-22@16 lane-queue WriteLanes I12 att-1000-12",
         "PAY-22@16 delivered-once WriteLanes I16 att-1000-12",
         "PAY-22@16 delivered-once WriteLanes I15 att-1000-12",
       ],

@@ -1,3 +1,6 @@
+prod.actor-never-saved	ACT-01/free-actor-ends	red disposal
+prod.actor-never-saved	ACT-02/dirty-record-written-at-end	red disposal
+prod.actor-never-saved	ACT-03/no-end-before-the-grace	red disposal
 prod.actor-never-saved	DISP-01	caught selection Turn I2
 prod.actor-never-saved	DISP-02	green
 prod.actor-never-saved	DISP-04	caught selection Turn I2
@@ -16,19 +19,19 @@ prod.actor-never-saved	PAY-01	green
 prod.actor-never-saved	PAY-02	green
 prod.actor-never-saved	PAY-03	green
 prod.actor-never-saved	PAY-04	green
-prod.actor-never-saved	PAY-05	caught selection Turn I2
+prod.actor-never-saved	PAY-05	green
 prod.actor-never-saved	PAY-06/interruptible	caught selection Turn I2
-prod.actor-never-saved	PAY-06/uninterruptible	caught selection Turn I2
+prod.actor-never-saved	PAY-06/uninterruptible	green
 prod.actor-never-saved	PAY-07/late-in-a-new-PAYING	green
 prod.actor-never-saved	PAY-07/late-may-not-leave	green
 prod.actor-never-saved	PAY-07/leaveMidCharge	green
-prod.actor-never-saved	PAY-08/reload-while-reconciling	red case
+prod.actor-never-saved	PAY-08/reload-while-reconciling	caught selection Turn I2
 prod.actor-never-saved	PAY-08/reloadDuringCharge	green
 prod.actor-never-saved	PAY-09/ack-not-stored	red case
 prod.actor-never-saved	PAY-09/ack-stored-confirmation-lost	caught selection Turn I2
 prod.actor-never-saved	PAY-10/hang	green
 prod.actor-never-saved	PAY-10/refuse	green
-prod.actor-never-saved	PAY-12/cancel-on-wire	caught selection Turn I2
+prod.actor-never-saved	PAY-12/cancel-on-wire	green
 prod.actor-never-saved	PAY-12/defect	caught selection Turn I2
 prod.actor-never-saved	PAY-12/sync	green
 prod.actor-never-saved	PAY-13/hung-commit	caught selection Turn I2
@@ -37,7 +40,7 @@ prod.actor-never-saved	PAY-13/waiting-flushed	green
 prod.actor-never-saved	PAY-14	green
 prod.actor-never-saved	PAY-15/busy-then-new-write	green
 prod.actor-never-saved	PAY-15/cancel-idle	green
-prod.actor-never-saved	PAY-15/cancel-on-wire	caught selection Turn I2
+prod.actor-never-saved	PAY-15/cancel-on-wire	green
 prod.actor-never-saved	PAY-15/dead-activation-timer	caught selection Turn I2
 prod.actor-never-saved	PAY-15/dispose-held	caught selection Turn I2
 prod.actor-never-saved	PAY-15/dispose-held-moved	caught selection Turn I2
@@ -51,7 +54,7 @@ prod.actor-never-saved	PAY-16/never-answered-waits-for-the-bound	caught selectio
 prod.actor-never-saved	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	caught selection Turn I2
 prod.actor-never-saved	PAY-16/read-defect-issue	caught selection Turn I2
 prod.actor-never-saved	PAY-16/resend-refused-capture	green
-prod.actor-never-saved	PAY-16/restore-keeps-mayHaveApplied	caught selection Turn I2
+prod.actor-never-saved	PAY-16/restore-keeps-mayHaveApplied	green
 prod.actor-never-saved	PAY-16/retry-count-persists	caught selection Turn I2
 prod.actor-never-saved	PAY-16/schedule-reads-after-memory	green
 prod.actor-never-saved	PAY-16/settled-during-disposal-parked	green
@@ -73,6 +76,9 @@ prod.actor-never-saved	TURN-03/exited	green
 prod.actor-never-saved	TURN-03/on-time	green
 prod.actor-never-saved	TURN-03/re-entered	green
 prod.actor-never-saved	TURN-03/unused	green
+prod.adapter-ended-success	ACT-01/free-actor-ends	green
+prod.adapter-ended-success	ACT-02/dirty-record-written-at-end	green
+prod.adapter-ended-success	ACT-03/no-end-before-the-grace	green
 prod.adapter-ended-success	DISP-01	caught ending-channels WriteLanes I3
 prod.adapter-ended-success	DISP-02	caught ending-channels WriteLanes I3
 prod.adapter-ended-success	DISP-04	caught ending-channels WriteLanes I3
@@ -148,6 +154,9 @@ prod.adapter-ended-success	TURN-03/exited	caught ending-channels WriteLanes I3
 prod.adapter-ended-success	TURN-03/on-time	red ending-channels,disposal
 prod.adapter-ended-success	TURN-03/re-entered	caught ending-channels WriteLanes I3
 prod.adapter-ended-success	TURN-03/unused	red ending-channels,disposal
+prod.bound-forgets-the-wire	ACT-01/free-actor-ends	green
+prod.bound-forgets-the-wire	ACT-02/dirty-record-written-at-end	green
+prod.bound-forgets-the-wire	ACT-03/no-end-before-the-grace	green
 prod.bound-forgets-the-wire	DISP-01	green
 prod.bound-forgets-the-wire	DISP-02	green
 prod.bound-forgets-the-wire	DISP-04	green
@@ -223,6 +232,9 @@ prod.bound-forgets-the-wire	TURN-03/exited	green
 prod.bound-forgets-the-wire	TURN-03/on-time	caught disposal Actors I35
 prod.bound-forgets-the-wire	TURN-03/re-entered	caught disposal Actors I35
 prod.bound-forgets-the-wire	TURN-03/unused	caught disposal Actors I35
+prod.failure-as-cancelled	ACT-01/free-actor-ends	green
+prod.failure-as-cancelled	ACT-02/dirty-record-written-at-end	green
+prod.failure-as-cancelled	ACT-03/no-end-before-the-grace	green
 prod.failure-as-cancelled	DISP-01	green
 prod.failure-as-cancelled	DISP-02	green
 prod.failure-as-cancelled	DISP-04	green
@@ -298,6 +310,9 @@ prod.failure-as-cancelled	TURN-03/exited	green
 prod.failure-as-cancelled	TURN-03/on-time	green
 prod.failure-as-cancelled	TURN-03/re-entered	caught ending-channels WriteLanes I25
 prod.failure-as-cancelled	TURN-03/unused	green
+prod.fires-unused	ACT-01/free-actor-ends	green
+prod.fires-unused	ACT-02/dirty-record-written-at-end	green
+prod.fires-unused	ACT-03/no-end-before-the-grace	green
 prod.fires-unused	DISP-01	green
 prod.fires-unused	DISP-02	green
 prod.fires-unused	DISP-04	green
@@ -373,6 +388,9 @@ prod.fires-unused	TURN-03/exited	green
 prod.fires-unused	TURN-03/on-time	green
 prod.fires-unused	TURN-03/re-entered	green
 prod.fires-unused	TURN-03/unused	caught schedules Turn I23
+prod.idle-fails-idle	ACT-01/free-actor-ends	green
+prod.idle-fails-idle	ACT-02/dirty-record-written-at-end	green
+prod.idle-fails-idle	ACT-03/no-end-before-the-grace	green
 prod.idle-fails-idle	DISP-01	green
 prod.idle-fails-idle	DISP-02	green
 prod.idle-fails-idle	DISP-04	green
@@ -448,6 +466,9 @@ prod.idle-fails-idle	TURN-03/exited	green
 prod.idle-fails-idle	TURN-03/on-time	green
 prod.idle-fails-idle	TURN-03/re-entered	green
 prod.idle-fails-idle	TURN-03/unused	green
+prod.kept-ignored	ACT-01/free-actor-ends	green
+prod.kept-ignored	ACT-02/dirty-record-written-at-end	green
+prod.kept-ignored	ACT-03/no-end-before-the-grace	green
 prod.kept-ignored	DISP-01	green
 prod.kept-ignored	DISP-02	green
 prod.kept-ignored	DISP-04	green
@@ -523,6 +544,9 @@ prod.kept-ignored	TURN-03/exited	green
 prod.kept-ignored	TURN-03/on-time	green
 prod.kept-ignored	TURN-03/re-entered	green
 prod.kept-ignored	TURN-03/unused	green
+prod.kept-redelivered	ACT-01/free-actor-ends	green
+prod.kept-redelivered	ACT-02/dirty-record-written-at-end	green
+prod.kept-redelivered	ACT-03/no-end-before-the-grace	green
 prod.kept-redelivered	DISP-01	green
 prod.kept-redelivered	DISP-02	green
 prod.kept-redelivered	DISP-04	green
@@ -598,6 +622,9 @@ prod.kept-redelivered	TURN-03/exited	green
 prod.kept-redelivered	TURN-03/on-time	green
 prod.kept-redelivered	TURN-03/re-entered	green
 prod.kept-redelivered	TURN-03/unused	green
+prod.mint-not-replayable	ACT-01/free-actor-ends	green
+prod.mint-not-replayable	ACT-02/dirty-record-written-at-end	green
+prod.mint-not-replayable	ACT-03/no-end-before-the-grace	green
 prod.mint-not-replayable	DISP-01	caught case expectations Turn I17
 prod.mint-not-replayable	DISP-02	caught case expectations Turn I17
 prod.mint-not-replayable	DISP-04	caught case expectations Turn I17
@@ -673,6 +700,9 @@ prod.mint-not-replayable	TURN-03/exited	caught case expectations Turn I17
 prod.mint-not-replayable	TURN-03/on-time	caught case expectations Turn I17
 prod.mint-not-replayable	TURN-03/re-entered	caught case expectations Turn I17
 prod.mint-not-replayable	TURN-03/unused	caught case expectations Turn I17
+prod.record-forgets-retries	ACT-01/free-actor-ends	green
+prod.record-forgets-retries	ACT-02/dirty-record-written-at-end	green
+prod.record-forgets-retries	ACT-03/no-end-before-the-grace	green
 prod.record-forgets-retries	DISP-01	green
 prod.record-forgets-retries	DISP-02	green
 prod.record-forgets-retries	DISP-04	green
@@ -748,6 +778,9 @@ prod.record-forgets-retries	TURN-03/exited	green
 prod.record-forgets-retries	TURN-03/on-time	green
 prod.record-forgets-retries	TURN-03/re-entered	green
 prod.record-forgets-retries	TURN-03/unused	green
+prod.refused-turn-reported	ACT-01/free-actor-ends	green
+prod.refused-turn-reported	ACT-02/dirty-record-written-at-end	green
+prod.refused-turn-reported	ACT-03/no-end-before-the-grace	green
 prod.refused-turn-reported	DISP-01	green
 prod.refused-turn-reported	DISP-02	green
 prod.refused-turn-reported	DISP-04	green
@@ -823,6 +856,9 @@ prod.refused-turn-reported	TURN-03/exited	green
 prod.refused-turn-reported	TURN-03/on-time	green
 prod.refused-turn-reported	TURN-03/re-entered	green
 prod.refused-turn-reported	TURN-03/unused	green
+prod.released-delivered	ACT-01/free-actor-ends	green
+prod.released-delivered	ACT-02/dirty-record-written-at-end	green
+prod.released-delivered	ACT-03/no-end-before-the-grace	green
 prod.released-delivered	DISP-01	green
 prod.released-delivered	DISP-02	green
 prod.released-delivered	DISP-04	green
@@ -898,6 +934,9 @@ prod.released-delivered	TURN-03/exited	green
 prod.released-delivered	TURN-03/on-time	green
 prod.released-delivered	TURN-03/re-entered	green
 prod.released-delivered	TURN-03/unused	green
+prod.resend-new-id	ACT-01/free-actor-ends	green
+prod.resend-new-id	ACT-02/dirty-record-written-at-end	green
+prod.resend-new-id	ACT-03/no-end-before-the-grace	green
 prod.resend-new-id	DISP-01	green
 prod.resend-new-id	DISP-02	green
 prod.resend-new-id	DISP-04	green
@@ -951,7 +990,7 @@ prod.resend-new-id	PAY-16/never-answered-waits-for-the-bound	green
 prod.resend-new-id	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	green
 prod.resend-new-id	PAY-16/read-defect-issue	green
 prod.resend-new-id	PAY-16/resend-refused-capture	caught attempt-identity WriteLanes I6
-prod.resend-new-id	PAY-16/restore-keeps-mayHaveApplied	green
+prod.resend-new-id	PAY-16/restore-keeps-mayHaveApplied	caught attempt-identity WriteLanes I6
 prod.resend-new-id	PAY-16/retry-count-persists	caught attempt-identity WriteLanes I6
 prod.resend-new-id	PAY-16/schedule-reads-after-memory	green
 prod.resend-new-id	PAY-16/settled-during-disposal-parked	green
@@ -973,6 +1012,9 @@ prod.resend-new-id	TURN-03/exited	green
 prod.resend-new-id	TURN-03/on-time	green
 prod.resend-new-id	TURN-03/re-entered	green
 prod.resend-new-id	TURN-03/unused	green
+prod.resend-uncounted	ACT-01/free-actor-ends	green
+prod.resend-uncounted	ACT-02/dirty-record-written-at-end	green
+prod.resend-uncounted	ACT-03/no-end-before-the-grace	green
 prod.resend-uncounted	DISP-01	green
 prod.resend-uncounted	DISP-02	green
 prod.resend-uncounted	DISP-04	green
@@ -1048,6 +1090,9 @@ prod.resend-uncounted	TURN-03/exited	green
 prod.resend-uncounted	TURN-03/on-time	green
 prod.resend-uncounted	TURN-03/re-entered	green
 prod.resend-uncounted	TURN-03/unused	green
+prod.retry-not-owed	ACT-01/free-actor-ends	green
+prod.retry-not-owed	ACT-02/dirty-record-written-at-end	green
+prod.retry-not-owed	ACT-03/no-end-before-the-grace	green
 prod.retry-not-owed	DISP-01	green
 prod.retry-not-owed	DISP-02	green
 prod.retry-not-owed	DISP-04	green
@@ -1123,6 +1168,9 @@ prod.retry-not-owed	TURN-03/exited	green
 prod.retry-not-owed	TURN-03/on-time	green
 prod.retry-not-owed	TURN-03/re-entered	green
 prod.retry-not-owed	TURN-03/unused	green
+prod.root-first	ACT-01/free-actor-ends	green
+prod.root-first	ACT-02/dirty-record-written-at-end	green
+prod.root-first	ACT-03/no-end-before-the-grace	green
 prod.root-first	DISP-01	caught selection Turn I2
 prod.root-first	DISP-02	caught selection Turn I2
 prod.root-first	DISP-04	caught selection Turn I2
@@ -1198,6 +1246,9 @@ prod.root-first	TURN-03/exited	caught selection Turn I2
 prod.root-first	TURN-03/on-time	caught selection Turn I2
 prod.root-first	TURN-03/re-entered	caught selection Turn I2
 prod.root-first	TURN-03/unused	caught selection Turn I2
+prod.state-move-copies-memory	ACT-01/free-actor-ends	green
+prod.state-move-copies-memory	ACT-02/dirty-record-written-at-end	green
+prod.state-move-copies-memory	ACT-03/no-end-before-the-grace	green
 prod.state-move-copies-memory	DISP-01	caught publication Turn I30
 prod.state-move-copies-memory	DISP-02	caught publication Turn I30
 prod.state-move-copies-memory	DISP-04	caught publication Turn I30
@@ -1210,7 +1261,7 @@ prod.state-move-copies-memory	DLV-03	green
 prod.state-move-copies-memory	DLV-04	green
 prod.state-move-copies-memory	DLV-05	green
 prod.state-move-copies-memory	DLV-06	caught publication Turn I30
-prod.state-move-copies-memory	LANE-08	green
+prod.state-move-copies-memory	LANE-08	caught publication Turn I30
 prod.state-move-copies-memory	LANE-09	caught publication Turn I30
 prod.state-move-copies-memory	PAY-01	green
 prod.state-move-copies-memory	PAY-02	caught publication Turn I30
@@ -1273,6 +1324,9 @@ prod.state-move-copies-memory	TURN-03/exited	green
 prod.state-move-copies-memory	TURN-03/on-time	green
 prod.state-move-copies-memory	TURN-03/re-entered	green
 prod.state-move-copies-memory	TURN-03/unused	green
+prod.success-as-failure	ACT-01/free-actor-ends	green
+prod.success-as-failure	ACT-02/dirty-record-written-at-end	green
+prod.success-as-failure	ACT-03/no-end-before-the-grace	green
 prod.success-as-failure	DISP-01	green
 prod.success-as-failure	DISP-02	green
 prod.success-as-failure	DISP-04	green

@@ -4,7 +4,9 @@ import { closes, commit, decline, member, mint, turn } from "./lifecycle-members
 import { at, build, Check, type Trace } from "./lifecycle-trace.ts";
 
 const { Q, W, I, U, H, GE } = at;
-const { lane, model, wl, pending } = build;
+const { lane, model, wl, pending, awaiting } = build;
+
+const released = awaiting("h", "Released");
 
 const twoLanes = model([...lane("A", ["a", W]), ...lane("B", ["b", W])]);
 
@@ -82,13 +84,13 @@ const orderTraces: ReadonlyArray<Trace> = [
   {
     name: "a cancel then a commit on a Held lane: the cancel releases the head, so the commit mints",
     cites:
-      "WriteLanes I10, T17: the cancel releases the held head at once, its Released report evidence",
+      "WriteLanes I10, T17: the cancel releases the held head at once and owes its Released evidence",
     start: model(lane("A", ["h", H])),
     steps: [turn(member("cancel", "reject"), commit("reject")), mint("n")],
     refusals: [[], []],
     phases: { h: GE, n: U },
-    owed: 0,
-    checks: [],
+    owed: 1,
+    checks: [Check.Owing({ obligations: [released] })],
   },
   {
     name: "a cancel of a Held head promotes the next waiting commit in its turn",
@@ -97,8 +99,8 @@ const orderTraces: ReadonlyArray<Trace> = [
     steps: [turn(member("cancel"))],
     refusals: [[]],
     phases: { h: GE, q: U },
-    owed: 0,
-    checks: [],
+    owed: 1,
+    checks: [Check.Owing({ obligations: [released] })],
   },
   {
     name: "a retry then a cancel in one turn releases the re-send",
@@ -108,8 +110,8 @@ const orderTraces: ReadonlyArray<Trace> = [
     steps: [turn(member("retry", "reject"), member("cancel", "reject"))],
     refusals: [[]],
     phases: { h: GE },
-    owed: 0,
-    checks: [],
+    owed: 1,
+    checks: [Check.Owing({ obligations: [released] })],
   },
   {
     name: "a mint outside a turn",

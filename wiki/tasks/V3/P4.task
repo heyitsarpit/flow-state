@@ -898,6 +898,10 @@ tasks
             Q26 done: a batch holds its step's end, so a kill restores each row exactly (only a row saved mid-delivery 
             stays Maybe); WriteAhead I21 and I22 leave T52, owed to T19 until an oracle claims them. No owed row names 
             T52. Reverse: revert this commit.
+        comment     2026-11-14T12:51:59Z
+            Item 7 done: Q24 to Q26 built, Q25 corrected to owe the Released evidence (the first sweep lost 40 cancel 
+            catches without it; the second loses none); Q18 measured and held for T53 (requirements edit). Sweep 
+            regenerated (prototype, three retired rows match; production, first since T45). Reverse: revert this commit.
     T60
         title       The suite proves its own gates and excuses
         status      done

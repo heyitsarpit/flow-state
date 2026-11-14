@@ -59,6 +59,7 @@
 1b.cancel-all-promotes-before-emptying	PAY-03	green
 1b.cancel-all-promotes-before-emptying	PAY-04	green
 1b.cancel-all-promotes-before-emptying	PAY-05	green
+1b.cancel-all-promotes-before-emptying	PAY-05/held-head-sleeps-at-boot	green
 1b.cancel-all-promotes-before-emptying	PAY-06/interruptible	green
 1b.cancel-all-promotes-before-emptying	PAY-06/uninterruptible	green
 1b.cancel-all-promotes-before-emptying	PAY-07/late-in-a-new-PAYING	green
@@ -109,6 +110,7 @@
 1b.cancel-all-promotes-before-emptying	PAY-22	green
 1b.cancel-all-promotes-before-emptying	PAY-23	green
 1b.cancel-all-promotes-before-emptying	TURN-01/mapper-refused	green
+1b.cancel-all-promotes-before-emptying	TURN-01/schedule-out-of-range	green
 1b.cancel-all-promotes-before-emptying	TURN-01/schedule-refused	green
 1b.cancel-all-promotes-before-emptying	TURN-02	green
 1b.cancel-all-promotes-before-emptying	TURN-03/exited	green
@@ -181,6 +183,7 @@
 1b.cancel-all-queue-reversed	PAY-03	green
 1b.cancel-all-queue-reversed	PAY-04	green
 1b.cancel-all-queue-reversed	PAY-05	green
+1b.cancel-all-queue-reversed	PAY-05/held-head-sleeps-at-boot	green
 1b.cancel-all-queue-reversed	PAY-06/interruptible	green
 1b.cancel-all-queue-reversed	PAY-06/uninterruptible	green
 1b.cancel-all-queue-reversed	PAY-07/late-in-a-new-PAYING	green
@@ -231,6 +234,7 @@
 1b.cancel-all-queue-reversed	PAY-22	green
 1b.cancel-all-queue-reversed	PAY-23	green
 1b.cancel-all-queue-reversed	TURN-01/mapper-refused	green
+1b.cancel-all-queue-reversed	TURN-01/schedule-out-of-range	green
 1b.cancel-all-queue-reversed	TURN-01/schedule-refused	green
 1b.cancel-all-queue-reversed	TURN-02	green
 1b.cancel-all-queue-reversed	TURN-03/exited	green
@@ -303,6 +307,7 @@
 1b.cancel-all-wire-held-at-once	PAY-03	green
 1b.cancel-all-wire-held-at-once	PAY-04	green
 1b.cancel-all-wire-held-at-once	PAY-05	green
+1b.cancel-all-wire-held-at-once	PAY-05/held-head-sleeps-at-boot	green
 1b.cancel-all-wire-held-at-once	PAY-06/interruptible	green
 1b.cancel-all-wire-held-at-once	PAY-06/uninterruptible	green
 1b.cancel-all-wire-held-at-once	PAY-07/late-in-a-new-PAYING	green
@@ -353,6 +358,7 @@
 1b.cancel-all-wire-held-at-once	PAY-22	green
 1b.cancel-all-wire-held-at-once	PAY-23	green
 1b.cancel-all-wire-held-at-once	TURN-01/mapper-refused	green
+1b.cancel-all-wire-held-at-once	TURN-01/schedule-out-of-range	green
 1b.cancel-all-wire-held-at-once	TURN-01/schedule-refused	green
 1b.cancel-all-wire-held-at-once	TURN-02	green
 1b.cancel-all-wire-held-at-once	TURN-03/exited	green
@@ -425,6 +431,7 @@
 1b.forget-marks-held-lane	PAY-03	green
 1b.forget-marks-held-lane	PAY-04	green
 1b.forget-marks-held-lane	PAY-05	green
+1b.forget-marks-held-lane	PAY-05/held-head-sleeps-at-boot	green
 1b.forget-marks-held-lane	PAY-06/interruptible	green
 1b.forget-marks-held-lane	PAY-06/uninterruptible	green
 1b.forget-marks-held-lane	PAY-07/late-in-a-new-PAYING	green
@@ -475,6 +482,7 @@
 1b.forget-marks-held-lane	PAY-22	green
 1b.forget-marks-held-lane	PAY-23	green
 1b.forget-marks-held-lane	TURN-01/mapper-refused	green
+1b.forget-marks-held-lane	TURN-01/schedule-out-of-range	green
 1b.forget-marks-held-lane	TURN-01/schedule-refused	green
 1b.forget-marks-held-lane	TURN-02	green
 1b.forget-marks-held-lane	TURN-03/exited	green
@@ -547,6 +555,7 @@
 1b.r8-refused-ending-not-redelivered	PAY-03	green
 1b.r8-refused-ending-not-redelivered	PAY-04	green
 1b.r8-refused-ending-not-redelivered	PAY-05	green
+1b.r8-refused-ending-not-redelivered	PAY-05/held-head-sleeps-at-boot	green
 1b.r8-refused-ending-not-redelivered	PAY-06/interruptible	green
 1b.r8-refused-ending-not-redelivered	PAY-06/uninterruptible	green
 1b.r8-refused-ending-not-redelivered	PAY-07/late-in-a-new-PAYING	green
@@ -597,6 +606,7 @@
 1b.r8-refused-ending-not-redelivered	PAY-22	green
 1b.r8-refused-ending-not-redelivered	PAY-23	green
 1b.r8-refused-ending-not-redelivered	TURN-01/mapper-refused	caught delivered-once WriteLanes I15
+1b.r8-refused-ending-not-redelivered	TURN-01/schedule-out-of-range	caught delivered-once WriteLanes I15
 1b.r8-refused-ending-not-redelivered	TURN-01/schedule-refused	caught delivered-once WriteLanes I15
 1b.r8-refused-ending-not-redelivered	TURN-02	green
 1b.r8-refused-ending-not-redelivered	TURN-03/exited	green
@@ -669,6 +679,7 @@
 1b.r8-third-try	PAY-03	green
 1b.r8-third-try	PAY-04	green
 1b.r8-third-try	PAY-05	green
+1b.r8-third-try	PAY-05/held-head-sleeps-at-boot	green
 1b.r8-third-try	PAY-06/interruptible	green
 1b.r8-third-try	PAY-06/uninterruptible	green
 1b.r8-third-try	PAY-07/late-in-a-new-PAYING	green
@@ -719,6 +730,7 @@
 1b.r8-third-try	PAY-22	green
 1b.r8-third-try	PAY-23	green
 1b.r8-third-try	TURN-01/mapper-refused	caught delivered-once WriteLanes I15
+1b.r8-third-try	TURN-01/schedule-out-of-range	caught delivered-once WriteLanes I15
 1b.r8-third-try	TURN-01/schedule-refused	caught delivered-once WriteLanes I15
 1b.r8-third-try	TURN-02	green
 1b.r8-third-try	TURN-03/exited	green
@@ -791,6 +803,7 @@ a2.deliv-fail-samemail	PAY-02	green
 a2.deliv-fail-samemail	PAY-03	green
 a2.deliv-fail-samemail	PAY-04	green
 a2.deliv-fail-samemail	PAY-05	green
+a2.deliv-fail-samemail	PAY-05/held-head-sleeps-at-boot	green
 a2.deliv-fail-samemail	PAY-06/interruptible	green
 a2.deliv-fail-samemail	PAY-06/uninterruptible	green
 a2.deliv-fail-samemail	PAY-07/late-in-a-new-PAYING	green
@@ -841,6 +854,7 @@ a2.deliv-fail-samemail	PAY-21	green
 a2.deliv-fail-samemail	PAY-22	green
 a2.deliv-fail-samemail	PAY-23	green
 a2.deliv-fail-samemail	TURN-01/mapper-refused	green
+a2.deliv-fail-samemail	TURN-01/schedule-out-of-range	green
 a2.deliv-fail-samemail	TURN-01/schedule-refused	green
 a2.deliv-fail-samemail	TURN-02	green
 a2.deliv-fail-samemail	TURN-03/exited	green
@@ -913,6 +927,7 @@ a3.r14-explicit-reentry-keeps-activation	PAY-02	green
 a3.r14-explicit-reentry-keeps-activation	PAY-03	green
 a3.r14-explicit-reentry-keeps-activation	PAY-04	green
 a3.r14-explicit-reentry-keeps-activation	PAY-05	green
+a3.r14-explicit-reentry-keeps-activation	PAY-05/held-head-sleeps-at-boot	green
 a3.r14-explicit-reentry-keeps-activation	PAY-06/interruptible	green
 a3.r14-explicit-reentry-keeps-activation	PAY-06/uninterruptible	green
 a3.r14-explicit-reentry-keeps-activation	PAY-07/late-in-a-new-PAYING	green
@@ -963,6 +978,7 @@ a3.r14-explicit-reentry-keeps-activation	PAY-21	green
 a3.r14-explicit-reentry-keeps-activation	PAY-22	green
 a3.r14-explicit-reentry-keeps-activation	PAY-23	green
 a3.r14-explicit-reentry-keeps-activation	TURN-01/mapper-refused	green
+a3.r14-explicit-reentry-keeps-activation	TURN-01/schedule-out-of-range	green
 a3.r14-explicit-reentry-keeps-activation	TURN-01/schedule-refused	green
 a3.r14-explicit-reentry-keeps-activation	TURN-02	green
 a3.r14-explicit-reentry-keeps-activation	TURN-03/exited	green
@@ -1035,6 +1051,7 @@ audit-1.cancel-all-leaves-the-head	PAY-02	green
 audit-1.cancel-all-leaves-the-head	PAY-03	green
 audit-1.cancel-all-leaves-the-head	PAY-04	green
 audit-1.cancel-all-leaves-the-head	PAY-05	green
+audit-1.cancel-all-leaves-the-head	PAY-05/held-head-sleeps-at-boot	green
 audit-1.cancel-all-leaves-the-head	PAY-06/interruptible	green
 audit-1.cancel-all-leaves-the-head	PAY-06/uninterruptible	green
 audit-1.cancel-all-leaves-the-head	PAY-07/late-in-a-new-PAYING	green
@@ -1085,6 +1102,7 @@ audit-1.cancel-all-leaves-the-head	PAY-21	green
 audit-1.cancel-all-leaves-the-head	PAY-22	green
 audit-1.cancel-all-leaves-the-head	PAY-23	green
 audit-1.cancel-all-leaves-the-head	TURN-01/mapper-refused	green
+audit-1.cancel-all-leaves-the-head	TURN-01/schedule-out-of-range	green
 audit-1.cancel-all-leaves-the-head	TURN-01/schedule-refused	green
 audit-1.cancel-all-leaves-the-head	TURN-02	green
 audit-1.cancel-all-leaves-the-head	TURN-03/exited	green
@@ -1157,6 +1175,7 @@ audit-1.r14-reentry-keeps-activation	PAY-02	green
 audit-1.r14-reentry-keeps-activation	PAY-03	green
 audit-1.r14-reentry-keeps-activation	PAY-04	green
 audit-1.r14-reentry-keeps-activation	PAY-05	green
+audit-1.r14-reentry-keeps-activation	PAY-05/held-head-sleeps-at-boot	green
 audit-1.r14-reentry-keeps-activation	PAY-06/interruptible	green
 audit-1.r14-reentry-keeps-activation	PAY-06/uninterruptible	green
 audit-1.r14-reentry-keeps-activation	PAY-07/late-in-a-new-PAYING	green
@@ -1207,6 +1226,7 @@ audit-1.r14-reentry-keeps-activation	PAY-21	green
 audit-1.r14-reentry-keeps-activation	PAY-22	green
 audit-1.r14-reentry-keeps-activation	PAY-23	green
 audit-1.r14-reentry-keeps-activation	TURN-01/mapper-refused	green
+audit-1.r14-reentry-keeps-activation	TURN-01/schedule-out-of-range	green
 audit-1.r14-reentry-keeps-activation	TURN-01/schedule-refused	green
 audit-1.r14-reentry-keeps-activation	TURN-02	green
 audit-1.r14-reentry-keeps-activation	TURN-03/exited	green
@@ -1279,6 +1299,7 @@ cli.check-runs-callbacks	PAY-02	green
 cli.check-runs-callbacks	PAY-03	green
 cli.check-runs-callbacks	PAY-04	green
 cli.check-runs-callbacks	PAY-05	green
+cli.check-runs-callbacks	PAY-05/held-head-sleeps-at-boot	green
 cli.check-runs-callbacks	PAY-06/interruptible	green
 cli.check-runs-callbacks	PAY-06/uninterruptible	green
 cli.check-runs-callbacks	PAY-07/late-in-a-new-PAYING	green
@@ -1329,6 +1350,7 @@ cli.check-runs-callbacks	PAY-21	green
 cli.check-runs-callbacks	PAY-22	green
 cli.check-runs-callbacks	PAY-23	green
 cli.check-runs-callbacks	TURN-01/mapper-refused	green
+cli.check-runs-callbacks	TURN-01/schedule-out-of-range	green
 cli.check-runs-callbacks	TURN-01/schedule-refused	green
 cli.check-runs-callbacks	TURN-02	green
 cli.check-runs-callbacks	TURN-03/exited	green
@@ -1401,6 +1423,7 @@ cli.complete-always	PAY-02	green
 cli.complete-always	PAY-03	green
 cli.complete-always	PAY-04	green
 cli.complete-always	PAY-05	green
+cli.complete-always	PAY-05/held-head-sleeps-at-boot	green
 cli.complete-always	PAY-06/interruptible	green
 cli.complete-always	PAY-06/uninterruptible	green
 cli.complete-always	PAY-07/late-in-a-new-PAYING	green
@@ -1451,6 +1474,7 @@ cli.complete-always	PAY-21	green
 cli.complete-always	PAY-22	green
 cli.complete-always	PAY-23	green
 cli.complete-always	TURN-01/mapper-refused	green
+cli.complete-always	TURN-01/schedule-out-of-range	green
 cli.complete-always	TURN-01/schedule-refused	green
 cli.complete-always	TURN-02	green
 cli.complete-always	TURN-03/exited	green
@@ -1523,6 +1547,7 @@ cli.graph-renames-edge	PAY-02	caught graph-names StaticCli I2
 cli.graph-renames-edge	PAY-03	caught graph-names StaticCli I2
 cli.graph-renames-edge	PAY-04	caught graph-names StaticCli I2
 cli.graph-renames-edge	PAY-05	caught graph-names StaticCli I2
+cli.graph-renames-edge	PAY-05/held-head-sleeps-at-boot	caught graph-names StaticCli I2
 cli.graph-renames-edge	PAY-06/interruptible	caught graph-names StaticCli I2
 cli.graph-renames-edge	PAY-06/uninterruptible	caught graph-names StaticCli I2
 cli.graph-renames-edge	PAY-07/late-in-a-new-PAYING	caught graph-names StaticCli I2
@@ -1573,6 +1598,7 @@ cli.graph-renames-edge	PAY-21	caught graph-names StaticCli I2
 cli.graph-renames-edge	PAY-22	caught graph-names StaticCli I2
 cli.graph-renames-edge	PAY-23	caught graph-names StaticCli I2
 cli.graph-renames-edge	TURN-01/mapper-refused	caught graph-names StaticCli I2
+cli.graph-renames-edge	TURN-01/schedule-out-of-range	caught graph-names StaticCli I2
 cli.graph-renames-edge	TURN-01/schedule-refused	caught graph-names StaticCli I2
 cli.graph-renames-edge	TURN-02	caught graph-names StaticCli I2
 cli.graph-renames-edge	TURN-03/exited	caught graph-names StaticCli I2
@@ -1645,6 +1671,7 @@ cli.graph-renames-untaken-edge	PAY-02	green
 cli.graph-renames-untaken-edge	PAY-03	green
 cli.graph-renames-untaken-edge	PAY-04	green
 cli.graph-renames-untaken-edge	PAY-05	green
+cli.graph-renames-untaken-edge	PAY-05/held-head-sleeps-at-boot	green
 cli.graph-renames-untaken-edge	PAY-06/interruptible	green
 cli.graph-renames-untaken-edge	PAY-06/uninterruptible	green
 cli.graph-renames-untaken-edge	PAY-07/late-in-a-new-PAYING	green
@@ -1695,6 +1722,7 @@ cli.graph-renames-untaken-edge	PAY-21	green
 cli.graph-renames-untaken-edge	PAY-22	green
 cli.graph-renames-untaken-edge	PAY-23	green
 cli.graph-renames-untaken-edge	TURN-01/mapper-refused	green
+cli.graph-renames-untaken-edge	TURN-01/schedule-out-of-range	green
 cli.graph-renames-untaken-edge	TURN-01/schedule-refused	green
 cli.graph-renames-untaken-edge	TURN-02	green
 cli.graph-renames-untaken-edge	TURN-03/exited	green
@@ -1767,6 +1795,7 @@ cli.late-handler-unreported	PAY-02	green
 cli.late-handler-unreported	PAY-03	green
 cli.late-handler-unreported	PAY-04	green
 cli.late-handler-unreported	PAY-05	green
+cli.late-handler-unreported	PAY-05/held-head-sleeps-at-boot	green
 cli.late-handler-unreported	PAY-06/interruptible	green
 cli.late-handler-unreported	PAY-06/uninterruptible	green
 cli.late-handler-unreported	PAY-07/late-in-a-new-PAYING	green
@@ -1817,6 +1846,7 @@ cli.late-handler-unreported	PAY-21	green
 cli.late-handler-unreported	PAY-22	green
 cli.late-handler-unreported	PAY-23	green
 cli.late-handler-unreported	TURN-01/mapper-refused	green
+cli.late-handler-unreported	TURN-01/schedule-out-of-range	green
 cli.late-handler-unreported	TURN-01/schedule-refused	green
 cli.late-handler-unreported	TURN-02	green
 cli.late-handler-unreported	TURN-03/exited	green
@@ -1889,6 +1919,7 @@ cli.loader-on-stderr	PAY-02	green
 cli.loader-on-stderr	PAY-03	green
 cli.loader-on-stderr	PAY-04	green
 cli.loader-on-stderr	PAY-05	green
+cli.loader-on-stderr	PAY-05/held-head-sleeps-at-boot	green
 cli.loader-on-stderr	PAY-06/interruptible	green
 cli.loader-on-stderr	PAY-06/uninterruptible	green
 cli.loader-on-stderr	PAY-07/late-in-a-new-PAYING	green
@@ -1939,6 +1970,7 @@ cli.loader-on-stderr	PAY-21	green
 cli.loader-on-stderr	PAY-22	green
 cli.loader-on-stderr	PAY-23	green
 cli.loader-on-stderr	TURN-01/mapper-refused	green
+cli.loader-on-stderr	TURN-01/schedule-out-of-range	green
 cli.loader-on-stderr	TURN-01/schedule-refused	green
 cli.loader-on-stderr	TURN-02	green
 cli.loader-on-stderr	TURN-03/exited	green
@@ -2011,6 +2043,7 @@ cli.loader-on-stdout	PAY-02	green
 cli.loader-on-stdout	PAY-03	green
 cli.loader-on-stdout	PAY-04	green
 cli.loader-on-stdout	PAY-05	green
+cli.loader-on-stdout	PAY-05/held-head-sleeps-at-boot	green
 cli.loader-on-stdout	PAY-06/interruptible	green
 cli.loader-on-stdout	PAY-06/uninterruptible	green
 cli.loader-on-stdout	PAY-07/late-in-a-new-PAYING	green
@@ -2061,6 +2094,7 @@ cli.loader-on-stdout	PAY-21	green
 cli.loader-on-stdout	PAY-22	green
 cli.loader-on-stdout	PAY-23	green
 cli.loader-on-stdout	TURN-01/mapper-refused	green
+cli.loader-on-stdout	TURN-01/schedule-out-of-range	green
 cli.loader-on-stdout	TURN-01/schedule-refused	green
 cli.loader-on-stdout	TURN-02	green
 cli.loader-on-stdout	TURN-03/exited	green
@@ -2133,6 +2167,7 @@ cli.notsent-off	PAY-02	green
 cli.notsent-off	PAY-03	green
 cli.notsent-off	PAY-04	green
 cli.notsent-off	PAY-05	green
+cli.notsent-off	PAY-05/held-head-sleeps-at-boot	green
 cli.notsent-off	PAY-06/interruptible	green
 cli.notsent-off	PAY-06/uninterruptible	green
 cli.notsent-off	PAY-07/late-in-a-new-PAYING	green
@@ -2183,6 +2218,7 @@ cli.notsent-off	PAY-21	green
 cli.notsent-off	PAY-22	green
 cli.notsent-off	PAY-23	green
 cli.notsent-off	TURN-01/mapper-refused	green
+cli.notsent-off	TURN-01/schedule-out-of-range	green
 cli.notsent-off	TURN-01/schedule-refused	green
 cli.notsent-off	TURN-02	green
 cli.notsent-off	TURN-03/exited	green
@@ -2255,6 +2291,7 @@ cli.shared-contract-unchecked	PAY-02	green
 cli.shared-contract-unchecked	PAY-03	green
 cli.shared-contract-unchecked	PAY-04	green
 cli.shared-contract-unchecked	PAY-05	green
+cli.shared-contract-unchecked	PAY-05/held-head-sleeps-at-boot	green
 cli.shared-contract-unchecked	PAY-06/interruptible	green
 cli.shared-contract-unchecked	PAY-06/uninterruptible	green
 cli.shared-contract-unchecked	PAY-07/late-in-a-new-PAYING	green
@@ -2305,6 +2342,7 @@ cli.shared-contract-unchecked	PAY-21	green
 cli.shared-contract-unchecked	PAY-22	green
 cli.shared-contract-unchecked	PAY-23	green
 cli.shared-contract-unchecked	TURN-01/mapper-refused	green
+cli.shared-contract-unchecked	TURN-01/schedule-out-of-range	green
 cli.shared-contract-unchecked	TURN-01/schedule-refused	green
 cli.shared-contract-unchecked	TURN-02	green
 cli.shared-contract-unchecked	TURN-03/exited	green
@@ -2377,6 +2415,7 @@ cli.text-miscounts	PAY-02	green
 cli.text-miscounts	PAY-03	green
 cli.text-miscounts	PAY-04	green
 cli.text-miscounts	PAY-05	green
+cli.text-miscounts	PAY-05/held-head-sleeps-at-boot	green
 cli.text-miscounts	PAY-06/interruptible	green
 cli.text-miscounts	PAY-06/uninterruptible	green
 cli.text-miscounts	PAY-07/late-in-a-new-PAYING	green
@@ -2427,6 +2466,7 @@ cli.text-miscounts	PAY-21	green
 cli.text-miscounts	PAY-22	green
 cli.text-miscounts	PAY-23	green
 cli.text-miscounts	TURN-01/mapper-refused	green
+cli.text-miscounts	TURN-01/schedule-out-of-range	green
 cli.text-miscounts	TURN-01/schedule-refused	green
 cli.text-miscounts	TURN-02	green
 cli.text-miscounts	TURN-03/exited	green
@@ -2499,6 +2539,7 @@ cli.unknown-falls-back	PAY-02	green
 cli.unknown-falls-back	PAY-03	green
 cli.unknown-falls-back	PAY-04	green
 cli.unknown-falls-back	PAY-05	green
+cli.unknown-falls-back	PAY-05/held-head-sleeps-at-boot	green
 cli.unknown-falls-back	PAY-06/interruptible	green
 cli.unknown-falls-back	PAY-06/uninterruptible	green
 cli.unknown-falls-back	PAY-07/late-in-a-new-PAYING	green
@@ -2549,6 +2590,7 @@ cli.unknown-falls-back	PAY-21	green
 cli.unknown-falls-back	PAY-22	green
 cli.unknown-falls-back	PAY-23	green
 cli.unknown-falls-back	TURN-01/mapper-refused	green
+cli.unknown-falls-back	TURN-01/schedule-out-of-range	green
 cli.unknown-falls-back	TURN-01/schedule-refused	green
 cli.unknown-falls-back	TURN-02	green
 cli.unknown-falls-back	TURN-03/exited	green
@@ -2621,6 +2663,7 @@ cli.usage-exits-1	PAY-02	green
 cli.usage-exits-1	PAY-03	green
 cli.usage-exits-1	PAY-04	green
 cli.usage-exits-1	PAY-05	green
+cli.usage-exits-1	PAY-05/held-head-sleeps-at-boot	green
 cli.usage-exits-1	PAY-06/interruptible	green
 cli.usage-exits-1	PAY-06/uninterruptible	green
 cli.usage-exits-1	PAY-07/late-in-a-new-PAYING	green
@@ -2671,6 +2714,7 @@ cli.usage-exits-1	PAY-21	green
 cli.usage-exits-1	PAY-22	green
 cli.usage-exits-1	PAY-23	green
 cli.usage-exits-1	TURN-01/mapper-refused	green
+cli.usage-exits-1	TURN-01/schedule-out-of-range	green
 cli.usage-exits-1	TURN-01/schedule-refused	green
 cli.usage-exits-1	TURN-02	green
 cli.usage-exits-1	TURN-03/exited	green
@@ -2743,6 +2787,7 @@ cli.warnings-fail	PAY-02	green
 cli.warnings-fail	PAY-03	green
 cli.warnings-fail	PAY-04	green
 cli.warnings-fail	PAY-05	green
+cli.warnings-fail	PAY-05/held-head-sleeps-at-boot	green
 cli.warnings-fail	PAY-06/interruptible	green
 cli.warnings-fail	PAY-06/uninterruptible	green
 cli.warnings-fail	PAY-07/late-in-a-new-PAYING	green
@@ -2793,6 +2838,7 @@ cli.warnings-fail	PAY-21	green
 cli.warnings-fail	PAY-22	green
 cli.warnings-fail	PAY-23	green
 cli.warnings-fail	TURN-01/mapper-refused	green
+cli.warnings-fail	TURN-01/schedule-out-of-range	green
 cli.warnings-fail	TURN-01/schedule-refused	green
 cli.warnings-fail	TURN-02	green
 cli.warnings-fail	TURN-03/exited	green
@@ -2865,6 +2911,7 @@ cmp.bare-function-admitted	PAY-02	green
 cmp.bare-function-admitted	PAY-03	green
 cmp.bare-function-admitted	PAY-04	green
 cmp.bare-function-admitted	PAY-05	green
+cmp.bare-function-admitted	PAY-05/held-head-sleeps-at-boot	green
 cmp.bare-function-admitted	PAY-06/interruptible	green
 cmp.bare-function-admitted	PAY-06/uninterruptible	green
 cmp.bare-function-admitted	PAY-07/late-in-a-new-PAYING	green
@@ -2915,6 +2962,7 @@ cmp.bare-function-admitted	PAY-21	green
 cmp.bare-function-admitted	PAY-22	green
 cmp.bare-function-admitted	PAY-23	green
 cmp.bare-function-admitted	TURN-01/mapper-refused	green
+cmp.bare-function-admitted	TURN-01/schedule-out-of-range	green
 cmp.bare-function-admitted	TURN-01/schedule-refused	green
 cmp.bare-function-admitted	TURN-02	green
 cmp.bare-function-admitted	TURN-03/exited	green
@@ -2987,6 +3035,7 @@ cmp.callback-twice	PAY-02	green
 cmp.callback-twice	PAY-03	green
 cmp.callback-twice	PAY-04	green
 cmp.callback-twice	PAY-05	green
+cmp.callback-twice	PAY-05/held-head-sleeps-at-boot	green
 cmp.callback-twice	PAY-06/interruptible	green
 cmp.callback-twice	PAY-06/uninterruptible	green
 cmp.callback-twice	PAY-07/late-in-a-new-PAYING	green
@@ -3037,6 +3086,7 @@ cmp.callback-twice	PAY-21	green
 cmp.callback-twice	PAY-22	green
 cmp.callback-twice	PAY-23	green
 cmp.callback-twice	TURN-01/mapper-refused	green
+cmp.callback-twice	TURN-01/schedule-out-of-range	green
 cmp.callback-twice	TURN-01/schedule-refused	green
 cmp.callback-twice	TURN-02	green
 cmp.callback-twice	TURN-03/exited	green
@@ -3048,9 +3098,9 @@ cmp.callback-twice	TURN-04/re-entry-makes-the-first-ending-late	green
 cmp.callback-twice	TURN-05/a-part-writing-the-key-is-a-pending-reset	green
 cmp.callback-twice	TURN-05/child-refusal	green
 cmp.callback-twice	TURN-05/removed-copy-ends-once	green
-cmp.commit-runs-at-construction	ACT-01/free-actor-ends	red case
-cmp.commit-runs-at-construction	ACT-02/dirty-record-written-at-end	red case
-cmp.commit-runs-at-construction	ACT-03/no-end-before-the-grace	red case
+cmp.commit-runs-at-construction	ACT-01/free-actor-ends	failed uncaught
+cmp.commit-runs-at-construction	ACT-02/dirty-record-written-at-end	failed uncaught
+cmp.commit-runs-at-construction	ACT-03/no-end-before-the-grace	failed uncaught
 cmp.commit-runs-at-construction	CLI-01	red case
 cmp.commit-runs-at-construction	CLI-02	red case
 cmp.commit-runs-at-construction	CLI-03	red case
@@ -3071,108 +3121,110 @@ cmp.commit-runs-at-construction	CMP-08	green
 cmp.commit-runs-at-construction	CMP-09	green
 cmp.commit-runs-at-construction	CMP-10	green
 cmp.commit-runs-at-construction	CMP-11	green
-cmp.commit-runs-at-construction	DISP-01	red case
-cmp.commit-runs-at-construction	DISP-02	red case
-cmp.commit-runs-at-construction	DISP-03	red case
-cmp.commit-runs-at-construction	DISP-04	red case
-cmp.commit-runs-at-construction	DISP-05	red case
-cmp.commit-runs-at-construction	DISP-06	red case
-cmp.commit-runs-at-construction	DISP-07	red case
-cmp.commit-runs-at-construction	DLV-01	red case
-cmp.commit-runs-at-construction	DLV-02	red case
-cmp.commit-runs-at-construction	DLV-03	red case
-cmp.commit-runs-at-construction	DLV-04	red case
-cmp.commit-runs-at-construction	DLV-05	red case
-cmp.commit-runs-at-construction	DLV-06	red case
-cmp.commit-runs-at-construction	DLV-07	red case
-cmp.commit-runs-at-construction	LANE-01	red case
-cmp.commit-runs-at-construction	LANE-02	red case
-cmp.commit-runs-at-construction	LANE-03	red case
-cmp.commit-runs-at-construction	LANE-04	red case
-cmp.commit-runs-at-construction	LANE-05	red case
-cmp.commit-runs-at-construction	LANE-06	red case
-cmp.commit-runs-at-construction	LANE-07	red case
-cmp.commit-runs-at-construction	LANE-08	red case
-cmp.commit-runs-at-construction	LANE-09	red case
-cmp.commit-runs-at-construction	LANE-10	red case
-cmp.commit-runs-at-construction	LANE-11	red case
-cmp.commit-runs-at-construction	LANE-12/release-ends-queue	red case
-cmp.commit-runs-at-construction	LANE-12/release-leaves-head	red case
-cmp.commit-runs-at-construction	LANE-12/release-uninterruptible	red case
-cmp.commit-runs-at-construction	LANE-12/release-uninterruptible-lost	red case
-cmp.commit-runs-at-construction	LANE-13	red case
-cmp.commit-runs-at-construction	LANE-14	red case
-cmp.commit-runs-at-construction	LANE-15	red case
-cmp.commit-runs-at-construction	LANE-16	red case
-cmp.commit-runs-at-construction	PAY-01	red case
-cmp.commit-runs-at-construction	PAY-02	red case
-cmp.commit-runs-at-construction	PAY-03	red case
-cmp.commit-runs-at-construction	PAY-04	red case
-cmp.commit-runs-at-construction	PAY-05	red case
-cmp.commit-runs-at-construction	PAY-06/interruptible	red case
-cmp.commit-runs-at-construction	PAY-06/uninterruptible	red case
-cmp.commit-runs-at-construction	PAY-07/late-in-a-new-PAYING	red case
-cmp.commit-runs-at-construction	PAY-07/late-may-not-leave	red case
-cmp.commit-runs-at-construction	PAY-07/leaveMidCharge	red case
-cmp.commit-runs-at-construction	PAY-08/reload-while-reconciling	red case
-cmp.commit-runs-at-construction	PAY-08/reloadDuringCharge	red case
-cmp.commit-runs-at-construction	PAY-09/ack-not-stored	red case
-cmp.commit-runs-at-construction	PAY-09/ack-stored-confirmation-lost	red case
-cmp.commit-runs-at-construction	PAY-10/hang	red case
-cmp.commit-runs-at-construction	PAY-10/refuse	red case
-cmp.commit-runs-at-construction	PAY-12/cancel-on-wire	red case
-cmp.commit-runs-at-construction	PAY-12/defect	red case
-cmp.commit-runs-at-construction	PAY-12/sync	red case
-cmp.commit-runs-at-construction	PAY-13/hung-commit	red case
-cmp.commit-runs-at-construction	PAY-13/waiting-flush-lost	red case
-cmp.commit-runs-at-construction	PAY-13/waiting-flushed	red case
-cmp.commit-runs-at-construction	PAY-14	red case
-cmp.commit-runs-at-construction	PAY-15/busy-then-new-write	red case
-cmp.commit-runs-at-construction	PAY-15/cancel-idle	red case
-cmp.commit-runs-at-construction	PAY-15/cancel-on-wire	red case
-cmp.commit-runs-at-construction	PAY-15/dead-activation-timer	red case
-cmp.commit-runs-at-construction	PAY-15/dispose-held	red case
-cmp.commit-runs-at-construction	PAY-15/dispose-held-moved	red case
-cmp.commit-runs-at-construction	PAY-15/press-pay-while-held	red case
-cmp.commit-runs-at-construction	PAY-15/reload-holds-exactly-once	red case
-cmp.commit-runs-at-construction	PAY-15/retry-budget	red case
-cmp.commit-runs-at-construction	PAY-16/answered-inside-the-bound	red case
-cmp.commit-runs-at-construction	PAY-16/disposal-ends-with-the-last-fiber	red case
-cmp.commit-runs-at-construction	PAY-16/dispose-waiting-resend	red case
-cmp.commit-runs-at-construction	PAY-16/never-answered-waits-for-the-bound	red case
-cmp.commit-runs-at-construction	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	red case
-cmp.commit-runs-at-construction	PAY-16/read-defect-issue	red case
-cmp.commit-runs-at-construction	PAY-16/resend-refused-capture	red case
-cmp.commit-runs-at-construction	PAY-16/restore-keeps-mayHaveApplied	red case
-cmp.commit-runs-at-construction	PAY-16/retry-count-persists	red case
-cmp.commit-runs-at-construction	PAY-16/schedule-reads-after-memory	red case
-cmp.commit-runs-at-construction	PAY-16/settled-during-disposal-parked	red case
-cmp.commit-runs-at-construction	PAY-16/stale-send-fenced	red case
-cmp.commit-runs-at-construction	PAY-16/superseded-read	red case
-cmp.commit-runs-at-construction	PAY-16/timeout-per-send	red case
-cmp.commit-runs-at-construction	PAY-18	red case
-cmp.commit-runs-at-construction	PAY-19/place-answers-first	red case
-cmp.commit-runs-at-construction	PAY-19/void-answers-first	red case
-cmp.commit-runs-at-construction	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	red case
-cmp.commit-runs-at-construction	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	red case
-cmp.commit-runs-at-construction	PAY-21	red case
-cmp.commit-runs-at-construction	PAY-22	red case
-cmp.commit-runs-at-construction	PAY-23	red case
-cmp.commit-runs-at-construction	TURN-01/mapper-refused	red case
-cmp.commit-runs-at-construction	TURN-01/schedule-refused	red case
-cmp.commit-runs-at-construction	TURN-02	red case
-cmp.commit-runs-at-construction	TURN-03/exited	red case
-cmp.commit-runs-at-construction	TURN-03/on-time	red case
-cmp.commit-runs-at-construction	TURN-03/re-entered	red case
-cmp.commit-runs-at-construction	TURN-03/unused	red case
-cmp.commit-runs-at-construction	TURN-04/a-late-exit-with-nothing-queued-goes	red case
-cmp.commit-runs-at-construction	TURN-04/re-entry-makes-the-first-ending-late	red case
-cmp.commit-runs-at-construction	TURN-05/a-part-writing-the-key-is-a-pending-reset	red case
-cmp.commit-runs-at-construction	TURN-05/child-refusal	red case
-cmp.commit-runs-at-construction	TURN-05/removed-copy-ends-once	red case
-cmp.compiler-emits-bare-guard	ACT-01/free-actor-ends	red case
-cmp.compiler-emits-bare-guard	ACT-02/dirty-record-written-at-end	red case
-cmp.compiler-emits-bare-guard	ACT-03/no-end-before-the-grace	red case
+cmp.commit-runs-at-construction	DISP-01	failed uncaught
+cmp.commit-runs-at-construction	DISP-02	failed uncaught
+cmp.commit-runs-at-construction	DISP-03	failed uncaught
+cmp.commit-runs-at-construction	DISP-04	failed uncaught
+cmp.commit-runs-at-construction	DISP-05	failed uncaught
+cmp.commit-runs-at-construction	DISP-06	failed uncaught
+cmp.commit-runs-at-construction	DISP-07	failed uncaught
+cmp.commit-runs-at-construction	DLV-01	failed uncaught
+cmp.commit-runs-at-construction	DLV-02	failed uncaught
+cmp.commit-runs-at-construction	DLV-03	failed uncaught
+cmp.commit-runs-at-construction	DLV-04	failed uncaught
+cmp.commit-runs-at-construction	DLV-05	failed uncaught
+cmp.commit-runs-at-construction	DLV-06	failed uncaught
+cmp.commit-runs-at-construction	DLV-07	failed uncaught
+cmp.commit-runs-at-construction	LANE-01	failed uncaught
+cmp.commit-runs-at-construction	LANE-02	failed uncaught
+cmp.commit-runs-at-construction	LANE-03	failed uncaught
+cmp.commit-runs-at-construction	LANE-04	failed uncaught
+cmp.commit-runs-at-construction	LANE-05	failed uncaught
+cmp.commit-runs-at-construction	LANE-06	failed uncaught
+cmp.commit-runs-at-construction	LANE-07	failed uncaught
+cmp.commit-runs-at-construction	LANE-08	failed uncaught
+cmp.commit-runs-at-construction	LANE-09	failed uncaught
+cmp.commit-runs-at-construction	LANE-10	failed uncaught
+cmp.commit-runs-at-construction	LANE-11	failed uncaught
+cmp.commit-runs-at-construction	LANE-12/release-ends-queue	failed uncaught
+cmp.commit-runs-at-construction	LANE-12/release-leaves-head	failed uncaught
+cmp.commit-runs-at-construction	LANE-12/release-uninterruptible	failed uncaught
+cmp.commit-runs-at-construction	LANE-12/release-uninterruptible-lost	failed uncaught
+cmp.commit-runs-at-construction	LANE-13	failed uncaught
+cmp.commit-runs-at-construction	LANE-14	failed uncaught
+cmp.commit-runs-at-construction	LANE-15	failed uncaught
+cmp.commit-runs-at-construction	LANE-16	failed uncaught
+cmp.commit-runs-at-construction	PAY-01	failed uncaught
+cmp.commit-runs-at-construction	PAY-02	failed uncaught
+cmp.commit-runs-at-construction	PAY-03	failed uncaught
+cmp.commit-runs-at-construction	PAY-04	failed uncaught
+cmp.commit-runs-at-construction	PAY-05	failed uncaught
+cmp.commit-runs-at-construction	PAY-05/held-head-sleeps-at-boot	failed uncaught
+cmp.commit-runs-at-construction	PAY-06/interruptible	failed uncaught
+cmp.commit-runs-at-construction	PAY-06/uninterruptible	failed uncaught
+cmp.commit-runs-at-construction	PAY-07/late-in-a-new-PAYING	failed uncaught
+cmp.commit-runs-at-construction	PAY-07/late-may-not-leave	failed uncaught
+cmp.commit-runs-at-construction	PAY-07/leaveMidCharge	failed uncaught
+cmp.commit-runs-at-construction	PAY-08/reload-while-reconciling	failed uncaught
+cmp.commit-runs-at-construction	PAY-08/reloadDuringCharge	failed uncaught
+cmp.commit-runs-at-construction	PAY-09/ack-not-stored	failed uncaught
+cmp.commit-runs-at-construction	PAY-09/ack-stored-confirmation-lost	failed uncaught
+cmp.commit-runs-at-construction	PAY-10/hang	failed uncaught
+cmp.commit-runs-at-construction	PAY-10/refuse	failed uncaught
+cmp.commit-runs-at-construction	PAY-12/cancel-on-wire	failed uncaught
+cmp.commit-runs-at-construction	PAY-12/defect	failed uncaught
+cmp.commit-runs-at-construction	PAY-12/sync	failed uncaught
+cmp.commit-runs-at-construction	PAY-13/hung-commit	failed uncaught
+cmp.commit-runs-at-construction	PAY-13/waiting-flush-lost	failed uncaught
+cmp.commit-runs-at-construction	PAY-13/waiting-flushed	failed uncaught
+cmp.commit-runs-at-construction	PAY-14	failed uncaught
+cmp.commit-runs-at-construction	PAY-15/busy-then-new-write	failed uncaught
+cmp.commit-runs-at-construction	PAY-15/cancel-idle	failed uncaught
+cmp.commit-runs-at-construction	PAY-15/cancel-on-wire	failed uncaught
+cmp.commit-runs-at-construction	PAY-15/dead-activation-timer	failed uncaught
+cmp.commit-runs-at-construction	PAY-15/dispose-held	failed uncaught
+cmp.commit-runs-at-construction	PAY-15/dispose-held-moved	failed uncaught
+cmp.commit-runs-at-construction	PAY-15/press-pay-while-held	failed uncaught
+cmp.commit-runs-at-construction	PAY-15/reload-holds-exactly-once	failed uncaught
+cmp.commit-runs-at-construction	PAY-15/retry-budget	failed uncaught
+cmp.commit-runs-at-construction	PAY-16/answered-inside-the-bound	failed uncaught
+cmp.commit-runs-at-construction	PAY-16/disposal-ends-with-the-last-fiber	failed uncaught
+cmp.commit-runs-at-construction	PAY-16/dispose-waiting-resend	failed uncaught
+cmp.commit-runs-at-construction	PAY-16/never-answered-waits-for-the-bound	failed uncaught
+cmp.commit-runs-at-construction	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	failed uncaught
+cmp.commit-runs-at-construction	PAY-16/read-defect-issue	failed uncaught
+cmp.commit-runs-at-construction	PAY-16/resend-refused-capture	failed uncaught
+cmp.commit-runs-at-construction	PAY-16/restore-keeps-mayHaveApplied	failed uncaught
+cmp.commit-runs-at-construction	PAY-16/retry-count-persists	failed uncaught
+cmp.commit-runs-at-construction	PAY-16/schedule-reads-after-memory	failed uncaught
+cmp.commit-runs-at-construction	PAY-16/settled-during-disposal-parked	failed uncaught
+cmp.commit-runs-at-construction	PAY-16/stale-send-fenced	failed uncaught
+cmp.commit-runs-at-construction	PAY-16/superseded-read	failed uncaught
+cmp.commit-runs-at-construction	PAY-16/timeout-per-send	failed uncaught
+cmp.commit-runs-at-construction	PAY-18	failed uncaught
+cmp.commit-runs-at-construction	PAY-19/place-answers-first	failed uncaught
+cmp.commit-runs-at-construction	PAY-19/void-answers-first	failed uncaught
+cmp.commit-runs-at-construction	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	failed uncaught
+cmp.commit-runs-at-construction	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	failed uncaught
+cmp.commit-runs-at-construction	PAY-21	failed uncaught
+cmp.commit-runs-at-construction	PAY-22	failed uncaught
+cmp.commit-runs-at-construction	PAY-23	failed uncaught
+cmp.commit-runs-at-construction	TURN-01/mapper-refused	failed uncaught
+cmp.commit-runs-at-construction	TURN-01/schedule-out-of-range	failed uncaught
+cmp.commit-runs-at-construction	TURN-01/schedule-refused	failed uncaught
+cmp.commit-runs-at-construction	TURN-02	failed uncaught
+cmp.commit-runs-at-construction	TURN-03/exited	failed uncaught
+cmp.commit-runs-at-construction	TURN-03/on-time	failed uncaught
+cmp.commit-runs-at-construction	TURN-03/re-entered	failed uncaught
+cmp.commit-runs-at-construction	TURN-03/unused	failed uncaught
+cmp.commit-runs-at-construction	TURN-04/a-late-exit-with-nothing-queued-goes	failed uncaught
+cmp.commit-runs-at-construction	TURN-04/re-entry-makes-the-first-ending-late	failed uncaught
+cmp.commit-runs-at-construction	TURN-05/a-part-writing-the-key-is-a-pending-reset	failed uncaught
+cmp.commit-runs-at-construction	TURN-05/child-refusal	failed uncaught
+cmp.commit-runs-at-construction	TURN-05/removed-copy-ends-once	failed uncaught
+cmp.compiler-emits-bare-guard	ACT-01/free-actor-ends	failed uncaught
+cmp.compiler-emits-bare-guard	ACT-02/dirty-record-written-at-end	failed uncaught
+cmp.compiler-emits-bare-guard	ACT-03/no-end-before-the-grace	failed uncaught
 cmp.compiler-emits-bare-guard	CLI-01	red case
 cmp.compiler-emits-bare-guard	CLI-02	green
 cmp.compiler-emits-bare-guard	CLI-03	red case
@@ -3193,19 +3245,19 @@ cmp.compiler-emits-bare-guard	CMP-08	green
 cmp.compiler-emits-bare-guard	CMP-09	green
 cmp.compiler-emits-bare-guard	CMP-10	red case
 cmp.compiler-emits-bare-guard	CMP-11	red case
-cmp.compiler-emits-bare-guard	DISP-01	red case
-cmp.compiler-emits-bare-guard	DISP-02	red case
+cmp.compiler-emits-bare-guard	DISP-01	failed uncaught
+cmp.compiler-emits-bare-guard	DISP-02	failed uncaught
 cmp.compiler-emits-bare-guard	DISP-03	green
-cmp.compiler-emits-bare-guard	DISP-04	red case
-cmp.compiler-emits-bare-guard	DISP-05	red case
-cmp.compiler-emits-bare-guard	DISP-06	red case
-cmp.compiler-emits-bare-guard	DISP-07	red case
-cmp.compiler-emits-bare-guard	DLV-01	red case
-cmp.compiler-emits-bare-guard	DLV-02	red case
-cmp.compiler-emits-bare-guard	DLV-03	red case
-cmp.compiler-emits-bare-guard	DLV-04	red case
-cmp.compiler-emits-bare-guard	DLV-05	red case
-cmp.compiler-emits-bare-guard	DLV-06	red case
+cmp.compiler-emits-bare-guard	DISP-04	failed uncaught
+cmp.compiler-emits-bare-guard	DISP-05	failed uncaught
+cmp.compiler-emits-bare-guard	DISP-06	failed uncaught
+cmp.compiler-emits-bare-guard	DISP-07	failed uncaught
+cmp.compiler-emits-bare-guard	DLV-01	failed uncaught
+cmp.compiler-emits-bare-guard	DLV-02	failed uncaught
+cmp.compiler-emits-bare-guard	DLV-03	failed uncaught
+cmp.compiler-emits-bare-guard	DLV-04	failed uncaught
+cmp.compiler-emits-bare-guard	DLV-05	failed uncaught
+cmp.compiler-emits-bare-guard	DLV-06	failed uncaught
 cmp.compiler-emits-bare-guard	DLV-07	green
 cmp.compiler-emits-bare-guard	LANE-01	green
 cmp.compiler-emits-bare-guard	LANE-02	green
@@ -3213,11 +3265,11 @@ cmp.compiler-emits-bare-guard	LANE-03	green
 cmp.compiler-emits-bare-guard	LANE-04	green
 cmp.compiler-emits-bare-guard	LANE-05	green
 cmp.compiler-emits-bare-guard	LANE-06	green
-cmp.compiler-emits-bare-guard	LANE-07	red case
-cmp.compiler-emits-bare-guard	LANE-08	red case
-cmp.compiler-emits-bare-guard	LANE-09	red case
+cmp.compiler-emits-bare-guard	LANE-07	failed uncaught
+cmp.compiler-emits-bare-guard	LANE-08	failed uncaught
+cmp.compiler-emits-bare-guard	LANE-09	failed uncaught
 cmp.compiler-emits-bare-guard	LANE-10	green
-cmp.compiler-emits-bare-guard	LANE-11	red case
+cmp.compiler-emits-bare-guard	LANE-11	failed uncaught
 cmp.compiler-emits-bare-guard	LANE-12/release-ends-queue	green
 cmp.compiler-emits-bare-guard	LANE-12/release-leaves-head	green
 cmp.compiler-emits-bare-guard	LANE-12/release-uninterruptible	green
@@ -3225,73 +3277,75 @@ cmp.compiler-emits-bare-guard	LANE-12/release-uninterruptible-lost	green
 cmp.compiler-emits-bare-guard	LANE-13	green
 cmp.compiler-emits-bare-guard	LANE-14	green
 cmp.compiler-emits-bare-guard	LANE-15	green
-cmp.compiler-emits-bare-guard	LANE-16	red case
-cmp.compiler-emits-bare-guard	PAY-01	red case
-cmp.compiler-emits-bare-guard	PAY-02	red case
-cmp.compiler-emits-bare-guard	PAY-03	red case
-cmp.compiler-emits-bare-guard	PAY-04	red case
-cmp.compiler-emits-bare-guard	PAY-05	red case
-cmp.compiler-emits-bare-guard	PAY-06/interruptible	red case
-cmp.compiler-emits-bare-guard	PAY-06/uninterruptible	red case
-cmp.compiler-emits-bare-guard	PAY-07/late-in-a-new-PAYING	red case
-cmp.compiler-emits-bare-guard	PAY-07/late-may-not-leave	red case
-cmp.compiler-emits-bare-guard	PAY-07/leaveMidCharge	red case
-cmp.compiler-emits-bare-guard	PAY-08/reload-while-reconciling	red case
-cmp.compiler-emits-bare-guard	PAY-08/reloadDuringCharge	red case
-cmp.compiler-emits-bare-guard	PAY-09/ack-not-stored	red case
-cmp.compiler-emits-bare-guard	PAY-09/ack-stored-confirmation-lost	red case
-cmp.compiler-emits-bare-guard	PAY-10/hang	red case
-cmp.compiler-emits-bare-guard	PAY-10/refuse	red case
-cmp.compiler-emits-bare-guard	PAY-12/cancel-on-wire	red case
-cmp.compiler-emits-bare-guard	PAY-12/defect	red case
-cmp.compiler-emits-bare-guard	PAY-12/sync	red case
-cmp.compiler-emits-bare-guard	PAY-13/hung-commit	red case
-cmp.compiler-emits-bare-guard	PAY-13/waiting-flush-lost	red case
-cmp.compiler-emits-bare-guard	PAY-13/waiting-flushed	red case
-cmp.compiler-emits-bare-guard	PAY-14	red case
-cmp.compiler-emits-bare-guard	PAY-15/busy-then-new-write	red case
-cmp.compiler-emits-bare-guard	PAY-15/cancel-idle	red case
-cmp.compiler-emits-bare-guard	PAY-15/cancel-on-wire	red case
-cmp.compiler-emits-bare-guard	PAY-15/dead-activation-timer	red case
-cmp.compiler-emits-bare-guard	PAY-15/dispose-held	red case
-cmp.compiler-emits-bare-guard	PAY-15/dispose-held-moved	red case
-cmp.compiler-emits-bare-guard	PAY-15/press-pay-while-held	red case
-cmp.compiler-emits-bare-guard	PAY-15/reload-holds-exactly-once	red case
-cmp.compiler-emits-bare-guard	PAY-15/retry-budget	red case
-cmp.compiler-emits-bare-guard	PAY-16/answered-inside-the-bound	red case
-cmp.compiler-emits-bare-guard	PAY-16/disposal-ends-with-the-last-fiber	red case
-cmp.compiler-emits-bare-guard	PAY-16/dispose-waiting-resend	red case
-cmp.compiler-emits-bare-guard	PAY-16/never-answered-waits-for-the-bound	red case
-cmp.compiler-emits-bare-guard	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	red case
-cmp.compiler-emits-bare-guard	PAY-16/read-defect-issue	red case
-cmp.compiler-emits-bare-guard	PAY-16/resend-refused-capture	red case
-cmp.compiler-emits-bare-guard	PAY-16/restore-keeps-mayHaveApplied	red case
-cmp.compiler-emits-bare-guard	PAY-16/retry-count-persists	red case
-cmp.compiler-emits-bare-guard	PAY-16/schedule-reads-after-memory	red case
-cmp.compiler-emits-bare-guard	PAY-16/settled-during-disposal-parked	red case
-cmp.compiler-emits-bare-guard	PAY-16/stale-send-fenced	red case
-cmp.compiler-emits-bare-guard	PAY-16/superseded-read	red case
-cmp.compiler-emits-bare-guard	PAY-16/timeout-per-send	red case
-cmp.compiler-emits-bare-guard	PAY-18	red case
-cmp.compiler-emits-bare-guard	PAY-19/place-answers-first	red case
-cmp.compiler-emits-bare-guard	PAY-19/void-answers-first	red case
-cmp.compiler-emits-bare-guard	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	red case
-cmp.compiler-emits-bare-guard	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	red case
-cmp.compiler-emits-bare-guard	PAY-21	red case
-cmp.compiler-emits-bare-guard	PAY-22	red case
-cmp.compiler-emits-bare-guard	PAY-23	red case
-cmp.compiler-emits-bare-guard	TURN-01/mapper-refused	red case
-cmp.compiler-emits-bare-guard	TURN-01/schedule-refused	red case
-cmp.compiler-emits-bare-guard	TURN-02	red case
-cmp.compiler-emits-bare-guard	TURN-03/exited	red case
-cmp.compiler-emits-bare-guard	TURN-03/on-time	red case
-cmp.compiler-emits-bare-guard	TURN-03/re-entered	red case
-cmp.compiler-emits-bare-guard	TURN-03/unused	red case
-cmp.compiler-emits-bare-guard	TURN-04/a-late-exit-with-nothing-queued-goes	red case
-cmp.compiler-emits-bare-guard	TURN-04/re-entry-makes-the-first-ending-late	red case
-cmp.compiler-emits-bare-guard	TURN-05/a-part-writing-the-key-is-a-pending-reset	red case
-cmp.compiler-emits-bare-guard	TURN-05/child-refusal	red case
-cmp.compiler-emits-bare-guard	TURN-05/removed-copy-ends-once	red case
+cmp.compiler-emits-bare-guard	LANE-16	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-01	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-02	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-03	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-04	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-05	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-05/held-head-sleeps-at-boot	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-06/interruptible	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-06/uninterruptible	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-07/late-in-a-new-PAYING	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-07/late-may-not-leave	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-07/leaveMidCharge	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-08/reload-while-reconciling	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-08/reloadDuringCharge	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-09/ack-not-stored	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-09/ack-stored-confirmation-lost	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-10/hang	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-10/refuse	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-12/cancel-on-wire	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-12/defect	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-12/sync	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-13/hung-commit	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-13/waiting-flush-lost	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-13/waiting-flushed	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-14	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-15/busy-then-new-write	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-15/cancel-idle	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-15/cancel-on-wire	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-15/dead-activation-timer	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-15/dispose-held	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-15/dispose-held-moved	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-15/press-pay-while-held	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-15/reload-holds-exactly-once	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-15/retry-budget	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-16/answered-inside-the-bound	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-16/disposal-ends-with-the-last-fiber	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-16/dispose-waiting-resend	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-16/never-answered-waits-for-the-bound	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-16/read-defect-issue	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-16/resend-refused-capture	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-16/restore-keeps-mayHaveApplied	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-16/retry-count-persists	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-16/schedule-reads-after-memory	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-16/settled-during-disposal-parked	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-16/stale-send-fenced	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-16/superseded-read	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-16/timeout-per-send	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-18	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-19/place-answers-first	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-19/void-answers-first	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-21	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-22	failed uncaught
+cmp.compiler-emits-bare-guard	PAY-23	failed uncaught
+cmp.compiler-emits-bare-guard	TURN-01/mapper-refused	failed uncaught
+cmp.compiler-emits-bare-guard	TURN-01/schedule-out-of-range	failed uncaught
+cmp.compiler-emits-bare-guard	TURN-01/schedule-refused	failed uncaught
+cmp.compiler-emits-bare-guard	TURN-02	failed uncaught
+cmp.compiler-emits-bare-guard	TURN-03/exited	failed uncaught
+cmp.compiler-emits-bare-guard	TURN-03/on-time	failed uncaught
+cmp.compiler-emits-bare-guard	TURN-03/re-entered	failed uncaught
+cmp.compiler-emits-bare-guard	TURN-03/unused	failed uncaught
+cmp.compiler-emits-bare-guard	TURN-04/a-late-exit-with-nothing-queued-goes	failed uncaught
+cmp.compiler-emits-bare-guard	TURN-04/re-entry-makes-the-first-ending-late	failed uncaught
+cmp.compiler-emits-bare-guard	TURN-05/a-part-writing-the-key-is-a-pending-reset	failed uncaught
+cmp.compiler-emits-bare-guard	TURN-05/child-refusal	failed uncaught
+cmp.compiler-emits-bare-guard	TURN-05/removed-copy-ends-once	failed uncaught
 cmp.computed-initial-runs	ACT-01/free-actor-ends	green
 cmp.computed-initial-runs	ACT-02/dirty-record-written-at-end	green
 cmp.computed-initial-runs	ACT-03/no-end-before-the-grace	green
@@ -3353,6 +3407,7 @@ cmp.computed-initial-runs	PAY-02	green
 cmp.computed-initial-runs	PAY-03	green
 cmp.computed-initial-runs	PAY-04	green
 cmp.computed-initial-runs	PAY-05	green
+cmp.computed-initial-runs	PAY-05/held-head-sleeps-at-boot	green
 cmp.computed-initial-runs	PAY-06/interruptible	green
 cmp.computed-initial-runs	PAY-06/uninterruptible	green
 cmp.computed-initial-runs	PAY-07/late-in-a-new-PAYING	green
@@ -3403,6 +3458,7 @@ cmp.computed-initial-runs	PAY-21	green
 cmp.computed-initial-runs	PAY-22	green
 cmp.computed-initial-runs	PAY-23	green
 cmp.computed-initial-runs	TURN-01/mapper-refused	green
+cmp.computed-initial-runs	TURN-01/schedule-out-of-range	green
 cmp.computed-initial-runs	TURN-01/schedule-refused	green
 cmp.computed-initial-runs	TURN-02	green
 cmp.computed-initial-runs	TURN-03/exited	green
@@ -3475,6 +3531,7 @@ cmp.data-view-keeps-closures	PAY-02	green
 cmp.data-view-keeps-closures	PAY-03	green
 cmp.data-view-keeps-closures	PAY-04	green
 cmp.data-view-keeps-closures	PAY-05	green
+cmp.data-view-keeps-closures	PAY-05/held-head-sleeps-at-boot	green
 cmp.data-view-keeps-closures	PAY-06/interruptible	green
 cmp.data-view-keeps-closures	PAY-06/uninterruptible	green
 cmp.data-view-keeps-closures	PAY-07/late-in-a-new-PAYING	green
@@ -3525,6 +3582,7 @@ cmp.data-view-keeps-closures	PAY-21	green
 cmp.data-view-keeps-closures	PAY-22	green
 cmp.data-view-keeps-closures	PAY-23	green
 cmp.data-view-keeps-closures	TURN-01/mapper-refused	green
+cmp.data-view-keeps-closures	TURN-01/schedule-out-of-range	green
 cmp.data-view-keeps-closures	TURN-01/schedule-refused	green
 cmp.data-view-keeps-closures	TURN-02	green
 cmp.data-view-keeps-closures	TURN-03/exited	green
@@ -3597,6 +3655,7 @@ cmp.impure-default-accepted	PAY-02	green
 cmp.impure-default-accepted	PAY-03	green
 cmp.impure-default-accepted	PAY-04	green
 cmp.impure-default-accepted	PAY-05	green
+cmp.impure-default-accepted	PAY-05/held-head-sleeps-at-boot	green
 cmp.impure-default-accepted	PAY-06/interruptible	green
 cmp.impure-default-accepted	PAY-06/uninterruptible	green
 cmp.impure-default-accepted	PAY-07/late-in-a-new-PAYING	green
@@ -3647,6 +3706,7 @@ cmp.impure-default-accepted	PAY-21	green
 cmp.impure-default-accepted	PAY-22	green
 cmp.impure-default-accepted	PAY-23	green
 cmp.impure-default-accepted	TURN-01/mapper-refused	green
+cmp.impure-default-accepted	TURN-01/schedule-out-of-range	green
 cmp.impure-default-accepted	TURN-01/schedule-refused	green
 cmp.impure-default-accepted	TURN-02	green
 cmp.impure-default-accepted	TURN-03/exited	green
@@ -3719,6 +3779,7 @@ cmp.key-outside-input-admitted	PAY-02	green
 cmp.key-outside-input-admitted	PAY-03	green
 cmp.key-outside-input-admitted	PAY-04	green
 cmp.key-outside-input-admitted	PAY-05	green
+cmp.key-outside-input-admitted	PAY-05/held-head-sleeps-at-boot	green
 cmp.key-outside-input-admitted	PAY-06/interruptible	green
 cmp.key-outside-input-admitted	PAY-06/uninterruptible	green
 cmp.key-outside-input-admitted	PAY-07/late-in-a-new-PAYING	green
@@ -3769,6 +3830,7 @@ cmp.key-outside-input-admitted	PAY-21	green
 cmp.key-outside-input-admitted	PAY-22	green
 cmp.key-outside-input-admitted	PAY-23	green
 cmp.key-outside-input-admitted	TURN-01/mapper-refused	green
+cmp.key-outside-input-admitted	TURN-01/schedule-out-of-range	green
 cmp.key-outside-input-admitted	TURN-01/schedule-refused	green
 cmp.key-outside-input-admitted	TURN-02	green
 cmp.key-outside-input-admitted	TURN-03/exited	green
@@ -3803,99 +3865,101 @@ cmp.operation-dropped	CMP-08	green
 cmp.operation-dropped	CMP-09	green
 cmp.operation-dropped	CMP-10	green
 cmp.operation-dropped	CMP-11	green
-cmp.operation-dropped	DISP-01	red case
-cmp.operation-dropped	DISP-02	red case
+cmp.operation-dropped	DISP-01	failed uncaught
+cmp.operation-dropped	DISP-02	failed uncaught
 cmp.operation-dropped	DISP-03	red selection
-cmp.operation-dropped	DISP-04	red case
-cmp.operation-dropped	DISP-05	red case
-cmp.operation-dropped	DISP-06	red case
+cmp.operation-dropped	DISP-04	failed uncaught
+cmp.operation-dropped	DISP-05	failed uncaught
+cmp.operation-dropped	DISP-06	failed uncaught
 cmp.operation-dropped	DISP-07	green
 cmp.operation-dropped	DLV-01	red selection
 cmp.operation-dropped	DLV-02	red selection
-cmp.operation-dropped	DLV-03	red case
-cmp.operation-dropped	DLV-04	red case
-cmp.operation-dropped	DLV-05	red case
-cmp.operation-dropped	DLV-06	red case
+cmp.operation-dropped	DLV-03	failed uncaught
+cmp.operation-dropped	DLV-04	failed uncaught
+cmp.operation-dropped	DLV-05	failed uncaught
+cmp.operation-dropped	DLV-06	failed uncaught
 cmp.operation-dropped	DLV-07	red selection
 cmp.operation-dropped	LANE-01	red selection
 cmp.operation-dropped	LANE-02	red selection
-cmp.operation-dropped	LANE-03	red case
+cmp.operation-dropped	LANE-03	failed uncaught
 cmp.operation-dropped	LANE-04	red selection
 cmp.operation-dropped	LANE-05	red selection
 cmp.operation-dropped	LANE-06	red selection
 cmp.operation-dropped	LANE-07	red selection
 cmp.operation-dropped	LANE-08	red selection
-cmp.operation-dropped	LANE-09	red case
+cmp.operation-dropped	LANE-09	failed uncaught
 cmp.operation-dropped	LANE-10	red selection
-cmp.operation-dropped	LANE-11	red case
+cmp.operation-dropped	LANE-11	failed uncaught
 cmp.operation-dropped	LANE-12/release-ends-queue	green
 cmp.operation-dropped	LANE-12/release-leaves-head	green
 cmp.operation-dropped	LANE-12/release-uninterruptible	green
 cmp.operation-dropped	LANE-12/release-uninterruptible-lost	green
 cmp.operation-dropped	LANE-13	red selection
 cmp.operation-dropped	LANE-14	red case
-cmp.operation-dropped	LANE-15	red case
+cmp.operation-dropped	LANE-15	failed uncaught
 cmp.operation-dropped	LANE-16	green
 cmp.operation-dropped	PAY-01	red case
 cmp.operation-dropped	PAY-02	red selection
-cmp.operation-dropped	PAY-03	red case
-cmp.operation-dropped	PAY-04	red case
-cmp.operation-dropped	PAY-05	red case
-cmp.operation-dropped	PAY-06/interruptible	red case
+cmp.operation-dropped	PAY-03	failed uncaught
+cmp.operation-dropped	PAY-04	failed uncaught
+cmp.operation-dropped	PAY-05	failed uncaught
+cmp.operation-dropped	PAY-05/held-head-sleeps-at-boot	failed uncaught
+cmp.operation-dropped	PAY-06/interruptible	failed uncaught
 cmp.operation-dropped	PAY-06/uninterruptible	red case
 cmp.operation-dropped	PAY-07/late-in-a-new-PAYING	red selection
-cmp.operation-dropped	PAY-07/late-may-not-leave	red case
+cmp.operation-dropped	PAY-07/late-may-not-leave	failed uncaught
 cmp.operation-dropped	PAY-07/leaveMidCharge	red selection
-cmp.operation-dropped	PAY-08/reload-while-reconciling	red case
+cmp.operation-dropped	PAY-08/reload-while-reconciling	failed uncaught
 cmp.operation-dropped	PAY-08/reloadDuringCharge	red case
 cmp.operation-dropped	PAY-09/ack-not-stored	green
 cmp.operation-dropped	PAY-09/ack-stored-confirmation-lost	red case
 cmp.operation-dropped	PAY-10/hang	red case
 cmp.operation-dropped	PAY-10/refuse	red case
 cmp.operation-dropped	PAY-12/cancel-on-wire	red selection
-cmp.operation-dropped	PAY-12/defect	red case
+cmp.operation-dropped	PAY-12/defect	failed uncaught
 cmp.operation-dropped	PAY-12/sync	red case
 cmp.operation-dropped	PAY-13/hung-commit	red case
 cmp.operation-dropped	PAY-13/waiting-flush-lost	red case
 cmp.operation-dropped	PAY-13/waiting-flushed	red case
 cmp.operation-dropped	PAY-14	red case
-cmp.operation-dropped	PAY-15/busy-then-new-write	red case
+cmp.operation-dropped	PAY-15/busy-then-new-write	failed uncaught
 cmp.operation-dropped	PAY-15/cancel-idle	red case
 cmp.operation-dropped	PAY-15/cancel-on-wire	red selection
-cmp.operation-dropped	PAY-15/dead-activation-timer	red case
-cmp.operation-dropped	PAY-15/dispose-held	red case
-cmp.operation-dropped	PAY-15/dispose-held-moved	red case
-cmp.operation-dropped	PAY-15/press-pay-while-held	red case
-cmp.operation-dropped	PAY-15/reload-holds-exactly-once	red case
-cmp.operation-dropped	PAY-15/retry-budget	red case
-cmp.operation-dropped	PAY-16/answered-inside-the-bound	red case
-cmp.operation-dropped	PAY-16/disposal-ends-with-the-last-fiber	red case
-cmp.operation-dropped	PAY-16/dispose-waiting-resend	red case
-cmp.operation-dropped	PAY-16/never-answered-waits-for-the-bound	red case
+cmp.operation-dropped	PAY-15/dead-activation-timer	failed uncaught
+cmp.operation-dropped	PAY-15/dispose-held	failed uncaught
+cmp.operation-dropped	PAY-15/dispose-held-moved	failed uncaught
+cmp.operation-dropped	PAY-15/press-pay-while-held	failed uncaught
+cmp.operation-dropped	PAY-15/reload-holds-exactly-once	failed uncaught
+cmp.operation-dropped	PAY-15/retry-budget	failed uncaught
+cmp.operation-dropped	PAY-16/answered-inside-the-bound	failed uncaught
+cmp.operation-dropped	PAY-16/disposal-ends-with-the-last-fiber	failed uncaught
+cmp.operation-dropped	PAY-16/dispose-waiting-resend	failed uncaught
+cmp.operation-dropped	PAY-16/never-answered-waits-for-the-bound	failed uncaught
 cmp.operation-dropped	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	red case
-cmp.operation-dropped	PAY-16/read-defect-issue	red case
-cmp.operation-dropped	PAY-16/resend-refused-capture	red case
+cmp.operation-dropped	PAY-16/read-defect-issue	failed uncaught
+cmp.operation-dropped	PAY-16/resend-refused-capture	failed uncaught
 cmp.operation-dropped	PAY-16/restore-keeps-mayHaveApplied	red case
-cmp.operation-dropped	PAY-16/retry-count-persists	red case
-cmp.operation-dropped	PAY-16/schedule-reads-after-memory	red case
-cmp.operation-dropped	PAY-16/settled-during-disposal-parked	red case
+cmp.operation-dropped	PAY-16/retry-count-persists	failed uncaught
+cmp.operation-dropped	PAY-16/schedule-reads-after-memory	failed uncaught
+cmp.operation-dropped	PAY-16/settled-during-disposal-parked	failed uncaught
 cmp.operation-dropped	PAY-16/stale-send-fenced	red case
-cmp.operation-dropped	PAY-16/superseded-read	red case
-cmp.operation-dropped	PAY-16/timeout-per-send	red case
+cmp.operation-dropped	PAY-16/superseded-read	failed uncaught
+cmp.operation-dropped	PAY-16/timeout-per-send	failed uncaught
 cmp.operation-dropped	PAY-18	red case
-cmp.operation-dropped	PAY-19/place-answers-first	red case
-cmp.operation-dropped	PAY-19/void-answers-first	red case
-cmp.operation-dropped	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	red case
-cmp.operation-dropped	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	red case
+cmp.operation-dropped	PAY-19/place-answers-first	failed uncaught
+cmp.operation-dropped	PAY-19/void-answers-first	failed uncaught
+cmp.operation-dropped	PAY-20/a-500-that-landed-is-unknown-and-pay-reads-the-intent	failed uncaught
+cmp.operation-dropped	PAY-20/a-pruned-key-does-not-charge-twice-since-pay-reads-first	failed uncaught
 cmp.operation-dropped	PAY-21	red disposal
 cmp.operation-dropped	PAY-22	red selection
-cmp.operation-dropped	PAY-23	red case
-cmp.operation-dropped	TURN-01/mapper-refused	red case
-cmp.operation-dropped	TURN-01/schedule-refused	red case
+cmp.operation-dropped	PAY-23	failed uncaught
+cmp.operation-dropped	TURN-01/mapper-refused	failed uncaught
+cmp.operation-dropped	TURN-01/schedule-out-of-range	failed uncaught
+cmp.operation-dropped	TURN-01/schedule-refused	failed uncaught
 cmp.operation-dropped	TURN-02	green
-cmp.operation-dropped	TURN-03/exited	red case
+cmp.operation-dropped	TURN-03/exited	failed uncaught
 cmp.operation-dropped	TURN-03/on-time	red case
-cmp.operation-dropped	TURN-03/re-entered	red case
+cmp.operation-dropped	TURN-03/re-entered	failed uncaught
 cmp.operation-dropped	TURN-03/unused	red disposal
 cmp.operation-dropped	TURN-04/a-late-exit-with-nothing-queued-goes	red selection
 cmp.operation-dropped	TURN-04/re-entry-makes-the-first-ending-late	red selection
@@ -3963,6 +4027,7 @@ cmp.restore-runs-creation	PAY-02	green
 cmp.restore-runs-creation	PAY-03	green
 cmp.restore-runs-creation	PAY-04	green
 cmp.restore-runs-creation	PAY-05	green
+cmp.restore-runs-creation	PAY-05/held-head-sleeps-at-boot	green
 cmp.restore-runs-creation	PAY-06/interruptible	green
 cmp.restore-runs-creation	PAY-06/uninterruptible	green
 cmp.restore-runs-creation	PAY-07/late-in-a-new-PAYING	green
@@ -4013,6 +4078,7 @@ cmp.restore-runs-creation	PAY-21	green
 cmp.restore-runs-creation	PAY-22	green
 cmp.restore-runs-creation	PAY-23	green
 cmp.restore-runs-creation	TURN-01/mapper-refused	green
+cmp.restore-runs-creation	TURN-01/schedule-out-of-range	green
 cmp.restore-runs-creation	TURN-01/schedule-refused	green
 cmp.restore-runs-creation	TURN-02	green
 cmp.restore-runs-creation	TURN-03/exited	green
@@ -4085,6 +4151,7 @@ cmp.seal-crashes-on-bare	PAY-02	green
 cmp.seal-crashes-on-bare	PAY-03	green
 cmp.seal-crashes-on-bare	PAY-04	green
 cmp.seal-crashes-on-bare	PAY-05	green
+cmp.seal-crashes-on-bare	PAY-05/held-head-sleeps-at-boot	green
 cmp.seal-crashes-on-bare	PAY-06/interruptible	green
 cmp.seal-crashes-on-bare	PAY-06/uninterruptible	green
 cmp.seal-crashes-on-bare	PAY-07/late-in-a-new-PAYING	green
@@ -4135,6 +4202,7 @@ cmp.seal-crashes-on-bare	PAY-21	green
 cmp.seal-crashes-on-bare	PAY-22	green
 cmp.seal-crashes-on-bare	PAY-23	green
 cmp.seal-crashes-on-bare	TURN-01/mapper-refused	green
+cmp.seal-crashes-on-bare	TURN-01/schedule-out-of-range	green
 cmp.seal-crashes-on-bare	TURN-01/schedule-refused	green
 cmp.seal-crashes-on-bare	TURN-02	green
 cmp.seal-crashes-on-bare	TURN-03/exited	green
@@ -4207,6 +4275,7 @@ cmp.seal-crashes-on-key	PAY-02	green
 cmp.seal-crashes-on-key	PAY-03	green
 cmp.seal-crashes-on-key	PAY-04	green
 cmp.seal-crashes-on-key	PAY-05	green
+cmp.seal-crashes-on-key	PAY-05/held-head-sleeps-at-boot	green
 cmp.seal-crashes-on-key	PAY-06/interruptible	green
 cmp.seal-crashes-on-key	PAY-06/uninterruptible	green
 cmp.seal-crashes-on-key	PAY-07/late-in-a-new-PAYING	green
@@ -4257,6 +4326,7 @@ cmp.seal-crashes-on-key	PAY-21	green
 cmp.seal-crashes-on-key	PAY-22	green
 cmp.seal-crashes-on-key	PAY-23	green
 cmp.seal-crashes-on-key	TURN-01/mapper-refused	green
+cmp.seal-crashes-on-key	TURN-01/schedule-out-of-range	green
 cmp.seal-crashes-on-key	TURN-01/schedule-refused	green
 cmp.seal-crashes-on-key	TURN-02	green
 cmp.seal-crashes-on-key	TURN-03/exited	green
@@ -4329,6 +4399,7 @@ cmp.state-dropped	PAY-02	green
 cmp.state-dropped	PAY-03	green
 cmp.state-dropped	PAY-04	green
 cmp.state-dropped	PAY-05	green
+cmp.state-dropped	PAY-05/held-head-sleeps-at-boot	green
 cmp.state-dropped	PAY-06/interruptible	green
 cmp.state-dropped	PAY-06/uninterruptible	green
 cmp.state-dropped	PAY-07/late-in-a-new-PAYING	green
@@ -4379,6 +4450,7 @@ cmp.state-dropped	PAY-21	green
 cmp.state-dropped	PAY-22	green
 cmp.state-dropped	PAY-23	green
 cmp.state-dropped	TURN-01/mapper-refused	green
+cmp.state-dropped	TURN-01/schedule-out-of-range	green
 cmp.state-dropped	TURN-01/schedule-refused	green
 cmp.state-dropped	TURN-02	green
 cmp.state-dropped	TURN-03/exited	green
@@ -4451,6 +4523,7 @@ cmp.two-defaults-accepted	PAY-02	green
 cmp.two-defaults-accepted	PAY-03	green
 cmp.two-defaults-accepted	PAY-04	green
 cmp.two-defaults-accepted	PAY-05	green
+cmp.two-defaults-accepted	PAY-05/held-head-sleeps-at-boot	green
 cmp.two-defaults-accepted	PAY-06/interruptible	green
 cmp.two-defaults-accepted	PAY-06/uninterruptible	green
 cmp.two-defaults-accepted	PAY-07/late-in-a-new-PAYING	green
@@ -4501,6 +4574,7 @@ cmp.two-defaults-accepted	PAY-21	green
 cmp.two-defaults-accepted	PAY-22	green
 cmp.two-defaults-accepted	PAY-23	green
 cmp.two-defaults-accepted	TURN-01/mapper-refused	green
+cmp.two-defaults-accepted	TURN-01/schedule-out-of-range	green
 cmp.two-defaults-accepted	TURN-01/schedule-refused	green
 cmp.two-defaults-accepted	TURN-02	green
 cmp.two-defaults-accepted	TURN-03/exited	green
@@ -4573,6 +4647,7 @@ cmp.uncertain-not-listed	PAY-02	green
 cmp.uncertain-not-listed	PAY-03	green
 cmp.uncertain-not-listed	PAY-04	green
 cmp.uncertain-not-listed	PAY-05	green
+cmp.uncertain-not-listed	PAY-05/held-head-sleeps-at-boot	green
 cmp.uncertain-not-listed	PAY-06/interruptible	green
 cmp.uncertain-not-listed	PAY-06/uninterruptible	green
 cmp.uncertain-not-listed	PAY-07/late-in-a-new-PAYING	green
@@ -4623,6 +4698,7 @@ cmp.uncertain-not-listed	PAY-21	green
 cmp.uncertain-not-listed	PAY-22	green
 cmp.uncertain-not-listed	PAY-23	green
 cmp.uncertain-not-listed	TURN-01/mapper-refused	green
+cmp.uncertain-not-listed	TURN-01/schedule-out-of-range	green
 cmp.uncertain-not-listed	TURN-01/schedule-refused	green
 cmp.uncertain-not-listed	TURN-02	green
 cmp.uncertain-not-listed	TURN-03/exited	green
@@ -4695,6 +4771,7 @@ cmp.unknown-onto-sure-event	PAY-02	green
 cmp.unknown-onto-sure-event	PAY-03	green
 cmp.unknown-onto-sure-event	PAY-04	green
 cmp.unknown-onto-sure-event	PAY-05	green
+cmp.unknown-onto-sure-event	PAY-05/held-head-sleeps-at-boot	green
 cmp.unknown-onto-sure-event	PAY-06/interruptible	green
 cmp.unknown-onto-sure-event	PAY-06/uninterruptible	green
 cmp.unknown-onto-sure-event	PAY-07/late-in-a-new-PAYING	green
@@ -4745,6 +4822,7 @@ cmp.unknown-onto-sure-event	PAY-21	green
 cmp.unknown-onto-sure-event	PAY-22	green
 cmp.unknown-onto-sure-event	PAY-23	green
 cmp.unknown-onto-sure-event	TURN-01/mapper-refused	green
+cmp.unknown-onto-sure-event	TURN-01/schedule-out-of-range	green
 cmp.unknown-onto-sure-event	TURN-01/schedule-refused	green
 cmp.unknown-onto-sure-event	TURN-02	green
 cmp.unknown-onto-sure-event	TURN-03/exited	green
@@ -4817,6 +4895,7 @@ d138.self-allowed	PAY-02	green
 d138.self-allowed	PAY-03	green
 d138.self-allowed	PAY-04	green
 d138.self-allowed	PAY-05	green
+d138.self-allowed	PAY-05/held-head-sleeps-at-boot	green
 d138.self-allowed	PAY-06/interruptible	green
 d138.self-allowed	PAY-06/uninterruptible	green
 d138.self-allowed	PAY-07/late-in-a-new-PAYING	green
@@ -4867,6 +4946,7 @@ d138.self-allowed	PAY-21	green
 d138.self-allowed	PAY-22	green
 d138.self-allowed	PAY-23	green
 d138.self-allowed	TURN-01/mapper-refused	green
+d138.self-allowed	TURN-01/schedule-out-of-range	green
 d138.self-allowed	TURN-01/schedule-refused	green
 d138.self-allowed	TURN-02	green
 d138.self-allowed	TURN-03/exited	green
@@ -4939,6 +5019,7 @@ d154.moved-fail-released	PAY-02	green
 d154.moved-fail-released	PAY-03	green
 d154.moved-fail-released	PAY-04	green
 d154.moved-fail-released	PAY-05	green
+d154.moved-fail-released	PAY-05/held-head-sleeps-at-boot	green
 d154.moved-fail-released	PAY-06/interruptible	green
 d154.moved-fail-released	PAY-06/uninterruptible	green
 d154.moved-fail-released	PAY-07/late-in-a-new-PAYING	green
@@ -4989,6 +5070,7 @@ d154.moved-fail-released	PAY-21	green
 d154.moved-fail-released	PAY-22	green
 d154.moved-fail-released	PAY-23	green
 d154.moved-fail-released	TURN-01/mapper-refused	green
+d154.moved-fail-released	TURN-01/schedule-out-of-range	green
 d154.moved-fail-released	TURN-01/schedule-refused	green
 d154.moved-fail-released	TURN-02	green
 d154.moved-fail-released	TURN-03/exited	green
@@ -5061,6 +5143,7 @@ d6.disposed-ending-is-evidence	PAY-02	green
 d6.disposed-ending-is-evidence	PAY-03	green
 d6.disposed-ending-is-evidence	PAY-04	green
 d6.disposed-ending-is-evidence	PAY-05	green
+d6.disposed-ending-is-evidence	PAY-05/held-head-sleeps-at-boot	green
 d6.disposed-ending-is-evidence	PAY-06/interruptible	green
 d6.disposed-ending-is-evidence	PAY-06/uninterruptible	green
 d6.disposed-ending-is-evidence	PAY-07/late-in-a-new-PAYING	green
@@ -5111,6 +5194,7 @@ d6.disposed-ending-is-evidence	PAY-21	green
 d6.disposed-ending-is-evidence	PAY-22	green
 d6.disposed-ending-is-evidence	PAY-23	green
 d6.disposed-ending-is-evidence	TURN-01/mapper-refused	green
+d6.disposed-ending-is-evidence	TURN-01/schedule-out-of-range	green
 d6.disposed-ending-is-evidence	TURN-01/schedule-refused	green
 d6.disposed-ending-is-evidence	TURN-02	green
 d6.disposed-ending-is-evidence	TURN-03/exited	green
@@ -5183,6 +5267,7 @@ e8.wa-failure	PAY-02	green
 e8.wa-failure	PAY-03	green
 e8.wa-failure	PAY-04	green
 e8.wa-failure	PAY-05	green
+e8.wa-failure	PAY-05/held-head-sleeps-at-boot	green
 e8.wa-failure	PAY-06/interruptible	green
 e8.wa-failure	PAY-06/uninterruptible	green
 e8.wa-failure	PAY-07/late-in-a-new-PAYING	green
@@ -5233,6 +5318,7 @@ e8.wa-failure	PAY-21	green
 e8.wa-failure	PAY-22	green
 e8.wa-failure	PAY-23	green
 e8.wa-failure	TURN-01/mapper-refused	green
+e8.wa-failure	TURN-01/schedule-out-of-range	green
 e8.wa-failure	TURN-01/schedule-refused	green
 e8.wa-failure	TURN-02	green
 e8.wa-failure	TURN-03/exited	green
@@ -5305,6 +5391,7 @@ entity.failure-confirms	PAY-02	green
 entity.failure-confirms	PAY-03	green
 entity.failure-confirms	PAY-04	green
 entity.failure-confirms	PAY-05	green
+entity.failure-confirms	PAY-05/held-head-sleeps-at-boot	green
 entity.failure-confirms	PAY-06/interruptible	green
 entity.failure-confirms	PAY-06/uninterruptible	green
 entity.failure-confirms	PAY-07/late-in-a-new-PAYING	green
@@ -5355,6 +5442,7 @@ entity.failure-confirms	PAY-21	green
 entity.failure-confirms	PAY-22	green
 entity.failure-confirms	PAY-23	green
 entity.failure-confirms	TURN-01/mapper-refused	green
+entity.failure-confirms	TURN-01/schedule-out-of-range	green
 entity.failure-confirms	TURN-01/schedule-refused	green
 entity.failure-confirms	TURN-02	green
 entity.failure-confirms	TURN-03/exited	green
@@ -5427,6 +5515,7 @@ entity.success-not-confirmed	PAY-02	green
 entity.success-not-confirmed	PAY-03	green
 entity.success-not-confirmed	PAY-04	green
 entity.success-not-confirmed	PAY-05	green
+entity.success-not-confirmed	PAY-05/held-head-sleeps-at-boot	green
 entity.success-not-confirmed	PAY-06/interruptible	green
 entity.success-not-confirmed	PAY-06/uninterruptible	green
 entity.success-not-confirmed	PAY-07/late-in-a-new-PAYING	green
@@ -5477,6 +5566,7 @@ entity.success-not-confirmed	PAY-21	green
 entity.success-not-confirmed	PAY-22	green
 entity.success-not-confirmed	PAY-23	green
 entity.success-not-confirmed	TURN-01/mapper-refused	green
+entity.success-not-confirmed	TURN-01/schedule-out-of-range	green
 entity.success-not-confirmed	TURN-01/schedule-refused	green
 entity.success-not-confirmed	TURN-02	green
 entity.success-not-confirmed	TURN-03/exited	green
@@ -5549,6 +5639,7 @@ id.dispose-drops-lanes	PAY-02	green
 id.dispose-drops-lanes	PAY-03	green
 id.dispose-drops-lanes	PAY-04	green
 id.dispose-drops-lanes	PAY-05	green
+id.dispose-drops-lanes	PAY-05/held-head-sleeps-at-boot	red lane-queue
 id.dispose-drops-lanes	PAY-06/interruptible	green
 id.dispose-drops-lanes	PAY-06/uninterruptible	green
 id.dispose-drops-lanes	PAY-07/late-in-a-new-PAYING	green
@@ -5599,6 +5690,7 @@ id.dispose-drops-lanes	PAY-21	green
 id.dispose-drops-lanes	PAY-22	green
 id.dispose-drops-lanes	PAY-23	green
 id.dispose-drops-lanes	TURN-01/mapper-refused	green
+id.dispose-drops-lanes	TURN-01/schedule-out-of-range	green
 id.dispose-drops-lanes	TURN-01/schedule-refused	green
 id.dispose-drops-lanes	TURN-02	green
 id.dispose-drops-lanes	TURN-03/exited	green
@@ -5671,6 +5763,7 @@ k.failure-as-success	PAY-02	caught ending-channels WriteLanes I3
 k.failure-as-success	PAY-03	green
 k.failure-as-success	PAY-04	caught ending-channels WriteLanes I3
 k.failure-as-success	PAY-05	green
+k.failure-as-success	PAY-05/held-head-sleeps-at-boot	green
 k.failure-as-success	PAY-06/interruptible	green
 k.failure-as-success	PAY-06/uninterruptible	green
 k.failure-as-success	PAY-07/late-in-a-new-PAYING	caught ending-channels WriteLanes I3
@@ -5721,6 +5814,7 @@ k.failure-as-success	PAY-21	caught ending-channels WriteLanes I3
 k.failure-as-success	PAY-22	green
 k.failure-as-success	PAY-23	green
 k.failure-as-success	TURN-01/mapper-refused	green
+k.failure-as-success	TURN-01/schedule-out-of-range	caught ending-channels WriteLanes I3
 k.failure-as-success	TURN-01/schedule-refused	caught ending-channels WriteLanes I3
 k.failure-as-success	TURN-02	green
 k.failure-as-success	TURN-03/exited	caught ending-channels WriteLanes I3
@@ -5793,6 +5887,7 @@ lane.cancel-held-keeps	PAY-02	green
 lane.cancel-held-keeps	PAY-03	caught lane-queue WriteLanes I12
 lane.cancel-held-keeps	PAY-04	green
 lane.cancel-held-keeps	PAY-05	green
+lane.cancel-held-keeps	PAY-05/held-head-sleeps-at-boot	green
 lane.cancel-held-keeps	PAY-06/interruptible	green
 lane.cancel-held-keeps	PAY-06/uninterruptible	green
 lane.cancel-held-keeps	PAY-07/late-in-a-new-PAYING	green
@@ -5843,6 +5938,7 @@ lane.cancel-held-keeps	PAY-21	caught lane-queue WriteLanes I12
 lane.cancel-held-keeps	PAY-22	caught lane-queue WriteLanes I12
 lane.cancel-held-keeps	PAY-23	green
 lane.cancel-held-keeps	TURN-01/mapper-refused	green
+lane.cancel-held-keeps	TURN-01/schedule-out-of-range	green
 lane.cancel-held-keeps	TURN-01/schedule-refused	green
 lane.cancel-held-keeps	TURN-02	green
 lane.cancel-held-keeps	TURN-03/exited	green
@@ -5915,6 +6011,7 @@ lane.cancel-wire-as-never-sent	PAY-02	green
 lane.cancel-wire-as-never-sent	PAY-03	green
 lane.cancel-wire-as-never-sent	PAY-04	green
 lane.cancel-wire-as-never-sent	PAY-05	green
+lane.cancel-wire-as-never-sent	PAY-05/held-head-sleeps-at-boot	green
 lane.cancel-wire-as-never-sent	PAY-06/interruptible	green
 lane.cancel-wire-as-never-sent	PAY-06/uninterruptible	green
 lane.cancel-wire-as-never-sent	PAY-07/late-in-a-new-PAYING	green
@@ -5965,6 +6062,7 @@ lane.cancel-wire-as-never-sent	PAY-21	green
 lane.cancel-wire-as-never-sent	PAY-22	green
 lane.cancel-wire-as-never-sent	PAY-23	green
 lane.cancel-wire-as-never-sent	TURN-01/mapper-refused	green
+lane.cancel-wire-as-never-sent	TURN-01/schedule-out-of-range	green
 lane.cancel-wire-as-never-sent	TURN-01/schedule-refused	green
 lane.cancel-wire-as-never-sent	TURN-02	green
 lane.cancel-wire-as-never-sent	TURN-03/exited	green
@@ -6037,6 +6135,7 @@ lane.fresh-mint-on-held	PAY-02	green
 lane.fresh-mint-on-held	PAY-03	green
 lane.fresh-mint-on-held	PAY-04	green
 lane.fresh-mint-on-held	PAY-05	green
+lane.fresh-mint-on-held	PAY-05/held-head-sleeps-at-boot	green
 lane.fresh-mint-on-held	PAY-06/interruptible	green
 lane.fresh-mint-on-held	PAY-06/uninterruptible	green
 lane.fresh-mint-on-held	PAY-07/late-in-a-new-PAYING	green
@@ -6087,6 +6186,7 @@ lane.fresh-mint-on-held	PAY-21	green
 lane.fresh-mint-on-held	PAY-22	green
 lane.fresh-mint-on-held	PAY-23	green
 lane.fresh-mint-on-held	TURN-01/mapper-refused	green
+lane.fresh-mint-on-held	TURN-01/schedule-out-of-range	green
 lane.fresh-mint-on-held	TURN-01/schedule-refused	green
 lane.fresh-mint-on-held	TURN-02	green
 lane.fresh-mint-on-held	TURN-03/exited	green
@@ -6159,6 +6259,7 @@ lane.held-auto-resend	PAY-02	green
 lane.held-auto-resend	PAY-03	caught lane-queue WriteLanes I12
 lane.held-auto-resend	PAY-04	caught lane-queue WriteLanes I12
 lane.held-auto-resend	PAY-05	caught lane-queue WriteLanes I12
+lane.held-auto-resend	PAY-05/held-head-sleeps-at-boot	caught lane-queue WriteLanes I12
 lane.held-auto-resend	PAY-06/interruptible	caught lane-queue WriteLanes I12
 lane.held-auto-resend	PAY-06/uninterruptible	caught lane-queue WriteLanes I12
 lane.held-auto-resend	PAY-07/late-in-a-new-PAYING	green
@@ -6209,6 +6310,7 @@ lane.held-auto-resend	PAY-21	caught lane-queue WriteLanes I12
 lane.held-auto-resend	PAY-22	time
 lane.held-auto-resend	PAY-23	caught lane-queue WriteLanes I12
 lane.held-auto-resend	TURN-01/mapper-refused	green
+lane.held-auto-resend	TURN-01/schedule-out-of-range	green
 lane.held-auto-resend	TURN-01/schedule-refused	green
 lane.held-auto-resend	TURN-02	green
 lane.held-auto-resend	TURN-03/exited	green
@@ -6281,6 +6383,7 @@ lane.idle-never-passes	PAY-02	green
 lane.idle-never-passes	PAY-03	green
 lane.idle-never-passes	PAY-04	green
 lane.idle-never-passes	PAY-05	green
+lane.idle-never-passes	PAY-05/held-head-sleeps-at-boot	green
 lane.idle-never-passes	PAY-06/interruptible	green
 lane.idle-never-passes	PAY-06/uninterruptible	green
 lane.idle-never-passes	PAY-07/late-in-a-new-PAYING	green
@@ -6331,6 +6434,7 @@ lane.idle-never-passes	PAY-21	green
 lane.idle-never-passes	PAY-22	green
 lane.idle-never-passes	PAY-23	green
 lane.idle-never-passes	TURN-01/mapper-refused	green
+lane.idle-never-passes	TURN-01/schedule-out-of-range	green
 lane.idle-never-passes	TURN-01/schedule-refused	green
 lane.idle-never-passes	TURN-02	green
 lane.idle-never-passes	TURN-03/exited	green
@@ -6403,6 +6507,7 @@ lane.keyless-names-latest-lane	PAY-02	green
 lane.keyless-names-latest-lane	PAY-03	green
 lane.keyless-names-latest-lane	PAY-04	green
 lane.keyless-names-latest-lane	PAY-05	green
+lane.keyless-names-latest-lane	PAY-05/held-head-sleeps-at-boot	green
 lane.keyless-names-latest-lane	PAY-06/interruptible	green
 lane.keyless-names-latest-lane	PAY-06/uninterruptible	green
 lane.keyless-names-latest-lane	PAY-07/late-in-a-new-PAYING	green
@@ -6453,6 +6558,7 @@ lane.keyless-names-latest-lane	PAY-21	green
 lane.keyless-names-latest-lane	PAY-22	green
 lane.keyless-names-latest-lane	PAY-23	green
 lane.keyless-names-latest-lane	TURN-01/mapper-refused	green
+lane.keyless-names-latest-lane	TURN-01/schedule-out-of-range	green
 lane.keyless-names-latest-lane	TURN-01/schedule-refused	green
 lane.keyless-names-latest-lane	TURN-02	green
 lane.keyless-names-latest-lane	TURN-03/exited	green
@@ -6525,6 +6631,7 @@ lane.late-result-after-release	PAY-02	green
 lane.late-result-after-release	PAY-03	green
 lane.late-result-after-release	PAY-04	green
 lane.late-result-after-release	PAY-05	green
+lane.late-result-after-release	PAY-05/held-head-sleeps-at-boot	green
 lane.late-result-after-release	PAY-06/interruptible	green
 lane.late-result-after-release	PAY-06/uninterruptible	green
 lane.late-result-after-release	PAY-07/late-in-a-new-PAYING	green
@@ -6575,6 +6682,7 @@ lane.late-result-after-release	PAY-21	green
 lane.late-result-after-release	PAY-22	green
 lane.late-result-after-release	PAY-23	green
 lane.late-result-after-release	TURN-01/mapper-refused	green
+lane.late-result-after-release	TURN-01/schedule-out-of-range	green
 lane.late-result-after-release	TURN-01/schedule-refused	green
 lane.late-result-after-release	TURN-02	green
 lane.late-result-after-release	TURN-03/exited	green
@@ -6647,6 +6755,7 @@ lane.latest-as-serialize	PAY-02	green
 lane.latest-as-serialize	PAY-03	green
 lane.latest-as-serialize	PAY-04	green
 lane.latest-as-serialize	PAY-05	green
+lane.latest-as-serialize	PAY-05/held-head-sleeps-at-boot	green
 lane.latest-as-serialize	PAY-06/interruptible	green
 lane.latest-as-serialize	PAY-06/uninterruptible	green
 lane.latest-as-serialize	PAY-07/late-in-a-new-PAYING	green
@@ -6697,6 +6806,7 @@ lane.latest-as-serialize	PAY-21	green
 lane.latest-as-serialize	PAY-22	green
 lane.latest-as-serialize	PAY-23	green
 lane.latest-as-serialize	TURN-01/mapper-refused	green
+lane.latest-as-serialize	TURN-01/schedule-out-of-range	green
 lane.latest-as-serialize	TURN-01/schedule-refused	green
 lane.latest-as-serialize	TURN-02	green
 lane.latest-as-serialize	TURN-03/exited	green
@@ -6769,6 +6879,7 @@ lane.old-version-sends	PAY-02	green
 lane.old-version-sends	PAY-03	green
 lane.old-version-sends	PAY-04	green
 lane.old-version-sends	PAY-05	green
+lane.old-version-sends	PAY-05/held-head-sleeps-at-boot	green
 lane.old-version-sends	PAY-06/interruptible	green
 lane.old-version-sends	PAY-06/uninterruptible	green
 lane.old-version-sends	PAY-07/late-in-a-new-PAYING	green
@@ -6819,6 +6930,7 @@ lane.old-version-sends	PAY-21	green
 lane.old-version-sends	PAY-22	green
 lane.old-version-sends	PAY-23	green
 lane.old-version-sends	TURN-01/mapper-refused	green
+lane.old-version-sends	TURN-01/schedule-out-of-range	green
 lane.old-version-sends	TURN-01/schedule-refused	green
 lane.old-version-sends	TURN-02	green
 lane.old-version-sends	TURN-03/exited	green
@@ -6891,6 +7003,7 @@ lane.queue-unbounded	PAY-02	green
 lane.queue-unbounded	PAY-03	green
 lane.queue-unbounded	PAY-04	green
 lane.queue-unbounded	PAY-05	green
+lane.queue-unbounded	PAY-05/held-head-sleeps-at-boot	green
 lane.queue-unbounded	PAY-06/interruptible	green
 lane.queue-unbounded	PAY-06/uninterruptible	green
 lane.queue-unbounded	PAY-07/late-in-a-new-PAYING	green
@@ -6941,6 +7054,7 @@ lane.queue-unbounded	PAY-21	green
 lane.queue-unbounded	PAY-22	green
 lane.queue-unbounded	PAY-23	green
 lane.queue-unbounded	TURN-01/mapper-refused	green
+lane.queue-unbounded	TURN-01/schedule-out-of-range	green
 lane.queue-unbounded	TURN-01/schedule-refused	green
 lane.queue-unbounded	TURN-02	green
 lane.queue-unbounded	TURN-03/exited	green
@@ -7013,6 +7127,7 @@ lane.reject-queues	PAY-02	caught lane-queue WriteLanes I8
 lane.reject-queues	PAY-03	green
 lane.reject-queues	PAY-04	green
 lane.reject-queues	PAY-05	green
+lane.reject-queues	PAY-05/held-head-sleeps-at-boot	green
 lane.reject-queues	PAY-06/interruptible	green
 lane.reject-queues	PAY-06/uninterruptible	green
 lane.reject-queues	PAY-07/late-in-a-new-PAYING	caught lane-queue WriteLanes I8
@@ -7063,6 +7178,7 @@ lane.reject-queues	PAY-21	green
 lane.reject-queues	PAY-22	green
 lane.reject-queues	PAY-23	green
 lane.reject-queues	TURN-01/mapper-refused	green
+lane.reject-queues	TURN-01/schedule-out-of-range	green
 lane.reject-queues	TURN-01/schedule-refused	green
 lane.reject-queues	TURN-02	green
 lane.reject-queues	TURN-03/exited	green
@@ -7135,6 +7251,7 @@ lane.releasing-delivers	PAY-02	green
 lane.releasing-delivers	PAY-03	green
 lane.releasing-delivers	PAY-04	green
 lane.releasing-delivers	PAY-05	green
+lane.releasing-delivers	PAY-05/held-head-sleeps-at-boot	green
 lane.releasing-delivers	PAY-06/interruptible	green
 lane.releasing-delivers	PAY-06/uninterruptible	green
 lane.releasing-delivers	PAY-07/late-in-a-new-PAYING	green
@@ -7185,6 +7302,7 @@ lane.releasing-delivers	PAY-21	green
 lane.releasing-delivers	PAY-22	green
 lane.releasing-delivers	PAY-23	green
 lane.releasing-delivers	TURN-01/mapper-refused	green
+lane.releasing-delivers	TURN-01/schedule-out-of-range	green
 lane.releasing-delivers	TURN-01/schedule-refused	green
 lane.releasing-delivers	TURN-02	green
 lane.releasing-delivers	TURN-03/exited	green
@@ -7257,6 +7375,7 @@ lane.retry-count-frozen	PAY-02	green
 lane.retry-count-frozen	PAY-03	green
 lane.retry-count-frozen	PAY-04	caught retry-count WriteLanes I7
 lane.retry-count-frozen	PAY-05	caught retry-count WriteLanes I7
+lane.retry-count-frozen	PAY-05/held-head-sleeps-at-boot	green
 lane.retry-count-frozen	PAY-06/interruptible	green
 lane.retry-count-frozen	PAY-06/uninterruptible	green
 lane.retry-count-frozen	PAY-07/late-in-a-new-PAYING	green
@@ -7307,6 +7426,7 @@ lane.retry-count-frozen	PAY-21	green
 lane.retry-count-frozen	PAY-22	caught retry-count WriteLanes I7
 lane.retry-count-frozen	PAY-23	green
 lane.retry-count-frozen	TURN-01/mapper-refused	green
+lane.retry-count-frozen	TURN-01/schedule-out-of-range	green
 lane.retry-count-frozen	TURN-01/schedule-refused	green
 lane.retry-count-frozen	TURN-02	green
 lane.retry-count-frozen	TURN-03/exited	green
@@ -7379,6 +7499,7 @@ lane.retry-members-dropped	PAY-02	green
 lane.retry-members-dropped	PAY-03	green
 lane.retry-members-dropped	PAY-04	caught lane-queue WriteLanes I26
 lane.retry-members-dropped	PAY-05	caught lane-queue WriteLanes I26
+lane.retry-members-dropped	PAY-05/held-head-sleeps-at-boot	caught lane-queue WriteLanes I26
 lane.retry-members-dropped	PAY-06/interruptible	green
 lane.retry-members-dropped	PAY-06/uninterruptible	green
 lane.retry-members-dropped	PAY-07/late-in-a-new-PAYING	green
@@ -7429,6 +7550,7 @@ lane.retry-members-dropped	PAY-21	green
 lane.retry-members-dropped	PAY-22	caught lane-queue WriteLanes I26
 lane.retry-members-dropped	PAY-23	green
 lane.retry-members-dropped	TURN-01/mapper-refused	green
+lane.retry-members-dropped	TURN-01/schedule-out-of-range	green
 lane.retry-members-dropped	TURN-01/schedule-refused	green
 lane.retry-members-dropped	TURN-02	green
 lane.retry-members-dropped	TURN-03/exited	green
@@ -7501,6 +7623,7 @@ lane.retry-sends-another-attempt	PAY-02	green
 lane.retry-sends-another-attempt	PAY-03	green
 lane.retry-sends-another-attempt	PAY-04	caught lane-queue WriteLanes I9
 lane.retry-sends-another-attempt	PAY-05	caught lane-queue WriteLanes I9
+lane.retry-sends-another-attempt	PAY-05/held-head-sleeps-at-boot	caught lane-queue WriteLanes I9
 lane.retry-sends-another-attempt	PAY-06/interruptible	green
 lane.retry-sends-another-attempt	PAY-06/uninterruptible	green
 lane.retry-sends-another-attempt	PAY-07/late-in-a-new-PAYING	green
@@ -7551,6 +7674,7 @@ lane.retry-sends-another-attempt	PAY-21	green
 lane.retry-sends-another-attempt	PAY-22	caught lane-queue WriteLanes I9
 lane.retry-sends-another-attempt	PAY-23	green
 lane.retry-sends-another-attempt	TURN-01/mapper-refused	green
+lane.retry-sends-another-attempt	TURN-01/schedule-out-of-range	green
 lane.retry-sends-another-attempt	TURN-01/schedule-refused	green
 lane.retry-sends-another-attempt	TURN-02	green
 lane.retry-sends-another-attempt	TURN-03/exited	green
@@ -7623,6 +7747,7 @@ lane.settled-without-ending	PAY-02	caught ending-channels WriteLanes I27
 lane.settled-without-ending	PAY-03	caught ending-channels WriteLanes I27
 lane.settled-without-ending	PAY-04	caught ending-channels WriteLanes I27
 lane.settled-without-ending	PAY-05	caught ending-channels WriteLanes I27
+lane.settled-without-ending	PAY-05/held-head-sleeps-at-boot	caught ending-channels WriteLanes I27
 lane.settled-without-ending	PAY-06/interruptible	red disposal
 lane.settled-without-ending	PAY-06/uninterruptible	red case
 lane.settled-without-ending	PAY-07/late-in-a-new-PAYING	caught ending-channels WriteLanes I27
@@ -7673,6 +7798,7 @@ lane.settled-without-ending	PAY-21	caught ending-channels WriteLanes I27
 lane.settled-without-ending	PAY-22	caught ending-channels WriteLanes I27
 lane.settled-without-ending	PAY-23	caught ending-channels WriteLanes I27
 lane.settled-without-ending	TURN-01/mapper-refused	caught ending-channels WriteLanes I27
+lane.settled-without-ending	TURN-01/schedule-out-of-range	caught ending-channels WriteLanes I27
 lane.settled-without-ending	TURN-01/schedule-refused	caught ending-channels WriteLanes I27
 lane.settled-without-ending	TURN-02	green
 lane.settled-without-ending	TURN-03/exited	caught ending-channels WriteLanes I27
@@ -7745,6 +7871,7 @@ lane.superseded-delivered	PAY-02	green
 lane.superseded-delivered	PAY-03	green
 lane.superseded-delivered	PAY-04	green
 lane.superseded-delivered	PAY-05	green
+lane.superseded-delivered	PAY-05/held-head-sleeps-at-boot	green
 lane.superseded-delivered	PAY-06/interruptible	green
 lane.superseded-delivered	PAY-06/uninterruptible	green
 lane.superseded-delivered	PAY-07/late-in-a-new-PAYING	green
@@ -7795,6 +7922,7 @@ lane.superseded-delivered	PAY-21	green
 lane.superseded-delivered	PAY-22	green
 lane.superseded-delivered	PAY-23	green
 lane.superseded-delivered	TURN-01/mapper-refused	green
+lane.superseded-delivered	TURN-01/schedule-out-of-range	green
 lane.superseded-delivered	TURN-01/schedule-refused	green
 lane.superseded-delivered	TURN-02	green
 lane.superseded-delivered	TURN-03/exited	green
@@ -7867,6 +7995,7 @@ lane.unencodable-refuses-turn	PAY-02	green
 lane.unencodable-refuses-turn	PAY-03	green
 lane.unencodable-refuses-turn	PAY-04	green
 lane.unencodable-refuses-turn	PAY-05	green
+lane.unencodable-refuses-turn	PAY-05/held-head-sleeps-at-boot	green
 lane.unencodable-refuses-turn	PAY-06/interruptible	green
 lane.unencodable-refuses-turn	PAY-06/uninterruptible	green
 lane.unencodable-refuses-turn	PAY-07/late-in-a-new-PAYING	green
@@ -7917,6 +8046,7 @@ lane.unencodable-refuses-turn	PAY-21	green
 lane.unencodable-refuses-turn	PAY-22	green
 lane.unencodable-refuses-turn	PAY-23	green
 lane.unencodable-refuses-turn	TURN-01/mapper-refused	green
+lane.unencodable-refuses-turn	TURN-01/schedule-out-of-range	green
 lane.unencodable-refuses-turn	TURN-01/schedule-refused	green
 lane.unencodable-refuses-turn	TURN-02	green
 lane.unencodable-refuses-turn	TURN-03/exited	green
@@ -7989,6 +8119,7 @@ lane.unknown-promotes	PAY-02	green
 lane.unknown-promotes	PAY-03	red case
 lane.unknown-promotes	PAY-04	red case
 lane.unknown-promotes	PAY-05	red case
+lane.unknown-promotes	PAY-05/held-head-sleeps-at-boot	red case
 lane.unknown-promotes	PAY-06/interruptible	red case
 lane.unknown-promotes	PAY-06/uninterruptible	red disposal
 lane.unknown-promotes	PAY-07/late-in-a-new-PAYING	green
@@ -8039,6 +8170,7 @@ lane.unknown-promotes	PAY-21	red case
 lane.unknown-promotes	PAY-22	red case
 lane.unknown-promotes	PAY-23	red case
 lane.unknown-promotes	TURN-01/mapper-refused	green
+lane.unknown-promotes	TURN-01/schedule-out-of-range	green
 lane.unknown-promotes	TURN-01/schedule-refused	green
 lane.unknown-promotes	TURN-02	green
 lane.unknown-promotes	TURN-03/exited	green
@@ -8111,6 +8243,7 @@ lane.unretained-unknown-held	PAY-02	green
 lane.unretained-unknown-held	PAY-03	green
 lane.unretained-unknown-held	PAY-04	green
 lane.unretained-unknown-held	PAY-05	green
+lane.unretained-unknown-held	PAY-05/held-head-sleeps-at-boot	green
 lane.unretained-unknown-held	PAY-06/interruptible	green
 lane.unretained-unknown-held	PAY-06/uninterruptible	green
 lane.unretained-unknown-held	PAY-07/late-in-a-new-PAYING	green
@@ -8161,6 +8294,7 @@ lane.unretained-unknown-held	PAY-21	green
 lane.unretained-unknown-held	PAY-22	green
 lane.unretained-unknown-held	PAY-23	green
 lane.unretained-unknown-held	TURN-01/mapper-refused	green
+lane.unretained-unknown-held	TURN-01/schedule-out-of-range	green
 lane.unretained-unknown-held	TURN-01/schedule-refused	green
 lane.unretained-unknown-held	TURN-02	green
 lane.unretained-unknown-held	TURN-03/exited	green
@@ -8233,6 +8367,7 @@ late.routed-from-leaf	PAY-02	green
 late.routed-from-leaf	PAY-03	green
 late.routed-from-leaf	PAY-04	green
 late.routed-from-leaf	PAY-05	green
+late.routed-from-leaf	PAY-05/held-head-sleeps-at-boot	green
 late.routed-from-leaf	PAY-06/interruptible	green
 late.routed-from-leaf	PAY-06/uninterruptible	green
 late.routed-from-leaf	PAY-07/late-in-a-new-PAYING	caught selection Turn I26
@@ -8283,6 +8418,7 @@ late.routed-from-leaf	PAY-21	green
 late.routed-from-leaf	PAY-22	green
 late.routed-from-leaf	PAY-23	green
 late.routed-from-leaf	TURN-01/mapper-refused	green
+late.routed-from-leaf	TURN-01/schedule-out-of-range	green
 late.routed-from-leaf	TURN-01/schedule-refused	green
 late.routed-from-leaf	TURN-02	green
 late.routed-from-leaf	TURN-03/exited	green
@@ -8355,6 +8491,7 @@ lie.boot-drops-held	PAY-02	green
 lie.boot-drops-held	PAY-03	green
 lie.boot-drops-held	PAY-04	green
 lie.boot-drops-held	PAY-05	caught delivered-once WriteLanes I15
+lie.boot-drops-held	PAY-05/held-head-sleeps-at-boot	caught delivered-once WriteLanes I15
 lie.boot-drops-held	PAY-06/interruptible	caught delivered-once WriteLanes I15
 lie.boot-drops-held	PAY-06/uninterruptible	caught delivered-once WriteLanes I15
 lie.boot-drops-held	PAY-07/late-in-a-new-PAYING	green
@@ -8405,6 +8542,7 @@ lie.boot-drops-held	PAY-21	caught delivered-once WriteLanes I15
 lie.boot-drops-held	PAY-22	green
 lie.boot-drops-held	PAY-23	caught delivered-once WriteLanes I15
 lie.boot-drops-held	TURN-01/mapper-refused	green
+lie.boot-drops-held	TURN-01/schedule-out-of-range	green
 lie.boot-drops-held	TURN-01/schedule-refused	green
 lie.boot-drops-held	TURN-02	green
 lie.boot-drops-held	TURN-03/exited	green
@@ -8477,6 +8615,7 @@ lie.boot-says-disposed	PAY-02	green
 lie.boot-says-disposed	PAY-03	green
 lie.boot-says-disposed	PAY-04	green
 lie.boot-says-disposed	PAY-05	caught delivered-once WriteLanes I15
+lie.boot-says-disposed	PAY-05/held-head-sleeps-at-boot	caught delivered-once WriteLanes I15
 lie.boot-says-disposed	PAY-06/interruptible	caught delivered-once WriteLanes I15
 lie.boot-says-disposed	PAY-06/uninterruptible	caught delivered-once WriteLanes I15
 lie.boot-says-disposed	PAY-07/late-in-a-new-PAYING	green
@@ -8527,6 +8666,7 @@ lie.boot-says-disposed	PAY-21	caught delivered-once WriteLanes I15
 lie.boot-says-disposed	PAY-22	green
 lie.boot-says-disposed	PAY-23	caught delivered-once WriteLanes I15
 lie.boot-says-disposed	TURN-01/mapper-refused	green
+lie.boot-says-disposed	TURN-01/schedule-out-of-range	green
 lie.boot-says-disposed	TURN-01/schedule-refused	green
 lie.boot-says-disposed	TURN-02	green
 lie.boot-says-disposed	TURN-03/exited	green
@@ -8599,6 +8739,7 @@ lie.cancels-dropped-header-nowhere	PAY-02	green
 lie.cancels-dropped-header-nowhere	PAY-03	caught lane-queue WriteLanes I12
 lie.cancels-dropped-header-nowhere	PAY-04	green
 lie.cancels-dropped-header-nowhere	PAY-05	green
+lie.cancels-dropped-header-nowhere	PAY-05/held-head-sleeps-at-boot	green
 lie.cancels-dropped-header-nowhere	PAY-06/interruptible	green
 lie.cancels-dropped-header-nowhere	PAY-06/uninterruptible	green
 lie.cancels-dropped-header-nowhere	PAY-07/late-in-a-new-PAYING	green
@@ -8649,6 +8790,7 @@ lie.cancels-dropped-header-nowhere	PAY-21	caught lane-queue WriteLanes I12
 lie.cancels-dropped-header-nowhere	PAY-22	caught lane-queue WriteLanes I12
 lie.cancels-dropped-header-nowhere	PAY-23	green
 lie.cancels-dropped-header-nowhere	TURN-01/mapper-refused	green
+lie.cancels-dropped-header-nowhere	TURN-01/schedule-out-of-range	green
 lie.cancels-dropped-header-nowhere	TURN-01/schedule-refused	green
 lie.cancels-dropped-header-nowhere	TURN-02	green
 lie.cancels-dropped-header-nowhere	TURN-03/exited	green
@@ -8721,6 +8863,7 @@ lie.cancels-reported-as-nothing	PAY-02	green
 lie.cancels-reported-as-nothing	PAY-03	caught lane-queue WriteLanes I12
 lie.cancels-reported-as-nothing	PAY-04	green
 lie.cancels-reported-as-nothing	PAY-05	green
+lie.cancels-reported-as-nothing	PAY-05/held-head-sleeps-at-boot	green
 lie.cancels-reported-as-nothing	PAY-06/interruptible	green
 lie.cancels-reported-as-nothing	PAY-06/uninterruptible	green
 lie.cancels-reported-as-nothing	PAY-07/late-in-a-new-PAYING	green
@@ -8771,6 +8914,7 @@ lie.cancels-reported-as-nothing	PAY-21	caught lane-queue WriteLanes I12
 lie.cancels-reported-as-nothing	PAY-22	caught lane-queue WriteLanes I12
 lie.cancels-reported-as-nothing	PAY-23	green
 lie.cancels-reported-as-nothing	TURN-01/mapper-refused	green
+lie.cancels-reported-as-nothing	TURN-01/schedule-out-of-range	green
 lie.cancels-reported-as-nothing	TURN-01/schedule-refused	green
 lie.cancels-reported-as-nothing	TURN-02	green
 lie.cancels-reported-as-nothing	TURN-03/exited	green
@@ -8843,6 +8987,7 @@ lie.cancels-reported-as-release	PAY-02	green
 lie.cancels-reported-as-release	PAY-03	caught lane-queue WriteLanes I12
 lie.cancels-reported-as-release	PAY-04	green
 lie.cancels-reported-as-release	PAY-05	green
+lie.cancels-reported-as-release	PAY-05/held-head-sleeps-at-boot	green
 lie.cancels-reported-as-release	PAY-06/interruptible	green
 lie.cancels-reported-as-release	PAY-06/uninterruptible	green
 lie.cancels-reported-as-release	PAY-07/late-in-a-new-PAYING	green
@@ -8893,6 +9038,7 @@ lie.cancels-reported-as-release	PAY-21	caught lane-queue WriteLanes I12
 lie.cancels-reported-as-release	PAY-22	caught lane-queue WriteLanes I12
 lie.cancels-reported-as-release	PAY-23	green
 lie.cancels-reported-as-release	TURN-01/mapper-refused	green
+lie.cancels-reported-as-release	TURN-01/schedule-out-of-range	green
 lie.cancels-reported-as-release	TURN-01/schedule-refused	green
 lie.cancels-reported-as-release	TURN-02	green
 lie.cancels-reported-as-release	TURN-03/exited	green
@@ -8965,6 +9111,7 @@ lie.failure-as-success	PAY-02	caught ending-channels WriteLanes I3
 lie.failure-as-success	PAY-03	green
 lie.failure-as-success	PAY-04	caught ending-channels WriteLanes I3
 lie.failure-as-success	PAY-05	green
+lie.failure-as-success	PAY-05/held-head-sleeps-at-boot	green
 lie.failure-as-success	PAY-06/interruptible	green
 lie.failure-as-success	PAY-06/uninterruptible	green
 lie.failure-as-success	PAY-07/late-in-a-new-PAYING	caught ending-channels WriteLanes I3
@@ -9015,6 +9162,7 @@ lie.failure-as-success	PAY-21	caught ending-channels WriteLanes I3
 lie.failure-as-success	PAY-22	green
 lie.failure-as-success	PAY-23	green
 lie.failure-as-success	TURN-01/mapper-refused	green
+lie.failure-as-success	TURN-01/schedule-out-of-range	caught ending-channels WriteLanes I3
 lie.failure-as-success	TURN-01/schedule-refused	caught ending-channels WriteLanes I3
 lie.failure-as-success	TURN-02	green
 lie.failure-as-success	TURN-03/exited	caught ending-channels WriteLanes I3
@@ -9087,6 +9235,7 @@ lie.failures-unmapped	PAY-02	caught delivered-once WriteLanes I15
 lie.failures-unmapped	PAY-03	green
 lie.failures-unmapped	PAY-04	caught delivered-once WriteLanes I15
 lie.failures-unmapped	PAY-05	green
+lie.failures-unmapped	PAY-05/held-head-sleeps-at-boot	green
 lie.failures-unmapped	PAY-06/interruptible	green
 lie.failures-unmapped	PAY-06/uninterruptible	green
 lie.failures-unmapped	PAY-07/late-in-a-new-PAYING	caught delivered-once WriteLanes I15
@@ -9137,6 +9286,7 @@ lie.failures-unmapped	PAY-21	caught delivered-once WriteLanes I15
 lie.failures-unmapped	PAY-22	green
 lie.failures-unmapped	PAY-23	green
 lie.failures-unmapped	TURN-01/mapper-refused	green
+lie.failures-unmapped	TURN-01/schedule-out-of-range	caught delivered-once WriteLanes I15
 lie.failures-unmapped	TURN-01/schedule-refused	caught delivered-once WriteLanes I15
 lie.failures-unmapped	TURN-02	green
 lie.failures-unmapped	TURN-03/exited	caught delivered-once WriteLanes I15
@@ -9209,6 +9359,7 @@ lie.held-released-unguarded	PAY-02	green
 lie.held-released-unguarded	PAY-03	caught lane-queue WriteLanes I12
 lie.held-released-unguarded	PAY-04	caught lane-queue WriteLanes I12
 lie.held-released-unguarded	PAY-05	caught lane-queue WriteLanes I12
+lie.held-released-unguarded	PAY-05/held-head-sleeps-at-boot	caught lane-queue WriteLanes I12
 lie.held-released-unguarded	PAY-06/interruptible	caught lane-queue WriteLanes I12
 lie.held-released-unguarded	PAY-06/uninterruptible	caught lane-queue WriteLanes I12
 lie.held-released-unguarded	PAY-07/late-in-a-new-PAYING	green
@@ -9259,6 +9410,7 @@ lie.held-released-unguarded	PAY-21	caught lane-queue WriteLanes I12
 lie.held-released-unguarded	PAY-22	caught lane-queue WriteLanes I12
 lie.held-released-unguarded	PAY-23	caught lane-queue WriteLanes I12
 lie.held-released-unguarded	TURN-01/mapper-refused	green
+lie.held-released-unguarded	TURN-01/schedule-out-of-range	green
 lie.held-released-unguarded	TURN-01/schedule-refused	green
 lie.held-released-unguarded	TURN-02	green
 lie.held-released-unguarded	TURN-03/exited	green
@@ -9331,6 +9483,7 @@ lie.invoked-dropped	PAY-02	caught attempt-identity WriteLanes I6
 lie.invoked-dropped	PAY-03	caught attempt-identity WriteLanes I6
 lie.invoked-dropped	PAY-04	caught attempt-identity WriteLanes I6
 lie.invoked-dropped	PAY-05	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	PAY-05/held-head-sleeps-at-boot	caught attempt-identity WriteLanes I6
 lie.invoked-dropped	PAY-06/interruptible	caught attempt-identity WriteLanes I6
 lie.invoked-dropped	PAY-06/uninterruptible	caught attempt-identity WriteLanes I6
 lie.invoked-dropped	PAY-07/late-in-a-new-PAYING	caught attempt-identity WriteLanes I6
@@ -9381,6 +9534,7 @@ lie.invoked-dropped	PAY-21	caught attempt-identity WriteLanes I6
 lie.invoked-dropped	PAY-22	caught attempt-identity WriteLanes I6
 lie.invoked-dropped	PAY-23	caught attempt-identity WriteLanes I6
 lie.invoked-dropped	TURN-01/mapper-refused	caught attempt-identity WriteLanes I6
+lie.invoked-dropped	TURN-01/schedule-out-of-range	caught attempt-identity WriteLanes I6
 lie.invoked-dropped	TURN-01/schedule-refused	caught attempt-identity WriteLanes I6
 lie.invoked-dropped	TURN-02	green
 lie.invoked-dropped	TURN-03/exited	caught attempt-identity WriteLanes I6
@@ -9453,6 +9607,7 @@ lie.no-incarnated	PAY-02	caught disposal Actors I14
 lie.no-incarnated	PAY-03	caught disposal Actors I14
 lie.no-incarnated	PAY-04	caught disposal Actors I14
 lie.no-incarnated	PAY-05	caught disposal Actors I14
+lie.no-incarnated	PAY-05/held-head-sleeps-at-boot	caught disposal Actors I14
 lie.no-incarnated	PAY-06/interruptible	caught disposal Actors I14
 lie.no-incarnated	PAY-06/uninterruptible	caught disposal Actors I14
 lie.no-incarnated	PAY-07/late-in-a-new-PAYING	caught disposal Actors I14
@@ -9503,6 +9658,7 @@ lie.no-incarnated	PAY-21	caught disposal Actors I14
 lie.no-incarnated	PAY-22	caught disposal Actors I14
 lie.no-incarnated	PAY-23	caught disposal Actors I14
 lie.no-incarnated	TURN-01/mapper-refused	caught disposal Actors I14
+lie.no-incarnated	TURN-01/schedule-out-of-range	caught disposal Actors I14
 lie.no-incarnated	TURN-01/schedule-refused	caught disposal Actors I14
 lie.no-incarnated	TURN-02	caught disposal Actors I14
 lie.no-incarnated	TURN-03/exited	caught disposal Actors I14
@@ -9575,6 +9731,7 @@ lie.parked-as-unparked	PAY-02	green
 lie.parked-as-unparked	PAY-03	green
 lie.parked-as-unparked	PAY-04	green
 lie.parked-as-unparked	PAY-05	caught delivered-once WriteLanes I15
+lie.parked-as-unparked	PAY-05/held-head-sleeps-at-boot	caught delivered-once WriteLanes I15
 lie.parked-as-unparked	PAY-06/interruptible	caught delivered-once WriteLanes I15
 lie.parked-as-unparked	PAY-06/uninterruptible	caught delivered-once WriteLanes I15
 lie.parked-as-unparked	PAY-07/late-in-a-new-PAYING	green
@@ -9625,6 +9782,7 @@ lie.parked-as-unparked	PAY-21	caught delivered-once WriteLanes I15
 lie.parked-as-unparked	PAY-22	green
 lie.parked-as-unparked	PAY-23	caught delivered-once WriteLanes I15
 lie.parked-as-unparked	TURN-01/mapper-refused	green
+lie.parked-as-unparked	TURN-01/schedule-out-of-range	green
 lie.parked-as-unparked	TURN-01/schedule-refused	green
 lie.parked-as-unparked	TURN-02	green
 lie.parked-as-unparked	TURN-03/exited	green
@@ -9697,6 +9855,7 @@ lie.release-member-claimed	PAY-02	green
 lie.release-member-claimed	PAY-03	green
 lie.release-member-claimed	PAY-04	caught lane-queue WriteLanes I12
 lie.release-member-claimed	PAY-05	caught lane-queue WriteLanes I12
+lie.release-member-claimed	PAY-05/held-head-sleeps-at-boot	caught lane-queue WriteLanes I12
 lie.release-member-claimed	PAY-06/interruptible	green
 lie.release-member-claimed	PAY-06/uninterruptible	green
 lie.release-member-claimed	PAY-07/late-in-a-new-PAYING	green
@@ -9747,6 +9906,7 @@ lie.release-member-claimed	PAY-21	green
 lie.release-member-claimed	PAY-22	green
 lie.release-member-claimed	PAY-23	caught lane-queue WriteLanes I12
 lie.release-member-claimed	TURN-01/mapper-refused	green
+lie.release-member-claimed	TURN-01/schedule-out-of-range	green
 lie.release-member-claimed	TURN-01/schedule-refused	green
 lie.release-member-claimed	TURN-02	green
 lie.release-member-claimed	TURN-03/exited	green
@@ -9819,6 +9979,7 @@ lie.release-on-guarded-read	PAY-02	green
 lie.release-on-guarded-read	PAY-03	green
 lie.release-on-guarded-read	PAY-04	green
 lie.release-on-guarded-read	PAY-05	green
+lie.release-on-guarded-read	PAY-05/held-head-sleeps-at-boot	green
 lie.release-on-guarded-read	PAY-06/interruptible	green
 lie.release-on-guarded-read	PAY-06/uninterruptible	green
 lie.release-on-guarded-read	PAY-07/late-in-a-new-PAYING	green
@@ -9869,6 +10030,7 @@ lie.release-on-guarded-read	PAY-21	caught lane-queue WriteLanes I12
 lie.release-on-guarded-read	PAY-22	green
 lie.release-on-guarded-read	PAY-23	caught lane-queue WriteLanes I12
 lie.release-on-guarded-read	TURN-01/mapper-refused	green
+lie.release-on-guarded-read	TURN-01/schedule-out-of-range	green
 lie.release-on-guarded-read	TURN-01/schedule-refused	green
 lie.release-on-guarded-read	TURN-02	green
 lie.release-on-guarded-read	TURN-03/exited	green
@@ -9941,6 +10103,7 @@ lie.release-other-lane	PAY-02	green
 lie.release-other-lane	PAY-03	green
 lie.release-other-lane	PAY-04	green
 lie.release-other-lane	PAY-05	green
+lie.release-other-lane	PAY-05/held-head-sleeps-at-boot	green
 lie.release-other-lane	PAY-06/interruptible	green
 lie.release-other-lane	PAY-06/uninterruptible	green
 lie.release-other-lane	PAY-07/late-in-a-new-PAYING	green
@@ -9991,6 +10154,7 @@ lie.release-other-lane	PAY-21	caught lane-queue WriteLanes I12
 lie.release-other-lane	PAY-22	green
 lie.release-other-lane	PAY-23	green
 lie.release-other-lane	TURN-01/mapper-refused	green
+lie.release-other-lane	TURN-01/schedule-out-of-range	green
 lie.release-other-lane	TURN-01/schedule-refused	green
 lie.release-other-lane	TURN-02	green
 lie.release-other-lane	TURN-03/exited	green
@@ -10063,6 +10227,7 @@ lie.released	PAY-02	green
 lie.released	PAY-03	green
 lie.released	PAY-04	green
 lie.released	PAY-05	green
+lie.released	PAY-05/held-head-sleeps-at-boot	green
 lie.released	PAY-06/interruptible	green
 lie.released	PAY-06/uninterruptible	green
 lie.released	PAY-07/late-in-a-new-PAYING	green
@@ -10113,6 +10278,7 @@ lie.released	PAY-21	green
 lie.released	PAY-22	green
 lie.released	PAY-23	green
 lie.released	TURN-01/mapper-refused	green
+lie.released	TURN-01/schedule-out-of-range	green
 lie.released	TURN-01/schedule-refused	green
 lie.released	TURN-02	green
 lie.released	TURN-03/exited	green
@@ -10185,6 +10351,7 @@ lie.serialize-as-latest	PAY-02	green
 lie.serialize-as-latest	PAY-03	green
 lie.serialize-as-latest	PAY-04	green
 lie.serialize-as-latest	PAY-05	green
+lie.serialize-as-latest	PAY-05/held-head-sleeps-at-boot	green
 lie.serialize-as-latest	PAY-06/interruptible	green
 lie.serialize-as-latest	PAY-06/uninterruptible	green
 lie.serialize-as-latest	PAY-07/late-in-a-new-PAYING	green
@@ -10235,6 +10402,7 @@ lie.serialize-as-latest	PAY-21	green
 lie.serialize-as-latest	PAY-22	green
 lie.serialize-as-latest	PAY-23	green
 lie.serialize-as-latest	TURN-01/mapper-refused	green
+lie.serialize-as-latest	TURN-01/schedule-out-of-range	green
 lie.serialize-as-latest	TURN-01/schedule-refused	green
 lie.serialize-as-latest	TURN-02	green
 lie.serialize-as-latest	TURN-03/exited	green
@@ -10307,6 +10475,7 @@ lie.void-retry-releases	PAY-02	green
 lie.void-retry-releases	PAY-03	green
 lie.void-retry-releases	PAY-04	green
 lie.void-retry-releases	PAY-05	green
+lie.void-retry-releases	PAY-05/held-head-sleeps-at-boot	green
 lie.void-retry-releases	PAY-06/interruptible	green
 lie.void-retry-releases	PAY-06/uninterruptible	green
 lie.void-retry-releases	PAY-07/late-in-a-new-PAYING	green
@@ -10357,6 +10526,7 @@ lie.void-retry-releases	PAY-21	green
 lie.void-retry-releases	PAY-22	caught lane-queue WriteLanes I12
 lie.void-retry-releases	PAY-23	green
 lie.void-retry-releases	TURN-01/mapper-refused	green
+lie.void-retry-releases	TURN-01/schedule-out-of-range	green
 lie.void-retry-releases	TURN-01/schedule-refused	green
 lie.void-retry-releases	TURN-02	green
 lie.void-retry-releases	TURN-03/exited	green
@@ -10429,13 +10599,14 @@ life.ends-while-used	PAY-02	green
 life.ends-while-used	PAY-03	caught disposal Actors I10
 life.ends-while-used	PAY-04	caught disposal Actors I10
 life.ends-while-used	PAY-05	caught disposal Actors I10
+life.ends-while-used	PAY-05/held-head-sleeps-at-boot	caught disposal Actors I10
 life.ends-while-used	PAY-06/interruptible	green
 life.ends-while-used	PAY-06/uninterruptible	green
 life.ends-while-used	PAY-07/late-in-a-new-PAYING	green
 life.ends-while-used	PAY-07/late-may-not-leave	green
 life.ends-while-used	PAY-07/leaveMidCharge	green
 life.ends-while-used	PAY-08/reload-while-reconciling	caught disposal Actors I10
-life.ends-while-used	PAY-08/reloadDuringCharge	red case
+life.ends-while-used	PAY-08/reloadDuringCharge	failed uncaught
 life.ends-while-used	PAY-09/ack-not-stored	green
 life.ends-while-used	PAY-09/ack-stored-confirmation-lost	green
 life.ends-while-used	PAY-10/hang	green
@@ -10446,7 +10617,7 @@ life.ends-while-used	PAY-12/sync	green
 life.ends-while-used	PAY-13/hung-commit	green
 life.ends-while-used	PAY-13/waiting-flush-lost	green
 life.ends-while-used	PAY-13/waiting-flushed	green
-life.ends-while-used	PAY-14	red case
+life.ends-while-used	PAY-14	failed uncaught
 life.ends-while-used	PAY-15/busy-then-new-write	caught disposal Actors I10
 life.ends-while-used	PAY-15/cancel-idle	green
 life.ends-while-used	PAY-15/cancel-on-wire	green
@@ -10463,7 +10634,7 @@ life.ends-while-used	PAY-16/never-answered-waits-for-the-bound	green
 life.ends-while-used	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed	green
 life.ends-while-used	PAY-16/read-defect-issue	caught disposal Actors I10
 life.ends-while-used	PAY-16/resend-refused-capture	caught disposal Actors I10
-life.ends-while-used	PAY-16/restore-keeps-mayHaveApplied	red case
+life.ends-while-used	PAY-16/restore-keeps-mayHaveApplied	failed uncaught
 life.ends-while-used	PAY-16/retry-count-persists	caught disposal Actors I10
 life.ends-while-used	PAY-16/schedule-reads-after-memory	caught disposal Actors I10
 life.ends-while-used	PAY-16/settled-during-disposal-parked	green
@@ -10479,6 +10650,7 @@ life.ends-while-used	PAY-21	caught disposal Actors I10
 life.ends-while-used	PAY-22	green
 life.ends-while-used	PAY-23	caught disposal Actors I10
 life.ends-while-used	TURN-01/mapper-refused	green
+life.ends-while-used	TURN-01/schedule-out-of-range	green
 life.ends-while-used	TURN-01/schedule-refused	green
 life.ends-while-used	TURN-02	green
 life.ends-while-used	TURN-03/exited	green
@@ -10551,6 +10723,7 @@ life.grace-short	PAY-02	green
 life.grace-short	PAY-03	green
 life.grace-short	PAY-04	green
 life.grace-short	PAY-05	green
+life.grace-short	PAY-05/held-head-sleeps-at-boot	green
 life.grace-short	PAY-06/interruptible	green
 life.grace-short	PAY-06/uninterruptible	green
 life.grace-short	PAY-07/late-in-a-new-PAYING	green
@@ -10601,6 +10774,7 @@ life.grace-short	PAY-21	green
 life.grace-short	PAY-22	green
 life.grace-short	PAY-23	green
 life.grace-short	TURN-01/mapper-refused	green
+life.grace-short	TURN-01/schedule-out-of-range	green
 life.grace-short	TURN-01/schedule-refused	green
 life.grace-short	TURN-02	green
 life.grace-short	TURN-03/exited	green
@@ -10673,6 +10847,7 @@ life.never-ends	PAY-02	green
 life.never-ends	PAY-03	green
 life.never-ends	PAY-04	green
 life.never-ends	PAY-05	green
+life.never-ends	PAY-05/held-head-sleeps-at-boot	green
 life.never-ends	PAY-06/interruptible	green
 life.never-ends	PAY-06/uninterruptible	green
 life.never-ends	PAY-07/late-in-a-new-PAYING	green
@@ -10723,6 +10898,7 @@ life.never-ends	PAY-21	green
 life.never-ends	PAY-22	green
 life.never-ends	PAY-23	green
 life.never-ends	TURN-01/mapper-refused	green
+life.never-ends	TURN-01/schedule-out-of-range	green
 life.never-ends	TURN-01/schedule-refused	green
 life.never-ends	TURN-02	green
 life.never-ends	TURN-03/exited	green
@@ -10795,6 +10971,7 @@ life.schedule-fires-unused	PAY-02	green
 life.schedule-fires-unused	PAY-03	green
 life.schedule-fires-unused	PAY-04	green
 life.schedule-fires-unused	PAY-05	green
+life.schedule-fires-unused	PAY-05/held-head-sleeps-at-boot	green
 life.schedule-fires-unused	PAY-06/interruptible	green
 life.schedule-fires-unused	PAY-06/uninterruptible	green
 life.schedule-fires-unused	PAY-07/late-in-a-new-PAYING	green
@@ -10845,6 +11022,7 @@ life.schedule-fires-unused	PAY-21	green
 life.schedule-fires-unused	PAY-22	green
 life.schedule-fires-unused	PAY-23	green
 life.schedule-fires-unused	TURN-01/mapper-refused	green
+life.schedule-fires-unused	TURN-01/schedule-out-of-range	green
 life.schedule-fires-unused	TURN-01/schedule-refused	green
 life.schedule-fires-unused	TURN-02	green
 life.schedule-fires-unused	TURN-03/exited	green
@@ -10917,6 +11095,7 @@ life.waiting-never-wakes	PAY-02	green
 life.waiting-never-wakes	PAY-03	green
 life.waiting-never-wakes	PAY-04	green
 life.waiting-never-wakes	PAY-05	green
+life.waiting-never-wakes	PAY-05/held-head-sleeps-at-boot	green
 life.waiting-never-wakes	PAY-06/interruptible	green
 life.waiting-never-wakes	PAY-06/uninterruptible	green
 life.waiting-never-wakes	PAY-07/late-in-a-new-PAYING	green
@@ -10967,6 +11146,7 @@ life.waiting-never-wakes	PAY-21	green
 life.waiting-never-wakes	PAY-22	green
 life.waiting-never-wakes	PAY-23	green
 life.waiting-never-wakes	TURN-01/mapper-refused	green
+life.waiting-never-wakes	TURN-01/schedule-out-of-range	green
 life.waiting-never-wakes	TURN-01/schedule-refused	green
 life.waiting-never-wakes	TURN-02	green
 life.waiting-never-wakes	TURN-03/exited	green
@@ -11039,6 +11219,7 @@ lost.decline.mail	PAY-02	caught delivered-once WriteLanes I15
 lost.decline.mail	PAY-03	green
 lost.decline.mail	PAY-04	green
 lost.decline.mail	PAY-05	green
+lost.decline.mail	PAY-05/held-head-sleeps-at-boot	green
 lost.decline.mail	PAY-06/interruptible	green
 lost.decline.mail	PAY-06/uninterruptible	green
 lost.decline.mail	PAY-07/late-in-a-new-PAYING	caught delivered-once WriteLanes I15
@@ -11089,6 +11270,7 @@ lost.decline.mail	PAY-21	green
 lost.decline.mail	PAY-22	green
 lost.decline.mail	PAY-23	green
 lost.decline.mail	TURN-01/mapper-refused	green
+lost.decline.mail	TURN-01/schedule-out-of-range	green
 lost.decline.mail	TURN-01/schedule-refused	green
 lost.decline.mail	TURN-02	green
 lost.decline.mail	TURN-03/exited	green
@@ -11161,6 +11343,7 @@ mutant.adoption-skips-parked	PAY-02	green
 mutant.adoption-skips-parked	PAY-03	green
 mutant.adoption-skips-parked	PAY-04	green
 mutant.adoption-skips-parked	PAY-05	green
+mutant.adoption-skips-parked	PAY-05/held-head-sleeps-at-boot	green
 mutant.adoption-skips-parked	PAY-06/interruptible	green
 mutant.adoption-skips-parked	PAY-06/uninterruptible	green
 mutant.adoption-skips-parked	PAY-07/late-in-a-new-PAYING	green
@@ -11211,6 +11394,7 @@ mutant.adoption-skips-parked	PAY-21	green
 mutant.adoption-skips-parked	PAY-22	green
 mutant.adoption-skips-parked	PAY-23	green
 mutant.adoption-skips-parked	TURN-01/mapper-refused	green
+mutant.adoption-skips-parked	TURN-01/schedule-out-of-range	green
 mutant.adoption-skips-parked	TURN-01/schedule-refused	green
 mutant.adoption-skips-parked	TURN-02	green
 mutant.adoption-skips-parked	TURN-03/exited	green
@@ -11283,6 +11467,7 @@ mutant.boot-after-disposal-skips-restored	PAY-02	green
 mutant.boot-after-disposal-skips-restored	PAY-03	green
 mutant.boot-after-disposal-skips-restored	PAY-04	green
 mutant.boot-after-disposal-skips-restored	PAY-05	caught disposal Actors I29
+mutant.boot-after-disposal-skips-restored	PAY-05/held-head-sleeps-at-boot	red delivered-once
 mutant.boot-after-disposal-skips-restored	PAY-06/interruptible	caught disposal Actors I29
 mutant.boot-after-disposal-skips-restored	PAY-06/uninterruptible	caught disposal Actors I29
 mutant.boot-after-disposal-skips-restored	PAY-07/late-in-a-new-PAYING	green
@@ -11333,6 +11518,7 @@ mutant.boot-after-disposal-skips-restored	PAY-21	caught disposal Actors I29
 mutant.boot-after-disposal-skips-restored	PAY-22	green
 mutant.boot-after-disposal-skips-restored	PAY-23	caught disposal Actors I29
 mutant.boot-after-disposal-skips-restored	TURN-01/mapper-refused	green
+mutant.boot-after-disposal-skips-restored	TURN-01/schedule-out-of-range	green
 mutant.boot-after-disposal-skips-restored	TURN-01/schedule-refused	green
 mutant.boot-after-disposal-skips-restored	TURN-02	green
 mutant.boot-after-disposal-skips-restored	TURN-03/exited	green
@@ -11405,6 +11591,7 @@ mutant.boot-replays-never-sent	PAY-02	green
 mutant.boot-replays-never-sent	PAY-03	green
 mutant.boot-replays-never-sent	PAY-04	green
 mutant.boot-replays-never-sent	PAY-05	green
+mutant.boot-replays-never-sent	PAY-05/held-head-sleeps-at-boot	green
 mutant.boot-replays-never-sent	PAY-06/interruptible	green
 mutant.boot-replays-never-sent	PAY-06/uninterruptible	green
 mutant.boot-replays-never-sent	PAY-07/late-in-a-new-PAYING	green
@@ -11455,6 +11642,7 @@ mutant.boot-replays-never-sent	PAY-21	green
 mutant.boot-replays-never-sent	PAY-22	green
 mutant.boot-replays-never-sent	PAY-23	green
 mutant.boot-replays-never-sent	TURN-01/mapper-refused	green
+mutant.boot-replays-never-sent	TURN-01/schedule-out-of-range	green
 mutant.boot-replays-never-sent	TURN-01/schedule-refused	green
 mutant.boot-replays-never-sent	TURN-02	green
 mutant.boot-replays-never-sent	TURN-03/exited	green
@@ -11527,6 +11715,7 @@ mutant.boot-resends-held	PAY-02	green
 mutant.boot-resends-held	PAY-03	green
 mutant.boot-resends-held	PAY-04	green
 mutant.boot-resends-held	PAY-05	green
+mutant.boot-resends-held	PAY-05/held-head-sleeps-at-boot	caught lane-queue WriteLanes I12
 mutant.boot-resends-held	PAY-06/interruptible	green
 mutant.boot-resends-held	PAY-06/uninterruptible	green
 mutant.boot-resends-held	PAY-07/late-in-a-new-PAYING	green
@@ -11577,6 +11766,7 @@ mutant.boot-resends-held	PAY-21	green
 mutant.boot-resends-held	PAY-22	green
 mutant.boot-resends-held	PAY-23	green
 mutant.boot-resends-held	TURN-01/mapper-refused	green
+mutant.boot-resends-held	TURN-01/schedule-out-of-range	green
 mutant.boot-resends-held	TURN-01/schedule-refused	green
 mutant.boot-resends-held	TURN-02	green
 mutant.boot-resends-held	TURN-03/exited	green
@@ -11649,6 +11839,7 @@ mutant.boot-skips-restored	PAY-02	green
 mutant.boot-skips-restored	PAY-03	green
 mutant.boot-skips-restored	PAY-04	green
 mutant.boot-skips-restored	PAY-05	red disposal
+mutant.boot-skips-restored	PAY-05/held-head-sleeps-at-boot	caught delivered-once Restore I6
 mutant.boot-skips-restored	PAY-06/interruptible	red disposal
 mutant.boot-skips-restored	PAY-06/uninterruptible	red disposal
 mutant.boot-skips-restored	PAY-07/late-in-a-new-PAYING	green
@@ -11699,6 +11890,7 @@ mutant.boot-skips-restored	PAY-21	red disposal
 mutant.boot-skips-restored	PAY-22	green
 mutant.boot-skips-restored	PAY-23	red disposal
 mutant.boot-skips-restored	TURN-01/mapper-refused	green
+mutant.boot-skips-restored	TURN-01/schedule-out-of-range	green
 mutant.boot-skips-restored	TURN-01/schedule-refused	green
 mutant.boot-skips-restored	TURN-02	green
 mutant.boot-skips-restored	TURN-03/exited	green
@@ -11771,6 +11963,7 @@ mutant.bound-ending-wrong-tag	PAY-02	green
 mutant.bound-ending-wrong-tag	PAY-03	green
 mutant.bound-ending-wrong-tag	PAY-04	green
 mutant.bound-ending-wrong-tag	PAY-05	green
+mutant.bound-ending-wrong-tag	PAY-05/held-head-sleeps-at-boot	green
 mutant.bound-ending-wrong-tag	PAY-06/interruptible	green
 mutant.bound-ending-wrong-tag	PAY-06/uninterruptible	green
 mutant.bound-ending-wrong-tag	PAY-07/late-in-a-new-PAYING	green
@@ -11821,6 +12014,7 @@ mutant.bound-ending-wrong-tag	PAY-21	green
 mutant.bound-ending-wrong-tag	PAY-22	green
 mutant.bound-ending-wrong-tag	PAY-23	green
 mutant.bound-ending-wrong-tag	TURN-01/mapper-refused	green
+mutant.bound-ending-wrong-tag	TURN-01/schedule-out-of-range	green
 mutant.bound-ending-wrong-tag	TURN-01/schedule-refused	green
 mutant.bound-ending-wrong-tag	TURN-02	green
 mutant.bound-ending-wrong-tag	TURN-03/exited	green
@@ -11893,6 +12087,7 @@ mutant.cancel-members-dropped	PAY-02	green
 mutant.cancel-members-dropped	PAY-03	caught lane-queue WriteLanes I12
 mutant.cancel-members-dropped	PAY-04	green
 mutant.cancel-members-dropped	PAY-05	green
+mutant.cancel-members-dropped	PAY-05/held-head-sleeps-at-boot	green
 mutant.cancel-members-dropped	PAY-06/interruptible	green
 mutant.cancel-members-dropped	PAY-06/uninterruptible	green
 mutant.cancel-members-dropped	PAY-07/late-in-a-new-PAYING	green
@@ -11943,6 +12138,7 @@ mutant.cancel-members-dropped	PAY-21	caught lane-queue WriteLanes I12
 mutant.cancel-members-dropped	PAY-22	caught lane-queue WriteLanes I12
 mutant.cancel-members-dropped	PAY-23	green
 mutant.cancel-members-dropped	TURN-01/mapper-refused	green
+mutant.cancel-members-dropped	TURN-01/schedule-out-of-range	green
 mutant.cancel-members-dropped	TURN-01/schedule-refused	green
 mutant.cancel-members-dropped	TURN-02	green
 mutant.cancel-members-dropped	TURN-03/exited	green
@@ -12015,6 +12211,7 @@ mutant.delivered-during-disposal	PAY-02	green
 mutant.delivered-during-disposal	PAY-03	green
 mutant.delivered-during-disposal	PAY-04	green
 mutant.delivered-during-disposal	PAY-05	green
+mutant.delivered-during-disposal	PAY-05/held-head-sleeps-at-boot	green
 mutant.delivered-during-disposal	PAY-06/interruptible	green
 mutant.delivered-during-disposal	PAY-06/uninterruptible	green
 mutant.delivered-during-disposal	PAY-07/late-in-a-new-PAYING	green
@@ -12065,6 +12262,7 @@ mutant.delivered-during-disposal	PAY-21	green
 mutant.delivered-during-disposal	PAY-22	green
 mutant.delivered-during-disposal	PAY-23	green
 mutant.delivered-during-disposal	TURN-01/mapper-refused	green
+mutant.delivered-during-disposal	TURN-01/schedule-out-of-range	green
 mutant.delivered-during-disposal	TURN-01/schedule-refused	green
 mutant.delivered-during-disposal	TURN-02	green
 mutant.delivered-during-disposal	TURN-03/exited	green
@@ -12137,6 +12335,7 @@ mutant.disposal-dispatches	PAY-02	green
 mutant.disposal-dispatches	PAY-03	green
 mutant.disposal-dispatches	PAY-04	red disposal
 mutant.disposal-dispatches	PAY-05	green
+mutant.disposal-dispatches	PAY-05/held-head-sleeps-at-boot	green
 mutant.disposal-dispatches	PAY-06/interruptible	green
 mutant.disposal-dispatches	PAY-06/uninterruptible	green
 mutant.disposal-dispatches	PAY-07/late-in-a-new-PAYING	green
@@ -12187,6 +12386,7 @@ mutant.disposal-dispatches	PAY-21	red disposal
 mutant.disposal-dispatches	PAY-22	green
 mutant.disposal-dispatches	PAY-23	green
 mutant.disposal-dispatches	TURN-01/mapper-refused	green
+mutant.disposal-dispatches	TURN-01/schedule-out-of-range	green
 mutant.disposal-dispatches	TURN-01/schedule-refused	green
 mutant.disposal-dispatches	TURN-02	green
 mutant.disposal-dispatches	TURN-03/exited	red disposal
@@ -12259,6 +12459,7 @@ mutant.disposal-hold-first	PAY-02	green
 mutant.disposal-hold-first	PAY-03	green
 mutant.disposal-hold-first	PAY-04	green
 mutant.disposal-hold-first	PAY-05	green
+mutant.disposal-hold-first	PAY-05/held-head-sleeps-at-boot	green
 mutant.disposal-hold-first	PAY-06/interruptible	green
 mutant.disposal-hold-first	PAY-06/uninterruptible	green
 mutant.disposal-hold-first	PAY-07/late-in-a-new-PAYING	green
@@ -12309,6 +12510,7 @@ mutant.disposal-hold-first	PAY-21	green
 mutant.disposal-hold-first	PAY-22	green
 mutant.disposal-hold-first	PAY-23	green
 mutant.disposal-hold-first	TURN-01/mapper-refused	green
+mutant.disposal-hold-first	TURN-01/schedule-out-of-range	green
 mutant.disposal-hold-first	TURN-01/schedule-refused	green
 mutant.disposal-hold-first	TURN-02	green
 mutant.disposal-hold-first	TURN-03/exited	green
@@ -12381,6 +12583,7 @@ mutant.disposal-rereads	PAY-02	green
 mutant.disposal-rereads	PAY-03	green
 mutant.disposal-rereads	PAY-04	green
 mutant.disposal-rereads	PAY-05	green
+mutant.disposal-rereads	PAY-05/held-head-sleeps-at-boot	green
 mutant.disposal-rereads	PAY-06/interruptible	green
 mutant.disposal-rereads	PAY-06/uninterruptible	green
 mutant.disposal-rereads	PAY-07/late-in-a-new-PAYING	green
@@ -12431,6 +12634,7 @@ mutant.disposal-rereads	PAY-21	caught disposal Actors I30
 mutant.disposal-rereads	PAY-22	green
 mutant.disposal-rereads	PAY-23	green
 mutant.disposal-rereads	TURN-01/mapper-refused	green
+mutant.disposal-rereads	TURN-01/schedule-out-of-range	green
 mutant.disposal-rereads	TURN-01/schedule-refused	green
 mutant.disposal-rereads	TURN-02	green
 mutant.disposal-rereads	TURN-03/exited	green
@@ -12503,6 +12707,7 @@ mutant.disposal-skips-never-sent	PAY-02	green
 mutant.disposal-skips-never-sent	PAY-03	green
 mutant.disposal-skips-never-sent	PAY-04	caught disposal Actors I38
 mutant.disposal-skips-never-sent	PAY-05	green
+mutant.disposal-skips-never-sent	PAY-05/held-head-sleeps-at-boot	green
 mutant.disposal-skips-never-sent	PAY-06/interruptible	green
 mutant.disposal-skips-never-sent	PAY-06/uninterruptible	green
 mutant.disposal-skips-never-sent	PAY-07/late-in-a-new-PAYING	green
@@ -12553,6 +12758,7 @@ mutant.disposal-skips-never-sent	PAY-21	caught disposal Actors I38
 mutant.disposal-skips-never-sent	PAY-22	green
 mutant.disposal-skips-never-sent	PAY-23	green
 mutant.disposal-skips-never-sent	TURN-01/mapper-refused	green
+mutant.disposal-skips-never-sent	TURN-01/schedule-out-of-range	green
 mutant.disposal-skips-never-sent	TURN-01/schedule-refused	green
 mutant.disposal-skips-never-sent	TURN-02	green
 mutant.disposal-skips-never-sent	TURN-03/exited	caught disposal Actors I38
@@ -12625,6 +12831,7 @@ mutant.double-invoke	PAY-02	caught lane-queue WriteLanes I1
 mutant.double-invoke	PAY-03	caught lane-queue WriteLanes I1
 mutant.double-invoke	PAY-04	caught lane-queue WriteLanes I1
 mutant.double-invoke	PAY-05	caught lane-queue WriteLanes I1
+mutant.double-invoke	PAY-05/held-head-sleeps-at-boot	caught lane-queue WriteLanes I1
 mutant.double-invoke	PAY-06/interruptible	caught lane-queue WriteLanes I1
 mutant.double-invoke	PAY-06/uninterruptible	caught lane-queue WriteLanes I1
 mutant.double-invoke	PAY-07/late-in-a-new-PAYING	caught lane-queue WriteLanes I1
@@ -12675,6 +12882,7 @@ mutant.double-invoke	PAY-21	caught lane-queue WriteLanes I1
 mutant.double-invoke	PAY-22	caught lane-queue WriteLanes I1
 mutant.double-invoke	PAY-23	caught lane-queue WriteLanes I1
 mutant.double-invoke	TURN-01/mapper-refused	caught lane-queue WriteLanes I1
+mutant.double-invoke	TURN-01/schedule-out-of-range	caught lane-queue WriteLanes I1
 mutant.double-invoke	TURN-01/schedule-refused	caught lane-queue WriteLanes I1
 mutant.double-invoke	TURN-02	green
 mutant.double-invoke	TURN-03/exited	caught lane-queue WriteLanes I1
@@ -12747,6 +12955,7 @@ mutant.ending-without-id	PAY-02	caught ending-channels WriteLanes I3
 mutant.ending-without-id	PAY-03	caught ending-channels WriteLanes I3
 mutant.ending-without-id	PAY-04	caught ending-channels WriteLanes I3
 mutant.ending-without-id	PAY-05	caught ending-channels WriteLanes I3
+mutant.ending-without-id	PAY-05/held-head-sleeps-at-boot	caught ending-channels WriteLanes I3
 mutant.ending-without-id	PAY-06/interruptible	caught ending-channels WriteLanes I3
 mutant.ending-without-id	PAY-06/uninterruptible	caught ending-channels WriteLanes I3
 mutant.ending-without-id	PAY-07/late-in-a-new-PAYING	caught ending-channels WriteLanes I3
@@ -12797,6 +13006,7 @@ mutant.ending-without-id	PAY-21	caught ending-channels WriteLanes I3
 mutant.ending-without-id	PAY-22	caught ending-channels WriteLanes I3
 mutant.ending-without-id	PAY-23	caught ending-channels WriteLanes I3
 mutant.ending-without-id	TURN-01/mapper-refused	caught ending-channels WriteLanes I3
+mutant.ending-without-id	TURN-01/schedule-out-of-range	caught ending-channels WriteLanes I3
 mutant.ending-without-id	TURN-01/schedule-refused	caught ending-channels WriteLanes I3
 mutant.ending-without-id	TURN-02	green
 mutant.ending-without-id	TURN-03/exited	caught ending-channels WriteLanes I3
@@ -12869,6 +13079,7 @@ mutant.kept-retried-without-boot	PAY-02	green
 mutant.kept-retried-without-boot	PAY-03	green
 mutant.kept-retried-without-boot	PAY-04	green
 mutant.kept-retried-without-boot	PAY-05	green
+mutant.kept-retried-without-boot	PAY-05/held-head-sleeps-at-boot	green
 mutant.kept-retried-without-boot	PAY-06/interruptible	green
 mutant.kept-retried-without-boot	PAY-06/uninterruptible	green
 mutant.kept-retried-without-boot	PAY-07/late-in-a-new-PAYING	green
@@ -12919,6 +13130,7 @@ mutant.kept-retried-without-boot	PAY-21	green
 mutant.kept-retried-without-boot	PAY-22	green
 mutant.kept-retried-without-boot	PAY-23	green
 mutant.kept-retried-without-boot	TURN-01/mapper-refused	caught delivered-once Actors I24
+mutant.kept-retried-without-boot	TURN-01/schedule-out-of-range	caught delivered-once Actors I24
 mutant.kept-retried-without-boot	TURN-01/schedule-refused	caught delivered-once Actors I24
 mutant.kept-retried-without-boot	TURN-02	green
 mutant.kept-retried-without-boot	TURN-03/exited	green
@@ -12991,6 +13203,7 @@ mutant.members-reversed	PAY-02	green
 mutant.members-reversed	PAY-03	caught lane-queue WriteLanes I10
 mutant.members-reversed	PAY-04	green
 mutant.members-reversed	PAY-05	green
+mutant.members-reversed	PAY-05/held-head-sleeps-at-boot	green
 mutant.members-reversed	PAY-06/interruptible	green
 mutant.members-reversed	PAY-06/uninterruptible	green
 mutant.members-reversed	PAY-07/late-in-a-new-PAYING	green
@@ -13041,6 +13254,7 @@ mutant.members-reversed	PAY-21	caught lane-queue WriteLanes I10
 mutant.members-reversed	PAY-22	green
 mutant.members-reversed	PAY-23	green
 mutant.members-reversed	TURN-01/mapper-refused	green
+mutant.members-reversed	TURN-01/schedule-out-of-range	green
 mutant.members-reversed	TURN-01/schedule-refused	green
 mutant.members-reversed	TURN-02	green
 mutant.members-reversed	TURN-03/exited	green
@@ -13113,6 +13327,7 @@ mutant.mint-key-differs	PAY-02	caught attempt-identity WriteLanes I6
 mutant.mint-key-differs	PAY-03	caught attempt-identity WriteLanes I6
 mutant.mint-key-differs	PAY-04	caught attempt-identity WriteLanes I6
 mutant.mint-key-differs	PAY-05	caught attempt-identity WriteLanes I6
+mutant.mint-key-differs	PAY-05/held-head-sleeps-at-boot	caught attempt-identity WriteLanes I6
 mutant.mint-key-differs	PAY-06/interruptible	caught attempt-identity WriteLanes I6
 mutant.mint-key-differs	PAY-06/uninterruptible	caught attempt-identity WriteLanes I6
 mutant.mint-key-differs	PAY-07/late-in-a-new-PAYING	caught attempt-identity WriteLanes I6
@@ -13163,6 +13378,7 @@ mutant.mint-key-differs	PAY-21	caught attempt-identity WriteLanes I6
 mutant.mint-key-differs	PAY-22	caught attempt-identity WriteLanes I6
 mutant.mint-key-differs	PAY-23	caught attempt-identity WriteLanes I6
 mutant.mint-key-differs	TURN-01/mapper-refused	caught attempt-identity WriteLanes I6
+mutant.mint-key-differs	TURN-01/schedule-out-of-range	caught attempt-identity WriteLanes I6
 mutant.mint-key-differs	TURN-01/schedule-refused	caught attempt-identity WriteLanes I6
 mutant.mint-key-differs	TURN-02	green
 mutant.mint-key-differs	TURN-03/exited	caught attempt-identity WriteLanes I6
@@ -13235,6 +13451,7 @@ mutant.parked-delivered-as-other-tag	PAY-02	green
 mutant.parked-delivered-as-other-tag	PAY-03	green
 mutant.parked-delivered-as-other-tag	PAY-04	green
 mutant.parked-delivered-as-other-tag	PAY-05	green
+mutant.parked-delivered-as-other-tag	PAY-05/held-head-sleeps-at-boot	green
 mutant.parked-delivered-as-other-tag	PAY-06/interruptible	green
 mutant.parked-delivered-as-other-tag	PAY-06/uninterruptible	green
 mutant.parked-delivered-as-other-tag	PAY-07/late-in-a-new-PAYING	green
@@ -13285,6 +13502,7 @@ mutant.parked-delivered-as-other-tag	PAY-21	green
 mutant.parked-delivered-as-other-tag	PAY-22	green
 mutant.parked-delivered-as-other-tag	PAY-23	green
 mutant.parked-delivered-as-other-tag	TURN-01/mapper-refused	green
+mutant.parked-delivered-as-other-tag	TURN-01/schedule-out-of-range	green
 mutant.parked-delivered-as-other-tag	TURN-01/schedule-refused	green
 mutant.parked-delivered-as-other-tag	TURN-02	green
 mutant.parked-delivered-as-other-tag	TURN-03/exited	green
@@ -13357,6 +13575,7 @@ mutant.release-drops-held	PAY-02	green
 mutant.release-drops-held	PAY-03	green
 mutant.release-drops-held	PAY-04	green
 mutant.release-drops-held	PAY-05	green
+mutant.release-drops-held	PAY-05/held-head-sleeps-at-boot	caught lane-queue WriteLanes I12
 mutant.release-drops-held	PAY-06/interruptible	green
 mutant.release-drops-held	PAY-06/uninterruptible	green
 mutant.release-drops-held	PAY-07/late-in-a-new-PAYING	green
@@ -13407,6 +13626,7 @@ mutant.release-drops-held	PAY-21	green
 mutant.release-drops-held	PAY-22	green
 mutant.release-drops-held	PAY-23	green
 mutant.release-drops-held	TURN-01/mapper-refused	green
+mutant.release-drops-held	TURN-01/schedule-out-of-range	green
 mutant.release-drops-held	TURN-01/schedule-refused	green
 mutant.release-drops-held	TURN-02	green
 mutant.release-drops-held	TURN-03/exited	green
@@ -13479,6 +13699,7 @@ mutant.replaced-delivered	PAY-02	green
 mutant.replaced-delivered	PAY-03	green
 mutant.replaced-delivered	PAY-04	green
 mutant.replaced-delivered	PAY-05	green
+mutant.replaced-delivered	PAY-05/held-head-sleeps-at-boot	green
 mutant.replaced-delivered	PAY-06/interruptible	green
 mutant.replaced-delivered	PAY-06/uninterruptible	green
 mutant.replaced-delivered	PAY-07/late-in-a-new-PAYING	green
@@ -13529,6 +13750,7 @@ mutant.replaced-delivered	PAY-21	green
 mutant.replaced-delivered	PAY-22	green
 mutant.replaced-delivered	PAY-23	green
 mutant.replaced-delivered	TURN-01/mapper-refused	green
+mutant.replaced-delivered	TURN-01/schedule-out-of-range	green
 mutant.replaced-delivered	TURN-01/schedule-refused	green
 mutant.replaced-delivered	TURN-02	green
 mutant.replaced-delivered	TURN-03/exited	green
@@ -13601,6 +13823,7 @@ mutant.resend-new-id	PAY-02	green
 mutant.resend-new-id	PAY-03	green
 mutant.resend-new-id	PAY-04	caught attempt-identity WriteLanes I6
 mutant.resend-new-id	PAY-05	caught attempt-identity WriteLanes I6
+mutant.resend-new-id	PAY-05/held-head-sleeps-at-boot	caught attempt-identity WriteLanes I6
 mutant.resend-new-id	PAY-06/interruptible	green
 mutant.resend-new-id	PAY-06/uninterruptible	green
 mutant.resend-new-id	PAY-07/late-in-a-new-PAYING	green
@@ -13651,6 +13874,7 @@ mutant.resend-new-id	PAY-21	green
 mutant.resend-new-id	PAY-22	caught attempt-identity WriteLanes I6
 mutant.resend-new-id	PAY-23	green
 mutant.resend-new-id	TURN-01/mapper-refused	green
+mutant.resend-new-id	TURN-01/schedule-out-of-range	green
 mutant.resend-new-id	TURN-01/schedule-refused	green
 mutant.resend-new-id	TURN-02	green
 mutant.resend-new-id	TURN-03/exited	green
@@ -13723,6 +13947,7 @@ mutant.resend-new-input	PAY-02	green
 mutant.resend-new-input	PAY-03	green
 mutant.resend-new-input	PAY-04	caught attempt-identity WriteLanes I6
 mutant.resend-new-input	PAY-05	caught attempt-identity WriteLanes I6
+mutant.resend-new-input	PAY-05/held-head-sleeps-at-boot	caught attempt-identity WriteLanes I6
 mutant.resend-new-input	PAY-06/interruptible	green
 mutant.resend-new-input	PAY-06/uninterruptible	green
 mutant.resend-new-input	PAY-07/late-in-a-new-PAYING	green
@@ -13773,6 +13998,7 @@ mutant.resend-new-input	PAY-21	green
 mutant.resend-new-input	PAY-22	caught attempt-identity WriteLanes I6
 mutant.resend-new-input	PAY-23	green
 mutant.resend-new-input	TURN-01/mapper-refused	green
+mutant.resend-new-input	TURN-01/schedule-out-of-range	green
 mutant.resend-new-input	TURN-01/schedule-refused	green
 mutant.resend-new-input	TURN-02	green
 mutant.resend-new-input	TURN-03/exited	green
@@ -13845,6 +14071,7 @@ mutant.restore-skips-unsent	PAY-02	green
 mutant.restore-skips-unsent	PAY-03	green
 mutant.restore-skips-unsent	PAY-04	green
 mutant.restore-skips-unsent	PAY-05	green
+mutant.restore-skips-unsent	PAY-05/held-head-sleeps-at-boot	green
 mutant.restore-skips-unsent	PAY-06/interruptible	green
 mutant.restore-skips-unsent	PAY-06/uninterruptible	green
 mutant.restore-skips-unsent	PAY-07/late-in-a-new-PAYING	green
@@ -13895,6 +14122,7 @@ mutant.restore-skips-unsent	PAY-21	green
 mutant.restore-skips-unsent	PAY-22	green
 mutant.restore-skips-unsent	PAY-23	green
 mutant.restore-skips-unsent	TURN-01/mapper-refused	green
+mutant.restore-skips-unsent	TURN-01/schedule-out-of-range	green
 mutant.restore-skips-unsent	TURN-01/schedule-refused	green
 mutant.restore-skips-unsent	TURN-02	green
 mutant.restore-skips-unsent	TURN-03/exited	green
@@ -13967,6 +14195,7 @@ mutant.restored-twice	PAY-02	green
 mutant.restored-twice	PAY-03	green
 mutant.restored-twice	PAY-04	green
 mutant.restored-twice	PAY-05	caught delivered-once WriteLanes I15
+mutant.restored-twice	PAY-05/held-head-sleeps-at-boot	caught delivered-once WriteLanes I15
 mutant.restored-twice	PAY-06/interruptible	caught delivered-once WriteLanes I15
 mutant.restored-twice	PAY-06/uninterruptible	caught delivered-once WriteLanes I15
 mutant.restored-twice	PAY-07/late-in-a-new-PAYING	green
@@ -14017,6 +14246,7 @@ mutant.restored-twice	PAY-21	caught delivered-once WriteLanes I15
 mutant.restored-twice	PAY-22	green
 mutant.restored-twice	PAY-23	caught delivered-once WriteLanes I15
 mutant.restored-twice	TURN-01/mapper-refused	green
+mutant.restored-twice	TURN-01/schedule-out-of-range	green
 mutant.restored-twice	TURN-01/schedule-refused	green
 mutant.restored-twice	TURN-02	green
 mutant.restored-twice	TURN-03/exited	green
@@ -14089,6 +14319,7 @@ mutant.sent-under-another-operation	PAY-02	caught attempt-identity WriteLanes I6
 mutant.sent-under-another-operation	PAY-03	caught attempt-identity WriteLanes I6
 mutant.sent-under-another-operation	PAY-04	caught attempt-identity WriteLanes I6
 mutant.sent-under-another-operation	PAY-05	caught attempt-identity WriteLanes I6
+mutant.sent-under-another-operation	PAY-05/held-head-sleeps-at-boot	caught attempt-identity WriteLanes I6
 mutant.sent-under-another-operation	PAY-06/interruptible	caught attempt-identity WriteLanes I6
 mutant.sent-under-another-operation	PAY-06/uninterruptible	caught attempt-identity WriteLanes I6
 mutant.sent-under-another-operation	PAY-07/late-in-a-new-PAYING	caught attempt-identity WriteLanes I6
@@ -14139,6 +14370,7 @@ mutant.sent-under-another-operation	PAY-21	caught attempt-identity WriteLanes I6
 mutant.sent-under-another-operation	PAY-22	caught attempt-identity WriteLanes I6
 mutant.sent-under-another-operation	PAY-23	caught attempt-identity WriteLanes I6
 mutant.sent-under-another-operation	TURN-01/mapper-refused	caught attempt-identity WriteLanes I6
+mutant.sent-under-another-operation	TURN-01/schedule-out-of-range	caught attempt-identity WriteLanes I6
 mutant.sent-under-another-operation	TURN-01/schedule-refused	caught attempt-identity WriteLanes I6
 mutant.sent-under-another-operation	TURN-02	green
 mutant.sent-under-another-operation	TURN-03/exited	caught attempt-identity WriteLanes I6
@@ -14211,6 +14443,7 @@ mutant.short-disposal-bound	PAY-02	green
 mutant.short-disposal-bound	PAY-03	green
 mutant.short-disposal-bound	PAY-04	green
 mutant.short-disposal-bound	PAY-05	green
+mutant.short-disposal-bound	PAY-05/held-head-sleeps-at-boot	green
 mutant.short-disposal-bound	PAY-06/interruptible	green
 mutant.short-disposal-bound	PAY-06/uninterruptible	green
 mutant.short-disposal-bound	PAY-07/late-in-a-new-PAYING	green
@@ -14261,6 +14494,7 @@ mutant.short-disposal-bound	PAY-21	green
 mutant.short-disposal-bound	PAY-22	green
 mutant.short-disposal-bound	PAY-23	green
 mutant.short-disposal-bound	TURN-01/mapper-refused	green
+mutant.short-disposal-bound	TURN-01/schedule-out-of-range	green
 mutant.short-disposal-bound	TURN-01/schedule-refused	green
 mutant.short-disposal-bound	TURN-02	green
 mutant.short-disposal-bound	TURN-03/exited	green
@@ -14333,6 +14567,7 @@ mutant.still-unknown-dropped	PAY-02	green
 mutant.still-unknown-dropped	PAY-03	green
 mutant.still-unknown-dropped	PAY-04	green
 mutant.still-unknown-dropped	PAY-05	caught ending-channels WriteLanes I3
+mutant.still-unknown-dropped	PAY-05/held-head-sleeps-at-boot	caught ending-channels WriteLanes I3
 mutant.still-unknown-dropped	PAY-06/interruptible	green
 mutant.still-unknown-dropped	PAY-06/uninterruptible	green
 mutant.still-unknown-dropped	PAY-07/late-in-a-new-PAYING	green
@@ -14383,6 +14618,7 @@ mutant.still-unknown-dropped	PAY-21	green
 mutant.still-unknown-dropped	PAY-22	green
 mutant.still-unknown-dropped	PAY-23	green
 mutant.still-unknown-dropped	TURN-01/mapper-refused	green
+mutant.still-unknown-dropped	TURN-01/schedule-out-of-range	green
 mutant.still-unknown-dropped	TURN-01/schedule-refused	green
 mutant.still-unknown-dropped	TURN-02	green
 mutant.still-unknown-dropped	TURN-03/exited	green
@@ -14455,6 +14691,7 @@ mutant.success-then-failure	PAY-02	green
 mutant.success-then-failure	PAY-03	caught delivered-once WriteLanes I16
 mutant.success-then-failure	PAY-04	caught delivered-once WriteLanes I16
 mutant.success-then-failure	PAY-05	green
+mutant.success-then-failure	PAY-05/held-head-sleeps-at-boot	green
 mutant.success-then-failure	PAY-06/interruptible	green
 mutant.success-then-failure	PAY-06/uninterruptible	green
 mutant.success-then-failure	PAY-07/late-in-a-new-PAYING	caught delivered-once WriteLanes I16
@@ -14505,6 +14742,7 @@ mutant.success-then-failure	PAY-21	green
 mutant.success-then-failure	PAY-22	caught delivered-once WriteLanes I16
 mutant.success-then-failure	PAY-23	green
 mutant.success-then-failure	TURN-01/mapper-refused	caught delivered-once WriteLanes I16
+mutant.success-then-failure	TURN-01/schedule-out-of-range	green
 mutant.success-then-failure	TURN-01/schedule-refused	green
 mutant.success-then-failure	TURN-02	green
 mutant.success-then-failure	TURN-03/exited	caught delivered-once WriteLanes I16
@@ -14577,6 +14815,7 @@ mutant.success-without-answer	PAY-02	green
 mutant.success-without-answer	PAY-03	green
 mutant.success-without-answer	PAY-04	green
 mutant.success-without-answer	PAY-05	green
+mutant.success-without-answer	PAY-05/held-head-sleeps-at-boot	green
 mutant.success-without-answer	PAY-06/interruptible	green
 mutant.success-without-answer	PAY-06/uninterruptible	green
 mutant.success-without-answer	PAY-07/late-in-a-new-PAYING	green
@@ -14627,6 +14866,7 @@ mutant.success-without-answer	PAY-21	green
 mutant.success-without-answer	PAY-22	green
 mutant.success-without-answer	PAY-23	green
 mutant.success-without-answer	TURN-01/mapper-refused	green
+mutant.success-without-answer	TURN-01/schedule-out-of-range	green
 mutant.success-without-answer	TURN-01/schedule-refused	green
 mutant.success-without-answer	TURN-02	green
 mutant.success-without-answer	TURN-03/exited	green
@@ -14699,6 +14939,7 @@ mutant.superseded-claimed	PAY-02	caught delivered-once WriteLanes I15
 mutant.superseded-claimed	PAY-03	green
 mutant.superseded-claimed	PAY-04	caught delivered-once WriteLanes I15
 mutant.superseded-claimed	PAY-05	green
+mutant.superseded-claimed	PAY-05/held-head-sleeps-at-boot	green
 mutant.superseded-claimed	PAY-06/interruptible	green
 mutant.superseded-claimed	PAY-06/uninterruptible	green
 mutant.superseded-claimed	PAY-07/late-in-a-new-PAYING	green
@@ -14749,6 +14990,7 @@ mutant.superseded-claimed	PAY-21	caught delivered-once WriteLanes I15
 mutant.superseded-claimed	PAY-22	green
 mutant.superseded-claimed	PAY-23	green
 mutant.superseded-claimed	TURN-01/mapper-refused	green
+mutant.superseded-claimed	TURN-01/schedule-out-of-range	caught delivered-once WriteLanes I15
 mutant.superseded-claimed	TURN-01/schedule-refused	caught delivered-once WriteLanes I15
 mutant.superseded-claimed	TURN-02	green
 mutant.superseded-claimed	TURN-03/exited	caught delivered-once WriteLanes I15
@@ -14821,6 +15063,7 @@ mutant.unsent-ends-unknown	PAY-02	green
 mutant.unsent-ends-unknown	PAY-03	green
 mutant.unsent-ends-unknown	PAY-04	green
 mutant.unsent-ends-unknown	PAY-05	green
+mutant.unsent-ends-unknown	PAY-05/held-head-sleeps-at-boot	green
 mutant.unsent-ends-unknown	PAY-06/interruptible	green
 mutant.unsent-ends-unknown	PAY-06/uninterruptible	green
 mutant.unsent-ends-unknown	PAY-07/late-in-a-new-PAYING	green
@@ -14871,6 +15114,7 @@ mutant.unsent-ends-unknown	PAY-21	green
 mutant.unsent-ends-unknown	PAY-22	green
 mutant.unsent-ends-unknown	PAY-23	green
 mutant.unsent-ends-unknown	TURN-01/mapper-refused	green
+mutant.unsent-ends-unknown	TURN-01/schedule-out-of-range	green
 mutant.unsent-ends-unknown	TURN-01/schedule-refused	green
 mutant.unsent-ends-unknown	TURN-02	green
 mutant.unsent-ends-unknown	TURN-03/exited	green
@@ -14943,6 +15187,7 @@ mutant.unsent-restored-outside-boot	PAY-02	green
 mutant.unsent-restored-outside-boot	PAY-03	green
 mutant.unsent-restored-outside-boot	PAY-04	green
 mutant.unsent-restored-outside-boot	PAY-05	green
+mutant.unsent-restored-outside-boot	PAY-05/held-head-sleeps-at-boot	green
 mutant.unsent-restored-outside-boot	PAY-06/interruptible	green
 mutant.unsent-restored-outside-boot	PAY-06/uninterruptible	green
 mutant.unsent-restored-outside-boot	PAY-07/late-in-a-new-PAYING	green
@@ -14993,6 +15238,7 @@ mutant.unsent-restored-outside-boot	PAY-21	green
 mutant.unsent-restored-outside-boot	PAY-22	green
 mutant.unsent-restored-outside-boot	PAY-23	green
 mutant.unsent-restored-outside-boot	TURN-01/mapper-refused	green
+mutant.unsent-restored-outside-boot	TURN-01/schedule-out-of-range	green
 mutant.unsent-restored-outside-boot	TURN-01/schedule-refused	green
 mutant.unsent-restored-outside-boot	TURN-02	green
 mutant.unsent-restored-outside-boot	TURN-03/exited	green
@@ -15065,6 +15311,7 @@ o6.dispose-interrupts-wire	PAY-02	green
 o6.dispose-interrupts-wire	PAY-03	green
 o6.dispose-interrupts-wire	PAY-04	green
 o6.dispose-interrupts-wire	PAY-05	green
+o6.dispose-interrupts-wire	PAY-05/held-head-sleeps-at-boot	green
 o6.dispose-interrupts-wire	PAY-06/interruptible	green
 o6.dispose-interrupts-wire	PAY-06/uninterruptible	green
 o6.dispose-interrupts-wire	PAY-07/late-in-a-new-PAYING	green
@@ -15115,6 +15362,7 @@ o6.dispose-interrupts-wire	PAY-21	green
 o6.dispose-interrupts-wire	PAY-22	green
 o6.dispose-interrupts-wire	PAY-23	green
 o6.dispose-interrupts-wire	TURN-01/mapper-refused	green
+o6.dispose-interrupts-wire	TURN-01/schedule-out-of-range	green
 o6.dispose-interrupts-wire	TURN-01/schedule-refused	green
 o6.dispose-interrupts-wire	TURN-02	green
 o6.dispose-interrupts-wire	TURN-03/exited	green
@@ -15187,6 +15435,7 @@ o6.no-bound	PAY-02	green
 o6.no-bound	PAY-03	green
 o6.no-bound	PAY-04	green
 o6.no-bound	PAY-05	green
+o6.no-bound	PAY-05/held-head-sleeps-at-boot	green
 o6.no-bound	PAY-06/interruptible	green
 o6.no-bound	PAY-06/uninterruptible	green
 o6.no-bound	PAY-07/late-in-a-new-PAYING	green
@@ -15237,6 +15486,7 @@ o6.no-bound	PAY-21	green
 o6.no-bound	PAY-22	green
 o6.no-bound	PAY-23	green
 o6.no-bound	TURN-01/mapper-refused	green
+o6.no-bound	TURN-01/schedule-out-of-range	green
 o6.no-bound	TURN-01/schedule-refused	green
 o6.no-bound	TURN-02	green
 o6.no-bound	TURN-03/exited	green
@@ -15309,6 +15559,7 @@ o6.settled-in-bound-stays-held	PAY-02	green
 o6.settled-in-bound-stays-held	PAY-03	green
 o6.settled-in-bound-stays-held	PAY-04	green
 o6.settled-in-bound-stays-held	PAY-05	green
+o6.settled-in-bound-stays-held	PAY-05/held-head-sleeps-at-boot	green
 o6.settled-in-bound-stays-held	PAY-06/interruptible	green
 o6.settled-in-bound-stays-held	PAY-06/uninterruptible	green
 o6.settled-in-bound-stays-held	PAY-07/late-in-a-new-PAYING	green
@@ -15359,6 +15610,7 @@ o6.settled-in-bound-stays-held	PAY-21	green
 o6.settled-in-bound-stays-held	PAY-22	green
 o6.settled-in-bound-stays-held	PAY-23	green
 o6.settled-in-bound-stays-held	TURN-01/mapper-refused	green
+o6.settled-in-bound-stays-held	TURN-01/schedule-out-of-range	green
 o6.settled-in-bound-stays-held	TURN-01/schedule-refused	green
 o6.settled-in-bound-stays-held	TURN-02	green
 o6.settled-in-bound-stays-held	TURN-03/exited	green
@@ -15431,6 +15683,7 @@ p1h.cancel-all-idle-declines	PAY-02	green
 p1h.cancel-all-idle-declines	PAY-03	green
 p1h.cancel-all-idle-declines	PAY-04	green
 p1h.cancel-all-idle-declines	PAY-05	green
+p1h.cancel-all-idle-declines	PAY-05/held-head-sleeps-at-boot	green
 p1h.cancel-all-idle-declines	PAY-06/interruptible	green
 p1h.cancel-all-idle-declines	PAY-06/uninterruptible	green
 p1h.cancel-all-idle-declines	PAY-07/late-in-a-new-PAYING	green
@@ -15481,6 +15734,7 @@ p1h.cancel-all-idle-declines	PAY-21	green
 p1h.cancel-all-idle-declines	PAY-22	green
 p1h.cancel-all-idle-declines	PAY-23	green
 p1h.cancel-all-idle-declines	TURN-01/mapper-refused	green
+p1h.cancel-all-idle-declines	TURN-01/schedule-out-of-range	green
 p1h.cancel-all-idle-declines	TURN-01/schedule-refused	green
 p1h.cancel-all-idle-declines	TURN-02	green
 p1h.cancel-all-idle-declines	TURN-03/exited	green
@@ -15553,6 +15807,7 @@ part.abandoned-skips-callbacks	PAY-02	green
 part.abandoned-skips-callbacks	PAY-03	green
 part.abandoned-skips-callbacks	PAY-04	green
 part.abandoned-skips-callbacks	PAY-05	green
+part.abandoned-skips-callbacks	PAY-05/held-head-sleeps-at-boot	green
 part.abandoned-skips-callbacks	PAY-06/interruptible	green
 part.abandoned-skips-callbacks	PAY-06/uninterruptible	green
 part.abandoned-skips-callbacks	PAY-07/late-in-a-new-PAYING	green
@@ -15603,6 +15858,7 @@ part.abandoned-skips-callbacks	PAY-21	green
 part.abandoned-skips-callbacks	PAY-22	green
 part.abandoned-skips-callbacks	PAY-23	green
 part.abandoned-skips-callbacks	TURN-01/mapper-refused	green
+part.abandoned-skips-callbacks	TURN-01/schedule-out-of-range	green
 part.abandoned-skips-callbacks	TURN-01/schedule-refused	green
 part.abandoned-skips-callbacks	TURN-02	green
 part.abandoned-skips-callbacks	TURN-03/exited	green
@@ -15675,6 +15931,7 @@ part.child-refusal-ignored	PAY-02	green
 part.child-refusal-ignored	PAY-03	green
 part.child-refusal-ignored	PAY-04	green
 part.child-refusal-ignored	PAY-05	green
+part.child-refusal-ignored	PAY-05/held-head-sleeps-at-boot	green
 part.child-refusal-ignored	PAY-06/interruptible	green
 part.child-refusal-ignored	PAY-06/uninterruptible	green
 part.child-refusal-ignored	PAY-07/late-in-a-new-PAYING	green
@@ -15725,6 +15982,7 @@ part.child-refusal-ignored	PAY-21	green
 part.child-refusal-ignored	PAY-22	green
 part.child-refusal-ignored	PAY-23	green
 part.child-refusal-ignored	TURN-01/mapper-refused	green
+part.child-refusal-ignored	TURN-01/schedule-out-of-range	green
 part.child-refusal-ignored	TURN-01/schedule-refused	green
 part.child-refusal-ignored	TURN-02	green
 part.child-refusal-ignored	TURN-03/exited	green
@@ -15797,6 +16055,7 @@ part.pending-reset-dropped	PAY-02	green
 part.pending-reset-dropped	PAY-03	green
 part.pending-reset-dropped	PAY-04	green
 part.pending-reset-dropped	PAY-05	green
+part.pending-reset-dropped	PAY-05/held-head-sleeps-at-boot	green
 part.pending-reset-dropped	PAY-06/interruptible	green
 part.pending-reset-dropped	PAY-06/uninterruptible	green
 part.pending-reset-dropped	PAY-07/late-in-a-new-PAYING	green
@@ -15847,6 +16106,7 @@ part.pending-reset-dropped	PAY-21	green
 part.pending-reset-dropped	PAY-22	green
 part.pending-reset-dropped	PAY-23	green
 part.pending-reset-dropped	TURN-01/mapper-refused	green
+part.pending-reset-dropped	TURN-01/schedule-out-of-range	green
 part.pending-reset-dropped	TURN-01/schedule-refused	green
 part.pending-reset-dropped	TURN-02	green
 part.pending-reset-dropped	TURN-03/exited	green
@@ -15919,6 +16179,7 @@ pay16.decline-not-delivered	PAY-02	caught delivered-once WriteLanes I15
 pay16.decline-not-delivered	PAY-03	green
 pay16.decline-not-delivered	PAY-04	green
 pay16.decline-not-delivered	PAY-05	green
+pay16.decline-not-delivered	PAY-05/held-head-sleeps-at-boot	green
 pay16.decline-not-delivered	PAY-06/interruptible	green
 pay16.decline-not-delivered	PAY-06/uninterruptible	green
 pay16.decline-not-delivered	PAY-07/late-in-a-new-PAYING	caught delivered-once WriteLanes I15
@@ -15969,6 +16230,7 @@ pay16.decline-not-delivered	PAY-21	green
 pay16.decline-not-delivered	PAY-22	green
 pay16.decline-not-delivered	PAY-23	green
 pay16.decline-not-delivered	TURN-01/mapper-refused	green
+pay16.decline-not-delivered	TURN-01/schedule-out-of-range	green
 pay16.decline-not-delivered	TURN-01/schedule-refused	green
 pay16.decline-not-delivered	TURN-02	green
 pay16.decline-not-delivered	TURN-03/exited	green
@@ -16041,6 +16303,7 @@ pay16.schedule-reads-pre-transition-memory	PAY-02	green
 pay16.schedule-reads-pre-transition-memory	PAY-03	green
 pay16.schedule-reads-pre-transition-memory	PAY-04	green
 pay16.schedule-reads-pre-transition-memory	PAY-05	green
+pay16.schedule-reads-pre-transition-memory	PAY-05/held-head-sleeps-at-boot	green
 pay16.schedule-reads-pre-transition-memory	PAY-06/interruptible	green
 pay16.schedule-reads-pre-transition-memory	PAY-06/uninterruptible	green
 pay16.schedule-reads-pre-transition-memory	PAY-07/late-in-a-new-PAYING	green
@@ -16091,6 +16354,7 @@ pay16.schedule-reads-pre-transition-memory	PAY-21	green
 pay16.schedule-reads-pre-transition-memory	PAY-22	green
 pay16.schedule-reads-pre-transition-memory	PAY-23	green
 pay16.schedule-reads-pre-transition-memory	TURN-01/mapper-refused	green
+pay16.schedule-reads-pre-transition-memory	TURN-01/schedule-out-of-range	red case
 pay16.schedule-reads-pre-transition-memory	TURN-01/schedule-refused	caught schedules Turn I12
 pay16.schedule-reads-pre-transition-memory	TURN-02	green
 pay16.schedule-reads-pre-transition-memory	TURN-03/exited	green
@@ -16163,6 +16427,7 @@ pub.move-copies-memory	PAY-02	green
 pub.move-copies-memory	PAY-03	green
 pub.move-copies-memory	PAY-04	caught publication Turn I30
 pub.move-copies-memory	PAY-05	caught publication Turn I30
+pub.move-copies-memory	PAY-05/held-head-sleeps-at-boot	caught publication Turn I30
 pub.move-copies-memory	PAY-06/interruptible	green
 pub.move-copies-memory	PAY-06/uninterruptible	green
 pub.move-copies-memory	PAY-07/late-in-a-new-PAYING	caught publication Turn I30
@@ -16213,6 +16478,7 @@ pub.move-copies-memory	PAY-21	green
 pub.move-copies-memory	PAY-22	caught publication Turn I30
 pub.move-copies-memory	PAY-23	green
 pub.move-copies-memory	TURN-01/mapper-refused	green
+pub.move-copies-memory	TURN-01/schedule-out-of-range	green
 pub.move-copies-memory	TURN-01/schedule-refused	green
 pub.move-copies-memory	TURN-02	green
 pub.move-copies-memory	TURN-03/exited	green
@@ -16285,6 +16551,7 @@ pub.turn-not-published	PAY-02	caught publication Turn I9
 pub.turn-not-published	PAY-03	caught publication Turn I9
 pub.turn-not-published	PAY-04	caught publication Turn I9
 pub.turn-not-published	PAY-05	caught publication Turn I9
+pub.turn-not-published	PAY-05/held-head-sleeps-at-boot	caught publication Turn I9
 pub.turn-not-published	PAY-06/interruptible	caught publication Turn I9
 pub.turn-not-published	PAY-06/uninterruptible	caught publication Turn I9
 pub.turn-not-published	PAY-07/late-in-a-new-PAYING	caught publication Turn I9
@@ -16335,6 +16602,7 @@ pub.turn-not-published	PAY-21	caught publication Turn I9
 pub.turn-not-published	PAY-22	caught publication Turn I9
 pub.turn-not-published	PAY-23	caught publication Turn I9
 pub.turn-not-published	TURN-01/mapper-refused	caught publication Turn I9
+pub.turn-not-published	TURN-01/schedule-out-of-range	caught publication Turn I9
 pub.turn-not-published	TURN-01/schedule-refused	caught publication Turn I9
 pub.turn-not-published	TURN-02	caught publication Turn I9
 pub.turn-not-published	TURN-03/exited	caught publication Turn I9
@@ -16407,6 +16675,7 @@ r15.creation-decodes-input	PAY-02	green
 r15.creation-decodes-input	PAY-03	green
 r15.creation-decodes-input	PAY-04	green
 r15.creation-decodes-input	PAY-05	green
+r15.creation-decodes-input	PAY-05/held-head-sleeps-at-boot	green
 r15.creation-decodes-input	PAY-06/interruptible	green
 r15.creation-decodes-input	PAY-06/uninterruptible	green
 r15.creation-decodes-input	PAY-07/late-in-a-new-PAYING	green
@@ -16457,6 +16726,7 @@ r15.creation-decodes-input	PAY-21	green
 r15.creation-decodes-input	PAY-22	green
 r15.creation-decodes-input	PAY-23	green
 r15.creation-decodes-input	TURN-01/mapper-refused	green
+r15.creation-decodes-input	TURN-01/schedule-out-of-range	green
 r15.creation-decodes-input	TURN-01/schedule-refused	green
 r15.creation-decodes-input	TURN-02	green
 r15.creation-decodes-input	TURN-03/exited	green
@@ -16529,6 +16799,7 @@ r15c.duplicate-machine-allowed	PAY-02	green
 r15c.duplicate-machine-allowed	PAY-03	green
 r15c.duplicate-machine-allowed	PAY-04	green
 r15c.duplicate-machine-allowed	PAY-05	green
+r15c.duplicate-machine-allowed	PAY-05/held-head-sleeps-at-boot	green
 r15c.duplicate-machine-allowed	PAY-06/interruptible	green
 r15c.duplicate-machine-allowed	PAY-06/uninterruptible	green
 r15c.duplicate-machine-allowed	PAY-07/late-in-a-new-PAYING	green
@@ -16579,6 +16850,7 @@ r15c.duplicate-machine-allowed	PAY-21	green
 r15c.duplicate-machine-allowed	PAY-22	green
 r15c.duplicate-machine-allowed	PAY-23	green
 r15c.duplicate-machine-allowed	TURN-01/mapper-refused	green
+r15c.duplicate-machine-allowed	TURN-01/schedule-out-of-range	green
 r15c.duplicate-machine-allowed	TURN-01/schedule-refused	green
 r15c.duplicate-machine-allowed	TURN-02	green
 r15c.duplicate-machine-allowed	TURN-03/exited	green
@@ -16651,6 +16923,7 @@ refusal.reports-kept	PAY-02	green
 refusal.reports-kept	PAY-03	green
 refusal.reports-kept	PAY-04	green
 refusal.reports-kept	PAY-05	green
+refusal.reports-kept	PAY-05/held-head-sleeps-at-boot	green
 refusal.reports-kept	PAY-06/interruptible	green
 refusal.reports-kept	PAY-06/uninterruptible	green
 refusal.reports-kept	PAY-07/late-in-a-new-PAYING	green
@@ -16701,6 +16974,7 @@ refusal.reports-kept	PAY-21	green
 refusal.reports-kept	PAY-22	green
 refusal.reports-kept	PAY-23	green
 refusal.reports-kept	TURN-01/mapper-refused	green
+refusal.reports-kept	TURN-01/schedule-out-of-range	caught refusal Turn I14
 refusal.reports-kept	TURN-01/schedule-refused	caught refusal Turn I14
 refusal.reports-kept	TURN-02	green
 refusal.reports-kept	TURN-03/exited	green
@@ -16773,6 +17047,7 @@ refusal.state-kept	PAY-02	green
 refusal.state-kept	PAY-03	green
 refusal.state-kept	PAY-04	green
 refusal.state-kept	PAY-05	green
+refusal.state-kept	PAY-05/held-head-sleeps-at-boot	green
 refusal.state-kept	PAY-06/interruptible	green
 refusal.state-kept	PAY-06/uninterruptible	green
 refusal.state-kept	PAY-07/late-in-a-new-PAYING	green
@@ -16823,6 +17098,7 @@ refusal.state-kept	PAY-21	green
 refusal.state-kept	PAY-22	green
 refusal.state-kept	PAY-23	green
 refusal.state-kept	TURN-01/mapper-refused	green
+refusal.state-kept	TURN-01/schedule-out-of-range	caught refusal Turn I14
 refusal.state-kept	TURN-01/schedule-refused	caught refusal Turn I14
 refusal.state-kept	TURN-02	green
 refusal.state-kept	TURN-03/exited	green
@@ -16895,6 +17171,7 @@ refusal.unhandled-patches	PAY-02	green
 refusal.unhandled-patches	PAY-03	green
 refusal.unhandled-patches	PAY-04	green
 refusal.unhandled-patches	PAY-05	green
+refusal.unhandled-patches	PAY-05/held-head-sleeps-at-boot	green
 refusal.unhandled-patches	PAY-06/interruptible	green
 refusal.unhandled-patches	PAY-06/uninterruptible	green
 refusal.unhandled-patches	PAY-07/late-in-a-new-PAYING	green
@@ -16945,6 +17222,7 @@ refusal.unhandled-patches	PAY-21	green
 refusal.unhandled-patches	PAY-22	green
 refusal.unhandled-patches	PAY-23	green
 refusal.unhandled-patches	TURN-01/mapper-refused	green
+refusal.unhandled-patches	TURN-01/schedule-out-of-range	green
 refusal.unhandled-patches	TURN-01/schedule-refused	green
 refusal.unhandled-patches	TURN-02	caught refusal Turn I15
 refusal.unhandled-patches	TURN-03/exited	green
@@ -17017,6 +17295,7 @@ s13.older-sent-after-newer	PAY-02	green
 s13.older-sent-after-newer	PAY-03	green
 s13.older-sent-after-newer	PAY-04	green
 s13.older-sent-after-newer	PAY-05	green
+s13.older-sent-after-newer	PAY-05/held-head-sleeps-at-boot	green
 s13.older-sent-after-newer	PAY-06/interruptible	green
 s13.older-sent-after-newer	PAY-06/uninterruptible	green
 s13.older-sent-after-newer	PAY-07/late-in-a-new-PAYING	green
@@ -17067,6 +17346,7 @@ s13.older-sent-after-newer	PAY-21	green
 s13.older-sent-after-newer	PAY-22	green
 s13.older-sent-after-newer	PAY-23	green
 s13.older-sent-after-newer	TURN-01/mapper-refused	green
+s13.older-sent-after-newer	TURN-01/schedule-out-of-range	green
 s13.older-sent-after-newer	TURN-01/schedule-refused	green
 s13.older-sent-after-newer	TURN-02	green
 s13.older-sent-after-newer	TURN-03/exited	green
@@ -17139,6 +17419,7 @@ sched.fires-at-once	PAY-02	green
 sched.fires-at-once	PAY-03	time
 sched.fires-at-once	PAY-04	time
 sched.fires-at-once	PAY-05	time
+sched.fires-at-once	PAY-05/held-head-sleeps-at-boot	time
 sched.fires-at-once	PAY-06/interruptible	time
 sched.fires-at-once	PAY-06/uninterruptible	time
 sched.fires-at-once	PAY-07/late-in-a-new-PAYING	green
@@ -17189,6 +17470,7 @@ sched.fires-at-once	PAY-21	time
 sched.fires-at-once	PAY-22	green
 sched.fires-at-once	PAY-23	time
 sched.fires-at-once	TURN-01/mapper-refused	green
+sched.fires-at-once	TURN-01/schedule-out-of-range	green
 sched.fires-at-once	TURN-01/schedule-refused	green
 sched.fires-at-once	TURN-02	green
 sched.fires-at-once	TURN-03/exited	green
@@ -17261,6 +17543,7 @@ sched.outlives-activation	PAY-02	green
 sched.outlives-activation	PAY-03	green
 sched.outlives-activation	PAY-04	green
 sched.outlives-activation	PAY-05	green
+sched.outlives-activation	PAY-05/held-head-sleeps-at-boot	green
 sched.outlives-activation	PAY-06/interruptible	green
 sched.outlives-activation	PAY-06/uninterruptible	green
 sched.outlives-activation	PAY-07/late-in-a-new-PAYING	green
@@ -17311,6 +17594,7 @@ sched.outlives-activation	PAY-21	green
 sched.outlives-activation	PAY-22	green
 sched.outlives-activation	PAY-23	green
 sched.outlives-activation	TURN-01/mapper-refused	green
+sched.outlives-activation	TURN-01/schedule-out-of-range	green
 sched.outlives-activation	TURN-01/schedule-refused	green
 sched.outlives-activation	TURN-02	green
 sched.outlives-activation	TURN-03/exited	caught schedules Turn I20
@@ -17383,6 +17667,7 @@ turn.cancel-turns-unhandled	PAY-02	green
 turn.cancel-turns-unhandled	PAY-03	caught selection Turn I2
 turn.cancel-turns-unhandled	PAY-04	green
 turn.cancel-turns-unhandled	PAY-05	green
+turn.cancel-turns-unhandled	PAY-05/held-head-sleeps-at-boot	green
 turn.cancel-turns-unhandled	PAY-06/interruptible	green
 turn.cancel-turns-unhandled	PAY-06/uninterruptible	green
 turn.cancel-turns-unhandled	PAY-07/late-in-a-new-PAYING	green
@@ -17433,6 +17718,7 @@ turn.cancel-turns-unhandled	PAY-21	caught selection Turn I2
 turn.cancel-turns-unhandled	PAY-22	caught selection Turn I2
 turn.cancel-turns-unhandled	PAY-23	green
 turn.cancel-turns-unhandled	TURN-01/mapper-refused	green
+turn.cancel-turns-unhandled	TURN-01/schedule-out-of-range	green
 turn.cancel-turns-unhandled	TURN-01/schedule-refused	green
 turn.cancel-turns-unhandled	TURN-02	green
 turn.cancel-turns-unhandled	TURN-03/exited	green
@@ -17505,6 +17791,7 @@ turn.cancels-dropped-no-part	PAY-02	green
 turn.cancels-dropped-no-part	PAY-03	caught selection Turn I2
 turn.cancels-dropped-no-part	PAY-04	green
 turn.cancels-dropped-no-part	PAY-05	green
+turn.cancels-dropped-no-part	PAY-05/held-head-sleeps-at-boot	green
 turn.cancels-dropped-no-part	PAY-06/interruptible	green
 turn.cancels-dropped-no-part	PAY-06/uninterruptible	green
 turn.cancels-dropped-no-part	PAY-07/late-in-a-new-PAYING	green
@@ -17555,6 +17842,7 @@ turn.cancels-dropped-no-part	PAY-21	caught selection Turn I2
 turn.cancels-dropped-no-part	PAY-22	caught selection Turn I2
 turn.cancels-dropped-no-part	PAY-23	green
 turn.cancels-dropped-no-part	TURN-01/mapper-refused	green
+turn.cancels-dropped-no-part	TURN-01/schedule-out-of-range	green
 turn.cancels-dropped-no-part	TURN-01/schedule-refused	green
 turn.cancels-dropped-no-part	TURN-02	green
 turn.cancels-dropped-no-part	TURN-03/exited	green
@@ -17627,6 +17915,7 @@ turn.from-misreported	PAY-02	caught selection Turn I2
 turn.from-misreported	PAY-03	caught selection Turn I2
 turn.from-misreported	PAY-04	caught selection Turn I2
 turn.from-misreported	PAY-05	caught selection Turn I2
+turn.from-misreported	PAY-05/held-head-sleeps-at-boot	caught selection Turn I2
 turn.from-misreported	PAY-06/interruptible	caught selection Turn I2
 turn.from-misreported	PAY-06/uninterruptible	caught selection Turn I2
 turn.from-misreported	PAY-07/late-in-a-new-PAYING	caught selection Turn I2
@@ -17677,6 +17966,7 @@ turn.from-misreported	PAY-21	caught selection Turn I2
 turn.from-misreported	PAY-22	caught selection Turn I2
 turn.from-misreported	PAY-23	caught selection Turn I2
 turn.from-misreported	TURN-01/mapper-refused	caught selection Turn I2
+turn.from-misreported	TURN-01/schedule-out-of-range	caught selection Turn I2
 turn.from-misreported	TURN-01/schedule-refused	caught selection Turn I2
 turn.from-misreported	TURN-02	caught selection Turn I2
 turn.from-misreported	TURN-03/exited	caught selection Turn I2
@@ -17749,6 +18039,7 @@ turn.header-to-nowhere	PAY-02	green
 turn.header-to-nowhere	PAY-03	caught selection Turn I2
 turn.header-to-nowhere	PAY-04	green
 turn.header-to-nowhere	PAY-05	green
+turn.header-to-nowhere	PAY-05/held-head-sleeps-at-boot	green
 turn.header-to-nowhere	PAY-06/interruptible	green
 turn.header-to-nowhere	PAY-06/uninterruptible	green
 turn.header-to-nowhere	PAY-07/late-in-a-new-PAYING	green
@@ -17799,6 +18090,7 @@ turn.header-to-nowhere	PAY-21	caught selection Turn I2
 turn.header-to-nowhere	PAY-22	caught selection Turn I2
 turn.header-to-nowhere	PAY-23	green
 turn.header-to-nowhere	TURN-01/mapper-refused	green
+turn.header-to-nowhere	TURN-01/schedule-out-of-range	green
 turn.header-to-nowhere	TURN-01/schedule-refused	green
 turn.header-to-nowhere	TURN-02	green
 turn.header-to-nowhere	TURN-03/exited	green
@@ -17871,6 +18163,7 @@ turn.late-leaves-work	PAY-02	green
 turn.late-leaves-work	PAY-03	green
 turn.late-leaves-work	PAY-04	green
 turn.late-leaves-work	PAY-05	green
+turn.late-leaves-work	PAY-05/held-head-sleeps-at-boot	green
 turn.late-leaves-work	PAY-06/interruptible	green
 turn.late-leaves-work	PAY-06/uninterruptible	green
 turn.late-leaves-work	PAY-07/late-in-a-new-PAYING	green
@@ -17921,6 +18214,7 @@ turn.late-leaves-work	PAY-21	green
 turn.late-leaves-work	PAY-22	green
 turn.late-leaves-work	PAY-23	green
 turn.late-leaves-work	TURN-01/mapper-refused	green
+turn.late-leaves-work	TURN-01/schedule-out-of-range	green
 turn.late-leaves-work	TURN-01/schedule-refused	green
 turn.late-leaves-work	TURN-02	green
 turn.late-leaves-work	TURN-03/exited	green
@@ -17993,6 +18287,7 @@ turn.memory-takes-a-random-nonce	PAY-02	caught case expectations Turn I17
 turn.memory-takes-a-random-nonce	PAY-03	caught case expectations Turn I17
 turn.memory-takes-a-random-nonce	PAY-04	caught case expectations Turn I17
 turn.memory-takes-a-random-nonce	PAY-05	caught case expectations Turn I17
+turn.memory-takes-a-random-nonce	PAY-05/held-head-sleeps-at-boot	caught case expectations Turn I17
 turn.memory-takes-a-random-nonce	PAY-06/interruptible	caught case expectations Turn I17
 turn.memory-takes-a-random-nonce	PAY-06/uninterruptible	caught case expectations Turn I17
 turn.memory-takes-a-random-nonce	PAY-07/late-in-a-new-PAYING	caught case expectations Turn I17
@@ -18043,6 +18338,7 @@ turn.memory-takes-a-random-nonce	PAY-21	caught case expectations Turn I17
 turn.memory-takes-a-random-nonce	PAY-22	caught case expectations Turn I17
 turn.memory-takes-a-random-nonce	PAY-23	caught case expectations Turn I17
 turn.memory-takes-a-random-nonce	TURN-01/mapper-refused	caught case expectations Turn I17
+turn.memory-takes-a-random-nonce	TURN-01/schedule-out-of-range	caught case expectations Turn I17
 turn.memory-takes-a-random-nonce	TURN-01/schedule-refused	caught case expectations Turn I17
 turn.memory-takes-a-random-nonce	TURN-02	caught case expectations Turn I17
 turn.memory-takes-a-random-nonce	TURN-03/exited	caught case expectations Turn I17
@@ -18115,6 +18411,7 @@ turn.part-turn-moves-header	PAY-02	green
 turn.part-turn-moves-header	PAY-03	green
 turn.part-turn-moves-header	PAY-04	green
 turn.part-turn-moves-header	PAY-05	green
+turn.part-turn-moves-header	PAY-05/held-head-sleeps-at-boot	green
 turn.part-turn-moves-header	PAY-06/interruptible	green
 turn.part-turn-moves-header	PAY-06/uninterruptible	green
 turn.part-turn-moves-header	PAY-07/late-in-a-new-PAYING	green
@@ -18165,6 +18462,7 @@ turn.part-turn-moves-header	PAY-21	green
 turn.part-turn-moves-header	PAY-22	green
 turn.part-turn-moves-header	PAY-23	green
 turn.part-turn-moves-header	TURN-01/mapper-refused	green
+turn.part-turn-moves-header	TURN-01/schedule-out-of-range	green
 turn.part-turn-moves-header	TURN-01/schedule-refused	green
 turn.part-turn-moves-header	TURN-02	green
 turn.part-turn-moves-header	TURN-03/exited	green
@@ -18237,6 +18535,7 @@ turn.record-renames-alternative	PAY-02	caught graph-names StaticCli I2
 turn.record-renames-alternative	PAY-03	caught graph-names StaticCli I2
 turn.record-renames-alternative	PAY-04	caught graph-names StaticCli I2
 turn.record-renames-alternative	PAY-05	caught graph-names StaticCli I2
+turn.record-renames-alternative	PAY-05/held-head-sleeps-at-boot	caught graph-names StaticCli I2
 turn.record-renames-alternative	PAY-06/interruptible	caught graph-names StaticCli I2
 turn.record-renames-alternative	PAY-06/uninterruptible	caught graph-names StaticCli I2
 turn.record-renames-alternative	PAY-07/late-in-a-new-PAYING	caught graph-names StaticCli I2
@@ -18287,6 +18586,7 @@ turn.record-renames-alternative	PAY-21	caught graph-names StaticCli I2
 turn.record-renames-alternative	PAY-22	caught graph-names StaticCli I2
 turn.record-renames-alternative	PAY-23	caught graph-names StaticCli I2
 turn.record-renames-alternative	TURN-01/mapper-refused	caught graph-names StaticCli I2
+turn.record-renames-alternative	TURN-01/schedule-out-of-range	caught graph-names StaticCli I2
 turn.record-renames-alternative	TURN-01/schedule-refused	caught graph-names StaticCli I2
 turn.record-renames-alternative	TURN-02	caught graph-names StaticCli I2
 turn.record-renames-alternative	TURN-03/exited	caught graph-names StaticCli I2
@@ -18359,6 +18659,7 @@ turn.root-first	PAY-02	caught selection Turn I2
 turn.root-first	PAY-03	caught selection Turn I2
 turn.root-first	PAY-04	caught selection Turn I2
 turn.root-first	PAY-05	caught selection Turn I2
+turn.root-first	PAY-05/held-head-sleeps-at-boot	caught selection Turn I2
 turn.root-first	PAY-06/interruptible	caught selection Turn I2
 turn.root-first	PAY-06/uninterruptible	caught selection Turn I2
 turn.root-first	PAY-07/late-in-a-new-PAYING	green
@@ -18409,6 +18710,7 @@ turn.root-first	PAY-21	caught selection Turn I2
 turn.root-first	PAY-22	green
 turn.root-first	PAY-23	caught selection Turn I2
 turn.root-first	TURN-01/mapper-refused	caught selection Turn I2
+turn.root-first	TURN-01/schedule-out-of-range	caught selection Turn I2
 turn.root-first	TURN-01/schedule-refused	caught selection Turn I2
 turn.root-first	TURN-02	green
 turn.root-first	TURN-03/exited	caught selection Turn I2
@@ -18481,6 +18783,7 @@ turn.root-first-no-part	PAY-02	green
 turn.root-first-no-part	PAY-03	caught selection Turn I2
 turn.root-first-no-part	PAY-04	caught selection Turn I2
 turn.root-first-no-part	PAY-05	caught selection Turn I2
+turn.root-first-no-part	PAY-05/held-head-sleeps-at-boot	caught selection Turn I2
 turn.root-first-no-part	PAY-06/interruptible	caught selection Turn I2
 turn.root-first-no-part	PAY-06/uninterruptible	caught selection Turn I2
 turn.root-first-no-part	PAY-07/late-in-a-new-PAYING	green
@@ -18531,6 +18834,7 @@ turn.root-first-no-part	PAY-21	caught selection Turn I2
 turn.root-first-no-part	PAY-22	green
 turn.root-first-no-part	PAY-23	caught selection Turn I2
 turn.root-first-no-part	TURN-01/mapper-refused	green
+turn.root-first-no-part	TURN-01/schedule-out-of-range	green
 turn.root-first-no-part	TURN-01/schedule-refused	green
 turn.root-first-no-part	TURN-02	green
 turn.root-first-no-part	TURN-03/exited	green
@@ -18603,6 +18907,7 @@ turn.root-first-on-restored	PAY-02	green
 turn.root-first-on-restored	PAY-03	green
 turn.root-first-on-restored	PAY-04	green
 turn.root-first-on-restored	PAY-05	caught selection Turn I2
+turn.root-first-on-restored	PAY-05/held-head-sleeps-at-boot	caught selection Turn I2
 turn.root-first-on-restored	PAY-06/interruptible	caught selection Turn I2
 turn.root-first-on-restored	PAY-06/uninterruptible	caught selection Turn I2
 turn.root-first-on-restored	PAY-07/late-in-a-new-PAYING	green
@@ -18653,6 +18958,7 @@ turn.root-first-on-restored	PAY-21	caught selection Turn I2
 turn.root-first-on-restored	PAY-22	green
 turn.root-first-on-restored	PAY-23	caught selection Turn I2
 turn.root-first-on-restored	TURN-01/mapper-refused	green
+turn.root-first-on-restored	TURN-01/schedule-out-of-range	green
 turn.root-first-on-restored	TURN-01/schedule-refused	green
 turn.root-first-on-restored	TURN-02	green
 turn.root-first-on-restored	TURN-03/exited	green
@@ -18725,6 +19031,7 @@ w.patch-in-place	PAY-02	caught publication Turn I29
 w.patch-in-place	PAY-03	caught publication Turn I29
 w.patch-in-place	PAY-04	caught publication Turn I29
 w.patch-in-place	PAY-05	caught publication Turn I29
+w.patch-in-place	PAY-05/held-head-sleeps-at-boot	caught publication Turn I29
 w.patch-in-place	PAY-06/interruptible	caught publication Turn I29
 w.patch-in-place	PAY-06/uninterruptible	caught publication Turn I29
 w.patch-in-place	PAY-07/late-in-a-new-PAYING	caught publication Turn I29
@@ -18775,6 +19082,7 @@ w.patch-in-place	PAY-21	caught publication Turn I29
 w.patch-in-place	PAY-22	caught publication Turn I29
 w.patch-in-place	PAY-23	caught publication Turn I29
 w.patch-in-place	TURN-01/mapper-refused	caught publication Turn I29
+w.patch-in-place	TURN-01/schedule-out-of-range	caught publication Turn I29
 w.patch-in-place	TURN-01/schedule-refused	caught publication Turn I29
 w.patch-in-place	TURN-02	caught publication Turn I29
 w.patch-in-place	TURN-03/exited	caught publication Turn I29

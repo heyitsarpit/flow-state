@@ -172,6 +172,11 @@ Each: rule; source; check (red today); the wrong build that keeps it red.
   generated run or a kept case and it holds no case-only row; frozen cases leave the frozen set with it. Source:
   Approach 10, phase-out step 6. Check: the catch sweep against the kept set. Wrong build: a case deleted whose
   catch is unique.
+  Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): measured on the regenerated sweep, 47 of the 55 Pay
+  cases make no prototype catch a kept case does not; none deleted. Deleting them rewires the case lists of the
+  round-14 mutants that name them (`attempt-identity`, `carried` and others), the limits rows and T61's crash and
+  trace tests, which @task.V3.T53 deletes with round-14; after that only production's catches decide (proposed
+  for T53). Why: thinning now redoes mutant wiring T53 removes. Reverse: delete the 47 by the sweep now.
 - **Q19 Case-only files stay.** The five scenario files with case-only rows keep their cases. Source: gap.
   Check: `parts/frozen.test.ts` lists the case ids of the five files (schedules, lane-keys, payment-retry, parts,
   refusal) and fails when one is missing from `scenarios`. Wrong build: a schedules case deleted.
