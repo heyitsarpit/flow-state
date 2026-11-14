@@ -461,3 +461,7 @@ note 2026-11-14T01:43:16Z
     Decision (user, 2026-11-14): "this seems fine" to Q1 A (one labelled Edit line per Spec, Plan or Task edit, with 
     agent, Task, why and reverse commit) and Q2 A (a review angle flags wiki/ changes with no label). Scope: the whole 
     run. instructions edited.
+note 2026-11-14T02:12:03Z
+    Decision (user, 2026-11-14): three more sidecar roles (wrong-build writers, input hunters, red triage) are 
+    available, "the leads will decide if any of it is needed"; Haiku still writes no committed code. Scope: every lead, 
+    the whole run. instructions edited.

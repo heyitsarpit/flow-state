@@ -257,7 +257,11 @@ instructions
       user, 2026-11-10). Up to eight Haiku sidecars, as many as the lead judges the work needs (the user, 2026-11-14), 
       as runners (gates, falsify, sweeps, traces), one-rule diff
       reviewers, locators (prototype code, old case and old mutant per Invariant as file:line lists), and writers of
-      adversarial mutants from the Spec in scratch (the lead rewrites any it keeps). A reviewer sidecar checks every
+      adversarial mutants from the Spec in scratch (the lead rewrites any it keeps). Also available, used only when
+      the lead judges them needed (the user, 2026-11-14): wrong-build writers (the smallest wrong implementation, in
+      scratch, that passes today's checks), input hunters (awkward inputs from a Spec; the Spec model computes the
+      expected results), and red triage (replay a red and gather file:line evidence for the wrong side; the lead
+      decides). A reviewer sidecar checks every
       oracle, test harness or runtime change (amendment 8).
     - A lead reads every line a sidecar wrote, re-runs each check itself, confirms a mutant fails for the expected
       reason, and logs each result as accepted, changed or rejected in the Task's comments
