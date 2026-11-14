@@ -523,4 +523,9 @@ note 2026-11-14T17:29:14Z
     for none; new process rules reach running leads only at a fresh brief and are judged on fresh agents (the T61 study 
     showed mid-session messages did not change the builder's habits). instructions edited.
 note 2026-11-14T17:38:26Z
-    Review (T61 close) PASS at cc8b39d3, first close round, 0 blocking (t61-close-review-2026-11-14.md): every acceptance item red on a plant; the 62 deleted traces held no unique kill. Closing round: O1-O3 owed to T53, O4-O5 to revisit.md, missing Edit labels on P11-P14. Review took about 26 min (the first under the review-speed rules).
+    Review (T61 close) PASS at cc8b39d3, first close round, 0 blocking (t61-close-review-2026-11-14.md): every 
+    acceptance item red on a plant; the 62 deleted traces held no unique kill. Closing round: O1-O3 owed to T53, O4-O5 
+    to revisit.md, missing Edit labels on P11-P14. Review took about 26 min (the first under the review-speed rules).
+note 2026-11-14T17:40:49Z
+    Decision (user, 2026-11-14): "every process should gain some insight into the run and propose improvements which 
+    may or may not be used"; the must-change rule is dropped. instructions edited.
