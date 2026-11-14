@@ -76,7 +76,8 @@ wk check             # see .agents/skills/wk/SKILL.md before editing Workflow re
 - Write idiomatic Effect: before adding a service, scheduler, timer, retry, cleanup, queue, error type
   or codec, find the Effect feature that already does it and use that; build nothing parallel to
   Effect. Design abstractions top down, so downstream code inherits the convention instead of
-  re-deciding it. Add an Effect module only when it removes code.
+  re-deciding it. Use function composition via effect helpers like pipe, flow.
+  Add an Effect module only when it removes code.
 - Doc comments only on exported API, in Effect's shape (summary, When to use, Details, Gotchas,
   examples). No other comments unless an outside constraint forces one.
 - Before finishing: `nub run check:fix`, then `nub run check` with zero errors and zero warnings.
