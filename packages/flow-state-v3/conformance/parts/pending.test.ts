@@ -8,6 +8,10 @@ import { Fact } from "../dsl/oracle.ts";
 import { Observation } from "../port.ts";
 import { actorIn, idled, returned, Undecided, used } from "../turn/anchor.ts";
 import { schedules } from "../turn/schedules.ts";
+import { foldKills, redundancyFaults } from "../dsl/held-traces.ts";
+import { traces } from "../dsl/lifecycle.traces.ts";
+import { PACKAGE } from "../runner/args.ts";
+import { foldMutants, heldVerdicts } from "../runner/fold-mutants.ts";
 import { anchorAt, anchorOf, judgedStep } from "../turn/selection.ts";
 import { parts } from "../../fixtures/index.ts";
 import { Option } from "effect";
@@ -107,5 +111,32 @@ describe("pending checks, owed to other Tasks (routed gaps)", () => {
 
     assert.equal(actorIn(returned(ended, actor, GRACE_MS), actor).phase._tag, "Unanchored");
     assert.equal(actorIn(used(ended, actor, 1), actor).mayHaveEnded, true);
+  });
+
+  it("T53: the redundancy gate ignores a fold-kill row that names no trace, so deleting a sole killer stays green (T61 close O1)", () => {
+    const kept = { name: "kept", tableKills: new Set([1]), refuses: [], ruled: false };
+
+    const fold = new Map([
+      ["kept", ["m1"]],
+      ["deleted sole killer", ["m100"]],
+    ]);
+
+    assert.deepEqual(redundancyFaults([kept], fold), []);
+  });
+
+  it("T53: the fold kills carry no fingerprint of the fold files or mutant list, so a fold edit leaves them stale (T61 close O2)", () => {
+    const names = new Set(traces.map((t) => t.name));
+
+    assert.ok([...foldKills().keys()].every((name) => names.has(name)));
+    assert.ok([...foldKills().values()].flat().every((key) => /^m\d+$/u.test(key)));
+  });
+
+  it("T53: fold-mutants drops a crashed mutant unjudged, writes every row on a partial run, and flips nothing in lifecycle-fold.ts (T61 close O3)", () => {
+    assert.ok(heldVerdicts([Option.none()]).every((v) => v.keys.length === 0));
+    assert.equal(heldVerdicts([]).length, traces.length);
+    assert.deepEqual(
+      foldMutants(PACKAGE).filter((m) => m.file.endsWith("lifecycle-fold.ts")),
+      [],
+    );
   });
 });

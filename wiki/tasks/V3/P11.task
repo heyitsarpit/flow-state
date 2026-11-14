@@ -395,6 +395,10 @@ tasks
             after a dispose started in the same step passes `admitting` and is dropped. T55 replaces `admitting` with 
             `Life` and `admit`, so it owns this; it lands as a red check first. Edit (agent: orchestrator, 
             @task.V3.T55, 2026-11-14): this comment. Why: the gap had no owner. Reverse: drop it.
+        comment     2026-11-14T17:40:20Z
+            Edit (agent: T61 parallel builder, @task.V3.T61, 2026-11-14): the Task text names conformance/owes.ts in 
+            place of the old not-yet.ts (commit 4444e57d), a rename only. Reverse: revert that commit's hunk in this 
+            file.
     T19
         title       Durability: persistence edge, write-ahead and the driver (slice 2)
         status      draft
@@ -723,3 +727,7 @@ tasks
               new
               case, red today: an app service observes that no record was read before it was built. **Wrong:**
               `host.service-before-load`.
+        comment     2026-11-14T17:40:21Z
+            Edit (agent: T61 parallel builder, @task.V3.T61, 2026-11-14): the Task text names conformance/owes.ts in 
+            place of the old not-yet.ts (commit 4444e57d), a rename only. Reverse: revert that commit's hunk in this 
+            file.

@@ -391,6 +391,10 @@ tasks
             - **R-14.** Reload equivalence: at every crash point, the reports and snapshots after the boot equal the
               uncrashed run's (WriteAhead I21). **Check:** the `crash` gate over every part. **Wrong:**
               `restore.skips-owed-record`.
+        comment     2026-11-14T17:40:21Z
+            Edit (agent: T61 parallel builder, @task.V3.T61, 2026-11-14): the Task text names conformance/owes.ts in 
+            place of the old not-yet.ts (commit 4444e57d), a rename only. Reverse: revert that commit's hunk in this 
+            file.
 
     T56
         title       Durability: release versions, key fingerprints and record migration (slice 2b)

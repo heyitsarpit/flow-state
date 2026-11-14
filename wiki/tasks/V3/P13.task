@@ -192,6 +192,10 @@ tasks
             internal events (I4) and Slots (R16), a tampered Compiled's check (I15), creation (I7) and restore (I8). 
             Rows: code:packages/flow-state-v3/conformance/adapters/production-static.ts#staticOwed. Edit (agent: T47 
             building lead, @task.V3.T47, 2026-11-14): this comment. Why: close review finding 6. Reverse: drop it.
+        comment     2026-11-14T17:40:21Z
+            Edit (agent: T61 parallel builder, @task.V3.T61, 2026-11-14): the Task text names conformance/owes.ts in 
+            place of the old not-yet.ts (commit 4444e57d), a rename only. Reverse: revert that commit's hunk in this 
+            file.
     T9
         title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
         status      open

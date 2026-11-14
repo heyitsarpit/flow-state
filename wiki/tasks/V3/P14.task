@@ -116,3 +116,7 @@ tasks
             handler, DuplicatePlacement, VerbMismatch, KeyFieldOptional, ReservedReason, the allowlist grammar), I4 for 
             graph and explain, R7's envelope (version, status, data), and whether desk's UnresolvedHold errors are 
             right. Detail: @task.V3.T13's comments.
+        comment     2026-11-14T17:40:21Z
+            Edit (agent: T61 parallel builder, @task.V3.T61, 2026-11-14): the Task text names conformance/owes.ts in 
+            place of the old not-yet.ts (commit 4444e57d), a rename only. Reverse: revert that commit's hunk in this 
+            file.

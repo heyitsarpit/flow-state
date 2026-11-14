@@ -80,5 +80,11 @@ Deferred items.
   (T19 or T54 turning rows green).
 - **Bounded enumeration of move sequences** (2026-11-14, the user; suite-leverage-survey-2026-11-14.md item 6).
   Every move sequence to depth 3 or 4 per pilot, through a chooser in place of the generator's random draw.
+- **`trace.ts` reads `Date.now`** (2026-11-14, T61 builder; t61-close-review-2026-11-14.md O4).
+  `code:packages/flow-state-v3/conformance/runner/trace.ts#tracedScenario` sets its case deadline with `Date.now`;
+  it should read `Clock`, as `run.ts` does.
+- **Unreached refusal cells default to T18** (2026-11-14, T61 builder; t61-close-review-2026-11-14.md O5).
+  `code:packages/flow-state-v3/conformance/parts/model-owes.ts#suiteOwner`'s last branch sends any other unforgeable
+  cell to T18 instead of failing. Today all 16 cells match an area; a new cell should fail until it is owned.
 - **`cancelAll`** (2026-11-12, the user, wide consult W1 K0; deferred). Neither reference app uses it. If it returns,
   K1 (its own member, typed only on queuing policies) over K2 (`cancel(key, { queued: true })`).
