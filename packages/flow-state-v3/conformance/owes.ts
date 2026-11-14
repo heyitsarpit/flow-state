@@ -1,6 +1,7 @@
 import { Option } from "effect";
 import { invariantsOf, type Owes, type TaskRef } from "./coverage.ts";
 import type { InvariantId } from "./dsl/facts.ts";
+import { featureOwes } from "./parts/feature-rows.ts";
 
 const upTo = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
 
@@ -15,12 +16,14 @@ const part = (subject: InvariantId, task: TaskRef, clause: string) => ({
 });
 
 /**
- * What each Task owes the suite, in one list (consult A3): a core Invariant owed whole (no check
- * yet) or in part (`clause`: the part of a checked Invariant no check judges yet), by the Task
- * that owns it and why.
+ * What each Task owes the suite, in one list: a core Invariant owed whole (no check yet) or in
+ * part (`clause`: the part of a checked Invariant no check judges yet), and each Plan feature not
+ * built in full (`featureOwes`), by the Task that owns it and why.
  *
  * **Details**
  *
+ * - The matrix gate judges the feature rows: one row per unbuilt or partly built feature, none
+ *   for a built one, each naming an open Task; a feature's slice is its Task's.
  * - The coverage gate fails on an Invariant with no check and no row, on a whole row whose
  *   Invariant is now checked (stale), on a clause row on an unchecked Invariant, on two rows of
  *   one kind for one Invariant, and on a row whose Task is not open (a Task cannot close, or ask
@@ -343,4 +346,5 @@ export const owes: ReadonlyArray<Owes> = [
     "@task.V3.T18",
     "an unknown StillUnknown keeps the failure's tag: neither runtime reports `Ended.failure` yet, so ending-channels judges the tag only when a runtime reports it (2026-11-12)",
   ),
+  ...featureOwes,
 ];

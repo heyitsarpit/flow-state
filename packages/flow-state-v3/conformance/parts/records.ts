@@ -9,6 +9,7 @@ import { regressionFiles } from "../generated.ts";
 import { staticOwed } from "../adapters/production-static.ts";
 import { constructionCases } from "../compile/construction.cases.ts";
 import { ownsRows } from "../coverage.ts";
+import { owes } from "../owes.ts";
 import { productionCases } from "../runner/gates.ts";
 import { scenarios } from "../suite.ts";
 import { SLICE_OF } from "./codes.ts";
@@ -267,6 +268,7 @@ export const matrixInputOf = (reached: ReadonlySet<string>) => {
 
   return {
     features: FEATURES,
+    owes,
     ids: planIds(),
     declared: production,
     reached,
@@ -286,9 +288,7 @@ export const matrixInputOf = (reached: ReadonlySet<string>) => {
       ),
       static: casesReaching(featureRules(), productionStatics()),
     },
-    tasks: Object.fromEntries(
-      [...statuses].map(([task, open]) => [task, { open, slice: slices.get(task) ?? -1 }]),
-    ),
+    open: new Set([...statuses].flatMap(([task, open]) => (open ? [task] : []))),
     sliceOf: SLICE_OF,
     current: currentSlice(statuses, slices),
   };

@@ -205,8 +205,12 @@ const caseCheckOf = (checks: CaseChecks, invariant: InvariantId) =>
 const rowOf = (owes: ReadonlyArray<Owes>, invariant: InvariantId) =>
   owes.filter((row) => row.subject === invariant && Option.isNone(row.clause));
 
+/**
+ * Whether an owed row's subject is a core Invariant (`Turn I12`); any other subject is a Plan
+ * feature id, which the matrix gate judges.
+ */
 // RETURN_TYPE: a type predicate, so an owed subject narrows to an Invariant id.
-const isInvariant = (subject: string): subject is InvariantId => /^\S+ I\d+$/u.test(subject);
+export const isInvariant = (subject: string): subject is InvariantId => /^\S+ I\d+$/u.test(subject);
 
 const owners = (input: CoverageInput) =>
   input.owes.flatMap((row) =>

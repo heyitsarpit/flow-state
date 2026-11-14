@@ -868,6 +868,9 @@ tasks
         comment     2026-11-14T11:19:44Z
             Q8 done: one fixture registry (fixtures/registry.ts); scenarioOf fails on an unknown fixture name instead 
             of falling back. Reverse: revert this commit.
+        comment     2026-11-14T11:26:43Z
+            Item 5 done: Feature.owed folded into the one owed list (D2), slice read from the Task; Conformance R17, 
+            I53 reworded (spec-log). Reverse: revert this commit.
     T60
         title       The suite proves its own gates and excuses
         status      done

@@ -649,3 +649,9 @@ of 2026-11-12 found both. Reverse: restore Q13's and Q14's counts.
 Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): Conformance Q14 and Restore Q3 link
 `conformance/owes.ts`, which replaced `not-yet.ts` and the remainder lists. Why: one owed list (consult A3). Reverse:
 restore the old links with the files.
+
+## 2026-11-14, a feature's owner is a row of the one owed list (T52, agent)
+
+Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): Conformance R17, MatrixRow and I53 name a feature's
+owner as one row of the owed list, its slice the Task's, in place of "owed by slice N". Why: D2 folds `Feature.owed`
+into the list and derives the slice, so it cannot disagree with the Task. Reverse: revert the commit.

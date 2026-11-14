@@ -4,6 +4,8 @@ import { describe, it } from "vite-plus/test";
 import { Option } from "effect";
 import { scenarios, staticCases } from "../suite.ts";
 import { CODES, isCode, SLICE_OF } from "./codes.ts";
+import type { TaskRef } from "../coverage.ts";
+import { owes } from "../owes.ts";
 import { FEATURES } from "./feature-rows.ts";
 import { casesReaching, checksOf, type Feature, type MatrixInput, matrixGate } from "./features.ts";
 import { playPart, reachedBy } from "./play.ts";
@@ -25,22 +27,34 @@ import {
 
 const KINDS = new Set(["part", "hand", "static", "app", "package"]);
 
-const T18 = { slice: 1, task: "@task.V3.T18", rest: Option.none() };
+const owedTo = (
+  subject: string,
+  task: TaskRef = "@task.V3.T18",
+  clause = Option.none<string>(),
+) => ({
+  subject,
+  clause,
+  task,
+  why: "planted",
+});
 
 const rows: ReadonlyArray<Feature> = [
-  { id: "M01", kind: "part", codes: ["rj", "ky"], owed: Option.none() },
-  { id: "M02", kind: "hand", codes: [], owed: Option.none() },
-  { id: "M03", kind: "part", codes: ["lt"], owed: Option.some(T18) },
+  { id: "M01", kind: "part", codes: ["rj", "ky"] },
+  { id: "M02", kind: "hand", codes: [] },
+  { id: "M03", kind: "part", codes: ["lt"] },
 ];
+
+const M03 = owedTo("M03");
 
 const planted: MatrixInput = {
   features: rows,
+  owes: [owedTo("Turn I1"), M03],
   ids: ["M01", "M02", "M03"],
   declared: ["rj", "ky"],
   reached: new Set(["rj", "ky"]),
   claimed: ["rj", "ky"],
   reaching: { hand: { M02: ["PAY-01"] }, static: {} },
-  tasks: { "@task.V3.T18": { open: true, slice: 1 }, "@task.V3.T16": { open: false, slice: 0 } },
+  open: new Set(["@task.V3.T18"]),
   sliceOf: { rj: 0, ky: 0, lt: 1 },
   current: 0,
 };
@@ -57,33 +71,25 @@ describe("feature matrix (Q12: Conformance R17, I53 to I55, T35)", () => {
     assert.ok(FEATURES.every((f) => KINDS.has(f.kind)));
   });
 
-  it("owes each row by the replan's slice, to a Task of that slice", () => {
+  it("owes each row to a Task of the replan's slice for it, read from the Task", () => {
     const slices = replanSlices();
     const titles = taskRecords();
+    const taskSlice = taskSlices();
 
     assert.ok(slices.length >= 80);
 
-    const wrong = slices.flatMap(([id, slice]) => {
-      const row = FEATURES.find((f) => f.id === id);
+    const wrong = slices.flatMap(([id, slice]) =>
+      owes
+        .filter((row) => row.subject === id)
+        .flatMap(({ task }) => {
+          const named = /\(slice (\d+)\)/u.exec(titles.get(task) ?? "")?.[1];
 
-      return Option.match(
-        Option.flatMap(Option.fromUndefinedOr(row), (r) => r.owed),
-        {
-          onNone: () => [],
-          onSome: (owed) => {
-            const title = titles.get(owed.task) ?? "";
-            const named = /\(slice (\d+)\)/u.exec(title)?.[1];
+          const mismatch =
+            taskSlice.get(task) !== slice || (named !== undefined && Number(named) !== slice);
 
-            const mismatch =
-              owed.slice !== slice || (named !== undefined && Number(named) !== slice);
-
-            return mismatch
-              ? [`${id}: slice ${owed.slice} ${owed.task}, replan slice ${slice}`]
-              : [];
-          },
-        },
-      );
-    });
+          return mismatch ? [`${id}: ${task}, replan slice ${slice}`] : [];
+        }),
+    );
 
     assert.deepEqual(wrong, []);
   });
@@ -96,12 +102,16 @@ describe("feature matrix (Q12: Conformance R17, I53 to I55, T35)", () => {
     assert.ok(matrixGate({ ...planted, features: rows.slice(0, 2) }).length > 0);
   });
 
-  it("fails on a row owed to a done Task, or to a Task of another slice", () => {
-    const done = { ...rows[2]!, owed: Option.some({ ...T18, slice: 0, task: "@task.V3.T16" }) };
-    const other = { ...rows[2]!, owed: Option.some({ ...T18, slice: 2 }) };
+  it("fails on a row owed to a done Task, owed twice, or owing no Plan feature", () => {
+    const done = owedTo("M03", "@task.V3.T16");
 
-    assert.ok(matrixGate({ ...planted, features: [rows[0]!, rows[1]!, done] }).length > 0);
-    assert.ok(matrixGate({ ...planted, features: [rows[0]!, rows[1]!, other] }).length > 0);
+    assert.deepEqual(matrixGate({ ...planted, owes: [done] }), [
+      "M03: owed to @task.V3.T16, which is not open",
+    ]);
+    assert.deepEqual(matrixGate({ ...planted, owes: [M03, M03] }), ["M03: owed twice"]);
+    assert.deepEqual(matrixGate({ ...planted, owes: [M03, owedTo("M99")] }), [
+      "M99: owed, but no Plan feature has this id",
+    ]);
   });
 
   it("fails on a declared code no fixture reaches", () => {
@@ -114,9 +124,7 @@ describe("feature matrix (Q12: Conformance R17, I53 to I55, T35)", () => {
   });
 
   it("fails on a built feature marked owed, and on a hand row no running case reaches", () => {
-    const owedBuilt = { ...rows[0]!, owed: Option.some(T18) };
-
-    assert.ok(matrixGate({ ...planted, features: [owedBuilt, rows[1]!, rows[2]!] }).length > 0);
+    assert.ok(matrixGate({ ...planted, owes: [M03, owedTo("M01")] }).length > 0);
     assert.ok(matrixGate({ ...planted, reaching: { hand: {}, static: {} } }).length > 0);
     assert.ok(
       matrixGate({ ...planted, reaching: { hand: {}, static: { M02: ["CMP-01"] } } }).length > 0,
@@ -124,10 +132,10 @@ describe("feature matrix (Q12: Conformance R17, I53 to I55, T35)", () => {
   });
 
   it("fails on a row built in part with nothing built, and on a part row with no codes", () => {
-    const partly = { ...rows[2]!, owed: Option.some({ ...T18, rest: Option.some("the rest") }) };
+    const partly = owedTo("M03", "@task.V3.T18", Option.some("the rest"));
     const bare = { ...rows[0]!, codes: [] };
 
-    assert.ok(matrixGate({ ...planted, features: [rows[0]!, rows[1]!, partly] }).length > 0);
+    assert.ok(matrixGate({ ...planted, owes: [partly] }).length > 0);
     assert.ok(matrixGate({ ...planted, features: [bare, rows[1]!, rows[2]!] }).length > 0);
   });
 });
@@ -196,11 +204,7 @@ describe("feature matrix over the real rows (Q12: Conformance R17, I53 to I55)",
   it("on the real rows, fails a built feature marked owed and a declared code no pilot reaches", () => {
     const input = realInput();
 
-    const owedBuilt = input.features.map((f) =>
-      f.id === "P02" ? { ...f, owed: Option.some({ ...T18, slice: 1 }) } : f,
-    );
-
-    assert.deepEqual(matrixGate({ ...input, features: owedBuilt }), [
+    assert.deepEqual(matrixGate({ ...input, owes: [...input.owes, owedTo("P02")] }), [
       "P02: built, yet marked owed",
     ]);
 

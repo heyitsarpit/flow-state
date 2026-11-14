@@ -1,4 +1,5 @@
 import { Option } from "effect";
+import { isInvariant, type Owes } from "../coverage.ts";
 
 /**
  * How a Plan feature is checked: in a composite part, a hand case, a static case, an example-app
@@ -7,24 +8,13 @@ import { Option } from "effect";
 export type Kind = "part" | "hand" | "static" | "app" | "package";
 
 /**
- * Who owes a feature while no runtime under test builds it, or the rest of one built in part:
- * an open Task of a slice, and `rest`, what of a feature built in part that Task still owes.
- */
-export type Owed = {
-  readonly slice: number;
-  readonly task: string;
-  readonly rest: Option.Option<string>;
-};
-
-/**
- * One row of the feature matrix: a Plan feature, its fixture kind, the codes a part must reach to
- * exercise it, and its owner while it is not built in full.
+ * One row of the feature matrix: a Plan feature, its fixture kind and the codes a part must reach
+ * to exercise it. Who owes it while it is not built in full is a row of the one owed list.
  */
 export type Feature = {
   readonly id: string;
   readonly kind: Kind;
   readonly codes: ReadonlyArray<string>;
-  readonly owed: Option.Option<Owed>;
 };
 
 const SPECS = new Map([
@@ -124,42 +114,22 @@ export const casesReaching = (
   );
 
 /**
- * The rows whose owner's slice comes before a slice that builds one of their codes: reported for
- * the user's read, never gating (the owners follow the replan; a code's slice is the catalogue's).
- */
-export const lateCodes = (
-  features: ReadonlyArray<Feature>,
-  sliceOf: Readonly<Record<string, number>>,
-) =>
-  features.flatMap((f) =>
-    Option.match(f.owed, {
-      onNone: () => [],
-      onSome: ({ slice, task }) => {
-        const late = f.codes.filter((c) => (sliceOf[c] ?? 0) > slice);
-
-        return late.length === 0
-          ? []
-          : [
-              `${f.id}: owed by ${task} in slice ${slice}, but its codes ${late.join(", ")} land in a later slice`,
-            ];
-      },
-    }),
-  );
-
-/**
  * What the matrix gate reads.
  *
  * **Details**
  *
  * - `ids`: the Plan features' ids, read from their source table.
+ * - `owes`: the one owed list; its rows whose subject is a feature id name each feature's owner.
  * - `declared`: codes the runtimes under test declare; `reached`: codes the reach recorder saw.
  * - `claimed`: codes the parts' commands claim; `reaching`: by feature, the hand and the static
  *   cases that reach it and run on a runtime or static surface under test.
+ * - `open`: the Tasks that may own rows (not done, not in review).
  * - `sliceOf`: the slice that builds each code; `current`: the slice being built. A part may claim
  *   a code a later slice builds (its operation is filtered until then).
  */
 export type MatrixInput = {
   readonly features: ReadonlyArray<Feature>;
+  readonly owes: ReadonlyArray<Owes>;
   readonly ids: ReadonlyArray<string>;
   readonly declared: ReadonlyArray<string>;
   readonly reached: ReadonlySet<string>;
@@ -168,20 +138,15 @@ export type MatrixInput = {
     readonly hand: Readonly<Record<string, ReadonlyArray<string>>>;
     readonly static: Readonly<Record<string, ReadonlyArray<string>>>;
   };
-  readonly tasks: Readonly<Record<string, { readonly open: boolean; readonly slice: number }>>;
+  readonly open: ReadonlySet<string>;
   readonly sliceOf: Readonly<Record<string, number>>;
   readonly current: number;
 };
 
-const ownedFault = (input: MatrixInput, { slice, task }: Owed) => {
-  const record = input.tasks[task];
+const ownedFault = (input: MatrixInput, { task }: Owes) =>
+  input.open.has(task) ? undefined : `owed to ${task}, which is not open`;
 
-  if (record === undefined || !record.open) return `owed to ${task}, which is not open`;
-
-  return record.slice === slice
-    ? undefined
-    : `owed by slice ${slice}, but ${task} is slice ${record.slice}'s`;
-};
+const featureRows = (owes: ReadonlyArray<Owes>) => owes.filter((row) => !isInvariant(row.subject));
 
 const builtFor = (input: MatrixInput, feature: Feature) => {
   if (feature.kind === "part")
@@ -193,17 +158,20 @@ const builtFor = (input: MatrixInput, feature: Feature) => {
   return false;
 };
 
-const ownerFault = (input: MatrixInput, feature: Feature, isBuilt: boolean) =>
-  Option.match(feature.owed, {
-    onNone: () => (isBuilt ? undefined : `${feature.kind} row not built and owed by no slice`),
-    onSome: (o) => {
-      if (isBuilt && Option.isNone(o.rest)) return "built, yet marked owed";
+const ownerFault = (input: MatrixInput, feature: Feature, isBuilt: boolean) => {
+  const [row, ...more] = featureRows(input.owes).filter((r) => r.subject === feature.id);
 
-      if (!isBuilt && Option.isSome(o.rest)) return "built in part, yet nothing of it is built";
+  if (more.length > 0) return "owed twice";
 
-      return ownedFault(input, o);
-    },
-  });
+  if (row === undefined)
+    return isBuilt ? undefined : `${feature.kind} row not built and owed by no Task`;
+
+  if (isBuilt && Option.isNone(row.clause)) return "built, yet marked owed";
+
+  if (!isBuilt && Option.isSome(row.clause)) return "built in part, yet nothing of it is built";
+
+  return ownedFault(input, row);
+};
 
 const rowFault = (input: MatrixInput, feature: Feature) => {
   if (feature.kind === "part" && feature.codes.length === 0) return "a part row names no codes";
@@ -237,7 +205,8 @@ const claimFault = (input: MatrixInput, code: string) => {
  * - A part row is built when every code it names is declared by a runtime under test; a hand or
  *   static row when a case of its kind that reaches it runs on one; example-app and package rows are owed
  *   until their checks exist. A built row needs every code reached and no owner, unless it is
- *   built in part; an unbuilt one an owner: an open Task of the slice it names.
+ *   built in part; an unbuilt one an owner: one row of the owed list, naming an open Task (its
+ *   slice is the Task's own). A feature owed twice, or a feature row naming no feature, fails.
  * - Every declared code is reached by some fixture, and a part claims only declared codes or codes
  *   a later slice builds.
  */
@@ -248,6 +217,9 @@ export const matrixGate = (input: MatrixInput) => {
   return [
     ...input.ids.filter((id) => !rows.has(id)).map((id) => `${id}: no matrix row`),
     ...[...rows].filter((id) => !ids.has(id)).map((id) => `${id}: a row for no Plan feature`),
+    ...featureRows(input.owes)
+      .filter((row) => !rows.has(row.subject))
+      .map((row) => `${row.subject}: owed, but no Plan feature has this id`),
     ...input.features.flatMap((f) => {
       const fault = rowFault(input, f);
 

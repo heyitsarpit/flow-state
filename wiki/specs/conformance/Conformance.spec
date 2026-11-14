@@ -369,8 +369,8 @@ requirements
 
                 The gate passes only when:
 
-                - a feature no runtime under test implements yet reads "owed by slice N", naming an open
-                    Task of that slice;
+                - a feature no runtime under test implements yet, or implements in part, has one row in
+                    the one owed list naming an open Task (its slice is that Task's), and a built one none;
                 - every feature a runtime under test declares is reached by at least one fixture, and one
                     that no fixture reaches is a failure;
                 - no part claims a code no runtime under test declares.
@@ -653,8 +653,8 @@ model
     FeatureCode = one of the catalogue's closed feature codes; declared by a part's commands and by a runtime
         adapter (R16).
 
-    MatrixRow = a Plan feature with its fixture kind and either the fixtures that reach it or "owed by slice N"
-        (R17).
+    MatrixRow = a Plan feature with its fixture kind and either the fixtures that reach it or its owed row, an open
+        Task (R17).
 
     InteractingPair = two codes that touch one channel of the catalogue's channel table and fall under no
         approved non-interacting rule (R18).
@@ -815,8 +815,8 @@ invariants
 
     I52  The generator draws no command with a code the runtime under test does not declare. [@R16]
 
-    I53  Every Plan feature has a matrix row with its fixture kind and either the fixtures that reach it or "owed by
-        slice N" naming an open Task of that slice. [@R17]
+    I53  Every Plan feature has a matrix row with its fixture kind and either the fixtures that reach it or one owed
+        row naming an open Task, whose slice is the feature's. [@R17]
 
     I54  Every code a runtime under test declares is reached by at least one fixture. [@R17]
 
