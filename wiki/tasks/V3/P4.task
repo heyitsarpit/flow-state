@@ -1118,6 +1118,15 @@ tasks
             store always lands the final write; pin on the world and add a refusable final write. N3 to N7 are minor. 
             Reverse: delete this comment. Edit (agent: T61 parallel builder, @task.V3.T61, 2026-11-14): added as the 
             review suggested; N1, N3, N4, N5 fixed at 74c86ab3; N2, N6, N7 open.
+        comment     2026-11-14T15:17:42Z
+            Review of d0ec5a6f..153f8fc0: PASS, nothing blocking 
+            (code:wiki/plans/flow/references/proposals/t61-items2-5-review-2026-11-14.md). Both soak findings replay: 
+            2001 is production's (an adoption flush leaves out the closed head, WriteAhead I23), and 2007 is the 
+            model's (R2's StillUnknown). Owed here: M1, a signature can't separate the retry and unbound roots, so a 
+            new root hides as KNOWN; M2, the shrinker isn't 1-minimal; M3, the owner test passes with a wrong two-part 
+            owner. Reverse: delete this comment. Edit (agent: T61 parallel builder, @task.V3.T61, 2026-11-14): added as 
+            suggested; M1 to M3 and the minors fixed at 319e4d99, N2 at 1e5a1a72, both soak findings at 587819a9 and 
+            36bc2533.
     T54
         title       Core consolidation: owed-endings ledger, one start, diff-written records, acts into evidenceOf
         status      open
