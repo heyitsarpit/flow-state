@@ -1132,6 +1132,12 @@ tasks
             O5 and O6 closed (8e8d93bd, 4d2e6d0f); 62 redundant traces deleted; 73 to 71 noticed fields bisected to 
             T52's 39d125bb, T61 lost none; soak at seeds 5000 to 5007 found one signature of T19's known root. Details: 
             code:wiki/plans/flow/references/proposals/t61-build-log-2026-11-14.md.
+        comment     2026-11-14T17:37:47Z
+            Close review of 153f8fc0..cc8b39d3: PASS, T61 closes; each acceptance item went red on a run plant, the 62 
+            deleted traces lost no kill (fold kills regenerated, 38 survivors before and after), the bisect holds 
+            (code:wiki/plans/flow/references/proposals/t61-close-review-2026-11-14.md). Proposed owed rows: O1 to O3 
+            (redundancy gate and fold-mutants integrity) to T53, O4 and O5 to revisit.md; the builder adds Task-comment 
+            labels for 4444e57d's P11 to P14 edits. Reverse: delete this comment.
     T54
         title       Core consolidation: owed-endings ledger, one start, diff-written records, acts into evidenceOf
         status      open
