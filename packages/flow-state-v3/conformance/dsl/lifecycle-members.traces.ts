@@ -10,6 +10,7 @@ import {
   Obligation,
   type Phase,
 } from "./lifecycle-model.ts";
+import { RETIRED_I21 } from "./lifecycle-rules.ts";
 import { at, build, Check, type Trace } from "./lifecycle-trace.ts";
 import type { InvariantId } from "./facts.ts";
 
@@ -157,11 +158,12 @@ const idleTraces: ReadonlyArray<Trace> = [
   }),
   cell({
     name: "a cancelAll on an Idle lane declines nothing",
-    cites: "WriteLanes R15, I21: cancelAll delivers only queued and head endings",
+    cites:
+      "Retired WriteLanes R15; Retired WriteLanes I21: cancelAll delivers only queued and head endings",
     start: idle(),
     member: member("cancelAll"),
     probe: "decline",
-    refused: [wl(21)],
+    refused: [RETIRED_I21],
     phases: { k: GC, q: Q },
     owing: [supersededQ],
   }),
@@ -343,7 +345,7 @@ const otherTraces: ReadonlyArray<Trace> = [
     ),
     otherMember(
       `a cancelAll of a never-sent ${name} head`,
-      "WriteLanes R14, R15: queued NotSent Cancelled, then the head's",
+      "WriteLanes R14; Retired WriteLanes R15: queued NotSent Cancelled, then the head's",
       head,
       "cancelAll",
       { phases: { k: GC, h: head, q: Q }, owing: [cancelAll, pending("h")] },
@@ -357,10 +359,16 @@ const otherTraces: ReadonlyArray<Trace> = [
       "cancel",
       { phases: { k: GC, h: head, q: Q }, owing: [awaiting("h", "Released")] },
     ),
-    otherMember(`a cancelAll of a ${name} head`, "WriteLanes R14, R15", head, "cancelAll", {
-      phases: { k: GC, h: head, q: Q },
-      owing: [cancelAll, awaiting("h", "Released")],
-    }),
+    otherMember(
+      `a cancelAll of a ${name} head`,
+      "WriteLanes R14; Retired WriteLanes R15",
+      head,
+      "cancelAll",
+      {
+        phases: { k: GC, h: head, q: Q },
+        owing: [cancelAll, awaiting("h", "Released")],
+      },
+    ),
   ]),
   otherMember("a cancel interrupts the call on the wire", "WriteLanes R14", W, "cancel", {
     phases: { k: GC, h: I, q: Q },
@@ -368,7 +376,7 @@ const otherTraces: ReadonlyArray<Trace> = [
   }),
   otherMember(
     "a cancelAll interrupts the call on the wire",
-    "WriteLanes R14, R15",
+    "WriteLanes R14; Retired WriteLanes R15",
     W,
     "cancelAll",
     {
@@ -377,7 +385,7 @@ const otherTraces: ReadonlyArray<Trace> = [
     },
   ),
   otherMember("a second cancel of an interrupted call", "WriteLanes R14", I, "cancel", stays(I)),
-  otherMember("a cancelAll of an interrupted call", "WriteLanes R15", I, "cancelAll", {
+  otherMember("a cancelAll of an interrupted call", "Retired WriteLanes R15", I, "cancelAll", {
     phases: { k: GC, h: I, q: Q },
     owing: [cancelAll],
   }),

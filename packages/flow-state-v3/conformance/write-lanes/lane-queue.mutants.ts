@@ -148,7 +148,7 @@ export const laneQueueMutants: ReadonlyArray<Mutant> = [
   {
     name: "1b.cancel-all-queue-reversed",
     says: "cancelAll ends the queue in reverse mint order",
-    expects: "WriteLanes I21",
+    expects: "Retired WriteLanes I21",
     runtime: "prototype",
     cases: ["LANE-04"],
     edits: lane("for (const x of queued) {", "for (const x of [...queued].reverse()) {"),
@@ -156,7 +156,7 @@ export const laneQueueMutants: ReadonlyArray<Mutant> = [
   {
     name: "1b.cancel-all-promotes-before-emptying",
     says: "cancelAll cancels the head before emptying the queue, so the first queued commit is promoted",
-    expects: "WriteLanes I21",
+    expects: "Retired WriteLanes I21",
     runtime: "prototype",
     cases: ["LANE-03"],
     edits: lane(
@@ -186,7 +186,7 @@ export const laneQueueMutants: ReadonlyArray<Mutant> = [
   {
     name: "p1h.cancel-all-idle-declines",
     says: "cancelAll on an Idle lane declines NotSent Cancelled instead of doing nothing",
-    expects: "WriteLanes I21",
+    expects: "Retired WriteLanes I21",
     runtime: "prototype",
     cases: ["LANE-05"],
     edits: lane(

@@ -46,6 +46,12 @@ export type Cell = Readonly<Record<string, Outcome>>;
 export type TableA = Readonly<Record<Row, Readonly<Record<Phase["_tag"], Cell>>>>;
 
 const wl = (n: number) => `WriteLanes I${n}` as const;
+
+/**
+ * The retired `cancelAll` Invariant, cited by name in its retired form: round-14's frozen cases and
+ * the model's CancelAll column still judge it until round-14 retires.
+ */
+export const RETIRED_I21 = "Retired WriteLanes I21" as const;
 const actors = (n: number) => `Actors I${n}` as const;
 const refuse = (n: number) => Outcome.Refuse({ invariant: wl(n) });
 const stay = Outcome.Stay();
@@ -96,7 +102,7 @@ export const tableA: TableA = {
     ...each(refuse(16)),
     Queued: {
       cancelAll: gone("closed"),
-      cancelAllOutOfOrder: refuse(21),
+      cancelAllOutOfOrder: Outcome.Refuse({ invariant: RETIRED_I21 }),
       disposed: gone("closed"),
       other: refuse(11),
     },
@@ -196,7 +202,7 @@ export const deadlines: Deadlines = {
   Await: {
     Released: { by: "TurnCloses", invariant: wl(12) },
     Superseded: { by: "TurnCloses", invariant: wl(8) },
-    NotSentCancelled: { by: "TurnCloses", invariant: wl(21) },
+    NotSentCancelled: { by: "TurnCloses", invariant: RETIRED_I21 },
   },
   UnretainedRelease: { by: "TurnCloses", invariant: wl(5) },
   PendingCancel: { by: "never", invariant: wl(20) },
@@ -307,7 +313,7 @@ export const tableB: TableB = {
     cancel: admit("Mint"),
     Retry: act(Act.Stay()),
     Cancel: { none: Act.Quiet({ invariant: wl(20) }), kept: Act.LetGo() },
-    CancelAll: act(Act.Quiet({ invariant: wl(21) })),
+    CancelAll: act(Act.Quiet({ invariant: RETIRED_I21 })),
     Release: act(Act.Stay()),
   },
   Unsent: {

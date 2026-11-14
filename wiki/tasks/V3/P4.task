@@ -852,6 +852,13 @@ tasks
             code:wiki/plans/flow/references/proposals/t52-build-log-2026-11-14.md.
               Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment. Why: step-done rule. Reverse: 
               revert this commit.
+        comment     2026-11-14T11:02:49Z
+            Item 4 done, for review: retired cancelAll rules cited only in their retired form (source, runtime cites, 
+            records); coverage and the catch matrix read the retired form (reds first); Conformance Q13 and Q14 fixed. 
+            Left: the R10 and R4 citation re-read. Detail: 
+            code:wiki/plans/flow/references/proposals/t52-build-log-2026-11-14.md.
+              Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment; Conformance.spec Q13, Q14. Why: 
+              step-done rule; Spec review 2026-11-12. Reverse: revert this commit.
     T60
         title       The suite proves its own gates and excuses
         status      done

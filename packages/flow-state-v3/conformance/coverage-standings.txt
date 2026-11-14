@@ -23,7 +23,6 @@ checked WriteLanes I16  delivered-once: mutant.success-then-failure
 checked WriteLanes I18  cases LANE-14: lane.unencodable-refuses-turn
 checked WriteLanes I2  cases LANE-16: entity.failure-confirms
 checked WriteLanes I20  lane-queue: lane.cancel-wire-as-never-sent, 1b.cancel-all-wire-held-at-once, audit-1.cancel-all-leaves-the-head
-checked WriteLanes I21  lane-queue: 1b.cancel-all-queue-reversed, 1b.cancel-all-promotes-before-emptying, p1h.cancel-all-idle-declines
 checked WriteLanes I26  lane-queue: lane.retry-members-dropped
 checked WriteLanes I3  ending-channels: mutant.ending-without-id, k.failure-as-success, mutant.still-unknown-dropped, mutant.unsent-ends-unknown, mutant.unsent-restored-outside-boot, lie.failure-as-success
 checked WriteLanes I6  attempt-identity: mutant.resend-new-id, mutant.resend-new-input, mutant.sent-under-another-operation, mutant.mint-key-differs, lie.invoked-dropped

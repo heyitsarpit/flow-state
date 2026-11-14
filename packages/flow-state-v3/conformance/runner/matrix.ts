@@ -50,8 +50,15 @@ export const matrixFile = (runtime: "prototype" | "production", sweep: boolean) 
 const keyOf = (row: string) => row.split("\t").slice(0, 2).join("\t");
 
 /**
+ * A row with its Invariant's retired form read as the rule it names, so a cite that only took its
+ * retired form (`Retired WriteLanes I21`) is the same catch.
+ */
+const unretired = (row: string) => row.replaceAll("Retired ", "");
+
+/**
  * Writes the catch matrix at `path`, sorted, and returns the catches the committed file had that
- * this run lost: a (mutant, case) once `caught` and now anything else, or no longer run.
+ * this run lost: a (mutant, case) once `caught` and now anything else, or no longer run; a catch
+ * whose Invariant only took its retired form is not lost.
  */
 export const writeMatrix = (path: string, rows: ReadonlyArray<string>) =>
   Effect.sync(() => {
@@ -62,7 +69,14 @@ export const writeMatrix = (path: string, rows: ReadonlyArray<string>) =>
       : [];
 
     const now = new Map(rows.map((r) => [keyOf(r), r]));
-    const lost = before.filter((r) => r.includes("\tcaught ") && now.get(keyOf(r)) !== r);
+
+    const lost = before.filter(
+      (r) =>
+        r.includes("\tcaught ") &&
+        Option.map(Option.fromUndefinedOr(now.get(keyOf(r))), unretired).pipe(
+          Option.getOrElse(() => ""),
+        ) !== unretired(r),
+    );
 
     writeFileSync(path, `${[...rows].toSorted().join("\n")}\n`);
 

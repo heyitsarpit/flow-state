@@ -1,4 +1,5 @@
 import { Move } from "./lifecycle-model.ts";
+import { RETIRED_I21 } from "./lifecycle-rules.ts";
 import { at, build, type Trace } from "./lifecycle-trace.ts";
 
 const { Q, U, RS, W, I, H, RT, RF, GC, GE, GS } = at;
@@ -216,7 +217,7 @@ const notSentTraces: ReadonlyArray<Trace> = [
   one(
     {
       name: "cancelAll ends a queued Attempt NotSent Cancelled",
-      cites: "WriteLanes R15, I21",
+      cites: "Retired WriteLanes R15; Retired WriteLanes I21",
       start: behindHeld({ obligations: [awaiting("s", "NotSentCancelled")] }),
       move: notSent("s", "Cancelled"),
       refused: [],
@@ -226,12 +227,12 @@ const notSentTraces: ReadonlyArray<Trace> = [
   ),
   one({
     name: "cancelAll's endings out of mint order",
-    cites: "WriteLanes I21: queued NotSent Cancelled in mint order",
+    cites: "Retired WriteLanes I21: queued NotSent Cancelled in mint order",
     start: model(lane("A", ["h", H], ["q", Q], ["s", Q]), {
       obligations: [awaiting("q", "NotSentCancelled"), awaiting("s", "NotSentCancelled")],
     }),
     move: notSent("s", "Cancelled"),
-    refused: [wl(21)],
+    refused: [RETIRED_I21],
     phases: { h: H, q: Q, s: Q },
   }),
   one({

@@ -24,7 +24,8 @@ const restored = (c: Case) => c.endings("pay").filter((e) => e.reason === "Resto
  * owners follow from the Specs (an Attempt on the wire at a kill restores as `unknown Restored`,
  * once, to its own actor); the states and notice come from the Pay fixture's mapping. `DLV-05`:
  * a twice-refused place success is kept and gets one try per boot (Actors R15, I24). `DLV-06`: that
- * kept ending holds its lane, so the next place commit declines `Rejected` (WriteLanes R6, I8).
+ * kept ending leaves no lane to queue on, so the next place commit declines `Rejected` (WriteLanes R6,
+ * I8).
  * `DLV-07`: two Held heads of one actor each hear their unknown { Restored } once at the boot, so
  * the actor's count of unknowns says so without reading a report (Restore I6).
  */
@@ -142,7 +143,12 @@ export const endingDeliveryScenarios: ReadonlyArray<Scenario> = [
       c.eq("second pay sent", c.requests("pay").length, 2);
       c.answer("pay", Answer.Ok({ value: { status: "requires_capture", clientSecret: "" } }));
       c.ack();
-      c.expect("WriteLanes I8", "the kept ending holds its lane", c.requests("place").length, 1);
+      c.expect(
+        "WriteLanes I8",
+        "a kept ending leaves no lane to queue on, so the next place is not sent",
+        c.requests("place").length,
+        1,
+      );
       c.expect(
         "WriteLanes R6",
         "the next place declines Rejected",

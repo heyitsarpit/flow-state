@@ -3,6 +3,13 @@ import { citedBy, type Guarantee, type Mutant } from "./dsl/oracle.ts";
 import type { InvariantId } from "./dsl/facts.ts";
 
 /**
+ * Core Spec rules that were retired and whose ids are never reused: WriteLanes R15 (`cancelAll`)
+ * and its Invariant I21. Round-14's frozen cases and the model's CancelAll column still judge
+ * them, citing them in their retired form (`Retired WriteLanes I21`); coverage counts neither.
+ */
+export const RETIRED_RULES: ReadonlyArray<string> = ["WriteLanes I21", "WriteLanes R15"];
+
+/**
  * The core Specs the suite judges (Conformance R12), by the name each Invariant id starts with.
  */
 export const CORE_SPECS = [
@@ -264,10 +271,14 @@ const named = (input: CoverageInput) => [
  * whose owner is not an open Task is unowned, and any Invariant no core Spec has is unknown.
  */
 export const coverageOf = (input: CoverageInput) => {
-  const judged = input.invariants.map((invariant) => judgeOne(input, invariant));
+  const judged = input.invariants
+    .filter((invariant) => !RETIRED_RULES.includes(invariant))
+    .map((invariant) => judgeOne(input, invariant));
 
   const unknown = named(input)
-    .filter(({ invariant }) => !input.invariants.includes(invariant))
+    .filter(
+      ({ invariant }) => !input.invariants.includes(invariant) && !invariant.startsWith("Retired "),
+    )
     .map(({ invariant, where }) => Gap.Unknown({ invariant, where }));
 
   const unowned = owners(input)

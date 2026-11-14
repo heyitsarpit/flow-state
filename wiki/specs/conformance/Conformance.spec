@@ -549,13 +549,13 @@ open
         outcome  Phase 3 bounds each static case on its own, and the split path keeps the verdicts its child stated
                  before an overrun.
 
-    Q13  Failure of R12 (I38): the guarantee map marks Reads I1 to I5, I18 and I19 as "case", yet no scenario cites
+    Q13  Failure of R12 (I38): the guarantee map marks Reads I1 to I5 and I19 as "case", yet no scenario cites
         any Reads rule; and its rows for oracles not yet built have no check at all.
         outcome  P3's area Tasks (@task.V3.T12 for Reads, and each area's Task for its pending oracle rows)
                  build the checks; until then those Invariants count as uncovered.
 
-    Q14  Failure of R12 (I37, I38) for static cases: of the 45 static Invariants (Compile 17, Diagnostics 10,
-        Codec 6, StaticCli 12), round-14 can make results for 21, and 24 are owed rows in
+    Q14  Failure of R12 (I37, I38) for static cases: of the 46 static Invariants (Compile 17, Diagnostics 10,
+        Codec 7, StaticCli 12), round-14 can make results for 21, and 25 are owed rows in
         code:packages/flow-state-v3/conformance/not-yet.ts. The static surface (prototype and null), the case
         modules for Compile and StaticCli and their mutants exist; StaticCli I2 is judged by the `graph-names`
         oracle on the runtime cases and by `CLI-09` (the graph's edges equal the Compiled's places). A check that

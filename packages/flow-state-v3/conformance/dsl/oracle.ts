@@ -97,7 +97,7 @@ export const refused = (refusal: Refusal) => ({
   subject: Option.some(refusal.subject),
 });
 
-const NAMED = /^(\S+ I\d+)(?: \([^)]*\))?: /u;
+const NAMED = /^((?:Retired )?\S+ I\d+)(?: \([^)]*\))?: /u;
 
 /**
  * A violation about `subject` (none by default) from a sentence that starts with its Invariant

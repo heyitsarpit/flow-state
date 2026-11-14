@@ -637,3 +637,9 @@ changes some part's expected trace, as I61 states; "a field no mutation reaches"
 a runtime that loses that ending. I61 loses none. The pilots notice 36 of 327 fields, so the gate built to I61 is owed
 to @task.V3.T52, held by a pending check in `conformance/parts/pending.test.ts`. Why: the close review's R4.
 Reverse: restore T39's line.
+
+## 2026-11-14, Conformance Q13 and Q14 counts follow the core Specs (T52, agent)
+
+Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): Q13 no longer names Reads I18, which the Reads Spec does
+not have; Q14 counts Codec 7 (Codec has I1 to I7), so 46 static Invariants and 25 owed rows. Why: the Spec review
+of 2026-11-12 found both. Reverse: restore Q13's and Q14's counts.

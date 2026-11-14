@@ -1,6 +1,7 @@
 import { Option } from "effect";
 import { type Cause, Life, LifeMove, Move, Obligation } from "./lifecycle-model.ts";
 import { member, turn } from "./lifecycle-members.traces.ts";
+import { RETIRED_I21 } from "./lifecycle-rules.ts";
 import { at, build, type Trace } from "./lifecycle-trace.ts";
 import type { InvariantId } from "./facts.ts";
 
@@ -219,9 +220,9 @@ const deadlineTraces: ReadonlyArray<Trace> = [
   ),
   dueTrace(
     "a cancelAll ending not reported",
-    "WriteLanes I21",
+    RETIRED_I21,
     awaiting("s", "NotSentCancelled"),
-    [wl(21)],
+    [RETIRED_I21],
     [],
     0,
   ),

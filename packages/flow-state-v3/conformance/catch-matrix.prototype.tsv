@@ -1,5 +1,5 @@
-1b.cancel-all-promotes-before-emptying	LANE-03	caught lane-queue WriteLanes I21
-1b.cancel-all-queue-reversed	LANE-04	caught lane-queue WriteLanes I21
+1b.cancel-all-promotes-before-emptying	LANE-03	caught lane-queue Retired WriteLanes I21
+1b.cancel-all-queue-reversed	LANE-04	caught lane-queue Retired WriteLanes I21
 1b.cancel-all-wire-held-at-once	LANE-04	caught lane-queue WriteLanes I20
 1b.forget-marks-held-lane	DISP-05	caught disposal Actors I32
 1b.r8-refused-ending-not-redelivered	DLV-04	caught delivered-once WriteLanes I15
@@ -165,7 +165,7 @@ o6.dispose-interrupts-wire	PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed
 o6.dispose-interrupts-wire	PAY-16/settled-during-disposal-parked	caught disposal Actors I35
 o6.no-bound	PAY-16/disposal-ends-with-the-last-fiber	caught disposal Actors I35
 o6.settled-in-bound-stays-held	PAY-16/settled-during-disposal-parked	caught disposal Actors I36
-p1h.cancel-all-idle-declines	LANE-05	caught lane-queue WriteLanes I21
+p1h.cancel-all-idle-declines	LANE-05	caught lane-queue Retired WriteLanes I21
 part.abandoned-skips-callbacks	TURN-05/removed-copy-ends-once	caught case expectations Turn I11
 part.child-refusal-ignored	TURN-05/child-refusal	caught case expectations Turn I3
 part.pending-reset-dropped	TURN-05/a-part-writing-the-key-is-a-pending-reset	caught case expectations Turn I10

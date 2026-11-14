@@ -113,7 +113,7 @@ export const lanePoliciesScenarios: ReadonlyArray<Scenario> = [
       64,
     );
   }),
-  serialize("LANE-03", ["WriteLanes R8", "WriteLanes R15"], (c) => {
+  serialize("LANE-03", ["WriteLanes R8", "Retired WriteLanes R15"], (c) => {
     const a = serial(c);
     a.ensure();
     go(a, 1);
@@ -132,7 +132,7 @@ export const lanePoliciesScenarios: ReadonlyArray<Scenario> = [
     c.ack();
     c.eq("Idle again: a new commit is sent", attemptsOf(c, "put").length, 2);
   }),
-  serialize("LANE-04", ["WriteLanes R15", "WriteLanes R14"], (c) => {
+  serialize("LANE-04", ["Retired WriteLanes R15", "WriteLanes R14"], (c) => {
     const a = serial(c);
     a.ensure();
     go(a, 1);
@@ -148,7 +148,7 @@ export const lanePoliciesScenarios: ReadonlyArray<Scenario> = [
     ]);
     c.eq("one send", attemptsOf(c, "put").length, 1);
   }),
-  serialize("LANE-05", ["WriteLanes R15", "WriteLanes R14"], (c) => {
+  serialize("LANE-05", ["Retired WriteLanes R15", "WriteLanes R14"], (c) => {
     const a = serial(c);
     a.ensure();
     a.send("All", {});
@@ -159,7 +159,7 @@ export const lanePoliciesScenarios: ReadonlyArray<Scenario> = [
     c.ack();
     c.eq("the lane still takes a commit", attemptsOf(c, "put").length, 1);
   }),
-  serialize("LANE-10", ["WriteLanes R14", "WriteLanes R15"], (c) => {
+  serialize("LANE-10", ["WriteLanes R14", "Retired WriteLanes R15"], (c) => {
     const a = serial(c);
     a.ensure();
     go(a, 1);

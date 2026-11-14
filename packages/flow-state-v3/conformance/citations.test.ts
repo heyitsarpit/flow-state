@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "vite-plus/test";
+import { RETIRED_RULES } from "./coverage.ts";
+import { productionCases } from "./runner/gates.ts";
 import { traces } from "./dsl/lifecycle.traces.ts";
 import { rules } from "./dsl/lifecycle-rules.ts";
 import { cellsOf, valueAt } from "./parts/cells.ts";
@@ -11,11 +13,10 @@ import { sourceFiles, sourceOf } from "./source-files.ts";
 const HERE = dirname(fileURLToPath(import.meta.url));
 
 /**
- * Core Spec rules that were retired and whose ids are never reused: WriteLanes R15 (`cancelAll`,
- * deferred) and WriteLanes I21, which ordered its endings. Round-14's frozen `cancelAll` cases
- * still judge them until round-14 retires, so they cite them as retired, by name.
+ * The retired rules, named bare only where they are retired: `coverage.ts` lists them and
+ * `coverage.test.ts` checks that list, so the walk leaves those two files out.
  */
-const RETIRED: ReadonlyArray<string> = ["WriteLanes I21", "WriteLanes R15"];
+const RETIRED = RETIRED_RULES;
 
 const bare = (text: string) =>
   RETIRED.filter((id) => {
@@ -41,7 +42,12 @@ const runtimeCites = () => [
 
 describe("citations name live rules, or a retired one as retired (Conformance R5, I9, I10)", () => {
   it("no file cites a retired rule but as retired", () => {
-    const files = filesIn(HERE).filter((file) => file !== fileURLToPath(import.meta.url));
+    const naming = ["coverage.ts", "coverage.test.ts"].map((f) => `${HERE}/${f}`);
+
+    const files = filesIn(HERE).filter(
+      (file) => file !== fileURLToPath(import.meta.url) && !naming.includes(file),
+    );
+
     assert.ok(files.length > 100, "the walk found no files");
 
     const citing = files.flatMap((file) =>
@@ -56,6 +62,15 @@ describe("citations name live rules, or a retired one as retired (Conformance R5
     assert.ok(cites.length > 0, "the model built no cite");
 
     assert.deepStrictEqual([...new Set(cites.flatMap(bare))], []);
+  });
+
+  it("the retired cancelAll cases run on round-14 only, never among production's cases", () => {
+    const retired = ["LANE-03", "LANE-04", "LANE-05", "LANE-10"];
+
+    assert.deepEqual(
+      productionCases.filter((id) => retired.includes(id)),
+      [],
+    );
   });
 
   it("refuses a planted bare citation and accepts the retired form", () => {

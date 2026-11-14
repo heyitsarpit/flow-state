@@ -37,7 +37,7 @@
 1b.cancel-all-promotes-before-emptying	DLV-07	green
 1b.cancel-all-promotes-before-emptying	LANE-01	green
 1b.cancel-all-promotes-before-emptying	LANE-02	green
-1b.cancel-all-promotes-before-emptying	LANE-03	caught lane-queue WriteLanes I21
+1b.cancel-all-promotes-before-emptying	LANE-03	caught lane-queue Retired WriteLanes I21
 1b.cancel-all-promotes-before-emptying	LANE-04	green
 1b.cancel-all-promotes-before-emptying	LANE-05	green
 1b.cancel-all-promotes-before-emptying	LANE-06	green
@@ -160,7 +160,7 @@
 1b.cancel-all-queue-reversed	LANE-01	green
 1b.cancel-all-queue-reversed	LANE-02	green
 1b.cancel-all-queue-reversed	LANE-03	green
-1b.cancel-all-queue-reversed	LANE-04	caught lane-queue WriteLanes I21
+1b.cancel-all-queue-reversed	LANE-04	caught lane-queue Retired WriteLanes I21
 1b.cancel-all-queue-reversed	LANE-05	green
 1b.cancel-all-queue-reversed	LANE-06	green
 1b.cancel-all-queue-reversed	LANE-07	green
@@ -15411,7 +15411,7 @@ p1h.cancel-all-idle-declines	LANE-01	green
 p1h.cancel-all-idle-declines	LANE-02	green
 p1h.cancel-all-idle-declines	LANE-03	green
 p1h.cancel-all-idle-declines	LANE-04	green
-p1h.cancel-all-idle-declines	LANE-05	caught lane-queue WriteLanes I21
+p1h.cancel-all-idle-declines	LANE-05	caught lane-queue Retired WriteLanes I21
 p1h.cancel-all-idle-declines	LANE-06	green
 p1h.cancel-all-idle-declines	LANE-07	green
 p1h.cancel-all-idle-declines	LANE-08	green

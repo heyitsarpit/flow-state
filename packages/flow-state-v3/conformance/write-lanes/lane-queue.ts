@@ -25,7 +25,7 @@ const GUARANTEE: ReadonlyArray<InvariantId> = [
   "WriteLanes I11",
   "WriteLanes I12",
   "WriteLanes I20",
-  "WriteLanes I21",
+  "Retired WriteLanes I21",
   "WriteLanes I26",
 ];
 
@@ -278,7 +278,7 @@ const headLast = (lives: LifeStep) =>
               ? []
               : [
                   {
-                    invariant: "WriteLanes I21" as const,
+                    invariant: "Retired WriteLanes I21" as const,
                     text: `cancelAll delivered the head ${h.id}'s ending before the queued ${later.map((q) => q.id).join(", ")}; the head's comes last`,
                     subject: Option.some(h.id),
                   },
@@ -318,7 +318,8 @@ const capturedAfter = (
 
 /**
  * Each write lane keeps its cells, read from the Case's one lifecycle fold: every refusal of
- * WriteLanes I1, I8, I10, I11, I12, I20 and I21, the waiting list within its policy's bound,
+ * WriteLanes I1, I8, I10, I11, I12 and I20 and Retired WriteLanes I21, the waiting list within
+ * its policy's bound,
  * at most one addressable Attempt, and a turn's members' reports in member order.
  *
  * **Details**
