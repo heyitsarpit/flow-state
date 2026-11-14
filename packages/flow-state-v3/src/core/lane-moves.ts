@@ -211,9 +211,12 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
           value: { why },
           current: true,
         }),
+      // A head the disposal holds is saved Held, so the next boot wakes no one for it.
       Become: ({ phase }) => {
         const lane = laneAt(at);
-        setLane(at.id, { ...lane, head: { ...lane.head, phase } });
+
+        if (Phase.$is("Held")(phase)) hold(at, lane, true);
+        else setLane(at.id, { ...lane, head: { ...lane.head, phase } });
       },
       Owe: ({ owner }) => {
         const lane = laneAt(at);

@@ -468,46 +468,78 @@ describe("the owed ledger on the production runtime", () => {
     );
   });
 
+  // A disposed identity has no actor record, so its saved rows wake no one at boot: "an Owing
+  // identity whose record is quarantined or reset has no live incarnation and its endings stay
+  // parked until an adopting ensure" (Restore I1). The adopting ensure's start hears them once.
+  it("a disposed identity's saved rows wake no one at boot and are heard once by the adopting ensure (Restore I1, R1; Actors I41)", () => {
+    const store = new Map<string, string>();
+    const { served, ChainMachine } = chainOver(true, PAST_DRAIN, -1);
+    const first = bootWith(served, store, 1);
+
+    testing.attach(first.built, chained, "host", false);
+    testing.send(first.built, chained, "Go", {});
+    first.page.settle();
+    first.built.runtime.disposeActor(actorRef(ChainMachine, "c1"));
+    first.page.settle();
+    testing.disposeRuntime(first.built);
+    first.page.settle();
+
+    const second = bootWith(served, store, 2);
+    assert.strictEqual(
+      second.seen.filter((e) => e._tag === "Incarnated").length,
+      0,
+      "a disposed identity's rows wake no identity at boot",
+    );
+
+    testing.attach(second.built, chained, "host", false);
+    second.page.settle();
+
+    for (const _ of [1, 2, 3]) testing.send(second.built, chained, "Poke", {});
+    second.page.settle();
+
+    assert.strictEqual(
+      knocksHeard(first.seen) + knocksHeard(second.seen),
+      knocksCommitted(first.seen) + knocksCommitted(second.seen),
+      "every knock committed is heard once",
+    );
+  });
+
   // A re-send waiting for its capture when the Runtime is disposed goes Held
   // (WriteLanes `algorithm`, disposal starts) and is saved Held, so the next boot wakes nothing
   // (Restore R1, I1; Actors T23). An ensure then hears unknown { Restored } (Actors R10), and a
   // retry invokes the Attempt once more, sent before (WriteLanes I26).
-  owed(
-    { step: "A2", red: "a Held head wakes no identity at boot" },
-    "a head held from Recapturing at Runtime disposal is saved Held: the boot wakes nothing (Actors T23, R22; Restore I1, R1)",
-    () => {
-      const store = new Map<string, string>();
-      const counts: Array<number> = [];
-      const { served } = tollOver({ on: false, tries: [] }, counts);
-      const first = bootWith(served, store, 1);
+  it("a head held from Recapturing at Runtime disposal is saved Held: the boot wakes nothing (Actors T23, R22; Restore I1, R1)", () => {
+    const store = new Map<string, string>();
+    const counts: Array<number> = [];
+    const { served } = tollOver({ on: false, tries: [] }, counts);
+    const first = bootWith(served, store, 1);
 
-      testing.attach(first.built, tolls, "host", false);
-      ring(first, "a");
-      const attempt = lastRing(first);
-      lost(first, attempt);
+    testing.attach(first.built, tolls, "host", false);
+    ring(first, "a");
+    const attempt = lastRing(first);
+    lost(first, attempt);
 
-      // The retry's capture is issued; the Runtime is disposed before its answer is heard.
-      testing.send(first.built, tolls, "Again", { tone: "a" });
-      testing.disposeRuntime(first.built);
-      first.page.settle();
+    // The retry's capture is issued; the Runtime is disposed before its answer is heard.
+    testing.send(first.built, tolls, "Again", { tone: "a" });
+    testing.disposeRuntime(first.built);
+    first.page.settle();
 
-      const second = bootWith(served, store, 2);
-      assert.strictEqual(
-        second.seen.filter((e) => e._tag === "Incarnated").length,
-        0,
-        "a Held head wakes no identity at boot",
-      );
+    const second = bootWith(served, store, 2);
+    assert.strictEqual(
+      second.seen.filter((e) => e._tag === "Incarnated").length,
+      0,
+      "a Held head wakes no identity at boot",
+    );
 
-      testing.attach(second.built, tolls, "host", true);
-      second.page.settle();
-      assert.deepStrictEqual(endingsOf(second.seen, attempt), ["unknown Restored"]);
+    testing.attach(second.built, tolls, "host", true);
+    second.page.settle();
+    assert.deepStrictEqual(endingsOf(second.seen, attempt), ["unknown Restored"]);
 
-      testing.send(second.built, tolls, "Again", { tone: "a" });
-      second.page.settle();
-      assert.deepStrictEqual(second.bell.rings, [attempt], "the retry invokes the Attempt once");
-      assert.ok((counts.at(-1) ?? 0) > 0, "the re-send carries a retryCount above 0");
-    },
-  );
+    testing.send(second.built, tolls, "Again", { tone: "a" });
+    second.page.settle();
+    assert.deepStrictEqual(second.bell.rings, [attempt], "the retry invokes the Attempt once");
+    assert.ok((counts.at(-1) ?? 0) > 0, "the re-send carries a retryCount above 0");
+  });
 
   // A never-sent head at Runtime disposal ends NotSent { Disposed } and its lane drops
   // (WriteLanes `algorithm`, disposal starts; Actors R22, I29): after a reload no lane record is
@@ -595,63 +627,91 @@ describe("the owed ledger on the production runtime", () => {
     assert.deepStrictEqual(run(true), run(false), "the Attempt ids are equal");
   });
 
+  // WriteLanes `algorithm` ledger, start: "Waiting goes Queued and Kept goes Retrying, in the order
+  // the rows were owed". Rows owed across two lanes: a Kept unknown on "b", a Waiting success on
+  // "a", then a Waiting success on "b"; the adoption hears them in that order.
+  it("a start delivers Waiting and Kept rows in the order owed, across lanes (WriteLanes algorithm start; Restore R3)", () => {
+    const jam: Jam = { on: true, tries: [] };
+    const { served, TollMachine } = tollOver(jam, []);
+    const b = bootWith(served, new Map(), 1);
+
+    testing.attach(b.built, tolls, "host", false);
+    ring(b, "b");
+    const onB = lastRing(b);
+    lost(b, onB);
+    ring(b, "a");
+    const onA = lastRing(b);
+    testing.send(b.built, tolls, "Again", { tone: "b" });
+    b.page.settle();
+    b.built.runtime.disposeActor(actorRef(TollMachine, "t1"));
+    rung(b, onA);
+    rung(b, onB);
+    jam.on = false;
+    const from = b.seen.length;
+    testing.attach(b.built, tolls, "host", false);
+    b.page.settle();
+
+    assert.deepStrictEqual(
+      deliveredOf(b.seen.slice(from)),
+      [`${onB} Unsure`, `${onA} Rang`, `${onB} Rang`],
+      "rows are heard in the order owed, across lanes",
+    );
+  });
+
   // Two Held heads with no row, created in reverse lane-id order ("c" then
   // "b"): every start (return, adoption, reload) owes each its unknown { Restored } lane by lane
   // in lane-id order (WriteLanes `algorithm` start; Restore R3), so "b" is heard before "c", and
   // the three starts deliver the same sequence (Actors I40, T21). A boot parks nothing.
-  owed(
-    { step: "A2", red: "a boot owes, parks and delivers nothing" },
-    "one start delivers on return, adoption and reload, Held heads in lane-id order, and a boot parks nothing (Actors I40, R10; Restore R1, R3; Actors T21)",
-    () => {
-      const setup = (store: Map<string, string>) => {
-        const { served, TollMachine } = tollOver({ on: false, tries: [] }, []);
-        const b = bootWith(served, store, 1);
-        testing.attach(b.built, tolls, "host", false);
-        ring(b, "c");
-        const c = lastRing(b);
-        lost(b, c);
-        ring(b, "b");
-        const bb = lastRing(b);
-        lost(b, bb);
+  it("one start delivers on return, adoption and reload, Held heads in lane-id order, and a boot parks nothing (Actors I40, R10; Restore R1, R3; Actors T21)", () => {
+    const setup = (store: Map<string, string>) => {
+      const { served, TollMachine } = tollOver({ on: false, tries: [] }, []);
+      const b = bootWith(served, store, 1);
+      testing.attach(b.built, tolls, "host", false);
+      ring(b, "c");
+      const c = lastRing(b);
+      lost(b, c);
+      ring(b, "b");
+      const bb = lastRing(b);
+      lost(b, bb);
 
-        return { b, served, TollMachine, order: [`${bb} Unsure`, `${c} Unsure`] };
-      };
+      return { b, served, TollMachine, order: [`${bb} Unsure`, `${c} Unsure`] };
+    };
 
-      const heardAfter = (seen: ReadonlyArray<Evidence>, from: number) =>
-        deliveredOf(seen.slice(from));
+    const heardAfter = (seen: ReadonlyArray<Evidence>, from: number) =>
+      deliveredOf(seen.slice(from));
 
-      // Return: the free incarnation ends past its grace and is ensured again from its record.
-      const returned = setup(new Map());
-      testing.detach(returned.b.built, tolls, "host");
-      returned.b.page.advance(1000);
-      const returnAt = returned.b.seen.length;
-      testing.attach(returned.b.built, tolls, "host", true);
-      returned.b.page.settle();
+    // Return: the free incarnation ends past its grace and is ensured again from its record.
+    const returned = setup(new Map());
+    testing.detach(returned.b.built, tolls, "host");
+    returned.b.page.advance(1000);
+    const returnAt = returned.b.seen.length;
+    testing.attach(returned.b.built, tolls, "host", true);
+    returned.b.page.settle();
 
-      // Adoption: disposeActor, then an ensure binds the unbound lanes.
-      const adopted = setup(new Map());
-      adopted.b.built.runtime.disposeActor(actorRef(adopted.TollMachine, "t1"));
-      const adoptAt = adopted.b.seen.length;
-      testing.attach(adopted.b.built, tolls, "host", false);
-      adopted.b.page.settle();
+    // Adoption: disposeActor, then an ensure binds the unbound lanes.
+    const adopted = setup(new Map());
+    adopted.b.built.runtime.disposeActor(actorRef(adopted.TollMachine, "t1"));
+    const adoptAt = adopted.b.seen.length;
+    testing.attach(adopted.b.built, tolls, "host", false);
+    adopted.b.page.settle();
 
-      // Reload: a boot rebuilds the lanes Held and wakes nothing (Restore R1).
-      const store = new Map<string, string>();
-      const reloaded = setup(store);
-      const second = bootWith(reloaded.served, store, 2);
-      assert.deepStrictEqual(
-        second.seen.filter((e) => e._tag === "Parked" || e._tag === "Ended").map((e) => e._tag),
-        [],
-        "a boot owes, parks and delivers nothing",
-      );
-      testing.attach(second.built, tolls, "host", true);
-      second.page.settle();
+    // Reload: a boot rebuilds the lanes Held and wakes nothing (Restore R1).
+    const store = new Map<string, string>();
+    const reloaded = setup(store);
+    const second = bootWith(reloaded.served, store, 2);
+    assert.deepStrictEqual(
+      second.seen.filter((e) => e._tag === "Parked" || e._tag === "Ended").map((e) => e._tag),
+      [],
+      "a boot owes, parks and delivers nothing",
+    );
+    testing.attach(second.built, tolls, "host", true);
+    second.page.settle();
 
-      assert.deepStrictEqual(heardAfter(returned.b.seen, returnAt), returned.order);
-      assert.deepStrictEqual(heardAfter(adopted.b.seen, adoptAt), adopted.order);
-      assert.deepStrictEqual(heardAfter(second.seen, 0), reloaded.order);
-    },
-  );
+    const inLaneIdOrder = "every start hears the Held heads in lane-id order";
+    assert.deepStrictEqual(heardAfter(returned.b.seen, returnAt), returned.order, inLaneIdOrder);
+    assert.deepStrictEqual(heardAfter(adopted.b.seen, adoptAt), adopted.order, inLaneIdOrder);
+    assert.deepStrictEqual(heardAfter(second.seen, 0), reloaded.order, inLaneIdOrder);
+  });
 
   // A Rejected decline from the lane table has no lane
   // (WriteLanes R10: "a declined commit has no Attempt and no lane"), so its Kept row blocks no

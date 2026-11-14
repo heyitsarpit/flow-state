@@ -55,20 +55,17 @@ export const RETRY_COUNT =
   "a re-send's retryCount is never re-captured (`invoke` sets the lane, `persist` is not called), so a boot restores the count from before the re-send and a spent `retryable({ times })` passes again (WriteAhead R13, WriteLanes I7)";
 
 /**
- * Production's bug behind a disposed identity's Held head at a boot: the boot restores and parks
- * its unbound head, so the adopting incarnation's start gets nothing (Restore R1, Actors I40: a
- * boot delivers and parks nothing).
- */
-export const UNBOUND_RESTORE =
-  "the boot restores and parks a disposed identity's unbound Held head, so the adopting incarnation's start gets nothing (Restore R1, Actors I40: a boot delivers and parks nothing)";
-
-/**
  * Production's bug behind a closed head restored after an adoption's flush: the flush holds only
  * the adopted actor's record, not every dirty one, so a success not yet captured is lost at a
  * reload and its head comes back `unknown Restored` (WriteAhead I23; found by T61's first soak).
  */
 export const PARTIAL_FLUSH =
   "an adoption's flush holds only the adopted actor's record, not every record dirty when it is issued, so a success not yet captured is lost at the reload and its closed head is restored unknown Restored (WriteAhead I23)";
+
+const VARIED_109 = [
+  "att-0000000000000000000000000001a9c8-1",
+  "att-0000000000000000000000000001a9c8-6",
+];
 
 const OWED_SUBJECTS = {
   "PART-transfers-varied-2001-shrunk|delivered-once|WriteLanes I16": [
@@ -77,10 +74,6 @@ const OWED_SUBJECTS = {
   "PART-transfers-varied-2001-shrunk|delivered-once|WriteLanes I15": [
     "att-000000000000000000000000001e8868-1",
   ],
-  "GEN-pay-search-25-shrunk|delivered-once|WriteLanes I15": [
-    "att-000000000000000000000000000061a8-1",
-  ],
-  "GEN-pay-search-25-shrunk|disposal|Actors I29": ["att-000000000000000000000000000061a8-1"],
   "MIX-sync+transfers+sign-in-stress-101|lane-queue|WriteLanes I12": [
     "att-00000000000000000000000000018a88-8",
   ],
@@ -112,184 +105,53 @@ const OWED_SUBJECTS = {
   "MIX-sync+transfers+sign-in-stress-10|disposal|Actors I29": [
     "att-00000000000000000000000000002710-1",
   ],
-  "MIX-sync+transfers+sign-in-stress-10|delivered-once|Restore I6": [
-    "att-00000000000000000000000000002710-1",
-  ],
-  "PART-cells-stress-101|delivered-once|WriteLanes I15": ["att-00000000000000000000000000018a89-1"],
-  "PART-cells-stress-101|disposal|Actors I29": ["att-00000000000000000000000000018a89-1"],
-  "PART-cells-stress-102|delivered-once|WriteLanes I15": [
-    "att-00000000000000000000000000018e71-2",
-    "att-00000000000000000000000000018e76-2",
-    "att-00000000000000000000000000018e76-4",
-    "att-00000000000000000000000000018e76-1",
-  ],
-  "PART-cells-stress-102|disposal|Actors I29": [
-    "att-00000000000000000000000000018e71-2",
-    "att-00000000000000000000000000018e76-2",
-    "att-00000000000000000000000000018e76-4",
-    "att-00000000000000000000000000018e76-1",
-  ],
-  "PART-cells-stress-104|delivered-once|WriteLanes I15": [
-    "att-00000000000000000000000000019640-1",
-    "att-00000000000000000000000000019644-2",
-  ],
-  "PART-cells-stress-104|disposal|Actors I29": [
-    "att-00000000000000000000000000019640-1",
-    "att-00000000000000000000000000019644-2",
-  ],
-  "PART-cells-stress-105|delivered-once|WriteLanes I15": [
-    "att-00000000000000000000000000019a28-1",
-    "att-00000000000000000000000000019a2f-1",
-  ],
-  "PART-cells-stress-105|disposal|Actors I29": [
-    "att-00000000000000000000000000019a28-1",
-    "att-00000000000000000000000000019a2f-1",
-  ],
-  "PART-cells-stress-106|delivered-once|WriteLanes I15": [
-    "att-00000000000000000000000000019e10-1",
-    "att-00000000000000000000000000019e19-1",
-  ],
-  "PART-cells-stress-106|disposal|Actors I29": [
-    "att-00000000000000000000000000019e10-1",
-    "att-00000000000000000000000000019e19-1",
-  ],
-  "PART-cells-stress-107|delivered-once|WriteLanes I15": ["att-0000000000000000000000000001a1fb-2"],
-  "PART-cells-stress-107|disposal|Actors I29": ["att-0000000000000000000000000001a1fb-2"],
-  "PART-cells-stress-108|delivered-once|WriteLanes I15": ["att-0000000000000000000000000001a5e1-2"],
-  "PART-cells-stress-108|disposal|Actors I29": ["att-0000000000000000000000000001a5e1-2"],
-  "PART-cells-stress-109|delivered-once|WriteLanes I15": [
-    "att-0000000000000000000000000001a9c8-1",
-    "att-0000000000000000000000000001a9d8-1",
-  ],
-  "PART-cells-stress-109|disposal|Actors I29": [
-    "att-0000000000000000000000000001a9c8-1",
-    "att-0000000000000000000000000001a9d8-1",
-  ],
-  "PART-cells-stress-10|delivered-once|WriteLanes I15": [
-    "att-00000000000000000000000000002711-1",
-    "att-00000000000000000000000000002713-1",
-  ],
-  "PART-cells-stress-10|disposal|Actors I29": [
-    "att-00000000000000000000000000002711-1",
-    "att-00000000000000000000000000002713-1",
-  ],
-  "PART-cells-stress-110|delivered-once|WriteLanes I15": [
-    "att-0000000000000000000000000001adb2-1",
-    "att-0000000000000000000000000001adbb-1",
-  ],
-  "PART-cells-stress-110|disposal|Actors I29": [
-    "att-0000000000000000000000000001adb2-1",
-    "att-0000000000000000000000000001adbb-1",
-  ],
-  "PART-cells-stress-111|delivered-once|WriteLanes I15": ["att-0000000000000000000000000001b199-2"],
-  "PART-cells-stress-111|disposal|Actors I29": ["att-0000000000000000000000000001b199-2"],
-  "PART-cells-stress-11|delivered-once|WriteLanes I15": ["att-00000000000000000000000000002afd-2"],
-  "PART-cells-stress-11|disposal|Actors I29": ["att-00000000000000000000000000002afd-2"],
-  "PART-cells-stress-12|delivered-once|WriteLanes I15": ["att-00000000000000000000000000002ee1-1"],
-  "PART-cells-stress-12|disposal|Actors I29": ["att-00000000000000000000000000002ee1-1"],
-  "PART-cells-stress-1|delivered-once|WriteLanes I15": [
-    "att-000000000000000000000000000003ee-1",
-    "att-000000000000000000000000000003f0-1",
-    "att-000000000000000000000000000003f4-1",
-  ],
-  "PART-cells-stress-1|delivered-once|WriteLanes I16": ["att-000000000000000000000000000003ee-1"],
-  "PART-cells-stress-1|disposal|Actors I29": [
-    "att-000000000000000000000000000003ee-1",
-    "att-000000000000000000000000000003f0-1",
-    "att-000000000000000000000000000003f4-1",
-  ],
-  "PART-cells-stress-1|lane-queue|WriteLanes I12": ["att-000000000000000000000000000003ee-1"],
-  "PART-cells-stress-2|delivered-once|WriteLanes I15": [
-    "att-000000000000000000000000000007d2-1",
-    "att-000000000000000000000000000007d4-1",
-  ],
-  "PART-cells-stress-2|disposal|Actors I29": [
-    "att-000000000000000000000000000007d2-1",
-    "att-000000000000000000000000000007d4-1",
-  ],
-  "PART-cells-stress-3|delivered-once|WriteLanes I15": [
-    "att-00000000000000000000000000000bb8-1",
-    "att-00000000000000000000000000000bb9-1",
-  ],
-  "PART-cells-stress-3|disposal|Actors I29": [
-    "att-00000000000000000000000000000bb8-1",
-    "att-00000000000000000000000000000bb9-1",
-  ],
-  "PART-cells-stress-4|delivered-once|WriteLanes I15": [
-    "att-00000000000000000000000000000fa0-1",
-    "att-00000000000000000000000000000fa2-2",
-  ],
+  "PART-cells-stress-4|delivered-once|WriteLanes I15": ["att-00000000000000000000000000000fa2-2"],
   "PART-cells-stress-4|delivered-once|WriteLanes I16": ["att-00000000000000000000000000000fa2-2"],
-  "PART-cells-stress-4|disposal|Actors I29": [
-    "att-00000000000000000000000000000fa0-1",
-    "att-00000000000000000000000000000fa2-2",
-  ],
+  "PART-cells-stress-4|disposal|Actors I29": ["att-00000000000000000000000000000fa2-2"],
   "PART-cells-stress-4|lane-queue|WriteLanes I12": ["att-00000000000000000000000000000fa2-2"],
-  "PART-cells-stress-6|delivered-once|WriteLanes I15": ["att-00000000000000000000000000001774-1"],
-  "PART-cells-stress-6|disposal|Actors I29": ["att-00000000000000000000000000001774-1"],
-  "PART-cells-stress-7|delivered-once|WriteLanes I15": [
-    "att-00000000000000000000000000001b58-2",
-    "att-00000000000000000000000000001b60-1",
-  ],
-  "PART-cells-stress-7|disposal|Actors I29": [
-    "att-00000000000000000000000000001b58-2",
-    "att-00000000000000000000000000001b60-1",
-  ],
   "PART-cells-stress-8|delivered-once|WriteLanes I15": [
     "att-00000000000000000000000000001f40-2",
     "att-00000000000000000000000000001f40-3",
-    "att-00000000000000000000000000001f41-1",
-    "att-00000000000000000000000000001f48-1",
   ],
   "PART-cells-stress-8|delivered-once|WriteLanes I16": [
     "att-00000000000000000000000000001f40-2",
     "att-00000000000000000000000000001f40-3",
   ],
-  "PART-cells-stress-8|disposal|Actors I29": [
-    "att-00000000000000000000000000001f40-2",
-    "att-00000000000000000000000000001f41-1",
-    "att-00000000000000000000000000001f48-1",
-  ],
+  "PART-cells-stress-8|disposal|Actors I29": ["att-00000000000000000000000000001f40-2"],
   "PART-cells-stress-8|lane-queue|WriteLanes I12": [
     "att-00000000000000000000000000001f40-2",
     "att-00000000000000000000000000001f40-3",
   ],
-  "PART-cells-stress-9|disposal|Actors I29": ["att-0000000000000000000000000000232a-1"],
+  // Persisting the lane when a re-send is invoked makes this and PART-transfers-varied-109 pass.
   "PART-cells-stress-9|lane-queue|WriteLanes I12": [
-    "att-0000000000000000000000000000232a-1",
-    "att-00000000000000000000000000002330-2",
+    "att-00000000000000000000000000002330-1",
+    "att-00000000000000000000000000002330-3",
   ],
-  "PART-cells-stress-9|lane-queue|WriteLanes I1": ["att-00000000000000000000000000002330-2"],
-  "PART-cells-stress-9|delivered-once|WriteLanes I16": ["att-00000000000000000000000000002330-2"],
-  "PART-cells-stress-9|delivered-once|WriteLanes I15": ["att-00000000000000000000000000002330-2"],
+  "PART-cells-stress-9|lane-queue|WriteLanes I1": ["att-00000000000000000000000000002330-3"],
+  "PART-cells-stress-9|delivered-once|WriteLanes I16": ["att-00000000000000000000000000002330-3"],
+  "PART-cells-stress-9|delivered-once|WriteLanes I15": ["att-00000000000000000000000000002330-3"],
+  ...Object.fromEntries(
+    [
+      "lane-queue|WriteLanes I12",
+      "delivered-once|WriteLanes I16",
+      "delivered-once|WriteLanes I15",
+    ].flatMap((row) => [
+      [`PART-cells-stress-9-shrunk|${row}`, ["att-00000000000000000000000000002328-3"]],
+      [`PART-transfers-varied-109|${row}`, VARIED_109],
+      [`PART-transfers-varied-109-shrunk|${row}`, ["att-0000000000000000000000000001a9c8-1"]],
+    ]),
+  ),
+  "PART-transfers-varied-109|disposal|Actors I29": VARIED_109,
+  "PART-transfers-varied-109-shrunk|disposal|Actors I29": [
+    "att-0000000000000000000000000001a9c8-1",
+  ],
   "PART-cells-stress-8|lane-queue|WriteLanes I1": ["att-00000000000000000000000000001f40-3"],
   "PART-pay-stress-3|lane-queue|WriteLanes I1": ["att-00000000000000000000000000000bbd-1"],
   "PART-pay-stress-12|lane-queue|WriteLanes I1": ["att-00000000000000000000000000002ee1-3"],
   "PART-pay-stress-106|lane-queue|WriteLanes I1": ["att-00000000000000000000000000019e1a-1"],
   "PART-pay-stress-112|lane-queue|WriteLanes I1": ["att-0000000000000000000000000001b584-2"],
-  "PART-pay-stress-101|delivered-once|WriteLanes I15": ["att-00000000000000000000000000018a8c-1"],
-  "PART-pay-stress-101|disposal|Actors I29": ["att-00000000000000000000000000018a8c-1"],
-  "PART-pay-stress-102|delivered-once|WriteLanes I15": [
-    "att-00000000000000000000000000018e71-1",
-    "att-00000000000000000000000000018e77-1",
-  ],
-  "PART-pay-stress-102|disposal|Actors I29": [
-    "att-00000000000000000000000000018e71-1",
-    "att-00000000000000000000000000018e77-1",
-  ],
-  "PART-pay-stress-104|delivered-once|WriteLanes I15": ["att-00000000000000000000000000019640-2"],
-  "PART-pay-stress-104|disposal|Actors I29": ["att-00000000000000000000000000019640-2"],
-  "PART-pay-stress-105|delivered-once|WriteLanes I15": [
-    "att-00000000000000000000000000019a29-1",
-    "att-00000000000000000000000000019a2f-1",
-  ],
-  "PART-pay-stress-105|disposal|Actors I29": [
-    "att-00000000000000000000000000019a29-1",
-    "att-00000000000000000000000000019a2f-1",
-  ],
   "PART-pay-stress-106|delivered-once|Restore I6": ["att-00000000000000000000000000019e16-2"],
   "PART-pay-stress-106|delivered-once|WriteLanes I15": [
-    "att-00000000000000000000000000019e11-1",
     "att-00000000000000000000000000019e16-2",
     "att-00000000000000000000000000019e1a-1",
   ],
@@ -297,145 +159,38 @@ const OWED_SUBJECTS = {
     "att-00000000000000000000000000019e16-2",
     "att-00000000000000000000000000019e1a-1",
   ],
-  "PART-pay-stress-106|disposal|Actors I29": [
-    "att-00000000000000000000000000019e11-1",
-    "att-00000000000000000000000000019e16-2",
-  ],
+  "PART-pay-stress-106|disposal|Actors I29": ["att-00000000000000000000000000019e16-2"],
   "PART-pay-stress-106|lane-queue|WriteLanes I12": [
     "att-00000000000000000000000000019e16-2",
     "att-00000000000000000000000000019e1a-1",
   ],
-  "PART-pay-stress-107|delivered-once|WriteLanes I15": ["att-0000000000000000000000000001a1fb-1"],
-  "PART-pay-stress-107|disposal|Actors I29": ["att-0000000000000000000000000001a1fb-1"],
-  "PART-pay-stress-108|delivered-once|WriteLanes I15": ["att-0000000000000000000000000001a5e3-1"],
-  "PART-pay-stress-108|disposal|Actors I29": ["att-0000000000000000000000000001a5e3-1"],
-  "PART-pay-stress-109|delivered-once|WriteLanes I15": [
-    "att-0000000000000000000000000001a9c9-2",
-    "att-0000000000000000000000000001a9c9-3",
-    "att-0000000000000000000000000001a9c9-5",
-  ],
+  "PART-pay-stress-109|delivered-once|WriteLanes I15": ["att-0000000000000000000000000001a9c9-2"],
   "PART-pay-stress-109|delivered-once|WriteLanes I16": ["att-0000000000000000000000000001a9c9-2"],
-  "PART-pay-stress-109|disposal|Actors I29": [
-    "att-0000000000000000000000000001a9c9-2",
-    "att-0000000000000000000000000001a9c9-3",
-    "att-0000000000000000000000000001a9c9-5",
-  ],
+  "PART-pay-stress-109|disposal|Actors I29": ["att-0000000000000000000000000001a9c9-2"],
   "PART-pay-stress-109|lane-queue|WriteLanes I12": ["att-0000000000000000000000000001a9c9-2"],
-  "PART-pay-stress-10|delivered-once|WriteLanes I15": [
-    "att-00000000000000000000000000002710-1",
-    "att-00000000000000000000000000002716-1",
-  ],
-  "PART-pay-stress-10|disposal|Actors I29": [
-    "att-00000000000000000000000000002710-1",
-    "att-00000000000000000000000000002716-1",
-  ],
   "PART-pay-stress-110|delivered-once|Restore I6": ["att-0000000000000000000000000001adb0-2"],
-  "PART-pay-stress-110|delivered-once|WriteLanes I15": [
-    "att-0000000000000000000000000001adb0-2",
-    "att-0000000000000000000000000001adb7-1",
-  ],
+  "PART-pay-stress-110|delivered-once|WriteLanes I15": ["att-0000000000000000000000000001adb0-2"],
   "PART-pay-stress-110|delivered-once|WriteLanes I16": ["att-0000000000000000000000000001adb0-2"],
-  "PART-pay-stress-110|disposal|Actors I29": [
-    "att-0000000000000000000000000001adb0-2",
-    "att-0000000000000000000000000001adb7-1",
-  ],
+  "PART-pay-stress-110|disposal|Actors I29": ["att-0000000000000000000000000001adb0-2"],
   "PART-pay-stress-110|lane-queue|WriteLanes I12": ["att-0000000000000000000000000001adb0-2"],
-  "PART-pay-stress-111|delivered-once|WriteLanes I15": ["att-0000000000000000000000000001b199-1"],
-  "PART-pay-stress-111|disposal|Actors I29": ["att-0000000000000000000000000001b199-1"],
-  "PART-pay-stress-112|delivered-once|WriteLanes I15": [
-    "att-0000000000000000000000000001b583-1",
-    "att-0000000000000000000000000001b584-2",
-  ],
-  "PART-pay-stress-112|disposal|Actors I29": [
-    "att-0000000000000000000000000001b583-1",
-    "att-0000000000000000000000000001b584-2",
-  ],
+  "PART-pay-stress-112|delivered-once|WriteLanes I15": ["att-0000000000000000000000000001b584-2"],
   "PART-pay-stress-112|lane-queue|WriteLanes I12": ["att-0000000000000000000000000001b584-2"],
   "PART-pay-stress-112|delivered-once|WriteLanes I16": ["att-0000000000000000000000000001b584-2"],
-  "PART-pay-stress-11|delivered-once|WriteLanes I15": ["att-00000000000000000000000000002afb-1"],
-  "PART-pay-stress-11|disposal|Actors I29": ["att-00000000000000000000000000002afb-1"],
   "PART-pay-stress-12|delivered-once|WriteLanes I15": ["att-00000000000000000000000000002ee1-3"],
   "PART-pay-stress-12|delivered-once|WriteLanes I16": ["att-00000000000000000000000000002ee1-3"],
   "PART-pay-stress-12|lane-queue|WriteLanes I12": ["att-00000000000000000000000000002ee1-3"],
-  "PART-pay-stress-1|delivered-once|WriteLanes I15": [
-    "att-000000000000000000000000000003e8-1",
-    "att-000000000000000000000000000003ee-1",
-  ],
-  "PART-pay-stress-1|disposal|Actors I29": [
-    "att-000000000000000000000000000003e8-1",
-    "att-000000000000000000000000000003ee-1",
-  ],
-  "PART-pay-stress-2|delivered-once|WriteLanes I15": [
-    "att-000000000000000000000000000007d0-2",
-    "att-000000000000000000000000000007d0-3",
-  ],
-  "PART-pay-stress-2|disposal|Actors I29": [
-    "att-000000000000000000000000000007d0-2",
-    "att-000000000000000000000000000007d0-3",
-  ],
   "PART-pay-stress-3|delivered-once|WriteLanes I15": [
-    "att-00000000000000000000000000000bb8-1",
     "att-00000000000000000000000000000bbb-2",
-    "att-00000000000000000000000000000bbb-3",
     "att-00000000000000000000000000000bbd-1",
   ],
   "PART-pay-stress-3|delivered-once|WriteLanes I16": [
     "att-00000000000000000000000000000bbb-2",
     "att-00000000000000000000000000000bbd-1",
   ],
-  "PART-pay-stress-3|disposal|Actors I29": [
-    "att-00000000000000000000000000000bb8-1",
-    "att-00000000000000000000000000000bbb-2",
-    "att-00000000000000000000000000000bbb-3",
-    "att-00000000000000000000000000000bbd-1",
-  ],
+  "PART-pay-stress-3|disposal|Actors I29": ["att-00000000000000000000000000000bbb-2"],
   "PART-pay-stress-3|lane-queue|WriteLanes I12": [
     "att-00000000000000000000000000000bbb-2",
     "att-00000000000000000000000000000bbd-1",
-  ],
-  "PART-pay-stress-4|delivered-once|WriteLanes I15": [
-    "att-00000000000000000000000000000fa6-1",
-    "att-00000000000000000000000000000fa9-1",
-  ],
-  "PART-pay-stress-4|disposal|Actors I29": [
-    "att-00000000000000000000000000000fa6-1",
-    "att-00000000000000000000000000000fa9-1",
-  ],
-  "PART-pay-stress-5|delivered-once|WriteLanes I15": ["att-00000000000000000000000000001389-1"],
-  "PART-pay-stress-5|disposal|Actors I29": ["att-00000000000000000000000000001389-1"],
-  "PART-pay-stress-6|delivered-once|WriteLanes I15": [
-    "att-00000000000000000000000000001771-1",
-    "att-00000000000000000000000000001781-1",
-  ],
-  "PART-pay-stress-6|disposal|Actors I29": [
-    "att-00000000000000000000000000001771-1",
-    "att-00000000000000000000000000001781-1",
-  ],
-  "PART-pay-stress-7|delivered-once|WriteLanes I15": [
-    "att-00000000000000000000000000001b58-2",
-    "att-00000000000000000000000000001b58-4",
-  ],
-  "PART-pay-stress-7|disposal|Actors I29": [
-    "att-00000000000000000000000000001b58-2",
-    "att-00000000000000000000000000001b58-4",
-  ],
-  "PART-pay-stress-8|delivered-once|WriteLanes I15": [
-    "att-00000000000000000000000000001f40-1",
-    "att-00000000000000000000000000001f4c-2",
-    "att-00000000000000000000000000001f4e-1",
-  ],
-  "PART-pay-stress-8|disposal|Actors I29": [
-    "att-00000000000000000000000000001f40-1",
-    "att-00000000000000000000000000001f4c-2",
-    "att-00000000000000000000000000001f4e-1",
-  ],
-  "PART-pay-stress-9|delivered-once|WriteLanes I15": [
-    "att-0000000000000000000000000000232a-1",
-    "att-00000000000000000000000000002332-1",
-  ],
-  "PART-pay-stress-9|disposal|Actors I29": [
-    "att-0000000000000000000000000000232a-1",
-    "att-00000000000000000000000000002332-1",
   ],
   "PART-transfers-stress-101|delivered-once|WriteLanes I15": [
     "att-00000000000000000000000000018a8c-1",
@@ -581,6 +336,8 @@ export const partsOwed: ReadonlyArray<PartOwed> = [
     "@task.V3.T19",
   ),
   ...owing(["PART-transfers-stress-10"], [I12, I16, I15], RETRY_COUNT, "@task.V3.T19"),
+  ...owing(["PART-transfers-varied-109"], [I12, I16, I15, I29], RETRY_COUNT, "@task.V3.T19"),
+  ...owing(["PART-cells-stress-9"], [I16, I15], RETRY_COUNT, "@task.V3.T19"),
   ...owing(
     [3, 9, 101, 111].map((s) => `PART-transfers-stress-${s}`),
     [I12, I16, I15, I29],
@@ -600,7 +357,6 @@ export const partsOwed: ReadonlyArray<PartOwed> = [
     RETRY_COUNT,
     "@task.V3.T19",
   ),
-  ...owing(["PART-cells-stress-9"], [I29], RETRY_COUNT, "@task.V3.T19"),
   ...owing(
     ["MIX-sync+transfers+sign-in-stress-10"],
     [
@@ -611,7 +367,6 @@ export const partsOwed: ReadonlyArray<PartOwed> = [
       ["lane-queue", "WriteLanes I8"],
       ["lane-queue", "WriteLanes I1"],
       ["disposal", "Actors I32"],
-      ["delivered-once", "Restore I6"],
     ],
     RETRY_COUNT,
     "@task.V3.T19",
@@ -625,13 +380,11 @@ export const partsOwed: ReadonlyArray<PartOwed> = [
     RETRY_COUNT,
     "@task.V3.T19",
   ),
-  ...owing(["PART-cells-stress-9"], [I16, I15], RETRY_COUNT, "@task.V3.T19"),
   ...owing(
     [
       "PART-pay-stress-3",
       "PART-pay-stress-12",
       "PART-pay-stress-109",
-      "PART-cells-stress-1",
       "PART-cells-stress-4",
       "PART-cells-stress-8",
     ],
@@ -645,26 +398,25 @@ export const partsOwed: ReadonlyArray<PartOwed> = [
     RETRY_COUNT,
     "@task.V3.T19",
   ),
+  // A restored head's later endings, once the restore owed at the boot (A2 fixed that): the spent
+  // retry's re-send still breaks them, cleared by capturing a re-send's retry count.
   ...owing(
     [
-      ...[
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 101, 102, 104, 105, 106, 107, 108, 109, 110, 111, 112,
-      ].map((s) => `PART-pay-stress-${s}`),
-      ...[1, 2, 3, 4, 6, 7, 8, 10, 11, 12, 101, 102, 104, 105, 106, 107, 108, 109, 110, 111].map(
-        (s) => `PART-cells-stress-${s}`,
-      ),
+      ...[3, 106, 109, 110].map((s) => `PART-pay-stress-${s}`),
+      "PART-cells-stress-4",
+      "PART-cells-stress-8",
     ],
     [I15, I29],
-    UNBOUND_RESTORE,
-    "@task.V3.T54",
+    RETRY_COUNT,
+    "@task.V3.T19",
   ),
-  ...owing(["PART-pay-stress-12"], [I15], UNBOUND_RESTORE, "@task.V3.T54"),
-  ...VARIED_OWED.map(({ id, check, invariant, root, items }) => ({
+  ...owing(["PART-pay-stress-112", "PART-pay-stress-12"], [I15], RETRY_COUNT, "@task.V3.T19"),
+  ...VARIED_OWED.map(({ id, check, invariant, items }) => ({
     case: id,
     check,
     invariant,
-    why: root === "retry" ? RETRY_COUNT : UNBOUND_RESTORE,
-    owner: root === "retry" ? "@task.V3.T19" : "@task.V3.T54",
+    why: RETRY_COUNT,
+    owner: "@task.V3.T19",
     items: items.map((i) =>
       i._tag === "Attempt" ? OwedItem.Attempt({ id: i.id }) : item(i.subject, i.step),
     ),
@@ -678,9 +430,10 @@ export const partsOwed: ReadonlyArray<PartOwed> = [
  * waits for its next start.
  */
 export const regressionsOwed: ReadonlyArray<PartOwed> = [
-  ...owing(["GEN-pay-search-25-shrunk"], [I15, I29], UNBOUND_RESTORE, "@task.V3.T54"),
   ...owing(["PART-transfers-varied-2001-shrunk"], [I16, I15], PARTIAL_FLUSH, "@task.V3.T54"),
   ...owing(["PART-transfers-stress-111-shrunk"], [I12, I16, I15, I29], RETRY_COUNT, "@task.V3.T19"),
+  ...owing(["PART-cells-stress-9-shrunk"], [I12, I16, I15], RETRY_COUNT, "@task.V3.T19"),
+  ...owing(["PART-transfers-varied-109-shrunk"], [I12, I16, I15, I29], RETRY_COUNT, "@task.V3.T19"),
 ];
 
 /**

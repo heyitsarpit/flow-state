@@ -23,7 +23,7 @@ import type { Persistence } from "./persist.ts";
  */
 export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: LedgerSteps) => {
   const { armTimer, disarmWhere, incarnationOf, used, lanesOf, enqueue } = tx;
-  const { persist, saveActor, laneWrite } = persistence;
+  const { persist, saveActor } = persistence;
 
   // ── incarnations.
   const armSchedules = (
@@ -76,9 +76,8 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     );
 
   // An incarnation starts: its Waiting and Kept rows are tried in owed order, then each Held head
-  // with no row for its Attempt is owed unknown Restored, lane by lane. The Held
-  // lane's record is written again with it, as the old admission of that ending did, until
-  // records are written from what a step touched.
+  // with no row for its Attempt is owed unknown Restored, lane by lane in lane-id order. The one
+  // delivery point of reload, return and adoption.
   const deliverRestored = (actor: ActorId) => {
     const owedAttempts = new Set(
       rowsOf(tx.world().owed, actor).flatMap((r) => Option.toArray(r.attempt)),
@@ -86,8 +85,8 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
 
     ledger.start(actor);
 
-    for (const [id, lane] of lanesOf(actor))
-      if (Phase.$is("Held")(lane.head.phase) && !owedAttempts.has(lane.head.id)) {
+    for (const [id, lane] of lanesOf(actor).toSorted(([a], [b]) => a.localeCompare(b)))
+      if (Phase.$is("Held")(lane.head.phase) && !owedAttempts.has(lane.head.id))
         ledger.owe({
           actor,
           to: Audience.Identity(),
@@ -100,8 +99,6 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
           owner: ROOT_ACTIVATION,
           current: true,
         });
-        persist(actor, [laneWrite(id, lane, false)], Due.Later());
-      }
   };
 
   const start = (actor: ActorId, from: Option.Option<ActorRecord>) => {
@@ -282,27 +279,10 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     });
     ledger.restore(restored.rows);
 
-    // Each held head's unknown Restored is decided at the boot and waits for its identity, unless
-    // its own ending is already owed; an identity owed an ending is live at ready.
-    const waitingAttempts = new Set(restored.rows.flatMap((r) => Option.toArray(r.attempt)));
-
-    for (const { id, lane } of restored.lanes)
-      if (!waitingAttempts.has(lane.head.id))
-        ledger.owe({
-          actor: lane.actor,
-          to: Audience.Identity(),
-          operation: lane.operation,
-          attempt: Option.some(lane.head.id),
-          lane: Option.some(id),
-          channel: "unknown",
-          reason: "Restored",
-          value: undefined,
-          owner: ROOT_ACTIVATION,
-          current: true,
-        });
-
-    // Only an identity whose captured lanes owe it an ending (a lane InFlight at capture, or an
-    // ending waiting before the boot) is live at ready; a Held lane's stays a record.
+    // A boot owes, parks and delivers nothing: the start of each identity it wakes does. Only an
+    // identity owed an ending (a lane in flight at capture, or a saved row) and holding an actor
+    // record that decodes is live at ready; a Held lane stays a record, and a disposed identity's
+    // rows wait for the incarnation an adopting ensure starts.
     const owed = new Map([
       ...restored.lanes
         .filter((l) => l.inFlight)
@@ -310,10 +290,8 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
       ...restored.rows.map((r) => [actorKey(r.actor), r.actor] as const),
     ]);
 
-    // An owed identity whose record does not decode is not woken; its endings stay parked for
-    // the incarnation an adopting ensure starts.
     for (const [key, actor] of owed)
-      if (!restored.undecodable.has(key)) ensure(actor, Option.none(), false);
+      if (!restored.undecodable.has(key)) ensure(actor, Option.none(), true);
   };
 
   return {

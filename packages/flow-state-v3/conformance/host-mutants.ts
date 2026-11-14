@@ -99,8 +99,8 @@ export const hostMutants: ReadonlyArray<HostMutant> = [
     edits: [
       {
         file: "src/core/ledger.ts",
-        find: '      if (Delivery.$is("Kept")(row.delivery)) {',
-        replace: '      if (Delivery.$is("Kept")(row.delivery) && row.reason === "") {',
+        find: '      } else if (Delivery.$is("Kept")(row.delivery)) {',
+        replace: '      } else if (Delivery.$is("Kept")(row.delivery) && row.reason === "") {',
       },
     ],
   },
@@ -183,8 +183,79 @@ export const hostMutants: ReadonlyArray<HostMutant> = [
     edits: [
       {
         file: "src/core/ledger.ts",
-        find: '      if (Delivery.$is("Kept")(row.delivery)) {',
-        replace: '      if (Delivery.$is("Kept")(row.delivery) && row.reason === "") {',
+        find: '      } else if (Delivery.$is("Kept")(row.delivery)) {',
+        replace: '      } else if (Delivery.$is("Kept")(row.delivery) && row.reason === "") {',
+      },
+    ],
+  },
+  {
+    name: "ledger.start-waiting-before-kept",
+    says: "a start queues every Waiting row before any Kept row's try",
+    test: "src/host/ledger.test.ts",
+    named: "a start delivers Waiting and Kept rows in the order owed",
+    red: "rows are heard in the order owed, across lanes",
+    edits: [
+      {
+        file: "src/core/ledger.ts",
+        find: '      } else if (Delivery.$is("Kept")(row.delivery)) {',
+        replace:
+          '      }\n    for (const row of rowsOf(tx.world().owed, actor))\n      if (Delivery.$is("Kept")(row.delivery)) {',
+      },
+    ],
+  },
+  {
+    name: "start.held-in-map-order",
+    says: "a start owes its Held heads' unknown Restored in the order their lanes were made",
+    test: "src/host/ledger.test.ts",
+    named: "one start delivers on return, adoption and reload",
+    red: "every start hears the Held heads in lane-id order",
+    edits: [
+      {
+        file: "src/core/incarnations.ts",
+        find: "lanesOf(actor).toSorted(([a], [b]) => a.localeCompare(b))",
+        replace: "lanesOf(actor)",
+      },
+    ],
+  },
+  {
+    name: "disposal.holds-unsaved",
+    says: "a head the disposal holds keeps its in-flight record",
+    test: "src/host/ledger.test.ts",
+    named: "a head held from Recapturing at Runtime disposal is saved Held",
+    red: "a Held head wakes no identity at boot",
+    edits: [
+      {
+        file: "src/core/lane-moves.ts",
+        find: 'if (Phase.$is("Held")(phase)) hold(at, lane, true);',
+        replace: 'if (Phase.$is("Held")(phase)) hold(at, lane, false);',
+      },
+    ],
+  },
+  {
+    name: "boot.wakes-held",
+    says: "a boot wakes the identity of every restored lane, Held ones included",
+    test: "src/host/ledger.test.ts",
+    named: "a head held from Recapturing at Runtime disposal is saved Held",
+    red: "a Held head wakes no identity at boot",
+    edits: [
+      {
+        file: "src/core/incarnations.ts",
+        find: "        .filter((l) => l.inFlight)\n",
+        replace: "",
+      },
+    ],
+  },
+  {
+    name: "boot.starts-unrecorded",
+    says: "a boot starts an owed identity that has no actor record afresh",
+    test: "src/host/ledger.test.ts",
+    named: "a disposed identity's saved rows wake no one at boot",
+    red: "a disposed identity's rows wake no identity at boot",
+    edits: [
+      {
+        file: "src/core/incarnations.ts",
+        find: "ensure(actor, Option.none(), true);",
+        replace: "ensure(actor, Option.none(), false);",
       },
     ],
   },

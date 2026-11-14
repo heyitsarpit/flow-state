@@ -14,6 +14,50 @@ export type Limit = {
   readonly why: string;
 };
 
+// The cases round-14 fails because its boot parks restores (it predates Actors I40).
+const BOOT_PARKS = [
+  "DISP-01",
+  "DISP-02",
+  "DISP-03",
+  "DISP-04",
+  "DISP-05",
+  "DLV-01",
+  "DLV-02",
+  "DLV-07",
+  "LANE-04",
+  "LANE-15",
+  "PAY-05",
+  "PAY-05/held-head-sleeps-at-boot",
+  "PAY-06/interruptible",
+  "PAY-06/uninterruptible",
+  "PAY-08/reload-while-reconciling",
+  "PAY-08/reloadDuringCharge",
+  "PAY-09/ack-stored-confirmation-lost",
+  "PAY-12/cancel-on-wire",
+  "PAY-12/defect",
+  "PAY-13/hung-commit",
+  "PAY-14",
+  "PAY-15/cancel-on-wire",
+  "PAY-15/dead-activation-timer",
+  "PAY-15/dispose-held",
+  "PAY-15/dispose-held-moved",
+  "PAY-15/press-pay-while-held",
+  "PAY-15/reload-holds-exactly-once",
+  "PAY-15/retry-budget",
+  "PAY-16/dispose-waiting-resend",
+  "PAY-16/never-answered-waits-for-the-bound",
+  "PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed",
+  "PAY-16/read-defect-issue",
+  "PAY-16/restore-keeps-mayHaveApplied",
+  "PAY-16/retry-count-persists",
+  "PAY-16/superseded-read",
+  "PAY-16/timeout-per-send",
+  "PAY-18",
+  "PAY-21",
+  "PAY-23",
+  "TURN-04/a-late-exit-with-nothing-queued-goes",
+];
+
 /**
  * Round-14's limits, each verified by `limits` (Conformance I64): its case must fail on round-14
  * by its Invariant. A limited case counts neither as a pass nor as a mutant's control on round-14
@@ -32,6 +76,12 @@ export const limits: ReadonlyArray<Limit> = [
     invariant: "Actors I43",
     why: "round-14 predates R23's final write (2026-11-12): its disposal ends before the final write is answered, so a refusal reports no StorageFailure",
   },
+  ...BOOT_PARKS.map((id) => ({
+    case: id,
+    check: "delivered-once",
+    invariant: "WriteLanes I15",
+    why: "boot parks restores, before Actors I40: round-14's boot owes each Held head its unknown { Restored } and parks it, where a boot owes, parks and delivers nothing and the identity's start owes it, so the boot's restore is an ending no commit owes",
+  })),
 ];
 
 /**

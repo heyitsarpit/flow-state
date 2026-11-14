@@ -17,32 +17,32 @@ killed	src/core/evidence-of.ts:98	cue._tag === "Cancel" || Option.exists(was, (h
 killed	src/core/evidence-of.ts:103	cue._tag !== "Refused"	PAY-10/refuse: 
 NO-ORACLE	src/core/incarnations.ts:57	disarmWhere((t) => Timer.$is("Schedule")(t) && t.incarnation !== incarnation.id);	PAY-21: seed 1: defect: NoHeldRequest
 NO-ORACLE	src/core/incarnations.ts:57	disarmWhere((t) => Timer.$is("Schedule")(t) || t.incarnation === incarnation.id);	PAY-21: seed 1: defect: NoHeldRequest
-killed	src/core/incarnations.ts:90	if (Phase.$is("Held")(lane.head.phase) || !owedAttempts.has(lane.head.id)) {	PAY-05: delivered-once
-killed	src/core/incarnations.ts:110	if (compiled !== undefined) return;	PAY-01: disposal
-SURVIVED	src/core/incarnations.ts:166	if (!live || armed.dueAt <= tx.env.now)	
-killed	src/core/incarnations.ts:176	if (incarnationOf(actor) !== undefined) {	PAY-01: disposal
-killed	src/core/incarnations.ts:179	if (Option.isSome(record) && !existing) start(actor, record);	PAY-01: disposal
-killed	src/core/incarnations.ts:182	if (incarnationOf(actor) !== undefined) return;	PAY-03: disposal
-killed	src/core/incarnations.ts:201	if (at <= 0) return;	ACT-01/free-actor-ends: disposal
-killed	src/core/incarnations.ts:231	if (incarnation === undefined) {	DISP-02: disposal
-SURVIVED	src/core/incarnations.ts:237	reads: new Map([...tx.world().reads].filter(([, r]) => r.incarnation === incarnation.id)),	
-SURVIVED	src/core/incarnations.ts:257	tx.world().mail.some((m) => actorKey(m.actor) !== actorKey(incarnation.actor));	
-NO-ORACLE	src/core/incarnations.ts:260	(t) => Timer.$is("Grace")(t) && t.incarnation !== incarnation.id,	PAY-08/reloadDuringCharge: seed 1: defect: NoHeldRequest
-SURVIVED	src/core/incarnations.ts:260	(t) => Timer.$is("Grace")(t) || t.incarnation === incarnation.id,	
-SURVIVED	src/core/incarnations.ts:263	if (busy || timing)	
-NO-ORACLE	src/core/incarnations.ts:264	disarmWhere((t) => Timer.$is("Grace")(t) && t.incarnation !== incarnation.id);	PAY-08/reloadDuringCharge: seed 1: defect: NoHeldRequest
-NO-ORACLE	src/core/incarnations.ts:264	disarmWhere((t) => Timer.$is("Grace")(t) || t.incarnation === incarnation.id);	PAY-08/reloadDuringCharge: seed 1: defect: NoHeldRequest
-killed	src/core/incarnations.ts:266	if (!busy || !timing)	PAY-03: disposal
+killed	src/core/incarnations.ts:89	if (Phase.$is("Held")(lane.head.phase) || !owedAttempts.has(lane.head.id))	PAY-07/late-may-not-leave: delivered-once,lane-queue
+killed	src/core/incarnations.ts:107	if (compiled !== undefined) return;	PAY-01: disposal
+SURVIVED	src/core/incarnations.ts:163	if (!live || armed.dueAt <= tx.env.now)	
+killed	src/core/incarnations.ts:173	if (incarnationOf(actor) !== undefined) {	PAY-01: disposal
+killed	src/core/incarnations.ts:176	if (Option.isSome(record) && !existing) start(actor, record);	PAY-01: disposal
+killed	src/core/incarnations.ts:179	if (incarnationOf(actor) !== undefined) return;	PAY-03: disposal
+killed	src/core/incarnations.ts:198	if (at <= 0) return;	ACT-01/free-actor-ends: disposal
+killed	src/core/incarnations.ts:228	if (incarnation === undefined) {	DISP-02: disposal
+SURVIVED	src/core/incarnations.ts:234	reads: new Map([...tx.world().reads].filter(([, r]) => r.incarnation === incarnation.id)),	
+SURVIVED	src/core/incarnations.ts:254	tx.world().mail.some((m) => actorKey(m.actor) !== actorKey(incarnation.actor));	
+NO-ORACLE	src/core/incarnations.ts:257	(t) => Timer.$is("Grace")(t) && t.incarnation !== incarnation.id,	PAY-08/reloadDuringCharge: seed 1: defect: NoHeldRequest
+SURVIVED	src/core/incarnations.ts:257	(t) => Timer.$is("Grace")(t) || t.incarnation === incarnation.id,	
+SURVIVED	src/core/incarnations.ts:260	if (busy || timing)	
+NO-ORACLE	src/core/incarnations.ts:261	disarmWhere((t) => Timer.$is("Grace")(t) && t.incarnation !== incarnation.id);	PAY-08/reloadDuringCharge: seed 1: defect: NoHeldRequest
+NO-ORACLE	src/core/incarnations.ts:261	disarmWhere((t) => Timer.$is("Grace")(t) || t.incarnation === incarnation.id);	PAY-08/reloadDuringCharge: seed 1: defect: NoHeldRequest
+killed	src/core/incarnations.ts:263	if (!busy || !timing)	PAY-03: disposal
 NO-ORACLE	src/core/lane-moves.ts:89	return lane !== undefined ? LaneState.Idle() : LaneState.Head({ head: lane.head });	PAY-01: seed 1: defect: TypeError: undefined is not an object (evaluating 'lane.head')
 NO-ORACLE	src/core/lane-moves.ts:95	return lane !== undefined ? defect(`no lane ${at.id} for a head's move`) : lane;	PAY-01: seed 1: defect: Error: Defect: no lane Checkout/Pay/shopper-1|pay|{"intentId":"pi1"} for a head's move
 killed	src/core/lane-moves.ts:151	const resend = purpose !== "capture";	PAY-01: 
-killed	src/core/lane-moves.ts:265	if (channel === "unknown") hold(at, lane, asked === "unknown" && !live);	PAY-16/retry-count-persists: retry-count
-killed	src/core/lane-moves.ts:313	OnWire: (p) => p.call !== call,	PAY-01: ending-channels
-killed	src/core/lane-moves.ts:314	Cancelling: (p) => p.call !== call,	PAY-12/cancel-on-wire: lane-queue
-killed	src/core/lane-moves.ts:322	Phase.$is("OnWire")(lane.head.phase) && Phase.$is("Cancelling")(lane.head.phase);	PAY-07/late-may-not-leave: disposal
-killed	src/core/lane-moves.ts:329	Acknowledging: (p) => p.ticket !== ticket,	PAY-01: 
-killed	src/core/lane-moves.ts:331	Withdrawing: (p) => p.ticket !== ticket,	LANE-08: 
-killed	src/core/lane-moves.ts:332	Recapturing: (p) => p.ticket !== ticket,	PAY-04: lane-queue
+killed	src/core/lane-moves.ts:268	if (channel === "unknown") hold(at, lane, asked === "unknown" && !live);	PAY-16/retry-count-persists: retry-count
+killed	src/core/lane-moves.ts:316	OnWire: (p) => p.call !== call,	PAY-01: ending-channels
+killed	src/core/lane-moves.ts:317	Cancelling: (p) => p.call !== call,	PAY-12/cancel-on-wire: lane-queue
+killed	src/core/lane-moves.ts:325	Phase.$is("OnWire")(lane.head.phase) && Phase.$is("Cancelling")(lane.head.phase);	PAY-07/late-may-not-leave: disposal
+killed	src/core/lane-moves.ts:332	Acknowledging: (p) => p.ticket !== ticket,	PAY-01: 
+killed	src/core/lane-moves.ts:334	Withdrawing: (p) => p.ticket !== ticket,	LANE-08: 
+killed	src/core/lane-moves.ts:335	Recapturing: (p) => p.ticket !== ticket,	PAY-04: lane-queue
 killed	src/core/lanes.ts:30	const named = Option.isSome(key) || operation.keyFields.length !== 0;	PAY-22: lane-queue
 killed	src/core/lanes.ts:30	const named = Option.isSome(key) && operation.keyFields.length === 0;	PAY-03: lane-queue
 killed	src/core/lanes.ts:40	: Option.filter(own, (id) => tx.world().lanes.get(id)?.operation !== operation.name);	PAY-22: lane-queue
@@ -64,7 +64,7 @@ killed	src/core/ledger.ts:225	if (!Delivery.$is("Queued")(row.delivery) || !Deli
 killed	src/core/ledger.ts:233	if (heard !== "Unmapped") close(now.value, Closed.Recorded({ why: "evidence" }));	PAY-01: delivered-once
 killed	src/core/ledger.ts:234	else if (heard !== "Heard") close(now.value, Closed.Delivered());	PAY-01: delivered-once
 SURVIVED	src/core/ledger.ts:252	else if (Delivery.$is("Queued")(row.delivery) && Delivery.$is("Retrying")(row.delivery))	
-SURVIVED	src/core/ledger.ts:286	if (Delivery.$is("Kept")(row.delivery) || Option.contains(row.lane, lane))	
+SURVIVED	src/core/ledger.ts:281	if (Delivery.$is("Kept")(row.delivery) || Option.contains(row.lane, lane))	
 killed	src/core/persist.ts:84	removed || compiled !== undefined ? Option.none<Values>() : encodeLane(compiled, lane);	PAY-05: disposal
 killed	src/core/persist.ts:84	removed && compiled === undefined ? Option.none<Values>() : encodeLane(compiled, lane);	PAY-01: delivered-once
 killed	src/core/persist.ts:104	if (incarnation !== undefined || !persisted(actor)) return;	PAY-05: selection

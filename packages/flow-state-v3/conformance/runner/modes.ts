@@ -3,6 +3,7 @@ import { Console, Effect, Option, Schema } from "effect";
 import { readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
+import { liarChosen } from "../limited-mutants.ts";
 import {
   caseChecks,
   FIXTURE_GAP_CAP,
@@ -64,11 +65,15 @@ export const liar = (args: ReadonlyArray<string>) =>
     const target = production ? PRODUCTION_RUNTIME : "prototype";
     const only = list(flag(args, "--mutant"));
 
-    const chosen = [...guarantees.flatMap((g) => g.mutants), ...caseChecks.mutants]
+    const named = [...guarantees.flatMap((g) => g.mutants), ...caseChecks.mutants]
       .filter((m) => m.runtime === target && !reportOnly.has(m.name))
       .filter((m) =>
         Option.match(only, { onNone: () => true, onSome: (names) => names.includes(m.name) }),
       );
+
+    const { chosen, limitedNames } = liarChosen(named, production);
+
+    for (const line of limitedNames) yield* Console.log(line);
 
     // The control: the unedited runtime replaying its own reports and answers stays green, so a
     // red under the liar gate is the mutant's, not the replay's.

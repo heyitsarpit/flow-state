@@ -58,14 +58,23 @@ const unretired = (row: string) => row.replaceAll("Retired ", "");
 /**
  * Writes the catch matrix at `path`, sorted, and returns the catches the committed file had that
  * this run lost: a (mutant, case) once `caught`, or `red` by a neighbouring oracle (T61), and now
- * anything else, or no longer run; a catch whose Invariant only took its retired form is not lost.
+ * anything else, or no longer run; a catch whose Invariant only took its retired form is not lost,
+ * nor one the runtime no longer plays (`unplayed`: a round-14 limit's case, or a limited mutant).
  */
-export const writeMatrix = (path: string, rows: ReadonlyArray<string>) =>
+export const writeMatrix = (
+  path: string,
+  rows: ReadonlyArray<string>,
+  unplayed: (mutant: string, scenario: string) => boolean = () => false,
+) =>
   Effect.sync(() => {
     const before = existsSync(path)
       ? readFileSync(path, "utf8")
           .split("\n")
-          .filter((r) => r !== "")
+          .filter((r) => {
+            const [mutant = "", scenario = ""] = r.split("\t");
+
+            return r !== "" && !unplayed(mutant, scenario);
+          })
       : [];
 
     const now = new Map(rows.map((r) => [keyOf(r), r]));

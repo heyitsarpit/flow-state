@@ -21,6 +21,7 @@ import {
   runtimePort,
   runtimeSurface,
 } from "./args.ts";
+import { ALLOWED_FILE, allowed, type Pending, refused } from "./baseline-allowed.ts";
 import { productionCases } from "./gates.ts";
 import { partsGateScripts } from "./parts-gates.ts";
 import { CASE_SECONDS } from "./run.ts";
@@ -31,57 +32,6 @@ import { CASE_SECONDS } from "./run.ts";
  * length.
  */
 export const BASELINE = resolve(PACKAGE, "conformance", "baseline.tsv");
-
-/**
- * A run whose timeline may differ from the baseline: a named entry citing the rule whose fix
- * changes it. An entry whose run no longer differs fails the compare.
- */
-export type Allowed = {
-  readonly run: string;
-  readonly pending: Pending;
-  readonly why: string;
-};
-
-/**
- * The rules a baseline difference may cite: each a rule the core broke and a pending case now
- * holds it to, such as WriteLanes I34 for a row's single Ended at its birth or WriteLanes I32 for
- * an ending applied at settlement. Anything else cannot be written.
- */
-export const PENDING = [
-  "WriteLanes I31",
-  "Actors I41",
-  "Restore I1",
-  "WriteLanes I32",
-  "WriteLanes I33",
-  "WriteLanes I34",
-  "WriteLanes I35",
-  "Restore R3",
-  "Restore R1",
-  "WriteAhead I24",
-] as const;
-
-/**
- * One of {@link PENDING}.
- */
-export type Pending = (typeof PENDING)[number];
-
-/**
- * The named differences the steps since the baseline brought, each with its pending case.
- */
-export const allowed: ReadonlyArray<Allowed> = [
-  "PART-transfers-varied-3",
-  "PART-pay-varied-1",
-  "PART-pay-varied-107",
-  "PART-pay-stress-110",
-  "PART-cells-stress-107",
-  "PART-cells-stress-108",
-  "PART-cells-varied-106",
-  "PART-cells-varied-112",
-].map((run) => ({
-  run,
-  pending: "Actors I41",
-  why: "an ending born while its identity has no incarnation waits and is heard at the next start, not dropped",
-}));
 
 const SEEDS = [1, 2];
 
@@ -401,9 +351,12 @@ const dumped = (dir: string, runs: ReadonlyArray<Played>) => {
     );
 };
 
+const differsFrom = (before: Row, row: Row, onBehaviour: boolean) =>
+  onBehaviour ? before.behaviour !== row.behaviour : before.whole !== row.whole;
+
 // One run against its baseline row: equal, a ruled class, a named entry, or bad.
 const compare = (before: Row, row: Row, onBehaviour: boolean) => {
-  const differs = onBehaviour ? before.behaviour !== row.behaviour : before.whole !== row.whole;
+  const differs = differsFrom(before, row, onBehaviour);
   const entry = allowed.find((a) => a.run === row.id);
 
   if (!differs)
@@ -466,6 +419,39 @@ export const baseline = (args: ReadonlyArray<string>) =>
       );
     }
 
+    // `--allow FILE` files named entries (a run and its `+`-joined rules per line) for the runs
+    // FILE names that now differ, replacing the filed set; the compare checks every one.
+    for (const from of Option.toArray(flag(args, "--allow"))) {
+      const was = recorded();
+
+      const named = new Map(
+        readFileSync(from, "utf8")
+          .split("\n")
+          .filter((l) => l !== "")
+          .map((l) => {
+            const [run = "", rules = ""] = l.split("\t");
+
+            return [run, rules] as const;
+          }),
+      );
+
+      const lines = rows.flatMap(({ run, row }) =>
+        Option.match(Option.fromUndefinedOr(was.get(row.id)), {
+          onNone: () => [],
+          onSome: (before) =>
+            named.has(row.id) &&
+            differsFrom(before, row, run.crash) &&
+            !onlyEndedMoved(before, row, run.crash)
+              ? [`${row.id}\t${named.get(row.id) ?? ""}`]
+              : [],
+        }),
+      );
+
+      writeFileSync(ALLOWED_FILE, `${lines.join("\n")}\n`);
+
+      return yield* Console.log(`VERDICT pass ${lines.length} entries filed in ${ALLOWED_FILE}`);
+    }
+
     if (!existsSync(BASELINE)) {
       process.exitCode = 1;
 
@@ -491,6 +477,7 @@ export const baseline = (args: ReadonlyArray<string>) =>
       .map((a) => `BAD  ${a.run}: an entry (${a.pending}) for a run that does not exist`);
 
     const bad = [
+      ...refused,
       ...compared,
       ...unknownRuns,
       ...[...was.keys()].filter((id) => !ids.has(id)).map((id) => `BAD  ${id}: lost`),

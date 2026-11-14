@@ -1,5 +1,5 @@
 import { Option } from "effect";
-import { excuses, OwedItem, type PartOwed, RETRY_COUNT, UNBOUND_RESTORE } from "../parts/owed.ts";
+import { excuses, OwedItem, type PartOwed, RETRY_COUNT } from "../parts/owed.ts";
 import type { CaseVerdict } from "./verdict.ts";
 
 /**
@@ -25,44 +25,12 @@ export const crashOwed: ReadonlyArray<PartOwed> = [
     items: [OwedItem.Attempt({ id: "att-000000000000000000000000000003e8-2" })],
   })),
   {
-    case: "DISP-02@6",
-    check: "delivered-once",
-    invariant: "WriteLanes I15",
-    why: `a reload after disposeActor of a Held head: ${UNBOUND_RESTORE}`,
-    owner: "@task.V3.T54",
-    items: [OwedItem.Attempt({ id: "att-000000000000000000000000000003e8-1" })],
-  },
-  {
-    case: "DISP-02@6",
-    check: "disposal",
-    invariant: "Actors I29",
-    why: `the restore the adopting incarnation is owed was parked at the boot instead, so it is still unmet at the end of case: ${UNBOUND_RESTORE}`,
-    owner: "@task.V3.T54",
-    items: [OwedItem.Attempt({ id: "att-000000000000000000000000000003e8-1" })],
-  },
-  {
     case: "PAY-16/dispose-waiting-resend@9",
     check: "selection",
     invariant: "Turn I2",
     why: "the disposal reports Done with a capture still out and no final write issued, so a kill then restores the leaf before the last turn (Actors R23, I44; the same bug as PAY-15/final-write-refused)",
     owner: "@task.V3.T55",
     items: [OwedItem.Item({ subject: "Checkout/Pay shopper-1", step: 10 })],
-  },
-  {
-    case: "DISP-06@5",
-    check: "delivered-once",
-    invariant: "WriteLanes I15",
-    why: `a reload after disposeActor with pay on the wire: ${UNBOUND_RESTORE}`,
-    owner: "@task.V3.T54",
-    items: [OwedItem.Attempt({ id: "att-000000000000000000000000000003e8-1" })],
-  },
-  {
-    case: "DISP-06@5",
-    check: "disposal",
-    invariant: "Actors I29",
-    why: `the restore the adopting incarnation is owed was parked at the boot instead: ${UNBOUND_RESTORE}`,
-    owner: "@task.V3.T54",
-    items: [OwedItem.Attempt({ id: "att-000000000000000000000000000003e8-1" })],
   },
 ];
 

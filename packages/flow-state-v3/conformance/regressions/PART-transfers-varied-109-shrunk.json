@@ -1,0 +1,30 @@
+{
+  "id": "PART-transfers-varied-109-shrunk",
+  "fixture": "transfers",
+  "actor": "acct-1",
+  "actors": [
+    { "fixture": "transfers", "actor": "acct-1" },
+    { "fixture": "transfers", "actor": "acct-2" }
+  ],
+  "steps": [
+    { "_tag": "ensure", "by": 0 },
+    {
+      "_tag": "send",
+      "event": "Send",
+      "payload": { "transferId": "t3", "iban": "DE89370400440532013000", "cents": 1200 },
+      "by": 0
+    },
+    { "_tag": "ack" },
+    {
+      "_tag": "answer",
+      "operation": "transfer",
+      "answer": { "_tag": "lostButLanded", "value": {} }
+    },
+    { "_tag": "send", "event": "Resend", "payload": { "transferId": "t3" }, "by": 0 },
+    { "_tag": "ack" },
+    { "_tag": "reload" },
+    { "_tag": "send", "event": "Resend", "payload": { "transferId": "t3" }, "by": 0 },
+    { "_tag": "ack" }
+  ],
+  "by": "lane-queue WriteLanes I12"
+}

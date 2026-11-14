@@ -261,18 +261,13 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
    * The one delivery point of a start: Waiting rows queue and Kept rows take their one try, in
    * the order owed.
    */
-  // Waiting rows queue before Kept rows take their try, as the start before the ledger did;
-  // owed order across both comes with the one start.
   const start = (actor: ActorId) => {
     for (const row of rowsOf(tx.world().owed, actor))
       if (Delivery.$is("Waiting")(row.delivery)) {
         tx.emit(Evidence.Unparked({ operation: row.operation, attempt: row.attempt }));
         adopt(row, Delivery.Queued());
         saved(row, row.delivery);
-      }
-
-    for (const row of rowsOf(tx.world().owed, actor))
-      if (Delivery.$is("Kept")(row.delivery)) {
+      } else if (Delivery.$is("Kept")(row.delivery)) {
         adopt(row, Delivery.Retrying());
         saved(row, row.delivery);
       }

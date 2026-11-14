@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { basename, dirname, resolve } from "node:path";
 import { coverageOf, Gap, Standing } from "../coverage.ts";
 import { generatedScenarios } from "../generated.ts";
+import { LIMITED, limitedLine, withoutLimits } from "../limited-mutants.ts";
 import { limits } from "../limits.ts";
 import { owes } from "../owes.ts";
 import { caseChecks, caseIds, guarantees, probes, scenarios, staticCases } from "../suite.ts";
@@ -246,10 +247,15 @@ const probeLine = (v: ProbeVerdict) =>
  * A full prototype falsify run rewrites its catch matrix, or with `--sweep` its sweep record
  * (every mutant on every case, the phase-out baseline), and prints each catch it lost.
  */
-const matrixOf = (full: boolean, sweep: boolean, rows: ReadonlyArray<string>) =>
+const matrixOf = (
+  full: boolean,
+  sweep: boolean,
+  rows: ReadonlyArray<string>,
+  unplayed: (mutant: string, scenario: string) => boolean,
+) =>
   full
     ? Effect.tap(
-        writeMatrix(resolve(dirname(MAIN), "..", matrixFile("prototype", sweep)), rows),
+        writeMatrix(resolve(dirname(MAIN), "..", matrixFile("prototype", sweep)), rows, unplayed),
         (lost) =>
           Effect.forEach(lost, (row) => Console.log(`BAD  lost catch: ${row}`), { concurrency: 1 }),
       )
@@ -282,23 +288,21 @@ const falsify = (args: ReadonlyArray<string>) =>
       `${unfalsified.length === 0 ? "ok  " : "BAD "} every oracle has a mutant${unfalsified.length === 0 ? "" : `; none for: ${unfalsified.join(" ")}`}`,
     );
 
-    const chosen = runnable.flatMap((g) =>
-      g.mutants
-        .filter((m) =>
-          Option.match(only, { onNone: () => true, onSome: (names) => names.includes(m.name) }),
-        )
-        .map((mutant) => ({
-          oracle: g.oracle,
-          mutant: sweep ? { ...mutant, cases: caseIds } : mutant,
-        })),
+    const named = (name: string) =>
+      Option.match(only, { onNone: () => true, onSome: (names) => names.includes(name) });
+
+    const split = withoutLimits(
+      runnable.flatMap((g) =>
+        g.mutants.filter((m) => named(m.name)).map((mutant) => ({ oracle: g.oracle, mutant })),
+      ),
+      probes.filter((p) => p.runtime === "prototype" && named(p.name)),
+      sweep ? Option.some(caseIds) : Option.none(),
     );
 
-    const chosenProbes = probes
-      .filter((p) => p.runtime === "prototype")
-      .filter((p) =>
-        Option.match(only, { onNone: () => true, onSome: (names) => names.includes(p.name) }),
-      )
-      .map((p) => (sweep ? { ...p, cases: caseIds } : p));
+    const { kept: chosen, keptProbes: chosenProbes, limitedNames } = split;
+    const limitedBad = Option.isNone(only) ? split.faults : [];
+
+    for (const line of [...limitedNames.map(limitedLine), ...limitedBad]) yield* Console.log(line);
 
     const stated = (run: string, ids: ReadonlyArray<string>) =>
       suiteIn(MAIN, run, ids, 120).pipe(
@@ -357,6 +361,7 @@ const falsify = (args: ReadonlyArray<string>) =>
       Option.isNone(only),
       sweep,
       runs.flatMap((r) => r.rows),
+      (mutant, scenario) => LIMITED.has(scenario) || limitedNames.includes(mutant),
     );
 
     for (const v of verdicts)
@@ -390,11 +395,12 @@ const falsify = (args: ReadonlyArray<string>) =>
       controlGreen,
       caught === verdicts.length,
       held === probed.length,
+      limitedBad.length === 0,
       verdicts.length + probed.length > 0,
     ].every(Boolean);
 
     yield* Console.log(
-      `VERDICT ${ok ? "pass" : "fail"} ${caught}/${verdicts.length} mutants caught, ${held}/${probed.length} probes hold`,
+      `VERDICT ${ok ? "pass" : "fail"} ${caught}/${verdicts.length} mutants caught, ${held}/${probed.length} probes hold, ${limitedNames.length} limited (owed as production mutants)`,
     );
 
     if (!ok) process.exitCode = 1;
