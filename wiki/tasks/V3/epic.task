@@ -348,6 +348,9 @@ instructions
       closes on the first round with zero blocking findings. A different model family (Fable) reads the expected
       results once per Task at step 1 (every agent-ruled expectation and at least 10 percent of the rest) and once
       at an area's close-out.
+    - Record-edit angle (the user, 2026-11-14, Q2 A): each review lists every `wiki/` file changed since the last
+      reviewed checkpoint and flags any change with no labelled `Edit (agent: …)` line (Records, below); a missing
+      line is a finding the lead fixes.
     - Process watch (the user, 2026-11-12): the orchestrator observes each builder and reviewer phase. After every
       review it notes in one line what the review found that the builder's own checks missed, and the likely
       cause (gathering, weak check, wrong side, context, rule gap). At each Task's close it writes a short
@@ -366,6 +369,9 @@ instructions
       still matter with their reason, and a link to its review file; sidecar logs and findings tables live only in
       the review files; `conformance/STATUS.md` is retired; no commit lists or gate counts beyond the one revision
       verified. Briefs and handoffs follow the user's Writing order.
+    - Labelled record edits (the user, 2026-11-14, Q1 A): every edit to a Spec, Plan or Task carries one line,
+      `Edit (agent: <lead role>, @task.V3.Tn, <date>): <what changed>. Why: <reason>. Reverse: <commit>.`, in
+      `wiki/specs/spec-log.md` for a Spec, a Task comment for a Task, and @plan.Pending for a Plan.
     - Compaction (the user, 2026-11-12): records are compacted with skill:compact-records when the last compaction
       note in log.task is over 24 hours old, checked by the review wake in cadence; no timer, no size limits. It skips 
       the active Task's own comments

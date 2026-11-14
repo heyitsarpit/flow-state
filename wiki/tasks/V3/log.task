@@ -457,3 +457,7 @@ note 2026-11-14T01:32:12Z
     Run resumed at 91560f44, pin workflow@6b7288e, weekly usage 0 percent (reserve 35). Current Task @task.V3.T47; no 
     agents live; crons 5216201b, 73dcd064 and caffeinate (pid 53764) started. First action: one Opus lead on T47's open 
     items from its last resume note, then full gates and review.
+note 2026-11-14T01:43:16Z
+    Decision (user, 2026-11-14): "this seems fine" to Q1 A (one labelled Edit line per Spec, Plan or Task edit, with 
+    agent, Task, why and reverse commit) and Q2 A (a review angle flags wiki/ changes with no label). Scope: the whole 
+    run. instructions edited.
