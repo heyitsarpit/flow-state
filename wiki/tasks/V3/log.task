@@ -315,4 +315,9 @@ note 2026-11-14T06:49:02Z
     tested on one Attempt only (weak check). Usage sampler now projects the 5-hour window and holds new reviews when it 
     projects past 100.
 note 2026-11-14T07:17:45Z
-    T52 builder 3 at 0c4ccb3c: expectations cite through c.expect (D18), owed rows keyed by Attempt, zero-case control red; resumed on 2b, item 2, items 4-7. Re-check 2 of a725ad30..0c4ccb3c started (5-hour projection 89, under the hold line). Item 2 as designed: 116 of 118 refusal cells are runtime-made moves, so the adversarial actor forges the refused report in a liar-mode step, judged by the model refusing; within Q1 B.
+    T52 builder 3 at 0c4ccb3c: expectations cite through c.expect (D18), owed rows keyed by Attempt, zero-case control 
+    red; resumed on 2b, item 2, items 4-7. Re-check 2 of a725ad30..0c4ccb3c started (5-hour projection 89, under the 
+    hold line). Item 2 as designed: 116 of 118 refusal cells are runtime-made moves, so the adversarial actor forges 
+    the refused report in a liar-mode step, judged by the model refusing; within Q1 B.
+note 2026-11-14T07:18:40Z
+    T52 builder 3 rotated out on context at dd36467b; fourth Opus builder started on 2b, item 2, items 4-7. Process watch: three T52 builders have rotated in one day, each spending much of its context on reading; the new brief asks for selective reading. Proposed for the retrospective: a T52-sized Task should split by step so each builder starts small.
