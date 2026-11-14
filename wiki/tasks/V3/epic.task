@@ -305,6 +305,8 @@ instructions
         the input inventory and a mutant for each report a check reads.
       Then build until they pass; "done" means those checks are green. A review finding is a missed requirement:
       it lands as a failing check before its fix.
+    - Before setting a Task to review, the builder diffs `conformance/gates.json` against the Task's first revision
+      and explains every changed count (the orchestrator, 2026-11-14, T60 retrospective; reverse: drop this line).
     - Which side is wrong (the user, 2026-11-12; skill:policy-verification#scope): before a red becomes a
       requirement or a fix, the lead replays it and names the wrong side with evidence: the runtime breaks a cited
       rule, or the suite's driver, model or case does.
