@@ -8,7 +8,7 @@ import { RequestPhase } from "../world/network.ts";
 import type { World } from "../world/world.ts";
 import { type CaseOptions, Crashed } from "./case.ts";
 import { empty, type Model } from "./lifecycle-model.ts";
-import { step as lifeStep } from "./lifecycle-step.ts";
+import type { StepFunction } from "./lifecycle-step.ts";
 import { Fact, type RuntimeFact, steps, Violated } from "./oracle.ts";
 import { decodeReports } from "./reports.ts";
 
@@ -54,6 +54,7 @@ export const stepEngine = (
   pending: () => boolean,
   unread: () => Option.Option<Unreadable>,
   replaceReports: (from: number, noted: number, replayed: ReadonlyArray<RuntimeFact>) => void,
+  modelStep: StepFunction,
 ) => {
   const { network, storage } = world.hosts;
   const reference = referenceFor(options.fixtures);
@@ -135,7 +136,7 @@ export const stepEngine = (
       const judgedCut = judgedStep(anchor, cut);
       anchor = judgedCut.state;
 
-      const life = lifeStep(
+      const life = modelStep(
         model,
         known,
         judgedCut.facts,

@@ -20,6 +20,10 @@ import type { Known } from "./lifecycle-owed.ts";
 import { rules } from "./lifecycle-rules.ts";
 import { step } from "./lifecycle-step.ts";
 import { Fact } from "./oracle.ts";
+import type { Script } from "./script.ts";
+import { killedBy, pilots } from "../parts/model-mutation.ts";
+import { playPart } from "../parts/play.ts";
+import { oracles } from "../suite.ts";
 
 const FIXTURES = [Pay, Serialize, Cancel];
 
@@ -744,8 +748,8 @@ const STEP_MUTANTS: ReadonlyArray<{
   },
 ];
 
-const killed = (run: Step) =>
-  examples.some((example) => {
+const exampleKill = (run: Step) =>
+  examples.find((example) => {
     try {
       example.run(using(run));
 
@@ -756,10 +760,56 @@ const killed = (run: Step) =>
     }
   });
 
+const searchKill = (scripts: ReadonlyArray<Script>, run: Step) =>
+  scripts.find((script) =>
+    Option.isSome(
+      killedBy(playPart(script, "production", rules, [], Option.none(), oracles, run).verdict),
+    ),
+  );
+
+const killerOf = (scripts: ReadonlyArray<Script>, run: Step) => {
+  const searched = searchKill(scripts, run);
+
+  if (searched !== undefined) return `search ${searched.id}`;
+
+  const example = exampleKill(run);
+
+  return example === undefined ? "survived" : `example ${example.name}`;
+};
+
+/**
+ * Who kills each step mutant: the search (a pilot script played on production under the mutated
+ * step) first, then a kept example. The three that narrow a release's transition need a non-empty
+ * `releasesOnLeave`, which no real machine has, so only an example kills them; so do the key-less
+ * retarget, another actor's ending and an unclosed turn, which no pilot's run reaches.
+ */
+const KILLERS: ReadonlyArray<string> = [
+  "a predicted key retargets a key-less member: example a key-less member names the heard ending's lane, whatever key the turn predicts (WriteLanes R9)",
+  "a commit ignores its reported key: search PART-sync-usual-1",
+  "an alternative's row is owed whichever alternative ran: search PART-sync-usual-1",
+  "an alternative's row is owed whatever alternative ran: search PART-sync-usual-1",
+  "a release is owed on any operation: search PART-sync-usual-1",
+  "a release is owed on a leaving transition of another event: example a release member anchors in a turn that leaves a releasing state, and only there",
+  "a release is owed on a leaving transition from another state: example a release member anchors in a turn that leaves a releasing state, and only there",
+  "a release is owed on a leaving transition to another state: example a release member anchors in a turn that leaves a releasing state, and only there",
+  "retryable counts one retry more: search PART-transfers-stress-1",
+  "a keyed member always names every lane: search PART-transfers-stress-1",
+  "a turn hears no ending: search PART-sync-usual-1",
+  "retention inverted: search PART-sync-stress-1",
+  "a turn hears another actor's ending: example another actor's turn of the same event does not hear the ending",
+  "a Delivered closes no turn: example a Delivered closes the open turn, so a later mint is outside it",
+];
+
 describe("lifecycle step", () => {
   for (const example of examples) it(example.name, () => example.run(using(step)));
 
-  it("every step mutant is killed by an example (review M3)", async () => {
+  it("every step mutant is killed, by the search first, then by a kept example", async () => {
+    const scripts = pilots().filter(
+      (script) => playPart(script, "production", rules, []).verdict._tag === "Pass",
+    );
+
+    const killers: Array<string> = [];
+
     for (const [index, mutant] of STEP_MUTANTS.entries()) {
       const source = readFileSync(join(HERE, mutant.file), "utf8");
 
@@ -773,10 +823,12 @@ describe("lifecycle step", () => {
 
       try {
         const imported: { readonly step: Step } = await import(join(copy, "lifecycle-step.ts"));
-        assert.ok(killed(imported.step), `${mutant.name}: survived`);
+        killers.push(`${mutant.name}: ${killerOf(scripts, imported.step)}`);
       } finally {
         rmSync(copy, { recursive: true, force: true });
       }
     }
-  });
+
+    assert.deepEqual(killers, KILLERS);
+  }, 280_000);
 });

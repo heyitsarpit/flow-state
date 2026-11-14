@@ -8,6 +8,7 @@ import { productionPort } from "../adapters/production.ts";
 import { openCase } from "../dsl/case.ts";
 import type { Judged } from "../dsl/engine.ts";
 import { type Rules, rules } from "../dsl/lifecycle-rules.ts";
+import { step as designStep, type StepFunction } from "../dsl/lifecycle-step.ts";
 import { Fact, type Oracle, type RuntimeFact } from "../dsl/oracle.ts";
 import { type Script, scenarioOf } from "../dsl/script.ts";
 import { Observation, type Turn } from "../port.ts";
@@ -56,7 +57,8 @@ export const worldSeedOf = (id: string) => Number(/-(\d+)(?:-shrunk)?$/u.exec(id
  * (R19). A violation one of the script's `owed` rows excuses (the one rule, `excuses`) does not
  * stop the run: it is kept, the run is judged to its end, and the verdict fails by every kept one
  * beside whatever else failed; anything else stops the run (`threw`). `replay` swaps in runtime
- * facts by step through the liar hook; `judges` are the suite's oracles unless a check plants one.
+ * facts by step through the liar hook; `judges` are the suite's oracles unless a check plants one;
+ * `life` is the model's step function, the design's unless a step mutant replaces it.
  */
 // RETURN_TYPE: both branches build the named Played, the refusal with an empty fact list.
 export const playPart = (
@@ -66,6 +68,7 @@ export const playPart = (
   owed: ReadonlyArray<PartOwed> = owedRows,
   replay: Option.Option<ReadonlyArray<ReadonlyArray<RuntimeFact>>> = Option.none(),
   judges: ReadonlyArray<Oracle> = oracles,
+  life: StepFunction = designStep,
 ): Played => {
   if (runtime === "round-14")
     return {
@@ -106,20 +109,23 @@ export const playPart = (
     skipped += 1;
   });
 
-  const opened = openCase({
-    port: runtime === "production" ? productionPort : nullPort,
-    fixtures: scenario.fixtures,
-    oracles: judges,
-    seed,
-    graphs: [],
-    overdue: () => false,
-    crashAt: Option.none(),
-    replay,
-    captureMs: captureMsOf(scenario.id),
-    rules: given,
-    judge: true,
-    excuse,
-  });
+  const opened = openCase(
+    {
+      port: runtime === "production" ? productionPort : nullPort,
+      fixtures: scenario.fixtures,
+      oracles: judges,
+      seed,
+      graphs: [],
+      overdue: () => false,
+      crashAt: Option.none(),
+      replay,
+      captureMs: captureMsOf(scenario.id),
+      rules: given,
+      judge: true,
+      excuse,
+    },
+    life,
+  );
 
   const ran = Result.try({
     try: () => {

@@ -50,6 +50,11 @@ code:wiki/plans/flow/references/proposals/t47-close-review-2026-11-14.md (R4, R6
   `lifecycle.test.ts`'s kills (no lost catch at the model). R15's "apart from those that record a ruling" loses
   those catches, so R15 is edited, with a spec-log line, in the step that thins the traces (Spec-contradiction
   rule: the reading that loses no ending). Reverse: restore the traces from git and R15's sentence.
+  Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): no trace deleted yet. The listed mutants are the
+  tables' only, and 57 traces whose table kills others make still pin fold code no table mutant changes (the two
+  65th-commit traces alone pin the 64-waiting bound), so they are held by name in the gate until fold mutants
+  measure them (owed to @task.V3.T61); a trace with no table kill stays. R15 is unchanged until then. Why: deleting
+  on table kills alone loses catches. Reverse: delete the held traces.
 - **D5 Strict field gate.** A model field the search does not notice fails the gate unless an owed row names it
   with an open Task (routed-gap rule); a noticed field with an owed row, an owed row naming no field and an owed
   row whose Task is not open fail too. Each unnoticed field is owed, by group, to the open Task whose scope adds

@@ -871,6 +871,10 @@ tasks
         comment     2026-11-14T11:26:43Z
             Item 5 done: Feature.owed folded into the one owed list (D2), slice read from the Task; Conformance R17, 
             I53 reworded (spec-log). Reverse: revert this commit.
+        comment     2026-11-14T11:36:36Z
+            Item 6 done: step mutants judged by the search then examples, killers recorded; trace redundancy gate 
+            built, 57 table-redundant traces held, not deleted (they pin fold code; D4 edit). Reverse: revert this 
+            commit.
     T60
         title       The suite proves its own gates and excuses
         status      done
@@ -1034,6 +1038,10 @@ tasks
             to T19, DISP-02@6 and DISP-06@5 to T54, runtime wrong in each); six pass-only regressions deleted; a trace 
             mode added. Details: code:wiki/plans/flow/references/proposals/t61-build-log-2026-11-14.md. Reverse: revert 
             both commits.
+        comment     2026-11-14T11:36:36Z
+            Owed by T52 (proposed): fold mutants of the lifecycle model (lifecycle.ts, -lanes, -lives, -fold) to judge 
+            the 57 traces held in lifecycle.test.ts's redundancy gate; delete those whose fold catches another trace 
+            makes, then edit Conformance R15.
     T54
         title       Core consolidation: owed-endings ledger, one start, diff-written records, acts into evidenceOf
         status      draft

@@ -125,3 +125,8 @@ export const step = (
 
   return result;
 };
+
+/**
+ * The model's step function's type: the design's {@link step}, or a step mutant's copy of it.
+ */
+export type StepFunction = typeof step;

@@ -30,6 +30,7 @@ import { makeWorld } from "../world/world.ts";
 import { type Actor, actorView } from "./actor.ts";
 import { stepEngine } from "./engine.ts";
 import type { Rules } from "./lifecycle-rules.ts";
+import { step as designStep, type StepFunction } from "./lifecycle-step.ts";
 import { runtimeLife } from "./life.ts";
 import { type Expect, expect } from "./static-case.ts";
 
@@ -181,9 +182,9 @@ const fieldOf = (input: Json, name: string) =>
 
 /**
  * Opens one case over a fresh world: its driven `Case`, its end and its timeline (for the players
- * in `play.ts`).
+ * in `play.ts`). `modelStep` is the model's step function: the design's, or a step mutant's copy.
  */
-export const openCase = (options: CaseOptions) => {
+export const openCase = (options: CaseOptions, modelStep: StepFunction = designStep) => {
   const world = makeWorld(options.seed, options.overdue);
   const { network, storage, page } = world.hosts;
   const facts: Array<Fact> = [];
@@ -209,6 +210,7 @@ export const openCase = (options: CaseOptions) => {
     life.pending,
     life.unread,
     replaceReports,
+    modelStep,
   );
 
   // The crash generator's kill: a reload after the step, settled and judged as a step of its own.

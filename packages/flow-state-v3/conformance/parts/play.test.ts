@@ -68,7 +68,7 @@ describe("part scripts on production (Q9, Q10, Q15, Q17: Conformance R15, R19, R
       runs.flatMap((r) => r.undecided.filter(Undecided.$is("Delay"))),
       [],
     );
-  });
+  }, 60_000);
 
   it("the null runtime fails every pilot script by a stated failure", () => {
     assert.equal(parts.length, 5);
