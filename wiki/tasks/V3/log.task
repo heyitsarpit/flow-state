@@ -604,3 +604,5 @@ note 2026-11-14T21:55:07Z
     Ruled (orchestrator, T54 A2): 18 scripts went thin because the generator still believes the old boot; the thin check stays, the belief is updated to Actors I40 and the scripts regenerated. Three liar round-14 mutants whose only report-independent catch sits in a limited case are reported as limited and owed production mutants (T18, T17), same as the falsify rule; the fixture-gap cap is not raised. Item 4: all live T19 rows root in the retry count.
 note 2026-11-14T21:59:53Z
     T54 A2: liar round-14 limited mutants done (100/100, cap unchanged). The first belief fix left 15 of 18 scripts thin; told (orchestrator) to checkpoint the finished work, model how a start and a reload close requests (Restore R3), regenerate, and re-record owed rows once at the end. The builder asked to hand off; told to continue under the rotation rule.
+note 2026-11-14T22:07:10Z
+    T54 A2: the belief now models how a start, a reload and an ack close requests, and thin scripts fell from 18 to 2. Regenerating left 160 stale owed items and 31 unowed reds. Told (orchestrator) to commit the fixes, triage reds with the retry-count plant, and re-record once.
