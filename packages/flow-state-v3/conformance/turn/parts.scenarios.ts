@@ -25,9 +25,15 @@ export const partsScenarios: ReadonlyArray<Scenario> = [
       const a = c.actor(Form, "a");
       a.ensure();
       a.send("RefuseChild", {});
-      c.eq("Turn I3: a child's refusal refuses the whole turn", c.issues().at(-1), "InvalidTurn");
-      c.eq(
-        "Turn I3: a child's refusal publishes nothing of the parent's own",
+      c.expect(
+        "Turn I3",
+        "a child's refusal refuses the whole turn",
+        c.issues().at(-1),
+        "InvalidTurn",
+      );
+      c.expect(
+        "Turn I3",
+        "a child's refusal publishes nothing of the parent's own",
         a.memory().moved,
         false,
       );
@@ -42,9 +48,12 @@ export const partsScenarios: ReadonlyArray<Scenario> = [
       a.ensure();
       a.send("SetIds", { ids: ["a", "b"] });
       a.send("SetIds", { ids: ["b"] });
-      c.eq("Turn I11: the removed copy ran whenAbandoned once, in that turn", a.memory().goneRows, [
-        "a",
-      ]);
+      c.expect(
+        "Turn I11",
+        "the removed copy ran whenAbandoned once, in that turn",
+        a.memory().goneRows,
+        ["a"],
+      );
     },
   },
   {
@@ -63,15 +72,16 @@ export const partsScenarios: ReadonlyArray<Scenario> = [
         },
       ]);
       c.eq("the part's callback wrote the key", a.memory().subject, "s9");
-      c.eq(
-        "Turn I10: the pending reset runs as a turn of its own, after the turn that wrote the key",
+      c.expect(
+        "Turn I10",
+        "the pending reset runs as a turn of its own, after the turn that wrote the key",
         c
           .reports()
           .flatMap((o) => (Observation.$is("Turn")(o) ? [o.event] : []))
           .slice(-2),
         ["Changed", "PendingReset"],
       );
-      c.eq("Turn I10: the reset ended the old copy once", a.memory().gone, ["subject:s9"]);
+      c.expect("Turn I10", "the reset ended the old copy once", a.memory().gone, ["subject:s9"]);
     },
   },
 ];

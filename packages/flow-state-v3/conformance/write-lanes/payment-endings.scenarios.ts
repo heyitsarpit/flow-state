@@ -67,7 +67,7 @@ export const paymentEndingsScenarios: ReadonlyArray<Scenario> = [
       c.eq("decline ending", lastReason(c, "pay"), "Rejected");
       c.answer("pay", Answer.Fail({ tag: "CardDeclined", fields: { code: "card_declined" } }));
       s.state("CARD");
-      c.eq("WriteLanes I8: nothing waited behind the head", row(s), undefined);
+      c.expect("WriteLanes I8", "nothing waited behind the head", row(s), undefined);
     },
   },
   {
@@ -150,8 +150,9 @@ export const paymentEndingsScenarios: ReadonlyArray<Scenario> = [
       c.ack();
       const before = c.reports().length;
       c.reload();
-      c.eq(
-        "WriteAhead I24: a head saved Held has inFlight false, so the boot wakes no one",
+      c.expect(
+        "WriteAhead I24",
+        "a head saved Held has inFlight false, so the boot wakes no one",
         c.reports().slice(before).filter(Observation.$is("Incarnated")).length,
         0,
       );

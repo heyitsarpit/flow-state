@@ -131,8 +131,9 @@ export const paymentRetryScenarios: ReadonlyArray<Scenario> = [
         c.answer("pay", Answer.Fail({ tag: "Busy", fields: { retryAfterMs: 500 } }));
         s.state("WAITING");
         c.advance(499);
-        c.eq(
-          "Turn I12: WAITING's retry delay is read from the After memory (500 ms), not the pre-turn one",
+        c.expect(
+          "Turn I12",
+          "WAITING's retry delay is read from the After memory (500 ms), not the pre-turn one",
           stateOf(c),
           "WAITING",
         );

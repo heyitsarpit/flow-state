@@ -100,17 +100,17 @@ export const violation = (sentence: string): Violation => {
 };
 
 /**
- * The Invariant a case expectation's label cites, when it starts with one
- * (`Compile I6: no computed initial runs`).
+ * The Invariant a case's declared cite names (`Compile I6`), or none for a Requirement
+ * (`Compile R17`).
  *
  * **When to use**
  *
- * The runner reads it from a failed expectation, so falsify can count a case-expectation check's
- * catch by the Invariant it names (Conformance R6).
+ * Coverage reads it from a case's `cites`, and the runner from a failed expectation's, so a
+ * case-covered row and a verdict's catch count only Invariants.
  */
 // RETURN_TYPE: the citation list; its Invariant is narrowed from the matched text.
-export const citedBy = (label: string): ReadonlyArray<InvariantId> => {
-  const invariant = NAMED.exec(`${label}: `)?.[1];
+export const citedBy = (cite: string): ReadonlyArray<InvariantId> => {
+  const invariant = NAMED.exec(`${cite}: `)?.[1];
 
   // SAFETY: the pattern matched `<Spec> I<number>`, the InvariantId shape.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a template literal type has no runtime guard to narrow with
@@ -125,12 +125,20 @@ export class UnnamedViolation extends Data.TaggedError("UnnamedViolation")<{
 }> {}
 
 /**
- * A case's own expectation did not hold. `expected` and `actual` are the values as JSON text.
+ * A core Spec rule an expectation cites: an Invariant (`Compile I6`) or a Requirement with no
+ * Invariant of its own (`Compile R17`).
+ */
+export type Cited = InvariantId | `${string} R${number}`;
+
+/**
+ * A case's own expectation did not hold. `expected` and `actual` are the values as JSON text;
+ * `cites` are the rules the expectation declared, never read from its label.
  */
 export class Mismatch extends Data.TaggedError("Mismatch")<{
   readonly label: string;
   readonly expected: string;
   readonly actual: string;
+  readonly cites: ReadonlyArray<Cited>;
 }> {}
 
 /**

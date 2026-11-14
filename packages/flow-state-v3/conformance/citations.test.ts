@@ -27,6 +27,9 @@ const bare = (text: string) =>
 
 const filesIn = (dir: string) => sourceFiles(dir, /\.(ts|tsv|txt|json)$/u);
 
+const labelCites = (text: string) =>
+  [...text.matchAll(/\beq\(\s*["'`]([A-Z][A-Za-z]* [RI]\d+)\b/gu)].map((m) => m[1]);
+
 const runtimeCites = () => [
   ...cellsOf().flatMap((cell) => {
     const value = valueAt(rules, cell);
@@ -59,6 +62,27 @@ describe("citations name live rules, or a retired one as retired (Conformance R5
     assert.deepStrictEqual(bare("judges WriteLanes R15."), ["WriteLanes R15"]);
     assert.deepStrictEqual(bare("judges Retired WriteLanes R15."), []);
     assert.deepStrictEqual(bare("WriteLanes R150"), []);
+  });
+
+  it("no expectation writes its cite into its label; it declares it with `expect`", () => {
+    const files = filesIn(HERE).filter(
+      (file) => file.endsWith(".ts") && file !== fileURLToPath(import.meta.url),
+    );
+
+    assert.ok(files.length > 100, "the walk found no files");
+
+    const citing = files.flatMap((file) =>
+      labelCites(sourceOf(file)).map((id) => `${relative(HERE, file)}: ${id}`),
+    );
+
+    assert.deepStrictEqual(citing, []);
+  });
+
+  it("refuses a planted label cite and accepts a declared one", () => {
+    assert.deepStrictEqual(labelCites('c.eq("Turn I14: refused", a, b)'), ["Turn I14"]);
+    assert.deepStrictEqual(labelCites('c.eq(\n  "WriteLanes I8: held",'), ["WriteLanes I8"]);
+    assert.deepStrictEqual(labelCites('c.expect("Turn I14", "refused", a, b)'), []);
+    assert.deepStrictEqual(labelCites('c.eq("memory unchanged", a, b)'), []);
   });
 
   it("refuses a retired id inside a list of cites, even after the retired form", () => {

@@ -54,7 +54,7 @@ export const refusalScenarios: ReadonlyArray<Scenario> = [
         onWire(c);
         const before = s.memory();
         c.answer("pay", Answer.Fail({ tag: "Busy", fields: { retryAfterMs: 2_147_483_648 } }));
-        c.eq("Turn I14: refused, then refused again on its one redelivery", c.issues(), [
+        c.expect("Turn I14", "refused, then refused again on its one redelivery", c.issues(), [
           "InvalidTurn",
           "InvalidTurn",
         ]);

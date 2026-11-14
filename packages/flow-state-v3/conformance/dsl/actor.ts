@@ -99,7 +99,12 @@ export const actorView = <F extends Fixture>(c: Case, fixture: F, id: string): A
             (why) => new Unreadable({ report: `memory of ${ref.id}`, issue: String(why) }),
           ),
         Absent: () => {
-          throw new Mismatch({ label: "memory", expected: "(live)", actual: "(absent)" });
+          throw new Mismatch({
+            label: "memory",
+            expected: "(live)",
+            actual: "(absent)",
+            cites: [],
+          });
         },
       }),
     row: (operation, key) => {

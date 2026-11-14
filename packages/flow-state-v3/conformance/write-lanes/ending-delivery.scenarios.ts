@@ -142,9 +142,10 @@ export const endingDeliveryScenarios: ReadonlyArray<Scenario> = [
       c.eq("second pay sent", c.requests("pay").length, 2);
       c.answer("pay", Answer.Ok({ value: { status: "requires_capture", clientSecret: "" } }));
       c.ack();
-      c.eq("WriteLanes I8: the kept ending holds its lane", c.requests("place").length, 1);
-      c.eq(
-        "WriteLanes R6: the next place declines Rejected",
+      c.expect("WriteLanes I8", "the kept ending holds its lane", c.requests("place").length, 1);
+      c.expect(
+        "WriteLanes R6",
+        "the next place declines Rejected",
         c.endings("place").at(-1)?.reason,
         "Rejected",
       );
@@ -166,7 +167,12 @@ export const endingDeliveryScenarios: ReadonlyArray<Scenario> = [
       c.eq("both heard unknown", a.memory().unsure, 2);
       c.reload();
       a.ensure();
-      c.eq("Restore I6: each Held head's unknown { Restored } is heard once", a.memory().unsure, 4);
+      c.expect(
+        "Restore I6",
+        "each Held head's unknown { Restored } is heard once",
+        a.memory().unsure,
+        4,
+      );
     },
   },
 ];

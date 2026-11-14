@@ -1,17 +1,10 @@
 import { Equal, Formatter } from "effect";
 import type { Surface } from "../surface.ts";
-import { Mismatch } from "./oracle.ts";
-import type { InvariantId } from "./facts.ts";
+import { type Cited, Mismatch } from "./oracle.ts";
 
 /**
- * A core Spec rule an expectation cites: an Invariant (`Compile I6`) or a Requirement with no
- * Invariant of its own (`Compile R17`).
- */
-export type Cited = InvariantId | `${string} R${number}`;
-
-/**
- * One expectation of a static case: unless `actual` equals `expected` by Effect's structural
- * equality, it fails citing `cited`.
+ * One expectation of a static or runtime case: unless `actual` equals `expected` by Effect's
+ * structural equality, it fails citing `cited`.
  *
  * **Gotchas**
  *
@@ -28,7 +21,7 @@ export type Expect = <A>(cited: Cited, label: string, actual: A, expected: NoInf
  *
  * - `cites`: the Spec Requirements and Invariants its expectations come from.
  * - `run`: builds its sources, calls the surface and checks each result with `expect`, whose
- *   failure names the Invariant it cites (Conformance R6's case expectations).
+ *   failure carries the rule it cites (Conformance R6's case expectations).
  */
 export type StaticCase = {
   readonly id: string;
@@ -39,15 +32,16 @@ export type StaticCase = {
 const shown = <A>(value: A) => Formatter.format(value);
 
 /**
- * The {@link Expect} every static case runs with: a failure is a `Mismatch` whose label starts
- * with the cited Invariant.
+ * The {@link Expect} every case runs with: a failure is a `Mismatch` that carries the cited rule
+ * apart from its label.
  */
 export const expect: Expect = (cited, label, actual, expected) => {
   if (!Equal.equals(actual, expected))
     throw new Mismatch({
-      label: `${cited}: ${label}`,
+      label,
       expected: shown(expected),
       actual: shown(actual),
+      cites: [cited],
     });
 };
 

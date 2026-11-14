@@ -29,8 +29,9 @@ export const activationsScenarios: ReadonlyArray<Scenario> = [
       a.send("Go", {});
       c.ack();
       c.answer("charge", OK);
-      c.eq(
-        "Turn I5: the first W was re-entered, so its call's ending is late and may not leave the new W",
+      c.expect(
+        "Turn I5",
+        "the first W was re-entered, so its call's ending is late and may not leave the new W",
         c.denials().at(-1)?.includes("LateMayNotLeave"),
         true,
       );

@@ -54,7 +54,7 @@ export const laneKeepingScenarios: ReadonlyArray<Scenario> = [
       s.state("UNSURE");
       s.release("story");
       c.advance(1000);
-      c.eq("WriteLanes I12: the hold outlives its grace", uncertain(s), true);
+      c.expect("WriteLanes I12", "the hold outlives its grace", uncertain(s), true);
     },
   },
   {

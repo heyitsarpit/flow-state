@@ -2,8 +2,9 @@ import { Schema } from "effect";
 
 /**
  * One case's verdict: it passed; it failed with every oracle that caught it in the failing step
- * (none for a case's own expectation or a thrown defect) and why, where `cites` is the Invariant
- * a failed case expectation cites, when its label names one; or it ran past its time bound
+ * (none for a case's own expectation or a thrown defect) and why, where `cites` are the
+ * Invariants a failed case expectation declared (never read from its label; a Requirement it
+ * declared is left out); or it ran past its time bound
  * (`Timeout`, a defect: it names no oracle and cites nothing, so it never catches a mutant).
  */
 export const CaseVerdict = Schema.Union([

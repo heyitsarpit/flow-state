@@ -50,13 +50,14 @@ export const laneKeysScenarios: ReadonlyArray<Scenario> = [
       c.eq("both sent", c.requests("keyed").length, 2);
       c.answerTo("keyed", { k: "a" }, OK);
       c.answerTo("keyed", { k: "b" }, OK);
-      c.eq(
-        "WriteLanes I14: the key-less cancel leaves the other key's lane alone",
+      c.expect(
+        "WriteLanes I14",
+        "the key-less cancel leaves the other key's lane alone",
         endedAs(c, "keyed"),
         ["success success", "success success"],
       );
       c.eq("no re-send", c.requests("keyed").length, 2);
-      c.eq("WriteLanes I14: b's lane is gone", a.row("keyed", { k: "b" }), laneGone);
+      c.expect("WriteLanes I14", "b's lane is gone", a.row("keyed", { k: "b" }), laneGone);
     },
   },
   {
@@ -68,8 +69,10 @@ export const laneKeysScenarios: ReadonlyArray<Scenario> = [
       a.ensure();
       a.send("GoBad", { k: "a" });
       c.ack();
-      c.eq("WriteLanes I18: declined, not refused", endedAs(c, "holding"), ["failure Unencodable"]);
-      c.eq("WriteLanes I18: the turn ran", turnsOf(c, "GoBad"), 1);
+      c.expect("WriteLanes I18", "declined, not refused", endedAs(c, "holding"), [
+        "failure Unencodable",
+      ]);
+      c.expect("WriteLanes I18", "the turn ran", turnsOf(c, "GoBad"), 1);
       c.eq("nothing sent", c.requests("holding").length, 0);
       a.state("A");
     },
@@ -88,12 +91,13 @@ export const laneKeysScenarios: ReadonlyArray<Scenario> = [
       c.upgrade(2);
       a.send("Go", { k: "b", region: "eu" });
       c.ack();
-      c.eq(
-        "WriteLanes I17: beside an old-version hold a commit declines OldVersion",
+      c.expect(
+        "WriteLanes I17",
+        "beside an old-version hold a commit declines OldVersion",
         a.memory().why,
         "OldVersion",
       );
-      c.eq("WriteLanes I17: no commit of it is invoked", c.requests("charge").length, 1);
+      c.expect("WriteLanes I17", "no commit of it is invoked", c.requests("charge").length, 1);
     },
   },
   {
@@ -107,11 +111,16 @@ export const laneKeysScenarios: ReadonlyArray<Scenario> = [
       c.ack();
       c.answer("rename", Answer.Fail({ tag: "Refused", fields: {} }));
       c.eq("refused", a.memory().toast, "Couldn't save the title");
-      c.eq("WriteLanes I2: a failed commit applies no success write", titleOf(c), undefined);
+      c.expect("WriteLanes I2", "a failed commit applies no success write", titleOf(c), undefined);
       a.send("Edit", { id: "i1", title: "Kept" });
       c.ack();
       c.answer("rename", Answer.Ok({ value: { title: "Kept" } }));
-      c.eq("WriteLanes I24: a succeeded commit's success write is applied", titleOf(c), "Kept");
+      c.expect(
+        "WriteLanes I24",
+        "a succeeded commit's success write is applied",
+        titleOf(c),
+        "Kept",
+      );
     },
   },
 ];

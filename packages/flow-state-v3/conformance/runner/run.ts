@@ -29,8 +29,8 @@ const failed = (failure: unknown) => {
   if (failure instanceof Mismatch)
     return {
       oracles: [],
-      why: `${failure.label}: expected ${failure.expected}, got ${failure.actual}`,
-      cites: citedBy(failure.label),
+      why: `${[...failure.cites, failure.label].join(": ")}: expected ${failure.expected}, got ${failure.actual}`,
+      cites: failure.cites.flatMap(citedBy),
     };
 
   if (failure instanceof Unreadable)

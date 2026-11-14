@@ -31,6 +31,7 @@ import { type Actor, actorView } from "./actor.ts";
 import { stepEngine } from "./engine.ts";
 import type { Rules } from "./lifecycle-rules.ts";
 import { runtimeLife } from "./life.ts";
+import { type Expect, expect } from "./static-case.ts";
 
 /**
  * One event the suite sends to one actor, its payload encoded, addressed to the actor's root
@@ -60,7 +61,9 @@ const shown = <A>(value: A) => Formatter.format(value);
  * - Every step records itself on the timeline, runs, settles the world, notes the requests it
  *   made, folds the lifecycle once over the step's facts, then runs every oracle with that fold;
  *   any violation throws `Violated`, naming every oracle that found one in that step.
- * - `eq` throws `Mismatch` unless the two values are equal by Effect's structural equality.
+ * - `expect(cited, label, actual, expected)` throws `Mismatch` citing `cited` unless the two
+ *   values are equal by Effect's structural equality; `eq(label, actual, expected)` is the same
+ *   check citing nothing, so its failure proves no case-covered check (Conformance R6).
  * - `row` is a step: it reads the row, records the read and the runtime's answer, and judges.
  * - `upgrade(release)` reloads with the app's code at another release (Boot's `release`), as a
  *   deploy between two page loads does.
@@ -107,6 +110,7 @@ export type Case = {
   readonly reload: () => void;
   readonly upgrade: (release: number) => void;
   readonly eq: <A>(label: string, actual: A, expected: NoInfer<A>) => void;
+  readonly expect: Expect;
   readonly snapshot: (actor: ActorRef) => Snapshot;
   readonly row: (actor: ActorRef, operation: string, key: Json) => Option.Option<Json>;
   readonly entity: (ref: string) => Option.Option<Json>;
@@ -302,7 +306,7 @@ export const openCase = (options: CaseOptions) => {
 
   const eq = <A>(label: string, actual: A, expected: NoInfer<A>) => {
     if (!Equal.equals(actual, expected))
-      throw new Mismatch({ label, expected: shown(expected), actual: shown(actual) });
+      throw new Mismatch({ label, expected: shown(expected), actual: shown(actual), cites: [] });
   };
 
   const row = (actor: ActorRef, operation: string, key: Json) => {
@@ -401,6 +405,7 @@ export const openCase = (options: CaseOptions) => {
       reload(`reload at release ${to}`, () => []);
     },
     eq,
+    expect,
     snapshot: (actor) => Result.getOrThrowWith(life.runtime().snapshot(actor), (f) => f),
     row,
     entity: (ref) => Result.getOrThrowWith(life.runtime().entity(ref), (f) => f),

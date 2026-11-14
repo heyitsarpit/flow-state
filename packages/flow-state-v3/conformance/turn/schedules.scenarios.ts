@@ -36,10 +36,10 @@ export const schedulesScenarios: ReadonlyArray<Scenario> = [
       onWire(c);
       s.release("story");
       c.advance(SLOW_MS + 1000);
-      c.eq("Turn I23: no firing while unused", ticks(c), 0);
-      c.eq("Turn I23: the notice is unchanged while unused", s.memory().notice, "");
+      c.expect("Turn I23", "no firing while unused", ticks(c), 0);
+      c.expect("Turn I23", "the notice is unchanged while unused", s.memory().notice, "");
       s.ensure();
-      c.eq("Turn I22: the overdue deadline fires once on the returning use", ticks(c), 1);
+      c.expect("Turn I22", "the overdue deadline fires once on the returning use", ticks(c), 1);
       s.state("PAYING");
       c.eq("notice", s.memory().notice, "Still confirming with your bank…");
     },
@@ -66,7 +66,7 @@ export const schedulesScenarios: ReadonlyArray<Scenario> = [
       onWire(c);
       c.advance(SLOW_MS - 1);
       c.eq("not before its delay", ticks(c), 0);
-      c.eq("Turn I21: no notice before its delay", shopper(c).memory().notice, "");
+      c.expect("Turn I21", "no notice before its delay", shopper(c).memory().notice, "");
       c.advance(1);
       c.eq("once at its delay", ticks(c), 1);
       c.advance(SLOW_MS);
@@ -87,7 +87,7 @@ export const schedulesScenarios: ReadonlyArray<Scenario> = [
       c.ack();
       s.state("PAYING");
       c.advance(SLOW_MS / 2 + 500);
-      c.eq("Turn I20: the first activation's deadline never fires", s.memory().notice, "");
+      c.expect("Turn I20", "the first activation's deadline never fires", s.memory().notice, "");
     },
   },
 ];

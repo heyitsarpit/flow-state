@@ -106,8 +106,9 @@ export const lanePoliciesScenarios: ReadonlyArray<Scenario> = [
     c.eq("64 queued behind the head", minted(c, "put").length, 65);
     c.eq("the 65th declines", endedAs(c, "put"), [["failure", "Overloaded"]]);
     c.eq("one send", attemptsOf(c, "put").length, 1);
-    c.eq(
-      "WriteLanes I8: 64 wait behind the head",
+    c.expect(
+      "WriteLanes I8",
+      "64 wait behind the head",
       Option.getOrUndefined(a.row("put", {}))?.outstanding,
       64,
     );
@@ -261,8 +262,9 @@ export const lanePoliciesScenarios: ReadonlyArray<Scenario> = [
       c.ack();
       c.answer("search", Answer.Lost());
       a.state("A");
-      c.eq(
-        "WriteLanes I5: a not-retained unknown leaves no Held lane",
+      c.expect(
+        "WriteLanes I5",
+        "a not-retained unknown leaves no Held lane",
         a.row("search", {}),
         laneGone,
       );
@@ -288,7 +290,7 @@ export const lanePoliciesScenarios: ReadonlyArray<Scenario> = [
       toTrait(c, 3);
       a.send("Leave", {});
       a.state("AWAY");
-      c.eq("WriteLanes I15: a releasing lane delivers nothing", delivered(c, "q"), []);
+      c.expect("WriteLanes I15", "a releasing lane delivers nothing", delivered(c, "q"), []);
       c.eq("only the head was sent", attemptsOf(c, "q").length, 1);
     },
   },
@@ -305,7 +307,7 @@ export const lanePoliciesScenarios: ReadonlyArray<Scenario> = [
       a.send("Leave", {});
       c.answer("q", OK);
       a.state("AWAY");
-      c.eq("WriteLanes I15: a releasing lane delivers nothing", delivered(c, "q"), []);
+      c.expect("WriteLanes I15", "a releasing lane delivers nothing", delivered(c, "q"), []);
       c.eq("only the head was sent", attemptsOf(c, "q").length, 1);
     },
   },
@@ -322,8 +324,9 @@ export const lanePoliciesScenarios: ReadonlyArray<Scenario> = [
       a.send("Leave", {});
       c.answer("q", OK);
       a.state("AWAY");
-      c.eq(
-        "WriteLanes I23: the late result after the release is heard by no one",
+      c.expect(
+        "WriteLanes I23",
+        "the late result after the release is heard by no one",
         delivered(c, "q"),
         [],
       );
@@ -342,8 +345,9 @@ export const lanePoliciesScenarios: ReadonlyArray<Scenario> = [
       a.send("Leave", {});
       c.answer("q", Answer.Lost());
       a.state("AWAY");
-      c.eq(
-        "WriteLanes I23: a late unknown after the release holds no lane",
+      c.expect(
+        "WriteLanes I23",
+        "a late unknown after the release holds no lane",
         a.row("q", {}),
         laneGone,
       );

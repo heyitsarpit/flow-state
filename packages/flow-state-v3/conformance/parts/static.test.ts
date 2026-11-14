@@ -51,7 +51,8 @@ const failureOf = (surface: Surface, id: string) => {
 
     return "pass";
   } catch (failure) {
-    if (failure instanceof Mismatch) return `Mismatch ${failure.label} (actual ${failure.actual})`;
+    if (failure instanceof Mismatch)
+      return `Mismatch ${[...failure.cites, failure.label].join(": ")} (actual ${failure.actual})`;
 
     return `Error ${String(failure)}`;
   }

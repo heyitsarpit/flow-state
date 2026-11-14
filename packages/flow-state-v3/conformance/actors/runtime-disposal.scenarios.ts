@@ -111,8 +111,9 @@ export const runtimeDisposalScenarios: ReadonlyArray<Scenario> = [
       s.state("PAYING");
       c.disposeRuntime();
       c.reload();
-      c.eq(
-        "Restore I6: the boot delivers the Held head's unknown { Restored }",
+      c.expect(
+        "Restore I6",
+        "the boot delivers the Held head's unknown { Restored }",
         row(s)?.uncertain,
         true,
       );

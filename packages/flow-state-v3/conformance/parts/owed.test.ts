@@ -3,7 +3,10 @@ import { describe, it } from "vite-plus/test";
 import { Effect } from "effect";
 import { coreTriage, triageFaults } from "../core-mutants-triage.ts";
 import { verdictOfLimit } from "../limits.ts";
+import { type Cited, Mismatch } from "../dsl/oracle.ts";
+import { expect } from "../dsl/static-case.ts";
 import { verdict } from "../runner/parts-gates.ts";
+import { verdictOf } from "../runner/run.ts";
 import { scenarios } from "../suite.ts";
 import { combinationGate } from "./pairs.ts";
 import { partFaults } from "./play.ts";
@@ -101,6 +104,48 @@ describe("owed cases are matched by id and cited Invariant, not label text (Conf
     const owed = scenarios.find((s) => s.id === "TURN-01/schedule-out-of-range");
 
     assert.ok(owed?.cites.includes("Turn I14"));
+  });
+});
+
+describe("a failed expectation's cites are declared apart from its label (Conformance R6)", () => {
+  const mismatch = (label: string, cites: ReadonlyArray<Cited>) =>
+    new Mismatch({ label, expected: "1", actual: "2", cites });
+
+  it("the verdict cites what the expectation declares", () => {
+    const failed = verdictOf("A", 1, mismatch("refused twice", ["Turn I14"]));
+
+    assert.deepStrictEqual(failed._tag === "Fail" ? failed.cites : [], ["Turn I14"]);
+  });
+
+  it("a declared Requirement reaches no verdict cite, so it proves no catch", () => {
+    const failed = verdictOf("A", 1, mismatch("the next place declines", ["WriteLanes R6"]));
+
+    assert.equal(failed._tag === "Fail" ? failed.cites : [], undefined);
+  });
+
+  it("a cite written into the label is not a cite", () => {
+    const failed = verdictOf("A", 1, mismatch("Turn I14: refused twice", []));
+
+    assert.equal(failed._tag === "Fail" ? failed.cites : [], undefined);
+  });
+
+  it("a static expectation's failure carries its cite and keeps its label bare", () => {
+    assert.throws(
+      () => expect("Compile I6", "no computed initial runs", 1, 2),
+      (e) =>
+        e instanceof Mismatch &&
+        e.label === "no computed initial runs" &&
+        e.cites[0] === "Compile I6",
+    );
+  });
+
+  it("the why still names the cite", () => {
+    const failed = verdictOf("A", 1, mismatch("refused twice", ["Turn I14"]));
+
+    assert.equal(
+      failed._tag === "Fail" ? failed.why : "",
+      "seed 1: Turn I14: refused twice: expected 1, got 2",
+    );
   });
 });
 
