@@ -54,6 +54,9 @@ const heard = (request: Request, operation: OperationReference) =>
  * **Gotchas**
  *
  * - `Never` settles nothing: the request stays open, so the answer is none.
+ * - `endedUnknown`: the Attempt already ended unknown (a cancel on the wire, a lost answer), so an
+ *   earlier send may have applied whatever the server answered it later, which the runtime never
+ *   heard: a definite failure is `StillUnknown` (WriteLanes R2).
  */
 // RETURN_TYPE: the branches build literal channels that would infer as several object types.
 export const endingOf = (
@@ -61,13 +64,14 @@ export const endingOf = (
   requests: ReadonlyArray<Request>,
   request: Request,
   answer: Answer,
+  endedUnknown = false,
 ): Option.Option<{ readonly channel: Channel; readonly reason: Option.Option<string> }> => {
   if (Answer.$is("Never")(answer)) return Option.none();
 
   if (Answer.$is("Die")(answer))
     return Option.some({ channel: "unknown", reason: Option.some("Defect") });
 
-  const may = mayHaveApplied(requests, request, operation);
+  const may = endedUnknown || mayHaveApplied(requests, request, operation);
   const channel = operation.classify(answer, may);
 
   if (channel === "failure" && may)

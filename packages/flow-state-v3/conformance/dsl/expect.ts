@@ -115,7 +115,15 @@ export const answeredEnding = (known: Known, lane: LaneId, walk: Walk, attempt: 
     Option.fromUndefinedOr(walk.answers.findLast((a) => Option.contains(a.request.key, attempt))),
     (a) =>
       Option.flatMap(operationOf(known, lane.actor, lane.operation), (o) =>
-        endingOf(o, walk.requests, a.request, a.answer),
+        endingOf(
+          o,
+          walk.requests,
+          a.request,
+          a.answer,
+          walk.model.endings.some(
+            (e) => Option.contains(e.attempt, attempt) && e.channel === "unknown",
+          ),
+        ),
       ),
   );
 

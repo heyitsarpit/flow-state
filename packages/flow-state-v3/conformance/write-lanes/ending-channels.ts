@@ -243,7 +243,7 @@ const atOnce = (fact: Fact) =>
     : Option.none();
 
 const asking =
-  (reference: Reference, requests: ReadonlyArray<Request>) =>
+  (reference: Reference, requests: ReadonlyArray<Request>, unsure: Unsure) =>
   // RETURN_TYPE: the reducer's accumulator; the early returns and the rebuilt Map must agree.
   (answers: Answers, given: ReturnType<typeof answerOf>): Answers => {
     if (Option.isNone(given) || Option.isNone(given.value.request.key)) return answers;
@@ -251,7 +251,13 @@ const asking =
     const ref = { operation: request.operation, attempt: given.value.request.key.value };
 
     const expected = Option.flatMap(operationNamed(reference, request.operation), (o) =>
-      endingOf(o, requests, request, answer),
+      endingOf(
+        o,
+        requests,
+        request,
+        answer,
+        unsure.some((u) => sameAttempt(u, ref)),
+      ),
     );
 
     if (Option.isNone(expected)) return answers;
@@ -305,8 +311,9 @@ const endedAsAnswered = (
   reference: Reference,
   requests: ReadonlyArray<Request>,
   cancels: ReadonlySet<string>,
+  unsure: Unsure,
 ) => {
-  const ask = asking(reference, requests);
+  const ask = asking(reference, requests, unsure);
 
   const early = step.reduce<Answers>((answers, fact) => ask(answers, atOnce(fact)), {
     live,
@@ -434,7 +441,16 @@ export const endingChannels = oracle<State>({
   }),
   step: (state, step, requests) => {
     const cancels = cancelling(state.cancels, step);
-    const [live, answered] = endedAsAnswered(state.live, step, state.reference, requests, cancels);
+
+    const [live, answered] = endedAsAnswered(
+      state.live,
+      step,
+      state.reference,
+      requests,
+      cancels,
+      state.unsure,
+    );
+
     const [mapped, delivered] = deliveredAsMapped(state.mapped, step, state.reference);
     const [unsure, failed] = failureAfterUnknown(state.unsure, step);
 
