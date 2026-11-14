@@ -11,7 +11,6 @@ import { schedules } from "../turn/schedules.ts";
 import { anchorAt, anchorOf, judgedStep } from "../turn/selection.ts";
 import { parts } from "../../fixtures/index.ts";
 import { Option } from "effect";
-import { modelFields, modelMutants } from "./model-mutation.ts";
 import { owedRows } from "./owed.ts";
 import { playPart } from "./play.ts";
 import { scriptById } from "./records.ts";
@@ -23,13 +22,6 @@ import { partFixture } from "./reference.ts";
  * and this pending one is deleted.
  */
 describe("pending checks, owed to other Tasks (routed gaps)", () => {
-  it("T52: model fields that no part's expected trace notices remain (Conformance I61, T39)", () => {
-    const noticed = modelMutants().filter((m) => m.noticed).length;
-
-    assert.ok(noticed > 0);
-    assert.ok(noticed < modelFields().length);
-  }, 60_000);
-
   it("revisit (suite judging): owed scripts skip the skipped-answers rule, and many are thin (N9)", () => {
     const thin = [...new Set(owedRows.map((o) => o.case))].filter((id) => {
       const script = Option.getOrThrow(scriptById(id));

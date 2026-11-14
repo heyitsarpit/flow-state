@@ -13,6 +13,8 @@ import { matrixGate } from "../parts/features.ts";
 import { fieldGate, modelFields, modelMutants } from "../parts/model-mutation.ts";
 import { PAIR_OWNERS } from "../parts/pair-owners.ts";
 import { combinationGate } from "../parts/pairs.ts";
+import type { TaskRef } from "../coverage.ts";
+import { modelOwed } from "../parts/model-owes.ts";
 import { partsOwed, regressionsOwed } from "../parts/owed.ts";
 import { plantedSweep } from "../parts/sweep.ts";
 import { partFaults, playPart, reachedBy, reachOf, undecidedLine } from "../parts/play.ts";
@@ -81,7 +83,13 @@ export const classGate = Effect.suspend(() => {
 });
 
 const openTasks = () =>
-  new Set([...taskStatuses()].flatMap(([task, open]) => (open ? [task] : [])));
+  new Set<TaskRef>(
+    [...taskStatuses()].flatMap(([task, open]) => {
+      const n = /^@task\.V3\.T(\d+)$/u.exec(task)?.[1];
+
+      return open && n !== undefined ? [`@task.V3.T${Number(n)}` as const] : [];
+    }),
+  );
 
 /**
  * The parts gate: every gate script, and every owed script at its own seed, passes on production
@@ -183,7 +191,13 @@ export const modelMutationGate = Effect.suspend(() => {
         `model mutants noticed ${mutants.length - unnoticed.length}/${mutants.length}, by ${[...new Set(mutants.flatMap((m) => (m.noticed ? m.oracle.split(",") : [])))].join(" ")}`,
       ),
     ),
-    Effect.andThen(verdict(fieldGate(mutants), modelFields().length, "model fields mutated")),
+    Effect.andThen(
+      verdict(
+        fieldGate(mutants, rules, modelOwed, openTasks()),
+        modelFields().length,
+        "model fields mutated",
+      ),
+    ),
   );
 });
 

@@ -288,18 +288,41 @@ export const modelMutants = (scripts: ReadonlyArray<Script> = pilots(), given: R
 };
 
 /**
- * The model-mutation gate's faults (Conformance T39): each model field no mutant reaches. A cell
- * no pilot notices is listed by {@link modelMutants}, never a fault.
+ * The model-mutation gate's faults (Conformance I61, T39): a model field no mutant reaches; a
+ * field no part's trace notices that no owed row names; and an owed row on a noticed field, on no
+ * field of the model, or of a Task not in `open` (the routed-gap rule: a gap is owed to an open
+ * Task, and a Task cannot close while a row names it).
  */
 export const fieldGate = (
   mutants: ReadonlyArray<ModelMutant>,
   given: Rules = rules,
-  _owes: ReadonlyArray<Owes> = [],
-  _open: ReadonlySet<TaskRef> = new Set(),
+  owes: ReadonlyArray<Owes> = [],
+  open: ReadonlySet<TaskRef> = new Set(),
 ) => {
+  const fields = modelFields(given);
   const reached = new Set(mutants.map((m) => m.field));
+  const noticed = new Set(mutants.filter((m) => m.noticed).map((m) => m.field));
+  const owed = new Set(owes.map((o) => o.subject));
 
-  return modelFields(given)
-    .filter((field) => !reached.has(field))
-    .map((field) => `BAD  model field ${field}: no mutation reaches it`);
+  return [
+    ...fields
+      .filter((field) => !reached.has(field))
+      .map((field) => `BAD  model field ${field}: no mutation reaches it`),
+    ...fields
+      .filter((field) => reached.has(field) && !noticed.has(field) && !owed.has(field))
+      .map(
+        (field) => `BAD  model field ${field}: no part's expected trace changes under its mutation`,
+      ),
+    ...owes
+      .filter((o) => noticed.has(o.subject))
+      .map(
+        (o) => `BAD  model field ${o.subject}: owed to ${o.task}, but a part's trace notices it`,
+      ),
+    ...owes
+      .filter((o) => !fields.includes(o.subject))
+      .map((o) => `BAD  owed row ${o.subject}: no such model field`),
+    ...owes
+      .filter((o) => !open.has(o.task))
+      .map((o) => `BAD  model field ${o.subject}: owed to ${o.task}, a Task not open`),
+  ];
 };

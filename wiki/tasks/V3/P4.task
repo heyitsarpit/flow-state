@@ -846,6 +846,12 @@ tasks
             code:wiki/plans/flow/references/proposals/t52-build-log-2026-11-14.md.
               Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment. Why: step-done rule. Reverse: 
               revert this commit.
+        comment     2026-11-14T10:39:06Z
+            Q20 done, for review: the strict field gate with 254 owed model fields by group (T18, T19, T20, T54, T55), 
+            the T52 pending check deleted; Q20 green. Detail: 
+            code:wiki/plans/flow/references/proposals/t52-build-log-2026-11-14.md.
+              Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment. Why: step-done rule. Reverse: 
+              revert this commit.
     T60
         title       The suite proves its own gates and excuses
         status      done
@@ -1003,6 +1009,12 @@ tasks
             use ends with the page.
               Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment. Why: the user's routing rule 
               (suite-machinery findings to the later suite Task). Reverse: revert this commit.
+        comment     2026-11-14T10:38:54Z
+            Edit (agent: T61 parallel builder, @task.V3.T61, 2026-11-14): the four parallel items are done, red first 
+            (1fa04e5c, 9922d53a). verify runs the cheap gates (55 s); crash's reds are owed by exact Attempt (PAY-22@16 
+            to T19, DISP-02@6 and DISP-06@5 to T54, runtime wrong in each); six pass-only regressions deleted; a trace 
+            mode added. Details: code:wiki/plans/flow/references/proposals/t61-build-log-2026-11-14.md. Reverse: revert 
+            both commits.
     T54
         title       Core consolidation: owed-endings ledger, one start, diff-written records, acts into evidenceOf
         status      draft

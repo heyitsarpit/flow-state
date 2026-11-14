@@ -6,6 +6,16 @@ import { rules } from "../dsl/lifecycle-rules.ts";
 import type { Script } from "../dsl/script.ts";
 import { cellName, cellsOf, pairsIn, recording, successorPairs, undistinguished } from "./cells.ts";
 import { forgeries } from "./adversary.ts";
+import { modelOwed } from "./model-owes.ts";
+
+const OWNERS = new Set<TaskRef>([
+  "@task.V3.T18",
+  "@task.V3.T19",
+  "@task.V3.T20",
+  "@task.V3.T54",
+  "@task.V3.T55",
+]);
+
 import { fieldGate, killedBy, modelFields, modelMutants, pilots } from "./model-mutation.ts";
 import { playPart } from "./play.ts";
 
@@ -40,14 +50,15 @@ describe("model mutation (Q16: Conformance R19, I61, T39)", () => {
     assert.equal(fields.length, cells.length + 11 + 1);
   });
 
-  it("the field gate passes: a mutation reaches every model field", () => {
-    assert.deepEqual(fieldGate(mutants), []);
+  it("the field gate passes: every field is noticed or owed to an open Task", () => {
+    assert.deepEqual(fieldGate(mutants, rules, modelOwed, OWNERS), []);
+    assert.ok(modelOwed.every((o) => OWNERS.has(o.task)));
   });
 
   it("the field gate fails a field no mutation reaches", () => {
     const left = mutants.filter((m) => m.field !== "deadlines.PendingCancel");
 
-    assert.deepEqual(fieldGate(left), [
+    assert.deepEqual(fieldGate(left, rules, modelOwed, OWNERS), [
       "BAD  model field deadlines.PendingCancel: no mutation reaches it",
     ]);
   });
