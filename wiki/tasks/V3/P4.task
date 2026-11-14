@@ -1033,7 +1033,7 @@ tasks
             this comment. Why: the review's R9, held for T59. Reverse: drop it.
     T61
         title       The suite runs itself and draws varied inputs
-        status      review
+        status      done
         priority    high
         description
             The conformance gates run automatically, the generator varies its inputs, outputs the suite already computes
@@ -1138,9 +1138,11 @@ tasks
             (code:wiki/plans/flow/references/proposals/t61-close-review-2026-11-14.md). Proposed owed rows: O1 to O3 
             (redundancy gate and fold-mutants integrity) to T53, O4 and O5 to revisit.md; the builder adds Task-comment 
             labels for 4444e57d's P11 to P14 edits. Reverse: delete this comment.
+        comment 2026-11-14T17:43:36Z
+            Done (orchestrator): close review PASS at cc8b39d3, first round; closing round at 8aea5021 (O1-O3 pending checks owned by T53, O4-O5 in revisit.md). Retrospective: the soak found two new failure classes and the varied inputs new cells; the builder missed acceptance gaps a reviewer had to name (signatures that merged roots, a non-minimal shrinker, owner tests matching substrings) and never adopted the mid-session speed rules (T61 process study). Proposed: none beyond the process notebook.
     T54
         title       Core consolidation: owed-endings ledger, one start, diff-written records, acts into evidenceOf
-        status      open
+        status      in_progress
         priority    high
         blocked_by  [@T61]
         description
