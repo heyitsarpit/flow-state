@@ -1222,7 +1222,7 @@ tasks
             Reverse: revert this commit.
         comment     2026-11-14T03:55:32Z
             Step 1 done at 02e43a03: requirements Q1 to Q30 mapped to every Task item; red checks committed for Q1, Q2, 
-            Q4, Q6, Q10, Q11, Q20 to Q24, Q27, Q29 (20 failing, each for its stated reason); Q8, Q9, Q14 to Q17, Q25, 
+            Q4, Q6, Q10, Q11, Q20 to Q24, Q27, Q29 (22 failing, each for its stated reason); Q8, Q9, Q14 to Q17, Q25, 
             Q26 change an API or the model and go red first in their own step. Fable's read is logged in the 
             requirements file (D2 widened to Feature.owed; Q24 widened to any owed row; the hand clientSecret fold is 
             wrong).
