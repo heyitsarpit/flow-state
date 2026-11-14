@@ -105,6 +105,9 @@ const rows = (f: Fixture) =>
 const answersOf = (tags: ReadonlyArray<string>, fields: ReadonlyArray<Schema.JsonObject>) => [
   Answer.Ok({ value: {} }),
   Answer.Lost(),
+  Answer.LostButLanded({ value: {} }),
+  Answer.Never(),
+  Answer.Die({ message: "boom" }),
   ...tags.flatMap((tag) =>
     fields.flatMap((f) => [
       Answer.Fail({ tag, fields: f }),
@@ -122,7 +125,9 @@ const tagsOf = (part: Part, hand: Fixture, operation: string) => {
     answer._tag === "fail" ? [answer.tag] : [],
   );
 
-  const mapped = Object.keys(hand.operations[operation]?.reference.failure ?? {});
+  const mapped = [hand, partFixture(part)].flatMap((f) =>
+    Object.keys(f.operations[operation]?.reference.failure ?? {}),
+  );
 
   return [...new Set([...served, ...mapped, ...LOST, "Unanswered"])].toSorted();
 };

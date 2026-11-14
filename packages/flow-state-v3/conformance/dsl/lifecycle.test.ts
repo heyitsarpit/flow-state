@@ -183,9 +183,15 @@ describe("The lane lifecycle (Table A, deadlines, promotion)", () => {
     for (const trace of traces) assert.ok(holds(trace, rules), `${trace.name} (${trace.cites})`);
   });
 
-  it("every pending trace still fails on the design's rules, owed to its Task", () => {
-    assert.ok(pendingTraces.length > 0);
+  it("a boot owes no restore to a Held head whose ending is a Kept row (Restore I6, R3)", () => {
+    assert.ok(
+      traces.some(
+        (t) => t.name === "a boot owes no restore to a Held head whose ending is a Kept row",
+      ),
+    );
+  });
 
+  it("every pending trace still fails on the design's rules, owed to its Task", () => {
     for (const { owner, trace } of pendingTraces)
       assert.ok(!holds(trace, rules), `${trace.name} now holds: move it from ${owner}'s pending`);
   });

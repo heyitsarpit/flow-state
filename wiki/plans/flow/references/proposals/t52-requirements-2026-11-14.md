@@ -33,10 +33,11 @@ code:wiki/plans/flow/references/proposals/t47-close-review-2026-11-14.md (R4, R6
   hand cases keep running on round-14, judged by the derived reference. Why: the Task text ("every runtime,
   round-14 included") and I48 both hold under this reading. Reverse: run the hand cases with the golden on
   round-14.
-- **D2 One owed list.** One `Owes` row type (`invariant`, `clause`: `all` or the owed text, `task`, `why`)
-  replaces `NotYet` and `Remainder` in one list; `Feature.owed` stays, since matrix rows are keyed by Plan
-  feature, not Invariant (I53; consult B9 item 6's condition). Why: the orchestrator's A3 ruling (T52 comment,
-  2026-11-12) post-dates the Task text "become matrix rows". Reverse: restore `not-yet.ts` and the remainders.
+- **D2 One owed list.** One `Owes` row type (subject: an Invariant or a Plan feature id; `clause`: `all` or the
+  owed text; `task`; `why`) replaces `NotYet`, `Remainder` and `Feature.owed` in one list; a feature row's slice
+  is derived from its Task. Why: the orchestrator's A3 ruling (T52 comment, 2026-11-12) post-dates the Task text
+  "become matrix rows"; changed after Fable's read (keeping `Feature.owed` would reverse A3). Reverse: restore
+  `not-yet.ts`, the remainders and `Feature.owed`.
 - **D3 Step mutants.** The 14 hand step mutants stay as a list until each is shown killed; each is judged by the
   search (generated scripts replayed through the mutated model) first, then by a kept example, and the killer is
   recorded. Why: no cell of `rules` holds them, so "gives way to cell mutation" cannot mean a one-to-one cell.
@@ -212,3 +213,23 @@ Each: rule; source; check (red today); the wrong build that keeps it red.
 | adversary | 23-26 pins, empty gates, `--record pass`                     | accepted into Q29; 26 noted                                |
 | adversary | 27, 28 baselines from disk                                   | accepted into Q12, Q13: the baseline is 73227314           |
 | adversary | 29-31 step killers; hand lists; pending count                | accepted into Q14, Q16                                     |
+
+## Fable's read (step 1)
+
+**Verdict (Fable, 2026-11-14):** 6 of 11 agent-ruled items agree, D2 disagrees, 4 are unclear; every sampled row,
+handler alternative, schedule and operation field of the hand Pay matches `machines/pay.ts`; one hand fold is
+wrong. Fable read the Specs and the code and ran nothing.
+
+| Item                     | Fable                                  | Lead's decision                                                     |
+| ------------------------ | -------------------------------------- | ------------------------------------------------------------------- |
+| D1, D3                   | agrees                                 | accepted                                                            |
+| D2                       | disagrees: A3 replaces `Feature.owed`  | accepted: D2 changed                                                |
+| D4                       | unclear: R15 keeps ruling traces only  | changed: a kept trace names its ruling or the catch only it makes   |
+| D5                       | unclear: I61 has no owed exception     | kept: owed rows hold gaps against Spec text, as in the coverage gate |
+| D6                       | unclear; a hand fold is wrong          | kept: the hand `clientSecret` fold stores `null` where the contract |
+|                          |                                        | gives `""`, so the derived folds are the right side                 |
+| Q24                      | agrees, too narrow                     | changed: any owed row of the head's Attempt, not only Kept          |
+| Q25                      | agrees: the model is wrong             | accepted: the cancel cell releases and promotes in the turn         |
+| Q26                      | agrees, two conditions                 | accepted: the issuing step's batch; once per restored world         |
+| Classify grid            | agrees; three gaps                     | accepted: LostButLanded, Never and Die added; both sides' tags      |
+| Hand rows, table, timers | 15 rows, all alternatives, 3 of 3      | accepted                                                            |
