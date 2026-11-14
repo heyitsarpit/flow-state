@@ -905,6 +905,11 @@ tasks
         comment     2026-11-14T12:56:11Z
             Gates at 0eba05a1 all green; every count changed since 1c4168da is explained in the build log's item 7 (Pay 
             and Cells parts, T60 and T61 work, retired I21, I10 whole). No owed row names T52. Set to review.
+        comment     2026-11-14T13:17:56Z
+            Close review (55a857f0..f349968f and the acceptance): PASS, nothing blocks; every gate reproduces at 
+            f349968f and Q24 to Q26 hold by the Specs. The five lost prod.actor-never-saved catches predate T52 (green 
+            at 1c4168da), owed to T61 before T53 thins Pay; O1-O6 proposed for T61. Detail: 
+            code:wiki/plans/flow/references/proposals/t52-close-review-2026-11-14.md.
     T60
         title       The suite proves its own gates and excuses
         status      done
