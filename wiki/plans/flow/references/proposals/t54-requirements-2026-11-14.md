@@ -4,7 +4,9 @@
 three owed bugs (O-1 to O-3), and eight more that the acceptance, the Approach and the owned Invariants need (X-1 to
 X-8). Each is a check that fails today, or a check green today whose wrong runtime is red. Every acceptance item,
 Approach item and gap comment of @task.V3.T54 maps to one or more of them (the table at the end). Proposed until
-step 1's review confirms the mapping.
+step 1's review confirms the mapping. Step 1's review
+(code:wiki/plans/flow/references/proposals/t54-step1-review-2026-11-14.md) is applied: F1 in A-2, F2 in A-7, F3
+and the S-2 scope in the rulings below.
 
 Edit (agent: T54 building lead, @task.V3.T54, 2026-11-14): this file. Why: step 1, requirements first (Epic V3,
 Testing). Reverse: delete the file.
@@ -48,7 +50,11 @@ Harden, from the adversary sidecar (each lands as an assertion of the line's che
   hearing closes one row, WriteLanes `close`) and the other is still heard after (an id minted from actor and lane
   would close both). Not by cancel: a cancel closes every Kept row of the lane.
 - A-2: exactly one hearing over the whole run, with a reload between disposal and the next Start (Actors I40: a boot
-  delivers nothing; `delivered-once` leaves a Waiting row unjudged at case end).
+  delivers nothing; `delivered-once` leaves a Waiting row unjudged at case end). Over all three suspend moments
+  (Actors I41, T22; step-1 review F1): an incarnation's end, `disposeActor` and Runtime disposal. A decline's
+  ending owed to the identity goes Waiting and is heard exactly once; a read's ending owed to the gone incarnation
+  alone gives exactly one Recorded. Today `serve.ts:267-272` drops both. The mail gets there through X-4's backlog
+  or a turn that declines and ends its actor. The wrong runtime is applied at an incarnation's end.
 - A-3: after the boot the head reads Held; an `ensure` then hears `unknown { Restored }` (Actors R10) and a `retry`
   gives one invocation with `retryCount` n+1, n the saved value (WriteLanes I26).
 - A-4: given the final write lands, count every ending of the head after the reload (no extra
@@ -58,14 +64,26 @@ Harden, from the adversary sidecar (each lands as an assertion of the line's che
   refused (WriteLanes R10 "never stops a promotion"); its invocation still waits for its turn and storage.
 - A-7: every blocking assertion on an Idle lane (under reject an InFlight or Held lane declines anyway); Kept on lane
   X and a commit on lane Y of one identity; a laneless Kept row blocks no key; a commit admitted while a Start's try
-  is queued is not declined (WriteLanes R6).
+  is queued is not declined (WriteLanes R6). A Rejected decline from the lane table (step-1 review F2;
+  `lane-moves.ts:207-218` gives it a lane today): refuse its turn twice, let the head resolve, then commit on the
+  key, which mints (WriteLanes R10: a declined commit has no Attempt and no lane). The opposite case: a
+  never-sent Attempt's NotSent row keeps its lane and, when Kept, blocks (born laneless while Open today,
+  `lane-moves.ts:103-107`).
 - A-8: the `owed-rows` oracle reads the ledger and the mail at each step's end (a waker is mail state, which no
   report shows), not only the reports; a Kept row closed by cancel (`letGo`) and by `forget` each gives one
   Recorded; suspend then start with a Queued row hears it once (no second mail reference).
-- A-9: two identical declines in one step get two endings.
+- A-9: two identical declines in one step get two endings. Red today through F1's drop paths and the oracle's
+  missing decline count (`delivered-once.ts:42-54`), not through a decline lacking an ending.
+- A-8 has a behaviour red: `park` emits Ended on every re-park, Retrying and Kept rows included (`persist.ts:178`,
+  `disposal.ts:27`, `serve.ts:271`).
 - A-10: an `owe` (an ending) minted between the two commits, not only timers and tickets.
 - A-11: the table written from WriteLanes I36's text (Held, Recapturing, Resending, `retryCount > 0`), not from
-  `sentBefore` itself.
+  `sentBefore` itself. Core mutants that edit a stored `mayHaveApplied` are rewritten against `sentBefore` in A1,
+  since a mutant A1 breaks is not a kill (step-1 review, Item 1).
+- A-12 (step-1 review, Item 2): assert Restore R3's order, owed order across lanes, then each Held head's
+  unknown { Restored } in lane-id order; equality among the three paths alone passes by construction.
+- A-6's promotion line cannot be reached under reject (`CommitReject` declines beside every head phase,
+  `cells.ts:180-191`): owed to T18 (latest, serialize).
 - A-12: compare the sequence of delivered endings (Actors T21), not whole reports: a return adds an `onContext` wave,
   an adoption runs creation, and incarnation ids are new each time. Lanes created in reverse lane-id order, rows
   interleaved across two lanes; at the boot's end no ending is in a mailbox (read from the World, not reports).
@@ -96,8 +114,9 @@ Source: code:wiki/plans/flow/references/proposals/suite-leverage-survey-2026-11-
 | S-2 | T54's 11 owed core-mutant gaps are killed by a named check, and their triage rows go | `mutate` gate, `core-mutants-triage.ts` | 11 owed | the step that touches the line |
 | S-3 | the coverage gate counts production's mutants: an Invariant proved by a production mutant is not "Unproven" | `coverage` gate, a planted Invariant proved only by a production mutant | check red | A0 |
 
-S-1's scope is read as T54's code only (proposed; the orchestrator confirms): the prototype's other liar behaviours
-belong to the slice that builds their production code.
+S-1's scope is T54's code only, and S-2's is T54's 11 of the 29; the rest stay with their owners (orchestrator,
+2026-11-14). S-2 is green today because `mutate.ts:192-195` excuses owed rows; its red form is "red with its triage
+row dropped".
 
 ## Owed to T54
 
@@ -105,7 +124,7 @@ belong to the slice that builds their production code.
 | --- | ------------------------------------------------------------------------------------- | ------------------------------- | ---- |
 | O-1 | a boot restores and parks a disposed identity's unbound Held head (Restore R1, Actors I40, I29) | `GEN-pay-search-25-shrunk` (`parts/owed.ts` regressionsOwed), 85 stress rows `UNBOUND_RESTORE` (`parts/owed.ts`), crash `DISP-02@6`, `DISP-06@5` (`runner/crash-owed.ts`) | A2 |
 | O-2 | a StillUnknown hold keeps the saved lane's `inFlight` true (`lane-moves.ts:303`; WriteAhead T18, I24; Restore R1's Owing) | `PAY-05/held-head-sleeps-at-boot` (`runner/gates.ts` productionOwed), core triage `lane-moves.ts:303` | A3 |
-| O-3 | the T54 row of `owes.ts` (WriteLanes I29 to I41, Actors I40, I41, WriteAhead I20, I23, I24, Restore I20, Reads I22, Codec I7, Turn I36) | one `whole` row | each Invariant's step |
+| O-3 | the T54 row of `owes.ts` (WriteLanes I28 to I37, I39, Actors I40, I41, WriteAhead I20 to I22, I24, Codec I7, Turn I36) | one `whole` row | each Invariant's step |
 
 Each row is removed when its item goes green; the suite fails an owed row whose item stops failing.
 
@@ -118,20 +137,16 @@ Each row is removed when its item goes green; the suite fails an owed row whose 
 | X-3 | `World.owed` is the only holder of endings; `World.parked`, `World.kept`, `Tries`, `LaneState.Kept`, `Cue.Settled`, `Cue.Ended`, `Cue.Keep`, `persist`, `park`, `keep`, `tx.emit`, `insertEvidence` are gone, and with them (consult 3, Added and dropped) `unpark`, `unkeep`, `Move.Queue`, `Move.Park`, `Move.Keep`, `Move.LetGo`, `Head.mayHaveApplied`, `deliverRestored` (`Disposal` stays, T55's); only `ledger.ts` builds, moves or removes a row; only `evidence-of.ts` builds an Evidence (acceptance) | a source scan test plus the skeleton's opacity type test | check red | A1, A3, A4 |
 | X-4 | the Approach's guard "`unpark` is safe only because one step drains the mail", read against the Spec: no rule says one step drains (WriteAhead R10 allows a backlog; `serve.ts` caps a drain at 10,000), so the check forces a backlog and asserts suspend and unpark lose or double no row (WriteLanes I29) | a backlog case with a suspend inside it | wrong runtime red | A0 |
 | X-5 | dropping the stored `mayHaveApplied` for `sentBefore` changes no report or command (Approach A0 guard) | X-1's baseline with the stored flag ignored | wrong runtime red | A0 |
-| X-6 | Flow.NotSent and Flow.Unknown, which share the tags Cancelled, Restored, StorageRefused and Disposed, are told apart by channel after a reload, every tag of each round-tripping through Schema (WriteLanes I38, I39, R3; Codec R5; WriteLanes T29) | case over saved rows of every tag on both channels | check red | A3 |
+| X-6 | Flow.NotSent and Flow.Unknown, which share the tags Cancelled, Restored, StorageRefused and Disposed, are told apart by channel after a reload: the owed row saves `channel` `notSent` and the origin picks the mapper (WriteLanes I39, R3; Codec R5; WriteLanes T29). I38's Schema round trip is T18's | case over saved rows of every tag on both channels | check red (`Channel` has no `notSent`, `vocabulary.ts:31`) | A3 |
 | X-7 | a landed lane record's `inFlight` is true from Acknowledging to Cancelling and false for Held, in the step that wrote it (WriteAhead I24, R5, T18) | store contents check of A-13 | check red (O-2) | A3 |
-| X-8 | each batch is one Store write holding every dirty record, compared with the step's dirty set; one batch out at a time (WriteAhead I23, T17) | store issue log over every part | wrong runtime red | A3 |
+| X-8 | one Persist list per step, landing whole, compared with the step's dirty set; one batch out at a time (WriteAhead T17). The clause "one stream across identities" of WriteAhead I23 is T19's | store issue log over every part | check red today for cross-identity batches; T54's clause wrong runtime red | A3 |
 
-Owned Invariants routed away (proposed; the orchestrator decides, since moving an owed row is scope):
-
-- WriteLanes I40 and I41 (cancel with a handle, replies while Cancelling): A-19 gives these cells to T18, but
-  `owes.ts` gives the Invariants to T54. Proposed: re-own to @task.V3.T18.
-- Reads I22 (a read's ending as a row): the brief keeps reads unchanged but routes read endings through `owe`;
-  @task.V3.T21 owns read slots. Proposed: T54 routes them (part of A-8's oracle), the Invariant's row moves to T21.
-- Restore I20 (a lane record whose operation is gone): no A-line; it reads as T20's restore. Proposed: re-own to
-  @task.V3.T20.
-- WriteAhead I21 and I22 go the other way: A-14 and A-15 prove them, but `owes.ts` gives them to @task.V3.T19.
-  Proposed: re-own to T54, or the T19 row fails when they go green.
+Owned Invariants routed away (orchestrator rulings, applied in `owes.ts` at b810c6f2 and on resume):
+WriteLanes I40, I41 and I38 to @task.V3.T18; Reads I22 to @task.V3.T21 (T54 routes read endings through `owe`);
+Restore I20 to @task.V3.T20; WriteAhead I23 to @task.V3.T19 (a part row once A-15 checks T54's clause);
+WriteAhead I21, I22 and WriteLanes I28 to T54. A pending case already green on today's code is recorded as met, not
+forced red; its design mutant must be red. O-2's model gap (the Spec model accepts the wake) is an owed row for the
+suite, not T54's.
 
 ## Spec findings (sidecar 1, verified by the lead)
 
@@ -171,3 +186,4 @@ A-2, A-8, A-13, A-15, A-17, X-7, X-8 and S-1 were lenient. All accepted and fold
 | Gap comment 2026-11-12T07:28 (128-bit seed)                          | A-18                                 |
 | Gap comment 2026-11-14T01:58 (GEN-pay-search-25)                     | O-1                                  |
 | Lead brief: `lane-moves.ts:303`, owed rows naming T54                | O-2, O-3                             |
+| Handoff comments (T18 to T21, T55): close-out items, not checks      | close-out comment                    |

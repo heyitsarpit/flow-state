@@ -58,6 +58,16 @@ export const owes: ReadonlyArray<Owes> = [
     invariantsOf("WriteLanes", [40, 41]),
   ),
   ...whole(
+    "@task.V3.T18",
+    "Flow.NotSent and Flow.Unknown round-tripping through their Schemas (WriteLanes I38): the tagged result, Q2 B (T54 step-1 review F3; T54 keeps I39)",
+    invariantsOf("WriteLanes", [38]),
+  ),
+  ...whole(
+    "@task.V3.T19",
+    "one batch per Runtime holding every dirty record, other identities' included (WriteAhead I23): one stream per Runtime is T19's edge step; T54's A-15 checks one Persist list per step landing whole, after which this becomes a part row (T54 step-1 review F3)",
+    invariantsOf("WriteAhead", [23]),
+  ),
+  ...whole(
     "@task.V3.T9",
     "the Actors area is not built beyond Runtime disposal and an actor's incarnation and end (I10, I14, I37); I24 is delivered-once's; T42 cut I11, I16 and I18 and added I37 (Free actors end), I38 (never-sent commits at disposal, CQ6) and I39 (identity versions)",
     invariantsOf(
@@ -106,14 +116,14 @@ export const owes: ReadonlyArray<Owes> = [
   ),
   ...whole(
     "@task.V3.T54",
-    "the owed ledger and one delivery point: a seed per boot (WriteLanes I28), a lane holds Attempt state only, an ending is one ledger row (WriteLanes I29 to I39), Start delivers rows and a boot parks nothing (Actors I40, I41), three record kinds written from what a step touched, a row's fate in the step whose batch landed (WriteAhead I20 to I24, Codec I7) and reports derived from acts (Turn I36); T54 builds them with their checks",
+    "the owed ledger and one delivery point: a seed per boot (WriteLanes I28), a lane holds Attempt state only, an ending is one ledger row (WriteLanes I29 to I37, I39), Start delivers rows and a boot parks nothing (Actors I40, I41), three record kinds written from what a step touched, a row's fate in the step whose batch landed (WriteAhead I20 to I22, I24, Codec I7) and reports derived from acts (Turn I36); T54 builds them with their checks",
     [
       ...invariantsOf(
         "WriteLanes",
-        upTo(39).filter((n) => n >= 28),
+        upTo(39).filter((n) => n >= 28 && n !== 38),
       ),
       ...invariantsOf("Actors", [40, 41]),
-      ...invariantsOf("WriteAhead", [20, 21, 22, 23, 24]),
+      ...invariantsOf("WriteAhead", [20, 21, 22, 24]),
       ...invariantsOf("Codec", [7]),
       ...invariantsOf("Turn", [36]),
     ],

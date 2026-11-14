@@ -1138,8 +1138,12 @@ tasks
             (code:wiki/plans/flow/references/proposals/t61-close-review-2026-11-14.md). Proposed owed rows: O1 to O3 
             (redundancy gate and fold-mutants integrity) to T53, O4 and O5 to revisit.md; the builder adds Task-comment 
             labels for 4444e57d's P11 to P14 edits. Reverse: delete this comment.
-        comment 2026-11-14T17:43:36Z
-            Done (orchestrator): close review PASS at cc8b39d3, first round; closing round at 8aea5021 (O1-O3 pending checks owned by T53, O4-O5 in revisit.md). Retrospective: the soak found two new failure classes and the varied inputs new cells; the builder missed acceptance gaps a reviewer had to name (signatures that merged roots, a non-minimal shrinker, owner tests matching substrings) and never adopted the mid-session speed rules (T61 process study). Proposed: none beyond the process notebook.
+        comment     2026-11-14T17:43:36Z
+            Done (orchestrator): close review PASS at cc8b39d3, first round; closing round at 8aea5021 (O1-O3 pending 
+            checks owned by T53, O4-O5 in revisit.md). Retrospective: the soak found two new failure classes and the 
+            varied inputs new cells; the builder missed acceptance gaps a reviewer had to name (signatures that merged 
+            roots, a non-minimal shrinker, owner tests matching substrings) and never adopted the mid-session speed 
+            rules (T61 process study). Proposed: none beyond the process notebook.
     T54
         title       Core consolidation: owed-endings ledger, one start, diff-written records, acts into evidenceOf
         status      in_progress
@@ -1562,6 +1566,12 @@ tasks
             met, not forced red; I24 wording is the builder's call, but deleting an R5 field goes to the user; O-2's 
             model gap is an owed row for T61. Edit (agent: orchestrator, @task.V3.T54, 2026-11-14): this comment. Why: 
             review routing. Reverse: drop it.
+        comment     2026-11-14T17:49:35Z
+            Resumed after T61: gates re-run at c6d36c92, all 19 green with T61's counts (build log, 'Gates on resume'); 
+            step 1's review applied (F1 in A-2, F2 in A-7, rulings); WriteAhead I23 moved to T19 and WriteLanes I38 to 
+            T18 in owes.ts, coverage unchanged at 74 of 211. Edit (agent: T54 building lead, @task.V3.T54, 2026-11-14): 
+            owes.ts, the requirements file, the build log and this comment. Why: the step-1 review and the 
+            orchestrator's rulings. Reverse: the commit that adds this comment.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      draft

@@ -530,4 +530,5 @@ note 2026-11-14T17:40:49Z
     Decision (user, 2026-11-14): "every process should gain some insight into the run and propose improvements which 
     may or may not be used"; the must-change rule is dropped. instructions edited.
 note 2026-11-14T17:43:59Z
-    T61 done (8aea5021). Fresh Opus builder started on T54 with a short resume-card brief that leads with the speed rules (process experiment: rules judged on a fresh agent), the step-1 review fixes and the builder checklist.
+    T61 done (8aea5021). Fresh Opus builder started on T54 with a short resume-card brief that leads with the speed 
+    rules (process experiment: rules judged on a fresh agent), the step-1 review fixes and the builder checklist.
