@@ -7,14 +7,19 @@ import { CODES, isCode, SLICE_OF } from "./codes.ts";
 import { FEATURES } from "./feature-rows.ts";
 import { casesReaching, checksOf, type Feature, type MatrixInput, matrixGate } from "./features.ts";
 import { playPart, reachedBy } from "./play.ts";
+import { constructionCases } from "../compile/construction.cases.ts";
 import {
+  currentSlice,
   featureRules,
   gateScripts,
   matrixInputOf,
   planIds,
+  productionStatics,
   replanCodeSlices,
   replanSlices,
   taskRecords,
+  taskSlices,
+  taskStatuses,
   tableText,
 } from "./records.ts";
 
@@ -155,6 +160,32 @@ describe("feature matrix over the real rows (Q12: Conformance R17, I53 to I55)",
     assert.deepEqual(
       [...scenarios, ...staticCases].filter((c) => !mapped.has(c.id)).map((c) => c.id),
       [],
+    );
+  });
+
+  it("the current slice is the lowest slice with an open Task (close review finding 9)", () => {
+    const slices = new Map([
+      ["@task.V3.T47", 0],
+      ["@task.V3.T18", 1],
+      ["@task.V3.T19", 2],
+    ]);
+
+    const open = (...tasks: ReadonlyArray<string>) =>
+      new Map([...slices.keys()].map((t) => [t, tasks.includes(t)]));
+
+    assert.equal(currentSlice(open("@task.V3.T47", "@task.V3.T18"), slices), 0);
+    assert.equal(currentSlice(open("@task.V3.T18", "@task.V3.T19"), slices), 1);
+    assert.equal(currentSlice(taskStatuses(), taskSlices()), 0);
+  });
+
+  it("static rows reach from the construction cases production passes, not a fixed empty list", () => {
+    assert.deepEqual(
+      productionStatics().map((c) => c.id),
+      [],
+    );
+    assert.deepEqual(
+      productionStatics(["CMP-01"]).map((c) => c.id).length,
+      constructionCases.length - 1,
     );
   });
 

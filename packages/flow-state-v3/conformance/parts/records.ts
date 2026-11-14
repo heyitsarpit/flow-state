@@ -4,6 +4,8 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parts } from "../../fixtures/index.ts";
 import { implemented as production } from "../adapters/production.ts";
+import { staticOwed } from "../adapters/production-static.ts";
+import { constructionCases } from "../compile/construction.cases.ts";
 import { productionCases } from "../runner/gates.ts";
 import { scenarios } from "../suite.ts";
 import { SLICE_OF } from "./codes.ts";
@@ -190,8 +192,30 @@ export const gateScripts = () => scriptsAt(BUILD_SEEDS.slice(0, 6), BUILD_SEEDS.
 export const heldOutScripts = () => scriptsAt(HELD_OUT_SEEDS, HELD_OUT_SEEDS);
 
 /**
+ * The slice being built: the lowest slice that still has an open Task.
+ */
+export const currentSlice = (
+  statuses: ReadonlyMap<string, boolean>,
+  slices: ReadonlyMap<string, number>,
+) =>
+  Math.min(
+    ...[...statuses].flatMap(([task, open]) => {
+      const slice = slices.get(task);
+
+      return open && slice !== undefined ? [slice] : [];
+    }),
+  );
+
+/**
+ * The Compile construction cases production passes: every one its owed rows do not name.
+ */
+export const productionStatics = (
+  owed: ReadonlyArray<string> = staticOwed.cases.map((row) => row.case),
+) => constructionCases.filter((c) => !owed.includes(c.id));
+
+/**
  * The matrix gate's input over the real rows: production's declarations, the Task records, the
- * codes the given runs reached and the hand cases production runs.
+ * codes the given runs reached and the hand and static cases production runs.
  */
 export const matrixInputOf = (reached: ReadonlySet<string>) => {
   const statuses = taskStatuses();
@@ -217,12 +241,12 @@ export const matrixInputOf = (reached: ReadonlySet<string>) => {
         featureRules(),
         scenarios.filter((c) => running.has(c.id)),
       ),
-      static: {},
+      static: casesReaching(featureRules(), productionStatics()),
     },
     tasks: Object.fromEntries(
       [...statuses].map(([task, open]) => [task, { open, slice: slices.get(task) ?? -1 }]),
     ),
     sliceOf: SLICE_OF,
-    current: 0,
+    current: currentSlice(statuses, slices),
   };
 };

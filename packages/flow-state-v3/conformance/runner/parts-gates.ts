@@ -17,6 +17,7 @@ import { PAIR_OWNERS } from "../parts/pair-owners.ts";
 import { combinationGate } from "../parts/pairs.ts";
 import { partFaults, playPart, reachedBy, reachOf, RETRY_COUNT } from "../parts/play.ts";
 import {
+  currentSlice,
   gateScripts,
   heldOutScripts,
   matrixInputOf,
@@ -101,7 +102,7 @@ export const pairsGate = Effect.suspend(() => {
       [...statuses].map(([task, open]) => [task, { open, slice: slices.get(task) ?? -1 }]),
     ),
     sliceOf: SLICE_OF,
-    current: 0,
+    current: currentSlice(statuses, slices),
   });
 
   return Console.log(

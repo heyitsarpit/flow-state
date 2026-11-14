@@ -1061,8 +1061,9 @@ tests
              code. [@I53, @I54, @I55]
     T36  Pairs. Slice R writes this (@task.V3.T47): the pair list regenerated from the channel table equals the gate's 
          list; the
-             gate seen failing on a planted unreached pair of declared codes and on a waiver without a later slice;
-             a triple left unreached changes no verdict. [@I56, @I57, @I58]
+             gate seen failing on a planted unreached pair of declared codes and on an owner that is neither a
+             later slice owning one of its codes nor an open Task; a triple left unreached changes no verdict.
+             [@I56, @I57, @I58]
     T37  Model purity. Slice R writes this (@task.V3.T45): an import-boundary lint over the model's modules, seen
             rejecting a planted runtime import. [@I59]
     T38  Compare. Slice R writes this (@task.V3.T45): a runtime that omits an owed report, one that adds a report the 

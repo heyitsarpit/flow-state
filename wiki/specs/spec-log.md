@@ -614,3 +614,10 @@ unknown { Restored }. Both `algorithm` headers say a line a Requirement cites is
 Cancelling call's own unknown as the agent's reading of Q2 B. Why: the readiness check
 (wiki/plans/flow/references/proposals/spec-review-2026-11-12.md, "Readiness, after b4e2c8a6"). Reverse:
 revert this commit.
+
+## 2026-11-14, Conformance T36 follows I57's owner wording (T47, agent)
+
+Edit (agent: T47 building lead, @task.V3.T47, 2026-11-14): T36's planted failure is an owner that is neither a
+later slice owning one of the pair's codes nor an open Task, in place of "a waiver without a later slice". Why: I57
+took R18's owner rule on 2026-11-12 and T36 still read the older text (T47 close review, finding 12). Reverse:
+restore T36's old line.
