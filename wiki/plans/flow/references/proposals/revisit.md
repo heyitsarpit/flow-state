@@ -56,6 +56,7 @@ Deferred items.
   [self-contained-audit-2026-11-14.md](self-contained-audit-2026-11-14.md): Task owners and slices in the suite
   (and the Epic's "routed gaps are owed checks" rule they serve), comment citations of records, process names
   (liar, pilot, replan, lab, carried, frozen) and the README's stale paths. The prototype adapters are not touched;
-  T53 deletes them.
+  T53 deletes them. Groups A, E and F (outside reads and imports) are @task.V3.T59, held the same way: much later,
+  once the project is built out, or when the user says so.
 - **`cancelAll`** (2026-11-12, the user, wide consult W1 K0; deferred). Neither reference app uses it. If it returns,
   K1 (its own member, typed only on queuing policies) over K2 (`cancel(key, { queued: true })`).

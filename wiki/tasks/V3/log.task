@@ -480,4 +480,10 @@ note 2026-11-14T02:34:47Z
     tools/flow-state-lint/rules.test.ts in lint:rules, red first). T47's jsonKey re-creates Effect's structural Hash 
     and Equal, sent to its lead. Missed by own checks: the builder proved with throwaway files (weak check).
 note 2026-11-14T02:40:03Z
-    Decision (user, 2026-11-14): "we don't need to fix prototype, for conformance let's ban imports and all for now, the concept clean will happen some time later". New @task.V3.T59 (audit groups A, E, F) after T47, before T52; groups B, C, D, G deferred to revisit.md. Orchestrator: open-owner checks move to tools/plan-coverage, since Task status is the wiki's own fact.
+    Decision (user, 2026-11-14): "we don't need to fix prototype, for conformance let's ban imports and all for now, 
+    the concept clean will happen some time later". New @task.V3.T59 (audit groups A, E, F) after T47, before T52; 
+    groups B, C, D, G deferred to revisit.md. Orchestrator: open-owner checks move to tools/plan-coverage, since Task 
+    status is the wiki's own fact.
+note 2026-11-14T02:41:41Z
+    Decision (user, 2026-11-14): "not T59, i mean much later when the project is built out or when i say so". T59 is 
+    held out of the slice order; T52 waits on T47 again. The AGENTS.md rule still applies to new code through reviews.

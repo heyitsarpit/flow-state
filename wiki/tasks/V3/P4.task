@@ -1118,7 +1118,7 @@ tasks
         title       Suite phase-out, first cut: Pay and Cells generated, hand traces thinned
         status      draft
         priority    high
-        blocked_by  [@T59]
+        blocked_by  [@T47]
         description
             Pay and Cells become generated parts in the top-level `fixtures/`; Pay's hand rows stay as one frozen
             golden; the hand traces give way to the model search (phase-out step 4).
@@ -1189,6 +1189,9 @@ tasks
             The conformance suite and the runner read no file, CLI or folder outside `packages/flow-state-v3/` and
             import nothing from `src/` beyond the seam; the data they read from the wiki today is recreated in the
             package as typed code.
+
+            **Held:** runs only when the user says so, or once the project is built out (the user, 2026-11-14); it is
+            in no slice order.
 
             **Why now:** the user, 2026-11-14: the package is self-contained (AGENTS.md, Code style). The suite's
             gates parse dated proposals by matching their prose, so a reworded proposal silently feeds them wrong text.
