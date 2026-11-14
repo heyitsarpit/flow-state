@@ -227,8 +227,9 @@ instructions
       take the building lead's slot in turn (amendment 3; the user, 2026-11-11, to preserve usage).
     - One builder carries related Tasks; a fresh one starts only when work moves from suite to production or a lead
       nears its fourth context compaction. Leads work through three context compactions and are rotated out only when
-      a fourth is close: finish the step, commit, leave a resume note. A long context alone is no reason to hand off
-      (the user, 2026-11-14; was two and a third, 2026-11-12).
+      a fourth is close, meaning the context is 90 percent full after the third: finish the step, commit, leave a
+      resume note. A long context alone is no reason to hand off (the user, 2026-11-14; was two and a third,
+      2026-11-12).
     - Leads report once per batch or stop, in at most 10 lines, no progress messages: verdict, commits, gate counts,
       and the items needing a decision. Full findings and sidecar logs go in the Task's comments or a
       review file, and the report names where (the user, 2026-11-11). Sidecars report only to their lead.

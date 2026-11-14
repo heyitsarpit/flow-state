@@ -328,3 +328,6 @@ note 2026-11-14T07:31:20Z
     Decision (user, 2026-11-14): "need to let them run into 3 compactions and only rotate after the 4rth is close". 
     Scope: every lead, the whole run. The three T52 rotations today were the leads' own judgement that context was 
     long, not counted compactions. instructions edited; the T52 builder told.
+note 2026-11-14T07:32:17Z
+    Decision (user, 2026-11-14): "let's define close to mean 90%": a lead hands off when its context is 90 percent full 
+    after its third compaction. instructions edited; the T52 builder told.
