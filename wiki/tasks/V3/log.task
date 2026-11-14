@@ -511,3 +511,9 @@ note 2026-11-14T04:07:11Z
 note 2026-11-14T04:10:11Z
     Decision (user, 2026-11-14): "fine" to Opus at high effort for the expected-results read; every other lead stays at 
     medium. instructions edited.
+note 2026-11-14T04:13:46Z
+    Review (T52 step 1) fix first at 824311ab: 4 blocking requirement gaps (shared Checkout/Pay id in the app mix, Q27 
+    met by deleting cites, Q24 short of its widening, golden content unpinned), 5 missed requirements 
+    (t52-step1-review-2026-11-14.md); all sent to the builder. Ruled (orchestrator): the four cancelAll frozen cases 
+    stay on round-14 only, citing the retired WriteLanes R15, until T53; no scope stop. Missed by the builder's checks: 
+    each red tested its own new surface; nothing traced new parts through existing readers of parts (gathering).
