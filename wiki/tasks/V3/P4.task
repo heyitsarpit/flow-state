@@ -1517,6 +1517,8 @@ tasks
             stands (requirements at 53941819, plan at e42be782); the step-1 review finishes and its findings wait here. 
             Resume after T61 from the build log's resume list. Edit (agent: orchestrator, @task.V3.T54, 2026-11-14): 
             status, blocker, this comment. Why: the user's order. Reverse: blocker to T52, status in_progress.
+        comment 2026-11-14T13:47:38Z
+            Step-1 review: fix first, briefly (t54-step1-review-2026-11-14.md, blind sidecar found F1, F2). On resume, before A0's checks: F1 widen A-2 to an incarnation's end and disposeActor (serve.ts:267-272 drops lane-less endings); F2 A-7 tests a decline from the table (lane-moves.ts:207-218 gives it a lane). Rulings (orchestrator): WriteAhead I23 back to T19 and WriteLanes I38 to T18 (T54 cannot turn them green); S-2 is T54's 11 of the 29, the rest stay with their owners, as S-1; a pending case already green is recorded as met, not forced red; I24 wording is the builder's call, but deleting an R5 field goes to the user; O-2's model gap is an owed row for T61. Edit (agent: orchestrator, @task.V3.T54, 2026-11-14): this comment. Why: review routing. Reverse: drop it.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      draft

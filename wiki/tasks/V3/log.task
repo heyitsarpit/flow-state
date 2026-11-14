@@ -457,3 +457,5 @@ note 2026-11-14T13:45:37Z
     Decision (user, 2026-11-14): "it's fine run them linear to work within 5 hour limits". T61 runs first, then T54 
     (the approved order; T54 had not touched src/). T54 is open, blocked by T61, its step 1 kept; the T54 builder stops 
     after its step-1 review lands.
+note 2026-11-14T13:47:38Z
+    Review (T54 step 1) fix first: two missed endings found only by the blind sidecar (lane-less endings dropped at an incarnation's end; the table gives declines a lane), recorded on T54 for its resume with the orchestrator's rulings. Missed by the builder's gathering: requirements scoped to Runtime disposal only.
