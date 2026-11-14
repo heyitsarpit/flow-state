@@ -14,7 +14,7 @@ import {
   landed,
   wrote,
   dropped,
-  FRESH,
+  anchorOf,
   idled,
   used,
   answered,
@@ -43,11 +43,18 @@ import {
   settledBy,
 } from "./credits.ts";
 import { lateLeftWork } from "./late.ts";
-import { changeOf, decideFor, foldedAfter, keysFor, labelsFor } from "./predict.ts";
+import {
+  changeOf,
+  decideFor,
+  foldedAfter,
+  keysFor,
+  labelsFor,
+  undecidedGuards,
+} from "./predict.ts";
+import { undecidedDelays } from "./arming.ts";
 import { Input, leafOf, Phase } from "./phases.ts";
 import { type Labels, noFolds } from "../fixtures/folds.ts";
-import { type Machines, possible, scheduledEvents } from "../fixtures/handlers.ts";
-import type { Reference, Rows } from "../fixtures/reference.ts";
+import { possible, scheduledEvents } from "../fixtures/handlers.ts";
 import { type ActorRef, type Delivered, Observation, type Turn } from "../port.ts";
 
 /**
@@ -130,7 +137,14 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
     },
   });
 
-  const owning = { ...state, owning: new Map([...state.owning, [keyOf(turn.actor), owner]]) };
+  const owning = {
+    ...state,
+    owning: new Map([...state.owning, [keyOf(turn.actor), owner]]),
+    undecided: [
+      ...state.undecided,
+      ...undecidedGuards(state.machines, turn, judged.from, route, decide),
+    ],
+  };
 
   const keys = keysOf(turn, now.fields, keysFor(folds, fields, labels, ran));
 
@@ -487,61 +501,7 @@ export const selection = oracle<State>({
  */
 export type Anchor = State;
 
-/**
- * The {@link Anchor} a case starts from.
- */
-// RETURN_TYPE: the Anchor contract; inference would type the empty Map's entries as never.
-export const anchorOf = (
-  machines: Machines,
-  reference: Reference = {},
-  rows: Rows = {},
-): Anchor => ({
-  machines,
-  reference,
-  rows,
-  requests: [],
-  answers: new Map(),
-  actors: new Map(),
-  owning: new Map(),
-  calls: new Map(),
-  disposing: false,
-});
-
-/**
- * An {@link Anchor} with one actor live at `leaf` and holding a driven credit for each of
- * `driven`, as the suite would carry it.
- *
- * **When to use**
- *
- * The lifecycle's perturbation test starts a reference turn from it, so a perturbed header is
- * judged against the leaf the suite owns.
- */
-// RETURN_TYPE: the Anchor contract; the phase union is narrowed to Live without it.
-export const anchorAt = (
-  machines: Machines,
-  actor: ActorRef,
-  leaf: string,
-  driven: ReadonlyArray<string>,
-): Anchor => ({
-  machines,
-  answers: new Map(),
-  actors: new Map([
-    [
-      keyOf(actor),
-      {
-        ...FRESH,
-        phase: Phase.Live({ state: leaf }),
-        driven: driven.map((event) => ({ event, labels: {} })),
-      },
-    ],
-  ]),
-  owning: new Map(),
-  calls: new Map(),
-  disposing: false,
-  reference: {},
-  rows: {},
-  requests: [],
-});
+export { anchorAt, anchorOf } from "./anchor.ts";
 
 /**
  * One step judged by Turn I2: the next anchor, every violation, and the step's facts with each
@@ -553,8 +513,15 @@ export const anchorAt = (
  * The Case passes the judged facts to the lifecycle, so a row is chosen from a header Turn I2
  * judged, never from the runtime's word alone; the `selection` oracle reports the violations.
  */
-export const judgedStep = (state: Anchor, step: ReadonlyArray<Fact>) =>
-  closed(walked(state, step), step);
+export const judgedStep = (state: Anchor, step: ReadonlyArray<Fact>) => {
+  const judged = closed(walked(state, step), step);
+  const delays = undecidedDelays(judged.state, judged.facts);
+
+  return {
+    ...judged,
+    state: { ...judged.state, undecided: [...judged.state.undecided, ...delays] },
+  };
+};
 
 const walked = (state: Anchor, step: ReadonlyArray<Fact>) =>
   step.reduce<{

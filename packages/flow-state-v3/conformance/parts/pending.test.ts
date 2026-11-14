@@ -2,8 +2,13 @@ import assert from "node:assert/strict";
 import { describe, it } from "vite-plus/test";
 import { GRACE_MS } from "../dsl/expect.ts";
 import { productionCases } from "../runner/gates.ts";
-import { actorIn, idled, returned, used } from "../turn/anchor.ts";
-import { anchorAt } from "../turn/selection.ts";
+import { Address } from "../dsl/facts.ts";
+import { empty } from "../dsl/lifecycle-model.ts";
+import { Fact } from "../dsl/oracle.ts";
+import { Observation } from "../port.ts";
+import { actorIn, idled, returned, Undecided, used } from "../turn/anchor.ts";
+import { schedules } from "../turn/schedules.ts";
+import { anchorAt, anchorOf, judgedStep } from "../turn/selection.ts";
 import { parts } from "../../fixtures/index.ts";
 import { modelFields, modelMutants } from "./model-mutation.ts";
 import { partFixture } from "./reference.ts";
@@ -30,6 +35,52 @@ describe("pending checks, owed to other Tasks (routed gaps)", () => {
 
     assert.ok(aborts("UNSURE"));
     assert.ok(!aborts("PAYING"));
+  });
+
+  it("T17: a schedule armed with a delay the suite cannot compute is never overdue (Turn I12)", () => {
+    const pay = parts.find((p) => p.name === "pay");
+    assert.ok(pay !== undefined);
+
+    const actor = { machine: pay.machine.compiled.id, id: "shopper-1" };
+    const machines = { [actor.machine]: partFixture(pay).handlers };
+
+    const drove = (event: string) => Fact.Drove({ actor, event, to: Address.Root(), labels: {} });
+
+    const turn = (event: string, from: string, to: string, at: string) =>
+      Fact.Reported({
+        observation: Observation.Turn({
+          actor,
+          event,
+          from,
+          to,
+          parts: [{ part: [], definition: actor.machine, at, node: "root", target: to }],
+          members: [],
+        }),
+      });
+
+    const steps = [
+      [
+        Fact.Ensured({ actor, use: "story" }),
+        drove("Start"),
+        turn("Start", "IDLE", "CARD", "states.IDLE.on.Start[0]"),
+      ],
+      [drove("PayRequested"), turn("PayRequested", "CARD", "PAYING", "on.PayRequested[1]")],
+      [turn("Busy", "PAYING", "WAITING", "states.PAYING.on.Busy[0]")],
+      [Fact.Advanced({ ms: 3_600_000 })],
+    ];
+
+    const life = { before: empty, after: empty, applied: [] };
+    const next = schedules.open({}, [], machines, {});
+    const anchor = steps.reduce((state, step) => judgedStep(state, step).state, anchorOf(machines));
+
+    assert.deepEqual(
+      anchor.undecided.filter(Undecided.$is("Delay")).map((u) => u.schedule),
+      ["retry"],
+    );
+    assert.deepEqual(
+      steps.flatMap((step) => next(step, [], life)).filter((v) => v.invariant === "Turn I12"),
+      [],
+    );
   });
 
   it("T17: production's Compile static cases run in no machine gate, only under vitest", () => {

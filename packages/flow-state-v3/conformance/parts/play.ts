@@ -9,6 +9,7 @@ import { type Rules, rules } from "../dsl/lifecycle-rules.ts";
 import { Fact } from "../dsl/oracle.ts";
 import { type Script, scenarioOf } from "../dsl/script.ts";
 import { Observation, type Turn } from "../port.ts";
+import { Undecided } from "../turn/anchor.ts";
 import { verdictOf } from "../runner/run.ts";
 import type { CaseVerdict } from "../runner/verdict.ts";
 import { oracles } from "../suite.ts";
@@ -24,12 +25,14 @@ export type PartRuntime = "production" | "null" | "round-14";
 
 /**
  * One played part script: its verdict, the facts its run recorded, how many `answer` steps found
- * no open request, and the violations an owed row excused (`kept`), each with its subject.
+ * no open request, what its judging left to the runtime's word (`undecided`), and the violations
+ * an owed row excused (`kept`), each with its subject.
  */
 export type Played = {
   readonly verdict: CaseVerdict;
   readonly facts: ReadonlyArray<Fact>;
   readonly skipped: number;
+  readonly undecided: ReadonlyArray<Undecided>;
   readonly kept: ReadonlyArray<{
     readonly oracle: string;
     readonly invariant: string;
@@ -75,6 +78,7 @@ export const playPart = (
       },
       facts: [],
       skipped: 0,
+      undecided: [],
       kept: [],
     };
 
@@ -144,6 +148,7 @@ export const playPart = (
     verdict,
     facts: opened.facts(),
     skipped,
+    undecided: opened.undecided(),
     kept: excused,
   };
 };
@@ -167,6 +172,20 @@ export const partFaults = (
     .map((o) => `BAD  ${o.case}: owed to ${o.owner}, but no script the suite plays has this id`);
 
   return [...empty, ...ghosts, ...judged(runs, owed)];
+};
+
+/**
+ * One line counting what played runs left to the runtime's word: the guards their judging could
+ * not decide, by place, and the schedules armed with a delay it could not compute, which Turn I12
+ * never finds overdue. Printed by the gate, never gating.
+ */
+export const undecidedLine = (runs: ReadonlyArray<{ readonly run: Played }>) => {
+  const all = runs.flatMap(({ run }) => run.undecided);
+  const guards = all.filter(Undecided.$is("Guard"));
+  const delays = all.filter(Undecided.$is("Delay"));
+  const places = [...new Set(guards.map((g) => g.at))].toSorted().join(", ") || "none";
+
+  return `NOTE undecided over ${runs.length} runs: ${guards.length} guards (${places}); ${delays.length} schedules with an unknown delay`;
 };
 
 const owes = (row: PartOwed, kept: Played["kept"][number]) =>

@@ -185,5 +185,6 @@ export const stepEngine = (
     judge,
     stopCrashing: () => void (crashing = false),
     excused: () => [...excused],
+    undecided: () => anchor.undecided,
   };
 };

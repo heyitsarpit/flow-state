@@ -17,7 +17,7 @@ import { partFaults, playPart } from "./play.ts";
 
 const passed = (id: string) => ({
   script: { id, fixture: "x", actor: "a", steps: [] },
-  run: { verdict: { _tag: "Pass" as const, id }, facts: [], skipped: 0, kept: [] },
+  run: { verdict: { _tag: "Pass" as const, id }, facts: [], skipped: 0, undecided: [], kept: [] },
 });
 
 const owner = { task: "@task.V3.T19", slice: 2, by: "a sweep", date: "2026-11-12" } as const;
@@ -120,6 +120,7 @@ describe("an owed run that times out is a fault, whatever it kept (Conformance R
       verdict: { _tag: "Timeout" as const, id: row.case, seed: 1, seconds: 10 },
       facts: [],
       skipped: 0,
+      undecided: [],
       kept: [kept],
     };
 

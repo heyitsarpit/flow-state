@@ -481,6 +481,7 @@ export const openCase = (options: CaseOptions) => {
     stopCrashing: engine.stopCrashing,
     facts: () => facts,
     excused: engine.excused,
+    undecided: engine.undecided,
   };
 };
 

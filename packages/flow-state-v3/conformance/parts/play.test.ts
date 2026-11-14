@@ -5,7 +5,7 @@ import { mixed, parts } from "../../fixtures/index.ts";
 import { implemented as production } from "../adapters/production.ts";
 import { GRACE_MS } from "../dsl/expect.ts";
 import { Address } from "../dsl/facts.ts";
-import { actorIn, idled, returned, used } from "../turn/anchor.ts";
+import { actorIn, idled, returned, Undecided, used } from "../turn/anchor.ts";
 import { anchorAt } from "../turn/selection.ts";
 import { partFixture } from "./reference.ts";
 import { Fact } from "../dsl/oracle.ts";
@@ -15,7 +15,7 @@ import type { CaseVerdict } from "../runner/verdict.ts";
 import { BUILD_SEEDS, mixOf, scriptOf } from "./generate.ts";
 import { verdictOfLimit } from "../limits.ts";
 import { partsOwed } from "./owed.ts";
-import { partFaults, playPart, reachedBy, reachOf, worldSeedOf } from "./play.ts";
+import { partFaults, playPart, reachedBy, reachOf, undecidedLine, worldSeedOf } from "./play.ts";
 
 const SEEDS = BUILD_SEEDS.slice(0, 4);
 
@@ -38,6 +38,37 @@ describe("part scripts on production (Q9, Q10, Q15, Q17: Conformance R15, R19, R
             `${script.id}: ${played.skipped} answers skipped`,
           );
         }
+  });
+
+  it("a run lists the guards and delays its judging left undecided", () => {
+    const pay = parts.find((p) => p.name === "pay");
+    assert.ok(pay !== undefined);
+
+    const runs = SEEDS.map((seed) =>
+      playPart(scriptOf(pay, "usual", seed, production), "production"),
+    );
+
+    assert.ok(runs.some((r) => r.undecided.some(Undecided.$is("Guard"))));
+    assert.match(
+      undecidedLine(runs.map((run) => ({ run }))),
+      /^NOTE undecided over 4 runs: [1-9]\d* guards \(.*states\.PAYING\.on\.PayNotSent\[0\].*\); 0 schedules/u,
+    );
+  });
+
+  it("no part run arms a schedule whose delay the suite cannot compute, which Turn I12 cannot time", () => {
+    const runs = parts.flatMap((part) =>
+      (["usual", "stress"] as const).flatMap((profile) =>
+        BUILD_SEEDS.map((seed) =>
+          playPart(scriptOf(part, profile, seed, production), "production"),
+        ),
+      ),
+    );
+
+    assert.ok(runs.some((r) => r.facts.some(Fact.$is("Reported"))));
+    assert.deepEqual(
+      runs.flatMap((r) => r.undecided.filter(Undecided.$is("Delay"))),
+      [],
+    );
   });
 
   it("the null runtime fails every pilot script by a stated failure", () => {
@@ -384,7 +415,7 @@ describe("reach credits only the part that ran (close review finding 8: Conforma
   const pass = { _tag: "Pass", id: "synthetic" } as const;
 
   const credited = (facts: ReadonlyArray<Fact>, verdict: CaseVerdict = pass) =>
-    reachOf({ verdict, facts, skipped: 0, kept: [] })["C"] ?? new Set();
+    reachOf({ verdict, facts, skipped: 0, undecided: [], kept: [] })["C"] ?? new Set();
 
   const step = Fact.Stepped({ step: 1, what: "synthetic" });
   const ensured = Fact.Ensured({ actor: acct, use: "story" });
@@ -433,8 +464,10 @@ describe("reach credits only the part that ran (close review finding 8: Conforma
 
     const facts = [step, ensured, Fact.Released({ actor: acct, use: "story" })];
 
-    assert.ok(reachedBy([{ run: { verdict: pass, facts, skipped: 0, kept: [] } }]).has("gr"));
-    assert.equal(reachedBy([{ run: { verdict: fail, facts, skipped: 0, kept: [] } }]).size, 0);
+    const run = (verdict: CaseVerdict) => ({ verdict, facts, skipped: 0, undecided: [], kept: [] });
+
+    assert.ok(reachedBy([{ run: run(pass) }]).has("gr"));
+    assert.equal(reachedBy([{ run: run(fail) }]).size, 0);
   });
 });
 

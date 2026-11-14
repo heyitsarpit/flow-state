@@ -251,6 +251,7 @@ const walk = (
       updates: alternative.updates,
     })),
     handled: certain >= 0,
+    undecided: taken.filter(({ alternative }) => alternative.opaque).map(({ at }) => at),
   };
 };
 
@@ -270,7 +271,8 @@ export type Route = "current" | "late" | "either";
  * A current event reads the leaf's level, then the root's; a late one the root's alone. An
  * alternative whose state tokens exclude `from` is skipped; the first with no opaque guard is
  * selected for certain and ends the walk; each opaque one before it may be selected. `decide`
- * computes an opaque guard where it can: one that fails is skipped, one that passes is certain. On
+ * computes an opaque guard where it can: one that fails is skipped, one that passes is certain;
+ * `undecided` lists the places of the opaque ones it could not compute. On
  * `either`,
  * both walks are allowed, and the event is handled for certain only when both are.
  */
@@ -296,6 +298,7 @@ export const possible = (
       ...late.alternatives.filter((a) => !current.alternatives.some((b) => b.at === a.at)),
     ],
     handled: current.handled && late.handled,
+    undecided: [...new Set([...current.undecided, ...late.undecided])],
   };
 };
 

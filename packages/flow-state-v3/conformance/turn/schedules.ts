@@ -1,7 +1,8 @@
 import { Data, Option } from "effect";
 import { Fact, isRuntimeFact, oracle, violation } from "../dsl/oracle.ts";
 import { Address, holdUse } from "../dsl/facts.ts";
-import { type Handlers, possible, type Schedule } from "../fixtures/handlers.ts";
+import type { Handlers, Schedule } from "../fixtures/handlers.ts";
+import { armedBy, enteredBy } from "./arming.ts";
 import { type ActorRef, Observation, sameActor, type Turn, type Use } from "../port.ts";
 import { type Anchor, anchorOf, judgedStep } from "./selection.ts";
 
@@ -129,18 +130,9 @@ const judgeFiring = (state: State, turn: Turn, clockAfter: number) => {
   return { armed: Option.some(armed), found: [...unused, ...timing] };
 };
 
-const enteredBy = (handlers: Handlers, turn: Turn) => {
-  const ran = turn.parts.find((p) => p.part.length === 0 && p.definition === turn.actor.machine);
-
-  return possible(handlers, turn.from, turn.event, "either").alternatives.some(
-    (a) => a.at === ran?.at && a.enters,
-  );
-};
-
 const armedAfter = (state: State, handlers: Handlers, turn: Turn, fired: Option.Option<Armed>) => {
   const key = keyOf(turn.actor);
   const before = armedOf(state, key).filter((a) => !Option.exists(fired, (f) => f === a));
-  const enters = enteredBy(handlers, turn);
 
   const fields = Option.flatMap(
     Option.fromUndefinedOr(state.after.actors.get(key)),
@@ -159,23 +151,17 @@ const armedAfter = (state: State, handlers: Handlers, turn: Turn, fired: Option.
         ),
     );
 
-  const armedAt = (state_: string, which: (s: Schedule) => boolean) =>
-    (handlers.schedules[state_] ?? []).filter(which).map((schedule) => ({
-      state: state_,
-      schedule,
-      at: state.clock,
-      step: state.step,
-      due: dueOf(schedule),
-    }));
+  const armed = armedBy(handlers, turn).map(([at, schedule]) => ({
+    state: at,
+    schedule,
+    at: state.clock,
+    step: state.step,
+    due: dueOf(schedule),
+  }));
 
-  if (enters) return armedAt(turn.to, (s) => s.entry);
+  if (enteredBy(handlers, turn)) return armed;
 
-  const rearmed = armedAt(turn.from, (s) => s.armOn.includes(turn.event));
-
-  return [
-    ...before.filter((a) => !rearmed.some((r) => r.schedule.id === a.schedule.id)),
-    ...rearmed,
-  ];
+  return [...before.filter((a) => !armed.some((r) => r.schedule.id === a.schedule.id)), ...armed];
 };
 
 /**

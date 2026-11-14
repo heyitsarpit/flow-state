@@ -68,6 +68,23 @@ export type Call = {
   readonly booted: boolean;
 };
 
+/**
+ * What the suite could not compute while judging a turn, so a runtime's own word stood in for it:
+ * an opaque guard its folds left undecided (`Guard`, by its place; Turn I2 then allows either
+ * outcome), or a schedule armed with a delay its folds cannot compute (`Delay`; Turn I12 then
+ * never finds it overdue).
+ *
+ * **When to use**
+ *
+ * A gate counts these per run, so a pass the suite could not judge in full shows as such.
+ */
+export type Undecided = Data.TaggedEnum<{
+  Guard: { actor: string; at: string };
+  Delay: { actor: string; state: string; schedule: string };
+}>;
+
+export const Undecided = Data.taggedEnum<Undecided>();
+
 export type State = {
   readonly machines: Machines;
   readonly answers: ReadonlyMap<string, Labels>;
@@ -78,6 +95,7 @@ export type State = {
   readonly reference: Reference;
   readonly rows: Rows;
   readonly requests: ReadonlyArray<Request>;
+  readonly undecided: ReadonlyArray<Undecided>;
 };
 
 export const keyOf = (actor: ActorRef) => `${actor.machine} ${actor.id}`;
@@ -589,3 +607,53 @@ export const answerOf = (state: State, operation: string, attempt: Option.Option
   state.answers.get(
     Option.match(attempt, { onNone: () => operation, onSome: (a) => attemptKey(operation, a) }),
   ) ?? {};
+
+/**
+ * The anchor a case starts from: no actor, call or answer yet.
+ */
+// RETURN_TYPE: the State contract; inference would type the empty Map's entries as never.
+export const anchorOf = (
+  machines: Machines,
+  reference: Reference = {},
+  rows: Rows = {},
+): State => ({
+  machines,
+  reference,
+  rows,
+  requests: [],
+  answers: new Map(),
+  actors: new Map(),
+  owning: new Map(),
+  calls: new Map(),
+  disposing: false,
+  undecided: [],
+});
+
+/**
+ * An anchor with one actor live at `leaf` and holding a driven credit for each of `driven`, as
+ * the suite would carry it.
+ *
+ * **When to use**
+ *
+ * The lifecycle's perturbation test starts a reference turn from it, so a perturbed header is
+ * judged against the leaf the suite owns.
+ */
+// RETURN_TYPE: the State contract; the phase union is narrowed to Live without it.
+export const anchorAt = (
+  machines: Machines,
+  actor: ActorRef,
+  leaf: string,
+  driven: ReadonlyArray<string>,
+): State => ({
+  ...anchorOf(machines),
+  actors: new Map([
+    [
+      keyOf(actor),
+      {
+        ...FRESH,
+        phase: Phase.Live({ state: leaf }),
+        driven: driven.map((event) => ({ event, labels: {} })),
+      },
+    ],
+  ]),
+});

@@ -1,8 +1,9 @@
 import { Option } from "effect";
 import { sameJson } from "../port.ts";
 import type { Folded, Folds, Labels } from "../fixtures/folds.ts";
-import type { Decide } from "../fixtures/handlers.ts";
-import { type Actor, answerOf, creditLabels, type State } from "./anchor.ts";
+import { type Decide, type Machines, possible, type Route } from "../fixtures/handlers.ts";
+import type { ActorRef } from "../port.ts";
+import { type Actor, answerOf, creditLabels, keyOf, type State, Undecided } from "./anchor.ts";
 
 /**
  * The labels of the fact a turn runs on (the expect half of selection, Conformance R20): a driven
@@ -77,6 +78,27 @@ export const changeOf = (
   const differs = Option.exists(Option.zipWith(before, after, sameFolded), (same) => !same);
 
   return differs ? Option.some(true) : Option.none<boolean>();
+};
+
+/**
+ * The opaque guards judging one turn left to the runtime's word ({@link Undecided}): those its
+ * folds could not compute on the turn's route, lane guards (which the lane oracles judge)
+ * included.
+ */
+export const undecidedGuards = (
+  machines: Machines,
+  turn: { readonly actor: ActorRef; readonly event: string },
+  from: string,
+  route: Route,
+  decide: Decide,
+) => {
+  const handlers = machines[turn.actor.machine];
+
+  return handlers === undefined
+    ? []
+    : possible(handlers, from, turn.event, route, decide).undecided.map((at) =>
+        Undecided.Guard({ actor: keyOf(turn.actor), at }),
+      );
 };
 
 const sameFolded = (a: Folded, b: Folded) =>

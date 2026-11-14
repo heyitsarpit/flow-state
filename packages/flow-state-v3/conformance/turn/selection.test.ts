@@ -4,7 +4,7 @@ import { parts } from "../../fixtures/index.ts";
 import { partFixture } from "../parts/reference.ts";
 import { Fact } from "../dsl/oracle.ts";
 import { Observation } from "../port.ts";
-import { actorIn } from "./anchor.ts";
+import { actorIn, Undecided } from "./anchor.ts";
 import { anchorAt, judgedStep } from "./selection.ts";
 
 const pay = parts.find((p) => p.name === "pay");
@@ -31,11 +31,37 @@ const turn = (event: string, from: string, to: string, at: string) => [
 const flushed = [Fact.Wrote({ bytes: 1 }), Fact.Purposed({ purpose: "flush" })];
 const held = [Fact.Wrote({ bytes: 1 }), Fact.Purposed({ purpose: "capture" })];
 
-const after = (steps: ReadonlyArray<ReadonlyArray<Fact>>) =>
-  steps.reduce(
-    (state, step) => judgedStep(state, step).state,
-    anchorAt(machines, actor, "IDLE", []),
-  );
+const after = (steps: ReadonlyArray<ReadonlyArray<Fact>>, leaf = "IDLE") =>
+  steps.reduce((state, step) => judgedStep(state, step).state, anchorAt(machines, actor, leaf, []));
+
+describe("what selection leaves undecided (Turn I2, I12)", () => {
+  it("a guard the folds cannot compute is listed by its place", () => {
+    const state = after(
+      [turn("PayNotSent", "PAYING", "PAYING", "states.PAYING.on.PayNotSent[0]")],
+      "PAYING",
+    );
+
+    assert.deepEqual(
+      state.undecided.filter(Undecided.$is("Guard")).map((u) => u.at),
+      ["states.PAYING.on.PayNotSent[0]"],
+    );
+  });
+
+  it("a schedule armed with a delay the folds cannot compute is listed by its id", () => {
+    const state = after([turn("Busy", "PAYING", "WAITING", "states.PAYING.on.Busy[0]")], "PAYING");
+
+    assert.deepEqual(
+      state.undecided.filter(Undecided.$is("Delay")).map((u) => `${u.state} ${u.schedule}`),
+      ["WAITING retry"],
+    );
+  });
+
+  it("a turn whose guards and delays are all computed lists nothing", () => {
+    const state = after([turn("Start", "IDLE", "CARD", "states.IDLE.on.Start[0]")]);
+
+    assert.deepEqual(state.undecided, []);
+  });
+});
 
 describe("the leaves a kill may restore (Turn I2; WriteAhead R10, I10)", () => {
   it("a use of a disposed actor does not pin its record: the removal may not have landed", () => {

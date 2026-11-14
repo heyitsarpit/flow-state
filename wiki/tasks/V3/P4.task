@@ -765,7 +765,7 @@ tasks
               Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment. Why: hand-off rule. Reverse: 
               revert this commit.
         comment     2026-11-14T06:46:54Z
-            Resume 3 done: a case cites with `c.expect(cited, …)` (D18), `Mismatch` carries cites, verdicts keep their 
+            Resume 3 done: a case cites with `c.expect(cited, …)` (D18), `Mismatch` carries cites, verdicts keep their
             Invariants; reds first (owed.test.ts, citations.test.ts); a dropped LANE-13 cite loses its catch, restored 
             falsify 154/154 and 18/18. Item 2's ruling (Q1 B) is logged; it runs next. Detail: 
             code:wiki/plans/flow/references/proposals/t52-build-log-2026-11-14.md.
@@ -795,6 +795,19 @@ tasks
             run, a change detector, never an expected result. Next, in order: 2b, item 2 (adversarial liar-mode actor, 
             design in 2a), then 4 to 7. Detail: code:wiki/plans/flow/references/proposals/t52-build-log-2026-11-14.md.
               Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment. Why: hand-off rule. Reverse: 
+              revert this commit.
+        comment     2026-11-14T07:40:51Z
+            Re-check 2 (a725ad30..0c4ccb3c): go on, nothing blocks; owed scripts at seeds 7-12 need a subject check 
+            before close, and lane-subject rows over-excuse. Detail: 
+            code:wiki/plans/flow/references/proposals/t52-recheck2-2026-11-14.md.
+              Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment, for the re-check reviewer. Why: 
+              coordinator's relay. Reverse: revert this commit.
+        comment     2026-11-14T07:40:51Z
+            2b done: a run lists its undecided guards and unknown-delay armings (the parts gate prints the count); no 
+            part delay is unknown today, so zero is a required check and the never-overdue gap a pending check for T17. 
+            Reds first; falsify 154/154 and 18/18, parts 62/62. Detail: 
+            code:wiki/plans/flow/references/proposals/t52-build-log-2026-11-14.md.
+              Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): this comment. Why: step-done rule. Reverse: 
               revert this commit.
     T59
         title       The suite reads and imports nothing outside the package

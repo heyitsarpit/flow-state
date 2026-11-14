@@ -15,7 +15,7 @@ import { fieldGate, modelFields, modelMutants } from "../parts/model-mutation.ts
 import { PAIR_OWNERS } from "../parts/pair-owners.ts";
 import { combinationGate } from "../parts/pairs.ts";
 import { owedSubjects, type PartOwed, RETRY_COUNT, UNBOUND_RESTORE } from "../parts/owed.ts";
-import { partFaults, playPart, reachedBy, reachOf } from "../parts/play.ts";
+import { partFaults, playPart, reachedBy, reachOf, undecidedLine } from "../parts/play.ts";
 import {
   currentSlice,
   gateScripts,
@@ -60,10 +60,9 @@ export const verdict = (lines: ReadonlyArray<string>, total: number, what: strin
 export const partsGate = Effect.suspend(() => {
   const runs = played();
 
-  return verdict(
-    partFaults(runs, undefined, playedScope()),
-    runs.length,
-    "part scripts on production",
+  return Effect.andThen(
+    Console.log(undecidedLine(runs)),
+    verdict(partFaults(runs, undefined, playedScope()), runs.length, "part scripts on production"),
   );
 });
 
