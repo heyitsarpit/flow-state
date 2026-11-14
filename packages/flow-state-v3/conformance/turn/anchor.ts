@@ -143,21 +143,17 @@ export const withActor = (state: State, actor: ActorRef, next: Actor) => ({
 });
 
 /**
- * A non-persisted actor that may have ended at its grace and is ensured again: it either
- * restarted fresh (Actors R6, no record) or lived on, so its leaf and fields are unknown until
- * its next turn.
+ * A non-persisted actor free for its whole grace since its last use, ensured again: it either
+ * restarted fresh (Actors R9: no record, and an older one kept only by work in flight is
+ * disposed) or lived on, so its leaf and fields are unknown until its next turn. Within its grace
+ * it is the same actor and keeps its leaf.
  */
-export const returned = (state: State, actor: ActorRef) => {
+export const returned = (state: State, actor: ActorRef, grace: number) => {
   const now = actorIn(state, actor);
   const local = state.machines[actor.machine]?.persist === false;
 
-  return local && now.mayHaveEnded && now.uses === 0 && !Phase.$is("Fresh")(now.phase)
-    ? withActor(state, actor, {
-        ...now,
-        phase: Phase.Unanchored(),
-        fields: Option.none(),
-        mayHaveEnded: false,
-      })
+  return local && now.uses === 0 && now.freeFor >= grace && Phase.$is("Live")(now.phase)
+    ? withActor(state, actor, { ...now, phase: Phase.Unanchored(), fields: Option.none() })
     : state;
 };
 

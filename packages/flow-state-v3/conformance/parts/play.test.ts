@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { describe, it } from "vite-plus/test";
 import { parts } from "../../fixtures/index.ts";
 import { implemented as production } from "../adapters/production.ts";
+import { GRACE_MS } from "../dsl/expect.ts";
 import { Address } from "../dsl/facts.ts";
+import { actorIn, idled, returned, used } from "../turn/anchor.ts";
+import { anchorAt } from "../turn/selection.ts";
+import { partFixture } from "./reference.ts";
 import { Fact } from "../dsl/oracle.ts";
 import type { Script } from "../dsl/script.ts";
 import { Observation } from "../port.ts";
@@ -255,6 +259,27 @@ describe("first-contact reds of the wider stress profile that were the suite's",
     const played = playPart(script, "production");
 
     assert.equal(played.verdict._tag, "Pass", JSON.stringify(played.verdict));
+  });
+
+  it("only a local actor free for its whole grace returns with an unknown leaf; within it, it keeps its leaf", () => {
+    const machinesOf = (name: string) => {
+      const part = parts.find((p) => p.name === name);
+      assert.ok(part !== undefined, name);
+
+      return { part, machines: { [part.machine.compiled.id]: partFixture(part).handlers } };
+    };
+
+    const phaseAfter = (name: string, free: number) => {
+      const { part, machines } = machinesOf(name);
+      const actor = { machine: part.machine.compiled.id, id: "a" };
+      const start = used(used(anchorAt(machines, actor, "COOLING", []), actor, 1), actor, -1);
+
+      return actorIn(returned(idled(start, free, GRACE_MS), actor, GRACE_MS), actor).phase._tag;
+    };
+
+    assert.equal(phaseAfter("sync", GRACE_MS - 1), "Live");
+    assert.equal(phaseAfter("sync", GRACE_MS), "Unanchored");
+    assert.equal(phaseAfter("transfers", GRACE_MS), "Live");
   });
 });
 

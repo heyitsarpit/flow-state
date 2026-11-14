@@ -345,7 +345,7 @@ const onFact = (
           onNone: () => used(state, actor, 1),
           onSome: (initial) =>
             moved(
-              used(folded(returned(state, actor), actor), actor, 1),
+              used(folded(returned(state, actor, GRACE_MS), actor), actor, 1),
               actor,
               Input.Ensured({ initial }),
             ),
