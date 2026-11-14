@@ -31,3 +31,4 @@ time_ist,weekly_all_pct,weekly_fable_pct,five_hour_pct,weekly_delta_pct,pace_pct
 2026-11-14 21:21,37,3,81,2,2.7,89,T61 builder (owed lists, N1 next); 5 Haiku speed-study agents ran 20:45-21:00; T54 paused
 2026-11-14 21:51,38,3,1,1,2.0,,T61 builder; process-tools review (Opus, Haiku sidecars); 3 Haiku tool builders done; 5-hour window reset 21:50
 2026-11-14 22:22,39,3,9,1,1.9,84,T61 builder alone (traces, re-owning, then review)
+2026-11-14 22:51,40,3,13,1,2.1,64,T61 close review (Opus, 3-5 Haiku Explore); process study and tool fixes done (Haiku, medium)
