@@ -488,4 +488,11 @@ note 2026-11-14T15:24:36Z
     one, a fixed finding table), Haiku sweeps at medium as a timed trial (review sidecars stay high), Explore agents 
     for read-only sidecars. instructions, AGENTS.md and memory edited.
 note 2026-11-14T15:36:11Z
-    T61 owed lists, part 1 (825a6bad, 31ccd040): combined-review N3, N5, N7 and most of N8, red first. The new selection subject exposed a crash red owed to T55 (PAY-16@9, production reports Done before its capture and final write, same bug as PAY-15); crash 731/735 with 4 owed. The builder adopted the speed rules.
+    T61 owed lists, part 1 (825a6bad, 31ccd040): combined-review N3, N5, N7 and most of N8, red first. The new 
+    selection subject exposed a crash red owed to T55 (PAY-16@9, production reports Done before its capture and final 
+    write, same bug as PAY-15); crash 731/735 with 4 owed. The builder adopted the speed rules.
+note 2026-11-14T15:42:37Z
+    Decision (user, 2026-11-14): a separate process notebook, "so we can improve across sessions", at 
+    wiki/plans/flow/references/process/process-notebook.md; a transcript study at each Task's close goes in it; linked 
+    from instructions. My authority to apply process changes as experiments without asking is still to be confirmed by 
+    the user.

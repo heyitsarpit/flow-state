@@ -259,6 +259,9 @@ instructions
       designing) runs at medium effort. Haiku review sidecars run at high; read-only sweeps (locators, surveys,
       runners) run at medium as a timed trial, compared against the speed study's sidecar times; a lead tells its own
       sidecars which (the user, 2026-11-14; was high for all).
+    - Process studies (the user, 2026-11-14): at each Task's close the orchestrator runs a transcript study and
+      records it in code:wiki/plans/flow/references/process/process-notebook.md, the cross-session record of
+      process experiments. Read it before changing how agents are briefed, reviewed or paced.
     - Speed rules (the user, 2026-11-14, code:wiki/plans/flow/references/proposals/agent-speed-study-2026-11-14.md):
       - batch tool calls: independent Reads, Edits and searches go in one message, never one call per turn;
       - launch all of a round's sidecars in one message, so they run in parallel; a sidecar's call returns only
