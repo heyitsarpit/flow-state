@@ -514,6 +514,7 @@ export const openCase = (options: CaseOptions, modelStep: StepFunction = designS
     end,
     stopCrashing: engine.stopCrashing,
     facts: () => facts,
+    stored: () => storage.load(),
     excused: engine.excused,
     violations: engine.violations,
     undecided: engine.undecided,

@@ -69,7 +69,7 @@ export const playPart = (
   replay: Option.Option<ReadonlyArray<ReadonlyArray<RuntimeFact>>> = Option.none(),
   judges: ReadonlyArray<Oracle> = oracles,
   life: StepFunction = designStep,
-): Played => {
+): Played & { readonly stored: ReadonlyMap<string, string> } => {
   if (runtime === "round-14")
     return {
       verdict: {
@@ -80,6 +80,7 @@ export const playPart = (
       },
       threw: Option.none(),
       facts: [],
+      stored: new Map(),
       skipped: 0,
       undecided: [],
       violations: [],
@@ -172,6 +173,7 @@ export const playPart = (
     verdict,
     threw: failed,
     facts: opened.facts(),
+    stored: opened.stored(),
     skipped,
     undecided: opened.undecided(),
     violations: opened.violations(),

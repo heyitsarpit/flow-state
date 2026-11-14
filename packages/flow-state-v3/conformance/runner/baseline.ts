@@ -1,16 +1,16 @@
 /// <reference types="node" />
-import { Console, Effect, Formatter, Option, Result } from "effect";
+import { Console, Effect, Formatter, Option, Predicate, Result } from "effect";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { captureMsOf } from "../actors/lifetime.scenarios.ts";
 import { Crashed, openCase, type Scenario } from "../dsl/case.ts";
 import { rules } from "../dsl/lifecycle-rules.ts";
-import type { Fact } from "../dsl/oracle.ts";
+import { Fact } from "../dsl/oracle.ts";
 import type { Script } from "../dsl/script.ts";
 import { playPart } from "../parts/play.ts";
 import { heldOutScripts } from "../parts/records.ts";
-import type { Port } from "../port.ts";
+import type { Observation, Port } from "../port.ts";
 import { scenarios } from "../suite.ts";
 import type { Surface } from "../surface.ts";
 import {
@@ -26,7 +26,9 @@ import { partsGateScripts } from "./parts-gates.ts";
 import { CASE_SECONDS } from "./run.ts";
 
 /**
- * Where the differential baseline lives: one line per run, `id`, its digest and its step count.
+ * Where the differential baseline lives: one line per run with its id, the digest of its whole
+ * timeline, the digest of its behaviour (the timeline less the store's facts and contents) and its
+ * length.
  */
 export const BASELINE = resolve(PACKAGE, "conformance", "baseline.tsv");
 
@@ -42,6 +44,11 @@ export type Allowed = { readonly run: string; readonly pending: string; readonly
 export const allowed: ReadonlyArray<Allowed> = [];
 
 const SEEDS = [1, 2];
+
+// The store's own facts: a record's bytes, its landing, the batch's purpose and the Attempts it
+// acknowledges. Behaviour leaves them out, so a step that writes other bytes or batches (T54's
+// A3) is compared on what a user and a reload see.
+const STORAGE = new Set(["Wrote", "Landed", "Purposed", "Acknowledges"]);
 
 // Minted ids are numbered by their first appearance in a run, so a change to how ids are minted
 // (the Attempts' own counter, a wider seed) is not a difference; a change in which id a fact
@@ -64,14 +71,43 @@ const normalized = (lines: ReadonlyArray<string>) => {
   );
 };
 
-/**
- * A run's timeline as text: every fact in order, the suite's inputs, the world's answers, the
- * runtime's reports, requests (its commands) and store writes, with minted ids renumbered.
- */
-export const timelineOf = (facts: ReadonlyArray<Fact>) =>
-  normalized(facts.map((fact) => Formatter.format(fact)));
+type Played = {
+  readonly id: string;
+  readonly crash: boolean;
+  readonly facts: ReadonlyArray<Fact>;
+  readonly stored: ReadonlyMap<string, string>;
+  readonly stopped: boolean;
+};
 
-const caseFacts = (port: Port, surface: Surface, scenario: Scenario, seed: number) => {
+const STOPPED = "stopped by a failed check";
+
+/**
+ * A run's whole timeline as text: every fact in order (the suite's inputs, the world's answers,
+ * the runtime's reports, requests and store facts), then the store's contents at its end, with
+ * minted ids renumbered.
+ */
+const stopLine = (run: Played) => (run.stopped ? [STOPPED] : []);
+
+const timelineOf = (run: Played) =>
+  normalized([
+    ...run.facts.map((fact) => Formatter.format(fact)),
+    ...[...run.stored].toSorted(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${k}=${v}`),
+    ...stopLine(run),
+  ]);
+
+const behaviourOf = (run: Played) =>
+  normalized([
+    ...run.facts.filter((f) => !STORAGE.has(f._tag)).map((fact) => Formatter.format(fact)),
+    ...stopLine(run),
+  ]);
+
+const caseRun = (
+  port: Port,
+  surface: Surface,
+  scenario: Scenario,
+  seed: number,
+  crashAt: Option.Option<number>,
+) => {
   const end = Date.now() + CASE_SECONDS * 1000;
 
   const opened = openCase({
@@ -81,7 +117,7 @@ const caseFacts = (port: Port, surface: Surface, scenario: Scenario, seed: numbe
     seed,
     graphs: graphsFor(surface, [scenario])(scenario),
     overdue: () => Date.now() > end,
-    crashAt: Option.none(),
+    crashAt,
     replay: Option.none(),
     captureMs: captureMsOf(scenario.id),
     rules,
@@ -91,39 +127,164 @@ const caseFacts = (port: Port, surface: Surface, scenario: Scenario, seed: numbe
 
   // FLOW_STATE_ALLOW_UNKNOWN: a case throws its verdicts; the timeline up to the throw is the run.
   const played = Result.try({ try: () => scenario.run(opened.driven), catch: (e: unknown) => e });
-  const failed = Result.isFailure(played) && !(played.failure instanceof Crashed);
+  const crashed = Result.isFailure(played) && played.failure instanceof Crashed;
+  const stopped = Result.isFailure(played) && !crashed;
+  opened.stopCrashing();
 
-  if (failed) return [...timelineOf(opened.facts()), "stopped by a failed check"];
-  opened.end();
+  if (!stopped) opened.end();
 
-  return timelineOf(opened.facts());
+  const id = Option.match(crashAt, {
+    onNone: () => `${scenario.id}@${seed}`,
+    onSome: (at) => `${scenario.id}@crash-${at}`,
+  });
+
+  return {
+    run: {
+      id,
+      crash: Option.isSome(crashAt),
+      facts: opened.facts(),
+      stored: opened.stored(),
+      stopped,
+    },
+    crashed,
+  };
 };
 
-const partFacts = (script: Script) =>
-  playPart(script, "production", rules, undefined, Option.none(), []).facts;
+// Every crash point of a case at seed 1, as the crash gate cuts them: after step i, until i passes
+// the case's last step.
+const crashRuns = (port: Port, surface: Surface, scenario: Scenario) => {
+  const out: Array<Played> = [];
 
-type Run = { readonly id: string; readonly lines: ReadonlyArray<string> };
+  for (let at = 1; at <= 400; at += 1) {
+    const { run, crashed } = caseRun(port, surface, scenario, 1, Option.some(at));
 
-const digestOf = (lines: ReadonlyArray<string>) =>
-  createHash("sha256").update(lines.join("\n")).digest("hex");
+    if (!crashed) break;
+    out.push(run);
+  }
 
-const rowOf = (run: Run) => `${run.id}\t${digestOf(run.lines)}\t${run.lines.length}`;
+  return out;
+};
 
-const runs = (port: Port, surface: Surface) => {
-  const cases = scenarios
-    .filter((s) => productionCases.includes(s.id))
-    .flatMap((s) =>
-      SEEDS.map((seed) => ({ id: `${s.id}@${seed}`, lines: caseFacts(port, surface, s, seed) })),
-    );
+const partRun = (script: Script) => {
+  const played = playPart(script, "production", rules, undefined, Option.none(), []);
+
+  return {
+    id: script.id,
+    crash: false,
+    facts: played.facts,
+    stored: played.stored,
+    stopped: false,
+  } satisfies Played;
+};
+
+const allRuns = (port: Port, surface: Surface) => {
+  const cases = scenarios.filter((s) => productionCases.includes(s.id));
+
+  const seeded = cases.flatMap((s) =>
+    SEEDS.map((seed) => caseRun(port, surface, s, seed, Option.none()).run),
+  );
 
   const scripts = new Map(
     [...partsGateScripts(), ...heldOutScripts()].map((s) => [s.id, s] as const),
   );
 
-  const parts = [...scripts.values()].map((s) => ({ id: s.id, lines: timelineOf(partFacts(s)) }));
-
-  return [...cases, ...parts];
+  return [
+    ...seeded,
+    ...[...scripts.values()].map(partRun),
+    ...cases.flatMap((s) => crashRuns(port, surface, s)),
+  ];
 };
+
+const observed = (facts: ReadonlyArray<Fact>) =>
+  facts.flatMap((f) => (Fact.$is("Reported")(f) ? [f.observation] : []));
+
+const who = (actor: Option.Option<{ readonly machine: string; readonly id: string }>) =>
+  Option.match(actor, { onNone: () => "?", onSome: (a) => `${a.machine}/${a.id}` });
+
+/**
+ * Conservation with declines (WriteLanes I27; T54 A-9), from a run's reports: per actor and
+ * write, the commits its turns admitted equal the Attempts minted plus the declines, an ending
+ * with no Attempt (no queue is built under reject). A write is an operation some turn commits.
+ */
+export const conservation = (facts: ReadonlyArray<Fact>) => {
+  const reports = observed(facts);
+
+  const admitted = reports.flatMap((o) =>
+    o._tag === "Turn"
+      ? o.members
+          .filter((m) => m.kind === "commit")
+          .map((m) => ({
+            operation: m.operation,
+            key: `${o.actor.machine}/${o.actor.id} ${m.operation}`,
+          }))
+      : [],
+  );
+
+  const writes = new Set(admitted.map((a) => a.operation));
+
+  const minted = reports.flatMap((o) =>
+    o._tag === "Minted" ? [`${who(o.actor)} ${o.operation}`] : [],
+  );
+
+  const declined = reports.flatMap((o) =>
+    o._tag === "Ended" && Option.isNone(o.attempt) && writes.has(o.operation)
+      ? [`${who(o.actor)} ${o.operation}`]
+      : [],
+  );
+
+  const countOf = (keys: ReadonlyArray<string>, key: string) =>
+    keys.filter((k) => k === key).length;
+
+  const keys = new Set([...admitted.map((a) => a.key), ...minted, ...declined]);
+
+  return [...keys].flatMap((key) => {
+    const [a, m, d] = [admitted.map((x) => x.key), minted, declined].map((ks) => countOf(ks, key));
+
+    return a === (m ?? 0) + (d ?? 0)
+      ? []
+      : [`WriteLanes I27: ${key}: ${a} commits admitted, ${m} Attempts minted and ${d} declines`];
+  });
+};
+
+// What a report or row may never hold (WriteLanes I37): a record key, a minted id other than an
+// Attempt's, a lane id (`<identity>|<operation>|<key>`), or a field naming a Delivery.
+const INTERNAL =
+  /^(?:(?:lane|actor|owed|parked|kept)\/|(?:call|ticket|timer|inc|kept|owed)-)|\|.*\|/u;
+
+// RETURN_TYPE: the walk recurses, so its result type is stated once here.
+const internalIn = (
+  // FLOW_STATE_ALLOW_UNKNOWN: a report's or row's fields, walked as the JSON they are.
+  value: unknown,
+  path: string,
+): ReadonlyArray<string> => {
+  if (Predicate.isString(value)) return INTERNAL.test(value) ? [`${path} = ${value}`] : [];
+
+  if (Array.isArray(value)) return value.flatMap((v, i) => internalIn(v, `${path}[${i}]`));
+
+  if (Predicate.isObject(value))
+    return Object.entries(value).flatMap(([k, v]) =>
+      k === "delivery" ? [`${path}.delivery`] : internalIn(v, `${path}.${k}`),
+    );
+
+  return [];
+};
+
+/**
+ * Nothing internal crosses (WriteLanes I37; T54 A-17): no report, snapshot or row read in a run
+ * carries a row's id, a lane id, a ticket, a timer, a record key or a Delivery.
+ */
+export const internals = (facts: ReadonlyArray<Fact>) =>
+  facts.flatMap((f) => {
+    if (Fact.$is("Reported")(f))
+      return internalIn(f.observation, f.observation._tag satisfies Observation["_tag"]);
+
+    return Fact.$is("RowRead")(f) ? internalIn(f.row, "row") : [];
+  });
+
+const digestOf = (lines: ReadonlyArray<string>) =>
+  createHash("sha256").update(lines.join("\n")).digest("hex");
+
+type Row = { readonly id: string; readonly whole: string; readonly behaviour: string };
 
 const recorded = () =>
   new Map(
@@ -131,40 +292,65 @@ const recorded = () =>
       .split("\n")
       .filter((l) => l !== "")
       .map((l) => {
-        const [id = "", digest = ""] = l.split("\t");
+        const [id = "", whole = "", behaviour = ""] = l.split("\t");
 
-        return [id, digest] as const;
+        return [id, { id, whole, behaviour } satisfies Row] as const;
       }),
   );
 
 /**
- * The differential baseline (T54, X-1): `baseline --record` writes one digest per run of every
- * production case at seeds 1 and 2 and every gate and held-out part script on production;
- * `baseline` replays them and fails on a run that differs with no {@link allowed} entry, on an
- * entry whose run no longer differs, and on a run added or lost. `--dump DIR` writes each run's
- * timeline to `DIR/<id>.txt` to read a difference.
+ * The differential baseline (T54, X-1, A-14): `baseline --record` writes, per run, the digests of
+ * its timeline and of its behaviour, over every production case at seeds 1 and 2, every gate and
+ * held-out part script, and every crash point of each production case. `baseline` replays them
+ * and fails on a run that differs with no {@link allowed} entry, on an entry whose run is equal,
+ * and on a run added or lost; crash points, and every run under `--behaviour` (from T54's A3,
+ * where bytes may differ), compare behaviour only. Every run is also scanned for conservation
+ * with declines ({@link conservation}) and for internals ({@link internals}). `--dump DIR`
+ * writes each timeline to `DIR/<id>.txt`.
  */
 export const baseline = (args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
     const port = yield* runtimePort(PRODUCTION_RUNTIME);
     const surface = yield* runtimeSurface(PRODUCTION_RUNTIME);
-    const now = runs(port, surface);
+    const runs = allRuns(port, surface);
     const dump = flag(args, "--dump");
 
     if (Option.isSome(dump)) {
       mkdirSync(dump.value, { recursive: true });
 
-      for (const run of now)
+      for (const run of runs)
         writeFileSync(
           resolve(dump.value, `${run.id.replaceAll("/", "~")}.txt`),
-          `${run.lines.join("\n")}\n`,
+          `${timelineOf(run).join("\n")}\n`,
         );
     }
 
-    if (args.includes("--record")) {
-      writeFileSync(BASELINE, `${now.map(rowOf).join("\n")}\n`);
+    const rows = runs.map((run) => ({
+      run,
+      row: {
+        id: run.id,
+        whole: digestOf(timelineOf(run)),
+        behaviour: digestOf(behaviourOf(run)),
+      } satisfies Row,
+    }));
 
-      return yield* Console.log(`VERDICT pass ${now.length} runs recorded in ${BASELINE}`);
+    const scanned = runs.flatMap((run) =>
+      [...conservation(run.facts), ...internals(run.facts)].map((v) => `BAD  ${run.id}: ${v}`),
+    );
+
+    if (args.includes("--record")) {
+      writeFileSync(
+        BASELINE,
+        `${rows.map(({ row }) => `${row.id}\t${row.whole}\t${row.behaviour}`).join("\n")}\n`,
+      );
+
+      for (const line of scanned) yield* Console.log(line);
+
+      if (scanned.length > 0) process.exitCode = 1;
+
+      return yield* Console.log(
+        `VERDICT ${scanned.length === 0 ? "pass" : "fail"} ${rows.length} runs recorded in ${BASELINE}`,
+      );
     }
 
     if (!existsSync(BASELINE)) {
@@ -174,23 +360,28 @@ export const baseline = (args: ReadonlyArray<string>) =>
     }
 
     const was = recorded();
-    const ids = new Set(now.map((r) => r.id));
+    const ids = new Set(rows.map(({ row }) => row.id));
+    const behaviourOnly = args.includes("--behaviour");
+
+    const compared = rows.flatMap(({ run, row }) => {
+      const before = was.get(row.id);
+
+      if (before === undefined) return [`BAD  ${row.id}: not in the baseline`];
+      const onBehaviour = behaviourOnly || run.crash;
+      const differs = onBehaviour ? before.behaviour !== row.behaviour : before.whole !== row.whole;
+      const entry = allowed.find((a) => a.run === row.id);
+
+      if (differs && entry === undefined) return [`BAD  ${row.id}: differs, with no named entry`];
+
+      return !differs && entry !== undefined
+        ? [`BAD  ${row.id}: its entry (${entry.pending}) is stale, the run is equal`]
+        : [];
+    });
 
     const bad = [
-      ...now.flatMap((run) => {
-        const digest = was.get(run.id);
-
-        if (digest === undefined) return [`BAD  ${run.id}: not in the baseline`];
-        const differs = digest !== digestOf(run.lines);
-        const entry = allowed.find((a) => a.run === run.id);
-
-        if (differs && entry === undefined) return [`BAD  ${run.id}: differs, with no named entry`];
-
-        return !differs && entry !== undefined
-          ? [`BAD  ${run.id}: its entry (${entry.pending}) is stale, the run is equal`]
-          : [];
-      }),
+      ...compared,
       ...[...was.keys()].filter((id) => !ids.has(id)).map((id) => `BAD  ${id}: lost`),
+      ...scanned,
     ];
 
     for (const line of bad) yield* Console.log(line);
@@ -201,6 +392,6 @@ export const baseline = (args: ReadonlyArray<string>) =>
     if (bad.length > 0) process.exitCode = 1;
 
     return yield* Console.log(
-      `VERDICT ${bad.length === 0 ? "pass" : "fail"} ${now.length - bad.length}/${now.length} runs equal to the baseline or named`,
+      `VERDICT ${bad.length === 0 ? "pass" : "fail"} ${rows.length} runs, ${bad.length} bad (differences with no entry, stale entries, lost runs, conservation or internals)`,
     );
   });
