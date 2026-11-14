@@ -6,7 +6,7 @@ import { part } from "../../fixtures/part.ts";
 import { implemented as production } from "../adapters/production.ts";
 import { handlersFor, referenceFor, rowsFor } from "../fixtures/fixture.ts";
 import { Cells, Pay } from "../fixtures/pay.ts";
-import { CellsMachine, PayMachine } from "../machines/pay.ts";
+import { CellsMachine, PayMachine } from "../../fixtures/pay/machine.ts";
 import { Answer } from "../world/network.ts";
 import { mixOf } from "./generate.ts";
 import { type Derived, NoClassify, partFixture, referenceOf } from "./reference.ts";
@@ -82,7 +82,7 @@ describe("referenceOf(compiled) (Q3: phase-out step 3, Conformance R15, I46, T30
   });
 
   it("a part holds no hand-written rows or handler table", () => {
-    assert.equal(parts.length, 3);
+    assert.equal(parts.length, 5);
 
     // @ts-expect-error -- a part's reference comes from its Compiled; a hand row does not type-check.
     part({ ...parts[0]!, rows: [] });
@@ -107,6 +107,56 @@ describe("Pay and Cells as parts (Conformance R15; phase-out step 4)", () => {
         if (o._tag === "Write")
           assert.ok(Predicate.isFunction(fixture.operations[operation]?.reference.classify));
     }
+  });
+});
+
+describe("derived key folds (WriteLanes R7: a commit's key is its select's)", () => {
+  it("a commit whose event lacks another alternative's field still computes its key", () => {
+    const part = parts.find((p) => p.name === "pay");
+    assert.ok(part !== undefined, "no part pay");
+
+    const key = partFixture(part).handlers.folds.keys["pay"];
+    const fields = { ...partFixture(part).handlers.folds.initial, intentId: "pi1" };
+
+    assert.deepEqual(key?.({}, fields), { intentId: "pi1" });
+  });
+});
+
+describe("derived update folds (Conformance R19: an unknown input allows every outcome)", () => {
+  const folds = () => {
+    const part = parts.find((p) => p.name === "pay");
+    assert.ok(part !== undefined, "no part pay");
+
+    return partFixture(part).handlers.folds;
+  };
+
+  it("an update sets the fields that do not read an unknown label, and no others", () => {
+    const f = folds();
+    const update = f.updates["states.PAYING.on.Confirmed[1]"];
+    assert.ok(update !== undefined);
+
+    const after = { ...f.initial, ...update({ status: "requires_capture" }, f.initial) };
+
+    assert.equal(after["authorized"], true);
+    assert.deepEqual(f.guards["on.Leave[0]"]?.({}, after), Option.some(true));
+    assert.notEqual(after["afterUnsure"], f.initial["afterUnsure"]);
+  });
+
+  it("a guard that reads a field an update could not compute is opaque", () => {
+    const f = folds();
+    const update = f.updates["on.Placed[0]"];
+    assert.ok(update !== undefined);
+
+    const leave = f.guards["on.Leave[0]"];
+    assert.ok(leave !== undefined);
+
+    const authorized = { ...f.initial, authorized: true };
+    const after = { ...authorized, ...update({}, authorized) };
+
+    assert.equal(after["authorized"], false);
+    assert.deepEqual(leave({}, authorized), Option.some(true));
+    assert.deepEqual(leave({}, after), Option.some(false));
+    assert.ok(Option.isNone(leave({}, { ...after, authorized: true })));
   });
 });
 
@@ -145,7 +195,7 @@ describe("parts' fixtures (Q2, Q4, Q5: Conformance R15, R20; F3)", () => {
   });
 
   it("every operation has a server model, and every write a classify carried into the fixture", () => {
-    assert.equal(parts.length, 3);
+    assert.equal(parts.length, 5);
 
     for (const part of parts) {
       const fixture = partFixture(part);
@@ -176,7 +226,7 @@ describe("parts' fixtures (Q2, Q4, Q5: Conformance R15, R20; F3)", () => {
   });
 
   it("every guard of a part is computed from its own source: each guarded place has a fold", () => {
-    assert.equal(parts.length, 3);
+    assert.equal(parts.length, 5);
 
     for (const part of parts) {
       const { handlers } = partFixture(part);

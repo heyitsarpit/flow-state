@@ -1,5 +1,6 @@
 import { Context, Effect, Fiber, Schema } from "effect";
 import { Outcome, resource, transaction } from "../../src/index.ts";
+import { type ServerModel, textOf } from "../part.ts";
 /**
  * Checkout's Pay contracts and the shop API they call (the real app's `pay.contracts.ts`).
  */
@@ -49,12 +50,84 @@ export class ShopApi extends Context.Service<
       readonly cartId: string;
     }) => Effect.Effect<{ readonly orderId: string } | null, Lost>;
   }
->()("flow-state-v3/conformance/machines/pay/ShopApi") {}
+>()("flow-state-v3/fixtures/pay/ShopApi") {}
 
 const LOST = ["NoResponse", "ServerError"] as const;
 
 export const capturableStatus = (status: string) =>
   status === "requires_capture" || status === "succeeded";
+
+/**
+ * The shop's `confirm`, as the suite's server answers it: a captured or challenged intent, a
+ * declined card, a busy queue, or an intent busy elsewhere, which is a success only when an earlier
+ * send may have applied and the intent is capturable.
+ */
+export const payServer = {
+  answers: [
+    {
+      weight: 5,
+      answer: { _tag: "ok", value: { status: "requires_capture", clientSecret: "cs" } },
+    },
+    { weight: 1, answer: { _tag: "ok", value: { status: "requires_action", clientSecret: "cs" } } },
+    { weight: 2, answer: { _tag: "fail", tag: "CardDeclined", fields: { code: "card_declined" } } },
+    { weight: 1, answer: { _tag: "fail", tag: "Busy", fields: { retryAfterMs: 1500 } } },
+    {
+      weight: 1,
+      answer: { _tag: "fail", tag: "IntentBusy", fields: { status: "requires_capture" } },
+    },
+    { weight: 1, answer: { _tag: "fail", tag: "IntentBusy", fields: { status: "processing" } } },
+  ],
+  classify: (tag, fields, mayHaveApplied) =>
+    tag === "IntentBusy" && mayHaveApplied && capturableStatus(textOf(fields, "status")),
+} as const satisfies ServerModel;
+
+/**
+ * The shop's `placeOrder`: an order, or the cart's existing order, which is a success.
+ */
+export const placeServer = {
+  answers: [
+    { weight: 5, answer: { _tag: "ok", value: { orderId: "o1" } } },
+    {
+      weight: 1,
+      answer: { _tag: "fail", tag: "OrderExists", fields: { order: { orderId: "o1" } } },
+    },
+  ],
+  classify: (tag, _fields, _mayHaveApplied) => tag === "OrderExists",
+} as const satisfies ServerModel;
+
+/**
+ * The shop's `voidAuthorization`: released, or already captured, which stays a failure.
+ */
+export const voidServer = {
+  answers: [
+    { weight: 4, answer: { _tag: "ok", value: {} } },
+    { weight: 1, answer: { _tag: "fail", tag: "AlreadyCaptured", fields: { chargeId: "ch_1" } } },
+  ],
+  classify: () => false,
+} as const satisfies ServerModel;
+
+/**
+ * The shop's intent read: capturable, needing a new card, or challenged.
+ */
+export const intentServer = {
+  answers: [
+    { weight: 3, answer: { _tag: "ok", value: { status: "requires_capture" } } },
+    { weight: 2, answer: { _tag: "ok", value: { status: "requires_payment_method" } } },
+    { weight: 1, answer: { _tag: "ok", value: { status: "requires_action" } } },
+  ],
+  classify: () => false,
+} as const satisfies ServerModel;
+
+/**
+ * The shop's order lookup for a cart: its order, or none.
+ */
+export const orderServer = {
+  answers: [
+    { weight: 1, answer: { _tag: "ok", value: { orderId: "o1" } } },
+    { weight: 2, answer: { _tag: "ok", value: null } },
+  ],
+  classify: () => false,
+} as const satisfies ServerModel;
 
 /**
  * How long one send of `pay` may take before it is unknown: the commit's own deadline
@@ -93,7 +166,7 @@ export const pay = transaction({
     ).pipe(
       Effect.map((v) => confirmed(v.status, v.clientSecret ?? "", attempt.mayHaveApplied)),
       Effect.catchTag("IntentBusy", (e) =>
-        attempt.mayHaveApplied && capturableStatus(e.status)
+        payServer.classify(e._tag, { status: e.status }, attempt.mayHaveApplied)
           ? Outcome.success(confirmed(e.status, "", true))
           : Outcome.failure(e),
       ),
@@ -117,7 +190,9 @@ export const placeOrder = transaction({
     ).pipe(
       Effect.map((order) => ({ order, alreadyPlaced: false })),
       Effect.catchTag("OrderExists", (e) =>
-        Outcome.success({ order: e.order, alreadyPlaced: true }),
+        placeServer.classify(e._tag, { order: e.order }, attempt.mayHaveApplied)
+          ? Outcome.success({ order: e.order, alreadyPlaced: true })
+          : Effect.die("place-order: an existing order is a success by the shop's contract"),
       ),
       Effect.catchTag(LOST, (e) => Outcome.unknown(e)),
     ),

@@ -1,6 +1,5 @@
 import { Schema } from "effect";
 import { definition, deny, Flow, machine } from "../../src/index.ts";
-import type { MachineBody } from "../../src/machine.ts";
 import {
   type AlreadyCaptured,
   type Busy,
@@ -13,9 +12,9 @@ import {
   pay,
   placeOrder,
   voidAuthorization,
-} from "./pay.contracts.ts";
+} from "./contracts.ts";
 
-export { ShopApi } from "./pay.contracts.ts";
+export { ShopApi } from "./contracts.ts";
 
 const Address = Schema.Struct({
   name: Schema.String,
@@ -174,16 +173,10 @@ const withCard = ({
   paymentMethodId: event.paymentMethodId,
 });
 
+type PayBody = Parameters<typeof machine<typeof Pay>>[1];
+
 // RETURN_TYPE: the machine body's contract types every handler's event and memory.
-const payBody = ({
-  S,
-  E,
-  O,
-}: {
-  readonly S: typeof Pay.S;
-  readonly E: typeof Pay.E;
-  readonly O: typeof Pay.O;
-}): MachineBody<typeof Pay> => {
+const payBody = ({ S, E, O }: Parameters<PayBody>[0]): ReturnType<PayBody> => {
   const start = {
     target: S.CARD,
     updateMemory: ({

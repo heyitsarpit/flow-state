@@ -191,7 +191,7 @@ export default defineConfig({
           `${productionSource}/flow.ts`,
           `${productionSource}/error.ts`,
           `${productionSource}/host/runtime.ts`,
-          `${productionSuite}/machines/**/*.ts`,
+          `${production}/fixtures/pay/**/*.ts`,
         ],
         rules: { "lint-bomb/no-optional-domain-properties": "off" },
       },

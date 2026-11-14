@@ -18,8 +18,8 @@ import {
   Evidence as EvidenceRecord,
   type Evidence,
 } from "../../src/host/inspect.ts";
-import { CellsMachine, PayMachine, ShopApi } from "../machines/pay.ts";
 import { parts } from "../../fixtures/index.ts";
+import { ShopApi } from "../../fixtures/pay/machine.ts";
 import { Server } from "../../fixtures/part.ts";
 import {
   type ActorRef,
@@ -58,11 +58,7 @@ export class UnknownProductionFixture extends Data.TaggedError("UnknownProductio
  * The fixtures the production adapter boots: a case runs on production when all of its fixtures
  * are here.
  */
-export const productionFixtures: ReadonlySet<string> = new Set([
-  "pay",
-  "cells",
-  ...parts.map((p) => p.name),
-]);
+export const productionFixtures: ReadonlySet<string> = new Set(parts.map((p) => p.name));
 
 /**
  * The feature codes production builds (Conformance R16): a claim, declared only once built.
@@ -79,11 +75,9 @@ export const implemented: ReadonlyArray<Code> = [
   ...(["wa", "sr", "rl"] as const),
 ];
 
-const MACHINES: ReadonlyMap<string, Machine> = new Map<string, Machine>([
-  ["pay", PayMachine],
-  ["cells", CellsMachine],
-  ...parts.map((p) => [p.name, p.machine] as const),
-]);
+const MACHINES: ReadonlyMap<string, Machine> = new Map<string, Machine>(
+  parts.map((p) => [p.name, p.machine] as const),
+);
 
 const decodeJson = Schema.decodeUnknownResult(Schema.Json);
 

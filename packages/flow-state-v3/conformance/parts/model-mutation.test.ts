@@ -135,7 +135,7 @@ describe("model mutation (Q16: Conformance R19, I61, T39)", () => {
       names.map((name) => [name, reachOfPart(solo.filter((s) => s.fixture === name))]),
     );
 
-    assert.equal(names.length, 3);
+    assert.equal(names.length, 5);
     assert.deepEqual(undistinguished(byPart), []);
     assert.deepEqual(undistinguished({ ...byPart, renamed: byPart["transfers"]! }), [
       "transfers",

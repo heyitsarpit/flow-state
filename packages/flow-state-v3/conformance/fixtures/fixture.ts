@@ -1,4 +1,4 @@
-import { Predicate, Schema } from "effect";
+import { Data, Predicate, Schema } from "effect";
 import type { Json } from "../port.ts";
 import type { Answer } from "../world/network.ts";
 import type { Handlers, Machines } from "./handlers.ts";
@@ -140,11 +140,34 @@ export type Fixture<
 };
 
 /**
+ * Two fixtures of one App or case carry one machine id, which Compile I14 forbids: a defect in the
+ * suite, since the second's table would judge the first's actors.
+ */
+export class SharedMachineId extends Data.TaggedError("SharedMachineId")<{
+  readonly machine: string;
+}> {}
+
+/**
+ * Throws {@link SharedMachineId} when a machine id repeats.
+ */
+export const oneMachineEach = (machines: ReadonlyArray<string>) => {
+  const shared = machines.find((id, i) => machines.indexOf(id) !== i);
+
+  if (shared !== undefined) throw new SharedMachineId({ machine: shared });
+};
+
+const distinct = (fixtures: ReadonlyArray<Fixture>) => {
+  oneMachineEach(fixtures.map((f) => f.machine));
+
+  return fixtures;
+};
+
+/**
  * The reference of a case: each fixture's operations' references, by machine id.
  */
 export const referenceFor = (fixtures: ReadonlyArray<Fixture>) =>
   Object.fromEntries(
-    fixtures.map((fixture) => [
+    distinct(fixtures).map((fixture) => [
       fixture.machine,
       Object.fromEntries(
         Object.entries(fixture.operations).map(([name, operation]) => [name, operation.reference]),
@@ -157,7 +180,7 @@ export const referenceFor = (fixtures: ReadonlyArray<Fixture>) =>
  */
 // RETURN_TYPE: the Machines record; `Object.fromEntries` would infer a wider value type.
 export const handlersFor = (fixtures: ReadonlyArray<Fixture>): Machines =>
-  Object.fromEntries(fixtures.map((fixture) => [fixture.machine, fixture.handlers]));
+  Object.fromEntries(distinct(fixtures).map((fixture) => [fixture.machine, fixture.handlers]));
 
 /**
  * The labels of an answer the suite's server gives `operation`, by the first fixture whose folds
@@ -195,4 +218,4 @@ export const drivenLabels = (
  */
 // RETURN_TYPE: the Rows record; `Object.fromEntries` would infer a wider value type.
 export const rowsFor = (fixtures: ReadonlyArray<Fixture>): Rows =>
-  Object.fromEntries(fixtures.map((fixture) => [fixture.machine, fixture.rows]));
+  Object.fromEntries(distinct(fixtures).map((fixture) => [fixture.machine, fixture.rows]));

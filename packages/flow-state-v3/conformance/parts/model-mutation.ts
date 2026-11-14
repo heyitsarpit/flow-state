@@ -1,5 +1,5 @@
 import { Option, Predicate } from "effect";
-import { parts } from "../../fixtures/index.ts";
+import { mixed, parts } from "../../fixtures/index.ts";
 import { implemented as production } from "../adapters/production.ts";
 import type { Owes, TaskRef } from "../coverage.ts";
 import type { InvariantId } from "../dsl/facts.ts";
@@ -205,7 +205,7 @@ export const pilots = () =>
     ...parts.flatMap((part) =>
       (["usual", "stress"] as const).map((profile) => scriptOf(part, profile, 1, production)),
     ),
-    mixOf(parts, "stress", 1, production),
+    mixOf(mixed, "stress", 1, production),
   ].filter((script) => !partsOwed.some((o) => o.case === script.id));
 
 const recorded = (scripts: ReadonlyArray<Script>, given: Rules) =>

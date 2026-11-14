@@ -1,6 +1,7 @@
 import { HashSet, MutableRef } from "effect";
 import type { Part, ServerAnswer, UserAction } from "../../fixtures/part.ts";
 import { random } from "../dsl/generate.ts";
+import { oneMachineEach } from "../fixtures/fixture.ts";
 import { answerOf, type Script, type ScriptAnswer, type Step } from "../dsl/script.ts";
 import type { Code } from "./codes.ts";
 import {
@@ -358,6 +359,8 @@ export const mixOf = (
   seed: number,
   declared: ReadonlyArray<Code>,
 ): Script => {
+  oneMachineEach(parts.map((p) => p.machine.compiled.id));
+
   const cast = parts.flatMap((part) => part.actors.map((actor) => ({ part, actor })));
   const id = `MIX-${parts.map((p) => p.name).join("+")}-${profile}-${seed}`;
   const steps = generated(cast, profile, seed, declared, id);

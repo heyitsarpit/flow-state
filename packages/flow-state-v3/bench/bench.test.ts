@@ -9,7 +9,7 @@ import { benchFaults, benchReplay } from "./bench.ts";
 
 describe("bench replay (Q18: Conformance R23, I67, T44)", () => {
   it("each pilot's usual script does the same work in the bench as in conformance", () => {
-    assert.equal(parts.length, 3);
+    assert.equal(parts.length, 5);
 
     for (const part of parts) {
       const script = scriptOf(part, "usual", 1, production);

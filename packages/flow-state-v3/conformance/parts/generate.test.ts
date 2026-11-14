@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vite-plus/test";
 import { Schema } from "effect";
-import { parts } from "../../fixtures/index.ts";
+import { mixed, parts } from "../../fixtures/index.ts";
 import { implemented as production } from "../adapters/production.ts";
 import { Script } from "../dsl/script.ts";
 import { BUILD_SEEDS, HELD_OUT_SEEDS, mixOf, scriptOf } from "./generate.ts";
@@ -28,7 +28,7 @@ const sentEvents = (script: Script) =>
 
 describe("scripts from parts (Q7, Q8, Q20: Conformance R15, R16, I47, I52, T30, T34)", () => {
   it("a script encodes to JSON and decodes unchanged, the same for the same seed", () => {
-    assert.equal(parts.length, 3);
+    assert.equal(parts.length, 5);
 
     for (const part of parts) {
       const script = scriptOf(part, "usual", 7, production);
@@ -41,7 +41,7 @@ describe("scripts from parts (Q7, Q8, Q20: Conformance R15, R16, I47, I52, T30, 
   });
 
   it("every script moves past its prefix", () => {
-    assert.equal(parts.length, 3);
+    assert.equal(parts.length, 5);
 
     for (const part of parts)
       for (const seed of BUILD_SEEDS.slice(0, 5))
@@ -78,7 +78,7 @@ describe("scripts from parts (Q7, Q8, Q20: Conformance R15, R16, I47, I52, T30, 
   });
 
   it("stress scripts draw faults usual ones do not", () => {
-    assert.equal(parts.length, 3);
+    assert.equal(parts.length, 5);
 
     for (const part of parts) {
       const tags = (profile: "usual" | "stress") =>
@@ -94,7 +94,7 @@ describe("scripts from parts (Q7, Q8, Q20: Conformance R15, R16, I47, I52, T30, 
   });
 
   it("profiles reach the catalogue's lengths: usual at least 40 steps, stress at least 100", () => {
-    assert.equal(parts.length, 3);
+    assert.equal(parts.length, 5);
 
     for (const part of parts)
       for (const seed of BUILD_SEEDS.slice(0, 4)) {
@@ -125,7 +125,7 @@ describe("scripts from parts (Q7, Q8, Q20: Conformance R15, R16, I47, I52, T30, 
   });
 
   it("the app mix holds every pilot's actors in one script", () => {
-    const mix = mixOf(parts, "usual", 1, production);
+    const mix = mixOf(mixed, "usual", 1, production);
 
     assert.equal(new Set((mix.actors ?? []).map((a) => a.fixture)).size, 3);
   });

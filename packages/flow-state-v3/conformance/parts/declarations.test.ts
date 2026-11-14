@@ -45,8 +45,8 @@ describe("declarations (Q6: Conformance R16, I51, T34)", () => {
     for (const code of ["ea", "hs"] as const) assert.ok(roundFourteen.includes(code), code);
   });
 
-  it("the three pilots are built, and every action of every part claims listed codes", () => {
-    assert.deepEqual(sorted(parts.map((p) => p.sketch)), ["S10", "S16", "S21"]);
+  it("the three pilots, Pay and Cells are built, and every action of every part claims listed codes", () => {
+    assert.deepEqual(sorted(parts.map((p) => p.sketch)), ["Pay", "Pay", "S10", "S16", "S21"]);
 
     for (const part of parts)
       for (const action of Object.values(part.user).flat()) {

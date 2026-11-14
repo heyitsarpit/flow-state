@@ -15,7 +15,14 @@ import { matrixGate } from "../parts/features.ts";
 import { fieldGate, modelFields, modelMutants } from "../parts/model-mutation.ts";
 import { PAIR_OWNERS } from "../parts/pair-owners.ts";
 import { combinationGate } from "../parts/pairs.ts";
-import { partFaults, playPart, reachedBy, reachOf, RETRY_COUNT } from "../parts/play.ts";
+import {
+  partFaults,
+  playPart,
+  reachedBy,
+  reachOf,
+  RETRY_COUNT,
+  UNBOUND_RESTORE,
+} from "../parts/play.ts";
 import {
   currentSlice,
   gateScripts,
@@ -143,7 +150,7 @@ export const regressionsOwed: ReadonlyArray<Limit & { readonly owner: string }> 
     case: "GEN-pay-search-25-shrunk",
     check: "delivered-once",
     invariant: "WriteLanes I15",
-    why: "the boot restores and parks a disposed identity's unbound Held head, so the adopting incarnation's start gets nothing (Restore R1, Actors I40: a boot delivers and parks nothing)",
+    why: UNBOUND_RESTORE,
     owner: "@task.V3.T54",
   },
   {

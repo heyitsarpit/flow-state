@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vite-plus/test";
 import { Formatter } from "effect";
-import { parts } from "../../fixtures/index.ts";
+import { mixed, parts } from "../../fixtures/index.ts";
 import { implemented as production } from "../adapters/production.ts";
 import { GRACE_MS } from "../dsl/expect.ts";
 import { Address } from "../dsl/facts.ts";
@@ -22,7 +22,7 @@ const answers = (script: Script) => script.steps.filter((s) => s._tag === "answe
 
 describe("part scripts on production (Q9, Q10, Q15, Q17: Conformance R15, R19, R22, I48, I60)", () => {
   it("each pilot's usual and stress scripts pass on production, but owed reds, most answers landing", () => {
-    assert.equal(parts.length, 3);
+    assert.equal(parts.length, 5);
 
     for (const part of parts)
       for (const profile of ["usual", "stress"] as const)
@@ -33,14 +33,14 @@ describe("part scripts on production (Q9, Q10, Q15, Q17: Conformance R15, R19, R
           assert.deepEqual(partFaults([{ script, run: played }]), []);
           assert.ok(played.facts.some(Fact.$is("Reported")), `${script.id} reported nothing`);
           assert.ok(
-            played.skipped * 2 <= answers(script),
+            partsOwed.some((o) => o.case === script.id) || played.skipped * 2 <= answers(script),
             `${script.id}: ${played.skipped} answers skipped`,
           );
         }
   });
 
   it("the null runtime fails every pilot script by a stated failure", () => {
-    assert.equal(parts.length, 3);
+    assert.equal(parts.length, 5);
 
     for (const part of parts) {
       const played = playPart(scriptOf(part, "usual", SEEDS[0] ?? 1, production), "null");
@@ -63,7 +63,7 @@ describe("part scripts on production (Q9, Q10, Q15, Q17: Conformance R15, R19, R
 
       const script =
         part === undefined
-          ? mixOf(parts, profile, Number(seed), production)
+          ? mixOf(mixed, profile, Number(seed), production)
           : scriptOf(part, profile, Number(seed), production);
 
       assert.equal(script.id, owed.case);
@@ -74,7 +74,7 @@ describe("part scripts on production (Q9, Q10, Q15, Q17: Conformance R15, R19, R
   });
 
   it("the suite's own first-contact reds stay fixed: a re-send after a crash lost the ending", () => {
-    const played = playPart(mixOf(parts, "stress", 7, production), "production");
+    const played = playPart(mixOf(mixed, "stress", 7, production), "production");
 
     assert.equal(played.verdict._tag, "Pass", Formatter.format(played.verdict));
   });
@@ -88,7 +88,7 @@ describe("part scripts on production (Q9, Q10, Q15, Q17: Conformance R15, R19, R
   });
 
   it("the app mix runs every pilot's actors in one runtime and one world", () => {
-    const mix = mixOf(parts, "stress", SEEDS[0] ?? 1, production);
+    const mix = mixOf(mixed, "stress", SEEDS[0] ?? 1, production);
     const played = playPart(mix, "production");
 
     assert.equal(played.verdict._tag, "Pass", Formatter.format(played.verdict));

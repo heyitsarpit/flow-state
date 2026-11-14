@@ -43,23 +43,54 @@ export const RETRY_COUNT =
   "a re-send's retryCount is never re-captured (`invoke` sets the lane, `persist` is not called), so a boot restores the count from before the re-send and a spent `retryable({ times: 1 })` passes again (WriteAhead R13, WriteLanes I7)";
 
 /**
+ * Production's bug behind a disposed identity's Held head at a boot: the boot restores and parks
+ * its unbound head, so the adopting incarnation's start gets nothing (Restore R1, Actors I40: a
+ * boot delivers and parks nothing).
+ */
+export const UNBOUND_RESTORE =
+  "the boot restores and parks a disposed identity's unbound Held head, so the adopting incarnation's start gets nothing (Restore R1, Actors I40: a boot delivers and parks nothing)";
+
+/**
  * Production's owed reds among the part scripts (Conformance R22): a generated script it fails by
  * a production bug a Task owns, as `productionOwed` lists hand cases. Each is checked to still fail
  * by its check and Invariant, so a fix shows; every other script passes.
  */
 export const partsOwed: ReadonlyArray<Limit & { readonly owner: string }> = [
-  "PART-transfers-stress-3",
-  "PART-transfers-stress-101",
-  "PART-transfers-stress-104",
-  "PART-transfers-stress-111",
-  "MIX-sync+transfers+sign-in-stress-101",
-].map((id) => ({
-  case: id,
-  check: "lane-queue",
-  invariant: "WriteLanes I12",
-  why: RETRY_COUNT,
-  owner: "@task.V3.T19",
-}));
+  ...[
+    "PART-transfers-stress-3",
+    "PART-transfers-stress-101",
+    "PART-transfers-stress-104",
+    "PART-transfers-stress-111",
+    "MIX-sync+transfers+sign-in-stress-101",
+    "PART-cells-stress-101",
+  ].map((id) => ({
+    case: id,
+    check: "lane-queue",
+    invariant: "WriteLanes I12",
+    why: RETRY_COUNT,
+    owner: "@task.V3.T19",
+  })),
+  ...[
+    ...[
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 101, 102, 104, 105, 106, 107, 108, 109, 110, 111, 112,
+    ].map((s) => `PART-pay-stress-${s}`),
+    "PART-cells-usual-12",
+    ...[2, 4, 5, 6, 9, 10, 11, 12, 104, 107, 108, 110, 112].map((s) => `PART-cells-stress-${s}`),
+  ].map((id) => ({
+    case: id,
+    check: "delivered-once",
+    invariant: "WriteLanes I15",
+    why: UNBOUND_RESTORE,
+    owner: "@task.V3.T54",
+  })),
+  {
+    case: "PART-cells-stress-105",
+    check: "lane-queue",
+    invariant: "WriteLanes I8",
+    why: "a disposed actor's unacknowledged Attempt whose batch the store then refuses is never ended (only StorageFailure evidence), yet its lane admits the next commit (WriteAhead R13, WriteLanes I27)",
+    owner: "@task.V3.T19",
+  },
+];
 
 /**
  * The world seed a part script runs at: the seed its id ends with (`PART-transfers-stress-7`,

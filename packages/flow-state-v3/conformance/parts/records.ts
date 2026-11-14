@@ -2,7 +2,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parts } from "../../fixtures/index.ts";
+import { mixed, parts } from "../../fixtures/index.ts";
 import { implemented as production } from "../adapters/production.ts";
 import { staticOwed } from "../adapters/production-static.ts";
 import { constructionCases } from "../compile/construction.cases.ts";
@@ -113,7 +113,8 @@ const replanText = () =>
 
 /**
  * Each Task's slice, from the replan's "Slices at a glance" table (R is 0; a Task in brackets is
- * absorbed, not listed); the React bindings and package checks (T30, T50) come after slice 10.
+ * absorbed, not listed); the React bindings and package checks (T30, T50) come after slice 10,
+ * and the suite cut and core consolidation (T52, T54), added after the table, close slice R.
  */
 export const taskSlices = () => {
   const text = replanText();
@@ -134,7 +135,13 @@ export const taskSlices = () => {
     );
   });
 
-  return new Map<string, number>([...listed, ["@task.V3.T30", 11], ["@task.V3.T50", 11]]);
+  return new Map<string, number>([
+    ...listed,
+    ["@task.V3.T30", 11],
+    ["@task.V3.T50", 11],
+    ["@task.V3.T52", 0],
+    ["@task.V3.T54", 0],
+  ]);
 };
 
 /**
@@ -176,7 +183,7 @@ const scriptsAt = (seeds: ReadonlyArray<number>, mixSeeds: ReadonlyArray<number>
       seeds.map((seed) => scriptOf(part, profile, seed, production)),
     ),
   ),
-  ...mixSeeds.map((seed) => mixOf(parts, "stress", seed, production)),
+  ...mixSeeds.map((seed) => mixOf(mixed, "stress", seed, production)),
 ];
 
 /**
