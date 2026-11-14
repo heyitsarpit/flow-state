@@ -1,14 +1,25 @@
 import { Option } from "effect";
 import type { Owes, TaskRef } from "../coverage.ts";
+import { rules } from "../dsl/lifecycle-rules.ts";
+import { FORGED_ROWS, refusalCells } from "./adversary.ts";
 
-/**
- * The open Task a model field's gap is owed to, by its group: lane policies, the promotion rule
- * and the lane deadlines to @task.V3.T18; storage refusals to @task.V3.T19; restore, boot and the
- * restore deadlines to @task.V3.T20; the ledger's lives to @task.V3.T54; the Runtime's disposal to
- * @task.V3.T55.
- */
+const UNFORGEABLE = new Set(
+  refusalCells(rules)
+    .filter((c) => !FORGED_ROWS.has(`${c.table}.${c.row}`))
+    .map((c) => `${c.table}.${c.row}.${c.column}.${c.guard}`),
+);
+
+// RETURN_TYPE: an Option of a TaskRef, so a misspelled owner fails to compile.
+const suiteOwner = (field: string): Option.Option<TaskRef> => {
+  const [, , column = "", guard = ""] = field.split(".");
+
+  if (column === "CancelAll" || guard.startsWith("cancelAll")) return Option.some("@task.V3.T53");
+
+  return UNFORGEABLE.has(field) ? Option.some("@task.V3.T61") : Option.none();
+};
+
 // RETURN_TYPE: a TaskRef, so a misspelled owner fails to compile.
-export const ownerOf = (field: string): TaskRef => {
+const sliceOwner = (field: string): TaskRef => {
   const [table, row = "", column = "", guard = ""] = field.split(".");
   const disposal = /dispos/iu.test(`${row} ${guard}`) || row === "RuntimeDisposed";
 
@@ -25,6 +36,17 @@ export const ownerOf = (field: string): TaskRef => {
 
   return table === "tableC" ? "@task.V3.T54" : "@task.V3.T18";
 };
+
+/**
+ * The open Task a model field's gap is owed to, by its group: a retired `cancelAll` cell to
+ * @task.V3.T53, which retires round-14; a refusal cell no forged report can make (outside
+ * `FORGED_ROWS`) to @task.V3.T61, since only a suite that drops a report or forges a send reaches
+ * it; then lane policies, the promotion rule and the lane deadlines to @task.V3.T18; storage
+ * refusals to @task.V3.T19; restore, boot and the restore deadlines to @task.V3.T20; the ledger's
+ * lives to @task.V3.T54; the Runtime's disposal to @task.V3.T55.
+ */
+export const ownerOf = (field: string) =>
+  Option.getOrElse(suiteOwner(field), () => sliceOwner(field));
 
 const UNNOTICED = {
   "deadlines.Await": "Released Superseded NotSentCancelled",

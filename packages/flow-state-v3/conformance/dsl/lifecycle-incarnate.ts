@@ -1,6 +1,6 @@
 import { type ActorRef, sameActor } from "../port.ts";
 import { type ActorRecord, isHead, type Model, Obligation } from "./lifecycle-model.ts";
-import { owesRelease, parked } from "./lifecycle.ts";
+import { owesRelease, ownsRow } from "./lifecycle.ts";
 
 const actorOf = (model: Model, actor: ActorRef) =>
   model.actors.find((a) => sameActor(a.actor, actor));
@@ -39,7 +39,7 @@ export const incarnate = (model: Model, actor: ActorRef) => {
       a.phase._tag === "Held" &&
       isHead(model, a) &&
       !owesRelease(model, a.id) &&
-      !parked(model, a),
+      !ownsRow(model, a),
   );
 
   return {

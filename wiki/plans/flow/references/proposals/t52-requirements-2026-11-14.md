@@ -194,6 +194,11 @@ Each: rule; source; check (red today); the wrong build that keeps it red.
   (Kept, Refused, Owed outside disposal, Delivering, Parked): its next incarnation is delivered that row, never
   also unknown { Restored }. Source: Restore I6, R3; ruling 2; Fable's widening. Check: pending traces for a Kept
   and a Refused row move to the traces and hold. Wrong build: a fix that exempts Kept only.
+  Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): at a boot only rows the reload keeps count (Kept,
+  KeptOpen, Parked, ParkedOpen, Owed in the disposal, Delivering, whose reload is refused). Table C's Reload closes
+  a live Owed and a Refused row, so their Held head is owed its restore: exempting them would deliver that Attempt
+  nothing (the reading that loses no ending). An incarnation with no reload counts every owed row. Reverse: count
+  every owed row at the boot too.
 - **Q25 Member order in one turn (Fable, widened).** One turn listing cancel then commit on a Held, Recapturing or
   Resending lane: the cancel releases the head at once (evidence Released) and promotes, so the commit meets Idle
   and mints; retry then cancel releases the re-send. Source: ruling 2; WriteLanes I10, T17, T20, the cancel cell.

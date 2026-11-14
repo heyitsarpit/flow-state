@@ -441,6 +441,10 @@ const HELD: ReadonlyArray<string> = [
   "a 65th waiting commit declines Overloaded",
   "a 65th waiting commit minted",
   "Opens on a Parked ending",
+  "a boot owes no restore to a Held head whose ending is a Kept row",
+  "a boot owes a restore to a Held head whose Refused row the reload closes",
+  "a boot owes a restore to a Held head whose live Owed row the reload closes",
+  "a boot owes no restore to a Held head whose ending is a Delivering row",
   "a boot owes no restore to a Held head whose ending is a Parked row",
   "a forgotten actor's kept ending is let go",
   "a reload owes its Held head one restore, and the boot's incarnation owes no second",
@@ -459,12 +463,18 @@ describe("The lane lifecycle (Table A, deadlines, promotion)", () => {
     for (const trace of traces) assert.ok(holds(trace, rules), `${trace.name} (${trace.cites})`);
   });
 
-  it("a boot owes no restore to a Held head whose Attempt has an owed row (Restore I6, R3)", () => {
-    for (const row of ["Kept", "Refused", "Owed", "Delivering", "Parked"])
+  it("a boot owes no restore to a Held head whose row the reload keeps (Restore I6, R3)", () => {
+    const names = new Set(traces.map((t) => t.name));
+
+    for (const row of ["Kept", "Delivering", "Parked"])
       assert.ok(
-        traces.some(
-          (t) => t.name === `a boot owes no restore to a Held head whose ending is a ${row} row`,
-        ),
+        names.has(`a boot owes no restore to a Held head whose ending is a ${row} row`),
+        row,
+      );
+
+    for (const row of ["Refused", "live Owed"])
+      assert.ok(
+        names.has(`a boot owes a restore to a Held head whose ${row} row the reload closes`),
         row,
       );
   });

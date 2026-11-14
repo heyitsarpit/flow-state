@@ -14,6 +14,8 @@ const OWNERS = new Set<TaskRef>([
   "@task.V3.T20",
   "@task.V3.T54",
   "@task.V3.T55",
+  "@task.V3.T53",
+  "@task.V3.T61",
 ]);
 
 import { fieldGate, killedBy, modelFields, modelMutants, pilots } from "./model-mutation.ts";
@@ -53,6 +55,21 @@ describe("model mutation (Q16: Conformance R19, I61, T39)", () => {
   it("the field gate passes: every field is noticed or owed to an open Task", () => {
     assert.deepEqual(fieldGate(mutants, rules, modelOwed, OWNERS), []);
     assert.ok(modelOwed.every((o) => OWNERS.has(o.task)));
+  });
+
+  it("a refusal cell no report makes is the suite's to reach, a retired cancelAll cell round-14's", () => {
+    const ownedBy = (task: TaskRef) =>
+      modelOwed.filter((o) => o.task === task).map((o) => o.subject);
+
+    const retired = ownedBy("@task.V3.T53");
+    const unforgeable = ownedBy("@task.V3.T61");
+
+    assert.equal(retired.length, 9);
+    assert.ok(retired.every((s) => s.includes(".CancelAll.") || s.includes(".cancelAll")));
+    assert.equal(unforgeable.length, 18);
+    assert.ok(unforgeable.includes("tableA.Send.Queued.always"));
+    assert.ok(unforgeable.includes("tableC.Reload.Delivering.always"));
+    assert.ok(!unforgeable.includes("tableB.Idle.CancelAll.always"));
   });
 
   it("the field gate fails a field no mutation reaches", () => {

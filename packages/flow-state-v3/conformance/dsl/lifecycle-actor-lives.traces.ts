@@ -1,4 +1,5 @@
 import type { TaskRef } from "../coverage.ts";
+import type { InvariantId } from "./facts.ts";
 import { ActorMove, type Life, LifeMove, Move, Obligation } from "./lifecycle-model.ts";
 import { CL, DF, ending, KP, named, other, OW, PK, RF } from "./lifecycle-lives.traces.ts";
 import { at, build, Check, type Trace } from "./lifecycle-trace.ts";
@@ -14,15 +15,31 @@ const unboundAfterDisposal = model(lane("A", ["s", H]), {
 });
 
 // RETURN_TYPE: a Trace, so its literal fields keep the Trace types the lists hold.
-const owedRowRestore = (row: string, life: Life): Trace => ({
+const owedRowRestore = (
+  row: string,
+  life: Life,
+  refused: ReadonlyArray<InvariantId> = [],
+): Trace => ({
   name: `a boot owes no restore to a Held head whose ending is a ${row} row`,
   cites: `Restore I6, R3: a restore is derived only for a Held head with no owed row of its own; a ${row} row is owed`,
   start: model(lane("A", ["s", H]), { endings: [ending(life)] }),
   steps: [Move.Reload()],
-  refusals: [[]],
+  refusals: [refused],
   phases: { s: H },
   owed: 0,
   checks: [Check.Owing({ obligations: [] })],
+});
+
+// RETURN_TYPE: a Trace, so its literal fields keep the Trace types the lists hold.
+const closedRowRestore = (row: string, life: Life): Trace => ({
+  name: `a boot owes a restore to a Held head whose ${row} row the reload closes`,
+  cites: `Restore I6, R3: a ${row} row closes at the reload (Table C), so no row is owed and the Held head is owed its restore`,
+  start: model(lane("A", ["s", H]), { endings: [ending(life)] }),
+  steps: [Move.Reload()],
+  refusals: [[]],
+  phases: { s: H },
+  owed: 1,
+  checks: [Check.Owing({ obligations: [restoring] })],
 });
 
 /**
@@ -30,17 +47,16 @@ const owedRowRestore = (row: string, life: Life): Trace => ({
  * Task that fixes the model: the lifecycle test fails once one holds, so its row moves to the
  * traces.
  */
-export const pendingTraces: ReadonlyArray<{ readonly owner: TaskRef; readonly trace: Trace }> = [
-  owedRowRestore("Kept", KP),
-  owedRowRestore("Refused", RF),
-  owedRowRestore("Owed", OW),
-  owedRowRestore("Delivering", DF),
-].map((trace) => ({ owner: "@task.V3.T52", trace }));
+export const pendingTraces: ReadonlyArray<{ readonly owner: TaskRef; readonly trace: Trace }> = [];
 
 /**
  * The traces of the actor moves on endings: incarnations, disposals, forgets and restores.
  */
 export const actorTraces: ReadonlyArray<Trace> = [
+  owedRowRestore("Kept", KP),
+  closedRowRestore("Refused", RF),
+  closedRowRestore("live Owed", OW),
+  owedRowRestore("Delivering", DF, [wl(15)]),
   owedRowRestore("Parked", PK),
   {
     name: "a forgotten actor's kept ending is let go",

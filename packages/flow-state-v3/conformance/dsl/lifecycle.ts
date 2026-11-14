@@ -4,6 +4,7 @@ import { sameActor } from "../port.ts";
 import {
   addressable,
   type AttemptLife,
+  type Ending,
   endingSubject,
   type GoneWhy,
   isHead,
@@ -371,18 +372,36 @@ export const owesRelease = (model: Model, attempt: string) =>
     (o) => Obligation.$is("Await")(o) && o.attempt === attempt && o.report === "Released",
   );
 
+const OWED_ROWS: ReadonlyArray<string> = [
+  "Owed",
+  "Parked",
+  "ParkedOpen",
+  "Delivering",
+  "Refused",
+  "Kept",
+  "KeptOpen",
+];
+
 /**
- * Whether an Attempt's ending is parked, or owed in the Runtime's disposal: a saved outcome its
- * actor's next incarnation is delivered, so it owes no restore ending (Restore I6).
+ * Whether an Attempt's ending is an owed row (owed, parked, delivering, refused or kept): a saved
+ * outcome its actor's next incarnation is delivered, so it owes no restore ending as well
+ * (Restore I6, R3).
+ *
+ * **Gotchas**
+ *
+ * - At a boot only the rows the reload keeps count (Table C's Reload row: kept, parked, Owed in
+ *   the disposal, and Delivering, whose reload is refused); a live Owed, a Refused or an Evidence row closes there, so its Held head is
+ *   owed its restore, and no ending is lost.
  */
-export const parked = (model: Model, a: AttemptLife) =>
-  model.endings.some(
-    (e) =>
-      Option.contains(e.attempt, a.id) &&
-      (e.life._tag === "Parked" ||
-        e.life._tag === "ParkedOpen" ||
-        (e.life._tag === "Owed" && e.inDisposal)),
-  );
+export const ownsRow = (model: Model, a: AttemptLife) =>
+  model.endings.some((e) => Option.contains(e.attempt, a.id) && OWED_ROWS.includes(e.life._tag));
+
+const keptAtReload = (e: Ending) =>
+  ["Kept", "KeptOpen", "Parked", "ParkedOpen", "Delivering"].includes(e.life._tag) ||
+  (e.life._tag === "Owed" && e.inDisposal);
+
+const keepsRow = (model: Model, a: AttemptLife) =>
+  model.endings.some((e) => Option.contains(e.attempt, a.id) && keptAtReload(e));
 
 const bootOwes = (model: Model) => {
   const cause = model.mode === "disposing" ? ("runtimeDisposal" as const) : ("plain" as const);
@@ -406,7 +425,7 @@ const bootOwes = (model: Model) => {
       restorable(a) &&
       isHead(model, a) &&
       !owesRelease(model, a.id) &&
-      !parked(model, a) &&
+      !keepsRow(model, a) &&
       !unbound(a),
   );
 

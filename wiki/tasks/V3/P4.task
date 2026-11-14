@@ -677,8 +677,8 @@ tasks
             - Pay and Cells run as generated parts from `fixtures/pay/`; Pay's hand rows remain as one frozen golden.
             - `referenceOf` equals the hand rows for Pay and Cells (rows, handlers, schedules, every operation field,
               `classify`) before any deletion.
-            - `not-yet.ts` and the deleted traces are gone; every hand-listed step mutant is still killed, by the search
-              or by a kept trace.
+            - `not-yet.ts` is gone; traces duplicated by table kills are gated and held, owed to T61's model-code
+              mutants; every hand-listed step mutant is still killed, by the search or by a kept trace.
             - Phase-out checks (the four validations): no lost catch in the catch matrix; the same coverage and
               feature-matrix rows; the derived reference equal to the hand rows wherever both exist;
               Compile static cases green on each fixture's `Compiled`.
@@ -875,6 +875,21 @@ tasks
             Item 6 done: step mutants judged by the search then examples, killers recorded; trace redundancy gate 
             built, 57 table-redundant traces held, not deleted (they pin fold code; D4 edit). Reverse: revert this 
             commit.
+        comment     2026-11-14T11:41:17Z
+            Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): acceptance 'the deleted traces are gone' now 
+            reads 'traces duplicated by table kills are gated and held, owed to T61's model-code mutants'. Why: the 
+            orchestrator's small amendment; deleting on table kills alone loses model-code catches. Reverse: restore 
+            the old line.
+        comment     2026-11-14T11:52:29Z
+            Review of 680c7e2a..5e6d0faf: nothing blocks. Adversary and field gate refuse every plant; item 4's sweep 
+            rows match a real sweep; coverage and the 59 owed rows unchanged. Fix: Edit lines on the Q8 comment and the 
+            build log; re-own the 19 unforgeable refusal cells to T61 and the cancelAll cells to T53. Detail: 
+            code:wiki/plans/flow/references/proposals/t52-t61-review-2026-11-14.md.
+        comment     2026-11-14T11:52:29Z
+            Edit (agent: T52 building lead, @task.V3.T52, 2026-11-14): labels the Q8 comment above (one fixture 
+            registry) and this Q24 note: a boot owes no restore to a Held head whose row the reload keeps; a live Owed 
+            or Refused row closes there and its head is owed the restore. Cells re-owned: 9 cancelAll to T53, 18 
+            unforgeable refusals to T61. Why: review fixes and Q24. Reverse: revert this commit.
     T60
         title       The suite proves its own gates and excuses
         status      done
@@ -1042,6 +1057,22 @@ tasks
             Owed by T52 (proposed): fold mutants of the lifecycle model (lifecycle.ts, -lanes, -lives, -fold) to judge 
             the 57 traces held in lifecycle.test.ts's redundancy gate; delete those whose fold catches another trace 
             makes, then edit Conformance R15.
+        comment     2026-11-14T11:46:20Z
+            Edit (agent: T61 parallel builder, @task.V3.T61, 2026-11-14): Review of 1fa04e5c..fbbfd89d: one blocking 
+            finding, B1: the trace mode crashes on a case id with `/` (ENOENT); fix red first. verify, crash owners and 
+            the deleted regressions hold. Owed rows N1 to N8 added from the review. Detail: 
+            code:wiki/plans/flow/references/proposals/t52-t61-review-2026-11-14.md. B1 fixed red first at 64d01322. 
+            Owed to T61's second half (proposed, rows not yet landed): N1, the 19 refusal cells no report makes 
+            re-owned from T18, T20 and T54 to T61, with an adversary that drops a report or forges a server-log send, 
+            and N4's nine cancelAll rows to T53; N2, a forged kill needs the mutant replay to reach the forged step 
+            without a throw, and names the mutant's oracles; N3 and N7, the field gate and the registry refuse a 
+            doubled row or name; N5, retired names checked against RETIRED_RULES, not by prefix; N6, the unfolded hand 
+            guards and other owed lists joined into one list, and the stale README, coverage docs and Task text fixed; 
+            N8, each its own row: a part regression with no owed row that passes is refused, the checkpoint fails on a 
+            gate name it cannot match, verify stops rewriting coverage-standings.txt, the crash count stops subtracting 
+            an owed red point twice, a crash owed item whose case stops running fails, a part trace with --runtime DIR 
+            stops running round-14 under the DIR label, and the trace takes --seed and overdue so a seed-2 or timeout 
+            red shows. Reverse: delete this comment.
     T54
         title       Core consolidation: owed-endings ledger, one start, diff-written records, acts into evidenceOf
         status      draft
