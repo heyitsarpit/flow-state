@@ -641,7 +641,7 @@ tasks
             Why: the Epic's compaction rule. Reverse: `81cf934f`.
     T52
         title       Suite phase-out, first cut: Pay and Cells generated, hand traces thinned
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T60]
         description
@@ -902,6 +902,9 @@ tasks
             Item 7 done: Q24 to Q26 built, Q25 corrected to owe the Released evidence (the first sweep lost 40 cancel 
             catches without it; the second loses none); Q18 measured and held for T53 (requirements edit). Sweep 
             regenerated (prototype, three retired rows match; production, first since T45). Reverse: revert this commit.
+        comment     2026-11-14T12:56:11Z
+            Gates at 0eba05a1 all green; every count changed since 1c4168da is explained in the build log's item 7 (Pay 
+            and Cells parts, T60 and T61 work, retired I21, I10 whole). No owed row names T52. Set to review.
     T60
         title       The suite proves its own gates and excuses
         status      done
@@ -1085,6 +1088,10 @@ tasks
             an owed red point twice, a crash owed item whose case stops running fails, a part trace with --runtime DIR 
             stops running round-14 under the DIR label, and the trace takes --seed and overdue so a seed-2 or timeout 
             red shows. Reverse: delete this comment.
+        comment     2026-11-14T12:56:10Z
+            Proposed by T52: bisect why five prod.actor-never-saved catches in Pay cases outside its own list went 
+            green in the production sweep (first regeneration since T45, 0eba05a1); the mutant is still caught in 
+            DISP-01 and the gate matrix is unchanged.
     T54
         title       Core consolidation: owed-endings ledger, one start, diff-written records, acts into evidenceOf
         status      draft
