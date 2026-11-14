@@ -54,8 +54,8 @@ export const owes: ReadonlyArray<Owes> = [
   ),
   ...whole(
     "@task.V3.T18",
-    "a seed per boot (WriteLanes I28): its wrong runtime is a production mutant that breaks the seed",
-    invariantsOf("WriteLanes", [28]),
+    "a cancel with a handle (WriteLanes I40) and a reply while Cancelling (WriteLanes I41): the Cancelling cells and the handle are lane policy (T54's A-19 leaves them to T18)",
+    invariantsOf("WriteLanes", [40, 41]),
   ),
   ...whole(
     "@task.V3.T9",
@@ -74,22 +74,17 @@ export const owes: ReadonlyArray<Owes> = [
     ),
   ),
   ...whole(
-    "@task.V3.T19",
-    "a row's fate in the step whose batch landed (I21, I22): the Spec model holds the exact fate (a batch is its step's end, WriteAhead R10), and a lost or doubled delivery after a kill is refused as WriteLanes I15 or I16; no oracle claims I21 or I22 with a mutant until the WriteAhead area is built",
-    invariantsOf("WriteAhead", [21, 22]),
-  ),
-  ...whole(
     "@task.V3.T20",
-    "the Restore area is not built; I6's lower bound is delivered-once's (CQ11); T42 cut I3 and I4 and added I19 (a changed reset runs first after restore)",
+    "the Restore area is not built; I6's lower bound is delivered-once's (CQ11); T42 cut I3 and I4 and added I19 (a changed reset runs first after restore) and I20 (a lane record whose operation is gone)",
     invariantsOf(
       "Restore",
-      upTo(19).filter((n) => ![3, 4, 6].includes(n)),
+      upTo(20).filter((n) => ![3, 4, 6].includes(n)),
     ),
   ),
   ...whole(
     "@task.V3.T21",
-    "the Reads area is not built, the idle row (R14; cases compare with `laneGone`) included; T42 cut I7, I12 and I18 and added I20 (read endings)",
-    invariantsOf("Reads", [1, 2, 3, 4, 5, 8, 9, 11, 15, 16, 17, 19, 20, 21]),
+    "the Reads area is not built, the idle row (R14; cases compare with `laneGone`) included; T42 cut I7, I12 and I18 and added I20 (read endings) and I22 (a read's ending as a row)",
+    invariantsOf("Reads", [1, 2, 3, 4, 5, 8, 9, 11, 15, 16, 17, 19, 20, 21, 22]),
   ),
   ...whole(
     "@task.V3.T17",
@@ -111,16 +106,14 @@ export const owes: ReadonlyArray<Owes> = [
   ),
   ...whole(
     "@task.V3.T54",
-    "the owed ledger and one delivery point: a lane holds Attempt state only, an ending is one ledger row (WriteLanes I29 to I41), Start delivers rows and a boot parks nothing (Actors I40, I41), three record kinds written from what a step touched (WriteAhead I20, I23, I24, Codec I7), Restore I20, a read's ending as a row (Reads I22) and reports derived from acts (Turn I36); T54 builds them with their checks",
+    "the owed ledger and one delivery point: a seed per boot (WriteLanes I28), a lane holds Attempt state only, an ending is one ledger row (WriteLanes I29 to I39), Start delivers rows and a boot parks nothing (Actors I40, I41), three record kinds written from what a step touched, a row's fate in the step whose batch landed (WriteAhead I20 to I24, Codec I7) and reports derived from acts (Turn I36); T54 builds them with their checks",
     [
       ...invariantsOf(
         "WriteLanes",
-        upTo(41).filter((n) => n >= 29),
+        upTo(39).filter((n) => n >= 28),
       ),
       ...invariantsOf("Actors", [40, 41]),
-      ...invariantsOf("WriteAhead", [20, 23, 24]),
-      ...invariantsOf("Restore", [20]),
-      ...invariantsOf("Reads", [22]),
+      ...invariantsOf("WriteAhead", [20, 21, 22, 23, 24]),
       ...invariantsOf("Codec", [7]),
       ...invariantsOf("Turn", [36]),
     ],

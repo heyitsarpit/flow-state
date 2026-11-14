@@ -89,7 +89,7 @@ not yet Reads I19  @task.V3.T21
 not yet Reads I2  @task.V3.T21
 not yet Reads I20  @task.V3.T21
 not yet Reads I21  @task.V3.T21
-not yet Reads I22  @task.V3.T54
+not yet Reads I22  @task.V3.T21
 not yet Reads I3  @task.V3.T21
 not yet Reads I4  @task.V3.T21
 not yet Reads I5  @task.V3.T21
@@ -107,7 +107,7 @@ not yet Restore I17  @task.V3.T20
 not yet Restore I18  @task.V3.T20
 not yet Restore I19  @task.V3.T20
 not yet Restore I2  @task.V3.T20
-not yet Restore I20  @task.V3.T54
+not yet Restore I20  @task.V3.T20
 not yet Restore I5  @task.V3.T20
 not yet Restore I7  @task.V3.T20
 not yet Restore I8  @task.V3.T20
@@ -140,8 +140,8 @@ not yet WriteAhead I17  @task.V3.T19
 not yet WriteAhead I19  @task.V3.T19
 not yet WriteAhead I2  @task.V3.T19
 not yet WriteAhead I20  @task.V3.T54
-not yet WriteAhead I21  @task.V3.T19
-not yet WriteAhead I22  @task.V3.T19
+not yet WriteAhead I21  @task.V3.T54
+not yet WriteAhead I22  @task.V3.T54
 not yet WriteAhead I23  @task.V3.T54
 not yet WriteAhead I24  @task.V3.T54
 not yet WriteAhead I3  @task.V3.T19
@@ -152,7 +152,7 @@ not yet WriteAhead I7  @task.V3.T19
 not yet WriteAhead I8  @task.V3.T19
 not yet WriteAhead I9  @task.V3.T19
 not yet WriteLanes I19  @task.V3.T24
-not yet WriteLanes I28  @task.V3.T18
+not yet WriteLanes I28  @task.V3.T54
 not yet WriteLanes I29  @task.V3.T54
 not yet WriteLanes I30  @task.V3.T54
 not yet WriteLanes I31  @task.V3.T54
@@ -164,8 +164,8 @@ not yet WriteLanes I36  @task.V3.T54
 not yet WriteLanes I37  @task.V3.T54
 not yet WriteLanes I38  @task.V3.T54
 not yet WriteLanes I39  @task.V3.T54
-not yet WriteLanes I40  @task.V3.T54
-not yet WriteLanes I41  @task.V3.T54
+not yet WriteLanes I40  @task.V3.T18
+not yet WriteLanes I41  @task.V3.T18
 partly  Actors I37  oracle disposal; @task.V3.T19 owes a dirty end whose own record is not written while another actor's is, in the same step: a write names no record, so any write discharges every dirty end (T45 close review S2; reached by F1-two-ends in parts/f1.test.ts under a dropped-write edit)
 partly  Actors I38  oracle disposal; @task.V3.T9 owes the next incarnation after a reload hearing each never-sent commit's NotSent { Disposed } once (round-14 never delivers it, ruling CQ6), and a commit queued behind a Held head ending at disposal (a round-14 limit: it is left queued)
 partly  Compile I1  cases CMP-01; @task.V3.T17 owes spies on actors, timers, storage, loaders and evidence (T1); only a commit run is caught

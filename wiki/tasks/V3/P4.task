@@ -1506,6 +1506,12 @@ tasks
             eight were lenient; all 16 findings accepted into 
             code:wiki/plans/flow/references/proposals/t54-requirements-2026-11-14.md. Edit (agent: T54 building lead, 
             @task.V3.T54, 2026-11-14): this comment. Why: the Epic's step-1 read. Reverse: the commit that adds it.
+        comment     2026-11-14T13:32:36Z
+            Owed rows moved per the orchestrator's rulings: WriteLanes I40, I41 to T18; Reads I22 to T21; Restore I20 
+            to T20; WriteAhead I21, I22 from T19 to T54; WriteLanes I28 from T18 to T54 (the brief's A-18). Coverage 
+            unchanged at 74 of 211, 136 owed. Edit (agent: T54 building lead, @task.V3.T54, 2026-11-14): 
+            conformance/owes.ts and this comment. Why: orchestrator ruling on step 1. Reverse: the commit that adds 
+            this comment.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      draft
