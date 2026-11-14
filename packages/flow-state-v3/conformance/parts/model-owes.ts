@@ -73,7 +73,7 @@ const UNNOTICED = {
     "Queued.always Resending.always OnWire.always Interrupted.always Restoring.always",
   "tableA.Send":
     "Queued.always Unsent.cancelPending Resending.cancelPending OnWire.always Interrupted.always Held.always Restoring.always Gone.always",
-  "tableA.StepEnds": "Queued.always Interrupted.stoppable Interrupted.unstoppable Restoring.always",
+  "tableA.StepEnds": "Queued.always Interrupted.unstoppable Restoring.always",
   "tableA.Superseded":
     "Queued.awaited Queued.none Unsent.awaited Resending.always Interrupted.always Restoring.always",
   "tableB.Held": "latest.always serialize.always cancel.always Release.always CancelAll.always",
@@ -106,7 +106,7 @@ const UNNOTICED = {
   "tableC.Reload":
     "Owed.inDisposal Owed.live ParkedOpen.always Delivering.always Refused.always Kept.always KeptOpen.always Evidence.always Maybe.always",
   "tableC.StepEnds":
-    "Owed.inDisposal Owed.live Parked.held ParkedOpen.always Delivering.always Refused.always Kept.always KeptOpen.always Evidence.always Maybe.always",
+    "Owed.inDisposal Parked.held ParkedOpen.always Delivering.always Refused.always Kept.always KeptOpen.always Evidence.always Maybe.always",
   "tableC.Unmapped":
     "Owed.always Parked.always ParkedOpen.always Delivering.always Refused.always Kept.always KeptOpen.always Evidence.always Maybe.always",
   "tableC.Unparked":

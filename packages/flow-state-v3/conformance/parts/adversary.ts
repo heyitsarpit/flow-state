@@ -250,6 +250,34 @@ const recorded = (script: Script) => {
 const MAX_TRIES = 40;
 
 /**
+ * The rows no report makes, reached by a dropped report instead (combined review N1): the step's
+ * end, which judges what the step owed, and a boot. Dropping a delivery, an unpark or an ending
+ * leaves the model's obligation or row open where a lying runtime would.
+ */
+export const DROPPED_ROWS: ReadonlySet<string> = new Set([
+  "tableA.StepEnds",
+  "tableC.StepEnds",
+  "tableC.Reload",
+]);
+
+const DROPPABLE: ReadonlyArray<string> = ["Delivered", "Unparked", "Parked", "Ended", "Recorded"];
+
+/**
+ * The adversary's drops: a production run replayed with one report of a droppable kind taken out
+ * of one step, the first steps first.
+ */
+const dropsOf = (run: ReturnType<typeof recorded>) =>
+  run.steps
+    .flatMap((facts, index) =>
+      facts.flatMap((fact, at) =>
+        Fact.$is("Reported")(fact) && DROPPABLE.includes(fact.observation._tag)
+          ? [{ step: index + 1, replay: run.steps.with(index, facts.toSpliced(at, 1)) }]
+          : [],
+      ),
+    )
+    .slice(0, MAX_TRIES * 2);
+
+/**
  * The adversarial actor (Conformance I61, T39): for each refusal cell of a row a report makes, a
  * production run of one of `scripts` replayed through the liar hook with one forged report added
  * to one step, chosen so the subject is in the cell's phase or life; the Spec model's design must
@@ -263,7 +291,11 @@ const MAX_TRIES = 40;
  */
 export const forgeries = (scripts: ReadonlyArray<Script>, forge: Forge = forgeAll) => {
   const found = new Map<string, Forgery>();
-  const targets = refusalCells(rules).filter((c) => FORGED_ROWS.has(`${c.table}.${c.row}`));
+
+  const targets = refusalCells(rules).filter(
+    (c) => FORGED_ROWS.has(`${c.table}.${c.row}`) || DROPPED_ROWS.has(`${c.table}.${c.row}`),
+  );
+
   const rows = Map.groupBy(targets, (c) => `${c.table}.${c.row}`);
 
   const passing = scripts.filter(
@@ -275,7 +307,13 @@ export const forgeries = (scripts: ReadonlyArray<Script>, forge: Forge = forgeAl
     const control = playPart(script, "production", rules, [], Option.some(run.steps));
 
     if (control.verdict._tag === "Pass")
-      for (const cells of rows.values()) forgeRow(found, script, triesOf(run, cells, forge), cells);
+      for (const [row, cells] of rows)
+        forgeRow(
+          found,
+          script,
+          DROPPED_ROWS.has(row) ? dropsOf(run) : triesOf(run, cells, forge),
+          cells,
+        );
   }
 
   return found;

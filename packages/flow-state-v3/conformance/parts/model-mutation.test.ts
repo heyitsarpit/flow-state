@@ -18,7 +18,14 @@ const OWNERS = new Set<TaskRef>([
   "@task.V3.T61",
 ]);
 
-import { fieldGate, killedBy, modelFields, modelMutants, pilots } from "./model-mutation.ts";
+import {
+  fieldGate,
+  forgedKill,
+  killedBy,
+  modelFields,
+  modelMutants,
+  pilots,
+} from "./model-mutation.ts";
 import { playPart } from "./play.ts";
 
 const mutants = modelMutants();
@@ -66,7 +73,9 @@ describe("model mutation (Q16: Conformance R19, I61, T39)", () => {
 
     assert.equal(retired.length, 9);
     assert.ok(retired.every((s) => s.includes(".CancelAll.") || s.includes(".cancelAll")));
-    assert.equal(unforgeable.length, 18);
+    assert.equal(unforgeable.length, 16);
+    assert.ok(!unforgeable.includes("tableC.StepEnds.Owed.live"));
+    assert.ok(!unforgeable.includes("tableA.StepEnds.Interrupted.stoppable"));
     assert.ok(unforgeable.includes("tableA.Send.Queued.always"));
     assert.ok(unforgeable.includes("tableC.Reload.Delivering.always"));
     assert.ok(!unforgeable.includes("tableB.Idle.CancelAll.always"));
@@ -176,6 +185,16 @@ describe("model mutation (Q16: Conformance R19, I61, T39)", () => {
       const mutant = mutants.find((m) => m.field === fieldOf.get(cell));
       assert.ok(mutant?.noticed === true && mutant.oracle !== "none", cell);
     }
+  }, 120_000);
+
+  it("a forged kill counts only when the mutant's replay reaches the forged step (combined review N2)", () => {
+    const forged = forgeries(pilots());
+    const [cell, f] = [...forged][0] ?? [];
+    assert.ok(cell !== undefined && f !== undefined);
+
+    const unreachable = new Map([[cell, { ...f, step: 9999 }]]);
+
+    assert.deepEqual(forgedKill(unreachable, { reads: Option.some(cell), rules }), Option.none());
   }, 120_000);
 
   it("a cell no pilot reads is listed unnoticed, naming no oracle", () => {

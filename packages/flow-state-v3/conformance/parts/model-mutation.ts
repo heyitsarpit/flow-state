@@ -12,6 +12,7 @@ import {
   type Rules,
   rules,
 } from "../dsl/lifecycle-rules.ts";
+import { Fact } from "../dsl/oracle.ts";
 import type { Script } from "../dsl/script.ts";
 import type { CaseVerdict } from "../runner/verdict.ts";
 import {
@@ -234,10 +235,11 @@ const recorded = (scripts: ReadonlyArray<Script>, given: Rules) =>
  */
 /**
  * A mutant noticed by the adversary: the forgery that reaches the cell it reads, replayed under
- * the mutant, no longer refuses by the cell's Invariant at the forged step; the kill names the
- * oracles that refused under the design.
+ * the mutant, reaches the forged step (nothing stopped it earlier) and no longer refuses there by
+ * the cell's Invariant (combined review N2). The kill names the mutant run's own oracles when it
+ * failed otherwise, else the oracles that refused under the design.
  */
-const forgedKill = (
+export const forgedKill = (
   forged: ReadonlyMap<string, Forgery>,
   mutant: { readonly reads: Option.Option<string>; readonly rules: Rules },
 ) =>
@@ -246,11 +248,17 @@ const forgedKill = (
     (f) => {
       const under = playPart(f.script, "production", mutant.rules, [], Option.some(f.replay));
 
+      const reached =
+        under.facts.some((x) => Fact.$is("Stepped")(x) && x.step === f.step) &&
+        !under.violations.some((v) => !v.excused && v.step < f.step);
+
       const refused = under.violations.some(
         (v) => v.invariant === f.invariant && v.step === f.step,
       );
 
-      return refused ? Option.none<string>() : killedBy(f.design);
+      return !reached || refused
+        ? Option.none<string>()
+        : Option.orElse(killedBy(under.verdict), () => killedBy(f.design));
     },
   );
 

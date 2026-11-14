@@ -32,6 +32,14 @@ describe("an adversarial actor forges the reports a refusal cell refuses (Confor
     const reached = reportMade.filter((c) => found.has(cellName(c)));
 
     assert.ok(reached.length >= 28, `${reached.length}/${reportMade.length}`);
-    assert.equal(forgeries(pilots(), () => []).size, 0);
+
+    const unforged = forgeries(pilots(), () => []);
+
+    assert.ok([...unforged.keys()].every((cell) => / StepEnds·| Reload·/u.test(cell)));
+  }, 60_000);
+
+  it("a dropped report reaches step-end cells no report makes (combined review N1)", () => {
+    assert.ok(found.has("C StepEnds·Owed·live"), [...found.keys()].join(" "));
+    assert.ok(found.has("A StepEnds·Interrupted·stoppable"));
   });
 });
