@@ -890,6 +890,10 @@ tasks
             registry) and this Q24 note: a boot owes no restore to a Held head whose row the reload keeps; a live Owed 
             or Refused row closes there and its head is owed the restore. Cells re-owned: 9 cancelAll to T53, 18 
             unforgeable refusals to T61. Why: review fixes and Q24. Reverse: revert this commit.
+        comment     2026-11-14T12:08:12Z
+            Q25 done: a cancel releases a Held or Resending head at once and promotes in its turn (Table B 
+            ReleaseHead); the WriteLanes I10 row owed to T52 is gone; production's RETRY_COUNT reds re-recorded under 
+            the new rule, still T19's. Reverse: revert this commit.
     T60
         title       The suite proves its own gates and excuses
         status      done

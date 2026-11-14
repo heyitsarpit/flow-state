@@ -149,15 +149,18 @@ const OWED_SUBJECTS = {
     "att-8008-16",
   ],
   "PART-cells-stress-8|delivered-once|WriteLanes I16": ["att-8000-12", "att-8000-16"],
-  "PART-cells-stress-8|disposal|Actors I29": [
-    "att-8000-12",
-    "att-8000-16",
-    "att-8001-13",
-    "att-8008-16",
-  ],
-  "PART-cells-stress-8|lane-queue|WriteLanes I12": ["att-8000-12", "att-8000-16"],
+  "PART-cells-stress-8|disposal|Actors I29": ["att-8000-12", "att-8001-13", "att-8008-16"],
+  "PART-cells-stress-8|lane-queue|WriteLanes I12": ["att-8000-12"],
   "PART-cells-stress-9|disposal|Actors I29": ["att-9002-4"],
-  "PART-cells-stress-9|lane-queue|WriteLanes I12": ["att-9002-4", "att-9008-13"],
+  "PART-cells-stress-9|lane-queue|WriteLanes I1": ["att-9008-13"],
+  "PART-cells-stress-9|delivered-once|WriteLanes I16": ["att-9008-13"],
+  "PART-cells-stress-9|delivered-once|WriteLanes I15": ["att-9008-13"],
+  "PART-cells-stress-8|lane-queue|WriteLanes I1": ["att-8000-16"],
+  "PART-pay-stress-3|lane-queue|WriteLanes I1": ["att-3005-20"],
+  "PART-pay-stress-12|lane-queue|WriteLanes I1": ["att-12001-15"],
+  "PART-pay-stress-106|lane-queue|WriteLanes I1": ["att-106010-23"],
+  "PART-pay-stress-112|lane-queue|WriteLanes I1": ["att-112004-30"],
+  "PART-cells-stress-9|lane-queue|WriteLanes I12": ["att-9002-4"],
   "PART-pay-stress-101|delivered-once|WriteLanes I15": ["att-101004-3"],
   "PART-pay-stress-101|disposal|Actors I29": ["att-101004-3"],
   "PART-pay-stress-102|delivered-once|WriteLanes I15": ["att-102001-6", "att-102007-27"],
@@ -173,8 +176,8 @@ const OWED_SUBJECTS = {
     "att-106010-23",
   ],
   "PART-pay-stress-106|delivered-once|WriteLanes I16": ["att-106006-18", "att-106010-23"],
-  "PART-pay-stress-106|disposal|Actors I29": ["att-106001-7", "att-106006-18", "att-106010-23"],
-  "PART-pay-stress-106|lane-queue|WriteLanes I12": ["att-106006-18", "att-106010-23"],
+  "PART-pay-stress-106|disposal|Actors I29": ["att-106001-7", "att-106006-18"],
+  "PART-pay-stress-106|lane-queue|WriteLanes I12": ["att-106006-18"],
   "PART-pay-stress-107|delivered-once|WriteLanes I15": ["att-107003-6"],
   "PART-pay-stress-107|disposal|Actors I29": ["att-107003-6"],
   "PART-pay-stress-108|delivered-once|WriteLanes I15": ["att-108003-6"],
@@ -198,13 +201,12 @@ const OWED_SUBJECTS = {
   "PART-pay-stress-111|disposal|Actors I29": ["att-111001-7"],
   "PART-pay-stress-112|delivered-once|WriteLanes I15": ["att-112003-6", "att-112004-30"],
   "PART-pay-stress-112|disposal|Actors I29": ["att-112003-6", "att-112004-30"],
+  "PART-pay-stress-112|delivered-once|WriteLanes I16": ["att-112004-30"],
   "PART-pay-stress-112|lane-queue|WriteLanes I12": ["att-112004-30"],
   "PART-pay-stress-11|delivered-once|WriteLanes I15": ["att-11003-5"],
   "PART-pay-stress-11|disposal|Actors I29": ["att-11003-5"],
   "PART-pay-stress-12|delivered-once|WriteLanes I15": ["att-12001-15"],
   "PART-pay-stress-12|delivered-once|WriteLanes I16": ["att-12001-15"],
-  "PART-pay-stress-12|disposal|Actors I29": ["att-12001-15"],
-  "PART-pay-stress-12|lane-queue|WriteLanes I12": ["att-12001-15"],
   "PART-pay-stress-1|delivered-once|WriteLanes I15": ["att-1000-7", "att-1006-12"],
   "PART-pay-stress-1|disposal|Actors I29": ["att-1000-7", "att-1006-12"],
   "PART-pay-stress-2|delivered-once|WriteLanes I15": ["att-2000-14", "att-2000-36"],
@@ -222,7 +224,7 @@ const OWED_SUBJECTS = {
     "att-3003-24",
     "att-3005-20",
   ],
-  "PART-pay-stress-3|lane-queue|WriteLanes I12": ["att-3003-17", "att-3005-20"],
+  "PART-pay-stress-3|lane-queue|WriteLanes I12": ["att-3003-17"],
   "PART-pay-stress-4|delivered-once|WriteLanes I15": ["att-4006-7", "att-4009-36"],
   "PART-pay-stress-4|disposal|Actors I29": ["att-4006-7", "att-4009-36"],
   "PART-pay-stress-5|delivered-once|WriteLanes I15": ["att-5001-7"],
@@ -321,7 +323,8 @@ const owing = (
  * a production bug a Task owns, as `productionOwed` lists hand cases. Each is checked to still fail
  * by its check and Invariant on its subjects, so a fix shows; every other script passes. A script
  * owes one row per check and Invariant it fails by, each failure on a subject its bug reached: a
- * re-send past its budget is refused (lane-queue I12), so its later endings meet a Held head
+ * re-send past its budget is refused (lane-queue I12), or meets the head its spent retry's cancel
+ * released (lane-queue I1), so its later endings meet a Held or gone head
  * (delivered-once I16, I15); a disposed identity's restored head is parked (delivered-once I15),
  * so its adoption never hears its restore (disposal, Actors I29).
  */
@@ -368,11 +371,20 @@ export const partsOwed: ReadonlyArray<PartOwed> = [
     RETRY_COUNT,
     "@task.V3.T19",
   ),
-  ...owing(["PART-pay-stress-112"], [I12], RETRY_COUNT, "@task.V3.T19"),
+  ...owing(["PART-pay-stress-112"], [I12, I16], RETRY_COUNT, "@task.V3.T19"),
+  ...owing(
+    [3, 12, 106, 112]
+      .map((s) => `PART-pay-stress-${s}`)
+      .concat(["PART-cells-stress-8", "PART-cells-stress-9"]),
+    [["lane-queue", "WriteLanes I1"]],
+    RETRY_COUNT,
+    "@task.V3.T19",
+  ),
+  ...owing(["PART-pay-stress-12"], [I16], RETRY_COUNT, "@task.V3.T19"),
+  ...owing(["PART-cells-stress-9"], [I16, I15], RETRY_COUNT, "@task.V3.T19"),
   ...owing(
     [
       "PART-pay-stress-3",
-      "PART-pay-stress-12",
       "PART-pay-stress-109",
       "PART-cells-stress-1",
       "PART-cells-stress-4",
@@ -391,8 +403,7 @@ export const partsOwed: ReadonlyArray<PartOwed> = [
   ...owing(
     [
       ...[
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 101, 102, 104, 105, 106, 107, 108, 109, 110, 111,
-        112,
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 101, 102, 104, 105, 106, 107, 108, 109, 110, 111, 112,
       ].map((s) => `PART-pay-stress-${s}`),
       ...[1, 2, 3, 4, 6, 7, 8, 10, 11, 12, 101, 102, 104, 105, 106, 107, 108, 109, 110, 111].map(
         (s) => `PART-cells-stress-${s}`,
@@ -402,6 +413,7 @@ export const partsOwed: ReadonlyArray<PartOwed> = [
     UNBOUND_RESTORE,
     "@task.V3.T54",
   ),
+  ...owing(["PART-pay-stress-12"], [I15], UNBOUND_RESTORE, "@task.V3.T54"),
 ];
 
 const REFUSED_UNENDED =

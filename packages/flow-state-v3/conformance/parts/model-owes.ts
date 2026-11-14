@@ -66,7 +66,7 @@ const UNNOTICED = {
   "tableA.EndUnknown":
     "Queued.always Unsent.always Resending.storageRefused Resending.other OnWire.released OnWire.disposed OnWire.disposedRunning Interrupted.disposed Interrupted.other Held.unowedRestore Restoring.headRestored Restoring.other Gone.evidenceFirst Gone.pendingCancel Gone.restoredAfterDisposal",
   "tableA.Released":
-    "Queued.always Resending.awaited Resending.none Interrupted.always Restoring.always Gone.evidence",
+    "Queued.always Resending.awaited Resending.none Interrupted.always Held.awaited Restoring.always",
   "tableA.Reload":
     "Queued.always Unsent.always Resending.always OnWire.always Interrupted.always Restoring.always",
   "tableA.RuntimeDisposed":

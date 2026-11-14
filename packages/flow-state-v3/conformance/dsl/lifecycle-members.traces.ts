@@ -353,11 +353,11 @@ const otherTraces: ReadonlyArray<Trace> = [
   ]),
   ...releasable.flatMap(([name, head]) => [
     otherMember(
-      `a cancel of a ${name} head owes its release`,
-      "WriteLanes R14: a cancel releases a Held lane",
+      `a cancel of a ${name} head releases it at once and promotes`,
+      "WriteLanes R14, I10: a cancel releases a Held lane in its turn, its Released report evidence",
       head,
       "cancel",
-      { phases: { k: GC, h: head, q: Q }, owing: [awaiting("h", "Released")] },
+      { phases: { k: GC, h: GE, q: U }, owing: [] },
     ),
     otherMember(
       `a cancelAll of a ${name} head`,

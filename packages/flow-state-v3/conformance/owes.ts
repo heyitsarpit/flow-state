@@ -216,11 +216,6 @@ export const owes: ReadonlyArray<Owes> = [
     "exits of compound ancestors and active subroutines; owners per part; calls minted before a reload, which the Activation bump drops from the pending set",
   ),
   part(
-    "WriteLanes I10",
-    "@task.V3.T52",
-    "the Spec model's member order within one turn: cancel then commit on a Held lane, where the model keeps the head Held until its Released report and so declines the commit, and a same-turn cancel's owed release, which Resend drops (WriteLanes T17)",
-  ),
-  part(
     "WriteLanes I4",
     "@task.V3.T17",
     "no author tag equals a Flow reason: a construction rule on the fixtures' failure tags",

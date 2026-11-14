@@ -232,7 +232,9 @@ export type Promotion = "firstFree" | "never" | "second" | "first";
  * - `LetGo`: the lane's kept endings owe their let-go record.
  * - `Resend`: the Held head is re-sent. `Interrupt`: the head on the wire is interrupted.
  * - `PendingCancel`: the never-sent head owes its cancel's ending. `AwaitRelease`: the head owes
- *   `Released` by the turn's close.
+ *   `Released` by the turn's close. `ReleaseHead`: the held or re-sent head is released at once,
+ *   its `Released` report then evidence, and the lane promotes in the turn, so a later member of
+ *   the same turn meets the lane it left (WriteLanes I10).
  * - `CancelAll`: every waiting Attempt owes `NotSent { Cancelled }`, then `head` acts on the head.
  * - `Mark`: the lane is releasing (WriteLanes R16).
  */
@@ -244,6 +246,7 @@ export type Act = Data.TaggedEnum<{
   Resend: {};
   PendingCancel: {};
   AwaitRelease: {};
+  ReleaseHead: {};
   Interrupt: {};
   CancelAll: { head: "Stay" | "PendingCancel" | "AwaitRelease" | "Interrupt" };
   Mark: {};
@@ -327,7 +330,7 @@ export const tableB: TableB = {
   },
   Resending: {
     ...busy("SupersedeQueued", admit("Replace")),
-    Cancel: act(Act.AwaitRelease()),
+    Cancel: act(Act.ReleaseHead()),
     CancelAll: act(Act.CancelAll({ head: "AwaitRelease" })),
   },
   OnWire: {
@@ -343,7 +346,7 @@ export const tableB: TableB = {
   Held: {
     ...busy("SupersedeQueued", admit("Replace")),
     Retry: act(Act.Resend()),
-    Cancel: act(Act.AwaitRelease()),
+    Cancel: act(Act.ReleaseHead()),
     CancelAll: act(Act.CancelAll({ head: "AwaitRelease" })),
   },
   Restoring: {

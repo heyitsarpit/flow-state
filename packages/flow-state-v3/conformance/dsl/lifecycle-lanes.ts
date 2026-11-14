@@ -1,6 +1,6 @@
 import { Data, Option } from "effect";
 import { type ActorRef, MemberTarget, sameActor, sameJson } from "../port.ts";
-import { due } from "./lifecycle.ts";
+import { due, promote } from "./lifecycle.ts";
 import {
   type Admit,
   addressable,
@@ -158,7 +158,7 @@ const headAct = (
     }
   });
 
-const acted = (model: Model, lane: LaneId, a: Act) =>
+const acted = (model: Model, lane: LaneId, a: Act, given: Rules) =>
   Act.$match(a, {
     Admit: ({ admit }) =>
       turnOf(model, (turn) => ({ ...turn, waiting: Option.some({ lane, admit }) })),
@@ -179,6 +179,10 @@ const acted = (model: Model, lane: LaneId, a: Act) =>
       })),
     PendingCancel: () => headAct(model, lane, "PendingCancel"),
     AwaitRelease: () => headAct(model, lane, "AwaitRelease"),
+    ReleaseHead: () =>
+      onHead(model, lane, (head) =>
+        promote(setPhase(model, head.id, Phase.Gone({ why: "evidence" })), lane, given.promotion),
+      ),
     Interrupt: () => headAct(model, lane, "Interrupt"),
     CancelAll: ({ head }) =>
       headAct(
@@ -209,7 +213,7 @@ const applyMember = (model: Model, actor: ActorRef, member: LaneMember, given: R
 
     if (cell === undefined) throw new MissingMemberCell({ row, column, guard });
 
-    return acted(m, lane, cell);
+    return acted(m, lane, cell, given);
   }, model);
 
 const isWaiting = (model: Model) =>

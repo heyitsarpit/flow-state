@@ -287,6 +287,7 @@ const acts = [
   Act.Resend(),
   Act.PendingCancel(),
   Act.AwaitRelease(),
+  Act.ReleaseHead(),
   Act.Interrupt(),
   ...(["Stay", "PendingCancel", "AwaitRelease", "Interrupt"] as const).map((head) =>
     Act.CancelAll({ head }),
@@ -295,7 +296,7 @@ const acts = [
 ];
 
 const needsHead = (a: Act) =>
-  ["Resend", "PendingCancel", "AwaitRelease", "Interrupt"].includes(a._tag) ||
+  ["Resend", "PendingCancel", "AwaitRelease", "ReleaseHead", "Interrupt"].includes(a._tag) ||
   (Act.$is("CancelAll")(a) && a.head !== "Stay") ||
   (Act.$is("Admit")(a) && ["Replace", "ReplaceCancelled"].includes(a.admit));
 
@@ -422,6 +423,9 @@ const HELD: ReadonlyArray<string> = [
   "a second cancel of a never-sent head",
   "a key-less cancel acts on every lane of its operation",
   "a commit then a cancel apply in action order",
+  "a cancel then a commit on a Held lane: the cancel releases the head, so the commit mints",
+  "a cancel of a Held head promotes the next waiting commit in its turn",
+  "a retry then a cancel in one turn releases the re-send",
   "an id minted twice",
   "a mint on another lane than the turn's commit",
   "a later commit's mint before the earlier commit's",

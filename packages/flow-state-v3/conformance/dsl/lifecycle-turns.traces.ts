@@ -3,7 +3,7 @@ import { Life } from "./lifecycle-model.ts";
 import { closes, commit, decline, member, mint, turn } from "./lifecycle-members.traces.ts";
 import { at, build, Check, type Trace } from "./lifecycle-trace.ts";
 
-const { Q, W, I, U } = at;
+const { Q, W, I, U, H, GE } = at;
 const { lane, model, wl, pending } = build;
 
 const twoLanes = model([...lane("A", ["a", W]), ...lane("B", ["b", W])]);
@@ -78,6 +78,38 @@ const orderTraces: ReadonlyArray<Trace> = [
     phases: { n: U },
     owed: 1,
     checks: [Check.Owing({ obligations: [pending("n")] })],
+  },
+  {
+    name: "a cancel then a commit on a Held lane: the cancel releases the head, so the commit mints",
+    cites:
+      "WriteLanes I10, T17: the cancel releases the held head at once, its Released report evidence",
+    start: model(lane("A", ["h", H])),
+    steps: [turn(member("cancel", "reject"), commit("reject")), mint("n")],
+    refusals: [[], []],
+    phases: { h: GE, n: U },
+    owed: 0,
+    checks: [],
+  },
+  {
+    name: "a cancel of a Held head promotes the next waiting commit in its turn",
+    cites: "WriteLanes I10, I11: the head released at once, the lane promotes",
+    start: model(lane("A", ["h", H], ["q", Q])),
+    steps: [turn(member("cancel"))],
+    refusals: [[]],
+    phases: { h: GE, q: U },
+    owed: 0,
+    checks: [],
+  },
+  {
+    name: "a retry then a cancel in one turn releases the re-send",
+    cites:
+      "WriteLanes I10, T17, T20: the cancel meets the Resending head the retry left and releases it",
+    start: model(lane("A", ["h", H])),
+    steps: [turn(member("retry", "reject"), member("cancel", "reject"))],
+    refusals: [[]],
+    phases: { h: GE },
+    owed: 0,
+    checks: [],
   },
   {
     name: "a mint outside a turn",
