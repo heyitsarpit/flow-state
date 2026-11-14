@@ -148,7 +148,10 @@ export const served = <const M extends ServerModel>(operation: string, model: M)
     return Effect.die(`${operation}: the server failed with ${tag}, which its model never answers`);
   };
 
-  return (input: Readonly<Record<string, Schema.Json>>, { attempt }: { readonly attempt: Attempt }) =>
+  return (
+    input: Readonly<Record<string, Schema.Json>>,
+    { attempt }: { readonly attempt: Attempt },
+  ) =>
     Effect.flatMap(Effect.orDie(bodyOf(input)), (body) =>
       Effect.flatMap(Effect.service(Server), (server) => server.call(operation, body, attempt.id)),
     ).pipe(Effect.catch((failure) => ended(failure, attempt)));

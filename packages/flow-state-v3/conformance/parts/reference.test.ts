@@ -35,9 +35,7 @@ const comparable = (f: Partial<Derived>) => ({
       .toSorted(([a], [b]) => a.localeCompare(b)),
   ),
   rows: (f.rows ?? [])
-    .map((r) =>
-      jsonKey({ ...r, guard: Option.getOrNull(r.guard), at: Option.getOrNull(r.at) }),
-    )
+    .map((r) => jsonKey({ ...r, guard: Option.getOrNull(r.guard), at: Option.getOrNull(r.at) }))
     .toSorted(),
   handlers:
     f.handlers === undefined
