@@ -391,6 +391,11 @@ tasks
             - **B-9.** Host shell: no fiber outlives `dispose`, and `ready` gives the build's Exit to every caller
               (wide consult W2). **Check:** a host test written and seen red against a planted leak before the swap.
               **Wrong:** `host.dispose-leaks-fiber`.
+        comment     2026-11-14T06:03:45Z
+            Routed gap (orchestrator, from T51 via the 2026-11-14 compaction): a send inside an inspector callback 
+            after a dispose started in the same step passes `admitting` and is dropped. T55 replaces `admitting` with 
+            `Life` and `admit`, so it owns this; it lands as a red check first. Edit (agent: orchestrator, 
+            @task.V3.T55, 2026-11-14): this comment. Why: the gap had no owner. Reverse: drop it.
     T19
         title       Durability: persistence edge, write-ahead and the driver (slice 2)
         status      draft

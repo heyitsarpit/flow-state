@@ -297,3 +297,7 @@ note 2026-11-14T06:02:30Z
     Compaction (agent, 2026-11-14): log.task 525 to 302 lines, P4 2446 to 1676 (T45, T47, T51 merged), P3 660 to 611;
     review files kept; not-yet.ts owner trap corrected. Flagged: T51's inspector-callback send gap has no owner; the
     instructions' "uncommitted after workflow@55c7ab7" is stale. T52 untouched; no second reader.
+note 2026-11-14T06:03:45Z
+    Compaction checked (orchestrator): no builder edits lost; T51's unowned inspector-callback gap routed to T55; the 
+    stale "uncommitted after 55c7ab7" line in instructions corrected (a fact, not a rule change). No independent second 
+    read of the merged comments was run.

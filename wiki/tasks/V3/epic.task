@@ -286,8 +286,8 @@ instructions
 
     **Testing and the suite**
 
-    - Requirements first, as failing checks (the user, 2026-11-12; the library's policy-testing, uncommitted after
-      workflow@55c7ab7, section "Write the requirements as failing checks first"). Each Task's first commit, before
+    - Requirements first, as failing checks (the user, 2026-11-12; the library's policy-testing at the pinned
+      revision, section "Write the requirements as failing checks first"). Each Task's first commit, before
       any code:
       - the requirements list, once, in the Task's comments: each rule with its source (Spec rule or decision),
         and the cases reality cannot show. One lead gathers it with up to eight read-only Haiku sidecars (effort
