@@ -54,11 +54,9 @@ Every rule not listed below. They fit this codebase as they are:
   proves nothing.
 - **Path options set now:** `no-direct-process-env`, `no-module-level-mutable-state`,
   `no-object-type`, `no-unknown` and `no-optional-domain-properties` cover all Flow State v3
-  production code: `packages/flow-state-v3/src` and the conformance suite in
-  `packages/flow-state-v3/conformance` (widened 2026-11-09, the user: "flow-state-v3 should be
-  covered"). The suite is an edge, so the core-only rules (`no-throw-in-core`, `no-allocation-in-loop`,
-  the core's restricted globals) stay on `src`; the suite gets its own determinism rule instead (no
-  `Date`, `performance`, timers, `crypto` or `Math.random` outside `runner/`). The prototypes stay
+  production code, the whole package `packages/flow-state-v3` (the suite 2026-11-09, the user:
+  "flow-state-v3 should be covered"; `fixtures/` and `bench/` 2026-11-14). The suite is an edge, so
+  the core-only rules (`no-throw-in-core`, `no-allocation-in-loop`) stay on `src`. The prototypes stay
   frozen. Before this, the suite's 73 `unknown`s went unchecked. Also
   `no-package-dist-or-self-import-in-src` to the package `flow-state-v3`. With no global state,
   several runtimes and tests can share a page.
@@ -121,24 +119,24 @@ on internal modules and `off` on public entrypoint modules.
 
 - The built-in set from lint-bomb's own config, all `error`: `complexity`, `no-else-return`,
   `typescript/no-unnecessary-condition`, `typescript/switch-exhaustiveness-check` and the rest.
-- Added on 2026-11-04 (Arpit), each from a prototype finding. Proved by probe files that tripped
-  every one, then deleted. In the core, meaning `src` except tests and `src/host/` (a proposed name):
-  - Host APIs banned: `window`, `document`, `navigator`, `indexedDB`, `localStorage`,
-    `sessionStorage`. Only `src/host/` touches the platform: the freeze bug, the bfcache lock, and
-    Safari's false `oncomplete`.
-  - Scheduling banned: `setTimeout`, `setInterval`, `queueMicrotask`, `Promise`. The core returns
-    work as data for the driver.
-  - No Effect runtime: `Effect.gen`, `runSync`, `runPromise`, `runFork`, `try`, `tryPromise`. This
-    keeps the turn's hot path pure (0.2 ms p99; `Effect.try` costs 170 ns against 7 ns).
-  - Determinism: `Math.random` and `crypto` are banned. Ids come from the runtime's mint, so
-    stories, replays and searches reproduce a run (round 13's H1).
-  - `JSON.stringify` is banned: equality goes through `Schema.toEquivalence`, keys through their
-    Schema codec (round 10's text-order equality, the prototype's `canon`).
-- Everywhere in `src` except `src/host/browser.ts` (the real host's adapter) and tests (the
-  user, 2026-11-11, T43): `setTimeout`, `clearTimeout`, `Date.now`, `performance.now` and
-  `Math.random` are banned; time, timers and randomness come from Effect's Clock and Scheduler
-  and the host's entropy. Proved with planted files in `src/host/` and `src/core/`, since
-  deleted. This override sits before the core's, which replaces it for the core.
+- One rule per ban in `tools/flow-state-lint`, each over the whole package (the user, 2026-11-14: "things
+  can get lost in a refactor"). An exception is a folder named in the rule, never a single file. Proved
+  with planted files (inside, in each exception folder, and through `globalThis`), since deleted:
+  - `no-json-stringify` (no exception): equality goes through `Schema.toEquivalence`, keys through their
+    Schema codec, report files through a Schema JSON codec, display through `Formatter.format`.
+  - `no-entropy`: `Math.random` and `crypto`. Ids come from the runtime's mint, so stories, replays and
+    searches reproduce a run. Except `src/host/platform`.
+  - `no-clock`: `Date` and `performance`. Time comes from Effect's Clock or the fake world's. Except
+    `src/host/platform`, `conformance/runner`, `bench`.
+  - `no-timers`: `setTimeout`, `clearTimeout`, `setInterval`, `queueMicrotask`. The core returns work as
+    data for the driver. Except the same three folders.
+  - `no-host-apis`: `window`, `document`, `navigator`, `indexedDB`, `localStorage`, `sessionStorage`. Only
+    the platform touches them: the freeze bug, the bfcache lock, Safari's false `oncomplete`. Except
+    `src/host`.
+  - `no-effect-runtime`: `Effect.gen`, `runSync`, `runPromise`, `runFork`, `try`, `tryPromise` and
+    `Promise`, in `src` only. The turn's hot path is pure (0.2 ms p99; `Effect.try` costs 170 ns against
+    7 ns). Except `src/host` and tests (`*.test.ts`, `test/`).
+  - Each also catches the name through `globalThis`, `global` and `window`.
 - Everywhere in `src`:
   - `switch-exhaustiveness-check` with `considerDefaultExhaustiveForUnions: false`: a `default:`
     no longer hides a variant (it hid lane phases).
@@ -149,9 +147,8 @@ on internal modules and `off` on public entrypoint modules.
 - Better as types than lint, for the foundation stage: user callbacks callable only through one
   boundary module (a branded `Slot` type), and deeply readonly `Compiled` types.
 - Carried over from the old config, scoped to v3 `src`:
-  - `Date` and `performance` are banned outside tests ("use the supplied Effect Clock").
-  - `setTimeout`, `setInterval`, `Effect.sleep` and `Effect.delay` are banned in tests ("use
-    TestClock").
+  - `Effect.sleep` and `Effect.delay` are banned in tests ("use TestClock"); the test timers fall under
+    `no-timers`.
   - `no-param-reassign`, `no-var` and `import/no-mutable-exports`.
 
 ## Deferred, with what triggers each

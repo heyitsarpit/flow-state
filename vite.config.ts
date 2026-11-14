@@ -6,7 +6,7 @@ const production = "packages/flow-state-v3";
 const productionSource = `${production}/src`;
 // The conformance suite is production code too: an edge, so it may use Effect, but not the core.
 const productionSuite = `${production}/conformance`;
-const productionCode = [productionSource, productionSuite];
+const productionCode = [production];
 
 // Frozen or throwaway code: never linted or formatted.
 const frozen = [
@@ -19,35 +19,12 @@ const frozen = [
   "tools/oxlint/**",
 ];
 
-// The pure core: everything in src except host adapters and tests. `src/host/` is a proposed name;
-// fix it when the module layout is decided (tools/lint-bomb/FLOW-STATE.md, "Deferred").
-const productionHost = `${productionSource}/host/**`;
-
 const productionTests = [
   `${productionSource}/**/*.test.{ts,tsx}`,
   `${productionSource}/**/*.spec.{ts,tsx}`,
   `${productionSource}/**/__tests__/**/*.{ts,tsx}`,
   `${productionSource}/**/test/**/*.{ts,tsx}`,
   `${productionSource}/**/testing/**/*.{ts,tsx}`,
-];
-
-// The core's banned calls: no randomness, no JSON keys, no Effect runtime.
-const coreProperties = [
-  {
-    object: "Math",
-    property: "random",
-    message: "The core is deterministic: stories, replays and searches must reproduce a run.",
-  },
-  {
-    object: "JSON",
-    property: "stringify",
-    message: "Not for equality or keys: use Schema.toEquivalence, or the key's Schema codec.",
-  },
-  ...["gen", "runSync", "runPromise", "runFork", "try", "tryPromise"].map((property) => ({
-    object: "Effect",
-    property,
-    message: "No Effect runtime in the core: it returns work as data, the host runs it.",
-  })),
 ];
 
 // The production adapter imports from its runtime only the public entry and the listed seam
@@ -63,7 +40,7 @@ export default defineConfig({
     tsconfig: "tsconfig.pack.json",
   },
   staged: {
-    [`${production}/{src,conformance}/**/*.{js,jsx,ts,tsx,json,jsonc,md,css,html,yaml,yml}`]:
+    [`${production}/{src,conformance,fixtures,bench}/**/*.{js,jsx,ts,tsx,json,jsonc,md,css,html,yaml,yml}`]:
       "vp check --fix",
   },
   lint: {
@@ -228,77 +205,16 @@ export default defineConfig({
         },
       },
       {
-        // Time, timers and randomness come from Effect's Clock, Scheduler and the host's entropy,
-        // in all of src: only the real host's adapter touches the platform's own (the user,
-        // 2026-11-11, T43). It comes before the core's wider ban, which replaces it for the core.
-        files: [`${productionSource}/**/*.{ts,tsx}`],
-        excludeFiles: [...productionTests, `${productionSource}/host/browser.ts`],
+        // One rule per ban, each over the whole package; exceptions are folders named in the rule
+        // (tools/flow-state-lint/index.ts, tools/lint-bomb/FLOW-STATE.md).
+        files: [`${production}/**/*.{ts,tsx}`],
         rules: {
-          "no-restricted-globals": [
-            "error",
-            ...["setTimeout", "clearTimeout"].map((name) => ({
-              name,
-              message:
-                "Use Effect's Clock and Effect.sleep; only src/host/browser.ts touches the platform.",
-            })),
-          ],
-          "no-restricted-properties": [
-            "error",
-            ...[
-              ["Date", "now"],
-              ["performance", "now"],
-              ["Math", "random"],
-            ].map(([object, property]) => ({
-              object,
-              property,
-              message:
-                "Use Effect's Clock or the host's entropy; only src/host/browser.ts touches the platform.",
-            })),
-          ],
-        },
-      },
-      {
-        // The core is pure, deterministic and host-free. Only src/host/ touches the platform.
-        files: [`${productionSource}/**/*.{ts,tsx}`],
-        excludeFiles: [...productionTests, productionHost],
-        rules: {
-          "no-restricted-globals": [
-            "error",
-            {
-              globals: [
-                { name: "Date", message: "Use the supplied Effect Clock at the host boundary." },
-                {
-                  name: "performance",
-                  message: "Use the supplied Effect Clock at the host boundary.",
-                },
-                ...[
-                  "window",
-                  "document",
-                  "navigator",
-                  "indexedDB",
-                  "localStorage",
-                  "sessionStorage",
-                ].map((name) => ({
-                  name,
-                  message: "Host APIs belong in src/host/, not the core.",
-                })),
-                ...["setTimeout", "clearTimeout", "setInterval", "queueMicrotask", "Promise"].map(
-                  (name) => ({
-                    name,
-                    message:
-                      "The core schedules nothing itself: return the work as data for the driver.",
-                  }),
-                ),
-                {
-                  name: "crypto",
-                  message: "The core is deterministic: ids come from the runtime's own mint.",
-                },
-              ],
-              checkGlobalObject: true,
-              globalObjects: ["global", "globalThis", "window"],
-            },
-          ],
-          "no-restricted-properties": ["error", ...coreProperties],
+          "flow-state/no-json-stringify": "error",
+          "flow-state/no-entropy": "error",
+          "flow-state/no-clock": "error",
+          "flow-state/no-timers": "error",
+          "flow-state/no-host-apis": "error",
+          "flow-state/no-effect-runtime": "error",
         },
       },
       {
@@ -330,59 +246,8 @@ export default defineConfig({
         },
       },
       {
-        // The suite is deterministic: a seed and the fake world reproduce every run. Only the runner
-        // touches the process.
-        files: [`${productionSuite}/**/*.{ts,tsx}`],
-        excludeFiles: [`${productionSuite}/runner/**`],
-        rules: {
-          "no-restricted-globals": [
-            "error",
-            {
-              globals: [
-                ...["Date", "performance"].map((name) => ({
-                  name,
-                  message: "Use the fake world's clock: a run must reproduce from its seed.",
-                })),
-                ...["setTimeout", "setInterval", "queueMicrotask"].map((name) => ({
-                  name,
-                  message: "Schedule through the fake world's clock or tasks.",
-                })),
-                { name: "crypto", message: "Derive values from the world's seed." },
-              ],
-              checkGlobalObject: true,
-              globalObjects: ["global", "globalThis"],
-            },
-          ],
-          "no-restricted-properties": [
-            "error",
-            {
-              object: "Math",
-              property: "random",
-              message: "Derive values from the world's seed: a run must reproduce.",
-            },
-          ],
-        },
-      },
-      {
         files: productionTests,
         rules: {
-          "no-restricted-globals": [
-            "error",
-            {
-              globals: [
-                {
-                  name: "setInterval",
-                  message: "Use TestClock, Deferred, or an explicit owner receipt.",
-                },
-                {
-                  name: "setTimeout",
-                  message: "Use TestClock, Deferred, or an explicit owner receipt.",
-                },
-              ],
-              checkGlobalObject: true,
-              globalObjects: ["global"],
-            },
-          ],
           "no-restricted-properties": [
             "error",
             {
@@ -447,7 +312,12 @@ export default defineConfig({
     include: ["packages/**/*.test.ts"],
     coverage: {
       provider: "v8",
-      include: ["packages/flow-state-v3/src/**/*.ts", "packages/flow-state-v3/conformance/**/*.ts"],
+      include: [
+        "packages/flow-state-v3/src/**/*.ts",
+        "packages/flow-state-v3/conformance/**/*.ts",
+        "packages/flow-state-v3/fixtures/**/*.ts",
+        "packages/flow-state-v3/bench/**/*.ts",
+      ],
       exclude: ["**/test/**", "**/*.compile.ts", "**/*.d.ts"],
       reporter: ["text", "html", "json-summary"],
       reportsDirectory: "coverage/flow-state-rewrite",

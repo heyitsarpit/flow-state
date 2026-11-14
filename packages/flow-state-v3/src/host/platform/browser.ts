@@ -1,5 +1,5 @@
 import { Context, Option } from "effect";
-import { Host } from "./host.ts";
+import { Host } from "../host.ts";
 
 /**
  * A fresh 32-bit seed per boot from the platform's entropy, so two tabs never share one

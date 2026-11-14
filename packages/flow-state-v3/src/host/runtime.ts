@@ -8,7 +8,7 @@ import { type ActorId, actorKey, Disposal } from "../core/world.ts";
 import type { AnyDefinition, Envelope, Machine, Operations } from "../definition.ts";
 import { FlowError } from "../error.ts";
 import { makeDriver, type Driver } from "./driver.ts";
-import { browserPlatform } from "./browser.ts";
+import { browserPlatform } from "./platform/browser.ts";
 import { decodeJsonText } from "./json.ts";
 import { makeFibers } from "./fibers.ts";
 import { Host, type Platform } from "./host.ts";
