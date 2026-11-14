@@ -83,14 +83,19 @@ const sameFolded = (a: Folded, b: Folded) =>
   Object.keys({ ...a, ...b }).every((k) => sameJson(a[k] ?? null, b[k] ?? null));
 
 /**
- * Each operation's key the fixture's folds compute for this turn, from its labels and the fields
- * after it; none while the fields are unknown.
+ * Each operation's key the fixture's folds compute for this turn, from its labels, the fields
+ * after it and the alternative the suite judged ran; none while the fields are unknown.
  */
-export const keysFor = (folds: Folds, fields: Option.Option<Folded>, labels: Labels) =>
+export const keysFor = (
+  folds: Folds,
+  fields: Option.Option<Folded>,
+  labels: Labels,
+  at: Option.Option<string>,
+) =>
   Option.match(fields, {
     onNone: () => ({}),
     onSome: (known) =>
       Object.fromEntries(
-        Object.entries(folds.keys).map(([operation, key]) => [operation, key(labels, known)]),
+        Object.entries(folds.keys).map(([operation, key]) => [operation, key(labels, known, at)]),
       ),
   });

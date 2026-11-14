@@ -1,16 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vite-plus/test";
-import { coreTriage, triageFaults } from "../core-mutants-triage.ts";
 import { GRACE_MS } from "../dsl/expect.ts";
-import { verdictOfLimit } from "../limits.ts";
 import { productionCases } from "../runner/gates.ts";
-import { scenarios } from "../suite.ts";
 import { actorIn, idled, returned, used } from "../turn/anchor.ts";
 import { anchorAt } from "../turn/selection.ts";
 import { parts } from "../../fixtures/index.ts";
 import { modelFields, modelMutants } from "./model-mutation.ts";
-import { combinationGate } from "./pairs.ts";
-import { partFaults } from "./play.ts";
 import { partFixture } from "./reference.ts";
 
 /**
@@ -24,56 +19,6 @@ describe("pending checks, owed to other Tasks (routed gaps)", () => {
 
     assert.ok(noticed > 0);
     assert.ok(noticed < modelFields().length);
-  });
-
-  it("T52: an owed row, triage row or pair owner that matches nothing raises no fault", () => {
-    const run = {
-      script: { id: "PART-x-usual-1", fixture: "x", actor: "a", steps: [] },
-      run: { verdict: { _tag: "Pass" as const, id: "PART-x-usual-1" }, facts: [], skipped: 0 },
-    };
-
-    const ghost = { case: "PART-gone-usual-9", check: "c", invariant: "I", why: "w", owner: "o" };
-    assert.deepEqual(partFaults([run], [ghost]), []);
-    assert.deepEqual(triageFaults([], coreTriage), []);
-
-    const reached = combinationGate({
-      declared: ["rj", "ky"],
-      runs: [{ id: "r", mix: false, byComposite: { C: new Set(["rj", "ky"]) }, cells: [] }],
-      owners: {
-        "rj+ky": { task: "@task.V3.T19", slice: 2, by: "a sweep", date: "2026-11-12" },
-      },
-      tasks: { "@task.V3.T19": { open: true, slice: 2 } },
-      sliceOf: { rj: 0, ky: 0 },
-      current: 0,
-    });
-
-    assert.deepEqual(reached.failures, []);
-  });
-
-  it("T52: a triaged mutant that now errors or times out, and an empty sample, pass the triage", () => {
-    const [row] = coreTriage;
-    assert.ok(row !== undefined);
-
-    assert.deepEqual(
-      triageFaults([{ status: "ERROR", at: row.at, mutated: row.mutated }], coreTriage),
-      [],
-    );
-    assert.deepEqual(
-      triageFaults([{ status: "TIME", at: row.at, mutated: row.mutated }], coreTriage),
-      [],
-    );
-    assert.deepEqual(triageFaults([], []), []);
-  });
-
-  it("T52: a case row is held by its expectation's label, whatever the case cites (Conformance R9)", () => {
-    const owed = scenarios.find((s) => s.id === "TURN-01/schedule-out-of-range");
-    assert.ok(owed !== undefined);
-    assert.ok(!owed.cites.includes("Turn I14"));
-
-    const row = { case: owed.id, check: "case", invariant: "Turn I14", why: "w" };
-    const failed = { _tag: "Fail" as const, id: owed.id, oracles: [], why: "seed 1: Turn I14: x" };
-
-    assert.equal(verdictOfLimit(row, failed).held, true);
   });
 
   it("T17: production's Compile static cases run in no machine gate, only under vitest", () => {

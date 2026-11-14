@@ -199,6 +199,13 @@ export const gateScripts = () => scriptsAt(BUILD_SEEDS.slice(0, 6), BUILD_SEEDS.
 export const heldOutScripts = () => scriptsAt(HELD_OUT_SEEDS, HELD_OUT_SEEDS);
 
 /**
+ * The ids of every part script the suite plays anywhere: every build seed (the part tests) and
+ * every held-out seed. An owed row must name one of them.
+ */
+export const playedScope = () =>
+  new Set([...scriptsAt(BUILD_SEEDS, BUILD_SEEDS), ...heldOutScripts()].map((script) => script.id));
+
+/**
  * The slice being built: the lowest slice that still has an open Task.
  */
 export const currentSlice = (

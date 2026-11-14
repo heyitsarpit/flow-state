@@ -256,35 +256,46 @@ const updateFoldOf =
     );
 
 /**
- * A write's key from its commits' selects: each select that computes from what the suite knows
- * gives a key; the key is theirs when they all agree, and unknown (`null`) when none computes or
- * two disagree, since the fold does not know which alternative ran.
+ * A write's key from a member's select: the select of the alternative the suite judged ran when
+ * one of its members names the write (a commit's input, a keyed retry's or cancel's key);
+ * otherwise every such select's, when all of them compute and agree. Unknown (`null`) in every
+ * other case.
  */
 const keyFoldOf = (compiled: CompiledOf, write: CompiledWrite) => {
-  const selects = alternativesOf(compiled)
-    .flatMap(({ alternative }) => alternative.actions)
-    .flatMap((a) => (a._tag === "Commit" && a.operation === write.name ? [a.select] : []));
+  const selects = alternativesOf(compiled).flatMap(({ alternative }) =>
+    alternative.actions.flatMap((a) => {
+      if (a.operation !== write.name || a._tag === "Lookup") return [];
 
-  return (labels: Labels, fields: Folded) => {
-    const keys = selects.flatMap((s) =>
-      Option.toArray(
-        computed(compiled, labels, fields, ({ memory, event }) => {
-          const input = s.run({ memory, event });
+      if (a._tag === "Commit") return [{ at: alternative.at, select: a.select }];
 
-          return Object.fromEntries(
-            write.keyFields.map((f) => {
-              const v = input[f];
+      return Option.toArray(Option.map(a.key, (select) => ({ at: alternative.at, select })));
+    }),
+  );
 
-              return [f, isJson(v) ? v : null];
-            }),
-          );
-        }),
-      ),
+  return (labels: Labels, fields: Folded, at: Option.Option<string>) => {
+    const own = selects.filter((s) => Option.contains(at, s.at));
+
+    const keys = (own.length > 0 ? own : selects).map(({ select }) =>
+      computed(compiled, labels, fields, ({ memory, event }) => {
+        const input = select.run({ memory, event });
+
+        return Object.fromEntries(
+          write.keyFields.map((f) => {
+            const v = input[f];
+
+            return [f, isJson(v) ? v : null];
+          }),
+        );
+      }),
     );
 
     const [first] = keys;
 
-    return first !== undefined && keys.every((k) => sameKey(k, first)) ? first : null;
+    return first !== undefined &&
+      Option.isSome(first) &&
+      keys.every((k) => Option.isSome(k) && sameKey(k.value, first.value))
+      ? first.value
+      : null;
   };
 };
 

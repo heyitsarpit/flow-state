@@ -47,8 +47,8 @@ export type World = {
   readonly now: MutableRef.MutableRef<number>;
 };
 
-const keyOf = (fixture: Fixture, operation: string, labels: Labels, fields: Folded) =>
-  fixture.handlers.folds.keys[operation]?.(labels, fields) ?? null;
+const keyOf = (fixture: Fixture, operation: string, labels: Labels, fields: Folded, at: string) =>
+  fixture.handlers.folds.keys[operation]?.(labels, fields, Option.some(at)) ?? null;
 
 const alternativesFor = (compiled: Compiled, leaf: string, event: string) => [
   ...(compiled.states.get(leaf)?.on.get(event) ?? []),
@@ -65,10 +65,16 @@ const passes = (a: Believed, alternative: CompiledAlternative, labels: Labels) =
     if (g._tag === "InState") return g.states.includes(a.leaf.current);
 
     if (g._tag === "Idle")
-      return !HashSet.has(a.busy.current, keyOf(a.fixture, g.operation, labels, a.fields.current));
+      return !HashSet.has(
+        a.busy.current,
+        keyOf(a.fixture, g.operation, labels, a.fields.current, alternative.at),
+      );
 
     if (g._tag === "Retryable")
-      return HashSet.has(a.unsure.current, keyOf(a.fixture, g.operation, labels, a.fields.current));
+      return HashSet.has(
+        a.unsure.current,
+        keyOf(a.fixture, g.operation, labels, a.fields.current, alternative.at),
+      );
 
     return true;
   });
@@ -139,7 +145,7 @@ export const heard = (world: World, a: Believed, event: string, labels: Labels, 
     MutableRef.set(a.fields, { ...a.fields.current, ...update(labels, a.fields.current) });
 
   for (const action of chosen.actions) {
-    const key = keyOf(a.fixture, action.operation, labels, a.fields.current);
+    const key = keyOf(a.fixture, action.operation, labels, a.fields.current, chosen.at);
 
     if (action._tag === "Lookup") opened(world, action.operation, { actor: a.by, key });
     else acted(world, a, action, key, acked);

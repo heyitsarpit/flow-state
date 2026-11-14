@@ -31,8 +31,8 @@ describe("core mutants: each one not killed by a named oracle is triaged", () =>
     const survivor = { status: "SURVIVED", at: "src/core/x.ts:1", mutated: "a || b" };
     const killed = { status: "killed", at: row.at, mutated: row.mutated };
 
-    assert.equal(triageFaults([survivor], coreTriage).length, 1);
-    assert.equal(triageFaults([killed], coreTriage).length, 1);
+    assert.equal(triageFaults([survivor], []).length, 1);
+    assert.equal(triageFaults([killed], [row]).length, 1);
   });
 
   it("every owed row names an open-work owner and a Spec rule; every equivalent row a reason", () => {

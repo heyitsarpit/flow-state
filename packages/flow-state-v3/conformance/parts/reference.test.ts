@@ -116,9 +116,15 @@ describe("derived key folds (WriteLanes R7: a commit's key is its select's)", ()
     assert.ok(part !== undefined, "no part pay");
 
     const key = partFixture(part).handlers.folds.keys["pay"];
+    assert.ok(key !== undefined);
+
     const fields = { ...partFixture(part).handlers.folds.initial, intentId: "pi1" };
 
-    assert.deepEqual(key?.({}, fields), { intentId: "pi1" });
+    assert.deepEqual(key({}, fields, Option.some("states.WAITING.on.RetryNow[0]")), {
+      intentId: "pi1",
+    });
+    assert.equal(key({}, fields, Option.some("on.PayRequested[1]")), null);
+    assert.equal(key({}, fields, Option.none()), null);
   });
 });
 

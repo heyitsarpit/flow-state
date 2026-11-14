@@ -106,12 +106,8 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
 
   const judged = judgeTurn(state.machines, now.phase, turn, route, decide, now.allowed);
 
-  const fields = foldedAfter(
-    folds,
-    now.fields,
-    Option.map(judged.match, (m) => m.at),
-    labels,
-  );
+  const ran = Option.map(judged.match, (m) => m.at);
+  const fields = foldedAfter(folds, now.fields, ran, labels);
 
   const leftWork = lateLeftWork(
     state,
@@ -135,7 +131,7 @@ const onTurn = (state: State, turn: Turn, step: ReadonlyArray<Fact>) => {
 
   const owning = { ...state, owning: new Map([...state.owning, [keyOf(turn.actor), owner]]) };
 
-  const keys = keysOf(turn, now.fields, keysFor(folds, fields, labels));
+  const keys = keysOf(turn, now.fields, keysFor(folds, fields, labels, ran));
 
   const owned = retriesOwed(state, {
     actor: turn.actor,

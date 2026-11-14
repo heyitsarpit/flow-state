@@ -30,7 +30,11 @@ export const refusalCovered = [{ invariant: "Turn I17" as const, cases: ["TURN-0
 
 export const refusalScenarios: ReadonlyArray<Scenario> = [
   ...variants(
-    { id: "TURN-01", cites: ["Turn R8", "Turn R10", "WriteLanes R10"], fixtures: [Pay] },
+    {
+      id: "TURN-01",
+      cites: ["Turn R8", "Turn R10", "Turn I14", "WriteLanes R10"],
+      fixtures: [Pay],
+    },
     {
       "schedule-refused": (c) => {
         const s = shopper(c);

@@ -158,8 +158,19 @@ export const combinationGate = (input: PairInput) => {
 
   const pairsOf = (runs: typeof cellPairs) => new Set(runs.flatMap((r) => [...r.reached])).size;
 
+  const interacting = new Set(pairs.map(([a, b]) => pairKey(a, b)));
+  const open = new Set(unreached.map(([a, b]) => pairKey(a, b)));
+
+  const stale = Object.keys(input.owners).flatMap((key) => {
+    if (!interacting.has(key)) return [`${key}: owned, but no interacting pair of declared codes`];
+
+    return open.has(key) ? [] : [`${key}: owned, but reached: drop the owner`];
+  });
+
+  const empty = input.runs.length === 0 ? ["no generated run: the gate judged nothing"] : [];
+
   return {
-    failures: [...unknown, ...ahead, ...unowned],
+    failures: [...empty, ...unknown, ...ahead, ...unowned, ...stale],
     reached: pairs.length - unreached.length,
     owed: unreached.length,
     triples: {

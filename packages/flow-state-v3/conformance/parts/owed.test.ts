@@ -28,7 +28,10 @@ describe("owed rows match something that still runs (Conformance R15, R18, R22)"
   it("an owed part row that names no played script is a fault", () => {
     const ghost = { case: "PART-gone-usual-9", check: "c", invariant: "I", why: "w", owner: "o" };
 
-    assert.equal(partFaults([passed("PART-x-usual-1")], [ghost]).length, 1);
+    const scope = new Set(["PART-x-usual-1"]);
+
+    assert.equal(partFaults([passed("PART-x-usual-1")], [ghost], scope).length, 1);
+    assert.deepEqual(partFaults([passed("PART-x-usual-1")], [], scope), []);
   });
 
   it("no played part script at all is a fault", () => {
@@ -39,7 +42,10 @@ describe("owed rows match something that still runs (Conformance R15, R18, R22)"
     const [row] = coreTriage;
     assert.ok(row !== undefined);
 
-    assert.equal(triageFaults([], [row]).length, 1);
+    const other = { status: "killed", at: "src/core/x.ts:1", mutated: "y" };
+
+    assert.equal(triageFaults([other], [row]).length, 1);
+    assert.ok(triageFaults([other], [row])[0]?.includes(row.at));
   });
 
   it("a pair owner whose pair is reached, or that names no interacting pair, is a fault", () => {

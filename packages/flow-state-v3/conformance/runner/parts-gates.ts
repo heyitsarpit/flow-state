@@ -28,6 +28,7 @@ import {
   gateScripts,
   heldOutScripts,
   matrixInputOf,
+  playedScope,
   taskSlices,
   taskStatuses,
 } from "../parts/records.ts";
@@ -43,13 +44,16 @@ const played = () =>
 const passing = () => played().filter(({ run }) => run.verdict._tag === "Pass");
 
 /**
- * Prints a gate's faults and its VERDICT line, and sets a failing exit code on any fault.
+ * Prints a gate's faults and its VERDICT line, and sets a failing exit code on any fault or when
+ * the gate judged nothing.
  */
 export const verdict = (lines: ReadonlyArray<string>, total: number, what: string) =>
   Effect.gen(function* () {
     for (const line of lines) yield* Console.log(line);
 
-    const ok = lines.length === 0;
+    if (total === 0) yield* Console.log(`BAD  ${what}: none judged`);
+
+    const ok = lines.length === 0 && total > 0;
 
     if (!ok) process.exitCode = 1;
 
@@ -63,7 +67,11 @@ export const verdict = (lines: ReadonlyArray<string>, total: number, what: strin
 export const partsGate = Effect.suspend(() => {
   const runs = played();
 
-  return verdict(partFaults(runs), runs.length, "part scripts on production");
+  return verdict(
+    partFaults(runs, undefined, playedScope()),
+    runs.length,
+    "part scripts on production",
+  );
 });
 
 /**
@@ -76,7 +84,11 @@ export const heldOutGate = Effect.suspend(() => {
     run: playPart(script, "production"),
   }));
 
-  return verdict(partFaults(runs), runs.length, "held-out part scripts on production");
+  return verdict(
+    partFaults(runs, undefined, playedScope()),
+    runs.length,
+    "held-out part scripts on production",
+  );
 });
 
 /**
@@ -215,5 +227,13 @@ export const productionRegressions = Effect.gen(function* () {
     { concurrency: 1 },
   );
 
-  return yield* verdict(lines.flat(), kept.length, "kept regressions on production");
+  const ghosts = regressionsOwed
+    .filter((o) => !kept.some(({ script }) => script.id === o.case))
+    .map((o) => `BAD  ${o.case}: owed to ${o.owner}, but no kept regression has this id`);
+
+  return yield* verdict(
+    [...ghosts, ...lines.flat()],
+    kept.length,
+    "kept regressions on production",
+  );
 });

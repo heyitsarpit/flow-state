@@ -154,14 +154,24 @@ export const runCoreMutants = (options: {
     );
     const survivors = results.filter((r) => !r.startsWith("killed"));
 
-    const faults = triageFaults(
-      results.map((r) => {
-        const [status = "", at = "", mutated = ""] = r.split("\t");
+    const names = (t: { readonly at: string; readonly mutated: string }) => (m: CoreMutant) =>
+      `${m.file}:${m.line}` === t.at && m.replace.trim() === t.mutated;
 
-        return { status, at, mutated };
-      }),
-      coreTriage,
-    );
+    const ghosts = coreTriage
+      .filter((t) => !all.some(names(t)))
+      .map((t) => `BAD  ${t.at}: triaged ${t.kind}, but no core mutant matches: ${t.mutated}`);
+
+    const faults = [
+      ...ghosts,
+      ...triageFaults(
+        results.map((r) => {
+          const [status = "", at = "", mutated = ""] = r.split("\t");
+
+          return { status, at, mutated };
+        }),
+        coreTriage.filter((t) => chosen.some(names(t))),
+      ),
+    ];
 
     for (const line of faults) yield* Console.log(line);
 

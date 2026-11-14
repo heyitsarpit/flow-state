@@ -313,12 +313,24 @@ export const coreTriage: ReadonlyArray<Triage> = [
 export const triageFaults = (
   rows: ReadonlyArray<{ readonly status: string; readonly at: string; readonly mutated: string }>,
   triage: ReadonlyArray<Triage>,
-) =>
-  rows.flatMap(({ status, at, mutated }) => {
+) => {
+  const judged = rows.flatMap(({ status, at, mutated }) => {
     const row = triage.find((t) => t.at === at && t.mutated === mutated);
 
     if (status === "killed")
       return row === undefined ? [] : [`BAD  ${at}: killed, yet triaged ${row.kind}: drop the row`];
 
+    if (status === "ERROR" || status === "TIME")
+      return [`BAD  ${at}: ${status}, which no triage row excuses: ${mutated}`];
+
     return row === undefined ? [`BAD  ${at}: ${status} and not triaged: ${mutated}`] : [];
   });
+
+  const unrun = triage
+    .filter((t) => !rows.some((r) => r.at === t.at && r.mutated === t.mutated))
+    .map((t) => `BAD  ${t.at}: triaged ${t.kind}, but the run has no such mutant: ${t.mutated}`);
+
+  const empty = rows.length === 0 ? ["BAD  core mutants: the run judged no mutant"] : [];
+
+  return [...empty, ...judged, ...unrun];
+};

@@ -62,7 +62,6 @@ export const partsOwed: ReadonlyArray<Limit & { readonly owner: string }> = [
     "PART-transfers-stress-104",
     "PART-transfers-stress-111",
     "MIX-sync+transfers+sign-in-stress-101",
-    "PART-cells-stress-101",
   ].map((id) => ({
     case: id,
     check: "lane-queue",
@@ -74,8 +73,9 @@ export const partsOwed: ReadonlyArray<Limit & { readonly owner: string }> = [
     ...[
       1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 101, 102, 104, 105, 106, 107, 108, 109, 110, 111, 112,
     ].map((s) => `PART-pay-stress-${s}`),
-    "PART-cells-usual-12",
-    ...[2, 4, 5, 6, 9, 10, 11, 12, 104, 107, 108, 110, 112].map((s) => `PART-cells-stress-${s}`),
+    ...[2, 3, 4, 6, 7, 10, 12, 101, 102, 104, 105, 106, 107, 108, 109, 110, 111].map(
+      (s) => `PART-cells-stress-${s}`,
+    ),
   ].map((id) => ({
     case: id,
     check: "delivered-once",
@@ -83,13 +83,6 @@ export const partsOwed: ReadonlyArray<Limit & { readonly owner: string }> = [
     why: UNBOUND_RESTORE,
     owner: "@task.V3.T54",
   })),
-  {
-    case: "PART-cells-stress-105",
-    check: "lane-queue",
-    invariant: "WriteLanes I8",
-    why: "a disposed actor's unacknowledged Attempt whose batch the store then refuses is never ended (only StorageFailure evidence), yet its lane admits the next commit (WriteAhead R13, WriteLanes I27)",
-    owner: "@task.V3.T19",
-  },
 ];
 
 /**
@@ -163,11 +156,27 @@ export const playPart = (script: Script, runtime: PartRuntime, given: Rules = ru
 /**
  * The faults of played part scripts on production (Conformance R15, R22): a run that does not
  * pass, unless an owed row names it and it still fails by that row's check and Invariant, and a
- * passing run whose answers mostly found no open request (a script that tested little).
+ * passing run whose answers mostly found no open request (a script that tested little). An owed
+ * row naming no script in `scope` (the gates pass every script the suite plays) is a fault, and so
+ * is no run.
  */
 export const partFaults = (
   runs: ReadonlyArray<{ readonly script: Script; readonly run: Played }>,
   owed: ReadonlyArray<Limit & { readonly owner: string }> = partsOwed,
+  scope: ReadonlySet<string> = new Set(owed.map((o) => o.case)),
+) => {
+  const empty = runs.length === 0 ? ["BAD  no part script ran: the gate judged nothing"] : [];
+
+  const ghosts = owed
+    .filter((o) => !scope.has(o.case))
+    .map((o) => `BAD  ${o.case}: owed to ${o.owner}, but no script the suite plays has this id`);
+
+  return [...empty, ...ghosts, ...judged(runs, owed)];
+};
+
+const judged = (
+  runs: ReadonlyArray<{ readonly script: Script; readonly run: Played }>,
+  owed: ReadonlyArray<Limit & { readonly owner: string }>,
 ) =>
   runs.flatMap(({ script, run }) => {
     const row = owed.find((o) => o.case === script.id);

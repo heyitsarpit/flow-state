@@ -132,7 +132,8 @@ export const payPart = part({
 
 /**
  * Pay with `AbortPay`, which cancels the intent's `pay`: the suite's `cells` machine. It shares
- * Pay's machine id, so an app mix holds one of the two.
+ * Pay's machine id, so an app mix holds one of the two. The shopper aborts while the charge is
+ * unsure, so the cancel releases a Held head.
  */
 export const cellsPart = part({
   ...payPart,
@@ -140,8 +141,8 @@ export const cellsPart = part({
   machine: CellsMachine,
   user: {
     ...payPart.user,
-    PAYING: [
-      ...payPart.user.PAYING,
+    UNSURE: [
+      ...payPart.user.UNSURE,
       {
         kind: "send",
         name: "abort",

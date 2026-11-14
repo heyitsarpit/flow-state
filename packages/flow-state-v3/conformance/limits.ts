@@ -29,16 +29,21 @@ export const limits: ReadonlyArray<Limit> = [
 
 /**
  * What one row's verifying run found: its case failed by its Invariant (`held`), passed, or
- * failed by another Invariant or check. A row whose check is `case` is held when the case's
- * first failing expectation cites its Invariant.
+ * failed by another Invariant or check. Only the row's own case's verdict holds it. A row whose
+ * check is `case` is held when the case's failing expectation cites its Invariant (the verdict's
+ * `cites`); any other row when its oracle failed the run by its Invariant.
  */
 export const verdictOfLimit = (limit: Limit, verdict: CaseVerdict) => {
+  if (verdict.id !== limit.case)
+    return { held: false, why: `${limit.case} is held by its own verdict, not ${verdict.id}'s` };
+
   if (verdict._tag !== "Fail") return { held: false, why: `${limit.case} ${verdict._tag}` };
 
   const named =
     limit.check === "case"
-      ? new RegExp(`^seed \\d+: ${limit.invariant}:`, "u").test(verdict.why)
-      : verdict.why.includes(`${limit.check}: ${limit.invariant}:`);
+      ? (verdict.cites ?? []).includes(limit.invariant)
+      : verdict.oracles.includes(limit.check) &&
+        verdict.why.includes(`${limit.check}: ${limit.invariant}:`);
 
   return named
     ? { held: true, why: `${limit.case} fails by ${limit.invariant}` }

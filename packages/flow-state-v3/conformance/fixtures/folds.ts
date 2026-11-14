@@ -26,7 +26,8 @@ export type Folded = Readonly<Record<string, Json>>;
  * - `guards`: per alternative place, its guard, where the suite computes it: `None` when a label
  *   it reads is missing. Any other guard stays opaque (both outcomes allowed).
  * - `keys`: per operation, the key its members take, from the labels of the fact that caused the
- *   turn and the fields after its update.
+ *   turn, the fields after its update and the place of the alternative the suite judged ran
+ *   (`None` when it judged none).
  * - `delays`: per schedule id, the delay in ms its memory computes.
  *
  * **Gotchas**
@@ -42,7 +43,9 @@ export type Folds = {
   readonly guards: Readonly<
     Record<string, (labels: Labels, fields: Folded) => Option.Option<boolean>>
   >;
-  readonly keys: Readonly<Record<string, (labels: Labels, fields: Folded) => Json>>;
+  readonly keys: Readonly<
+    Record<string, (labels: Labels, fields: Folded, at: Option.Option<string>) => Json>
+  >;
   readonly delays: Readonly<Record<string, (fields: Folded) => number>>;
 };
 
