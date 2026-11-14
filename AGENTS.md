@@ -24,7 +24,6 @@ or change code, and keep it current as you work.
 
 How to use it:
 - Start with `wk status` and `wk next`. `wk show @id` reads any record.
-- Treat the records as the source of truth over chat history: when they disagree, follow the record and say so.
 - Plans, Specs and Task descriptions are best-guess guidance on what to build, not contracts to fulfil, Specs
   least of all. What is true and correct is found by building: when the work shows a rule is wrong, unclear or
   missing, fix the record (decide, delete the losing text, log why) instead of bending the code to fit it.
