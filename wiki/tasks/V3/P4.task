@@ -1110,8 +1110,14 @@ tasks
             and T54. Open: two first-soak findings (a partial flush, owed to T54, proposed; a model StillUnknown bug, 
             owed here), N1 to N8, both O lists, the 57 held traces, registry lists, PAY-05's boot wake. Detail: 
             code:wiki/plans/flow/references/proposals/t61-build-log-2026-11-14.md.
-        comment 2026-11-14T14:36:48Z
-            Review of 065529e6..24432df4: PASS, nothing blocking (code:wiki/plans/flow/references/proposals/t61-second-half-review-2026-11-14.md). I shrank 18 breaks in 16 untraced scripts, and all root in T19's retry count or T54's unbound restore. N1: the pay-varied-11 I12 row (and probably three more that share an attempt) belongs to T54, not T19. N2: O1 holds only because the fake store always lands the final write; pin on the world and add a refusable final write. N3 to N7 are minor. Reverse: delete this comment. Edit (agent: T61 parallel builder, @task.V3.T61, 2026-11-14): added as the review suggested; N1, N3, N4, N5 fixed at 74c86ab3; N2, N6, N7 open.
+        comment     2026-11-14T14:36:48Z
+            Review of 065529e6..24432df4: PASS, nothing blocking 
+            (code:wiki/plans/flow/references/proposals/t61-second-half-review-2026-11-14.md). I shrank 18 breaks in 16 
+            untraced scripts, and all root in T19's retry count or T54's unbound restore. N1: the pay-varied-11 I12 row 
+            (and probably three more that share an attempt) belongs to T54, not T19. N2: O1 holds only because the fake 
+            store always lands the final write; pin on the world and add a refusable final write. N3 to N7 are minor. 
+            Reverse: delete this comment. Edit (agent: T61 parallel builder, @task.V3.T61, 2026-11-14): added as the 
+            review suggested; N1, N3, N4, N5 fixed at 74c86ab3; N2, N6, N7 open.
     T54
         title       Core consolidation: owed-endings ledger, one start, diff-written records, acts into evidenceOf
         status      open
