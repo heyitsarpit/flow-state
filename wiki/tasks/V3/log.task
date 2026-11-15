@@ -1,37 +1,17 @@
 log V3
-note 2026-11-15T09:47:13Z
+note 2026-11-15T10:02:29Z
     Decision (user, 2026-11-15): "you want to reuse stories and our cli and inspect tooling as the core's own test 
     harness, these are supposed to be public anyways and are means to use the single runtime so both things get 
-    harndened. so i'm for it". Scope: the whole run.
-note 2026-11-15T09:47:13Z
-    Decision (user, 2026-11-15): "yes i'm fine with all this", on the decisions and task list of 
-    code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md (sections 12 and 13). Scope: the whole run.
-note 2026-11-15T09:47:13Z
-    Decision (user, 2026-11-15): "i want all the old comments deleted, they are noise", and "yes go ahead" on deleting 
-    the Epic's log notes and the proposal files no record links. Scope: wiki/tasks/V3 and the proposals folder. Last 
-    commits holding them: the comments a3168ce4; the notes and proposal files 4f4ac9f5.
-note 2026-11-15T09:47:14Z
-    Amendment (2026-11-15, the user): the conformance suite is deleted (last copy 52a883e6). Constraints gain "One 
-    runtime, one way to run it" and lose the two conformance constraints; the Glossary's suite terms are replaced. 
-    Commit: a3168ce4.
-note 2026-11-15T09:47:14Z
-    Amendment (2026-11-15, the user): instructions rewritten for one runtime: fixtures feed the tests and the bench; a 
-    slice starts from failing Story tests, run rules and compile-time tests; Testing and Reviews no longer name a 
-    model, gates or owed rows. Commit: a3168ce4.
-note 2026-11-15T09:47:14Z
-    Amendment (2026-11-15, proposed; waits for the user's yes): cadence: one review at each Task's close and on a Spec 
-    or test-tooling change, in place of a review every 90 minutes; the 90-minute wake still checks for a stalled lead 
-    and the usage reserve. Commit: a3168ce4. Reverse: restore the cadence field from 52a883e6.
-note 2026-11-15T09:47:14Z
-    Amendment (2026-11-15, the user): phase P16, the test system, added ahead of the remaining core slices, with Tasks 
-    T62 to T70, built with skill:to-epic and skill:to-task at 6b7288e. T54 waits on T67; T18 waits on T69 and T70. 
-    Commit: d33ae372.
-note 2026-11-15T09:47:14Z
-    Decision (agent, 2026-11-15): the ten design calls in section 12 of 
-    code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md, made after the user declined a design round 
-    ("this is about correctness"). Why and Reverse: stated per decision there.
-note 2026-11-15T09:47:15Z
-    Process slip (orchestrator, 2026-11-15): the loop fields and P16 were first edited without reading 
-    skill:build-a-loop and skill:to-epic (R13); the orchestrator built T62 and marked it done (R6, R17); two builders 
-    were started outside the loop. Repaired: the skills read at the pin, P16 rewritten to them, T62 set to review for 
-    an independent check. The builders' unreviewed output is on the local branch draft/story-slice, unmerged.
+    harndened. so i'm for it". Scope: the whole run. The conformance suite is deleted; its last copy is commit 52a883e6.
+note 2026-11-15T10:02:29Z
+    Decision (user, 2026-11-15): "since the epic is being written from scratch just use the skill and exercise your 
+    judgment and forget about amendments, just look at what is worth preserving and write it from scratch". Scope: this 
+    Epic and its phases. Rewritten with skill:to-epic, skill:to-task and skill:build-a-loop at 6b7288e; the earlier 
+    Epic, phases, comments and notes are at commit 6b9fe478.
+note 2026-11-15T10:02:30Z
+    Decision (agent, 2026-11-15): what the rewrite kept, changed and dropped. Kept: the goal, the user's constraints, 
+    the authority, the limits and the order of the core slices. Changed: ten phases in the order they run; finished and 
+    retired Tasks are one line each in P1; live Tasks keep their ids, since the Specs link to them, and are drafts 
+    until each is next. Dropped: the suite's rules, the per-edit label rule for Tasks, the 24-hour compaction rule, the 
+    process watch and the usage sampler. Why: the user asked for a rewrite from scratch and for less process. Reverse: 
+    restore any rule from the Epic at commit 6b9fe478.

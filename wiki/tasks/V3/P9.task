@@ -25,13 +25,13 @@ description
     - budgets met on their devices;
     - every finding has a disposition;
     - quota and disk durability measured on a real phone by the user;
-    - `nub run verify` and the final-commit gates pass.
+    - `nub run verify` and `nub run faults` pass.
 
     **False pass:** closing findings as dropped to finish.
 
     **Caught by:** the completion audit checking each drop's reason against the Specs.
 
-    **Gates:** P8's slowed builds; falsify.
+    **Gates:** P8's slowed builds; `nub run faults`.
 
     **Failure limit:** 2.
 
@@ -71,7 +71,7 @@ tasks
             dropped
             with a reason checked against the Specs.
 
-            **Why now:** the P9 exit needs every finding to have a disposition before the final-commit gates.
+            **Why now:** the P9 exit needs every finding to have a disposition before the release.
 
             **Read first:** code:wiki/plans/flow/references/proposals/revisit.md,
             code:wiki/plans/flow/references/proposals/open-items.md, code:wiki/tasks/V3/epic.task.
@@ -81,7 +81,7 @@ tasks
             - **Gates:** `nub run verify`.
             - **User's read:** each disposition.
         acceptance
-            Every finding has a disposition; the final-commit gates pass.
+            Every finding has a disposition; `nub run verify` passes.
     T38
         title       Quota and disk durability on a real phone
         status      draft

@@ -5,7 +5,7 @@ description
 
     **Goal:** medium-sized Next.js example apps in `examples/`, each importing the v3 package, each
     a striking demo that explains what it shows; one demos Story presentation. They also drive
-    conformance runs and benchmarks.
+    Story tests and the bench.
 
     **Starts when:** P5's completion audit passes; the app pick may come any time before.
 

@@ -1,207 +1,264 @@
 phase P3
-title Suite foundations
+title Core
 description
     **Class:** not readily verifiable.
 
     **Kind:** verification-suite.
 
-    **Goal:** the suite's foundations, shared by every area: a new, clean conformance suite at production quality in
-    `packages/flow-state-v3/conformance/`, run through one Port against round 14 and, area by area, production; the 
-    Spec,
-    runner, coverage gate, one verdict form and the static-case surface. All Tasks here are done.
+    **Goal:** the core's first slices on production: the consolidation, lane policies, Runtime life, write-ahead,
+    restore, the compiler and actor identity. The core and its checks grow together, one area at a time.
 
-    **Verified by:** the Tasks' acceptance; the suite green on round 14, null-red and falsify clean at each Task's 
-    close.
+    **Starts when:** @task.V3.T67 is done, so one test style is left. @task.V3.T18 also waits on @task.V3.T69 and
+    @task.V3.T70.
 
-    **One iteration:** one Task: build it, run it on round 14 and the null runtime, run its mutants, review, gather
-    findings by root cause.
+    **Verified by:**
 
-    **Exit criteria:** every Task here is done (the area phases build on them); the foundations' own mutants are killed.
+    - per area, the Story tests, run rules and compile-time tests written from its Spec, in
+      `packages/flow-state-v3/tests/`, run by `vp test`;
+    - `nub run faults`: each new rule adds a planted fault to code:packages/flow-state-v3/tests/faults.ts, and the
+      tests must catch it;
+    - the suite's coverage record, started by @task.V3.T67 and extended by each Task here;
+    - skill:check-task per Task; `nub run check` and `nub run lint:rules` at zero.
 
-    **False pass:** agreeing with the old suite because it was copied, weaknesses included.
+    **One iteration:** the next ready Task: its Spec change, written just in time; its requirements as failing
+    checks, with a planted fault for each new rule; the core change; the bench; an independent skill:check-task.
+    The user's page is written at each slice's close.
 
-    **Caught by:** each area's audit, whose auditor writes its own mutants from the Specs.
+    **Exit criteria:**
 
-    **Gates:** falsify (`packages/flow-state-v3/conformance/`); `nub run check`, which rejects a planted lint violation.
+    - every Task is done;
+    - every Requirement these Tasks build has a check that passes and that failed on its planted fault;
+    - `nub run faults` catches the dead core and every named fault at the final revision;
+    - the completion audit names each Plan outcome these Tasks satisfy and finds it delivered.
+
+    **False pass:** a test written from the code instead of the Spec; a rule with no planted fault.
+
+    **Caught by:** the review of each Task's first commit, which maps every requirement to a Spec rule, and
+    `nub run faults`.
+
+    **Gates:**
+
+    - `nub run faults`, which rejects the dead core and the named faults in
+      code:packages/flow-state-v3/tests/faults.ts;
+    - `nub run lint:rules`, which rejects the planted violations in code:tools/flow-state-lint/imports.test.ts;
+    - `nub run check`.
 
     **Failure limit:** 2.
 
-    **Stops:** a guarantee change (a Spec Invariant added, dropped or changed); a guarantee that can't be met.
+    **Stops:**
 
-    **User's read:** the suite layout (round 1), each Spec revision, each changed expected result with its reason.
+    - a guarantee change, or one that can't be met;
+    - public entry-point names or a large public API change.
+
+    **User's read:** each Spec revision; each changed expected result with its reason; small public API calls; the
+    user's page at each slice's close.
 
     **Draws from:**
 
     - skill:policy-verification (prove a suite; the coverage record);
-    - skill:policy-testing (audit a suite; scenarios that enforce each Invariant written first);
-    - skill:to-spec for the suite's own Spec;
-    - skill:policy-convergence at the threshold; skill:review at the cadence; skill:check-benchmark on speed numbers.
+    - skill:policy-testing (the requirements as failing checks first);
+    - skill:to-spec for an area's Spec change and skill:to-design per module;
+    - skill:execute-task and skill:check-task per Task; skill:review at a Task's first commit and its close;
+    - skill:policy-convergence at the threshold; skill:diagnose when a test fails unexplained.
+
+    Every Task below but the first is a draft: its full text (requirements, approach, acceptance by Spec rule) is
+    written with skill:to-task when it is next. The earlier text of each, written for the conformance suite, is in
+    `wiki/tasks/V3/` at commit `6b9fe478`. The old suite's known gaps for each Task are in Appendix A of
+    code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md.
 tasks
-    T4
-        title       The suite's own Spec, Conformance.spec
-        status      done
+    T54
+        title       Core consolidation: owed-endings ledger, one start, diff-written records, acts into evidenceOf
+        status      open
         priority    high
+        blocked_by  [@task.V3.T67]
         description
-            Write `packages/flow-state-v3/conformance/Conformance.spec` with skill:to-spec, next to
-            the suite (README item 7):
+            Finish the core consolidation: one ledger of owed endings, one `start`, records written from what each
+            step touched, and every report built by `evidenceOf` from acts.
 
-            - the Port exposes no runtime internals and any runtime implementing it gets the same
-              verdicts;
-            - expected results come from a cited Spec rule, never from running the runtime;
-            - every check has a mutant it kills;
-            - the null runtime fails every case;
-            - runs are deterministic from a seed;
-            - the verdict format and the old-suite comparison.
+            **Why now:** most of it is in the core at this revision; the rest was paused when the conformance suite
+            was deleted, and every later core Task builds on the consolidated shape.
 
-            The README keeps the how-to.
+            **Read first:** @spec.WriteLanes (its `algorithm` section: the ledger), @spec.Actors,
+            code:packages/flow-state-v3/src/core/ledger.ts, code:packages/flow-state-v3/src/core/evidence-of.ts. The
+            paused step's plan is `wiki/plans/flow/references/proposals/t54-a3-prep-2026-11-15.md` at commit
+            `4f4ac9f5`.
 
-            - **May change:** the new Spec, the README.
-            - **Evidence:** this Task's comments.
-            - **False pass:** a Spec restating the code's current behaviour → caught by
-              skill:check-spec by an agent that did not write it.
-            - **Gates:** `workflow check`.
-            - **User's read:** the Spec's guarantees.
+            **Risk:** what is left is not listed here. The first step is to read the paused plan against the code
+            and write the remaining requirements as failing checks. The old Task's "production self-proof" is
+            replaced by the planted faults.
+
+            May change: `src/core/`, `src/host/`, `tests/`. Evidence: this Task's comments.
+
+            False pass: a consolidation that moves code without changing who owns each fact → caught by a run rule
+            per fact (one delivery per ending, one writer per record) and its planted fault.
         acceptance
-            The Spec exists, `workflow check` passes, and an independent skill:check-spec finds
-            no gap in its contract.
-    T5
-        title       Suite renamed to Spec areas and behaviour names
-        status      done
+            - The ledger, `start`, record writes and `evidenceOf` are each the one place their work is done, shown by
+              Story tests and run rules that cite @spec.WriteLanes and @spec.Actors.
+            - The two known bugs of this area (a flush that holds only its own actor's record; an adopted lane's
+              later endings routed against Actors R20) are fixed, and their inverted tests are flipped.
+            - `nub run faults` catches every named fault; `vp test` and `nub run check` pass.
+    T18
+        title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
+        status      draft
         priority    high
-        blocked_by  [@T4]
+        blocked_by  [@T54, @task.V3.T69, @task.V3.T70]
+        satisfies   [@plan.Operations.O3, @plan.Runtime.O2]
         description
-            One folder per core Spec (`write-lanes/`, ...), checks named by behaviour
-            (`three-channels` to `ending-channels`, `one-delivery` to `delivered-once`, `lane-cells`
-            to `lane-queue`), `*.lies.ts` to `*.mutants.ts` and "lie" to "mutant", scenario files by
-            behaviour with the old `PAY-nn` id kept as a field, prototype leftovers renamed (README
-            item 8). Blocked by T4, whose Spec settles the grouping.
+            Build the write-lane policies `latest`, `serialize` (up to 64, then Overloaded) and `cancel` on
+            production, with the `waiting` row, as rows of the lane table, and endings split by origin.
 
-            - **May change:** `packages/flow-state-v3/conformance/`.
-            - **Evidence:** this Task's comments.
-            - **False pass:** a rename that drops or changes a check → caught by byte-identical
-              suite, null and falsify output before and after.
-            - **Gates:** falsify; `nub run check`.
+            **Why now:** production refuses every policy but `reject`.
+
+            **Read first:** @spec.WriteLanes, code:packages/flow-state-v3/src/core/cells.ts#table, and the reference
+            `packages/flow-state-v3/prototypes/round-14/lane.ts`.
+
+            May change: `src/core/`, `fixtures/`, `tests/`. Evidence: this Task's comments.
+
+            False pass: a policy whose cells are right one at a time but wrong in sequence → caught by generated
+            Stories over a fixture that uses each policy.
         acceptance
-            Suite, null and falsify output byte-identical before and after; `nub run check` at
-            zero errors and warnings.
-    T6
-        title       Judged Runtime disposal per case, and tsgo in check
-        status      done
-        priority    medium
-        blocked_by  [@T5]
-        description
-            Judge Runtime disposal at every case's end with the `disposal` oracle, and run `@effect/tsgo` in
-            `nub run check`.
-
-            **Why now:** round 5 dropped the implicit per-case disposal, so no case's end is judged, and the
-            Effect language service does not run on TypeScript 7. It serves the phase goal (one oracle per
-            guarantee) and @task.V3.T9, which shares the oracle.
-
-            **Read first:** @spec.Actors.I29 to @spec.Actors.I32;
-            conformance/README.md (item 9 of "The rest of the rewrite");
-            conformance/actors/runtime-disposal.scenarios.ts#runtimeDisposalScenarios.
-            The mutants: `lie.boot-says-disposed` and `lie.boot-drops-held` in
-            code:packages/flow-state-v3/prototypes/conformance/falsify.ts, `o6.*` in
-            code:packages/flow-state-v3/prototypes/round-14/mutants-lifetime.ts.
-
-            - **May change:** `packages/flow-state-v3/conformance/`, `package.json`, the lint
-              configuration.
-            - **Evidence:** this Task's comments.
-            - **False pass:** a disposal oracle that never fails → caught by its mutants
-              (`lie.boot-says-disposed`, `lie.boot-drops-held`, `o6.*`).
-            - **Gates:** falsify; `nub run check`.
-        acceptance
-            - Every case ends with a judged disposal;
-            - the disposal mutants are killed;
-            - the tsgo language service runs in `nub run check`, which stays at zero.
-    T40
-        title       Suite simplified: one oracle contract, shared domain facts, dead surface removed
-        status      done
+            - Each policy's cells are rows of the lane table, with a Story test for each decided cell and a fixture
+              that uses the policy.
+            - An operation's row reads `waiting` while commits wait behind its head.
+            - Each new rule has a planted fault that `nub run faults` catches.
+    T55
+        title       Runtime life: Life and admit replace Disposal; the final write and its 5 s bound move into the core
+        status      draft
         priority    high
-        blocked_by  [@T6]
+        blocked_by  [@T18]
         description
-            The suite's oracles share one step-fold contract and one definition of each domain fact, and its
-            dead and copied code is gone, with every guarantee still judged.
+            Replace the core's `Disposal` and the host's lifecycle flags with one `Life` and one `admit` table, and
+            move the final write and its 5 s bound from the host into the core.
 
-            **Why now:** the simplicity review found an Attempt's life modelled five times, lane identity three
-            ways, may-have-applied three ways, the Pay helpers copied into nine files, and every oracle
-            re-folding the whole timeline each step. The remaining areas (T7 to T14) would copy that shape, and
-            T7 rewrites two oracles that need the new contract first.
+            **Why now:** the Runtime's lifecycle is split between `Disposal` in the core and flags in
+            `src/host/runtime.ts`, which disagree on early and late calls.
 
-            **Read first:** code:wiki/plans/flow/references/proposals/suite-simplicity-review-2026-11-10.md
-            (S1, S3 to S8, the patterns, and "Showing nothing got weaker"); @spec.Conformance;
-            conformance/dsl/oracle.ts;
-            conformance/actors/disposal.ts (its ledger, `disposal-ledger.ts`, was
-            deleted at T7's step 6).
+            **Read first:** @spec.Actors (R4, R22, R23), code:packages/flow-state-v3/src/core/disposal.ts,
+            code:packages/flow-state-v3/src/host/runtime.ts.
 
-            **Approach:** in order, each landing alone with its gate: S5's attemptKey, write lookup and LaneId;
-            S1 as a mechanical move, step bodies unchanged; S3, S4, S6, S7, and S8's runner items (not the adapter
-            decode-once); S5's mayHaveApplied last, checked against WriteLanes R5, with any changed verdict listed
-            with its rule. Share the pattern, not the state: no shared Attempt model. S2 (the rewrite of
-            `lane-queue` and `delivered-once`) is @task.V3.T7's.
+            May change: `src/core/`, `src/host/`, `tests/`. Evidence: this Task's comments.
 
-            - **May change:** `packages/flow-state-v3/conformance/` outside the two oracles T7 rewrites;
-              `tools/lint-bomb/STYLE.md` for the review's two lines.
-            - **Evidence:** this Task's comments.
-            - **False pass:** a simplification that drops a check while verdicts look the same → caught by the
-              falsify sweep's red and caught-by sets compared before and after.
-            - **Gates:** suite, null and falsify sweep byte-identical for verdict-neutral items; per-case verdict
-              kind, oracle and Invariant for S1; `nub run check`.
-            - **Stops:** a guarantee change.
+            False pass: an `admit` table that is total by type but never reached for some inputs → caught by a
+            Story test for each row.
         acceptance
-            - Every oracle implements one step-fold contract with typed violations and InvariantId guarantees;
-            - attemptKey, the write lookup, LaneId and mayHaveApplied each have one definition;
-            - the Pay helpers live in one module; the dead surface the review lists is gone;
-            - suite, null and falsify sweep outputs match before and after, except S5 mayHaveApplied changes
-              listed with their rules;
-            - `nub run check` at zero.
-    T41
-        title       Coverage gate: every core Invariant checked or owned
-        status      done
+            - One `Life` value and one total `admit` table decide whether an input runs, is dropped or is rejected;
+              the host keeps no flag of its own.
+            - The known bug of this area (the disposal reports Done before its final write is answered) is fixed, and
+              its inverted test is flipped.
+            - Each new rule has a planted fault that `nub run faults` catches.
+    T19
+        title       Durability: persistence edge, write-ahead and the driver (slice 2)
+        status      draft
         priority    high
+        blocked_by  [@T55]
+        satisfies   [@plan.Persistence.O1, @plan.Persistence.O2, @plan.Persistence.O3, @plan.Persistence.O6]
         description
-            A fast gate fails unless every Invariant in the core Specs has an oracle claiming it with a mutant
-            caught by that Invariant, or an explicit "not yet" row naming the Task that owns it.
+            Build the persistence edge, write-ahead and the Effect driver in `src/host/` from @spec.WriteAhead.
 
-            **Why now:** falsify tests only what an oracle claims, so an Invariant with no oracle passes
-            silently (I16 and I22 hid this way) until T15's coverage record.
+            **Why now:** the core returns work as data, and durability can be judged only once that work is run and
+            its records written as the Spec says.
 
-            **Read first:** @spec.Conformance (R6, R12, I38); the guarantee map in
-            conformance/README.md; `Mutant.expects` in
-            conformance/dsl/oracle.ts.
+            **Read first:** @spec.WriteAhead, code:packages/flow-state-v3/src/core/persist.ts,
+            code:packages/flow-state-v3/src/host/driver.ts.
 
-            **Approach:** read Invariant ids from the core Specs (`workflow` CLI or the spec index), compare them
-            with oracle `guarantee` lists, the falsify per-Invariant kills and a typed "not yet" table, and run it
-            in the fast gates. Prove it with a planted uncovered Invariant that makes it fail.
+            May change: `src/core/`, `src/host/`, `fixtures/`, `tests/`. Evidence: this Task's comments.
 
-            - **May change:** `packages/flow-state-v3/conformance/`, `package.json` scripts.
-            - **Evidence:** this Task's comments.
-            - **False pass:** a "not yet" row that never expires → caught by T15's audit, which reads the table.
-            - **Gates:** the planted uncovered Invariant; `nub run check`.
+            False pass: a batch rule checked only against what the runtime reports → caught by run rules that read
+            what the fake store received.
         acceptance
-            - The gate lists every core Invariant as covered (oracle plus caught mutant) or "not yet" with an
-              owning Task, and fails on any other;
-            - a planted uncovered Invariant makes it fail;
-            - it runs with the suite's fast gates.
-    T42
-        title       Core Specs revised from the Invariant audit and the open rulings
-        status      done
+            - The Requirements of @spec.WriteAhead this slice builds hold, shown by run rules over the fake store's
+              batches and by Story tests.
+            - The known bugs of this area (a re-send's retry count missing from the capture before it; any write
+              discharging every dirty end) are fixed, and their inverted tests are flipped.
+            - Each new rule has a planted fault that `nub run faults` catches.
+    T20
+        title       Durability: restore, owed endings at boot, quarantine and forget (slice 2a)
+        status      draft
         priority    high
+        blocked_by  [@T19]
+        satisfies   [@plan.Inspection.O2, @plan.Persistence.O4, @plan.Persistence.O5]
         description
-            The core Specs hold no conflicting Invariants or rules, carry the orchestrator's rulings, and drop or
-            reword the audit's cut and untestable Invariants.
+            Build restore from @spec.Restore and @spec.Codec: reload, owed endings delivered at boot, record format
+            tags, quarantine of unreadable records, and `forget`.
 
-            **Why now:** the audit found 26 conflicts (21 new) that T7 to T12 and T17 would otherwise build against,
-            and rulings M5, CQ1 to CQ7, Compile Q3, R9 and the retry Invariant are not yet in the Specs.
+            **Why now:** write-ahead records exist, but a reload cannot yet restore every actor or deliver all that
+            was owed.
 
-            **Read first:** code:wiki/plans/flow/references/proposals/invariant-audit-2026-11-11.md; the rulings
-            in code:wiki/tasks/V3/log.task (2026-11-11); skill:to-spec.
+            **Read first:** @spec.Restore, @spec.Codec, @spec.WriteAhead.
 
-            - **May change:** `wiki/specs/`, `packages/flow-state-v3/conformance/not-yet.ts` and coverage rows
-              for cut or renumbered Invariants.
-            - **Evidence:** spec-log.md entries; this Task's comment.
-            - **Stops:** a ruling that would change a Plan's outcome goes to @plan.Pending.
+            **Risk:** Codec I7 says no lane record has a `mayHaveApplied` field, and
+            code:packages/flow-state-v3/src/core/record.ts writes one. One of the two is wrong.
+
+            May change: `src/core/`, `src/host/`, `tests/`. Evidence: this Task's comments.
+
+            False pass: a restore tested only at the points someone thought of → caught by the reload sweep over
+            every Story.
         acceptance
-            - C1 to C26 each resolved in the Specs or recorded with a reason;
-            - the rulings and the gaps' new Invariants written; the 18 cuts and 7 rewordings applied;
-            - `workflow check` valid and the coverage gate at 0 gaps.
+            - The Requirements of @spec.Restore and @spec.Codec this slice builds hold, shown by Story tests with a
+              reload and by the reload sweep.
+            - Each new rule has a planted fault that `nub run faults` catches.
+    T17
+        title       Machine structure: Compiled, compound states, history and fields (slice 3a)
+        status      draft
+        priority    high
+        blocked_by  [@T20]
+        satisfies   [
+                    @plan.Diagnostics.O1,
+                    @plan.Diagnostics.O2,
+                    @plan.Diagnostics.O3,
+                    @plan.Diagnostics.O4,
+                    @plan.Machines.O1,
+                    @plan.Machines.O2,
+                    @plan.Machines.O3,
+                    @plan.Machines.O4,
+                    @plan.Machines.O6,
+                    @plan.Machines.O7,
+                    @plan.Machines.O8,
+                    @plan.Operations.O1,
+                    @plan.Runtime.O1
+                    ]
+        description
+            Build Compiled and the compiler from @spec.Compile and @spec.Diagnostics, with compound states, history,
+            `Flow.input`, private and computed fields and the snapshot shape.
+
+            **Why now:** production compiles only what the fixtures need; the full construction rules and the
+            diagnostics are unbuilt, and every module after this reads Compiled.
+
+            **Read first:** @spec.Compile, @spec.Diagnostics, code:packages/flow-state-v3/src/machine.ts.
+
+            **Risk:** Compile I17 says a missing service is a type error, and `runtimeSetup` takes `Layer<any>`.
+
+            May change: `src/`, `fixtures/`, `tests/`. Evidence: this Task's comments.
+
+            False pass: a construction rule shown only by a passing machine → caught by a compile-time test or a
+            construction test for each refused form.
+        acceptance
+            - The Requirements of @spec.Compile and @spec.Diagnostics this slice builds hold: each "is a type error"
+              has a compile-time test, and each construction refusal a test of its error.
+            - The known bug of this area (a delay past 2^31 - 1 ms is armed, not refused) is fixed, and its inverted
+              test is flipped.
+            - Each new runtime rule has a planted fault that `nub run faults` catches.
+    T9
+        title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
+        status      draft
+        priority    high
+        blocked_by  [@T17]
+        satisfies   [@plan.Runtime.O3, @plan.Runtime.O4, @plan.Runtime.O5, @plan.Runtime.O6, @plan.Runtime.O7]
+        description
+            Build actor identity and lifetime on production from @spec.Actors: `actorRef` by value, `createActor`,
+            snapshots and their fallbacks, the send table, context waves with `onContext`, issues by source, and the
+            admission bound.
+
+            **Why now:** production has one actor shape; identity by value, the mailbox rules and context are
+            unbuilt, and the browser slice (@task.V3.T58) needs them.
+
+            **Read first:** @spec.Actors, code:packages/flow-state-v3/src/core/incarnations.ts,
+            code:packages/flow-state-v3/src/host/runtime.ts.
+
+            May change: `src/`, `fixtures/`, `tests/`. Evidence: this Task's comments.
+
+            False pass: mailbox order tested with one actor → caught by Stories with several actors and generated
+            interleavings.
+        acceptance
+            - The Requirements of @spec.Actors this slice builds hold, shown by Story tests and run rules.
+            - Each new rule has a planted fault that `nub run faults` catches.

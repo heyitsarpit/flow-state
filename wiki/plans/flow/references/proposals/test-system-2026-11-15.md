@@ -4,7 +4,7 @@
 inspection become the core's own test harness. Everything else here is proposed. This file changes no code,
 plan, Spec, Task or the Epic. It superseded an earlier draft, `stories-as-harness-2026-11-15.md` (deleted; in
 git at `4f4ac9f5`): same direction, now with evidence, the other kinds of test, and a sequence. The work it
-describes is now Tasks T62 to T70 in `wiki/tasks/V3/P16.task`; where the two differ, the Tasks win.
+describes is now Tasks T62 to T70 in `wiki/tasks/V3/P2.task`; where the two differ, the Tasks win.
 
 **Bottom line:** Flow gets five kinds of test and three tools, all plain.
 

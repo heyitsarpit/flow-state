@@ -1,69 +1,364 @@
 phase P2
-title Plan merge and core Specs
+title Test system
 description
-    **Class:** non-verifiable.
+    **Class:** not readily verifiable.
 
-    **Goal:**
+    **Kind:** verification-suite.
 
-    - current Plans and core Specs written once from the settled design;
-    - every superseded sentence moved to `wiki/plans/flow/references/superseded.md` with its
-      replacement (amendment 12);
-    - Specs only for P3 and P4 (amendment 13).
+    **Goal:** Flow's own tests run on Flow's own test tooling (Story, Fake, the runtime cut, the trace, the CLI); the
+    hand cases are ported onto it and the bridge is deleted. Decided by the user on 2026-11-15; the design and its
+    evidence are in code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md.
+
+    **Starts when:** now, ahead of the remaining core slices: @task.V3.T54 waits on @task.V3.T67, and @task.V3.T18
+    waits on @task.V3.T69 and @task.V3.T70.
 
     **Verified by:**
 
-    - each merge decision's judge, an independent agent (amendment 11);
-    - an audit that compares each merged rule with the latest decision touching it;
-    - `workflow check`.
+    - the suite: the Story tests under `packages/flow-state-v3/tests/`, with the run rules and the reload sweep, run
+      by `vp test`; the builder runs it, and a lead that did not build it audits it
+      (skill:policy-testing#audit-a-suite);
+    - its mutants: `nub run faults` plants a dead core and each named fault of
+      code:packages/flow-state-v3/tests/faults.ts in a scratch copy, one at a time;
+    - its coverage record: written by @task.V3.T67 and proposed as a verification entry of @plan.Runtime, which is
+      a Plan edit and so the user's yes; until then it is a comment on this phase;
+    - skill:check-task per Task; `nub run check` and `nub run lint:rules` at zero.
 
-    **One iteration:** one Plan or area: list the edits with the decision behind each, apply them,
-    run `workflow check`.
+    **One iteration:** the next ready Task: write its checks and see them fail, build, run the suite and
+    `nub run faults`, then an independent skill:check-task. Findings are gathered by root cause before the next Task.
 
     **Exit criteria:**
 
-    - every Plan the prototype touched is merged;
-    - every superseded decision is moved out;
-    - Specs exist for P3 and P4;
-    - no Plan text claims a decision the user didn't make;
-    - `workflow check` passes.
+    - every Task is done, and `tests/bridge/` is deleted, so one test style is left;
+    - everything under "Prove" in skill:policy-verification holds at the final revision: the suite runs end to end,
+      the dead core and every named fault are caught, and the audit has passed;
+    - the coverage record exists.
 
-    **False pass:** merging from the stale design, or recording a recommendation as decided.
+    **False pass:** a harness made of the product hiding the product's bugs; a ported test that asserts less than
+    the case it replaces.
 
-    **Caught by:** the merge audit, rule by rule, against the latest decision and the user's words.
+    **Caught by:** the fault run and the dead core; the pure core tests beside the core
+    (code:packages/flow-state-v3/src/core/cells.test.ts); the case-by-case comparison in @task.V3.T67.
 
-    **Gates:** `workflow check`, which rejects a broken reference or schema.
+    **Gates:**
 
-    **Budget:** the Epic's Budget section, row P0 to P2 (spent).
+    - `nub run faults`, which rejects the dead core and the 17 named faults in
+      code:packages/flow-state-v3/tests/faults.ts;
+    - `nub run lint:rules`, which rejects the planted violations in code:tools/flow-state-lint/imports.test.ts and
+      code:tools/flow-state-lint/rules.test.ts;
+    - `nub run check`.
 
     **Failure limit:** 2.
 
-    **Stops:** none (amendment 11).
+    **Stops:**
 
-    **User's read:** every merge ruling (now pending Decision notes). Decisions: every merge
-    conflict, judged by an independent reviewing agent; large public API changes stayed the user's.
+    - a Pay Story that cannot pass across a reload (@task.V3.T63);
+    - public entry-point names: `Story`, `Fake` and `propertyTest` follow @plan.Testing and stay unexported in this
+      phase; exporting any of them, or naming the CLI's commands beyond the Plan's (@task.V3.T69), is the user's;
+    - a guarantee change.
+
+    **User's read:** the agent decisions in section 12 of the proposal; the Story and Fake API as built; each case
+    the port drops, with its reason.
 
     **Draws from:**
 
-    - skill:to-plan for the merge;
-    - skill:to-spec and skill:to-design for the Specs;
-    - skill:review for the audits.
+    - skill:policy-verification (prove a suite; the coverage record);
+    - skill:policy-testing (the requirements as failing checks first; audit a suite);
+    - skill:execute-task and skill:check-task per Task; skill:review at each Task's close;
+    - skill:policy-convergence at the threshold; skill:diagnose when a test fails unexplained;
+    - the project's `effect-api-documentation` skill for every Effect API.
 tasks
-    T3
-        title       Plans merged and core Specs written
-        status      done
+    T62
+        title       Package layout and import rules
+        status      review
         priority    high
-        labels      [non-verifiable]
         description
-            Merged the design into the 14 Plans, moved superseded text to superseded.md, and wrote
-            the 10 core Specs under `wiki/specs/core/`. Migrated from `wiki/roadmaps/v3-production/`
-            (git `b30be69d`).
+            Fix the package's folders and what may import what, enforced by lint, before the tooling is built.
 
-            - **Evidence:** this Task's comments.
-            - **False pass:** stale merges or user-credited agent calls → caught by the merge audit.
-            - **Gates:** `workflow check`.
-            - **Budget:** 10 merge iterations (spent).
-            - **Stops:** none.
-            - **User's read:** the merge rulings in the Epic's pending Decision notes.
+            **Why now:** tooling, fixtures and tests are about to be written. With no rule, tests reach into `src/`
+            and fixtures into tests, which is how the old suite grew a private path to the runtime.
+
+            **Read first:** code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md (section 8 and
+            decision 9), code:tools/lint-bomb/FLOW-STATE.md.
+
+            May change: `vite.config.ts`, `tools/flow-state-lint/`, `tools/lint-bomb/FLOW-STATE.md`, AGENTS.md's
+            "Where things live". Evidence: this Task's comments.
+
+            False pass: a rule that never fires → caught by its planted violation in
+            code:tools/flow-state-lint/imports.test.ts.
         acceptance
-            Completion audit at `7feb7df4` with its findings fixed at `9c3fc40c`; `workflow check`
-            passes.
+            - Lint encodes the package's top folders and what may import what between them: the core (everything
+              in `src/` outside `src/host/`), the host, `fixtures/`, `tests/` and `bench/`. It does not encode the
+              shape inside a folder. This Task moves no file: each folder is created by the Task that fills it
+              (@task.V3.T63 the test tooling and the first fixture folder, @task.V3.T64 `tests/rules/`,
+              @task.V3.T66 `bench/`, @task.V3.T67 the other fixture folders, @task.V3.T68 `tests/types/`).
+            - Lint refuses, for `.ts` and `.tsx` files: anything in `src/` outside `src/host/`, except `src/index.ts`,
+              importing from `src/host/`; `src/` importing a fixture, test or bench; a fixture importing from `src/`
+              anything but `src/index.ts` and `src/host/testing/index.ts`; a test or bench importing from `src/`
+              anything but those two, `src/host/inspect.ts` and `src/host/trace.ts`.
+            - Each rule has a planted violation it refuses and a permitted import it allows.
+            - `nub run check`, `nub run lint:rules` and `vp test` pass.
+        comment     2026-11-15T09:39:03Z
+            Done in commit 087a1b9a: four no-restricted-imports overrides in vite.config.ts, with 20 planted cases in 
+            tools/flow-state-lint/imports.test.ts (11 refused, 9 allowed), run by nub run lint:rules. nub run check and 
+            vp test pass (262 tests). Today's code already complied, so nothing moved.
+        comment     2026-11-15T09:49:55Z
+            Independent check at ee757592: ISSUES (2 of 4 claims). Layout ISSUES: the tree lacks tests/rules, 
+            tests/types, bench/, src/host/testing/index.ts and src/host/trace.ts; fixtures/ has loose part.ts, 
+            sign-in.ts, sync.ts, transfers.ts; src/ root files sit outside core/ and host/, so 'The layout is' fails as 
+            written (fix the tree or reword as the target lint encodes). Refusals ISSUES: all four hold for .ts 
+            (scratch probe of 22 cases), but the core, fixtures and tests/bench overrides glob *.ts only, so a .tsx in 
+            src/core, tests or fixtures imports src/core or src/host unrefused. Planted cases PASS: each rule has a 
+            refused and an allowed case, and dropping hostFromCore fails the core cases; the trace.ts allowance has no 
+            planted case. Gates PASS: nub run check (0 warnings, 83 files), nub run lint:rules (import rule tests 
+            passed), vp test run packages/flow-state-v3 (262 passed). Text: FLOW-STATE.md Scope still says src/ does 
+            not exist and names a flag package.json no longer passes.
+        comment     2026-11-15T09:52:32Z
+            Author's fix for the check at ee757592. Refusals: the rules now match .tsx as well as .ts, and the host 
+            rule covers everything in src/ outside src/host/ except src/index.ts, not only src/core/. Planted cases: 28 
+            (was 20), adding .tsx in core, fixtures and tests, a file at the top of src/, src/index.ts allowed, and the 
+            trace.ts allowance for tests and bench. FLOW-STATE.md: the stale lines about a missing src/ are gone. 
+            Layout: the first acceptance claim is reworded to what this Task delivers, the target layout encoded in 
+            lint; it moves no file. Why: the folders need the Story tooling to hold anything real. Reverse: restore the 
+            claim and create the folders here.
+        comment     2026-11-15T09:55:10Z
+            Re-check at 6b9fe478: 3 PASS, 1 ISSUES (wording). Layout ISSUES: honest that no file moves, and each folder 
+            has an owning Task (T63 testing/ and transfers, T64 rules, T65 trace, T66 bench, T67 fixture shape, T68 
+            types), but lint encodes only the top folders and their import edges, not fixtures/<name>/ or 
+            tests/<area>/, rules/, types/: a loose fixtures/x.ts or tests/x.ts lints clean. Say that, or drop the 
+            sub-folders from the claim. The claim was narrowed by its author; reason and reverse are logged, the user's 
+            yes is not. Refusals PASS: scratch probe of 31 cases incl. .tsx in core, tests, fixtures, bench and files 
+            at the top of src/, all as expected; core may still import src/index.ts, which re-exports the host. Planted 
+            cases PASS: 28, each rule refused and allowed, trace.ts allowed; dropping hostFromCore flips 7 probe cases. 
+            Gates PASS: nub run check (0 warnings, 83 files), nub run lint:rules (import rule tests passed), vp test 
+            run packages/flow-state-v3 (262 passed).
+    T63
+        title       A Story drives the real Runtime over fakes
+        status      open
+        priority    high
+        blocked_by  [@T62]
+        description
+            Build `Story`, `Fake` and the run in `src/host/testing/`, with a runtime cut in `src/host/inspect.ts`,
+            proven on a transfers fixture and one Pay Story.
+
+            **Why now:** Flow's own tests are to run on its public test tooling, and nothing in production code scripts
+            a run or stands in for a service. This is the first slice of @plan.Testing.O1 to O4; @task.V3.T29 keeps the
+            rest.
+
+            **Read first:** code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md (sections 3.1, 4, 5,
+            7 and 12), code:packages/flow-state-v3/src/host/runtime.ts#buildRuntime,
+            code:packages/flow-state-v3/fixtures/pay/contracts.ts#ShopApi. Prior art: the local branch
+            `draft/story-slice` holds a working spike and an unfinished, unreviewed draft of this Task. Read it; do not
+            merge it.
+
+            **Risk:** Pay's commit runs on a detached fiber, and what it does when its page is abandoned at a reload
+            is unproven. The second risk is types: a fake must keep each service method's argument, success and
+            failure types end to end, with no cast.
+
+            **Approach:** one page is one task list drained to idle (Effect's `Scheduler.MixedScheduler`), one
+            `TestClock` and one Runtime; a reload abandons the page and boots another over the same store and fake
+            state. Every Effect API is checked against the installed source with the `effect-api-documentation` skill.
+
+            May change: `src/host/testing/`, `src/host/inspect.ts`, `fixtures/transfers/`, `fixtures/pay/server.ts`,
+            `fixtures/pay/stories.ts`, `tests/transfers/`, `tests/pay/`. Evidence: this Task's comments.
+
+            False pass: a run that ends with work still queued, or tests that pass on a dead core → caught by the idle
+            check after every step and by `nub run faults`.
+            Gates: `nub run faults` over the new tests, which rejects the dead core.
+            Stops: the Pay Story cannot pass across a reload without bending the Runtime. Then the reload model is
+            wrong.
+            User's read: the Story and Fake API as built, and each place it differs from the proposal's section 4.
+        acceptance
+            - `Story.app(config, fakes, steps)` is inert data and `run()` is the only boundary. Steps: attach, detach,
+              forget, send, disposeActor, disposeRuntime, advance, reload, checkpoint.
+            - `Fake.server(Service, () => handlers)` answers through the service's own methods. Its words `hold`,
+              `release`, `dropRequest`, `dropResponse` and `answer` are typed by the service. The fake store has
+              `hold`, `refuse` and `release`.
+            - A checkpoint holds the time, the runtime cut, what each fake received and the store.
+            - Every step word and every wire and storage word has a test. A Story run twice gives equal evidence. A
+              run arms no host timer. A dead page writes nothing after a reload.
+            - A Spec for the test tooling, written first with skill:to-design and skill:to-spec from the proposal's
+              sections 4 and 12, states its Requirements and Invariants; the tooling's tests cite it.
+            - The transfers fixture is one folder (contracts, machine, server, stories) with Story tests; its stories
+              include one long run of about 100 steps, which @task.V3.T66 times.
+            - Nothing is exported from a public route: the tooling is reached only by its path inside the package.
+            - One Pay Story passes: a `confirm` whose response is lost, time past the commit's deadline, a reload; the
+              payment reads unknown and exactly one `confirm` landed.
+            - `nub run faults` over the new tests: a dead core fails every one.
+            - An idiomatic-Effect review by a second Opus agent, using `effect-api-documentation`, leaves no finding
+              open without a reason.
+            - `vp test`, `nub run check` and `nub run lint:rules` pass.
+    T64
+        title       Rules checked on every run, and a reload at every step
+        status      open
+        priority    high
+        blocked_by  [@T63]
+        description
+            Write the run rules and the reload sweep in `tests/rules/`.
+
+            **Why now:** example tests check only what someone wrote down: the planted fault `refused-turn-reported`
+            passes all 81 hand cases. The old suite's crash sweep, a kill and reload at every step, found three real
+            bugs and was deleted with it.
+
+            **Read first:** code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md (sections 3.2, 3.3
+            and 6), code:packages/flow-state-v3/tests/faults.ts, and
+            code:packages/flow-state-v3/tests/bridge/checks/publication.ts for an older check's logic.
+
+            May change: `tests/rules/`, and the Story tests that call the helper. Evidence: this Task's comments.
+
+            False pass: a rule that never fires → each rule is shown red on one planted fault.
+            Gates: `nub run faults`, which rejects all 17 named faults in code:packages/flow-state-v3/tests/faults.ts.
+        acceptance
+            - A rule is a function from a finished run to its breaches, named by its Spec id. One helper applies every
+              rule to a run, and every Story test calls it.
+            - The rules: an Attempt's ending is delivered at most once (WriteLanes I15, I16); every ending has one of
+              the three channels and a never-sent Attempt ends only NotSent (WriteLanes I3); every request of one
+              Attempt carries one idempotency key and one input (WriteLanes I6); at most one publication per turn
+              (Turn I9); a refused turn leaves no Turn report (Turn I14).
+            - The reload sweep runs every fixture story with a reload inserted at each position and applies the rules.
+              A variant fails only for a rule breach, never for a script reason.
+            - `nub run faults` catches all 17 named faults.
+    T65
+        title       A run prints as a text trace
+        status      open
+        priority    medium
+        blocked_by  [@T63]
+        description
+            Write `src/host/trace.ts`: one function from a finished run to plain text, showing each step, what it
+            caused and each checkpoint.
+
+            **Why now:** builders debugged the old suite with private scratch scripts, and a ruling is to be asked as
+            two traces of one Story. This is the first slice of @plan.Inspection.O4; @task.V3.T49 keeps the rest.
+
+            May change: `src/host/trace.ts`, `tests/transfers/`. Evidence: this Task's comments.
+
+            False pass: a trace that leaves out what a step caused → caught by a snapshot that shows each request,
+            ending and store write of a run with a lost answer.
+        acceptance
+            - For one transfers Story with a lost answer and a reload, a test states by hand what the trace must
+              show, in order: each step, each request with whether it landed, each ending with its channel and
+              reason, each store write and each checkpoint.
+            - Two runs of one Story print the same trace.
+            - A text snapshot of that trace is kept as a change detector only.
+    T66
+        title       The bench times the long stories
+        status      open
+        priority    medium
+        blocked_by  [@T63]
+        description
+            Write `bench/run.ts`: it runs each fixture's long story a fixed number of times and prints the median and
+            p99 time per run and per turn.
+
+            **Why now:** the old bench replayed scripts through the deleted suite. @task.V3.T35 needs something to
+            grow from.
+
+            May change: `bench/`. Evidence: this Task's comments.
+
+            False pass: a bench that does less work than the tested run → caught by the same-turns test.
+        acceptance
+            - `bun packages/flow-state-v3/bench/run.ts` prints its numbers for the transfers long story.
+            - A test shows the benched Story does the same turns as a tested run of it.
+            - Nothing gates on a timing.
+    T67
+        title       The hand cases run as Story tests and the bridge is gone
+        status      open
+        priority    high
+        blocked_by  [@T63, @T64]
+        description
+            Port the 81 cases under `tests/bridge/cases/` to Story tests by Spec area, and delete the bridge.
+
+            **Why now:** two test styles in one tree is how a private harness comes back. Core work
+            (@task.V3.T54) waits on this.
+
+            **Read first:** code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md (section 5 and
+            Appendix A), code:packages/flow-state-v3/tests/bridge/cases/write-lanes/payment-endings.test.ts.
+
+            **Approach:** the pay, cells, sync and sign-in fixtures in the four-file shape first. Then one Spec area
+            per commit, each commit deleting the bridge files it replaces. The ten long scripts on the branch
+            `draft/story-slice` (under `draft/workloads/`) become each fixture's usual and long stories.
+
+            May change: `fixtures/`, `tests/`, `vite.config.ts` (the bridge's lint exemption). Evidence: this Task's
+            comments.
+
+            False pass: a ported test that asserts less than its case did → caught by comparing asserted values case
+            by case, and by `nub run faults`.
+        acceptance
+            - Every bridge case has a Story test asserting the same values; a case dropped is listed with its reason.
+            - `tests/bridge/` and `fixtures/part.ts` are deleted, and lint's bridge exemption with them.
+            - The five known bugs that have a reproduction (Appendix A) are inverted tests, each titled by the rule it
+              breaks.
+            - Each fixture has a usual and a long story.
+            - `nub run faults`: all 17 faults caught, and a dead core fails every test that is not inverted.
+            - The suite's coverage record (Covers, Suite, Rerun, Mutants, Audit, Matched at, Scope, as
+              skill:policy-verification gives them) is a comment on this phase, proposed to the user as a
+              verification entry of @plan.Runtime.
+            - An audit by a lead that did not build the suite (skill:policy-testing#audit-a-suite) has passed.
+    T68
+        title       Compile-time tests for the type promises production keeps
+        status      open
+        priority    medium
+        description
+            Write `tests/types/`: one `@ts-expect-error` test for each "is a type error" promise in the Plans and
+            @spec.Compile that production has built.
+
+            **Why now:** the Plans and @spec.Compile make 31 such promises, and 5 checks exist. No run can show a
+            type error.
+
+            May change: `tests/types/`. Evidence: this Task's comments.
+
+            False pass: a directive that suppresses a different error → each test's line holds only the forbidden
+            use.
+        acceptance
+            - Each promise production has built has a test, and `nub run check` fails when its directive is unused.
+            - The promises production has not built are listed in this Task's comments with their owner Task.
+    T69
+        title       flow story and flow trace
+        status      open
+        priority    medium
+        blocked_by  [@T65]
+        description
+            Build `flow story list`, `flow story run` and `flow trace <story>`, thin over the run and the trace
+            printer.
+
+            **Why now:** a builder's debug loop and a ruling both need a run printed from the command line. This is the
+            first slice of @plan.CommandLine.O2; @task.V3.T29 keeps the rest.
+
+            **Risk:** where the CLI lives and how it finds stories are not designed. Lint treats everything in `src/`
+            outside `src/host/` as core, so a CLI that drives the host lives under `src/host/` or gets its own rule. 
+            The Testing plan's `defineConfig`
+            discovery is outside this slice.
+
+            False pass: a command that prints through a path of its own → caught by its output equalling the trace
+            of @task.V3.T65 for the same Story.
+            Stops: public entry-point names.
+        acceptance
+            - `flow trace <story>` prints exactly what the trace function of @task.V3.T65 returns for that Story, and
+              `flow story run` prints its checkpoints; a test compares them over the package's fixtures.
+            - `flow story list` names every Story the fixtures export, and an unknown Story exits non-zero with its
+              name.
+            - Nothing is exported from a public route by this Task.
+    T70
+        title       Generated Stories
+        status      open
+        priority    high
+        blocked_by  [@T64]
+        description
+            Build `propertyTest` in `src/host/testing/`: it generates Stories from a fixture's step samples and the
+            fakes' open calls, applies the run rules, shrinks a failure and prints it as a Story.
+
+            **Why now:** nothing generated is left after the old suite's deletion, and @task.V3.T18 brings new
+            behaviour. This is the first slice of @plan.Testing.O6.
+
+            **Read first:** @plan.Testing.O6, code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md
+            (section 6).
+
+            May change: `src/host/testing/`, `tests/generated/`, `fixtures/` (step samples). Evidence: this Task's
+            comments.
+
+            False pass: a generator that only makes Stories the rules cannot fail → caught by finding a planted fault
+            from a seed.
+        acceptance
+            - The same seed gives the same Stories.
+            - A planted fault is found from a seed and shrunk to under ten steps, and the failure prints as a Story to
+              paste into a fixture.
+            - Nothing generated is stored.
+            - It runs over every fixture in `tests/generated/`.
