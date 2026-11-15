@@ -100,3 +100,8 @@ note 2026-11-15T17:16:46Z
 note 2026-11-15T17:25:24Z
     T63 done: independent review PASS at `5425505d` (`9264457b`); seven gaps routed to @task.V3.T64. Delegated call
     (small public API): inspect lanes keep `operation` and add `contract` and `state`; for the user's read. Next: T64.
+
+note 2026-11-15T17:39:38Z
+    Review of T64's first commit `1c940b02`: GAPS, list fixes only (I15 looser than its Spec, I3 and I9 narrowed, I14
+    contradicted, R1 cited for Restore I1); sent to the builder. G4 kept, its pin test extended past the deadline. An
+    I14 rewording would be the user's.
