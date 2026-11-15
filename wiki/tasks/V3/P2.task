@@ -559,6 +559,20 @@ tasks
         comment     2026-11-15T18:14:16Z
             Close: to review. src/host/trace.ts (run.trace, render text), 5 trace tests and 1 it.fails; 315 tests pass,
             3 it.fails; nub run faults 37 of 37; check and lint:rules at zero.
+        comment     2026-11-15T18:26:53Z
+            Review PASS at 0ed1e89d (independent; 4 Haiku sidecars, each finding re-checked). Delivers
+            @plan.Inspection.O4 first slice (run.trace, render text, host-stamped sequence) and @plan.Testing.O2
+            identical traces. On an archive copy: 315 tests pass, 3 it.fails; nub run faults 37 of 37
+            (trace-omits-requests fails 3 tests); check (vp, effect-tsgo; plan-coverage run on the live tree) and
+            lint:rules at zero; core and fixtures unchanged; no outside reads or temporary names. Hand list matches
+            WriteAhead R10, R13, Restore R1, R3 and Stories R10, R11; R16, I20, I21 fit O4 with tab, export, redaction
+            and the header deferred. WriteAhead R5 gap is real (I21: the step that makes the head Held writes no lane
+            record); the it.fails, made a plain test, fails on inFlight true. No blocking finding. Routed: R5 gap to
+            @task.V3.T20, which then makes the hand list line 54 [actor, lane, owed]; O4 Trace header, checkpoints and
+            Runtime-global sequence, and one render for model and trace, to @task.V3.T49; export Trace, TraceEvent,
+            TraceRecord beside StoryRun to @task.V3.T29; non-doc comment on run.ts Noted, Q1 not listing control and
+            verdict, and T14 citing "Codec R10, R11" (Stories R10, R11) to @task.V3.T67. For the user: page stands in
+            for the Plan tab.
     T66
         title       The bench times the long stories
         status      in_progress
