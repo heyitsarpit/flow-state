@@ -87,3 +87,12 @@ note 2026-11-15T15:58:02Z
 note 2026-11-15T16:33:04Z
     Session ended on the user's word: wakes and keep-awake removed; T63 stays paused at 14bc60d9 with its records
     amended. To start: "run the loop in wiki/tasks/V3/epic.task".
+
+note 2026-11-15T16:35:29Z
+    Run resumed at `64b95721` (user: "run the loop in wiki/tasks/V3/epic.task"); current @task.V3.T63, weekly usage 77
+    of 100. No live agents. First action: one T63 lead reshapes `14bc60d9`'s array build to the amended Shape,
+    requirements list first.
+
+note 2026-11-15T17:16:46Z
+    T63 in review at `5425505d`: builder reports no stop, faults 28 of 29 (refused-turn-reported left to @task.V3.T64).
+    Its first-commit report was folded into the close, so one independent check covers both.
