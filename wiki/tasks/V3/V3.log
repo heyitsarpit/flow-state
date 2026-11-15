@@ -105,3 +105,11 @@ note 2026-11-15T17:39:38Z
     Review of T64's first commit `1c940b02`: GAPS, list fixes only (I15 looser than its Spec, I3 and I9 narrowed, I14
     contradicted, R1 cited for Restore I1); sent to the builder. G4 kept, its pin test extended past the deadline. An
     I14 rewording would be the user's.
+
+note 2026-11-15T17:42:49Z
+    Decision (user, 2026-11-15): "yes rewording is allowed ... running code will override specs or plans, provided those
+    plans are evaluated broadly in light of the whole system or the builders will end up cheating".
+
+note 2026-11-15T17:42:49Z
+    Scope of that decision: Turn I14 in @task.V3.T64 now; the run-wide rule waits on the user confirming its reading
+    (R15).
