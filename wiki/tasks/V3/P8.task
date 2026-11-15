@@ -79,3 +79,7 @@ tasks
         acceptance
             - Both suites killed their slowed builds and tampers; the user set the targets.
             - Every real-browser run includes Firefox, or the user amended @plan.Package.O4.
+        comment     2026-11-15T18:35:51Z
+            Routed from T66's review (PASS at `3e1fb97b`): the bench should say "per turn" is run time over turns,
+            including inspector and trace work; name the limiter (check-benchmark question 1); run scopes are never
+            closed, which may skew p99 over 1,100 runs.

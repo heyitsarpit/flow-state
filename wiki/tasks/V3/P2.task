@@ -575,7 +575,7 @@ tasks
             for the Plan tab.
     T66
         title       The bench times the long stories
-        status      review
+        status      done
         priority    medium
         blocked_by  [@T63]
         description

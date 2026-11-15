@@ -150,3 +150,6 @@ note 2026-11-15T18:29:11Z
 note 2026-11-15T18:29:23Z
     T66 in review at `3e1fb97b` (bench numbers in its comment); independent check started. T67 started: bridge port,
     fixtures reshaped, the page-to-tab rename.
+
+note 2026-11-15T18:35:52Z
+    T66 done: independent review PASS at `3e1fb97b` (`87167d26`); bench-method items routed to @task.V3.T35.
