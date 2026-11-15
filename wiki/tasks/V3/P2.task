@@ -845,7 +845,7 @@ tasks
               record on @phase.V3.P2.
     T68
         title       Compile-time tests for the type promises production keeps
-        status      in_progress
+        status      review
         priority    medium
         blocked_by  [@T62]
         description
@@ -906,6 +906,13 @@ tasks
               context (@plan.Testing.O1).
 
             Rejected: @plan.FlowState D3 ("likely mistakes become type errors") is a principle, not one promise.
+        comment     2026-11-15T20:25:56Z
+            Done: 9 compile-time tests in `tests/types/` (`*.compile.ts`, checked by `nub run check`, not run by `vp
+            test`, so the dead core cannot leave them green). Each directive proved in a scratch copy: loosening the one
+            production type the promise rests on makes tsc report TS2578 at that directive alone, 9 of 9. The 26 unbuilt
+            promises and their owners stand as listed in the requirements comment (T17 2, T9 4, T57 4, T21 2, T19 1, T58
+            1, T24 3, T48 4, T30 3, T29 2). For T57: a foreign event token compiles as a schedule's `send`, and
+            machine() doesn't refuse it at run time either.
     T69
         title       flow story and flow trace
         status      open
