@@ -1,7 +1,18 @@
 // @effect-diagnostics unstableApiUsage:off -- main needs effect/cli's environment, whose services Effect marks unstable; these are its test layers.
 import { readFileSync } from "node:fs";
+import { glob } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { Effect, FileSystem, Layer, Path, Predicate, Sink, Stdio, Terminal } from "effect";
+import {
+  Effect,
+  FileSystem,
+  Layer,
+  Path,
+  PlatformError,
+  Predicate,
+  Stdio,
+  Stream,
+  Terminal,
+} from "effect";
 import { ChildProcessSpawner } from "effect/process";
 import { TestConsole } from "effect/testing";
 import { describe, expect, it } from "vite-plus/test";
@@ -39,26 +50,29 @@ const fixtures = [
 
 const every = fixtures.flatMap(({ stories }) => stories);
 
-const decoder = new TextDecoder();
-
-const collect = (into: Array<string>) =>
-  Sink.forEachArray((chunks: ReadonlyArray<string | Uint8Array>) =>
-    Effect.sync(() => {
-      for (const chunk of chunks)
-        into.push(Predicate.isString(chunk) ? chunk : decoder.decode(chunk));
-    }),
-  );
-
 const unused = Effect.die("unused");
 
-const cli = async (argv: ReadonlyArray<string>) => {
-  const stdout: Array<string> = [];
-  const stderr: Array<string> = [];
+// FLOW_STATE_ALLOW_UNKNOWN: Console records whatever it was given; main gives it strings.
+const text = (lines: ReadonlyArray<unknown>) =>
+  lines.map((line) => `${Predicate.isString(line) ? line : "(not a string)"}\n`).join("");
 
+const cli = async (argv: ReadonlyArray<string>) => {
   const environment = Layer.mergeAll(
-    FileSystem.layerNoop({}),
+    FileSystem.layerNoop({
+      glob: (pattern, options) =>
+        Stream.runCollect(
+          Stream.fromAsyncIterable(glob(pattern, { cwd: options?.root ?? "." }), (cause) =>
+            PlatformError.systemError({
+              _tag: "Unknown",
+              module: "FileSystem",
+              method: "glob",
+              cause,
+            }),
+          ),
+        ),
+    }),
     Path.layer,
-    Stdio.layerTest({ stdout: () => collect(stdout), stderr: () => collect(stderr) }),
+    Stdio.layerTest({}),
     Layer.succeed(
       Terminal.Terminal,
       Terminal.make({
@@ -76,9 +90,17 @@ const cli = async (argv: ReadonlyArray<string>) => {
     TestConsole.layer,
   );
 
-  const code = await Effect.runPromise(main(argv).pipe(Effect.provide(environment)));
+  return Effect.runPromise(
+    Effect.gen(function* () {
+      const code = yield* main(argv);
 
-  return { code, stdout: stdout.join(""), stderr: stderr.join("") };
+      return {
+        code,
+        stdout: text(yield* TestConsole.logLines),
+        stderr: text(yield* TestConsole.errorLines),
+      };
+    }).pipe(Effect.provide(environment)),
+  );
 };
 
 const at = ["--project-root", projectRoot];
@@ -153,7 +175,16 @@ describe("unknown operands", () => {
     const printed = await cli(["stroy", "list", ...at]);
 
     expect(printed.code).toBe(2);
-    expect(printed.stdout).toBe("");
+    expect(printed.stderr).toContain("stroy");
+  });
+
+  it("CommandLine O1: a command named without its subcommand prints help and exits 0", async () => {
+    const printed = await cli(["story"]);
+
+    expect(printed.code).toBe(0);
+    expect(printed.stdout).toContain("list");
+    expect(printed.stdout).toContain("run");
+    expect(printed.stderr).toBe("");
   });
 
   it("CommandLine O6: a project root without flow.config.ts exits 2", async () => {

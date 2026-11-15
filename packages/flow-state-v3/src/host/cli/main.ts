@@ -1,5 +1,5 @@
-// @effect-diagnostics unstableApiUsage:off -- the CLI is built on effect/cli, Stdio and Path, which Effect marks unstable; chosen over parsing argv by hand.
-import { Data, Effect, Option, Path, Stdio, Stream } from "effect";
+// @effect-diagnostics unstableApiUsage:off -- the CLI is built on effect/cli and its Path service, which Effect marks unstable; chosen over parsing argv by hand.
+import { Console, Data, Effect, Option, Path } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
 import type { StoryRun } from "../testing/run.ts";
 import { render } from "../trace.ts";
@@ -20,10 +20,9 @@ class RunRejected extends Data.TaggedError("RunRejected")<{
   }
 }
 
-const write = (to: "stdout" | "stderr", text: string) =>
-  Stdio.Stdio.use((stdio) => Stream.run(Stream.make(text), stdio[to]()));
+const lines = (texts: ReadonlyArray<string>) => [...texts, ""].join("\n");
 
-const document = (lines: ReadonlyArray<string>) => write("stdout", [...lines, ""].join("\n"));
+const document = (text: string) => Console.log(text.endsWith("\n") ? text.slice(0, -1) : text);
 
 const projectRoot = Flag.String("project-root").pipe(
   Flag.withDescription("The folder that holds flow.config.ts"),
@@ -39,12 +38,11 @@ const stories = Effect.fn("stories")(function* (root: string) {
 });
 
 const find = Effect.fn("find")(function* (root: string, id: string) {
-  const found = yield* stories(root);
+  const story = (yield* stories(root)).find((found) => found.id === id);
 
-  return yield* Option.match(Option.fromUndefinedOr(found.find((story) => story.id === id)), {
-    onNone: () => Effect.fail(new UnknownStory({ id })),
-    onSome: Effect.succeed,
-  });
+  if (story === undefined) return yield* new UnknownStory({ id });
+
+  return story;
 });
 
 const runOnce = (story: Found) =>
@@ -72,7 +70,7 @@ const checkpointLines = (run: StoryRun) =>
 
 const list = Command.make("list", { projectRoot }, ({ projectRoot }) =>
   Effect.flatMap(stories(projectRoot), (found) =>
-    document(found.map(({ id, app }) => `${id} ${Option.getOrElse(app, () => "-")}`)),
+    document(lines(found.map(({ id, app }) => `${id} ${Option.getOrElse(app, () => "-")}`))),
   ),
 ).pipe(Command.withDescription("Name every Story the config lists, with its app"));
 
@@ -81,7 +79,7 @@ const run = Command.make("run", { projectRoot, storyId }, ({ projectRoot, storyI
     const story = yield* find(projectRoot, storyId);
     const ran = yield* runOnce(story);
 
-    yield* document([`story ${story.id}`, ...checkpointLines(ran)]);
+    yield* document(lines([`story ${story.id}`, ...checkpointLines(ran)]));
   }),
 ).pipe(Command.withDescription("Run a Story once and print its checkpoints"));
 
@@ -89,7 +87,7 @@ const trace = Command.make("trace", { projectRoot, storyId }, ({ projectRoot, st
   Effect.gen(function* () {
     const ran = yield* runOnce(yield* find(projectRoot, storyId));
 
-    yield* write("stdout", render(ran.trace, "text"));
+    yield* document(render(ran.trace, "text"));
   }),
 ).pipe(Command.withDescription("Run a Story once and print its trace"));
 
@@ -116,23 +114,28 @@ const flow = Command.make("flow").pipe(
  * <story-id>` runs the Story once and prints each checkpoint with its trace sequence and each
  * actor's state; `flow trace <story-id>` runs it once and prints `render(run.trace, "text")`. Each
  * takes `--project-root`, the folder holding `flow.config.ts`, by default the working folder.
- * Results go to standard output. A usage error, a config that does not load, an unknown Story or a
- * rejected run prints one message to standard error and returns 2; otherwise it returns 0.
+ * Every result is one newline-terminated document written with `Console.log`. A config that does
+ * not load, an unknown Story or a rejected run writes one `flow: ` line with `Console.error` and
+ * returns 2. A usage error prints the command's help with `Console.log` and its errors with
+ * `Console.error`, as effect/cli renders them, and returns 2; help asked for, or a command named
+ * without its subcommand, prints help and returns 0. Otherwise it returns 0.
+ *
+ * **Gotchas**
+ *
+ * - It needs effect/cli's environment (`Command.Environment`); stories are found with its
+ *   `FileSystem.glob`, so the caller provides a real file system.
  *
  * @example
  * ```ts
- * const code = await Effect.runPromise(
- *   main(["trace", "pay/usual"]).pipe(Effect.provide(NodeServices.layer)),
- * )
+ * const code = await Effect.runPromise(main(["trace", "pay/usual"]).pipe(Effect.provide(platform)))
  * ```
  */
 export const main = (argv: ReadonlyArray<string>) =>
   Command.runWith(flow, { version: "0.0.0" })(argv).pipe(
     Effect.as(0),
-    Effect.catchTags({
-      ConfigLoadFailed: (error) => Effect.as(write("stderr", `flow: ${error.message}\n`), 2),
-      UnknownStory: (error) => Effect.as(write("stderr", `flow: ${error.message}\n`), 2),
-      RunRejected: (error) => Effect.as(write("stderr", `flow: ${error.message}\n`), 2),
-    }),
+    Effect.catchTag(["ConfigLoadFailed", "UnknownStory", "RunRejected"], (error) =>
+      Effect.as(Console.error(`flow: ${error.message}`), 2),
+    ),
+    Effect.catchTag("ShowHelp", (help) => Effect.succeed(help.errors.length === 0 ? 0 : 2)),
     Effect.catch(() => Effect.succeed(2)),
   );

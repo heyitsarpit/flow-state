@@ -135,9 +135,9 @@ export const toolingFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/cli/main.ts",
-        find: '    yield* write("stdout", render(ran.trace, "text"));',
+        find: '    yield* document(render(ran.trace, "text"));',
         replace:
-          '    yield* write("stdout", render({ ...ran.trace, events: ran.trace.events.slice(0, -1) }, "text"));',
+          '    yield* document(render({ ...ran.trace, events: ran.trace.events.slice(0, -1) }, "text"));',
       },
     ],
   },
@@ -167,15 +167,14 @@ export const toolingFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
-    name: "unknown-story-succeeds",
-    says: "an unknown Story exits 0",
+    name: "failure-succeeds",
+    says: "a config that does not load, an unknown Story or a rejected run exits 0",
     rule: "CommandLine O3",
     edits: [
       {
         file: "src/host/cli/main.ts",
-        find: '      UnknownStory: (error) => Effect.as(write("stderr", `flow: ${error.message}\\n`), 2),',
-        replace:
-          '      UnknownStory: (error) => Effect.as(write("stderr", `flow: ${error.message}\\n`), 0),',
+        find: "      Effect.as(Console.error(`flow: ${error.message}`), 2),",
+        replace: "      Effect.as(Console.error(`flow: ${error.message}`), 0),",
       },
     ],
   },

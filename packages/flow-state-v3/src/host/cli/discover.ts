@@ -1,6 +1,5 @@
-// @effect-diagnostics unstableApiUsage:off -- discovery runs inside effect/cli's environment and resolves paths with its Path service, which Effect marks unstable.
-import { glob } from "node:fs/promises";
-import { Data, Effect, Option, Path, Predicate, Stream } from "effect";
+// @effect-diagnostics unstableApiUsage:off -- discovery runs inside effect/cli's environment and uses its FileSystem and Path services, which Effect marks unstable.
+import { Data, Effect, FileSystem, Option, Path, Predicate } from "effect";
 import { type Config, ConfigId } from "../testing/config.ts";
 import type { StoryRun } from "../testing/run.ts";
 import type { Step } from "../testing/steps.ts";
@@ -42,31 +41,37 @@ type Module = Readonly<Record<string, unknown>>;
 
 const failed = (problem: string) => new ConfigLoadFailed({ problem });
 
+// FLOW_STATE_ALLOW_UNKNOWN: a rejected import or a platform failure carries any value.
+const because = (problem: string) => (fault: unknown) =>
+  failed(`${problem}: ${fault instanceof Error ? fault.message : String(fault)}`);
+
 const load = Effect.fn("load")(function* (file: string, what: string) {
   const path = yield* Path.Path;
-  const url = yield* Effect.mapError(path.toFileUrl(file), () => failed(`${what} has no file URL`));
+  const url = yield* Effect.mapError(path.toFileUrl(file), because(`${what} has no file URL`));
 
   // FLOW_STATE_ALLOW_EFFECT_TRY_PROMISE: loading a project's own module is a dynamic import, a Promise.
   return yield* Effect.tryPromise<Module, ConfigLoadFailed>({
     try: () => import(url.href),
-    catch: () => failed(`${what} did not load`),
+    catch: (fault) => because(`${what} did not load`)(fault),
   });
 });
 
 const matches = Effect.fn("matches")(function* (root: string, pattern: string) {
   const path = yield* Path.Path;
+  const fs = yield* FileSystem.FileSystem;
 
-  const files = yield* Stream.runCollect(
-    Stream.fromAsyncIterable(glob(pattern, { cwd: root }), () =>
-      failed(`the glob ${pattern} could not be read`),
-    ),
+  const files = yield* Effect.mapError(
+    fs.glob(pattern, { root }),
+    because(`the glob ${pattern} could not be read`),
   );
 
   if (files.length === 0) return yield* failed(`the glob ${pattern} matches no file`);
 
-  const escaping = files.find((file) =>
-    path.relative(root, path.resolve(root, file)).startsWith(".."),
-  );
+  const escaping = files.find((file) => {
+    const inside = path.relative(root, path.resolve(root, file));
+
+    return inside === ".." || inside.startsWith(`..${path.sep}`) || path.isAbsolute(inside);
+  });
 
   if (escaping !== undefined) return yield* failed(`${escaping} is outside the project root`);
 

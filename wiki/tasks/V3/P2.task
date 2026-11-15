@@ -952,7 +952,7 @@ tasks
             passing and 7 expected fails.
     T69
         title       flow story and flow trace
-        status      in_progress
+        status      review
         priority    medium
         blocked_by  [@T65]
         description
@@ -1015,6 +1015,22 @@ tasks
             `tools/faults/run.ts` excuses `tests/cli/`; the CLI's own faults are what catch it. The same list now
             excuses `T` rule ids, so the existing `it.fails` titled Compile T11 no longer fails the run. `effect/cli`,
             `Stdio` and `Path` are unstable in effect 4.0.5, so the CLI files turn off `unstableApiUsage` with a reason.
+        comment     2026-11-15T21:13:57Z
+            Effect review (Opus, no sidecars) ISSUES at 9c6c757a, 10 findings. Accepted: one output channel, Console, as
+            effect/cli uses (the usage-error test was passing on a swallowed Console); `FileSystem.glob` in place of
+            Node's (the test layer supplies glob); causes' messages in errors; a named command without its subcommand
+            exits 0; one `catchTag` for the three errors; a plain `find`; the escape check's `..name` false positive.
+            Rejected: running Stories through an Effect in place of the public `run()` (the run never yields, and parity
+            with the direct run is the requirement); `Flag.Directory` (needs a fake `exists`, gains nothing yet); Schema
+            over the brand (the brand is the contract, O6).
+        comment     2026-11-15T21:13:58Z
+            For @task.V3.T29: a usage error prints help on stdout and its errors on stderr, as effect/cli renders them,
+            where @plan.CommandLine.O3 asks for one document on stderr; a rejected run's exit 2 has no fixture test (no
+            package Story rejects). For @task.V3.T23: the bin provides a real FileSystem, Path and Console, which needs
+            `@effect/platform-node` declared (only rc.112 is installed, transitively).
+        comment     2026-11-15T21:19:08Z
+            To review: R1-R6 green (41 CLI tests; package suite 360 pass, 7 expected fail); `nub run faults` 46 of 46
+            and exit 0; check and lint:rules at zero.
     T70
         title       Generated Stories
         status      open
