@@ -1247,3 +1247,14 @@ tasks
             NUMBER-3 values 7 then 10, one commit; N7 NUMBER-4 and N8 NUMBER-5 partial: values only, the shown "25%" is
             the view's; N9 NUMBER-6; N10 NUMBER-7; N11 NUMBER-8. Beyond upstream: NUMBER-9 to 12 (hold, bound, wheel,
             stress), PALETTE-13 (usual), PALETTE-14 (stress with reloads).
+        comment     2026-11-15T22:11:23Z
+            Review: PASS at 0b5c4b41 (independent; vp test 403 pass, check, lint:rules, check:plans, faults 51 of 51 and
+            the dead core all green). No blocking finding: all 29 ports match upstream values; the C3, N7, N8 reductions
+            are forced (score and shown text are not state; the RANK-3 order already proves accent folding and the
+            prefix tier) and the 8 drops hold (N4's read-only lines assert part attributes only). Pins hold: upstream's
+            own doc keeps errors per command; '70' commits 10; seq tells two equal commits apart. Routed to
+            @task.V3.T70: drop `strideOf`, since the full sweep passes in about 5 s per test and needs only a test
+            timeout; shortcutsOf lists disabled commands (upstream skips them); one frame stack instead of parallel
+            `pages` and `queries`. For the user's read: NUMBER-10 commits at the bound's tick, as the proposal's table
+            says, but upstream stops repeating and commits on release (an unlogged R7 divergence); `lastCommit.seq` is a
+            counter of the kind the idiom pass's `emit` replaces, so it is a wiring cost.
