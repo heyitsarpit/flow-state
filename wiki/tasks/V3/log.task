@@ -34,3 +34,10 @@ note 2026-11-15T10:22:14Z
     Run not started: the user stopped it before any agent began ("don't start the run, end this session we don't have 
     limits left", 2026-11-15). No lead ran, T63 is still open, and the crons and keep-awake are removed. To start: "run 
     the loop in wiki/tasks/V3/epic.task".
+note 2026-11-15T12:55:45Z
+    Decision (user, 2026-11-15): "i'm setting the limit to 100%". Scope: the whole run. The usage reserve in Limits is 
+    100 percent weekly.
+note 2026-11-15T12:55:45Z
+    Decision (user, 2026-11-15): "haiku agents are not allowed to run any prod code, they may run experiments or 
+    hillclimb in separate temp files and submit ideas" and, on how many sidecars per job, "just let the lead decide". 
+    Scope: the whole run; instructions, Models and agents, edited to match.

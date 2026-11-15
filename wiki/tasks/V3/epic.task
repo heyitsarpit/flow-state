@@ -134,7 +134,7 @@ description
 
     No budget of iterations, time or usage, for the Epic, a phase or a Task (the user, 2026-11-10).
     Failure limit (the default for each phase): 2 failures with the same root cause after
-    convergence. Usage reserve: the run stops at 75 percent weekly usage, all models (the user,
+    convergence. Usage reserve: the run stops at 100 percent weekly usage, all models (the user,
     2026-11-15); at the reserve the lead finishes its step, commits and leaves a resume note. Usage
     always means the weekly window, never the 5-hour one, read from the harness's usage view. The
     user changes the reserve at any time: a new value is an edit here and a note.
@@ -209,11 +209,13 @@ instructions
       effort; Haiku review sidecars at high, read-only sweeps at medium (the user, 2026-11-14;
       overrides the effort defaults of R30 and skill:policy-delegation).
     - Agents at once: one building lead, and at review time one reviewing or checking agent, each
-      with its own sidecars, up to eight as the lead judges (the user, 2026-11-14). Always alone:
+      with its own sidecars, up to eight; the lead decides how many and which jobs they do, never
+      one per angle by default (the user, 2026-11-14 and 2026-11-15). Always alone:
       real-browser runs and benchmarks. Up to 8 deterministic processes, about 16 GB.
-    - Haiku never writes committed code (the user, 2026-11-10). A lead reads every line a sidecar
-      wrote, re-runs each check itself, and logs each result as accepted, changed or rejected (the
-      user, 2026-11-08).
+    - Haiku never writes or runs production code; it may run experiments or hill-climb in scratch
+      files outside the package and submit ideas (the user, 2026-11-10 and 2026-11-15). A lead
+      reads every line a sidecar wrote, re-runs each check itself, and logs each result as
+      accepted, changed or rejected (the user, 2026-11-08).
     - A lead works through three context compactions and is rotated out only when a fourth is
       close: finish the step, commit, leave a resume note (the user, 2026-11-14).
     - Leads report once per batch or stop, in at most 10 lines: verdict, commits, test counts, and
@@ -288,7 +290,7 @@ instructions
       matter and their reason (the user, 2026-11-11). No progress comments, commit lists or test
       counts beyond the one revision verified.
     - Commands run under 5 minutes each, stdin never read; files are written only with the Write
-      and Edit tools, and a hook blocks shell writes (memory, 2026-11-04).
+      and Edit tools (memory, 2026-11-04).
     - No worktrees: the builder works in the main checkout on `flow-rewrite` (the user, 2026-11-08;
       R43).
     - No agent reads agent transcripts (the user, 2026-11-15).
