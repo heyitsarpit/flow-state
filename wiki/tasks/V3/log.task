@@ -50,3 +50,5 @@ note 2026-11-15T13:16:23Z
     T54, T18 and T55 found few useful links but recurring scope gaps; one instructions line makes "May change" a guide 
     (planted faults and files the acceptance needs, each named in a comment) instead of patching each Task. T64 gains 
     Actors I30 and T68 gets its check count fixed. P3 Tasks wait for their rewrite.
+note 2026-11-15T13:23:31Z
+    Review of T63 first commit `01afeb56`: ISSUES, one blocking (a dead page's released write can complete its waiter and make up an ending; Deferred.doneUnsafe resumes synchronously). Verified and sent to the builder with ten in-range fixes; a no-attach reload variant routed to @task.V3.T64.
