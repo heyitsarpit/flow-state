@@ -41,3 +41,5 @@ note 2026-11-15T12:55:45Z
     Decision (user, 2026-11-15): "haiku agents are not allowed to run any prod code, they may run experiments or 
     hillclimb in separate temp files and submit ideas" and, on how many sidecars per job, "just let the lead decide". 
     Scope: the whole run; instructions, Models and agents, edited to match.
+note 2026-11-15T12:57:29Z
+    Run started at `69fbdc14` on the user's word ("okay commit and start coding", 2026-11-15); current Task @task.V3.T63; no live agents before this; weekly usage 71 of the 100 reserve. First action: one Opus building lead on T63. Wakes every 90 minutes; caffeinate holds the Mac awake.
