@@ -118,7 +118,7 @@ description
     - insert Tasks, split a phase that keeps its goal, reorder without breaking a dependency;
     - start the next phase after its completion audit passes, unless it starts with a stop;
     - write and revise Specs (skill:to-spec, skill:to-design), each change logged in
-      `wiki/specs/spec-log.md`.
+      `wiki/specs/specs.log` (`wk log add specs`).
 
     Orchestrator decides: design calls in P2 to P5 and P9; the internal module layout and the tests'
     layout; small public API changes (a flag, a default, a field or member name, where an option
@@ -250,7 +250,7 @@ instructions
     - Spec contradictions (the user, 2026-11-12): the lead writes one concrete case with both
       results and decides a small or internal one itself, keeping the reading that loses no ending;
       a guarantee change goes to the user. The Spec is edited so the losing text is gone, with one
-      line in `wiki/specs/spec-log.md`.
+      note in `wiki/specs/specs.log`.
     - Plan changes found while building go to @plan.Pending as decisions, never into the Plans (the
       user, 2026-11-11).
     - Effect prior art (the user, 2026-11-11): each module's Spec skeleton lists the Effect features
@@ -305,7 +305,7 @@ cadence
 
     Session crons `17 0-23/3 * * *` and `47 1-23/3 * * *` (together, one wake every 90 minutes).
 
-    Prompt: "V3 wake. Read wiki/tasks/V3/epic.task and the last notes in its log.task. Read the
+    Prompt: "V3 wake. Read wiki/tasks/V3/epic.task and the last notes in its V3.log. Read the
     weekly usage from the harness's usage view; if the reserve in Limits is reached, stop the run by
     R21 and note it. If a Task is in review, or a review event in instructions has no review
     covering it, start one Opus lead at medium effort with its read-only Haiku sidecars, one of them

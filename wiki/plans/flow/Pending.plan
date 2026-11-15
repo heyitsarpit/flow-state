@@ -10,8 +10,8 @@ decisions
     D1  @plan.Operations.O3: a cancel during a send leaves the call Held
         Change O3's phrase that says a cancel settles a call on the wire, to match @spec.WriteLanes.R14
         as revised: the call follows its own ending and stays Held. **Why:** the phrase came from the
-        old design's `HeldThisTurn`, which is about the `cancel` concurrency policy (the R4 entry in
-        code:wiki/specs/spec-log.md). **Proven by:** P4's production lane passing the suite's
+        old design's `HeldThisTurn`, which is about the `cancel` concurrency policy (the R4 entry of the
+        spec log, in git history before its deletion on 2026-11-15). **Proven by:** P4's production lane passing the suite's
         cancel-on-wire cases (PAY-12, PAY-15, LANE-04). Found in @task.V3.T7.
     D2  @plan.Machines.O3: a denied or unhandled ending's lane-only change is published
         Change O3's "Unhandled or denied events publish nothing" to "publish nothing of their own; an

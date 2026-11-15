@@ -3,7 +3,7 @@
 Status: the split of the ten core Specs still holds; the phase numbers follow @epic.V3 (2026-11-15). The
 split is the runner's call (delegated to the Specs lead), not a decision the user made. Every Spec it
 names is a guide: building may show a guarantee or a boundary wrong, and then the Spec changes, with
-the change and its reason recorded in `spec-log.md`.
+the change and its reason recorded in `specs.log`.
 
 Scope: Specs exist only for what the next stages build: the core modules of P3 and the test tooling
 that P2 builds to test them. Feature areas get their Spec when their phase starts.

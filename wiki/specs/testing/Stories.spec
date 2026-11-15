@@ -1,7 +1,7 @@
 spec Stories
 status        proposed
 basis         A guide for the test tooling, written with skill:to-spec and skill:to-design; revisable whenever
-              building shows it wrong, each change logged in wiki/specs/spec-log.md.
+              building shows it wrong, each change logged in wiki/specs/specs.log.
 location      packages/flow-state-v3/src/host/testing
 derives_from  [@plan.Testing.O1, @plan.Testing.O2, @plan.Testing.O3, @plan.Testing.O4, @plan.Inspection.O1,
               @plan.Pending.D5, @plan.Pending.D6, @plan.Pending.D7, @plan.Pending.D8]

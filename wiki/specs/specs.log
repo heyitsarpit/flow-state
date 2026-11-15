@@ -1,0 +1,5 @@
+log specs
+
+note 2026-11-15T15:58:02Z
+    Spec changes are logged here from now on, one note each, leading with the Spec changed (the user, 2026-11-15).
+    The old spec-log.md is deleted; its entries are in git history before this commit.

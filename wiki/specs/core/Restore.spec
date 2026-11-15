@@ -1,7 +1,7 @@
 spec Restore
 status        proposed
 basis         A guide, revisable whenever building shows it wrong; each change and its
-              reason is recorded in wiki/specs/spec-log.md.
+              reason is recorded in wiki/specs/specs.log.
               Written from the merged flow plans (proposed).
 location      packages/flow-state-v3/src
 provides      restore at ready, record formats, versions at the boot, saved-shape resets,

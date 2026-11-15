@@ -1,0 +1,85 @@
+log V3
+
+note 2026-11-15T10:02:29Z
+    Decision (user, 2026-11-15): Flow's own tests run on its public Story, CLI and inspection tooling ("these are
+    supposed to be public anyways ... so both things get harndened. so i'm for it"). Scope: whole run. The
+    conformance suite is deleted; its last copy is commit 52a883e6.
+
+note 2026-11-15T10:02:29Z
+    Decision (user, 2026-11-15): rewrite the Epic from scratch ("just use the skill and exercise your judgment and
+    forget about amendments"). Scope: this Epic and its phases; written with to-epic, to-task and build-a-loop at
+    6b7288e. The earlier Epic is at 6b9fe478.
+
+note 2026-11-15T10:02:30Z
+    Decision (agent, 2026-11-15): the rewrite kept the goal, constraints, authority, limits and core-slice order, and
+    dropped the suite's rules, per-edit labels, 24-hour compaction, process watch and usage sampler. Why: the user
+    asked for less process. Reverse: restore any rule from 6b9fe478.
+
+note 2026-11-15T10:10:22Z
+    Decision (agent, 2026-11-15): P2 finishes before P3 starts; blocked_by holds real dependencies only, each phase's
+    order on its card. Why: T54's known bugs were found by generated runs, which T70 builds. Reverse: restore the
+    blockers from 6bc69c7d.
+
+note 2026-11-15T10:16:33Z
+    Approved (user, 2026-11-15): "agreed to all" on the rewritten Epic and loop, then "okay fix and finalise
+    everything and tell me when we can start coding". Status active; T62 done on an independent PASS at 5e95c840.
+
+note 2026-11-15T10:21:13Z
+    Run started at `344aa819` ("make decisions as you see fit"); current @task.V3.T63. Decision (agent, 2026-11-15):
+    the lead starts at the 5-hour reset, as that window is at 94 percent. Reverse: start it at once.
+
+note 2026-11-15T10:22:14Z
+    Run not started: the user stopped it before any agent began ("don't start the run, end this session we don't
+    have limits left"). No lead ran; crons and keep-awake removed.
+
+note 2026-11-15T12:55:45Z
+    Decision (user, 2026-11-15): "i'm setting the limit to 100%". Scope: whole run. The usage reserve is 100 percent
+    weekly.
+
+note 2026-11-15T12:55:45Z
+    Decision (user, 2026-11-15): "haiku agents are not allowed to run any prod code, they may run experiments or
+    hillclimb in separate temp files and submit ideas"; on sidecar counts, "just let the lead decide". Scope: whole
+    run.
+
+note 2026-11-15T12:57:29Z
+    Run started at `69fbdc14` ("okay commit and start coding"); current @task.V3.T63; weekly usage 71 of 100. One
+    Opus lead on T63; wakes every 90 minutes; caffeinate holds the Mac awake.
+
+note 2026-11-15T13:16:23Z
+    Decision (user, 2026-11-15): "just make the minimal needed patch". Scope: P2 to P10. One instructions line makes
+    "May change" a guide; T64 gains Actors I30; T68's check count is fixed.
+
+note 2026-11-15T13:23:31Z
+    Review of T63's first commit `01afeb56`: ISSUES, one blocking (a dead page's released write could complete its
+    waiter and make up an ending). Fixes sent to the builder; a no-attach reload routed to @task.V3.T64.
+
+note 2026-11-15T13:28:48Z
+    Paused (user, 2026-11-15): "pause the T63 builder, we may have a confusion, don't commit anything". Wakes must
+    not resume or replace the lead until the user says go.
+
+note 2026-11-15T14:20:48Z
+    Decision (user, 2026-11-15): "all agreed, go ahead". The test-tooling reuse proposal is accepted; @plan.Testing.O3
+    edited; Pending D5 to D7; T63 amended. The array-shaped first build is checkpoint `14bc60d9`.
+
+note 2026-11-15T14:21:20Z
+    Resumed (user, 2026-11-15: "go ahead"): the T63 lead reshapes the first slice from `de417f07`.
+
+note 2026-11-15T14:22:01Z
+    Paused again (user, 2026-11-15: "don't do that, just make the records changes"): the resume was the
+    orchestrator's mistake. Wakes must not resume or replace the lead until the user says go.
+
+note 2026-11-15T14:42:21Z
+    Records repaired after review (user, 2026-11-15: "your recommendations are accepted"): Stories.spec on the Plan's
+    names, T63's Shape, the P2 folder structure, later Tasks fixed, Pending D8 and D9. No code changed.
+
+note 2026-11-15T14:51:20Z
+    Records fixed from the Haiku Q&A: T63's Shape (5 s, scope, Restore I6), T64's rules on the Specs' wording, T67's
+    answer and ack mapping, T29, T30, T58 and T28 ownership, Pending D10. No code changed.
+
+note 2026-11-15T15:22:29Z
+    Old comments removed (user, 2026-11-15: "remove all old comments"): T62's checks and T63's array-build comments;
+    git keeps them. Kept: three routing comments on T9, T21 and T31.
+
+note 2026-11-15T15:58:02Z
+    Log moved to V3.log and spec-log.md deleted (user, 2026-11-15: "recommendation accepted, but delete
+    spec-log.md"). Spec changes go to wiki/specs/specs.log; the full old notes are in git before this commit.

@@ -55,7 +55,7 @@ result. Graph readiness requires an open Task, an active Epic, and satisfied blo
 `show` prints a record readably: a Task's line `@task.EPIC.T1 [status priority] title (phase)`, its
 file, set fields (assignee, labels, ...), description, acceptance and comments; an Epic's
 description, loop and last three notes (`--notes N` or `--notes all` for more); a Plan's goal and objects (`show @plan.ID`); a phase's card,
-comments and Tasks. `list task` prints each Task with its phase and ends with `Total: N tasks.`;
+comments and Tasks. One item prints alone with its place: `wk show @spec.ID.R3`, `@plan.ID.O6`, `@plan.Pending.D8`. `list task` prints each Task with its phase and ends with `Total: N tasks.`;
 `--blocked` adds each Task's unresolved blockers; `--ready` with nothing ready says why, as
 `next` does. An unknown `--epic`, `--phase` or `--status` is an error.
 Use `--why` to explain readiness and `--tree` to inspect hierarchy. Do not combine them.
@@ -64,16 +64,18 @@ Find Specs with `wk list spec`.
 last three notes; warnings; a count of agent decisions (`Decision (agent, <date>):` leads); ready
 Tasks; and counts of dangling links and orphans. `wk status --decisions` prints each agent
 decision in full under the `file:line` of its lead.
-`wk brief @task.EPIC.T1` prints what a lead needs for one Task, in order: the Task as `show`
-prints it; its phase card; every Spec or Plan item it links, in full; the Epic's `## Constraints`
+`wk brief @task.EPIC.T1` prints what a lead reads first for one Task, in order: its phase card; the
+Task as `show` prints it; one line per Spec or Plan record or item it links (id, `path:line`, how it
+is linked, a title), never their text, so open each with `wk show`; the Epic's `## Constraints`
 bullets whose scope (after the last `;` in the bullet's final parenthesis: `whole run`, `P4`,
-`P3 to P10`) covers the Task's phase, plus any whose scope can't be read; and the notes that link
-the Task or those items. `--json` for programs; `--check` exits 1 when a linked record is missing.
+`P3 to P10`) covers the Task's phase; and one line per note that links the Task. Link the exact
+item (`@spec.Restore.R3`), not the whole record. `--json` for programs; `--check` exits 1 when a
+linked record is missing. `WK_NO_SPECD=1` makes any command skip the background server.
 
 ### Links and backlinks
 
 Prose may link records with `@plan.ID[.O1]`, `@epic.ID`, `@task.EPIC.T1` and `@spec.ID[.R1]`, files
-with `code:PATH` or `code:PATH#TEXT`, and skills with `skill:NAME` or `skill:NAME#heading`
+with `code:PATH` or `code:PATH#TEXT` (`code:PATH?` for a file not yet written), and skills with `skill:NAME` or `skill:NAME#heading`
 (resolved through the `skills` array in `wiki/config.json`: ordered skill-library roots, the first
 holding `NAME/SKILL.md` wins; a root that is not a directory fails `wk check`). `wk check` fails on a
 link that resolves to nothing. Code spans and fences are not links. There is no rename command:
@@ -172,10 +174,8 @@ remove detail to work around a refused edit.
 ### Epic loop and phase notes
 
 An Epic can carry its loop: `skill` (`LIBRARY@REVISION`) and the text sections `run`,
-`instructions`, `cadence` and `stops`. Its dated `note TIMESTAMP` entries live in
-`wiki/tasks/<EPIC>/log.task`, headed `log <EPIC>`; an Epic file that still holds notes keeps
-receiving them there, and notes in both files fail `wk check`. A dangling link in the log is a
-warning, not an error, and log links count as references. A phase can carry a
+`instructions`, `cadence` and `stops`. Its notes live in `wiki/tasks/<EPIC>/<EPIC>.log` (an older
+`log.task` is still read; notes in both fail `wk check`). A phase can carry a
 `description` and dated `comment` entries. Notes are append-only: their timestamps never decrease
 and a note has a body. Prepare `loop-run.md` first.
 
@@ -188,7 +188,23 @@ wk edit @phase.Example.P1 --now --text comment="Opened after @task.Example.T0 la
 ```
 
 A note or comment needs a time (`--now` or `--set note|comment=TIMESTAMP`) and a body (`--text`
-or `--file`); it is always appended, a note to `log.task` (created when the Epic file has none).
+or `--file`); it is always appended, a note to the Epic's `.log`.
+
+### Logs
+
+A `.log` file is any append-only log: `log <name>` first, then `note <UTC timestamp>` entries with a
+body of 1 to 3 lines of at most 120 characters, bottom line first; a decision leads with
+"Decision (user|agent, date):". Links in a body must resolve. A correction is a new note.
+
+```sh
+wk log add V3 --text "Paused: the user asked for a review."
+wk log show V3 --last 3                 # newest notes with file:line
+wk log show V3 --link @task.V3.T63 --json   # JSONL, one object per note
+wk log add specs --text "@spec.Stories: R13 reworded; why and reverse."
+```
+
+`wk lint` reports `LINE_TOO_LONG` and `LINK_ITEM_IDS_AFTER_RECORD` (a whole-record link followed by
+item ids in prose; write the item link).
 An edit refuses a new note whose link resolves to nothing. The `skill` pin names the library, the folder name of a root
 in `wiki/config.json`'s `skills` (`workflow` for `.../suites/workflow`), and a commit of its
 git repository; `wk check` refuses a pin that resolves to nothing or a revision that is not
