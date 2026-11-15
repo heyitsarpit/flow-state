@@ -23,7 +23,9 @@ description
     - Flow's own tests `packages/flow-state-v3/tests/`; the bench `packages/flow-state-v3/bench/`;
     - the prototype reference `packages/flow-state-v3/prototypes/round-14/`;
     - proposal files `wiki/plans/flow/references/proposals/`; the test system's design is
-      code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md;
+      code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md, and the tools' API is
+      code:wiki/plans/flow/references/proposals/test-tooling-reuse-2026-11-15.md;
+    - reference apps `wiki/plans/flow/references/checkout/` and `dispatch-desk/`, guides where the P2 card says;
     - example apps `examples/` (P6); docs `apps/docs/` (P7).
 
     ## Stages and stage exits

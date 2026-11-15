@@ -135,7 +135,9 @@ outcomes
 
         A broken fake rejects the run with StoryFakeError (reason NoRoute, InvalidInput, Crashed,
         UnplacedStream or InvalidRefusal). Unused wire rules are reported (UnusedWireRule). Fixtures
-        may depend on setup services and shadow those services.
+        provide every service the setup's contracts list, in place of the setup's own services, which
+        a Story never builds; a fixture reuses a production Layer by importing it (the user,
+        2026-11-15).
 
         Duplicate service Tags among fixtures reject with DuplicateFixture before either conflicting
         provider is acquired; replacement requires an explicit overriding form identifying the

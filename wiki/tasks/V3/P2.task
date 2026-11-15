@@ -6,8 +6,28 @@ description
     **Kind:** verification-suite.
 
     **Goal:** Flow's own tests run on Flow's own test tooling (Story, Fake, the runtime cut, the trace, the CLI); the
-    hand cases are ported onto it and the bridge is deleted. Decided by the user on 2026-11-15; the design and its
-    evidence are in code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md.
+    hand cases are ported onto it and the bridge is deleted. Decided by the user on 2026-11-15. The tools' API is
+    @plan.Testing as set out in code:wiki/plans/flow/references/proposals/test-tooling-reuse-2026-11-15.md; the
+    strategy and evidence are in code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md, except the
+    parts the reuse proposal supersedes.
+
+    **Guides:** the reference apps' stories, tests and fakes show the intended shape; the Plan wins where they differ.
+    Known stale there: `ensure` or `useActorByRef` with input, `signal` in contexts, no `services:`, persistence
+    `version`, CLI strings, and `Fake.fetch` (now `Fake.http`). Link:
+    code:wiki/plans/flow/references/checkout/features/Pay/pay.story.ts,
+    code:wiki/plans/flow/references/checkout/features/Pay/pay.test.ts,
+    code:wiki/plans/flow/references/checkout/features/Cart/cart.story.ts,
+    code:wiki/plans/flow/references/checkout/features/Refunds/refunds.story.ts,
+    code:wiki/plans/flow/references/checkout/testing/stripe.fake.ts,
+    code:wiki/plans/flow/references/checkout/testing/checkout.property.test.ts,
+    code:wiki/plans/flow/references/checkout/adapters/server.ts,
+    code:wiki/plans/flow/references/checkout/flow.config.ts,
+    code:wiki/plans/flow/references/dispatch-desk/testing/desk.fake.ts,
+    code:wiki/plans/flow/references/dispatch-desk/testing/desk.property.test.ts,
+    code:wiki/plans/flow/references/dispatch-desk/tools/inspection.ts,
+    code:wiki/plans/flow/references/dispatch-desk/flow.config.ts, and each app's `features/*/*.story.ts` and
+    `*.test.ts`. Not guides: `*.contracts.ts`, setup and persistence files, `tools/cli.ts`, `tools/diagnostics.ts`,
+    the READMEs, `REVIEW.md`, `REWRITE-PLAN.md` and `typecheck/standin/`.
 
     **Starts when:** now, ahead of every remaining core slice. P3 starts only after this phase's completion audit.
 
@@ -160,11 +180,13 @@ tasks
             a run or stands in for a service. This is the first slice of @plan.Testing.O1 to O4; @task.V3.T29 keeps the
             rest.
 
-            **Read first:** code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md (sections 3.1, 4, 5,
-            7 and 12), code:packages/flow-state-v3/src/host/runtime.ts#buildRuntime,
-            code:packages/flow-state-v3/fixtures/pay/contracts.ts#ShopApi. Prior art: the local branch
-            `draft/story-slice` holds a working spike and an unfinished, unreviewed draft of this Task. Read it; do not
-            merge it.
+            **Read first:** code:wiki/plans/flow/references/proposals/test-tooling-reuse-2026-11-15.md (the design
+            to build; sections 2, 4 and 5), @plan.Testing.O1 to O4, @spec.Restore (R3, the Pay Story's expected
+            result), @spec.WriteLanes, code:packages/flow-state-v3/src/host/runtime.ts#buildRuntime,
+            code:packages/flow-state-v3/src/host/testing.ts#testing and
+            code:packages/flow-state-v3/src/host/testing/page.ts#pageOver (the seams the Story replaces). Guides: the
+            reference stories, fakes and tests the P2 card lists. Prior art: commit `14bc60d9`, this Task's first
+            build in the array shape, whose run engine, cut and Pay reload path carry over.
 
             **Risk:** Pay's commit runs on a detached fiber, and what it does when its page is abandoned at a reload
             is unproven. The second risk is types: a fake must keep each service method's argument, success and
@@ -182,21 +204,34 @@ tasks
             Gates: `nub run faults` over the new tests, which rejects the dead core.
             Stops: the Pay Story cannot pass across a reload without bending the Runtime. Then the reload model is
             wrong.
-            User's read: the Story and Fake API as built, and each place it differs from the proposal's section 4.
+            User's read: the Story and Fake API as built, and each place it differs from @plan.Testing or the reuse
+            proposal.
         acceptance
-            - `Story.app(config, fakes, steps)` is inert data and `run()` is the only boundary. Steps: attach, detach,
-              forget, send, disposeActor, disposeRuntime, advance, reload, checkpoint.
-            - `Fake.server(Service, () => handlers)` answers through the service's own methods. Its words `hold`,
-              `release`, `dropRequest`, `dropResponse` and `answer` are typed by the service. The fake store has
-              `hold`, `refuse` and `release`.
-            - A checkpoint holds the time, the runtime cut, what each fake received and the store.
+            - `Story.app(setup, { id, fixtures, world })` takes the app's real `runtimeSetup`, chains steps (ensure,
+              detach, forget, send, world, advance, reload, checkpoint, dispose, disposeRuntime), and is inert data
+              until `run()`, the only boundary. Every chained Story exposes its `Story.Step` array, and a run accepts a
+              step array, which the reload sweep and generated Stories use. Checkpoint names are typed: reading an
+              unknown one is a type error.
+            - Fixtures cover every service the app's contracts list; a missing one is a type error (no `Layer<any>`).
+            - `Fake.server(name, { truth, initial, endpoints, controls })` holds run-scoped, Schema'd truth that lasts
+              across reloads; `Fake.call` endpoints return `{ truth, exit }` typed by their Schemas, `Fake.control`
+              changes truth, and `Fake.Lost` reaches the port's own error through the port fake, a plain
+              `Layer.effect` of the app's service. Wire words live on the endpoint: `hold({ at })`, `release` and
+              `drop({ at })`. There is no `answer` word and no cast. The fake store has `hold`, `refuse` and
+              `release`.
+            - A checkpoint holds the time, `inspect(runtime)` (the public runtime cut, @plan.Inspection.O1), what each
+              fake received and its truth, and the store; tests read them only through the public reads (`read`,
+              `requests`, `inspection`, `run.endings`).
+            - A dead page's released call or write never completes its waiter: evidence, store and cut are equal
+              before and after the release. `disposeRuntime` runs the public Runtime's dispose.
             - Every step word and every wire and storage word has a test. A Story run twice gives equal evidence. A
               run arms no host timer. A dead page writes nothing after a reload.
-            - A Spec for the test tooling, written first with skill:to-design and skill:to-spec from the proposal's
-              sections 4 and 12, states its Requirements and Invariants; the tooling's tests cite it.
+            - The test tooling's Spec (@spec.Stories, skill:to-spec) states the shape above, from @plan.Testing and the
+              reuse proposal, as its Requirements and Invariants; the tooling's tests cite it.
             - The transfers fixture is one folder (contracts, machine, server, stories) with Story tests; its stories
               include one long run of about 100 steps, which @task.V3.T66 times.
-            - Nothing is exported from a public route: the tooling is reached only by its path inside the package.
+            - The tooling is the public `flow-state/testing` and `flow-state/inspect` design, not exported in P2 (that
+              is @task.V3.T29); Flow's tests reach it by its path inside the package.
             - One Pay Story passes: a `confirm` whose response is lost, time past the commit's deadline, a reload; the
               payment reads unknown and exactly one `confirm` landed.
             - `nub run faults` over the new tests: a dead core fails every one.

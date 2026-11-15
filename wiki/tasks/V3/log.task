@@ -51,6 +51,14 @@ note 2026-11-15T13:16:23Z
     (planted faults and files the acceptance needs, each named in a comment) instead of patching each Task. T64 gains 
     Actors I30 and T68 gets its check count fixed. P3 Tasks wait for their rewrite.
 note 2026-11-15T13:23:31Z
-    Review of T63 first commit `01afeb56`: ISSUES, one blocking (a dead page's released write can complete its waiter and make up an ending; Deferred.doneUnsafe resumes synchronously). Verified and sent to the builder with ten in-range fixes; a no-attach reload variant routed to @task.V3.T64.
+    Review of T63 first commit `01afeb56`: ISSUES, one blocking (a dead page's released write can complete its waiter 
+    and make up an ending; Deferred.doneUnsafe resumes synchronously). Verified and sent to the builder with ten 
+    in-range fixes; a no-attach reload variant routed to @task.V3.T64.
 note 2026-11-15T13:28:48Z
-    Paused (user, 2026-11-15): "pause the T63 builder, we may have a confusion, don't commit anything". The T63 lead is held with its work uncommitted; wakes must not resume or replace it until the user says go.
+    Paused (user, 2026-11-15): "pause the T63 builder, we may have a confusion, don't commit anything". The T63 lead is 
+    held with its work uncommitted; wakes must not resume or replace it until the user says go.
+note 2026-11-15T14:20:48Z
+    Decision (user, 2026-11-15): "all agreed, go ahead". Scope: P2 and @task.V3.T29. The test-tooling reuse proposal is 
+    accepted as recommended (one public Story and runner, the Plan's chain and Fake.server, fakes as Layers of real 
+    ports); @plan.Testing.O3 now says fixtures replace the setup's services; @plan.Pending D5 to D7 hold the rest; T63 
+    is amended and the P2 card links the reference guides. The array-shaped first build is checkpoint `14bc60d9`.
