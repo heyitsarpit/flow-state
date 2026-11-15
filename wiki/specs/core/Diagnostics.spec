@@ -2,8 +2,7 @@ spec Diagnostics
 status        proposed
 basis         A guide, and one of the two Specs most likely to change (Codec,
               Diagnostics): no prototype case pins it. Revisable whenever building shows it
-              wrong; each change and its reason is recorded in spec-log.md, in
-              wiki/plans/flow/references/proposals/, beside spec-split.md.
+              wrong; each change and its reason is recorded in wiki/specs/spec-log.md.
 location      packages/flow-state-v3/src
 provides      FlowError, Diagnostic
 derives_from  [
@@ -104,11 +103,16 @@ requirements
 
 open
     Q1  Executable checks are not built.
-        outcome  Phase 3 writes each test below as an oracle behind the Port, with its wrong 
-                 runtime; until then every Requirement's evidence is open.
+        outcome  Each test below is written, when its slice is built, as the cheapest check that fully covers
+                 it (a compile-time test, a run rule applied to every Story run, a Story test or a pure core
+                 test) in `packages/flow-state-v3/tests/`, and each rule gets a planted fault in
+                 `tests/faults.ts` that `nub run faults` must catch; until then every Requirement's evidence
+                 is open.
 
-    Q2  The prototype has no FlowError or Diagnostic codec; no test here has a prototype reference.
-        outcome  Phase 3 writes every case and wrong runtime from this Spec.
+    Q2  The prototype has no FlowError or Diagnostic codec (its `codec/` folder is the Compiled codec); no test here 
+        has a prototype reference. Production has a first FlowError (`src/error.ts`: code, problems, cause)
+        but no Diagnostic and no diagnostics array yet, so R1's shape is not built.
+        outcome  The slices write every check and planted fault from this Spec.
 
 model
     Primary = diagnostics[0], the failure that names the boundary.
@@ -182,7 +186,7 @@ coverage
 tests
     T1  Carrier and codec: every code in the vocabulary round-trips through the Diagnostic Schema; invalid tags, 
         unknown codes and non-finite numbers are rejected; closed reason values are tested once build time fixes them. 
-        Wrong runtime to write: a decoder that accepts an unknown code. [@I1, @I2]
+        Planted fault: a decoder that accepts an unknown code. [@I1, @I2]
     T2  Boundaries: a Schema rejection gives SchemaValidation with the issue path; a throwing callback gives Defect, 
         never SchemaValidation; a specific code beats a generic one. [@I3, @I5, @I6]
     T3  Endings and denials: run the reference scenarios and collect every emitted Diagnostic; none has a Flow reason, 

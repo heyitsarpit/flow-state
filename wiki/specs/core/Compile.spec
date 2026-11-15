@@ -2,7 +2,7 @@ spec Compile
 status        proposed
 basis         A guide, revisable whenever building shows it wrong; each change and its
               reason is recorded in wiki/specs/spec-log.md.
-              Written from the merged flow plans (proposed); split per spec-split.md there.
+              Written from the merged flow plans (proposed).
 location      packages/flow-state-v3/src
 provides      definition, machine, trait, subroutine, app, Compiled
 derives_from  [
@@ -101,7 +101,8 @@ requirements
                 or undefined.
 
                 Elsewhere it may own reads, streams and bare writes. Acting members (commit, lookup,
-                subscribe, retry, cancel, cancelAll, refetch) are typed only inside the declaring
+                subscribe, retry, cancel, refetch; cancelAll is retired, @spec.WriteLanes.R15) are typed only inside 
+                the declaring
                 fragment; outside it Fragment.O offers only its write operations' reads (get in
                 views; get, idle and retryable in a host's guards and updateMemory).
 
@@ -113,7 +114,7 @@ requirements
                 C0 control, DEL or lone surrogate, and compare by exact spelling.
 
     R13  Static errors named by the plan
-        source  @plan.Machines.O1; the full finding list is the StaticCli Spec's R10.
+        source  @plan.Machines.O1; StaticCli's R10 lists these among the errors `check` reports.
         must    Construction also rejects unfilled required ports, a raise into a fragment the 
                 turn's state change exits, two state changers or overlapping keys that state-token 
                 pruning cannot separate, an acting fragment member used outside its fragment, and a 
@@ -131,7 +132,7 @@ requirements
         must    app({ id, machines }) lists every machine the Runtime may run. Construction throws 
                 on unknown fields, duplicate machine ids, one machine under two keys, and colliding 
                 operation, domain or entity identities. Lazy entries are checked the same way when 
-                adopted, under the lazy-features Spec when it is written.
+                adopted; how a lazy entry is adopted is not yet in any core Spec.
 
     R16  Compiled data view
         source  @plan.Runtime.O1.
@@ -139,11 +140,14 @@ requirements
                 in the definition. Its data view, with closures as names, carries every event with 
                 its payload Schemas, the Flow.uncertain events, each memory field with its Schema, 
                 source and privacy, each operation's key fields, input fields and services, and 
-                each fragment's kind, events and ports. There is no runtime codec for Compiled.
+                each fragment's kind, events and ports. There is no runtime codec for Compiled itself:
+                it is never encoded or decoded as a whole. (The codecs below are of single memory
+                fields, held as functions on Compiled.)
 
                 A Schema's own functions (its filters and transformations) belong to the Schema and
                 are not Slots. The machine callback is construction: Compiled holds its output, never
-                the callback. Decision (agent, 2026-11-11): ruling Compile Q3 (spec-log.md, T42).
+                the callback. Decision (agent, 2026-11-11): ruling Compile Q3, since closed
+                (spec-log.md, T42, C4).
 
                 Functions Flow derives from a Schema the definition declares, such as a memory
                 field's equality or its codec, may sit on Compiled and are not Slots; the data view
@@ -156,7 +160,8 @@ requirements
         source  @plan.Runtime.O1.
         must    Creating a Runtime refuses a Compiled with a key field outside the input, a missing
                 events table, or a function that is neither a Slot, a Schema's own function nor a
-                function Flow derived from a declared Schema (R16's exemptions; ruling Compile Q3).
+                function Flow derived from a declared Schema (R16's exemptions; the Compile Q3 ruling,
+                spec-log.md, T42, C4).
 
                 Decision (agent, 2026-11-11): the refusal's code is InvalidConfiguration, whose
                 owners include @plan.Runtime.O1 (@plan.Diagnostics.O2), with details.reason naming
@@ -179,11 +184,15 @@ requirements
 
 open
     Q1  Executable checks are not built.
-        outcome  Phase 3 writes each test below as an oracle behind the Port, with its wrong 
-                 runtime; until then every Requirement's evidence is open.
+        outcome  Each test below is written, when its slice is built, as the cheapest check that fully
+                 covers it (a compile-time test, a run rule applied to every Story run, a Story test or
+                 a pure core test) in packages/flow-state-v3/tests/, and each rule gets a planted fault
+                 in tests/faults.ts that `nub run faults` must catch. The cases and wrong runtimes named
+                 below are the prototype's, kept as prior art. Until then every Requirement's evidence
+                 is open.
 
     Q2  IdentityFieldOptional has no prototype case or wrong runtime.
-        outcome  Phase 3 adds one before relying on R7.
+        outcome  A planted fault and its test are written before relying on R7.
 
 model
     Construction = any call of definition, machine, trait, subroutine or app.
@@ -234,7 +243,7 @@ invariants
 
     I15  Every function reachable in Compiled outside a Schema is a Slot or a function Flow derived from a Schema the 
          definition declares, and the DataView holds no function outside a Schema. Reworded 2026-11-11: ruling Compile
-        Q3 (audit C4); widened 2026-11-11 for derived functions (memory equality, codecs). [@R16, @R17]
+        Q3 (spec-log.md, T42, C4); widened 2026-11-11 for derived functions (memory equality, codecs). [@R16, @R17]
 
     I16  machine() never emits a Compiled with an operation whose key fields are not a subset of its input fields, and 
          Runtime creation refuses such a Compiled. Reworded 2026-11-11 (audit C20). [@R17]
@@ -330,11 +339,13 @@ coverage
 
 tests
     T1  Construct every reference definition, machine and app with spies on services, storage, clock and loaders; 
-        expect zero calls and a callback count of 1 per machine. No prototype wrong runtime; phase 3 writes one that 
-        acquires a service at construction. [@I1, @I6]
+        expect zero calls and a callback count of 1 per machine. No prototype wrong runtime; a planted fault is written 
+        that
+            acquires a service at construction. [@I1, @I6]
     T2  Construct a definition with three violations in different fields; expect one FlowError whose diagnostics name 
-        all three, in declaration then rule order, with paths. No prototype wrong runtime; phase 3 writes one that 
-        stops at the first violation. [@I3]
+        all three, in declaration then rule order, with paths. No prototype wrong runtime; a planted fault is written 
+        that
+            stops at the first violation. [@I3]
     T3  Each rejected form of R4, R5, R9, R12 and R13 is refused with its code: TwoDefaults, ImpureDefault, 
         ReservedStateName, UnknownNotUncertain, SharedContract, KeyFieldOptional. Reference: the prototype's front-end 
         pins (`P1-H` for ImpureDefault). Wrong runtimes for ImpureDefault: `p1h.default-runs`, 
@@ -358,8 +369,7 @@ tests
          before any turn (Actors Spec T14 covers the cycle). [@I17]
     T11  The machine adds nothing: a callback naming a state, event or operation the definition lacks is a type error 
          and, untyped, a construction error; Compiled's states, events and operations equal the definition's. No 
-         prototype wrong runtime; phase 3 writes one that accepts an added state. [@I4]
+         prototype wrong runtime; a planted fault is written that accepts an added state. [@I4]
     T12  Identity fields: a value-named machine with an optional, defaulted or non-string-encoded
-            input field is refused IdentityFieldOptional; a fragment input field stays writable. 
-                Phase
-            3 writes this test and its wrong runtime (Q2). [@I9]
+            input field is refused IdentityFieldOptional; a fragment input field stays writable.
+            A planted fault is written with this test (Q2). [@I9]

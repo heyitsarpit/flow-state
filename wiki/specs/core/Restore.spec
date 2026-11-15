@@ -2,7 +2,7 @@ spec Restore
 status        proposed
 basis         A guide, revisable whenever building shows it wrong; each change and its
               reason is recorded in wiki/specs/spec-log.md.
-              Written from the merged flow plans (proposed); split per spec-split.md there.
+              Written from the merged flow plans (proposed).
 location      packages/flow-state-v3/src
 provides      restore at ready, record formats, versions at the boot, saved-shape resets,
               quarantine, forgetting a scope
@@ -39,14 +39,17 @@ requirements
     R2  Context and resets at restore
         source  @plan.Persistence.O4.
         must    Saved context bindings select the same providers and set a silent baseline, with no
-                onContext event. A writing placement whose re-taken reset value differs from the
+                onContext event (a return restored from the Runtime's copy is not a reload restore: it
+                gets one wave, @spec.Actors.R18). A writing placement whose re-taken reset value differs from the
                 recorded one resets as a pending reset, the first turn after restore, before the
-                lane deliveries.
+                owed rows and the lane deliveries of R3 (round-14/step.ts, "a reset lost by the
+                reload runs first"). I19 is this Requirement's check.
 
     R3  Delivery order at restore
         source  @plan.Persistence.O4.
         must    The incarnation's Start delivers (@spec.Actors `model`), the same way whatever began
-                it. First come the identity's owed rows, in the order they were owed across all its
+                it. A pending reset (R2) runs before all of it. Then come the identity's owed rows, in the order they 
+                were owed across all its
                 lanes. Then, lane by lane in lane-id order, which is record-key order
                 (@spec.WriteLanes `model`, Lane), come each queued commit's NotSent { Restored },
                 when the lane record holds a queue, and last the Held head's unknown { Restored },
@@ -68,7 +71,8 @@ requirements
         source  @plan.Persistence.O4.
         must    Restored resource data starts stale; key-only entries stay passive until a live
                 placement supplies input, and input is never reconstructed from a key. Unobserved
-                restored entries start gcTime at ready. A live placement re-opens from its restored
+                restored entries start gcTime at ready (collection itself is @spec.Reads.Q2, not yet specified). A live 
+                placement re-opens from its restored
                 input; old emissions never replay, and late results from old work cannot affect
                 restored work. Finite resource requests never resume their old execution.
 
@@ -99,8 +103,9 @@ requirements
                 UnboundLane (proposed name) at each boot.
 
                 A release that makes the old identity current again hands the key's lane back unless
-                it is taken; the old identity's unknown hold has no user exit and ends only by its
-                own ending (a stated limit). A lane of an older key fingerprint is an old-version
+                it is taken; the old identity's unknown hold (held when that identity was current;
+                re-keyed, it blocks nothing, @spec.WriteLanes.R11) has no user exit and ends only by
+                its own ending (a stated limit). A lane of an older key fingerprint is an old-version
                 hold, reported at each boot as OldVersionLane, and declines its operation's commits
                 for that identity NotSent { OldVersion }.
 
@@ -108,14 +113,18 @@ requirements
         source  @plan.Persistence.O5.
         must    Each definition's records are reset automatically, decided per record (the runner's
                 ruling), when the saved shape (state ids, memory fields with their Schema versions,
-                fragments' under their id) differs incompatibly: the record is removed at the boot
+                fragments' under their id) differs incompatibly. Incompatible means a field both
+                keep with another Schema version, or a saved state or fragment the release lacks
+                (round-14/durable.ts, shapeReset); an added or dropped field or an added state is
+                compatible. When incompatible, the record is removed at the boot
                 with its deadlines, reported as one RecordShapeChanged (proposed name) per
                 definition with its count. Its owed rows, a stopped read's Interrupted included,
                 stay owed (@spec.WriteLanes.R12).
 
                 The identity check comes first; a record with no shape stamp never resets. Any
-                structural Schema change to a stored field resets the record, a harmless validation
-                change included (the runner's ruling; a stated price). Its writes in flight are
+                structural Schema change to a stored field is another Schema version, so it resets
+                the record, a harmless validation change included (the runner's ruling; a stated
+                price). Its writes in flight are
                 kept, and each boot reports a head whose record was reset or does not read as
                 HoldWithoutRecord (proposed name).
 
@@ -131,8 +140,9 @@ requirements
                 (@spec.WriteLanes `algorithm`, start).
 
                 A lane is (identity, contract id, key) and names no operation (@spec.WriteLanes.R6),
-                and a contract has at most one write operation (SharedContract). So when a lane
-                record's `operation` is gone, the boot rewrites it to the contract's write operation
+                and a contract has at most one write operation (SharedContract). The lane record
+                still stores the operation's name as data, which is not part of the lane's identity.
+                So when a lane record's `operation` is gone, the boot rewrites it to the contract's write operation
                 (OpRenamed, proposed name) if the contract still has one; a rename cannot collide.
                 If the contract has none, the lane is quarantined, and forget drops its hold with
                 HoldForgotten (proposed name). LaneRekeyCollision (proposed name) belongs only to
@@ -161,15 +171,19 @@ requirements
 
 open
     Q1  Executable checks are not built.
-        outcome  Phase 3 writes each test below as an oracle behind the Port, with its wrong
-                 runtime; until then every Requirement's evidence is open.
+        outcome  Each test below is written, when its slice is built, as the cheapest check that fully
+                 covers it (a compile-time test, a run rule applied to every Story run, a Story test or
+                 a pure core test) in packages/flow-state-v3/tests/, and each rule gets a planted fault
+                 in tests/faults.ts that `nub run faults` must catch. The cases and wrong runtimes named
+                 below are the prototype's, kept as prior art. Until then every Requirement's evidence
+                 is open.
 
     Q2  OpRenamed, LaneRekeyCollision, the undeclared-machine discard, FieldDropped's rewrite and dispose({ forget: 
         true }) have no prototype wrong runtime.
-        outcome  Phase 3 writes them.
+        outcome  Each gets a planted fault when built.
 
-    Q3  I19's check is owned by @task.V3.T20 in conformance/owes.ts, but resets are @task.V3.T56's since the split.
-        outcome  @task.V3.T56 builds I19's check (Spec test T5) and moves the row.
+    Q3  I19's check was listed under @task.V3.T20, but resets are @task.V3.T56's since the split.
+        outcome  @task.V3.T56 builds I19's check (Spec test T5).
 
 model
     Boot = one ready() of a persistent Runtime: read, upgrade formats, check versions and shapes,
@@ -222,8 +236,8 @@ invariants
     I18  dispose({ forget: true }) resolves success only after deletion is confirmed. [@R10]
 
     I19  A writing placement whose re-taken reset value differs from its recorded one runs its reset as the first turn 
-         after restore, before any lane delivery of that incarnation. (A silent context baseline is
-        @spec.Turn.I28's.) [@R2]
+         after restore, before any owed row or lane delivery of that incarnation. (A silent context baseline is
+        @spec.Turn.R22's.) [@R2]
 
     I20  A lane record whose `operation` is gone is rewritten to its contract's write operation when the contract has 
          one, and quarantined otherwise; no such rewrite overwrites or collides with another lane. [@R8]
@@ -319,7 +333,7 @@ tests
          the restored records. Case `REV8-PINS`; wrong runtime `durable.mint-floor-head-only`. [@spec.Actors.I13,
              @spec.WriteLanes.I6]
     T14  Restored data is stale: a restored resource entry reads stale, a live placement refetches it with its own 
-         input, and a key-only entry starts nothing. No prototype case; phase 3 writes this test and its wrong runtime.
+         input, and a key-only entry starts nothing. No prototype case; a planted fault is written with this test.
              [@I9]
     T15  A renamed operation: a lane record whose operation name is gone, over a contract that still has a write 
          operation, restores under it with OpRenamed; over a contract with none, it is quarantined and forget drops

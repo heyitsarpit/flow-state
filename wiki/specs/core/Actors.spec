@@ -2,7 +2,7 @@ spec Actors
 status        proposed
 basis         A guide, revisable whenever building shows it wrong; each change and its
               reason is recorded in wiki/specs/spec-log.md.
-              Written from the merged flow plans (proposed); split per spec-split.md there.
+              Written from the merged flow plans (proposed).
 location      packages/flow-state-v3/src
 provides      runtimeSetup, Runtime, actorRef, ensureActor, createActor, send, disposeActor,
               forget, dispose, unsettledWrites
@@ -17,7 +17,8 @@ requirements
     R1  Inert setup and services
         source  @plan.Runtime.O2.
         must    runtimeSetup(...).construct() is synchronous and inert. scope is an optional
-                nonempty string that machines, operations and conditions never read. services is a
+                nonempty string that machines, operations and conditions never read (persistence
+                requires it, @spec.WriteAhead.R1). services is a
                 Layer typed by the machines' R; a missing service is a type error, and the boot
                 refuses, by machine, operation and service, an operation whose service it lacks.
                 Each service is acquired once per Runtime.
@@ -34,7 +35,7 @@ requirements
         must    With persistence: claim scope ownership (a Runtime refused it runs as
                 @spec.WriteAhead.R16 states), acquire storage, then read and validate
                 persisted data before any app service starts. Then acquire the remaining services,
-                install the Owing identities (@spec.Restore.R1; providers before consumers), keep
+                install the Owing identities (@spec.Restore.R1), providers before consumers, keep
                 every other record a record, establish silent context baselines, and open the
                 Runtime to callers.
 
@@ -51,7 +52,9 @@ requirements
                 RuntimeNotReady). Disposing during bootstrap cancels it and closes admission; a
                 service acquired late is released and no handle is exposed.
 
-                The Runtime's life is one value in the core, Life (`model`). One total table,
+                The Runtime's life is one value in the core, Life (`model`; planned, @task.V3.T55: today
+                the core holds only Disposal, Open, Disposing or Disposed, and the host holds the
+                other flags). One total table,
                 `admit` (`algorithm`), says whether an input runs, is dropped (a late host answer or
                 timer) or is rejected with RuntimeNotReady or RuntimeDisposed; the host keeps no
                 flag of its own. A dispose while Inert or Booting goes straight to Disposed, and
@@ -88,7 +91,8 @@ requirements
         source  @plan.Runtime.O3.
         must    A shared actor free of uses and work in flight for the grace (100 ms on the Runtime's
                 Effect Clock) ends at the grace's end: a persisted actor's record is encoded in that
-                step (the end waits while it cannot encode), its lanes move to the Runtime unbound,
+                step (the end waits while it cannot encode, reported UnencodableValue, and never ends
+                on the last good capture of @spec.WriteAhead.R4), its lanes move to the Runtime unbound,
                 its schedules are cancelled, its placements and unkept reads stop, and each stopped
                 read owes its Interrupted ending (@spec.Reads.R9) to the identity. Its owed rows are
                 suspended (@spec.WriteLanes `algorithm`, ledger): those in its mailbox wait for the
@@ -117,17 +121,20 @@ requirements
         source  @plan.Runtime.O3.
         must    A starting incarnation adopts only its own identity's unbound lanes, oldest first
                 for equal local identities. Its start is the one point where a reload, a return and
-                an adoption deliver. Before any external event it receives its owed rows in the
-                order they were owed (each Waiting row, and each Kept row for its one try), then
-                each Held head's unknown { Restored } once per incarnation unless a row for that
-                head's Attempt is owed (@spec.Restore.R3), then an in-flight Attempt's ending when
-                it lands. A boot delivers nothing and parks nothing itself. Decision (agent: the
+                an adoption deliver. Before any external event it runs a pending reset, if any
+                (@spec.Restore.R2), then receives its owed rows in the order they were owed (each
+                Waiting row, and each Kept row for its one try), then, lane by lane, each queued
+                commit's NotSent { Restored } where a lane record holds a queue, and each Held head's
+                unknown { Restored } once per incarnation unless a row for that head's Attempt is
+                owed (@spec.Restore.R3), then an in-flight Attempt's ending when it lands. A boot delivers nothing and 
+                parks nothing itself. Decision (agent: the
                 orchestrator, 2026-11-12): consult round 3, Part 2. Why: one delivery point gives a
                 reload, a return and an adoption the same order. Reverse: restore R10 from commit
                 `9405af2f`.
 
-                A lane binds to the live incarnation with its recorded subject path; with none its
-                ending waits as an owed row, which carries that path, for the identity's next start.
+                A lane binds to the live incarnation with the subject path its record holds
+                (@spec.WriteAhead.R5: required of the record, not built yet); with none its ending
+                waits as an owed row, which holds no path, for the identity's next start.
                 No schedule, issue or send of an old incarnation reaches a new one.
 
     R11  Identity versions
@@ -155,11 +162,14 @@ requirements
         must    Follow-ups run first, up to 64 per admitted event; the turn that would add the 65th
                 is refused, with an issue naming the chain (check's denial code for it is
                 InvalidTurn). Otherwise one event runs from the next actor in rotation, oldest
-                first.
+                first. The 64 caps the follow-ups one admitted event starts, a chain inside one
+                admission, not how often events are admitted.
 
                 A send to an idle Runtime runs its turn before send returns; during a turn it
-                queues. Slices decide when work runs, never what. A spin is never stopped; TurnStorm
-                is evidence and decides nothing.
+                queues. Slices decide when work runs, never what. A spin, events admitted again and
+                again one after another (a call that fails and is asked again, say), is never
+                stopped by the scheduler; TurnStorm is evidence and decides nothing. What bounds a
+                chain started by a listener is Q4.
 
     R14  Admission bounds
         source  @plan.Runtime.O4.
@@ -260,8 +270,11 @@ requirements
         source  @plan.Runtime.O6.
         must    Runtime disposal closes admission first (later ready, ensureActor, createActor and
                 runPromise reject RuntimeDisposed, by R4's `admit`), then disposes consumers before
-                providers. Queued events that have not started are dropped. Schedules cancel,
-                placements stop and sessions release within 5 s (ReleaseOverdue).
+                providers. Queued events that have not started (sends, stream deliveries, timer
+                firings, context updates) are dropped, and with them the mailbox's references to
+                owed rows (R12); the rows themselves are suspended in the same step and stay owed, so no
+                ending is lost. Schedules cancel, placements stop and sessions release within 5 s
+                (ReleaseOverdue).
 
                 From its start nothing new is invoked, and no Held head and no owed ending is
                 dropped. A never-sent commit (queued, or a head waiting for its acknowledgement or
@@ -308,17 +321,28 @@ requirements
 
 open
     Q1  Executable checks are not built.
-        outcome  Phase 3 writes each test below as an oracle behind the Port, with its wrong
-                 runtime; until then every Requirement's evidence is open.
+        outcome  Each test below is written, when its slice is built, as the cheapest check that fully covers
+                 it (a compile-time test, a run rule applied to every Story run, a Story test or a pure core
+                 test) in `packages/flow-state-v3/tests/`, and each rule gets a planted fault in
+                 `tests/faults.ts` that `nub run faults` must catch. Case and wrong-runtime ids in the tests
+                 name the prototype's, which stay as prior art; until built, every Requirement's evidence is
+                 open.
 
     Q2  The prototype has no case or wrong runtime for RuntimeNotReady, a shared ready() failure, service acquisition 
         failure, ConflictingActorRef, the 1,024 bound, BlockedByDependents, CleanupFailed, RuntimeDisposed, context
         propagation or isolation.
-        outcome  Phase 3 writes those cases and wrong runtimes first.
+        outcome  The slices write those checks and faults first.
 
     Q3  Can one services Layer be acquired storage-first (@plan.Runtime.Q1)?
         outcome  If not, R3's order becomes "acquire the whole Layer, then validate"; record it
                  here as a change.
+
+    Q4  Is a chain of sends or ensures started from a snapshots listener ever stopped (R13 says a spin is never 
+        stopped)? The prototype drops, as evidence, a listener-originated send or ensure once the chain passes
+        64, and reports TurnStorm once (prototypes/round-14/driver.ts, `notifyChain`).
+        Case: a listener that sends one event on every snapshot.
+        outcome  Either the 65th send in that chain is dropped with TurnStorm, or every send runs and TurnStorm
+                 only reports. The first loses an event the caller sent; decide with the user, then fix R13.
 
 model
     Use = an attached consumer, a live snapshots subscription, a bound context consumer, or a
@@ -342,7 +366,8 @@ model
     Adoption = a Start that finds lanes or owed rows of its identity that no incarnation held (an ensure after
         disposeActor, a reset or a quarantine; an equal local identity). It is a Start like any other.
 
-    Life = the Runtime's life, one value in the core: Inert (constructed, nothing started), Booting, Open, Failed
+    Life = the Runtime's life, one value in the core (planned, @task.V3.T55; the core's `Disposal` stands in until
+        then): Inert (constructed, nothing started), Booting, Open, Failed
         (the bootstrap failed), Disposing (nothing new is invoked; calls on the wire and the final write, held as
         a ticket, wait for the bound) or Disposed.
 
@@ -490,8 +515,9 @@ algorithm
             RuntimeDisposed (R2); elsewhere drops.
         - BootFailed: Booting runs; elsewhere drops.
         - Ensure and Send: Open runs; Inert, Booting and Failed reject RuntimeNotReady (R4's boot queue for a
-            send, when @task.V3.T9 builds it, makes Send run while Booting for a persisted target only); Disposing
-            and Disposed reject RuntimeDisposed.
+            send, when @task.V3.T9 builds it, makes Send run while Booting for a persisted target only; a Send
+            input names its target, so its machine's persistence is part of the input and the table stays a
+            function of (life, input)); Disposing and Disposed reject RuntimeDisposed.
         - Forget: Open runs; Inert, Booting and Failed reject RuntimeNotReady; Disposing and Disposed reject
             RuntimeDisposed, so a caller never thinks a forget took effect.
         - DisposeActor: Open runs; Inert, Booting and Failed reject RuntimeNotReady; Disposing and Disposed drop
@@ -522,8 +548,9 @@ composition
 
 realization typescript
     Design, agreed by the user, 2026-11-12 (@task.V3.T55, consult round 3, Part 2); moved here from `composition`.
-    `Life` replaces the core's `Disposal` and the host's `started`, `open`, `closed()` and `admitting`, and `admit` is
-        one total table, as `cells.ts` is for lanes. `Life` is opaque outside `src/core/life.ts`.
+    `Life` (planned, @task.V3.T55) replaces the core's `Disposal` (`src/core/world.ts`, `src/core/disposal.ts`) and
+        the host's `started`, `open`, `closed()` and `admitting`, and `admit` is one total table, as `cells.ts` is
+        for lanes. `Life` will be opaque outside its own module (planned `src/core/life.ts`, not yet written).
     The host keeps what needs Effect: the Scope, the services Layer and one Deferred that shares the bootstrap's
         Exit. It runs commands, turns a fiber's Exit into a call result, decodes a sent event at the boundary, calls
         `admit` and throws the FlowError a Reject names. `dispose` sends DisposeRuntime, waits for the step's `life`
@@ -531,8 +558,8 @@ realization typescript
     The World is opaque outside the core, so the host reads no World field and builds no report: the Runtime's life
         reports through its act (RuntimeDisposed, and the final write's StorageFailure). The capture window stays in
         the host (T54's decision 4).
-    Lifetime, the grace and the send table are decided in `src/core/step.ts`, so the conformance suite's lifetime
-        wrong runtimes all edit step.ts.
+    Lifetime, the grace and the send table are decided in `src/core/step.ts`, so a planted fault for any of
+        them edits step.ts alone (`tests/faults.ts`).
 
 coverage
     @R1
@@ -585,7 +612,7 @@ coverage
 
     @R13
         enforced_by  [@I20, @I21]
-        open_by      [@Q1]
+        open_by      [@Q1, @Q4]
 
     @R14
         enforced_by  [@I22, @I23]
@@ -666,7 +693,7 @@ tests
             `id.version-by-names-only`, `l1.version-by-printed-name`. [@I39]
     T10  Mailboxes and rotation: FIFO within an actor; a spin on one actor does not delay another's ending; 65 
          follow-ups are refused. Cases `REV9-LOOP`, `ORDER-04`; wrong runtime `d122.rota-not-rotated`. The prototype's
-             FIFO wrong runtime no longer applies to its code, so phase 3 writes one; the 64 and 1,024 bounds have no
+             FIFO wrong runtime no longer applies to its code, so its slice plants one; the 64 and 1,024 bounds have no
              prototype wrong runtime (Q2). [@I19, @I20, @I21, @I22]
     T11  Refused deliveries: a refused ending is kept, redelivered once, and heard at the next Start. Cases 
          `REV8-KEPT`, `REV9-KEPT`; lie `a4.refused-denied`; wrong runtimes `turn.refusal-keeps-asks`,
@@ -683,24 +710,25 @@ tests
              `audit-1.forget-drops-the-queue`, `1b.forget-marks-held-lane`. [@I29, @I32]
     T16  Runtime disposal on a controlled clock: a call settling within 5 s is parked; past it unknown { Disposed }, 
          head kept Held; a definite ending drops the head; the queued NotSent { Disposed } precede the head's unknown;
-             nothing is invoked after the start; disposal ends only when its last fiber has ended. Cases `PAY-16`,
+             nothing is invoked after the start; disposal ends only when no call is on the wire, or at the bound. Cases 
+                 `PAY-16`,
              `R15-01`, `REV5-M1`; wrong runtimes `o6.dispose-interrupts-wire`, `o6.settled-in-bound-stays-held`,
-             `1b.disposal-definite-w-first`, `r15.past-bound-captured-inflight`, and for the last-fiber wait 
+             `1b.disposal-definite-w-first`, `r15.past-bound-captured-inflight`, and for the wait on the wire
                  `o6.no-bound`.
              [@I29, @I30, @I31, @I35, @I36]
     T17  Cleanup failure and isolation: a failing finalizer rejects CleanupFailed and later ensures repeat it; two 
          Runtimes from one setup share nothing and reject each other's handles; a counter at its limit refuses
              IdentityExhausted. No prototype case (Q2). [@I13, @I33, @I34]
     T18  Failed admission leaves nothing: an ensure refused for a missing provider or an invalid input leaves no actor, 
-         lane, schedule or evidence beyond the failure, and a later ensure succeeds. No prototype wrong runtime; phase
-             3 writes one that leaves a half-admitted actor. [@I9]
+         lane, schedule or evidence beyond the failure, and a later ensure succeeds. No prototype wrong runtime; its 
+         slice
+             plants a fault that leaves a half-admitted actor. [@I9]
     T19  Free actors end: on a controlled clock, an actor whose last use detaches with no work in flight has ended at 
-         exactly the grace, and one whose record cannot encode waits. Phase 3 writes the wrong runtime that never ends
-             a Free actor (the old life.grace-never-ends). [@I37]
+         exactly the grace, and one whose record cannot encode waits. Its slice plants the fault that never ends
+             a Free actor (the prototype's life.grace-never-ends). [@I37]
     T20  Never-sent commits at disposal: a queued commit and a head waiting for its acknowledgement when disposal 
          starts each end NotSent { Disposed } before it ends, and the next incarnation after a reload hears each once.
-             Wrong runtime
-             conformance/actors/disposal.mutants.ts#disposal-skips-never-sent; round-14
+             Wrong behaviour: a disposal that skips the never-sent commits. Round-14
              never delivers it after the reload (a stated limit of round-14, ruling CQ6). [@I38]
     T21  One delivery point: a reload, a return and an adoption of one identity with the same owed rows and Held heads 
          each deliver the same endings in the same order; after a boot and before any start no ending is in a

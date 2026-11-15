@@ -2,8 +2,7 @@ spec Codec
 status        proposed
 basis         A guide, and one of the two Specs most likely to change (Codec,
               Diagnostics): no prototype case pins it. Revisable whenever building shows it
-              wrong; each change and its reason is recorded in spec-log.md, in
-              wiki/plans/flow/references/proposals/, beside spec-split.md.
+              wrong; each change and its reason is recorded in wiki/specs/spec-log.md.
 location      packages/flow-state-v3/src
 provides      the structural codec (encode, decode) used by records, payloads, traces and the
               Model
@@ -34,14 +33,16 @@ requirements
     R4  Failures
         source  @plan.Inspection.O2.
         must    A failure is one FlowError raised before any actor, store, service or committed
-                change: CodecBoundExceeded (the bound, its value and the path), CodecMalformed (one
+                change: CodecBoundExceeded (the bound, its limit and the path), CodecMalformed (one
                 reason of utf8, json, nonCanonical, cycle, negativeZero, nonFinite, loneSurrogate,
                 notPlain or sparse) or CodecSchemaMismatch (path and issue summary, never data
                 values).
 
                 No raw parser error or Cause escapes. Inside a turn or a capture, a value with no
                 encoded form, a bound or a malformation included, is reported only as
-                UnencodableValue (its details naming the bound or reason) and never fails the turn;
+                UnencodableValue (its details naming the bound or reason) and never fails the turn (a
+                commit's input or key that cannot encode is the one exception: it declines NotSent {
+                Unencodable }, an ending, @spec.WriteLanes.R12);
                 CodecBoundExceeded and CodecMalformed are raised only where a codec failure is a
                 FlowError: decoding at the boot, payloads, traces, Model bytes and direct calls.
                 Decision (agent, 2026-11-11): audit C23, one code per trace. Why: a turn never fails
@@ -70,10 +71,13 @@ requirements
 
 open
     Q1  Executable checks are not built.
-        outcome  Phase 3 writes each test below as vectors, with a wrong codec for each check.
+        outcome  Each test below is written, when its slice is built, as the cheapest check that fully covers it (a
+                 compile-time test, a run rule applied to every Story run, a Story test or a pure core test) in
+                 packages/flow-state-v3/tests/, and each rule gets a planted fault in tests/faults.ts that
+                 `nub run faults` must catch.
 
     Q2  The prototype codec (round-14/codec/codec.ts) has no case pinning these bounds or error codes.
-        outcome  The vectors are written from this Spec, not from the prototype.
+        outcome  The checks are written from this Spec, not from the prototype.
 
 model
     Bytes = UTF-8 canonical JSON text.
@@ -117,7 +121,8 @@ coverage
         open_by      [@Q1]
 
 tests
-    T1  Bounds: each of the five bounds at its value and one past it; the error names the bound, value and path. [@I2]
+    T1  Bounds: each of the five bounds at its value and one past it; the error names the bound, its limit and the 
+        path. [@I2]
     T2  Malformed vectors: a BOM, invalid UTF-8, a lone surrogate, duplicate keys, unsorted keys, -0, 1.0 and 1e0 
         spellings each fail with their CodecMalformed reason. [@I4]
     T3  Round trip and hosts: a fixed vector set encodes to the same bytes on every listed host and round-trips both 
@@ -125,8 +130,8 @@ tests
     T4  Mutation: mutate the input and output byte arrays after a call; stored and decoded values are unchanged. [@I5]
     T5  Schema mismatch: a valid JSON value that fails the owning Schema gives CodecSchemaMismatch with a path and no 
         data value; a turn with an unencodable value commits and reports UnencodableValue. [@I6]
-    T6  Record kinds: over every production case, every key in the store has one of the three prefixes and its record 
-        decodes with that kind's Schema and re-encodes to the same value; no lane record has mayHaveApplied, and an
-            author failure tagged Cancelled and a NotSent { Cancelled } decode with different channels. Wrong runtimes: 
+    T6  Record kinds: over every Story run, every key in the store has one of the three prefixes and its record decodes 
+        with that kind's Schema and re-encodes to the same value; no lane record has mayHaveApplied, and an
+            author failure tagged Cancelled and a NotSent { Cancelled } decode with different channels. Planted faults: 
                 a
             record keyed kept/<lane>; a lane record with mayHaveApplied; an owed row with no channel. [@I7]

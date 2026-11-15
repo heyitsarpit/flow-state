@@ -2,7 +2,7 @@ spec WriteAhead
 status        proposed
 basis         A guide, revisable whenever building shows it wrong; each change and its
               reason is recorded in wiki/specs/spec-log.md.
-              Written from the merged flow plans (proposed); split per spec-split.md there.
+              Written from the merged flow plans (proposed).
 location      packages/flow-state-v3/src
 provides      persistence setup, actor and lane records, capture, durable Attempts
 derives_from  [
@@ -27,10 +27,10 @@ requirements
                 `load`, giving every record of the scope, and `write(batch)`, one atomic batch of
                 record writes and removals. Missing provision is a type error, and untyped missing
                 provision fails ready with StorageFailure. construct() performs no I/O. Records are
-                stored as JSON strings. Flow ships `layerIndexedDb` and `layerMemory`; it offers no
-                adapter over Effect's KeyValueStore, whose per-key writes cannot be one atomic
-                batch. The IndexedDB Layer is specified with the host adapters, when that phase
-                starts. Decision (user, 2026-11-12): wide consult, question 4. Why: the user's
+                stored as JSON strings. Flow is to ship `layerIndexedDb` and `layerMemory` (neither is built
+                yet); it offers no adapter over Effect's KeyValueStore, whose per-key writes cannot
+                be one atomic batch. The IndexedDB Layer is specified with the host adapters, when
+                that phase starts. Decision (user, 2026-11-12): wide consult, question 4. Why: the user's
                 answer. Reverse: restore R2 from commit `9405af2f`.
 
     R3  Selection
@@ -64,9 +64,12 @@ requirements
                 version, contract id, key), with its Attempt (`retryCount`, and `inFlight`), the
                 creating subject path and the releasing mark. `inFlight` is true while the head is
                 acknowledged and not Held (Acknowledging to Cancelling: it may be on the wire), and
-                false for a Held head. A lane record holds no ending and no `mayHaveApplied`. As
-                built for reject it holds `format`, `machine`, `name`, `operation`, `attempt`,
-                `input`, `retryCount` and `inFlight`.
+                false for a Held head. A lane record holds no ending and no `mayHaveApplied`.
+
+                Built so far (`encodeLane`, src/core/record.ts): `format`, `machine`, `name`, `operation`,
+                `attempt`, `input`, `retryCount` and `inFlight`, which R5 requires, and also
+                `mayHaveApplied`, which R5 and @spec.Codec.R5 forbid and is still to go. Not built yet,
+                though R5 requires them: the creating subject path and the releasing mark.
 
                 An identity's unheard endings are one record of their own, `owed/<identity>`:
                 `format`, `machine`, `name` and its rows in the order they were owed, each with its
@@ -94,7 +97,9 @@ requirements
         source  @plan.Persistence.O2.
         must    Only confirmed shared data survives: optimistic values and predictions never become
                 a saved baseline. Queued events, commands, executable work, services and stream
-                emission buffers do not survive. Context selections are recomputed from saved
+                emission buffers do not survive. A lane's queued commits are not these commands: a
+                saved queue, once built, is restored as NotSent { Restored } (@spec.Restore.R3).
+                Context selections are recomputed from saved
                 providers. Saved values are exact, sensitive ones included (@plan.Persistence.D1).
 
     R7  Consistent capture
@@ -218,15 +223,22 @@ requirements
 
 open
     Q1  Executable checks are not built.
-        outcome  Phase 3 writes each test below as an oracle behind the Port, with its wrong
-                 runtime; until then every Requirement's evidence is open.
+        outcome  When its slice is built, each test below is written as the cheapest check that fully
+                 covers it (a compile-time test, a run rule applied to every Story run, a Story test
+                 or a pure core test) in `packages/flow-state-v3/tests/`, and each rule gets a
+                 planted fault in `tests/faults.ts` that `nub run faults` must catch; until then
+                 every Requirement's evidence is open.
 
     Q2  The prototype has no case for scope bounds (4,096 records, 16 MiB), NonDurableContextProvider, or 
         StorageSilent's 10 s.
-        outcome  Phase 3 writes those cases and wrong runtimes.
+        outcome  Those cases are written with their planted faults (Q1).
 
-    Q3  The 5 s interval runs only in the prototype's runtime-default pass.
-        outcome  The new suite runs R10's cases at the default interval in its normal run.
+    Q3  The 5 s interval ran only in the prototype's runtime-default pass.
+        outcome  R10's cases run at the default 5 s interval in a normal run.
+
+    Q4  No test covers R15's lost-hold limit.
+        outcome  Open: a local actor's write sent before a reload has no lane afterwards, so its ending is not seen and
+                 its hold is lost; the test that shows this, and where it lives, is not written.
 
 model
     Capture = one batch of actor records, lane records, owed records and resource records written as a whole.
@@ -238,11 +250,11 @@ model
     Step = one input to the core and the mail drain it runs (R10).
 
 invariants
-    I1  With persistence off, no storage call happens during the Runtime's life. [@R1]
+    I1  With persistence off, no storage call happens during the Runtime's life. [@R1, @R2]
 
     I2  A record written under scope s is never read, overwritten or deleted by a Runtime of another app or scope. [@R1]
 
-    I3  A local identity never has an actor record or a lane record. [@R3, @R5]
+    I3  A local identity never has an actor record or a lane record. [@R3, @R5, @R15]
 
     I4  A restored actor record round-trips: decode(encode(record)) equals the committed values R4 lists. [@R4]
 
@@ -319,8 +331,9 @@ realization typescript
     Design, agreed by the user, 2026-11-12 (consult round 3, Part 2; wide consult, question 4 and W2); moved here
         from `composition`.
 
-    In src/host/edge.ts a capture's wait is a keyed fiber sleeping on Effect's Clock in the Runtime's FiberMap, and
-        an urgent batch is a Scheduler yield, not a second task queue; the store's load and write are Effects.
+    In src/host/edge.ts a capture's wait is a keyed fiber sleeping on Effect's Clock in the Runtime's FiberMap
+        (src/host/fibers.ts, which the edge forks through), and an urgent batch is a Scheduler yield, not a second task 
+            queue; the store's load and write are Effects.
 
     The core has no `persist` call: the step's setters note touched lanes and identities, and at the step's end each
         is projected (`encodeActor`, `encodeLane`, `encodeOwed`) if its entry changed by identity, never by
@@ -394,7 +407,7 @@ coverage
 
     @R15
         enforced_by  [@I3]
-        open_by      [@Q1]
+        open_by      [@Q1, @Q4]
 
     @R16
         enforced_by  [@I19]
@@ -425,7 +438,7 @@ tests
             acknowledgement). [@I15]
     T8  Crash after acknowledgement: kill at each point between acknowledgement and the adapter's answer; every reload 
         hears unknown { Restored } with the same id and the server sees one call. Case `PAY-16`; wrong runtime
-            `pay16.restore-forgets-may-have-applied`; the global oracle (h) in the prototype harness checks it on every
+            `pay16.restore-forgets-may-have-applied`; a run rule applied to every Story run checks it after every
             step. [@I17, @spec.WriteLanes.I6, @spec.WriteLanes.I28]
     T9  Bounds and providers: a scope at 4,096 records and one past; a non-durable provider rejects the capture and 
         keeps the previous one. No prototype case (Q2). [@I9, @I13]

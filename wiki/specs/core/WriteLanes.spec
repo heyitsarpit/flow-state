@@ -2,7 +2,7 @@ spec WriteLanes
 status        proposed
 basis         A guide, revisable whenever building shows it wrong; each change and its
               reason is recorded in wiki/specs/spec-log.md.
-              Written from the merged flow plans (proposed); split per spec-split.md there.
+              Written from the merged flow plans (proposed).
 location      packages/flow-state-v3/src
 provides      Outcome, Attempt, Flow.NotSent, Flow.Unknown, O.x.commit, O.x.retry, O.x.cancel,
               O.x.idle, O.x.retryable, O.x.get
@@ -25,8 +25,9 @@ requirements
 
     R2  Three channels
         source  @plan.Operations.O3.
-        must    A commit ends success, failure (this send definitely did not do it) or unknown (it
-                may have happened), as the commit function classifies it with Outcome; a plain error
+        must    A send ends success, failure (this send definitely did not do it) or unknown (it
+                may have happened), as the commit function classifies it with Outcome; Flow adds a
+                fourth channel, notSent, for a commit never sent (R3). A plain error
                 is a failure; a throw or die is unknown { Defect } with the Cause and an actor
                 issue. Flow never makes up a definite ending: a success, or a failure other than
                 Flow's NotSent, is always the classification of an answer a send of that Attempt
@@ -52,7 +53,8 @@ requirements
                 and saved on its own channel, `notSent`, never as the author's `failure`;
                 - `Flow.Unknown`, every unknown-channel ending, with tags Outcome { error } (the
                 commit said `Outcome.unknown(error)`), StillUnknown { failure }, Defect { cause },
-                Cancelled, Restored, Interrupted, StorageRefused and Disposed.
+                Cancelled, Restored, Interrupted, StorageRefused and Disposed. The cause of Defect { cause }
+                lives in process only (@spec.Diagnostics.R9): a saved Defect row keeps the tag and no cause.
 
                 These Specs write `NotSent { Rejected }` for the first's Rejected tag and
                 `unknown { Restored }` for the second's Restored tag. Superseded, NothingToResend,
@@ -77,7 +79,9 @@ requirements
                 commit's own unknown error arrives as Outcome { error }.
 
                 Mappers receive (value, { input, attempt, progress, key }); `attempt` is absent for
-                a declined commit, which has none. An unmapped `notSent` is evidence (R10).
+                a declined commit, which has none. An unmapped `notSent` is evidence (R10; whether it also leaves an 
+                issue is Q6) at run time; `check` reports it as an
+                error where it can occur (@spec.StaticCli.R10).
                 Decision (user, 2026-11-12): "option B" (wide consult W1). Why: the user's answer.
                 Reverse: restore R4 from commit `9405af2f`.
 
@@ -152,7 +156,8 @@ requirements
 
                 - reject ends NotSent { Rejected } and the transition runs;
                 - latest queues one commit, ending a previous queued commit or a never-invoked head
-                Superseded (evidence);
+                Superseded (evidence), except a head with a cancel pending on it (Withdrawing),
+                which stays (R14);
                 - serialize appends to W and past 64 ends NotSent { Overloaded };
                 - cancel interrupts the previous Attempt, whose ending is evidence unless a cancel
                 is pending on it (R14). Decision (agent, 2026-11-11): ruling CQ9. Why: R14's "a
@@ -248,7 +253,7 @@ requirements
         must    A domain write's store effects publish at settlement, before its ending is queued,
                 so store effects never depend on whether the ending routes current or late. The
                 record queue, its Overloaded bounds (the record queue and the 4,096-item many key)
-                and ModuleDisabled belong to the entity store's Spec (phase 5).
+                and ModuleDisabled belong to the entity store's Spec, to be written in phase 5.
 
     R14  cancel
         source  @plan.Operations.O7.
@@ -313,24 +318,32 @@ requirements
 
 open
     Q1  Executable checks are not built.
-        outcome  Phase 3 writes each test below as an oracle behind the Port, with its wrong
-                 runtime; until then every Requirement's evidence is open.
+        outcome  Each test below is written, when its slice is built, as the cheapest check that fully covers it (a
+                 compile-time test, a run rule applied to every Story run, a Story test or a pure core test) in
+                 packages/flow-state-v3/tests/, and each rule gets a planted fault in tests/faults.ts that
+                 `nub run faults` must catch; until then every Requirement's evidence is open.
 
     Q2  RetryLimit and Superseded as evidence have no prototype wrong runtime.
-        outcome  Phase 3 writes them.
+        outcome  Their checks and planted faults are written with their slices.
 
     Q3  R13's store-side rules (record queues, their bounds, ModuleDisabled) moved to the entity store area.
-        outcome  They are written with the entity store's Spec in phase 5.
+        outcome  They are written with the entity store's Spec, which does not exist yet (phase 5).
 
     Q4  The prototype mints counters floored at boot (round-14/durable.ts, round-14/step.ts), which are unique only per 
         scope and do not meet R5.
-        outcome  Phase 4 builds the seeded mint; phase 3 writes the wrong runtime, a counter that
-                 collides across two devices.
+        outcome  Phase 4 builds the seeded mint; its planted fault is a counter that collides across two devices.
 
     Q5  The model has no ruling for a cancel-policy commit on a key whose lane has a Kept row, with the lane Idle or 
         its head still Held.
         outcome  Slice 1 (@task.V3.T18) rules both before it builds the cancel policy; consult round 3 hands it
                  over as "close the lane's Kept rows, then mint" (proposed). Until then no fixture drives them.
+
+    Q6  Does an ending with no mapping leave an issue as well as evidence? Case: an operation maps `success:` only and 
+        a commit declines NotSent { Rejected }. The core's ledger closes the row Recorded as evidence and emits no
+        issue (src/core/serve.ts, src/core/ledger.ts tryOne); the Operations plan O3 says an unmapped failure leaves
+        its tag and an issue, and the prototype issues UnmappedEnding (round-14/turn.ts, deliver).
+        outcome  Reading A: evidence only (R4 as written). Reading B: evidence plus one UnmappedEnding issue, as in
+                 Reads R9. The user decides; a plan's guarantee is at stake.
 
 model
     Lane = (identity with version, contract id, key) -> { phase, W, displaced, mode }. mode is Delivering, or
@@ -397,8 +410,9 @@ invariants
     I2  No success write is applied unless its commit succeeded, and none is applied after that ending's event is 
         admitted. [@R1]
 
-    I3  Every delivered ending is exactly one of success, failure and unknown; an Attempt that ever ended unknown never 
-        delivers a definite failure; and an Attempt never sent ends only NotSent, or unknown { Restored } at a boot.
+    I3  Every delivered ending is exactly one of success, failure, notSent and unknown; an Attempt that ever ended 
+        unknown never delivers a definite failure; and an Attempt never sent ends only NotSent, or unknown { Restored } 
+        at a boot.
         Decision (agent, 2026-11-11): ruling CQ5. Why: an Attempt with no send can only be known not sent, unless a
         crash hid whether it was. Reverse: drop the last clause (spec-log.md, T42). [@R2]
 
@@ -599,7 +613,8 @@ algorithm
             is Open (@spec.Actors `model`) and its audience is live, else Waiting; a Life row whose incarnation is
             gone closes Recorded at once.
         - tryOne: a mail reference to a missing row does nothing. With no mapping the row closes Recorded; an
-            accepted turn closes it Delivered; a refusal moves Queued to Retrying, with a new reference behind queued
+            Accepted, Unhandled or Denied turn closes it Delivered (@spec.Turn.R26); a refusal moves Queued to 
+                Retrying, with a new reference behind queued
             mail, and Retrying to Kept.
         - suspend, at an incarnation's end, disposeActor and for each identity at Runtime disposal: Queued and
             Retrying rows go Waiting, rows with no lane included; Life rows close Recorded.
@@ -728,22 +743,23 @@ coverage
 
 tests
     T1  Three channels and the Attempt's ending: success, failure and unknown each map to their event; a definite 
-        failure after an unknown send is StillUnknown. Cases `STORE-01`, `STORE-02`, `STORE-03`, `PAY-05`; lies
-            `k.failure-as-success`, `e8.wa-failure`. [@I3]
+        failure after an unknown send is StillUnknown. Cases `STORE-01`, `STORE-02`, `STORE-03`, `PAY-05`; prototype
+            lies `k.failure-as-success`, `e8.wa-failure`. [@I3]
     T2  The Attempt: every send has one id; a definite failure then a new write mints a new id; after a restore, new 
-        ids never equal a restored one (a fresh seed each boot, R5). Cases `PAY-04`, `PAY-15`; wrong runtime
-            `durable.mint-floor-head-only`. [@I6, @I7]
+        ids never equal a restored one (a fresh seed each boot, R5). Cases `PAY-04`, `PAY-15`; prototype
+            wrong runtime `durable.mint-floor-head-only`. [@I6, @I7]
     T3  Concurrency cells, one per policy: reject declines beside a Held head; latest supersedes a never-sent head; 
-        serialize declines the 65th; cancel interrupts the wire. Cases `PAY-15`, `MED-01`, `REV8-PINS`, `R15-01`; lie
-            `lie.serialize-as-latest`; wrong runtimes `lane.queue-unbounded`, `d118.commit-beside-kept`. [@I8, @I9]
+        serialize declines the 65th; cancel interrupts the wire. Cases `PAY-15`, `MED-01`, `REV8-PINS`, `R15-01`; 
+        prototype
+            lie `lie.serialize-as-latest`; wrong runtimes `lane.queue-unbounded`, `d118.commit-beside-kept`. [@I8, @I9]
     T4  Retry and promotion: retry keeps id and input; a refused head promotes what waits; an unknown never promotes. 
-        Cases `PAY-04`, `REV8-H1`; phase 3 writes the wrong runtimes (an unknown that promotes, a fresh mint on Held,
-            a cancel that keeps Held). RetryLimit has no prototype wrong runtime (Q2). [@I11, @I12]
+        Cases `PAY-04`, `REV8-H1`; planted faults: an unknown that promotes, a fresh mint on Held, a cancel that
+            keeps Held. RetryLimit has no prototype wrong runtime (Q2). [@I11, @I12]
     T5  Key-less members: on an unkeyed operation outside an ending; in a keyed success handler a key-less cancel does 
         nothing; a key-less idle denies a kept ending. Cases `R15-02`, `REV9-EDGE`; wrong runtimes
             `d123.keyless-idle-heads-only`, `1b.r43-keyless-falls-back-to-key`, `r15b.keyless-success-names-key-lane`.
             [@I13, @I14]
-    T6  Exactly one delivery, across refusal, reload and parking. Cases `DRV-02`, `PAY-15`; lies 
+    T6  Exactly one delivery, across refusal, reload and parking. Cases `DRV-02`, `PAY-15`; prototype lies 
         `a2.deliv-fail-samemail`, `d154.moved-fail-released`, and `lost.letgo-silent` (a kept ending let go with no
             record). [@I15, @I16]
     T7  Old-version holds: a release that adds a key field declines every commit until the old hold ends; another actor 
@@ -755,58 +771,58 @@ tests
     T8  Unencodable: a commit whose input cannot encode declines and its transition runs; the mapper gets the value 
         asked. Cases `REV9-M1`, `REV7-M9`; wrong runtime `d114.input-not-replaced`. [@I18]
     T9  cancel by history: on the wire, waiting never sent, a waiting re-send, Held, Idle. Cases `PAY-03`, `PAY-12`, 
-        `PAY-15`, `STORE-05`; phase 3 writes the wrong runtime that treats the wire as never sent. [@I12, @I20]
+        `PAY-15`, `STORE-05`; planted fault: treats the wire as never sent. [@I12, @I20]
     T10  Retired with R15 and I21 (`cancelAll` is deferred; revisit.md); not written. [@I21]
     T11  Release on leave: the wire is interrupted and nothing delivered; a Held head, a never-sent head and a waiting 
          re-send are each released, a Cancelling head that answers is released, and the lane ends Idle; a reload of a
-             releasing lane delivers nothing and leaves no hold. Case `FRAG-06`; lies `d154.moved-save-released`,
-             `lie.released`; wrong runtime: a Held head that stays Held after the release. [@I12, @I15]
+             releasing lane delivers nothing and leaves no hold. Case `FRAG-06`; prototype lies
+             `d154.moved-save-released`, `lie.released`; planted fault: a Held head that stays Held after the
+             release. [@I12, @I15]
     T12  Store effects before the ending: a domain write's store effects are visible in the cut before its ending's 
-         turn, whether the ending routes current or late. No prototype wrong runtime; phase 3 writes one that queues
+         turn, whether the ending routes current or late. No prototype wrong runtime; planted fault: queues
              the ending first. [@I19]
     T13  Late results after cleanup: release a placement and a commit, then land their results; data, lanes and endings 
          are unchanged. No prototype wrong runtime. [@I23]
     T14  Members only: restore, hydration, activation and re-entry of a state whose earlier activation committed invoke 
          no commit; an adapter spy counts one invocation per minted, promoted or re-sent Attempt. No prototype wrong
-             runtime; phase 3 writes one that replays a commit on re-entry. [@I1]
+             runtime. Planted fault: replays a commit on re-entry. [@I1]
     T15  Success writes: a success write is applied before its ending's event and never on failure or unknown; an 
          invalid write reports InvalidWrite and the commit still succeeds; a write over data that landed later marks it
-             stale instead. No prototype case; phase 3 writes this test and its wrong runtime. [@I2, @I24]
+             stale instead. No prototype case. [@I2, @I24]
     T16  Origins and unknown targets: an operation whose author failure tag is named Cancelled, with `notSent` and an 
          `unknown` record mapping Cancelled and `otherwise`; the author's failure reaches only the failure mapper, a
              declined commit only `notSent`, a cancelled send only the unknown record's Cancelled, and the commit's own
              unknown error reaches `otherwise` as Outcome { error }; after a reload with both rows saved, each still
              reaches the same mapper. A type test: a missing failure tag and a `failure.NotSent` key are errors. A bare
-             operation's unknown leaves no Held lane (UnknownNotUncertain is @spec.Compile.T3's). Wrong runtimes: Flow's
+             operation's unknown leaves no Held lane (UnknownNotUncertain is @spec.Compile.T3's). Planted faults: Flow's
              Cancelled routed to the author's Cancelled tag; a row saved with channel failure for a NotSent. [@I4, @I5,
              @I39]
     T17  Member order: one turn listing cancel then commit on a Held lane, and one listing commit then cancel; each 
-         member applies to the state the previous one left. No prototype wrong runtime; phase 3 writes one that applies
+         member applies to the state the previous one left. No prototype wrong runtime; planted fault: applies
              members to the pre-turn lane. [@I10]
     T18  Ids across devices: two Runtimes with different session seeds, each on its own storage, mint writes to one 
          fake server keyed by Attempt id; no id repeats, and replaying one Runtime with its seed gives the same ids.
-             Phase 3 writes the wrong runtime of Q4. [@I6]
+             Planted fault: the counter of Q4 that collides across two devices. [@I6]
     T19  Definite endings come from answers: a commit whose Effect never completes (`Effect.never`), one that succeeds 
          and one that fails with a tagged failure; a success or author failure is delivered only for the two that
-             answered, and a runtime that turns a missing answer into a failure is caught. Phase 3 writes the wrong
-             runtime. [@I25]
+             answered, and a runtime that turns a missing answer into a failure is caught (the planted fault). [@I25]
     T20  An owed retry re-sends: retry on a Held lane, with and without a later cancel in the same turn and with a 
          refused re-send capture; the adapter spy sees exactly one re-send with the same id only in the first case.
-             Phase 3 writes the wrong runtime that drops the re-send. [@I26]
+             Planted fault: drops the re-send. [@I26]
     T21  Every commit ends: generated member sequences over every policy; at quiescence each admitted commit is 
-         waiting, Held or has exactly one ending, and each settled call has its Attempt's ending. Phase 3 writes the
-             wrong runtime that drops a queued commit. [@I27]
+         waiting, Held or has exactly one ending, and each settled call has its Attempt's ending. Planted fault:
+             drops a queued commit. [@I27]
     T22  A seed per boot: two boots of one scope with a host spy; each boot asks for its own seed and no Attempt id of 
-         the second equals one on disk. Phase 3 writes the wrong runtime that saves and reuses its seed. The real
+         the second equals one on disk. Planted fault: saves and reuses its seed. The real
              host's seed is checked for its width, failing on a 32-bit seed. [@I28]
     T23  The ledger's rows: generated member sequences with refused turns; at every step's end the mail's ending 
          references are exactly the Queued and Retrying rows, every row closes at most once, and each row's reports
-             are one Ended, then Parked and Unparked in pairs, then one Delivered or Recorded. Design mutants: a close 
+             are one Ended, then Parked and Unparked in pairs, then one Delivered or Recorded. Planted faults: a close 
                  with
              no report; a stale mail reference that delivers again. [@I29, @I30, @I34]
     T24  Two kept endings on one lane: two endings of one lane are each refused twice, and the jam stays on across the 
-         next start; each gets exactly one try there, and both are heard once the jam clears at a later start. Design
-             mutants: a keep that replaces, a start that skips Kept rows. [@I31]
+         next start; each gets exactly one try there, and both are heard once the jam clears at a later start. Planted
+             faults: a keep that replaces, a start that skips Kept rows. [@I31]
     T25  Applied at settlement: a call succeeds and a cancel is admitted before the success's turn; the machine hears 
          the success and the lane is as the success left it. [@I32]
     T26  Only Kept blocks: under reject, latest and serialize, a commit on a key whose lane has a Kept row declines 
@@ -815,13 +831,13 @@ tests
     T27  Attempt ids keep their numbers: one script run with and without other ids minted between its commits gives the 
          same Attempt ids; each invoked Attempt's `mayHaveApplied` equals sentBefore(head), and no lane record holds the
              field. [@I35, @I36]
-    T28  Nothing internal crosses: over every production case, no report, snapshot or O.x.get row has a field holding a 
-         row id, a lane id, a ticket, a timer, a record key or a Delivery tag; an ending with no Attempt is matched by
-             actor, operation and order. Wrong runtime: a Delivered report carrying its row's id. [@I37]
+    T28  Nothing internal crosses: over every Story run, no report, snapshot or O.x.get row has a field holding a row 
+         id, a lane id, a ticket, a timer, a record key or a Delivery tag; an ending with no Attempt is matched by
+             actor, operation and order. Planted fault: a Delivered report carrying its row's id. [@I37]
     T29  Flow's values: every Flow.NotSent and Flow.Unknown tag is built, matched with Match.tag, encoded and decoded 
          by its Schema, and comes back with the same tag and fields; an owed row saved with each survives a reload as 
          that
-             value. Wrong runtime: a value discriminated by `why`. [@I38]
+             value. Planted fault: a value discriminated by `why`. [@I38]
     T30  An exact cancel: under serialize and under latest, a head A answers and B is promoted; a cancel with A's 
          handle records CancelMissed and B stays on the wire, while a key cancel cancels B. A handle that names the head
              cancels it as a key cancel would; a handle for a displaced Attempt under the cancel policy, a handle used 
@@ -829,12 +845,12 @@ tests
              a key that names another lane, and a partial key that matches the handle's lane each behave by I40. A 
                  handle
              saved in memory names its Attempt after a reload: a Held head is released by it, an ended one gives
-             CancelMissed. A type test: a handle of another operation is an error. Wrong runtimes: a handle cancel that
+             CancelMissed. A type test: a handle of another operation is an error. Planted faults: a handle cancel that
              falls back to the key's current head; a handle that goes stale at a reload. [@I40]
     T31  A definite answer beats the cancel: a call on the wire is cancelled and then answers success; the machine 
          hears the success, its success write is applied and CancelMissed is recorded; the same with a failure; a call 
          whose
              fiber exits interrupted gives unknown { Cancelled } and Held; a displaced Cancelling Attempt under the 
                  cancel
-             policy that answers success delivers it. Wrong runtime: a Cancelling head that turns every answer into
+             policy that answers success delivers it. Planted fault: a Cancelling head that turns every answer into
              unknown { Cancelled }. [@I20, @I41]

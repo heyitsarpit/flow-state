@@ -2,7 +2,7 @@ spec Turn
 status        proposed
 basis         A guide, revisable whenever building shows it wrong; each change and its
               reason is recorded in wiki/specs/spec-log.md.
-              Written from the merged flow plans (proposed); split per spec-split.md there.
+              Written from the merged flow plans (proposed).
 location      packages/flow-state-v3/src
 provides      turn, check, snapshot, schedules, placements, onContext
 derives_from  [
@@ -95,7 +95,8 @@ requirements
                 A node with no written handler for an event that an active schedule lists in `armOn`
                 or `disarmOn` handles it with an implicit unguarded { target: "self" }, so that
                 event is not Unhandled there. A schedule never counts the turn that arms it, and
-                descendant changes and "self" keep its deadline.
+                descendant changes and "self" keep its deadline, except that the event the schedule
+                lists in `armOn` restarts it, the implicit "self" handler included.
 
     R15  Schedule firing
         source  @plan.Machines.O5.
@@ -127,7 +128,8 @@ requirements
         must    Schedules fire only while their actor is used (@spec.Actors). A deadline due while
                 unused waits; only the latest arming waits, and re-arming, disarming or exiting
                 removes a waiting deadline. A local actor's use ends with the page: after a reload
-                it is unused, and so its schedules wait, until it is ensured again.
+                it is unused, and so its schedules wait, until it is used again (@spec.Actors.R7; ensuring alone is not 
+                a use).
 
                 On restore, resume or a returning use, a Duration keeps its deadline and fires once
                 if overdue, waiting deadlines in deadline order; a multi-step Schedule restarts at
@@ -233,12 +235,15 @@ requirements
 
 open
     Q1  Executable checks are not built.
-        outcome  Phase 3 writes each test below as an oracle behind the Port, with its wrong 
-                 runtime; until then every Requirement's evidence is open.
+        outcome  When its slice is built, each test below is written as the cheapest check that fully
+                 covers it (a compile-time test, a run rule applied to every Story run, a Story test
+                 or a pure core test) in `packages/flow-state-v3/tests/`, and each rule gets a
+                 planted fault in `tests/faults.ts` that `nub run faults` must catch; until then
+                 every Requirement's evidence is open.
 
     Q2  The prototype has no case for check(), onContext, restartOn, keyed schedules, exit and entry order, or 
         equal-deadline order.
-        outcome  Phase 3 writes those cases and their wrong runtimes first.
+        outcome  Those cases are written first, each with its planted fault (Q1).
 
     Q3  Which Diagnostic code a refused turn's issue carries is not stated by the plans; InvalidTurn is check()'s 
         denial code, not a Diagnostic code (@spec.Diagnostics.R4).
@@ -269,10 +274,10 @@ invariants
     I3  A turn whose child part refuses publishes no transition of its own: it publishes only I14's one issue-only 
         snapshot. [@R2, @R5]
 
-    I4  A "self" transition leaves the set of live Activations unchanged. [@R3]
+    I4  A "self" transition leaves the set of live Activations unchanged. [@R3, @R4]
 
     I5  Every Activation at or above the Boundary is the same before and after the turn; every entered state is a new 
-        Activation. [@R3]
+        Activation. [@R3, @R4]
 
     I6  Exits are ordered deepest first and entries outermost first; a parent's activity starts before and stops after 
         each child's. [@R3]
@@ -284,7 +289,7 @@ invariants
     I11  Every incarnation the turn ends has run whenAbandoned in that same turn. [@R6]
 
     I12  Every read @plan.Machines.O3 lists for PreTurn returns PreTurn values; every read it lists for After
-        returns After values. [@R7]
+        returns After values. [@R7, @R12]
 
     I14  A refused or pre-commit-defective turn leaves state, memory, context and store equal to PreTurn and starts no 
          work; it publishes exactly one issue-only snapshot. [@R8, @R10]
@@ -301,7 +306,7 @@ invariants
          on an old snapshot s gives the same verdict whatever has happened since, from s's own captured values.
         [@R12, @R13]
 
-    I20  A delivered firing carries the id of its schedule's latest arming, and its activation is alive. [@R15]
+    I20  A delivered firing carries the id of its schedule's latest arming, and its activation is alive. [@R15, @R16]
 
     I21  A schedule's first firing is strictly after the turn that armed it. [@R14]
 
@@ -323,7 +328,7 @@ invariants
     I28  An onContext event is enqueued only after a context wave (a returning incarnation's one wave included) changed 
          its selection, and the baseline then equals that selection. [@R22]
 
-    I29  A published snapshot is never mutated afterwards. [@R24]
+    I29  A published snapshot is never mutated afterwards. [@R23, @R24]
 
     I30  A part of a snapshot whose content is unchanged is the same object in the next snapshot. [@R24]
 
@@ -378,7 +383,7 @@ realization typescript
 
     The driver (src/host/driver.ts) runs commands with Effect: every call, timer and persistence wake is a keyed fiber
         in one FiberMap owned by the Runtime's Scope, sleeping on Effect's Clock and run on its Scheduler, which a
-        test or the suite's world provides; Disarm interrupts the key's fiber. Arm, Disarm and Fired stay data, so a
+        test provides; Disarm interrupts the key's fiber. Arm, Disarm and Fired stay data, so a
         replay needs no host.
 
 coverage
@@ -447,7 +452,7 @@ coverage
         open_by      [@Q1, @Q2]
 
     @R17
-        enforced_by  [@I22, @I23]
+        enforced_by  [@I22, @I23, @I34]
         open_by      [@Q1]
 
     @R18
@@ -502,10 +507,13 @@ tests
     T5  Before and after memory: a schedule function and a commit select read the value the turn wrote; a guard and a 
         mapper read the old one. Case `PAY-16`; wrong runtime `pay16.schedule-reads-pre-transition-memory`. [@I12]
     T6  Refused turns: an out-of-range schedule delay (negative, non-finite or past 2^31 - 1 ms; 0 ms is allowed) and 
-        overlapping keys refuse the turn: state unchanged, one issue-only snapshot, and check() answers Denied
-            with InvalidTurn (Q3 names the issue's code). Cases `REV4-H4`, `TURN-01/schedule-out-of-range`; wrong
-            runtimes `pinsb.schedule-unbounded`, `pinsa.overlapping-keys-allowed`. An unencodable value does not refuse;
-            wrong runtime `pinsb.nan-carried-as-null`. [@I14]
+        overlapping keys (two raises writing one key; construction rejects those pruning cannot separate,
+            @spec.Compile.R13, so this is the run-time check) refuse the turn: state unchanged, one issue-only 
+                snapshot, and check() answers Denied
+                with InvalidTurn (Q3 names the issue's code). Cases `REV4-H4`, `TURN-01/schedule-out-of-range`; wrong
+                runtimes `pinsb.schedule-unbounded`, `pinsa.overlapping-keys-allowed`. An unencodable value does not 
+                    refuse;
+                wrong runtime `pinsb.nan-carried-as-null`. [@I14]
     T7  Callback defects: a throwing guard, select and key each keep the prior snapshot with one issue naming the 
         callback path, and the same input is not retried (case `R12-DEFECT`). A throwing post-commit mapper publishes 
         one issue and no event. [@I14, @I16]
@@ -525,8 +533,9 @@ tests
     T13  Placements: a key change releases once and opens the new key; a non-key change keeps the session; a throwing 
          select keeps it with one issue. Case `P1-S`; wrong runtimes `p1s.key-not-in-identity`, 
          `p1s.select-throw-releases`. [@I24]
-    T14  Owner test: lies `k.late-as-current`, `k.restored-from-root` and `g.late-unhandled` must each fail a named 
-         check; lateness: wrong runtime `a2.lateness-transitive`. [@I26]
+    T14  Owner test: a late ending routed as current, an unknown { Restored } routed from the root, and a late ending 
+         left Unhandled (prototype lies `k.late-as-current`, `k.restored-from-root`, `g.late-unhandled`) must
+             each fail the check; lateness: wrong runtime `a2.lateness-transitive`. [@I26]
     T15  LateMayNotLeave: a late exit beside an InFlight head or queued commit is denied; beside a Held head it is 
          allowed. Cases `R14-FIX-01`, `R15-01`; wrong runtimes `misc.late-always-leaves`, `misc.late-leaves-queued`, 
          `audit-1.r15-held-head-is-live`, `audit-1.r15-queue-behind-held-not-live`, and for an active subroutine 
@@ -534,7 +543,8 @@ tests
     T16  onContext: a provider change wave with an equal selection, a changed one with when declining, and a throwing 
          select. No prototype case. [@I28]
     T17  Snapshots: writing into a published snapshot fails; a later publication reuses unchanged parts by identity. 
-         Lies `w.patch-in-place`, `w.row-in-place`; absent entries: wrong runtime `f.absent-is-placed`. [@I29, @I30]
+         Prototype lies `w.patch-in-place`, `w.row-in-place`; absent entries: wrong runtime `f.absent-is-placed`. 
+         [@I29, @I30]
     T18  Issues: two sources raise issues; one source's success clears only its own; a new incarnation starts with 
          none. No prototype wrong runtime. [@I31]
     T19  One leaf and selection: generated event sequences over the reference machines; every snapshot's state is a 
@@ -554,7 +564,7 @@ tests
          counts its next delay from the actual firing. No prototype case (Q2); phase 3 writes the wrong runtimes. 
          [@I32, @I33]
     T24  Verdicts as acts: an accepted, an unhandled, a denied and a refused turn each give one Turn act, and the 
-         report stream derived from the acts equals the stream before the change, byte for byte, over the whole suite;
+         report stream derived from the acts equals the stream before the change, byte for byte, over every Story run;
              check() on each answers Allowed, Unhandled, Denied, and Denied with InvalidTurn. Wrong runtimes: an 
                  Unhandled
              turn that yields no act; a refusal's Issue reported before its Turn. [@I36, @I18]

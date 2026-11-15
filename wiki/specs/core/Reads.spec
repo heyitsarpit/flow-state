@@ -2,7 +2,7 @@ spec Reads
 status        proposed
 basis         A guide, revisable whenever building shows it wrong; each change and its
               reason is recorded in wiki/specs/spec-log.md.
-              Written from the merged flow plans (proposed); split per spec-split.md there.
+              Written from the merged flow plans (proposed).
 location      packages/flow-state-v3/src
 provides      resource, transaction, stream (contract construction), keys, O.x.lookup,
               O.x.refetch, O.x.subscribe, rows
@@ -24,8 +24,7 @@ requirements
                 idempotency: "attempt" or the input fields it is, so flow check can warn on a
                 money-shaped write keyed by the Attempt; a server may prune keys, so a re-send on an
                 old key reads first, and Flow keeps no key age. `staleTime` and `gcTime` are
-                required on resources; their semantics are written when built (spec-split.md,
-                "written when their phase starts").
+                required on resources; their semantics are written when built (Q2).
 
     R2  Keys name things
         source  @plan.Operations.O1.
@@ -65,8 +64,9 @@ requirements
                 operation. It has no Attempt, no acknowledgement, no hold, no retry and no record,
                 and no write-lane rule (kept, blocked, promoted) applies to it. Its ending is a row
                 of the owed ledger (@spec.WriteLanes `model`) whose audience the code that owes it
-                chooses. A lookup's ending is owed to the incarnation that asked (Life): it is never
-                saved, and it closes as evidence when that incarnation ends or a newer lookup
+                chooses. A lookup's ending is owed to the incarnation that asked (the audience Life,
+                @spec.WriteLanes `model`, Audience): it is never saved, and it closes as evidence when that incarnation 
+                ends or a newer lookup
                 supersedes it. The Interrupted ending of a read that a freeze or an end stops is
                 owed to the identity (@spec.Actors.R8), so it is saved with a persisted identity's
                 owed record and heard at the next Start. Each actor waiting on one shared lookup
@@ -97,13 +97,15 @@ requirements
                 name) is one event, or a record over the tags of `Flow.ReadStopped` (proposed name)
                 with a required `otherwise`. `Flow.ReadStopped` is Flow's own value, a
                 `Data.TaggedEnum` on `_tag` and a Schema like the write values
-                (@spec.WriteLanes.R3), with tags Defect { cause } and Interrupted: a read's defect
+                (@spec.WriteLanes.R3), with tags Defect { cause } and Interrupted (not Flow.Unknown's
+                tags of those names, which a write's ending carries): a read's defect
                 or interruption ends as one of them, never under `failure`, and a `success:` or
                 `failure:` mapper that throws or returns no shape ends as Defect with a UserClosure
                 issue. A `stopped:` mapper that throws or returns no shape reports a UserClosure
                 issue and its row closes Recorded; it never ends as Defect again. Flow.ignore means
                 no event and no handler. `stopped:` is optional: unmapped, like any unmapped
-                ending, it leaves its slot's tag and an issue. Decision (user, 2026-11-12): "Q1 A",
+                ending, it leaves its slot's tag and an issue (whether a write's unmapped ending also
+                leaves an issue is open, @spec.WriteLanes.Q6). Decision (user, 2026-11-12): "Q1 A",
                 option B extends to reads. Why: the user's answer. Reverse: restore R9 from commit
                 `476c1519`. Decision (agent, 2026-11-12): the key and value names (proposed), and
                 the two rules for `stopped:` the review asked for. Why: a throwing `stopped:`
@@ -154,14 +156,17 @@ requirements
 
 open
     Q1  Executable checks are not built.
-        outcome  Phase 3 writes each test below as an oracle behind the Port, with its wrong 
-                 runtime; until then every Requirement's evidence is open.
+        outcome  Each test below is written, when its slice is built, as the cheapest check that fully
+                 covers it (a compile-time test, a run rule applied to every Story run, a Story test or
+                 a pure core test) in packages/flow-state-v3/tests/, and each rule gets a planted fault
+                 in tests/faults.ts that `nub run faults` must catch. The cases and wrong runtimes named
+                 below are the prototype's, kept as prior art. Until then every Requirement's evidence
+                 is open.
 
     Q2  Built later, not specified here: staleTime freshness, gcTime collection, trailing refetch, setData, invalidate 
         and clear with partial keys, write batches and their 256 bound, placeholders, contract.get, key size bounds and 
         InvalidKey, focus and connection triggers, optimistic stacking. The prototype built none of them.
-        outcome  They are written in spec-split.md's "written when their phase starts" list, when 
-                 phase 4's operations module reaches them.
+        outcome  They are written in this Spec when phase 4's operations module reaches them.
 
 model
     Entry = (contract id, key) -> { confirmed data, landedAt, stale, request?, trailing? }.
@@ -172,9 +177,11 @@ model
         a lane (@spec.WriteLanes.R6): no Attempt, no phase, no queue, no record.
 
     Terms = ending, Attempt, lane and owed row are @spec.WriteLanes's (@spec.WriteLanes.R2, @spec.WriteLanes.R5,
-        @spec.WriteLanes.R6, `model`); Start and Life are @spec.Actors's (`model`).
+        @spec.WriteLanes.R6, `model`); Start is @spec.Actors's (`model`); Audience, with its Identity and Life, is
+        @spec.WriteLanes's (`model`), not the Runtime's Life of @spec.Actors.
 
-    Fresh = confirmed data present, not invalidated, age below staleTime.
+    Fresh = confirmed data present, not invalidated, and within staleTime (the rule for staleTime is written when
+        built, Q2).
 
     Visible = confirmed data with live optimistic updates applied in start order.
 
@@ -186,7 +193,8 @@ invariants
     I3  Canonical text is a function of the key's value; the stored name of a non-JSON value decodes to the same lane 
         after reload. [@R2]
 
-    I4  An invalid or out-of-bound key changes nothing and runs no getter. [@R3]
+    I4  An invalid key changes nothing and runs no getter; an out-of-bound key joins it once the bounds are written 
+        (Q2). [@R3]
 
     I5  An admitted key is independent of later mutation of the input object. [@R3]
 
@@ -262,7 +270,8 @@ coverage
 
 tests
     T1  Inert contracts: construct every reference contract with service spies; zero calls. A missing services 
-        list fails construction; a money-shaped write keyed by the Attempt draws flow check's warning (@spec.StaticCli).
+        list fails construction; a money-shaped write keyed by the Attempt draws flow check's warning (R1; StaticCli 
+        lists none yet).
             [@I1]
     T2  Key equality and canonical text: one lane whatever order a key is written; a bigint key names a lane and 
         survives a reload. Cases `REV4-H5`, `REV9-NAMES`; wrong runtimes `d119.bigint-no-name`, `d119.bigint-carried`. 
@@ -272,7 +281,7 @@ tests
     T4  Key values: a throwing getter refuses without being run twice; a cycle refuses; a mutated
             input after admission does not change the key. Case `REV6-H4`. [@I4, @I5]
     T5  Shared lookups: two actors looking up one key share one in-flight request; a second Runtime shares nothing. No 
-        prototype case; phase 3 writes this test and its wrong runtime. [@I8]
+        prototype case; a planted fault is written with this test. [@I8]
     T6  One-off reads: a newer lookup supersedes the open one and only its ending arrives. Cases `REV8-M9`, `PAY-16`; 
         wrong runtimes `reads.bad-lookup-keeps-old`, `pay16.superseded-read-keeps-older`. [@I9]
     T8  Read endings: a throwing success mapper ends Defect with a UserClosure issue, and a throwing stopped mapper 
@@ -280,13 +289,13 @@ tests
             ending runs no handler. Cases
             `PAY-16`, `R14-IGN-01`; wrong runtime `pay16.read-defect-not-an-issue`. [@I20]
     T9  Older reads never overwrite: a read started before a write's data landed does not replace it; one started after 
-        applies. Cases `MED-03`, `REV4-H1`; no live prototype wrong runtime targets resource reads, so phase 3 writes 
-        one. [@I11]
+        applies. Cases `MED-03`, `REV4-H1`; no live prototype wrong runtime targets resource reads, so a planted fault
+            is written with this test. [@I11]
     T11  Optimistic endings: success keeps the look until a later lookup; failure removes it without a refetch; unknown 
          keeps it uncertain and refetches once, and a failed refetch leaves it uncertain. Cases `STORE-01`, `STORE-02`, 
          `STORE-03`, `STORE-08`. [@I15, @I16, @I17]
     T12  Rows: pending, uncertain and waiting follow the lane; identity is kept while unchanged; O.x.get of an unknown 
-         key reads the idle row. Case `LIKE-01`; lie `lie:a3.like-row-hidden`. [@I19, @spec.Turn.I30]
+         key reads the idle row. Case `LIKE-01`; wrong runtime `lie:a3.like-row-hidden`. [@I19, @spec.Turn.I30]
     T13  Lookup context: a lookup function records its ctx on a first lookup, a refetch and a subscribe's automatic 
          request; none has an Attempt or an id or key field standing in for one. Wrong runtime: the read context with
              a made-up Attempt (`id: ""`, `key: {}`), as code:packages/flow-state-v3/src/host/driver.ts had before

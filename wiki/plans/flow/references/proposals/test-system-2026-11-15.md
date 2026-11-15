@@ -588,3 +588,47 @@ Seven agents; I verified what I used.
   generated run reported as something to paste back (Hypothesis). Several of its rows were unverified and no
   claim here rests on them.
 - **Honesty checks.** Mine, from a scratch script: dead core and the 18 planted faults (section 3.2).
+
+## Appendix C: rules carried from the old suite's Spec
+
+The deleted `Conformance.spec` (last copy at `52a883e6`) held principles any test system needs. Each is restated for
+Story tests, run rules, generated Stories, compile-time tests, pure core tests and `nub run faults`, with where it
+already lands. Entries 1 to 8 are in a record; 9 to 15 are in no record yet, each with the Task that should own it.
+
+**Already in a record**
+
+1. **An expected value never comes from output.** It is derived from the cited Spec rule; recorded output is a
+   change detector only (old I11). Lands in the Epic's "Test the spec, not the code" constraint.
+2. **Every Plan feature the runtime builds is reached by a test** (old I54). Lands in the Epic's "Every public
+   feature in the Plans is represented in a fixture" and section 5; no gate counts it.
+3. **A run is deterministic:** no wall clock or randomness, same input and seed, same evidence (old I19). Lands in
+   T63 ("run twice gives equal evidence", "arms no host timer"), T65 (same trace) and T70 (same seed).
+4. **A benched run does the same work as a tested one** (old I67). Lands in T66's same-turns test.
+5. **An Invariant that no test can judge is named, with why** (old I38). Partly in T67's coverage record (Scope);
+   its text does not say that each unjudged Invariant carries a reason.
+6. **A test reads only public behaviour** (old I1, I2). Lands in T62's import rules and section 7.
+7. **A failure names the Spec rule it breaks** (old I32). Lands in T64 (rules named by Spec id) and T70 (a failure
+   prints as a Story); the step and seed are not stated.
+8. **A failure a generator finds is kept and replayed** (old I49). Lands in T70 as a Story printed to paste into
+   `stories.ts`; keeping it is by hand, and nothing checks that it was kept.
+
+**In no record yet**
+
+9. **A carried-over expectation counts only when its cited rule gives the same value** (old I41, R5). T67 asks
+   for "the same values" as the case, which is the wrong test of a port. Owner: T67 acceptance line 1.
+10. **A rule is anchored to what a fake received or the store holds**, never only to the run's own reports: a runtime
+    that lies consistently passes a rule that compares reports with each other (old I63, I8, R4). A rule that only
+    compares evidence says so, and no Invariant rests on such rules alone. Owner: T64.
+11. **A red from a thrown scenario error or a timeout is not a catch** (old I18, I25, I16). A fault counts as
+    caught only when a failing test cites the fault's rule, and a dead core must fail tests by assertion.
+    `tools/faults/run.ts` counts any failing run as caught, and exits 0 when a fault is missed or stale. Owner: T64.
+12. **A planted fault is applied exactly once, the unplanted control runs first, and plants are isolated in a copy**
+    (old I14, I15, I17, I33). `tools/faults/run.ts` does this (stale edits are reported, the copy is removed) but
+    no record states it; it joins an edit's path to the copy with no check that it stays inside. Owner: T64.
+13. **Each test cites a Spec rule, and the citation resolves** against the Specs (old I9, I40). T63 and the Epic
+    say tests cite rules; nothing checks that a cited id exists. Owner: T67, as a lint test over `tests/`.
+14. **Each test has a time bound, and an overrun is a defect, not a verdict** (old I34). T63 caps a run at 100,000
+    tasks (section 3.1) but no test time bound is stated. Owner: T63.
+15. **A test's verdict does not depend on other tests, their order or the process split, and each run starts on
+    fresh state** (old I20, I22). Only a repeated run is covered (entry 3). Owner: T63, as a Story run owning its
+    store and fake state.

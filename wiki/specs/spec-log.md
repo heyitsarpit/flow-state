@@ -678,3 +678,31 @@ Edit (agent: orchestrator, @epic.V3, 2026-11-15): Conformance is retired (its ba
 because its coverage rows hold open items). In Conformance, Actors and Restore, each code link to a deleted
 conformance file is now plain text. Why: the user replaced the conformance suite with tests on Flow's own tooling
 (`wiki/plans/flow/references/proposals/test-system-2026-11-15.md`). Reverse: restore from commit `52a883e6`.
+
+Edit (agent: orchestrator with Sonnet fixers, @epic.V3, 2026-11-15): the ten core Specs no longer describe the
+conformance suite. Each Q1 states how checks are now written (the cheapest of a compile-time test, a run rule, a
+Story test or a pure core test, with a planted fault in `tests/faults.ts`); case and wrong-runtime ids stay, named
+as the prototype's; headers drop `spec-split.md`. Contradictions inside a Spec were settled by the code, else the
+prototype: WriteLanes R7 (a Withdrawing head stays), I3 and R2 (four channels); Actors R22 (queued events drop,
+owed rows stay), T16 (disposal ends when no call is on the wire, or at the bound), R13 (the 64 cap is not a spin);
+Restore R2, R3 and I19 (a pending reset runs before the owed rows), R7 ("incompatible" defined); Turn R14 (an
+`armOn` event restarts, the implicit "self" included) and its coverage tags; WriteAhead R2, R5 (built and unbuilt
+lane-record fields) and its tags; Reads `Fresh` and I4; Compile R16; Codec R4. New open questions: Actors Q4,
+StaticCli Q4 and Q5, WriteAhead Q4. Why: six read-only sweeps found the Specs stale and self-contradicting after
+the suite was deleted, and a builder starts from them. Reverse: revert the commit.
+
+Edit (agent: orchestrator with a Sonnet fixer, @epic.V3, 2026-11-15): disagreements between Specs settled the same
+way. A saved Defect row keeps no cause (WriteLanes, Diagnostics R9); a heard turn, Accepted, Unhandled or Denied,
+closes its row Delivered (WriteLanes `ledger`, Turn R26); the boot's order is reset, owed rows, queued commits,
+Held heads (Actors R10, Restore R3); an unencodable commit declines and has no report (Codec R4, WriteLanes R12);
+an unmapped `notSent` is evidence at run time and a `check` error (WriteLanes R4, StaticCli R10); `cancelAll`
+leaves Compile R11; Reads names the audience Life apart from the Runtime's; seven wrong citations fixed. New
+WriteLanes Q6 (does an unmapped ending also leave an issue?) is the user's: the Operations plan and the core
+ledger disagree. Not edited: `src/core/record.ts` still writes `mayHaveApplied`, against WriteAhead R5 and Codec
+R5. Why: a disagreement between two Specs becomes a bug. Reverse: revert the commit.
+
+Edit (agent: orchestrator, @epic.V3, 2026-11-15): `wiki/specs/conformance/Conformance.spec` and
+`wiki/specs/checks/` are deleted, and `spec-split.md` is brought up to the Epic's phases. The rules of the old
+suite's Spec that still apply are Appendix C of `wiki/plans/flow/references/proposals/test-system-2026-11-15.md`.
+Why: the Spec described a deleted suite, and two of the scripts read a path that no longer exists. Reverse:
+restore the files from the commit before this one.

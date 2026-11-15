@@ -2,7 +2,7 @@ spec StaticCli
 status        proposed
 basis         A guide, revisable whenever building shows it wrong; each change and its
               reason is recorded in wiki/specs/spec-log.md.
-              Written from the merged flow plans (proposed); split per spec-split.md there.
+              Written from the merged flow plans (proposed).
 location      packages/flow-state-v3/src
 provides      flow graph, flow check, flow explain (static), flow.config.ts discovery, CLI result
               format
@@ -24,7 +24,8 @@ requirements
     R2  Output for people
         source  @plan.CommandLine.O1.
         must    Output for people names a source location (pay.machine.ts:42) where the Diagnostic
-                or data view carries one, and otherwise the definition path (such as
+                or data view carries one (a Diagnostic has no location field today, @spec.Diagnostics.R2;
+                Q3), and otherwise the definition path (such as
                 operations.pay.failure.CardDeclined), never an internal closure path or an invented
                 location (Diagnostics Spec R10); it groups a graph by state. Decision (agent,
                 2026-11-11): audit C26; where Compiled gets source locations is Q3. The exact outputs are accepted by 
@@ -135,8 +136,12 @@ requirements
 
 open
     Q1  Executable checks are not built.
-        outcome  Phase 3 writes each test below behind the CLI's installed binary, with a wrong 
-                 check for each rule; until then every Requirement's evidence is open.
+        outcome  Each test below is written, when its slice is built, as the cheapest check that fully covers
+                 it (a compile-time test, a run rule applied to every Story run, a Story test or a pure core
+                 test) in `packages/flow-state-v3/tests/`, and each rule gets a planted fault in
+                 `tests/faults.ts` that `nub run faults` must catch; a test that needs the process (exit code,
+                 stdout, stderr) runs the CLI's installed binary. Until then every Requirement's evidence is
+                 open.
 
     Q2  The exact text outputs wait for the user's acceptance in phase 5.
         outcome  R2 and R5's rendering stay open until then; the JSON shape is the contract tests 
@@ -144,6 +149,19 @@ open
 
     Q3  Where Compiled gets source locations for R2 (the data view carries none today, and Compile R16 lists none).
         outcome  Settled with the text outputs in phase 5; until then output names definition paths.
+
+    Q4  Which command can report status equal or different? R1 has no diff, trace diff or search command, and none of 
+        graph, check or static explain compares two things; `explain --since` (R6) is the nearest.
+        Case: `explain 2.0 --since 1.9` over definitions that did not change.
+        outcome  Either its status is equal (exit 0), with different when a definition's saved state resets or
+                 its identity fields changed, or it stays completed and R7 drops equal and different from this
+                 Spec's commands. The plan's statuses are a shared vocabulary until then.
+
+    Q5  What exit code does status failed have when no usage, loading, artifact or I/O failure caused it? R8 gives a 
+        check missing complete type facts status failed and no code, and I6 makes the exit a function of status.
+        Case: check on an app whose type facts are unavailable, with no error finding.
+        outcome  Either exit 2, with R8's failures, or exit 1, with an error finding. Exit 2 puts a check result
+                 beside invocation failures, which R7 sends to stderr, so R7 must then say where it goes.
 
 model
     DataView = the Compile Spec's data view of Compiled: closures as names.
@@ -222,11 +240,11 @@ coverage
 
     @R7
         enforced_by  [@I4, @I5]
-        open_by      [@Q1]
+        open_by      [@Q1, @Q4]
 
     @R8
         enforced_by  [@I6]
-        open_by      [@Q1]
+        open_by      [@Q1, @Q5]
 
     @R9
         enforced_by  [@I1, @I7]
@@ -254,7 +272,7 @@ tests
         `keyless`). [@I1]
     T2  check rules: one fixture per error rule fails with that rule and exit 1; reference apps report none. Prototype 
         pins `no-notsent`, `unencodable-no-notsent`, `shared-contract`, `gone-without-key`; wrong runtime 
-        `cli.notsent-off`. Every other rule has no prototype wrong runtime; phase 3 writes one per rule. [@I8]
+        `cli.notsent-off`. Every other rule has no prototype wrong runtime; its slice plants one per rule. [@I8]
     T3  Type facts: run check where type facts are unavailable; it fails and never says complete. [@I7]
     T4  graph names: for each edge in the reference apps' graphs, run a Story or scenario that takes it and compare the 
         turn record's name. [@I2]

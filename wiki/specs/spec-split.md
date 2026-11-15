@@ -1,13 +1,14 @@
-# Spec split for production (phases 3 and 4)
+# Spec split for production (the core, P3)
 
-Status: current. The split is the runner's call (delegated to the Specs lead), not a decision the user
-made. Every Spec it names is a guide: building may show a guarantee or a boundary wrong, and then the
-Spec changes, with the change and its reason recorded in `spec-log.md`.
+Status: the split of the ten core Specs still holds; the phase numbers follow @epic.V3 (2026-11-15). The
+split is the runner's call (delegated to the Specs lead), not a decision the user made. Every Spec it
+names is a guide: building may show a guarantee or a boundary wrong, and then the Spec changes, with
+the change and its reason recorded in `spec-log.md`.
 
-Scope: Specs exist only for what phases 3 and 4 build next, the core modules of the V3 Epic's phase 4
-and what phase 3's conformance rewrite needs to test them. Feature areas get their Spec when their
-phase starts. Over-designing ahead of building is avoided on purpose: the prototype showed that
-decisions such as a pure TypeScript core are only knowable after building.
+Scope: Specs exist only for what the next stages build: the core modules of P3 and the test tooling
+that P2 builds to test them. Feature areas get their Spec when their phase starts.
+Over-designing ahead of building is avoided on purpose: the prototype showed
+that decisions such as a pure TypeScript core are only knowable after building.
 
 ## How the split was drawn
 
@@ -22,11 +23,11 @@ decisions such as a pure TypeScript core are only knowable after building.
 - the failure carrier, the bounded codec and the static CLI are each consumed by every other module
   and change on their own.
 
-Phase 4's module list maps onto these Specs as follows. "Fragments" has no Spec of its own: a
+The core module list (the V3 Epic's P3) maps onto these Specs as follows. "Fragments" has no Spec of its own: a
 fragment's declaration is a compile contract and its incarnations are turn semantics, so it is
 covered by Compile and Turn.
 
-| Phase 4 module                        | Spec                     |
+| Core module                           | Spec                     |
 | ------------------------------------- | ------------------------ |
 | Compiled and the compiler             | Compile                  |
 | lane, step and turn                   | Turn, Actors, WriteLanes |
@@ -85,17 +86,17 @@ These areas have no Spec now. Each will draw from the plan outcomes listed.
 
 | Area                                          | Phase                                      | Plan outcomes                                                                                                                                                                                                                                               |
 | --------------------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Reads built later (unproved by the prototype) | 4, when the operations module reaches them | the staleTime, gcTime, trailing refetch, setData, invalidate, clear, write batch (256 bound), placeholder, contract.get, key size bound and InvalidKey, focus and connection trigger, and optimistic stacking clauses of @plan.Operations.O1, O2, O5 and O6 |
-| Streams                                       | 5                                          | @plan.Operations.O4                                                                                                                                                                                                                                         |
-| Entity store                                  | 5                                          | @plan.EntityDomains.O1 to O5, and the record-queue, Overloaded and ModuleDisabled clauses of @plan.Operations.O3                                                                                                                                            |
-| Multi-tab and sessions                        | 5                                          | @plan.Persistence.O7                                                                                                                                                                                                                                        |
-| Host adapters (IndexedDB, in-memory)          | 5                                          | the `layerIndexedDb` part of @plan.Persistence.O1                                                                                                                                                                                                           |
-| Stories, `flow story`, `flow trace`           | 5                                          | @plan.Testing.O1 to O4, O6 to O9; @plan.CommandLine.O2 and O4                                                                                                                                                                                               |
-| React and Next.js                             | 5                                          | @plan.React.O1 to O5                                                                                                                                                                                                                                        |
-| Server rendering                              | 5                                          | @plan.ServerRendering.O1 to O7                                                                                                                                                                                                                              |
-| Lazy features                                 | 5                                          | @plan.LazyFeatures.O1 to O5                                                                                                                                                                                                                                 |
-| Inspection                                    | 5                                          | @plan.Inspection.O1, O3, O4, O5 and O6                                                                                                                                                                                                                      |
-| Package routes                                | 9                                          | @plan.Package.O1 to O4                                                                                                                                                                                                                                      |
+| Reads built later (unproved by the prototype) | P3, when the operations module reaches them | the staleTime, gcTime, trailing refetch, setData, invalidate, clear, write batch (256 bound), placeholder, contract.get, key size bound and InvalidKey, focus and connection trigger, and optimistic stacking clauses of @plan.Operations.O1, O2, O5 and O6 |
+| Streams                                       | P5                                         | @plan.Operations.O4                                                                                                                                                                                                                                         |
+| Entity store                                  | P5                                         | @plan.EntityDomains.O1 to O5, and the record-queue, Overloaded and ModuleDisabled clauses of @plan.Operations.O3                                                                                                                                            |
+| Multi-tab and sessions                        | P5                                         | @plan.Persistence.O7                                                                                                                                                                                                                                        |
+| Host adapters (IndexedDB, in-memory)          | P5                                         | the `layerIndexedDb` part of @plan.Persistence.O1                                                                                                                                                                                                           |
+| Stories, `flow story`, `flow trace`           | P2 (tooling), P5                           | @plan.Testing.O1 to O4, O6 to O9; @plan.CommandLine.O2 and O4                                                                                                                                                                                               |
+| React and Next.js                             | P5                                         | @plan.React.O1 to O5                                                                                                                                                                                                                                        |
+| Server rendering                              | P5                                         | @plan.ServerRendering.O1 to O7                                                                                                                                                                                                                              |
+| Lazy features                                 | P5                                         | @plan.LazyFeatures.O1 to O5                                                                                                                                                                                                                                 |
+| Inspection                                    | P5                                         | @plan.Inspection.O1, O3, O4, O5 and O6                                                                                                                                                                                                                      |
+| Package routes                                | P10                                        | @plan.Package.O1 to O4                                                                                                                                                                                                                                      |
 
 The core Specs cite these areas where a core guarantee meets them (a domain write's record queue, a
 stream session's release), and leave the feature's own rules to its future Spec.
@@ -116,14 +117,16 @@ Open for the server-rendering Spec, not settled now (carried from the plan merge
   owned by the V3 Epic, not module behaviour.
 - @plan.Testing.O5: removed (models are cut).
 
-## Phase 3's use
+## How the tests use these Specs
 
-The conformance rewrite tests these Specs through its `Port`, with one oracle per guarantee and the
-wrong runtime it must fail on beside it. Each Spec's tests name prototype cases and wrong runtimes
-from `packages/flow-state-v3/prototypes/` as the reference for how a guarantee was proven. Where a
-test says "no prototype wrong runtime", phase 3 writes one.
+P2 builds Flow's own test system (@epic.V3; the conformance suite and its `Port` are retired, see
+`wiki/plans/flow/references/proposals/test-system-2026-11-15.md`): tests run on Flow's public Stories,
+CLI and inspection, and each rule gets a planted fault that `nub run faults` must catch. P3 builds
+the core against these Specs and their tests. Each Spec's tests name prototype cases and wrong
+runtimes from `packages/flow-state-v3/prototypes/` as the reference for how a guarantee was proven.
+Where a test says "no prototype wrong runtime", P3 writes a planted fault.
 
 ## Prior art
 
-`specs/runtime/Runtime.spec` was derived from the frozen `wiki/plans/rewrite` plans. It is
-superseded as a whole by these Specs and kept unchanged except for a basis line that says so.
+`specs/runtime/Runtime.spec` was derived from the frozen `wiki/plans/rewrite` plans. It is no longer
+in the tree; these Specs replace it as a whole.
