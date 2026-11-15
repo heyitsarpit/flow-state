@@ -982,6 +982,29 @@ tasks
             - `flow story list` names every Story the fixtures export, and an unknown Story exits non-zero with
               its name.
             - Nothing is exported from a public route by this Task.
+        comment     2026-11-15T20:48:33Z
+            Requirements, each a check in `tests/cli/` that fails today (no `src/host/cli/main.ts` yet):
+
+            - R1 (acceptance 1; @plan.CommandLine.O2 trace; @task.V3.T65): for every Story the fixtures export,
+              `main(["trace", id])` over `flow.config.ts` writes to stdout exactly `render(run.trace, "text")` of a
+              direct `story.run()`, nothing to stderr, exit 0.
+            - R2 (acceptance 1; @plan.CommandLine.O2 "the same checkpoints"): `story run <id>` prints one line per
+              checkpoint step in step order, with that step's trace sequence and each actor's state from the direct
+              run's cut; exit 0.
+            - R3 (acceptance 2; @plan.CommandLine.O1, O6): `story list` names each Story in the fixtures' `stories`
+              records once, with its app id, and nothing else.
+            - R4 (acceptance 2; @plan.CommandLine.O1 "unknown operands fail", O3 exit 2): `story run` and `trace` of an
+              unknown id exit 2 with the id on stderr and nothing on stdout; a malformed command exits 2.
+            - R5 (acceptance 3): `src/index.ts` and `src/host/testing/index.ts` export no `main`; `package.json` gains
+              no `exports` or `bin`.
+            - R6 (Task risk): tests may import `src/host/cli/main.ts` and no other `src/host/cli/` file, planted
+              in `tools/flow-state-lint/imports.test.ts`.
+        comment     2026-11-15T20:48:39Z
+            Decisions (agent, small): the CLI uses `effect/cli` (installed with effect 4.0.5) through `Command.runWith`,
+            and `main(argv)` returns its exit code as a value so the bin and tests share one path. First slice is text
+            only, with `--project-root`; `--app`, `--at`, JSON, `story describe` and the config checks of
+            @plan.CommandLine.O6 stay with @task.V3.T22 and @task.V3.T29. Stories are found by a brand on `Story` (O6
+            "branded Stories"); globs use Node's `fs.glob`, since Effect's FileSystem has none.
     T70
         title       Generated Stories
         status      open
