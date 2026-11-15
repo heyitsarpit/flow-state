@@ -234,3 +234,7 @@ note 2026-11-15T22:20:13Z
 note 2026-11-15T22:20:14Z
     Delegated calls: pair sweep is 8 phases by 7 faults (catalogue's 6 plus lost answer); the DRIVE profile reaches
     later phases. For the user's read. Reverse: 48 cells, usual-only driving.
+
+note 2026-11-15T23:51:38Z
+    T70 in review at `65255051`: generated Stories, pair sweep (129 of 392 reached), faults 51 of 51; independent check
+    started. Under scrutiny: the builder's WriteLanes I3/I15/I16 reword around crashes, seed 397, WriteAhead I23.
