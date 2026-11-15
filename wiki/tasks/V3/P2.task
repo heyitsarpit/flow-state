@@ -941,6 +941,15 @@ tasks
             Pinned for @task.V3.T57: `tests/types/schedule-send.test.ts` holds an `it.fails` (Compile T11). machine()
             should refuse a schedule `send` carrying another definition's event token, but it is accepted. It compiles
             because `ScheduleConfig.send` takes `EventToken | Ending`.
+        comment     2026-11-15T20:44:35Z
+            PASS at 88980b0c: both earlier ISSUES are fixed. `tests/types/contract.compile.ts` tests the four
+            @plan.Operations.V1 forms, each beside a valid twin; 2 proofs re-run in a scratch copy (concurrency widened,
+            key widened to string) each left only its own directive unused (TS2578). The two unbuilt V1 forms and the
+            select/key routing are listed in this Task's comments with owner @task.V3.T21, which is what acceptance 2
+            asks; T21's own record does not name them yet. `tests/types/schedule-send.test.ts` is an `it.fails` titled
+            Compile T11; it fails on `toThrow(FlowError)` because machine() accepts the foreign token without throwing.
+            The reworded claim and totals (49; 13, 8, 28) match. `nub run check` is green; the package suite has 319
+            passing and 7 expected fails.
     T69
         title       flow story and flow trace
         status      open
