@@ -610,6 +610,15 @@ tasks
             transfers/long, 1000 runs after 100 warm-up, 108 turns a run; per run median 2.900 ms, p99 4.824 ms; per
             turn median 0.027 ms, p99 0.045 ms. A repeat gave 3.149/5.132 and 0.029/0.048 ms: the spread between runs is
             about 9%, and nothing gates on it.
+        comment     2026-11-15T18:35:20Z
+            Review PASS at 3e1fb97b: no blocking finding. vp test 316 pass, check 0 (plan check run in the checkout; the
+            archive lacks codebases/), lint:rules green, faults 38 of 38; bench-drops-a-round fails
+            tests/bench/run.test.ts by assertion (99 vs 107 turns), a planted 3-step cut too; no test, script or exit
+            code reads a timing; bench/ imports stay in the package. Notes, not blocking: a 1-step cut (checkpoint
+            "end", no turns) passes the bench test, inside acceptance, and I18 in full is already held by
+            tests/stories/story.test.ts; the 9% repeat spread is reported fairly. Routed to @task.V3.T35: label per turn
+            as run time over turns, which includes the inspector and trace work; name the limiter (check-benchmark Q1);
+            unclosed run scopes may skew p99 over 1100 runs.
     T67
         title       The hand cases run as Story tests and the bridge is gone
         status      in_progress
