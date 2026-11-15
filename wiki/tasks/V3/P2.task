@@ -1116,3 +1116,31 @@ tasks
             - Each new runtime rule a scenario relies on has a planted fault that `nub run faults` catches; a dead core
               fails every new test.
             - The package never imports, reads or names `codebases/`; `nub run check` and `nub run lint:rules` pass.
+        comment     2026-11-15T21:28:00Z
+            Requirements, each a check that fails today (neither fixture folder exists):
+
+            - R1 (acceptance 1; Task approach): `fixtures/command-palette/` and `fixtures/number-input/` hold
+              `contracts.ts`, `machine.ts`, `server.ts`, `stories.ts`, import only `src/index.ts` and
+              `src/host/testing/index.ts`, and export `stories` with `usual` and `stress`; `flow.config.ts` lists both.
+            - R2 (acceptance 2; the user: "copy the scenarios from ui-sdk's tests"): each of the 37 upstream cases below
+              has a test in `tests/command-palette/` or `tests/number-input/` titled with its Story id, or a drop
+              reason; the mapping comment says what each asserts and flags any partial port.
+            - R3 (acceptance 3; code:packages/flow-state-v3/tests/rules/played.ts): every new Story test runs through
+              `played`; `tests/rules/sweep.test.ts` sweeps both fixtures' `stories`.
+            - R4 (acceptance 4): each Turn or WriteLanes rule a scenario needs and `tests/faults.ts` lacks gets a fault
+              (expected: Turn R14 armOn restart and exit stop, Turn R2 authored order with Denied reasons); `nub run
+              faults` catches each, and the dead core fails every new test.
+            - R5 (acceptance 5): `grep -ri 'codebases\|ui-sdk'` over the package finds nothing; check and lint:rules
+              at zero.
+            - R6 (brief risk): no prop in an actor's identity; props arrive by a `Configure`-style event, and each
+              wiring line it costs is logged here.
+            - R7 (constraint "test the spec"): expected values come from the upstream case or our Spec; where upstream
+              or the proposal sketch looks wrong, the case and the pinned behaviour are logged here.
+        comment     2026-11-15T21:28:01Z
+            Mapping skeleton (planned; filled at close). Command C1-C25 and number N1-N12 in upstream file order.
+            Planned ports: C1-C7 ranking (PALETTE-RANK-1..7), C9-C10 pages and shortcuts (PALETTE-PAGE-1..2), C11-C15,
+            C17-C19, C21-C24 headless (PALETTE-1..12); N2, N3, N6, N9-N11 (NUMBER-1..8 with N7, N8 as value-only partial
+            ports). Planned drops: C8 (10,000-item timing: a bench measure, not a Story), C16 (per-item onSelect and DOM
+            Event objects: view), C20 (element registration and a dev warning: view), C25 (controlled value: the React
+            adapter, @task.V3.T30); N1, N5 (Intl formatting and the hidden input), N4 (a part's own disabled attribute),
+            N12 (the platform keyboard attribute).
