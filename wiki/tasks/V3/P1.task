@@ -41,11 +41,6 @@ description
 
     - skill:policy-testing for each slice's audit;
     - skill:policy-convergence when reviews repeat a root cause.
-comment 2026-11-09T13:30:00Z
-    Done before the move to this Epic: area H (`e6b0db23`), entities (OD52), streams (OD53), record
-    migration (OD54); M5 settled as an oracle (h) harness bug. Each area passed its adversarial
-    re-audit after its closing batch (audits 2, 3, 3b; S1, S1b; M1, M2). Completion audit: stage
-    A's close-out, PASS on re-check after `d3d89576` (see @phase.V3.P0).
 tasks
     T2
         title       Entities, streams, migration, H1, H2 and M5 settled

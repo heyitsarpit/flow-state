@@ -47,17 +47,6 @@ description
     - skill:to-plan for the merge;
     - skill:to-spec and skill:to-design for the Specs;
     - skill:review for the audits.
-comment 2026-11-09T13:30:00Z
-    Done before the move to this Epic:
-
-    - merge `75a73b84` to `1183c948` (14 Plans, 170 edits);
-    - merge audit `17032125` FAIL on 8 text items, fixed `a8a2551d` to `6c7c5f43`, re-check
-      PASS-WITH-FINDINGS;
-    - core Specs `97277826` to `90d4ffa0`;
-    - completion audit `7feb7df4` PASS-WITH-FINDINGS (5 blocking Spec text items, 27 minors), all
-      fixed at `9c3fc40c`.
-
-    Logs: `wiki/specs/spec-log.md`, `wiki/specs/spec-split.md`.
 tasks
     T3
         title       Plans merged and core Specs written

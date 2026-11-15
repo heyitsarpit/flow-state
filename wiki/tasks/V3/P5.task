@@ -53,9 +53,6 @@ description
       unit tests of internals), and the scenarios that enforce each Invariant written before the code;
     - skill:playbook-build;
     - skill:check-runtime for the browser paths.
-comment 2026-11-12T08:00:20Z
-    The preview's halves of T28 (`layerIndexedDb`) and T30 (`FlowProvider`, `useActorByRef`, `useView`) moved to
-    @task.V3.T58, which runs before this phase (the user, 2026-11-12, wide consult Q1 A); the rest stays here, after it.
 tasks
     T24
         title       Entity store
@@ -125,10 +122,6 @@ tasks
             - Phase-out checks (the four validations): no lost catch in the catch matrix; the same coverage and
               feature-matrix rows; the derived reference equal to the hand rows wherever both exist;
               Compile static cases green on each fixture's `Compiled`.
-        comment     2026-11-12T10:46:00Z
-            From core-task-briefs-2026-11-12.md: `EntityDomains.plan:233` still ends a write `unknown { Abandoned }` 
-            (proposed reason). The user dropped `Abandoned` on 2026-11-12 (Q2 A; @spec.WriteLanes.R3). T24 settles what 
-            that ending is instead.
     T25
         title       Streams
         status      draft
@@ -165,13 +158,6 @@ tasks
               pair with no dated waiver, and passes before this Task closes.
             - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
               the model's expectations is read by a different model family (Fable).
-        comment     2026-11-11T23:27:37Z
-            Owns 4 of the old suite's search kills (from @task.V3.T45 item 7, 2026-11-12, coordinator 7b15241b): 
-            lie:s1.overdue-excuse, r71.bookmark-ahead, the three lie:s1b ones (session search, rules 70 and 71) and 
-            lie:s1c.repair-wedge-says-inflight (repairing). Port each as a suite mutant with a fixture and oracle that 
-            kill it; edits in prototypes/conformance/falsify.ts SEARCH_KILLS.
-        comment     2026-11-11T23:27:53Z
-            Correction to the comment above: it owns 6 kills, not 4 (the three lie:s1b ones count separately).
     T26
         title       Record migration
         status      done
@@ -193,8 +179,6 @@ tasks
             - **User's read:** small API calls.
         acceptance
             The migration slice is proven and passes on production.
-        comment     2026-11-11T12:42:08Z
-            Merged into T20 (replan, accepted 2026-11-11); satisfies Persistence.O5 through T20. Done as merged.
     T27
         title       Multi-tab and sessions
         status      draft
@@ -259,10 +243,6 @@ tasks
             - Covered: the combination gate passes unchanged on the new host.
             - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
               the model's expectations is read by a different model family (Fable).
-        comment     2026-11-12T07:59:34Z
-            The IndexedDB `Store` layer (`layerIndexedDb`) moved to @task.V3.T58 for the preview cut (the user, 
-            2026-11-12, wide consult Q1 A), and `layerMemory` is @task.V3.T19's; this Task keeps Safari's requirements 
-            in full, the bench and the same-fingerprint replay on both hosts.
     T29
         title       Stories with flow story and flow trace
         status      draft
@@ -362,10 +342,6 @@ tasks
             - The bindings install and pass under React 18 and 19, and the server route stubs ServerOnlyImport on the
               client condition.
             - The three open server-rendering points are decided and recorded.
-        comment     2026-11-12T07:59:39Z
-            `FlowProvider`, `useActorByRef` and `useView` moved to @task.V3.T58 for the preview cut (the user, 
-            2026-11-12, wide consult Q1 A); this Task keeps the rest of @plan.React and all of @plan.ServerRendering, 
-            after the preview.
     T31
         title       CLI outputs designed for people
         status      draft
@@ -527,10 +503,6 @@ tasks
             - Phase-out checks (the four validations): no lost catch in the catch matrix; the same coverage and
               feature-matrix rows; the derived reference equal to the hand rows wherever both exist;
               Compile static cases green on each fixture's `Compiled`.
-        comment         2026-11-14T12:51:58Z
-            Proposed by T52 (Q18 held): thin Pay's hand cases once round-14's mutants are gone; on the 2026-11-14 sweep 
-            47 of 55 Pay cases make no prototype catch a kept case does not, so only production's catches and case-only 
-            rows decide then (t52-requirements Q18).
         deletion_reason
             Superseded (the user, 2026-11-15): round-14's adapters, mutants and limits were deleted with the 
             conformance suite; last copy at commit 52a883e6 

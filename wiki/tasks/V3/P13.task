@@ -54,9 +54,6 @@ description
     - skill:policy-convergence at the threshold; skill:review at the cadence;
     - skill:playbook-build (long runs), skill:execute-task, skill:check-task; skill:diagnose when a case fails
       unexplained.
-comment 2026-11-12T08:01:27Z
-    Split and reordered (orchestrator, 2026-11-12, wide consult W3): @task.V3.T17 (compiler) → @task.V3.T9 →
-    @task.V3.T58 (the preview's browser slice) → @task.V3.T57 (fragments) → @task.V3.T21.
 tasks
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
@@ -159,43 +156,6 @@ tasks
             - Phase-out checks (the four validations): no lost catch in the catch matrix; the same coverage and 
               feature-matrix rows; the derived reference equal to the hand rows wherever both exist; Compile static 
               cases green on each fixture's `Compiled`.
-        comment     2026-11-10T20:59:36Z
-            Owns, in conformance/owes.ts, the static Invariants round-14 cannot make: Compile I3, I7 to I10, I12 to 
-            I14, I17 and Diagnostics I1 to I10. Their static cases land before this Task closes (orchestrator decision, 
-            log 2026-11-10T20:57:29Z).
-        comment     2026-11-12T07:05:44Z
-            From the core consolidation design (T54): Owed keeps owner and current untouched for T17 to replace with 
-            the subject path; the Turn act carries parts and members.
-        comment     2026-11-12T07:13:56Z
-            Owed from T47 (orchestrator ruling, 2026-11-12): production's Compiled fails all 11 Compile construction 
-            cases and the places check (no data view, Slots, places, tamper check, Flow.input or computed initial); see 
-            conformance/adapters/production-static.ts#staticOwed.
-        comment     2026-11-12T10:46:05Z
-            From core-task-briefs-2026-11-12.md: `Compile.spec:104` still lists `cancelAll` and `StaticCli.spec:104` 
-            ReservedReason.
-        comment     2026-11-12T11:19:42Z
-            Static contradictions from the Spec review 
-            (code:wiki/plans/flow/references/proposals/spec-review-2026-11-12.md), left for this Task since Compile and 
-            StaticCli are not edited there. (1) wiki/specs/core/Compile.spec:104 lists cancelAll as a typed member; 
-            WriteLanes R15 retired it. (2) wiki/specs/core/StaticCli.spec:104 requires ReservedReason; WriteLanes R3 
-            and I4 retired it. (3) wiki/specs/core/StaticCli.spec:102 says NotSent unmapped: it is now the notSent: 
-            key, and Rejected can occur under every policy (a commit beside a Kept row declines Rejected under reject, 
-            latest and serialize; WriteLanes R6, I33), so flow check counts it as possible everywhere. (4) New from the 
-            user's Q1 B and Q2 B (2026-11-12): cancel(k, { attempt }) takes an operation-typed handle (a handle of 
-            another operation is a type error, WriteLanes R5, T30), and CancelMissed (proposed name) is a new evidence 
-            kind (WriteLanes R3, R14); the static graph shows the cancel member as before, with the exact-target option 
-            on it.
-        comment     2026-11-14T02:03:45Z
-            Owed from T47 (Q22, 995794f9): all 11 Compile construction cases fail on production first on S1's 
-            Flow.input and computed initial (Compile R5). Without those, CMP-01 and CMP-11 pass; the rest lack 
-            TwoDefaults (I5), ImpureDefault (I6), UnknownNotUncertain (I11), ReservedStateName (I13), the data view's 
-            internal events (I4) and Slots (R16), a tampered Compiled's check (I15), creation (I7) and restore (I8). 
-            Rows: conformance/adapters/production-static.ts#staticOwed. Edit (agent: T47 building lead, @task.V3.T47, 
-            2026-11-14): this comment. Why: close review finding 6. Reverse: drop it.
-        comment     2026-11-14T17:40:21Z
-            Edit (agent: T61 parallel builder, @task.V3.T61, 2026-11-14): the Task text names conformance/owes.ts in 
-            place of the old not-yet.ts (commit 4444e57d), a rename only. Reverse: revert that commit's hunk in this 
-            file.
         comment     2026-11-15T09:19:37Z
             Carried from the deleted suite (Appendix A of 
             code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md): a computed delay past 2^31 - 1 ms is 
@@ -263,19 +223,6 @@ tasks
               pair with no dated waiver, and passes before this Task closes.
             - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
               the model's expectations is read by a different model family (Fable).
-        comment     2026-11-12T03:29:44Z
-            Gap (orchestrator, from T51's step-2 review blind sidecar, present before T51): the end proceeds when the 
-            record cannot encode (Actors R8, I37). Land as a failing check first.
-        comment     2026-11-12T04:39:52Z
-            Gaps from T51's re-check (blind sidecar, present before T51), each a failing check first: records validated 
-            after services are acquired (Actors I4); disposeActor waits for the capture window instead of saving at 
-            once (R20); a non-persisted actor's kept endings survive disposeActor (R15); lane-less endings still queued 
-            at disposal are dropped (low); a dispose during storage load is seen only after Layer.buildWithScope 
-            (runtime.ts:194, R4); T51 cases b, c, e need stronger asserts.
-        comment     2026-11-12T07:59:29Z
-            Actors I4's gap (records validated after services are acquired) moved to @task.V3.T19's `Loaded` layer 
-            (orchestrator, 2026-11-12, wide consult W2). Next in the slice order: @task.V3.T58, the preview's browser 
-            slice (W3).
         comment     2026-11-15T09:19:38Z
             Carried from the deleted suite (Appendix A of 
             code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md): a commit queued behind a Held head is 
@@ -309,8 +256,6 @@ tasks
             - Every Reads Invariant has its oracle or case;
             - each oracle kills its listed mutants;
             - verdicts match the old suite's or each difference is logged.
-        comment     2026-11-11T12:41:59Z
-            Merged into T21 (replan, accepted 2026-11-11). Done as merged.
     T21
         title       Reads and operations (slice 5)
         status      draft
@@ -379,23 +324,6 @@ tasks
               pair with no dated waiver, and passes before this Task closes.
             - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
               the model's expectations is read by a different model family (Fable).
-        comment     2026-11-11T23:27:32Z
-            Owns 5 of the old suite's search kills (from @task.V3.T45 item 7, 2026-11-12, coordinator 7b15241b): 
-            drain.old-base-wins, drain.uncertain-forever, drain.row-hidden, drain.row-empty (like search, drain oracle) 
-            and b5.quiet-mark-unshown (fragstore.row search). Port each as a suite mutant with a fixture and oracle 
-            that kill it; edits in prototypes/conformance/falsify.ts SEARCH_KILLS.
-        comment     2026-11-12T03:29:49Z
-            Gap (orchestrator, from T51's step-2 review blind sidecar, present before T51): the end stops reads without 
-            parking failure Interrupted. Land as a failing check first.
-        comment     2026-11-12T07:04:41Z
-            From the core consolidation design (round 3 handoff table, via @task.V3.T54): read endings are ledger rows 
-            whose audience the creator chooses (Actors R8 parks `Interrupted` for the identity); `reads` is untouched 
-            and no slot type exists, since a shared lookup has many waiters (C1).
-        comment     2026-11-12T10:45:44Z
-            From core-task-briefs-2026-11-12.md: read endings follow option B (the user, 2026-11-12, Q1 A). 
-            @spec.Reads.R9 proposes the value `Flow.ReadStopped` (Defect, Interrupted) under the key `stopped:`; both 
-            names are proposed and T21 confirms them. @spec.Reads.I22 and Reads T14 are T21's to build; T54 only routes 
-            read endings through `owe`.
 
     T57
         title       Machine structure: fragments, .each, subject paths and schedules (slice 3b)
@@ -504,8 +432,3 @@ tasks
             - Safari's four requirements hold in real Safari for this layer.
             - The Pay component compiles against `src/index.ts` and the React route in place of the reference stand-in.
             - The suite's gates are no worse than at this Task's start, and `nub run check` is at zero.
-        comment     2026-11-12T08:12:10Z
-            Decision (the user, 2026-11-12): all final fixtures are central, not one scenario. The browser slice 
-            replays every generated part available by then (T47's pilots, composites A-K by slice, Pay and Cells as 
-            parts) under usual and stress profiles in Chrome and Safari with IndexedDB; the preview is done when they 
-            all pass. Checkout stays only as the type-error count.
