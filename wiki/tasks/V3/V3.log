@@ -121,3 +121,7 @@ note 2026-11-15T17:49:44Z
 note 2026-11-15T18:02:49Z
     T64 in review at `bdd85075`: builder reports 36 of 36 faults, 328 sweep variants green, Turn I14 and I9 kept and
     shown as runtime bugs (it.fails). Independent check started.
+
+note 2026-11-15T18:15:06Z
+    T65 in review at `0ed1e89d` (WriteAhead R5 gap pinned as it.fails); its check waits for T64's. T66 started; its
+    timed run waits until no other agent runs.

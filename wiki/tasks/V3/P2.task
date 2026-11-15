@@ -546,7 +546,7 @@ tasks
             3 it.fails; nub run faults 37 of 37; check and lint:rules at zero.
     T66
         title       The bench times the long stories
-        status      open
+        status      in_progress
         priority    medium
         blocked_by  [@T63]
         description
