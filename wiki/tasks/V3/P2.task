@@ -816,6 +816,33 @@ tasks
             - For the user: AGENTS.md line 11 still says `tests/bridge/` is temporary; I did not edit project
               instructions. `nub run faults` now takes about 5 minutes (each port runs its Story three times), at the
               command bound.
+        comment     2026-11-15T20:17:29Z
+            Independent review: PASS at f1a9eb19, no blocking finding. vp test 319 + 6 it.fails; nub run faults 42 of
+            42, dead core green only on the 2 bank contract tests and the 6 inverted; check and lint:rules at zero. All
+            216 old c.eq/c.expect compared (four Haiku sidecars, one blind, every finding re-checked; 18 cases by hand):
+            no value lost beyond the listed drops. The three it.fails, un-inverted in a scratch copy, fail on their
+            rule's value (I7 retryCount 1 vs 2, Turn I14 issues [], Actors I43 no StorageFailure). T64 and T65 routed
+            items fixed; no bridge, page.ts, testing.ts or part.ts left, no outside imports.
+            - Drops judged: TURN-01/mapper-refused holds, and the branch is still covered: dropping its Issue in
+              serve.ts fails 3 host tests in src/host/lanes.test.ts. DLV-04 to 06 changed in kind, fine (DLV-06 now
+              reuses pi1, so the old 'second pay sent 2' becomes 1). Turn I29 holds; I30 could be a run rule (Object.is
+              over one incarnation's consecutive Published records), and state-move-copies-memory is caught anyway.
+              resend-refused-capture's PAYING can be asserted from the Turn evidence (to PAYING before StorageRefused):
+              the stated reason is true, but the value is not out of reach.
+            - Not listed as drops, for the user's read: the bridge's seed-2 pass (shuffled load order, other session
+              seeds; the Story seed option is cut in Stories Q1) and its end-of-case reload with every writer attached.
+            - Builder calls: admit is a buildRuntime parameter, not exported, and a no-op in runtimeSetup; clock.ts and
+              seam.ts are unexported; sign-in's Unsure cancel is a fixture choice WriteLanes R14 allows. None is a
+              public name or a guarantee change.
+            - Routed: the turn bound rejects a crossing batch whole, against Stories I7's 'up to the 10,000th turn'.
+              Unreachable today: the largest batch is 1 Turn across the suite and in two scratch Stories (two chains,
+              three same-instant firings). The test and the I7 wording go to @task.V3.T70. faults reads an over-1-MB
+              vitest output as 'caught (no summary)' (4 faults; turn-published-twice checked: 96 fail) and covers tests/
+              only; 5 min is inside the bound, so no parallel plants until it nears 8 min (@task.V3.T70). Temporary
+              names that predate T67 (PART-…, step T19 in src/host/ledger.test.ts; T51, T18 in lane-shapes.test.ts and
+              cells.test.ts) go to @task.V3.T54.
+            - Plan outcomes delivered: @plan.Testing's Story-only suite, with the bridge deleted, and the coverage
+              record on @phase.V3.P2.
     T68
         title       Compile-time tests for the type promises production keeps
         status      open
