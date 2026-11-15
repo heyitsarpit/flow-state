@@ -1031,6 +1031,20 @@ tasks
         comment     2026-11-15T21:19:08Z
             To review: R1-R6 green (41 CLI tests; package suite 360 pass, 7 expected fail); `nub run faults` 46 of 46
             and exit 0; check and lint:rules at zero.
+        comment     2026-11-15T21:32:50Z
+            Independent review PASS at f20559bb (requirements 35bd4097 and build): no blocking finding. On a git-archive
+            copy, vp test 360 pass and 7 expected fail, lint:rules and vp check and check:effect at zero, nub run faults
+            46 of 46 and exit 0; check:plans passes live. Trace equals render(run.trace, "text") for all 17 Stories;
+            story run checks checkpoint names against the steps; names are @plan.CommandLine only; defineConfig sits in
+            the unexported testing route. Faults runner: the T excuse matches only Compile T11 (an it.fails); the
+            tests/cli excuse holds, since under the dead core 8 parity tests stay green (both sides equal) and the other
+            26 fail; the four CLI faults catch the CLI. The three rejected Effect findings and the unstable-API
+            suppressions (reason on each line) stand. Routed: @task.V3.T29, usage help on stdout (T29 reads T69) and the
+            untested rejected run; @task.V3.T22, O6 checks (a key-only lookalike config dies as a defect, symlinks, root
+            package.json) and the silent catch-all exit 2; next CLI touch, narrow the tests/cli excuse to parity titles,
+            the list test passes a planted trailing blank line (trimEnd), the routes test checks only `main`, and rename
+            StoryId (it holds the app id); P2 audit, pre-existing runner gap: a run with no summary counts as caught (4
+            of 46 here).
     T70
         title       Generated Stories
         status      open
