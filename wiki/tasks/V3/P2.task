@@ -280,6 +280,55 @@ tasks
             - An idiomatic-Effect review by a second Opus agent, using `effect-api-documentation`, leaves no finding
               open without a reason.
             - `vp test`, `nub run check` and `nub run lint:rules` pass.
+        comment     2026-11-15T16:40:07Z
+            Requirements (first commit of the reshape): 13 checks, one per acceptance item in order, each red at
+            `64b95721` because `Story.app` takes a config and a step array, `Fake.server` takes a service and closures,
+            there is no `Fake.call`, `Fake.control`, `Fake.world`, `Fake.Lost`, `Fake.storage` or `inspect(runtime)`,
+            and `runtimeSetup` takes `Layer<any>`. Expected results come from the cited rules, never from a run.
+
+            1. Chain (@spec.Stories R1, R2, R3, I1 to I3): `tests/stories/story.test.ts`: `Story.app(transfersSetup, {
+               id, fixtures })` chains every step word; a fixture Layer counting builds is 0 after two branches from one
+               prefix and 1 per page after `run()`; the prefix's `steps` are unchanged; `run({ steps: s.steps })` equals
+               `s.run()`; `@ts-expect-error` on reading an unknown checkpoint, a duplicate and a widened name.
+            2. Fixtures cover the contracts (R7, I19): `@ts-expect-error` on a Story with no fixture for `BankApi` and
+               on two fixtures of it; `runtimeSetup` has no `Layer<any>` (grep) and a setup without its services Layer
+               is a type error; the setup's own services Layer, counting builds, stays at 0 in a run.
+            3. Fake server (R8 to R11, I8, I9, I12, I13): `tests/stories/fake.test.ts`: a `Bank.limit` control makes the
+               next transfer Declined; `read(Bank)` shows truth after each; the bank contract over `Fake.world`, outside
+               a Story; `@ts-expect-error` on an Exit of other types, an unknown endpoint or control, a wrong control
+               input, an `answer` word; no cast in fixtures or tests (grep). `tests/stories/wire.test.ts`: hold at
+               request then release runs the handler once at the release (truth changes then); hold at response runs it
+               at once; drop at request leaves truth and ends unknown via the port's NoResponse; drop at response
+               changes truth once and ends unknown; each status in `read(Bank.transfer)`.
+               `tests/stories/storage.test.ts`: `Fake.storage.hold` keeps every call out until release (WriteAhead R13);
+               `refuse` ends NotSent StorageRefused with no call; batches logged.
+            4. Cut (R12, I15, I16): a checkpoint's `now`, `inspection` (lane `state` InFlight then none),
+               `read(account)`, `read(Bank)`, `read(Bank.transfer)` and `records` equal values derived from the steps;
+               reading twice is equal.
+            5. Dead page (R13, I10, I14): `tests/stories/reload.test.ts`: a write held across a reload, then released,
+               is aborted; a call held at request across a reload, then released, is handled once; either release leaves
+               `run.evidence`, `records` and `inspection` equal to the checkpoint before it (planted fault: the release
+               completes the waiter); `disposeRuntime` ends `inspection`'s lifecycle Disposed and a call on the wire
+               unknown Disposed at 5 s (Actors I35).
+            6. Every word, reproducible, timer-free, dead page silent (R3 to R6, R14, I4 to I7, I17, I18):
+               `steps.test.ts` has one case per step word (ensure, detach, send, dispose, dispose forget,
+               disposeRuntime, world, advance, reload, checkpoint); `fake.test.ts` script faults reject StoryFailed
+               (release with nothing held, unused hold, drop, storage hold and refuse, a throwing handler, a fixture
+               that fails to build, a send after disposeRuntime); every fixture Story run twice gives equal evidence,
+               checkpoints and end with no host timer called; a settle that never ends rejects StoryTurnLimit Settle.
+            7. Spec: @spec.Stories states this shape; every tooling test title cites its rule.
+            8. Transfers folder: `fixtures/transfers/{contracts,machine,server,stories}.ts` with a `bank.contract.ts`;
+               `long` has 90 to 110 steps and one idempotency key per transfer (WriteLanes I6).
+            9. Not exported (R15): no public route re-exports `src/host/testing` or `inspect` (grep); tests reach them
+               by path.
+            10. Pay (Restore R3, I6): `tests/pay/pay.test.ts`: confirm held at response, never released, 61 s, reload:
+                row uncertain and not pending, lane Held, endings unknown TimedOut then unknown Restored,
+                `read(Shop.confirm)` one call held at response; still one 10 s later.
+            11. Dead core: `nub run faults` fails every new test on the dead core; the tooling faults in
+                `tests/faults.ts` are rewritten for the new code (dead-page answer, aborted write fails its waiter, step
+                left unsettled).
+            12. Idiomatic-Effect review by a second Opus agent; findings closed or reasoned.
+            13. `vp test`, `nub run check`, `nub run lint:rules` at zero.
     T64
         title       Rules checked on every run, and a reload at every step
         status      open
