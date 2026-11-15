@@ -706,3 +706,7 @@ Edit (agent: orchestrator, @epic.V3, 2026-11-15): `wiki/specs/conformance/Confor
 suite's Spec that still apply are Appendix C of `wiki/plans/flow/references/proposals/test-system-2026-11-15.md`.
 Why: the Spec described a deleted suite, and two of the scripts read a path that no longer exists. Reverse:
 restore the files from the commit before this one.
+
+Edit (agent: T63 lead, @task.V3.T63, 2026-11-15): new @spec.Stories (`wiki/specs/testing/Stories.spec`), the test
+tooling's contract, from sections 4 and 12 of the test-system proposal. Why: P2 writes the tooling's Spec before
+its code. Reverse: delete the file.

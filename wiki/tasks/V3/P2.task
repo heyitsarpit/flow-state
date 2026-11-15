@@ -203,6 +203,73 @@ tasks
             - An idiomatic-Effect review by a second Opus agent, using `effect-api-documentation`, leaves no finding
               open without a reason.
             - `vp test`, `nub run check` and `nub run lint:rules` pass.
+        comment     2026-11-15T13:12:39Z
+            Requirements (first commit): 11 checks, one per acceptance item, each red today because `src/host/testing/` 
+            has
+            no Story, Fake or run and `src/host/inspect.ts` no cut; rules are @spec.Stories, expected results from the 
+            cited
+            core rules. Tests live in `tests/stories/` (the tooling) and `tests/transfers/`, `tests/pay/` (the 
+            fixtures).
+
+            1. Inert data, one boundary (@spec.Stories.R1, R2, R3): `tests/stories/story.test.ts` "a Story is inert": a 
+               fake
+               factory's call count is 0 after `Story.app` and 1 after `run()`; mutating the caller's steps changes no 
+               run;
+               `run()` returns a Promise; script faults reject with StoryFailed (release with nothing held, an unused 
+               hold
+               or refuse, a repeated checkpoint, two fakes of one service). Each of the nine step words has its own 
+               case in
+               `tests/stories/steps.test.ts` (item 4).
+            2. Fake typed by the service (R5, R6, R7): `tests/stories/wire.test.ts` and `storage.test.ts` (item 4), plus
+               `@ts-expect-error` lines in `wire.test.ts`, checked by `nub run check`: an unknown method in each word, a
+               handler with the wrong argument type, and `answer` with another method's Exit are type errors; no cast in
+               fixtures or tests (grep).
+            3. Checkpoint contents (R8): `story.test.ts` "a checkpoint is a cut": `now`, the runtime cut (actor 
+               snapshot,
+               lane phase and row, timer), each fake's calls with status, and store records and batches, all equal to 
+               values
+               derived from the steps; a later step leaves the earlier checkpoint unchanged.
+            4. Every word has a test; reproducible; no host timer; dead page (R3, R4, R6, R7, R9, R10): steps.test.ts:
+               attach, send, detach (no nudge after, Turn I23), forget (record gone, Actors R21), disposeActor (actor 
+               out of
+               the cut, Actors R20), disposeRuntime (disposal Disposed, Actors R22), advance (nudge at 20 s, deadline 
+               at 30 s,
+               not at 19,999 or 29,999 ms), reload (re-attached), checkpoint. wire.test.ts: hold+release, dropRequest,
+               dropResponse, answer (WriteLanes R2, R4, R5). storage.test.ts: hold+release (no call before the 
+               acknowledging
+               write lands, WriteAhead R13), refuse (NotSent StorageRefused, no call). `reload.test.ts`: a held write
+               released after a reload is aborted and changes no record; a held call released after it lands once and
+               delivers nothing; no dead-page deadline fires. Every fixture Story is run twice with equal evidence,
+               checkpoints and end, and host `setTimeout`, `setInterval`, `setImmediate` are never called.
+            5. Spec first (to-design, to-spec): @spec.Stories, this commit; every test title cites its rule.
+            6. Transfers fixture folder: `fixtures/transfers/{contracts,machine,server,stories}.ts` replaces
+               `fixtures/transfers.ts`; `tests/transfers/transfers.test.ts` runs its Stories; `long` has about 100 
+               steps and
+               every request of one transfer carries one idempotency key (WriteLanes R5).
+            7. Internal only (R11): no public route re-exports `src/host/testing` or `cutOf` (grep of `src/index.ts` and
+               the package's routes); fixtures reach it by `src/host/testing/index.ts`, per lint.
+            8. Pay across a reload: `tests/pay/pay.test.ts`: lost confirm response, 61 s, reload: row uncertain and not
+               pending, endings unknown TimedOut then unknown Restored (Restore R3, I6; WriteLanes I15), exactly one 
+               confirm
+               reached the shop, and still one after 10 s more.
+            9. Dead core: `nub run faults` over the new tests reports every new test red; runtime faults the new tests
+               must catch are added to `tests/faults.ts` (acknowledgement skipped, a restored head re-sent, no unknown
+               Restored at the boot).
+            10. Effect review by a second Opus agent; findings closed or reasoned.
+            11. `vp test`, `nub run check`, `nub run lint:rules` at zero.
+
+            Rulings folded in from the orchestrator: May change adds `src/core/rows.ts`, `src/host/runtime.ts`,
+            `tests/faults.ts` and the move of `fixtures/transfers.ts`; run rules stay T64's; no import from 
+            `tests/bridge/`.
+            Decision (agent): the Spec is `wiki/specs/testing/Stories.spec`. Why: the tooling is one contract apart 
+            from the
+            core's. Reverse: move it.
+        comment     2026-11-15T13:12:40Z
+            Sidecars: Spec-rules sweep accepted (endings for Pay and transfers cite Restore R3, I6, WriteLanes I15, 
+            WriteAhead R13, R14; re-read). Adversary: false passes accepted into items 1 to 4 (unused holds, untested 
+            words, dead-page releases, evidence-only determinism, boundary times); its claim that the page's fibers 
+            bypass the task list rejected: TestClock.layer provides its own Scheduler wrapping the one it was built 
+            with (effect testing/TestClock.ts, layer), and the draft's advance only completes on that list.
     T64
         title       Rules checked on every run, and a reload at every step
         status      open
