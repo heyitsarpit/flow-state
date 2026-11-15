@@ -952,7 +952,7 @@ tasks
             passing and 7 expected fails.
     T69
         title       flow story and flow trace
-        status      open
+        status      in_progress
         priority    medium
         blocked_by  [@T65]
         description
