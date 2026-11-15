@@ -190,3 +190,11 @@ note 2026-11-15T20:36:08Z
 note 2026-11-15T20:44:54Z
     T68 done: review PASS at `88980b0c` after one fix round; 13 compile tests, 28 unbuilt promises with owners. Unbuilt
     promises routed to @task.V3.T21 and the foreign event token to @task.V3.T57.
+
+note 2026-11-15T21:01:49Z
+    Decision (user, 2026-11-16): "we can build all the machines and code proposed in ui-primitives-generality ... plot a
+    course for them to be included in fixtures ... ui-sdk cloned and ... copy the scenarios".
+
+note 2026-11-15T21:01:49Z
+    Course: ui-sdk cloned to codebases/ui-sdk (`98ba9fd`); @task.V3.T71 (palette, number input) runs before T70,
+    @task.V3.T72 after T17, @task.V3.T73 after T21 and T57. Behaviour ported, never code.

@@ -284,3 +284,42 @@ tasks
             - Each new rule has a planted fault that `nub run faults` catches.
         comment     2026-11-15T14:33:24Z
             @spec.Actors.I38 (a commit queued behind a Held head is not ended at disposal) is @task.V3.T55's.
+
+    T72
+        title       UI primitives, second wave: toaster and menu fixtures
+        status      draft
+        priority    medium
+        blocked_by  [@T17]
+        description
+            Build the toaster and the menu with submenus as fixtures, each with ui-sdk's behaviour scenarios ported as
+            Story tests.
+
+            **Why now:** the second wave of the ui-sdk fixtures the user chose (the user, 2026-11-16). Both need
+            compound states and history, which @task.V3.T17 builds; the menu's nested popups and stale endings exercise
+            actor ownership.
+
+            **Read first:** code:wiki/plans/flow/references/proposals/ui-primitives-generality-2026-11-16.md (toaster
+            and menu machines), code:wiki/plans/flow/references/proposals/ui-primitives-2026-11-16.md, the upstream core
+            tests in `codebases/ui-sdk/packages/core/test/`: `toast.test.ts` and `toast-swipe.test.ts` (34), and
+            `menu-*.test.ts` (36), at commit `98ba9fd`.
+
+            **Risk:** the toaster's pausable timer is leaky with today's features (the idiom pass); if the user accepts
+            `pauseWhile` before this starts, build on it instead. Behaviour is ported, never code or test text.
+
+            **Approach:** as @task.V3.T71: four-file folders, usual and stress Stories, a mapping comment, drops
+            with reasons.
+
+            May change: `fixtures/toaster/`, `fixtures/menu/`, `tests/`. Evidence: this Task's comments.
+
+            False pass: a ported test that asserts less than its upstream case → caught by the mapping comment and `nub
+            run faults`.
+
+            User's read: each dropped upstream scenario with its reason.
+        acceptance
+            - `fixtures/toaster/` and `fixtures/menu/` exist in the four-file shape, each with a usual and a
+              stress Story.
+            - Every core test of ui-sdk's toast (34) and menu (36) maps to a Story test asserting the same behaviour, or
+              is listed as dropped with its reason, in one mapping comment on this Task.
+            - The run rules and the reload sweep cover the new Stories; each new runtime rule has a planted fault that
+              `nub run faults` catches, and a dead core fails every new test.
+            - The package never imports, reads or names `codebases/`; `nub run check` and `nub run lint:rules` pass.

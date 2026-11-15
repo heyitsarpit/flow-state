@@ -62,7 +62,7 @@ description
     **Starts when:** now, ahead of every remaining core slice. P3 starts only after this phase's completion audit.
 
     **Order:** @task.V3.T62, @task.V3.T63, @task.V3.T64, @task.V3.T65, @task.V3.T66, @task.V3.T67, @task.V3.T68,
-    @task.V3.T69, @task.V3.T70. Where several are ready, take the earliest in this order.
+    @task.V3.T69, @task.V3.T71, @task.V3.T70. Where several are ready, take the earliest in this order.
 
     **Verified by:**
 
@@ -1045,3 +1045,48 @@ tasks
             load order and session seeds) and the end-of-case reload with every writer attached; Turn I30 as a run rule
             (Object.is over one incarnation's consecutive Published); the turn bound rejects a crossing batch whole,
             against Stories I7's wording; the faults runner reads output over 1 MB as caught and covers tests/ only.
+
+    T71
+        title       UI primitives, first wave: command palette and number input fixtures
+        status      open
+        priority    medium
+        description
+            Build the command palette and number input as fixtures, each with ui-sdk's behaviour scenarios ported as
+            Story tests.
+
+            **Why now:** today's fixtures share one domain, a write with an unknown ending. The user chose ui-sdk's most
+            stateful primitives as the source of fixture variety and, later, of Flow's official demo (the user,
+            2026-11-16). These two run on production today, so they land before @task.V3.T70 and the generator runs
+            over them.
+
+            **Read first:** code:wiki/plans/flow/references/proposals/ui-primitives-generality-2026-11-16.md (the
+            machines to build, sections on the command palette and number input),
+            code:wiki/plans/flow/references/proposals/ui-primitives-2026-11-16.md (behaviours and edge cases), the
+            upstream tests in `codebases/ui-sdk/packages/core/test/command.test.ts` (25) and `number-input.test.ts`
+            (12), at commit `98ba9fd`.
+
+            **Risk:** the idiom pass (code:wiki/plans/flow/references/proposals/ui-primitives-idiom-2026-11-16.md) found
+            the `Configure` props workaround leaky; the user reviews its proposals separately, so build with today's
+            features and note each wiring line it costs. ui-sdk is Apache-2.0: behaviour is ported, never code or test
+            text, and the package never names or reads `codebases/`.
+
+            **Approach:** one fixture folder each in the four-file shape, with a usual and a stress Story. Every
+            upstream core test becomes a Story test asserting the same behaviour in our words, cited by our Spec or
+            Story id; a scenario no Story can express (DOM focus, pointer geometry, rendering) is listed as dropped with
+            its reason. React-only and SSR tests are out of scope here (@task.V3.T30).
+
+            May change: `fixtures/command-palette/`, `fixtures/number-input/`, `tests/`. Evidence: this Task's comments.
+
+            False pass: a ported test that asserts less than its upstream case → caught by the case-by-case mapping
+            comment and by `nub run faults`.
+
+            User's read: each dropped upstream scenario with its reason; each workaround's wiring lines.
+        acceptance
+            - `fixtures/command-palette/` and `fixtures/number-input/` exist in the four-file shape, each with a usual
+              and a stress Story, built with today's public API.
+            - Every core test of ui-sdk's command (25) and number input (12) maps to a Story test asserting the same
+              behaviour, or is listed as dropped with its reason, in one mapping comment on this Task.
+            - The run rules apply to every new Story test, and the reload sweep covers the new Stories.
+            - Each new runtime rule a scenario relies on has a planted fault that `nub run faults` catches; a dead core
+              fails every new test.
+            - The package never imports, reads or names `codebases/`; `nub run check` and `nub run lint:rules` pass.

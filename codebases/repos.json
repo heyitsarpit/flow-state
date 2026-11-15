@@ -7,5 +7,6 @@
   "https://github.com/kamp-us/phoenix.git",
   "https://github.com/mikearnaldi/accountability.git",
   "https://github.com/pmndrs/zustand.git",
-  "https://github.com/statelyai/xstate.git"
+  "https://github.com/statelyai/xstate.git",
+  "https://github.com/vercel-labs/ui.git"
 ]

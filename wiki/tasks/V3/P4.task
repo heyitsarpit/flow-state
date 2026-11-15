@@ -242,3 +242,45 @@ tasks
             - Nothing in `verify` reads the frozen packages.
             - `packages/flow-state-v3/package.json` has the six routes' `exports` map and the `flow` bin, and the
               packed-consumer smoke check passes on a packed tarball.
+
+    T73
+        title       UI primitives, third wave: combobox, tree and token input fixtures
+        status      draft
+        priority    medium
+        blocked_by  [@T21, @T57]
+        description
+            Build the async combobox, the lazy tree and the token input as fixtures, each with ui-sdk's behaviour
+            scenarios ported as Story tests.
+
+            **Why now:** the third wave of the ui-sdk fixtures the user chose (the user, 2026-11-16). They need reads
+            and `subscribe.each` (@task.V3.T21) and the full schedule forms (@task.V3.T57): debounced latest-wins search
+            with paging, per-branch cancellable loads, and undo history with late-settling items.
+
+            **Read first:** code:wiki/plans/flow/references/proposals/ui-primitives-generality-2026-11-16.md (the three
+            machines), code:wiki/plans/flow/references/proposals/ui-primitives-2026-11-16.md, the upstream core tests in
+            `codebases/ui-sdk/packages/core/test/`: `combobox*.test.ts` (24), `tree*.test.ts` (69) and
+            `token-input*.test.ts` (29), at commit `98ba9fd`.
+
+            **Risk:** the generality pass found that props in `Flow.input` reset the actor; send props by event (or use
+            declared props if the user accepts them first). The proposal names three probable upstream bugs (a collapse
+            while loading, a stale `hasMore`, a refused undo); pin the correct behaviour, not upstream's.
+
+            **Approach:** as @task.V3.T71: four-file folders, usual and stress Stories, a mapping comment, drops
+            with reasons.
+
+            May change: `fixtures/combobox/`, `fixtures/tree/`, `fixtures/token-input/`, `tests/`. Evidence: this
+            Task's comments.
+
+            False pass: a ported test that asserts less than its upstream case → caught by the mapping comment and `nub
+            run faults`.
+
+            User's read: each dropped upstream scenario with its reason.
+        acceptance
+            - `fixtures/combobox/`, `fixtures/tree/` and `fixtures/token-input/` exist in the four-file shape, each with
+              a usual and a stress Story.
+            - Every core test of ui-sdk's combobox (24), tree (69) and token input (29) maps to a Story test asserting
+              the same behaviour, or is listed as dropped with its reason, in one mapping comment on this Task.
+            - The three probable upstream bugs the proposal names are pinned as the correct behaviour.
+            - The run rules and the reload sweep cover the new Stories; each new runtime rule has a planted fault that
+              `nub run faults` catches, and a dead core fails every new test.
+            - The package never imports, reads or names `codebases/`; `nub run check` and `nub run lint:rules` pass.
