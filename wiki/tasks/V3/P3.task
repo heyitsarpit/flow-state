@@ -103,6 +103,8 @@ tasks
             - The two known bugs of this area (a flush that holds only its own actor's record; an adopted lane's later
               endings routed against Actors R20) are fixed, and their inverted tests are flipped.
             - `nub run faults` catches every named fault; `vp test` and `nub run check` pass.
+        comment     2026-11-15T20:17:58Z
+            Routed from T67's review: temporary names in src tests (PART-…, T19, T51, T18) predate T67; remove them.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      draft

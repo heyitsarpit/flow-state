@@ -635,7 +635,7 @@ tasks
             unclosed run scopes may skew p99 over 1100 runs.
     T67
         title       The hand cases run as Story tests and the bridge is gone
-        status      review
+        status      done
         priority    high
         blocked_by  [@T63, @T64]
         description
@@ -929,3 +929,8 @@ tasks
             Restored through outside a boot; I14 skips event-turn refusals and new Ended work; I9 checks only publishes
             after an outcome record; I15 misses a delivered evidence-only ending; I6 skips never-minted keys; Restore I1
             judged at 29 of 164 positions.
+        comment     2026-11-15T20:17:57Z
+            Routed from T67's review (PASS at `f1a9eb19`): two bridge checks dropped unlisted: the seed-2 pass (shuffled
+            load order and session seeds) and the end-of-case reload with every writer attached; Turn I30 as a run rule
+            (Object.is over one incarnation's consecutive Published); the turn bound rejects a crossing batch whole,
+            against Stories I7's wording; the faults runner reads output over 1 MB as caught and covers tests/ only.

@@ -174,3 +174,7 @@ note 2026-11-15T19:31:26Z
 note 2026-11-15T19:52:57Z
     T67 in review at `f1a9eb19`: bridge deleted, 81 cases accounted (78 full, 2 it.fails, 1 dropped); independent check
     started. AGENTS.md's bridge line updated; this run's stray faults scratch dir removed.
+
+note 2026-11-15T20:17:58Z
+    T67 done: independent review PASS at `f1a9eb19` (`f5625d6f`); the bridge is gone, one test style left. Routed: two
+    unlisted bridge drops, Turn I30 and runner limits to @task.V3.T70; temporary names to @task.V3.T54.
