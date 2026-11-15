@@ -1074,7 +1074,7 @@ tasks
 
     T71
         title       UI primitives, first wave: command palette and number input fixtures
-        status      open
+        status      in_progress
         priority    medium
         description
             Build the command palette and number input as fixtures, each with ui-sdk's behaviour scenarios ported as
