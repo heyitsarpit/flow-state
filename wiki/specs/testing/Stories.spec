@@ -4,9 +4,9 @@ basis         A guide for the test tooling, written with skill:to-spec and skill
               building shows it wrong, each change logged in wiki/specs/specs.log.
 location      packages/flow-state-v3/src/host/testing
 derives_from  [@plan.Testing.O1, @plan.Testing.O2, @plan.Testing.O3, @plan.Testing.O4, @plan.Inspection.O1,
-              @plan.Pending.D5, @plan.Pending.D6, @plan.Pending.D7, @plan.Pending.D8]
+              @plan.Inspection.O4, @plan.Pending.D5, @plan.Pending.D6, @plan.Pending.D7, @plan.Pending.D8]
 provides      Story, Story.Step, Fake.server, Fake.call, Fake.control, Fake.world, Fake.Lost, Fake.storage, the run,
-              checkpoints, the runtime cut inspect(runtime)
+              checkpoints, the runtime cut inspect(runtime), the trace run.trace and render(trace, "text")
 
 requirements
     R1  A Story is an inert chain
@@ -41,7 +41,8 @@ requirements
         must    `run()` returns a Promise of a StoryRun: `steps`, `evidence` (every Runtime evidence record in
                 order, every operation ending among them with its operation, Attempt, channel and reason), 
                 `checkpoints` by
-                name and `end`, a cut after the last step. Each call runs in a fresh world: an empty store, the
+                name, `end`, a cut after the last step, and `trace` (R16). Each call runs in a fresh world: an empty 
+                store, the
                 server registry at each server's `initial`, a Runtime of its own, time 0. A fault of the script, not
                 of the app, rejects the Promise with StoryFailed naming it: a wire or storage word that finds nothing
                 held, a hold, drop or refuse that no call or write used by the run's end, a repeated checkpoint name
@@ -160,6 +161,19 @@ requirements
                 package. No public route exports them before @task.V3.T29 exports `flow-state/testing` and
                 @task.V3.T49 exports `flow-state/inspect`.
 
+    R16  A run prints as a trace
+        source  @plan.Inspection.O4; @plan.Testing.O4.
+        must    `run.trace` is the finished run's trace as data: its `storyId` and its events in the order they
+                happened, one for each step (at the step's start; a checkpoint is its step's event), each Runtime
+                evidence record, each call an endpoint received (at arrival, with its status of R10 at the run's
+                end) and each store write batch (at issue, with its status of R11 at the run's end). Each event
+                carries the `page` it came from and a run-wide `sequence` that starts at 1 and rises by 1, stamped
+                by the run's own evidence sink in `src/host/`; the core is unchanged. `render(trace, "text")`
+                prints one line per event in sequence order: a step with its arguments, a request with its server,
+                endpoint, input and status, a write with its purpose, keys and status, and each evidence record with
+                its fields, an ending's operation, Attempt, channel and reason included. Export, import, redaction,
+                truncation and the Plan's other event fields and kinds (tab, control, verdict, cleanup) are Q1's.
+
 open
     Q1  Cut from @plan.Testing for this first slice.
         outcome  Story.machine and Story.fragment, tabs, together, setContext, hydration, frames, the address
@@ -250,6 +264,12 @@ invariants
 
     I19  A Story's pages are built from its fixtures and `Fake.storage` only: no Layer from the setup's own services 
          and no external store is built in a run. [@R7]
+
+    I20  Every step, evidence record, endpoint call and store write batch of a run is exactly one event of `run.trace`, 
+         in the order it happened; sequences are 1 to n with no gap; the trace's evidence records, in
+        order, equal `run.evidence`. [@R16]
+
+    I21  Two runs of one Story give equal traces and equal text. [@R14, @R16]
 
 composition
     flow
@@ -342,6 +362,10 @@ coverage
         enforced_by  lint's import rules and the package's public routes
         open_by      [@Q1]
 
+    @R16
+        enforced_by  [@I20, @I21]
+        open_by      [@Q1]
+
 tests
     T1  Inert chain: a fixture whose Layer counts its builds is in a Story; the count is 0 after building the Story and 
         two branches from one prefix, and one per page after run(); the prefix's `steps` are unchanged by the
@@ -398,3 +422,8 @@ tests
          transfer carries one idempotency key (@spec.WriteLanes.I6). [@I18]
     T13  Not exported: no public route of the package re-exports `src/host/testing` or `inspect(runtime)` (grep of the 
          routes); Flow's tests reach them by path. [@R15]
+    T14  Trace of `transfers/lost-then-reload`: filtered to steps, requests, endings and writes, it equals a list 
+         stated by hand from @spec.WriteAhead.R10, R13, @spec.Restore.R1, R3, @spec.Codec.R5's record kinds and R10,
+             R11; sequences are 1 to n; its evidence equals `run.evidence`; two runs render equal text; the text is
+             kept as a file snapshot, a change detector only (planted fault: the trace leaves out requests).
+             [@I20, @I21]

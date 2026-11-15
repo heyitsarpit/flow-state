@@ -513,6 +513,19 @@ tasks
             - Two runs of one Story print the same trace. Each trace event carries a run-wide sequence number, stamped
               by the host's evidence sink (the core stays unchanged); T65 owns it.
             - A text snapshot of that trace is kept as a change detector only.
+        comment     2026-11-15T18:07:07Z
+            Requirements (first commit), each a check red today (no run.trace), its expected result from the cited rule;
+            one to one with the acceptance; Spec rule @spec.Stories.R16, I20, I21, T14. Q1 (acceptance 1)
+            `transfers/lost-then-reload`'s trace, filtered to steps, requests, endings and writes, equals by hand: p0
+            step ensure acct-1; capture [actor] landed (WriteAhead R10, captureMs 0); step world hold at response; step
+            send t1; acknowledge [actor, lane] landed, then request Bank.transfer t1 500 held at response whose key is
+            the ending's Attempt (WriteAhead R13, Stories R10); step checkpoint sending; step advance 5 s (nothing due
+            before 20 s); step reload; p1 ending transfer unknown Restored (Restore R1, R3); capture [actor, lane]
+            landed (WriteAhead R5, R10; the row is heard in its own step, so no owed record); step checkpoint reloaded.
+            Record kinds by key prefix (Codec R5). Planted fault: the trace leaves out requests. Q2 (acceptance 2)
+            sequences are 1 to n, stamped by the run's sink in src/host/; the trace's evidence equals run.evidence (core
+            unchanged); two runs give equal traces and equal render text (Stories R14, I21). Q3 (acceptance 3)
+            render(trace, "text") is kept as a file snapshot in tests/transfers/, a change detector only.
     T66
         title       The bench times the long stories
         status      open

@@ -16,3 +16,7 @@ note 2026-11-15T17:59:19Z
 note 2026-11-15T17:59:19Z
     Stories I7 reworded: a run cannot cut a synchronous chain short, so it rejects past 10,000 turns with the evidence
     cut at the 10,000th; the old "no 10,001st turn runs" was unbuildable without a driver slice. Reverse: restore it.
+
+note 2026-11-15T18:07:07Z
+    Stories R16, I20, I21, T14 added for the trace (Inspection O4's first slice): run.trace with a run-wide sequence
+    stamped by the run's sink, and render(trace, "text"); R4 lists trace. Reverse: drop them.
