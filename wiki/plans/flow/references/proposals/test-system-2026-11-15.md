@@ -445,8 +445,9 @@ decision; the user may overturn any of them.
 7. **Pay is proven inside the first slice,** not after it. One Pay Story (a lost confirm, its deadline, a
    reload) must pass before the slice counts as done, because Pay's detached fiber across a page death is the
    one thing the spike left unproven. If it cannot pass, the reload model is wrong and work stops there.
-8. **Core work resumes after the port (phase C).** Generated Stories and the CLI (phase D) must land before
-   T18, where new behaviour arrives.
+8. **Core work resumes after the whole test system is done,** generated Stories and the CLI commands included
+   (changed later on 2026-11-15; it was "after the port"). The known bugs in the consolidation's area were all
+   found by generated runs, and the Epic starts a phase only after the previous one's completion audit.
 9. **The tooling lives under `src/host/`,** not in `src/testing` and `src/inspect` as sections 2 and 13 first
    said. AGENTS.md defines the core as everything outside `src/host/`, pure and without the Effect runtime,
    and the lint enforces it. Public routes can map to these folders later. Reverse: move the folders and add

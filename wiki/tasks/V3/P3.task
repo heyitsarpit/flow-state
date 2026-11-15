@@ -176,6 +176,8 @@ tasks
         acceptance
             - The Requirements of @spec.WriteAhead this slice builds hold, shown by run rules over the fake store's
               batches and by Story tests.
+            - A contract test of the store passes against the fake store and against real IndexedDB in real Chrome
+              and Safari, run alone, so write-ahead is not built on an unchecked fake.
             - The known bugs of this area are fixed: a re-send's retry count missing from the capture before it,
               whose inverted test is flipped; and any write discharging every dirty end, which has no reproduction
               yet and gets its test here.

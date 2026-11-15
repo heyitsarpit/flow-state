@@ -71,7 +71,7 @@ description
 tasks
     T62
         title       Package layout and import rules
-        status      review
+        status      done
         priority    high
         description
             Fix the package's folders and what may import what, enforced by lint, before the tooling is built.
@@ -139,6 +139,14 @@ tasks
             narrowing of this claim is the orchestrator's small amendment (Authority): the folders need the Story 
             tooling to hold anything real. Reverse: restore the claim from ee757592 and create the folders here. Awaits 
             an independent check.
+        comment     2026-11-15T10:15:55Z
+            Final check at 5e95c840: PASS on all 4 claims. Layout PASS: the claim now matches the config (top folders 
+            and their import edges only, inner shape not encoded), and each named Task creates its folder in its own 
+            text: T63 src/host/testing/ and fixtures/transfers/, T64 tests/rules/, T66 bench/, T67 the other fixtures 
+            (four-file shape, part.ts deleted), T68 tests/types/. The narrowing is owned as the orchestrator's small 
+            amendment. Refusals, planted cases and gates PASS: git diff --stat 6b9fe478 5e95c840 over vite.config.ts, 
+            tools/flow-state-lint, tools/lint-bomb and the package is empty, so the probe and gate results at 6b9fe478 
+            stand.
     T63
         title       A Story drives the real Runtime over fakes
         status      open

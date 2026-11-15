@@ -1,6 +1,6 @@
 epic         V3
 title        Flow State v3 production
-status       draft
+status       active
 description
     **Goal:** "production code for Flow State v3 at high quality, with good error messages and the
     correctness guarantees the prototypes proved, plus example apps and generated documentation"

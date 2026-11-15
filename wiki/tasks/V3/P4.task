@@ -89,7 +89,8 @@ tasks
         acceptance
             - The fixtures run in real Chrome and Safari, each alone, and the run fails on a fault planted in the
               IndexedDB path.
-            - A contract test runs once against the fake store and once against real IndexedDB, and both pass.
+            - The store contract test @task.V3.T19 wrote still passes against the fake store and real IndexedDB, and
+              the same is shown for the fake page's timers and lifecycle against a real page.
             - The React binding is the least that renders the fixtures; @task.V3.T30 builds the rest.
     T57
         title       Machine structure: fragments, .each, subject paths and schedules (slice 3b)
