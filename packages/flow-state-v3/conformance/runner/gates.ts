@@ -23,13 +23,6 @@ export const productionOwed: ReadonlyArray<Limit & { readonly owner: string }> =
     owner: "@task.V3.T17",
   },
   {
-    case: "PAY-05/held-head-sleeps-at-boot",
-    check: "case",
-    invariant: "WriteAhead I24",
-    why: "a StillUnknown hold leaves the saved lane record's inFlight true (`lane-moves.ts` Hold), so the next boot wakes an identity whose head is Held (WriteAhead T18, Restore I1)",
-    owner: "@task.V3.T54",
-  },
-  {
     case: "PAY-15/final-write-refused",
     check: "case",
     invariant: "Actors I43",

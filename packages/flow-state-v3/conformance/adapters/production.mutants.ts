@@ -50,9 +50,8 @@ export const productionMutants = {
       edits: [
         {
           file: "conformance/adapters/production.ts",
-          find: "          channel: e.channel,\n          reason: e.reason,\n          actor: Option.isNone(e.attempt)",
-          replace:
-            '          channel: "success",\n          reason: e.reason,\n          actor: Option.isNone(e.attempt)',
+          find: '          channel: e.channel === "notSent" ? "failure" : e.channel,',
+          replace: '          channel: "success",',
         },
       ],
     }),
@@ -192,14 +191,14 @@ export const productionMutants = {
   selection: [
     mutant({
       name: "prod.actor-never-saved",
-      says: "an actor's record is never written, so after a reload it runs from a state it never published",
+      says: "an actor's record always saves its initial state, so after a reload it runs from a state it never published",
       expects: "Turn I2",
       cases: ["DISP-01", "DISP-07"],
       edits: [
         {
-          file: "src/core/persist.ts",
-          find: "    persist(actor, Option.toArray(actorWrite(incarnation)), due);",
-          replace: "    persist(actor, [], due);",
+          file: "src/core/record.ts",
+          find: "      state: incarnation.state,\n      memory,",
+          replace: "      state: compiled.initial,\n      memory,",
         },
       ],
     }),
