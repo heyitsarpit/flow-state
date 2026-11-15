@@ -27,7 +27,7 @@ export const mainTab = (open: number) => ({ name: "main", open });
  */
 export type WorldWord = Data.TaggedEnum<{
   control: { server: AnyServer; control: string; input: Values };
-  wire: { server: AnyServer; endpoint: string; word: "hold" | "release" | "drop"; at: At };
+  wire: { server: AnyServer; endpoint: string; word: "hold" | "release" | "lose" | "drop"; at: At };
   storage: { word: "hold" | "refuse" | "release" };
 }>;
 

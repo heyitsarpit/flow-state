@@ -29,3 +29,15 @@ export { Step, StoryFailed, StoryTurnLimit, WorldWord } from "./steps.ts";
 export type { At, Tab } from "./steps.ts";
 
 export type { Cut, StoryRun } from "./run.ts";
+
+export { generate, propertyTest } from "./generate.ts";
+
+export type { Drawing, Failure, Generated, Profile } from "./generate.ts";
+
+export { print, samplesOf } from "./samples.ts";
+
+export type { Property, Samples } from "./samples.ts";
+
+export { FAULTS, PHASES, pairSweep } from "./sweep.ts";
+
+export type { Cell, Fault } from "./sweep.ts";

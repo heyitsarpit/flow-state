@@ -411,10 +411,15 @@ invariants
         admitted. [@R1]
 
     I3  Every delivered ending is exactly one of success, failure, notSent and unknown; an Attempt that ever ended 
-        unknown never delivers a definite failure; and an Attempt never sent ends only NotSent, or unknown { Restored } 
-        at a boot.
+        unknown never delivers a definite failure; and an Attempt never sent ends only NotSent, or unknown { Restored }
+        at its identity's start (a boot, a return or an adoption). A crash before a failure was saved restores the
+        Attempt as unknown { Restored } (@spec.WriteAhead.R14); that is not an unknown ending of its own.
         Decision (agent, 2026-11-11): ruling CQ5. Why: an Attempt with no send can only be known not sent, unless a
-        crash hid whether it was. Reverse: drop the last clause (spec-log.md, T42). [@R2]
+        crash hid whether it was. Reverse: drop the last clause (spec-log.md, T42).
+        Decision (agent, 2026-11-16): "at a boot" widened to every start, and the unsaved-failure case written out.
+        Why: generated runs show an acknowledged, unsent Attempt restored again at a return after disposal (I15 allows
+        once per incarnation), and a failure delivered then lost by a crash before it was saved. Reverse: restore
+        "at a boot" and treat both as breaches. [@R2]
 
     I4  No delivered ending is an evidence kind. A failure mapper receives only the commit's own failure, a notSent 
         mapper only a Flow.NotSent and an unknown mapper only a Flow.Unknown, whatever the author's tags are named.
@@ -454,12 +459,18 @@ invariants
         reload or return (@spec.Restore.I6); an ending whose turn is refused (InvalidTurn, an outcome mapper throw at
         admission included) is delivered once more after queued mail, and a second refusal ends its tries until the
         next start (a reload, a return or an adoption), each of which gives it exactly one try with no redelivery
-        after a refusal there (@spec.Actors.R15); a releasing lane delivers nothing; evidence-only endings (a bare
+        after a refusal there (@spec.Actors.R15); a releasing lane delivers nothing (a crash before its release was
+        saved undoes the release, @spec.WriteAhead.R14); evidence-only endings (a bare
         operation, Flow.ignore, Superseded, the interrupted Attempt under concurrency cancel when no cancel is
         pending on it, a released lookup) are recorded, never delivered. Re-parking is not a second delivery.
         Decision (agent, 2026-11-11): rulings CQ1 and CQ9, as in R10 and R7. [@R10, @R16]
 
-    I16  After a success or failure of an Attempt is delivered, no other ending of it is delivered. [@R10]
+    I16  After a success or failure of an Attempt is delivered, no other ending of it is delivered, except, in a later 
+         incarnation after a crash that came before that delivery was saved, unknown { Restored }
+        (@spec.WriteAhead.R14) or the same saved ending once more (I15 counts per incarnation).
+        Decision (agent, 2026-11-16): the crash exception written out. Why: R14 restores an acknowledged Attempt
+        with no saved ending as unknown { Restored }, and generated runs deliver a success, lose its save to a
+        crash, and restore it. Reverse: make the delivery wait for the save. [@R10]
 
     I17  While an old-version hold (an older key fingerprint) exists for (identity, operation), no commit of it is 
          invoked: each declines NotSent { OldVersion }, or NotSent { Rejected } where R11 puts another path's Rejected

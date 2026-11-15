@@ -1,4 +1,4 @@
-import { Story } from "../../src/host/testing/index.ts";
+import { Fake, samplesOf, Story } from "../../src/host/testing/index.ts";
 import { command, type Entries, group, type Scores, separator } from "./commands.ts";
 import { palette, paletteSetup } from "./machine.ts";
 import { Commands, CommandsFake } from "./server.ts";
@@ -200,7 +200,235 @@ export const stress = ended.held
   .reduce((s) => s.world(Commands.run.release()), ended.story)
   .checkpoint("end");
 
+const configured = configure(commands);
+const typingPro = { _tag: "Typed", text: "pro" } as const;
+const clearing = { _tag: "Typed", text: "" } as const;
+const moving = { _tag: "Move", by: 1 } as const;
+const highlighting = { _tag: "Highlight", key: "settings" } as const;
+const runningProfile = { _tag: "Run", key: "profile" } as const;
+const runningTheme = { _tag: "Run", key: "theme" } as const;
+const runningDark = { _tag: "Run", key: "dark" } as const;
+const entering = { _tag: "Enter" } as const;
+const goingBack = { _tag: "Back" } as const;
+const escaping = { _tag: "Escape" } as const;
+
+const sampleEvents = {
+  configured,
+  typingPro,
+  clearing,
+  moving,
+  highlighting,
+  runningProfile,
+  runningTheme,
+  runningDark,
+  entering,
+  goingBack,
+  escaping,
+};
+
+/**
+ * A stress run from seed 50, printed by the generator and pasted here. The reload sweep and the
+ * bench run it as any Story.
+ */
+export const seededStress = Story.app(paletteSetup, {
+  id: "palette/stress-50",
+  fixtures: [CommandsFake],
+})
+  .ensure(palette)
+  .send(palette, clearing)
+  .send(palette, runningTheme)
+  .send(palette, runningTheme)
+  .send(palette, runningTheme)
+  .send(palette, runningTheme)
+  .send(palette, runningTheme)
+  .send(palette, runningTheme)
+  .send(palette, runningTheme)
+  .send(palette, runningTheme)
+  .send(palette, runningTheme)
+  .send(palette, runningTheme)
+  .send(palette, runningTheme)
+  .send(palette, runningTheme)
+  .send(palette, runningTheme)
+  .send(palette, runningTheme)
+  .send(palette, runningTheme)
+  .send(palette, runningTheme)
+  .send(palette, runningTheme)
+  .send(palette, runningTheme)
+  .advance("4 millis")
+  .dispose(palette)
+  .send(palette, typingPro)
+  .send(palette, highlighting)
+  .send(palette, highlighting)
+  .send(palette, highlighting)
+  .send(palette, highlighting)
+  .send(palette, highlighting)
+  .send(palette, highlighting)
+  .send(palette, highlighting)
+  .send(palette, highlighting)
+  .send(palette, highlighting)
+  .send(palette, highlighting)
+  .send(palette, highlighting)
+  .send(palette, runningProfile)
+  .advance("16 millis")
+  .disposeRuntime()
+  .reload()
+  .advance("15 millis")
+  .send(palette, goingBack)
+  .ensure(palette)
+  .world(Fake.storage.hold())
+  .send(palette, configured)
+  .world(Fake.storage.refuse())
+  .send(palette, entering)
+  .advance("1 millis")
+  .send(palette, clearing)
+  .advance("19 millis")
+  .send(palette, clearing)
+  .send(palette, escaping)
+  .advance("18 millis")
+  .send(palette, configured)
+  .send(palette, runningProfile)
+  .send(palette, runningProfile)
+  .send(palette, runningProfile)
+  .send(palette, runningProfile)
+  .send(palette, runningProfile)
+  .send(palette, runningProfile)
+  .send(palette, runningProfile)
+  .send(palette, runningProfile)
+  .send(palette, runningProfile)
+  .send(palette, runningProfile)
+  .send(palette, runningProfile)
+  .send(palette, runningProfile)
+  .advance("13 millis")
+  .send(palette, goingBack)
+  .advance("8 millis")
+  .send(palette, goingBack)
+  .send(palette, goingBack)
+  .send(palette, goingBack)
+  .send(palette, runningTheme)
+  .send(palette, clearing)
+  .advance("6 millis")
+  .advance("7 millis")
+  .advance("7 millis")
+  .send(palette, runningDark)
+  .advance("12 millis")
+  .send(palette, runningTheme)
+  .send(palette, highlighting)
+  .advance("16 millis")
+  .advance("16 millis")
+  .send(palette, runningTheme)
+  .send(palette, configured)
+  .send(palette, runningDark)
+  .advance("1 millis")
+  .reload()
+  .advance("1 millis")
+  .send(palette, runningProfile)
+  .detach(palette)
+  .advance("15 millis")
+  .send(palette, runningProfile)
+  .send(palette, escaping)
+  .send(palette, escaping)
+  .send(palette, escaping)
+  .send(palette, escaping)
+  .send(palette, escaping)
+  .send(palette, escaping)
+  .send(palette, escaping)
+  .send(palette, escaping)
+  .send(palette, escaping)
+  .send(palette, escaping)
+  .send(palette, escaping)
+  .send(palette, escaping)
+  .send(palette, escaping)
+  .send(palette, escaping)
+  .send(palette, escaping)
+  .send(palette, escaping)
+  .send(palette, escaping)
+  .send(palette, escaping)
+  .advance("2 millis")
+  .send(palette, highlighting)
+  .send(palette, runningDark)
+  .advance("4 millis")
+  .send(palette, highlighting)
+  .send(palette, runningProfile)
+  .advance("4 millis")
+  .send(palette, goingBack)
+  .send(palette, goingBack)
+  .send(palette, goingBack)
+  .send(palette, moving)
+  .send(palette, typingPro)
+  .advance("4 millis")
+  .send(palette, runningProfile)
+  .send(palette, runningProfile)
+  .send(palette, runningProfile)
+  .send(palette, runningProfile)
+  .send(palette, runningTheme)
+  .send(palette, highlighting)
+  .advance("7 millis")
+  .send(palette, runningProfile)
+  .advance("6 millis")
+  .advance("10 millis")
+  .send(palette, entering)
+  .send(palette, goingBack)
+  .send(palette, entering)
+  .advance("9 millis")
+  .dispose(palette, { how: "forget" })
+  .send(palette, escaping)
+  .send(palette, runningProfile)
+  .send(palette, highlighting)
+  .send(palette, configured)
+  .advance("20 millis")
+  .send(palette, goingBack)
+  .send(palette, clearing)
+  .send(palette, typingPro)
+  .advance("13 millis")
+  .send(palette, entering)
+  .advance("7 millis")
+  .send(palette, runningTheme)
+  .send(palette, runningTheme)
+  .send(palette, runningTheme)
+  .send(palette, runningTheme)
+  .send(palette, goingBack)
+  .send(palette, clearing)
+  .send(palette, entering)
+  .send(palette, entering)
+  .send(palette, runningDark)
+  .advance("16 millis")
+  .send(palette, entering)
+  .send(palette, entering)
+  .send(palette, entering)
+  .send(palette, entering)
+  .send(palette, entering)
+  .send(palette, entering)
+  .send(palette, entering)
+  .send(palette, entering)
+  .send(palette, entering)
+  .send(palette, entering)
+  .send(palette, entering)
+  .send(palette, entering)
+  .send(palette, entering)
+  .advance("2 minutes")
+  .advance("2 minutes");
+
+/**
+ * What a person and the command host can do, for generated runs: give the list, type, move,
+ * highlight, run commands, Enter, Back and Escape; the host fails a command, and heals it.
+ */
+export const samples = samplesOf({
+  id: "palette",
+  story: paletteStory("palette/samples"),
+  names: { setup: "paletteSetup", fixtures: ["CommandsFake"] },
+  actors: { palette },
+  servers: { Commands },
+  failures: [
+    Commands.fail({ command: "profile", reason: "denied" }),
+    Commands.fail({ command: "dark", reason: "offline" }),
+  ],
+  landedFailures: [],
+  values: sampleEvents,
+  controls: [Commands.heal({ command: "profile" }), Commands.heal({ command: "dark" })],
+  steps: (story) => Object.values(sampleEvents).reduce((s, event) => s.send(palette, event), story),
+});
+
 /**
  * Every Story of the fixture, by name.
  */
-export const stories = { usual, stress };
+export const stories = { usual, stress, seededStress };

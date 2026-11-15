@@ -95,9 +95,10 @@ type Target = ActorRef | EndpointHandle | { readonly "~server": AnyServer };
 
 const TURN_LIMIT = 10_000;
 
-// The tab's session seed: its name and open count as hex, so ids never repeat across reloads.
-const seedOf = (tab: Tab) => {
-  const text = `${tab.name}:${tab.open}`;
+// The tab's session seed: its name, open count and the run's seed as hex, so ids never repeat
+// across reloads and differ between seeds.
+const seedOf = (tab: Tab, seed: Option.Option<number>) => {
+  const text = `${tab.name}:${tab.open}${Option.match(seed, { onNone: () => "", onSome: (s) => `#${s}` })}`;
 
   return Array.from({ length: text.length }, (_, n) => text.charCodeAt(n).toString(16))
     .join("")
@@ -134,6 +135,42 @@ const openTab = (config: RuntimeConfig, host: Host["Service"], now: number, limi
 };
 
 /**
+ * What a step source reads before it gives the next step: the calls held at the fake servers, each
+ * endpoint's call count, every write batch's status, the held store writes, whether the tab's
+ * Runtime is disposed, an actor's uses, and the write lanes.
+ */
+export type View = {
+  readonly held: ReadonlyArray<{ readonly server: AnyServer; readonly endpoint: string }>;
+  readonly calls: (server: AnyServer, endpoint: string) => number;
+  readonly writes: ReadonlyArray<Batch["status"]>;
+  readonly heldWrites: number;
+  readonly disposed: boolean;
+  readonly uses: (actor: ActorId) => number;
+  readonly lanes: () => RuntimeCut["lanes"];
+};
+
+/**
+ * Where a run's steps come from: given the view before a step, the step to run, `skip` to draw
+ * again, or `done` to end the run.
+ */
+export type Source = (view: View) => Step | "skip" | "done";
+
+/**
+ * How a run treats its world: `seed` shuffles the store's load order and changes the session
+ * seeds; `lenient` lets hold, drop and refuse words go unused and reports their steps instead of
+ * failing the run.
+ */
+export type Options = { readonly seed: Option.Option<number>; readonly lenient: boolean };
+
+/**
+ * A run of a source: what it recorded, and the indices of the steps whose words went unused.
+ */
+export type Drawn<Names extends string = string> = {
+  readonly run: StoryRun<Names>;
+  readonly unused: ReadonlyArray<number>;
+};
+
+/**
  * Runs a subject over a step array and returns what it recorded; a Story's `run()` calls it.
  */
 // RETURN_TYPE: the exported StoryRun contract keeps the checkpoints' names.
@@ -141,7 +178,24 @@ export const runSteps = <Names extends string>(
   subject: Subject,
   id: string,
   steps: ReadonlyArray<Step>,
+  seed: Option.Option<number> = Option.none(),
 ): StoryRun<Names> => {
+  let next = 0;
+
+  return runFrom<Names>(subject, id, () => steps[next++] ?? "done", { seed, lenient: false }).run;
+};
+
+/**
+ * Runs a subject over the steps a source gives, one at a time, each after the source has read the
+ * run's view; skipped draws leave no step.
+ */
+// RETURN_TYPE: the Drawn contract keeps the checkpoints' names.
+export const runFrom = <Names extends string>(
+  subject: Subject,
+  id: string,
+  source: Source,
+  options: Options,
+): Drawn<Names> => {
   if (id === "") scriptFault("a Story's id is empty");
 
   const evidence: Array<Evidence> = [];
@@ -160,7 +214,12 @@ export const runSteps = <Names extends string>(
     (index) => note({ kind: "call", index }),
   );
 
-  const store = makeStore(alive, (index) => note({ kind: "batch", index }));
+  const store = makeStore(
+    alive,
+    (index) => note({ kind: "batch", index }),
+    () => stepAt,
+    options.seed,
+  );
 
   const limits: Limits = {
     fail: (reason) => {
@@ -189,7 +248,7 @@ export const runSteps = <Names extends string>(
       hidden: () => false,
       onHidden: () => undefined,
       store: Option.some(store.at(open)),
-      sessionSeed: seedOf(mainTab(open)),
+      sessionSeed: seedOf(mainTab(open), options.seed),
     });
 
     const opened = openTab({ ...subject.config, services }, host, now, limits);
@@ -265,7 +324,23 @@ export const runSteps = <Names extends string>(
 
   const attach = (actor: ActorId) => testing.attach(tab.built, actor, "story", false);
 
-  for (const [n, step] of steps.entries()) {
+  const steps: Array<Step> = [];
+
+  // RETURN_TYPE: the exported View contract a source reads.
+  const view = (): View => ({
+    held: fakes.held(),
+    calls: (server, endpoint) => fakes.calls(server, endpoint).length,
+    writes: store.batches().map((b) => b.status),
+    heldWrites: store.heldWrites(),
+    disposed,
+    uses: (actor) => uses.get(actorKey(actor))?.count ?? 0,
+    lanes: () => inspect(tab.built.runtime).lanes,
+  });
+
+  for (let pulled = source(view()); pulled !== "done"; pulled = source(view())) {
+    if (pulled === "skip") continue;
+    const step = pulled;
+    const n = steps.push(step) - 1;
     stepAt = n;
     note({ kind: "record", open: current, record: TraceRecord.Step({ index: n, step }) });
     Object.assign(turns, { instant: tab.now(), count: 0 });
@@ -335,7 +410,7 @@ export const runSteps = <Names extends string>(
 
   const unused = [...fakes.unused(), ...store.unused()];
 
-  if (unused.length > 0) scriptFault(unused.join("; "));
+  if (unused.length > 0 && !options.lenient) scriptFault(unused.join("; "));
 
   // SAFETY: a chained Story's checkpoint steps are exactly its Names, each taken once (checked above).
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion, lint-bomb/no-object-iteration-result-cast -- the checkpoints the steps named, keyed by name
@@ -377,8 +452,29 @@ export const runSteps = <Names extends string>(
 
   const events = noted.flatMap((event, n) => Option.toArray(resolve(event, n + 1)));
 
-  return { steps, evidence, checkpoints: named, end: cut(), trace: { storyId: id, events } };
+  return {
+    run: { steps, evidence, checkpoints: named, end: cut(), trace: { storyId: id, events } },
+    unused: [...fakes.unusedAt(), ...store.unusedAt()],
+  };
 };
+
+/**
+ * Runs a subject over a step array as an Effect: a script fault or limit fails it; anything else
+ * thrown fails it as StoryFailed.
+ */
+export const runEffect = <Names extends string>(
+  subject: Subject,
+  id: string,
+  steps: ReadonlyArray<Step>,
+  seed: Option.Option<number> = Option.none(),
+) =>
+  Effect.try({
+    try: () => runSteps<Names>(subject, id, steps, seed),
+    catch: (fault) =>
+      fault instanceof StoryFailed || fault instanceof StoryTurnLimit
+        ? fault
+        : new StoryFailed({ problem: `the run threw: ${String(fault)}` }),
+  });
 
 /**
  * Runs a subject over a step array as a Promise: a script fault or limit rejects it; anything else
@@ -388,13 +484,5 @@ export const run = <Names extends string>(
   subject: Subject,
   id: string,
   steps: ReadonlyArray<Step>,
-) =>
-  Effect.runPromise(
-    Effect.try({
-      try: () => runSteps<Names>(subject, id, steps),
-      catch: (fault) =>
-        fault instanceof StoryFailed || fault instanceof StoryTurnLimit
-          ? fault
-          : new StoryFailed({ problem: `the run threw: ${String(fault)}` }),
-    }),
-  );
+  seed: Option.Option<number> = Option.none(),
+) => Effect.runPromise(runEffect<Names>(subject, id, steps, seed));

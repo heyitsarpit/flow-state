@@ -1,8 +1,8 @@
-import type { Duration, Layer } from "effect";
+import { type Duration, type Layer, Option } from "effect";
 import type { AnyDefinition, Envelope, PayloadOf } from "../../definition.ts";
 import { type ActorRef, type RuntimeSetup, SetupId } from "../runtime.ts";
 import type { FakeWorld } from "./fake.ts";
-import { run, type StoryRun } from "./run.ts";
+import { run, type StoryRun, type Subject } from "./run.ts";
 import { Step, type WorldWord } from "./steps.ts";
 
 /**
@@ -48,11 +48,18 @@ type NewName<N extends string, Names extends string> = string extends N
 export const StoryId = "~flow-state/Story";
 
 /**
+ * The key of what a Story runs: its setup's configuration, fixtures and first world words, which a
+ * generated run reuses.
+ */
+export const SubjectId = "~flow-state/Subject";
+
+/**
  * A scripted run of an app over fakes: inert data until `run()`. Each step word returns a new
  * Story with one more step; `Names` are its checkpoints' names.
  */
 export type Story<Names extends string = never> = {
   readonly [StoryId]: string;
+  readonly [SubjectId]: Subject;
   readonly id: string;
   readonly steps: ReadonlyArray<Step>;
   readonly ensure: <D extends AnyDefinition>(ref: ActorRef<D>) => Story<Names>;
@@ -74,6 +81,7 @@ export type Story<Names extends string = never> = {
   readonly run: {
     (): Promise<StoryRun<Names>>;
     (options: { readonly steps: ReadonlyArray<Step> }): Promise<StoryRun>;
+    (options: { readonly steps: ReadonlyArray<Step>; readonly seed: number }): Promise<StoryRun>;
   };
 };
 
@@ -133,6 +141,7 @@ export const Story = {
 
       return {
         [StoryId]: subject.config.app.id,
+        [SubjectId]: subject,
         id: options.id,
         steps,
         ensure: (ref) => next(Step.ensure({ actor: actorOf(ref) })),
@@ -151,9 +160,14 @@ export const Story = {
             }),
           ),
         checkpoint: (name) => chain([...steps, Step.checkpoint({ name })]),
-        // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts -- run() runs the Story's own steps
-        run: (given?: { readonly steps: ReadonlyArray<Step> }) =>
-          run<Names>(subject, options.id, given?.steps ?? steps),
+        // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts, lint-bomb/no-optional-domain-properties -- run() runs the Story's own steps; an omitted seed keeps the Story's own world
+        run: (given?: { readonly steps: ReadonlyArray<Step>; readonly seed?: number }) =>
+          run<Names>(
+            subject,
+            options.id,
+            given?.steps ?? steps,
+            Option.fromUndefinedOr(given?.seed),
+          ),
       };
     };
 

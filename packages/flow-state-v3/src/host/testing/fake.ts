@@ -6,6 +6,7 @@ import {
   Exit,
   Layer,
   Option,
+  Random,
   Record,
   Result,
   Schema,
@@ -111,6 +112,7 @@ export type EndpointHandle<I = Values> = {
   // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/no-nullish-function-contracts -- the Plan's public word: an omitted option takes its default
   readonly hold: (options?: { readonly at?: At }) => WorldWord;
   readonly release: () => WorldWord;
+  readonly lose: () => WorldWord;
   // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/no-nullish-function-contracts -- the Plan's public word: an omitted option takes its default
   readonly drop: (options?: { readonly at?: At }) => WorldWord;
 };
@@ -148,6 +150,7 @@ const endpointOf = (server: AnyServer, name: string): EndpointHandle => ({
   hold: (options) =>
     WorldWord.wire({ server, endpoint: name, word: "hold", at: options?.at ?? "request" }),
   release: () => WorldWord.wire({ server, endpoint: name, word: "release", at: "request" }),
+  lose: () => WorldWord.wire({ server, endpoint: name, word: "lose", at: "response" }),
   drop: (options) =>
     WorldWord.wire({ server, endpoint: name, word: "drop", at: options?.at ?? "request" }),
 });
@@ -165,7 +168,7 @@ type Held = {
 
 type Logged = { readonly server: AnyServer; readonly endpoint: string; readonly entry: CallEntry };
 
-type Pending = { readonly word: "hold" | "drop"; readonly at: At };
+type Pending = { readonly word: "hold" | "drop"; readonly at: At; readonly step: number };
 
 /**
  * A run's fake servers: their truth, every call each endpoint received, and the wire words.
@@ -279,15 +282,15 @@ export const makeWorld = (
           return Effect.fail(new FakeLost());
         });
 
-  const release = (server: AnyServer, endpoint: string) => {
+  const release = (server: AnyServer, endpoint: string, lost: boolean) => {
     const at = held.findIndex((h) => h.server === server && h.endpoint === endpoint);
     const entry = held[at] ?? scriptFault(`nothing held at ${server.name}.${endpoint}`);
     held.splice(at, 1);
     const exit = Option.isSome(entry.exit) ? entry.exit : handled(server, endpoint, input(entry));
 
     if (Option.isSome(exit) && alive(entry.open) && !gone.has(entry.answer)) {
-      mark(entry.index, "answered");
-      Deferred.doneUnsafe(entry.answer, exit.value);
+      mark(entry.index, lost ? "dropped at response" : "answered");
+      Deferred.doneUnsafe(entry.answer, lost ? Exit.fail(new FakeLost()) : exit.value);
     } else mark(entry.index, "handled");
   };
 
@@ -321,9 +324,10 @@ export const makeWorld = (
       WorldWord.$match(word, {
         control: ({ server, control: name, input: value }) => control(server, name, value),
         wire: ({ server, endpoint, word: kind, at }) => {
-          if (kind === "release") return release(server, endpoint);
+          if (kind === "release" || kind === "lose")
+            return release(server, endpoint, kind === "lose");
           const key = slot(server, endpoint);
-          pending.set(key, [...(pending.get(key) ?? []), { word: kind, at }]);
+          pending.set(key, [...(pending.get(key) ?? []), { word: kind, at, step: step() }]);
         },
         storage: () => scriptFault("a storage word reached the fake servers"),
       }),
@@ -337,6 +341,8 @@ export const makeWorld = (
       [...pending].flatMap(([key, left]) =>
         left.map((p) => `${p.word} at ${p.at} on ${key} never used`),
       ),
+    unusedAt: () => [...pending.values()].flatMap((left) => left.map((p) => p.step)),
+    held: () => held.map((h) => ({ server: h.server, endpoint: h.endpoint })),
   };
 };
 
@@ -366,11 +372,17 @@ type Out = {
 
 /**
  * The run's durable store: its records, the batches it received, and the storage words. `issued`
- * hears each batch's index as it is issued.
+ * hears each batch's index as it is issued; `step` is the index of the step running; a `seed`
+ * shuffles the order each open loads the records in.
  */
-export const makeStore = (alive: (open: number) => boolean, issued: (index: number) => void) => {
+export const makeStore = (
+  alive: (open: number) => boolean,
+  issued: (index: number) => void,
+  step: () => number,
+  seed: Option.Option<number>,
+) => {
   const data = new Map<string, string>();
-  const next: Array<"hold" | "refuse"> = [];
+  const next: Array<{ readonly word: "hold" | "refuse"; readonly step: number }> = [];
   const batches: Array<Out> = [];
 
   const apply = (writes: ReadonlyArray<Bytes>) => {
@@ -390,12 +402,19 @@ export const makeStore = (alive: (open: number) => boolean, issued: (index: numb
     batches: () => batches.map((b) => b.batch),
     // RETURN_TYPE: the Store contract a tab's Host carries.
     at: (open: number): Store => ({
-      load: Effect.sync(() => new Map(data)),
+      load: Option.match(seed, {
+        onNone: () => Effect.sync(() => new Map(data)),
+        onSome: (given) =>
+          Effect.suspend(() => Random.shuffle([...data])).pipe(
+            Effect.map((entries) => new Map(entries)),
+            Random.withSeed(`${given}:${open}`),
+          ),
+      }),
       write: (writes, purpose, acknowledges) =>
         Effect.suspend(() => {
           // A dead tab's fibers never run again, so this is unreachable; it writes nothing.
           if (!alive(open)) return Effect.never;
-          const word = next.shift();
+          const word = next.shift()?.word;
           const answer = Deferred.makeUnsafe<void, StoreRefused>();
 
           const batch = {
@@ -416,7 +435,7 @@ export const makeStore = (alive: (open: number) => boolean, issued: (index: numb
         }),
     }),
     word: (word: "hold" | "refuse" | "release") => {
-      if (word !== "release") return void next.push(word);
+      if (word !== "release") return void next.push({ word, step: step() });
 
       const out =
         batches.find((b) => b.batch.status === "held") ?? scriptFault("nothing held at the store");
@@ -439,7 +458,9 @@ export const makeStore = (alive: (open: number) => boolean, issued: (index: numb
         mark(out, "landed");
       }
     },
-    unused: () => next.map((word) => `storage ${word} never used`),
+    unused: () => next.map(({ word }) => `storage ${word} never used`),
+    unusedAt: () => next.map((p) => p.step),
+    heldWrites: () => batches.filter((b) => b.batch.status === "held").length,
   };
 };
 
@@ -476,7 +497,8 @@ class FakeServer<A> extends Effectable.Class<A, never, FakeWorld> {
  *
  * A handler is pure and synchronous: `handle(truth, request)` returns the next truth and an Exit of
  * the endpoint's own Schemas (`failure: Schema.Never` for none). Truth lives in the run and lasts across reloads. Wire words act on
- * an endpoint's next call (`hold`, `drop`) or its oldest held call (`release`); they decide
+ * an endpoint's next call (`hold`, `drop`) or its oldest held call (`release`, or `lose`, which
+ * runs the handler as release does and loses its answer); they decide
  * delivery, never the answer, which is always a handler's. A call no word acts on is answered at
  * once.
  *

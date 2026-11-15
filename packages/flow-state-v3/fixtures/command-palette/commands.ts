@@ -160,11 +160,12 @@ export const findCommand = (entries: ReadonlyArray<Entry>, value: string) =>
   Option.fromUndefinedOr(everyCommand(shownCommands(entries)).find((c) => c.value === value));
 
 /**
- * Every command with a shortcut, on every page, in list order.
+ * Every enabled command with a shortcut, on every page, in list order; a disabled command's
+ * shortcut does nothing.
  */
 export const shortcutsOf = (entries: ReadonlyArray<Entry>) =>
   everyCommand(shownCommands(entries))
-    .filter((c) => c.shortcuts.length > 0)
+    .filter((c) => c.shortcuts.length > 0 && !c.disabled)
     .map((c) => c.value);
 
 /**

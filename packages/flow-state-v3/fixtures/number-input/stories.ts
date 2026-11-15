@@ -1,4 +1,4 @@
-import { Story } from "../../src/host/testing/index.ts";
+import { samplesOf, Story } from "../../src/host/testing/index.ts";
 import { defaults } from "./contracts.ts";
 import { numberSetup, quantity } from "./machine.ts";
 import { numberFixtures } from "./server.ts";
@@ -90,7 +90,234 @@ export const stress = Array.from({ length: 150 }, (_, n) => n)
   })
   .story.checkpoint("end");
 
+const configured = { _tag: "Configure", settings: bounded } as const;
+const setFive = { _tag: "Set", value: 5 } as const;
+const cleared = { _tag: "Set", value: null } as const;
+const stepUp = { _tag: "Press", direction: 1, size: "step" } as const;
+const largeDown = { _tag: "Press", direction: -1, size: "large" } as const;
+const smallUp = { _tag: "Press", direction: 1, size: "small" } as const;
+const released = { _tag: "Release" } as const;
+const cancelled = { _tag: "Cancel" } as const;
+const wheelUp = { _tag: "Wheel", direction: 1 } as const;
+const typedFraction = { _tag: "Typed", text: "19.5" } as const;
+const typedJunk = { _tag: "Typed", text: "abc" } as const;
+const blurred = { _tag: "Blur" } as const;
+const home = { _tag: "Key", key: "Home" } as const;
+const end = { _tag: "Key", key: "End" } as const;
+
+const sampleEvents = {
+  configured,
+  setFive,
+  cleared,
+  stepUp,
+  largeDown,
+  smallUp,
+  released,
+  cancelled,
+  wheelUp,
+  typedFraction,
+  typedJunk,
+  blurred,
+  home,
+  end,
+};
+
+/**
+ * A stress run from seed 50, printed by the generator and pasted here. The reload sweep and the
+ * bench run it as any Story.
+ */
+export const seededStress = Story.app(numberSetup, { id: "number-input/stress-50", fixtures: [] })
+  .ensure(quantity)
+  .send(quantity, home)
+  .send(quantity, home)
+  .send(quantity, home)
+  .send(quantity, home)
+  .send(quantity, home)
+  .send(quantity, home)
+  .send(quantity, home)
+  .send(quantity, home)
+  .send(quantity, home)
+  .send(quantity, home)
+  .send(quantity, home)
+  .send(quantity, home)
+  .send(quantity, home)
+  .send(quantity, home)
+  .send(quantity, home)
+  .send(quantity, home)
+  .send(quantity, home)
+  .send(quantity, home)
+  .send(quantity, home)
+  .advance("4 millis")
+  .dispose(quantity)
+  .send(quantity, cancelled)
+  .send(quantity, end)
+  .send(quantity, end)
+  .send(quantity, end)
+  .send(quantity, end)
+  .send(quantity, end)
+  .send(quantity, end)
+  .send(quantity, end)
+  .send(quantity, end)
+  .send(quantity, end)
+  .send(quantity, end)
+  .send(quantity, end)
+  .send(quantity, largeDown)
+  .advance("16 millis")
+  .disposeRuntime()
+  .reload()
+  .advance("15 millis")
+  .send(quantity, wheelUp)
+  .ensure(quantity)
+  .send(quantity, configured)
+  .send(quantity, wheelUp)
+  .advance("1 millis")
+  .send(quantity, typedJunk)
+  .advance("19 millis")
+  .send(quantity, typedJunk)
+  .send(quantity, largeDown)
+  .advance("18 millis")
+  .send(quantity, cleared)
+  .send(quantity, cleared)
+  .send(quantity, cleared)
+  .send(quantity, cleared)
+  .send(quantity, cleared)
+  .send(quantity, cleared)
+  .send(quantity, cleared)
+  .send(quantity, cleared)
+  .send(quantity, cleared)
+  .send(quantity, cleared)
+  .send(quantity, cleared)
+  .send(quantity, cleared)
+  .send(quantity, cleared)
+  .advance("13 millis")
+  .send(quantity, stepUp)
+  .advance("8 millis")
+  .send(quantity, end)
+  .send(quantity, end)
+  .send(quantity, end)
+  .send(quantity, cancelled)
+  .send(quantity, typedJunk)
+  .advance("6 millis")
+  .advance("7 millis")
+  .advance("7 millis")
+  .send(quantity, home)
+  .advance("12 millis")
+  .send(quantity, end)
+  .send(quantity, configured)
+  .advance("16 millis")
+  .advance("16 millis")
+  .send(quantity, typedFraction)
+  .send(quantity, released)
+  .send(quantity, blurred)
+  .advance("1 millis")
+  .reload()
+  .advance("1 millis")
+  .send(quantity, largeDown)
+  .detach(quantity)
+  .advance("15 millis")
+  .send(quantity, setFive)
+  .send(quantity, largeDown)
+  .send(quantity, largeDown)
+  .send(quantity, largeDown)
+  .send(quantity, largeDown)
+  .send(quantity, largeDown)
+  .send(quantity, largeDown)
+  .send(quantity, largeDown)
+  .send(quantity, largeDown)
+  .send(quantity, largeDown)
+  .send(quantity, largeDown)
+  .send(quantity, largeDown)
+  .send(quantity, largeDown)
+  .send(quantity, largeDown)
+  .send(quantity, largeDown)
+  .send(quantity, largeDown)
+  .send(quantity, largeDown)
+  .send(quantity, largeDown)
+  .send(quantity, largeDown)
+  .advance("2 millis")
+  .send(quantity, typedFraction)
+  .send(quantity, blurred)
+  .advance("4 millis")
+  .send(quantity, end)
+  .send(quantity, largeDown)
+  .advance("4 millis")
+  .send(quantity, typedFraction)
+  .send(quantity, end)
+  .send(quantity, home)
+  .send(quantity, configured)
+  .send(quantity, home)
+  .advance("4 millis")
+  .send(quantity, largeDown)
+  .send(quantity, largeDown)
+  .send(quantity, largeDown)
+  .send(quantity, largeDown)
+  .send(quantity, cancelled)
+  .send(quantity, blurred)
+  .advance("7 millis")
+  .send(quantity, cleared)
+  .advance("6 millis")
+  .advance("10 millis")
+  .send(quantity, wheelUp)
+  .send(quantity, setFive)
+  .send(quantity, typedJunk)
+  .advance("9 millis")
+  .dispose(quantity, { how: "forget" })
+  .send(quantity, largeDown)
+  .send(quantity, released)
+  .send(quantity, typedFraction)
+  .send(quantity, configured)
+  .advance("20 millis")
+  .send(quantity, released)
+  .send(quantity, home)
+  .send(quantity, cancelled)
+  .advance("13 millis")
+  .send(quantity, wheelUp)
+  .advance("7 millis")
+  .send(quantity, typedFraction)
+  .send(quantity, typedFraction)
+  .send(quantity, typedFraction)
+  .send(quantity, typedFraction)
+  .send(quantity, largeDown)
+  .send(quantity, typedJunk)
+  .send(quantity, wheelUp)
+  .send(quantity, typedJunk)
+  .send(quantity, smallUp)
+  .advance("16 millis")
+  .send(quantity, typedJunk)
+  .send(quantity, typedJunk)
+  .send(quantity, typedJunk)
+  .send(quantity, typedJunk)
+  .send(quantity, typedJunk)
+  .send(quantity, typedJunk)
+  .send(quantity, typedJunk)
+  .send(quantity, typedJunk)
+  .send(quantity, typedJunk)
+  .send(quantity, typedJunk)
+  .send(quantity, typedJunk)
+  .send(quantity, typedJunk)
+  .send(quantity, typedJunk)
+  .advance("2 minutes")
+  .advance("2 minutes");
+
+/**
+ * What a person can do to the field, for generated runs: configure it, set and type values, press
+ * and release the steppers, cancel, wheel, blur and jump to an end. It has no server.
+ */
+export const samples = samplesOf({
+  id: "number-input",
+  story: numberStory("number-input/samples"),
+  names: { setup: "numberSetup", fixtures: [] },
+  actors: { quantity },
+  servers: {},
+  failures: [],
+  landedFailures: [],
+  values: sampleEvents,
+  controls: [],
+  steps: (story) =>
+    Object.values(sampleEvents).reduce((s, event) => s.send(quantity, event), story),
+});
+
 /**
  * Every Story of the fixture, by name.
  */
-export const stories = { usual, stress };
+export const stories = { usual, stress, seededStress };

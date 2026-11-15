@@ -11,6 +11,9 @@ import {
 } from "./commands.ts";
 import { type CommandFailed, CommandsApi, runCommand } from "./contracts.ts";
 
+// One open page and the text the field held when it opened, which Back gives back.
+const Frame = Schema.Struct({ page: Schema.String, query: Schema.String });
+
 const Palette = definition({
   id: "Palette/Palette",
   persist: true,
@@ -35,8 +38,7 @@ const Palette = definition({
     autoHighlight: Flow.initial(Schema.Boolean, true),
     scores: Flow.initial(Scores, null),
     query: Flow.initial(Schema.String, ""),
-    pages: Flow.initial(Schema.Array(Schema.String), []),
-    queries: Flow.initial(Schema.Array(Schema.String), []),
+    frames: Flow.initial(Schema.Array(Frame), []),
     highlighted: Flow.initial(Schema.NullOr(Schema.String), null),
     errors: Flow.initial(Schema.Record(Schema.String, Schema.String), {}),
   },
@@ -66,7 +68,13 @@ export type PaletteMemory = { readonly [K in keyof Fields]: Fields[K]["value"] }
  */
 export const resultsOf = (memory: PaletteMemory) =>
   ranked(
-    Option.getOrElse(pageOf(memory.commands, memory.pages), () => []),
+    Option.getOrElse(
+      pageOf(
+        memory.commands,
+        memory.frames.map((f) => f.page),
+      ),
+      () => [],
+    ),
     memory.query,
     memory.scores,
   );
@@ -101,16 +109,14 @@ const movedBy = (memory: PaletteMemory, by: -1 | 1) => {
 };
 
 const opened = (memory: PaletteMemory, page: string) => ({
-  pages: [...memory.pages, page],
-  queries: [...memory.queries, memory.query],
+  frames: [...memory.frames, { page, query: memory.query }],
   query: "",
   highlighted: null,
 });
 
 const closed = (memory: PaletteMemory) => ({
-  pages: memory.pages.slice(0, -1),
-  queries: memory.queries.slice(0, -1),
-  query: memory.queries.at(-1) ?? "",
+  frames: memory.frames.slice(0, -1),
+  query: memory.frames.at(-1)?.query ?? "",
   highlighted: null,
 });
 
@@ -211,7 +217,7 @@ export const PaletteMachine = machine(Palette, ({ S, O }) => {
           Back: {
             guard: [
               ({ memory }) => memory.query === "" || deny("NotEmpty"),
-              ({ memory }) => memory.pages.length > 0 || deny("TopPage"),
+              ({ memory }) => memory.frames.length > 0 || deny("TopPage"),
             ],
             updateMemory: ({ memory }) => closed(memory),
           },
@@ -221,7 +227,7 @@ export const PaletteMachine = machine(Palette, ({ S, O }) => {
               updateMemory: () => ({ query: "", highlighted: null }),
             },
             {
-              guard: [({ memory }) => memory.pages.length > 0 || deny("TopPage")],
+              guard: [({ memory }) => memory.frames.length > 0 || deny("TopPage")],
               updateMemory: ({ memory }) => closed(memory),
             },
           ],

@@ -97,7 +97,9 @@ requirements
         must    Wire words are `world` words on an endpoint. `hold({ at })` holds that endpoint's next call:
                 at "request" (the default) before the server, so the handler runs only on release; at "response"
                 after the handler ran, holding its answer. `release()` acts on the endpoint's oldest held call: it
-                runs the handler if it has not run, and answers with the handler's Exit. `drop({ at })` makes the
+                runs the handler if it has not run, and answers with the handler's Exit. `lose()` acts on the same
+                call the same way but loses the answer: the caller fails with `Fake.Lost`, logged dropped at
+                response. `drop({ at })` makes the
                 endpoint's next call fail with `Fake.Lost` at once: at "request" (the default) the handler never
                 runs; at "response" it runs once and its answer is lost. A held call never released is never
                 answered, so only the commit's own deadline ends it. When that deadline interrupts the waiter, the
@@ -238,9 +240,11 @@ invariants
 
     I6  A tab's time changes only by advance; a reload's next open starts at the dead open's time. [@R5, @R13]
 
-    I7  Each step may run 10,000 turns per instant; the 10,001st rejects the run with StoryTurnLimit naming the step 
-        and the instant, before it executes; later steps do not run and the evidence up to the 10,000th turn
-        survives. [@R6]
+    I7  Each step may run 10,000 turns per instant; the driver's batch that holds the 10,001st rejects the run with 
+        StoryTurnLimit naming the step and the instant, before any of the batch executes; later steps do not run
+        and the evidence before that batch survives, so up to the 10,000th turn when each batch is one turn.
+        Decision (agent, 2026-11-16): the bound is judged per batch, as built. Why: a batch is applied whole, so
+        part of it cannot run. Reverse: split a crossing batch at the bound in the driver. [@R6]
 
     I8  A handler runs at most once per call: once for a call handled, held at response, dropped at response or 
         released from request, and never for a call dropped at request or held at request and not released. [@R9,

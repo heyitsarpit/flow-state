@@ -1,11 +1,14 @@
-// Shows that Flow State's tests tell a right runtime from a wrong one. In a scratch copy of the
+// Shows that Flow State's tests tell a right runtime from a wrong one. In scratch copies of the
 // package it runs the tests three ways: unchanged (must pass), with a dead core whose step changes
 // nothing (every test should fail), and once per planted fault in tests/faults.ts (at least one
-// test should fail). It exits 1 when the unchanged tests fail or a fault is missed or stale, so a
-// fault the tests stop catching shows; it is never a CI gate.
+// test should fail). A fault counts as caught only when its run fails and still prints its test
+// summary: a timeout, output past the buffer, or a run with no summary is reported as such and is
+// never caught. It exits 1 when the unchanged tests fail or a fault is missed, stale or not judged,
+// so a fault the tests stop catching shows; it is never a CI gate. Faults run four at a time, each
+// in its own copy, and each fault's run stops at its first failing test.
 //
-//   bun tools/faults/run.ts [tests path, default packages/flow-state-v3/tests]
-import { execFileSync } from "node:child_process";
+//   bun tools/faults/run.ts [tests path, default packages/flow-state-v3: its tests and src]
+import { execFile } from "node:child_process";
 import { cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, relative, resolve } from "node:path";
@@ -13,36 +16,73 @@ import { type Fault, faults } from "../../packages/flow-state-v3/tests/faults.ts
 
 const repo = resolve(import.meta.dirname, "..", "..");
 const pkg = "packages/flow-state-v3";
-const tests = process.argv[2] ?? `${pkg}/tests`;
+const tests = process.argv[2] ?? pkg;
 const skipped = new Set(["node_modules", "prototypes"]);
-const root = mkdtempSync(join(tmpdir(), "flow-faults-"));
-const copy = join(root, pkg);
+const WORKERS = 4;
+const RUN_MS = 240_000;
+const BUFFER = 256 * 1024 * 1024;
 
 type Edit = Fault["edits"][number];
 
-const run = (reporter: ReadonlyArray<string> = []) => {
-  try {
-    const out = execFileSync(resolve(repo, "node_modules/.bin/vp"), ["test", "run", tests, ...reporter], {
-      cwd: root,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-      timeout: 120_000,
-    });
+type Run = { readonly kind: "ran"; readonly passed: boolean; readonly out: string } | { readonly kind: "broken"; readonly why: string };
 
-    return { passed: true, out };
-  } catch (error) {
-    const failed = error as { readonly stdout?: string; readonly stderr?: string };
+const makeCopy = () => {
+  const root = mkdtempSync(join(tmpdir(), "flow-faults-"));
 
-    return { passed: false, out: `${failed.stdout ?? ""}${failed.stderr ?? ""}` };
-  }
+  cpSync(resolve(repo, pkg), join(root, pkg), { recursive: true, filter: (file) => !skipped.has(basename(file)) });
+  writeFileSync(
+    join(root, "vite.config.ts"),
+    'import { defineConfig } from "vite-plus";\nexport default defineConfig({ test: { include: ["packages/**/*.test.ts"] } });\n',
+  );
+  writeFileSync(join(root, "package.json"), '{ "name": "scratch", "private": true, "type": "module", "workspaces": ["packages/*"] }\n');
+  cpSync(resolve(repo, "tsconfig.base.json"), join(root, "tsconfig.base.json"));
+  symlinkSync(resolve(repo, "node_modules"), join(root, "node_modules"));
+
+  return root;
 };
 
-const summary = (out: string) => /^\s*Tests\s+(.*)$/mu.exec(out)?.[1]?.trim() ?? "no summary";
+const run = (root: string, reporter: ReadonlyArray<string> = []) =>
+  new Promise<Run>((done) => {
+    execFile(
+      resolve(repo, "node_modules/.bin/vp"),
+      ["test", "run", tests, ...reporter],
+      { cwd: root, encoding: "utf8", timeout: RUN_MS, maxBuffer: BUFFER },
+      (error, stdout, stderr) => {
+        const out = `${stdout}${stderr}`;
+        const failed = error as (Error & { readonly killed?: boolean; readonly code?: number | string }) | null;
 
-// Applies the edits, runs the body, and puts the files back. Returns false when an edit's path
-// leaves the copy or its text is not in its file exactly once, so a stale fault is reported and
-// never passes for caught.
-const planted = (edits: ReadonlyArray<Edit>, body: () => void) => {
+        if (failed?.killed === true) return done({ kind: "broken", why: `timed out after ${RUN_MS} ms` });
+
+        if (failed?.code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") return done({ kind: "broken", why: "output passed the buffer" });
+
+        done({ kind: "ran", passed: failed === null, out });
+      },
+    );
+  });
+
+const summaryOf = (out: string) => /^\s*Tests\s+(.*)$/mu.exec(out)?.[1]?.trim();
+
+const filesOf = (out: string) => /^\s*Test Files\s+(.*)$/mu.exec(out)?.[1]?.trim() ?? "";
+
+// A run's verdict on a planted fault: caught only when the run fails and still prints its summary.
+const verdictOf = (result: Run) => {
+  if (result.kind === "broken") return `NOT JUDGED (${result.why})`;
+  const summary = summaryOf(result.out);
+
+  if (summary === undefined) return "NOT JUDGED (no test summary)";
+
+  if (result.passed) return "MISSED";
+
+  // A run stopped at its first failure exits non-zero with a partial summary.
+  return `caught (${summary}${filesOf(result.out) === "" ? "" : `; test files ${filesOf(result.out)}`})`;
+};
+
+// Applies the edits in one copy, runs the body, and puts the files back. Returns false when an
+// edit's path leaves the copy or its text is not in its file exactly once, so a stale fault is
+// reported and never passes for caught.
+const planted = async (root: string, edits: ReadonlyArray<Edit>, body: () => Promise<void>) => {
+  const copy = join(root, pkg);
+
   if (edits.some((edit) => relative(copy, resolve(copy, edit.file)).startsWith(".."))) return false;
 
   const originals = edits.map((edit) => ({
@@ -56,7 +96,7 @@ const planted = (edits: ReadonlyArray<Edit>, body: () => void) => {
   for (const { edit, path, text } of originals) writeFileSync(path, text.replace(edit.find, () => edit.replace));
 
   try {
-    body();
+    await body();
   } finally {
     for (const { path, text } of originals) writeFileSync(path, text);
   }
@@ -67,76 +107,91 @@ const planted = (edits: ReadonlyArray<Edit>, body: () => void) => {
 const DEAD_CORE: Edit = {
   file: "src/core/step.ts",
   find: "  const tx = makeTx(machines, world0, env);",
-  replace:
-    "  if (machines.size >= 0) return { world: world0, commands: [], evidence: [] };\n  const tx = makeTx(machines, world0, env);",
+  replace: "  if (machines.size >= 0) return { world: world0, commands: [], evidence: [] };\n  const tx = makeTx(machines, world0, env);",
 };
-
-cpSync(resolve(repo, pkg), copy, { recursive: true, filter: (file) => !skipped.has(basename(file)) });
-writeFileSync(
-  join(root, "vite.config.ts"),
-  'import { defineConfig } from "vite-plus";\nexport default defineConfig({ test: { include: ["packages/**/*.test.ts"] } });\n',
-);
-writeFileSync(
-  join(root, "package.json"),
-  '{ "name": "scratch", "private": true, "type": "module", "workspaces": ["packages/*"] }\n',
-);
-cpSync(resolve(repo, "tsconfig.base.json"), join(root, "tsconfig.base.json"));
-symlinkSync(resolve(repo, "node_modules"), join(root, "node_modules"));
 
 // Tests a dead core may leave green: a contract test of a port fake runs no core, an inverted
 // test, titled by the rule it breaks ("Turn I9: ..."), passes on any failure, and a CLI test
 // compares the CLI with a direct run of the same core, so a dead core changes both sides; the CLI's
-// own faults are planted in tests/tooling-faults.ts.
-const mayStayGreen = [/\.contract\.test\.ts > /u, / > [A-Z][A-Za-z]+ [RIT]\d+: /u, /tests\/cli\/[^ ]+\.test\.ts > /u];
+// own faults are planted in tests/tooling-faults.ts. A test beside the code in src/ tests a part
+// other than the step (the lane table, the platform's seed, the bootstrap), which the dead core
+// leaves alone.
+const mayStayGreen = [
+  /\.contract\.test\.ts > /u,
+  / > [A-Z][A-Za-z]+ [RIT]\d+: /u,
+  /tests\/cli\/[^ ]+\.test\.ts > /u,
+  /flow-state-v3\/src\/[^ ]+\.test\.ts > /u,
+];
 
-const plantAll = () => {
-  const dead = planted([DEAD_CORE], () => {
-    const result = run(["--reporter=verbose"]);
+const deadCore = async (root: string) => {
+  const ok = await planted(root, [DEAD_CORE], async () => {
+    const result = await run(root, ["--reporter=verbose"]);
+
+    if (result.kind === "broken") {
+      console.log(`dead core: NOT JUDGED (${result.why})`);
+      process.exitCode = 1;
+
+      return;
+    }
+
     const green = result.out.split("\n").filter((line) => line.includes("✓"));
     const unexplained = green.filter((line) => !mayStayGreen.some((allowed) => allowed.test(line)));
 
-    console.log(`dead core: ${summary(result.out)}; still green: ${green.length}`);
+    console.log(`dead core: ${summaryOf(result.out) ?? "no test summary"}; still green: ${green.length}`);
 
     for (const line of green) console.log(`  ${unexplained.includes(line) ? "UNEXPLAINED " : ""}${line.trim()}`);
 
-    if (unexplained.length > 0) process.exitCode = 1;
+    if (unexplained.length > 0 || summaryOf(result.out) === undefined) process.exitCode = 1;
   });
 
-  if (!dead) {
+  if (!ok) {
     console.log("dead core: STALE, the edit no longer applies to src/core/step.ts");
     process.exitCode = 1;
   }
+};
 
-  const results = faults.map((fault) => {
-    let verdict = "STALE";
+const plantAll = async (roots: ReadonlyArray<string>) => {
+  const verdicts = new Map<string, string>();
+  const queue = [...faults];
 
-    planted(fault.edits, () => {
-      const result = run();
+  const worker = async (root: string) => {
+    for (let fault = queue.shift(); fault !== undefined; fault = queue.shift()) {
+      let verdict = "STALE";
+      const given = fault;
 
-      verdict = result.passed ? "MISSED" : `caught (${summary(result.out)})`;
-    });
-    console.log(`${fault.name} [${fault.rule}]: ${verdict}`);
+      // oxlint-disable-next-line no-await-in-loop -- one fault at a time per copy
+      await planted(root, given.edits, async () => {
+        // A fault is caught by its first failing test, so a run stops there.
+        verdict = verdictOf(await run(root, ["--bail=1"]));
+      });
+      verdicts.set(given.name, verdict);
+      console.log(`${given.name} [${given.rule}]: ${verdict}`);
+    }
+  };
 
-    return verdict;
-  });
+  await Promise.all([deadCore(roots[0] ?? ""), ...roots.slice(1).map(worker)]);
+  await worker(roots[0] ?? "");
 
-  const caught = results.filter((verdict) => verdict.startsWith("caught")).length;
+  const caught = [...verdicts.values()].filter((verdict) => verdict.startsWith("caught")).length;
 
   console.log(`\nfaults caught: ${caught} of ${faults.length}`);
 
   if (caught < faults.length) process.exitCode = 1;
 };
 
+const roots = Array.from({ length: WORKERS }, makeCopy);
+
 try {
-  const control = run();
+  const control = await run(roots[0] ?? "");
+  const passed = control.kind === "ran" && control.passed && summaryOf(control.out) !== undefined;
 
-  console.log(`unchanged: ${control.passed ? "pass" : "FAIL"} (${summary(control.out)})`);
+  console.log(`unchanged: ${passed ? "pass" : "FAIL"} (${control.kind === "ran" ? (summaryOf(control.out) ?? "no test summary") : control.why})`);
 
-  if (control.passed) plantAll();
+  if (passed) await plantAll(roots);
   else {
-    console.log(control.out.slice(-2000));
+    if (control.kind === "ran") console.log(control.out.slice(-2000));
     process.exitCode = 1;
   }
 } finally {
-  rmSync(root, { recursive: true, force: true });
+  for (const root of roots) rmSync(root, { recursive: true, force: true });
 }

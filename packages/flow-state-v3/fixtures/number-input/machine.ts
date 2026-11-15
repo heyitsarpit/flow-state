@@ -18,7 +18,7 @@ const Commit = Schema.Struct({ seq: Schema.Number, value: Value });
 
 const Stepper = definition({
   id: "Number/Stepper",
-  states: ["IDLE", "HOLD_DELAY", "HOLD_REPEAT", "WHEELING"],
+  states: ["IDLE", "HOLD_DELAY", "HOLD_REPEAT", "HOLD_STOPPED", "WHEELING"],
   events: {
     Configure: { settings: Settings },
     Set: { value: Value },
@@ -185,7 +185,7 @@ export const StepperMachine = machine(Stepper, ({ S, E }) => {
       HOLD_DELAY: {
         schedules: { delay: { schedule: "400 millis", send: E.RepeatDue } },
         on: {
-          RepeatDue: [{ ...again, target: S.HOLD_REPEAT }, release],
+          RepeatDue: [{ ...again, target: S.HOLD_REPEAT }, { target: S.HOLD_STOPPED }],
           Release: release,
           Cancel: release,
         },
@@ -194,8 +194,9 @@ export const StepperMachine = machine(Stepper, ({ S, E }) => {
         schedules: {
           repeat: { schedule: "60 millis", send: E.Tick, armOn: [Flow.entry, "Tick"] },
         },
-        on: { Tick: [again, release], Release: release, Cancel: release },
+        on: { Tick: [again, { target: S.HOLD_STOPPED }], Release: release, Cancel: release },
       },
+      HOLD_STOPPED: { on: { Release: release, Cancel: release } },
       WHEELING: {
         schedules: {
           settle: {

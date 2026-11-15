@@ -193,11 +193,13 @@ describe("command palette: pages", () => {
 
     const { opened, back } = run.checkpoints;
 
-    expect(memoryAt(opened)).toEqual(expect.objectContaining({ pages: ["theme"], query: "" }));
+    expect(memoryAt(opened)).toEqual(
+      expect.objectContaining({ frames: [{ page: "theme", query: "them" }], query: "" }),
+    );
     expect(shownAt(opened)).toEqual(["light", "dark"]);
     expect(highlightAt(opened)).toBe("light");
     expect(callsAt(opened)).toEqual([]);
-    expect(memoryAt(back)).toEqual(expect.objectContaining({ pages: [], query: "them" }));
+    expect(memoryAt(back)).toEqual(expect.objectContaining({ frames: [], query: "them" }));
   });
 
   it("PALETTE-10: Escape clears the text, then goes back a page, then is denied so an outer dialog gets it (Turn R2)", async () => {
@@ -214,9 +216,9 @@ describe("command palette: pages", () => {
     );
 
     expect(memoryAt(run.checkpoints.cleared)).toEqual(
-      expect.objectContaining({ pages: ["theme"], query: "" }),
+      expect.objectContaining({ frames: [{ page: "theme", query: "" }], query: "" }),
     );
-    expect(memoryAt(run.checkpoints.back).pages).toEqual([]);
+    expect(memoryAt(run.checkpoints.back).frames).toEqual([]);
     expect(denials(run)).toEqual(["Escape Empty,TopPage"]);
   });
 
@@ -233,7 +235,7 @@ describe("command palette: pages", () => {
     expect(resultsAt(run.checkpoints.top)).toEqual(commands);
     expect(shownAt(run.checkpoints.theme)).toEqual(["light", "dark"]);
     expect(denials(run)).toEqual(["Run Unknown,Unknown,Unknown"]);
-    expect(memoryAt(run.checkpoints.missing).pages).toEqual(["theme"]);
+    expect(memoryAt(run.checkpoints.missing).frames.map((f) => f.page)).toEqual(["theme"]);
   });
 
   it("PALETTE-PAGE-2: commands and their shortcuts are found on every page", async () => {
@@ -246,7 +248,10 @@ describe("command palette: pages", () => {
       "light",
       "settings",
     ]);
-    expect(memoryAt(run.checkpoints.ran).pages).toEqual([]);
+    expect(
+      shortcutsOf([command("locked", "Locked", { disabled: true, shortcuts: ["mod+l"] })]),
+    ).toEqual([]);
+    expect(memoryAt(run.checkpoints.ran).frames).toEqual([]);
     expect(callsAt(run.checkpoints.ran)).toEqual(["dark"]);
   });
 });
@@ -259,8 +264,10 @@ describe("command palette: the usual Story", () => {
     expect(shownAt(ranked)).toEqual(["profile"]);
     expect(callsAt(pending)).toEqual(["profile", "dark"]);
     expect(pendingAt(pending)).toEqual(["profile", "dark"]);
-    expect(memoryAt(pending)).toEqual(expect.objectContaining({ pages: ["theme"], query: "da" }));
-    expect(memoryAt(back)).toEqual(expect.objectContaining({ pages: [], query: "" }));
+    expect(memoryAt(pending)).toEqual(
+      expect.objectContaining({ frames: [{ page: "theme", query: "" }], query: "da" }),
+    );
+    expect(memoryAt(back)).toEqual(expect.objectContaining({ frames: [], query: "" }));
     expect(pendingAt(settled)).toEqual([]);
     expect(Object.values(settled.read(Commands).ran).toSorted()).toEqual(["dark", "profile"]);
   });

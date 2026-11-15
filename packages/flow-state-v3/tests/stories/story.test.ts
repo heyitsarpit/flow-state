@@ -325,7 +325,10 @@ describe("Story", () => {
   });
 
   it("gives equal evidence, checkpoints and end on a second run, with no host timer (Stories R5, R14, I5, I18)", async () => {
-    const all = [...Object.values(transferStories), ...Object.values(payStories)];
+    const all: ReadonlyArray<Story<string>> = [
+      ...Object.values(transferStories),
+      ...Object.values(payStories),
+    ];
 
     const { result: runs, calls } = await countingHostTimers(async () => {
       const pairs = [];

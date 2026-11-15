@@ -1,4 +1,4 @@
-import { Fake, Story } from "../../src/host/testing/index.ts";
+import { Fake, samplesOf, Story } from "../../src/host/testing/index.ts";
 import { account, bankSetup, savings } from "./machine.ts";
 import { Bank, BankFake } from "./server.ts";
 
@@ -104,6 +104,229 @@ export const refusedWrite = bankStory("transfers/refused-write")
   .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
   .checkpoint("refused");
 
+const sendT1 = { _tag: "Send", transferId: "t1", cents: 500 } as const;
+const sendT2 = { _tag: "Send", transferId: "t2", cents: 900 } as const;
+const resendT1 = { _tag: "Resend", transferId: "t1" } as const;
+const abandonT2 = { _tag: "Abandon", transferId: "t2" } as const;
+const saveT1 = { _tag: "Send", transferId: "t1", cents: 300 } as const;
+const abandonSaved = { _tag: "Abandon", transferId: "t1" } as const;
+
+/**
+ * A stress run from seed 50, printed by the generator and pasted here. The reload sweep and the
+ * bench run it as any Story.
+ */
+export const seededStress = Story.app(bankSetup, {
+  id: "transfers/stress-50",
+  fixtures: [BankFake],
+})
+  .world(Bank.transfer.drop({ at: "response" }))
+  .ensure(account)
+  .ensure(savings)
+  .send(savings, saveT1)
+  .world(Bank.limit({ cents: 100 }))
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .advance("4 millis")
+  .dispose(savings)
+  .send(account, sendT2)
+  .world(Bank.transfer.hold())
+  .world(Fake.storage.hold())
+  .send(account, sendT2)
+  .send(account, sendT2)
+  .send(account, sendT2)
+  .send(account, sendT2)
+  .send(account, sendT2)
+  .send(account, sendT2)
+  .send(account, sendT2)
+  .send(account, sendT2)
+  .send(account, sendT2)
+  .send(account, sendT2)
+  .send(account, sendT2)
+  .send(savings, saveT1)
+  .advance("16 millis")
+  .disposeRuntime()
+  .reload()
+  .advance("15 millis")
+  .send(savings, saveT1)
+  .detach(account)
+  .send(account, sendT1)
+  .world(Bank.transfer.hold())
+  .world(Fake.storage.refuse())
+  .send(account, sendT1)
+  .advance("1 millis")
+  .send(account, sendT1)
+  .world(Fake.storage.hold())
+  .advance("19 millis")
+  .send(account, sendT1)
+  .world(Fake.storage.hold())
+  .send(account, sendT1)
+  .advance("18 millis")
+  .send(savings, saveT1)
+  .send(account, sendT1)
+  .send(account, sendT1)
+  .send(account, sendT1)
+  .send(account, sendT1)
+  .send(account, sendT1)
+  .send(account, sendT1)
+  .send(account, sendT1)
+  .send(account, sendT1)
+  .send(account, sendT1)
+  .send(account, sendT1)
+  .send(account, sendT1)
+  .send(account, sendT1)
+  .advance("13 millis")
+  .send(savings, abandonSaved)
+  .advance("8 millis")
+  .send(account, abandonT2)
+  .send(account, abandonT2)
+  .send(account, abandonT2)
+  .send(account, abandonT2)
+  .send(account, sendT1)
+  .advance("6 millis")
+  .advance("7 millis")
+  .advance("7 millis")
+  .send(savings, saveT1)
+  .advance("12 millis")
+  .send(account, abandonT2)
+  .send(account, sendT1)
+  .advance("16 millis")
+  .advance("16 millis")
+  .send(account, sendT2)
+  .send(account, resendT1)
+  .send(savings, abandonSaved)
+  .advance("1 millis")
+  .reload({ heldWrites: "land" })
+  .advance("1 millis")
+  .send(savings, saveT1)
+  .ensure(account)
+  .advance("15 millis")
+  .send(savings, abandonSaved)
+  .send(account, sendT1)
+  .send(account, sendT1)
+  .send(account, sendT1)
+  .send(account, sendT1)
+  .send(account, sendT1)
+  .send(account, sendT1)
+  .send(account, sendT1)
+  .send(account, sendT1)
+  .send(account, sendT1)
+  .send(account, sendT1)
+  .send(account, sendT1)
+  .send(account, sendT1)
+  .send(account, sendT1)
+  .send(account, sendT1)
+  .send(account, sendT1)
+  .send(account, sendT1)
+  .send(account, sendT1)
+  .send(account, sendT1)
+  .advance("2 millis")
+  .send(account, sendT2)
+  .send(account, sendT2)
+  .advance("4 millis")
+  .send(account, sendT2)
+  .send(savings, saveT1)
+  .advance("4 millis")
+  .send(account, sendT2)
+  .send(account, abandonT2)
+  .send(savings, saveT1)
+  .send(account, resendT1)
+  .send(account, sendT1)
+  .advance("4 millis")
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(account, abandonT2)
+  .send(account, sendT2)
+  .advance("7 millis")
+  .send(account, sendT1)
+  .advance("6 millis")
+  .advance("10 millis")
+  .send(account, sendT1)
+  .send(account, sendT2)
+  .send(savings, saveT1)
+  .advance("9 millis")
+  .dispose(savings, { how: "forget" })
+  .send(account, sendT1)
+  .send(account, sendT1)
+  .send(savings, abandonSaved)
+  .send(account, sendT1)
+  .advance("20 millis")
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(account, sendT2)
+  .advance("13 millis")
+  .send(account, sendT1)
+  .advance("7 millis")
+  .send(account, sendT2)
+  .send(account, sendT2)
+  .send(account, sendT2)
+  .send(account, sendT2)
+  .send(account, resendT1)
+  .send(account, resendT1)
+  .send(account, sendT1)
+  .send(savings, saveT1)
+  .send(account, sendT2)
+  .advance("16 millis")
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .send(savings, saveT1)
+  .world(Bank.transfer.release())
+  .world(Fake.storage.release())
+  .world(Bank.transfer.release())
+  .advance("2 minutes")
+  .advance("2 minutes");
+
+/**
+ * What an account holder and the bank can do, for generated runs: send two transfers from two
+ * accounts, send one again and abandon one; the bank lowers its limit.
+ */
+export const samples = samplesOf({
+  id: "transfers",
+  story: bankStory("transfers/samples"),
+  names: { setup: "bankSetup", fixtures: ["BankFake"] },
+  actors: { account, savings },
+  servers: { Bank },
+  failures: [Bank.limit({ cents: 100 })],
+  landedFailures: [],
+  values: { sendT1, sendT2, resendT1, abandonT2, saveT1, abandonSaved },
+  controls: [Bank.limit({ cents: 1000 })],
+  steps: (story) =>
+    story
+      .send(account, sendT1)
+      .send(account, sendT2)
+      .send(account, resendT1)
+      .send(account, abandonT2)
+      .send(savings, saveT1)
+      .send(savings, abandonSaved),
+});
+
 /**
  * Every Story of the fixture, by name.
  */
@@ -115,4 +338,5 @@ export const stories = {
   long,
   heldAtDisposal,
   refusedWrite,
+  seededStress,
 };

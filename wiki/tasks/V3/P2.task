@@ -1156,6 +1156,23 @@ tasks
             `effect/testing/FastCheck`; `fast-check` is only a transitive). A draw of 0 gives no step, so shrinking
             empties unneeded draws under the profile's minimum length. Generated runs keep the Story's own load order
             and session seeds so the printed Story replays exactly; the seed-2 pass (G4) varies those.
+        comment     2026-11-16T12:00:00Z
+            Decision (coordinator's ruling, NUMBER-10): a hold that reaches the bound stops repeating (new state
+            HOLD_STOPPED) and commits only on release, as upstream does; this departs from the proposal's table, which
+            commits at the bound's tick. Reverse: commit on the stopping tick.
+        comment     2026-11-16T12:01:00Z
+            Decision (agent): generated runs found three rules too wide across a crash, not runtime bugs; WriteLanes I3,
+            I15 and I16 now say a crash before a delivery or release was saved forgets it (WriteAhead R14), and the
+            rules read "saved" as a landed batch carrying the actor's records. Reverse: the Spec edits' own notes.
+        comment     2026-11-16T12:02:00Z
+            Finding for the user's read: a batch carries only identities with no batch out, so another identity's dirty
+            records wait (transfers, a held write then a release), against WriteAhead I23's "every record dirty when it
+            is issued". No rule judges it yet.
+        comment     2026-11-16T12:03:00Z
+            Pair sweep at 1,000 drive seeds: 129 of 392 cells reached, none broken; 263 unreachable, each named in
+            `tests/generated/pairs.ts`: Unsent, Resending and Cancelling never stand at a step's end (Cancelling even
+            with an uninterruptible adapter), lost answers need a call on the wire, local fixtures have no
+            acknowledgement or writes, number-input has no write.
 
     T71
         title       UI primitives, first wave: command palette and number input fixtures

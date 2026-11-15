@@ -209,7 +209,7 @@ describe("number input: timers", () => {
     expect(field(end).lastCommit).toEqual({ seq: 4, value: 12 });
   });
 
-  it("NUMBER-10: a hold that reaches the bound stops at the next tick and commits once (Turn R14)", async () => {
+  it("NUMBER-10: a hold that reaches the bound stops repeating at the next tick and commits once, on release (Turn R14)", async () => {
     const run = await played(
       configured("NUMBER-10", { max: 20 })
         .send(quantity, { _tag: "Set", value: 18 })
@@ -223,10 +223,12 @@ describe("number input: timers", () => {
         .advance("1 millis")
         .checkpoint("460")
         .advance("1 second")
+        .checkpoint("stopped")
+        .send(quantity, { _tag: "Release" })
         .checkpoint("later"),
     );
 
-    const { later } = run.checkpoints;
+    const { stopped, later } = run.checkpoints;
 
     expect([stateOf(run.checkpoints["399"]), field(run.checkpoints["399"]).value]).toEqual([
       "HOLD_DELAY",
@@ -237,8 +239,11 @@ describe("number input: timers", () => {
       20,
     ]);
     expect(stateOf(run.checkpoints["459"])).toBe("HOLD_REPEAT");
-    expect(stateOf(run.checkpoints["460"])).toBe("IDLE");
-    expect(field(run.checkpoints["460"]).lastCommit).toEqual({ seq: 1, value: 20 });
+    expect(stateOf(run.checkpoints["460"])).toBe("HOLD_STOPPED");
+    expect(field(stopped)).toEqual(
+      expect.objectContaining({ value: 20, lastCommit: { seq: 0, value: null } }),
+    );
+    expect(stateOf(later)).toBe("IDLE");
     expect(field(later).lastCommit).toEqual({ seq: 1, value: 20 });
   });
 
