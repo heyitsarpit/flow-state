@@ -13,8 +13,18 @@ import {
   StoryTurnLimit,
   type StoryRun,
 } from "../../src/host/testing/index.ts";
-import { actorRef, app, definition, machine, runtimeSetup, transaction } from "../../src/index.ts";
+import {
+  actorRef,
+  app,
+  definition,
+  deny,
+  Flow,
+  machine,
+  runtimeSetup,
+  transaction,
+} from "../../src/index.ts";
 import { countingHostTimers } from "./timers.ts";
+import { checked } from "../rules/rules.ts";
 
 const endings = (evidence: StoryRun["evidence"]) =>
   evidence.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : []));
@@ -40,19 +50,19 @@ describe("Story", () => {
     expect(one.steps.map((s) => s._tag)).toEqual(["ensure", "send"]);
     expect(two.steps.map((s) => s._tag)).toEqual(["ensure", "send", "reload"]);
 
-    const ran = await one.run();
+    const ran = checked(await one.run());
 
     expect(built).toBe(1);
     expect(endings(ran.evidence)).toEqual(["success success"]);
 
-    await two.run();
+    checked(await two.run());
 
     expect(built).toBe(3);
   });
 
   it("runs its own steps given back as data like run() (Stories R2, I3)", async () => {
-    const first = await usual.run();
-    const again = await usual.run({ steps: usual.steps });
+    const first = checked(await usual.run());
+    const again = checked(await usual.run({ steps: usual.steps }));
 
     expect(endings(again.evidence)).toEqual(["success success", "success success"]);
     expect(again.evidence).toEqual(first.evidence);
@@ -73,11 +83,13 @@ describe("Story", () => {
       persistence: { captureMs: 0 },
     });
 
-    const run = await Story.app(counting, { id: "story/fixtures", fixtures: [BankFake] })
-      .ensure(account)
-      .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
-      .reload()
-      .run();
+    const run = checked(
+      await Story.app(counting, { id: "story/fixtures", fixtures: [BankFake] })
+        .ensure(account)
+        .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+        .reload()
+        .run(),
+    );
 
     expect(setupBuilt).toBe(0);
     expect(endings(run.evidence)).toEqual(["success success"]);
@@ -98,7 +110,7 @@ describe("Story", () => {
     // @ts-expect-error an event the definition does not declare
     usual.send(account, { _tag: "Bogus" });
 
-    const run = await usual.run();
+    const run = checked(await usual.run());
 
     // @ts-expect-error a checkpoint the Story never named
     expect(run.checkpoints.nope).toBeUndefined();
@@ -117,7 +129,7 @@ describe("Story", () => {
       .ensure(account)
       .send(account, { _tag: "Send", transferId: "t1", cents: 500 });
 
-    expect(endings((await lands.run()).evidence)).toEqual(["success success"]);
+    expect(endings(checked(await lands.run()).evidence)).toEqual(["success success"]);
 
     const throwing = Fake.server("Thrower", {
       truth: Schema.Struct({}),
@@ -159,6 +171,64 @@ describe("Story", () => {
     const twice = [...usual.steps, ...usual.steps.slice(-1)];
 
     await expect(usual.run({ steps: twice })).rejects.toThrow("checkpoint sent twice");
+  });
+
+  it("rejects a step past 10,000 turns in one instant with StoryTurnLimit Turns, keeping the evidence up to the 10,000th turn (Stories R6, I7)", async () => {
+    // A commit that answers at once chains its turns inside the send itself; this chain stops by
+    // itself past the limit, since a run cannot cut a synchronous chain short.
+    const ping = transaction({
+      id: "Ping/ping",
+      input: { id: Schema.String },
+      key: ["id"],
+      concurrency: "reject",
+      services: [],
+      commit: () => Effect.succeed({}),
+    });
+
+    const Pinger = definition({
+      id: "Ping/Pinger",
+      persist: false,
+      states: ["ON"],
+      events: { Go: { id: Schema.String } },
+      internalEvents: { Pong: {} },
+      memory: { n: Flow.initial(Schema.Number, 0) },
+      operations: ({ E }) => ({
+        ping: ping.outcomes({ success: E.Pong, failure: {}, unknown: E.Pong }),
+      }),
+    });
+
+    const PingerMachine = machine(Pinger, ({ S, O }) => ({
+      default: S.ON,
+      on: {
+        Go: { actions: [O.ping.commit(({ event }) => event)] },
+        Pong: [
+          {
+            guard: [({ memory }) => memory.n < 10_050 || deny("Enough")],
+            updateMemory: ({ memory }) => ({ n: memory.n + 1 }),
+            actions: [O.ping.commit(() => ({ id: "again" }))],
+          },
+          {},
+        ],
+      },
+    }));
+
+    const pinger = actorRef(PingerMachine, "p");
+    const setup = runtimeSetup({ app: app({ id: "ping", machines: { pinger: PingerMachine } }) });
+
+    const fault = await faultOf(
+      Story.app(setup, { id: "story/ping", fixtures: [] })
+        .ensure(pinger)
+        .send(pinger, { _tag: "Go", id: "1" })
+        .run(),
+    );
+
+    expect(fault instanceof StoryTurnLimit).toBe(true);
+    expect(fault).toEqual(expect.objectContaining({ reason: "Turns", step: 1, instant: 0 }));
+
+    const turns =
+      fault instanceof StoryTurnLimit ? fault.evidence.filter((e) => e._tag === "Turn").length : 0;
+
+    expect(turns).toBe(10_000);
   });
 
   it("rejects a step whose settle never ends with StoryTurnLimit Settle (Stories R6)", async () => {
@@ -208,13 +278,14 @@ describe("Story", () => {
     const { result: runs, calls } = await countingHostTimers(async () => {
       const pairs = [];
 
-      for (const story of all) pairs.push([await story.run(), await story.run()] as const);
+      for (const story of all)
+        pairs.push([checked(await story.run()), checked(await story.run())] as const);
 
       return pairs;
     });
 
     expect(calls).toEqual({ timeout: 0, interval: 0, immediate: 0 });
-    expect(runs).toHaveLength(6);
+    expect(runs).toHaveLength(all.length);
 
     for (const [first, second] of runs) {
       expect(first.evidence.length).toBeGreaterThan(0);

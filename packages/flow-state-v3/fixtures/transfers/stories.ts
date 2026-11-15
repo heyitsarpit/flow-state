@@ -1,4 +1,4 @@
-import { Story } from "../../src/host/testing/index.ts";
+import { Fake, Story } from "../../src/host/testing/index.ts";
 import { account, bankSetup, savings } from "./machine.ts";
 import { Bank, BankFake } from "./server.ts";
 
@@ -81,6 +81,38 @@ export const long = Array.from({ length: 9 }, (_, n) => n)
   .checkpoint("end");
 
 /**
+ * A transfer's answer is lost, so its lane is Held when the Runtime is disposed; the page reloads
+ * after the disposal ends.
+ */
+export const heldAtDisposal = bankStory("transfers/held-at-disposal")
+  .ensure(account)
+  .world(Bank.transfer.drop({ at: "response" }))
+  .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+  .checkpoint("held")
+  .disposeRuntime()
+  .advance("6 seconds")
+  .checkpoint("disposed")
+  .reload()
+  .checkpoint("reloaded");
+
+/**
+ * The store refuses a transfer's acknowledging write, so the transfer is never sent.
+ */
+export const refusedWrite = bankStory("transfers/refused-write")
+  .ensure(account)
+  .world(Fake.storage.refuse())
+  .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+  .checkpoint("refused");
+
+/**
  * Every Story of the fixture, by name.
  */
-export const stories = { usual, declined, lostThenReload, deadline, long };
+export const stories = {
+  usual,
+  declined,
+  lostThenReload,
+  deadline,
+  long,
+  heldAtDisposal,
+  refusedWrite,
+};

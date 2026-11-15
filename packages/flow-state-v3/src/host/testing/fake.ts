@@ -41,11 +41,13 @@ export type CallStatus =
   | "handled";
 
 /**
- * One call an endpoint received: its request, the page it came from and its status.
+ * One call an endpoint received: its request, the page it came from, the index of the step during
+ * which it arrived (-1 at the first page's boot) and its status.
  */
 export type CallEntry<I = Values> = {
   readonly input: I;
   readonly page: number;
+  readonly step: number;
   readonly status: CallStatus;
 };
 
@@ -167,9 +169,9 @@ type Pending = { readonly word: "hold" | "drop"; readonly at: At };
 
 /**
  * A run's fake servers: their truth, every call each endpoint received, and the wire words.
- * `alive` says whether a page may still be answered.
+ * `alive` says whether a page may still be answered; `step` is the index of the step running.
  */
-export const makeWorld = (alive: (page: number) => boolean) => {
+export const makeWorld = (alive: (page: number) => boolean, step: () => number) => {
   // FLOW_STATE_ALLOW_UNKNOWN: each server's truth, of its own Schema.
   const truths = new Map<AnyServer, unknown>();
   const log: Array<Logged> = [];
@@ -231,7 +233,11 @@ export const makeWorld = (alive: (page: number) => boolean) => {
           const next = pending.get(slot(server, endpoint))?.shift();
 
           const index =
-            log.push({ server, endpoint, entry: { input, page, status: "answered" } }) - 1;
+            log.push({
+              server,
+              endpoint,
+              entry: { input, page, step: step(), status: "answered" },
+            }) - 1;
 
           const hold = (exit: Held["exit"]) =>
             wait({
@@ -518,7 +524,12 @@ export const Fake = {
    * The run's fake servers as a Layer, each server at its `initial`: for a port fake outside a
    * Story.
    */
-  world: Layer.sync(FakeWorld, () => makeWorld(() => true).service(0)),
+  world: Layer.sync(FakeWorld, () =>
+    makeWorld(
+      () => true,
+      () => 0,
+    ).service(0),
+  ),
   Lost: FakeLost,
   storage: {
     hold: () => WorldWord.storage({ word: "hold" }),

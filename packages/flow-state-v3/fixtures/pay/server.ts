@@ -5,6 +5,7 @@ import { ShopApi } from "./contracts.ts";
 const ShopTruth = Schema.Struct({
   intents: Schema.Record(Schema.String, Schema.String),
   orders: Schema.Record(Schema.String, Schema.String),
+  busy: Schema.Array(Schema.Number),
 });
 
 type Truth = typeof ShopTruth.Type;
@@ -18,22 +19,35 @@ const Order = Schema.Struct({ orderId: Schema.String });
 
 const key = { key: Schema.String };
 
+const Busy = Schema.TaggedStruct("Busy", { retryAfterMs: Schema.Number });
+
 /**
- * The shop's truth: a confirmed intent is capturable, one order per cart, and an intent nobody
- * confirmed still needs a payment method.
+ * The shop's truth: a confirmed intent is capturable, one order per cart, an intent nobody
+ * confirmed still needs a payment method, and each `busy` answer queued by the control turns the
+ * next confirm away with its retry delay.
  */
 export const Shop = Fake.server("Shop", {
   truth: ShopTruth,
-  initial: { intents: {}, orders: {} },
+  initial: { intents: {}, orders: {}, busy: [] },
   endpoints: {
     confirm: Fake.call({
       request: { intentId: Schema.String, paymentMethodId: Schema.String, ...key },
       success: Intent,
-      failure: Schema.Never,
-      handle: (truth: Truth, { intentId }) => ({
-        truth: { ...truth, intents: { ...truth.intents, [intentId]: "requires_capture" } },
-        exit: Exit.succeed({ status: "requires_capture", clientSecret: "cs" }),
-      }),
+      failure: Busy,
+      handle: (truth: Truth, { intentId }) => {
+        const [retryAfterMs, ...later] = truth.busy;
+
+        if (retryAfterMs !== undefined)
+          return {
+            truth: { ...truth, busy: later },
+            exit: Exit.fail({ _tag: "Busy" as const, retryAfterMs }),
+          };
+
+        return {
+          truth: { ...truth, intents: { ...truth.intents, [intentId]: "requires_capture" } },
+          exit: Exit.succeed({ status: "requires_capture", clientSecret: "cs" }),
+        };
+      },
     }),
     placeOrder: Fake.call({
       request: { cartId: Schema.String, intentId: Schema.String, ...key },
@@ -76,6 +90,12 @@ export const Shop = Fake.server("Shop", {
         return { truth, exit: Exit.succeed(orderId === undefined ? null : { orderId }) };
       },
     }),
+  },
+  controls: {
+    busy: Fake.control({ retryAfterMs: Schema.Number }, (truth: Truth, { retryAfterMs }) => ({
+      ...truth,
+      busy: [...truth.busy, retryAfterMs],
+    })),
   },
 });
 

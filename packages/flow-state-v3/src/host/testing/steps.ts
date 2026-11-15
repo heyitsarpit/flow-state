@@ -37,7 +37,7 @@ export type Step = Data.TaggedEnum<{
   disposeRuntime: {};
   world: { words: ReadonlyArray<WorldWord> };
   advance: { duration: Duration.Input };
-  reload: {};
+  reload: { reattach: boolean };
   checkpoint: { name: string };
 }>;
 

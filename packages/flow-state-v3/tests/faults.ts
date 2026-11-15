@@ -383,4 +383,93 @@ export const faults: ReadonlyArray<Fault> = [
       },
     ],
   },
+  {
+    name: "ending-heard-twice",
+    says: "an ending a turn heard is delivered once more, as if its turn had been refused",
+    rule: "WriteLanes I15",
+    edits: [
+      {
+        file: "src/core/ledger.ts",
+        find: '        else if (heard === "Heard") close(now.value, Closed.Delivered());',
+        replace:
+          '        else if (heard === "Heard" && Delivery.$is("Queued")(now.value.delivery))\n          queue(now.value, Delivery.Retrying());\n        else if (heard === "Heard") close(now.value, Closed.Delivered());',
+      },
+    ],
+  },
+  {
+    name: "success-keeps-hold",
+    says: "a success leaves its lane Held, so the next start delivers unknown Restored after it",
+    rule: "WriteLanes I16",
+    edits: [
+      {
+        file: "src/core/lane-moves.ts",
+        find: '        if (channel === "unknown") hold(at, lane, true);',
+        replace:
+          '        if (channel === "unknown" || channel === "success") hold(at, lane, true);',
+      },
+    ],
+  },
+  {
+    name: "unsent-as-failure",
+    says: "a never-sent Attempt ends as a failure, not NotSent",
+    rule: "WriteLanes I3",
+    edits: [
+      {
+        file: "src/core/lane-moves.ts",
+        find: '      channel: "notSent",\n      reason: why,\n      value: { why },\n      current: true,\n    });\n\n  const invoke',
+        replace:
+          '      channel: "failure",\n      reason: why,\n      value: { why },\n      current: true,\n    });\n\n  const invoke',
+      },
+    ],
+  },
+  {
+    name: "turn-published-twice",
+    says: "a turn that moves to another leaf publishes twice",
+    rule: "Turn I9",
+    edits: [
+      {
+        file: "src/core/serve.ts",
+        find: "          publish(after);\n        saveActor(after.actor);",
+        replace:
+          "          publish(after);\n        if (after.state !== incarnation.state) publish(after);\n        saveActor(after.actor);",
+      },
+    ],
+  },
+  {
+    name: "disposal-resends-held",
+    says: "the Runtime's disposal re-sends each Held head",
+    rule: "Actors I30",
+    edits: [
+      {
+        file: "src/core/cells.ts",
+        find: "    Held: stay,\n  },\n  BoundPassed",
+        replace: "    Held: () => Move.Resend(),\n  },\n  BoundPassed",
+      },
+    ],
+  },
+  {
+    name: "boot-wakes-no-one",
+    says: "a boot restores no identity live, so an owed ending waits for an ensure",
+    rule: "Restore I1",
+    edits: [
+      {
+        file: "src/core/incarnations.ts",
+        find: "      if (!restored.undecodable.has(key)) ensure(actor, Option.none(), true);",
+        replace:
+          '      if (!restored.undecodable.has(key) && key === "") ensure(actor, Option.none(), true);',
+      },
+    ],
+  },
+  {
+    name: "dispose-forgets-uses",
+    says: "the test tooling's disposeRuntime forgets the Story's uses, so the next reload ensures nothing",
+    rule: "Stories R13",
+    edits: [
+      {
+        file: "src/host/testing/run.ts",
+        find: "      disposeRuntime: () => {\n        disposed = true;\n",
+        replace: "      disposeRuntime: () => {\n        disposed = true;\n        uses.clear();\n",
+      },
+    ],
+  },
 ];

@@ -30,7 +30,8 @@ requirements
                 `dispose(ref)` is `disposeActor`, and `dispose(ref, { how: "forget" })` is forget, which forgets the
                 identity and its record; `disposeRuntime()` runs the Runtime's public `dispose()`;
                 `world(...words)` applies fake controls, wire words and storage words in order; `advance(duration)`
-                moves time (R5); `reload()` abandons the page and boots another (R13); `checkpoint(name)` records a
+                moves time (R5); `reload()` abandons the page and boots another (R13), and `reload({ reattach: false })`
+                does so without ensuring the Story's actors again (@plan.Pending.D10); `checkpoint(name)` records a
                 cut (R12). Each Runtime word does what the public Runtime does for the same input
                 (@spec.Actors.R20, R21, R22), through the production driver. After `disposeRuntime()`, an ensure,
                 detach, send or dispose before the next reload fails the run with StoryFailed.
@@ -104,7 +105,8 @@ requirements
 
     R10  Every call is logged with what happened to it
         source  @plan.Testing.O3, @plan.Testing.O4.
-        must    Every call of an endpoint is logged in arrival order with its request, page and status: held or
+        must    Every call of an endpoint is logged in arrival order with its request, page, the index of the step
+                during which it arrived (-1 at the first page's boot) and status: held or
                 dropped at request, handled, held at response, dropped at response, or answered. A call reaches the
                 server, and changes truth, only when its handler runs. A call no wire word acts on is handled and
                 answered at once.
@@ -123,7 +125,8 @@ requirements
                 `inspect(runtime)` at the step's end, every call each endpoint has logged with its status, each
                 server's truth, and the store's records and write batches, as values captured then. Tests read a
                 cut only through `read(ref)` (the actor's snapshot, or undefined), `read(server)` (its truth),
-                `read(endpoint)` (each call it logged, with its status), `records` (`stored`, the store's records,
+                `read(endpoint)` (each call it logged, with its status), `calls` (every call of every endpoint, named
+                by server and endpoint), `records` (`stored`, the store's records,
                 and `batches`, its write batches), `inspection` and `now`, and a run's endings through `run.evidence`. 
                 Checkpoint names are 
                 typed: a duplicate name, a widened
@@ -136,7 +139,9 @@ requirements
         source  @plan.Testing.O3 (every tab and reload shares the fake server); @plan.Persistence.O1.
         must    `reload()` leaves the current page as it is, never runs its tasks or moves its clock again, and
                 boots a new page over the same store and registry, at the same time, then ensures again every actor
-                the Story ensured and has not detached, forgotten or disposed. Nothing from a dead page writes to the
+                the Story ensured and has not detached, forgotten or disposed (`dispose`, which is disposeActor; a
+                `disposeRuntime` forgets no use). `reload({ reattach: false })` ensures none of them, so only what the
+                boot itself wakes is live. Nothing from a dead page writes to the
                 store or is answered afterwards. Releasing a dead page's held write aborts it and lands nothing.
                 Releasing a dead page's held call runs the handler if it has not run, so truth and the call's log
                 entry may change. In both cases the dead page's waiter is never completed, so no code of the dead
@@ -176,8 +181,9 @@ open
                  cause) or never ends; the Plan's detector for a fiber still parked, HostTimeWait (@plan.Testing.O2),
                  is deferred with the finishing horizon.
 
-    Q4  Run rules and the reload sweep are their own Spec's.
-        outcome  This Spec's checks are Story tests; the rules over every run arrive with the sweep.
+    Q4  Run rules and the reload sweep.
+        outcome  They live in `tests/rules/` as plain functions named by the core Spec rule each checks, applied to
+                 every Story run, and need no Spec of their own.
 
 model
     Page = one boot: its own task list, its own clock and one Runtime over the run's store and registry.
@@ -207,8 +213,9 @@ invariants
 
     I6  A page's time changes only by advance; a reload's new page starts at the dead page's time. [@R5, @R13]
 
-    I7  No step runs a 10,001st turn in one instant; the run rejects with StoryTurnLimit instead, and evidence up to 
-        the 10,000th turn survives. [@R6]
+    I7  A step that runs more than 10,000 turns in one instant rejects the run with StoryTurnLimit, and its evidence 
+        ends at the 10,000th turn. The turns past it may have run: a chain of commits that answer at once runs inside
+        one input, which the run cannot cut short. [@R6]
 
     I8  A handler runs at most once per call: once for a call handled, held at response, dropped at response or 
         released from request, and never for a call dropped at request or held at request and not released. [@R9,

@@ -459,6 +459,31 @@ tasks
             a reload after `disposeRuntime` ensures the Story's uses again (Stories R13), red today; G4 release takes
             the oldest held call, a dead page's included: R9 says so, kept and pinned by a test; G5 a held write across
             `disposeRuntime`: replay, then decide by Stories R11 and R13; G6 is Q11; G7 is Q6.
+        comment     2026-11-15T17:59:51Z
+            Requirements amended after the first-commit review: Q1 is I15's full wording (delivered once or recorded
+            only, never both, never twice; every written exception; a releasing lane delivers nothing; re-parking is no
+            delivery); Q3 "ever ended unknown"; Q5 every turn publishes at most once and an accepted transition with all
+            its parts exactly once; Q4 adds no shared minted id, keyless endpoints skipped; Q8 is Restore I1, exempting
+            an absent record (quarantine and reset have no public read).
+        comment     2026-11-15T17:59:51Z
+            Turn I14 kept, runtime wrong: a refusal emits only its Issue and a Snapshot has no issue (runtime.ts
+            Snapshot), so a UI never learns of it (Machines O3 issue-only snapshot). Traces of busyRefused's refusal:
+            Spec Delivered, Published(PreTurn, issue), Issue; today Delivered, Issue. Landed as it.fails in
+            tests/pay/pay.test.ts; the rule judges the rest.
+        comment     2026-11-15T17:59:52Z
+            Turn I9 kept, runtime wrong: an accepted transition that changes nothing publishes nothing (serve.ts
+            publishes only on change); I9 says exactly once. it.fails in tests/transfers/transfers.test.ts
+            (heldAtDisposal's Unsure turn); the rule judges moves and at-most-once.
+        comment     2026-11-15T17:59:52Z
+            T63 gaps: G1 two checkpoints at one point (steps.test.ts); G2 settle now checks the turn limit before tasks,
+            test added, Stories I7 reworded (an unbounded synchronous chain still runs out of memory: no drain slice
+            yet); G3 fixed, disposeRuntime keeps uses; G4 kept by R9, pinned with the live Attempt ending unknown at its
+            deadline; G5 kept: the page is alive, so the held write lands (R11).
+        comment     2026-11-15T17:59:52Z
+            Extra files: fixtures/pay (Shop busy control, busyRefused), fixtures/transfers (heldAtDisposal,
+            refusedWrite), src/host/testing (reattach, call step, cut calls, settle), tools/faults/run.ts,
+            types/vite-plus-test.d.ts (it.fails). Small amendments: rules also read the cut's calls; a sweep variant
+            also fails on a limit or non-script fault; faults now 36, not 23.
     T65
         title       A run prints as a text trace
         status      open

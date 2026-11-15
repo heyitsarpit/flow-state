@@ -27,10 +27,13 @@ import { scriptFault, Step, StoryFailed, StoryTurnLimit, WorldWord } from "./ste
 
 /**
  * What a run shows at one step's end, captured then: the time, the runtime cut, the store's
- * records and write batches, and `read` for an actor, a fake server or an endpoint.
+ * records and write batches, every call the fake servers received, and `read` for an actor, a fake
+ * server or an endpoint.
  *
  * **Details**
  *
+ * `calls` is every call of every endpoint in arrival order, each named by its server and endpoint:
+ * what a rule over all of a run's requests reads without knowing the app's servers.
  * `read(ref)` is the actor's snapshot, or undefined when it has no incarnation and no record.
  * `read(server)` is the server's truth. `read(endpoint)` is every call the endpoint received, in
  * arrival order, with its status.
@@ -42,6 +45,7 @@ export type Cut = {
     readonly stored: ReadonlyMap<string, string>;
     readonly batches: ReadonlyArray<Batch>;
   };
+  readonly calls: ReadonlyArray<CallEntry & { readonly server: string; readonly endpoint: string }>;
   readonly read: {
     // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts -- the Plan's read: undefined for an absent actor
     <D extends AnyDefinition>(ref: ActorRef<D>): Snapshot | undefined;
@@ -101,7 +105,10 @@ const openPage = (config: RuntimeConfig, host: Host["Service"], now: number, lim
     };
   });
 
+  // Turns that ran inside a step's own input, before any task, are judged here too.
   const settle = () => {
+    if (limits.over()) limits.fail("Turns");
+
     for (let ran = 0; tasks.length > 0; ran++) {
       if (ran >= TASK_LIMIT) limits.fail("Settle");
       tasks.shift()?.();
@@ -167,7 +174,7 @@ export const runSteps = <Names extends string>(
   let stepAt = -1;
   const turns = { instant: -1, count: 0, keep: 0 };
   const alive = (page: number) => page === current;
-  const fakes = makeWorld(alive);
+  const fakes = makeWorld(alive, () => stepAt);
   const store = makeStore(alive);
 
   const limits: Limits = {
@@ -258,6 +265,7 @@ export const runSteps = <Names extends string>(
       now: page.now(),
       inspection: inspect(page.built.runtime),
       records: { stored: store.data(), batches: store.batches() },
+      calls: log.map((l) => ({ ...l.entry, server: l.server.name, endpoint: l.endpoint })),
       read,
     };
   };
@@ -300,7 +308,6 @@ export const runSteps = <Names extends string>(
       },
       disposeRuntime: () => {
         disposed = true;
-        uses.clear();
         page.perform(page.built.runtime.dispose());
       },
       world: ({ words }) => {
@@ -311,11 +318,13 @@ export const runSteps = <Names extends string>(
         if (!Option.exists(page.perform(TestClock.adjust(duration)), Exit.isSuccess))
           scriptFault("advance did not end");
       },
-      reload: () => {
+      reload: ({ reattach }) => {
         const now = page.now();
         current += 1;
         disposed = false;
         page = boot(current, now);
+
+        if (!reattach) uses.clear();
 
         for (const { actor, count } of uses.values()) for (let k = 0; k < count; k++) attach(actor);
       },

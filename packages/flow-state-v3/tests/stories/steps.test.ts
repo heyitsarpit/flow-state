@@ -3,6 +3,7 @@ import { account } from "../../fixtures/transfers/machine.ts";
 import { Bank } from "../../fixtures/transfers/server.ts";
 import { bankStory, deadline, usual } from "../../fixtures/transfers/stories.ts";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
+import { checked } from "../rules/rules.ts";
 
 const endings = (run: StoryRun) =>
   run.evidence.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : []));
@@ -18,7 +19,7 @@ const sent = bankStory("steps/sent")
 
 describe("Story step words", () => {
   it("ensure and send land two keyed transfers at once (WriteLanes R6)", async () => {
-    const run = await usual.run();
+    const run = checked(await usual.run());
 
     expect(endings(run)).toEqual(["success success", "success success"]);
     expect(run.checkpoints.sent.read(account)?.memory).toEqual({ notice: "sent r2" });
@@ -26,13 +27,15 @@ describe("Story step words", () => {
   });
 
   it("send restores from a record but never creates an actor (Stories R3)", async () => {
-    const run = await bankStory("steps/send-absent")
-      .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
-      .checkpoint("sent")
-      .ensure(account)
-      .send(account, { _tag: "Send", transferId: "t2", cents: 500 })
-      .checkpoint("ensured")
-      .run();
+    const run = checked(
+      await bankStory("steps/send-absent")
+        .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+        .checkpoint("sent")
+        .ensure(account)
+        .send(account, { _tag: "Send", transferId: "t2", cents: 500 })
+        .checkpoint("ensured")
+        .run(),
+    );
 
     expect(run.checkpoints.sent.read(account)).toBeUndefined();
     expect(run.checkpoints.sent.read(Bank.transfer)).toEqual([]);
@@ -42,8 +45,11 @@ describe("Story step words", () => {
   });
 
   it("detach ends the use, so the nudge never fires and the actor leaves the cut (Turn I23, Actors R8)", async () => {
-    const used = await sent.advance("21 seconds").run();
-    const detached = await sent.detach(account).advance("21 seconds").checkpoint("later").run();
+    const used = checked(await sent.advance("21 seconds").run());
+
+    const detached = checked(
+      await sent.detach(account).advance("21 seconds").checkpoint("later").run(),
+    );
 
     expect(turns(used)).toEqual(["Send", "Done", "Nudge"]);
     expect(turns(detached)).toEqual(["Send", "Done"]);
@@ -52,7 +58,9 @@ describe("Story step words", () => {
   });
 
   it("dispose ends the actor and removes it from the cut and the store (Actors R20)", async () => {
-    const run = await sent.checkpoint("kept").dispose(account).checkpoint("disposed").run();
+    const run = checked(
+      await sent.checkpoint("kept").dispose(account).checkpoint("disposed").run(),
+    );
 
     expect(endings(run)).toEqual(["success success"]);
     expect(actorRecords(run.checkpoints.kept)).toHaveLength(1);
@@ -61,11 +69,13 @@ describe("Story step words", () => {
   });
 
   it("dispose with how forget forgets the identity and its record (Actors R21)", async () => {
-    const run = await sent
-      .checkpoint("kept")
-      .dispose(account, { how: "forget" })
-      .checkpoint("forgotten")
-      .run();
+    const run = checked(
+      await sent
+        .checkpoint("kept")
+        .dispose(account, { how: "forget" })
+        .checkpoint("forgotten")
+        .run(),
+    );
 
     expect(actorRecords(run.checkpoints.kept)).toHaveLength(1);
     expect(actorRecords(run.checkpoints.forgotten)).toEqual([]);
@@ -73,7 +83,7 @@ describe("Story step words", () => {
   });
 
   it("disposeRuntime runs the Runtime's dispose to its end, keeping the last snapshot (Actors R22, R23)", async () => {
-    const run = await sent.disposeRuntime().checkpoint("disposed").run();
+    const run = checked(await sent.disposeRuntime().checkpoint("disposed").run());
 
     expect(run.checkpoints.disposed.inspection.lifecycle).toBe("Disposed");
     expect(run.evidence.filter((e) => e._tag === "RuntimeDisposed")).toHaveLength(1);
@@ -81,18 +91,20 @@ describe("Story step words", () => {
   });
 
   it("disposeRuntime with a call on the wire ends it unknown Disposed at the 5 s bound (Actors R22, I35)", async () => {
-    const run = await bankStory("steps/dispose-on-wire")
-      .ensure(account)
-      .world(Bank.transfer.hold())
-      .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
-      .disposeRuntime()
-      .checkpoint("disposing")
-      .advance("4999 millis")
-      .checkpoint("bound")
-      .advance("1 millis")
-      .checkpoint("disposed")
-      .world(Bank.transfer.release())
-      .run();
+    const run = checked(
+      await bankStory("steps/dispose-on-wire")
+        .ensure(account)
+        .world(Bank.transfer.hold())
+        .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+        .disposeRuntime()
+        .checkpoint("disposing")
+        .advance("4999 millis")
+        .checkpoint("bound")
+        .advance("1 millis")
+        .checkpoint("disposed")
+        .world(Bank.transfer.release())
+        .run(),
+    );
 
     expect(run.checkpoints.disposing.inspection.lifecycle).toBe("Disposing");
     expect(run.checkpoints.bound.inspection.lifecycle).toBe("Disposing");
@@ -101,19 +113,21 @@ describe("Story step words", () => {
   });
 
   it("world applies a control before the next call: a lowered limit declines it (Stories R8)", async () => {
-    const run = await bankStory("steps/world")
-      .ensure(account)
-      .world(Bank.limit({ cents: 100 }))
-      .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
-      .checkpoint("declined")
-      .run();
+    const run = checked(
+      await bankStory("steps/world")
+        .ensure(account)
+        .world(Bank.limit({ cents: 100 }))
+        .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+        .checkpoint("declined")
+        .run(),
+    );
 
     expect(run.checkpoints.declined.read(Bank).limit).toBe(100);
     expect(endings(run)).toEqual(["failure Declined"]);
   });
 
   it("advance wakes the nudge at 20 s and the deadline at 30 s, not a millisecond before (Turn I22; WriteLanes R2)", async () => {
-    const run = await deadline.run();
+    const run = checked(await deadline.run());
     const notice = (cut: Cut) => cut.read(account)?.memory["notice"];
 
     expect(run.checkpoints["before nudge"].now).toBe(19_999);
@@ -127,14 +141,16 @@ describe("Story step words", () => {
   });
 
   it("reload boots a new page at the same time and ensures again only the uses still held (Stories R13; Restore R3)", async () => {
-    const run = await sent
-      .advance("2 seconds")
-      .reload()
-      .checkpoint("kept")
-      .detach(account)
-      .reload()
-      .checkpoint("released")
-      .run();
+    const run = checked(
+      await sent
+        .advance("2 seconds")
+        .reload()
+        .checkpoint("kept")
+        .detach(account)
+        .reload()
+        .checkpoint("released")
+        .run(),
+    );
 
     expect(run.checkpoints.kept.now).toBe(2000);
     expect(run.checkpoints.kept.read(account)?.memory).toEqual({ notice: "sent r1" });
@@ -144,15 +160,17 @@ describe("Story step words", () => {
   });
 
   it("checkpoint holds now, inspection, the actor, truth, calls and the store, unchanged by later steps (Stories R12, I15, I16)", async () => {
-    const run = await bankStory("steps/checkpoint")
-      .ensure(account)
-      .world(Bank.transfer.hold())
-      .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
-      .advance("2 seconds")
-      .checkpoint("held")
-      .world(Bank.transfer.release())
-      .checkpoint("done")
-      .run();
+    const run = checked(
+      await bankStory("steps/checkpoint")
+        .ensure(account)
+        .world(Bank.transfer.hold())
+        .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+        .advance("2 seconds")
+        .checkpoint("held")
+        .world(Bank.transfer.release())
+        .checkpoint("done")
+        .run(),
+    );
 
     const { held, done } = run.checkpoints;
 
@@ -160,7 +178,6 @@ describe("Story step words", () => {
     expect(held.inspection.lanes.map((l) => [l.operation, l.contract, l.state])).toEqual([
       ["transfer", "Bank/transfer", "InFlight"],
     ]);
-    expect(held.inspection).toEqual(held.inspection);
     expect(held.inspection.timers.map((t) => t.kind)).toEqual(["Schedule"]);
     expect(held.read(Bank.transfer).map((c) => [c.input.transferId, c.status])).toEqual([
       ["t1", "held at request"],
@@ -175,5 +192,36 @@ describe("Story step words", () => {
     expect(done.inspection.lanes).toEqual([]);
     expect(done.read(account)?.memory).toEqual({ notice: "sent r1" });
     expect(held.read(Bank.transfer).map((c) => c.status)).toEqual(["held at request"]);
+  });
+
+  it("two reads of the runtime cut at one point are equal and add no evidence (Stories I16)", async () => {
+    const story = bankStory("steps/two-reads")
+      .ensure(account)
+      .world(Bank.transfer.hold())
+      .send(account, { _tag: "Send", transferId: "t1", cents: 500 });
+
+    const once = checked(await story.checkpoint("first").run());
+    const twice = checked(await story.checkpoint("first").checkpoint("second").run());
+
+    expect(twice.checkpoints.second.inspection).toEqual(twice.checkpoints.first.inspection);
+    expect(twice.checkpoints.first.inspection).toEqual(once.checkpoints.first.inspection);
+    expect(twice.evidence).toEqual(once.evidence);
+  });
+
+  it("a reload after disposeRuntime ensures again every actor the Story still uses (Stories R13)", async () => {
+    const run = checked(
+      await sent.disposeRuntime().advance("6 seconds").reload().checkpoint("reloaded").run(),
+    );
+
+    expect(run.checkpoints.reloaded.inspection.lifecycle).toBe("Open");
+    expect(run.checkpoints.reloaded.inspection.actors.map((a) => a.actor)).toEqual([
+      "Bank/Transfers/acct-1",
+    ]);
+  });
+
+  it("reload({ reattach: false }) ensures nothing the Story used; only what the boot wakes is live (Stories R13; Restore R1)", async () => {
+    const run = checked(await sent.reload({ reattach: false }).checkpoint("reloaded").run());
+
+    expect(run.checkpoints.reloaded.inspection.actors).toEqual([]);
   });
 });

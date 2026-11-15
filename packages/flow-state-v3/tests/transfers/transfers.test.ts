@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vite-plus/test";
 import { account, TransfersMachine } from "../../fixtures/transfers/machine.ts";
 import { Bank } from "../../fixtures/transfers/server.ts";
-import { declined, long, lostThenReload } from "../../fixtures/transfers/stories.ts";
+import {
+  declined,
+  heldAtDisposal,
+  long,
+  lostThenReload,
+} from "../../fixtures/transfers/stories.ts";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
+import { checked } from "../rules/rules.ts";
 
 const endings = (run: StoryRun) =>
   run.evidence.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : []));
@@ -17,14 +23,14 @@ const row = (cut: Cut, transferId: string) => {
 
 describe("transfers", () => {
   it("delivers the bank's decline as a failure (WriteLanes R4)", async () => {
-    const run = await declined.run();
+    const run = checked(await declined.run());
 
     expect(endings(run)).toEqual(["failure Declined"]);
     expect(run.checkpoints.declined.read(account)?.memory).toEqual({ notice: "declined limit" });
   });
 
   it("a lost answer reads unknown after a reload and reached the bank once (Restore R3, Restore I6)", async () => {
-    const run = await lostThenReload.run();
+    const run = checked(await lostThenReload.run());
     const { sending, reloaded } = run.checkpoints;
 
     expect(row(sending, "t1")).toEqual(
@@ -50,7 +56,7 @@ describe("transfers", () => {
   });
 
   it("runs the long Story, every send of one transfer carrying one idempotency key (WriteLanes R5, WriteLanes I6)", async () => {
-    const run = await long.run();
+    const run = checked(await long.run());
 
     const reached = run.end
       .read(Bank.transfer)
@@ -66,5 +72,13 @@ describe("transfers", () => {
     expect(keys.size).toBe(36);
     expect([...keys.values()].every((k) => k.size === 1)).toBe(true);
     expect(reached.filter((c) => c.input.transferId === "d0")).toHaveLength(2);
+  });
+
+  it.fails("Turn I9: an accepted transition with all its parts publishes exactly once, one that changes nothing included", async () => {
+    const run = await heldAtDisposal.run();
+    const last = run.evidence.findLastIndex((e) => e._tag === "Turn");
+
+    expect(run.evidence[last]).toEqual(expect.objectContaining({ event: "Unsure", from: "READY" }));
+    expect(run.evidence.slice(last + 1).filter((e) => e._tag === "Published")).toHaveLength(1);
   });
 });

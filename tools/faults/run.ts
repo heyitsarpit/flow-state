@@ -1,13 +1,14 @@
 // Shows that Flow State's tests tell a right runtime from a wrong one. In a scratch copy of the
 // package it runs the tests three ways: unchanged (must pass), with a dead core whose step changes
 // nothing (every test should fail), and once per planted fault in tests/faults.ts (at least one
-// test should fail). It measures and prints; it is never a gate.
+// test should fail). It exits 1 when the unchanged tests fail or a fault is missed or stale, so a
+// fault the tests stop catching shows; it is never a CI gate.
 //
 //   bun tools/faults/run.ts [tests path, default packages/flow-state-v3/tests]
 import { execFileSync } from "node:child_process";
 import { cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, join, resolve } from "node:path";
+import { basename, join, relative, resolve } from "node:path";
 import { type Fault, faults } from "../../packages/flow-state-v3/tests/faults.ts";
 
 const repo = resolve(import.meta.dirname, "..", "..");
@@ -38,9 +39,12 @@ const run = (reporter: ReadonlyArray<string> = []) => {
 
 const summary = (out: string) => /Tests\s+(.*)/u.exec(out)?.[1]?.trim() ?? "no summary";
 
-// Applies the edits, runs the body, and puts the files back. Returns false when an edit's text is
-// not in its file exactly once, so a stale fault is reported and never passes for caught.
+// Applies the edits, runs the body, and puts the files back. Returns false when an edit's path
+// leaves the copy or its text is not in its file exactly once, so a stale fault is reported and
+// never passes for caught.
 const planted = (edits: ReadonlyArray<Edit>, body: () => void) => {
+  if (edits.some((edit) => relative(copy, resolve(copy, edit.file)).startsWith(".."))) return false;
+
   const originals = edits.map((edit) => ({
     edit,
     path: join(copy, edit.file),
@@ -116,6 +120,8 @@ try {
   const caught = results.filter((verdict) => verdict.startsWith("caught")).length;
 
   console.log(`\nfaults caught: ${caught} of ${faults.length}`);
+
+  if (caught < faults.length) process.exitCode = 1;
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

@@ -3,6 +3,7 @@ import { account } from "../../fixtures/transfers/machine.ts";
 import { Bank } from "../../fixtures/transfers/server.ts";
 import { bankStory } from "../../fixtures/transfers/stories.ts";
 import type { Cut, StoryRun, WorldWord } from "../../src/host/testing/index.ts";
+import { checked } from "../rules/rules.ts";
 
 const endings = (run: StoryRun) =>
   run.evidence.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : []));
@@ -14,7 +15,7 @@ const receipts = (cut: Cut) => Object.keys(cut.read(Bank).receipts).length;
 const notice = (cut: Cut) => cut.read(account)?.memory["notice"];
 
 // One transfer under a wire word, then whatever follows, then a second transfer no word touches.
-const wired = (word: WorldWord, ...after: ReadonlyArray<WorldWord | "30 seconds">) => {
+const wired = async (word: WorldWord, ...after: ReadonlyArray<WorldWord | "30 seconds">) => {
   const sent = bankStory("wire/word")
     .ensure(account)
     .world(word)
@@ -26,11 +27,13 @@ const wired = (word: WorldWord, ...after: ReadonlyArray<WorldWord | "30 seconds"
     sent,
   );
 
-  return followed
-    .checkpoint("between")
-    .send(account, { _tag: "Send", transferId: "t2", cents: 500 })
-    .checkpoint("next")
-    .run();
+  return checked(
+    await followed
+      .checkpoint("between")
+      .send(account, { _tag: "Send", transferId: "t2", cents: 500 })
+      .checkpoint("next")
+      .run(),
+  );
 };
 
 describe("Fake wire words", () => {

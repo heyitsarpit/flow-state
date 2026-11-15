@@ -43,6 +43,19 @@ export const lostConfirm = Story.app(shopSetup, { id: "pay/lost-confirm", fixtur
   .checkpoint("after");
 
 /**
+ * The shop turns a confirm away as busy with a negative retry delay: the turn that would arm that
+ * retry is refused, refused again on its one redelivery, and given one more try after a reload.
+ */
+export const busyRefused = Story.app(shopSetup, { id: "pay/busy-refused", fixtures: [ShopFake] })
+  .ensure(checkout)
+  .send(checkout, { _tag: "Start", cartId: "c1", intentId: "pi1" })
+  .world(Shop.busy({ retryAfterMs: -1 }))
+  .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
+  .checkpoint("refused")
+  .reload()
+  .checkpoint("reloaded");
+
+/**
  * Every Story of the fixture, by name.
  */
-export const stories = { lostConfirm };
+export const stories = { lostConfirm, busyRefused };

@@ -8,3 +8,11 @@ note 2026-11-15T16:59:47Z
     Stories R4, R6, R12, Q1 revised building T63: evidence is the Runtime's records, no page per ending; R6 keeps
     evidence to the 10,000th turn, found after the task that ran it; the Advance limit moved to Q1, unbuilt. R12 names
     records.stored and batches, and inspection's lane contract, state and lifecycle.
+
+note 2026-11-15T17:59:19Z
+    Stories R3, R10, R12, R13: reload({ reattach: false }) (Pending D10), a step index on each call and the cut's calls,
+    for T64's rules; disposeRuntime keeps the Story's uses (R13's "disposed" is disposeActor). Reverse: drop them.
+
+note 2026-11-15T17:59:19Z
+    Stories I7 reworded: a run cannot cut a synchronous chain short, so it rejects past 10,000 turns with the evidence
+    cut at the 10,000th; the old "no 10,001st turn runs" was unbuildable without a driver slice. Reverse: restore it.

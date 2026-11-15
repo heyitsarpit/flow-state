@@ -3,6 +3,7 @@ import { account } from "../../fixtures/transfers/machine.ts";
 import { Bank } from "../../fixtures/transfers/server.ts";
 import { bankStory } from "../../fixtures/transfers/stories.ts";
 import { type Cut, Fake, type StoryRun } from "../../src/host/testing/index.ts";
+import { checked } from "../rules/rules.ts";
 
 const endings = (run: StoryRun) =>
   run.evidence.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : []));
@@ -20,8 +21,8 @@ describe("A dead page", () => {
       .reload()
       .checkpoint("reloaded");
 
-    const before = await story.run();
-    const run = await story.world(Fake.storage.release()).checkpoint("released").run();
+    const before = checked(await story.run());
+    const run = checked(await story.world(Fake.storage.release()).checkpoint("released").run());
     const { reloaded, released } = run.checkpoints;
 
     expect(released.records.batches.filter((b) => b.page === 0).map((b) => b.status)).toContain(
@@ -41,8 +42,8 @@ describe("A dead page", () => {
       .reload()
       .checkpoint("reloaded");
 
-    const before = await story.run();
-    const run = await story.world(Bank.transfer.release()).checkpoint("released").run();
+    const before = checked(await story.run());
+    const run = checked(await story.world(Bank.transfer.release()).checkpoint("released").run());
     const { reloaded, released } = run.checkpoints;
 
     expect(reloaded.read(Bank.transfer).map((c) => c.status)).toEqual(["held at request"]);
@@ -55,17 +56,19 @@ describe("A dead page", () => {
   });
 
   it("never moves its clock again, so its deadline never fires after the reload (Stories R13, I6)", async () => {
-    const run = await bankStory("reload/clock")
-      .ensure(account)
-      .world(Bank.transfer.hold())
-      .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
-      .advance("10 seconds")
-      .reload()
-      .checkpoint("reloaded")
-      .advance("31 seconds")
-      .checkpoint("later")
-      .world(Bank.transfer.release())
-      .run();
+    const run = checked(
+      await bankStory("reload/clock")
+        .ensure(account)
+        .world(Bank.transfer.hold())
+        .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+        .advance("10 seconds")
+        .reload()
+        .checkpoint("reloaded")
+        .advance("31 seconds")
+        .checkpoint("later")
+        .world(Bank.transfer.release())
+        .run(),
+    );
 
     expect(run.checkpoints.reloaded.now).toBe(10_000);
     expect(run.checkpoints.later.now).toBe(41_000);
@@ -73,5 +76,31 @@ describe("A dead page", () => {
     expect(run.checkpoints.later.read(Bank.transfer).map((c) => c.status)).toEqual([
       "held at request",
     ]);
+  });
+
+  it("release takes the oldest held call, a dead page's before a live one, and the live Attempt still ends unknown at its deadline (Stories R9, R13)", async () => {
+    const run = checked(
+      await bankStory("reload/oldest-held")
+        .ensure(account)
+        .world(Bank.transfer.hold())
+        .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+        .reload()
+        .world(Bank.transfer.hold())
+        .send(account, { _tag: "Resend", transferId: "t1" })
+        .world(Bank.transfer.release())
+        .checkpoint("released")
+        .advance("31 seconds")
+        .checkpoint("late")
+        .run(),
+    );
+
+    const { released, late } = run.checkpoints;
+
+    expect(released.read(Bank.transfer).map((c) => [c.page, c.status])).toEqual([
+      [0, "handled"],
+      [1, "held at request"],
+    ]);
+    expect(endings(run)).toEqual(["unknown Restored", "unknown TimedOut"]);
+    expect(late.inspection.lanes.map((l) => l.state)).toEqual(["Held"]);
   });
 });

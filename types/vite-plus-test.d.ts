@@ -1,6 +1,7 @@
 declare module "vite-plus/test" {
   type TestBody = () => void | Promise<void>;
   type TestApi = (name: string, body: TestBody, timeout?: number) => void;
+  type ItApi = TestApi & { readonly fails: TestApi };
 
   interface AsyncMatchers {
     toBe(expected: unknown): Promise<void>;
@@ -37,5 +38,5 @@ declare module "vite-plus/test" {
 
   export const describe: TestApi;
   export const expect: ExpectApi;
-  export const it: TestApi;
+  export const it: ItApi;
 }

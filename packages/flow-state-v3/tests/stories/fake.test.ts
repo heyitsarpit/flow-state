@@ -5,6 +5,7 @@ import { account, bankSetup } from "../../fixtures/transfers/machine.ts";
 import { Bank, BankFake } from "../../fixtures/transfers/server.ts";
 import { bankStory } from "../../fixtures/transfers/stories.ts";
 import { Fake, Story, StoryFailed, type StoryRun } from "../../src/host/testing/index.ts";
+import { checked } from "../rules/rules.ts";
 
 const endings = (run: StoryRun) =>
   run.evidence.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : []));
@@ -13,15 +14,17 @@ const Truth = Schema.Struct({ limit: Schema.Number });
 
 describe("Fake server", () => {
   it("a control changes truth, and the next call is answered by the handler's rule; endpoints and controls are typed (Stories R8, R9, I9)", async () => {
-    const run = await bankStory("fake/control")
-      .ensure(account)
-      .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
-      .checkpoint("first")
-      .world(Bank.limit({ cents: 400 }))
-      .checkpoint("lowered")
-      .send(account, { _tag: "Send", transferId: "t2", cents: 500 })
-      .checkpoint("declined")
-      .run();
+    const run = checked(
+      await bankStory("fake/control")
+        .ensure(account)
+        .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+        .checkpoint("first")
+        .world(Bank.limit({ cents: 400 }))
+        .checkpoint("lowered")
+        .send(account, { _tag: "Send", transferId: "t2", cents: 500 })
+        .checkpoint("declined")
+        .run(),
+    );
 
     const { first, lowered, declined } = run.checkpoints;
 
@@ -67,8 +70,8 @@ describe("Fake server", () => {
       .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
       .checkpoint("reloaded");
 
-    const first = await story.run();
-    const fresh = await bankStory("fake/fresh").checkpoint("start").run();
+    const first = checked(await story.run());
+    const fresh = checked(await bankStory("fake/fresh").checkpoint("start").run());
 
     expect(first.checkpoints.reloaded.read(Bank).limit).toBe(10);
     expect(endings(first)).toEqual(["failure Declined"]);
@@ -76,14 +79,16 @@ describe("Fake server", () => {
   });
 
   it("the world option applies its words before the first page boots (Stories R1)", async () => {
-    const run = await Story.app(bankSetup, {
-      id: "fake/world",
-      fixtures: [BankFake],
-      world: [Bank.limit({ cents: 100 })],
-    })
-      .ensure(account)
-      .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
-      .run();
+    const run = checked(
+      await Story.app(bankSetup, {
+        id: "fake/world",
+        fixtures: [BankFake],
+        world: [Bank.limit({ cents: 100 })],
+      })
+        .ensure(account)
+        .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+        .run(),
+    );
 
     expect(endings(run)).toEqual(["failure Declined"]);
   });
