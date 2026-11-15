@@ -218,3 +218,11 @@ note 2026-11-15T21:44:53Z
 note 2026-11-15T21:57:25Z
     T71 in review at `0b5c4b41`: two ui-sdk fixtures, 29 of 37 scenarios ported, faults 51 of 51; independent check
     started. The sweep reloads every fifth stress step, under scrutiny.
+
+note 2026-11-15T22:12:07Z
+    T71 done: independent review PASS at `0b5c4b41` (`482c25b2`); all 29 ports match upstream, 8 drops hold. Routed to
+    @task.V3.T70: full sweep (no stride), disabled shortcuts, one frame stack, NUMBER-10 follows upstream (ruling).
+
+note 2026-11-15T22:12:07Z
+    For the user's read (wiring cost): the number input's `lastCommit.seq` is a hand-kept counter the idiom pass's
+    proposed `emit` would replace.
