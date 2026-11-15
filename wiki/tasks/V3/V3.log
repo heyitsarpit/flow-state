@@ -182,3 +182,7 @@ note 2026-11-15T20:17:58Z
 note 2026-11-15T20:26:34Z
     T68 in review: 9 compile-time tests, 43 promises found (26 unbuilt, owners listed); independent check started. Live
     gap: a foreign event token passes a schedule's send and machine().
+
+note 2026-11-15T20:36:08Z
+    T68 review ISSUES at `025fe178` (`5e59bf96`): Operations V1's built forms untested and two unbuilt ones unlisted;
+    back to the builder. Delegated: pin the foreign event token now as an it.fails on Compile T11.
