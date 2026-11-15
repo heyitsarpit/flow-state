@@ -359,6 +359,26 @@ tasks
             runs `BankHttp` or `ShopHttp` (a sandbox contract run is T29's). Close: no reload sweep exists yet (T64) and
             no bench (T66); `nub run check:effect` over the ~100-step `long` Story takes about 1 s, so checkpoint names
             need no cap.
+        comment     2026-11-15T17:24:43Z
+            PASS at 5425505d (independent check-task and diff review, 4 Haiku sidecars, one blind). vp test 300/300,
+            check, lint:rules green; faults 28/29, the dead core fails every new Story test. R13 holds: dead-page call
+            and write releases are gated by page liveness and covered by reload.test.ts plus faults dead-page-answered
+            and abort-fails-the-waiter. Planted type faults in a scratch copy (no fixture, wrong success type, a fixture
+            needing another service) each fail tsc. Pay passes across a reload with no Runtime change. Delivers the
+            first slice of @plan.Testing O1 to O4 and @plan.Inspection O1; still owed: O2's Turns limit and R14's tab
+            seed (T64), Fake.http and exports (T29).
+
+            Judged: refused-turn-reported (Turn I14) is a core rule no tooling test owns, so T64; the fake-only bank
+            contract staying green on a dead core is right, as it tests the fixture alone. Builder calls accepted as
+            small API: Fake.call failure required, shop-http.ts. For the user's read: the inspect lane shape (operation,
+            plus new contract and state).
+
+            Routed to T64: steps.test.ts:163 compares inspection with itself (I16 untested); no Turns test, and run.ts
+            settle runs the 10,001st task before the check, against I7's wording; reload after disposeRuntime re-ensures
+            nothing (uses cleared) where R13 is silent; release() takes the oldest held entry even when it belongs to a
+            dead page (per R9, but it can leave a live call held); a held write interrupted by disposeRuntime still
+            lands on release; faults gate exits 0 on a miss. Noted: run.ts disposed flag and fake.ts gone set are side
+            state beside their phase.
     T64
         title       Rules checked on every run, and a reload at every step
         status      open
