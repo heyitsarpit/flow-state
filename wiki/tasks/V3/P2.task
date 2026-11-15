@@ -489,6 +489,21 @@ tasks
             tests/rules run); every Story test calls checked(); reload sweep green over 9 fixture Stories, 164 variants
             per variant kind, 0 skipped; nub run faults 36 of 36, exits 1 on a miss; 310 tests pass, 2 it.fails (Turn
             I9, Turn I14).
+        comment     2026-11-15T18:15:39Z
+            Review PASS at bdd85075; no blocking finding. Rerun on an export of that revision (the tree now holds T65's
+            uncommitted work): 310 tests and 2 it.fails, check and lint:rules at zero, faults 36 of 36, a narrowed run
+            exits 1 on its 23 misses, and each new fault fires its own rule alone. The 8 rules read only public reads
+            (cut calls and step are Stories R10/R12 reads), and the sweep runs 164+164 variants, 0 skipped. Delivers
+            @plan.Testing.O6's properties list and the O1/O3 reads it needs, not any outcome whole. Not confirmed as
+            weighed across the system: the Stories I7 reword drops the run's bound on a synchronous chain that Testing
+            O2 and O8 still promise, with no @plan.Pending entry; that entry and the user's read are owed now. Routed to
+            @task.V3.T70: the sweep asserts no skip count, so a dead core passes it with 147 of 164 skipped (a lost
+            re-send reads as nothing held); Restore I1 is judged only at a reload before a checkpoint or the end (29 of
+            164); rules narrower than their Spec (I3 Restored outside a boot, I14 event-turn refusals and new work such
+            as Ended, I9 windows opened only by outcomes, I15 evidence-only endings delivered, I6 unminted or
+            per-endpoint keys). Routed to @task.V3.T17: both it.fails, Turn I14 (a refusal publishes no issue-only
+            snapshot) and Turn I9 (serve.ts publishes only on change). Routed to @task.V3.T67: tools/faults/run.ts
+            leaves its scratch copy on a failed control run (process.exit inside try) and never gates a stale dead core.
     T65
         title       A run prints as a text trace
         status      review
