@@ -47,3 +47,13 @@ time_ist,weekly_all_pct,weekly_fable_pct,five_hour_pct,weekly_delta_pct,pace_pct
 2026-11-15 05:21,55,3,42,2,4.0,83,run paused by the user; T54 builder stopping (resume note ae57dfa5); 5 Haiku process-study readers; Opus speed proposal next
 2026-11-15 05:51,55,3,46,0,0.0,76,run paused; no V3 agents running (speed proposal done; transcript studies stopped)
 2026-11-15 06:21,56,3,51,1,2.0,72,run paused; Opus single-runtime proposal lead (5-8 Haiku sidecars) running experiments
+2026-11-15 07:01,56,3,53,0,0.0,63,run paused; no V3 agents running (single-runtime proposal done; waiting for the user's Q1-Q6)
+2026-11-15 07:49,56,3,53,0,0.0,53,run paused; no V3 agents running; 5-hour window resets 07:50
+2026-11-15 08:28,56,3,0,0,0.0,,run paused; no V3 agents running; new 5-hour window started 07:50
+2026-11-15 09:27,56,3,0,0,0.0,0,run paused; no V3 agents running
+2026-11-15 09:56,56,3,0,0,0.0,0,run paused; no V3 agents running
+2026-11-15 10:32,56,3,0,0,0.0,0,run paused; no V3 agents running
+2026-11-15 10:58,56,3,1,0,0.0,2,run paused; no V3 agents running
+2026-11-15 11:30,56,3,1,0,0.0,1,run paused; no V3 agents running
+2026-11-15 11:55,56,3,1,0,0.0,1,run paused; no V3 agents running
+2026-11-15 12:23,56,3,1,0,0.0,1,run paused; no V3 agents running
