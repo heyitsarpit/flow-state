@@ -1,30 +1,74 @@
 phase P16
 title Test system
 description
-    **Goal:** Flow's own tests run on Flow's own test tooling (Story, Fake, the runtime cut, the trace, the CLI), the
-    hand cases are ported onto it, and the bridge is deleted. The decisions and their evidence are in
-    code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md.
+    **Class:** not readily verifiable.
 
-    **Verified by:** `vp test` and `nub run check` over the whole package, `nub run lint:rules`, and `nub run faults`
-    (a dead core and the named faults in code:packages/flow-state-v3/tests/faults.ts) whenever the tooling or the run
-    rules change.
+    **Kind:** verification-suite.
 
-    **Exit criteria:** one test style in the tree; every named fault caught; a dead core fails every test that is not
-    an inverted known-bug test.
+    **Goal:** Flow's own tests run on Flow's own test tooling (Story, Fake, the runtime cut, the trace, the CLI); the
+    hand cases are ported onto it and the bridge is deleted. Decided by the user on 2026-11-15; the design and its
+    evidence are in code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md.
 
-    **False pass:** a harness made of the product hiding the product's bugs.
+    **Starts when:** now, ahead of the remaining core slices: @task.V3.T54 waits on @task.V3.T67, and @task.V3.T18
+    waits on @task.V3.T69 and @task.V3.T70.
 
-    **Caught by:** the fault run, and the pure core tests that stay beside the core.
+    **Verified by:**
 
-    **Order:** @task.V3.T62, then @task.V3.T63, then @task.V3.T64 to @task.V3.T68 (core work resumes after
-    @task.V3.T67), then @task.V3.T69 and @task.V3.T70 before @task.V3.T18.
+    - the suite: the Story tests under `packages/flow-state-v3/tests/`, with the run rules and the reload sweep, run
+      by `vp test`; the builder runs it, and a lead that did not build it audits it
+      (skill:policy-testing#audit-a-suite);
+    - its mutants: `nub run faults` plants a dead core and each named fault of
+      code:packages/flow-state-v3/tests/faults.ts in a scratch copy, one at a time;
+    - its coverage record: written by @task.V3.T67 and proposed as a verification entry of @plan.Runtime, which is
+      a Plan edit and so the user's yes; until then it is a comment on this phase;
+    - skill:check-task per Task; `nub run check` and `nub run lint:rules` at zero.
 
-    **Stops:** a guarantee change; a Pay Story that cannot pass across a reload (@task.V3.T63); public entry-point
-    names (@task.V3.T69).
+    **One iteration:** the next ready Task: write its checks and see them fail, build, run the suite and
+    `nub run faults`, then an independent skill:check-task. Findings are gathered by root cause before the next Task.
+
+    **Exit criteria:**
+
+    - every Task is done, and `tests/bridge/` is deleted, so one test style is left;
+    - everything under "Prove" in skill:policy-verification holds at the final revision: the suite runs end to end,
+      the dead core and every named fault are caught, and the audit has passed;
+    - the coverage record exists.
+
+    **False pass:** a harness made of the product hiding the product's bugs; a ported test that asserts less than
+    the case it replaces.
+
+    **Caught by:** the fault run and the dead core; the pure core tests beside the core
+    (code:packages/flow-state-v3/src/core/cells.test.ts); the case-by-case comparison in @task.V3.T67.
+
+    **Gates:**
+
+    - `nub run faults`, which rejects the dead core and the 17 named faults in
+      code:packages/flow-state-v3/tests/faults.ts;
+    - `nub run lint:rules`, which rejects the planted violations in code:tools/flow-state-lint/imports.test.ts and
+      code:tools/flow-state-lint/rules.test.ts;
+    - `nub run check`.
+
+    **Failure limit:** 2.
+
+    **Stops:**
+
+    - a Pay Story that cannot pass across a reload (@task.V3.T63);
+    - public entry-point names (@task.V3.T69);
+    - a guarantee change.
+
+    **User's read:** the agent decisions in section 12 of the proposal; the Story and Fake API as built; each case
+    the port drops, with its reason.
+
+    **Draws from:**
+
+    - skill:policy-verification (prove a suite; the coverage record);
+    - skill:policy-testing (the requirements as failing checks first; audit a suite);
+    - skill:execute-task and skill:check-task per Task; skill:review at each Task's close;
+    - skill:policy-convergence at the threshold; skill:diagnose when a test fails unexplained;
+    - the project's `effect-api-documentation` skill for every Effect API.
 tasks
     T62
         title       Package layout and import rules
-        status      done
+        status      review
         priority    high
         description
             Fix the package's folders and what may import what, enforced by lint, before the tooling is built.
@@ -84,8 +128,10 @@ tasks
 
             False pass: a run that ends with work still queued, or tests that pass on a dead core → caught by the idle
             check after every step and by `nub run faults`.
+            Gates: `nub run faults` over the new tests, which rejects the dead core.
             Stops: the Pay Story cannot pass across a reload without bending the Runtime. Then the reload model is
             wrong.
+            User's read: the Story and Fake API as built, and each place it differs from the proposal's section 4.
         acceptance
             - `Story.app(config, fakes, steps)` is inert data and `run()` is the only boundary. Steps: attach, detach,
               forget, send, disposeActor, disposeRuntime, advance, reload, checkpoint.
@@ -121,6 +167,7 @@ tasks
             May change: `tests/rules/`, and the Story tests that call the helper. Evidence: this Task's comments.
 
             False pass: a rule that never fires → each rule is shown red on one planted fault.
+            Gates: `nub run faults`, which rejects all 17 named faults in code:packages/flow-state-v3/tests/faults.ts.
         acceptance
             - A rule is a function from a finished run to its breaches, named by its Spec id. One helper applies every
               rule to a run, and every Story test calls it.
@@ -144,6 +191,9 @@ tasks
             two traces of one Story. This is the first slice of @plan.Inspection.O4; @task.V3.T49 keeps the rest.
 
             May change: `src/host/trace.ts`, `tests/transfers/`. Evidence: this Task's comments.
+
+            False pass: a trace that leaves out what a step caused → caught by a snapshot that shows each request,
+            ending and store write of a run with a lost answer.
         acceptance
             - The trace of a transfers run matches a text snapshot (`toMatchFileSnapshot`).
             - Two runs of one Story print the same trace.
@@ -196,6 +246,10 @@ tasks
               breaks.
             - Each fixture has a usual and a long story.
             - `nub run faults`: all 17 faults caught, and a dead core fails every test that is not inverted.
+            - The suite's coverage record (Covers, Suite, Rerun, Mutants, Audit, Matched at, Scope, as
+              skill:policy-verification gives them) is a comment on this phase, proposed to the user as a
+              verification entry of @plan.Runtime.
+            - An audit by a lead that did not build the suite (skill:policy-testing#audit-a-suite) has passed.
     T68
         title       Compile-time tests for the type promises production keeps
         status      open
@@ -229,6 +283,8 @@ tasks
             **Risk:** where the CLI lives and how it finds stories are not designed. The Testing plan's `defineConfig`
             discovery is outside this slice.
 
+            False pass: a command that prints through a path of its own → caught by its output equalling the trace
+            of @task.V3.T65 for the same Story.
             Stops: public entry-point names.
         acceptance
             - Each command prints from the same run and printer as @task.V3.T65, over the package's fixtures.
