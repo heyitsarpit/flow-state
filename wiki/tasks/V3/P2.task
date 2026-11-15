@@ -845,7 +845,7 @@ tasks
               record on @phase.V3.P2.
     T68
         title       Compile-time tests for the type promises production keeps
-        status      in_progress
+        status      review
         priority    medium
         blocked_by  [@T62]
         description
