@@ -142,6 +142,9 @@ tasks
             `packages/flow-state-v3/src/host/trace.ts` (@task.V3.T65 builds it).
         acceptance
             The inspection Spec's Requirements hold on production, and the route is exported.
+        comment     2026-11-15T18:27:26Z
+            Routed from T65's review: the rest of @plan.Inspection.O4's Trace (header fields, checkpoints inside the
+            Trace, a Runtime-wide sequence) and one render taking a model or a trace.
     T29
         title       The rest of Story and Fake, and `story describe`
         status      draft
@@ -173,6 +176,9 @@ tasks
             @task.V3.T63, @task.V3.T69, @task.V3.T70.
         acceptance
             Every outcome this Task satisfies holds on production, and the `flow-state/testing` route is exported.
+        comment     2026-11-15T18:27:26Z
+            Routed from T65's review: export Trace, TraceEvent and TraceRecord with StoryRun. The trace's `page` stands
+            in for the Plan's `tab`; the public name is the user's.
     T31
         title       CLI outputs designed for people
         status      draft

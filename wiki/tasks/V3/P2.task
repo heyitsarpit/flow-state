@@ -506,7 +506,7 @@ tasks
             leaves its scratch copy on a failed control run (process.exit inside try) and never gates a stale dead core.
     T65
         title       A run prints as a text trace
-        status      review
+        status      done
         priority    medium
         blocked_by  [@T63]
         description
@@ -667,6 +667,9 @@ tasks
             @plan.Testing.O2's bound (the 10,001st turn rejects before executing; an endless synchronous chain runs out
             of memory): restore I7 to the Plan, pin the gap with a finite chain as it.fails, then fix it or record a
             @plan.Pending decision after the whole-system check.
+        comment     2026-11-15T18:27:27Z
+            Routed from T65's review: a plain comment above `Noted` in run.ts breaks the code style; Stories Q1 omits
+            control and verdict, which R16 defers to it; T14 cites Codec R10, R11 for Stories R10, R11.
     T68
         title       Compile-time tests for the type promises production keeps
         status      open

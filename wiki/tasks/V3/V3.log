@@ -134,3 +134,7 @@ note 2026-11-15T18:16:39Z
     Ruling (orchestrator): Stories I7's reword failed the whole-system check (@plan.Testing.O2 still promises the turn
     bound, no Pending entry); the Plan's bound stands until @task.V3.T67 fixes or records it. Reverse: keep the reword
     with a Pending decision.
+
+note 2026-11-15T18:27:27Z
+    T65 done: independent review PASS at `0ed1e89d` (`8d0d6583`). Routed: WriteAhead R5 and I21 bug to @task.V3.T20,
+    Trace remainder to @task.V3.T49, exports to @task.V3.T29, nits to @task.V3.T67.

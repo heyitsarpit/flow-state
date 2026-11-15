@@ -207,6 +207,10 @@ tasks
             - The Requirements of @spec.Restore and @spec.Codec this slice builds hold, shown by Story tests with a
               reload and by the reload sweep.
             - Each new rule has a planted fault that `nub run faults` catches.
+        comment     2026-11-15T18:27:26Z
+            Routed from T65's review: after a reload the step that turns the restored head Held writes no lane record,
+            so it still reads inFlight: true (WriteAhead R5, I21); pinned as it.fails in tests/transfers/trace.test.ts.
+            Once fixed, that file's hand list (line 54) becomes [actor, lane, owed].
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      draft
