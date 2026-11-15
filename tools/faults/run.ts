@@ -83,9 +83,11 @@ writeFileSync(
 cpSync(resolve(repo, "tsconfig.base.json"), join(root, "tsconfig.base.json"));
 symlinkSync(resolve(repo, "node_modules"), join(root, "node_modules"));
 
-// Tests a dead core may leave green: a contract test of a port fake runs no core, and an inverted
-// test, titled by the rule it breaks ("Turn I9: ..."), passes on any failure.
-const mayStayGreen = [/\.contract\.test\.ts > /u, / > [A-Z][A-Za-z]+ [RI]\d+: /u];
+// Tests a dead core may leave green: a contract test of a port fake runs no core, an inverted
+// test, titled by the rule it breaks ("Turn I9: ..."), passes on any failure, and a CLI test
+// compares the CLI with a direct run of the same core, so a dead core changes both sides; the CLI's
+// own faults are planted in tests/tooling-faults.ts.
+const mayStayGreen = [/\.contract\.test\.ts > /u, / > [A-Z][A-Za-z]+ [RIT]\d+: /u, /tests\/cli\/[^ ]+\.test\.ts > /u];
 
 const plantAll = () => {
   const dead = planted([DEAD_CORE], () => {

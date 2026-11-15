@@ -42,10 +42,17 @@ type NewName<N extends string, Names extends string> = string extends N
     : unknown;
 
 /**
+ * The key of a Story's brand, which holds the id of the app it runs: how a config's files are
+ * searched for Stories.
+ */
+export const StoryId = "~flow-state/Story";
+
+/**
  * A scripted run of an app over fakes: inert data until `run()`. Each step word returns a new
  * Story with one more step; `Names` are its checkpoints' names.
  */
 export type Story<Names extends string = never> = {
+  readonly [StoryId]: string;
   readonly id: string;
   readonly steps: ReadonlyArray<Step>;
   readonly ensure: <D extends AnyDefinition>(ref: ActorRef<D>) => Story<Names>;
@@ -125,6 +132,7 @@ export const Story = {
       const next = (step: Step) => chain<Names>([...steps, step]);
 
       return {
+        [StoryId]: subject.config.app.id,
         id: options.id,
         steps,
         ensure: (ref) => next(Step.ensure({ actor: actorOf(ref) })),

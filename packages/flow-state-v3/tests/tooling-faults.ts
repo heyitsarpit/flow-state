@@ -2,7 +2,8 @@ import type { Fault } from "./faults.ts";
 
 /**
  * Wrong test tooling the tests must reject: each breaks one rule of the Stories Spec in
- * `src/host/testing/`, planted alone like the runtime's faults.
+ * `src/host/testing/`, or of the command line in `src/host/cli/`, planted alone like the runtime's
+ * faults.
  */
 export const toolingFaults: ReadonlyArray<Fault> = [
   {
@@ -124,6 +125,57 @@ export const toolingFaults: ReadonlyArray<Fault> = [
         file: "src/host/testing/run.ts",
         find: "    const opened = openTab({ ...subject.config, services }, host, now, limits);",
         replace: "    const opened = openTab({ services, ...subject.config }, host, now, limits);",
+      },
+    ],
+  },
+  {
+    name: "trace-own-path",
+    says: "flow trace prints its own copy of the trace, short of the run's last event",
+    rule: "CommandLine O2",
+    edits: [
+      {
+        file: "src/host/cli/main.ts",
+        find: '    yield* write("stdout", render(ran.trace, "text"));',
+        replace:
+          '    yield* write("stdout", render({ ...ran.trace, events: ran.trace.events.slice(0, -1) }, "text"));',
+      },
+    ],
+  },
+  {
+    name: "checkpoint-without-state",
+    says: "flow story run prints each checkpoint but not its actors' states",
+    rule: "CommandLine O2",
+    edits: [
+      {
+        file: "src/host/cli/main.ts",
+        find: "          ...(run.checkpoints[record.step.name]?.inspection.actors ?? []).map(",
+        replace: "          ...[].map(",
+      },
+    ],
+  },
+  {
+    name: "list-first-app-only",
+    says: "flow story list names the Stories of the config's first app alone",
+    rule: "CommandLine O1",
+    edits: [
+      {
+        file: "src/host/cli/discover.ts",
+        find: "    ...config.apps.map(({ app, stories }) => ({ app: Option.some(app.id), stories })),",
+        replace:
+          "    ...config.apps.slice(0, 1).map(({ app, stories }) => ({ app: Option.some(app.id), stories })),",
+      },
+    ],
+  },
+  {
+    name: "unknown-story-succeeds",
+    says: "an unknown Story exits 0",
+    rule: "CommandLine O3",
+    edits: [
+      {
+        file: "src/host/cli/main.ts",
+        find: '      UnknownStory: (error) => Effect.as(write("stderr", `flow: ${error.message}\\n`), 2),',
+        replace:
+          '      UnknownStory: (error) => Effect.as(write("stderr", `flow: ${error.message}\\n`), 0),',
       },
     ],
   },

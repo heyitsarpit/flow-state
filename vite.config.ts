@@ -52,8 +52,9 @@ const sourceFromTests = {
     "!**/src/host/testing/index.ts",
     "!**/src/host/inspect.ts",
     "!**/src/host/trace.ts",
+    "!**/src/host/cli/main.ts",
   ],
-  message: "A test imports only the public entry, the test tooling and inspection.",
+  message: "A test imports only the public entry, the test tooling, inspection and the CLI's main.",
 };
 
 export default defineConfig({
