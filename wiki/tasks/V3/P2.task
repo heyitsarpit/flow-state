@@ -1177,3 +1177,43 @@ tasks
             Event objects: view), C20 (element registration and a dev warning: view), C25 (controlled value: the React
             adapter, @task.V3.T30); N1, N5 (Intl formatting and the hidden input), N4 (a part's own disabled attribute),
             N12 (the platform keyboard attribute).
+        comment     2026-11-15T22:05:00Z
+            Built: both fixtures, 35 Story tests (`tests/command-palette/`, `tests/number-input/`), five faults in
+            `tests/faults.ts` (armon-keeps-deadline, exit-keeps-schedules for Turn R14; first-guard-only, Turn R12;
+            alternatives-reversed, Turn R2; denied-last-reason, Turn R13). Both fixtures are in `flow.config.ts`, the
+            CLI list test and the sweep; the sweep found no failure, so nothing is held as `it.fails`.
+        comment     2026-11-15T22:05:01Z
+            Decisions (agent, small): the palette persists (coordinator's ruling) and the number input does not. A fifth
+            file, `commands.ts`, holds the palette's list Schema and ranking. Stress Stories run 150 gestures and the
+            sweep puts its reload at every fifth step of a `/stress` Story, since those already reload and a full sweep
+            ran past the test timeout. Reverse: drop `strideOf` in `tests/rules/sweep.test.ts`.
+        comment     2026-11-15T22:05:02Z
+            Pinned against upstream or the sketch (R7): the palette keeps one error per command; upstream keeps only the
+            last, so a second command's failure erases the first one's reason, against its own doc ("until the next
+            run"). Leaving the field clamps and snaps the typed text, as upstream does ("70" in 1..10 commits 10); the
+            sketch reformatted the old value. Commits are `lastCommit { seq, value }`, since a level `committed` cannot
+            tell two commits of 6 apart (N10) or a controller step from a commit (N11). A hold steps at 400 ms, as the
+            sketch's text says; its machine did not. An unknown command may be run once more (`retryable`, times 1).
+        comment     2026-11-15T22:05:03Z
+            Wiring cost of today's features (for the user's idiom review). Number input: a `Configure { settings }`
+            event, one memory mirror of seven props, one handler; the default value is a `Set`; every Story re-sends
+            `Configure` after a reload. Palette: `Configure { commands, autoHighlight, scores }`, three memory mirrors
+            persisted with the actor, one handler, re-sent after each reload. A scoring function cannot be event data,
+            so it arrives as its table of `scores`. The failure ending names its command through a `CommandFailed` error
+            and one `catchTag` in the commit, because built `.from` sees only the ending's value.
+        comment     2026-11-15T22:05:04Z
+            Mapping (37 upstream cases: 29 ported, 3 of them partial; 8 dropped). Command: C1 RANK-1 order of five texts
+            for "set", source shuffled; C2 RANK-2 "gp" ranks Git push over Grep, "git ps" finds it, "xyz" and "rac" hide
+            Calendar; C3 RANK-3 partial: ECL ranks Éclair (prefix) above a substring match, not the 0.9 number; C4
+            RANK-4 exact groups, no separator; C5 RANK-5 equal list, not the same reference; C6 RANK-6 scores as a
+            table, 0 hides; C7 RANK-7 both cases; C8 dropped (timing is a bench measure); C9 PAGE-1 top page, theme
+            page, unknown value denied; C10 PAGE-2 shortcuts on every page, Run dark from the top; C11 PALETTE-1; C12
+            PALETTE-2 (callback reason and index are view details); C13 PALETTE-3; C14 PALETTE-4 one call, row pending,
+            rerun denied InFlight, settles; C15 PALETTE-5 denials stand for the prevented click; C16 dropped (onSelect
+            and DOM Events); C17 PALETTE-6, also cleared on rerun; C18 PALETTE-7; C19 PALETTE-8; C20 dropped (element
+            registration warning); C21 PALETTE-9; C22 PALETTE-10 denial stands for the unprevented key; C23 PALETTE-11
+            list changed by `Configure`; C24 PALETTE-12; C25 dropped (controlled value, T30). Number: N1, N4, N5, N12
+            dropped (formatting, part attributes, keyboard mode); N2 NUMBER-1 AtBound against Disabled; N3 NUMBER-2; N6
+            NUMBER-3 values 7 then 10, one commit; N7 NUMBER-4 and N8 NUMBER-5 partial: values only, the shown "25%" is
+            the view's; N9 NUMBER-6; N10 NUMBER-7; N11 NUMBER-8. Beyond upstream: NUMBER-9 to 12 (hold, bound, wheel,
+            stress), PALETTE-13 (usual), PALETTE-14 (stress with reloads).

@@ -1,0 +1,307 @@
+import { describe, expect, it } from "vite-plus/test";
+import { defaults } from "../../fixtures/number-input/contracts.ts";
+import {
+  quantity,
+  StepperMachine,
+  type StepperMemory,
+} from "../../fixtures/number-input/machine.ts";
+import { bounded, numberStory, stress, usual } from "../../fixtures/number-input/stories.ts";
+import { actorRef } from "../../src/index.ts";
+import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
+import { played } from "../rules/played.ts";
+
+type Field = StepperMemory;
+
+const other = actorRef(StepperMachine, "other");
+
+// SAFETY: the stepper's memory is the Field record its definition declares.
+// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a snapshot's memory is erased to Values
+const fieldOf = (memory: unknown) => memory as Field;
+
+const field = (cut: Cut, ref = quantity) => fieldOf(cut.read(ref)?.memory);
+
+const stateOf = (cut: Cut) => cut.read(quantity)?.state;
+
+const denials = (run: StoryRun) =>
+  run.evidence.flatMap((e) => (e._tag === "Denied" ? [`${e.event} ${e.reasons.join(",")}`] : []));
+
+const published = (run: StoryRun) =>
+  run.evidence.flatMap((e) => (e._tag === "Published" ? [fieldOf(e.memory)] : []));
+
+const configured = (id: string, settings: Partial<typeof defaults>) =>
+  numberStory(id)
+    .ensure(quantity)
+    .send(quantity, { _tag: "Configure", settings: { ...defaults, ...settings } });
+
+describe("number input: ported cases", () => {
+  it("NUMBER-1: a + at its bound is denied AtBound, a disabled field's + is denied Disabled, and − at the bound still steps (Turn R2, R12)", async () => {
+    const atMax = await played(
+      configured("NUMBER-1/at-max", { max: 10 })
+        .send(quantity, { _tag: "Set", value: 10 })
+        .send(quantity, { _tag: "Press", direction: 1, size: "step" })
+        .checkpoint("refused")
+        .send(quantity, { _tag: "Press", direction: -1, size: "step" })
+        .send(quantity, { _tag: "Release" })
+        .checkpoint("down"),
+    );
+
+    expect(denials(atMax)).toEqual(["Press AtBound"]);
+    expect(field(atMax.checkpoints.refused).value).toBe(10);
+    expect(field(atMax.checkpoints.down).value).toBe(9);
+
+    const disabled = await played(
+      configured("NUMBER-1/disabled", { max: 10, disabled: true })
+        .send(quantity, { _tag: "Set", value: 5 })
+        .send(quantity, { _tag: "Press", direction: 1, size: "step" })
+        .checkpoint("refused"),
+    );
+
+    expect(denials(disabled)).toEqual(["Press Disabled"]);
+    expect(field(disabled.checkpoints.refused).value).toBe(5);
+  });
+
+  it("NUMBER-2: End goes to the highest value on the step grid, + is then at its bound, and a small step still moves (Turn R2)", async () => {
+    const run = await played(
+      configured("NUMBER-2", { min: 0, max: 10, step: 3 })
+        .send(quantity, { _tag: "Set", value: 3 })
+        .send(quantity, { _tag: "Key", key: "End" })
+        .checkpoint("end")
+        .send(quantity, { _tag: "Press", direction: 1, size: "step" })
+        .send(quantity, { _tag: "Press", direction: 1, size: "small" })
+        .send(quantity, { _tag: "Release" })
+        .checkpoint("small"),
+    );
+
+    expect(field(run.checkpoints.end).value).toBe(9);
+    expect(denials(run)).toEqual(["Press AtBound"]);
+    expect(field(run.checkpoints.small).value).toBe(9.3);
+  });
+
+  it("NUMBER-3: typing follows the value only while it is a number within the bounds, and leaving clamps and commits it", async () => {
+    const run = await played(
+      configured("NUMBER-3", { min: 1, max: 10 })
+        .send(quantity, { _tag: "Set", value: 5 })
+        .checkpoint("set")
+        .send(quantity, { _tag: "Typed", text: "7" })
+        .send(quantity, { _tag: "Typed", text: "70" })
+        .checkpoint("typed")
+        .send(quantity, { _tag: "Blur" })
+        .checkpoint("left"),
+    );
+
+    const after = published(run).slice(published(run).findLastIndex((m) => m.value === 5) + 1);
+    const values = after.map((m) => m.value).filter((v, i, all) => i === 0 || v !== all[i - 1]);
+
+    expect(field(run.checkpoints.typed)).toEqual(
+      expect.objectContaining({ value: 7, draft: "70", lastCommit: { seq: 0, value: null } }),
+    );
+    expect(values).toEqual([7, 10]);
+    expect(field(run.checkpoints.left)).toEqual(
+      expect.objectContaining({ value: 10, draft: null, lastCommit: { seq: 1, value: 10 } }),
+    );
+  });
+
+  it("NUMBER-4: a percent without a step keeps a typed percent and steps by one percent, ten for a large step (value only; the shown text is the view's)", async () => {
+    const run = await played(
+      configured("NUMBER-4", { percent: true })
+        .send(quantity, { _tag: "Typed", text: "25%" })
+        .send(quantity, { _tag: "Blur" })
+        .checkpoint("typed")
+        .send(quantity, { _tag: "Press", direction: 1, size: "step" })
+        .send(quantity, { _tag: "Release" })
+        .checkpoint("up")
+        .send(quantity, { _tag: "StepBy", direction: -1, size: "step" })
+        .send(quantity, { _tag: "StepBy", direction: -1, size: "step" })
+        .checkpoint("down")
+        .send(quantity, { _tag: "Press", direction: 1, size: "large" })
+        .send(quantity, { _tag: "Release" })
+        .checkpoint("large"),
+    );
+
+    expect(field(run.checkpoints.typed).value).toBe(0.25);
+    expect(field(run.checkpoints.up).value).toBe(0.26);
+    expect(field(run.checkpoints.down).value).toBe(0.24);
+    expect(field(run.checkpoints.large).value).toBe(0.34);
+  });
+
+  it("NUMBER-5: a percent showing two fraction digits keeps a typed 3.75%; with none it snaps to whole percents (value only)", async () => {
+    const fine = await played(
+      configured("NUMBER-5/fine", { percent: true, fractionDigits: 2 })
+        .send(quantity, { _tag: "Typed", text: "3.75%" })
+        .send(quantity, { _tag: "Blur" })
+        .checkpoint("left"),
+    );
+
+    const whole = await played(
+      configured("NUMBER-5/whole", { percent: true })
+        .send(quantity, { _tag: "Typed", text: "3.75%" })
+        .send(quantity, { _tag: "Blur" })
+        .checkpoint("left"),
+    );
+
+    expect(field(fine.checkpoints.left).value).toBe(0.0375);
+    expect(field(whole.checkpoints.left).value).toBe(0.04);
+  });
+
+  it("NUMBER-6: steps from empty start at 0, within the bounds", async () => {
+    const run = await played(
+      configured("NUMBER-6", { min: 5 })
+        .send(quantity, { _tag: "StepBy", direction: 1, size: "step" })
+        .ensure(other)
+        .send(other, { _tag: "StepBy", direction: -1, size: "step" })
+        .checkpoint("stepped"),
+    );
+
+    expect(field(run.checkpoints.stepped).value).toBe(5);
+    expect(field(run.checkpoints.stepped, other).value).toBe(-1);
+  });
+
+  it("NUMBER-7: a commit after a value set from outside reports the user's change back to an earlier value", async () => {
+    const run = await played(
+      configured("NUMBER-7", {})
+        .send(quantity, { _tag: "Set", value: 4 })
+        .send(quantity, { _tag: "Typed", text: "6" })
+        .send(quantity, { _tag: "Blur" })
+        .checkpoint("first")
+        .send(quantity, { _tag: "Set", value: 4 })
+        .send(quantity, { _tag: "Typed", text: "6" })
+        .send(quantity, { _tag: "Blur" })
+        .checkpoint("second"),
+    );
+
+    expect(field(run.checkpoints.first).lastCommit).toEqual({ seq: 1, value: 6 });
+    expect(field(run.checkpoints.second).lastCommit).toEqual({ seq: 2, value: 6 });
+  });
+
+  it("NUMBER-8: a controller step leaves nothing for the next blur to commit", async () => {
+    const run = await played(
+      configured("NUMBER-8", {})
+        .send(quantity, { _tag: "Set", value: 1 })
+        .send(quantity, { _tag: "StepBy", direction: 1, size: "step" })
+        .send(quantity, { _tag: "Blur" })
+        .checkpoint("left"),
+    );
+
+    expect(field(run.checkpoints.left)).toEqual(
+      expect.objectContaining({ value: 2, lastCommit: { seq: 0, value: null } }),
+    );
+  });
+});
+
+describe("number input: timers", () => {
+  it("NUMBER-9: a held + steps at once, at 400 ms, then every 60 ms, and its release commits once (Turn R14, R15)", async () => {
+    const run = await played(usual);
+    const { held, released, wheeling, wheeled, typed, end } = run.checkpoints;
+
+    expect(stateOf(held)).toBe("HOLD_REPEAT");
+    expect(field(held)).toEqual(
+      expect.objectContaining({ value: 17, lastCommit: { seq: 0, value: null } }),
+    );
+    expect(stateOf(released)).toBe("IDLE");
+    expect(field(released).lastCommit).toEqual({ seq: 1, value: 17 });
+    expect(stateOf(wheeling)).toBe("WHEELING");
+    expect(field(wheeling)).toEqual(
+      expect.objectContaining({ value: 14, lastCommit: { seq: 1, value: 17 } }),
+    );
+    expect(stateOf(wheeled)).toBe("IDLE");
+    expect(field(wheeled).lastCommit).toEqual({ seq: 2, value: 14 });
+    expect(field(typed).lastCommit).toEqual({ seq: 3, value: 12 });
+    expect(field(end).lastCommit).toEqual({ seq: 4, value: 12 });
+  });
+
+  it("NUMBER-10: a hold that reaches the bound stops at the next tick and commits once (Turn R14)", async () => {
+    const run = await played(
+      configured("NUMBER-10", { max: 20 })
+        .send(quantity, { _tag: "Set", value: 18 })
+        .send(quantity, { _tag: "Press", direction: 1, size: "step" })
+        .advance("399 millis")
+        .checkpoint("399")
+        .advance("1 millis")
+        .checkpoint("400")
+        .advance("59 millis")
+        .checkpoint("459")
+        .advance("1 millis")
+        .checkpoint("460")
+        .advance("1 second")
+        .checkpoint("later"),
+    );
+
+    const { later } = run.checkpoints;
+
+    expect([stateOf(run.checkpoints["399"]), field(run.checkpoints["399"]).value]).toEqual([
+      "HOLD_DELAY",
+      19,
+    ]);
+    expect([stateOf(run.checkpoints["400"]), field(run.checkpoints["400"]).value]).toEqual([
+      "HOLD_REPEAT",
+      20,
+    ]);
+    expect(stateOf(run.checkpoints["459"])).toBe("HOLD_REPEAT");
+    expect(stateOf(run.checkpoints["460"])).toBe("IDLE");
+    expect(field(run.checkpoints["460"]).lastCommit).toEqual({ seq: 1, value: 20 });
+    expect(field(later).lastCommit).toEqual({ seq: 1, value: 20 });
+  });
+
+  it("NUMBER-11: leaving the field mid-wheel commits at once, and the wheel's timer dies with its state (Turn R14)", async () => {
+    const run = await played(
+      configured("NUMBER-11", bounded)
+        .send(quantity, { _tag: "Set", value: 5 })
+        .send(quantity, { _tag: "Wheel", direction: 1 })
+        .advance("100 millis")
+        .send(quantity, { _tag: "Blur" })
+        .checkpoint("left")
+        .advance("1 second")
+        .checkpoint("later"),
+    );
+
+    expect(stateOf(run.checkpoints.left)).toBe("IDLE");
+    expect(field(run.checkpoints.left).lastCommit).toEqual({ seq: 1, value: 6 });
+    expect(
+      run.evidence.filter(
+        (e) => (e._tag === "Turn" || e._tag === "Unhandled") && e.event === "WheelDue",
+      ),
+    ).toEqual([]);
+    expect(field(run.checkpoints.later).lastCommit).toEqual({ seq: 1, value: 6 });
+  });
+});
+
+describe("number input: stress", () => {
+  it("NUMBER-12: a hundred and fifty gestures keep every value within its bounds, and every commit is one per interaction and differs from its start", async () => {
+    const run = await played(stress);
+    const fields = published(run);
+
+    const outOfBounds = fields.filter(
+      (m) =>
+        m.value !== null &&
+        (m.value < (m.settings.min ?? m.value) || m.value > (m.settings.max ?? m.value)),
+    );
+
+    const commits = fields.flatMap((m, i) => {
+      const before = fields[i - 1];
+
+      return before !== undefined && m.lastCommit.seq !== before.lastCommit.seq
+        ? [{ before, after: m }]
+        : [];
+    });
+
+    const wrong = commits.filter(
+      ({ before, after }) =>
+        after.lastCommit.seq !== 0 &&
+        (after.lastCommit.seq !== before.lastCommit.seq + 1 ||
+          (before.started === null ? before.value : before.started.from) ===
+            after.lastCommit.value),
+    );
+
+    const fired = new Set(run.evidence.flatMap((e) => (e._tag === "Turn" ? [e.event] : [])));
+
+    expect(stress.steps.length).toBeGreaterThanOrEqual(300);
+    expect(outOfBounds).toEqual([]);
+    expect(wrong).toEqual([]);
+    expect(commits.filter((c) => c.after.lastCommit.seq !== 0).length).toBeGreaterThan(10);
+    expect(["RepeatDue", "Tick", "WheelDue"].filter((e) => fired.has(e))).toEqual([
+      "RepeatDue",
+      "Tick",
+      "WheelDue",
+    ]);
+  });
+});

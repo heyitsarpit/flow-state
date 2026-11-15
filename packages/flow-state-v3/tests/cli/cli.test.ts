@@ -17,6 +17,8 @@ import { ChildProcessSpawner } from "effect/process";
 import { TestConsole } from "effect/testing";
 import { describe, expect, it } from "vite-plus/test";
 import { stories as cellsStories } from "../../fixtures/cells/stories.ts";
+import { stories as paletteStories } from "../../fixtures/command-palette/stories.ts";
+import { stories as numberStories } from "../../fixtures/number-input/stories.ts";
 import { stories as payStories } from "../../fixtures/pay/stories.ts";
 import { stories as signInStories } from "../../fixtures/sign-in/stories.ts";
 import { stories as syncStories } from "../../fixtures/sync/stories.ts";
@@ -46,6 +48,8 @@ const fixtures = [
   group("auth", signInStories),
   group("git", syncStories),
   group("bank", transferStories),
+  group("palette", paletteStories),
+  group("number-input", numberStories),
 ];
 
 const every = fixtures.flatMap(({ stories }) => stories);

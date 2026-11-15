@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { stories as cells } from "../../fixtures/cells/stories.ts";
+import { stories as palette } from "../../fixtures/command-palette/stories.ts";
+import { stories as numberInput } from "../../fixtures/number-input/stories.ts";
 import { stories as pay } from "../../fixtures/pay/stories.ts";
 import { stories as signIn } from "../../fixtures/sign-in/stories.ts";
 import { stories as sync } from "../../fixtures/sync/stories.ts";
@@ -13,6 +15,8 @@ const fixtureStories: ReadonlyArray<Story<string>> = [
   ...Object.values(sync),
   ...Object.values(signIn),
   ...Object.values(transfers),
+  ...Object.values(palette),
+  ...Object.values(numberInput),
 ];
 
 // Script faults a reload can cause: a word that finds nothing held, or a hold no call uses.
@@ -22,6 +26,9 @@ const skippable = (fault: unknown) =>
   fault instanceof StoryFailed &&
   fault.problem.split("; ").every((p) => SKIPPED.some((s) => s.test(p)));
 
+// A stress Story already reloads among its gestures, so the sweep puts its reload at every fifth step.
+const strideOf = (story: Story<string>) => (story.id.endsWith("/stress") ? 5 : 1);
+
 const sweep = async (reattach: boolean, heldWrites: "abort" | "land" = "abort") => {
   const skipped: Array<string> = [];
   const failed: Array<string> = [];
@@ -29,7 +36,7 @@ const sweep = async (reattach: boolean, heldWrites: "abort" | "land" = "abort") 
   let recorded = 0;
 
   for (const story of fixtureStories)
-    for (let at = 0; at <= story.steps.length; at++) {
+    for (let at = 0; at <= story.steps.length; at += strideOf(story)) {
       const steps = story.steps.toSpliced(at, 0, Step.reload({ reattach, heldWrites }));
       const name = `${story.id} with a reload at ${at}`;
       variants += 1;

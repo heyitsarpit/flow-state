@@ -426,4 +426,64 @@ export const faults: ReadonlyArray<Fault> = [
       },
     ],
   },
+  {
+    name: "armon-keeps-deadline",
+    says: "an event a running schedule lists in armOn leaves its deadline as it was instead of restarting it",
+    rule: "Turn R14",
+    edits: [
+      {
+        file: "src/core/incarnations.ts",
+        find: "    for (const a of armings) {",
+        replace: "    for (const a of armings.filter((x) => !incarnation.schedules.has(x.name))) {",
+      },
+    ],
+  },
+  {
+    name: "exit-keeps-schedules",
+    says: "leaving a state leaves its schedules armed, so they fire in the state entered",
+    rule: "Turn R14",
+    edits: [
+      {
+        file: "src/core/serve.ts",
+        find: "          ...(entered ? stopSchedules(incarnation) : incarnation),",
+        replace: "          ...incarnation,",
+      },
+    ],
+  },
+  {
+    name: "first-guard-only",
+    says: "an alternative passes when its first guard passes, whatever the rest of its guard array says",
+    rule: "Turn R12",
+    edits: [
+      {
+        file: "src/core/turn.ts",
+        find: "  for (const guard of alternative.guards) {",
+        replace: "  for (const guard of alternative.guards.slice(0, 1)) {",
+      },
+    ],
+  },
+  {
+    name: "alternatives-reversed",
+    says: "a level's alternatives are tried last first, not in authored order",
+    rule: "Turn R2",
+    edits: [
+      {
+        file: "src/core/turn.ts",
+        find: "    for (const alternative of level.alternatives) {",
+        replace: "    for (const alternative of level.alternatives.toReversed()) {",
+      },
+    ],
+  },
+  {
+    name: "denied-last-reason",
+    says: "a denial keeps only its last declined alternative's reason",
+    rule: "Turn R13",
+    edits: [
+      {
+        file: "src/core/turn.ts",
+        find: "      reasons.push(checked.code);",
+        replace: "      reasons.splice(0, reasons.length, checked.code);",
+      },
+    ],
+  },
 ];
