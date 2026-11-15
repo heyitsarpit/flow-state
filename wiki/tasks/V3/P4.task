@@ -119,6 +119,10 @@ tasks
             - The fragment and schedule Requirements this slice builds hold, shown by Story tests and compile-time
               tests, with a fixture that uses them.
             - Each new runtime rule has a planted fault that `nub run faults` catches.
+        comment     2026-11-15T20:44:54Z
+            Routed from T68: a schedule's send accepts another definition's event token (ScheduleConfig.send takes
+            EventToken | Ending) and machine() builds it, breaking Compile T11; pinned as it.fails
+            in tests/types/schedule-send.test.ts.
     T21
         title       Reads and operations (slice 5)
         status      draft
@@ -152,6 +156,10 @@ tasks
             - Each new rule has a planted fault that `nub run faults` catches.
         comment     2026-11-15T14:33:25Z
             Why is this blocked by @task.V3.T57? No fragment use found; check at the phase rewrite.
+        comment     2026-11-15T20:44:53Z
+            Routed from T68: unbuilt type promises of @plan.Operations V1 (an unknown: record without otherwise;
+            key-less members of keyed operations) and O1 (commit select and key values typed as plain records, not
+            checked against the contract).
     T56
         title       Durability: release versions, key fingerprints and record migration (slice 2b)
         status      draft

@@ -186,3 +186,7 @@ note 2026-11-15T20:26:34Z
 note 2026-11-15T20:36:08Z
     T68 review ISSUES at `025fe178` (`5e59bf96`): Operations V1's built forms untested and two unbuilt ones unlisted;
     back to the builder. Delegated: pin the foreign event token now as an it.fails on Compile T11.
+
+note 2026-11-15T20:44:54Z
+    T68 done: review PASS at `88980b0c` after one fix round; 13 compile tests, 28 unbuilt promises with owners. Unbuilt
+    promises routed to @task.V3.T21 and the foreign event token to @task.V3.T57.
