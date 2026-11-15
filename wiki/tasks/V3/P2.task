@@ -150,7 +150,7 @@ tasks
             - `nub run check`, `nub run lint:rules` and `vp test` pass.
     T63
         title       A Story drives the real Runtime over fakes
-        status      review
+        status      done
         priority    high
         blocked_by  [@T62]
         description
@@ -427,6 +427,12 @@ tasks
               counted. A second variant inserts `reload({ reattach: false })` (@plan.Pending D10), so a boot that fails
               to wake owed identities shows.
             - `nub run faults` catches every named fault, the 23 there today included.
+        comment     2026-11-15T17:25:17Z
+            Routed from T63's review (PASS at `5425505d`): steps.test.ts:163 compares inspection with itself (Stories
+            I16 untested); no Turns-limit test, and settle runs task 10,001 before the check (I7); reload after
+            disposeRuntime re-ensures nothing (R13 silent); release() may pick a dead page's held entry over a live one
+            (R9 allows); a held write interrupted by disposeRuntime lands on release; `nub run faults` exits 0 on a
+            miss; refused-turn-reported (Turn I14) uncaught.
     T65
         title       A run prints as a text trace
         status      open

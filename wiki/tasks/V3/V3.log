@@ -96,3 +96,7 @@ note 2026-11-15T16:35:29Z
 note 2026-11-15T17:16:46Z
     T63 in review at `5425505d`: builder reports no stop, faults 28 of 29 (refused-turn-reported left to @task.V3.T64).
     Its first-commit report was folded into the close, so one independent check covers both.
+
+note 2026-11-15T17:25:24Z
+    T63 done: independent review PASS at `5425505d` (`9264457b`); seven gaps routed to @task.V3.T64. Delegated call
+    (small public API): inspect lanes keep `operation` and add `contract` and `state`; for the user's read. Next: T64.
