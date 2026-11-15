@@ -664,3 +664,5 @@ note 2026-11-14T23:59:16Z
     (instructions, cadence, crons); the notebook keeps past studies. Reverse: restore the cadence clause from c1918006.
 note 2026-11-15T00:12:23Z
     Iteration-speed proposal written (iteration-speed-2026-11-15.md, a31e1af4), all proposed: root cause is the suite keeping hand copies of the core. Five questions wait for the user; the run stays paused.
+note 2026-11-15T01:00:46Z
+    Single-runtime proposal written (single-runtime-2026-11-15.md, f2861ea6), all proposed: the production core is the only runtime, judged by Spec goldens, trace laws, a stateless step relation and same-core relations, with the core-mutant score as the bar. Six questions wait for the user; the run stays paused.
