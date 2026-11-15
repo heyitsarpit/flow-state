@@ -210,3 +210,7 @@ note 2026-11-15T21:33:30Z
 note 2026-11-15T21:43:28Z
     Decision (user, 2026-11-16): "all accepted" (T70 Q1-Q4): usual and stress profiles and a stress Story per fixture in
     @task.V3.T70; the fixture catalogue is the fixture source; app mix is @task.V3.T74.
+
+note 2026-11-15T21:44:53Z
+    Decision (user, 2026-11-16): "both accepted": @task.V3.T70 builds a pair sweep (phase by fault, the gate's
+    deterministic floor) beside random stress seeds.

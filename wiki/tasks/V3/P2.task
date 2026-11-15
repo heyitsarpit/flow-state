@@ -1083,6 +1083,11 @@ tasks
               healthy server, at most 5% domain failures) and stress (bursts, faults drawn on every call and storage
               write, reloads, an offline span); a test names its profile, as in `propertyTest(fixture, { profile:
               "stress" })`.
+            - A pair sweep: for each fixture, every reachable pair of a write's lifecycle phase and a fault (reload, a
+              lost answer, a refused storage write, disposal, and the rest of the catalogue's grid) is driven once with
+              the usual profile until a write reaches that phase, then given that fault, with the run rules applied;
+              unreachable pairs are counted and named. The pair sweep is the deterministic floor of the test gate;
+              random stress seeds add breadth, with a fixed seed list in the gate and more outside it.
             - Every fixture has a stress Story: a stress run from a fixed seed, printed as a chained `Story.app(...)`
               and saved in the fixture, so the bench and the reload sweep use it like any hand-written Story.
         comment     2026-11-15T18:16:38Z
