@@ -153,3 +153,12 @@ note 2026-11-15T18:29:23Z
 
 note 2026-11-15T18:35:52Z
     T66 done: independent review PASS at `3e1fb97b` (`87167d26`); bench-method items routed to @task.V3.T35.
+
+note 2026-11-15T18:48:48Z
+    Review of T67's first commit `e282eb2b`: GAPS (value-by-value case mapping, unmapped answer words, an unverifiable
+    PAY-22 check, rename grep); sent to the builder. Delegated: tab opens count from 1.
+
+note 2026-11-15T18:48:48Z
+    Ruling (orchestrator, small public API): `reload({ heldWrites: "land" })` lands held store writes as the old tab
+    dies (a committed write never heard, Restore R3); default "abort". For the user's read. Reverse: drop the option and
+    the two cases' after-reload values.
