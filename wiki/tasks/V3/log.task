@@ -52,3 +52,5 @@ note 2026-11-15T13:16:23Z
     Actors I30 and T68 gets its check count fixed. P3 Tasks wait for their rewrite.
 note 2026-11-15T13:23:31Z
     Review of T63 first commit `01afeb56`: ISSUES, one blocking (a dead page's released write can complete its waiter and make up an ending; Deferred.doneUnsafe resumes synchronously). Verified and sent to the builder with ten in-range fixes; a no-attach reload variant routed to @task.V3.T64.
+note 2026-11-15T13:28:48Z
+    Paused (user, 2026-11-15): "pause the T63 builder, we may have a confusion, don't commit anything". The T63 lead is held with its work uncommitted; wakes must not resume or replace it until the user says go.

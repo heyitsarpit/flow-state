@@ -1,23 +1,19 @@
 spec Stories
 status        proposed
-basis         A guide for the test tooling, written with skill:to-spec and skill:to-design from sections 4 and 12 of 
-              code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md; revisable whenever building shows it 
-              wrong, each change logged in wiki/specs/spec-log.md.
+basis         A guide for the test tooling, written with skill:to-spec and skill:to-design for @task.V3.T63;
+              revisable whenever building shows it wrong, each change logged in wiki/specs/spec-log.md.
 location      packages/flow-state-v3/src/host/testing
-derives_from  [@plan.Testing.O1, @plan.Testing.O2, @plan.Testing.O3, @plan.Testing.O4, @plan.Inspection.O4]
+derives_from  [@plan.Testing.O1, @plan.Testing.O2, @plan.Testing.O3, @plan.Testing.O4, @plan.Inspection.O1,
+              @plan.Inspection.O4]
 provides      Story, Fake, the run, checkpoints and the runtime cut
 
 requirements
     R1  A Story is inert data
-        source  @plan.Testing.O1; code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md (section 4, 
-                decision
-                6).
+        source  @plan.Testing.O1.
         must    `Story.app(config, fakes, steps)` returns a plain value holding the app's Runtime configuration (every
                 field but its services), its fakes and an ordered array of steps. Making a Story, a step or a fake
                 starts no Runtime, fiber or fake and runs no handler factory. The Story keeps its own copy of the
-                steps, so changing the caller's array afterwards changes no run. Steps are an array, not a chain.
-                Decision (agent, 2026-11-15): section 12, decision 6. Why: an array is the simplest thing that is data.
-                Reverse: make each step word return a new Story.
+                steps, so changing the caller's array afterwards changes no run.
 
     R2  run() is the one boundary
         source  @plan.Testing.O1, @plan.Testing.O2.
@@ -39,16 +35,17 @@ requirements
                 Runtime does for the same input (@spec.Actors), through the production driver.
 
     R4  A step settles
-        source  @plan.Testing.O2; code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md (section 3.1).
+        source  @plan.Testing.O2.
         must    Every step applies its input, then runs the page's queued tasks until none is left, before the next
                 step. A step whose tasks exceed 100,000 fails the run (StoryFailed: the page never went idle). After
                 every step the page is idle: no task queued and no input waiting in the driver. advance(d) moves the
                 page's time to now plus d, waking each sleep due on the way in time order and settling after each;
-                nothing else moves time. A run never yields to the host and arms no host timer.
+                nothing else moves time. A run never yields to the host and arms no host timer. Stated limit: a fiber
+                resumed by a host Promise (`Effect.promise`, a real `fetch`) resumes outside the run; fakes and
+                fixtures answer synchronously, so none exists in a Story.
 
     R5  A fake answers through the service's own methods
-        source  @plan.Testing.O3; code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md (sections 4,
-                decision 3).
+        source  @plan.Testing.O3.
         must    `Fake.server(Service, () => handlers)` stands in for a service a fixture declares: the Story's Runtime
                 gets a Layer of that same service, so the commit's own code runs. A handler is the service's own
                 method, with its own arguments, returning an Exit of that method's own success and failure types;
@@ -57,7 +54,7 @@ requirements
                 status.
 
     R6  The wire words
-        source  @plan.Testing.O3; code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md (decision 3).
+        source  @plan.Testing.O3.
         must    `hold(method)` holds that method's next call. On the oldest held call of the method: `release` lands
                 it through its handler and answers with the handler's Exit; `dropRequest` loses it before the server,
                 so the handler never runs and no answer comes; `dropResponse` lands it through its handler and loses
@@ -74,21 +71,22 @@ requirements
                 with its page, purpose, keys and status.
 
     R8  A checkpoint is a cut
-        source  @plan.Testing.O4; @plan.Inspection.O4.
-        must    A checkpoint, and `end`, hold the page's time, the runtime cut, every call each fake has received
-                with its status, and the store's records and write batches, as values captured then: later steps
-                change no earlier cut. The runtime cut is one read of the Runtime's state: every live actor's
-                snapshot, every write lane with its head's phase and row, every owed ending, every armed timer, the
-                uses of each identity and the disposal phase. It reads and changes nothing.
+        source  @plan.Testing.O4; @plan.Inspection.O1.
+        must    A checkpoint, and `end`, hold the page's time, the evidence position, the runtime cut, every call each
+                fake has received with its status, and the store's records and write batches, as values captured
+                then: later steps change no earlier cut. The runtime cut is one read of the Runtime's state: every
+                live actor's snapshot, every write lane with its head's phase and re-sends, every owed ending, every
+                armed timer, the uses of each identity and the disposal phase; a lane's row is read through the
+                snapshot, not stored beside it. It reads and changes nothing.
 
     R9  A reload abandons the page
-        source  code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md (section 3.1, decision 7).
+        source  @plan.Testing.O3 (every tab and reload shares the fake server); @plan.Persistence.O1.
         must    reload() leaves the current page as it is, never runs its tasks or moves its clock again, and boots a
                 new page over the same store and the same fake state, at the same time, then attaches again every
                 actor the Story attached and has not detached, forgotten or disposed. Nothing from a dead page writes
                 to the store or is answered afterwards: a held write of a dead page released later is aborted and
-                lands nothing, and a held call of a dead page released later reaches its handler but its answer goes
-                nowhere.
+                lands nothing, and a held call of a dead page released later reaches its handler; in both cases the
+                dead page's waiter is never completed, so no code of the dead page runs again.
 
     R10  A run is reproducible
         source  @plan.Testing.O2.
@@ -108,9 +106,7 @@ open
                  Task or phase.
 
     Q2  Batches out are the persistence edge's, not the world's.
-        outcome  The runtime cut shows no batch out; the fake store's batch log shows each held write. Decision (agent,
-                 2026-11-15): the cut reads only the core's world. Why: the edge keeps its batch state private and no
-                 test needs it yet. Reverse: expose the edge's scopes through the driver and add them to the cut.
+        outcome  The runtime cut shows no batch out; the fake store's batch log shows each held write.
 
     Q3  Run rules and the reload sweep are @task.V3.T64's.
         outcome  This Spec's checks are Story tests; the rules over every run arrive with T64.
@@ -138,7 +134,7 @@ invariants
 
     I5  A page's time changes only by advance; a reload's new page starts at the dead page's time. [@R4, @R9]
 
-    I6  Every call a commit makes reaches the fake and is recorded exactly once, in arrival order. [@R5]
+    I6  Every call to a fake's method is recorded exactly once, in arrival order, whatever word later acts on it. [@R5]
 
     I7  A handler runs once for a landed, released or response-dropped call, and never for a request-dropped or 
         answered call. [@R5, @R6]
@@ -147,7 +143,9 @@ invariants
 
     I9  A held write lands only on release while its page is alive; a refused write changes no record. [@R7, @R9]
 
-    I10  After reload(), no record of the store changes because of a dead page, and no evidence comes from it. [@R9]
+    I10  After reload(), no record of the store changes because of a dead page, and no evidence comes from it: a step 
+         that releases a dead page's held call or write leaves the evidence position, the store and the runtime cut
+        as they were. [@R9]
 
     I11  A cut, once taken, never changes. [@R8]
 
@@ -234,11 +232,14 @@ tests
         run(); pushing a step onto the caller's array after Story.app leaves the run's steps and endings as
             before. [@I1, @I2]
     T2  Script faults: run() rejects with StoryFailed for release with nothing held, a hold never used, a refuse never 
-        used, a repeated checkpoint name and two fakes of one service. [@I13]
+        used, a repeated checkpoint name and two fakes of one service, each beside a control that lands a transfer;
+            a commit that yields forever fails its step as never idle. [@I3, @I13]
     T3  Step words, each on the transfers fixture with its expected result from @spec.Actors and @spec.WriteLanes: 
         attach and send land a transfer; detach ends the use, so no schedule fires (Turn I23); forget removes the
             actor's record from the store; disposeActor removes the actor from the cut; disposeRuntime moves the cut's
-            disposal to Disposed; advance fires the nudge at 20 s and the deadline at 30 s, in that order, and not a
+            disposal to Disposed, and with a call on the wire ends it unknown Disposed at the 5 s bound (Actors
+            I35); a call nobody scripted lands through its handler; advance fires the nudge at 20 s and the deadline at 
+                30 s, in that order, and not a
             millisecond before; reload re-attaches; a checkpoint holds time, cut, calls and store. [@I3, @I5]
     T4  Wire words: hold then release lands the call once and delivers success; dropRequest leaves the handler unrun 
         and the deadline ends the write unknown; dropResponse runs the handler once and the deadline ends the
@@ -248,13 +249,18 @@ tests
     T5  Storage words: while the acknowledging write is held no call reaches the fake (@spec.WriteAhead.R13), and 
         release lets the transfer go; a refused acknowledgement ends the write NotSent and no call is made; both
             batches are recorded. [@I9]
-    T6  Dead page: a write held across a reload and released after it is aborted and changes no record; a call held 
-        across a reload and released after it lands at the fake once but delivers nothing; advancing after the
+    T6  Dead page: a write held across a reload and released after it is aborted; a call held across a reload and 
+        released after it lands at the fake once; either release leaves the evidence position, the store and the
+            runtime cut equal to the checkpoint just before it (planted fault: the release completes the waiter);
+            advancing after the
             reload fires no deadline of the dead page. [@I8, @I9, @I10]
     T7  Reproducible and timer-free: every fixture Story run twice gives equal evidence, checkpoints and end, with host 
         setTimeout, setInterval and setImmediate never called. [@I4, @I12]
-    T8  Pay across a reload: a confirm whose response is lost, 61 s past it, a reload; the payment's row reads 
-        uncertain and not pending, its endings are unknown TimedOut then unknown Restored (@spec.Restore.R3,
-            @spec.Restore.I6), and exactly one confirm reached the shop, still one after time moves on. [@I6, @I10]
+    T8  Pay across a reload, captures written at once (captureMs 0): a confirm held, then dropResponse, so the shop's 
+        handler runs and its answer is lost; 61 s, past the commit's 60 s deadline; a reload. The payment's row
+            reads uncertain and not pending, its saved lane is Held, its endings are unknown TimedOut then unknown
+            Restored (@spec.Restore.R3, @spec.Restore.I6), and the confirm handler ran exactly once; still once 10 s
+            later, when the reconcile has read the intent as `requires_capture` and placed the order, which re-sends
+            nothing. [@I6, @I10]
     T9  The long transfers Story (about 100 steps over two accounts with reloads) runs, and every request of one 
-        transfer carries one idempotency key (@spec.WriteLanes.R5). [@I12]
+        transfer carries one idempotency key (@spec.WriteLanes.R5, @spec.WriteLanes.I6). [@I12]

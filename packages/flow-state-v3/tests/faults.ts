@@ -235,4 +235,79 @@ export const faults: ReadonlyArray<Fault> = [
       },
     ],
   },
+  {
+    name: "no-restored-unknown",
+    says: "a Held head with no owed row hears nothing at its identity's start",
+    rule: "Restore I6",
+    edits: [
+      {
+        file: "src/core/incarnations.ts",
+        find: 'if (Phase.$is("Held")(lane.head.phase) && !owedAttempts.has(lane.head.id))',
+        replace:
+          'if (Phase.$is("Held")(lane.head.phase) && !owedAttempts.has(lane.head.id) && id === "")',
+      },
+    ],
+  },
+  {
+    name: "refused-acknowledgement-sent",
+    says: "a commit whose acknowledging write was refused is sent anyway",
+    rule: "WriteAhead R13",
+    edits: [
+      {
+        file: "src/core/cells.ts",
+        find: '    Acknowledging: () => Move.EndUnsent({ why: "StorageRefused" }),',
+        replace: "    Acknowledging: () => Move.Send(),",
+      },
+    ],
+  },
+  {
+    name: "sent-before-acknowledged",
+    says: "a commit is sent before its acknowledging write lands",
+    rule: "WriteAhead R13",
+    edits: [
+      {
+        file: "src/core/lane-moves.ts",
+        find: "    Option.match(saveAwaited(at.actor, at.id, { attempt: lane.head.id, purpose }), {",
+        replace:
+          "    saveAwaited(at.actor, at.id, { attempt: lane.head.id, purpose });\n    Option.match(Option.none(), {",
+      },
+    ],
+  },
+  {
+    name: "abort-fails-the-waiter",
+    says: "the test tooling's release of a dead page's held write fails its waiter, so the dead page runs again",
+    rule: "Stories R9",
+    edits: [
+      {
+        file: "src/host/testing/fake.ts",
+        find: '      if (!alive(out.batch.page)) return mark(out, "aborted");',
+        replace:
+          '      if (!alive(out.batch.page)) {\n        mark(out, "aborted");\n\n        return Deferred.doneUnsafe(out.answer, Exit.fail(new StoreRefused({})));\n      }',
+      },
+    ],
+  },
+  {
+    name: "dead-page-answered",
+    says: "the test tooling answers a dead page's held call",
+    rule: "Stories R9",
+    edits: [
+      {
+        file: "src/host/testing/fake.ts",
+        find: "    if (Option.isSome(answer) && alive(pending.call.page))",
+        replace: "    if (Option.isSome(answer))",
+      },
+    ],
+  },
+  {
+    name: "step-left-unsettled",
+    says: "the test tooling ends a step without running its page's queued tasks",
+    rule: "Stories R4",
+    edits: [
+      {
+        file: "src/host/testing/run.ts",
+        find: "    settle();\n\n    if (tasks.length > 0 || built.driver.pending()) scriptFault(`page ${number} is not idle`);",
+        replace: "    if (tasks.length < 0) scriptFault(`page ${number} is not idle`);",
+      },
+    ],
+  },
 ];
