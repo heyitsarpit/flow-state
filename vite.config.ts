@@ -4,8 +4,8 @@ import { defineConfig } from "vite-plus";
 // are in tools/lint-bomb/FLOW-STATE.md; change both together.
 const production = "packages/flow-state-v3";
 const productionSource = `${production}/src`;
-// The conformance suite is production code too: an edge, so it may use Effect, but not the core.
-const productionSuite = `${production}/conformance`;
+// Flow State's own tests are production code too: an edge, so they may use Effect, but not the core.
+const packageTests = `${production}/tests`;
 const productionCode = [production];
 
 // Frozen or throwaway code: never linted or formatted.
@@ -27,10 +27,6 @@ const productionTests = [
   `${productionSource}/**/testing/**/*.{ts,tsx}`,
 ];
 
-// The production adapter imports from its runtime only the public entry and the listed seam
-// (Conformance I45).
-const seam = ["src/index.ts", "src/host/testing.ts", "src/host/inspect.ts"];
-
 export default defineConfig({
   pack: {
     dts: {
@@ -40,7 +36,7 @@ export default defineConfig({
     tsconfig: "tsconfig.pack.json",
   },
   staged: {
-    [`${production}/{src,conformance,fixtures,bench}/**/*.{js,jsx,ts,tsx,json,jsonc,md,css,html,yaml,yml}`]:
+    [`${production}/{src,tests,fixtures,bench}/**/*.{js,jsx,ts,tsx,json,jsonc,md,css,html,yaml,yml}`]:
       "vp check --fix",
   },
   lint: {
@@ -196,7 +192,7 @@ export default defineConfig({
         rules: { "lint-bomb/no-optional-domain-properties": "off" },
       },
       {
-        files: [`${productionSource}/**/*.{ts,tsx}`, `${productionSuite}/**/*.{ts,tsx}`],
+        files: [`${productionSource}/**/*.{ts,tsx}`, `${packageTests}/**/*.{ts,tsx}`],
         rules: {
           "import/no-mutable-exports": "error",
           // props: a turn never mutates a value it was given, such as the previous turn's state.
@@ -211,14 +207,8 @@ export default defineConfig({
         rules: {
           "flow-state/no-json-stringify": "error",
           "flow-state/no-entropy": ["error", { except: ["src/host/platform"] }],
-          "flow-state/no-clock": [
-            "error",
-            { except: ["src/host/platform", "conformance/runner", "bench"] },
-          ],
-          "flow-state/no-timers": [
-            "error",
-            { except: ["src/host/platform", "conformance/runner", "bench"] },
-          ],
+          "flow-state/no-clock": ["error", { except: ["src/host/platform", "bench"] }],
+          "flow-state/no-timers": ["error", { except: ["src/host/platform", "bench"] }],
           "flow-state/no-host-apis": ["error", { except: ["src/host"] }],
           "flow-state/no-effect-runtime": [
             "error",
@@ -239,22 +229,6 @@ export default defineConfig({
         rules: { "flow-state/no-spec-ids": "error" },
       },
       {
-        files: [`${productionSuite}/adapters/production.ts`],
-        rules: {
-          "no-restricted-imports": [
-            "error",
-            {
-              patterns: [
-                {
-                  group: ["**/src/**", ...seam.map((path) => `!../../${path}`)],
-                  message: "The production adapter imports only src/index.ts and the listed seam.",
-                },
-              ],
-            },
-          ],
-        },
-      },
-      {
         files: productionTests,
         rules: {
           "no-restricted-properties": [
@@ -272,45 +246,6 @@ export default defineConfig({
           ],
         },
       },
-      {
-        // The lifecycle's tables decide obligations; a runtime report never reaches them (advisor Q1,
-        // T44). Reports enter only through lifecycle-step.ts, which turns them into moves.
-        files: [
-          `${productionSuite}/dsl/lifecycle.ts`,
-          `${productionSuite}/dsl/lifecycle-fold.ts`,
-          `${productionSuite}/dsl/lifecycle-lanes.ts`,
-          `${productionSuite}/dsl/lifecycle-lives.ts`,
-          `${productionSuite}/dsl/lifecycle-model.ts`,
-          `${productionSuite}/dsl/lifecycle-rules.ts`,
-        ],
-        rules: {
-          "no-restricted-imports": [
-            "error",
-            {
-              paths: [
-                {
-                  name: "../port.ts",
-                  importNames: [
-                    "Observation",
-                    "Turn",
-                    "Minted",
-                    "Sent",
-                    "Ended",
-                    "Delivered",
-                    "Recorded",
-                  ],
-                  message: "Obligation tables take no runtime report (advisor Q1, T44).",
-                },
-                {
-                  name: "./oracle.ts",
-                  importNames: ["Fact"],
-                  message: "Obligation tables take no runtime report (advisor Q1, T44).",
-                },
-              ],
-            },
-          ],
-        },
-      },
     ],
     ignorePatterns: frozen,
   },
@@ -323,7 +258,7 @@ export default defineConfig({
       provider: "v8",
       include: [
         "packages/flow-state-v3/src/**/*.ts",
-        "packages/flow-state-v3/conformance/**/*.ts",
+        "packages/flow-state-v3/tests/**/*.ts",
         "packages/flow-state-v3/fixtures/**/*.ts",
         "packages/flow-state-v3/bench/**/*.ts",
       ],

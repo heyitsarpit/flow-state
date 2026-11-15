@@ -50,7 +50,7 @@ Every rule not listed below. They fit this codebase as they are:
   is a host boundary: IndexedDB, Web Locks and page lifecycle events. So these need explicit
   allowances, and the allowances get added with the host adapter's directory, not before.
 - **Tests** (`no-module-mocking`, `no-expect-in-if`, `no-promise-microtask-barrier`,
-  `no-swallowed-cleanup-error`). The conformance harness runs on a fake clock, and a microtask turn
+  `no-swallowed-cleanup-error`). Flow State's tests run on a fake clock, and a microtask turn
   proves nothing.
 - **Path options set now:** `no-direct-process-env`, `no-module-level-mutable-state`,
   `no-object-type`, `no-unknown` and `no-optional-domain-properties` cover all Flow State v3
@@ -130,9 +130,9 @@ on internal modules and `off` on public entrypoint modules.
   - `no-entropy`: `Math.random` and `crypto`. Ids come from the runtime's mint, so stories, replays and
     searches reproduce a run. Except `src/host/platform`.
   - `no-clock`: `Date` and `performance`. Time comes from Effect's Clock or the fake world's. Except
-    `src/host/platform`, `conformance/runner`, `bench`.
+    `src/host/platform`, `bench`.
   - `no-timers`: `setTimeout`, `clearTimeout`, `setInterval`, `queueMicrotask`. The core returns work as
-    data for the driver. Except the same three folders.
+    data for the driver. Except the same two folders.
   - `no-host-apis`: `window`, `document`, `navigator`, `indexedDB`, `localStorage`, `sessionStorage`. Only
     the platform touches them: the freeze bug, the bfcache lock, Safari's false `oncomplete`. Except
     `src/host`.

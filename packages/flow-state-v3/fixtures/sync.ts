@@ -141,7 +141,7 @@ const repos = [{ repo: "flow" }, { repo: "effect" }, { repo: "docs" }, { repo: "
 /**
  * S10 rate-limited sync client (fixture catalogue): one sync per repository at a time, a cooldown
  * for the server's `Retry-After`, and giving up after five strikes; a peek reads the remote head
- * (`lk`); a webhook storm stands for admission (`ad`), round-14's code.
+ * (`lk`); a webhook storm stands for admission (`ad`).
  */
 export const syncClient = part({
   name: "sync",

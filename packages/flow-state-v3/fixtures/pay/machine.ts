@@ -39,8 +39,7 @@ const Receipt = Schema.Struct({
 });
 
 /**
- * Checkout's Pay definition (the real Pay's signed-in subset, as `prototypes/conformance/typed/pay.ts`
- * holds it), in the production API.
+ * Checkout's Pay definition: the real Pay's signed-in subset, in the production API.
  */
 export const Pay = definition({
   id: "Checkout/Pay",
@@ -437,8 +436,7 @@ const payBody = ({ S, E, O }: Parameters<PayBody>[0]): ReturnType<PayBody> => {
 export const PayMachine = machine(Pay, payBody);
 
 /**
- * Pay with one more root event, `AbortPay`, which cancels `pay` (the suite's `cells` fixture,
- * `prototypes/conformance/typed/cells.ts`).
+ * Pay with one more root event, `AbortPay`, which cancels `pay`.
  */
 export const Cells = definition({
   id: Pay.id,
