@@ -296,7 +296,8 @@ tasks
             - The rules: an Attempt's ending is delivered at most once (WriteLanes I15, I16); every ending has one of
               the three channels and a never-sent Attempt ends only NotSent (WriteLanes I3); every request of one
               Attempt carries one idempotency key and one input (WriteLanes I6); at most one publication per turn
-              (Turn I9); a refused turn leaves no Turn report (Turn I14).
+              (Turn I9); a refused turn leaves no Turn report (Turn I14); a disposed actor does no more work
+              (Actors I30, today in `tests/bridge/checks/disposal.ts`).
             - The reload sweep runs every fixture story with a reload inserted at each position and applies the rules.
               A variant fails only for a rule breach, never for a script reason.
             - `nub run faults` catches every named fault, the 17 there today included.
@@ -384,8 +385,8 @@ tasks
             Write `tests/types/`: one `@ts-expect-error` test for each "is a type error" promise in the Plans and
             @spec.Compile that production has built.
 
-            **Why now:** the Plans and @spec.Compile make 31 such promises, and 5 checks exist. No run can show a
-            type error.
+            **Why now:** the Plans and @spec.Compile make 31 such promises, and 1 check exists
+            (`src/machine.test.ts`). No run can show a type error.
 
             May change: `tests/types/`. Evidence: this Task's comments.
 

@@ -42,4 +42,11 @@ note 2026-11-15T12:55:45Z
     hillclimb in separate temp files and submit ideas" and, on how many sidecars per job, "just let the lead decide". 
     Scope: the whole run; instructions, Models and agents, edited to match.
 note 2026-11-15T12:57:29Z
-    Run started at `69fbdc14` on the user's word ("okay commit and start coding", 2026-11-15); current Task @task.V3.T63; no live agents before this; weekly usage 71 of the 100 reserve. First action: one Opus building lead on T63. Wakes every 90 minutes; caffeinate holds the Mac awake.
+    Run started at `69fbdc14` on the user's word ("okay commit and start coding", 2026-11-15); current Task 
+    @task.V3.T63; no live agents before this; weekly usage 71 of the 100 reserve. First action: one Opus building lead 
+    on T63. Wakes every 90 minutes; caffeinate holds the Mac awake.
+note 2026-11-15T13:16:23Z
+    Decision (user, 2026-11-15): "just make the minimal needed patch". Scope: P2 to P10. A link audit of T64 to T70, 
+    T54, T18 and T55 found few useful links but recurring scope gaps; one instructions line makes "May change" a guide 
+    (planted faults and files the acceptance needs, each named in a comment) instead of patching each Task. T64 gains 
+    Actors I30 and T68 gets its check count fixed. P3 Tasks wait for their rewrite.

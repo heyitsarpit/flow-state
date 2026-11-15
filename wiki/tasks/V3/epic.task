@@ -226,6 +226,9 @@ instructions
 
     - Every brief tells the lead to run `wk brief @task.V3.Tn` and read its phase's skills first, and
       carries the Constraints' code-style line (the user, 2026-11-09).
+    - A Task's "May change" is a guide, not a fence: a Task may add its planted faults to
+      `tests/faults.ts` and touch any file its acceptance needs, naming each extra file in a Task
+      comment (2026-11-15).
     - Requirements first (the user, 2026-11-12). A Task's first commit, before any code, is its
       requirements list in the Task's comments: each rule with its source, mapped one to one to the
       Task's acceptance, and each written as a check that fails today, in the cheapest form that
