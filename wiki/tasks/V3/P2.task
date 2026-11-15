@@ -490,7 +490,8 @@ tasks
             False pass: a bench that does less work than the tested run → caught by the same-turns test.
         acceptance
             - `bun packages/flow-state-v3/bench/run.ts` prints its numbers for the transfers long story.
-            - A test shows the benched Story does the same turns as a tested run of it.
+            - A test shows the benched Story does the same turns as a tested run of it: equal turn evidence, in
+              order, from both runs.
             - Nothing gates on a timing.
     T67
         title       The hand cases run as Story tests and the bridge is gone
@@ -524,7 +525,7 @@ tasks
             | `answer lostButLanded` | `drop({ at: "response" })`: the handler runs, the answer is lost |
             | `answer failButLanded` | a control whose handler applies the change and returns the failure |
             | `answer never` | `hold({ at })` never released |
-            | `ack` | `release` of the held `Fake.storage` write |
+            | `ack` | `Fake.storage` `hold` set before the write (in `world`), then `release`; an unheld write lands |
 
             A case no mapping expresses is listed as dropped with its reason, for the user's read.
 
