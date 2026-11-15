@@ -845,7 +845,7 @@ tasks
               record on @phase.V3.P2.
     T68
         title       Compile-time tests for the type promises production keeps
-        status      review
+        status      in_progress
         priority    medium
         blocked_by  [@T62]
         description
@@ -926,6 +926,21 @@ tasks
             token is also an `Ending` in `ScheduleConfig.send`, so it breaks @spec.Compile T11 now; pin it as an
             `it.fails` on machine() refusal and fix in @task.V3.T57. A commit select and key typed as plain records
             break @plan.Operations.O1 ("types remain intact"; a missing key field is a type error), so @task.V3.T21.
+        comment     2026-11-15T20:41:41Z
+            Review fixes: @plan.Operations.V1's four built forms now have tests in `tests/types/contract.compile.ts`: a
+            failure key outside the commit's tags, an unknown concurrency, a key field outside input, a contract with no
+            services. All 13 directives proved in a scratch copy: each loosened type leaves only its own directive
+            unused in `tests/types/`. In 4 cases (memory, modifier, guard, failure) the loosening also raises an error
+            inside `src/`.
+
+            Unbuilt, added for @task.V3.T21 (@plan.Operations.V1): an `unknown:` record without `otherwise`, and
+            key-less members of keyed operations. Also routed to T21: commit `select` and key values are typed as plain
+            records (`Values`), which breaks @plan.Operations.O1. Totals: 49 promises; 13 tested here, 8 tested
+            elsewhere, 28 unbuilt (T21 now 4).
+
+            Pinned for @task.V3.T57: `tests/types/schedule-send.test.ts` holds an `it.fails` (Compile T11). machine()
+            should refuse a schedule `send` carrying another definition's event token, but it is accepted. It compiles
+            because `ScheduleConfig.send` takes `EventToken | Ending`.
     T69
         title       flow story and flow trace
         status      open
