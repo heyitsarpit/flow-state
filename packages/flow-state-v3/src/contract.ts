@@ -70,13 +70,24 @@ export type ReadEndings = {
  * A contract bound to a definition's events: what `operations` declares under one name, in the
  * shape the compiler reads.
  */
-export type Bound<K extends "write" | "read" = "write" | "read"> = K extends "write"
+export type Bound<K extends "write" | "read" = "write" | "read", R = unknown> = (K extends "write"
   ? BoundFields & {
       readonly kind: "write";
       readonly call: Commit;
       readonly unknown: Ending;
     }
-  : BoundFields & { readonly kind: "read"; readonly call: Lookup };
+  : BoundFields & { readonly kind: "read"; readonly call: Lookup }) & {
+  readonly "~requires"?: R;
+};
+
+/**
+ * The services an operations record's contracts require: the union of each bound contract's
+ * Effect requirement.
+ */
+export type RequirementsOf<O> = Exclude<
+  { readonly [K in keyof O]: O[K] extends { readonly "~requires"?: infer R } ? R : never }[keyof O],
+  undefined
+>;
 
 /**
  * What every bound contract carries, whichever its kind.
@@ -142,7 +153,7 @@ export type Transaction<F extends Fields = Fields, A = never, E = never, R = nev
     input: InputOf<F>,
     context: { readonly attempt: Attempt },
   ) => Effect.Effect<A, E, R>;
-  readonly outcomes: (endings: WriteEndings<E>) => Bound<"write">;
+  readonly outcomes: (endings: WriteEndings<E>) => Bound<"write", R>;
 };
 
 /**
@@ -157,7 +168,7 @@ export type Resource<F extends Fields = Fields, A = never, E = never, R = never>
   readonly staleTime: Duration.Input;
   readonly gcTime: Duration.Input;
   readonly lookup: (input: InputOf<F>) => Effect.Effect<A, E, R>;
-  readonly outcomes: (endings: ReadEndings) => Bound<"read">;
+  readonly outcomes: (endings: ReadEndings) => Bound<"read", R>;
 };
 
 /**
@@ -173,7 +184,7 @@ export type Resource<F extends Fields = Fields, A = never, E = never, R = never>
  * The commit puts `attempt.id` on the wire as the idempotency key; every send of one Attempt
  * carries the same id and input.
  */
-// RETURN_TYPE: the exported Transaction contract keeps F, A and E for outcomes and handles.
+// RETURN_TYPE: the exported Transaction contract keeps F, A, E and R for outcomes, handles and the setup's services.
 export const transaction = <const F extends Fields, A, E, R>(config: {
   readonly id: string;
   readonly input: F;
@@ -213,7 +224,7 @@ export const transaction = <const F extends Fields, A, E, R>(config: {
  * In a `*.contracts.ts` file, once per server read; a definition maps its endings with
  * `operations`.
  */
-// RETURN_TYPE: the exported Resource contract keeps F, A and E for outcomes and handles.
+// RETURN_TYPE: the exported Resource contract keeps F, A, E and R for outcomes, handles and the setup's services.
 export const resource = <const F extends Fields, A, E, R>(config: {
   readonly id: string;
   readonly input: F;

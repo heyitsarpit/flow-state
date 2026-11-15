@@ -2,8 +2,9 @@ import { Option } from "effect";
 import { Evidence } from "../core/evidence.ts";
 import { laneKeyText } from "../core/lane-moves.ts";
 import { actorKey, Timer } from "../core/world.ts";
+import { isInFlight } from "../core/tx.ts";
 import type { Driver } from "./driver.ts";
-import { InspectorId, type Runtime, type Snapshot, snapshotOf } from "./runtime.ts";
+import { DriverId, InspectorId, type Runtime, type Snapshot, snapshotOf } from "./runtime.ts";
 
 /**
  * Attaches a callback to a Runtime's evidence.
@@ -29,20 +30,23 @@ export { Evidence };
 
 /**
  * One read of a Runtime's state, as plain data: every live actor's snapshot, each write lane,
- * each owed ending, each armed timer, the uses of each identity and the disposal phase.
+ * each owed ending, each armed timer, the uses of each identity and the lifecycle.
  *
  * **Details**
  *
- * Actors are named by their stored key (machine, then name). A lane's `phase` is its head's phase
- * tag, `key` its key text (none for an unkeyed operation) and `retryCount` its head's re-sends.
- * A lane's row is a view of these, read through the actor's snapshot. An owed row's `delivery` is its
- * delivery tag. A timer's `dueAt` is known for a schedule only.
+ * Actors are named by their stored key (machine, then name). A lane's `operation` is the
+ * definition's operation name, `contract` its contract's id, `state` InFlight or Held (an Idle lane
+ * is not listed), `phase` its head's phase tag, `key` its key text (none for an unkeyed operation)
+ * and `retryCount` its head's re-sends. An owed row's `delivery` is its delivery tag. A timer's
+ * `dueAt` is known for a schedule only. `lifecycle` is Open, Disposing or Disposed.
  */
 export type RuntimeCut = {
   readonly actors: ReadonlyArray<{ readonly actor: string; readonly snapshot: Snapshot }>;
   readonly lanes: ReadonlyArray<{
     readonly actor: string;
     readonly operation: string;
+    readonly contract: string;
+    readonly state: "InFlight" | "Held";
     readonly key: Option.Option<string>;
     readonly attempt: string;
     readonly phase: string;
@@ -62,27 +66,14 @@ export type RuntimeCut = {
     readonly dueAt: Option.Option<number>;
   }>;
   readonly uses: ReadonlyArray<{ readonly actor: string; readonly uses: ReadonlyArray<string> }>;
-  readonly disposal: string;
+  readonly lifecycle: string;
 };
 
-/**
- * Reads a Runtime's driver as a {@link RuntimeCut}.
- *
- * **When to use**
- *
- * In Flow's own test tooling, to read what no public snapshot shows: lane phases, owed rows,
- * timers and uses.
- *
- * **Details**
- *
- * It reads the driver's current world and changes nothing; equal worlds give equal cuts.
- *
- * **Gotchas**
- *
- * - A batch out is the persistence edge's, not the world's, so the cut does not show it.
- */
+const contractOf = (driver: Driver, machine: string, operation: string) =>
+  driver.machines.get(machine)?.operations.get(operation)?.contract ?? operation;
+
 // RETURN_TYPE: the exported RuntimeCut contract.
-export const cutOf = (driver: Driver): RuntimeCut => {
+const cutOf = (driver: Driver): RuntimeCut => {
   const world = driver.world();
 
   const dueOf = (timer: Timer) =>
@@ -120,6 +111,8 @@ export const cutOf = (driver: Driver): RuntimeCut => {
     lanes: [...world.lanes.values()].map((lane) => ({
       actor: actorKey(lane.actor),
       operation: lane.operation,
+      contract: contractOf(driver, lane.actor.machine, lane.operation),
+      state: isInFlight(lane) ? "InFlight" : "Held",
       key: laneKeyText(driver.machines, lane),
       attempt: lane.head.id,
       phase: lane.head.phase._tag,
@@ -139,6 +132,27 @@ export const cutOf = (driver: Driver): RuntimeCut => {
       dueAt: dueOf(timer),
     })),
     uses: [...world.uses].map(([actor, uses]) => ({ actor, uses })),
-    disposal: world.disposal._tag,
+    lifecycle: world.disposal._tag,
   };
 };
+
+/**
+ * Reads a Runtime's state as a {@link RuntimeCut}.
+ *
+ * **When to use**
+ *
+ * In development tools and tests, to read what no public snapshot shows: lane states, owed rows,
+ * timers, uses and the lifecycle.
+ *
+ * **Details**
+ *
+ * Synchronous and passive: it reads the last committed state, starts no work, touches no storage
+ * and emits no evidence; two reads at one point are equal. It works on a constructed, ready,
+ * disposing or disposed Runtime.
+ *
+ * **Gotchas**
+ *
+ * - A batch out is the persistence edge's, not the Runtime's state, so the cut does not show it.
+ * - This first slice covers actors, lanes, owed endings, timers, uses and the lifecycle only.
+ */
+export const inspect = (runtime: Runtime) => cutOf(runtime[DriverId]);

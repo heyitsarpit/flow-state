@@ -1,5 +1,6 @@
 import { Schema } from "effect";
-import { actorRef, app, definition, Flow, machine } from "../../src/index.ts";
+import { actorRef, app, definition, Flow, machine, runtimeSetup } from "../../src/index.ts";
+import { BankLive } from "./bank-http.ts";
 import { type Declined, transfer } from "./contracts.ts";
 
 const Transfers = definition({
@@ -70,6 +71,17 @@ export const TransfersMachine = machine(Transfers, ({ S, E, O }) => ({
  * The bank app: one machine.
  */
 export const bank = app({ id: "bank", machines: { transfers: TransfersMachine } });
+
+/**
+ * The bank app's real setup: the bank over HTTP, persisted, each capture written at once. A Story
+ * never builds its services.
+ */
+export const bankSetup = runtimeSetup({
+  app: bank,
+  services: BankLive("https://bank.example"),
+  scope: "bank",
+  persistence: { captureMs: 0 },
+});
 
 /**
  * The account most stories use.

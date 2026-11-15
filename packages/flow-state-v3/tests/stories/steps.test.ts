@@ -1,126 +1,179 @@
-import { Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { account } from "../../fixtures/transfers/machine.ts";
-import { bankServer } from "../../fixtures/transfers/server.ts";
-import { config, deadline, send, usual } from "../../fixtures/transfers/stories.ts";
-import { Story } from "../../src/host/testing/index.ts";
-import { at, endings, keysOf, memoryIn, turns } from "./read.ts";
+import { Bank } from "../../fixtures/transfers/server.ts";
+import { bankStory, deadline, usual } from "../../fixtures/transfers/stories.ts";
+import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
 
-const story = (...steps: Parameters<typeof Story.app>[2]) =>
-  Story.app(config, [bankServer], steps).run();
+const endings = (run: StoryRun) =>
+  run.evidence.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : []));
+
+const turns = (run: StoryRun) => run.evidence.flatMap((e) => (e._tag === "Turn" ? [e.event] : []));
+
+const actorRecords = (cut: Cut) =>
+  [...cut.records.stored.keys()].filter((k) => k.startsWith("actor/"));
+
+const sent = bankStory("steps/sent")
+  .ensure(account)
+  .send(account, { _tag: "Send", transferId: "t1", cents: 500 });
 
 describe("Story step words", () => {
-  it("attach and send land two keyed transfers at once (WriteLanes R6)", async () => {
+  it("ensure and send land two keyed transfers at once (WriteLanes R6)", async () => {
     const run = await usual.run();
 
-    expect(endings(run)).toEqual(["transfer success success", "transfer success success"]);
-    expect(memoryIn(at(run, "sent"), account)).toEqual(Option.some({ notice: "sent r2" }));
+    expect(endings(run)).toEqual(["success success", "success success"]);
+    expect(run.checkpoints.sent.read(account)?.memory).toEqual({ notice: "sent r2" });
+    expect(run.checkpoints.sent.inspection.actors.map((a) => a.actor)).toHaveLength(1);
   });
 
-  it("detach ends the use, so the nudge never fires (Turn I23, Actors R8)", async () => {
-    const used = await story(
-      Story.attach(account),
-      send(account, "t1", 500),
-      Story.advance("21 seconds"),
-    );
+  it("send restores from a record but never creates an actor (Stories R3)", async () => {
+    const run = await bankStory("steps/send-absent")
+      .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+      .checkpoint("sent")
+      .ensure(account)
+      .send(account, { _tag: "Send", transferId: "t2", cents: 500 })
+      .checkpoint("ensured")
+      .run();
 
-    const detached = await story(
-      Story.attach(account),
-      send(account, "t1", 500),
-      Story.detach(account),
-      Story.advance("21 seconds"),
-      Story.checkpoint("later"),
-    );
+    expect(run.checkpoints.sent.read(account)).toBeUndefined();
+    expect(run.checkpoints.sent.read(Bank.transfer)).toEqual([]);
+    expect(run.checkpoints.ensured.read(Bank.transfer).map((c) => c.input.transferId)).toEqual([
+      "t2",
+    ]);
+  });
+
+  it("detach ends the use, so the nudge never fires and the actor leaves the cut (Turn I23, Actors R8)", async () => {
+    const used = await sent.advance("21 seconds").run();
+    const detached = await sent.detach(account).advance("21 seconds").checkpoint("later").run();
 
     expect(turns(used)).toEqual(["Send", "Done", "Nudge"]);
     expect(turns(detached)).toEqual(["Send", "Done"]);
-    expect(at(detached, "later").runtime.actors).toEqual([]);
-    expect(keysOf(at(detached, "later"), "actor")).toHaveLength(1);
+    expect(detached.checkpoints.later.inspection.actors).toEqual([]);
+    expect(actorRecords(detached.checkpoints.later)).toHaveLength(1);
   });
 
-  it("forget removes the identity's record (Actors R21)", async () => {
-    const run = await story(
-      Story.attach(account),
-      send(account, "t1", 500),
-      Story.checkpoint("kept"),
-      Story.forget(account),
-      Story.checkpoint("forgotten"),
-    );
+  it("dispose ends the actor and removes it from the cut and the store (Actors R20)", async () => {
+    const run = await sent.checkpoint("kept").dispose(account).checkpoint("disposed").run();
 
-    expect(keysOf(at(run, "kept"), "actor")).toHaveLength(1);
-    expect(keysOf(at(run, "forgotten"), "actor")).toEqual([]);
-    expect(at(run, "forgotten").runtime.actors).toEqual([]);
+    expect(endings(run)).toEqual(["success success"]);
+    expect(actorRecords(run.checkpoints.kept)).toHaveLength(1);
+    expect(run.checkpoints.disposed.inspection.actors).toEqual([]);
+    expect(actorRecords(run.checkpoints.disposed)).toEqual([]);
   });
 
-  it("disposeActor ends the actor and removes its record (Actors R20)", async () => {
-    const run = await story(
-      Story.attach(account),
-      send(account, "t1", 500),
-      Story.disposeActor(account),
-      Story.checkpoint("disposed"),
-    );
+  it("dispose with how forget forgets the identity and its record (Actors R21)", async () => {
+    const run = await sent
+      .checkpoint("kept")
+      .dispose(account, { how: "forget" })
+      .checkpoint("forgotten")
+      .run();
 
-    expect(endings(run)).toEqual(["transfer success success"]);
-    expect(at(run, "disposed").runtime.actors).toEqual([]);
-    expect(keysOf(at(run, "disposed"), "actor")).toEqual([]);
+    expect(actorRecords(run.checkpoints.kept)).toHaveLength(1);
+    expect(actorRecords(run.checkpoints.forgotten)).toEqual([]);
+    expect(run.checkpoints.forgotten.read(account)).toBeUndefined();
   });
 
-  it("disposeRuntime runs the Runtime's disposal to its end, keeping the last snapshot (Actors R22, R23)", async () => {
-    const run = await story(
-      Story.attach(account),
-      send(account, "t1", 500),
-      Story.disposeRuntime(),
-      Story.checkpoint("disposed"),
-    );
+  it("disposeRuntime runs the Runtime's dispose to its end, keeping the last snapshot (Actors R22, R23)", async () => {
+    const run = await sent.disposeRuntime().checkpoint("disposed").run();
 
-    expect(at(run, "disposed").runtime.disposal).toBe("Disposed");
+    expect(run.checkpoints.disposed.inspection.lifecycle).toBe("Disposed");
     expect(run.evidence.filter((e) => e._tag === "RuntimeDisposed")).toHaveLength(1);
-    expect(memoryIn(at(run, "disposed"), account)).toEqual(Option.some({ notice: "sent r1" }));
+    expect(run.checkpoints.disposed.read(account)?.memory).toEqual({ notice: "sent r1" });
   });
 
   it("disposeRuntime with a call on the wire ends it unknown Disposed at the 5 s bound (Actors R22, I35)", async () => {
-    const run = await story(
-      Story.attach(account),
-      bankServer.hold("transfer"),
-      send(account, "t1", 500),
-      Story.disposeRuntime(),
-      Story.checkpoint("disposing"),
-      Story.advance("5 seconds"),
-      Story.checkpoint("disposed"),
-    );
+    const run = await bankStory("steps/dispose-on-wire")
+      .ensure(account)
+      .world(Bank.transfer.hold())
+      .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+      .disposeRuntime()
+      .checkpoint("disposing")
+      .advance("4999 millis")
+      .checkpoint("bound")
+      .advance("1 millis")
+      .checkpoint("disposed")
+      .world(Bank.transfer.release())
+      .run();
 
-    expect(at(run, "disposing").runtime.disposal).toBe("Disposing");
-    expect(at(run, "disposed").runtime.disposal).toBe("Disposed");
-    expect(endings(run)).toEqual(["transfer unknown Disposed"]);
+    expect(run.checkpoints.disposing.inspection.lifecycle).toBe("Disposing");
+    expect(run.checkpoints.bound.inspection.lifecycle).toBe("Disposing");
+    expect(run.checkpoints.disposed.inspection.lifecycle).toBe("Disposed");
+    expect(endings(run)).toEqual(["unknown Disposed"]);
+  });
+
+  it("world applies a control before the next call: a lowered limit declines it (Stories R8)", async () => {
+    const run = await bankStory("steps/world")
+      .ensure(account)
+      .world(Bank.limit({ cents: 100 }))
+      .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+      .checkpoint("declined")
+      .run();
+
+    expect(run.checkpoints.declined.read(Bank).limit).toBe(100);
+    expect(endings(run)).toEqual(["failure Declined"]);
   });
 
   it("advance wakes the nudge at 20 s and the deadline at 30 s, not a millisecond before (Turn I22; WriteLanes R2)", async () => {
     const run = await deadline.run();
-    const notice = (name: string) => memoryIn(at(run, name), account);
+    const notice = (cut: Cut) => cut.read(account)?.memory["notice"];
 
-    expect(at(run, "before nudge").now).toBe(19_999);
-    expect(notice("before nudge")).toEqual(Option.some({ notice: "" }));
-    expect(notice("nudged")).toEqual(Option.some({ notice: ", nudged" }));
-    expect(notice("before deadline")).toEqual(Option.some({ notice: ", nudged" }));
-    expect(at(run, "late").now).toBe(30_000);
-    expect(notice("late")).toEqual(Option.some({ notice: "check your statement" }));
+    expect(run.checkpoints["before nudge"].now).toBe(19_999);
+    expect(notice(run.checkpoints["before nudge"])).toBe("");
+    expect(notice(run.checkpoints.nudged)).toBe(", nudged");
+    expect(notice(run.checkpoints["before deadline"])).toBe(", nudged");
+    expect(run.checkpoints.late.now).toBe(30_000);
+    expect(notice(run.checkpoints.late)).toBe("check your statement");
     expect(turns(run)).toEqual(["Send", "Nudge", "Unsure"]);
-    expect(endings(run)).toEqual(["transfer unknown TimedOut"]);
+    expect(endings(run)).toEqual(["unknown TimedOut"]);
   });
 
-  it("reload boots a new page and attaches again only the uses still held (Restore R3)", async () => {
-    const run = await story(
-      Story.attach(account),
-      send(account, "t1", 500),
-      Story.reload(),
-      Story.checkpoint("kept"),
-      Story.detach(account),
-      Story.reload(),
-      Story.checkpoint("released"),
-    );
+  it("reload boots a new page at the same time and ensures again only the uses still held (Stories R13; Restore R3)", async () => {
+    const run = await sent
+      .advance("2 seconds")
+      .reload()
+      .checkpoint("kept")
+      .detach(account)
+      .reload()
+      .checkpoint("released")
+      .run();
 
-    expect(memoryIn(at(run, "kept"), account)).toEqual(Option.some({ notice: "sent r1" }));
-    expect(at(run, "released").runtime.actors).toEqual([]);
-    expect(keysOf(at(run, "released"), "actor")).toHaveLength(1);
+    expect(run.checkpoints.kept.now).toBe(2000);
+    expect(run.checkpoints.kept.read(account)?.memory).toEqual({ notice: "sent r1" });
+    expect(run.checkpoints.kept.inspection.actors).toHaveLength(1);
+    expect(run.checkpoints.released.inspection.actors).toEqual([]);
+    expect(actorRecords(run.checkpoints.released)).toHaveLength(1);
+  });
+
+  it("checkpoint holds now, inspection, the actor, truth, calls and the store, unchanged by later steps (Stories R12, I15, I16)", async () => {
+    const run = await bankStory("steps/checkpoint")
+      .ensure(account)
+      .world(Bank.transfer.hold())
+      .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+      .advance("2 seconds")
+      .checkpoint("held")
+      .world(Bank.transfer.release())
+      .checkpoint("done")
+      .run();
+
+    const { held, done } = run.checkpoints;
+
+    expect(held.now).toBe(2000);
+    expect(held.inspection.lanes.map((l) => [l.operation, l.contract, l.state])).toEqual([
+      ["transfer", "Bank/transfer", "InFlight"],
+    ]);
+    expect(held.inspection).toEqual(held.inspection);
+    expect(held.inspection.timers.map((t) => t.kind)).toEqual(["Schedule"]);
+    expect(held.read(Bank.transfer).map((c) => [c.input.transferId, c.status])).toEqual([
+      ["t1", "held at request"],
+    ]);
+    expect(held.read(Bank).receipts).toEqual({});
+    expect(held.read(account)?.memory).toEqual({ notice: "" });
+    expect(held.records.batches.every((b) => b.status === "landed")).toBe(true);
+    expect([...held.records.stored.keys()].some((k) => k.startsWith("lane/"))).toBe(true);
+
+    expect(done.read(Bank.transfer).map((c) => c.status)).toEqual(["answered"]);
+    expect(Object.values(done.read(Bank).receipts)).toEqual(["r1"]);
+    expect(done.inspection.lanes).toEqual([]);
+    expect(done.read(account)?.memory).toEqual({ notice: "sent r1" });
+    expect(held.read(Bank.transfer).map((c) => c.status)).toEqual(["held at request"]);
   });
 });

@@ -37,8 +37,9 @@ requirements
 
     R4  run() is the one boundary
         source  @plan.Testing.O1, @plan.Testing.O2.
-        must    `run()` returns a Promise of a StoryRun: `steps`, `evidence` (every record in order, every
-                operation ending among them with its operation, Attempt, channel, reason and page), `checkpoints` by
+        must    `run()` returns a Promise of a StoryRun: `steps`, `evidence` (every Runtime evidence record in
+                order, every operation ending among them with its operation, Attempt, channel and reason), 
+                `checkpoints` by
                 name and `end`, a cut after the last step. Each call runs in a fresh world: an empty store, the
                 server registry at each server's `initial`, a Runtime of its own, time 0. A fault of the script, not
                 of the app, rejects the Promise with StoryFailed naming it: a wire or storage word that finds nothing
@@ -58,10 +59,10 @@ requirements
 
     R6  The turn limit
         source  @plan.Testing.O2.
-        must    Each step may run 10,000 turns per instant; the 10,001st rejects the run with StoryTurnLimit naming
-                the step and the instant, before it executes, carrying the evidence so far; later steps do not run.
-                A settle that does not end within 100,000 tasks rejects with StoryTurnLimit, reason Settle; an
-                advance that passes more than 100,000 deadlines rejects with StoryTurnLimit, reason Advance.
+        must    Each step may run 10,000 turns per instant; past that the run rejects with StoryTurnLimit, reason
+                Turns, naming the step and the instant and carrying the evidence up to the 10,000th turn; later steps
+                do not run. A settle that does not end within 100,000 tasks rejects with StoryTurnLimit, reason
+                Settle, carrying the evidence so far.
 
     R7  Fixtures replace the setup's services
         source  @plan.Testing.O1, @plan.Testing.O3.
@@ -122,12 +123,14 @@ requirements
                 `inspect(runtime)` at the step's end, every call each endpoint has logged with its status, each
                 server's truth, and the store's records and write batches, as values captured then. Tests read a
                 cut only through `read(ref)` (the actor's snapshot, or undefined), `read(server)` (its truth),
-                `read(endpoint)` (each call it logged, with its status), `records` (the store's records and write
-                batches), `inspection` and `now`, and a run's endings through `run.evidence`. Checkpoint names are 
+                `read(endpoint)` (each call it logged, with its status), `records` (`stored`, the store's records,
+                and `batches`, its write batches), `inspection` and `now`, and a run's endings through `run.evidence`. 
+                Checkpoint names are 
                 typed: a duplicate name, a widened
                 string or reading an unknown name is a type error. `inspect(runtime)` is the runtime cut of
                 @plan.Inspection.O1: one passive read of the last committed state, starting no work and emitting
-                no evidence.
+                no evidence. Its lanes carry the definition's `operation` name, the `contract` id and `state`
+                (InFlight or Held; an Idle lane is not listed); its `lifecycle` is Open, Disposing or Disposed.
 
     R13  A reload abandons the page
         source  @plan.Testing.O3 (every tab and reload shares the fake server); @plan.Persistence.O1.
@@ -160,7 +163,8 @@ open
                  `run.payloads`,
                  Fake.http, Fake.Refused and Fake.Closed, the Plan's finer error names (StoryFakeError,
                  UnusedWireRule, DuplicateFixture, in place of StoryFailed's reasons), discovery, trace export,
-                 redaction, the finishing horizon and cleanup at the end of a run are not built.
+                 redaction, the finishing horizon, cleanup at the end of a run and the advance limit (StoryTurnLimit
+                 reason Advance, more than 100,000 deadlines in one advance) are not built.
 
     Q2  Batches out are the persistence edge's, not the world's.
         outcome  The runtime cut shows no batch out; the fake store's batch log shows each held write.

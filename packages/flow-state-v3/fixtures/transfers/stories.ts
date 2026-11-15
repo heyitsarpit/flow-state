@@ -1,115 +1,84 @@
-import { Story, type StoryConfig } from "../../src/host/testing/index.ts";
-import { account, bank, savings } from "./machine.ts";
-import { bankServer } from "./server.ts";
+import { Story } from "../../src/host/testing/index.ts";
+import { account, bankSetup, savings } from "./machine.ts";
+import { Bank, BankFake } from "./server.ts";
 
 /**
- * The bank app as every transfers Story runs it: persisted, each capture written at once.
+ * The bank app over its port fake, with no steps yet: every transfers Story starts here.
  */
-export const config: StoryConfig = { app: bank, scope: "story", persistence: { captureMs: 0 } };
-
-/**
- * A transfer on the account, as the user sends it.
- */
-export const send = (ref: typeof account, transferId: string, cents: number) =>
-  Story.send(ref, { _tag: "Send", transferId, cents });
+export const bankStory = (id: string) => Story.app(bankSetup, { id, fixtures: [BankFake] });
 
 /**
  * Two transfers that land at once.
  */
-export const usual = Story.app(
-  config,
-  [bankServer],
-  [
-    Story.attach(account),
-    send(account, "t1", 500),
-    send(account, "t2", 900),
-    Story.checkpoint("sent"),
-  ],
-);
+export const usual = bankStory("transfers/usual")
+  .ensure(account)
+  .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+  .send(account, { _tag: "Send", transferId: "t2", cents: 900 })
+  .checkpoint("sent");
 
 /**
  * A transfer over the limit: the bank declines it.
  */
-export const declined = Story.app(
-  config,
-  [bankServer],
-  [Story.attach(account), send(account, "t1", 5000), Story.checkpoint("declined")],
-);
+export const declined = bankStory("transfers/declined")
+  .ensure(account)
+  .send(account, { _tag: "Send", transferId: "t1", cents: 5000 })
+  .checkpoint("declined");
 
 /**
- * A transfer reaches the bank, its answer is lost, and the page reloads before the deadline.
+ * A transfer reaches the bank, its answer is held and never released, and the page reloads before
+ * the commit's 30-second deadline.
  */
-export const lostThenReload = Story.app(
-  config,
-  [bankServer],
-  [
-    Story.attach(account),
-    bankServer.hold("transfer"),
-    send(account, "t1", 500),
-    Story.checkpoint("sending"),
-    bankServer.dropResponse("transfer"),
-    Story.advance("5 seconds"),
-    Story.reload(),
-    Story.checkpoint("reloaded"),
-  ],
-);
+export const lostThenReload = bankStory("transfers/lost-then-reload")
+  .ensure(account)
+  .world(Bank.transfer.hold({ at: "response" }))
+  .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+  .checkpoint("sending")
+  .advance("5 seconds")
+  .reload()
+  .checkpoint("reloaded");
 
 /**
- * A transfer that never answers: the nudge at 20 seconds, then the commit's own deadline at 30.
+ * A transfer that never answers: the nudge at 20 seconds, then the commit's own deadline at 30,
+ * then a release that delivers nothing.
  */
-export const deadline = Story.app(
-  config,
-  [bankServer],
-  [
-    Story.attach(account),
-    bankServer.hold("transfer"),
-    send(account, "t1", 500),
-    Story.advance("19999 millis"),
-    Story.checkpoint("before nudge"),
-    Story.advance("1 millis"),
-    Story.checkpoint("nudged"),
-    Story.advance("9999 millis"),
-    Story.checkpoint("before deadline"),
-    Story.advance("1 millis"),
-    Story.checkpoint("late"),
-    bankServer.release("transfer"),
-  ],
-);
+export const deadline = bankStory("transfers/deadline")
+  .ensure(account)
+  .world(Bank.transfer.hold())
+  .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+  .advance("19999 millis")
+  .checkpoint("before nudge")
+  .advance("1 millis")
+  .checkpoint("nudged")
+  .advance("9999 millis")
+  .checkpoint("before deadline")
+  .advance("1 millis")
+  .checkpoint("late")
+  .world(Bank.transfer.release())
+  .checkpoint("released");
 
-const round = (n: number) => {
-  const steps = [
-    send(account, `a${n}`, 500),
-    send(savings, `b${n}`, 2000),
-    bankServer.hold("transfer"),
-    send(account, `c${n}`, 300),
-    Story.advance("1 second"),
-    bankServer.release("transfer"),
-    bankServer.hold("transfer"),
-    send(savings, `d${n}`, 100),
-    bankServer.dropResponse("transfer"),
-    Story.advance("31 seconds"),
-    Story.send(savings, { _tag: "Resend", transferId: `d${n}` }),
-  ];
+const round = (story: ReturnType<typeof bankStory>, n: number) => {
+  const next = story
+    .send(account, { _tag: "Send", transferId: `a${n}`, cents: 500 })
+    .send(savings, { _tag: "Send", transferId: `b${n}`, cents: 2000 })
+    .world(Bank.transfer.hold())
+    .send(account, { _tag: "Send", transferId: `c${n}`, cents: 300 })
+    .advance("1 second")
+    .world(Bank.transfer.release())
+    .world(Bank.transfer.drop({ at: "response" }))
+    .send(savings, { _tag: "Send", transferId: `d${n}`, cents: 100 })
+    .advance("31 seconds")
+    .send(savings, { _tag: "Resend", transferId: `d${n}` });
 
-  if (n % 3 === 2) steps.push(Story.reload());
-
-  return steps;
+  return n % 3 === 2 ? next.reload() : next;
 };
 
 /**
  * Two accounts over nine rounds of landed, declined, held, lost and resent transfers, with a
  * reload every third round: about a hundred steps, for the bench.
  */
-export const long = Story.app(
-  config,
-  [bankServer],
-  [
-    Story.attach(account),
-    Story.attach(savings),
-    ...Array.from({ length: 9 }, (_, n) => round(n)).flat(),
-    Story.checkpoint("end"),
-  ],
-);
+export const long = Array.from({ length: 9 }, (_, n) => n)
+  .reduce(round, bankStory("transfers/long").ensure(account).ensure(savings))
+  .checkpoint("end");
 
 /**
  * Every Story of the fixture, by name.

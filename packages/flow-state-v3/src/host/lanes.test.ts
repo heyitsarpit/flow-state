@@ -4,6 +4,7 @@ import { describe, it } from "vite-plus/test";
 import {
   actorRef,
   app,
+  type App,
   definition,
   Flow,
   FlowError,
@@ -321,7 +322,7 @@ const boot = (
   store: Map<string, string>,
   seed: number,
   settled = true,
-  served = doors,
+  served: App = doors,
   options: { readonly captureMs: number; readonly hung: boolean } = { captureMs: 0, hung: false },
 ) => bootWith(served, store, seed, settled, options);
 

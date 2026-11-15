@@ -3,3 +3,8 @@ log specs
 note 2026-11-15T15:58:02Z
     Spec changes are logged here from now on, one note each, leading with the Spec changed (the user, 2026-11-15).
     The old spec-log.md is deleted; its entries are in git history before this commit.
+
+note 2026-11-15T16:59:47Z
+    Stories R4, R6, R12, Q1 revised building T63: evidence is the Runtime's records, no page per ending; R6 keeps
+    evidence to the 10,000th turn, found after the task that ran it; the Advance limit moved to Q1, unbuilt. R12 names
+    records.stored and batches, and inspection's lane contract, state and lifecycle.

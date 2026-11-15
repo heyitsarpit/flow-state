@@ -1,42 +1,322 @@
-import { type Context, Deferred, Effect, Exit, Layer, Option } from "effect";
+import { Context, Deferred, Effect, Exit, Layer, Option, Result, Schema } from "effect";
+import type { Fields, InputOf } from "../../contract.ts";
+import type { Values } from "../../core/compiled.ts";
 import { type Bytes, type Purpose, type Store, StoreRefused } from "../host.ts";
-import type { RuntimeConfig } from "../runtime.ts";
-import { scriptFault, Step, type StorageWord, type WireWord } from "./steps.ts";
+import { type At, scriptFault, WorldWord } from "./steps.ts";
 
 /**
- * A fake's answers: the service's own methods, each taking that method's arguments and returning
- * an `Exit` of its own success and failure types, synchronously.
+ * A fake call's answer was lost: the port fake maps it to the port's own error.
  */
-export type Handlers<S> = {
-  readonly [K in keyof S]: S[K] extends (...args: infer A) => Effect.Effect<infer V, infer E>
-    ? (...args: A) => Exit.Exit<V, E>
-    : never;
-};
+export class FakeLost extends Schema.TaggedError<FakeLost>()("FakeLost", {}) {}
 
 /**
- * The `Exit` one call of a service method answers with.
- */
-export type AnswerOf<M> = M extends (...args: infer _A) => Effect.Effect<infer V, infer E>
-  ? Exit.Exit<V, E>
-  : never;
-
-/**
- * One call a fake received.
+ * What happened to one call of an endpoint.
  *
  * **Details**
  *
- * `status`: `held` waits for a wire word; `landed` reached the server through its handler and was
- * answered, unless its page had died; `responseDropped` reached the server and its answer was
- * lost; `requestDropped` never reached the server; `answered` got a scripted answer and left the
- * server alone.
+ * `answered`: the handler ran and its Exit was delivered. `held at request`: waiting for
+ * `release`, the handler not run. `held at response`: the handler ran, its answer waits for
+ * `release`. `dropped at request`: failed `Fake.Lost`, the handler never ran. `dropped at
+ * response`: the handler ran and its answer was lost. `handled`: released after its waiter was
+ * gone (its page dead, or its commit's deadline passed), so the handler ran and nothing was
+ * delivered.
  */
-export type Call = {
-  readonly fake: string;
-  readonly method: string;
-  // FLOW_STATE_ALLOW_UNKNOWN: a call's arguments are its method's own; the run logs every fake's calls.
-  readonly args: ReadonlyArray<unknown>;
+export type CallStatus =
+  | "answered"
+  | "held at request"
+  | "held at response"
+  | "dropped at request"
+  | "dropped at response"
+  | "handled";
+
+/**
+ * One call an endpoint received: its request, the page it came from and its status.
+ */
+export type CallEntry<I = Values> = {
+  readonly input: I;
   readonly page: number;
-  readonly status: "held" | "landed" | "responseDropped" | "requestDropped" | "answered";
+  readonly status: CallStatus;
+};
+
+/**
+ * One endpoint of a fake server: its request fields, its answer's Schemas and its handler.
+ */
+export type Endpoint<T, F extends Fields, S extends Schema.Top, X extends Schema.Top> = {
+  readonly request: F;
+  readonly success: S;
+  readonly failure: X;
+  handle(
+    truth: T,
+    request: InputOf<F>,
+  ): { readonly truth: T; readonly exit: Exit.Exit<S["Type"], X["Type"]> };
+};
+
+/**
+ * One control of a fake server: its input fields and how it changes truth.
+ */
+export type Control<T, F extends Fields> = {
+  readonly fields: F;
+  apply(truth: T, input: InputOf<F>): T;
+};
+
+// FLOW_STATE_ALLOW_UNKNOWN: a server's endpoints each have their own truth and types; the run reads them erased.
+type AnyEndpoint = Endpoint<unknown, Fields, Schema.Top, Schema.Top>;
+
+// FLOW_STATE_ALLOW_UNKNOWN: a server's controls each have their own truth and input; the run reads them erased.
+type AnyControl = Control<unknown, Fields>;
+
+/**
+ * A fake server as the run reads it: its name, its truth's Schema and start, its endpoints and
+ * its controls. Its identity is the server's.
+ */
+export type AnyServer = {
+  readonly name: string;
+  readonly truth: Schema.Top;
+  // FLOW_STATE_ALLOW_UNKNOWN: a value of the server's own truth Schema.
+  readonly initial: unknown;
+  readonly endpoints: Readonly<Record<string, AnyEndpoint>>;
+  readonly controls: Readonly<Record<string, AnyControl>>;
+};
+
+/**
+ * What a port fake gets from a server: each endpoint as a function from its request to an Effect
+ * of its success, failing with its failure or `Fake.Lost`.
+ */
+export type ServiceOf<E extends Readonly<Record<string, AnyEndpoint>>> = {
+  readonly [K in keyof E]: (
+    request: InputOf<E[K]["request"]>,
+  ) => Effect.Effect<E[K]["success"]["Type"], E[K]["failure"]["Type"] | FakeLost>;
+};
+
+/**
+ * An endpoint's wire words, and what `read(endpoint)` reads.
+ */
+export type EndpointHandle<I = Values> = {
+  readonly "~endpoint": { readonly server: AnyServer; readonly name: string };
+  // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- a phantom type: it carries the type for reads and holds no value
+  readonly "~input"?: I;
+  // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/no-nullish-function-contracts -- the Plan's public word: an omitted option takes its default
+  readonly hold: (options?: { readonly at?: At }) => WorldWord;
+  readonly release: () => WorldWord;
+  // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/no-nullish-function-contracts -- the Plan's public word: an omitted option takes its default
+  readonly drop: (options?: { readonly at?: At }) => WorldWord;
+};
+
+/**
+ * A declared fake server: an Effect of its endpoints for a port fake, with each endpoint's wire
+ * words and each control's word as its properties.
+ */
+export type Server<
+  T,
+  E extends Readonly<Record<string, AnyEndpoint>>,
+  C extends Readonly<Record<string, AnyControl>>,
+> = Effect.Effect<ServiceOf<E>, never, FakeWorld> & {
+  readonly "~server": AnyServer;
+  // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- a phantom type: it carries the type for reads and holds no value
+  readonly "~truth"?: T;
+} & { readonly [K in keyof E]: EndpointHandle<InputOf<E[K]["request"]>> } & {
+  readonly [K in keyof C]: (input: InputOf<C[K]["fields"]>) => WorldWord;
+};
+
+// FLOW_STATE_ALLOW_UNKNOWN: an endpoint answers with its own types; the world passes them through.
+type Erased = (request: Values) => Effect.Effect<unknown, unknown>;
+
+/**
+ * The run's fake servers, as a service: every port fake reaches its server through it.
+ */
+export class FakeWorld extends Context.Service<
+  FakeWorld,
+  { readonly serve: (server: AnyServer) => Readonly<Record<string, Erased>> }
+>()("flow-state/testing/FakeWorld") {}
+
+// RETURN_TYPE: the EndpointHandle contract the Server type names for each endpoint.
+const endpointOf = (server: AnyServer, name: string): EndpointHandle => ({
+  "~endpoint": { server, name },
+  hold: (options) =>
+    WorldWord.wire({ server, endpoint: name, word: "hold", at: options?.at ?? "request" }),
+  release: () => WorldWord.wire({ server, endpoint: name, word: "release", at: "request" }),
+  drop: (options) =>
+    WorldWord.wire({ server, endpoint: name, word: "drop", at: options?.at ?? "request" }),
+});
+
+type Held = {
+  readonly server: AnyServer;
+  readonly endpoint: string;
+  readonly index: number;
+  readonly page: number;
+  // FLOW_STATE_ALLOW_UNKNOWN: a handler's Exit, of its endpoint's own types.
+  readonly exit: Option.Option<Exit.Exit<unknown, unknown>>;
+  // FLOW_STATE_ALLOW_UNKNOWN: the held call's answer, of its endpoint's own types.
+  readonly answer: Deferred.Deferred<unknown, unknown>;
+};
+
+type Logged = { readonly server: AnyServer; readonly endpoint: string; readonly entry: CallEntry };
+
+type Pending = { readonly word: "hold" | "drop"; readonly at: At };
+
+/**
+ * A run's fake servers: their truth, every call each endpoint received, and the wire words.
+ * `alive` says whether a page may still be answered.
+ */
+export const makeWorld = (alive: (page: number) => boolean) => {
+  // FLOW_STATE_ALLOW_UNKNOWN: each server's truth, of its own Schema.
+  const truths = new Map<AnyServer, unknown>();
+  const log: Array<Logged> = [];
+  const pending = new Map<string, Array<Pending>>();
+  const held: Array<Held> = [];
+  const faults: Array<string> = [];
+  // FLOW_STATE_ALLOW_UNKNOWN: held answers whose waiter was interrupted, of their endpoints' own types.
+  const gone = new Set<Deferred.Deferred<unknown, unknown>>();
+  const ids = new Map<AnyServer, number>();
+
+  const slot = (server: AnyServer, endpoint: string) => {
+    if (!ids.has(server)) ids.set(server, ids.size);
+
+    return `${ids.get(server)}.${endpoint}`;
+  };
+
+  const truthOf = (server: AnyServer) => (truths.has(server) ? truths.get(server) : server.initial);
+
+  const mark = (index: number, status: CallStatus) => {
+    const at = log[index];
+
+    if (at !== undefined) log[index] = { ...at, entry: { ...at.entry, status } };
+  };
+
+  const handled = (server: AnyServer, endpoint: string, input: Values) =>
+    Option.flatMap(Option.fromUndefinedOr(server.endpoints[endpoint]), (it) =>
+      Result.match(
+        Result.try(() => it.handle(truthOf(server), input)),
+        {
+          onFailure: () => {
+            faults.push(`${server.name}.${endpoint}'s handler threw`);
+
+            return Option.none();
+          },
+          onSuccess: (out) => {
+            truths.set(server, out.truth);
+
+            return Option.some(out.exit);
+          },
+        },
+      ),
+    );
+
+  const wait = (entry: Held) => {
+    held.push(entry);
+
+    return Deferred.await(entry.answer).pipe(
+      Effect.onInterrupt(() => Effect.sync(() => void gone.add(entry.answer))),
+    );
+  };
+
+  const call =
+    // RETURN_TYPE: the erased endpoint the world serves; the Server type restores its own types.
+    (page: number, server: AnyServer, endpoint: string): Erased =>
+      (input) =>
+        Effect.suspend(() => {
+          // A dead page's fibers never run again, so this is unreachable; it reaches no server.
+          if (!alive(page)) return Effect.never;
+          const next = pending.get(slot(server, endpoint))?.shift();
+
+          const index =
+            log.push({ server, endpoint, entry: { input, page, status: "answered" } }) - 1;
+
+          const hold = (exit: Held["exit"]) =>
+            wait({
+              server,
+              endpoint,
+              index,
+              page,
+              exit,
+              answer: Deferred.makeUnsafe(),
+            });
+
+          if (next === undefined)
+            return Option.match(handled(server, endpoint, input), {
+              onNone: () => Effect.never,
+              onSome: (exit) => exit,
+            });
+
+          if (next.word === "hold" && next.at === "request") {
+            mark(index, "held at request");
+
+            return hold(Option.none());
+          }
+
+          if (next.word === "hold") {
+            mark(index, "held at response");
+
+            return hold(handled(server, endpoint, input));
+          }
+
+          if (next.at === "response") {
+            handled(server, endpoint, input);
+            mark(index, "dropped at response");
+          } else mark(index, "dropped at request");
+
+          return Effect.fail(new FakeLost());
+        });
+
+  const release = (server: AnyServer, endpoint: string) => {
+    const at = held.findIndex((h) => h.server === server && h.endpoint === endpoint);
+    const entry = held[at] ?? scriptFault(`nothing held at ${server.name}.${endpoint}`);
+    held.splice(at, 1);
+    const exit = Option.isSome(entry.exit) ? entry.exit : handled(server, endpoint, input(entry));
+
+    if (Option.isSome(exit) && alive(entry.page) && !gone.has(entry.answer)) {
+      mark(entry.index, "answered");
+      Deferred.doneUnsafe(entry.answer, exit.value);
+    } else mark(entry.index, "handled");
+  };
+
+  const input = (entry: Held) => log[entry.index]?.entry.input ?? {};
+
+  const control = (server: AnyServer, name: string, value: Values) =>
+    Option.match(Option.fromUndefinedOr(server.controls[name]), {
+      onNone: () => scriptFault(`${server.name} has no control ${name}`),
+      onSome: (it) =>
+        Result.match(
+          Result.try(() => it.apply(truthOf(server), value)),
+          {
+            onFailure: () => scriptFault(`${server.name}.${name} threw`),
+            onSuccess: (truth) => void truths.set(server, truth),
+          },
+        ),
+    });
+
+  return {
+    service: (page: number) =>
+      FakeWorld.of({
+        serve: (server) =>
+          Object.fromEntries(
+            Object.keys(server.endpoints).map((endpoint) => [
+              endpoint,
+              call(page, server, endpoint),
+            ]),
+          ),
+      }),
+    word: (word: WorldWord) =>
+      WorldWord.$match(word, {
+        control: ({ server, control: name, input: value }) => control(server, name, value),
+        wire: ({ server, endpoint, word: kind, at }) => {
+          if (kind === "release") return release(server, endpoint);
+          const key = slot(server, endpoint);
+          pending.set(key, [...(pending.get(key) ?? []), { word: kind, at }]);
+        },
+        storage: () => scriptFault("a storage word reached the fake servers"),
+      }),
+    truthOf,
+    calls: (server: AnyServer, endpoint: string) =>
+      log.filter((l) => l.server === server && l.endpoint === endpoint).map((l) => l.entry),
+    log: () => [...log],
+    truths: () => new Map(truths),
+    faults: () => [...faults],
+    unused: () =>
+      [...pending].flatMap(([key, left]) =>
+        left.map((p) => `${p.word} at ${p.at} on ${key} never used`),
+      ),
+  };
 };
 
 /**
@@ -44,7 +324,7 @@ export type Call = {
  *
  * **Details**
  *
- * `status`: `held` waits for `release`; `landed` is in the store; `refused` failed
+ * `status`: `held` waits for `Fake.storage.release()`; `landed` is in the store; `refused` failed
  * `StoreRefused`; `aborted` was released after its page died, so it never landed.
  */
 export type Batch = {
@@ -53,189 +333,6 @@ export type Batch = {
   readonly keys: ReadonlyArray<string>;
   readonly acknowledges: ReadonlyArray<string>;
   readonly status: "held" | "landed" | "refused" | "aborted";
-};
-
-// FLOW_STATE_ALLOW_UNKNOWN: the run sees every fake's answers, whatever their methods' types.
-type AnyExit = Exit.Exit<unknown, unknown>;
-
-/**
- * One call as a fake hands it to the run's wire: its method, its arguments and its handler.
- */
-type Arrival = {
-  readonly method: string;
-  // FLOW_STATE_ALLOW_UNKNOWN: a call's arguments are its method's own.
-  readonly args: ReadonlyArray<unknown>;
-  readonly land: () => AnyExit;
-};
-
-// FLOW_STATE_ALLOW_UNKNOWN: the wire decides when a call answers; the fake typed its answer.
-type Line = (arrival: Arrival) => Effect.Effect<unknown, unknown>;
-
-/**
- * What a run needs of any fake: its service's key and, per run, fresh handlers that give one
- * services Layer per page.
- */
-export type AnyFake = {
-  readonly id: string;
-  readonly open: () => (line: Line) => NonNullable<RuntimeConfig["services"]>;
-};
-
-/**
- * A fake for one service, with its wire words.
- */
-export type FakeServer<S> = AnyFake & {
-  readonly hold: (method: keyof S & string) => Step;
-  readonly release: (method: keyof S & string) => Step;
-  readonly dropRequest: (method: keyof S & string) => Step;
-  readonly dropResponse: (method: keyof S & string) => Step;
-  readonly answer: <M extends keyof S & string>(method: M, exit: AnswerOf<S[M]>) => Step;
-  readonly received: (cut: { readonly received: ReadonlyArray<Call> }) => ReadonlyArray<Call>;
-};
-
-// RETURN_TYPE: the service's own shape, which the page's Layer provides.
-const serviceOver = <S>(handlers: Handlers<S>, line: Line): S => {
-  // SAFETY: Handlers<S> has S's keys, each a function of that method's own arguments.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- each handler is called only with the arguments its own service method received
-  const erased = handlers as Readonly<Record<string, (...args: ReadonlyArray<unknown>) => AnyExit>>;
-
-  const methods = Object.entries(erased).map(([method, handler]) => [
-    method,
-    // FLOW_STATE_ALLOW_UNKNOWN: the arguments the commit passed, of the method's own type.
-    (...args: ReadonlyArray<unknown>) => line({ method, args, land: () => handler(...args) }),
-  ]);
-
-  // SAFETY: every method of S is answered through its own handler, whose Exit has its own types.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion, lint-bomb/no-object-iteration-result-cast -- a service built key by key from its handlers
-  return Object.fromEntries(methods) as S;
-};
-
-/**
- * Stands in for the outside world in a Story.
- *
- * **When to use**
- *
- * `Fake.server` once per service a fixture's contracts call: the Story's Runtime gets a Layer of
- * the same service a real app gets over fetch, so the commit's own code runs. `Fake.store` holds
- * or refuses the run's store writes.
- *
- * **Details**
- *
- * `server(Service, () => handlers)`: the factory runs once per run, so state it closes over lasts
- * the whole run, across reloads. A call lands through its handler unless `hold` held it. On the
- * method's oldest held call, `release` lands it and answers, `dropRequest` loses it before the
- * server, `dropResponse` lands it and loses the answer, and `answer(method, exit)` answers with an
- * Exit of that method's own type without running the handler.
- *
- * **Gotchas**
- *
- * - A call that gets no answer waits forever; only the commit's own deadline ends it.
- */
-export const Fake = {
-  // RETURN_TYPE: the FakeServer contract keeps the service's method names and Exit types.
-  server: <I, S>(service: Context.Key<I, S>, handlers: () => Handlers<S>): FakeServer<S> => {
-    const wire = (word: WireWord) => (method: keyof S & string) =>
-      Step.Wire({ fake: service.key, method, word });
-
-    return {
-      id: service.key,
-      open: () => {
-        const answering = handlers();
-
-        return (line) => Layer.succeed(service, serviceOver(answering, line));
-      },
-      hold: wire("hold"),
-      release: wire("release"),
-      dropRequest: wire("dropRequest"),
-      dropResponse: wire("dropResponse"),
-      answer: (method, exit) => Step.Answer({ fake: service.key, method, exit }),
-      received: (cut) => cut.received.filter((call) => call.fake === service.key),
-    };
-  },
-  store: {
-    hold: () => Step.Storage({ word: "hold" }),
-    refuse: () => Step.Storage({ word: "refuse" }),
-    release: () => Step.Storage({ word: "release" }),
-  },
-};
-
-type Pending = {
-  readonly call: Call;
-  readonly land: () => AnyExit;
-  // FLOW_STATE_ALLOW_UNKNOWN: a held call's answer, of its method's own type.
-  readonly answer: Deferred.Deferred<unknown, unknown>;
-};
-
-/**
- * The run's wire: every call any fake received, the holds, and the wire words.
- */
-export const makeWire = (fakes: ReadonlyArray<AnyFake>, alive: (page: number) => boolean) => {
-  const ids = fakes.map((fake) => fake.id);
-  const twice = ids.find((id, i) => ids.indexOf(id) !== i);
-
-  if (twice !== undefined) scriptFault(`two fakes of ${twice}`);
-
-  const opened = fakes.map((fake) => ({ id: fake.id, layerOf: fake.open() }));
-  const calls: Array<Pending> = [];
-  const holds = new Map<string, number>();
-  const slot = (fake: string, method: string) => `${fake}.${method}`;
-
-  const line =
-    // RETURN_TYPE: the Line a fake's service methods call.
-    (page: number, fake: string): Line =>
-      ({ method, args, land }) =>
-        Effect.suspend(() => {
-          // A dead page's fibers never run again, so this is unreachable; it reaches no fake.
-          if (!alive(page)) return Effect.never;
-          const left = holds.get(slot(fake, method)) ?? 0;
-          // FLOW_STATE_ALLOW_UNKNOWN: the answer of the method's own type.
-          const answer = Deferred.makeUnsafe<unknown, unknown>();
-
-          if (left > 0) {
-            holds.set(slot(fake, method), left - 1);
-            calls.push({ call: { fake, method, args, page, status: "held" }, land, answer });
-
-            return Deferred.await(answer);
-          }
-
-          calls.push({ call: { fake, method, args, page, status: "landed" }, land, answer });
-
-          return land();
-        });
-
-  const oldestHeld = (fake: string, method: string) =>
-    calls.find(
-      (c) => c.call.fake === fake && c.call.method === method && c.call.status === "held",
-    ) ?? scriptFault(`nothing held for ${slot(fake, method)}`);
-
-  const settle = (pending: Pending, status: Call["status"], answer: Option.Option<AnyExit>) => {
-    calls[calls.indexOf(pending)] = { ...pending, call: { ...pending.call, status } };
-
-    // An answer to a dead page goes nowhere.
-    if (Option.isSome(answer) && alive(pending.call.page))
-      Deferred.doneUnsafe(pending.answer, answer.value);
-  };
-
-  return {
-    received: () => calls.map((c) => c.call),
-    layer: (page: number) =>
-      Layer.mergeAll(Layer.empty, ...opened.map((o) => o.layerOf(line(page, o.id)))),
-    word: (fake: string, method: string, word: WireWord) => {
-      if (word === "hold")
-        return void holds.set(slot(fake, method), (holds.get(slot(fake, method)) ?? 0) + 1);
-
-      const pending = oldestHeld(fake, method);
-
-      if (word === "dropRequest") return settle(pending, "requestDropped", Option.none());
-      const landed = pending.land();
-
-      if (word === "release") return settle(pending, "landed", Option.some(landed));
-
-      return settle(pending, "responseDropped", Option.none());
-    },
-    answer: (fake: string, method: string, exit: AnyExit) =>
-      settle(oldestHeld(fake, method), "answered", Option.some(exit)),
-    unused: () => [...holds].flatMap(([at, left]) => (left > 0 ? [`hold ${at} never used`] : [])),
-  };
 };
 
 type Out = {
@@ -249,7 +346,7 @@ type Out = {
  */
 export const makeStore = (alive: (page: number) => boolean) => {
   const data = new Map<string, string>();
-  const next: Array<Exclude<StorageWord, "release">> = [];
+  const next: Array<"hold" | "refuse"> = [];
   const batches: Array<Out> = [];
 
   const apply = (writes: ReadonlyArray<Bytes>) => {
@@ -276,8 +373,7 @@ export const makeStore = (alive: (page: number) => boolean) => {
           if (!alive(page)) return Effect.never;
           const word = next.shift();
           const answer = Deferred.makeUnsafe<void, StoreRefused>();
-          const keys = writes.map((w) => w.key);
-          const batch = { page, purpose, keys, acknowledges };
+          const batch = { page, purpose, keys: writes.map((w) => w.key), acknowledges };
 
           if (word === "hold") {
             batches.push({ batch: { ...batch, status: "held" }, writes, answer });
@@ -297,11 +393,11 @@ export const makeStore = (alive: (page: number) => boolean) => {
           return Effect.void;
         }),
     }),
-    word: (word: StorageWord) => {
+    word: (word: "hold" | "refuse" | "release") => {
       if (word !== "release") return void next.push(word);
 
       const out =
-        batches.find((b) => b.batch.status === "held") ?? scriptFault("no store write held");
+        batches.find((b) => b.batch.status === "held") ?? scriptFault("nothing held at the store");
 
       // A dead page's held write aborts, as a closed page's IndexedDB transaction does.
       if (!alive(out.batch.page)) return mark(out, "aborted");
@@ -309,6 +405,101 @@ export const makeStore = (alive: (page: number) => boolean) => {
       mark(out, "landed");
       Deferred.doneUnsafe(out.answer, Exit.void);
     },
-    unused: () => next.map((word) => `store ${word} never used`),
+    unused: () => next.map((word) => `storage ${word} never used`),
   };
+};
+
+/**
+ * Stands in for the world outside the app in a Story.
+ *
+ * **When to use**
+ *
+ * `Fake.server` once per outside system, with its truth, endpoints (`Fake.call`) and controls
+ * (`Fake.control`); a port fake is a plain `Layer.effect` of the app's own service over it, given
+ * to `Story.app` as a fixture. `Fake.storage` holds or refuses the run's store writes. `Fake.world`
+ * runs a port fake outside a Story, as a contract test does.
+ *
+ * **Details**
+ *
+ * A handler is pure and synchronous: `handle(truth, request)` returns the next truth and an Exit of
+ * the endpoint's own Schemas (`failure: Schema.Never` for none). Truth lives in the run and lasts across reloads. Wire words act on
+ * an endpoint's next call (`hold`, `drop`) or its oldest held call (`release`); they decide
+ * delivery, never the answer, which is always a handler's. A call no word acts on is answered at
+ * once.
+ *
+ * **Gotchas**
+ *
+ * - A held call never released is never answered; only the commit's own deadline ends it.
+ * - An endpoint or control named like an Effect member (`pipe`, `asEffect`) shadows it.
+ */
+export const Fake = {
+  // RETURN_TYPE: the Server contract keeps its truth, endpoints and controls.
+  server: <
+    T,
+    const E extends Readonly<Record<string, Endpoint<T, Fields, Schema.Top, Schema.Top>>>,
+    const C extends Readonly<Record<string, Control<T, Fields>>> = Record<never, never>,
+  >(
+    name: string,
+    config: {
+      readonly truth: Schema.Codec<T, unknown, unknown, unknown>;
+      readonly initial: NoInfer<T>;
+      readonly endpoints: E;
+      // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the Plan's public word: an omitted option takes its default
+      readonly controls?: C;
+    },
+  ): Server<T, E, C> => {
+    const server: AnyServer = {
+      name,
+      truth: config.truth,
+      initial: config.initial,
+      endpoints: config.endpoints,
+      controls: config.controls ?? {},
+    };
+
+    const endpoints = Object.keys(server.endpoints).map((it) => [it, endpointOf(server, it)]);
+
+    const controls = Object.keys(server.controls).map((it) => [
+      it,
+      (input: Values) => WorldWord.control({ server, control: it, input }),
+    ]);
+
+    // SAFETY: the world serves each endpoint by its name, through that endpoint's own handler, whose Exit has its own Schemas' types.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a service built key by key from the server's endpoints
+    const served = Effect.map(FakeWorld, (world) => world.serve(server) as ServiceOf<E>);
+
+    // SAFETY: the Effect of the served endpoints, with each endpoint's handle and each control's word under its own name.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion, lint-bomb/no-object-iteration-result-cast -- a server built key by key from its declaration
+    return Object.assign(
+      served,
+      { "~server": server },
+      Object.fromEntries(endpoints),
+      Object.fromEntries(controls),
+    ) as Server<T, E, C>;
+  },
+  // RETURN_TYPE: the Endpoint contract keeps its request, success and failure types.
+  call: <T, const F extends Fields, S extends Schema.Top, X extends Schema.Top>(config: {
+    readonly request: F;
+    readonly success: S;
+    readonly failure: X;
+    readonly handle: (
+      truth: T,
+      request: InputOf<F>,
+    ) => { readonly truth: T; readonly exit: Exit.Exit<S["Type"], X["Type"]> };
+  }): Endpoint<T, F, S, X> => config,
+  // RETURN_TYPE: the Control contract keeps its input type.
+  control: <T, const F extends Fields>(
+    fields: F,
+    apply: (truth: T, input: InputOf<F>) => T,
+  ): Control<T, F> => ({ fields, apply }),
+  /**
+   * The run's fake servers as a Layer, each server at its `initial`: for a port fake outside a
+   * Story.
+   */
+  world: Layer.sync(FakeWorld, () => makeWorld(() => true).service(0)),
+  Lost: FakeLost,
+  storage: {
+    hold: () => WorldWord.storage({ word: "hold" }),
+    refuse: () => WorldWord.storage({ word: "refuse" }),
+    release: () => WorldWord.storage({ word: "release" }),
+  },
 };

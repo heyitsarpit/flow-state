@@ -329,6 +329,25 @@ tasks
                 left unsettled).
             12. Idiomatic-Effect review by a second Opus agent; findings closed or reasoned.
             13. `vp test`, `nub run check`, `nub run lint:rules` at zero.
+        comment     2026-11-15T17:01:46Z
+            Built: the chained `Story.app`, `Fake.server`/`call`/`control`/`world`/`Lost`/`storage` and
+            `inspect(runtime)` over the old run engine; checks 1 to 11 and 13 green (faults 28 of 29, the dead core
+            fails every new Story test); Pay passes across a reload with no Runtime change, so no stop. Decision
+            (agent): requirements are typed, not cast: a bound contract carries its commit's `R` as a phantom, `app`
+            keeps its machines' types, and `runtimeSetup` requires a services Layer exactly when the contracts
+            list services.
+
+            Decision (agent): `inspect(runtime)` lanes keep `operation` (the definition's name, as addresses use it) and
+            add `contract` and `state`; the Shape's `operation: "Bank/transfer"` is read as the contract id. Reverse:
+            rename. Decision (agent): `Fake.call` takes `failure` always (`Schema.Never` for none), so no default needs
+            a cast. Decision (agent): a server is an Effect of `FakeWorld` with each endpoint's words and each control's
+            word as its properties; an endpoint named like an Effect member would shadow it (doc Gotcha). Reverse: a
+            separate key. Decision (agent): Pay's setup is real: `fixtures/pay/shop-http.ts` is a minimal production
+            adapter (200 or NoResponse) so its setup has a services Layer; a Story never builds it (story test). Outside
+            the May change list. Decision (agent): static checks (types, not exported) sit inside tests that also read
+            the core, so the dead core fails each; the bank contract test checks the fake alone and stays green on a
+            dead core by design. Finding: the `refused-turn-reported` core fault is missed by the suite; it is not a
+            tooling rule and predates this Task (no deleted test exercised a refused turn). Left for T64's run rules.
     T64
         title       Rules checked on every run, and a reload at every step
         status      open

@@ -4,7 +4,9 @@ import type { Evidence } from "../core/evidence.ts";
 import { laneKeyText } from "../core/lane-moves.ts";
 import { rowOf, type Row } from "../core/rows.ts";
 import { Input } from "../core/step.ts";
-import { type ActorId, actorKey, Disposal } from "../core/world.ts";
+import type { Machines } from "../core/tx.ts";
+import { type ActorId, actorKey, Disposal, type World } from "../core/world.ts";
+import type { RequirementsOf } from "../contract.ts";
 import type { AnyDefinition, Envelope, Machine, Operations } from "../definition.ts";
 import { FlowError } from "../error.ts";
 import { makeDriver, type Driver } from "./driver.ts";
@@ -16,7 +18,18 @@ import { Host, type Platform } from "./host.ts";
 /**
  * An app: every machine a Runtime may run, by key.
  */
-export type App = { readonly id: string; readonly machines: Readonly<Record<string, Machine>> };
+export type App<M extends Readonly<Record<string, Machine>> = Readonly<Record<string, Machine>>> = {
+  readonly id: string;
+  readonly machines: M;
+};
+
+/**
+ * The services an app's contracts require: what its setup's services Layer, or a Story's fixtures,
+ * must provide.
+ */
+export type ServicesOf<A extends App> = {
+  readonly [K in keyof A["machines"]]: RequirementsOf<A["machines"][K]["definition"]["operations"]>;
+}[keyof A["machines"]];
 
 /**
  * Declares an app: the closed list of machines a Runtime may run.
@@ -29,8 +42,8 @@ export type App = { readonly id: string; readonly machines: Readonly<Record<stri
  *
  * - Two entries with one machine id throw {@link FlowError}.
  */
-// RETURN_TYPE: the App contract runtimeSetup takes.
-export const app = (config: App): App => {
+// RETURN_TYPE: the App contract runtimeSetup takes, keeping its machines' types.
+export const app = <const M extends Readonly<Record<string, Machine>>>(config: App<M>): App<M> => {
   const ids = Object.values(config.machines).map((m) => m.compiled.id);
   const doubled = ids.filter((id, i) => ids.indexOf(id) !== i);
 
@@ -87,6 +100,17 @@ export type Actor<D extends AnyDefinition = AnyDefinition> = {
 export const InspectorId = "~flow-state/Inspector";
 
 /**
+ * The key of a Runtime's driver, which `inspect(runtime)` reads and nothing else.
+ */
+export const DriverId = "~flow-state/Driver";
+
+/**
+ * The key of a setup's configuration, which a Story reads to boot the same setup over its own
+ * page.
+ */
+export const SetupId = "~flow-state/Setup";
+
+/**
  * A constructed Runtime.
  *
  * **Details**
@@ -100,22 +124,25 @@ export type Runtime = {
   readonly disposeActor: <D extends AnyDefinition>(actor: Actor<D> | ActorRef<D>) => void;
   readonly dispose: () => Effect.Effect<void>;
   readonly [InspectorId]: (sink: (evidence: Evidence) => void) => () => void;
+  readonly [DriverId]: Driver;
 };
 
 /**
- * What a Runtime is set up with.
+ * What a Runtime is set up with; `R` is the services its app's contracts require.
  */
-export type RuntimeSetup = {
+export type RuntimeSetup<R = never> = {
   readonly construct: () => Runtime;
+  readonly [SetupId]: RuntimeConfig;
+  readonly "~services"?: R;
 };
 
 // RETURN_TYPE: the snapshot's Operations shape.
-const operationsOf = (driver: Driver, actor: ActorId): Operations => {
+const operationsOf = (world: World, machines: Machines, actor: ActorId): Operations => {
   const rows = new Map<string, Map<string, Row>>();
 
-  for (const lane of driver.world().lanes.values())
+  for (const lane of world.lanes.values())
     if (actorKey(lane.actor) === actorKey(actor))
-      Option.match(laneKeyText(driver.machines, lane), {
+      Option.match(laneKeyText(machines, lane), {
         onNone: () => undefined,
         onSome: (keyText) => {
           const byKey = rows.get(lane.operation) ?? new Map<string, Row>();
@@ -128,28 +155,53 @@ const operationsOf = (driver: Driver, actor: ActorId): Operations => {
 };
 
 // RETURN_TYPE: an Option of the snapshot: none when the identity has no incarnation and no record.
-export const snapshotOf = (driver: Driver, actor: ActorId): Option.Option<Snapshot> => {
-  const world = driver.world();
+export const snapshotIn = (
+  world: World,
+  machines: Machines,
+  actor: ActorId,
+): Option.Option<Snapshot> => {
   const key = actorKey(actor);
   const live = world.incarnations.get(key) ?? world.records.get(key);
 
   return Option.map(Option.fromUndefinedOr(live), (x) => ({
     state: x.state,
     memory: x.memory,
-    operations: operationsOf(driver, actor),
+    operations: operationsOf(world, machines, actor),
   }));
 };
+
+// RETURN_TYPE: an Option of the snapshot: none when the identity has no incarnation and no record.
+export const snapshotOf = (driver: Driver, actor: ActorId): Option.Option<Snapshot> =>
+  snapshotIn(driver.world(), driver.machines, actor);
 
 /**
  * The Runtime's construction options.
  */
 export type RuntimeConfig = {
   readonly app: App;
-  // oxlint-disable-next-line lint-bomb/no-explicit-any -- the setup's services Layer provides whatever the contracts list; checked by type at runtimeSetup
-  readonly services?: Layer.Layer<any>;
+  // FLOW_STATE_ALLOW_UNKNOWN: a services Layer may fail with its own error; the boot reports it as ServiceFailed.
+  readonly services?: Layer.Layer<never, unknown>;
   readonly scope?: string;
   readonly persistence?: { readonly captureMs?: number };
 };
+
+/**
+ * A setup's services Layer: it provides `R` and needs nothing.
+ */
+// FLOW_STATE_ALLOW_UNKNOWN: a services Layer may fail with its own error; the boot reports it as ServiceFailed.
+export type ServicesLayer<R> = Layer.Layer<R, unknown>;
+
+/**
+ * What `runtimeSetup` takes: the services Layer is required, and must provide every service the
+ * app's contracts list, unless they list none.
+ */
+export type SetupConfig<A extends App> = {
+  readonly app: A;
+  readonly scope?: string;
+  readonly persistence?: { readonly captureMs?: number };
+} & ([ServicesOf<A>] extends [never]
+  ? { readonly services?: ServicesLayer<never> }
+  : { readonly services: ServicesLayer<ServicesOf<A>> });
 
 /**
  * Builds a Runtime over a platform, with its driver beside it for Flow's own suite (the public
@@ -282,6 +334,7 @@ export const buildRuntime = (config: RuntimeConfig, platform: Platform) => {
 
       return () => void sinks.delete(sink);
     },
+    [DriverId]: driver,
   };
 
   return { runtime, driver };
@@ -294,11 +347,10 @@ export const buildRuntime = (config: RuntimeConfig, platform: Platform) => {
  *
  * Once per host. `construct()` builds the Runtime; `ready()` starts it.
  */
-// RETURN_TYPE: the exported RuntimeSetup contract.
-export const runtimeSetup = (config: {
-  readonly app: App;
-  // oxlint-disable-next-line lint-bomb/no-explicit-any -- the services Layer provides whatever the contracts list
-  readonly services?: Layer.Layer<any>;
-  readonly scope?: string;
-  readonly persistence?: { readonly captureMs?: number };
-}): RuntimeSetup => ({ construct: () => buildRuntime(config, browserPlatform()).runtime });
+// RETURN_TYPE: the exported RuntimeSetup contract keeps the services the app requires.
+export const runtimeSetup = <A extends App>(
+  config: SetupConfig<A>,
+): RuntimeSetup<ServicesOf<A>> => ({
+  construct: () => buildRuntime(config, browserPlatform()).runtime,
+  [SetupId]: config,
+});

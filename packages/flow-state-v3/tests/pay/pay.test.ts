@@ -1,20 +1,16 @@
-import { Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { PayMachine } from "../../fixtures/pay/machine.ts";
-import { shopServer } from "../../fixtures/pay/server.ts";
+import { Shop } from "../../fixtures/pay/server.ts";
 import { checkout, lostConfirm } from "../../fixtures/pay/stories.ts";
-import { type Cut, Story, type StoryRun } from "../../src/host/testing/index.ts";
-import { at, reached } from "../stories/read.ts";
+import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
 
-const payment = (cut: Cut) =>
-  Option.flatMap(Story.actorIn(cut, checkout), (s) =>
-    PayMachine.definition.O.pay.get(s.operations, { intentId: "pi1" }),
-  );
+const payment = (cut: Cut) => {
+  const snapshot = cut.read(checkout);
 
-const state = (cut: Cut) => Option.map(Story.actorIn(cut, checkout), (s) => s.state);
-
-const confirms = (cut: Cut) =>
-  reached(shopServer.received(cut)).filter((c) => c.method === "confirm");
+  return snapshot === undefined
+    ? undefined
+    : PayMachine.definition.O.pay.get(snapshot.operations, { intentId: "pi1" });
+};
 
 const payEndings = (run: StoryRun) =>
   run.evidence.flatMap((e) =>
@@ -22,22 +18,29 @@ const payEndings = (run: StoryRun) =>
   );
 
 describe("Pay across a reload", () => {
-  it("reads a confirm whose answer was lost past its deadline as unknown after a reload, sent once (Restore R3, I6; WriteLanes R2, I15)", async () => {
+  it("a confirm held at response past its deadline reads unknown after a reload, and the shop handled one confirm (Restore R3, Restore I6; WriteLanes R2)", async () => {
     const run = await lostConfirm.run();
-    const reloaded = at(run, "reloaded");
+    const { late, reloaded, after } = run.checkpoints;
 
-    expect(payment(at(run, "before deadline"))).toEqual(
-      Option.some({ pending: true, uncertain: false, waiting: false, retryCount: 0 }),
+    expect(payment(run.checkpoints["before deadline"])).toEqual(
+      expect.objectContaining({
+        value: { pending: true, uncertain: false, waiting: false, retryCount: 0 },
+      }),
     );
-    expect(state(at(run, "late"))).toEqual(Option.some("UNSURE"));
+    expect(late.read(checkout)?.state).toBe("UNSURE");
     expect(reloaded.now).toBe(61_000);
-    expect(state(reloaded)).toEqual(Option.some("UNSURE"));
+    expect(reloaded.read(checkout)?.state).toBe("UNSURE");
     expect(payment(reloaded)).toEqual(
-      Option.some({ pending: false, uncertain: true, waiting: false, retryCount: 0 }),
+      expect.objectContaining({
+        value: { pending: false, uncertain: true, waiting: false, retryCount: 0 },
+      }),
     );
-    expect(reloaded.runtime.lanes.map((l) => [l.operation, l.phase])).toEqual([["pay", "Held"]]);
+    expect(reloaded.inspection.lanes.map((l) => [l.operation, l.state])).toEqual([["pay", "Held"]]);
     expect(payEndings(run)).toEqual(["unknown TimedOut", "unknown Restored"]);
-    expect(confirms(reloaded)).toHaveLength(1);
-    expect(confirms(at(run, "after"))).toHaveLength(1);
+    expect(reloaded.read(Shop.confirm).map((c) => c.status)).toEqual(["held at response"]);
+    expect(after.read(Shop.confirm).map((c) => c.status)).toEqual(["held at response"]);
+    expect(after.read(Shop).intents).toEqual({ pi1: "requires_capture" });
+    expect(after.read(Shop.intent).map((c) => c.status)).toEqual(["answered"]);
+    expect(after.read(Shop).orders).toEqual({ c1: "o1" });
   });
 });

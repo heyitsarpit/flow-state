@@ -4,15 +4,20 @@ import { Outcome, transaction } from "../../src/index.ts";
 /**
  * The bank refused a transfer.
  */
-export type Declined = { readonly _tag: "Declined"; readonly code: string };
+export class Declined extends Schema.TaggedError<Declined>()("Declined", { code: Schema.String }) {}
 
 /**
  * The bank's answer did not come back.
  */
-export type Lost = { readonly _tag: "NoResponse" };
+export class NoResponse extends Schema.TaggedError<NoResponse>()("NoResponse", {}) {}
 
 /**
- * The bank's API: where the data comes from. A real app gives it a Layer over fetch; each send
+ * The bank's answer to a transfer it made.
+ */
+export const Receipt = Schema.Struct({ receipt: Schema.String });
+
+/**
+ * The bank's API: where the data comes from. Its production Layer is `BankHttp`; each send
  * carries its Attempt's id as the idempotency key.
  */
 export class BankApi extends Context.Service<
@@ -21,12 +26,9 @@ export class BankApi extends Context.Service<
     readonly transfer: (
       input: { readonly transferId: string; readonly cents: number },
       options: { readonly idempotencyKey: string },
-    ) => Effect.Effect<{ readonly receipt: string }, Declined | Lost>;
-    readonly balance: (input: {
-      readonly account: string;
-    }) => Effect.Effect<{ readonly cents: number }, Lost>;
+    ) => Effect.Effect<typeof Receipt.Type, Declined | NoResponse>;
   }
->()("flow-state-v3/fixtures/transfers/BankApi") {}
+>()("bank/BankApi") {}
 
 /**
  * One transfer, keyed by its id: a lost answer, or no answer within 30 seconds, is unknown.

@@ -1,64 +1,167 @@
-import { Effect, Exit, Option, Schema } from "effect";
+import { readFileSync } from "node:fs";
+import { Effect, Layer, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { stories as payStories } from "../../fixtures/pay/stories.ts";
-import { BankApi } from "../../fixtures/transfers/contracts.ts";
-import { account } from "../../fixtures/transfers/machine.ts";
-import { bankServer } from "../../fixtures/transfers/server.ts";
-import { config, send, stories as transferStories } from "../../fixtures/transfers/stories.ts";
-import { Fake, Story, StoryFailed, type Step } from "../../src/host/testing/index.ts";
-import { actorRef, app, definition, machine, transaction } from "../../src/index.ts";
-import { at, callsOf, countingHostTimers, endings, keysOf } from "./read.ts";
+import { account, bank, bankSetup } from "../../fixtures/transfers/machine.ts";
+import { Bank, BankFake } from "../../fixtures/transfers/server.ts";
+import { bankStory, stories as transferStories, usual } from "../../fixtures/transfers/stories.ts";
+import {
+  type Cut,
+  Fake,
+  Story,
+  StoryFailed,
+  StoryTurnLimit,
+  type StoryRun,
+} from "../../src/host/testing/index.ts";
+import { actorRef, app, definition, machine, runtimeSetup, transaction } from "../../src/index.ts";
+import { countingHostTimers } from "./timers.ts";
 
-const landsOnce = [Story.attach(account), send(account, "t1", 500), Story.checkpoint("sent")];
+const endings = (evidence: StoryRun["evidence"]) =>
+  evidence.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : []));
+
+const faultOf = (run: Promise<unknown>) =>
+  run.then(
+    () => undefined,
+    (fault: unknown) => fault,
+  );
+
+const data = (cut: Cut) => ({ now: cut.now, inspection: cut.inspection, records: cut.records });
 
 describe("Story", () => {
-  it("is inert data until run(), and keeps its own steps (Stories R1, I1, I2)", async () => {
-    let opened = 0;
+  it("is an inert chain: no Layer is built until run(), and a prefix is unchanged by its branches (Stories R1, R2, I1, I2)", async () => {
+    let built = 0;
+    const counted = Layer.merge(BankFake, Layer.effectDiscard(Effect.sync(() => void built++)));
+    const prefix = Story.app(bankSetup, { id: "story/inert", fixtures: [counted] }).ensure(account);
+    const one = prefix.send(account, { _tag: "Send", transferId: "t1", cents: 500 });
+    const two = prefix.send(account, { _tag: "Send", transferId: "t2", cents: 600 }).reload();
 
-    const counted = Fake.server(BankApi, () => {
-      opened += 1;
+    expect(built).toBe(0);
+    expect(prefix.steps.map((s) => s._tag)).toEqual(["ensure"]);
+    expect(one.steps.map((s) => s._tag)).toEqual(["ensure", "send"]);
+    expect(two.steps.map((s) => s._tag)).toEqual(["ensure", "send", "reload"]);
 
-      return {
-        transfer: () => Exit.succeed({ receipt: "r" }),
-        balance: () => Exit.succeed({ cents: 0 }),
-      };
+    const ran = await one.run();
+
+    expect(built).toBe(1);
+    expect(endings(ran.evidence)).toEqual(["success success"]);
+
+    await two.run();
+
+    expect(built).toBe(3);
+  });
+
+  it("runs its own steps given back as data like run() (Stories R2, I3)", async () => {
+    const first = await usual.run();
+    const again = await usual.run({ steps: usual.steps });
+
+    expect(endings(again.evidence)).toEqual(["success success", "success success"]);
+    expect(again.evidence).toEqual(first.evidence);
+    expect(data(again.end)).toEqual(data(first.end));
+    expect(data(again.checkpoints["sent"] ?? again.end)).toEqual(data(first.checkpoints.sent));
+  });
+
+  it("never builds the setup's own services, so a Story's pages run on its fixtures (Stories R7, I19)", async () => {
+    let setupBuilt = 0;
+
+    const counting = runtimeSetup({
+      app: bank,
+      services: Layer.merge(
+        BankFake.pipe(Layer.provide(Fake.world)),
+        Layer.effectDiscard(Effect.sync(() => void setupBuilt++)),
+      ),
+      scope: "bank",
+      persistence: { captureMs: 0 },
     });
 
-    const steps: Array<Step> = [...landsOnce];
-    const story = Story.app(config, [counted], steps);
-    steps.push(send(account, "t9", 100));
+    const run = await Story.app(counting, { id: "story/fixtures", fixtures: [BankFake] })
+      .ensure(account)
+      .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+      .reload()
+      .run();
 
-    expect(opened).toBe(0);
-    expect(story.steps).toHaveLength(3);
-
-    const run = await story.run();
-
-    expect(opened).toBe(1);
-    expect(endings(run)).toEqual(["transfer success success"]);
+    expect(setupBuilt).toBe(0);
+    expect(endings(run.evidence)).toEqual(["success success"]);
   });
 
-  it("rejects a fault of its script with StoryFailed (Stories R2, I13)", async () => {
-    const control = await Story.app(config, [bankServer], landsOnce).run();
+  it("types its fixtures and checkpoints, and is not exported (Stories R7, R12, R15)", async () => {
+    // @ts-expect-error no fixture provides BankApi, which the bank's contracts list
+    Story.app(bankSetup, { id: "story/none", fixtures: [] });
+    // @ts-expect-error two fixtures of one service
+    Story.app(bankSetup, { id: "story/two", fixtures: [BankFake, BankFake] });
+    // @ts-expect-error a setup without the services its contracts list
+    runtimeSetup({ app: bank, scope: "bank" });
+    // @ts-expect-error a duplicate checkpoint name
+    usual.checkpoint("sent");
+    const widened: string = "later";
+    // @ts-expect-error a widened checkpoint name
+    usual.checkpoint(widened);
+    // @ts-expect-error an event the definition does not declare
+    usual.send(account, { _tag: "Bogus" });
 
-    expect(endings(control)).toEqual(["transfer success success"]);
+    const run = await usual.run();
 
-    const faulty: ReadonlyArray<readonly [string, ReadonlyArray<Step>]> = [
-      ["nothing held for", [...landsOnce, bankServer.release("transfer")]],
-      ["never used", [bankServer.hold("transfer"), ...landsOnce, bankServer.hold("transfer")]],
-      ["never used", [...landsOnce, Fake.store.refuse()]],
-      ["no store write held", [...landsOnce, Fake.store.release()]],
-      ["twice", [...landsOnce, Story.checkpoint("sent")]],
-    ];
+    // @ts-expect-error a checkpoint the Story never named
+    expect(run.checkpoints.nope).toBeUndefined();
+    expect(run.checkpoints.sent.now).toBe(0);
+    expect(run.checkpoints.sent.read(account)?.memory).toEqual({ notice: "sent r2" });
 
-    for (const [problem, steps] of faulty)
-      await expect(Story.app(config, [bankServer], steps).run()).rejects.toThrow(problem);
+    // Not exported (Stories R15): the public entry names neither the tooling nor inspect; tests reach
+    // them by path.
+    const entry = readFileSync(new URL("../../src/index.ts", import.meta.url), "utf8");
 
-    await expect(Story.app(config, [bankServer, bankServer], landsOnce).run()).rejects.toThrow(
-      new StoryFailed({ problem: `two fakes of ${bankServer.id}` }),
-    );
+    expect(/testing|inspect/.test(entry)).toBe(false);
   });
 
-  it("fails a step whose page never goes idle (Stories R4)", async () => {
+  it("rejects a fault of its script with StoryFailed, beside a control run that lands (Stories R4, I17)", async () => {
+    const lands = bankStory("story/faults")
+      .ensure(account)
+      .send(account, { _tag: "Send", transferId: "t1", cents: 500 });
+
+    expect(endings((await lands.run()).evidence)).toEqual(["success success"]);
+
+    const throwing = Fake.server("Thrower", {
+      truth: Schema.Struct({}),
+      initial: {},
+      endpoints: {},
+      controls: {
+        boom: Fake.control({}, (_truth: Record<string, never>) => {
+          // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the fault under test: a control that throws
+          throw new Error("boom");
+        }),
+      },
+    });
+
+    const failing = Layer.merge(BankFake, Layer.effectDiscard(Effect.fail("no bank")));
+    const noBoot = Story.app(bankSetup, { id: "story/no-boot", fixtures: [failing] });
+
+    const faulty = [
+      ["nothing held at Bank.transfer", lands.world(Bank.transfer.release())],
+      ["never used", lands.world(Bank.transfer.hold())],
+      ["never used", lands.world(Bank.transfer.drop())],
+      ["never used", lands.world(Fake.storage.hold())],
+      ["never used", lands.world(Fake.storage.refuse())],
+      ["nothing held at the store", lands.world(Fake.storage.release())],
+      ["Thrower.boom threw", lands.world(throwing.boom({}))],
+      [
+        "after disposeRuntime",
+        lands.disposeRuntime().send(account, { _tag: "Resend", transferId: "t1" }),
+      ],
+      ["did not boot", noBoot],
+      ["empty", Story.app(bankSetup, { id: "", fixtures: [BankFake] })],
+    ] as const;
+
+    for (const [problem, story] of faulty) {
+      const fault = await faultOf(story.run());
+
+      expect(fault instanceof StoryFailed && fault.problem.includes(problem)).toBe(true);
+    }
+
+    const twice = [...usual.steps, ...usual.steps.slice(-1)];
+
+    await expect(usual.run({ steps: twice })).rejects.toThrow("checkpoint sent twice");
+  });
+
+  it("rejects a step whose settle never ends with StoryTurnLimit Settle (Stories R6)", async () => {
     const spin = transaction({
       id: "Spin/spin",
       input: { id: Schema.String },
@@ -86,57 +189,20 @@ describe("Story", () => {
     }));
 
     const spinner = actorRef(SpinnerMachine, "s");
-    const steps = [Story.attach(spinner), Story.send(spinner, { _tag: "Go", id: "1" })];
+    const setup = runtimeSetup({ app: app({ id: "spin", machines: { spinner: SpinnerMachine } }) });
 
-    const spins = Story.app(
-      { app: app({ id: "spin", machines: { spinner: SpinnerMachine } }) },
-      [],
-      steps,
+    const fault = await faultOf(
+      Story.app(setup, { id: "story/spin", fixtures: [] })
+        .ensure(spinner)
+        .send(spinner, { _tag: "Go", id: "1" })
+        .run(),
     );
 
-    await expect(spins.run()).rejects.toThrow("never went idle");
+    expect(fault instanceof StoryTurnLimit).toBe(true);
+    expect(fault).toEqual(expect.objectContaining({ reason: "Settle", step: 1, instant: 0 }));
   });
 
-  it("records time, the runtime cut, each call and the store at a checkpoint (Stories R8, I11)", async () => {
-    const run = await Story.app(
-      config,
-      [bankServer],
-      [
-        Story.attach(account),
-        bankServer.hold("transfer"),
-        send(account, "t1", 500),
-        Story.advance("2 seconds"),
-        Story.checkpoint("held"),
-        bankServer.release("transfer"),
-        Story.checkpoint("done"),
-      ],
-    ).run();
-
-    const held = at(run, "held");
-    const done = at(run, "done");
-
-    expect(held.now).toBe(2000);
-    expect(held.runtime.lanes.map((l) => [l.operation, l.phase, l.retryCount])).toEqual([
-      ["transfer", "OnWire", 0],
-    ]);
-    expect(held.evidence).toBeGreaterThan(0);
-    expect(done.evidence).toBeGreaterThan(held.evidence);
-    expect(held.runtime.timers.map((t) => [t.kind, t.dueAt])).toEqual([
-      ["Schedule", Option.some(20_000)],
-    ]);
-    expect(callsOf(held.received)).toEqual(["transfer held 0"]);
-    expect(held.received[0]?.args[0]).toEqual({ transferId: "t1", cents: 500 });
-    expect(keysOf(held, "lane")).toHaveLength(1);
-    expect(keysOf(held, "actor")).toHaveLength(1);
-    expect(held.batches.every((b) => b.status === "landed" && b.page === 0)).toBe(true);
-
-    expect(callsOf(done.received)).toEqual(["transfer landed 0"]);
-    expect(done.runtime.lanes).toEqual([]);
-    expect(keysOf(done, "lane")).toEqual([]);
-    expect(done.runtime.actors.map((a) => a.snapshot.memory)).toEqual([{ notice: "sent r1" }]);
-  });
-
-  it("gives equal evidence, checkpoints and end on a second run, with no host timer (Stories R4, R10, I4, I12)", async () => {
+  it("gives equal evidence, checkpoints and end on a second run, with no host timer (Stories R5, R14, I5, I18)", async () => {
     const all = [...Object.values(transferStories), ...Object.values(payStories)];
 
     const { result: runs, calls } = await countingHostTimers(async () => {
@@ -153,8 +219,12 @@ describe("Story", () => {
     for (const [first, second] of runs) {
       expect(first.evidence.length).toBeGreaterThan(0);
       expect(second.evidence).toEqual(first.evidence);
-      expect(second.checkpoints).toEqual(first.checkpoints);
-      expect(second.end).toEqual(first.end);
+      expect(Object.values(second.checkpoints).map(data)).toEqual(
+        Object.values(first.checkpoints).map(data),
+      );
+      expect(data(second.end)).toEqual(data(first.end));
+      expect(second.end.read(Bank.transfer)).toEqual(first.end.read(Bank.transfer));
+      expect(second.end.read(Bank)).toEqual(first.end.read(Bank));
     }
   });
 });
