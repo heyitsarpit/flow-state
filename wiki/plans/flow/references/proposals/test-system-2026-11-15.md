@@ -375,9 +375,8 @@ never a gate and never a score.
 packages/flow-state-v3/
   src/
     core/       the pure step (unchanged)
-    host/       the Effect driver and Runtime (unchanged)
-    inspect/    attachInspector, the runtime cut, the trace printer
-    testing/    Story, Fake, run; later propertyTest
+    host/       the Effect driver and Runtime; inspect.ts gains the runtime cut; trace.ts prints a run
+      testing/  Story, Fake, run; later propertyTest
     cli/        flow story | trace; later check | explain | graph
   fixtures/     <name>/{contracts,machine,server,stories}.ts
   tests/
@@ -447,6 +446,12 @@ decision; the user may overturn any of them.
    one thing the spike left unproven. If it cannot pass, the reload model is wrong and work stops there.
 8. **Core work resumes after the port (phase C).** Generated Stories and the CLI (phase D) must land before
    T18, where new behaviour arrives.
+9. **The tooling lives under `src/host/`,** not in `src/testing` and `src/inspect` as sections 2 and 13 first
+   said. AGENTS.md defines the core as everything outside `src/host/`, pure and without the Effect runtime,
+   and the lint enforces it. Public routes can map to these folders later. Reverse: move the folders and add
+   them to the lint's exceptions.
+10. **The bridge stays in `tests/bridge/` until phase C,** and the Conformance Spec keeps status `proposed`
+    with "retired" in its basis, because `wk` allows open coverage items only on a proposed Spec.
 
 ## 13. Task list
 
@@ -454,6 +459,9 @@ Who: **me** is the orchestrating agent; builders are one at a time. Nothing is c
 word. Estimates are guesses.
 
 ### Phase A: clean up (me, about half a day)
+
+Phase A is done (commits `e4a6a637` and `a3168ce4`): 262 tests pass in about a second, `nub run check` is clean,
+dead core fails 80 of 81 bridge cases and 16 of 17 faults are caught.
 
 - **A1. Keep the planted faults.** Save the 17 as `tests/faults.ts` and the scratch check as
   `tools/faults/run.ts`. Done: the script reports dead core red and 16 of 17 caught on the bridge.
