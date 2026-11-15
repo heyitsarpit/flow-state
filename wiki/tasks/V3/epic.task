@@ -34,14 +34,14 @@ description
     | Stage | Phases | Stage exit |
     | --- | --- | --- |
     | A Settle | P0, P1, P2 | The design and the prototype agree; Plans and core Specs written from them |
-    | B Core | P3, P4, P11 to P15 | The core passes its Story tests, run rules and generated Stories, and the named faults are caught |
+    | B Core | P3, P4, P11 to P16 | The core passes its Story tests, run rules and generated Stories, and the named faults are caught |
     | C Features | P5 | Each feature's slice audited, then green on production |
     | D Examples and docs | P6, P7 | Example apps run in real Chrome and Safari; docs generated from source |
     | E Hardening and release | P8, P9, P10 | Budgets met, findings swept, released as far as the user asks |
 
     ## Scope
 
-    Bounds: P0 to P10, with P11 to P15 as slice phases of stage B; UI is React and Next.js only.
+    Bounds: P0 to P10, with P11 to P16 as slice phases of stage B; UI is React and Next.js only.
     Assumptions: the prototype is the reference implementation.
 
     Order of authority:
@@ -80,7 +80,7 @@ description
 
     - No new prototyping; production may converge again (session, 2026-11-04; whole run).
     - The core and its tests are written cleanly, with the prototype open beside them; prototype
-      code never moves into the package (session, 2026-11-04; P3, P4, P11 to P15).
+      code never moves into the package (session, 2026-11-04; P3, P4, P11 to P16).
     - One runtime, one way to run it (the user, 2026-11-15; whole run): Flow's own tests run on its
       public test tooling (Story, Fake, the runtime cut and trace, the CLI), so both are hardened. No
       model of the core, second runtime, gate file, owed list or recorded baseline is built.
@@ -88,7 +88,7 @@ description
       briefs cite the Spec, reviews check code against it (the user, 2026-11-09; whole run).
     - Specs are guides, written just in time, revised whenever building shows them wrong, with the
       reason logged (amendment 13, 2026-11-09; whole run).
-    - Production features are built test-first (memory, 2026-11-04; P3 to P15).
+    - Production features are built test-first (memory, 2026-11-04; P3 to P16).
     - Test the spec, not the code: expected results come from a cited Spec rule, are written before
       the code by someone other than the builder, and never come from running the code; recorded
       output is a change detector only (memory, 2026-11-04; whole run).
@@ -106,7 +106,7 @@ description
       `tools/lint-bomb/FLOW-STATE.md`; the core in `src/` is plain, pure, synchronous and
       deterministic, returning work as data; Effect only in `src/host/` and the edges; doc comments
       only on exported API; `nub run check:fix`, then `nub run check` at zero errors and warnings;
-      the pinned `nub` toolchain (AGENTS.md; the user, 2026-11-09; P3 to P15).
+      the pinned `nub` toolchain (AGENTS.md; the user, 2026-11-09; P3 to P16).
     - No plan or invariant ids in code; the Spec owns them and tests cite them (session, 2026-11-04;
       whole run).
     - Lint covers the whole package: `src`, `tests`, `fixtures` and `bench` (the user, 2026-11-09;
@@ -171,9 +171,13 @@ description
     - Prototype runtime, round 14: `packages/flow-state-v3/prototypes/round-14/`, the reference.
     - The conformance suite: the old private test system (a Spec model, a port, round-14 as a second
       runtime, owed lists), deleted on 2026-11-15; its last full copy is commit `52a883e6`. Task text
-      that names a `conformance/` path or a gate, mutant, oracle or owed row describes it.
+      that names a `conformance/` path, an oracle, an owed row, the Spec model or falsify describes it.
+      "Gate" and "mutant" keep their library meanings (skill:to-epic#terms).
     - Story: a run scripted as an array of steps, as data. Fake: a second Layer for a service a
-      fixture declares, answering from its own state. Cut: what a checkpoint holds.
+      fixture declares, answering from its own state.
+    - Runtime cut: one read of the Runtime's state (each live actor's snapshot, lanes, timers,
+      batches out). Checkpoint: a named point in a Story where the run records the time, the runtime
+      cut, what each fake received and the store.
     - Run rule: a function from a finished run to its breaches of one Spec rule, applied to every
       Story run.
     - Planted fault: a named wrong behaviour of the runtime with the rule it breaks
@@ -215,8 +219,9 @@ run
        `/Users/arpit/Developer/workflow/skills` (a Git repository); check the pin with
        `git -C /Users/arpit/Developer/workflow/skills rev-parse --short HEAD`. If it is at another
        revision, read the pinned one with
-       `git -C /Users/arpit/Developer/workflow/skills show 55c7ab7:suites/workflow/NAME/SKILL.md`,
-       or ask the user. Before changing the loop fields (run, instructions, cadence, stops), read
+       `git -C /Users/arpit/Developer/workflow/skills show REVISION:suites/workflow/NAME/SKILL.md`, where
+       REVISION is the one in skill, or ask the user. Before changing the loop fields (run, instructions, cadence, 
+       stops), read
        skill:build-a-loop at the pinned revision; before adding or editing a Task, read
        skill:to-task (and skill:to-epic for a phase); before adding a phase, read skill:to-epic.
 instructions
@@ -247,15 +252,12 @@ instructions
       cut. Amended (the user, 2026-11-15): the first slice of Stories and inspection (Story, Fake, the runtime cut,
       the text trace, `flow story`, `flow trace`, `propertyTest`) comes first, as the core's own test tooling; the
       rest of those two Plans still follows later.
-    - Slices interleave (the user, 2026-11-11, replan accepted; reordered 2026-11-12, wide consult W3): R (T45, then
-      T51, then T47, then T60 (the suite proves its own gates, the user 2026-11-14), then T52, then T61 (the suite
-      runs itself, the user 2026-11-14; linear, to stay within 5-hour limits)), T54 (core consolidation, the user
-      2026-11-12), 1 T18,
+    - Slices interleave (the user, 2026-11-11, replan accepted; reordered 2026-11-12, wide consult W3). First phase
+      P16, the test system (the user, 2026-11-15): T54 waits on T67 (the bridge ported), and T18 waits on T69 and
+      T70 (the CLI commands and generated Stories). Then T54 (core consolidation, the user 2026-11-12), 1 T18,
       T55 (runtime life), 2a T19 then
       T20 (restore), 3a T17 (compiler), 4 T9, the browser slice T58, 3b T57 (fragments), 5 T21, 2b T56 (release
-      versions), 6 T22 then T15 then T23, 7 T25, 8 T24, 9 T27, T48, T28, 10 T49, T29, T31, then T30.
-      Before T54 resumes (the user, 2026-11-15): phase P16, the test system. T54 waits on T67 (the bridge ported), and
-      T18 waits on T69 and T70 (the CLI commands and generated Stories).
+      versions), 6 T22 then T23, 7 T25, 8 T24, 9 T27, T48, T28, 10 T49, T29, T31, then T30.
       A slice starts with its Spec change and its failing checks: Story tests for decided outcomes, run rules for
       what must hold on every run, compile-time tests for type promises. Then the core change, then the bench. When
       a test and the core disagree the Spec decides and the fix cites its rule; a test is never edited just to
@@ -282,8 +284,8 @@ instructions
       - batch tool calls: independent Reads, Edits and searches go in one message, never one call per turn;
       - launch all of a round's sidecars in one message, so they run in parallel; a sidecar's call returns only
         when it finishes;
-      - verify once per batch of edits: `nub run check:fix` alone (never a plain `check` after it), only the touched
-        test files while iterating, the whole package before each checkpoint commit;
+      - verify once per batch of edits: while iterating, `nub run check:fix` alone (no plain `check` after it) and
+        only the touched test files; before each checkpoint commit, `nub run check` and the whole package's tests;
       - resume from a resume card of at most about 5,000 characters, and read files by line range, once;
       - read-only sidecars are Explore agents, and their brief carries the rules they must follow (bounded commands,
         no writes);
@@ -317,8 +319,9 @@ instructions
       `Math.random` in `src/` outside the real host's adapter.
     - Adapters use typed failures, defects apart; from P4, a throw outside a defect in `src/` is a standing review
       angle (the user, 2026-11-11). Tests drive production through Story and Fake (`src/host/testing/`) and read
-      it through the runtime cut and evidence; a test imports nothing else from `src/` (the user, 2026-11-15; was
-      the public API plus a listed seam).
+      it through the runtime cut, the trace and evidence. Lint allows a test only `src/index.ts`,
+      `src/host/testing/index.ts`, `src/host/inspect.ts` and `src/host/trace.ts` (the user, 2026-11-15; was the
+      public API plus a listed seam).
 
     **Testing**
 
@@ -332,7 +335,7 @@ instructions
         gaps and log notes that name the Task; and an adversary listing how a wrong build could still pass. The
         lead merges, verifies and logs each sidecar item as accepted, changed or rejected (the user, 2026-11-12).
         The list maps every acceptance item, Approach item and gap comment of the Task to a requirement, one to
-        one, and step 1's review checks that mapping first (the user, 2026-11-12);
+        one, and the review of that first commit checks the mapping first (the user, 2026-11-12);
       - each requirement written as a check that fails today, in the cheapest form that fully covers it: a type
         that makes the wrong flow fail to compile, a run rule, or a Story test for a decided outcome, each with a
         planted violation it catches.
@@ -359,7 +362,7 @@ instructions
       - run the whole package's tests after any commit that changes ids, keys, record shapes or report text;
       - a known bug is one inverted test (`it.fails`), titled by the Spec rule it breaks and placed in its area;
         `it.todo` hides a case that stops failing, so it is not used.
-    - Pre-step check (orchestrator, process experiment, 2026-11-15): before a Task's step 1, the orchestrator checks
+    - Pre-step check (orchestrator, process experiment, 2026-11-15): before a Task starts, the orchestrator checks
       its brief: every Invariant owned by or routed to the Task appears in it; every cited Spec section exists where
       cited; known contradictions between the brief and the Specs are listed on the Task for the builder.
     - Shell file writes are blocked by a hook (`tools/process/block-shell-writes.ts`, in `.claude/settings.json`);
@@ -393,12 +396,13 @@ instructions
 
     **Reviews**
 
-    - One review at each Task's close, reading the diff of fixtures, tests and core, and also on events: a Spec
-      change, or a change to the test tooling or the run rules (the user, 2026-11-15; was every 90 minutes and on
-      each step). The lead writes each requirement the Task claims with its evidence, and the review confirms it.
+    - Reviews run on events, not on the clock (the user, 2026-11-15; was every 90 minutes and on each step): a
+      Task's first commit (its requirements as failing checks), a Task's close, a Spec change, and a change to the
+      test tooling or the run rules. The lead writes each requirement the Task claims with its evidence, and the
+      review confirms it. A Task closes by R17: its author sets `review`, an independent skill:check-task writes
+      PASS and the close review has no blocking finding; then the orchestrator sets `done`.
       `vp test` and `nub run check` run before every checkpoint commit. A ruling is asked as two traces of the same
-      Story, not as prose. A lead hands off to a fresh one with a resume note at each large step once its context runs
-      long. Loop
+      Story, not as prose. Loop
       amendments are batched at an area's close-out unless one fixes a wrong result (the user, 2026-11-11).
     - Every review goes to one Opus lead with up to eight read-only Haiku sidecars on named angles, as many as the lead
       judges it needs (the user, 2026-11-14; was two). Review speed (the user, 2026-11-14): start the test and check
@@ -418,7 +422,8 @@ instructions
       by the next Task's review (the user, 2026-11-14). A non-blocking finding in the test tooling is noted on its
       owner Task, not worked inside the current one (the user, 2026-11-14). A Task closes on the first round with zero 
       blocking findings. A fresh Opus agent at high effort that did not gather the requirements
-      reads the expected results once per Task at step 1 (every agent-ruled expectation and at least 10 percent of
+      reads the expected results once per Task at its first commit (every agent-ruled expectation and at least 10 
+      percent of
       the rest) and once at an area's close-out (the user, 2026-11-14: Opus instead of Fable, to save limits).
     - Record-edit angle (the user, 2026-11-14, Q2 A): each review lists every `wiki/` file changed since the last
       reviewed checkpoint and flags any change with no labelled `Edit (agent: …)` line (Records, below); a missing

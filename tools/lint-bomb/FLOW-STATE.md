@@ -28,15 +28,13 @@ The lint rules for Flow State v3 production code. The config is the `lint` block
   `tools/oxlint/` plugin.
 - Folders and imports, enforced by `no-restricted-imports` (`vite.config.ts`) with a planted
   violation of each in `tools/flow-state-lint/imports.test.ts`:
-  - `src/core/` imports nothing from `src/host/`;
+  - everything in `src/` outside `src/host/` imports nothing from `src/host/`, except the public
+    entry `src/index.ts`, which re-exports the host's Runtime;
   - `src/` imports nothing from `fixtures/`, `tests/` or `bench/`;
   - `fixtures/` imports from `src/` only `src/index.ts` and `src/host/testing/index.ts`, and nothing
     from `tests/` or `bench/`;
   - `tests/` and `bench/` import from `src/` only `src/index.ts`, `src/host/testing/index.ts`,
     `src/host/inspect.ts` and `src/host/trace.ts`. `tests/bridge/` is exempt until it is deleted.
-- `check` and `lint` pass `--no-error-on-unmatched-pattern` because `packages/flow-state-v3/src/`
-  does not exist yet. Remove the flag when the first source file lands, so that a wrong path can't
-  pass by linting nothing.
 
 ## Rules: 70 in lint-bomb
 

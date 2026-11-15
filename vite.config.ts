@@ -266,19 +266,22 @@ export default defineConfig({
         },
       },
       {
-        files: [`${productionSource}/core/**/*.ts`],
+        // The core is everything in src/ outside src/host/; src/index.ts is the public entry and
+        // re-exports the host's Runtime.
+        files: [`${productionSource}/**/*.{ts,tsx}`],
+        excludeFiles: [`${productionSource}/host/**`, `${productionSource}/index.ts`],
         rules: {
           "no-restricted-imports": ["error", { patterns: [outsideSource, hostFromCore] }],
         },
       },
       {
-        files: [`${production}/fixtures/**/*.ts`],
+        files: [`${production}/fixtures/**/*.{ts,tsx}`],
         rules: {
           "no-restricted-imports": ["error", { patterns: [testsFromFixtures, sourceFromFixtures] }],
         },
       },
       {
-        files: [`${packageTests}/**/*.ts`, `${production}/bench/**/*.ts`],
+        files: [`${packageTests}/**/*.{ts,tsx}`, `${production}/bench/**/*.{ts,tsx}`],
         excludeFiles: [`${packageTests}/bridge/**`],
         rules: {
           "no-restricted-imports": ["error", { patterns: [sourceFromTests] }],

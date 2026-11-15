@@ -52,7 +52,8 @@ description
     **Stops:**
 
     - a Pay Story that cannot pass across a reload (@task.V3.T63);
-    - public entry-point names (@task.V3.T69);
+    - public entry-point names: `Story`, `Fake` and `propertyTest` follow @plan.Testing and stay unexported in this
+      phase; exporting any of them, or naming the CLI's commands beyond the Plan's (@task.V3.T69), is the user's;
     - a guarantee change.
 
     **User's read:** the agent decisions in section 12 of the proposal; the Story and Fake API as built; each case
@@ -85,17 +86,39 @@ tasks
             False pass: a rule that never fires → caught by its planted violation in
             code:tools/flow-state-lint/imports.test.ts.
         acceptance
-            - The layout is `src/core/` (pure), `src/host/` (Effect; `src/host/testing/` is the test tooling),
-              `fixtures/<name>/`, `tests/<area>/`, `tests/rules/`, `tests/types/` and `bench/`.
-            - Lint refuses `src/core/` importing from `src/host/`; `src/` importing a fixture, test or bench; a
-              fixture importing from `src/` anything but `src/index.ts` and `src/host/testing/index.ts`; a test or
-              bench importing from `src/` anything but those two, `src/host/inspect.ts` and `src/host/trace.ts`.
+            - Lint encodes the target layout: the core is everything in `src/` outside `src/host/`; the test tooling
+              is `src/host/testing/`; fixtures are `fixtures/<name>/`; tests are `tests/<area>/`, `tests/rules/` and
+              `tests/types/`; the bench is `bench/`. This Task moves no file: each folder is created by the Task
+              that fills it.
+            - Lint refuses, for `.ts` and `.tsx` files: anything in `src/` outside `src/host/`, except `src/index.ts`,
+              importing from `src/host/`; `src/` importing a fixture, test or bench; a fixture importing from `src/`
+              anything but `src/index.ts` and `src/host/testing/index.ts`; a test or bench importing from `src/`
+              anything but those two, `src/host/inspect.ts` and `src/host/trace.ts`.
             - Each rule has a planted violation it refuses and a permitted import it allows.
             - `nub run check`, `nub run lint:rules` and `vp test` pass.
         comment     2026-11-15T09:39:03Z
             Done in commit 087a1b9a: four no-restricted-imports overrides in vite.config.ts, with 20 planted cases in 
             tools/flow-state-lint/imports.test.ts (11 refused, 9 allowed), run by nub run lint:rules. nub run check and 
             vp test pass (262 tests). Today's code already complied, so nothing moved.
+        comment     2026-11-15T09:49:55Z
+            Independent check at ee757592: ISSUES (2 of 4 claims). Layout ISSUES: the tree lacks tests/rules, 
+            tests/types, bench/, src/host/testing/index.ts and src/host/trace.ts; fixtures/ has loose part.ts, 
+            sign-in.ts, sync.ts, transfers.ts; src/ root files sit outside core/ and host/, so 'The layout is' fails as 
+            written (fix the tree or reword as the target lint encodes). Refusals ISSUES: all four hold for .ts 
+            (scratch probe of 22 cases), but the core, fixtures and tests/bench overrides glob *.ts only, so a .tsx in 
+            src/core, tests or fixtures imports src/core or src/host unrefused. Planted cases PASS: each rule has a 
+            refused and an allowed case, and dropping hostFromCore fails the core cases; the trace.ts allowance has no 
+            planted case. Gates PASS: nub run check (0 warnings, 83 files), nub run lint:rules (import rule tests 
+            passed), vp test run packages/flow-state-v3 (262 passed). Text: FLOW-STATE.md Scope still says src/ does 
+            not exist and names a flag package.json no longer passes.
+        comment     2026-11-15T09:52:32Z
+            Author's fix for the check at ee757592. Refusals: the rules now match .tsx as well as .ts, and the host 
+            rule covers everything in src/ outside src/host/ except src/index.ts, not only src/core/. Planted cases: 28 
+            (was 20), adding .tsx in core, fixtures and tests, a file at the top of src/, src/index.ts allowed, and the 
+            trace.ts allowance for tests and bench. FLOW-STATE.md: the stale lines about a missing src/ are gone. 
+            Layout: the first acceptance claim is reworded to what this Task delivers, the target layout encoded in 
+            lint; it moves no file. Why: the folders need the Story tooling to hold anything real. Reverse: restore the 
+            claim and create the folders here.
     T63
         title       A Story drives the real Runtime over fakes
         status      open
@@ -141,7 +164,11 @@ tasks
             - A checkpoint holds the time, the runtime cut, what each fake received and the store.
             - Every step word and every wire and storage word has a test. A Story run twice gives equal evidence. A
               run arms no host timer. A dead page writes nothing after a reload.
-            - The transfers fixture is one folder (contracts, machine, server, stories) with Story tests.
+            - A Spec for the test tooling, written first with skill:to-design and skill:to-spec from the proposal's
+              sections 4 and 12, states its Requirements and Invariants; the tooling's tests cite it.
+            - The transfers fixture is one folder (contracts, machine, server, stories) with Story tests; its stories
+              include one long run of about 100 steps, which @task.V3.T66 times.
+            - Nothing is exported from a public route: the tooling is reached only by its path inside the package.
             - One Pay Story passes: a `confirm` whose response is lost, time past the commit's deadline, a reload; the
               payment reads unknown and exactly one `confirm` landed.
             - `nub run faults` over the new tests: a dead core fails every one.
@@ -195,8 +222,11 @@ tasks
             False pass: a trace that leaves out what a step caused → caught by a snapshot that shows each request,
             ending and store write of a run with a lost answer.
         acceptance
-            - The trace of a transfers run matches a text snapshot (`toMatchFileSnapshot`).
+            - For one transfers Story with a lost answer and a reload, a test states by hand what the trace must
+              show, in order: each step, each request with whether it landed, each ending with its channel and
+              reason, each store write and each checkpoint.
             - Two runs of one Story print the same trace.
+            - A text snapshot of that trace is kept as a change detector only.
     T66
         title       The bench times the long stories
         status      open
@@ -287,8 +317,11 @@ tasks
             of @task.V3.T65 for the same Story.
             Stops: public entry-point names.
         acceptance
-            - Each command prints from the same run and printer as @task.V3.T65, over the package's fixtures.
-            - Each command's output has a text snapshot test.
+            - `flow trace <story>` prints exactly what the trace function of @task.V3.T65 returns for that Story, and
+              `flow story run` prints its checkpoints; a test compares them over the package's fixtures.
+            - `flow story list` names every Story the fixtures export, and an unknown Story exits non-zero with its
+              name.
+            - Nothing is exported from a public route by this Task.
     T70
         title       Generated Stories
         status      open
