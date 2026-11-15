@@ -125,3 +125,12 @@ note 2026-11-15T18:02:49Z
 note 2026-11-15T18:15:06Z
     T65 in review at `0ed1e89d` (WriteAhead R5 gap pinned as it.fails); its check waits for T64's. T66 started; its
     timed run waits until no other agent runs.
+
+note 2026-11-15T18:16:39Z
+    T64 done: independent review PASS at `bdd85075` (`6d8ec592`). Routed: rule gaps and the sweep's unasserted skips to
+    @task.V3.T70, Turn I14 and I9 bugs to @task.V3.T17, faults runner and Stories I7 to @task.V3.T67.
+
+note 2026-11-15T18:16:39Z
+    Ruling (orchestrator): Stories I7's reword failed the whole-system check (@plan.Testing.O2 still promises the turn
+    bound, no Pending entry); the Plan's bound stands until @task.V3.T67 fixes or records it. Reverse: keep the reword
+    with a Pending decision.

@@ -248,6 +248,10 @@ tasks
             - The known bug of this area (a delay past 2^31 - 1 ms is armed, not refused) is fixed, and its inverted
               test is flipped.
             - Each new runtime rule has a planted fault that `nub run faults` catches.
+        comment     2026-11-15T18:16:39Z
+            Routed from T64's review: two runtime bugs pinned as it.fails in tests/rules: a refused turn publishes no
+            issue-only snapshot (Turn I14), and serve.ts publishes only on change (Turn I9). Both sit with the snapshot
+            shape (@plan.Machines.O3).
     T9
         title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
         status      draft

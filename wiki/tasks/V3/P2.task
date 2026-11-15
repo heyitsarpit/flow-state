@@ -380,7 +380,7 @@ tasks
             state beside their phase.
     T64
         title       Rules checked on every run, and a reload at every step
-        status      review
+        status      done
         priority    high
         blocked_by  [@T63]
         description
@@ -635,6 +635,12 @@ tasks
             - The suite's coverage record (Covers, Suite, Rerun, Mutants, Audit, Matched at, Scope, as
               skill:policy-verification gives them) is a comment on this phase, proposed to the user as a verification
               entry of @plan.Runtime. The audit it names runs at the phase's close, after @task.V3.T70.
+        comment     2026-11-15T18:16:39Z
+            Routed from T64's review: tools/faults/run.ts leaves its scratch copy when the unchanged run fails
+            (process.exit inside the try) and passes a stale dead-core edit. Stories I7's reword dropped
+            @plan.Testing.O2's bound (the 10,001st turn rejects before executing; an endless synchronous chain runs out
+            of memory): restore I7 to the Plan, pin the gap with a finite chain as it.fails, then fix it or record a
+            @plan.Pending decision after the whole-system check.
     T68
         title       Compile-time tests for the type promises production keeps
         status      open
@@ -715,3 +721,9 @@ tasks
               paste into a fixture.
             - Nothing generated is stored.
             - It runs over every fixture in `tests/generated/`.
+        comment     2026-11-15T18:16:38Z
+            Routed from T64's review (PASS at `bdd85075`): the sweep passes on a dead core (147 of 164 skipped: a lost
+            re-send reads as nothing held), so assert the skip count. Rules narrower than their Specs: I3 lets unknown
+            Restored through outside a boot; I14 skips event-turn refusals and new Ended work; I9 checks only publishes
+            after an outcome record; I15 misses a delivered evidence-only ending; I6 skips never-minted keys; Restore I1
+            judged at 29 of 164 positions.
