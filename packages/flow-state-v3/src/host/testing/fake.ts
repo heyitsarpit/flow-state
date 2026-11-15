@@ -13,7 +13,7 @@ import {
 import type { Fields, InputOf } from "../../contract.ts";
 import type { Values } from "../../core/compiled.ts";
 import { type Bytes, type Purpose, type Store, StoreRefused } from "../host.ts";
-import { type At, scriptFault, WorldWord } from "./steps.ts";
+import { type At, mainTab, scriptFault, type Tab, WorldWord } from "./steps.ts";
 
 /**
  * A fake call's answer was lost: the port fake maps it to the port's own error.
@@ -29,7 +29,7 @@ export class FakeLost extends Schema.TaggedError<FakeLost>()("FakeLost", {}) {}
  * `release`, the handler not run. `held at response`: the handler ran, its answer waits for
  * `release`. `dropped at request`: failed `Fake.Lost`, the handler never ran. `dropped at
  * response`: the handler ran and its answer was lost. `handled`: released after its waiter was
- * gone (its page dead, or its commit's deadline passed), so the handler ran and nothing was
+ * gone (its tab dead, or its commit's deadline passed), so the handler ran and nothing was
  * delivered.
  */
 export type CallStatus =
@@ -41,12 +41,12 @@ export type CallStatus =
   | "handled";
 
 /**
- * One call an endpoint received: its request, the page it came from, the index of the step during
- * which it arrived (-1 at the first page's boot) and its status.
+ * One call an endpoint received: its request, the tab it came from, the index of the step during
+ * which it arrived (-1 at the tab's first open) and its status.
  */
 export type CallEntry<I = Values> = {
   readonly input: I;
-  readonly page: number;
+  readonly tab: Tab;
   readonly step: number;
   readonly status: CallStatus;
 };
@@ -156,7 +156,7 @@ type Held = {
   readonly server: AnyServer;
   readonly endpoint: string;
   readonly index: number;
-  readonly page: number;
+  readonly open: number;
   // FLOW_STATE_ALLOW_UNKNOWN: a handler's Exit, of its endpoint's own types.
   readonly exit: Option.Option<Exit.Exit<unknown, unknown>>;
   // FLOW_STATE_ALLOW_UNKNOWN: the held call's answer, of its endpoint's own types.
@@ -169,11 +169,11 @@ type Pending = { readonly word: "hold" | "drop"; readonly at: At };
 
 /**
  * A run's fake servers: their truth, every call each endpoint received, and the wire words.
- * `alive` says whether a page may still be answered; `step` is the index of the step running;
- * `arrived` hears each call's log index as it arrives.
+ * `alive` says whether a tab's open may still be answered; `step` is the index of the step
+ * running; `arrived` hears each call's log index as it arrives.
  */
 export const makeWorld = (
-  alive: (page: number) => boolean,
+  alive: (open: number) => boolean,
   step: () => number,
   arrived: (index: number) => void,
 ) => {
@@ -230,18 +230,18 @@ export const makeWorld = (
 
   const call =
     // RETURN_TYPE: the erased endpoint the world serves; the Server type restores its own types.
-    (page: number, server: AnyServer, endpoint: string): Erased =>
+    (open: number, server: AnyServer, endpoint: string): Erased =>
       (input) =>
         Effect.suspend(() => {
-          // A dead page's fibers never run again, so this is unreachable; it reaches no server.
-          if (!alive(page)) return Effect.never;
+          // A dead tab's fibers never run again, so this is unreachable; it reaches no server.
+          if (!alive(open)) return Effect.never;
           const next = pending.get(slot(server, endpoint))?.shift();
 
           const index =
             log.push({
               server,
               endpoint,
-              entry: { input, page, step: step(), status: "answered" },
+              entry: { input, tab: mainTab(open), step: step(), status: "answered" },
             }) - 1;
 
           arrived(index);
@@ -251,7 +251,7 @@ export const makeWorld = (
               server,
               endpoint,
               index,
-              page,
+              open,
               exit,
               answer: Deferred.makeUnsafe(),
             });
@@ -285,7 +285,7 @@ export const makeWorld = (
     held.splice(at, 1);
     const exit = Option.isSome(entry.exit) ? entry.exit : handled(server, endpoint, input(entry));
 
-    if (Option.isSome(exit) && alive(entry.page) && !gone.has(entry.answer)) {
+    if (Option.isSome(exit) && alive(entry.open) && !gone.has(entry.answer)) {
       mark(entry.index, "answered");
       Deferred.doneUnsafe(entry.answer, exit.value);
     } else mark(entry.index, "handled");
@@ -307,13 +307,13 @@ export const makeWorld = (
     });
 
   return {
-    service: (page: number) =>
+    service: (open: number) =>
       FakeWorld.of({
         serve: (server) =>
           Object.fromEntries(
             Object.keys(server.endpoints).map((endpoint) => [
               endpoint,
-              call(page, server, endpoint),
+              call(open, server, endpoint),
             ]),
           ),
       }),
@@ -346,10 +346,10 @@ export const makeWorld = (
  * **Details**
  *
  * `status`: `held` waits for `Fake.storage.release()`; `landed` is in the store; `refused` failed
- * `StoreRefused`; `aborted` was released after its page died, so it never landed.
+ * `StoreRefused`; `aborted` was released after its tab died, so it never landed.
  */
 export type Batch = {
-  readonly page: number;
+  readonly tab: Tab;
   readonly purpose: Purpose;
   readonly keys: ReadonlyArray<string>;
   readonly acknowledges: ReadonlyArray<string>;
@@ -368,7 +368,7 @@ type Out = {
  * The run's durable store: its records, the batches it received, and the storage words. `issued`
  * hears each batch's index as it is issued.
  */
-export const makeStore = (alive: (page: number) => boolean, issued: (index: number) => void) => {
+export const makeStore = (alive: (open: number) => boolean, issued: (index: number) => void) => {
   const data = new Map<string, string>();
   const next: Array<"hold" | "refuse"> = [];
   const batches: Array<Out> = [];
@@ -388,16 +388,22 @@ export const makeStore = (alive: (page: number) => boolean, issued: (index: numb
   return {
     data: () => new Map(data),
     batches: () => batches.map((b) => b.batch),
-    // RETURN_TYPE: the Store contract a page's Host carries.
-    at: (page: number): Store => ({
+    // RETURN_TYPE: the Store contract a tab's Host carries.
+    at: (open: number): Store => ({
       load: Effect.sync(() => new Map(data)),
       write: (writes, purpose, acknowledges) =>
         Effect.suspend(() => {
-          // A dead page's fibers never run again, so this is unreachable; it writes nothing.
-          if (!alive(page)) return Effect.never;
+          // A dead tab's fibers never run again, so this is unreachable; it writes nothing.
+          if (!alive(open)) return Effect.never;
           const word = next.shift();
           const answer = Deferred.makeUnsafe<void, StoreRefused>();
-          const batch = { page, purpose, keys: writes.map((w) => w.key), acknowledges };
+
+          const batch = {
+            tab: mainTab(open),
+            purpose,
+            keys: writes.map((w) => w.key),
+            acknowledges,
+          };
 
           const status = word === undefined ? "landed" : issuedAs[word];
 
@@ -415,8 +421,8 @@ export const makeStore = (alive: (page: number) => boolean, issued: (index: numb
       const out =
         batches.find((b) => b.batch.status === "held") ?? scriptFault("nothing held at the store");
 
-      // A dead page's held write aborts, as a closed page's IndexedDB transaction does.
-      if (!alive(out.batch.page)) return mark(out, "aborted");
+      // A dead tab's held write aborts, as a closed tab's IndexedDB transaction does.
+      if (!alive(out.batch.tab.open)) return mark(out, "aborted");
       apply(out.writes);
       mark(out, "landed");
       Deferred.doneUnsafe(out.answer, Exit.void);

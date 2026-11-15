@@ -275,25 +275,25 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "abort-fails-the-waiter",
-    says: "the test tooling's release of a dead page's held write fails its waiter, so the dead page runs again",
+    says: "the test tooling's release of a dead tab's held write fails its waiter, so the dead tab runs again",
     rule: "Stories R13",
     edits: [
       {
         file: "src/host/testing/fake.ts",
-        find: '      if (!alive(out.batch.page)) return mark(out, "aborted");',
+        find: '      if (!alive(out.batch.tab.open)) return mark(out, "aborted");',
         replace:
-          '      if (!alive(out.batch.page)) {\n        mark(out, "aborted");\n\n        return Deferred.doneUnsafe(out.answer, Exit.fail(new StoreRefused({})));\n      }',
+          '      if (!alive(out.batch.tab.open)) {\n        mark(out, "aborted");\n\n        return Deferred.doneUnsafe(out.answer, Exit.fail(new StoreRefused({})));\n      }',
       },
     ],
   },
   {
-    name: "dead-page-answered",
-    says: "the test tooling's release of a dead page's held call completes its waiter, so the dead page runs again",
+    name: "dead-tab-answered",
+    says: "the test tooling's release of a dead tab's held call completes its waiter, so the dead tab runs again",
     rule: "Stories R13",
     edits: [
       {
         file: "src/host/testing/fake.ts",
-        find: "    if (Option.isSome(exit) && alive(entry.page) && !gone.has(entry.answer)) {",
+        find: "    if (Option.isSome(exit) && alive(entry.open) && !gone.has(entry.answer)) {",
         replace: "    if (Option.isSome(exit) && !gone.has(entry.answer)) {",
       },
     ],
@@ -305,14 +305,14 @@ export const faults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/testing/fake.ts",
-        find: "    if (Option.isSome(exit) && alive(entry.page) && !gone.has(entry.answer)) {",
-        replace: "    if (Option.isSome(exit) && alive(entry.page)) {",
+        find: "    if (Option.isSome(exit) && alive(entry.open) && !gone.has(entry.answer)) {",
+        replace: "    if (Option.isSome(exit) && alive(entry.open)) {",
       },
     ],
   },
   {
     name: "step-left-unsettled",
-    says: "the test tooling ends a step without running its page's queued tasks",
+    says: "the test tooling ends a step without running its tab's queued tasks",
     rule: "Stories R5",
     edits: [
       {
@@ -361,7 +361,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "reload-forgets-uses",
-    says: "a reload boots the new page without ensuring the actors the Story still uses",
+    says: "a reload boots the tab's next open without ensuring the actors the Story still uses",
     rule: "Stories R13",
     edits: [
       {
@@ -373,13 +373,13 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "setup-services-built",
-    says: "a Story's page builds the setup's own services in place of its fixtures",
+    says: "a Story's tab builds the setup's own services in place of its fixtures",
     rule: "Stories R7",
     edits: [
       {
         file: "src/host/testing/run.ts",
-        find: "    const opened = openPage({ ...subject.config, services }, host, now, limits);",
-        replace: "    const opened = openPage({ services, ...subject.config }, host, now, limits);",
+        find: "    const opened = openTab({ ...subject.config, services }, host, now, limits);",
+        replace: "    const opened = openTab({ services, ...subject.config }, host, now, limits);",
       },
     ],
   },

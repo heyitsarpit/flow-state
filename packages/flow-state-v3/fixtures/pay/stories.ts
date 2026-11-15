@@ -26,7 +26,7 @@ export const checkout = actorRef(PayMachine, "checkout-1");
 
 /**
  * A `confirm` reaches the shop and its answer is held, never released; the commit's 60-second
- * deadline passes; the page reloads; then time moves on.
+ * deadline passes; the tab reloads; then time moves on.
  */
 export const lostConfirm = Story.app(shopSetup, { id: "pay/lost-confirm", fixtures: [ShopFake] })
   .ensure(checkout)

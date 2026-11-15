@@ -4,7 +4,7 @@ import { Evidence, type Member, MemberTarget, type Part } from "../core/evidence
 import { actorKey } from "../core/world.ts";
 import type { Purpose } from "./host.ts";
 import type { Batch, CallStatus } from "./testing/fake.ts";
-import { Step, WorldWord } from "./testing/steps.ts";
+import { Step, type Tab, WorldWord } from "./testing/steps.ts";
 
 /**
  * What one trace event records: a step at its start, a call an endpoint received, a store write
@@ -13,7 +13,7 @@ import { Step, WorldWord } from "./testing/steps.ts";
  * **Details**
  *
  * A Request's `status` and a Write's `status` are as they stood at the run's end, so a call held
- * and never released reads held, and a dead page's released write reads aborted.
+ * and never released reads held, and a dead tab's released write reads aborted.
  */
 export type TraceRecord = Data.TaggedEnum<{
   Step: { index: number; step: Step };
@@ -33,11 +33,11 @@ export type TraceRecord = Data.TaggedEnum<{
 export const TraceRecord = Data.taggedEnum<TraceRecord>();
 
 /**
- * One event of a trace: its run-wide sequence, the page it came from and what it records.
+ * One event of a trace: its run-wide sequence, the tab it came from and what it records.
  */
 export type TraceEvent = {
   readonly sequence: number;
-  readonly page: number;
+  readonly tab: Tab;
   readonly record: TraceRecord;
 };
 
@@ -46,7 +46,7 @@ export type TraceEvent = {
  *
  * **Details**
  *
- * Sequences start at 1 and rise by 1 across every page of the run. The run's own evidence sink
+ * Sequences start at 1 and rise by 1 across every tab and open of the run. The run's own evidence sink
  * stamps them; the Runtime's evidence records carry none.
  */
 export type Trace = {
@@ -143,7 +143,8 @@ const renderers = {
     [
       `story ${trace.storyId}`,
       ...trace.events.map(
-        (e) => `${e.sequence.toString().padStart(4)} p${e.page} ${recordText(e.record)}`,
+        (e) =>
+          `${e.sequence.toString().padStart(4)} ${e.tab.name}:${e.tab.open} ${recordText(e.record)}`,
       ),
       "",
     ].join("\n"),
@@ -160,7 +161,7 @@ const renderers = {
  * **Details**
  *
  * `"text"` prints a header naming the Story, then one line per event in sequence order: its
- * sequence, its page, and the step with its arguments, the request with its server, endpoint,
+ * sequence, its tab as `name:open`, and the step with its arguments, the request with its server, endpoint,
  * input and status, the write with its purpose, keys and status, or the evidence record with its
  * fields. Two runs of one Story print the same text.
  *

@@ -70,7 +70,7 @@ describe("Story", () => {
     expect(data(again.checkpoints["sent"] ?? again.end)).toEqual(data(first.checkpoints.sent));
   });
 
-  it("never builds the setup's own services, so a Story's pages run on its fixtures (Stories R7, I19)", async () => {
+  it("never builds the setup's own services, so a Story's tab runs on its fixtures (Stories R7, I19)", async () => {
     let setupBuilt = 0;
 
     const counting = runtimeSetup({

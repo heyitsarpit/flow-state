@@ -153,7 +153,7 @@ const recorded = (ledger: Ledger, attempt: string, at: number) => {
   });
 };
 
-// A start: the dead page's or ended incarnation's queued rows are gone, except unknown Restored,
+// A start: the dead tab's or ended incarnation's queued rows are gone, except unknown Restored,
 // which is saved and waits; each kept row gets one try.
 const started = (ledger: Ledger, actor: string) => {
   for (const [attempt, owner] of ledger.owners)
@@ -227,8 +227,8 @@ const follow = (ledger: Ledger, e: Evidence, at: number) =>
  *
  * **Gotchas**
  *
- * - A page's death leaves no evidence: a new incarnation of an identity drops the rows the dead
- *   page queued, except unknown Restored, which is saved and waits for the start.
+ * - A tab's death leaves no evidence: a new incarnation of an identity drops the rows the dead
+ *   tab queued, except unknown Restored, which is saved and waits for the start.
  * - A lookup's ending has no Attempt and is not followed.
  */
 export const deliveries = (evidence: ReadonlyArray<Evidence>) => {

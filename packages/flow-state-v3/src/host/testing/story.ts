@@ -87,17 +87,17 @@ const actorOf = <D extends AnyDefinition>(ref: ActorRef<D>) => ({
  *
  * `Story.app(setup, { id, fixtures, world })` takes the app's `runtimeSetup`; the fixtures replace
  * its services, and must provide every service its contracts list, each once. `world` words apply
- * before the first page boots. `run()` drives the real Runtime on one page at a time: Effect's
+ * before the tab first opens. `run()` drives the real Runtime in one tab, `main`: Effect's
  * scheduler over a task list drained after every step, and Effect's `TestClock`, so time moves only
- * on `advance`. `reload` abandons the page and boots another over the same store and fake servers,
- * at the same time, and ensures again every actor the Story still uses; `reload({ reattach: false })`
+ * on `advance`. `reload` abandons the tab's open and boots its next one over the same store and fake
+ * servers, at the same time, and ensures again every actor the Story still uses; `reload({ reattach: false })`
  * ensures none, so only what the boot itself wakes is live. `steps` is the Story as
  * data, and `run({ steps })` runs the same subject over another step array.
  *
  * **Gotchas**
  *
  * - A fault of the script rejects `run()` with `StoryFailed`: a release with nothing held, a hold,
- *   drop or refuse never used, a repeated checkpoint name, a handler or control that throws, a page
+ *   drop or refuse never used, a repeated checkpoint name, a handler or control that throws, a tab
  *   that does not boot or stays busy, and a Runtime step after `disposeRuntime`.
  * - A fixture must not resume a fiber from a host Promise: a run never yields to the host.
  */

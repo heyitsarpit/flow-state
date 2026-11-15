@@ -20,3 +20,8 @@ note 2026-11-15T17:59:19Z
 note 2026-11-15T18:07:07Z
     Stories R16, I20, I21, T14 added for the trace (Inspection O4's first slice): run.trace with a run-wide sequence
     stamped by the run's sink, and render(trace, "text"); R4 lists trace. Reverse: drop them.
+
+note 2026-11-15T18:43:48Z
+    @spec.Stories: page renamed tab, shaped { name, open }, as @plan.Testing and @plan.Inspection name it (the user, via
+    the orchestrator); a reload is the tab's next open, counted from 1. R16 and Q1 list control, verdict and cleanup as
+    the trace kinds still cut. Reverse: rename back.

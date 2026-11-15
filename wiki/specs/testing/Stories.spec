@@ -14,7 +14,7 @@ requirements
         must    `Story.app(setup, { id, fixtures, world })` takes the app's own `runtimeSetup` and returns a Story
                 with no steps. Each step word (R3) returns a new Story with one more step; the Story it was called
                 on is unchanged, so a prefix can branch into several Stories. Building a Story, a step, a fake server
-                or a fixture starts no Runtime, fiber, page or fake and builds no Layer. `id` is a nonempty string.
+                or a fixture starts no Runtime, fiber, tab or fake and builds no Layer. `id` is a nonempty string.
 
     R2  Story.Step is the chain's data form
         source  @plan.Testing.O1; @plan.Pending.D5.
@@ -30,7 +30,8 @@ requirements
                 `dispose(ref)` is `disposeActor`, and `dispose(ref, { how: "forget" })` is forget, which forgets the
                 identity and its record; `disposeRuntime()` runs the Runtime's public `dispose()`;
                 `world(...words)` applies fake controls, wire words and storage words in order; `advance(duration)`
-                moves time (R5); `reload()` abandons the page and boots another (R13), and `reload({ reattach: false })`
+                moves time (R5); `reload()` abandons the tab's open and boots its next (R13), and `reload({ reattach: 
+                false })`
                 does so without ensuring the Story's actors again (@plan.Pending.D10); `checkpoint(name)` records a
                 cut (R12). Each Runtime word does what the public Runtime does for the same input
                 (@spec.Actors.R20, R21, R22), through the production driver. After `disposeRuntime()`, an ensure,
@@ -46,14 +47,14 @@ requirements
                 server registry at each server's `initial`, a Runtime of its own, time 0. A fault of the script, not
                 of the app, rejects the Promise with StoryFailed naming it: a wire or storage word that finds nothing
                 held, a hold, drop or refuse that no call or write used by the run's end, a repeated checkpoint name
-                in a step array, a handler or control that throws, a page that does not boot (a fixture's Layer
+                in a step array, a handler or control that throws, a tab that does not boot (a fixture's Layer
                 fails to build, or the Runtime's boot fails), and a step R3 forbids after `disposeRuntime()`.
 
     R5  A step settles; time moves only by advance
         source  @plan.Testing.O2.
-        must    Every step applies its input, then runs the page's queued tasks until none is left, before the next
-                step. After every step the page is idle: no task queued and no input waiting in the driver.
-                `advance(d)` moves the page's time to now plus d, waking each sleep due on the way in time order and
+        must    Every step applies its input, then runs the tab's queued tasks until none is left, before the next
+                step. After every step the tab is idle: no task queued and no input waiting in the driver.
+                `advance(d)` moves the tab's time to now plus d, waking each sleep due on the way in time order and
                 settling after each; nothing else moves time. A run never yields to the host and arms no host
                 timer. Precondition: no fixture resumes a fiber from a host Promise (`Effect.promise`,
                 `Effect.tryPromise`, a real `fetch`); such a fiber resumes outside the settle, so a run that has
@@ -72,7 +73,8 @@ requirements
                 missing service is a type error at `Story.app`, with no `Layer<any>` or cast. Two fixtures of one
                 service are a type error too, since merged Layers would build both before either wins. A Story never 
                 builds
-                the setup's own services or store: each page gets the fixtures and `Fake.storage` instead, and
+                the setup's own services or store: each open of the tab gets the fixtures and `Fake.storage` instead, 
+                and
                 every other field of the setup as it is. A fixture may require only the run's server registry
                 (`Fake.world`), which the run provides. The only path from the app to a fake server is a fixture
                 that is a Layer of the app's own service (a port fake); a fake server provides no app service.
@@ -85,7 +87,7 @@ requirements
                 and returns `{ truth, exit }`, the next truth and an Exit typed by `success` and `failure`. Called
                 from a port fake, an endpoint answers `Effect<success, failure | Fake.Lost>`. A control is
                 `Fake.control(fields, (truth, input) => truth)`, used as a `world` word. Truth lives in the run's
-                registry, created on first use and shared by every page, reload and port fake of the run.
+                registry, created on first use and shared by every open of the tab and every port fake of the run.
                 `Fake.world` is that registry as a Layer, so a port fake also runs outside a Story (a contract
                 test), where each server starts at `initial`. An Exit of other types, an unknown endpoint or control,
                 or a control input of the wrong shape is a type error.
@@ -106,23 +108,25 @@ requirements
 
     R10  Every call is logged with what happened to it
         source  @plan.Testing.O3, @plan.Testing.O4.
-        must    Every call of an endpoint is logged in arrival order with its request, page, the index of the step
-                during which it arrived (-1 at the first page's boot) and status: held or
+        must    Every call of an endpoint is logged in arrival order with its request, tab (`{ name, open }`), the 
+                index of
+                the step during which it arrived (-1 at the tab's first boot) and status: held or
                 dropped at request, handled, held at response, dropped at response, or answered. A call reaches the
                 server, and changes truth, only when its handler runs. A call no wire word acts on is handled and
                 answered at once.
 
     R11  The storage words
         source  @plan.Testing.O3; code:packages/flow-state-v3/src/host/host.ts#Store.
-        must    Every run has one `Fake.storage`, shared by its pages. A write lands at once unless a storage word
+        must    Every run has one `Fake.storage`, shared by every open of its tab. A write lands at once unless a 
+                storage word
                 was given: `Fake.storage.hold()` holds the next write until `Fake.storage.release()`, which lands the
                 oldest held write and answers it; `Fake.storage.refuse()` makes the next write fail StoreRefused,
-                landing nothing. Every write batch is logged with its page, purpose, keys and status: held, landed,
+                landing nothing. Every write batch is logged with its tab, purpose, keys and status: held, landed,
                 refused or aborted.
 
     R12  A checkpoint is a cut
         source  @plan.Testing.O4; @plan.Inspection.O1; @plan.Pending.D8.
-        must    A checkpoint, and `end`, hold the page's time (`now`), `inspection`, the result of
+        must    A checkpoint, and `end`, hold the tab's time (`now`), `inspection`, the result of
                 `inspect(runtime)` at the step's end, every call each endpoint has logged with its status, each
                 server's truth, and the store's records and write batches, as values captured then. Tests read a
                 cut only through `read(ref)` (the actor's snapshot, or undefined), `read(server)` (its truth),
@@ -136,22 +140,22 @@ requirements
                 no evidence. Its lanes carry the definition's `operation` name, the `contract` id and `state`
                 (InFlight or Held; an Idle lane is not listed); its `lifecycle` is Open, Disposing or Disposed.
 
-    R13  A reload abandons the page
+    R13  A reload is the tab's next open
         source  @plan.Testing.O3 (every tab and reload shares the fake server); @plan.Persistence.O1.
-        must    `reload()` leaves the current page as it is, never runs its tasks or moves its clock again, and
-                boots a new page over the same store and registry, at the same time, then ensures again every actor
-                the Story ensured and has not detached, forgotten or disposed (`dispose`, which is disposeActor; a
-                `disposeRuntime` forgets no use). `reload({ reattach: false })` ensures none of them, so only what the
-                boot itself wakes is live. Nothing from a dead page writes to the
-                store or is answered afterwards. Releasing a dead page's held write aborts it and lands nothing.
-                Releasing a dead page's held call runs the handler if it has not run, so truth and the call's log
-                entry may change. In both cases the dead page's waiter is never completed, so no code of the dead
-                page runs again: evidence, store records and `inspection` are equal before and after the release.
+        must    `reload()` leaves the tab's current open as it is, never runs its tasks or moves its clock again,
+                and boots the tab's next open over the same store and registry, at the same time, then ensures again
+                every actor the Story ensured and has not detached, forgotten or disposed (`dispose`, which is
+                disposeActor; a `disposeRuntime` forgets no use). `reload({ reattach: false })` ensures none of them,
+                so only what the boot itself wakes is live. Nothing from a dead tab writes to the
+                store or is answered afterwards. Releasing a dead tab's held write aborts it and lands nothing.
+                Releasing a dead tab's held call runs the handler if it has not run, so truth and the call's log
+                entry may change. In both cases the dead tab's waiter is never completed, so no code of the dead
+                tab runs again: evidence, store records and `inspection` are equal before and after the release.
 
     R14  A run is reproducible
         source  @plan.Testing.O2.
-        must    A Story run twice gives equal evidence, checkpoints and end. Each page's session seed is the Plan's
-                tab seed (run seed, tab name, open count) with one tab, so page n's seed is fixed by n, and host
+        must    A Story run twice gives equal evidence, checkpoints and end. Each open's session seed is the Plan's
+                tab seed (run seed, tab name, open count) with one tab, so open n's seed is fixed by n, and host
                 time and randomness never choose an order.
 
     R15  Not exported yet
@@ -167,12 +171,13 @@ requirements
                 happened, one for each step (at the step's start; a checkpoint is its step's event), each Runtime
                 evidence record, each call an endpoint received (at arrival, with its status of R10 at the run's
                 end) and each store write batch (at issue, with its status of R11 at the run's end). Each event
-                carries the `page` it came from and a run-wide `sequence` that starts at 1 and rises by 1, stamped
-                by the run's own evidence sink in `src/host/`; the core is unchanged. `render(trace, "text")`
-                prints one line per event in sequence order: a step with its arguments, a request with its server,
-                endpoint, input and status, a write with its purpose, keys and status, and each evidence record with
-                its fields, an ending's operation, Attempt, channel and reason included. Export, import, redaction,
-                truncation and the Plan's other event fields and kinds (tab, control, verdict, cleanup) are Q1's.
+                carries the `tab` it came from (`{ name, open }`, printed `name:open`) and a run-wide `sequence`
+                that starts at 1 and rises by 1, stamped by the run's own evidence sink in `src/host/`; the core is
+                unchanged. `render(trace, "text")` prints one line per event in sequence order: a step with its
+                arguments, a request with its server, endpoint, input and status, a write with its purpose, keys and
+                status, and each evidence record with its fields, an ending's operation, Attempt, channel and reason
+                included. Export, import, redaction, truncation and the Plan's other event fields and kinds
+                (control, verdict, cleanup) are Q1's.
 
 open
     Q1  Cut from @plan.Testing for this first slice.
@@ -182,7 +187,8 @@ open
                  `run.payloads`,
                  Fake.http, Fake.Refused and Fake.Closed, the Plan's finer error names (StoryFakeError,
                  UnusedWireRule, DuplicateFixture, in place of StoryFailed's reasons), discovery, trace export,
-                 redaction, the finishing horizon, cleanup at the end of a run and the advance limit (StoryTurnLimit
+                 redaction, the trace's control, verdict and cleanup events, the finishing horizon, cleanup at the end 
+                 of a run and the advance limit (StoryTurnLimit
                  reason Advance, more than 100,000 deadlines in one advance) are not built.
 
     Q2  Batches out are the persistence edge's, not the world's.
@@ -200,9 +206,10 @@ open
                  every Story run, and need no Spec of their own.
 
 model
-    Page = one boot: its own task list, its own clock and one Runtime over the run's store and registry.
+    Tab = `{ name, open }`, the run's one tab `main`; each open is one boot: its own task list, its own clock and
+        one Runtime over the run's store and registry. A reload is the tab's next open.
 
-    DeadPage = a page a reload abandoned.
+    DeadTab = a tab's open a reload abandoned.
 
     Registry = the run's fake servers' truth, one per server, created on first use.
 
@@ -221,11 +228,11 @@ invariants
 
     I3  For every Story s, `s.run()` and `s.run({ steps: s.steps })` give equal evidence, checkpoints and end. [@R2]
 
-    I4  For every completed step, the current page has no queued task and its driver no waiting input. [@R5]
+    I4  For every completed step, the tab's current open has no queued task and its driver no waiting input. [@R5]
 
     I5  During run(), no host setTimeout, setInterval or setImmediate is called. [@R5]
 
-    I6  A page's time changes only by advance; a reload's new page starts at the dead page's time. [@R5, @R13]
+    I6  A tab's time changes only by advance; a reload's next open starts at the dead open's time. [@R5, @R13]
 
     I7  A step that runs more than 10,000 turns in one instant rejects the run with StoryTurnLimit, and its evidence 
         ends at the 10,000th turn. The turns past it may have run: a chain of commits that answer at once runs inside
@@ -238,7 +245,7 @@ invariants
     I9  A server's truth changes only by a handler's returned truth or a control, never by a dropped-at-request call. 
         [@R8, @R10]
 
-    I10  A held call is answered at most once, only by release, and only while its page is alive. [@R9, @R13]
+    I10  A held call is answered at most once, only by release, and only while its tab is alive. [@R9, @R13]
 
     I11  Every ending in `run.evidence` comes from a handler's Exit through the commit's own mapping, a `Fake.Lost` 
          through the port fake, the commit's own deadline, or a lifecycle step; no Story word supplies an
@@ -247,10 +254,10 @@ invariants
     I12  Every call of an endpoint appears exactly once in `read(endpoint)`, in arrival order, with the status of R10 
          at the cut. [@R10]
 
-    I13  A held write lands only on release while its page is alive; a refused write changes no record. [@R11, @R13]
+    I13  A held write lands only on release while its tab is alive; a refused write changes no record. [@R11, @R13]
 
-    I14  After reload(), no store record changes because of a dead page and no evidence comes from it: a step that 
-         releases a dead page's held call or write leaves the evidence, the store records and `inspection` equal to
+    I14  After reload(), no store record changes because of a dead tab and no evidence comes from it: a step that 
+         releases a dead tab's held call or write leaves the evidence, the store records and `inspection` equal to
         the cut just before it; only the call's log entry and truth may change. [@R13]
 
     I15  A cut, once taken, never changes; reading it starts no work and changes no later cut. [@R12]
@@ -262,8 +269,8 @@ invariants
 
     I18  Two runs of one Story give equal evidence, checkpoints and end. [@R14]
 
-    I19  A Story's pages are built from its fixtures and `Fake.storage` only: no Layer from the setup's own services 
-         and no external store is built in a run. [@R7]
+    I19  A Story's tab is built from its fixtures and `Fake.storage` only: no Layer from the setup's own services and 
+         no external store is built in a run. [@R7]
 
     I20  Every step, evidence record, endpoint call and store write batch of a run is exactly one event of `run.trace`, 
          in the order it happened; sequences are 1 to n with no gap; the trace's evidence records, in
@@ -273,32 +280,32 @@ invariants
 
 composition
     flow
-        Design note. A Story's run boots page 0 at time 0 and applies the steps in order. A step drives the page's
-        Runtime through the production driver (`code:packages/flow-state-v3/src/host/testing.ts#testing` for
-        ensure, until the Runtime has a public use), then the page settles. The run, not a page, owns the registry,
-        the call log and the store, so a reload keeps them and only the page is new. A dead page is never closed,
-        as a killed tab is not; it is only never drained again.
+        Design note. A Story's run boots open 1 of its tab at time 0 and applies the steps in order. A step drives
+        the tab's Runtime through the production driver (`code:packages/flow-state-v3/src/host/testing.ts#testing`
+        for ensure, until the Runtime has a public use), then the tab settles. The run, not a tab, owns the
+        registry, the call log and the store, so a reload keeps them and only the open is new. A dead tab is never
+        closed, as a killed one is not; it is only never drained again.
 
 realization typescript
     Effect prior art, checked against the installed effect 4.0.5 with the `effect-api-documentation` skill:
 
-    - Time: `TestClock.layer` (effect/testing), built per page with `warningDelay` infinite so no live timer is
+    - Time: `TestClock.layer` (effect/testing), built per open with `warningDelay` infinite so no live timer is
         armed; `TestClock.adjust` wakes sleeps in timestamp order and waits for each woken fiber to suspend;
-        `TestClock.setTime` starts a reloaded page at the old page's time. Used: it replaces both hand clocks
+        `TestClock.setTime` starts a reloaded tab at the dead open's time. Used: it replaces both hand clocks
         (`code:packages/flow-state-v3/src/host/testing/page.ts#pageOver` and the bridge's).
-    - Event loop: `Scheduler.MixedScheduler` with its host hook replaced by a push onto the page's task list;
-        TestClock's layer wraps it and provides it as the page's Scheduler, which every Runtime fiber inherits.
+    - Event loop: `Scheduler.MixedScheduler` with its host hook replaced by a push onto the tab's task list;
+        TestClock's layer wraps it and provides it as the tab's Scheduler, which every Runtime fiber inherits.
         Draining the list is settling. Effect has no run-to-idle call and needs none: only scheduler hops queue
         tasks.
     - Held calls and writes: `Deferred` per held item, completed by the step that releases it; a dropped answer,
-        or one whose page is dead, is never completed.
+        or one whose tab is dead, is never completed.
     - Fakes: a fake server is an `Effectable.Class` whose Effect reads the run's `FakeWorld` service and gives
         each endpoint as a function returning an Effect, with its endpoints' wire words and its controls' words as
         properties; a port fake is a plain `Layer.effect` of the app's service over it. Endpoints return `Exit`.
     - Faults of the script: `Data.TaggedError` (StoryFailed, StoryTurnLimit); the run's Promise rejects with it.
     - The run's Promise: `Effect.runPromise` of `Effect.try` over the synchronous run, which maps any throw to
-        StoryFailed. Skipped: `ManagedRuntime` (a page is driven by `Effect.runForkWith` on its own scheduler, then
-        settled); `FiberMap` and `Scope` for pages (a dead page is never closed); `it.effect` (a run is a Promise and
+        StoryFailed. Skipped: `ManagedRuntime` (a tab is driven by `Effect.runForkWith` on its own scheduler, then
+        settled); `FiberMap` and `Scope` for tabs (a dead tab is never closed); `it.effect` (a run is a Promise and
         the Story test is a plain test).
 
 coverage
@@ -368,7 +375,7 @@ coverage
 
 tests
     T1  Inert chain: a fixture whose Layer counts its builds is in a Story; the count is 0 after building the Story and 
-        two branches from one prefix, and one per page after run(); the prefix's `steps` are unchanged by the
+        two branches from one prefix, and one per open after run(); the prefix's `steps` are unchanged by the
             branches; `run({ steps: story.steps })` equals `run()`. A setup whose own services Layer counts its
             builds runs in a Story with that count 0, and no external store is opened. [@I1, @I2, @I3, @I19]
     T2  Types, checked by `nub run check` with `@ts-expect-error`: a missing fixture for a contract service, two 
@@ -378,7 +385,7 @@ tests
                 tests (grep). [@R7, @R8, @R9, @R12]
     T3  Script faults: run() rejects with StoryFailed for a release with nothing held, an unused hold, drop, storage 
         hold and refuse, a repeated checkpoint name in a step array, a throwing handler, a fixture whose Layer
-            fails to build (the page does not boot) and a send after disposeRuntime; each beside a control that lands
+            fails to build (the tab does not boot) and a send after disposeRuntime; each beside a control that lands
             a transfer. [@R4, @I17]
     T4  Step words, each on the transfers fixture with its expected result from @spec.Actors and @spec.WriteLanes: 
         ensure and send land a transfer; detach ends the use, so no schedule fires (@spec.Turn.I23); dispose with `how: 
@@ -404,10 +411,10 @@ tests
     T8  Storage words: while the acknowledging write is held no call reaches the fake (@spec.WriteAhead.R13), and 
         release lets the transfer go; a refused acknowledgement ends the write NotSent and no call is made; both
             batches are logged. [@I13]
-    T9  Dead page: a write held across a reload and released after it is aborted; a call held at request across a 
-        reload and released after it is handled once; either release leaves the evidence, the store records and
+    T9  Dead tab: a write held across a reload and released after it is aborted; a call held at request across a reload 
+        and released after it is handled once; either release leaves the evidence, the store records and
             `inspection` equal to the checkpoint just before it (planted fault: the release completes the waiter);
-            advancing after the reload fires no deadline of the dead page. [@I10, @I13, @I14]
+            advancing after the reload fires no deadline of the dead tab. [@I10, @I13, @I14]
     T10  Reproducible and timer-free: every fixture Story run twice gives equal evidence, checkpoints and end, with 
          host setTimeout, setInterval and setImmediate never called; reading `inspection` twice at one
              checkpoint gives equal values and the evidence position is unchanged. [@I5, @I15, @I16, @I18]

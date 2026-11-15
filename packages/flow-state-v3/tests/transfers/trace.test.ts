@@ -12,15 +12,15 @@ const kinds = (keys: ReadonlyArray<string>) =>
 const shown = (e: TraceEvent) =>
   TraceRecord.$match(e.record, {
     Step: ({ step }) => [
-      [e.page, "step", Step.$is("checkpoint")(step) ? `checkpoint ${step.name}` : step._tag],
+      [e.tab.open, "step", Step.$is("checkpoint")(step) ? `checkpoint ${step.name}` : step._tag],
     ],
     Request: ({ server, endpoint, input, status }) => [
-      [e.page, "request", `${server}.${endpoint}`, input["transferId"], input["cents"], status],
+      [e.tab.open, "request", `${server}.${endpoint}`, input["transferId"], input["cents"], status],
     ],
-    Write: ({ purpose, keys, status }) => [[e.page, "write", purpose, kinds(keys), status]],
+    Write: ({ purpose, keys, status }) => [[e.tab.open, "write", purpose, kinds(keys), status]],
     Runtime: ({ evidence }) =>
       evidence._tag === "Ended"
-        ? [[e.page, "ending", evidence.operation, evidence.channel, evidence.reason]]
+        ? [[e.tab.open, "ending", evidence.operation, evidence.channel, evidence.reason]]
         : [],
   });
 
@@ -30,29 +30,29 @@ describe("A run's trace (Stories R16)", () => {
 
     expect(run.trace.storyId).toBe("transfers/lost-then-reload");
     expect(run.trace.events.flatMap(shown)).toEqual([
-      [0, "step", "ensure"],
+      [1, "step", "ensure"],
       // A new persisted actor's record is written at once with captureMs 0 (WriteAhead R10), as a
       // plain flush: the Store's "capture" is a lane record's before a re-send.
-      [0, "write", "flush", ["actor"], "landed"],
-      [0, "step", "world"],
-      [0, "step", "send"],
+      [1, "write", "flush", ["actor"], "landed"],
+      [1, "step", "world"],
+      [1, "step", "send"],
       // A first send's acknowledgement is one batch with its turn's capture, and lands before the
       // adapter is called (WriteAhead R10, R13).
-      [0, "write", "acknowledge", ["actor", "lane"], "landed"],
+      [1, "write", "acknowledge", ["actor", "lane"], "landed"],
       // The handler ran and its answer is held, never released (Stories R9, R10).
-      [0, "request", "Bank.transfer", "t1", 500, "held at response"],
-      [0, "step", "checkpoint sending"],
+      [1, "request", "Bank.transfer", "t1", 500, "held at response"],
+      [1, "step", "checkpoint sending"],
       // Nothing is due before the nudge at 20 s.
-      [0, "step", "advance"],
-      [0, "step", "reload"],
+      [1, "step", "advance"],
+      [1, "step", "reload"],
       // The lane record is in flight, so the identity is restored live at ready and its Start
       // delivers unknown Restored (Restore R1, R3).
-      [1, "ending", "transfer", "unknown", "Restored"],
+      [2, "ending", "transfer", "unknown", "Restored"],
       // The memory changed, and the owed entry the step touched is projected as its removal, since
       // the row was heard in the same step (WriteAhead R5, R10). R5 also wants the lane record here,
       // now Held: the inverted test below pins that gap.
-      [1, "write", "flush", ["actor", "owed"], "landed"],
-      [1, "step", "checkpoint reloaded"],
+      [2, "write", "flush", ["actor", "owed"], "landed"],
+      [2, "step", "checkpoint reloaded"],
     ]);
   });
 

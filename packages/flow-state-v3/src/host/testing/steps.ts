@@ -11,6 +11,17 @@ import type { AnyServer } from "./fake.ts";
 export type At = "request" | "response";
 
 /**
+ * Where a call, write or trace event came from: its tab's name and which open of that tab it is,
+ * counted from 1. A reload is the same tab's next open.
+ */
+export type Tab = { readonly name: string; readonly open: number };
+
+/**
+ * The tab a Story runs in at a given open.
+ */
+export const mainTab = (open: number) => ({ name: "main", open });
+
+/**
  * One word a `world` step applies, as data: a fake control, a wire word on an endpoint, or a
  * storage word. Made by a server's controls and endpoints and by `Fake.storage`, never by hand.
  */

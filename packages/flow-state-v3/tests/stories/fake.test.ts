@@ -78,7 +78,7 @@ describe("Fake server", () => {
     expect(fresh.checkpoints.start.read(Bank)).toEqual({ receipts: {}, limit: 1000 });
   });
 
-  it("the world option applies its words before the first page boots (Stories R1)", async () => {
+  it("the world option applies its words before the tab first opens (Stories R1)", async () => {
     const run = checked(
       await Story.app(bankSetup, {
         id: "fake/world",

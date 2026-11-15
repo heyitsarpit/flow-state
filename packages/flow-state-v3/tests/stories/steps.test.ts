@@ -140,7 +140,7 @@ describe("Story step words", () => {
     expect(endings(run)).toEqual(["unknown TimedOut"]);
   });
 
-  it("reload boots a new page at the same time and ensures again only the uses still held (Stories R13; Restore R3)", async () => {
+  it("reload boots the tab's next open at the same time and ensures again only the uses still held (Stories R13; Restore R3)", async () => {
     const run = checked(
       await sent
         .advance("2 seconds")

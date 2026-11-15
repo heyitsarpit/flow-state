@@ -22,6 +22,6 @@ export type {
 
 export { Step, StoryFailed, StoryTurnLimit, WorldWord } from "./steps.ts";
 
-export type { At } from "./steps.ts";
+export type { At, Tab } from "./steps.ts";
 
 export type { Cut, StoryRun } from "./run.ts";

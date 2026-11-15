@@ -1,23 +1,23 @@
 story transfers/lost-then-reload
-   1 p0 step 0 ensure Bank/Transfers/acct-1
-   2 p0 incarnated Bank/Transfers/acct-1
-   3 p0 published Bank/Transfers/acct-1 READY {"notice":""}
-   4 p0 write flush [actor/Bank/Transfers/acct-1] landed
-   5 p0 step 1 world Bank.transfer hold at response
-   6 p0 step 2 send Bank/Transfers/acct-1 Send {"transferId":"t1","cents":500}
-   7 p0 turn Bank/Transfers/acct-1 Send READY -> READY parts [states.READY.on.Send[0] READY -> self] members [commit transfer {"transferId":"t1"}]
-   8 p0 minted transfer att-00000000000000000000000000000000-1 for Bank/Transfers/acct-1 key {"transferId":"t1"}
-   9 p0 write acknowledge [actor/Bank/Transfers/acct-1, lane/Bank/Transfers/acct-1|transfer|{"transferId":"t1"}] acknowledges [att-00000000000000000000000000000000-1] landed
-  10 p0 sent transfer att-00000000000000000000000000000000-1
-  11 p0 request Bank.transfer {"transferId":"t1","cents":500,"key":"att-00000000000000000000000000000000-1"} held at response
-  12 p0 step 3 checkpoint sending
-  13 p0 step 4 advance 5000 ms
-  14 p0 step 5 reload
-  15 p1 incarnated Bank/Transfers/acct-1
-  16 p1 published Bank/Transfers/acct-1 READY {"notice":""}
-  17 p1 ended transfer att-00000000000000000000000000000000-1 unknown Restored for Bank/Transfers/acct-1
-  18 p1 delivered transfer att-00000000000000000000000000000000-1 as Unsure to Bank/Transfers/acct-1
-  19 p1 turn Bank/Transfers/acct-1 Unsure READY -> READY parts [on.Unsure[0] root -> self]
-  20 p1 published Bank/Transfers/acct-1 READY {"notice":"check your statement"}
-  21 p1 write flush [actor/Bank/Transfers/acct-1, owed/Bank/Transfers/acct-1] landed
-  22 p1 step 6 checkpoint reloaded
+   1 main:1 step 0 ensure Bank/Transfers/acct-1
+   2 main:1 incarnated Bank/Transfers/acct-1
+   3 main:1 published Bank/Transfers/acct-1 READY {"notice":""}
+   4 main:1 write flush [actor/Bank/Transfers/acct-1] landed
+   5 main:1 step 1 world Bank.transfer hold at response
+   6 main:1 step 2 send Bank/Transfers/acct-1 Send {"transferId":"t1","cents":500}
+   7 main:1 turn Bank/Transfers/acct-1 Send READY -> READY parts [states.READY.on.Send[0] READY -> self] members [commit transfer {"transferId":"t1"}]
+   8 main:1 minted transfer att-00000000000000000000000000000001-1 for Bank/Transfers/acct-1 key {"transferId":"t1"}
+   9 main:1 write acknowledge [actor/Bank/Transfers/acct-1, lane/Bank/Transfers/acct-1|transfer|{"transferId":"t1"}] acknowledges [att-00000000000000000000000000000001-1] landed
+  10 main:1 sent transfer att-00000000000000000000000000000001-1
+  11 main:1 request Bank.transfer {"transferId":"t1","cents":500,"key":"att-00000000000000000000000000000001-1"} held at response
+  12 main:1 step 3 checkpoint sending
+  13 main:1 step 4 advance 5000 ms
+  14 main:1 step 5 reload
+  15 main:2 incarnated Bank/Transfers/acct-1
+  16 main:2 published Bank/Transfers/acct-1 READY {"notice":""}
+  17 main:2 ended transfer att-00000000000000000000000000000001-1 unknown Restored for Bank/Transfers/acct-1
+  18 main:2 delivered transfer att-00000000000000000000000000000001-1 as Unsure to Bank/Transfers/acct-1
+  19 main:2 turn Bank/Transfers/acct-1 Unsure READY -> READY parts [on.Unsure[0] root -> self]
+  20 main:2 published Bank/Transfers/acct-1 READY {"notice":"check your statement"}
+  21 main:2 write flush [actor/Bank/Transfers/acct-1, owed/Bank/Transfers/acct-1] landed
+  22 main:2 step 6 checkpoint reloaded

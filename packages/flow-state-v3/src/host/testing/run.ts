@@ -24,7 +24,15 @@ import {
   makeStore,
   makeWorld,
 } from "./fake.ts";
-import { scriptFault, Step, StoryFailed, StoryTurnLimit, WorldWord } from "./steps.ts";
+import {
+  mainTab,
+  scriptFault,
+  Step,
+  StoryFailed,
+  StoryTurnLimit,
+  type Tab,
+  WorldWord,
+} from "./steps.ts";
 
 /**
  * What a run shows at one step's end, captured then: the time, the runtime cut, the store's
@@ -68,14 +76,12 @@ export type StoryRun<Names extends string = string> = {
   readonly trace: Trace;
 };
 
-// One event as the run's sink stamps it: a call or a write is resolved at the run's end, so it
-// carries its final status.
 type Noted =
-  | { readonly kind: "record"; readonly page: number; readonly record: TraceRecord }
+  | { readonly kind: "record"; readonly open: number; readonly record: TraceRecord }
   | { readonly kind: "call" | "batch"; readonly index: number };
 
 /**
- * What a run boots each page from: the setup's configuration with its services replaced by the
+ * What a run boots each open of its tab from: the setup's configuration with its services replaced by the
  * fixtures, which may require only the run's fake servers.
  */
 export type Subject = {
@@ -100,9 +106,10 @@ type Limits = {
   readonly fail: (reason: "Turns" | "Settle") => never;
 };
 
-// One page: its own task list drained by `settle` (Effect's MixedScheduler, whose host hook only
-// queues), its own TestClock, and one Runtime. A dead page is never drained or adjusted again.
-const openPage = (config: RuntimeConfig, host: Host["Service"], now: number, limits: Limits) => {
+// One open of the tab: its own task list drained by `settle` (Effect's MixedScheduler, whose host
+// hook only queues), its own TestClock, and one Runtime. A dead tab is never drained or adjusted
+// again.
+const openTab = (config: RuntimeConfig, host: Host["Service"], now: number, limits: Limits) => {
   const tasks: Array<() => void> = [];
 
   const loop = new Scheduler.MixedScheduler("async", (task) => {
@@ -125,12 +132,12 @@ const openPage = (config: RuntimeConfig, host: Host["Service"], now: number, lim
     }
   };
 
-  // oxlint-disable-next-line lint-bomb/no-unmanaged-effect-scope -- a page's clock lives as long as the page; a dead page is never closed, as a killed tab is not
+  // oxlint-disable-next-line lint-bomb/no-unmanaged-effect-scope -- a tab's clock lives as long as the tab; a dead tab is never closed, as a killed one is not
   const scope = Scope.makeUnsafe();
 
   // TestClock's layer provides its Clock and a Scheduler wrapping `loop`, which every fiber of the
-  // page's Runtime inherits.
-  // oxlint-disable-next-line lint-bomb/no-effect-runner-in-domain -- a page is built synchronously at the run's boundary
+  // tab's Runtime inherits.
+  // oxlint-disable-next-line lint-bomb/no-effect-runner-in-domain -- a tab is built synchronously at the run's boundary
   const timing = Effect.runSync(
     Layer.buildWithScope(TestClock.layer({ warningDelay: Duration.infinity }), scope).pipe(
       Effect.provideService(Scheduler.Scheduler, loop),
@@ -141,11 +148,11 @@ const openPage = (config: RuntimeConfig, host: Host["Service"], now: number, lim
   const scheduler = Context.get(platform, Scheduler.Scheduler);
 
   const perform = <A, E>(effect: Effect.Effect<A, E>) => {
-    // oxlint-disable-next-line lint-bomb/no-effect-runner-in-domain -- the run drives the page's Runtime from its boundary
+    // oxlint-disable-next-line lint-bomb/no-effect-runner-in-domain -- the run drives the tab's Runtime from its boundary
     const fiber = Effect.runForkWith(platform)(effect, { scheduler });
     settle();
 
-    // oxlint-disable-next-line lint-bomb/no-unsafe-fiber-methods -- the page is idle, so the fiber has ended or waits on a later step
+    // oxlint-disable-next-line lint-bomb/no-unsafe-fiber-methods -- the tab is idle, so the fiber has ended or waits on a later step
     return Option.fromUndefinedOr(fiber.pollUnsafe());
   };
 
@@ -178,10 +185,10 @@ export const runSteps = <Names extends string>(
   const evidence: Array<Evidence> = [];
   const checkpoints = new Map<string, Cut>();
   const uses = new Map<string, { readonly actor: ActorId; readonly count: number }>();
-  let current = 0;
+  let current = 1;
   let stepAt = -1;
   const turns = { instant: -1, count: 0, keep: 0 };
-  const alive = (page: number) => page === current;
+  const alive = (open: number) => open === current;
   const noted: Array<Noted> = [];
   const note = (event: Noted) => void noted.push(event);
 
@@ -206,23 +213,23 @@ export const runSteps = <Names extends string>(
     },
   };
 
-  const boot = (number: number, now: number) => {
-    const world = Layer.succeed(FakeWorld, fakes.service(number));
+  const boot = (open: number, now: number) => {
+    const world = Layer.succeed(FakeWorld, fakes.service(open));
 
     const services = Layer.provide(Layer.mergeAll(Layer.empty, ...subject.fixtures), world);
 
     const host = Host.of({
       hidden: () => false,
       onHidden: () => undefined,
-      store: Option.some(store.at(number)),
-      sessionSeed: number.toString(16).padStart(32, "0"),
+      store: Option.some(store.at(open)),
+      sessionSeed: open.toString(16).padStart(32, "0"),
     });
 
-    const opened = openPage({ ...subject.config, services }, host, now, limits);
+    const opened = openTab({ ...subject.config, services }, host, now, limits);
 
     attachInspector(opened.built.runtime, (e) => {
       evidence.push(e);
-      note({ kind: "record", page: number, record: TraceRecord.Runtime({ evidence: e }) });
+      note({ kind: "record", open, record: TraceRecord.Runtime({ evidence: e }) });
 
       if (e._tag !== "Turn") return;
       const at = opened.now();
@@ -234,7 +241,7 @@ export const runSteps = <Names extends string>(
     });
 
     if (!Option.exists(opened.perform(opened.built.runtime.ready()), Exit.isSuccess))
-      scriptFault(`page ${number} did not boot`);
+      scriptFault(`open ${open} of the tab did not boot`);
 
     return opened;
   };
@@ -244,13 +251,13 @@ export const runSteps = <Names extends string>(
 
   for (const word of subject.world) apply(word);
 
-  let page = boot(0, 0);
+  let tab = boot(current, 0);
   let disposed = false;
 
   // RETURN_TYPE: the exported Cut contract with its overloaded read.
   const cut = (): Cut => {
-    const world = page.built.driver.world();
-    const machines = page.built.driver.machines;
+    const world = tab.built.driver.world();
+    const machines = tab.built.driver.machines;
     const truths = fakes.truths();
     const log = fakes.log();
 
@@ -279,8 +286,8 @@ export const runSteps = <Names extends string>(
     }
 
     return {
-      now: page.now(),
-      inspection: inspect(page.built.runtime),
+      now: tab.now(),
+      inspection: inspect(tab.built.runtime),
       records: { stored: store.data(), batches: store.batches() },
       calls: log.map((l) => ({ ...l.entry, server: l.server.name, endpoint: l.endpoint })),
       read,
@@ -291,12 +298,12 @@ export const runSteps = <Names extends string>(
     if (disposed) scriptFault(`${what} after disposeRuntime`);
   };
 
-  const attach = (actor: ActorId) => testing.attach(page.built, actor, "story", false);
+  const attach = (actor: ActorId) => testing.attach(tab.built, actor, "story", false);
 
   for (const [n, step] of steps.entries()) {
     stepAt = n;
-    note({ kind: "record", page: current, record: TraceRecord.Step({ index: n, step }) });
-    Object.assign(turns, { instant: page.now(), count: 0, keep: 0 });
+    note({ kind: "record", open: current, record: TraceRecord.Step({ index: n, step }) });
+    Object.assign(turns, { instant: tab.now(), count: 0, keep: 0 });
 
     Step.$match(step, {
       ensure: ({ actor }) => {
@@ -311,36 +318,36 @@ export const runSteps = <Names extends string>(
 
         if (count <= 1) uses.delete(actorKey(actor));
         else uses.set(actorKey(actor), { actor, count: count - 1 });
-        testing.detach(page.built, actor, "story");
+        testing.detach(tab.built, actor, "story");
       },
       send: ({ actor, event: { _tag, ...payload } }) => {
         live("send");
-        testing.send(page.built, actor, _tag, payload);
+        testing.send(tab.built, actor, _tag, payload);
       },
       dispose: ({ actor, how }) => {
         live("dispose");
         uses.delete(actorKey(actor));
 
-        if (how === "forget") testing.forget(page.built, actor);
-        else page.built.driver.input(Input.DisposeActor({ actor }));
+        if (how === "forget") testing.forget(tab.built, actor);
+        else tab.built.driver.input(Input.DisposeActor({ actor }));
       },
       disposeRuntime: () => {
         disposed = true;
-        page.perform(page.built.runtime.dispose());
+        tab.perform(tab.built.runtime.dispose());
       },
       world: ({ words }) => {
         for (const word of words) apply(word);
       },
       advance: ({ duration }) => {
-        // adjust ends once every woken fiber has suspended, so on an idle page it always ends.
-        if (!Option.exists(page.perform(TestClock.adjust(duration)), Exit.isSuccess))
+        // adjust ends once every woken fiber has suspended, so on an idle tab it always ends.
+        if (!Option.exists(tab.perform(TestClock.adjust(duration)), Exit.isSuccess))
           scriptFault("advance did not end");
       },
       reload: ({ reattach }) => {
-        const now = page.now();
+        const now = tab.now();
         current += 1;
         disposed = false;
-        page = boot(current, now);
+        tab = boot(current, now);
 
         if (!reattach) uses.clear();
 
@@ -352,7 +359,7 @@ export const runSteps = <Names extends string>(
       },
     });
 
-    if (!page.idle()) scriptFault(`step ${n} left page ${current} busy`);
+    if (!tab.idle()) scriptFault(`step ${n} left open ${current} of the tab busy`);
     const faults = fakes.faults();
 
     if (faults.length > 0) scriptFault(faults.join("; "));
@@ -370,14 +377,14 @@ export const runSteps = <Names extends string>(
   const batches = store.batches();
 
   const resolve = (event: Noted, sequence: number) => {
-    const at = (page: number, record: TraceRecord) => ({ sequence, page, record });
+    const at = (tab: Tab, record: TraceRecord) => ({ sequence, tab, record });
 
-    if (event.kind === "record") return Option.some(at(event.page, event.record));
+    if (event.kind === "record") return Option.some(at(mainTab(event.open), event.record));
 
     if (event.kind === "call")
       return Option.map(Option.fromUndefinedOr(log[event.index]), ({ server, endpoint, entry }) =>
         at(
-          entry.page,
+          entry.tab,
           TraceRecord.Request({
             server: server.name,
             endpoint,
@@ -389,7 +396,7 @@ export const runSteps = <Names extends string>(
 
     return Option.map(Option.fromUndefinedOr(batches[event.index]), (batch) =>
       at(
-        batch.page,
+        batch.tab,
         TraceRecord.Write({
           purpose: batch.purpose,
           keys: batch.keys,

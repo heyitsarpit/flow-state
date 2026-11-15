@@ -54,7 +54,7 @@ describe("Fake storage words", () => {
     expect(refused.read(account)?.memory).toEqual({ notice: "not sent StorageRefused" });
   });
 
-  it("a held write still out when disposeRuntime starts lands on release, since its page is alive (Stories R11, R13)", async () => {
+  it("a held write still out when disposeRuntime starts lands on release, since its tab is alive (Stories R11, R13)", async () => {
     const run = checked(
       await bankStory("storage/held-across-dispose")
         .ensure(account)

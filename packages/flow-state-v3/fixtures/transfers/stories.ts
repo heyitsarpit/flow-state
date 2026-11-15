@@ -25,7 +25,7 @@ export const declined = bankStory("transfers/declined")
   .checkpoint("declined");
 
 /**
- * A transfer reaches the bank, its answer is held and never released, and the page reloads before
+ * A transfer reaches the bank, its answer is held and never released, and the tab reloads before
  * the commit's 30-second deadline.
  */
 export const lostThenReload = bankStory("transfers/lost-then-reload")
@@ -81,7 +81,7 @@ export const long = Array.from({ length: 9 }, (_, n) => n)
   .checkpoint("end");
 
 /**
- * A transfer's answer is lost, so its lane is Held when the Runtime is disposed; the page reloads
+ * A transfer's answer is lost, so its lane is Held when the Runtime is disposed; the tab reloads
  * after the disposal ends.
  */
 export const heldAtDisposal = bankStory("transfers/held-at-disposal")

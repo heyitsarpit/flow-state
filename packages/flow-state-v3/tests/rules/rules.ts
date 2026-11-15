@@ -183,7 +183,7 @@ const idFieldsOf = (calls: ReadonlyArray<Call>, minted: ReadonlySet<string>) => 
  * WriteLanes I6, over what the fake servers received: every request of one Attempt carries one id
  * and one input. An endpoint's idempotency field is any request field that names a minted Attempt;
  * every request of that endpoint must name a minted Attempt there, and requests naming one Attempt
- * carry one input. No two Attempts share an id across every page of the run.
+ * carry one input. No two Attempts share an id across every open of the run's tab.
  *
  * **Gotchas**
  *
@@ -208,7 +208,7 @@ export const oneIdOneInput: Rule = {
 
         if (!minted.has(id))
           return [
-            `WriteLanes I6: ${whereOf(c)} received ${field} ${id} from page ${c.page}, which names no minted Attempt`,
+            `WriteLanes I6: ${whereOf(c)} received ${field} ${id} from tab ${c.tab.name}:${c.tab.open}, which names no minted Attempt`,
           ];
         const key = `${whereOf(c)} ${id}`;
         const first = inputs.get(key) ?? c.input;
@@ -334,34 +334,34 @@ export const refusedTurnIssueOnly: Rule = {
     }),
 };
 
-const pagesOf = (run: StoryRun) =>
+const opensOf = (run: StoryRun) =>
   run.steps.reduce<ReadonlyArray<number>>(
-    (pages, step) => [...pages, (pages.at(-1) ?? 0) + (step._tag === "reload" ? 1 : 0)],
+    (opens, step) => [...opens, (opens.at(-1) ?? 1) + (step._tag === "reload" ? 1 : 0)],
     [],
   );
 
 /**
  * Actors I30, over what the fake servers received: after the Runtime's disposal starts, no commit
- * or read is invoked, so no call of a page arrives at or after its `disposeRuntime` step.
+ * or read is invoked, so no call of a tab's open arrives at or after its `disposeRuntime` step.
  */
 export const nothingInvokedDisposing: Rule = {
   rule: "Actors I30",
   breaches: (run) => {
-    const pages = pagesOf(run);
+    const opens = opensOf(run);
     const disposedAt = new Map<number, number>();
 
     for (const [n, step] of run.steps.entries()) {
-      const page = pages[n] ?? 0;
+      const open = opens[n] ?? 1;
 
-      if (step._tag === "disposeRuntime" && !disposedAt.has(page)) disposedAt.set(page, n);
+      if (step._tag === "disposeRuntime" && !disposedAt.has(open)) disposedAt.set(open, n);
     }
 
     return run.end.calls.flatMap((c) => {
-      const from = disposedAt.get(c.page);
+      const from = disposedAt.get(c.tab.open);
 
       return from !== undefined && c.step >= from
         ? [
-            `Actors I30: ${c.server}.${c.endpoint} received a call from page ${c.page} at step ${c.step}, after that page's disposal began at step ${from}`,
+            `Actors I30: ${c.server}.${c.endpoint} received a call from tab ${c.tab.name}:${c.tab.open} at step ${c.step}, after that open's disposal began at step ${from}`,
           ]
         : [];
     });
