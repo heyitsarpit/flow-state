@@ -25,6 +25,7 @@ declare module "vite-plus/test" {
     toEqual(expected: unknown): void;
     toHaveLength(expected: number): void;
     toHaveProperty(expected: string): void;
+    toMatchFileSnapshot(path: string): Promise<void>;
     toMatchObject(expected: unknown): void;
     toThrow(expected?: unknown): void;
   }

@@ -472,4 +472,16 @@ export const faults: ReadonlyArray<Fault> = [
       },
     ],
   },
+  {
+    name: "trace-omits-requests",
+    says: "the trace leaves out the calls the fake servers received",
+    rule: "Stories I20",
+    edits: [
+      {
+        file: "src/host/testing/run.ts",
+        find: '    (index) => note({ kind: "call", index }),\n',
+        replace: "    () => undefined,\n",
+      },
+    ],
+  },
 ];

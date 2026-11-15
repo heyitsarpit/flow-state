@@ -491,7 +491,7 @@ tasks
             I9, Turn I14).
     T65
         title       A run prints as a text trace
-        status      in_progress
+        status      review
         priority    medium
         blocked_by  [@T63]
         description
@@ -526,6 +526,24 @@ tasks
             sequences are 1 to n, stamped by the run's sink in src/host/; the trace's evidence equals run.evidence (core
             unchanged); two runs give equal traces and equal render text (Stories R14, I21). Q3 (acceptance 3)
             render(trace, "text") is kept as a file snapshot in tests/transfers/, a change detector only.
+        comment     2026-11-15T18:14:15Z
+            Q1 test side wrong on purpose: a plain write is "flush" by the Store contract
+            (code:packages/flow-state-v3/src/host/host.ts#Purpose); "capture" is a lane record's before a re-send. The
+            reload's write carries the owed entry's removal, the row heard in its own step (WriteAhead R10 projects
+            every touched entry): accepted.
+        comment     2026-11-15T18:14:16Z
+            WriteAhead R5 kept, runtime wrong: a restored head that turns Held is never re-saved, so its lane record
+            keeps inFlight true and the next boot wakes the identity eagerly; delivery unchanged (Restore I6). Two
+            traces: Spec writes [actor, lane, owed] after the reload, today [actor, owed]. it.fails in
+            tests/transfers/trace.test.ts; sibling of revisit.md's Recapturing item.
+        comment     2026-11-15T18:14:16Z
+            Extra files: src/host/testing/fake.ts and run.ts (the run's sink stamps calls and writes), tests/faults.ts
+            (trace-omits-requests, Stories I20), types/vite-plus-test.d.ts (toMatchFileSnapshot). Design calls:
+            run.evidence stays beside run.trace for the rules; a checkpoint is its step's event; page stands in for the
+            Plan's tab until tabs exist.
+        comment     2026-11-15T18:14:16Z
+            Close: to review. src/host/trace.ts (run.trace, render text), 5 trace tests and 1 it.fails; 315 tests pass,
+            3 it.fails; nub run faults 37 of 37; check and lint:rules at zero.
     T66
         title       The bench times the long stories
         status      open

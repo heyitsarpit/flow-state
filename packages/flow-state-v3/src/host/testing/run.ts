@@ -14,6 +14,7 @@ import {
   snapshotIn,
 } from "../runtime.ts";
 import { testing } from "../testing.ts";
+import { type Trace, TraceRecord } from "../trace.ts";
 import {
   type AnyServer,
   type Batch,
@@ -56,15 +57,22 @@ export type Cut = {
 };
 
 /**
- * A finished run: its steps, every evidence record in order, each checkpoint by name, and `end`,
- * a cut after the last step.
+ * A finished run: its steps, every evidence record in order, each checkpoint by name, `end`, a cut
+ * after the last step, and `trace`, every step, evidence record, call and write in order.
  */
 export type StoryRun<Names extends string = string> = {
   readonly steps: ReadonlyArray<Step>;
   readonly evidence: ReadonlyArray<Evidence>;
   readonly checkpoints: { readonly [K in Names]: Cut };
   readonly end: Cut;
+  readonly trace: Trace;
 };
+
+// One event as the run's sink stamps it: a call or a write is resolved at the run's end, so it
+// carries its final status.
+type Noted =
+  | { readonly kind: "record"; readonly page: number; readonly record: TraceRecord }
+  | { readonly kind: "call" | "batch"; readonly index: number };
 
 /**
  * What a run boots each page from: the setup's configuration with its services replaced by the
@@ -174,8 +182,16 @@ export const runSteps = <Names extends string>(
   let stepAt = -1;
   const turns = { instant: -1, count: 0, keep: 0 };
   const alive = (page: number) => page === current;
-  const fakes = makeWorld(alive, () => stepAt);
-  const store = makeStore(alive);
+  const noted: Array<Noted> = [];
+  const note = (event: Noted) => void noted.push(event);
+
+  const fakes = makeWorld(
+    alive,
+    () => stepAt,
+    (index) => note({ kind: "call", index }),
+  );
+
+  const store = makeStore(alive, (index) => note({ kind: "batch", index }));
 
   const limits: Limits = {
     over: () => turns.count > TURN_LIMIT,
@@ -206,6 +222,7 @@ export const runSteps = <Names extends string>(
 
     attachInspector(opened.built.runtime, (e) => {
       evidence.push(e);
+      note({ kind: "record", page: number, record: TraceRecord.Runtime({ evidence: e }) });
 
       if (e._tag !== "Turn") return;
       const at = opened.now();
@@ -278,6 +295,7 @@ export const runSteps = <Names extends string>(
 
   for (const [n, step] of steps.entries()) {
     stepAt = n;
+    note({ kind: "record", page: current, record: TraceRecord.Step({ index: n, step }) });
     Object.assign(turns, { instant: page.now(), count: 0, keep: 0 });
 
     Step.$match(step, {
@@ -348,7 +366,43 @@ export const runSteps = <Names extends string>(
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion, lint-bomb/no-object-iteration-result-cast -- the checkpoints the steps named, keyed by name
   const named = Object.fromEntries(checkpoints) as StoryRun<Names>["checkpoints"];
 
-  return { steps, evidence, checkpoints: named, end: cut() };
+  const log = fakes.log();
+  const batches = store.batches();
+
+  const resolve = (event: Noted, sequence: number) => {
+    const at = (page: number, record: TraceRecord) => ({ sequence, page, record });
+
+    if (event.kind === "record") return Option.some(at(event.page, event.record));
+
+    if (event.kind === "call")
+      return Option.map(Option.fromUndefinedOr(log[event.index]), ({ server, endpoint, entry }) =>
+        at(
+          entry.page,
+          TraceRecord.Request({
+            server: server.name,
+            endpoint,
+            input: entry.input,
+            status: entry.status,
+          }),
+        ),
+      );
+
+    return Option.map(Option.fromUndefinedOr(batches[event.index]), (batch) =>
+      at(
+        batch.page,
+        TraceRecord.Write({
+          purpose: batch.purpose,
+          keys: batch.keys,
+          acknowledges: batch.acknowledges,
+          status: batch.status,
+        }),
+      ),
+    );
+  };
+
+  const events = noted.flatMap((event, n) => Option.toArray(resolve(event, n + 1)));
+
+  return { steps, evidence, checkpoints: named, end: cut(), trace: { storyId: id, events } };
 };
 
 /**

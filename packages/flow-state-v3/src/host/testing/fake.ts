@@ -169,9 +169,14 @@ type Pending = { readonly word: "hold" | "drop"; readonly at: At };
 
 /**
  * A run's fake servers: their truth, every call each endpoint received, and the wire words.
- * `alive` says whether a page may still be answered; `step` is the index of the step running.
+ * `alive` says whether a page may still be answered; `step` is the index of the step running;
+ * `arrived` hears each call's log index as it arrives.
  */
-export const makeWorld = (alive: (page: number) => boolean, step: () => number) => {
+export const makeWorld = (
+  alive: (page: number) => boolean,
+  step: () => number,
+  arrived: (index: number) => void,
+) => {
   // FLOW_STATE_ALLOW_UNKNOWN: each server's truth, of its own Schema.
   const truths = new Map<AnyServer, unknown>();
   const log: Array<Logged> = [];
@@ -238,6 +243,8 @@ export const makeWorld = (alive: (page: number) => boolean, step: () => number) 
               endpoint,
               entry: { input, page, step: step(), status: "answered" },
             }) - 1;
+
+          arrived(index);
 
           const hold = (exit: Held["exit"]) =>
             wait({
@@ -349,6 +356,8 @@ export type Batch = {
   readonly status: "held" | "landed" | "refused" | "aborted";
 };
 
+const issuedAs = { hold: "held", refuse: "refused" } as const;
+
 type Out = {
   readonly batch: Batch;
   readonly writes: ReadonlyArray<Bytes>;
@@ -356,9 +365,10 @@ type Out = {
 };
 
 /**
- * The run's durable store: its records, the batches it received, and the storage words.
+ * The run's durable store: its records, the batches it received, and the storage words. `issued`
+ * hears each batch's index as it is issued.
  */
-export const makeStore = (alive: (page: number) => boolean) => {
+export const makeStore = (alive: (page: number) => boolean, issued: (index: number) => void) => {
   const data = new Map<string, string>();
   const next: Array<"hold" | "refuse"> = [];
   const batches: Array<Out> = [];
@@ -389,22 +399,14 @@ export const makeStore = (alive: (page: number) => boolean) => {
           const answer = Deferred.makeUnsafe<void, StoreRefused>();
           const batch = { page, purpose, keys: writes.map((w) => w.key), acknowledges };
 
-          if (word === "hold") {
-            batches.push({ batch: { ...batch, status: "held" }, writes, answer });
+          const status = word === undefined ? "landed" : issuedAs[word];
 
-            return Deferred.await(answer);
-          }
+          if (status === "landed") apply(writes);
+          issued(batches.push({ batch: { ...batch, status }, writes, answer }) - 1);
 
-          if (word === "refuse") {
-            batches.push({ batch: { ...batch, status: "refused" }, writes, answer });
+          if (status === "held") return Deferred.await(answer);
 
-            return Effect.fail(new StoreRefused({}));
-          }
-
-          apply(writes);
-          batches.push({ batch: { ...batch, status: "landed" }, writes, answer });
-
-          return Effect.void;
+          return status === "refused" ? Effect.fail(new StoreRefused({})) : Effect.void;
         }),
     }),
     word: (word: "hold" | "refuse" | "release") => {
@@ -528,6 +530,7 @@ export const Fake = {
     makeWorld(
       () => true,
       () => 0,
+      () => undefined,
     ).service(0),
   ),
   Lost: FakeLost,
