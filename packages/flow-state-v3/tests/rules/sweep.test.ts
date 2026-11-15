@@ -22,7 +22,7 @@ const skippable = (fault: unknown) =>
   fault instanceof StoryFailed &&
   fault.problem.split("; ").every((p) => SKIPPED.some((s) => s.test(p)));
 
-const sweep = async (reattach: boolean) => {
+const sweep = async (reattach: boolean, heldWrites: "abort" | "land" = "abort") => {
   const skipped: Array<string> = [];
   const failed: Array<string> = [];
   let variants = 0;
@@ -30,7 +30,7 @@ const sweep = async (reattach: boolean) => {
 
   for (const story of fixtureStories)
     for (let at = 0; at <= story.steps.length; at++) {
-      const steps = story.steps.toSpliced(at, 0, Step.reload({ reattach, heldWrites: "abort" }));
+      const steps = story.steps.toSpliced(at, 0, Step.reload({ reattach, heldWrites }));
       const name = `${story.id} with a reload at ${at}`;
       variants += 1;
 
@@ -69,6 +69,14 @@ describe("the reload sweep", () => {
 
   it("a reload that attaches nothing, at every step of every fixture Story, breaks no rule (Restore I1)", async () => {
     const result = await sweep(false);
+
+    expect(result.failed).toEqual([]);
+    expect(result.variants).toBeGreaterThan(result.skipped);
+    expect(result.recorded).toBe(result.variants - result.skipped);
+  });
+
+  it("a reload that lands every held write unheard, at every step of every fixture Story, breaks no rule (Restore R3)", async () => {
+    const result = await sweep(true, "land");
 
     expect(result.failed).toEqual([]);
     expect(result.variants).toBeGreaterThan(result.skipped);

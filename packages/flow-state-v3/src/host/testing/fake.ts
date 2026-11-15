@@ -421,11 +421,15 @@ export const makeStore = (alive: (open: number) => boolean, issued: (index: numb
       const out =
         batches.find((b) => b.batch.status === "held") ?? scriptFault("nothing held at the store");
 
-      // A dead tab's held write aborts, as a closed tab's IndexedDB transaction does.
-      if (!alive(out.batch.tab.open)) return mark(out, "aborted");
       apply(out.writes);
       mark(out, "landed");
       Deferred.doneUnsafe(out.answer, Exit.void);
+    },
+    abortHeld: (open: number) => {
+      for (const out of batches.filter(
+        (b) => b.batch.status === "held" && b.batch.tab.open === open,
+      ))
+        mark(out, "aborted");
     },
     landHeld: (open: number) => {
       for (const out of batches.filter(

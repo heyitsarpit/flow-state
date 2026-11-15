@@ -37,7 +37,7 @@ const run = (reporter: ReadonlyArray<string> = []) => {
   }
 };
 
-const summary = (out: string) => /Tests\s+(.*)/u.exec(out)?.[1]?.trim() ?? "no summary";
+const summary = (out: string) => /^\s*Tests\s+(.*)$/mu.exec(out)?.[1]?.trim() ?? "no summary";
 
 // Applies the edits, runs the body, and puts the files back. Returns false when an edit's path
 // leaves the copy or its text is not in its file exactly once, so a stale fault is reported and

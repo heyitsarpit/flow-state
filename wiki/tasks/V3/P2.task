@@ -162,11 +162,10 @@ tasks
 
             **Read first:** code:wiki/plans/flow/references/proposals/test-tooling-reuse-2026-11-15.md (the design to
             build; sections 2, 4 and 5), @plan.Testing.O1 to O4, @spec.Restore (R3, the Pay Story's expected result),
-            @spec.WriteLanes, code:packages/flow-state-v3/src/host/runtime.ts#buildRuntime,
-            code:packages/flow-state-v3/src/host/testing.ts#testing and
-            code:packages/flow-state-v3/src/host/testing/page.ts#pageOver (the seams the Story replaces). Guides: the
-            reference stories, fakes and tests the P2 card lists. Prior art: commit `14bc60d9`, this Task's first build
-            in the array shape, whose run engine, cut and Pay reload path carry over.
+            @spec.WriteLanes, code:packages/flow-state-v3/src/host/runtime.ts#buildRuntime, `src/host/testing.ts` and
+            `src/host/testing/page.ts` (the seams the Story replaces; deleted by @task.V3.T67). Guides: the reference
+            stories, fakes and tests the P2 card lists. Prior art: commit `14bc60d9`, this Task's first build in the
+            array shape, whose run engine, cut and Pay reload path carry over.
 
             **Risk:** Pay's commit runs on a detached fiber, and what it does when its page is abandoned at a reload is
             unproven. The second risk is types: a fake must keep each service method's argument, success and failure
@@ -393,9 +392,8 @@ tasks
             **Read first:** @spec.WriteLanes (I3, I6, I15, I16), @spec.Turn (I9, I14), @spec.Actors (I30): each rule
             checks the Spec's wording, exceptions included;
             code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md (sections 3.2, 3.3 and 6),
-            code:packages/flow-state-v3/tests/faults.ts, and
-            code:packages/flow-state-v3/tests/bridge/checks/publication.ts and `tests/bridge/checks/disposal.ts` for
-            older checks' logic.
+            code:packages/flow-state-v3/tests/faults.ts, and `tests/bridge/checks/publication.ts` and
+            `tests/bridge/checks/disposal.ts` (deleted by @task.V3.T67) for older checks' logic.
 
             May change: `tests/rules/`, `tests/faults.ts`, and the Story tests that call the helper. Evidence: this
             Task's comments.
@@ -631,7 +629,8 @@ tasks
             on this.
 
             **Read first:** code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md (section 5 and Appendix
-            A), code:packages/flow-state-v3/tests/bridge/cases/write-lanes/payment-endings.test.ts.
+            A), the bridge's `tests/bridge/cases/write-lanes/payment-endings.test.ts` (deleted by this Task;
+            at `3e1fb97b`).
 
             **Approach:** the pay, cells, sync and sign-in fixtures in the four-file shape first, each in its own folder
             (cells moves out of `fixtures/pay/`) and following the transfers fixture of @task.V3.T63 (`Fake.server` with

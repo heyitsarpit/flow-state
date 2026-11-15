@@ -71,7 +71,7 @@ describe("Fake storage words", () => {
     const lanes = (run: StoryRun<"reloaded">) =>
       [...run.checkpoints.reloaded.records.stored.keys()].filter((k) => k.startsWith("lane/"));
 
-    expect(acknowledging(aborted)).toEqual([[1, "held"]]);
+    expect(acknowledging(aborted)).toEqual([[1, "aborted"]]);
     expect(lanes(aborted)).toEqual([]);
     expect(endings(aborted)).toEqual([]);
 

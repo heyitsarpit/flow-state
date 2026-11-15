@@ -34,7 +34,7 @@ The lint rules for Flow State v3 production code. The config is the `lint` block
   - `fixtures/` imports from `src/` only `src/index.ts` and `src/host/testing/index.ts`, and nothing
     from `tests/` or `bench/`;
   - `tests/` and `bench/` import from `src/` only `src/index.ts`, `src/host/testing/index.ts`,
-    `src/host/inspect.ts` and `src/host/trace.ts`. `tests/bridge/` is exempt until it is deleted.
+    `src/host/inspect.ts` and `src/host/trace.ts`.
 
 ## Rules: 70 in lint-bomb
 

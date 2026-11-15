@@ -390,6 +390,19 @@ export const faults: ReadonlyArray<Fault> = [
     ],
   },
   {
+    name: "memory-not-plain",
+    says: "a published snapshot carries its memory wrapped in a class instance, not as plain data",
+    rule: "Turn R24",
+    edits: [
+      {
+        file: "src/core/incarnations.ts",
+        find: "        memory: incarnation.memory,\n      }),\n    );",
+        replace:
+          '        memory: { held: new Map([["memory", incarnation.memory]]) },\n      }),\n    );',
+      },
+    ],
+  },
+  {
     name: "landed-write-lost",
     says: "a reload asked to land the held writes marks them landed but writes nothing to the store",
     rule: "Stories R13",
@@ -408,8 +421,8 @@ export const faults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/testing/run.ts",
-        find: '.length > TURN_LIMIT) limits.fail("Turns");',
-        replace: '.length > Number.POSITIVE_INFINITY) limits.fail("Turns");',
+        find: '.length > TURN_LIMIT)\n        limits.fail("Turns");',
+        replace: '.length > Number.POSITIVE_INFINITY)\n        limits.fail("Turns");',
       },
     ],
   },

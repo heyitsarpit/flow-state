@@ -1,4 +1,4 @@
-import { Clock, Context, Duration, Effect, Exit, Layer, Option, Scheduler, Scope } from "effect";
+import { Effect, Exit, Layer, Option } from "effect";
 import { TestClock } from "effect/testing";
 import type { Evidence } from "../../core/evidence.ts";
 import { Input } from "../../core/step.ts";
@@ -13,8 +13,8 @@ import {
   type Snapshot,
   snapshotIn,
 } from "../runtime.ts";
-import { testing } from "../testing.ts";
 import { type Trace, TraceRecord } from "../trace.ts";
+import { tabClock } from "./clock.ts";
 import {
   type AnyServer,
   type Batch,
@@ -24,6 +24,7 @@ import {
   makeStore,
   makeWorld,
 } from "./fake.ts";
+import { testing } from "./seam.ts";
 import {
   mainTab,
   scriptFault,
@@ -92,8 +93,16 @@ export type Subject = {
 
 type Target = ActorRef | EndpointHandle | { readonly "~server": AnyServer };
 
-const TASK_LIMIT = 100_000;
 const TURN_LIMIT = 10_000;
+
+// The tab's session seed: its name and open count as hex, so ids never repeat across reloads.
+const seedOf = (tab: Tab) => {
+  const text = `${tab.name}:${tab.open}`;
+
+  return Array.from({ length: text.length }, (_, n) => text.charCodeAt(n).toString(16))
+    .join("")
+    .padStart(32, "0");
+};
 
 // RETURN_TYPE: the core's ActorId, which the driver's inputs take.
 const actorOf = <D extends AnyDefinition>(ref: ActorRef<D>): ActorId => ({
@@ -102,77 +111,25 @@ const actorOf = <D extends AnyDefinition>(ref: ActorRef<D>): ActorId => ({
 });
 
 type Limits = {
-  readonly over: () => boolean;
   readonly fail: (reason: "Turns" | "Settle") => never;
   readonly admit: (evidence: ReadonlyArray<Evidence>, at: number) => void;
 };
 
-// One open of the tab: its own task list drained by `settle` (Effect's MixedScheduler, whose host
-// hook only queues), its own TestClock, and one Runtime. A dead tab is never drained or adjusted
-// again.
+// One open of the tab: its clock and event loop, and one Runtime whose every step is admitted by
+// the turn limit before it applies.
 const openTab = (config: RuntimeConfig, host: Host["Service"], now: number, limits: Limits) => {
-  const tasks: Array<() => void> = [];
-
-  const loop = new Scheduler.MixedScheduler("async", (task) => {
-    tasks.push(task);
-
-    return () => {
-      if (tasks.includes(task)) tasks.splice(tasks.indexOf(task), 1);
-    };
-  });
-
-  // Turns that ran inside a step's own input, before any task, are judged here too.
-  const settle = () => {
-    if (limits.over()) limits.fail("Turns");
-
-    for (let ran = 0; tasks.length > 0; ran++) {
-      if (ran >= TASK_LIMIT) limits.fail("Settle");
-      tasks.shift()?.();
-
-      if (limits.over()) limits.fail("Turns");
-    }
-  };
-
-  // oxlint-disable-next-line lint-bomb/no-unmanaged-effect-scope -- a tab's clock lives as long as the tab; a dead tab is never closed, as a killed one is not
-  const scope = Scope.makeUnsafe();
-
-  // TestClock's layer provides its Clock and a Scheduler wrapping `loop`, which every fiber of the
-  // tab's Runtime inherits.
-  // oxlint-disable-next-line lint-bomb/no-effect-runner-in-domain -- a tab is built synchronously at the run's boundary
-  const timing = Effect.runSync(
-    Layer.buildWithScope(TestClock.layer({ warningDelay: Duration.infinity }), scope).pipe(
-      Effect.provideService(Scheduler.Scheduler, loop),
-    ),
-  );
-
-  const platform = Context.merge(Context.make(Host, host), timing);
-  const scheduler = Context.get(platform, Scheduler.Scheduler);
-
-  const perform = <A, E>(effect: Effect.Effect<A, E>) => {
-    // oxlint-disable-next-line lint-bomb/no-effect-runner-in-domain -- the run drives the tab's Runtime from its boundary
-    const fiber = Effect.runForkWith(platform)(effect, { scheduler });
-    settle();
-
-    // oxlint-disable-next-line lint-bomb/no-unsafe-fiber-methods -- the tab is idle, so the fiber has ended or waits on a later step
-    return Option.fromUndefinedOr(fiber.pollUnsafe());
-  };
-
-  perform(TestClock.setTime(now));
-  const clock = Context.get(platform, Clock.Clock);
-
-  const built = buildRuntime(config, platform, (evidence) =>
-    limits.admit(evidence, clock.currentTimeMillisUnsafe()),
-  );
+  const tab = tabClock(host, now, () => limits.fail("Settle"));
+  const built = buildRuntime(config, tab.platform, (evidence) => limits.admit(evidence, tab.now()));
 
   return {
     built,
-    perform,
+    perform: tab.perform,
     idle: () => {
-      settle();
+      tab.settle();
 
-      return tasks.length === 0 && !built.driver.pending();
+      return !tab.queued() && !built.driver.pending();
     },
-    now: () => clock.currentTimeMillisUnsafe(),
+    now: tab.now,
   };
 };
 
@@ -192,7 +149,7 @@ export const runSteps = <Names extends string>(
   const uses = new Map<string, { readonly actor: ActorId; readonly count: number }>();
   let current = 1;
   let stepAt = -1;
-  const turns = { instant: -1, count: 0, keep: 0 };
+  const turns = { instant: -1, count: 0 };
   const alive = (open: number) => open === current;
   const noted: Array<Noted> = [];
   const note = (event: Noted) => void noted.push(event);
@@ -206,20 +163,20 @@ export const runSteps = <Names extends string>(
   const store = makeStore(alive, (index) => note({ kind: "batch", index }));
 
   const limits: Limits = {
-    over: () => turns.count > TURN_LIMIT,
     fail: (reason) => {
       // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a limit ends the run at once and rejects run(); it is never an app outcome
       throw new StoryTurnLimit({
         reason,
         step: stepAt,
         instant: turns.instant,
-        evidence: reason === "Turns" ? evidence.slice(0, turns.keep) : [...evidence],
+        evidence: [...evidence],
       });
     },
     admit: (given, at) => {
-      const before = at === turns.instant ? turns.count : 0;
+      if (at !== turns.instant) Object.assign(turns, { instant: at, count: 0 });
 
-      if (before + given.filter((e) => e._tag === "Turn").length > TURN_LIMIT) limits.fail("Turns");
+      if (turns.count + given.filter((e) => e._tag === "Turn").length > TURN_LIMIT)
+        limits.fail("Turns");
     },
   };
 
@@ -232,7 +189,7 @@ export const runSteps = <Names extends string>(
       hidden: () => false,
       onHidden: () => undefined,
       store: Option.some(store.at(open)),
-      sessionSeed: open.toString(16).padStart(32, "0"),
+      sessionSeed: seedOf(mainTab(open)),
     });
 
     const opened = openTab({ ...subject.config, services }, host, now, limits);
@@ -246,8 +203,6 @@ export const runSteps = <Names extends string>(
 
       if (at !== turns.instant) Object.assign(turns, { instant: at, count: 0 });
       turns.count += 1;
-
-      if (turns.count === TURN_LIMIT) turns.keep = evidence.length;
     });
 
     if (!Option.exists(opened.perform(opened.built.runtime.ready()), Exit.isSuccess))
@@ -313,7 +268,7 @@ export const runSteps = <Names extends string>(
   for (const [n, step] of steps.entries()) {
     stepAt = n;
     note({ kind: "record", open: current, record: TraceRecord.Step({ index: n, step }) });
-    Object.assign(turns, { instant: tab.now(), count: 0, keep: 0 });
+    Object.assign(turns, { instant: tab.now(), count: 0 });
 
     Step.$match(step, {
       ensure: ({ actor }) => {
@@ -357,6 +312,7 @@ export const runSteps = <Names extends string>(
         const now = tab.now();
 
         if (heldWrites === "land") store.landHeld(current);
+        else store.abortHeld(current);
         current += 1;
         disposed = false;
         tab = boot(current, now);

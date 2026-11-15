@@ -1,4 +1,4 @@
-import { Equal, Option, Predicate } from "effect";
+import { Equal, Option, Predicate, Schema } from "effect";
 import { expect } from "vite-plus/test";
 import type { Evidence } from "../../src/host/inspect.ts";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
@@ -416,10 +416,25 @@ export const owingRestoredLive: Rule = {
 };
 
 /**
+ * Turn R24, over Flow's fixtures, whose memory Schemas are all JSON: every published memory is
+ * plain data, readable as JSON.
+ */
+export const publishedPlainData: Rule = {
+  rule: "Turn R24",
+  breaches: (run) =>
+    run.evidence.flatMap((e) =>
+      e._tag === "Published" && !Schema.is(Schema.Json)(e.memory)
+        ? [`Turn R24: ${e.actor.machine}/${e.actor.name} published memory that is not plain data`]
+        : [],
+    ),
+};
+
+/**
  * Every run rule, as a plain list: Story tests apply it through {@link checked}, and a generated
  * run receives it as its properties.
  */
 export const rules: ReadonlyArray<Rule> = [
+  publishedPlainData,
   endingDeliveredOnce,
   nothingAfterDefinite,
   endingChannels,

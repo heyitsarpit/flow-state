@@ -7,14 +7,26 @@ import type { Fault } from "./faults.ts";
 export const toolingFaults: ReadonlyArray<Fault> = [
   {
     name: "abort-fails-the-waiter",
-    says: "the test tooling's release of a dead tab's held write fails its waiter, so the dead tab runs again",
+    says: "a reload's abort of the dying tab's held write fails its waiter, so the dead tab runs again",
     rule: "Stories R13",
     edits: [
       {
         file: "src/host/testing/fake.ts",
-        find: '      if (!alive(out.batch.tab.open)) return mark(out, "aborted");',
+        find: '      ))\n        mark(out, "aborted");',
         replace:
-          '      if (!alive(out.batch.tab.open)) {\n        mark(out, "aborted");\n\n        return Deferred.doneUnsafe(out.answer, Exit.fail(new StoreRefused({})));\n      }',
+          '      ) {\n        mark(out, "aborted");\n        Deferred.doneUnsafe(out.answer, Exit.fail(new StoreRefused({})));\n      }',
+      },
+    ],
+  },
+  {
+    name: "abort-keeps-held",
+    says: "a reload leaves the dying tab's held writes held, so a later release takes one meant for the live tab",
+    rule: "Stories R13",
+    edits: [
+      {
+        file: "src/host/testing/fake.ts",
+        find: '      ))\n        mark(out, "aborted");',
+        replace: "      ))\n        void out;",
       },
     ],
   },
@@ -49,7 +61,7 @@ export const toolingFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/testing/run.ts",
-        find: "      settle();\n\n      return tasks.length === 0 && !built.driver.pending();",
+        find: "      tab.settle();\n\n      return !tab.queued() && !built.driver.pending();",
         replace: "      return true;",
       },
     ],

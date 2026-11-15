@@ -117,11 +117,11 @@ requirements
 
     R11  The storage words
         source  @plan.Testing.O3; code:packages/flow-state-v3/src/host/host.ts#Store.
-        must    Every run has one `Fake.storage`, shared by every open of its tab. A write lands at once unless a 
-                storage word
-                was given: `Fake.storage.hold()` holds the next write until `Fake.storage.release()`, which lands the
-                oldest held write and answers it; `Fake.storage.refuse()` makes the next write fail StoreRefused,
-                landing nothing. Every write batch is logged with its tab, purpose, keys and status: held, landed,
+        must    Every run has one `Fake.storage`, shared by every open of its tab. A write lands at once unless a
+                storage word was given: `Fake.storage.hold()` holds the next write until `Fake.storage.release()`,
+                which lands the oldest held write of the live tab and answers it, or until a reload ends its tab
+                (R13); `Fake.storage.refuse()` makes the next write fail StoreRefused, landing nothing. Every write 
+                batch is logged with its tab, purpose, keys and status: held, landed,
                 refused or aborted.
 
     R12  A checkpoint is a cut
@@ -146,19 +146,20 @@ requirements
                 and boots the tab's next open over the same store and registry, at the same time, then ensures again
                 every actor the Story ensured and has not detached, forgotten or disposed (`dispose`, which is
                 disposeActor; a `disposeRuntime` forgets no use). `reload({ reattach: false })` ensures none of them,
-                so only what the boot itself wakes is live. A store write still held at the reload stays held and
-                aborts if released; `reload({ heldWrites: "land" })` (@plan.Pending.D11) lands every held write of the
-                dying open at the reload instant, unheard: its waiter is never completed, as a transaction that commits
-                just before its tab is killed. Nothing from a dead tab writes to the store or is answered afterwards.
-                Releasing a dead tab's held write aborts it and lands nothing.
-                Releasing a dead tab's held call runs the handler if it has not run, so truth and the call's log
-                entry may change. In both cases the dead tab's waiter is never completed, so no code of the dead
-                tab runs again: evidence, store records and `inspection` are equal before and after the release.
+                so only what the boot itself wakes is live. A store write still held at the reload is aborted then,
+                as the Plan's "aborted on close" says, and leaves the held list, so a later release reaches only the
+                live tab's writes; `reload({ heldWrites: "land" })` (@plan.Pending.D11) lands every held write of the
+                dying open at the reload instant instead. Either way its waiter is never completed. Nothing from a
+                dead tab writes to the store or is answered afterwards. Releasing a dead tab's held call runs the 
+                handler if it has not run, so truth and the call's log
+                entry may change; its waiter is never completed, so no code of the dead tab runs again: evidence,
+                store records and `inspection` are equal before and after the release.
 
     R14  A run is reproducible
         source  @plan.Testing.O2.
         must    A Story run twice gives equal evidence, checkpoints and end. Each open's session seed is the Plan's
-                tab seed (run seed, tab name, open count) with one tab, so open n's seed is fixed by n, and host
+                tab seed from the tab name and open count (the run seed is Q1's `seed` option, cut), so open n's
+                seed is fixed by n, and host
                 time and randomness never choose an order.
 
     R15  Not exported yet
@@ -257,10 +258,11 @@ invariants
     I12  Every call of an endpoint appears exactly once in `read(endpoint)`, in arrival order, with the status of R10 
          at the cut. [@R10]
 
-    I13  A held write lands only on release while its tab is alive; a refused write changes no record. [@R11, @R13]
+    I13  A held write lands only on release while its tab is alive, or at its tab's reload with heldWrites "land"; at 
+         any other reload it is aborted. A refused write changes no record. [@R11, @R13]
 
     I14  After reload(), no store record changes because of a dead tab and no evidence comes from it: a step that 
-         releases a dead tab's held call or write leaves the evidence, the store records and `inspection` equal to
+         releases a dead tab's held call leaves the evidence, the store records and `inspection` equal to
         the cut just before it; only the call's log entry and truth may change. [@R13]
 
     I15  A cut, once taken, never changes; reading it starts no work and changes no later cut. [@R12]
@@ -284,7 +286,7 @@ invariants
 composition
     flow
         Design note. A Story's run boots open 1 of its tab at time 0 and applies the steps in order. A step drives
-        the tab's Runtime through the production driver (`code:packages/flow-state-v3/src/host/testing.ts#testing`
+        the tab's Runtime through the production driver (`code:packages/flow-state-v3/src/host/testing/seam.ts#testing`
         for ensure, until the Runtime has a public use), then the tab settles. The run, not a tab, owns the
         registry, the call log and the store, so a reload keeps them and only the open is new. A dead tab is never
         closed, as a killed one is not; it is only never drained again.
@@ -294,8 +296,9 @@ realization typescript
 
     - Time: `TestClock.layer` (effect/testing), built per open with `warningDelay` infinite so no live timer is
         armed; `TestClock.adjust` wakes sleeps in timestamp order and waits for each woken fiber to suspend;
-        `TestClock.setTime` starts a reloaded tab at the dead open's time. Used: it replaces both hand clocks
-        (`code:packages/flow-state-v3/src/host/testing/page.ts#pageOver` and the bridge's).
+        `TestClock.setTime` starts a reloaded tab at the dead open's time. Used: it is the one clock
+        (`code:packages/flow-state-v3/src/host/testing/clock.ts#tabClock`), shared by the runner and the host
+        tests' seam, so no hand clock is left.
     - Event loop: `Scheduler.MixedScheduler` with its host hook replaced by a push onto the tab's task list;
         TestClock's layer wraps it and provides it as the tab's Scheduler, which every Runtime fiber inherits.
         Draining the list is settling. Effect has no run-to-idle call and needs none: only scheduler hops queue
@@ -414,9 +417,10 @@ tests
     T8  Storage words: while the acknowledging write is held no call reaches the fake (@spec.WriteAhead.R13), and 
         release lets the transfer go; a refused acknowledgement ends the write NotSent and no call is made; both
             batches are logged. [@I13]
-    T9  Dead tab: a write held across a reload and released after it is aborted; a call held at request across a reload 
-        and released after it is handled once; either release leaves the evidence, the store records and
-            `inspection` equal to the checkpoint just before it (planted fault: the release completes the waiter);
+    T9  Dead tab: a write held across a reload is aborted at the reload, and a later release reaches only a write the 
+        live tab holds; a call held at request across a reload and released after it is handled once, leaving the
+            evidence, the store records and `inspection` equal to the checkpoint just before it (planted faults: the
+            abort completes the waiter; the abort leaves the write held);
             advancing after the reload fires no deadline of the dead tab. [@I10, @I13, @I14]
     T10  Reproducible and timer-free: every fixture Story run twice gives equal evidence, checkpoints and end, with 
          host setTimeout, setInterval and setImmediate never called; reading `inspection` twice at one

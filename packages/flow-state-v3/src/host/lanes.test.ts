@@ -15,8 +15,15 @@ import {
 } from "../index.ts";
 import { CallResult, Input } from "../core/step.ts";
 import { attachInspector, type Evidence } from "./inspect.ts";
-import { testing } from "./testing.ts";
-import { Bell, bellOf, bootWith, endingsOf, pageOver, tagsOf } from "./testing/page.ts";
+import {
+  Bell,
+  bellOf,
+  bootWith,
+  endingsOf,
+  platformOver,
+  tagsOf,
+  testing,
+} from "./testing/seam.ts";
 
 const ring = transaction({
   id: "Test/ring",
@@ -333,16 +340,16 @@ describe("write lanes on the production runtime", () => {
 
     testing.attach(first.built, front, "host", false);
     testing.send(first.built, front, "Ring", {});
-    first.page.settle();
+    first.tab.settle();
 
     const [attempt] = [...first.bell.waiting.keys()];
     assert.ok(attempt !== undefined, "the first boot sent the ring");
 
-    // The page dies with the ring on the wire. The next boot restores its lane Held and delivers
+    // The tab dies with the ring on the wire. The next boot restores its lane Held and delivers
     // unknown Restored, whose handler retries; the Runtime is disposed before the re-send leaves.
     const second = boot(store, 2, false);
     testing.disposeRuntime(second.built);
-    second.page.settle();
+    second.tab.settle();
 
     assert.deepStrictEqual(endingsOf(second.seen, attempt), ["unknown Restored"]);
     assert.deepStrictEqual(second.bell.rings, [], "nothing is invoked once disposal starts");
@@ -355,17 +362,17 @@ describe("write lanes on the production runtime", () => {
 
     testing.attach(first.built, front, "host", false);
     testing.send(first.built, front, "Ring", {});
-    first.page.settle();
+    first.tab.settle();
 
     const [attempt] = [...first.bell.waiting.keys()];
     assert.ok(attempt !== undefined, "the ring is on the wire");
 
     const disposing = Effect.runFork(first.built.runtime.dispose());
-    first.page.settle();
+    first.tab.settle();
     assert.strictEqual(disposing.pollUnsafe(), undefined, "dispose() waits for the call");
 
     first.bell.waiting.get(attempt)?.(Effect.succeed("ding"));
-    first.page.settle();
+    first.tab.settle();
 
     assert.ok(Exit.isSuccess(await Effect.runPromise(Effect.exit(Fiber.join(disposing)))));
     assert.deepStrictEqual(endingsOf(first.seen, attempt), ["success success"]);
@@ -377,7 +384,7 @@ describe("write lanes on the production runtime", () => {
 
     const second = boot(store, 2);
     testing.attach(second.built, front, "host", true);
-    second.page.settle();
+    second.tab.settle();
 
     assert.deepStrictEqual(
       second.seen.flatMap((e) =>
@@ -392,16 +399,16 @@ describe("write lanes on the production runtime", () => {
 
     testing.attach(first.built, front, "host", false);
     testing.send(first.built, front, "Ring", {});
-    first.page.settle();
+    first.tab.settle();
 
     const [attempt] = [...first.bell.waiting.keys()];
     assert.ok(attempt !== undefined, "the ring is on the wire");
 
     const disposing = Effect.runFork(first.built.runtime.dispose());
-    first.page.advance(4999);
+    first.tab.advance(4999);
     assert.strictEqual(disposing.pollUnsafe(), undefined, "dispose() waits out the bound");
 
-    first.page.advance(1);
+    first.tab.advance(1);
 
     assert.ok(Exit.isSuccess(await Effect.runPromise(Effect.exit(Fiber.join(disposing)))));
     assert.deepStrictEqual(endingsOf(first.seen, attempt), ["unknown Disposed"]);
@@ -416,15 +423,15 @@ describe("write lanes on the production runtime", () => {
 
     testing.attach(first.built, side, "host", false);
     testing.send(first.built, side, "Ring", {});
-    first.page.settle();
+    first.tab.settle();
 
     const [attempt] = first.bell.rings;
     assert.ok(attempt !== undefined, "the ring is on the wire");
     first.bell.waiting.get(attempt)?.(Effect.fail("lost"));
-    first.page.settle();
+    first.tab.settle();
 
     testing.send(first.built, side, "Again", {});
-    first.page.settle();
+    first.tab.settle();
 
     assert.deepStrictEqual(first.bell.rings, [attempt, attempt], "the Held Attempt is re-sent");
   });
@@ -434,16 +441,16 @@ describe("write lanes on the production runtime", () => {
 
     testing.attach(first.built, side, "host", false);
     testing.send(first.built, side, "Ring", {});
-    first.page.settle();
+    first.tab.settle();
 
     const [attempt] = first.bell.rings;
     assert.ok(attempt !== undefined, "the ring is on the wire");
     first.bell.waiting.get(attempt)?.(Effect.fail("lost"));
-    first.page.settle();
+    first.tab.settle();
 
     testing.send(first.built, side, "Stop", {});
     testing.send(first.built, side, "Ring", {});
-    first.page.settle();
+    first.tab.settle();
 
     assert.deepStrictEqual(
       first.seen.flatMap((e) => (e._tag === "Lane" ? [e.kind] : [])),
@@ -456,12 +463,12 @@ describe("write lanes on the production runtime", () => {
 
     testing.attach(first.built, jammed, "host", false);
     testing.send(first.built, jammed, "Ring", {});
-    first.page.settle();
+    first.tab.settle();
 
     const [attempt] = first.bell.rings;
     assert.ok(attempt !== undefined, "the ring is on the wire");
     first.bell.waiting.get(attempt)?.(Effect.fail("lost"));
-    assert.doesNotThrow(() => first.page.settle());
+    assert.doesNotThrow(() => first.tab.settle());
 
     // The bell's error is untagged, so its reason is Error.
     assert.deepStrictEqual(endingsOf(first.seen, attempt), ["unknown Error"]);
@@ -477,7 +484,7 @@ describe("write lanes on the production runtime", () => {
     );
 
     testing.send(first.built, jammed, "Ring", {});
-    first.page.settle();
+    first.tab.settle();
 
     assert.deepStrictEqual(first.bell.rings, [attempt], "nothing new is sent");
     assert.deepStrictEqual(
@@ -491,9 +498,9 @@ describe("write lanes on the production runtime", () => {
   it("an ending with no lane whose turn is refused twice is kept for its one try at the next adoption, not lost (Actors R15, I24)", () => {
     const jam = { on: true };
     const { served, StuckMachine } = stuckOver(jam);
-    const page = pageOver(new Map(), 1);
+    const tab = platformOver(new Map(), 1);
     const seen: Array<Evidence> = [];
-    const built = testing.build({ app: served, services: bellOf().layer }, page.platform);
+    const built = testing.build({ app: served, services: bellOf().layer }, tab.platform);
     attachInspector(built.runtime, (e) => void seen.push(e));
     Effect.runSync(built.runtime.ready());
 
@@ -501,7 +508,7 @@ describe("write lanes on the production runtime", () => {
     // before any lane.
     testing.attach(built, stuck, "host", false);
     testing.send(built, stuck, "Ring", {});
-    assert.doesNotThrow(() => page.settle());
+    assert.doesNotThrow(() => tab.settle());
 
     // Nothing here has a lane or an Attempt: every delivery and issue is the decline's.
     const declined = (all: ReadonlyArray<Evidence>) =>
@@ -521,7 +528,7 @@ describe("write lanes on the production runtime", () => {
     jam.on = false;
     built.runtime.disposeActor(actorRef(StuckMachine, "stuck"));
     testing.attach(built, stuck, "host", false);
-    page.settle();
+    tab.settle();
 
     assert.deepStrictEqual(declined(seen).slice(4), ["NotRung"]);
     assert.ok(
@@ -537,7 +544,7 @@ describe("write lanes on the production runtime", () => {
 
     testing.attach(first.built, peeking, "host", false);
     testing.send(first.built, peeking, "Look", {});
-    assert.doesNotThrow(() => first.page.settle());
+    assert.doesNotThrow(() => first.tab.settle());
 
     const heard = () =>
       first.seen.flatMap((e) => {
@@ -552,7 +559,7 @@ describe("write lanes on the production runtime", () => {
     jam.on = false;
     first.built.runtime.disposeActor(actorRef(PeekMachine, "peek"));
     testing.attach(first.built, peeking, "host", false);
-    first.page.settle();
+    first.tab.settle();
 
     assert.deepStrictEqual(heard().slice(4), []);
   });
@@ -563,7 +570,7 @@ describe("write lanes on the production runtime", () => {
 
     testing.attach(first.built, latched, "host", false);
     testing.send(first.built, latched, "Ring", {});
-    first.page.settle();
+    first.tab.settle();
 
     const [attempt] = first.bell.rings;
     assert.ok(attempt !== undefined, "the ring is on the wire");
@@ -581,7 +588,7 @@ describe("write lanes on the production runtime", () => {
       first.built.driver.input(
         Input.Settled({ call, result: CallResult.Success({ value: "ding" }) }),
       );
-    first.page.settle();
+    first.tab.settle();
 
     assert.deepStrictEqual(endingsOf(first.seen, attempt), ["unknown Cancelled"]);
     assert.deepStrictEqual(heard, [undefined]);
@@ -593,20 +600,20 @@ describe("write lanes on the production runtime", () => {
 
     testing.attach(first.built, paired, "host", false);
     testing.send(first.built, paired, "Ring", {});
-    first.page.settle();
+    first.tab.settle();
 
     const [one, two] = first.bell.rings;
     assert.ok(one !== undefined && two !== undefined, "both rings are on the wire");
     first.bell.waiting.get(one)?.(Effect.fail("lost"));
-    first.page.settle();
+    first.tab.settle();
     first.bell.waiting.get(two)?.(Effect.fail("lost"));
-    first.page.settle();
+    first.tab.settle();
 
     // The identity is disposed and adopted again: both Held heads hear unknown Restored, and the
     // first one's handler retries the second before the second's own Restored is admitted.
     first.built.runtime.disposeActor(actorRef(PairMachine, "pair"));
     testing.attach(first.built, paired, "host", false);
-    assert.doesNotThrow(() => first.page.settle());
+    assert.doesNotThrow(() => first.tab.settle());
 
     assert.deepStrictEqual(
       first.bell.rings.filter((r) => r === two),
@@ -621,21 +628,21 @@ describe("write lanes on the production runtime", () => {
 
     testing.attach(first.built, front, "host", false);
     testing.send(first.built, front, "Ring", {});
-    first.page.settle();
+    first.tab.settle();
 
     const [attempt] = [...first.bell.waiting.keys()];
     assert.ok(attempt !== undefined, "the ring is on the wire");
 
     const disposing = Effect.runFork(first.built.runtime.dispose());
-    first.page.settle();
+    first.tab.settle();
     first.bell.waiting.get(attempt)?.(Effect.succeed("ding"));
-    first.page.settle();
+    first.tab.settle();
 
     assert.ok(Exit.isSuccess(await Effect.runPromise(Effect.exit(Fiber.join(disposing)))));
 
     const second = boot(store, 2);
     testing.attach(second.built, front, "host", true);
-    second.page.settle();
+    second.tab.settle();
 
     assert.deepStrictEqual(
       second.seen.flatMap((e) =>
@@ -649,13 +656,13 @@ describe("write lanes on the production runtime", () => {
     const first = boot(new Map(), 1, true, doors, { captureMs: 0, hung: true });
 
     testing.attach(first.built, front, "host", false);
-    first.page.settle();
+    first.tab.settle();
 
     const disposing = Effect.runFork(first.built.runtime.dispose());
-    first.page.advance(4999);
+    first.tab.advance(4999);
     assert.strictEqual(disposing.pollUnsafe(), undefined, "dispose() waits for the write");
 
-    first.page.advance(1);
+    first.tab.advance(1);
 
     assert.ok(Exit.isSuccess(await Effect.runPromise(Effect.exit(Fiber.join(disposing)))));
     assert.ok(first.seen.some((e) => e._tag === "Issue" && e.code === "StorageFailure"));
@@ -676,7 +683,7 @@ describe("write lanes on the production runtime", () => {
   });
 
   it("dispose() during the bootstrap cancels it: ready rejects RuntimeDisposed, a service acquired late is released, and no actor starts (Actors R4, R22)", async () => {
-    const page = pageOver(new Map(), 1);
+    const tab = platformOver(new Map(), 1);
     const seen: Array<Evidence> = [];
     const released: Array<string> = [];
     const acquiring: Array<(answer: Effect.Effect<void>) => void> = [];
@@ -693,18 +700,18 @@ describe("write lanes on the production runtime", () => {
 
     const built = testing.build(
       { app: doors, services: layer, scope: "test", persistence: { captureMs: 0 } },
-      page.platform,
+      tab.platform,
     );
 
     attachInspector(built.runtime, (e) => void seen.push(e));
     const booting = Effect.runFork(built.runtime.ready());
-    page.settle();
+    tab.settle();
     assert.strictEqual(acquiring.length, 1, "the bootstrap is acquiring its service");
 
     await Effect.runPromise(built.runtime.dispose());
 
     for (const resume of acquiring) resume(Effect.void);
-    page.settle();
+    tab.settle();
 
     const booted = await Effect.runPromise(
       Fiber.join(booting).pipe(

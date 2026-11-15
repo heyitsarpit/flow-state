@@ -1,0 +1,256 @@
+import { describe, expect, it } from "vite-plus/test";
+import { cellsCheckout } from "../../fixtures/cells/machine.ts";
+import { cellsStory } from "../../fixtures/cells/stories.ts";
+import { checkout } from "../../fixtures/pay/machine.ts";
+import { Shop } from "../../fixtures/pay/server.ts";
+import { shopStory } from "../../fixtures/pay/stories.ts";
+import { Fake } from "../../src/host/testing/index.ts";
+import {
+  before,
+  CHECK,
+  disposals,
+  endings,
+  lastReason,
+  laneFacts,
+  onWire,
+  type Records,
+  row,
+  START,
+  state,
+  steadfastStory,
+  VISA,
+} from "../checkout.ts";
+import { played } from "../rules/played.ts";
+
+const restoredAfter = (records: Records) =>
+  endings(records, "pay").some((e) => e.reason === "Restored");
+
+describe("PAY-13 (Actors R22, R23, I29, I30; WriteAhead R14)", () => {
+  it("PAY-13/hung-commit: a charge the network will not interrupt ends unknown Disposed at the bound", async () => {
+    const run = await played(
+      steadfastStory("PAY-13/hung-commit")
+        .ensure(checkout)
+        .send(checkout, START)
+        .world(Shop.confirm.hold())
+        .send(checkout, VISA)
+        .disposeRuntime()
+        .checkpoint("disposing")
+        .advance("5 seconds")
+        .checkpoint("disposed")
+        .reload()
+        .checkpoint("reloaded"),
+    );
+
+    expect(disposals(before(run, "disposing"))).toBe(0);
+    expect(disposals(before(run, "disposed"))).toBe(1);
+    expect(state(run.checkpoints.reloaded)).toBe("UNSURE");
+    expect(lastReason(run.evidence, "pay")).toBe("Disposed");
+  });
+
+  it("PAY-13/waiting-flushed: the disposal ends once its last write is answered; the unsent charge ends Disposed", async () => {
+    const run = await played(
+      shopStory("PAY-13/waiting-flushed")
+        .ensure(checkout)
+        .send(checkout, START)
+        .world(Fake.storage.hold())
+        .send(checkout, VISA)
+        .disposeRuntime()
+        .world(Fake.storage.release())
+        .checkpoint("disposed")
+        .reload()
+        .checkpoint("reloaded"),
+    );
+
+    const { disposed, reloaded } = run.checkpoints;
+
+    expect(disposals(before(run, "disposed"))).toBe(1);
+    expect(disposed.read(Shop.confirm)).toHaveLength(0);
+    expect(state(reloaded)).toBe("CARD");
+    expect(lastReason(run.evidence, "pay")).toBe("Disposed");
+    expect(reloaded.read(Shop.confirm)).toHaveLength(0);
+  });
+
+  it("PAY-13/waiting-flush-lost: with nothing on disk there is no Restored after the Disposed ending", async () => {
+    const run = await played(
+      shopStory("PAY-13/waiting-flush-lost")
+        .ensure(checkout)
+        .send(checkout, START)
+        .world(Fake.storage.hold())
+        .send(checkout, VISA)
+        .disposeRuntime()
+        .reload()
+        .checkpoint("reloaded"),
+    );
+
+    const { reloaded } = run.checkpoints;
+
+    expect(state(reloaded)).toBe("CARD");
+    expect(lastReason(run.evidence, "pay")).toBe("Disposed");
+    expect(reloaded.read(Shop.confirm)).toHaveLength(0);
+  });
+});
+
+describe("PAY-15 disposal on Cells (Actors R22, I29; Restore I6)", () => {
+  const unsure = (id: string) =>
+    cellsStory(id)
+      .ensure(cellsCheckout)
+      .send(cellsCheckout, START)
+      .world(Shop.confirm.drop())
+      .send(cellsCheckout, VISA);
+
+  it("PAY-15/dispose-held: a Held head survives the disposal and is restored Held", async () => {
+    const run = await played(
+      unsure("PAY-15/dispose-held")
+        .disposeRuntime()
+        .checkpoint("disposed")
+        .reload()
+        .checkpoint("reloaded"),
+    );
+
+    expect(disposals(before(run, "disposed"))).toBe(1);
+    expect(state(run.checkpoints.reloaded, cellsCheckout)).toBe("UNSURE");
+    expect(row(run.checkpoints.reloaded, cellsCheckout)?.uncertain).toBe(true);
+  });
+
+  it("PAY-15/dispose-held-moved: the boot delivers the Held head's unknown Restored after the shopper moved on", async () => {
+    const run = await played(
+      unsure("PAY-15/dispose-held-moved")
+        .send(cellsCheckout, VISA)
+        .checkpoint("paying")
+        .disposeRuntime()
+        .reload()
+        .checkpoint("reloaded"),
+    );
+
+    expect(state(run.checkpoints.paying, cellsCheckout)).toBe("PAYING");
+    expect(row(run.checkpoints.reloaded, cellsCheckout)?.uncertain).toBe(true);
+    expect(state(run.checkpoints.reloaded, cellsCheckout)).toBe("UNSURE");
+  });
+
+  it.fails("Actors I43: a refused final write reports StorageFailure before the disposal ends", async () => {
+    const run = await cellsStory("Actors I43 refused final write")
+      .ensure(cellsCheckout)
+      .send(cellsCheckout, START)
+      .world(Fake.storage.refuse())
+      .disposeRuntime()
+      .advance("5 seconds")
+      .checkpoint("disposed")
+      .run();
+
+    expect(laneFacts(before(run, "disposed"), "StorageFailure") > 0).toBe(true);
+  });
+});
+
+describe("PAY-16 disposal (Actors R22, I29, I30, I31; WriteAhead R14)", () => {
+  it("PAY-16/settled-during-disposal-parked: a charge that settles inside the bound delivers its own ending at the boot", async () => {
+    const run = await played(
+      onWire("PAY-16/settled-during-disposal-parked", Shop.confirm.hold())
+        .disposeRuntime()
+        .checkpoint("disposing")
+        .world(Shop.confirm.release())
+        .checkpoint("disposed")
+        .world(Shop.placeOrder.hold())
+        .reload()
+        .checkpoint("reloaded"),
+    );
+
+    const { reloaded } = run.checkpoints;
+
+    expect(disposals(before(run, "disposing"))).toBe(0);
+    expect(disposals(before(run, "disposed"))).toBe(1);
+    expect(endings(before(run, "disposed"), "pay").at(-1)?.channel).toBe("success");
+    expect(state(reloaded)).toBe("PLACING");
+    expect(restoredAfter(run.evidence)).toBe(false);
+    expect(row(reloaded)).toBeUndefined();
+  });
+
+  it("PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed", async () => {
+    const run = await played(
+      onWire("PAY-16/on-the-wire-at-the-bound", Shop.confirm.hold())
+        .disposeRuntime()
+        .advance("4999 millis")
+        .checkpoint("within")
+        .advance("1 millis")
+        .checkpoint("bound")
+        .reload()
+        .checkpoint("reloaded"),
+    );
+
+    const pay = endings(before(run, "bound"), "pay");
+
+    expect(disposals(before(run, "within"))).toBe(0);
+    expect(disposals(before(run, "bound"))).toBe(1);
+    expect([pay.at(-1)?.channel, pay.at(-1)?.reason]).toEqual(["unknown", "Disposed"]);
+    expect(state(run.checkpoints.reloaded)).toBe("UNSURE");
+    expect(restoredAfter(run.evidence)).toBe(false);
+  });
+
+  it("PAY-16/never-answered-waits-for-the-bound", async () => {
+    const run = await played(
+      onWire("PAY-16/never-answered", Shop.confirm.hold())
+        .disposeRuntime()
+        .advance("4999 millis")
+        .checkpoint("within")
+        .advance("1 millis")
+        .checkpoint("bound")
+        .reload()
+        .checkpoint("reloaded"),
+    );
+
+    const pay = endings(before(run, "bound"), "pay");
+
+    expect(disposals(before(run, "within"))).toBe(0);
+    expect(endings(before(run, "within"), "pay")).toHaveLength(0);
+    expect(disposals(before(run, "bound"))).toBe(1);
+    expect([pay.at(-1)?.channel, pay.at(-1)?.reason]).toEqual(["unknown", "Disposed"]);
+    expect(state(run.checkpoints.reloaded)).toBe("UNSURE");
+    expect(restoredAfter(run.evidence)).toBe(false);
+    expect(run.checkpoints.reloaded.read(Shop.confirm)).toHaveLength(1);
+  });
+
+  it("PAY-16/dispose-waiting-resend: a re-send waiting for its capture at the disposal does not end Disposed", async () => {
+    const run = await played(
+      onWire("PAY-16/dispose-waiting-resend", Shop.confirm.drop())
+        .world(Fake.storage.hold())
+        .advance(CHECK)
+        .disposeRuntime()
+        .checkpoint("disposing"),
+    );
+
+    expect(endings(run.evidence, "pay").some((e) => e.reason === "Disposed")).toBe(false);
+  });
+
+  it("PAY-16/disposal-ends-with-the-last-fiber: a charge the network will not interrupt ends the disposal when it ends", async () => {
+    const run = await played(
+      steadfastStory("PAY-16/disposal-ends-with-the-last-fiber")
+        .ensure(checkout)
+        .send(checkout, START)
+        .world(Shop.confirm.hold())
+        .send(checkout, VISA)
+        .disposeRuntime()
+        .checkpoint("disposing")
+        .world(Shop.confirm.release())
+        .checkpoint("disposed")
+        .world(Shop.placeOrder.hold())
+        .reload()
+        .checkpoint("reloaded"),
+    );
+
+    expect(disposals(before(run, "disposing"))).toBe(0);
+    expect(disposals(before(run, "disposed"))).toBe(1);
+    expect(state(run.checkpoints.reloaded)).toBe("PLACING");
+  });
+
+  it("PAY-16/answered-inside-the-bound: an answer inside the bound is delivered after the boot", async () => {
+    const run = await played(
+      onWire("PAY-16/answered-inside-the-bound", Shop.confirm.hold())
+        .disposeRuntime()
+        .advance("2500 millis")
+        .world(Shop.confirm.release(), Shop.placeOrder.hold())
+        .reload()
+        .checkpoint("reloaded"),
+    );
+
+    expect(state(run.checkpoints.reloaded)).toBe("PLACING");
+  });
+});

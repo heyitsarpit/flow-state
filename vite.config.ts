@@ -282,7 +282,6 @@ export default defineConfig({
       },
       {
         files: [`${packageTests}/**/*.{ts,tsx}`, `${production}/bench/**/*.{ts,tsx}`],
-        excludeFiles: [`${packageTests}/bridge/**`],
         rules: {
           "no-restricted-imports": ["error", { patterns: [sourceFromTests] }],
         },

@@ -3,8 +3,7 @@ import { Effect, Option, Predicate, Schema } from "effect";
 import { describe, it } from "vite-plus/test";
 import { actorRef, app, definition, deny, Flow, machine, Outcome, transaction } from "../index.ts";
 import type { Evidence } from "./inspect.ts";
-import { testing } from "./testing.ts";
-import { Bell, bootWith, endingsOf } from "./testing/page.ts";
+import { Bell, bootWith, endingsOf, testing } from "./testing/seam.ts";
 
 // A switch the suite turns: while `on`, every outcome mapper of the write throws, so each try of
 // its ending is a refused turn (WriteLanes R10). `tries` holds one entry per mapper call.
@@ -276,17 +275,17 @@ const deliveredOf = (seen: ReadonlyArray<Evidence>) =>
 
 const lost = (b: ReturnType<typeof bootWith>, attempt: string) => {
   b.bell.waiting.get(attempt)?.(Effect.fail("lost"));
-  b.page.settle();
+  b.tab.settle();
 };
 
 const rung = (b: ReturnType<typeof bootWith>, attempt: string) => {
   b.bell.waiting.get(attempt)?.(Effect.succeed("ding"));
-  b.page.settle();
+  b.tab.settle();
 };
 
 const ring = (b: ReturnType<typeof bootWith>, tone: string, actor = tolls) => {
   testing.send(b.built, actor, "Ring", { tone });
-  b.page.settle();
+  b.tab.settle();
 };
 
 const lastRing = (b: ReturnType<typeof bootWith>) => {
@@ -336,7 +335,7 @@ describe("the owed ledger on the production runtime", () => {
     const attempt = lastRing(first);
     lost(first, attempt);
     testing.send(first.built, tolls, "Again", { tone: "a" });
-    first.page.settle();
+    first.tab.settle();
     assert.deepStrictEqual(first.bell.rings, [attempt, attempt], "the Held Attempt is re-sent");
     rung(first, attempt);
     assert.strictEqual(jam.tries.length, 4, "each ending was tried twice");
@@ -372,7 +371,7 @@ describe("the owed ledger on the production runtime", () => {
       jam.on = false;
       b.built.runtime.disposeActor(actorRef(TollMachine, "t1"));
       testing.attach(b.built, tolls, "host", false);
-      b.page.settle();
+      b.tab.settle();
 
       assert.deepStrictEqual(turnsOf(b.seen, ["Rang"]), ["Rang"], "the row is heard at the start");
       assert.strictEqual(
@@ -394,7 +393,7 @@ describe("the owed ledger on the production runtime", () => {
     const adopt = () => {
       b.built.runtime.disposeActor(actorRef(TollMachine, "t1"));
       testing.attach(b.built, tolls, "host", false);
-      b.page.settle();
+      b.tab.settle();
     };
 
     testing.attach(b.built, tolls, "host", false);
@@ -425,14 +424,14 @@ describe("the owed ledger on the production runtime", () => {
 
     testing.attach(b.built, chained, "host", false);
     testing.send(b.built, chained, "Go", {});
-    b.page.settle();
+    b.tab.settle();
     b.built.runtime.disposeActor(actorRef(ChainMachine, "c1"));
-    b.page.settle();
+    b.tab.settle();
     testing.attach(b.built, chained, "host", false);
-    b.page.settle();
+    b.tab.settle();
 
     for (const _ of [1, 2, 3]) testing.send(b.built, chained, "Poke", {});
-    b.page.settle();
+    b.tab.settle();
 
     assert.strictEqual(
       knocksHeard(b.seen),
@@ -450,9 +449,9 @@ describe("the owed ledger on the production runtime", () => {
 
     testing.attach(first.built, chained, "host", false);
     testing.send(first.built, chained, "Go", {});
-    first.page.settle();
+    first.tab.settle();
     testing.disposeRuntime(first.built);
-    first.page.settle();
+    first.tab.settle();
 
     // Codec I7: three record kinds, `actor/`, `lane/` and `owed/`; no other key.
     const kinds = new Set([...store.keys()].map((k) => k.split("/")[0]));
@@ -465,10 +464,10 @@ describe("the owed ledger on the production runtime", () => {
 
     const second = bootWith(served, store, 2);
     testing.attach(second.built, chained, "host", true);
-    second.page.settle();
+    second.tab.settle();
 
     for (const _ of [1, 2, 3]) testing.send(second.built, chained, "Poke", {});
-    second.page.settle();
+    second.tab.settle();
 
     assert.strictEqual(
       knocksHeard(first.seen) + knocksHeard(second.seen),
@@ -487,11 +486,11 @@ describe("the owed ledger on the production runtime", () => {
 
     testing.attach(first.built, chained, "host", false);
     testing.send(first.built, chained, "Go", {});
-    first.page.settle();
+    first.tab.settle();
     first.built.runtime.disposeActor(actorRef(ChainMachine, "c1"));
-    first.page.settle();
+    first.tab.settle();
     testing.disposeRuntime(first.built);
-    first.page.settle();
+    first.tab.settle();
 
     const second = bootWith(served, store, 2);
     assert.strictEqual(
@@ -501,10 +500,10 @@ describe("the owed ledger on the production runtime", () => {
     );
 
     testing.attach(second.built, chained, "host", false);
-    second.page.settle();
+    second.tab.settle();
 
     for (const _ of [1, 2, 3]) testing.send(second.built, chained, "Poke", {});
-    second.page.settle();
+    second.tab.settle();
 
     assert.strictEqual(
       knocksHeard(first.seen) + knocksHeard(second.seen),
@@ -531,7 +530,7 @@ describe("the owed ledger on the production runtime", () => {
     // The retry's capture is issued; the Runtime is disposed before its answer is heard.
     testing.send(first.built, tolls, "Again", { tone: "a" });
     testing.disposeRuntime(first.built);
-    first.page.settle();
+    first.tab.settle();
 
     const second = bootWith(served, store, 2);
     assert.strictEqual(
@@ -541,11 +540,11 @@ describe("the owed ledger on the production runtime", () => {
     );
 
     testing.attach(second.built, tolls, "host", true);
-    second.page.settle();
+    second.tab.settle();
     assert.deepStrictEqual(endingsOf(second.seen, attempt), ["unknown Restored"]);
 
     testing.send(second.built, tolls, "Again", { tone: "a" });
-    second.page.settle();
+    second.tab.settle();
     assert.deepStrictEqual(second.bell.rings, [attempt], "the retry invokes the Attempt once");
     assert.ok((counts.at(-1) ?? 0) > 0, "the re-send carries a retryCount above 0");
   });
@@ -561,12 +560,12 @@ describe("the owed ledger on the production runtime", () => {
     testing.attach(first.built, tolls, "host", false);
     testing.send(first.built, tolls, "Ring", { tone: "a" });
     testing.disposeRuntime(first.built);
-    first.page.settle();
+    first.tab.settle();
     assert.deepStrictEqual(first.bell.rings, [], "never sent");
 
     const second = bootWith(served, store, 2);
     testing.attach(second.built, tolls, "host", true);
-    second.page.settle();
+    second.tab.settle();
 
     assert.deepStrictEqual(
       [...store.keys()].filter((k) => k.startsWith("lane/")),
@@ -581,7 +580,7 @@ describe("the owed ledger on the production runtime", () => {
 
     const third = bootWith(served, store, 3);
     testing.attach(third.built, tolls, "host", true);
-    third.page.settle();
+    third.tab.settle();
     assert.deepStrictEqual(turnsOf(third.seen, ["NotRung", "Unsure"]), [], "heard once");
   });
 
@@ -597,7 +596,7 @@ describe("the owed ledger on the production runtime", () => {
     ring(b, "a", chained);
     const attempt = lastRing(b);
     testing.send(b.built, chained, "Go", {});
-    b.page.settle();
+    b.tab.settle();
     rung(b, attempt);
 
     assert.deepStrictEqual(
@@ -651,14 +650,14 @@ describe("the owed ledger on the production runtime", () => {
     ring(b, "a");
     const onA = lastRing(b);
     testing.send(b.built, tolls, "Again", { tone: "b" });
-    b.page.settle();
+    b.tab.settle();
     b.built.runtime.disposeActor(actorRef(TollMachine, "t1"));
     rung(b, onA);
     rung(b, onB);
     jam.on = false;
     const from = b.seen.length;
     testing.attach(b.built, tolls, "host", false);
-    b.page.settle();
+    b.tab.settle();
 
     assert.deepStrictEqual(
       deliveredOf(b.seen.slice(from)),
@@ -682,17 +681,17 @@ describe("the owed ledger on the production runtime", () => {
     ring(b, "a");
     const onA = lastRing(b);
     testing.send(b.built, tolls, "Again", { tone: "b" });
-    b.page.settle();
+    b.tab.settle();
     b.built.runtime.disposeActor(actorRef(TollMachine, "t1"));
     rung(b, onA);
     rung(b, onB);
     testing.disposeRuntime(b.built);
-    b.page.settle();
+    b.tab.settle();
 
     jam.on = false;
     const second = bootWith(served, store, 2);
     testing.attach(second.built, tolls, "host", false);
-    second.page.settle();
+    second.tab.settle();
 
     assert.deepStrictEqual(
       deliveredOf(second.seen),
@@ -726,17 +725,17 @@ describe("the owed ledger on the production runtime", () => {
     // Return: the free incarnation ends past its grace and is ensured again from its record.
     const returned = setup(new Map());
     testing.detach(returned.b.built, tolls, "host");
-    returned.b.page.advance(1000);
+    returned.b.tab.advance(1000);
     const returnAt = returned.b.seen.length;
     testing.attach(returned.b.built, tolls, "host", true);
-    returned.b.page.settle();
+    returned.b.tab.settle();
 
     // Adoption: disposeActor, then an ensure binds the unbound lanes.
     const adopted = setup(new Map());
     adopted.b.built.runtime.disposeActor(actorRef(adopted.TollMachine, "t1"));
     const adoptAt = adopted.b.seen.length;
     testing.attach(adopted.b.built, tolls, "host", false);
-    adopted.b.page.settle();
+    adopted.b.tab.settle();
 
     // Reload: a boot rebuilds the lanes Held and wakes nothing (Restore R1).
     const store = new Map<string, string>();
@@ -748,7 +747,7 @@ describe("the owed ledger on the production runtime", () => {
       "a boot owes, parks and delivers nothing",
     );
     testing.attach(second.built, tolls, "host", true);
-    second.page.settle();
+    second.tab.settle();
 
     const inLaneIdOrder = "every start hears the Held heads in lane-id order";
     assert.deepStrictEqual(heardAfter(returned.b.seen, returnAt), returned.order, inLaneIdOrder);
@@ -787,7 +786,7 @@ describe("the owed ledger on the production runtime", () => {
     testing.attach(b.built, tolls, "host", false);
     testing.send(b.built, tolls, "Ring", { tone: "a" });
     testing.send(b.built, tolls, "Stop", { tone: "a" });
-    b.page.settle();
+    b.tab.settle();
     assert.strictEqual(jam.tries.length, 2, "the NotSent { Cancelled } turn is refused twice");
 
     jam.on = false;
@@ -816,11 +815,11 @@ describe("the owed ledger on the production runtime", () => {
 
     const second = bootWith(served, store, 2);
     testing.attach(second.built, tolls, "host", true);
-    second.page.settle();
+    second.tab.settle();
     testing.send(second.built, tolls, "Again", { tone: "a" });
-    second.page.settle();
+    second.tab.settle();
     second.bell.waiting.get(attempt)?.(Effect.fail("declined"));
-    second.page.settle();
+    second.tab.settle();
 
     assert.deepStrictEqual(
       endingsOf(second.seen, attempt),
@@ -829,8 +828,8 @@ describe("the owed ledger on the production runtime", () => {
     );
 
     // WriteAhead I24: the Held head's lane record is written not in flight.
-    second.page.advance(6000);
-    second.page.settle();
+    second.tab.advance(6000);
+    second.tab.settle();
 
     const saved = [...store.entries()].flatMap(([key, value]) =>
       key.startsWith("lane/") && value.includes(attempt) ? [value] : [],
