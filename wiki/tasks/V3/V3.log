@@ -198,3 +198,7 @@ note 2026-11-15T21:01:49Z
 note 2026-11-15T21:01:49Z
     Course: ui-sdk cloned to codebases/ui-sdk (`98ba9fd`); @task.V3.T71 (palette, number input) runs before T70,
     @task.V3.T72 after T17, @task.V3.T73 after T21 and T57. Behaviour ported, never code.
+
+note 2026-11-15T21:19:55Z
+    T69 in review at `f20559bb`: 41 CLI tests, faults 46 of 46; independent check started, with the faults runner's two
+    new excuses (tests/cli, T ids) under scrutiny.
