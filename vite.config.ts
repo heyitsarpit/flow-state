@@ -27,6 +27,35 @@ const productionTests = [
   `${productionSource}/**/testing/**/*.{ts,tsx}`,
 ];
 
+// The package's import rules, as `no-restricted-imports` patterns. A pattern matches the import
+// specifier, whatever the importing file's depth.
+const outsideSource = {
+  group: ["**/fixtures/**", "**/tests/**", "**/bench/**"],
+  message: "Production code imports no fixture, test or bench.",
+};
+const hostFromCore = {
+  group: ["**/host/**"],
+  message: "The core imports nothing from the host.",
+};
+const testsFromFixtures = {
+  group: ["**/tests/**", "**/bench/**"],
+  message: "A fixture imports no test or bench.",
+};
+const sourceFromFixtures = {
+  group: ["**/src/**", "!**/src/index.ts", "!**/src/host/testing/index.ts"],
+  message: "A fixture imports only the public entry and the test tooling.",
+};
+const sourceFromTests = {
+  group: [
+    "**/src/**",
+    "!**/src/index.ts",
+    "!**/src/host/testing/index.ts",
+    "!**/src/host/inspect.ts",
+    "!**/src/host/trace.ts",
+  ],
+  message: "A test imports only the public entry, the test tooling and inspection.",
+};
+
 export default defineConfig({
   pack: {
     dts: {
@@ -227,6 +256,33 @@ export default defineConfig({
         files: [`${productionSource}/**/*.{ts,tsx}`],
         excludeFiles: productionTests,
         rules: { "flow-state/no-spec-ids": "error" },
+      },
+      // What may import what. Later entries replace earlier ones for a file, so each entry carries
+      // every pattern its folder needs. tools/flow-state-lint/imports.test.ts plants a violation of each.
+      {
+        files: [`${productionSource}/**/*.{ts,tsx}`],
+        rules: {
+          "no-restricted-imports": ["error", { patterns: [outsideSource] }],
+        },
+      },
+      {
+        files: [`${productionSource}/core/**/*.ts`],
+        rules: {
+          "no-restricted-imports": ["error", { patterns: [outsideSource, hostFromCore] }],
+        },
+      },
+      {
+        files: [`${production}/fixtures/**/*.ts`],
+        rules: {
+          "no-restricted-imports": ["error", { patterns: [testsFromFixtures, sourceFromFixtures] }],
+        },
+      },
+      {
+        files: [`${packageTests}/**/*.ts`, `${production}/bench/**/*.ts`],
+        excludeFiles: [`${packageTests}/bridge/**`],
+        rules: {
+          "no-restricted-imports": ["error", { patterns: [sourceFromTests] }],
+        },
       },
       {
         files: productionTests,

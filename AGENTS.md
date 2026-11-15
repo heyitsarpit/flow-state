@@ -7,6 +7,9 @@
   deferred and open items are in `references/proposals/` (revisit.md, open-items.md).
 - `reference/` — historical. Read-only. Archived plans, tasks and Beads were deleted (commit `20986677` has them).
 - `packages/flow-state-v3/` — the current build; runtime first. Prototypes are in its `prototypes/` and never become production code.
+  Inside it: `src/core/` (pure), `src/host/` (Effect; `src/host/testing/` is the test tooling), `fixtures/` (machines
+  the tests and the bench share), `tests/` (Flow's own tests; `tests/bridge/` is temporary) and `bench/`. Lint
+  enforces what may import what (`tools/lint-bomb/FLOW-STATE.md`, "Scope").
 - `packages/flow-state-rewrite/`, `packages/flow-state/` — frozen, never edit.
 - `apps/docs/` — docs. Generated files are produced by commands; don't hand-edit them.
 - `codebases/effect-v4/` — Effect reference. Installed packages are what's authoritative.
@@ -47,6 +50,7 @@ nub run check:fix    # lint + format fixes
 nub run test
 nub run docs:build   # public API or docs changes
 nub run verify       # full gate; don't claim full verification without it
+nub run faults       # a dead core and the named faults; run when the test tooling or run rules change
 wk check             # see .agents/skills/wk/SKILL.md before editing Workflow records
 ```
 
