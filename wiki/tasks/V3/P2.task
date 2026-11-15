@@ -612,7 +612,7 @@ tasks
             about 9%, and nothing gates on it.
     T67
         title       The hand cases run as Story tests and the bridge is gone
-        status      open
+        status      in_progress
         priority    high
         blocked_by  [@T63, @T64]
         description

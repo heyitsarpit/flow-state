@@ -146,3 +146,7 @@ note 2026-11-15T18:29:11Z
 note 2026-11-15T18:29:11Z
     Why `tab`: a reload is the same tab's next open, so one name covers both; `page` collides with the web page. A dead
     page is now a dead tab. Rename sent to @task.V3.T67. Reverse: rename back.
+
+note 2026-11-15T18:29:23Z
+    T66 in review at `3e1fb97b` (bench numbers in its comment); independent check started. T67 started: bridge port,
+    fixtures reshaped, the page-to-tab rename.
