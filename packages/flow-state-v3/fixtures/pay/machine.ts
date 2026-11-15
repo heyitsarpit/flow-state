@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { definition, deny, Flow, machine } from "../../src/index.ts";
+import { actorRef, app, definition, deny, Flow, machine, runtimeSetup } from "../../src/index.ts";
 import {
   type AlreadyCaptured,
   type Busy,
@@ -13,6 +13,7 @@ import {
   placeOrder,
   voidAuthorization,
 } from "./contracts.ts";
+import { ShopLive } from "./shop-http.ts";
 
 export { ShopApi } from "./contracts.ts";
 
@@ -174,8 +175,11 @@ const withCard = ({
 
 type PayBody = Parameters<typeof machine<typeof Pay>>[1];
 
+/**
+ * Pay's handlers, which the `cells` fixture reuses with one more event.
+ */
 // RETURN_TYPE: the machine body's contract types every handler's event and memory.
-const payBody = ({ S, E, O }: Parameters<PayBody>[0]): ReturnType<PayBody> => {
+export const payBody = ({ S, E, O }: Parameters<PayBody>[0]): ReturnType<PayBody> => {
   const start = {
     target: S.CARD,
     updateMemory: ({
@@ -436,26 +440,27 @@ const payBody = ({ S, E, O }: Parameters<PayBody>[0]): ReturnType<PayBody> => {
 export const PayMachine = machine(Pay, payBody);
 
 /**
- * Pay with one more root event, `AbortPay`, which cancels `pay`.
+ * The checkout app: Pay alone.
  */
-export const Cells = definition({
-  id: Pay.id,
-  persist: true,
-  states: Pay.states,
-  events: { ...Pay.events, AbortPay: {} },
-  internalEvents: Pay.internalEvents,
-  memory: Pay.memory,
-  operations: () => Pay.operations,
+export const shop = app({ id: "shop", machines: { pay: PayMachine } });
+
+/**
+ * The checkout's real setup: the shop over HTTP, persisted, each capture written at once. A Story
+ * never builds its services.
+ */
+export const shopSetup = runtimeSetup({
+  app: shop,
+  services: ShopLive("https://shop.example"),
+  scope: "shop",
+  persistence: { captureMs: 0 },
 });
 
 /**
- * The `cells` machine: Pay's handlers, and `AbortPay` cancelling the intent's `pay`.
+ * The checkout most stories use.
  */
-export const CellsMachine = machine(Cells, (tokens) => {
-  const base = payBody(tokens);
+export const checkout = actorRef(PayMachine, "checkout-1");
 
-  return {
-    ...base,
-    on: { ...base.on, AbortPay: { actions: [tokens.O.pay.cancel(intent)] } },
-  };
-});
+/**
+ * A second shopper's checkout of the same machine.
+ */
+export const secondCheckout = actorRef(PayMachine, "checkout-2");

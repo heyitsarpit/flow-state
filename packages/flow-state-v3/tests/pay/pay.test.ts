@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
-import { PayMachine } from "../../fixtures/pay/machine.ts";
+import { checkout, PayMachine } from "../../fixtures/pay/machine.ts";
 import { Shop } from "../../fixtures/pay/server.ts";
-import { busyRefused, checkout, lostConfirm } from "../../fixtures/pay/stories.ts";
+import { busyRefused, long, lostConfirm, usual } from "../../fixtures/pay/stories.ts";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
 import { checked } from "../rules/rules.ts";
 
@@ -43,6 +43,40 @@ describe("Pay across a reload", () => {
     expect(after.read(Shop).intents).toEqual({ pi1: "requires_capture" });
     expect(after.read(Shop.intent).map((c) => c.status)).toEqual(["answered"]);
     expect(after.read(Shop).orders).toEqual({ c1: "o1" });
+  });
+});
+
+describe("the usual and long Stories", () => {
+  it("pays through a double click, a decline and a busy queue, and a leave mid-charge voids the hold (WriteLanes R7, R8; Turn R14)", async () => {
+    const run = checked(await usual.run());
+    const { paid, declined, retried, left, end } = run.checkpoints;
+
+    expect(paid.read(checkout)?.state).toBe("PAID");
+    expect(paid.read(checkout)?.memory["receipt"]).toEqual({
+      orderId: "o1",
+      afterUnsure: false,
+      alreadyPlaced: false,
+    });
+    expect(paid.read(Shop.confirm)).toHaveLength(1);
+    expect(declined.read(checkout)?.state).toBe("CARD");
+    expect(declined.read(checkout)?.memory["notice"]).toBe(
+      "Your card was declined (card_declined).",
+    );
+    expect(retried.read(checkout)?.state).toBe("PAID");
+    expect(retried.read(Shop).orders).toEqual({ c1: "o1", c2: "o2" });
+    expect(left.read(checkout)?.state).toBe("LEFT");
+    expect(left.read(checkout)?.memory["notice"]).toBe("The hold on your card was released.");
+    expect(left.read(Shop.voidAuthorization)).toHaveLength(1);
+    expect(end.read(checkout)?.state).toBe("LEFT");
+  });
+
+  it("runs about a hundred steps over fourteen carts, eleven of them placed once each (WriteLanes I6)", async () => {
+    const run = checked(await long.run());
+
+    expect(long.steps.length).toBeGreaterThanOrEqual(90);
+    expect(long.steps.length <= 120).toBe(true);
+    expect(Object.keys(run.end.read(Shop).orders)).toHaveLength(11);
+    expect(run.end.read(Shop.placeOrder)).toHaveLength(11);
   });
 });
 

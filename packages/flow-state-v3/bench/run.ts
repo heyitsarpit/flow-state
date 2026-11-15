@@ -1,4 +1,8 @@
-import { long } from "../fixtures/transfers/stories.ts";
+import { long as cells } from "../fixtures/cells/stories.ts";
+import { long as pay } from "../fixtures/pay/stories.ts";
+import { long as signIn } from "../fixtures/sign-in/stories.ts";
+import { long as sync } from "../fixtures/sync/stories.ts";
+import { long as transfers } from "../fixtures/transfers/stories.ts";
 import { spreadOf, timeStory } from "./time.ts";
 
 const WARMUP = 100;
@@ -6,7 +10,7 @@ const TIMES = 1000;
 
 const fixed = (ms: number) => ms.toFixed(3).padStart(9);
 
-const longStories = [long];
+const longStories = [transfers, pay, cells, sync, signIn];
 
 for (const story of longStories) {
   await timeStory(story, WARMUP);

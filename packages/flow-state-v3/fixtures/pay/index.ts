@@ -1,6 +1,62 @@
-import { part, type UserAction } from "../part.ts";
-import { intentServer, orderServer, payServer, placeServer, voidServer } from "./contracts.ts";
-import { CellsMachine, PayMachine } from "./machine.ts";
+import { CellsMachine } from "../cells/machine.ts";
+import { part, type ServerModel, textOf, type UserAction } from "../part.ts";
+import { capturableStatus } from "./contracts.ts";
+import { PayMachine } from "./machine.ts";
+
+const payServer = {
+  answers: [
+    {
+      weight: 5,
+      answer: { _tag: "ok", value: { status: "requires_capture", clientSecret: "cs" } },
+    },
+    { weight: 1, answer: { _tag: "ok", value: { status: "requires_action", clientSecret: "cs" } } },
+    { weight: 2, answer: { _tag: "fail", tag: "CardDeclined", fields: { code: "card_declined" } } },
+    { weight: 1, answer: { _tag: "fail", tag: "Busy", fields: { retryAfterMs: 1500 } } },
+    {
+      weight: 1,
+      answer: { _tag: "fail", tag: "IntentBusy", fields: { status: "requires_capture" } },
+    },
+    { weight: 1, answer: { _tag: "fail", tag: "IntentBusy", fields: { status: "processing" } } },
+  ],
+  classify: (tag, fields, mayHaveApplied) =>
+    tag === "IntentBusy" && mayHaveApplied && capturableStatus(textOf(fields, "status")),
+} as const satisfies ServerModel;
+
+const placeServer = {
+  answers: [
+    { weight: 5, answer: { _tag: "ok", value: { orderId: "o1" } } },
+    {
+      weight: 1,
+      answer: { _tag: "fail", tag: "OrderExists", fields: { order: { orderId: "o1" } } },
+    },
+  ],
+  classify: (tag, _fields, _mayHaveApplied) => tag === "OrderExists",
+} as const satisfies ServerModel;
+
+const voidServer = {
+  answers: [
+    { weight: 4, answer: { _tag: "ok", value: {} } },
+    { weight: 1, answer: { _tag: "fail", tag: "AlreadyCaptured", fields: { chargeId: "ch_1" } } },
+  ],
+  classify: () => false,
+} as const satisfies ServerModel;
+
+const intentServer = {
+  answers: [
+    { weight: 3, answer: { _tag: "ok", value: { status: "requires_capture" } } },
+    { weight: 2, answer: { _tag: "ok", value: { status: "requires_payment_method" } } },
+    { weight: 1, answer: { _tag: "ok", value: { status: "requires_action" } } },
+  ],
+  classify: () => false,
+} as const satisfies ServerModel;
+
+const orderServer = {
+  answers: [
+    { weight: 1, answer: { _tag: "ok", value: { orderId: "o1" } } },
+    { weight: 2, answer: { _tag: "ok", value: null } },
+  ],
+  classify: () => false,
+} as const satisfies ServerModel;
 
 const server = {
   pay: payServer,

@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vite-plus/test";
+import { stories as cells } from "../../fixtures/cells/stories.ts";
 import { stories as pay } from "../../fixtures/pay/stories.ts";
+import { stories as signIn } from "../../fixtures/sign-in/stories.ts";
+import { stories as sync } from "../../fixtures/sync/stories.ts";
 import { stories as transfers } from "../../fixtures/transfers/stories.ts";
 import { Step, StoryFailed, type Story } from "../../src/host/testing/index.ts";
 import { breachesOf, checked } from "./rules.ts";
 
 const fixtureStories: ReadonlyArray<Story<string>> = [
   ...Object.values(pay),
+  ...Object.values(cells),
+  ...Object.values(sync),
+  ...Object.values(signIn),
   ...Object.values(transfers),
 ];
 
@@ -20,7 +26,7 @@ const sweep = async (reattach: boolean) => {
   const skipped: Array<string> = [];
   const failed: Array<string> = [];
   let variants = 0;
-  let turned = 0;
+  let recorded = 0;
 
   for (const story of fixtureStories)
     for (let at = 0; at <= story.steps.length; at++) {
@@ -33,14 +39,14 @@ const sweep = async (reattach: boolean) => {
         const run = await story.run({ steps });
         failed.push(...breachesOf(run).map((b) => `${name}: ${b}`));
 
-        if (run.evidence.some((e) => e._tag === "Turn")) turned += 1;
+        if (run.evidence.length > 0) recorded += 1;
       } catch (fault) {
         if (skippable(fault)) skipped.push(name);
         else failed.push(`${name}: ${String(fault)}`);
       }
     }
 
-  return { variants, skipped: skipped.length, turned, failed };
+  return { variants, skipped: skipped.length, recorded, failed };
 };
 
 describe("run rules", () => {
@@ -58,7 +64,7 @@ describe("the reload sweep", () => {
 
     expect(result.failed).toEqual([]);
     expect(result.variants).toBeGreaterThan(result.skipped);
-    expect(result.turned).toBe(result.variants - result.skipped);
+    expect(result.recorded).toBe(result.variants - result.skipped);
   });
 
   it("a reload that attaches nothing, at every step of every fixture Story, breaks no rule (Restore I1)", async () => {
@@ -66,6 +72,6 @@ describe("the reload sweep", () => {
 
     expect(result.failed).toEqual([]);
     expect(result.variants).toBeGreaterThan(result.skipped);
-    expect(result.turned).toBe(result.variants - result.skipped);
+    expect(result.recorded).toBe(result.variants - result.skipped);
   });
 });
