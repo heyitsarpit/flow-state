@@ -113,3 +113,7 @@ note 2026-11-15T17:42:49Z
 note 2026-11-15T17:42:49Z
     Scope of that decision: Turn I14 in @task.V3.T64 now; the run-wide rule waits on the user confirming its reading
     (R15).
+
+note 2026-11-15T17:49:44Z
+    Amendment (2026-11-15, the user: "accepted", Q1 A and Q2 A): a guarantee change is no longer a stop; running code
+    overrides a Spec after a whole-system check and review. Commit: 4194ea20.
