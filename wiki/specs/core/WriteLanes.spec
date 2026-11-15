@@ -413,7 +413,9 @@ invariants
     I3  Every delivered ending is exactly one of success, failure, notSent and unknown; an Attempt that ever ended 
         unknown never delivers a definite failure; and an Attempt never sent ends only NotSent, or unknown { Restored }
         at its identity's start (a boot, a return or an adoption). A crash before a failure was saved restores the
-        Attempt as unknown { Restored } (@spec.WriteAhead.R14); that is not an unknown ending of its own.
+        Attempt as unknown { Restored } (@spec.WriteAhead.R14); that is not an unknown ending of its own. A
+        restored Attempt counts as perhaps sent from then on, so a re-send's refused capture may end it unknown {
+        StorageRefused } (I15).
         Decision (agent, 2026-11-11): ruling CQ5. Why: an Attempt with no send can only be known not sent, unless a
         crash hid whether it was. Reverse: drop the last clause (spec-log.md, T42).
         Decision (agent, 2026-11-16): "at a boot" widened to every start, and the unsaved-failure case written out.

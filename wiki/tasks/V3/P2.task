@@ -1050,7 +1050,7 @@ tasks
             of 46 here).
     T70
         title       Generated Stories
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T64, @T67]
         description
@@ -1173,6 +1173,21 @@ tasks
             `tests/generated/pairs.ts`: Unsent, Resending and Cancelling never stand at a step's end (Cancelling even
             with an uninterruptible adapter), lost answers need a call on the wire, local fixtures have no
             acknowledgement or writes, number-input has no write.
+        comment     2026-11-16T14:00:00Z
+            R2 evidence: the planted edge fault is found at pay-planted stress seed 5 and printed in 9 steps
+            (`tests/generated/planted.test.ts`); the named core fault `turn-published-twice` [Turn I9], planted by hand,
+            was found at pay stress seed 1, 160 draws shrunk to 5 printed steps. With `tests/generated/` alone, `nub run
+            faults` catches 26 of 51 named faults.
+        comment     2026-11-16T14:01:00Z
+            Close: 1,000-plus fresh seeds per fixture and profile; one new failure, held as an `it.fails` titled
+            WriteLanes I3 (transfers stress seed 397: a failure delivered, then unknown later), not yet triaged as a
+            rule's crash case or a runtime bug. Gates at the close: check and lint:rules at zero, 476 tests, faults 51
+            of 51 with no unexplained dead-core green.
+        comment     2026-11-16T14:02:00Z
+            Open for the user's read: Stories I7's crossing batch has the Spec text but no test (no fixture makes a
+            multi-turn batch at the bound); G5 is half done. The stress profile maps FailButLanded to a fixture's
+            landed-failure control, else to a lost-after-landing answer, and `reordered` to answering a newer
+            call first.
 
     T71
         title       UI primitives, first wave: command palette and number input fixtures

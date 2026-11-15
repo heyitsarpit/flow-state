@@ -193,11 +193,12 @@ export const endingChannels: Rule = {
       if (e._tag !== "Ended") continue;
       found.push(...endedWrong(e, at, sent, starting.has(at)));
 
-      if (e.channel === "unknown" && Option.isSome(e.attempt))
-        unknowns.set(e.attempt.value, [
-          ...(unknowns.get(e.attempt.value) ?? []),
-          { at, reason: e.reason },
-        ]);
+      if (e.channel !== "unknown" || Option.isNone(e.attempt)) continue;
+      const id = e.attempt.value;
+
+      // A crash hid whether a restored Attempt was sent, so from then on it may have been.
+      if (e.reason === "Restored") sent.add(id);
+      unknowns.set(id, [...(unknowns.get(id) ?? []), { at, reason: e.reason }]);
     }
 
     return [...found, ...failuresAfterUnknown(run, unknowns)];
