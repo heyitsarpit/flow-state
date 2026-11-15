@@ -67,7 +67,7 @@ tasks
 
             **Why now:** the suite has no Restore area, so the suite can't judge what a runtime restores.
 
-            **Read first:** code:packages/flow-state-v3/conformance/README.md (the Restore rows of the
+            **Read first:** conformance/README.md (the Restore rows of the
             guarantee map, and C168 in its round-14 carry list), @spec.Restore, @spec.Conformance.R4. Blocked
             by @task.V3.T10, whose disk reader it reads.
 
@@ -101,8 +101,8 @@ tasks
             **Why now:** write-ahead records exist but nothing reads them back, so a reload cannot restore actors or 
             deliver what was owed.
 
-            **Read first:** @spec.Restore, @spec.Codec, @spec.WriteAhead, 
-            code:packages/flow-state-v3/conformance/README.md (the `restore` row and the carry list).
+            **Read first:** @spec.Restore, @spec.Codec, @spec.WriteAhead, conformance/README.md (the `restore` row and 
+            the carry list).
 
             **Split (orchestrator, 2026-11-12, wide consult W3):** key fingerprints, identity versions, saved-shape 
             resets, record migration and `previous` holds moved to @task.V3.T56, after @task.V3.T9: a saved shape is 
@@ -124,7 +124,7 @@ tasks
             the brief is newer.
 
             **Read first (added):** @spec.Restore (all); @spec.Codec (all); @spec.WriteAhead (R4, R5, R9);
-            @spec.Actors (R10, R20, R21); code:packages/flow-state-v3/conformance/README.md (the `restore` row
+            @spec.Actors (R10, R20, R21); conformance/README.md (the `restore` row
             and the carry list); `conformance/owes.ts` (the Restore and Codec rows).
 
             **Record differences:**
@@ -403,6 +403,10 @@ tasks
             closed by a reload count). Also owed here: the BootSettles Restoring-then-Gone pair and the PAY-05 boot 
             wake. Edit (agent: orchestrator, @task.V3.T20, 2026-11-15): this comment. Why: pre-step check. Reverse: 
             drop it.
+        comment     2026-11-15T09:19:39Z
+            Found while classifying Invariants (code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md, 
+            section 3.6): Codec I7 says no lane record has a mayHaveApplied field; src/core/record.ts defines and 
+            writes it. One of the two is wrong.
 
     T56
         title       Durability: release versions, key fingerprints and record migration (slice 2b)

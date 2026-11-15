@@ -1,6 +1,8 @@
 spec Conformance
 status        proposed
-basis         A guide for the conformance suite's own contract: what a verdict of the suite can be trusted
+basis         Retired on 2026-11-15 with the conformance suite it describes; the suite's last copy is commit
+              `52a883e6`. Kept only so that links from Task history resolve; it guides no work. Formerly:
+              a guide for the conformance suite's own contract: what a verdict of the suite can be trusted
               for, whichever implementation it runs on. Derived from the suite's purpose (the P3 phase goal, the
               Epic's "test the spec, not the code" constraint, skill:policy-verification) and the decisions
               in the suite's README, not from what the code does today; where the code falls short, the
@@ -34,7 +36,7 @@ derives_from  [@task.V3.T4, @task.V3.T45, @task.V3.T47, @task.V3.T52, @task.V3.T
 requirements
     R1  Public behaviour only
         source  README decision 2, "The Port is public behaviour only"
-                (code:packages/flow-state-v3/conformance/README.md); README decision 11 (the Runtime's values);
+                (conformance/README.md); README decision 11 (the Runtime's values);
                 the P3 goal ("through one Port"); README's static guarantees, "checked by cases over
                 `Compiled` and the CLI".
         must    A case reads its subject (R14) only through public behaviour.
@@ -67,7 +69,7 @@ requirements
 
     R2  Implementation-independent verdicts
         source  The P3 goal: one suite for the prototype and the production runtime; the Port's contract
-                (code:packages/flow-state-v3/conformance/port.ts#Port: scenarios and oracles "see only the"
+                (conformance/port.ts#Port: scenarios and oracles "see only the"
                 Runtime it boots, "never which one runs"); @task.V3.T13 (static cases ported from the
                 prototype, run on production from phase 4).
         must    Cases, oracles and the runner never depend on which implementation of a subject is under
@@ -101,7 +103,7 @@ requirements
 
     R4  Reports anchored to suite facts
         source  README decision 3; the Oracle contract
-                (code:packages/flow-state-v3/conformance/dsl/oracle.ts#Oracle).
+                (conformance/dsl/oracle.ts#Oracle).
         must    Every Observation is the runtime's claim. An oracle judges each report against a fact the
                 suite owns: what it drove, what its fake world received or answered, or a fixture's
                 reference: hand-written for a hand fixture, derived from the machine's `Compiled` for a
@@ -502,7 +504,7 @@ open
         oracle that names that Invariant, so kills are per (oracle, Invariant) pair. Why: the orchestrator's design
         call on the T6 review (L2). Reverse: drop `expects` and judge by the oracle alone. Decision (agent,
         2026-11-11): a mutant held by case expectations names the judge
-        code:packages/flow-state-v3/conformance/runner/falsify.ts#CASE_EXPECTATIONS and is caught only by a failed
+        conformance/runner/falsify.ts#CASE_EXPECTATIONS and is caught only by a failed
         expectation that cites the Invariant it expects, carried as the verdict's `cites`; the static cases' mutants
         are judged this way. Why: a static case has no oracle (R14's Judges row), and the label alone would let any
         failure count. Reverse: judge case-held mutants by any red case, as before T13.
@@ -517,7 +519,7 @@ open
         outcome  Phase 3 writes the verdict-compare mode (README work list item 4).
 
     Q8  Failure of R2: the `ending-channels` oracle accepts any value when a report is absent (`onNone: () => true`, 
-        code:packages/flow-state-v3/conformance/write-lanes/ending-channels.ts#onNone), which can accept a value that
+        conformance/write-lanes/ending-channels.ts#onNone), which can accept a value that
         contradicts its rule rather than only skipping a report the runtime does not make. The `lane-queue` half
         (a Held head's re-send accepted after any driven turn) is closed: since convergence step 4 a re-send needs
         an anchored retry member of the lane's reference rows, and the old `lane-model.ts` is deleted.
@@ -537,29 +539,29 @@ open
     Q11  Failure of R9 (I32, I43) and R13 (I33).
 
         - Verdicts: a failure's text names the seed, a violation's step and a mismatch's label, but only the first
-            failing run is kept (code:packages/flow-state-v3/conformance/runner/run.ts#runCase); a mismatch names no
+            failing run is kept (conformance/runner/run.ts#runCase); a mismatch names no
             step; and a violation's rule appears only in its prose, one violation per oracle. A failed expectation's
             cited Invariant is a field of `CaseVerdict` (`cites`); the seed, step and violation are still text in
             `why`.
         - Containment: a mutant's copy holds the runtime and the prototype's `conformance/` tree as copied source
             files, but links the repository's `node_modules`
-            (code:packages/flow-state-v3/conformance/runner/falsify.ts#copyRuntime), and
-            code:packages/flow-state-v3/conformance/runner/falsify.ts#applyEdit joins an edit's file to the copy
+            (conformance/runner/falsify.ts#copyRuntime), and
+            conformance/runner/falsify.ts#applyEdit joins an edit's file to the copy
             without checking that the path stays inside it, so an edit through that link or a `..` path changes files
             outside the copy.
         outcome  A later Task adds the remaining verdict fields, keeps every failing run, seals the linked
                  `node_modules` and rejects an edit path outside the copy.
 
     Q12  Failure of R8 and R9 (I20, I24, I34): a runtime case runs under its own bound
-        (code:packages/flow-state-v3/conformance/runner/run.ts#CASE_SECONDS, over all its seeds) and an overrun is the
+        (conformance/runner/run.ts#CASE_SECONDS, over all its seeds) and an overrun is the
         defect verdict `Timeout`, which names no oracle and cites nothing, so it never catches a mutant. The world asks
         the bound at every settled task, timer firing and request
-        (code:packages/flow-state-v3/conformance/world/world.ts#makeWorld), so a runtime that spins without touching
+        (conformance/world/world.ts#makeWorld), so a runtime that spins without touching
         its hosts is still stopped only by its child process's bound. Static cases
-        (code:packages/flow-state-v3/conformance/runner/run.ts#runStatics) run with no bound of their own beyond their 
+        (conformance/runner/run.ts#runStatics) run with no bound of their own beyond their 
             CLI
         child's; the split path bounds a whole slice
-        (code:packages/flow-state-v3/conformance/runner/main.ts#sliceVerdicts), so an overrun there fails every case of
+        (conformance/runner/main.ts#sliceVerdicts), so an overrun there fails every case of
         that slice with one reason.
         outcome  Phase 3 bounds each static case on its own, and the split path keeps the verdicts its child stated
                  before an overrun.
@@ -571,7 +573,7 @@ open
 
     Q14  Failure of R12 (I37, I38) for static cases: of the 46 static Invariants (Compile 17, Diagnostics 10,
         Codec 7, StaticCli 12), round-14 can make results for 21, and 25 are owed rows in
-        code:packages/flow-state-v3/conformance/owes.ts. The static surface (prototype and null), the case
+        conformance/owes.ts. The static surface (prototype and null), the case
         modules for Compile and StaticCli and their mutants exist; StaticCli I2 is judged by the `graph-names`
         oracle on the runtime cases and by `CLI-09` (the graph's edges equal the Compiled's places). A check that
         judges only part of an Invariant has a remainder row naming the rest and its owning Task. Decision (agent, 

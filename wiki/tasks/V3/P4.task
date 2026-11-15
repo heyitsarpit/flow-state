@@ -68,9 +68,9 @@ tasks
             **Why now:** P3 can't judge a production runtime on WriteLanes until every WriteLanes Invariant
             has a check, and these rows have none.
 
-            **Read first:** code:packages/flow-state-v3/conformance/README.md (the WriteLanes rows of the
+            **Read first:** conformance/README.md (the WriteLanes rows of the
             guarantee map, and its round-14 carry list), @spec.WriteLanes, @spec.Conformance.R11 (the verdict
-            compare), code:packages/flow-state-v3/conformance/write-lanes/lane-queue.ts#laneQueue. The rows:
+            compare), conformance/write-lanes/lane-queue.ts#laneQueue. The rows:
             @spec.WriteLanes.I1, @spec.WriteLanes.I2, @spec.WriteLanes.I4, @spec.WriteLanes.I5,
             @spec.WriteLanes.I7, @spec.WriteLanes.I10, @spec.WriteLanes.I13, @spec.WriteLanes.I14,
             @spec.WriteLanes.I17 to @spec.WriteLanes.I19, @spec.WriteLanes.I23, and the pending mutants of
@@ -129,7 +129,7 @@ tasks
 
             **Why now:** the suite has no Turn area, so the suite can't judge a runtime's turns.
 
-            **Read first:** code:packages/flow-state-v3/conformance/README.md (the Turn rows of the guarantee
+            **Read first:** conformance/README.md (the Turn rows of the guarantee
             map), @spec.Turn, code:packages/flow-state-v3/prototypes/conformance/reference/model.ts,
             @spec.Conformance.R5.
 
@@ -189,7 +189,7 @@ tasks
             Specs (@spec.Conformance.Q14), so their Invariants have no check.
 
             **Read first:** @spec.Conformance.R14 (the two case kinds),
-            code:packages/flow-state-v3/conformance/README.md ("Compile, Diagnostics, Codec, StaticCli" and
+            conformance/README.md ("Compile, Diagnostics, Codec, StaticCli" and
             its round-14 carry list), @spec.Compile, @spec.Diagnostics, @spec.Codec, @spec.StaticCli. Expected
             values come from the Specs: @spec.Conformance.R5.
 
@@ -235,8 +235,8 @@ tasks
             end to build on.
 
             **Read first:** @spec.Compile, @spec.Turn, @spec.WriteLanes,
-            code:packages/flow-state-v3/conformance/port.ts#Port,
-            code:packages/flow-state-v3/conformance/fixtures/pay.ts#Pay. Blocked by the suite areas the Pay
+            conformance/port.ts#Port,
+            conformance/fixtures/pay.ts#Pay. Blocked by the suite areas the Pay
             path uses (@task.V3.T6, @task.V3.T7, @task.V3.T8, @task.V3.T13), not by T15; if T15's audit
             weakens a Pay oracle, T16 is repaired against it.
 
@@ -306,7 +306,7 @@ tasks
             Q7 and Q9 replace instance fixes with a structural rule and gates.
 
             **Read first:** code:wiki/plans/flow/references/proposals/advisor-answers-2026-11-11.md (Q0, Q1, Q6, Q7, 
-            Q9); code:packages/flow-state-v3/conformance/dsl/oracle.ts.
+            Q9); conformance/dsl/oracle.ts.
 
             **Approach:** split `Fact` so obligation code cannot see a report, with a lint ban; a liar gate (a
             mutant's acts with a correct runtime's recorded reports must stay red); a diffed catch matrix; generic
@@ -348,7 +348,7 @@ tasks
             model cheaper and stronger than hand cases, with round-14 kept as a mutant host.
 
             **Read first:** code:wiki/plans/flow/references/proposals/advisor-answers-2026-11-11.md (Q2, Q3, Q5); 
-            @spec.WriteAhead; code:packages/flow-state-v3/conformance/dsl/case.ts; @spec.Conformance.R19 to R22
+            @spec.WriteAhead; conformance/dsl/case.ts; @spec.Conformance.R19 to R22
             (the model's limits, the generic compare, facts only, the limits list; tests T32, T37, T38, T40 to T43 are
             this Task's).
 
@@ -467,7 +467,7 @@ tasks
               fast-check, which the package does not declare.
             - Liar greens: the 9 older round-14 greens are report truth (visible only on machines whose No, Unsure or
               NotSent handlers move state, or as request order), owned by T47's fixtures; the liar gate fails above 9.
-            Stated limits are in `Model`'s Gotchas and code:packages/flow-state-v3/conformance/limits.ts.
+            Stated limits are in `Model`'s Gotchas and conformance/limits.ts.
             Traps: kills count only red verdicts (an early 11/37 counted non-catches); core mutants once counted kills
             by ACT-02 and ACT-03 red on unmutated production, so the core-mutant run starts with a control (S4); the
             liar replay once moved world facts before replayed reports, so the liar gate runs that control first;
@@ -495,7 +495,7 @@ tasks
 
             **Read first:** @task.V3.T45, code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md
             (sections 2, 4, 5A, 5B and 7), code:wiki/plans/flow/references/proposals/replan-2026-11-11.md (part 3,
-            "R Rework"), code:packages/flow-state-v3/conformance/world/network.ts,
+            "R Rework"), conformance/world/network.ts,
             @spec.Conformance.R15 to R23 (tests T30, T31, T33 to T36, T39, T44 are this Task's),
             code:wiki/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md (the 265 features).
 
@@ -605,7 +605,7 @@ tasks
             - The non-interacting rules (t47-non-interacting-2026-11-12.md) are decided (the user, 2026-11-12). Pair
               owners (orchestrator): the 7 unreached pairs, 6 to T19 and du+ma to T9 (`parts/pair-owners.ts`).
             - Proposed (agent), for the user's read: the row-to-code mapping in
-              code:packages/flow-state-v3/conformance/parts/feature-rows.ts (owners M53 M58 M60 M61 to T17, M70 M74 to
+              conformance/parts/feature-rows.ts (owners M53 M58 M60 M61 to T17, M70 M74 to
               T9); `lateCodes`' 10 rows whose owner precedes a code's slice (M71 P38 P49 Q04 Q05 Q07 Q13 Q15 E10 L03);
               T52 as owner of the nine round-14 liar greens, which are outside T47's acceptance (ruling unattributed).
             - Q22 (orchestrator): the production static surface covers what production's Compiled has; the 11 CMP cases
@@ -620,7 +620,7 @@ tasks
             - Spec edits (agent, spec-log): R18 cites 5A cell pairs and 5B, I57 names R18's slice owners, I58 reports
               cell pairs; Conformance T36 follows I57 (reverse 960c1ac4); R4 keeps I61 and rewrites T39.
             - The core-mutant gate fails on an untriaged or stale mutant: 60/98 killed, 34 owed by Spec rule, 4
-              equivalent (code:packages/flow-state-v3/conformance/core-mutants.tsv).
+              equivalent (conformance/core-mutants.tsv).
             Traps: a copy that failed to load counted as a kill (98/98 not real); a kill now needs a named oracle or
             cited Invariant. First-contact reds were often the suite's (Pay row, idle key, local actors, Maybe decline,
             woken end's write, I26 capture order; GEN-pay-search-20, 21, 55, seeded-173). Production flushes each turn,
@@ -703,7 +703,7 @@ tasks
             Owed from T47's Fable read (1a597ea0, code:wiki/plans/flow/references/proposals/t47-expectations-sample.md):
             a pending trace for parked missing a Kept row (Restore I6), a WriteLanes I10 remainder for member order in
             one turn, and WriteAhead I21-I22 rows for the Maybe life; also R4, R6, R7 and R11 of T47's close review as
-            pending checks in code:packages/flow-state-v3/conformance/parts/pending.test.ts.
+            pending checks in conformance/parts/pending.test.ts.
             Edit (agent: T47 building lead, @task.V3.T47, 2026-11-14): this comment. Why: orchestrator ruling 2. 
             Reverse: 1a597ea0.
         comment     2026-11-14T03:44:18Z
@@ -931,7 +931,7 @@ tasks
 
             **Read first:** code:wiki/plans/flow/references/proposals/suite-convergence-2026-11-14.md (the design
             of record, its recommendation and its "missing rules"), @spec.Conformance,
-            code:packages/flow-state-v3/conformance/parts/owed.ts.
+            conformance/parts/owed.ts.
 
             **Approach:** the reduced design (the user, 2026-11-14), built at once:
             - excuses by exact subject (Attempt, or step and fact), never text, kind or count;
@@ -986,10 +986,10 @@ tasks
             orchestrator): before setting a Task to review, the builder diffs gates.json against the Task's first 
             revision and explains every changed count.
     T59
-        title       The suite reads and imports nothing outside the package
-        status      draft
-        priority    high
-        blocked_by  [@T47]
+        title           The suite reads and imports nothing outside the package
+        status          tombstone
+        priority        high
+        blocked_by      [@T47]
         description
             The conformance suite and the runner read no file, CLI or folder outside `packages/flow-state-v3/` and
             import nothing from `src/` beyond the seam; the data they read from the wiki today is recreated in the
@@ -1003,8 +1003,8 @@ tasks
             Blocked by @T47, whose open files hold most of these reads.
 
             **Read first:** code:wiki/plans/flow/references/proposals/self-contained-audit-2026-11-14.md
-            (groups A, E, F), code:packages/flow-state-v3/conformance/parts/records.ts,
-            code:packages/flow-state-v3/conformance/runner/specs.ts.
+            (groups A, E, F), conformance/parts/records.ts,
+            conformance/runner/specs.ts.
 
             **Approach:** the feature rows, pair rules, slices and Spec Invariant lists become typed modules in the
             package. The check that a Task owner is still open is a fact about the wiki: it moves to
@@ -1026,11 +1026,15 @@ tasks
               revisions;
             - the wiki-facing checks (open owners, recreated tables against their source) run from `tools/` and fail
               on a planted mismatch.
-        comment     2026-11-14T03:26:15Z
+        comment         2026-11-14T03:26:15Z
             From T47's close review (R9): the coverage gate's `wk show` per Spec (runner/specs.ts) fails when any code 
             link anywhere in wiki/ does not resolve, as in a clone without codebases/effect-v4 (wiki/tasks/V3/P7.task); 
             removing the wk call here removes that coupling. Edit (agent: T47 building lead, @task.V3.T47, 2026-11-14): 
             this comment. Why: the review's R9, held for T59. Reverse: drop it.
+        deletion_reason
+            Superseded (the user, 2026-11-15): the conformance suite was deleted; its last copy is commit 52a883e6. The 
+            rule now covers tests/ and is checked by grep at each review 
+            (code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md, task A5).
     T61
         title       The suite runs itself and draws varied inputs
         status      done
@@ -1531,7 +1535,7 @@ tasks
             parks a disposed identity's unbound Held head (Restore R1, Actors I40); the model now holds the boot to R1,
             so this supersedes the description's 'stale' line (an earlier comment that called it superseded by 974ad3a1
             is removed). Step A2 (one start) should turn it green; the owed row is
-            code:packages/flow-state-v3/conformance/runner/parts-gates.ts#regressionsOwed. Edit (agent: T47 building
+            conformance/runner/parts-gates.ts#regressionsOwed. Edit (agent: T47 building
             lead, @task.V3.T47, 2026-11-14): this comment. Why: Fable's read. Reverse: fb982276.
             Edit (agent: compaction lead, @task.V3.T54, 2026-11-14): the superseded 2026-11-12 comment removed. Why: the
             Epic's compaction rule. Reverse: `81cf934f`.
@@ -1623,6 +1627,12 @@ tasks
             adopted-head routing (PART-cells-stress-3-shrunk, PART-cells-varied-8), one rule in turn/anchor.ts, no new 
             fields. Why: A2's start made adopted heads reachable and the anchor rule contradicts Actors R20; T17's 
             owner/current redesign (now T57) is wider. Reverse: owe both cases to T57.
+        comment     2026-11-15T09:19:38Z
+            Carried from the deleted suite (Appendix A of 
+            code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md): a flush holds only its own actor's 
+            record (WriteAhead I23; script PART-transfers-varied-2001-shrunk at commit 52a883e6), and an adopted lane's 
+            later endings are routed against Actors R20 (Turn I2, I26; script PART-cells-stress-3-shrunk). The appendix 
+            lists ten behaviours of this Task's area that no case exercises.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      draft
@@ -1641,7 +1651,7 @@ tasks
 
             **Read first:** @spec.WriteLanes, code:wiki/plans/flow/references/proposals/replan-2026-11-11.md (part
             3, "1 Lane policies"), @epic.V3 (instructions: the slice template),
-            code:packages/flow-state-v3/conformance/README.md (the WriteLanes rows).
+            conformance/README.md (the WriteLanes rows).
 
             **Approach:** Spec check first: rule WriteLanes Q5 (a cancel commit on a Kept lane; a kept unknown on a
             Held head), which @task.V3.T51's table refuses until then; then the slice template.
@@ -1801,7 +1811,7 @@ tasks
             endings; Actors I24); reachable on Held heads since T51's Held row. Failing check first.
         comment     2026-11-12T06:20:41Z
             Owns WriteLanes I25's remainder (the failure tag inside unknown StillUnknown), moved from the closed T51 by 
-            the orchestrator, 2026-11-12: code:packages/flow-state-v3/conformance/owes.ts.
+            the orchestrator, 2026-11-12: conformance/owes.ts.
         comment     2026-11-12T07:04:28Z
             From the core consolidation design (round 3 handoff table, built by @task.V3.T54): this Task starts on a 
             lane table over `Idle` and head phases only, one `Answered` cue, `owe` and `keptOn`, and no persist or emit 
@@ -2017,6 +2027,11 @@ tasks
             is still proposed; the eight new parts need distinct machine ids (Compile I14). Also owed here: the 8 
             forged Send refusal cells. Edit (agent: orchestrator, @task.V3.T18, 2026-11-15): this comment. Why: 
             pre-step check. Reverse: drop it.
+        comment     2026-11-15T09:19:38Z
+            Carried from the deleted suite (Appendix A of 
+            code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md): six behaviours of this Task's area 
+            that no case exercises. Also found: Row.waiting is always false (src/core/rows.ts), and operationsOf builds 
+            a new Map on every read, against Turn I30.
     T51
         title       Production lanes reworked: one table function, reports derived from acts
         status      done

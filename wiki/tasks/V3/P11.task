@@ -57,10 +57,10 @@ description
 tasks
 
     T46
-        title       Backtest: does a search over the Spec model find the audit's protocol conflicts?
-        status      open
-        priority    medium
-        blocked_by  [@task.V3.T45]
+        title           Backtest: does a search over the Spec model find the audit's protocol conflicts?
+        status          tombstone
+        priority        medium
+        blocked_by      [@task.V3.T45]
         description
             Run the model's search against the Specs as of `bcc2bbbb` (before the Invariant audit) and count which
             of the audit's 10 to 12 protocol conflicts it finds.
@@ -75,6 +75,9 @@ tasks
         acceptance
             - each protocol conflict from the audit marked found or missed by the search;
             - a recommendation on TLC, per the three-miss rule.
+        deletion_reason
+            Superseded (the user, 2026-11-15): the Spec model was deleted, so there is nothing to search; generated 
+            Stories replace it (code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md, task D2).
 
     T10
         title       WriteAhead area complete
@@ -87,10 +90,10 @@ tasks
             **Why now:** the Port has no disk reader yet (README, "Planned Port changes"), so no WriteAhead
             Invariant can be judged; @task.V3.T11 reads the same disk reader.
 
-            **Read first:** code:packages/flow-state-v3/conformance/README.md (the WriteAhead rows of the
+            **Read first:** conformance/README.md (the WriteAhead rows of the
             guarantee map, and "Planned Port changes"), @spec.WriteAhead,
-            code:packages/flow-state-v3/conformance/port.ts#Port,
-            code:packages/flow-state-v3/conformance/world/storage.ts#makeStorage. A disk reader must not show
+            conformance/port.ts#Port,
+            conformance/world/storage.ts#makeStorage. A disk reader must not show
             internals: @spec.Conformance.R1.
 
             **Approach:** oracles `write-ahead` (the old oracle (h) against the storage host), `capture`,
@@ -405,6 +408,12 @@ tasks
             runtime. Owed here: production reports a disposal Done before its final write and drops a refusal (PAY-15, 
             PAY-16@9; Actors R23, I43). Edit (agent: orchestrator, @task.V3.T55, 2026-11-15): this comment. Why: 
             pre-step check. Reverse: drop it.
+        comment     2026-11-15T09:19:37Z
+            Carried from the deleted suite (Appendix A of 
+            code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md): the disposal reports Done before its 
+            final write is answered, so a refused final write never reports StorageFailure (Actors I43; the inverted 
+            bridge test PAY-15/final-write-refused). No case covers schedules after disposal starts, a re-ensure or a 
+            step inside the grace, or a release with a schedule armed.
     T19
         title       Durability: persistence edge, write-ahead and the driver (slice 2)
         status      draft
@@ -418,7 +427,7 @@ tasks
             cannot be judged.
 
             **Read first:** @spec.WriteAhead, @spec.WriteAhead.I15 (which took the cut I16), @spec.WriteAhead.I17,
-            code:packages/flow-state-v3/conformance/README.md ("Planned Port changes": the disk reader).
+            conformance/README.md ("Planned Port changes": the disk reader).
 
             **Scope added** (the user, 2026-11-11, from
             code:wiki/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md): add an Invariant for
@@ -432,7 +441,7 @@ tasks
             **Slice 2, durability (replan, accepted 2026-11-11), with @task.V3.T20:** model first, continuing T45's
             pilot. Absorbs @task.V3.T10 (the WriteAhead area suite): oracles `write-ahead`, `capture` and `persistence`,
             a disk reader on the Port that shows no internals, the storage faults, and the carry rows; its Read first is
-            code:packages/flow-state-v3/conformance/README.md (the WriteAhead rows, "Planned Port changes"). Adds the
+            conformance/README.md (the WriteAhead rows, "Planned Port changes"). Adds the
             WriteAhead oracles, which re-judge every composite already built, and an in-memory host store so production
             persists on a real host (IndexedDB is @task.V3.T58's). Codes: wa. Part built: S13 [E]. Bench: `ready()`
             with 64 queued (S08) and 500 keyed lanes (S16). Effort 7 with T20 (estimate). Read first:
@@ -447,8 +456,8 @@ tasks
             **Read first (added):** @spec.WriteAhead (all); @spec.WriteLanes (I7, I8, I27); @spec.Actors (I4, R20,
             R21); @plan.Persistence.O1; the wide consult's question 4 and W2
             (code:wiki/plans/flow/references/proposals/fable-wide-consult-2026-11-12.md);
-            code:packages/flow-state-v3/conformance/README.md ("Planned Port changes": the disk reader);
-            `partsOwed` in code:packages/flow-state-v3/conformance/parts/play.ts;
+            conformance/README.md ("Planned Port changes": the disk reader);
+            `partsOwed` in conformance/parts/play.ts;
             code:packages/flow-state-v3/src/host/host.ts (today's `Store` and `Host`) and `src/host/edge.ts`.
 
             **Record differences:**
@@ -555,9 +564,9 @@ tasks
         comment     2026-11-12T06:09:45Z
             Production red from T47's pilots (PART-transfers-stress-12 does not exist; the cases in `partsOwed`
             are `MIX-sync+transfers+sign-in-stress-109` and `MIX-sync+transfers+sign-in-stress-2`; `partsOwed` in
-            code:packages/flow-state-v3/conformance/parts/play.ts): `invoke` raises a re-send's retryCount without 
-            re-capturing the lane, so a boot restores the old count and a spent `retryable({ times })` passes again 
-            (WriteAhead R5, R7; WriteLanes I7). Its check flips when fixed.
+            conformance/parts/play.ts): `invoke` raises a re-send's retryCount without re-capturing the lane, so a boot 
+            restores the old count and a spent `retryable({ times })` passes again (WriteAhead R5, R7; WriteLanes I7). 
+            Its check flips when fixed.
         comment     2026-11-12T07:04:32Z
             From the core consolidation design (round 3 handoff table, via @task.V3.T54 and @task.V3.T55): writes 
             arrive as a flat per-step list with `Due` derived; the final write is a ticket held in `Life`; the 
@@ -750,3 +759,8 @@ tasks
             WriteAhead I23 has one owner, T19 (moved back from T54); step 5's seed from effect/Crypto must keep T54's 
             A-18 width test; the StorageRefused capture lane (WriteLanes R9) pending case is owed here. Edit (agent: 
             orchestrator, @task.V3.T19, 2026-11-15): this comment. Why: pre-step check. Reverse: drop it.
+        comment     2026-11-15T09:19:38Z
+            Carried from the deleted suite (Appendix A of 
+            code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md): a re-send's raised retry count is not 
+            in the capture batch before it, so a reload restores the old count (WriteLanes I7; crash point PAY-22@16 at 
+            commit 52a883e6). A write names no record, so any write discharges every dirty end (Actors I37).

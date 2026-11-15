@@ -335,7 +335,7 @@ tasks
             compaction rule. Reverse: `81cf934f`.
         comment     2026-11-11T15:10:00Z
             Suite build, rounds 1 to 5 (2026-11-09; the round log is in git before STATUS.md's retirement). Stated
-            limits are in code:packages/flow-state-v3/conformance/README.md ("Stated limits"); counts in `gates.json`.
+            limits are in conformance/README.md ("Stated limits"); counts in `gates.json`.
             Decision (the user, round 5, as logged then): revert the `Context.Service` restructure, because scenarios
             had to `yield*` every step, noise that turned simple code into noisy code. A `Port`'s `boot` returns a
             plain `Runtime` record, the world is plain owned state with synchronous steps, a scenario's `run` is
@@ -363,8 +363,8 @@ tasks
             guarantee) and @task.V3.T9, which shares the oracle.
 
             **Read first:** @spec.Actors.I29 to @spec.Actors.I32;
-            code:packages/flow-state-v3/conformance/README.md (item 9 of "The rest of the rewrite");
-            code:packages/flow-state-v3/conformance/actors/runtime-disposal.scenarios.ts#runtimeDisposalScenarios.
+            conformance/README.md (item 9 of "The rest of the rewrite");
+            conformance/actors/runtime-disposal.scenarios.ts#runtimeDisposalScenarios.
             The mutants: `lie.boot-says-disposed` and `lie.boot-drops-held` in
             code:packages/flow-state-v3/prototypes/conformance/falsify.ts, `o6.*` in
             code:packages/flow-state-v3/prototypes/round-14/mutants-lifetime.ts.
@@ -456,8 +456,8 @@ tasks
 
             **Read first:** code:wiki/plans/flow/references/proposals/suite-simplicity-review-2026-11-10.md
             (S1, S3 to S8, the patterns, and "Showing nothing got weaker"); @spec.Conformance;
-            code:packages/flow-state-v3/conformance/dsl/oracle.ts;
-            code:packages/flow-state-v3/conformance/actors/disposal.ts (its ledger, `disposal-ledger.ts`, was
+            conformance/dsl/oracle.ts;
+            conformance/actors/disposal.ts (its ledger, `disposal-ledger.ts`, was
             deleted at T7's step 6).
 
             **Approach:** in order, each landing alone with its gate: S5's attemptKey, write lookup and LaneId;
@@ -531,8 +531,8 @@ tasks
             silently (I16 and I22 hid this way) until T15's coverage record.
 
             **Read first:** @spec.Conformance (R6, R12, I38); the guarantee map in
-            code:packages/flow-state-v3/conformance/README.md; `Mutant.expects` in
-            code:packages/flow-state-v3/conformance/dsl/oracle.ts.
+            conformance/README.md; `Mutant.expects` in
+            conformance/dsl/oracle.ts.
 
             **Approach:** read Invariant ids from the core Specs (`workflow` CLI or the spec index), compare them
             with oracle `guarantee` lists, the falsify per-Invariant kills and a typed "not yet" table, and run it
@@ -550,7 +550,7 @@ tasks
         comment     2026-11-11T15:10:00Z
             Done: the coverage gate runs before falsify and planted gaps fail it (numbers in `gates.json`).
             Trap: an Invariant counts as covered by declaration; falsify proves the catch. Coverage reads each owner
-            with `wk show --json` (code:packages/flow-state-v3/conformance/runner/specs.ts) and fails on an owner that
+            with `wk show --json` (conformance/runner/specs.ts) and fails on an owner that
             does not resolve or is done, so a Task merged away leaves its `not-yet.ts` rows red.
             Edit (agent: compaction lead, @task.V3.T41, 2026-11-14): comments merged; `workflow show` corrected to
             `wk show`, as the code runs. Why: the Epic's compaction rule. Reverse: `81cf934f`.

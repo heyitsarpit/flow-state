@@ -673,3 +673,8 @@ Edit (agent: orchestrator, @epic.V3, 2026-11-15): Conformance R6 states that the
 any structured failure as caught, cited or not, while falsify and coverage keep the per-check rule. Why: the code
 already did this; the Spec contradicted it (assumption study); the user delegated the choice. Reverse: revert the
 commit.
+
+Edit (agent: orchestrator, @epic.V3, 2026-11-15): Conformance is retired (its basis says so; status stays proposed
+because its coverage rows hold open items). In Conformance, Actors and Restore, each code link to a deleted
+conformance file is now plain text. Why: the user replaced the conformance suite with tests on Flow's own tooling
+(`wiki/plans/flow/references/proposals/test-system-2026-11-15.md`). Reverse: restore from commit `52a883e6`.

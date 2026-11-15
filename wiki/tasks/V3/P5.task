@@ -79,7 +79,7 @@ tasks
             **Why now:** entities are the first P5 area, and the production runtime has no entity store yet.
 
             **Read first:** @plan.EntityDomains.O1, @plan.EntityDomains.D1,
-            code:packages/flow-state-v3/conformance/README.md
+            conformance/README.md
             (the carry rows `a3b.*` and `audit-2.*`).
 
             **Scope added** (the user, 2026-11-11, from
@@ -141,7 +141,7 @@ tasks
             **Why now:** streams are a P5 area with no production code, and the suite carries open stream rows: C202
             eviction, jitter determinism, rule 70's wait per operation, T3's bound across two operations, `listen.none`.
 
-            **Read first:** @plan.Operations.O4, code:packages/flow-state-v3/conformance/README.md (the carry rows).
+            **Read first:** @plan.Operations.O4, conformance/README.md (the carry rows).
 
             **Slice 7, streams (replan, accepted 2026-11-11):** the Streams Spec (new) first, then the world's push
             channel and stream sessions. Owns Streams I09 and the rows P07, P41 to P43. Codes: st, and the catalogue 5B
@@ -314,6 +314,10 @@ tasks
             - Covered: the combination gate's counts are unchanged, and the Story and trace cases run on composites.
             - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
               the model's expectations is read by a different model family (Fable).
+        comment     2026-11-15T09:19:18Z
+            Pulled forward in part (the user, 2026-11-15): Story, Fake, the run, flow story and flow trace are built 
+            first as the core's own test tooling (code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md, 
+            tasks B and D). This Task keeps the rest of @plan.Testing.
     T30
         title       React and Next.js bindings
         status      draft
@@ -485,11 +489,15 @@ tasks
             - Covered: the combination gate's counts are the same with the inspector attached.
             - Guards: production's first-contact reds are recorded and classified, held-out seeds pass, and a sample of
               the model's expectations is read by a different model family (Fable).
+        comment     2026-11-15T09:19:18Z
+            Pulled forward in part (the user, 2026-11-15): the runtime cut and a text trace are built first as the 
+            core's own test tooling (code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md, tasks B1 and 
+            B3). This Task keeps the rest of @plan.Inspection.
     T53
-        title       Round-14 retired: prototype adapters, mutants and limits deleted
-        status      draft
-        priority    medium
-        blocked_by  [@T24, @task.V3.T22]
+        title           Round-14 retired: prototype adapters, mutants and limits deleted
+        status          tombstone
+        priority        medium
+        blocked_by      [@T24, @task.V3.T22]
         description
             Retire round-14 entirely once every Invariant its mutants prove is also proved on production (phase-out
             step 7).
@@ -519,7 +527,11 @@ tasks
             - Phase-out checks (the four validations): no lost catch in the catch matrix; the same coverage and
               feature-matrix rows; the derived reference equal to the hand rows wherever both exist;
               Compile static cases green on each fixture's `Compiled`.
-        comment     2026-11-14T12:51:58Z
+        comment         2026-11-14T12:51:58Z
             Proposed by T52 (Q18 held): thin Pay's hand cases once round-14's mutants are gone; on the 2026-11-14 sweep 
             47 of 55 Pay cases make no prototype catch a kept case does not, so only production's catches and case-only 
             rows decide then (t52-requirements Q18).
+        deletion_reason
+            Superseded (the user, 2026-11-15): round-14's adapters, mutants and limits were deleted with the 
+            conformance suite; last copy at commit 52a883e6 
+            (code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md).

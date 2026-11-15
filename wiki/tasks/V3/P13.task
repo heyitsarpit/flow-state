@@ -86,7 +86,7 @@ tasks
             are unbuilt, and every module after this reads Compiled.
 
             **Read first:** @spec.Compile, @spec.Diagnostics, @task.V3.T13 (the static cases that judge it), 
-            code:packages/flow-state-v3/conformance/README.md (the round-14 carry list).
+            conformance/README.md (the round-14 carry list).
 
             **Split (orchestrator, 2026-11-12, wide consult W3, item 3):** fragments, `.each`, subject paths (replacing 
             `owner` and `current`) and multi-step schedules moved to @task.V3.T57, which waits for the wide consult's 
@@ -169,7 +169,7 @@ tasks
         comment     2026-11-12T07:13:56Z
             Owed from T47 (orchestrator ruling, 2026-11-12): production's Compiled fails all 11 Compile construction 
             cases and the places check (no data view, Slots, places, tamper check, Flow.input or computed initial); see 
-            code:packages/flow-state-v3/conformance/adapters/production-static.ts#staticOwed.
+            conformance/adapters/production-static.ts#staticOwed.
         comment     2026-11-12T10:46:05Z
             From core-task-briefs-2026-11-12.md: `Compile.spec:104` still lists `cancelAll` and `StaticCli.spec:104` 
             ReservedReason.
@@ -190,12 +190,18 @@ tasks
             Flow.input and computed initial (Compile R5). Without those, CMP-01 and CMP-11 pass; the rest lack 
             TwoDefaults (I5), ImpureDefault (I6), UnknownNotUncertain (I11), ReservedStateName (I13), the data view's 
             internal events (I4) and Slots (R16), a tampered Compiled's check (I15), creation (I7) and restore (I8). 
-            Rows: code:packages/flow-state-v3/conformance/adapters/production-static.ts#staticOwed. Edit (agent: T47 
-            building lead, @task.V3.T47, 2026-11-14): this comment. Why: close review finding 6. Reverse: drop it.
+            Rows: conformance/adapters/production-static.ts#staticOwed. Edit (agent: T47 building lead, @task.V3.T47, 
+            2026-11-14): this comment. Why: close review finding 6. Reverse: drop it.
         comment     2026-11-14T17:40:21Z
             Edit (agent: T61 parallel builder, @task.V3.T61, 2026-11-14): the Task text names conformance/owes.ts in 
             place of the old not-yet.ts (commit 4444e57d), a rename only. Reverse: revert that commit's hunk in this 
             file.
+        comment     2026-11-15T09:19:37Z
+            Carried from the deleted suite (Appendix A of 
+            code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md): a computed delay past 2^31 - 1 ms is 
+            armed where it should be refused (Turn I14; the inverted bridge test TURN-01/schedule-out-of-range), and no 
+            case schedules 0 ms (Turn T6). Also Compile I17 says services are checked by type, but runtimeSetup takes 
+            Layer<any>.
     T9
         title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
         status      open
@@ -214,11 +220,11 @@ tasks
 
             **Read first:** @spec.Actors, @plan.Runtime.O3,
             code:wiki/plans/flow/references/proposals/replan-2026-11-11.md (part 3, "4 Actor identity"),
-            code:packages/flow-state-v3/conformance/README.md (the Actors rows and U8 in its carry list),
-            code:packages/flow-state-v3/conformance/actors/runtime-disposal.scenarios.ts#runtimeDisposalScenarios.
+            conformance/README.md (the Actors rows and U8 in its carry list),
+            conformance/actors/runtime-disposal.scenarios.ts#runtimeDisposalScenarios.
 
             **Rows from T8:** the actor rows moved here are in
-            code:packages/flow-state-v3/conformance/owes.ts and @task.V3.T8's comments; read them before the Actors
+            conformance/owes.ts and @task.V3.T8's comments; read them before the Actors
             oracles.
 
             **Approach:** the Actors Spec change first (R11 `runPromise` with services, R14 the form fixed in types, R19
@@ -270,6 +276,11 @@ tasks
             Actors I4's gap (records validated after services are acquired) moved to @task.V3.T19's `Loaded` layer 
             (orchestrator, 2026-11-12, wide consult W2). Next in the slice order: @task.V3.T58, the preview's browser 
             slice (W3).
+        comment     2026-11-15T09:19:38Z
+            Carried from the deleted suite (Appendix A of 
+            code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md): a commit queued behind a Held head is 
+            not ended at disposal (Actors I38; unjudged on production). No case covers a turn storm past the drain's 
+            slice, or a send that should restore an ended identity.
     T12
         title       Reads area complete
         status      done
@@ -281,7 +292,7 @@ tasks
             **Why now:** the guarantee map marks Reads rows as "case", yet no scenario cites Reads
             (@spec.Conformance.Q13).
 
-            **Read first:** code:packages/flow-state-v3/conformance/README.md (the Reads rows of the guarantee
+            **Read first:** conformance/README.md (the Reads rows of the guarantee
             map), @spec.Reads. The mutants `drain.*` and `lie.settled-*` are in
             code:packages/flow-state-v3/prototypes/conformance/falsify.ts.
 
@@ -324,7 +335,7 @@ tasks
             the Reads area and the carry items judge.
 
             **Read first:** @spec.Reads, @spec.Compile.R9, @spec.Compile.R10, @spec.Compile.R11,
-            code:packages/flow-state-v3/conformance/README.md (the round-14 carry list: the "design items not
+            conformance/README.md (the round-14 carry list: the "design items not
             built" row).
 
             **Scope added** (the user, 2026-11-11, from

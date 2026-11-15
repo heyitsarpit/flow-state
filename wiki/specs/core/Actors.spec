@@ -700,7 +700,7 @@ tests
     T20  Never-sent commits at disposal: a queued commit and a head waiting for its acknowledgement when disposal 
          starts each end NotSent { Disposed } before it ends, and the next incarnation after a reload hears each once.
              Wrong runtime
-             code:packages/flow-state-v3/conformance/actors/disposal.mutants.ts#disposal-skips-never-sent; round-14
+             conformance/actors/disposal.mutants.ts#disposal-skips-never-sent; round-14
              never delivers it after the reload (a stated limit of round-14, ruling CQ6). [@I38]
     T21  One delivery point: a reload, a return and an adoption of one identity with the same owed rows and Held heads 
          each deliver the same endings in the same order; after a boot and before any start no ending is in a
