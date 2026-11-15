@@ -170,3 +170,7 @@ note 2026-11-15T19:18:10Z
 note 2026-11-15T19:31:26Z
     Review of T67's tooling (`0c516c07`, `2abb4619`): ISSUES, one blocking (faults exits 1 on 7 unlisted bridge tests);
     sent to the builder. Ruling: "abort" removes the dying tab's held writes, so a release reaches only live tabs.
+
+note 2026-11-15T19:52:57Z
+    T67 in review at `f1a9eb19`: bridge deleted, 81 cases accounted (78 full, 2 it.fails, 1 dropped); independent check
+    started. AGENTS.md's bridge line updated; this run's stray faults scratch dir removed.

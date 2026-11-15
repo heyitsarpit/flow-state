@@ -8,7 +8,7 @@
 - `reference/` — historical. Read-only. Archived plans, tasks and Beads were deleted (commit `20986677` has them).
 - `packages/flow-state-v3/` — the current build; runtime first. Prototypes are in its `prototypes/` and never become production code.
   Inside it: `src/core/` (pure), `src/host/` (Effect; `src/host/testing/` is the test tooling), `fixtures/` (machines
-  the tests and the bench share), `tests/` (Flow's own tests; `tests/bridge/` is temporary) and `bench/`. Lint
+  the tests and the bench share), `tests/` (Flow's own Story tests) and `bench/`. Lint
   enforces what may import what (`tools/lint-bomb/FLOW-STATE.md`, "Scope").
 - `packages/flow-state-rewrite/`, `packages/flow-state/` — frozen, never edit.
 - `apps/docs/` — docs. Generated files are produced by commands; don't hand-edit them.
