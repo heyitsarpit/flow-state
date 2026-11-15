@@ -179,6 +179,9 @@ tasks
         comment     2026-11-15T18:27:26Z
             Routed from T65's review: export Trace, TraceEvent and TraceRecord with StoryRun. The trace's `page` stands
             in for the Plan's `tab`; the public name is the user's.
+        comment     2026-11-15T21:33:29Z
+            Routed from T69's review (PASS at `f20559bb`): a usage error prints help on stdout, against
+            @plan.CommandLine.O3; the rejected-run path has no test.
     T31
         title       CLI outputs designed for people
         status      draft

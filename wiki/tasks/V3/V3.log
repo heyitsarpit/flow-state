@@ -202,3 +202,7 @@ note 2026-11-15T21:01:49Z
 note 2026-11-15T21:19:55Z
     T69 in review at `f20559bb`: 41 CLI tests, faults 46 of 46; independent check started, with the faults runner's two
     new excuses (tests/cli, T ids) under scrutiny.
+
+note 2026-11-15T21:33:30Z
+    T69 done: independent review PASS at `f20559bb` (`bb78c35c`); the faults runner's new excuses judged narrow and
+    justified. Routed: CLI output to @task.V3.T29, config checks and test tightening to @task.V3.T22.

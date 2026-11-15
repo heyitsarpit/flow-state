@@ -952,7 +952,7 @@ tasks
             passing and 7 expected fails.
     T69
         title       flow story and flow trace
-        status      review
+        status      done
         priority    medium
         blocked_by  [@T65]
         description
@@ -1085,6 +1085,9 @@ tasks
             load order and session seeds) and the end-of-case reload with every writer attached; Turn I30 as a run rule
             (Object.is over one incarnation's consecutive Published); the turn bound rejects a crossing batch whole,
             against Stories I7's wording; the faults runner reads output over 1 MB as caught and covers tests/ only.
+        comment     2026-11-15T21:33:29Z
+            Routed from T69's review for the P2 audit: a fault whose run prints no test summary counts as caught (4
+            of 46).
 
     T71
         title       UI primitives, first wave: command palette and number input fixtures
