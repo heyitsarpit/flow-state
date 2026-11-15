@@ -25,3 +25,8 @@ note 2026-11-15T10:16:33Z
     Approved (user, 2026-11-15): "agreed to all", on the rewritten Epic and its loop, and "okay fix and finalise 
     everything and tell me when we can start coding", after the cold read's fixes and the order P2 before P3. Status is 
     active. T62 is done on an independent PASS at 5e95c840; the next Task is T63. The run starts on the user's word.
+note 2026-11-15T10:21:13Z
+    Run started at `344aa819` on the user's word ("make decisions as you see fit", 2026-11-15); current Task 
+    @task.V3.T63; no live agents. Decision (agent, 2026-11-15): the building lead starts at the 5-hour reset (17:50 
+    IST), not now. Why: the 5-hour window is at 94 percent, so a lead started now would be cut off mid-step; weekly is 
+    69 of the 75 reserve. Reverse: start the lead at once with the brief the start cron names.
