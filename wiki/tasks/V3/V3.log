@@ -83,3 +83,7 @@ note 2026-11-15T15:22:29Z
 note 2026-11-15T15:58:02Z
     Log moved to V3.log and spec-log.md deleted (user, 2026-11-15: "recommendation accepted, but delete
     spec-log.md"). Spec changes go to wiki/specs/specs.log; the full old notes are in git before this commit.
+
+note 2026-11-15T16:33:04Z
+    Session ended on the user's word: wakes and keep-awake removed; T63 stays paused at 14bc60d9 with its records
+    amended. To start: "run the loop in wiki/tasks/V3/epic.task".
