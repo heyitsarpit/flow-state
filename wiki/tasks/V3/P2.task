@@ -12,10 +12,13 @@ description
     proposal supersedes.
 
     **Guides:** the reference apps' stories, tests and fakes show the intended shape; the Plan wins where they differ.
-    Known stale there: `ensure` or `useActorByRef` with input, `signal` in contexts, no `services:`, persistence
-    `version`, CLI strings, `Fake.fetch` (now `Fake.http`), `drop({ times })` (later, @task.V3.T29),
-    `Fake.storage.write.hold({ match })` (now `Fake.storage` with `hold`), and any line saying fixtures shadow setup
-    services (they replace them). Link: code:wiki/plans/flow/references/checkout/features/Pay/pay.story.ts,
+    New fixtures come from code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md (shapes S01 to S29,
+    usual and stress) and the ui-sdk waves (@task.V3.T71, @task.V3.T72, @task.V3.T73); each feature Task builds the
+    shapes its feature unlocks (the user, 2026-11-16). Known stale there: `ensure` or `useActorByRef` with input,
+    `signal` in contexts, no `services:`, persistence `version`, CLI strings, `Fake.fetch` (now `Fake.http`), `drop({
+    times })` (later, @task.V3.T29), `Fake.storage.write.hold({ match })` (now `Fake.storage` with `hold`), and any line
+    saying fixtures shadow setup services (they replace them). Link:
+    code:wiki/plans/flow/references/checkout/features/Pay/pay.story.ts,
     code:wiki/plans/flow/references/checkout/features/Pay/pay.test.ts,
     code:wiki/plans/flow/references/checkout/features/Cart/cart.story.ts,
     code:wiki/plans/flow/references/checkout/features/Refunds/refunds.story.ts,
@@ -1072,8 +1075,16 @@ tasks
             - The same seed gives the same Stories.
             - A planted fault is found from a seed and shrunk to under ten steps, and the failure prints as a Story to
               paste into a fixture.
-            - Nothing generated is stored.
+            - Nothing generated is stored, except each fixture's stress Story below, which is saved as ordinary
+              fixture code.
             - It runs over every fixture in `tests/generated/`.
+            - Two profiles, from the usual and stress sections of
+              code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md: usual (realistic think times, a
+              healthy server, at most 5% domain failures) and stress (bursts, faults drawn on every call and storage
+              write, reloads, an offline span); a test names its profile, as in `propertyTest(fixture, { profile:
+              "stress" })`.
+            - Every fixture has a stress Story: a stress run from a fixed seed, printed as a chained `Story.app(...)`
+              and saved in the fixture, so the bench and the reload sweep use it like any hand-written Story.
         comment     2026-11-15T18:16:38Z
             Routed from T64's review (PASS at `bdd85075`): the sweep passes on a dead core (147 of 164 skipped: a lost
             re-send reads as nothing held), so assert the skip count. Rules narrower than their Specs: I3 lets unknown

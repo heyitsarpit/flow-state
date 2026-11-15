@@ -258,6 +258,10 @@ tasks
             Routed from T64's review: two runtime bugs pinned as it.fails in tests/rules: a refused turn publishes no
             issue-only snapshot (Turn I14), and serve.ts publishes only on change (Turn I9). Both sit with the snapshot
             shape (@plan.Machines.O3).
+        comment     2026-11-15T21:43:19Z
+            Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
+            (code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md), each with a usual and a
+            stress Story.
     T9
         title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
         status      draft
@@ -323,3 +327,35 @@ tasks
             - The run rules and the reload sweep cover the new Stories; each new runtime rule has a planted fault that
               `nub run faults` catches, and a dead core fails every new test.
             - The package never imports, reads or names `codebases/`; `nub run check` and `nub run lint:rules` pass.
+
+    T74
+        title       App mix: several fixtures in one Runtime
+        status      draft
+        priority    medium
+        blocked_by  [@task.V3.T70]
+        description
+            Run several fixtures in one Runtime with generated Stories, sharing storage, the network, the clock
+            and reloads.
+
+            **Why now:** a fixture alone never meets another machine's write in the same batch, a storage refusal during
+            another machine's capture, or a reload with one lane held and another queued. The app-mix profile finds bugs
+            between features that no single fixture reaches (the user accepted it as its own Task after
+            @task.V3.T70, 2026-11-16).
+
+            **Read first:** the app-mix profile in
+            code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md, @plan.Testing.O6, @task.V3.T70.
+
+            **Approach:** starts once three or more fixtures can share one Runtime; a failing run shrinks by dropping
+            whole fixtures first, then steps.
+
+            May change: `src/host/testing/`, `tests/generated/`, `fixtures/`. Evidence: this Task's comments.
+
+            False pass: a mix whose fixtures never touch a shared resource → caught by counting, per run, the steps that
+            hit shared storage, network, clock or a reload.
+        acceptance
+            - `propertyTest` takes several fixtures at once and runs them in one Runtime with one seed, sharing the fake
+              store, the fakes' network, the clock, reloads and disposal; the run rules apply to the whole run.
+            - Each run reports how many steps hit a shared resource, and a test shows a mix where none do fails
+              that count.
+            - A planted fault that needs two fixtures (a batch refusal hitting another machine's capture) is found from
+              a seed and shrunk.

@@ -61,6 +61,10 @@ tasks
         acceptance
             The streams Spec's Requirements hold on production, shown by Story tests and run rules, with a fixture that
             uses a stream.
+        comment     2026-11-15T21:43:20Z
+            Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
+            (code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md), each with a usual and a
+            stress Story.
     T24
         title       Entity store
         status      draft
@@ -74,6 +78,10 @@ tasks
         acceptance
             The entities Spec's Requirements hold on production, shown by Story tests and run rules, with a fixture that
             uses an entity domain.
+        comment     2026-11-15T21:43:20Z
+            Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
+            (code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md), each with a usual and a
+            stress Story.
     T27
         title       Multi-tab
         status      draft
@@ -87,6 +95,10 @@ tasks
             **Read first:** @plan.Persistence.O7, @plan.Runtime.O7.
         acceptance
             The multi-tab Spec's Requirements hold on production, shown by Stories with two tabs.
+        comment     2026-11-15T21:43:20Z
+            Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
+            (code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md), each with a usual and a
+            stress Story.
     T48
         title       Lazy features
         status      draft
@@ -105,6 +117,10 @@ tasks
             **Read first:** @plan.LazyFeatures.O1.
         acceptance
             The lazy-features Spec's Requirements hold on production, shown by Story tests.
+        comment     2026-11-15T21:43:20Z
+            Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
+            (code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md), each with a usual and a
+            stress Story.
     T28
         title       Host adapters: IndexedDB and in-memory
         status      draft

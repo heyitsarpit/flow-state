@@ -123,6 +123,10 @@ tasks
             Routed from T68: a schedule's send accepts another definition's event token (ScheduleConfig.send takes
             EventToken | Ending) and machine() builds it, breaking Compile T11; pinned as it.fails
             in tests/types/schedule-send.test.ts.
+        comment     2026-11-15T21:43:19Z
+            Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
+            (code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md), each with a usual and a
+            stress Story.
     T21
         title       Reads and operations (slice 5)
         status      draft
@@ -160,6 +164,10 @@ tasks
             Routed from T68: unbuilt type promises of @plan.Operations V1 (an unknown: record without otherwise;
             key-less members of keyed operations) and O1 (commit select and key values typed as plain records, not
             checked against the contract).
+        comment     2026-11-15T21:43:20Z
+            Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
+            (code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md), each with a usual and a
+            stress Story.
     T56
         title       Durability: release versions, key fingerprints and record migration (slice 2b)
         status      draft

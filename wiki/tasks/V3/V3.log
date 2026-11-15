@@ -206,3 +206,7 @@ note 2026-11-15T21:19:55Z
 note 2026-11-15T21:33:30Z
     T69 done: independent review PASS at `f20559bb` (`bb78c35c`); the faults runner's new excuses judged narrow and
     justified. Routed: CLI output to @task.V3.T29, config checks and test tightening to @task.V3.T22.
+
+note 2026-11-15T21:43:28Z
+    Decision (user, 2026-11-16): "all accepted" (T70 Q1-Q4): usual and stress profiles and a stress Story per fixture in
+    @task.V3.T70; the fixture catalogue is the fixture source; app mix is @task.V3.T74.
