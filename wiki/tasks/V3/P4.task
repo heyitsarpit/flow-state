@@ -78,11 +78,16 @@ tasks
             **Why now:** it is the browser half of the preview cut (the user, 2026-11-12), and until it runs, the
             fake store and fake page that every other test uses are unchecked against the real thing.
 
-            **Read first:** @plan.Persistence.O1, @plan.React.O1, and the Safari findings in
-            `packages/flow-state-v3/prototypes/safari/RESULTS.md`.
+            **Read first:** @plan.Persistence.O1, @plan.React.O1, @plan.Pending D9 (`Store` and `storeContract`),
+            @task.V3.T19 (write-ahead, checked on `Fake.storage` until this Task) and @task.V3.T28 (completes the
+            adapters), the Safari findings in `packages/flow-state-v3/prototypes/safari/RESULTS.md`, and the
+            prototype adapter code:packages/flow-state-v3/prototypes/round-14/reality/idb.ts (reference only; the
+            production adapter is written fresh).
 
-            **Approach:** `Store` becomes its own port: a Context service with a Schema'd error vocabulary. This Task
-            owns the store contract test, a plain function of a `Store` Layer under `@effect/vitest`.
+            **Approach:** `Store` becomes its own port in `src/host/store.ts`: a Context service with a Schema'd
+            error vocabulary. This Task owns the store contract test, a plain function of a `Store` Layer under
+            `@effect/vitest` (`storeContract`, D9). Its IndexedDB adapter is minimal but already meets Safari's D1 to
+            D4, since the fixtures run in Safari here; @task.V3.T28 completes it.
 
             May change: `src/host/`, `fixtures/`, `tests/`, and a new browser-run folder. Evidence: this Task's
             comments.

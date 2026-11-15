@@ -113,12 +113,13 @@ tasks
         blocked_by  [@task.V3.T58]
         satisfies   [@plan.Persistence.O1, @plan.Persistence.O3]
         description
-            Build `layerIndexedDb` in full, meeting the requirements of Safari's D1, D2, D3 and D4 in
-            `packages/flow-state-v3/prototypes/safari/RESULTS.md`, and extract the Story's in-memory store as
-            `layerMemory`, the production in-memory store, which `Fake.storage` then wraps with its hold, refuse and
-            release controls.
+            Complete `layerIndexedDb` from @task.V3.T58's minimal adapter (which already meets Safari's D1 to D4 in
+            `packages/flow-state-v3/prototypes/safari/RESULTS.md`): the `database` option, the rest of
+            @plan.Persistence.O1 and O3. Extract the Story's in-memory store as `layerMemory`, the production
+            in-memory store, which `Fake.storage` then wraps with its hold, refuse and release controls.
 
-            **Read first:** @plan.Persistence.O1, and `packages/flow-state-v3/prototypes/safari/RESULTS.md`.
+            **Read first:** @plan.Persistence.O1, @task.V3.T58, @plan.Pending D9, and
+            `packages/flow-state-v3/prototypes/safari/RESULTS.md`.
         acceptance
             Both adapters pass the store contract test of @task.V3.T58, the IndexedDB one in real Chrome and Safari.
     T49
@@ -146,7 +147,7 @@ tasks
         title       The rest of Story and Fake, and `story describe`
         status      draft
         priority    medium
-        blocked_by  [@T49]
+        blocked_by  [@T49, @task.V3.T23, @task.V3.T69, @task.V3.T70]
         satisfies   [
                     @plan.CommandLine.O1,
                     @plan.CommandLine.O2,
@@ -162,14 +163,17 @@ tasks
         description
             Extend the first slice (@task.V3.T63 to @task.V3.T70) that Flow's own tests run on: `Story.machine`,
             `Story.fragment`, frames, `together`, `Fake.Refused`, `Fake.Closed`, `duplicate`, `times`,
-            `UnusedWireRule`, the microtask settle, end-of-run cleanup (@plan.Testing.O8), the Plan's `FlowError` with
-            evidence, `definePresentation`, `domainPropertyOptions`, `PropertyTestFailed`, `story describe`,
-            `--coverage` and `--trace-output`; and export `flow-state/testing` through the map @task.V3.T23 added.
-            Tab steps move to @task.V3.T27; hydration and `StoryPlayer` to @task.V3.T30.
+            `UnusedWireRule`, `Fake.http` with the microtask settle (unless the first Promise-based adapter landed
+            them earlier), end-of-run cleanup (@plan.Testing.O8), StoryFrame rendering, the Plan's `FlowError` with
+            evidence, `domainPropertyOptions`, `PropertyTestFailed`, `story describe`, `--coverage`,
+            `--trace-output`, `story run`'s exit code for a rejected run and `trace --at` (@plan.CommandLine.O2);
+            and export `flow-state/testing` through the map @task.V3.T23 added. Tab steps move to @task.V3.T27;
+            hydration, `StoryPlayer` and `definePresentation` to @task.V3.T30.
 
-            **Read first:** @plan.Testing.O1, @task.V3.T63, @task.V3.T69, @task.V3.T70.
+            **Read first:** @plan.Testing.O1, @plan.Pending (D5 to D10, the names the first slice added),
+            @spec.Stories, @task.V3.T63, @task.V3.T69, @task.V3.T70.
         acceptance
-            Every outcome of @plan.Testing holds on production, and the `flow-state/testing` route is exported.
+            Every outcome this Task satisfies holds on production, and the `flow-state/testing` route is exported.
     T31
         title       CLI outputs designed for people
         status      draft
@@ -210,7 +214,8 @@ tasks
                     ]
         description
             Write the bindings' Specs, then build the React and Next.js bindings from @plan.React and
-            @plan.ServerRendering.
+            @plan.ServerRendering, with the Story `hydrate` path, `StoryPlayer` and `definePresentation`
+            (@plan.Testing.O7, O9).
 
             **Read first:** @plan.React.O1, @plan.ServerRendering.O1.
         acceptance

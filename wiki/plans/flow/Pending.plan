@@ -45,14 +45,22 @@ decisions
         Layer of Effect's `HttpClient` (`Fake.http`) rather than a replaced global `fetch`. **Why:** the
         reference apps use `Fake.call` and `Fake.control`, and Effect adapters take `HttpClient`
         (code:wiki/plans/flow/references/proposals/test-tooling-reuse-2026-11-15.md, Q5 and Q7).
-        **Proven by:** @task.V3.T63's fixtures, and the first adapter over `Fake.http`. Found in @task.V3.T63.
+        **Proven by:** @task.V3.T63's fixtures for `Fake.call` and `Fake.control`, and the first Promise-based
+        adapter over `Fake.http` (@task.V3.T29). Found in @task.V3.T63.
     D8  @plan.Testing.O4: `read(target)` also takes a fake endpoint
         Widen O4's `read(target)` so an endpoint returns each call it received with its status (held,
         answered, dropped), as the reference stories read `cut.read(Stripe.confirm)`. **Why:** "exactly one
         call reached the server" needs the call log, and a fake's truth does not always show it. **Proven
         by:** @task.V3.T63's Pay Story and @task.V3.T64's run rules over calls. Found in @task.V3.T63.
-    D9  @plan.Package.O1: `flow-state/testing` exports `storeContract`
+    D9  @plan.Package.O1: `flow-state/testing` exports `storeContract`; `flow-state/persistence` exports `Store`
         Add `storeContract(name, layer)`, the store contract as a plain `@effect/vitest` function of a
-        `Store` Layer, so a custom store adapter is checked as Flow's own are. **Why:** a custom store is
-        the likeliest adapter users write (the user, 2026-11-15, reuse proposal Q8). **Proven by:**
-        @task.V3.T58 running it on `Fake.storage` and real IndexedDB, and @task.V3.T28 on both adapters.
+        `Store` Layer, so a custom store adapter is checked as Flow's own are, and export the `Store` service
+        tag beside `layerIndexedDb` and `layerMemory`, which @plan.Persistence.O1 asks authors to implement.
+        **Why:** a custom store is the likeliest adapter users write (the user, 2026-11-15, reuse proposal
+        Q8). **Proven by:** @task.V3.T58 running it on `Fake.storage` and real IndexedDB, and @task.V3.T28 on
+        both adapters.
+    D10  @plan.Testing.O1: `reload({ reattach: false })`
+        Add an option to the reload step that boots the new page without re-attaching the Story's uses.
+        **Why:** O1's reload always re-attaches, which hides a boot that fails to wake owed identities;
+        the reload sweep needs a variant that attaches nothing. **Proven by:** @task.V3.T64's second sweep
+        variant catching a planted fault that skips the boot wake. Found in @task.V3.T64.

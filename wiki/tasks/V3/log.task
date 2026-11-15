@@ -68,3 +68,5 @@ note 2026-11-15T14:22:01Z
     Paused again (user, 2026-11-15: "don't do that, just make the records changes"): the T63 resume was the orchestrator's mistake; the lead is held, and wakes must not resume or replace it until the user says go.
 note 2026-11-15T14:42:21Z
     Records repaired after review (user, 2026-11-15: "all agreed"; "your recommendations are accepted"): Stories.spec rewritten to the Plan's names (forget as dispose how, records, run.evidence, read(endpoint)); T63 gains its Shape, the P2 card the folder structure; T64 to T70 fixed; decisions 1 to 6 applied to P3 to P10; Pending D8 and D9 added. No code changed; T63 stays paused.
+note 2026-11-15T14:51:20Z
+    Records fixed from the Haiku Q&A (user, 2026-11-15: run a Q&A over settled Tasks): T63 Shape corrected (5 s, scope, Restore I6, R threading as a risk); T64 rules on the Specs' wording with Spec links and a fault per rule; T67 maps answer and ack to the Plan's words; T29, T30, T58, T28 ownership and links; Pending D10 (reload reattach). No code changed.
