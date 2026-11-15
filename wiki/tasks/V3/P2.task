@@ -116,6 +116,22 @@ description
     - skill:execute-task and skill:check-task per Task; skill:review at each Task's close;
     - skill:policy-convergence at the threshold; skill:diagnose when a test fails unexplained;
     - the project's `effect-api-documentation` skill for every Effect API.
+comment 2026-11-15T19:51:43Z
+    Coverage record of the P2 suite, proposed to the user as a verification entry of @plan.Runtime (a Plan edit, the
+    user's yes); until then it lives here. Covers: @plan.Runtime, @plan.Operations, @plan.Persistence and @plan.Testing
+    outcomes as the Story tests cite them; @spec.WriteLanes, @spec.Actors, @spec.Turn, @spec.Restore and
+    @spec.WriteAhead rules named in test titles; @spec.Stories; the package's `src/core/` and `src/host/`. Suite:
+    `packages/flow-state-v3/tests/` (Story tests by Spec area; run rules and the reload sweep in `tests/rules/`,
+    code:packages/flow-state-v3/tests/rules/sweep.test.ts), and the host tests beside the code in `src/`. Rerun: `nub
+    run test` for the suite; `nub run faults` for the mutants (a scratch copy; no setup). Mutants: the dead core and
+    every named fault of code:packages/flow-state-v3/tests/faults.ts and
+    code:packages/flow-state-v3/tests/tooling-faults.ts, each with the rule it breaks; `nub run faults` prints the tests
+    that fail for each, and fails on a missed or stale fault or on a test the dead core leaves green other than a port
+    fake's contract test or an inverted test. Audit: not audited; the audit runs at the phase's close, after
+    @task.V3.T70. Matched at: a7989ac0 (nub run test, nub run faults 42 of 42, check and lint:rules at zero). Scope:
+    Flow's own fixtures (pay, cells, sync, sign-in, transfers) over fake servers, one tab, TestClock time; excluded:
+    real browsers and storage (P4), generated Stories (@task.V3.T70), the CLI (@task.V3.T69), and the known bugs held as
+    it.fails: Turn I9, Turn I14 (two), WriteAhead R5, WriteLanes I7, Actors I43.
 tasks
     T62
         title       Package layout and import rules
@@ -619,7 +635,7 @@ tasks
             unclosed run scopes may skew p99 over 1100 runs.
     T67
         title       The hand cases run as Story tests and the bridge is gone
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T63, @T64]
         description
@@ -746,6 +762,60 @@ tasks
                 tab dies (@plan.Pending.D11, Stories R13), with a step test and the planted fault landed-write-lost;
                 PAY-18 and PAY-09/ack-stored-confirmation-lost port in full: no pay request, unknown Restored after
                 the reload.
+        comment     2026-11-15T19:51:29Z
+            Case mapping: 81 bridge cases → tests/write-lanes, tests/actors, tests/turn, same file names. 78 carry every
+            value of their case; 2 are it.fails (Actors I43, Turn I14); 1 is dropped. Values were compared case by case
+            against the bridge file while porting. Each test runs through tests/rules/played.ts: run rules, a second run
+            with equal trace text (the seed replay, Turn I17), and the bridge's end-of-case disposal bound (Actors R22,
+            R23). Answers map by the Task's table; `ack` is a held write released, dropped where the case checked
+            nothing before it.
+            - write-lanes/payment-endings 7, payment-faults 5, payment-held 8, payment-late-answers 5,
+              payment-leave-and-reload 9: all values. Words: Die is Shop.crash; failButLanded is Shop.landThenFail;
+              CardDeclined is Shop.decline; Never is a hold at request, answerLate its release after the deadline;
+              uninterruptible is ShopFakeSteadfast; answerAtOnce is the plain handler; `Ok(null)` for the order is the
+              orderFor handler over truth with no order; landNoAck is reload({ heldWrites: "land" }) (PAY-18,
+              PAY-09/ack-stored-confirmation-lost, in full). PAY-23 reads requires_action through a challenge that
+              lands, answer lost. PAY-15/dead-activation-timer drops at the send (t=0) with both reads held, so the bug
+              read at 8 s would still be a third. `appliedTwice` and `landed` read the shop's charges by key. Where a
+              case checked PLACING before the order's answer, the port holds placeOrder.
+            - write-lanes/payment-retry 8: all values but one: resend-refused-capture's PAYING before the refusal is
+              dropped, since a refusal is decided when the write is issued and no word refuses a held write.
+            - write-lanes/ending-delivery 6: DLV-01 to 03 all values. DLV-04 to 06 changed in kind: the refused ending
+              is pay's Busy with a negative delay, since the shop never answers an order of null (its truth gives an
+              order; the port's type forbids null); states read PAYING where the case read PLACING, and place counts
+              become pay counts, under the same rules (Actors R15, I24; WriteLanes R6, I8, I15).
+            - write-lanes/lane-anchors 2: PAY-21 starts the second charge 1 s later so the first read is the next (for
+              answerTo); PAY-22 all values. New it.fails WriteLanes I7 (see the requirements' check 4).
+            - write-lanes/lane-policies 2: LANE-08 reads channel notSent, the evidence's own word (the bridge mapped
+              notSent to failure).
+            - actors/lane-keeping 6, lifetime 3 (ACT-02, 03 on a 5 s capture setup), runtime-disposal 11 + it.fails
+              Actors I43: all values.
+            - turn/schedules 4, refusal: schedule-refused and TURN-02 all values; schedule-out-of-range is it.fails Turn
+              I14. Dropped: TURN-01/mapper-refused (4 values): a refused mapper needs a place answer of null, which no
+              Plan word gives without a server answering against its truth or a port breaking its type; schedule-refused
+              covers the refused ending path.
+            - Bridge checks: Turn I9 and Actors I30 are run rules already; Unreadable is the new Turn R24 rule; Turn
+              I29, I30 (publication identity) are dropped as checks: a run's evidence keeps the published object, not a
+              copy, so a later mutation cannot be seen after the run; the fault state-move-copies-memory stays caught by
+              Story tests.
+        comment     2026-11-15T19:51:30Z
+            Close: to review at a7989ac0. 319 tests pass, 6 it.fails; nub run faults 42 of 42, the dead core green only
+            on the two bank contract tests and the 6 inverted; check and lint:rules at zero; the reload sweep (reattach,
+            none, land) is green on every fixture Story.
+            - WriteLanes I7 reproduction: PAY-22's void lost twice, the second re-send's capture held, then a reload:
+              three calls with one key, retryCount 1 where I7 wants 2 (it.fails in
+              tests/write-lanes/lane-anchors.test.ts). Found by reloading after every step of the ported Story; a reload
+              that lands the capture keeps the count.
+            - Stories I7 fixed, not deferred: the driver gives the run an admit hook before each step applies, since an
+              inspector sink cannot stop a step (runtime.ts detaches a throwing sink).
+            - The host tests (lanes, ledger) run on the runner's own clock (testing/clock.ts, TestClock and Effect's
+              scheduler); the seam and their boot helpers are testing/seam.ts, unexported.
+            - Extra files beyond May change: src/host/driver.ts, runtime.ts (admit hook), tools/faults/run.ts,
+              bench/run.ts (every long Story), tests/tooling-faults.ts (faults.ts passed 500 lines),
+              wiki/plans/flow/Pending.plan (D11).
+            - For the user: AGENTS.md line 11 still says `tests/bridge/` is temporary; I did not edit project
+              instructions. `nub run faults` now takes about 5 minutes (each port runs its Story three times), at the
+              command bound.
     T68
         title       Compile-time tests for the type promises production keeps
         status      open
