@@ -1,4 +1,15 @@
-import { Context, Deferred, Effect, Exit, Layer, Option, Result, Schema } from "effect";
+import {
+  Context,
+  Deferred,
+  Effect,
+  Effectable,
+  Exit,
+  Layer,
+  Option,
+  Record,
+  Result,
+  Schema,
+} from "effect";
 import type { Fields, InputOf } from "../../contract.ts";
 import type { Values } from "../../core/compiled.ts";
 import { type Bytes, type Purpose, type Store, StoreRefused } from "../host.ts";
@@ -233,10 +244,7 @@ export const makeWorld = (alive: (page: number) => boolean) => {
             });
 
           if (next === undefined)
-            return Option.match(handled(server, endpoint, input), {
-              onNone: () => Effect.never,
-              onSome: (exit) => exit,
-            });
+            return Option.getOrElse(handled(server, endpoint, input), () => Effect.never);
 
           if (next.word === "hold" && next.at === "request") {
             mark(index, "held at request");
@@ -410,6 +418,25 @@ export const makeStore = (alive: (page: number) => boolean) => {
 };
 
 /**
+ * A declared fake server as a value: an Effectable of its served endpoints, carrying its
+ * declaration for the run.
+ */
+class FakeServer<A> extends Effectable.Class<A, never, FakeWorld> {
+  readonly "~server": AnyServer;
+  readonly #served: Effect.Effect<A, never, FakeWorld>;
+
+  constructor(server: AnyServer, served: Effect.Effect<A, never, FakeWorld>) {
+    super();
+    this["~server"] = server;
+    this.#served = served;
+  }
+
+  asEffect() {
+    return this.#served;
+  }
+}
+
+/**
  * Stands in for the world outside the app in a Story.
  *
  * **When to use**
@@ -430,7 +457,8 @@ export const makeStore = (alive: (page: number) => boolean) => {
  * **Gotchas**
  *
  * - A held call never released is never answered; only the commit's own deadline ends it.
- * - An endpoint or control named like an Effect member (`pipe`, `asEffect`) shadows it.
+ * - An endpoint or control named like a member of an Effectable (`pipe`, `asEffect`, `toJSON`,
+ *   `toString`) shadows it.
  */
 export const Fake = {
   // RETURN_TYPE: the Server contract keeps its truth, endpoints and controls.
@@ -441,7 +469,7 @@ export const Fake = {
   >(
     name: string,
     config: {
-      readonly truth: Schema.Codec<T, unknown, unknown, unknown>;
+      readonly truth: Schema.Codec<T, unknown>;
       readonly initial: NoInfer<T>;
       readonly endpoints: E;
       // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the Plan's public word: an omitted option takes its default
@@ -456,25 +484,20 @@ export const Fake = {
       controls: config.controls ?? {},
     };
 
-    const endpoints = Object.keys(server.endpoints).map((it) => [it, endpointOf(server, it)]);
+    const endpoints = Record.map(config.endpoints, (_, it) => endpointOf(server, it));
 
-    const controls = Object.keys(server.controls).map((it) => [
-      it,
-      (input: Values) => WorldWord.control({ server, control: it, input }),
-    ]);
+    const controls = Record.map(
+      server.controls,
+      (_, it) => (input: Values) => WorldWord.control({ server, control: it, input }),
+    );
 
     // SAFETY: the world serves each endpoint by its name, through that endpoint's own handler, whose Exit has its own Schemas' types.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a service built key by key from the server's endpoints
     const served = Effect.map(FakeWorld, (world) => world.serve(server) as ServiceOf<E>);
 
-    // SAFETY: the Effect of the served endpoints, with each endpoint's handle and each control's word under its own name.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion, lint-bomb/no-object-iteration-result-cast -- a server built key by key from its declaration
-    return Object.assign(
-      served,
-      { "~server": server },
-      Object.fromEntries(endpoints),
-      Object.fromEntries(controls),
-    ) as Server<T, E, C>;
+    // SAFETY: each endpoint's handle carries its own request type only as a phantom, and each control's word takes that control's own input.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the handles and words built from the declaration, under their own names
+    return Object.assign(new FakeServer(server, served), endpoints, controls) as Server<T, E, C>;
   },
   // RETURN_TYPE: the Endpoint contract keeps its request, success and failure types.
   call: <T, const F extends Fields, S extends Schema.Top, X extends Schema.Top>(config: {

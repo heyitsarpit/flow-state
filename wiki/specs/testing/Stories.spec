@@ -265,13 +265,14 @@ realization typescript
         tasks.
     - Held calls and writes: `Deferred` per held item, completed by the step that releases it; a dropped answer,
         or one whose page is dead, is never completed.
-    - Fakes: a fake server is a Context key whose service, built from the registry, gives each endpoint as a
-        function returning an Effect; a port fake is a plain `Layer.effect` of the app's service over it.
-        Endpoints return `Exit`, the port's own outcome type.
+    - Fakes: a fake server is an `Effectable.Class` whose Effect reads the run's `FakeWorld` service and gives
+        each endpoint as a function returning an Effect, with its endpoints' wire words and its controls' words as
+        properties; a port fake is a plain `Layer.effect` of the app's service over it. Endpoints return `Exit`.
     - Faults of the script: `Data.TaggedError` (StoryFailed, StoryTurnLimit); the run's Promise rejects with it.
-    - Skipped: `ManagedRuntime` and `Effect.runPromise` for the run (a page is driven by `Effect.runForkWith` on its
-        own scheduler, then settled); `FiberMap` and `Scope` for pages (a dead page is never closed); `it.effect`
-        (a run is a Promise and the Story test is a plain test).
+    - The run's Promise: `Effect.runPromise` of `Effect.try` over the synchronous run, which maps any throw to
+        StoryFailed. Skipped: `ManagedRuntime` (a page is driven by `Effect.runForkWith` on its own scheduler, then
+        settled); `FiberMap` and `Scope` for pages (a dead page is never closed); `it.effect` (a run is a Promise and
+        the Story test is a plain test).
 
 coverage
     @R1

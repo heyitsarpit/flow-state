@@ -1,7 +1,7 @@
 import { Option } from "effect";
 import { Evidence } from "../core/evidence.ts";
 import { laneKeyText } from "../core/lane-moves.ts";
-import { actorKey, Timer } from "../core/world.ts";
+import { actorKey, type Disposal, Timer } from "../core/world.ts";
 import { isInFlight } from "../core/tx.ts";
 import type { Driver } from "./driver.ts";
 import { DriverId, InspectorId, type Runtime, type Snapshot, snapshotOf } from "./runtime.ts";
@@ -66,7 +66,7 @@ export type RuntimeCut = {
     readonly dueAt: Option.Option<number>;
   }>;
   readonly uses: ReadonlyArray<{ readonly actor: string; readonly uses: ReadonlyArray<string> }>;
-  readonly lifecycle: string;
+  readonly lifecycle: Disposal["_tag"];
 };
 
 const contractOf = (driver: Driver, machine: string, operation: string) =>

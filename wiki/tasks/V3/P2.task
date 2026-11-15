@@ -150,7 +150,7 @@ tasks
             - `nub run check`, `nub run lint:rules` and `vp test` pass.
     T63
         title       A Story drives the real Runtime over fakes
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T62]
         description
@@ -348,6 +348,17 @@ tasks
             the core, so the dead core fails each; the bank contract test checks the fake alone and stays green on a
             dead core by design. Finding: the `refused-turn-reported` core fault is missed by the suite; it is not a
             tooling rule and predates this Task (no deleted test exercised a refused turn). Left for T64's run rules.
+        comment     2026-11-15T17:15:54Z
+            Effect review (Opus, 4 Haiku sidecars): no blocking finding; 3 should-fix and 7 nits. Fixed: the server is
+            now an `Effectable.Class` with `Record.map` handles (was Object.assign over `Effect.map`'s result); both
+            HTTP adapters use `catchTags`, `prependUrl`, `schemaBodyJson`, 5xx as ServerError; `Option.getOrElse`;
+            lifecycle typed; Spec realization. Also fixed: the bank's handler replays a seen key before the limit check
+            (a sidecar's fixture finding). Kept, with reason: pay's port errors stay plain types
+            (`fixtures/pay/contracts.ts` is outside this Task); the `contract ?? operation` fallback is unreachable, a
+            lane's operation comes from its machine; `instanceof` on the two fault classes reads clearly. Open: no test
+            runs `BankHttp` or `ShopHttp` (a sandbox contract run is T29's). Close: no reload sweep exists yet (T64) and
+            no bench (T66); `nub run check:effect` over the ~100-step `long` Story takes about 1 s, so checkpoint names
+            need no cap.
     T64
         title       Rules checked on every run, and a reload at every step
         status      open

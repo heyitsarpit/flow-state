@@ -8,8 +8,8 @@ const BankTruth = Schema.Struct({
 });
 
 /**
- * The bank's truth: one receipt per idempotency key, and a limit above which a transfer is
- * declined.
+ * The bank's truth: one receipt per idempotency key, replayed for a key it has seen, and a limit
+ * above which a new transfer is declined.
  */
 export const Bank = Fake.server("Bank", {
   truth: BankTruth,
@@ -20,8 +20,12 @@ export const Bank = Fake.server("Bank", {
       success: Receipt,
       failure: Declined,
       handle: (truth: typeof BankTruth.Type, { cents, key }) => {
+        const known = truth.receipts[key];
+
+        if (known !== undefined) return { truth, exit: Exit.succeed({ receipt: known }) };
+
         if (cents > truth.limit) return { truth, exit: Exit.fail(new Declined({ code: "limit" })) };
-        const receipt = truth.receipts[key] ?? `r${Object.keys(truth.receipts).length + 1}`;
+        const receipt = `r${Object.keys(truth.receipts).length + 1}`;
 
         return {
           truth: { ...truth, receipts: { ...truth.receipts, [key]: receipt } },

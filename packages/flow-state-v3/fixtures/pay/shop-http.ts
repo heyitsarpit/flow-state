@@ -1,6 +1,12 @@
 // @effect-diagnostics unstableApiUsage:off -- the production adapter's port is Effect's HttpClient, as the app's real Layer would be
 import { Effect, Layer, Option, Schema } from "effect";
-import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
+import {
+  FetchHttpClient,
+  HttpClient,
+  HttpClientRequest,
+  HttpClientResponse,
+  HttpIncomingMessage,
+} from "effect/http";
 import { ShopApi } from "./contracts.ts";
 
 const Intent = Schema.Struct({
@@ -12,21 +18,26 @@ const Order = Schema.Struct({ orderId: Schema.String });
 
 const lost = { _tag: "NoResponse" } as const;
 
+const serverError = { _tag: "ServerError" } as const;
+
 /**
  * The shop's API over HTTP: the production Layer of `ShopApi`, as far as Flow's own fixtures need
- * it. A 200 is decoded as the endpoint's answer; anything else, or no answer, is `NoResponse`.
+ * it. A 2xx is decoded as the endpoint's answer; a 5xx or an answer that does not decode is
+ * `ServerError`; anything else, or no answer, is `NoResponse`.
  */
 export const ShopHttp = (origin: string) =>
   Layer.effect(
     ShopApi,
-    Effect.map(HttpClient.HttpClient, (client) => {
-      const call = <A>(
+    Effect.map(HttpClient.HttpClient, (http) => {
+      const client = HttpClient.mapRequest(http, HttpClientRequest.prependUrl(origin));
+
+      const call = <S extends Schema.Constraint>(
         path: string,
         body: Readonly<Record<string, string>>,
-        answer: Schema.Codec<A, Schema.Json>,
+        answer: S,
         key: Option.Option<string>,
       ) =>
-        HttpClientRequest.post(new URL(path, origin)).pipe(
+        HttpClientRequest.post(path).pipe(
           (request) =>
             Option.match(key, {
               onNone: () => request,
@@ -36,11 +47,15 @@ export const ShopHttp = (origin: string) =>
           client.execute,
           Effect.flatMap(
             HttpClientResponse.matchStatus({
-              200: (r) => Effect.flatMap(r.json, Schema.decodeUnknownEffect(answer)),
+              "2xx": (r) => HttpIncomingMessage.schemaBodyJson(answer)(r),
+              "5xx": () => Effect.fail(serverError),
               orElse: () => Effect.fail(lost),
             }),
           ),
-          Effect.mapError(() => lost),
+          Effect.catchTags({
+            HttpClientError: () => Effect.fail(lost),
+            SchemaError: () => Effect.fail(serverError),
+          }),
         );
 
       return ShopApi.of({

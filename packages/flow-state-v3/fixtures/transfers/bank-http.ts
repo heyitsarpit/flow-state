@@ -1,7 +1,15 @@
 // @effect-diagnostics unstableApiUsage:off -- the production adapter's port is Effect's HttpClient, as the app's real Layer would be
 import { Effect, Layer, Schema } from "effect";
-import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
+import {
+  FetchHttpClient,
+  HttpClient,
+  HttpClientRequest,
+  HttpClientResponse,
+  HttpIncomingMessage,
+} from "effect/http";
 import { BankApi, Declined, NoResponse, Receipt } from "./contracts.ts";
+
+const Refusal = Schema.Struct({ code: Schema.String });
 
 /**
  * The bank's API over HTTP: the production Layer of `BankApi`. A 200 is a receipt, a 402 a
@@ -10,28 +18,32 @@ import { BankApi, Declined, NoResponse, Receipt } from "./contracts.ts";
 export const BankHttp = (origin: string) =>
   Layer.effect(
     BankApi,
-    Effect.map(HttpClient.HttpClient, (client) =>
-      BankApi.of({
+    Effect.map(HttpClient.HttpClient, (http) => {
+      const client = HttpClient.mapRequest(http, HttpClientRequest.prependUrl(origin));
+
+      return BankApi.of({
         transfer: (input, { idempotencyKey }) =>
-          HttpClientRequest.post(new URL("/transfers", origin)).pipe(
+          HttpClientRequest.post("/transfers").pipe(
             HttpClientRequest.setHeader("Idempotency-Key", idempotencyKey),
             HttpClientRequest.bodyJsonUnsafe(input),
             client.execute,
             Effect.flatMap(
               HttpClientResponse.matchStatus({
-                200: (r) => Effect.flatMap(r.json, Schema.decodeUnknownEffect(Receipt)),
+                "2xx": (r) => HttpIncomingMessage.schemaBodyJson(Receipt)(r),
                 402: (r) =>
-                  Effect.flatMap(
-                    Effect.flatMap(r.json, Schema.decodeUnknownEffect(Declined)),
-                    Effect.fail,
+                  Effect.flatMap(HttpIncomingMessage.schemaBodyJson(Refusal)(r), ({ code }) =>
+                    Effect.fail(new Declined({ code })),
                   ),
                 orElse: () => Effect.fail(new NoResponse()),
               }),
             ),
-            Effect.catch((e) => Effect.fail(e instanceof Declined ? e : new NoResponse())),
+            Effect.catchTags({
+              HttpClientError: () => Effect.fail(new NoResponse()),
+              SchemaError: () => Effect.fail(new NoResponse()),
+            }),
           ),
-      }),
-    ),
+      });
+    }),
   );
 
 /**
