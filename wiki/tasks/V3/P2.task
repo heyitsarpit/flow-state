@@ -587,6 +587,10 @@ tasks
             tests/bench/run.test.ts: every timed run's Turn evidence, in order, equals a separate long.run()'s and is
             non-empty; planted fault bench-drops-a-step in tests/faults.ts, caught by nub run faults. 3. (acceptance 3)
             no test, exit code or gate reads a timing: grep tests/ and bench/ for an assertion on ms.
+        comment     2026-11-15T18:20:48Z
+            Built: bench/run.ts over bench/time.ts (timeStory, spreadOf); checks 1 to 3 green, 316 tests pass, faults 38
+            of 38. Extra files: tests/bench/run.test.ts, tests/faults.ts (bench-drops-a-round, Stories I18). Per turn is
+            a run's time over its Turn records, since run() owns the inspector and bench/ may not reach it.
     T67
         title       The hand cases run as Story tests and the bridge is gone
         status      open

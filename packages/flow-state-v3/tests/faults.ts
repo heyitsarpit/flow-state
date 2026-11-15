@@ -484,4 +484,16 @@ export const faults: ReadonlyArray<Fault> = [
       },
     ],
   },
+  {
+    name: "bench-drops-a-round",
+    says: "the bench times a Story with its last round of steps cut, so it does less work than the tested run",
+    rule: "Stories I18",
+    edits: [
+      {
+        file: "bench/time.ts",
+        find: "const run = await story.run();",
+        replace: "const run = await story.run({ steps: story.steps.slice(0, -10) });",
+      },
+    ],
+  },
 ];
