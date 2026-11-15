@@ -162,3 +162,7 @@ note 2026-11-15T18:48:48Z
     Ruling (orchestrator, small public API): `reload({ heldWrites: "land" })` lands held store writes as the old tab
     dies (a committed write never heard, Restore R3); default "abort". For the user's read. Reverse: drop the option and
     the two cases' after-reload values.
+
+note 2026-11-15T19:18:10Z
+    Review started of T67's tooling and Spec changes (`0c516c07` rename, `2abb4619` turn bound, heldWrites, faults
+    runner): a review event with no review covering it.
