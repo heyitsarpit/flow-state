@@ -433,6 +433,33 @@ tasks
             disposeRuntime re-ensures nothing (R13 silent); release() may pick a dead page's held entry over a live one
             (R9 allows); a held write interrupted by disposeRuntime lands on release; `nub run faults` exits 0 on a
             miss; refused-turn-reported (Turn I14) uncaught.
+        comment     2026-11-15T17:34:26Z
+            Requirements (first commit): each is a check red today, its expected result from the cited rule, one to one
+            with the acceptance; rules live in `tests/rules/`, read only public reads, and each is red on its named
+            fault. Q1 WriteLanes I15: per Attempt and incarnation a Delivered needs an owed ending (Ended or Unparked)
+            or an I15 exception (one redelivery after a refused turn; one try per start for a kept row). Fault
+            `ending-heard-twice`. Q2 WriteLanes I16: after an Attempt's success or failure is delivered, no other of its
+            endings is delivered. Fault `success-keeps-hold` (a success leaves its lane Held, so a reload delivers
+            unknown Restored). Q3 WriteLanes I3: an ending's channel is one of four; no failure after an unknown of the
+            same Attempt; an Attempt with no Sent ends only notSent or unknown Restored. Fault `unsent-as-failure`. Q4
+            WriteLanes I6, over `read(endpoint)`: requests naming one Attempt id (a field equal to a Minted id) carry
+            one input, and an endpoint that carries Attempt ids names only Minted ones. Fault `resend-new-id`. Q5 Turn
+            I9: a Turn report has at most one Published of its actor before the next turn, and a move exactly one. Fault
+            `turn-published-twice`. Q6 Turn I14: a refusal Issue is its turn's only report, with no Turn report or
+            Published. Fault `refused-turn-reported` (missed today); needs a refused-turn Pay Story: a Shop control
+            making `confirm` fail Busy with a negative retry, whose schedule refuses the turn (Turn R8). Q7 Actors I30,
+            over `read(endpoint)`: no call from page p at or after p's `disposeRuntime` step; needs a `step` on each
+            logged call (Testing O3's provenance). Fault `disposal-resends-held`. Q8 Restore R1, the D10 variant's
+            witness: at a checkpoint right after a reload, no owed row Waits for an identity that has an actor record
+            and no incarnation. Fault `boot-wakes-no-one`, caught by the reattach-false sweep. Q9 One helper applies the
+            plain `rules` list to a run; every Story test calls it. Q10 Reload sweep over every fixture Story: a reload
+            at each position, then `reload({ reattach: false })` (@plan.Pending D10); a variant fails on a breach, a
+            limit or a non-script fault, and skips and counts "nothing held"/"never used". Q11 `nub run faults` exits 1
+            on a missed or stale fault or an edit path outside the copy; all named faults caught. T63 gaps: G1 two reads
+            at one point give equal inspection and add no evidence (Stories I16); G2 a Turns-limit test (Stories I7); G3
+            a reload after `disposeRuntime` ensures the Story's uses again (Stories R13), red today; G4 release takes
+            the oldest held call, a dead page's included: R9 says so, kept and pinned by a test; G5 a held write across
+            `disposeRuntime`: replay, then decide by Stories R11 and R13; G6 is Q11; G7 is Q6.
     T65
         title       A run prints as a text trace
         status      open
