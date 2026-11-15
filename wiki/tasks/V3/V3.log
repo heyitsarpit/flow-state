@@ -226,3 +226,11 @@ note 2026-11-15T22:12:07Z
 note 2026-11-15T22:12:07Z
     For the user's read (wiring cost): the number input's `lastCommit.seq` is a hand-kept counter the idiom pass's
     proposed `emit` would replace.
+
+note 2026-11-15T22:20:13Z
+    Review of T70's first commit `e7464a40`: GAPS (three T71 follow-ups missing, pair grid and profiles unpinned,
+    missing false-pass guards); sent to the builder. effect/Arbitrary confirmed.
+
+note 2026-11-15T22:20:14Z
+    Delegated calls: pair sweep is 8 phases by 7 faults (catalogue's 6 plus lost answer); the DRIVE profile reaches
+    later phases. For the user's read. Reverse: 48 cells, usual-only driving.
