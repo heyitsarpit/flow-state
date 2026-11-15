@@ -575,7 +575,7 @@ tasks
             for the Plan tab.
     T66
         title       The bench times the long stories
-        status      in_progress
+        status      review
         priority    medium
         blocked_by  [@T63]
         description
@@ -605,6 +605,11 @@ tasks
             Built: bench/run.ts over bench/time.ts (timeStory, spreadOf); checks 1 to 3 green, 316 tests pass, faults 38
             of 38. Extra files: tests/bench/run.test.ts, tests/faults.ts (bench-drops-a-round, Stories I18). Per turn is
             a run's time over its Turn records, since run() owns the inspector and bench/ may not reach it.
+        comment     2026-11-15T18:27:52Z
+            Bench at 8d0d6583 (package code as ba9009a5), Apple M4 Pro, 24 GB, bun 1.4.2, load 3.4, no other agent:
+            transfers/long, 1000 runs after 100 warm-up, 108 turns a run; per run median 2.900 ms, p99 4.824 ms; per
+            turn median 0.027 ms, p99 0.045 ms. A repeat gave 3.149/5.132 and 0.029/0.048 ms: the spread between runs is
+            about 9%, and nothing gates on it.
     T67
         title       The hand cases run as Story tests and the bridge is gone
         status      open
