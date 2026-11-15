@@ -579,6 +579,14 @@ tasks
             - A test shows the benched Story does the same turns as a tested run of it: equal turn evidence, in order,
               from both runs.
             - Nothing gates on a timing.
+        comment     2026-11-15T18:17:01Z
+            Requirements: 3 checks, one per acceptance line, red at 0ed1e89d because bench/ does not exist. 1.
+            (acceptance 1, the description) `bun packages/flow-state-v3/bench/run.ts` exits 0 and prints median and p99
+            ms per run and per turn for transfers/long; per turn is a run's time over the Turn records run.evidence
+            holds, since run() owns the inspector. 2. (acceptance 2, False pass, @spec.Stories I18)
+            tests/bench/run.test.ts: every timed run's Turn evidence, in order, equals a separate long.run()'s and is
+            non-empty; planted fault bench-drops-a-step in tests/faults.ts, caught by nub run faults. 3. (acceptance 3)
+            no test, exit code or gate reads a timing: grep tests/ and bench/ for an assertion on ms.
     T67
         title       The hand cases run as Story tests and the bridge is gone
         status      open
