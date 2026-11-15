@@ -491,7 +491,7 @@ tasks
             I9, Turn I14).
     T65
         title       A run prints as a text trace
-        status      open
+        status      in_progress
         priority    medium
         blocked_by  [@T63]
         description

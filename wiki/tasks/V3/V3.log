@@ -117,3 +117,7 @@ note 2026-11-15T17:42:49Z
 note 2026-11-15T17:49:44Z
     Amendment (2026-11-15, the user: "accepted", Q1 A and Q2 A): a guarantee change is no longer a stop; running code
     overrides a Spec after a whole-system check and review. Commit: 4194ea20.
+
+note 2026-11-15T18:02:49Z
+    T64 in review at `bdd85075`: builder reports 36 of 36 faults, 328 sweep variants green, Turn I14 and I9 kept and
+    shown as runtime bugs (it.fails). Independent check started.
