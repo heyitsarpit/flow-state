@@ -1104,6 +1104,36 @@ tasks
         comment     2026-11-15T21:33:29Z
             Routed from T69's review for the P2 audit: a fault whose run prints no test summary counts as caught (4
             of 46).
+        comment     2026-11-16T09:00:00Z
+            Requirements, each a check that fails today (no `propertyTest`, no `tests/generated/`):
+
+            - R1 (acceptance 1): two `propertyTest` runs of one fixture, profile and seed emit equal step arrays and
+              equal printed text; a different seed emits different steps.
+            - R2 (acceptance 2; false pass): in `tests/generated/`, a planted fault (a port fake that re-sends a lost
+              call under a fresh id) is falsified from a fixed seed, shrunk to under ten steps, printed as a chained
+              `Story.app(...)`, and the printed steps re-run through `run({ steps })` break the same rule.
+            - R3 (acceptance 3): nothing under `src/host/testing/` or `tests/generated/` writes a file (grep).
+            - R4 (acceptance 4): a test lists `fixtures/` and fails on a fixture with no generated run.
+            - R5 (acceptance 5): usual steps carry no fault word, reload or disposal, advance only by the think and
+              latency ranges, and draw at most 5% domain failures; stress steps carry bursts, wire and storage faults,
+              reloads and one offline span; `profile` is a named option.
+            - R6 (acceptance 6): the pair sweep drives each (phase, fault) cell of every fixture; every cell is either
+              run under the rules or named unreachable, reached plus unreachable equals phases times faults, and the
+              unreachable names are asserted against what each fixture's operations can reach.
+            - R7 (acceptance 6): the gate runs the pair sweep and a fixed stress seed list; an environment seed count
+              adds more outside it.
+            - R8 (acceptance 7): each fixture's `stories` holds a `stress` Story whose steps equal the print of its
+              seed; the reload sweep and the bench pick it up; the sweep runs every step of it in slices, not
+              every fifth.
+            - G1 (T64): on a dead core the sweep fails: skips are bounded by each Story's hold-to-release windows.
+            - G2 (T64): each of the six narrow rules (WriteLanes I3, I6, I15; Turn I9, I14; Restore I1) is widened, with
+              a rule test over a crafted run that the narrow rule passes.
+            - G3 (T67): Turn I30 is a run rule, red on a crafted run that republishes an equal part as a new object.
+            - G4 (T67): every fixture Story also runs under another session seed and shuffled load order, and ends with
+              a reload with every writer attached, under the rules.
+            - G5 (T67): Stories I7 states the bound as built (a crossing batch is rejected whole), with a test.
+            - G6 (T67, T69): `nub run faults` counts over-1 MB output, a timeout or a missing summary as not caught, and
+              plants into the whole package's tests, `src/` included.
 
     T71
         title       UI primitives, first wave: command palette and number input fixtures
