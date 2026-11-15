@@ -684,6 +684,46 @@ tasks
         comment     2026-11-15T18:27:27Z
             Routed from T65's review: a plain comment above `Noted` in run.ts breaks the code style; Stories Q1 omits
             control and verdict, which R16 defers to it; T14 cites Codec R10, R11 for Stories R10, R11.
+        comment     2026-11-15T18:36:55Z
+            Requirements: 15 checks, each red at 3e1fb97b. Acceptance lines a1 to a8 in order; r1 to r5 routed; r6
+            the coordinator's.
+            1. (a1, False pass) Each of the 81 cases under tests/bridge/cases (71 on Pay, 10 on Cells; catalogue by a
+               Haiku sweep, accepted after a line-by-line re-read per area) has a Story test in tests/write-lanes,
+               tests/actors or tests/turn asserting the same values; a mapping comment lists case to test, and each
+               dropped case or value with its reason. The bridge's per-case checks move with them: publication (Turn I9
+               is a rule; I29, I30 as a rule or a test), Actors I30 (rule), the end-of-case disposal bound (Actors R22,
+               R23) and seed replay (Turn I17, as two runs of a Story giving equal traces). Red: no such tests.
+            2. (a2) `tests/bridge/` and `fixtures/part.ts` are gone, and so are vite.config.ts's bridge `excludeFiles`,
+               the bridge row of tools/flow-state-lint/imports.test.ts and FLOW-STATE.md's exemption line: grep finds
+               no `bridge`.
+            3. (a3) src/host/testing/page.ts is gone; src/host/lanes.test.ts and ledger.test.ts run on Stories
+               or TestClock.
+            4. (a4, @spec.Turn I14, @spec.Actors I43, @spec.WriteLanes I7) Three it.fails titled by rule: Turn I14 in
+               tests/turn (a delay past 2^31 - 1 ms is refused), Actors I43 in tests/actors (a refused final write
+               reports StorageFailure before disposal ends), WriteLanes I7 in tests/write-lanes (a re-send's raised
+               retry count survives a reload at the step the old crash point named); each fails for its rule when
+               un-inverted. No PART case exists.
+            5. (a5) src/host/testing.ts lives in src/host/testing/, exported by no index.
+            6. (a6) fixtures pay, cells, sync and sign-in are four-file folders (contracts, machine, server, stories),
+               each with a usual and a long Story rewritten from draft/story-slice's workloads; transfers keeps its own.
+            7. (a7) `nub run faults`: every named fault caught and the dead core fails every non-inverted test, with the
+               bridge deleted (state-move-copies-memory and mint-not-replayable included).
+            8. (a8) The coverage record (Covers, Suite, Rerun, Mutants, Audit, Matched at, Scope) is a
+               @phase.V3.P2 comment.
+            9. (r1) tools/faults/run.ts removes its scratch copy when the unchanged run fails, and exits 1 on a stale
+               dead-core edit.
+            10. (r2, @plan.Testing.O2) Stories I7 says the Plan's bound again (the 10,001st turn rejects before
+                executing); a finite chain of at-once commits past 10,000 turns is an it.fails; then a fix or a
+                @plan.Pending decision.
+            11. (r3) run.ts has no plain comment above `Noted`.
+            12. (r4) Stories Q1 names the trace kinds R16 defers to it (tab, control, verdict).
+            13. (r5) Stories T14 cites Stories R10, R11, not Codec.
+            14. (r6, the coordinator) page is tab everywhere in the package and Stories.spec, shaped `{ name, open }`,
+                one own commit, logged in specs.log: `grep -rnw page` over src/host/testing, src/host/trace.ts and tests
+                finds no use of the concept.
+            15. (a1 server truth) Old answers map by the Task's table; a case needing a word the Plan lacks (the
+                bridge's landNoAck: a write that lands unheard) is ported up to that point and its remaining values
+                listed as dropped.
     T68
         title       Compile-time tests for the type promises production keeps
         status      open
