@@ -862,6 +862,50 @@ tasks
         acceptance
             - Each promise production has built has a test, and `nub run check` fails when its directive is unused.
             - The promises production has not built are listed in this Task's comments with their owner Task.
+        comment     2026-11-15T20:23:38Z
+            Requirements: 43 "is a type error" promises found; 9 built and untested get a test in `tests/types/`
+            (acceptance 1), 8 built ones are already tested elsewhere and counted once, and 26 unbuilt ones are listed
+            with their owner Task (acceptance 2). Found by grep over every Plan and @spec.Compile; no Haiku sweep
+            was run.
+
+            Built, to test here (each a check whose unused directive fails `nub run check`):
+
+            1. a memory field with no source (@plan.Machines.O1, @spec.Compile.R5);
+            2. a Schema modifier over a Flow marker (@plan.Machines.O1);
+            3. a field Schema that needs services (@plan.Persistence.O2, "incompatible Schemas");
+            4. to 8. a machine adding to its definition (@plan.Machines.O1, @spec.Compile.R14, T11): a state body, a
+               handler event, a state token, an event token and an operation the definition lacks;
+            9. a guard returning false (@plan.Machines.O4, @spec.Compile.T6).
+
+            Built, tested elsewhere: a foreign state token as target (code:packages/flow-state-v3/src/machine.test.ts);
+            a setup missing a service (@plan.Runtime.O2, V2) and @task.V3.T63's missing fixture, duplicate fixture,
+            duplicate, widened and unknown checkpoint names and undeclared Story
+            event (code:packages/flow-state-v3/tests/stories/story.test.ts).
+
+            Unbuilt, by owner:
+
+            - @task.V3.T17: writing an input field (@plan.Machines.O1, @spec.Compile.R7); an internal or foreign event
+              given to check (@plan.Machines.O4).
+            - @task.V3.T9: an internal or foreign event sent to a handle (@plan.Machines.O4); a non-public send event
+              (@plan.Machines.O1); a runtime string as a singleton's name; a ref of the wrong form or given input
+              (@plan.Runtime.O3, V4).
+            - @task.V3.T57: a foreign event as a schedule's send (@plan.Machines.O1; it compiles today); unfilled ports,
+              an acting fragment member outside its fragment, a fragment target leaving its placement
+              (@spec.Compile.R11, T6).
+            - @task.V3.T21: a contract's services not covering its function's R; a key value missing a
+              field (@plan.Operations.O1).
+            - @task.V3.T19: persistence without a scope (@plan.Persistence.O1). @task.V3.T58: no `Store`
+              provided (same).
+            - @task.V3.T24: optimistic or `setData` on a domain operation (@plan.Operations.O5); Entity.patch with an
+              extra field, Entity.delta without its version (@plan.EntityDomains.O1).
+            - @task.V3.T48: a lazy entry's wrong id, non-machine result, wrong context provider, missing
+              service (@plan.LazyFeatures.O1).
+            - @task.V3.T30: dehydrate over a persistent setup (@plan.ServerRendering.O1); a scene naming no checkpoint,
+              a fragment-alone Story played (@plan.Testing.O9).
+            - @task.V3.T29: the wrong subject kind for a Story constructor, and Story.machine input and
+              context (@plan.Testing.O1).
+
+            Rejected: @plan.FlowState D3 ("likely mistakes become type errors") is a principle, not one promise.
     T69
         title       flow story and flow trace
         status      open
