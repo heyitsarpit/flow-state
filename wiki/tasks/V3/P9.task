@@ -49,6 +49,7 @@ tasks
         title       Budgets met on named devices
         status      draft
         priority    medium
+        blocked_by  [@task.V3.T35]
         description
             Meet each budget on its named device, one budget at a time against P8's baseline.
 

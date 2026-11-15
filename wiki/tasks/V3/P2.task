@@ -13,7 +13,9 @@ description
 
     **Guides:** the reference apps' stories, tests and fakes show the intended shape; the Plan wins where they differ.
     Known stale there: `ensure` or `useActorByRef` with input, `signal` in contexts, no `services:`, persistence
-    `version`, CLI strings, and `Fake.fetch` (now `Fake.http`). Link:
+    `version`, CLI strings, `Fake.fetch` (now `Fake.http`), `drop({ times })` (later, @task.V3.T29),
+    `Fake.storage.write.hold({ match })` (now `Fake.storage` with `hold`), and any line saying fixtures shadow setup
+    services (they replace them). Link:
     code:wiki/plans/flow/references/checkout/features/Pay/pay.story.ts,
     code:wiki/plans/flow/references/checkout/features/Pay/pay.test.ts,
     code:wiki/plans/flow/references/checkout/features/Cart/cart.story.ts,
@@ -28,6 +30,35 @@ description
     code:wiki/plans/flow/references/dispatch-desk/flow.config.ts, and each app's `features/*/*.story.ts` and
     `*.test.ts`. Not guides: `*.contracts.ts`, setup and persistence files, `tools/cli.ts`, `tools/diagnostics.ts`,
     the READMEs, `REVIEW.md`, `REWRITE-PLAN.md` and `typecheck/standin/`.
+
+    **Folder structure** (`packages/flow-state-v3/`; the Task that builds each part in brackets):
+
+    ```text
+    src/core/                  pure core, unchanged
+    src/host/runtime.ts        runtimeSetup keeps its config under an internal key so a Story boots it [T63]
+    src/host/inspect.ts        inspect(runtime), the runtime cut [T63]; inspect(app) [T49]
+    src/host/trace.ts          run.trace, render(trace, "text") [T65]
+    src/host/cli/main.ts       main(argv), called by the flow bin [T69]
+    src/host/store.ts          Store as a port [T58]
+    src/host/testing/          flow-state/testing, exported by T29; Flow's tests use it by path until then
+      story.ts                 Story.app chained, Story.Step [T63]
+      run.ts                   the one runner: TestClock, Effect's scheduler, a page per reload [T63]
+      fake.ts                  Fake.server, Fake.call, Fake.control, Fake.world, Fake.Lost, Fake.storage [T63]
+      config.ts                defineConfig, first slice [T69]
+      index.ts
+      page.ts                  deleted [T67]; the testing.ts seam moves in here, unexported
+    fixtures/<name>/           contracts.ts (port, operations), machine.ts (machine, app, setup, refs),
+                               server.ts (Fake.server, port fake Layer), stories.ts;
+                               optional <port>-http.ts (production adapter) and <port>.contract.ts
+    tests/<spec area>/         Story tests by Spec area; tests/stories (the tooling's own) [T63]
+    tests/rules/               run rules and the reload sweep [T64]
+    tests/types/               compile-time tests [T68]
+    tests/cli/                 CLI tests over flow.config.ts [T69]
+    tests/generated/           propertyTest runs [T70]
+    tests/faults.ts            planted faults
+    bench/run.ts               times run() over the long Stories [T66]
+    flow.config.ts             lists Flow's own fixtures, the same file an app keeps [T69]
+    ```
 
     **Starts when:** now, ahead of every remaining core slice. P3 starts only after this phase's completion audit.
 
@@ -196,6 +227,61 @@ tasks
             `TestClock` and one Runtime; a reload abandons the page and boots another over the same store and fake
             state. Every Effect API is checked against the installed source with the `effect-api-documentation` skill.
 
+            **Shape** (the transfers fixture; files per the P2 card's folder structure; `NEW` is new code, `existing`
+            is in production today, `user` is fixture code):
+
+            ```ts
+            // fixtures/transfers/contracts.ts: the port, defined once; production and fake Layers both implement it
+            export class Declined extends Schema.TaggedError<Declined>()("Declined", { code: Schema.String }) {} // user
+            export class NoResponse extends Schema.TaggedError<NoResponse>()("NoResponse", {}) {}               // user
+            export class BankApi extends Context.Service<BankApi, {                                              // user
+              readonly transfer: (input: { transferId: string; cents: number }, options: { idempotencyKey: string })
+                => Effect.Effect<{ receipt: string }, Declined | NoResponse>;
+            }>()("bank/BankApi") {}
+
+            // fixtures/transfers/machine.ts: the app's real setup; a Story never builds its services Layer
+            export const bankSetup = runtimeSetup({ app: bank, services: BankHttp(origin), // existing
+              persistence: { captureMs: 0 } });
+            export const account = actorRef(TransfersMachine, "acct-1"); // existing
+
+            // fixtures/transfers/server.ts: the outside system's truth, then the port fake
+            export const Bank = Fake.server("Bank", {                                                            // NEW
+              truth: BankTruth, initial: { receipts: {}, limit: 1000 },
+              endpoints: { transfer: Fake.call({ request: TransferIn, success: Receipt, failure: Declined,     // NEW
+                handle: (truth, { cents, key }) => cents > truth.limit
+                  ? { truth, exit: Exit.fail(new Declined({ code: "limit" })) }
+                  : { truth: addReceipt(truth, key), exit: Exit.succeed({ receipt: receiptOf(truth, key) }) } }) },
+              controls: { limit: Fake.control({ cents: Schema.Number }, (t, { cents }) => ({ ...t, limit: cents })) },
+            });
+            export const BankFake = Layer.effect(BankApi, Effect.map(Bank, (bank) => BankApi.of({ // existing
+              transfer: (input, { idempotencyKey }) => bank.transfer({ ...input, key: idempotencyKey })
+                .pipe(Effect.catchTag("FakeLost", () => Effect.fail(new NoResponse()))) }))); // NEW: Fake.Lost
+
+            // fixtures/transfers/stories.ts
+            export const lostThenReload = Story.app(bankSetup, { id: "transfers/lost-then-reload",              // NEW
+              fixtures: [BankFake] })                  // must cover every contract service, or a type error
+              .ensure(account)
+              .world(Bank.transfer.hold({ at: "response" })) // NEW: wire words on the endpoint; never released
+              .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+              .advance("31 seconds").reload().checkpoint("reloaded");
+
+            // tests/transfers/transfers.test.ts: expected results from the cited rule, read only through public reads
+            it("a lost answer reads unknown after a reload and reached the bank once (Restore R3, WriteLanes I6)",
+              async () => {
+                const run = await lostThenReload.run();
+                const { reloaded } = run.checkpoints;                 // typed: an unknown name is a type error
+                expect(reloaded.read(Bank.transfer)).toHaveLength(1); // read(endpoint), Pending D8
+                expect(reloaded.inspection.lanes).toMatchObject([{ operation: "Bank/transfer" }]);
+                expect(run.evidence.filter(isEnding).map(channelReason)).toEqual(["unknown Restored"]);
+              });
+
+            lostThenReload.steps // NEW: the Story.Step array the sweep and generator use
+            ```
+
+            Risks to measure, not designed yet: the chain's type grows with each checkpoint name (time `tsc` on the
+            ~100-step long story; if slow, cap checkpoints per Story, never return to an array), and the type-level
+            check that fixtures cover the setup's contract services.
+
             May change: `src/host/testing/`, `src/host/inspect.ts`, `fixtures/transfers/`, `fixtures/pay/server.ts`,
             `fixtures/pay/stories.ts`, `tests/transfers/`, `tests/pay/`. Evidence: this Task's comments.
 
@@ -208,7 +294,8 @@ tasks
             proposal.
         acceptance
             - `Story.app(setup, { id, fixtures, world })` takes the app's real `runtimeSetup`, chains steps (ensure,
-              detach, forget, send, world, advance, reload, checkpoint, dispose, disposeRuntime), and is inert data
+              detach, send, world, advance, reload, checkpoint, `dispose(ref, { how })` with `how: "forget"` for
+              forget, disposeRuntime), and is inert data
               until `run()`, the only boundary. Every chained Story exposes its `Story.Step` array, and a run accepts a
               step array, which the reload sweep and generated Stories use. Checkpoint names are typed: reading an
               unknown one is a type error.
@@ -218,22 +305,25 @@ tasks
               changes truth, and `Fake.Lost` reaches the port's own error through the port fake, a plain
               `Layer.effect` of the app's service. Wire words live on the endpoint: `hold({ at })`, `release` and
               `drop({ at })`. There is no `answer` word and no cast. The fake store has `hold`, `refuse` and
-              `release`.
+              `release` (`Fake.storage`).
             - A checkpoint holds the time, `inspect(runtime)` (the public runtime cut, @plan.Inspection.O1), what each
-              fake received and its truth, and the store; tests read them only through the public reads (`read`,
-              `requests`, `inspection`, `run.endings`).
-            - A dead page's released call or write never completes its waiter: evidence, store and cut are equal
-              before and after the release. `disposeRuntime` runs the public Runtime's dispose.
+              fake received and its truth, and the store; tests read them only through the Plan's reads: `read(ref)`,
+              `read(server)` (truth), `read(endpoint)` (the calls it received, with status; @plan.Pending D8),
+              `records`, `inspection`, `now`, and `run.evidence` for endings.
+            - A dead page's released call or write never completes its waiter: evidence, store records and
+              `inspection` are equal before and after the release (the handler may run and truth change,
+              @spec.Stories.R13). `disposeRuntime` runs the public Runtime's dispose.
             - Every step word and every wire and storage word has a test. A Story run twice gives equal evidence. A
               run arms no host timer. A dead page writes nothing after a reload.
             - The test tooling's Spec (@spec.Stories, skill:to-spec) states the shape above, from @plan.Testing and the
               reuse proposal, as its Requirements and Invariants; the tooling's tests cite it.
             - The transfers fixture is one folder (contracts, machine, server, stories) with Story tests; its stories
               include one long run of about 100 steps, which @task.V3.T66 times.
-            - The tooling is the public `flow-state/testing` and `flow-state/inspect` design, not exported in P2 (that
-              is @task.V3.T29); Flow's tests reach it by its path inside the package.
-            - One Pay Story passes: a `confirm` whose response is lost, time past the commit's deadline, a reload; the
-              payment reads unknown and exactly one `confirm` landed.
+            - The tooling is the public `flow-state/testing` and `flow-state/inspect` design, not exported in P2
+              (@task.V3.T29 exports testing, @task.V3.T49 inspect); Flow's tests reach it by its path in the package.
+            - One Pay Story passes: a `confirm` whose response is never answered (held at response, never released),
+              time past the commit's deadline, a reload; the payment reads unknown and the shop handled exactly one
+              `confirm`.
             - `nub run faults` over the new tests: a dead core fails every one.
             - An idiomatic-Effect review by a second Opus agent, using `effect-api-documentation`, leaves no finding
               open without a reason.
@@ -326,24 +416,29 @@ tasks
             False pass: a rule that never fires → each rule is shown red on one planted fault.
             Gates: `nub run faults`, which rejects every named fault in code:packages/flow-state-v3/tests/faults.ts.
         acceptance
-            - A rule is a function from a finished run to its breaches, named by its Spec id. One helper applies every
-              rule to a run, and every Story test calls it.
+            - A rule is a function from a finished run to its breaches, named by its Spec id, reading only the public
+              reads (`run.checkpoints`, `inspection`, `read(endpoint)`, `records`, `run.evidence`), never a fake's
+              internals. One helper applies every rule to a run, and every Story test calls it.
             - The rules: an Attempt's ending is delivered at most once (WriteLanes I15, I16); every ending has one of
               the three channels and a never-sent Attempt ends only NotSent (WriteLanes I3); every request of one
               Attempt carries one idempotency key and one input (WriteLanes I6); at most one publication per turn
               (Turn I9); a refused turn leaves no Turn report (Turn I14); a disposed actor does no more work
               (Actors I30, today in `tests/bridge/checks/disposal.ts`).
-            - The reload sweep runs every fixture story with a reload inserted at each position and applies the rules.
-              A variant fails only for a rule breach, never for a script reason.
-            - `nub run faults` catches every named fault, the 17 there today included.
+            - The reload sweep runs every fixture story's `Story.Step` array with a reload inserted at each position
+              (`run({ steps })`) and applies the rules. A variant fails only for a rule breach, never for a script
+              reason; script faults a reload can cause (a release with nothing held, an unused hold) are skipped and
+              counted. A second variant inserts a reload that re-attaches nothing, so a boot that fails to wake owed
+              identities shows.
+            - `nub run faults` catches every named fault, the 23 there today included.
     T65
         title       A run prints as a text trace
         status      open
         priority    medium
         blocked_by  [@T63]
         description
-            Write `src/host/trace.ts`: one function from a finished run to plain text, showing each step, what it
-            caused and each checkpoint.
+            Write `src/host/trace.ts`: `run.trace` holds a finished run's trace as data, and `render(trace, "text")`
+            prints it, showing each step, what it caused and each checkpoint; `trace.export` and `trace.import` stay
+            with @task.V3.T49.
 
             **Why now:** builders debugged the old suite with private scratch scripts, and a ruling is to be asked as
             two traces of one Story. This is the first slice of @plan.Inspection.O4; @task.V3.T49 keeps the rest.
@@ -364,8 +459,8 @@ tasks
         priority    medium
         blocked_by  [@T63]
         description
-            Write `bench/run.ts`: it runs each fixture's long story a fixed number of times and prints the median and
-            p99 time per run and per turn.
+            Write `bench/run.ts`: it runs each fixture's long story through `run()` a fixed number of times and prints
+            the median and p99 time per run, and per turn from the turn evidence `attachInspector` records.
 
             **Why now:** the old bench replayed scripts through the deleted suite. @task.V3.T35 needs something to
             grow from.
@@ -391,9 +486,11 @@ tasks
             **Read first:** code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md (section 5 and
             Appendix A), code:packages/flow-state-v3/tests/bridge/cases/write-lanes/payment-endings.test.ts.
 
-            **Approach:** the pay, cells, sync and sign-in fixtures in the four-file shape first. Then one Spec area
-            per commit, each commit deleting the bridge files it replaces. The ten long scripts on the branch
-            `draft/story-slice` (under `draft/workloads/`) become each fixture's usual and long stories.
+            **Approach:** the pay, cells, sync and sign-in fixtures in the four-file shape first, each following the
+            transfers fixture of @task.V3.T63 (`Fake.server` with a port fake Layer, chained Stories, no handler
+            closures). Then one Spec area per commit, each commit deleting the bridge files it replaces. The five
+            `-usual` and five `-stress` scripts on the branch `draft/story-slice` (`draft/workloads/`) become each
+            fixture's usual and long Stories, rewritten in the chained form.
 
             May change: `fixtures/`, `tests/`, `vite.config.ts` (the bridge's lint exemption). Evidence: this Task's
             comments.
@@ -402,7 +499,10 @@ tasks
             by case, and by `nub run faults`.
         acceptance
             - Every bridge case has a Story test asserting the same values; a case dropped is listed with its reason.
-            - `tests/bridge/` and `fixtures/part.ts` are deleted, and lint's bridge exemption with them.
+            - `tests/bridge/` and `fixtures/part.ts` are deleted, and lint's bridge exemption with them (also in
+              `tools/flow-state-lint/imports.test.ts` and `tools/lint-bomb/FLOW-STATE.md`).
+            - `src/host/testing/page.ts` is deleted: `src/host/lanes.test.ts` and `ledger.test.ts` run on Stories or
+              TestClock, so no second hand clock is left.
             - The five known bugs that have a reproduction (Appendix A) are inverted tests, each titled by the rule it
               breaks.
             - Each fixture has a usual and a long story.
@@ -420,8 +520,9 @@ tasks
             Write `tests/types/`: one `@ts-expect-error` test for each "is a type error" promise in the Plans and
             @spec.Compile that production has built.
 
-            **Why now:** the Plans and @spec.Compile make 31 such promises, and 1 check exists
-            (`src/machine.test.ts`). No run can show a type error.
+            **Why now:** the Plans and @spec.Compile make 31 such promises, and only `src/machine.test.ts` checks one.
+            No run can show a type error. The Story and Fake promises (typed checkpoint names, a missing fixture, an
+            unknown endpoint) are @task.V3.T63's, tested in `tests/stories/`, and are counted once.
 
             May change: `tests/types/`. Evidence: this Task's comments.
 
@@ -447,16 +548,20 @@ tasks
 
             May change: a CLI folder under `src/host/`, `tests/`. Evidence: this Task's comments.
 
-            **Risk:** where the CLI lives and how it finds stories are not designed. Lint treats everything in `src/`
-            outside `src/host/` as core, so a CLI that drives the host lives under `src/host/` or gets its own rule. 
-            The Testing plan's `defineConfig`
-            discovery is outside this slice.
+            **Approach:** the CLI is `main(argv)` in `src/host/cli/main.ts`, which the `flow` bin calls (@task.V3.T23
+            adds the bin); it finds Stories through `defineConfig` (`src/host/testing/config.ts`, first slice) and
+            the package's own `packages/flow-state-v3/flow.config.ts`, which lists the fixtures. @task.V3.T22
+            extends `defineConfig`.
+
+            **Risk:** lint lets tests import only four `src/` files (code:tools/lint-bomb/FLOW-STATE.md), so a CLI
+            test needs an allowance for `src/host/cli/main.ts` (with a planted case in
+            `tools/flow-state-lint/imports.test.ts`) or spawns the command.
 
             False pass: a command that prints through a path of its own → caught by its output equalling the trace
             of @task.V3.T65 for the same Story.
             Stops: public entry-point names.
         acceptance
-            - `flow trace <story>` prints exactly what the trace function of @task.V3.T65 returns for that Story, and
+            - `flow trace <story>` prints exactly what `render(run.trace, "text")` of @task.V3.T65 returns, and
               `flow story run` prints its checkpoints; a test compares them over the package's fixtures.
             - `flow story list` names every Story the fixtures export, and an unknown Story exits non-zero with its
               name.
@@ -467,8 +572,10 @@ tasks
         priority    high
         blocked_by  [@T64, @T67]
         description
-            Build `propertyTest` in `src/host/testing/`: it generates Stories from a fixture's step samples and the
-            fakes' open calls, applies the run rules, shrinks a failure and prints it as a Story.
+            Build `propertyTest` in `src/host/testing/`: it generates `Story.Step` arrays from a fixture's step
+            samples, each `Fake.server`'s controls and the wire words on its open calls, runs them with
+            `run({ steps })`, applies the run rules, shrinks a failure by removing steps and prints it as a chained
+            `Story.app(...)` expression.
 
             **Why now:** nothing generated is left after the old suite's deletion, and @task.V3.T18 brings new
             behaviour. This is the first slice of @plan.Testing.O6.

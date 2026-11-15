@@ -43,11 +43,12 @@ tasks
         blocked_by  [@task.V3.T23]
         satisfies   [@plan.FlowState.O2, @plan.Package.O1, @plan.Package.O2, @plan.Package.O3]
         description
-            Build the six package routes, peers, `sideEffects`, removed surfaces and InvalidConfiguration help, and
-            run the packed-consumer check from T23 onward.
+            Complete what @task.V3.T23 starts (the `exports` map, the `flow` bin and the packed-consumer smoke
+            check): the route-content rules, peers, `sideEffects`, removed surfaces, InvalidConfiguration help and the
+            full tarball proofs.
 
-            **Why now:** no Task builds @plan.Package.O1 to O3, and @plan.FlowState.O2 wants the packed-consumer
-            check at every stage gate, but only T39 runs it, at release.
+            **Why now:** no other Task proves @plan.Package.O1 to O3 on the tarball, and T39 runs the check only at
+            release.
 
             **Read first:** @plan.Package.O1, @plan.Package.O2, @plan.Package.O3, @plan.Package.D1,
             @plan.FlowState.O2.
@@ -68,12 +69,13 @@ tasks
             - The six routes resolve from an installed tarball and nothing else does (@plan.Package.O1).
             - Peers, `sideEffects`, removed surfaces and InvalidConfiguration help are checked on the tarball
               (@plan.Package.O2, @plan.Package.O3).
-            - The packed-consumer check runs at each stage gate from T23 onward.
+            - The packed-consumer check @task.V3.T23 added passes on the release tarball with every route rule.
     T39
         title       Release as far as the user asks
         status      draft
         priority    medium
         blocked_by  [@T50]
+        satisfies   [@plan.Package.O4]
         description
             Release the package as far as the user asks: pack, run the packed-consumer check, and stop before each ship
             stage.
@@ -88,4 +90,5 @@ tasks
             - **Gates:** the packed-consumer check.
             - **Stops:** each ship stage; the published name.
         acceptance
-            The packed-consumer check passes on the exact tarball; each requested stage done.
+            - The packed-consumer check passes on the exact tarball; each requested stage done.
+            - @plan.Package.O4's proofs hold: Dispatch Desk against the tarball, the Next.js host proofs and Gecko.

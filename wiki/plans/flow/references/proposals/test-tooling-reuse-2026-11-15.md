@@ -2,8 +2,10 @@
 
 **Status: accepted (the user, 2026-11-15: "all agreed").** Every question in section 6 is decided as its
 recommendation: Q1 A, Q2 A, Q3 A, Q4 A, Q5 A, Q6 A, Q7 A, Q8 A, Q9 A, Q10 A, Q11 A. Q4 edited @plan.Testing.O3
-(fixtures replace the setup's services); the names and words the Plans lack are @plan.Pending D5 to D7. The fake
-store keeps the Plan's name, `Fake.storage`, wherever this file writes `Fake.store`.
+(fixtures replace the setup's services); the names and words the Plans lack are @plan.Pending D5 to D9. Where
+this file and the Plan name the same thing differently, the Plan's name wins: `Fake.storage` for `Fake.store`,
+`records` for reading the store, `run.evidence` for `run.endings`, and `read(endpoint)` (D8) for `requests`;
+`forget` is `dispose(ref, { how: "forget" })`.
 
 **Supersedes** in code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md: section 2's "Three tools",
 section 4's API, and section 12 decisions 3, 4, 6 and 9. Everything else there stands: the five kinds of test,

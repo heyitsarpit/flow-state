@@ -37,7 +37,7 @@ outcomes
         - flow-state/inspect: inspect, render, `attachInspector`, trace (an object with only import
           and export); types Model and Trace.
         - flow-state/server: dehydrate; type Hydration.
-        - flow-state/persistence: layerIndexedDb({ database? }).
+        - flow-state/persistence: layerIndexedDb({ database? }), layerMemory.
 
         Every other setting or operation is a member of these values, inferred data or an Effect
         primitive. No route re-exports another route's names or internal services, stores,

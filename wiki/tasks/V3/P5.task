@@ -55,7 +55,8 @@ tasks
 
         satisfies   [@plan.Operations.O1, @plan.Operations.O4]
         description
-            Write the streams Spec, then build streams on production with a real EventSource path.
+            Write the streams Spec, then build streams on production with a real EventSource path. Adds
+            `Fake.stream` on `Fake.server`; a Story shows `UnplacedStream`.
 
             **Read first:** @plan.Operations.O4.
         acceptance
@@ -66,16 +67,7 @@ tasks
         status      draft
         priority    high
 
-        satisfies   [
-                    @plan.EntityDomains.O1,
-                    @plan.EntityDomains.O2,
-                    @plan.EntityDomains.O3,
-                    @plan.EntityDomains.O4,
-                    @plan.EntityDomains.O5,
-                    @plan.Operations.O1,
-                    @plan.Operations.O2,
-                    @plan.Operations.O3
-                    ]
+        satisfies   [@plan.EntityDomains.O1, @plan.EntityDomains.O2, @plan.EntityDomains.O3, @plan.EntityDomains.O5]
         description
             Write the entities Spec, then build the entity store on production from @plan.EntityDomains.
 
@@ -84,13 +76,14 @@ tasks
             The entities Spec's Requirements hold on production, shown by Story tests and run rules, with a fixture
             that uses an entity domain.
     T27
-        title       Multi-tab and sessions
+        title       Multi-tab
         status      draft
         priority    medium
         blocked_by  [@T28]
         satisfies   [@plan.Persistence.O7]
         description
-            Write the multi-tab Spec, then build scope ownership across tabs and sessions.
+            Write the multi-tab Spec, then build scope ownership across tabs: the host Web Lock for
+            @spec.WriteAhead.R16, a fake `navigator.locks`, tab steps (`openTab`, `closeTab`) and two-tab Stories.
 
             **Read first:** @plan.Persistence.O7, @plan.Runtime.O7.
         acceptance
@@ -120,7 +113,10 @@ tasks
         blocked_by  [@task.V3.T58]
         satisfies   [@plan.Persistence.O1, @plan.Persistence.O3]
         description
-            Build the IndexedDB host adapter in full, meeting Safari's four requirements, and an in-memory adapter.
+            Build `layerIndexedDb` in full, meeting the requirements of Safari's D1, D2, D3 and D4 in
+            `packages/flow-state-v3/prototypes/safari/RESULTS.md`, and extract the Story's in-memory store as
+            `layerMemory`, the production in-memory store, which `Fake.storage` then wraps with its hold, refuse and
+            release controls.
 
             **Read first:** @plan.Persistence.O1, and `packages/flow-state-v3/prototypes/safari/RESULTS.md`.
         acceptance
@@ -138,14 +134,16 @@ tasks
                     @plan.Inspection.O6
                     ]
         description
-            Write the inspection Spec, then build the rest of @plan.Inspection and export the `flow-state/inspect`
-            route. P2 built its first slice: the runtime cut and the text trace.
+            Write the inspection Spec, then build the rest of @plan.Inspection: `inspect(app)`, `trace.export` and
+            `trace.import`, and export the `flow-state/inspect` route through the map @task.V3.T23 added. P2 built its
+            first slice: the runtime cut; the text trace is @task.V3.T65's.
 
-            **Read first:** @plan.Inspection.O1, code:packages/flow-state-v3/src/host/inspect.ts.
+            **Read first:** @plan.Inspection.O1, code:packages/flow-state-v3/src/host/inspect.ts,
+            `packages/flow-state-v3/src/host/trace.ts` (@task.V3.T65 builds it).
         acceptance
             The inspection Spec's Requirements hold on production, and the route is exported.
     T29
-        title       Stories with flow story and flow trace
+        title       The rest of Story and Fake, and `story describe`
         status      draft
         priority    medium
         blocked_by  [@T49]
@@ -154,19 +152,20 @@ tasks
                     @plan.CommandLine.O2,
                     @plan.CommandLine.O4,
                     @plan.EntityDomains.O4,
-                    @plan.LazyFeatures.O4,
                     @plan.Testing.O1,
                     @plan.Testing.O2,
                     @plan.Testing.O3,
                     @plan.Testing.O4,
                     @plan.Testing.O6,
-                    @plan.Testing.O7,
-                    @plan.Testing.O8,
-                    @plan.Testing.O9
+                    @plan.Testing.O8
                     ]
         description
-            Build the rest of @plan.Testing on production and export it: the Story forms P2 left out, frames, the
-            player, and `flow story describe`. P2 built the first slice that Flow's own tests run on.
+            Extend the first slice (@task.V3.T63 to @task.V3.T70) that Flow's own tests run on: `Story.machine`,
+            `Story.fragment`, frames, `together`, `Fake.Refused`, `Fake.Closed`, `duplicate`, `times`,
+            `UnusedWireRule`, the microtask settle, end-of-run cleanup (@plan.Testing.O8), the Plan's `FlowError` with
+            evidence, `definePresentation`, `domainPropertyOptions`, `PropertyTestFailed`, `story describe`,
+            `--coverage` and `--trace-output`; and export `flow-state/testing` through the map @task.V3.T23 added.
+            Tab steps move to @task.V3.T27; hydration and `StoryPlayer` to @task.V3.T30.
 
             **Read first:** @plan.Testing.O1, @task.V3.T63, @task.V3.T69, @task.V3.T70.
         acceptance
@@ -176,7 +175,7 @@ tasks
         status      draft
         priority    medium
         blocked_by  [@T29]
-        satisfies   [@plan.CommandLine.O3]
+        satisfies   [@plan.CommandLine.O1]
         description
             Design the CLI's outputs for people: source locations, a trace that reads like a story, a graph grouped
             by state, and messages from the issue catalog. Mocks first, then the user's one acceptance round.
@@ -186,6 +185,8 @@ tasks
             Stops: the user's acceptance of the outputs.
         acceptance
             The user has accepted each output, and each has a test that states it by hand.
+        comment     2026-11-15T14:33:25Z
+            People outputs are @plan.CommandLine.O1; O3's JSON and exit codes are @task.V3.T22's.
     T30
         title       React and Next.js bindings
         status      draft
@@ -203,7 +204,9 @@ tasks
                     @plan.ServerRendering.O4,
                     @plan.ServerRendering.O5,
                     @plan.ServerRendering.O6,
-                    @plan.ServerRendering.O7
+                    @plan.ServerRendering.O7,
+                    @plan.Testing.O7,
+                    @plan.Testing.O9
                     ]
         description
             Write the bindings' Specs, then build the React and Next.js bindings from @plan.React and
@@ -211,4 +214,6 @@ tasks
 
             **Read first:** @plan.React.O1, @plan.ServerRendering.O1.
         acceptance
-            The bindings' Requirements hold, shown in real Chrome and Safari.
+            - The bindings' Requirements hold, shown in real Chrome and Safari.
+            - Request render and Hydrate without mismatch on a Next.js host; React 18 and 19; the Story `hydrate`
+              path and `StoryPlayer`.

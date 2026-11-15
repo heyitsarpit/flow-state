@@ -36,7 +36,8 @@ decisions
         Story's data form run back. **Proven by:** @task.V3.T64's sweep and @task.V3.T70's shrinking.
         Found in @task.V3.T63.
     D6  @plan.Testing.O1: an app Story step disposes the whole Runtime
-        Add `disposeRuntime()` beside `dispose(ref, { how })`. **Why:** @spec.Actors.R22 and
+        Add `disposeRuntime()` beside `dispose(ref, { how })`, and drop @plan.Package's line that keeps
+        `disposeRuntime` on an internal route for Flow's own suite. **Why:** @spec.Actors.R22 and
         @spec.Diagnostics.I8 speak of disposing a Runtime with work in flight, which no app step reaches.
         **Proven by:** a Story disposing with a call in flight, in @task.V3.T63. Found in @task.V3.T63.
     D7  @plan.Testing.O3: endpoints and controls are `Fake.call` and `Fake.control`; transports use `Fake.http`
@@ -45,3 +46,13 @@ decisions
         reference apps use `Fake.call` and `Fake.control`, and Effect adapters take `HttpClient`
         (code:wiki/plans/flow/references/proposals/test-tooling-reuse-2026-11-15.md, Q5 and Q7).
         **Proven by:** @task.V3.T63's fixtures, and the first adapter over `Fake.http`. Found in @task.V3.T63.
+    D8  @plan.Testing.O4: `read(target)` also takes a fake endpoint
+        Widen O4's `read(target)` so an endpoint returns each call it received with its status (held,
+        answered, dropped), as the reference stories read `cut.read(Stripe.confirm)`. **Why:** "exactly one
+        call reached the server" needs the call log, and a fake's truth does not always show it. **Proven
+        by:** @task.V3.T63's Pay Story and @task.V3.T64's run rules over calls. Found in @task.V3.T63.
+    D9  @plan.Package.O1: `flow-state/testing` exports `storeContract`
+        Add `storeContract(name, layer)`, the store contract as a plain `@effect/vitest` function of a
+        `Store` Layer, so a custom store adapter is checked as Flow's own are. **Why:** a custom store is
+        the likeliest adapter users write (the user, 2026-11-15, reuse proposal Q8). **Proven by:**
+        @task.V3.T58 running it on `Fake.storage` and real IndexedDB, and @task.V3.T28 on both adapters.

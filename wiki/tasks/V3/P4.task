@@ -81,6 +81,9 @@ tasks
             **Read first:** @plan.Persistence.O1, @plan.React.O1, and the Safari findings in
             `packages/flow-state-v3/prototypes/safari/RESULTS.md`.
 
+            **Approach:** `Store` becomes its own port: a Context service with a Schema'd error vocabulary. This Task
+            owns the store contract test, a plain function of a `Store` Layer under `@effect/vitest`.
+
             May change: `src/host/`, `fixtures/`, `tests/`, and a new browser-run folder. Evidence: this Task's
             comments.
 
@@ -89,8 +92,9 @@ tasks
         acceptance
             - The fixtures run in real Chrome and Safari, each alone, and the run fails on a fault planted in the
               IndexedDB path.
-            - The store contract test @task.V3.T19 wrote still passes against the fake store and real IndexedDB, and
-              the same is shown for the fake page's timers and lifecycle against a real page.
+            - The store contract test this Task writes passes against `Fake.storage` and against real IndexedDB in
+              real Chrome and Safari, and the same is shown for the fake page's timers and lifecycle against a real
+              page.
             - The React binding is the least that renders the fixtures; @task.V3.T30 builds the rest.
     T57
         title       Machine structure: fragments, .each, subject paths and schedules (slice 3b)
@@ -145,6 +149,8 @@ tasks
         acceptance
             - The Requirements of @spec.Reads this slice builds hold, shown by Story tests and run rules.
             - Each new rule has a planted fault that `nub run faults` catches.
+        comment     2026-11-15T14:33:25Z
+            Why is this blocked by @task.V3.T57? No fragment use found; check at the phase rewrite.
     T56
         title       Durability: release versions, key fingerprints and record migration (slice 2b)
         status      draft
@@ -184,7 +190,8 @@ tasks
                     ]
         description
             Build the CLI's `check`, `explain` and `graph` from @spec.StaticCli; the CLI stays at check, explain,
-            graph, story and trace.
+            graph, story and trace. T69 builds the first slice of `defineConfig`; this Task extends it for
+            @plan.CommandLine.O6.
 
             **Why now:** Compiled has no static front end, and `flow check` is part of the preview cut.
 
@@ -207,13 +214,18 @@ tasks
         satisfies   [@plan.FlowState.O1]
         description
             Point `nub run build` and the docs build at `packages/flow-state-v3`, and pass `nub run verify`.
+            `packages/flow-state-v3/package.json` gains the six routes' `exports` map (@plan.Package.O1) and the
+            `flow` bin, plus a packed-consumer smoke check that later stage gates run.
 
-            **Why now:** `verify` still builds the frozen `packages/flow-state` and reads both frozen packages'
-            manifests, so they cannot be removed and the gate does not yet prove v3.
+            **Why now:** `verify` does not build the frozen package; only `build`, `scripts/check-toolchain.mjs` and
+            `apps/docs/scripts/generate-api-reference.mjs` read the frozen packages, so they cannot be removed and the
+            gate does not yet prove v3. The package's routes and bin are also built here, early, so later Tasks export
+            through them.
 
-            **Read first:** code:package.json, code:scripts/check-toolchain.mjs.
+            **Read first:** code:package.json, code:scripts/check-toolchain.mjs, @plan.Package.O1.
 
-            May change: `package.json`, `scripts/`, `apps/docs/scripts/`, `knip.json`, `tsconfig.json`. Evidence: this
+            May change: `package.json`, `packages/flow-state-v3/package.json`, `scripts/`, `apps/docs/scripts/`,
+            `knip.json`, `tsconfig.json`. Evidence: this
             Task's comments.
 
             False pass: a verify that passes because a step was dropped → caught by listing each step of today's
@@ -223,3 +235,5 @@ tasks
         acceptance
             - `nub run verify` passes, and its build, toolchain check and docs steps read `packages/flow-state-v3`.
             - Nothing in `verify` reads the frozen packages.
+            - `packages/flow-state-v3/package.json` has the six routes' `exports` map and the `flow` bin, and the
+              packed-consumer smoke check passes on a packed tarball.

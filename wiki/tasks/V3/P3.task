@@ -153,6 +153,8 @@ tasks
               the host keeps no flag of its own.
             - The known bug of this area (the disposal reports Done before its final write is answered) is fixed, and
               its inverted test is flipped.
+            - The known bug "a commit queued behind a Held head is not ended at disposal" (@spec.Actors.I38) is
+              fixed, with its test.
             - Each new rule has a planted fault that `nub run faults` catches.
     T19
         title       Durability: persistence edge, write-ahead and the driver (slice 2)
@@ -175,9 +177,8 @@ tasks
             what the fake store received.
         acceptance
             - The Requirements of @spec.WriteAhead this slice builds hold, shown by run rules over the fake store's
-              batches and by Story tests.
-            - A contract test of the store passes against the fake store and against real IndexedDB in real Chrome
-              and Safari, run alone, so write-ahead is not built on an unchecked fake.
+              batches and by Story tests; the store contract test is @task.V3.T58's, so until then run rules over
+              `Fake.storage`'s batches check write-ahead.
             - The known bugs of this area are fixed: a re-send's retry count missing from the capture before it,
               whose inverted test is flipped; and any write discharging every dirty end, which has no reproduction
               yet and gets its test here.
@@ -237,7 +238,7 @@ tasks
 
             **Read first:** @spec.Compile, @spec.Diagnostics, code:packages/flow-state-v3/src/machine.ts.
 
-            **Risk:** Compile I17 says a missing service is a type error, and `runtimeSetup` takes `Layer<any>`.
+            **Risk:** @task.V3.T63 makes a missing fixture a type error; T17 keeps Compile's wiring checks.
 
             May change: `src/`, `fixtures/`, `tests/`. Evidence: this Task's comments.
 
@@ -273,3 +274,5 @@ tasks
         acceptance
             - The Requirements of @spec.Actors this slice builds hold, shown by Story tests and run rules.
             - Each new rule has a planted fault that `nub run faults` catches.
+        comment     2026-11-15T14:33:24Z
+            @spec.Actors.I38 (a commit queued behind a Held head is not ended at disposal) is @task.V3.T55's.

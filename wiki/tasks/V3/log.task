@@ -66,3 +66,5 @@ note 2026-11-15T14:21:20Z
     Resumed (user, 2026-11-15: "go ahead"): the T63 lead reshapes the first slice to the amended acceptance from `de417f07`; wakes may again resume or replace a stalled lead.
 note 2026-11-15T14:22:01Z
     Paused again (user, 2026-11-15: "don't do that, just make the records changes"): the T63 resume was the orchestrator's mistake; the lead is held, and wakes must not resume or replace it until the user says go.
+note 2026-11-15T14:42:21Z
+    Records repaired after review (user, 2026-11-15: "all agreed"; "your recommendations are accepted"): Stories.spec rewritten to the Plan's names (forget as dispose how, records, run.evidence, read(endpoint)); T63 gains its Shape, the P2 card the folder structure; T64 to T70 fixed; decisions 1 to 6 applied to P3 to P10; Pending D8 and D9 added. No code changed; T63 stays paused.

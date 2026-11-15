@@ -710,3 +710,10 @@ restore the files from the commit before this one.
 Edit (agent: T63 lead, @task.V3.T63, 2026-11-15): new @spec.Stories (`wiki/specs/testing/Stories.spec`), the test
 tooling's contract, from sections 4 and 12 of the test-system proposal. Why: P2 writes the tooling's Spec before
 its code. Reverse: delete the file.
+
+Edit (agent, @task.V3.T63, 2026-11-15): @spec.Stories rewritten to the accepted reuse design
+(code:wiki/plans/flow/references/proposals/test-tooling-reuse-2026-11-15.md, sections 2, 4, 5): chained
+`Story.app(setup, …)` with `Story.Step`, `Fake.server` truth, endpoints and controls behind port fakes, wire words
+on endpoints with no `answer`, `inspect(runtime)` cuts, the Plan's turn limit, and "not exported yet" for
+"internal". Why: the old Spec described the first build's array and closure shape. Reverse: restore the Spec
+from the commit before this one.
