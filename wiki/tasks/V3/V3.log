@@ -214,3 +214,7 @@ note 2026-11-15T21:43:28Z
 note 2026-11-15T21:44:53Z
     Decision (user, 2026-11-16): "both accepted": @task.V3.T70 builds a pair sweep (phase by fault, the gate's
     deterministic floor) beside random stress seeds.
+
+note 2026-11-15T21:57:25Z
+    T71 in review at `0b5c4b41`: two ui-sdk fixtures, 29 of 37 scenarios ported, faults 51 of 51; independent check
+    started. The sweep reloads every fifth stress step, under scrutiny.
