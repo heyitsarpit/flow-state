@@ -254,9 +254,8 @@ instructions
       T55 (runtime life), 2a T19 then
       T20 (restore), 3a T17 (compiler), 4 T9, the browser slice T58, 3b T57 (fragments), 5 T21, 2b T56 (release
       versions), 6 T22 then T15 then T23, 7 T25, 8 T24, 9 T27, T48, T28, 10 T49, T29, T31, then T30.
-      Before T54 resumes (the user, 2026-11-15): the test-system work of
-      code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md, section 13: the first slice (B), then the
-      port of the bridge (C); generated Stories and the CLI commands (D) land before T18.
+      Before T54 resumes (the user, 2026-11-15): phase P16, the test system. T54 waits on T67 (the bridge ported), and
+      T18 waits on T69 and T70 (the CLI commands and generated Stories).
       A slice starts with its Spec change and its failing checks: Story tests for decided outcomes, run rules for
       what must hold on every run, compile-time tests for type promises. Then the core change, then the bench. When
       a test and the core disagree the Spec decides and the fix cites its rule; a test is never edited just to
