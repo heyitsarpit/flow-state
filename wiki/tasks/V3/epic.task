@@ -113,11 +113,10 @@ description
     public API changes (a flag, a default, a field or member name, where an option sits); small amendments to a Task's
     acceptance that keep it correct and the work going (the user, 2026-11-12). Each is noted for the user's read.
 
-    User decides: public entry-point names; new concepts; large public API changes; a guarantee change; relaxing a gate;
-    changes to the Plans' decisions or outcomes, and any edit to a Plan (list the change and wait for the user's yes);
-    scope; the frame (skill:build-a-loop#rules, R16); which example apps, and accepting each app; the CLI outputs; the
-    docs criteria; budget targets; each ship stage; more agents than the instructions allow. Everything else still needs
-    the user.
+    User decides: public entry-point names; new concepts; large public API changes; relaxing a gate; changes to the
+    Plans' decisions or outcomes, and any edit to a Plan (list the change and wait for the user's yes); scope; the frame
+    (skill:build-a-loop#rules, R16); which example apps, and accepting each app; the CLI outputs; the docs criteria;
+    budget targets; each ship stage; more agents than the instructions allow. Everything else still needs the user.
 
     ## Limits
 
@@ -220,9 +219,13 @@ instructions
       names the wrong side with evidence: the runtime breaks a cited rule, or the test, the fake or the tooling does. An
       unknown is never given a default.
     - Spec contradictions (the user, 2026-11-12): the lead writes one concrete case with both results and decides a
-      small or internal one itself, keeping the reading that loses no ending; a guarantee change goes to the user. The
-      Spec is edited so the losing text is gone, with one note in `wiki/specs/specs.log`.
-    - Plan changes found while building go to @plan.Pending as decisions, never into the Plans (the user, 2026-11-11).
+      small or internal one itself, keeping the reading that loses no ending. Running code overrides a Spec, guarantees
+      included, once the change is weighed across the whole system (the user, 2026-11-15): two traces of the same Story,
+      every rule and reader that depends on it checked, and the next independent review confirms it was not shaped to
+      fit the code; the user reads it afterwards. The Spec is edited so the losing text is gone, with one note
+      in `wiki/specs/specs.log`.
+    - Plan changes found while building go to @plan.Pending as decisions, never into the Plans (the user, 2026-11-11),
+      with the same whole-system check (the user, 2026-11-15).
     - Effect prior art (the user, 2026-11-11): each module's Spec skeleton lists the Effect features that cover its
       needs and why each is used or skipped. Adapters use typed failures, defects apart.
     - Speed (the user, 2026-11-14): batch independent tool calls in one message; launch a round's sidecars in one
@@ -279,7 +282,7 @@ cadence
     Quiet rule: a wake that finds nothing writes no note and sends no message.
 stops
     - The user's decisions in the Authority section;
-    - a guarantee that can't be met, or a guarantee change;
+    - a guarantee that can't be met;
     - a slice's close while the previous slice's user's page is unread, which holds only that close;
     - a change proposal whose judge is the user;
     - the user-judged decisions in P5, P6, P7 and P9 (their cards);

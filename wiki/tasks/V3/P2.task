@@ -104,8 +104,7 @@ description
 
     - a Pay Story that cannot pass across a reload (@task.V3.T63);
     - public entry-point names: `Story`, `Fake` and `propertyTest` follow @plan.Testing and stay unexported in this
-      phase; exporting any of them, or naming the CLI's commands beyond the Plan's (@task.V3.T69), is the user's;
-    - a guarantee change.
+      phase; exporting any of them, or naming the CLI's commands beyond the Plan's (@task.V3.T69), is the user's.
 
     **User's read:** the agent decisions in section 12 of the proposal; the Story and Fake API as built; each case the
     port drops, with its reason.

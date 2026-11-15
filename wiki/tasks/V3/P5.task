@@ -35,8 +35,7 @@ description
     **Stops:**
 
     - the user's acceptance of the CLI's outputs (@task.V3.T31);
-    - public entry-point names, new concepts or a large public API change;
-    - a guarantee change.
+    - public entry-point names, new concepts or a large public API change.
 
     **User's read:** each feature Spec; small public API calls.
 

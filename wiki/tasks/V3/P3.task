@@ -53,7 +53,7 @@ description
 
     **Stops:**
 
-    - a guarantee change, or one that can't be met;
+    - a guarantee that can't be met;
     - public entry-point names or a large public API change.
 
     **User's read:** each Spec revision; each changed expected result with its reason; small public API calls; the
