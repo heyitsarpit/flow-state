@@ -18,8 +18,10 @@ description
     **One iteration:** the next ready Task: its feature Spec, its requirements as failing checks, the code, an
     independent skill:check-task.
 
-    **Exit criteria:** every Task is done; each feature's Requirements hold on production; the completion audit
-    names each Plan outcome these Tasks satisfy and finds it delivered; the user has accepted the CLI's outputs.
+    **Exit criteria:** every Task is done; each feature's Requirements hold on production; the suite's coverage
+    record (the one @task.V3.T67 starts) is updated and an audit by a lead that did not build the suite has
+    passed; the completion audit names each Plan outcome these Tasks satisfy and finds it delivered; the user has
+    accepted the CLI's outputs.
 
     **False pass:** a feature that passes tests whose fakes stand in for its boundary.
 
@@ -50,7 +52,7 @@ tasks
         title       Streams
         status      draft
         priority    high
-        blocked_by  [@task.V3.T23]
+
         satisfies   [@plan.Operations.O1, @plan.Operations.O4]
         description
             Write the streams Spec, then build streams on production with a real EventSource path.
@@ -63,7 +65,7 @@ tasks
         title       Entity store
         status      draft
         priority    high
-        blocked_by  [@T25]
+
         satisfies   [
                     @plan.EntityDomains.O1,
                     @plan.EntityDomains.O2,
@@ -85,7 +87,7 @@ tasks
         title       Multi-tab and sessions
         status      draft
         priority    medium
-        blocked_by  [@T24]
+        blocked_by  [@T28]
         satisfies   [@plan.Persistence.O7]
         description
             Write the multi-tab Spec, then build scope ownership across tabs and sessions.
@@ -97,7 +99,7 @@ tasks
         title       Lazy features
         status      draft
         priority    medium
-        blocked_by  [@T27]
+
         satisfies   [
                     @plan.LazyFeatures.O1,
                     @plan.LazyFeatures.O2,
@@ -115,7 +117,7 @@ tasks
         title       Host adapters: IndexedDB and in-memory
         status      draft
         priority    high
-        blocked_by  [@T48, @task.V3.T58]
+        blocked_by  [@task.V3.T58]
         satisfies   [@plan.Persistence.O1, @plan.Persistence.O3]
         description
             Build the IndexedDB host adapter in full, meeting Safari's four requirements, and an in-memory adapter.
@@ -127,7 +129,7 @@ tasks
         title       Inspection and the flow-state/inspect route
         status      draft
         priority    medium
-        blocked_by  [@T28]
+
         satisfies   [
                     @plan.Inspection.O1,
                     @plan.Inspection.O3,
@@ -188,7 +190,7 @@ tasks
         title       React and Next.js bindings
         status      draft
         priority    high
-        blocked_by  [@T31, @task.V3.T58]
+        blocked_by  [@task.V3.T58]
         satisfies   [
                     @plan.React.O1,
                     @plan.React.O2,

@@ -11,7 +11,7 @@ description
       suite running the system inside the P6 apps in Chrome, Safari and an iOS simulator;
     - checked baselines from which the user sets the budget targets.
 
-    **Starts when:** P6's apps run (P7 may run alongside only if it does not overlap).
+    **Starts when:** P7's completion audit passes.
 
     **Verified by:**
 
@@ -62,9 +62,8 @@ tasks
             **Read first:** skill:check-benchmark, skill:check-runtime, skill:policy-verification,
             skill:principle-explain-measurements, @task.V3.T32.
 
-            **Approach:** benchmarks and browser runs run alone; drafted in full when P8 starts. Narrowed (records 
-            review):
-            prove the `bench` runner the slices built (@task.V3.T47), not rebuild it.
+            **Approach:** benchmarks and browser runs run alone; drafted in full when P8 starts. Prove the bench the
+            slices built (@task.V3.T66) and the browser run of @task.V3.T58, not rebuild them.
 
             **Scope added** (the user, 2026-11-11, from
             code:wiki/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md): run every real-browser

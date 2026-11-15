@@ -15,3 +15,9 @@ note 2026-11-15T10:02:30Z
     until each is next. Dropped: the suite's rules, the per-edit label rule for Tasks, the 24-hour compaction rule, the 
     process watch and the usage sampler. Why: the user asked for a rewrite from scratch and for less process. Reverse: 
     restore any rule from the Epic at commit 6b9fe478.
+note 2026-11-15T10:10:22Z
+    Decision (agent, 2026-11-15): after the cold read, P2 finishes before P3 starts (T54 no longer follows T67 alone), 
+    and blocked_by links hold real dependencies only, with each phase's order on its card. Why: the Epic starts a phase 
+    after the previous one's completion audit, and the bugs known in T54's area were all found by generated runs, which 
+    T70 builds. Cost: core work resumes about two days later. Reverse: open T54 after T67 and restore the chain of 
+    blockers from commit 6bc69c7d.

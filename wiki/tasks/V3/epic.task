@@ -42,7 +42,8 @@ description
 
     Bounds: P1 to P10; UI is React and Next.js only. Assumptions: the prototype is the reference
     implementation for what production has not built. Exclusions: Electron; TanStack DB integration;
-    tla-ts; new prototyping; feature Specs before P5; migration functions and manual versions
+    tla-ts; new prototyping; feature Specs before P5, except the test tooling's, which P2 writes;
+    migration functions and manual versions
     (revisit.md). Reused evidence: stage A's results (P1), and the 81 hand cases that pass on
     production, kept in `tests/bridge/` until P2 ports them.
 
@@ -52,9 +53,10 @@ description
 
     ## Constraints
 
-    - One runtime, one way to run it: Flow's own tests run on its public test tooling (Story, Fake,
-      the runtime cut and trace, the CLI), so both are hardened. No model of the core, second
-      runtime, gate file, owed list or recorded baseline is built (the user, 2026-11-15; whole run).
+    - One runtime, one way to run it: Flow's own tests run on the test tooling users will get
+      (Story, Fake, the runtime cut and trace, the CLI), so both are hardened. No model of the core,
+      second runtime, gate file, list of owed checks or recorded baseline of test output is built
+      (the user, 2026-11-15; whole run). Performance baselines (P8, P9) are not test output.
     - Keep it stupid simple: plain functions and plain tests; no tool, runner or ledger where a test
       or a grep does the job (the user, 2026-11-15; whole run).
     - Set up before building: work goes in Tasks, and the layout and import rules are in place
@@ -158,8 +160,17 @@ description
       changes nothing, planted the same way.
     - Bridge: the old hand cases rehosted in `tests/bridge/`, deleted file by file as they become
       Story tests.
-    - Slice: one core area built end to end (its Spec change, its checks, its code). The Pay path:
-      the fixtures, including Pay and checkout, run through the public API.
+    - Slice: one Task of P3 or P4: a core area built end to end (its Spec change, its checks, its
+      code). The Pay path: the fixtures, including Pay and checkout, run through the public API.
+    - Reload sweep: every fixture Story run again with a reload inserted at each position, with the
+      run rules applied. Dead page: a page a reload abandoned; nothing from it may write or be
+      answered afterwards.
+    - Wire words: the steps that control one call to a fake (hold, release, dropRequest,
+      dropResponse, answer). Storage words: the same for the fake store (hold, refuse, release).
+    - Step samples: the steps a fixture offers the generator. Open calls: calls a fake has received
+      and not yet answered.
+    - Owed endings: a domain term of @spec.WriteLanes, an ending the Runtime still has to deliver;
+      it is unrelated to the old suite's owed lists.
     - First commit of a Task: its requirements list in the Task's comments, with each requirement as
       a check that fails today.
     - The user's page: one page at a slice's close on what an app author will notice.
@@ -172,7 +183,9 @@ run
        resume, run skill:catch-up first. If status is not active or the loop fields are missing,
        stop and tell the user.
     2. Current Task: the in_progress one, otherwise `wk next --epic V3`. A Task in `review` comes
-       first: start its independent check before any builder.
+       first: start its independent check before any builder. A phase's Tasks stay `draft` until it
+       starts; then write the next Task's full text with skill:to-task and open it. Within a phase,
+       follow its card's Order line.
     3. Create the session crons from cadence; without one, run its prompt at each wake (R25).
     4. Keep the machine awake for the run (R26), for example `caffeinate -i` on this Mac.
     5. Recover the real agent state: agents and processes alive, branch, last checkpoint, and
@@ -194,7 +207,7 @@ instructions
 
     - Opus leads and Haiku sidecars, Claude Code (detected 2026-11-09). Every lead runs at medium
       effort; Haiku review sidecars at high, read-only sweeps at medium (the user, 2026-11-14;
-      overrides R30).
+      overrides the effort defaults of R30 and skill:policy-delegation).
     - Agents at once: one building lead, and at review time one reviewing or checking agent, each
       with its own sidecars, up to eight as the lead judges (the user, 2026-11-14). Always alone:
       real-browser runs and benchmarks. Up to 8 deterministic processes, about 16 GB.
@@ -250,8 +263,10 @@ instructions
       close, a Spec change, and a change to the test tooling or the run rules. Each goes to one
       Opus lead with read-only Haiku sidecars on named angles, one of them blind to the Task's
       requirements list (the user, 2026-11-12).
-    - A Task closes by R17: its author sets `review`, an independent skill:check-task writes PASS,
-      and the close review has no blocking finding; then the orchestrator sets `done`.
+    - A Task closes by R17: its author sets `review`; one independent Opus lead, with its sidecars,
+      runs skill:check-task and reviews the Task's diff in the same pass, and writes PASS or ISSUES
+      as a Task comment; on PASS with no blocking finding the orchestrator sets `done`. A phase
+      ends with R11's close-out review and R18's completion audit.
     - Stopping rule (the user, 2026-11-12): a finding blocks only when it is in the Task's range,
       has a check red on current code, and is a lost, doubled, made-up or wrong ending, a hang, or
       a broken acceptance item; others are routed or noted. A fix round is checked by the next
@@ -262,8 +277,9 @@ instructions
     - Every review checks the code it reads for outside imports, temporary names and what it
       re-creates of Effect; code quality is otherwise left to lint (the user, 2026-11-14).
     - A ruling is asked as two traces of the same Story, not as prose.
-    - At each slice's close the orchestrator writes the user's page; a second slice may not close on
-      an unread page (the user, 2026-11-12).
+    - At each slice's close the orchestrator writes the user's page, and the builder records the
+      bench's numbers in the Task's comment. A second slice may not close on an unread page (the
+      user, 2026-11-12); that is in stops.
 
     **Records and commands**
 
@@ -294,6 +310,7 @@ cadence
 stops
     - The user's decisions in the Authority section;
     - a guarantee that can't be met, or a guarantee change;
+    - a slice's close while the previous slice's user's page is unread, which holds only that close;
     - a change proposal whose judge is the user;
     - the user-judged decisions in P5, P6, P7 and P9 (their cards);
     - each ship stage in P10;

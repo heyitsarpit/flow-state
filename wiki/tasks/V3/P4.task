@@ -27,6 +27,8 @@ description
     - every Task is done;
     - the fixtures run in real Chrome and Safari, and a fault planted in the browser path is caught there;
     - `nub run verify` passes and builds `packages/flow-state-v3`;
+    - the suite's coverage record is updated, and an audit by a lead that did not build the suite has passed
+      (skill:policy-testing#audit-a-suite);
     - the completion audit names each Plan outcome these Tasks satisfy and finds it delivered.
 
     **False pass:** a browser run that passes on a fake store or a fake page.
@@ -56,8 +58,13 @@ description
     - skill:to-spec and skill:to-design per module; skill:execute-task and skill:check-task per Task;
     - skill:review at a Task's first commit and its close.
 
-    Every Task below is a draft: its full text is written with skill:to-task when it is next. The earlier text of
-    each, written for the conformance suite, is in `wiki/tasks/V3/` at commit `6b9fe478`.
+    **Order:** @task.V3.T58, @task.V3.T57, @task.V3.T21, @task.V3.T56, @task.V3.T22, @task.V3.T23. A `blocked_by`
+    link is a real dependency only; where several Tasks are ready, take the earliest in this order.
+
+    Every Task below is a draft. Before starting its lead, the orchestrator writes its full text with skill:to-task.
+    The earlier text of each, in `wiki/tasks/V3/` at commit `6b9fe478`, was written for the conformance suite: it
+    is background only, and its acceptance does not carry over. The suite's coverage record is the one
+    @task.V3.T67 starts; the browser run adds its own entry to it.
 tasks
     T58
         title       Browser slice: the fixtures in real browsers with minimal React and IndexedDB
@@ -88,7 +95,7 @@ tasks
         title       Machine structure: fragments, .each, subject paths and schedules (slice 3b)
         status      draft
         priority    high
-        blocked_by  [@T58]
+        blocked_by  [@task.V3.T17]
         satisfies   [@plan.Machines.O1, @plan.Machines.O5]
         description
             Build fragments on production: traits, `.each` copies, nested fragments, `.resumable()`, subject paths,
@@ -141,7 +148,7 @@ tasks
         title       Durability: release versions, key fingerprints and record migration (slice 2b)
         status      draft
         priority    high
-        blocked_by  [@T21]
+        blocked_by  [@task.V3.T20, @T57]
         satisfies   [@plan.Persistence.O5, @plan.Runtime.O3]
         description
             Build release versions on production: key fingerprints, identity versions, saved-shape resets with
@@ -164,7 +171,7 @@ tasks
         title       CLI check, explain and graph
         status      draft
         priority    medium
-        blocked_by  [@T56]
+        blocked_by  [@task.V3.T17]
         satisfies   [
                     @plan.CommandLine.O1,
                     @plan.CommandLine.O3,

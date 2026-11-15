@@ -8,8 +8,12 @@ description
     **Goal:** the core's first slices on production: the consolidation, lane policies, Runtime life, write-ahead,
     restore, the compiler and actor identity. The core and its checks grow together, one area at a time.
 
-    **Starts when:** @task.V3.T67 is done, so one test style is left. @task.V3.T18 also waits on @task.V3.T69 and
-    @task.V3.T70.
+    **Starts when:** P2's completion audit passes, so one test style is left and generated Stories exist. The
+    orchestrator then opens this phase's Tasks.
+
+    **Order:** @task.V3.T54, @task.V3.T18, @task.V3.T55, @task.V3.T19, @task.V3.T20, @task.V3.T17, @task.V3.T9, the
+    order the user set. A `blocked_by` link is a real dependency only; where several Tasks are ready, take the
+    earliest in this order.
 
     **Verified by:**
 
@@ -29,6 +33,8 @@ description
     - every Task is done;
     - every Requirement these Tasks build has a check that passes and that failed on its planted fault;
     - `nub run faults` catches the dead core and every named fault at the final revision;
+    - the suite's coverage record is updated, and an audit by a lead that did not build the suite has passed
+      (skill:policy-testing#audit-a-suite);
     - the completion audit names each Plan outcome these Tasks satisfy and finds it delivered.
 
     **False pass:** a test written from the code instead of the Spec; a rule with no planted fault.
@@ -40,7 +46,8 @@ description
 
     - `nub run faults`, which rejects the dead core and the named faults in
       code:packages/flow-state-v3/tests/faults.ts;
-    - `nub run lint:rules`, which rejects the planted violations in code:tools/flow-state-lint/imports.test.ts;
+    - `nub run lint:rules`, which rejects the planted violations in code:tools/flow-state-lint/imports.test.ts and
+      code:tools/flow-state-lint/rules.test.ts;
     - `nub run check`.
 
     **Failure limit:** 2.
@@ -61,16 +68,17 @@ description
     - skill:execute-task and skill:check-task per Task; skill:review at a Task's first commit and its close;
     - skill:policy-convergence at the threshold; skill:diagnose when a test fails unexplained.
 
-    Every Task below but the first is a draft: its full text (requirements, approach, acceptance by Spec rule) is
-    written with skill:to-task when it is next. The earlier text of each, written for the conformance suite, is in
-    `wiki/tasks/V3/` at commit `6b9fe478`. The old suite's known gaps for each Task are in Appendix A of
+    Every Task below is a draft. Before starting its lead, the orchestrator writes its full text with skill:to-task
+    (requirements, approach, acceptance by Spec rule). The earlier text of each, in `wiki/tasks/V3/` at commit
+    `6b9fe478`, was written for the conformance suite: it is background only, and its acceptance does not carry
+    over. The old suite's known gaps for each Task are in Appendix A of
     code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md.
 tasks
     T54
         title       Core consolidation: owed-endings ledger, one start, diff-written records, acts into evidenceOf
-        status      open
+        status      draft
         priority    high
-        blocked_by  [@task.V3.T67]
+
         description
             Finish the core consolidation: one ledger of owed endings, one `start`, records written from what each
             step touched, and every report built by `evidenceOf` from acts.
@@ -101,7 +109,7 @@ tasks
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      draft
         priority    high
-        blocked_by  [@T54, @task.V3.T69, @task.V3.T70]
+        blocked_by  [@T54]
         satisfies   [@plan.Operations.O3, @plan.Runtime.O2]
         description
             Build the write-lane policies `latest`, `serialize` (up to 64, then Overloaded) and `cancel` on
@@ -125,7 +133,7 @@ tasks
         title       Runtime life: Life and admit replace Disposal; the final write and its 5 s bound move into the core
         status      draft
         priority    high
-        blocked_by  [@T18]
+        blocked_by  [@T54]
         description
             Replace the core's `Disposal` and the host's lifecycle flags with one `Life` and one `admit` table, and
             move the final write and its 5 s bound from the host into the core.
@@ -168,8 +176,9 @@ tasks
         acceptance
             - The Requirements of @spec.WriteAhead this slice builds hold, shown by run rules over the fake store's
               batches and by Story tests.
-            - The known bugs of this area (a re-send's retry count missing from the capture before it; any write
-              discharging every dirty end) are fixed, and their inverted tests are flipped.
+            - The known bugs of this area are fixed: a re-send's retry count missing from the capture before it,
+              whose inverted test is flipped; and any write discharging every dirty end, which has no reproduction
+              yet and gets its test here.
             - Each new rule has a planted fault that `nub run faults` catches.
     T20
         title       Durability: restore, owed endings at boot, quarantine and forget (slice 2a)
@@ -201,7 +210,7 @@ tasks
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      draft
         priority    high
-        blocked_by  [@T20]
+        blocked_by  [@T54]
         satisfies   [
                     @plan.Diagnostics.O1,
                     @plan.Diagnostics.O2,

@@ -9,8 +9,10 @@ description
     hand cases are ported onto it and the bridge is deleted. Decided by the user on 2026-11-15; the design and its
     evidence are in code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md.
 
-    **Starts when:** now, ahead of the remaining core slices: @task.V3.T54 waits on @task.V3.T67, and @task.V3.T18
-    waits on @task.V3.T69 and @task.V3.T70.
+    **Starts when:** now, ahead of every remaining core slice. P3 starts only after this phase's completion audit.
+
+    **Order:** @task.V3.T62, @task.V3.T63, @task.V3.T64, @task.V3.T65, @task.V3.T66, @task.V3.T67, @task.V3.T68,
+    @task.V3.T69, @task.V3.T70. Where several are ready, take the earliest in this order.
 
     **Verified by:**
 
@@ -41,7 +43,7 @@ description
 
     **Gates:**
 
-    - `nub run faults`, which rejects the dead core and the 17 named faults in
+    - `nub run faults`, which rejects the dead core and every named fault in
       code:packages/flow-state-v3/tests/faults.ts;
     - `nub run lint:rules`, which rejects the planted violations in code:tools/flow-state-lint/imports.test.ts and
       code:tools/flow-state-lint/rules.test.ts;
@@ -131,6 +133,12 @@ tasks
             cases PASS: 28, each rule refused and allowed, trace.ts allowed; dropping hostFromCore flips 7 probe cases. 
             Gates PASS: nub run check (0 warnings, 83 files), nub run lint:rules (import rule tests passed), vp test 
             run packages/flow-state-v3 (262 passed).
+        comment     2026-11-15T10:09:56Z
+            Orchestrator's fix for the re-check at 6b9fe478: the layout claim now says lint encodes the top folders and 
+            their import edges, not the shape inside a folder, and names the Task that creates each folder. The 
+            narrowing of this claim is the orchestrator's small amendment (Authority): the folders need the Story 
+            tooling to hold anything real. Reverse: restore the claim from ee757592 and create the folders here. Awaits 
+            an independent check.
     T63
         title       A Story drives the real Runtime over fakes
         status      open
@@ -206,7 +214,7 @@ tasks
             May change: `tests/rules/`, and the Story tests that call the helper. Evidence: this Task's comments.
 
             False pass: a rule that never fires → each rule is shown red on one planted fault.
-            Gates: `nub run faults`, which rejects all 17 named faults in code:packages/flow-state-v3/tests/faults.ts.
+            Gates: `nub run faults`, which rejects every named fault in code:packages/flow-state-v3/tests/faults.ts.
         acceptance
             - A rule is a function from a finished run to its breaches, named by its Spec id. One helper applies every
               rule to a run, and every Story test calls it.
@@ -216,7 +224,7 @@ tasks
               (Turn I9); a refused turn leaves no Turn report (Turn I14).
             - The reload sweep runs every fixture story with a reload inserted at each position and applies the rules.
               A variant fails only for a rule breach, never for a script reason.
-            - `nub run faults` catches all 17 named faults.
+            - `nub run faults` catches every named fault, the 17 there today included.
     T65
         title       A run prints as a text trace
         status      open
@@ -287,15 +295,16 @@ tasks
             - The five known bugs that have a reproduction (Appendix A) are inverted tests, each titled by the rule it
               breaks.
             - Each fixture has a usual and a long story.
-            - `nub run faults`: all 17 faults caught, and a dead core fails every test that is not inverted.
+            - `nub run faults`: every named fault caught, and a dead core fails every test that is not inverted.
             - The suite's coverage record (Covers, Suite, Rerun, Mutants, Audit, Matched at, Scope, as
               skill:policy-verification gives them) is a comment on this phase, proposed to the user as a
-              verification entry of @plan.Runtime.
-            - An audit by a lead that did not build the suite (skill:policy-testing#audit-a-suite) has passed.
+              verification entry of @plan.Runtime. The audit it names runs at the phase's close, after
+              @task.V3.T70.
     T68
         title       Compile-time tests for the type promises production keeps
         status      open
         priority    medium
+        blocked_by  [@T62]
         description
             Write `tests/types/`: one `@ts-expect-error` test for each "is a type error" promise in the Plans and
             @spec.Compile that production has built.
@@ -322,6 +331,11 @@ tasks
             **Why now:** a builder's debug loop and a ruling both need a run printed from the command line. This is the
             first slice of @plan.CommandLine.O2; @task.V3.T29 keeps the rest.
 
+            **Read first:** @plan.CommandLine.O2, @task.V3.T65, code:tools/lint-bomb/FLOW-STATE.md (its folder
+            rules).
+
+            May change: a CLI folder under `src/host/`, `tests/`. Evidence: this Task's comments.
+
             **Risk:** where the CLI lives and how it finds stories are not designed. Lint treats everything in `src/`
             outside `src/host/` as core, so a CLI that drives the host lives under `src/host/` or gets its own rule. 
             The Testing plan's `defineConfig`
@@ -340,7 +354,7 @@ tasks
         title       Generated Stories
         status      open
         priority    high
-        blocked_by  [@T64]
+        blocked_by  [@T64, @T67]
         description
             Build `propertyTest` in `src/host/testing/`: it generates Stories from a fixture's step samples and the
             fakes' open calls, applies the run rules, shrinks a failure and prints it as a Story.
