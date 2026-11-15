@@ -12,42 +12,41 @@ description
     orchestrator then opens this phase's Tasks.
 
     **Order:** @task.V3.T54, @task.V3.T18, @task.V3.T55, @task.V3.T19, @task.V3.T20, @task.V3.T17, @task.V3.T9, the
-    order the user set. A `blocked_by` link is a real dependency only; where several Tasks are ready, take the
-    earliest in this order.
+    order the user set. A `blocked_by` link is a real dependency only; where several Tasks are ready, take the earliest
+    in this order.
 
     **Verified by:**
 
     - per area, the Story tests, run rules and compile-time tests written from its Spec, in
       `packages/flow-state-v3/tests/`, run by `vp test`;
-    - `nub run faults`: each new rule adds a planted fault to code:packages/flow-state-v3/tests/faults.ts, and the
-      tests must catch it;
+    - `nub run faults`: each new rule adds a planted fault to code:packages/flow-state-v3/tests/faults.ts, and the tests
+      must catch it;
     - the suite's coverage record, started by @task.V3.T67 and extended by each Task here;
     - skill:check-task per Task; `nub run check` and `nub run lint:rules` at zero.
 
-    **One iteration:** the next ready Task: its Spec change, written just in time; its requirements as failing
-    checks, with a planted fault for each new rule; the core change; the bench; an independent skill:check-task.
-    The user's page is written at each slice's close.
+    **One iteration:** the next ready Task: its Spec change, written just in time; its requirements as failing checks,
+    with a planted fault for each new rule; the core change; the bench; an independent skill:check-task. The user's page
+    is written at each slice's close.
 
     **Exit criteria:**
 
     - every Task is done;
     - every Requirement these Tasks build has a check that passes and that failed on its planted fault;
     - `nub run faults` catches the dead core and every named fault at the final revision;
-    - the suite's coverage record is updated, and an audit by a lead that did not build the suite has passed
-      (skill:policy-testing#audit-a-suite);
+    - the suite's coverage record is updated, and an audit by a lead that did not build the suite has
+      passed (skill:policy-testing#audit-a-suite);
     - the completion audit names each Plan outcome these Tasks satisfy and finds it delivered.
 
     **False pass:** a test written from the code instead of the Spec; a rule with no planted fault.
 
-    **Caught by:** the review of each Task's first commit, which maps every requirement to a Spec rule, and
-    `nub run faults`.
+    **Caught by:** the review of each Task's first commit, which maps every requirement to a Spec rule, and `nub
+    run faults`.
 
     **Gates:**
 
-    - `nub run faults`, which rejects the dead core and the named faults in
-      code:packages/flow-state-v3/tests/faults.ts;
-    - `nub run lint:rules`, which rejects the planted violations in code:tools/flow-state-lint/imports.test.ts and
-      code:tools/flow-state-lint/rules.test.ts;
+    - `nub run faults`, which rejects the dead core and the named faults in code:packages/flow-state-v3/tests/faults.ts;
+    - `nub run lint:rules`, which rejects the planted violations in code:tools/flow-state-lint/imports.test.ts
+      and code:tools/flow-state-lint/rules.test.ts;
     - `nub run check`.
 
     **Failure limit:** 2.
@@ -70,9 +69,9 @@ description
 
     Every Task below is a draft. Before starting its lead, the orchestrator writes its full text with skill:to-task
     (requirements, approach, acceptance by Spec rule). The earlier text of each, in `wiki/tasks/V3/` at commit
-    `6b9fe478`, was written for the conformance suite: it is background only, and its acceptance does not carry
-    over. The old suite's known gaps for each Task are in Appendix A of
-    code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md.
+    `6b9fe478`, was written for the conformance suite: it is background only, and its acceptance does not carry over.
+    The old suite's known gaps for each Task are in Appendix A
+    of code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md.
 tasks
     T54
         title       Core consolidation: owed-endings ledger, one start, diff-written records, acts into evidenceOf
@@ -80,30 +79,29 @@ tasks
         priority    high
 
         description
-            Finish the core consolidation: one ledger of owed endings, one `start`, records written from what each
-            step touched, and every report built by `evidenceOf` from acts.
+            Finish the core consolidation: one ledger of owed endings, one `start`, records written from what each step
+            touched, and every report built by `evidenceOf` from acts.
 
-            **Why now:** most of it is in the core at this revision; the rest was paused when the conformance suite
-            was deleted, and every later core Task builds on the consolidated shape.
+            **Why now:** most of it is in the core at this revision; the rest was paused when the conformance suite was
+            deleted, and every later core Task builds on the consolidated shape.
 
             **Read first:** @spec.WriteLanes (its `algorithm` section: the ledger), @spec.Actors,
             code:packages/flow-state-v3/src/core/ledger.ts, code:packages/flow-state-v3/src/core/evidence-of.ts. The
-            paused step's plan is `wiki/plans/flow/references/proposals/t54-a3-prep-2026-11-15.md` at commit
-            `4f4ac9f5`.
+            paused step's plan is `wiki/plans/flow/references/proposals/t54-a3-prep-2026-11-15.md` at commit `4f4ac9f5`.
 
-            **Risk:** what is left is not listed here. The first step is to read the paused plan against the code
-            and write the remaining requirements as failing checks. The old Task's "production self-proof" is
-            replaced by the planted faults.
+            **Risk:** what is left is not listed here. The first step is to read the paused plan against the code and
+            write the remaining requirements as failing checks. The old Task's "production self-proof" is replaced by
+            the planted faults.
 
             May change: `src/core/`, `src/host/`, `tests/`. Evidence: this Task's comments.
 
-            False pass: a consolidation that moves code without changing who owns each fact → caught by a run rule
-            per fact (one delivery per ending, one writer per record) and its planted fault.
+            False pass: a consolidation that moves code without changing who owns each fact → caught by a run rule per
+            fact (one delivery per ending, one writer per record) and its planted fault.
         acceptance
             - The ledger, `start`, record writes and `evidenceOf` are each the one place their work is done, shown by
               Story tests and run rules that cite @spec.WriteLanes and @spec.Actors.
-            - The two known bugs of this area (a flush that holds only its own actor's record; an adopted lane's
-              later endings routed against Actors R20) are fixed, and their inverted tests are flipped.
+            - The two known bugs of this area (a flush that holds only its own actor's record; an adopted lane's later
+              endings routed against Actors R20) are fixed, and their inverted tests are flipped.
             - `nub run faults` catches every named fault; `vp test` and `nub run check` pass.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
@@ -112,21 +110,21 @@ tasks
         blocked_by  [@T54]
         satisfies   [@plan.Operations.O3, @plan.Runtime.O2]
         description
-            Build the write-lane policies `latest`, `serialize` (up to 64, then Overloaded) and `cancel` on
-            production, with the `waiting` row, as rows of the lane table, and endings split by origin.
+            Build the write-lane policies `latest`, `serialize` (up to 64, then Overloaded) and `cancel` on production,
+            with the `waiting` row, as rows of the lane table, and endings split by origin.
 
             **Why now:** production refuses every policy but `reject`.
 
-            **Read first:** @spec.WriteLanes, code:packages/flow-state-v3/src/core/cells.ts#table, and the reference
-            `packages/flow-state-v3/prototypes/round-14/lane.ts`.
+            **Read first:** @spec.WriteLanes, code:packages/flow-state-v3/src/core/cells.ts#table, and the
+            reference `packages/flow-state-v3/prototypes/round-14/lane.ts`.
 
             May change: `src/core/`, `fixtures/`, `tests/`. Evidence: this Task's comments.
 
-            False pass: a policy whose cells are right one at a time but wrong in sequence → caught by generated
-            Stories over a fixture that uses each policy.
+            False pass: a policy whose cells are right one at a time but wrong in sequence → caught by generated Stories
+            over a fixture that uses each policy.
         acceptance
-            - Each policy's cells are rows of the lane table, with a Story test for each decided cell and a fixture
-              that uses the policy.
+            - Each policy's cells are rows of the lane table, with a Story test for each decided cell and a fixture that
+              uses the policy.
             - An operation's row reads `waiting` while commits wait behind its head.
             - Each new rule has a planted fault that `nub run faults` catches.
     T55
@@ -135,26 +133,26 @@ tasks
         priority    high
         blocked_by  [@T54]
         description
-            Replace the core's `Disposal` and the host's lifecycle flags with one `Life` and one `admit` table, and
-            move the final write and its 5 s bound from the host into the core.
+            Replace the core's `Disposal` and the host's lifecycle flags with one `Life` and one `admit` table, and move
+            the final write and its 5 s bound from the host into the core.
 
             **Why now:** the Runtime's lifecycle is split between `Disposal` in the core and flags in
             `src/host/runtime.ts`, which disagree on early and late calls.
 
-            **Read first:** @spec.Actors (R4, R22, R23), code:packages/flow-state-v3/src/core/disposal.ts,
-            code:packages/flow-state-v3/src/host/runtime.ts.
+            **Read first:** @spec.Actors (R4, R22, R23),
+            code:packages/flow-state-v3/src/core/disposal.ts, code:packages/flow-state-v3/src/host/runtime.ts.
 
             May change: `src/core/`, `src/host/`, `tests/`. Evidence: this Task's comments.
 
-            False pass: an `admit` table that is total by type but never reached for some inputs → caught by a
-            Story test for each row.
+            False pass: an `admit` table that is total by type but never reached for some inputs → caught by a Story
+            test for each row.
         acceptance
-            - One `Life` value and one total `admit` table decide whether an input runs, is dropped or is rejected;
-              the host keeps no flag of its own.
+            - One `Life` value and one total `admit` table decide whether an input runs, is dropped or is rejected; the
+              host keeps no flag of its own.
             - The known bug of this area (the disposal reports Done before its final write is answered) is fixed, and
               its inverted test is flipped.
-            - The known bug "a commit queued behind a Held head is not ended at disposal" (@spec.Actors.I38) is
-              fixed, with its test.
+            - The known bug "a commit queued behind a Held head is not ended at disposal" (@spec.Actors.I38) is fixed,
+              with its test.
             - Each new rule has a planted fault that `nub run faults` catches.
     T19
         title       Durability: persistence edge, write-ahead and the driver (slice 2)
@@ -165,23 +163,23 @@ tasks
         description
             Build the persistence edge, write-ahead and the Effect driver in `src/host/` from @spec.WriteAhead.
 
-            **Why now:** the core returns work as data, and durability can be judged only once that work is run and
-            its records written as the Spec says.
+            **Why now:** the core returns work as data, and durability can be judged only once that work is run and its
+            records written as the Spec says.
 
-            **Read first:** @spec.WriteAhead, code:packages/flow-state-v3/src/core/persist.ts,
-            code:packages/flow-state-v3/src/host/driver.ts.
+            **Read first:** @spec.WriteAhead,
+            code:packages/flow-state-v3/src/core/persist.ts, code:packages/flow-state-v3/src/host/driver.ts.
 
             May change: `src/core/`, `src/host/`, `fixtures/`, `tests/`. Evidence: this Task's comments.
 
-            False pass: a batch rule checked only against what the runtime reports → caught by run rules that read
-            what the fake store received.
+            False pass: a batch rule checked only against what the runtime reports → caught by run rules that read what
+            the fake store received.
         acceptance
             - The Requirements of @spec.WriteAhead this slice builds hold, shown by run rules over the fake store's
               batches and by Story tests; the store contract test is @task.V3.T58's, so until then run rules over
               `Fake.storage`'s batches check write-ahead.
-            - The known bugs of this area are fixed: a re-send's retry count missing from the capture before it,
-              whose inverted test is flipped; and any write discharging every dirty end, which has no reproduction
-              yet and gets its test here.
+            - The known bugs of this area are fixed: a re-send's retry count missing from the capture before it, whose
+              inverted test is flipped; and any write discharging every dirty end, which has no reproduction yet and
+              gets its test here.
             - Each new rule has a planted fault that `nub run faults` catches.
     T20
         title       Durability: restore, owed endings at boot, quarantine and forget (slice 2a)
@@ -245,8 +243,8 @@ tasks
             False pass: a construction rule shown only by a passing machine → caught by a compile-time test or a
             construction test for each refused form.
         acceptance
-            - The Requirements of @spec.Compile and @spec.Diagnostics this slice builds hold: each "is a type error"
-              has a compile-time test, and each construction refusal a test of its error.
+            - The Requirements of @spec.Compile and @spec.Diagnostics this slice builds hold: each "is a type error" has
+              a compile-time test, and each construction refusal a test of its error.
             - The known bug of this area (a delay past 2^31 - 1 ms is armed, not refused) is fixed, and its inverted
               test is flipped.
             - Each new runtime rule has a planted fault that `nub run faults` catches.
@@ -261,16 +259,16 @@ tasks
             snapshots and their fallbacks, the send table, context waves with `onContext`, issues by source, and the
             admission bound.
 
-            **Why now:** production has one actor shape; identity by value, the mailbox rules and context are
-            unbuilt, and the browser slice (@task.V3.T58) needs them.
+            **Why now:** production has one actor shape; identity by value, the mailbox rules and context are unbuilt,
+            and the browser slice (@task.V3.T58) needs them.
 
-            **Read first:** @spec.Actors, code:packages/flow-state-v3/src/core/incarnations.ts,
-            code:packages/flow-state-v3/src/host/runtime.ts.
+            **Read first:** @spec.Actors,
+            code:packages/flow-state-v3/src/core/incarnations.ts, code:packages/flow-state-v3/src/host/runtime.ts.
 
             May change: `src/`, `fixtures/`, `tests/`. Evidence: this Task's comments.
 
-            False pass: mailbox order tested with one actor → caught by Stories with several actors and generated
-            interleavings.
+            False pass: mailbox order tested with one actor → caught by Stories with several actors and
+            generated interleavings.
         acceptance
             - The Requirements of @spec.Actors this slice builds hold, shown by Story tests and run rules.
             - Each new rule has a planted fault that `nub run faults` catches.

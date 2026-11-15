@@ -5,18 +5,17 @@ description
 
     **Kind:** verification-suite.
 
-    **Goal:** the preview cut the user named (2026-11-12): the fixtures, including Pay and checkout, in real Chrome
-    and Safari through a minimal React binding and IndexedDB; the rest of the core's slices (fragments, reads and
+    **Goal:** the preview cut the user named (2026-11-12): the fixtures, including Pay and checkout, in real Chrome and
+    Safari through a minimal React binding and IndexedDB; the rest of the core's slices (fragments, reads and
     operations, release versions); `flow check`; and `nub run verify` building v3.
 
     **Starts when:** P3's completion audit passes.
 
     **Verified by:**
 
-    - a real-browser run of the fixtures, whose driver and checks @task.V3.T58 builds and proves first; it runs
-      alone;
-    - for the core slices, the same suite as P3: Story tests, run rules and compile-time tests from each Spec, with
-      a planted fault for each new rule in code:packages/flow-state-v3/tests/faults.ts;
+    - a real-browser run of the fixtures, whose driver and checks @task.V3.T58 builds and proves first; it runs alone;
+    - for the core slices, the same suite as P3: Story tests, run rules and compile-time tests from each Spec, with a
+      planted fault for each new rule in code:packages/flow-state-v3/tests/faults.ts;
     - skill:check-task per Task; skill:check-runtime in the real browsers; `nub run check` at zero.
 
     **One iteration:** the next ready Task: its Spec change, its requirements as failing checks, the code, an
@@ -27,8 +26,8 @@ description
     - every Task is done;
     - the fixtures run in real Chrome and Safari, and a fault planted in the browser path is caught there;
     - `nub run verify` passes and builds `packages/flow-state-v3`;
-    - the suite's coverage record is updated, and an audit by a lead that did not build the suite has passed
-      (skill:policy-testing#audit-a-suite);
+    - the suite's coverage record is updated, and an audit by a lead that did not build the suite has
+      passed (skill:policy-testing#audit-a-suite);
     - the completion audit names each Plan outcome these Tasks satisfy and finds it delivered.
 
     **False pass:** a browser run that passes on a fake store or a fake page.
@@ -37,8 +36,7 @@ description
 
     **Gates:**
 
-    - `nub run faults`, which rejects the dead core and the named faults in
-      code:packages/flow-state-v3/tests/faults.ts;
+    - `nub run faults`, which rejects the dead core and the named faults in code:packages/flow-state-v3/tests/faults.ts;
     - the browser run, which rejects its own planted fault (built by @task.V3.T58);
     - `nub run verify`.
 
@@ -58,13 +56,13 @@ description
     - skill:to-spec and skill:to-design per module; skill:execute-task and skill:check-task per Task;
     - skill:review at a Task's first commit and its close.
 
-    **Order:** @task.V3.T58, @task.V3.T57, @task.V3.T21, @task.V3.T56, @task.V3.T22, @task.V3.T23. A `blocked_by`
-    link is a real dependency only; where several Tasks are ready, take the earliest in this order.
+    **Order:** @task.V3.T58, @task.V3.T57, @task.V3.T21, @task.V3.T56, @task.V3.T22, @task.V3.T23. A `blocked_by` link
+    is a real dependency only; where several Tasks are ready, take the earliest in this order.
 
-    Every Task below is a draft. Before starting its lead, the orchestrator writes its full text with skill:to-task.
-    The earlier text of each, in `wiki/tasks/V3/` at commit `6b9fe478`, was written for the conformance suite: it
-    is background only, and its acceptance does not carry over. The suite's coverage record is the one
-    @task.V3.T67 starts; the browser run adds its own entry to it.
+    Every Task below is a draft. Before starting its lead, the orchestrator writes its full text with skill:to-task. The
+    earlier text of each, in `wiki/tasks/V3/` at commit `6b9fe478`, was written for the conformance suite: it is
+    background only, and its acceptance does not carry over. The suite's coverage record is the one @task.V3.T67 starts;
+    the browser run adds its own entry to it.
 tasks
     T58
         title       Browser slice: the fixtures in real browsers with minimal React and IndexedDB
@@ -75,31 +73,30 @@ tasks
             Run the fixtures, including Pay and checkout, in real Chrome and Safari on production, through a minimal
             React binding and IndexedDB persistence.
 
-            **Why now:** it is the browser half of the preview cut (the user, 2026-11-12), and until it runs, the
-            fake store and fake page that every other test uses are unchecked against the real thing.
+            **Why now:** it is the browser half of the preview cut (the user, 2026-11-12), and until it runs, the fake
+            store and fake page that every other test uses are unchecked against the real thing.
 
             **Read first:** @plan.Persistence.O1, @plan.React.O1, @plan.Pending D9 (`Store` and `storeContract`),
             @task.V3.T19 (write-ahead, checked on `Fake.storage` until this Task) and @task.V3.T28 (completes the
-            adapters), the Safari findings in `packages/flow-state-v3/prototypes/safari/RESULTS.md`, and the
-            prototype adapter code:packages/flow-state-v3/prototypes/round-14/reality/idb.ts (reference only; the
-            production adapter is written fresh).
+            adapters), the Safari findings in `packages/flow-state-v3/prototypes/safari/RESULTS.md`, and the prototype
+            adapter code:packages/flow-state-v3/prototypes/round-14/reality/idb.ts (reference only; the production
+            adapter is written fresh).
 
-            **Approach:** `Store` becomes its own port in `src/host/store.ts`: a Context service with a Schema'd
-            error vocabulary. This Task owns the store contract test, a plain function of a `Store` Layer under
+            **Approach:** `Store` becomes its own port in `src/host/store.ts`: a Context service with a Schema'd error
+            vocabulary. This Task owns the store contract test, a plain function of a `Store` Layer under
             `@effect/vitest` (`storeContract`, D9). Its IndexedDB adapter is minimal but already meets Safari's D1 to
             D4, since the fixtures run in Safari here; @task.V3.T28 completes it.
 
-            May change: `src/host/`, `fixtures/`, `tests/`, and a new browser-run folder. Evidence: this Task's
-            comments.
+            May change: `src/host/`, `fixtures/`, `tests/`, and a new browser-run folder. Evidence: this
+            Task's comments.
 
-            False pass: a run that never touches real IndexedDB → caught by a planted fault in the store path that
-            only the real store shows.
+            False pass: a run that never touches real IndexedDB → caught by a planted fault in the store path that only
+            the real store shows.
         acceptance
             - The fixtures run in real Chrome and Safari, each alone, and the run fails on a fault planted in the
               IndexedDB path.
-            - The store contract test this Task writes passes against `Fake.storage` and against real IndexedDB in
-              real Chrome and Safari, and the same is shown for the fake page's timers and lifecycle against a real
-              page.
+            - The store contract test this Task writes passes against `Fake.storage` and against real IndexedDB in real
+              Chrome and Safari, and the same is shown for the fake page's timers and lifecycle against a real page.
             - The React binding is the least that renders the fixtures; @task.V3.T30 builds the rest.
     T57
         title       Machine structure: fragments, .each, subject paths and schedules (slice 3b)
@@ -108,11 +105,10 @@ tasks
         blocked_by  [@task.V3.T17]
         satisfies   [@plan.Machines.O1, @plan.Machines.O5]
         description
-            Build fragments on production: traits, `.each` copies, nested fragments, `.resumable()`, subject paths,
-            and the remaining schedule forms.
+            Build fragments on production: traits, `.each` copies, nested fragments, `.resumable()`, subject paths, and
+            the remaining schedule forms.
 
-            **Why now:** split from @task.V3.T17 so the compiler and the browser slice do not wait on fragment
-            design.
+            **Why now:** split from @task.V3.T17 so the compiler and the browser slice do not wait on fragment design.
 
             **Read first:** @plan.Machines.O5, @spec.Compile, @spec.Turn.
 
@@ -142,15 +138,15 @@ tasks
         description
             Build operations with their required services, and reads from @spec.Reads.
 
-            **Why now:** production reads resources only as the fixtures need; shared entries, freshness, refetch
-            and the idle row are unbuilt.
+            **Why now:** production reads resources only as the fixtures need; shared entries, freshness, refetch and
+            the idle row are unbuilt.
 
             **Read first:** @spec.Reads, @plan.Operations.O1, code:packages/flow-state-v3/src/contract.ts.
 
             May change: `src/`, `fixtures/`, `tests/`. Evidence: this Task's comments.
 
-            False pass: a read rule checked only by what the runtime reports → caught by run rules over what the
-            fake server received.
+            False pass: a read rule checked only by what the runtime reports → caught by run rules over what the fake
+            server received.
         acceptance
             - The Requirements of @spec.Reads this slice builds hold, shown by Story tests and run rules.
             - Each new rule has a planted fault that `nub run faults` catches.
@@ -163,8 +159,8 @@ tasks
         blocked_by  [@task.V3.T20, @T57]
         satisfies   [@plan.Persistence.O5, @plan.Runtime.O3]
         description
-            Build release versions on production: key fingerprints, identity versions, saved-shape resets with
-            record migration, and `previous` holds.
+            Build release versions on production: key fingerprints, identity versions, saved-shape resets with record
+            migration, and `previous` holds.
 
             **Why now:** an upgraded release must reset or keep each saved record correctly, and a saved shape is
             defined only once @task.V3.T17 and @task.V3.T57 fix private and computed fields.
@@ -194,9 +190,9 @@ tasks
                     @plan.Operations.O3
                     ]
         description
-            Build the CLI's `check`, `explain` and `graph` from @spec.StaticCli; the CLI stays at check, explain,
-            graph, story and trace. T69 builds the first slice of `defineConfig`; this Task extends it for
-            @plan.CommandLine.O6.
+            Build the CLI's `check`, `explain` and `graph` from @spec.StaticCli; the CLI stays at check, explain, graph,
+            story and trace. T69 builds the first slice of `defineConfig`; this Task extends it
+            for @plan.CommandLine.O6.
 
             **Why now:** Compiled has no static front end, and `flow check` is part of the preview cut.
 
@@ -204,12 +200,10 @@ tasks
 
             May change: `src/`, `fixtures/`, `tests/`. Evidence: this Task's comments.
 
-            False pass: graph edges named differently from the turn's evidence → caught by a test that compares
-            them over a Story run.
-            Stops: public entry-point names; the CLI's outputs for people are @task.V3.T31's.
+            False pass: graph edges named differently from the turn's evidence → caught by a test that compares them
+            over a Story run. Stops: public entry-point names; the CLI's outputs for people are @task.V3.T31's.
         acceptance
-            - The Requirements of @spec.StaticCli hold, each shown by a test that states its expected output by
-              hand.
+            - The Requirements of @spec.StaticCli hold, each shown by a test that states its expected output by hand.
             - `flow graph`'s edge names equal the names in a run's evidence, over every fixture.
     T23
         title       `nub run verify` builds and checks v3
@@ -219,8 +213,8 @@ tasks
         satisfies   [@plan.FlowState.O1]
         description
             Point `nub run build` and the docs build at `packages/flow-state-v3`, and pass `nub run verify`.
-            `packages/flow-state-v3/package.json` gains the six routes' `exports` map (@plan.Package.O1) and the
-            `flow` bin, plus a packed-consumer smoke check that later stage gates run.
+            `packages/flow-state-v3/package.json` gains the six routes' `exports` map (@plan.Package.O1) and the `flow`
+            bin, plus a packed-consumer smoke check that later stage gates run.
 
             **Why now:** `verify` does not build the frozen package; only `build`, `scripts/check-toolchain.mjs` and
             `apps/docs/scripts/generate-api-reference.mjs` read the frozen packages, so they cannot be removed and the
@@ -230,13 +224,11 @@ tasks
             **Read first:** code:package.json, code:scripts/check-toolchain.mjs, @plan.Package.O1.
 
             May change: `package.json`, `packages/flow-state-v3/package.json`, `scripts/`, `apps/docs/scripts/`,
-            `knip.json`, `tsconfig.json`. Evidence: this
-            Task's comments.
+            `knip.json`, `tsconfig.json`. Evidence: this Task's comments.
 
             False pass: a verify that passes because a step was dropped → caught by listing each step of today's
-            `verify` with what replaces it.
-            Stops: removing `packages/flow-state` and `packages/flow-state-rewrite`, which @plan.FlowState keeps
-            frozen until a product cutover.
+            `verify` with what replaces it. Stops: removing `packages/flow-state` and `packages/flow-state-rewrite`,
+            which @plan.FlowState keeps frozen until a product cutover.
         acceptance
             - `nub run verify` passes, and its build, toolchain check and docs steps read `packages/flow-state-v3`.
             - Nothing in `verify` reads the frozen packages.

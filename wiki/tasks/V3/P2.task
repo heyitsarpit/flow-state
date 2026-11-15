@@ -7,16 +7,15 @@ description
 
     **Goal:** Flow's own tests run on Flow's own test tooling (Story, Fake, the runtime cut, the trace, the CLI); the
     hand cases are ported onto it and the bridge is deleted. Decided by the user on 2026-11-15. The tools' API is
-    @plan.Testing as set out in code:wiki/plans/flow/references/proposals/test-tooling-reuse-2026-11-15.md; the
-    strategy and evidence are in code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md, except the
-    parts the reuse proposal supersedes.
+    @plan.Testing as set out in code:wiki/plans/flow/references/proposals/test-tooling-reuse-2026-11-15.md; the strategy
+    and evidence are in code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md, except the parts the reuse
+    proposal supersedes.
 
     **Guides:** the reference apps' stories, tests and fakes show the intended shape; the Plan wins where they differ.
     Known stale there: `ensure` or `useActorByRef` with input, `signal` in contexts, no `services:`, persistence
     `version`, CLI strings, `Fake.fetch` (now `Fake.http`), `drop({ times })` (later, @task.V3.T29),
     `Fake.storage.write.hold({ match })` (now `Fake.storage` with `hold`), and any line saying fixtures shadow setup
-    services (they replace them). Link:
-    code:wiki/plans/flow/references/checkout/features/Pay/pay.story.ts,
+    services (they replace them). Link: code:wiki/plans/flow/references/checkout/features/Pay/pay.story.ts,
     code:wiki/plans/flow/references/checkout/features/Pay/pay.test.ts,
     code:wiki/plans/flow/references/checkout/features/Cart/cart.story.ts,
     code:wiki/plans/flow/references/checkout/features/Refunds/refunds.story.ts,
@@ -28,8 +27,8 @@ description
     code:wiki/plans/flow/references/dispatch-desk/testing/desk.property.test.ts,
     code:wiki/plans/flow/references/dispatch-desk/tools/inspection.ts,
     code:wiki/plans/flow/references/dispatch-desk/flow.config.ts, and each app's `features/*/*.story.ts` and
-    `*.test.ts`. Not guides: `*.contracts.ts`, setup and persistence files, `tools/cli.ts`, `tools/diagnostics.ts`,
-    the READMEs, `REVIEW.md`, `REWRITE-PLAN.md` and `typecheck/standin/`.
+    `*.test.ts`. Not guides: `*.contracts.ts`, setup and persistence files, `tools/cli.ts`, `tools/diagnostics.ts`, the
+    READMEs, `REVIEW.md`, `REWRITE-PLAN.md` and `typecheck/standin/`.
 
     **Folder structure** (`packages/flow-state-v3/`; the Task that builds each part in brackets):
 
@@ -67,37 +66,36 @@ description
 
     **Verified by:**
 
-    - the suite: the Story tests under `packages/flow-state-v3/tests/`, with the run rules and the reload sweep, run
-      by `vp test`; the builder runs it, and a lead that did not build it audits it
-      (skill:policy-testing#audit-a-suite);
+    - the suite: the Story tests under `packages/flow-state-v3/tests/`, with the run rules and the reload sweep, run by
+      `vp test`; the builder runs it, and a lead that did not build it audits it (skill:policy-testing#audit-a-suite);
     - its mutants: `nub run faults` plants a dead core and each named fault of
       code:packages/flow-state-v3/tests/faults.ts in a scratch copy, one at a time;
-    - its coverage record: written by @task.V3.T67 and proposed as a verification entry of @plan.Runtime, which is
-      a Plan edit and so the user's yes; until then it is a comment on this phase;
+    - its coverage record: written by @task.V3.T67 and proposed as a verification entry of @plan.Runtime, which is a
+      Plan edit and so the user's yes; until then it is a comment on this phase;
     - skill:check-task per Task; `nub run check` and `nub run lint:rules` at zero.
 
-    **One iteration:** the next ready Task: write its checks and see them fail, build, run the suite and
-    `nub run faults`, then an independent skill:check-task. Findings are gathered by root cause before the next Task.
+    **One iteration:** the next ready Task: write its checks and see them fail, build, run the suite and `nub run
+    faults`, then an independent skill:check-task. Findings are gathered by root cause before the next Task.
 
     **Exit criteria:**
 
     - every Task is done, and `tests/bridge/` is deleted, so one test style is left;
-    - everything under "Prove" in skill:policy-verification holds at the final revision: the suite runs end to end,
-      the dead core and every named fault are caught, and the audit has passed;
+    - everything under "Prove" in skill:policy-verification holds at the final revision: the suite runs end to end, the
+      dead core and every named fault are caught, and the audit has passed;
     - the coverage record exists.
 
-    **False pass:** a harness made of the product hiding the product's bugs; a ported test that asserts less than
-    the case it replaces.
+    **False pass:** a harness made of the product hiding the product's bugs; a ported test that asserts less than the
+    case it replaces.
 
     **Caught by:** the fault run and the dead core; the pure core tests beside the core
     (code:packages/flow-state-v3/src/core/cells.test.ts); the case-by-case comparison in @task.V3.T67.
 
     **Gates:**
 
-    - `nub run faults`, which rejects the dead core and every named fault in
-      code:packages/flow-state-v3/tests/faults.ts;
-    - `nub run lint:rules`, which rejects the planted violations in code:tools/flow-state-lint/imports.test.ts and
-      code:tools/flow-state-lint/rules.test.ts;
+    - `nub run faults`, which rejects the dead core and every named fault
+      in code:packages/flow-state-v3/tests/faults.ts;
+    - `nub run lint:rules`, which rejects the planted violations in code:tools/flow-state-lint/imports.test.ts
+      and code:tools/flow-state-lint/rules.test.ts;
     - `nub run check`.
 
     **Failure limit:** 2.
@@ -109,8 +107,8 @@ description
       phase; exporting any of them, or naming the CLI's commands beyond the Plan's (@task.V3.T69), is the user's;
     - a guarantee change.
 
-    **User's read:** the agent decisions in section 12 of the proposal; the Story and Fake API as built; each case
-    the port drops, with its reason.
+    **User's read:** the agent decisions in section 12 of the proposal; the Story and Fake API as built; each case the
+    port drops, with its reason.
 
     **Draws from:**
 
@@ -127,23 +125,23 @@ tasks
         description
             Fix the package's folders and what may import what, enforced by lint, before the tooling is built.
 
-            **Why now:** tooling, fixtures and tests are about to be written. With no rule, tests reach into `src/`
-            and fixtures into tests, which is how the old suite grew a private path to the runtime.
+            **Why now:** tooling, fixtures and tests are about to be written. With no rule, tests reach into `src/` and
+            fixtures into tests, which is how the old suite grew a private path to the runtime.
 
-            **Read first:** code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md (section 8 and
-            decision 9), code:tools/lint-bomb/FLOW-STATE.md.
+            **Read first:** code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md (section 8 and decision
+            9), code:tools/lint-bomb/FLOW-STATE.md.
 
-            May change: `vite.config.ts`, `tools/flow-state-lint/`, `tools/lint-bomb/FLOW-STATE.md`, AGENTS.md's
-            "Where things live". Evidence: this Task's comments.
+            May change: `vite.config.ts`, `tools/flow-state-lint/`, `tools/lint-bomb/FLOW-STATE.md`, AGENTS.md's "Where
+            things live". Evidence: this Task's comments.
 
-            False pass: a rule that never fires → caught by its planted violation in
-            code:tools/flow-state-lint/imports.test.ts.
+            False pass: a rule that never fires → caught by its planted violation
+            in code:tools/flow-state-lint/imports.test.ts.
         acceptance
-            - Lint encodes the package's top folders and what may import what between them: the core (everything
-              in `src/` outside `src/host/`), the host, `fixtures/`, `tests/` and `bench/`. It does not encode the
-              shape inside a folder. This Task moves no file: each folder is created by the Task that fills it
-              (@task.V3.T63 the test tooling and the first fixture folder, @task.V3.T64 `tests/rules/`,
-              @task.V3.T66 `bench/`, @task.V3.T67 the other fixture folders, @task.V3.T68 `tests/types/`).
+            - Lint encodes the package's top folders and what may import what between them: the core (everything in
+              `src/` outside `src/host/`), the host, `fixtures/`, `tests/` and `bench/`. It does not encode the shape
+              inside a folder. This Task moves no file: each folder is created by the Task that fills it (@task.V3.T63
+              the test tooling and the first fixture folder, @task.V3.T64 `tests/rules/`, @task.V3.T66 `bench/`,
+              @task.V3.T67 the other fixture folders, @task.V3.T68 `tests/types/`).
             - Lint refuses, for `.ts` and `.tsx` files: anything in `src/` outside `src/host/`, except `src/index.ts`,
               importing from `src/host/`; `src/` importing a fixture, test or bench; a fixture importing from `src/`
               anything but `src/index.ts` and `src/host/testing/index.ts`; a test or bench importing from `src/`
@@ -160,27 +158,27 @@ tasks
             proven on a transfers fixture and one Pay Story.
 
             **Why now:** Flow's own tests are to run on its public test tooling, and nothing in production code scripts
-            a run or stands in for a service. This is the first slice of @plan.Testing.O1 to O4; @task.V3.T29 keeps the
-            rest.
+            a run or stands in for a service. This is the first slice of @plan.Testing.O1 to O4; @task.V3.T29 keeps
+            the rest.
 
-            **Read first:** code:wiki/plans/flow/references/proposals/test-tooling-reuse-2026-11-15.md (the design
-            to build; sections 2, 4 and 5), @plan.Testing.O1 to O4, @spec.Restore (R3, the Pay Story's expected
-            result), @spec.WriteLanes, code:packages/flow-state-v3/src/host/runtime.ts#buildRuntime,
+            **Read first:** code:wiki/plans/flow/references/proposals/test-tooling-reuse-2026-11-15.md (the design to
+            build; sections 2, 4 and 5), @plan.Testing.O1 to O4, @spec.Restore (R3, the Pay Story's expected result),
+            @spec.WriteLanes, code:packages/flow-state-v3/src/host/runtime.ts#buildRuntime,
             code:packages/flow-state-v3/src/host/testing.ts#testing and
             code:packages/flow-state-v3/src/host/testing/page.ts#pageOver (the seams the Story replaces). Guides: the
-            reference stories, fakes and tests the P2 card lists. Prior art: commit `14bc60d9`, this Task's first
-            build in the array shape, whose run engine, cut and Pay reload path carry over.
+            reference stories, fakes and tests the P2 card lists. Prior art: commit `14bc60d9`, this Task's first build
+            in the array shape, whose run engine, cut and Pay reload path carry over.
 
-            **Risk:** Pay's commit runs on a detached fiber, and what it does when its page is abandoned at a reload
-            is unproven. The second risk is types: a fake must keep each service method's argument, success and
-            failure types end to end, with no cast.
+            **Risk:** Pay's commit runs on a detached fiber, and what it does when its page is abandoned at a reload is
+            unproven. The second risk is types: a fake must keep each service method's argument, success and failure
+            types end to end, with no cast.
 
             **Approach:** one page is one task list drained to idle (Effect's `Scheduler.MixedScheduler`), one
             `TestClock` and one Runtime; a reload abandons the page and boots another over the same store and fake
             state. Every Effect API is checked against the installed source with the `effect-api-documentation` skill.
 
-            **Shape** (the transfers fixture; files per the P2 card's folder structure; `NEW` is new code, `existing`
-            is in production today, `user` is fixture code):
+            **Shape** (the transfers fixture; files per the P2 card's folder structure; `NEW` is new code, `existing` is
+            in production today, `user` is fixture code):
 
             ```ts
             // fixtures/transfers/contracts.ts: the port, defined once; production and fake Layers both implement it
@@ -235,44 +233,40 @@ tasks
 
             Risks to measure, not designed yet: the chain's type grows with each checkpoint name (time `tsc` on the
             ~100-step long story; if slow, cap checkpoints per Story, never return to an array), and the type-level
-            check that fixtures cover the setup's contract services: today `transaction` carries its requirement `R`
-            but `app`, the machine and `runtimeSetup` drop it (`Layer<any>`), so the requirement must be threaded
-            through them (@plan.Testing.O3 already promises the type error). `Fake.http` is not in T63 (it comes with
-            the first Promise-based adapter, @task.V3.T29).
+            check that fixtures cover the setup's contract services: today `transaction` carries its requirement `R` but
+            `app`, the machine and `runtimeSetup` drop it (`Layer<any>`), so the requirement must be threaded through
+            them (@plan.Testing.O3 already promises the type error). `Fake.http` is not in T63 (it comes with the first
+            Promise-based adapter, @task.V3.T29).
 
             May change: `src/host/testing/`, `src/host/inspect.ts`, `fixtures/transfers/`, `fixtures/pay/server.ts`,
             `fixtures/pay/stories.ts`, `tests/transfers/`, `tests/pay/`. Evidence: this Task's comments.
 
             False pass: a run that ends with work still queued, or tests that pass on a dead core → caught by the idle
-            check after every step and by `nub run faults`.
-            Gates: `nub run faults` over the new tests, which rejects the dead core.
-            Stops: the Pay Story cannot pass across a reload without bending the Runtime. Then the reload model is
-            wrong.
-            User's read: the Story and Fake API as built, and each place it differs from @plan.Testing or the reuse
-            proposal.
+            check after every step and by `nub run faults`. Gates: `nub run faults` over the new tests, which rejects
+            the dead core. Stops: the Pay Story cannot pass across a reload without bending the Runtime. Then the reload
+            model is wrong. User's read: the Story and Fake API as built, and each place it differs from @plan.Testing
+            or the reuse proposal.
         acceptance
             - `Story.app(setup, { id, fixtures, world })` takes the app's real `runtimeSetup`, chains steps (ensure,
-              detach, send, world, advance, reload, checkpoint, `dispose(ref, { how })` with `how: "forget"` for
-              forget, disposeRuntime), and is inert data
-              until `run()`, the only boundary. Every chained Story exposes its `Story.Step` array, and a run accepts a
-              step array, which the reload sweep and generated Stories use. Checkpoint names are typed: reading an
-              unknown one is a type error.
+              detach, send, world, advance, reload, checkpoint, `dispose(ref, { how })` with `how: "forget"` for forget,
+              disposeRuntime), and is inert data until `run()`, the only boundary. Every chained Story exposes its
+              `Story.Step` array, and a run accepts a step array, which the reload sweep and generated Stories use.
+              Checkpoint names are typed: reading an unknown one is a type error.
             - Fixtures cover every service the app's contracts list; a missing one is a type error (no `Layer<any>`).
             - `Fake.server(name, { truth, initial, endpoints, controls })` holds run-scoped, Schema'd truth that lasts
               across reloads; `Fake.call` endpoints return `{ truth, exit }` typed by their Schemas, `Fake.control`
-              changes truth, and `Fake.Lost` reaches the port's own error through the port fake, a plain
-              `Layer.effect` of the app's service. Wire words live on the endpoint: `hold({ at })`, `release` and
-              `drop({ at })`. There is no `answer` word and no cast. The fake store has `hold`, `refuse` and
-              `release` (`Fake.storage`).
+              changes truth, and `Fake.Lost` reaches the port's own error through the port fake, a plain `Layer.effect`
+              of the app's service. Wire words live on the endpoint: `hold({ at })`, `release` and `drop({ at })`. There
+              is no `answer` word and no cast. The fake store has `hold`, `refuse` and `release` (`Fake.storage`).
             - A checkpoint holds the time, `inspect(runtime)` (the public runtime cut, @plan.Inspection.O1), what each
               fake received and its truth, and the store; tests read them only through the Plan's reads: `read(ref)`,
               `read(server)` (truth), `read(endpoint)` (the calls it received, with status; @plan.Pending D8),
               `records`, `inspection`, `now`, and `run.evidence` for endings.
-            - A dead page's released call or write never completes its waiter: evidence, store records and
-              `inspection` are equal before and after the release (the handler may run and truth change,
-              @spec.Stories.R13). `disposeRuntime` runs the public Runtime's dispose.
-            - Every step word and every wire and storage word has a test. A Story run twice gives equal evidence. A
-              run arms no host timer. A dead page writes nothing after a reload.
+            - A dead page's released call or write never completes its waiter: evidence, store records and `inspection`
+              are equal before and after the release (the handler may run and truth change, @spec.Stories.R13).
+              `disposeRuntime` runs the public Runtime's dispose.
+            - Every step word and every wire and storage word has a test. A Story run twice gives equal evidence. A run
+              arms no host timer. A dead page writes nothing after a reload.
             - The test tooling's Spec (@spec.Stories, skill:to-spec) states the shape above, from @plan.Testing and the
               reuse proposal, as its Requirements and Invariants; the tooling's tests cite it.
             - The transfers fixture is one folder (contracts, machine, server, stories) with Story tests; its stories
@@ -280,8 +274,8 @@ tasks
             - The tooling is the public `flow-state/testing` and `flow-state/inspect` design, not exported in P2
               (@task.V3.T29 exports testing, @task.V3.T49 inspect); Flow's tests reach it by its path in the package.
             - One Pay Story passes: a `confirm` whose response is never answered (held at response, never released),
-              time past the commit's deadline, a reload; the payment reads unknown and the shop handled exactly one
-              `confirm`.
+              time past the commit's deadline, a reload; the payment reads unknown and the shop handled exactly
+              one `confirm`.
             - `nub run faults` over the new tests: a dead core fails every one.
             - An idiomatic-Effect review by a second Opus agent, using `effect-api-documentation`, leaves no finding
               open without a reason.
@@ -298,41 +292,41 @@ tasks
             passes all 81 hand cases. The old suite's crash sweep, a kill and reload at every step, found three real
             bugs and was deleted with it.
 
-            **Read first:** @spec.WriteLanes (I3, I6, I15, I16), @spec.Turn (I9, I14), @spec.Actors (I30): each
-            rule checks the Spec's wording, exceptions included;
+            **Read first:** @spec.WriteLanes (I3, I6, I15, I16), @spec.Turn (I9, I14), @spec.Actors (I30): each rule
+            checks the Spec's wording, exceptions included;
             code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md (sections 3.2, 3.3 and 6),
-            code:packages/flow-state-v3/tests/faults.ts, and 
-            code:packages/flow-state-v3/tests/bridge/checks/publication.ts
-            and `tests/bridge/checks/disposal.ts` for older checks' logic.
+            code:packages/flow-state-v3/tests/faults.ts, and
+            code:packages/flow-state-v3/tests/bridge/checks/publication.ts and `tests/bridge/checks/disposal.ts` for
+            older checks' logic.
 
             May change: `tests/rules/`, `tests/faults.ts`, and the Story tests that call the helper. Evidence: this
             Task's comments.
 
-            False pass: a rule that never fires → each rule is shown red on one planted fault.
-            Check: `nub run faults` plants each named fault in code:packages/flow-state-v3/tests/faults.ts and reports
-            which the tests catch; it measures and is never a CI gate.
+            False pass: a rule that never fires → each rule is shown red on one planted fault. Check: `nub run faults`
+            plants each named fault in code:packages/flow-state-v3/tests/faults.ts and reports which the tests catch; it
+            measures and is never a CI gate.
         acceptance
             - A rule is a function from a finished run to its breaches, named by its Spec id, reading only the public
               reads (`run.checkpoints`, `inspection`, `read(endpoint)`, `records`, `run.evidence`), never a fake's
-              internals. One helper applies every rule to a run, and every Story test calls it. The rules are a
-              plain list that `propertyTest` (@task.V3.T70) receives through its `properties` option, since
-              `src/` may not import `tests/`.
-            - The rules, each as its Spec words it: per Attempt and per incarnation an ending is delivered at most
-              once, with I15's written exceptions (a refused re-send capture's second `unknown StorageRefused`,
-              `unknown Restored` once again after each reload, a refused turn's redelivery) (WriteLanes I15, I16);
-              every delivered ending is exactly one of success, failure, notSent and unknown, an Attempt that ever
-              ended unknown never delivers a definite failure, and a never-sent Attempt ends only NotSent or unknown
-              Restored at a boot (WriteLanes I3); every request of one Attempt carries one idempotency key and one
-              input (WriteLanes I6); each turn publishes at most once and an accepted transition exactly once (Turn
-              I9); a refused turn publishes one issue-only snapshot and no Turn report (Turn I14); after Runtime
-              disposal starts no commit or read is invoked (Actors I30).
+              internals. One helper applies every rule to a run, and every Story test calls it. The rules are a plain
+              list that `propertyTest` (@task.V3.T70) receives through its `properties` option, since `src/` may not
+              import `tests/`.
+            - The rules, each as its Spec words it: per Attempt and per incarnation an ending is delivered at most once,
+              with I15's written exceptions (a refused re-send capture's second `unknown StorageRefused`, `unknown
+              Restored` once again after each reload, a refused turn's redelivery) (WriteLanes I15, I16); every
+              delivered ending is exactly one of success, failure, notSent and unknown, an Attempt that ever ended
+              unknown never delivers a definite failure, and a never-sent Attempt ends only NotSent or unknown Restored
+              at a boot (WriteLanes I3); every request of one Attempt carries one idempotency key and one input
+              (WriteLanes I6); each turn publishes at most once and an accepted transition exactly once (Turn I9); a
+              refused turn publishes one issue-only snapshot and no Turn report (Turn I14); after Runtime disposal
+              starts no commit or read is invoked (Actors I30).
             - Each rule has a named planted fault in `tests/faults.ts` that turns it red (none exists today for
               WriteLanes I3, I15, I16, Turn I9 or Actors I30).
             - The reload sweep runs every fixture story's `Story.Step` array with a reload inserted at each position
               (`run({ steps })`) and applies the rules. A variant fails only for a rule breach, never for a script
               reason; script faults a reload can cause (a release with nothing held, an unused hold) are skipped and
-              counted. A second variant inserts `reload({ reattach: false })` (@plan.Pending D10), so a boot that
-              fails to wake owed identities shows.
+              counted. A second variant inserts `reload({ reattach: false })` (@plan.Pending D10), so a boot that fails
+              to wake owed identities shows.
             - `nub run faults` catches every named fault, the 23 there today included.
     T65
         title       A run prints as a text trace
@@ -352,9 +346,9 @@ tasks
             False pass: a trace that leaves out what a step caused → caught by a snapshot that shows each request,
             ending and store write of a run with a lost answer.
         acceptance
-            - For one transfers Story with a lost answer and a reload, a test states by hand what the trace must
-              show, in order: each step, each request with whether it landed, each ending with its channel and
-              reason, each store write and each checkpoint.
+            - For one transfers Story with a lost answer and a reload, a test states by hand what the trace must show,
+              in order: each step, each request with whether it landed, each ending with its channel and reason, each
+              store write and each checkpoint.
             - Two runs of one Story print the same trace. Each trace event carries a run-wide sequence number, stamped
               by the host's evidence sink (the core stays unchanged); T65 owns it.
             - A text snapshot of that trace is kept as a change detector only.
@@ -375,8 +369,8 @@ tasks
             False pass: a bench that does less work than the tested run → caught by the same-turns test.
         acceptance
             - `bun packages/flow-state-v3/bench/run.ts` prints its numbers for the transfers long story.
-            - A test shows the benched Story does the same turns as a tested run of it: equal turn evidence, in
-              order, from both runs.
+            - A test shows the benched Story does the same turns as a tested run of it: equal turn evidence, in order,
+              from both runs.
             - Nothing gates on a timing.
     T67
         title       The hand cases run as Story tests and the bridge is gone
@@ -386,21 +380,20 @@ tasks
         description
             Port the 81 cases under `tests/bridge/cases/` to Story tests by Spec area, and delete the bridge.
 
-            **Why now:** two test styles in one tree is how a private harness comes back. Core work
-            (@task.V3.T54) waits on this.
+            **Why now:** two test styles in one tree is how a private harness comes back. Core work (@task.V3.T54) waits
+            on this.
 
-            **Read first:** code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md (section 5 and
-            Appendix A), code:packages/flow-state-v3/tests/bridge/cases/write-lanes/payment-endings.test.ts.
+            **Read first:** code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md (section 5 and Appendix
+            A), code:packages/flow-state-v3/tests/bridge/cases/write-lanes/payment-endings.test.ts.
 
-            **Approach:** the pay, cells, sync and sign-in fixtures in the four-file shape first, each in its own
-            folder (cells moves out of `fixtures/pay/`) and following the transfers fixture of @task.V3.T63
-            (`Fake.server` with a port fake Layer, chained Stories, no handler closures). Then one Spec area per
-            commit, each commit deleting the bridge files it replaces. The five `-usual` and five `-stress` scripts
-            on the branch `draft/story-slice` (`draft/workloads/`) become each fixture's usual and long Stories,
-            rewritten in the chained form.
+            **Approach:** the pay, cells, sync and sign-in fixtures in the four-file shape first, each in its own folder
+            (cells moves out of `fixtures/pay/`) and following the transfers fixture of @task.V3.T63 (`Fake.server` with
+            a port fake Layer, chained Stories, no handler closures). Then one Spec area per commit, each commit
+            deleting the bridge files it replaces. The five `-usual` and five `-stress` scripts on the branch
+            `draft/story-slice` (`draft/workloads/`) become each fixture's usual and long Stories, rewritten in the
+            chained form.
 
-            The old `answer` and `ack` words map onto the Plan's words, so a server never answers against its own
-            truth:
+            The old `answer` and `ack` words map onto the Plan's words, so a server never answers against its own truth:
 
             | Old | New |
             | --- | --- |
@@ -414,28 +407,27 @@ tasks
 
             A case no mapping expresses is listed as dropped with its reason, for the user's read.
 
-            May change: `fixtures/`, `tests/`, `vite.config.ts` (the bridge's lint exemption). Evidence: this Task's
-            comments.
+            May change: `fixtures/`, `tests/`, `vite.config.ts` (the bridge's lint exemption). Evidence: this
+            Task's comments.
 
-            False pass: a ported test that asserts less than its case did → caught by comparing asserted values case
-            by case, and by `nub run faults`.
+            False pass: a ported test that asserts less than its case did → caught by comparing asserted values case by
+            case, and by `nub run faults`.
         acceptance
             - Every bridge case has a Story test asserting the same values; a case dropped is listed with its reason.
             - `tests/bridge/` and `fixtures/part.ts` are deleted, and lint's bridge exemption with them (also in
               `tools/flow-state-lint/imports.test.ts` and `tools/lint-bomb/FLOW-STATE.md`).
             - `src/host/testing/page.ts` is deleted: `src/host/lanes.test.ts` and `ledger.test.ts` run on Stories or
               TestClock, so no second hand clock is left.
-            - The three known bugs that still have a reproduction are inverted tests, each titled by the rule it
-              breaks: TURN-01 (`turn/refusal.test.ts`), PAY-15 (`actors/runtime-disposal.test.ts`), PAY-22
+            - The three known bugs that still have a reproduction are inverted tests, each titled by the rule it breaks:
+              TURN-01 (`turn/refusal.test.ts`), PAY-15 (`actors/runtime-disposal.test.ts`), PAY-22
               (`write-lanes/lane-anchors.test.ts`). The two shrunk `PART-…` cases of Appendix A no longer exist;
               @task.V3.T54 reproduces them with generated Stories.
             - `src/host/testing.ts` moves into `src/host/testing/`, unexported, once the bridge no longer imports it.
             - Each fixture has a usual and a long story.
             - `nub run faults`: every named fault caught, and a dead core fails every test that is not inverted.
             - The suite's coverage record (Covers, Suite, Rerun, Mutants, Audit, Matched at, Scope, as
-              skill:policy-verification gives them) is a comment on this phase, proposed to the user as a
-              verification entry of @plan.Runtime. The audit it names runs at the phase's close, after
-              @task.V3.T70.
+              skill:policy-verification gives them) is a comment on this phase, proposed to the user as a verification
+              entry of @plan.Runtime. The audit it names runs at the phase's close, after @task.V3.T70.
     T68
         title       Compile-time tests for the type promises production keeps
         status      open
@@ -451,8 +443,7 @@ tasks
 
             May change: `tests/types/`. Evidence: this Task's comments.
 
-            False pass: a directive that suppresses a different error → each test's line holds only the forbidden
-            use.
+            False pass: a directive that suppresses a different error → each test's line holds only the forbidden use.
         acceptance
             - Each promise production has built has a test, and `nub run check` fails when its directive is unused.
             - The promises production has not built are listed in this Task's comments with their owner Task.
@@ -462,34 +453,31 @@ tasks
         priority    medium
         blocked_by  [@T65]
         description
-            Build `flow story list`, `flow story run` and `flow trace <story>`, thin over the run and the trace
-            printer.
+            Build `flow story list`, `flow story run` and `flow trace <story>`, thin over the run and the trace printer.
 
             **Why now:** a builder's debug loop and a ruling both need a run printed from the command line. This is the
             first slice of @plan.CommandLine.O2; @task.V3.T29 keeps the rest.
 
-            **Read first:** @plan.CommandLine.O2, @task.V3.T65, code:tools/lint-bomb/FLOW-STATE.md (its folder
-            rules).
+            **Read first:** @plan.CommandLine.O2, @task.V3.T65, code:tools/lint-bomb/FLOW-STATE.md (its folder rules).
 
             May change: a CLI folder under `src/host/`, `tests/`. Evidence: this Task's comments.
 
             **Approach:** the CLI is `main(argv)` in `src/host/cli/main.ts`, which the `flow` bin calls (@task.V3.T23
-            adds the bin); it finds Stories through `defineConfig` (`src/host/testing/config.ts`, first slice) and
-            the package's own `packages/flow-state-v3/flow.config.ts`, which lists the fixtures. @task.V3.T22
+            adds the bin); it finds Stories through `defineConfig` (`src/host/testing/config.ts`, first slice) and the
+            package's own `packages/flow-state-v3/flow.config.ts`, which lists the fixtures. @task.V3.T22
             extends `defineConfig`.
 
             **Risk:** lint lets tests import only four `src/` files (code:tools/lint-bomb/FLOW-STATE.md). There is no
             `flow` bin before @task.V3.T23 (P4), so the CLI tests call `main(argv)` directly through an allowance for
             `src/host/cli/main.ts`, with a planted case in `tools/flow-state-lint/imports.test.ts`.
 
-            False pass: a command that prints through a path of its own → caught by its output equalling the trace
-            of @task.V3.T65 for the same Story.
-            Stops: public entry-point names.
+            False pass: a command that prints through a path of its own → caught by its output equalling the trace of
+            @task.V3.T65 for the same Story. Stops: public entry-point names.
         acceptance
-            - `flow trace <story>` prints exactly what `render(run.trace, "text")` of @task.V3.T65 returns, and
-              `flow story run` prints its checkpoints; a test compares them over the package's fixtures.
-            - `flow story list` names every Story the fixtures export, and an unknown Story exits non-zero with its
-              name.
+            - `flow trace <story>` prints exactly what `render(run.trace, "text")` of @task.V3.T65 returns, and `flow
+              story run` prints its checkpoints; a test compares them over the package's fixtures.
+            - `flow story list` names every Story the fixtures export, and an unknown Story exits non-zero with
+              its name.
             - Nothing is exported from a public route by this Task.
     T70
         title       Generated Stories
@@ -497,21 +485,20 @@ tasks
         priority    high
         blocked_by  [@T64, @T67]
         description
-            Build `propertyTest` in `src/host/testing/`: it generates `Story.Step` arrays from a fixture's step
-            samples, each `Fake.server`'s controls and the wire words on its open calls, runs them with
-            `run({ steps })`, applies the run rules, shrinks a failure by removing steps and prints it as a chained
-            `Story.app(...)` expression.
+            Build `propertyTest` in `src/host/testing/`: it generates `Story.Step` arrays from a fixture's step samples,
+            each `Fake.server`'s controls and the wire words on its open calls, runs them with `run({ steps })`, applies
+            the run rules, shrinks a failure by removing steps and prints it as a chained `Story.app(...)` expression.
 
             **Why now:** nothing generated is left after the old suite's deletion, and @task.V3.T18 brings new
             behaviour. This is the first slice of @plan.Testing.O6. It waits for @task.V3.T64 for the rules (passed in
-            through `properties`, never imported from `tests/`) and for @task.V3.T67 for the other fixtures it runs
-            over.
+            through `properties`, never imported from `tests/`) and for @task.V3.T67 for the other fixtures it
+            runs over.
 
             **Read first:** @plan.Testing.O6, code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md
             (section 6).
 
-            May change: `src/host/testing/`, `tests/generated/`, `fixtures/` (step samples). Evidence: this Task's
-            comments.
+            May change: `src/host/testing/`, `tests/generated/`, `fixtures/` (step samples). Evidence: this
+            Task's comments.
 
             False pass: a generator that only makes Stories the rules cannot fail → caught by finding a planted fault
             from a seed.

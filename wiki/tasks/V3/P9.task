@@ -5,8 +5,7 @@ description
 
     **Kind:** performance.
 
-    **Goal:** the budgets met on their named devices, and every finding from every round given a
-    disposition.
+    **Goal:** the budgets met on their named devices, and every finding from every round given a disposition.
 
     **Starts when:** P8's completion audit passes and the user has set the targets.
 
@@ -17,8 +16,8 @@ description
     - a test-harness-only review by an agent with no prior reading;
     - the final review.
 
-    **One iteration:** one finding group or one budget: one isolated change, measured against the
-    accepted baseline, kept only if the checked comparison shows a gain with the tests green.
+    **One iteration:** one finding group or one budget: one isolated change, measured against the accepted baseline,
+    kept only if the checked comparison shows a gain with the tests green.
 
     **Exit criteria:**
 
@@ -53,8 +52,8 @@ tasks
         description
             Meet each budget on its named device, one budget at a time against P8's baseline.
 
-            **Why now:** the budgets are the P9 goal; P8's baselines and the user's targets are what they are measured
-            against.
+            **Why now:** the budgets are the P9 goal; P8's baselines and the user's targets are what they are
+            measured against.
 
             **Read first:** @task.V3.T35, skill:playbook-performance, skill:hillclimb, skill:check-benchmark.
 
@@ -69,8 +68,7 @@ tasks
         priority    medium
         description
             Sweep every finding from every round, Epic note and revisit.md into fixed, deferred with a reason, or
-            dropped
-            with a reason checked against the Specs.
+            dropped with a reason checked against the Specs.
 
             **Why now:** the P9 exit needs every finding to have a disposition before the release.
 

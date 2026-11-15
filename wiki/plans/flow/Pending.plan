@@ -2,65 +2,61 @@ plan Pending
 title   Pending Plan amendments, merged once proven
 status  proposed
 goal
-    Plan changes found while building wait here, unmerged, until building proves them right. Each
-    decision names the Plan record it changes, the change, why, and the evidence that would prove
-    it. One is merged into its Plan only once that evidence holds and the user says yes, then
-    removed from here with the merge commit noted on the Epic.
+    Plan changes found while building wait here, unmerged, until building proves them right. Each decision names the
+    Plan record it changes, the change, why, and the evidence that would prove it. One is merged into its Plan only once
+    that evidence holds and the user says yes, then removed from here with the merge commit noted on the Epic.
 decisions
     D1  @plan.Operations.O3: a cancel during a send leaves the call Held
-        Change O3's phrase that says a cancel settles a call on the wire, to match @spec.WriteLanes.R14
-        as revised: the call follows its own ending and stays Held. **Why:** the phrase came from the
-        old design's `HeldThisTurn`, which is about the `cancel` concurrency policy (the R4 entry of the
-        spec log, in git history before its deletion on 2026-11-15). **Proven by:** P4's production lane passing the suite's
-        cancel-on-wire cases (PAY-12, PAY-15, LANE-04). Found in @task.V3.T7.
+        Change O3's phrase that says a cancel settles a call on the wire, to match @spec.WriteLanes.R14 as revised: the
+        call follows its own ending and stays Held. **Why:** the phrase came from the old design's `HeldThisTurn`, which
+        is about the `cancel` concurrency policy (the R4 entry of the spec log, in git history before its deletion on
+        2026-11-15). **Proven by:** P4's production lane passing the suite's cancel-on-wire cases (PAY-12, PAY-15,
+        LANE-04). Found in @task.V3.T7.
     D2  @plan.Machines.O3: a denied or unhandled ending's lane-only change is published
-        Change O3's "Unhandled or denied events publish nothing" to "publish nothing of their own; an
-        ending admitted in that turn publishes its lane-only change", as @spec.Turn.R19 and the same
-        outcome's step-one rule already say. **Why:** otherwise rows stay stale after a denied ending
-        (the Invariant audit's G7, code:wiki/plans/flow/references/proposals/invariant-audit-2026-11-11.md).
-        **Proven by:** P3's Turn cases for @spec.Turn.I15 showing the row change. Found in @task.V3.T42.
+        Change O3's "Unhandled or denied events publish nothing" to "publish nothing of their own; an ending admitted in
+        that turn publishes its lane-only change", as @spec.Turn.R19 and the same outcome's step-one rule already say.
+        **Why:** otherwise rows stay stale after a denied ending (the Invariant audit's G7,
+        code:wiki/plans/flow/references/proposals/invariant-audit-2026-11-11.md). **Proven by:** P3's Turn cases for
+        @spec.Turn.I15 showing the row change. Found in @task.V3.T42.
     D3  @plan.Runtime.O6: disposal invokes nothing
-        Drop "and invokes what the lane table promotes" from O6's disposal paragraph, which the same
-        outcome contradicts ("from its start nothing is invoked"); @spec.Actors.R22 and
-        @spec.Actors.I30 follow the second reading. **Why:** the audit's G17. **Proven by:** P3's
-        disposal cases (`o6.*` wrong runtimes) staying green on round 14. Found in @task.V3.T42.
+        Drop "and invokes what the lane table promotes" from O6's disposal paragraph, which the same outcome contradicts
+        ("from its start nothing is invoked"); @spec.Actors.R22 and @spec.Actors.I30 follow the second reading. **Why:**
+        the audit's G17. **Proven by:** P3's disposal cases (`o6.*` wrong runtimes) staying green on round 14. Found
+        in @task.V3.T42.
     D4  @plan.Operations.O3: a refused turn's ending is redelivered once
-        Change O3's "a pre-commit defect is not retried for that input" to: a refused turn's ending is
-        redelivered once, and a second refusal is final until the next boot or adoption, as
-        @spec.Actors.R15 and @spec.Actors.I24 say and the CQ1 ruling chose; @spec.WriteLanes.R10 is
-        widened to match. **Proven by:** P4's production turn passing TURN-01 with the issue count
-        asserted. Found in @task.V3.T8.
+        Change O3's "a pre-commit defect is not retried for that input" to: a refused turn's ending is redelivered once,
+        and a second refusal is final until the next boot or adoption, as @spec.Actors.R15 and @spec.Actors.I24 say and
+        the CQ1 ruling chose; @spec.WriteLanes.R10 is widened to match. **Proven by:** P4's production turn passing
+        TURN-01 with the issue count asserted. Found in @task.V3.T8.
     D5  @plan.Testing.O1: a run accepts a step array
-        Add that `run({ steps })` runs a Story's setup and fixtures over another `Story.Step` array.
-        **Why:** the reload sweep inserts steps and generated Stories shrink them; both need a chained
-        Story's data form run back. **Proven by:** @task.V3.T64's sweep and @task.V3.T70's shrinking.
-        Found in @task.V3.T63.
+        Add that `run({ steps })` runs a Story's setup and fixtures over another `Story.Step` array. **Why:** the reload
+        sweep inserts steps and generated Stories shrink them; both need a chained Story's data form run back. **Proven
+        by:** @task.V3.T64's sweep and @task.V3.T70's shrinking. Found in @task.V3.T63.
     D6  @plan.Testing.O1: an app Story step disposes the whole Runtime
-        Add `disposeRuntime()` beside `dispose(ref, { how })`, and drop @plan.Package's line that keeps
-        `disposeRuntime` on an internal route for Flow's own suite. **Why:** @spec.Actors.R22 and
-        @spec.Diagnostics.I8 speak of disposing a Runtime with work in flight, which no app step reaches.
-        **Proven by:** a Story disposing with a call in flight, in @task.V3.T63. Found in @task.V3.T63.
+        Add `disposeRuntime()` beside `dispose(ref, { how })`, and drop @plan.Package's line that keeps `disposeRuntime`
+        on an internal route for Flow's own suite. **Why:** @spec.Actors.R22 and @spec.Diagnostics.I8 speak of disposing
+        a Runtime with work in flight, which no app step reaches. **Proven by:** a Story disposing with a call in
+        flight, in @task.V3.T63. Found in @task.V3.T63.
     D7  @plan.Testing.O3: endpoints and controls are `Fake.call` and `Fake.control`; transports use `Fake.http`
-        Name the helpers that build `Fake.server`'s endpoints and controls, and the transport binding: a
-        Layer of Effect's `HttpClient` (`Fake.http`) rather than a replaced global `fetch`. **Why:** the
-        reference apps use `Fake.call` and `Fake.control`, and Effect adapters take `HttpClient`
-        (code:wiki/plans/flow/references/proposals/test-tooling-reuse-2026-11-15.md, Q5 and Q7).
-        **Proven by:** @task.V3.T63's fixtures for `Fake.call` and `Fake.control`, and the first Promise-based
-        adapter over `Fake.http` (@task.V3.T29). Found in @task.V3.T63.
+        Name the helpers that build `Fake.server`'s endpoints and controls, and the transport binding: a Layer of
+        Effect's `HttpClient` (`Fake.http`) rather than a replaced global `fetch`. **Why:** the reference apps use
+        `Fake.call` and `Fake.control`, and Effect adapters take `HttpClient`
+        (code:wiki/plans/flow/references/proposals/test-tooling-reuse-2026-11-15.md, Q5 and Q7). **Proven by:**
+        @task.V3.T63's fixtures for `Fake.call` and `Fake.control`, and the first Promise-based adapter over `Fake.http`
+        (@task.V3.T29). Found in @task.V3.T63.
     D8  @plan.Testing.O4: `read(target)` also takes a fake endpoint
-        Widen O4's `read(target)` so an endpoint returns each call it received with its status (held,
-        answered, dropped), as the reference stories read `cut.read(Stripe.confirm)`. **Why:** "exactly one
-        call reached the server" needs the call log, and a fake's truth does not always show it. **Proven
-        by:** @task.V3.T63's Pay Story and @task.V3.T64's run rules over calls. Found in @task.V3.T63.
+        Widen O4's `read(target)` so an endpoint returns each call it received with its status (held, answered,
+        dropped), as the reference stories read `cut.read(Stripe.confirm)`. **Why:** "exactly one call reached the
+        server" needs the call log, and a fake's truth does not always show it. **Proven by:** @task.V3.T63's Pay Story
+        and @task.V3.T64's run rules over calls. Found in @task.V3.T63.
     D9  @plan.Package.O1: `flow-state/testing` exports `storeContract`; `flow-state/persistence` exports `Store`
-        Add `storeContract(name, layer)`, the store contract as a plain `@effect/vitest` function of a
-        `Store` Layer, so a custom store adapter is checked as Flow's own are, and export the `Store` service
-        tag beside `layerIndexedDb` and `layerMemory`, which @plan.Persistence.O1 asks authors to implement.
-        **Why:** a custom store is the likeliest adapter users write (the user, 2026-11-15, reuse proposal
-        Q8). **Proven by:** @task.V3.T58 running it on `Fake.storage` and real IndexedDB, and @task.V3.T28 on
-        both adapters.
+        Add `storeContract(name, layer)`, the store contract as a plain `@effect/vitest` function of a `Store` Layer, so
+        a custom store adapter is checked as Flow's own are, and export the `Store` service tag beside `layerIndexedDb`
+        and `layerMemory`, which @plan.Persistence.O1 asks authors to implement. **Why:** a custom store is the
+        likeliest adapter users write (the user, 2026-11-15, reuse proposal Q8). **Proven by:** @task.V3.T58 running it
+        on `Fake.storage` and real IndexedDB, and @task.V3.T28 on both adapters.
     D10  @plan.Testing.O1: `reload({ reattach: false })`
-        Add an option to the reload step that boots the new page without re-attaching the Story's uses.
-        **Why:** O1's reload always re-attaches, which hides a boot that fails to wake owed identities;
-        the reload sweep needs a variant that attaches nothing. **Proven by:** @task.V3.T64's second sweep
-        variant catching a planted fault that skips the boot wake. Found in @task.V3.T64.
+        Add an option to the reload step that boots the new page without re-attaching the Story's uses. **Why:** O1's
+        reload always re-attaches, which hides a boot that fails to wake owed identities; the reload sweep needs a
+        variant that attaches nothing. **Proven by:** @task.V3.T64's second sweep variant catching a planted fault that
+        skips the boot wake. Found in @task.V3.T64.

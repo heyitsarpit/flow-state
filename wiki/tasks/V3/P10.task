@@ -20,15 +20,13 @@ description
 
     **One iteration:** implement, check independently, repair.
 
-    **Exit criteria:** acceptance passes at the final revision, and each requested ship stage is
-    confirmed by the user.
+    **Exit criteria:** acceptance passes at the final revision, and each requested ship stage is confirmed by the user.
 
     **False pass:** publishing a package whose installed form differs from what was tested.
 
     **Caught by:** the packed-consumer check.
 
-    **Gates:** the packed-consumer check, which rejects a tarball packed with one entry point
-    removed.
+    **Gates:** the packed-consumer check, which rejects a tarball packed with one entry point removed.
 
     **Failure limit:** 2.
 
@@ -43,19 +41,18 @@ tasks
         blocked_by  [@task.V3.T23]
         satisfies   [@plan.FlowState.O2, @plan.Package.O1, @plan.Package.O2, @plan.Package.O3]
         description
-            Complete what @task.V3.T23 starts (the `exports` map, the `flow` bin and the packed-consumer smoke
-            check): the route-content rules, peers, `sideEffects`, removed surfaces, InvalidConfiguration help and the
-            full tarball proofs.
+            Complete what @task.V3.T23 starts (the `exports` map, the `flow` bin and the packed-consumer smoke check):
+            the route-content rules, peers, `sideEffects`, removed surfaces, InvalidConfiguration help and the full
+            tarball proofs.
 
-            **Why now:** no other Task proves @plan.Package.O1 to O3 on the tarball, and T39 runs the check only at
-            release.
+            **Why now:** no other Task proves @plan.Package.O1 to O3 on the tarball, and T39 runs the check only
+            at release.
 
-            **Read first:** @plan.Package.O1, @plan.Package.O2, @plan.Package.O3, @plan.Package.D1,
-            @plan.FlowState.O2.
+            **Read first:** @plan.Package.O1, @plan.Package.O2, @plan.Package.O3, @plan.Package.D1, @plan.FlowState.O2.
 
-            **Approach:** six closed routes via `exports`, ESM only, no deep import (K01); the root export list and
-            a root that imports no React, server, Node, testing or inspect code (K02, K04); server route conditions
-            and the ServerOnlyImport stub (K03); Effect peer exactly 4.0.5, React optional peer 18 and 19 (K05);
+            **Approach:** six closed routes via `exports`, ESM only, no deep import (K01); the root export list and a
+            root that imports no React, server, Node, testing or inspect code (K02, K04); server route conditions and
+            the ServerOnlyImport stub (K03); Effect peer exactly 4.0.5, React optional peer 18 and 19 (K05);
             `sideEffects: false` (K06); packed declarations keep inference (K07); removed surfaces without aliases
             (K08); InvalidConfiguration with replacement help (K09).
 
@@ -77,16 +74,15 @@ tasks
         blocked_by  [@T50]
         satisfies   [@plan.Package.O4]
         description
-            Release the package as far as the user asks: pack, run the packed-consumer check, and stop before each ship
-            stage.
+            Release the package as far as the user asks: pack, run the packed-consumer check, and stop before each
+            ship stage.
 
             **Why now:** the release is the last step of the epic, and what ships must be the form that was tested.
 
             **Read first:** @plan.Package.O4, @plan.Package.D1, skill:playbook-ship, skill:review.
 
             - **Evidence:** this Task's comments.
-            - **False pass:** tested form differs from published → caught by the packed-consumer
-              check.
+            - **False pass:** tested form differs from published → caught by the packed-consumer check.
             - **Gates:** the packed-consumer check.
             - **Stops:** each ship stage; the published name.
         acceptance

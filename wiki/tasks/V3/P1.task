@@ -1,13 +1,13 @@
 phase P1
 title History
 description
-    **Goal:** none; nothing here is work to do. These are the Tasks finished or retired before the Epic was rewritten
-    on 2026-11-15, kept as one line each because the Specs cite them as where a ruling was made. Their full text is in
+    **Goal:** none; nothing here is work to do. These are the Tasks finished or retired before the Epic was rewritten on
+    2026-11-15, kept as one line each because the Specs cite them as where a ruling was made. Their full text is in
     `wiki/tasks/V3/` at commit `6b9fe478`.
 
-    Stage A is done: the design and the prototype were reconciled, the Plans merged and the core Specs written. The
-    Pay path runs on production. Every Task marked "the conformance suite" was about the old private test system,
-    deleted on 2026-11-15 (last copy at commit `52a883e6`).
+    Stage A is done: the design and the prototype were reconciled, the Plans merged and the core Specs written. The Pay
+    path runs on production. Every Task marked "the conformance suite" was about the old private test system, deleted on
+    2026-11-15 (last copy at commit `52a883e6`).
 tasks
     T1
         title       Prototype and design reconciled (rounds 14, 15, 15b)
