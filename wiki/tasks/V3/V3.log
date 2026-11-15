@@ -138,3 +138,11 @@ note 2026-11-15T18:16:39Z
 note 2026-11-15T18:27:27Z
     T65 done: independent review PASS at `0ed1e89d` (`8d0d6583`). Routed: WriteAhead R5 and I21 bug to @task.V3.T20,
     Trace remainder to @task.V3.T49, exports to @task.V3.T29, nits to @task.V3.T67.
+
+note 2026-11-15T18:29:11Z
+    Decision (user, 2026-11-15): "you pick the name, i don't like either one but there should be one name only". Picked
+    `tab` as `{ name, open }` (@plan.Testing and @plan.Inspection already use it); `page` goes everywhere.
+
+note 2026-11-15T18:29:11Z
+    Why `tab`: a reload is the same tab's next open, so one name covers both; `page` collides with the web page. A dead
+    page is now a dead tab. Rename sent to @task.V3.T67. Reverse: rename back.

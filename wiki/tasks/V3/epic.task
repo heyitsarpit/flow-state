@@ -145,7 +145,7 @@ description
     - Slice: one Task of P3 or P4: a core area built end to end (its Spec change, its checks, its code). The Pay path:
       the fixtures, including Pay and checkout, run through the public API.
     - Reload sweep: every fixture Story run again with a reload inserted at each position, with the run rules applied.
-      Dead page: a page a reload abandoned; nothing from it may write or be answered afterwards.
+      Dead tab: an earlier open of a tab, abandoned by a reload; nothing from it may write or be answered afterwards.
     - Wire words: the steps that control one call to a fake (hold, release, dropRequest, dropResponse, answer). Storage
       words: the same for the fake store (hold, refuse, release).
     - Step samples: the steps a fixture offers the generator. Open calls: calls a fake has received and not
