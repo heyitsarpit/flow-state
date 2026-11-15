@@ -913,6 +913,19 @@ tasks
             promises and their owners stand as listed in the requirements comment (T17 2, T9 4, T57 4, T21 2, T19 1, T58
             1, T24 3, T48 4, T30 3, T29 2). For T57: a foreign event token compiles as a schedule's `send`, and
             machine() doesn't refuse it at run time either.
+        comment     2026-11-15T20:35:40Z
+            ISSUES at 025fe178: @plan.Operations V1 makes type-error promises the requirements grep missed, and
+            production has built three of them untested (acceptance 1). Each checked in a scratch copy: a `failure:` key
+            that is not one of the commit's tags (TS2353, code:packages/flow-state-v3/src/contract.ts#WriteEndings); a
+            `concurrency` outside the four and a `key` field not in input (TS2322); a contract with no `services`
+            (TS2741). V1's unbuilt halves (an `unknown:` record without `otherwise`, key-less members of keyed
+            operations) are missing from the owner list (acceptance 2; @task.V3.T21). The 9 tests are sound: 4 of the 9
+            proofs re-run (guard, field services, state body, memory source) each gave TS2578 at that directive; `nub
+            run check` type-checks `tests/types/` and fails on an unused directive; check, lint:rules and the package
+            suite (319 pass) are green. Routed: the foreign event token compiles as a schedule `send` because every
+            token is also an `Ending` in `ScheduleConfig.send`, so it breaks @spec.Compile T11 now; pin it as an
+            `it.fails` on machine() refusal and fix in @task.V3.T57. A commit select and key typed as plain records
+            break @plan.Operations.O1 ("types remain intact"; a missing key field is a type error), so @task.V3.T21.
     T69
         title       flow story and flow trace
         status      open
