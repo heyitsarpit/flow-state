@@ -62,3 +62,5 @@ note 2026-11-15T14:20:48Z
     accepted as recommended (one public Story and runner, the Plan's chain and Fake.server, fakes as Layers of real 
     ports); @plan.Testing.O3 now says fixtures replace the setup's services; @plan.Pending D5 to D7 hold the rest; T63 
     is amended and the P2 card links the reference guides. The array-shaped first build is checkpoint `14bc60d9`.
+note 2026-11-15T14:21:20Z
+    Resumed (user, 2026-11-15: "go ahead"): the T63 lead reshapes the first slice to the amended acceptance from `de417f07`; wakes may again resume or replace a stalled lead.
