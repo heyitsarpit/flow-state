@@ -93,7 +93,8 @@ const stepText = (step: Step) =>
     disposeRuntime: () => "disposeRuntime",
     world: ({ words }) => `world ${words.map(wordText).join(", ")}`,
     advance: ({ duration }) => `advance ${Duration.toMillis(duration)} ms`,
-    reload: ({ reattach }) => (reattach ? "reload" : "reload without reattach"),
+    reload: ({ reattach, heldWrites }) =>
+      `reload${reattach ? "" : " without reattach"}${heldWrites === "land" ? ", held writes land" : ""}`,
     checkpoint: ({ name }) => `checkpoint ${name}`,
   });
 

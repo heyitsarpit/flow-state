@@ -76,6 +76,7 @@ export const makeDriver = (options: {
   readonly persistence: boolean;
   readonly captureMs: number;
   readonly sink: (evidence: ReadonlyArray<Evidence>) => void;
+  readonly admit: (evidence: ReadonlyArray<Evidence>) => void;
 }) => {
   const { machines, fibers } = options;
   const clock = Context.get(options.platform, Clock.Clock);
@@ -138,6 +139,7 @@ export const makeDriver = (options: {
     for (let next = inbox.shift(); next !== undefined; next = inbox.shift()) {
       const env: Env = { now: clock.currentTimeMillisUnsafe(), seed: host.sessionSeed };
       const out = step(machines, world, next, env);
+      options.admit(out.evidence);
       world = out.world;
 
       if (out.evidence.length > 0) options.sink(out.evidence);

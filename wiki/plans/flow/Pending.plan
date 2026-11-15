@@ -60,3 +60,11 @@ decisions
         reload always re-attaches, which hides a boot that fails to wake owed identities; the reload sweep needs a
         variant that attaches nothing. **Proven by:** @task.V3.T64's second sweep variant catching a planted fault that
         skips the boot wake. Found in @task.V3.T64.
+    D11  @plan.Testing.O3: `reload({ heldWrites: "land" })`
+        Add an option to the reload step that lands every held store write as the old tab dies, unheard; the default
+        stays "abort", as O3's "aborted on close" says. **Why:** an IndexedDB transaction can commit and its tab die
+        before it hears `complete` (@spec.Restore.R3, @spec.WriteAhead.T8's first kill point); without the option no
+        Story reaches that state. The write lands at the reload instant, so nothing from a dead tab lands later.
+        **Proven by:** @task.V3.T67's step test and the ported acknowledged-but-unheard pay cases reading unknown
+        Restored with no request sent, and its planted fault. Judged by the orchestrator, for the user's read. Found
+        in @task.V3.T67.

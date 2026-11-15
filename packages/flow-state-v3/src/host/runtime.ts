@@ -105,8 +105,7 @@ export const InspectorId = "~flow-state/Inspector";
 export const DriverId = "~flow-state/Driver";
 
 /**
- * The key of a setup's configuration, which a Story reads to boot the same setup over its own
- * page.
+ * The key of a setup's configuration, which a Story reads to boot the same setup in its own tab.
  */
 export const SetupId = "~flow-state/Setup";
 
@@ -207,7 +206,11 @@ export type SetupConfig<A extends App> = {
  * Builds a Runtime over a platform, with its driver beside it for Flow's own suite (the public
  * Runtime does not carry it).
  */
-export const buildRuntime = (config: RuntimeConfig, platform: Platform) => {
+export const buildRuntime = (
+  config: RuntimeConfig,
+  platform: Platform,
+  admit: (evidence: ReadonlyArray<Evidence>) => void,
+) => {
   const machines = new Map(Object.values(config.app.machines).map((m) => [m.compiled.id, m]));
   const sinks = new Set<(evidence: Evidence) => void>();
   const host = Context.get(platform, Host);
@@ -228,6 +231,7 @@ export const buildRuntime = (config: RuntimeConfig, platform: Platform) => {
     fibers,
     persistence,
     captureMs: config.persistence?.captureMs ?? 5000,
+    admit,
     // A callback that throws detaches only itself; sinks never change a step.
     sink: (batch) => {
       for (const e of batch)
@@ -351,6 +355,6 @@ export const buildRuntime = (config: RuntimeConfig, platform: Platform) => {
 export const runtimeSetup = <A extends App>(
   config: SetupConfig<A>,
 ): RuntimeSetup<ServicesOf<A>> => ({
-  construct: () => buildRuntime(config, browserPlatform()).runtime,
+  construct: () => buildRuntime(config, browserPlatform(), () => undefined).runtime,
   [SetupId]: config,
 });

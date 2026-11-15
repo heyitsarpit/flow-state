@@ -724,6 +724,29 @@ tasks
             15. (a1 server truth) Old answers map by the Task's table; a case needing a word the Plan lacks (the
                 bridge's landNoAck: a write that lands unheard) is ported up to that point and its remaining values
                 listed as dropped.
+        comment     2026-11-15T18:55:57Z
+            Requirements amended after the review of e282eb2b; the rest of that list stands.
+            1. Check 1 compares values: the mapping comment gives each of the 216 old `c.eq`/`c.expect` its new
+               assertion or a drop reason, counted per case. The bridge's Unreadable check becomes a run rule (Turn R24:
+               a published memory is plain JSON data in Flow's fixtures), shown red on a planted fault.
+            15. Every answer word maps or drops: ok is the handler; fail is a Shop control (`decline({ code })`,
+                `busy`); lost is drop at request; lostButLanded is drop at response; failButLanded is a control whose
+                handler applies the confirm and fails ServerError; never is a hold never released; answerLate is a hold
+                released after the deadline; Die (2) is a control whose handler returns a defect; answerTo (3) becomes
+                arrival order, timed so the named call is the next; answerAtOnce (1) is the plain handler, which answers
+                within the send; uninterruptible (4) is a second port fake whose confirm runs uninterruptible; `Ok({
+                value: null })` (10) is the orderFor handler over truth with no order.
+            4. Check 4 (WriteLanes I7): the Story is the ported PAY-22 (void lost three times, each re-sent); the reload
+               sweep over it names the step whose reload drops a raised retryCount, expected equal before and after
+               (WriteLanes I7); if no reload point loses it, the check is dropped with that evidence.
+            14. The page grep covers all of src/ (English uses of a web page excepted). Opens from 1 is the
+                orchestrator's call.
+            7. Under the dead core every test fails except a port fake's contract test and an inverted test titled by
+               its rule; tools/faults/run.ts exits 1 on any other green test.
+            16. (the orchestrator's ruling) `reload({ heldWrites: "land" })` lands every held write unheard as the old
+                tab dies (@plan.Pending.D11, Stories R13), with a step test and the planted fault landed-write-lost;
+                PAY-18 and PAY-09/ack-stored-confirmation-lost port in full: no pay request, unknown Restored after
+                the reload.
     T68
         title       Compile-time tests for the type promises production keeps
         status      open

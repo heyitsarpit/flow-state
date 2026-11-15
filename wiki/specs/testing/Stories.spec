@@ -146,8 +146,11 @@ requirements
                 and boots the tab's next open over the same store and registry, at the same time, then ensures again
                 every actor the Story ensured and has not detached, forgotten or disposed (`dispose`, which is
                 disposeActor; a `disposeRuntime` forgets no use). `reload({ reattach: false })` ensures none of them,
-                so only what the boot itself wakes is live. Nothing from a dead tab writes to the
-                store or is answered afterwards. Releasing a dead tab's held write aborts it and lands nothing.
+                so only what the boot itself wakes is live. A store write still held at the reload stays held and
+                aborts if released; `reload({ heldWrites: "land" })` (@plan.Pending.D11) lands every held write of the
+                dying open at the reload instant, unheard: its waiter is never completed, as a transaction that commits
+                just before its tab is killed. Nothing from a dead tab writes to the store or is answered afterwards.
+                Releasing a dead tab's held write aborts it and lands nothing.
                 Releasing a dead tab's held call runs the handler if it has not run, so truth and the call's log
                 entry may change. In both cases the dead tab's waiter is never completed, so no code of the dead
                 tab runs again: evidence, store records and `inspection` are equal before and after the release.
@@ -234,9 +237,9 @@ invariants
 
     I6  A tab's time changes only by advance; a reload's next open starts at the dead open's time. [@R5, @R13]
 
-    I7  A step that runs more than 10,000 turns in one instant rejects the run with StoryTurnLimit, and its evidence 
-        ends at the 10,000th turn. The turns past it may have run: a chain of commits that answer at once runs inside
-        one input, which the run cannot cut short. [@R6]
+    I7  Each step may run 10,000 turns per instant; the 10,001st rejects the run with StoryTurnLimit naming the step 
+        and the instant, before it executes; later steps do not run and the evidence up to the 10,000th turn
+        survives. [@R6]
 
     I8  A handler runs at most once per call: once for a call handled, held at response, dropped at response or 
         released from request, and never for a call dropped at request or held at request and not released. [@R9,
@@ -430,7 +433,8 @@ tests
     T13  Not exported: no public route of the package re-exports `src/host/testing` or `inspect(runtime)` (grep of the 
          routes); Flow's tests reach them by path. [@R15]
     T14  Trace of `transfers/lost-then-reload`: filtered to steps, requests, endings and writes, it equals a list 
-         stated by hand from @spec.WriteAhead.R10, R13, @spec.Restore.R1, R3, @spec.Codec.R5's record kinds and R10,
-             R11; sequences are 1 to n; its evidence equals `run.evidence`; two runs render equal text; the text is
+         stated by hand from @spec.WriteAhead.R10, R13, @spec.Restore.R1, R3, @spec.Codec.R5's record kinds, and
+             this Spec's R10 and R11 statuses; sequences are 1 to n; its evidence equals `run.evidence`; two runs 
+                 render equal text; the text is
              kept as a file snapshot, a change detector only (planted fault: the trace leaves out requests).
              [@I20, @I21]

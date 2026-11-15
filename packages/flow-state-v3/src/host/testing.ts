@@ -17,7 +17,8 @@ export type TestRuntime = ReturnType<typeof buildRuntime>;
  * Runtime's bounded disposal).
  */
 export const testing = {
-  build: (config: RuntimeConfig, platform: Platform) => buildRuntime(config, platform),
+  build: (config: RuntimeConfig, platform: Platform) =>
+    buildRuntime(config, platform, () => undefined),
   attach: ({ driver }: TestRuntime, actor: ActorId, use: Use, existing: boolean) =>
     driver.input(Input.Ensure({ actor, use: Option.some(use), existing })),
   detach: ({ driver }: TestRuntime, actor: ActorId, use: Use) =>

@@ -174,8 +174,7 @@ describe("Story", () => {
   });
 
   it("rejects a step past 10,000 turns in one instant with StoryTurnLimit Turns, keeping the evidence up to the 10,000th turn (Stories R6, I7)", async () => {
-    // A commit that answers at once chains its turns inside the send itself; this chain stops by
-    // itself past the limit, since a run cannot cut a synchronous chain short.
+    // A commit that answers at once chains its turns inside the send itself.
     const ping = transaction({
       id: "Ping/ping",
       input: { id: Schema.String },
@@ -229,6 +228,59 @@ describe("Story", () => {
       fault instanceof StoryTurnLimit ? fault.evidence.filter((e) => e._tag === "Turn").length : 0;
 
     expect(turns).toBe(10_000);
+  });
+
+  it("Stories I7: the 10,001st turn of one instant rejects the run before it executes", async () => {
+    let commits = 0;
+
+    const ping = transaction({
+      id: "Ping/ping",
+      input: { id: Schema.String },
+      key: ["id"],
+      concurrency: "reject",
+      services: [],
+      commit: () => Effect.sync(() => void commits++).pipe(Effect.as({})),
+    });
+
+    const Pinger = definition({
+      id: "Ping/Pinger",
+      persist: false,
+      states: ["ON"],
+      events: { Go: { id: Schema.String } },
+      internalEvents: { Pong: {} },
+      memory: { n: Flow.initial(Schema.Number, 0) },
+      operations: ({ E }) => ({
+        ping: ping.outcomes({ success: E.Pong, failure: {}, unknown: E.Pong }),
+      }),
+    });
+
+    const PingerMachine = machine(Pinger, ({ S, O }) => ({
+      default: S.ON,
+      on: {
+        Go: { actions: [O.ping.commit(({ event }) => event)] },
+        Pong: [
+          {
+            guard: [({ memory }) => memory.n < 10_050 || deny("Enough")],
+            updateMemory: ({ memory }) => ({ n: memory.n + 1 }),
+            actions: [O.ping.commit(() => ({ id: "again" }))],
+          },
+          {},
+        ],
+      },
+    }));
+
+    const pinger = actorRef(PingerMachine, "p");
+    const setup = runtimeSetup({ app: app({ id: "ping", machines: { pinger: PingerMachine } }) });
+
+    const fault = await faultOf(
+      Story.app(setup, { id: "story/ping-bound", fixtures: [] })
+        .ensure(pinger)
+        .send(pinger, { _tag: "Go", id: "1" })
+        .run(),
+    );
+
+    expect(fault instanceof StoryTurnLimit).toBe(true);
+    expect(commits).toBe(10_000);
   });
 
   it("rejects a step whose settle never ends with StoryTurnLimit Settle (Stories R6)", async () => {

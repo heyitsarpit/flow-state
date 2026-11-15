@@ -61,7 +61,7 @@ export type Story<Names extends string = never> = {
   readonly advance: (duration: Duration.Input) => Story<Names>;
   readonly reload: (
     // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/no-nullish-function-contracts -- the Plan's public word: an omitted option takes its default
-    options?: { readonly reattach?: boolean },
+    options?: { readonly reattach?: boolean; readonly heldWrites?: "abort" | "land" },
   ) => Story<Names>;
   readonly checkpoint: <N extends string>(name: N & NewName<N, Names>) => Story<Names | N>;
   readonly run: {
@@ -91,7 +91,9 @@ const actorOf = <D extends AnyDefinition>(ref: ActorRef<D>) => ({
  * scheduler over a task list drained after every step, and Effect's `TestClock`, so time moves only
  * on `advance`. `reload` abandons the tab's open and boots its next one over the same store and fake
  * servers, at the same time, and ensures again every actor the Story still uses; `reload({ reattach: false })`
- * ensures none, so only what the boot itself wakes is live. `steps` is the Story as
+ * ensures none, so only what the boot itself wakes is live. A store write still held at a reload
+ * aborts with its tab; `reload({ heldWrites: "land" })` lands every held write as the old tab dies,
+ * unheard, as a transaction that commits just before its tab is killed. `steps` is the Story as
  * data, and `run({ steps })` runs the same subject over another step array.
  *
  * **Gotchas**
@@ -133,7 +135,13 @@ export const Story = {
         disposeRuntime: () => next(Step.disposeRuntime()),
         world: (...words) => next(Step.world({ words })),
         advance: (duration) => next(Step.advance({ duration })),
-        reload: (options) => next(Step.reload({ reattach: options?.reattach ?? true })),
+        reload: (options) =>
+          next(
+            Step.reload({
+              reattach: options?.reattach ?? true,
+              heldWrites: options?.heldWrites ?? "abort",
+            }),
+          ),
         checkpoint: (name) => chain([...steps, Step.checkpoint({ name })]),
         // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts -- run() runs the Story's own steps
         run: (given?: { readonly steps: ReadonlyArray<Step> }) =>

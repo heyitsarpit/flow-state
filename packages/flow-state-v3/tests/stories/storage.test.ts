@@ -54,6 +54,36 @@ describe("Fake storage words", () => {
     expect(refused.read(account)?.memory).toEqual({ notice: "not sent StorageRefused" });
   });
 
+  it('a held write aborts at a reload by default; reload({ heldWrites: "land" }) lands it unheard, so the boot restores the transfer unknown and nothing is sent (Stories R13; WriteAhead R13; Restore R3)', async () => {
+    const held = bankStory("storage/held-at-reload")
+      .ensure(account)
+      .world(Fake.storage.hold())
+      .send(account, { _tag: "Send", transferId: "t1", cents: 500 });
+
+    const aborted = checked(await held.reload().checkpoint("reloaded").run());
+    const landed = checked(await held.reload({ heldWrites: "land" }).checkpoint("reloaded").run());
+
+    const acknowledging = (run: StoryRun<"reloaded">) =>
+      run.checkpoints.reloaded.records.batches
+        .filter((b) => b.purpose === "acknowledge")
+        .map((b) => [b.tab.open, b.status]);
+
+    const lanes = (run: StoryRun<"reloaded">) =>
+      [...run.checkpoints.reloaded.records.stored.keys()].filter((k) => k.startsWith("lane/"));
+
+    expect(acknowledging(aborted)).toEqual([[1, "held"]]);
+    expect(lanes(aborted)).toEqual([]);
+    expect(endings(aborted)).toEqual([]);
+
+    expect(acknowledging(landed)).toEqual([[1, "landed"]]);
+    expect(lanes(landed)).toHaveLength(1);
+    expect(endings(landed)).toEqual(["unknown Restored"]);
+    expect(landed.checkpoints.reloaded.read(Bank.transfer)).toEqual([]);
+    expect(landed.checkpoints.reloaded.read(account)?.memory).toEqual({
+      notice: "check your statement",
+    });
+  });
+
   it("a held write still out when disposeRuntime starts lands on release, since its tab is alive (Stories R11, R13)", async () => {
     const run = checked(
       await bankStory("storage/held-across-dispose")

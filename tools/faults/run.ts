@@ -83,26 +83,27 @@ writeFileSync(
 cpSync(resolve(repo, "tsconfig.base.json"), join(root, "tsconfig.base.json"));
 symlinkSync(resolve(repo, "node_modules"), join(root, "node_modules"));
 
-try {
-  const control = run();
+// Tests a dead core may leave green: a contract test of a port fake runs no core, and an inverted
+// test, titled by the rule it breaks ("Turn I9: ..."), passes on any failure.
+const mayStayGreen = [/\.contract\.test\.ts > /u, / > [A-Z][A-Za-z]+ [RI]\d+: /u];
 
-  console.log(`unchanged: ${control.passed ? "pass" : "FAIL"} (${summary(control.out)})`);
-
-  if (!control.passed) {
-    console.log(control.out.slice(-2000));
-    process.exit(1);
-  }
-
+const plantAll = () => {
   const dead = planted([DEAD_CORE], () => {
     const result = run(["--reporter=verbose"]);
     const green = result.out.split("\n").filter((line) => line.includes("✓"));
+    const unexplained = green.filter((line) => !mayStayGreen.some((allowed) => allowed.test(line)));
 
     console.log(`dead core: ${summary(result.out)}; still green: ${green.length}`);
 
-    for (const line of green) console.log(`  ${line.trim()}`);
+    for (const line of green) console.log(`  ${unexplained.includes(line) ? "UNEXPLAINED " : ""}${line.trim()}`);
+
+    if (unexplained.length > 0) process.exitCode = 1;
   });
 
-  if (!dead) console.log("dead core: STALE, the edit no longer applies to src/core/step.ts");
+  if (!dead) {
+    console.log("dead core: STALE, the edit no longer applies to src/core/step.ts");
+    process.exitCode = 1;
+  }
 
   const results = faults.map((fault) => {
     let verdict = "STALE";
@@ -122,6 +123,18 @@ try {
   console.log(`\nfaults caught: ${caught} of ${faults.length}`);
 
   if (caught < faults.length) process.exitCode = 1;
+};
+
+try {
+  const control = run();
+
+  console.log(`unchanged: ${control.passed ? "pass" : "FAIL"} (${summary(control.out)})`);
+
+  if (control.passed) plantAll();
+  else {
+    console.log(control.out.slice(-2000));
+    process.exitCode = 1;
+  }
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

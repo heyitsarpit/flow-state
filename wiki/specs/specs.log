@@ -22,6 +22,15 @@ note 2026-11-15T18:07:07Z
     stamped by the run's sink, and render(trace, "text"); R4 lists trace. Reverse: drop them.
 
 note 2026-11-15T18:43:48Z
-    @spec.Stories: page renamed tab, shaped { name, open }, as @plan.Testing and @plan.Inspection name it (the user, via
-    the orchestrator); a reload is the tab's next open, counted from 1. R16 and Q1 list control, verdict and cleanup as
-    the trace kinds still cut. Reverse: rename back.
+    @spec.Stories: page renamed tab (the user picked the name), shaped { name, open } as @plan.Testing and
+    @plan.Inspection name it, with a reload the tab's next open counted from 1 (the orchestrator's call). R16 and Q1
+    list control, verdict and cleanup as the trace kinds still cut. Reverse: rename back.
+
+note 2026-11-15T18:55:41Z
+    @spec.Stories: I7 restored to @plan.Testing.O2's bound, as the orchestrator ruled; the run judges it in the driver's
+    step loop through an admit hook, since a sink cannot stop a step. T14 cites this Spec's R10, R11. Reverse: reword
+    I7.
+
+note 2026-11-15T18:55:41Z
+    @spec.Stories: R13 gains reload({ heldWrites: "land" }) (@plan.Pending.D11, the orchestrator's call): held writes
+    land unheard at the reload instant; default abort. Reverse: drop the option.

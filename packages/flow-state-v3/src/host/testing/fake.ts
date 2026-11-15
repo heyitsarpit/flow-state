@@ -427,6 +427,14 @@ export const makeStore = (alive: (open: number) => boolean, issued: (index: numb
       mark(out, "landed");
       Deferred.doneUnsafe(out.answer, Exit.void);
     },
+    landHeld: (open: number) => {
+      for (const out of batches.filter(
+        (b) => b.batch.status === "held" && b.batch.tab.open === open,
+      )) {
+        apply(out.writes);
+        mark(out, "landed");
+      }
+    },
     unused: () => next.map((word) => `storage ${word} never used`),
   };
 };

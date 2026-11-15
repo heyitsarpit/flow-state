@@ -104,6 +104,7 @@ const actorOf = <D extends AnyDefinition>(ref: ActorRef<D>): ActorId => ({
 type Limits = {
   readonly over: () => boolean;
   readonly fail: (reason: "Turns" | "Settle") => never;
+  readonly admit: (evidence: ReadonlyArray<Evidence>, at: number) => void;
 };
 
 // One open of the tab: its own task list drained by `settle` (Effect's MixedScheduler, whose host
@@ -157,7 +158,11 @@ const openTab = (config: RuntimeConfig, host: Host["Service"], now: number, limi
   };
 
   perform(TestClock.setTime(now));
-  const built = buildRuntime(config, platform);
+  const clock = Context.get(platform, Clock.Clock);
+
+  const built = buildRuntime(config, platform, (evidence) =>
+    limits.admit(evidence, clock.currentTimeMillisUnsafe()),
+  );
 
   return {
     built,
@@ -167,7 +172,7 @@ const openTab = (config: RuntimeConfig, host: Host["Service"], now: number, limi
 
       return tasks.length === 0 && !built.driver.pending();
     },
-    now: () => Context.get(platform, Clock.Clock).currentTimeMillisUnsafe(),
+    now: () => clock.currentTimeMillisUnsafe(),
   };
 };
 
@@ -210,6 +215,11 @@ export const runSteps = <Names extends string>(
         instant: turns.instant,
         evidence: reason === "Turns" ? evidence.slice(0, turns.keep) : [...evidence],
       });
+    },
+    admit: (given, at) => {
+      const before = at === turns.instant ? turns.count : 0;
+
+      if (before + given.filter((e) => e._tag === "Turn").length > TURN_LIMIT) limits.fail("Turns");
     },
   };
 
@@ -343,8 +353,10 @@ export const runSteps = <Names extends string>(
         if (!Option.exists(tab.perform(TestClock.adjust(duration)), Exit.isSuccess))
           scriptFault("advance did not end");
       },
-      reload: ({ reattach }) => {
+      reload: ({ reattach, heldWrites }) => {
         const now = tab.now();
+
+        if (heldWrites === "land") store.landHeld(current);
         current += 1;
         disposed = false;
         tab = boot(current, now);

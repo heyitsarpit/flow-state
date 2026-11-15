@@ -220,8 +220,11 @@ describe("Story step words", () => {
   });
 
   it("reload({ reattach: false }) ensures nothing the Story used; only what the boot wakes is live (Stories R13; Restore R1)", async () => {
-    const run = checked(await sent.reload({ reattach: false }).checkpoint("reloaded").run());
+    const run = checked(
+      await sent.checkpoint("before").reload({ reattach: false }).checkpoint("reloaded").run(),
+    );
 
+    expect(run.checkpoints.before.inspection.actors).toHaveLength(1);
     expect(run.checkpoints.reloaded.inspection.actors).toEqual([]);
   });
 });
