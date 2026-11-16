@@ -222,8 +222,10 @@ instructions
       correct for its cited rule; the lead verifies and logs each finding (the user, 2026-11-16). Every Task with
       fixture work links the page in its acceptance, and every brief cites it too. What to build comes from
       code:wiki/conventions/fixture-catalog.md (the user, 2026-11-17): each Task's fixtures line names its migration
-      step and fixtures; the lead builds those rows' scenarios from their cited sources, growing apps additively, and at
-      the close marks the step's matrix cells used and corrects any row the build proved wrong.
+      step and fixtures; the lead builds those rows' scenarios from their cited sources, growing apps additively. The
+      catalog is a task list: at the close the lead marks every scenario item in those fixtures built (with its Story
+      id) or left (with the later Task and the feature it needs), never leaves one unmarked, and corrects any row the
+      build proved wrong; only a scenario needing a later Task's feature may be left, and the review checks each.
     - Coverage before fixes and reviews (the user, 2026-11-17): a Task's bug fixing and its review wait until the
       fixtures its catalog step names are built, with every scenario written; a bug those Stories find lands as an
       inverted test with its owner Task, and is fixed by that owner against the full coverage.

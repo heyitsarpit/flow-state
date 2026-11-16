@@ -1557,3 +1557,7 @@ tasks
             tests/generated/fixtures.ts, saved.stress, profiles). Next: per-folder index.ts manifests and
             fixtures/index.ts, then switch the step-1 runners (pairs-*, sweep.ts, bench/run.ts, cli.test.ts,
             flow.config.ts) and delete their hand lists, committed alone; then the step-1 cells per row.
+        comment     2026-11-16T20:24:19Z
+            On resume (the user, 2026-11-17): the catalog's scenarios are checklist items. At close, mark every item in
+            the step-1 fixtures built (Story id) or left (later Task and the feature it needs); items marked have are
+            ticked once their Story is confirmed. See the catalog's task-list rule.

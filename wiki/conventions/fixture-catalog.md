@@ -16,6 +16,19 @@ in today's fixtures, the migration plan in Task order, and the Task text that mu
 - Source review: code:wiki/plans/flow/references/proposals/fixture-catalog-review-2026-11-17.md; check:
   code:wiki/plans/flow/references/proposals/fixture-catalog-check-2026-11-17.md.
 
+**This page is a task list.** Each scenario is a checklist item. At its close, the lead of each Task marks every
+item in the fixtures its step names, so the next agent starts from what is left:
+
+- built: tick the box and end the item with "built: Story id", once its Story or sample runs and was red before
+  the build;
+- left: keep the box open and end the item with "left: @task.V3.Tn, needs the feature" when it uses a feature a
+  later Task builds; anything buildable
+  with features that exist is this Task's and is never left;
+- an unmarked item in a step's fixtures fails that Task's close, and its review checks every "left" reason.
+
+A lead takes every item marked left for its Task, then the items its step adds, and corrects a row the build
+proves wrong.
+
 **Sources** are local clones in `codebases/` (`ai`, `tus-js-client`, `hydrogen`, `tldraw`, `ui-sdk`, and `phoenix`,
 which is the kamp.us app), linked at the end of this page. Each local test name below was matched at its file and
 line on 2026-11-17, and each sentence says only what the test shows. A public URL marks a source with no local copy;
@@ -169,50 +182,51 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
     `Hydration*` (a request rendered while `addLine` is in flight (`DehydrateCommitInFlight`)).
 - **Scenarios:**
   - **Usual:**
-    - Checkout with an unsure charge, a recheck, then an order (have: `usual`). Source: Stripe's flow, not checked.
-    - An add shows a line at once. Copies [cart.test.ts:4535][hy-cart] "empty cart: optimistic placeholder line
+    - [ ] Checkout with an unsure charge, a recheck, then an order (have: `usual`). Source: Stripe's flow, not checked.
+    - [ ] An add shows a line at once. Copies [cart.test.ts:4535][hy-cart] "empty cart: optimistic placeholder line
       appears immediately on add".
   - **Load:**
-    - L5: two quick clicks on one line; once the latest answer lands, the line is no longer pending. Copies
+    - [ ] L5: two quick clicks on one line; once the latest answer lands, the line is no longer pending. Copies
       [cart.test.ts:1500][hy-cart] "rapid clicks abort prior request, only last executes".
-    - L1 × 64 carts each mid-pay under L3 (have: `seededStress`, `long`).
+    - [ ] L1 × 64 carts each mid-pay under L3 (have: `seededStress`, `long`).
   - **Structure:**
-    - S1: `Shopper` → `Cart` → `CartLine` → `CartBadge`, with S9 at a line.
-    - S2: 1,000 `CartLine`s under L5, with "clear cart" raised.
-    - S3: 64 shoppers under L3.
-    - S6 × {cart first, flow first, shopper forgotten, reloaded} with a challenge open.
-    - S7: a second `Cart` ref with another shopper, refused.
-    - Switching carts cancels the old cart's in-flight refresh. Copies [cart.test.ts:1949][hy-cart] "hydrating a
+    - [ ] S1: `Shopper` → `Cart` → `CartLine` → `CartBadge`, with S9 at a line.
+    - [ ] S2: 1,000 `CartLine`s under L5, with "clear cart" raised.
+    - [ ] S3: 64 shoppers under L3.
+    - [ ] S6 × {cart first, flow first, shopper forgotten, reloaded} with a challenge open.
+    - [ ] S7: a second `Cart` ref with another shopper, refused.
+    - [ ] Switching carts cancels the old cart's in-flight refresh. Copies [cart.test.ts:1949][hy-cart] "hydrating a
       different cart cancels in-flight authoritative revalidation".
-    - Restoring the same cart id is a no-op. Copies [cart.test.ts:673][hy-cart] "no-ops when same cart ID already
+    - [ ] Restoring the same cart id is a no-op. Copies [cart.test.ts:673][hy-cart] "no-ops when same cart ID already
       hydrated".
   - **Edges:**
-    - E1: the empty cart before load. Copies [cart.test.ts:717][hy-cart] "returns EMPTY_CART_STATE before hydration".
-    - Quantity 0 removes the line. Copies [cart.test.ts:951][hy-cart] "decrease to zero routes to remove (quantity:
+    - [ ] E1: the empty cart before load. Copies [cart.test.ts:717][hy-cart] "returns EMPTY_CART_STATE before
+      hydration".
+    - [ ] Quantity 0 removes the line. Copies [cart.test.ts:951][hy-cart] "decrease to zero routes to remove (quantity:
       0)".
-    - E4: 1,000 lines and one past the cart's `max`. E5: the recheck delay at −1, 0, 2^31 − 1 and 2^31 ms.
-    - E7: an owed record of a newer format (have: `unreadOwed`). E8: a reload mid-charge, mid-challenge and mid-add.
+    - [ ] E4: 1,000 lines and one past the cart's `max`. E5: the recheck delay at −1, 0, 2^31 − 1 and 2^31 ms.
+    - [ ] E7: an owed record of a newer format (have: `unreadOwed`). E8: a reload mid-charge, mid-challenge and mid-add.
   - **Combinations:**
-    - A change that fails while the first load is in flight restores the loaded cart. Copies
+    - [ ] A change that fails while the first load is in flight restores the loaded cart. Copies
       [cart.test.ts:5971][hy-cart] "restores the loaded cart after a change that fails while the first load is in
       flight".
-    - Context with persistence and lanes; quota at checkout (step 13); two tabs (step 14); a server-rendered page
+    - [ ] Context with persistence and lanes; quota at checkout (step 13); two tabs (step 14); a server-rendered page
       with an add in flight (step 18).
-  - **Variety:** a full checkout against `cells`' one-click; a guest shopper against a signed-in one.
+  - [ ] **Variety:** a full checkout against `cells`' one-click; a guest shopper against a signed-in one.
   - **Findings:**
-    - A rejected add removes only its own line. Copies [cart-transactions.test.ts:210][hy-tx] "removes only a
-      rejected unkeyed add transaction" and [cart.test.ts:4583][hy-cart] "empty cart add: optimistic line removed
-      on reject".
-    - One line's request never aborts another's. Copies [cart-transactions.test.ts:378][hy-tx] "does not let one
-      keyed line abort an unrelated line" and [cart.test.ts:1530][hy-cart] "cross-line independence: line A
-      mutation does not cancel line B".
-    - A failing line rolls back alone. Copies [cart.test.ts:1579][hy-cart] "concurrent rollback: failing line A does
+    - [ ] A rejected add removes only its own line. Copies [cart-transactions.test.ts:210][hy-tx] "removes only a
+      rejected unkeyed add transaction" and [cart.test.ts:4583][hy-cart] "empty cart add: optimistic line removed on
+      reject".
+    - [ ] One line's request never aborts another's. Copies [cart-transactions.test.ts:378][hy-tx] "does not let one
+      keyed line abort an unrelated line" and [cart.test.ts:1530][hy-cart] "cross-line independence: line A mutation
+      does not cancel line B".
+    - [ ] A failing line rolls back alone. Copies [cart.test.ts:1579][hy-cart] "concurrent rollback: failing line A does
       not clobber line B".
-    - A stale snapshot never brings back a removed line. Copies [cart.test.ts:1630][hy-cart] "concurrent removes: a
+    - [ ] A stale snapshot never brings back a removed line. Copies [cart.test.ts:1630][hy-cart] "concurrent removes: a
       stale out-of-order snapshot does not resurrect removed lines".
-    - Stale overlapping add answers merge only their own lines. Copies [cart-transactions.test.ts:253][hy-tx] "merges
-      only add-owned lines from stale overlapping add responses".
-    - The checkout trace waits for the cart to settle. Copies [cart-tracker.test.ts:543][hy-track] "ignores pending
+    - [ ] Stale overlapping add answers merge only their own lines. Copies [cart-transactions.test.ts:253][hy-tx]
+      "merges only add-owned lines from stale overlapping add responses".
+    - [ ] The checkout trace waits for the cart to settle. Copies [cart-tracker.test.ts:543][hy-track] "ignores pending
       cart state until the cart settles".
 
 ### cells
@@ -246,16 +260,16 @@ A sync client whose three remotes differ only in lane policy. Kept as it is. Sou
   - **step 7:** `NotSent { OldVersion }` (release 2 changes the `sync` key fingerprint); `previous` holds,
     `O.x.previous` (the old-key lane held under release 2).
 - **Scenarios:**
-  - **Usual and load:** `usual`, `seededStress`, `nearBound` (12 queued) (have).
-  - **Load:** L2: 64 queued commits under `serialize`, then one more ending `NotSent { Overloaded }`; 1,024 events to
-    one actor, then one more refused `AdmissionOverloaded`.
-  - **Structure:** S3: the same key under two actors; S6 × {disposed, reloaded} with queued, held and running commits
-    of several keys.
-  - **Edges:** E3: `atStringBound` (have) and past it; `Unencodable` (have). Canonical keys: one key in NFC and
+  - [ ] **Usual and load:** `usual`, `seededStress`, `nearBound` (12 queued) (have).
+  - [ ] **Load:** L2: 64 queued commits under `serialize`, then one more ending `NotSent { Overloaded }`; 1,024 events
+    to one actor, then one more refused `AdmissionOverloaded`.
+  - [ ] **Structure:** S3: the same key under two actors; S6 × {disposed, reloaded} with queued, held and running
+    commits of several keys.
+  - [ ] **Edges:** E3: `atStringBound` (have) and past it; `Unencodable` (have). Canonical keys: one key in NFC and
     decomposed forms, and `-0` against `0`, restored as one lane.
-  - **Combinations:** release 2 changes the key fingerprint: a held lane ends `NotSent { OldVersion }` and the old
+  - [ ] **Combinations:** release 2 changes the key fingerprint: a held lane ends `NotSent { OldVersion }` and the old
     lane is held as `previous` (step 7).
-  - **Findings:** `stressDisplacedPastItems` and `displacedOnWire` (have).
+  - [ ] **Findings:** `stressDisplacedPastItems` and `displacedOnWire` (have).
 
 ### sync
 
@@ -283,13 +297,13 @@ retry.
   - **step 7:** release versions, saved-shape reset, migration (release 2 of `Repo`).
   - **step 12:** `delivers: "latest"`, `Feed.callback`, `dropAt` (S `headPushes` into `Repo`).
 - **Scenarios:**
-  - **Usual:** sync, peek (have).
-  - **Load:** L1 × 64 repos with repeated rate limits under L3 (have in part: `seededStress`).
-  - **Structure:** S3 × 64 repos; S6 × {repo first, sync first, reloaded} during a backoff.
-  - **Edges:** E5: a retry-after of −1, 0, 2^31 − 1 and 2^31 ms. E1: an empty repo name.
-  - **Combinations:** release 2 of `Repo` (step 7); pushes (step 12).
-  - **Variety:** pushed against polled.
-  - **Findings:** a 4xx that isn't a rate limit is not retried. Copies [liveRetry.unit.test.ts:27][kp-retry] "does
+  - [ ] **Usual:** sync, peek (have).
+  - [ ] **Load:** L1 × 64 repos with repeated rate limits under L3 (have in part: `seededStress`).
+  - [ ] **Structure:** S3 × 64 repos; S6 × {repo first, sync first, reloaded} during a backoff.
+  - [ ] **Edges:** E5: a retry-after of −1, 0, 2^31 − 1 and 2^31 ms. E1: an empty repo name.
+  - [ ] **Combinations:** release 2 of `Repo` (step 7); pushes (step 12).
+  - [ ] **Variety:** pushed against polled.
+  - [ ] **Findings:** a 4xx that isn't a rate limit is not retried. Copies [liveRetry.unit.test.ts:27][kp-retry] "does
     NOT retry a genuine 4xx app error".
 
 ### transfers
@@ -340,26 +354,26 @@ kamp.us for rows restored after a failure.
   - **step 12:** `stream` `delivers: "every"`, `position`, `catchUp` (S `notifications`).
   - **step 16:** `inspect`, `trace.export`/`trace.import`, sinks, redaction (account numbers redacted).
 - **Scenarios:**
-  - **Usual:** send, decline, lose the answer, resend once, abandon (have). A deposit sent in chunks, each reported.
+  - [ ] **Usual:** send, decline, lose the answer, resend once, abandon (have). A deposit sent in chunks, each reported.
     Copies [test-common.js:401][tus-common] "should upload a file in chunks".
-  - **Load:** L1 × 64 accounts with owed endings at boot under L4. `largeReceipts` (have); `stressManyReceipts`
+  - [ ] **Load:** L1 × 64 accounts with owed endings at boot under L4. `largeReceipts` (have); `stressManyReceipts`
     (have, registered with no runner yet).
   - **Structure:**
-    - S1: `Customer` → `TransferForm` → `StepUp`, with S9 inside `StepUp`.
-    - S3 × 64 accounts, one forgotten or quarantined while the rest reload.
-    - S6 × {account first, customer first, forgotten, reloaded} during a deposit.
-    - A large deposit split into parts, one failing. Copies [test-parallel-uploads.js:41][tus-parallel] "should
+    - [ ] S1: `Customer` → `TransferForm` → `StepUp`, with S9 inside `StepUp`.
+    - [ ] S3 × 64 accounts, one forgotten or quarantined while the rest reload.
+    - [ ] S6 × {account first, customer first, forgotten, reloaded} during a deposit.
+    - [ ] A large deposit split into parts, one failing. Copies [test-parallel-uploads.js:41][tus-parallel] "should
       split a file into multiple parts and create an upload for each" and [test-parallel-uploads.js:325][tus-parallel]
       "should emit error from a partial upload".
-  - **Edges:** E6: cents 0, negative and above 2^53, as bigint. E3: a transfer id at the key bound. E2: `null` and
+  - [ ] **Edges:** E6: cents 0, negative and above 2^53, as bigint. E3: a transfer id at the key bound. E2: `null` and
     `undefined` payloads. E8: a reload mid-deposit.
-  - **Combinations:** a read after a write (an older `balance` answer loses); releases (step 7); notifications
-    (step 12).
-  - **Variety:** a shared account against a local form.
+  - [ ] **Combinations:** a read after a write (an older `balance` answer loses); releases (step 7); notifications (step
+    12).
+  - [ ] **Variety:** a shared account against a local form.
   - **Findings:**
-    - A deposit aborted, then resumed from its parts. Copies [test-parallel-uploads.js:448][tus-parallel] "should
+    - [ ] A deposit aborted, then resumed from its parts. Copies [test-parallel-uploads.js:448][tus-parallel] "should
       abort all partial uploads and resume from them".
-    - A failed reversal restores the row and carries its code. Copies [optimisticPostDelete.test.ts:21][kp-pdel]
+    - [ ] A failed reversal restores the row and carries its code. Copies [optimisticPostDelete.test.ts:21][kp-pdel]
       "POST_DELETE_FAILED restores the post and carries the code for the inline error (#1639)".
 
 ### sign-in
@@ -394,26 +408,26 @@ not checked here).
   - **step 16:** `inspect`, `trace.export`/`trace.import`, sinks, redaction (schedule and emit events).
   - **step 18:** `useActor` (React) (Strict Mode).
 - **Scenarios:**
-  - **Usual:** sign in with a code (have). A retried handle save releases the held redirect. Copies
+  - [ ] **Usual:** sign in with a code (have). A retried handle save releases the held redirect. Copies
     [AuthPage.test.tsx:89][kp-auth] "retry on the stuck surface re-attempts and, on success, RELEASES the redirect".
-  - **Load:** L1 × 16 screens for different accounts, one in lockout while another verifies; L4 during a lockout.
-  - **Structure:** S3 × 16 accounts; S6 × {session first, screen first, forgotten, reloaded} while `Reauth` runs, with
-    S9 inside `Reauth`.
+  - [ ] **Load:** L1 × 16 screens for different accounts, one in lockout while another verifies; L4 during a lockout.
+  - [ ] **Structure:** S3 × 16 accounts; S6 × {session first, screen first, forgotten, reloaded} while `Reauth` runs,
+    with S9 inside `Reauth`.
   - **Edges:**
-    - A blank handle never calls the server. Copies [AuthPage.test.tsx:164][kp-auth] "a blank username field never
+    - [ ] A blank handle never calls the server. Copies [AuthPage.test.tsx:164][kp-auth] "a blank username field never
       touches setUsername and never holds the gate".
-    - E1: an empty email and a code of 0 characters. E3: an email past its byte bound. E5: a lock delay at −1, 0,
+    - [ ] E1: an empty email and a code of 0 characters. E3: an email past its byte bound. E5: a lock delay at −1, 0,
       2^31 − 1 and 2^31 ms.
-  - **Combinations:** release 2 (step 7); Strict Mode (step 18).
-  - **Variety:** an unedited prefilled handle needs confirming. Copies [UsernameBootstrap.test.tsx:32][kp-boot] "does
-    NOT commit the unedited email prefill on the first submit — it asks to confirm".
+  - [ ] **Combinations:** release 2 (step 7); Strict Mode (step 18).
+  - [ ] **Variety:** an unedited prefilled handle needs confirming. Copies [UsernameBootstrap.test.tsx:32][kp-boot]
+    "does NOT commit the unedited email prefill on the first submit — it asks to confirm".
   - **Findings:**
-    - A failed handle save holds the redirect and keeps the handle. Copies [AuthPage.test.tsx:72][kp-auth] "parks on
+    - [ ] A failed handle save holds the redirect and keeps the handle. Copies [AuthPage.test.tsx:72][kp-auth] "parks on
       a retryable surface and HOLDS the redirect when setUsername fails — the handle is not dropped".
-    - Starting the gate twice is a no-op. Copies [signupUsernameGate.test.tsx:34][kp-gate] "is idempotent: a second
+    - [ ] Starting the gate twice is a no-op. Copies [signupUsernameGate.test.tsx:34][kp-gate] "is idempotent: a second
       begin/end is a no-op, not a toggle".
-    - A draft survives the redirect, then clears on submit. Copies [draftStorage.unit.test.ts:45][kp-draft] "survives
-      the signed-out → auth-redirect → return round-trip, then clears on submit (AC1+AC2)".
+    - [ ] A draft survives the redirect, then clears on submit. Copies [draftStorage.unit.test.ts:45][kp-draft]
+      "survives the signed-out → auth-redirect → return round-trip, then clears on submit (AC1+AC2)".
 
 ### session
 
@@ -446,36 +460,36 @@ A workspace shell. Today's four machines stay; billing and reads are added. Sour
   - **step 18:** server rendering, hydration (the shell); `DehydrateCommitInFlight`, `DehydrateUnsettled`, `Hydration*`
     (a shell rendered for one user hydrated under another).
 - **Scenarios:**
-  - **Usual:** two four-layer trees, a reload, a middle-layer rename (have). The shell paints before the session
-    settles. Copies [App.test.tsx:217][kp-app] "invariant 1: the shell chrome paints while the session is isPending
-    — with NO FateClient mounted".
-  - **Load:** L5: context waves under a held store (have, in `seededStress`). L2: 1,024 sends to one badge.
+  - [ ] **Usual:** two four-layer trees, a reload, a middle-layer rename (have). The shell paints before the session
+    settles. Copies [App.test.tsx:217][kp-app] "invariant 1: the shell chrome paints while the session is isPending —
+    with NO FateClient mounted".
+  - [ ] **Load:** L5: context waves under a held store (have, in `seededStress`). L2: 1,024 sends to one badge.
   - **Structure:**
-    - S1 × {4 (have), 8, 32} under L5, with S9 at the deepest badge.
-    - S2 × {24 (have: `fanOut`), 64, 1,024} under L5.
-    - S3: two roots (have). S4: the team (have). S5: `guestTeam` (have).
-    - S6 × {parent first (have: `parentUnderChildren`), child first, forgotten, signed out, reloaded}.
-    - S7: a cycle and a missing provider as Stories.
+    - [ ] S1 × {4 (have), 8, 32} under L5, with S9 at the deepest badge.
+    - [ ] S2 × {24 (have: `fanOut`), 64, 1,024} under L5.
+    - [ ] S3: two roots (have). S4: the team (have). S5: `guestTeam` (have).
+    - [ ] S6 × {parent first (have: `parentUnderChildren`), child first, forgotten, signed out, reloaded}.
+    - [ ] S7: a cycle and a missing provider as Stories.
   - **Edges:**
-    - E2: an undefined user. E1: an empty user. E4: consumers at and past the cap.
-    - E7: a corrupt saved record. Copies [snapshot.test.ts:108][kp-snap] "returns null on a corrupt (non-JSON)
+    - [ ] E2: an undefined user. E1: an empty user. E4: consumers at and past the cap.
+    - [ ] E7: a corrupt saved record. Copies [snapshot.test.ts:108][kp-snap] "returns null on a corrupt (non-JSON)
       payload, no throw".
-    - E3: an oversized record refused unread. Copies [snapshot.test.ts:123][kp-snap] "returns null on an oversized
+    - [ ] E3: an oversized record refused unread. Copies [snapshot.test.ts:123][kp-snap] "returns null on an oversized
       payload without parsing it".
   - **Combinations:**
-    - An identity switch drops the old identity's saved data. Copies [App.test.tsx:692][kp-app] "AC3: an identity
-      switch A→B tears down the PREVIOUS identity's snapshot" and [App.test.tsx:711][kp-app] "AC3: sign-out /
-      account deletion (A→signed-out) tears down A's snapshot".
-    - A record written under one user never restores under another. Copies [snapshot.test.ts:364][kp-snap] "a
+    - [ ] An identity switch drops the old identity's saved data. Copies [App.test.tsx:692][kp-app] "AC3: an identity
+      switch A→B tears down the PREVIOUS identity's snapshot" and [App.test.tsx:711][kp-app] "AC3: sign-out / account
+      deletion (A→signed-out) tears down A's snapshot".
+    - [ ] A record written under one user never restores under another. Copies [snapshot.test.ts:364][kp-snap] "a
       snapshot written under user A does NOT hydrate under user B".
-    - A failed storage read with a sign-in queued (see @plan.Pending.D17).
-  - **Variety:** eager and lazy entries; singleton and keyed providers.
+    - [ ] A failed storage read with a sign-in queued (see @plan.Pending.D17).
+  - [ ] **Variety:** eager and lazy entries; singleton and keyed providers.
   - **Findings:**
-    - A signed-out boot restores nothing signed-in. Copies [App.test.tsx:725][kp-app] "identity-scoped: a
-      signed-out settle hydrates NO authed snapshot (anon owns none)".
-    - A boot with no host page degrades without throwing. Copies [boot.test.ts:24][kp-flags] "returns undefined when
+    - [ ] A signed-out boot restores nothing signed-in. Copies [App.test.tsx:725][kp-app] "identity-scoped: a signed-out
+      settle hydrates NO authed snapshot (anon owns none)".
+    - [ ] A boot with no host page degrades without throwing. Copies [boot.test.ts:24][kp-flags] "returns undefined when
       there is no window (outage fallback / flag off) — no throw".
-    - A context update at the follow-up cap waits (@plan.Pending.D13).
+    - [ ] A context update at the follow-up cap waits (@plan.Pending.D13).
 
 ### command-palette
 
@@ -501,17 +515,17 @@ An editor's command palette, grown with a workbench around it. Source: ui-sdk's 
     palette).
   - **step 18:** `useActor` (React) (Strict Mode).
 - **Scenarios:**
-  - **Usual:** open, search, run (have). Pages are the items of their command. Copies
+  - [ ] **Usual:** open, search, run (have). Pages are the items of their command. Copies
     [command.test.ts:193][ui-command] "pages are the items of the command with that value".
-  - **Load:** 1,000 and 4,097 entries (have). One keystroke over 10,000 entries ranks within a frame. Copies
-    [command.test.ts:155][ui-command] "10,000 items: a fuzzy keystroke stays well under a frame". Typing bursts
-    under a held store: no source.
-  - **Structure:** S1: frames 1, 8 and 64 deep with Back and Escape through all of them, and S9 at the deepest; S3: two
-    palettes, each with its own workbench.
-  - **Edges:** an empty query keeps the source order. Copies [command.test.ts:120][ui-command] "an empty query keeps
+  - [ ] **Load:** 1,000 and 4,097 entries (have). One keystroke over 10,000 entries ranks within a frame. Copies
+    [command.test.ts:155][ui-command] "10,000 items: a fuzzy keystroke stays well under a frame". Typing bursts under a
+    held store: no source.
+  - [ ] **Structure:** S1: frames 1, 8 and 64 deep with Back and Escape through all of them, and S9 at the deepest; S3:
+    two palettes, each with its own workbench.
+  - [ ] **Edges:** an empty query keeps the source order. Copies [command.test.ts:120][ui-command] "an empty query keeps
     the source order". E3 and E4: the entry bounds (have: `pastBound`, `overBound`).
-  - **Combinations:** the pair sweep (have: `pairs-persisted`); Strict Mode (step 18).
-  - **Variety:** a shared and a local palette.
+  - [ ] **Combinations:** the pair sweep (have: `pairs-persisted`); Strict Mode (step 18).
+  - [ ] **Variety:** a shared and a local palette.
 
 ### number-input
 
@@ -531,17 +545,17 @@ An order form of steppers, grown around today's stepper. Source: ui-sdk's number
     `latest`, `Superseded` (T `saveOrder`).
   - **step 18:** `useActor` (React) (Strict Mode).
 - **Scenarios:**
-  - **Usual:** step, hold, type, blur (have). Stepping stops on the grid. Copies [number-input.test.ts:53][ui-number]
-    "End and the increment button stop at the highest value on the step grid".
-  - **Load:** 150 steps (have); L5: press and release interleaved with the wheel for thousands of turns.
-  - **Structure:** S2: 64 steppers in one form under L5; S6 × {form first, stepper first} during a hold.
-  - **Edges:** typed junk (have); E6: 2^53; a step of 0; min above max. A step from an empty field starts at 0,
+  - [ ] **Usual:** step, hold, type, blur (have). Stepping stops on the grid. Copies
+    [number-input.test.ts:53][ui-number] "End and the increment button stop at the highest value on the step grid".
+  - [ ] **Load:** 150 steps (have); L5: press and release interleaved with the wheel for thousands of turns.
+  - [ ] **Structure:** S2: 64 steppers in one form under L5; S6 × {form first, stepper first} during a hold.
+  - [ ] **Edges:** typed junk (have); E6: 2^53; a step of 0; min above max. A step from an empty field starts at 0,
     clamped into the bounds. Copies [number-input.test.ts:176][ui-number] "steps from empty start at 0, within the
     bounds".
-  - **Combinations:** props and emits (step 6); Strict Mode (step 18).
-  - **Findings:** a user's change back to an earlier value after one set from outside. Copies
-    [number-input.test.ts:185][ui-number] "a commit after a value set from outside reports the user's change back to
-    an earlier value".
+  - [ ] **Combinations:** props and emits (step 6); Strict Mode (step 18).
+  - [ ] **Findings:** a user's change back to an earlier value after one set from outside. Copies
+    [number-input.test.ts:185][ui-number] "a commit after a value set from outside reports the user's change back to an
+    earlier value".
 
 ### player
 
@@ -592,14 +606,14 @@ here) for the booking; no source for the quote.
   - **step 15:** lazy entries `{ id, load }`, adoption, dormant records (`Explainer`); `EntryMismatch`, a failed load, a
     send to an unadopted entry (`Explainer`'s failed load).
 - **Scenarios:**
-  - **Usual:** forward through every step, Back by history, submit once.
-  - **Load:** L2: 64 queued Next and Back events; a double submit; L1 × 16 wizards; L4.
-  - **Structure:** S1: a subroutine in a compound in a compound, four deep, with history through each and S9 at the
+  - [ ] **Usual:** forward through every step, Back by history, submit once.
+  - [ ] **Load:** L2: 64 queued Next and Back events; a double submit; L1 × 16 wizards; L4.
+  - [ ] **Structure:** S1: a subroutine in a compound in a compound, four deep, with history through each and S9 at the
     deepest; a step left while its lookup is in flight; S3 × 16.
-  - **Edges:** a history never entered; E2; E5 at −1, 0, 2^31 − 1 and 2^31 ms; empty answers.
-  - **Combinations:** release 2 adds a step (step 7); the lazy explainer (step 15).
-  - **Variety:** the same subroutine at two depths.
-  - **Findings:** a month change clears the held slot (Cal.com's `setMonth`, not checked here).
+  - [ ] **Edges:** a history never entered; E2; E5 at −1, 0, 2^31 − 1 and 2^31 ms; empty answers.
+  - [ ] **Combinations:** release 2 adds a step (step 7); the lazy explainer (step 15).
+  - [ ] **Variety:** the same subroutine at two depths.
+  - [ ] **Findings:** a month change clears the held slot (Cal.com's `setMonth`, not checked here).
 
 ### search
 
@@ -630,28 +644,28 @@ Product search with a results pager. Source: ui-sdk's async loads; kamp.us's sea
     `DehydrateCommitInFlight`, `DehydrateUnsettled`, `Hydration*` (a saved shape that doesn't match
     (`HydrationIncompatible`)).
 - **Scenarios:**
-  - **Usual:** type, results, a cached repeat, a refetch after the stale time. The field follows the URL's query
-    with no stale second source. Copies [App.test.tsx:642][kp-app] "reads q live — a different query renders a
-    different echoed value (no stale/double source)".
-  - **Load:** L5: keystroke bursts; L3; L1: a thousand distinct keys collected by `gcTime`.
+  - [ ] **Usual:** type, results, a cached repeat, a refetch after the stale time. The field follows the URL's query
+    with no stale second source. Copies [App.test.tsx:642][kp-app] "reads q live — a different query renders a different
+    echoed value (no stale/double source)".
+  - [ ] **Load:** L5: keystroke bursts; L3; L1: a thousand distinct keys collected by `gcTime`.
   - **Structure:**
-    - S2: one read shared by 64 `ResultList`s under L5.
-    - S8: `subscribe.each` as facets change under L5.
-    - S3: two search pages sharing no entries.
-    - S6 × {page first, list first} under live reads; late answers dropped. Copies
+    - [ ] S2: one read shared by 64 `ResultList`s under L5.
+    - [ ] S8: `subscribe.each` as facets change under L5.
+    - [ ] S3: two search pages sharing no entries.
+    - [ ] S6 × {page first, list first} under live reads; late answers dropped. Copies
       [restore-late-items.test.ts:123][ui-late] "stops waiting for the items once destroyed".
-    - S7: a missing service refused at boot by name.
-  - **Edges:** E1: no rows and an empty query; a stale time of 0; E3 and E6: keys at and past the bound and a bigint
+    - [ ] S7: a missing service refused at boot by name.
+  - [ ] **Edges:** E1: no rows and an empty query; a stale time of 0; E3 and E6: keys at and past the bound and a bigint
     key; total 0 and a page past the last.
-  - **Combinations:** the pager's props and emits (step 5); hydration then a client edit (step 18).
+  - [ ] **Combinations:** the pager's props and emits (step 5); hydration then a client edit (step 18).
   - **Findings:**
-    - A stale load never lands and its request aborts. Copies [trigger-menu.test.ts:183][ui-trigger] "a stale load
+    - [ ] A stale load never lands and its request aborts. Copies [trigger-menu.test.ts:183][ui-trigger] "a stale load
       never lands, and its signal aborts".
-    - A newer write of the same value survives late items. Copies [restore-late-items.test.ts:102][ui-late] "keeps a
+    - [ ] A newer write of the same value survives late items. Copies [restore-late-items.test.ts:102][ui-late] "keeps a
       newer write of the same value once the items arrive".
-    - Results landed under another identity are never shown. Copies [panoFeedOverlay.test.ts:32][kp-overlay]
+    - [ ] Results landed under another identity are never shown. Copies [panoFeedOverlay.test.ts:32][kp-overlay]
       "rejects an overlay landed under a DIFFERENT identity (never foreign state)".
-    - A bare shortcut key typed in a field is not a command. Copies [searchShortcut.test.ts:17][kp-shortcut] "does
+    - [ ] A bare shortcut key typed in a field is not a command. Copies [searchShortcut.test.ts:17][kp-shortcut] "does
       not match a bare K (so typing 'k' in a field is untouched)".
 
 ### home
@@ -686,19 +700,19 @@ A smart-home dashboard. Source: ui-sdk's toast pause reasons for `pausedBy`; Sup
     `liveReadings`); `Feed.multiplex`, `DuplicateSession`, `UnplacedStream` (one connection for every room).
   - **step 16:** `inspect`, `trace.export`/`trace.import`, sinks, redaction (schedule events).
 - **Scenarios:**
-  - **Usual:** set a target, readings on schedule, the heater cycles, a vacation pause and resume.
-  - **Load:** L1 × 256 rooms; L5: readings faster than turns, at and past 1,024 (step 12); L4 mid-pause.
-  - **Structure:** S1: house → zone → room → sensor, with S9 at a sensor; S4: zone; S5: a mode override at a zone;
-    S8: rooms added mid-tick; S6 × {house first, room first, reloaded} with live timers; S3: two houses; S7: a zone
-    mode feeding the house (a cycle) and a room with no zone.
-  - **Edges:** E1: no rooms; E5: −1, 0, 2^31 − 1, and 2^31 refused; pause reasons stacked and removed in turn; a key
+  - [ ] **Usual:** set a target, readings on schedule, the heater cycles, a vacation pause and resume.
+  - [ ] **Load:** L1 × 256 rooms; L5: readings faster than turns, at and past 1,024 (step 12); L4 mid-pause.
+  - [ ] **Structure:** S1: house → zone → room → sensor, with S9 at a sensor; S4: zone; S5: a mode override at a zone;
+    S8: rooms added mid-tick; S6 × {house first, room first, reloaded} with live timers; S3: two houses; S7: a zone mode
+    feeding the house (a cycle) and a room with no zone.
+  - [ ] **Edges:** E1: no rooms; E5: −1, 0, 2^31 − 1, and 2^31 refused; pause reasons stacked and removed in turn; a key
     leaving and returning.
-  - **Combinations:** `left` against `dueAt` across a reload (see @plan.Pending.D18); the stream (step 12).
-  - **Variety:** a multi-step `Schedule` against one delay; keyed against unkeyed.
+  - [ ] **Combinations:** `left` against `dueAt` across a reload (see @plan.Pending.D18); the stream (step 12).
+  - [ ] **Variety:** a multi-step `Schedule` against one delay; keyed against unkeyed.
   - **Findings:**
-    - Pause reasons hold separately. Copies [toast.test.ts:247][ui-toast] "pause reasons hold separately: one
+    - [ ] Pause reasons hold separately. Copies [toast.test.ts:247][ui-toast] "pause reasons hold separately: one
       clearing never resumes while another holds".
-    - A network failure schedules a reconnect, and a missed heartbeat falls back to one (realtime-js, not checked
+    - [ ] A network failure schedules a reconnect, and a missed heartbeat falls back to one (realtime-js, not checked
       here).
 
 ### kanban
@@ -756,67 +770,68 @@ kamp.us's optimistic lists, ui-sdk's menu, combobox and toast tests.
     (`DehydrateUnsettled`)).
 - **Scenarios:**
   - **Usual:**
-    - A move confirmed. Copies [TLSyncClient.test.ts:1497][tl-client] "[CR3] a commit push_result confirms the
+    - [ ] A move confirmed. Copies [TLSyncClient.test.ts:1497][tl-client] "[CR3] a commit push_result confirms the
       pending push without changing the store".
-    - A comment's temporary id becomes the server's. Copies [optimisticCommentAdd.realstore.test.ts:121][kp-cadd-real]
-      "reconciles the temp id to the server id on the HTTP result (no orphan temp)".
-    - The menu stays open while its items load. Copies [menu-pending.test.ts:17][ui-menu-pending] "stays pending,
+    - [ ] A comment's temporary id becomes the server's. Copies
+      [optimisticCommentAdd.realstore.test.ts:121][kp-cadd-real] "reconciles the temp id to the server id on the HTTP
+      result (no orphan temp)".
+    - [ ] The menu stays open while its items load. Copies [menu-pending.test.ts:17][ui-menu-pending] "stays pending,
       and the menu open, until it resolves".
-    - A toast for an async archive shows its result with a fresh duration. Copies [toast.test.ts:135][ui-toast] "a
+    - [ ] A toast for an async archive shows its result with a fresh duration. Copies [toast.test.ts:135][ui-toast] "a
       promise toast loads, then shows the result with a fresh duration".
-  - **Load:** L1 × 1,024 cards; L5: bursts of moves; L3; E8 with a move pending. A toast pushed out of view keeps its
-    time. Copies [toast.test.ts:261][ui-toast] "a toast pushed out of view waits with its time, and one never shown
+  - [ ] **Load:** L1 × 1,024 cards; L5: bursts of moves; L3; E8 with a move pending. A toast pushed out of view keeps
+    its time. Copies [toast.test.ts:261][ui-toast] "a toast pushed out of view waits with its time, and one never shown
     never starts".
   - **Structure:**
-    - S1: workspace → board → column → card → item, with S9 at an item; S4: `Board`.
-    - S2: 1,024 cards in one column under L5. S3: 8 boards with distinct domains.
-    - S6 × {board first, column first, card detail first, reloaded} with cards loading.
-    - S7: a duplicate card key; a lazy `CardDetail` that brings a context cycle (step 15).
-    - Nested menus close together. Copies [details.test.ts:90][ui-details] "closing a menu with a key closes its
+    - [ ] S1: workspace → board → column → card → item, with S9 at an item; S4: `Board`.
+    - [ ] S2: 1,024 cards in one column under L5. S3: 8 boards with distinct domains.
+    - [ ] S6 × {board first, column first, card detail first, reloaded} with cards loading.
+    - [ ] S7: a duplicate card key; a lazy `CardDetail` that brings a context cycle (step 15).
+    - [ ] Nested menus close together. Copies [details.test.ts:90][ui-details] "closing a menu with a key closes its
       open submenu with the same source".
-    - Stacked dialogs. Copies [alert-dialog.test.ts:17][ui-alert] "a question asked while another is open waits for
+    - [ ] Stacked dialogs. Copies [alert-dialog.test.ts:17][ui-alert] "a question asked while another is open waits for
       it, and gets its own answer" and [focus-return-everywhere.test.ts:341][ui-focus] "the middle of three dialogs
       reopened from the last still closes".
   - **Edges:**
-    - E1: an empty domain; E2: an undefined field, a missing version, a null sort key.
-    - A count never below zero. Copies [optimisticCommentDelete.test.ts:194][kp-cdel] "never drives commentCount
+    - [ ] E1: an empty domain; E2: an undefined field, a missing version, a null sort key.
+    - [ ] A count never below zero. Copies [optimisticCommentDelete.test.ts:194][kp-cdel] "never drives commentCount
       below zero".
-    - The picker at its maximum. Copies [combobox-highlight.test.ts:111][ui-combo-hl] "arrows still reach unchosen
+    - [ ] The picker at its maximum. Copies [combobox-highlight.test.ts:111][ui-combo-hl] "arrows still reach unchosen
       items once a multiple combobox is at maxSelected".
   - **Combinations:**
-    - A remote change leaves my pending move alone. Copies [TLSyncClient.test.ts:1441][tl-client] "[CR2] preserves
+    - [ ] A remote change leaves my pending move alone. Copies [TLSyncClient.test.ts:1441][tl-client] "[CR2] preserves
       local speculative changes when the server patches other records".
-    - Staggered acks make no net change. Copies [TLSyncClientRebase.test.ts:168][tl-rebase] "invariant 1: a
+    - [ ] Staggered acks make no net change. Copies [TLSyncClientRebase.test.ts:168][tl-rebase] "invariant 1: a
       staggered commit ack for an in-flight push emits no net document change".
-    - Appends converge across staggered acks. Copies [TLSyncClientRebase.test.ts:253][tl-rebase] "invariant 2:
+    - [ ] Appends converge across staggered acks. Copies [TLSyncClientRebase.test.ts:253][tl-rebase] "invariant 2:
       base-relative array appends converge across staggered commit acks".
-    - Release 2 (step 7); lazy detail (step 15); a hydrated board (step 18).
-  - **Variety:** ordered, unordered and server-ranked lists; versioned and unversioned entities.
+    - [ ] Release 2 (step 7); lazy detail (step 15); a hydrated board (step 18).
+  - [ ] **Variety:** ordered, unordered and server-ranked lists; versioned and unversioned entities.
   - **Findings:**
-    - A rejected move is reverted. Copies [TLSyncClient.test.ts:1528][tl-client] "[CR3] a discard push_result drops
+    - [ ] A rejected move is reverted. Copies [TLSyncClient.test.ts:1528][tl-client] "[CR3] a discard push_result drops
       the pending push and reverts the local change".
-    - A modified move takes the server's version. Copies [TLSyncClient.test.ts:1548][tl-client] "[CR3] a
+    - [ ] A modified move takes the server's version. Copies [TLSyncClient.test.ts:1548][tl-client] "[CR3] a
       rebaseWithDiff push_result applies the server's modified diff instead".
-    - Changes applied during a rebase send nothing. Copies [TLSyncClient.test.ts:1477][tl-client] "[CR2] does not
+    - [ ] Changes applied during a rebase send nothing. Copies [TLSyncClient.test.ts:1477][tl-client] "[CR2] does not
       generate new push requests for changes applied during a rebase".
-    - A bare temporary id must not reconcile. Copies [optimisticCommentAdd.realstore.test.ts:187][kp-cadd-real]
+    - [ ] A bare temporary id must not reconcile. Copies [optimisticCommentAdd.realstore.test.ts:187][kp-cadd-real]
       "BARE temp id fails to reconcile — the #1714 defect, now guarded against".
-    - Rejected adds and deletes restore the list and counts. Copies [optimisticCommentAdd.test.ts:162][kp-cadd]
+    - [ ] Rejected adds and deletes restore the list and counts. Copies [optimisticCommentAdd.test.ts:162][kp-cadd]
       "rollback restores the prior list on reject (no phantom row)", [optimisticCommentDelete.test.ts:130][kp-cdel]
       "rollback restores the edge and commentCount (no phantom drop)" and
-      [definitionAddOptimistic.unit.test.ts:150][kp-defadd] "rollback restores the bumped aggregates on a rejected
-      add (no phantom count)".
-    - A stale report for a removed id is ignored. Copies [savedReconcile.test.ts:44][kp-saved] "ignores a stale
+      [definitionAddOptimistic.unit.test.ts:150][kp-defadd] "rollback restores the bumped aggregates on a rejected add
+      (no phantom count)".
+    - [ ] A stale report for a removed id is ignored. Copies [savedReconcile.test.ts:44][kp-saved] "ignores a stale
       report for an id no longer in the connection".
-    - A repair read stops after its probe budget. Copies [readback.test.ts:32][kp-readback] "refetches
+    - [ ] A repair read stops after its probe budget. Copies [readback.test.ts:32][kp-readback] "refetches
       deterministically once the probe budget is spent".
-    - The menu: [trigger-menu.test.ts:183][ui-trigger] "a stale load never lands, and its signal aborts",
+    - [ ] The menu: [trigger-menu.test.ts:183][ui-trigger] "a stale load never lands, and its signal aborts",
       [menu-pending.test.ts:58][ui-menu-pending] "resolving after the menu closed and reopened leaves it open" and
       [menu-trigger-unmount.test.ts:29][ui-menu-unmount] "closes when the trigger that opened it leaves".
-    - The picker: [combobox.test.ts:126][ui-combo] "a value set before its items load shows their label once they
+    - [ ] The picker: [combobox.test.ts:126][ui-combo] "a value set before its items load shows their label once they
       arrive", [combobox.test.ts:155][ui-combo] "resolving after the list closed and reopened leaves it open" and
       [combobox.test.ts:169][ui-combo] "with multiple, text typed while it was pending stays".
-    - Toasts: [toast.test.ts:175][ui-toast] "a promise toast dismissed while loading stays closed",
+    - [ ] Toasts: [toast.test.ts:175][ui-toast] "a promise toast dismissed while loading stays closed",
       [toast.test.ts:232][ui-toast] "pausing keeps the time left, and resuming continues from it" and
       [toast-swipe.test.ts:65][ui-swipe] "a swipe cut short by its region going away lets go of the toast".
 
@@ -872,79 +887,80 @@ checked here).
   - **step 18:** `useActor` (React) (Strict Mode).
 - **Scenarios:**
   - **Usual:**
-    - Send with an instant echo. Copies [use-chat.ui.test.tsx:628][ai-react] "should show user message immediately".
-    - One id serves sending and resuming. Copies [chat.test.ts:140][ai-chat] "uses the same lazily generated id for
+    - [ ] Send with an instant echo. Copies [use-chat.ui.test.tsx:628][ai-react] "should show user message immediately".
+    - [ ] One id serves sending and resuming. Copies [chat.test.ts:140][ai-chat] "uses the same lazily generated id for
       sending and resuming".
-    - An attachment resumed. Copies [test-common.js:623][tus-common] "should resume a previously started upload".
+    - [ ] An attachment resumed. Copies [test-common.js:623][tus-common] "should resume a previously started upload".
   - **Load:**
-    - Sends during a reply queue and go in order. Copies [chat.test.ts:5930][ai-chat] "should queue messages sent
+    - [ ] Sends during a reply queue and go in order. Copies [chat.test.ts:5930][ai-chat] "should queue messages sent
       during a response and send them one at a time in order".
-    - Throttled updates. Copies [use-chat.ui.test.tsx:3338][ai-react] "should throttle UI updates when throttle is
+    - [ ] Throttled updates. Copies [use-chat.ui.test.tsx:3338][ai-react] "should throttle UI updates when throttle is
       set".
-    - Same-tick subscriptions coalesce into one request. Copies [liveSubscribeBatch.test.ts:117][kp-live-batch]
+    - [ ] Same-tick subscriptions coalesce into one request. Copies [liveSubscribeBatch.test.ts:117][kp-live-batch]
       "coalesces same-tick subscribeById calls into ONE /fate/live control POST".
-    - The retry budget counts connects, not errors. Copies [liveRetry.unit.test.ts:99][kp-retry] "charges the budget
+    - [ ] The retry budget counts connects, not errors. Copies [liveRetry.unit.test.ts:99][kp-retry] "charges the budget
       per connect, not per error — N views do not drain it faster".
-    - L2: 64 queued sends and one more `Overloaded`; 1,024 typing events and one more refused; flapping connections
+    - [ ] L2: 64 queued sends and one more `Overloaded`; 1,024 typing events and one more refused; flapping connections
       ending `Flapping` (see @plan.Pending.D14).
   - **Structure:**
-    - S1: account → hub → thread → composer → attachment, with S9 at an attachment; S4: `Hub`.
-    - S2: one connection fanned out to 100 threads under L5. Many views reconnect once. Copies
+    - [ ] S1: account → hub → thread → composer → attachment, with S9 at an attachment; S4: `Hub`.
+    - [ ] S2: one connection fanned out to 100 threads under L5. Many views reconnect once. Copies
       [use-chat.ui.test.tsx:2540][ai-react] "should only reconnect once for multiple useChat consumers".
-    - Owner churn never closes the shared connection. Copies [globalLivePin.test.ts:103][kp-pin] "WITH the pin: the
+    - [ ] Owner churn never closes the shared connection. Copies [globalLivePin.test.ts:103][kp-pin] "WITH the pin: the
       same churn never closes the EventSource — refcount stays >= 1".
-    - S6 × {hub first, thread first, reloaded} with live sessions. A late update from the old chat is dropped.
+    - [ ] S6 × {hub first, thread first, reloaded} with live sessions. A late update from the old chat is dropped.
       Copies [use-chat.ui.test.tsx:3495][ai-react] "should ignore a delayed publication after changing chats".
-    - S8: a thread switched mid-reply aborts the old stream. Copies [use-chat.ui.test.tsx:3694][ai-react] "should
+    - [ ] S8: a thread switched mid-reply aborts the old stream. Copies [use-chat.ui.test.tsx:3694][ai-react] "should
       abort the previous stream when the id changes".
-    - S3: two hubs; S7: a hub with no account, refused at boot.
+    - [ ] S3: two hubs; S7: a hub with no account, refused at boot.
   - **Edges:**
-    - E8: a reload mid-reply; the resumed stream replaces the partial text. Copies [use-chat.ui.test.tsx:133][ai-react]
-      "replaces a partial response when a resumed transport replays the full stream".
-    - A token removed while it loads. Copies [token-input.test.ts:14][ui-token] "a token removed while it loads comes
-      back settled on undo".
-    - A token that fails to load. Copies [token-input.test.ts:48][ui-token] "a token that fails to load leaves a
+    - [ ] E8: a reload mid-reply; the resumed stream replaces the partial text. Copies
+      [use-chat.ui.test.tsx:133][ai-react] "replaces a partial response when a resumed transport replays the full
+      stream".
+    - [ ] A token removed while it loads. Copies [token-input.test.ts:14][ui-token] "a token removed while it loads
+      comes back settled on undo".
+    - [ ] A token that fails to load. Copies [token-input.test.ts:48][ui-token] "a token that fails to load leaves a
       supplied token with the id it would have generated".
-    - Closed at once; a reconnect with no bookmark; a bookmark at 256 entries and past it; E7: a position that fails
+    - [ ] Closed at once; a reconnect with no bookmark; a bookmark at 256 entries and past it; E7: a position that fails
       to decode; `missed` as `Unproven`, `Lost` and `Reset`.
   - **Combinations:**
-    - Stop while a reconnect is pending. Copies [chat.test.ts:1763][ai-chat] "should stop a resumed stream while
+    - [ ] Stop while a reconnect is pending. Copies [chat.test.ts:1763][ai-chat] "should stop a resumed stream while
       reconnection is pending".
-    - Stop pauses the send queue. Copies [chat.test.ts:6046][ai-chat] "should pause the queue on stop and resume it
+    - [ ] Stop pauses the send queue. Copies [chat.test.ts:6046][ai-chat] "should pause the queue on stop and resume it
       in order with the next message".
-    - An edit stops the reply and clears the queue. Copies [chat.test.ts:6429][ai-chat] "should stop the response and
-      clear the queue when a message is edited".
-    - A tool result queued while stopping. Copies [chat.test.ts:1594][ai-chat] "should not restart the chat from a
-      tool output queued while stopping" and [chat.test.ts:1512][ai-chat] "should wait for a pending tool callback
-      and its message update before stop resolves".
-    - An identity reset cancels a pending retry. Copies [liveRetry.unit.test.ts:140][kp-retry] "reset() cancels a
+    - [ ] An edit stops the reply and clears the queue. Copies [chat.test.ts:6429][ai-chat] "should stop the response
+      and clear the queue when a message is edited".
+    - [ ] A tool result queued while stopping. Copies [chat.test.ts:1594][ai-chat] "should not restart the chat from a
+      tool output queued while stopping" and [chat.test.ts:1512][ai-chat] "should wait for a pending tool callback and
+      its message update before stop resolves".
+    - [ ] An identity reset cancels a pending retry. Copies [liveRetry.unit.test.ts:140][kp-retry] "reset() cancels a
       pending retry so it never fires onto a re-keyed client".
-    - Backoff grows, resets after a synced session, and stops after a terminal close: y-websocket
+    - [ ] Backoff grows, resets after a synced session, and stops after a terminal close: y-websocket
       `testShouldReconnectTrueGrowsTheBackoff`, `testSyncedSessionResetsTheBackoff`,
       `testTerminalCloseStopsReconnecting` (not checked here).
-  - **Variety:** `every` against `latest`; with and without `catchUp`; one connection against one per thread.
+  - [ ] **Variety:** `every` against `latest`; with and without `catchUp`; one connection against one per thread.
   - **Findings:**
-    - Only the latest of two overlapping resumes applies. Copies [chat.test.ts:1814][ai-chat] "should only apply the
+    - [ ] Only the latest of two overlapping resumes applies. Copies [chat.test.ts:1814][ai-chat] "should only apply the
       latest overlapping resumed stream".
-    - A resume never copies the previous reply. Copies [chat.test.ts:2852][ai-chat] "should not copy the previous
+    - [ ] A resume never copies the previous reply. Copies [chat.test.ts:2852][ai-chat] "should not copy the previous
       assistant message when resuming a stream".
-    - A partial tool call survives repeated interruptions. Copies [chat.test.ts:3171][ai-chat] "should continue a
+    - [ ] A partial tool call survives repeated interruptions. Copies [chat.test.ts:3171][ai-chat] "should continue a
       hydrated partial static tool call across repeated stream interruptions".
-    - Repeated failed resumes show the latest error. Copies [chat.test.ts:1886][ai-chat] "should publish the latest
+    - [ ] Repeated failed resumes show the latest error. Copies [chat.test.ts:1886][ai-chat] "should publish the latest
       error after repeated failed resume attempts".
-    - A non-network error doesn't resume. Copies [chat.test.ts:1195][ai-chat] "should not resume an active response
+    - [ ] A non-network error doesn't resume. Copies [chat.test.ts:1195][ai-chat] "should not resume an active response
       after a non-network error".
-    - A failed reply pauses the queue. Copies [chat.test.ts:6080][ai-chat] "should pause the queue when a response
+    - [ ] A failed reply pauses the queue. Copies [chat.test.ts:6080][ai-chat] "should pause the queue when a response
       fails".
-    - Strict Mode's second mount aborts the first reconnect. Copies [use-chat.ui.test.tsx:2916][ai-react] "should
+    - [ ] Strict Mode's second mount aborts the first reconnect. Copies [use-chat.ui.test.tsx:2916][ai-react] "should
       abort the first reconnect when StrictMode starts another".
-    - A burst of errors makes one retry. Copies [liveRetry.unit.test.ts:75][kp-retry] "coalesces a burst of errors
+    - [ ] A burst of errors makes one retry. Copies [liveRetry.unit.test.ts:75][kp-retry] "coalesces a burst of errors
       from one failed connect into ONE scheduled retry".
-    - A rejected batch drops all its work. Copies [nkzwFateCoalescePin.test.ts:134][kp-coalesce] "a rejected
+    - [ ] A rejected batch drops all its work. Copies [nkzwFateCoalescePin.test.ts:134][kp-coalesce] "a rejected
       coalesced flush discards the WHOLE batch and reports the error".
-    - A loading token settles itself. Copies [token-input.test.ts:80][ui-token] "a loading token settles itself when
+    - [ ] A loading token settles itself. Copies [token-input.test.ts:80][ui-token] "a loading token settles itself when
       onValueChange replaces the value as it's inserted".
-    - Disposal releases the connection. Copies [chat.test.ts:178][ai-chat] "disposes the configured transport".
+    - [ ] Disposal releases the connection. Copies [chat.test.ts:178][ai-chat] "disposes the configured transport".
 
 ### draft
 
@@ -987,77 +1003,77 @@ migrations, kamp.us's draft storage, ui-sdk's tree tests.
   - **step 14:** multi-tab ownership (Web Lock, second tab) (a second tab).
 - **Scenarios:**
   - **Usual:**
-    - Drafts are kept per document. Copies [draftStorage.unit.test.ts:40][kp-draft] "keys drafts by route so two
+    - [ ] Drafts are kept per document. Copies [draftStorage.unit.test.ts:40][kp-draft] "keys drafts by route so two
       surfaces never collide".
-    - An upload resumed from a stored address. Copies [test-browser-specific.js:11][tus-browser] "should resume an
+    - [ ] An upload resumed from a stored address. Copies [test-browser-specific.js:11][tus-browser] "should resume an
       upload from a stored url" and [test-common.js:567][tus-common] "should resume an upload from a specified url".
-    - Outline children load on expand. Copies [tree.test.ts:698][ui-tree] "a branch with no children loads them,
+    - [ ] Outline children load on expand. Copies [tree.test.ts:698][ui-tree] "a branch with no children loads them,
       then expands".
   - **Load:**
-    - Retry until the delays run out. Copies [test-common.js:836][tus-common] "should retry the upload" and
+    - [ ] Retry until the delays run out. Copies [test-common.js:836][tus-common] "should retry the upload" and
       [test-common.js:1091][tus-common] "should stop retrying after all delays have been used".
-    - Progress resets the retry count. Copies [test-common.js:1241][tus-common] "should reset the attempt counter if
+    - [ ] Progress resets the retry count. Copies [test-common.js:1241][tus-common] "should reset the attempt counter if
       an upload proceeds".
-    - L1: three tabs (step 14); thousands of old records across a release (step 7).
+    - [ ] L1: three tabs (step 14); thousands of old records across a release (step 7).
   - **Structure:**
-    - S1: library → document → section → upload, with S9 at an upload.
-    - S6 × {document first, section first, forgotten, reloaded} during an upload, in one Runtime.
-    - The outline's depth limit. Copies [tree-reorder.test.ts:321][ui-reorder] "maxDepth counts the rows under an item
-      too".
-    - A row deleted during a move. Copies [tree-reorder.test.ts:444][ui-reorder] "a row the owner deletes ends the
+    - [ ] S1: library → document → section → upload, with S9 at an upload.
+    - [ ] S6 × {document first, section first, forgotten, reloaded} during an upload, in one Runtime.
+    - [ ] The outline's depth limit. Copies [tree-reorder.test.ts:321][ui-reorder] "maxDepth counts the rows under an
+      item too".
+    - [ ] A row deleted during a move. Copies [tree-reorder.test.ts:444][ui-reorder] "a row the owner deletes ends the
       move".
-    - A superseded connection never corrupts its replacement. Copies [TLSocketRoom.test.ts:457][tl-socket] "[SR5]
+    - [ ] A superseded connection never corrupts its replacement. Copies [TLSocketRoom.test.ts:457][tl-socket] "[SR5]
       ignores chunks from a superseded socket so they do not corrupt the replacement socket".
   - **Edges:**
-    - The stored upload is gone, so a new one starts. Copies [test-common.js:95][tus-common] "should create an upload
-      if resuming fails".
-    - A 4xx drops the stored address. Copies [test-browser-specific.js:217][tus-browser] "should delete upload urls on
-      a 4XX".
-    - A locked upload. Copies [test-common.js:730][tus-common] "should emit an error if an upload is locked".
-    - E7: a garbage stored draft is never offered. Copies [draftStorage.unit.test.ts:81][kp-draft] "rejects a garbage
-      / shape-mismatched stored value rather than offering it".
-    - Quota and a throwing store never throw into the editor (step 13). Copies [snapshot.test.ts:137][kp-snap]
+    - [ ] The stored upload is gone, so a new one starts. Copies [test-common.js:95][tus-common] "should create an
+      upload if resuming fails".
+    - [ ] A 4xx drops the stored address. Copies [test-browser-specific.js:217][tus-browser] "should delete upload urls
+      on a 4XX".
+    - [ ] A locked upload. Copies [test-common.js:730][tus-common] "should emit an error if an upload is locked".
+    - [ ] E7: a garbage stored draft is never offered. Copies [draftStorage.unit.test.ts:81][kp-draft] "rejects a
+      garbage / shape-mismatched stored value rather than offering it".
+    - [ ] Quota and a throwing store never throw into the editor (step 13). Copies [snapshot.test.ts:137][kp-snap]
       "returns false (no throw) on a quota-exceeded setItem" and [draftStorage.unit.test.ts:94][kp-draft] "swallows a
       throwing storage rather than losing the in-memory draft". That the draft stays in memory: no source.
-    - E1: an empty draft; E3: a draft at its size bound.
+    - [ ] E1: an empty draft; E3: a draft at its size bound.
   - **Combinations:**
-    - Offline edits are pushed again after a reconnect. Copies [TLSyncClient.test.ts:595][tl-client] "[CL8] drops
+    - [ ] Offline edits are pushed again after a reconnect. Copies [TLSyncClient.test.ts:595][tl-client] "[CL8] drops
       pending pushes when going offline and re-pushes the speculative diff after reconnect".
-    - A held save is flushed before a reconnect. Copies [TLSyncClient.test.ts:378][tl-client] "[CL5] a reconnect
+    - [ ] A held save is flushed before a reconnect. Copies [TLSyncClient.test.ts:378][tl-client] "[CL5] a reconnect
       flushes pending store history first, so a change queued behind the frame throttle is neither lost nor
       resurrected".
-    - Offline changes survive a full catch-up. Copies [TLSyncClient.test.ts:492][tl-client] "[CL6][CP3] re-applies
+    - [ ] Offline changes survive a full catch-up. Copies [TLSyncClient.test.ts:492][tl-client] "[CL6][CP3] re-applies
       offline changes after a wipe_all reconnect and pushes them to the server".
-    - The catch-up position is reused. Copies [TLSyncClient.test.ts:1613][tl-client] "[CR5][CL2] advances
+    - [ ] The catch-up position is reused. Copies [TLSyncClient.test.ts:1613][tl-client] "[CR5][CL2] advances
       lastServerClock to the last buffered event's serverClock and reuses it on reconnect".
-    - Old records migrate. Copies [TLSyncRoom.test.ts:287][tl-room] "[RC3] migrates the snapshot if it is dealing
+    - [ ] Old records migrate. Copies [TLSyncRoom.test.ts:287][tl-room] "[RC3] migrates the snapshot if it is dealing
       with old data" and [upgradeDowngrade.test.ts:349][tl-mig] "[MG1] clients will receive updates from a snapshot
       migration upon connection".
-    - Two saves in a row: the first one's optimistic value goes (see @plan.Pending.D16).
-  - **Variety:** one document and many; autosave on a timer and on blur; release 2 adds, drops and retypes a field.
+    - [ ] Two saves in a row: the first one's optimistic value goes (see @plan.Pending.D16).
+  - [ ] **Variety:** one document and many; autosave on a timer and on blur; release 2 adds, drops and retypes a field.
   - **Findings:**
-    - Abort stops a pending retry. Copies [test-common.js:1131][tus-common] "should stop retrying when the abort
+    - [ ] Abort stops a pending retry. Copies [test-common.js:1131][tus-common] "should stop retrying when the abort
       function is called".
-    - Abort while the upload is created. Copies [test-common.js:1208][tus-common] "should stop upload when the abort
+    - [ ] Abort while the upload is created. Copies [test-common.js:1208][tus-common] "should stop upload when the abort
       function is called during the POST request".
-    - Abort with terminate. Copies [test-terminate.js:6][tus-terminate] "should terminate upload when abort is called
-      with true".
-    - A failed outline load is retried on the next expand. Copies [tree.test.ts:720][ui-tree] "a failed load marks the
-      branch, and the next expand tries again".
-    - Expanding again while loading cancels. Copies [tree.test.ts:740][ui-tree] "expanding again while loading
+    - [ ] Abort with terminate. Copies [test-terminate.js:6][tus-terminate] "should terminate upload when abort is
+      called with true".
+    - [ ] A failed outline load is retried on the next expand. Copies [tree.test.ts:720][ui-tree] "a failed load marks
+      the branch, and the next expand tries again".
+    - [ ] Expanding again while loading cancels. Copies [tree.test.ts:740][ui-tree] "expanding again while loading
       cancels".
-    - A session on a schema the server can't reconcile is refused. Copies [TLSyncRoom.test.ts:2533][tl-room] "[SES6]
+    - [ ] A session on a schema the server can't reconcile is refused. Copies [TLSyncRoom.test.ts:2533][tl-room] "[SES6]
       handleResumedSession rejects a session whose schema the server can no longer reconcile".
-    - A failed migration rejects only that session. Copies [upgradeDowngrade.test.ts:1033][tl-mig] "[MG1] rejects only
-      the affected session when down migration fails during broadcast" and [upgradeDowngrade.test.ts:837][tl-mig]
+    - [ ] A failed migration rejects only that session. Copies [upgradeDowngrade.test.ts:1033][tl-mig] "[MG1] rejects
+      only the affected session when down migration fails during broadcast" and [upgradeDowngrade.test.ts:837][tl-mig]
       "[MG2] rejects session when addDocument up migration throws during put".
-    - A bad push rejects only its own tab. Copies [TLSyncRoom.test.ts:1723][tl-room] "[RP12][RP2] a TLSyncError
+    - [ ] A bad push rejects only its own tab. Copies [TLSyncRoom.test.ts:1723][tl-room] "[RP12][RP2] a TLSyncError
       mid-push rejects only the offending session".
-    - A mismatched ack resets the connection. Copies [TLSyncClient.test.ts:1592][tl-client] "[CR4] resets the
+    - [ ] A mismatched ack resets the connection. Copies [TLSyncClient.test.ts:1592][tl-client] "[CR4] resets the
       connection on a push_result with a mismatched clientClock".
-    - An unauthorised save redirects to sign-in. Copies [useDraftSubmit.test.tsx:40][kp-submit] "redirects to auth on
-      an UNAUTHORIZED throw, setting no inline error".
-    - The editor leaves nothing running once closed. Copies [leaks.test.ts:30][ui-leaks] "leaves nothing running
+    - [ ] An unauthorised save redirects to sign-in. Copies [useDraftSubmit.test.tsx:40][kp-submit] "redirects to auth
+      on an UNAUTHORIZED throw, setting no inline error".
+    - [ ] The editor leaves nothing running once closed. Copies [leaks.test.ts:30][ui-leaks] "leaves nothing running
       after it unmounts".
 
 ## Existing fixtures to change
