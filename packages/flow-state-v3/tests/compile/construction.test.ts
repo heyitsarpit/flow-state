@@ -74,27 +74,43 @@ describe("one construction failure (Compile R2, I3, T2)", () => {
 });
 
 describe("the declared shape (Compile R4, R12)", () => {
-  it("refuses unknown fields, wrong kinds, an empty compound, duplicate siblings, overlapping public and internal names, and _tag fields", () => {
+  it("refuses unknown fields and wrong kinds, each at its path", () => {
     expect(
       refusal(() =>
         definition(
           loose({
-            id: "Compile/Shape",
-            states: ["A", "A", { B: [] }, 7],
+            id: "Compile/Kinds",
+            states: ["A", 7, {}],
+            events: { Go: {} },
+            placement: {},
+          }),
+        ),
+      ),
+    ).toEqual([
+      ["InvalidConfiguration", "WrongKind", "states.1"],
+      ["InvalidConfiguration", "WrongKind", "states.2"],
+      ["InvalidConfiguration", "UnknownField", "placement"],
+    ]);
+  });
+
+  it("refuses an empty compound, duplicate siblings, overlapping public and internal names, and _tag fields", () => {
+    expect(
+      refusal(() =>
+        definition(
+          loose({
+            id: "Compile/Rules",
+            states: ["A", "A", { B: [] }],
             events: { Go: {} },
             internalEvents: { Go: {} },
             memory: { _tag: Flow.initial(Schema.String, "") },
-            placement: {},
           }),
         ),
       ),
     ).toEqual([
       ["InvalidConfiguration", "DuplicateName", "states.A"],
       ["InvalidConfiguration", "EmptyCompound", "states.B"],
-      ["InvalidConfiguration", "WrongKind", "states.3"],
       ["InvalidConfiguration", "DuplicateName", "internalEvents.Go"],
       ["InvalidConfiguration", "ReservedField", "memory._tag"],
-      ["InvalidConfiguration", "UnknownField", "placement"],
     ]);
   });
 
@@ -526,7 +542,7 @@ describe("operations map onto this definition's events (Compile R3, R17, I16)", 
     ).toEqual([["InvalidConfiguration", "KeyOutsideInput", "operations.save.key.missing"]]);
   });
 
-  it.fails("Compile R2, R4: a Flow.uncertain-shaped event with no fields is refused WrongKind, never a raw TypeError", () => {
+  it("Compile R2, R4: a Flow.uncertain-shaped event with no fields is refused WrongKind, never a raw TypeError", () => {
     expect(
       refusal(() =>
         definition(
@@ -536,7 +552,7 @@ describe("operations map onto this definition's events (Compile R3, R17, I16)", 
     ).toEqual([["InvalidConfiguration", "WrongKind", "events.X"]]);
   });
 
-  it.fails("Compile R4: a context slot that is not Provider.select's is refused WrongKind", () => {
+  it("Compile R4: a context slot that is not Provider.select's is refused WrongKind", () => {
     expect(
       refusal(() =>
         definition(loose({ id: "Compile/Context", states: ["A"], events: {}, context: { c: 5 } })),
@@ -544,7 +560,7 @@ describe("operations map onto this definition's events (Compile R3, R17, I16)", 
     ).toEqual([["InvalidConfiguration", "WrongKind", "context.c"]]);
   });
 
-  it.fails("Compile R2, R4: a handler that is null or a bare string, and an armOn element that is neither an event name nor Flow.entry, are refused WrongKind", () => {
+  it("Compile R2, R4: a handler that is null or a bare string, and an armOn element that is neither an event name nor Flow.entry, are refused WrongKind", () => {
     expect(
       refusal(() =>
         machine(Lamp, ({ S, E }) =>
@@ -562,6 +578,26 @@ describe("operations map onto this definition's events (Compile R3, R17, I16)", 
       ["InvalidConfiguration", "WrongKind", "on.Flip"],
       ["InvalidConfiguration", "WrongKind", "on.Dim"],
       ["InvalidConfiguration", "WrongKind", "states.OFF.schedules.off.armOn.0"],
+    ]);
+  });
+
+  it("Compile R4: an alternative or a schedule with a field it does not have is refused UnknownField", () => {
+    expect(
+      refusal(() =>
+        machine(Lamp, ({ S, E }) =>
+          loose({
+            default: S.OFF,
+            on: { Flip: { target: S.OFF, gaurd: [] } },
+            states: {
+              OFF: { schedules: { off: { schedule: "1 second", send: E.Flip, every: true } } },
+              ON: { default: S.ON.DIM },
+            },
+          }),
+        ),
+      ),
+    ).toEqual([
+      ["InvalidConfiguration", "UnknownField", "on.Flip.gaurd"],
+      ["InvalidConfiguration", "UnknownField", "states.OFF.schedules.off.every"],
     ]);
   });
 

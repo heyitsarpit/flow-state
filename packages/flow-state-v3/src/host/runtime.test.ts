@@ -125,7 +125,7 @@ describe("Runtime", () => {
     assert.deepStrictEqual(stateOf(door), Option.some("SHUT"));
   });
 
-  it.fails("send accepts the envelope E.X built: a transforming field is checked by its Type side, as E.X checks it (Actors R14, Compile R14)", () => {
+  it("send accepts the envelope E.X built: a transforming field is checked by its Type side, as E.X checks it (Actors R14, Compile R14)", () => {
     const Clock = definition({
       id: "Test/Clock",
       states: ["IDLE", "SET"],
@@ -144,7 +144,7 @@ describe("Runtime", () => {
     assert.deepStrictEqual(stateOf(actor), Option.some("SET"));
   });
 
-  it.fails("a services Layer that fails to build rejects ready() with Defect, a code of the closed list (Diagnostics R6, I5)", () => {
+  it("a services Layer that fails to build rejects ready() with Defect, a code of the closed list (Diagnostics R6, I5)", () => {
     const runtime = runtimeSetup({
       app: doors,
       services: Layer.effect(Bell, Effect.fail("no bell")),

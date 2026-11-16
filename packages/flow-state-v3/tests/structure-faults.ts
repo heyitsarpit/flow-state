@@ -128,7 +128,7 @@ export const structureFaults: ReadonlyArray<Fault> = [
     rule: "Compile R2, T2",
     edits: [
       {
-        file: "src/definition.ts",
+        file: "src/config.ts",
         find: "throw flowError([first, ...rest]);",
         replace: "throw flowError([first]);",
       },
@@ -169,8 +169,8 @@ export const structureFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/compile-body.ts",
-        find: "    if (!walk.children.some((c) => c.name === key))",
-        replace: '    if (key === "~never")',
+        find: ".filter((k) => !children.some((c) => c.name === k))",
+        replace: ".filter(() => false)",
       },
     ],
   },
@@ -338,9 +338,113 @@ export const structureFaults: ReadonlyArray<Fault> = [
     rule: "Compile R4",
     edits: [
       {
-        file: "src/construction.ts",
-        find: "return Predicate.isBoolean(value)",
-        replace: "return true",
+        file: "src/config.ts",
+        find: "persist: Schema.optionalKey(Schema.Boolean.annotate(",
+        replace: "persist: Schema.optionalKey(Schema.Unknown.annotate(",
+      },
+    ],
+  },
+  {
+    name: "payload-of-any-kind",
+    tests: [CONSTRUCTION],
+    says: "an event whose payload is neither field Schemas nor Flow.uncertain(fields) is accepted",
+    rule: "Compile R2, R4",
+    edits: [
+      {
+        file: "src/config.ts",
+        find: "Schema.Record(Schema.String, Schema.Union([UncertainEvent, Payload]))",
+        replace: "Schema.Record(Schema.String, Schema.Unknown)",
+      },
+    ],
+  },
+  {
+    name: "context-of-any-kind",
+    tests: [CONSTRUCTION],
+    says: "a context slot that is not Provider.select's is accepted",
+    rule: "Compile R4",
+    edits: [
+      {
+        file: "src/config.ts",
+        find: "context: Schema.optionalKey(Schema.Record(Schema.String, ContextSlot)),",
+        replace: "context: Schema.optionalKey(Schema.Unknown),",
+      },
+    ],
+  },
+  {
+    name: "handler-of-any-kind",
+    tests: [CONSTRUCTION],
+    says: "a handler that is null or a bare string is accepted",
+    rule: "Compile R2, R4",
+    edits: [
+      {
+        file: "src/config.ts",
+        find: "Schema.UndefinedOr(Schema.Union([Handler, Schema.Array(Handler)])),",
+        replace: "Schema.Unknown,",
+      },
+    ],
+  },
+  {
+    name: "armon-of-any-kind",
+    tests: [CONSTRUCTION],
+    says: "an armOn element that is neither an event name nor Flow.entry is dropped",
+    rule: "Compile R4",
+    edits: [
+      {
+        file: "src/config.ts",
+        find: 'armOn: Schema.optionalKey(Schema.Array(Schema.Union([Schema.String, marked("entry")]))),',
+        replace: "armOn: Schema.optionalKey(Schema.Array(Schema.Unknown)),",
+      },
+    ],
+  },
+  {
+    name: "unknown-fields-ignored",
+    tests: [CONSTRUCTION],
+    says: "a field a definition, an alternative or a schedule does not have is ignored",
+    rule: "Compile R4",
+    edits: [
+      {
+        file: "src/config.ts",
+        find: '{ onExcessProperty: "error", errors: "all" }',
+        replace: '{ errors: "all" }',
+      },
+    ],
+  },
+  {
+    name: "send-decodes-payload",
+    tests: ["src/host/runtime.test.ts"],
+    says: "send decodes a payload E.X built, so a transforming field it checked is refused",
+    rule: "Actors R14, Compile R14",
+    edits: [
+      {
+        file: "src/host/driver.ts",
+        find: "Schema.is(event.payload)(payload)",
+        replace: "Option.isSome(Schema.decodeUnknownOption(event.payload)(payload))",
+      },
+    ],
+  },
+  {
+    name: "callback-defect-outside-list",
+    tests: ["tests/turn/creation.test.ts"],
+    says: "a throwing callback is reported with a code outside the closed list",
+    rule: "Diagnostics I5",
+    edits: [
+      {
+        file: "src/core/incarnations.ts",
+        find: '            code: "Defect",',
+        replace: '            code: "CallbackDefect",',
+      },
+    ],
+  },
+  {
+    name: "service-failure-outside-list",
+    tests: ["src/host/runtime.test.ts"],
+    says: "a failing services Layer is reported with a code outside the closed list",
+    rule: "Diagnostics I5",
+    edits: [
+      {
+        file: "src/host/runtime.ts",
+        find: '                code: "Defect",\n                path: ["services"],',
+        replace: '                code: "ServiceFailed",\n                path: ["services"],',
       },
     ],
   },

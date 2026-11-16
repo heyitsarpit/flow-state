@@ -53,7 +53,8 @@ requirements
                 a Schema default beside Flow.initial, reject as TwoDefaults. A default whose Effect 
                 is not a succeeded value rejects as ImpureDefault (proposed name) without being 
                 run. A computed initial reads input or constant fields, never another computed field; reading one is
-                    that callback's defect: the actor is not created and a CallbackDefect issue is reported.
+                    that callback's defect: the actor is not created and a Defect issue naming the callback's slot is 
+                        reported.
 
     R6  Pure creation
         source  @plan.Machines.O1.

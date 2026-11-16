@@ -227,9 +227,9 @@ export const makeDriver = (options: {
       const event = machines.get(actor.machine)?.events.get(tag);
 
       const decoded =
-        event === undefined || !event.public
-          ? Option.none()
-          : Schema.decodeUnknownOption(event.payload)(payload);
+        event !== undefined && event.public && Schema.is(event.payload)(payload)
+          ? Option.some(payload)
+          : Option.none();
 
       check(Input.Send({ actor, tag, payload }), `send ${tag} to ${actor.name}`);
 

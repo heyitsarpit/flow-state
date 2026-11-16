@@ -331,8 +331,7 @@ const accept = (alternative: Alternative, handler: string, input: TurnInput): Tu
       ),
   });
 
-  if (Result.isFailure(patched))
-    return TurnResult.Refused({ code: "CallbackDefect", ...patched.failure });
+  if (Result.isFailure(patched)) return TurnResult.Refused({ code: "Defect", ...patched.failure });
   const memory = patched.success;
   const select = { memory, event: input.payload };
   const actions: Array<Resolved> = [];

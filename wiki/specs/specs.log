@@ -190,3 +190,8 @@ note 2026-11-16T15:15:28Z
     Actors R9, R13; WriteAhead R4: an actor record saves each slot's last-seen value and a return waves only when a
     selection differs from it; a capped context update waits instead of being dropped. Why: T9 second review. Reverse:
     drop seen.
+
+note 2026-11-16T15:22:55Z
+    Compile R5; Diagnostics R7: a throwing callback's issue and a failing services Layer report Defect, not
+    CallbackDefect or ServiceFailed, which are outside the closed list; the slot or cause names what failed. Why:
+    orchestrator ruling (T81). Reverse: add both codes to @plan.Diagnostics.O2 with the user.

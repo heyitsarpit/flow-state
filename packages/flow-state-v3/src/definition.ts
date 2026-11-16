@@ -5,14 +5,8 @@ import { atOrBelow, chainOf } from "./core/tree.ts";
 import type { Bound, Ending, Fields } from "./contract.ts";
 import { flowError } from "./error.ts";
 import { readHandle, writeHandle } from "./handles.ts";
-import {
-  definitionFindings,
-  isMarker,
-  missingFindings,
-  isUncertain,
-  type TreeNode,
-  treeOf,
-} from "./construction.ts";
+import { configFindings, inDeclarationOrder, isUncertain, refuse } from "./config.ts";
+import { definitionFindings, isMarker, type TreeNode, treeOf } from "./construction.ts";
 import type { Entry, Field, Input, Plain, Private, Uncertain } from "./flow.ts";
 
 export type EventFields = Fields | Uncertain;
@@ -522,31 +516,24 @@ export const definition = <
 >(
   config: DefinitionConfig<States, Ev, In, M, O, Cx>,
 ): Definition<States, Ev, In, M, O, Cx> => {
+  const keys = Object.keys(config);
+
+  refuse(inDeclarationOrder(keys, configFindings(config)));
+
   const internal = config.internalEvents ?? trusted<In>({});
   const context = config.context ?? trusted<Cx>({});
   const memory = config.memory ?? trusted<M>({});
   const operations = config.operations?.({ E: tokensOf(internal) }) ?? trusted<O>({});
   const tree = treeOf(config.states);
 
-  const findings = [
-    ...missingFindings(config),
-    ...Object.keys(config)
-      .filter((key) => key !== "context")
-      .flatMap((key) =>
-        definitionFindings(
-          key,
-          { ...config, persist: config.persist, internalEvents: internal, memory },
-          tree.findings,
-          operations,
-        ),
-      ),
-  ];
-
-  const [first, ...rest] = findings;
-
-  if (first !== undefined)
-    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- an invalid definition throws one FlowError before any work
-    throw flowError([first, ...rest]);
+  refuse(
+    definitionFindings(
+      { id: config.id, events: config.events, internalEvents: internal, memory, context },
+      tree.findings,
+      operations,
+      keys,
+    ),
+  );
 
   const handles = Object.fromEntries(
     Object.entries(operations).map(([name, bound]) => [

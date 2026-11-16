@@ -38,13 +38,13 @@ export type Channel = typeof Channel.Type;
 /**
  * Why a turn was refused before commit.
  */
-export type RefusedCode = "CallbackDefect" | "InvalidTurn" | "GuardDefect";
+export type RefusedCode = "Defect" | "InvalidTurn" | "GuardDefect";
 
 /**
- * The codes of the issues reported: a turn's refusal, a call's defect, or a final write still
- * pending when the Runtime's disposal bound passes.
+ * The codes of the issues reported: a turn's refusal, a callback's or a call's defect, or a final
+ * write still pending when the Runtime's disposal bound passes.
  */
-export type IssueCode = RefusedCode | "Defect" | "StorageFailure";
+export type IssueCode = RefusedCode | "StorageFailure";
 
 /**
  * A schedule's saved deadline, as an actor record holds it.

@@ -18,7 +18,7 @@ import {
   treeOfDefinition,
   type WritableOf,
 } from "./definition.ts";
-import { flowError } from "./error.ts";
+import { bodyFindings, refuse } from "./config.ts";
 import { eventsOf, fieldOf, mappingOf, memoryCodec, operationOf } from "./compiled-parts.ts";
 import type { Ending } from "./contract.ts";
 import type { ActorId } from "./core/world.ts";
@@ -88,8 +88,7 @@ export type MachineBody<D extends AnyDefinition> = {
  * A machine body as the compiler walks it, its literal types erased.
  */
 export type AnyBody = {
-  // FLOW_STATE_ALLOW_UNKNOWN: an authored or compiled value, checked here before it is trusted.
-  readonly default?: unknown;
+  readonly default?: StateToken;
   readonly on?: Values;
   readonly onContext?: ReadonlyArray<{
     readonly select: (input: { readonly context: Values; readonly memory: Values }) => unknown;
@@ -142,6 +141,9 @@ export const machine = <D extends AnyDefinition>(
   body: (tokens: { readonly S: D["S"]; readonly E: D["E"]; readonly O: D["O"] }) => MachineBody<D>,
 ): Machine<D> => {
   const config = erasedBody(body({ S: definition.S, E: definition.E, O: definition.O }));
+
+  refuse(bodyFindings(config));
+
   const tree = treeOfDefinition(definition);
   const { tokens, histories } = tokenMaps(definition, tree.nodes);
 
@@ -156,12 +158,9 @@ export const machine = <D extends AnyDefinition>(
     scheduleNames: new Map(),
   };
 
-  const compiledTree = nodesOf(compile, config, Option.none(), "");
-  const [first, ...rest] = compile.findings;
+  const compiledTree = nodesOf(compile, config, Option.none(), []);
 
-  if (first !== undefined)
-    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- an invalid machine throws one FlowError before any work
-    throw flowError([first, ...rest]);
+  refuse(compile.findings);
 
   const fields = Object.entries(definition.memory).map(([name, raw]) => fieldOf(name, raw));
   const memory = memoryCodec(fields);

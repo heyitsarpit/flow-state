@@ -1,4 +1,4 @@
-import { Option, Predicate, Schema, SchemaAST } from "effect";
+import { Option, Schema, SchemaAST } from "effect";
 import {
   type EventEntry,
   type Field,
@@ -8,6 +8,7 @@ import {
   type Values,
 } from "./core/compiled.ts";
 import type { Bound, Ending } from "./contract.ts";
+import { isUncertain } from "./config.ts";
 import { isMarker, pureDefault } from "./construction.ts";
 import { type AnyDefinition, codecOf, type EventFields, fieldsOf } from "./definition.ts";
 import type { Field as FieldMarker } from "./flow.ts";
@@ -106,7 +107,7 @@ export const eventsOf = (definition: AnyDefinition) => {
   const entry = (fields: EventFields, isPublic: boolean): EventEntry => ({
     payload: codecOf<Values>(Schema.Struct(fieldsOf(fields))),
     public: isPublic,
-    uncertain: Predicate.hasProperty(fields, "~flow"),
+    uncertain: isUncertain(fields),
   });
 
   return new Map([

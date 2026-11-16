@@ -35,7 +35,6 @@ const keyed = <A extends { readonly key: string }>(entries: ReadonlyArray<A>) =>
 // configuration it was given, a callback that threw is a Defect.
 const DIAGNOSTIC_OF = {
   InvalidTurn: "InvalidConfiguration",
-  CallbackDefect: "Defect",
   GuardDefect: "GuardDefect",
   Defect: "Defect",
   StorageFailure: "StorageFailure",

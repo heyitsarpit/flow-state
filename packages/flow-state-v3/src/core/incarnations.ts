@@ -129,7 +129,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
       if (created.failure.computed)
         tx.act(
           Act.Refused({
-            code: "CallbackDefect",
+            code: "Defect",
             actor,
             ending: Option.none(),
             source: CREATION,

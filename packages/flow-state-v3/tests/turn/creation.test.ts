@@ -66,21 +66,13 @@ describe("creation (Turn R14, T6; Compile R5)", () => {
     expect(issues(run.evidence)).toEqual(["InvalidTurn"]);
   });
 
-  it("Compile R5: a computed start that reads another computed field is a callback defect: the actor is not created and the issue is reported", async () => {
+  it("Compile R5, Diagnostics I5: a computed start that reads another computed field is a callback defect: the actor is not created and a Defect, a code of the closed list, is reported", async () => {
     const run = await Story.app(wordApp, { id: "creation/words", fixtures: [] })
       .ensure(words)
       .checkpoint("ensured")
       .run();
 
     expect(run.checkpoints.ensured.read(words)).toBeUndefined();
-    expect(issues(run.evidence)).toEqual(["CallbackDefect"]);
-  });
-
-  it.fails("Diagnostics I5: a callback that throws is reported with a code of the closed list (Defect)", async () => {
-    const run = await Story.app(wordApp, { id: "creation/words-code", fixtures: [] })
-      .ensure(words)
-      .run();
-
     expect(issues(run.evidence).every(Schema.is(Diagnostic.fields.code))).toBe(true);
     expect(issues(run.evidence)).toEqual(["Defect"]);
   });
@@ -109,7 +101,7 @@ describe("creation (Turn R14, T6; Compile R5)", () => {
       .run();
 
     expect(run.checkpoints.ensured.read(spread)).toBeUndefined();
-    expect(issues(run.evidence)).toEqual(["CallbackDefect"]);
+    expect(issues(run.evidence)).toEqual(["Defect"]);
   });
 });
 

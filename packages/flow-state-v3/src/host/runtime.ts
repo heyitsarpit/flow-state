@@ -246,7 +246,7 @@ export type RuntimeSetup<R = never> = {
  */
 export type RuntimeConfig = {
   readonly app: App;
-  // FLOW_STATE_ALLOW_UNKNOWN: a services Layer may fail with its own error; the boot reports it as ServiceFailed.
+  // FLOW_STATE_ALLOW_UNKNOWN: a services Layer may fail with its own error; the boot reports it as a Defect.
   readonly services?: Layer.Layer<never, unknown>;
   readonly scope?: string;
   readonly persistence?: { readonly captureMs?: number };
@@ -255,7 +255,7 @@ export type RuntimeConfig = {
 /**
  * A setup's services Layer: it provides `R` and needs nothing.
  */
-// FLOW_STATE_ALLOW_UNKNOWN: a services Layer may fail with its own error; the boot reports it as ServiceFailed.
+// FLOW_STATE_ALLOW_UNKNOWN: a services Layer may fail with its own error; the boot reports it as a Defect.
 export type ServicesLayer<R> = Layer.Layer<R, unknown>;
 
 /**
@@ -367,7 +367,7 @@ export const buildRuntime = (
           flowErrorOf(
             [
               {
-                code: "ServiceFailed",
+                code: "Defect",
                 path: ["services"],
                 summary: "the services Layer failed to build",
                 help: "Fix the failing service; its cause is on this error.",

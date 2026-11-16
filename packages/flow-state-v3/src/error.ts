@@ -135,7 +135,6 @@ export const Code = Schema.Literals([
   "InvalidUsage",
   "ConfigLoadFailed",
   "OutputFailed",
-  "ServiceFailed",
 ]);
 
 /**

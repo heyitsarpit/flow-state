@@ -1,10 +1,10 @@
-import { Exit, Option, Predicate, Schema, SchemaAST } from "effect";
+import { Exit, Option, Predicate, SchemaAST } from "effect";
+import { inDeclarationOrder, invalid, isUncertain } from "./config.ts";
 import type { Bound } from "./contract.ts";
 import { operationFindings } from "./operation-checks.ts";
-import type { Values } from "./core/compiled.ts";
-import type { EventFields } from "./definition.ts";
+import type { ContextConfig, EventFields, MemoryConfig, StateTree } from "./definition.ts";
 import type { Finding } from "./error.ts";
-import type { Field, Initial, Input, Private, Uncertain } from "./flow.ts";
+import type { Field, Initial, Input, Private } from "./flow.ts";
 import { chainOf } from "./core/tree.ts";
 
 /**
@@ -16,9 +16,6 @@ export type TreeNode = {
   readonly parent: Option.Option<string>;
   readonly children: ReadonlyArray<string>;
 };
-
-// RETURN_TYPE: a type guard over event fields.
-export const isUncertain = (x: EventFields): x is Uncertain => Predicate.hasProperty(x, "~flow");
 
 /**
  * Names Flow reserves: as any state name, and `root` at the top level.
@@ -36,26 +33,16 @@ const UNSAFE =
   // oxlint-disable-next-line no-control-regex -- the rule is about control characters
   /[\u0000-\u001F\u007F]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u;
 
-/**
- * Why an authored name is invalid, if it is: empty, over 256 UTF-8 bytes, or holding a control
- * character or a lone surrogate.
- */
-// RETURN_TYPE: the Compiled shape this part builds.
-export const nameProblem = (name: string): Option.Option<string> => {
+// Why an authored name is invalid, if it is: empty, over 256 UTF-8 bytes, or holding a control
+// character or a lone surrogate.
+// RETURN_TYPE: the reason a name is refused, if it is.
+const nameProblem = (name: string): Option.Option<string> => {
   if (name.length === 0) return Option.some("empty");
 
   if (encoder.encode(name).length > MAX_NAME_BYTES) return Option.some("over 256 UTF-8 bytes");
 
   return UNSAFE.test(name) ? Option.some("a control character or a lone surrogate") : Option.none();
 };
-
-// RETURN_TYPE: the Compiled shape this part builds.
-export const invalid = (
-  path: ReadonlyArray<string | number>,
-  reason: string,
-  summary: string,
-  help: string,
-): Finding => ({ code: "InvalidConfiguration", path, details: { reason }, summary, help });
 
 /**
  * Findings for one authored name at `path`.
@@ -73,25 +60,6 @@ export const checkName = (name: string, path: ReadonlyArray<string | number>): A
       ),
     ],
   });
-
-// FLOW_STATE_ALLOW_UNKNOWN: an authored or compiled value, checked here before it is trusted.
-// RETURN_TYPE: a type guard states the type it narrows to.
-const isRecord = (x: unknown): x is Values =>
-  Predicate.isObject(x) && !Array.isArray(x) && !Predicate.isFunction(x);
-
-// One element of a state list as its name and child list: a leaf name, or a single-key compound.
-// FLOW_STATE_ALLOW_UNKNOWN: an authored value, checked here before it is trusted.
-const elementOf = (element: unknown) => {
-  if (Predicate.isString(element)) return Option.some({ name: element, kids: Option.none() });
-
-  if (!isRecord(element)) return Option.none();
-
-  const [only, ...more] = Object.entries(element);
-
-  return only === undefined || more.length > 0
-    ? Option.none()
-    : Option.some({ name: only[0], kids: Option.some(only[1]) });
-};
 
 // The findings of one state's name at its place in the tree.
 const nameFindings = (
@@ -132,68 +100,39 @@ const nameFindings = (
   return found;
 };
 
-// The findings of a state list that is not a nonempty array.
-// FLOW_STATE_ALLOW_UNKNOWN: an authored value, checked here before it is trusted.
-const listFindings = (list: unknown, at: ReadonlyArray<string | number>) => {
-  if (!Array.isArray(list))
-    return [
-      invalid(
-        at,
-        "WrongKind",
-        "a state list is not an array",
-        "Write states as a list of names and single-key compounds.",
-      ),
-    ];
+const emptyCompound = (at: ReadonlyArray<string | number>) =>
+  invalid(
+    at,
+    "EmptyCompound",
+    "a state list is empty",
+    "Give every compound at least one child state.",
+  );
 
-  return list.length === 0
-    ? [
-        invalid(
-          at,
-          "EmptyCompound",
-          "a state list is empty",
-          "Give every compound at least one child state.",
-        ),
-      ]
-    : [];
-};
+// A state list's element as its name and child list: a leaf, or a compound's one key.
+const entriesOf = (element: StateTree[number]) =>
+  Predicate.isString(element)
+    ? [{ name: element, kids: Option.none<StateTree>() }]
+    : Object.entries(element).map(([name, kids]) => ({ name, kids: Option.some(kids) }));
 
-// The tree's nodes in declaration order, and the findings of its shape.
-// FLOW_STATE_ALLOW_UNKNOWN: an authored value, checked here before it is trusted.
-export const treeOf = (states: unknown) => {
+/**
+ * A decoded tree's nodes in declaration order, and the findings of its rules: names, reserved
+ * names, depth, duplicate siblings and empty compounds.
+ */
+export const treeOf = (states: StateTree) => {
   const nodes: Array<TreeNode> = [];
   const findings: Array<Finding> = [];
 
   // RETURN_TYPE: recursive: the paths of a list's children, in declaration order.
   const walk = (
-    // FLOW_STATE_ALLOW_UNKNOWN: an authored value, checked here before it is trusted.
-    list: unknown,
+    list: StateTree,
     parent: Option.Option<string>,
     at: ReadonlyArray<string | number>,
   ): ReadonlyArray<string> => {
-    const refused = listFindings(list, at);
-    findings.push(...refused);
-
-    if (refused.length > 0 || !Array.isArray(list)) return [];
+    if (list.length === 0) findings.push(emptyCompound(at));
 
     const names = new Set<string>();
-    const children: Array<string> = [];
 
-    for (const [i, raw] of list.entries()) {
-      const element = elementOf(raw);
-
-      if (Option.isNone(element)) {
-        findings.push(
-          invalid(
-            [...at, i],
-            "WrongKind",
-            "a state is neither a name nor a single-key compound",
-            "Write a leaf as its name and a compound as { NAME: [children] }.",
-          ),
-        );
-        continue;
-      }
-
-      const { name, kids } = element.value;
+    return list.flatMap(entriesOf).map(({ name, kids }) => {
       const path = Option.match(parent, { onNone: () => name, onSome: (p) => `${p}.${name}` });
       const here = [...at, name];
 
@@ -209,16 +148,15 @@ export const treeOf = (states: unknown) => {
           ),
         );
       names.add(name);
-      children.push(path);
 
       const slot = nodes.length;
       nodes.push({ path, name, parent, children: [] });
 
       if (Option.isSome(kids))
         nodes[slot] = { path, name, parent, children: walk(kids.value, Option.some(path), here) };
-    }
 
-    return children;
+      return path;
+    });
   };
 
   const top = walk(states, Option.none(), ["states"]);
@@ -226,12 +164,9 @@ export const treeOf = (states: unknown) => {
   return { nodes, top, findings };
 };
 
-// ── memory fields.
-
 // RETURN_TYPE: a type guard states the type it narrows to.
-export const isMarker = (x: unknown): x is Initial | Input | Private =>
-  Predicate.hasProperty(x, "~flow") &&
-  (x["~flow"] === "initial" || x["~flow"] === "input" || x["~flow"] === "private");
+export const isMarker = (x: Field): x is Initial | Input | Private =>
+  Predicate.hasProperty(x, "~flow");
 
 const hasConstructorDefault = (ast: SchemaAST.AST) => ast.context?.constructorDefault !== undefined;
 
@@ -269,8 +204,7 @@ const isIdentity = (ast: SchemaAST.AST) =>
   isStringEncoded(ast);
 
 // The finding of one field's source, if its source breaks a rule.
-// FLOW_STATE_ALLOW_UNKNOWN: an authored value, checked here before it is trusted.
-const sourceFinding = (name: string, raw: unknown) => {
+const sourceFinding = (name: string, raw: Field) => {
   const at = ["memory", name];
   const field = isMarker(raw) && raw["~flow"] === "private" ? raw.field : raw;
 
@@ -285,7 +219,7 @@ const sourceFinding = (name: string, raw: unknown) => {
       () => hasConstructorDefault(field.schema.ast) || hasDecodingDefault(field.schema.ast),
     );
 
-  if (isMarker(field) && field["~flow"] === "input")
+  if (isMarker(field))
     return Option.liftPredicate(
       {
         code: "IdentityFieldOptional",
@@ -296,7 +230,7 @@ const sourceFinding = (name: string, raw: unknown) => {
       () => !isIdentity(field.schema.ast),
     );
 
-  if (Schema.isSchema(field) && SchemaAST.isOptional(field.ast))
+  if (!isMarker(field) && SchemaAST.isOptional(field.ast))
     return Option.liftPredicate(
       {
         code: "ImpureDefault",
@@ -317,117 +251,37 @@ const sourceFinding = (name: string, raw: unknown) => {
   );
 };
 
-/**
- * The findings of a definition's memory, field by field: its name, then its source.
- */
-// FLOW_STATE_ALLOW_UNKNOWN: an authored value, checked here before it is trusted.
-export const memoryFindings = (memory: unknown) => {
-  if (!isRecord(memory))
-    return [
-      invalid(
-        ["memory"],
-        "WrongKind",
-        "memory is not a record",
-        "Write memory as a record of fields.",
-      ),
-    ];
+const RESERVED_FIELD = "_tag";
 
-  return Object.entries(memory).flatMap(([name, raw]) => [
+const reservedField = (at: ReadonlyArray<string | number>, owner: string) =>
+  invalid(at, "ReservedField", `${owner} declares _tag`, "Rename the field: _tag is Flow's.");
+
+const memoryFindings = (memory: MemoryConfig) =>
+  Object.entries(memory).flatMap(([name, raw]) => [
     ...checkName(name, ["memory", name]),
-    ...RESERVED_FIELDS.filter((field) => field === name).map((field) =>
-      invalid(
-        ["memory", field],
-        "ReservedField",
-        `memory declares ${field}`,
-        "Rename the field: _tag is Flow's.",
-      ),
-    ),
+    ...[name]
+      .filter((n) => n === RESERVED_FIELD)
+      .map((n) => reservedField(["memory", n], "memory")),
     ...Option.toArray(sourceFinding(name, raw)),
   ]);
-};
 
-// ── events and operations.
-
-// RETURN_TYPE: the findings this construction reports, in walk order.
-export const eventFindings = (
-  // FLOW_STATE_ALLOW_UNKNOWN: an authored or compiled value, checked here before it is trusted.
-  events: unknown,
+const eventFindings = (
+  events: Readonly<Record<string, EventFields>>,
   key: "events" | "internalEvents",
-): Array<Finding> => {
-  if (!isRecord(events))
-    return [
-      invalid(
-        [key],
-        "WrongKind",
-        `${key} is not a record`,
-        "Write events as a record of payload field records.",
-      ),
-    ];
+) =>
+  Object.entries(events).flatMap(([name, fields]) => [
+    ...checkName(name, [key, name]),
+    ...Object.keys(isUncertain(fields) ? fields.fields : fields)
+      .filter((field) => field === RESERVED_FIELD)
+      .map((field) => reservedField([key, name, field], `${name}'s payload`)),
+  ]);
 
-  return Object.entries(events).flatMap(([name, fields]) => {
-    const at = [key, name];
-    const named = checkName(name, at);
-
-    const payload =
-      Predicate.hasProperty(fields, "~flow") && Predicate.hasProperty(fields, "fields")
-        ? fields.fields
-        : fields;
-
-    if (!isRecord(payload))
-      return [
-        ...named,
-        invalid(
-          at,
-          "WrongKind",
-          `${name}'s payload is not a record of fields`,
-          "Write a payload as a record of field Schemas; {} means none.",
-        ),
-      ];
-
-    return "_tag" in payload
-      ? [
-          ...named,
-          invalid(
-            [...at, "_tag"],
-            "ReservedField",
-            `${name}'s payload declares _tag`,
-            "Rename the field: _tag is Flow's.",
-          ),
-        ]
-      : named;
-  });
-};
-
-const RESERVED_FIELDS = ["_tag"];
-
-const REQUIRED = ["id", "states", "events"];
-
-// The id is a valid name and persist a boolean.
-// FLOW_STATE_ALLOW_UNKNOWN: an authored value, checked here before it is trusted.
-const kindFindings = (key: "id" | "persist", value: unknown) => {
-  if (key === "id")
-    return Predicate.isString(value)
-      ? checkName(value, ["id"])
-      : [invalid(["id"], "WrongKind", "id is not a string", "Give the definition a string id.")];
-
-  return Predicate.isBoolean(value)
-    ? []
-    : [
-        invalid(
-          ["persist"],
-          "WrongKind",
-          "persist is not a boolean",
-          "Set persist to true or false.",
-        ),
-      ];
-};
-
-const publicAndInternal = (config: {
-  readonly events: Readonly<Record<string, EventFields>>;
-  readonly internalEvents: Readonly<Record<string, EventFields>>;
-}) =>
-  Object.keys(config.internalEvents)
-    .filter((name) => Object.hasOwn(config.events, name))
+const publicAndInternal = (
+  events: Readonly<Record<string, EventFields>>,
+  internal: Readonly<Record<string, EventFields>>,
+) =>
+  Object.keys(internal)
+    .filter((name) => Object.hasOwn(events, name))
     .map((name) =>
       invalid(
         ["internalEvents", name],
@@ -437,73 +291,29 @@ const publicAndInternal = (config: {
       ),
     );
 
-const unknownField = (key: string) =>
-  KNOWN.has(key)
-    ? []
-    : [
-        invalid(
-          [key],
-          "UnknownField",
-          `a definition has no field ${key}`,
-          "Remove the field; a definition declares id, persist, states, events, internalEvents, memory and operations.",
-        ),
-      ];
-
-const KNOWN = new Set([
-  "id",
-  "persist",
-  "states",
-  "events",
-  "internalEvents",
-  "memory",
-  "operations",
-]);
-
 /**
- * The findings of a definition's missing required fields: id, states and events.
- */
-export const missingFindings = (config: Values) =>
-  REQUIRED.filter((key) => !Object.hasOwn(config, key)).map((key) =>
-    invalid([key], "MissingField", `a definition has no ${key}`, "Declare id, states and events."),
-  );
-
-/**
- * The findings of one field of a definition, in rule order; the tree's findings come from its
- * walk, the operations' from the record they returned.
+ * The findings of a decoded definition's rules, in declaration then rule order; the tree's come
+ * from its walk, the operations' from the record they returned.
  */
 export const definitionFindings = (
-  key: string,
   config: {
-    // FLOW_STATE_ALLOW_UNKNOWN: an authored value, checked here before it is trusted.
-    readonly id: unknown;
-    // FLOW_STATE_ALLOW_UNKNOWN: an authored value, checked here before it is trusted.
-    readonly persist: unknown;
+    readonly id: string;
     readonly events: Readonly<Record<string, EventFields>>;
     readonly internalEvents: Readonly<Record<string, EventFields>>;
-    readonly memory: Readonly<Record<string, Field>>;
+    readonly memory: MemoryConfig;
+    readonly context: ContextConfig;
   },
   tree: ReadonlyArray<Finding>,
   operations: Readonly<Record<string, Bound>>,
-) => {
-  switch (key) {
-    case "id":
-      return kindFindings("id", config.id);
-    case "persist":
-      return kindFindings("persist", config.persist);
-    case "states":
-      return tree;
-    case "events":
-      return eventFindings(config.events, "events");
-    case "internalEvents":
-      return [
-        ...eventFindings(config.internalEvents, "internalEvents"),
-        ...publicAndInternal(config),
-      ];
-    case "memory":
-      return memoryFindings(config.memory);
-    case "operations":
-      return operationFindings(operations, config.internalEvents);
-    default:
-      return unknownField(key);
-  }
-};
+  keys: ReadonlyArray<string>,
+) =>
+  inDeclarationOrder(keys, [
+    ...checkName(config.id, ["id"]),
+    ...tree,
+    ...eventFindings(config.events, "events"),
+    ...eventFindings(config.internalEvents, "internalEvents"),
+    ...publicAndInternal(config.events, config.internalEvents),
+    ...memoryFindings(config.memory),
+    ...Object.keys(config.context).flatMap((slot) => checkName(slot, ["context", slot])),
+    ...operationFindings(operations, config.internalEvents),
+  ]);

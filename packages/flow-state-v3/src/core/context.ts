@@ -87,7 +87,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
       if (Result.isFailure(value))
         next = raise(next, {
           source: `context ${slot}`,
-          code: "CallbackDefect",
+          code: "Defect",
           slot: Option.some(value.failure),
         });
       else values.set(slot, value.success);
@@ -223,7 +223,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
       if (Result.isFailure(current)) {
         next = raise(next, {
           source: `onContext ${at}`,
-          code: "CallbackDefect",
+          code: "Defect",
           slot: Option.some(current.failure),
         });
         continue;
@@ -255,7 +255,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
         onFailure: (slot) => {
           next = raise(next, {
             source: `onContext ${at}`,
-            code: "CallbackDefect",
+            code: "Defect",
             slot: Option.some(slot),
           });
         },

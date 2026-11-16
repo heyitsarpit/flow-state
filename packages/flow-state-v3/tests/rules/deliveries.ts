@@ -45,11 +45,7 @@ type Ledger = {
   readonly recordedUnowed: Array<{ readonly at: number; readonly attempt: string }>;
 };
 
-export const REFUSALS: ReadonlySet<string> = new Set([
-  "CallbackDefect",
-  "InvalidTurn",
-  "GuardDefect",
-]);
+export const REFUSALS: ReadonlySet<string> = new Set(["Defect", "InvalidTurn", "GuardDefect"]);
 
 export const CHANNELS: ReadonlySet<string> = new Set(["success", "failure", "notSent", "unknown"]);
 
@@ -57,7 +53,9 @@ export const nameOf = (who: Who) => `${who.machine}/${who.name}`;
 
 export const textOf = (attempt: Option.Option<string>) => Option.getOrElse(attempt, () => "");
 
-export const isRefusal = (e: Evidence) => e._tag === "Issue" && REFUSALS.has(e.code);
+// A refused turn names the callback slot it refused at; a call's Defect names none.
+export const isRefusal = (e: Evidence) =>
+  e._tag === "Issue" && REFUSALS.has(e.code) && (e.code !== "Defect" || Option.isSome(e.slot));
 
 export const isOutcome = (e: Evidence) =>
   e._tag === "Turn" || e._tag === "Unhandled" || e._tag === "Denied" || isRefusal(e);
