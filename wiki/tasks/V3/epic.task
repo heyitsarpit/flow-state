@@ -216,6 +216,11 @@ instructions
       are among the Task's first requirements, and the generator, the reload sweep, the mix and the bench reach the
       feature through them. A hand-written test alone never proves a public feature. A review finding lands in a
       fixture's Stories or step samples as well as its own test, so the generator explores the cases around it.
+    - The orchestrator owns fixtures first (the user, 2026-11-16) and checks it by asking, not by reading the tests
+      itself. When a Task's requirements are gathered, before any code, it asks the lead for proof: per feature, the
+      fixtures new or changed, their usual and stress Stories, the step samples with edge values, the feature
+      combinations the app mix and the pair sweeps reach, and the stress cases at every bound and cap, each red today. A
+      gap returns to the lead before the build starts; the requirements review checks the proof, not the claim.
     - A new rule is shown red on a planted fault: add the fault to `tests/faults.ts`, and `nub run faults` must catch
       it. Plants go in a scratch copy, never the live tree.
     - A known bug is one inverted test (`it.fails`), titled by the Spec rule it breaks; `it.todo` is not used. A gap a
