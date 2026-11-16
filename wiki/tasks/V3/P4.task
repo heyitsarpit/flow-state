@@ -260,6 +260,11 @@ tasks
             Routed from T20: Restore R8, a lane record whose input or key no longer decodes is quarantined unread today,
             so its Held head is not heard; pinned as it.fails in tests/restore/restore.test.ts. Also OpRenamed, the
             undeclared-machine discard, unproducible paths and re-key collisions (R8, T15) are this Task's.
+        comment     2026-11-16T14:47:04Z
+            Routed from T20's close review: a quarantined owed record is overwritten at the next boot that derives an
+            ending for its identity (incarnations.ts boot, saveOwed), so rows a newer release wrote are lost after a
+            downgrade and upgrade. Restore R5 allows it as written; decide with the version rules whether such a record
+            is kept.
     T22
         title       CLI check, explain and graph
         status      draft

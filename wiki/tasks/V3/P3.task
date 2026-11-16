@@ -738,6 +738,15 @@ tasks
             at each boot. Memory past a codec bound (4,097 items) is reported UnencodableValue and the last good save
             stays. A store that cannot load runs without persistence. dispose({ forget: true }) deletes the scope,
             failing StorageFailure unless it could.
+        comment     2026-11-16T14:47:03Z
+            Close review at 9fcf63a2: ISSUES, one blocking hang: a commit is admitted on its input alone, so 12
+            serialize Syncs of 200,000 chars pass the lane record's byte bound, withhold the identity for good and leave
+            11 commits unsent and unended, with every run rule green (Codec R4; I21 excepts only actor records;
+            encodeOwed too).
+        comment     2026-11-16T14:47:04Z
+            Also fix: the reload sweeps miss R-2 (boot-wakes-in-flight-only survives both); withhold holds project's
+            doc; restore.test.ts names a Task; Fake.storage.put and refuseLoad are missing from Stories R11. Gates
+            exit 0.
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      review
