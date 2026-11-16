@@ -103,6 +103,12 @@ tasks
             has no check: the edge's hide path exists, but the browser platform and the Fake host stub hidden and
             onHidden. Owed here with the real page: a Fake page word for hide, a Story over it, and planted faults for a
             hide that waits or does nothing.
+        comment     2026-11-16T09:45:52Z
+            Routed from T19's close review: on a hidden page a refused batch is issued again at once
+            (code:packages/flow-state-v3/src/host/edge.ts#makeEdge pump ignores due when hidden), so a refusing store is
+            retried in a loop against the 5 s rule; and a refused batch's put-back records can be stale when the store
+            holds then refuses, which the Fake cannot do yet. Check both with the store contract and the
+            visibility flush.
     T57
         title       Machine structure: fragments, .each, subject paths and schedules (slice 3b)
         status      draft

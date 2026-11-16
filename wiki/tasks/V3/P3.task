@@ -552,6 +552,25 @@ tasks
             Gates at the fix revision, by exit code: check 0, suite 556 passed and 5 inverted, test:stress 0, faults 95
             of 95; bench unchanged (transfers/long 0.031/0.046 ms per turn). Also routed to T17: a schedule's armOn
             trigger shadows the root handler of the same event, which I have not checked against Turn.
+        comment     2026-11-16T09:45:46Z
+            Close review: ISSUES at 366dcaa2, two blocking (traces in the review report): (1) WriteAhead I20, I22
+            doubled: a row saved Queued at the drain cap stays in the owed record after a later step hears it
+            (code:packages/flow-state-v3/src/core/ledger.ts#saved writes no removal for Queued), so a reload hears it
+            again; (2) WriteAhead I11 lost: a withheld identity still ends at its grace (Actors R8 says the end waits),
+            and that step writes its withheld owed and lane records without the actor record, so a heard row is deleted
+            under a state that never heard it.
+        comment     2026-11-16T09:45:46Z
+            Close review, not blocking, for the fix round: Actors I35, I38, I43 and WriteAhead R12 still say any refused
+            disposal write reports StorageFailure, and I21 and R10 lack the sendLane exception (edit the losing text);
+            withholding still lets other identities' records of the same step land (I23, untraced); the I11 test's lane
+            write is a deletion and is checked by key only; I15's send side reads Sent evidence, not Fake calls. Gates
+            at 22401fab by exit code: check, suite (556, 5 inverted), stress, faults 95 of 95 all 0.
+        comment     2026-11-16T09:45:46Z
+            Close review on the rest: R23 and the setter rule keep the no-loss reading and were not shaped to fit;
+            lifecycleOf wording fine; tally dedup is sound (an answer is a function of digit and salt; 319 answer and
+            1,624 write draws over 20 seeds); the three re-pasted stress Stories equal their seeds' runs
+            (saved.stress.test.ts green); each new fault is caught by its named test; no outside reads, temporary names
+            or Effect re-creation found.
     T20
         title       Durability: restore, owed endings at boot, quarantine and forget (slice 2a)
         status      open
@@ -596,6 +615,10 @@ tasks
             Routed from T19: WriteAhead R4's UnencodableValue report is not built; an identity whose actor record cannot
             encode now withholds all its records until it encodes (WriteAhead realization, I11), silently. Owed with
             Codec's bounds: the report, and Actors R8's end waiting while the record cannot encode.
+        comment     2026-11-16T09:45:52Z
+            Routed from T19's close review: a withheld identity's awaited ticket still arms its Silent timer, so
+            StorageSilent is reported after 10 s for a write never issued (WriteAhead R12); fold into the
+            UnencodableValue report.
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      open
