@@ -542,3 +542,7 @@ note 2026-11-16T14:02:17Z
     Code-quality review done (f92864c3): structural debt, no purity breach. Inserted T79 (one convergence pass: tx edit
     operations, lifecycle unions, one home for diagnostics and keys, host idiom) and T80 (host tests onto Story and
     Fake, seam deleted) after T9 in P3's Order.
+
+note 2026-11-16T14:05:51Z
+    Second code-quality review started (the user, 2026-11-16): the first's findings given as known; focus on
+    construction code, types and errors, public API, tests and bench. New findings fold into T79, T80 or a new Task.
