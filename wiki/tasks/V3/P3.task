@@ -584,6 +584,14 @@ tasks
         comment     2026-11-16T09:51:14Z
             Gates at the fix revision, by exit code: check 0, suite 559 passed and 5 inverted, test:stress 0, faults 97
             of 97; bench transfers/long 0.032/0.057, pay/long 0.035/0.055, lanes/stress-36 0.036/0.060 ms per turn.
+        comment     2026-11-16T10:03:06Z
+            Fix-round review: PASS at 8c02753e. Both blocking traces fixed (cap row deleted from owed/ in the hearing
+            batch; a withheld actor no longer ends, pinned through step() in persist.test.ts), the two new faults fail
+            their named tests, suite 559 and faults 97/97 exit 0 in a clean worktree (the checkout's reds are T17's
+            uncommitted files). I23 amendment kept, not shaped to fit: no record names another identity, and whole-step
+            skip would make every persisted send wait on one bad actor, losing no ending either way; I21's 'last landed
+            step's world' still needs the same exception. Routed to T20: the withheld grace re-arms every 100 ms with no
+            UnencodableValue report, and the realization's 'not built yet' is a gap written into the Spec.
     T20
         title       Durability: restore, owed endings at boot, quarantine and forget (slice 2a)
         status      open
