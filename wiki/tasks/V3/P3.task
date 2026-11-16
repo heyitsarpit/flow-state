@@ -853,7 +853,7 @@ tasks
 
     T74
         title       App mix: several fixtures in one Runtime
-        status      open
+        status      in_progress
         priority    medium
         blocked_by  [@task.V3.T70]
         description
@@ -882,3 +882,21 @@ tasks
               that count.
             - A planted fault that needs two fixtures (a batch refusal hitting another machine's capture) is found from
               a seed and shrunk.
+        comment     2026-11-16T10:50:39Z
+            Requirement 1 (acceptance 1; @plan.Testing.O6, app-mix profile "Shared"): `propertyTest` and `generate` take
+            several fixtures' samples and run each seed in one Runtime over one fake store, network, clock, reload and
+            disposal, with every run rule. Check: `tests/generated/mix.test.ts`, a transfers, pay, lanes and
+            command-palette mix whose run shows one batch with two fixtures' records, calls to every fixture's servers
+            and two fixtures restored after one reload, and whose fixed usual seeds keep every rule; red today (one
+            Samples only).
+        comment     2026-11-16T10:50:39Z
+            Requirement 2 (acceptance 2; the Task's False pass): each generated run reports `shared`, the steps whose
+            store batch, calls, timers, reload or disposal touched two fixtures; a mix run with none is inconclusive, a
+            Testing O6 failure. Check: `mix.test.ts`, the mix's runs count above 0, and a mix of a fixture with an idle
+            one (no actors, steps or servers) fails Testing O6; red today.
+        comment     2026-11-16T10:50:40Z
+            Requirement 3 (acceptance 3; WriteAhead I15, app-mix target "two machines' commits land in one batch, and
+            the batch is refused"): a planted fault in code:packages/flow-state-v3/tests/faults.ts where a refused batch
+            reaches only its first machine's tickets is caught by the mix's seeds, while no single fixture can show it;
+            a failing mix shrinks by dropping whole fixtures, then draws. Check: `nub run faults` names it caught;
+            `mix.test.ts` shows a fixture-edge fault in a mix of three shrinks to its one fixture; red today.
