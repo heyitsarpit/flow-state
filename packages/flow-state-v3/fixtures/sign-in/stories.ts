@@ -85,8 +85,8 @@ const resend = { _tag: "Resend" } as const;
  * bench run it as any Story.
  */
 export const seededStress = Story.app(authSetup, { id: "sign-in/stress-36", fixtures: [AuthFake] })
-  .world(Auth.begin.hold())
   .world(Auth.throttle({}))
+  .world(Auth.verify.hold())
   .ensure(screen)
   .send(screen, resend)
   .send(screen, resend)
@@ -186,7 +186,7 @@ export const seededStress = Story.app(authSetup, { id: "sign-in/stress-36", fixt
   .advance("56438 millis")
   .world(Fake.network.online())
   .advance("2 minutes")
-  .world(Auth.begin.release())
+  .world(Auth.verify.release())
   .advance("2 minutes")
   .advance("2 minutes");
 

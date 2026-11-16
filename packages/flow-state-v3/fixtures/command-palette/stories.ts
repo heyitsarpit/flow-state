@@ -234,7 +234,7 @@ export const seededStress = Story.app(paletteSetup, {
   id: "palette/stress-36",
   fixtures: [CommandsFake],
 })
-  .world(Commands.run.hold())
+  .world(Commands.fail({ command: "profile", reason: "denied" }))
   .ensure(palette)
   .world(Fake.storage.hold())
   .send(palette, clearing)
@@ -246,12 +246,14 @@ export const seededStress = Story.app(paletteSetup, {
   .send(palette, escaping)
   .send(palette, escaping)
   .send(palette, escaping)
-  .reload({ reattach: false, heldWrites: "land" })
+  .reload({ reattach: false })
   .send(palette, runningProfile)
   .send(palette, clearing)
   .send(palette, runningProfile)
   .send(palette, configured)
+  .world(Fake.storage.refuse())
   .send(palette, typingPro)
+  .world(Fake.storage.refuse())
   .send(palette, entering)
   .send(palette, runningProfile)
   .send(palette, escaping)
@@ -336,8 +338,6 @@ export const seededStress = Story.app(paletteSetup, {
   .send(palette, typingPro)
   .advance("56438 millis")
   .world(Fake.network.online())
-  .advance("2 minutes")
-  .world(Commands.run.release())
   .advance("2 minutes")
   .advance("2 minutes");
 

@@ -86,11 +86,10 @@ const peekDocs = { _tag: "Peek", repo: "docs" } as const;
  * name the samples give it). The reload sweep and the bench run it as any Story.
  */
 export const seededStress = Story.app(gitSetup, { id: "sync/stress-36", fixtures: [GitFake] })
-  .world(Git.sync.hold())
-  .world(Git.outage({}))
+  .world(Git.rateLimit({ retryAfterMs: 2000 }))
+  .world(Git.remoteHead.hold())
   .ensure(client)
   .send(client, pushedFlow)
-  .world(Git.sync.hold())
   .send(client, pushedFlow)
   .send(client, flow)
   .send(client, flow)
@@ -188,8 +187,7 @@ export const seededStress = Story.app(gitSetup, { id: "sync/stress-36", fixtures
   .advance("56438 millis")
   .world(Fake.network.online())
   .advance("2 minutes")
-  .world(Git.sync.release())
-  .world(Git.sync.release())
+  .world(Git.remoteHead.release())
   .advance("2 minutes")
   .advance("2 minutes");
 
