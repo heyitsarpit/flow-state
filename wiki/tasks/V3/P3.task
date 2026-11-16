@@ -747,6 +747,22 @@ tasks
             Also fix: the reload sweeps miss R-2 (boot-wakes-in-flight-only survives both); withhold holds project's
             doc; restore.test.ts names a Task; Fake.storage.put and refuseLoad are missing from Stories R11. Gates
             exit 0.
+        comment     2026-11-16T15:02:19Z
+            Fix round at 873bd680: the hang is fixed. A commit declines NotSent Unencodable when its lane record with it
+            queued would pass a bound; owed values past a bound together save largest-first as null with
+            UnencodableValue; run rule WriteAhead I21 fails any lane or owed UnencodableValue (red before, as the
+            12-Sync Story was). The sweep now covers the lanes Stories, so the unattached sweep
+            catches boot-wakes-in-flight-only.
+        comment     2026-11-16T15:02:20Z
+            Fix round decisions: the input-alone bound check is gone (only a persisted lane's record crosses a boundary,
+            and fits() covers it). Fake.storage.put keeps raw keys: it stands for records Flow's key builder never
+            makes. Gates by exit code: check, suite, test:stress, FLOW_SEEDS=20 with stress, faults 180 of 180 by
+            targets (46 s), all 0.
+        comment     2026-11-16T15:02:20Z
+            For the user's page (fix round): a write whose saved record would grow past Flow's size limit is refused at
+            once, NotSent Unencodable, instead of waiting for ever; your other writes go on. Pending results too large
+            to save together keep their rows, with the largest values saved empty and UnencodableValue reported. Only an
+            actor's own state too large to save holds its writes back, and that is reported.
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      review
