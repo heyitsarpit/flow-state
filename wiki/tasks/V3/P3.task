@@ -1639,3 +1639,10 @@ tasks
             disposal for Disposed, latest needing the head on the wire, Superseded as evidence, the 66th serialize
             commit, O1 citations; rejected E2 for null payloads; open: bigint keys and `-0` keys may meet a codec that
             rejects them (Operations O1 vs Codec R2), decided when built.
+        comment     2026-11-16T21:34:06Z
+            Resume at 863c729e: manifests (9ede8cd4), pay, cells, lanes, sync, transfers, sign-in built with tests;
+            left: session, command-palette, player Stories, then marking every step-1 catalog item and the close
+            (stress, fresh seeds, faults). Inverted, routed at the close: Turn I9 double publish and Story
+            dispose/ensure bypassing BlockedByDependents and ConflictingActorRef (T9); a parked Disposed ending replaced
+            by unknown Restored, and a Held head's unknown Restored delivered again at a second reload (T20); -0 keys
+            declined Unencodable and the 8,192-byte key bound unenforced (T21).
