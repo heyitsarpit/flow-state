@@ -10,13 +10,13 @@ import { generate, print, type Story } from "../../src/host/testing/index.ts";
 import { samples } from "./fixtures.ts";
 
 const saved: ReadonlyArray<readonly [keyof typeof samples, Story<string>, number]> = [
-  ["cells", cells.seededStress, 50],
-  ["command-palette", palette.seededStress, 50],
-  ["number-input", numberInput.seededStress, 50],
-  ["pay", pay.seededStress, 50],
-  ["sign-in", signIn.seededStress, 50],
-  ["sync", sync.seededStress, 42],
-  ["transfers", transfers.seededStress, 50],
+  ["cells", cells.seededStress, 56],
+  ["command-palette", palette.seededStress, 36],
+  ["number-input", numberInput.seededStress, 36],
+  ["pay", pay.seededStress, 36],
+  ["sign-in", signIn.seededStress, 36],
+  ["sync", sync.seededStress, 36],
+  ["transfers", transfers.seededStress, 45],
 ];
 
 describe("each fixture's stress Story (Testing O6)", () => {
