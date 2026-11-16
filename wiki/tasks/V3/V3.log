@@ -752,3 +752,16 @@ note 2026-11-16T20:15:14Z
 note 2026-11-16T20:15:47Z
     T82 lead started (step 1: manifests, then every fixture grown into its catalog app, scenarios red first). T9 paused
     before any edit, resume note on T9; T20 held; both resume after T82.
+
+note 2026-11-16T20:16:59Z
+    Fixtures-first audit: T9, T20, T81, T79 and T80 now wait on T82; T79 and T80 gained fixtures lines; T24, T25 and
+    T49 wait on T21, T48 on T57, so each step's apps exist before its Task. P6 to P10 Tasks build no feature: no line.
+
+note 2026-11-16T20:16:59Z
+    Session ended (the user, 2026-11-17): no agents running, cron removed, caffeinate stopped; tree clean at this
+    commit. Resume: "run the loop in wiki/tasks/V3/epic.task"; first T82 from its resume note, then T9 round 3, T20,
+    T81.
+
+note 2026-11-16T20:17:00Z
+    Waiting on the user: T20's two outcome changes (StorageRefused at once; unknown Restored once) and Pending D14 to
+    D19.

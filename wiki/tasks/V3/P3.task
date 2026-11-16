@@ -602,7 +602,7 @@ tasks
         title       Durability: restore, owed endings at boot, quarantine and forget (slice 2a)
         status      in_progress
         priority    high
-        blocked_by  [@T19]
+        blocked_by  [@T19, @T82]
         satisfies   [@plan.Inspection.O2, @plan.Persistence.O4, @plan.Persistence.O5]
         description
             Build restore from @spec.Restore and @spec.Codec: reload, owed endings delivered at boot, record format
@@ -1056,7 +1056,7 @@ tasks
         title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
         status      in_progress
         priority    high
-        blocked_by  [@T17]
+        blocked_by  [@T17, @T82]
         satisfies   [@plan.Runtime.O3, @plan.Runtime.O4, @plan.Runtime.O5, @plan.Runtime.O6, @plan.Runtime.O7]
         description
             Build actor identity and lifetime on production from @spec.Actors: `actorRef` by value, `createActor`,
@@ -1351,6 +1351,7 @@ tasks
                     idiom
         status      open
         priority    high
+        blocked_by  [@T82]
         description
             One convergence pass removes the structural debt the whole-codebase review found, without
             changing behaviour.
@@ -1385,6 +1386,9 @@ tasks
             - `nub run check`, the package suite, `nub run test:stress` and `nub run faults` pass with every fault
               caught by its own target; the bench's per-turn numbers are no worse than before step 3, recorded in
               a comment.
+            - Fixtures first (code:wiki/conventions/fixtures.md): the fixtures of
+              code:wiki/conventions/fixture-catalog.md step 1 cover every behaviour this refactor touches before it
+              starts; every fixture Story, sweep and fault passes unchanged after it.
         comment     2026-11-16T14:23:54Z
             Fold in the second review's T79 findings (31, sections 2, 3, 4b-4z, 7 and abstractions A2 to A6):
             code:wiki/plans/flow/references/proposals/code-quality-review-2-2026-11-16.md. Its section 2 bug comes
@@ -1398,6 +1402,7 @@ tasks
         title       Host tests on Story and Fake; the seam harness deleted
         status      open
         priority    medium
+        blocked_by  [@T82]
         description
             Flow's own host tests run on Story and Fake only, and `src/host/testing/seam.ts` is deleted.
 
@@ -1419,6 +1424,9 @@ tasks
               each citing the same rules; `seam.ts` and its copies of the store, host and seed are gone.
             - `nub run faults` catches the same faults before and after, each by its own target; the suite and
               stress pass.
+            - Fixtures first (code:wiki/conventions/fixtures.md): each ported host test lands in a fixture of
+              code:wiki/conventions/fixture-catalog.md as a Story or sample, not as a hand test, and was red on its
+              planted fault before the seam file is deleted.
         comment     2026-11-16T14:23:55Z
             Fold in the second review's T80 findings (10, section 5 and abstraction A7, a test kit):
             code:wiki/plans/flow/references/proposals/code-quality-review-2-2026-11-16.md. First: the pair sweeps run
@@ -1438,6 +1446,7 @@ tasks
         title       Construction config decoded by one Schema; four construction bugs fixed
         status      review
         priority    high
+        blocked_by  [@T82]
         description
             Construction config is decoded by one Schema, so the types, construction and the Runtime agree on what a
             definition and machine accept.

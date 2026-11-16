@@ -52,6 +52,7 @@ tasks
         status      draft
         priority    high
 
+        blocked_by  [@task.V3.T21]
         satisfies   [@plan.Operations.O1, @plan.Operations.O4]
         description
             Write the streams Spec, then build streams on production with a real EventSource path. Adds `Fake.stream` on
@@ -73,6 +74,7 @@ tasks
         status      draft
         priority    high
 
+        blocked_by  [@task.V3.T21]
         satisfies   [@plan.EntityDomains.O1, @plan.EntityDomains.O2, @plan.EntityDomains.O3, @plan.EntityDomains.O5]
         description
             Write the entities Spec, then build the entity store on production from @plan.EntityDomains.
@@ -113,6 +115,7 @@ tasks
         status      draft
         priority    medium
 
+        blocked_by  [@task.V3.T57]
         satisfies   [
                     @plan.LazyFeatures.O1,
                     @plan.LazyFeatures.O2,
@@ -157,6 +160,7 @@ tasks
         status      draft
         priority    medium
 
+        blocked_by  [@task.V3.T21]
         satisfies   [
                     @plan.Inspection.O1,
                     @plan.Inspection.O3,
