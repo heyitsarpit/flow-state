@@ -137,8 +137,12 @@ requirements
                 the owed ledger (R10). A row names its lane by (identity, contract id, key) whether
                 or not that lane has a head. A Kept row (@spec.Actors.R15) does not make a lane
                 exist, but blocks the key it names: while a row is Kept, a commit on that key
-                declines NotSent { Rejected } before its cell under reject, latest and serialize
-                (cancel is Q5). No other row blocks a key; a Kept row taking its one try at a start
+                declines NotSent { Rejected } before its cell under reject, latest and serialize;
+                under cancel the newer commit wins, so the lane's Kept rows close, recorded letGo,
+                and the commit meets its cell. Decision (agent: the T18 lead, 2026-11-16): Q5 ruled
+                as consult round 3 handed it over. Why: cancel exists so the newest commit runs.
+                Reverse: decline Rejected under cancel too. No other row blocks a key; a Kept row taking its one try at 
+                a start
                 is Retrying and blocks nothing until it is refused again, the same exposure as the
                 first refusal (nothing is lost, since the try is served in that step's drain).
                 Decision (agent: the orchestrator, 2026-11-12): consult round 3 and T54's decisions
@@ -332,11 +336,6 @@ open
     Q4  The prototype mints counters floored at boot (round-14/durable.ts, round-14/step.ts), which are unique only per 
         scope and do not meet R5.
         outcome  Phase 4 builds the seeded mint; its planted fault is a counter that collides across two devices.
-
-    Q5  The model has no ruling for a cancel-policy commit on a key whose lane has a Kept row, with the lane Idle or 
-        its head still Held.
-        outcome  Slice 1 (@task.V3.T18) rules both before it builds the cancel policy; consult round 3 hands it
-                 over as "close the lane's Kept rows, then mint" (proposed). Until then no fixture drives them.
 
     Q6  Does an ending with no mapping leave an issue as well as evidence? Case: an operation maps `success:` only and 
         a commit declines NotSent { Rejected }. The core's ledger closes the row Recorded as evidence and emits no
@@ -584,7 +583,7 @@ algorithm
             superseded, since a pending cancel is never lost (R7, R8, R14).
         - commit under serialize: Idle mints; every other phase appends it to W, and past 64 it declines NotSent {
             Overloaded } (R7).
-        - commit under cancel: Idle mints (a key with a Kept row is Q5). Acknowledging and Unsent end the head
+        - commit under cancel: Idle mints (a key's Kept rows close first, R6). Acknowledging and Unsent end the head
             Superseded (evidence); Recapturing, Resending and Held release it (evidence Released); OnWire interrupts
             it and displaces it, its ending evidence; Withdrawing and Cancelling displace it with its ending owed. In
             each, the commit then mints (R7, R14).
@@ -666,8 +665,13 @@ realization typescript
     Design, agreed by the user, 2026-11-12 (consult round 3, Part 2); moved here from `composition`.
     `lane(phase, input)` is one total function written from `algorithm`'s cell table, an exhaustive match over Phase
         and the input, so a new policy adds cells, not branches. Phase variants replace the head's `sent` and
-        `cancelled` flags and the ending booleans; a lane's id and key text are derived, never stored. Only reject
-        concurrency is built.
+        `cancelled` flags and the ending booleans; a lane's id and key text are derived, never stored. Each policy's
+        commit is its own cue (`CommitReject`, `CommitLatest`, `CommitSerialize`, `CommitCancel`), and a head's cell
+        also reads how many commits are queued, for serialize's 64. A head that leaves promotes W's oldest commit as
+        a new Unsent head; promoted outside a turn (a settled call, a store's answer), it meets TurnEnded at once. A
+        displaced head is kept apart from its lane by the call or ticket it awaits (`World.displaced`), and its own
+        cell classifies its answer. When the disposal starts, W's commits end before the lane's cells, so nothing
+        promotes. Stated limits: queues are not saved (@spec.Restore.R3), and a displaced head is not saved.
     `src/core/cells.ts` holds the table: `cell(state, cue)` is one exhaustive match over the cue and then the lane
         state (Idle, or a head's Phase), returning a `Move` as data; a pair the table marks impossible returns
         `Impossible`, which the applier raises as a defect. `LaneState` is `Idle | Head`: there is no Kept row, no
@@ -715,7 +719,7 @@ coverage
 
     @R7
         enforced_by  [@I8]
-        open_by      [@Q1, @Q5]
+        open_by      [@Q1]
 
     @R8
         enforced_by  [@I1, @I11, @I12, @I26, @I27]

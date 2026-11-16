@@ -60,3 +60,8 @@ note 2026-11-16T02:20:12Z
 note 2026-11-16T02:22:45Z
     WriteAhead I20 kept as written (T54, X-8): no row is Queued or Retrying at a step's end but an unknown Restored,
     which the owed record holds, so isSaved loses no ending; run rule WriteAhead I20 checks the premise.
+
+note 2026-11-16T03:30:00Z
+    @spec.WriteLanes Q5 ruled (T18): under cancel a commit closes its key's Kept rows letGo, then meets its cell; R6,
+    `algorithm` and the realization say how the policies are built. @spec.Restore R3: queues are unsaved, a stated
+    limit. Reverse: restore Q5 and decline Rejected under cancel.
