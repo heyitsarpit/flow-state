@@ -25,7 +25,8 @@ export type AppEntry =
   | Machine
   | {
       readonly machine: Machine;
-      readonly context: Readonly<Record<string, ActorRef>>;
+      // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the Plan's public word: an entry with no context wires no slot by default
+      readonly context?: Readonly<Record<string, ActorRef>>;
     };
 
 /**
@@ -292,7 +293,7 @@ export const buildRuntime = (
 
   // Each machine entry's default wiring: the ref of each context slot's provider.
   const defaults = new Map(
-    entries.map((e) => [machineOf(e).compiled.id, "machine" in e ? e.context : {}]),
+    entries.map((e) => [machineOf(e).compiled.id, ("machine" in e ? e.context : undefined) ?? {}]),
   );
 
   const { wiringOf, refused: contextRefused } = makeWiring(machines, defaults);
@@ -466,9 +467,24 @@ export const buildRuntime = (
     [HandleId]: { runtime: driver, actor },
   });
 
+  // A ref names an identity only of a machine this Runtime's app runs.
+  const ownRef = (ref: ActorRef) => {
+    if (machines.get(ref.machine.compiled.id) === ref.machine) return actorIdOf(ref);
+
+    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a ref's contract: a machine this app does not run throws before any work
+    throw flowError([
+      {
+        code: "ForeignActorRef",
+        path: [ref.machine.compiled.id],
+        summary: `${ref.machine.compiled.id} is not a machine of this Runtime's app`,
+        help: "Use refs of the machines this Runtime's app lists.",
+      },
+    ]);
+  };
+
   // A handle names its own Runtime's identity; another Runtime's handle is refused.
   const identityOf = (target: Actor | ActorRef) => {
-    if (!(HandleId in target)) return actorIdOf(target);
+    if (!(HandleId in target)) return ownRef(target);
 
     if (target[HandleId].runtime === driver) return target[HandleId].actor;
 
@@ -487,7 +503,7 @@ export const buildRuntime = (
     ready,
     // Before ready succeeds, no handle exists: the core's life rejects the ensure.
     ensureActor: (ref) => {
-      const actor = actorIdOf(ref);
+      const actor = ownRef(ref);
       const what = `ensureActor ${actor.name}`;
 
       const probe = Input.Ensure({

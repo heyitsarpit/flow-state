@@ -327,7 +327,16 @@ export const runFrom = <Names extends string>(
     if (disposed) scriptFault(`${what} after disposeRuntime`);
   };
 
-  const attach = (actor: ActorId) => testing.attach(tab.built, actor, "story", false);
+  // A ref's context overrides go with its first ensure; an ensure again after a reload keeps
+  // the binding the identity saved.
+  const attach = (actor: ActorId, context: ReadonlyMap<string, ActorId> = new Map()) =>
+    testing.attach(
+      tab.built,
+      actor,
+      "story",
+      false,
+      context.size === 0 ? Option.none() : Option.some(context),
+    );
 
   const steps: Array<Step> = [];
 
@@ -351,11 +360,11 @@ export const runFrom = <Names extends string>(
     Object.assign(turns, { instant: tab.now(), count: 0 });
 
     Step.$match(step, {
-      ensure: ({ actor }) => {
+      ensure: ({ actor, context }) => {
         live("ensure");
         const count = uses.get(actorKey(actor))?.count ?? 0;
         uses.set(actorKey(actor), { actor, count: count + 1 });
-        attach(actor);
+        attach(actor, context);
       },
       detach: ({ actor }) => {
         live("detach");

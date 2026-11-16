@@ -391,6 +391,32 @@ export const actorFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
+    name: "foreign-ref-accepted",
+    tests: ["tests/actors/identity.test.ts"],
+    says: "a ref of a machine this Runtime's app does not run is taken as one of its identities",
+    rule: "Actors R24",
+    edits: [
+      {
+        file: "src/host/runtime.ts",
+        find: "    if (machines.get(ref.machine.compiled.id) === ref.machine) return actorIdOf(ref);",
+        replace: "    if (ref.machine !== undefined) return actorIdOf(ref);",
+      },
+    ],
+  },
+  {
+    name: "story-ensure-drops-ref-context",
+    tests: ["tests/actors/context.test.ts"],
+    says: "a Story's ensure binds its entry's default providers, dropping the ref's context",
+    rule: "Actors R18",
+    edits: [
+      {
+        file: "src/host/testing/run.ts",
+        find: "      context.size === 0 ? Option.none() : Option.some(context),",
+        replace: "      Option.none(),",
+      },
+    ],
+  },
+  {
     name: "foreign-handle-accepted",
     tests: ["tests/actors/identity.test.ts"],
     says: "another Runtime's handle is taken as naming this Runtime's actor",

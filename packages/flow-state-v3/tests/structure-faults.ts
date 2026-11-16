@@ -250,7 +250,7 @@ export const structureFaults: ReadonlyArray<Fault> = [
   {
     name: "creation-delay-silent",
     tests: ["tests/turn/creation.test.ts"],
-    says: "a delay refused at creation raises no issue",
+    says: "a delay refused at creation reports no Issue evidence, though its snapshot keeps the issue",
     rule: "Turn R14, T6",
     edits: [
       {

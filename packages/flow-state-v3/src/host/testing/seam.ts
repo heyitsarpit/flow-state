@@ -23,8 +23,13 @@ export type TestRuntime = ReturnType<typeof buildRuntime>;
 export const testing = {
   build: (config: RuntimeConfig, platform: Platform) =>
     buildRuntime(config, platform, () => undefined),
-  attach: ({ driver }: TestRuntime, actor: ActorId, use: Use, existing: boolean) =>
-    driver.input(Input.Ensure({ actor, use: Option.some(use), existing, wiring: Option.none() })),
+  attach: (
+    { driver }: TestRuntime,
+    actor: ActorId,
+    use: Use,
+    existing: boolean,
+    wiring: Option.Option<ReadonlyMap<string, ActorId>> = Option.none(),
+  ) => driver.input(Input.Ensure({ actor, use: Option.some(use), existing, wiring })),
   detach: ({ driver }: TestRuntime, actor: ActorId, use: Use) =>
     driver.input(Input.Release({ actor, use })),
   forget: ({ driver }: TestRuntime, actor: ActorId) =>

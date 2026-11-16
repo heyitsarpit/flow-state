@@ -7,6 +7,7 @@ import {
   actorRef,
   app,
   definition,
+  deny,
   Flow,
   FlowError,
   machine,
@@ -54,6 +55,24 @@ const BadgeMachine = machine(Badge, ({ S, E }) => ({
     },
   ],
   on: { UserChanged: { updateMemory: ({ event }) => ({ greeting: `hi ${event.user}` }) } },
+}));
+
+const Reader = definition({
+  id: "Context/Reader",
+  states: ["READING"],
+  events: { Read: {} },
+  memory: { read: Flow.initial(Schema.String, "") },
+  context: { user: Session.Provider.select((s) => s.memory.user) },
+});
+
+const ReaderMachine = machine(Reader, ({ S }) => ({
+  default: S.READING,
+  on: {
+    Read: {
+      guard: [(input) => "context" in input || deny("NoContext")],
+      updateMemory: (input) => ({ read: "context" in input ? "context" : "none" }),
+    },
+  },
 }));
 
 const Watcher = definition({
@@ -154,6 +173,7 @@ const setup = runtimeSetup({
         },
       },
       node: { machine: NodeMachine, context: { up: actorRef(NodeMachine, "b") } },
+      reader: { machine: ReaderMachine, context: { user: main } },
       both: {
         machine: BothMachine,
         context: { user: main, seen: actorRef(WatcherMachine, "left") },
@@ -307,6 +327,19 @@ describe("context waves (Actors R19, I27; Turn R22)", () => {
   });
 });
 
+describe("context in callbacks (Turn R12)", () => {
+  // A known gap, owned by the machine-structure slice: guards and updates are not handed context.
+  it.fails("Turn R12: a guard and an update receive the turn's context", () => {
+    const { runtime } = ready();
+    const reader = runtime.ensureActor(actorRef(ReaderMachine, "reader"));
+    reader.send({ _tag: "Read" });
+
+    expect(Option.map(reader.getSnapshot(), (s) => s.memory["read"])).toEqual(
+      Option.some("context"),
+    );
+  });
+});
+
 const KeptSession = definition({
   id: "Context/KeptSession",
   persist: true,
@@ -370,6 +403,24 @@ describe("the return's wave (Actors R9, R18; Turn R22)", () => {
     const turns = run.evidence.flatMap((e) => (e._tag === "Turn" ? [e.event] : []));
     expect(turns).toEqual(["SignIn", "Seen", "Ping"]);
     expect(run.checkpoints.back.read(keptWatcher)?.memory["seen"]).toBe("ada");
+  });
+
+  it("Actors R18: a reload binds a consumer to the provider its ref named, not its entry's default", async () => {
+    const otherSession = actorRef(KeptSessionMachine, "other");
+    const overridden = actorRef(KeptWatcherMachine, "w", { context: { user: otherSession } });
+
+    const run = checked(
+      await Story.app(kept, { id: "context/reload-override", fixtures: [] })
+        .send(otherSession, { _tag: "SignIn", user: "bob" })
+        .ensure(otherSession)
+        .send(otherSession, { _tag: "SignIn", user: "bob" })
+        .ensure(overridden)
+        .reload()
+        .checkpoint("reloaded")
+        .run(),
+    );
+
+    expect(run.checkpoints.reloaded.read(keptWatcher)?.context).toEqual({ user: "bob" });
   });
 
   it("Actors R18: a reload restores a consumer's baseline silently", async () => {

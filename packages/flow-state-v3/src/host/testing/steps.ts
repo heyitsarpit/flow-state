@@ -43,7 +43,7 @@ export const WorldWord = Data.taggedEnum<WorldWord>();
  * array of these, and a run takes one back.
  */
 export type Step = Data.TaggedEnum<{
-  ensure: { actor: ActorId };
+  ensure: { actor: ActorId; context: ReadonlyMap<string, ActorId> };
   detach: { actor: ActorId };
   send: { actor: ActorId; event: Envelope };
   dispose: { actor: ActorId; how: "dispose" | "forget" };

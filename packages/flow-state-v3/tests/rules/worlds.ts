@@ -38,7 +38,7 @@ export const underAnotherWorld = (which: string, stories: ReadonlyArray<Story<st
           Step.reload({ reattach: true, heldWrites: "abort" }),
           // The cut right after the reload lets Restore I1 judge it.
           Step.checkpoint({ name: "~reloaded" }),
-          ...[...writers.values()].map((actor) => Step.ensure({ actor })),
+          ...[...writers.values()].map((actor) => Step.ensure({ actor, context: new Map() })),
           Step.advance({ duration: "5 seconds" }),
         ];
 

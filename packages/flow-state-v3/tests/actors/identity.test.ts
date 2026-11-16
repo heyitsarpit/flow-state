@@ -214,4 +214,31 @@ describe("isolation (Actors R24, I34)", () => {
     );
     expect(thrownCode(() => a.disposeActor(handle))).toBe("none");
   });
+
+  it("Actors R24: a ref of a machine this Runtime's app does not run is refused ForeignActorRef", () => {
+    const runtime = ready();
+    const Stray = definition({ id: "Identity/Stray", states: ["IDLE"], events: { Go: {} } });
+
+    const stray = actorRef(
+      machine(Stray, ({ S }) => ({ default: S.IDLE })),
+      "stray",
+    );
+
+    expect(thrownCode(() => runtime.ensureActor(stray))).toBe("ForeignActorRef");
+    expect(thrownCode(() => runtime.disposeActor(stray))).toBe("ForeignActorRef");
+  });
+});
+
+describe("app entries (Runtime O1)", () => {
+  it("Runtime O1: an app entry's context is optional", () => {
+    const runtime = runtimeSetup({
+      app: app({ id: "entries", machines: { clock: { machine: ClockMachine } } }),
+    }).construct();
+
+    Effect.runSync(runtime.ready());
+
+    expect(Option.isSome(runtime.ensureActor(actorRef(ClockMachine, "c")).getSnapshot())).toBe(
+      true,
+    );
+  });
 });

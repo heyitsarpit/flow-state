@@ -102,7 +102,13 @@ export const storyOf = (subject: Subject, id: string): Story => {
       [SubjectId]: subject,
       id,
       steps,
-      ensure: (ref) => next(Step.ensure({ actor: actorOf(ref) })),
+      ensure: (ref) =>
+        next(
+          Step.ensure({
+            actor: actorOf(ref),
+            context: new Map(Object.entries(ref.context).map(([slot, p]) => [slot, actorOf(p)])),
+          }),
+        ),
       detach: (ref) => next(Step.detach({ actor: actorOf(ref) })),
       send: (ref, event) => next(Step.send({ actor: actorOf(ref), event })),
       dispose: (ref, how) =>

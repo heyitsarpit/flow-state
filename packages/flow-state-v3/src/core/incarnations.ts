@@ -173,11 +173,13 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     const fresh = context.bind(
       base,
       Option.getOrElse(
-        Option.orElse(wiring, () =>
-          Option.filter(
-            Option.map(from, (r) => r.context),
-            (saved) => saved.size > 0,
-          ),
+        Option.orElse(
+          Option.map(wiring, (given) => new Map([...compiled.wiring, ...given])),
+          () =>
+            Option.filter(
+              Option.map(from, (r) => r.context),
+              (saved) => saved.size > 0,
+            ),
         ),
         () => compiled.wiring,
       ),
