@@ -191,6 +191,10 @@ tasks
         comment     2026-11-16T02:35:14Z
             Review fix: one-builder.test.ts reads source and runs no core, so tools/faults/run.ts lists it in
             mayStayGreen with its reason; nub run faults exits 0 (61/61, dead core explained). Back to review.
+        comment     2026-11-16T02:36:11Z
+            Re-review at a3345224: PASS. The blocker is fixed: mayStayGreen in code:tools/faults/run.ts excuses only
+            one-builder.test.ts, which reads source with node:fs and runs no core; `nub run faults` exits 0, 61 of 61
+            caught, no unexplained dead-core green.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      open
