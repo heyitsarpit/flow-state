@@ -1116,6 +1116,11 @@ tasks
             Second fix-round review: ISSUES. A selection the codec can't encode (undefined, Option) or past its bounds
             withholds the consumer's record via `seen`, so it never ends (red at e274aeeb, green at its parent). Fix:
             save each slot apart, an unencodable one as unknown that waves on return. Waves, suite, stress, faults ok.
+        comment     2026-11-16T15:32:10Z
+            Round 3 (orchestrator, user-delegated): save each context slot separately, an unencodable one as unknown
+            with one wave on return; only events sent by turns count against the 64 cap (context updates and onContext
+            events don't; ContextCycle bounds them). Update D13 and R13/R14 to that; add the Pair/Watcher Story for the
+            deferred update's place.
 
     T74
         title       App mix: several fixtures in one Runtime

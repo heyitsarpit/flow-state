@@ -603,3 +603,8 @@ note 2026-11-16T15:19:31Z
     T20 fix-round review ISSUES (489a082c): the lane record still grows past its bound after admission (inFlight false,
     a retry digit, a displaced id), the same root cause twice. Decision: size the worst case at admission. Round 3 after
     T81; T9's second-round review started.
+
+note 2026-11-16T15:32:10Z
+    T9 second-round review ISSUES (87acc4c7): an unencodable context value (undefined, Option) blocks the consumer's
+    end. Round 3 after T81 and T20's round 3; D13 to merge with only turn-sent events counting against the cap (decided,
+    user-delegated).
