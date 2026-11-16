@@ -380,3 +380,7 @@ note 2026-11-16T06:20:17Z
     Deleted 19 absorbed proposals in wiki/plans/flow/references/proposals/ (user: "do it all", 2026-11-16); every file
     is in the commit before this one, 9625d3a5 for most (agent-speed-study 75d828ae, self-contained-audit a465f7d6,
     suite-convergence c59b5fab, suite-leverage-survey ef115b0d). Reverse: git show <rev>:<path>.
+
+note 2026-11-16T08:02:05Z
+    Run resumed at 419b7323 (library 6b7288e, weekly 0%): current Task T55 per P3's Order; no live agents, tree clean.
+    First action: T55's building lead. T18 and T54 user's pages still unread (holds only the next slice's close).

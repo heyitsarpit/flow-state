@@ -299,7 +299,7 @@ tasks
             User's page: code:wiki/plans/flow/references/pages/T18-lane-policies.md (unread).
     T55
         title       Runtime life: Life and admit replace Disposal; the final write and its 5 s bound move into the core
-        status      open
+        status      in_progress
         priority    high
         blocked_by  [@T54]
         description
