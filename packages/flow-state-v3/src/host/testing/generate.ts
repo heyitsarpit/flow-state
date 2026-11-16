@@ -48,7 +48,7 @@ type Write = "ack" | "refuse" | "hang" | "land" | "slow";
 
 type Table<K> = ReadonlyArray<readonly [K, number]>;
 
-// The usual and stress runs (Testing O6): what a person does per step, what the server answers per
+// The usual, stress and mix runs: what a person does per step, what the server answers per
 // request, and what the store does per write batch.
 const STEPS: Record<Drawing, Table<StepKind>> = {
   usual: [
@@ -205,7 +205,27 @@ const mix = (at: number, salt: number) => {
   return ((h ^ (h >>> 16)) >>> 0) % RANGE;
 };
 
+// The salt of a write's digits, apart from any answer's.
 const WRITE_SALT = 1000;
+
+// A digit of the world's answer to an endpoint's next call: keyed to the endpoint's name and its
+// call count, and to the draw whose step is current when that count is reached, so a shrunk draw
+// changes only the answers its own steps meet, and dropping another fixture moves none.
+const worldDigit = (digit: number, key: string, count: number, use: number) => {
+  let h = Math.imul(digit + 1, 0x9e3779b1);
+
+  for (let i = 0; i < key.length; i++) h = Math.imul(h ^ key.charCodeAt(i), 0x01000193);
+
+  return mix(h ^ Math.imul(count + 1, 0x85ebca6b), use);
+};
+
+// Which digit of a draw each use of an answer reads: its pick of a failure, its delay, and the
+// answer itself (offline too).
+const PICK = 1;
+
+const DELAY = 2;
+
+const ANSWER = 3;
 
 /**
  * A stretch of a run's virtual time, from its start up to its end, in milliseconds, and the
@@ -231,6 +251,44 @@ const endpointsOf = (samples: Samples) =>
   samples.servers.flatMap(({ server }) =>
     Object.keys(server.endpoints).map((endpoint) => ({ server, endpoint })),
   );
+
+/**
+ * What a run picks from, slot by slot: every fixture's steps, actors, endpoints and control words,
+ * with a dropped fixture's slots kept empty, so the fixtures left pick as they did before; `mixed`
+ * when drawn over several fixtures.
+ */
+type Pools = {
+  readonly mixed: boolean;
+  readonly steps: ReadonlyArray<Option.Option<Step>>;
+  readonly actors: ReadonlyArray<Option.Option<Samples["actors"][number]>>;
+  readonly endpoints: ReadonlyArray<Option.Option<Endpoint>>;
+  readonly failures: ReadonlyArray<Option.Option<WorldWord>>;
+  readonly landedFailures: ReadonlyArray<Option.Option<WorldWord>>;
+  readonly controls: ReadonlyArray<Option.Option<WorldWord>>;
+};
+
+const slots = <A>(
+  all: ReadonlyArray<Samples>,
+  kept: ReadonlyArray<Samples>,
+  of: (part: Samples) => ReadonlyArray<A>,
+) =>
+  all.flatMap((part) =>
+    of(part).map((a) => (kept.includes(part) ? Option.some(a) : Option.none<A>())),
+  );
+
+// RETURN_TYPE: the Pools contract, whose slot lists inference would widen per field.
+const poolsOf = (all: ReadonlyArray<Samples>, kept: ReadonlyArray<Samples>): Pools => ({
+  mixed: all.length > 1,
+  steps: slots(all, kept, (p) => p.steps),
+  actors: slots(all, kept, (p) => p.actors),
+  endpoints: slots(all, kept, endpointsOf),
+  failures: slots(all, kept, (p) => p.failures),
+  landedFailures: slots(all, kept, (p) => p.landedFailures),
+  controls: slots(all, kept, (p) => p.controls),
+});
+
+const pickSlot = <A>(items: ReadonlyArray<Option.Option<A>>, at: number) =>
+  Option.flatten(pick(items, at));
 
 const wire = (
   at: Endpoint,
@@ -292,7 +350,7 @@ export const quieting = (): Source => {
 };
 
 // What the step words of an armed answer are, before the call it answers arrives.
-const armedSteps = (samples: Samples, at: Endpoint, answer: Answer, n: number) => {
+const armedSteps = (pools: Pools, at: Endpoint, answer: Answer, n: number) => {
   const hold = [wire(at, "hold", "request")];
   const lostButLanded = [wire(at, "drop", "response")];
 
@@ -303,9 +361,9 @@ const armedSteps = (samples: Samples, at: Endpoint, answer: Answer, n: number) =
     reordered: () => hold,
     late: () => hold,
     never: () => hold,
-    fail: () => Option.toArray(Option.map(pick(samples.failures, n), control)),
+    fail: () => Option.toArray(Option.map(pickSlot(pools.failures, n), control)),
     failButLanded: () =>
-      Option.match(pick(samples.landedFailures, n), {
+      Option.match(pickSlot(pools.landedFailures, n), {
         onNone: () => lostButLanded,
         onSome: (word) => [control(word)],
       }),
@@ -350,11 +408,17 @@ export const pendingOf = (view: View) => [
  * store's next write from the drawing's tables, releases held answers when their delay passes,
  * gives each draw's steps (skipping a draw invalid where it falls), and then quiets the world.
  */
-const sourceOf = (samples: Samples, drawing: Drawing, draws: ReadonlyArray<Draw>) => {
+const sourceOf = (pools: Pools, drawing: Drawing, draws: ReadonlyArray<Draw>, seed: number) => {
   let pending: ReadonlyArray<string> = [];
-  const queue: Array<Step> = samples.actors.map(({ actor }) => Step.ensure({ actor }));
+
+  const queue: Array<Step> = pools.actors.flatMap((slot) =>
+    Option.toArray(Option.map(slot, ({ actor }) => Step.ensure({ actor }))),
+  );
+
   const front: Array<Step> = [];
-  const endpoints = endpointsOf(samples);
+  const endpoints = pools.endpoints.flatMap((slot) => Option.toArray(slot));
+  // The run's world: one drawn digit every answer is keyed by, beside its endpoint and call count.
+  const world = draws[0]?.[3] ?? 0;
   const armed = new Map<string, { readonly calls: number; readonly answer: Answer }>();
   const timers: Array<Timer> = [];
   const quiet = quieting();
@@ -386,11 +450,16 @@ const sourceOf = (samples: Samples, drawing: Drawing, draws: ReadonlyArray<Draw>
     const before = armed.get(keyOf(at));
 
     if (before !== undefined && calls === before.calls) return;
-    // Each arming of an endpoint draws afresh, though one draw's digits serve many steps.
+    // Over one fixture an answer reads the current draw, so a shrunk draw changes the answers its
+    // own steps meet. Over several it reads the run's world digit by endpoint and call count, so
+    // dropping a fixture moves no answer of the rest.
     const n = slot * 1_000_003 + calls;
 
+    const digit = (use: number) =>
+      pools.mixed ? worldDigit(world, keyOf(at), calls, use) : mix(digits[use] ?? 0, n);
+
     if (before !== undefined) {
-      const delay = delayOf(before.answer, mix(digits[2], n));
+      const delay = delayOf(before.answer, digit(DELAY));
 
       if (Option.isSome(delay))
         timers.push({ due: now + delay.value, at: Option.some(at), afterCalls: 0 });
@@ -399,27 +468,39 @@ const sourceOf = (samples: Samples, drawing: Drawing, draws: ReadonlyArray<Draw>
         timers.push({ due: Number.POSITIVE_INFINITY, at: Option.some(at), afterCalls: calls + 1 });
     }
 
-    const offlineAnswer: Answer = mix(digits[3], n) % 2 === 0 ? "lost" : "never";
+    const offlineAnswer: Answer = digit(ANSWER) % 2 === 0 ? "lost" : "never";
 
     const answer = offlineNow()
       ? offlineAnswer
-      : Option.getOrElse(weighted(ANSWERS[drawing], mix(digits[3], n)), () => "ok" as const);
+      : Option.getOrElse(weighted(ANSWERS[drawing], digit(ANSWER)), () => "ok" as const);
 
     armed.set(keyOf(at), { calls, answer });
 
-    if (!offlineNow()) tally.set(`answer ${digits[3]}:${n}`, answer);
-    front.push(...armedSteps(samples, at, answer, mix(digits[1], n)));
+    if (!offlineNow())
+      tally.set(
+        pools.mixed ? `answer ${seed}:${keyOf(at)}:${calls}` : `answer ${digits[ANSWER]}:${n}`,
+        answer,
+      );
+    front.push(...armedSteps(pools, at, answer, digit(PICK)));
   };
 
+  // A write's digits come from the draw current when it is armed and its count. Over several
+  // fixtures the count starts again at each draw, so dropping one fixture, whose batches share the
+  // store, moves no other fixture's writes.
+  let drawOf = { draw: -1, firstWrite: 0 };
+
   const arm = (view: View, digits: Draw) => {
-    for (const [n, at] of endpoints.entries()) armEndpoint(view, digits, at, n);
+    for (const [slot, at] of endpoints.entries()) armEndpoint(view, digits, at, slot);
     const count = view.writes.length;
 
     if (Option.exists(writes, (w) => w.count === count)) return;
 
+    if (drawOf.draw !== next) drawOf = { draw: next, firstWrite: count };
+    const salt = WRITE_SALT + count - (pools.mixed ? drawOf.firstWrite : 0);
+
     if (Option.exists(writes, (w) => w.write === "slow"))
       timers.push({
-        due: now + span(50, 800, mix(digits[2], WRITE_SALT + count)),
+        due: now + span(50, 800, mix(digits[2], salt)),
         at: Option.none(),
         afterCalls: 0,
       });
@@ -427,7 +508,7 @@ const sourceOf = (samples: Samples, drawing: Drawing, draws: ReadonlyArray<Draw>
     landOnReload = landOnReload || Option.exists(writes, (w) => w.write === "land");
 
     const write = Option.getOrElse(
-      weighted(WRITES[drawing], mix(digits[3], WRITE_SALT + count)),
+      weighted(WRITES[drawing], mix(digits[3], salt)),
       () => "ack" as const,
     );
 
@@ -463,8 +544,8 @@ const sourceOf = (samples: Samples, drawing: Drawing, draws: ReadonlyArray<Draw>
 
   const drawn = (view: View, [kind, a, b]: Draw) => {
     const live = !view.disposed;
-    const user = live ? Option.toArray(pick(samples.steps, a)) : [];
-    const actor = pick(samples.actors, a);
+    const user = live ? Option.toArray(pickSlot(pools.steps, a)) : [];
+    const actor = pickSlot(pools.actors, a);
 
     const steps: Record<StepKind, () => ReadonlyArray<Step>> = {
       nothing: () => [],
@@ -505,7 +586,7 @@ const sourceOf = (samples: Samples, drawing: Drawing, draws: ReadonlyArray<Draw>
               ),
             )
           : [],
-      control: () => Option.toArray(Option.map(pick(samples.controls, a), control)),
+      control: () => Option.toArray(Option.map(pickSlot(pools.controls, a), control)),
     };
 
     // A disposed Runtime takes no step but a reload: the next draw opens the tab again.
@@ -627,7 +708,8 @@ const sourceOf = (samples: Samples, drawing: Drawing, draws: ReadonlyArray<Draw>
 /**
  * A generated run: its steps as a Story would hold them (unused words left out), what it recorded,
  * what was still pending at its horizon, its offline span, each answer and write it drew outside
- * that span, by the draw's digit and salt, and, for several fixtures in one Runtime, how many steps
+ * that span (an answer by seed, endpoint and call count, a write by the draw's digit and count),
+ * and, for several fixtures in one Runtime, how many steps
  * touched two or more of them (`shared`; 0 for one fixture).
  *
  * **Gotchas**
@@ -688,23 +770,31 @@ type Fixtures = Samples | ReadonlyArray<Samples>;
 const partsOf = (fixtures: Fixtures): ReadonlyArray<Samples> =>
   "id" in fixtures ? [fixtures] : fixtures;
 
+/**
+ * One run's drawing: every fixture it was drawn over, the fixtures it keeps (the rest dropped,
+ * their slots left empty), the drawing and the seed.
+ */
+type Drawn = {
+  readonly all: ReadonlyArray<Samples>;
+  readonly kept: ReadonlyArray<Samples>;
+  readonly drawing: Drawing;
+  readonly seed: number;
+};
+
+const idOf = (at: Drawn) => `${mixOf(at.kept).id}/${at.drawing}-${at.seed}`;
+
 // RETURN_TYPE: the exported Generated contract.
-const drawnRun = (
-  parts: ReadonlyArray<Samples>,
-  id: string,
-  drawing: Drawing,
-  draws: ReadonlyArray<Draw>,
-): Generated => {
-  const samples = mixOf(parts);
-  const drawn = sourceOf(samples, drawing, draws);
-  const ran = runSource(samples, id, drawn.source);
+const drawnRun = (at: Drawn, draws: ReadonlyArray<Draw>): Generated => {
+  const samples = mixOf(at.kept);
+  const drawn = sourceOf(poolsOf(at.all, at.kept), at.drawing, draws, at.seed);
+  const ran = runSource(samples, idOf(at), drawn.source);
 
   return {
     ...ran,
     pending: drawn.pending(),
     offline: drawn.offline(),
     tally: drawn.tally(),
-    shared: parts.length > 1 ? sharedOf(ran.run, parts) : 0,
+    shared: at.kept.length > 1 ? sharedOf(ran.run, at.kept) : 0,
   };
 };
 
@@ -712,7 +802,7 @@ const drawnRun = (
  * The step source one drawing of a fixture's samples gives from a seed.
  */
 export const generateSource = (samples: Samples, drawing: Drawing, seed: number) =>
-  sourceOf(samples, drawing, drawsFrom(drawing, seed)).source;
+  sourceOf(poolsOf([samples], [samples]), drawing, drawsFrom(drawing, seed), seed).source;
 
 /**
  * Runs one drawing of a fixture's samples, or of several fixtures' in one Runtime, from a seed and
@@ -722,25 +812,23 @@ export const generate = (
   fixtures: Fixtures,
   options: { readonly drawing: Drawing; readonly seed: number },
 ) => {
-  const parts = partsOf(fixtures);
+  const all = partsOf(fixtures);
 
   return drawnRun(
-    parts,
-    `${mixOf(parts).id}/${options.drawing}-${options.seed}`,
-    options.drawing,
+    { all, kept: all, drawing: options.drawing, seed: options.seed },
     drawsFrom(options.drawing, options.seed),
   );
 };
 
 type Verdict = { readonly rule: string; readonly breaches: ReadonlyArray<string> };
 
-const LIMIT_RULE = "Stories I7";
+const LIMIT_RULE = "turn limit";
 
-const HORIZON_RULE = "Testing O6";
+const HORIZON_RULE = "inconclusive";
 
 /**
  * Why a quieted run judged nothing: work still pending at its horizon, or no evidence recorded.
- * Either is a breach of Testing O6, so such a run never passes.
+ * Either is an `inconclusive` verdict, so such a run never passes.
  */
 export const inconclusiveOf = (run: StoryRun, pending: ReadonlyArray<string>) => {
   const verdicts: Array<Verdict> = [];
@@ -766,15 +854,9 @@ const unsharedOf = (parts: ReadonlyArray<Samples>, generated: Generated) => {
 
 // The breaches a run of draws gives: a turn limit, and work still pending at the horizon, are
 // breaches of their own; a script fault is a fault of the generator, so it is thrown.
-const judged = (
-  parts: ReadonlyArray<Samples>,
-  id: string,
-  drawing: Drawing,
-  draws: ReadonlyArray<Draw>,
-  properties: ReadonlyArray<Property>,
-) => {
+const judged = (at: Drawn, draws: ReadonlyArray<Draw>, properties: ReadonlyArray<Property>) => {
   try {
-    const generated = drawnRun(parts, id, drawing, draws);
+    const generated = drawnRun(at, draws);
 
     const verdicts: ReadonlyArray<Verdict> = properties.flatMap((p) => {
       const breaches = p.breaches(generated.run);
@@ -787,7 +869,7 @@ const judged = (
       verdicts: [
         ...verdicts,
         ...inconclusiveOf(generated.run, generated.pending),
-        ...unsharedOf(parts, generated),
+        ...unsharedOf(at.kept, generated),
       ],
     };
   } catch (fault) {
@@ -808,7 +890,8 @@ const MAX_SHRINKS = 1000;
 
 /**
  * A generated run that broke a property: its seed, the rule, the breaches of its shrunk run, the
- * number of draws it was drawn with, the fixtures it kept, and the shrunk run as steps and printed:
+ * number of draws it was drawn with, the shrink candidates tried (at most 1,000, the bound), the
+ * fixtures it kept, and the shrunk run as steps and printed:
  * as a Story for one fixture, as steps under a comment line for several.
  */
 export type Failure = {
@@ -816,6 +899,7 @@ export type Failure = {
   readonly rule: string;
   readonly breaches: ReadonlyArray<string>;
   readonly drawn: number;
+  readonly shrinks: number;
   readonly fixtures: ReadonlyArray<string>;
   readonly steps: ReadonlyArray<Step>;
   readonly story: string;
@@ -826,23 +910,13 @@ type Check = {
   readonly properties: ReadonlyArray<Property>;
 };
 
-const idOf = (parts: ReadonlyArray<Samples>, profile: Profile, seed: number) =>
-  `${mixOf(parts).id}/${profile}-${seed}`;
-
 // Checks a seed's draws with Arbitrary: with no target, the run must break no rule, and the first
 // rule broken becomes the target; with a target, the run must not break it. Shrinks up to `shrinks`.
-const search = (
-  parts: ReadonlyArray<Samples>,
-  seed: number,
-  check: Check,
-  target: Option.Option<string>,
-  shrinks: number,
-) => {
+const search = (at: Drawn, check: Check, target: Option.Option<string>, shrinks: number) => {
   let rule = target;
 
   const property = (draws: ReadonlyArray<Draw>) => {
-    const id = idOf(parts, check.profile, seed);
-    const { verdicts } = judged(parts, id, check.profile, draws, check.properties);
+    const { verdicts } = judged(at, draws, check.properties);
 
     return Option.match(rule, {
       onNone: () => {
@@ -858,7 +932,7 @@ const search = (
   const result = Effect.runSync(
     Arbitrary.checkEffect(drawsOf(check.profile), property, {
       runs: 1,
-      seed,
+      seed: at.seed,
       size: LENGTHS[check.profile][1],
       maxShrinks: shrinks,
     }),
@@ -867,29 +941,36 @@ const search = (
   return { result, rule };
 };
 
-// Drops whole fixtures while the seed's first draws still break the rule: each part in turn is
-// left out, and kept out when the rest, run alone, break the same rule.
-const dropped = (
-  parts: ReadonlyArray<Samples>,
-  seed: number,
-  check: Check,
-  rule: string,
-  draws: ReadonlyArray<Draw>,
-) =>
-  parts.reduce<ReadonlyArray<Samples>>((kept, part) => {
-    const rest = kept.filter((p) => p !== part);
+const MAX_SUBSETS = 64;
 
-    return rest.length > 0 &&
-      judged(
-        rest,
-        idOf(rest, check.profile, seed),
-        check.profile,
-        draws,
-        check.properties,
-      ).verdicts.some((v) => v.rule === rule)
-      ? rest
-      : kept;
-  }, parts);
+// Every nonempty subset of the parts, smallest first, while there are at most 64 of them.
+const subsetsOf = (parts: ReadonlyArray<Samples>) =>
+  2 ** parts.length > MAX_SUBSETS
+    ? []
+    : Array.from({ length: 2 ** parts.length - 1 }, (_, n) =>
+        parts.filter((_, k) => ((n + 1) >> k) % 2 === 1),
+      ).toSorted((a, b) => a.length - b.length);
+
+// Drops whole fixtures while the draws still break the rule, their slots kept empty so the rest
+// pick as before: the smallest subset of the kept parts that breaks the same rule, or, past 64
+// subsets, each part in turn left out while the rest still break it.
+const dropped = (at: Drawn, check: Check, rule: string, draws: ReadonlyArray<Draw>) => {
+  const breaks = (kept: ReadonlyArray<Samples>) =>
+    judged({ ...at, kept }, draws, check.properties).verdicts.some((v) => v.rule === rule);
+
+  const smallest = subsetsOf(at.kept).find(
+    (kept) => kept.length === at.kept.length || breaks(kept),
+  );
+
+  return (
+    smallest ??
+    at.kept.reduce<ReadonlyArray<Samples>>((kept, part) => {
+      const rest = kept.filter((p) => p !== part);
+
+      return rest.length > 0 && breaks(rest) ? rest : kept;
+    }, at.kept)
+  );
+};
 
 // RETURN_TYPE: the exported Failure contract, which the inconclusive and shrunk branches would split.
 const inconclusive = (seed: number, parts: ReadonlyArray<Samples>, message: string): Failure => ({
@@ -897,6 +978,7 @@ const inconclusive = (seed: number, parts: ReadonlyArray<Samples>, message: stri
   rule: HORIZON_RULE,
   breaches: [`inconclusive: ${message}`],
   drawn: 0,
+  shrinks: 0,
   fixtures: parts.map((p) => p.id),
   steps: [],
   story: "",
@@ -925,13 +1007,13 @@ const inconclusive = (seed: number, parts: ReadonlyArray<Samples>, message: stri
  * with nothing held) gives no step, the draw after a Runtime's disposal reloads the tab, and a
  * hold, drop or refuse that no call or write used is left out. After
  * its draws a run quiets its world: every held call and write is released and time passes every
- * deadline and bound; work still pending then is inconclusive, a breach of Testing O6. A run that
+ * deadline and bound; work still pending then is an `inconclusive` failure. A run that
  * breaks a property is shrunk by Arbitrary over its draws, keeping only smaller runs that break the
  * same rule, and printed as a chained `Story.app(...)`.
  *
  * Several fixtures run as one app in one Runtime: one fake store, one network, one clock, one tab
  * whose reloads and disposal reach them all, and every sample step of each. A run of several where
- * no step touched two of them shared nothing, so it is inconclusive, a breach of Testing O6. A
+ * no step touched two of them shared nothing, so it is an `inconclusive` failure. A
  * failing run of several first drops whole fixtures while the rest still break the same rule, then
  * shrinks its draws; an inconclusive one keeps them all. The `mix` profile is drawn for several
  * fixtures: its slow store writes, answers in flight and reloads make their work overlap, where the
@@ -939,12 +1021,12 @@ const inconclusive = (seed: number, parts: ReadonlyArray<Samples>, message: stri
  *
  * **Gotchas**
  *
- * - A turn limit counts as a breach of Stories I7; a script fault is a fault of the generator and
+ * - A turn limit is a `turn limit` failure; a script fault is a fault of the generator and
  *   is thrown.
  * - Shrinking is bounded at 1,000 candidates, so a shrunk run is small, not always smallest.
  * - It stops at the first seed that fails, so the result holds at most one failure.
  * - A check that ends `Exhausted` or `ReplayMismatch` judged nothing, so it is a failure of
- *   Testing O6 with Arbitrary's message and no Story.
+ *   `inconclusive` with Arbitrary's message and no Story.
  * - A run of several fixtures prints as steps under a comment line, not as a Story to paste: a
  *   Story holds one setup.
  * - Several fixtures must not share a machine, a server or a capture interval (a script fault).
@@ -962,7 +1044,8 @@ export const propertyTest = (
 
   // RETURN_TYPE: one Failure list for the passed and the shrunk branch, which inference would split.
   const checked = (seed: number): ReadonlyArray<Failure> => {
-    const found = search(all, seed, options, Option.none(), 0);
+    const first: Drawn = { all, kept: all, drawing: options.profile, seed };
+    const found = search(first, options, Option.none(), 0);
 
     if (found.result._tag === "Passed") return [];
 
@@ -973,25 +1056,29 @@ export const propertyTest = (
 
     const target = Option.getOrElse(found.rule, () => LIMIT_RULE);
 
-    // An inconclusive run judged nothing about any one fixture, so none is dropped.
-    const parts =
-      target === HORIZON_RULE
-        ? all
-        : dropped(all, seed, options, target, found.result.initialInput);
+    // An inconclusive run judged nothing about any one fixture, so none is dropped. Otherwise
+    // fixtures are dropped over the first draws, the draws shrink, and fixtures are dropped again
+    // over the shrunk draws, where another fixture's work no longer stands in the way.
+    // RETURN_TYPE: the Drawn record both branches return.
+    const drop = (at: Drawn, draws: ReadonlyArray<Draw>): Drawn =>
+      target === HORIZON_RULE ? at : { ...at, kept: dropped(at, options, target, draws) };
 
-    const shrunk = search(parts, seed, options, Option.some(target), MAX_SHRINKS);
+    const once = drop(first, found.result.initialInput);
+    const shrunk = search(once, options, Option.some(target), MAX_SHRINKS);
 
     if (shrunk.result._tag !== "Falsified")
       return [
         inconclusive(
           seed,
-          parts,
+          once.kept,
           Arbitrary.formatCheckFailure(shrunk.result) ?? shrunk.result._tag,
         ),
       ];
 
-    const id = idOf(parts, options.profile, seed);
-    const last = judged(parts, id, options.profile, shrunk.result.shrunkInput, options.properties);
+    const at = drop(once, shrunk.result.shrunkInput);
+    const parts = at.kept;
+    const id = idOf(at);
+    const last = judged(at, shrunk.result.shrunkInput, options.properties);
     const steps = Option.match(last.generated, { onNone: () => [], onSome: (g) => g.steps });
     const [only] = parts;
 
@@ -1001,6 +1088,7 @@ export const propertyTest = (
         rule: target,
         breaches: last.verdicts.filter((v) => v.rule === target).flatMap((v) => v.breaches),
         drawn: found.result.initialInput.length,
+        shrinks: shrunk.result.shrinks,
         fixtures: parts.map((p) => p.id),
         steps,
         story:
