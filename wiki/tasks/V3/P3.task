@@ -299,7 +299,7 @@ tasks
             User's page: code:wiki/plans/flow/references/pages/T18-lane-policies.md (unread).
     T55
         title       Runtime life: Life and admit replace Disposal; the final write and its 5 s bound move into the core
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T54]
         description
@@ -360,6 +360,26 @@ tasks
             within the bound into unknown Restored at reload (PAY-16 parked tests expect its own ending). Disposal keeps
             writing within the bound; changes at the bound stay unwritten (R23 text), which changes 3 PAY-13/PAY-16
             reload results. Reverse: one batch at the start.
+        comment     2026-11-16T08:22:09Z
+            Done at 98791be4: L1 to L6 hold; I43 flipped; I38 was already green. Gates at that revision: nub run check
+            0, suite 539 passed and 7 inverted, test:stress 0, generated Stories over 150 fresh seeds 0, nub run faults
+            82 of 82 caught (10 new in code:packages/flow-state-v3/tests/life-faults.ts).
+        comment     2026-11-16T08:22:10Z
+            Decided (agent, for the user's read): the disposal writes every change made within its bound (Spec R23, I36,
+            I43, I44 and specs.log). Changed results: PAY-13/hung-commit and PAY-16 on-the-wire-at-the-bound and
+            never-answered now hear unknown Restored once after reload, per R23's bound.
+        comment     2026-11-16T08:22:10Z
+            Small API calls (agent): disposeActor before ready now throws RuntimeNotReady (admit table); inspection's
+            lifecycle reads the six Life tags; the disposal's batch carries a flush ticket, and the edge answers a
+            ticket with nothing left to write as landed.
+        comment     2026-11-16T08:22:10Z
+            Extra files: src/host/edge.ts, inspect.ts, testing/seam.ts (forget follows admit), lanes.test.ts (dispose
+            settles on the tab), lane-shapes.test.ts, tests/consolidation-faults.ts (two-batches-out re-anchored). Host
+            life tests sit in src/host/life.test.ts: tests/ may not import the seam.
+        comment     2026-11-16T08:22:10Z
+            Bench alone (per turn median/p99 ms): transfers/long 0.031/0.050, pay/long 0.032/0.059, cells/long
+            0.028/0.047, sync/long 0.019/0.031, sign-in/long 0.013/0.032, lanes/stress-36 0.033/0.063; stress Stories
+            0.020 to 0.089 median.
     T19
         title       Durability: persistence edge, write-ahead and the driver (slice 2)
         status      open
