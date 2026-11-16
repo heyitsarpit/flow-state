@@ -653,3 +653,7 @@ note 2026-11-16T16:09:10Z
 note 2026-11-16T16:10:26Z
     Amendment (2026-11-16, the user): every accepted review finding names the missing coverage that let it through; the
     fix round adds coverage for the whole class first. Commit: efc71b2e.
+
+note 2026-11-16T17:43:52Z
+    Amendment (2026-11-16, the user): the workflow pin moves 6b7288e to 1b83a6d, which adds 'findings name why the tests
+    missed them' to policy-testing, policy-verification, review and build-a-loop R17. Commit: 2e29a000.
