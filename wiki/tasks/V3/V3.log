@@ -496,3 +496,8 @@ note 2026-11-16T13:12:43Z
 
 note 2026-11-16T13:13:09Z
     The T72-to-P4 Amendment and the T76-T78 Tasks landed in 686c2161.
+
+note 2026-11-16T13:15:55Z
+    Decision (the user delegated, 2026-11-16): U3, T76 builds Story.machine's first slice and T29 extends it, so T73 and
+    T78 get props in P4; U4, the five refusal checks move to a 2^31 ms delay, since JSON can't carry NaN. Reverse: edit
+    T76's and T57's Risk.

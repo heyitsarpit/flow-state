@@ -127,8 +127,8 @@ tasks
             merge it lists.
 
             **Risk:** R5 turns a computed negative delay from a refusal into zero. Five built checks use it as their
-            refusal case and must move to an over-range delay (2^31 ms, which JSON carries; proposed, the user's choice
-            U4 is open) in the same commit: `tests/turn/refusal.test.ts:16`,
+            refusal case and must move to an over-range delay (2^31 ms, which JSON carries; U4, decided by the
+            orchestrator for the user, 2026-11-16) in the same commit: `tests/turn/refusal.test.ts:16`,
             `tests/write-lanes/ending-delivery.test.ts:18-24`, `tests/pay/pay.test.ts:84` and `:100`, and the
             `busyRefused` Story in `fixtures/pay/stories.ts:33-39`. `tests/compile/construction.test.ts:446` stays,
             because a fixed negative is still DelayOutOfRange.
@@ -436,9 +436,9 @@ tasks
             @task.V3.T9, code:wiki/plans/flow/references/proposals/ui-primitives-decisions-2026-11-16.md (§9).
 
             **Risk:** `Story.machine` is @task.V3.T29's; this Task builds its first slice (input, props and the props
-            step) and T29 extends it (proposed; the user's choice U3 is open). Blocked by T9, which builds `createActor`
-            and the mailbox, and by T77, because emit mappers read props. `createActor`'s options stay a record so
-            `props` fits.
+            step) and T29 extends it (U3, decided by the orchestrator for the user, 2026-11-16). Blocked by T9, which
+            builds `createActor` and the mailbox, and by T77, because emit mappers read props. `createActor`'s options
+            stay a record so `props` fits.
 
             **Approach:** definition `props` with Schema defaults; a props update is its own turn, changing only props,
             then `onProps`; every memory reader gets props from the same snapshot; construction rejects a prop that
