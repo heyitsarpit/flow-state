@@ -1,16 +1,18 @@
-import { Duration, Option, Predicate, Result, Schema } from "effect";
-import {
-  Action,
-  type Compiled,
-  type Denial,
-  Guard,
-  type GuardInput,
-  type SelectInput,
-  type Values,
-} from "./core/compiled.ts";
+import { type Duration, Option, Predicate, Schema } from "effect";
+import type { Action, Compiled, Denial, Guard, Values } from "./core/compiled.ts";
 import type { Row } from "./core/rows.ts";
-import type { Bound, Ending, Fields, InputOf } from "./contract.ts";
-import type { Entry, Initial, Uncertain } from "./flow.ts";
+import { atOrBelow, chainOf } from "./core/tree.ts";
+import type { Bound, Ending, Fields } from "./contract.ts";
+import { flowError } from "./error.ts";
+import { readHandle, writeHandle } from "./handles.ts";
+import {
+  definitionFindings,
+  isMarker,
+  isUncertain,
+  type TreeNode,
+  treeOf,
+} from "./construction.ts";
+import type { Entry, Field, Input, Plain, Private, Uncertain } from "./flow.ts";
 
 export type EventFields = Fields | Uncertain;
 
@@ -21,12 +23,46 @@ type FieldsOf<X> = X extends Uncertain<infer F> ? F : X extends Fields ? X : nev
  */
 export type PayloadOf<X> = Schema.Struct<FieldsOf<X>>["Type"];
 
-export type MemoryConfig = Readonly<Record<string, Initial>>;
+/**
+ * A definition's memory fields, each with its one source.
+ */
+export type MemoryConfig = Readonly<Record<string, Field>>;
+
+type Unwrapped<F> = F extends Private<infer G> ? G : F;
+
+type TypeOf<F> =
+  Unwrapped<F> extends { readonly "~flow": string; readonly schema: infer S extends Plain }
+    ? S["Type"]
+    : Unwrapped<F> extends Plain
+      ? Unwrapped<F>["Type"]
+      : never;
+
+type OptionalKeys<M> = {
+  readonly [K in keyof M]: Unwrapped<M[K]> extends { readonly "~flow": string } ? never : K;
+}[keyof M];
+
+type InputKeys<M> = { readonly [K in keyof M]: M[K] extends Input ? K : never }[keyof M];
+
+type Flat<T> = { readonly [K in keyof T]: T[K] };
 
 /**
- * A definition's memory: each field's decoded value.
+ * A definition's memory: each field's decoded value; an optional key may be absent.
  */
-export type MemoryOf<M extends MemoryConfig> = { readonly [K in keyof M]: M[K]["value"] };
+export type MemoryOf<M> = Flat<
+  { readonly [K in Exclude<keyof M, OptionalKeys<M>>]: TypeOf<M[K]> } & {
+    readonly [K in OptionalKeys<M>]?: TypeOf<M[K]>;
+  }
+>;
+
+/**
+ * The memory a handler may write: every field but the input fields, which name the actor.
+ */
+export type WritableOf<M> = Omit<MemoryOf<M>, InputKeys<M>>;
+
+/**
+ * What a creator supplies: the definition's `Flow.input` fields.
+ */
+export type InputOf<M> = Flat<{ readonly [K in InputKeys<M>]: TypeOf<M[K]> }>;
 
 /**
  * A public event as `send` takes it: its tag and its payload.
@@ -34,10 +70,13 @@ export type MemoryOf<M extends MemoryConfig> = { readonly [K in keyof M]: M[K]["
 export type Envelope<Name extends string = string, P = Values> = { readonly _tag: Name } & P;
 
 /**
- * One event of a definition: a constructor of its envelope, and an ending mapping (`E.X`,
- * `E.X.from(f)`).
+ * One event of a definition: a constructor of its envelope that checks the payload, and an ending
+ * mapping (`E.X`, `E.X.from(f)`).
  */
-export type EventToken<Name extends string, P> = ((payload: P) => Envelope<Name, P>) &
+export type EventToken<Name extends string, P> = ((
+  // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts -- the Plan's public word: a payload-free constructor takes no argument
+  ...payload: Record<never, never> extends P ? [payload?: P] : [payload: P]
+) => Envelope<Name, P>) &
   Ending & {
     readonly tag: Name;
     readonly from: <V>(map: (value: V) => P) => Ending;
@@ -46,22 +85,116 @@ export type EventToken<Name extends string, P> = ((payload: P) => Envelope<Name,
 type Tokens<Ev> = { readonly [K in keyof Ev & string]: EventToken<K, PayloadOf<Ev[K]>> };
 
 /**
- * A state of a definition, as a target or a guard element.
+ * A state tree: leaf names, and single-key compounds holding their children's list.
  */
-export type StateToken<Name extends string = string> = {
+export type StateTree = ReadonlyArray<string | { readonly [name: string]: StateTree }>;
+
+type NameOf<X> = X extends string ? X : keyof X & string;
+
+type ChildOf<X, N extends string> = X extends { readonly [K in N]: infer C } ? C : never;
+
+/**
+ * The names of a list's direct children.
+ */
+export type NamesOf<L> = L extends ReadonlyArray<infer X> ? NameOf<X> : never;
+
+/**
+ * The child list of a compound named `N` in list `L`; `never` for a leaf.
+ */
+export type ChildrenOf<L, N extends string> =
+  L extends ReadonlyArray<infer X> ? ChildOf<X, N> : never;
+
+/**
+ * The names of a list's compounds.
+ */
+export type CompoundNamesOf<L> = {
+  readonly [N in NamesOf<L>]: [ChildrenOf<L, N>] extends [never] ? never : N;
+}[NamesOf<L>];
+
+/**
+ * Every state path of a tree, compounds included (`ON`, `ON.PLAYING`).
+ */
+export type PathsOf<L, P extends string = ""> =
+  string extends NamesOf<L> ? string : PathsOfLiteral<L, P>;
+
+type PathsOfLiteral<L, P extends string> = {
+  readonly [N in NamesOf<L>]: `${P}${N}` | PathsOfLiteral<ChildrenOf<L, N>, `${P}${N}.`>;
+}[NamesOf<L>];
+
+/**
+ * Every leaf path of a tree.
+ */
+export type LeavesOf<L, P extends string = ""> =
+  string extends NamesOf<L> ? string : LeavesOfLiteral<L, P>;
+
+type LeavesOfLiteral<L, P extends string> = {
+  readonly [N in NamesOf<L>]: [ChildrenOf<L, N>] extends [never]
+    ? `${P}${N}`
+    : LeavesOfLiteral<ChildrenOf<L, N>, `${P}${N}.`>;
+}[NamesOf<L>];
+
+/**
+ * What a state read takes: a snapshot or a leaf path.
+ */
+export type StateRead = string | { readonly state: string };
+
+/**
+ * A state of a definition, as a target or a guard element.
+ *
+ * **Details**
+ *
+ * `is(snapshot)` holds at this state or below it; `child(snapshot)` is the active direct child's
+ * name, or `undefined`.
+ */
+export type StateToken<Path extends string = string> = {
   readonly "~flow": "state";
-  readonly node: Name;
+  readonly "~path": Path;
+  readonly is: (read: StateRead) => boolean;
+  // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts -- the Plan's public word: child is the name, otherwise undefined
+  readonly child: (read: StateRead) => string | undefined;
+};
+
+/**
+ * A compound's history as a target (`S.X.history`): its last active leaf, else its default.
+ */
+export type HistoryToken<Path extends string = string> = {
+  readonly "~flow": "history";
+  readonly "~path": Path;
+};
+
+/**
+ * The state tokens of a tree: each state by name, a compound's children under it with its
+ * `history`.
+ */
+export type StateTokens<L, P extends string = ""> =
+  string extends NamesOf<L> ? Values : StateTokensLiteral<L, P>;
+
+type StateTokensLiteral<L, P extends string> = {
+  readonly [N in NamesOf<L>]: [ChildrenOf<L, N>] extends [never]
+    ? StateToken<`${P}${N}`>
+    : StateToken<`${P}${N}`> &
+        StateTokensLiteral<ChildrenOf<L, N>, `${P}${N}.`> & {
+          readonly history: HistoryToken<`${P}${N}`>;
+        };
 };
 
 /**
  * A lane member or lookup in an alternative's `actions`.
  */
-export type ActionToken = { readonly "~flow": "action"; readonly make: (at: string) => Action };
+export type ActionToken = {
+  readonly "~flow": "action";
+  readonly operation: string;
+  readonly make: (at: string) => Action;
+};
 
 /**
  * An operation's guard (`O.x.idle`, `O.x.retryable`) in an alternative's `guard`.
  */
-export type GuardToken = { readonly "~flow": "guard"; readonly make: (at: string) => Guard };
+export type GuardToken = {
+  readonly "~flow": "guard";
+  readonly operation: string;
+  readonly make: (at: string) => Guard;
+};
 
 type SelectArg<M> = { readonly memory: M; readonly event: never };
 
@@ -109,40 +242,43 @@ export type GuardElement<M, P> =
 /**
  * One alternative of a handler: its target, guards, memory patch and actions.
  */
-export type AlternativeConfig<M, P, S extends string> = {
-  readonly target?: StateToken<S> | "self";
+export type AlternativeConfig<M, P, S extends string, W = M> = {
+  readonly target?: StateToken<S> | HistoryToken<S> | "self";
   readonly guard?: GuardElement<M, P> | ReadonlyArray<GuardElement<M, P>>;
   readonly updateMemory?: (input: {
     readonly memory: M;
     readonly event: P;
     readonly now: number;
-  }) => Partial<M>;
+  }) => Partial<W>;
   readonly actions?: ReadonlyArray<ActionToken>;
 };
 
-type OneAlternative<M, P, S extends string> = AlternativeConfig<M, P, S> | StateToken<S>;
+type OneAlternative<M, P, S extends string, W> =
+  | AlternativeConfig<M, P, S, W>
+  | StateToken<S>
+  | HistoryToken<S>;
 
-export type Handler<M, P, S extends string> =
-  | OneAlternative<M, P, S>
-  | ReadonlyArray<OneAlternative<M, P, S>>;
+export type Handler<M, P, S extends string, W = M> =
+  | OneAlternative<M, P, S, W>
+  | ReadonlyArray<OneAlternative<M, P, S, W>>;
 
-export type On<M, Ev, S extends string> = {
-  readonly [K in keyof Ev]?: Handler<M, PayloadOf<Ev[K]>, S>;
+export type On<M, Ev, S extends string, W = M> = {
+  readonly [K in keyof Ev]?: Handler<M, PayloadOf<Ev[K]>, S, W>;
 };
 
 export type ScheduleConfig<M, Ev> = {
   readonly schedule: Duration.Input | ((input: { readonly memory: M }) => number);
-  readonly send: EventToken<keyof Ev & string, Values> | Ending;
+  readonly send: { readonly tag: keyof Ev & string } & Ending;
   readonly armOn?: ReadonlyArray<(keyof Ev & string) | Entry>;
 };
 
-export type StateConfig<M, Ev, S extends string> = {
-  readonly on?: On<M, Ev, S>;
+export type StateConfig<M, Ev, S extends string, W = M> = {
+  readonly on?: On<M, Ev, S, W>;
   readonly schedules?: Readonly<Record<string, ScheduleConfig<M, Ev>>>;
 };
 
 type DefinitionConfig<
-  States extends ReadonlyArray<string>,
+  States extends StateTree,
   Ev extends Readonly<Record<string, EventFields>>,
   In extends Readonly<Record<string, EventFields>>,
   M extends MemoryConfig,
@@ -153,15 +289,28 @@ type DefinitionConfig<
   readonly states: States;
   readonly events: Ev;
   readonly internalEvents?: In;
-  readonly memory: M;
+  readonly memory?: M;
   readonly operations?: (tokens: { readonly E: Tokens<In> }) => O;
 };
 
 /**
+ * The root's state reads: `S.root.child(snapshot)` is the active top-level state.
+ */
+export type RootToken = {
+  // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts -- the Plan's public word: child is the name, otherwise undefined
+  readonly child: (read: StateRead) => string | undefined;
+};
+
+/**
  * A definition: a machine's structure, before its handlers.
+ *
+ * **Details**
+ *
+ * `Event`, `State`, `Input` and `Memory` are its Schemas: `Event` decodes its public envelopes,
+ * `State` its leaf paths, `Input` what a creator supplies and `Memory` the whole memory.
  */
 export type Definition<
-  States extends ReadonlyArray<string> = ReadonlyArray<string>,
+  States extends StateTree = StateTree,
   Ev extends Readonly<Record<string, EventFields>> = Readonly<Record<string, EventFields>>,
   In extends Readonly<Record<string, EventFields>> = Readonly<Record<string, EventFields>>,
   M extends MemoryConfig = MemoryConfig,
@@ -174,24 +323,52 @@ export type Definition<
   readonly internalEvents: In;
   readonly memory: M;
   readonly operations: O;
-  readonly S: { readonly [K in States[number]]: StateToken<K> };
+  readonly S: StateTokens<States> & { readonly root: RootToken };
   readonly E: Tokens<Ev & In>;
   readonly O: Handles<O, MemoryOf<M>>;
+  readonly Event: Schema.Codec<Envelope, Values>;
+  readonly State: Schema.Codec<LeavesOf<States>, string>;
+  readonly Input: Schema.Codec<InputOf<M>, Values>;
+  readonly Memory: Schema.Codec<MemoryOf<M>, Values>;
 };
-
-export const erase = <I, R>(run: (input: never) => R) =>
-  // SAFETY: a callback written for its handler's event and memory; the turn passes exactly those.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the definition's payload and memory types are erased in Compiled and restored by the turn
-  run as (input: I) => R;
-
-// RETURN_TYPE: a type guard over event fields.
-const isUncertain = (x: EventFields): x is Uncertain => Predicate.hasProperty(x, "~flow");
 
 export const fieldsOf = (x: EventFields) => (isUncertain(x) ? x.fields : x);
 
-const eventToken = (tag: string) => {
+/**
+ * A Struct built over a runtime record of field Schemas, as the record codec Compiled holds.
+ */
+export const codecOf = <E, S = Schema.Top>(schema: S) =>
+  // SAFETY: a Struct of a definition's own field Schemas decodes to a record of those fields, and every Flow field Schema needs no services.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Schema.Struct over a runtime record has no static field types
+  schema as Schema.Codec<Values, E>;
+
+// FLOW_STATE_ALLOW_UNKNOWN: an authored or compiled value, checked here before it is trusted.
+const trusted = <A>(value: unknown) =>
+  // SAFETY: a value built from the definition's own keys, whose static type the caller names.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- records built at run time carry no static key types
+  value as A;
+
+const invalidEvent = (tag: string) =>
+  flowError([
+    {
+      code: "InvalidEvent",
+      path: ["E", tag],
+      summary: `E.${tag} was given a payload its Schema refuses`,
+      help: "Give the event a payload of its declared fields.",
+    },
+  ]);
+
+const eventToken = (tag: string, payload: Schema.Codec<Values, Values>) => {
   const ending = { event: tag, from: Option.none() };
-  const make = (payload: Values) => ({ ...payload, _tag: tag });
+  const valid = Schema.is(payload);
+
+  const make = (given: Values = {}) => {
+    if (!valid(given))
+      // oxlint-disable-next-line lint-bomb/no-throw-in-core -- E.X's contract: a payload its Schema refuses throws InvalidEvent
+      throw invalidEvent(tag);
+
+    return { ...given, _tag: tag };
+  };
 
   return Object.assign(make, {
     tag,
@@ -201,83 +378,59 @@ const eventToken = (tag: string) => {
 };
 
 const tokensOf = <Ev extends Readonly<Record<string, EventFields>>>(events: Ev) =>
-  trusted<Tokens<Ev>>(Object.fromEntries(Object.keys(events).map((tag) => [tag, eventToken(tag)])));
+  trusted<Tokens<Ev>>(
+    Object.fromEntries(
+      Object.entries(events).map(([tag, fields]) => [
+        tag,
+        eventToken(tag, codecOf<Values>(Schema.Struct(fieldsOf(fields)))),
+      ]),
+    ),
+  );
 
-// RETURN_TYPE: the ActionToken protocol every member returns.
-const member = (make: (at: string) => Action): ActionToken => ({ "~flow": "action", make });
+// ── the state tree.
 
-const keyed =
-  (kind: "Retry" | "Cancel", operation: string) =>
-  (key: Option.Option<(input: SelectArg<Values>) => Values>) =>
-    member((at) =>
-      Action[kind]({
-        operation,
-        key: Option.map(key, (run) => ({
-          slot: `${at}.key`,
-          run: erase<SelectInput, Values>(run),
-        })),
+const readOf = (read: StateRead) => (Predicate.isString(read) ? read : read.state);
+
+const childUnder = (path: string, read: StateRead) => {
+  const state = readOf(read);
+  const depth = path === "" ? 0 : chainOf(path).length;
+
+  return path === "" || atOrBelow(state, path) ? state.split(".")[depth] : undefined;
+};
+
+// RETURN_TYPE: the StateToken protocol: a target and a guard element with its reads.
+const stateToken = (path: string): StateToken => ({
+  "~flow": "state",
+  "~path": path,
+  is: (read) => atOrBelow(readOf(read), path),
+  child: (read) => childUnder(path, read),
+});
+
+const tokenTree = (nodes: ReadonlyArray<TreeNode>, paths: ReadonlyArray<string>) => {
+  const byPath = new Map(nodes.map((n) => [n.path, n]));
+
+  // RETURN_TYPE: recursive: each state's token by name, a compound's children under it.
+  const build = (list: ReadonlyArray<string>): Values =>
+    Object.fromEntries(
+      list.map((path) => {
+        const node = byPath.get(path);
+        const kids = node?.children ?? [];
+
+        return [
+          node?.name ?? path,
+          kids.length === 0
+            ? stateToken(path)
+            : {
+                ...build(kids),
+                ...stateToken(path),
+                history: { "~flow": "history", "~path": path },
+              },
+        ];
       }),
     );
 
-const keylessOrKeyed = (kind: "Retry" | "Cancel", operation: string) => {
-  const of = keyed(kind, operation);
-
-  return Object.assign(
-    (key: (input: SelectArg<Values>) => Values) => of(Option.some(key)),
-    of(Option.none()),
-  );
+  return { ...build(paths), root: { child: (read: StateRead) => childUnder("", read) } };
 };
-
-const writeHandle = (operation: string, key: Schema.Codec<Values, string>) => ({
-  commit: (select: (input: SelectArg<Values>) => Values) =>
-    member((at) =>
-      Action.Commit({ operation, select: { slot: `${at}.select`, run: erase(select) } }),
-    ),
-  retry: keylessOrKeyed("Retry", operation),
-  cancel: keylessOrKeyed("Cancel", operation),
-  // RETURN_TYPE: the GuardToken protocol every guard returns.
-  idle: (select: (input: GuardArg<Values, never>) => Values): GuardToken => ({
-    "~flow": "guard",
-    make: (at) => Guard.Idle({ operation, key: { slot: `${at}.key`, run: erase(select) } }),
-  }),
-  // RETURN_TYPE: the GuardToken protocol every guard returns.
-  retryable: (
-    first: ((input: GuardArg<Values, never>) => Values) | { readonly times: number },
-    second: { readonly times: number } = { times: 0 },
-  ): GuardToken => ({
-    "~flow": "guard",
-    make: (at) =>
-      Predicate.isFunction(first)
-        ? Guard.Retryable({
-            operation,
-            key: Option.some({ slot: `${at}.key`, run: erase<GuardInput, Values>(first) }),
-            times: second.times,
-          })
-        : Guard.Retryable({ operation, key: Option.none(), times: first.times }),
-  }),
-  get: (operations: Operations, value: Values) =>
-    Option.flatMap(Option.fromUndefinedOr(operations.get(operation)), (rows) =>
-      Option.flatMap(Result.getSuccess(Schema.encodeResult(key)(value)), (text) =>
-        Option.fromUndefinedOr(rows.get(text)),
-      ),
-    ),
-});
-
-const readHandle = (operation: string) => ({
-  lookup: (select: (input: SelectArg<Values>) => Values) =>
-    member((at) =>
-      Action.Lookup({ operation, select: { slot: `${at}.select`, run: erase(select) } }),
-    ),
-  cancel: keyed("Cancel", operation)(Option.none()),
-});
-
-/**
- * A Struct built over a runtime record of field Schemas, as the record codec Compiled holds.
- */
-export const codecOf = <E, S = Schema.Top>(schema: S) =>
-  // SAFETY: a Struct of a definition's own field Schemas decodes to a record of those fields, and every Flow field Schema needs no services.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Schema.Struct over a runtime record has no static field types
-  schema as Schema.Codec<Values, E>;
 
 /**
  * Declares a machine's structure: its states, events, memory and operations.
@@ -288,22 +441,46 @@ export const codecOf = <E, S = Schema.Top>(schema: S) =>
  *
  * **Details**
  *
- * Inert: it starts no actor, work, timer or storage access. `operations` runs once, with the
- * internal events' tokens.
+ * `states` is an ordered list of leaf names and single-key compounds (`{ ON: ["PLAYING",
+ * "PAUSED"] }`). Each memory field starts from one source: `Flow.input`, `Flow.initial`, or
+ * absence for an optional key. Inert: it starts no actor, work, timer or storage access, and runs
+ * no default; `operations` runs once, with the internal events' tokens.
+ *
+ * **Gotchas**
+ *
+ * - An invalid declaration throws one FlowError listing every violation found, in declaration
+ *   order, each with its path.
  */
 // RETURN_TYPE: the exported Definition keeps every literal type for S, E and O.
 export const definition = <
-  const States extends ReadonlyArray<string>,
+  const States extends StateTree,
   const Ev extends Readonly<Record<string, EventFields>>,
   // RETURN_TYPE: the exported Definition keeps every literal type for S, E and O.
   const In extends Readonly<Record<string, EventFields>> = Record<never, never>,
-  M extends MemoryConfig = MemoryConfig,
+  M extends MemoryConfig = Record<never, never>,
   O extends Readonly<Record<string, Bound>> = Record<never, never>,
 >(
   config: DefinitionConfig<States, Ev, In, M, O>,
 ): Definition<States, Ev, In, M, O> => {
   const internal = config.internalEvents ?? trusted<In>({});
+  const memory = config.memory ?? trusted<M>({});
   const operations = config.operations?.({ E: tokensOf(internal) }) ?? trusted<O>({});
+  const tree = treeOf(config.states);
+
+  const findings = Object.keys(config).flatMap((key) =>
+    definitionFindings(
+      key,
+      { ...config, internalEvents: internal, memory },
+      tree.findings,
+      operations,
+    ),
+  );
+
+  const [first, ...rest] = findings;
+
+  if (first !== undefined)
+    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- an invalid definition throws one FlowError before any work
+    throw flowError([first, ...rest]);
 
   const handles = Object.fromEntries(
     Object.entries(operations).map(([name, bound]) => [
@@ -312,24 +489,52 @@ export const definition = <
     ]),
   );
 
+  const unwrap = (raw: Field) => (isMarker(raw) && raw["~flow"] === "private" ? raw.field : raw);
+
+  const schemaOf = (raw: Field) => {
+    const field = unwrap(raw);
+
+    return isMarker(field) ? field.schema : field;
+  };
+
+  const leaves = tree.nodes.filter((n) => n.children.length === 0).map((n) => n.path);
+
+  const envelopes = Object.entries(config.events).map(([tag, fields]) =>
+    Schema.Struct({ ...fieldsOf(fields), _tag: Schema.Literal(tag) }),
+  );
+
+  const inputs = Object.fromEntries(
+    Object.entries(memory).flatMap(([name, raw]) => {
+      const field = unwrap(raw);
+
+      return isMarker(field) && field["~flow"] === "input" ? [[name, field.schema]] : [];
+    }),
+  );
+
   return {
     id: config.id,
     persist: config.persist ?? false,
     states: config.states,
     events: config.events,
     internalEvents: internal,
-    memory: config.memory,
+    memory,
     operations,
-    S: trusted(Object.fromEntries(config.states.map((node) => [node, { "~flow": "state", node }]))),
+    S: trusted(tokenTree(tree.nodes, tree.top)),
     E: tokensOf({ ...config.events, ...internal }),
     O: trusted(handles),
+    Event: trusted(Schema.Union(envelopes)),
+    State: trusted(Schema.Literals(leaves)),
+    Input: trusted(Schema.Struct(inputs)),
+    Memory: trusted(
+      Schema.Struct(Object.fromEntries(Object.entries(memory).map(([k, f]) => [k, schemaOf(f)]))),
+    ),
   };
 };
 
-const trusted = <A>(value: Values) =>
-  // SAFETY: a record built from the definition's own keys, whose static type the caller names.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- records built by Object.fromEntries carry no static key types
-  value as A;
+/**
+ * The declared tree of a definition, in declaration order: what `machine` compiles.
+ */
+export const treeOfDefinition = (definition: AnyDefinition) => treeOf(definition.states);
 
 /**
  * What every definition has, whatever its literal types: what `machine` and the Runtime read.
@@ -337,7 +542,7 @@ const trusted = <A>(value: Values) =>
 export type AnyDefinition = {
   readonly id: string;
   readonly persist: boolean;
-  readonly states: ReadonlyArray<string>;
+  readonly states: StateTree;
   readonly events: Readonly<Record<string, EventFields>>;
   readonly internalEvents: Readonly<Record<string, EventFields>>;
   readonly memory: MemoryConfig;
@@ -356,6 +561,6 @@ export type Machine<D extends AnyDefinition = AnyDefinition> = {
 };
 
 /**
- * Re-exported for the type of `O.x.get`'s row and a shared select's input.
+ * Re-exported for the type of `O.x.get`'s row.
  */
-export type { InputOf, Row };
+export type { Row };

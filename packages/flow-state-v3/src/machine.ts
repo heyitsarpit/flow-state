@@ -1,238 +1,84 @@
-import { Duration, Option, Predicate, Schema } from "effect";
+import { Option, Schema } from "effect";
+import type { Values } from "./core/compiled.ts";
+import { leafOf } from "./core/tree.ts";
 import {
-  type Alternative,
-  Delay,
-  type Denial,
-  Guard,
-  type GuardInput,
-  type Level,
-  type Mapping,
-  type Node,
-  Operation,
-  type Schedule,
-  type UpdateInput,
-  type Values,
-} from "./core/compiled.ts";
-import type { Bound, Ending } from "./contract.ts";
-import {
-  type AlternativeConfig,
   type AnyDefinition,
   codecOf,
+  type ChildrenOf,
+  type CompoundNamesOf,
   type Definition,
-  erase,
-  type EventFields,
-  fieldsOf,
-  type GuardElement,
-  type GuardToken,
   type Machine,
-  type MemoryConfig,
-  type MemoryOf,
-  type On,
   type ScheduleConfig,
+  type MemoryOf,
+  type NamesOf,
+  type On,
+  type PathsOf,
   type StateConfig,
   type StateToken,
+  treeOfDefinition,
+  type WritableOf,
 } from "./definition.ts";
-import { FlowError } from "./error.ts";
+import { flowError } from "./error.ts";
+import { eventsOf, fieldOf, memoryCodec, operationOf } from "./compiled-parts.ts";
+import { type Compile, nodesOf, tokenMaps } from "./compile-body.ts";
 
-type DefinitionParts<D> =
+type Parts<D> =
   D extends Definition<infer States, infer Ev, infer In, infer M, infer _O>
-    ? { readonly S: States[number]; readonly Events: Ev & In; readonly Memory: MemoryOf<M> }
+    ? {
+        readonly Tree: States;
+        readonly S: PathsOf<States>;
+        readonly Events: Ev & In;
+        readonly Memory: MemoryOf<M>;
+        readonly Writable: WritableOf<M>;
+      }
     : never;
 
+type Handlers<D> = On<Parts<D>["Memory"], Parts<D>["Events"], Parts<D>["S"], Parts<D>["Writable"]>;
+
+type LeafBody<D> = StateConfig<
+  Parts<D>["Memory"],
+  Parts<D>["Events"],
+  Parts<D>["S"],
+  Parts<D>["Writable"]
+>;
+
+type StatesBody<D, L, P extends string> = {
+  readonly [N in NamesOf<L>]?: N extends CompoundNamesOf<L>
+    ? CompoundBody<D, ChildrenOf<L, N>, `${P}${N}.`>
+    : LeafBody<D>;
+};
+
+type CompoundBody<D, L, P extends string> = LeafBody<D> & {
+  readonly default: StateToken<`${P}${NamesOf<L>}`>;
+  readonly states?: StatesBody<D, L, P>;
+};
+
 /**
- * What a machine body returns: its default state, the root's handlers and each state's handlers
- * and schedules, typed by its definition.
+ * What a machine body returns: the root's default child and handlers, and each state's body,
+ * mirroring the definition's tree: a compound has a default direct child and its children's
+ * bodies; a leaf has neither.
  */
 export type MachineBody<D extends AnyDefinition> = {
-  readonly default: StateToken<DefinitionParts<D>["S"]>;
-  readonly on?: On<
-    DefinitionParts<D>["Memory"],
-    DefinitionParts<D>["Events"],
-    DefinitionParts<D>["S"]
-  >;
-  readonly states?: {
-    readonly [K in DefinitionParts<D>["S"]]?: StateConfig<
-      DefinitionParts<D>["Memory"],
-      DefinitionParts<D>["Events"],
-      DefinitionParts<D>["S"]
-    >;
-  };
+  readonly on?: Handlers<D>;
+  readonly default: StateToken<`${NamesOf<Parts<D>["Tree"]>}`>;
+  readonly states?: StatesBody<D, Parts<D>["Tree"], "">;
 };
 
-type AnyAlternative = AlternativeConfig<Values, Values, string> | StateToken;
-
-// RETURN_TYPE: a type guard over handler elements.
-const isToken = (x: AnyAlternative | GuardElement<Values, Values>): x is StateToken =>
-  Predicate.hasProperty(x, "~flow") && x["~flow"] === "state";
-
-// RETURN_TYPE: a type guard over guard elements.
-const isGuardToken = (x: GuardElement<Values, Values>): x is GuardToken =>
-  Predicate.hasProperty(x, "~flow") && x["~flow"] === "guard";
-
-const guardOf = (element: GuardElement<Values, Values>, at: string) => {
-  if (isToken(element)) return Guard.InState({ states: [element.node] });
-
-  if (isGuardToken(element)) return element.make(at);
-
-  return Guard.Check({ check: { slot: at, run: erase<GuardInput, true | Denial>(element) } });
-};
-
-// RETURN_TYPE: the Compiled Alternative shape.
-const alternativeOf = (
-  raw: AnyAlternative,
-  at: string,
-  states: ReadonlySet<string>,
-  problems: Array<string>,
-): Alternative => {
-  const config: AlternativeConfig<Values, Values, string> = isToken(raw) ? { target: raw } : raw;
-  const guards = config.guard === undefined ? [] : [config.guard].flat();
-
-  const target =
-    config.target === undefined || config.target === "self"
-      ? Option.none<string>()
-      : Option.some(config.target.node);
-
-  if (Option.isSome(target) && !states.has(target.value))
-    problems.push(`${at}.target: no state ${target.value}`);
-
-  return {
-    at,
-    target,
-    guards: guards.map((g, i) => guardOf(g, `${at}.guard[${i}]`)),
-    update: Option.map(Option.fromUndefinedOr(config.updateMemory), (run) => ({
-      slot: `${at}.updateMemory`,
-      run: erase<UpdateInput, Values>(run),
-    })),
-    actions: (config.actions ?? []).map((a, i) => a.make(`${at}.actions[${i}]`)),
-  };
-};
-
-// RETURN_TYPE: the Compiled Level shape.
-const levelOf = (
-  on: Values,
-  prefix: string,
-  context: {
-    readonly states: ReadonlySet<string>;
-    readonly events: ReadonlySet<string>;
-    readonly problems: Array<string>;
-  },
-): Level =>
-  new Map(
-    Object.entries(on).flatMap(([event, handler]) => {
-      if (handler === undefined) return [];
-
-      if (!context.events.has(event))
-        context.problems.push(`${prefix}on.${event}: no event ${event}`);
-
-      // SAFETY: an On record's values are handlers: one alternative, a state token, or a list of them.
-      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the On record's per-event handler types are erased here
-      const list = (Array.isArray(handler) ? handler : [handler]) as ReadonlyArray<AnyAlternative>;
-
-      return [
-        [
-          event,
-          list.map((raw, i) =>
-            alternativeOf(raw, `${prefix}on.${event}[${i}]`, context.states, context.problems),
-          ),
-        ],
-      ];
-    }),
-  );
-
-// RETURN_TYPE: the Compiled Schedule shape.
-const scheduleOf = (name: string, config: ScheduleConfig<Values, Values>, at: string): Schedule => {
-  const armOn = config.armOn ?? [];
-  const events = armOn.filter(Predicate.isString);
-  const delay = config.schedule;
-
-  return {
-    name,
-    send: config.send.ending.event,
-    delay: Predicate.isFunction(delay)
-      ? Delay.Computed({ ms: { slot: `${at}.schedule`, run: delay } })
-      : Delay.Fixed({ ms: Duration.toMillis(delay) }),
-    armOn: events,
-    onEntry: armOn.length === 0 || events.length < armOn.length,
-  };
-};
-
-// FLOW_STATE_ALLOW_UNKNOWN: an ending's value is the commit's or lookup's own; the mapper is written for it.
-const endingValue = (value: unknown) =>
-  // SAFETY: the runtime passes each mapper the ending value of the operation it is declared on.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion, lint-bomb/no-escape-hatch-assertion -- an ending's value type is erased in Compiled and restored at its mapper
-  value as never;
-
-// RETURN_TYPE: the Compiled Mapping shape.
-const mappingOf = (ending: Ending, slot: string): Mapping => ({
-  event: ending.ending.event,
-  from: Option.map(ending.ending.from, (map) => ({
-    slot,
-    // SAFETY: the mapper is written for this ending's value, which the runtime passes unchanged.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- an ending's value type is erased in Compiled
-    // FLOW_STATE_ALLOW_UNKNOWN: an ending's value is the call's own; its mapper is written for it.
-    run: (value: unknown) => map(endingValue(value), {}),
-  })),
-});
-
-const operationOf = (name: string, bound: Bound) => {
-  const failure = new Map(
-    Object.entries(bound.failure).map(([tag, ending]) => [
-      tag,
-      mappingOf(ending, `operations.${name}.failure.${tag}`),
-    ]),
-  );
-
-  const shared = {
-    name,
-    contract: bound.contract,
-    keyFields: bound.key,
-    key: bound.keyText,
-    input: bound.input,
-    inputJson: bound.inputJson,
-    success: mappingOf(bound.success, `operations.${name}.success`),
-    failure,
-  };
-
-  const slot = `operations.${name}.call`;
-
-  return bound.kind === "write"
-    ? Operation.Write({
-        ...shared,
-        call: { slot, run: bound.call },
-        concurrency: bound.concurrency,
-        notSent: Option.map(bound.notSent, (ending) =>
-          mappingOf(ending, `operations.${name}.notSent`),
-        ),
-        unknown: mappingOf(bound.unknown, `operations.${name}.unknown`),
-      })
-    : Operation.Read({ ...shared, call: { slot, run: bound.call } });
-};
-
-const memoryOf = (memory: MemoryConfig) => ({
-  schema: codecOf<Values>(
-    Schema.Struct(Object.fromEntries(Object.entries(memory).map(([k, f]) => [k, f.schema]))),
-  ),
-  initial: Object.fromEntries(Object.entries(memory).map(([k, f]) => [k, f.value])),
-});
-
-const eventsOf = (events: Readonly<Record<string, EventFields>>) =>
-  new Map(
-    Object.entries(events).map(([tag, fields]) => [
-      tag,
-      codecOf<Values>(Schema.Struct(fieldsOf(fields))),
-    ]),
-  );
-
-type ErasedBody = {
-  readonly default: StateToken;
+/**
+ * A machine body as the compiler walks it, its literal types erased.
+ */
+export type AnyBody = {
+  // FLOW_STATE_ALLOW_UNKNOWN: an authored or compiled value, checked here before it is trusted.
+  readonly default?: unknown;
   readonly on?: Values;
-  readonly states?: Readonly<Record<string, StateConfig<Values, Values, string> | undefined>>;
+  readonly schedules?: Readonly<Record<string, ScheduleConfig<Values, Values>>>;
+  readonly states?: Readonly<Record<string, AnyBody | undefined>>;
 };
 
 const erasedBody = <B>(body: B) =>
-  // SAFETY: MachineBody's handler records are On records over the definition's own events.
+  // SAFETY: MachineBody's records are On records and bodies over the definition's own events and states.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the definition's event and memory types are erased in Compiled
-  body as ErasedBody;
+  body as AnyBody;
 
 /**
  * Compiles a definition and its handlers into a Machine.
@@ -240,73 +86,71 @@ const erasedBody = <B>(body: B) =>
  * **When to use**
  *
  * In a `*.machine.ts` file. The body runs exactly once with `{ S, E, O }` and returns static
- * configuration: the default state, the root's handlers and each state's handlers and schedules.
+ * configuration that mirrors the definition's tree: the root's and each compound's default direct
+ * child, and each state's handlers and schedules.
+ *
+ * **Details**
+ *
+ * The active leaf's handlers are tried first, then each ancestor's, then the root's. A compound
+ * target enters its default leaf; `S.X.history` enters X's last active leaf, else its default.
  *
  * **Gotchas**
  *
- * - An invalid body throws one {@link FlowError} listing every violation found.
+ * - An invalid body throws one FlowError listing every violation found, in walk order, each
+ *   with its path.
  */
 // RETURN_TYPE: the exported Machine keeps the definition's literal types.
 export const machine = <D extends AnyDefinition>(
   definition: D,
   body: (tokens: { readonly S: D["S"]; readonly E: D["E"]; readonly O: D["O"] }) => MachineBody<D>,
 ): Machine<D> => {
-  const config = body({ S: definition.S, E: definition.E, O: definition.O });
-  const problems: Array<string> = [];
-  const allEvents = { ...definition.events, ...definition.internalEvents };
+  const config = erasedBody(body({ S: definition.S, E: definition.E, O: definition.O }));
+  const tree = treeOfDefinition(definition);
+  const { tokens, histories } = tokenMaps(definition, tree.nodes);
 
-  const context = {
-    states: new Set<string>(definition.states),
-    events: new Set(Object.keys(allEvents)),
-    problems,
+  const compile: Compile = {
+    definition,
+    nodes: new Map(tree.nodes.map((n) => [n.path, n])),
+    tokens,
+    histories,
+    events: new Set([...Object.keys(definition.events), ...Object.keys(definition.internalEvents)]),
+    sends: new Set(Object.values(definition.E)),
+    findings: [],
+    scheduleNames: new Map(),
   };
 
-  const erased = erasedBody(config);
+  const compiledTree = nodesOf(compile, config, Option.none(), "");
+  const [first, ...rest] = compile.findings;
 
-  const states = new Map<string, Node>(
-    definition.states.map((name) => {
-      const state = erased.states?.[name];
-      const prefix = `states.${name}.`;
-
-      return [
-        name,
-        {
-          on: levelOf(state?.on ?? {}, prefix, context),
-          schedules: Object.entries(state?.schedules ?? {}).map(([schedule, s]) =>
-            scheduleOf(schedule, s, `${prefix}schedules.${schedule}`),
-          ),
-        },
-      ];
-    }),
-  );
-
-  const root = levelOf(erased.on ?? {}, "", context);
-
-  if (problems.length > 0)
+  if (first !== undefined)
     // oxlint-disable-next-line lint-bomb/no-throw-in-core -- an invalid machine throws one FlowError before any work
-    throw new FlowError({ code: "InvalidMachine", problems });
+    throw flowError([first, ...rest]);
 
-  const memory = memoryOf(definition.memory);
+  const fields = Object.entries(definition.memory).map(([name, raw]) => fieldOf(name, raw));
+  const memory = memoryCodec(fields);
+  const states = new Map(compiledTree.nodes.map((n) => [n.path, n]));
+
+  const compiled = {
+    id: definition.id,
+    persist: definition.persist,
+    initial: "",
+    states,
+    root: compiledTree.root,
+    events: eventsOf(definition),
+    fields,
+    memory,
+    memoryJson: codecOf<Values>(Schema.toCodecJson(memory)),
+    sameMemory: Schema.toEquivalence(memory),
+    operations: new Map(
+      Object.entries(definition.operations).map(([name, bound]) => [
+        name,
+        operationOf(name, bound),
+      ]),
+    ),
+  };
 
   return {
     definition,
-    compiled: {
-      id: definition.id,
-      persist: definition.persist,
-      initial: erased.default.node,
-      states,
-      root,
-      external: eventsOf(definition.events),
-      memory: memory.schema,
-      memoryJson: codecOf<Values>(Schema.toCodecJson(memory.schema)),
-      sameMemory: Schema.toEquivalence(memory.schema),
-      initialMemory: memory.initial,
-      operations: new Map(
-        Object.entries(definition.operations).map(([name, bound]) => [
-          name,
-          operationOf(name, bound),
-        ]),
-      ),
-    },
+    compiled: { ...compiled, initial: leafOf(compiled, compiledTree.initial) },
   };
 };

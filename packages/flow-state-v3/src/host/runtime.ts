@@ -9,7 +9,8 @@ import { Verdict } from "../core/life.ts";
 import { type ActorId, actorKey, type World } from "../core/world.ts";
 import type { RequirementsOf } from "../contract.ts";
 import type { AnyDefinition, Envelope, Machine, Operations } from "../definition.ts";
-import { FlowError } from "../error.ts";
+import { type FlowError, flowError, flowErrorOf } from "../error.ts";
+import { appFindings, malformedOf } from "../core/well-formed.ts";
 import { makeDriver, type Driver } from "./driver.ts";
 import { browserPlatform } from "./platform/browser.ts";
 import { decodeJsonText } from "./json.ts";
@@ -41,19 +42,16 @@ export type ServicesOf<A extends App> = {
  *
  * **Gotchas**
  *
- * - Two entries with one machine id throw {@link FlowError}.
+ * - Unknown fields, two machines with one id, one machine under two keys, or two contracts with
+ *   one id throw one {@link FlowError} naming every entry.
  */
 // RETURN_TYPE: the App contract runtimeSetup takes, keeping its machines' types.
 export const app = <const M extends Readonly<Record<string, Machine>>>(config: App<M>): App<M> => {
-  const ids = Object.values(config.machines).map((m) => m.compiled.id);
-  const doubled = ids.filter((id, i) => ids.indexOf(id) !== i);
+  const [first, ...rest] = appFindings(config);
 
-  if (doubled.length > 0)
+  if (first !== undefined)
     // oxlint-disable-next-line lint-bomb/no-throw-in-core -- construction errors throw one FlowError before any work
-    throw new FlowError({
-      code: "DuplicateMachine",
-      problems: doubled.map((id) => `machines: ${id} twice`),
-    });
+    throw flowError([first, ...rest]);
 
   return config;
 };
@@ -212,6 +210,16 @@ export const buildRuntime = (
   platform: Platform,
   admit: (evidence: ReadonlyArray<Evidence>) => void,
 ) => {
+  const refused = Object.values(config.app.machines).flatMap((m) =>
+    Option.toArray(malformedOf(m.compiled)),
+  );
+
+  const [malformed, ...others] = refused;
+
+  if (malformed !== undefined)
+    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a Runtime refuses a malformed Compiled before any actor
+    throw flowError([malformed, ...others]);
+
   const machines = new Map(Object.values(config.app.machines).map((m) => [m.compiled.id, m]));
   const sinks = new Set<(evidence: Evidence) => void>();
   const host = Context.get(platform, Host);
@@ -241,10 +249,21 @@ export const buildRuntime = (
   });
 
   const rejected = (code: "RuntimeNotReady" | "RuntimeDisposed") =>
-    new FlowError({
-      code,
-      problems: [code === "RuntimeNotReady" ? "ready() before boot" : "ready() after dispose()"],
-    });
+    flowError([
+      code === "RuntimeNotReady"
+        ? {
+            code,
+            path: ["ready"],
+            summary: "ready() before boot",
+            help: "Await runtime.ready() before using the Runtime.",
+          }
+        : {
+            code,
+            path: ["ready"],
+            summary: "ready() after dispose()",
+            help: "Create a new Runtime after disposal.",
+          },
+    ]);
 
   // Storage is read and validated before any app service is acquired; the core's life decides
   // whether the boot it reads still opens the Runtime.
@@ -262,8 +281,18 @@ export const buildRuntime = (
 
     if (config.services !== undefined)
       services = yield* Layer.buildWithScope(config.services, scope).pipe(
-        Effect.mapError(
-          (cause) => new FlowError({ code: "ServiceFailed", problems: [String(cause)], cause }),
+        Effect.mapError((cause) =>
+          flowErrorOf(
+            [
+              {
+                code: "ServiceFailed",
+                path: ["services"],
+                summary: "the services Layer failed to build",
+                help: "Fix the failing service; its cause is on this error.",
+              },
+            ],
+            cause,
+          ),
         ),
         Effect.tapError(() => Effect.sync(() => driver.input(Input.BootFailed()))),
         // A bootstrap the disposal cancelled fails as the life says, whatever its service did.

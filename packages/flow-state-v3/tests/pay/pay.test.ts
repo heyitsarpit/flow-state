@@ -97,13 +97,18 @@ describe("a refused ending turn", () => {
     expect(reloaded.read(Shop.confirm)).toHaveLength(1);
   });
 
-  it.fails("Turn I14: a refused turn publishes exactly one issue-only snapshot", async () => {
-    const run = await busyRefused.run();
+  it("Turn I14: a refused turn publishes exactly one issue-only snapshot, with state and memory as they were", async () => {
+    const run = checked(await busyRefused.run());
     const refusal = run.evidence.findIndex((e) => e._tag === "Issue");
     const delivered = run.evidence.findLastIndex((e, i) => i < refusal && e._tag === "Delivered");
+    const before = run.evidence.findLast((e, i) => i < delivered && e._tag === "Published");
 
-    expect(
-      run.evidence.slice(delivered + 1, refusal + 2).filter((e) => e._tag === "Published"),
-    ).toHaveLength(1);
+    const published = run.evidence
+      .slice(delivered + 1, refusal + 2)
+      .filter((e) => e._tag === "Published");
+
+    expect(refusal).toBeGreaterThan(delivered);
+    expect(published).toHaveLength(1);
+    expect(published[0]).toEqual(before);
   });
 });

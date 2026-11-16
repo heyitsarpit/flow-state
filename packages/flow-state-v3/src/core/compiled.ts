@@ -30,7 +30,7 @@ export type GuardInput = {
  * One element of a guard array.
  */
 export type Guard = Data.TaggedEnum<{
-  InState: { states: ReadonlyArray<string> };
+  InState: { state: string };
   Check: { check: Slot<(input: GuardInput) => true | Denial> };
   Idle: { operation: string; key: Slot<(input: GuardInput) => Values> };
   Retryable: {
@@ -77,12 +77,26 @@ export const Action = Data.taggedEnum<Action>();
 export type UpdateInput = { readonly memory: Values; readonly event: Values; readonly now: number };
 
 /**
+ * Where an alternative goes: a state (a compound enters its default leaf), or a compound's history
+ * (its last active leaf, else its default leaf).
+ */
+export type Target = Data.TaggedEnum<{
+  State: { path: string };
+  History: { path: string };
+}>;
+
+/**
+ * Constructors and matchers for {@link Target}.
+ */
+export const Target = Data.taggedEnum<Target>();
+
+/**
  * One alternative of a handler: its place, its target, its guards, its memory patch and its
  * actions.
  */
 export type Alternative = {
   readonly at: string;
-  readonly target: Option.Option<string>;
+  readonly target: Option.Option<Target>;
   readonly guards: ReadonlyArray<Guard>;
   readonly update: Option.Option<Slot<(input: UpdateInput) => Values>>;
   readonly actions: ReadonlyArray<Action>;
@@ -118,9 +132,64 @@ export type Schedule = {
 };
 
 /**
- * One state: its handlers and its schedules.
+ * One state of the tree, by its path (`ON.PLAYING`): its parent, its children in declaration
+ * order, its default child (compounds only), its handlers and its schedules.
  */
-export type Node = { readonly on: Level; readonly schedules: ReadonlyArray<Schedule> };
+export type Node = {
+  readonly path: string;
+  readonly parent: Option.Option<string>;
+  readonly children: ReadonlyArray<string>;
+  readonly default: Option.Option<string>;
+  readonly on: Level;
+  readonly schedules: ReadonlyArray<Schedule>;
+};
+
+/**
+ * Where a memory field starts: the creator's input, a constant, a value computed from the input
+ * and constant fields, or absence (an optional key, with its Schema's default if it has one).
+ */
+export type Source = Data.TaggedEnum<{
+  Input: {};
+  // FLOW_STATE_ALLOW_UNKNOWN: a start has its field's type, typed at the definition.
+  Constant: { value: unknown };
+  // FLOW_STATE_ALLOW_UNKNOWN: a start has its field's type, typed at the definition.
+  Computed: { compute: Slot<(fields: Values) => unknown> };
+  Optional: {};
+}>;
+
+/**
+ * Constructors and matchers for {@link Source}.
+ */
+export const Source = Data.taggedEnum<Source>();
+
+/**
+ * One memory field: its name, Schema, source and privacy.
+ *
+ * **Details**
+ *
+ * `is` checks a value by the Schema's type side and `fallback` is the Schema's own constructor
+ * default; both are derived from the Schema.
+ */
+export type Field = {
+  readonly name: string;
+  // FLOW_STATE_ALLOW_UNKNOWN: a field's Schema has the application's type, typed at the definition.
+  readonly schema: Schema.Codec<unknown, unknown>;
+  readonly source: Source;
+  readonly private: boolean;
+  // FLOW_STATE_ALLOW_UNKNOWN: an input value is checked here before it is trusted.
+  readonly is: (value: unknown) => boolean;
+  // FLOW_STATE_ALLOW_UNKNOWN: a default has its field's type, typed at the definition.
+  readonly fallback: Option.Option<unknown>;
+};
+
+/**
+ * One event: its payload Schema, whether it is public, and whether it is a `Flow.uncertain` event.
+ */
+export type EventEntry = {
+  readonly payload: Schema.Codec<Values, Values>;
+  readonly public: boolean;
+  readonly uncertain: boolean;
+};
 
 /**
  * Where an ending goes: its event and the mapper that makes the event's payload.
@@ -176,6 +245,7 @@ export type Operation = Data.TaggedEnum<{
     name: string;
     contract: string;
     keyFields: ReadonlyArray<string>;
+    inputFields: ReadonlyArray<string>;
     key: Schema.Codec<Values, string>;
     concurrency: Concurrency;
     input: Schema.Codec<Values, Values>;
@@ -190,6 +260,7 @@ export type Operation = Data.TaggedEnum<{
     name: string;
     contract: string;
     keyFields: ReadonlyArray<string>;
+    inputFields: ReadonlyArray<string>;
     key: Schema.Codec<Values, string>;
     input: Schema.Codec<Values, Values>;
     inputJson: Schema.Codec<Values, Values>;
@@ -209,8 +280,9 @@ export const Operation = Data.taggedEnum<Operation>();
  *
  * **Details**
  *
- * The state tree is flat in this build: `states` lists the top-level leaves in order, each with its
- * handlers; `root` holds the root's handlers.
+ * `states` holds every node of the tree by its path, compounds included, in declaration order;
+ * `root` holds the root's handlers and `initial` the leaf the root's defaults reach. `fields` lists
+ * the memory fields; `memory`, `memoryJson` and `sameMemory` are derived from their Schemas.
  */
 export type Compiled = {
   readonly id: string;
@@ -218,10 +290,10 @@ export type Compiled = {
   readonly initial: string;
   readonly states: ReadonlyMap<string, Node>;
   readonly root: Level;
-  readonly external: ReadonlyMap<string, Schema.Codec<Values, Values>>;
+  readonly events: ReadonlyMap<string, EventEntry>;
+  readonly fields: ReadonlyArray<Field>;
   readonly memory: Schema.Codec<Values, Values>;
   readonly memoryJson: Schema.Codec<Values, Values>;
   readonly sameMemory: Equivalence.Equivalence<Values>;
-  readonly initialMemory: Values;
   readonly operations: ReadonlyMap<string, Operation>;
 };

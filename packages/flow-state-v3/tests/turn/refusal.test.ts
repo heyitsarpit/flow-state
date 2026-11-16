@@ -23,10 +23,13 @@ describe("TURN-01 (Turn R8, R10, I14; WriteLanes R10)", () => {
     expect(refused.read(Shop.confirm)).toHaveLength(1);
   });
 
-  it.fails("Turn I14: a delay past 2^31 - 1 ms is refused, again on its one redelivery", async () => {
-    const run = await busy("Turn I14 out of range", 2_147_483_648).run();
+  it("Turn I14: a delay past 2^31 - 1 ms is refused, again on its one redelivery, and one of exactly 2^31 - 1 ms is armed", async () => {
+    const past = await played(busy("Turn I14 out of range", 2_147_483_648));
+    const edge = await played(busy("Turn I14 at the bound", 2_147_483_647));
 
-    expect(issues(run.evidence)).toEqual(["InvalidTurn", "InvalidTurn"]);
+    expect(issues(past.evidence)).toEqual(["InvalidTurn", "InvalidTurn"]);
+    expect(state(past.checkpoints.refused)).toBe("PAYING");
+    expect(issues(edge.evidence)).toEqual([]);
   });
 });
 

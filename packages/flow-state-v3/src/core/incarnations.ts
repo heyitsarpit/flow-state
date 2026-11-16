@@ -1,5 +1,6 @@
 import { Option, Result } from "effect";
 import { armingsOf } from "./turn.ts";
+import { chainOf, create } from "./tree.ts";
 import { Act } from "./evidence-of.ts";
 import type { LedgerSteps } from "./ledger.ts";
 import { decodeRecords } from "./record.ts";
@@ -58,6 +59,18 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     return { ...incarnation, schedules: new Map<string, Armed>() };
   };
 
+  // The schedules of the states a move exits stop; the others keep their deadlines.
+  const stopNamed = (incarnation: Incarnation, names: ReadonlySet<string>) => {
+    disarmWhere(
+      (t) => Timer.$is("Schedule")(t) && t.incarnation === incarnation.id && names.has(t.schedule),
+    );
+
+    return {
+      ...incarnation,
+      schedules: new Map([...incarnation.schedules].filter(([name]) => !names.has(name))),
+    };
+  };
+
   // Every change of an incarnation is written from its state at the step's end.
   const setIncarnation = (incarnation: Incarnation) => {
     tx.set({
@@ -81,12 +94,22 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
 
     if (compiled === undefined) return;
 
+    const memory = Option.match(from, {
+      onNone: () => Result.getSuccess(create(compiled, {})),
+      onSome: (r) => Option.some(r.memory),
+    });
+
+    if (Option.isNone(memory)) return;
+
+    const state = Option.match(from, { onNone: () => compiled.initial, onSome: (r) => r.state });
+
     const base: Incarnation = {
       id: tx.mint("inc"),
       actor,
-      state: Option.match(from, { onNone: () => compiled.initial, onSome: (r) => r.state }),
-      activation: tx.next(),
-      memory: Option.match(from, { onNone: () => compiled.initialMemory, onSome: (r) => r.memory }),
+      state,
+      activations: chainOf(state).map(() => tx.next()),
+      history: new Map(),
+      memory: memory.value,
       schedules: new Map(),
     };
 
@@ -98,7 +121,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
         armSchedules(
           base,
           Result.getOrElse(
-            armingsOf(compiled.states.get(base.state)?.schedules ?? [], true, "", base.memory),
+            armingsOf(compiled, base.state, new Set(chainOf(base.state)), "", base.memory),
             () => [],
           ),
         ),
@@ -283,6 +306,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     dispose,
     armSchedules,
     stopSchedules,
+    stopNamed,
     setIncarnation,
     publish,
     start,

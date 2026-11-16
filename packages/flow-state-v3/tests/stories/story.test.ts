@@ -189,7 +189,7 @@ describe("Story", () => {
       persist: false,
       states: ["ON"],
       events: { Go: { id: Schema.String } },
-      internalEvents: { Pong: {} },
+      internalEvents: { Pong: Flow.uncertain({}) },
       memory: { n: Flow.initial(Schema.Number, 0) },
       operations: ({ E }) => ({
         ping: ping.outcomes({ success: E.Pong, failure: {}, unknown: E.Pong }),
@@ -247,7 +247,7 @@ describe("Story", () => {
       persist: false,
       states: ["ON"],
       events: { Go: { id: Schema.String } },
-      internalEvents: { Pong: {} },
+      internalEvents: { Pong: Flow.uncertain({}) },
       memory: { n: Flow.initial(Schema.Number, 0) },
       operations: ({ E }) => ({
         ping: ping.outcomes({ success: E.Pong, failure: {}, unknown: E.Pong }),
@@ -298,7 +298,7 @@ describe("Story", () => {
       persist: false,
       states: ["ON"],
       events: { Go: { id: Schema.String } },
-      internalEvents: { Done: {} },
+      internalEvents: { Done: Flow.uncertain({}) },
       memory: {},
       operations: ({ E }) => ({
         spin: spin.outcomes({ success: E.Done, failure: {}, unknown: E.Done }),

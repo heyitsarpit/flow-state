@@ -9,6 +9,7 @@ import {
   type Values,
 } from "./compiled.ts";
 import type { Part } from "./evidence.ts";
+import { atOrBelow, chainOf, type Move, moveOf } from "./tree.ts";
 import type { RefusedCode } from "./vocabulary.ts";
 
 /**
@@ -50,8 +51,8 @@ export type Arming = { readonly name: string; readonly send: string; readonly ms
  *
  * **Details**
  *
- * - `Accepted`: one alternative ran; `target` is the state it enters (a re-entry included), `None`
- *   for "self"; `arm` lists the schedules armed, `exits` whether the leaf's activation ended.
+ * - `Accepted`: one alternative ran at `handler` (`""` for the root); `move` is its change of
+ *   state (a re-entry included), `None` for "self"; `arm` lists the schedules armed.
  * - `Denied`: handlers existed and all declined, with each decline's code.
  * - `Unhandled`: no handler.
  * - `Refused`: the turn is invalid or a callback failed before commit; nothing of it applies.
@@ -59,7 +60,8 @@ export type Arming = { readonly name: string; readonly send: string; readonly ms
 export type TurnResult = Data.TaggedEnum<{
   Accepted: {
     part: Part;
-    target: Option.Option<string>;
+    handler: string;
+    move: Option.Option<Move>;
     memory: Values;
     actions: ReadonlyArray<Resolved>;
     arm: ReadonlyArray<Arming>;
@@ -80,22 +82,26 @@ export const TurnResult = Data.taggedEnum<TurnResult>();
  *
  * **Details**
  *
- * - `late`: the event is a late ending, routed from the root.
+ * - `state`: the active leaf's path; `activations` numbers each state on its chain, outermost
+ *   first; `history` holds each compound's last active leaf.
+ * - `late`: the event is a late ending, routed from `from`, the depth of the owner's nearest
+ *   surviving ancestor (0 for the root); a current event is routed from the leaf.
  * - `lane(operation, key)`: a lane's view; a `None` key names the ending's own lane.
- * - `leavingStrandsWork`: leaving the leaf would exit an activation that owns an InFlight head
- *.
- * - `armed`: the names of the leaf's armed schedules.
+ * - `owns(activation)`: that activation owns an InFlight head, so a late turn may not exit it.
  */
 export type TurnInput = {
   readonly compiled: Compiled;
   readonly state: string;
+  readonly activations: ReadonlyArray<number>;
+  readonly history: ReadonlyMap<string, string>;
   readonly memory: Values;
   readonly tag: string;
   readonly payload: Values;
   readonly late: boolean;
+  readonly from: number;
   readonly now: number;
   readonly lane: (operation: string, key: Option.Option<Values>) => LaneView;
-  readonly leavingStrandsWork: boolean;
+  readonly owns: (activation: number) => boolean;
 };
 
 type Failed = { readonly slot: string };
@@ -173,7 +179,7 @@ const verdictOf = (checked: Result.Result<Verdict, Failed>) =>
 
 const guardCheck = (guard: Guard, input: TurnInput, read: GuardRead) =>
   Guard.$match(guard, {
-    InState: ({ states }) => (states.includes(input.state) ? PASSED : NOT_IN_STATE),
+    InState: ({ state }) => (atOrBelow(input.state, state) ? PASSED : NOT_IN_STATE),
     Check: ({ check }) =>
       verdictOf(
         call(check.slot, () => {
@@ -196,15 +202,32 @@ const guardCheck = (guard: Guard, input: TurnInput, read: GuardRead) =>
 
 type GuardRead = { readonly state: string; readonly memory: Values; readonly event: Values };
 
+const moveFor = (alternative: Alternative, handler: string, input: TurnInput) =>
+  Option.map(alternative.target, (target) =>
+    moveOf(input.compiled, input.state, handler, target, input.history),
+  );
+
+// A late turn may not exit a state whose activation owns work in flight.
+const strands = (move: Move, input: TurnInput) => {
+  const kept = input.activations.length - move.exits.length;
+
+  return input.activations.slice(Math.max(kept, 0)).some(input.owns);
+};
+
 // RETURN_TYPE: the Verdict every guard returns; the first that is not a pass decides.
-const firstDecline = (alternative: Alternative, input: TurnInput, read: GuardRead): Verdict => {
+const firstDecline = (
+  alternative: Alternative,
+  handler: string,
+  input: TurnInput,
+  read: GuardRead,
+): Verdict => {
   for (const guard of alternative.guards) {
     const checked = guardCheck(guard, input, read);
 
     if (!Verdict.$is("Pass")(checked)) return checked;
   }
 
-  if (input.late && Option.isSome(alternative.target) && input.leavingStrandsWork)
+  if (input.late && Option.exists(moveFor(alternative, handler, input), (m) => strands(m, input)))
     return LATE_MAY_NOT_LEAVE;
 
   return PASSED;
@@ -245,7 +268,7 @@ const delayOf = (schedule: Schedule, memory: Values) =>
       Result.flatMap(
         call(ms.slot, () => ms.run({ memory })),
         (value) =>
-          Number.isFinite(value) && value >= 0
+          Number.isFinite(value) && value >= 0 && value <= MAX_DELAY_MS
             ? Result.succeed(value)
             : // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- an invalid delay refuses the turn; the loop ends here
               Result.fail({ slot: ms.slot }),
@@ -253,31 +276,44 @@ const delayOf = (schedule: Schedule, memory: Values) =>
   });
 
 /**
- * The schedules a turn arms: on entry those armed on entry, and each one that lists the event,
- * with its delay from the after memory; an invalid delay is its slot's defect.
+ * The largest delay a timer can hold: 2^31 - 1 ms.
+ */
+const MAX_DELAY_MS = 2_147_483_647;
+
+const NO_SCHEDULES: ReadonlyArray<Schedule> = [];
+
+/**
+ * The schedules a turn arms on the states active after it, outermost first: on each entered
+ * state those armed on entry, and on every active state each one that lists the event, with its
+ * delay from the after memory; an invalid delay is its slot's defect.
  */
 export const armingsOf = (
-  schedules: ReadonlyArray<Schedule>,
-  entered: boolean,
+  compiled: Compiled,
+  leaf: string,
+  entered: ReadonlySet<string>,
   tag: string,
   memory: Values,
 ) => {
   const armed: Array<Arming> = [];
 
-  for (const schedule of schedules)
-    if ((entered && schedule.onEntry) || schedule.armOn.includes(tag)) {
-      const ms = delayOf(schedule, memory);
+  const arms = (path: string, schedule: Schedule) =>
+    (entered.has(path) && schedule.onEntry) || schedule.armOn.includes(tag);
 
-      if (Result.isFailure(ms)) return Result.fail(ms.failure);
-      // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- one arming per schedule armed: the turn's result
-      armed.push({ name: schedule.name, send: schedule.send, ms: ms.success });
-    }
+  for (const path of chainOf(leaf))
+    for (const schedule of compiled.states.get(path)?.schedules ?? NO_SCHEDULES)
+      if (arms(path, schedule)) {
+        const ms = delayOf(schedule, memory);
+
+        if (Result.isFailure(ms)) return Result.fail(ms.failure);
+        // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- one arming per schedule armed: the turn's result
+        armed.push({ name: schedule.name, send: schedule.send, ms: ms.success });
+      }
 
   return Result.succeed(armed);
 };
 
 // RETURN_TYPE: each branch builds one TurnResult variant; the union is the contract.
-const accept = (alternative: Alternative, node: string, input: TurnInput): TurnResult => {
+const accept = (alternative: Alternative, handler: string, input: TurnInput): TurnResult => {
   const read = { memory: input.memory, event: input.payload, now: input.now };
 
   const patched = Option.match(alternative.update, {
@@ -309,37 +345,78 @@ const accept = (alternative: Alternative, node: string, input: TurnInput): TurnR
     actions.push(resolved.success);
   }
 
-  const leaf = Option.getOrElse(alternative.target, () => input.state);
-  const schedules = input.compiled.states.get(leaf)?.schedules ?? [];
-  const arm = armingsOf(schedules, Option.isSome(alternative.target), input.tag, memory);
+  const move = moveFor(alternative, handler, input);
+  const leaf = Option.match(move, { onNone: () => input.state, onSome: (m) => m.leaf });
+  const entered = new Set(Option.match(move, { onNone: () => [], onSome: (m) => m.enters }));
+  const arm = armingsOf(input.compiled, leaf, entered, input.tag, memory);
 
   if (Result.isFailure(arm))
     return TurnResult.Refused({ code: "InvalidTurn", slot: arm.failure.slot });
 
   return TurnResult.Accepted({
-    part: { at: alternative.at, node, target: Option.getOrElse(alternative.target, () => "self") },
-    target: alternative.target,
+    part: {
+      at: alternative.at,
+      node: handler === "" ? "root" : handler,
+      target: Option.match(move, { onNone: () => "self", onSome: (m) => m.target }),
+    },
+    handler,
+    move,
     memory,
     actions,
     arm: arm.success,
   });
 };
 
-// RETURN_TYPE: an Option of the implicit alternative, absent when no schedule lists the event.
-const implicit = (input: TurnInput): Option.Option<Alternative> => {
-  const listed = (input.compiled.states.get(input.state)?.schedules ?? []).some((s) =>
-    s.armOn.includes(input.tag),
-  );
+const lists = (input: TurnInput, path: string) => {
+  for (const schedule of input.compiled.states.get(path)?.schedules ?? NO_SCHEDULES)
+    if (schedule.armOn.includes(input.tag)) return true;
 
-  return listed
-    ? Option.some({
-        at: `trigger:${input.state}:${input.tag}`,
-        target: Option.none(),
-        guards: [],
-        update: Option.none(),
-        actions: [],
-      })
-    : Option.none();
+  return false;
+};
+
+// The implicit "self" of the deepest active state whose schedule lists the event in armOn.
+const implicit = (input: TurnInput) => {
+  let node = "";
+
+  for (const path of chainOf(input.state)) if (lists(input, path)) node = path;
+
+  if (node === "") return Option.none();
+
+  const alternative: Alternative = {
+    at: `trigger:${node}:${input.tag}`,
+    target: Option.none(),
+    guards: [],
+    update: Option.none(),
+    actions: [],
+  };
+
+  return Option.some({ node, alternatives: [alternative] });
+};
+
+const EMPTY: ReadonlyArray<Alternative> = [];
+
+// Each level from the routed state up to the root, with its written alternatives for the event.
+const levelsOf = (input: TurnInput) => {
+  const chain = chainOf(input.state).slice(0, input.from);
+
+  const levels: Array<{
+    readonly node: string;
+    readonly alternatives: ReadonlyArray<Alternative>;
+  }> = [];
+
+  let written = false;
+
+  for (let i = chain.length; i >= 0; i -= 1) {
+    const node = i === 0 ? "" : (chain[i - 1] ?? "");
+    const level = i === 0 ? input.compiled.root : input.compiled.states.get(node)?.on;
+    const alternatives = level?.get(input.tag) ?? EMPTY;
+
+    written ||= alternatives.length > 0;
+    // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- one entry per level of the chain: the turn's route
+    levels.push({ node, alternatives });
+  }
+
+  return written ? levels : Option.toArray(implicit(input));
 };
 
 /**
@@ -347,24 +424,15 @@ const implicit = (input: TurnInput): Option.Option<Alternative> => {
  *
  * **Details**
  *
- * The active leaf's level is tried first, then the root's; a late ending tries the root's alone.
- * At each level the first alternative whose guards all pass wins. A guard, update, select or
- * schedule callback that throws, or an invalid delay, refuses the whole turn.
+ * The active leaf's level is tried first, then each ancestor's, then the root's; a late ending
+ * starts at the owner's nearest surviving ancestor. At each level the first alternative whose
+ * guards all pass wins. When no level handles the event and an active state's schedule lists it
+ * in `armOn`, that state handles it with an unguarded "self". A guard, update, select or schedule
+ * callback that throws, or an invalid delay, refuses the whole turn.
  */
 // RETURN_TYPE: each branch builds one TurnResult variant; the union is the contract.
 export const runTurn = (input: TurnInput): TurnResult => {
-  const leafLevel = input.compiled.states.get(input.state)?.on;
-
-  const leafAlternatives = Option.getOrElse(Option.fromUndefinedOr(leafLevel?.get(input.tag)), () =>
-    Option.toArray(implicit(input)),
-  );
-
-  const levels = input.late
-    ? [{ node: "root", alternatives: input.compiled.root.get(input.tag) ?? [] }]
-    : [
-        { node: input.state, alternatives: leafAlternatives },
-        { node: "root", alternatives: input.compiled.root.get(input.tag) ?? [] },
-      ];
+  const levels = levelsOf(input);
 
   const reasons: Array<string> = [];
   const read = { state: input.state, memory: input.memory, event: input.payload };
@@ -373,7 +441,7 @@ export const runTurn = (input: TurnInput): TurnResult => {
   for (const level of levels)
     for (const alternative of level.alternatives) {
       handled = true;
-      const checked = firstDecline(alternative, input, read);
+      const checked = firstDecline(alternative, level.node, input, read);
 
       if (Verdict.$is("Defect")(checked))
         // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- the refusal is the turn's one result; the loop ends here

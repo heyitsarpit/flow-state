@@ -3,6 +3,7 @@ import { type Mapping, Operation, type Values } from "./compiled.ts";
 import type { Member } from "./evidence.ts";
 import { Act } from "./evidence-of.ts";
 import { Resolved, runTurn, TurnResult } from "./turn.ts";
+import { chainOf, historyAfter } from "./tree.ts";
 import { isInFlight, ROOT_ACTIVATION, type Tx, without } from "./tx.ts";
 import type { Heard, LedgerSteps, Owed } from "./ledger.ts";
 import { actorKey, type Incarnation, Mail } from "./world.ts";
@@ -26,7 +27,7 @@ export const makeServe = (
 ) => {
   const { incarnationOf } = tx;
   const { commit, retry, cancel, lookup, flushLanes, viewOf } = lanes;
-  const { armSchedules, stopSchedules, setIncarnation, publish } = incarnations;
+  const { armSchedules, stopNamed, setIncarnation, publish } = incarnations;
 
   // ── serving mail.
   // RETURN_TYPE: an Option of the operation's mapping, whichever channel selects it.
@@ -52,12 +53,17 @@ export const makeServe = (
     });
   };
 
+  // The depth a late ending is routed from: its owner's nearest surviving ancestor, which is the
+  // deepest active state entered before the owner was (0 for the root).
+  const depthBelow = (incarnation: Incarnation, owner: number) =>
+    incarnation.activations.filter((a) => a < owner).length;
+
   const turn = (
     incarnation: Incarnation,
     tag: string,
     payload: Values,
     route: {
-      readonly late: boolean;
+      readonly late: Option.Option<number>;
       readonly own: Option.Option<string>;
       readonly ending: Option.Option<Owed>;
     },
@@ -66,23 +72,28 @@ export const makeServe = (
 
     if (compiled === undefined) return HEARD;
 
-    const strands = [...tx.world().lanes.values()].some(
-      (l) =>
-        actorKey(l.actor) === actorKey(incarnation.actor) &&
-        isInFlight(l) &&
-        l.head.owner === incarnation.activation,
+    const owning = new Set(
+      [...tx.world().lanes.values()].flatMap((l) =>
+        actorKey(l.actor) === actorKey(incarnation.actor) && isInFlight(l) ? [l.head.owner] : [],
+      ),
     );
 
     const result = runTurn({
       compiled,
       state: incarnation.state,
+      activations: incarnation.activations,
+      history: incarnation.history,
       memory: incarnation.memory,
       tag,
       payload,
-      late: route.late,
+      late: Option.isSome(route.late),
+      from: Option.match(route.late, {
+        onNone: () => incarnation.activations.length,
+        onSome: (owner) => depthBelow(incarnation, owner),
+      }),
       now: tx.env.now,
       lane: viewOf(incarnation, route.own),
-      leavingStrandsWork: strands,
+      owns: (activation) => owning.has(activation),
     });
 
     return TurnResult.$match(result, {
@@ -98,24 +109,48 @@ export const makeServe = (
       },
       Refused: ({ code }) => {
         tx.act(Act.Refused({ code, actor: incarnation.actor, ending: route.ending }));
+        publish(incarnation);
 
         return REFUSED;
       },
       Accepted: (accepted) => {
-        const entered = Option.isSome(accepted.target);
-        const activation = entered ? tx.next() : incarnation.activation;
+        const base: Incarnation = Option.match(accepted.move, {
+          onNone: () => ({ ...incarnation, memory: accepted.memory }),
+          onSome: (move) => {
+            const exited = new Set(
+              move.exits.flatMap((path) =>
+                (compiled.states.get(path)?.schedules ?? []).map((s) => s.name),
+              ),
+            );
 
-        const base: Incarnation = {
-          ...(entered ? stopSchedules(incarnation) : incarnation),
-          state: Option.getOrElse(accepted.target, () => incarnation.state),
-          activation,
-          memory: accepted.memory,
-        };
+            const kept = incarnation.activations.slice(
+              0,
+              incarnation.activations.length - move.exits.length,
+            );
+
+            return {
+              ...stopNamed(incarnation, exited),
+              state: move.leaf,
+              activations: [...kept, ...move.enters.map(() => tx.next())],
+              history: historyAfter(compiled, incarnation.history, incarnation.state, move),
+              memory: accepted.memory,
+            };
+          },
+        });
 
         const after = armSchedules(base, accepted.arm);
         setIncarnation(after);
 
-        const owner = entered || accepted.part.node !== "root" ? activation : ROOT_ACTIVATION;
+        // The work a transition starts is owned by the activation of the state it names: its
+        // target's when it moves, its handler's otherwise, the root's at the root.
+        const owner = Option.match(accepted.move, {
+          onNone: () =>
+            accepted.handler === ""
+              ? ROOT_ACTIVATION
+              : (after.activations[chainOf(accepted.handler).length - 1] ?? ROOT_ACTIVATION),
+          onSome: (move) => after.activations[chainOf(move.target).length - 1] ?? ROOT_ACTIVATION,
+        });
+
         const members: Array<Member> = [];
         const reports = tx.evidenceCount();
 
@@ -150,8 +185,7 @@ export const makeServe = (
           }),
         );
 
-        if (after.memory !== incarnation.memory || after.state !== incarnation.state)
-          publish(after);
+        publish(after);
         flushLanes(after.actor);
 
         return HEARD;
@@ -183,15 +217,18 @@ export const makeServe = (
       tx.act(
         Act.Refused({ code: "InvalidTurn", actor: incarnation.actor, ending: Option.some(ending) }),
       );
+      publish(incarnation);
 
       return REFUSED;
     }
 
     const alive =
-      ending.current || ending.owner === ROOT_ACTIVATION || ending.owner === incarnation.activation;
+      ending.current ||
+      ending.owner === ROOT_ACTIVATION ||
+      incarnation.activations.includes(ending.owner);
 
     return turn(incarnation, mapping.value.event, payload.success, {
-      late: !alive,
+      late: alive ? Option.none() : Option.some(ending.owner),
       own: ending.lane,
       ending: Option.some(ending),
     });
@@ -204,7 +241,7 @@ export const makeServe = (
 
         if (incarnation !== undefined)
           turn(incarnation, tag, payload, {
-            late: false,
+            late: Option.none(),
             own: Option.none(),
             ending: Option.none(),
           });
@@ -223,7 +260,12 @@ export const makeServe = (
 
         const left = { ...incarnation, schedules: without(incarnation.schedules, schedule) };
         setIncarnation(left);
-        turn(left, armed.send, {}, { late: false, own: Option.none(), ending: Option.none() });
+        turn(
+          left,
+          armed.send,
+          {},
+          { late: Option.none(), own: Option.none(), ending: Option.none() },
+        );
       },
       Ending: ({ actor, id }) => {
         const incarnation = incarnationOf(actor);

@@ -16,7 +16,7 @@ import type { Evidence } from "../core/evidence.ts";
 import { admit, isDisposed, Verdict } from "../core/life.ts";
 import { CallResult, type Env, Input, type Machines, step } from "../core/step.ts";
 import { type CallId, Command, emptyWorld, type World } from "../core/world.ts";
-import { FlowError } from "../error.ts";
+import { flowError } from "../error.ts";
 import { OutcomeFailure, OutcomeUnknown, reasonOf } from "../flow.ts";
 import { makeEdge } from "./edge.ts";
 import type { Fibers } from "./fibers.ts";
@@ -174,12 +174,21 @@ export const makeDriver = (options: {
 
     if (Verdict.$is("Reject")(verdict))
       // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the public calls' contract: a call the Runtime's life rejects throws its FlowError
-      throw new FlowError({
-        code: verdict.code,
-        problems: [
-          verdict.code === "RuntimeNotReady" ? `${what} before ready()` : `${what} after dispose()`,
-        ],
-      });
+      throw flowError([
+        verdict.code === "RuntimeNotReady"
+          ? {
+              code: verdict.code,
+              path: [what],
+              summary: `${what} before ready()`,
+              help: "Await runtime.ready() before using the Runtime.",
+            }
+          : {
+              code: verdict.code,
+              path: [what],
+              summary: `${what} after dispose()`,
+              help: "Create a new Runtime after disposal.",
+            },
+      ]);
   };
 
   const offer = (next: Input, what: string) => {
@@ -199,20 +208,26 @@ export const makeDriver = (options: {
       tag: string,
       payload: Values,
     ) => {
-      const codec = machines.get(actor.machine)?.external.get(tag);
+      const event = machines.get(actor.machine)?.events.get(tag);
 
       const decoded =
-        codec === undefined ? Option.none() : Schema.decodeUnknownOption(codec)(payload);
+        event === undefined || !event.public
+          ? Option.none()
+          : Schema.decodeUnknownOption(event.payload)(payload);
 
       check(Input.Send({ actor, tag, payload }), `send ${tag} to ${actor.name}`);
 
       // An internal, unknown or invalid event throws InvalidEvent and starts no turn.
       if (Option.isNone(decoded))
         // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the public send's contract: an invalid event throws InvalidEvent before any turn
-        throw new FlowError({
-          code: "InvalidEvent",
-          problems: [`${actor.machine} ${tag}: not a public event with a valid payload`],
-        });
+        throw flowError([
+          {
+            code: "InvalidEvent",
+            path: [actor.machine, tag],
+            summary: `${tag} is not a public event of ${actor.machine} with a valid payload`,
+            help: "Send a public event of this machine with a payload its Schema accepts.",
+          },
+        ]);
 
       input(Input.Send({ actor, tag, payload: decoded.value }));
     },

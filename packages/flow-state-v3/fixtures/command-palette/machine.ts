@@ -56,12 +56,10 @@ const Palette = definition({
   }),
 });
 
-type Fields = typeof Palette.memory;
-
 /**
  * A palette's memory, as its views read it.
  */
-export type PaletteMemory = { readonly [K in keyof Fields]: Fields[K]["value"] };
+export type PaletteMemory = typeof Palette.Memory.Type;
 
 /**
  * The entries the palette shows: the open page's, ranked by the query.

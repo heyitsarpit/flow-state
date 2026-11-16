@@ -18,7 +18,15 @@ const live = (world: World): World => ({
   incarnations: new Map([
     [
       actorKey(actor),
-      { id: "inc-1", actor, state: "S", activation: 7, memory: {}, schedules: new Map() },
+      {
+        id: "inc-1",
+        actor,
+        state: "S",
+        activations: [7],
+        history: new Map(),
+        memory: {},
+        schedules: new Map(),
+      },
     ],
   ]),
 });

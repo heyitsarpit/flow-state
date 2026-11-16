@@ -45,12 +45,10 @@ const Stepper = definition({
   },
 });
 
-type Fields = typeof Stepper.memory;
-
 /**
  * A field's memory, as its views read it.
  */
-export type StepperMemory = { readonly [K in keyof Fields]: Fields[K]["value"] };
+export type StepperMemory = typeof Stepper.Memory.Type;
 
 type Memory = StepperMemory;
 

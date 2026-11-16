@@ -64,14 +64,16 @@ export type Armed = { readonly arming: number; readonly dueAt: number; readonly 
  *
  * **Details**
  *
- * `activation` numbers the current leaf's entry: a re-entry is a new activation, so work its old
- * activation owns ends late.
+ * `state` is the active leaf's path. `activations` numbers each entry of the states on its chain,
+ * outermost first: a re-entry is a new activation, so work its old activation owns ends late.
+ * `history` holds each exited compound's last active leaf.
  */
 export type Incarnation = {
   readonly id: string;
   readonly actor: ActorId;
   readonly state: string;
-  readonly activation: number;
+  readonly activations: ReadonlyArray<number>;
+  readonly history: ReadonlyMap<string, string>;
   readonly memory: Values;
   readonly schedules: ReadonlyMap<string, Armed>;
 };

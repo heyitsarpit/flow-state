@@ -10,7 +10,7 @@ const Lamp = definition({
   memory: { level: Flow.initial(Schema.Number, 0) },
 });
 
-const invalid = (e: Error) => e instanceof FlowError && e.code === "InvalidMachine";
+const invalid = (e: Error) => e instanceof FlowError && e.code === "InvalidConfiguration";
 
 describe("machine", () => {
   it("a target no state names is one construction error, with its path (Compile R2, R3)", () => {
@@ -31,7 +31,7 @@ describe("machine", () => {
       (e: Error) =>
         invalid(e) &&
         e instanceof FlowError &&
-        e.problems.some((p) => p.startsWith("on.Flip[0].target")),
+        e.diagnostics.some((d) => d.path.join(".") === "on.Flip.0.target"),
     );
   });
 

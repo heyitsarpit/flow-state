@@ -1,5 +1,5 @@
 import { Data, Effect, Predicate, type Schema } from "effect";
-import type { Denial } from "./core/compiled.ts";
+import type { Denial, Values } from "./core/compiled.ts";
 
 /**
  * A Schema that decodes and encodes with no services, as every Flow field does.
@@ -8,13 +8,40 @@ import type { Denial } from "./core/compiled.ts";
 export type Plain = Schema.Codec<unknown, unknown>;
 
 /**
- * A memory field with a constant start (`Flow.initial`).
+ * A field Schema that may be absent: the start of an optional memory key.
+ */
+export type OptionalField = Plain & { readonly "~type.optionality": "optional" };
+
+/**
+ * A memory field with a constant start (`Flow.initial(schema, value)`), or one computed from the
+ * input and constant fields (`Flow.initial(schema, (fields) => value)`).
  */
 export type Initial<S extends Plain = Plain> = {
   readonly "~flow": "initial";
   readonly schema: S;
-  readonly value: S["Type"];
+  readonly start:
+    | { readonly _tag: "Constant"; readonly value: S["Type"] }
+    | { readonly _tag: "Computed"; readonly compute: (fields: Values) => S["Type"] };
 };
+
+/**
+ * A memory field the creator supplies (`Flow.input`): part of the definition's Input.
+ */
+export type Input<S extends Plain = Plain> = { readonly "~flow": "input"; readonly schema: S };
+
+/**
+ * A memory field seen only by its owner (`Flow.private`): kept in records and Stories, omitted from
+ * outside snapshots.
+ */
+export type Private<F extends Initial | OptionalField = Initial | OptionalField> = {
+  readonly "~flow": "private";
+  readonly field: F;
+};
+
+/**
+ * One memory field: its Schema with the one source it starts from.
+ */
+export type Field = Initial | Input | Private | OptionalField;
 
 /**
  * An internal event an operation may name as its unknown ending (`Flow.uncertain`).
@@ -36,16 +63,28 @@ const entry: Entry = { "~flow": "entry" };
  *
  * **When to use**
  *
- * - `Flow.initial(schema, value)`: a memory field that starts at a constant.
+ * - `Flow.initial(schema, value)`: a memory field that starts at a constant;
+ *   `Flow.initial(schema, (fields) => value)` computes it from the input and constant fields.
+ * - `Flow.input(schema)`: a memory field the creator supplies; read-only afterwards.
+ * - `Flow.private(field)`: a field kept from outside snapshots.
  * - `Flow.uncertain(fields)`: an internal event an operation's unknown ending maps to.
  * - `Flow.entry`: in a schedule's `armOn`, arm it on its state's entry too.
  */
 export const Flow = {
   // RETURN_TYPE: the marker's Schema type parameter types the memory field.
-  initial: <S extends Plain>(schema: S, value: S["Type"]): Initial<S> => ({
-    "~flow": "initial",
-    schema,
-    value,
+  initial: <S extends Plain>(
+    schema: S,
+    value: S["Type"] | ((fields: Values) => S["Type"]),
+  ): Initial<S> =>
+    Predicate.isFunction(value)
+      ? { "~flow": "initial", schema, start: { _tag: "Computed", compute: value } }
+      : { "~flow": "initial", schema, start: { _tag: "Constant", value } },
+  // RETURN_TYPE: the marker's Schema type parameter types the memory field.
+  input: <S extends Plain>(schema: S): Input<S> => ({ "~flow": "input", schema }),
+  // RETURN_TYPE: the marker keeps its field's type.
+  private: <F extends Initial | OptionalField>(field: F): Private<F> => ({
+    "~flow": "private",
+    field,
   }),
   // RETURN_TYPE: the marker's fields type the event payload.
   uncertain: <const F extends Schema.Struct.Fields>(fields: F): Uncertain<F> => ({

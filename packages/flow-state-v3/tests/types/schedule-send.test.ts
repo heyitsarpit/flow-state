@@ -1,17 +1,45 @@
 import { describe, expect, it } from "vite-plus/test";
-import { definition, FlowError, machine } from "../../src/index.ts";
+import { definition, machine } from "../../src/index.ts";
 
 const Lamp = definition({ id: "types/Lamp", states: ["ON"], events: { Off: {} }, memory: {} });
 
 const Bell = definition({ id: "types/Bell", states: ["IDLE"], events: { Ring: {} }, memory: {} });
 
 describe("a schedule's send", () => {
-  it.fails("Compile T11: a schedule sending another definition's event is refused", () => {
+  it("Compile T11: a schedule sending another definition's event is refused", () => {
     expect(() =>
       machine(Lamp, ({ S }) => ({
         default: S.ON,
-        states: { ON: { schedules: { ring: { schedule: "1 second", send: Bell.E.Ring } } } },
+        states: {
+          ON: {
+            schedules: {
+              // @ts-expect-error another definition's event token (Compile R3, R14)
+              ring: { schedule: "1 second", send: Bell.E.Ring },
+            },
+          },
+        },
       })),
-    ).toThrow(FlowError);
+    ).toThrow(
+      expect.objectContaining({
+        diagnostics: [expect.objectContaining({ details: { reason: "ForeignToken" } })],
+      }),
+    );
+  });
+
+  it("Compile T11: a schedule sending another definition's event of the same name is refused", () => {
+    const Other = definition({ id: "types/Other", states: ["A"], events: { Off: {} } });
+
+    expect(() =>
+      machine(Lamp, ({ S }) => ({
+        default: S.ON,
+        states: { ON: { schedules: { off: { schedule: "1 second", send: Other.E.Off } } } },
+      })),
+    ).toThrow(
+      expect.objectContaining({
+        diagnostics: [
+          expect.objectContaining({ path: ["states", "ON", "schedules", "off", "send"] }),
+        ],
+      }),
+    );
   });
 });

@@ -97,6 +97,7 @@ export type RequirementsOf<O> = Exclude<
  */
 type BoundFields = {
   readonly contract: string;
+  readonly identity: symbol;
   readonly input: Schema.Codec<Values, Values>;
   readonly inputJson: Schema.Codec<Values, Values>;
   readonly key: ReadonlyArray<string>;
@@ -199,6 +200,8 @@ export const transaction = <const F extends Fields, A, E, R>(config: {
     context: { readonly attempt: Attempt },
   ) => Effect.Effect<A, E, R>;
 }): Transaction<F, A, E, R> => {
+  const identity = Symbol(config.id);
+
   const contract: Transaction<F, A, E, R> = {
     kind: "transaction",
     ...config,
@@ -206,6 +209,7 @@ export const transaction = <const F extends Fields, A, E, R>(config: {
     outcomes: (endings) => ({
       kind: "write",
       contract: config.id,
+      identity,
       ...codecsOf(config.input, config.key),
       key: config.key,
       concurrency: config.concurrency,
@@ -238,6 +242,8 @@ export const resource = <const F extends Fields, A, E, R>(config: {
   readonly gcTime: Duration.Input;
   readonly lookup: (input: InputOf<F>) => Effect.Effect<A, E, R>;
 }): Resource<F, A, E, R> => {
+  const identity = Symbol(config.id);
+
   const contract: Resource<F, A, E, R> = {
     kind: "resource",
     ...config,
@@ -245,6 +251,7 @@ export const resource = <const F extends Fields, A, E, R>(config: {
     outcomes: (endings) => ({
       kind: "read",
       contract: config.id,
+      identity,
       ...codecsOf(config.input, config.key),
       key: config.key,
       concurrency: "reject",

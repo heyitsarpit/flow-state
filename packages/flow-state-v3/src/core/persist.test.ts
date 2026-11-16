@@ -26,7 +26,7 @@ const Till = definition({
   persist: true,
   states: ["OPEN"],
   events: { Ring: {} },
-  internalEvents: { Rang: {} },
+  internalEvents: { Rang: Flow.uncertain({}) },
   memory: { count: Flow.initial(Schema.Number, 0) },
   operations: ({ E }) => ({
     ring: ring.outcomes({ success: E.Rang, failure: {}, unknown: E.Rang }),
@@ -48,7 +48,15 @@ const stepOver = (
     incarnations: new Map([
       [
         actorKey(actor),
-        { id: "inc-1", actor, state: "OPEN", activation: 1, memory, schedules: new Map() },
+        {
+          id: "inc-1",
+          actor,
+          state: "OPEN",
+          activations: [1],
+          history: new Map(),
+          memory,
+          schedules: new Map(),
+        },
       ],
     ]),
   };
@@ -234,7 +242,8 @@ it("WriteAhead I23, R4: in one step, an identity whose record cannot encode is w
           id: "inc-2",
           actor: other,
           state: "OPEN",
-          activation: 2,
+          activations: [2],
+          history: new Map(),
           memory: { count: 5 },
           schedules: new Map(),
         },

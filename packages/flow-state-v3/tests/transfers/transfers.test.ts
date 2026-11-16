@@ -74,8 +74,8 @@ describe("transfers", () => {
     expect(reached.filter((c) => c.input.transferId === "d0")).toHaveLength(2);
   });
 
-  it.fails("Turn I9: an accepted transition with all its parts publishes exactly once, one that changes nothing included", async () => {
-    const run = await heldAtDisposal.run();
+  it("Turn I9: an accepted transition with all its parts publishes exactly once, one that changes nothing included", async () => {
+    const run = checked(await heldAtDisposal.run());
     const last = run.evidence.findLastIndex((e) => e._tag === "Turn");
 
     expect(run.evidence[last]).toEqual(expect.objectContaining({ event: "Unsure", from: "READY" }));
