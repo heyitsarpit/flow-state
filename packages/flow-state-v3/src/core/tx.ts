@@ -96,6 +96,7 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
   const tx = {
     machines,
     env,
+    started: world0,
     world: () => world,
     set: (next: World) => {
       world = next;

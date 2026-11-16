@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { checkout } from "../../fixtures/pay/machine.ts";
 import { shopStory } from "../../fixtures/pay/stories.ts";
 import { Evidence } from "../../src/host/inspect.ts";
-import { Step, type StoryRun } from "../../src/host/testing/index.ts";
+import type { StoryRun } from "../../src/host/testing/index.ts";
 import { TraceRecord } from "../../src/host/trace.ts";
 import { acknowledgedBeforeSent, oneBatchOut } from "./batches.ts";
 import {
@@ -186,23 +186,18 @@ describe("run rules over the fake store's batches", () => {
   });
 
   // A run whose store received the given batches and whose trace is the given events.
+  // A run whose store received the given batches and whose fake servers received the given calls,
+  // after one Minted report of the Attempt.
   const stored = async (
     batches: ReadonlyArray<ReturnType<typeof batch>>,
-    records: ReadonlyArray<TraceRecord> = [],
+    calls: StoryRun["end"]["calls"] = [],
   ) => {
     const real = await shopStory("rules/stored").ensure(checkout).run();
 
     return {
       ...real,
-      end: { ...real.end, records: { ...real.end.records, batches } },
-      trace: {
-        storyId: "rules/stored",
-        events: records.map((record, n) => ({
-          sequence: n + 1,
-          tab: { name: "main", open: 1 },
-          record,
-        })),
-      },
+      evidence: [Evidence.Minted({ operation: "pay", attempt, actor: who, key: {} })],
+      end: { ...real.end, calls, records: { ...real.end.records, batches } },
     } satisfies StoryRun;
   };
 
@@ -214,13 +209,16 @@ describe("run rules over the fake store's batches", () => {
     expect(oneBatchOut.breaches(answered)).toEqual([]);
   });
 
-  it("WriteAhead I15: a persisted Attempt sent before its acknowledging batch landed is a breach; after it, not", async () => {
+  it("WriteAhead I15: a request naming a persisted Attempt before its acknowledging batch landed is a breach; after it, not", async () => {
     const sentAt = (step: number) => [
-      TraceRecord.Runtime({
-        evidence: Evidence.Minted({ operation: "pay", attempt, actor: who, key: {} }),
-      }),
-      TraceRecord.Step({ index: step, step: Step.advance({ duration: "1 millis" }) }),
-      TraceRecord.Runtime({ evidence: Evidence.Sent({ operation: "pay", attempt }) }),
+      {
+        server: "Shop",
+        endpoint: "confirm",
+        input: { intentId: "pi1", key: attempt },
+        tab: { name: "main", open: 1 },
+        step,
+        status: "answered" as const,
+      },
     ];
 
     const early = await stored([batch(1, Option.some(5), [attempt])], sentAt(4));

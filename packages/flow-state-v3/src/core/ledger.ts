@@ -174,9 +174,16 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
 
   const recorded = (row: Owed, why: "evidence" | "letGo") => tx.act(Act.RowRecorded({ row, why }));
 
-  // A move into or out of a saved state writes the identity's owed record.
+  // A row the owed record held at the step's start: every row owed to the identity at a step's end
+  // is in it, a row still in the mailbox included.
+  const onRecord = (row: Owed) =>
+    Audience.$is("Identity")(row.to) &&
+    rowsOf(tx.started.owed, row.actor).some((r) => r.id === row.id);
+
+  // A move into or out of the owed record writes it.
   const saved = (row: Owed, delivery: Delivery) => {
-    if (isSaved(row) || isSaved({ ...row, delivery })) persistence.saveOwed(row.actor);
+    if (isSaved(row) || isSaved({ ...row, delivery }) || onRecord(row))
+      persistence.saveOwed(row.actor);
   };
 
   /**

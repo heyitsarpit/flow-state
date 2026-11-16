@@ -138,8 +138,10 @@ requirements
                 the core returns, follow-ups and other actors' mail included; mail still queued when
                 the core returns (a backlog) is served in a later step. Records are written from what a step
                 touched, never by a move: the step notes the lanes and identities it changed, and at
-                its end each one whose entry changed is projected into its record (or its removal);
-                those writes are that step's one list, for the whole Runtime. The list says how soon
+                its end each one whose entry changed is projected into its record (or its removal),
+                except a head put on the wire, whose acknowledgement or capture already holds it in
+                flight with the retryCount it is sent with; those writes are that step's one list, for the whole 
+                Runtime. The list says how soon
                 it must go (at once and awaited, at once, or within the interval); when a batch is
                 issued it carries that list and everything else still dirty (R12). A row leaves the
                 owed record in the batch that carries the turn that heard it. Decision (agent: the
@@ -180,8 +182,8 @@ requirements
                 one is. An unanswered write is pending, never "not sent"; StorageSilent names it after
                 10 s and decides nothing. A record names the boot that wrote it, and no id minted
                 after restore equals an id on disk (@spec.WriteLanes.R5). Disposal waits for its
-                writes within its budget (@spec.Actors.R23); a write still pending then, or
-                refused, reports StorageFailure.
+                writes within its budget (@spec.Actors.R23); its write (the last batch it issued) still
+                pending then, or refused, reports StorageFailure; an earlier batch's refusal does not.
 
     R13  Acknowledge before sending
         source  @plan.Persistence.O6.
@@ -303,8 +305,9 @@ invariants
          crash before that batch lands restores the row together with the state that had not heard it. [@R9, @R10]
 
     I23  Every batch is one Store write, and it holds every record dirty in the Runtime when it is issued: no 
-         identity's record lands without the records the same step changed, another identity's included, and at most
-        one batch is out at a time. [@R2, @R12]
+         identity's record lands without the records the same step changed, another identity's included, except an
+        identity withheld whole because its actor record cannot encode (R4), whose records land together later; and
+        at most one batch is out at a time. [@R2, @R12]
 
     I24  At every landed state, a lane record's `inFlight` is true exactly when its head was acknowledged and not Held 
          in the step that wrote it. [@R5]
@@ -316,7 +319,8 @@ owner Records
 
     invariants
         I21  Every lane and identity whose entry a step changed has its record written or removed in that step's write 
-             list (issued when R10 says), and no move writes a record: a boot from any landed state behaves as the
+             list (issued when R10 says), a head put on the wire excepted (R10), and no move writes a record: a boot 
+             from any landed state behaves as the
             world of the last landed step. [@R5, @R10]
 
 composition

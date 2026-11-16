@@ -454,7 +454,7 @@ invariants
 
     I35  During Runtime disposal, a call on the wire at its start is never cut short within the 5 s bound: one that 
          settles less than 5 s after the start ends by its own result and the disposal does not end before it settles,
-        unless a refused write ends the disposal first (R23, I43); one still unsettled 5 s after the start ends
+        unless a refusal of the disposal's write ends it first (R23, I43); one still unsettled 5 s after the start ends
         unknown { Disposed }. Decision (user, 2026-11-10): "Q1 A", the bound gets its own Invariant. [@R22, @R23]
 
     I36  A head whose call ends definitely during Runtime disposal, within the bound, leaves no hold once the 
@@ -468,7 +468,8 @@ invariants
     I38  Every commit not yet sent when Runtime disposal starts (queued, or a head waiting for its acknowledgement or 
          to be invoked) ends NotSent { Disposed } before the disposal ends; when the disposal's write lands, that 
          ending is
-        delivered once to the identity's next incarnation, and a refused write reports StorageFailure (R23).
+        delivered once to the identity's next incarnation, and a refusal of the disposal's write reports StorageFailure
+        (R23).
         Decision (agent, 2026-11-11): ruling CQ6 with audit gap G5, as in R22. [@R22, @R23]
 
     I39  A persisted value-named machine's identity version changes exactly when an input field is added, removed or 
@@ -482,7 +483,8 @@ invariants
         alone closes as evidence; none is dropped. [@R8, @R20, @R22]
 
     I43  The disposal's 5 s runs from the first call to dispose (the start I35 counts from) and covers its writes: a 
-         write still unanswered 5 s after that call, or refused, reports StorageFailure and the disposal ends then,
+         disposal's write still unanswered 5 s after that call, or refused, reports StorageFailure and the disposal 
+         ends then,
         however late within the bound a call on the wire settled; a later call to dispose restarts nothing. [@R23]
 
     I44  The disposal's first write holds every record dirty when its start cells have run, and every change made 

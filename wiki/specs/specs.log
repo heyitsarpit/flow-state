@@ -104,3 +104,13 @@ note 2026-11-16T09:25:58Z
     Actors realization: the host decides by the life only through admit and isDisposed; inspection names it through
     lifecycleOf, which decides nothing. Why: the cut reports the life's name, and the old wording forbade that read.
     Reverse: drop lifecycle from the runtime cut (@task.V3.T19).
+
+note 2026-11-16T09:49:38Z
+    WriteAhead I23: an identity withheld whole because its record cannot encode lands later, while other identities of
+    the same step go now. Why: no record of one identity depends on another's, and one bad memory must not stop every
+    send. Reverse: skip the whole step's capture while any identity cannot encode (@task.V3.T19).
+
+note 2026-11-16T09:49:38Z
+    Actors I35, I38, I43 and WriteAhead R12: only the disposal's own write, refused or unanswered at the bound, reports
+    StorageFailure, as R23 says; WriteAhead R10 and I21 name the head put on the wire as the one change not written.
+    Why: the old text contradicted R23 and the realization. Reverse: restore the old text (@task.V3.T19).

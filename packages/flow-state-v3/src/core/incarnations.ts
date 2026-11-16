@@ -175,7 +175,8 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
   const end = (actor: ActorId) => {
     const incarnation = incarnationOf(actor);
 
-    if (incarnation === undefined) return;
+    // The end waits while the identity's records cannot encode: its grace starts again.
+    if (incarnation === undefined || tx.world().withheld.has(actorKey(actor))) return;
     // The end writes a dirty record in its own step, not at the next capture.
     saveActor(actor, Due.Now());
     stopSchedules(incarnation);

@@ -146,6 +146,32 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
+    name: "heard-mailbox-row-kept-on-disk",
+    tests: ["src/core/persist.test.ts"],
+    says: "a row saved while in the mailbox is heard later with no owed write, so a reload hears it again",
+    rule: "WriteAhead I22",
+    edits: [
+      {
+        file: "src/core/ledger.ts",
+        find: "    if (isSaved(row) || isSaved({ ...row, delivery }) || onRecord(row))",
+        replace: "    if (isSaved(row) || isSaved({ ...row, delivery }))",
+      },
+    ],
+  },
+  {
+    name: "end-while-withheld",
+    tests: ["src/core/persist.test.ts"],
+    says: "a free actor whose records are held back ends at its grace",
+    rule: "Actors R8",
+    edits: [
+      {
+        file: "src/core/incarnations.ts",
+        find: "    if (incarnation === undefined || tx.world().withheld.has(actorKey(actor))) return;",
+        replace: "    if (incarnation === undefined) return;",
+      },
+    ],
+  },
+  {
     name: "default-interval-zero",
     tests: ["tests/write-lanes/write-ahead-records.test.ts"],
     says: "a setup with no captureMs writes plain memory at once",

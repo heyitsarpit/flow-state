@@ -571,6 +571,19 @@ tasks
             1,624 write draws over 20 seeds); the three re-pasted stress Stories equal their seeds' runs
             (saved.stress.test.ts green); each new fault is caught by its named test; no outside reads, temporary names
             or Effect re-creation found.
+        comment     2026-11-16T09:51:14Z
+            Close-review fixes: both blocking traces replayed red in src/core/persist.test.ts, runtime wrong. (1) A row
+            saved in the mailbox past the cap is now rewritten out of the owed record when heard (ledger writes any row
+            the record held at the step's start). (2) An end waits while its identity is withheld (Actors R8). Faults
+            heard-mailbox-row-kept-on-disk, end-while-withheld.
+        comment     2026-11-16T09:51:14Z
+            Also: Actors I35, I38, I43 and WriteAhead R12 now name only the disposal's own write; R10 and I21 carry the
+            on-wire exception; the I11 test asserts values; the I15 run rule reads the requests the fake servers
+            received. Decision: I23 lets other identities of a step land while one is withheld whole (Spec amended, core
+            test pins it). Why: no record of one identity depends on another's. Reverse: skip the step's whole capture.
+        comment     2026-11-16T09:51:14Z
+            Gates at the fix revision, by exit code: check 0, suite 559 passed and 5 inverted, test:stress 0, faults 97
+            of 97; bench transfers/long 0.032/0.057, pay/long 0.035/0.055, lanes/stress-36 0.036/0.060 ms per turn.
     T20
         title       Durability: restore, owed endings at boot, quarantine and forget (slice 2a)
         status      open
@@ -706,6 +719,10 @@ tasks
             Routed from T19: mail left queued when a step's drain stops at its 10,000-turn cap is served only at the
             next input (WriteAhead R10 says a later step); its rows are now saved, so nothing is lost. No fixture can
             reach the cap yet (no actor sends to another); the turn-storm work owns a prompt re-step.
+        comment     2026-11-16T09:49:38Z
+            Correction from T19: the earlier note's 'nothing is lost' was wrong until 366dcaa2's successor: a row saved
+            while queued past the cap stayed in the owed record after it was heard, so a reload heard it twice. Now
+            fixed and checked in src/core/persist.test.ts; the prompt re-step is still yours.
 
     T72
         title       UI primitives, second wave: toaster and menu fixtures
