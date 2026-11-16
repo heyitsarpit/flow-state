@@ -1224,6 +1224,12 @@ tasks
             Cancelling reasons rest on hand-set fixture flags and on WriteLanes R14, which does not say the interrupt
             ends within its step; Stories I7 now disagrees with R6 and T5, and G5 has no test; "catalogue" is named in
             code and test titles. Plan outcomes: @plan.Testing.O6's first slice, apart from the profile item.
+        comment     2026-11-16T00:28:31Z
+            Resume (review fixes, uncommitted after 4c92357b): items 2-4 committed. Item 1 in the working tree: network
+            offline word (Fake.network), 5-120 s span, bursts 50-2,000 at 1%, per-arming salted draws, quiet waits past
+            deadlines first; profiles.test asserts the span and both mixes within 3 standard errors and passes. Left:
+            re-paste the 7 seededStress Stories at seeds cells 56, palette/number/pay/sign-in/sync 36, transfers 45
+            (update tests/generated/stress.test.ts), re-find the planted seed, item 6, gates, commit, review.
 
     T71
         title       UI primitives, first wave: command palette and number input fixtures
