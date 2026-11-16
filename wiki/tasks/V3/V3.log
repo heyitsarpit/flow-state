@@ -371,3 +371,7 @@ note 2026-11-16T05:31:17Z
     P2 records compacted (R18, deferred from the phase's close): 40 progress-only comments dropped from P2's done Tasks
     (requirements lists, build and close notes, handled routings, gate counts); decisions, verdicts, mappings and the
     user's-read items kept. Full text: git before this commit.
+
+note 2026-11-16T05:36:56Z
+    Decision (user, 2026-11-16): "edit the epic for the important stuff, just 1-2 lines": instructions gain the run's
+    lessons (--now stamps, gates by exit code, about 2% a Task); T55 gets a read-first comment.

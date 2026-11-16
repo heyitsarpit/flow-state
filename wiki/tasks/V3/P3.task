@@ -324,6 +324,10 @@ tasks
             - The known bug "a commit queued behind a Held head is not ended at disposal" (@spec.Actors.I38) is fixed,
               with its test.
             - Each new rule has a planted fault that `nub run faults` catches.
+        comment     2026-11-16T05:36:56Z
+            Read before starting (2026-11-16 run): the Actors I43 it.fails (the host's StorageFailure report in
+            src/host/driver.ts) belongs here, since the final write's bound moves into the core; T19 holds the drain-cap
+            gap (WriteAhead I20 past 10,000 turns). Test cadence and the Spec-limit rule are in the Epic's instructions.
     T19
         title       Durability: persistence edge, write-ahead and the driver (slice 2)
         status      open

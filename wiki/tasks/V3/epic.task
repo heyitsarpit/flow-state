@@ -226,6 +226,8 @@ instructions
       in `wiki/specs/specs.log`.
     - A gap is never written into a Spec as a limit (the user, 2026-11-16): a lost, doubled or made-up ending the code
       can't yet meet lands as an inverted test titled by its rule, with an owner Task, and the Spec keeps the rule.
+    - Lessons from the 2026-11-15 run (the user, 2026-11-16): comments are stamped only with `--now`; a gate counts by
+      its exit code, never its summary line; a Task with its reviews costs about 2% of the weekly limit.
     - Plan changes found while building go to @plan.Pending as decisions, never into the Plans (the user, 2026-11-11),
       with the same whole-system check (the user, 2026-11-15).
     - Effect prior art (the user, 2026-11-11): each module's Spec skeleton lists the Effect features that cover its
