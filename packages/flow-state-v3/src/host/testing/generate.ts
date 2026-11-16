@@ -229,7 +229,8 @@ const QUIET = Step.advance({ duration: "2 minutes" });
  */
 // RETURN_TYPE: the Source contract types the view each pull receives.
 export const quieting = (): Source => {
-  let rounds = 0;
+  // The first advance counts as a quiet round unless something is held after it.
+  let rounds = 1;
   let pulls = 0;
 
   return (view) => {

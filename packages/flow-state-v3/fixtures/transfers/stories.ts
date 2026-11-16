@@ -233,7 +233,6 @@ export const seededStress = Story.app(bankSetup, {
   .advance("7008 millis")
   .world(Fake.network.online())
   .advance("2 minutes")
-  .advance("2 minutes")
   .advance("2 minutes");
 
 /**

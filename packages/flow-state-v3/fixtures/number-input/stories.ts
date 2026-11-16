@@ -226,7 +226,6 @@ export const seededStress = Story.app(numberSetup, { id: "number-input/stress-36
   .advance("56438 millis")
   .world(Fake.network.online())
   .advance("2 minutes")
-  .advance("2 minutes")
   .advance("2 minutes");
 
 /**

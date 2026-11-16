@@ -63,7 +63,7 @@ describe("a planted fault found from a seed (WriteLanes I6)", () => {
     const [failure, ...more] = propertyTest(planted, {
       profile: "stress",
       properties: rules,
-      seeds: [5],
+      seeds: [19],
     });
 
     const story = failure?.story ?? "";
