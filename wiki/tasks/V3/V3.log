@@ -736,3 +736,7 @@ note 2026-11-16T19:56:16Z
 note 2026-11-16T19:56:29Z
     T20 resumed after the catalog commit (f9578f28). Its two public outcome changes go to the user as before and after;
     the lead finishes gates and inverted tests meanwhile.
+
+note 2026-11-16T20:01:36Z
+    Amendment (2026-11-17, the user): each Task's fixtures line names its catalog step and fixtures; leads build those
+    rows from their sources and mark the cells used at the close. Commit: a2240b63.
