@@ -42,7 +42,7 @@ export const makeDisposal = (
   const disposalEnds = () => {
     if (!Disposal.$is("Disposing")(tx.world().disposal)) return;
 
-    if ([...tx.world().lanes.values()].some(onWire)) return;
+    if ([...tx.world().lanes.values()].some(onWire) || tx.world().displaced.size > 0) return;
 
     disarmWhere((t) => Timer.$is("Bound")(t));
     tx.set({ ...tx.world(), disposal: Disposal.Disposed() });

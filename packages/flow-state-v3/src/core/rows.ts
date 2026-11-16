@@ -18,6 +18,6 @@ export type Row = {
 export const rowOf = (lane: Lane): Row => ({
   pending: !Phase.$is("Held")(lane.head.phase),
   uncertain: Phase.$is("Held")(lane.head.phase),
-  waiting: false,
+  waiting: lane.queue.length > 0,
   retryCount: lane.head.retryCount,
 });

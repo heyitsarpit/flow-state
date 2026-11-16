@@ -1,4 +1,4 @@
-import { type Context, type Duration, type Effect, type Option, Schema, Struct } from "effect";
+import { type Context, type Duration, type Effect, Option, Schema, Struct } from "effect";
 import type { Attempt, Commit, Concurrency, Lookup, Values } from "./core/compiled.ts";
 import type { OutcomeFailure, OutcomeUnknown } from "./flow.ts";
 
@@ -48,12 +48,14 @@ export type Ending = {
 };
 
 /**
- * A write's endings mapped onto the declarer's events: `failure` is exhaustive over
- * the commit's failure tags, with Flow's `NotSent` optional.
+ * A write's endings mapped onto the declarer's events, by origin: `failure` is exhaustive over
+ * the commit's own failure tags and nothing else; `notSent`, optional, takes Flow's `NotSent` for a
+ * commit never sent; `unknown` takes every unknown ending.
  */
 export type WriteEndings<E> = {
   readonly success: Ending;
-  readonly failure: { readonly [T in FailureTag<E>]: Ending } & { readonly NotSent?: Ending };
+  readonly failure: { readonly [T in FailureTag<E>]: Ending };
+  readonly notSent?: Ending;
   readonly unknown: Ending;
 };
 
@@ -74,6 +76,7 @@ export type Bound<K extends "write" | "read" = "write" | "read", R = unknown> = 
   ? BoundFields & {
       readonly kind: "write";
       readonly call: Commit;
+      readonly notSent: Option.Option<Ending>;
       readonly unknown: Ending;
     }
   : BoundFields & { readonly kind: "read"; readonly call: Lookup }) & {
@@ -209,6 +212,7 @@ export const transaction = <const F extends Fields, A, E, R>(config: {
       call: (input, context) => config.commit(trusted<InputOf<F>>(input), context),
       success: endings.success,
       failure: endings.failure,
+      notSent: Option.fromUndefinedOr(endings.notSent),
       unknown: endings.unknown,
     }),
   };

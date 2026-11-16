@@ -25,8 +25,8 @@ const Transfers = definition({
       success: E.Done.from((v: { readonly receipt: string }) => ({ receipt: v.receipt })),
       failure: {
         Declined: E.Declined.from((e: Declined) => ({ code: e.code })),
-        NotSent: E.NotSent.from((e: { readonly why: string }) => ({ why: e.why })),
       },
+      notSent: E.NotSent.from((e: { readonly why: string }) => ({ why: e.why })),
       unknown: E.Unsure,
     }),
   }),

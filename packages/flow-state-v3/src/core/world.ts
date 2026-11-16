@@ -131,13 +131,37 @@ export const sentBefore = (head: Head) =>
   Phase.$is("Resending")(head.phase);
 
 /**
- * A write lane while it is not Idle: an identity's operation at one key. Its id and key are
- * derived from the identity, the operation and the head's input.
+ * A commit waiting behind a lane's head: its input and owning activation. It has no Attempt until
+ * it is promoted.
+ */
+export type Queued = { readonly input: Values; readonly owner: number };
+
+/**
+ * A write lane while it is not Idle: an identity's operation at one key, with the commits queued
+ * behind its head, oldest first. Its id and key are derived from the identity, the operation and
+ * the head's input.
  */
 export type Lane = {
   readonly actor: ActorId;
   readonly operation: string;
   readonly head: Head;
+  readonly queue: ReadonlyArray<Queued>;
+};
+
+/**
+ * An earlier head a cancel-policy commit replaced while it waited for storage or was on the wire.
+ *
+ * **Details**
+ *
+ * It is kept by the call or ticket it waits on, apart from any lane, since its lane may end first.
+ * `owed` says a cancel was pending on it, so its ending is delivered; otherwise it is evidence.
+ */
+export type Displaced = {
+  readonly actor: ActorId;
+  readonly operation: string;
+  readonly lane: string;
+  readonly head: Head;
+  readonly owed: boolean;
 };
 
 /**
@@ -228,6 +252,7 @@ export type World = {
   readonly lanes: ReadonlyMap<string, Lane>;
   readonly owed: Ledger;
   readonly reads: ReadonlyMap<CallId, Read>;
+  readonly displaced: ReadonlyMap<string, Displaced>;
   readonly mail: ReadonlyArray<Mail>;
   readonly uses: ReadonlyMap<string, ReadonlyArray<Use>>;
   readonly timers: ReadonlyMap<TimerId, Timer>;
@@ -247,6 +272,7 @@ export const emptyWorld = (persistence: boolean): World => ({
   lanes: new Map(),
   owed: emptyLedger,
   reads: new Map(),
+  displaced: new Map(),
   mail: [],
   uses: new Map(),
   timers: new Map(),

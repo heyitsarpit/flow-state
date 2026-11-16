@@ -183,6 +183,7 @@ export type Operation = Data.TaggedEnum<{
     call: Slot<Commit>;
     success: Mapping;
     failure: ReadonlyMap<string, Mapping>;
+    notSent: Option.Option<Mapping>;
     unknown: Mapping;
   };
   Read: {

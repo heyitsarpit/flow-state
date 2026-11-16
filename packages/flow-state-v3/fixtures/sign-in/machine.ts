@@ -30,16 +30,16 @@ const SignIn = definition({
       success: E.Sent,
       failure: {
         Throttled: E.Throttled,
-        NotSent: E.Refused.from((e: { readonly why: string }) => ({ why: e.why })),
       },
+      notSent: E.Refused.from((e: { readonly why: string }) => ({ why: e.why })),
       unknown: E.Unsure,
     }),
     verify: verify.outcomes({
       success: E.Verified,
       failure: {
         WrongCode: E.Wrong,
-        NotSent: E.Refused.from((e: { readonly why: string }) => ({ why: e.why })),
       },
+      notSent: E.Refused.from((e: { readonly why: string }) => ({ why: e.why })),
       unknown: E.Unsure,
     }),
   }),

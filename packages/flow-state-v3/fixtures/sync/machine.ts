@@ -33,8 +33,8 @@ const Sync = definition({
       success: E.Synced,
       failure: {
         RateLimited: E.Limited.from((e: RateLimited) => ({ retryAfterMs: e.retryAfterMs })),
-        NotSent: E.NotSent.from((e: { readonly why: string }) => ({ why: e.why })),
       },
+      notSent: E.NotSent.from((e: { readonly why: string }) => ({ why: e.why })),
       unknown: E.Unsure,
     }),
     remote: remoteHead.outcomes({

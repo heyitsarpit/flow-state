@@ -64,12 +64,12 @@ const tollOver = (jam: Jam, counts: Array<number>) => {
 
             return { why: "Declined" };
           }),
-          NotSent: E.NotRung.from((e: { readonly why: string }) => {
-            tried(jam);
-
-            return { why: e.why };
-          }),
         },
+        notSent: E.NotRung.from((e: { readonly why: string }) => {
+          tried(jam);
+
+          return { why: e.why };
+        }),
         unknown: E.Unsure.from(() => {
           tried(jam);
 
@@ -126,7 +126,8 @@ const retrier = (() => {
     operations: ({ E }) => ({
       chime: chime.outcomes({
         success: E.Rang,
-        failure: { NotSent: E.NotRung.from((e: { readonly why: string }) => ({ why: e.why })) },
+        failure: {},
+        notSent: E.NotRung.from((e: { readonly why: string }) => ({ why: e.why })),
         unknown: E.Unsure,
       }),
     }),
@@ -199,14 +200,14 @@ const chainOver = (persist: boolean, limit: number, cancelAt: number) => {
     operations: ({ E }) => ({
       knock: knock.outcomes({
         success: E.Knocked,
-        failure: {
-          NotSent: E.NotKnocked.from((e: { readonly why: string }) => ({ why: e.why })),
-        },
+        failure: {},
+        notSent: E.NotKnocked.from((e: { readonly why: string }) => ({ why: e.why })),
         unknown: E.KnockUnsure,
       }),
       toll: toll.outcomes({
         success: E.Rang,
-        failure: { NotSent: E.NotRung.from((e: { readonly why: string }) => ({ why: e.why })) },
+        failure: {},
+        notSent: E.NotRung.from((e: { readonly why: string }) => ({ why: e.why })),
         unknown: E.Unsure,
       }),
     }),

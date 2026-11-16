@@ -48,6 +48,59 @@ void definition({
   }),
 });
 
+// Endings split by origin: Flow's NotSent has its own optional key and is never a failure tag
+// (WriteLanes R4, T16).
+void definition({
+  id: "types/Orders",
+  states: ["READY"],
+  events: {},
+  internalEvents: { Placed: {}, Refused: {}, Unsent: {}, Unsure: Flow.uncertain({}) },
+  memory: {},
+  operations: ({ E }) => ({
+    place: place.outcomes({
+      success: E.Placed,
+      failure: { Declined: E.Refused },
+      notSent: E.Unsent,
+      unknown: E.Unsure,
+    }),
+  }),
+});
+
+void definition({
+  id: "types/Orders",
+  states: ["READY"],
+  events: {},
+  internalEvents: { Placed: {}, Refused: {}, Unsent: {}, Unsure: Flow.uncertain({}) },
+  memory: {},
+  operations: ({ E }) => ({
+    place: place.outcomes({
+      success: E.Placed,
+      failure: {
+        Declined: E.Refused,
+        // @ts-expect-error Flow's NotSent is mapped under notSent, never as a failure tag (WriteLanes R4, T16)
+        NotSent: E.Unsent,
+      },
+      unknown: E.Unsure,
+    }),
+  }),
+});
+
+void definition({
+  id: "types/Orders",
+  states: ["READY"],
+  events: {},
+  internalEvents: { Placed: {}, Unsure: Flow.uncertain({}) },
+  memory: {},
+  operations: ({ E }) => ({
+    place: place.outcomes({
+      success: E.Placed,
+      // @ts-expect-error a commit failure tag left unmapped (WriteLanes R4, T16)
+      failure: {},
+      unknown: E.Unsure,
+    }),
+  }),
+});
+
 void transaction({ ...order, concurrency: "serialize" });
 
 void transaction({

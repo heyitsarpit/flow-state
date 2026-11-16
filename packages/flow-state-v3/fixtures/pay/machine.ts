@@ -98,8 +98,8 @@ export const Pay = definition({
         IntentBusy: E.PayRefused.from(() => ({
           reason: "This payment changed elsewhere. Refresh to continue.",
         })),
-        NotSent: E.PayNotSent.from((e: { readonly why: string }) => ({ why: e.why })),
       },
+      notSent: E.PayNotSent.from((e: { readonly why: string }) => ({ why: e.why })),
       unknown: E.PayUnsure,
     }),
     place: placeOrder.outcomes({
@@ -109,15 +109,16 @@ export const Pay = definition({
           alreadyPlaced: r.alreadyPlaced,
         }),
       ),
-      failure: { NotSent: E.PlaceRefused },
+      failure: {},
+      notSent: E.PlaceRefused,
       unknown: E.PlaceUnsure,
     }),
     void: voidAuthorization.outcomes({
       success: E.Voided,
       failure: {
         AlreadyCaptured: E.VoidRefused.from((e: AlreadyCaptured) => ({ chargeId: e.chargeId })),
-        NotSent: E.Voided,
       },
+      notSent: E.Voided,
       unknown: E.VoidUnsure,
     }),
     intent: intentStatus.outcomes({

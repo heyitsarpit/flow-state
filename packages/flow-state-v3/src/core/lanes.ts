@@ -1,6 +1,6 @@
 import { Option, Result, Schema } from "effect";
 import { Cue, LaneState } from "./cells.ts";
-import { Operation, type Values } from "./compiled.ts";
+import { type Concurrency, Operation, type Values } from "./compiled.ts";
 import { Act } from "./evidence-of.ts";
 import { type Member, MemberTarget } from "./evidence.ts";
 import { type At, keyTextOf, makeMoves, onWireAs, awaits } from "./lane-moves.ts";
@@ -8,8 +8,20 @@ import { Audience, keptOn, type LedgerSteps } from "./ledger.ts";
 import { LaneView } from "./turn.ts";
 import { isInFlight, pick, type Tx, without, withEntry } from "./tx.ts";
 import type { Channel } from "./vocabulary.ts";
-import { type ActorId, type CallId, Command, type Incarnation, laneId } from "./world.ts";
+import { type ActorId, type CallId, Command, type Incarnation, laneId, Phase } from "./world.ts";
 import type { Persistence } from "./persist.ts";
+
+// A commit's cue by its operation's concurrency policy.
+const commitCue = {
+  reject: Cue.CommitReject,
+  latest: Cue.CommitLatest,
+  serialize: Cue.CommitSerialize,
+  cancel: Cue.CommitCancel,
+} as const satisfies Record<Concurrency, (commit: { input: Values; owner: number }) => Cue>;
+
+// A write's policy; a read never commits, so it has none of its own.
+const policyOf = (operation: Operation) =>
+  Operation.$is("Write")(operation) ? operation.concurrency : "reject";
 
 /**
  * Write lanes as one table: each member, turn end, answer, admitted or kept ending and disposal
@@ -18,7 +30,20 @@ import type { Persistence } from "./persist.ts";
  */
 export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps) => {
   const { lanesOf } = tx;
-  const { operationOf, atOf, report, apply } = makeMoves(tx, persistence, ledger);
+
+  const { operationOf, atOf, report, apply, applyDisplaced, endQueue } = makeMoves(
+    tx,
+    persistence,
+    ledger,
+  );
+
+  // A head promoted outside a turn waits for no turn's end: it is acknowledged or sent at once.
+  const sendPromoted = (id: string) => {
+    const lane = tx.world().lanes.get(id);
+
+    if (lane !== undefined && Phase.$is("Unsent")(lane.head.phase))
+      apply(atOf(id, lane), Cue.TurnEnded());
+  };
 
   const idFor = (
     incarnation: Incarnation,
@@ -128,17 +153,21 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
 
     const id = laneId(incarnation.actor, operation.name, text.value);
 
-    // A Kept row on the key declines the commit before the table, which reads no row.
+    // A Kept row on the key declines the commit before the table, which reads no row; under the
+    // cancel policy the newer commit wins, so the lane's Kept rows are let go instead.
     if (keptOn(tx.world().owed, incarnation.actor, id)) {
-      decline(incarnation.actor, operation.name, "Rejected", owner);
+      if (policyOf(operation) !== "cancel") {
+        decline(incarnation.actor, operation.name, "Rejected", owner);
 
-      return member;
+        return member;
+      }
+
+      ledger.letGoKept(incarnation.actor, id);
     }
 
-    // Only reject concurrency is built: every commit meets the table as a reject commit.
     apply(
       { id, actor: incarnation.actor, operation: operation.name, key },
-      Cue.CommitReject({ input, owner }),
+      commitCue[policyOf(operation)]({ input, owner }),
     );
 
     return member;
@@ -242,23 +271,42 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
       readonly value: unknown;
     },
   ) => {
+    if (applyDisplaced(call, Cue.Answered(settled))) return;
+
     for (const [id, lane] of tx.world().lanes)
-      if (onWireAs(lane, call)) apply(atOf(id, lane), Cue.Answered(settled));
+      if (onWireAs(lane, call)) {
+        apply(atOf(id, lane), Cue.Answered(settled));
+        sendPromoted(id);
+      }
   };
 
   /**
-   * Applies a store's answer to every lane whose head awaits its ticket.
+   * Applies a store's answer to every lane whose head awaits its ticket, or to the displaced head
+   * that awaits it.
    */
   const answer = (ticket: string, landed: boolean) => {
+    const cue = landed ? Cue.Stored() : Cue.Refused();
+
+    if (applyDisplaced(ticket, cue)) return;
+
     for (const [id, lane] of tx.world().lanes)
-      if (awaits(lane, ticket)) apply(atOf(id, lane), landed ? Cue.Stored() : Cue.Refused());
+      if (awaits(lane, ticket)) {
+        apply(atOf(id, lane), cue);
+        sendPromoted(id);
+      }
   };
 
   /**
-   * Applies a disposal cue to every lane.
+   * Applies a disposal cue to every lane and every displaced head. When the disposal starts, every
+   * queued commit first ends NotSent Disposed, so nothing is promoted.
    */
   const everyLane = (cue: Cue) => {
+    if (Cue.$is("DisposalStarts")(cue))
+      for (const [id, lane] of tx.world().lanes) endQueue(atOf(id, lane), "Disposed");
+
     for (const [id, lane] of tx.world().lanes) apply(atOf(id, lane), cue);
+
+    for (const key of tx.world().displaced.keys()) applyDisplaced(key, cue);
   };
 
   const viewOf =

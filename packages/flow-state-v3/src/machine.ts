@@ -200,6 +200,9 @@ const operationOf = (name: string, bound: Bound) => {
         ...shared,
         call: { slot, run: bound.call },
         concurrency: bound.concurrency,
+        notSent: Option.map(bound.notSent, (ending) =>
+          mappingOf(ending, `operations.${name}.notSent`),
+        ),
         unknown: mappingOf(bound.unknown, `operations.${name}.unknown`),
       })
     : Operation.Read({ ...shared, call: { slot, run: bound.call } });
@@ -278,11 +281,6 @@ export const machine = <D extends AnyDefinition>(
   );
 
   const root = levelOf(erased.on ?? {}, "", context);
-
-  // Stated limit: this build runs only the reject policy; another is refused, never run as reject.
-  for (const [name, bound] of Object.entries(definition.operations))
-    if (bound.kind === "write" && bound.concurrency !== "reject")
-      problems.push(`operations.${name}.concurrency: "${bound.concurrency}" is not built yet`);
 
   if (problems.length > 0)
     // oxlint-disable-next-line lint-bomb/no-throw-in-core -- an invalid machine throws one FlowError before any work

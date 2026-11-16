@@ -41,7 +41,10 @@ export const makeServe = (
 
     // The origin picks the mapper: a NotSent never reaches a failure tag of the same name.
     if (ending.channel === "notSent")
-      return Option.fromUndefinedOr(operation.failure.get("NotSent"));
+      return Operation.$match(operation, {
+        Write: (w) => w.notSent,
+        Read: () => Option.none(),
+      });
 
     if (ending.channel === "failure")
       return Option.fromUndefinedOr(operation.failure.get(ending.reason));

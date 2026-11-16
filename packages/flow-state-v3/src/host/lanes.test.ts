@@ -47,7 +47,8 @@ const Door = definition({
   operations: ({ E }) => ({
     ring: ring.outcomes({
       success: E.Rang,
-      failure: { NotSent: E.NotRung.from((e: { readonly why: string }) => ({ why: e.why })) },
+      failure: {},
+      notSent: E.NotRung.from((e: { readonly why: string }) => ({ why: e.why })),
       unknown: E.Unsure,
     }),
   }),
@@ -75,7 +76,8 @@ const Gate = definition({
   operations: ({ E }) => ({
     ring: ring.outcomes({
       success: E.Rang,
-      failure: { NotSent: E.NotRung.from((e: { readonly why: string }) => ({ why: e.why })) },
+      failure: {},
+      notSent: E.NotRung.from((e: { readonly why: string }) => ({ why: e.why })),
       unknown: E.Unsure,
     }),
   }),
@@ -109,7 +111,8 @@ const Jam = definition({
   operations: ({ E }) => ({
     ring: ring.outcomes({
       success: E.Rang,
-      failure: { NotSent: E.NotRung.from((e: { readonly why: string }) => ({ why: e.why })) },
+      failure: {},
+      notSent: E.NotRung.from((e: { readonly why: string }) => ({ why: e.why })),
       unknown: E.Unsure.from(() => {
         // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the case is an author mapper that throws
         throw new Error("the mapper throws");
@@ -152,7 +155,8 @@ const latchOver = (heard: Array<unknown>) => {
     operations: ({ E }) => ({
       ring: stubborn.outcomes({
         success: E.Rang,
-        failure: { NotSent: E.NotRung.from((e: { readonly why: string }) => ({ why: e.why })) },
+        failure: {},
+        notSent: E.NotRung.from((e: { readonly why: string }) => ({ why: e.why })),
         unknown: E.Unsure.from((value: unknown) => {
           heard.push(value);
 
@@ -191,15 +195,14 @@ const stuckOver = (jam: { on: boolean }) => {
     operations: ({ E }) => ({
       ring: ring.outcomes({
         success: E.Rang,
-        failure: {
-          NotSent: E.NotRung.from((e: { readonly why: string }) => {
-            if (jam.on)
-              // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the case is an author mapper that throws
-              throw new Error("the mapper throws");
+        failure: {},
+        notSent: E.NotRung.from((e: { readonly why: string }) => {
+          if (jam.on)
+            // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the case is an author mapper that throws
+            throw new Error("the mapper throws");
 
-            return { why: e.why };
-          }),
-        },
+          return { why: e.why };
+        }),
         unknown: E.Unsure,
       }),
     }),
@@ -294,12 +297,14 @@ const Pair = definition({
   operations: ({ E }) => ({
     first: firstRing.outcomes({
       success: E.Done,
-      failure: { NotSent: E.NotDone.from((e: { readonly why: string }) => ({ why: e.why })) },
+      failure: {},
+      notSent: E.NotDone.from((e: { readonly why: string }) => ({ why: e.why })),
       unknown: E.FirstUnsure,
     }),
     second: ring.outcomes({
       success: E.Done,
-      failure: { NotSent: E.NotDone.from((e: { readonly why: string }) => ({ why: e.why })) },
+      failure: {},
+      notSent: E.NotDone.from((e: { readonly why: string }) => ({ why: e.why })),
       unknown: E.SecondUnsure,
     }),
   }),

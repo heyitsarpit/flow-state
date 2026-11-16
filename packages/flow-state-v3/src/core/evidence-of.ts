@@ -1,9 +1,9 @@
 import { Data, Option } from "effect";
 import { type Cue, LaneState } from "./cells.ts";
 import type { Values } from "./compiled.ts";
-import { type Channel, Evidence, type Member, type Part } from "./evidence.ts";
+import { type Channel, Evidence, type LaneFact, type Member, type Part } from "./evidence.ts";
 import type { IssueCode } from "./vocabulary.ts";
-import { type ActorId, Command } from "./world.ts";
+import { type ActorId, Command, type Phase } from "./world.ts";
 
 // An owed row as its reports name it.
 type RowRef = { readonly operation: string; readonly attempt: Option.Option<string> };
@@ -69,6 +69,26 @@ const headOf = (state: LaneState) =>
 
 const RELEASED: ReadonlyArray<string> = ["Recapturing", "Resending", "Held"];
 
+// How a commit that replaced a head ended it: Superseded when never sent, Released when sent
+// before; a displaced head (OnWire, Withdrawing, Cancelling) ends when its call or ticket answers.
+const REPLACED: Readonly<Partial<Record<Phase["_tag"], LaneFact>>> = {
+  Acknowledging: "Superseded",
+  Unsent: "Superseded",
+  Recapturing: "Released",
+  Resending: "Released",
+  Held: "Released",
+};
+
+const COMMITS: ReadonlyArray<string> = [
+  "CommitReject",
+  "CommitLatest",
+  "CommitSerialize",
+  "CommitCancel",
+];
+
+const queuedOf = (state: LaneState) =>
+  LaneState.$match(state, { Idle: () => 0, Head: ({ queued }) => queued });
+
 /**
  * The reports an act determines, derived from the act alone: Minted for a new head, Sent for
  * each invocation, the lane facts of a retry, cancel or refusal, and Ended for an ending.
@@ -130,12 +150,33 @@ export const evidenceOf = (act: Act): ReadonlyArray<Evidence> =>
       const was = headOf(before);
       const attempt = Option.map(was, (h) => h.id);
 
-      const minted =
-        cue._tag === "CommitReject" && Option.isNone(was)
-          ? Option.toArray(headOf(after)).map((h) =>
-              Evidence.Minted({ operation, attempt: h.id, actor, key }),
-            )
+      const now = headOf(after);
+      const replaced = Option.isSome(was) && !Option.exists(now, (h) => h.id === was.value.id);
+
+      const minted = Option.toArray(now).flatMap((h) =>
+        Option.exists(was, (w) => w.id === h.id)
+          ? []
+          : [Evidence.Minted({ operation, attempt: h.id, actor, key })],
+      );
+
+      const commit = COMMITS.includes(cue._tag);
+
+      const ended =
+        commit && replaced
+          ? Option.toArray(was).flatMap((h) => {
+              const kind = REPLACED[h.phase._tag];
+
+              return kind === undefined ? [] : [Evidence.Lane({ kind, operation, attempt })];
+            })
           : [];
+
+      // Queued commits a commit dropped, with no Attempt: latest keeps only the newest.
+      const droppedCount =
+        commit && (replaced || cue._tag === "CommitLatest") ? queuedOf(before) : 0;
+
+      const dropped = Array.from({ length: droppedCount }, () =>
+        Evidence.Lane({ kind: "Superseded", operation, attempt: Option.none() }),
+      );
 
       const sent = commands.flatMap((c) =>
         Command.$is("Invoke")(c) ? [Evidence.Sent({ operation, attempt: c.attempt.id })] : [],
@@ -164,6 +205,6 @@ export const evidenceOf = (act: Act): ReadonlyArray<Evidence> =>
           ? [Evidence.Lane({ kind: "StorageFailure", operation, attempt })]
           : [];
 
-      return [...minted, ...retried, ...released, ...refused, ...sent];
+      return [...ended, ...dropped, ...minted, ...retried, ...released, ...refused, ...sent];
     },
   });

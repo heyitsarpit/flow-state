@@ -41,7 +41,8 @@ const Door = definition({
   operations: ({ E }) => ({
     ring: ring.outcomes({
       success: E.Rang,
-      failure: { NotSent: E.RingNotSent.from((e: { readonly why: string }) => ({ why: e.why })) },
+      failure: {},
+      notSent: E.RingNotSent.from((e: { readonly why: string }) => ({ why: e.why })),
       unknown: E.RingUnsure,
     }),
   }),
@@ -169,29 +170,5 @@ describe("Runtime", () => {
       Option.map(door.getSnapshot(), (s) => s.memory["notSent"]),
       Option.some("Unencodable"),
     );
-  });
-
-  it("a concurrency policy this build does not run is refused at compile time (stated limit)", () => {
-    const latest = transaction({
-      id: "Test/latest",
-      input: { tone: Schema.String },
-      key: [],
-      concurrency: "latest",
-      services: [],
-      commit: () => Effect.void,
-    });
-
-    const Bad = definition({
-      id: "Test/Bad",
-      states: ["A"],
-      events: { Go: {} },
-      internalEvents: { Done: {}, Unsure: Flow.uncertain({}) },
-      memory: {},
-      operations: ({ E }) => ({
-        go: latest.outcomes({ success: E.Done, failure: {}, unknown: E.Unsure }),
-      }),
-    });
-
-    assert.throws(() => machine(Bad, ({ S }) => ({ default: S.A })), flowError("InvalidMachine"));
   });
 });

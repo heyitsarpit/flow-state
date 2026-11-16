@@ -250,6 +250,7 @@ export const decodeRecords = (
           owner: 0,
           phase: Phase.Held(),
         },
+        queue: [],
       };
 
       return { id: laneId(actor, r.operation, keyText), inFlight: r.inFlight, lane };

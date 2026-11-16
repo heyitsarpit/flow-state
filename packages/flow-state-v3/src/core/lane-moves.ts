@@ -1,14 +1,16 @@
 import { Option, Result, Schema } from "effect";
-import { type Cue, cell, LaneState, Move } from "./cells.ts";
+import { type Cue, cell, LaneState, Move, type NotSentWhy } from "./cells.ts";
 import type { Operation, Values } from "./compiled.ts";
 import { Act } from "./evidence-of.ts";
 import { Audience, type LedgerSteps } from "./ledger.ts";
-import { type Machines, pick, ROOT_ACTIVATION, type Tx } from "./tx.ts";
+import { type Machines, pick, ROOT_ACTIVATION, type Tx, withEntry, without } from "./tx.ts";
+import type { Channel } from "./vocabulary.ts";
 import {
   type ActorId,
   type CallId,
   Command,
   Disposal,
+  type Displaced,
   type Lane,
   Phase,
   sentBefore,
@@ -85,7 +87,9 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
   const stateAt = (id: string) => {
     const lane = tx.world().lanes.get(id);
 
-    return lane === undefined ? LaneState.Idle() : LaneState.Head({ head: lane.head });
+    return lane === undefined
+      ? LaneState.Idle()
+      : LaneState.Head({ head: lane.head, queued: lane.queue.length });
   };
 
   const laneAt = (at: At) => {
@@ -176,6 +180,45 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     if (write) saveLane(at.actor, at.id);
   };
 
+  const headFor = (input: Values, owner: number) => ({
+    id: tx.mintAttempt(),
+    input,
+    retryCount: 0,
+    owner,
+    phase: Phase.Unsent(),
+  });
+
+  // The head is gone: the oldest queued commit is promoted to a new head, or the lane drops.
+  const vacate = (at: At, lane: Lane) => {
+    const [next, ...rest] = lane.queue;
+
+    if (next === undefined) {
+      dropLane(at.id, lane);
+
+      return;
+    }
+
+    setLane(at.id, { ...lane, head: headFor(next.input, next.owner), queue: rest });
+    saveLane(at.actor, at.id);
+  };
+
+  // The call or ticket a displaced head waits on: its interrupted call, or its storage ticket.
+  const waitOf = (lane: Lane) =>
+    Phase.$match(lane.head.phase, {
+      Acknowledging: () => defect("an Acknowledging head is superseded, never displaced"),
+      Unsent: () => defect("an Unsent head is superseded, never displaced"),
+      Withdrawing: ({ ticket }) => ({ key: ticket, head: lane.head }),
+      Recapturing: () => defect("a Recapturing head is released, never displaced"),
+      Resending: () => defect("a Resending head is released, never displaced"),
+      OnWire: ({ call }) => {
+        tx.command(Command.Interrupt({ call }));
+
+        return { key: call, head: { ...lane.head, phase: Phase.Cancelling({ call }) } };
+      },
+      Cancelling: ({ call }) => ({ key: call, head: lane.head }),
+      Held: () => defect("a Held head is released, never displaced"),
+    });
+
   const perform = (at: At, move: Move, cue: Cue) =>
     Move.$match(move, {
       Stay: () => undefined,
@@ -183,14 +226,27 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
         setLane(at.id, {
           actor: at.actor,
           operation: at.operation,
-          head: {
-            id: tx.mintAttempt(),
-            input,
-            retryCount: 0,
-            owner,
-            phase: Phase.Unsent(),
-          },
+          head: headFor(input, owner),
+          queue: [],
         }),
+      Queue: ({ input, owner, latest }) => {
+        const lane = laneAt(at);
+        const queued = { input, owner };
+        setLane(at.id, { ...lane, queue: latest ? [queued] : [...lane.queue, queued] });
+      },
+      Replace: ({ input, owner }) => {
+        const lane = laneAt(at);
+        setLane(at.id, { ...lane, head: headFor(input, owner), queue: [] });
+        saveLane(at.actor, at.id);
+      },
+      Displace: ({ input, owner, owed }) => {
+        const lane = laneAt(at);
+        const { key, head } = waitOf(lane);
+        const displaced = { actor: at.actor, operation: at.operation, lane: at.id, head, owed };
+        tx.set({ ...tx.world(), displaced: withEntry(tx.world().displaced, key, displaced) });
+        setLane(at.id, { ...lane, head: headFor(input, owner), queue: [] });
+        saveLane(at.actor, at.id);
+      },
       // A declined commit has no Attempt and no lane; its ending is a row like any other.
       Decline: ({ why, owner }) =>
         void ledger.owe({
@@ -218,10 +274,10 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
       },
       EndUnsent: ({ why }) => {
         const lane = laneAt(at);
-        dropLane(at.id, lane);
+        vacate(at, lane);
         notSent(at, why, lane.head.id, lane.head.owner);
       },
-      Release: () => dropLane(at.id, laneAt(at)),
+      Release: () => vacate(at, laneAt(at)),
       Interrupt: ({ call }) => {
         const lane = laneAt(at);
         tx.command(Command.Interrupt({ call }));
@@ -254,7 +310,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
         });
 
         if (channel === "unknown") hold(at, lane, true);
-        else dropLane(at.id, lane);
+        else vacate(at, lane);
 
         ledger.owe({
           ...oweOf(at, Option.some(lane.head.id), lane.head.owner),
@@ -282,8 +338,80 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     return move;
   };
 
+  const owedOrRecorded = (
+    d: Displaced,
+    ending: {
+      readonly channel: Channel;
+      readonly reason: string;
+      // FLOW_STATE_ALLOW_UNKNOWN: a call's value is the contract's own, mapped when its row is heard.
+      readonly value: unknown;
+    },
+  ) => {
+    const at = atOf(d.lane, { actor: d.actor, operation: d.operation, head: d.head, queue: [] });
+    const attempt = Option.some(d.head.id);
+
+    if (d.owed) {
+      ledger.owe({
+        ...oweOf(at, attempt, d.head.owner),
+        lane: Option.some(d.lane),
+        ...ending,
+        current: ending.channel === "notSent" || !open(),
+      });
+
+      return;
+    }
+
+    const row = { operation: d.operation, attempt };
+    tx.act(Act.Ended({ actor: d.actor, ending: { ...row, ...ending } }));
+    tx.act(Act.RowRecorded({ row, why: "evidence" }));
+  };
+
+  /**
+   * Applies a cue to the displaced head that waits on a call or ticket, by the head's own cell:
+   * an answer or a store's verdict ends it, owed when a cancel was pending on it, else evidence.
+   * Returns whether a displaced head waited on that key.
+   */
+  const applyDisplaced = (key: string, cue: Cue) => {
+    const d = tx.world().displaced.get(key);
+
+    if (d === undefined) return false;
+    const move = cell(LaneState.Head({ head: d.head, queued: 0 }), cue);
+
+    if (Move.$is("Stay")(move)) return true;
+
+    tx.set({ ...tx.world(), displaced: without(tx.world().displaced, key) });
+
+    if (Move.$is("Answer")(move)) {
+      for (const call of Option.toArray(move.interrupt)) tx.command(Command.Interrupt({ call }));
+      owedOrRecorded(d, { channel: move.channel, reason: move.reason, value: move.value });
+    } else if (Move.$is("EndUnsent")(move))
+      owedOrRecorded(d, { channel: "notSent", reason: move.why, value: { why: move.why } });
+    else defect(`a displaced head has no move ${move._tag} for ${cue._tag}`);
+
+    return true;
+  };
+
+  /**
+   * Ends every commit queued on a lane NotSent with the given reason: a queued commit has no
+   * Attempt, so its row names none.
+   */
+  const endQueue = (at: At, why: NotSentWhy) => {
+    const lane = laneAt(at);
+    setLane(at.id, { ...lane, queue: [] });
+
+    for (const queued of lane.queue)
+      ledger.owe({
+        ...oweOf(at, Option.none(), queued.owner),
+        lane: Option.none(),
+        channel: "notSent",
+        reason: why,
+        value: { why },
+        current: true,
+      });
+  };
+
   // ── members.
-  return { operationOf, atOf, report, apply };
+  return { operationOf, atOf, report, apply, applyDisplaced, endQueue };
 };
 
 /**

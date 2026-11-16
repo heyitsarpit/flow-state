@@ -41,10 +41,10 @@ const states: ReadonlyArray<StateName> = [
   "Held",
 ];
 
-const stateOf = (name: StateName, sent = false) =>
+const stateOf = (name: StateName, sent = false, queued = 0) =>
   name === "Idle"
     ? LaneState.Idle()
-    : LaneState.Head({ head: head(phases[name], sent || name === "Held") });
+    : LaneState.Head({ head: head(phases[name], sent || name === "Held"), queued });
 
 // A move as the row states it: its tag and the fields the Spec rule fixes.
 const shown = (move: Move) => {
@@ -55,6 +55,12 @@ const shown = (move: Move) => {
   if (move._tag === "Flush") return `Flush ${move.purpose}`;
 
   if (move._tag === "Become") return `Become ${move.phase._tag}`;
+
+  if (move._tag === "Queue") return move.latest ? "Queue latest" : "Queue";
+
+  if (move._tag === "Replace") return `Replace ${move.ended}`;
+
+  if (move._tag === "Displace") return move.owed ? "Displace owed" : "Displace evidence";
 
   if (move._tag !== "Answer") return move._tag;
   const interrupts = Option.isSome(move.interrupt) ? " interrupt" : "";
@@ -71,6 +77,7 @@ const rows: ReadonlyArray<{
   readonly cue: string;
   readonly of: Cue;
   readonly sent: boolean;
+  readonly queued: number;
   readonly expected: Record<string, string>;
 }> = [
   // commit under reject: Idle mints; every other phase declines NotSent { Rejected } (R7). The
@@ -78,21 +85,66 @@ const rows: ReadonlyArray<{
   {
     cue: "commit",
     sent: false,
+    queued: 0,
     of: Cue.CommitReject({ input: {}, owner: 0 }),
     expected: { ...allOf("Decline Rejected"), Idle: "Mint" },
   },
-  // commit under the cancel policy: not built (only reject concurrency is built).
+  // commit under latest: Idle mints; Acknowledging and Unsent end the head Superseded and the
+  // commit becomes the head; every other phase queues it, ending a queued commit Superseded (R7).
+  {
+    cue: "commit-latest",
+    sent: false,
+    queued: 0,
+    of: Cue.CommitLatest({ input: {}, owner: 0 }),
+    expected: {
+      ...allOf("Queue latest"),
+      Idle: "Mint",
+      Acknowledging: "Replace Superseded",
+      Unsent: "Replace Superseded",
+    },
+  },
+  // commit under serialize: Idle mints; every other phase appends it to W (R7).
+  {
+    cue: "commit-serialize",
+    sent: false,
+    queued: 63,
+    of: Cue.CommitSerialize({ input: {}, owner: 0 }),
+    expected: { ...allOf("Queue"), Idle: "Mint" },
+  },
+  // past 64 queued, it declines NotSent { Overloaded } (R7, I8).
+  {
+    cue: "commit-serialize-65th",
+    sent: false,
+    queued: 64,
+    of: Cue.CommitSerialize({ input: {}, owner: 0 }),
+    expected: { ...allOf("Decline Overloaded"), Idle: "Mint" },
+  },
+  // commit under cancel: Idle mints; Acknowledging and Unsent end the head Superseded;
+  // Recapturing, Resending and Held release it; OnWire is interrupted and displaced, its ending
+  // evidence; Withdrawing and Cancelling are displaced with their ending owed; the commit mints.
   {
     cue: "commit-cancel",
     sent: false,
+    queued: 0,
     of: Cue.CommitCancel({ input: {}, owner: 0 }),
-    expected: allOf("Impossible"),
+    expected: {
+      Idle: "Mint",
+      Acknowledging: "Replace Superseded",
+      Unsent: "Replace Superseded",
+      Withdrawing: "Displace owed",
+      Recapturing: "Replace Released",
+      Resending: "Replace Released",
+      OnWire: "Displace evidence",
+      Cancelling: "Displace owed",
+      Held: "Replace Released",
+    },
   },
   // retry: Held owes its re-send; Idle gives NothingToResend and every other phase InFlight, as
   // evidence, with no move (R8).
   {
     cue: "retry",
     sent: false,
+    queued: 0,
     of: Cue.Retry({ owner: 0 }),
     expected: { ...allOf("Stay"), Held: "Owe" },
   },
@@ -102,6 +154,7 @@ const rows: ReadonlyArray<{
   {
     cue: "cancel",
     sent: false,
+    queued: 0,
     of: Cue.Cancel(),
     expected: {
       Idle: "Stay",
@@ -120,6 +173,7 @@ const rows: ReadonlyArray<{
   {
     cue: "turn-ended",
     sent: false,
+    queued: 0,
     of: Cue.TurnEnded(),
     expected: { ...allOf("Stay"), Unsent: "Flush acknowledge", Resending: "Flush capture" },
   },
@@ -128,6 +182,7 @@ const rows: ReadonlyArray<{
   {
     cue: "stored",
     sent: false,
+    queued: 0,
     of: Cue.Stored(),
     expected: {
       ...allOf("Impossible"),
@@ -141,6 +196,7 @@ const rows: ReadonlyArray<{
   {
     cue: "refused",
     sent: false,
+    queued: 0,
     of: Cue.Refused(),
     expected: {
       ...allOf("Impossible"),
@@ -155,6 +211,7 @@ const rows: ReadonlyArray<{
   {
     cue: "answered-success",
     sent: false,
+    queued: 0,
     of: Cue.Answered({ channel: "success", reason: "success", value: 1 }),
     expected: {
       ...allOf("Impossible"),
@@ -167,6 +224,7 @@ const rows: ReadonlyArray<{
     cue: "answered-failure-after-send",
     of: Cue.Answered({ channel: "failure", reason: "CardDeclined", value: 1 }),
     sent: true,
+    queued: 0,
     expected: {
       ...allOf("Impossible"),
       OnWire: "Answer unknown StillUnknown",
@@ -178,6 +236,7 @@ const rows: ReadonlyArray<{
     cue: "answered-failure",
     of: Cue.Answered({ channel: "failure", reason: "CardDeclined", value: 1 }),
     sent: false,
+    queued: 0,
     expected: {
       ...allOf("Impossible"),
       OnWire: "Answer failure CardDeclined",
@@ -189,6 +248,7 @@ const rows: ReadonlyArray<{
   {
     cue: "disposal-starts",
     sent: false,
+    queued: 0,
     of: Cue.DisposalStarts(),
     expected: {
       ...allOf("Stay"),
@@ -204,6 +264,7 @@ const rows: ReadonlyArray<{
   {
     cue: "bound-passed",
     sent: false,
+    queued: 0,
     of: Cue.BoundPassed(),
     expected: {
       ...allOf("Stay"),
@@ -217,7 +278,10 @@ describe("the write lane's table (WriteLanes algorithm cell)", () => {
   for (const row of rows)
     for (const state of states)
       it(`cell.${state}-${row.cue}`, () => {
-        assert.strictEqual(shown(cell(stateOf(state, row.sent), row.of)), row.expected[state]);
+        assert.strictEqual(
+          shown(cell(stateOf(state, row.sent, row.queued), row.of)),
+          row.expected[state],
+        );
       });
 
   it("every cue of today's table has a row", () => {

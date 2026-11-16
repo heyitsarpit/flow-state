@@ -54,7 +54,7 @@ const exactRecords = [
     | "current"
     | "delivery"
   >,
-  true satisfies Equal<keyof Lane, "actor" | "operation" | "head">,
+  true satisfies Equal<keyof Lane, "actor" | "operation" | "head" | "queue">,
   true satisfies Equal<
     keyof World,
     | "incarnations"
@@ -62,6 +62,7 @@ const exactRecords = [
     | "lanes"
     | "owed"
     | "reads"
+    | "displaced"
     | "mail"
     | "uses"
     | "timers"
@@ -78,6 +79,8 @@ type StateTag = "Idle" | Phase["_tag"];
 
 type Rows =
   | "CommitReject"
+  | "CommitLatest"
+  | "CommitSerialize"
   | "CommitCancel"
   | "Retry"
   | "Cancel"
@@ -90,12 +93,11 @@ type Rows =
 
 type RowsTotal = { readonly [R in Rows]: Equal<keyof Table[R], StateTag> };
 
-// The lane is one table: every cue has a cell for every lane state. A cancel-policy commit is
-// Impossible until slice 1 rules it (WriteLanes Q5); an answer reaches only a head on the wire.
+// The lane is one table: every cue has a cell for every lane state, each policy's commit included;
+// an answer reaches only a head on the wire.
 const totality = [
   true satisfies Equal<keyof Table, Rows>,
   true satisfies Equal<RowsTotal[Rows], true>,
-  true satisfies Equal<ReturnType<Table["CommitCancel"]["Idle"]>, Impossible>,
   true satisfies Equal<ReturnType<Table["Answered"]["Held"]>, Impossible>,
 ];
 
