@@ -1540,3 +1540,8 @@ tasks
               features, scenarios and sources of their rows; each scenario red before the build, and the step's cells
               marked used at the close.
             - No existing machine id, persisted id or Story id changes; every existing test still passes unchanged.
+        comment     2026-11-16T20:16:09Z
+            Resume: nothing built or committed yet; reading done (fixtures.md, catalog step 1,
+            tests/generated/fixtures.ts, saved.stress, profiles). Next: per-folder index.ts manifests and
+            fixtures/index.ts, then switch the step-1 runners (pairs-*, sweep.ts, bench/run.ts, cli.test.ts,
+            flow.config.ts) and delete their hand lists, committed alone; then the step-1 cells per row.
