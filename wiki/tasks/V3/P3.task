@@ -1073,6 +1073,14 @@ tasks
             provider changed hears about it before the event that woke it; a chain of more than 64 follow-ups now
             refuses the turn that would start the 65th; refs of machines the app does not list are refused
             ForeignActorRef, and an app entry's context is optional.
+        comment     2026-11-16T15:05:31Z
+            Fix-round review: ISSUES at 624d35f1; gates exit 0 (check, suite 725 + 2, stress, faults 178 of 178;
+            mailbox-not-fifo fails mix as Actors I19). Blocking, red on a scratch Story: Actors R9, R18, a persisted
+            consumer ended, then reload, then its provider changes; a send returns it with no wave (turns SignIn, Ping;
+            context ada, memory stale), since ended lives in one Runtime and the record keeps no context values. Also
+            fix: a deferred update moves to its mailbox's end (R19 FIFO place); the return's wave skips the settling
+            gate; settling is unmemoised per path; rollback keeps persist's touched tickets; Story steps and context
+            refs skip ForeignActorRef.
 
     T74
         title       App mix: several fixtures in one Runtime
