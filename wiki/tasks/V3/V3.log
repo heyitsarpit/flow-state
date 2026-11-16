@@ -780,3 +780,7 @@ note 2026-11-16T20:28:52Z
 note 2026-11-16T20:37:05Z
     Run resumed at c4494083 (library 1b83a6d): no live agents, tree clean; cron 7,37 and caffeinate on. First action:
     T82 lead from its resume note (manifests, runners, then step-1 cells). T81 review waits on T82's coverage.
+
+note 2026-11-16T20:53:22Z
+    Amendment (2026-11-17, the user): wake every 60 minutes, cron `7 * * * *` (was 30). Reverse: restore 7,37 in
+    cadence and the cron.
