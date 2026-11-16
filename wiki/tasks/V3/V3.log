@@ -608,3 +608,7 @@ note 2026-11-16T15:32:10Z
     T9 second-round review ISSUES (87acc4c7): an unencodable context value (undefined, Option) blocks the consumer's
     end. Round 3 after T81 and T20's round 3; D13 to merge with only turn-sent events counting against the cap (decided,
     user-delegated).
+
+note 2026-11-16T15:38:09Z
+    T81 in review at bcb8f3c8 (four construction bugs fixed, one config Schema, codes folded into Defect; no net line
+    drop); close review started. T20 round 3 resumed: worst-case lane-record sizing at admission.
