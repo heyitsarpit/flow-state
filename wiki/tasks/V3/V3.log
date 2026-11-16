@@ -353,3 +353,7 @@ note 2026-11-16T03:23:06Z
     Resume on the other account: "run the loop in wiki/tasks/V3/epic.task"; current Task T18 (or T55 after it, per P3's
     Order). Open for the user: the idiom proposals, the Spec-limit rule for instructions, and the user's-read items in
     this log since 16:35Z.
+
+note 2026-11-16T03:24:06Z
+    T18 done: review PASS at `e08f59fe` (`cea0c886`) after two fix rounds; queued commits end NotSent Restored, Q7
+    pinned for @task.V3.T20. T18's user's page is owed. Run stopped at 99 weekly: wakes and keep-awake removed.

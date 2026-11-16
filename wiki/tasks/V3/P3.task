@@ -197,7 +197,7 @@ tasks
             caught, no unexplained dead-core green.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
-        status      review
+        status      done
         priority    high
         blocked_by  [@T54]
         satisfies   [@plan.Operations.O3, @plan.Runtime.O2]
@@ -387,6 +387,10 @@ tasks
             Once fixed, that file's hand list (line 54) becomes [actor, lane, owed].
         comment     2026-11-16T01:40:09Z
             Routed from P2's close-out: the WriteAhead R5/I21 it.fails passes on any failure; tighten it when fixing.
+        comment     2026-11-16T03:24:05Z
+            Routed from T18's review: WriteLanes Q7, a displaced Attempt whose lane ends before its call settles loses
+            its unknown Restored; pinned as it.fails over the uninterruptible Git fake. Run rule I27 passes on that run,
+            so widen a rule to catch it. Q7's text calls T20 write-ahead; T20 is restore.
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      open
