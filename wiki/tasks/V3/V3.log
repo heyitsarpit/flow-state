@@ -519,3 +519,7 @@ note 2026-11-16T13:28:17Z
 note 2026-11-16T13:33:50Z
     Decision (user delegated, 2026-11-16): Pending D13 removed, its text merged into Machines O3 by cc9f81d5; T73 added
     to P4's Order after T21. useActor's whole props vs setProps is left to T76.
+
+note 2026-11-16T13:42:53Z
+    T74 back in review at d82e3fa7 (two-fixture fault, shrink to pay and lanes); its fix-round review queues behind
+    T9's. T20 started on T19's reviewed code.
