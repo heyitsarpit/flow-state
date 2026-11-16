@@ -802,3 +802,7 @@ note 2026-11-16T22:10:50Z
 note 2026-11-16T22:26:25Z
     T82 review ISSUES, none blocking (a3a7bd28); orchestrator verified the cart's stuck wanted (cart.ts:161). T82 back
     to in_progress for one fix round on the review's four routed items; the next review checks it.
+
+note 2026-11-16T22:31:48Z
+    T82 done at 7d9385bf: review ISSUES none blocking, fix round landed (suite: only the 6 known T9/T20 reds;
+    orchestrator re-ran it). Next: T9 round 3 from its resume note, then T20's close, T81's review.

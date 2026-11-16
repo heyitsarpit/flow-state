@@ -1521,7 +1521,7 @@ tasks
 
     T82
         title       Fixtures grow into their catalog apps: manifests and step 1
-        status      review
+        status      done
         priority    high
         description
             Every fixture gets a manifest and grows into its catalog app with today's features: step 1 of
