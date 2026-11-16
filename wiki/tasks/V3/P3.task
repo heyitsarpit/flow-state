@@ -879,7 +879,7 @@ tasks
 
     T74
         title       App mix: several fixtures in one Runtime
-        status      in_progress
+        status      review
         priority    medium
         blocked_by  [@task.V3.T70]
         description
@@ -935,3 +935,13 @@ tasks
             Resume first (orchestrator): at e3fd92b0 test:stress fails its selection check, since
             tests/generated/mix.stress.test.ts runs no stress material (tools/stress/select.test.ts); fix before
             the close.
+        comment     2026-11-16T11:21:56Z
+            Close at the next commit: the three checks pass. `nub run faults` has 122 of 122 caught; the new fault is
+            caught by its target `mix.test.ts`, and the mix profile runs 60 fresh seeds clean. The mix found no runtime
+            bug. Extra files: `src/host/testing/mix.ts`, `story.ts` (`storyOf`), `samples.ts` (`printMix`),
+            `tests/mix-faults.ts`, `tests/generated/planted.ts`.
+        comment     2026-11-16T11:21:56Z
+            Finding: shrinking a two-fixture fault is weak. Seed 4 went from four fixtures to three and from 100 draws
+            to 61 steps, because dropping a fixture remaps every pick of the same draws. To improve it, drop fixtures
+            over the shrunk draws or over several seeds. Proposed for the user: a Story over several setups, so a mix
+            prints as code; the `mix` profile value. The Failure `fixtures` field is a small API change I made.

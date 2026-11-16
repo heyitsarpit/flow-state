@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 import { propertyTest } from "../../src/host/testing/index.ts";
 import { rules } from "../rules/rules.ts";
-import { mix } from "./fixtures.ts";
+import { mix, seeds } from "./fixtures.ts";
 
-const SEEDS = Array.from({ length: 40 }, (_, n) => n + 6);
+// The stress seed count, past the default suite's first five, plus any `FLOW_SEEDS` adds.
+const SEEDS = seeds("stress").map((n) => n + 5);
 
 describe("generated Stories of the app mix", () => {
   it("runs of the mix profile from fixed seeds keep every run rule", () => {

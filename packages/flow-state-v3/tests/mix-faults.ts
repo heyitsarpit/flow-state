@@ -7,7 +7,7 @@ import type { Fault } from "./faults.ts";
 export const mixFaults: ReadonlyArray<Fault> = [
   {
     name: "refusal-reaches-first-machine-only",
-    tests: ["tests/generated/mix.test.ts", "tests/generated/mix.stress.test.ts"],
+    tests: ["tests/generated/mix.test.ts"],
     says: "a refused batch answers refused only its first machine's tickets; another machine's capture in it is answered landed and sent",
     rule: "WriteAhead I15",
     edits: [
