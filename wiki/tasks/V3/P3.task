@@ -710,6 +710,13 @@ tasks
             unencodable lane input, rejected (a commit declines Unencodable before any lane, lanes.ts commit); unknown
             Restored at each start, rejected (WriteLanes I15's written exception); Releasing heads, rejected (release on
             leave is unbuilt, not this slice).
+        comment     2026-11-16T14:25:12Z
+            Second sidecar (Haiku adversary on the diff): accepted and fixed, a forget racing undrained writes or run
+            before boot (now fails, no I/O), __proto__ dropped by the codec; changed, a quarantined owed record
+            overwritten by the next owed write (kept: new endings must save; Restore R5 says so); routed, a lane whose
+            input no longer decodes is quarantined unread (it.fails Restore R8, owner T56); rejected, an on-wire
+            displaced Attempt not owed (its ending is evidence-only live too) and a send waiting on a withheld identity
+            (WriteAhead realization's design, now reported).
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      review
@@ -1005,7 +1012,7 @@ tasks
 
     T74
         title       App mix: several fixtures in one Runtime
-        status      review
+        status      done
         priority    medium
         blocked_by  [@task.V3.T70]
         description
@@ -1170,6 +1177,11 @@ tasks
             code:wiki/plans/flow/references/proposals/code-quality-review-2-2026-11-16.md. First: the pair sweeps run
             all 1000 seeds when a phase can't be reached (82 s of 131 s CPU); add the lanes and player fixtures to the
             reload sweeps.
+        comment     2026-11-16T14:31:06Z
+            Routed from T74's fix-round review: Failure.shrinks counts accepted shrinks, not the candidates its doc
+            claims, so the <= 1000 assertion can't fail; failure words (generate.ts:364,366) and write salts (:494-499)
+            still leak across dropped fixtures; one answer keying with re-pasted saved Stories would replace the
+            mixed/single split (generate.ts:281).
 
     T81
         title       Construction config decoded by one Schema; four construction bugs fixed

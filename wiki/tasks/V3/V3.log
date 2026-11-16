@@ -555,3 +555,7 @@ note 2026-11-16T14:24:01Z
     Second code-quality review done (c90bbc93): construction checkers disagree (four bugs) and a decline-named user
     error escapes StillUnknown. Queued: new T81 (construction config by one Schema) before T79; 31 findings folded into
     T79, 10 into T80; docs and routes routed to T33 and T50.
+
+note 2026-11-16T14:31:06Z
+    T74 done: fix-round review PASS (b1b98b3c); the fault needs two fixtures and shrinks to pay and lanes. Leftovers
+    (shrink count, two keying leaks, one keying) routed to T80.
