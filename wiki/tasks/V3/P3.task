@@ -12,8 +12,8 @@ description
     orchestrator then opens this phase's Tasks.
 
     **Order:** @task.V3.T54, @task.V3.T18, @task.V3.T55, @task.V3.T19, @task.V3.T20, @task.V3.T17, @task.V3.T9, the
-    order the user set. A `blocked_by` link is a real dependency only; where several Tasks are ready, take the earliest
-    in this order.
+    order the user set; then @task.V3.T79 and @task.V3.T80, the code-quality review's pass (the user, 2026-11-16). A
+    `blocked_by` link is a real dependency only; where several Tasks are ready, take the earliest in this order.
 
     **Verified by:**
 
@@ -1087,3 +1087,69 @@ tasks
             planted shrink from 9 to 18 lines and changed every saved stress Story. Failure gained `shrinks`. The
             generator's verdict rules are now `inconclusive` and `turn limit`, not Spec ids. `nub run faults`: 150 of
             150 caught, all by targets, in 35 s. Suite 14 s.
+
+    T79
+        title       Code convergence: tx edit operations, lifecycle unions, one home for diagnostics and keys, host 
+                    idiom
+        status      open
+        priority    high
+        description
+            One convergence pass removes the structural debt the whole-codebase review found, without
+            changing behaviour.
+
+            **Why now:** the review found the step state with no edit operations (whole-world copies on every write,
+            O(n²) per step, retire and interrupt blocks written two or three times), lifecycles built from flags and
+            side maps, 17 small duplicates with no single home, and host code that leaves Effect; every later slice
+            builds on these files.
+
+            **Read first:** code:wiki/plans/flow/references/proposals/code-quality-review-2026-11-16.md (sections 1 to 3
+            and 5 to 10, and its order in section 10), AGENTS.md "Code style (v3 production)",
+            code:tools/lint-bomb/STYLE.md, code:tools/lint-bomb/FLOW-STATE.md.
+
+            **Risk:** six behaviour questions came up (the review's section 9); two may be bugs: a local actor of a
+            persisted machine declined `NoPersistence`, and an actor name whose input skips the JSON codec. Each gets a
+            Story naming the wrong side before any change; one that changes public behaviour goes to the user first.
+
+            **Approach:** the review's section 10 order, steps 1 to 5, 7 and 8; step 6, the second harness, is
+            @task.V3.T80. Bench before and after step 3.
+
+            May change: `src/`, `tests/`, `bench/`. Evidence: this Task's comments.
+
+            False pass: a refactor that keeps the tests green because they never reached the moved code → caught by `nub
+            run faults` with every fault caught by its own target, run before and after.
+
+            User's read: any section 9 question whose answer changes public behaviour.
+        acceptance
+            - Every accepted finding in the review's sections 1, 2, 3, 5, 6 and 7 is fixed or rejected with a reason in
+              a Task comment; the optional 2c and 2k are done or deferred with a reason.
+            - Each section 9 question is answered by a Story test or a planted fault, and every bug found is fixed or
+              pinned as an `it.fails` titled by its rule.
+            - `nub run check`, the package suite, `nub run test:stress` and `nub run faults` pass with every fault
+              caught by its own target; the bench's per-turn numbers are no worse than before step 3, recorded in
+              a comment.
+
+    T80
+        title       Host tests on Story and Fake; the seam harness deleted
+        status      open
+        priority    medium
+        description
+            Flow's own host tests run on Story and Fake only, and `src/host/testing/seam.ts` is deleted.
+
+            **Why now:** seam drives the Runtime directly for four host test files (about 2,000 lines) beside Story and
+            Fake, with its own store, host and seed copies, against the Epic's "one runtime, one way to run it".
+
+            **Read first:** code:wiki/plans/flow/references/proposals/code-quality-review-2026-11-16.md (section 4),
+            code:packages/flow-state-v3/src/host/testing/seam.ts, code:packages/flow-state-v3/src/host/testing/steps.ts.
+
+            **Risk:** coverage must not drop: port one file at a time, keep every rule each test cites, and keep each
+            planted fault caught by its target.
+
+            May change: `src/host/testing/`, `src/host/*.test.ts`, `tests/`. Evidence: this Task's comments.
+
+            False pass: a ported test that no longer reaches the rule it cites → caught by `nub run faults` before and
+            after each file, with the same faults caught.
+        acceptance
+            - `lanes.test.ts`, `ledger.test.ts`, `life.test.ts` and `identity.test.ts` run as Story tests over Fake,
+              each citing the same rules; `seam.ts` and its copies of the store, host and seed are gone.
+            - `nub run faults` catches the same faults before and after, each by its own target; the suite and
+              stress pass.
