@@ -648,6 +648,67 @@ tasks
             Routed from T9 close review: a persisted context consumer restored at boot binds its app entry default
             wiring, not the override its ref gave (the record keeps no wiring); T9 lands it as an it.fails titled Actors
             R18, owned here.
+        comment     2026-11-16T13:53:12Z
+            Requirements (first commit), acceptance 1. Range: Restore R1, R3, R5, R9, R10 and R8's lane quarantine;
+            Codec R1 to R5 for records. Routed: R2, R6, R7, R8's cross-release cases (OpRenamed, undeclared machine,
+            unproducible path, re-key collision; T15) to T56; R4 (T14, resource data) to T21. Each item below fails
+            today unless it says green.
+        comment     2026-11-16T13:53:12Z
+            R-1: Codec R5, I7 (T6): every store key is actor/, lane/ or owed/, its text is canonical and decodes by its
+            kind's Schema with format, no lane record has mayHaveApplied, every owed row has a channel. Check: run rule
+            recordKinds over every cut. Red: lane records carry mayHaveApplied. Decides the Risk: Codec I7 wins, as
+            Restore R3 already ends an acknowledged never-invoked head unknown Restored (T55's finding: the code is
+            right, the field goes).
+        comment     2026-11-16T13:53:12Z
+            R-2: Restore R1, I1 (T1), model Owing: an identity owed a row the boot derives (a Held lane's queued commit,
+            a displaced Attempt) is Owing and live at ready. Check: Story test, serialize with a Held head and a queued
+            commit, reload: NotSent Restored heard with no later ensure; owingRestoredLive widened to judge lane
+            records. Red: the boot wakes only in-flight lanes and saved rows.
+        comment     2026-11-16T13:53:13Z
+            R-3: Restore R3, WriteAhead I17 (WriteLanes Q7): a displaced Attempt whose lane ended first restores unknown
+            Restored. Check: the policy-cells it.fails flipped, and WriteLanes I27's rule widened so an acknowledged
+            Attempt left with no ending across a reload is a breach. Red.
+        comment     2026-11-16T13:53:13Z
+            R-4: Actors R8, WriteAhead R4, R12, Codec R1, R4: an actor record past a Codec bound (a 4,097-item array)
+            reports UnencodableValue, its end waits, its awaited ticket reports no StorageSilent, the last good capture
+            restores, and an identity still withheld at disposal keeps its NotSent Disposed rows. Check: Story tests
+            over a test machine. Red: the record encodes, no report exists.
+        comment     2026-11-16T13:53:13Z
+            R-5: Actors R18, WriteAhead R4: a persisted context consumer restored at the boot binds the providers its
+            ref gave, saved as its context bindings. Check: Story test with an override and a reload. Red: the record
+            keeps no wiring.
+        comment     2026-11-16T13:53:13Z
+            R-6: Restore R5, I10, I13, R8 (T6, T10): a record whose format is newer, null, fractional or a string is
+            quarantined while others restore; a quarantined lane keeps its key's hold (a commit declines NotSent
+            Rejected, a cancel clears it) and is reported at each boot. Check: Story test over raw bytes written by a
+            new storage word. Red.
+        comment     2026-11-16T13:53:14Z
+            R-7: Restore R5, I11 (T7): an actor record that does not decode reads lifecycle quarantined with its issue;
+            an ensure starts fresh, reports RecordUndecodable and adopts its lanes; its bytes stay until the fresh actor
+            saves over them. Check: Story test. Red.
+        comment     2026-11-16T13:53:14Z
+            R-8: Restore R9, I16, I17 (T11): a failed store load reports StorageFailure, ready succeeds and nothing is
+            written in that Runtime. Check: Story test with a new storage word for a refused load. Red: a load
+            cannot fail.
+        comment     2026-11-16T13:53:14Z
+            R-9: Restore R10, I18 (T12): runtime.dispose({ forget: true }) deletes every record of the scope before it
+            resolves; a refused deletion reports StorageFailure and never succeeds; without persistence no store call.
+            Check: Story tests. Red: no forget option.
+        comment     2026-11-16T13:53:14Z
+            R-10: Restore R3, I5, I6, I8 (T2 to T4) are built: green today. Checks: the reload sweep plus planted faults
+            (a head heard before its queued commit; lanes newest first; a head restored NotSent; a queued commit
+            restored unknown) and a kill-point Story test.
+        comment     2026-11-16T13:53:15Z
+            Acceptance 2: each rule above gets its planted fault in tests/faults.ts, caught by its own target test.
+            Extra files beyond May change: src/host/testing (storage words), tests/faults.ts and the fault files,
+            wiki/specs (Restore, Codec, WriteAhead, Actors edits).
+        comment     2026-11-16T13:53:25Z
+            Sidecars (2 Haiku): the coverage map accepted after spot checks. Adversary: lane and owed records dropped
+            when they do not decode, accepted (R-6, R-7; an undecodable owed record is quarantined too); the lane id
+            read from its key, not its input, accepted (R-6); Q7 and derived rows not waking, accepted (R-3, R-2); an
+            unencodable lane input, rejected (a commit declines Unencodable before any lane, lanes.ts commit); unknown
+            Restored at each start, rejected (WriteLanes I15's written exception); Releasing heads, rejected (release on
+            leave is unbuilt, not this slice).
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      review
