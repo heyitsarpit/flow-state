@@ -1,7 +1,8 @@
 import { Equal, Option, Predicate, Schema } from "effect";
 import { expect } from "vite-plus/test";
 import { acknowledgedBeforeSent, oneBatchOut } from "./batches.ts";
-import { everyCommitEndsOnce } from "./commits.ts";
+import { acknowledgedHeardAgain, everyCommitEndsOnce } from "./commits.ts";
+import { recordKinds } from "./records.ts";
 import { atStart, knownAt, placesOf } from "./places.ts";
 import { oneStart, ownedRowsSaved } from "./starts.ts";
 import { unchangedPartsKept } from "./memory.ts";
@@ -468,15 +469,37 @@ const cutAfter = (run: StoryRun, n: number) => {
   return next._tag === "checkpoint" ? checkpointCut(run, next.name) : Option.none();
 };
 
+// The fields of a lane record that make its identity Owing (Restore model; WriteAhead R5).
+const LaneOwing = Schema.fromJsonString(
+  Schema.Struct({ machine: Schema.String, name: Schema.String, inFlight: Schema.Boolean }),
+);
+
 const sleepingOwed = (cut: Cut, n: number) => {
   const live = new Set(cut.inspection.actors.map((a) => a.actor));
+  const asleep = (actor: string) => !live.has(actor) && cut.records.stored.has(`actor/${actor}`);
 
-  return cut.inspection.owed
-    .filter((row) => !live.has(row.actor) && cut.records.stored.has(`actor/${row.actor}`))
+  const rows = cut.inspection.owed
+    .filter((row) => asleep(row.actor))
     .map(
       (row) =>
         `Restore I1: after the reload at step ${n}, ${row.actor} has an actor record and an owed ${row.operation} ${row.channel} ${row.reason} ending (${row.delivery}) but no incarnation`,
     );
+
+  // A start rewrites each lane it adopts Held, so a lane record still in flight after the boot
+  // belongs to an Owing identity left asleep.
+  const lanes = [...cut.records.stored].flatMap(([key, text]) =>
+    key.startsWith("lane/")
+      ? Option.toArray(Schema.decodeUnknownOption(LaneOwing)(text)).flatMap((l) =>
+          l.inFlight && asleep(`${l.machine}/${l.name}`)
+            ? [
+                `Restore I1: after the reload at step ${n}, ${l.machine}/${l.name} has an actor record and a lane in flight (${key}) but no incarnation`,
+              ]
+            : [],
+        )
+      : [],
+  );
+
+  return [...rows, ...lanes];
 };
 
 /**
@@ -488,8 +511,8 @@ const sleepingOwed = (cut: Cut, n: number) => {
  * - Exempt by the Spec: an identity whose record is absent (disposeActor removed it), quarantined
  *   or reset keeps its endings waiting for an adopting ensure. Only absence has a public read; no
  *   fixture quarantines or resets a record, so those two are not told apart here.
- * - Not judged: an Owing identity by a lane record in flight, and "every other record is still
- *   only a record".
+ * - An Owing identity by a lane record in flight is judged by its lane record, which its start
+ *   rewrites Held. Not judged: "every other record is still only a record".
  */
 export const owingRestoredLive: Rule = {
   rule: "Restore I1",
@@ -536,6 +559,8 @@ export const rules: ReadonlyArray<Rule> = [
   owingRestoredLive,
   unchangedPartsKept,
   everyCommitEndsOnce,
+  acknowledgedHeardAgain,
+  recordKinds,
   acknowledgedBeforeSent,
   oneBatchOut,
 ];

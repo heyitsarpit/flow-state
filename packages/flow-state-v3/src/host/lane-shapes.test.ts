@@ -70,6 +70,7 @@ const exactRecords = [
     | "attempts"
     | "persistence"
     | "withheld"
+    | "quarantined"
     | "ended"
     | "life"
   >,

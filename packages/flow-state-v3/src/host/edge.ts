@@ -1,7 +1,6 @@
 import { Cause, Clock, Context, Duration, Effect, Exit, Option } from "effect";
 import { Due, type Ticket, type TicketId, type Write } from "../core/world.ts";
 import type { Fibers } from "./fibers.ts";
-import { encodeJsonText } from "./json.ts";
 import { Host, type Platform, type Purpose } from "./host.ts";
 
 /**
@@ -84,7 +83,7 @@ export const makeEdge = (
     fibers.fork(
       "store",
       store.value.write(
-        writes.map((w) => ({ key: w.key, value: Option.map(w.record, encodeJsonText) })),
+        writes.map((w) => ({ key: w.key, value: w.record })),
         purposeOf(tickets),
         tickets.flatMap((t) => (t.purpose === "acknowledge" ? [t.attempt] : [])),
       ),

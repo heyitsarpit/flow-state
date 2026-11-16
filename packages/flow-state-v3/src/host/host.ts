@@ -12,7 +12,7 @@ export type Purpose = "acknowledge" | "capture" | "flush";
 export type Bytes = { readonly key: string; readonly value: Option.Option<string> };
 
 /**
- * The store refused a batch: nothing in it landed.
+ * The store refused a batch, so nothing in it landed, or refused to load.
  */
 export class StoreRefused extends Data.TaggedError("StoreRefused")<Record<string, never>> {}
 
@@ -22,12 +22,12 @@ export class StoreRefused extends Data.TaggedError("StoreRefused")<Record<string
  *
  * **Details**
  *
- * `write` succeeds when the batch landed and fails `StoreRefused` when it did not; an
- * interrupted write is unanswered, as a hung store is. `acknowledges` names the Attempts the
- * batch acknowledges.
+ * `load` fails `StoreRefused` when the scope cannot be read. `write` succeeds when the batch landed
+ * and fails `StoreRefused` when it did not; an interrupted write is unanswered, as a hung store
+ * is. `acknowledges` names the Attempts the batch acknowledges.
  */
 export type Store = {
-  readonly load: Effect.Effect<ReadonlyMap<string, string>>;
+  readonly load: Effect.Effect<ReadonlyMap<string, string>, StoreRefused>;
   readonly write: (
     writes: ReadonlyArray<Bytes>,
     purpose: Purpose,

@@ -26,8 +26,8 @@ export const CallResult = Data.taggedEnum<CallResult>();
  */
 export type Input = Data.TaggedEnum<{
   Start: {};
-  // FLOW_STATE_ALLOW_UNKNOWN: the store's parsed records, decoded by the core once.
-  Boot: { stored: ReadonlyMap<string, unknown> };
+  // The store's record texts, decoded by the core once; `None` when the store failed to load.
+  Boot: { stored: Option.Option<ReadonlyMap<string, string>> };
   BootFailed: {};
   Ensure: {
     actor: ActorId;

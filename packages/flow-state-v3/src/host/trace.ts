@@ -81,6 +81,7 @@ const wordText = (word: WorldWord) =>
     wire: ({ server, endpoint, word: kind, at }) =>
       `${server.name}.${endpoint} ${kind}${kind === "release" ? "" : ` at ${at}`}`,
     storage: ({ word: kind }) => `storage ${kind}`,
+    stored: ({ key, text }) => `storage put ${key} ${text}`,
     network: ({ word: kind }) => `network ${kind}`,
   });
 
@@ -120,6 +121,8 @@ const evidenceText = (evidence: Evidence) =>
     Denied: ({ actor, event, reasons }) =>
       `denied ${event} at ${actorKey(actor)}${listText("reasons", reasons)}`,
     Lane: ({ kind, operation, attempt }) => `lane ${kind} ${operation} ${attemptText(attempt)}`,
+    Reported: ({ code, record, reason }) =>
+      `reported ${code}${Option.match(record, { onNone: () => "", onSome: (key) => ` ${key}` })}: ${reason}`,
     Issue: ({ code, ending }) =>
       `issue ${code}${Option.match(ending, {
         onNone: () => "",

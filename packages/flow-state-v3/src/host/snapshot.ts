@@ -1,5 +1,8 @@
-import { Option } from "effect";
+import { Option, Result } from "effect";
 import type { Values } from "../core/compiled.ts";
+import { inputOfName } from "../core/identity.ts";
+import { actorRecordKey } from "../core/record.ts";
+import { create } from "../core/tree.ts";
 import { laneKeyText } from "../core/lane-moves.ts";
 import { actorLifecycleOf } from "../core/life.ts";
 import { rowOf, type Row } from "../core/rows.ts";
@@ -18,7 +21,7 @@ export type Snapshot = {
   readonly state: string;
   readonly memory: Values;
   readonly operations: Operations;
-  readonly lifecycle: "active" | "disposing" | "disposed";
+  readonly lifecycle: "active" | "disposing" | "disposed" | "quarantined";
   readonly context: Values;
   readonly issues: ReadonlyArray<Diagnostic>;
   readonly schedules: ReadonlyArray<{ readonly key: string; readonly dueAt: number }>;
@@ -103,6 +106,30 @@ export const snapshotIn = (
       context: {},
       issues: [],
       schedules: keyed(record.schedules.map((s) => ({ key: s.name, dueAt: s.dueAt }))),
+    });
+
+  const compiled = machines.get(actor.machine);
+  const quarantined = world.quarantined.get(actorRecordKey(key));
+
+  // A record the boot could not read shows the fresh start an ensure would make, with its issue.
+  if (quarantined !== undefined && compiled !== undefined)
+    return Option.some({
+      state: compiled.initial,
+      memory: Result.getOrElse(create(compiled, inputOfName(compiled, actor.name)), () => ({})),
+      operations,
+      lifecycle: "quarantined",
+      context: {},
+      issues: [
+        new Diagnostic({
+          classification: "Failure",
+          code: "RecordUndecodable",
+          path: [actor.machine, actor.name],
+          details: { reason: quarantined },
+          summary: `the saved record of ${actor.name} could not be read`,
+          help: "Ensure the actor to start it fresh; its first save replaces the record.",
+        }),
+      ],
+      schedules: [],
     });
 
   return Option.map(Option.fromUndefinedOr(ended), (x) => ({

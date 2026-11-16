@@ -10,7 +10,6 @@ import { type FlowError, flowError, flowErrorOf } from "../error.ts";
 import { appFindings, malformedOf } from "../core/well-formed.ts";
 import { makeDriver, type Driver } from "./driver.ts";
 import { browserPlatform } from "./platform/browser.ts";
-import { decodeJsonText } from "./json.ts";
 import { makeFibers } from "./fibers.ts";
 import { makeWiring } from "./wiring.ts";
 import { outside, type Snapshot, snapshotOf } from "./snapshot.ts";
@@ -212,7 +211,9 @@ export const SetupId = "~flow-state/Setup";
  * `ready()` runs the one bootstrap: it reads storage before any actor starts. `ensureActor`
  * returns the one shared actor of a ref, creating it from the ref's input or restoring it.
  * `createActor` creates a new local actor from its input: it never persists, no ref names it, and
- * it lives until disposed.
+ * it lives until disposed. `dispose()` keeps the scope's saved data; `dispose({ forget: true })`
+ * deletes every record of the scope and succeeds only once the deletion landed, failing
+ * `StorageFailure` when the store refused it.
  */
 export type Runtime = {
   readonly ready: () => Effect.Effect<void, FlowError>;
@@ -222,7 +223,10 @@ export type Runtime = {
     options: { readonly input: InputOf<D["memory"]> },
   ) => Actor<D>;
   readonly disposeActor: <D extends AnyDefinition>(actor: Actor<D> | ActorRef<D>) => void;
-  readonly dispose: () => Effect.Effect<void>;
+  readonly dispose: (
+    // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/no-nullish-function-contracts -- the Plan's public option: an omitted option keeps saved data
+    options?: { readonly forget?: boolean },
+  ) => Effect.Effect<void, FlowError>;
   readonly [InspectorId]: (sink: (evidence: Evidence) => void) => () => void;
   readonly [DriverId]: Driver;
 };
@@ -350,16 +354,11 @@ export const buildRuntime = (
   // Storage is read and validated before any app service is acquired; the core's life decides
   // whether the boot it reads still opens the Runtime.
   const boot = Effect.fn("Runtime.boot")(function* () {
-    const loaded = yield* Option.match(persistence ? host.store : Option.none(), {
-      onNone: () => Effect.succeed(new Map<string, string>()),
-      onSome: (store) => store.load,
+    // A load the store refused boots with nothing and no persistence; the core reports it.
+    const stored = yield* Option.match(persistence ? host.store : Option.none(), {
+      onNone: () => Effect.succeed(Option.some<ReadonlyMap<string, string>>(new Map())),
+      onSome: (store) => store.load.pipe(Effect.option),
     });
-
-    const stored = new Map(
-      [...loaded].flatMap(([k, v]) =>
-        Option.toArray(Option.map(decodeJsonText(v), (x) => [k, x] as const)),
-      ),
-    );
 
     if (config.services !== undefined)
       services = yield* Layer.buildWithScope(config.services, scope).pipe(
@@ -415,6 +414,34 @@ export const buildRuntime = (
         },
       });
     });
+
+  // A forget removes every record the scope holds in one batch, after the disposal's own writes.
+  // A Runtime that never persisted, or whose load failed, makes no store call.
+  const forget = Effect.fn("Runtime.forget")(function* () {
+    const store = host.store;
+
+    if (!persistence || Option.isNone(store) || !driver.world().persistence) return;
+
+    yield* store.value.load.pipe(
+      Effect.flatMap((saved) =>
+        store.value.write(
+          [...saved.keys()].map((key) => ({ key, value: Option.none() })),
+          "flush",
+          [],
+        ),
+      ),
+      Effect.mapError(() =>
+        flowError([
+          {
+            code: "StorageFailure",
+            path: ["dispose", "forget"],
+            summary: "the store refused to delete the scope's records",
+            help: "The saved data is still there; dispose with forget again once the store answers.",
+          },
+        ]),
+      ),
+    );
+  });
 
   // Local actors are numbered by the Runtime that creates them; they never persist or outlive it.
   let locals = 0;
@@ -518,9 +545,13 @@ export const buildRuntime = (
 
       driver.offer(Input.DisposeActor({ actor }), `disposeActor ${actor.name}`);
     },
-    // The core's disposal ends first: calls settling within its bound are parked, then the
-    // Scope closes every fiber.
-    dispose: () => driver.dispose.pipe(Effect.andThen(Scope.close(scope, Exit.void))),
+    // The core's disposal ends first: calls settling within its bound are parked, then a forget
+    // deletes the scope's records, and the Scope closes every fiber whatever the forget did.
+    dispose: (options) =>
+      driver.dispose.pipe(
+        Effect.andThen(options?.forget === true ? forget() : Effect.void),
+        Effect.ensuring(Scope.close(scope, Exit.void)),
+      ),
     [InspectorId]: (sink) => {
       sinks.add(sink);
 

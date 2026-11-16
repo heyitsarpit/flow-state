@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { Option } from "effect";
+import { Option, Result } from "effect";
 import { describe, it } from "vite-plus/test";
 import { Audience, Delivery, type Heard, keptOn, makeLedger, type Owed, rowsOf } from "./ledger.ts";
 import { makePersistence } from "./persist.ts";
@@ -8,6 +8,9 @@ import type { Channel } from "./vocabulary.ts";
 import { makeTx, ROOT_ACTIVATION } from "./tx.ts";
 import { Life } from "./life.ts";
 import { actorKey, byCodeUnits, emptyWorld, Mail, type World } from "./world.ts";
+
+const encodeOwedText = (...args: Parameters<typeof encodeOwed>) =>
+  Result.getOrThrow(encodeOwed(...args));
 
 const actor = { machine: "Test/Ledger", name: "a" };
 
@@ -94,7 +97,10 @@ describe("an owed record keeps each row's channel (WriteLanes I39; Codec R5)", (
     });
 
     const stored = new Map([
-      [`owed/${actorKey(actor)}`, encodeOwed(actor, [row("notSent"), row("unknown")])],
+      [
+        `owed/${actorKey(actor)}`,
+        Result.getOrThrow(encodeOwed(actor, [row("notSent"), row("unknown")])),
+      ],
     ]);
 
     assert.deepEqual(
@@ -109,7 +115,7 @@ describe("a boot reads records in key order (Restore R3: the boot sorts by recor
     const record = (name: string) =>
       [
         `owed/Shop/Pay/${name}`,
-        encodeOwed({ machine: "Shop/Pay", name }, [
+        encodeOwedText({ machine: "Shop/Pay", name }, [
           {
             operation: "pay",
             lane: Option.none(),

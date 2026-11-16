@@ -12,6 +12,11 @@ import { Input } from "./input.ts";
 import { makeTx, ROOT_ACTIVATION } from "./tx.ts";
 import { actorKey, Command, emptyWorld, Phase, Timer, type TimerId, type World } from "./world.ts";
 
+// A written record's JSON object, read back from its text.
+const jsonOf = Schema.decodeUnknownSync(
+  Schema.fromJsonString(Schema.Record(Schema.String, Schema.Json)),
+);
+
 const ring = transaction({
   id: "Persist/ring",
   input: {},
@@ -98,7 +103,7 @@ it("WriteAhead I20: a row owed to the identity and still Queued at a step's end 
     .filter((w) => w.key === `owed/${actorKey(actor)}`);
 
   expect([...tx.world().mail.values()].flat()).toHaveLength(1);
-  expect(writes.map((w) => Option.map(w.record, (r) => r["rows"]))).toEqual([
+  expect(writes.map((w) => Option.map(w.record, (r) => jsonOf(r)["rows"]))).toEqual([
     Option.some([expect.objectContaining({ attempt: "att-1", channel: "success", kept: false })]),
   ]);
 });
@@ -133,7 +138,7 @@ const writesOf = (tx: ReturnType<typeof stepOver>["tx"]) =>
     .map((w) =>
       Option.match(w.record, {
         onNone: () => `${w.key}=delete`,
-        onSome: (r) => `${w.key}=${whatOf(r)}`,
+        onSome: (r) => `${w.key}=${whatOf(jsonOf(r))}`,
       }),
     )
     .toSorted();

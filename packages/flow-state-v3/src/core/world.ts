@@ -49,9 +49,9 @@ export type Ticket =
   | { readonly id: TicketId; readonly purpose: "flush" };
 
 /**
- * One record write of a batch: its new value, or `None` to remove it.
+ * One record write of a batch: its new canonical text, or `None` to remove it.
  */
-export type Write = { readonly key: string; readonly record: Option.Option<Values> };
+export type Write = { readonly key: string; readonly record: Option.Option<string> };
 
 /**
  * A schedule's live arming: its arming number (a firing of an older arming is discarded) and its
@@ -259,6 +259,7 @@ export type ActorRecord = {
   readonly state: string;
   readonly memory: Values;
   readonly schedules: ReadonlyArray<typeof ScheduleDeadline.Type>;
+  readonly context: ReadonlyMap<string, ActorId>;
 };
 
 /**
@@ -273,6 +274,11 @@ export type Withheld = {
 
 /**
  * Everything the Runtime decides from: plain data, replaced whole by each step.
+ *
+ * **Details**
+ *
+ * `quarantined` holds each record the boot could not read, by its key, with why: its bytes stay
+ * until the identity saves over it or, for a lane, a cancel on its key clears it.
  */
 export type World = {
   readonly incarnations: ReadonlyMap<string, Incarnation>;
@@ -288,6 +294,7 @@ export type World = {
   readonly attempts: number;
   readonly persistence: boolean;
   readonly withheld: ReadonlyMap<string, Withheld>;
+  readonly quarantined: ReadonlyMap<string, string>;
   readonly ended: ReadonlyMap<string, Ended>;
   readonly life: Life;
 };
@@ -310,6 +317,7 @@ export const emptyWorld = (persistence: boolean): World => ({
   attempts: 0,
   persistence,
   withheld: new Map(),
+  quarantined: new Map(),
   ended: new Map(),
   life: Life.Inert(),
 });

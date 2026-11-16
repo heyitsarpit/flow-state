@@ -1,0 +1,182 @@
+import { Effect, Schema } from "effect";
+import { describe, expect, it } from "vite-plus/test";
+import { GitApi } from "../../fixtures/sync/contracts.ts";
+import { GitLive } from "../../fixtures/sync/git-http.ts";
+import { Git, GitFake } from "../../fixtures/sync/server.ts";
+import { Story, type StoryRun } from "../../src/host/testing/index.ts";
+import {
+  actorRef,
+  app,
+  definition,
+  Flow,
+  machine,
+  Outcome,
+  runtimeSetup,
+  transaction,
+} from "../../src/index.ts";
+import { checked } from "../rules/rules.ts";
+
+const sync = transaction({
+  id: "Restore/sync",
+  input: { repo: Schema.String },
+  key: ["repo"],
+  concurrency: "serialize",
+  services: [GitApi],
+  commit: (input, { attempt }) =>
+    Effect.flatMap(Effect.service(GitApi), (api) =>
+      api.sync(input, { idempotencyKey: attempt.id }),
+    ).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e))),
+});
+
+const Notes = definition({
+  id: "Restore/Notes",
+  persist: true,
+  states: ["READY"],
+  events: { Grow: { count: Schema.Number }, Sync: { repo: Schema.String } },
+  internalEvents: {
+    Synced: {},
+    Limited: {},
+    NotSent: { why: Schema.String },
+    Unsure: Flow.uncertain({}),
+  },
+  memory: { notes: Flow.initial(Schema.Array(Schema.String), []) },
+  operations: ({ E }) => ({
+    sync: sync.outcomes({
+      success: E.Synced,
+      failure: { RateLimited: E.Limited },
+      notSent: E.NotSent.from((e: { readonly why: string }) => ({ why: e.why })),
+      unknown: E.Unsure,
+    }),
+  }),
+});
+
+const byRepo = ({ event }: { readonly event: { readonly repo: string } }) => ({ repo: event.repo });
+
+// A notebook whose notes grow to any length, past the codec's 4,096 items included, and that syncs.
+const NotesMachine = machine(Notes, ({ S, O }) => ({
+  default: S.READY,
+  on: {
+    Grow: {
+      updateMemory: ({ event }) => ({
+        notes: Array.from({ length: event.count }, (_, i) => `note ${i}`),
+      }),
+    },
+    Sync: { actions: [O.sync.commit(byRepo)] },
+    Synced: {},
+    Limited: {},
+    NotSent: {},
+    Unsure: {},
+  },
+}));
+
+const notes = actorRef(NotesMachine, "mine");
+
+const notesSetup = runtimeSetup({
+  app: app({ id: "notes", machines: { notes: NotesMachine } }),
+  services: GitLive("https://git.example"),
+  scope: "notes",
+  persistence: { captureMs: 0 },
+});
+
+const notesStory = (id: string) => Story.app(notesSetup, { id, fixtures: [GitFake] });
+
+const KEY = "actor/Restore/Notes/mine";
+
+const reported = (run: StoryRun) =>
+  run.evidence.flatMap((e) => (e._tag === "Reported" ? [`${e.code} ${e.reason}`] : []));
+
+const savedCount = (run: StoryRun, checkpoint: string) => {
+  const text = run.checkpoints[checkpoint]?.records.stored.get(KEY);
+
+  return text === undefined
+    ? undefined
+    : Schema.decodeUnknownSync(
+        Schema.fromJsonString(
+          Schema.Struct({ memory: Schema.Struct({ notes: Schema.Array(Schema.String) }) }),
+        ),
+      )(text).memory.notes.length;
+};
+
+describe("an actor record past a codec bound (Actors R8; WriteAhead R4; Codec R1, R4)", () => {
+  it("WriteAhead R4: memory of 4,097 notes is reported UnencodableValue once and never saved; the last good capture restores", async () => {
+    const run = checked(
+      await notesStory("restore/unencodable")
+        .ensure(notes)
+        .send(notes, { _tag: "Grow", count: 4096 })
+        .checkpoint("good")
+        .send(notes, { _tag: "Grow", count: 4097 })
+        .send(notes, { _tag: "Grow", count: 4098 })
+        .checkpoint("withheld")
+        .reload()
+        .checkpoint("reloaded")
+        .run(),
+    );
+
+    expect(reported(run)).toEqual(["UnencodableValue items over 4096 at $.memory.notes"]);
+    expect(savedCount(run, "good")).toBe(4096);
+    expect(savedCount(run, "withheld")).toBe(4096);
+    expect(run.checkpoints.reloaded.read(notes)?.memory["notes"]).toHaveLength(4096);
+  });
+
+  it("Actors R8: the end waits while the record cannot encode, and ends once it can", async () => {
+    const run = checked(
+      await notesStory("restore/unencodable-end")
+        .ensure(notes)
+        .send(notes, { _tag: "Grow", count: 4097 })
+        .detach(notes)
+        .advance("1 second")
+        .checkpoint("waiting")
+        .send(notes, { _tag: "Grow", count: 2 })
+        .advance("1 second")
+        .checkpoint("ended")
+        .run(),
+    );
+
+    expect(run.checkpoints.waiting.inspection.actors.map((a) => a.actor)).toEqual([
+      "Restore/Notes/mine",
+    ]);
+    expect(run.checkpoints.ended.inspection.actors).toEqual([]);
+    expect(savedCount(run, "ended")).toBe(2);
+  });
+
+  it("WriteAhead R12: a send withheld with its identity reports no StorageSilent, and goes once the record encodes", async () => {
+    const run = checked(
+      await notesStory("restore/unencodable-send")
+        .ensure(notes)
+        .send(notes, { _tag: "Grow", count: 4097 })
+        .send(notes, { _tag: "Sync", repo: "flow" })
+        .advance("11 seconds")
+        .checkpoint("withheld")
+        .send(notes, { _tag: "Grow", count: 1 })
+        .advance("1 second")
+        .checkpoint("sent")
+        .run(),
+    );
+
+    const silent = run.evidence.filter((e) => e._tag === "Lane" && e.kind === "StorageSilent");
+
+    expect(silent).toEqual([]);
+    expect(run.checkpoints.withheld.read(Git.sync)).toEqual([]);
+    expect(run.checkpoints.sent.read(Git.sync)).toHaveLength(1);
+  });
+
+  it("Actors R22: a Runtime disposed while an identity is withheld ends its queued commits once, across the reload", async () => {
+    const run = checked(
+      await notesStory("restore/unencodable-disposal")
+        .ensure(notes)
+        .world(Git.sync.hold())
+        .send(notes, { _tag: "Sync", repo: "flow" })
+        .send(notes, { _tag: "Sync", repo: "flow" })
+        .send(notes, { _tag: "Grow", count: 4097 })
+        .send(notes, { _tag: "Sync", repo: "flow" })
+        .disposeRuntime()
+        .advance("5 seconds")
+        .reload()
+        .advance("1 second")
+        .checkpoint("after")
+        .run(),
+    );
+
+    expect(run.checkpoints.after.inspection.owed).toEqual([]);
+  });
+});

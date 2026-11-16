@@ -211,6 +211,7 @@ const follow = (ledger: Ledger, e: Evidence, at: number) =>
     Lane: nothing,
     Minted: nothing,
     Published: nothing,
+    Reported: nothing,
     RuntimeDisposed: nothing,
     Sent: nothing,
     Turn: nothing,

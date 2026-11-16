@@ -17,6 +17,12 @@ export type LaneFact =
   | "StorageSilent";
 
 /**
+ * A diagnostic about the Runtime's records: one that cannot encode, one the boot could not read and
+ * kept aside, or a store that failed to load.
+ */
+export type ReportCode = "UnencodableValue" | "RecordUndecodable" | "StorageFailure";
+
+/**
  * Why an ending was recorded and not delivered.
  */
 export type RecordedWhy = "ignored" | "evidence" | "letGo";
@@ -121,6 +127,7 @@ export type Evidence = Data.TaggedEnum<{
   Finished: { actor: Who };
   RuntimeDisposed: {};
   Published: { actor: Who; state: string; memory: Values };
+  Reported: { code: ReportCode; record: Option.Option<string>; reason: string };
 }>;
 
 /**

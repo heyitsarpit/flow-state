@@ -10,6 +10,7 @@ import { isInFlight, pick, type Tx, without, withEntry } from "./tx.ts";
 import type { Channel } from "./vocabulary.ts";
 import { type ActorId, type CallId, Command, type Incarnation, laneId, Phase } from "./world.ts";
 import type { Persistence } from "./persist.ts";
+import { laneRecordKey } from "./record.ts";
 
 // A commit's cue by its operation's concurrency policy.
 const commitCue = {
@@ -153,6 +154,13 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
 
     const id = laneId(incarnation.actor, operation.name, text.value);
 
+    // A lane record the boot could not read still holds its key until a cancel clears it.
+    if (tx.world().quarantined.has(laneRecordKey(id))) {
+      decline(incarnation.actor, operation.name, "Rejected", owner);
+
+      return member;
+    }
+
     // A Kept row on the key declines the commit before the table, which reads no row; under the
     // cancel policy the newer commit wins, so the lane's Kept rows are let go instead.
     if (keptOn(tx.world().owed, incarnation.actor, id)) {
@@ -211,9 +219,15 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
         const at = atFor(incarnation, operation, key, own);
         const target = targetOf(key, at);
 
-        // A cancel on an Idle lane lets its Kept rows go.
+        // A cancel on an Idle lane lets its Kept rows go, and clears a quarantined lane record on
+        // its key: the step removes the record.
         for (const a of Option.toArray(at))
-          if (!tx.world().lanes.has(a.id)) ledger.letGoKept(incarnation.actor, a.id);
+          if (!tx.world().lanes.has(a.id)) {
+            ledger.letGoKept(incarnation.actor, a.id);
+
+            if (tx.world().quarantined.has(laneRecordKey(a.id)))
+              persistence.saveLane(incarnation.actor, a.id);
+          }
 
         applyNamed(operation, incarnation.actor, at, Cue.Cancel());
 

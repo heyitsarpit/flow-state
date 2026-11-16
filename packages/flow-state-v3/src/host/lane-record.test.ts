@@ -1,4 +1,4 @@
-import { Effect, Option, Schema } from "effect";
+import { Effect, Option, Result, Schema } from "effect";
 import { expect, it } from "vite-plus/test";
 import { decodeRecords, encodeLane, laneRecordKey } from "../core/record.ts";
 import { type CallId, laneId, Phase } from "../core/world.ts";
@@ -54,7 +54,10 @@ const restoredFrom = (
     queue: Array.from({ length: queued }, () => ({ input, owner: 0 })),
   };
 
-  const record = Option.getOrThrow(encodeLane(compiled, lane, displaced));
+  const record = Result.getOrThrow(
+    encodeLane(compiled, "write", lane.actor, Option.some(lane), displaced),
+  );
+
   const id = laneId(lane.actor, "write", '{"repo":"flow"}');
 
   const restored = decodeRecords(

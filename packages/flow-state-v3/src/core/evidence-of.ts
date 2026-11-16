@@ -1,7 +1,14 @@
 import { Data, Option } from "effect";
 import { type Cue, LaneState } from "./cells.ts";
 import type { Values } from "./compiled.ts";
-import { type Channel, Evidence, type LaneFact, type Member, type Part } from "./evidence.ts";
+import {
+  type Channel,
+  Evidence,
+  type LaneFact,
+  type Member,
+  type Part,
+  type ReportCode,
+} from "./evidence.ts";
 import type { IssueCode } from "./vocabulary.ts";
 import { type ActorId, Command, type Phase } from "./world.ts";
 
@@ -52,6 +59,7 @@ export type Act = Data.TaggedEnum<{
     commands: ReadonlyArray<Command>;
   };
   ReadReplaced: { operation: string };
+  Reported: { code: ReportCode; record: Option.Option<string>; reason: string };
   Silent: { operation: string; attempt: string };
   Ended: {
     actor: ActorId;
@@ -144,6 +152,7 @@ export const evidenceOf = (act: Act): ReadonlyArray<Evidence> =>
     WriteFailed: () => [
       Evidence.Issue({ code: "StorageFailure", ending: Option.none(), slot: Option.none() }),
     ],
+    Reported: (report) => [Evidence.Reported(report)],
     ReadReplaced: ({ operation }) => [
       Evidence.Lane({ kind: "Superseded", operation, attempt: Option.none() }),
     ],

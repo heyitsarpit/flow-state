@@ -257,11 +257,10 @@ for (const [policy, sends, want] of [
     expect(seen(run.evidence)).toEqual(want);
   });
 
-// Open, owned by the write-ahead Task: a displaced Attempt whose call outlives its lane is in no
-// lane record, so a reload loses the unknown Restored that Operations O3 and Persistence O6 promise
-// for an acknowledged Attempt. Over a network that will not interrupt the sync, the new head
-// answers and ends the lane while the displaced call is still out.
-it.fails("WriteLanes R10: under cancel a displaced Attempt whose lane ended first is heard unknown Restored after a reload", async () => {
+// A displaced Attempt whose call outlives its lane keeps a lane record with no head, so a reload
+// hears its unknown Restored (Restore R3; WriteAhead I17). Over a network that will not interrupt
+// the sync, the new head answers and ends the lane while the displaced call is still out.
+it("under cancel a displaced Attempt whose lane ended first is heard unknown Restored after a reload (WriteLanes R10; Restore R3)", async () => {
   const run = await played(
     Story.app(lanesSetup, {
       id: "lane-cells/cancel-displaced-outlives-lane",

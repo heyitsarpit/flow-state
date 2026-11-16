@@ -6,7 +6,7 @@ import { armingsOf } from "./turn.ts";
 import { chainOf, create } from "./tree.ts";
 import { Act } from "./evidence-of.ts";
 import type { LedgerSteps } from "./ledger.ts";
-import { decodeRecords } from "./record.ts";
+import { actorRecordKey, decodeRecords } from "./record.ts";
 import { GRACE_MS, isInFlight, type Tx, without, withEntry } from "./tx.ts";
 import {
   type ActorId,
@@ -159,10 +159,19 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     setIncarnation(base);
     tx.act(Act.Started({ actor }));
 
-    // Its slots bind before its first publication: the baselines are silent.
+    // Its slots bind before its first publication: the baselines are silent. A restored record
+    // binds the providers it was saved with, unless the ensure names its own.
     const bound = context.bind(
       base,
-      Option.getOrElse(wiring, () => compiled.wiring),
+      Option.getOrElse(
+        Option.orElse(wiring, () =>
+          Option.filter(
+            Option.map(from, (r) => r.context),
+            (saved) => saved.size > 0,
+          ),
+        ),
+        () => compiled.wiring,
+      ),
     );
 
     const incarnation = Option.match(from, {
@@ -225,6 +234,21 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     }
   };
 
+  // A record the boot could not read is never restored: the identity starts fresh, reported, and
+  // its first save overwrites the record.
+  const startsFresh = (key: string) => {
+    const quarantined = tx.world().quarantined.get(actorRecordKey(key));
+
+    if (quarantined !== undefined)
+      tx.act(
+        Act.Reported({
+          code: "RecordUndecodable",
+          record: Option.some(actorRecordKey(key)),
+          reason: quarantined,
+        }),
+      );
+  };
+
   const ensure = (
     actor: ActorId,
     use: Option.Option<Use>,
@@ -238,6 +262,8 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
 
       if (Option.isSome(record) || !existing) {
         const compiled = tx.machines.get(actor.machine);
+
+        if (Option.isNone(record)) startsFresh(key);
 
         start(
           actor,
@@ -285,8 +311,16 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
   const end = (actor: ActorId) => {
     const incarnation = incarnationOf(actor);
 
-    // The end waits while the identity's records cannot encode: its grace starts again.
-    if (incarnation === undefined || tx.world().withheld.has(actorKey(actor))) return;
+    if (incarnation === undefined) return;
+
+    // The end waits while the identity's records cannot encode: its grace starts again. The step
+    // still notes the record, so an identity not yet withheld is withheld and reported.
+    if (tx.world().withheld.has(actorKey(actor)) || !persistence.encodes(actor)) {
+      saveActor(actor);
+
+      return;
+    }
+
     // The end writes a dirty record in its own step, not at the next capture.
     saveActor(actor, Due.Now());
     stopSchedules(incarnation);
@@ -356,41 +390,49 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     }
   };
 
-  // FLOW_STATE_ALLOW_UNKNOWN: the store's parsed records, decoded once by their Schemas.
-  const boot = (storedRecords: ReadonlyMap<string, unknown>) => {
-    const restored = decodeRecords(tx.machines, storedRecords);
+  const boot = (stored: ReadonlyMap<string, string>) => {
+    const restored = decodeRecords(tx.machines, stored);
 
     tx.set({
       ...tx.world(),
       records: new Map(restored.records.map((r) => [actorKey(r.actor), r])),
-      lanes: new Map(restored.lanes.map(({ id, lane }) => [id, lane])),
+      lanes: new Map(
+        restored.lanes.flatMap(({ id, lane }) => Option.toArray(Option.map(lane, (l) => [id, l]))),
+      ),
+      quarantined: new Map(restored.quarantined.map((q) => [q.key, q.reason])),
     });
     ledger.restore(restored.rows);
 
+    // A lane or owed record the boot could not read is reported at each boot while it stays.
+    for (const q of restored.quarantined)
+      if (!q.key.startsWith("actor/"))
+        tx.act(
+          Act.Reported({ code: "RecordUndecodable", record: Option.some(q.key), reason: q.reason }),
+        );
+
     // A lane's saved queue and displaced heads end at the boot, in lane-id order after the saved
     // rows; the lane's record is rewritten without them in the same batch as the rows.
-    for (const { id, lane, endings } of restored.lanes)
+    for (const { id, actor, endings } of restored.lanes)
       if (endings.length > 0) {
         ledger.restore(endings);
 
-        for (const ending of endings) tx.act(Act.Ended({ actor: lane.actor, ending }));
-        persistence.saveOwed(lane.actor);
-        persistence.saveLane(lane.actor, id);
+        for (const ending of endings) tx.act(Act.Ended({ actor, ending }));
+        persistence.saveOwed(actor);
+        persistence.saveLane(actor, id);
       }
 
     // A boot owes, parks and delivers nothing: the start of each identity it wakes does. Only an
-    // identity owed an ending (a lane in flight at capture, or a saved row) and holding an actor
-    // record that decodes is live at ready; a Held lane stays a record, and a disposed identity's
-    // rows wait for the incarnation an adopting ensure starts.
-    const owed = new Map([
+    // identity owed an ending (a lane in flight at capture, a saved row, or a row the boot just
+    // derived) and holding an actor record that decodes is live at ready; a Held lane stays a
+    // record, and a disposed identity's rows wait for the incarnation an adopting ensure starts.
+    const owing = new Map([
       ...restored.lanes
-        .filter((l) => l.inFlight)
-        .map(({ lane }) => [actorKey(lane.actor), lane.actor] as const),
+        .filter((l) => l.inFlight || l.endings.length > 0)
+        .map(({ actor }) => [actorKey(actor), actor] as const),
       ...restored.rows.map((r) => [actorKey(r.actor), r.actor] as const),
     ]);
 
-    for (const [key, actor] of owed)
-      if (!restored.undecodable.has(key)) ensure(actor, Option.none(), true, Option.none());
+    for (const actor of owing.values()) ensure(actor, Option.none(), true, Option.none());
   };
 
   return {

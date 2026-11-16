@@ -37,13 +37,16 @@ const skippable = (fault: StoryFailed) =>
 const slotOf = (word: WorldWord) =>
   word._tag === "wire" ? `${word.server.name}.${word.endpoint}` : "storage";
 
-const opens = (word: WorldWord) => word._tag !== "control" && word.word === "hold";
+const opens = (word: WorldWord) =>
+  (word._tag === "wire" || word._tag === "storage") && word.word === "hold";
 
 const closes = (word: WorldWord) =>
   (word._tag === "wire" && (word.word === "release" || word.word === "lose")) ||
   (word._tag === "storage" && word.word === "release");
 
-const awaits = (word: WorldWord) => word._tag !== "control" && !closes(word);
+// A put changes the store at once and waits for nothing.
+const awaits = (word: WorldWord) =>
+  word._tag !== "control" && word._tag !== "stored" && !closes(word);
 
 const wordsOf = (story: Story<string>) =>
   story.steps.flatMap((step, n) =>

@@ -17,7 +17,7 @@ const ticket = tx.mint<TicketId>("ticket");
 // One input of each kind, as the host and its timers give them.
 const inputs = {
   Start: Input.Start(),
-  Boot: Input.Boot({ stored: new Map() }),
+  Boot: Input.Boot({ stored: Option.some(new Map()) }),
   BootFailed: Input.BootFailed(),
   Ensure: Input.Ensure({ actor, use: Option.none(), existing: false, wiring: Option.none() }),
   Create: Input.Create({ actor, input: {} }),

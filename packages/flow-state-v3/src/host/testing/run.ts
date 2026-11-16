@@ -272,8 +272,11 @@ export const runFrom = <Names extends string>(
     return opened;
   };
 
-  const apply = (word: WorldWord) =>
-    WorldWord.$is("storage")(word) ? store.word(word.word) : fakes.word(word);
+  const apply = (word: WorldWord) => {
+    if (WorldWord.$is("storage")(word)) store.word(word.word);
+    else if (WorldWord.$is("stored")(word)) store.put(word.key, word.text);
+    else fakes.word(word);
+  };
 
   for (const word of subject.world) apply(word);
 

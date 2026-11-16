@@ -106,7 +106,14 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
     Start: () => setLife(Life.Booting()),
     Boot: ({ stored }) => {
       setLife(Life.Open());
-      incarnations.boot(stored);
+      // A store that failed to load is never written: the Runtime runs without persistence.
+      Option.match(stored, {
+        onNone: () => {
+          tx.set({ ...tx.world(), persistence: false });
+          tx.act(Act.Reported({ code: "StorageFailure", record: Option.none(), reason: "load" }));
+        },
+        onSome: incarnations.boot,
+      });
     },
     BootFailed: () => setLife(Life.Failed()),
     Ensure: ({ actor, use, existing, wiring }) => incarnations.ensure(actor, use, existing, wiring),

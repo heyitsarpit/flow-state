@@ -176,7 +176,7 @@ const shelves = app({ id: "shelves", machines: { shelf: ShelfMachine } });
 const shelfId = { machine: "Life/Shelf", name: "top" };
 
 const shelfRecord =
-  '{"format":1,"machine":"Life/Shelf","name":"top","state":"ON","memory":{},"schedules":[]}';
+  '{"context":{},"format":1,"machine":"Life/Shelf","memory":{},"name":"top","schedules":[],"state":"ON"}';
 
 // A persisted Runtime over a store holding one actor record, whose bootstrap waits for its service
 // until `acquire` answers it, so the life stays Booting.

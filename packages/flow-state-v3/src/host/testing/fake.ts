@@ -338,6 +338,7 @@ export const makeWorld = (
           pending.set(key, [...(pending.get(key) ?? []), { word: kind, at, step: step() }]);
         },
         storage: () => scriptFault("a storage word reached the fake servers"),
+        stored: () => scriptFault("a storage word reached the fake servers"),
         network: ({ word: kind }) => {
           offline = kind === "offline";
         },
@@ -403,6 +404,7 @@ export const makeStore = (
 ) => {
   const data = new Map<string, string>();
   const next: Array<{ readonly word: "hold" | "refuse"; readonly step: number }> = [];
+  const loads: Array<{ readonly step: number }> = [];
   const batches: Array<Out> = [];
 
   const apply = (writes: ReadonlyArray<Bytes>) => {
@@ -425,14 +427,18 @@ export const makeStore = (
     batches: () => batches.map((b) => b.batch),
     // RETURN_TYPE: the Store contract a tab's Host carries.
     at: (open: number): Store => ({
-      load: Option.match(seed, {
-        onNone: () => Effect.sync(() => new Map(data)),
-        onSome: (given) =>
-          Effect.suspend(() => Random.shuffle([...data])).pipe(
-            Effect.map((entries) => new Map(entries)),
-            Random.withSeed(`${given}:${open}`),
-          ),
-      }),
+      load: Effect.suspend(() =>
+        loads.shift() === undefined
+          ? Option.match(seed, {
+              onNone: () => Effect.sync(() => new Map(data)),
+              onSome: (given) =>
+                Effect.suspend(() => Random.shuffle([...data])).pipe(
+                  Effect.map((entries) => new Map(entries)),
+                  Random.withSeed(`${given}:${open}`),
+                ),
+            })
+          : Effect.fail(new StoreRefused({})),
+      ),
       write: (writes, purpose, acknowledges) =>
         Effect.suspend(() => {
           // A dead tab's fibers never run again, so this is unreachable; it writes nothing.
@@ -461,7 +467,10 @@ export const makeStore = (
           return status === "refused" ? Effect.fail(new StoreRefused({})) : Effect.void;
         }),
     }),
-    word: (word: "hold" | "refuse" | "release") => {
+    put: (key: string, text: string) => void data.set(key, text),
+    word: (word: "hold" | "refuse" | "release" | "refuseLoad") => {
+      if (word === "refuseLoad") return void loads.push({ step: step() });
+
       if (word !== "release") return void next.push({ word, step: step() });
 
       const out =
@@ -485,8 +494,11 @@ export const makeStore = (
         mark(out, "landed");
       }
     },
-    unused: () => next.map(({ word }) => `storage ${word} never used`),
-    unusedAt: () => next.map((p) => p.step),
+    unused: () => [
+      ...next.map(({ word }) => `storage ${word} never used`),
+      ...loads.map(() => "storage refuseLoad never used"),
+    ],
+    unusedAt: () => [...next.map((p) => p.step), ...loads.map((p) => p.step)],
     heldWrites: () => batches.filter((b) => b.batch.status === "held").length,
   };
 };
@@ -605,6 +617,15 @@ export const Fake = {
     hold: () => WorldWord.storage({ word: "hold" }),
     refuse: () => WorldWord.storage({ word: "refuse" }),
     release: () => WorldWord.storage({ word: "release" }),
+    /**
+     * The next open's load fails, as a store that cannot be read does.
+     */
+    refuseLoad: () => WorldWord.storage({ word: "refuseLoad" }),
+    /**
+     * Writes text under a key of the store at once, as another release or a damaged disk would
+     * leave it; the next open loads it.
+     */
+    put: (key: string, text: string) => WorldWord.stored({ key, text }),
   },
   /**
    * The network as a whole: offline, every call is lost at request and reaches no server, and

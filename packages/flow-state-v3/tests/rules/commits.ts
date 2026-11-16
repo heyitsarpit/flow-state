@@ -22,6 +22,69 @@ const accountedBy = (e: Evidence) => {
     : [];
 };
 
+/**
+ * WriteAhead I17, across reloads: an Attempt whose acknowledgement landed and that had no ending in
+ * that open, and was not superseded or released there, is heard in a later open of its identity:
+ * its saved ending, or unknown Restored. Only
+ * identities started again in a later open are judged, since a disposed identity's endings wait
+ * for an adopting ensure.
+ */
+export const acknowledgedHeardAgain: Rule = {
+  rule: "WriteAhead I17",
+  breaches: (run: StoryRun) => {
+    const { owner, ended, started } = opensOf(run);
+
+    return run.end.records.batches.flatMap((b) =>
+      b.status !== "landed"
+        ? []
+        : b.acknowledges.flatMap((attempt) => {
+            const open = b.tab.open;
+            const actor = owner.get(attempt) ?? "";
+            const heard = [...(ended.get(attempt) ?? [])];
+            const later = [...(started.get(actor) ?? [])].filter((o) => o > open);
+
+            return heard.length > 0 || later.length === 0
+              ? []
+              : [
+                  `WriteAhead I17: ${attempt} of ${actor} was acknowledged in open ${open} with no ending there, and no later open of ${actor} heard it`,
+                ];
+          }),
+    );
+  },
+};
+
+const addTo = (map: Map<string, Set<number>>, key: string, open: number) =>
+  map.set(key, (map.get(key) ?? new Set()).add(open));
+
+// Each Attempt's actor, the opens each Attempt was ended or left in, and the opens each identity
+// started in. A head superseded before its send, or released, leaves its lane with no ending.
+const leftBy = (e: Evidence) => {
+  if (e._tag === "Ended") return Option.toArray(e.attempt);
+
+  return e._tag === "Lane" && (e.kind === "Superseded" || e.kind === "Released")
+    ? Option.toArray(e.attempt)
+    : [];
+};
+
+const opensOf = (run: StoryRun) => {
+  const places = placesOf(run);
+  const owner = new Map<string, string>();
+  const ended = new Map<string, Set<number>>();
+  const started = new Map<string, Set<number>>();
+
+  for (const [at, e] of run.evidence.entries()) {
+    const open = places[at]?.open ?? 0;
+
+    if (e._tag === "Minted") owner.set(e.attempt, nameOf(e.actor));
+
+    if (e._tag === "Incarnated") addTo(started, nameOf(e.actor), open);
+
+    for (const attempt of leftBy(e)) addTo(ended, attempt, open);
+  }
+
+  return { owner, ended, started };
+};
+
 const tally = (counts: Map<string, number>, operation: string) =>
   counts.set(operation, (counts.get(operation) ?? 0) + 1);
 
