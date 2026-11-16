@@ -305,3 +305,11 @@ note 2026-11-16T02:11:30Z
     Review of T54's first commit `d36c7f22`: GAPS (no one-writer, one-ledger or one-start rules; weak I23 test; R3
     mis-cited); sent to the builder. Delegated: core-owned reports are built only by evidenceOf; the Turn R20 cite fix
     is a small amendment.
+
+note 2026-11-16T02:31:32Z
+    T54 in review at `39bd42e6`: I23 and Turn R20/I26 fixed, evidenceOf the one report builder, faults 61 of 61, stress
+    23 of 23; a lean independent check started at 97 usage.
+
+note 2026-11-16T02:31:32Z
+    Resume note (other account): if the run stops, finish T54's review (Task comments hold the requirements and close
+    notes), then T18 per P3's Order. Wakes and keep-awake are this session's only; the loop's run steps recreate them.
