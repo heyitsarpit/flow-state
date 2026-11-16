@@ -1,7 +1,15 @@
 import { Effect, Option, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { Story } from "../../src/host/testing/index.ts";
-import { actorRef, app, definition, Flow, machine, runtimeSetup } from "../../src/index.ts";
+import {
+  actorRef,
+  app,
+  definition,
+  Diagnostic,
+  Flow,
+  machine,
+  runtimeSetup,
+} from "../../src/index.ts";
 import { issues } from "../checkout.ts";
 
 const Alarm = definition({
@@ -66,6 +74,15 @@ describe("creation (Turn R14, T6; Compile R5)", () => {
 
     expect(run.checkpoints.ensured.read(words)).toBeUndefined();
     expect(issues(run.evidence)).toEqual(["CallbackDefect"]);
+  });
+
+  it.fails("Diagnostics I5: a callback that throws is reported with a code of the closed list (Defect)", async () => {
+    const run = await Story.app(wordApp, { id: "creation/words-code", fixtures: [] })
+      .ensure(words)
+      .run();
+
+    expect(issues(run.evidence).every(Schema.is(Diagnostic.fields.code))).toBe(true);
+    expect(issues(run.evidence)).toEqual(["Defect"]);
   });
 
   it("Compile R5: a computed start that spreads its fields still may not read a computed one", async () => {

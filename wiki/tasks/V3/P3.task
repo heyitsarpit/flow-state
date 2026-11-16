@@ -1326,3 +1326,15 @@ tasks
             Decided by the orchestrator (user-delegated, 2026-11-16): split the test that expects a duplicate state name
             beside a wrong-kind state; with one decode, list-wide rules run once items decode, and Compile R2 asks only
             for what construction finds.
+        comment     2026-11-16T15:21:44Z
+            Requirements, each an it.fails check red today (acceptance 1): (1) Actors R14 + Compile R14: send accepts
+            E.X's envelope, a DateFromString field checked by its Type side (runtime.test.ts); (2) Compile R2, R4: an
+            uncertain-shaped event with no fields is WrongKind at events.X, not a TypeError; (3) Compile R4: context {
+            c: 5 } is WrongKind at context.c; (4) Compile R2, R4: a null or string handler and a non-name armOn element
+            are WrongKind (construction.test.ts).
+        comment     2026-11-16T15:21:45Z
+            Requirements, continued: (5) Diagnostics I5, R6: a throwing callback is reported Defect, not CallbackDefect
+            (creation.test.ts); (6) Diagnostics I5: a failing services Layer rejects ready() with Defect, not
+            ServiceFailed (runtime.test.ts). Acceptance 2 (one Schema, hand-written shape checks gone) is shown by the
+            diff; acceptance 3 by a planted fault per new refusal. False pass: each refused form has a @ts-expect-error
+            twin in tests/types/.

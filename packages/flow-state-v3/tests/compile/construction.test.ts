@@ -526,6 +526,45 @@ describe("operations map onto this definition's events (Compile R3, R17, I16)", 
     ).toEqual([["InvalidConfiguration", "KeyOutsideInput", "operations.save.key.missing"]]);
   });
 
+  it.fails("Compile R2, R4: a Flow.uncertain-shaped event with no fields is refused WrongKind, never a raw TypeError", () => {
+    expect(
+      refusal(() =>
+        definition(
+          loose({ id: "Compile/NoFields", states: ["A"], events: { X: { "~flow": "uncertain" } } }),
+        ),
+      ),
+    ).toEqual([["InvalidConfiguration", "WrongKind", "events.X"]]);
+  });
+
+  it.fails("Compile R4: a context slot that is not Provider.select's is refused WrongKind", () => {
+    expect(
+      refusal(() =>
+        definition(loose({ id: "Compile/Context", states: ["A"], events: {}, context: { c: 5 } })),
+      ),
+    ).toEqual([["InvalidConfiguration", "WrongKind", "context.c"]]);
+  });
+
+  it.fails("Compile R2, R4: a handler that is null or a bare string, and an armOn element that is neither an event name nor Flow.entry, are refused WrongKind", () => {
+    expect(
+      refusal(() =>
+        machine(Lamp, ({ S, E }) =>
+          loose({
+            default: S.OFF,
+            on: { Flip: null, Dim: "ON" },
+            states: {
+              OFF: { schedules: { off: { schedule: "1 second", send: E.Flip, armOn: [5] } } },
+              ON: { default: S.ON.DIM },
+            },
+          }),
+        ),
+      ),
+    ).toEqual([
+      ["InvalidConfiguration", "WrongKind", "on.Flip"],
+      ["InvalidConfiguration", "WrongKind", "on.Dim"],
+      ["InvalidConfiguration", "WrongKind", "states.OFF.schedules.off.armOn.0"],
+    ]);
+  });
+
   it("an id or persist of the wrong kind is refused WrongKind", () => {
     expect(
       refusal(() => definition(loose({ id: 7, persist: "yes", states: ["A"], events: {} }))),

@@ -94,3 +94,31 @@ void machine(Lamp, ({ S }) => ({
     },
   },
 }));
+
+void machine(Lamp, ({ S }) => ({
+  default: S.OFF,
+  on: {
+    // @ts-expect-error a null handler (Compile R4; construction.test pairs it)
+    Flip: null,
+  },
+}));
+
+void machine(Lamp, ({ S }) => ({
+  default: S.OFF,
+  on: {
+    // @ts-expect-error a bare string handler (Compile R4; construction.test pairs it)
+    Flip: "ON",
+  },
+}));
+
+void machine(Lamp, ({ S, E }) => ({
+  default: S.OFF,
+  states: {
+    OFF: {
+      schedules: {
+        // @ts-expect-error an armOn element that is neither an event name nor Flow.entry (Compile R4)
+        off: { schedule: "1 second", send: E.Flip, armOn: [5] },
+      },
+    },
+  },
+}));

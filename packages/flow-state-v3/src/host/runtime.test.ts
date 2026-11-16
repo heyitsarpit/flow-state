@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { Context, Effect, Layer, Option, Schema } from "effect";
+import { Context, Effect, Exit, Layer, Option, Schema } from "effect";
 import { describe, it } from "vite-plus/test";
 import {
   actorRef,
@@ -123,6 +123,40 @@ describe("Runtime", () => {
     assert.throws(() => door.send({ _tag: "Name", label: 3 }), flowError("InvalidEvent"));
     assert.throws(() => door.send({ _tag: "Rang" }), flowError("InvalidEvent"));
     assert.deepStrictEqual(stateOf(door), Option.some("SHUT"));
+  });
+
+  it.fails("send accepts the envelope E.X built: a transforming field is checked by its Type side, as E.X checks it (Actors R14, Compile R14)", () => {
+    const Clock = definition({
+      id: "Test/Clock",
+      states: ["IDLE", "SET"],
+      events: { At: { at: Schema.DateFromString } },
+    });
+
+    const clock = machine(Clock, ({ S }) => ({ default: S.IDLE, on: { At: S.SET } }));
+    const runtime = runtimeSetup({ app: app({ id: "clock", machines: { clock } }) }).construct();
+    Effect.runSync(runtime.ready());
+    const actor = runtime.ensureActor(actorRef(clock, "c"));
+
+    actor.send(
+      Clock.E.At({ at: Schema.decodeSync(Schema.DateFromString)("1970-01-01T00:00:00Z") }),
+    );
+
+    assert.deepStrictEqual(stateOf(actor), Option.some("SET"));
+  });
+
+  it.fails("a services Layer that fails to build rejects ready() with Defect, a code of the closed list (Diagnostics R6, I5)", () => {
+    const runtime = runtimeSetup({
+      app: doors,
+      services: Layer.effect(Bell, Effect.fail("no bell")),
+    }).construct();
+
+    const exit = Effect.runSyncExit(runtime.ready());
+
+    assert.ok(Exit.isFailure(exit));
+    assert.deepStrictEqual(
+      Option.map(Exit.findErrorOption(exit), (e) => (e instanceof FlowError ? e.code : "")),
+      Option.some("Defect"),
+    );
   });
 
   it("dispose() runs the Runtime's disposal before it closes (Actors R22)", () => {

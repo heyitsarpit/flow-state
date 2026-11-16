@@ -33,3 +33,19 @@ void Flow.initial(Schema.Number, 0);
 
 // @ts-expect-error a field Schema that needs services (Persistence O2)
 void Flow.initial(NeedsRates, 0);
+
+void definition({
+  ...lamp,
+  events: {
+    // @ts-expect-error a Flow.uncertain-shaped event with no fields (Compile R4; construction.test pairs it)
+    X: { "~flow": "uncertain" },
+  },
+});
+
+void definition({
+  ...lamp,
+  context: {
+    // @ts-expect-error a context slot that is not Provider.select's (Compile R4; construction.test pairs it)
+    c: 5,
+  },
+});
