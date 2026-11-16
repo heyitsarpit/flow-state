@@ -4,6 +4,7 @@ import { acknowledgedBeforeSent, oneBatchOut } from "./batches.ts";
 import { everyCommitEndsOnce } from "./commits.ts";
 import { atStart, knownAt, placesOf } from "./places.ts";
 import { oneStart, ownedRowsSaved } from "./starts.ts";
+import { unchangedPartsKept } from "./memory.ts";
 import type { Evidence } from "../../src/host/inspect.ts";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
 import {
@@ -515,56 +516,6 @@ export const publishedPlainData: Rule = {
         ? [`Turn R24: ${e.actor.machine}/${e.actor.name} published memory that is not plain data`]
         : [],
     ),
-};
-
-const memoryOf = (e: Evidence) => (e._tag === "Published" ? e.memory : {});
-
-type Memory = ReturnType<typeof memoryOf>;
-
-// The turns that run no update of their own: an Unhandled, Denied or refused one.
-const runsNoUpdate = (e: Evidence) => e._tag === "Unhandled" || e._tag === "Denied" || isRefusal(e);
-
-/**
- * Turn I30, over one incarnation's consecutive snapshots: a memory field whose content is unchanged
- * is the same object in the next snapshot.
- *
- * **Gotchas**
- *
- * - Judged for snapshots of turns that run no update (Unhandled, Denied, refused): a turn that runs
- *   one may write an equal new value, an application value whose identity is its own (Turn R24).
- */
-export const unchangedPartsKept: Rule = {
-  rule: "Turn I30",
-  breaches: (run) => {
-    const last = new Map<string, Memory>();
-    let quiet = false;
-
-    return run.evidence.flatMap((e, at) => {
-      if (e._tag === "Incarnated") last.delete(nameOf(e.actor));
-
-      if (isTurnStart(e)) quiet = runsNoUpdate(e);
-
-      if (e._tag !== "Published") return [];
-      const who = nameOf(e.actor);
-      const before = last.get(who);
-      const now = memoryOf(e);
-      last.set(who, now);
-
-      return before === undefined || !quiet
-        ? []
-        : Object.keys(now)
-            .filter(
-              (k) =>
-                Predicate.isObjectOrArray(now[k]) &&
-                !Object.is(before[k], now[k]) &&
-                Equal.equals(before[k], now[k]),
-            )
-            .map(
-              (k) =>
-                `Turn I30: ${who}'s memory field ${k} is unchanged but a new object (evidence ${at})`,
-            );
-    });
-  },
 };
 
 /**

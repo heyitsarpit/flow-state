@@ -6,7 +6,7 @@ import { Resolved, runTurn, TurnResult } from "./turn.ts";
 import { chainOf, historyAfter } from "./tree.ts";
 import { isInFlight, ROOT_ACTIVATION, type Tx, without, withEntry } from "./tx.ts";
 import type { Heard, LedgerSteps, Owed } from "./ledger.ts";
-import { actorKey, type Incarnation, type Issue, Mail } from "./world.ts";
+import { type ActorId, actorKey, type Incarnation, type Issue, type Lane, Mail } from "./world.ts";
 import type { LaneSteps } from "./lanes.ts";
 import type { IncarnationSteps } from "./incarnations.ts";
 
@@ -15,6 +15,23 @@ const HEARD: Heard = "Heard";
 const REFUSED: Heard = "Refused";
 
 const UNMAPPED: Heard = "Unmapped";
+
+/**
+ * The activations that own an actor's pending work: each InFlight head and every queued commit,
+ * a queue behind a Held head included. A late turn may not exit any of them.
+ */
+export const pendingOwners = (lanes: Iterable<Lane>, actor: ActorId) => {
+  const owners = new Set<number>();
+
+  for (const lane of lanes)
+    if (actorKey(lane.actor) === actorKey(actor)) {
+      if (isInFlight(lane)) owners.add(lane.head.owner);
+
+      for (const queued of lane.queue) owners.add(queued.owner);
+    }
+
+  return owners;
+};
 
 /**
  * Serving mail: each admitted event or ending runs as one turn.
@@ -89,11 +106,7 @@ export const makeServe = (
 
     if (compiled === undefined) return HEARD;
 
-    const owning = new Set(
-      [...tx.world().lanes.values()].flatMap((l) =>
-        actorKey(l.actor) === actorKey(incarnation.actor) && isInFlight(l) ? [l.head.owner] : [],
-      ),
-    );
+    const owning = pendingOwners(tx.world().lanes.values(), incarnation.actor);
 
     const result = runTurn({
       compiled,

@@ -138,3 +138,8 @@ note 2026-11-16T11:14:10Z
 note 2026-11-16T11:47:48Z
     Actors R5: a singleton's literal name may not start with ~, the prefix local actors (createActor) are named by;
     algorithm: Create admits as Ensure. Why: a local actor never shares a shared identity. Reverse: give ActorId a kind.
+
+note 2026-11-16T12:02:21Z
+    Turn R24: a memory whose fields are all unchanged keeps its object (I30's reading), a state-only move included; only
+    a changed container is copied. Why: R24's 'containers are copied' let a copy pass. Reverse: restore the old R24
+    sentence.

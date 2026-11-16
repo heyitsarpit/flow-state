@@ -211,8 +211,9 @@ requirements
     R24  Snapshot values
         source  @plan.Machines.O8.
         must    Snapshots are deeply frozen plain data. Reading an old snapshot never consults live 
-                lanes. Unchanged parts keep identity across publications; Flow-owned containers are 
-                copied, opaque application values keep identity.
+                lanes. Unchanged parts keep identity across publications, the memory object included
+                when no field changed; a changed Flow-owned container is a new copy, and opaque
+                application values keep identity.
 
     R25  Issues by source
         source  @plan.Machines.O8.

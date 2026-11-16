@@ -67,6 +67,33 @@ describe("creation (Turn R14, T6; Compile R5)", () => {
     expect(run.checkpoints.ensured.read(words)).toBeUndefined();
     expect(issues(run.evidence)).toEqual(["CallbackDefect"]);
   });
+
+  it("Compile R5: a computed start that spreads its fields still may not read a computed one", async () => {
+    const Spread = definition({
+      id: "Creation/Spread",
+      states: ["READY"],
+      events: {},
+      memory: {
+        body: Flow.initial(Schema.String, "hello"),
+        length: Flow.initial(Schema.Number, (fields) => String(fields["body"]).length),
+        double: Flow.initial(Schema.Number, (fields) => Number({ ...fields }["length"]) * 2),
+      },
+    });
+
+    const SpreadMachine = machine(Spread, ({ S }) => ({ default: S.READY }));
+    const spread = actorRef(SpreadMachine, "spread");
+
+    const run = await Story.app(
+      runtimeSetup({ app: app({ id: "spread", machines: { spread: SpreadMachine } }) }),
+      { id: "creation/spread", fixtures: [] },
+    )
+      .ensure(spread)
+      .checkpoint("ensured")
+      .run();
+
+    expect(run.checkpoints.ensured.read(spread)).toBeUndefined();
+    expect(issues(run.evidence)).toEqual(["CallbackDefect"]);
+  });
 });
 
 describe("the outside snapshot (Turn R23)", () => {

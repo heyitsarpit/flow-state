@@ -216,6 +216,45 @@ export const actorFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
+    name: "spread-escapes-computed-guard",
+    tests: ["tests/turn/creation.test.ts"],
+    says: "a computed start that spreads its fields reads a computed field unguarded",
+    rule: "Compile R5",
+    edits: [
+      {
+        file: "src/core/tree.ts",
+        find: "        .map((f) => [f.name, { get: computedRead(f.name), enumerable: true }]),",
+        replace: "        .map((f) => [f.name, { get: computedRead(f.name) }]),",
+      },
+    ],
+  },
+  {
+    name: "late-exit-ignores-queue",
+    tests: ["src/core/serve.test.ts"],
+    says: "a late turn may exit an activation that owns only queued commits",
+    rule: "Turn I27",
+    edits: [
+      {
+        file: "src/core/serve.ts",
+        find: "      for (const queued of lane.queue) owners.add(queued.owner);",
+        replace: "",
+      },
+    ],
+  },
+  {
+    name: "state-move-copies-memory",
+    tests: ["tests/stories/steps.test.ts"],
+    says: "a turn that runs no update copies the memory object, so an unchanged memory loses its identity",
+    rule: "Turn I30",
+    edits: [
+      {
+        file: "src/core/turn.ts",
+        find: "    onNone: () => Result.succeed(input.memory),",
+        replace: "    onNone: () => Result.succeed({ ...input.memory }),",
+      },
+    ],
+  },
+  {
     name: "foreign-handle-accepted",
     tests: ["tests/actors/identity.test.ts"],
     says: "another Runtime's handle is taken as naming this Runtime's actor",

@@ -13,8 +13,8 @@ import {
   oneIdOneInput,
   publishedOnce,
   refusedTurnIssueOnly,
-  unchangedPartsKept,
 } from "./rules.ts";
+import { unchangedPartsKept } from "./memory.ts";
 
 const who = { machine: "Checkout/Pay", name: "checkout-1" };
 
@@ -70,17 +70,31 @@ const published = (memory: Readonly<Record<string, unknown>>) =>
 describe("run rules over crafted runs", () => {
   it("Turn I30: after a Denied turn, an unchanged memory field republished as a new object is a breach; the same object is not", async () => {
     const list = ["a"];
+    const memory = { list };
     const denied = at(1)(Evidence.Denied({ actor: who, event: "Go", reasons: [] }));
-    const kept = await crafted([at(1)(published({ list })), denied, at(1)(published({ list }))]);
+    const kept = await crafted([at(1)(published(memory)), denied, at(1)(published(memory))]);
 
     const copied = await crafted([
-      at(1)(published({ list })),
+      at(1)(published(memory)),
       denied,
       at(1)(published({ list: ["a"] })),
     ]);
 
     expect(unchangedPartsKept.breaches(kept)).toEqual([]);
     expect(unchangedPartsKept.breaches(copied)).toHaveLength(1);
+  });
+
+  it("Turn I30: a memory whose every field is the same value is the same object, after any turn", async () => {
+    const list = ["a"];
+    const moved = at(1)(Evidence.Unhandled({ actor: who, event: "Go" }));
+    const copied = await crafted([at(1)(published({ list })), moved, at(1)(published({ list }))]);
+    const changed = await crafted([at(1)(published({ list })), at(1)(published({ list: [] }))]);
+
+    expect(unchangedPartsKept.breaches(copied)).toHaveLength(1);
+    expect(unchangedPartsKept.breaches(copied)[0]).toContain(
+      "memory is unchanged but a new object",
+    );
+    expect(unchangedPartsKept.breaches(changed)).toEqual([]);
   });
 
   it("WriteLanes I3: an unsent Attempt's unknown Restored outside its actor's start is a breach; at a start it is not", async () => {

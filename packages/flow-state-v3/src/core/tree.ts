@@ -163,13 +163,14 @@ export const create = (compiled: Compiled, input: Values) => {
     if (Option.isSome(start.success)) known.set(field.name, start.success.value);
   }
 
-  // A computed start reads the input and constant fields only: reading a computed one is its defect.
+  // A computed start reads the input and constant fields only: reading a computed one, spread
+  // included, is its defect.
   const read: Values = Object.defineProperties(
     Object.fromEntries(known),
     Object.fromEntries(
       compiled.fields
         .filter((f) => Source.$is("Computed")(f.source))
-        .map((f) => [f.name, { get: computedRead(f.name) }]),
+        .map((f) => [f.name, { get: computedRead(f.name), enumerable: true }]),
     ),
   );
 
