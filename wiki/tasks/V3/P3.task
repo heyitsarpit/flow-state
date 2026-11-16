@@ -380,6 +380,21 @@ tasks
             Bench alone (per turn median/p99 ms): transfers/long 0.031/0.050, pay/long 0.032/0.059, cells/long
             0.028/0.047, sync/long 0.019/0.031, sign-in/long 0.013/0.032, lanes/stress-36 0.033/0.063; stress Stories
             0.020 to 0.089 median.
+        comment     2026-11-16T08:33:50Z
+            PASS (independent check-task at b5b5b174; 4 Haiku sidecars, each finding re-read in code): acceptance 1-4
+            hold; gates by exit code: nub run check 0, suite 539 passed and 7 inverted, test:stress 0, nub run faults 82
+            of 82 with the 10 life faults failing their named targets. R23/I36/I43/I44 not shaped to fit the code:
+            in-bound settles now keep their own ending; at the bound, a trace of PAY-16/on-the-wire shows one Delivered
+            PayUnsure, ended unknown Disposed then unknown Restored at reload (I15's per-incarnation exception), as the
+            old R23 already stated. Non-blocking, routed: (1) a refused disposal batch superseded by a later ticket
+            reports no StorageFailure though R23 says it should; its records ride the next batch, so nothing is lost
+            (code:packages/flow-state-v3/src/core/disposal.ts#answered ignores a ticket it no longer awaits; edge.ts
+            re-dirties it); the Fake cannot script it: T19 decides Spec or code. (2) restore never reads a lane record's
+            mayHaveApplied, so a never-invoked head on disk after a failed disposal write reloads unknown, not NotSent
+            (record.ts): T20. Noted: Spec T24's forget-while-Booting and 11 other reachable admit cells have no
+            public-path test (the literal table test and step.ts's single admit gate cover them); inspect.ts reads
+            world.life._tag although the realization says only admit and isDisposed, and the I42 regex misses it; the
+            verdict-to-FlowError text is built twice (driver.ts check, runtime.ts rejected).
     T19
         title       Durability: persistence edge, write-ahead and the driver (slice 2)
         status      open
@@ -416,6 +431,11 @@ tasks
         comment     2026-11-16T02:34:34Z
             Routed from T54's review: WriteAhead I20's premise that a step drains its mail fails past the 10,000-turn
             drain cap (src/core/serve.ts:238); Queued rows can then sit unsaved at a step's end and a crash loses them.
+        comment     2026-11-16T08:33:58Z
+            Routed from T55's review: a refused disposal batch that a later ticket superseded reports no StorageFailure
+            (Actors R23 says it should); its records ride the next batch, so nothing is lost.
+            code:packages/flow-state-v3/src/core/disposal.ts#answered skips a ticket it no longer awaits; the Fake
+            cannot yet refuse a held batch. Decide Spec or code.
     T20
         title       Durability: restore, owed endings at boot, quarantine and forget (slice 2a)
         status      open
@@ -452,6 +472,10 @@ tasks
             Routed from T18's review: WriteLanes Q7, a displaced Attempt whose lane ends before its call settles loses
             its unknown Restored; pinned as it.fails over the uninterruptible Git fake. Run rule I27 passes on that run,
             so widen a rule to catch it. Q7's text calls T20 write-ahead; T20 is restore.
+        comment     2026-11-16T08:33:58Z
+            Routed from T55's review: restore never reads a lane record's mayHaveApplied
+            (code:packages/flow-state-v3/src/core/record.ts), so a head never invoked, left on disk by a failed disposal
+            write, reloads unknown Restored rather than NotSent; check against Restore R3.
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      open
