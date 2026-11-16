@@ -859,6 +859,11 @@ tasks
             Proof, displaced Attempts on the wire at a reload (WriteAhead I17; WriteLanes Q7): fixture lanes,
             lanes/displaced-on-wire over GitFakeSteadfast (built on call until fixed); red today: it.fails WriteAhead
             I17, a head a plain cancel-policy commit displaced is in no record, so a reload loses it with no ending.
+        comment     2026-11-16T19:18:31Z
+            Resume: tests-first step committed red at 8a866c5b; convergence (gather, proposal, Haiku review, revise) and
+            the build not started. Blocking: bound edge values in samples take the default suite from 17 s to 661 s (mix
+            634 s, lanes pairs 122 s); needs a stress-only edge set or lighter values before gates can pass. Red for T9:
+            Turn I9 double publish in session runs; Stories R3 dispose skipping disposeActor.
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      done
