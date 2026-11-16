@@ -90,21 +90,21 @@ constraints
 verification
     V1  S1: authoring type proofs pass (@plan.Machines.V1, @plan.Operations.V1,
         @plan.EntityDomains.V1, @plan.Testing.V1).
-    V2  S2: diagnostics and structural proofs pass (@plan.Diagnostics.V1 to V4, @plan.Machines.V2).
-    V3  S3: turn, actor, context and lifecycle proofs pass (@plan.Machines.V3 to V9,
-        @plan.Runtime.V1 to V7).
-    V4  S4: read, commit, stream and lane proofs pass (@plan.Operations.V2 to V10).
-    V5  S5: entity domain and property-test proofs pass (@plan.EntityDomains.V2 to V5,
+    V2  S2: diagnostics and structural proofs pass (@plan.Diagnostics.V1 to @plan.Diagnostics.V4, @plan.Machines.V2).
+    V3  S3: turn, actor, context and lifecycle proofs pass (@plan.Machines.V3 to @plan.Machines.V9,
+        @plan.Runtime.V1 to @plan.Runtime.V7).
+    V4  S4: read, commit, stream and lane proofs pass (@plan.Operations.V2 to @plan.Operations.V10).
+    V5  S5: entity domain and property-test proofs pass (@plan.EntityDomains.V2 to @plan.EntityDomains.V5,
         @plan.Testing.V6).
-    V6  S6: persistence proofs pass (@plan.Persistence.V1 to V9).
-    V7  S7: Story, fake, fixture and checkpoint proofs pass (@plan.Testing.V2 to V4, V8);
+    V6  S6: persistence proofs pass (@plan.Persistence.V1 to @plan.Persistence.V9).
+    V7  S7: Story, fake, fixture and checkpoint proofs pass (@plan.Testing.V2 to @plan.Testing.V4, @plan.Testing.V8);
         Testing V5 is removed with models (T1; C77).
-    V8  S8: React proofs pass (@plan.React.V1 to V5).
-    V9  S9: inspection and CLI proofs pass (@plan.Diagnostics.V5, @plan.Inspection.V1 to V7,
-        @plan.CommandLine.V1 to V7).
+    V8  S8: React proofs pass (@plan.React.V1 to @plan.React.V5).
+    V9  S9: inspection and CLI proofs pass (@plan.Diagnostics.V5, @plan.Inspection.V1 to @plan.Inspection.V7,
+        @plan.CommandLine.V1 to @plan.CommandLine.V7).
     V10  S10: SSR, lazy-feature, property and installed-consumer proofs pass
-        (@plan.ServerRendering.V1 to V10, @plan.React.V6, @plan.LazyFeatures.V1 to V7, @plan.Testing.V7,
-        @plan.Package.V1 to V4).
+        (@plan.ServerRendering.V1 to @plan.ServerRendering.V10, @plan.React.V6, @plan.LazyFeatures.V1 to
+        @plan.LazyFeatures.V7, @plan.Testing.V7, @plan.Package.V1 to @plan.Package.V4).
     V11  S11: playback proofs pass (@plan.Testing.V9).
 questions
     Q1  Deferred to build time

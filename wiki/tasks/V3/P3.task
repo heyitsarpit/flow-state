@@ -309,7 +309,7 @@ tasks
             **Why now:** the Runtime's lifecycle is split between `Disposal` in the core and flags in
             `src/host/runtime.ts`, which disagree on early and late calls.
 
-            **Read first:** @spec.Actors (R4, R22, R23),
+            **Read first:** @spec.Actors.R4, @spec.Actors.R22, @spec.Actors.R23,
             code:packages/flow-state-v3/src/core/disposal.ts, code:packages/flow-state-v3/src/host/runtime.ts.
 
             May change: `src/core/`, `src/host/`, `tests/`. Evidence: this Task's comments.

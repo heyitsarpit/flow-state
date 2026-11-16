@@ -1,16 +1,9 @@
 {
   "$schema": "https://unpkg.com/knip@6.34.0/schema.json",
   "workspaces": {
-    "packages/flow-state-rewrite": {
-      "entry": [
-        "src/public/*.ts",
-        "src/**/*.test.ts",
-        "src/**/*.compile.ts",
-        "test/static/*.ts",
-        "scripts/*.mjs"
-      ],
-      "project": ["src/**/*.ts", "test/**/*.ts", "scripts/*.mjs"],
-      "ignoreFiles": ["src/internal/scaffold.ts"]
+    "packages/flow-state-v3": {
+      "entry": ["src/index.ts", "src/host/testing/index.ts", "src/**/*.test.ts", "tests/**/*.ts"],
+      "project": ["src/**/*.ts", "tests/**/*.ts"]
     }
   }
 }

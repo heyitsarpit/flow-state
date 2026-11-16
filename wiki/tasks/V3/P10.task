@@ -45,8 +45,8 @@ tasks
             the route-content rules, peers, `sideEffects`, removed surfaces, InvalidConfiguration help and the full
             tarball proofs.
 
-            **Why now:** no other Task proves @plan.Package.O1 to O3 on the tarball, and T39 runs the check only
-            at release.
+            **Why now:** no other Task proves @plan.Package.O1 to @plan.Package.O3 on the tarball, and T39 runs the
+            check only at release.
 
             **Read first:** @plan.Package.O1, @plan.Package.O2, @plan.Package.O3, @plan.Package.D1, @plan.FlowState.O2.
 

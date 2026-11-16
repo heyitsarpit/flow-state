@@ -76,7 +76,7 @@ tasks
             **Why now:** it is the browser half of the preview cut (the user, 2026-11-12), and until it runs, the fake
             store and fake page that every other test uses are unchecked against the real thing.
 
-            **Read first:** @plan.Persistence.O1, @plan.React.O1, @plan.Pending D9 (`Store` and `storeContract`),
+            **Read first:** @plan.Persistence.O1, @plan.React.O1, @plan.Pending.D9 (`Store` and `storeContract`),
             @task.V3.T19 (write-ahead, checked on `Fake.storage` until this Task) and @task.V3.T28 (completes the
             adapters), the Safari findings in `packages/flow-state-v3/prototypes/safari/RESULTS.md`, and the prototype
             adapter code:packages/flow-state-v3/prototypes/round-14/reality/idb.ts (reference only; the production
@@ -163,7 +163,7 @@ tasks
         comment     2026-11-15T14:33:25Z
             Why is this blocked by @task.V3.T57? No fragment use found; check at the phase rewrite.
         comment     2026-11-15T20:44:53Z
-            Routed from T68: unbuilt type promises of @plan.Operations V1 (an unknown: record without otherwise;
+            Routed from T68: unbuilt type promises of @plan.Operations.V1 (an unknown: record without otherwise;
             key-less members of keyed operations) and O1 (commit select and key values typed as plain records, not
             checked against the contract).
         comment     2026-11-15T21:43:20Z

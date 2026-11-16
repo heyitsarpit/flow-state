@@ -262,15 +262,16 @@ tasks
             proven on a transfers fixture and one Pay Story.
 
             **Why now:** Flow's own tests are to run on its public test tooling, and nothing in production code scripts
-            a run or stands in for a service. This is the first slice of @plan.Testing.O1 to O4; @task.V3.T29 keeps
-            the rest.
+            a run or stands in for a service. This is the first slice of @plan.Testing.O1 to @plan.Testing.O4;
+            @task.V3.T29 keeps the rest.
 
             **Read first:** code:wiki/plans/flow/references/proposals/test-tooling-reuse-2026-11-15.md (the design to
-            build; sections 2, 4 and 5), @plan.Testing.O1 to O4, @spec.Restore (R3, the Pay Story's expected result),
-            @spec.WriteLanes, code:packages/flow-state-v3/src/host/runtime.ts#buildRuntime, `src/host/testing.ts` and
-            `src/host/testing/page.ts` (the seams the Story replaces; deleted by @task.V3.T67). Guides: the reference
-            stories, fakes and tests the P2 card lists. Prior art: commit `14bc60d9`, this Task's first build in the
-            array shape, whose run engine, cut and Pay reload path carry over.
+            build; sections 2, 4 and 5), @plan.Testing.O1 to @plan.Testing.O4, @spec.Restore.R3 (the Pay Story's
+            expected result), @spec.WriteLanes, code:packages/flow-state-v3/src/host/runtime.ts#buildRuntime,
+            `src/host/testing.ts` and `src/host/testing/page.ts` (the seams the Story replaces; deleted by
+            @task.V3.T67). Guides: the reference stories, fakes and tests the P2 card lists. Prior art: commit
+            `14bc60d9`, this Task's first build in the array shape, whose run engine, cut and Pay reload path
+            carry over.
 
             **Risk:** Pay's commit runs on a detached fiber, and what it does when its page is abandoned at a reload is
             unproven. The second risk is types: a fake must keep each service method's argument, success and failure
@@ -363,7 +364,7 @@ tasks
               is no `answer` word and no cast. The fake store has `hold`, `refuse` and `release` (`Fake.storage`).
             - A checkpoint holds the time, `inspect(runtime)` (the public runtime cut, @plan.Inspection.O1), what each
               fake received and its truth, and the store; tests read them only through the Plan's reads: `read(ref)`,
-              `read(server)` (truth), `read(endpoint)` (the calls it received, with status; @plan.Pending D8),
+              `read(server)` (truth), `read(endpoint)` (the calls it received, with status; @plan.Pending.D8),
               `records`, `inspection`, `now`, and `run.evidence` for endings.
             - A dead page's released call or write never completes its waiter: evidence, store records and `inspection`
               are equal before and after the release (the handler may run and truth change, @spec.Stories.R13).
@@ -384,10 +385,11 @@ tasks
               open without a reason.
             - `vp test`, `nub run check` and `nub run lint:rules` pass.
 
-            1. Chain (@spec.Stories R1, R2, R3, I1 to I3): `tests/stories/story.test.ts`: `Story.app(transfersSetup, {
-               id, fixtures })` chains every step word; a fixture Layer counting builds is 0 after two branches from one
-               prefix and 1 per page after `run()`; the prefix's `steps` are unchanged; `run({ steps: s.steps })` equals
-               `s.run()`; `@ts-expect-error` on reading an unknown checkpoint, a duplicate and a widened name.
+            1. Chain (@spec.Stories.R1, @spec.Stories.R2, @spec.Stories.R3, @spec.Stories.I1 to @spec.Stories.I3):
+               `tests/stories/story.test.ts`: `Story.app(transfersSetup, { id, fixtures })` chains every step word; a
+               fixture Layer counting builds is 0 after two branches from one prefix and 1 per page after `run()`; the
+               prefix's `steps` are unchanged; `run({ steps: s.steps })` equals `s.run()`; `@ts-expect-error` on reading
+               an unknown checkpoint, a duplicate and a widened name.
             2. Fixtures cover the contracts (R7, I19): `@ts-expect-error` on a Story with no fixture for `BankApi` and
                on two fixtures of it; `runtimeSetup` has no `Layer<any>` (grep) and a setup without its services Layer
                is a type error; the setup's own services Layer, counting builds, stays at 0 in a run.
@@ -456,8 +458,8 @@ tasks
             and write releases are gated by page liveness and covered by reload.test.ts plus faults dead-page-answered
             and abort-fails-the-waiter. Planted type faults in a scratch copy (no fixture, wrong success type, a fixture
             needing another service) each fail tsc. Pay passes across a reload with no Runtime change. Delivers the
-            first slice of @plan.Testing O1 to O4 and @plan.Inspection O1; still owed: O2's Turns limit and R14's tab
-            seed (T64), Fake.http and exports (T29).
+            first slice of @plan.Testing.O1 to @plan.Testing.O4 and @plan.Inspection.O1; still owed: O2's Turns limit
+            and R14's tab seed (T64), Fake.http and exports (T29).
 
             Judged: refused-turn-reported (Turn I14) is a core rule no tooling test owns, so T64; the fake-only bank
             contract staying green on a dead core is right, as it tests the fixture alone. Builder calls accepted as
@@ -482,8 +484,8 @@ tasks
             passes all 81 hand cases. The old suite's crash sweep, a kill and reload at every step, found three real
             bugs and was deleted with it.
 
-            **Read first:** @spec.WriteLanes (I3, I6, I15, I16), @spec.Turn (I9, I14), @spec.Actors (I30): each rule
-            checks the Spec's wording, exceptions included;
+            **Read first:** @spec.WriteLanes.I3, @spec.WriteLanes.I6, @spec.WriteLanes.I15, @spec.WriteLanes.I16,
+            @spec.Turn.I9, @spec.Turn.I14, @spec.Actors.I30: each rule checks the Spec's wording, exceptions included;
             code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md (sections 3.2, 3.3 and 6),
             code:packages/flow-state-v3/tests/faults.ts, and `tests/bridge/checks/publication.ts` and
             `tests/bridge/checks/disposal.ts` (deleted by @task.V3.T67) for older checks' logic.
@@ -514,7 +516,7 @@ tasks
             - The reload sweep runs every fixture story's `Story.Step` array with a reload inserted at each position
               (`run({ steps })`) and applies the rules. A variant fails only for a rule breach, never for a script
               reason; script faults a reload can cause (a release with nothing held, an unused hold) are skipped and
-              counted. A second variant inserts `reload({ reattach: false })` (@plan.Pending D10), so a boot that fails
+              counted. A second variant inserts `reload({ reattach: false })` (@plan.Pending.D10), so a boot that fails
               to wake owed identities shows.
             - `nub run faults` catches every named fault, the 23 there today included.
         comment     2026-11-15T17:59:51Z
@@ -768,13 +770,13 @@ tasks
             1. a memory field with no source (@plan.Machines.O1, @spec.Compile.R5);
             2. a Schema modifier over a Flow marker (@plan.Machines.O1);
             3. a field Schema that needs services (@plan.Persistence.O2, "incompatible Schemas");
-            4. to 8. a machine adding to its definition (@plan.Machines.O1, @spec.Compile.R14, T11): a state body, a
-               handler event, a state token, an event token and an operation the definition lacks;
+            4. to 8. a machine adding to its definition (@plan.Machines.O1, @spec.Compile.R14, @spec.Compile.T11): a
+               state body, a handler event, a state token, an event token and an operation the definition lacks;
             9. a guard returning false (@plan.Machines.O4, @spec.Compile.T6).
 
             Built, tested elsewhere: a foreign state token as target (code:packages/flow-state-v3/src/machine.test.ts);
-            a setup missing a service (@plan.Runtime.O2, V2) and @task.V3.T63's missing fixture, duplicate fixture,
-            duplicate, widened and unknown checkpoint names and undeclared Story
+            a setup missing a service (@plan.Runtime.O2, @plan.Runtime.V2) and @task.V3.T63's missing fixture, duplicate
+            fixture, duplicate, widened and unknown checkpoint names and undeclared Story
             event (code:packages/flow-state-v3/tests/stories/story.test.ts).
 
             Unbuilt, by owner:
@@ -783,10 +785,10 @@ tasks
               given to check (@plan.Machines.O4).
             - @task.V3.T9: an internal or foreign event sent to a handle (@plan.Machines.O4); a non-public send event
               (@plan.Machines.O1); a runtime string as a singleton's name; a ref of the wrong form or given input
-              (@plan.Runtime.O3, V4).
+              (@plan.Runtime.O3, @plan.Runtime.V4).
             - @task.V3.T57: a foreign event as a schedule's send (@plan.Machines.O1; it compiles today); unfilled ports,
               an acting fragment member outside its fragment, a fragment target leaving its placement
-              (@spec.Compile.R11, T6).
+              (@spec.Compile.R11, @spec.Compile.T6).
             - @task.V3.T21: a contract's services not covering its function's R; a key value missing a
               field (@plan.Operations.O1).
             - @task.V3.T19: persistence without a scope (@plan.Persistence.O1). @task.V3.T58: no `Store`
@@ -800,7 +802,7 @@ tasks
             - @task.V3.T29: the wrong subject kind for a Story constructor, and Story.machine input and
               context (@plan.Testing.O1).
 
-            Rejected: @plan.FlowState D3 ("likely mistakes become type errors") is a principle, not one promise.
+            Rejected: @plan.FlowState.D3 ("likely mistakes become type errors") is a principle, not one promise.
 
             Unbuilt, added for @task.V3.T21 (@plan.Operations.V1): an `unknown:` record without `otherwise`, and
             key-less members of keyed operations. Also routed to T21: commit `select` and key values are typed as plain
@@ -858,8 +860,8 @@ tasks
             - R2 (acceptance 1; @plan.CommandLine.O2 "the same checkpoints"): `story run <id>` prints one line per
               checkpoint step in step order, with that step's trace sequence and each actor's state from the direct
               run's cut; exit 0.
-            - R3 (acceptance 2; @plan.CommandLine.O1, O6): `story list` names each Story in the fixtures' `stories`
-              records once, with its app id, and nothing else.
+            - R3 (acceptance 2; @plan.CommandLine.O1, @plan.CommandLine.O6): `story list` names each Story in the
+              fixtures' `stories` records once, with its app id, and nothing else.
             - R4 (acceptance 2; @plan.CommandLine.O1 "unknown operands fail", O3 exit 2): `story run` and `trace` of an
               unknown id exit 2 with the id on stderr and nothing on stdout; a malformed command exits 2.
             - R5 (acceptance 3): `src/index.ts` and `src/host/testing/index.ts` export no `main`; `package.json` gains

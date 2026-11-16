@@ -27,8 +27,8 @@
     "test": "vp test",
     "test:stress": "node --experimental-strip-types tools/stress/select.test.ts && FLOW_STRESS=1 vp test run packages/flow-state-v3",
     "verify": "nub run check:toolchain && nub run lint:rules && nub run check && nub run test && nub run test:stress && nub run docs:build",
-    "test:coverage": "FLOW_FROZEN=1 vp test run packages/flow-state-rewrite --coverage",
-    "report:unused": "knip --workspace packages/flow-state-rewrite --no-exit-code"
+    "test:coverage": "vp test run packages/flow-state-v3 --coverage",
+    "report:unused": "knip --workspace packages/flow-state-v3 --no-exit-code"
   },
   "devDependencies": {
     "@effect/language-service": "0.87.5",

@@ -338,12 +338,12 @@ outcomes
         the transition.
 
         Endings map to events on the declarer, never at the call site: each operation's outcomes name the events
-        (@plan.Operations.O2, O3, O4). Mapped events run in later ordinary turns. value fires only for a changed
-        confirmed value under Equal.equals, never for predictions or optimistic values.
+        (@plan.Operations.O2, @plan.Operations.O3, @plan.Operations.O4). Mapped events run in later ordinary turns.
+        value fires only for a changed confirmed value under Equal.equals, never for predictions or optimistic values.
 
         Lane-only changes publish captured lanes without running handlers, guards, updates, actions, schedules,
         `restartOn` or `onContext`. Finite work starts only from an accepted transition's actions; operation action
-        semantics are @plan.Operations.O2 and O3 and sending is @plan.Runtime.O4.
+        semantics are @plan.Operations.O2 and @plan.Operations.O3 and sending is @plan.Runtime.O4.
 
         A commit, lookup or retry is owned by the activation of the state its transition names ("self": the handler's
         own state). At admission its ending is current, routed from the active leaf, if that activation is alive;

@@ -251,11 +251,11 @@ outcomes
 
         Persistence and identity.
 
-        Restore and reload are @plan.Persistence.O4 and O6: a first send's capture and acknowledgement are one batch
-        with the turn that committed it, so a kill before it lands restores the state before that turn with no ending;
-        an Attempt acknowledged once restores as unknown { Restored }, delivered once per new incarnation (a reload, or
-        a return after an end); queued commits end NotSent { Restored }; a head whose own ending is parked restores as
-        that ending, never also unknown { Restored }.
+        Restore and reload are @plan.Persistence.O4 and @plan.Persistence.O6: a first send's capture and acknowledgement
+        are one batch with the turn that committed it, so a kill before it lands restores the state before that turn
+        with no ending; an Attempt acknowledged once restores as unknown { Restored }, delivered once per new
+        incarnation (a reload, or a return after an end); queued commits end NotSent { Restored }; a head whose own
+        ending is parked restores as that ending, never also unknown { Restored }.
 
         A persisted identity's commit in a Runtime without persistence ends NotSent { NoPersistence }. Runtime disposal
         is @plan.Runtime.O6 (past its bound an Attempt still on the wire ends unknown { Disposed }).

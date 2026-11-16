@@ -24,10 +24,8 @@ const frozen = [
 // (`nub run test:stress`). tools/stress/select.test.ts checks both selections.
 const stressTests = `${production}/**/*.stress.test.ts`;
 const stressRun = process.env["FLOW_STRESS"] === "1";
-// Frozen packages are never edited and fail on their own, so the default and stress runs skip them;
-// only `nub run test:coverage` (FLOW_FROZEN=1) runs the rewrite package.
-const frozenRun = process.env["FLOW_FROZEN"] === "1";
-const frozenTests = frozenRun ? [] : ["packages/flow-state/**", "packages/flow-state-rewrite/**"];
+// Frozen packages are never edited and fail on their own, so every run skips them.
+const frozenTests = ["packages/flow-state/**", "packages/flow-state-rewrite/**"];
 
 const productionTests = [
   `${productionSource}/**/*.test.{ts,tsx}`,
@@ -326,15 +324,10 @@ export default defineConfig({
     exclude: [...configDefaults.exclude, ...frozenTests, ...(stressRun ? [] : [stressTests])],
     coverage: {
       provider: "v8",
-      include: [
-        "packages/flow-state-v3/src/**/*.ts",
-        "packages/flow-state-v3/tests/**/*.ts",
-        "packages/flow-state-v3/fixtures/**/*.ts",
-        "packages/flow-state-v3/bench/**/*.ts",
-      ],
+      include: ["packages/flow-state-v3/src/**/*.ts"],
       exclude: ["**/test/**", "**/*.compile.ts", "**/*.d.ts"],
       reporter: ["text", "html", "json-summary"],
-      reportsDirectory: "coverage/flow-state-rewrite",
+      reportsDirectory: "coverage/flow-state-v3",
     },
   },
 });

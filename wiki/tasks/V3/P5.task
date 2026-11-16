@@ -130,10 +130,10 @@ tasks
         description
             Complete `layerIndexedDb` from @task.V3.T58's minimal adapter (which already meets Safari's D1 to D4 in
             `packages/flow-state-v3/prototypes/safari/RESULTS.md`): the `database` option, the rest of
-            @plan.Persistence.O1 and O3. Extract the Story's in-memory store as `layerMemory`, the production in-memory
-            store, which `Fake.storage` then wraps with its hold, refuse and release controls.
+            @plan.Persistence.O1 and @plan.Persistence.O3. Extract the Story's in-memory store as `layerMemory`, the
+            production in-memory store, which `Fake.storage` then wraps with its hold, refuse and release controls.
 
-            **Read first:** @plan.Persistence.O1, @task.V3.T58, @plan.Pending D9,
+            **Read first:** @plan.Persistence.O1, @task.V3.T58, @plan.Pending.D9,
             and `packages/flow-state-v3/prototypes/safari/RESULTS.md`.
         acceptance
             Both adapters pass the store contract test of @task.V3.T58, the IndexedDB one in real Chrome and Safari.
@@ -188,8 +188,8 @@ tasks
             through the map @task.V3.T23 added. Tab steps move to @task.V3.T27; hydration, `StoryPlayer` and
             `definePresentation` to @task.V3.T30.
 
-            **Read first:** @plan.Testing.O1, @plan.Pending (D5 to D10, the names the first slice added), @spec.Stories,
-            @task.V3.T63, @task.V3.T69, @task.V3.T70.
+            **Read first:** @plan.Testing.O1, @plan.Pending.D5 to @plan.Pending.D10 (the names the first slice added),
+            @spec.Stories, @task.V3.T63, @task.V3.T69, @task.V3.T70.
         acceptance
             Every outcome this Task satisfies holds on production, and the `flow-state/testing` route is exported.
         comment     2026-11-16T06:19:55Z
@@ -242,7 +242,7 @@ tasks
         description
             Write the bindings' Specs, then build the React and Next.js bindings from @plan.React and
             @plan.ServerRendering, with the Story `hydrate` path, `StoryPlayer` and `definePresentation`
-            (@plan.Testing.O7, O9).
+            (@plan.Testing.O7, @plan.Testing.O9).
 
             **Read first:** @plan.React.O1, @plan.ServerRendering.O1.
         acceptance
