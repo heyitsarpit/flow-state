@@ -440,6 +440,55 @@ tasks
             Routed from T55's review (orchestrator): add public-path Stories for the 12 reachable admit cells without
             one (Spec T24 forget-while-Booting among them), and make inspect.ts read life through admit or isDisposed so
             the I42 check covers it.
+        comment     2026-11-16T08:57:02Z
+            Requirements (first commit), acceptance item 1, R-1: WriteAhead I15 (R13): a persisted identity's Attempt is
+            sent only after a landed batch acknowledging it. Check: run rule acknowledgedBeforeSent over Fake.storage's
+            batches; red today because a batch carries no issue or answer step.
+        comment     2026-11-16T08:57:02Z
+            R-2: WriteAhead I23 (R12): one batch out per Runtime; a batch is issued only once the one before it
+            answered. Check: run rule oneBatchOut over Fake.storage's batches (same tooling gap); the T70 it.fails for
+            I23 was flipped in T54, so nothing is left pinned.
+        comment     2026-11-16T08:57:03Z
+            R-3: WriteAhead R5, I24: a head back in Held has a lane record with inFlight false: a re-send whose capture
+            is refused, and a boot that restores an in-flight head Held. Check: Story test write-ahead-records 'refused
+            re-send capture' (red) and the trace.test it.fails flipped.
+        comment     2026-11-16T08:57:03Z
+            R-4: WriteAhead R13 (WriteLanes I7, known bug): the capture a re-send waits for carries the retryCount it
+            will carry. Check: Story test 'resend-capture-count' (red: the record says 0) and lane-anchors'
+            it.fails flipped.
+        comment     2026-11-16T08:57:03Z
+            R-5: WriteAhead I12 (R10, R12): a refused batch's records go out again within the capture interval with no
+            other input. Check: Story test 'refused-then-quiet' (red: the actor record never lands).
+        comment     2026-11-16T08:57:03Z
+            R-6: Actors I37 with WriteAhead I23 (known bug, no reproduction): a free actor ends at its grace while a
+            batch is out, and a landed batch discharges only what it carried. Check: Story test 'end-while-out' (green
+            today) plus a planted fault that discharges every dirty write.
+        comment     2026-11-16T08:57:03Z
+            R-7: WriteAhead I21: every identity whose entry a step changed has its record written; a schedule firing no
+            state handles drops the schedule with no write. Check: Story test 'unhandled-firing' (red).
+        comment     2026-11-16T08:57:04Z
+            R-8: WriteAhead I20 past the drain cap: a row owed to the identity still Queued or Retrying at a step's end
+            is in its owed record. Check: core test owed-record.test.ts (red: no owed write). Serving the backlog
+            promptly is routed to T9 (turn storms).
+        comment     2026-11-16T08:57:04Z
+            R-9: Actors R23 vs WriteAhead R12, a superseded refused disposal batch: decide by Spec edit, no code; the
+            reading that loses no ending keeps waiting for the last write, which carries the refused records. Check: the
+            Spec text; the Fake cannot refuse a held batch.
+        comment     2026-11-16T08:57:04Z
+            R-10: Actors I42, T24 (routed from T55): Stories through the public Runtime calls for the 11 reachable admit
+            cells with none (Start, Ensure, Forget, DisposeActor x Booting; Forget, DisposeActor x Failed; Start,
+            Forget, DisposeActor, DisposeRuntime x Disposing; BootFailed x Disposed), and inspect.ts reads the life
+            through core/life.ts so the I42 source check bans life tags in host.
+        comment     2026-11-16T08:57:04Z
+            R-11: WriteLanes R14 wording (routed from P2): the pair sweep's Cancelling reason is reworded to what R14
+            says (the ending is queued when the fiber exits; the fake's calls exit at once). Out of this slice, owners
+            named: Store as its own service, R1's scope type and the store contract (T58); mayHaveApplied and restore
+            (T20); R8, R11 features (P5).
+        comment     2026-11-16T08:57:11Z
+            Sidecars logged: coverage map accepted (I15, I23 had only Story tests over the store, no run rule);
+            adversary 1, 3, 4, 5 accepted as R-3, R-4, R-8, R-7 after replay, 2 accepted as R-5, 6 rejected (already
+            pinned by policy-cells' WriteLanes R10 it.fails), 7 changed into the Spec reading R-9, 8 routed to T58;
+            admit sweep accepted as R-10, each cell re-checked in its test.
     T20
         title       Durability: restore, owed endings at boot, quarantine and forget (slice 2a)
         status      open
