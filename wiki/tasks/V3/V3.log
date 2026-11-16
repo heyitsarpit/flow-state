@@ -748,3 +748,7 @@ note 2026-11-16T20:12:18Z
 note 2026-11-16T20:15:14Z
     Amendment (2026-11-17, the user): coverage before fixes and reviews; T82 runs first, T9 round 3 paused, then T9,
     T20's close and T81 fix against the full fixtures. Commit: 4da9ae96.
+
+note 2026-11-16T20:15:47Z
+    T82 lead started (step 1: manifests, then every fixture grown into its catalog app, scenarios red first). T9 paused
+    before any edit, resume note on T9; T20 held; both resume after T82.
