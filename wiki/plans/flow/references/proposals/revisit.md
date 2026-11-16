@@ -106,3 +106,12 @@ Deferred items.
   tried and reverted in A2 (thin 2 to 3, a usual script among them).
 - **`cancelAll`** (2026-11-12, the user, wide consult W1 K0; deferred). Neither reference app uses it. If it returns,
   K1 (its own member, typed only on queuing policies) over K2 (`cancel(key, { queued: true })`).
+- **Cross-tab sync** (2026-11-16, the user;
+  [ui-primitives-decisions-2026-11-16.md](ui-primitives-decisions-2026-11-16.md) Q7). Stays out of version 1
+  (@plan.FlowState.C2, @plan.Persistence.O7); the recommendations there are recorded, not merged. Uses: theme and
+  preferences, sign-out, a cart badge, unread counts, feature flags. Interim convention: host code sends user changes
+  out with `emit` and `actor.onEmit`, takes another tab's in with `send` of a Schema-decoded event, and only user
+  events emit, so nothing echoes. Prior art: TanStack Query's `broadcastQueryClient`.
+- **Rebuild the docs' guides from `wiki/conventions/`** (2026-11-16, the user; `conventions-2026-11-16.md` decision 4).
+  `apps/docs/src/pages/guide/patterns.md` and `recipes.md` teach the old API (`flow.after`, `submit`, `useResource`);
+  leave them until the API the conventions use is built, then rebuild each guide from its page.
