@@ -772,3 +772,7 @@ note 2026-11-16T20:18:55Z
 note 2026-11-16T20:24:19Z
     Amendment (2026-11-17, the user): the catalog is a task list; leads mark each scenario built or left with its later
     Task and needed feature, none unmarked. Commit: 583bf794.
+
+note 2026-11-16T20:28:52Z
+    Amendment (2026-11-17, the user): catalog scenarios and linked tests are guidance; the lead targets proper coverage
+    and may add, reshape or replace scenarios, writing each back as an item. Commit: 4ab72494.
