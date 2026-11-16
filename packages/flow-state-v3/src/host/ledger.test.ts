@@ -19,12 +19,12 @@ const tried = (jam: Jam) => {
 
 // A persisted keyed write: each ring is answered by the test through `Bell`, and `counts` keeps
 // the retryCount each send carried.
-const tollOver = (jam: Jam, counts: Array<number>) => {
+const tollOver = (jam: Jam, counts: Array<number>, concurrency: "reject" | "cancel" = "reject") => {
   const toll = transaction({
     id: "Test/toll",
     input: { tone: Schema.String.check(Schema.isNonEmpty()) },
     key: ["tone"],
-    concurrency: "reject",
+    concurrency,
     services: [Bell],
     commit: (_input, { attempt }) => {
       counts.push(attempt.retryCount);
@@ -378,6 +378,40 @@ describe("the owed ledger on the production runtime", () => {
       );
     },
   );
+
+  // A Kept row blocks its key under reject (R6), but under the cancel policy the newer commit wins:
+  // the lane's Kept rows are let go, recorded letGo, and the commit mints (WriteLanes Q5's ruling).
+  for (const [concurrency, minted, letGo, rejected] of [
+    ["reject", 1, 0, 1],
+    ["cancel", 2, 1, 0],
+  ] as const)
+    it(`a commit on a key with a Kept row under ${concurrency}: ${concurrency === "cancel" ? "the row is let go and the commit mints" : "declines Rejected"} (WriteLanes R6, Q5)`, () => {
+      const jam: Jam = { on: true, tries: [] };
+      const { served } = tollOver(jam, [], concurrency);
+      const b = bootWith(served, new Map(), 1);
+
+      testing.attach(b.built, tolls, "host", false);
+      ring(b, "a");
+      rung(b, lastRing(b));
+      assert.strictEqual(jam.tries.length, 2, "the success is refused twice: one Kept row");
+
+      ring(b, "a");
+
+      const count = (p: (e: Evidence) => boolean) => b.seen.filter(p).length;
+
+      assert.strictEqual(
+        count((e) => e._tag === "Minted"),
+        minted,
+      );
+      assert.strictEqual(
+        count((e) => e._tag === "Recorded" && e.why === "letGo"),
+        letGo,
+      );
+      assert.strictEqual(
+        count((e) => e._tag === "Ended" && e.channel === "notSent" && e.reason === "Rejected"),
+        rejected,
+      );
+    });
 
   // A Kept row (a success refused twice; its lane is Idle, so no Restored joins it) gets one
   // try at each start and is Kept again when refused (Actors R15, I24); once the jam clears it is
