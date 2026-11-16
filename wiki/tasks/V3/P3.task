@@ -1081,6 +1081,22 @@ tasks
             fix: a deferred update moves to its mailbox's end (R19 FIFO place); the return's wave skips the settling
             gate; settling is unmemoised per path; rollback keeps persist's touched tickets; Story steps and context
             refs skip ForeignActorRef.
+        comment     2026-11-16T15:18:48Z
+            Second fix round closed at 29ee510f: check 0, suite 733 + 2 inverted, stress 29, generated over 20 more
+            seeds (mix included) green, faults 185 of 185 by their targets in 47 s. Bench: transfers/long 0.040/0.058,
+            pay/long 0.050/0.076, lanes/stress-36 0.050/0.083, player/stress-36 0.078/0.223 ms per turn.
+        comment     2026-11-16T15:18:48Z
+            Convergence on context persistence: an actor record saves each slot's last-seen value; every start from a
+            record compares against it (in this Runtime or after a reload) and owes one wave only on a real difference,
+            through the mailbox with the settling gate, its events taking the update's place; the in-memory ended copy
+            no longer carries context. A deferred update keeps its place; settling is memoised; a capped context update
+            waits (@plan.Pending.D13); rollback restores persist's touched; the Parked skip rejoins on Unparked; context
+            and Story refs check ForeignActorRef. Not covered by a check: the deferred update's place (no fixture queues
+            mail behind it in one step).
+        comment     2026-11-16T15:18:48Z
+            For the user's page, second round: a screen that comes back after a reload now hears about anything its
+            context changed while it was gone, and stays quiet when nothing did; long context chains never lose an
+            update at the 64-follow-up limit, the update runs once the chain ends.
 
     T74
         title       App mix: several fixtures in one Runtime
