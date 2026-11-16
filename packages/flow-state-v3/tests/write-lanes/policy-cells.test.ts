@@ -227,6 +227,31 @@ it("serialize: 64 commits wait behind the head and the next declines NotSent Ove
   expect(rowAt(run.checkpoints.after, "serialize")).toBeUndefined();
 });
 
+// A reload hears the lane's queued commits NotSent Restored, then its head's unknown Restored
+// (Restore R3; Operations O3; Persistence O4); under cancel a displaced head a cancel was pending
+// on is heard unknown Restored too (WriteLanes R10: every admitted commit ends).
+for (const [policy, sends, want] of [
+  [
+    "serialize",
+    [commit, commit, commit],
+    ["notSent Restored", "notSent Restored", "unknown Restored"],
+  ],
+  ["latest", [commit, commit], ["notSent Restored", "unknown Restored"]],
+  ["cancel", [commit, { _tag: "CancelCommit", ...FLOW }], ["unknown Restored", "unknown Restored"]],
+] as const)
+  it(`${policy}: a reload with commits waiting ends each one Restored, once (Restore R3; WriteLanes R10)`, async () => {
+    const client = clients[policy];
+
+    const sent = sends.reduce<Story>(
+      (s, event) => s.send(client, event),
+      lanesStory(`lane-cells/${policy}-reload`).ensure(client).world(Git.sync.hold()),
+    );
+
+    const run = await played(sent.reload().ensure(client).advance("1 second").checkpoint("after"));
+
+    expect(seen(run.evidence).filter((e) => e.endsWith("Restored"))).toEqual(want);
+  });
+
 it("serialize: queued commits end NotSent Disposed when the Runtime's disposal starts, and none is promoted (WriteLanes algorithm, disposal)", async () => {
   const run = await played(
     lanesStory("lane-cells/serialize-disposed")
