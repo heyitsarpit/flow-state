@@ -845,6 +845,10 @@ tasks
             memory object keeps identity on a state-only move (its planted fault was removed in T17); a late turn may
             exit an activation owning a queued commit (Turn R21, I27; serve.ts owning reads InFlight heads
             only, pre-T17).
+        comment     2026-11-16T11:26:19Z
+            Routed from T17's fix-round review: an issue raised by a schedule drops the schedule's name at creation and
+            turn time (incarnations.ts loop, serve.ts Refused), which Diagnostics R5 asks for; computed-field guard
+            getters are non-enumerable, so a callback that spreads its fields escapes the guard and gets NaN.
 
     T72
         title       UI primitives, second wave: toaster and menu fixtures

@@ -464,3 +464,7 @@ note 2026-11-16T11:19:08Z
 note 2026-11-16T11:22:10Z
     T74 in review at e1690a2f; its review waits on T17's. Shrink for acceptance 3 is weak (4 to 3 fixtures, 100 draws to
     61 steps), for the review to judge. No Task is ready to build until T17 or T19 closes.
+
+note 2026-11-16T11:26:20Z
+    T17 fix-round review PASS (c63e3e7a); T17 stays in review, its close held by the unread pages. T9 started on T17's
+    reviewed code; T74's review waits for the 5-hour reset (80% now).
