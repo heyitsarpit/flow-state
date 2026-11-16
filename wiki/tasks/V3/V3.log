@@ -810,3 +810,8 @@ note 2026-11-16T22:31:48Z
 note 2026-11-16T22:32:06Z
     T9 round 3 lead started at e1b9f1ab against T82's fixtures; it owns the Turn I9 reds and the Stories R3 and Turn I14
     inverted tests T82 routed.
+
+note 2026-11-16T23:25:52Z
+    T9 in review at 2878d90d: one Opus review lead, four Haiku sidecars (one blind); it judges the follow-up cap's
+    removal (Pending D13 rewritten), the Turn I9 fix, and names an owner for mix.stress seed 18. specs.log stamp fixed
+    (10884627).
