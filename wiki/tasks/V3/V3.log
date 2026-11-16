@@ -732,3 +732,7 @@ note 2026-11-16T19:56:16Z
     Fixture catalog committed after an independent review (ISSUES, all fixed): 16 apps, additive growth, an 18-step
     migration plan. T82 created for step 1 (after T9, T20; before T57); 13 Tasks' fixtures lines now point at their
     steps.
+
+note 2026-11-16T19:56:29Z
+    T20 resumed after the catalog commit (f9578f28). Its two public outcome changes go to the user as before and after;
+    the lead finishes gates and inverted tests meanwhile.
