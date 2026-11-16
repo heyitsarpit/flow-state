@@ -411,3 +411,7 @@ note 2026-11-16T09:11:24Z
 note 2026-11-16T09:22:20Z
     T19 requirements review ISSUES: three accepted (an unencodable actor record dropped while its lane writes go; hide
     flush unchecked; inspect reads life by tag), sent to T19's builder; close review waits for it.
+
+note 2026-11-16T09:30:18Z
+    T19 close review started at 366dcaa2: one Opus reviewer, four Haiku sidecars (one blind); covers four Spec changes
+    and the test-tooling changes. T20 waits on it.
