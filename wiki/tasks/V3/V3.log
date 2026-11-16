@@ -456,3 +456,7 @@ note 2026-11-16T11:08:29Z
 note 2026-11-16T11:11:33Z
     Wake: weekly 10%, 5-hour 73%. T74's requirements review is held until T74 resumes, so T17's fix round keeps the
     5-hour room; faults 48 s at HEAD (limit 56). test:stress red at e3fd92b0 from T74's checkpoint, noted on T74.
+
+note 2026-11-16T11:19:08Z
+    T17 back in review at 59cb006e (both blockers fixed; history follows SCXML, Turn R4 edited); fix-round review
+    started. T74 resumed to its close. T17's close is also held: T19's and T54's pages are unread.
