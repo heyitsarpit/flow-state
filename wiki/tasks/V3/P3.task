@@ -594,7 +594,7 @@ tasks
             UnencodableValue report, and the realization's 'not built yet' is a gap written into the Spec.
     T20
         title       Durability: restore, owed endings at boot, quarantine and forget (slice 2a)
-        status      open
+        status      in_progress
         priority    high
         blocked_by  [@T19]
         satisfies   [@plan.Inspection.O2, @plan.Persistence.O4, @plan.Persistence.O5]
@@ -937,6 +937,9 @@ tasks
             stop counting endings toward the 64; the False pass is unmet (mailbox order only in one two-actor,
             endings-only Story, no order rule on generated runs); guards and updates without context (Turn R12): fix or
             it.fails; the boot-restored override wiring: it.fails, owner @task.V3.T20.
+        comment     2026-11-16T13:43:18Z
+            Orchestrator: the fix round queues behind T20 (one builder; T20 is earlier in P3's Order). R13's Spec edit
+            contradicts Runtime.plan O4: restore the adding turn's refusal, or file a Pending decision with two traces.
 
     T74
         title       App mix: several fixtures in one Runtime

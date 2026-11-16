@@ -523,3 +523,8 @@ note 2026-11-16T13:33:50Z
 note 2026-11-16T13:42:53Z
     T74 back in review at d82e3fa7 (two-fixture fault, shrink to pay and lanes); its fix-round review queues behind
     T9's. T20 started on T19's reviewed code.
+
+note 2026-11-16T13:43:19Z
+    T9 close review ISSUES (18af9e82): two blockers (diamond context wave makes up a mixed event, Actors R19; a revived
+    persisted consumer misses its wave, R18) plus R13 against Runtime O4. Fix round queues behind T20. For the user:
+    four API mismatches with the merged Plans, listed on T9.

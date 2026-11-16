@@ -110,6 +110,10 @@ tasks
             retried in a loop against the 5 s rule; and a refused batch's put-back records can be stale when the store
             holds then refuses, which the Fake cannot do yet. Check both with the store contract and the
             visibility flush.
+        comment     2026-11-16T13:43:18Z
+            Routed from T9's close review: getSnapshot builds a new object on every read and outside() copies memory for
+            machines with private fields, which breaks useSyncExternalStore's same-value contract; cache the snapshot
+            per published turn.
     T57
         title       Machine structure: fragments, .each, subject paths and schedules (slice 3b)
         status      draft
