@@ -177,3 +177,11 @@ note 2026-11-16T14:24:40Z
 note 2026-11-16T14:38:44Z
     Actors R13 restored to Runtime O4: the turn that would add the 65th follow-up is refused and undone; only events and
     context updates count. Why: T9 review; the earlier edit dropped a context update. Reverse: none.
+
+note 2026-11-16T14:57:40Z
+    Stories R11 adds Fake.storage.refuseLoad() and put(key, text), with raw keys: put stands for records Flow's key
+    builder never makes (foreign, corrupt, other formats). Reverse: drop the two words.
+
+note 2026-11-16T14:58:46Z
+    Codec R4: a commit declines Unencodable when its persisted lane's record, with it queued, would pass a bound; owed
+    rows past a bound together save their largest values as null. Only an actor record withholds (WriteAhead I21).

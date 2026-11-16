@@ -2,7 +2,7 @@ import { Equal, Option, Predicate, Schema } from "effect";
 import { expect } from "vite-plus/test";
 import { acknowledgedBeforeSent, oneBatchOut } from "./batches.ts";
 import { acknowledgedHeardAgain, everyCommitEndsOnce } from "./commits.ts";
-import { recordKinds } from "./records.ts";
+import { onlyActorsWithheld, recordKinds } from "./records.ts";
 import { atStart, knownAt, placesOf } from "./places.ts";
 import { oneStart, ownedRowsSaved } from "./starts.ts";
 import { mailboxOrder } from "./mailbox.ts";
@@ -562,6 +562,7 @@ export const rules: ReadonlyArray<Rule> = [
   everyCommitEndsOnce,
   acknowledgedHeardAgain,
   recordKinds,
+  onlyActorsWithheld,
   acknowledgedBeforeSent,
   oneBatchOut,
   mailboxOrder,

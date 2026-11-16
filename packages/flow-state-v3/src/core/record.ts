@@ -93,8 +93,9 @@ const jsonOf = (json: Schema.Codec<Values, Values>, value: Values) =>
   Result.mapError(Schema.encodeUnknownResult(json)(value), () => "schema");
 
 /**
- * An identity's saved rows as canonical text, in owed order; a value with no canonical form keeps
- * `null`.
+ * An identity's saved rows as canonical text, in owed order, with how many values it gave up: a
+ * value with no canonical form keeps `null`, and when the rows together pass a codec bound their
+ * largest values are saved as `null`, one by one, until the record fits (`dropped`).
  */
 export const encodeOwed = (
   actor: ActorId,
@@ -103,21 +104,41 @@ export const encodeOwed = (
       readonly kept: boolean;
     }
   >,
-) =>
-  textOf({
-    format: FORMAT,
-    machine: actor.machine,
-    name: actor.name,
-    rows: rows.map((r) => ({
-      operation: r.operation,
-      lane: Option.getOrNull(r.lane),
-      attempt: Option.getOrNull(r.attempt),
-      channel: r.channel,
-      reason: r.reason,
-      value: Result.getOrElse(toCanonicalJson(r.value), () => null),
-      kept: r.kept,
-    })),
-  });
+) => {
+  const values = rows.map((r) => Result.getOrNull(toCanonicalJson(r.value)));
+
+  // The values' sizes, largest first: a record past a bound gives up its largest values first.
+  const largest = values
+    .map((v, at) => ({ at, size: Result.getOrElse(encodeCanonical(v), () => "").length }))
+    .toSorted((a, b) => b.size - a.size)
+    .map((v) => v.at);
+
+  const recordWithout = (dropped: ReadonlySet<number>) =>
+    textOf({
+      format: FORMAT,
+      machine: actor.machine,
+      name: actor.name,
+      rows: rows.map((r, at) => ({
+        operation: r.operation,
+        lane: Option.getOrNull(r.lane),
+        attempt: Option.getOrNull(r.attempt),
+        channel: r.channel,
+        reason: r.reason,
+        value: dropped.has(at) ? null : values[at],
+        kept: r.kept,
+      })),
+    });
+
+  let attempt = recordWithout(new Set());
+  let dropped = 0;
+
+  while (Result.isFailure(attempt) && dropped < largest.length) {
+    dropped += 1;
+    attempt = recordWithout(new Set(largest.slice(0, dropped)));
+  }
+
+  return Result.map(attempt, (text) => ({ text, dropped }));
+};
 
 /**
  * An incarnation's record as canonical text: its state, its memory encoded by the machine's

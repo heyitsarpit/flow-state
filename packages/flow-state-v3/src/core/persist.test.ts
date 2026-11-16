@@ -108,6 +108,41 @@ it("WriteAhead I20: a row owed to the identity and still Queued at a step's end 
   ]);
 });
 
+it("Codec R4, WriteAhead I21: owed values that fit alone but not together are saved as null with UnencodableValue, and the identity is not withheld", () => {
+  const { tx, persistence, ledger } = stepOver();
+
+  // Twelve values of 200,000 characters: each encodes alone, together they pass 2,097,152 bytes.
+  for (const n of Array.from({ length: 12 }, (_, i) => i))
+    ledger.owe({
+      actor,
+      to: Audience.Identity(),
+      operation: "ring",
+      attempt: Option.some(`att-${n}`),
+      lane: Option.none(),
+      channel: "success",
+      reason: "Success",
+      value: { receipt: "r".repeat(200_000) },
+      owner: ROOT_ACTIVATION,
+      current: true,
+    });
+  persistence.project();
+
+  const owed = tx
+    .out()
+    .commands.flatMap((c) => (Command.$is("Persist")(c) ? c.writes : []))
+    .filter((w) => w.key === `owed/${actorKey(actor)}`);
+
+  const reports = tx.out().evidence.filter((e) => e._tag === "Reported");
+
+  expect(tx.world().withheld.size).toBe(0);
+  expect(
+    owed.map((w) =>
+      Option.map(w.record, (r) => Schema.decodeUnknownSync(OwedRows)(jsonOf(r)).rows.length),
+    ),
+  ).toEqual([Option.some(12)]);
+  expect(reports).toEqual([expect.objectContaining({ code: "UnencodableValue" })]);
+});
+
 const OwedRows = Schema.Struct({
   rows: Schema.Array(Schema.Struct({ attempt: Schema.NullOr(Schema.String) })),
 });

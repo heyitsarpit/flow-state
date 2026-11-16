@@ -1,6 +1,7 @@
 import { expect } from "vite-plus/test";
 import { stories as cells } from "../../fixtures/cells/stories.ts";
 import { stories as palette } from "../../fixtures/command-palette/stories.ts";
+import { stories as lanes } from "../../fixtures/lanes/stories.ts";
 import { stories as numberInput } from "../../fixtures/number-input/stories.ts";
 import { stories as pay } from "../../fixtures/pay/stories.ts";
 import { stories as signIn } from "../../fixtures/sign-in/stories.ts";
@@ -26,6 +27,7 @@ export const fixtureStories: ReadonlyArray<Story<string>> = [
   ...Object.values(transfers),
   ...Object.values(palette),
   ...Object.values(numberInput),
+  ...Object.values(lanes),
 ];
 
 // Script faults a reload can cause: a word that finds nothing held, or a hold no call uses.

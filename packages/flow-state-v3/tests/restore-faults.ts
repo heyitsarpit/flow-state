@@ -58,6 +58,46 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
+    name: "boot-wakes-in-flight-only-swept",
+    tests: ["tests/rules/sweep-unattached.test.ts"],
+    says: "the same fault as boot-wakes-in-flight-only, shown to the reload sweep: a reload over a Held head with a queued commit leaves its identity asleep",
+    rule: "Restore I1",
+    edits: [
+      {
+        file: "src/core/incarnations.ts",
+        find: ".filter((l) => l.inFlight || l.endings.length > 0)",
+        replace: ".filter((l) => l.inFlight)",
+      },
+    ],
+  },
+  {
+    name: "commit-past-record-bound-admitted",
+    tests: [UNENCODABLE],
+    says: "a commit is checked on its input alone, so a queue past the lane record's bound withholds the identity for good",
+    rule: "Codec R4",
+    edits: [
+      {
+        file: "src/core/lanes.ts",
+        find: "    if (!fits(incarnation.actor, operation.name, id, { input, owner })) {",
+        replace:
+          "    if (!fits(incarnation.actor, operation.name, id, { input, owner }) && id === `never`) {",
+      },
+    ],
+  },
+  {
+    name: "owed-values-withhold",
+    tests: ["src/core/persist.test.ts"],
+    says: "owed rows whose values pass a bound together withhold their identity instead of saving the largest as null",
+    rule: "WriteAhead I21",
+    edits: [
+      {
+        file: "src/core/record.ts",
+        find: "  while (Result.isFailure(attempt) && dropped < largest.length) {",
+        replace: "  while (Result.isFailure(attempt) && dropped < 0) {",
+      },
+    ],
+  },
+  {
     name: "displaced-lost-with-its-lane",
     tests: ["tests/write-lanes/policy-cells.test.ts"],
     says: "a lane that goes Idle drops its record while a displaced Attempt's ending is still owed",
@@ -245,19 +285,6 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     says: "an array of any length encodes",
     rule: "Codec I2",
     edits: [{ file: "src/core/codec.ts", find: "  items: 4096,", replace: "  items: 1_000_000," }],
-  },
-  {
-    name: "commit-past-bound-admitted",
-    tests: [UNENCODABLE],
-    says: "a commit whose input is past a codec bound is admitted, and its lane record can never be saved",
-    rule: "Codec R4",
-    edits: [
-      {
-        file: "src/core/lanes.ts",
-        find: "      Result.flatMap(Schema.encodeUnknownResult(operation.inputJson)(input), encodeCanonical),",
-        replace: "      Schema.encodeUnknownResult(operation.inputJson)(input),",
-      },
-    ],
   },
   {
     name: "silent-while-withheld",

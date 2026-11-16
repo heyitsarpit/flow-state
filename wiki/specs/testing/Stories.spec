@@ -127,9 +127,13 @@ requirements
         must    Every run has one `Fake.storage`, shared by every open of its tab. A write lands at once unless a
                 storage word was given: `Fake.storage.hold()` holds the next write until `Fake.storage.release()`,
                 which lands the oldest held write of the live tab and answers it, or until a reload ends its tab
-                (R13); `Fake.storage.refuse()` makes the next write fail StoreRefused, landing nothing. Every write 
-                batch is logged with its tab, purpose, keys and status: held, landed,
-                refused or aborted.
+                (R13); `Fake.storage.refuse()` makes the next write fail StoreRefused, landing nothing.
+                `Fake.storage.refuseLoad()` makes the next open's load fail StoreRefused. `Fake.storage.put(key,
+                text)` writes text under a key of the store at once, as another release or a damaged disk would
+                leave it; key and text are raw strings, since the records it stands for (foreign, corrupt, of
+                another format) are the ones no key builder makes, and a Story's run rules leave them unjudged.
+                Every write batch is logged with its tab, purpose, keys and status: held, landed, refused or
+                aborted.
 
     R12  A checkpoint is a cut
         source  @plan.Testing.O4; @plan.Inspection.O1; @plan.Pending.D8.

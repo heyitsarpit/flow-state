@@ -10,7 +10,7 @@ import { Life } from "./life.ts";
 import { actorKey, byCodeUnits, emptyWorld, Mail, type World } from "./world.ts";
 
 const encodeOwedText = (...args: Parameters<typeof encodeOwed>) =>
-  Result.getOrThrow(encodeOwed(...args));
+  Result.getOrThrow(encodeOwed(...args)).text;
 
 const actor = { machine: "Test/Ledger", name: "a" };
 
@@ -97,10 +97,7 @@ describe("an owed record keeps each row's channel (WriteLanes I39; Codec R5)", (
     });
 
     const stored = new Map([
-      [
-        `owed/${actorKey(actor)}`,
-        Result.getOrThrow(encodeOwed(actor, [row("notSent"), row("unknown")])),
-      ],
+      [`owed/${actorKey(actor)}`, encodeOwedText(actor, [row("notSent"), row("unknown")])],
     ]);
 
     assert.deepEqual(

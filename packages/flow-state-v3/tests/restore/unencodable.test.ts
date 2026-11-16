@@ -177,6 +177,30 @@ describe("an actor record past a codec bound (Actors R8; WriteAhead R4; Codec R1
     expect(run.checkpoints.after.read(Git.sync)).toEqual([]);
   });
 
+  it("Codec R4: a commit that would take its lane record past a bound declines NotSent Unencodable, and every other commit is sent and ends", async () => {
+    // Each input's text is 200,011 bytes: a head and nine queued commits fit the 2,097,152 bytes
+    // of a lane record, and a tenth queued one would not.
+    const big = { _tag: "Sync", repo: "r".repeat(200_000) } as const;
+
+    const queued = Array.from({ length: 12 }).reduce<Story>(
+      (s) => s.send(notes, big),
+      notesStory("restore/lane-record-bound").ensure(notes).world(Git.sync.hold()),
+    );
+
+    const run = checked(
+      await queued.world(Git.sync.release()).advance("1 second").checkpoint("after").run(),
+    );
+
+    const ended = run.evidence.flatMap((e) =>
+      e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : [],
+    );
+
+    expect(ended.filter((e) => e === "notSent Unencodable")).toHaveLength(2);
+    expect(ended.filter((e) => e.startsWith("success"))).toHaveLength(10);
+    expect(reported(run)).toEqual([]);
+    expect(run.checkpoints.after.read(Git.sync)).toHaveLength(10);
+  });
+
   it("Actors R22: a Runtime disposed while an identity is withheld ends its queued commits once, across the reload", async () => {
     const run = checked(
       await notesStory("restore/unencodable-disposal")

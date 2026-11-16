@@ -41,8 +41,11 @@ requirements
                 No raw parser error or Cause escapes. Inside a turn or a capture, a value with no
                 encoded form, a bound or a malformation included, is reported only as
                 UnencodableValue (its details naming the bound or reason) and never fails the turn (a
-                commit's input or key that cannot encode is the one exception: it declines NotSent {
-                Unencodable }, an ending, @spec.WriteLanes.R12);
+                commit's input or key that cannot encode, or that would take its persisted lane's
+                record past a bound with the commit queued behind the head, is the one exception: it
+                declines NotSent { Unencodable }, an ending, @spec.WriteLanes.R12); owed rows whose
+                values pass a bound together are saved with their largest values `null`, largest
+                first, reported UnencodableValue;
                 CodecBoundExceeded and CodecMalformed are raised only where a codec failure is a
                 FlowError: decoding at the boot, payloads, traces, Model bytes and direct calls.
                 Decision (agent, 2026-11-11): audit C23, one code per trace. Why: a turn never fails

@@ -165,8 +165,8 @@ describe("record formats (Restore R5, I10, I13)", () => {
 });
 
 describe("a lane whose input no longer decodes (Restore R8)", () => {
-  // Open, owned by the release-versions Task: such a record still reads, so R8 hears its Held head
-  // at a start; today the boot quarantines it unread, reported at each boot instead.
+  // Open: such a record still reads, so R8 hears its Held head at a start; today the boot
+  // quarantines it unread, reported at each boot instead.
   it.fails("Restore R8: a lane record whose input no longer decodes still has its Held head heard at a start", async () => {
     const lane = await heldLane();
     const text = lane.text.replace('"transferId":"t1"', '"transferId":1');

@@ -223,9 +223,24 @@ export const makePersistence = (tx: Tx) => {
       .filter(toIdentity)
       .map((r) => ({ ...r, kept: Delivery.$is("Kept")(r.delivery) }));
 
-    return rows.length === 0
-      ? Result.succeed<Write>({ key, record: Option.none() })
-      : encoded(key, encodeOwed(actor, rows));
+    if (rows.length === 0) return Result.succeed<Write>({ key, record: Option.none() });
+
+    const owed = encodeOwed(actor, rows);
+
+    // Values given up so the record fits are reported; the rows themselves are always saved.
+    if (Result.isSuccess(owed) && owed.success.dropped > 0)
+      tx.act(
+        Act.Reported({
+          code: "UnencodableValue",
+          record: Option.some(key),
+          reason: `${owed.success.dropped} values over a bound saved as null`,
+        }),
+      );
+
+    return encoded(
+      key,
+      Result.map(owed, (o) => o.text),
+    );
   };
 
   const recordWrites = (t: Touched) => {
@@ -255,10 +270,6 @@ export const makePersistence = (tx: Tx) => {
     return all.some((t) => t.now) ? Due.Now() : Due.Later();
   };
 
-  /**
-   * Projects what the step touched: one write list for the whole step, every identity's touched
-   * records once each, due by the derived rule.
-   */
   // The identities whose records cannot encode wait whole, each reported once as it starts to wait;
   // a record written over a quarantined one is quarantined no more.
   const withhold = (
@@ -293,6 +304,10 @@ export const makePersistence = (tx: Tx) => {
       });
   };
 
+  /**
+   * Projects what the step touched: one write list for the whole step, every identity's touched
+   * records once each, due by the derived rule.
+   */
   const project = (final: ReadonlyArray<Ticket> = []) => {
     for (const rows of tx.world().owed.values()) {
       const waiting = rows.find(inMailbox);

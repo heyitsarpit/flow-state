@@ -128,6 +128,26 @@ const breachesAt = (cut: Cut, at: string, put: ReadonlySet<string>) =>
   );
 
 /**
+ * WriteAhead I21, with Codec R4: only an actor record that cannot encode withholds its identity. A
+ * commit that could not be saved declines NotSent Unencodable and an owed value with no encoded
+ * form is saved as null, so an UnencodableValue naming a lane or owed record is a breach: that
+ * identity's sends would wait for ever.
+ */
+export const onlyActorsWithheld: Rule = {
+  rule: "WriteAhead I21",
+  breaches: (run: StoryRun) =>
+    run.evidence.flatMap((e) =>
+      e._tag === "Reported" &&
+      e.code === "UnencodableValue" &&
+      Option.exists(e.record, (key) => !key.startsWith("actor/"))
+        ? [
+            `WriteAhead I21: ${Option.getOrElse(e.record, () => "")} withheld its identity: ${e.reason}`,
+          ]
+        : [],
+    ),
+};
+
+/**
  * Codec I7, at every cut: every key the Runtime wrote is `actor/`, `lane/` or `owed/`, its text is
  * canonical (sorted keys, no whitespace) and decodes by its kind's Schema with the current
  * `format`, no lane record has `mayHaveApplied`, and every owed row has a channel. Canonical text
