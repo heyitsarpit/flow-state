@@ -113,7 +113,7 @@ const breachOf = (key: string, text: string, at: string) => {
 };
 
 // Records a Story wrote into the store itself, by key and text: the Runtime did not write them.
-const putBy = (run: StoryRun) =>
+export const putBy = (run: StoryRun) =>
   new Set(
     run.steps.flatMap((step) =>
       step._tag === "world"
@@ -129,9 +129,10 @@ const breachesAt = (cut: Cut, at: string, put: ReadonlySet<string>) =>
 
 /**
  * WriteAhead I21, with Codec R4: only an actor record that cannot encode withholds its identity. A
- * commit that could not be saved declines NotSent Unencodable and an owed value with no encoded
- * form is saved as null, so an UnencodableValue naming a lane or owed record is a breach: that
- * identity's sends would wait for ever.
+ * commit whose lane record could ever pass a bound declines NotSent Unencodable, and owed rows are
+ * split into parts with a value that has no encoded form saved as null (reported, not withheld),
+ * so a withholding report (its reason starts `withheld:`) naming a lane or owed record is a
+ * breach: that identity's sends would wait for ever.
  */
 export const onlyActorsWithheld: Rule = {
   rule: "WriteAhead I21",
@@ -139,6 +140,7 @@ export const onlyActorsWithheld: Rule = {
     run.evidence.flatMap((e) =>
       e._tag === "Reported" &&
       e.code === "UnencodableValue" &&
+      e.reason.startsWith("withheld:") &&
       Option.exists(e.record, (key) => !key.startsWith("actor/"))
         ? [
             `WriteAhead I21: ${Option.getOrElse(e.record, () => "")} withheld its identity: ${e.reason}`,

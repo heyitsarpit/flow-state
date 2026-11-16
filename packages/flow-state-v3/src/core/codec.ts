@@ -237,6 +237,36 @@ export const encodeCanonical = (value: unknown) =>
     ),
   );
 
+// How many nodes a JSON value counts against the node bound: itself and everything inside it.
+// FLOW_STATE_ALLOW_UNKNOWN: canonical JSON, whose fields read as unknown once narrowed to an object.
+// RETURN_TYPE: a recursive count states its result.
+const nodesOf = (json: unknown): number => {
+  if (Array.isArray(json)) return json.reduce<number>((n, item) => n + nodesOf(item), 1);
+
+  if (!Predicate.isObject(json)) return 1;
+
+  return Object.values(json).reduce<number>((n, field) => n + nodesOf(field), 1);
+};
+
+/**
+ * Encodes a value as {@link encodeCanonical} does and says what it counts against the bounds: its
+ * UTF-8 bytes and its nodes.
+ *
+ * **When to use**
+ *
+ * To fit several values into records under the bounds without encoding each record again.
+ */
+// FLOW_STATE_ALLOW_UNKNOWN: any value may be offered; only a canonical one is measured.
+export const measure = (value: unknown) =>
+  Result.flatMap(toCanonicalJson(value), (json) =>
+    Result.map(encodeCanonical(json), (text) => ({
+      json,
+      text,
+      bytes: utf8Bytes(text),
+      nodes: nodesOf(json),
+    })),
+  );
+
 /**
  * Decodes a canonical JSON text strictly: a byte-order mark, text that is not JSON, or JSON that
  * does not encode back to exactly the same text (unsorted or duplicate keys, other spellings of a

@@ -7,6 +7,7 @@ import {
   encodeLane,
   encodeOwed,
   laneRecordKey,
+  owedPartKey,
   owedRecordKey,
 } from "./record.ts";
 import { SILENT_MS, type Tx, without, withEntry } from "./tx.ts";
@@ -226,31 +227,46 @@ export const makePersistence = (tx: Tx) => {
     });
   };
 
+  // An identity's owed record as its parts, each written, and every part it had before and no
+  // longer needs removed.
   const owedWrite = (actor: ActorId) => {
-    const key = owedRecordKey(actorKey(actor));
+    const identity = actorKey(actor);
+    const key = owedRecordKey(identity);
 
     const rows = rowsOf(tx.world().owed, actor)
       .filter(toIdentity)
       .map((r) => ({ ...r, kept: Delivery.$is("Kept")(r.delivery) }));
 
-    if (rows.length === 0) return Result.succeed<Write>({ key, record: Option.none() });
+    const owed =
+      rows.length === 0
+        ? Result.succeed({ texts: Array.of<string>(), dropped: 0 })
+        : encodeOwed(actor, rows);
 
-    const owed = encodeOwed(actor, rows);
-
-    // Values given up so the record fits are reported; the rows themselves are always saved.
+    // A value that cannot be saved even alone is reported; its row is still saved.
     if (Result.isSuccess(owed) && owed.success.dropped > 0)
       tx.act(
         Act.Reported({
           code: "UnencodableValue",
           record: Option.some(key),
-          reason: `${owed.success.dropped} values over a bound saved as null`,
+          reason: `${owed.success.dropped} values with no encoded form saved as null`,
         }),
       );
 
-    return encoded(
-      key,
-      Result.map(owed, (o) => o.text),
-    );
+    const before = Math.max(1, tx.world().owedParts.get(identity) ?? 0);
+
+    return Result.mapBoth(owed, {
+      onFailure: (reason) => ({ key, reason }),
+      onSuccess: ({ texts }) => ({
+        parts: texts.length,
+        writes: Array.from(
+          { length: Math.max(before, texts.length) },
+          (_, part): Write => ({
+            key: owedPartKey(identity, part),
+            record: Option.fromUndefinedOr(texts[part]),
+          }),
+        ),
+      }),
+    });
   };
 
   const recordWrites = (t: Touched) => {
@@ -267,9 +283,16 @@ export const makePersistence = (tx: Tx) => {
   // Every record an identity's step touched, or the first that cannot encode: then none of its
   // records go, so no lane or owed record outruns the actor record it belongs with.
   const writesOf = (t: Touched) => {
-    const owed = t.owed ? [owedWrite(t.actor)] : [];
+    const owed = t.owed
+      ? owedWrite(t.actor)
+      : Result.succeed({ parts: -1, writes: Array.of<Write>() });
 
-    return Result.all([...recordWrites(t), ...[...t.lanes].map(laneWrite), ...owed]);
+    return Result.flatMap(owed, ({ parts, writes: owedWrites }) =>
+      Result.map(Result.all([...recordWrites(t), ...[...t.lanes].map(laneWrite)]), (writes) => ({
+        parts,
+        writes: [...writes, ...owedWrites],
+      })),
+    );
   };
 
   const dueOf = (all: ReadonlyArray<Touched>, final: ReadonlyArray<Ticket>) => {
@@ -295,7 +318,7 @@ export const makePersistence = (tx: Tx) => {
           Act.Reported({
             code: "UnencodableValue",
             record: Option.some(failure.key),
-            reason: failure.reason,
+            reason: `withheld: ${failure.reason}`,
           }),
         );
 
@@ -339,8 +362,20 @@ export const makePersistence = (tx: Tx) => {
     touched = new Map();
 
     const written = all.flatMap(({ t, writes }) =>
-      Result.isSuccess(writes) ? [{ t, writes: writes.success }] : [],
+      Result.isSuccess(writes) ? [{ t, ...writes.success }] : [],
     );
+
+    // The owed parts each written identity now has on disk, so its next write removes the rest.
+    if (written.some((p) => p.parts >= 0))
+      tx.set({
+        ...tx.world(),
+        owedParts: new Map([
+          ...tx.world().owedParts,
+          ...written.flatMap((p) =>
+            p.parts >= 0 ? [[actorKey(p.t.actor), p.parts] as const] : [],
+          ),
+        ]),
+      });
 
     const blocked = all.flatMap(({ t, writes }) =>
       Result.isFailure(writes) ? [{ t, failure: writes.failure }] : [],

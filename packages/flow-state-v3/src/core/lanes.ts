@@ -135,38 +135,38 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
       current: true,
     });
 
-  // Whether the lane's record still encodes with a commit added behind its head: the largest record
-  // any policy can make of it (latest keeps one queued commit, cancel displaces the head to an id).
-  // A new head is counted with the Attempt id the mint would give it next.
+  // Whether the lane's record encodes at the largest it can ever reach once this commit is admitted:
+  // every input it holds, this one queued behind the head; the head Held (`inFlight` false), its
+  // retry count and Attempt id at their longest; and one more displaced Attempt, as a cancel adds.
+  // Every later change of the record only drops inputs or fills those slots, so a commit admitted
+  // here never takes its lane's record past a bound.
   const fits = (actor: ActorId, operationName: string, id: string, queued: Queued) => {
     const compiled = tx.machines.get(actor.machine);
 
     if (!tx.persisted(actor) || compiled === undefined) return true;
 
+    const longest = `att-${tx.env.seed}-${Number.MAX_SAFE_INTEGER}`;
     const existing = tx.world().lanes.get(id);
 
-    const fresh = {
+    const largest = {
       actor,
       operation: operationName,
       head: {
-        id: `att-${tx.env.seed}-${tx.world().attempts + 1}`,
-        input: queued.input,
-        retryCount: 0,
+        id: longest,
+        input: existing === undefined ? queued.input : existing.head.input,
+        retryCount: Number.MAX_SAFE_INTEGER,
         owner: queued.owner,
-        phase: Phase.Unsent(),
+        phase: Phase.Held(),
       },
-      queue: [],
+      queue: existing === undefined ? [] : [...existing.queue, queued],
     } satisfies Lane;
-
-    const lane =
-      existing === undefined ? fresh : { ...existing, queue: [...existing.queue, queued] };
 
     const displaced = [...tx.world().displaced.values()].flatMap((d) =>
       d.lane === id && d.owed ? [d.head.id] : [],
     );
 
     return Result.isSuccess(
-      encodeLane(compiled, operationName, actor, Option.some(lane), displaced),
+      encodeLane(compiled, operationName, actor, Option.some(largest), [...displaced, longest]),
     );
   };
 

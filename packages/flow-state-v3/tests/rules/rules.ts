@@ -2,7 +2,7 @@ import { Equal, Option, Predicate, Schema } from "effect";
 import { expect } from "vite-plus/test";
 import { acknowledgedBeforeSent, oneBatchOut } from "./batches.ts";
 import { acknowledgedHeardAgain, everyCommitEndsOnce } from "./commits.ts";
-import { onlyActorsWithheld, recordKinds } from "./records.ts";
+import { onlyActorsWithheld, putBy, recordKinds } from "./records.ts";
 import { atStart, knownAt, placesOf } from "./places.ts";
 import { oneStart, ownedRowsSaved } from "./starts.ts";
 import { mailboxOrder } from "./mailbox.ts";
@@ -475,9 +475,16 @@ const LaneOwing = Schema.fromJsonString(
   Schema.Struct({ machine: Schema.String, name: Schema.String, inFlight: Schema.Boolean }),
 );
 
-const sleepingOwed = (cut: Cut, n: number) => {
+const sleepingOwed = (cut: Cut, n: number, put: ReadonlySet<string>) => {
   const live = new Set(cut.inspection.actors.map((a) => a.actor));
-  const asleep = (actor: string) => !live.has(actor) && cut.records.stored.has(`actor/${actor}`);
+  // A record the Story put in the store itself is not judged (Stories R11).
+  const runtimes = (key: string) => {
+    const text = cut.records.stored.get(key);
+
+    return text !== undefined && !put.has(`${key}\n${text}`);
+  };
+
+  const asleep = (actor: string) => !live.has(actor) && runtimes(`actor/${actor}`);
 
   const rows = cut.inspection.owed
     .filter((row) => asleep(row.actor))
@@ -489,7 +496,7 @@ const sleepingOwed = (cut: Cut, n: number) => {
   // A start rewrites each lane it adopts Held, so a lane record still in flight after the boot
   // belongs to an Owing identity left asleep.
   const lanes = [...cut.records.stored].flatMap(([key, text]) =>
-    key.startsWith("lane/")
+    key.startsWith("lane/") && runtimes(key)
       ? Option.toArray(Schema.decodeUnknownOption(LaneOwing)(text)).flatMap((l) =>
           l.inFlight && asleep(`${l.machine}/${l.name}`)
             ? [
@@ -522,7 +529,7 @@ export const owingRestoredLive: Rule = {
       step._tag === "reload"
         ? Option.match(cutAfter(run, n), {
             onNone: () => [],
-            onSome: (cut) => sleepingOwed(cut, n),
+            onSome: (cut) => sleepingOwed(cut, n, putBy(run)),
           })
         : [],
     ),

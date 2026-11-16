@@ -413,6 +413,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
         restored.lanes.flatMap(({ id, lane }) => Option.toArray(Option.map(lane, (l) => [id, l]))),
       ),
       quarantined: new Map(restored.quarantined.map((q) => [q.key, q.reason])),
+      owedParts: restored.owedParts,
     });
     ledger.restore(restored.rows);
 

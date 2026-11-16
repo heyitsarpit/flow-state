@@ -192,6 +192,41 @@ export const seededStress = Story.app(lanesSetup, { id: "lanes/stress-36", fixtu
   .advance("2 minutes");
 
 /**
+ * The repository name's edge value: 200,000 characters, so ten commits on its one lane come near
+ * the 2,097,152 bytes a lane record may hold.
+ */
+export const longRepo = { repo: "r".repeat(200_000) };
+
+const longCommit = { _tag: "Commit", ...longRepo } as const;
+
+/**
+ * A lane driven to its record's byte bound: twelve long commits on one serialize lane, the last
+ * ones declined NotSent Unencodable; then its head's answer is lost (Held), retried and let go, and
+ * a cancel-policy lane of long commits displaces its head. Every commit ends, and no identity is
+ * held back. It is a stress Story: its records weigh 2 MB each.
+ */
+export const nearBound = Array.from({ length: 12 })
+  .reduce<Story>(
+    (s) => s.send(serializeClient, longCommit),
+    lanesStory("lanes/stress-near-bound")
+      .ensure(serializeClient)
+      .ensure(cancelClient)
+      .world(Git.sync.hold()),
+  )
+  .checkpoint("full")
+  .world(Git.sync.lose())
+  .send(serializeClient, { _tag: "Retry", ...longRepo })
+  .advance("1 second")
+  .send(serializeClient, { _tag: "Cancel", ...longRepo })
+  .advance("1 second")
+  .world(Git.sync.hold())
+  .send(cancelClient, longCommit)
+  .send(cancelClient, { _tag: "CancelCommit", ...longRepo })
+  .world(Git.sync.release())
+  .advance("1 second")
+  .checkpoint("settled");
+
+/**
  * Every Story of the fixture, by name.
  */
-export const stories = { usual, seededStress };
+export const stories = { usual, seededStress, nearBound };

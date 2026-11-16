@@ -1,5 +1,5 @@
 import { Option, Result, Schema, Struct } from "effect";
-import { CodecFailure, encodeCanonical, decodeCanonical, toCanonicalJson } from "./codec.ts";
+import { BOUNDS, CodecFailure, decodeCanonical, encodeCanonical, measure } from "./codec.ts";
 import type { Compiled, Values } from "./compiled.ts";
 import { Channel, ScheduleDeadline } from "./vocabulary.ts";
 import type { Owed } from "./ledger.ts";
@@ -94,51 +94,81 @@ const jsonOf = (json: Schema.Codec<Values, Values>, value: Values) =>
   Result.mapError(Schema.encodeUnknownResult(json)(value), () => "schema");
 
 /**
- * An identity's saved rows as canonical text, in owed order, with how many values it gave up: a
- * value with no canonical form keeps `null`, and when the rows together pass a codec bound their
- * largest values are saved as `null`, one by one, until the record fits (`dropped`).
+ * The key of one part of an identity's owed record: the first part is `owed/<identity>`, and each
+ * later one adds `|` and its number, four digits, so the parts read back in order.
  */
-export const encodeOwed = (
-  actor: ActorId,
-  rows: ReadonlyArray<
-    Pick<Owed, "operation" | "lane" | "attempt" | "channel" | "reason" | "value"> & {
-      readonly kept: boolean;
-    }
-  >,
-) => {
-  const values = rows.map((r) => Result.getOrNull(toCanonicalJson(r.value)));
+export const owedPartKey = (key: string, part: number) =>
+  part === 0 ? owedRecordKey(key) : `${owedRecordKey(key)}|${String(part).padStart(4, "0")}`;
 
-  // The values' sizes, largest first: a record past a bound gives up its largest values first.
-  const largest = values
-    .map((v, at) => ({ at, size: Result.getOrElse(encodeCanonical(v), () => "").length }))
-    .toSorted((a, b) => b.size - a.size)
-    .map((v) => v.at);
+// The identity key an owed part's key names.
+const owedIdentityOf = (key: string) => key.slice("owed/".length).replace(/\|\d{4}$/u, "");
 
-  const recordWithout = (dropped: ReadonlySet<number>) =>
-    textOf({
-      format: FORMAT,
-      machine: actor.machine,
-      name: actor.name,
-      rows: rows.map((r, at) => ({
-        operation: r.operation,
-        lane: Option.getOrNull(r.lane),
-        attempt: Option.getOrNull(r.attempt),
-        channel: r.channel,
-        reason: r.reason,
-        value: dropped.has(at) ? null : values[at],
-        kept: r.kept,
-      })),
-    });
+type OwedRow = Pick<Owed, "operation" | "lane" | "attempt" | "channel" | "reason" | "value"> & {
+  readonly kept: boolean;
+};
 
-  let attempt = recordWithout(new Set());
+const rowJson = (r: OwedRow, value: unknown) => ({
+  operation: r.operation,
+  lane: Option.getOrNull(r.lane),
+  attempt: Option.getOrNull(r.attempt),
+  channel: r.channel,
+  reason: r.reason,
+  value,
+  kept: r.kept,
+});
+
+/**
+ * An identity's saved rows as canonical texts, in owed order: one record while they fit the
+ * codec's bounds, else as many parts as they need, each a whole record (`owedPartKey`). Every row
+ * is kept; a value that cannot be saved even in a part of its own is saved as `null` and counted
+ * in `dropped`. Each row is measured once, then the parts are filled in one pass.
+ */
+export const encodeOwed = (actor: ActorId, rows: ReadonlyArray<OwedRow>) => {
+  const header = { format: FORMAT, machine: actor.machine, name: actor.name };
+  const empty = Result.getOrThrow(measure({ ...header, rows: [] }));
   let dropped = 0;
 
-  while (Result.isFailure(attempt) && dropped < largest.length) {
-    dropped += 1;
-    attempt = recordWithout(new Set(largest.slice(0, dropped)));
+  // A row's cost in a part: what it adds to a part holding it alone, a comma included.
+  const costs = rows.map((r) => {
+    const whole = rowJson(r, r.value);
+    const alone = measure({ ...header, rows: [whole] });
+
+    if (Result.isFailure(alone)) dropped += 1;
+
+    const row = Result.isSuccess(alone) ? whole : rowJson(r, null);
+    const fitted = Result.isSuccess(alone) ? alone : measure({ ...header, rows: [row] });
+    const { bytes, nodes } = Result.getOrThrow(fitted);
+
+    return { bytes: bytes - empty.bytes + 1, nodes: nodes - empty.nodes, row };
+  });
+
+  const parts: Array<Array<ReturnType<typeof rowJson>>> = [[]];
+  let bytes = empty.bytes;
+  let nodes = empty.nodes;
+
+  for (const cost of costs) {
+    const part = parts.at(-1) ?? [];
+
+    if (
+      part.length > 0 &&
+      (bytes + cost.bytes > BOUNDS.bytes ||
+        nodes + cost.nodes > BOUNDS.nodes ||
+        part.length >= BOUNDS.items)
+    ) {
+      parts.push([]);
+      bytes = empty.bytes;
+      nodes = empty.nodes;
+    }
+
+    (parts.at(-1) ?? []).push(cost.row);
+    bytes += cost.bytes;
+    nodes += cost.nodes;
   }
 
-  return Result.map(attempt, (text) => ({ text, dropped }));
+  return Result.map(
+    Result.all(parts.map((part) => textOf({ ...header, rows: part }))),
+    (texts) => ({ texts, dropped }),
+  );
 };
 
 /**
@@ -240,6 +270,7 @@ export type Restored = {
   }>;
   readonly rows: ReadonlyArray<RestoredRow>;
   readonly quarantined: ReadonlyArray<Quarantined>;
+  readonly owedParts: ReadonlyMap<string, number>;
 };
 
 const decodeBy =
@@ -408,5 +439,14 @@ export const decodeRecords = (
     if (Result.isFailure(done)) quarantined.push({ key, reason: done.failure });
   }
 
-  return { records, lanes, rows, quarantined };
+  // How many owed parts each identity has on disk, read or not, so its next write removes the rest.
+  const owedParts = new Map<string, number>();
+
+  for (const [key] of entries)
+    if (key.startsWith("owed/")) {
+      const identity = owedIdentityOf(key);
+      owedParts.set(identity, (owedParts.get(identity) ?? 0) + 1);
+    }
+
+  return { records, lanes, rows, quarantined, owedParts };
 };
