@@ -1392,7 +1392,7 @@ tasks
 
     T75
         title       Fast test commands: stress behind a flag, faults in parallel
-        status      open
+        status      in_progress
         priority    high
         description
             Make the test commands fast: a fast suite by default, the stress runs behind a flag, and `nub run faults` in
