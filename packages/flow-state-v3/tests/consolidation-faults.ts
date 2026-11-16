@@ -20,6 +20,20 @@ export const consolidationFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
+    name: "boot-unparks",
+    tests: ["tests/stories/storage.test.ts", "tests/write-lanes/payment-leave-and-reload.test.ts"],
+    says: "a boot reports its decoded Waiting rows Unparked itself, before any start",
+    rule: "Actors R10",
+    edits: [
+      {
+        file: "src/core/ledger.ts",
+        find: "    for (const { kept, ...row } of rows)\n",
+        replace:
+          "    for (const { kept, ...row } of rows)\n      if (!kept) tx.act(Act.RowQueued({ row }));\n    for (const { kept, ...row } of rows)\n",
+      },
+    ],
+  },
+  {
     name: "rows-dropped-outside-ledger",
     tests: ["tests/write-lanes/one-builder.test.ts"],
     says: "a forget clears the identity's owed rows itself instead of closing them in the ledger",

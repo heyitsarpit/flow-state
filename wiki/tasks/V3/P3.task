@@ -158,6 +158,10 @@ tasks
             R3 done: every core report is built by evidenceOf from an act (tx.act); check in one-builder.test.ts, fault
             second-report-builder. The host's StorageFailure at the final write's bound (driver.ts) stays until the core
             owns that bound: Actors I43, inverted.
+        comment     2026-11-16T02:21:39Z
+            Gap 3: run rule Actors R10 (oneStart in code:packages/flow-state-v3/tests/rules/starts.ts): a row is
+            Unparked only in a start; fault boot-unparks. R4 restated: done, kept by no-restored-unknown,
+            kept-redelivered, adopted-ending-late, boot-unparks.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      open
