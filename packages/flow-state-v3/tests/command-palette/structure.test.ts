@@ -46,8 +46,8 @@ describe("two palettes (fixtures.md S3)", () => {
   });
 });
 
-describe("queries and typing (ui-command 120; fixtures.md L5)", () => {
-  it("an empty query shows the commands in their source order (ui-command 120)", async () => {
+describe("queries and typing (fixtures.md E1, L5)", () => {
+  it("an empty query shows the commands in their source order", async () => {
     const run = await played(emptyQueryOrder);
 
     expect(shownAt(run.checkpoints.cleared)).toEqual([

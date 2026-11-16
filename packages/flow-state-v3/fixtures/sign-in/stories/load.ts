@@ -1,5 +1,6 @@
 import { screenOf, sessionOf } from "../app.ts";
 import { CODE } from "../server.ts";
+import { Profiles } from "../server/profiles.ts";
 import { sessionStory } from "./usual.ts";
 
 const SCREENS = Array.from({ length: 16 }, (_, n) => n);
@@ -26,13 +27,14 @@ export const manyScreens = SCREENS.reduce(
   .checkpoint("end");
 
 /**
- * 16 accounts' sessions signed in; the tab reloads twice.
+ * 16 accounts with saved handles sign in; the tab reloads twice.
  */
 export const manySessions = SCREENS.reduce(
   (story, n) =>
     story
+      .world(Profiles.saved({ email: `user${String(n)}@kamp.us`, handle: `user${String(n)}` }))
       .ensure(sessionOf(n))
-      .send(sessionOf(n), { _tag: "SignedIn", refreshToken: `rt-${String(n)}`, isNew: false }),
+      .send(sessionOf(n), { _tag: "SignedIn" }),
   sessionStory("sign-in/stress-many-sessions"),
 )
   .reload()

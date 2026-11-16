@@ -27,16 +27,16 @@ import { breachesOf } from "../rules/rules.ts";
 const setUsernames = (cut: Cut) => cut.calls.filter((c) => c.endpoint === "setUsername").length;
 
 describe("a persisted session around the sign-in screen", () => {
-  it("Compile R5; Turn R23: the session's handle starts computed from its email, and a Story sees its private refresh token (Machines O8)", async () => {
+  it("Compile R5; Turn R23: the session's handle starts computed from its email, and a Story sees the private refresh token the profile service gave it (Machines O8)", async () => {
     const run = await played(handleRetry);
 
     expect(run.checkpoints.opened.read(mainSession)?.memory).toEqual(
       expect.objectContaining({ email: "elif@kamp.us", handle: "elif", refreshToken: "" }),
     );
-    expect(run.checkpoints.stuck.read(mainSession)?.memory["refreshToken"]).toBe("rt-1");
+    expect(run.checkpoints.stuck.read(mainSession)?.memory["refreshToken"]).toBe("rt-elif@kamp.us");
   });
 
-  it("a failed handle save holds the redirect and keeps the handle; a retry that lands releases it, and the draft returns (kp-auth 72, 89; kp-draft 45)", async () => {
+  it("a failed handle save holds the redirect and keeps the handle; a retry that lands releases it, and the draft returns", async () => {
     const run = await played(handleRetry);
     const { stuck, released, submitted } = run.checkpoints;
 
@@ -64,14 +64,14 @@ describe("a persisted session around the sign-in screen", () => {
     expect(submitted.read(mainReturn)?.memory).toEqual({ route: "/sozluk/effect", draft: "" });
   });
 
-  it("Turn R12: a blank handle never calls setUsername and never holds the redirect (kp-auth 164)", async () => {
+  it("Turn R12: a blank handle never calls setUsername and never holds the redirect", async () => {
     const run = await played(blankHandle);
 
     expect(setUsernames(run.checkpoints.submitted)).toBe(0);
     expect(run.checkpoints.submitted.read(mainSession)?.memory["held"]).toBe(false);
   });
 
-  it("WriteLanes R7: a second submit while the first is on the wire is refused, the redirect held once and released once (kp-gate 34)", async () => {
+  it("WriteLanes R7: a second submit while the first is on the wire is refused, the redirect held once and released once", async () => {
     const run = await played(submitTwice);
 
     expect(setUsernames(run.checkpoints.twice)).toBe(1);
@@ -79,7 +79,7 @@ describe("a persisted session around the sign-in screen", () => {
     expect(run.checkpoints.landed.read(mainSession)?.memory["held"]).toBe(false);
   });
 
-  it("an unedited prefilled handle asks to be confirmed before it is saved (kp-boot 32)", async () => {
+  it("an unedited prefilled handle asks to be confirmed before it is saved", async () => {
     const run = await played(unconfirmedPrefill);
 
     expect(run.checkpoints.asked.read(mainSession)?.state).toBe("CONFIRMING");

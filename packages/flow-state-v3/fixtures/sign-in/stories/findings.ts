@@ -1,8 +1,8 @@
 import { mainSession } from "../app.ts";
 import { Profiles } from "../server/profiles.ts";
-import { sessionStory, signedUp } from "./usual.ts";
+import { sessionStory, signedIn } from "./usual.ts";
 
-const choosing = (id: string) => sessionStory(id).ensure(mainSession).send(mainSession, signedUp);
+const choosing = (id: string) => sessionStory(id).ensure(mainSession).send(mainSession, signedIn);
 
 /**
  * A new account clears the handle field and submits.

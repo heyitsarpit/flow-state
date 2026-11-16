@@ -1,7 +1,7 @@
 import { Layer } from "effect";
 import { actorRef, app, runtimeSetup } from "../../src/index.ts";
 import { CartLive } from "./adapters/carts.ts";
-import { PayMachine } from "./machine.ts";
+import { checkout, PayMachine } from "./machine.ts";
 import { CartMachine } from "./machines/cart.ts";
 import { CartBadgeMachine } from "./machines/cart-badge.ts";
 import { CheckoutFlowMachine } from "./machines/checkout-flow.ts";
@@ -66,7 +66,7 @@ export const store = app({
     badge: { machine: CartBadgeMachine, context: { cart: mainCart } },
     checkout: {
       machine: CheckoutFlowMachine,
-      context: { count: mainCart, busy: mainCart, shopper: mainShopper },
+      context: { count: mainCart, busy: mainCart, shopper: mainShopper, payment: checkout },
     },
   },
 });

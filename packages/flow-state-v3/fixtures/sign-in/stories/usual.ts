@@ -12,9 +12,9 @@ export const sessionStory = (id: string) =>
   Story.app(authGrownSetup, { id, fixtures: [AuthFake, ProfileFake] });
 
 /**
- * A new account signs in.
+ * The account signs in on the screen, and the view tells its session.
  */
-export const signedUp = { _tag: "SignedIn", refreshToken: "rt-1", isNew: true } as const;
+export const signedIn = { _tag: "SignedIn" } as const;
 
 /**
  * Elif saves a draft and is sent to sign in; she signs up and chooses a handle that is taken, so
@@ -26,7 +26,7 @@ export const handleRetry = sessionStory("sign-in/handle-retry")
   .ensure(mainReturn)
   .checkpoint("opened")
   .send(mainReturn, { _tag: "Save", route: "/sozluk/effect", draft: "merhaba" })
-  .send(mainSession, signedUp)
+  .send(mainSession, signedIn)
   .send(mainSession, { _tag: "Handle", handle: "elif-kaya" })
   .world(Profiles.taken({}))
   .send(mainSession, { _tag: "SubmitHandle" })

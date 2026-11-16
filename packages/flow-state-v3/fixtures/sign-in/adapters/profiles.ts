@@ -13,6 +13,8 @@ const unanswered = { _tag: "Unanswered" } as const;
 
 const Handle = Schema.Struct({ handle: Schema.String });
 
+const Me = Schema.Struct({ handle: Schema.String, refreshToken: Schema.String });
+
 /**
  * The profile service over HTTP: a 2xx is the handle, a 409 the handle taken, anything else or no
  * answer `Unanswered`.
@@ -47,7 +49,7 @@ export const ProfileHttp = (origin: string) =>
             client.execute,
             Effect.flatMap(
               HttpClientResponse.matchStatus({
-                "2xx": (r) => HttpIncomingMessage.schemaBodyJson(Handle)(r),
+                "2xx": (r) => HttpIncomingMessage.schemaBodyJson(Me)(r),
                 orElse: () => Effect.fail(unanswered),
               }),
             ),

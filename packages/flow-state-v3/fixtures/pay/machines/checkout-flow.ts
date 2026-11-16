@@ -1,12 +1,13 @@
 import { Schema } from "effect";
 import { definition, deny, Flow, machine } from "../../../src/index.ts";
+import { Pay } from "../machine.ts";
 import { Cart, itemsIn, waiting } from "./cart.ts";
 import { Shopper } from "./shopper.ts";
 
 /**
  * A cart's checkout steps: address, then shipping (a method, then a delivery slot), then pay. It
- * reads its cart's item count and whether the cart still waits on the cart service, and its
- * shopper's name.
+ * reads its cart's item count and whether the cart still waits on the cart service, its shopper's
+ * name, and the state of the checkout's Pay.
  */
 export const CheckoutFlow = definition({
   id: "Shop/CheckoutFlow",
@@ -18,12 +19,12 @@ export const CheckoutFlow = definition({
     MethodChosen: { method: Schema.String },
     SlotChosen: { slot: Schema.String },
     Back: {},
-    OrderPlaced: { orderId: Schema.String },
   },
   internalEvents: {
     CartChanged: { count: Schema.Number },
     CartWaiting: { waiting: Schema.Boolean },
     ShopperChanged: { name: Schema.String },
+    PaymentChanged: { state: Schema.String },
   },
   memory: {
     cartId: Flow.input(Schema.String),
@@ -33,19 +34,20 @@ export const CheckoutFlow = definition({
     line1: Flow.initial(Schema.String, ""),
     method: Flow.initial(Schema.String, ""),
     slot: Flow.initial(Schema.String, ""),
-    orderId: Flow.initial(Schema.String, ""),
   },
   context: {
     count: Cart.Provider.select((c) => itemsIn(c.memory.lines)),
     busy: Cart.Provider.select((c) => waiting(c.memory)),
     shopper: Shopper.Provider.select((s) => s.memory.name),
+    payment: Pay.Provider.select((p) => p.state),
   },
 });
 
 /**
  * The checkout flow: Begin is denied on an empty cart or one still waiting on the cart service;
- * Back from pay re-enters shipping at the step it left, by history. Guards cannot read context, so
- * the flow keeps the cart's count and waiting as its `onContext` reactions report them.
+ * Back from pay re-enters shipping at the step it left, by history; the checkout's Pay reaching PAID
+ * ends it. Guards cannot read context, so the flow keeps the cart's count and waiting as its
+ * `onContext` reactions report them.
  */
 export const CheckoutFlowMachine = machine(CheckoutFlow, ({ S, E }) => ({
   default: S.BROWSING,
@@ -62,11 +64,19 @@ export const CheckoutFlowMachine = machine(CheckoutFlow, ({ S, E }) => ({
       select: ({ context }) => context.shopper,
       event: E.ShopperChanged.from((name: string) => ({ name })),
     },
+    {
+      select: ({ context }) => context.payment,
+      event: E.PaymentChanged.from((state: string) => ({ state })),
+    },
   ],
   on: {
     CartChanged: { updateMemory: ({ event }) => ({ lineCount: event.count }) },
     CartWaiting: { updateMemory: ({ event }) => ({ cartWaiting: event.waiting }) },
     ShopperChanged: { updateMemory: ({ event }) => ({ shopperName: event.name }) },
+    PaymentChanged: [
+      { target: S.DONE, guard: [({ event }) => event.state === "PAID" || deny("NotPaid")] },
+      {},
+    ],
   },
   states: {
     BROWSING: {
@@ -112,7 +122,6 @@ export const CheckoutFlowMachine = machine(CheckoutFlow, ({ S, E }) => ({
     PAY: {
       on: {
         Back: S.SHIPPING.history,
-        OrderPlaced: { target: S.DONE, updateMemory: ({ event }) => ({ orderId: event.orderId }) },
       },
     },
     DONE: {},

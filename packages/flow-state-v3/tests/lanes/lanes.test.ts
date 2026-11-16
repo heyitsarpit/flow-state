@@ -17,6 +17,13 @@ import { played } from "../rules/played.ts";
 const endings = (run: StoryRun) =>
   run.evidence.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : []));
 
+// A burst past the admission bound: 1,100 sends queued behind one running turn.
+const ADMISSION_BOUND = 1024;
+const BURST = 1100;
+
+// A head on the wire and the 64 commits `serialize` queues behind it.
+const AT_CAP = 1 + 64;
+
 const syncs = (cut: Cut) => cut.calls.filter((c) => c.endpoint === "sync").length;
 
 describe("the lane policies at their bounds (fixtures.md L2)", () => {
@@ -25,7 +32,7 @@ describe("the lane policies at their bounds (fixtures.md L2)", () => {
 
     expect(endings(run).filter((e) => e.startsWith("notSent"))).toEqual(["notSent Overloaded"]);
     expect(syncs(run.checkpoints.full)).toBe(1);
-    expect(syncs(run.checkpoints.drained)).toBe(65);
+    expect(syncs(run.checkpoints.drained)).toBe(AT_CAP);
   });
 
   it("Actors R14: past 1,024 pending events a send to one lanes client throws AdmissionOverloaded and changes nothing", () => {
@@ -39,7 +46,7 @@ describe("the lane policies at their bounds (fixtures.md L2)", () => {
       if (!burst || e._tag !== "Turn") return;
       burst = false;
 
-      for (let n = 0; n < 1100; n += 1)
+      for (let n = 0; n < BURST; n += 1)
         try {
           client.send({ _tag: "Cancel", repo: "flow" });
         } catch (error) {
@@ -50,7 +57,7 @@ describe("the lane policies at their bounds (fixtures.md L2)", () => {
 
     client.send({ _tag: "Cancel", repo: "flow" });
 
-    expect(refused).toHaveLength(76);
+    expect(refused).toHaveLength(BURST - ADMISSION_BOUND);
     expect(new Set(refused)).toEqual(new Set(["AdmissionOverloaded"]));
     expect(Option.isSome(client.getSnapshot())).toBe(true);
     expect(SerializeMachine.compiled.id).toBe("Lanes/serialize");

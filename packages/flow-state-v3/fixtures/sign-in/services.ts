@@ -11,7 +11,8 @@ export type Taken = { readonly _tag: "Taken"; readonly handle: string };
 export type Unanswered = { readonly _tag: "Unanswered" };
 
 /**
- * The profile service: where a signed-in account's handle is saved and read.
+ * The profile service: where a signed-in account's handle is saved and read, with the refresh
+ * token of its session.
  */
 export class ProfileApi extends Context.Service<
   ProfileApi,
@@ -22,6 +23,6 @@ export class ProfileApi extends Context.Service<
     ) => Effect.Effect<{ readonly handle: string }, Taken | Unanswered>;
     readonly me: (input: {
       readonly email: string;
-    }) => Effect.Effect<{ readonly handle: string }, Unanswered>;
+    }) => Effect.Effect<{ readonly handle: string; readonly refreshToken: string }, Unanswered>;
   }
 >()("flow-state-v3/fixtures/sign-in/ProfileApi") {}

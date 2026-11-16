@@ -29,13 +29,15 @@ const everything = (id: string) =>
     .send(mainCart, add("l1", "v1"));
 
 /**
- * The checkout flow is disposed first, then the badge, the cart and the shopper.
+ * The checkout flow is disposed first, then the badge, the cart and the shopper; the Pay the flow
+ * read is left with no use, and its grace passes.
  */
 export const flowFirst = everything("pay/flow-first")
   .dispose(mainFlow)
   .dispose(mainBadge)
   .dispose(mainCart)
   .dispose(mainShopper)
+  .advance("1 second")
   .checkpoint("disposed");
 
 /**

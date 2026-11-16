@@ -12,16 +12,25 @@ export const Line = Schema.Struct({
 /**
  * The variant is sold out: the line was not added.
  */
-export type SoldOut = { readonly _tag: "SoldOut"; readonly lineId: string };
+export const SoldOut = Schema.TaggedStruct("SoldOut", { lineId: Schema.String });
+
+/**
+ * The variant is sold out: the line was not added.
+ */
+export type SoldOut = typeof SoldOut.Type;
 
 /**
  * Not enough stock for the quantity asked: `quantity` is what the line still holds.
  */
-export type NotEnough = {
-  readonly _tag: "NotEnough";
-  readonly lineId: string;
-  readonly quantity: number;
-};
+export const NotEnough = Schema.TaggedStruct("NotEnough", {
+  lineId: Schema.String,
+  quantity: Schema.Number,
+});
+
+/**
+ * Not enough stock for the quantity asked: `quantity` is what the line still holds.
+ */
+export type NotEnough = typeof NotEnough.Type;
 
 /**
  * The cart service did not answer.

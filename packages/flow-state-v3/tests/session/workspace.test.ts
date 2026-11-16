@@ -27,8 +27,8 @@ import { attachInspector } from "../../src/host/inspect.ts";
 import { FlowError } from "../../src/index.ts";
 import { played } from "../rules/played.ts";
 
-describe("the workspace shell (kp-app)", () => {
-  it("Actors R18: the shell's team and badge are live while the session's sign-in is still on the wire (kp-app 217)", async () => {
+describe("the workspace shell", () => {
+  it("Actors R18: the shell's team and badge are live while the session's sign-in is still on the wire", async () => {
     const run = await played(shellBeforeSession);
     const at = run.checkpoints.pending;
 
@@ -38,7 +38,7 @@ describe("the workspace shell (kp-app)", () => {
     );
   });
 
-  it("Restore R10: a sign-out that disposes the Runtime with forget leaves the next account nothing of the last (kp-app 692, 711, 725; kp-snap 364)", async () => {
+  it("Restore R10: a sign-out that disposes the Runtime with forget leaves the next account nothing of the last", async () => {
     const run = await played(newAccountRuntime);
 
     expect(run.checkpoints.next.read(mainSession)).toEqual(
@@ -52,7 +52,7 @@ describe("the workspace shell (kp-app)", () => {
 });
 
 describe("storage failures (Restore R5, R9)", () => {
-  it("E7, Restore R5: a corrupt badge record is quarantined, and an ensure starts the badge fresh (kp-snap 108)", async () => {
+  it("E7, Restore R5: a corrupt badge record is quarantined, and an ensure starts the badge fresh", async () => {
     const run = await played(corruptRecord);
 
     expect(run.checkpoints.boot.read(badge)?.lifecycle).toBe("quarantined");
@@ -61,7 +61,7 @@ describe("storage failures (Restore R5, R9)", () => {
     );
   });
 
-  it("E3, Codec R1; Restore R5: a record past 2,097,152 bytes is quarantined unread (kp-snap 123)", async () => {
+  it("E3, Codec R1; Restore R5: a record past 2,097,152 bytes is quarantined unread", async () => {
     const run = await played(oversizedRecord);
 
     expect(run.checkpoints.boot.read(badge)?.lifecycle).toBe("quarantined");
@@ -132,6 +132,10 @@ describe("the workspace's structures (fixtures.md S2, S6, S7; E1, E2)", () => {
   });
 });
 
+// A burst past the admission bound: 1,100 pings queued behind one running turn.
+const ADMISSION_BOUND = 1024;
+const BURST = 1100;
+
 describe("one badge's mailbox (fixtures.md L2; Actors R14)", () => {
   it("Actors R14: past 1,024 pending pings a send to one badge throws AdmissionOverloaded and changes nothing", () => {
     const runtime = workspaceSetup.construct();
@@ -144,7 +148,7 @@ describe("one badge's mailbox (fixtures.md L2; Actors R14)", () => {
       if (!burst || e._tag !== "Turn") return;
       burst = false;
 
-      for (let n = 0; n < 1100; n += 1)
+      for (let n = 0; n < BURST; n += 1)
         try {
           handle.send({ _tag: "Ping" });
         } catch (error) {
@@ -155,9 +159,11 @@ describe("one badge's mailbox (fixtures.md L2; Actors R14)", () => {
 
     handle.send({ _tag: "Ping" });
 
-    expect(refused).toHaveLength(76);
+    expect(refused).toHaveLength(BURST - ADMISSION_BOUND);
     expect(new Set(refused)).toEqual(new Set(["AdmissionOverloaded"]));
-    expect(Option.map(handle.getSnapshot(), (s) => s.memory["pings"])).toEqual(Option.some(1025));
+    expect(Option.map(handle.getSnapshot(), (s) => s.memory["pings"])).toEqual(
+      Option.some(1 + ADMISSION_BOUND),
+    );
     expect(BadgeMachine.compiled.id).toBe("Workspace/Badge");
   });
 });

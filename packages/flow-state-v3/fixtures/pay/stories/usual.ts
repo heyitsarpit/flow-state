@@ -9,6 +9,7 @@ import {
   storeSetup,
 } from "../app.ts";
 import { CartFake } from "../server/layer.ts";
+import { checkout } from "../machine.ts";
 import { ShopFake } from "../server.ts";
 
 /**
@@ -60,7 +61,7 @@ export const guestBrowse = storeStory("pay/guest-browse")
 /**
  * Checkout on an empty cart is denied; after an add it moves through the address, the shipping
  * method and slot, and pay; Back twice returns to the slot, then the method; the tab reloads, and
- * Back once more reaches the address.
+ * Back once more reaches the address; the checkout's Pay is paid, which ends the flow.
  */
 export const checkoutSteps = storeStory("pay/checkout-steps")
   .ensure(mainShopper)
@@ -83,4 +84,8 @@ export const checkoutSteps = storeStory("pay/checkout-steps")
   .reload()
   .checkpoint("reloaded")
   .send(mainFlow, { _tag: "Back" })
-  .checkpoint("address again");
+  .checkpoint("address again")
+  .ensure(checkout)
+  .send(checkout, { _tag: "Start", cartId: "main", intentId: "pi-main" })
+  .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
+  .checkpoint("paid");

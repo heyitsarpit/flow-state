@@ -12,9 +12,17 @@ import type { Taken } from "../services.ts";
 export const AuthSession = definition({
   id: "Auth/Session",
   persist: true,
-  states: ["SIGNED_OUT", "CHOOSING", "CONFIRMING", "SAVING", "HANDLE_FAILED", "SIGNED_IN"],
+  states: [
+    "SIGNED_OUT",
+    "LOADING",
+    "CHOOSING",
+    "CONFIRMING",
+    "SAVING",
+    "HANDLE_FAILED",
+    "SIGNED_IN",
+  ],
   events: {
-    SignedIn: { refreshToken: Schema.String, isNew: Schema.Boolean },
+    SignedIn: {},
     Handle: { handle: Schema.String },
     SubmitHandle: {},
     ConfirmHandle: {},
@@ -25,7 +33,7 @@ export const AuthSession = definition({
     Refused: { handle: Schema.String },
     NotSaved: { why: Schema.String },
     SaveUnsure: Flow.uncertain({}),
-    MeRead: { handle: Schema.String },
+    MeRead: { handle: Schema.String, refreshToken: Schema.String },
     MeFailed: {},
   },
   memory: {
@@ -45,7 +53,7 @@ export const AuthSession = definition({
       unknown: E.SaveUnsure,
     }),
     me: me.outcomes({
-      success: E.MeRead.from((v: { readonly handle: string }) => ({ handle: v.handle })),
+      success: E.MeRead.from((v: { readonly handle: string; readonly refreshToken: string }) => v),
       failure: { Unanswered: E.MeFailed, Defect: E.MeFailed, Interrupted: E.MeFailed },
     }),
   }),
@@ -61,7 +69,7 @@ const handleOf = ({ memory }: { readonly memory: Memory }) => ({
 const account = ({ memory }: { readonly memory: Memory }) => ({ email: memory.email });
 
 /**
- * The session: a new account chooses a handle; a blank one is skipped and never saved; an unedited
+ * The session: signing in reads the account; one with no saved handle is new and chooses one; a blank one is skipped and never saved; an unedited
  * prefill asks to be confirmed; a save holds the redirect until it lands, and a refused or unsure
  * one keeps the handle and the hold until a retry lands: an unsure save is sent once more by itself,
  * then again as the same Attempt on Retry; a refused one is saved anew.
@@ -77,25 +85,33 @@ export const AuthSessionMachine = machine(AuthSession, ({ S, O }) => {
     default: S.SIGNED_OUT,
     on: {
       Handle: { updateMemory: ({ event }) => ({ handle: event.handle, edited: true }) },
-      MeRead: { updateMemory: ({ event }) => ({ saved: event.handle }) },
+      MeRead: {},
       MeFailed: {},
       NotSaved: {},
     },
     states: {
-      SIGNED_OUT: {
+      SIGNED_OUT: { on: { SignedIn: { target: S.LOADING, actions: [O.me.lookup(account)] } } },
+      LOADING: {
         on: {
-          SignedIn: [
+          MeRead: [
             {
               target: S.CHOOSING,
-              guard: [({ event }) => event.isNew || deny("Returning")],
+              guard: [({ event }) => event.handle === "" || deny("HasHandle")],
               updateMemory: ({ event }) => ({ refreshToken: event.refreshToken }),
             },
             {
               target: S.SIGNED_IN,
-              updateMemory: ({ event }) => ({ refreshToken: event.refreshToken }),
-              actions: [O.me.lookup(account)],
+              updateMemory: ({ event }) => ({
+                refreshToken: event.refreshToken,
+                handle: event.handle,
+                saved: event.handle,
+              }),
             },
           ],
+          MeFailed: {
+            target: S.SIGNED_OUT,
+            updateMemory: () => ({ notice: "we could not load your account" }),
+          },
         },
       },
       CHOOSING: {
@@ -116,8 +132,7 @@ export const AuthSessionMachine = machine(AuthSession, ({ S, O }) => {
           SubmitHandle: { actions: [O.save.commit(handleOf)] },
           Saved: {
             target: S.SIGNED_IN,
-            updateMemory: () => ({ held: false }),
-            actions: [O.me.lookup(account)],
+            updateMemory: ({ event }) => ({ held: false, saved: event.handle }),
           },
           Refused: {
             target: S.HANDLE_FAILED,

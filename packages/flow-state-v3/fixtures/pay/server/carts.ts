@@ -1,6 +1,6 @@
 import { Exit, Schema } from "effect";
 import { Fake } from "../../../src/host/testing/index.ts";
-import { Line } from "../services.ts";
+import { Line, NotEnough, SoldOut } from "../services.ts";
 
 const Stored = Schema.Struct({ variantId: Schema.String, quantity: Schema.Number });
 
@@ -59,7 +59,7 @@ export const Carts = Fake.server("Carts", {
     addLine: Fake.call({
       request: { cartId: Schema.String, lineId: Schema.String, variantId: Schema.String, ...key },
       success: Line,
-      failure: Schema.TaggedStruct("SoldOut", { lineId: Schema.String }),
+      failure: SoldOut,
       handle: (truth: Truth, { cartId, lineId, variantId }) => {
         const lines = linesOf(truth, cartId);
         const held = lines[lineId];
@@ -78,7 +78,7 @@ export const Carts = Fake.server("Carts", {
     setQuantity: Fake.call({
       request: { cartId: Schema.String, lineId: Schema.String, quantity: Schema.Number, ...key },
       success: Line,
-      failure: Schema.TaggedStruct("NotEnough", { lineId: Schema.String, quantity: Schema.Number }),
+      failure: NotEnough,
       handle: (truth: Truth, { cartId, lineId, quantity }) =>
         setLine(truth, cartId, lineId, quantity),
     }),

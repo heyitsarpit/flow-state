@@ -9,8 +9,9 @@ const ProfilesTruth = Schema.Struct({
 type Truth = typeof ProfilesTruth.Type;
 
 /**
- * The profile service's truth: each account's saved handle, none until saved. `taken` makes the
- * next save find the handle taken.
+ * The profile service's truth: each account's saved handle, none until saved, so an account with
+ * none is new; a session's refresh token is named for its email. `taken` makes the next save find
+ * the handle taken; `saved` gives an account a handle saved earlier.
  */
 export const Profiles = Fake.server("Profiles", {
   truth: ProfilesTruth,
@@ -33,15 +34,22 @@ export const Profiles = Fake.server("Profiles", {
     }),
     me: Fake.call({
       request: { email: Schema.String },
-      success: Schema.Struct({ handle: Schema.String }),
+      success: Schema.Struct({ handle: Schema.String, refreshToken: Schema.String }),
       failure: Schema.Never,
       handle: (truth: Truth, { email }) => ({
         truth,
-        exit: Exit.succeed({ handle: truth.handles[email] ?? "" }),
+        exit: Exit.succeed({ handle: truth.handles[email] ?? "", refreshToken: `rt-${email}` }),
       }),
     }),
   },
   controls: {
     taken: Fake.control({}, (truth: Truth) => ({ ...truth, refusals: truth.refusals + 1 })),
+    saved: Fake.control(
+      { email: Schema.String, handle: Schema.String },
+      (truth: Truth, { email, handle }) => ({
+        ...truth,
+        handles: { ...truth.handles, [email]: handle },
+      }),
+    ),
   },
 });

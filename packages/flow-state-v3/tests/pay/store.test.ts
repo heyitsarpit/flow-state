@@ -36,7 +36,7 @@ import { publishedOnce } from "../rules/rules.ts";
 const line = (variantId: string, quantity: number) => ({ variantId, quantity });
 
 describe("the shop around the checkout: shopper, cart, badge and checkout flow", () => {
-  it("Actors R18, R19; Turn R22: the cart reads its shopper, the badge its cart, each change one wave; the empty cart has no line (hy-cart 717)", async () => {
+  it("Actors R18, R19; Turn R22: the cart reads its shopper, the badge its cart, each change one wave; the empty cart has no line", async () => {
     const run = await played(browse);
     const at = (name: keyof typeof run.checkpoints) => run.checkpoints[name];
 
@@ -68,7 +68,7 @@ describe("the shop around the checkout: shopper, cart, badge and checkout flow",
     );
   });
 
-  it("Turn R1, R4, R12: checkout is denied on an empty cart, moves address -> shipping -> pay, and Back from pay re-enters shipping's last step", async () => {
+  it("Turn R1, R4, R12, R22: checkout is denied on an empty cart, moves address -> shipping -> pay, Back from pay re-enters shipping's last step, and the Pay it reads reaching PAID ends it", async () => {
     const run = await played(checkoutSteps);
 
     const state = (name: keyof typeof run.checkpoints) =>
@@ -88,9 +88,11 @@ describe("the shop around the checkout: shopper, cart, badge and checkout flow",
       }),
     );
     expect(state("address again")).toBe("ADDRESS");
+    expect(run.checkpoints.paid.read(checkout)?.state).toBe("PAID");
+    expect(state("paid")).toBe("DONE");
   });
 
-  it("Turn R12: checkout waits while a line is still being added, then begins (hy-track 543, reshaped)", async () => {
+  it("Turn R12: checkout waits while a line is still being added, then begins", async () => {
     const run = await played(waitsWhileBusy);
 
     expect(denials(run.evidence)).toEqual([["CartBusy"]]);
@@ -100,7 +102,7 @@ describe("the shop around the checkout: shopper, cart, badge and checkout flow",
 });
 
 describe("cart lines: latest per line, refusals per line (WriteLanes R4, R7)", () => {
-  it("WriteLanes R7: three quick clicks with the first on the wire send the first and the last; the middle one is Superseded, and no line stays pending (hy-cart 1500)", async () => {
+  it("WriteLanes R7: three quick clicks with the first on the wire send the first and the last; the middle one is Superseded, and no line stays pending", async () => {
     const run = await played(quantityClicks);
 
     expect(laneFacts(run.evidence, "Superseded")).toBe(1);
@@ -115,7 +117,7 @@ describe("cart lines: latest per line, refusals per line (WriteLanes R4, R7)", (
     ).toEqual([2, 4]);
   });
 
-  it("WriteLanes R6: an edit of one line never waits on or ends another line's (hy-cart 1530, hy-tx 378)", async () => {
+  it("WriteLanes R6: an edit of one line never waits on or ends another line's", async () => {
     const run = await played(independentLines);
 
     expect(run.checkpoints["b done"].read(mainCart)?.memory).toEqual(
@@ -130,7 +132,7 @@ describe("cart lines: latest per line, refusals per line (WriteLanes R4, R7)", (
     );
   });
 
-  it("WriteLanes R4: a refused edit restores its own line from the server's answer and leaves the other line's edit (hy-cart 1579)", async () => {
+  it("WriteLanes R4: a refused edit restores its own line from the server's answer and leaves the other line's edit", async () => {
     const run = await played(failingLineAlone);
 
     expect(run.checkpoints.settled.read(mainCart)?.memory).toEqual(
@@ -142,7 +144,7 @@ describe("cart lines: latest per line, refusals per line (WriteLanes R4, R7)", (
     );
   });
 
-  it("WriteLanes R4: a refused add removes only its own line (hy-tx 210, hy-cart 4583)", async () => {
+  it("WriteLanes R4: a refused add removes only its own line", async () => {
     const run = await played(refusedAddAlone);
 
     expect(run.checkpoints.settled.read(mainCart)?.memory).toEqual(
@@ -150,7 +152,7 @@ describe("cart lines: latest per line, refusals per line (WriteLanes R4, R7)", (
     );
   });
 
-  it("quantity 0 removes the line, sending 0 to the server (hy-cart 951)", async () => {
+  it("quantity 0 removes the line, sending 0 to the server", async () => {
     const run = await played(quantityZero);
 
     expect(run.checkpoints.removed.read(mainCart)?.memory["lines"]).toEqual({});
@@ -159,7 +161,7 @@ describe("cart lines: latest per line, refusals per line (WriteLanes R4, R7)", (
     ).toEqual([0]);
   });
 
-  it("Actors R6: ensuring the same cart twice is one incarnation with its lines kept (hy-cart 673)", async () => {
+  it("Actors R6: ensuring the same cart twice is one incarnation with its lines kept", async () => {
     const run = await played(sameCartTwice);
 
     expect(
@@ -197,7 +199,7 @@ describe("the shop's structures (fixtures.md S1, S3, S6, S7, S9)", () => {
     expect(run.end.calls.filter((c) => c.endpoint === "addLine")).toHaveLength(2);
   });
 
-  it("S6 flow first: disposing the checkout flow, then the badge, then the cart, then the shopper leaves nothing", async () => {
+  it("S6 flow first, Actors R8: disposing the checkout flow, then the badge, the cart and the shopper leaves nothing once the Pay it read ends after its grace", async () => {
     const run = await played(flowFirst);
 
     expect(run.checkpoints.disposed.inspection.actors).toEqual([]);

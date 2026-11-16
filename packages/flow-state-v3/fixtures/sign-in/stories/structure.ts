@@ -1,16 +1,17 @@
 import { mainReturn, mainSession } from "../app.ts";
 import { screen } from "../machine.ts";
 import { Profiles } from "../server/profiles.ts";
-import { sessionStory, signedUp } from "./usual.ts";
+import { sessionStory, signedIn } from "./usual.ts";
 
-const returning = { _tag: "SignedIn", refreshToken: "rt-1", isNew: false } as const;
+const elifSaved = Profiles.saved({ email: "elif@kamp.us", handle: "elif" });
 
 /**
- * Elif signs in; her session is let go and ends; signing out forgets it; it is ensured again.
+ * Elif, who saved a handle before, signs in; her session is let go and ends; signing out forgets it; it is ensured again.
  */
 export const signOutForgets = sessionStory("sign-in/sign-out-forgets")
+  .world(elifSaved)
   .ensure(mainSession)
-  .send(mainSession, returning)
+  .send(mainSession, signedIn)
   .detach(mainSession)
   .advance("1 second")
   .dispose(mainSession, { how: "forget" })
@@ -21,9 +22,10 @@ export const signOutForgets = sessionStory("sign-in/sign-out-forgets")
  * The unpersisted sign-in screen is disposed while the session it signed in lives on.
  */
 export const screenFirst = sessionStory("sign-in/screen-first")
+  .world(elifSaved)
   .ensure(screen)
   .ensure(mainSession)
-  .send(mainSession, returning)
+  .send(mainSession, signedIn)
   .dispose(screen)
   .checkpoint("ended");
 
@@ -37,7 +39,7 @@ export const reloadedMidHandle = () =>
     .ensure(mainSession)
     .ensure(mainReturn)
     .send(mainReturn, { _tag: "Save", route: "/pano", draft: "" })
-    .send(mainSession, signedUp)
+    .send(mainSession, signedIn)
     .send(mainSession, { _tag: "Handle", handle: "elif-kaya" })
     .world(Profiles.setUsername.hold({ at: "response" }))
     .send(mainSession, { _tag: "SubmitHandle" })

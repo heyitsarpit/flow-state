@@ -1,5 +1,5 @@
 // @effect-diagnostics unstableApiUsage:off -- the production adapter's port is Effect's HttpClient, as the app's real Layer would be
-import { Effect, Layer, Schema } from "effect";
+import { Effect, Layer } from "effect";
 import {
   FetchHttpClient,
   HttpClient,
@@ -7,16 +7,9 @@ import {
   HttpClientResponse,
   HttpIncomingMessage,
 } from "effect/http";
-import { CartApi, Line } from "../services.ts";
+import { CartApi, Line, NotEnough, SoldOut } from "../services.ts";
 
 const lost = { _tag: "NoResponse" } as const;
-
-const SoldOut = Schema.TaggedStruct("SoldOut", { lineId: Schema.String });
-
-const NotEnough = Schema.TaggedStruct("NotEnough", {
-  lineId: Schema.String,
-  quantity: Schema.Number,
-});
 
 /**
  * The cart service over HTTP: a 2xx is the line, a 409 the endpoint's refusal decoded, anything

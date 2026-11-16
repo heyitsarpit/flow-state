@@ -55,7 +55,7 @@ describe("rooms and seeks at their edges (fixtures.md E1, E3)", () => {
     expect(run.checkpoints.playing.read(longRoom)?.state).toBe("ON.PLAYING");
   });
 
-  it("a seek past the track's end and a negative seek are taken as given, and the tick counts on from each", async () => {
+  it("a seek far past any track and a negative seek are taken as given, since the player keeps no track length, and the tick counts on from each (Turn R14)", async () => {
     const run = await played(seekEdges);
 
     expect(run.checkpoints.past.read(player)?.memory["pos"]).toBe(100_001);
