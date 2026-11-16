@@ -291,7 +291,7 @@ cadence
     time the tests (the user, 2026-11-16). Reviews run on the events in instructions, not on the clock.
 
     Session cron `7,37 * * * *`. One job only: the scheduler adds a different fixed delay to each job, so several jobs
-    drift apart and an exact 45-minute cycle can't be kept.
+    drift apart.
 
     Prompt: "V3 wake. Read wiki/tasks/V3/epic.task and the last notes in its V3.log. Read the weekly usage and the
     5-hour window from the harness's usage view; if the reserve in Limits is reached, stop the run by R21 and note it;
