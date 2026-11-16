@@ -177,6 +177,17 @@ tasks
         comment     2026-11-16T02:30:51Z
             Close: stress 23/23, default 460 + 7 inverted, nub run faults 61/61 caught, generated Stories over 100 extra
             seeds (usual and stress) green; saved stress Stories reprinted. Set to review.
+        comment     2026-11-16T02:34:02Z
+            Review at 0d2eaa89: ISSUES, one blocker. `nub run faults` exits 1: 61/61 faults caught, but the dead core
+            leaves 3 new source-reading checks in code:packages/flow-state-v3/tests/write-lanes/one-builder.test.ts
+            UNEXPLAINED green (titles 'WriteLanes composition:', 'WriteAhead I21, R10:', 'no source file…' miss
+            mayStayGreen in code:tools/faults/run.ts). Fix: allow that file there with its reason (it runs no core), or
+            retitle; re-run faults. Rest passes: check, lint:rules, stress 23/23, unchanged suite 483 + 7 inverted;
+            boot-unparks caught by runtime-disposal.test.ts; both bug tests flipped and assert batch keys and the
+            adopted ending; hash finalizer is a real fix (profile shares hold within 3 SE); Spec edits sound. Routed,
+            not blocking: I20's premise 'the step drains its mail' fails past serve.ts's 10,000-turn drain cap (Queued
+            rows left unsaved at a step's end); the host StorageFailure in driver.ts is the inverted Actors I43, out
+            of range.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      open
