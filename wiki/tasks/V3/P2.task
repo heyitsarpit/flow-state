@@ -1050,7 +1050,7 @@ tasks
             of 46 here).
     T70
         title       Generated Stories
-        status      review
+        status      done
         priority    high
         blocked_by  [@T64, @T67]
         description

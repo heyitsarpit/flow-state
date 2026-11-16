@@ -183,6 +183,9 @@ tasks
               inverted test is flipped; and any write discharging every dirty end, which has no reproduction yet and
               gets its test here.
             - Each new rule has a planted fault that `nub run faults` catches.
+        comment     2026-11-16T01:20:18Z
+            Routed from T70: WriteAhead I23 broken: each actor gets its own persistence scope, so one batch is out per
+            actor, against R12 (the user, 2026-11-12); pinned as it.fails WriteAhead I23 in tests/generated.
     T20
         title       Durability: restore, owed endings at boot, quarantine and forget (slice 2a)
         status      draft

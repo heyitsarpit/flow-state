@@ -259,3 +259,7 @@ note 2026-11-16T01:13:21Z
 note 2026-11-16T01:14:03Z
     T70 back in review at `554531f2` after the fix round (faults 52 of 52); the original reviewer re-checks its
     findings, including a quiet-phase change made to get a seed under ten steps.
+
+note 2026-11-16T01:20:18Z
+    T70 done: review PASS at `554531f2` (`b9e7c6f2`) after one fix round and a builder rotation. All P2 Tasks are done;
+    next, R11's close-out review and R18's completion audit.
