@@ -501,8 +501,6 @@ export const definitionFindings = (
       ];
     case "memory":
       return memoryFindings(config.memory);
-    case "context":
-      return [];
     case "operations":
       return operationFindings(operations, config.internalEvents);
     default:

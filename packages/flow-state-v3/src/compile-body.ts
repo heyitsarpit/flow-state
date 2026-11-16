@@ -363,6 +363,7 @@ type Part = Data.TaggedEnum<{
   Schedules: { value: ReadonlyArray<Schedule> };
   States: { value: ReadonlyArray<Node> };
   Refused: {};
+  Reactions: {};
 }>;
 
 const Part = Data.taggedEnum<Part>();
@@ -390,6 +391,9 @@ const FIELDS = {
             scheduleOf(walk.compile, name, s, `${walk.prefix}schedules.${name}`),
           ),
         }),
+  // The root's onContext reactions, compiled by machine(); no other state declares them.
+  onContext: (walk) =>
+    walk.top ? Part.Reactions() : refuse(walk, unknownField("onContext", walk.prefix)),
   states: (walk, body) =>
     walk.isLeaf
       ? refuse(walk, leafHasChildren(walk.here, `${walk.prefix}states`))

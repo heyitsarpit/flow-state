@@ -1,23 +1,22 @@
 import { Context, Deferred, Effect, Exit, Layer, Option, Predicate, Result, Scope } from "effect";
-import type { Values } from "../core/compiled.ts";
 import type { Evidence } from "../core/evidence.ts";
-import { laneKeyText } from "../core/lane-moves.ts";
-import { rowOf, type Row } from "../core/rows.ts";
-import { Input } from "../core/step.ts";
-import type { Machines } from "../core/tx.ts";
-import { actorLifecycleOf, Verdict } from "../core/life.ts";
-import { type ActorId, actorKey, type Issue, type World } from "../core/world.ts";
+import { boundOf, dependentsOf, Input } from "../core/step.ts";
+import { Verdict } from "../core/life.ts";
+import { type ActorId, actorKey } from "../core/world.ts";
 import { inputFieldsOf, LOCAL_PREFIX, nameOfValue } from "../core/identity.ts";
 import type { RequirementsOf } from "../contract.ts";
-import type { AnyDefinition, Envelope, InputOf, Machine, Operations } from "../definition.ts";
-import { type Code, Diagnostic, type FlowError, flowError, flowErrorOf } from "../error.ts";
-import type { IssueCode } from "../core/vocabulary.ts";
+import type { AnyDefinition, Envelope, InputOf, Machine } from "../definition.ts";
+import { type FlowError, flowError, flowErrorOf } from "../error.ts";
 import { appFindings, malformedOf } from "../core/well-formed.ts";
 import { makeDriver, type Driver } from "./driver.ts";
 import { browserPlatform } from "./platform/browser.ts";
 import { decodeJsonText } from "./json.ts";
 import { makeFibers } from "./fibers.ts";
+import { makeWiring } from "./wiring.ts";
+import { outside, type Snapshot, snapshotOf } from "./snapshot.ts";
 import { Host, type Platform } from "./host.ts";
+
+export { type Snapshot, snapshotIn, snapshotOf } from "./snapshot.ts";
 
 /**
  * One machine an app runs: the machine, or the machine with the default wiring of its context
@@ -175,46 +174,6 @@ export const actorIdOf = (ref: ActorRef): ActorId => {
 };
 
 /**
- * What a handle shows of an identity: its leaf state, its memory and its write lanes'
- * rows.
- */
-export type Snapshot = {
-  readonly state: string;
-  readonly memory: Values;
-  readonly operations: Operations;
-  readonly lifecycle: "active" | "disposing" | "disposed";
-  readonly issues: ReadonlyArray<Diagnostic>;
-  readonly schedules: ReadonlyArray<{ readonly key: string; readonly dueAt: number }>;
-};
-
-// A keyed list in key order, as every list of a snapshot is.
-const keyed = <A extends { readonly key: string }>(entries: ReadonlyArray<A>) =>
-  entries.toSorted((a, b) => Number(a.key > b.key) - Number(a.key < b.key));
-
-// The diagnostic code of an issue: a refused turn (a denial code, not a diagnostic) is the
-// configuration it was given, a callback that threw is a Defect.
-const DIAGNOSTIC_OF = {
-  InvalidTurn: "InvalidConfiguration",
-  CallbackDefect: "Defect",
-  GuardDefect: "GuardDefect",
-  Defect: "Defect",
-  StorageFailure: "StorageFailure",
-} as const satisfies Record<IssueCode, Code>;
-
-// An open issue as the Diagnostic a snapshot shows: its identity and source in the path, the
-// refusal and the callback slot that failed in details.
-const issueOf = (actor: ActorId, issue: Issue) =>
-  new Diagnostic({
-    classification:
-      issue.code === "InvalidTurn" || issue.code === "StorageFailure" ? "Failure" : "Defect",
-    code: DIAGNOSTIC_OF[issue.code],
-    path: [actor.machine, actor.name, issue.source],
-    details: { refused: issue.code, slot: Option.getOrNull(issue.slot) },
-    summary: `${issue.source} raised ${issue.code}`,
-    help: "Fix the callback the slot names; the issue clears when this source next succeeds.",
-  });
-
-/**
  * The key under which a handle keeps the Runtime and identity it belongs to.
  */
 export const HandleId = "~flow-state/Handle";
@@ -277,86 +236,6 @@ export type RuntimeSetup<R = never> = {
   readonly "~services"?: R;
 };
 
-// RETURN_TYPE: the snapshot's Operations shape.
-const operationsOf = (world: World, machines: Machines, actor: ActorId): Operations => {
-  const rows = new Map<string, Map<string, Row>>();
-
-  for (const lane of world.lanes.values())
-    if (actorKey(lane.actor) === actorKey(actor))
-      Option.match(laneKeyText(machines, lane), {
-        onNone: () => undefined,
-        onSome: (keyText) => {
-          const byKey = rows.get(lane.operation) ?? new Map<string, Row>();
-          byKey.set(keyText, rowOf(lane));
-          rows.set(lane.operation, byKey);
-        },
-      });
-
-  return rows;
-};
-
-// RETURN_TYPE: an Option of the snapshot: none when the identity has no incarnation and no record.
-export const snapshotIn = (
-  world: World,
-  machines: Machines,
-  actor: ActorId,
-): Option.Option<Snapshot> => {
-  const key = actorKey(actor);
-  const live = world.incarnations.get(key);
-  const record = world.records.get(key);
-  const ended = world.ended.get(key);
-  const operations = operationsOf(world, machines, actor);
-
-  if (live !== undefined)
-    return Option.some({
-      state: live.state,
-      memory: live.memory,
-      operations,
-      lifecycle: actorLifecycleOf(world.life),
-      issues: live.issues.map((issue) => issueOf(actor, issue)),
-      schedules: keyed(
-        [...live.schedules].map(([name, armed]) => ({ key: name, dueAt: armed.dueAt })),
-      ),
-    });
-
-  if (record !== undefined)
-    return Option.some({
-      state: record.state,
-      memory: record.memory,
-      operations,
-      lifecycle: "active",
-      issues: [],
-      schedules: keyed(record.schedules.map((s) => ({ key: s.name, dueAt: s.dueAt }))),
-    });
-
-  return Option.map(Option.fromUndefinedOr(ended), (x) => ({
-    state: x.state,
-    memory: x.memory,
-    operations,
-    lifecycle: "disposed",
-    issues: [],
-    schedules: [],
-  }));
-};
-
-// An outside snapshot omits the machine's Flow.private fields; Stories and Inspection see them.
-const outside = (machine: Machine, snapshot: Snapshot) => {
-  const hidden = machine.compiled.fields.filter((f) => f.private).map((f) => f.name);
-
-  return hidden.length === 0
-    ? snapshot
-    : {
-        ...snapshot,
-        memory: Object.fromEntries(
-          Object.entries(snapshot.memory).filter(([name]) => !hidden.includes(name)),
-        ),
-      };
-};
-
-// RETURN_TYPE: an Option of the snapshot: none when the identity has no incarnation and no record.
-export const snapshotOf = (driver: Driver, actor: ActorId): Option.Option<Snapshot> =>
-  snapshotIn(driver.world(), driver.machines, actor);
-
 /**
  * The Runtime's construction options.
  */
@@ -412,59 +291,8 @@ export const buildRuntime = (
     entries.map((e) => [machineOf(e).compiled.id, "machine" in e ? e.context : {}]),
   );
 
-  const contextError = (code: Code, path: ReadonlyArray<string>, summary: string, help: string) =>
-    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- admission's contract: a context graph it refuses throws before any work
-    {
-      throw flowError([{ code, path, summary, help }]);
-    };
+  const { wiringOf, refused: contextRefused } = makeWiring(machines, defaults);
 
-  // The providers a consumer's slots bind to: its entry's wiring with the ref's overrides, each
-  // slot wired to an actor of the machine it declares, and no provider reached again on the way
-  // up. Refused at admission, before any work.
-  const wiringOf = (
-    compiled: Compiled,
-    override: Readonly<Record<string, ActorRef>>,
-    path: ReadonlyArray<string>,
-  ): ReadonlyMap<string, ActorId> => {
-    const refs = { ...defaults.get(compiled.id), ...override };
-    const wiring = new Map<string, ActorId>();
-
-    for (const [slot, declared] of compiled.context) {
-      const ref = refs[slot];
-
-      if (ref === undefined || !machines.has(ref.machine.compiled.id))
-        return contextError(
-          "MissingContextProvider",
-          [compiled.id, "context", slot],
-          `no provider is wired for the context slot ${slot} of ${compiled.id}`,
-          "Wire the slot in the machine's app entry, or in the ref's context.",
-        );
-
-      if (ref.machine.compiled.id !== declared.provider)
-        return contextError(
-          "InvalidConfiguration",
-          [compiled.id, "context", slot],
-          `${slot} is provided by ${declared.provider}, not ${ref.machine.compiled.id}`,
-          `Wire ${slot} to an actor of ${declared.provider}.`,
-        );
-
-      const provider = actorIdOf(ref);
-      const key = actorKey(provider);
-
-      if (path.includes(key))
-        return contextError(
-          "ContextCycle",
-          [...path, key],
-          `the context of ${compiled.id} reaches ${key} again`,
-          "Make context flow one way: no actor may provide, directly or not, to its own provider.",
-        );
-
-      wiringOf(ref.machine.compiled, {}, [...path, key]);
-      wiring.set(slot, provider);
-    }
-
-    return wiring;
-  };
   const sinks = new Set<(evidence: Evidence) => void>();
   const host = Context.get(platform, Host);
   // oxlint-disable-next-line lint-bomb/no-unmanaged-effect-scope -- the Runtime owns one Scope for its whole life: its services and every fiber; dispose() closes it
@@ -477,7 +305,17 @@ export const buildRuntime = (
     config.persistence !== undefined && config.scope !== undefined && Option.isSome(host.store);
 
   const driver = makeDriver({
-    machines: new Map([...machines].map(([id, m]) => [id, m.compiled])),
+    machines: new Map(
+      [...machines].map(([id, m]) => [
+        id,
+        {
+          ...m.compiled,
+          wiring: new Map(
+            Object.entries(defaults.get(id) ?? {}).map(([slot, ref]) => [slot, actorIdOf(ref)]),
+          ),
+        },
+      ]),
+    ),
     platform,
     fibers,
     persistence,
@@ -614,10 +452,37 @@ export const buildRuntime = (
     // Before ready succeeds, no handle exists: the core's life rejects the ensure.
     ensureActor: (ref) => {
       const actor = actorIdOf(ref);
-      driver.offer(
-        Input.Ensure({ actor, use: Option.none(), existing: false }),
-        `ensureActor ${actor.name}`,
+      const what = `ensureActor ${actor.name}`;
+
+      const probe = Input.Ensure({
+        actor,
+        use: Option.none(),
+        existing: false,
+        wiring: Option.none(),
+      });
+
+      // The life decides first; then the context graph is checked, before any work.
+      if (!Verdict.$is("Run")(driver.verdict(probe))) driver.offer(probe, what);
+
+      const wiring = wiringOf(ref.machine.compiled, ref.context, [actorKey(actor)]);
+
+      const conflicting = Option.exists(
+        boundOf(driver.world(), actor),
+        (bound) =>
+          bound.size !== wiring.size ||
+          [...wiring].some(([slot, p]) => actorKey(p) !== actorKey(bound.get(slot) ?? actor)),
       );
+
+      if (conflicting)
+        // oxlint-disable-next-line lint-bomb/no-throw-in-core -- admission's contract: a refused context throws before any work
+        throw contextRefused(
+          "ConflictingActorRef",
+          [actor.machine, actor.name],
+          `${actor.name} is live with other context`,
+          "Name one identity with one context: drop the ref's override or use another identity.",
+        );
+
+      driver.offer(Input.Ensure({ ...probe, wiring: Option.some(wiring) }), what);
 
       return handleOf(ref.machine, actor);
     },
@@ -636,6 +501,21 @@ export const buildRuntime = (
     },
     disposeActor: (target) => {
       const actor = identityOf(target);
+      const dependents = dependentsOf(driver.world(), actor);
+
+      // A provider with bound consumers is not disposed: its consumers would lose their context.
+      if (
+        dependents.length > 0 &&
+        Verdict.$is("Run")(driver.verdict(Input.DisposeActor({ actor })))
+      )
+        // oxlint-disable-next-line lint-bomb/no-throw-in-core -- admission's contract: a refused context throws before any work
+        throw contextRefused(
+          "BlockedByDependents",
+          [actor.machine, actor.name, ...dependents.map(actorKey)],
+          `${actor.name} provides context to ${dependents.map(actorKey).join(", ")}`,
+          "Dispose its consumers first.",
+        );
+
       driver.offer(Input.DisposeActor({ actor }), `disposeActor ${actor.name}`);
     },
     // The core's disposal ends first: calls settling within its bound are parked, then the

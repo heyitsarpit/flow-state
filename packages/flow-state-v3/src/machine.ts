@@ -74,7 +74,7 @@ export type Reaction<D extends AnyDefinition> = {
   }) => unknown;
   // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the Plan's public word: with no when, every changed selection enqueues the event
   readonly when?: (current: never, previous: never) => boolean;
-  readonly event: { readonly tag: keyof Parts<D>["Events"] & string } & Ending;
+  readonly event: Ending;
 };
 
 export type MachineBody<D extends AnyDefinition> = {

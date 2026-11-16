@@ -80,7 +80,9 @@ export type Incarnation = {
   readonly schedules: ReadonlyMap<string, Armed>;
   readonly issues: ReadonlyArray<Issue>;
   readonly bound: ReadonlyMap<string, ActorId>;
+  // FLOW_STATE_ALLOW_UNKNOWN: a slot's value has the type its selector returns, typed at the definition.
   readonly context: ReadonlyMap<string, unknown>;
+  // FLOW_STATE_ALLOW_UNKNOWN: a reaction's selection has the type its select returns.
   readonly baselines: ReadonlyArray<unknown>;
 };
 

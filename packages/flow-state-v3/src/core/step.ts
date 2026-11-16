@@ -18,6 +18,20 @@ export { CallResult, Input } from "./input.ts";
 export type { Env, Machines } from "./tx.ts";
 
 /**
+ * The providers a live actor's context slots are bound to, by slot; none when it is not live.
+ */
+export const boundOf = (world: World, actor: ActorId) =>
+  Option.map(Option.fromUndefinedOr(world.incarnations.get(actorKey(actor))), (i) => i.bound);
+
+/**
+ * The live actors whose context slots are bound to `provider`.
+ */
+export const dependentsOf = (world: World, provider: ActorId) =>
+  [...world.incarnations.values()]
+    .filter((i) => [...i.bound.values()].some((p) => actorKey(p) === actorKey(provider)))
+    .map((i) => i.actor);
+
+/**
  * How many external events one actor may have pending: past it, a send is refused.
  */
 export const ADMISSION_BOUND = 1024;

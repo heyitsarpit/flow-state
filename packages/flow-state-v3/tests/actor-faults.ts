@@ -132,7 +132,7 @@ export const actorFaults: ReadonlyArray<Fault> = [
     rule: "Turn R23",
     edits: [
       {
-        file: "src/host/runtime.ts",
+        file: "src/host/snapshot.ts",
         find: "        [...live.schedules].map(([name, armed]) => ({ key: name, dueAt: armed.dueAt })),",
         replace: "        [],",
       },
@@ -251,6 +251,102 @@ export const actorFaults: ReadonlyArray<Fault> = [
         file: "src/core/turn.ts",
         find: "    onNone: () => Result.succeed(input.memory),",
         replace: "    onNone: () => Result.succeed({ ...input.memory }),",
+      },
+    ],
+  },
+  {
+    name: "context-update-skips-mailbox",
+    tests: ["tests/actors/context.test.ts"],
+    says: "a provider's change updates each consumer at once, mid-wave, so a diamond's consumer mixes a new value with a stale one",
+    rule: "Actors I27",
+    edits: [
+      {
+        file: "src/core/context.ts",
+        find: "        if (!waiting) tx.enqueue(Mail.Context({ actor: consumer.actor }));",
+        replace: "        if (!waiting) update(consumer.actor);",
+      },
+    ],
+  },
+  {
+    name: "equal-context-not-silent",
+    tests: ["tests/actors/context.test.ts"],
+    says: "a wave whose selections are equal still runs the reactions and enqueues their events",
+    rule: "Turn R22",
+    edits: [
+      {
+        file: "src/core/context.ts",
+        find: "    if (!changed) {",
+        replace: "    if (changed && !changed) {",
+      },
+      {
+        file: "src/core/context.ts",
+        find: "      if (Equal.equals(previous, current.success)) continue;",
+        replace: "",
+      },
+    ],
+  },
+  {
+    name: "consumer-not-a-use",
+    tests: ["tests/actors/context.test.ts"],
+    says: "a bound consumer holds no use of its provider, so the provider ends under it",
+    rule: "Actors R18",
+    edits: [
+      {
+        file: "src/core/context.ts",
+        find: '        needs.ensure(provider, Option.some("context"));',
+        replace: "        needs.ensure(provider, Option.none());",
+      },
+    ],
+  },
+  {
+    name: "throwing-selector-drops-value",
+    tests: ["tests/actors/context.test.ts"],
+    says: "a selector that throws loses its slot's last valid value",
+    rule: "Actors R19",
+    edits: [
+      {
+        file: "src/core/context.ts",
+        find: "      else values.set(slot, value.success);",
+        replace: "      values.set(slot, Result.getOrUndefined(value));",
+      },
+    ],
+  },
+  {
+    name: "context-cycle-admitted",
+    tests: ["tests/actors/context.test.ts"],
+    says: "a provider graph that reaches an actor again is admitted",
+    rule: "Actors I28",
+    edits: [
+      {
+        file: "src/host/wiring.ts",
+        find: "      if (path.includes(key))",
+        replace: "      if (path.length < 0)",
+      },
+    ],
+  },
+  {
+    name: "provider-disposed-under-consumers",
+    tests: ["tests/actors/context.test.ts"],
+    says: "a provider with bound consumers is disposed",
+    rule: "Actors R20",
+    edits: [
+      {
+        file: "src/host/runtime.ts",
+        find: "        dependents.length > 0 &&",
+        replace: "        dependents.length < 0 &&",
+      },
+    ],
+  },
+  {
+    name: "conflicting-ref-admitted",
+    tests: ["tests/actors/context.test.ts"],
+    says: "a ref with other context than its live identity's is admitted",
+    rule: "Actors R5",
+    edits: [
+      {
+        file: "src/host/runtime.ts",
+        find: "      if (conflicting)",
+        replace: "      if (conflicting && !conflicting)",
       },
     ],
   },

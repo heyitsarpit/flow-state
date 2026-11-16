@@ -530,14 +530,16 @@ export const definition = <
 
   const findings = [
     ...missingFindings(config),
-    ...Object.keys(config).flatMap((key) =>
-      definitionFindings(
-        key,
-        { ...config, persist: config.persist, internalEvents: internal, memory },
-        tree.findings,
-        operations,
+    ...Object.keys(config)
+      .filter((key) => key !== "context")
+      .flatMap((key) =>
+        definitionFindings(
+          key,
+          { ...config, persist: config.persist, internalEvents: internal, memory },
+          tree.findings,
+          operations,
+        ),
       ),
-    ),
   ];
 
   const [first, ...rest] = findings;

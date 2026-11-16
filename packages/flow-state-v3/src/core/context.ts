@@ -28,7 +28,7 @@ const outsideOf = (compiled: Compiled, incarnation: Incarnation) => {
 };
 
 /**
- * Context binding and waves (Actors R18, R19; Turn R22): a consumer binds each slot to one
+ * Context binding and waves: a consumer binds each slot to one
  * provider for its life and holds a use of it; a provider's change enqueues one context update
  * per consumer; the update reads every provider's latest snapshot and runs the consumer's
  * `onContext` reactions, each enqueuing its event when its selection changed.
@@ -71,6 +71,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
       const provider = Option.flatMap(Option.fromUndefinedOr(incarnation.bound.get(slot)), (id) =>
         Option.fromUndefinedOr(incarnationOf(id)),
       );
+
       const providing = Option.flatMap(provider, (p) =>
         Option.fromUndefinedOr(tx.machines.get(p.actor.machine)),
       );
@@ -94,7 +95,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
     return { ...next, context: values };
   };
 
-  const contextValues = (incarnation: Incarnation): Values => Object.fromEntries(incarnation.context);
+  const contextValues = (incarnation: Incarnation) => Object.fromEntries(incarnation.context);
 
   // Each reaction's selection now; a select that throws raises one issue and keeps its baseline.
   const selections = (compiled: Compiled, incarnation: Incarnation) =>
@@ -168,6 +169,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
     if (incarnation === undefined || compiled === undefined) return;
 
     const read = selected(compiled, incarnation);
+
     const changed = [...read.context].some(
       ([slot, value]) =>
         !incarnation.context.has(slot) || !Equal.equals(incarnation.context.get(slot), value),

@@ -84,7 +84,7 @@ describe("the declared shape (Compile R4, R12)", () => {
             events: { Go: {} },
             internalEvents: { Go: {} },
             memory: { _tag: Flow.initial(Schema.String, "") },
-            context: {},
+            placement: {},
           }),
         ),
       ),
@@ -94,7 +94,7 @@ describe("the declared shape (Compile R4, R12)", () => {
       ["InvalidConfiguration", "WrongKind", "states.3"],
       ["InvalidConfiguration", "DuplicateName", "internalEvents.Go"],
       ["InvalidConfiguration", "ReservedField", "memory._tag"],
-      ["InvalidConfiguration", "UnknownField", "context"],
+      ["InvalidConfiguration", "UnknownField", "placement"],
     ]);
   });
 
