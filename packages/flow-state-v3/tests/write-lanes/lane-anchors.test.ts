@@ -102,8 +102,9 @@ it.fails("WriteLanes I7: retryCount equals the invoked re-sends of its Attempt, 
 
   const { booted } = run.checkpoints;
   const calls = booted.read(Shop.voidAuthorization);
+  const lane = row(booted, checkout, "void");
 
-  expect(calls).toHaveLength(3);
   expect(new Set(calls.map((c) => c.input.key)).size).toBe(1);
-  expect(row(booted, checkout, "void")?.retryCount).toBe(2);
+  expect(lane).toBeDefined();
+  expect(lane?.retryCount).toBe(calls.length - 1);
 });

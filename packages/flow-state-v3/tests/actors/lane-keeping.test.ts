@@ -2,7 +2,7 @@ import { expect, it } from "vite-plus/test";
 import { checkout } from "../../fixtures/pay/machine.ts";
 import { Shop } from "../../fixtures/pay/server.ts";
 import { shopStory } from "../../fixtures/pay/stories.ts";
-import { CHECK, memory, onWire, row, START, state } from "../checkout.ts";
+import { CHECK, memory, onWire, row, START, state, VISA } from "../checkout.ts";
 import { played } from "../rules/played.ts";
 
 // The charge's answer was lost before it landed: the head is Held and the shopper unsure.
@@ -67,6 +67,23 @@ it("DISP-06: a success that lands after its actor was disposed is parked and rea
   );
 
   expect(memory(run.checkpoints.adopted)?.["authorized"]).toBe(true);
+});
+
+it.fails("Turn I26: an adopted lane's later ending is current, routed from the active leaf (Turn R20; Actors R20)", async () => {
+  const run = await played(
+    onWire("ADOPT-01", Shop.confirm.hold())
+      .dispose(checkout)
+      .ensure(checkout)
+      .send(checkout, START)
+      .send(checkout, VISA)
+      .checkpoint("paying again")
+      .world(Shop.confirm.release())
+      .checkpoint("answered"),
+  );
+
+  expect(state(run.checkpoints["paying again"])).toBe("PAYING");
+  expect(run.checkpoints["paying again"].read(Shop.confirm)).toHaveLength(1);
+  expect(run.checkpoints.answered.read(Shop.placeOrder)).toHaveLength(1);
 });
 
 it("DISP-07: a started cart is restored after a reload (Restore R1, I1)", async () => {

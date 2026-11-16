@@ -11,7 +11,6 @@ import {
   disposals,
   endings,
   lastReason,
-  laneFacts,
   onWire,
   type Records,
   row,
@@ -134,10 +133,13 @@ describe("PAY-15 disposal on Cells (Actors R22, I29; Restore I6)", () => {
       .world(Fake.storage.refuse())
       .disposeRuntime()
       .advance("5 seconds")
-      .checkpoint("disposed")
       .run();
 
-    expect(laneFacts(before(run, "disposed"), "StorageFailure") > 0).toBe(true);
+    const ended = run.evidence.findIndex((e) => e._tag === "RuntimeDisposed");
+    const failed = run.evidence.findIndex((e) => e._tag === "Lane" && e.kind === "StorageFailure");
+
+    expect(ended >= 0).toBe(true);
+    expect(failed >= 0 && failed < ended).toBe(true);
   });
 });
 

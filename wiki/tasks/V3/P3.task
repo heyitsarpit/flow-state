@@ -108,6 +108,35 @@ tasks
         comment     2026-11-16T01:40:10Z
             Routed from P2's close-out: owner for the it.fails titled Actors I43 and WriteLanes I7 (PAY-15, PAY-22
             reproductions); tighten each to fail only for its rule.
+        comment     2026-11-16T02:06:22Z
+            Requirements (first commit): R1 to R7 below, mapped to acceptance; each red today as an inverted test titled
+            by its rule, except R4 (green; shown by re-anchored faults). No sidecars: usage at 96%.
+        comment     2026-11-16T02:06:22Z
+            R1 (acceptance 2; WriteAhead I23, R12, T17): one batch per step with every touched identity's records, one
+            out per Runtime. Red: code:packages/flow-state-v3/tests/write-lanes/write-ahead-scope.test.ts (3 batches, 1
+            due). At the fix: run rule WriteAhead I23, fault batch-per-actor.
+        comment     2026-11-16T02:06:22Z
+            R2 (acceptance 2; Turn R20, I26, read for the acceptance's 'Actors R20'): an adopted lane's later ending is
+            current. Red: 'Turn I26' in code:packages/flow-state-v3/tests/actors/lane-keeping.test.ts (Confirmed routed
+            late from the root; no place call). Fault adopted-ending-late.
+        comment     2026-11-16T02:06:22Z
+            R3 (acceptance 1; @spec.WriteLanes realization, I34): every Evidence is built by evidenceOf from an act.
+            Red: code:packages/flow-state-v3/tests/write-lanes/one-builder.test.ts (5 core modules build Evidence).
+        comment     2026-11-16T02:06:23Z
+            R4 (acceptance 1; Actors Start, R10; WriteLanes ledger start): the ledger's start is the one delivery point
+            and owes unknown Restored itself; one delivery per ending stays WriteLanes I15's run rule. Green today;
+            faults no-restored-unknown and kept-redelivered re-anchored into ledger.ts show it.
+        comment     2026-11-16T02:06:23Z
+            R5 (routed: temporary names in src tests): red check 'names no temporary record' in
+            code:packages/flow-state-v3/tests/write-lanes/one-builder.test.ts (cells.test.ts,
+            lane-shapes.test.ts, ledger.test.ts).
+        comment     2026-11-16T02:06:23Z
+            R6 (routed): Actors I43 and WriteLanes I7 inverted tests tightened to their rule's claim (StorageFailure
+            before RuntimeDisposed; retryCount equals invoked re-sends); flipped, each fails on that line. Both stay
+            inverted: not this acceptance's two bugs.
+        comment     2026-11-16T02:06:23Z
+            R7 (acceptance 3): nub run faults catches every named fault, the new ones included; vp test and nub run
+            check pass.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      open
