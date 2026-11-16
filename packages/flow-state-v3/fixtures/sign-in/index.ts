@@ -6,7 +6,7 @@ import { emailAtBound, emptyEmail } from "./stories/edges.ts";
 import { blankHandle, submitTwice, unconfirmedPrefill } from "./stories/findings.ts";
 import { manyScreens, manySessions } from "./stories/load.ts";
 import { samples as sessionSamples } from "./stories/samples.ts";
-import { reloadedMidHandle, screenFirst, signOutForgets } from "./stories/structure.ts";
+import { screenFirst, signOutForgets } from "./stories/structure.ts";
 import { handleRetry } from "./stories/usual.ts";
 
 /**
@@ -23,7 +23,6 @@ export const signIn = manifest({
     unconfirmedPrefill,
     signOutForgets,
     screenFirst,
-    reloadedMidHandle,
     manyScreens,
     manySessions,
     emptyEmail,

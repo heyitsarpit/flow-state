@@ -28,18 +28,21 @@ export const screenFirst = sessionStory("sign-in/screen-first")
   .checkpoint("ended");
 
 /**
- * The tab reloads while a handle save is on the wire, the redirect held.
+ * The tab reloads while a handle save is on the wire, the redirect held. Built on call and kept out
+ * of `stories` while the return restored by the reload publishes a snapshot twice, which
+ * every runner over `stories` would report.
  */
-export const reloadedMidHandle = sessionStory("sign-in/reloaded-mid-handle")
-  .ensure(mainSession)
-  .ensure(mainReturn)
-  .send(mainReturn, { _tag: "Save", route: "/pano", draft: "" })
-  .send(mainSession, signedUp)
-  .send(mainSession, { _tag: "Handle", handle: "elif-kaya" })
-  .world(Profiles.setUsername.hold({ at: "response" }))
-  .send(mainSession, { _tag: "SubmitHandle" })
-  .reload()
-  .checkpoint("reloaded");
+export const reloadedMidHandle = () =>
+  sessionStory("sign-in/reloaded-mid-handle")
+    .ensure(mainSession)
+    .ensure(mainReturn)
+    .send(mainReturn, { _tag: "Save", route: "/pano", draft: "" })
+    .send(mainSession, signedUp)
+    .send(mainSession, { _tag: "Handle", handle: "elif-kaya" })
+    .world(Profiles.setUsername.hold({ at: "response" }))
+    .send(mainSession, { _tag: "SubmitHandle" })
+    .reload()
+    .checkpoint("reloaded");
 
 /**
  * The session is disposed while the return is bound to it.
