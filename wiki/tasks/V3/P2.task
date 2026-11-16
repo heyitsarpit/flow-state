@@ -1431,3 +1431,9 @@ tasks
             - `nub run faults` finishes in under 3 minutes at today's fault count, and the fast suite in under 60
               seconds, on this machine.
             - `nub run check` and `nub run lint:rules` pass.
+        comment     2026-11-16T01:29:32Z
+            Requirements, one per acceptance item: R1 timings comment (none yet). R2 code:tools/stress/select.test.ts?
+            shows the default suite has no `*.stress.test.ts` and `test:stress` runs exactly them (no file yet). R3 each
+            fault names target tests, 8 plants at once, caught list equal to today's, dead core full run, a miss exits 1
+            (no targets yet). R4 faults under 3 min (5 to 10 today); fast suite under 60 s (about 18 s, passes already).
+            R5 check and lint:rules at zero (pass today; a guard).
